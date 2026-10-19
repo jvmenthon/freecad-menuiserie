@@ -19,5 +19,7 @@ Tu es le développeur de l'atelier FreeCAD « Menuiserie ».
 - Ne pas s'écarter de la spécification ; si elle est fausse ou incomplète, le signaler à l'architecte.
 - Code typé, fonctions courtes, noms explicites en anglais, docstrings et messages utilisateur en français.
 - Avant de rendre la main, tout doit passer en local :
-  `ruff check . && ruff format --check . && mypy freecad tests && pytest tests/unit`.
+  `ruff check . && ruff format --check . && mypy freecad tests && pylint freecad tests tools && pytest tests/unit`.
+- Appliquer les patterns de la spécification et du tableau « Conception et design patterns » de
+  `CONTRIBUTING.md` ; factoriser toute duplication signalée par `pylint`.
 - Ne jamais désactiver un test, une règle de lint ou une vérification pour obtenir du vert.

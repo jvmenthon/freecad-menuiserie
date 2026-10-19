@@ -6,6 +6,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Contrôles qualité : détection du code dupliqué (pylint) et limites de complexité (ruff) en CI ;
+  grille « Conception et design patterns » pour l'architecte, le dev et le reviewer.
 - Squelette de l'atelier : `package.xml`, enregistrement du workbench, icône.
 - Outillage qualité : ruff, mypy, pytest, bandit, pre-commit.
 - CI GitHub Actions : lint, typage, tests unitaires, tests d'intégration et test de chargement

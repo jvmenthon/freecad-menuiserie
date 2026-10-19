@@ -35,6 +35,8 @@ jobs:
         run: ruff format --check .
       - name: Mypy
         run: mypy freecad tests
+      - name: Code dupliqué (pylint)
+        run: pylint freecad tests tools
       - name: Tests unitaires
         run: pytest tests/unit --cov --cov-report=term-missing
 

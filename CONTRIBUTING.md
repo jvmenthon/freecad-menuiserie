@@ -13,6 +13,7 @@ Vérifications à lancer avant chaque PR (la CI fait de même) :
 ```sh
 ruff check . && ruff format --check .
 mypy freecad tests
+pylint freecad tests tools   # code dupliqué uniquement
 pytest tests/unit --cov
 bandit -c pyproject.toml -r freecad
 ```
@@ -38,6 +39,33 @@ freecad/menuiserie/
 Les icônes sont générées par `tools/generer_icones.py` (volumes projetés en isométrie, style
 commun) : on modifie le script puis on relance `python tools/generer_icones.py`. Un test
 vérifie que les SVG du dépôt correspondent au script.
+
+## Conception et design patterns
+
+Contrôlé automatiquement par la CI :
+
+- **Code dupliqué** : `pylint` (règle `duplicate-code`, 6 lignes identiques ou plus, hors
+  imports, docstrings et signatures). Une duplication se corrige en factorisant (fonction,
+  classe de base, fixture pytest), jamais en désactivant la règle.
+- **Complexité** : ruff, complexité cyclomatique ≤ 10, au plus 6 arguments (hors `self`),
+  12 branches, 6 `return` et 50 instructions par fonction. Au-delà, découper.
+
+Vérifié par l'architecte (dans la spécification) et par le reviewer (dans la revue) :
+
+| Besoin | Pattern attendu | Où |
+|---|---|---|
+| Objet paramétrique du document | **Proxy** FeaturePython (`execute`, `onChanged`, `dumps`/`loads`) + ViewProvider séparé | `features/`, `gui/view_providers/` |
+| Action de l'utilisateur | **Command** FreeCAD (`GetResources`, `IsActive`, `Activated`), une classe par commande | `gui/commands/` |
+| Création d'objets | **Fabrique** unique par type (`create_…`), utilisée par les commandes, les scripts et les tests | `api.py`, `features/` |
+| Familles interchangeables (assemblages, profils de chant, finitions) | **Strategy** + registre : une classe par variante derrière une interface commune, pas de chaînes de `if type == …` | `core/` |
+| Squelette commun de plusieurs objets | **Template Method** (classe de base qui fixe l'ordre, sous-classes qui fournissent les étapes) — seulement si au moins deux variantes existent | `features/` |
+| Réaction aux événements du document | **Observer** (`DocumentObserver`, `onChanged`) plutôt que des appels croisés | `gui/` |
+| Données métier | objets **valeur** immuables (`dataclass(frozen=True)`), validés à la construction | `core/` |
+
+Règles générales : pas de singleton ni d'état global hors caches explicites et réinitialisables ;
+composition plutôt qu'héritage ; dépendances dirigées `gui → features → core`, jamais l'inverse ;
+pas de pattern « pour le principe » : un pattern se justifie par au moins deux usages ou un
+point d'extension prévu par la feuille de route.
 
 ## Règles FreeCAD
 

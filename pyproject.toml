@@ -15,6 +15,7 @@ dev = [
     "pytest>=8",
     "pytest-cov>=5",
     "bandit>=1.7",
+    "pylint>=3.3",
     "pre-commit>=3.7",
 ]
 
@@ -33,9 +34,23 @@ select = [
     "S",        # sécurité (règles bandit)
     "SIM",      # simplifications
     "RUF",
+    "C90",      # complexité cyclomatique
+    "PLR0911",  # trop de return
+    "PLR0912",  # trop de branches
+    "PLR0913",  # trop d'arguments
+    "PLR0915",  # trop d'instructions
 ]
 # FreeCAD impose des noms de méthodes en CamelCase (Initialize, GetClassName, ...).
 ignore = ["N802", "N815"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-branches = 12
+max-returns = 6
+max-statements = 50
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
@@ -71,6 +86,18 @@ addopts = "-ra --strict-markers"
 [tool.coverage.run]
 source = ["freecad/menuiserie"]
 omit = ["freecad/menuiserie/init_gui.py", "freecad/menuiserie/gui/*"]
+
+# Détection du code dupliqué (pylint ne sert qu'à cela : le reste est couvert par ruff).
+[tool.pylint.main]
+disable = ["all"]
+enable = ["duplicate-code"]
+
+[tool.pylint.similarities]
+min-similarity-lines = 6
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
 
 [tool.bandit]
 exclude_dirs = ["tests"]
