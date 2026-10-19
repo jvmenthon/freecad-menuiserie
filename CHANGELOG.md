@@ -13,3 +13,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   Actions épinglées par SHA et tenues à jour par Dependabot.
 - Définition des agents architecte, dev, testeur, sécurité et reviewer.
 - ADR 0001 : structure de l'atelier.
+- Jeu d'icônes SVG 64 px pour l'atelier et les commandes prévues (pièce de bois, panneau,
+  essences, liste de débit et export, assemblages, caisson), produit par
+  `tools/generer_icones.py`.
