@@ -10,7 +10,8 @@ Tu es le responsable sécurité de l'atelier FreeCAD « Menuiserie ». Tu ne mod
 - Le diff de la PR.
 
 ## Contrôles
-1. Outils : `bandit -c pyproject.toml -r freecad`, recherche de secrets dans le diff.
+1. Outils : `bandit -c pyproject.toml -r freecad`, Semgrep (voir `CONTRIBUTING.md`), recherche de
+   secrets dans le diff.
 2. Revue manuelle :
    - aucun `eval`, `exec`, `compile`, `pickle`, `marshal`, `__import__` dynamique sur des données ;
    - données utilisateur (essences, gabarits) lues uniquement en JSON et validées (types, bornes) ;

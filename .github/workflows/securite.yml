@@ -47,6 +47,43 @@ jobs:
       - name: Analyser l'historique git
         run: ./gitleaks git --redact --verbose .
 
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Règles communautaires figées sur un commit : analyse reproductible, sans compte
+      # Semgrep ni accès au registre en ligne.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: semgrep/semgrep-rules
+          ref: 17e31e11ebac99fb7dfe1cd288f7a32151b6f3f9
+          path: .semgrep-rules
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: pip install "semgrep==1.181.0"
+      - name: Analyser le code et les workflows
+        run: |
+          semgrep scan --metrics=off --disable-version-check --error \
+            --config .semgrep-rules/python/lang \
+            --config .semgrep-rules/yaml/github-actions \
+            --config .semgrep-rules/generic/secrets \
+            --exclude .semgrep-rules \
+            --json-output=semgrep.json
+      - name: Annoter les constats dans la PR
+        if: failure()
+        run: |
+          python - <<'PY'
+          import json
+          for r in json.load(open("semgrep.json"))["results"]:
+              message = r["extra"]["message"].replace("\n", " ")
+              print(f"::error file={r['path']},line={r['start']['line']},title={r['check_id']}::{message}")
+          PY
+
   codeql:
     name: CodeQL
     # L'analyse de code GitHub n'est gratuite que pour les dépôts publics.

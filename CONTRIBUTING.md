@@ -51,6 +51,17 @@ freecad/menuiserie/
 
 ## Sécurité
 
+La CI de sécurité lance Bandit, Semgrep (règles communautaires Python, secrets et
+GitHub Actions, figées sur un commit), gitleaks, et CodeQL lorsque le dépôt est public.
+Pour lancer Semgrep en local :
+
+```sh
+pip install semgrep
+git clone --depth 1 https://github.com/semgrep/semgrep-rules .semgrep-rules
+semgrep scan --metrics=off --error --exclude .semgrep-rules \
+  --config .semgrep-rules/python/lang --config .semgrep-rules/generic/secrets
+```
+
 Pas de `eval`/`exec`, pas de `pickle`, aucun accès réseau, chemins d'export validés. Les
 fichiers de données utilisateur sont lus en JSON uniquement.
 
