@@ -6,6 +6,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Contrôles qualité : détection du code dupliqué (pylint) et limites de complexité (ruff) en CI ;
+  grille « Conception et design patterns » pour l'architecte, le dev et le reviewer.
 - Squelette de l'atelier : `package.xml`, enregistrement du workbench, icône.
 - Outillage qualité : ruff, mypy, pytest, bandit, pre-commit.
 - CI GitHub Actions : lint, typage, tests unitaires, tests d'intégration et test de chargement
@@ -26,6 +28,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   surcotes bornées, sens du fil, volume, masse, cotes de débit, épaisseurs standard et règles de
   changement de matériau ; la cote refusée est citée exactement dans le message.
 - Marqueur de traduction `QT_TRANSLATE_NOOP` utilisable sans Qt (`core/i18n.py`).
+- Jeu d'icônes SVG 64 px pour l'atelier et les commandes prévues (pièce de bois, panneau,
+  essences, liste de débit et export, assemblages, caisson), produit par
+  `tools/generer_icones.py`.
 
 ### Sécurité
 - Bibliothèque de matériaux : lecture par un seul descripteur (`os.open` non bloquant, `fstat`,
