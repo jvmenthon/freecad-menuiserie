@@ -47,17 +47,9 @@ from freecad.menuiserie.core.part_model import (
     rough_dimensions,
     volume_m3,
 )
+from tests.unit.aides import OAK, SOURCE, document, errors, make_material, write
 
 BUILTIN_PATH = DATA_DIR / "materiaux.json"
-SOURCE = "/chemin/utilisateur/materiaux.json"
-OAK: dict[str, object] = {
-    "id": "chene",
-    "kind": "solid",
-    "name": "Chêne",
-    "density": 710,
-    "thicknesses": [22],
-    "color": "#B8875A",
-}
 
 
 def entry(**changes: object) -> dict[str, object]:
@@ -74,46 +66,11 @@ def entry(**changes: object) -> dict[str, object]:
     return data
 
 
-def document(*entries: object) -> dict[str, object]:
-    return {"format": 1, "materials": list(entries)}
-
-
 def parse_one(raw: dict[str, object]) -> tuple[list[Material], list[LibraryIssue]]:
     """Analyse ``OAK`` suivi de ``raw`` ; ``OAK`` doit toujours rester chargé."""
     materials, issues = parse_materials(document(OAK, raw), SOURCE)
     assert materials[0].id == "chene"
     return materials[1:], issues
-
-
-def errors(issues: list[LibraryIssue]) -> list[LibraryIssue]:
-    return [issue for issue in issues if issue.severity is Severity.ERROR]
-
-
-def write(tmp_path: Path, content: str | bytes, name: str = "materiaux.json") -> Path:
-    path = tmp_path / name
-    if isinstance(content, str):
-        path.write_text(content, encoding="utf-8")
-    else:
-        path.write_bytes(content)
-    return path
-
-
-def make_material(
-    material_id: str,
-    label: str,
-    kind: MaterialKind = MaterialKind.SOLID,
-    *,
-    has_grain: bool | None = None,
-) -> Material:
-    return Material(
-        id=material_id,
-        kind=kind,
-        names={"fr": label},
-        density=600.0,
-        thicknesses=(18.0, 22.0),
-        color=(10, 20, 30),
-        has_grain=kind.has_grain_by_default if has_grain is None else has_grain,
-    )
 
 
 def builtin() -> list[Material]:

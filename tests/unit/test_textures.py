@@ -21,16 +21,7 @@ from freecad.menuiserie.core.materials import (
     parse_materials,
     read_materials_file,
 )
-
-SOURCE = "/chemin/utilisateur/materiaux.json"
-OAK: dict[str, object] = {
-    "id": "chene",
-    "kind": "solid",
-    "name": "Chêne",
-    "density": 710,
-    "thicknesses": [22],
-    "color": "#B8875A",
-}
+from tests.unit.aides import OAK, SOURCE
 
 
 def entry(texture: object) -> dict[str, object]:

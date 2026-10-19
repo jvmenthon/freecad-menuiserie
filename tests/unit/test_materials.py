@@ -30,9 +30,9 @@ from freecad.menuiserie.core.materials import (
     read_materials_file,
     to_finite_float,
 )
+from tests.unit.aides import SOURCE, document, errors, make_material, write
 
 BUILTIN_PATH = DATA_DIR / "materiaux.json"
-SOURCE = "/chemin/utilisateur/materiaux.json"
 
 REFERENCE: dict[str, object] = {
     "id": "chene",
@@ -62,37 +62,6 @@ def entry_without(key: str) -> dict[str, object]:
     data = entry()
     del data[key]
     return data
-
-
-def document(*entries: object, **root: object) -> dict[str, object]:
-    return {"format": 1, "materials": list(entries), **root}
-
-
-def write(tmp_path: Path, content: str | bytes, name: str = "materiaux.json") -> Path:
-    path = tmp_path / name
-    if isinstance(content, str):
-        path.write_text(content, encoding="utf-8")
-    else:
-        path.write_bytes(content)
-    return path
-
-
-def make_material(
-    material_id: str, label: str, kind: MaterialKind = MaterialKind.SOLID
-) -> Material:
-    return Material(
-        id=material_id,
-        kind=kind,
-        names={"fr": label},
-        density=600.0,
-        thicknesses=(18.0, 22.0),
-        color=(10, 20, 30),
-        has_grain=not kind.is_panel,
-    )
-
-
-def errors(issues: list[LibraryIssue]) -> list[LibraryIssue]:
-    return [issue for issue in issues if issue.severity is Severity.ERROR]
 
 
 # --- A1 : bibliothèque intégrée -------------------------------------------------------
