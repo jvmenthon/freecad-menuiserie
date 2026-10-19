@@ -6,8 +6,6 @@ objets sont importés dans ``Initialize`` uniquement, pour ne pas ralentir
 le lancement de FreeCAD tant que l'atelier n'est pas activé.
 """
 
-from typing import ClassVar
-
 import FreeCAD as App
 import FreeCADGui as Gui
 
@@ -25,23 +23,18 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     Icon = icon_path("menuiserie.svg")
 
     # Noms des commandes enregistrées par l'atelier ; complétés jalon après jalon.
-    commands: ClassVar[list[str]] = []
+    commands: tuple[str, ...] = ()
 
     def Initialize(self) -> None:
         """Appelé une seule fois, à la première activation de l'atelier."""
         Gui.addLanguagePath(str(TRANSLATIONS_DIR))
         Gui.updateLocale()
         if self.commands:
-            self.appendToolbar(translate("Workbench", "Menuiserie"), self.commands)
-            self.appendMenu(translate("Workbench", "&Menuiserie"), self.commands)
-
-    def Activated(self) -> None:
-        """Appelé à chaque activation de l'atelier."""
-
-    def Deactivated(self) -> None:
-        """Appelé à chaque désactivation de l'atelier."""
+            self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
+            self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 
     def GetClassName(self) -> str:
+        """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""
         return "Gui::PythonWorkbench"
 
 

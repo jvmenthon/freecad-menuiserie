@@ -15,9 +15,12 @@ def test_version_freecad_minimale() -> None:
     assert (major, minor) >= (1, 0)
 
 
-def test_paquet_importable_en_console() -> None:
-    module = importlib.import_module("freecad.menuiserie")
-    assert module.__version__
+@pytest.mark.parametrize(
+    "module",
+    ["freecad.menuiserie", "freecad.menuiserie.core", "freecad.menuiserie.features"],
+)
+def test_couches_app_importables_en_console(module: str) -> None:
+    assert importlib.import_module(module)
 
 
 def test_document_se_recalcule_en_console() -> None:

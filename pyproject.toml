@@ -62,6 +62,7 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "integration: nécessite FreeCAD (exécuté dans l'environnement FreeCAD de la CI)",
 ]
