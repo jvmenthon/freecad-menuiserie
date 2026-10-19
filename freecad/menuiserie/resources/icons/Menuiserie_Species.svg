@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Bibliothèque d'essences : échantillons de noyer, chêne et hêtre -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+    <linearGradient id="hetre-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbe6c8"/><stop offset="1" stop-color="#f0c99b"/></linearGradient>
+    <linearGradient id="hetre-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8b98a"/><stop offset="1" stop-color="#d9a277"/></linearGradient>
+    <linearGradient id="hetre-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c99068"/><stop offset="1" stop-color="#b07a52"/></linearGradient>
+    <linearGradient id="noyer-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8774f"/><stop offset="1" stop-color="#8a5a36"/></linearGradient>
+    <linearGradient id="noyer-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a4c2b"/><stop offset="1" stop-color="#6a3f22"/></linearGradient>
+    <linearGradient id="noyer-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5e381d"/><stop offset="1" stop-color="#4b2b15"/></linearGradient>
+  </defs>
+  <polygon points="3.00,27.97 14.81,21.15 48.11,40.37 36.30,47.19" fill="url(#noyer-z)" stroke="#2a170a" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,33.55 3.00,27.97 36.30,47.19 36.30,52.77" fill="url(#noyer-y)" stroke="#2a170a" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="48.11,45.95 36.30,52.77 36.30,47.19 48.11,40.37" fill="url(#noyer-x)" stroke="#2a170a" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="13.74,24.25 15.32,25.43 16.95,26.58 18.70,27.67 20.56,28.68 22.53,29.64 24.58,30.55 26.63,31.46 28.63,32.39 30.53,33.39 32.31,34.46 33.98,35.59 35.57,36.76 37.14,37.95 38.75,39.11 40.45,40.22 42.28,41.26" fill="none" stroke="#5e381d" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="9.44,26.73 11.49,27.64 13.48,28.58 15.36,29.59 17.13,30.67 18.78,31.81 20.36,32.99 21.93,34.17 23.55,35.33 25.28,36.42 27.12,37.45 29.08,38.41 31.12,39.33 33.17,40.24 35.19,41.17 37.11,42.15 38.90,43.21" fill="none" stroke="#5e381d" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="9.44,23.01 21.26,16.19 54.56,35.41 42.74,42.23" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="9.44,28.59 9.44,23.01 42.74,42.23 42.74,47.81" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="54.56,40.99 42.74,47.81 42.74,42.23 54.56,35.41" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="19.73,19.55 21.52,20.61 23.44,21.59 25.46,22.52 27.51,23.43 29.55,24.35 31.51,25.31 33.35,26.34 35.08,27.43 36.70,28.59 38.27,29.77 39.85,30.95 41.50,32.09 43.26,33.17 45.15,34.18 47.14,35.12 49.19,36.03" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="16.35,21.50 18.18,22.54 19.88,23.65 21.49,24.81 23.06,26.00 24.65,27.17 26.32,28.30 28.10,29.37 30.00,30.37 32.00,31.30 34.05,32.21 36.09,33.12 38.07,34.08 39.93,35.09 41.68,36.18 43.31,37.33 44.89,38.51" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="15.89,18.05 27.70,11.23 61.00,30.45 49.19,37.27" fill="url(#hetre-z)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="15.89,23.63 15.89,18.05 49.19,37.27 49.19,42.85" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,36.03 49.19,42.85 49.19,37.27 61.00,30.45" fill="url(#hetre-x)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="26.35,14.49 28.39,15.41 30.44,16.31 32.45,17.25 34.36,18.24 36.15,19.30 37.82,20.42 39.41,21.60 40.98,22.78 42.59,23.95 44.28,25.06 46.10,26.11 48.04,27.08 50.06,28.01 52.12,28.91 54.15,29.83 56.09,30.80" fill="none" stroke="#d1a072" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="22.62,16.64 24.20,17.82 25.77,19.01 27.39,20.17 29.11,21.27 30.94,22.30 32.89,23.27 34.93,24.19 36.98,25.09 39.00,26.02 40.93,27.00 42.74,28.05 44.43,29.17 46.03,30.34 47.60,31.52 49.19,32.69 50.87,33.82" fill="none" stroke="#d1a072" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Pièce de bois massif : planche avec veinage et cernes -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="3.00,19.44 15.69,12.12 61.00,38.28 48.31,45.60" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,25.72 3.00,19.44 48.31,45.60 48.31,51.88" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,44.56 48.31,51.88 48.31,45.60 61.00,38.28" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="14.46,14.92 16.89,16.52 19.45,18.06 22.15,19.51 24.96,20.89 27.83,22.24 30.70,23.60 33.49,24.99 36.17,26.45 38.70,28.00 41.12,29.61 43.46,31.27 45.80,32.93 48.20,34.55 50.72,36.11 53.37,37.58 56.15,38.99" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="10.99,16.92 13.87,18.27 16.72,19.63 19.48,21.04 22.12,22.53 24.61,24.10 27.00,25.73 29.33,27.39 31.68,29.05 34.11,30.65 36.67,32.18 39.36,33.63 42.18,35.02 45.05,36.37 47.92,37.72 50.71,39.12 53.39,40.58" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="8.05,18.62 10.51,20.21 12.87,21.85 15.20,23.52 17.57,25.16 20.04,26.74 22.64,28.25 25.37,29.68 28.21,31.05 31.09,32.40 33.94,33.76 36.70,35.17 39.33,36.66 41.83,38.23 44.22,39.86 46.55,41.52 48.90,43.17" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="51.46,49.17 51.69,48.85 51.94,48.54 52.19,48.24 52.44,47.95 52.71,47.67 52.98,47.40 53.25,47.15 53.53,46.92 53.81,46.70 54.09,46.49 54.37,46.30 54.66,46.13 54.94,45.97 55.22,45.83 55.51,45.71 55.79,45.61 56.06,45.53 56.34,45.46 56.60,45.42 56.87,45.39 57.12,45.39 57.38,45.40 57.62,45.43 57.85,45.48" fill="none" stroke="#8a5524" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="49.50,48.77 49.81,48.29 50.13,47.82 50.46,47.37 50.80,46.93 51.16,46.50 51.52,46.09 51.90,45.70 52.28,45.32 52.66,44.97 53.05,44.63 53.45,44.32 53.85,44.02 54.25,43.76 54.66,43.51 55.06,43.29 55.46,43.09 55.86,42.92 56.26,42.78 56.65,42.66 57.04,42.57 57.42,42.51 57.79,42.47 58.15,42.46 58.51,42.48 58.85,42.52 59.18,42.60 59.50,42.69 59.81,42.82" fill="none" stroke="#8a5524" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
