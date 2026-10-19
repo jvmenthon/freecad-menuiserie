@@ -80,7 +80,10 @@ jobs:
           statut=0
           timeout 300 freecad "$GITHUB_WORKSPACE/tests/gui/verifier_atelier.py" > "$journal" 2>&1 \
             || statut=$?
-          echo "::notice title=Diag::freecad terminé, statut $statut"
+          echo "::notice title=Diag::freecad statut $statut journal $(wc -l < "$journal") lignes, rapport $(ls -la "$RESULTAT" 2>&1)"
+          head -n 15 "$journal" | sed 's/^/::notice title=JournalDebut::/'
+          tail -n 15 "$journal" | sed 's/^/::notice title=JournalFin::/'
+          ls -la "$FREECAD_USER_HOME" "$FREECAD_USER_HOME/Mod/" | sed 's/^/::notice title=Home::/'
           if [ "$statut" -eq 0 ] && grep -q '^OK' "$RESULTAT" 2>/dev/null; then
             cat "$RESULTAT"
             exit 0
