@@ -1,0 +1,103 @@
+name: Sécurité
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  bandit:
+    name: Bandit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: pip install "bandit==1.9.4"
+      - run: bandit -c pyproject.toml -r freecad
+
+  secrets:
+    name: Recherche de secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Binaire officiel épinglé et vérifié par somme de contrôle : pas de licence ni de
+      # droits supplémentaires sur le jeton, contrairement à gitleaks-action.
+      - name: Installer gitleaks
+        env:
+          VERSION: 8.30.1
+          SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archive="gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${archive}"
+          echo "${SHA256}  ${archive}" | sha256sum --check
+          tar -xzf "$archive" gitleaks
+      - name: Analyser l'historique git
+        run: ./gitleaks git --redact --verbose .
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Règles communautaires figées sur un commit : analyse reproductible, sans compte
+      # Semgrep ni accès au registre en ligne.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: semgrep/semgrep-rules
+          ref: 17e31e11ebac99fb7dfe1cd288f7a32151b6f3f9
+          path: .semgrep-rules
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - run: pip install "semgrep==1.181.0"
+      - name: Analyser le code et les workflows
+        run: |
+          semgrep scan --metrics=off --disable-version-check --error \
+            --config .semgrep-rules/python/lang \
+            --config .semgrep-rules/yaml/github-actions \
+            --config .semgrep-rules/generic/secrets \
+            --exclude .semgrep-rules \
+            --json-output=semgrep.json
+      - name: Annoter les constats dans la PR
+        if: failure()
+        run: |
+          python - <<'PY'
+          import json
+          for r in json.load(open("semgrep.json"))["results"]:
+              message = r["extra"]["message"].replace("\n", " ")
+              print(f"::error file={r['path']},line={r['start']['line']},title={r['check_id']}::{message}")
+          PY
+
+  codeql:
+    name: CodeQL
+    # L'analyse de code GitHub n'est gratuite que pour les dépôts publics.
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0

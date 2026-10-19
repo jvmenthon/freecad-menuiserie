@@ -11,6 +11,10 @@ htmlcov/
 build/
 dist/
 
+# Analyse Semgrep locale
+.semgrep-rules/
+semgrep.json
+
 # Fichiers de sauvegarde FreeCAD
 *.FCStd1
 *.FCBak

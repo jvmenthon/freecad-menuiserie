@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualite:
+    name: Lint, typage et tests unitaires
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Installer l'outillage
+        run: pip install -e ".[dev]"
+      - name: Ruff (lint)
+        run: ruff check --output-format=github .
+      - name: Ruff (format)
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy freecad tests
+      - name: Tests unitaires
+        run: pytest tests/unit --cov --cov-report=term-missing
+
+  integration:
+    name: Intégration FreeCAD ${{ matrix.freecad }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        freecad: ["1.0", "1.1"]
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: freecad
+          create-args: >-
+            freecad=${{ matrix.freecad }}.*
+            pytest
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
+      - name: Version de FreeCAD
+        run: |
+          export PYTHONPATH="$CONDA_PREFIX/lib:$PYTHONPATH"
+          python -c "import FreeCAD; print(FreeCAD.Version())"
+      - name: Tests d'intégration
+        run: |
+          export PYTHONPATH="$CONDA_PREFIX/lib:$PYTHONPATH"
+          pytest tests/integration -m integration
+      - name: Chargement dans l'interface de FreeCAD
+        env:
+          QT_QPA_PLATFORM: offscreen
+        # Pas de « exit » explicite : dans ce shell de connexion (bash -l), il exécute
+        # ~/.bash_logout, dont le code de retour remplace celui du script.
+        run: |
+          export FREECAD_USER_HOME="$RUNNER_TEMP/freecad-home"
+          mkdir -p "$FREECAD_USER_HOME/Mod"
+          ln -s "$GITHUB_WORKSPACE" "$FREECAD_USER_HOME/Mod/Menuiserie"
+          export RESULTAT="$RUNNER_TEMP/resultat-gui.txt"
+          journal="$RUNNER_TEMP/freecad-gui.log"
+          statut=0
+          timeout 300 freecad "$GITHUB_WORKSPACE/tests/gui/verifier_atelier.py" > "$journal" 2>&1 \
+            || statut=$?
+          if [ "$statut" -eq 0 ] && grep -q '^OK' "$RESULTAT" 2>/dev/null; then
+            cat "$RESULTAT"
+          else
+            # Rapport et fin du journal en annotations, lisibles depuis la PR.
+            echo "::error title=Interface FreeCAD::echec du chargement (statut $statut)"
+            if [ -f "$RESULTAT" ]; then
+              sed 's/^/::error title=Rapport::/' "$RESULTAT"
+            fi
+            tail -n 25 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
+            false
+          fi
