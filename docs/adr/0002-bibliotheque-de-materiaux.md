@@ -1,6 +1,6 @@
 # ADR 0002 — Bibliothèque de matériaux (essences et panneaux)
 
-- Statut : proposé (à valider par jv avec la spécification J1)
+- Statut : accepté (questions Q1 et Q3 de la spécification J1 validées par jv le 2026-10-19)
 - Date : 2026-10-19
 - Spécification : [docs/specs/J1-piece-de-bois.md](../specs/J1-piece-de-bois.md)
 

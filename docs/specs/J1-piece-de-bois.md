@@ -1,7 +1,7 @@
 # [J1] Pièce de bois paramétrique et bibliothèque de matériaux
 
 - Jalon : J1 (version cible 0.1.0)
-- Statut : **proposition, en attente de validation par jv** (voir « Questions ouvertes »)
+- Statut : **validée par jv le 2026-10-19** (questions Q1 à Q3 : recommandations retenues)
 - ADR liés : [0002 — Bibliothèque de matériaux](../adr/0002-bibliotheque-de-materiaux.md),
   [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md)
 - Découpage : trois PR successives **J1a → J1b → J1c** (voir § 5)
