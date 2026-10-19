@@ -37,7 +37,7 @@ def main() -> None:
             problemes = verifier()
         except Exception:
             problemes = [traceback.format_exc()]
-        rapport.write("\n".join(problemes) if problemes else "OK : atelier chargé et activé\n")
+        rapport.write("\n".join(problemes or ["OK : atelier chargé et activé"]) + "\n")
     # Quitte immédiatement, sans boîte de dialogue ni boucle d'événements.
     os._exit(1 if problemes else 0)
 
