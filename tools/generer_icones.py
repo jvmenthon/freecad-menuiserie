@@ -229,17 +229,14 @@ def _document(lignes: list[str]) -> str:
 def _feuille(x: float) -> str:
     """Feuille de tableau (liste de débit) dont le bord gauche est en ``x``."""
     lignes_tableau = " ".join(f"M{x + 5},{y} H{x + 35}" for y in (30, 36, 42, 48))
-    return "\n".join(
-        [
-            f'  <path d="M{x},4 H{x + 30} L{x + 40},14 V60 H{x} Z" fill="#ffffff" '
-            'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>',
-            f'  <path d="M{x + 30},4 V14 H{x + 40}" fill="#d3d7cf" '
-            'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>',
-            f'  <rect x="{x + 5}" y="18" width="30" height="6" fill="#c4884a" '
-            'stroke="#4e2f12" stroke-width="1"/>',
-            f'  <path d="{lignes_tableau} M{x + 17},24 V52" fill="none" '
-            'stroke="#888a85" stroke-width="1.5"/>',
-        ]
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    return (
+        f'  <path d="M{x},4 H{x + 30} L{x + 40},14 V60 H{x} Z" fill="#ffffff" {trait}/>\n'
+        f'  <path d="M{x + 30},4 V14 H{x + 40}" fill="#d3d7cf" {trait}/>\n'
+        f'  <rect x="{x + 5}" y="18" width="30" height="6" fill="#c4884a" stroke="#4e2f12" '
+        'stroke-width="1"/>\n'
+        f'  <path d="{lignes_tableau} M{x + 17},24 V52" fill="none" stroke="#888a85" '
+        'stroke-width="1.5"/>'
     )
 
 
