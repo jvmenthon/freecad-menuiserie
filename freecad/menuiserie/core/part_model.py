@@ -112,7 +112,8 @@ DEFAULT_PANEL_ALLOWANCES: Final = Allowances()
 
 def default_allowances(kind: MaterialKind) -> Allowances:
     """Surcotes par défaut de la famille : massif 20 / 5 / 0 mm, panneaux 0 / 0 / 0 mm."""
-    return DEFAULT_PANEL_ALLOWANCES if kind.is_panel else DEFAULT_SOLID_ALLOWANCES
+    # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode non appelée.
+    return DEFAULT_PANEL_ALLOWANCES if kind.is_panel else DEFAULT_SOLID_ALLOWANCES  # nosemgrep
 
 
 def rough_dimensions(finished: Dimensions, allowances: Allowances) -> Dimensions:
