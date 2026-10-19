@@ -46,8 +46,11 @@ jobs:
 
   codeql:
     name: CodeQL
+    # L'analyse de code GitHub n'est gratuite que pour les dépôts publics.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
     steps:

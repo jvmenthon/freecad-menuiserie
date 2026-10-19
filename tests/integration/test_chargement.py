@@ -20,10 +20,12 @@ def test_paquet_importable_en_console() -> None:
     assert module.__version__
 
 
-def test_document_vide_se_recalcule() -> None:
+def test_document_se_recalcule_en_console() -> None:
     doc = App.newDocument("TestMenuiserie")
     try:
+        boite = doc.addObject("Part::Box", "Boite")
         doc.recompute()
-        assert doc.isValid()
+        assert boite.isValid()
+        assert boite.Shape.Volume == pytest.approx(1000.0)
     finally:
         App.closeDocument(doc.Name)

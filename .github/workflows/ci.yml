@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        freecad: ["1.0.*", "latest"]
+        freecad: ["1.0", "1.1"]
     defaults:
       run:
         shell: bash -el {0}
@@ -52,7 +52,7 @@ jobs:
         with:
           environment-name: freecad
           create-args: >-
-            ${{ matrix.freecad == 'latest' && 'freecad' || format('freecad={0}', matrix.freecad) }}
+            freecad=${{ matrix.freecad }}.*
             pytest
           condarc: |
             channels:
@@ -66,3 +66,15 @@ jobs:
         run: |
           export PYTHONPATH="$CONDA_PREFIX/lib:$PYTHONPATH"
           pytest tests/integration -m integration
+      - name: Chargement dans l'interface de FreeCAD
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          export FREECAD_USER_HOME="$RUNNER_TEMP/freecad-home"
+          mkdir -p "$FREECAD_USER_HOME/Mod"
+          ln -s "$GITHUB_WORKSPACE" "$FREECAD_USER_HOME/Mod/Menuiserie"
+          export RESULTAT="$RUNNER_TEMP/resultat-gui.txt"
+          statut=0
+          timeout 300 freecad tests/gui/verifier_atelier.py > /dev/null 2>&1 || statut=$?
+          cat "$RESULTAT" || echo "Aucun rapport produit (statut $statut)"
+          exit "$statut"
