@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import stat
 import unicodedata
@@ -18,7 +19,6 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
-from types import MappingProxyType
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -32,6 +32,8 @@ MIN_DENSITY: Final = 50.0
 MAX_DENSITY: Final = 2000.0
 MAX_THICKNESSES: Final = 50
 MAX_THICKNESS_MM: Final = 300.0
+MAX_ISSUES: Final = 200
+MAX_LISTED_KEYS: Final = 5
 
 BUILTIN_SOURCE: Final = QT_TRANSLATE_NOOP("Menuiserie", "intégrée")
 """Source citée dans les anomalies de la bibliothèque intégrée."""
@@ -47,6 +49,13 @@ _COLOR_PATTERN: Final = re.compile(r"#[0-9A-Fa-f]{6}")
 # de ligne et de paragraphe : refusés dans les libellés.
 _FORBIDDEN_CATEGORIES: Final = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
 _MAX_QUOTED_LENGTH: Final = 32
+# Ouverture sans blocage (tube nommé) ni héritage par un processus fils ; binaire sous Windows.
+_OPEN_FLAGS: Final = (
+    os.O_RDONLY
+    | getattr(os, "O_NONBLOCK", 0)
+    | getattr(os, "O_CLOEXEC", 0)
+    | getattr(os, "O_BINARY", 0)
+)
 
 # Gabarits des anomalies : « source » est toujours fourni dans les paramètres.
 _FILE_UNREADABLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "{source} : fichier illisible ({error}).")
@@ -86,8 +95,14 @@ _ROOT_FORMAT_UNSUPPORTED: Final = QT_TRANSLATE_NOOP(
 _ROOT_MATERIALS_INVALID: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{source} : clé « materials » absente ou qui n'est pas une liste."
 )
-_ROOT_UNKNOWN_KEY: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "{source} : clé « {field} » inconnue à la racine, ignorée."
+_ROOT_DUPLICATE_KEY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{source} : clé « {field} » en double à la racine du fichier."
+)
+_ROOT_UNKNOWN_KEYS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{source} : clés inconnues à la racine, ignorées : {keys}."
+)
+_ROOT_UNKNOWN_KEYS_MORE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{source} : clés inconnues à la racine, ignorées : {keys} … et {more} autres."
 )
 _TOO_MANY_MATERIALS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{source} : {count} matériaux, seuls les {max} premiers sont lus."
@@ -99,8 +114,16 @@ _ENTRIES_NOT_OBJECTS: Final = QT_TRANSLATE_NOOP(
 _ENTRY_MISSING_FIELD: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{source} : matériau « {id} », champ « {field} » : champ obligatoire absent."
 )
-_ENTRY_UNKNOWN_KEY: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "{source} : matériau « {id} », clé « {field} » inconnue, ignorée."
+_ENTRY_UNKNOWN_KEYS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{source} : matériau « {id} », clés inconnues ignorées : {keys}."
+)
+_ENTRY_UNKNOWN_KEYS_MORE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{source} : matériau « {id} », clés inconnues ignorées : {keys} … et {more} autres.",
+)
+_ENTRY_DUPLICATE_KEY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{source} : matériau « {id} », champ « {field} » : clé en double, entrée ignorée.",
 )
 _ENTRY_INVALID_ID: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -148,6 +171,9 @@ _ENTRY_INVALID_GRAIN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "{source} : matériau « {id} », champ « {field} » : valeur true ou false attendue.",
 )
+_TOO_MANY_ISSUES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{source} : {count} autres anomalies non affichées."
+)
 _MERGE_REPLACED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "{source} : le matériau « {id} » remplace le matériau intégré de même identifiant.",
@@ -186,6 +212,33 @@ class Severity(Enum):
     ERROR = "error"
 
 
+_SEVERITY_RANK: Final = {Severity.INFO: 0, Severity.WARNING: 1, Severity.ERROR: 2}
+
+
+class _FrozenMapping(Mapping[str, str]):
+    """Dictionnaire de textes immuable et hachable (libellés, paramètres d'anomalie)."""
+
+    __slots__ = ("_items",)
+
+    def __init__(self, items: Mapping[str, str]) -> None:
+        self._items: dict[str, str] = dict(items)
+
+    def __getitem__(self, key: str) -> str:
+        return self._items[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._items)
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __hash__(self) -> int:
+        return hash(frozenset(self._items.items()))
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self._items!r})"
+
+
 @dataclass(frozen=True)
 class LibraryIssue:
     """Anomalie rencontrée en lisant ou en fusionnant une bibliothèque.
@@ -201,7 +254,8 @@ class LibraryIssue:
     material_id: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "params", MappingProxyType({"source": self.source, **self.params}))
+        params = _FrozenMapping({"source": self.source, **self.params})
+        object.__setattr__(self, "params", params)
 
     def format(self) -> str:
         """Gabarit non traduit, rempli avec ses paramètres (tests, journaux)."""
@@ -210,7 +264,7 @@ class LibraryIssue:
 
 @dataclass(frozen=True)
 class Material:
-    """Essence massive ou panneau, tel que décrit dans la bibliothèque."""
+    """Essence massive ou panneau, tel que décrit dans la bibliothèque (immuable, hachable)."""
 
     id: str
     kind: MaterialKind
@@ -224,7 +278,9 @@ class Material:
         if not self.names:
             raise ValueError(f"le matériau « {self.id} » n'a aucun libellé")
         names = {language: _nfc(label) for language, label in self.names.items()}
-        object.__setattr__(self, "names", MappingProxyType(names))
+        object.__setattr__(self, "names", _FrozenMapping(names))
+        object.__setattr__(self, "thicknesses", tuple(self.thicknesses))
+        object.__setattr__(self, "color", tuple(self.color))
 
     def name(self, lang: str = "fr") -> str:
         """Libellé dans la langue demandée, sinon français, sinon la première langue disponible."""
@@ -266,7 +322,7 @@ class MaterialLibrary:
                 raise ValueError(f"libellé de matériau en double : « {label} »")
             by_id[material.id] = material
             labels.add(label)
-        self._by_id: Mapping[str, Material] = MappingProxyType(by_id)
+        self._by_id: Mapping[str, Material] = by_id
 
     def __contains__(self, material_id: object) -> bool:
         return material_id in self._by_id
@@ -355,6 +411,67 @@ def _file_error(source: str, template: str, **params: str) -> LibraryFormatError
     return LibraryFormatError(_make_issue(Severity.ERROR, source, template, **params))
 
 
+def _capped(issues: list[LibraryIssue]) -> list[LibraryIssue]:
+    """Au plus ``MAX_ISSUES`` anomalies, plus une anomalie de synthèse pour les suivantes."""
+    if len(issues) <= MAX_ISSUES:
+        return issues
+    omitted = issues[MAX_ISSUES:]
+    severity = max((issue.severity for issue in omitted), key=_SEVERITY_RANK.__getitem__)
+    summary = _make_issue(severity, omitted[0].source, _TOO_MANY_ISSUES, count=str(len(omitted)))
+    return [*issues[:MAX_ISSUES], summary]
+
+
+def _unknown_keys_params(keys: Sequence[object]) -> dict[str, str]:
+    """Paramètres ``keys`` (au plus ``MAX_LISTED_KEYS`` clés citées) et ``more``."""
+    listed = ", ".join(f"« {quoted_value(key)} »" for key in keys[:MAX_LISTED_KEYS])
+    return {"keys": listed, "more": str(max(len(keys) - MAX_LISTED_KEYS, 0))}
+
+
+class _JsonObject(dict[str, object]):
+    """Objet JSON dont des clés apparaissent plusieurs fois (``json`` garde la dernière valeur)."""
+
+    __slots__ = ("duplicate_keys",)
+
+    def __init__(self, pairs: list[tuple[str, object]], duplicate_keys: tuple[str, ...]) -> None:
+        super().__init__(pairs)
+        self.duplicate_keys = duplicate_keys
+
+
+def _json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """``object_pairs_hook`` : objet JSON ordinaire, ou :class:`_JsonObject` si clés en double."""
+    result = dict(pairs)
+    if len(result) == len(pairs):
+        return result
+    seen: set[str] = set()
+    duplicates: dict[str, None] = {}
+    for key, _ in pairs:
+        if key in seen:
+            duplicates[key] = None
+        seen.add(key)
+    return _JsonObject(pairs, tuple(duplicates))
+
+
+def _contains_duplicate_keys(value: object) -> bool:
+    """Vrai si ``value`` est ou contient un objet JSON à clés en double (sans récursion)."""
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        if isinstance(current, _JsonObject):
+            return True
+        if isinstance(current, dict):
+            pending.extend(current.values())
+        elif isinstance(current, list):
+            pending.extend(current)
+    return False
+
+
+def _duplicated_field(data: Mapping[str, object]) -> str | None:
+    """Clé en double de ``data``, ou clé dont la valeur contient un objet à clés en double."""
+    if isinstance(data, _JsonObject):
+        return data.duplicate_keys[0]
+    return next((key for key, value in data.items() if _contains_duplicate_keys(value)), None)
+
+
 @dataclass(frozen=True)
 class _Entry:
     """Entrée brute de la liste ``materials`` en cours de validation."""
@@ -364,10 +481,20 @@ class _Entry:
     data: Mapping[str, object]
     material_id: str | None = None
 
+    @property
+    def shown_id(self) -> str:
+        """Identifiant cité dans les anomalies : l'identifiant validé, sinon « #position »."""
+        return self.material_id if self.material_id is not None else f"#{self.position}"
+
     def issue(self, severity: Severity, template: str, field: str, **params: str) -> LibraryIssue:
-        label = self.material_id if self.material_id is not None else f"#{self.position}"
         return _make_issue(
-            severity, self.source, template, self.material_id, id=label, field=field, **params
+            severity,
+            self.source,
+            template,
+            self.material_id,
+            id=self.shown_id,
+            field=field,
+            **params,
         )
 
     def error(self, template: str, field: str, **params: str) -> LibraryFormatError:
@@ -377,6 +504,18 @@ class _Entry:
         if key not in self.data:
             raise self.error(_ENTRY_MISSING_FIELD, key)
         return self.data[key]
+
+    def unknown_keys_issues(self) -> list[LibraryIssue]:
+        """Au plus un avertissement, qui liste les clés inconnues de l'entrée."""
+        keys = [key for key in self.data if key not in _ENTRY_KEYS]
+        if not keys:
+            return []
+        template = _ENTRY_UNKNOWN_KEYS_MORE if len(keys) > MAX_LISTED_KEYS else _ENTRY_UNKNOWN_KEYS
+        params = _unknown_keys_params(keys)
+        issue = _make_issue(
+            Severity.WARNING, self.source, template, self.material_id, id=self.shown_id, **params
+        )
+        return [issue]
 
 
 def _parse_id(entry: _Entry) -> str:
@@ -472,18 +611,25 @@ def _build_material(entry: _Entry, material_id: str) -> Material:
     )
 
 
+def _identified(entry: _Entry) -> tuple[_Entry, str]:
+    """Entrée munie de son identifiant ; :class:`LibraryFormatError` s'il est invalide ou répété."""
+    if isinstance(entry.data, _JsonObject) and "id" in entry.data.duplicate_keys:
+        raise entry.error(_ENTRY_DUPLICATE_KEY, "id")
+    material_id = _parse_id(entry)
+    return replace(entry, material_id=material_id), material_id
+
+
 def _parse_entry(entry: _Entry) -> tuple[Material | None, list[LibraryIssue]]:
     """Valide une entrée ; s'arrête à la première règle violée (entrée rejetée)."""
     try:
-        material_id = _parse_id(entry)
+        entry, material_id = _identified(entry)
     except LibraryFormatError as error:
         return None, [error.issue]
-    entry = replace(entry, material_id=material_id)
-    issues = [
-        entry.issue(Severity.WARNING, _ENTRY_UNKNOWN_KEY, str(key))
-        for key in entry.data
-        if key not in _ENTRY_KEYS
-    ]
+    issues = entry.unknown_keys_issues()
+    duplicated = _duplicated_field(entry.data)
+    if duplicated is not None:
+        error_issue = entry.issue(Severity.ERROR, _ENTRY_DUPLICATE_KEY, quoted_value(duplicated))
+        return None, [*issues, error_issue]
     try:
         material = _build_material(entry, material_id)
     except LibraryFormatError as error:
@@ -526,71 +672,104 @@ def _select_entries(
     return entries, issues
 
 
+def _root_unknown_keys_issues(data: Mapping[object, object], source: str) -> list[LibraryIssue]:
+    """Au plus un avertissement, qui liste les clés inconnues de la racine."""
+    keys = [key for key in data if key not in _ROOT_KEYS]
+    if not keys:
+        return []
+    template = _ROOT_UNKNOWN_KEYS_MORE if len(keys) > MAX_LISTED_KEYS else _ROOT_UNKNOWN_KEYS
+    return [_make_issue(Severity.WARNING, source, template, **_unknown_keys_params(keys))]
+
+
 def _parse_root(data: object, source: str) -> tuple[list[_Entry], list[LibraryIssue]]:
     """Vérifie la racine ; lève :class:`LibraryFormatError` si le fichier doit être ignoré."""
     if not isinstance(data, dict):
         raise _file_error(source, _ROOT_NOT_OBJECT)
+    if isinstance(data, _JsonObject):
+        raise _file_error(source, _ROOT_DUPLICATE_KEY, field=quoted_value(data.duplicate_keys[0]))
     _check_format(data.get("format"), source)
     raw_entries = data.get("materials")
     if not isinstance(raw_entries, list):
         raise _file_error(source, _ROOT_MATERIALS_INVALID)
-    warnings = [
-        _make_issue(Severity.WARNING, source, _ROOT_UNKNOWN_KEY, field=str(key))
-        for key in data
-        if key not in _ROOT_KEYS
-    ]
+    warnings = _root_unknown_keys_issues(data, source)
     entries, issues = _select_entries(raw_entries, source)
     return entries, [*warnings, *issues]
 
 
 def parse_materials(data: object, source: str) -> tuple[list[Material], list[LibraryIssue]]:
-    """Valide un document JSON déjà décodé (format 1) et en extrait les matériaux valides."""
+    """Valide un document JSON déjà décodé (format 1) et en extrait les matériaux valides.
+
+    Au plus ``MAX_ISSUES`` anomalies sont renvoyées, suivies d'une anomalie de synthèse.
+    """
     try:
         entries, issues = _parse_root(data, source)
     except LibraryFormatError as error:
         return [], [error.issue]
-    materials: list[Material] = []
+    materials: dict[str, Material] = {}
     for entry in entries:
         material, entry_issues = _parse_entry(entry)
         issues.extend(entry_issues)
         if material is None:
             continue
-        if any(m.id == material.id for m in materials):
-            issues.append(
-                replace(entry, material_id=material.id).issue(
-                    Severity.ERROR, _ENTRY_DUPLICATE_ID, "id"
-                )
-            )
+        if material.id in materials:
+            duplicate = replace(entry, material_id=material.id)
+            issues.append(duplicate.issue(Severity.ERROR, _ENTRY_DUPLICATE_ID, "id"))
             continue
-        materials.append(material)
-    return materials, issues
+        materials[material.id] = material
+    return list(materials.values()), _capped(issues)
 
 
 def _unreadable(source: str, error: OSError) -> LibraryFormatError:
     return _file_error(source, _FILE_UNREADABLE, error=error.strerror or type(error).__name__)
 
 
+def _read_at_most(descriptor: int, limit: int) -> bytes:
+    """Lit au plus ``limit`` octets du descripteur (jusqu'à la fin du fichier)."""
+    chunks: list[bytes] = []
+    remaining = limit
+    while remaining > 0:
+        chunk = os.read(descriptor, remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _read_regular_file(descriptor: int, source: str) -> bytes:
+    """Vérifie le type et la taille du fichier ouvert, puis le lit (lecture bornée)."""
+    status = os.fstat(descriptor)
+    if not stat.S_ISREG(status.st_mode):
+        raise _file_error(source, _FILE_NOT_REGULAR)
+    limit = str(MAX_FILE_BYTES)
+    if status.st_size > MAX_FILE_BYTES:
+        raise _file_error(source, _FILE_TOO_LARGE, size=str(status.st_size), max=limit)
+    content = _read_at_most(descriptor, MAX_FILE_BYTES + 1)
+    if len(content) > MAX_FILE_BYTES:
+        raise _file_error(source, _FILE_TOO_LARGE, size=f"> {limit}", max=limit)
+    return content
+
+
 def _read_bytes(path: Path, source: str) -> bytes:
-    """Lit au plus ``MAX_FILE_BYTES`` octets ; ``FileNotFoundError`` si le fichier est absent."""
+    """Lit au plus ``MAX_FILE_BYTES`` octets ; ``FileNotFoundError`` si le fichier est absent.
+
+    Type et taille sont vérifiés sur le descripteur ouvert (``fstat``), puis la lecture se fait
+    sur ce même descripteur : le fichier ne peut pas être remplacé entre contrôle et lecture.
+    """
     try:
-        status = path.stat()
-        if not stat.S_ISREG(status.st_mode):
-            raise _file_error(source, _FILE_NOT_REGULAR)
-        if status.st_size > MAX_FILE_BYTES:
-            raise _file_error(
-                source, _FILE_TOO_LARGE, size=str(status.st_size), max=str(MAX_FILE_BYTES)
-            )
-        with path.open("rb") as stream:
-            content = stream.read(MAX_FILE_BYTES + 1)
+        descriptor = os.open(path, _OPEN_FLAGS)
     except FileNotFoundError:
         raise
     except OSError as error:
         raise _unreadable(source, error) from error
-    if len(content) > MAX_FILE_BYTES:
-        raise _file_error(
-            source, _FILE_TOO_LARGE, size=f"> {MAX_FILE_BYTES}", max=str(MAX_FILE_BYTES)
-        )
-    return content
+    except ValueError as error:  # octet nul dans le chemin
+        raise _file_error(source, _FILE_UNREADABLE, error=str(error)) from error
+    try:
+        return _read_regular_file(descriptor, source)
+    except OSError as error:
+        raise _unreadable(source, error) from error
+    finally:
+        os.close(descriptor)
 
 
 class _NonFiniteConstantError(ValueError):
@@ -606,13 +785,16 @@ def _reject_constant(constant: str) -> object:
 
 
 def _decode_json(content: bytes, source: str) -> object:
-    """Décode du JSON UTF-8 strict ; lève :class:`LibraryFormatError` sinon."""
+    """Décode du JSON UTF-8 strict (BOM initial toléré) ; :class:`LibraryFormatError` sinon.
+
+    Les objets à clés en double sont marqués (:class:`_JsonObject`) pour être signalés.
+    """
     try:
-        text = content.decode("utf-8")
+        text = content.decode("utf-8-sig")
     except UnicodeDecodeError as error:
         raise _file_error(source, _FILE_NOT_UTF8) from error
     try:
-        return json.loads(text, parse_constant=_reject_constant)
+        return json.loads(text, parse_constant=_reject_constant, object_pairs_hook=_json_object)
     except _NonFiniteConstantError as error:
         raise _file_error(source, _FILE_NON_FINITE, value=error.constant) from error
     except ValueError as error:
@@ -631,10 +813,16 @@ def read_materials_file(
     anomalies.
     """
     label = str(path) if source is None else source
+    result = _read_existing_file(path, label)
+    return ([], []) if result is None else result
+
+
+def _read_existing_file(path: Path, label: str) -> tuple[list[Material], list[LibraryIssue]] | None:
+    """Comme :func:`read_materials_file`, mais ``None`` si le fichier est absent."""
     try:
         data = _decode_json(_read_bytes(path, label), label)
     except FileNotFoundError:
-        return [], []
+        return None
     except LibraryFormatError as error:
         return [], [error.issue]
     return parse_materials(data, label)
@@ -679,6 +867,14 @@ def _merge_builtin(builtin: Sequence[Material]) -> tuple[dict[str, Material], li
     return by_id, issues
 
 
+@dataclass(frozen=True)
+class _Candidate:
+    """Entrée utilisateur retenue provisoirement, avec sa position dans le fichier."""
+
+    position: int
+    material: Material
+
+
 def _label_losers(
     builtin: Mapping[str, Material], candidates: Mapping[str, _Candidate]
 ) -> list[str]:
@@ -699,14 +895,6 @@ def _label_losers(
     for owners in holders.values():
         losers += [material_id for _, material_id in sorted(owners)[1:]]
     return losers
-
-
-@dataclass(frozen=True)
-class _Candidate:
-    """Entrée utilisateur retenue provisoirement, avec sa position dans le fichier."""
-
-    position: int
-    material: Material
 
 
 def _user_candidates(
@@ -762,24 +950,27 @@ def merge_materials(
     """
     by_id, issues = _merge_builtin(builtin)
     merged, user_issues = _merge_user(by_id, user, user_source)
-    return MaterialLibrary(merged), [*issues, *user_issues]
+    return MaterialLibrary(merged), _capped([*issues, *user_issues])
 
 
 def load_library(
     builtin_path: Path, user_path: Path | None
 ) -> tuple[MaterialLibrary, list[LibraryIssue]]:
-    """Charge la bibliothèque intégrée, puis la fusionne avec le fichier utilisateur s'il existe."""
-    if builtin_path.exists():
-        builtin, issues = read_materials_file(builtin_path, BUILTIN_SOURCE)
-    else:
+    """Charge la bibliothèque intégrée, puis la fusionne avec le fichier utilisateur s'il existe.
+
+    Au plus ``MAX_ISSUES`` anomalies sont renvoyées, suivies d'une anomalie de synthèse.
+    """
+    result = _read_existing_file(builtin_path, BUILTIN_SOURCE)
+    if result is None:
         missing = _make_issue(
             Severity.ERROR, BUILTIN_SOURCE, _FILE_BUILTIN_MISSING, path=str(builtin_path)
         )
-        builtin, issues = [], [missing]
+        result = [], [missing]
+    builtin, issues = result
     user: list[Material] = []
     user_source = "" if user_path is None else str(user_path)
     if user_path is not None:
         user, user_issues = read_materials_file(user_path, user_source)
         issues += user_issues
     library, merge_issues = merge_materials(builtin, user, user_source)
-    return library, [*issues, *merge_issues]
+    return library, _capped([*issues, *merge_issues])

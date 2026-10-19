@@ -35,6 +35,7 @@ from freecad.menuiserie.core.part_model import (
     DEFAULT_PANEL_ALLOWANCES,
     DEFAULT_SOLID_ALLOWANCES,
     MAX_DIMENSION_MM,
+    MIN_DIMENSION_MM,
     Allowances,
     Dimensions,
     GrainDirection,
@@ -234,11 +235,13 @@ def with_duplicate_density(value: str) -> str:
     return f'{{"format": 1, "materials": [{raw}]}}'
 
 
-def test_cle_en_double_la_derniere_l_emporte(tmp_path: Path) -> None:
-    # json.loads garde la dernière occurrence ; la validation porte sur cette valeur.
+def test_cle_en_double_rejette_l_entree_meme_si_les_valeurs_sont_valides(tmp_path: Path) -> None:
+    # json.loads garderait la dernière occurrence : l'ambiguïté est signalée, l'entrée rejetée.
     materials, issues = read_materials_file(write(tmp_path, with_duplicate_density("700")))
-    assert issues == []
-    assert materials[0].density == 700.0
+    assert materials == []
+    [issue] = errors(issues)
+    assert issue.material_id == "erable"
+    assert issue.params["field"] == "density"
 
 
 def test_cle_en_double_invalide_rejette_l_entree(tmp_path: Path) -> None:
@@ -283,7 +286,6 @@ def test_libelle_avec_paire_de_substituts_valide_accepte(tmp_path: Path) -> None
 # --- A3 : fichiers limites -----------------------------------------------------------------
 
 FILE_RULES = [
-    pytest.param(b"\xef\xbb\xbf" + json.dumps(document(OAK)).encode(), id="bom-utf8"),
     pytest.param(b"   \n\t ", id="espaces-seuls"),
     pytest.param(b"null", id="racine-null"),
     pytest.param(b"true", id="racine-booleen"),
@@ -311,6 +313,14 @@ def test_fichier_limite_ignore_avec_une_seule_erreur(tmp_path: Path, content: by
     [issue] = issues
     assert issue.severity is Severity.ERROR
     assert issue.source == "utilisateur"
+
+
+def test_bom_utf8_accepte(tmp_path: Path) -> None:
+    # PowerShell 5 (Windows) écrit un BOM en tête des fichiers UTF-8.
+    path = write(tmp_path, b"\xef\xbb\xbf" + json.dumps(document(OAK)).encode())
+    materials, issues = read_materials_file(path, "utilisateur")
+    assert issues == []
+    assert [m.id for m in materials] == ["chene"]
 
 
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="tubes nommés indisponibles")
@@ -417,8 +427,8 @@ def test_volume_et_masse_aux_bornes() -> None:
     largest = Dimensions(MAX_DIMENSION_MM, MAX_DIMENSION_MM, MAX_DIMENSION_MM)
     assert volume_m3(largest) == pytest.approx(8000.0)
     assert mass_kg(largest, 2000) == pytest.approx(16_000_000.0)
-    smallest = Dimensions(0.001, 0.001, 0.001)
-    assert volume_m3(smallest) == pytest.approx(1e-18, rel=1e-12)
+    smallest = Dimensions(MIN_DIMENSION_MM, MIN_DIMENSION_MM, MIN_DIMENSION_MM)
+    assert volume_m3(smallest) == pytest.approx(1e-12, rel=1e-12)
 
 
 def test_arrondis_des_cotes_decimales() -> None:

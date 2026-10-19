@@ -11,10 +11,12 @@ from pathlib import Path
 import pytest
 
 from freecad.menuiserie import DATA_DIR
+from freecad.menuiserie.core import materials as materials_module
 from freecad.menuiserie.core.i18n import CONTEXT, QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import (
     BUILTIN_SOURCE,
     MAX_FILE_BYTES,
+    MAX_ISSUES,
     MAX_MATERIALS,
     LibraryIssue,
     Material,
@@ -276,8 +278,9 @@ def test_cle_inconnue_dans_une_entree_signalee_sans_rejet() -> None:
     assert [m.id for m in materials] == ["erable"]
     [issue] = issues
     assert issue.severity is Severity.WARNING
-    assert issue.params["field"] == "densty"
+    assert issue.params["keys"] == "« densty »"
     assert issue.material_id == "erable"
+    assert "« erable »" in issue.format()
 
 
 def test_cle_inconnue_signalee_meme_si_l_entree_est_rejetee() -> None:
@@ -292,7 +295,7 @@ def test_cle_inconnue_a_la_racine_signalee() -> None:
     assert len(materials) == 1
     [issue] = issues
     assert issue.severity is Severity.WARNING
-    assert issue.params["field"] == "comment"
+    assert issue.params["keys"] == "« comment »"
 
 
 def test_entrees_en_trop_ignorees_avec_une_erreur() -> None:
@@ -379,6 +382,199 @@ def test_code_de_langue_entier_geant_cite_sans_exception() -> None:
     assert errors(issues)[0].params["language"] == "?"
 
 
+# --- Audit de sécurité : clés inconnues, plafonds, clés en double ------------------------
+
+
+@pytest.mark.parametrize(
+    ("key", "shown"),
+    [
+        pytest.param("x" * 40, "« " + "x" * 32 + "… »", id="tronquee"),
+        pytest.param("a\u202eb", "« a\\u202eb »", id="bidi-echappe"),
+        pytest.param("a\nb", "« a\\nb »", id="saut-de-ligne-echappe"),
+        pytest.param("épaisseur", "« épaisseur »", id="accent-conserve"),
+    ],
+)
+def test_cle_inconnue_tronquee_et_echappee(key: str, shown: str) -> None:
+    _, [issue] = parse_materials(document(entry(**{key: 1})), SOURCE)
+    assert issue.params["keys"] == shown
+
+
+def test_cles_inconnues_un_seul_avertissement_par_entree() -> None:
+    extra = {f"cle{i}": i for i in range(8)}
+    _, [issue] = parse_materials(document(entry(**extra)), SOURCE)
+    assert issue.severity is Severity.WARNING
+    assert issue.params["keys"] == ", ".join(f"« cle{i} »" for i in range(5))
+    assert issue.params["more"] == "3"
+    assert issue.format().endswith("… et 3 autres.")
+
+
+def test_cles_inconnues_un_seul_avertissement_a_la_racine() -> None:
+    extra = {f"cle{i}": i for i in range(6)}
+    _, [issue] = parse_materials(document(REFERENCE, **extra), SOURCE)
+    assert issue.params["more"] == "1"
+    assert "… et 1 autres." in issue.format()
+
+
+def test_cle_inconnue_non_textuelle_citee_sans_exception() -> None:
+    raw: dict[object, object] = {key: value for key, value in entry().items()}
+    raw[10**5000] = 1
+    _, [issue] = parse_materials(document(raw), SOURCE)
+    assert issue.params["keys"] == "« ? »"
+
+
+def test_anomalies_plafonnees_avec_une_synthese() -> None:
+    entries = [entry(id=f"m{i}", density="x") for i in range(MAX_MATERIALS)]
+    materials, issues = parse_materials(document(*entries), SOURCE)
+    assert materials == []
+    assert len(issues) == MAX_ISSUES + 1
+    summary = issues[-1]
+    assert summary.severity is Severity.ERROR
+    assert summary.params["count"] == str(MAX_MATERIALS - MAX_ISSUES)
+    assert summary.format() == f"{SOURCE} : 300 autres anomalies non affichées."
+
+
+def test_anomalies_de_fusion_et_de_chargement_plafonnees(tmp_path: Path) -> None:
+    user = [make_material(f"m{i}", "Chêne") for i in range(300)]
+    _, issues = merge_materials(builtin_library(), user, SOURCE)
+    assert len(issues) == MAX_ISSUES + 1
+    entries = [entry(id=f"m{i}", name="Chêne", densty=1) for i in range(300)]
+    path = write(tmp_path, json.dumps(document(*entries)))
+    library, issues = load_library(BUILTIN_PATH, path)
+    assert len(library) == len(BUILTIN_TABLE)
+    assert len(issues) == MAX_ISSUES + 1
+    assert issues[-1].severity is Severity.ERROR
+
+
+def test_plafond_non_atteint_sans_synthese() -> None:
+    entries = [entry(id=f"m{i}", density="x") for i in range(MAX_ISSUES)]
+    _, issues = parse_materials(document(*entries), SOURCE)
+    assert len(issues) == MAX_ISSUES
+    assert all(issue.params["field"] == "density" for issue in issues)
+
+
+def duplicate_key_document(raw_entry: str) -> str:
+    return '{"format": 1, "materials": [' + json.dumps(REFERENCE) + ", " + raw_entry + "]}"
+
+
+@pytest.mark.parametrize(
+    ("raw_entry", "field", "material_id"),
+    [
+        pytest.param('{"id": "a", "id": "b"}', "id", None, id="id"),
+        pytest.param(
+            json.dumps(entry())[:-1] + ', "color": "#000000"}', "color", "erable", id="color"
+        ),
+        pytest.param(
+            json.dumps(entry())[:-1] + ', "name": {"fr": "A", "fr": "B"}}',
+            "name",
+            "erable",
+            id="name",
+        ),
+        pytest.param(
+            json.dumps(entry())[:-1] + ', "notes": [{"a": 1, "a": 2}]}',
+            "notes",
+            "erable",
+            id="imbrique",
+        ),
+    ],
+)
+def test_cle_en_double_rejette_l_entree(
+    tmp_path: Path, raw_entry: str, field: str, material_id: str | None
+) -> None:
+    path = write(tmp_path, duplicate_key_document(raw_entry))
+    materials, issues = read_materials_file(path)
+    assert [m.id for m in materials] == ["chene"]
+    [issue] = errors(issues)
+    assert issue.params["field"] == field
+    assert issue.material_id == material_id
+    assert "clé en double" in issue.format()
+
+
+def test_cle_en_double_a_la_racine_ignore_le_fichier(tmp_path: Path) -> None:
+    text = '{"format": 1, "materials": [], "materials": [' + json.dumps(REFERENCE) + "]}"
+    materials, [issue] = read_materials_file(write(tmp_path, text))
+    assert materials == []
+    assert issue.severity is Severity.ERROR
+    assert issue.params["field"] == "materials"
+
+
+def test_cle_en_double_dans_une_entree_non_objet_sans_effet(tmp_path: Path) -> None:
+    text = duplicate_key_document('[{"a": 1, "a": 2}]')
+    materials, [issue] = read_materials_file(write(tmp_path, text))
+    assert [m.id for m in materials] == ["chene"]
+    assert issue.params["positions"] == "2"
+
+
+def test_materiau_et_anomalie_hachables() -> None:
+    first = make_material("chene", "Chêne")
+    same = make_material("chene", "Chêne")
+    assert first == same
+    assert hash(first) == hash(same)
+    assert len({first, same, make_material("hetre", "Hêtre")}) == 2
+    issue = LibraryIssue(Severity.INFO, "src", "{source}", {"x": "y"})
+    assert hash(issue) == hash(LibraryIssue(Severity.INFO, "src", "{source}", {"x": "y"}))
+    assert repr(issue.params) == "_FrozenMapping({'source': 'src', 'x': 'y'})"
+    assert len(issue.params) == 2
+    assert issue.params == {"source": "src", "x": "y"}
+
+
+def test_materiau_conteneurs_convertis_en_tuples() -> None:
+    material = Material(
+        "x",
+        MaterialKind.SOLID,
+        {"fr": "X"},
+        1,
+        [18.0, 22.0],  # type: ignore[arg-type]
+        [1, 2, 3],  # type: ignore[arg-type]
+        True,
+    )
+    assert material.thicknesses == (18.0, 22.0)
+    assert material.color == (1, 2, 3)
+    assert isinstance(hash(material), int)
+
+
+def test_chemin_avec_octet_nul_signale(tmp_path: Path) -> None:
+    materials, [issue] = read_materials_file(tmp_path / "materiaux\x00.json", "utilisateur")
+    assert materials == []
+    assert issue.severity is Severity.ERROR
+
+
+def test_lecture_par_un_seul_descripteur(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = write(tmp_path, json.dumps(document(REFERENCE)))
+    opened: list[int] = []
+    real_open = os.open
+
+    def spy_open(target: object, flags: int, *args: int) -> int:
+        opened.append(flags)
+        return real_open(target, flags, *args)  # type: ignore[arg-type]
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("pas de stat() ni d'open() séparés")
+
+    monkeypatch.setattr(os, "open", spy_open)
+    monkeypatch.setattr(Path, "stat", refuse)
+    monkeypatch.setattr(Path, "open", refuse)
+    materials, issues = read_materials_file(path)
+    assert issues == []
+    assert len(materials) == 1
+    [flags] = opened
+    assert flags & getattr(os, "O_NONBLOCK", 0) == getattr(os, "O_NONBLOCK", 0)
+    assert flags & getattr(os, "O_CLOEXEC", 0) == getattr(os, "O_CLOEXEC", 0)
+
+
+def test_erreur_de_lecture_apres_ouverture_signalee(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = write(tmp_path, json.dumps(document(REFERENCE)))
+
+    def failing_read(descriptor: int, size: int) -> bytes:
+        raise OSError(5, "Erreur d'entrée/sortie")
+
+    monkeypatch.setattr(os, "read", failing_read)
+    materials, [issue] = read_materials_file(path)
+    assert materials == []
+    assert issue.params["error"] == "Erreur d'entrée/sortie"
+
+
 # --- A3 : fichier ignoré en entier --------------------------------------------------------
 
 FILE_RULES = [
@@ -431,10 +627,10 @@ def test_fichier_trop_volumineux_ignore_avant_lecture(
 ) -> None:
     path = write(tmp_path, b" " * (MAX_FILE_BYTES + 1))
 
-    def refuse_open(*args: object, **kwargs: object) -> None:
-        raise AssertionError("le fichier ne doit pas être ouvert")
+    def refuse_read(*args: object, **kwargs: object) -> None:
+        raise AssertionError("le fichier ne doit pas être lu")
 
-    monkeypatch.setattr(Path, "open", refuse_open)
+    monkeypatch.setattr(materials_module, "_read_at_most", refuse_read)
     materials, [issue] = read_materials_file(path)
     assert materials == []
     assert issue.params["size"] == str(MAX_FILE_BYTES + 1)
@@ -444,14 +640,14 @@ def test_fichier_qui_grossit_pendant_la_lecture_borne(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = write(tmp_path, b" " * (MAX_FILE_BYTES + 10))
-    real_stat = Path.stat
+    real_fstat = os.fstat
 
-    def small_stat(self: Path, **kwargs: bool) -> os.stat_result:
-        values = list(real_stat(self, **kwargs))
+    def small_fstat(descriptor: int) -> os.stat_result:
+        values = list(real_fstat(descriptor))
         values[6] = 10  # st_size
         return os.stat_result(values)
 
-    monkeypatch.setattr(Path, "stat", small_stat)
+    monkeypatch.setattr(os, "fstat", small_fstat)
     materials, [issue] = read_materials_file(path)
     assert materials == []
     assert issue.params["size"] == f"> {MAX_FILE_BYTES}"
@@ -477,7 +673,7 @@ def test_fichier_illisible_ignore(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     def deny(*args: object, **kwargs: object) -> None:
         raise PermissionError(13, "Permission non accordée")
 
-    monkeypatch.setattr(Path, "open", deny)
+    monkeypatch.setattr(os, "open", deny)
     materials, [issue] = read_materials_file(path, "utilisateur")
     assert materials == []
     assert issue.source == "utilisateur"

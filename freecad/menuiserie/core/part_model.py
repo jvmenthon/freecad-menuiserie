@@ -16,6 +16,7 @@ from typing import Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialKind, to_finite_float
 
+MIN_DIMENSION_MM: Final = 0.1
 MAX_DIMENSION_MM: Final = 20_000.0
 STANDARD_THICKNESS_TOLERANCE_MM: Final = 0.05
 _MM3_PER_M3: Final = 1e9
@@ -24,8 +25,7 @@ _ROUNDING_MARGIN_MM: Final = 1e-9
 
 _INVALID_DIMENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Cote invalide : {field} = {value} mm (valeur finie, supérieure à 0 et au plus {max} mm "
-    "attendue).",
+    "Cote invalide : {field} = {value} mm (valeur finie, entre {min} et {max} mm attendue).",
 )
 _INVALID_ALLOWANCE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -71,20 +71,24 @@ def _exact_text(number: float) -> str:
     return text.removesuffix(".0")
 
 
-def _validated(value: object, field: str, *, allow_zero: bool, template: str) -> float:
-    """Valeur convertie en flottant si elle est finie et dans ses bornes, sinon erreur."""
+def _validated(value: object, field: str, *, minimum: float, template: str) -> float:
+    """Valeur convertie en flottant si elle est finie et entre ``minimum`` et le maximum."""
     number = to_finite_float(value)
-    lower_ok = number is not None and (number >= 0 if allow_zero else number > 0)
-    if number is not None and lower_ok and number <= MAX_DIMENSION_MM:
+    if number is not None and minimum <= number <= MAX_DIMENSION_MM:
         return number
     shown = _exact_text(number) if number is not None else _short_repr(value)
-    params = {"field": _FIELD_LABELS[field], "value": shown, "max": f"{MAX_DIMENSION_MM:g}"}
+    params = {
+        "field": _FIELD_LABELS[field],
+        "value": shown,
+        "min": _exact_text(minimum),
+        "max": _exact_text(MAX_DIMENSION_MM),
+    }
     raise InvalidDimensionsError(template, params)
 
 
 @dataclass(frozen=True)
 class Dimensions:
-    """Cotes finies en mm : finies, strictement positives et au plus ``MAX_DIMENSION_MM``."""
+    """Cotes finies en mm : finies, entre ``MIN_DIMENSION_MM`` et ``MAX_DIMENSION_MM``."""
 
     length: float
     width: float
@@ -93,7 +97,9 @@ class Dimensions:
     def __post_init__(self) -> None:
         for item in fields(self):
             value = getattr(self, item.name)
-            number = _validated(value, item.name, allow_zero=False, template=_INVALID_DIMENSION)
+            number = _validated(
+                value, item.name, minimum=MIN_DIMENSION_MM, template=_INVALID_DIMENSION
+            )
             object.__setattr__(self, item.name, number)
 
 
@@ -108,7 +114,7 @@ class Allowances:
     def __post_init__(self) -> None:
         for item in fields(self):
             value = getattr(self, item.name)
-            number = _validated(value, item.name, allow_zero=True, template=_INVALID_ALLOWANCE)
+            number = _validated(value, item.name, minimum=0.0, template=_INVALID_ALLOWANCE)
             object.__setattr__(self, item.name, number)
 
 

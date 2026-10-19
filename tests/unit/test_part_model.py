@@ -13,6 +13,7 @@ from freecad.menuiserie.core.part_model import (
     DEFAULT_PANEL_ALLOWANCES,
     DEFAULT_SOLID_ALLOWANCES,
     MAX_DIMENSION_MM,
+    MIN_DIMENSION_MM,
     Allowances,
     Dimensions,
     GrainDirection,
@@ -74,6 +75,8 @@ def test_cotes_converties_en_flottants() -> None:
 
 INVALID_DIMENSIONS: list[object] = [
     0,
+    1e-9,
+    0.09999999999999999,
     -1,
     -0.0,
     math.nan,
@@ -109,7 +112,7 @@ def test_entier_trop_long_pour_etre_affiche_refuse() -> None:
 
 
 def test_bornes_acceptees() -> None:
-    assert Dimensions(MAX_DIMENSION_MM, 0.001, 1).length == MAX_DIMENSION_MM
+    assert Dimensions(MAX_DIMENSION_MM, MIN_DIMENSION_MM, 1).length == MAX_DIMENSION_MM
     assert Allowances(0, MAX_DIMENSION_MM, 0).width == MAX_DIMENSION_MM
     assert Allowances() == Allowances(0, 0, 0)
 
@@ -117,7 +120,7 @@ def test_bornes_acceptees() -> None:
 def test_message_d_erreur_rempli() -> None:
     with pytest.raises(InvalidDimensionsError) as error:
         Dimensions(800, 0, 22)
-    assert error.value.params == {"field": "largeur", "value": "0", "max": "20000"}
+    assert error.value.params == {"field": "largeur", "value": "0", "min": "0.1", "max": "20000"}
     assert str(error.value) == error.value.template.format(**error.value.params)
 
 
