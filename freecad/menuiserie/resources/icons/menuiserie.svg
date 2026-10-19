@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Planche vue en perspective, avec veinage -->
+  <polygon points="6,26 42,10 58,18 22,34" fill="#e8b878" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="6,26 22,34 22,44 6,36" fill="#b9814a" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="22,34 58,18 58,28 22,44" fill="#cf9a5e" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M14,24 C24,20 32,17 44,13 M20,28 C30,24 40,20 50,16 M26,31 C36,27 44,23 54,19" fill="none" stroke="#a06a35" stroke-width="1.2"/>
+  <path d="M26,38 L54,25" fill="none" stroke="#9a6430" stroke-width="1"/>
+</svg>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>Menuiserie</name>
+  <description>Atelier de menuiserie paramétrique : pièces de bois, assemblages et liste de débit.</description>
+  <version>0.1.0</version>
+  <date>2026-10-19</date>
+  <maintainer email="jvmenthon@users.noreply.github.com">jvmenthon</maintainer>
+  <license file="LICENSE">LGPL-2.1-or-later</license>
+  <url type="repository" branch="main">https://github.com/jvmenthon/freecad-menuiserie</url>
+  <url type="bugtracker">https://github.com/jvmenthon/freecad-menuiserie/issues</url>
+  <url type="readme">https://github.com/jvmenthon/freecad-menuiserie/blob/main/README.md</url>
+  <icon>freecad/menuiserie/resources/icons/menuiserie.svg</icon>
+
+  <content>
+    <workbench>
+      <classname>MenuiserieWorkbench</classname>
+      <subdirectory>./</subdirectory>
+      <freecadmin>1.0.0</freecadmin>
+      <pythonmin>3.10</pythonmin>
+      <tag>woodworking</tag>
+      <tag>menuiserie</tag>
+      <tag>furniture</tag>
+    </workbench>
+  </content>
+</package>

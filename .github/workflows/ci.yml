@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualite:
+    name: Lint, typage et tests unitaires
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Installer l'outillage
+        run: pip install -e ".[dev]"
+      - name: Ruff (lint)
+        run: ruff check --output-format=github .
+      - name: Ruff (format)
+        run: ruff format --check .
+      - name: Mypy
+        run: mypy freecad tests
+      - name: Tests unitaires
+        run: pytest tests/unit --cov --cov-report=term-missing
+
+  integration:
+    name: Intégration FreeCAD ${{ matrix.freecad }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        freecad: ["1.0.*", "latest"]
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-name: freecad
+          create-args: >-
+            ${{ matrix.freecad == 'latest' && 'freecad' || format('freecad={0}', matrix.freecad) }}
+            pytest
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
+      - name: Version de FreeCAD
+        run: |
+          export PYTHONPATH="$CONDA_PREFIX/lib:$PYTHONPATH"
+          python -c "import FreeCAD; print(FreeCAD.Version())"
+      - name: Tests d'intégration
+        run: |
+          export PYTHONPATH="$CONDA_PREFIX/lib:$PYTHONPATH"
+          pytest tests/integration -m integration
