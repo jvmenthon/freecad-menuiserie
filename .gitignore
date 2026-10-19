@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+
+# Fichiers de sauvegarde FreeCAD
+*.FCStd1
+*.FCBak
+
+# Traductions compilées : générées à la publication
+# (les .ts sources restent versionnés)
