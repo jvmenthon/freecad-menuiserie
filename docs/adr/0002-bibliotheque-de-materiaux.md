@@ -32,6 +32,8 @@ Pour le lien entre pièce et matériau :
    `kind` (`solid`, `plywood`, `mdf`, `melamine`), un `name` (chaîne ou objet `{langue: libellé}`),
    `density` (kg/m³), `thicknesses` (mm), `color` (`#RRGGBB`) et `has_grain` facultatif. Clés en
    anglais, libellés en français. Règles de validation détaillées dans la spécification J1.
+   Une `texture` facultative (image relative au fichier de bibliothèque et taille réelle couverte,
+   en mm) peut compléter la couleur, qui reste le rendu de secours si l'image manque.
 2. **Le type de la pièce est une caractéristique du matériau** (`kind`) : il n'est pas choisi
    indépendamment de l'essence (cf. question Q3 de la spécification).
 3. **Identifiant stable** (`chene`, `cp-bouleau`) : c'est lui qui relie une pièce à un matériau ;

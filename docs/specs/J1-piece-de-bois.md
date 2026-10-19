@@ -46,10 +46,11 @@ Légende du type de test : **U** = unitaire sans FreeCAD (`tests/unit`), **I** =
 | A3 | Un fichier illisible, qui n'est pas du JSON valide, qui dépasse 1 Mio, dont la racine n'est pas un objet ou dont `format` n'est pas `1` est **ignoré en entier** avec une seule anomalie de niveau erreur ; `NaN`/`Infinity` sont refusés. | U |
 | A4 | Fusion : une entrée utilisateur d'identifiant nouveau est ajoutée après les matériaux intégrés ; une entrée utilisateur d'identifiant existant **remplace entièrement** le matériau intégré (anomalie de niveau info) ; une entrée utilisateur dont le libellé français est déjà porté par un autre identifiant est rejetée. Un fichier utilisateur absent ne produit aucune anomalie. | U |
 | A5 | Calculs : pour 800 × 200 × 22 mm, `volume_m3` = 0,00352 m³ et `mass_kg` à 710 kg/m³ = 2,4992 kg (à 1e-9 près) ; `rough_dimensions` avec des surcotes 20 / 5 / 0 donne 820 × 205 × 22. | U |
-| A6 | `Dimensions` refuse toute cote ≤ 0, non finie ou > 20 000 mm ; `Allowances` refuse toute surcote < 0, non finie ou > 20 000 mm (exception `InvalidDimensionsError`). | U |
+| A6 | `Dimensions` refuse toute cote inférieure à 0,1 mm (donc toute cote ≤ 0), non finie ou > 20 000 mm ; `Allowances` refuse toute surcote < 0, non finie ou > 20 000 mm (exception `InvalidDimensionsError`). | U |
 | A7 | Règles de changement de matériau : vers un matériau sans fil → `GrainDirection.NONE` ; vers un matériau avec fil alors que le fil valait `NONE` → `LENGTH` ; sinon le fil est conservé. Les surcotes ne sont remplacées par celles de la nouvelle famille (massif / panneau) **que si** elles valent encore exactement celles de l'ancienne famille. | U |
 | A8 | `is_standard_thickness` reconnaît 18 mm pour le contreplaqué bouleau (tolérance 0,05 mm) et refuse 17 mm. | U |
 | A9 | `core/` n'importe ni FreeCAD ni Qt (test existant `test_separation_app_gui` toujours vert) ; couverture de `core/` ≥ 90 %. | U |
+| A10 | Texture facultative : une entrée munie d'une `texture` valide expose `Material.texture` (chemin absolu de l'image, résolu dans le dossier du fichier qui la déclare, et taille en mm) ; sans `texture`, `Material.texture` vaut `None`. Chaque règle de `texture` du § 4.3.2 est vérifiée comme au critère A2 (entrée rejetée, champ `texture`, `texture.image` ou `texture.size` cité). L'existence du fichier image n'est **pas** vérifiée par `core/` (J1b, la couleur restant le secours). | U |
 
 ### J1b — Objet du document (`features/`, `api.py`, ViewProvider)
 
@@ -142,6 +143,7 @@ paramètres nommés (`"{source} : matériau « {id} », champ « {field} » : {r
 FORMAT_VERSION: Final = 1
 MAX_FILE_BYTES: Final = 1_048_576
 MAX_MATERIALS: Final = 500
+MAX_ISSUES: Final = 200                # anomalies renvoyées au plus, + 1 anomalie de synthèse
 
 class MaterialKind(str, Enum):
     SOLID = "solid"
@@ -168,7 +170,12 @@ class LibraryIssue:
     def format(self) -> str:          # gabarit non traduit, rempli (tests, journaux)
 
 @dataclass(frozen=True)
-class Material:
+class Texture:
+    image: Path                       # chemin absolu résolu (existence non vérifiée)
+    size: tuple[float, float]         # mm : largeur (sens du fil), hauteur couvertes par l'image
+
+@dataclass(frozen=True)
+class Material:                       # immuable et hachable, libellés en forme NFC
     id: str
     kind: MaterialKind
     names: Mapping[str, str]          # code langue ISO 639-1 -> libellé ; au moins une entrée
@@ -176,6 +183,7 @@ class Material:
     thicknesses: tuple[float, ...]    # mm, triées croissantes, sans doublon
     color: tuple[int, int, int]       # RVB 0–255
     has_grain: bool
+    texture: Texture | None = None
 
     def name(self, lang: str = "fr") -> str:
         """Libellé dans la langue demandée, sinon français, sinon la première langue disponible."""
@@ -195,7 +203,8 @@ class MaterialLibrary:
     def by_kind(self, *kinds: MaterialKind) -> list[Material]: ...
     def default_material(self) -> Material: ...         # premier matériau massif, sinon le premier
 
-def parse_materials(data: object, source: str) -> tuple[list[Material], list[LibraryIssue]]: ...
+def parse_materials(data: object, source: str, folder: Path | None = None
+                    ) -> tuple[list[Material], list[LibraryIssue]]: ...  # folder : dossier du fichier
 def read_materials_file(path: Path, source: str | None = None) -> tuple[list[Material], list[LibraryIssue]]: ...
 def merge_materials(builtin: Sequence[Material], user: Sequence[Material], user_source: str
                     ) -> tuple[MaterialLibrary, list[LibraryIssue]]: ...
@@ -203,13 +212,18 @@ def load_library(builtin_path: Path, user_path: Path | None
                  ) -> tuple[MaterialLibrary, list[LibraryIssue]]: ...
 ```
 
-`read_materials_file` : taille vérifiée **avant** lecture, décodage UTF-8 strict,
-`json.loads(..., parse_constant=<refus>)` ; aucune autre forme de désérialisation. Un fichier
-utilisateur absent renvoie `([], [])`.
+`read_materials_file` : ouverture par `os.open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)` (drapeaux
+absents sous Windows ignorés), type (fichier ordinaire) et taille vérifiés par `os.fstat` sur ce
+descripteur **avant** lecture, puis lecture bornée sur le même descripteur ; décodage UTF-8 strict
+(BOM initial toléré : PowerShell 5 en écrit un), `json.loads(..., parse_constant=<refus>,
+object_pairs_hook=<repérage des clés en double>)` ; aucune autre forme de désérialisation. Un
+fichier utilisateur absent renvoie `([], [])`. `parse_materials`, `merge_materials` et
+`load_library` renvoient au plus `MAX_ISSUES` anomalies, suivies d'une anomalie de synthèse.
 
 #### `core/part_model.py`
 
 ```python
+MIN_DIMENSION_MM: Final = 0.1
 MAX_DIMENSION_MM: Final = 20_000.0
 STANDARD_THICKNESS_TOLERANCE_MM: Final = 0.05
 
@@ -226,7 +240,7 @@ class InvalidDimensionsError(ValueError):
 
 
 @dataclass(frozen=True)
-class Dimensions:  # cotes finies en mm ; 0 < x ≤ MAX_DIMENSION_MM, finies
+class Dimensions:  # cotes finies en mm ; MIN_DIMENSION_MM ≤ x ≤ MAX_DIMENSION_MM, finies
     length: float
     width: float
     thickness: float
@@ -296,7 +310,8 @@ def allowances_after_material_change(
       "name": "Noyer noir",
       "density": 610,
       "thicknesses": [22, 27],
-      "color": "#4A3326"
+      "color": "#4A3326",
+      "texture": {"image": "textures/noyer-noir.jpg", "size": [600, 200]}
     }
   ]
 }
@@ -305,27 +320,43 @@ def allowances_after_material_change(
 Clés en anglais (identifiants), valeurs affichées en français. Les unités sont implicites et
 documentées : `density` en kg/m³ (bois à environ 12 % d'humidité), `thicknesses` en mm.
 
+`texture` (facultative) associe une image au matériau : `image` est relatif au dossier du fichier
+de bibliothèque qui la déclare (bibliothèque intégrée : `freecad/menuiserie/data/`, images dans
+`data/textures/`) et `size` donne la largeur et la hauteur réelles, en mm, couvertes par l'image,
+le fil du bois suivant la largeur de l'image. `core/` ne vérifie pas que l'image existe : J1b s'en
+charge à l'affichage et utilise `color` si l'image manque ou est illisible.
+
 #### 4.3.2 Règles de validation
 
 | Élément | Règle | En cas de violation |
 |---|---|---|
-| Fichier | ≤ 1 Mio, UTF-8, JSON valide, sans `NaN`/`Infinity` | fichier ignoré, 1 erreur |
-| Racine | objet contenant `format` (entier, pas booléen) et `materials` (liste) | fichier ignoré, 1 erreur |
+| Fichier | fichier ordinaire, ≤ 1 Mio, UTF-8 (BOM initial toléré), JSON valide, sans `NaN`/`Infinity` | fichier ignoré, 1 erreur |
+| Racine | objet contenant `format` (entier, pas booléen) et `materials` (liste), sans clé en double | fichier ignoré, 1 erreur |
 | `format` | égal à 1 ; supérieur → message « fichier créé par une version plus récente de l'atelier » | fichier ignoré, 1 erreur |
 | `materials` | ≤ 500 entrées, chacune un objet | entrées en trop / non-objets ignorés, 1 erreur |
 | `id` | obligatoire, chaîne, `^[a-z0-9]+(-[a-z0-9]+)*$`, 1 à 64 caractères ; unique dans le fichier | entrée rejetée (doublon : la 2ᵉ), 1 erreur |
 | `kind` | obligatoire, l'une de `solid`, `plywood`, `mdf`, `melamine` | entrée rejetée |
-| `name` | obligatoire ; chaîne (équivaut à `{"fr": …}`) ou objet `{langue: libellé}` non vide ; langue `^[a-z]{2}$` ; libellé de 1 à 80 caractères après suppression des espaces de bord, sans caractère de contrôle | entrée rejetée |
+| `name` | obligatoire ; chaîne (équivaut à `{"fr": …}`) ou objet `{langue: libellé}` non vide ; langue `^[a-z]{2}$` ; libellé normalisé en NFC, de 1 à 80 caractères après suppression des espaces de bord, sans caractère des catégories Unicode Cc, Cf, Cs, Co, Cn, Zl, Zp (contrôle, invisibles et bidi, demi-substituts, usage privé, non attribués, séparateurs de ligne et de paragraphe) | entrée rejetée |
 | `density` | obligatoire, nombre fini (pas booléen), 50 ≤ d ≤ 2000 | entrée rejetée |
 | `thicknesses` | obligatoire, liste non vide de 1 à 50 nombres finis, 0 < e ≤ 300 ; triée et dédoublonnée au chargement | entrée rejetée |
 | `color` | obligatoire, chaîne `^#[0-9A-Fa-f]{6}$` | entrée rejetée |
 | `has_grain` | facultatif, booléen ; défaut : vrai pour `solid` et `plywood`, faux pour `mdf` et `melamine` | entrée rejetée si non booléen |
-| Clé inconnue | (racine ou entrée) | ignorée, 1 avertissement (aide à repérer les fautes de frappe) |
+| `texture` | facultatif ; objet contenant `image` et `size` | entrée rejetée (champ `texture`, ou `texture.image` / `texture.size` si absent) |
+| `texture.image` | chaîne de 1 à 255 caractères, chemin **relatif** au dossier du fichier, séparateur `/`, sans composant `..`, sans `\` ni `:` (pas de chemin absolu ni de lecteur Windows), sans caractère des catégories interdites pour `name` ; extension `.png`, `.jpg` ou `.jpeg` (casse indifférente) ; le chemin résolu (liens symboliques compris) reste dans le dossier du fichier | entrée rejetée |
+| `texture.size` | liste de 2 nombres finis (pas booléens), 10 ≤ v ≤ 10 000 mm : largeur et hauteur couvertes par l'image | entrée rejetée |
+| Clé en double | dans une entrée ou dans un objet qu'elle contient (`name`, `texture`…) | entrée rejetée, 1 erreur citant la clé |
+| Clé inconnue | (racine, entrée ou `texture`, citée `texture.<clé>`) | ignorée ; 1 seul avertissement par racine ou entrée, qui cite au plus 5 clés (tronquées à 32 caractères et échappées) puis « … et N autres » |
+| Anomalies | au plus 200 par appel | les suivantes sont résumées par 1 anomalie de synthèse (gravité la plus haute parmi elles) |
 
 Fusion (fichier utilisateur sur bibliothèque intégrée) : identifiant nouveau → ajouté à la fin ;
 identifiant existant → **remplacement complet** de l'entrée intégrée, à sa place (anomalie info) ;
 libellé français déjà utilisé par un autre identifiant → entrée utilisateur rejetée (les libellés
-servent de valeurs à la liste déroulante `Material`, ils doivent être uniques).
+servent de valeurs à la liste déroulante `Material`, ils doivent être uniques). L'unicité des
+libellés (comparés en forme NFC) est vérifiée **après** application de tous les remplacements :
+le résultat ne dépend pas de l'ordre des remplacements (deux matériaux intégrés peuvent échanger
+leurs libellés). En cas de conflit, un matériau intégré non remplacé garde son libellé ; entre
+deux entrées utilisateur, la première du fichier le garde. Une entrée rejetée rend sa place au
+matériau intégré qu'elle remplaçait.
 
 #### 4.3.3 Extension par l'utilisateur
 
@@ -573,8 +604,11 @@ minimum strictement positif) :
 
 ### 4.6 Sécurité
 
-Lecture des fichiers de matériaux en JSON uniquement, taille bornée avant lecture, toutes les
-valeurs typées et bornées (§ 4.3.2) ; aucune écriture de fichier ; aucun chemin construit à partir
+Lecture des fichiers de matériaux en JSON uniquement, par un seul descripteur (`os.open` non
+bloquant, `fstat`, lecture bornée), taille bornée avant lecture, clés en double refusées, toutes
+les valeurs typées et bornées (§ 4.3.2), valeurs citées dans les anomalies tronquées et échappées,
+nombre d'anomalies plafonné ; chemins de texture relatifs, confinés au dossier du fichier de
+bibliothèque après résolution des liens, jamais ouverts par `core/` ; aucune écriture de fichier ; aucun chemin construit à partir
 du contenu d'un document ; `api.py` est le seul module hors `gui/` autorisé à importer `gui/`, et
 seulement sous `if App.GuiUp`.
 
@@ -582,7 +616,7 @@ seulement sous `if App.GuiUp`.
 
 | Lot | Branche | Contenu | Diff estimé hors tests | Critères |
 |---|---|---|---|---|
-| **J1a** | `feat/bibliotheque-materiaux` | `core/i18n.py`, `core/materials.py`, `core/part_model.py`, `data/materiaux.json`, ADR 0002 accepté | ≈ 320 lignes + 130 lignes de données | A1–A9 |
+| **J1a** | `feat/bibliotheque-materiaux` | `core/i18n.py`, `core/materials.py`, `core/part_model.py`, `data/materiaux.json`, ADR 0002 accepté | ≈ 320 lignes + 130 lignes de données | A1–A10 |
 | **J1b** | `feat/piece-de-bois` | `features/library.py`, `features/wood_part.py`, `api.py`, ViewProvider (icône, couleur), icône SVG, README « Ajouter une essence », ADR 0003 accepté | ≈ 380 lignes | B1–B14 |
 | **J1c** | `feat/panneau-piece-de-bois` | commande, panneau de tâche + `.ui`, édition au double-clic, `init_gui.py`, test G | ≈ 300 lignes + `.ui` | C1–C9 |
 
