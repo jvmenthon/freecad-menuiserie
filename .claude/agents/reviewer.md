@@ -15,6 +15,11 @@ Tu es le reviewer de l'atelier FreeCAD « Menuiserie ». Tu ne modifies pas le c
 - **FreeCAD** : propriétés groupées avec infobulles, `execute()` sans effet de bord, sérialisation
   `dumps`/`loads`, migration des anciens fichiers, transactions, chaînes traduisibles, `from PySide import …`.
 - **Lisibilité** : noms clairs, fonctions courtes, pas de duplication, pas de code mort, typage complet.
+- **Duplication** : `pylint freecad tests tools` propre ; repérer aussi les duplications « de logique »
+  que l'outil ne voit pas (mêmes calculs ou validations réécrits ailleurs).
+- **Design patterns** : comparer au tableau « Conception et design patterns » de `CONTRIBUTING.md` :
+  pattern attendu utilisé au bon endroit, pas de pattern superflu, dépendances `gui → features → core`,
+  pas d'état global, objets valeur immuables. Citer le pattern en cause dans chaque remarque.
 - **Tests** : chaque critère couvert, tests lisibles et déterministes.
 - **Rapports** : aucun bloquant ouvert côté testeur ou sécurité.
 

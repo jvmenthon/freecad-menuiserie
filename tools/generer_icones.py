@@ -126,9 +126,9 @@ class Icone:
             axe_dominant = max(range(3), key=lambda k: abs(normale[k]))
             self.face(pts, matiere, "xyz"[axe_dominant])
 
-    def boite(
-        self, x: float, y: float, z: float, dx: float, dy: float, dz: float, matiere: str
-    ) -> None:
+    def boite(self, origine: Point3, taille: Point3, matiere: str) -> None:
+        """Parallélépipède d'angle ``origine`` et de dimensions ``taille`` (x, y, z)."""
+        (x, y, z), (dx, dy, dz) = origine, taille
         profil = [(y, z), (y + dy, z), (y + dy, z + dz), (y, z + dz)]
         self.prisme(profil, "x", x, x + dx, matiere)
 
@@ -151,16 +151,19 @@ class Icone:
 
     def veinage(
         self,
-        a0: float,
-        a1: float,
-        pos: float,
-        z: float,
+        plage: tuple[float, float],
+        ancrage: tuple[float, float],
         matiere: str,
+        *,
         amplitude: float = 1.2,
         phase: float = 0.0,
         axe: str = "x",
     ) -> None:
-        """Ligne de veinage ondulée sur un dessus, parallèle à l'axe ``x`` ou ``y``."""
+        """Ligne de veinage ondulée sur un dessus, parallèle à l'axe ``x`` ou ``y``.
+
+        ``plage`` = (début, fin) le long de l'axe ; ``ancrage`` = (position transverse, hauteur z).
+        """
+        (a0, a1), (pos, z) = plage, ancrage
         pts: list[Point3] = []
         for i in range(17):
             t = i / 16
@@ -242,21 +245,21 @@ def _feuille(x: float) -> str:
 
 def atelier() -> str:
     ic = Icone("Atelier Menuiserie : planche de chêne et équerre")
-    ic.boite(0, 0, 0, 90, 32, 12, "chene")
+    ic.boite((0, 0, 0), (90, 32, 12), "chene")
     for y, phase in ((7, 0.0), (15, 0.35), (24, 0.7)):
-        ic.veinage(4, 86, y, 12, "chene", phase=phase)
+        ic.veinage((4, 86), (y, 12), "chene", phase=phase)
     ic.prisme([(2, 12), (31, 12), (31, 14), (2, 14)], "x", 54, 66, "acier")  # lame
     for y in (6, 11, 16, 21, 26):  # graduations
         ic.trait([(54, y, 14), (58, y, 14)], "#555753", 1.0)
-    ic.boite(46, 31, 3, 28, 7, 14, "palissandre")  # talon
+    ic.boite((46, 31, 3), (28, 7, 14), "palissandre")  # talon
     return ic.svg()
 
 
 def piece_de_bois() -> str:
     ic = Icone("Pièce de bois massif : planche avec veinage et cernes")
-    ic.boite(0, 0, 0, 100, 28, 12, "chene")
+    ic.boite((0, 0, 0), (100, 28, 12), "chene")
     for y, phase in ((6, 0.1), (14, 0.45), (22, 0.8)):
-        ic.veinage(4, 96, y, 12, "chene", phase=phase)
+        ic.veinage((4, 96), (y, 12), "chene", phase=phase)
     for r in (7, 12, 17):  # cernes sur le bois de bout
         arc = [
             (100.0, 14 + r * math.cos(t), -8 + r * math.sin(t))
@@ -270,7 +273,7 @@ def piece_de_bois() -> str:
 
 def panneau() -> str:
     ic = Icone("Panneau : contreplaqué et ses plis")
-    ic.boite(0, 0, 0, 64, 56, 12, "contreplaque")
+    ic.boite((0, 0, 0), (64, 56, 12), "contreplaque")
     for z in (3, 9):  # plis croisés, plus sombres
         ic.bande(
             [(64, 0, z), (64, 56, z), (0, 56, z), (0, 56, z + 3), (64, 56, z + 3), (64, 0, z + 3)],
@@ -283,17 +286,19 @@ def panneau() -> str:
 def essences() -> str:
     ic = Icone("Bibliothèque d'essences : échantillons de noyer, chêne et hêtre")
     for i, matiere in enumerate(("noyer", "chene", "hetre")):
-        ic.boite(i * 8, -i * 4, i * 10, 62, 22, 9, matiere)
+        ic.boite((i * 8, -i * 4, i * 10), (62, 22, 9), matiere)
         for y, phase in ((6 - i * 4, 0.2 * i), (14 - i * 4, 0.5 + 0.2 * i)):
-            ic.veinage(i * 8 + 4, i * 8 + 58, y, i * 10 + 9, matiere, amplitude=0.9, phase=phase)
+            ic.veinage(
+                (i * 8 + 4, i * 8 + 58), (y, i * 10 + 9), matiere, amplitude=0.9, phase=phase
+            )
     return ic.svg()
 
 
 def liste_de_debit() -> str:
     ic = Icone("Liste de débit : tableau des pièces")
-    ic.boite(0, 0, 0, 60, 16, 7, "chene")
-    ic.veinage(3, 57, 5, 7, "chene", amplitude=0.6)
-    ic.veinage(3, 57, 11, 7, "chene", amplitude=0.6, phase=0.5)
+    ic.boite((0, 0, 0), (60, 16, 7), "chene")
+    ic.veinage((3, 57), (5, 7), "chene", amplitude=0.6)
+    ic.veinage((3, 57), (11, 7), "chene", amplitude=0.6, phase=0.5)
     return ic.svg(cadre=(22, 62, 40, 62), fond=_feuille(10))
 
 
@@ -307,13 +312,13 @@ def export_liste_de_debit() -> str:
 
 def tenon_mortaise() -> str:
     ic = Icone("Tenon-mortaise : une traverse et son tenon face à la mortaise d'un montant")
-    ic.boite(0, 0, 0, 22, 22, 76, "chene")  # montant
-    ic.veinage(3, 19, 6, 76, "chene", amplitude=0.5)
+    ic.boite((0, 0, 0), (22, 22, 76), "chene")  # montant
+    ic.veinage((3, 19), (6, 76), "chene", amplitude=0.5)
     ic.trou([(22, 7, 30), (22, 15, 30), (22, 15, 52), (22, 7, 52)])  # mortaise
-    ic.boite(40, 7, 31, 12, 8, 20, "chene")  # tenon
-    ic.boite(52, 2, 26, 32, 18, 30, "chene")  # traverse
-    ic.veinage(55, 81, 6, 56, "chene", amplitude=0.6)
-    ic.veinage(55, 81, 14, 56, "chene", amplitude=0.6, phase=0.5)
+    ic.boite((40, 7, 31), (12, 8, 20), "chene")  # tenon
+    ic.boite((52, 2, 26), (32, 18, 30), "chene")  # traverse
+    ic.veinage((55, 81), (6, 56), "chene", amplitude=0.6)
+    ic.veinage((55, 81), (14, 56), "chene", amplitude=0.6, phase=0.5)
     return ic.svg()
 
 
@@ -321,29 +326,29 @@ def rainure_languette() -> str:
     ic = Icone("Rainure et languette : deux planches vues en bout")
     languette = [(0, 0), (24, 0), (24, 5), (32, 5), (32, 11), (24, 11), (24, 16), (0, 16)]
     ic.prisme(languette, "x", 0, 40, "chene")
-    ic.veinage(3, 37, 7, 16, "chene", amplitude=0.7)
-    ic.veinage(3, 37, 17, 16, "chene", amplitude=0.7, phase=0.5)
+    ic.veinage((3, 37), (7, 16), "chene", amplitude=0.7)
+    ic.veinage((3, 37), (17, 16), "chene", amplitude=0.7, phase=0.5)
     rainure = [(44, 0), (68, 0), (68, 16), (44, 16), (44, 11), (52, 11), (52, 5), (44, 5)]
     ic.prisme(rainure, "x", 0, 40, "chene")
-    ic.veinage(3, 37, 51, 16, "chene", amplitude=0.7, phase=0.3)
-    ic.veinage(3, 37, 61, 16, "chene", amplitude=0.7, phase=0.8)
+    ic.veinage((3, 37), (51, 16), "chene", amplitude=0.7, phase=0.3)
+    ic.veinage((3, 37), (61, 16), "chene", amplitude=0.7, phase=0.8)
     return ic.svg()
 
 
 def feuillure() -> str:
     ic = Icone("Feuillure : planche entaillée sur une arête")
     ic.prisme([(0, 0), (34, 0), (34, 8), (20, 8), (20, 16), (0, 16)], "x", 0, 84, "chene")
-    ic.veinage(4, 80, 6, 16, "chene", amplitude=0.9)
-    ic.veinage(4, 80, 14, 16, "chene", amplitude=0.9, phase=0.5)
-    ic.veinage(4, 80, 27, 8, "chene", amplitude=0.9, phase=0.2)
+    ic.veinage((4, 80), (6, 16), "chene", amplitude=0.9)
+    ic.veinage((4, 80), (14, 16), "chene", amplitude=0.9, phase=0.5)
+    ic.veinage((4, 80), (27, 8), "chene", amplitude=0.9, phase=0.2)
     return ic.svg()
 
 
 def tourillons() -> str:
     ic = Icone("Tourillons : deux tourillons plantés dans le chant d'une planche")
-    ic.boite(0, 0, 0, 90, 26, 14, "chene")
-    ic.veinage(4, 86, 5, 14, "chene", amplitude=0.8)
-    ic.veinage(4, 86, 21, 14, "chene", amplitude=0.8, phase=0.6)
+    ic.boite((0, 0, 0), (90, 26, 14), "chene")
+    ic.veinage((4, 86), (5, 14), "chene", amplitude=0.8)
+    ic.veinage((4, 86), (21, 14), "chene", amplitude=0.8, phase=0.6)
     ic.trou([(68 + 5 * math.cos(t), 13 + 5 * math.sin(t), 14) for t in _angles(32)])
     for cx in (22, 45):
         ic.cylindre(cx, 13, 14, 34, 5, "tourillon")
@@ -354,11 +359,11 @@ def mi_bois() -> str:
     ic = Icone("Entaille à mi-bois : deux pièces croisées, entaillées à mi-épaisseur")
     profil_bas = [(0, 0), (80, 0), (80, 12), (50, 12), (50, 6), (30, 6), (30, 12), (0, 12)]
     ic.prisme(profil_bas, "y", 0, 20, "chene")
-    ic.veinage(3, 27, 10, 12, "chene", amplitude=0.6)
-    ic.veinage(53, 77, 10, 12, "chene", amplitude=0.6, phase=0.4)
+    ic.veinage((3, 27), (10, 12), "chene", amplitude=0.6)
+    ic.veinage((53, 77), (10, 12), "chene", amplitude=0.6, phase=0.4)
     profil_haut = [(-20, 26), (0, 26), (0, 32), (20, 32), (20, 26), (40, 26), (40, 38), (-20, 38)]
     ic.prisme(profil_haut, "x", 30, 50, "chene")
-    ic.veinage(-17, 37, 40, 38, "chene", amplitude=0.6, axe="y")
+    ic.veinage((-17, 37), (40, 38), "chene", amplitude=0.6, axe="y")
     return ic.svg()
 
 
@@ -370,18 +375,18 @@ def queue_d_aronde() -> str:
     ]  # fmt: skip
     ic.prisme(profil, "z", 0, 16, "chene")
     for y, phase in ((10, 0.0), (20, 0.4), (30, 0.8)):
-        ic.veinage(3, 27, y, 16, "chene", amplitude=0.7, phase=phase)
+        ic.veinage((3, 27), (y, 16), "chene", amplitude=0.7, phase=phase)
     return ic.svg()
 
 
 def caisson() -> str:
     ic = Icone("Caisson : côtés, fond, tablette, dessus et dos")
-    ic.boite(4, 0, 4, 42, 3, 52, "contreplaque")  # dos
-    ic.boite(0, 0, 0, 4, 40, 60, "contreplaque")  # côté gauche
-    ic.boite(4, 0, 0, 42, 40, 4, "contreplaque")  # fond
-    ic.boite(4, 0, 28, 42, 38, 3, "contreplaque")  # tablette
-    ic.boite(4, 0, 56, 42, 40, 4, "contreplaque")  # dessus
-    ic.boite(46, 0, 0, 4, 40, 60, "contreplaque")  # côté droit
+    ic.boite((4, 0, 4), (42, 3, 52), "contreplaque")  # dos
+    ic.boite((0, 0, 0), (4, 40, 60), "contreplaque")  # côté gauche
+    ic.boite((4, 0, 0), (42, 40, 4), "contreplaque")  # fond
+    ic.boite((4, 0, 28), (42, 38, 3), "contreplaque")  # tablette
+    ic.boite((4, 0, 56), (42, 40, 4), "contreplaque")  # dessus
+    ic.boite((46, 0, 0), (4, 40, 60), "contreplaque")  # côté droit
     return ic.svg()
 
 
