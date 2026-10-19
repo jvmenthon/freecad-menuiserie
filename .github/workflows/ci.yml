@@ -76,16 +76,14 @@ jobs:
           export RESULTAT="$RUNNER_TEMP/resultat-gui.txt"
           journal="$RUNNER_TEMP/freecad-gui.log"
           statut=0
-          timeout 300 freecad tests/gui/verifier_atelier.py > "$journal" 2>&1 || statut=$?
-          if [ "$statut" -eq 0 ]; then
+          timeout 300 freecad "$GITHUB_WORKSPACE/tests/gui/verifier_atelier.py" > "$journal" 2>&1 \
+            || statut=$?
+          if [ "$statut" -eq 0 ] && grep -q '^OK' "$RESULTAT" 2>/dev/null; then
             cat "$RESULTAT"
-          else
-            # Rapport et fin du journal en annotations, lisibles depuis la PR.
-            if [ -f "$RESULTAT" ]; then
-              sed 's/^/::error title=Interface FreeCAD::/' "$RESULTAT"
-            else
-              echo "::error title=Interface FreeCAD::aucun rapport produit (statut $statut)"
-            fi
-            tail -n 20 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
+            exit 0
           fi
-          exit "$statut"
+          # Rapport et fin du journal en annotations, lisibles depuis la PR.
+          echo "::error title=Interface FreeCAD::échec (statut $statut)"
+          [ -f "$RESULTAT" ] && sed 's/^/::error title=Rapport::/' "$RESULTAT"
+          tail -n 25 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
+          exit 1
