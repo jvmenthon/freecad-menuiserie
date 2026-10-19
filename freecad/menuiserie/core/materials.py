@@ -18,8 +18,8 @@ import unicodedata
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import Enum
-from pathlib import Path
-from typing import Final
+from pathlib import Path, PurePosixPath
+from typing import Final, TypeGuard
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 
@@ -32,6 +32,10 @@ MIN_DENSITY: Final = 50.0
 MAX_DENSITY: Final = 2000.0
 MAX_THICKNESSES: Final = 50
 MAX_THICKNESS_MM: Final = 300.0
+MAX_TEXTURE_PATH_LENGTH: Final = 255
+MIN_TEXTURE_SIZE_MM: Final = 10.0
+MAX_TEXTURE_SIZE_MM: Final = 10_000.0
+TEXTURE_EXTENSIONS: Final = (".png", ".jpg", ".jpeg")
 MAX_ISSUES: Final = 200
 MAX_LISTED_KEYS: Final = 5
 
@@ -40,8 +44,9 @@ BUILTIN_SOURCE: Final = QT_TRANSLATE_NOOP("Menuiserie", "intégrée")
 
 _ROOT_KEYS: Final = frozenset({"format", "materials"})
 _ENTRY_KEYS: Final = frozenset(
-    {"id", "kind", "name", "density", "thicknesses", "color", "has_grain"}
+    {"id", "kind", "name", "density", "thicknesses", "color", "has_grain", "texture"}
 )
+_TEXTURE_KEYS: Final = ("image", "size")
 _ID_PATTERN: Final = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _LANGUAGE_PATTERN: Final = re.compile(r"[a-z]{2}")
 _COLOR_PATTERN: Final = re.compile(r"#[0-9A-Fa-f]{6}")
@@ -174,6 +179,31 @@ _ENTRY_INVALID_GRAIN: Final = QT_TRANSLATE_NOOP(
 _TOO_MANY_ISSUES: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{source} : {count} autres anomalies non affichées."
 )
+_ENTRY_INVALID_TEXTURE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{source} : matériau « {id} », champ « {field} » : objet avec les clés « image » et "
+    "« size » attendu.",
+)
+_ENTRY_INVALID_TEXTURE_IMAGE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{source} : matériau « {id} », champ « {field} » : chemin relatif de 1 à {max} caractères "
+    "vers une image {extensions} attendu (séparateur « / », sans « .. », « \\ » ni « : »).",
+)
+_ENTRY_TEXTURE_OUTSIDE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{source} : matériau « {id} », champ « {field} » : l'image doit se trouver dans le dossier "
+    "du fichier de bibliothèque (lien symbolique vers l'extérieur refusé).",
+)
+_ENTRY_TEXTURE_NO_FOLDER: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{source} : matériau « {id} », champ « {field} » : dossier du fichier de bibliothèque "
+    "inconnu, chemin de l'image impossible à résoudre.",
+)
+_ENTRY_INVALID_TEXTURE_SIZE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{source} : matériau « {id} », champ « {field} » : deux nombres entre {min} et {max} mm "
+    "attendus (largeur et hauteur réelles couvertes par l'image).",
+)
 _MERGE_REPLACED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "{source} : le matériau « {id} » remplace le matériau intégré de même identifiant.",
@@ -263,6 +293,19 @@ class LibraryIssue:
 
 
 @dataclass(frozen=True)
+class Texture:
+    """Image de texture d'un matériau ; à défaut (image absente ou illisible), la couleur.
+
+    ``image`` est le chemin absolu résolu de l'image, dont l'existence n'est pas vérifiée ici.
+    ``size`` donne la largeur et la hauteur réelles couvertes par l'image, en mm ; le fil du
+    bois suit la largeur de l'image.
+    """
+
+    image: Path
+    size: tuple[float, float]
+
+
+@dataclass(frozen=True)
 class Material:
     """Essence massive ou panneau, tel que décrit dans la bibliothèque (immuable, hachable)."""
 
@@ -273,6 +316,7 @@ class Material:
     thicknesses: tuple[float, ...]
     color: tuple[int, int, int]
     has_grain: bool
+    texture: Texture | None = None
 
     def __post_init__(self) -> None:
         if not self.names:
@@ -421,9 +465,9 @@ def _capped(issues: list[LibraryIssue]) -> list[LibraryIssue]:
     return [*issues[:MAX_ISSUES], summary]
 
 
-def _unknown_keys_params(keys: Sequence[object]) -> dict[str, str]:
-    """Paramètres ``keys`` (au plus ``MAX_LISTED_KEYS`` clés citées) et ``more``."""
-    listed = ", ".join(f"« {quoted_value(key)} »" for key in keys[:MAX_LISTED_KEYS])
+def _unknown_keys_params(keys: Sequence[str]) -> dict[str, str]:
+    """Paramètres ``keys`` (au plus ``MAX_LISTED_KEYS`` clés déjà échappées) et ``more``."""
+    listed = ", ".join(f"« {key} »" for key in keys[:MAX_LISTED_KEYS])
     return {"keys": listed, "more": str(max(len(keys) - MAX_LISTED_KEYS, 0))}
 
 
@@ -479,6 +523,7 @@ class _Entry:
     source: str
     position: int
     data: Mapping[str, object]
+    folder: Path | None = None
     material_id: str | None = None
 
     @property
@@ -507,7 +552,10 @@ class _Entry:
 
     def unknown_keys_issues(self) -> list[LibraryIssue]:
         """Au plus un avertissement, qui liste les clés inconnues de l'entrée."""
-        keys = [key for key in self.data if key not in _ENTRY_KEYS]
+        keys = [quoted_value(key) for key in self.data if key not in _ENTRY_KEYS]
+        texture = self.data.get("texture")
+        if isinstance(texture, dict):
+            keys += [f"texture.{quoted_value(k)}" for k in texture if k not in _TEXTURE_KEYS]
         if not keys:
             return []
         template = _ENTRY_UNKNOWN_KEYS_MORE if len(keys) > MAX_LISTED_KEYS else _ENTRY_UNKNOWN_KEYS
@@ -598,6 +646,73 @@ def _parse_has_grain(entry: _Entry, kind: MaterialKind) -> bool:
     return value
 
 
+def _is_safe_image_path(value: object) -> TypeGuard[str]:
+    """Chemin relatif portable vers une image : ni absolu, ni « .. », ni « \\ », ni « : »."""
+    if not isinstance(value, str) or not 1 <= len(value) <= MAX_TEXTURE_PATH_LENGTH:
+        return False
+    if _has_forbidden_character(value) or "\\" in value or ":" in value:
+        return False
+    parts = value.split("/")
+    if parts[0] == "" or ".." in parts:
+        return False
+    return PurePosixPath(parts[-1]).suffix.lower() in TEXTURE_EXTENSIONS
+
+
+def _resolve_in_folder(entry: _Entry, relative: str) -> Path:
+    """Chemin absolu résolu de l'image ; elle doit rester dans le dossier du fichier."""
+    if entry.folder is None:
+        raise entry.error(_ENTRY_TEXTURE_NO_FOLDER, "texture.image")
+    try:
+        folder = entry.folder.resolve()
+        image = (folder / relative).resolve()
+    except (OSError, RuntimeError, ValueError) as error:  # boucle de liens, chemin invalide
+        raise entry.error(_ENTRY_TEXTURE_OUTSIDE, "texture.image") from error
+    if image == folder or not image.is_relative_to(folder):
+        raise entry.error(_ENTRY_TEXTURE_OUTSIDE, "texture.image")
+    return image
+
+
+def _parse_texture_image(entry: _Entry, value: object) -> Path:
+    if not _is_safe_image_path(value):
+        raise entry.error(
+            _ENTRY_INVALID_TEXTURE_IMAGE,
+            "texture.image",
+            max=str(MAX_TEXTURE_PATH_LENGTH),
+            extensions=", ".join(TEXTURE_EXTENSIONS),
+        )
+    return _resolve_in_folder(entry, value)
+
+
+def _parse_texture_size(entry: _Entry, value: object) -> tuple[float, float]:
+    if isinstance(value, list) and len(value) == 2:
+        numbers = [to_finite_float(item) for item in value]
+        valid = [
+            n for n in numbers if n is not None and MIN_TEXTURE_SIZE_MM <= n <= MAX_TEXTURE_SIZE_MM
+        ]
+        if len(valid) == 2:
+            return valid[0], valid[1]
+    raise entry.error(
+        _ENTRY_INVALID_TEXTURE_SIZE,
+        "texture.size",
+        min=f"{MIN_TEXTURE_SIZE_MM:g}",
+        max=f"{MAX_TEXTURE_SIZE_MM:g}",
+    )
+
+
+def _parse_texture(entry: _Entry) -> Texture | None:
+    """Texture facultative ; toute anomalie rejette l'entrée, comme pour les autres champs."""
+    if "texture" not in entry.data:
+        return None
+    value = entry.data["texture"]
+    if not isinstance(value, dict):
+        raise entry.error(_ENTRY_INVALID_TEXTURE, "texture")
+    for key in _TEXTURE_KEYS:
+        if key not in value:
+            raise entry.error(_ENTRY_MISSING_FIELD, f"texture.{key}")
+    image = _parse_texture_image(entry, value["image"])
+    return Texture(image, _parse_texture_size(entry, value["size"]))
+
+
 def _build_material(entry: _Entry, material_id: str) -> Material:
     kind = _parse_kind(entry)
     return Material(
@@ -608,6 +723,7 @@ def _build_material(entry: _Entry, material_id: str) -> Material:
         thicknesses=_parse_thicknesses(entry),
         color=_parse_color(entry),
         has_grain=_parse_has_grain(entry, kind),
+        texture=_parse_texture(entry),
     )
 
 
@@ -647,7 +763,7 @@ def _check_format(value: object, source: str) -> None:
 
 
 def _select_entries(
-    raw_entries: list[object], source: str
+    raw_entries: list[object], source: str, folder: Path | None
 ) -> tuple[list[_Entry], list[LibraryIssue]]:
     """Entrées objets parmi les ``MAX_MATERIALS`` premières ; une erreur par règle violée."""
     issues: list[LibraryIssue] = []
@@ -668,20 +784,24 @@ def _select_entries(
         issues.append(
             _make_issue(Severity.ERROR, source, _ENTRIES_NOT_OBJECTS, positions=positions)
         )
-    entries = [_Entry(source, position, raw) for position, raw in kept if isinstance(raw, dict)]
+    entries = [
+        _Entry(source, position, raw, folder) for position, raw in kept if isinstance(raw, dict)
+    ]
     return entries, issues
 
 
 def _root_unknown_keys_issues(data: Mapping[object, object], source: str) -> list[LibraryIssue]:
     """Au plus un avertissement, qui liste les clés inconnues de la racine."""
-    keys = [key for key in data if key not in _ROOT_KEYS]
+    keys = [quoted_value(key) for key in data if key not in _ROOT_KEYS]
     if not keys:
         return []
     template = _ROOT_UNKNOWN_KEYS_MORE if len(keys) > MAX_LISTED_KEYS else _ROOT_UNKNOWN_KEYS
     return [_make_issue(Severity.WARNING, source, template, **_unknown_keys_params(keys))]
 
 
-def _parse_root(data: object, source: str) -> tuple[list[_Entry], list[LibraryIssue]]:
+def _parse_root(
+    data: object, source: str, folder: Path | None
+) -> tuple[list[_Entry], list[LibraryIssue]]:
     """Vérifie la racine ; lève :class:`LibraryFormatError` si le fichier doit être ignoré."""
     if not isinstance(data, dict):
         raise _file_error(source, _ROOT_NOT_OBJECT)
@@ -692,17 +812,21 @@ def _parse_root(data: object, source: str) -> tuple[list[_Entry], list[LibraryIs
     if not isinstance(raw_entries, list):
         raise _file_error(source, _ROOT_MATERIALS_INVALID)
     warnings = _root_unknown_keys_issues(data, source)
-    entries, issues = _select_entries(raw_entries, source)
+    entries, issues = _select_entries(raw_entries, source, folder)
     return entries, [*warnings, *issues]
 
 
-def parse_materials(data: object, source: str) -> tuple[list[Material], list[LibraryIssue]]:
+def parse_materials(
+    data: object, source: str, folder: Path | None = None
+) -> tuple[list[Material], list[LibraryIssue]]:
     """Valide un document JSON déjà décodé (format 1) et en extrait les matériaux valides.
 
-    Au plus ``MAX_ISSUES`` anomalies sont renvoyées, suivies d'une anomalie de synthèse.
+    ``folder`` est le dossier du fichier, auquel les chemins des textures sont relatifs ; sans
+    lui, une entrée qui déclare une texture est rejetée. Au plus ``MAX_ISSUES`` anomalies sont
+    renvoyées, suivies d'une anomalie de synthèse.
     """
     try:
-        entries, issues = _parse_root(data, source)
+        entries, issues = _parse_root(data, source, folder)
     except LibraryFormatError as error:
         return [], [error.issue]
     materials: dict[str, Material] = {}
@@ -825,7 +949,7 @@ def _read_existing_file(path: Path, label: str) -> tuple[list[Material], list[Li
         return None
     except LibraryFormatError as error:
         return [], [error.issue]
-    return parse_materials(data, label)
+    return parse_materials(data, label, path.parent)
 
 
 def _label(material: Material) -> str:
