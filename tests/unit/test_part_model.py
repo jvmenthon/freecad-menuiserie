@@ -121,6 +121,16 @@ def test_message_d_erreur_rempli() -> None:
     assert str(error.value) == error.value.template.format(**error.value.params)
 
 
+@pytest.mark.parametrize(
+    ("value", "shown"),
+    [(MAX_DIMENSION_MM + 0.01, "20000.01"), (20_000.000000000004, "20000.000000000004")],
+)
+def test_valeur_refusee_affichee_exactement(value: float, shown: str) -> None:
+    with pytest.raises(InvalidDimensionsError) as error:
+        Dimensions(value, 200, 22)
+    assert error.value.params["value"] == shown
+
+
 def test_cotes_de_debit_hors_bornes_refusees() -> None:
     with pytest.raises(InvalidDimensionsError):
         rough_dimensions(Dimensions(MAX_DIMENSION_MM, 200, 22), Allowances(20))

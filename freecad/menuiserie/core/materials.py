@@ -43,6 +43,10 @@ _ENTRY_KEYS: Final = frozenset(
 _ID_PATTERN: Final = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _LANGUAGE_PATTERN: Final = re.compile(r"[a-z]{2}")
 _COLOR_PATTERN: Final = re.compile(r"#[0-9A-Fa-f]{6}")
+# Contrôle, format (invisibles, bidi), demi-substituts, usage privé, non attribués, séparateurs
+# de ligne et de paragraphe : refusés dans les libellés.
+_FORBIDDEN_CATEGORIES: Final = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
+_MAX_QUOTED_LENGTH: Final = 32
 
 # Gabarits des anomalies : « source » est toujours fourni dans les paramètres.
 _FILE_UNREADABLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "{source} : fichier illisible ({error}).")
@@ -124,7 +128,7 @@ _ENTRY_INVALID_LANGUAGE: Final = QT_TRANSLATE_NOOP(
 _ENTRY_INVALID_LABEL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "{source} : matériau « {id} », champ « {field} » : libellé de 1 à {max} caractères "
-    "sans caractère de contrôle attendu.",
+    "sans caractère de contrôle ni caractère invisible attendu.",
 )
 _ENTRY_INVALID_DENSITY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -219,7 +223,8 @@ class Material:
     def __post_init__(self) -> None:
         if not self.names:
             raise ValueError(f"le matériau « {self.id} » n'a aucun libellé")
-        object.__setattr__(self, "names", MappingProxyType(dict(self.names)))
+        names = {language: _nfc(label) for language, label in self.names.items()}
+        object.__setattr__(self, "names", MappingProxyType(names))
 
     def name(self, lang: str = "fr") -> str:
         """Libellé dans la langue demandée, sinon français, sinon la première langue disponible."""
@@ -285,8 +290,9 @@ class MaterialLibrary:
         return self._by_id.get(material_id)
 
     def find_by_name(self, name: str, lang: str = "fr") -> Material | None:
-        """Matériau dont le libellé dans la langue donnée vaut ``name``, ou ``None``."""
-        return next((m for m in self._materials if m.name(lang) == name), None)
+        """Matériau dont le libellé (comparé en forme NFC) vaut ``name``, ou ``None``."""
+        wanted = _nfc(name)
+        return next((m for m in self._materials if m.name(lang) == wanted), None)
 
     def by_kind(self, *kinds: MaterialKind) -> list[Material]:
         """Matériaux des familles données, dans l'ordre ; tous si aucune famille n'est donnée."""
@@ -300,6 +306,28 @@ class MaterialLibrary:
             raise UnknownMaterialError("bibliothèque de matériaux vide")
         solids = self.by_kind(MaterialKind.SOLID)
         return solids[0] if solids else self._materials[0]
+
+
+def _nfc(text: str) -> str:
+    """Texte en forme normalisée NFC (« é » composé plutôt que « e » + accent combinant)."""
+    return unicodedata.normalize("NFC", text)
+
+
+def quoted_value(value: object) -> str:
+    """Valeur fournie par un fichier, raccourcie et échappée pour être citée dans un message.
+
+    Au plus ``_MAX_QUOTED_LENGTH`` caractères (suivis de « … » si elle est tronquée) ; les
+    caractères non imprimables sont échappés (``\\n``, ``\\u202e``…). Ne lève jamais d'exception.
+    """
+    if isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = repr(value)
+        except ValueError:  # entier trop long pour être converti en texte
+            return "?"
+    escaped = repr(text[:_MAX_QUOTED_LENGTH])[1:-1]
+    return escaped + "…" if len(text) > _MAX_QUOTED_LENGTH else escaped
 
 
 def to_finite_float(value: object) -> float | None:
@@ -367,14 +395,14 @@ def _parse_kind(entry: _Entry) -> MaterialKind:
     raise entry.error(_ENTRY_INVALID_KIND, "kind", allowed=allowed)
 
 
-def _has_control_character(text: str) -> bool:
-    return any(unicodedata.category(char) == "Cc" for char in text)
+def _has_forbidden_character(text: str) -> bool:
+    return any(unicodedata.category(char) in _FORBIDDEN_CATEGORIES for char in text)
 
 
 def _parse_label(entry: _Entry, value: object) -> str:
     if isinstance(value, str):
-        label = value.strip()
-        if 1 <= len(label) <= MAX_NAME_LENGTH and not _has_control_character(label):
+        label = _nfc(value).strip()
+        if 1 <= len(label) <= MAX_NAME_LENGTH and not _has_forbidden_character(label):
             return label
     raise entry.error(_ENTRY_INVALID_LABEL, "name", max=str(MAX_NAME_LENGTH))
 
@@ -388,7 +416,7 @@ def _parse_names(entry: _Entry) -> dict[str, str]:
     names: dict[str, str] = {}
     for language, label in value.items():
         if not isinstance(language, str) or not _LANGUAGE_PATTERN.fullmatch(language):
-            raise entry.error(_ENTRY_INVALID_LANGUAGE, "name", language=str(language)[:16])
+            raise entry.error(_ENTRY_INVALID_LANGUAGE, "name", language=quoted_value(language))
         names[language] = _parse_label(entry, label)
     return names
 
@@ -468,7 +496,8 @@ def _check_format(value: object, source: str) -> None:
         raise _file_error(source, _ROOT_FORMAT_INVALID)
     if value != FORMAT_VERSION:
         template = _ROOT_FORMAT_NEWER if value > FORMAT_VERSION else _ROOT_FORMAT_UNSUPPORTED
-        raise _file_error(source, template, format=str(value)[:20], supported=str(FORMAT_VERSION))
+        shown = quoted_value(value)
+        raise _file_error(source, template, format=shown, supported=str(FORMAT_VERSION))
 
 
 def _select_entries(
@@ -611,25 +640,9 @@ def read_materials_file(
     return parse_materials(data, label)
 
 
-class _MergedMaterials:
-    """Matériaux en cours de fusion, indexés par identifiant et par libellé français."""
-
-    def __init__(self) -> None:
-        self.by_id: dict[str, Material] = {}
-        self.owner_of_label: dict[str, str] = {}
-
-    def label_owner(self, material: Material) -> str | None:
-        """Identifiant d'un *autre* matériau portant déjà le même libellé français."""
-        owner = self.owner_of_label.get(material.name("fr"))
-        return owner if owner != material.id else None
-
-    def put(self, material: Material) -> None:
-        """Ajoute en fin de liste, ou remplace à sa place un matériau de même identifiant."""
-        previous = self.by_id.get(material.id)
-        if previous is not None:
-            del self.owner_of_label[previous.name("fr")]
-        self.by_id[material.id] = material
-        self.owner_of_label[material.name("fr")] = material.id
+def _label(material: Material) -> str:
+    """Libellé français (déjà en forme NFC) : clé d'unicité de la bibliothèque."""
+    return material.name("fr")
 
 
 def _rejected(source: str, material: Material, label_owner: str | None) -> LibraryIssue:
@@ -645,44 +658,96 @@ def _rejected(source: str, material: Material, label_owner: str | None) -> Libra
         material.id,
         id=material.id,
         field="name",
-        label=material.name("fr"),
+        label=_label(material),
         other=label_owner,
     )
 
 
-def _merge_builtin(merged: _MergedMaterials, builtin: Sequence[Material]) -> list[LibraryIssue]:
+def _merge_builtin(builtin: Sequence[Material]) -> tuple[dict[str, Material], list[LibraryIssue]]:
+    """Matériaux intégrés uniques (identifiant puis libellé), dans l'ordre ; doublons rejetés."""
+    by_id: dict[str, Material] = {}
+    owner_of_label: dict[str, str] = {}
     issues: list[LibraryIssue] = []
     for material in builtin:
-        owner = merged.label_owner(material)
-        if material.id in merged.by_id or owner is not None:
-            issues.append(_rejected(BUILTIN_SOURCE, material, owner))
+        owner = owner_of_label.get(_label(material))
+        if material.id in by_id or owner is not None:
+            shown_owner = None if material.id in by_id else owner
+            issues.append(_rejected(BUILTIN_SOURCE, material, shown_owner))
             continue
-        merged.put(material)
-    return issues
+        by_id[material.id] = material
+        owner_of_label[_label(material)] = material.id
+    return by_id, issues
+
+
+def _label_losers(
+    builtin: Mapping[str, Material], candidates: Mapping[str, _Candidate]
+) -> list[str]:
+    """Identifiants utilisateur qui perdent un libellé disputé, au vu de l'état courant.
+
+    Un matériau intégré non remplacé garde toujours son libellé ; entre deux entrées
+    utilisateur, la première du fichier le garde.
+    """
+    holders: dict[str, list[tuple[int, str]]] = {}
+    for material in builtin.values():
+        if material.id not in candidates:
+            holders.setdefault(_label(material), []).append((-1, material.id))
+    for candidate in candidates.values():
+        holders.setdefault(_label(candidate.material), []).append(
+            (candidate.position, candidate.material.id)
+        )
+    losers: list[str] = []
+    for owners in holders.values():
+        losers += [material_id for _, material_id in sorted(owners)[1:]]
+    return losers
+
+
+@dataclass(frozen=True)
+class _Candidate:
+    """Entrée utilisateur retenue provisoirement, avec sa position dans le fichier."""
+
+    position: int
+    material: Material
+
+
+def _user_candidates(
+    user: Sequence[Material], source: str
+) -> tuple[dict[str, _Candidate], dict[int, LibraryIssue]]:
+    """Première entrée de chaque identifiant ; les suivantes sont rejetées (erreur)."""
+    candidates: dict[str, _Candidate] = {}
+    issues: dict[int, LibraryIssue] = {}
+    for position, material in enumerate(user):
+        if material.id in candidates:
+            issues[position] = _rejected(source, material, None)
+        else:
+            candidates[material.id] = _Candidate(position, material)
+    return candidates, issues
 
 
 def _merge_user(
-    merged: _MergedMaterials, user: Sequence[Material], source: str
-) -> list[LibraryIssue]:
-    issues: list[LibraryIssue] = []
-    builtin_ids = set(merged.by_id)
-    # Remplacements d'abord : un libellé libéré par un remplacement peut être repris.
-    ordered = [m for m in user if m.id in builtin_ids] + [
-        m for m in user if m.id not in builtin_ids
-    ]
-    seen: set[str] = set()
-    for material in ordered:
-        owner = merged.label_owner(material)
-        if material.id in seen or owner is not None:
-            issues.append(_rejected(source, material, owner))
-            continue
-        seen.add(material.id)
-        if material.id in builtin_ids:
-            issues.append(
-                _make_issue(Severity.INFO, source, _MERGE_REPLACED, material.id, id=material.id)
-            )
-        merged.put(material)
-    return issues
+    builtin: Mapping[str, Material], user: Sequence[Material], source: str
+) -> tuple[list[Material], list[LibraryIssue]]:
+    """Applique tous les remplacements et ajouts, puis rétablit l'unicité des libellés.
+
+    Le résultat ne dépend pas de l'ordre des remplacements : deux matériaux intégrés peuvent
+    échanger leurs libellés. Une entrée rejetée pour son libellé rend sa place au matériau
+    intégré qu'elle remplaçait, ce qui peut à son tour rejeter une autre entrée.
+    """
+    candidates, issues = _user_candidates(user, source)
+    label_rejected: list[_Candidate] = []
+    while losers := _label_losers(builtin, candidates):
+        label_rejected += [candidates.pop(material_id) for material_id in losers]
+    merged = [candidates[i].material if i in candidates else m for i, m in builtin.items()]
+    merged += [c.material for c in candidates.values() if c.material.id not in builtin]
+    owner_of_label = {_label(material): material.id for material in merged}
+    for rejected in label_rejected:
+        owner = owner_of_label[_label(rejected.material)]
+        issues[rejected.position] = _rejected(source, rejected.material, owner)
+    for candidate in candidates.values():
+        if candidate.material.id in builtin:
+            material_id = candidate.material.id
+            info = _make_issue(Severity.INFO, source, _MERGE_REPLACED, material_id, id=material_id)
+            issues[candidate.position] = info
+    return merged, [issues[position] for position in sorted(issues)]
 
 
 def merge_materials(
@@ -691,13 +756,13 @@ def merge_materials(
     """Fusionne les matériaux de l'utilisateur sur la bibliothèque intégrée (par identifiant).
 
     Identifiant nouveau : ajouté à la fin. Identifiant existant : remplace entièrement le
-    matériau intégré, à sa place (anomalie info). Libellé français déjà porté par un autre
-    identifiant : entrée rejetée (erreur).
+    matériau intégré, à sa place (anomalie info). Une fois tous les remplacements appliqués,
+    une entrée utilisateur dont le libellé français est porté par un autre matériau est
+    rejetée (erreur) ; le résultat ne dépend pas de l'ordre des remplacements.
     """
-    merged = _MergedMaterials()
-    issues = _merge_builtin(merged, builtin)
-    issues += _merge_user(merged, user, user_source)
-    return MaterialLibrary(merged.by_id.values()), issues
+    by_id, issues = _merge_builtin(builtin)
+    merged, user_issues = _merge_user(by_id, user, user_source)
+    return MaterialLibrary(merged), [*issues, *user_issues]
 
 
 def load_library(

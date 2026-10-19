@@ -65,13 +65,19 @@ def _short_repr(value: object) -> str:
         return "?"
 
 
+def _exact_text(number: float) -> str:
+    """Plus courte écriture décimale qui redonne exactement ``number`` (pas d'arrondi trompeur)."""
+    text = repr(number)
+    return text.removesuffix(".0")
+
+
 def _validated(value: object, field: str, *, allow_zero: bool, template: str) -> float:
     """Valeur convertie en flottant si elle est finie et dans ses bornes, sinon erreur."""
     number = to_finite_float(value)
     lower_ok = number is not None and (number >= 0 if allow_zero else number > 0)
     if number is not None and lower_ok and number <= MAX_DIMENSION_MM:
         return number
-    shown = f"{number:g}" if number is not None else _short_repr(value)
+    shown = _exact_text(number) if number is not None else _short_repr(value)
     params = {"field": _FIELD_LABELS[field], "value": shown, "max": f"{MAX_DIMENSION_MM:g}"}
     raise InvalidDimensionsError(template, params)
 

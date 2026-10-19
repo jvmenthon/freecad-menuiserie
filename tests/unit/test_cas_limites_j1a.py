@@ -261,11 +261,6 @@ def test_chaine_nan_n_est_pas_une_constante_json(tmp_path: Path) -> None:
     assert errors(issues)[0].params["field"] == "density"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="défaut : un libellé contenant un demi-substitut isolé (\\ud800) est accepté, "
-    "alors qu'il n'est pas encodable en UTF-8 (FreeCAD, Qt, enregistrement du document)",
-)
 def test_libelle_avec_demi_substitut_isole_rejete(tmp_path: Path) -> None:
     text = json.dumps(document(OAK, entry())).replace("\\u00c9rable", "\\ud800rable")
     assert "\\ud800" in text
@@ -336,11 +331,6 @@ def test_lien_symbolique_vers_un_fichier_accepte(tmp_path: Path) -> None:
     assert [m.id for m in materials] == ["chene"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="défaut : parse_materials (API publique) lève ValueError pour un « format » entier "
-    "de plus de 4300 chiffres (str() limité), au lieu de renvoyer une anomalie",
-)
 def test_format_entier_geant_deja_decode_sans_exception() -> None:
     materials, [issue] = parse_materials({"format": 10**5000, "materials": []}, SOURCE)
     assert materials == []
@@ -397,11 +387,6 @@ def test_remplacement_change_la_famille() -> None:
     assert library.find_by_name("Hêtre lamellé") is replacement
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="défaut : la fusion dépend de l'ordre du fichier utilisateur ; un libellé libéré "
-    "par un remplacement n'est repris par un autre remplacement que s'il vient après",
-)
 def test_echange_de_libelles_entre_remplacements_independant_de_l_ordre() -> None:
     first = make_material("chene", "Chêne rouvre")
     second = make_material("hetre", "Chêne")
@@ -412,11 +397,6 @@ def test_echange_de_libelles_entre_remplacements_independant_de_l_ordre() -> Non
     assert list(in_order) == list(reversed_order)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="défaut : unicité des libellés non normalisée ; « Chêne » en NFD est accepté à côté "
-    "de « Chêne » en NFC (deux entrées visuellement identiques dans la liste Material)",
-)
 def test_libelle_unicode_decompose_considere_comme_doublon() -> None:
     decomposed = unicodedata.normalize("NFD", "Chêne")
     assert decomposed != "Chêne"
@@ -477,11 +457,6 @@ def test_cotes_entieres_et_borne_acceptees(value: float) -> None:
     assert Dimensions(value, value, value).thickness == float(value)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="défaut : la valeur refusée est arrondie à 6 chiffres significatifs ({:g}) ; "
-    "20000,01 mm s'affiche « 20000 mm » dans un message qui annonce « au plus 20000 mm »",
-)
 def test_message_ne_montre_pas_une_valeur_arrondie_a_la_borne() -> None:
     with pytest.raises(InvalidDimensionsError) as error:
         Dimensions(MAX_DIMENSION_MM + 0.01, 200, 22)

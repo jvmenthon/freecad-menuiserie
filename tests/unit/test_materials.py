@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -340,6 +341,44 @@ def test_langue_non_chaine_rejetee() -> None:
     assert errors(issues)[0].params["field"] == "name"
 
 
+@pytest.mark.parametrize(
+    "char",
+    [
+        pytest.param("\u200b", id="Cf-espace-sans-chasse"),
+        pytest.param("\u202e", id="Cf-inversion-bidi"),
+        pytest.param("\ud800", id="Cs-demi-substitut"),
+        pytest.param("\ue000", id="Co-usage-prive"),
+        pytest.param("\u0378", id="Cn-non-attribue"),
+        pytest.param("\u2028", id="Zl-separateur-de-ligne"),
+        pytest.param("\u2029", id="Zp-separateur-de-paragraphe"),
+    ],
+)
+def test_libelle_avec_caractere_interdit_rejete(char: str) -> None:
+    materials, issues = parse_materials(document(entry(name=f"Éra{char}ble")), SOURCE)
+    assert materials == []
+    assert errors(issues)[0].params["field"] == "name"
+
+
+def test_libelle_normalise_en_nfc_au_chargement() -> None:
+    decomposed = unicodedata.normalize("NFD", "Érable")
+    [material], issues = parse_materials(document(entry(name=decomposed)), SOURCE)
+    assert issues == []
+    assert material.name() == "Érable"
+    assert unicodedata.is_normalized("NFC", material.name())
+
+
+def test_materiau_construit_directement_normalise_en_nfc() -> None:
+    material = make_material("chene", unicodedata.normalize("NFD", "Chêne"))
+    assert material.name() == "Chêne"
+    library = MaterialLibrary([material])
+    assert library.find_by_name(unicodedata.normalize("NFD", "Chêne")) is material
+
+
+def test_code_de_langue_entier_geant_cite_sans_exception() -> None:
+    _, issues = parse_materials(document(entry(name={10**5000: "Érable"})), SOURCE)
+    assert errors(issues)[0].params["language"] == "?"
+
+
 # --- A3 : fichier ignoré en entier --------------------------------------------------------
 
 FILE_RULES = [
@@ -494,6 +533,53 @@ def test_libelle_libere_par_un_remplacement_reutilisable() -> None:
     library, issues = merge_materials(builtin_library(), user, SOURCE)
     assert errors(issues) == []
     assert library.find_by_name("Chêne") == user[0]
+
+
+def test_echange_de_libelles_entre_trois_remplacements() -> None:
+    user = [
+        make_material("frene", "Chêne"),
+        make_material("chene", "Hêtre"),
+        make_material("hetre", "Frêne"),
+    ]
+    for ordered in (user, user[::-1], [user[1], user[0], user[2]]):
+        library, issues = merge_materials(builtin_library(), ordered, SOURCE)
+        assert errors(issues) == []
+        assert [i.severity for i in issues] == [Severity.INFO] * 3
+        assert library.find_by_name("Chêne") == user[0]
+
+
+def test_conflit_entre_deux_entrees_utilisateur_la_premiere_l_emporte() -> None:
+    user = [make_material("erable", "Érable"), make_material("erable-plane", "Érable")]
+    library, [issue] = merge_materials(builtin_library(), user, SOURCE)
+    assert "erable" in library
+    assert "erable-plane" not in library
+    assert issue.material_id == "erable-plane"
+    assert issue.params["other"] == "erable"
+
+
+def test_remplacement_rejete_rend_sa_place_et_son_libelle_a_l_integre() -> None:
+    # « chene » veut le libellé du hêtre intégré : rejeté, le chêne intégré revient avec
+    # « Chêne », ce qui rejette à son tour l'ajout « chene-europe ».
+    user = [make_material("chene-europe", "Chêne"), make_material("chene", "Hêtre")]
+    for ordered in (user, user[::-1]):
+        library, issues = merge_materials(builtin_library(), ordered, SOURCE)
+        assert library.get("chene").name() == "Chêne"
+        assert "chene-europe" not in library
+        others = {i.material_id: i.params["other"] for i in errors(issues)}
+        assert others == {"chene": "hetre", "chene-europe": "chene"}
+        assert [i.severity for i in issues] == [Severity.ERROR, Severity.ERROR]
+
+
+def test_libelle_cite_le_detenteur_final() -> None:
+    user = [
+        make_material("chene", "Hêtre"),
+        make_material("erable", "Chêne"),
+        make_material("erable-plane", "Chêne"),
+    ]
+    library, issues = merge_materials(builtin_library(), user, SOURCE)
+    assert library.find_by_name("Chêne") == library.get("chene")
+    others = {i.material_id: i.params["other"] for i in errors(issues)}
+    assert others == {"chene": "hetre", "erable": "chene", "erable-plane": "chene"}
 
 
 def test_doublons_fournis_directement_a_la_fusion_rejetes() -> None:
