@@ -414,6 +414,24 @@ def test_anomalies_de_fusion_et_de_chargement_plafonnees(tmp_path: Path) -> None
     assert issues[-1].severity is Severity.ERROR
 
 
+def test_synthese_compte_les_anomalies_deja_omises(tmp_path: Path) -> None:
+    entries = [entry(id=f"m{i}", name="Chêne", densty=1) for i in range(300)]
+    path = write(tmp_path, json.dumps(document(*entries)))
+    _, issues = load_library(BUILTIN_PATH, path)
+    # 300 clés inconnues à la lecture et 300 libellés en double à la fusion : 400 omises.
+    assert issues[-1].params["count"] == "400"
+    assert issues[-1].source == str(path)
+
+
+def test_synthese_de_plusieurs_fichiers_sans_source() -> None:
+    builtin = [make_material("a", f"A{i}") for i in range(250)]
+    user = [make_material(f"u{i}", "A0") for i in range(100)]
+    _, issues = merge_materials(builtin, user, SOURCE)
+    summary = issues[-1]
+    assert summary.source == ""
+    assert summary.format() == "149 autres anomalies non affichées, dans plusieurs fichiers."
+
+
 def test_plafond_non_atteint_sans_synthese() -> None:
     entries = [entry(id=f"m{i}", density="x") for i in range(MAX_ISSUES)]
     _, issues = parse_materials(document(*entries), SOURCE)

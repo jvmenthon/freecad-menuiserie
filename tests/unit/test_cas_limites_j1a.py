@@ -47,7 +47,7 @@ from freecad.menuiserie.core.part_model import (
     rough_dimensions,
     volume_m3,
 )
-from tests.unit.aides import OAK, SOURCE, document, errors, make_material, write
+from tests.unit.aides import OAK, SOURCE, document, errors, make_material, requires_symlinks, write
 
 BUILTIN_PATH = DATA_DIR / "materiaux.json"
 
@@ -289,6 +289,7 @@ def test_tube_nomme_refuse_sans_blocage(tmp_path: Path) -> None:
     assert issue.severity is Severity.ERROR
 
 
+@requires_symlinks
 def test_lien_symbolique_vers_un_fichier_accepte(tmp_path: Path) -> None:
     target = write(tmp_path, json.dumps(document(OAK)), "cible.json")
     link = tmp_path / "materiaux.json"

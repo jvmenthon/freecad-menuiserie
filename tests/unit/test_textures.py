@@ -21,7 +21,7 @@ from freecad.menuiserie.core.materials import (
     parse_materials,
     read_materials_file,
 )
-from tests.unit.aides import OAK, SOURCE
+from tests.unit.aides import OAK, SOURCE, requires_symlinks
 
 
 def entry(texture: object) -> dict[str, object]:
@@ -105,6 +105,7 @@ def test_taille_aux_bornes_acceptee(tmp_path: Path, size: tuple[float, float]) -
     assert material.texture.size == (float(size[0]), float(size[1]))
 
 
+@requires_symlinks
 def test_lien_symbolique_interne_accepte(tmp_path: Path) -> None:
     (tmp_path / "images").mkdir()
     (tmp_path / "textures").symlink_to(tmp_path / "images")
@@ -202,6 +203,7 @@ def test_taille_refusee(tmp_path: Path, size: object) -> None:
     assert rejected_field(texture(size=size), tmp_path) == "texture.size"
 
 
+@requires_symlinks
 def test_lien_symbolique_vers_l_exterieur_refuse(tmp_path: Path) -> None:
     library = tmp_path / "bibliotheque"
     outside = tmp_path / "ailleurs"
@@ -211,6 +213,7 @@ def test_lien_symbolique_vers_l_exterieur_refuse(tmp_path: Path) -> None:
     assert rejected_field(texture(), library) == "texture.image"
 
 
+@requires_symlinks
 def test_image_lien_vers_l_exterieur_refusee(tmp_path: Path) -> None:
     library = tmp_path / "bibliotheque"
     (library / "textures").mkdir(parents=True)
@@ -218,6 +221,7 @@ def test_image_lien_vers_l_exterieur_refusee(tmp_path: Path) -> None:
     assert rejected_field(texture(), library) == "texture.image"
 
 
+@requires_symlinks
 def test_image_lien_vers_le_dossier_lui_meme_refusee(tmp_path: Path) -> None:
     (tmp_path / "erable.png").symlink_to(tmp_path)
     assert rejected_field(texture(image="erable.png"), tmp_path) == "texture.image"

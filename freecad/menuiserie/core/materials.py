@@ -179,6 +179,9 @@ _ENTRY_INVALID_GRAIN: Final = QT_TRANSLATE_NOOP(
 _TOO_MANY_ISSUES: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{source} : {count} autres anomalies non affichées."
 )
+_TOO_MANY_ISSUES_SEVERAL_SOURCES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{count} autres anomalies non affichées, dans plusieurs fichiers."
+)
 _ENTRY_INVALID_TEXTURE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "{source} : matériau « {id} », champ « {field} » : objet avec les clés « image » et "
@@ -461,8 +464,20 @@ def _capped(issues: list[LibraryIssue]) -> list[LibraryIssue]:
         return issues
     omitted = issues[MAX_ISSUES:]
     severity = max((issue.severity for issue in omitted), key=_SEVERITY_RANK.__getitem__)
-    summary = _make_issue(severity, omitted[0].source, _TOO_MANY_ISSUES, count=str(len(omitted)))
+    count = str(sum(_represented_count(issue) for issue in omitted))
+    sources = {issue.source for issue in omitted}
+    if len(sources) == 1:
+        summary = _make_issue(severity, sources.pop(), _TOO_MANY_ISSUES, count=count)
+    else:
+        summary = _make_issue(severity, "", _TOO_MANY_ISSUES_SEVERAL_SOURCES, count=count)
     return [*issues[:MAX_ISSUES], summary]
+
+
+def _represented_count(issue: LibraryIssue) -> int:
+    """Nombre d'anomalies que ``issue`` représente : une synthèse compte ses omissions."""
+    if issue.template in (_TOO_MANY_ISSUES, _TOO_MANY_ISSUES_SEVERAL_SOURCES):
+        return int(issue.params["count"])
+    return 1
 
 
 def _unknown_keys_params(keys: Sequence[str]) -> dict[str, str]:

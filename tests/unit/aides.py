@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
+
+import pytest
 
 from freecad.menuiserie.core.materials import LibraryIssue, Material, MaterialKind, Severity
 
@@ -16,6 +19,21 @@ OAK: dict[str, object] = {
     "thicknesses": [22],
     "color": "#B8875A",
 }
+
+
+def _can_create_symlinks() -> bool:
+    """Faux sous Windows sans le droit de créer des liens symboliques."""
+    with tempfile.TemporaryDirectory() as folder:
+        try:
+            (Path(folder) / "lien").symlink_to(folder)
+        except OSError:
+            return False
+    return True
+
+
+requires_symlinks = pytest.mark.skipif(
+    not _can_create_symlinks(), reason="création de liens symboliques impossible"
+)
 
 
 def document(*entries: object, **root: object) -> dict[str, object]:
