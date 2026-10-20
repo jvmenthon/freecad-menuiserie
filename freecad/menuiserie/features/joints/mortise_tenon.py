@@ -14,12 +14,10 @@ from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import JointFeature, params_from
-from freecad.menuiserie.features.schema import PropertySpec
+from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["MortiseTenonJoint"]
 
-_LENGTH: Final = "App::PropertyLength"
-_DISTANCE: Final = "App::PropertyDistance"
 _DEFAULTS: Final = MortiseTenonParams()
 
 
@@ -33,7 +31,7 @@ class MortiseTenonJoint(JointFeature):
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "TenonThickness",
-            _LENGTH,
+            LENGTH,
             "Tenon",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -44,7 +42,7 @@ class MortiseTenonJoint(JointFeature):
         ),
         PropertySpec(
             "TenonWidth",
-            _LENGTH,
+            LENGTH,
             "Tenon",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -55,7 +53,7 @@ class MortiseTenonJoint(JointFeature):
         ),
         PropertySpec(
             "TenonLength",
-            _LENGTH,
+            LENGTH,
             "Tenon",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -66,7 +64,7 @@ class MortiseTenonJoint(JointFeature):
         ),
         PropertySpec(
             "WidthOffset",
-            _DISTANCE,
+            DISTANCE,
             "Tenon",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -76,7 +74,7 @@ class MortiseTenonJoint(JointFeature):
         ),
         PropertySpec(
             "ThicknessOffset",
-            _DISTANCE,
+            DISTANCE,
             "Tenon",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -96,7 +94,7 @@ class MortiseTenonJoint(JointFeature):
         ),
         PropertySpec(
             "MortiseClearance",
-            _LENGTH,
+            LENGTH,
             "Mortaise",
             QT_TRANSLATE_NOOP(
                 "App::Property",

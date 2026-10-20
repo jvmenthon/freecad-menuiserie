@@ -7,17 +7,19 @@ import math
 
 import pytest
 
+from freecad.menuiserie.core.contact import (
+    Contact,
+    Overlap,
+    Separated,
+    classify,
+)
 from freecad.menuiserie.core.geometry import (
     Axis,
     Box,
-    Contact,
     Cylinder,
     JointError,
-    Overlap,
     RigidTransform,
-    Separated,
     Vec3,
-    classify,
     relative_axes,
     to_guest,
     to_host,
@@ -158,3 +160,9 @@ def test_contact_vu_de_l_invitee_au_dessus() -> None:
     assert isinstance(relation, Contact)
     assert (relation.guest_face, relation.host_face) == (Axis.Z_NEG, Axis.Z_POS)
     assert relation.host_depth == 20.0
+
+
+def test_vec3_with_component() -> None:
+    point = Vec3(1.0, 2.0, 3.0)
+    assert point.with_component(1, 9.0) == Vec3(1.0, 9.0, 3.0)
+    assert point == Vec3(1.0, 2.0, 3.0)

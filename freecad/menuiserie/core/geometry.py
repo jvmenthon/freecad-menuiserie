@@ -3,7 +3,8 @@
 
 Toutes les longueurs sont en mm. Le repère local d'une pièce est celui de ``part_model`` :
 X = longueur, Y = largeur, Z = épaisseur. Les calculs se font dans le repère local de l'hôte,
-après y avoir exprimé l'invitée : seule la rotation **relative** doit être d'équerre.
+après y avoir exprimé l'invitée : seule la rotation **relative** doit être d'équerre. La
+position relative de deux pièces (contact, chevauchement) est dans :mod:`.contact`.
 ``features/`` convertit ``Placement`` en :class:`RigidTransform` par ``Placement.toMatrix()``.
 """
 
@@ -24,17 +25,14 @@ __all__ = [
     "NOT_SQUARE",
     "Axis",
     "Box",
-    "Contact",
     "Cylinder",
     "JointError",
-    "Overlap",
     "PlacedBlock",
     "RigidTransform",
-    "Separated",
     "Solid",
     "Vec3",
-    "classify",
     "moved",
+    "moved_axis",
     "moved_box",
     "relative_axes",
     "relative_transform",
@@ -73,6 +71,12 @@ class Vec3:
     def of(cls, values: Sequence[float]) -> Vec3:
         """Vecteur construit depuis trois coordonnées."""
         return cls(float(values[0]), float(values[1]), float(values[2]))
+
+    def with_component(self, index: int, value: float) -> Vec3:
+        """Même vecteur, coordonnée d'indice ``index`` remplacée par ``value``."""
+        values = [self.x, self.y, self.z]
+        values[index] = value
+        return Vec3.of(values)
 
 
 class Axis(Enum):
@@ -292,7 +296,8 @@ def relative_transform(host: PlacedBlock, guest: PlacedBlock) -> RigidTransform:
     return RigidTransform(_matrix3(rows), translation)
 
 
-def _moved_axis(transform: RigidTransform, axis: Axis) -> Axis:
+def moved_axis(transform: RigidTransform, axis: Axis) -> Axis:
+    """Direction ``axis`` exprimée dans un autre repère (rotation d'équerre)."""
     turned = transform.rotate(axis.unit())
     major = max(range(3), key=lambda i: abs(turned.component(i)))
     return Axis.of(major, turned.component(major))
@@ -309,7 +314,7 @@ def moved(solid: Solid, transform: RigidTransform) -> Solid:
     """Solide exprimé dans un autre repère (rotation d'équerre)."""
     if isinstance(solid, Cylinder):
         base = transform.apply(solid.base)
-        return Cylinder(base, _moved_axis(transform, solid.axis), solid.radius, solid.height)
+        return Cylinder(base, moved_axis(transform, solid.axis), solid.radius, solid.height)
     return moved_box(solid, transform)
 
 
@@ -321,62 +326,3 @@ def to_host(host: PlacedBlock, guest: PlacedBlock, solid: Solid) -> Solid:
 def to_guest(host: PlacedBlock, guest: PlacedBlock, solid: Solid) -> Solid:
     """Solide du repère de l'hôte exprimé dans celui de l'invitée."""
     return moved(solid, relative_transform(host, guest).inverse())
-
-
-@dataclass(frozen=True)
-class Contact:
-    """Deux pièces qui se touchent par une face (chevauchement nul à la tolérance près)."""
-
-    guest_face: Axis
-    host_face: Axis
-    rectangle: Box  # aplati, repère de l'invitée
-    host_depth: float  # étendue de l'hôte dans l'axe normal au contact
-
-
-@dataclass(frozen=True)
-class Overlap:
-    """Deux pièces qui se chevauchent sur les trois axes."""
-
-    common: Box  # repère de l'hôte
-
-
-@dataclass(frozen=True)
-class Separated:
-    """Pièces écartées, ou qui ne se touchent que par une arête ou un coin."""
-
-
-def _contact(host_box: Box, guest_box: Box, normal: int, transform: RigidTransform) -> Contact:
-    host_side = 1 if guest_box.center(normal) > host_box.center(normal) else -1
-    plane = guest_box.lo(normal) if host_side > 0 else guest_box.hi(normal)
-    ranges = [
-        (max(host_box.lo(i), guest_box.lo(i)), min(host_box.hi(i), guest_box.hi(i)))
-        for i in range(3)
-    ]
-    ranges[normal] = (plane, plane)
-    host_face = Axis.of(normal, host_side)
-    back = transform.inverse()
-    rectangle = moved_box(Box.from_ranges(ranges), back)
-    guest_face = _moved_axis(back, host_face.opposite())
-    return Contact(guest_face, host_face, rectangle, host_box.size(normal))
-
-
-def classify(host: PlacedBlock, guest: PlacedBlock) -> Contact | Overlap | Separated:
-    """Position relative de deux pièces d'équerre (``JointError`` sinon)."""
-    transform = relative_transform(host, guest)
-    host_box = host.local_box()
-    guest_box = moved_box(guest.local_box(), transform)
-    overlaps = [
-        min(host_box.hi(i), guest_box.hi(i)) - max(host_box.lo(i), guest_box.lo(i))
-        for i in range(3)
-    ]
-    if min(overlaps) < -CONTACT_TOLERANCE_MM:
-        return Separated()
-    touching = [i for i, overlap in enumerate(overlaps) if overlap <= CONTACT_TOLERANCE_MM]
-    if not touching:
-        lows = [max(host_box.lo(i), guest_box.lo(i)) for i in range(3)]
-        return Overlap(
-            Box.from_ranges([(low, low + size) for low, size in zip(lows, overlaps, strict=True)])
-        )
-    if len(touching) > 1:
-        return Separated()
-    return _contact(host_box, guest_box, touching[0], transform)

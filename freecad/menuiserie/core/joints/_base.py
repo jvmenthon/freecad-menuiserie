@@ -14,14 +14,8 @@ from types import MappingProxyType
 from typing import Any, ClassVar, Final, Protocol, TypeVar, runtime_checkable
 
 from freecad.menuiserie.core._validation import MAX_DIMENSION_MM, bounded_float, decimal_text
-from freecad.menuiserie.core.geometry import (
-    Contact,
-    JointError,
-    Overlap,
-    PlacedBlock,
-    Solid,
-    classify,
-)
+from freecad.menuiserie.core.contact import Contact, Overlap, classify
+from freecad.menuiserie.core.geometry import JointError, PlacedBlock, Solid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 
@@ -46,6 +40,7 @@ class JointKind(str, Enum):
     MORTISE_TENON = "MortiseTenon"
     TONGUE_GROOVE = "TongueGroove"
     RABBET = "Rabbet"
+    DOWELS = "Dowels"
 
 
 @dataclass(frozen=True)

@@ -10,10 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
+from freecad.menuiserie.core.contact import Contact
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
+    Axis,
     Box,
-    Contact,
     JointError,
     PlacedBlock,
     RigidTransform,
@@ -90,6 +91,11 @@ class ContactFrame:
     def sign(self) -> int:
         """Sens, sur l'axe normal, de l'invitée vers l'hôte."""
         return self.contact.guest_face.sign
+
+    @property
+    def towards_host(self) -> Axis:
+        """Direction normale au contact, de l'invitée vers l'hôte (repère de l'invitée)."""
+        return Axis.of(self.normal, self.sign)
 
     @property
     def guest_plane(self) -> float:

@@ -92,6 +92,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   l'objet, jamais de forme partielle ; réouverture contrôlée (`Version` 1), annuler / rétablir,
   `remove_machined_part`, `machined_part_of`, `blank_of`. Pièces usinées utilisables par
   `Part::Cut`, TechDraw et l'export STEP, et lisibles sans l'atelier (ADR 0007).
+- Rainure-languette, feuillure et tourillons dans le document (J3c) : `make_tongue_groove`,
+  `make_rabbet` et `make_dowels` (objets `Menuiserie::TongueGroove`, `Menuiserie::Rabbet` et
+  `Menuiserie::Dowels`, mêmes règles de réouverture et d'annulation que le tenon-mortaise).
+  Tourillons automatiques de menuisier : Ø 6, 8, 10 ou 12 mm sans dépasser la moitié de
+  l'épaisseur (22 mm → Ø 10 x 40), à deux diamètres du bord, entraxe de 128 mm au plus ; leur
+  nombre suit la longueur du contact ; la forme de l'assemblage montre les tourillons, les deux
+  pièces usinées sont percées (jeu de fond de 1 mm, 3 mm de fond au moins).
 - Commandes d'assemblage (J3d) dans la barre d'outils et le menu Menuiserie : **Tenon-mortaise**,
   **Rainure-languette**, **Feuillure**, **Tourillons** (base commune `JointCommand`), actives
   pour deux pièces distinctes sélectionnées (brutes ou usinées) et sans panneau ouvert ; rôles
@@ -106,6 +113,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Captures de PR : un cadre assemblé par quatre tenons-mortaises à côté du caisson.
 
 ### Modifié
+- `core/contact.py` : classement contact / chevauchement / pièces séparées sorti de
+  `core/geometry.py` (limite de 400 lignes par module), sans changement de comportement.
 - Apparence d'une pièce (texture et couleur) extraite du ViewProvider de la pièce de bois dans
   `gui/part_appearance.py` (`PartAppearance`), partagée avec la pièce usinée ; l'aperçu du
   panneau de la pièce recalcule aussi ses assemblages et sa pièce usinée.
