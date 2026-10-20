@@ -58,6 +58,20 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Épaisseur standard minimale d'un matériau : 0,1 mm (au lieu de « supérieure à 0 »), la plus
   petite cote d'une pièce : une bibliothèque qui déclare une épaisseur plus fine voit l'entrée
   rejetée.
+- `features/wood_part.py` découpé (#11) : `wood_part_schema.py` (propriétés, énumérations,
+  valeurs par défaut, modes d'édition) et `wood_part_restore.py` (contrôles de la réouverture) ;
+  chemin de `WoodPart` inchangé. Alias de type et modes d'édition partagés dans
+  `features/freecad_types.py`, `translated()` déplacée de `features/library.py` vers
+  `features/i18n.py` ; bibliothèque lue une fois par réouverture d'une pièce.
+
+### Corrigé
+- Réouverture d'un document où une propriété de la pièce a un type inattendu (par exemple
+  `Category` en texte) : la propriété est recréée avec sa valeur par défaut, avec
+  avertissement, au lieu de faire échouer `record_of` (#11).
+- Document créé par une version plus récente de l'atelier : une valeur d'énumération inconnue
+  est gardée (avertissement) au lieu d'être remplacée, donc perdue à l'enregistrement (#11).
+- `record_of(...).density` arrondie à 6 décimales : 710 au lieu de 709,9999999999999 après
+  réouverture (#11).
 
 ### Sécurité
 - Bibliothèque de matériaux : lecture par un seul descripteur (`os.open` non bloquant, `fstat`,
