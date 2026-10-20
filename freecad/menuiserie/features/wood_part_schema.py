@@ -26,7 +26,7 @@ from freecad.menuiserie.core.part_model import (
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import EDITABLE, HIDDEN, READ_ONLY, DocumentObject
 from freecad.menuiserie.features.library import display_language
-from freecad.menuiserie.features.schema import PropertySpec
+from freecad.menuiserie.features.schema import LENGTH, PropertySpec
 
 DENSITY_UNIT: Final = "kg/m^3"
 # Décimales de la masse volumique relue (kg/m³). FreeCAD la stocke en kg/mm³ : l'aller-retour
@@ -57,7 +57,7 @@ MODEL_VERSION: Final = 2
 PROPERTIES: Final = (
     PropertySpec(
         "Length",
-        "App::PropertyLength",
+        LENGTH,
         "Dimensions",
         QT_TRANSLATE_NOOP(
             "App::Property", "Longueur finie de la pièce, mesurée selon l'axe X local."
@@ -65,7 +65,7 @@ PROPERTIES: Final = (
     ),
     PropertySpec(
         "Width",
-        "App::PropertyLength",
+        LENGTH,
         "Dimensions",
         QT_TRANSLATE_NOOP(
             "App::Property", "Largeur finie de la pièce, mesurée selon l'axe Y local."
@@ -73,7 +73,7 @@ PROPERTIES: Final = (
     ),
     PropertySpec(
         "Thickness",
-        "App::PropertyLength",
+        LENGTH,
         "Dimensions",
         QT_TRANSLATE_NOOP(
             "App::Property", "Épaisseur finie de la pièce, mesurée selon l'axe Z local."
@@ -153,7 +153,7 @@ PROPERTIES: Final = (
     ),
     PropertySpec(
         "LengthAllowance",
-        "App::PropertyLength",
+        LENGTH,
         "Débit",
         QT_TRANSLATE_NOOP(
             "App::Property",
@@ -162,7 +162,7 @@ PROPERTIES: Final = (
     ),
     PropertySpec(
         "WidthAllowance",
-        "App::PropertyLength",
+        LENGTH,
         "Débit",
         QT_TRANSLATE_NOOP(
             "App::Property",
@@ -171,7 +171,7 @@ PROPERTIES: Final = (
     ),
     PropertySpec(
         "ThicknessAllowance",
-        "App::PropertyLength",
+        LENGTH,
         "Débit",
         QT_TRANSLATE_NOOP(
             "App::Property",

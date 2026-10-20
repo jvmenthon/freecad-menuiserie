@@ -22,6 +22,8 @@ from freecad.menuiserie.features.freecad_types import EDITABLE, HIDDEN, READ_ONL
 from freecad.menuiserie.features.i18n import translated
 
 __all__ = [
+    "DISTANCE",
+    "LENGTH",
     "PropertySpec",
     "add_missing_properties",
     "apply_editor_modes",
@@ -48,6 +50,9 @@ _UNEXPECTED_TYPE: Final = QT_TRANSLATE_NOOP(
     "{noun} « {label} » : propriété {property} d'un type inattendu (« {type} », valeur "
     "« {value} »), recréée avec sa valeur par défaut.",
 )
+# Types des propriétés de cotes (mm) : longueur positive, distance signée (décalage).
+LENGTH: Final = "App::PropertyLength"
+DISTANCE: Final = "App::PropertyDistance"
 # Mode d'édition tel que le renvoie ``getEditorMode``.
 _MODE_NAMES: Final[Mapping[int, list[str]]] = MappingProxyType(
     {EDITABLE: [], READ_ONLY: ["ReadOnly"], HIDDEN: ["Hidden"]}

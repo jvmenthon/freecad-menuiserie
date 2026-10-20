@@ -14,11 +14,10 @@ from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import JointFeature, params_from
-from freecad.menuiserie.features.schema import PropertySpec
+from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["TongueGrooveJoint"]
 
-_LENGTH: Final = "App::PropertyLength"
 _DEFAULTS: Final = TongueGrooveParams()
 
 
@@ -32,7 +31,7 @@ class TongueGrooveJoint(JointFeature):
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "TongueThickness",
-            _LENGTH,
+            LENGTH,
             "Languette",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -43,7 +42,7 @@ class TongueGrooveJoint(JointFeature):
         ),
         PropertySpec(
             "TongueLength",
-            _LENGTH,
+            LENGTH,
             "Languette",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -53,7 +52,7 @@ class TongueGrooveJoint(JointFeature):
         ),
         PropertySpec(
             "ThicknessOffset",
-            "App::PropertyDistance",
+            DISTANCE,
             "Languette",
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -64,7 +63,7 @@ class TongueGrooveJoint(JointFeature):
         ),
         PropertySpec(
             "GrooveClearance",
-            _LENGTH,
+            LENGTH,
             "Rainure",
             QT_TRANSLATE_NOOP(
                 "App::Property",

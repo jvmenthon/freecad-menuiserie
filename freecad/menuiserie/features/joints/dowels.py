@@ -15,11 +15,10 @@ from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT, DowelParams
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import JointFeature, params_from
-from freecad.menuiserie.features.schema import PropertySpec
+from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["DowelJoint"]
 
-_LENGTH: Final = "App::PropertyLength"
 _GROUP: Final = "Tourillons"
 _DEFAULTS: Final = DowelParams()
 
@@ -34,7 +33,7 @@ class DowelJoint(JointFeature):
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "Diameter",
-            _LENGTH,
+            LENGTH,
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -45,7 +44,7 @@ class DowelJoint(JointFeature):
         ),
         PropertySpec(
             "DowelLength",
-            _LENGTH,
+            LENGTH,
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -56,7 +55,7 @@ class DowelJoint(JointFeature):
         ),
         PropertySpec(
             "HostDepth",
-            _LENGTH,
+            LENGTH,
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -78,7 +77,7 @@ class DowelJoint(JointFeature):
         ),
         PropertySpec(
             "EdgeDistance",
-            _LENGTH,
+            LENGTH,
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -89,7 +88,7 @@ class DowelJoint(JointFeature):
         ),
         PropertySpec(
             "ThicknessOffset",
-            "App::PropertyDistance",
+            DISTANCE,
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
@@ -100,7 +99,7 @@ class DowelJoint(JointFeature):
         ),
         PropertySpec(
             "HoleClearance",
-            _LENGTH,
+            LENGTH,
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",

@@ -76,11 +76,11 @@ def make_wood_part(
     return obj
 
 
-JointFactory = Callable[..., DocumentObject]
+_JointFactory = Callable[..., DocumentObject]
 
 
 def _make_joint(
-    factory: JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
+    factory: _JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
 ) -> DocumentObject:
     """Crée l'assemblage par ``factory`` dans le document des pièces, puis recalcule."""
     document = blank_of(host).Document
