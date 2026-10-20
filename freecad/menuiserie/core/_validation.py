@@ -77,6 +77,19 @@ def to_finite_float(value: object) -> float | None:
     return number if math.isfinite(number) else None
 
 
+def bounded_float(value: object, minimum: float, maximum: float) -> float | None:
+    """Nombre fini (pas booléen) compris entre ``minimum`` et ``maximum``, sinon ``None``."""
+    number = to_finite_float(value)
+    if number is not None and minimum <= number <= maximum:
+        return number
+    return None
+
+
+def decimal_text(number: float) -> str:
+    """Nombre écrit à la française pour un message : « 0,1 », « 300 »."""
+    return f"{number:g}".replace(".", ",")
+
+
 def has_forbidden_character(text: str) -> bool:
     """Vrai si ``text`` contient un caractère d'une catégorie Unicode interdite."""
     return any(unicodedata.category(char) in _FORBIDDEN_CATEGORIES for char in text)

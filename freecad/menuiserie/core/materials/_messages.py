@@ -114,7 +114,7 @@ ENTRY_INVALID_DENSITY: Final = QT_TRANSLATE_NOOP(
 ENTRY_INVALID_THICKNESSES: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "{source} : matériau « {id} », champ « {field} » : liste de 1 à {count} épaisseurs "
-    "attendue, chacune supérieure à 0 et au plus {max} mm.",
+    "attendue, chacune entre {min} et {max} mm.",
 )
 ENTRY_INVALID_COLOR: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",

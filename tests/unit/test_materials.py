@@ -509,7 +509,7 @@ def test_materiau_conteneurs_convertis_en_tuples() -> None:
         "x",
         MaterialKind.SOLID,
         {"fr": "X"},
-        1,
+        500,
         [18.0, 22.0],  # type: ignore[arg-type]
         [1, 2, 3],  # type: ignore[arg-type]
         True,
@@ -849,20 +849,20 @@ def test_bibliotheque_refuse_les_doublons(materials: list[Material]) -> None:
 
 def test_libelle_selon_la_langue() -> None:
     material = Material(
-        "x", MaterialKind.SOLID, {"en": "Oak", "fr": "Chêne"}, 1, (1,), (0, 0, 0), True
+        "x", MaterialKind.SOLID, {"en": "Oak", "fr": "Chêne"}, 500, (1,), (0, 0, 0), True
     )
     assert material.name() == "Chêne"
     assert material.name("en") == "Oak"
     assert material.name("de") == "Chêne"
-    english_only = Material("y", MaterialKind.SOLID, {"en": "Oak"}, 1, (1,), (0, 0, 0), True)
+    english_only = Material("y", MaterialKind.SOLID, {"en": "Oak"}, 500, (1,), (0, 0, 0), True)
     assert english_only.name() == "Oak"
     with pytest.raises(ValueError, match="libellé"):
-        Material("z", MaterialKind.SOLID, {}, 1, (1,), (0, 0, 0), True)
+        Material("z", MaterialKind.SOLID, {}, 500, (1,), (0, 0, 0), True)
 
 
 def test_libelles_immuables() -> None:
     names = {"fr": "Chêne"}
-    material = Material("x", MaterialKind.SOLID, names, 1, (1,), (0, 0, 0), True)
+    material = Material("x", MaterialKind.SOLID, names, 500, (1,), (0, 0, 0), True)
     names["fr"] = "Modifié"
     assert material.name() == "Chêne"
     with pytest.raises(TypeError):

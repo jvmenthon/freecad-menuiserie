@@ -7,14 +7,9 @@ import re
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
-from typing import Final, TypeGuard
+from typing import Final, TypeGuard, TypeVar
 
-from freecad.menuiserie.core._validation import (
-    has_forbidden_character,
-    nfc,
-    quoted_value,
-    to_finite_float,
-)
+from freecad.menuiserie.core._validation import decimal_text, has_forbidden_character, quoted_value
 from freecad.menuiserie.core.materials._entry import (
     TEXTURE_KEYS,
     Entry,
@@ -70,26 +65,39 @@ from freecad.menuiserie.core.materials._model import (
     MAX_THICKNESSES,
     MIN_DENSITY,
     MIN_TEXTURE_SIZE_MM,
+    MIN_THICKNESS_MM,
     TEXTURE_EXTENSIONS,
     Material,
     MaterialKind,
     Texture,
+    is_language_code,
+    normalized_color,
+    normalized_density,
+    normalized_id,
+    normalized_label,
+    normalized_texture_size,
+    normalized_thicknesses,
 )
 
 FORMAT_VERSION: Final = 1
 MAX_MATERIALS: Final = 500
 
 _ROOT_KEYS: Final = frozenset({"format", "materials"})
-_ID_PATTERN: Final = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
-_LANGUAGE_PATTERN: Final = re.compile(r"[a-z]{2}")
 _COLOR_PATTERN: Final = re.compile(r"#[0-9A-Fa-f]{6}")
+
+_T = TypeVar("_T")
+
+
+def _checked(entry: Entry, value: _T | None, template: str, field: str, **params: str) -> _T:
+    """Valeur normalisée par une règle de ``_model`` ; erreur de l'entrée si elle vaut ``None``."""
+    if value is None:
+        raise entry.error(template, field, **params)
+    return value
 
 
 def _parse_id(entry: Entry) -> str:
-    value = entry.require("id")
-    if isinstance(value, str) and len(value) <= MAX_ID_LENGTH and _ID_PATTERN.fullmatch(value):
-        return value
-    raise entry.error(ENTRY_INVALID_ID, "id", max=str(MAX_ID_LENGTH))
+    value = normalized_id(entry.require("id"))
+    return _checked(entry, value, ENTRY_INVALID_ID, "id", max=str(MAX_ID_LENGTH))
 
 
 def _parse_kind(entry: Entry) -> MaterialKind:
@@ -102,11 +110,8 @@ def _parse_kind(entry: Entry) -> MaterialKind:
 
 
 def _parse_label(entry: Entry, value: object) -> str:
-    if isinstance(value, str):
-        label = nfc(value).strip()
-        if 1 <= len(label) <= MAX_NAME_LENGTH and not has_forbidden_character(label):
-            return label
-    raise entry.error(ENTRY_INVALID_LABEL, "name", max=str(MAX_NAME_LENGTH))
+    label = normalized_label(value)
+    return _checked(entry, label, ENTRY_INVALID_LABEL, "name", max=str(MAX_NAME_LENGTH))
 
 
 def _parse_names(entry: Entry) -> dict[str, str]:
@@ -117,41 +122,38 @@ def _parse_names(entry: Entry) -> dict[str, str]:
         raise entry.error(ENTRY_INVALID_NAME, "name")
     names: dict[str, str] = {}
     for language, label in value.items():
-        if not isinstance(language, str) or not _LANGUAGE_PATTERN.fullmatch(language):
+        if not is_language_code(language):
             raise entry.error(ENTRY_INVALID_LANGUAGE, "name", language=quoted_value(language))
         names[language] = _parse_label(entry, label)
     return names
 
 
 def _parse_density(entry: Entry) -> float:
-    density = to_finite_float(entry.require("density"))
-    if density is not None and MIN_DENSITY <= density <= MAX_DENSITY:
-        return density
-    raise entry.error(
-        ENTRY_INVALID_DENSITY, "density", min=f"{MIN_DENSITY:g}", max=f"{MAX_DENSITY:g}"
-    )
+    density = normalized_density(entry.require("density"))
+    bounds = {"min": decimal_text(MIN_DENSITY), "max": decimal_text(MAX_DENSITY)}
+    return _checked(entry, density, ENTRY_INVALID_DENSITY, "density", **bounds)
 
 
 def _parse_thicknesses(entry: Entry) -> tuple[float, ...]:
-    value = entry.require("thicknesses")
-    if isinstance(value, list) and 1 <= len(value) <= MAX_THICKNESSES:
-        numbers = [to_finite_float(item) for item in value]
-        valid = [n for n in numbers if n is not None and 0 < n <= MAX_THICKNESS_MM]
-        if len(valid) == len(value):
-            return tuple(sorted(set(valid)))
-    raise entry.error(
-        ENTRY_INVALID_THICKNESSES,
-        "thicknesses",
-        count=str(MAX_THICKNESSES),
-        max=f"{MAX_THICKNESS_MM:g}",
-    )
+    thicknesses = normalized_thicknesses(entry.require("thicknesses"))
+    params = {
+        "count": str(MAX_THICKNESSES),
+        "min": decimal_text(MIN_THICKNESS_MM),
+        "max": decimal_text(MAX_THICKNESS_MM),
+    }
+    return _checked(entry, thicknesses, ENTRY_INVALID_THICKNESSES, "thicknesses", **params)
+
+
+def _hex_color(value: object) -> tuple[int, int, int] | None:
+    """Triplet RVB d'une couleur « #RRGGBB », sinon ``None``."""
+    if not isinstance(value, str) or not _COLOR_PATTERN.fullmatch(value):
+        return None
+    return int(value[1:3], 16), int(value[3:5], 16), int(value[5:7], 16)
 
 
 def _parse_color(entry: Entry) -> tuple[int, int, int]:
-    value = entry.require("color")
-    if not isinstance(value, str) or not _COLOR_PATTERN.fullmatch(value):
-        raise entry.error(ENTRY_INVALID_COLOR, "color")
-    return int(value[1:3], 16), int(value[3:5], 16), int(value[5:7], 16)
+    color = normalized_color(_hex_color(entry.require("color")))
+    return _checked(entry, color, ENTRY_INVALID_COLOR, "color")
 
 
 def _parse_has_grain(entry: Entry, kind: MaterialKind) -> bool:
@@ -199,19 +201,9 @@ def _parse_texture_image(entry: Entry, value: object) -> Path:
 
 
 def _parse_texture_size(entry: Entry, value: object) -> tuple[float, float]:
-    if isinstance(value, list) and len(value) == 2:
-        numbers = [to_finite_float(item) for item in value]
-        valid = [
-            n for n in numbers if n is not None and MIN_TEXTURE_SIZE_MM <= n <= MAX_TEXTURE_SIZE_MM
-        ]
-        if len(valid) == 2:
-            return valid[0], valid[1]
-    raise entry.error(
-        ENTRY_INVALID_TEXTURE_SIZE,
-        "texture.size",
-        min=f"{MIN_TEXTURE_SIZE_MM:g}",
-        max=f"{MAX_TEXTURE_SIZE_MM:g}",
-    )
+    size = normalized_texture_size(value)
+    bounds = {"min": decimal_text(MIN_TEXTURE_SIZE_MM), "max": decimal_text(MAX_TEXTURE_SIZE_MM)}
+    return _checked(entry, size, ENTRY_INVALID_TEXTURE_SIZE, "texture.size", **bounds)
 
 
 def _parse_texture(entry: Entry) -> Texture | None:
