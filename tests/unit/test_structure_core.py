@@ -13,7 +13,14 @@ from tests.unit.aides import ROOT, imported_modules, imported_names
 
 PACKAGE = ROOT / "freecad" / "menuiserie"
 MATERIALS_PACKAGE = PACKAGE / "core" / "materials"
-PRIVATE_MODULES = ("freecad.menuiserie.core._validation", "freecad.menuiserie.core.materials._")
+PRIVATE_MODULES = (
+    "freecad.menuiserie.core._validation",
+    "freecad.menuiserie.core.materials._",
+    "freecad.menuiserie.core.joints._",
+)
+CORE_PACKAGE = PACKAGE / "core"
+# core/ est pur (critère M11 de J3) : ni FreeCAD ni Qt.
+FORBIDDEN_IN_CORE = ("FreeCAD", "FreeCADGui", "Part", "PySide", "PySide2", "PySide6", "shiboken")
 MAX_MODULE_LINES = 400
 
 # API publique figée de la façade (critère R4), par sous-module d'origine : un retrait ou un
@@ -122,3 +129,28 @@ def test_part_model_reexporte_les_bornes() -> None:
     assert part_model.MIN_DIMENSION_MM == 0.1
     assert part_model.MAX_DIMENSION_MM == 20_000.0
     assert {"MIN_DIMENSION_MM", "MAX_DIMENSION_MM"} <= set(part_model.__all__)
+
+
+# --- M11 (J3a) : core/ pur et modules courts ----------------------------------------------
+
+
+@pytest.mark.parametrize("path", python_files(CORE_PACKAGE), ids=lambda p: p.name)
+def test_core_n_importe_ni_freecad_ni_qt(path: Path) -> None:
+    roots = {module.split(".")[0] for module in imported_modules(path)}
+    assert roots.isdisjoint(FORBIDDEN_IN_CORE), f"{path.relative_to(ROOT)} : {sorted(roots)}"
+
+
+@pytest.mark.parametrize("path", python_files(CORE_PACKAGE), ids=lambda p: p.name)
+def test_modules_de_core_courts(path: Path) -> None:
+    lines = len(path.read_text(encoding="utf-8").splitlines())
+    assert lines <= MAX_MODULE_LINES, f"{path.name} : {lines} lignes"
+
+
+def test_modules_prives_des_assemblages_reserves_a_core(tmp_path: Path) -> None:
+    path = tmp_path / "freecad" / "menuiserie" / "features" / "exemple.py"
+    path.parent.mkdir(parents=True)
+    path.write_text("from freecad.menuiserie.core.joints._base import mm_round\n", encoding="utf-8")
+    assert private_modules(path, tmp_path) == [
+        "freecad.menuiserie.core.joints._base",
+        "freecad.menuiserie.core.joints._base.mm_round",
+    ]

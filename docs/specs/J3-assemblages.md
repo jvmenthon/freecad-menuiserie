@@ -153,15 +153,18 @@ l'invitée occupe déjà la place logée (chevauchement) ; les autres types supp
 ```
 freecad/menuiserie/
 ├── core/
-│   ├── geometry.py              J3a  Vec3, Box, Cylinder, RigidTransform, axes, classify
+│   ├── i18n.py                  J3a  + TemplatedError (base de InvalidDimensionsError et JointError)
+│   ├── geometry.py              J3a  Vec3, Box, Cylinder, RigidTransform, axes, classify, JointError
 │   └── joints/
-│       ├── __init__.py          J3a  façade : JointKind, JointPlan, JointError, strategy_for, guess_roles
-│       ├── _base.py             J3a  protocole JointStrategy, registre, arrondis et règles communes
+│       ├── __init__.py          J3a  façade : JointKind, JointPlan, JointError, JointStrategy, strategy_for, guess_roles, mm_round
+│       ├── _base.py             J3a  protocole JointStrategy, paramètres validés, arrondis et règles communes
+│       ├── _registry.py         J3a  registre figé des stratégies, strategy_for
+│       ├── _roles.py            J3a  guess_roles
 │       ├── _profile.py          J3a  profil commun tenon / languette (section, longueur, logement)
 │       ├── mortise_tenon.py     J3a  MortiseTenonParams, MortiseTenonStrategy
 │       ├── tongue_groove.py     J3a  TongueGrooveParams, TongueGrooveStrategy
 │       ├── rabbet.py            J3a  RabbetParams, RabbetStrategy
-│       └── dowels.py            J3c  DowelParams, DowelStrategy
+│       └── dowels.py            J3a  DowelParams ; J3c  DowelStrategy, JointKind.DOWELS
 ├── features/
 │   ├── schema.py                J3b  PropertySpec générique, ajout / contrôle / migration (extrait de wood_part_*)
 │   ├── solids.py                J3b  conversion Box / Cylinder (core) → formes Part
@@ -220,7 +223,7 @@ class Axis(Enum):  # face ou direction dans un repère local
 
 
 @dataclass(frozen=True)
-class Box:  # boîte alignée sur les axes d'un repère, min < max sur chaque axe
+class Box:  # boîte alignée sur les axes d'un repère, min <= max sur chaque axe (aplatie permise : rectangle de contact)
     min: Vec3
     max: Vec3
 
@@ -297,11 +300,11 @@ class JointKind(str, Enum):  # non enregistré dans les documents (le chemin du 
     MORTISE_TENON = "MortiseTenon"
     TONGUE_GROOVE = "TongueGroove"
     RABBET = "Rabbet"
-    DOWELS = "Dowels"
+    DOWELS = "Dowels"  # ajouté en J3c avec DowelStrategy (M9 : une stratégie par type)
 
 
-class JointError(ValueError):  # comme InvalidDimensionsError : gabarit QT_TRANSLATE_NOOP + params
-    template: str
+class JointError(TemplatedError):  # défini dans geometry.py (levé par relative_axes), ré-exporté
+    template: str  # gabarit QT_TRANSLATE_NOOP
     params: Mapping[str, str]
 
 
