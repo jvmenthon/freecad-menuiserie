@@ -14,14 +14,10 @@ l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd
 
 from __future__ import annotations
 
-from typing import Any
-
 import FreeCAD as App
 
+from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
-
-DocumentObject = Any  # objets FreeCAD, sans annotations de type
-Document = Any
 
 
 def make_wood_part(

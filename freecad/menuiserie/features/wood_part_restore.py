@@ -9,14 +9,16 @@ du document sont cités tronqués et échappés.
 
 from __future__ import annotations
 
-from typing import Any, Final
+from typing import Final
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialLibrary
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.library import display_language, translated
+from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.library import display_language
 from freecad.menuiserie.features.wood_part_schema import (
     CATEGORIES,
     CATEGORY_BY_KIND,
@@ -29,8 +31,6 @@ from freecad.menuiserie.features.wood_part_schema import (
     part_kind,
     select_label,
 )
-
-DocumentObject = Any  # objets FreeCAD, sans annotations de type
 
 EMPTY_LIBRARY_MIGRATION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",

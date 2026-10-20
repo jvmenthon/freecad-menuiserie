@@ -19,9 +19,8 @@ import FreeCAD as App
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialKind, MaterialLibrary
 from freecad.menuiserie.core.part_model import Dimensions, GrainDirection, default_allowances
+from freecad.menuiserie.features.freecad_types import EDITABLE, HIDDEN, READ_ONLY, DocumentObject
 from freecad.menuiserie.features.library import display_language
-
-DocumentObject = Any  # objets FreeCAD, sans annotations de type
 
 DENSITY_UNIT: Final = "kg/m^3"
 # Décimales de la masse volumique relue (kg/m³). FreeCAD la stocke en kg/mm³ : l'aller-retour
@@ -42,9 +41,6 @@ CATEGORIES: Final = tuple(CATEGORY_BY_KIND.values())
 GRAIN_DIRECTIONS: Final = tuple(grain.value for grain in GrainDirection)
 KIND_BY_CATEGORY: Final = {category: kind for kind, category in CATEGORY_BY_KIND.items()}
 
-_EDITABLE: Final = 0
-_READ_ONLY: Final = 1
-_HIDDEN: Final = 2
 DEFAULT_DIMENSIONS: Final = Dimensions(800.0, 200.0, 22.0)
 # Version du modèle de données (propriété ``Version``), cf. :meth:`WoodPart._migrate`.
 MODEL_VERSION: Final = 1
@@ -66,7 +62,7 @@ _PROPERTIES: Final = (
         "Length",
         "App::PropertyLength",
         "Dimensions",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Longueur finie de la pièce, mesurée selon l'axe X local."
         ),
@@ -75,7 +71,7 @@ _PROPERTIES: Final = (
         "Width",
         "App::PropertyLength",
         "Dimensions",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Largeur finie de la pièce, mesurée selon l'axe Y local."
         ),
@@ -84,7 +80,7 @@ _PROPERTIES: Final = (
         "Thickness",
         "App::PropertyLength",
         "Dimensions",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Épaisseur finie de la pièce, mesurée selon l'axe Z local."
         ),
@@ -93,7 +89,7 @@ _PROPERTIES: Final = (
         "Material",
         "App::PropertyEnumeration",
         "Matériau",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Essence ou panneau, choisi dans la bibliothèque de matériaux."
         ),
@@ -102,7 +98,7 @@ _PROPERTIES: Final = (
         "MaterialId",
         "App::PropertyString",
         "Matériau",
-        _READ_ONLY,
+        READ_ONLY,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Identifiant stable du matériau dans la bibliothèque. C'est lui qui est enregistré "
@@ -113,7 +109,7 @@ _PROPERTIES: Final = (
         "Category",
         "App::PropertyEnumeration",
         "Matériau",
-        _READ_ONLY,
+        READ_ONLY,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Type de matériau, déduit du matériau choisi : massif ou panneau (contreplaqué, "
@@ -124,7 +120,7 @@ _PROPERTIES: Final = (
         "Density",
         "App::PropertyDensity",
         "Matériau",
-        _READ_ONLY,
+        READ_ONLY,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Masse volumique recopiée de la bibliothèque au choix du matériau ; sert au calcul "
@@ -135,7 +131,7 @@ _PROPERTIES: Final = (
         "GrainDirection",
         "App::PropertyEnumeration",
         "Matériau",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Sens du fil par rapport aux cotes de la pièce : le long de la longueur, de la "
@@ -146,7 +142,7 @@ _PROPERTIES: Final = (
         "Mark",
         "App::PropertyString",
         "Débit",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 »). Des "
@@ -157,7 +153,7 @@ _PROPERTIES: Final = (
         "LengthAllowance",
         "App::PropertyLength",
         "Débit",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Surcote totale ajoutée à la longueur finie pour obtenir la longueur de débit.",
@@ -167,7 +163,7 @@ _PROPERTIES: Final = (
         "WidthAllowance",
         "App::PropertyLength",
         "Débit",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Surcote totale ajoutée à la largeur finie pour obtenir la largeur de débit.",
@@ -177,7 +173,7 @@ _PROPERTIES: Final = (
         "ThicknessAllowance",
         "App::PropertyLength",
         "Débit",
-        _EDITABLE,
+        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Surcote totale ajoutée à l'épaisseur finie pour obtenir l'épaisseur de débit.",
@@ -187,7 +183,7 @@ _PROPERTIES: Final = (
         "Version",
         "App::PropertyInteger",
         "Base",
-        _HIDDEN,
+        HIDDEN,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Version du modèle de données de la pièce, utilisée pour migrer les anciens fichiers.",

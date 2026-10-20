@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, ClassVar, Final
+from typing import ClassVar, Final
 
 import Part
 
@@ -28,7 +28,9 @@ from freecad.menuiserie.core.part_model import (
     allowances_after_material_change,
     grain_after_material_change,
 )
-from freecad.menuiserie.features.library import display_language, get_library, translated
+from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.wood_part_restore import (
     EMPTY_LIBRARY_MIGRATION,
     migration_material,
@@ -67,9 +69,6 @@ __all__ = [
     "set_material",
     "validated_arguments",
 ]
-
-DocumentObject = Any  # objets FreeCAD, sans annotations de type
-Document = Any
 
 OBJECT_NAME: Final = "WoodPart"
 
