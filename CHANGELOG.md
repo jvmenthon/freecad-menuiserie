@@ -24,6 +24,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   taille réelle couverte en mm, `Material.texture`) ; la couleur reste le rendu de secours.
 - Bibliothèque intégrée `data/materiaux.json` : 8 essences massives, 2 contreplaqués, MDF et
   mélaminé blanc.
+- Les matériaux intégrés affichent leur photo (textures CC0 de `data/textures/`, taille réelle
+  couverte d'après `SOURCES.md`).
 - Modèle pur de la pièce de bois (`core/part_model.py`) : cotes finies (0,1 à 20 000 mm) et
   surcotes bornées, sens du fil, volume, masse, cotes de débit, épaisseurs standard et règles de
   changement de matériau ; la cote refusée est citée exactement dans le message.

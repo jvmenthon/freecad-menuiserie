@@ -20,6 +20,7 @@ from freecad.menuiserie.core import materials, part_model
 from tests.integration.test_apparence import (
     IMAGE,
     MAPLE_RGB,
+    TEAK_RGB,
     TEXTURED_MAPLE,
     install_textured_maple,
     sized_file,
@@ -34,8 +35,6 @@ Reopen = Callable[[Any], Any]
 App = pytest.importorskip("FreeCAD")
 appearance = pytest.importorskip("freecad.menuiserie.features.appearance")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
-
-OAK_RGB = (184, 135, 90)
 
 
 def mapping(size: tuple[float, float], grain: str) -> Any:
@@ -151,10 +150,10 @@ def test_annuler_retablir_fil_et_materiau(document: Any, bibliotheque_temporaire
     obj.GrainDirection = "Width"
     document.commitTransaction()
     document.openTransaction("Matériau")
-    wood_part.set_material(obj, "chene")
+    wood_part.set_material(obj, "teck")
     document.commitTransaction()
     document.recompute()
-    assert appearance.appearance_of(obj) == core_appearance.Appearance(OAK_RGB)
+    assert appearance.appearance_of(obj) == core_appearance.Appearance(TEAK_RGB)
     document.undo()
     expected = core_appearance.Appearance(
         MAPLE_RGB, textured(image).texture, mapping((600.0, 200.0), "Width")
@@ -164,7 +163,7 @@ def test_annuler_retablir_fil_et_materiau(document: Any, bibliotheque_temporaire
     assert appearance.appearance_of(obj) == textured(image)
     document.redo()
     document.redo()
-    assert appearance.appearance_of(obj) == core_appearance.Appearance(OAK_RGB)
+    assert appearance.appearance_of(obj) == core_appearance.Appearance(TEAK_RGB)
 
 
 def test_texture_vers_sans_texture_et_inverse(
@@ -174,7 +173,7 @@ def test_texture_vers_sans_texture_et_inverse(
     obj = board(document, "chene")
     for material_id, expected in [
         ("erable", textured(image)),
-        ("mdf", core_appearance.Appearance((169, 139, 109))),
+        ("teck", core_appearance.Appearance(TEAK_RGB)),
         ("erable", textured(image)),
     ]:
         wood_part.set_material(obj, material_id)

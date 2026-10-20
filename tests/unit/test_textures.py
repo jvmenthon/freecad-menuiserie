@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from freecad.menuiserie import DATA_DIR
+from freecad.menuiserie.core.image_checks import check_image_bytes
 from freecad.menuiserie.core.materials import (
     MAX_TEXTURE_PATH_LENGTH,
     MAX_TEXTURE_SIZE_MM,
@@ -270,10 +271,15 @@ def test_texture_relative_au_fichier_utilisateur(tmp_path: Path) -> None:
     assert oak_texture.image == (folder / "textures" / "chene.jpg").resolve()
 
 
-def test_bibliotheque_integree_sans_texture_pour_l_instant() -> None:
+def test_bibliotheque_integree_texturee() -> None:
+    """Chaque matériau intégré affiche sa photo (data/textures, voir SOURCES.md), lisible et
+    acceptée par les contrôles faits avant décodage."""
     materials, issues = read_materials_file(DATA_DIR / "materiaux.json")
     assert issues == []
-    assert all(material.texture is None for material in materials)
+    for material in materials:
+        assert material.texture is not None, material.id
+        assert material.texture.image == (DATA_DIR / "textures" / f"{material.id}.jpg").resolve()
+        check_image_bytes(material.texture.image.read_bytes(), "jpeg")
 
 
 def test_message_de_chemin_refuse_explicite(tmp_path: Path) -> None:
