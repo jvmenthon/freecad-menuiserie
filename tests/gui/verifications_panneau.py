@@ -122,9 +122,9 @@ def avec_document(nom: str, verification: Callable[[Any], list[str]]) -> list[st
 # --- C1 : commande, barre d'outils, menu, activation -------------------------------------
 
 
-def emplacements_de_la_commande() -> list[tuple[str, str]]:
-    """Barres d'outils et menus qui portent l'action de la commande : (type, nom)."""
-    actions = Gui.Command.get(COMMAND).getAction()
+def emplacements(commande: str = COMMAND) -> list[tuple[str, str]]:
+    """Barres d'outils et menus qui portent l'action de ``commande`` : (type, nom)."""
+    actions = Gui.Command.get(commande).getAction()
     return [
         (type(widget).__name__, widget.objectName())
         for action in actions
@@ -139,15 +139,13 @@ def verifier_commande_presente() -> list[str]:
 
     infos = Gui.Command.get(COMMAND).getInfo()
     actions = Gui.Command.get(COMMAND).getAction()
-    emplacements = sorted(emplacements_de_la_commande())
+    places = sorted(emplacements())
     return [
         *ecarts("libellé", infos["menuText"], "Pièce de bois"),
         *ecarts("infobulle renseignée", bool(infos["toolTip"].strip()), True),
         *ecarts("icône", infos["pixmap"], icon_path("Menuiserie_WoodPart.svg")),
         *ecarts("icône affichée", [a.icon().isNull() for a in actions], [False]),
-        *ecarts(
-            "emplacements", emplacements, [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")]
-        ),
+        *ecarts("emplacements", places, [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")]),
     ]
 
 

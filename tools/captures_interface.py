@@ -18,7 +18,9 @@ La scène utilise une bibliothèque utilisateur temporaire (paramètre ``UserLib
 à la fin) qui ajoute un chêne muni d'une texture de test produite par le script : un quadrillage
 tous les 100 mm, veiné dans le sens du fil (la largeur de l'image) et marqué « fil → ». Les
 carreaux doivent mesurer 100 mm sur toutes les pièces, quelles que soient leurs cotes (gros plan
-``texture.png``). Le meuble de ``vue-3d.png`` montre les photos des matériaux intégrés.
+``texture.png``). Le meuble de ``vue-3d.png`` montre les photos des matériaux intégrés ; à côté,
+un cadre (cadre de référence de la spécification J3) est assemblé par quatre tenons-mortaises,
+traversants dans le montant de devant pour que leurs bouts soient visibles.
 """
 
 import json
@@ -40,6 +42,20 @@ PIECES = (
     (600.0, 400.0, 22.0, "chene", "Côté droit", (800.0, 0.0, 0.0)),
     (756.0, 380.0, 19.0, "mdf", "Étagère", (22.0, 10.0, 280.0)),
     (756.0, 580.0, 8.0, "cp-bouleau", "Fond", (22.0, 400.0, 0.0)),
+)
+# Cadre assemblé : (repère, longueur, position x, y en mm, rotation autour de Z en degrés).
+CADRE = (
+    ("Montant avant", 600.0, 1000.0, 0.0, 0.0),
+    ("Montant arrière", 600.0, 1000.0, 340.0, 0.0),
+    ("Traverse gauche", 280.0, 1060.0, 60.0, 90.0),
+    ("Traverse droite", 280.0, 1600.0, 60.0, 90.0),
+)
+# Tenons-mortaises (mortaise, tenon, traversant) du cadre.
+TENONS = (
+    ("Montant avant", "Traverse gauche", True),
+    ("Montant avant", "Traverse droite", True),
+    ("Montant arrière", "Traverse gauche", False),
+    ("Montant arrière", "Traverse droite", False),
 )
 # Gros plan : deux planches de 800 sur 200 mm, fil en long puis en travers (décalage en Y).
 PLANCHES = (("Length", 0.0), ("Width", 300.0))
@@ -128,8 +144,25 @@ def construire() -> None:
         else:
             piece.Placement.Base = App.Vector(*position)
     doc.recompute()
+    construire_le_cadre(doc)
     afficher_la_vue_du_document(doc.Name)
     Gui.Selection.clearSelection()
+
+
+def construire_le_cadre(doc) -> None:
+    """Cadre à plat assemblé par quatre tenons-mortaises (fabrique de l'api)."""
+    from freecad.menuiserie import api
+
+    pieces = {}
+    for repere, longueur, x, y, angle in CADRE:
+        piece = api.make_wood_part(longueur, 60.0, 22.0, "chene", mark=repere, doc=doc)
+        piece.Label = repere
+        rotation = App.Rotation(App.Vector(0, 0, 1), angle)
+        piece.Placement = App.Placement(App.Vector(x, y, 0.0), rotation)
+        pieces[repere] = piece
+    doc.recompute()
+    for mortaise, tenon, traversant in TENONS:
+        api.make_mortise_tenon(pieces[mortaise], pieces[tenon], through=traversant)
 
 
 def afficher_la_vue_du_document(nom_document: str) -> None:
