@@ -183,15 +183,18 @@ Aides partagées par `core/materials/` et `core/part_model.py`, déplacées tell
 `materials.py` (seul `MIN_DIMENSION_MM`/`MAX_DIMENSION_MM` change de module) :
 
 ```python
-MIN_DIMENSION_MM: Final = 0.1          # ré-exportés par part_model (__all__) : API inchangée
+MIN_DIMENSION_MM: Final = 0.1  # ré-exportés par part_model (__all__) : API inchangée
 MAX_DIMENSION_MM: Final = 20_000.0
 
-def to_finite_float(value: object) -> float | None: ...      # nombre fini non booléen, sinon None
+
+def to_finite_float(value: object) -> float | None: ...  # nombre fini non booléen, sinon None
 def bounded_float(value: object, minimum: float, maximum: float) -> float | None: ...
-def quoted_value(value: object) -> str: ...                  # citation tronquée et échappée
+def quoted_value(value: object) -> str: ...  # citation tronquée et échappée
 def nfc(text: str) -> str: ...
-def has_forbidden_character(text: str) -> bool: ...          # catégories Cc, Cf, Cs, Co, Cn, Zl, Zp
-class FrozenMapping(Mapping[str, str]): ...                  # ex-_FrozenMapping
+def has_forbidden_character(text: str) -> bool: ...  # catégories Cc, Cf, Cs, Co, Cn, Zl, Zp
+
+
+class FrozenMapping(Mapping[str, str]): ...  # ex-_FrozenMapping
 ```
 
 Une règle de champ = **une** fonction de normalisation qui renvoie la valeur normalisée ou `None`
@@ -311,8 +314,8 @@ fichier utilisateur absent renvoie `([], [])`. `parse_materials`, `merge_materia
 #### 4.2.3 `core/part_model.py`
 
 ```python
-MIN_DIMENSION_MM: Final = 0.1         # J1b : défini dans core/_validation.py, ré-exporté ici
-MAX_DIMENSION_MM: Final = 20_000.0    # idem
+MIN_DIMENSION_MM: Final = 0.1  # J1b : défini dans core/_validation.py, ré-exporté ici
+MAX_DIMENSION_MM: Final = 20_000.0  # idem
 STANDARD_THICKNESS_TOLERANCE_MM: Final = 0.05
 
 
@@ -621,13 +624,17 @@ class ViewProviderWoodPart:
     """Chemin de module figé (ADR 0003)."""
 
     def __init__(self, vobj: ViewObject) -> None: ...  # vobj.Proxy = self ; ajoute MaterialColor
-    def attach(self, vobj: ViewObject) -> None: ...  # garde vobj (non sérialisé) ; J1d : nœuds de texture
+    def attach(
+        self, vobj: ViewObject
+    ) -> None: ...  # garde vobj (non sérialisé) ; J1d : nœuds de texture
     def getIcon(self) -> str: ...  # icon_path("Menuiserie_WoodPart.svg"), icône existante
     def updateData(
         self, obj: DocumentObject, prop: str
     ) -> None: ...  # "MaterialId" → MaterialColor puis apparence, hors restauration ; J1d : "GrainDirection"
     def onChanged(self, vobj: ViewObject, prop: str) -> None: ...
-    def finishRestoring(self) -> None: ...  # recrée MaterialColor si absente ; J1d : réaffiche la texture
+    def finishRestoring(
+        self,
+    ) -> None: ...  # recrée MaterialColor si absente ; J1d : réaffiche la texture
     def dumps(self) -> None: ...
     def loads(self, state: object) -> None: ...
     # J1c :
@@ -665,7 +672,9 @@ COMMAND_NAME: Final = "Menuiserie_WoodPart"
 class CreateWoodPartCommand:
     def GetResources(
         self,
-    ) -> dict[str, str]: ...  # Pixmap Menuiserie_WoodPart.svg (existante), MenuText « Pièce de bois », ToolTip
+    ) -> dict[
+        str, str
+    ]: ...  # Pixmap Menuiserie_WoodPart.svg (existante), MenuText « Pièce de bois », ToolTip
     def IsActive(self) -> bool: ...  # document actif et aucun panneau de tâche ouvert
     def Activated(self) -> None: ...
 
@@ -730,9 +739,9 @@ Choix de rendu et alternatives écartées : ADR 0004. Principes :
 #### 4.6.1 `core/appearance.py`
 
 ```python
-TEXTURE_BASE_COLOR: Final = (255, 255, 255)        # couleur diffuse modulée par la texture
+TEXTURE_BASE_COLOR: Final = (255, 255, 255)  # couleur diffuse modulée par la texture
 MAX_TEXTURE_FILE_BYTES: Final = 16 * 1024 * 1024
-MAX_TEXTURE_PIXELS: Final = 4096                   # par côté
+MAX_TEXTURE_PIXELS: Final = 4096  # par côté
 
 Vector3 = tuple[float, float, float]
 
@@ -747,9 +756,9 @@ class TextureMapping:
 
 @dataclass(frozen=True)
 class Appearance:
-    color: tuple[int, int, int]                    # couleur du matériau (secours)
-    image: Path | None = None                      # None : couleur seule
-    mapping: TextureMapping | None = None          # présent si et seulement si image (ValueError sinon)
+    color: tuple[int, int, int]  # couleur du matériau (secours)
+    image: Path | None = None  # None : couleur seule
+    mapping: TextureMapping | None = None  # présent si et seulement si image (ValueError sinon)
 
 
 def texture_mapping(size: tuple[float, float], grain: GrainDirection) -> TextureMapping: ...
@@ -768,9 +777,13 @@ L'origine de l'image est le coin d'origine de chaque pièce.
 #### 4.6.2 `features/appearance.py`
 
 ```python
-def usable_texture_file(path: Path) -> bool: ...
+def usable_texture_file(path: Path) -> bool:
+    ...
     # os.stat : fichier ordinaire, 0 < taille ≤ MAX_TEXTURE_FILE_BYTES ; jamais d'exception (OSError, ValueError)
-def appearance_of(obj: DocumentObject) -> Appearance | None: ...
+
+
+def appearance_of(obj: DocumentObject) -> Appearance | None:
+    ...
     # get_library().find(obj.MaterialId) ; None si inconnu ; sinon part_appearance(..., usable_texture_file)
 ```
 
@@ -781,7 +794,9 @@ class TextureCache:
     def __init__(
         self, warn: Callable[[str], None] | None = None, max_entries: int = 32
     ) -> None: ...  # warn par défaut : App.Console.PrintWarning
-    def node(self, image: Path) -> SoTexture2 | None: ...  # nœud partagé ; None si l'image est refusée
+    def node(
+        self, image: Path
+    ) -> SoTexture2 | None: ...  # nœud partagé ; None si l'image est refusée
     def clear(self) -> None: ...
 
 
