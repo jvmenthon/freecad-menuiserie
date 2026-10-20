@@ -1,6 +1,6 @@
 # ADR 0007 — Compatibilité avec les autres ateliers et addons de FreeCAD
 
-- Statut : **proposé** (exigence de jv du 2026-10-20, à valider avec la spécification J3)
+- Statut : **accepté** (jv, 2026-10-20)
 - Date : 2026-10-20
 - Spécification : [docs/specs/J3-assemblages.md](../specs/J3-assemblages.md), § 4.9 et critères O13, O14
 - ADR liés : [0001 — Structure](0001-structure-de-l-atelier.md),

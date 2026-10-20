@@ -1,13 +1,13 @@
 # [J3] Assemblages 1 : tenon-mortaise, rainure-languette, feuillure, tourillons
 
 - Jalon : J3 (version cible 0.2.0, à confirmer par jv)
-- Statut : **proposée** (2026-10-20), en attente de jv : questions Q1 à Q6 (§ 9) ; position des
+- Statut : **validée** par jv le 2026-10-20 (Q1 à Q6 : recommandations retenues, § 9) ; position des
   pièces intérieures de l'Ensemble (J4) tranchée par jv le 2026-10-20 (§ 8)
 - Exigences de jv intégrées le 2026-10-20 : compatibilité avec les autres addons (§ 4.9,
   ADR 0007) ; modification facile d'un ensemble de pièces, préparée ici et réalisée en J4 (§ 8)
 - ADR liés : [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md),
-  [0006 — Pièce brute et pièce usinée](../adr/0006-piece-brute-et-piece-usinee.md) (proposé),
-  [0007 — Compatibilité avec les autres ateliers](../adr/0007-compatibilite-avec-les-autres-ateliers.md) (proposé)
+  [0006 — Pièce brute et pièce usinée](../adr/0006-piece-brute-et-piece-usinee.md) (accepté),
+  [0007 — Compatibilité avec les autres ateliers](../adr/0007-compatibilite-avec-les-autres-ateliers.md) (accepté)
 - Découpage : cinq PR **J3a → J3b → (J3c ∥ J3d) → J3e** (§ 5)
 
 ## 1. Contexte
@@ -519,7 +519,7 @@ rattrapée dans `execute()` (les erreurs de booléenne sont converties en messag
 
 | Lot | Branche | Contenu | Diff estimé hors tests | Critères |
 |---|---|---|---|---|
-| **J3a** | `feat/assemblages-core` | `core/geometry.py`, `core/joints/` (base, profil, tenon-mortaise, rainure-languette, feuillure), ADR 0006 et 0007 acceptés | ≈ 400 | M1–M11 |
+| **J3a** | `feat/assemblages-core` | `core/geometry.py`, `core/joints/` (base, profil, tenon-mortaise, rainure-languette, feuillure), ADR déjà acceptés (PR #18) | ≈ 400 | M1–M11 |
 | **J3b** | `feat/assemblages-document` | refactorisation `features/schema.py` (commit séparé, ≈ 60 lignes nettes), `solids.py`, `machined_part.py`, `joints/base.py`, `joints/mortise_tenon.py`, `api.make_mortise_tenon`, CHANGELOG | ≈ 380 | O1–O14 |
 | **J3c** | `feat/assemblages-types` | `core/joints/dowels.py`, `features/joints/tongue_groove.py`, `rabbet.py`, `dowels.py`, fabriques et `api` | ≈ 350 | R1–R2, T1–T5 |
 | **J3d** | `feat/assemblages-affichage` | `gui/part_appearance.py` (extraction), deux ViewProviders, `commands/joints.py`, `init_gui.py`, ajout des ViewProviders dans `api` | ≈ 300 | C1–C7 |
@@ -597,6 +597,8 @@ Esquisse pour la spécification J4 (non contractuelle ici) :
     rendu de la commande) pour signaler que la pièce a suivi sa formule.
 
 ## 9. Questions ouvertes pour jv
+
+**Décisions de jv (2026-10-20)** : recommandations retenues pour Q1 à Q6 — Q1 (a) ajoutés, Q2 (a) 0 = automatique, Q3 valeurs proposées (22 mm → tourillon Ø 10), Q4 (a), Q5 ADR 0006 accepté, Q6 détection automatique + « Inverser ». ADR 0007 accepté. Usinages croisés et nœuds à trois pièces : issue #19, après J3.
 
 **Q1 — Tenon et languette : ajoutés à la pièce ou taillés dedans ?** (change le dessin et le débit)
 (a) *Ajoutés* : on dessine la traverse entre les montants (cotes visibles) ; l'assemblage ajoute le

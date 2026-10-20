@@ -1,6 +1,6 @@
 # ADR 0006 — Comment un assemblage modifie les pièces : pièce brute et pièce usinée
 
-- Statut : **proposé** (spécification J3, à valider par jv)
+- Statut : **accepté** (jv, 2026-10-20)
 - Date : 2026-10-20
 - Spécification : [docs/specs/J3-assemblages.md](../specs/J3-assemblages.md), § 4.1 à 4.4
 - ADR liés : [0003 — Modèle de la pièce de bois](0003-modele-de-la-piece-de-bois.md) (contrat de
