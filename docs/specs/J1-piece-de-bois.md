@@ -115,9 +115,10 @@ Puis l'objet du document :
 
 Conception au § 4.6 et dans l'ADR 0004. **Aucun test ne dépend des textures intégrées** (PR #8,
 `data/textures/`) : chaque test crée sa propre bibliothèque dans un dossier temporaire (paramètre
-`UserLibraryPath`, puis `reload_library()`) avec une image produite par le test. Tant que #8 n'est
-pas fusionnée, la bibliothèque intégrée n'a aucune texture et les pièces s'affichent en couleur ;
-la fusion de #8 ne demande aucune modification de code.
+`UserLibraryPath`, puis `reload_library()`) avec une image produite par le test. Les photos de #8
+sont reliées aux douze matériaux intégrés dans `data/materiaux.json` (taille couverte : tableau
+de `data/textures/SOURCES.md`) ; un test unitaire vérifie que chaque image existe et passe les
+contrôles faits avant décodage. Les tests qui ont besoin d'un matériau uni le déclarent.
 
 | N° | Critère | Test |
 |---|---|---|

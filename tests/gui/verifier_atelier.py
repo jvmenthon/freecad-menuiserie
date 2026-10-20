@@ -74,10 +74,13 @@ def ecarts(nom: str, obtenu: object, attendu: object) -> list[str]:
 
 
 def couleurs(etape: str, vobj: Any, attendu: tuple[int, ...]) -> list[str]:
-    """``MaterialColor`` et couleur diffuse affichée valent ``attendu``."""
+    """``MaterialColor`` vaut ``attendu`` ; la couleur diffuse aussi, sauf si une texture est
+    affichée (blanc de base, ADR 0004) : les matériaux intégrés ont leur photo."""
+    switch = commutateur(vobj)
+    texture = switch is not None and switch.whichChild.getValue() == 0
     return [
         *ecarts(f"{etape}, MaterialColor", rgb(vobj.MaterialColor), attendu),
-        *ecarts(f"{etape}, couleur diffuse", diffuse_rgb(vobj), attendu),
+        *ecarts(f"{etape}, couleur diffuse", diffuse_rgb(vobj), WHITE_RGB if texture else attendu),
     ]
 
 
@@ -586,6 +589,7 @@ def verifier_texture_annuler_retablir() -> list[str]:
     materiaux = (
         materiau("erable", "Érable", "textures/erable.png"),
         materiau("tilleul", "Tilleul", "textures/tilleul.png"),
+        materiau("platane", "Platane"),
     )
     with bibliotheque(*materiaux) as fichier:
         ecrire_image(fichier.parent / "textures" / "erable.png")
@@ -609,12 +613,12 @@ def verifier_texture_annuler_retablir() -> list[str]:
         doc.undo()
         piece = doc.getObject(nom)
         problemes += texture_visible("suppression annulée", piece.ViewObject, IMAGE_PIXELS)
-        transaction("Uni", lambda: setattr(piece, "Material", "Chêne"))
-        problemes += repli_visible("texturé → uni", piece.ViewObject, OAK_RGB)
+        transaction("Uni", lambda: setattr(piece, "Material", "Platane"))
+        problemes += repli_visible("texturé → uni", piece.ViewObject)
         doc.undo()
         problemes += texture_visible("uni annulé", piece.ViewObject, IMAGE_PIXELS)
         doc.redo()
-        problemes += repli_visible("uni rétabli", piece.ViewObject, OAK_RGB)
+        problemes += repli_visible("uni rétabli", piece.ViewObject)
         doc.undo()
         transaction("Autre texture", lambda: setattr(piece, "Material", "Tilleul"))
         problemes += texture_visible("texture A → B", piece.ViewObject, (32, 16))

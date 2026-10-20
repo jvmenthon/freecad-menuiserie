@@ -38,6 +38,18 @@ TEXTURED_MAPLE = {
 }
 
 
+# Matériau sans texture : depuis que les matériaux intégrés ont leur photo, il faut le déclarer.
+PLAIN_TEAK = {
+    "id": "teck",
+    "kind": "solid",
+    "name": "Teck",
+    "density": 650,
+    "thicknesses": [22],
+    "color": "#8B5A2B",
+}
+TEAK_RGB = (139, 90, 43)
+
+
 def texture_at(image: Path, folder: Path | None = None) -> Any:
     """Texture de ``image`` (taille ``SIZE``) confinée à ``folder`` (par défaut son dossier)."""
     return materials.Texture(image, SIZE, folder)
@@ -63,7 +75,7 @@ def install_textured_maple(library: Library, *, with_image: bool = True) -> Path
     if with_image:
         image.parent.mkdir(parents=True, exist_ok=True)
         image.write_bytes(b"\x89PNG\r\n\x1a\n" + bytes(64))
-    library.installer(TEXTURED_MAPLE)
+    library.installer(TEXTURED_MAPLE, PLAIN_TEAK)
     return image
 
 
@@ -169,6 +181,14 @@ def test_materiau_inconnu_localement(document: Any, bibliotheque_temporaire: Lib
     assert not touched(obj)
 
 
-def test_materiau_sans_texture(document: Any) -> None:
+def test_materiau_sans_texture(document: Any, bibliotheque_temporaire: Library) -> None:
+    bibliotheque_temporaire.installer(PLAIN_TEAK)
+    obj = wood_part.create_wood_part(document, material_id="teck")
+    assert appearance.appearance_of(obj) == core_appearance.Appearance(TEAK_RGB)
+
+
+def test_materiau_integre_texture(document: Any) -> None:
     obj = wood_part.create_wood_part(document, material_id="chene")
-    assert appearance.appearance_of(obj) == core_appearance.Appearance((184, 135, 90))
+    shown = appearance.appearance_of(obj)
+    assert shown.texture is not None
+    assert shown.texture.image.name == "chene.jpg"

@@ -17,7 +17,8 @@ la réussite (la sortie standard est captée par la console de FreeCAD).
 La scène utilise une bibliothèque utilisateur temporaire (paramètre ``UserLibraryPath``, rétabli
 à la fin) qui ajoute un chêne muni d'une texture de test produite par le script : un quadrillage
 tous les 100 mm, veiné dans le sens du fil (la largeur de l'image) et marqué « fil → ». Les
-carreaux doivent mesurer 100 mm sur toutes les pièces, quelles que soient leurs cotes.
+carreaux doivent mesurer 100 mm sur toutes les pièces, quelles que soient leurs cotes (gros plan
+``texture.png``). Le meuble de ``vue-3d.png`` montre les photos des matériaux intégrés.
 """
 
 import json
@@ -34,9 +35,9 @@ import FreeCADGui as Gui
 QUADRILLE = "chene-quadrille"
 # (longueur, largeur, épaisseur, matériau, repère, position en mm) : un petit caisson.
 PIECES = (
-    (800.0, 400.0, 22.0, QUADRILLE, "Dessus", (0.0, 0.0, 600.0)),
-    (600.0, 400.0, 22.0, QUADRILLE, "Côté gauche", (22.0, 0.0, 0.0)),
-    (600.0, 400.0, 22.0, QUADRILLE, "Côté droit", (800.0, 0.0, 0.0)),
+    (800.0, 400.0, 22.0, "chene", "Dessus", (0.0, 0.0, 600.0)),
+    (600.0, 400.0, 22.0, "chene", "Côté gauche", (22.0, 0.0, 0.0)),
+    (600.0, 400.0, 22.0, "chene", "Côté droit", (800.0, 0.0, 0.0)),
     (756.0, 380.0, 19.0, "mdf", "Étagère", (22.0, 10.0, 280.0)),
     (756.0, 580.0, 8.0, "cp-bouleau", "Fond", (22.0, 400.0, 0.0)),
 )
