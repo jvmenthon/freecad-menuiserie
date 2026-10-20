@@ -863,7 +863,9 @@ class WoodPartTaskPanel:
     def getStandardButtons(self) -> int: ...  # Ok | Cancel
 
 
-def start_editing(obj: DocumentObject) -> bool: ...  # setEdit(mode 0) : transaction + panneau ; faux si un panneau est ouvert
+def start_editing(
+    obj: DocumentObject,
+) -> bool: ...  # setEdit(mode 0) : transaction + panneau ; faux si un panneau est ouvert
 def finish_editing() -> None: ...  # unsetEdit(mode 0) : ferme le panneau
 def has_expression(obj: DocumentObject, prop: str) -> bool: ...  # prop pilotée par ExpressionEngine
 ```
