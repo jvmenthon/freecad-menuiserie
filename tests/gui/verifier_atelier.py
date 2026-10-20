@@ -24,6 +24,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
+from tests.gui.verifications_panneau_limites import DEFAUTS_CONSTATES, VERIFICATIONS_LIMITES
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -284,6 +285,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_materiau_inconnu_et_documents_multiples,
     verifier_apparence_vide,
     *VERIFICATIONS_PANNEAU,
+    *VERIFICATIONS_LIMITES,
 )
 
 
@@ -301,7 +303,9 @@ def verifier() -> list[str]:
 def main() -> None:
     with open(os.environ["RESULTAT"], "w", encoding="utf-8") as rapport:
         problemes = verifier()
-        rapport.write("\n".join(problemes or ["OK : atelier chargé et pièces affichées"]) + "\n")
+        lignes = problemes or ["OK : atelier chargé et pièces affichées"]
+        # Défauts connus (équivalent de xfail strict) : rapportés après le résultat.
+        rapport.write("\n".join([*lignes, *DEFAUTS_CONSTATES]) + "\n")
     # Quitte immédiatement, sans boîte de dialogue ni boucle d'événements.
     os._exit(1 if problemes else 0)
 

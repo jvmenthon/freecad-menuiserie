@@ -263,3 +263,24 @@ def test_epaisseur_de_panneau_hors_standard(
     material_id: str, thickness: float, expected: bool
 ) -> None:
     assert is_nonstandard_panel_thickness(material(material_id), thickness) is expected
+
+
+@pytest.mark.parametrize(
+    ("material_id", "thickness", "expected"),
+    [
+        ("cp-bouleau", 17, True),
+        ("cp-bouleau", 18, False),
+        ("cp-bouleau", 18.04, False),  # dans la tolérance de 0,05 mm
+        ("cp-bouleau", 17.94, True),  # juste hors de la tolérance
+        ("cp-bouleau", 0.1, True),
+        ("cp-bouleau", 20000, True),
+        ("chene", 17, False),
+        ("chene", 0.1, False),
+        ("chene", 20000, False),
+    ],
+)
+def test_avertissement_d_epaisseur_cas_de_la_specification(
+    material_id: str, thickness: float, expected: bool
+) -> None:
+    """C5 : cas cités par la spécification, puis épaisseurs aux bornes des cotes."""
+    assert is_nonstandard_panel_thickness(material(material_id), thickness) is expected
