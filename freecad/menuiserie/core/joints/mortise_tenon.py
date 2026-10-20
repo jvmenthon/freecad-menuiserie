@@ -59,14 +59,14 @@ class MortiseTenonStrategy:
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: MortiseTenonParams) -> JointPlan:
         """Tenon ajouté à l'invitée, mortaise enlevée à l'hôte."""
         frame = contact_frame(host, guest, end_only=True)
-        return build_profile(host, guest, frame, _values(frame, params), _RULES)
+        return build_profile(frame, _values(frame, params), _RULES)
 
 
 def _values(frame: ContactFrame, params: MortiseTenonParams) -> ProfileValues:
     width = frame.contact_width
     depth = frame.contact.host_depth
     if params.through:
-        length = housing = depth
+        length, housing = frame.through_length, depth
     else:
         length = params.tenon_length or mm_round(2 * depth / 3)
         housing = length + params.mortise_clearance

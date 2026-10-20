@@ -16,6 +16,7 @@ from freecad.menuiserie.core.geometry import (
     Contact,
     JointError,
     PlacedBlock,
+    RigidTransform,
     moved_box,
     relative_transform,
 )
@@ -77,11 +78,40 @@ class ContactFrame:
 
     contact: Contact
     width_axis: int
+    to_host: RigidTransform  # repère de l'invitée → repère de l'hôte
+    host_box: Box  # boîte de l'hôte dans le repère de l'invitée
 
     @property
     def normal(self) -> int:
         """Axe local de l'invitée normal au contact."""
         return self.contact.guest_face.index
+
+    @property
+    def sign(self) -> int:
+        """Sens, sur l'axe normal, de l'invitée vers l'hôte."""
+        return self.contact.guest_face.sign
+
+    @property
+    def guest_plane(self) -> float:
+        """Coordonnée de la face de contact de l'invitée."""
+        return self.contact.rectangle.lo(self.normal)
+
+    @property
+    def host_near(self) -> float:
+        """Coordonnée de la face de contact de l'hôte (à l'écart toléré près de l'invitée)."""
+        box = self.host_box
+        return box.lo(self.normal) if self.sign > 0 else box.hi(self.normal)
+
+    @property
+    def host_far(self) -> float:
+        """Coordonnée de la face opposée de l'hôte."""
+        box = self.host_box
+        return box.hi(self.normal) if self.sign > 0 else box.lo(self.normal)
+
+    @property
+    def through_length(self) -> float:
+        """Longueur d'un profil traversant : face de l'invitée → face opposée de l'hôte."""
+        return abs(self.host_far - self.guest_plane)
 
     @property
     def contact_width(self) -> float:
@@ -102,19 +132,32 @@ def contact_frame(host: PlacedBlock, guest: PlacedBlock, *, end_only: bool) -> C
         raise JointError(FACE_CONTACT, {})
     if end_only and normal != 0:
         raise JointError(EDGE_CONTACT, {})
-    return ContactFrame(contact, width_axis=1 - normal)
+    to_host = relative_transform(host, guest)
+    host_box = moved_box(host.local_box(), to_host.inverse())
+    return ContactFrame(contact, 1 - normal, to_host, host_box)
 
 
 def _centered(center: float, size: float) -> tuple[float, float]:
     return (center - size / 2, center + size / 2)
 
 
-def _slab(frame: ContactFrame, section: Box, depth: float) -> Box:
-    """Section prolongée de ``depth`` du plan de contact vers l'hôte."""
-    plane = frame.contact.rectangle.lo(frame.normal)
-    sign = frame.contact.guest_face.sign
-    low, high = sorted((plane, plane + sign * depth))
+def _along_normal(frame: ContactFrame, section: Box, start: float, end: float) -> Box:
+    low, high = sorted((start, end))
     return section.with_range(frame.normal, low, high)
+
+
+def _profile(frame: ContactFrame, section: Box, length: float) -> Box:
+    """Section prolongée de ``length`` depuis la face de l'invitée, vers l'hôte."""
+    start = frame.guest_plane
+    return _along_normal(frame, section, start, start + frame.sign * length)
+
+
+def _housing(frame: ContactFrame, section: Box, depth: float) -> Box:
+    """Logement de ``depth`` depuis la face de l'hôte ; débouchant s'il atteint la profondeur."""
+    start = frame.host_near
+    if depth >= frame.contact.host_depth - _MARGIN:
+        return _along_normal(frame, section, start, frame.host_far)
+    return _along_normal(frame, section, start, start + frame.sign * depth)
 
 
 def _section(frame: ContactFrame, values: ProfileValues) -> Box:
@@ -149,14 +192,12 @@ def _check_walls(housing: Box, host_box: Box, axes: tuple[int, ...]) -> None:
             raise JointError(NO_WALL, {})
 
 
-def build_profile(
-    host: PlacedBlock,
-    guest: PlacedBlock,
-    frame: ContactFrame,
-    values: ProfileValues,
-    rules: ProfileRules,
-) -> JointPlan:
-    """Plan d'un profil : ajout dans l'invitée, logement dans l'hôte, contrôles de matière."""
+def build_profile(frame: ContactFrame, values: ProfileValues, rules: ProfileRules) -> JointPlan:
+    """Plan d'un profil : ajout dans l'invitée, logement dans l'hôte, contrôles de matière.
+
+    Le logement part de la face de l'hôte (pas de peau quand les pièces sont écartées de moins
+    que la tolérance de contact) ; s'il atteint la profondeur de l'hôte, il débouche.
+    """
     if min(values.width, values.thickness, values.length) <= 0:
         raise JointError(TOO_SMALL, {})
     host_depth = frame.contact.host_depth
@@ -164,15 +205,14 @@ def build_profile(
         depth = {"depth": mm_text(values.housing_depth), "host_depth": mm_text(host_depth)}
         raise JointError(TOO_DEEP, depth)
     section = _section(frame, values)
-    to_host = relative_transform(host, guest)
-    host_box = moved_box(host.local_box(), to_host.inverse())  # repère de l'invitée
-    housing = _slab(frame, section, values.housing_depth)
+    host_box = frame.host_box
+    housing = _housing(frame, section, values.housing_depth)
     if rules.extend_housing:
         axis = frame.width_axis
         housing = housing.with_range(axis, host_box.lo(axis), host_box.hi(axis))
     walled = (frame.width_axis, THICKNESS_AXIS) if rules.walled_width else (THICKNESS_AXIS,)
     _check_walls(housing, host_box, walled)
     return JointPlan(
-        host_cuts=(moved_box(housing, to_host),),
-        guest_additions=(_slab(frame, section, values.length),),
+        host_cuts=(moved_box(housing, frame.to_host),),
+        guest_additions=(_profile(frame, section, values.length),),
     )

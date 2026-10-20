@@ -9,27 +9,24 @@ import pytest
 
 from freecad.menuiserie.core.geometry import Box, JointError, PlacedBlock, Vec3
 from freecad.menuiserie.core.joints import (
-    STRATEGIES,
-    DowelParams,
     JointKind,
     JointPlan,
     JointStrategy,
-    MortiseTenonParams,
-    MortiseTenonStrategy,
-    ProfileValues,
-    RabbetParams,
-    RabbetStrategy,
-    TongueGrooveParams,
-    TongueGrooveStrategy,
     guess_roles,
     mm_round,
     strategy_for,
 )
+from freecad.menuiserie.core.joints._profile import ProfileValues
+from freecad.menuiserie.core.joints._registry import STRATEGIES
+from freecad.menuiserie.core.joints.dowels import DowelParams
+from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
+from freecad.menuiserie.core.joints.rabbet import RabbetParams
+from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from tests.unit.aides_assemblages import block, rail, stile
 
-TENON = MortiseTenonStrategy()
-TONGUE = TongueGrooveStrategy()
-RABBET = RabbetStrategy()
+TENON = strategy_for(JointKind.MORTISE_TENON)
+TONGUE = strategy_for(JointKind.TONGUE_GROOVE)
+RABBET = strategy_for(JointKind.RABBET)
 
 
 def box(low: tuple[float, float, float], high: tuple[float, float, float]) -> Box:
@@ -109,9 +106,33 @@ def test_tenon_refus(params: MortiseTenonParams, text: str) -> None:
     refused(TENON, stile(), rail(), params, text)
 
 
-def test_tenon_longueur_plus_jeu_egale_a_la_profondeur_acceptee() -> None:
-    plan = TENON.plan(stile(), rail(), MortiseTenonParams(tenon_length=58))
-    assert only(plan.host_cuts).size(1) == 60
+# Écart toléré par M2 : la traverse reculée ou avancée de 0,005 mm reste en contact ; le
+# logement part de la face de l'hôte, sans peau de matière.
+GAPS = pytest.mark.parametrize("y", [60.0, 60.005, 59.995], ids=["0", "+0,005", "-0,005"])
+
+
+@GAPS
+def test_mortaise_ancree_sur_la_face_de_l_hote(y: float) -> None:
+    plan = TENON.plan(stile(), rail(y=y), MortiseTenonParams())
+    assert only(plan.host_cuts) == box((10, 18, 7.5), (50, 60, 14.5))
+    assert only(plan.guest_additions).size(0) == pytest.approx(40)
+
+
+@GAPS
+def test_tenon_traversant_avec_ecart(y: float) -> None:
+    plan = TENON.plan(stile(), rail(y=y), MortiseTenonParams(through=True))
+    assert only(plan.host_cuts) == box((10, 0, 7.5), (50, 60, 14.5))
+    tenon = only(plan.guest_additions)
+    assert (tenon.lo(0), tenon.hi(0)) == pytest.approx((-y, 0.0))
+    assert TENON.resolve(stile(), rail(y=y), MortiseTenonParams(through=True)).length == (
+        pytest.approx(y)
+    )
+
+
+@GAPS
+def test_tenon_longueur_plus_jeu_egale_a_la_profondeur_debouche(y: float) -> None:
+    plan = TENON.plan(stile(), rail(y=y), MortiseTenonParams(tenon_length=58))
+    assert only(plan.host_cuts) == box((10, 0, 7.5), (50, 60, 14.5))
 
 
 def test_tenon_refus_selon_la_position() -> None:

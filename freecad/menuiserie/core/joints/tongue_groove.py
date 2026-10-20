@@ -58,7 +58,7 @@ class TongueGrooveStrategy:
         """Languette ajoutée à l'invitée, rainure enlevée à l'hôte."""
         frame = contact_frame(host, guest, end_only=False)
         rules = ProfileRules(walled_width=False, extend_housing=params.through_groove)
-        return build_profile(host, guest, frame, _values(frame, params), rules)
+        return build_profile(frame, _values(frame, params), rules)
 
 
 def _values(frame: ContactFrame, params: TongueGrooveParams) -> ProfileValues:
