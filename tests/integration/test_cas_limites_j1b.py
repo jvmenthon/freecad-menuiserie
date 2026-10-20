@@ -420,11 +420,6 @@ def test_migration_garde_les_proprietes_presentes(document: Any, rouvrir: Reopen
     assert (restored.MaterialId, restored.Material) == ("mdf", "MDF")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D2 : la migration recrée Category et GrainDirection d'après le matériau par "
-    "défaut de la bibliothèque (chêne) et non d'après MaterialId",
-)
 def test_migration_deduit_categorie_et_fil_du_materiau(document: Any, rouvrir: Reopen) -> None:
     obj = board(document, "mdf")
     for prop in ("Version", "Category", "GrainDirection"):
@@ -439,32 +434,54 @@ def test_migration_deduit_categorie_et_fil_du_materiau(document: Any, rouvrir: R
     assert wood_part.record_of(restored).kind.value == "mdf"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D3 : bibliothèque vide (intégrée absente) : la migration lève "
-    "UnknownMaterialError, avalée par FreeCAD ; Version et propriétés manquantes non recréées",
-)
+def empty_library(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Bibliothèque intégrée absente (et pas de fichier utilisateur) : bibliothèque vide."""
+    monkeypatch.setattr(library, "builtin_library_path", lambda: tmp_path / "absente.json")
+    assert len(library.reload_library()) == 0
+
+
 def test_migration_avec_bibliotheque_vide(
-    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    document: Any,
+    rouvrir: Reopen,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    vue_rapport: Any,
 ) -> None:
     obj = board(document)
     obj.removeProperty("Version")
     obj.removeProperty("ThicknessAllowance")
     name = obj.Name
-    monkeypatch.setattr(library, "builtin_library_path", lambda: tmp_path / "absente.json")
-    assert len(library.reload_library()) == 0
+    empty_library(monkeypatch, tmp_path)
+    vue_rapport.messages.clear()
     restored = rouvrir(document).getObject(name)
     assert restored.Version == 1
     assert restored.ThicknessAllowance.Value == 0
     assert wood_part.record_of(restored).material_id == "chene"
+    warnings = vue_rapport.de_niveau("Warning")
+    assert sum("bibliothèque de matériaux vide" in w for w in warnings) == 1
+
+
+def test_migration_sans_materiau_ni_bibliotheque_valeurs_sures(
+    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    obj = board(document, "mdf")
+    for prop in ("Version", "Material", "MaterialId", "Density", "Category", "GrainDirection"):
+        obj.removeProperty(prop)
+    name = obj.Name
+    empty_library(monkeypatch, tmp_path)
+    restored = rouvrir(document).getObject(name)
+    assert (restored.Version, restored.Category, restored.GrainDirection) == (1, "Solid", "Length")
+    assert restored.MaterialId == ""
+    assert (restored.LengthAllowance.Value, restored.WidthAllowance.Value) == (0, 0)
+    restored.Document.recompute()
+    assert restored.isValid()
 
 
 def test_reouverture_avec_bibliotheque_vide_garde_la_piece(
     document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     name = board(document, "noyer").Name
-    monkeypatch.setattr(library, "builtin_library_path", lambda: tmp_path / "absente.json")
-    library.reload_library()
+    empty_library(monkeypatch, tmp_path)
     with pytest.raises(KeyError):
         wood_part.create_wood_part(document)
     restored = rouvrir(document).getObject(name)

@@ -601,7 +601,12 @@ Comportement :
   `MaterialId`, `Category`, `Density`, puis `GrainDirection` et les surcotes selon les règles
   `core` (critère A7). Les cotes ne sont **jamais** modifiées automatiquement.
 - **`onDocumentRestored`** : migration (`_migrate(obj, from_version)`, où une `Version` absente vaut
-  0 : ajout des propriétés manquantes avec leurs défauts, puis `Version = VERSION`), réapplication
+  0 : ajout des propriétés manquantes avec leurs défauts, puis `Version = VERSION`). Les défauts
+  suivent le matériau de la pièce (`MaterialId`), ou le matériau par défaut s'il est inconnu
+  localement ; catégorie, fil et surcotes suivent la catégorie de la pièce si elle existe. Avec
+  une bibliothèque vide, la migration aboutit quand même : catégorie `Solid` si elle manque, fil
+  et surcotes de cette famille, `Material`/`MaterialId`/`Density` absentes laissées vides, et un
+  avertissement traduit dans la vue rapport. Puis réapplication
   des modes d'édition, puis reconstruction de la liste `Material` depuis la bibliothèque **seulement
   si elle diffère** ; si `MaterialId` est inconnu localement, le libellé enregistré est conservé
   comme valeur supplémentaire de la liste et `Density`/`Category` ne sont pas touchés.

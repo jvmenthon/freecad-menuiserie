@@ -59,6 +59,11 @@ _DEFAULT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce de bois")
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est pas une pièce de bois."
 )
+_EMPTY_LIBRARY_MIGRATION: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Pièce « {label} » : bibliothèque de matériaux vide, propriétés manquantes recréées avec "
+    "des valeurs par défaut (massif si la catégorie manque).",
+)
 _MISSING_MATERIAL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pièce « {label} » : matériau « {id} » absent de la bibliothèque locale, "
@@ -225,8 +230,9 @@ class WoodPart:
 
     def __init__(self, obj: DocumentObject) -> None:
         obj.Proxy = self
+        library = get_library()
         with self._synchronizing():
-            _add_missing_properties(obj, get_library())
+            _add_missing_properties(obj, library, library.default_material())
             _apply_editor_modes(obj)
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
@@ -286,10 +292,14 @@ class WoodPart:
             self._syncing = previous
 
     def _migrate(self, obj: DocumentObject, from_version: int) -> None:
-        """Version 0 (absente) → 1 : ajoute les propriétés manquantes avec leurs défauts."""
+        """Version 0 (absente) → 1 : ajoute les propriétés manquantes avec leurs défauts, déduits
+        du matériau de la pièce (``MaterialId``). Aboutit même si la bibliothèque est vide."""
         if from_version >= self.VERSION:
             return
-        _add_missing_properties(obj, get_library())
+        library = get_library()
+        if not len(library):
+            _warn(obj, _EMPTY_LIBRARY_MIGRATION)
+        _add_missing_properties(obj, library, _migration_material(obj, library))
         obj.Version = self.VERSION
 
 
@@ -384,33 +394,61 @@ def _dimension_message(error: InvalidDimensionsError) -> str:
     return translated(error.template, params)
 
 
-def _default_values(obj: DocumentObject, material: Material) -> dict[str, object]:
-    """Valeurs par défaut des propriétés : cotes de 800 x 200 x 22 mm, ``material`` et les
-    surcotes de la catégorie de la pièce (celle de ``material`` si elle n'en a pas encore)."""
-    kind = _KIND_BY_CATEGORY[obj.Category] if hasattr(obj, "Category") else material.kind
+def _migration_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
+    """Matériau de la pièce d'après ``MaterialId`` ; s'il est absent ou inconnu localement, le
+    matériau par défaut de la bibliothèque ; ``None`` si la bibliothèque est vide."""
+    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
+    material = library.find(material_id)
+    if material is None and len(library):
+        material = library.default_material()
+    return material
+
+
+def _part_kind(obj: DocumentObject, material: Material | None) -> MaterialKind:
+    """Famille de la pièce : sa catégorie, sinon celle de ``material``, sinon le massif."""
+    if "Category" in obj.PropertiesList:
+        return _KIND_BY_CATEGORY[obj.Category]
+    return material.kind if material is not None else MaterialKind.SOLID
+
+
+def _default_values(obj: DocumentObject, material: Material | None) -> dict[str, object]:
+    """Valeurs par défaut des propriétés : cotes de 800 x 200 x 22 mm, ``material``, puis
+    catégorie, fil et surcotes de la famille de la pièce (:func:`_part_kind`).
+
+    Sans matériau (bibliothèque vide), ``Material``, ``MaterialId`` et ``Density`` n'ont pas de
+    valeur par défaut : une propriété absente garde la valeur vide de son type.
+    """
+    kind = _part_kind(obj, material)
     allowances = default_allowances(kind)
-    grain = GrainDirection.LENGTH if material.has_grain else GrainDirection.NONE
-    return {
+    if material is not None and material.kind is kind:
+        has_grain = material.has_grain
+    else:
+        has_grain = kind.has_grain_by_default
+    values: dict[str, object] = {
         "Length": _DEFAULT_DIMENSIONS.length,
         "Width": _DEFAULT_DIMENSIONS.width,
         "Thickness": _DEFAULT_DIMENSIONS.thickness,
-        "Material": material.name(display_language()),
-        "MaterialId": material.id,
-        "Category": CATEGORY_BY_KIND[material.kind],
-        "Density": _density(material.density),
-        "GrainDirection": grain.value,
+        "Category": CATEGORY_BY_KIND[kind],
+        "GrainDirection": (GrainDirection.LENGTH if has_grain else GrainDirection.NONE).value,
         "Mark": "",
         "LengthAllowance": allowances.length,
         "WidthAllowance": allowances.width,
         "ThicknessAllowance": allowances.thickness,
         "Version": WoodPart.VERSION,
     }
+    if material is not None:
+        values["Material"] = material.name(display_language())
+        values["MaterialId"] = material.id
+        values["Density"] = _density(material.density)
+    return values
 
 
-def _add_missing_properties(obj: DocumentObject, library: MaterialLibrary) -> None:
-    """Ajoute les propriétés absentes de ``obj``, à leur valeur par défaut (matériau par
-    défaut de la bibliothèque pour une pièce neuve)."""
-    defaults = _default_values(obj, library.default_material())
+def _add_missing_properties(
+    obj: DocumentObject, library: MaterialLibrary, material: Material | None
+) -> None:
+    """Ajoute les propriétés absentes de ``obj``, à leur valeur par défaut (cf.
+    :func:`_default_values`)."""
+    defaults = _default_values(obj, material)
     enumerations = {
         "Material": _material_choices(library),
         "Category": list(CATEGORIES),
@@ -422,7 +460,8 @@ def _add_missing_properties(obj: DocumentObject, library: MaterialLibrary) -> No
         obj.addProperty(spec.type_id, spec.name, spec.group, spec.tooltip)
         if spec.name in enumerations:
             setattr(obj, spec.name, enumerations[spec.name])
-        setattr(obj, spec.name, defaults[spec.name])
+        if spec.name in defaults:
+            setattr(obj, spec.name, defaults[spec.name])
 
 
 def _apply_editor_modes(obj: DocumentObject) -> None:
