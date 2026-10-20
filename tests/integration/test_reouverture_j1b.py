@@ -52,3 +52,95 @@ def test_libelle_et_identifiant_cites_tronques_et_echappes(
     assert "« Pièce\\n\\u202exxx" in warning
     assert "« inconnu\\n\\u202exxx" in warning
     assert warning.count("…") == 2
+
+
+# --- S2 : énumérations relues du fichier ---------------------------------------------------
+
+
+def set_enumeration(obj: Any, name: str, choices: list[str], value: str) -> None:
+    """Écrit dans la pièce une liste d'énumération et une valeur arbitraires."""
+    setattr(obj, name, choices)
+    setattr(obj, name, value)
+
+
+def unknown_value_warnings(vue_rapport: Any) -> list[str]:
+    warnings = [w for w in vue_rapport.de_niveau("Warning") if "inconnue pour" in w]
+    for warning in warnings:
+        assert_safe(warning)
+    return warnings
+
+
+# Matériau de la pièce → catégorie, fil et famille attendus après réouverture.
+RESTORED = [
+    ("mdf", ("MDF", "None", "mdf")),
+    ("chene", ("Solid", "Length", "solid")),
+    ("cp-bouleau", ("Plywood", "Length", "plywood")),
+]
+
+
+@pytest.mark.parametrize(("material_id", "expected"), RESTORED, ids=[m for m, _ in RESTORED])
+def test_valeurs_inconnues_remplacees_par_celles_du_materiau(
+    document: Any,
+    rouvrir: Reopen,
+    vue_rapport: Any,
+    material_id: str,
+    expected: tuple[str, str, str],
+) -> None:
+    obj = board(document, material_id)
+    set_enumeration(obj, "Category", ["Solid", "Bogus" + HOSTILE], "Bogus" + HOSTILE)
+    set_enumeration(obj, "GrainDirection", ["Diagonal"], "Diagonal")
+    name = obj.Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(document).getObject(name)
+    kind = wood_part.record_of(restored).kind.value
+    assert (restored.Category, restored.GrainDirection, kind) == expected
+    assert restored.getEnumerationsOfProperty("Category") == list(wood_part.CATEGORIES)
+    assert restored.getEnumerationsOfProperty("GrainDirection") == list(wood_part.GRAIN_DIRECTIONS)
+    first, second = unknown_value_warnings(vue_rapport)
+    assert "« Bogus\\n\\u202exxx" in first
+    assert "« Diagonal »" in second
+
+
+def test_categorie_inconnue_d_un_materiau_inconnu_devient_massif(
+    document: Any, rouvrir: Reopen, vue_rapport: Any
+) -> None:
+    obj = board(document, "mdf")
+    obj.MaterialId = "disparu"
+    set_enumeration(obj, "Category", ["Bogus"], "Bogus")
+    name = obj.Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(document).getObject(name)
+    assert (restored.Category, restored.GrainDirection) == ("Solid", "None")
+    assert len(unknown_value_warnings(vue_rapport)) == 1
+
+
+def test_liste_alteree_valeur_connue_conservee(
+    document: Any, rouvrir: Reopen, vue_rapport: Any
+) -> None:
+    obj = board(document, "mdf")
+    set_enumeration(obj, "Category", ["Melamine", "MDF", "Extra"], "MDF")
+    set_enumeration(obj, "GrainDirection", ["None"], "None")
+    name = obj.Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(document).getObject(name)
+    assert (restored.Category, restored.GrainDirection) == ("MDF", "None")
+    assert restored.getEnumerationsOfProperty("Category") == list(wood_part.CATEGORIES)
+    assert unknown_value_warnings(vue_rapport) == []
+
+
+def test_document_version_0_avec_categorie_inconnue(
+    document: Any, rouvrir: Reopen, vue_rapport: Any
+) -> None:
+    obj = board(document, "mdf")
+    obj.removeProperty("Version")
+    obj.removeProperty("ThicknessAllowance")
+    obj.removeProperty("GrainDirection")
+    set_enumeration(obj, "Category", ["Bogus" + HOSTILE], "Bogus" + HOSTILE)
+    name = obj.Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(document).getObject(name)
+    assert (restored.Version, restored.Category, restored.GrainDirection) == (1, "MDF", "None")
+    assert restored.ThicknessAllowance.Value == 0
+    assert len(unknown_value_warnings(vue_rapport)) == 1
+    restored.Document.recompute()
+    assert restored.isValid()

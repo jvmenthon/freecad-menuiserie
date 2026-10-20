@@ -600,7 +600,11 @@ Comportement :
   car `__init__` n'est pas rappelé à la réouverture) : retrouve le matériau par libellé, met à jour
   `MaterialId`, `Category`, `Density`, puis `GrainDirection` et les surcotes selon les règles
   `core` (critère A7). Les cotes ne sont **jamais** modifiées automatiquement.
-- **`onDocumentRestored`** : migration (`_migrate(obj, from_version)`, où une `Version` absente vaut
+- **`onDocumentRestored`** : d'abord les listes **canoniques** de `Category` et `GrainDirection`
+  (celles du fichier sont des données externes) ; une valeur hors liste devient la catégorie du
+  matériau de la pièce (`Solid` s'il est inconnu localement) et le fil par défaut, avec un
+  avertissement où la valeur est citée tronquée et échappée. Ensuite migration
+  (`_migrate(obj, from_version)`, où une `Version` absente vaut
   0 : ajout des propriétés manquantes avec leurs défauts, puis `Version = VERSION`). Les défauts
   suivent le matériau de la pièce (`MaterialId`), ou le matériau par défaut s'il est inconnu
   localement ; catégorie, fil et surcotes suivent la catégorie de la pièce si elle existe. Avec

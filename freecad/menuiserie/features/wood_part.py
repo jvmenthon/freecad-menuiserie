@@ -64,6 +64,11 @@ _EMPTY_LIBRARY_MIGRATION: Final = QT_TRANSLATE_NOOP(
     "Pièce « {label} » : bibliothèque de matériaux vide, propriétés manquantes recréées avec "
     "des valeurs par défaut (massif si la catégorie manque).",
 )
+_UNKNOWN_VALUE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Pièce « {label} » : valeur « {value} » inconnue pour {property}, remplacée par "
+    "« {replacement} ».",
+)
 _MISSING_MATERIAL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pièce « {label} » : matériau « {id} » absent de la bibliothèque locale, "
@@ -236,9 +241,11 @@ class WoodPart:
             _apply_editor_modes(obj)
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
-        """Migration, modes d'édition, puis liste des matériaux de la bibliothèque locale."""
+        """Énumérations canoniques, migration, modes d'édition, puis liste des matériaux de la
+        bibliothèque locale."""
         version = obj.Version if "Version" in obj.PropertiesList else 0
         with self._synchronizing():
+            _restore_enumerations(obj, get_library())
             self._migrate(obj, version)
             _apply_editor_modes(obj)
             _restore_material_choices(obj, get_library())
@@ -411,6 +418,16 @@ def _part_kind(obj: DocumentObject, material: Material | None) -> MaterialKind:
     return material.kind if material is not None else MaterialKind.SOLID
 
 
+def _default_grain(kind: MaterialKind, material: Material | None) -> GrainDirection:
+    """Fil par défaut d'une pièce de famille ``kind`` : celui de ``material`` s'il est de cette
+    famille, sinon celui de la famille."""
+    if material is not None and material.kind is kind:
+        has_grain = material.has_grain
+    else:
+        has_grain = kind.has_grain_by_default
+    return GrainDirection.LENGTH if has_grain else GrainDirection.NONE
+
+
 def _default_values(obj: DocumentObject, material: Material | None) -> dict[str, object]:
     """Valeurs par défaut des propriétés : cotes de 800 x 200 x 22 mm, ``material``, puis
     catégorie, fil et surcotes de la famille de la pièce (:func:`_part_kind`).
@@ -420,16 +437,12 @@ def _default_values(obj: DocumentObject, material: Material | None) -> dict[str,
     """
     kind = _part_kind(obj, material)
     allowances = default_allowances(kind)
-    if material is not None and material.kind is kind:
-        has_grain = material.has_grain
-    else:
-        has_grain = kind.has_grain_by_default
     values: dict[str, object] = {
         "Length": _DEFAULT_DIMENSIONS.length,
         "Width": _DEFAULT_DIMENSIONS.width,
         "Thickness": _DEFAULT_DIMENSIONS.thickness,
         "Category": CATEGORY_BY_KIND[kind],
-        "GrainDirection": (GrainDirection.LENGTH if has_grain else GrainDirection.NONE).value,
+        "GrainDirection": _default_grain(kind, material).value,
         "Mark": "",
         "LengthAllowance": allowances.length,
         "WidthAllowance": allowances.width,
@@ -518,3 +531,32 @@ def _warn(obj: DocumentObject, template: str, **params: object) -> None:
     quoted = {name: quoted_value(value) for name, value in params.items()}
     quoted["label"] = quoted_value(obj.Label)
     App.Console.PrintWarning(f"Menuiserie : {translated(template, quoted)}\n")
+
+
+def _restore_enumerations(obj: DocumentObject, library: MaterialLibrary) -> None:
+    """Listes canoniques de ``Category`` et ``GrainDirection`` (celles du fichier sont des
+    données externes) ; une valeur inconnue devient la catégorie du matériau de la pièce (ou
+    ``Solid``) et le fil par défaut, avec un avertissement."""
+    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
+    material = library.find(material_id)
+    kind = material.kind if material is not None else MaterialKind.SOLID
+    _restore_enumeration(obj, "Category", CATEGORIES, CATEGORY_BY_KIND[kind])
+    grain = _default_grain(_part_kind(obj, material), material)
+    _restore_enumeration(obj, "GrainDirection", GRAIN_DIRECTIONS, grain.value)
+
+
+def _restore_enumeration(
+    obj: DocumentObject, name: str, choices: tuple[str, ...], fallback: str
+) -> None:
+    """Liste ``choices`` pour l'énumération ``name`` si elle existe ; valeur conservée si elle
+    en fait partie, sinon remplacée par ``fallback``. N'écrit que ce qui change."""
+    if name not in obj.PropertiesList:
+        return
+    value = getattr(obj, name)
+    if obj.getEnumerationsOfProperty(name) != list(choices):
+        setattr(obj, name, list(choices))
+    if value not in choices:
+        setattr(obj, name, fallback)
+        _warn(obj, _UNKNOWN_VALUE, property=name, value=value, replacement=fallback)
+    elif getattr(obj, name) != value:
+        setattr(obj, name, value)
