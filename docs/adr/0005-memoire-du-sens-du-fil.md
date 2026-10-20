@@ -1,6 +1,6 @@
 # ADR 0005 — Mémoire du sens du fil dans la pièce de bois
 
-- Statut : proposé (accepté avec la PR #15, lot J1c)
+- Statut : accepté (lot J1c, PR #15)
 - Date : 2026-10-20
 - Spécification : [docs/specs/J1-piece-de-bois.md](../specs/J1-piece-de-bois.md), § 4.4.6 et
   critères C10 et C11
