@@ -72,6 +72,12 @@ class Vec3:
         """Vecteur construit depuis trois coordonnées."""
         return cls(float(values[0]), float(values[1]), float(values[2]))
 
+    def with_component(self, index: int, value: float) -> Vec3:
+        """Même vecteur, coordonnée d'indice ``index`` remplacée par ``value``."""
+        values = [self.x, self.y, self.z]
+        values[index] = value
+        return Vec3.of(values)
+
 
 class Axis(Enum):
     """Face ou direction signée dans un repère local."""

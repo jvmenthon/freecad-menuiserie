@@ -22,6 +22,10 @@ api = pytest.importorskip("freecad.menuiserie.api")
 Size = tuple[float, float, float]
 Where = tuple[float, float, float]  # x, y, rotation autour de Z (degrés)
 
+# Repère quelconque où sont posés les montages (rotation et translation non triviales) : seule
+# la position relative des pièces compte.
+FRAME = App.Placement(App.Vector(120, -75, 40), App.Rotation(App.Vector(1, 2, 3), 37))
+
 # Deux tourillons Ø 10 x 40, percés de 20 + 1 dans chaque pièce (critère T1, cadre M1 / T1).
 DOWEL_VOLUME = math.pi * 5**2 * 40
 DOWEL_HOLE_VOLUME = math.pi * 5**2 * 21
@@ -95,21 +99,25 @@ class Montage:
             assert machined.isValid()
             assert len(machined.Shape.Solids) == 1
             assert machined.Placement == blank.Placement
-            assert machined.Shape.Placement == blank.Placement
+            # La forme garde son placement en matrice : égalité à l'arrondi près.
+            assert machined.Shape.Placement.isSame(blank.Placement, 1e-9)
 
 
-def wood(doc: Any, mark: str, size: Size, where: Where) -> Any:
-    """Pièce de chêne de cotes ``size`` posée en ``where``."""
+def wood(doc: Any, mark: str, size: Size, where: Where, frame: Any = None) -> Any:
+    """Pièce de chêne de cotes ``size`` posée en ``where`` dans le repère ``frame`` (celui du
+    document par défaut)."""
     part = api.make_wood_part(*size, "chene", mark=mark, doc=doc)
     part.Label = mark
-    part.Placement = placement(*where)
+    local = placement(*where)
+    part.Placement = local if frame is None else frame.multiply(local)
     return part
 
 
-def blanks(doc: Any, scenario: Scenario) -> tuple[Any, Any]:
-    """Pose les deux pièces brutes du montage, libellées H (hôte) et I (invitée)."""
-    host = wood(doc, "H", *scenario.host)
-    guest = wood(doc, "I", *scenario.guest)
+def blanks(doc: Any, scenario: Scenario, frame: Any = FRAME) -> tuple[Any, Any]:
+    """Pose les deux pièces brutes du montage dans ``frame``, libellées H (hôte) et I
+    (invitée)."""
+    host = wood(doc, "H", *scenario.host, frame)
+    guest = wood(doc, "I", *scenario.guest, frame)
     doc.recompute()
     return host, guest
 
@@ -120,6 +128,6 @@ def assemble(scenario: Scenario, host: Any, guest: Any, **params: object) -> Mon
     return Montage(scenario, host, guest, joint)
 
 
-def build(doc: Any, scenario: Scenario, **params: object) -> Montage:
-    """Pose les deux pièces du montage et les assemble (document recalculé)."""
-    return assemble(scenario, *blanks(doc, scenario), **params)
+def build(doc: Any, scenario: Scenario, frame: Any = FRAME, **params: object) -> Montage:
+    """Pose les deux pièces du montage dans ``frame`` et les assemble (document recalculé)."""
+    return assemble(scenario, *blanks(doc, scenario, frame), **params)

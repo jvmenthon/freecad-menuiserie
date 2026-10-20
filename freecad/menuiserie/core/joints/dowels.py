@@ -17,7 +17,6 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
-    Axis,
     Cylinder,
     JointError,
     PlacedBlock,
@@ -50,8 +49,8 @@ _MARGIN: Final = 1e-9
 
 TOO_THIN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Pièces trop minces pour des tourillons : {thickness} mm d'épaisseur au contact "
-    "(12 mm au moins).",
+    "Pièces trop minces pour des tourillons : {thickness} mm d'épaisseur au contact, décalage "
+    "de {offset} mm ({minimum} mm au moins sans décalage).",
 )
 TOO_WIDE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -66,7 +65,7 @@ DEPTH_NOT_SHORTER: Final = QT_TRANSLATE_NOOP(
 HOLE_TOO_DEEP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Perçage de {depth} mm trop profond pour une pièce de {extent} mm : il faut laisser au "
-    "moins 3 mm de fond.",
+    "moins {bottom} mm de fond.",
 )
 DOES_NOT_FIT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -139,11 +138,26 @@ class DowelStrategy:
 # --- Valeurs effectives ------------------------------------------------------------------
 
 
-def auto_diameter(thickness: float) -> float:
-    """Plus grand diamètre du commerce ne dépassant pas la moitié de ``thickness``."""
-    fitting = [d for d in STANDARD_DOWELS if d <= thickness / 2 + _MARGIN]
+def _fits_thickness(diameter: float, thickness: float, offset: float) -> bool:
+    """Vrai si le perçage reste dans l'épaisseur, décalage compris (comme ``_check_section``)."""
+    return diameter / 2 < thickness / 2 - abs(offset) - CONTACT_TOLERANCE_MM
+
+
+def auto_diameter(thickness: float, offset: float = 0.0) -> float:
+    """Plus grand diamètre du commerce ne dépassant pas la moitié de ``thickness`` et dont le
+    perçage, décalé de ``offset``, reste dans l'épaisseur."""
+    fitting = [
+        d
+        for d in STANDARD_DOWELS
+        if d <= thickness / 2 + _MARGIN and _fits_thickness(d, thickness, offset)
+    ]
     if not fitting:
-        raise JointError(TOO_THIN, {"thickness": mm_text(thickness)})
+        text = {
+            "thickness": mm_text(thickness),
+            "offset": mm_text(offset),
+            "minimum": mm_text(2 * min(STANDARD_DOWELS)),
+        }
+        raise JointError(TOO_THIN, text)
     return max(fitting)
 
 
@@ -153,13 +167,16 @@ def auto_length(diameter: float) -> float:
     return STANDARD_DOWELS[max(smaller) if smaller else min(STANDARD_DOWELS)]
 
 
-def auto_count(width: float, edge: float) -> int:
-    """1 si le contact est plus court que deux distances au bord, sinon au moins 2, entraxe
-    de 128 mm au plus."""
+def auto_count(width: float, edge: float, diameter: float) -> int:
+    """Au moins 2 tourillons, entraxe de 128 mm au plus ; jamais un entraxe refusé (au plus
+    le diamètre, tolérance comprise) : 1 au milieu si la place manque."""
     span = width - 2 * edge
-    if span < 0:
+    if span <= diameter + CONTACT_TOLERANCE_MM:
         return 1
-    return max(2, math.ceil(span / MAX_SPACING_MM - _MARGIN) + 1)
+    count = max(2, math.ceil(span / MAX_SPACING_MM - _MARGIN) + 1)
+    while count > 1 and span / (count - 1) <= diameter + CONTACT_TOLERANCE_MM:
+        count -= 1
+    return count
 
 
 def positions(width: float, edge: float, count: int) -> tuple[float, ...]:
@@ -173,10 +190,10 @@ def positions(width: float, edge: float, count: int) -> tuple[float, ...]:
 
 def _values(frame: ContactFrame, params: DowelParams) -> DowelValues:
     width = frame.contact_width
-    diameter = params.diameter or auto_diameter(frame.contact_thickness)
+    diameter = params.diameter or auto_diameter(frame.contact_thickness, params.thickness_offset)
     length = params.dowel_length or auto_length(diameter)
     edge = params.edge_distance or 2 * diameter
-    count = params.count or auto_count(width, edge)
+    count = params.count or auto_count(width, edge, diameter)
     return DowelValues(
         diameter=diameter,
         dowel_length=length,
@@ -202,8 +219,7 @@ def _checked_values(frame: ContactFrame, guest: PlacedBlock, params: DowelParams
 
 def _check_section(frame: ContactFrame, values: DowelValues) -> None:
     thickness = frame.contact_thickness
-    room = thickness / 2 - abs(values.thickness_offset)
-    if values.diameter / 2 >= room - CONTACT_TOLERANCE_MM:
+    if not _fits_thickness(values.diameter, thickness, values.thickness_offset):
         text = {"diameter": mm_text(values.diameter), "thickness": mm_text(thickness)}
         raise JointError(TOO_WIDE, text)
 
@@ -219,7 +235,12 @@ def _check_depths(frame: ContactFrame, guest: PlacedBlock, values: DowelValues) 
     ):
         hole = depth + values.hole_clearance
         if extent - hole < MIN_BOTTOM_MM - _MARGIN:
-            raise JointError(HOLE_TOO_DEEP, {"depth": mm_text(hole), "extent": mm_text(extent)})
+            text = {
+                "depth": mm_text(hole),
+                "extent": mm_text(extent),
+                "bottom": mm_text(MIN_BOTTOM_MM),
+            }
+            raise JointError(HOLE_TOO_DEEP, text)
 
 
 def _check_spacing(frame: ContactFrame, values: DowelValues) -> None:
@@ -244,37 +265,27 @@ def _check_spacing(frame: ContactFrame, values: DowelValues) -> None:
 def _center(frame: ContactFrame, values: DowelValues, position: float) -> Vec3:
     """Centre du tourillon sur le plan de contact de l'invitée."""
     rectangle = frame.contact.rectangle
-    point = [0.0, 0.0, 0.0]
-    point[frame.normal] = frame.guest_plane
-    point[frame.width_axis] = rectangle.lo(frame.width_axis) + position
-    point[THICKNESS_AXIS] = rectangle.center(THICKNESS_AXIS) + values.thickness_offset
-    return Vec3.of(point)
-
-
-def _shifted(point: Vec3, axis: int, coordinate: float) -> Vec3:
-    values = [point.x, point.y, point.z]
-    values[axis] = coordinate
-    return Vec3.of(values)
+    point = Vec3(0.0, 0.0, 0.0).with_component(frame.normal, frame.guest_plane)
+    point = point.with_component(frame.width_axis, rectangle.lo(frame.width_axis) + position)
+    thickness = rectangle.center(THICKNESS_AXIS) + values.thickness_offset
+    return point.with_component(THICKNESS_AXIS, thickness)
 
 
 def _dowel(frame: ContactFrame, values: DowelValues, center: Vec3) -> Cylinder:
     """Tourillon : de son bout dans l'invitée vers l'hôte."""
     start = frame.guest_plane - frame.sign * values.guest_depth
-    base = _shifted(center, frame.normal, start)
-    axis = Axis.of(frame.normal, frame.sign)
-    return Cylinder(base, axis, values.diameter / 2, values.dowel_length)
+    base = center.with_component(frame.normal, start)
+    return Cylinder(base, frame.towards_host, values.diameter / 2, values.dowel_length)
 
 
 def _host_hole(frame: ContactFrame, values: DowelValues, center: Vec3) -> Cylinder:
     """Perçage de l'hôte : depuis sa face de contact, profondeur + jeu de fond."""
-    base = _shifted(center, frame.normal, frame.host_near)
-    axis = Axis.of(frame.normal, frame.sign)
+    base = center.with_component(frame.normal, frame.host_near)
     depth = values.host_depth + values.hole_clearance
-    return Cylinder(base, axis, values.diameter / 2, depth)
+    return Cylinder(base, frame.towards_host, values.diameter / 2, depth)
 
 
 def _guest_hole(frame: ContactFrame, values: DowelValues, center: Vec3) -> Cylinder:
     """Perçage de l'invitée : depuis sa face de contact, profondeur + jeu de fond."""
-    axis = Axis.of(frame.normal, -frame.sign)
     depth = values.guest_depth + values.hole_clearance
-    return Cylinder(center, axis, values.diameter / 2, depth)
+    return Cylinder(center, frame.towards_host.opposite(), values.diameter / 2, depth)

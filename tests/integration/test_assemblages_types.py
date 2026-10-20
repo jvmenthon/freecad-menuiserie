@@ -95,8 +95,10 @@ def test_tourillons_forme_de_l_assemblage(document: Any) -> None:
         any(face.Surface.TypeId == "Part::GeomCylinder" for face in solid.Faces)
         for solid in shape.Solids
     )
-    # Dans le repère du document (M1 à l'origine) : Ø 10 à x = 20 et 40, de y = 40 à 80.
-    box = shape.BoundBox
+    # Dans le repère de M1 : Ø 10 à x = 20 et 40, de y = 40 à 80.
+    local = shape.copy()
+    local.Placement = joint.HostPart.Placement.inverse().multiply(local.Placement)
+    box = local.BoundBox
     bounds = (box.XMin, box.XMax, box.YMin, box.YMax, box.ZMin, box.ZMax)
     assert bounds == pytest.approx((15, 45, 40, 80, 6, 16))
 
@@ -132,6 +134,22 @@ def test_feuillure_refusee_sans_chevauchement(document: Any) -> None:
     joint = api.make_rabbet(montage.host, montage.guest)
     assert not joint.isValid()
     assert "ne se chevauchent pas" in joint.getStatusString()
+
+
+def test_traverse_de_45_tout_automatique(document: Any) -> None:
+    """Contact trop court pour deux tourillons (revue J3c, B1) : un seul, au milieu."""
+    stile = wood(document, "M", (600, 60, 22), (0, 0, 0))
+    rail = wood(document, "T", (280, 45, 22), (45, 60, 90))
+    document.recompute()
+    joint = api.make_dowels(stile, rail)
+    assert joint.isValid()
+    assert len(joint.Shape.Solids) == 1
+    assert joint.Shape.BoundBox.Center.x == pytest.approx(22.5)
+    volumes = [api.machined_part_of(part).Shape.Volume for part in (stile, rail)]
+    assert volumes == pytest.approx(
+        [600 * 60 * 22 - DOWEL_HOLE_VOLUME, 280 * 45 * 22 - DOWEL_HOLE_VOLUME]
+    )
+    assert touched(document) == []
 
 
 # --- R2 : panneau en rainure-languette dans un montant -----------------------------------
@@ -185,7 +203,7 @@ def dowel_count(joint: Any) -> int:
 
 
 def test_le_nombre_de_tourillons_suit(document: Any) -> None:
-    montage = build(document, DOWELS)
+    montage = build(document, DOWELS, frame=App.Placement())
     rail, joint = montage.guest, montage.joint
     rail.setExpression("Placement.Base.x", "Width")
     rail.setExpression("Width", "<<H>>.Length / 2")

@@ -36,6 +36,7 @@ CHANGES = {
     "make_rabbet": ("Through", False),
     "make_dowels": ("Count", 3),
 }
+SLAB = 4000  # bloc qui contient toutes les pièces, quel que soit le repère des montages
 IDS = [scenario.name for scenario in SCENARIOS]
 
 
@@ -130,13 +131,13 @@ def test_pieces_usinees_outils_d_un_part_cut(trois_types: list[Montage]) -> None
     doc = trois_types[0].host.Document
     for index, machined in enumerate(machined_parts(trois_types)):
         slab = doc.addObject("Part::Box", f"Bloc{index}")
-        slab.Length, slab.Width, slab.Height = 3000, 3000, 200
-        slab.Placement.Base = App.Vector(-1000, -1000, -50)
+        slab.Length = slab.Width = slab.Height = SLAB
+        slab.Placement.Base = App.Vector(-SLAB / 2, -SLAB / 2, -SLAB / 2)
         cut = doc.addObject("Part::Cut", f"Coupe{index}")
         cut.Base, cut.Tool = slab, machined
         doc.recompute()
         assert cut.isValid()
-        assert cut.Shape.Volume == pytest.approx(3000 * 3000 * 200 - machined.Shape.Volume)
+        assert cut.Shape.Volume == pytest.approx(SLAB**3 - machined.Shape.Volume)
 
 
 def test_vue_techdraw_des_trois_types(trois_types: list[Montage]) -> None:
