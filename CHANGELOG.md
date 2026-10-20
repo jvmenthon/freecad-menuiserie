@@ -101,8 +101,19 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   est gardée (avertissement) au lieu d'être remplacée, donc perdue à l'enregistrement (#11).
 - `record_of(...).density` arrondie à 6 décimales : 710 au lieu de 709,9999999999999 après
   réouverture (#11).
+- Panneau de la pièce de bois (J1c-1, J1c-2) : un double-clic sur une pièce pendant qu'un
+  panneau est ouvert est refusé, au lieu de fermer le panneau en validant ses modifications.
+- Panneau (J1c-4, J1c-5) : la pièce supprimée (Édition > Supprimer, console) ferme le panneau ;
+  Édition > Annuler pendant le panneau le ferme et quitte le mode édition, au lieu de laisser
+  des modifications hors transaction.
+- « OK » ou « Annuler » sans modification juste après Édition > Annuler (J1c-6) : plus
+  d'entrée « Modifier une pièce de bois » parasite, la pile « Rétablir » est conservée.
+- Repère, matériau ou sens du fil pilotés par une expression (J1c-7 à J1c-9, C6) : champ
+  inactif, jamais écrit par le panneau, filtre « Type » compris.
 
 ### Sécurité
+- Fermer le document pendant le panneau de création faisait planter FreeCAD 1.0 (J1c-3, audit
+  B1) : le panneau est désormais fermé avec le document et la commande redevient active.
 - Bibliothèque de matériaux : lecture par un seul descripteur (`os.open` non bloquant, `fstat`,
   lecture bornée), clés JSON en double refusées, libellés sans caractère invisible, bidi, de
   contrôle ou demi-substitut, clés inconnues citées tronquées et échappées, au plus 200 anomalies

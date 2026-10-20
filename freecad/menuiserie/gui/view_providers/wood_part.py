@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any, Final
 
+import FreeCADGui as Gui
+
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
@@ -95,7 +97,12 @@ class ViewProviderWoodPart:
         return True
 
     def doubleClicked(self, vobj: ViewObject) -> bool:
-        """Double-clic dans l'arbre ou la vue 3D : édition de la pièce dans le panneau."""
+        """Double-clic dans l'arbre ou la vue 3D : édition de la pièce dans le panneau.
+
+        Refusé si un panneau de tâche est ouvert : ``setEdit`` quitterait d'abord l'édition en
+        cours, fermant son panneau sans « OK » ni « Annuler »."""
+        if Gui.Control.activeDialog():
+            return False
         return bool(vobj.Document.setEdit(vobj.Object, 0))
 
 

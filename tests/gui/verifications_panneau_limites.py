@@ -340,11 +340,6 @@ def verifier_annuler_retablir_la_modification() -> list[str]:
     return avec_document("VerifAnnulerModification", verification)
 
 
-@defaut_connu(
-    "J1c-6",
-    "« Annuler » après un Ctrl+Z (pièce « Touched ») : l'abandon d'une transaction vide puis "
-    "doc.recompute() laisse une entrée « Modifier une pièce de bois » et vide « Rétablir »",
-)
 def verifier_annuler_apres_une_annulation() -> list[str]:
     """C4 : « Annuler » n'ajoute aucune entrée, même juste après Édition > Annuler."""
 
@@ -364,11 +359,6 @@ def verifier_annuler_apres_une_annulation() -> list[str]:
     return avec_document("VerifAnnulerApresUndo", verification)
 
 
-@defaut_connu(
-    "J1c-5",
-    "Édition > Annuler (Std_Undo) reste actif pendant le panneau : il valide puis annule la "
-    "transaction du panneau, et les modifications suivantes ne sont plus annulées par « Annuler »",
-)
 def verifier_std_undo_pendant_l_edition() -> list[str]:
     """C4 : « Annuler » rétablit les valeurs d'origine, même après Std_Undo dans le panneau."""
 
@@ -381,9 +371,11 @@ def verifier_std_undo_pendant_l_edition() -> list[str]:
         if Gui.Control.activeDialog():
             saisir(formulaire().widthEdit, 300.0)
             annuler()
+        Gui.updateGui()  # suites différées de la fermeture du panneau
         return [
             *ecarts("valeurs d'origine", valeurs(obj), avant),
             *ecarts("transaction close", transaction_ouverte(), None),
+            *ecarts("mode édition quitté", Gui.ActiveDocument.getInEdit(), None),
         ]
 
     return avec_document("VerifUndoPendantEdition", verification)
@@ -413,12 +405,6 @@ def verifier_double_clic_pendant_la_creation() -> list[str]:
     return avec_document("VerifDoubleClicCreation", verification)
 
 
-@defaut_connu(
-    "J1c-1",
-    "second double-clic sur la pièce en édition : Gui::Document::setEdit appelle d'abord "
-    "unsetEdit, qui ferme le panneau sans valider ni annuler, puis un nouveau panneau ouvre une "
-    "transaction qui valide la première ; « Annuler » ne rétablit plus les valeurs d'origine",
-)
 def verifier_double_clic_sur_la_piece_en_edition() -> list[str]:
     """C4 : un second double-clic ne fait rien ; « Annuler » rétablit tout."""
 
@@ -437,12 +423,6 @@ def verifier_double_clic_sur_la_piece_en_edition() -> list[str]:
     return avec_document("VerifDoubleClicEdition", verification)
 
 
-@defaut_connu(
-    "J1c-2",
-    "double-clic sur une autre pièce pendant l'édition : le panneau est remplacé, les "
-    "modifications de la première pièce sont validées sans « OK » (start_editing devrait "
-    "refuser : « faux si un autre panneau de tâche est déjà ouvert »)",
-)
 def verifier_double_clic_sur_une_autre_piece() -> list[str]:
     """C4 : le double-clic sur une autre pièce est refusé ; « Annuler » rétablit la première."""
 
@@ -502,29 +482,26 @@ def verifier_document_ferme_pendant_l_edition() -> list[str]:
     )
 
 
-@defaut_connu(
-    "J1c-3",
-    "document fermé pendant le panneau de création : le panneau reste ouvert (la création ne "
-    "passe pas par setEdit), la commande reste inactive et « OK » / « Annuler » lèvent "
-    "ReferenceError (self.obj.Document)",
-)
 def verifier_document_ferme_pendant_la_creation() -> list[str]:
-    """Fermer le document pendant la création ferme le panneau."""
+    """Fermer le document pendant la création ferme le panneau (FreeCAD 1.0 plantait en
+    détruisant les liaisons d'expression) ; la commande redevient active."""
     doc = nouveau_document("VerifFermetureCreation")
     creer_par_la_commande(doc)
+    saisir(formulaire().lengthEdit, 1000.0)
     App.closeDocument(doc.Name)
-    problemes = ecarts("panneau fermé", Gui.Control.activeDialog(), False)
+    Gui.updateGui()  # suites différées de la fermeture
+    problemes = [
+        *ecarts("panneau fermé", Gui.Control.activeDialog(), False),
+        *ecarts("transaction close", transaction_ouverte(), None),
+    ]
     if Gui.Control.activeDialog():
         Gui.Control.closeDialog()
-    return problemes
+    return problemes + avec_document(
+        "VerifApresFermetureCreation",
+        lambda _doc: ecarts("commande active", Gui.Command.get(COMMAND).isActive(), True),
+    )
 
 
-@defaut_connu(
-    "J1c-4",
-    "pièce supprimée (Std_Delete, actif pendant le panneau) pendant la création : le panneau "
-    "reste ouvert sur une pièce retirée du document ; par la console (doc.removeObject), « OK » "
-    "lève ReferenceError et laisse la transaction « Créer une pièce de bois » ouverte",
-)
 def verifier_piece_supprimee_pendant_la_creation() -> list[str]:
     """Supprimer la pièce en création : suppression refusée ou panneau fermé."""
 
@@ -535,11 +512,16 @@ def verifier_piece_supprimee_pendant_la_creation() -> list[str]:
         Gui.Selection.addSelection(obj)
         Gui.runCommand("Std_Delete")
         supprimee = doc.getObject(nom) is None
-        return ecarts(
-            "panneau ouvert sur une pièce supprimée",
-            (supprimee and bool(Gui.Control.activeDialog())),
-            False,
-        )
+        Gui.updateGui()  # suites différées de la fermeture du panneau
+        return [
+            *ecarts(
+                "panneau ouvert sur une pièce supprimée",
+                (supprimee and bool(Gui.Control.activeDialog())),
+                False,
+            ),
+            *ecarts("transaction close", transaction_ouverte(), None),
+            *ecarts("commande active", Gui.Command.get(COMMAND).isActive(), True),
+        ]
 
     return avec_document("VerifSuppressionCreation", verification)
 
@@ -755,18 +737,10 @@ def _taper_un_repere(form: Any) -> None:
     form.markEdit.insert("X")  # émet textEdited, comme une frappe
 
 
-@defaut_connu(
-    "J1c-7", "Mark pilotée par une expression : le champ Repère reste actif et écrit Mark"
-)
 def verifier_repere_pilote() -> list[str]:
     return champ_pilote_inactif_et_jamais_ecrit("Mark", "Label", _taper_un_repere, "markEdit")()
 
 
-@defaut_connu(
-    "J1c-8",
-    "GrainDirection pilotée par une expression : la liste Sens du fil reste active et écrit "
-    "GrainDirection",
-)
 def verifier_fil_pilote() -> list[str]:
     return champ_pilote_inactif_et_jamais_ecrit(
         "GrainDirection",
@@ -776,11 +750,6 @@ def verifier_fil_pilote() -> list[str]:
     )()
 
 
-@defaut_connu(
-    "J1c-9",
-    "Material pilotée par une expression : la liste Matériau reste active et le choix écrit "
-    "Material, MaterialId, fil et surcotes (l'expression les rétablit au recalcul)",
-)
 def verifier_materiau_pilote() -> list[str]:
     return champ_pilote_inactif_et_jamais_ecrit(
         "Material",

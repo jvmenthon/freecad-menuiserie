@@ -12,7 +12,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.api import make_wood_part
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.gui.task_panels.wood_part import WoodPartTaskPanel
+from freecad.menuiserie.gui.task_panels.wood_part import show_panel
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
 
 COMMAND_NAME: Final = "Menuiserie_WoodPart"
@@ -44,7 +44,7 @@ class CreateWoodPartCommand:
         doc = App.ActiveDocument
         doc.openTransaction(translated(CREATE_TRANSACTION))
         obj = make_wood_part(doc=doc)
-        Gui.Control.showDialog(WoodPartTaskPanel(obj, creating=True))
+        show_panel(obj, creating=True)
 
 
 def register() -> None:

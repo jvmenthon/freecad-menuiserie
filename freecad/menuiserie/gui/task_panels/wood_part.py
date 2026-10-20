@@ -69,6 +69,12 @@ class LengthField:
     minimum: float
 
 
+# Champs sans liaison d'expression possible : inactifs si leur propriété est pilotée (C6).
+DRIVEN_FIELDS: Final = (
+    ("markEdit", "Mark"),
+    ("materialCombo", "Material"),
+    ("grainCombo", "GrainDirection"),
+)
 LENGTH_FIELDS: Final = (
     LengthField("lengthEdit", "Length", MIN_DIMENSION_MM),
     LengthField("widthEdit", "Width", MIN_DIMENSION_MM),
@@ -84,8 +90,12 @@ class WoodPartTaskPanel:
 
     def __init__(self, obj: DocumentObject, *, creating: bool) -> None:
         self.obj = obj
+        self.doc = obj.Document
         self.creating = creating
         self._updating = False
+        self._closed = False
+        self._transaction = App.getActiveTransaction()
+        self._watcher = DeletionWatcher(obj, Gui.Control.closeDialog)
         self.form = Gui.PySideUic.loadUi(str(UI_FILE))
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
         self.form.setWindowTitle(_title(obj, creating))
@@ -96,26 +106,66 @@ class WoodPartTaskPanel:
         self._fill_materials()
         self._show_values()
         self._show_allowances(False)
+        self._lock_driven_fields()
         self._connect_signals()
 
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation."""
-        doc = self.obj.Document
-        doc.commitTransaction()
-        _close(doc)
+        self._finish(abort=False)
         return True
 
     def reject(self) -> bool:
         """« Annuler » : abandon de la transaction (pièce supprimée ou valeurs rétablies)."""
-        doc = self.obj.Document
-        doc.abortTransaction()
-        _close(doc)
+        self._finish(abort=True)
         return True
+
+    def watch_document(self) -> None:
+        """Panneau affiché : FreeCAD le ferme si le document est fermé (sans quoi FreeCAD 1.0
+        plante en détruisant les liaisons d'expression) ou si Édition > Annuler / Rétablir
+        change la transaction ; le mode édition et la transaction sont alors soldés."""
+        dialog = Gui.Control.activeTaskDialog()
+        dialog.setDocumentName(self.doc.Name)
+        dialog.setAutoCloseOnDeletedDocument(True)
+        dialog.setAutoCloseOnTransactionChange(True)
+        _connect(self.form, "destroyed()", self._on_closed_by_freecad)
+        App.addDocumentObserver(self._watcher)
 
     def getStandardButtons(self) -> int:
         """Boutons « OK » et « Annuler »."""
         buttons = QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel
         return int(getattr(buttons, "value", buttons))  # énumérations de PySide6 ou PySide2
+
+    # --- Fermeture ------------------------------------------------------------------------
+
+    def _finish(self, *, abort: bool) -> None:
+        """Solde la transaction du panneau, sans entrée parasite, puis ferme le panneau."""
+        self._closed = True
+        self._watcher.stop()
+        App.removeDocumentObserver(self._watcher)
+        close_transaction(self._transaction, abort=abort)
+        _close(self.doc)
+
+    def _on_closed_by_freecad(self) -> None:
+        """Formulaire détruit sans « OK » ni « Annuler » (document fermé, pièce supprimée,
+        Édition > Annuler) : la suite est différée hors du signal qui a fermé le panneau."""
+        if self._closed:
+            return
+        self._closed = True
+        self._watcher.stop()
+        QtCore.QTimer.singleShot(0, self._clean_up_after_forced_close)
+
+    def _clean_up_after_forced_close(self) -> None:
+        """Observateur retiré, transaction du panneau abandonnée en création (validée en
+        modification) si elle est encore ouverte, mode édition quitté."""
+        App.removeDocumentObserver(self._watcher)
+        close_transaction(self._transaction, abort=self.creating)
+        name = self._watcher.document_name
+        if name not in App.listDocuments():
+            return
+        gui_doc = Gui.getDocument(name)
+        in_edit = gui_doc.getInEdit()
+        if in_edit is not None and in_edit.Object.Name == self._watcher.object_name:
+            gui_doc.resetEdit()
 
     # --- Construction du formulaire -------------------------------------------------------
 
@@ -134,6 +184,12 @@ class WoodPartTaskPanel:
             self.form.kindCombo.addItem(translated(label))
         for grain, label in GRAIN_LABELS:
             self.form.grainCombo.addItem(translated(label), grain.value)
+
+    def _lock_driven_fields(self) -> None:
+        """Repère, matériau ou fil pilotés par une expression : champ inactif (C6)."""
+        for widget, prop in DRIVEN_FIELDS:
+            if has_expression(self.obj, prop):
+                getattr(self.form, widget).setEnabled(False)
 
     def _connect_signals(self) -> None:
         form = self.form
@@ -169,7 +225,7 @@ class WoodPartTaskPanel:
                 # Matériau inconnu de la bibliothèque locale : son libellé enregistré reste affiché.
                 combo.addItem(self.obj.Material, self.obj.MaterialId)
             combo.setCurrentIndex(combo.findData(self.obj.MaterialId))
-        if combo.currentIndex() < 0 and combo.count():
+        if combo.currentIndex() < 0 and combo.count() and not has_expression(self.obj, "Material"):
             combo.setCurrentIndex(0)
 
     def _show_values(self) -> None:
@@ -214,13 +270,14 @@ class WoodPartTaskPanel:
     # --- Modifications de l'utilisateur ---------------------------------------------------
 
     def _on_mark_edited(self, text: str) -> None:
-        self.obj.Mark = text
+        if not has_expression(self.obj, "Mark"):
+            self.obj.Mark = text
 
     def _on_kind_chosen(self, _index: int) -> None:
         self._fill_materials()
 
     def _on_material_chosen(self, index: int) -> None:
-        if self._updating or index < 0:
+        if self._updating or index < 0 or has_expression(self.obj, "Material"):
             return
         material_id = self.form.materialCombo.itemData(index)
         if material_id == self.obj.MaterialId or get_library().find(material_id) is None:
@@ -230,7 +287,7 @@ class WoodPartTaskPanel:
         self._recompute()
 
     def _on_grain_chosen(self, index: int) -> None:
-        if not self._updating and index >= 0:
+        if not self._updating and index >= 0 and not has_expression(self.obj, "GrainDirection"):
             self.obj.GrainDirection = self.form.grainCombo.itemData(index)
 
     def _on_length_changed(self, prop: str, value: float) -> None:
@@ -255,8 +312,45 @@ def start_editing(obj: DocumentObject) -> bool:
     if Gui.Control.activeDialog():
         return False
     obj.Document.openTransaction(translated(EDIT_TRANSACTION))
-    Gui.Control.showDialog(WoodPartTaskPanel(obj, creating=False))
+    show_panel(obj, creating=False)
     return True
+
+
+def show_panel(obj: DocumentObject, *, creating: bool) -> None:
+    """Construit puis affiche le panneau, dans la transaction déjà ouverte."""
+    panel = WoodPartTaskPanel(obj, creating=creating)
+    Gui.Control.showDialog(panel)
+    panel.watch_document()
+
+
+def close_transaction(transaction: tuple[str, int] | None, *, abort: bool) -> None:
+    """Valide ou abandonne ``transaction`` (``(nom, identifiant)``) si elle est encore la
+    transaction active. Passe par l'application : une transaction encore vide est aussi
+    refermée, sans quoi le recalcul suivant y serait enregistré (entrée parasite)."""
+    active = App.getActiveTransaction()
+    if transaction is not None and active == transaction:
+        App.closeActiveTransaction(abort, transaction[1])
+
+
+class DeletionWatcher:
+    """Observateur de document : ferme le panneau quand sa pièce est supprimée (Édition >
+    Supprimer, console). Rendu inerte par :meth:`stop` (retrait différé de l'observateur)."""
+
+    def __init__(self, obj: DocumentObject, on_deleted: Callable[[], None]) -> None:
+        self.document_name: str = obj.Document.Name
+        self.object_name: str = obj.Name
+        self._on_deleted: Callable[[], None] | None = on_deleted
+
+    def stop(self) -> None:
+        """Panneau fermé : l'observateur ne réagit plus (il peut être retiré plus tard)."""
+        self._on_deleted = None
+
+    def slotDeletedObject(self, obj: DocumentObject) -> None:
+        """Pièce du panneau supprimée : le panneau est fermé."""
+        if self._on_deleted is None:
+            return
+        if (obj.Document.Name, obj.Name) == (self.document_name, self.object_name):
+            self._on_deleted()
 
 
 def finish_editing() -> None:
