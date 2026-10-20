@@ -12,6 +12,7 @@ pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
 library = pytest.importorskip("freecad.menuiserie.features.library")
+wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 
 MAPLE = {
     "id": "erable",
@@ -26,11 +27,16 @@ MAPLE = {
 # --- B14 : bibliothèque utilisateur -------------------------------------------------------
 
 
-def test_anomalie_signalee_une_seule_fois(bibliotheque_temporaire: Any, vue_rapport: Any) -> None:
+def test_anomalie_signalee_une_seule_fois(
+    document: Any, bibliotheque_temporaire: Any, vue_rapport: Any
+) -> None:
     invalid = {**MAPLE, "id": "invalide", "name": "Invalide", "density": 0}
     path = bibliotheque_temporaire.installer(MAPLE, invalid)
     library.get_library()
-    assert "erable" in library.get_library()
+    library.get_library()
+    obj = wood_part.create_wood_part(document, material_id="erable")
+    document.recompute()
+    assert obj.isValid()
     [error] = vue_rapport.de_niveau("Error")
     assert str(path) in error
     assert "« invalide »" in error
