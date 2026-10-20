@@ -69,8 +69,12 @@ jobs:
           export PYTHONPATH="$CONDA_PREFIX/lib:$PYTHONPATH"
           python -c "import FreeCAD; print(FreeCAD.Version())"
       - name: Tests d'intégration
+        # Dossier utilisateur temporaire : la fixture de tests/integration/conftest.py modifie
+        # UserLibraryPath dans user.cfg, qui ne doit pas être celui du runner.
         run: |
           export PYTHONPATH="$CONDA_PREFIX/lib:$PYTHONPATH"
+          export FREECAD_USER_HOME="$RUNNER_TEMP/freecad-home-tests"
+          mkdir -p "$FREECAD_USER_HOME"
           pytest tests/integration -m integration
       - name: Chargement dans l'interface de FreeCAD
         env:
