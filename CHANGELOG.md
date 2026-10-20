@@ -110,6 +110,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   d'entrée « Modifier une pièce de bois » parasite, la pile « Rétablir » est conservée.
 - Repère, matériau ou sens du fil pilotés par une expression (J1c-7 à J1c-9, C6) : champ
   inactif, jamais écrit par le panneau, filtre « Type » compris.
+- Bibliothèque de matériaux vide : la commande « Pièce de bois » est inactive et, lancée
+  quand même, affiche un message traduit au lieu d'une trace d'exception.
+- Avertissement d'épaisseur hors standard affiché en texte brut (`textFormat` PlainText).
 
 ### Sécurité
 - Fermer le document pendant le panneau de création faisait planter FreeCAD 1.0 (J1c-3, audit

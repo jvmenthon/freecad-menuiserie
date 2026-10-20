@@ -151,7 +151,8 @@ DEFAULT_PANEL_ALLOWANCES: Final = Allowances()
 def default_allowances(kind: MaterialKind) -> Allowances:
     """Surcotes par défaut de la famille : massif 20 / 5 / 0 mm, panneaux 0 / 0 / 0 mm."""
     # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode non appelée.
-    return DEFAULT_PANEL_ALLOWANCES if kind.is_panel else DEFAULT_SOLID_ALLOWANCES  # nosemgrep
+    # nosemgrep: python.lang.maintainability.is-function-without-parentheses
+    return DEFAULT_PANEL_ALLOWANCES if kind.is_panel else DEFAULT_SOLID_ALLOWANCES
 
 
 def rough_dimensions(finished: Dimensions, allowances: Allowances) -> Dimensions:
@@ -185,7 +186,8 @@ def is_nonstandard_panel_thickness(material: Material, thickness: float) -> bool
     """Vrai pour un panneau d'épaisseur (mm) hors de ses épaisseurs standard : le panneau de
     tâche l'affiche en avertissement, sans rien bloquer. Le massif se rabote : jamais signalé."""
     # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode non appelée.
-    return material.kind.is_panel and not is_standard_thickness(material, thickness)  # nosemgrep
+    # nosemgrep: python.lang.maintainability.is-function-without-parentheses
+    return material.kind.is_panel and not is_standard_thickness(material, thickness)
 
 
 def grain_after_material_change(

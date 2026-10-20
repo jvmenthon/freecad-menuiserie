@@ -562,8 +562,29 @@ def verifier_materiau_absent_de_la_bibliotheque() -> list[str]:
     return avec_document("VerifMateriauAbsent", verification)
 
 
+BIBLIOTHEQUE_VIDE = (
+    "Menuiserie : Aucun matériau dans la bibliothèque : impossible de créer une pièce de bois. "
+    "Vérifiez le fichier de matériaux (vue rapport).\n"
+)
+
+
+def message_de_la_commande() -> list[str]:
+    """Avertissements de la commande lancée directement (sans trace d'exception)."""
+    from freecad.menuiserie.gui.commands.wood_part import CreateWoodPartCommand
+
+    messages: list[str] = []
+    original = App.Console.PrintWarning
+    App.Console.PrintWarning = messages.append
+    try:
+        CreateWoodPartCommand().Activated()
+    finally:
+        App.Console.PrintWarning = original
+    return messages
+
+
 def verifier_bibliotheque_vide() -> list[str]:
-    """Bibliothèque vide : la commande ne crée rien et ne laisse ni panneau ni transaction ;
+    """Bibliothèque vide : la commande est inactive ; lancée quand même, elle ne crée rien et ne
+    laisse ni panneau ni transaction (message traduit, pas de trace d'exception) ;
     le panneau d'une pièce existante s'ouvre, un type vide ne la modifie pas, « OK » marche."""
     from freecad.menuiserie.api import make_wood_part
 
@@ -571,8 +592,12 @@ def verifier_bibliotheque_vide() -> list[str]:
         obj = make_wood_part(doc=doc)
         doc.recompute()
         with bibliotheque(Path(tempfile.mkdtemp()) / "absente.json"):
-            Gui.Command.get(COMMAND).run()
             problemes = [
+                *ecarts("commande active", Gui.Command.get(COMMAND).isActive(), False),
+                *ecarts("message traduit", message_de_la_commande(), [BIBLIOTHEQUE_VIDE]),
+            ]
+            Gui.Command.get(COMMAND).run()
+            problemes += [
                 *ecarts("pièces après la commande", len(doc.Objects), 1),
                 *ecarts("panneau après la commande", Gui.Control.activeDialog(), False),
                 *ecarts("transaction après la commande", transaction_ouverte(), None),

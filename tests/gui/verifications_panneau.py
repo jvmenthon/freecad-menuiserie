@@ -85,18 +85,6 @@ def ouvrir_par_double_clic(obj: Any) -> Widget:
     return formulaire()
 
 
-def lecture_seule_si_affiche(champ: Widget) -> list[str]:
-    """Un champ lié à une expression ne passe en lecture seule (icône d'expression) qu'à son
-    affichage. Hors écran, FreeCAD 1.1 range le panneau dans un volet replié : la vérification
-    n'est faite que si le champ s'affiche (FreeCAD 1.0) ; l'expression liée est vérifiée
-    dans tous les cas par la propriété ``expression`` du champ."""
-    Gui.getMainWindow().show()
-    Gui.updateGui()
-    if not champ.isVisible():
-        return []
-    return ecarts("champ en lecture seule", champ.findChild(QtGui.QLineEdit).isReadOnly(), True)
-
-
 def valeur(champ: Widget) -> float:
     return float(champ.property("rawValue"))
 
@@ -373,7 +361,10 @@ def verifier_epaisseurs_standard() -> list[str]:
 
 
 def verifier_expressions() -> list[str]:
-    """C6 : une cote pilotée par une expression est affichée comme telle et conservée."""
+    """C6 : une cote pilotée par une expression est affichée comme telle et conservée.
+
+    L'icône d'expression et la lecture seule du champ sont vérifiées à la main (recette) : hors
+    écran, le volet des tâches peut être replié et le champ n'est pas affiché."""
 
     def verification(doc: Any) -> list[str]:
         obj = piece_validee(doc)
@@ -385,7 +376,6 @@ def verifier_expressions() -> list[str]:
             *ecarts("valeur de l'expression", valeur(form.lengthEdit), 800.0),
             *ecarts("expression affichée", form.lengthEdit.property("expression"), "Width * 4"),
             *ecarts("champ sans expression", form.widthEdit.property("expression"), ""),
-            *lecture_seule_si_affiche(form.lengthEdit),
             *ecarts("menu des épaisseurs inactif", form.standardThicknessButton.isEnabled(), False),
         ]
         saisir(form.widthEdit, 250.0)

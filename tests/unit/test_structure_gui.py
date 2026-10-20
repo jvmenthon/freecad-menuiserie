@@ -187,6 +187,15 @@ def test_champs_de_cote_en_mm() -> None:
         assert units == ["mm"], widget.get("name")
 
 
+def test_avertissement_d_epaisseur_en_texte_brut() -> None:
+    """L'avertissement n'interprète pas de balisage (texte traduit affiché tel quel)."""
+    label = next(w for w in ui_tree().iter("widget") if w.get("name") == "thicknessWarning")
+    formats = [
+        p.findtext("enum") for p in label.findall("property") if p.get("name") == "textFormat"
+    ]
+    assert formats == ["Qt::PlainText"]
+
+
 def test_commande_enregistree_par_l_atelier() -> None:
     commands = declared_value(PACKAGE / "init_gui.py", "commands")
     assert commands == (declared_value(COMMAND, "COMMAND_NAME"),)
