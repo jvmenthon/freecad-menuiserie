@@ -3,13 +3,8 @@
 
 from __future__ import annotations
 
-from freecad.menuiserie.core.geometry import (
-    CONTACT_TOLERANCE_MM,
-    Contact,
-    Overlap,
-    PlacedBlock,
-    classify,
-)
+from freecad.menuiserie.core.contact import Contact, Overlap, classify
+from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, PlacedBlock
 
 
 def _face_covered(contact: Contact, guest: PlacedBlock) -> bool:

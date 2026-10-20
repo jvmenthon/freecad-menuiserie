@@ -10,10 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
+from freecad.menuiserie.core.contact import Contact
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
     Box,
-    Contact,
     JointError,
     PlacedBlock,
     RigidTransform,

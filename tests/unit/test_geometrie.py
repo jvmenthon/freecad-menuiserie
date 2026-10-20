@@ -7,17 +7,19 @@ import math
 
 import pytest
 
+from freecad.menuiserie.core.contact import (
+    Contact,
+    Overlap,
+    Separated,
+    classify,
+)
 from freecad.menuiserie.core.geometry import (
     Axis,
     Box,
-    Contact,
     Cylinder,
     JointError,
-    Overlap,
     RigidTransform,
-    Separated,
     Vec3,
-    classify,
     relative_axes,
     to_guest,
     to_host,
