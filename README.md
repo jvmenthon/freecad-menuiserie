@@ -4,8 +4,8 @@ Atelier (workbench) FreeCAD pour concevoir des meubles et ouvrages de menuiserie
 paramétrique : pièces de bois réelles, assemblages classiques et liste de débit automatique.
 
 > **Statut : en développement (jalon J1 – pièce de bois).** La pièce de bois paramétrique se
-> crée depuis la console Python et se modifie dans l'éditeur de propriétés ; la commande de la
-> barre d'outils et son panneau arrivent avec la suite du jalon.
+> crée depuis la barre d'outils ou la console Python, et se modifie dans son panneau de tâche
+> ou dans l'éditeur de propriétés.
 
 ## Fonctionnalités prévues
 
@@ -37,6 +37,16 @@ git clone https://github.com/jvmenthon/freecad-menuiserie.git <dossier Mod>/Menu
 ```
 
 L'atelier **Menuiserie** apparaît alors dans la liste des ateliers.
+
+## Pièce de bois (barre d'outils)
+
+Dans l'atelier **Menuiserie**, la commande **Pièce de bois** (barre d'outils ou menu
+*Menuiserie*) crée une planche de chêne de 800 × 200 × 22 mm et ouvre son panneau de tâche :
+repère, type et matériau, sens du fil, cotes finies (avec unités : `80 cm`, `2'`), épaisseurs
+standard du matériau en un clic et surcotes de débit. Chaque modification est visible
+aussitôt ; **OK** crée une seule entrée d'annulation, **Annuler** ne laisse rien. Un
+double-clic sur une pièce rouvre le panneau ; une cote pilotée par une expression y reste
+pilotée.
 
 ## Pièce de bois (console Python)
 

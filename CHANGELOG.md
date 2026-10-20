@@ -35,6 +35,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   les propriétés recréées du matériau de la pièce et aboutit même avec une bibliothèque vide
   (avertissement) ; un document créé par une version plus récente de l'atelier est signalé.
   Une cote ≤ 0 calculée par une expression met la pièce en erreur, sans exception.
+- Commande **Pièce de bois** (`Menuiserie_WoodPart`, J1c) dans la barre d'outils et le menu
+  Menuiserie : crée une planche de chêne 800 × 200 × 22 et ouvre son panneau de tâche ; inactive
+  sans document ou si un panneau est déjà ouvert.
+- Panneau de tâche de la pièce de bois (création et double-clic) : repère, filtre par type,
+  matériau, sens du fil (libellés traduits), cotes finies et surcotes avec unités, épaisseurs
+  standard en un clic, avertissement non bloquant pour un panneau d'épaisseur hors standard ;
+  aperçu immédiat, « OK » = une entrée d'annulation (« Créer » ou « Modifier une pièce de
+  bois »), « Annuler » ne laisse rien ; les cotes pilotées par une expression le restent.
+- `core.part_model.is_nonstandard_panel_thickness()` : règle de l'avertissement d'épaisseur.
+- Capture `panneau.png` (panneau de tâche ouvert) publiée dans les PR ; vérifications
+  d'interface hors écran de la commande et du panneau ; scénarios de recette manuelle J1c
+  (`docs/recette/`).
 - Façade `freecad.menuiserie.api.make_wood_part()` pour la console et les scripts ; les
   arguments sont validés avant de créer un document.
 - Affichage de la pièce : icône de la pièce de bois et couleur du matériau, enregistrée dans la
