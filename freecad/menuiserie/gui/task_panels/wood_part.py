@@ -33,7 +33,7 @@ from freecad.menuiserie.core.part_model import (
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import display_language, get_library
-from freecad.menuiserie.features.wood_part import set_material
+from freecad.menuiserie.features.wood_part import set_material, shows_grain
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
@@ -178,10 +178,16 @@ class WoodPartTaskPanel:
             self.form.markEdit.setText(self.obj.Mark)
             grain = self.form.grainCombo.findData(self.obj.GrainDirection)
             self.form.grainCombo.setCurrentIndex(grain)
+            self._show_grain_row(shows_grain(self.obj))
             for field in LENGTH_FIELDS:
                 value = getattr(self.obj, field.prop).Value
                 getattr(self.form, field.widget).setProperty("rawValue", value)
         self._show_thickness_tools()
+
+    def _show_grain_row(self, shown: bool) -> None:
+        """Ligne « Sens du fil » masquée pour un matériau sans fil."""
+        self.form.grainLabel.setVisible(shown)
+        self.form.grainCombo.setVisible(shown)
 
     def _show_thickness_tools(self) -> None:
         """Menu des épaisseurs standard et avertissement « hors standard » (panneaux)."""

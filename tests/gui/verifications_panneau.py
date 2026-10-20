@@ -32,6 +32,7 @@ WATCHED = (
     "MaterialId",
     "Category",
     "GrainDirection",
+    "PreferredGrainDirection",
     "Mark",
     "LengthAllowance",
     "WidthAllowance",
@@ -297,7 +298,8 @@ def verifier_modification_annulee() -> list[str]:
 
 
 def verifier_filtre_des_materiaux() -> list[str]:
-    """C5 : le filtre « Type » restreint la liste ; « Tous » la rétablit."""
+    """C5 et C12 : le filtre « Type » restreint la liste et applique le premier matériau du
+    type quand il exclut celui de la pièce ; « Tous » rétablit la liste sans changer la pièce."""
 
     def verification(doc: Any) -> list[str]:
         obj = creer_par_la_commande(doc)
@@ -314,8 +316,13 @@ def verifier_filtre_des_materiaux() -> list[str]:
             attendus = [m.id for m in bibliotheque.by_kind(kind)]
             problemes += ecarts(f"liste {kind.value}", donnees(form.materialCombo), attendus)
             problemes += ecarts(f"matériau {kind.value}", obj.MaterialId, attendus[0])
+        dernier = obj.MaterialId
         form.kindCombo.setCurrentIndex(0)
-        return problemes + ecarts("liste rétablie", donnees(form.materialCombo), tous)
+        return [
+            *problemes,
+            *ecarts("liste rétablie", donnees(form.materialCombo), tous),
+            *ecarts("pièce inchangée par « Tous »", obj.MaterialId, dernier),
+        ]
 
     return avec_document("VerifFiltre", verification)
 

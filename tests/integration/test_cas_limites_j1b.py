@@ -404,10 +404,10 @@ def test_reouverture_avec_un_materiau_renomme_garde_l_instantane(
 
 def test_version_plus_recente_non_retrogradee(document: Any, rouvrir: Reopen) -> None:
     obj = board(document)
-    obj.Version = 2
+    obj.Version = wood_part.WoodPart.VERSION + 1
     name = obj.Name
     restored = rouvrir(document).getObject(name)
-    assert restored.Version == 2
+    assert restored.Version == wood_part.WoodPart.VERSION + 1
     restored.Document.recompute()
     assert restored.isValid()
 
@@ -420,7 +420,7 @@ def test_migration_garde_les_proprietes_presentes(document: Any, rouvrir: Reopen
     obj.removeProperty("WidthAllowance")
     name = obj.Name
     restored = rouvrir(document).getObject(name)
-    assert restored.Version == 1
+    assert restored.Version == wood_part.WoodPart.VERSION
     assert (restored.ThicknessAllowance.Value, restored.LengthAllowance.Value) == (3, 7)
     assert restored.WidthAllowance.Value == 0  # panneau : surcote par défaut nulle
     assert (restored.MaterialId, restored.Material) == ("mdf", "MDF")
@@ -460,7 +460,7 @@ def test_migration_avec_bibliotheque_vide(
     empty_library(monkeypatch, tmp_path)
     vue_rapport.messages.clear()
     restored = rouvrir(document).getObject(name)
-    assert restored.Version == 1
+    assert restored.Version == wood_part.WoodPart.VERSION
     assert restored.ThicknessAllowance.Value == 0
     assert wood_part.record_of(restored).material_id == "chene"
     warnings = vue_rapport.de_niveau("Warning")
@@ -476,7 +476,11 @@ def test_migration_sans_materiau_ni_bibliotheque_valeurs_sures(
     name = obj.Name
     empty_library(monkeypatch, tmp_path)
     restored = rouvrir(document).getObject(name)
-    assert (restored.Version, restored.Category, restored.GrainDirection) == (1, "Solid", "Length")
+    assert (restored.Version, restored.Category, restored.GrainDirection) == (
+        wood_part.WoodPart.VERSION,
+        "Solid",
+        "Length",
+    )
     assert restored.MaterialId == ""
     assert (restored.LengthAllowance.Value, restored.WidthAllowance.Value) == (0, 0)
     restored.Document.recompute()

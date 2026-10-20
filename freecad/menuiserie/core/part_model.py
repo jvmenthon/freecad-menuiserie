@@ -38,6 +38,8 @@ __all__ = [
     "is_nonstandard_panel_thickness",
     "is_standard_thickness",
     "mass_kg",
+    "material_has_grain",
+    "remembered_grain",
     "rough_dimensions",
     "volume_m3",
 ]
@@ -186,17 +188,47 @@ def is_nonstandard_panel_thickness(material: Material, thickness: float) -> bool
     return material.kind.is_panel and not is_standard_thickness(material, thickness)  # nosemgrep
 
 
-def grain_after_material_change(new: Material, current: GrainDirection) -> GrainDirection:
+def grain_after_material_change(
+    new: Material,
+    current: GrainDirection,
+    preferred: GrainDirection = GrainDirection.LENGTH,
+) -> GrainDirection:
     """Sens du fil après un changement de matériau.
 
-    Matériau sans fil : ``NONE`` ; matériau avec fil alors que le fil valait ``NONE`` :
-    ``LENGTH`` ; sinon le fil choisi est conservé.
+    Matériau sans fil : ``NONE`` ; matériau avec fil alors que le fil valait ``NONE`` : le sens
+    mémorisé ``preferred`` (``LENGTH`` par défaut) ; sinon le fil choisi est conservé.
     """
+    _require_direction(preferred, "preferred")
     if not new.has_grain:
         return GrainDirection.NONE
     if current is GrainDirection.NONE:
-        return GrainDirection.LENGTH
+        return preferred
     return current
+
+
+def remembered_grain(
+    grain: GrainDirection, previous: GrainDirection = GrainDirection.LENGTH
+) -> GrainDirection:
+    """Sens à mémoriser quand le fil prend la valeur ``grain``.
+
+    ``grain`` s'il désigne un sens (``LENGTH`` ou ``WIDTH``), sinon le sens déjà mémorisé
+    ``previous`` : choisir « Sans fil » n'efface pas la mémoire.
+    """
+    _require_direction(previous, "previous")
+    return previous if grain is GrainDirection.NONE else grain
+
+
+def material_has_grain(material: Material | None, kind: MaterialKind) -> bool:
+    """Vrai si la pièce a un fil : celui du matériau connu, sinon le défaut de sa famille."""
+    if material is None:
+        return kind.has_grain_by_default
+    return material.has_grain
+
+
+def _require_direction(grain: GrainDirection, name: str) -> None:
+    """Refuse ``NONE`` là où un sens est attendu (erreur de programmation)."""
+    if grain is GrainDirection.NONE:
+        raise ValueError(f"{name} doit désigner un sens du fil, pas {grain.value!r}")
 
 
 def allowances_after_material_change(

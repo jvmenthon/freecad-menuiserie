@@ -35,6 +35,7 @@ PANEL_PROPERTIES = (
     "Category",
     "Density",
     "GrainDirection",
+    "PreferredGrainDirection",
 )
 
 

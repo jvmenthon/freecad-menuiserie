@@ -21,6 +21,9 @@ Les critères C1 à C6 et C8 sont aussi vérifiés automatiquement, hors écran,
 | 6 | *Édition > Annuler*. | Retour à 800 × 200 × 22 en chêne (forme et couleur). |
 | 7 | *Édition > Rétablir*. | De nouveau 1000 × 250 × 27 en hêtre. |
 | 8 | Enregistrer, fermer, rouvrir le fichier. | Pièce identique (1000 × 250 × 27, Hêtre, couleur du hêtre, icône de la pièce de bois), aucun avertissement, document non marqué modifié. |
+| 9 | Double-clic, Sens du fil **Largeur**, puis Matériau **MDF**, **OK**. | La ligne « Sens du fil » disparaît du panneau dès le choix du MDF ; dans l'éditeur de propriétés, `GrainDirection` n'apparaît plus (C11). |
+| 10 | Enregistrer, fermer, rouvrir ; double-clic. | Ligne « Sens du fil » toujours masquée. |
+| 11 | Matériau **Chêne**, **OK**. | La ligne revient avec « Largeur » ; `GrainDirection` = `Width` dans l'éditeur de propriétés (C10). |
 
 ## C7 — Unités et cotes refusées
 
@@ -35,7 +38,7 @@ Les critères C1 à C6 et C8 sont aussi vérifiés automatiquement, hors écran,
 
 | N° | Action | Résultat attendu |
 |---|---|---|
-| 1 | Type **MDF**. | Seul le MDF est proposé et il est appliqué ; fil « Sans fil », surcotes à 0. **Tous** rétablit la liste complète. |
+| 1 | Pièce en hêtre, fil **Largeur** ; Type **MDF**. | Seul le MDF est proposé et il est appliqué ; ligne « Sens du fil » masquée, surcotes à 0. Type **Massif** : Chêne appliqué, fil en Largeur, surcotes 20 / 5 / 0. **Tous** rétablit la liste complète sans changer la pièce (C12). |
 | 2 | Contreplaqué bouleau, Épaisseur `17`. | Avertissement orange « Épaisseur hors standard pour ce panneau » ; **OK** reste possible. Rien pour un bois massif. |
 | 3 | Dans l'éditeur de propriétés, `Length` = `=Width*4`, puis double-clic. | Le champ Longueur montre l'icône d'expression et n'est pas modifiable directement ; après **OK**, l'expression est toujours là. |
 | 4 | **Surcotes de débit**. | La zone se déplie et montre les trois surcotes. |

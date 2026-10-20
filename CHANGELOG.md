@@ -44,6 +44,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   aperçu immédiat, « OK » = une entrée d'annulation (« Créer » ou « Modifier une pièce de
   bois »), « Annuler » ne laisse rien ; les cotes pilotées par une expression le restent.
 - `core.part_model.is_nonstandard_panel_thickness()` : règle de l'avertissement d'épaisseur.
+- Mémoire du sens du fil (exigence de jv, ADR 0005, C10) : propriété masquée
+  `PreferredGrainDirection` (`Length` ou `Width`), enregistrée et annulable, mise à jour par
+  chaque choix de `Length` ou `Width` ; en revenant à un matériau avec fil (panneau, éditeur de
+  propriétés, `set_material`), la pièce reprend ce sens au lieu de `Length`.
+- Fil masqué pour un matériau sans fil (exigence de jv, C11) : `GrainDirection` masquée dans
+  l'éditeur de propriétés et ligne « Sens du fil » masquée dans le panneau ; le mode suit
+  l'annulation et la réouverture. `features.wood_part.shows_grain()`.
+- `core.part_model.remembered_grain()` et `core.part_model.material_has_grain()`.
 - Capture `panneau.png` (panneau de tâche ouvert) publiée dans les PR ; vérifications
   d'interface hors écran de la commande et du panneau ; scénarios de recette manuelle J1c
   (`docs/recette/`).
@@ -60,6 +68,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `tools/generer_icones.py`.
 
 ### Modifié
+- **Modèle de la pièce en version 2** (`MODEL_VERSION`) : migration 1 → 2 à la réouverture
+  (ajout de `PreferredGrainDirection` d'après `GrainDirection`, `Length` pour une pièce sans
+  fil) ; un document de version 2 ouvert par un atelier plus ancien est signalé comme plus
+  récent.
+- `core.part_model.grain_after_material_change(new, current, preferred=LENGTH)` : nouveau
+  paramètre `preferred` (sens mémorisé repris quand le fil valait `NONE`) ; `NONE` refusé
+  (`ValueError`).
+- Filtre « Type » du panneau : un type qui exclut le matériau de la pièce applique le premier
+  matériau de ce type, fil mémorisé et surcotes selon A7 (Q4 tranchée, C12).
 - Bibliothèque de matériaux découpée en paquet `core/materials/` : façade à l'API publique figée
   (`__all__`) et modules privés (messages, modèle, anomalies, entrée, analyse, lecture, fusion) ;
   aides de validation partagées dans `core/_validation.py`, qui ne sont plus exposées par

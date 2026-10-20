@@ -139,7 +139,11 @@ def test_document_version_0_avec_categorie_inconnue(
     name = obj.Name
     vue_rapport.messages.clear()
     restored = rouvrir(document).getObject(name)
-    assert (restored.Version, restored.Category, restored.GrainDirection) == (1, "MDF", "None")
+    assert (restored.Version, restored.Category, restored.GrainDirection) == (
+        wood_part.WoodPart.VERSION,
+        "MDF",
+        "None",
+    )
     assert restored.ThicknessAllowance.Value == 0
     assert len(unknown_value_warnings(vue_rapport)) == 1
     restored.Document.recompute()
@@ -166,7 +170,7 @@ def test_version_d_un_type_inattendu_traitee_comme_0(
     vue_rapport.messages.clear()
     restored = rouvrir(document).getObject(name)
     assert restored.getTypeIdOfProperty("Version") == "App::PropertyInteger"
-    assert restored.Version == 1
+    assert restored.Version == wood_part.WoodPart.VERSION
     assert restored.getEditorMode("Version") == ["Hidden"]
     assert restored.ThicknessAllowance.Value == 0
     [warning] = vue_rapport.de_niveau("Warning")
@@ -176,7 +180,14 @@ def test_version_d_un_type_inattendu_traitee_comme_0(
     assert restored.isValid()
 
 
-@pytest.mark.parametrize(("version", "warned"), [(1, False), (2, True), (2**31 - 1, True)])
+@pytest.mark.parametrize(
+    ("version", "warned"),
+    [
+        (wood_part.WoodPart.VERSION, False),
+        (wood_part.WoodPart.VERSION + 1, True),
+        (2**31 - 1, True),
+    ],
+)
 def test_version_plus_recente_signalee(
     document: Any, rouvrir: Reopen, vue_rapport: Any, version: int, warned: bool
 ) -> None:
@@ -188,4 +199,4 @@ def test_version_plus_recente_signalee(
     assert restored.Version == version
     warnings = [w for w in vue_rapport.de_niveau("Warning") if "plus récente" in w]
     assert len(warnings) == int(warned)
-    assert all(f"modèle {version}, 1 au plus" in w for w in warnings)
+    assert all(f"modèle {version}, {wood_part.WoodPart.VERSION} au plus" in w for w in warnings)

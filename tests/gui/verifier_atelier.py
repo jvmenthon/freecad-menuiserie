@@ -23,6 +23,7 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 from tests.gui.verifications_panneau_limites import DEFAUTS_CONSTATES, VERIFICATIONS_LIMITES
 
@@ -286,6 +287,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_apparence_vide,
     *VERIFICATIONS_PANNEAU,
     *VERIFICATIONS_LIMITES,
+    *VERIFICATIONS_FIL,
 )
 
 
