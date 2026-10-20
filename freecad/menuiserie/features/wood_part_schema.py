@@ -198,9 +198,11 @@ def density_quantity(value_kg_m3: float) -> Any:
 
 
 def part_kind(obj: DocumentObject, material: Material | None) -> MaterialKind:
-    """Famille de la pièce : sa catégorie, sinon celle de ``material``, sinon le massif."""
-    if "Category" in obj.PropertiesList:
-        return KIND_BY_CATEGORY[obj.Category]
+    """Famille de la pièce : sa catégorie si elle est connue (une valeur d'une version plus
+    récente est gardée telle quelle), sinon celle de ``material``, sinon le massif."""
+    kind = KIND_BY_CATEGORY.get(obj.Category) if "Category" in obj.PropertiesList else None
+    if kind is not None:
+        return kind
     return material.kind if material is not None else MaterialKind.SOLID
 
 

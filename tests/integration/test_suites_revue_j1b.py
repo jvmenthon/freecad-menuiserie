@@ -107,3 +107,54 @@ def test_proprietes_bien_typees_sans_avertissement(
     restored = rouvrir(document).getObject(name)
     assert vue_rapport.de_niveau("Warning") == []
     assert restored.Version == 1
+
+
+# --- Document d'une version plus récente : valeurs d'énumération inconnues gardées --------
+
+
+def future_part(doc: Any) -> Any:
+    """Pièce « version 2 » dont les énumérations ont une valeur ajoutée en fin de liste."""
+    obj = board(doc)
+    obj.Version = 2
+    obj.Category = [*wood_part.CATEGORIES, "Future"]
+    obj.Category = "Future"
+    obj.GrainDirection = [*wood_part.GRAIN_DIRECTIONS, "Diagonal"]
+    obj.GrainDirection = "Diagonal"
+    return obj
+
+
+def test_version_plus_recente_garde_les_valeurs_inconnues(
+    document: Any, rouvrir: Reopen, vue_rapport: Any
+) -> None:
+    name = future_part(document).Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(rouvrir(document)).getObject(name)
+    assert (restored.Version, restored.Category, restored.GrainDirection) == (
+        2,
+        "Future",
+        "Diagonal",
+    )
+    assert restored.getEnumerationsOfProperty("Category") == [*wood_part.CATEGORIES, "Future"]
+    assert restored.getEnumerationsOfProperty("GrainDirection")[-1] == "Diagonal"
+    kept = warnings_with(vue_rapport, "conservée telle quelle")
+    assert len(kept) == 4  # deux par réouverture
+    assert "« Future » inconnue pour Category" in kept[0]
+    assert "« Diagonal » inconnue pour GrainDirection" in kept[1]
+    assert warnings_with(vue_rapport, "remplacée par") == []
+    restored.Document.recompute()
+    assert restored.isValid()
+
+
+def test_version_plus_recente_valeur_connue_liste_canonique(
+    document: Any, rouvrir: Reopen, vue_rapport: Any
+) -> None:
+    obj = board(document, "mdf")
+    obj.Version = 2
+    obj.Category = ["MDF", "Future"]
+    obj.Category = "MDF"
+    name = obj.Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(document).getObject(name)
+    assert restored.Category == "MDF"
+    assert restored.getEnumerationsOfProperty("Category") == list(wood_part.CATEGORIES)
+    assert warnings_with(vue_rapport, "inconnue pour") == []

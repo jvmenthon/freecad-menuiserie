@@ -103,7 +103,7 @@ class WoodPart:
         with self._synchronizing():
             version = restored_version(obj)
             mistyped = remove_mistyped_properties(obj)
-            restore_enumerations(obj, get_library())
+            restore_enumerations(obj, get_library(), keep_unknown=version > self.VERSION)
             self._migrate(obj, version, repair=bool(mistyped))
             apply_editor_modes(obj)
             restore_material_choices(obj, get_library())

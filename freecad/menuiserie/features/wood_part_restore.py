@@ -56,6 +56,11 @@ _UNEXPECTED_TYPE: Final = QT_TRANSLATE_NOOP(
     "Pièce « {label} » : propriété {property} d'un type inattendu (« {type} », valeur "
     "« {value} »), recréée avec sa valeur par défaut.",
 )
+_UNKNOWN_VALUE_KEPT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Pièce « {label} » : valeur « {value} » inconnue pour {property}, conservée telle quelle "
+    "(document d'une version plus récente).",
+)
 _MISSING_MATERIAL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pièce « {label} » : matériau « {id} » absent de la bibliothèque locale, "
@@ -93,26 +98,35 @@ def warn(obj: DocumentObject, template: str, **params: object) -> None:
     App.Console.PrintWarning(f"Menuiserie : {translated(template, quoted)}\n")
 
 
-def restore_enumerations(obj: DocumentObject, library: MaterialLibrary) -> None:
+def restore_enumerations(
+    obj: DocumentObject, library: MaterialLibrary, *, keep_unknown: bool = False
+) -> None:
     """Listes canoniques de ``Category`` et ``GrainDirection`` (celles du fichier sont des
     données externes) ; une valeur inconnue devient la catégorie du matériau de la pièce (ou
-    ``Solid``) et le fil par défaut, avec un avertissement."""
+    ``Solid``) et le fil par défaut, avec un avertissement.
+
+    ``keep_unknown`` (document d'une version plus récente) : une valeur inconnue est gardée,
+    avec la liste du fichier qui la contient, pour ne pas être perdue à l'enregistrement."""
     material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
     material = library.find(material_id)
     kind = material.kind if material is not None else MaterialKind.SOLID
-    _restore_enumeration(obj, "Category", CATEGORIES, CATEGORY_BY_KIND[kind])
+    _restore_enumeration(obj, "Category", CATEGORIES, CATEGORY_BY_KIND[kind], keep_unknown)
     grain = default_grain(part_kind(obj, material), material)
-    _restore_enumeration(obj, "GrainDirection", GRAIN_DIRECTIONS, grain.value)
+    _restore_enumeration(obj, "GrainDirection", GRAIN_DIRECTIONS, grain.value, keep_unknown)
 
 
 def _restore_enumeration(
-    obj: DocumentObject, name: str, choices: tuple[str, ...], fallback: str
+    obj: DocumentObject, name: str, choices: tuple[str, ...], fallback: str, keep_unknown: bool
 ) -> None:
     """Liste ``choices`` pour l'énumération ``name`` si elle existe ; valeur conservée si elle
-    en fait partie, sinon remplacée par ``fallback``. N'écrit que ce qui change."""
+    en fait partie, sinon remplacée par ``fallback`` (ou gardée, liste comprise, si
+    ``keep_unknown``). N'écrit que ce qui change."""
     if name not in obj.PropertiesList:
         return
     value = getattr(obj, name)
+    if value not in choices and keep_unknown:
+        warn(obj, _UNKNOWN_VALUE_KEPT, property=name, value=value)
+        return
     if obj.getEnumerationsOfProperty(name) != list(choices):
         setattr(obj, name, list(choices))
     if value not in choices:
