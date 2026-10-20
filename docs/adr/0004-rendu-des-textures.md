@@ -67,7 +67,11 @@ certaines compilations de Coin ; Qt (`QImageReader`) est toujours présent dans 
    avant décodage selon le format (`core/image_checks.py`) : un JPEG de plus de 100 balayages
    est refusé (un JPEG progressif aux milliers de balayages vides coûte ≈ 2 ms par balayage à
    4 096 × 4 096 pixels, soit des minutes d'interface figée ; un JPEG progressif ordinaire en
-   compte une dizaine).
+   compte une dizaine) ; un PNG dont les blocs `IDAT` se décompressent au-delà de la taille
+   brute exacte annoncée par `IHDR` est refusé (bombe de décompression), la décompression de
+   contrôle s'arrêtant à cette taille plus un octet, par morceaux d'au plus 1 Mio oubliés
+   aussitôt. La taille brute est calculée exactement, entrelacement Adam7 compris (sept passes
+   aux dimensions connues) : aucune borne approchée n'est nécessaire.
 6. **Un nœud `SoTexture2` par image**, partagé par toutes les pièces (cache poids-mouche explicite
    et réinitialisable de `gui/textures.py`) : une seule copie en mémoire graphique. Les échecs
    sont mémorisés aussi : un seul avertissement par image et par session.

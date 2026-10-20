@@ -925,7 +925,14 @@ ouvert, pour recharger une image remplacée ; succès **et** refus sont mémoris
    `MAX_JPEG_SCANS` = 100 marqueurs de début de balayage (`FF DA`, comptés sur les octets : un
    `FF` des données compressées est toujours suivi de `00`) → refus « JPEG en {count}
    balayages, {max} au plus » (un JPEG progressif aux milliers de balayages vides figerait
-   l'interface plusieurs minutes) ;
+   l'interface plusieurs minutes) ; PNG : blocs parcourus (signature, `IHDR` en premier, blocs
+   non tronqués, sinon refus « blocs ou données PNG invalides »), blocs `IDAT` décompressés par
+   `zlib.decompressobj` par morceaux d'au plus 1 Mio aussitôt oubliés, avec `max_length` borné à
+   la taille brute **exacte** annoncée par `IHDR` (pour chaque passe, une seule ou les sept
+   d'Adam7 : lignes × (1 octet de filtre + ⌈colonnes × bits par pixel / 8⌉)) plus un octet ;
+   au-delà → refus « données PNG décompressées au-delà des {size} octets de l'image annoncée »
+   (bombe de décompression : 2 Gio de zéros tiennent en 2 Mio) ; moins de données qu'annoncé est
+   laissé au décodeur ;
 4. `reader.read()` ; image nulle → refus (raison : `reader.errorString()`, tronquée) ;
 5. conversion en `Format_RGB888` (opaque : pas de tri de transparence), retournement vertical
    (origine de Coin en bas à gauche), copie ligne par ligne sans le bourrage de `bytesPerLine` ;
@@ -976,8 +983,8 @@ l'identifiant `MaterialId`, clé de recherche et jamais chemin) ; fichier ouvert
 (§ 4.6.2 : confinement au dossier de la bibliothèque revérifié à l'ouverture, `O_NOFOLLOW`,
 `O_NONBLOCK`, contrôle par `fstat`, lecture bornée à 16 Mio) ; décodage seulement dans `gui/`,
 en mémoire, par les décodeurs PNG ou JPEG de Qt imposés par l'extension, dimensions lues dans
-l'en-tête et bornées à 4 096 pixels avant décodage, JPEG de plus de 100 balayages refusé avant
-décodage ; raison d'échec citée tronquée ; l'image
+l'en-tête et bornées à 4 096 pixels avant décodage, JPEG de plus de 100 balayages et PNG dont
+les données décompressées dépassent la taille brute annoncée refusés avant décodage ; raison d'échec citée tronquée ; l'image
 n'est jamais copiée dans le document.
 
 ## 5. Découpage en PR

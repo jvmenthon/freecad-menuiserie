@@ -94,4 +94,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (`core/texture_file.py` : confinement au dossier de la bibliothèque revérifié à chaque
   ouverture, `O_NOFOLLOW`, `O_NONBLOCK`, contrôle par `fstat`, lecture bornée), sans réouverture
   par le nom. JPEG de plus de 100 balayages refusé avant décodage (un JPEG
-  progressif aux milliers de balayages vides figeait l'interface).
+  progressif aux milliers de balayages vides figeait l'interface) ; PNG dont les données
+  décompressées dépassent la taille de l'image annoncée refusé (bombe de décompression), sans
+  décompresser au-delà.

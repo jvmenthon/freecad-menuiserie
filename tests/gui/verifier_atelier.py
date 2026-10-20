@@ -14,9 +14,11 @@ Le code de retour vaut 0 si tout est correct.
 import json
 import math
 import os
+import struct
 import tempfile
 import traceback
 import zipfile
+import zlib
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -668,28 +670,32 @@ def verifier_texture_recalcul() -> list[str]:
     return problemes
 
 
+def bloc_png(type_: bytes, donnees: bytes) -> bytes:
+    """Bloc PNG : longueur, type, contenu, CRC."""
+    crc = struct.pack(">I", zlib.crc32(type_ + donnees))
+    return struct.pack(">I", len(donnees)) + type_ + donnees + crc
+
+
+def png_fabrique(taille: tuple[int, int], idat: bytes, entrelace: int = 0) -> bytes:
+    """PNG RVB 8 bits fabriqué octet par octet : en-tête ``taille``, un bloc ``IDAT`` donné."""
+    ihdr = struct.pack(">IIBBBBB", *taille, 8, 2, 0, 0, entrelace)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + bloc_png(b"IHDR", ihdr)
+        + bloc_png(b"IDAT", idat)
+        + bloc_png(b"IEND", b"")
+    )
+
+
 def verifier_texture_fichiers_pieges() -> list[str]:
     """Images piégées : en-tête géant pour quelques octets, hauteur > 4 096, dimensions nulles,
     image tronquée, BMP nommé .png, PNG nommé .jpg, tube nommé .png → couleur, sans exception,
     un avertissement chacune ; JPEG .jpg, 4 096 x 4 096, 1 x 1, largeur impaire (bourrage de
     Qt) et lien symbolique interne → texture affichée."""
-    import struct
-    import zlib
-
     from freecad.menuiserie.api import make_wood_part
 
-    def bloc(type_: bytes, donnees: bytes) -> bytes:
-        crc = struct.pack(">I", zlib.crc32(type_ + donnees))
-        return struct.pack(">I", len(donnees)) + type_ + donnees + crc
-
     def png_annonce(largeur: int, hauteur: int) -> bytes:
-        ihdr = struct.pack(">IIBBBBB", largeur, hauteur, 8, 2, 0, 0, 0)
-        return (
-            b"\x89PNG\r\n\x1a\n"
-            + bloc(b"IHDR", ihdr)
-            + bloc(b"IDAT", zlib.compress(b""))
-            + bloc(b"IEND", b"")
-        )
+        return png_fabrique((largeur, hauteur), zlib.compress(b""))
 
     avertissements = avertissements_de_test()
     refusees = (
@@ -1015,6 +1021,60 @@ def verifier_texture_jpeg_balayages() -> list[str]:
     return problemes
 
 
+def zeros_compresses(taille: int) -> bytes:
+    """``taille`` octets nuls compressés par zlib, par morceaux de 1 Mio."""
+    compresseur = zlib.compressobj(9)
+    pas = 1 << 20
+    morceaux = (
+        compresseur.compress(bytes(min(pas, taille - fait))) for fait in range(0, taille, pas)
+    )
+    return b"".join(morceaux) + compresseur.flush()
+
+
+def verifier_texture_bombe_png() -> list[str]:
+    """Audit, point 4 : un PNG de 1 pixel dont l'IDAT se décompresse en 64 Mio est refusé avant
+    décodage (un avertissement) ; un PNG entrelacé (Adam7) aux données exactes et un PNG RVBA
+    16 bits sont affichés."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements = avertissements_de_test()
+    noms = ("bombe", "adam7", "rvba16")
+    materiaux = [materiau(nom, nom, f"textures/{nom}.png") for nom in noms]
+    with bibliotheque(*materiaux) as fichier:
+        dossier = fichier.parent / "textures"
+        dossier.mkdir()
+        (dossier / "bombe.png").write_bytes(png_fabrique((1, 1), zeros_compresses(64 << 20)))
+        # 13 x 11 pixels en Adam7, passes 1 à 7 : lignes x (octet de filtre + 3 octets par
+        # pixel) = 2 x 7, 2 x 7, 1 x 13, 3 x 10, 3 x 22, 6 x 19 et 5 x 40 octets, tous nuls.
+        brut = 14 + 14 + 13 + 30 + 66 + 114 + 200
+        (dossier / "adam7.png").write_bytes(png_fabrique((13, 11), zlib.compress(bytes(brut)), 1))
+        image = QtGui.QImage(*IMAGE_PIXELS, QtGui.QImage.Format.Format_RGBA64)
+        image.fill(QtGui.QColor(*IMAGE_RGB))
+        image.save(str(dossier / "rvba16.png"), "PNG")
+        doc = App.newDocument("VerifBombePng")
+        problemes: list[str] = []
+        for _ in range(2):
+            vobj = make_wood_part(material_id="bombe", doc=doc).ViewObject
+            problemes += repli_visible("bombe IDAT", vobj)
+        problemes += texture_visible(
+            "PNG entrelacé", make_wood_part(material_id="adam7", doc=doc).ViewObject, (13, 11)
+        )
+        problemes += texture_visible(
+            "PNG RVBA 16 bits",
+            make_wood_part(material_id="rvba16", doc=doc).ViewObject,
+            IMAGE_PIXELS,
+        )
+        cites = [m for m in avertissements if "bombe.png" in m and "décompressées" in m]
+        problemes += [
+            *ecarts("avertissement de la bombe", len(cites), 1),
+            *ecarts("avertissements", len(avertissements), 1),
+        ]
+        App.closeDocument(doc.Name)
+    return problemes
+
+
 def commutateur_sous(noeud: Any) -> bool:
     """Vrai si un ``SoSwitch`` « MenuiserieTexture » actif est atteint sous ``noeud``."""
     from pivy import coin
@@ -1048,6 +1108,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_documents_multiples,
     verifier_texture_confinement,
     verifier_texture_jpeg_balayages,
+    verifier_texture_bombe_png,
 )
 
 
