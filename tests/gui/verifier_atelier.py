@@ -515,6 +515,415 @@ def verifier_texture_reouverture() -> list[str]:
     return problemes
 
 
+# --- Cas limites des textures (testeur, lot J1d) -----------------------------------------
+
+
+def reecrire_bibliotheque(fichier: Path, *materiaux: dict[str, object]) -> None:
+    """Remplace le contenu de la bibliothèque temporaire puis la relit."""
+    from freecad.menuiserie.features.library import reload_library
+
+    contenu = {"format": 1, "materials": list(materiaux)}
+    fichier.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
+    reload_library()
+
+
+def materiau_de_taille(
+    identifiant: str, image: str, taille: tuple[float, float]
+) -> dict[str, object]:
+    """Comme :func:`materiau`, avec une texture couvrant ``taille`` mm."""
+    entree = materiau(identifiant, identifiant, image)
+    entree["texture"] = {"image": image, "size": list(taille)}
+    return entree
+
+
+def directions(vobj: Any) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    plan = commutateur(vobj).getChild(0).getChild(0)
+    return plan.directionS.getValue().getValue(), plan.directionT.getValue().getValue()
+
+
+def etat_texture(vobj: Any) -> tuple[object, ...]:
+    """Switch actif, en-tête de l'image branchée (ou ``None``) et couleur diffuse."""
+    switch = commutateur(vobj)
+    if switch is None:
+        return ("switch absent",)
+    actif = switch.whichChild.getValue() == 0
+    noeud = noeud_texture(vobj)
+    return actif, entete_image(noeud)[:2] if actif and noeud else None, diffuse_rgb(vobj)
+
+
+def texture_visible(etape: str, vobj: Any, pixels: tuple[int, int]) -> list[str]:
+    return ecarts(f"{etape}, état", etat_texture(vobj), (True, pixels, WHITE_RGB))
+
+
+def repli_visible(etape: str, vobj: Any, couleur: tuple[int, ...] = MAPLE_RGB) -> list[str]:
+    return ecarts(f"{etape}, état", etat_texture(vobj), (False, None, couleur))
+
+
+def nombre_de_switchs(vobj: Any) -> int:
+    racine = vobj.RootNode
+    noms = (racine.getChild(i).getName().getString() for i in range(racine.getNumChildren()))
+    return sum(1 for nom in noms if nom == "MenuiserieTexture")
+
+
+def verifier_texture_annuler_retablir() -> list[str]:
+    """Création, suppression, changement de matériau (texturé ↔ uni, texture A → B) et sens du
+    fil : texture et couleur suivent annuler et rétablir, un seul switch par pièce."""
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements = avertissements_de_test()
+    materiaux = (
+        materiau("erable", "Érable", "textures/erable.png"),
+        materiau("tilleul", "Tilleul", "textures/tilleul.png"),
+    )
+    with bibliotheque(*materiaux) as fichier:
+        ecrire_image(fichier.parent / "textures" / "erable.png")
+        ecrire_image(fichier.parent / "textures" / "tilleul.png", (32, 16))
+        doc = App.newDocument("VerifTextureAnnuler")
+        doc.UndoMode = 1
+
+        def transaction(nom: str, action: Callable[[], object]) -> None:
+            doc.openTransaction(nom)
+            action()
+            doc.commitTransaction()
+
+        transaction("Créer", lambda: make_wood_part(material_id="erable", doc=doc))
+        nom = doc.Objects[0].Name
+        doc.undo()
+        doc.redo()
+        problemes = texture_visible(
+            "création rétablie", doc.getObject(nom).ViewObject, IMAGE_PIXELS
+        )
+        transaction("Supprimer", lambda: doc.removeObject(nom))
+        doc.undo()
+        piece = doc.getObject(nom)
+        problemes += texture_visible("suppression annulée", piece.ViewObject, IMAGE_PIXELS)
+        transaction("Uni", lambda: setattr(piece, "Material", "Chêne"))
+        problemes += repli_visible("texturé → uni", piece.ViewObject, OAK_RGB)
+        doc.undo()
+        problemes += texture_visible("uni annulé", piece.ViewObject, IMAGE_PIXELS)
+        doc.redo()
+        problemes += repli_visible("uni rétabli", piece.ViewObject, OAK_RGB)
+        doc.undo()
+        transaction("Autre texture", lambda: setattr(piece, "Material", "Tilleul"))
+        problemes += texture_visible("texture A → B", piece.ViewObject, (32, 16))
+        doc.undo()
+        problemes += texture_visible("texture B annulée", piece.ViewObject, IMAGE_PIXELS)
+        transaction("Fil", lambda: setattr(piece, "GrainDirection", "Width"))
+        doc.undo()
+        doc.redo()
+        problemes += [
+            *texture_affichee("fil rétabli", piece.ViewObject, "Width"),
+            *ecarts("switchs par pièce", nombre_de_switchs(piece.ViewObject), 1),
+            *ecarts("avertissements", avertissements, []),
+        ]
+        App.closeDocument(doc.Name)
+    return problemes
+
+
+def verifier_texture_recalcul() -> list[str]:
+    """Recalcul après chaque propriété : texture et projection inchangées ; les coordonnées de la
+    forme affichée restent locales (origine de l'image au coin de la pièce)."""
+    from pivy import coin
+
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements_de_test()
+    with bibliotheque(materiau("erable", "Érable", "textures/erable.png")) as fichier:
+        ecrire_image(fichier.parent / "textures" / "erable.png")
+        doc = App.newDocument("VerifTextureRecalcul")
+        piece = make_wood_part(material_id="erable", doc=doc)
+        placement = App.Placement(App.Vector(1e5, -2e5, 30), App.Rotation(30, 45, 60))
+        modifications = [
+            ("Length", 10_000.0),
+            ("Width", 1.0),
+            ("Thickness", 300.0),
+            ("LengthAllowance", 5.0),
+            ("Mark", "A1"),
+            ("Placement", placement),
+        ]
+        problemes: list[str] = []
+        for propriete, valeur in modifications:
+            setattr(piece, propriete, valeur)
+            doc.recompute()
+            problemes += texture_affichee(f"{propriete} modifiée", piece.ViewObject, "Length")
+        recherche = coin.SoSearchAction()
+        recherche.setType(coin.SoCoordinate3.getClassTypeId())
+        recherche.setInterest(coin.SoSearchAction.ALL)
+        recherche.apply(piece.ViewObject.RootNode)
+        chemins = recherche.getPaths()
+        points = [
+            chemins[i].getTail().point[j].getValue()
+            for i in range(chemins.getLength())
+            for j in range(chemins[i].getTail().point.getNum())
+        ]
+        boite = [(min(p[k] for p in points), max(p[k] for p in points)) for k in range(3)]
+        attendue = [(0.0, 10_000.0), (0.0, 1.0), (0.0, 300.0)]
+        if not points or not all(
+            math.isclose(a, b, abs_tol=1e-6)
+            for obtenu, voulu in zip(boite, attendue, strict=True)
+            for a, b in zip(obtenu, voulu, strict=True)
+        ):
+            problemes.append(f"coordonnées affichées non locales : {boite!r}")
+        App.closeDocument(doc.Name)
+    return problemes
+
+
+def verifier_texture_fichiers_pieges() -> list[str]:
+    """Images piégées : en-tête géant pour quelques octets, hauteur > 4 096, dimensions nulles,
+    image tronquée, BMP nommé .png, PNG nommé .jpg, tube nommé .png → couleur, sans exception,
+    un avertissement chacune ; JPEG .jpg, 4 096 x 4 096, 1 x 1, largeur impaire (bourrage de
+    Qt) et lien symbolique interne → texture affichée."""
+    import struct
+    import zlib
+
+    from freecad.menuiserie.api import make_wood_part
+
+    def bloc(type_: bytes, donnees: bytes) -> bytes:
+        crc = struct.pack(">I", zlib.crc32(type_ + donnees))
+        return struct.pack(">I", len(donnees)) + type_ + donnees + crc
+
+    def png_annonce(largeur: int, hauteur: int) -> bytes:
+        ihdr = struct.pack(">IIBBBBB", largeur, hauteur, 8, 2, 0, 0, 0)
+        return (
+            b"\x89PNG\r\n\x1a\n"
+            + bloc(b"IHDR", ihdr)
+            + bloc(b"IDAT", zlib.compress(b""))
+            + bloc(b"IEND", b"")
+        )
+
+    avertissements = avertissements_de_test()
+    refusees = (
+        "bombe.png",
+        "haute.png",
+        "nulle.png",
+        "tronquee.png",
+        "bmp.png",
+        "png.jpg",
+        "tube.png",
+    )
+    acceptees = {
+        "vraie.jpg": (64, 32),
+        "max.png": (4096, 4096),
+        "pixel.png": (1, 1),
+        "impaire.png": (63, 31),
+        "lien.png": (64, 32),
+    }
+    noms = (*refusees, *acceptees)
+    materiaux = [materiau(f"b{i}", f"Bois {nom}", f"textures/{nom}") for i, nom in enumerate(noms)]
+    with bibliotheque(*materiaux) as fichier:
+        dossier = fichier.parent / "textures"
+        ecrire_image(dossier / "cible.png")
+        (dossier / "lien.png").symlink_to(dossier / "cible.png")
+        (dossier / "bombe.png").write_bytes(png_annonce(100_000, 100_000))
+        (dossier / "nulle.png").write_bytes(png_annonce(0, 0))
+        ecrire_image(dossier / "haute.png", (8, 4097))
+        (dossier / "tronquee.png").write_bytes((dossier / "cible.png").read_bytes()[:60])
+        ecrire_image(dossier / "bmp.png", format_="BMP")
+        ecrire_image(dossier / "png.jpg")
+        os.mkfifo(dossier / "tube.png")
+        ecrire_image(dossier / "vraie.jpg", format_="JPEG")
+        ecrire_image(dossier / "max.png", (4096, 4096))
+        ecrire_image(dossier / "pixel.png", (1, 1))
+        ecrire_image(dossier / "impaire.png", (63, 31))
+        reecrire_bibliotheque(fichier, *materiaux)  # liens résolus au chargement
+        doc = App.newDocument("VerifPieges")
+        problemes: list[str] = []
+        for i, nom in enumerate(noms):
+            vobj = make_wood_part(material_id=f"b{i}", doc=doc).ViewObject
+            if nom in acceptees:
+                problemes += texture_visible(nom, vobj, acceptees[nom])
+            else:
+                problemes += repli_visible(nom, vobj)
+        for nom in refusees:
+            cites = [m for m in avertissements if f"/{nom} »" in m]
+            problemes += ecarts(f"avertissements pour {nom}", len(cites), 1)
+        problemes += ecarts("avertissements", len(avertissements), len(refusees))
+        App.closeDocument(doc.Name)
+    return problemes
+
+
+def verifier_texture_orientation_des_pixels() -> list[str]:
+    """Pixels du ``SoTexture2`` : ligne du bas de l'image en premier (origine de Coin en bas à
+    gauche), de gauche à droite, sans le bourrage de fin de ligne (largeur 3 en RVB)."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements_de_test()
+    with bibliotheque(materiau("erable", "Érable", "textures/erable.png")) as fichier:
+        image = QtGui.QImage(3, 2, QtGui.QImage.Format.Format_RGB888)
+        for x in range(3):
+            image.setPixelColor(x, 0, QtGui.QColor(255, 0, x))  # ligne du haut
+            image.setPixelColor(x, 1, QtGui.QColor(0, 0, 250 + x))  # ligne du bas
+        (fichier.parent / "textures").mkdir()
+        image.save(str(fichier.parent / "textures" / "erable.png"), "PNG")
+        doc = App.newDocument("VerifPixels")
+        noeud = noeud_texture(make_wood_part(material_id="erable", doc=doc).ViewObject)
+        texte = noeud.image.get().getString().split() if noeud else []
+        attendu = ["3", "2", "3", "0xfa", "0xfb", "0xfc", "0xff0000", "0xff0001", "0xff0002"]
+        App.closeDocument(doc.Name)
+    return ecarts("pixels du SoTexture2", texte, attendu)
+
+
+def verifier_texture_image_remplacee() -> list[str]:
+    """Image supprimée en cours de session puis rendue, puis remplacée par une autre taille :
+    couleur puis texture ; la nouvelle image est relue (nouvelle pièce, réouverture)."""
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements = avertissements_de_test()
+    with bibliotheque(materiau("erable", "Érable", "textures/erable.png")) as fichier:
+        image = fichier.parent / "textures" / "erable.png"
+        ecrire_image(image)
+        doc = App.newDocument("VerifImageRemplacee")
+        piece = make_wood_part(material_id="erable", doc=doc)
+        image.rename(image.with_suffix(".bak"))
+        piece.GrainDirection = "Width"
+        problemes = repli_visible("image supprimée", piece.ViewObject)
+        piece.GrainDirection = "Length"
+        problemes += ecarts("avertissements image supprimée", len(avertissements), 1)
+        image.with_suffix(".bak").rename(image)
+        piece.GrainDirection = "Width"
+        problemes += texture_visible("image rendue", piece.ViewObject, IMAGE_PIXELS)
+        ecrire_image(image, (16, 8))
+        os.utime(image, ns=(1, 1))  # date différente même sur un système de fichiers grossier
+        nouvelle = make_wood_part(material_id="erable", doc=doc)
+        problemes += texture_visible(
+            "image remplacée, nouvelle pièce", nouvelle.ViewObject, (16, 8)
+        )
+        nom = piece.Name
+        doc = rouvrir(doc)
+        problemes += [
+            *texture_visible(
+                "image remplacée, réouverture", doc.getObject(nom).ViewObject, (16, 8)
+            ),
+            *ecarts("document modifié à la réouverture", Gui.getDocument(doc.Name).Modified, False),
+            *ecarts("avertissements", len(avertissements), 1),
+        ]
+        App.closeDocument(doc.Name)
+    return problemes
+
+
+def verifier_texture_bibliotheque_modifiee() -> list[str]:
+    """Bibliothèque modifiée entre deux sessions : taille changée (10 et 10 000 mm), texture
+    retirée, texture ajoutée à un matériau uni, matériau supprimé ; jamais de document modifié."""
+    from freecad.menuiserie.api import make_wood_part
+    from freecad.menuiserie.core.appearance import texture_mapping
+    from freecad.menuiserie.core.part_model import GrainDirection
+
+    avertissements_de_test()
+    erable = materiau("erable", "Érable", "textures/erable.png")
+    with bibliotheque(erable, materiau("tilleul", "Tilleul")) as fichier:
+        ecrire_image(fichier.parent / "textures" / "erable.png")
+        doc = App.newDocument("VerifBibliothequeModifiee")
+        texturee = make_wood_part(material_id="erable", doc=doc).Name
+        unie = make_wood_part(material_id="tilleul", doc=doc).Name
+        etapes = [
+            (
+                "taille extrême",
+                (
+                    materiau_de_taille("erable", "textures/erable.png", (10.0, 10_000.0)),
+                    materiau("tilleul", "Tilleul"),
+                ),
+                True,
+                False,
+            ),
+            (
+                "texture retirée",
+                (materiau("erable", "Érable"), materiau("tilleul", "Tilleul")),
+                False,
+                False,
+            ),
+            (
+                "texture ajoutée",
+                (erable, materiau("tilleul", "Tilleul", "textures/erable.png")),
+                True,
+                True,
+            ),
+            ("matériaux supprimés", (), False, False),
+        ]
+        problemes: list[str] = []
+        for etape, materiaux, avec_texture, unie_texturee in etapes:
+            reecrire_bibliotheque(fichier, *materiaux)
+            doc = rouvrir(doc)
+            vobj, vobj_unie = doc.getObject(texturee).ViewObject, doc.getObject(unie).ViewObject
+            if avec_texture:
+                problemes += texture_visible(etape, vobj, IMAGE_PIXELS)
+            else:
+                problemes += repli_visible(etape, vobj)
+            if unie_texturee:
+                problemes += texture_visible(f"{etape}, pièce unie", vobj_unie, IMAGE_PIXELS)
+            else:
+                problemes += repli_visible(f"{etape}, pièce unie", vobj_unie)
+            problemes += ecarts(
+                f"{etape}, document modifié", Gui.getDocument(doc.Name).Modified, False
+            )
+            if etape == "taille extrême":
+                voulu = texture_mapping((10.0, 10_000.0), GrainDirection.LENGTH)
+                obtenu = directions(vobj)
+                if not (
+                    proches(obtenu[0], voulu.direction_s) and proches(obtenu[1], voulu.direction_t)
+                ):
+                    problemes.append(f"{etape}, projection : {obtenu!r}")
+        App.closeDocument(doc.Name)
+    return problemes
+
+
+def verifier_texture_documents_multiples() -> list[str]:
+    """Deux documents partagent le nœud de l'image ; fermer l'un n'affecte pas l'autre ; une
+    copie dans l'autre document et un ``App::Link`` affichent la texture ; un nouveau cache
+    (nœuds précédents libérés par Python) laisse les nœuds affichés intacts."""
+    import gc
+
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements_de_test()
+    with bibliotheque(materiau("erable", "Érable", "textures/erable.png")) as fichier:
+        ecrire_image(fichier.parent / "textures" / "erable.png")
+        premier, second = App.newDocument("VerifMultiA"), App.newDocument("VerifMultiB")
+        a = make_wood_part(material_id="erable", doc=premier)
+        b = make_wood_part(1200, 200, 22, "erable", doc=second)
+        copie = second.copyObject(a)
+        lien = second.addObject("App::Link", "Lien")
+        lien.LinkedObject = b
+        second.recompute()
+        problemes = [
+            *ecarts(
+                "nœud partagé entre documents",
+                noeud_texture(a.ViewObject) == noeud_texture(b.ViewObject),
+                True,
+            ),
+            *texture_visible("copie dans l'autre document", copie.ViewObject, IMAGE_PIXELS),
+        ]
+        recherche_lien = Gui.getDocument(second.Name).getObject(lien.Name).RootNode
+        problemes += ecarts(
+            "lien : switch de texture présent", commutateur_sous(recherche_lien), True
+        )
+        App.closeDocument(premier.Name)
+        avertissements_de_test()  # nouveau cache : l'ancien et ses nœuds sont libérés par Python
+        gc.collect()
+        problemes += texture_affichee("après fermeture de l'autre document", b.ViewObject, "Length")
+        problemes += texture_visible(
+            "nouvelle pièce, nouveau cache",
+            make_wood_part(material_id="erable", doc=second).ViewObject,
+            IMAGE_PIXELS,
+        )
+        App.closeDocument(second.Name)
+    return problemes
+
+
+def commutateur_sous(noeud: Any) -> bool:
+    """Vrai si un ``SoSwitch`` « MenuiserieTexture » actif est atteint sous ``noeud``."""
+    from pivy import coin
+
+    recherche = coin.SoSearchAction()
+    recherche.setName(coin.SbName("MenuiserieTexture"))
+    recherche.setInterest(coin.SoSearchAction.ALL)
+    recherche.setSearchingAll(True)
+    recherche.apply(noeud)
+    chemins = recherche.getPaths()
+    return any(chemins[i].getTail().whichChild.getValue() == 0 for i in range(chemins.getLength()))
+
+
 VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_atelier,
     verifier_piece_de_bois,
@@ -526,6 +935,13 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_affichee,
     verifier_texture_repli,
     verifier_texture_reouverture,
+    verifier_texture_annuler_retablir,
+    verifier_texture_recalcul,
+    verifier_texture_fichiers_pieges,
+    verifier_texture_orientation_des_pixels,
+    verifier_texture_image_remplacee,
+    verifier_texture_bibliotheque_modifiee,
+    verifier_texture_documents_multiples,
 )
 
 
