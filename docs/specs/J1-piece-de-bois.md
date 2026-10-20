@@ -1,10 +1,12 @@
 # [J1] Pièce de bois paramétrique et bibliothèque de matériaux
 
 - Jalon : J1 (version cible 0.1.0)
-- Statut : **validée par jv le 2026-10-19** (questions Q1 à Q3 : recommandations retenues)
+- Statut : **validée par jv le 2026-10-19** (questions Q1 à Q3 : recommandations retenues) ;
+  complétée le 2026-10-20 avant J1b (reprise de la revue finale de J1a, textures : lot J1d)
 - ADR liés : [0002 — Bibliothèque de matériaux](../adr/0002-bibliotheque-de-materiaux.md),
-  [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md)
-- Découpage : trois PR successives **J1a → J1b → J1c** (voir § 5)
+  [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md),
+  [0004 — Rendu des textures des matériaux](../adr/0004-rendu-des-textures.md)
+- Découpage : quatre PR **J1a → J1b → (J1c ∥ J1d)** (voir § 5) ; J1a fusionnée (345ff4d)
 
 ## 1. Contexte
 
@@ -29,7 +31,9 @@ Le menuisier peut :
 3. compléter la bibliothèque avec ses propres essences et panneaux, sans toucher à l'atelier.
 
 **Livrable visible** : créer une planche de chêne 800 × 200 × 22 et la modifier
-(J1b : depuis la console Python et l'éditeur de propriétés ; J1c : depuis la barre d'outils).
+(J1b : depuis la console Python et l'éditeur de propriétés ; J1c : depuis la barre d'outils), et
+la voir avec la texture de son essence, à l'échelle réelle et dans le sens du fil, quand la
+bibliothèque en fournit une (J1d) — sinon avec sa couleur.
 
 ## 3. Critères d'acceptation
 
@@ -50,9 +54,23 @@ Légende du type de test : **U** = unitaire sans FreeCAD (`tests/unit`), **I** =
 | A7 | Règles de changement de matériau : vers un matériau sans fil → `GrainDirection.NONE` ; vers un matériau avec fil alors que le fil valait `NONE` → `LENGTH` ; sinon le fil est conservé. Les surcotes ne sont remplacées par celles de la nouvelle famille (massif / panneau) **que si** elles valent encore exactement celles de l'ancienne famille. | U |
 | A8 | `is_standard_thickness` reconnaît 18 mm pour le contreplaqué bouleau (tolérance 0,05 mm) et refuse 17 mm. | U |
 | A9 | `core/` n'importe ni FreeCAD ni Qt (test existant `test_separation_app_gui` toujours vert) ; couverture de `core/` ≥ 90 %. | U |
-| A10 | Texture facultative : une entrée munie d'une `texture` valide expose `Material.texture` (chemin absolu de l'image, résolu dans le dossier du fichier qui la déclare, et taille en mm) ; sans `texture`, `Material.texture` vaut `None`. Chaque règle de `texture` du § 4.3.2 est vérifiée comme au critère A2 (entrée rejetée, champ `texture`, `texture.image` ou `texture.size` cité). L'existence du fichier image n'est **pas** vérifiée par `core/` (J1b, la couleur restant le secours). | U |
+| A10 | Texture facultative : une entrée munie d'une `texture` valide expose `Material.texture` (chemin absolu de l'image, résolu dans le dossier du fichier qui la déclare, et taille en mm) ; sans `texture`, `Material.texture` vaut `None`. Chaque règle de `texture` du § 4.3.2 est vérifiée comme au critère A2 (entrée rejetée, champ `texture`, `texture.image` ou `texture.size` cité). L'existence du fichier image n'est **pas** vérifiée par `core/` (J1d, la couleur restant le secours). | U |
 
 ### J1b — Objet du document (`features/`, `api.py`, ViewProvider)
+
+**Premiers commits de J1b, avant tout code de `features/` : reprise de la revue finale de J1a**
+(`refactor(core)` de pur déplacement, puis `fix(core)` pour R1 et R2 ; aucun autre changement de
+comportement ; conception au § 4.2).
+
+| N° | Critère | Test |
+|---|---|---|
+| R1 | `Material(...)` construit directement valide **tous** ses champs dans `__post_init__` avec les mêmes bornes que la lecture JSON (§ 4.3.2) et lève `ValueError` en citant le champ : `id` (motif, 1 à 64 caractères), `kind` (instance de `MaterialKind`), `names` (au moins une langue, code `^[a-z]{2}$`, libellé normalisé NFC et sans espaces de bord, 1 à 80 caractères, sans caractère interdit), `density` (nombre fini non booléen, 50 à 2000), `thicknesses` (1 à 50 nombres finis non booléens entre 0,1 et 300 mm, **normalisées** : triées, dédoublonnées, en `float`), `color` (exactement 3 entiers non booléens de 0 à 255), `has_grain` (booléen), `texture` (`Texture` ou `None`). `Texture(...)` refuse un `image` non absolu et une `size` hors de 2 nombres finis entre 10 et 10 000 mm. Un cas refusé et un cas limite accepté par règle. | U |
+| R2 | Bornes alignées : une épaisseur standard < 0,1 mm (ex. 0,05) rejette l'entrée de bibliothèque (champ `thicknesses`, message citant « 0,1 » et « 300 ») ; 0,1 est acceptée. Pour chaque matériau de `data/materiaux.json` et chacune de ses épaisseurs standard `e`, `Dimensions(800, 200, e)` est valide. | U |
+| R3 | `to_finite_float` vit dans le module privé `core/_validation.py`, avec les autres aides partagées (§ 4.2.1), et `quoted_value` dans le module public `core/text.py` ; ni `core.materials` ni `core.part_model` ne les exposent plus. Test d'imports (AST, comme `test_separation_app_gui`) sur `freecad/menuiserie/` et `tests/` : aucun module n'importe un **nom** commençant par `_` ; hors de `core/` et de `tests/unit/` (qui teste ces aides directement), aucun module n'importe `core._validation` ni un sous-module privé `core.materials._…`. | U |
+| R4 | `core/materials.py` est remplacé par le paquet `core/materials/` du § 4.2.2 : `from freecad.menuiserie.core.materials import X` fonctionne pour chaque nom de `__all__` (liste figée par un test), aucun module du paquet ne dépasse 400 lignes, tous les tests J1a passent avec, pour seule modification, leurs imports (et les cas R2). | U |
+| R5 | ADR 0003 au statut « accepté » (fait avec ce complément de spécification) ; § 4.2 et § 4.3.2 conformes au code livré ; CHANGELOG complété (découpage interne, validation de `Material`, épaisseur minimale 0,1 mm). | revue |
+
+Puis l'objet du document :
 
 | N° | Critère | Test |
 |---|---|---|
@@ -61,14 +79,14 @@ Légende du type de test : **U** = unitaire sans FreeCAD (`tests/unit`), **I** =
 | B3 | Modifier `Length` à 1000 mm puis recalculer donne un volume de 4 400 000 mm³ ; le `Placement` (préalablement déplacé et tourné) est **inchangé**. Idem pour `Width` et `Thickness`. | I |
 | B4 | Une expression sur une cote fonctionne : `Length` = `Width * 4` donne 800 mm, puis 1000 mm après `Width` = 250. | I |
 | B5 | Choisir `Material` = « Hêtre » met à jour `MaterialId`, `Category`, `Density` sans changer les cotes ; choisir « MDF » passe `GrainDirection` à `"None"` et les surcotes 20 / 5 / 0 à 0 / 0 / 0 (critère A7). | I |
-| B6 | Une cote à 0 met l'objet en erreur au recalcul (`isValid()` faux, message traduit « cote invalide » dans `getStatusString()`), sans exception non rattrapée ni blocage du document ; remettre une cote valide rend l'objet valide. Une valeur négative n'est jamais retenue (la propriété reste ≥ 0). | I |
+| B6 | Une cote à 0 met l'objet en erreur au recalcul (`isValid()` faux, message traduit « cote invalide » dans `getStatusString()`), sans exception non rattrapée ni blocage du document ; remettre une cote valide rend l'objet valide. Une valeur négative saisie directement n'est jamais retenue (la propriété reste ≥ 0) ; une expression qui donne une cote ≤ 0 met l'objet en erreur sans exception (le moteur d'expressions de FreeCAD peut écrire une valeur négative dans la propriété : on ne lutte pas contre lui). | I |
 | B7 | Enregistrer, fermer, rouvrir : toutes les propriétés sont identiques, l'objet est valide et le volume inchangé. Si la bibliothèque est inchangée, aucun objet n'est marqué « Touched » après réouverture. | I |
 | B8 | Réouverture avec une bibliothèque où le matériau n'existe plus (fichier utilisateur retiré) : `MaterialId`, le libellé de `Material` et `Density` sont conservés, l'objet reste valide, un seul avertissement est écrit dans la vue rapport. | I |
 | B9 | Migration : un objet enregistré sans `Version` ni `ThicknessAllowance` (propriétés supprimées avant enregistrement pour simuler un ancien fichier) est rouvert avec les propriétés manquantes recréées à leur valeur par défaut et `Version` = 1. | I |
 | B10 | Annuler / rétablir : création encadrée par `openTransaction` / `commitTransaction`, puis `undo()` supprime la pièce et `redo()` la restaure avec ses propriétés (`UndoMode` = 1). Idem pour une modification de `Length`. | I |
 | B11 | Le proxy enregistré dans le document est `freecad.menuiserie.features.wood_part.WoodPart` et `dumps()` renvoie `None` (test « contrat de persistance », cf. ADR 0003). | I |
 | B12 | `record_of(obj)` renvoie un `PartRecord` cohérent avec les propriétés (prépare J2) ; `is_wood_part` vaut vrai pour une pièce et faux pour un `Part::Box`. | I |
-| B13 | Dans l'interface, `api.make_wood_part(800, 200, 22, "chene")` crée une pièce avec l'icône de l'atelier dans l'arbre et la couleur d'affichage du chêne ; changer de matériau change la couleur. Dans `freecadcmd`, la même fonction fonctionne sans importer `FreeCADGui`. | G + I |
+| B13 | Dans l'interface, `api.make_wood_part(800, 200, 22, "chene")` crée une pièce avec l'icône `Menuiserie_WoodPart.svg` dans l'arbre ; la propriété de vue `MaterialColor` vaut la couleur du chêne et la couleur diffuse de `ShapeAppearance` aussi (J1b n'affiche aucune texture) ; changer de matériau change les deux. Dans `freecadcmd`, la même fonction fonctionne sans importer `FreeCADGui`. Les SVG de `resources/icons/` ne sont pas modifiés (`test_icones` vert). | G + I |
 | B14 | Une anomalie de la bibliothèque utilisateur est signalée **une seule fois** par session dans la vue rapport, traduite, sans empêcher la création de pièces avec les matériaux valides. | I |
 
 ### J1c — Commande et panneau de tâche (`gui/`)
@@ -85,6 +103,24 @@ Légende du type de test : **U** = unitaire sans FreeCAD (`tests/unit`), **I** =
 | C8 | Toute chaîne visible (commande, panneau, `.ui`, messages) passe par `translate()`, `QT_TRANSLATE_NOOP` ou les chaînes traduisibles du `.ui` ; aucun import `PySide2`/`PySide6`. | revue + test d'imports |
 | C9 | Scénario du livrable, déroulé à la main sur FreeCAD 1.0 et 1.1 et décrit dans la PR : créer une planche de chêne 800 × 200 × 22, la passer à 1000 × 250 × 27 en hêtre, annuler, rétablir, enregistrer, rouvrir. | manuel |
 
+### J1d — Textures des matériaux (`core/appearance.py`, `features/appearance.py`, `gui/`)
+
+Conception au § 4.6 et dans l'ADR 0004. **Aucun test ne dépend des textures intégrées** (PR #8,
+`data/textures/`) : chaque test crée sa propre bibliothèque dans un dossier temporaire (paramètre
+`UserLibraryPath`, puis `reload_library()`) avec une image produite par le test. Tant que #8 n'est
+pas fusionnée, la bibliothèque intégrée n'a aucune texture et les pièces s'affichent en couleur ;
+la fusion de #8 ne demande aucune modification de code.
+
+| N° | Critère | Test |
+|---|---|---|
+| D1 | Projection : pour une texture de 600 × 200 mm, `texture_mapping((600, 200), GrainDirection.LENGTH)` donne `direction_s` = (1/600, 0, 0) et `direction_t` = (0, 1/200, 1/200) (en mm⁻¹, repère local) ; `WIDTH` donne (0, 1/600, 0) et (1/200, 0, 1/200) ; `NONE` donne le même résultat que `LENGTH`. La projection ne dépend ni des cotes ni du `Placement` : une planche de 1 200 mm de long fil en long montre exactement deux répétitions de l'image le long du fil. | U |
+| D2 | `part_appearance(material, grain, image_usable)` : matériau sans texture → `Appearance(color=<couleur du matériau>, image=None, mapping=None)` sans appeler `image_usable` ; texture et `image_usable(texture.image)` vrai → `image` = chemin de la texture et `mapping` = D1 ; texture et `image_usable` faux → comme sans texture. | U |
+| D3 | Dans `freecadcmd` : `usable_texture_file(path)` est vrai pour un fichier ordinaire non vide de 16 Mio au plus, et faux **sans exception** pour un chemin absent, un dossier, un fichier vide, un fichier de plus de 16 Mio (fichier creux), un lien symbolique cassé. `appearance_of(obj)` sur une pièce d'un matériau texturé de la bibliothèque temporaire renvoie l'image et la projection de son `GrainDirection` (`Width` après `obj.GrainDirection = "Width"`), la couleur seule si l'image est absente, et `None` si `MaterialId` est inconnu localement ; l'appel ne marque pas l'objet « Touched ». | I |
+| D4 | Rendu, dans l'interface hors écran : une pièce d'un matériau texturé (image PNG 64 × 32 produite par le test) a, dans `vobj.RootNode` et avant `vobj.SwitchNode`, un `SoSwitch` nommé `MenuiserieTexture` actif, qui contient un `SoTextureCoordinatePlane` aux directions de D1 et un `SoTexture2` (modèle `MODULATE`, répétition `REPEAT` en S et T) dont l'image fait 64 × 32 pixels ; la couleur diffuse de `ShapeAppearance` est le blanc de base et `MaterialColor` la couleur du matériau. Passer `GrainDirection` à `Width` change les directions ; changer `Length` ou le `Placement` ne les change pas. Deux pièces du même matériau partagent le **même** nœud `SoTexture2` (image décodée une fois). | G |
+| D5 | Repli : image absente, contenu illisible (octets aléatoires nommés `.png`), contenu d'un autre format que celui de l'extension (JPEG nommé `.png`), image de plus de 4 096 pixels de côté → `SoSwitch` inactif (`SO_SWITCH_NONE`), couleur diffuse = `MaterialColor`, aucune exception (le script se termine), et **un seul** avertissement traduit par image et par session, même avec deux pièces (vérifié avec un cache d'images muni d'une fonction d'avertissement de test). | G |
+| D6 | Enregistrer, fermer, rouvrir dans l'interface avec la même bibliothèque : la texture est réaffichée (D4) et le document de l'interface n'est pas marqué modifié ; l'archive `.FCStd` ne contient aucune image de texture. Rouvrir après suppression de l'image : couleur `MaterialColor` (D5). Les propriétés de l'objet (`Version` = 1) sont inchangées : J1d n'ajoute aucune propriété à `WoodPart`. | G |
+| D7 | Vérification visuelle sur FreeCAD 1.0 et 1.1, captures dans la PR : planche texturée avec une image de test quadrillée tous les 100 mm (carreaux mesurés à 100 mm avec l'outil de mesure), veinage dans le sens de la longueur puis de la largeur selon `GrainDirection`, arêtes visibles en mode « Flat Lines », présélection et sélection toujours visibles. README : section « Ajouter une texture » (format, sens du fil = largeur de l'image, taille réelle, PNG/JPEG, 16 Mio et 4 096 pixels au plus). | manuel + revue |
+
 ## 4. Conception
 
 ### 4.1 Vue d'ensemble
@@ -94,20 +130,24 @@ freecad/menuiserie/
 ├── api.py                         J1b  façade publique pour scripts et console
 ├── core/
 │   ├── i18n.py                    J1a  marqueur QT_TRANSLATE_NOOP pur Python
-│   ├── materials.py               J1a  Material, MaterialKind, MaterialLibrary, lecture/validation/fusion
-│   └── part_model.py              J1a  Dimensions, Allowances, GrainDirection, PartRecord, calculs, règles
+│   ├── _validation.py             J1b  aides privées partagées (nombres, citations, NFC, bornes de cotes)
+│   ├── materials/                 J1a, découpé en J1b (§ 4.2.2) : façade + modules privés
+│   ├── part_model.py              J1a  Dimensions, Allowances, GrainDirection, PartRecord, calculs, règles
+│   └── appearance.py              J1d  couleur / texture d'une pièce, projection de la texture
 ├── data/
-│   └── materiaux.json             J1a  bibliothèque intégrée (format 1)
+│   └── materiaux.json             J1a  bibliothèque intégrée (format 1) ; textures : PR #8
 ├── features/
 │   ├── library.py                 J1b  accès à la bibliothèque depuis FreeCAD (chemins, cache, journal)
-│   └── wood_part.py               J1b  proxy WoodPart (Part::FeaturePython) + fonctions utilitaires
+│   ├── wood_part.py               J1b  proxy WoodPart (Part::FeaturePython) + fonctions utilitaires
+│   └── appearance.py              J1d  apparence d'une pièce d'après la bibliothèque locale
 ├── gui/
-│   ├── view_providers/wood_part.py J1b icône, couleur ; J1c : édition (double-clic)
+│   ├── view_providers/wood_part.py J1b icône, couleur ; J1c : édition (double-clic) ; J1d : texture
+│   ├── textures.py                J1d  chargement Qt des images, cache de nœuds SoTexture2 partagés
 │   ├── commands/wood_part.py      J1c  commande Menuiserie_WoodPart
 │   └── task_panels/
 │       ├── wood_part.py           J1c  WoodPartTaskPanel
 │       └── wood_part.ui           J1c  formulaire Qt Designer
-├── resources/icons/piece-de-bois.svg  J1b
+├── resources/icons/Menuiserie_WoodPart.svg  existante (tools/generer_icones.py), réutilisée telle quelle
 └── init_gui.py                    J1c  enregistrement de la commande dans Initialize()
 ```
 
@@ -137,7 +177,73 @@ Les messages produits par `core/` sont des **gabarits** français marqués par c
 paramètres nommés (`"{source} : matériau « {id} », champ « {field} » : {reason}"`). La couche
 `features/` les traduit (`translate(CONTEXT, gabarit).format(**params)`).
 
-#### `core/materials.py`
+#### 4.2.1 `core/_validation.py` (J1b, module privé)
+
+Aides partagées par `core/materials/` et `core/part_model.py`, déplacées telles quelles depuis
+`materials.py` (seul `MIN_DIMENSION_MM`/`MAX_DIMENSION_MM` change de module) :
+
+```python
+MIN_DIMENSION_MM: Final = 0.1  # ré-exportés par part_model (__all__) : API inchangée
+MAX_DIMENSION_MM: Final = 20_000.0
+
+
+def to_finite_float(value: object) -> float | None: ...  # nombre fini non booléen, sinon None
+def bounded_float(value: object, minimum: float, maximum: float) -> float | None: ...
+def decimal_text(number: float) -> str: ...  # « 0,1 », « 300 » : bornes citées dans les messages
+def nfc(text: str) -> str: ...
+def has_forbidden_character(text: str) -> bool: ...  # catégories Cc, Cf, Cs, Co, Cn, Zl, Zp
+
+
+class FrozenMapping(Mapping[str, str]): ...  # ex-_FrozenMapping
+```
+
+`quoted_value(value: object) -> str` (citation tronquée à 32 caractères et échappée) vit dans
+le module **public** `core/text.py` : `features/` s'en sert aussi pour citer dans la vue rapport
+les textes lus dans un document (`Label`, `MaterialId`, valeurs d'énumération).
+
+Une règle de champ = **une** fonction de normalisation qui renvoie la valeur normalisée ou `None`
+(ex. `normalized_density(value) -> float | None`, `normalized_thicknesses(value) ->
+tuple[float, ...] | None`, `normalized_color(value) -> tuple[int, int, int] | None`), définie à
+côté du modèle (`core/materials/_model.py`). La lecture JSON la transforme en `LibraryIssue`
+(champ cité), le constructeur de `Material` en `ValueError` (critère R1) : les bornes ne sont
+écrites qu'une fois et `pylint duplicate-code` reste vert. La lecture JSON convertit d'abord
+`"#RRGGBB"` en triplet, puis applique la même règle que le constructeur.
+
+Livré en J1b : `normalized_id`, `normalized_label`, `normalized_names`, `normalized_density`,
+`normalized_thicknesses`, `normalized_color`, `normalized_texture_size` et `is_language_code`.
+Le constructeur de `Material` les applique dans l'ordre des champs ; `kind` doit être une
+instance de `MaterialKind`, `has_grain` un booléen, `texture` une `Texture` ou `None`. Message :
+`matériau « chene », champ « density » : nombre fini entre 50 et 2000 kg/m³ attendu, reçu « 0 »`
+(non traduit : erreur de programmation, jamais montrée pour un fichier de bibliothèque).
+
+#### 4.2.2 `core/materials/` (paquet ; découpage décidé en J1b)
+
+`materials.py` (≈ 1 100 lignes) devient un paquet dont `__init__.py` est une **façade** : il
+ré-exporte l'API publique ci-dessous (`__all__` explicite, exigé par `mypy --strict`) et ne contient
+aucune logique. Le chemin d'import `freecad.menuiserie.core.materials` ne change pas ; les
+sous-modules sont privés (préfixe `_`) et ne sont importés que par la façade et entre eux ; les
+noms qu'ils partagent n'ont pas de préfixe `_` (critère R3 : aucun module n'importe un nom privé).
+
+| Module | Contenu | Taille visée |
+|---|---|---|
+| `__init__.py` | façade, `__all__` | ≈ 50 |
+| `_messages.py` | tous les gabarits `QT_TRANSLATE_NOOP` des anomalies et `BUILTIN_SOURCE` | ≈ 170 |
+| `_model.py` | bornes (`MAX_THICKNESS_MM`…), `MaterialKind`, `Texture`, `Material` (validation R1), `MaterialLibrary`, `UnknownMaterialError`, fonctions `normalized_*` | ≈ 300 |
+| `_issues.py` | `Severity`, `LibraryIssue`, `LibraryFormatError`, création et plafonnement des anomalies | ≈ 110 |
+| `_entry.py` | entrée brute en cours de validation (`Entry`), objets JSON à clés en double (`JsonObject`, `json_object`, `duplicated_field`) | ≈ 125 |
+| `_parser.py` | validation d'un document JSON décodé : racine, `_parse_*`, `parse_materials` | ≈ 350 |
+| `_reader.py` | lecture sûre d'un fichier (descripteur unique, `fstat`, lecture bornée), décodage JSON, `read_materials_file` | ≈ 130 |
+| `_merge.py` | `merge_materials`, `load_library` | ≈ 150 |
+
+Dépendances sans cycle : `_model` n'importe que `core._validation` ; `_issues` importe
+`_messages` ; `_entry` importe `_issues` et `_messages` ; `_parser` importe `_entry`, `_model`,
+`_issues`, `_messages` ; `_reader` importe `_entry` (`object_pairs_hook`) et `_parser` ; `_merge`
+importe `_reader` (pour `load_library`) et les précédents. `_entry` a été ajouté au découpage
+initial à la livraison de J1b : sans lui, `_parser.py` dépassait 400 lignes (critère R4).
+Commit de pur déplacement d'abord (relu avec `git diff --color-moved=dimmed-zebra`), puis
+commits R1 et R2. Ce découpage est interne et réversible : pas d'ADR.
+
+API publique (inchangée hormis R1 à R3) :
 
 ```python
 FORMAT_VERSION: Final = 1
@@ -170,17 +276,17 @@ class LibraryIssue:
     def format(self) -> str:          # gabarit non traduit, rempli (tests, journaux)
 
 @dataclass(frozen=True)
-class Texture:
+class Texture:                        # ValueError si image non absolue ou size hors bornes (R1)
     image: Path                       # chemin absolu résolu (existence non vérifiée)
     size: tuple[float, float]         # mm : largeur (sens du fil), hauteur couvertes par l'image
 
 @dataclass(frozen=True)
-class Material:                       # immuable et hachable, libellés en forme NFC
+class Material:                       # immuable, hachable ; tous les champs validés (R1, ValueError)
     id: str
     kind: MaterialKind
     names: Mapping[str, str]          # code langue ISO 639-1 -> libellé ; au moins une entrée
-    density: float                    # kg/m³
-    thicknesses: tuple[float, ...]    # mm, triées croissantes, sans doublon
+    density: float                    # kg/m³, 50 à 2000
+    thicknesses: tuple[float, ...]    # mm, 0,1 à 300 ; normalisées : triées, sans doublon
     color: tuple[int, int, int]       # RVB 0–255
     has_grain: bool
     texture: Texture | None = None
@@ -220,11 +326,11 @@ object_pairs_hook=<repérage des clés en double>)` ; aucune autre forme de dés
 fichier utilisateur absent renvoie `([], [])`. `parse_materials`, `merge_materials` et
 `load_library` renvoient au plus `MAX_ISSUES` anomalies, suivies d'une anomalie de synthèse.
 
-#### `core/part_model.py`
+#### 4.2.3 `core/part_model.py`
 
 ```python
-MIN_DIMENSION_MM: Final = 0.1
-MAX_DIMENSION_MM: Final = 20_000.0
+MIN_DIMENSION_MM: Final = 0.1  # J1b : défini dans core/_validation.py, ré-exporté ici
+MAX_DIMENSION_MM: Final = 20_000.0  # idem
 STANDARD_THICKNESS_TOLERANCE_MM: Final = 0.05
 
 
@@ -322,9 +428,9 @@ documentées : `density` en kg/m³ (bois à environ 12 % d'humidité), `thicknes
 
 `texture` (facultative) associe une image au matériau : `image` est relatif au dossier du fichier
 de bibliothèque qui la déclare (bibliothèque intégrée : `freecad/menuiserie/data/`, images dans
-`data/textures/`) et `size` donne la largeur et la hauteur réelles, en mm, couvertes par l'image,
-le fil du bois suivant la largeur de l'image. `core/` ne vérifie pas que l'image existe : J1b s'en
-charge à l'affichage et utilise `color` si l'image manque ou est illisible.
+`data/textures/`, PR #8) et `size` donne la largeur et la hauteur réelles, en mm, couvertes par
+l'image, le fil du bois suivant la largeur de l'image. `core/` ne vérifie pas que l'image existe :
+J1d s'en charge à l'affichage (§ 4.6) et utilise `color` si l'image manque ou est illisible.
 
 #### 4.3.2 Règles de validation
 
@@ -338,7 +444,7 @@ charge à l'affichage et utilise `color` si l'image manque ou est illisible.
 | `kind` | obligatoire, l'une de `solid`, `plywood`, `mdf`, `melamine` | entrée rejetée |
 | `name` | obligatoire ; chaîne (équivaut à `{"fr": …}`) ou objet `{langue: libellé}` non vide ; langue `^[a-z]{2}$` ; libellé normalisé en NFC, de 1 à 80 caractères après suppression des espaces de bord, sans caractère des catégories Unicode Cc, Cf, Cs, Co, Cn, Zl, Zp (contrôle, invisibles et bidi, demi-substituts, usage privé, non attribués, séparateurs de ligne et de paragraphe) | entrée rejetée |
 | `density` | obligatoire, nombre fini (pas booléen), 50 ≤ d ≤ 2000 | entrée rejetée |
-| `thicknesses` | obligatoire, liste non vide de 1 à 50 nombres finis, 0 < e ≤ 300 ; triée et dédoublonnée au chargement | entrée rejetée |
+| `thicknesses` | obligatoire, liste non vide de 1 à 50 nombres finis, 0,1 ≤ e ≤ 300 (minimum aligné en J1b sur la plus petite cote d'une pièce, `MIN_DIMENSION_MM`) ; triée et dédoublonnée au chargement | entrée rejetée |
 | `color` | obligatoire, chaîne `^#[0-9A-Fa-f]{6}$` | entrée rejetée |
 | `has_grain` | facultatif, booléen ; défaut : vrai pour `solid` et `plywood`, faux pour `mdf` et `melamine` | entrée rejetée si non booléen |
 | `texture` | facultatif ; objet contenant `image` et `size` | entrée rejetée (champ `texture`, ou `texture.image` / `texture.size` si absent) |
@@ -411,6 +517,12 @@ def display_language() -> str: ...  # "fr" en J1 (choix de la langue : J5)
 Journalisation : `ERROR` → `App.Console.PrintError`, `WARNING` → `PrintWarning`,
 `INFO` → `PrintLog` ; messages traduits via `translate("Menuiserie", issue.template)`.
 
+Le cache de session est explicite et réinitialisable (`reload_library()`), conformément à
+CONTRIBUTING (pas d'autre état global). Tests d'intégration : une fixture `bibliotheque_temporaire`
+écrit un `materiaux.json` dans `tmp_path`, renseigne `UserLibraryPath`, appelle `reload_library()`
+et restaure le paramètre et la bibliothèque à la fin ; aucun test ne dépend du fichier
+utilisateur de la machine.
+
 #### 4.4.2 Propriétés de l'objet `WoodPart` (`Part::FeaturePython`)
 
 Infobulles déclarées avec `QT_TRANSLATE_NOOP("App::Property", …)` pour être traduites par
@@ -466,7 +578,10 @@ def create_wood_part(
     material_id: str | None = None,
     mark: str = "",
 ) -> DocumentObject: ...  # App seulement, sans transaction
-def is_wood_part(obj: object) -> bool: ...
+def validated_arguments(
+    length: float, width: float, thickness: float, material_id: str | None
+) -> tuple[Dimensions, Material]: ...  # validation seule, partagée avec api.py
+def is_wood_part(obj: object) -> bool: ...  # faux aussi pour un objet supprimé
 def set_material(obj: DocumentObject, material_id: str) -> None: ...  # UnknownMaterialError
 def dimensions_of(obj: DocumentObject) -> Dimensions: ...
 def allowances_of(obj: DocumentObject) -> Allowances: ...
@@ -485,8 +600,20 @@ Comportement :
   car `__init__` n'est pas rappelé à la réouverture) : retrouve le matériau par libellé, met à jour
   `MaterialId`, `Category`, `Density`, puis `GrainDirection` et les surcotes selon les règles
   `core` (critère A7). Les cotes ne sont **jamais** modifiées automatiquement.
-- **`onDocumentRestored`** : migration (`_migrate(obj, from_version)`, où une `Version` absente vaut
-  0 : ajout des propriétés manquantes avec leurs défauts, puis `Version = VERSION`), réapplication
+- **`onDocumentRestored`** : d'abord la `Version` : d'un type autre que `App::PropertyInteger`,
+  elle est supprimée et traitée comme 0 (avertissement) ; supérieure à `VERSION`, elle est gardée
+  avec un avertissement « document créé par une version plus récente de l'atelier » (ADR 0003).
+  Puis les listes **canoniques** de `Category` et `GrainDirection`
+  (celles du fichier sont des données externes) ; une valeur hors liste devient la catégorie du
+  matériau de la pièce (`Solid` s'il est inconnu localement) et le fil par défaut, avec un
+  avertissement où la valeur est citée tronquée et échappée. Ensuite migration
+  (`_migrate(obj, from_version)`, où une `Version` absente vaut
+  0 : ajout des propriétés manquantes avec leurs défauts, puis `Version = VERSION`). Les défauts
+  suivent le matériau de la pièce (`MaterialId`), ou le matériau par défaut s'il est inconnu
+  localement ; catégorie, fil et surcotes suivent la catégorie de la pièce si elle existe. Avec
+  une bibliothèque vide, la migration aboutit quand même : catégorie `Solid` si elle manque, fil
+  et surcotes de cette famille, `Material`/`MaterialId`/`Density` absentes laissées vides, et un
+  avertissement traduit dans la vue rapport. Puis réapplication
   des modes d'édition, puis reconstruction de la liste `Material` depuis la bibliothèque **seulement
   si elle diffère** ; si `MaterialId` est inconnu localement, le libellé enregistré est conservé
   comme valeur supplémentaire de la liste et `Density`/`Category` ne sont pas touchés.
@@ -506,7 +633,8 @@ def make_wood_part(
 ) -> DocumentObject: ...
 ```
 
-Crée la pièce dans `doc` (document actif par défaut, nouveau document s'il n'y en a pas), attache
+Valide les cotes et le matériau (`validated_arguments`), **puis** crée la pièce dans `doc`
+(document actif par défaut, nouveau document s'il n'y en a pas : une erreur n'en crée aucun), attache
 le ViewProvider **si `App.GuiUp`** (import de `gui` à l'intérieur de ce test uniquement), recalcule
 et renvoie l'objet. N'ouvre pas de transaction : c'est l'appelant (commande, script) qui le fait.
 `api.py` n'est importé ni par `__init__.py` ni par `features/`.
@@ -526,13 +654,18 @@ planche.Length = 1000  # ou depuis l'éditeur de propriétés
 class ViewProviderWoodPart:
     """Chemin de module figé (ADR 0003)."""
 
-    def __init__(self, vobj: ViewObject) -> None: ...
-    def attach(self, vobj: ViewObject) -> None: ...
-    def getIcon(self) -> str: ...  # piece-de-bois.svg
+    def __init__(self, vobj: ViewObject) -> None: ...  # vobj.Proxy = self ; ajoute MaterialColor
+    def attach(
+        self, vobj: ViewObject
+    ) -> None: ...  # garde vobj (non sérialisé) ; J1d : nœuds de texture
+    def getIcon(self) -> str: ...  # icon_path("Menuiserie_WoodPart.svg"), icône existante
     def updateData(
         self, obj: DocumentObject, prop: str
-    ) -> None: ...  # "MaterialId" → couleur, hors restauration
+    ) -> None: ...  # "MaterialId" → MaterialColor puis apparence, hors restauration ; J1d : "GrainDirection"
     def onChanged(self, vobj: ViewObject, prop: str) -> None: ...
+    def finishRestoring(
+        self,
+    ) -> None: ...  # recrée MaterialColor si absente ; J1d : réaffiche la texture
     def dumps(self) -> None: ...
     def loads(self, state: object) -> None: ...
     # J1c :
@@ -543,8 +676,21 @@ class ViewProviderWoodPart:
     def doubleClicked(self, vobj: ViewObject) -> bool: ...
 ```
 
-Couleur : couleur du matériau de la bibliothèque appliquée à `ShapeAppearance` (couleur diffuse,
-présente en 1.0 et 1.1) ; si le matériau est inconnu localement, la couleur enregistrée est conservée.
+Propriété de vue (persistée dans `GuiDocument.xml`, contrat de l'ADR 0003) :
+
+| Propriété | Type | Groupe | Défaut | Édition | Infobulle |
+|---|---|---|---|---|---|
+| `MaterialColor` | `App::PropertyColor` | Matériau | couleur du matériau | masquée | Couleur du matériau, enregistrée au choix du matériau ; affichée quand aucune texture ne peut l'être. |
+
+Couleur : au changement de `MaterialId` (hors restauration), `MaterialColor` reçoit la couleur du
+matériau de la bibliothèque ; si le matériau est inconnu localement, la valeur enregistrée est
+conservée (instantané, comme la masse volumique). Le ViewProvider est le **seul** à écrire la
+couleur diffuse de `ShapeAppearance` (présente en 1.0 et 1.1) : en J1b elle vaut toujours
+`MaterialColor` ; en J1d, le blanc de base quand une texture est affichée (§ 4.6). Les autres
+champs de `ShapeAppearance` (transparence, brillance…) restent à l'utilisateur ; la valeur n'est
+écrite que si elle change, pour ne pas marquer le document modifié à la réouverture.
+`finishRestoring` crée `MaterialColor` si elle manque (document enregistré avant son ajout) à
+partir de la couleur diffuse enregistrée.
 
 ### 4.5 Commande et panneau de tâche (J1c)
 
@@ -557,7 +703,9 @@ COMMAND_NAME: Final = "Menuiserie_WoodPart"
 class CreateWoodPartCommand:
     def GetResources(
         self,
-    ) -> dict[str, str]: ...  # Pixmap, MenuText « Pièce de bois », ToolTip (QT_TRANSLATE_NOOP)
+    ) -> dict[
+        str, str
+    ]: ...  # Pixmap Menuiserie_WoodPart.svg (existante), MenuText « Pièce de bois », ToolTip
     def IsActive(self) -> bool: ...  # document actif et aucun panneau de tâche ouvert
     def Activated(self) -> None: ...
 
@@ -602,7 +750,135 @@ minimum strictement positif) :
   `reject` → `abortTransaction` (supprime la pièce en création, rétablit les valeurs en édition),
   puis `doc.recompute()` et `Gui.ActiveDocument.resetEdit()`.
 
-### 4.6 Sécurité
+### 4.6 Textures des matériaux (J1d)
+
+Choix de rendu et alternatives écartées : ADR 0004. Principes :
+
+- La texture **n'est pas enregistrée** dans le document : elle suit la bibliothèque locale et est
+  recalculée à l'ouverture et à chaque changement de `MaterialId` ou de `GrainDirection`. Seule
+  `MaterialColor` (propriété de vue, J1b) est persistée. `WoodPart` ne change pas : `Version`
+  reste 1, aucune migration.
+- Répartition : `core/` calcule la projection et choisit couleur ou texture (pur, testé U) ;
+  `features/` interroge la bibliothèque et contrôle le fichier image **sans l'ouvrir** (testé I) ;
+  `gui/` décode l'image avec Qt et construit les nœuds Coin (testé G).
+- Patterns : **cache poids-mouche** (un nœud `SoTexture2` partagé par image : une seule copie en
+  mémoire graphique, quel que soit le nombre de pièces), explicite et réinitialisable comme
+  l'exige CONTRIBUTING ; **injection de dépendances** (`image_usable`, `warn`) pour tester sans
+  système de fichiers ni console. Pas de Strategy : une seule projection existe (pas de pattern
+  « pour le principe ») ; une famille de projections justifierait un registre plus tard.
+
+#### 4.6.1 `core/appearance.py`
+
+```python
+TEXTURE_BASE_COLOR: Final = (255, 255, 255)  # couleur diffuse modulée par la texture
+MAX_TEXTURE_FILE_BYTES: Final = 16 * 1024 * 1024
+MAX_TEXTURE_PIXELS: Final = 4096  # par côté
+
+Vector3 = tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class TextureMapping:
+    """Projection plane, en mm⁻¹ dans le repère local : S = direction_s · p, T = direction_t · p."""
+
+    direction_s: Vector3
+    direction_t: Vector3
+
+
+@dataclass(frozen=True)
+class Appearance:
+    color: tuple[int, int, int]  # couleur du matériau (secours)
+    image: Path | None = None  # None : couleur seule
+    mapping: TextureMapping | None = None  # présent si et seulement si image (ValueError sinon)
+
+
+def texture_mapping(size: tuple[float, float], grain: GrainDirection) -> TextureMapping: ...
+def part_appearance(
+    material: Material, grain: GrainDirection, image_usable: Callable[[Path], bool]
+) -> Appearance: ...
+```
+
+Projection (critère D1) : soit `a` l'axe du fil (X pour `Length` et `None`, Y pour `Width`) et
+`(w, h)` = `texture.size` ; S = coordonnée selon `a` / `w`, T = somme des deux autres coordonnées
+/ `h`. Le parement (faces ±Z) et les chants parallèles au fil montrent donc le veinage dans le sens
+du fil, à l'échelle réelle, l'image se répétant tous les `w` mm le long du fil. Les faces
+perpendiculaires au fil (bois de bout) montrent une bande étirée : limite acceptée (§ 7).
+L'origine de l'image est le coin d'origine de chaque pièce.
+
+#### 4.6.2 `features/appearance.py`
+
+```python
+def usable_texture_file(path: Path) -> bool:
+    ...
+    # os.stat : fichier ordinaire, 0 < taille ≤ MAX_TEXTURE_FILE_BYTES ; jamais d'exception (OSError, ValueError)
+
+
+def appearance_of(obj: DocumentObject) -> Appearance | None:
+    ...
+    # get_library().find(obj.MaterialId) ; None si inconnu ; sinon part_appearance(..., usable_texture_file)
+```
+
+#### 4.6.3 `gui/textures.py`
+
+```python
+class TextureCache:
+    def __init__(
+        self, warn: Callable[[str], None] | None = None, max_entries: int = 32
+    ) -> None: ...  # warn par défaut : App.Console.PrintWarning
+    def node(
+        self, image: Path
+    ) -> SoTexture2 | None: ...  # nœud partagé ; None si l'image est refusée
+    def clear(self) -> None: ...
+
+
+def texture_cache() -> TextureCache: ...  # cache de la session
+def reset_texture_cache(warn: Callable[[str], None] | None = None) -> TextureCache: ...  # tests
+```
+
+`node(image)` : clé (chemin, taille, date de modification) relue par `stat`, pour recharger une
+image remplacée ; succès **et** refus sont mémorisés (au plus `max_entries`, les plus anciens
+évincés), d'où un seul avertissement par image et par session (D5). Chargement :
+
+1. `QImageReader(str(image))` avec `setFormat(b"png")` ou `setFormat(b"jpeg")` selon l'extension et
+   `setAutoDetectImageFormat(False)` : seuls les décodeurs PNG et JPEG de Qt sont sollicités ;
+2. `reader.size()` lu dans l'en-tête **avant** décodage : invalide ou côté > `MAX_TEXTURE_PIXELS` →
+   refus ;
+3. `reader.read()` ; image nulle → refus (raison : `reader.errorString()`, tronquée) ;
+4. conversion en `Format_RGB888` (opaque : pas de tri de transparence), retournement vertical
+   (origine de Coin en bas à gauche), copie ligne par ligne sans le bourrage de `bytesPerLine` ;
+5. `SoTexture2` : `image.setValue(SbVec2s(w, h), 3, pixels)`, `model = MODULATE`,
+   `wrapS = wrapT = REPEAT`.
+
+Refus : avertissement traduit, une fois : « Texture « {image} » non affichée ({reason}) : couleur du
+matériau utilisée à la place. ».
+
+#### 4.6.4 ViewProvider (ajouts J1d)
+
+- `attach` crée un `SoSwitch` nommé `MenuiserieTexture` (inactif), contenant un `SoGroup` avec un
+  `SoTextureCoordinatePlane` propre à la pièce puis le `SoTexture2` partagé, et l'insère dans
+  `vobj.RootNode` juste avant `vobj.SwitchNode` : la texture s'applique à tous les modes
+  d'affichage ; les arêtes, de couleur sombre, restent lisibles (`MODULATE`).
+- `_refresh(obj)`, appelée par `updateData("MaterialId" | "GrainDirection")` hors restauration et
+  par `finishRestoring` : `appearance_of(obj)`, puis `texture_cache().node(image)` ; si les deux
+  aboutissent → directions de la projection, nœud de texture, switch actif, couleur diffuse =
+  `TEXTURE_BASE_COLOR` ; sinon → switch inactif, couleur diffuse = `MaterialColor`. Chaque valeur
+  n'est écrite que si elle change. Aucune exception attendue ne sort de `_refresh` (les échecs
+  sont des valeurs `None`) ; pas de `except Exception` global.
+- Un changement de cote ou de `Placement` ne déclenche rien : la projection est en coordonnées
+  locales et ne dépend pas des cotes.
+
+Tests G : `tests/gui/verifier_atelier.py` devient une liste de vérifications (fonctions qui
+renvoient chacune leurs problèmes, agrégés dans le rapport) ; J1d y ajoute D4 à D6, avec des
+images PNG produites par `QImage` dans un dossier temporaire et `reset_texture_cache(warn=...)`
+pour compter les avertissements. Pas de comparaison de pixels (rendu hors écran non garanti en
+CI) : on vérifie le graphe de scène ; l'aspect visuel relève de D7.
+
+Contrat pour la PR #8 (textures intégrées) : PNG ou JPEG de 16 Mio et 4 096 pixels de côté au
+plus, fil le long de la largeur de l'image, `size` = dimensions réelles photographiées, sources et
+tailles dans `data/textures/SOURCES.md` ; le critère A1 (bibliothèque intégrée sans anomalie)
+s'applique. Un test unitaire de #8 vérifie que chaque image intégrée existe et respecte ces limites.
+
+### 4.7 Sécurité
 
 Lecture des fichiers de matériaux en JSON uniquement, par un seul descripteur (`os.open` non
 bloquant, `fstat`, lecture bornée), taille bornée avant lecture, clés en double refusées, toutes
@@ -612,16 +888,30 @@ bibliothèque après résolution des liens, jamais ouverts par `core/` ; aucune 
 du contenu d'un document ; `api.py` est le seul module hors `gui/` autorisé à importer `gui/`, et
 seulement sous `if App.GuiUp`.
 
+Images de texture (J1d) : chemin issu **uniquement** de la bibliothèque (le document ne fournit que
+l'identifiant `MaterialId`, clé de recherche et jamais chemin) ; taille ≤ 16 Mio vérifiée par
+`stat` sans ouvrir le fichier (`features/`) ; décodage seulement dans `gui/`, par les décodeurs PNG
+ou JPEG de Qt imposés par l'extension, dimensions lues dans l'en-tête et bornées à 4 096 pixels
+avant décodage (un fichier remplacé entre le `stat` et la lecture reste borné par ce contrôle) ;
+raison d'échec citée tronquée ; l'image n'est jamais copiée dans le document.
+
 ## 5. Découpage en PR
 
 | Lot | Branche | Contenu | Diff estimé hors tests | Critères |
 |---|---|---|---|---|
-| **J1a** | `feat/bibliotheque-materiaux` | `core/i18n.py`, `core/materials.py`, `core/part_model.py`, `data/materiaux.json`, ADR 0002 accepté | ≈ 320 lignes + 130 lignes de données | A1–A10 |
-| **J1b** | `feat/piece-de-bois` | `features/library.py`, `features/wood_part.py`, `api.py`, ViewProvider (icône, couleur), icône SVG, README « Ajouter une essence », ADR 0003 accepté | ≈ 380 lignes | B1–B14 |
+| **J1a** (fusionnée, 345ff4d) | `feat/bibliotheque-materiaux` | `core/i18n.py`, `core/materials.py`, `core/part_model.py`, `data/materiaux.json`, ADR 0002 accepté | ≈ 320 lignes + 130 lignes de données | A1–A10 |
+| **J1b** | `feat/piece-de-bois-document` | 1ᵉʳ commit (ou série) : reprise de la revue J1a (`core/_validation.py`, paquet `core/materials/`, validation de `Material`, épaisseur minimale, ADR 0003 accepté) ; puis `features/library.py`, `features/wood_part.py`, `api.py`, ViewProvider (icône existante, `MaterialColor`, couleur), README « Ajouter une essence » | ≈ 350 lignes + ≈ 80 lignes nettes pour la reprise (déplacements exclus, relus avec `--color-moved`) | R1–R5, B1–B14 |
 | **J1c** | `feat/panneau-piece-de-bois` | commande, panneau de tâche + `.ui`, édition au double-clic, `init_gui.py`, test G | ≈ 300 lignes + `.ui` | C1–C9 |
+| **J1d** | `feat/textures-piece-de-bois` | `core/appearance.py`, `features/appearance.py`, `gui/textures.py`, ajouts au ViewProvider, vérifications G, README « Ajouter une texture », ADR 0004 accepté | ≈ 220 lignes | D1–D7 |
+
+J1c et J1d partent tous deux de `main` après la fusion de J1b et sont indépendants (seul point de
+contact : le ViewProvider, où J1c ajoute l'édition et J1d la texture ; le second fusionné rebase).
+J1d ne dépend pas de la PR #8 et réciproquement. Les textures font un lot séparé parce que J1b
+avec la reprise de J1a et les textures dépasserait nettement les ≈ 400 lignes relisibles en une PR.
 
 Chaque lot est livrable seul : J1a est invisible mais entièrement testé, J1b atteint déjà le
-livrable du jalon par la console et l'éditeur de propriétés, J1c apporte l'outil graphique.
+livrable du jalon par la console et l'éditeur de propriétés, J1c apporte l'outil graphique, J1d le
+rendu réaliste.
 
 ## 6. Compatibilité
 
@@ -632,10 +922,24 @@ livrable du jalon par la console et l'éditeur de propriétés, J1c apporte l'ou
   `freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart`, noms des propriétés,
   valeurs des énumérations (ajout en fin seulement), unités. Toute évolution passe par
   `Version` + `_migrate` dans `onDocumentRestored`, avec un test de réouverture d'un fichier ancien.
+  La propriété de vue `MaterialColor` en fait partie ; une propriété de vue absente à la
+  réouverture est recréée dans `finishRestoring` (le ViewProvider n'a pas de `Version`).
+- **Textures (J1d)** : aucune propriété ajoutée à `WoodPart`, `Version` reste 1, aucune migration.
+  Rien de la texture n'est écrit dans le `.FCStd` : un plan ouvert sur une machine qui a la même
+  bibliothèque affiche la texture, sinon la couleur `MaterialColor` enregistrée. Les documents
+  enregistrés avec J1b s'ouvrent sans changement avec J1d. Si FreeCAD active un jour ses propres
+  textures (`ShapeAppearance`, code désactivé en 1.0), la bascule ne touchera que le ViewProvider
+  (ADR 0004).
+- **Reprise de J1a** : `from freecad.menuiserie.core.materials import …` reste valable pour toute
+  l'API publique ; seules disparaissent de ce module les aides `quoted_value` et `to_finite_float`
+  (aucun utilisateur hors de l'atelier : J1a n'a pas été publiée). Une bibliothèque utilisateur
+  déclarant une épaisseur standard < 0,1 mm voit désormais l'entrée rejetée avec une anomalie
+  (aucune version publiée ne l'acceptait).
 - **Fichiers de bibliothèque** : `format` = 1 ; une version future qui change le format devra
   continuer à lire le format 1.
-- **FreeCAD 1.0 et 1.1** : `App::PropertyDensity`, `ShapeAppearance` et `obj.State` existent dans
-  les deux ; le dossier utilisateur peut être versionné selon la version (le fichier utilisateur
+- **FreeCAD 1.0 et 1.1** : `App::PropertyDensity`, `ShapeAppearance`, `obj.State`,
+  `vobj.RootNode`/`vobj.SwitchNode`, `finishRestoring` côté ViewProvider Python et les nœuds Coin
+  `SoTexture2`/`SoTextureCoordinatePlane` (pivy) existent dans les deux ; le dossier utilisateur peut être versionné selon la version (le fichier utilisateur
   suit la migration de FreeCAD, ou le paramètre `UserLibraryPath`).
 - **Limite connue** : une pièce créée dans `freecadcmd` puis ouverte dans l'interface n'a pas de
   ViewProvider Python (icône et couleur génériques). Suivi par une issue dédiée (réparation à
@@ -655,6 +959,13 @@ livrable du jalon par la console et l'éditeur de propriétés, J1c apporte l'ou
 - Numérotation automatique des repères, quantités et Links (J2/J4), prix, humidité, choix de
   l'épaisseur brute de débit.
 - Assemblages (J3).
+- Textures (J1d) : rendu du bois de bout, orientation ou décalage propres à chaque pièce (toutes
+  les pièces d'un matériau commencent l'image à leur coin d'origine), rotation ou échelle réglables
+  par pièce, préférence pour désactiver les textures, rafraîchissement des pièces ouvertes après
+  `reload_library()` (pris en compte au prochain changement de matériau ou à la réouverture),
+  textures dans TechDraw et les exports, couleur choisie à la main sur une pièce (la couleur
+  diffuse appartient au ViewProvider), textures natives de FreeCAD. Les textures intégrées
+  elles-mêmes arrivent par la PR #8.
 
 ## 8. Questions ouvertes pour jv
 

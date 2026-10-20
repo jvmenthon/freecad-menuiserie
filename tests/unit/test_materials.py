@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from freecad.menuiserie import DATA_DIR
-from freecad.menuiserie.core import materials as materials_module
+from freecad.menuiserie.core._validation import to_finite_float
 from freecad.menuiserie.core.i18n import CONTEXT, QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import (
     BUILTIN_SOURCE,
@@ -28,11 +28,11 @@ from freecad.menuiserie.core.materials import (
     merge_materials,
     parse_materials,
     read_materials_file,
-    to_finite_float,
 )
 from tests.unit.aides import SOURCE, document, errors, make_material, write
 
 BUILTIN_PATH = DATA_DIR / "materiaux.json"
+READER_MODULE = "freecad.menuiserie.core.materials._reader"
 
 REFERENCE: dict[str, object] = {
     "id": "chene",
@@ -499,7 +499,7 @@ def test_materiau_et_anomalie_hachables() -> None:
     assert len({first, same, make_material("hetre", "Hêtre")}) == 2
     issue = LibraryIssue(Severity.INFO, "src", "{source}", {"x": "y"})
     assert hash(issue) == hash(LibraryIssue(Severity.INFO, "src", "{source}", {"x": "y"}))
-    assert repr(issue.params) == "_FrozenMapping({'source': 'src', 'x': 'y'})"
+    assert repr(issue.params) == "FrozenMapping({'source': 'src', 'x': 'y'})"
     assert len(issue.params) == 2
     assert issue.params == {"source": "src", "x": "y"}
 
@@ -509,7 +509,7 @@ def test_materiau_conteneurs_convertis_en_tuples() -> None:
         "x",
         MaterialKind.SOLID,
         {"fr": "X"},
-        1,
+        500,
         [18.0, 22.0],  # type: ignore[arg-type]
         [1, 2, 3],  # type: ignore[arg-type]
         True,
@@ -617,7 +617,7 @@ def test_fichier_trop_volumineux_ignore_avant_lecture(
     def refuse_read(*args: object, **kwargs: object) -> None:
         raise AssertionError("le fichier ne doit pas être lu")
 
-    monkeypatch.setattr(materials_module, "_read_at_most", refuse_read)
+    monkeypatch.setattr(f"{READER_MODULE}._read_at_most", refuse_read)
     materials, [issue] = read_materials_file(path)
     assert materials == []
     assert issue.params["size"] == str(MAX_FILE_BYTES + 1)
@@ -849,20 +849,20 @@ def test_bibliotheque_refuse_les_doublons(materials: list[Material]) -> None:
 
 def test_libelle_selon_la_langue() -> None:
     material = Material(
-        "x", MaterialKind.SOLID, {"en": "Oak", "fr": "Chêne"}, 1, (1,), (0, 0, 0), True
+        "x", MaterialKind.SOLID, {"en": "Oak", "fr": "Chêne"}, 500, (1,), (0, 0, 0), True
     )
     assert material.name() == "Chêne"
     assert material.name("en") == "Oak"
     assert material.name("de") == "Chêne"
-    english_only = Material("y", MaterialKind.SOLID, {"en": "Oak"}, 1, (1,), (0, 0, 0), True)
+    english_only = Material("y", MaterialKind.SOLID, {"en": "Oak"}, 500, (1,), (0, 0, 0), True)
     assert english_only.name() == "Oak"
     with pytest.raises(ValueError, match="libellé"):
-        Material("z", MaterialKind.SOLID, {}, 1, (1,), (0, 0, 0), True)
+        Material("z", MaterialKind.SOLID, {}, 500, (1,), (0, 0, 0), True)
 
 
 def test_libelles_immuables() -> None:
     names = {"fr": "Chêne"}
-    material = Material("x", MaterialKind.SOLID, names, 1, (1,), (0, 0, 0), True)
+    material = Material("x", MaterialKind.SOLID, names, 500, (1,), (0, 0, 0), True)
     names["fr"] = "Modifié"
     assert material.name() == "Chêne"
     with pytest.raises(TypeError):

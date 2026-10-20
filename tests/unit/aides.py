@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Données et fabriques partagées par les tests unitaires de la bibliothèque de matériaux."""
+"""Données, fabriques et analyses partagées par les tests unitaires."""
 
 from __future__ import annotations
 
+import ast
 import tempfile
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import pytest
 
 from freecad.menuiserie.core.materials import LibraryIssue, Material, MaterialKind, Severity
 
+ROOT = Path(__file__).resolve().parents[2]
 SOURCE = "/chemin/utilisateur/materiaux.json"
 OAK: dict[str, object] = {
     "id": "chene",
@@ -73,3 +75,40 @@ def make_material(
         color=(10, 20, 30),
         has_grain=kind.has_grain_by_default if has_grain is None else has_grain,
     )
+
+
+def _import_nodes(path: Path) -> list[ast.Import | ast.ImportFrom]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return [node for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))]
+
+
+def _imported_module(node: ast.ImportFrom, package: str) -> str:
+    """Module d'un ``from … import``, import relatif résolu en chemin absolu."""
+    if not node.level:
+        return node.module or ""
+    base = package.rsplit(".", node.level - 1)[0]
+    return f"{base}.{node.module}" if node.module else base
+
+
+def imported_modules(path: Path, root: Path = ROOT) -> set[str]:
+    """Modules importés par un fichier (``from m import n`` donne ``m`` et ``m.n``)."""
+    package = ".".join(path.parent.relative_to(root).parts)
+    modules: set[str] = set()
+    for node in _import_nodes(path):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        else:
+            module = _imported_module(node, package)
+            modules.add(module)
+            modules.update(f"{module}.{alias.name}" for alias in node.names)
+    return modules
+
+
+def imported_names(path: Path) -> set[str]:
+    """Noms importés par les ``from … import nom`` d'un fichier."""
+    return {
+        alias.name
+        for node in _import_nodes(path)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
