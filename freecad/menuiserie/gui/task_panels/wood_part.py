@@ -156,11 +156,15 @@ class WoodPartTaskPanel:
 
     def _clean_up_after_forced_close(self) -> None:
         """Observateur retiré, transaction du panneau abandonnée en création (validée en
-        modification) si elle est encore ouverte, mode édition quitté."""
+        modification, après recalcul comme avec « OK ») si elle est encore ouverte, mode
+        édition quitté."""
         App.removeDocumentObserver(self._watcher)
-        close_transaction(self._transaction, abort=self.creating)
         name = self._watcher.document_name
-        if name not in App.listDocuments():
+        alive = name in App.listDocuments()
+        if alive and not self.creating:
+            App.getDocument(name).recompute()
+        close_transaction(self._transaction, abort=self.creating)
+        if not alive:
             return
         gui_doc = Gui.getDocument(name)
         in_edit = gui_doc.getInEdit()

@@ -98,7 +98,7 @@ Puis l'objet du document :
 
 | N° | Critère | Test |
 |---|---|---|
-| C1 | La commande `Menuiserie_WoodPart` (« Pièce de bois ») apparaît dans la barre d'outils et le menu Menuiserie, avec icône et infobulle ; elle est inactive sans document ou si un panneau de tâche est déjà ouvert. | G |
+| C1 | La commande `Menuiserie_WoodPart` (« Pièce de bois ») apparaît dans la barre d'outils et le menu Menuiserie, avec icône et infobulle ; elle est inactive sans document ou si un panneau de tâche est déjà ouvert ou si la bibliothèque de matériaux est vide. | G |
 | C2 | Lancer la commande crée une pièce (chêne, 800 × 200 × 22 par défaut) et ouvre le panneau, titré « Nouvelle pièce de bois » ; « OK » laisse **une** pièce et **une** entrée d'annulation « Créer une pièce de bois ». | G |
 | C3 | « Annuler » dans le panneau de création ne laisse ni pièce ni entrée d'annulation. | G |
 | C4 | Double-clic sur une pièce : le panneau s'ouvre, titré « Modifier « <Label> » », avec ses valeurs actuelles ; chaque modification est visible immédiatement dans la vue 3D ; « OK » crée **une** entrée d'annulation « Modifier une pièce de bois » ; « Annuler » rétablit toutes les valeurs d'origine. | G (+ manuel) |
@@ -752,6 +752,9 @@ class ViewProviderWoodPart:
     def doubleClicked(self, vobj: ViewObject) -> bool: ...
 ```
 
+`doubleClicked` est refusé (renvoie vrai sans rien faire) si un panneau de tâche est déjà ouvert :
+il ne doit ni fermer ni valider ce panneau (défauts J1c-1 et J1c-2 du test).
+
 Propriété de vue (persistée dans `GuiDocument.xml`, contrat de l'ADR 0003) :
 
 | Propriété | Type | Groupe | Défaut | Édition | Infobulle |
@@ -823,6 +826,11 @@ sur un MDF. Choix du format : ADR 0005.
 - Masquer ne modifie jamais la valeur : une pièce en MDF garde `GrainDirection` = `None`, et la
   liste de débit (J2) lit toujours la propriété.
 
+Fonctions publiques de `features/wood_part_schema.py` qui portent ces règles :
+`show_grain_direction(obj, visible)` (masque ou affiche `GrainDirection`) et
+`set_editor_mode(obj, name, mode)` (n'appelle `setEditorMode` que si le mode change) ;
+`apply_editor_modes(obj, *, show_grain=True)` les applique à la création et à la réouverture.
+
 Patterns : rien de nouveau. La réaction aux changements reste l'**Observer** déjà en place
 (`onChanged` du proxy) ; les règles sont des fonctions pures de `core/` (§ 4.2.3).
 
@@ -840,7 +848,9 @@ class CreateWoodPartCommand:
     ) -> dict[
         str, str
     ]: ...  # Pixmap Menuiserie_WoodPart.svg (existante), MenuText « Pièce de bois », ToolTip
-    def IsActive(self) -> bool: ...  # document actif et aucun panneau de tâche ouvert
+    def IsActive(
+        self,
+    ) -> bool: ...  # document actif, aucun panneau ouvert, bibliothèque non vide
     def Activated(self) -> None: ...
 
 
@@ -848,7 +858,9 @@ def register() -> None: ...  # Gui.addCommand(COMMAND_NAME, CreateWoodPartComman
 ```
 
 `Activated` : `doc.openTransaction(translate("Menuiserie", "Créer une pièce de bois"))`,
-`api.make_wood_part(doc=doc)`, puis `Gui.Control.showDialog(WoodPartTaskPanel(obj, creating=True))`.
+`api.make_wood_part(doc=doc)`, puis `show_panel(obj, creating=True)`. Si la création de la pièce
+ou du panneau lève une exception, la transaction est abandonnée avant de la propager (aucune
+pièce ni transaction ne reste, point A1 de l'audit).
 
 `init_gui.py` : dans `Initialize()`, import différé de `gui.commands.wood_part`, appel de
 `register()` ; `commands = ("Menuiserie_WoodPart",)`.
@@ -863,12 +875,26 @@ class WoodPartTaskPanel:
     def accept(self) -> bool: ...
     def reject(self) -> bool: ...
     def getStandardButtons(self) -> int: ...  # Ok | Cancel
+    def watch_document(self) -> None: ...  # installe le DeletionWatcher et le suivi du formulaire
 
 
 def start_editing(
     obj: DocumentObject,
 ) -> bool: ...  # setEdit(mode 0) : transaction + panneau ; faux si un panneau est ouvert
+def show_panel(
+    obj: DocumentObject, *, creating: bool
+) -> None: ...  # panneau construit puis affiché, rattaché au document (fermé avec lui)
+def close_transaction(
+    transaction: tuple[str, int] | None, *, abort: bool
+) -> None: ...  # solde la transaction du panneau si elle est encore l'active
 def finish_editing() -> None: ...  # unsetEdit(mode 0) : ferme le panneau
+
+
+class DeletionWatcher:  # Observer de document : ferme le panneau si sa pièce est supprimée
+    def stop(self) -> None: ...
+    def slotDeletedObject(self, obj: DocumentObject) -> None: ...
+
+
 def has_expression(obj: DocumentObject, prop: str) -> bool: ...  # prop pilotée par ExpressionEngine
 ```
 
@@ -915,10 +941,25 @@ bornes posées par le panneau : dimensions de `MIN_DIMENSION_MM` à `MAX_DIMENSI
   `get_library().find(obj.MaterialId)` et `is_nonstandard_panel_thickness` ; bouton inactif si le
   matériau est inconnu localement ou si `Thickness` est pilotée par une expression.
 - Transactions : la création ouvre « Créer une pièce de bois » (commande) ; l'édition ouvre
-  « Modifier une pièce de bois » dans `setEdit` (par `start_editing`). `accept` →
-  `commitTransaction`, `reject` → `abortTransaction` (supprime la pièce en création, rétablit les
-  valeurs en édition), puis `doc.recompute()` et `resetEdit()` du document de l'interface de la
-  pièce.
+  « Modifier une pièce de bois » dans `setEdit` (par `start_editing`). `accept` valide et
+  `reject` abandonne (supprime la pièce en création, rétablit les valeurs en édition), après
+  `doc.recompute()` et avant `resetEdit()` du document de l'interface de la pièce. La clôture
+  passe par `close_transaction`, c'est-à-dire `App.closeActiveTransaction(abort, id)`, et
+  seulement si la transaction active est encore celle du panneau : un `commitTransaction` ou
+  `abortTransaction` sur une transaction vide laissait celle de l'application ouverte (J1c-6).
+- Fermetures forcées : le dialogue est rattaché au document (`setDocumentName`,
+  `setAutoCloseOnDeletedDocument(True)`, `setAutoCloseOnTransactionChange(True)`) et un
+  `DeletionWatcher` suit la suppression de la pièce. Document fermé, pièce supprimée (Std_Delete
+  ou console), Annuler ou Rétablir pendant le panneau : le panneau se ferme, la transaction est
+  abandonnée en création et validée en modification (après recalcul), et le mode édition est
+  quitté. FreeCAD 1.0 et 1.1 n'appellent pas les crochets `autoClosedOn…` d'un panneau Python :
+  cette fin d'édition passe par le signal `destroyed` du formulaire, puis
+  `QTimer.singleShot(0)` (hors du signal qui a fermé le panneau).
+- Limites acceptées : Std_SetEdit (menu « Modifier ») sur une autre pièce pendant le panneau
+  valide implicitement la modification en cours, car FreeCAD appelle `unsetEdit` avant notre
+  `setEdit` ; Édition > Annuler pendant le panneau rétablit les valeurs d'origine mais laisse
+  « Modifier une pièce de bois » dans la pile Rétablir (comportement standard de
+  `Document::undo`, qui valide puis annule la transaction ouverte).
 
 ### 4.6 Textures des matériaux (J1d)
 

@@ -104,6 +104,7 @@ jobs:
             echo "![Vue 3D isométrique]($base/vue-3d.png?raw=true)"
             echo
             echo "![Texture quadrillée tous les 100 mm, fil en long puis en travers]($base/texture.png?raw=true)"
+            echo
             echo "![Panneau de tâche d'une pièce de bois]($base/panneau.png?raw=true)"
             echo
             echo "_Scène produite par \`tools/captures_interface.py\`, mise à jour à chaque push._"
