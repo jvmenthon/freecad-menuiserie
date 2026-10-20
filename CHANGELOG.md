@@ -75,6 +75,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Jeu d'icônes SVG 64 px pour l'atelier et les commandes prévues (pièce de bois, panneau,
   essences, liste de débit et export, assemblages, caisson), produit par
   `tools/generer_icones.py`.
+- Géométrie pure des assemblages (`core/geometry.py`, J3a) : transformations rigides lues sur
+  `Placement.toMatrix()`, axes relatifs de deux pièces d'équerre, classement contact /
+  chevauchement / pièces séparées (tolérance 0,01 mm).
+- Stratégies d'assemblage (`core/joints/`, J3a) : tenon-mortaise, rainure-languette et feuillure
+  derrière un protocole commun et un registre figé ; proportions automatiques de menuisier
+  (0 = automatique), plan d'usinage (tenon et languette ajoutés, mortaise, rainure et feuillure
+  enlevées), refus par messages traduisibles ; paramètres immuables validés (dont ceux des
+  tourillons) ; rôles hôte / invitée devinés d'après la position des pièces.
 
 ### Modifié
 - **Modèle de la pièce en version 2** (`MODEL_VERSION`) : migration 1 → 2 à la réouverture
