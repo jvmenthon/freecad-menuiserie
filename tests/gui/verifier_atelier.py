@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Vérifie l'atelier dans l'interface de FreeCAD : chargement, puis affichage des pièces.
+"""Vérifie l'atelier dans l'interface de FreeCAD : chargement, affichage des pièces, puis
+commande et panneau de tâche (``verifications_panneau.py``).
 
 Exécuté par FreeCAD lui-même (pas par pytest), l'atelier étant installé dans le
 dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -21,6 +22,8 @@ from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+
+from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -280,6 +283,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_transparence,
     verifier_materiau_inconnu_et_documents_multiples,
     verifier_apparence_vide,
+    *VERIFICATIONS_PANNEAU,
 )
 
 
