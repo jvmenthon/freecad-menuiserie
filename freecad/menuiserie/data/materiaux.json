@@ -1,0 +1,113 @@
+{
+  "format": 1,
+  "materials": [
+    {
+      "id": "chene",
+      "kind": "solid",
+      "name": {"fr": "Chêne", "en": "Oak"},
+      "density": 710,
+      "thicknesses": [18, 22, 27, 34, 41, 54],
+      "color": "#B8875A",
+      "has_grain": true
+    },
+    {
+      "id": "hetre",
+      "kind": "solid",
+      "name": {"fr": "Hêtre", "en": "Beech"},
+      "density": 720,
+      "thicknesses": [18, 22, 27, 34, 41, 54],
+      "color": "#D9B48A",
+      "has_grain": true
+    },
+    {
+      "id": "frene",
+      "kind": "solid",
+      "name": {"fr": "Frêne", "en": "Ash"},
+      "density": 690,
+      "thicknesses": [18, 22, 27, 34, 41, 54],
+      "color": "#E3CFA5",
+      "has_grain": true
+    },
+    {
+      "id": "noyer",
+      "kind": "solid",
+      "name": {"fr": "Noyer", "en": "Walnut"},
+      "density": 650,
+      "thicknesses": [18, 22, 27, 34, 41],
+      "color": "#6B4A33",
+      "has_grain": true
+    },
+    {
+      "id": "merisier",
+      "kind": "solid",
+      "name": {"fr": "Merisier", "en": "Cherry"},
+      "density": 620,
+      "thicknesses": [18, 22, 27, 34, 41],
+      "color": "#B5654A",
+      "has_grain": true
+    },
+    {
+      "id": "pin-sylvestre",
+      "kind": "solid",
+      "name": {"fr": "Pin sylvestre", "en": "Scots pine"},
+      "density": 520,
+      "thicknesses": [18, 22, 27, 34, 45],
+      "color": "#E8C68E",
+      "has_grain": true
+    },
+    {
+      "id": "sapin-epicea",
+      "kind": "solid",
+      "name": {"fr": "Sapin – épicéa", "en": "Fir – spruce"},
+      "density": 450,
+      "thicknesses": [18, 22, 27, 34, 45],
+      "color": "#EEDDB8",
+      "has_grain": true
+    },
+    {
+      "id": "douglas",
+      "kind": "solid",
+      "name": {"fr": "Douglas", "en": "Douglas fir"},
+      "density": 530,
+      "thicknesses": [22, 27, 34, 45],
+      "color": "#D49A6A",
+      "has_grain": true
+    },
+    {
+      "id": "cp-bouleau",
+      "kind": "plywood",
+      "name": {"fr": "Contreplaqué bouleau", "en": "Birch plywood"},
+      "density": 680,
+      "thicknesses": [4, 6.5, 9, 12, 15, 18, 21, 24],
+      "color": "#E6D3B0",
+      "has_grain": true
+    },
+    {
+      "id": "cp-peuplier",
+      "kind": "plywood",
+      "name": {"fr": "Contreplaqué peuplier", "en": "Poplar plywood"},
+      "density": 450,
+      "thicknesses": [5, 10, 15, 18, 22],
+      "color": "#EADFC4",
+      "has_grain": true
+    },
+    {
+      "id": "mdf",
+      "kind": "mdf",
+      "name": {"fr": "MDF", "en": "MDF"},
+      "density": 750,
+      "thicknesses": [3, 6, 10, 12, 16, 19, 22, 25],
+      "color": "#A98B6D",
+      "has_grain": false
+    },
+    {
+      "id": "melamine-blanc",
+      "kind": "melamine",
+      "name": {"fr": "Mélaminé blanc", "en": "White melamine"},
+      "density": 650,
+      "thicknesses": [8, 16, 19, 22],
+      "color": "#F2F2F0",
+      "has_grain": false
+    }
+  ]
+}
