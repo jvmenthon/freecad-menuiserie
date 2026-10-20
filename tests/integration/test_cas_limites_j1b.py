@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Cas limites de la pièce de bois dans un vrai document FreeCAD (lot J1b, critères B1 à B14).
 
-Les défauts constatés sont marqués ``xfail(strict=True)`` et numérotés (D1, D2…) : le test
-passera au vert, et devra alors perdre son marqueur, quand le code de production sera corrigé.
+Un défaut constaté est marqué ``xfail(strict=True)`` et numéroté (D1, D2…) : le test passe au
+vert, et perd alors son marqueur, quand le code de production est corrigé (D1 à D5 corrigés ;
+D1 par la reformulation de B6).
 """
 
 from __future__ import annotations
@@ -101,15 +102,20 @@ def test_cote_negative_par_expression_met_en_erreur(document: Any) -> None:
     assert obj.isValid()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D1 : une expression écrit une cote négative (-800 mm) dans la propriété ; "
-    "B6 exige qu'une valeur négative ne soit jamais retenue",
+@pytest.mark.parametrize(
+    "expression", ["Width - 200 mm", "Width - 1000 mm"], ids=["nulle", "negative"]
 )
-def test_cote_negative_par_expression_jamais_retenue(document: Any) -> None:
+def test_cote_par_expression_nulle_ou_negative_en_erreur(document: Any, expression: str) -> None:
+    """B6 : FreeCAD peut écrire une cote ≤ 0 calculée par une expression (le moteur
+    d'expressions n'est pas contraint) ; l'objet passe alors en erreur, sans exception. Une
+    valeur négative saisie directement, elle, n'est jamais retenue."""
     obj = board(document)
-    obj.setExpression("Length", "Width - 1000 mm")
+    obj.setExpression("Length", expression)
     document.recompute()
+    assert not obj.isValid()
+    assert "cote invalide" in obj.getStatusString().lower()
+    obj.setExpression("Length", None)
+    obj.Length = -5
     assert obj.Length.Value >= 0
 
 
