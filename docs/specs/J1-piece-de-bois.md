@@ -973,7 +973,13 @@ cache mais encore affichée est retrouvée par sa clé (pas de seconde copie). C
    `wrapS = wrapT = REPEAT`.
 
 Refus : avertissement traduit, une fois : « Texture « {image} » non affichée ({reason}) : couleur du
-matériau utilisée à la place. ».
+matériau utilisée à la place. ». `{image}` est le chemin **entier**, caractères non imprimables
+échappés par `core.text.escaped_text` (`repr` sans ses guillemets : `\n`, `\u202e`…), sans
+troncature : le dossier de la bibliothèque est choisi librement et doit rester reconnaissable.
+Motifs (`{reason}`) : fichier absent, vide, illisible ou de plus de 16 Mio ; fichier sorti du
+dossier de la bibliothèque ; extension non prise en charge ; en-tête illisible ; dimensions
+trop grandes ; JPEG de trop de balayages ; blocs ou données PNG invalides ; données PNG
+décompressées au-delà de l'image annoncée ; image illisible (erreur de Qt, tronquée).
 
 #### 4.6.4 ViewProvider (ajouts J1d)
 
@@ -1017,8 +1023,9 @@ l'identifiant `MaterialId`, clé de recherche et jamais chemin) ; fichier ouvert
 `O_NONBLOCK`, contrôle par `fstat`, lecture bornée à 16 Mio) ; décodage seulement dans `gui/`,
 en mémoire, par les décodeurs PNG ou JPEG de Qt imposés par l'extension, dimensions lues dans
 l'en-tête et bornées à 4 096 pixels avant décodage, JPEG de plus de 100 balayages et PNG dont
-les données décompressées dépassent la taille brute annoncée refusés avant décodage ; raison d'échec citée tronquée ; l'image
-n'est jamais copiée dans le document.
+les données décompressées dépassent la taille brute annoncée refusés avant décodage ; mémoire
+des images décodées bornée à 256 Mio ; raison d'échec citée tronquée, chemin cité entier et
+échappé ; l'image n'est jamais copiée dans le document.
 
 ## 5. Découpage en PR
 

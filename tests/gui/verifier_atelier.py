@@ -209,8 +209,9 @@ def materiau(identifiant: str, nom: str, image: str | None = None) -> dict[str, 
 
 
 @contextmanager
-def bibliotheque(*materiaux: dict[str, object]) -> Iterator[Path]:
-    """Bibliothèque utilisateur temporaire (``UserLibraryPath``) ; renvoie son fichier, dont le
+def bibliotheque(*materiaux: dict[str, object], nom_du_dossier: str = "") -> Iterator[Path]:
+    """Bibliothèque utilisateur temporaire (``UserLibraryPath``), dans le sous-dossier
+    ``nom_du_dossier`` d'un dossier temporaire s'il est donné ; renvoie son fichier, dont le
     dossier accueille les images. Paramètre et bibliothèque sont restaurés à la fin."""
     from freecad.menuiserie.features.library import (
         PARAM_PATH,
@@ -220,7 +221,8 @@ def bibliotheque(*materiaux: dict[str, object]) -> Iterator[Path]:
 
     parametres = App.ParamGet(PARAM_PATH)
     precedent = parametres.GetString(USER_LIBRARY_PARAM, "")
-    fichier = Path(tempfile.mkdtemp()) / "materiaux.json"
+    fichier = Path(tempfile.mkdtemp()) / nom_du_dossier / "materiaux.json"
+    fichier.parent.mkdir(exist_ok=True)
     contenu = {"format": 1, "materials": list(materiaux)}
     fichier.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
     parametres.SetString(USER_LIBRARY_PARAM, str(fichier))
@@ -1131,6 +1133,33 @@ def verifier_texture_budget_memoire() -> list[str]:
     return problemes
 
 
+def verifier_texture_chemin_echappe() -> list[str]:
+    """Audit, point 5 : le chemin cité dans l'avertissement est entier, ses caractères non
+    imprimables échappés (dossier de bibliothèque nommé avec un saut de ligne et une inversion
+    bidirectionnelle)."""
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements = avertissements_de_test()
+    nom = "bib\u202e\nliotheque-" + "x" * 60
+    with bibliotheque(materiau("erable", "Érable", "textures/absente.png"), nom_du_dossier=nom):
+        doc = App.newDocument("VerifCheminEchappe")
+        problemes = repli_visible(
+            "image absente", make_wood_part(material_id="erable", doc=doc).ViewObject
+        )
+        attendu = "bib\\u202e\\nliotheque-" + "x" * 60 + "/textures/absente.png"
+        problemes += [
+            *ecarts("avertissements", len(avertissements), 1),
+            *ecarts("chemin entier et échappé", all(attendu in m for m in avertissements), True),
+            *ecarts(
+                "caractères non imprimables",
+                [m for m in avertissements if not m.isprintable()],
+                [],
+            ),
+        ]
+        App.closeDocument(doc.Name)
+    return problemes
+
+
 def commutateur_sous(noeud: Any) -> bool:
     """Vrai si un ``SoSwitch`` « MenuiserieTexture » actif est atteint sous ``noeud``."""
     from pivy import coin
@@ -1166,6 +1195,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_jpeg_balayages,
     verifier_texture_bombe_png,
     verifier_texture_budget_memoire,
+    verifier_texture_chemin_echappe,
 )
 
 

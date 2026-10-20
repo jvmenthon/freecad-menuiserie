@@ -32,7 +32,7 @@ from freecad.menuiserie.core.budget_cache import BudgetedCache, Decoded
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.image_checks import check_image_bytes
 from freecad.menuiserie.core.materials import Texture
-from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.core.text import escaped_text, quoted_value
 from freecad.menuiserie.core.texture_file import TextureFile, TextureRefusedError
 from freecad.menuiserie.features.i18n import translated
 
@@ -224,8 +224,9 @@ class TextureCache:
 
 
 def _cited(texture: Texture) -> str:
-    """Chemin de l'image cité dans un avertissement."""
-    return str(texture.image)
+    """Chemin de l'image cité dans un avertissement, entier, caractères non imprimables
+    échappés (le dossier de la bibliothèque est choisi librement)."""
+    return escaped_text(str(texture.image))
 
 
 _SESSION: Final[dict[str, TextureCache]] = {}
