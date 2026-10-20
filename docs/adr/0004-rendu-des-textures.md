@@ -1,6 +1,6 @@
 # ADR 0004 — Rendu des textures des matériaux
 
-- Statut : proposé (accepté avec la PR du lot J1d)
+- Statut : accepté (lot J1d)
 - Date : 2026-10-20
 - Spécification : [docs/specs/J1-piece-de-bois.md](../specs/J1-piece-de-bois.md), § 4.6 et
   critères D1 à D7
@@ -55,14 +55,34 @@ certaines compilations de Coin ; Qt (`QImageReader`) est toujours présent dans 
 4. **La texture n'est pas enregistrée** dans le document : elle est recalculée depuis la
    bibliothèque locale à l'ouverture (`finishRestoring`) et à chaque changement de `MaterialId` ou
    de `GrainDirection`. Aucune propriété n'est ajoutée à `WoodPart` (`Version` reste 1).
-5. **Chargement par Qt dans `gui/` uniquement**, décodeur PNG ou JPEG imposé par l'extension
-   (détection automatique désactivée), fichier ≤ 16 Mio contrôlé par `stat` dans `features/`,
-   dimensions ≤ 4 096 pixels lues dans l'en-tête avant décodage, conversion en RGB opaque.
-6. **Un nœud `SoTexture2` par image**, partagé par toutes les pièces (cache poids-mouche explicite
-   et réinitialisable de `gui/textures.py`) : une seule copie en mémoire graphique. Les échecs
-   sont mémorisés aussi : un seul avertissement par image et par session.
+5. **Fichier ouvert une seule fois, décodé en mémoire par Qt dans `gui/` uniquement**
+   (`core/texture_file.py`, audit de sécurité) : à chaque ouverture, le chemin est résolu et doit
+   rester dans le dossier de la bibliothèque (`Texture.folder`, résolu au chargement : un lien
+   interne est accepté, un lien ou un dossier remplacé depuis le chargement et qui mène dehors
+   est refusé) ; la cible est ouverte avec `O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC`, contrôlée par
+   `fstat` (fichier ordinaire, ≤ 16 Mio) et lue une fois ; Qt décode ces octets
+   (`QImageReader` sur un `QBuffer`) et ne rouvre jamais le fichier par son nom. Décodeur PNG ou
+   JPEG imposé par l'extension (détection automatique désactivée), dimensions ≤ 4 096 pixels
+   lues dans l'en-tête avant décodage, conversion en RGB opaque. Les octets sont contrôlés
+   avant décodage selon le format (`core/image_checks.py`) : un JPEG de plus de 100 balayages
+   est refusé (un JPEG progressif aux milliers de balayages vides coûte ≈ 2 ms par balayage à
+   4 096 × 4 096 pixels, soit des minutes d'interface figée ; un JPEG progressif ordinaire en
+   compte une dizaine) ; un PNG dont les blocs `IDAT` se décompressent au-delà de la taille
+   brute exacte annoncée par `IHDR` est refusé (bombe de décompression), la décompression de
+   contrôle s'arrêtant à cette taille plus un octet, par morceaux d'au plus 1 Mio oubliés
+   aussitôt. La taille brute est calculée exactement, entrelacement Adam7 compris (sept passes
+   aux dimensions connues) : aucune borne approchée n'est nécessaire.
+6. **Un nœud `SoTexture2` par fichier image**, partagé par toutes les pièces (cache poids-mouche
+   explicite et réinitialisable de `gui/textures.py`, clé = périphérique, inode, taille et date
+   du fichier ouvert : deux liens physiques partagent le nœud) : une seule copie en mémoire
+   graphique. Les échecs sont mémorisés aussi : un seul avertissement par image et par session.
+   La mémoire est bornée par un **budget global de 256 Mio** de pixels décodés vivants
+   (`core/budget_cache.py`), qui compte aussi les nœuds oubliés par le cache mais encore
+   affichés par une pièce (références faibles) : au-delà, la pièce garde la couleur du matériau,
+   avec un seul avertissement ; une texture masquée rend sa place.
 7. Logique testable hors interface : projection et choix couleur/texture dans `core/appearance.py`,
-   contrôle du fichier dans `features/appearance.py` ; `gui/` ne fait que décoder et brancher.
+   ouverture confinée dans `core/texture_file.py`, contrôle du fichier (ouverture sans lecture)
+   dans `features/appearance.py` ; `gui/` ne fait que décoder et brancher.
 
 ## Conséquences
 
@@ -80,3 +100,38 @@ certaines compilations de Coin ; Qt (`QImageReader`) est toujours présent dans 
   que le ViewProvider ; `MaterialColor` reste la couleur de secours.
 - La vérification automatique porte sur le graphe de scène (le rendu hors écran n'est pas garanti
   en CI) ; l'aspect visuel est vérifié à la main sur 1.0 et 1.1 à chaque évolution du rendu.
+
+## Limites
+
+- **Pièce texturée blanche hors de l'atelier.** Le blanc de base du modèle `MODULATE` est écrit
+  dans `ShapeAppearance`, donc enregistré : un plan ouvert sans l'atelier, ou exporté avec ses
+  couleurs, montre les pièces texturées en blanc (`MaterialColor` garde la couleur du matériau).
+  Garder `ShapeAppearance` à la couleur du matériau et obtenir le blanc dans les nœuds Coin de
+  l'atelier a été essayé (audit de sécurité J1d, remarque du testeur) et **écarté** :
+  - un `SoMaterial` blanc avec `setOverride(TRUE)` dans le `SoSwitch` `MenuiserieTexture` blanchit
+    bien les faces, mais aussi les arêtes, dont la couleur vient d'un `SoMaterial` du
+    `ViewProviderPartExt` placé sous `SwitchNode` : les arêtes prennent la couleur de la texture
+    (rendu mesuré hors écran : arêtes à (0, 200, 0) au lieu de (0, 20, 0) sur 1.1, confondues
+    avec les faces sur 1.0), ce qui casse le critère D7 (« arêtes visibles en Flat Lines ») ;
+    un remplacement limité aux faces exigerait d'insérer un nœud dans la structure interne de
+    `ViewProviderPartExt`, que la décision 1 écarte ;
+  - écrire directement le `SoMaterial` des faces du ViewProvider dépend de cette même structure
+    interne et serait réécrit par FreeCAD à chaque modification de `ShapeAppearance` ;
+  - corriger la couleur seulement à l'enregistrement (observateur du document) marquerait le
+    document modifié juste après chaque enregistrement et ne couvrirait pas les exports ;
+  - diviser les pixels de la texture par la couleur du matériau sature les zones plus claires
+    que cette couleur et empêcherait de partager un nœud entre matériaux.
+  La bascule sur les textures natives de FreeCAD (Conséquences) lèvera cette limite.
+- **Confinement et dossiers intermédiaires.** `O_NOFOLLOW` ne protège que le dernier composant :
+  un dossier intermédiaire remplacé par un lien entre la résolution et l'ouverture (fenêtre de
+  quelques microsecondes) n'est pas détecté. Il faudrait ouvrir chaque composant relativement
+  au précédent (`dir_fd`), indisponible sous Windows ; le risque est faible, l'attaquant devant
+  déjà pouvoir écrire dans le dossier de la bibliothèque, et le fichier reste borné par `fstat`
+  et décodé en mémoire.
+- **JPEG.** Le compte des marqueurs `FF DA` porte sur tous les octets : un segment de métadonnées
+  (vignette EXIF, profil ICC) qui contient ces deux octets est compté aussi. Le compte ne peut
+  que surestimer, d'où, au pire, le refus d'un JPEG légitime aux métadonnées exceptionnelles.
+- **Blocs `IDAT` au-delà de la fin du flux zlib.** Les données placées après la fin du flux
+  compressé ne sont pas décompressées par le contrôle et ignorées par le décodeur : elles ne
+  coûtent rien et ne sont pas refusées. Un PNG aux données plus courtes qu'annoncé est laissé au
+  décodeur de Qt.

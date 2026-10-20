@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Final, TypeGuard
+from typing import Final, TypeGuard, cast
 
 from freecad.menuiserie.core._validation import (
     MIN_DIMENSION_MM,
@@ -153,11 +153,14 @@ class Texture:
 
     ``image`` est le chemin absolu résolu de l'image, dont l'existence n'est pas vérifiée ici.
     ``size`` donne la largeur et la hauteur réelles couvertes par l'image, en mm ; le fil du
-    bois suit la largeur de l'image. ``ValueError`` si l'un des deux est invalide.
+    bois suit la largeur de l'image. ``folder`` est le dossier résolu de la bibliothèque, dont
+    l'image ne doit pas sortir quand elle est ouverte (par défaut : le dossier de l'image).
+    ``ValueError`` si l'un des trois est invalide.
     """
 
     image: Path
     size: tuple[float, float]
+    folder: Path | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.image, Path) or not self.image.is_absolute():
@@ -167,6 +170,22 @@ class Texture:
             expected = f"deux nombres entre {MIN_TEXTURE_SIZE_MM:g} et {MAX_TEXTURE_SIZE_MM:g} mm"
             raise _invalid("texture", "size", self.size, expected)
         object.__setattr__(self, "size", size)
+        folder = self.image.parent if self.folder is None else self.folder
+        if not isinstance(folder, Path) or not folder.is_absolute():
+            raise _invalid("texture", "folder", folder, "dossier absolu contenant l'image")
+        if not is_inside_folder(folder, self.image):
+            raise _invalid("texture", "folder", folder, "dossier absolu contenant l'image")
+        object.__setattr__(self, "folder", folder)
+
+    @property
+    def library_folder(self) -> Path:
+        """Dossier dont l'image ne doit pas sortir (``folder``, renseigné par ``__post_init__``)."""
+        return cast(Path, self.folder)
+
+
+def is_inside_folder(folder: Path, path: Path) -> bool:
+    """Vrai si ``path`` est un descendant strict de ``folder`` (chemins déjà résolus)."""
+    return path != folder and path.is_relative_to(folder)
 
 
 def _kind(value: object) -> MaterialKind | None:

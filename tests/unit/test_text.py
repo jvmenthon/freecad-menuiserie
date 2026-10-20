@@ -43,5 +43,21 @@ def test_quoted_value_ne_rattrape_que_value_error() -> None:
         text.quoted_value(_BrokenRepr())
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("/bibliothèque/textures/érable.png", "/bibliothèque/textures/érable.png"),
+        ("/biblio\nthèque/a.png", "/biblio\\nthèque/a.png"),
+        ("/\u202egnp.elbare", "/\\u202egnp.elbare"),
+        ("/\x1b[31m/a.png", "/\\x1b[31m/a.png"),
+        ("l'érable", "l'érable"),
+        ("x" * 1000, "x" * 1000),
+    ],
+)
+def test_escaped_text_sans_troncature(value: str, expected: str) -> None:
+    assert text.escaped_text(value) == expected
+    assert text.escaped_text(value).isprintable()
+
+
 def test_api_publique() -> None:
-    assert text.__all__ == ["MAX_QUOTED_LENGTH", "quoted_value"]
+    assert text.__all__ == ["MAX_QUOTED_LENGTH", "escaped_text", "quoted_value"]

@@ -66,7 +66,7 @@ def test_texture_resolue_dans_le_dossier_du_fichier(tmp_path: Path) -> None:
     [material], issues = parse(texture(), tmp_path)
     assert issues == []
     assert material.texture == Texture(
-        (tmp_path / "textures" / "erable.jpg").resolve(), (600.0, 200.0)
+        (tmp_path / "textures" / "erable.jpg").resolve(), (600.0, 200.0), tmp_path.resolve()
     )
     assert material.texture.image.is_absolute()
     assert not material.texture.image.exists()  # l'existence n'est pas vérifiée par core/
@@ -113,6 +113,18 @@ def test_lien_symbolique_interne_accepte(tmp_path: Path) -> None:
     assert issues == []
     assert material.texture is not None
     assert material.texture.image == (tmp_path / "images" / "erable.jpg").resolve()
+    assert material.texture.folder == tmp_path.resolve()
+
+
+@requires_symlinks
+def test_dossier_de_bibliotheque_lien_resolu_vers_sa_cible(tmp_path: Path) -> None:
+    (tmp_path / "vrai").mkdir()
+    (tmp_path / "lien").symlink_to(tmp_path / "vrai")
+    [material], issues = parse(texture(), tmp_path / "lien")
+    assert issues == []
+    assert material.texture is not None
+    assert material.texture.folder == (tmp_path / "vrai").resolve()
+    assert material.texture.image == (tmp_path / "vrai" / "textures" / "erable.jpg").resolve()
 
 
 def test_cle_inconnue_dans_la_texture_signalee_sans_rejet(tmp_path: Path) -> None:

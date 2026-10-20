@@ -8,9 +8,15 @@ from __future__ import annotations
 
 from typing import Final
 
-__all__ = ["MAX_QUOTED_LENGTH", "quoted_value"]
+__all__ = ["MAX_QUOTED_LENGTH", "escaped_text", "quoted_value"]
 
 MAX_QUOTED_LENGTH: Final = 32
+
+
+def escaped_text(text: str) -> str:
+    """Texte entier, caractères non imprimables échappés (``\\n``, ``\\u202e``…), sans
+    troncature : pour citer un chemin, qui doit rester reconnaissable en entier."""
+    return repr(text)[1:-1]
 
 
 def quoted_value(value: object) -> str:
@@ -29,5 +35,5 @@ def quoted_value(value: object) -> str:
             text = repr(value)
         except ValueError:  # entier trop long pour être converti en texte
             return "?"
-    escaped = repr(text[:MAX_QUOTED_LENGTH])[1:-1]
+    escaped = escaped_text(text[:MAX_QUOTED_LENGTH])
     return escaped + "…" if len(text) > MAX_QUOTED_LENGTH else escaped
