@@ -8,6 +8,12 @@ Exemple (console) ::
     planche = make_wood_part(800, 200, 22, "chene")
     planche.Length = 1000
 
+Assemblage (J3) ::
+
+    from freecad.menuiserie.api import make_mortise_tenon
+
+    assemblage = make_mortise_tenon(montant, traverse, tenon_thickness=8)
+
 C'est le seul module hors de ``gui/`` autorisé à importer ``gui/``, et seulement quand
 l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd``.
 """
@@ -17,6 +23,13 @@ from __future__ import annotations
 import FreeCAD as App
 
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.joints.factories import create_mortise_tenon
+from freecad.menuiserie.features.machined_part import (
+    blank_of,
+    is_machined_part,
+    machined_part_of,
+    remove_machined_part,
+)
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 
@@ -54,3 +67,31 @@ def make_wood_part(
         ViewProviderWoodPart(obj.ViewObject)
     document.recompute()
     return obj
+
+
+def make_mortise_tenon(
+    host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Relie deux pièces (pièces de bois ou pièces usinées) par un tenon-mortaise et recalcule
+    le document : mortaise dans ``host``, tenon au bout de ``guest``.
+
+    Paramètres facultatifs en mm (0 = automatique) : ``tenon_thickness``, ``tenon_width``,
+    ``tenon_length``, ``width_offset``, ``thickness_offset``, ``through``,
+    ``mortise_clearance``. Pièces et paramètres sont validés avant toute création
+    (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est ouverte : c'est à
+    l'appelant de le faire pour pouvoir annuler.
+    """
+    document = blank_of(host).Document
+    joint = create_mortise_tenon(document, host, guest, **params)
+    document.recompute()
+    return joint
+
+
+__all__ = [
+    "blank_of",
+    "is_machined_part",
+    "machined_part_of",
+    "make_mortise_tenon",
+    "make_wood_part",
+    "remove_machined_part",
+]

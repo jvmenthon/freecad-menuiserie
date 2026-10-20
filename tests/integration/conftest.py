@@ -114,3 +114,18 @@ def rouvrir(tmp_path: Path) -> Callable[[Any], Any]:
         return app.openDocument(str(path))
 
     return reopen
+
+
+@pytest.fixture
+def cadre(document: Any) -> Any:
+    """Cadre de référence de J3 (pièces brutes seules), cf. ``tests/integration/cadre.py``."""
+    from tests.integration.cadre import build_frame
+
+    return build_frame(document)
+
+
+@pytest.fixture
+def cadre_assemble(cadre: Any) -> Any:
+    """Cadre de référence assemblé par quatre tenons-mortaises, recalculé."""
+    cadre.assemble()
+    return cadre

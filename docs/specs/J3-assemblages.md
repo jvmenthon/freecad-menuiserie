@@ -92,7 +92,7 @@ Variante « pilotée » : `M2.Placement.Base.y = 400 mm - Width`, `M2.Width = M1
 | O8 | Enregistrer, fermer, rouvrir : propriétés identiques, objets valides, volumes inchangés, aucun objet « Touched ». Proxies `freecad.menuiserie.features.machined_part.MachinedPart` et `freecad.menuiserie.features.joints.mortise_tenon.MortiseTenonJoint`, `dumps()` = `None`, `Version` = 1. | I |
 | O9 | Réouverture contrôlée (règles de l'ADR 0003, aides génériques partagées) : `Version` absente → propriétés manquantes recréées, `Version` = 1 ; `Version` = 2 → avertissement « version plus récente », rien de migré ; propriété d'un type inattendu → recréée avec avertissement. | I |
 | O10 | Annuler / rétablir : création d'un assemblage dans une transaction → `undo()` supprime l'assemblage **et** la pièce usinée créée avec lui, la brute est de nouveau visible ; `redo()` les restaure, volumes de O1. Modification de `TenonThickness` annulable. *(À vérifier en début de lot : `Visibility` est-elle enregistrée dans la transaction en 1.0 et 1.1 ? Sinon, le signaler à l'architecte avant de contourner.)* | I |
-| O11 | Suppression : supprimer un assemblage (`doc.removeObject`) → la pièce usinée est recalculée sans lui ; `remove_machined_part(p)` (API) supprime une pièce usinée **sans assemblage** et réaffiche sa brute ; supprimer une brute → ses assemblages et sa pièce usinée passent en erreur, sans exception. | I |
+| O11 | Suppression : supprimer un assemblage (`doc.removeObject`) → la pièce usinée est recalculée sans lui ; `remove_machined_part(p)` (API) supprime une pièce usinée **sans assemblage** et réaffiche sa brute ; supprimer une brute → ses assemblages passent en erreur et sa pièce usinée est en erreur ou reste « Touched » (comme O6), sans exception. | I |
 | O12 | Les documents J1 s'ouvrent sans changement (pièces, `Version` = 2, rien de « Touched ») ; `record_of(brute)` est inchangé pour une pièce assemblée (J2 lit la brute). | I |
 | O13 | **Compatibilité (ADR 0007)** : la forme d'une pièce usinée sert d'outil et de base d'un `Part::Cut` ordinaire (volume attendu) et de source d'une vue TechDraw (`TechDraw::DrawViewPart` sur une page avec `Template` vide) qui se recalcule sans erreur ; elle s'exporte en STEP et se réimporte avec le même volume (à 1e-6 près relatif). | I (TechDraw : ignoré si non importable dans `freecadcmd`, alors G) |
 | O14 | **Compatibilité (ADR 0007)** : le cadre de O1 enregistré puis ouvert dans un `freecadcmd` **sans l'atelier** (sous-processus, `sys.path` sans `freecad.menuiserie`) : le document s'ouvre, chaque pièce usinée a une forme valide de même volume. Test d'inventaire : toute commande enregistrée par l'atelier commence par `Menuiserie_`, tout `TYPE` de proxy par `Menuiserie::`, aucun module hors de `freecad.menuiserie` ; `pyproject.toml` ne déclare aucune dépendance d'exécution. | I + U |
@@ -170,7 +170,8 @@ freecad/menuiserie/
 │   ├── solids.py                J3b  conversion Box / Cylinder (core) → formes Part
 │   ├── machined_part.py         J3b  proxy MachinedPart, create / find / remove
 │   └── joints/
-│       ├── __init__.py          J3b  fabriques create_*, JOINT_CLASSES
+│       ├── __init__.py          J3b  vide (évite le cycle machined_part → joints.base → fabriques)
+│       ├── factories.py         J3b  fabriques create_*, JOINT_CLASSES
 │       ├── base.py              J3b  JointFeature (Template Method), placed_blank, plan_for
 │       ├── mortise_tenon.py     J3b  MortiseTenonJoint
 │       ├── tongue_groove.py     J3c  TongueGrooveJoint
@@ -378,7 +379,8 @@ mesurée selon l'axe Z local de l'invitée.
 | `Joints` | `App::PropertyLinkList` | Pièce | `[]` | lecture seule | Assemblages qui usinent cette pièce (tenons, mortaises, rainures, perçages). |
 | `Version` | `App::PropertyInteger` | Base | 1 | masquée | Version du modèle de données de la pièce usinée, utilisée pour migrer les anciens fichiers. |
 
-`Label` = celui de la brute à la création. `execute()` : lit `Base` (doit être une `WoodPart`,
+`Label` = « {label} (usinée) » (gabarit traduisible, `{label}` = libellé de la brute) à la
+création ; la brute garde le sien ; jamais de modification de `DuplicateLabels` (ADR 0007). `execute()` : lit `Base` (doit être une `WoodPart`,
 sinon erreur traduite) et, pour chaque assemblage, `plan_for(joint)` puis le côté (hôte ou
 invitée) qui correspond à `Base` ; forme = `makeBox` ∪ ajouts − enlèvements, `removeSplitter()`,
 puis `Shape.Placement = Base.Placement` (reconstruction de la forme seulement). Un plan en erreur
@@ -448,12 +450,15 @@ Infobulles (extrait ; les autres sur le même modèle, toutes en `QT_TRANSLATE_N
 
 #### 4.4.4 `features/schema.py` (refactorisation, premier commit de J3b)
 
-`PropertySpec(name, type_id, group, tooltip, default, mode)` et les fonctions
-`add_missing_properties(obj, specs, defaults)`, `remove_mistyped_properties(obj, specs)`,
-`restored_version(obj, current)`, `apply_editor_modes(obj, specs)` sortent de
+`PropertySpec(name, type_id, group, tooltip, default=None, mode=EDITABLE)`, `version_spec(tooltip,
+version)` et les fonctions `add_missing_properties(obj, specs, defaults=None, choices=None)`
+(`choices` : listes des énumérations), `remove_mistyped_properties(obj, specs, noun)`,
+`restored_version(obj, current, noun)`, `apply_editor_modes(obj, specs)` et
+`restore_schema(obj, specs, current, noun)` (réouverture des objets sans énumération) sortent de
 `wood_part_schema.py` / `wood_part_restore.py` sous forme générique ; la pièce de bois les
 appelle avec sa description (comportement, messages et tests J1 inchangés). Les messages de
-réouverture citent « Pièce », « Pièce usinée » ou « Assemblage » selon l'objet.
+réouverture citent « Pièce », « Pièce usinée » ou « Assemblage » selon l'objet (`noun`, gabarit
+traduisible).
 
 ### 4.5 Ordre de recalcul, dépendances, réouverture, annuler / rétablir
 
@@ -633,7 +638,8 @@ lecture seule, on déplace la brute dans l'arbre.
 
 **Q5 — Deux objets par pièce assemblée (ADR 0006).** Une pièce assemblée apparaît comme la pièce
 usinée, avec sa brute masquée dessous dans l'arbre. C'est imposé par le recalcul de FreeCAD
-(sinon cycle). Le libellé de la pièce usinée est copié de la brute à la création ; renommer l'une
+(sinon cycle). Le libellé de la pièce usinée est « <libellé de la brute> (usinée) » à la création
+(décision de revue J3b : FreeCAD rend les libellés uniques) ; renommer l'une
 ne renomme pas l'autre. *Recommandation : valider l'ADR 0006 ;* un renommage synchronisé pourra
 venir plus tard si la gêne est réelle.
 

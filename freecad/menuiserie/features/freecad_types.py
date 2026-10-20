@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-__all__ = ["EDITABLE", "HIDDEN", "READ_ONLY", "Document", "DocumentObject"]
+__all__ = ["EDITABLE", "HIDDEN", "READ_ONLY", "Document", "DocumentObject", "proxy_is"]
 
 DocumentObject = Any  # objets FreeCAD, sans annotations de type
 Document = Any
@@ -19,3 +19,13 @@ Document = Any
 EDITABLE: Final = 0
 READ_ONLY: Final = 1
 HIDDEN: Final = 2
+
+
+def proxy_is(obj: object, proxy_class: type) -> bool:
+    """Vrai si le proxy de ``obj`` est une instance de ``proxy_class`` (faux pour un objet
+    supprimé du document ou sans proxy)."""
+    try:
+        proxy = getattr(obj, "Proxy", None)
+    except ReferenceError:  # objet FreeCAD supprimé du document
+        return False
+    return isinstance(proxy, proxy_class)
