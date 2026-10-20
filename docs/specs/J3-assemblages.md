@@ -103,7 +103,7 @@ Variante « pilotée » : `M2.Placement.Base.y = 400 mm - Width`, `M2.Width = M1
 |---|---|---|
 | R1 | `make_tongue_groove` et `make_rabbet` : objets aux propriétés du § 4.4.3, volumes conformes à M6 et M7 dans le document, réouverture et annulation comme O8 et O10, proxies `…features.joints.tongue_groove.TongueGrooveJoint` et `…features.joints.rabbet.RabbetJoint`. | I |
 | R2 | Cadre et panneau : panneau de 10 mm logé en rainure-languette (languette de 10 mm d'épaisseur) dans un montant de 22 → rainure de 10 × 11 filante ; changer la largeur du panneau par expression → la rainure suit. | I |
-| T1 | **Tourillons, valeurs automatiques** : diamètre = plus grand de 6, 8, 10, 12 ne dépassant pas la moitié de l'épaisseur au contact (22 → **10**, 18 → **8**, 16 → 8, 12 → **6** ; 10 → refus « pièces trop minces pour des tourillons ») ; longueur selon le diamètre : 6 → 30, 8 → **35**, 10 → 40, 12 → 50 ; profondeur dans l'hôte = moitié de la longueur ; perçages = profondeur + **1** de jeu de fond de chaque côté ; distance au bord = 2 × diamètre ; nombre = 1 si le contact est plus court que 2 × distance au bord, sinon max(2, ⌈(contact − 2 × distance) / 128⌉ + 1), répartis régulièrement ; centrés dans l'épaisseur. Exemples : contact 60 × 22 → 2 tourillons Ø 10 × 40 à 20 et 40 mm ; contact 300 × 18 → 4 tourillons Ø 8 × 35 à 16, 105,33, 194,67 et 284 mm. | U |
+| T1 | **Tourillons, valeurs automatiques** : diamètre = plus grand de 6, 8, 10, 12 ne dépassant pas la moitié de l'épaisseur au contact et dont le perçage, décalage dans l'épaisseur compris, reste dans cette épaisseur (rayon + \|décalage\| < demi-épaisseur − 0,01) (22 → **10**, 18 → **8**, 16 → 8, 12 → **6** ; 22 décalé de 6 → 8 ; 10 → refus « pièces trop minces pour des tourillons », 12 mm au moins sans décalage) ; longueur selon le diamètre : 6 → 30, 8 → **35**, 10 → 40, 12 → 50 (diamètre saisi hors de ces valeurs : longueur du plus grand diamètre du commerce qui ne le dépasse pas, 30 en dessous de 6) ; profondeur dans l'hôte = moitié de la longueur ; perçages = profondeur + **1** de jeu de fond de chaque côté ; distance au bord = 2 × diamètre ; nombre = 1 (au milieu) si contact − 2 × distance ≤ diamètre + 0,01, sinon max(2, ⌈(contact − 2 × distance) / 128⌉ + 1), réduit tant que l'entraxe serait ≤ diamètre + 0,01 : le nombre automatique n'est jamais refusé pour l'entraxe (traverse de 45 × 22 → 1 tourillon) ; répartis régulièrement ; centrés dans l'épaisseur. Exemples : contact 60 × 22 → 2 tourillons Ø 10 × 40 à 20 et 40 mm ; contact 300 × 18 → 4 tourillons Ø 8 × 35 à 16, 105,33, 194,67 et 284 mm. | U |
 | T2 | Tourillons, paramètres saisis (diamètre, longueur, profondeur dans l'hôte, nombre, distance au bord, décalage) respectés ; refus : perçage qui traverse ou laisse moins de 3 mm de fond, diamètre ≥ épaisseur au contact, profondeur ≥ longueur, nombre qui ne tient pas. | U |
 | T3 | `make_dowels` dans le document : la forme de l'assemblage est l'ensemble des tourillons (cylindres), les deux pièces usinées sont percées ; volume = brute − perçages. | I |
 | T4 | **Le nombre suit** (exigence de jv) : contact passé de 60 à 300 mm par une expression sur la largeur de la pièce → un recompute → 4 tourillons, perçages recalculés ; `Count` saisi à 3 → toujours 3. | I |
@@ -154,7 +154,8 @@ l'invitée occupe déjà la place logée (chevauchement) ; les autres types supp
 freecad/menuiserie/
 ├── core/
 │   ├── i18n.py                  J3a  + TemplatedError (base de InvalidDimensionsError et JointError)
-│   ├── geometry.py              J3a  Vec3, Box, Cylinder, RigidTransform, axes, classify, JointError
+│   ├── geometry.py              J3a  Vec3, Box, Cylinder, RigidTransform, axes, JointError
+│   ├── contact.py               J3c  Contact, Overlap, Separated, classify (extrait de geometry.py, M11)
 │   └── joints/
 │       ├── __init__.py          J3a  façade : JointKind, JointPlan, JointError, JointStrategy, strategy_for, guess_roles, mm_round
 │       ├── _base.py             J3a  protocole JointStrategy, paramètres validés, arrondis et règles communes
@@ -200,7 +201,7 @@ freecad/menuiserie/
 
 ### 4.3 `core/` (J3a ; tourillons en J3c)
 
-#### 4.3.1 `core/geometry.py`
+#### 4.3.1 `core/geometry.py` et `core/contact.py`
 
 ```python
 CONTACT_TOLERANCE_MM: Final = 0.01
@@ -270,6 +271,7 @@ def relative_axes(
 def to_host(host, guest, solid: Solid) -> Solid: ...  # repère invitée → repère hôte (et to_guest)
 
 
+# core/contact.py (sorti de geometry.py en J3c pour rester sous 400 lignes, M11)
 @dataclass(frozen=True)
 class Contact:
     guest_face: Axis
@@ -357,10 +359,10 @@ Ajustement serré : aucun jeu latéral (Q3).
 | | `groove_clearance` / `GrooveClearance` | 1 mm | jeu de fond de la rainure |
 | | `through_groove` / `ThroughGroove` | vrai | rainure filante sur toute l'étendue de l'hôte le long du contact |
 | Feuillure / logement | `through` / `Through` | vrai | prolongée sur toute la longueur (X) de l'hôte |
-| Tourillons | `diameter` / `Diameter` | 0 | plus grand de 6, 8, 10, 12 ≤ ½ épaisseur au contact |
-| | `dowel_length` / `DowelLength` | 0 | 6 → 30, 8 → 35, 10 → 40, 12 → 50 |
+| Tourillons | `diameter` / `Diameter` | 0 | plus grand de 6, 8, 10, 12 ≤ ½ épaisseur au contact, perçage dans l'épaisseur décalage compris |
+| | `dowel_length` / `DowelLength` | 0 | 6 → 30, 8 → 35, 10 → 40, 12 → 50 ; autre diamètre : celle du plus grand diamètre du commerce qui ne le dépasse pas (30 en dessous de 6) |
 | | `host_depth` / `HostDepth` | 0 | moitié de la longueur |
-| | `count` / `Count` | 0 | voir T1 (entraxe au plus 128 mm, au moins 2 si la place le permet) |
+| | `count` / `Count` | 0 | voir T1 (entraxe au plus 128 mm, au moins 2 si la place le permet, jamais refusé pour l'entraxe) |
 | | `edge_distance` / `EdgeDistance` | 0 | 2 × diamètre |
 | | `thickness_offset` / `ThicknessOffset` | 0 | centrés |
 | | `hole_clearance` / `HoleClearance` | 1 mm | jeu de fond de chaque perçage |
@@ -527,7 +529,7 @@ rattrapée dans `execute()` (les erreurs de booléenne sont converties en messag
 
 | Lot | Branche | Contenu | Diff estimé hors tests | Critères |
 |---|---|---|---|---|
-| **J3a** | `feat/assemblages-core` | `core/geometry.py`, `core/joints/` (base, profil, tenon-mortaise, rainure-languette, feuillure), ADR déjà acceptés (PR #18) | ≈ 400 | M1–M11 |
+| **J3a** | `feat/assemblages-core` | `core/geometry.py` (dont `classify`, sorti en J3c dans `core/contact.py`), `core/joints/` (base, profil, tenon-mortaise, rainure-languette, feuillure), ADR déjà acceptés (PR #18) | ≈ 400 | M1–M11 |
 | **J3b** | `feat/assemblages-document` | refactorisation `features/schema.py` (commit séparé, ≈ 60 lignes nettes), `solids.py`, `machined_part.py`, `joints/base.py`, `joints/mortise_tenon.py`, `api.make_mortise_tenon`, CHANGELOG | ≈ 380 | O1–O14 |
 | **J3c** | `feat/assemblages-types` | `core/joints/dowels.py`, `features/joints/tongue_groove.py`, `rabbet.py`, `dowels.py`, fabriques et `api` | ≈ 350 | R1–R2, T1–T5 |
 | **J3d** | `feat/assemblages-affichage` | `gui/part_appearance.py` (extraction), deux ViewProviders, `commands/joints.py`, `init_gui.py`, ajout des ViewProviders dans `api` | ≈ 300 | C1–C7 |
@@ -575,7 +577,7 @@ l'Ensemble ne le simplifierait qu'au prix d'un lot de plus dans J3.
 
 Ce que J3 garantit pour J4 : les assemblages suivent les cotes et positions des pièces en un
 recalcul, valeurs automatiques et nombre de tourillons compris (M5, O4, T4), sans jamais écrire
-dans les pièces ; la géométrie relative (`core/geometry.py` : repères, axes, boîtes) est
+dans les pièces ; la géométrie relative (`core/geometry.py` : repères, axes, boîtes ; `core/contact.py` : contact, chevauchement) est
 réutilisable pour classer les pièces d'un ensemble.
 
 Esquisse pour la spécification J4 (non contractuelle ici) :
