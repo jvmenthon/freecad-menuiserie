@@ -15,6 +15,7 @@ from typing import Any, Final
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.appearance import TEXTURE_BASE_COLOR, TextureMapping
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.materials import Texture
 from freecad.menuiserie.features.appearance import appearance_of
 from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
 from freecad.menuiserie.features.library import get_library
@@ -119,10 +120,17 @@ class ViewProviderWoodPart:
 def _shown_texture(obj: DocumentObject) -> tuple[TextureMapping, TextureNode] | None:
     """Projection et nœud partagé de la texture à afficher ; ``None`` : couleur seule."""
     cache = texture_cache()
-    appearance = appearance_of(obj, cache.usable)
+    nodes: dict[Texture, TextureNode | None] = {}
+
+    def usable(texture: Texture) -> bool:
+        # Le nœud obtenu en contrôlant l'image est gardé : le fichier n'est ouvert qu'une fois.
+        nodes[texture] = cache.node(texture)
+        return nodes[texture] is not None
+
+    appearance = appearance_of(obj, usable)
     if appearance is None or appearance.texture is None or appearance.mapping is None:
         return None
-    texture = cache.node(appearance.texture)
+    texture = nodes.get(appearance.texture)
     return None if texture is None else (appearance.mapping, texture)
 
 

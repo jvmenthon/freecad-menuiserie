@@ -70,6 +70,7 @@ from freecad.menuiserie.core.materials._model import (
     Material,
     MaterialKind,
     Texture,
+    is_inside_folder,
     is_language_code,
     normalized_color,
     normalized_density,
@@ -185,7 +186,7 @@ def _resolve_in_folder(entry: Entry, relative: str) -> tuple[Path, Path]:
         image = (folder / relative).resolve()
     except (OSError, RuntimeError, ValueError) as error:  # boucle de liens, chemin invalide
         raise entry.error(ENTRY_TEXTURE_OUTSIDE, "texture.image") from error
-    if image == folder or not image.is_relative_to(folder):
+    if not is_inside_folder(folder, image):
         raise entry.error(ENTRY_TEXTURE_OUTSIDE, "texture.image")
     return folder, image
 

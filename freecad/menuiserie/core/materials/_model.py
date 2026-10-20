@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Final, TypeGuard
+from typing import Final, TypeGuard, cast
 
 from freecad.menuiserie.core._validation import (
     MIN_DIMENSION_MM,
@@ -171,21 +171,21 @@ class Texture:
             raise _invalid("texture", "size", self.size, expected)
         object.__setattr__(self, "size", size)
         folder = self.image.parent if self.folder is None else self.folder
-        if not _contains(folder, self.image):
+        if not isinstance(folder, Path) or not folder.is_absolute():
+            raise _invalid("texture", "folder", folder, "dossier absolu contenant l'image")
+        if not is_inside_folder(folder, self.image):
             raise _invalid("texture", "folder", folder, "dossier absolu contenant l'image")
         object.__setattr__(self, "folder", folder)
 
     @property
     def library_folder(self) -> Path:
-        """Dossier dont l'image ne doit pas sortir (``folder``, toujours renseigné)."""
-        return self.image.parent if self.folder is None else self.folder
+        """Dossier dont l'image ne doit pas sortir (``folder``, renseigné par ``__post_init__``)."""
+        return cast(Path, self.folder)
 
 
-def _contains(folder: object, image: Path) -> bool:
-    """Vrai si ``folder`` est un chemin absolu dont ``image`` est un descendant strict."""
-    if not isinstance(folder, Path) or not folder.is_absolute():
-        return False
-    return image != folder and image.is_relative_to(folder)
+def is_inside_folder(folder: Path, path: Path) -> bool:
+    """Vrai si ``path`` est un descendant strict de ``folder`` (chemins déjà résolus)."""
+    return path != folder and path.is_relative_to(folder)
 
 
 def _kind(value: object) -> MaterialKind | None:

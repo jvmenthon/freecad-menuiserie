@@ -181,10 +181,6 @@ class TextureCache:
         """Vrai si l'image de ``texture`` peut être affichée (contrôle du fichier puis décodage)."""
         return self.node(texture) is not None
 
-    def clear(self) -> None:
-        """Oublie toutes les images (elles seront relues et, si besoin, signalées à nouveau)."""
-        self._cache.clear()
-
     def _node_of(self, texture: Texture, opened: TextureFile) -> TextureNode | None:
         """Nœud mémorisé ou encore vivant du fichier ouvert, sinon décodé depuis ses octets."""
         if opened.key in self._cache:

@@ -20,7 +20,7 @@ from typing import Final
 
 from freecad.menuiserie.core.appearance import MAX_TEXTURE_FILE_BYTES
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.materials import Texture
+from freecad.menuiserie.core.materials import Texture, is_inside_folder
 
 __all__ = [
     "OUTSIDE_LIBRARY",
@@ -45,7 +45,7 @@ _OPEN_FLAGS: Final = (
 )
 
 UNUSABLE_FILE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "fichier absent, vide, illisible ou de plus de 16 Mio"
+    "Menuiserie", "fichier absent, vide, illisible ou de plus de {max} Mio"
 )
 OUTSIDE_LIBRARY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "fichier sorti du dossier de la bibliothèque"
@@ -61,6 +61,11 @@ class TextureRefusedError(Exception):
         self.params = dict(params or {})
 
 
+def _unusable() -> TextureRefusedError:
+    """Refus d'un fichier inutilisable, avec la taille maximale tirée de la constante."""
+    return TextureRefusedError(UNUSABLE_FILE, {"max": str(MAX_TEXTURE_FILE_BYTES // 2**20)})
+
+
 def confined_image(texture: Texture) -> Path:
     """Chemin de l'image, liens résolus, s'il reste dans le dossier de la bibliothèque.
 
@@ -71,22 +76,21 @@ def confined_image(texture: Texture) -> Path:
     try:
         image = texture.image.resolve(strict=True)
     except (OSError, RuntimeError, ValueError) as error:  # absent, boucle de liens, octet nul
-        raise TextureRefusedError(UNUSABLE_FILE) from error
-    folder = texture.library_folder
-    if image == folder or not image.is_relative_to(folder):
+        raise _unusable() from error
+    if not is_inside_folder(texture.library_folder, image):
         raise TextureRefusedError(OUTSIDE_LIBRARY)
     return image
 
 
 def _file_key(descriptor: int) -> FileKey:
-    """Identité du fichier ouvert s'il est ordinaire, non vide et d'au plus 16 Mio ;
-    ``TextureRefusedError`` sinon (dossier, tube, périphérique…)."""
+    """Identité du fichier ouvert s'il est ordinaire, non vide et pas plus gros que
+    ``MAX_TEXTURE_FILE_BYTES`` ; ``TextureRefusedError`` sinon (dossier, tube, périphérique…)."""
     try:
         status = os.fstat(descriptor)
     except OSError as error:
-        raise TextureRefusedError(UNUSABLE_FILE) from error
+        raise _unusable() from error
     if not stat.S_ISREG(status.st_mode) or not 0 < status.st_size <= MAX_TEXTURE_FILE_BYTES:
-        raise TextureRefusedError(UNUSABLE_FILE)
+        raise _unusable()
     return status.st_dev, status.st_ino, status.st_size, status.st_mtime_ns
 
 
@@ -103,7 +107,7 @@ class TextureFile:
         try:
             self._fd = os.open(image, _OPEN_FLAGS)
         except (OSError, ValueError) as error:  # lien substitué (O_NOFOLLOW), droits…
-            raise TextureRefusedError(UNUSABLE_FILE) from error
+            raise _unusable() from error
         try:
             self.key: FileKey = _file_key(self._fd)
         except TextureRefusedError:
@@ -112,7 +116,7 @@ class TextureFile:
 
     def read(self) -> bytes:
         """Contenu du fichier, lu au plus une fois ; ``TextureRefusedError`` s'il est devenu
-        vide ou plus gros que 16 Mio depuis l'ouverture."""
+        vide ou plus gros que ``MAX_TEXTURE_FILE_BYTES`` depuis l'ouverture."""
         data = bytearray()
         try:
             while len(data) <= MAX_TEXTURE_FILE_BYTES:
@@ -121,9 +125,9 @@ class TextureFile:
                     break
                 data += chunk
         except OSError as error:
-            raise TextureRefusedError(UNUSABLE_FILE) from error
+            raise _unusable() from error
         if not 0 < len(data) <= MAX_TEXTURE_FILE_BYTES:
-            raise TextureRefusedError(UNUSABLE_FILE)
+            raise _unusable()
         return bytes(data)
 
     def close(self) -> None:
