@@ -321,8 +321,12 @@ def create_wood_part(
 
 
 def is_wood_part(obj: object) -> bool:
-    """Vrai si ``obj`` est une pièce de bois de l'atelier."""
-    return isinstance(getattr(obj, "Proxy", None), WoodPart)
+    """Vrai si ``obj`` est une pièce de bois de l'atelier (faux pour un objet supprimé)."""
+    try:
+        proxy = getattr(obj, "Proxy", None)
+    except ReferenceError:  # objet FreeCAD supprimé du document
+        return False
+    return isinstance(proxy, WoodPart)
 
 
 def set_material(obj: DocumentObject, material_id: str) -> None:

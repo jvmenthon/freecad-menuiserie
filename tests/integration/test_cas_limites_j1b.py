@@ -501,11 +501,6 @@ def test_feature_python_etrangere_n_est_pas_une_piece(document: Any) -> None:
         wood_part.set_material(other, "chene")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=ReferenceError,
-    reason="D4 : is_wood_part lève ReferenceError sur un objet supprimé au lieu de renvoyer faux",
-)
 def test_is_wood_part_sur_un_objet_supprime(document: Any) -> None:
     obj = board(document)
     document.removeObject(obj.Name)
