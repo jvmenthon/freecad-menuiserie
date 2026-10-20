@@ -17,7 +17,10 @@ def quoted_value(value: object) -> str:
     """Valeur fournie par un fichier, raccourcie et échappée pour être citée dans un message.
 
     Au plus ``MAX_QUOTED_LENGTH`` caractères (suivis de « … » si elle est tronquée) ; les
-    caractères non imprimables sont échappés (``\\n``, ``\\u202e``…). Ne lève jamais d'exception.
+    caractères non imprimables sont échappés (``\\n``, ``\\u202e``…). Une valeur qui n'est pas
+    un texte est citée par ``repr()`` : seule ``ValueError`` y est rattrapée (entier trop long
+    pour être converti en texte, cité « ? ») ; une autre exception levée par un ``__repr__``
+    se propage.
     """
     if isinstance(value, str):
         text = value

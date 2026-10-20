@@ -8,7 +8,7 @@ anomalies sont écrites dans la vue rapport, traduites, à chaque lecture.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable
 from functools import cache
 from pathlib import Path
 from typing import Final
@@ -16,7 +16,6 @@ from typing import Final
 import FreeCAD as App
 
 from freecad.menuiserie import DATA_DIR
-from freecad.menuiserie.core.i18n import CONTEXT
 from freecad.menuiserie.core.materials import (
     BUILTIN_SOURCE,
     LibraryIssue,
@@ -24,18 +23,13 @@ from freecad.menuiserie.core.materials import (
     Severity,
     load_library,
 )
+from freecad.menuiserie.features.i18n import translated
 
 PARAM_PATH: Final = "User parameter:BaseApp/Preferences/Mod/Menuiserie"
 USER_LIBRARY_PARAM: Final = "UserLibraryPath"
 USER_LIBRARY_FOLDER: Final = "Menuiserie"
 LIBRARY_FILE_NAME: Final = "materiaux.json"
 _DISPLAY_LANGUAGE: Final = "fr"
-
-
-def translated(template: str, params: Mapping[str, str] | None = None) -> str:
-    """Gabarit français traduit (contexte « Menuiserie »), puis rempli avec ``params``."""
-    text: str = App.Qt.translate(CONTEXT, template)
-    return text.format_map(params or {})
 
 
 def builtin_library_path() -> Path:

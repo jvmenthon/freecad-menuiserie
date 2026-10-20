@@ -12,15 +12,14 @@ from typing import Any, Final
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
 from freecad.menuiserie.features.library import get_library
 
-DocumentObject = Any  # objets FreeCAD, sans annotations de type
 ViewObject = Any
 Color = tuple[float, ...]
 
 ICON: Final = "Menuiserie_WoodPart.svg"
 MATERIAL_COLOR: Final = "MaterialColor"
-_HIDDEN: Final = 2
 _COLOR_SCALE: Final = 255
 # Gris clair des formes de FreeCAD : couleur initiale si l'apparence ne fournit aucun matériau.
 _FALLBACK_DIFFUSE: Final = (0.8, 0.8, 0.8)
@@ -93,7 +92,7 @@ def _ensure_material_color(vobj: ViewObject) -> None:
         return
     diffuse = _diffuse_color(vobj)
     vobj.addProperty("App::PropertyColor", MATERIAL_COLOR, "Matériau", _MATERIAL_COLOR_TOOLTIP)
-    vobj.setEditorMode(MATERIAL_COLOR, _HIDDEN)
+    vobj.setEditorMode(MATERIAL_COLOR, HIDDEN)
     vobj.MaterialColor = _from_bytes(_to_bytes(diffuse))
 
 

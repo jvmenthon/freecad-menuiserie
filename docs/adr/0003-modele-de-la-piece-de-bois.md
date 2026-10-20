@@ -2,7 +2,8 @@
 
 - Statut : accepté (spécification J1 validée par jv le 2026-10-19)
 - Date : 2026-10-19 ; complété le 2026-10-20 (propriété de vue `MaterialColor`, cf. ADR 0004 ;
-  `Version` plus récente ou d'un type inattendu)
+  `Version` plus récente ou d'un type inattendu ; type de chaque propriété contrôlé, valeurs
+  inconnues d'un document plus récent gardées, issue #11)
 - Spécification : [docs/specs/J1-piece-de-bois.md](../specs/J1-piece-de-bois.md)
 
 ## Contexte
@@ -40,6 +41,17 @@ une pièce créée depuis la console de l'interface doit avoir son icône et sa 
    - une `Version` supérieure à celle de l'atelier n'est ni migrée ni rétrogradée : un
      avertissement signale un document créé par une version plus récente de l'atelier ; une
      `Version` d'un type inattendu est traitée comme 0 (propriété recréée), avec avertissement ;
+   - toute autre propriété d'un type inattendu (par exemple `Category` en `App::PropertyString`)
+     est supprimée avec un avertissement citant son type et sa valeur, puis recréée par la
+     migration avec sa valeur par défaut, quelle que soit la `Version` (qui reste inchangée si
+     elle est à jour ou plus récente) ;
+   - une valeur d'énumération inconnue est remplacée (catégorie du matériau, fil par défaut),
+     avec avertissement, sauf dans un document d'une `Version` plus récente : elle y est gardée
+     telle quelle, avec la liste du fichier, et signalée, car la remplacer la ferait perdre à
+     l'enregistrement. Limite : l'atelier ne sait pas l'interpréter ; tant qu'il n'est
+     pas mis à jour, `record_of` et `set_material` lèvent `KeyError` sur cette pièce, et le
+     choix d'un matériau dans la liste n'est pas recopié (`MaterialId` inchangé, libellé rétabli
+     à la réouverture). Une valeur connue retrouve toujours la liste canonique ;
    - les propriétés de vue de l'atelier (`MaterialColor`, couleur du matériau enregistrée au
      choix du matériau) obéissent aux mêmes règles de nommage ; le ViewProvider n'a pas de
      `Version` : une propriété de vue absente à la réouverture est recréée dans `finishRestoring`.

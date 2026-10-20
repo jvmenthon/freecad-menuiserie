@@ -33,5 +33,15 @@ def test_quoted_value_entier_trop_long() -> None:
     assert text.quoted_value(10**5000) == "?"
 
 
+class _BrokenRepr:
+    def __repr__(self) -> str:
+        raise RuntimeError("repr")
+
+
+def test_quoted_value_ne_rattrape_que_value_error() -> None:
+    with pytest.raises(RuntimeError):
+        text.quoted_value(_BrokenRepr())
+
+
 def test_api_publique() -> None:
     assert text.__all__ == ["MAX_QUOTED_LENGTH", "quoted_value"]

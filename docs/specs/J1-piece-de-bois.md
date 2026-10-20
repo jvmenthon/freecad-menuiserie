@@ -130,15 +130,20 @@ freecad/menuiserie/
 ├── api.py                         J1b  façade publique pour scripts et console
 ├── core/
 │   ├── i18n.py                    J1a  marqueur QT_TRANSLATE_NOOP pur Python
-│   ├── _validation.py             J1b  aides privées partagées (nombres, citations, NFC, bornes de cotes)
+│   ├── _validation.py             J1b  aides privées partagées (nombres, NFC, bornes de cotes)
+│   ├── text.py                    J1b  citation sûre d'un texte lu dans un fichier (quoted_value)
 │   ├── materials/                 J1a, découpé en J1b (§ 4.2.2) : façade + modules privés
 │   ├── part_model.py              J1a  Dimensions, Allowances, GrainDirection, PartRecord, calculs, règles
 │   └── appearance.py              J1d  couleur / texture d'une pièce, projection de la texture
 ├── data/
 │   └── materiaux.json             J1a  bibliothèque intégrée (format 1) ; textures : PR #8
 ├── features/
+│   ├── freecad_types.py           #11  alias DocumentObject / Document, modes d'édition partagés
+│   ├── i18n.py                    #11  translated() : gabarits traduits (App.Qt.translate)
 │   ├── library.py                 J1b  accès à la bibliothèque depuis FreeCAD (chemins, cache, journal)
 │   ├── wood_part.py               J1b  proxy WoodPart (Part::FeaturePython) + fonctions utilitaires
+│   ├── wood_part_schema.py        #11  propriétés, énumérations, valeurs par défaut, modes d'édition
+│   ├── wood_part_restore.py       #11  contrôles de la réouverture, avertissements, matériau de migration
 │   └── appearance.py              J1d  apparence d'une pièce d'après la bibliothèque locale
 ├── gui/
 │   ├── view_providers/wood_part.py J1b icône, couleur ; J1c : édition (double-clic) ; J1d : texture
@@ -512,10 +517,18 @@ def get_library() -> (
 ): ...  # chargée au premier appel, anomalies journalisées une fois
 def reload_library() -> MaterialLibrary: ...
 def display_language() -> str: ...  # "fr" en J1 (choix de la langue : J5)
+def issue_message(issue: LibraryIssue) -> str: ...  # message traduit, source « intégrée » comprise
+def report_issues(issues: Iterable[LibraryIssue]) -> None: ...  # vue rapport, selon la gravité
 ```
 
-Journalisation : `ERROR` → `App.Console.PrintError`, `WARNING` → `PrintWarning`,
-`INFO` → `PrintLog` ; messages traduits via `translate("Menuiserie", issue.template)`.
+Journalisation (`report_issues`) : `ERROR` → `App.Console.PrintError`, `WARNING` →
+`PrintWarning`, `INFO` → `PrintLog` ; messages traduits par `issue_message`, qui traduit le
+gabarit puis le remplit avec `translated` (`features/i18n.py`, issue #11) :
+
+```python
+# App.Qt.translate("Menuiserie", template).format_map(params or {}) : disponible sans interface
+def translated(template: str, params: Mapping[str, str] | None = None) -> str: ...
+```
 
 Le cache de session est explicite et réinitialisable (`reload_library()`), conformément à
 CONTRIBUTING (pas d'autre état global). Tests d'intégration : une fixture `bibliotheque_temporaire`
@@ -550,7 +563,9 @@ Nom interne : `WoodPart`.
 
 Ordre des valeurs des énumérations figé ; on ne peut qu'**ajouter** des valeurs en fin de liste
 (ADR 0003). `Density` est stockée en unités internes FreeCAD (kg/mm³) : conversion par
-`Quantity(f"{d} kg/m^3")` et `getValueAs("kg/m^3")`, uniquement dans `features/`.
+`Quantity(f"{d} kg/m^3")` et `getValueAs("kg/m^3")`, uniquement dans `features/`. Relue,
+elle est arrondie à 6 décimales (`DENSITY_DECIMALS`) : l'aller-retour par les kg/mm³ donnerait
+709,9999999999999 pour 710 (issue #11).
 
 #### 4.4.3 `features/wood_part.py`
 
@@ -567,6 +582,7 @@ class WoodPart:
     def execute(self, obj: DocumentObject) -> None: ...
     def dumps(self) -> None: ...
     def loads(self, state: object) -> None: ...
+    def select_material(self, obj: DocumentObject, material: Material) -> None: ...
 
 
 def create_wood_part(
@@ -588,6 +604,12 @@ def allowances_of(obj: DocumentObject) -> Allowances: ...
 def record_of(obj: DocumentObject) -> PartRecord: ...  # entrée de J2
 ```
 
+Découpage (issue #11) : `wood_part.py` garde le proxy et ces fonctions publiques, et ré-exporte
+`CATEGORIES`, `GRAIN_DIRECTIONS` et `CATEGORY_BY_KIND` ; `wood_part_schema.py` décrit les
+propriétés (spécifications, énumérations, valeurs par défaut, ajout des propriétés manquantes,
+modes d'édition) ; `wood_part_restore.py` porte les contrôles de la réouverture, leurs
+avertissements et le matériau de la migration (`stored_material`, d'après `MaterialId`).
+
 Comportement :
 
 - **`execute`** : construit `Dimensions` depuis les trois cotes (en cas d'`InvalidDimensionsError`,
@@ -595,20 +617,30 @@ Comportement :
   `Part.makeBox(length, width, thickness)` ; **sauvegarde et réapplique `obj.Placement`** autour de
   l'affectation de `obj.Shape` (sinon FreeCAD remet le placement de la forme). Aucune lecture de la
   bibliothèque, aucune écriture d'autre propriété.
-- **`onChanged("Material")`**, hors restauration (`"Restore" in obj.State`) et hors
-  resynchronisation interne (drapeau de réentrance, lu avec `getattr(self, "_syncing", False)`
-  car `__init__` n'est pas rappelé à la réouverture) : retrouve le matériau par libellé, met à jour
-  `MaterialId`, `Category`, `Density`, puis `GrainDirection` et les surcotes selon les règles
-  `core` (critère A7). Les cotes ne sont **jamais** modifiées automatiquement.
+- **`onChanged("Material")`**, hors restauration (`"Restore" in obj.State`), hors annulation ou
+  rétablissement (`obj.Document.Transacting` : les autres propriétés sont restaurées par la
+  transaction elle-même) et hors resynchronisation interne (drapeau de réentrance, lu avec
+  `getattr(self, "_syncing", False)` car `__init__` n'est pas rappelé à la réouverture) :
+  retrouve le matériau par libellé et le passe à **`select_material`**, qui met à jour la liste
+  et la valeur de `Material`, puis `MaterialId`, `Category`, `Density`, `GrainDirection` et les
+  surcotes selon les règles `core` (critère A7). `create_wood_part` et `set_material` passent
+  aussi par `select_material`. Les cotes ne sont **jamais** modifiées automatiquement.
 - **`onDocumentRestored`** : d'abord la `Version` : d'un type autre que `App::PropertyInteger`,
   elle est supprimée et traitée comme 0 (avertissement) ; supérieure à `VERSION`, elle est gardée
   avec un avertissement « document créé par une version plus récente de l'atelier » (ADR 0003).
+  Puis le **type** de chaque autre propriété (issue #11) : d'un type autre que celui du tableau
+  du § 4.4.2, elle est supprimée avec un avertissement (type et valeur cités par
+  `quoted_value`), puis recréée par la migration, quelle que soit la `Version`.
   Puis les listes **canoniques** de `Category` et `GrainDirection`
   (celles du fichier sont des données externes) ; une valeur hors liste devient la catégorie du
   matériau de la pièce (`Solid` s'il est inconnu localement) et le fil par défaut, avec un
-  avertissement où la valeur est citée tronquée et échappée. Ensuite migration
-  (`_migrate(obj, from_version)`, où une `Version` absente vaut
-  0 : ajout des propriétés manquantes avec leurs défauts, puis `Version = VERSION`). Les défauts
+  avertissement où la valeur est citée tronquée et échappée ; dans un document d'une `Version`
+  plus récente, elle est au contraire gardée avec la liste du fichier (avertissement), pour ne
+  pas être perdue à l'enregistrement (limites : ADR 0003). Ensuite migration
+  (`_migrate(obj, library, from_version, *, repair)`, où une `Version` absente vaut
+  0 : ajout des propriétés manquantes avec leurs défauts, puis `Version = VERSION` ; `repair`
+  recrée de même les propriétés supprimées pour leur type, sans changer la `Version`). La
+  bibliothèque est lue une fois par réouverture. Les défauts
   suivent le matériau de la pièce (`MaterialId`), ou le matériau par défaut s'il est inconnu
   localement ; catégorie, fil et surcotes suivent la catégorie de la pièce si elle existe. Avec
   une bibliothèque vide, la migration aboutit quand même : catégorie `Solid` si elle manque, fil
