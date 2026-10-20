@@ -1,7 +1,7 @@
 # ADR 0003 — Modèle de la pièce de bois : repère local, sens du fil et contrat de persistance
 
-- Statut : proposé (à valider par jv avec la spécification J1)
-- Date : 2026-10-19
+- Statut : accepté (spécification J1 validée par jv le 2026-10-19)
+- Date : 2026-10-19 ; complété le 2026-10-20 (propriété de vue `MaterialColor`, cf. ADR 0004)
 - Spécification : [docs/specs/J1-piece-de-bois.md](../specs/J1-piece-de-bois.md)
 
 ## Contexte
@@ -35,7 +35,10 @@ une pièce créée depuis la console de l'interface doit avoir son icône et sa 
    - proxies sans état (`dumps()` renvoie `None`), tout l'état est dans des propriétés typées ;
    - propriété masquée `Version` (1 au départ) ; `onDocumentRestored` applique `_migrate` pour
      toute version inférieure (une `Version` absente vaut 0) ; chaque migration a son test de
-     réouverture.
+     réouverture ;
+   - les propriétés de vue de l'atelier (`MaterialColor`, couleur du matériau enregistrée au
+     choix du matériau) obéissent aux mêmes règles de nommage ; le ViewProvider n'a pas de
+     `Version` : une propriété de vue absente à la réouverture est recréée dans `finishRestoring`.
 6. **`execute()` déterministe** : il ne lit que les trois cotes ; la synchronisation du matériau
    (identifiant, catégorie, densité, fil, surcotes) se fait dans `onChanged`, hors restauration.
 7. **Façade `freecad/menuiserie/api.py`** : `make_wood_part()` crée l'objet via `features/` puis
