@@ -211,8 +211,11 @@ def part_kind(obj: DocumentObject, material: Material | None) -> MaterialKind:
     """Famille de la pièce : sa catégorie si elle est connue (une valeur d'une version plus
     récente est gardée telle quelle), sinon celle de ``material``, sinon le massif."""
     kind = KIND_BY_CATEGORY.get(obj.Category) if "Category" in obj.PropertiesList else None
-    if kind is not None:
-        return kind
+    return kind if kind is not None else material_kind(material)
+
+
+def material_kind(material: Material | None) -> MaterialKind:
+    """Famille de ``material`` ; le massif sans matériau (bibliothèque vide, matériau inconnu)."""
     return material.kind if material is not None else MaterialKind.SOLID
 
 

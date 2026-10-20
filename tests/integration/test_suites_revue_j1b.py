@@ -14,6 +14,9 @@ pytestmark = pytest.mark.integration
 App = pytest.importorskip("FreeCAD")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 library = pytest.importorskip("freecad.menuiserie.features.library")
+restore = pytest.importorskip("freecad.menuiserie.features.wood_part_restore")
+schema = pytest.importorskip("freecad.menuiserie.features.wood_part_schema")
+materials = pytest.importorskip("freecad.menuiserie.core.materials")
 
 Reopen = Callable[[Any], Any]
 HOSTILE = "\n‮" + "x" * 40
@@ -174,3 +177,28 @@ def test_masse_volumique_exacte_apres_reouverture(
     assert wood_part.record_of(obj).density == expected
     restored = rouvrir(document).getObject(name)
     assert wood_part.record_of(restored).density == expected
+
+
+# --- Matériau de la pièce d'après MaterialId : une seule aide -----------------------------
+
+
+def test_materiau_enregistre_d_apres_son_identifiant(document: Any) -> None:
+    obj = board(document, "mdf")
+    current = library.get_library()
+    assert restore.stored_material(obj, current) is current.get("mdf")
+    obj.MaterialId = "disparu"
+    assert restore.stored_material(obj, current) is None
+    assert restore.migration_material(obj, current) is current.default_material()
+    obj.removeProperty("MaterialId")
+    assert restore.stored_material(obj, current) is None
+    assert restore.stored_material(obj, materials.MaterialLibrary(())) is None
+
+
+def test_famille_par_defaut_partagee(document: Any) -> None:
+    current = library.get_library()
+    assert schema.material_kind(current.get("mdf")) is materials.MaterialKind.MDF
+    assert schema.material_kind(None) is materials.MaterialKind.SOLID
+    obj = board(document, "mdf")
+    obj.removeProperty("Category")
+    assert schema.part_kind(obj, None) is materials.MaterialKind.SOLID
+    assert schema.part_kind(obj, current.get("cp-bouleau")) is materials.MaterialKind.PLYWOOD

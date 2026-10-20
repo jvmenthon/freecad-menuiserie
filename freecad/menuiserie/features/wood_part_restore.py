@@ -14,7 +14,7 @@ from typing import Any, Final
 import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.materials import Material, MaterialKind, MaterialLibrary
+from freecad.menuiserie.core.materials import Material, MaterialLibrary
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.library import display_language, translated
 from freecad.menuiserie.features.wood_part_schema import (
@@ -25,6 +25,7 @@ from freecad.menuiserie.features.wood_part_schema import (
     TYPE_BY_NAME,
     default_grain,
     material_choices,
+    material_kind,
     part_kind,
     select_label,
 )
@@ -68,11 +69,17 @@ _MISSING_MATERIAL: Final = QT_TRANSLATE_NOOP(
 )
 
 
+def stored_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
+    """Matériau de la bibliothèque désigné par ``MaterialId`` ; ``None`` si la propriété manque
+    ou si le matériau est inconnu localement."""
+    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
+    return library.find(material_id)
+
+
 def migration_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
     """Matériau de la pièce d'après ``MaterialId`` ; s'il est absent ou inconnu localement, le
     matériau par défaut de la bibliothèque ; ``None`` si la bibliothèque est vide."""
-    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
-    material = library.find(material_id)
+    material = stored_material(obj, library)
     if material is None and len(library):
         material = library.default_material()
     return material
@@ -81,7 +88,7 @@ def migration_material(obj: DocumentObject, library: MaterialLibrary) -> Materia
 def restore_material_choices(obj: DocumentObject, library: MaterialLibrary) -> None:
     """Liste ``Material`` de la bibliothèque locale ; un matériau inconnu localement garde son
     libellé enregistré (ajouté à la liste) et ses valeurs, avec un avertissement."""
-    material = library.find(obj.MaterialId)
+    material = stored_material(obj, library)
     if material is None:
         label = obj.Material
         warn(obj, _MISSING_MATERIAL, id=obj.MaterialId)
@@ -107,10 +114,9 @@ def restore_enumerations(
 
     ``keep_unknown`` (document d'une version plus récente) : une valeur inconnue est gardée,
     avec la liste du fichier qui la contient, pour ne pas être perdue à l'enregistrement."""
-    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
-    material = library.find(material_id)
-    kind = material.kind if material is not None else MaterialKind.SOLID
-    _restore_enumeration(obj, "Category", CATEGORIES, CATEGORY_BY_KIND[kind], keep_unknown)
+    material = stored_material(obj, library)
+    fallback = CATEGORY_BY_KIND[material_kind(material)]
+    _restore_enumeration(obj, "Category", CATEGORIES, fallback, keep_unknown)
     grain = default_grain(part_kind(obj, material), material)
     _restore_enumeration(obj, "GrainDirection", GRAIN_DIRECTIONS, grain.value, keep_unknown)
 
