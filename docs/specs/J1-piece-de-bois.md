@@ -189,6 +189,7 @@ MAX_DIMENSION_MM: Final = 20_000.0
 
 def to_finite_float(value: object) -> float | None: ...  # nombre fini non booléen, sinon None
 def bounded_float(value: object, minimum: float, maximum: float) -> float | None: ...
+def decimal_text(number: float) -> str: ...  # « 0,1 », « 300 » : bornes citées dans les messages
 def quoted_value(value: object) -> str: ...  # citation tronquée et échappée
 def nfc(text: str) -> str: ...
 def has_forbidden_character(text: str) -> bool: ...  # catégories Cc, Cf, Cs, Co, Cn, Zl, Zp
@@ -205,26 +206,37 @@ côté du modèle (`core/materials/_model.py`). La lecture JSON la transforme en
 écrites qu'une fois et `pylint duplicate-code` reste vert. La lecture JSON convertit d'abord
 `"#RRGGBB"` en triplet, puis applique la même règle que le constructeur.
 
+Livré en J1b : `normalized_id`, `normalized_label`, `normalized_names`, `normalized_density`,
+`normalized_thicknesses`, `normalized_color`, `normalized_texture_size` et `is_language_code`.
+Le constructeur de `Material` les applique dans l'ordre des champs ; `kind` doit être une
+instance de `MaterialKind`, `has_grain` un booléen, `texture` une `Texture` ou `None`. Message :
+`matériau « chene », champ « density » : nombre fini entre 50 et 2000 kg/m³ attendu, reçu « 0 »`
+(non traduit : erreur de programmation, jamais montrée pour un fichier de bibliothèque).
+
 #### 4.2.2 `core/materials/` (paquet ; découpage décidé en J1b)
 
 `materials.py` (≈ 1 100 lignes) devient un paquet dont `__init__.py` est une **façade** : il
 ré-exporte l'API publique ci-dessous (`__all__` explicite, exigé par `mypy --strict`) et ne contient
 aucune logique. Le chemin d'import `freecad.menuiserie.core.materials` ne change pas ; les
-sous-modules sont privés (préfixe `_`) et ne sont importés que par la façade et entre eux.
+sous-modules sont privés (préfixe `_`) et ne sont importés que par la façade et entre eux ; les
+noms qu'ils partagent n'ont pas de préfixe `_` (critère R3 : aucun module n'importe un nom privé).
 
 | Module | Contenu | Taille visée |
 |---|---|---|
 | `__init__.py` | façade, `__all__` | ≈ 50 |
 | `_messages.py` | tous les gabarits `QT_TRANSLATE_NOOP` des anomalies et `BUILTIN_SOURCE` | ≈ 170 |
-| `_model.py` | bornes (`MAX_THICKNESS_MM`…), `MaterialKind`, `Texture`, `Material` (validation R1), `MaterialLibrary`, `UnknownMaterialError`, fonctions `normalized_*` | ≈ 280 |
+| `_model.py` | bornes (`MAX_THICKNESS_MM`…), `MaterialKind`, `Texture`, `Material` (validation R1), `MaterialLibrary`, `UnknownMaterialError`, fonctions `normalized_*` | ≈ 300 |
 | `_issues.py` | `Severity`, `LibraryIssue`, `LibraryFormatError`, création et plafonnement des anomalies | ≈ 110 |
-| `_parser.py` | validation d'un document JSON décodé : `_JsonObject` (clés en double), `_Entry`, `_parse_*`, `parse_materials` | ≈ 330 |
+| `_entry.py` | entrée brute en cours de validation (`Entry`), objets JSON à clés en double (`JsonObject`, `json_object`, `duplicated_field`) | ≈ 125 |
+| `_parser.py` | validation d'un document JSON décodé : racine, `_parse_*`, `parse_materials` | ≈ 350 |
 | `_reader.py` | lecture sûre d'un fichier (descripteur unique, `fstat`, lecture bornée), décodage JSON, `read_materials_file` | ≈ 130 |
 | `_merge.py` | `merge_materials`, `load_library` | ≈ 150 |
 
 Dépendances sans cycle : `_model` n'importe que `core._validation` ; `_issues` importe
-`_messages` ; `_parser` importe `_model`, `_issues`, `_messages` ; `_reader` importe `_parser` ;
-`_merge` importe `_reader` (pour `load_library`) et les précédents.
+`_messages` ; `_entry` importe `_issues` et `_messages` ; `_parser` importe `_entry`, `_model`,
+`_issues`, `_messages` ; `_reader` importe `_entry` (`object_pairs_hook`) et `_parser` ; `_merge`
+importe `_reader` (pour `load_library`) et les précédents. `_entry` a été ajouté au découpage
+initial à la livraison de J1b : sans lui, `_parser.py` dépassait 400 lignes (critère R4).
 Commit de pur déplacement d'abord (relu avec `git diff --color-moved=dimmed-zebra`), puis
 commits R1 et R2. Ce découpage est interne et réversible : pas d'ADR.
 

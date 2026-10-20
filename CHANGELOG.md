@@ -15,7 +15,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   Actions épinglées par SHA et tenues à jour par Dependabot.
 - Définition des agents architecte, dev, testeur, sécurité et reviewer.
 - ADR 0001 : structure de l'atelier.
-- Bibliothèque de matériaux (`core/materials.py`, J1a) : lecture sûre des fichiers JSON
+- Bibliothèque de matériaux (`core/materials/`, J1a) : lecture sûre des fichiers JSON
   (format 1, 1 Mio maximum, `NaN`/`Infinity` refusés, BOM UTF-8 toléré), validation de chaque
   entrée avec anomalies traduisibles, fusion du fichier utilisateur par identifiant, indépendante
   de l'ordre des remplacements ; libellés normalisés en NFC ; `Material` et `LibraryIssue`
@@ -31,6 +31,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Jeu d'icônes SVG 64 px pour l'atelier et les commandes prévues (pièce de bois, panneau,
   essences, liste de débit et export, assemblages, caisson), produit par
   `tools/generer_icones.py`.
+
+### Modifié
+- Bibliothèque de matériaux découpée en paquet `core/materials/` : façade à l'API publique figée
+  (`__all__`) et modules privés (messages, modèle, anomalies, entrée, analyse, lecture, fusion) ;
+  aides de validation partagées dans `core/_validation.py`, qui ne sont plus exposées par
+  `core.materials` (`quoted_value`, `to_finite_float`).
+- `Material(...)` et `Texture(...)` valident et normalisent tous leurs champs à la construction,
+  avec les bornes de la lecture JSON (`ValueError` citant le champ).
+- Épaisseur standard minimale d'un matériau : 0,1 mm (au lieu de « supérieure à 0 »), la plus
+  petite cote d'une pièce : une bibliothèque qui déclare une épaisseur plus fine voit l'entrée
+  rejetée.
 
 ### Sécurité
 - Bibliothèque de matériaux : lecture par un seul descripteur (`os.open` non bloquant, `fstat`,
