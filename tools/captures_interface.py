@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Captures d'écran de l'atelier pour les PR : vue 3D et fenêtre complète de FreeCAD.
+"""Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète et gros plan texture.
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
 l'atelier étant installé dans le dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -12,25 +12,96 @@ hors écran sort blanche ou tronquée.
 
 Les images PNG sont écrites dans le dossier ``CAPTURES`` ; le fichier ``CAPTURES/OK`` signale
 la réussite (la sortie standard est captée par la console de FreeCAD).
+
+La scène utilise une bibliothèque utilisateur temporaire (paramètre ``UserLibraryPath``, rétabli
+à la fin) qui ajoute un chêne muni d'une texture de test produite par le script : un quadrillage
+tous les 100 mm, veiné dans le sens du fil (la largeur de l'image) et marqué « fil → ». Les
+carreaux doivent mesurer 100 mm sur toutes les pièces, quelles que soient leurs cotes.
 """
 
+import json
 import os
 import tempfile
 import traceback
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import FreeCAD as App
 import FreeCADGui as Gui
 
+QUADRILLE = "chene-quadrille"
 # (longueur, largeur, épaisseur, matériau, repère, position en mm) : un petit caisson.
 PIECES = (
-    (800.0, 400.0, 22.0, "chene", "Dessus", (0.0, 0.0, 600.0)),
-    (600.0, 400.0, 22.0, "chene", "Côté gauche", (22.0, 0.0, 0.0)),
-    (600.0, 400.0, 22.0, "chene", "Côté droit", (800.0, 0.0, 0.0)),
+    (800.0, 400.0, 22.0, QUADRILLE, "Dessus", (0.0, 0.0, 600.0)),
+    (600.0, 400.0, 22.0, QUADRILLE, "Côté gauche", (22.0, 0.0, 0.0)),
+    (600.0, 400.0, 22.0, QUADRILLE, "Côté droit", (800.0, 0.0, 0.0)),
     (756.0, 380.0, 19.0, "mdf", "Étagère", (22.0, 10.0, 280.0)),
     (756.0, 580.0, 8.0, "cp-bouleau", "Fond", (22.0, 400.0, 0.0)),
 )
+# Gros plan : deux planches de 800 sur 200 mm, fil en long puis en travers (décalage en Y).
+PLANCHES = (("Length", 0.0), ("Width", 300.0))
 TAILLE = (1600, 1000)
+TEXTURE_MM = (600, 200)  # largeur (sens du fil) et hauteur couvertes par l'image
+PIXELS_PAR_MM = 2
+PAS_MM = 100
+PARAMETRES = "User parameter:BaseApp/Preferences/Mod/Menuiserie"
+
+
+def dessiner_quadrillage(chemin: Path) -> None:
+    """Image de test : fond bois, veinage dans le sens de la largeur, quadrillage tous les
+    100 mm et mention « fil → » dans le premier carreau."""
+    from PySide import QtCore, QtGui
+
+    largeur, hauteur = (cote * PIXELS_PAR_MM for cote in TEXTURE_MM)
+    pas = PAS_MM * PIXELS_PAR_MM
+    image = QtGui.QImage(largeur, hauteur, QtGui.QImage.Format.Format_RGB888)
+    image.fill(QtGui.QColor("#E3C595"))
+    peintre = QtGui.QPainter(image)
+    peintre.setPen(QtGui.QPen(QtGui.QColor("#B98A57"), 2))
+    for y in range(6, hauteur, 14):
+        peintre.drawLine(0, y, largeur, y)
+    peintre.setPen(QtGui.QPen(QtGui.QColor("#4A2C14"), 6))
+    for x in range(0, largeur + 1, pas):
+        peintre.drawLine(x, 0, x, hauteur)
+    for y in range(0, hauteur + 1, pas):
+        peintre.drawLine(0, y, largeur, y)
+    peintre.setFont(QtGui.QFont("Sans", 36, QtGui.QFont.Weight.Bold))
+    peintre.drawText(QtCore.QRect(0, 0, pas, pas), QtCore.Qt.AlignmentFlag.AlignCenter, "fil →")
+    peintre.end()
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    if not image.save(str(chemin), "PNG"):
+        raise OSError(f"image non écrite : {chemin}")
+
+
+@contextmanager
+def bibliotheque_de_captures() -> Iterator[None]:
+    """Bibliothèque utilisateur temporaire avec le chêne quadrillé ; rétablie à la fin."""
+    from freecad.menuiserie.features.library import USER_LIBRARY_PARAM, reload_library
+
+    parametres = App.ParamGet(PARAMETRES)
+    precedent = parametres.GetString(USER_LIBRARY_PARAM, "")
+    with tempfile.TemporaryDirectory() as dossier:
+        fichier = Path(dossier) / "materiaux.json"
+        dessiner_quadrillage(fichier.parent / "textures" / "quadrillage.png")
+        quadrille = {
+            "id": QUADRILLE,
+            "kind": "solid",
+            "name": "Chêne quadrillé (texture de test)",
+            "density": 710,
+            "thicknesses": [22],
+            "color": "#B8875A",
+            "texture": {"image": "textures/quadrillage.png", "size": list(TEXTURE_MM)},
+        }
+        contenu = {"format": 1, "materials": [quadrille]}
+        fichier.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
+        parametres.SetString(USER_LIBRARY_PARAM, str(fichier))
+        try:
+            reload_library()
+            yield
+        finally:
+            parametres.SetString(USER_LIBRARY_PARAM, precedent)
+            reload_library()
 
 
 def construire() -> None:
@@ -64,6 +135,32 @@ def afficher_la_vue_du_document(nom_document: str) -> None:
         if fenetre.windowTitle().startswith(nom_document):
             zone.setActiveSubWindow(fenetre)
     Gui.updateGui()
+
+
+def construire_gros_plan() -> None:
+    """Document « Texture » : deux planches quadrillées, fil en long puis en travers."""
+    from freecad.menuiserie import api
+
+    doc = App.newDocument("Texture")
+    for fil, y in PLANCHES:
+        planche = api.make_wood_part(800.0, 200.0, 22.0, QUADRILLE, mark=f"Fil {fil}", doc=doc)
+        planche.Label = f"Fil {fil}"
+        planche.GrainDirection = fil
+        planche.Placement.Base = App.Vector(0.0, y, 0.0)
+    doc.recompute()
+    afficher_la_vue_du_document(doc.Name)
+    Gui.Selection.clearSelection()
+
+
+def capturer_gros_plan(dossier: Path) -> None:
+    """Vue isométrique rapprochée des deux planches (texture et arêtes)."""
+    vue = Gui.ActiveDocument.ActiveView
+    vue.setCameraType("Orthographic")
+    vue.viewIsometric()
+    Gui.updateGui()
+    vue.fitAll()
+    Gui.updateGui()
+    vue.saveImage(str(dossier / "texture.png"), TAILLE[0], TAILLE[1], "White")
 
 
 def capturer(dossier: Path) -> None:
@@ -107,8 +204,11 @@ def main() -> None:
     dossier.mkdir(parents=True, exist_ok=True)
     try:
         Gui.activateWorkbench("MenuiserieWorkbench")
-        construire()
-        capturer(dossier)
+        with bibliotheque_de_captures():
+            construire()
+            capturer(dossier)
+            construire_gros_plan()
+            capturer_gros_plan(dossier)
         (dossier / "OK").write_text("OK\n", encoding="utf-8")
     except Exception:
         (dossier / "ERREUR").write_text(traceback.format_exc(), encoding="utf-8")
