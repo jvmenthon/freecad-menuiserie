@@ -1097,7 +1097,9 @@ rendu réaliste.
   `reload_library()` (pris en compte au prochain changement de matériau ou à la réouverture),
   textures dans TechDraw et les exports, couleur choisie à la main sur une pièce (la couleur
   diffuse appartient au ViewProvider), textures natives de FreeCAD. Les textures intégrées
-  elles-mêmes arrivent par la PR #8.
+  elles-mêmes arrivent par la PR #8. Une pièce texturée garde le blanc de base dans
+  `ShapeAppearance`, donc paraît blanche sans l'atelier ou dans un export : obtenir ce blanc dans
+  les nœuds Coin de l'atelier n'est pas faisable proprement en 1.0 et 1.1 (ADR 0004, § Limites).
 
 ## 8. Questions ouvertes pour jv
 
