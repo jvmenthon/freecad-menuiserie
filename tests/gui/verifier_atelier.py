@@ -29,6 +29,7 @@ BEECH_RGB = (217, 180, 138)
 WALNUT_RGB = (107, 74, 51)
 OLD_DIFFUSE_RGB = (10, 120, 200)
 MAPLE_RGB = (232, 210, 168)
+FALLBACK_RGB = (204, 204, 204)
 
 
 def verifier_atelier() -> list[str]:
@@ -233,6 +234,44 @@ def verifier_materiau_inconnu_et_documents_multiples() -> list[str]:
     return problemes
 
 
+class VueSansApparence:
+    """ViewObject minimal à ``ShapeAppearance`` vide : l'interface ne permet pas de vider cette
+    liste, mais un document altéré peut la fournir."""
+
+    def __init__(self, obj: Any) -> None:
+        self.Object = obj
+        self.PropertiesList: list[str] = []
+        self.ShapeAppearance: list[Any] = []
+        self.MaterialColor: tuple[float, ...] = ()  # écrite par le ViewProvider
+
+    def addProperty(self, _type_id: str, name: str, *_args: str) -> None:
+        self.PropertiesList.append(name)
+
+    def setEditorMode(self, _name: str, _mode: int) -> None:
+        """Modes d'édition sans objet pour cette vue factice."""
+
+
+def verifier_apparence_vide() -> list[str]:
+    """``ShapeAppearance`` vide : ni la création ni la réouverture ne lèvent d'exception."""
+    from freecad.menuiserie.api import make_wood_part
+    from freecad.menuiserie.gui.view_providers.wood_part import ViewProviderWoodPart
+
+    doc = App.newDocument("VerifApparenceVide")
+    obj = make_wood_part(material_id="chene", doc=doc)
+    neuve, rouverte = VueSansApparence(obj), VueSansApparence(obj)
+    ViewProviderWoodPart(neuve)
+    proxy = ViewProviderWoodPart.__new__(ViewProviderWoodPart)  # comme à la réouverture
+    proxy.attach(rouverte)
+    proxy.finishRestoring()
+    problemes = [
+        *ecarts("création, MaterialColor", rgb(neuve.MaterialColor), OAK_RGB),
+        *ecarts("réouverture, MaterialColor", rgb(rouverte.MaterialColor), FALLBACK_RGB),
+        *ecarts("apparence laissée vide", neuve.ShapeAppearance + rouverte.ShapeAppearance, []),
+    ]
+    App.closeDocument(doc.Name)
+    return problemes
+
+
 VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_atelier,
     verifier_piece_de_bois,
@@ -240,6 +279,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_annuler_retablir,
     verifier_transparence,
     verifier_materiau_inconnu_et_documents_multiples,
+    verifier_apparence_vide,
 )
 
 

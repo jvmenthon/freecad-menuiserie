@@ -22,6 +22,8 @@ ICON: Final = "Menuiserie_WoodPart.svg"
 MATERIAL_COLOR: Final = "MaterialColor"
 _HIDDEN: Final = 2
 _COLOR_SCALE: Final = 255
+# Gris clair des formes de FreeCAD : couleur initiale si l'apparence ne fournit aucun matériau.
+_FALLBACK_DIFFUSE: Final = (0.8, 0.8, 0.8)
 _MATERIAL_COLOR_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property",
     "Couleur du matériau, enregistrée au choix du matériau ; affichée quand aucune texture ne "
@@ -105,7 +107,12 @@ def _update_material_color(obj: DocumentObject, vobj: ViewObject) -> None:
 
 
 def _diffuse_color(vobj: ViewObject) -> Color:
-    color: Color = tuple(vobj.ShapeAppearance[0].DiffuseColor)
+    """Couleur diffuse du premier matériau d'affichage ; gris clair si ``ShapeAppearance`` est
+    vide (document altéré)."""
+    appearance = vobj.ShapeAppearance
+    if not appearance:
+        return _FALLBACK_DIFFUSE
+    color: Color = tuple(appearance[0].DiffuseColor)
     return color
 
 
