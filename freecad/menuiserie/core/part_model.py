@@ -13,11 +13,34 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Final
 
+from freecad.menuiserie.core._validation import (
+    MAX_DIMENSION_MM,
+    MIN_DIMENSION_MM,
+    to_finite_float,
+)
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.materials import Material, MaterialKind, to_finite_float
+from freecad.menuiserie.core.materials import Material, MaterialKind
 
-MIN_DIMENSION_MM: Final = 0.1
-MAX_DIMENSION_MM: Final = 20_000.0
+__all__ = [
+    "DEFAULT_PANEL_ALLOWANCES",
+    "DEFAULT_SOLID_ALLOWANCES",
+    "MAX_DIMENSION_MM",
+    "MIN_DIMENSION_MM",
+    "STANDARD_THICKNESS_TOLERANCE_MM",
+    "Allowances",
+    "Dimensions",
+    "GrainDirection",
+    "InvalidDimensionsError",
+    "PartRecord",
+    "allowances_after_material_change",
+    "default_allowances",
+    "grain_after_material_change",
+    "is_standard_thickness",
+    "mass_kg",
+    "rough_dimensions",
+    "volume_m3",
+]
+
 STANDARD_THICKNESS_TOLERANCE_MM: Final = 0.05
 _MM3_PER_M3: Final = 1e9
 # Marge d'arrondi : une épaisseur exactement à la tolérance reste reconnue.
