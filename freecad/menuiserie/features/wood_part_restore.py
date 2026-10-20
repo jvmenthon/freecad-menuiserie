@@ -24,11 +24,13 @@ from freecad.menuiserie.features.wood_part_schema import (
     CATEGORY_BY_KIND,
     GRAIN_DIRECTIONS,
     MODEL_VERSION,
+    PREFERRED_GRAIN_DIRECTIONS,
     TYPE_BY_NAME,
     default_grain,
     material_choices,
     material_kind,
     part_kind,
+    preferred_grain_default,
     select_label,
 )
 
@@ -108,17 +110,23 @@ def warn(obj: DocumentObject, template: str, **params: object) -> None:
 def restore_enumerations(
     obj: DocumentObject, library: MaterialLibrary, *, keep_unknown: bool = False
 ) -> None:
-    """Listes canoniques de ``Category`` et ``GrainDirection`` (celles du fichier sont des
-    données externes) ; une valeur inconnue devient la catégorie du matériau de la pièce (ou
-    ``Solid``) et le fil par défaut, avec un avertissement.
+    """Listes canoniques de ``Category``, ``GrainDirection`` puis ``PreferredGrainDirection``
+    (celles du fichier sont des données externes) ; une valeur inconnue devient la catégorie du
+    matériau de la pièce (ou ``Solid``), le fil par défaut, puis le sens mémorisable du fil de
+    la pièce, avec un avertissement.
 
     ``keep_unknown`` (document d'une version plus récente) : une valeur inconnue est gardée,
     avec la liste du fichier qui la contient, pour ne pas être perdue à l'enregistrement."""
     material = stored_material(obj, library)
     fallback = CATEGORY_BY_KIND[material_kind(material)]
     _restore_enumeration(obj, "Category", CATEGORIES, fallback, keep_unknown)
-    grain = default_grain(part_kind(obj, material), material)
+    kind = part_kind(obj, material)
+    grain = default_grain(kind, material)
     _restore_enumeration(obj, "GrainDirection", GRAIN_DIRECTIONS, grain.value, keep_unknown)
+    preferred = preferred_grain_default(obj, kind, material)
+    _restore_enumeration(
+        obj, "PreferredGrainDirection", PREFERRED_GRAIN_DIRECTIONS, preferred.value, keep_unknown
+    )
 
 
 def _restore_enumeration(

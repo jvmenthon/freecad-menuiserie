@@ -37,6 +37,26 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   les propriétés recréées du matériau de la pièce et aboutit même avec une bibliothèque vide
   (avertissement) ; un document créé par une version plus récente de l'atelier est signalé.
   Une cote ≤ 0 calculée par une expression met la pièce en erreur, sans exception.
+- Commande **Pièce de bois** (`Menuiserie_WoodPart`, J1c) dans la barre d'outils et le menu
+  Menuiserie : crée une planche de chêne 800 × 200 × 22 et ouvre son panneau de tâche ; inactive
+  sans document ou si un panneau est déjà ouvert.
+- Panneau de tâche de la pièce de bois (création et double-clic) : repère, filtre par type,
+  matériau, sens du fil (libellés traduits), cotes finies et surcotes avec unités, épaisseurs
+  standard en un clic, avertissement non bloquant pour un panneau d'épaisseur hors standard ;
+  aperçu immédiat, « OK » = une entrée d'annulation (« Créer » ou « Modifier une pièce de
+  bois »), « Annuler » ne laisse rien ; les cotes pilotées par une expression le restent.
+- `core.part_model.is_nonstandard_panel_thickness()` : règle de l'avertissement d'épaisseur.
+- Mémoire du sens du fil (exigence de jv, ADR 0005, C10) : propriété masquée
+  `PreferredGrainDirection` (`Length` ou `Width`), enregistrée et annulable, mise à jour par
+  chaque choix de `Length` ou `Width` ; en revenant à un matériau avec fil (panneau, éditeur de
+  propriétés, `set_material`), la pièce reprend ce sens au lieu de `Length`.
+- Fil masqué pour un matériau sans fil (exigence de jv, C11) : `GrainDirection` masquée dans
+  l'éditeur de propriétés et ligne « Sens du fil » masquée dans le panneau ; le mode suit
+  l'annulation et la réouverture. `features.wood_part.shows_grain()`.
+- `core.part_model.remembered_grain()` et `core.part_model.material_has_grain()`.
+- Capture `panneau.png` (panneau de tâche ouvert) publiée dans les PR ; vérifications
+  d'interface hors écran de la commande et du panneau ; scénarios de recette manuelle J1c
+  (`docs/recette/`).
 - Façade `freecad.menuiserie.api.make_wood_part()` pour la console et les scripts ; les
   arguments sont validés avant de créer un document.
 - Affichage de la pièce : icône de la pièce de bois et couleur du matériau, enregistrée dans la
@@ -57,6 +77,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `tools/generer_icones.py`.
 
 ### Modifié
+- **Modèle de la pièce en version 2** (`MODEL_VERSION`) : migration 1 → 2 à la réouverture
+  (ajout de `PreferredGrainDirection` d'après `GrainDirection`, `Length` pour une pièce sans
+  fil) ; un document de version 2 ouvert par un atelier plus ancien est signalé comme plus
+  récent.
+- `core.part_model.grain_after_material_change(new, current, preferred=LENGTH)` : nouveau
+  paramètre `preferred` (sens mémorisé repris quand le fil valait `NONE`) ; `NONE` refusé
+  (`ValueError`).
+- Filtre « Type » du panneau : un type qui exclut le matériau de la pièce applique le premier
+  matériau de ce type, fil mémorisé et surcotes selon A7 (Q4 tranchée, C12).
 - Bibliothèque de matériaux découpée en paquet `core/materials/` : façade à l'API publique figée
   (`__all__`) et modules privés (messages, modèle, anomalies, entrée, analyse, lecture, fusion) ;
   aides de validation partagées dans `core/_validation.py`, qui ne sont plus exposées par
@@ -81,8 +110,25 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   est gardée (avertissement) au lieu d'être remplacée, donc perdue à l'enregistrement (#11).
 - `record_of(...).density` arrondie à 6 décimales : 710 au lieu de 709,9999999999999 après
   réouverture (#11).
+- Panneau de la pièce de bois (J1c-1, J1c-2) : un double-clic sur une pièce pendant qu'un
+  panneau est ouvert est refusé, au lieu de fermer le panneau en validant ses modifications.
+- Panneau (J1c-4, J1c-5) : la pièce supprimée (Édition > Supprimer, console) ferme le panneau ;
+  Édition > Annuler pendant le panneau le ferme et quitte le mode édition, au lieu de laisser
+  des modifications hors transaction.
+- « OK » ou « Annuler » sans modification juste après Édition > Annuler (J1c-6) : plus
+  d'entrée « Modifier une pièce de bois » parasite, la pile « Rétablir » est conservée.
+- Repère, matériau ou sens du fil pilotés par une expression (J1c-7 à J1c-9, C6) : champ
+  inactif, jamais écrit par le panneau, filtre « Type » compris.
+- Bibliothèque de matériaux vide : la commande « Pièce de bois » est inactive et, lancée
+  quand même, affiche un message traduit au lieu d'une trace d'exception.
+- Avertissement d'épaisseur hors standard affiché en texte brut (`textFormat` PlainText).
 
 ### Sécurité
+- Fermer le document pendant le panneau de création faisait planter FreeCAD 1.0 (J1c-3, audit
+  B1) : le panneau est désormais fermé avec le document et la commande redevient active.
+- Une exception à l'ouverture du panneau (création ou modification) ne laisse plus ni pièce ni
+  transaction ouverte : le panneau est construit avant d'être affiché et la transaction est
+  abandonnée avant de propager l'exception (audit A1).
 - Bibliothèque de matériaux : lecture par un seul descripteur (`os.open` non bloquant, `fstat`,
   lecture bornée), clés JSON en double refusées, libellés sans caractère invisible, bidi, de
   contrôle ou demi-substitut, clés inconnues citées tronquées et échappées, au plus 200 anomalies

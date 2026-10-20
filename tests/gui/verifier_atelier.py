@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Vérifie l'atelier dans l'interface de FreeCAD : chargement, affichage des pièces, textures.
+"""Vérifie l'atelier dans l'interface de FreeCAD : chargement, affichage des pièces, textures,
+puis commande et panneau de tâche (``verifications_panneau.py``).
 
 Exécuté par FreeCAD lui-même (pas par pytest), l'atelier étant installé dans le
 dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -26,6 +27,11 @@ from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+
+from tests.gui.verifications_fil import VERIFICATIONS_FIL
+from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
+from tests.gui.verifications_panneau_limites import DEFAUTS_CONSTATES, VERIFICATIONS_LIMITES
+from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -497,6 +503,7 @@ def verifier_texture_reouverture() -> list[str]:
     """D6 : texture réaffichée à la réouverture sans modifier le document ni l'archiver ;
     couleur enregistrée si l'image a disparu ; aucune propriété ajoutée à la pièce."""
     from freecad.menuiserie.api import make_wood_part
+    from freecad.menuiserie.features.wood_part_schema import MODEL_VERSION
 
     avertissements_de_test()
     with bibliotheque(materiau("erable", "Érable", "textures/erable.png")) as fichier:
@@ -513,7 +520,7 @@ def verifier_texture_reouverture() -> list[str]:
             *texture_affichee("rouverte", piece.ViewObject, "Width"),
             *ecarts("document modifié à la réouverture", Gui.getDocument(doc.Name).Modified, False),
             *ecarts("images dans l'archive", images_archivees(doc.FileName), []),
-            *ecarts("Version", piece.Version, 1),
+            *ecarts("Version", piece.Version, MODEL_VERSION),
             *ecarts("propriétés de la pièce", sorted(piece.PropertiesList), attendues),
         ]
         image.unlink()
@@ -1200,6 +1207,10 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_bombe_png,
     verifier_texture_budget_memoire,
     verifier_texture_chemin_echappe,
+    *VERIFICATIONS_PANNEAU,
+    *VERIFICATIONS_LIMITES,
+    *VERIFICATIONS_FIL,
+    *VERIFICATIONS_ROBUSTESSE,
 )
 
 
@@ -1217,7 +1228,9 @@ def verifier() -> list[str]:
 def main() -> None:
     with open(os.environ["RESULTAT"], "w", encoding="utf-8") as rapport:
         problemes = verifier()
-        rapport.write("\n".join(problemes or ["OK : atelier chargé et pièces affichées"]) + "\n")
+        lignes = problemes or ["OK : atelier chargé et pièces affichées"]
+        # Défauts connus (équivalent de xfail strict) : rapportés après le résultat.
+        rapport.write("\n".join([*lignes, *DEFAUTS_CONSTATES]) + "\n")
     # Quitte immédiatement, sans boîte de dialogue ni boucle d'événements.
     os._exit(1 if problemes else 0)
 

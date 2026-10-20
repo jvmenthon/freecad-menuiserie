@@ -212,7 +212,7 @@ def test_bibliotheque_modifiee_entre_deux_sessions(
     doc = rouvrir(doc)
     obj = doc.getObject(name)
     assert appearance.appearance_of(obj) == textured(image)
-    assert obj.Version == 1
+    assert obj.Version == wood_part.WoodPart.VERSION
     assert touched(doc) == []
 
 
