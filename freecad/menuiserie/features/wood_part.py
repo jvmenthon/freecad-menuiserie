@@ -48,18 +48,20 @@ CATEGORY_BY_KIND: Final[Mapping[MaterialKind, str]] = MappingProxyType(
 # Valeurs des énumérations, stockées dans les documents : ordre figé, ajouts en fin seulement.
 CATEGORIES: Final = tuple(CATEGORY_BY_KIND.values())
 GRAIN_DIRECTIONS: Final = tuple(grain.value for grain in GrainDirection)
-_KIND_BY_CATEGORY: Final = {category: kind for kind, category in CATEGORY_BY_KIND.items()}
+KIND_BY_CATEGORY: Final = {category: kind for kind, category in CATEGORY_BY_KIND.items()}
 
 _EDITABLE: Final = 0
 _READ_ONLY: Final = 1
 _HIDDEN: Final = 2
-_DEFAULT_DIMENSIONS: Final = Dimensions(800.0, 200.0, 22.0)
+DEFAULT_DIMENSIONS: Final = Dimensions(800.0, 200.0, 22.0)
+# Version du modèle de données (propriété ``Version``), cf. :meth:`WoodPart._migrate`.
+MODEL_VERSION: Final = 1
 
 _DEFAULT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce de bois")
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est pas une pièce de bois."
 )
-_EMPTY_LIBRARY_MIGRATION: Final = QT_TRANSLATE_NOOP(
+EMPTY_LIBRARY_MIGRATION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pièce « {label} » : bibliothèque de matériaux vide, propriétés manquantes recréées avec "
     "des valeurs par défaut (massif si la catégorie manque).",
@@ -230,7 +232,7 @@ _PROPERTIES: Final = (
         ),
     ),
 )
-_TYPE_BY_NAME: Final = MappingProxyType({spec.name: spec.type_id for spec in _PROPERTIES})
+TYPE_BY_NAME: Final = MappingProxyType({spec.name: spec.type_id for spec in _PROPERTIES})
 
 
 class WoodPart:
@@ -242,24 +244,24 @@ class WoodPart:
     """
 
     TYPE: ClassVar[str] = "Menuiserie::WoodPart"
-    VERSION: ClassVar[int] = 1
+    VERSION: ClassVar[int] = MODEL_VERSION
 
     def __init__(self, obj: DocumentObject) -> None:
         obj.Proxy = self
         library = get_library()
         with self._synchronizing():
-            _add_missing_properties(obj, library, library.default_material())
-            _apply_editor_modes(obj)
+            add_missing_properties(obj, library, library.default_material())
+            apply_editor_modes(obj)
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version contrôlée, énumérations canoniques, migration, modes d'édition, puis liste des
         matériaux de la bibliothèque locale."""
         with self._synchronizing():
-            version = _restored_version(obj)
-            _restore_enumerations(obj, get_library())
+            version = restored_version(obj)
+            restore_enumerations(obj, get_library())
             self._migrate(obj, version)
-            _apply_editor_modes(obj)
-            _restore_material_choices(obj, get_library())
+            apply_editor_modes(obj)
+            restore_material_choices(obj, get_library())
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
@@ -292,7 +294,7 @@ class WoodPart:
         """Sélectionne ``material`` dans la liste et recopie ses valeurs dans la pièce."""
         with self._synchronizing():
             label = material.name(display_language())
-            _select_label(obj, _material_choices(get_library(), label), label)
+            select_label(obj, material_choices(get_library(), label), label)
             _apply_material(obj, material)
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
@@ -316,17 +318,17 @@ class WoodPart:
             return
         library = get_library()
         if not len(library):
-            _warn(obj, _EMPTY_LIBRARY_MIGRATION)
-        _add_missing_properties(obj, library, _migration_material(obj, library))
+            warn(obj, EMPTY_LIBRARY_MIGRATION)
+        add_missing_properties(obj, library, migration_material(obj, library))
         obj.Version = self.VERSION
 
 
 def create_wood_part(
     doc: Document,
     *,
-    length: float = _DEFAULT_DIMENSIONS.length,
-    width: float = _DEFAULT_DIMENSIONS.width,
-    thickness: float = _DEFAULT_DIMENSIONS.thickness,
+    length: float = DEFAULT_DIMENSIONS.length,
+    width: float = DEFAULT_DIMENSIONS.width,
+    thickness: float = DEFAULT_DIMENSIONS.thickness,
     material_id: str | None = None,
     mark: str = "",
 ) -> DocumentObject:
@@ -392,7 +394,7 @@ def record_of(obj: DocumentObject) -> PartRecord:
         mark=obj.Mark,
         material_id=obj.MaterialId,
         material_name=obj.Material,
-        kind=_KIND_BY_CATEGORY[obj.Category],
+        kind=KIND_BY_CATEGORY[obj.Category],
         finished=dimensions_of(obj),
         allowances=allowances_of(obj),
         grain=GrainDirection(obj.GrainDirection),
@@ -400,7 +402,7 @@ def record_of(obj: DocumentObject) -> PartRecord:
     )
 
 
-def _density(value_kg_m3: float) -> Any:
+def density_quantity(value_kg_m3: float) -> Any:
     """Masse volumique en unités FreeCAD (``Quantity``), depuis des kg/m³."""
     return App.Units.Quantity(f"{value_kg_m3} {DENSITY_UNIT}")
 
@@ -412,7 +414,7 @@ def _dimension_message(error: InvalidDimensionsError) -> str:
     return translated(error.template, params)
 
 
-def _migration_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
+def migration_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
     """Matériau de la pièce d'après ``MaterialId`` ; s'il est absent ou inconnu localement, le
     matériau par défaut de la bibliothèque ; ``None`` si la bibliothèque est vide."""
     material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
@@ -422,14 +424,14 @@ def _migration_material(obj: DocumentObject, library: MaterialLibrary) -> Materi
     return material
 
 
-def _part_kind(obj: DocumentObject, material: Material | None) -> MaterialKind:
+def part_kind(obj: DocumentObject, material: Material | None) -> MaterialKind:
     """Famille de la pièce : sa catégorie, sinon celle de ``material``, sinon le massif."""
     if "Category" in obj.PropertiesList:
-        return _KIND_BY_CATEGORY[obj.Category]
+        return KIND_BY_CATEGORY[obj.Category]
     return material.kind if material is not None else MaterialKind.SOLID
 
 
-def _default_grain(kind: MaterialKind, material: Material | None) -> GrainDirection:
+def default_grain(kind: MaterialKind, material: Material | None) -> GrainDirection:
     """Fil par défaut d'une pièce de famille ``kind`` : celui de ``material`` s'il est de cette
     famille, sinon celui de la famille."""
     if material is not None and material.kind is kind:
@@ -441,40 +443,40 @@ def _default_grain(kind: MaterialKind, material: Material | None) -> GrainDirect
 
 def _default_values(obj: DocumentObject, material: Material | None) -> dict[str, object]:
     """Valeurs par défaut des propriétés : cotes de 800 x 200 x 22 mm, ``material``, puis
-    catégorie, fil et surcotes de la famille de la pièce (:func:`_part_kind`).
+    catégorie, fil et surcotes de la famille de la pièce (:func:`part_kind`).
 
     Sans matériau (bibliothèque vide), ``Material``, ``MaterialId`` et ``Density`` n'ont pas de
     valeur par défaut : une propriété absente garde la valeur vide de son type.
     """
-    kind = _part_kind(obj, material)
+    kind = part_kind(obj, material)
     allowances = default_allowances(kind)
     values: dict[str, object] = {
-        "Length": _DEFAULT_DIMENSIONS.length,
-        "Width": _DEFAULT_DIMENSIONS.width,
-        "Thickness": _DEFAULT_DIMENSIONS.thickness,
+        "Length": DEFAULT_DIMENSIONS.length,
+        "Width": DEFAULT_DIMENSIONS.width,
+        "Thickness": DEFAULT_DIMENSIONS.thickness,
         "Category": CATEGORY_BY_KIND[kind],
-        "GrainDirection": _default_grain(kind, material).value,
+        "GrainDirection": default_grain(kind, material).value,
         "Mark": "",
         "LengthAllowance": allowances.length,
         "WidthAllowance": allowances.width,
         "ThicknessAllowance": allowances.thickness,
-        "Version": WoodPart.VERSION,
+        "Version": MODEL_VERSION,
     }
     if material is not None:
         values["Material"] = material.name(display_language())
         values["MaterialId"] = material.id
-        values["Density"] = _density(material.density)
+        values["Density"] = density_quantity(material.density)
     return values
 
 
-def _add_missing_properties(
+def add_missing_properties(
     obj: DocumentObject, library: MaterialLibrary, material: Material | None
 ) -> None:
     """Ajoute les propriétés absentes de ``obj``, à leur valeur par défaut (cf.
     :func:`_default_values`)."""
     defaults = _default_values(obj, material)
     enumerations = {
-        "Material": _material_choices(library),
+        "Material": material_choices(library),
         "Category": list(CATEGORIES),
         "GrainDirection": list(GRAIN_DIRECTIONS),
     }
@@ -488,12 +490,12 @@ def _add_missing_properties(
             setattr(obj, spec.name, defaults[spec.name])
 
 
-def _apply_editor_modes(obj: DocumentObject) -> None:
+def apply_editor_modes(obj: DocumentObject) -> None:
     for spec in _PROPERTIES:
         obj.setEditorMode(spec.name, spec.mode)
 
 
-def _material_choices(library: MaterialLibrary, current: str | None = None) -> list[str]:
+def material_choices(library: MaterialLibrary, current: str | None = None) -> list[str]:
     """Libellés de la bibliothèque, plus ``current`` s'il n'en fait pas partie."""
     lang = display_language()
     labels = [material.name(lang) for material in library]
@@ -502,7 +504,7 @@ def _material_choices(library: MaterialLibrary, current: str | None = None) -> l
     return labels
 
 
-def _select_label(obj: DocumentObject, choices: list[str], label: str) -> None:
+def select_label(obj: DocumentObject, choices: list[str], label: str) -> None:
     """Liste et valeur de ``Material``, écrites seulement si elles changent."""
     if obj.getEnumerationsOfProperty("Material") != choices:
         obj.Material = choices
@@ -512,31 +514,31 @@ def _select_label(obj: DocumentObject, choices: list[str], label: str) -> None:
 
 def _apply_material(obj: DocumentObject, material: Material) -> None:
     """Recopie le matériau dans la pièce ; fil et surcotes suivent les règles de ``core``."""
-    old_kind = _KIND_BY_CATEGORY[obj.Category]
+    old_kind = KIND_BY_CATEGORY[obj.Category]
     grain = grain_after_material_change(material, GrainDirection(obj.GrainDirection))
     allowances = allowances_after_material_change(old_kind, material.kind, allowances_of(obj))
     obj.MaterialId = material.id
     obj.Category = CATEGORY_BY_KIND[material.kind]
-    obj.Density = _density(material.density)
+    obj.Density = density_quantity(material.density)
     obj.GrainDirection = grain.value
     obj.LengthAllowance = allowances.length
     obj.WidthAllowance = allowances.width
     obj.ThicknessAllowance = allowances.thickness
 
 
-def _restore_material_choices(obj: DocumentObject, library: MaterialLibrary) -> None:
+def restore_material_choices(obj: DocumentObject, library: MaterialLibrary) -> None:
     """Liste ``Material`` de la bibliothèque locale ; un matériau inconnu localement garde son
     libellé enregistré (ajouté à la liste) et ses valeurs, avec un avertissement."""
     material = library.find(obj.MaterialId)
     if material is None:
         label = obj.Material
-        _warn(obj, _MISSING_MATERIAL, id=obj.MaterialId)
+        warn(obj, _MISSING_MATERIAL, id=obj.MaterialId)
     else:
         label = material.name(display_language())
-    _select_label(obj, _material_choices(library, label), label)
+    select_label(obj, material_choices(library, label), label)
 
 
-def _warn(obj: DocumentObject, template: str, **params: object) -> None:
+def warn(obj: DocumentObject, template: str, **params: object) -> None:
     """Avertissement traduit dans la vue rapport. Le libellé de la pièce (``{label}``) et les
     ``params``, lus dans un document, y sont cités tronqués et échappés (``quoted_value``)."""
     quoted = {name: quoted_value(value) for name, value in params.items()}
@@ -544,7 +546,7 @@ def _warn(obj: DocumentObject, template: str, **params: object) -> None:
     App.Console.PrintWarning(f"Menuiserie : {translated(template, quoted)}\n")
 
 
-def _restore_enumerations(obj: DocumentObject, library: MaterialLibrary) -> None:
+def restore_enumerations(obj: DocumentObject, library: MaterialLibrary) -> None:
     """Listes canoniques de ``Category`` et ``GrainDirection`` (celles du fichier sont des
     données externes) ; une valeur inconnue devient la catégorie du matériau de la pièce (ou
     ``Solid``) et le fil par défaut, avec un avertissement."""
@@ -552,7 +554,7 @@ def _restore_enumerations(obj: DocumentObject, library: MaterialLibrary) -> None
     material = library.find(material_id)
     kind = material.kind if material is not None else MaterialKind.SOLID
     _restore_enumeration(obj, "Category", CATEGORIES, CATEGORY_BY_KIND[kind])
-    grain = _default_grain(_part_kind(obj, material), material)
+    grain = default_grain(part_kind(obj, material), material)
     _restore_enumeration(obj, "GrainDirection", GRAIN_DIRECTIONS, grain.value)
 
 
@@ -568,22 +570,22 @@ def _restore_enumeration(
         setattr(obj, name, list(choices))
     if value not in choices:
         setattr(obj, name, fallback)
-        _warn(obj, _UNKNOWN_VALUE, property=name, value=value, replacement=fallback)
+        warn(obj, _UNKNOWN_VALUE, property=name, value=value, replacement=fallback)
     elif getattr(obj, name) != value:
         setattr(obj, name, value)
 
 
-def _restored_version(obj: DocumentObject) -> int:
+def restored_version(obj: DocumentObject) -> int:
     """Version enregistrée de la pièce, 0 si elle est absente. D'un type inattendu, elle est
     supprimée (la migration la recrée) et vaut 0 ; plus récente que l'atelier, elle est gardée.
     Ces deux cas sont signalés par un avertissement."""
     if "Version" not in obj.PropertiesList:
         return 0
-    if obj.getTypeIdOfProperty("Version") != _TYPE_BY_NAME["Version"]:
-        _warn(obj, _INVALID_VERSION, value=obj.Version)
+    if obj.getTypeIdOfProperty("Version") != TYPE_BY_NAME["Version"]:
+        warn(obj, _INVALID_VERSION, value=obj.Version)
         obj.removeProperty("Version")
         return 0
     version: int = obj.Version
-    if version > WoodPart.VERSION:
-        _warn(obj, _NEWER_VERSION, version=version, supported=WoodPart.VERSION)
+    if version > MODEL_VERSION:
+        warn(obj, _NEWER_VERSION, version=version, supported=MODEL_VERSION)
     return version
