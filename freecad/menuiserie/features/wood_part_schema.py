@@ -24,6 +24,11 @@ from freecad.menuiserie.features.library import display_language
 DocumentObject = Any  # objets FreeCAD, sans annotations de type
 
 DENSITY_UNIT: Final = "kg/m^3"
+# Décimales de la masse volumique relue (kg/m³). FreeCAD la stocke en kg/mm³ : l'aller-retour
+# laisse une erreur relative de l'ordre de 1e-16 (709,9999999999999 pour 710), soit moins de
+# 1e-12 kg/m³ jusqu'à MAX_DENSITY. Six décimales (1 mg/m³) l'effacent, tout en restant bien
+# plus fines que la précision d'une masse volumique de bois (de l'ordre du kg/m³).
+DENSITY_DECIMALS: Final = 6
 CATEGORY_BY_KIND: Final[Mapping[MaterialKind, str]] = MappingProxyType(
     {
         MaterialKind.SOLID: "Solid",
@@ -195,6 +200,11 @@ TYPE_BY_NAME: Final = MappingProxyType({spec.name: spec.type_id for spec in _PRO
 def density_quantity(value_kg_m3: float) -> Any:
     """Masse volumique en unités FreeCAD (``Quantity``), depuis des kg/m³."""
     return App.Units.Quantity(f"{value_kg_m3} {DENSITY_UNIT}")
+
+
+def density_kg_m3(obj: DocumentObject) -> float:
+    """Masse volumique de la pièce en kg/m³, arrondie à ``DENSITY_DECIMALS`` décimales."""
+    return round(float(obj.Density.getValueAs(DENSITY_UNIT)), DENSITY_DECIMALS)
 
 
 def part_kind(obj: DocumentObject, material: Material | None) -> MaterialKind:

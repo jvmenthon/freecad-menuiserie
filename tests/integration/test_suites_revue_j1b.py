@@ -13,6 +13,7 @@ pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
+library = pytest.importorskip("freecad.menuiserie.features.library")
 
 Reopen = Callable[[Any], Any]
 HOSTILE = "\n‮" + "x" * 40
@@ -158,3 +159,18 @@ def test_version_plus_recente_valeur_connue_liste_canonique(
     assert restored.Category == "MDF"
     assert restored.getEnumerationsOfProperty("Category") == list(wood_part.CATEGORIES)
     assert warnings_with(vue_rapport, "inconnue pour") == []
+
+
+# --- Masse volumique de l'enregistrement de débit -----------------------------------------
+
+
+@pytest.mark.parametrize("material_id", ["chene", "hetre", "cp-bouleau", "mdf"])
+def test_masse_volumique_exacte_apres_reouverture(
+    document: Any, rouvrir: Reopen, material_id: str
+) -> None:
+    obj = board(document, material_id)
+    expected = library.get_library().get(material_id).density
+    name = obj.Name
+    assert wood_part.record_of(obj).density == expected
+    restored = rouvrir(document).getObject(name)
+    assert wood_part.record_of(restored).density == expected

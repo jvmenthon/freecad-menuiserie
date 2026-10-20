@@ -42,12 +42,12 @@ from freecad.menuiserie.features.wood_part_schema import (
     CATEGORIES,
     CATEGORY_BY_KIND,
     DEFAULT_DIMENSIONS,
-    DENSITY_UNIT,
     GRAIN_DIRECTIONS,
     KIND_BY_CATEGORY,
     MODEL_VERSION,
     add_missing_properties,
     apply_editor_modes,
+    density_kg_m3,
     density_quantity,
     material_choices,
     select_label,
@@ -248,7 +248,7 @@ def record_of(obj: DocumentObject) -> PartRecord:
         finished=dimensions_of(obj),
         allowances=allowances_of(obj),
         grain=GrainDirection(obj.GrainDirection),
-        density=float(obj.Density.getValueAs(DENSITY_UNIT)),
+        density=density_kg_m3(obj),
     )
 
 
