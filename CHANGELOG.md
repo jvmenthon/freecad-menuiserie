@@ -28,6 +28,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   surcotes bornées, sens du fil, volume, masse, cotes de débit, épaisseurs standard et règles de
   changement de matériau ; la cote refusée est citée exactement dans le message.
 - Marqueur de traduction `QT_TRANSLATE_NOOP` utilisable sans Qt (`core/i18n.py`).
+- Pièce de bois paramétrique (J1b) : objet `WoodPart` (`Part::FeaturePython`, ADR 0003) aux
+  cotes finies, avec matériau choisi dans la bibliothèque (identifiant, catégorie et masse
+  volumique enregistrés dans le document), sens du fil, repère et surcotes de débit ; migration
+  par `Version`, annuler / rétablir, recalcul en console (`freecadcmd`).
+- Façade `freecad.menuiserie.api.make_wood_part()` pour la console et les scripts.
+- Affichage de la pièce : icône de la pièce de bois et couleur du matériau, enregistrée dans la
+  propriété de vue `MaterialColor`.
+- Bibliothèque vue de FreeCAD (`features/library.py`) : fichier utilisateur
+  `<données utilisateur>/Menuiserie/materiaux.json` ou paramètre `UserLibraryPath`, lecture une
+  fois par session (`reload_library()`), anomalies traduites dans la vue rapport.
+- README : création d'une pièce depuis la console, section « Ajouter une essence ».
 - Jeu d'icônes SVG 64 px pour l'atelier et les commandes prévues (pièce de bois, panneau,
   essences, liste de débit et export, assemblages, caisson), produit par
   `tools/generer_icones.py`.
