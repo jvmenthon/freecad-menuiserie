@@ -67,8 +67,8 @@ warn_redundant_casts = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-# FreeCAD et sa couche Qt ne fournissent pas d'annotations de type.
-module = ["FreeCAD", "FreeCADGui", "Part", "PySide", "PySide.*"]
+# FreeCAD, sa couche Qt et pivy (Coin) ne fournissent pas d'annotations de type.
+module = ["FreeCAD", "FreeCADGui", "Part", "PySide", "PySide.*", "pivy", "pivy.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
