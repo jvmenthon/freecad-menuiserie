@@ -29,6 +29,7 @@ from freecad.menuiserie.core.part_model import (
     default_allowances,
     grain_after_material_change,
 )
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.library import display_language, get_library, translated
 
 DocumentObject = Any  # objets FreeCAD, sans annotations de type
@@ -466,8 +467,15 @@ def _restore_material_choices(obj: DocumentObject, library: MaterialLibrary) -> 
     material = library.find(obj.MaterialId)
     if material is None:
         label = obj.Material
-        params = {"label": str(obj.Label), "id": str(obj.MaterialId)}
-        App.Console.PrintWarning(f"Menuiserie : {translated(_MISSING_MATERIAL, params)}\n")
+        _warn(obj, _MISSING_MATERIAL, id=obj.MaterialId)
     else:
         label = material.name(display_language())
     _select_label(obj, _material_choices(library, label), label)
+
+
+def _warn(obj: DocumentObject, template: str, **params: object) -> None:
+    """Avertissement traduit dans la vue rapport. Le libellé de la pièce (``{label}``) et les
+    ``params``, lus dans un document, y sont cités tronqués et échappés (``quoted_value``)."""
+    quoted = {name: quoted_value(value) for name, value in params.items()}
+    quoted["label"] = quoted_value(obj.Label)
+    App.Console.PrintWarning(f"Menuiserie : {translated(template, quoted)}\n")
