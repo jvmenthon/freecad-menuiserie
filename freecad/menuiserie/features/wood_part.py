@@ -33,6 +33,7 @@ from freecad.menuiserie.core.part_model import (
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.features.schema import warn
 from freecad.menuiserie.features.wood_part_restore import (
     EMPTY_LIBRARY_MIGRATION,
     migration_material,
@@ -40,7 +41,6 @@ from freecad.menuiserie.features.wood_part_restore import (
     restore_enumerations,
     restore_material_choices,
     restored_version,
-    warn,
 )
 from freecad.menuiserie.features.wood_part_schema import (
     CATEGORIES,
