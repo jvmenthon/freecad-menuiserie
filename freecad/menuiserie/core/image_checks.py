@@ -28,6 +28,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.texture_file import TextureRefusedError
 
 __all__ = [
+    "ADAM7_PASSES",
     "INVALID_PNG",
     "MAX_JPEG_SCANS",
     "PNG_DATA_TOO_LARGE",
@@ -65,7 +66,7 @@ _COLOR_TYPES: Final[Mapping[int, tuple[int, frozenset[int]]]] = {
 }
 _NOT_INTERLACED: Final = ((0, 0, 1, 1),)
 # Passes Adam7 : (colonne de départ, ligne de départ, pas en colonnes, pas en lignes).
-_ADAM7: Final = (
+ADAM7_PASSES: Final = (
     (0, 0, 8, 8),
     (4, 0, 8, 8),
     (0, 4, 4, 8),
@@ -121,7 +122,9 @@ def png_raw_size(header: PngHeader) -> int:
     entrelacement, sept en Adam7), une ligne = un octet de filtre + ses pixels arrondis à
     l'octet."""
     total = 0
-    for column, row, column_step, row_step in _ADAM7 if header.interlaced else _NOT_INTERLACED:
+    for column, row, column_step, row_step in (
+        ADAM7_PASSES if header.interlaced else _NOT_INTERLACED
+    ):
         columns = _ceil_div(header.width - column, column_step)
         rows = _ceil_div(header.height - row, row_step)
         if columns > 0 and rows > 0:

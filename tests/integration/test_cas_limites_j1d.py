@@ -15,6 +15,8 @@ from typing import Any
 
 import pytest
 
+from freecad.menuiserie.core import appearance as core_appearance
+from freecad.menuiserie.core import materials, part_model
 from tests.integration.test_apparence import (
     IMAGE,
     MAPLE_RGB,
@@ -31,12 +33,8 @@ Reopen = Callable[[Any], Any]
 
 App = pytest.importorskip("FreeCAD")
 appearance = pytest.importorskip("freecad.menuiserie.features.appearance")
-core_appearance = pytest.importorskip("freecad.menuiserie.core.appearance")
-materials = pytest.importorskip("freecad.menuiserie.core.materials")
-part_model = pytest.importorskip("freecad.menuiserie.core.part_model")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 
-LIMIT = 16 * 1024 * 1024
 OAK_RGB = (184, 135, 90)
 
 
@@ -95,7 +93,7 @@ def test_lien_vers_un_fichier_ordinaire_suivi(tmp_path: Path) -> None:
 def test_lien_vers_un_fichier_trop_gros_refuse(tmp_path: Path) -> None:
     """La taille contrôlée est celle de la cible, pas celle du lien."""
     link = tmp_path / "lien.png"
-    link.symlink_to(sized_file(tmp_path / "enorme.png", LIMIT + 1))
+    link.symlink_to(sized_file(tmp_path / "enorme.png", core_appearance.MAX_TEXTURE_FILE_BYTES + 1))
     assert not appearance.usable_texture_file(texture_at(link))
 
 

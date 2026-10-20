@@ -10,6 +10,7 @@ import zlib
 import pytest
 
 from freecad.menuiserie.core.image_checks import (
+    ADAM7_PASSES,
     INVALID_PNG,
     MAX_JPEG_SCANS,
     PNG_DATA_TOO_LARGE,
@@ -24,15 +25,6 @@ from freecad.menuiserie.core.image_checks import (
 from freecad.menuiserie.core.texture_file import TextureRefusedError
 
 SIDE = 4096
-ADAM7 = [
-    (0, 0, 8, 8),
-    (4, 0, 8, 8),
-    (0, 4, 4, 8),
-    (2, 0, 4, 4),
-    (0, 2, 2, 4),
-    (1, 0, 2, 2),
-    (0, 1, 1, 2),
-]
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -137,7 +129,7 @@ def zeros_compressed(size: int) -> bytes:
 
 def reference_raw_size(width: int, height: int, bits_per_pixel: int, interlaced: bool) -> int:
     """Taille brute calculée pixel par pixel (indépendante de ``png_raw_size``)."""
-    passes = ADAM7 if interlaced else [(0, 0, 1, 1)]
+    passes = ADAM7_PASSES if interlaced else [(0, 0, 1, 1)]
     total = 0
     for x0, y0, dx, dy in passes:
         columns = len(range(x0, width, dx))
