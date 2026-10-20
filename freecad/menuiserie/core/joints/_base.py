@@ -40,6 +40,7 @@ class JointKind(str, Enum):
     MORTISE_TENON = "MortiseTenon"
     TONGUE_GROOVE = "TongueGroove"
     RABBET = "Rabbet"
+    DOWELS = "Dowels"
 
 
 @dataclass(frozen=True)

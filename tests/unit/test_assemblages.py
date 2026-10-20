@@ -319,6 +319,7 @@ def test_registre_fige() -> None:
         (JointKind.MORTISE_TENON, stile(), rail(), MortiseTenonParams()),
         (JointKind.TONGUE_GROOVE, board(), board(100.0), TongueGrooveParams()),
         (JointKind.RABBET, *side_and_back(), RabbetParams()),
+        (JointKind.DOWELS, stile(), rail(), DowelParams()),
     ],
 )
 def test_plan_par_le_registre(
