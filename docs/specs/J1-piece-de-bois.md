@@ -3,11 +3,14 @@
 - Jalon : J1 (version cible 0.1.0)
 - Statut : **validée par jv le 2026-10-19** (questions Q1 à Q3 : recommandations retenues) ;
   complétée le 2026-10-20 avant J1b (reprise de la revue finale de J1a, textures : lot J1d), puis
-  pendant J1c (écarts relevés sur la PR #15 : § 4.2.3, § 4.5, critères C2 à C6 ; question Q4
-  ouverte)
+  pendant J1c (écarts relevés sur la PR #15 : § 4.2.3, § 4.5, critères C2 à C6 ; Q4 tranchée
+  par jv le 2026-10-20 : option (a)) ; complétée le 2026-10-20 par deux exigences de jv
+  (mémoire du sens du fil, fil masqué pour un matériau sans fil : critères C10 à C12, ADR 0005 ;
+  questions Q5 et Q6 ouvertes)
 - ADR liés : [0002 — Bibliothèque de matériaux](../adr/0002-bibliotheque-de-materiaux.md),
   [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md),
-  [0004 — Rendu des textures des matériaux](../adr/0004-rendu-des-textures.md)
+  [0004 — Rendu des textures des matériaux](../adr/0004-rendu-des-textures.md),
+  [0005 — Mémoire du sens du fil](../adr/0005-memoire-du-sens-du-fil.md)
 - Découpage : quatre PR **J1a → J1b → (J1c ∥ J1d)** (voir § 5) ; J1a fusionnée (345ff4d)
 
 ## 1. Contexte
@@ -53,7 +56,7 @@ Légende du type de test : **U** = unitaire sans FreeCAD (`tests/unit`), **I** =
 | A4 | Fusion : une entrée utilisateur d'identifiant nouveau est ajoutée après les matériaux intégrés ; une entrée utilisateur d'identifiant existant **remplace entièrement** le matériau intégré (anomalie de niveau info) ; une entrée utilisateur dont le libellé français est déjà porté par un autre identifiant est rejetée. Un fichier utilisateur absent ne produit aucune anomalie. | U |
 | A5 | Calculs : pour 800 × 200 × 22 mm, `volume_m3` = 0,00352 m³ et `mass_kg` à 710 kg/m³ = 2,4992 kg (à 1e-9 près) ; `rough_dimensions` avec des surcotes 20 / 5 / 0 donne 820 × 205 × 22. | U |
 | A6 | `Dimensions` refuse toute cote inférieure à 0,1 mm (donc toute cote ≤ 0), non finie ou > 20 000 mm ; `Allowances` refuse toute surcote < 0, non finie ou > 20 000 mm (exception `InvalidDimensionsError`). | U |
-| A7 | Règles de changement de matériau : vers un matériau sans fil → `GrainDirection.NONE` ; vers un matériau avec fil alors que le fil valait `NONE` → `LENGTH` ; sinon le fil est conservé. Les surcotes ne sont remplacées par celles de la nouvelle famille (massif / panneau) **que si** elles valent encore exactement celles de l'ancienne famille. | U |
+| A7 | Règles de changement de matériau : vers un matériau sans fil → `GrainDirection.NONE` ; vers un matériau avec fil alors que le fil valait `NONE` → `LENGTH` (J1c, critère C10 : le sens mémorisé, `LENGTH` par défaut) ; sinon le fil est conservé. Les surcotes ne sont remplacées par celles de la nouvelle famille (massif / panneau) **que si** elles valent encore exactement celles de l'ancienne famille. | U |
 | A8 | `is_standard_thickness` reconnaît 18 mm pour le contreplaqué bouleau (tolérance 0,05 mm) et refuse 17 mm. | U |
 | A9 | `core/` n'importe ni FreeCAD ni Qt (test existant `test_separation_app_gui` toujours vert) ; couverture de `core/` ≥ 90 %. | U |
 | A10 | Texture facultative : une entrée munie d'une `texture` valide expose `Material.texture` (chemin absolu de l'image, résolu dans le dossier du fichier qui la déclare, et taille en mm) ; sans `texture`, `Material.texture` vaut `None`. Chaque règle de `texture` du § 4.3.2 est vérifiée comme au critère A2 (entrée rejetée, champ `texture`, `texture.image` ou `texture.size` cité). L'existence du fichier image n'est **pas** vérifiée par `core/` (J1d, la couleur restant le secours). | U |
@@ -76,7 +79,7 @@ Puis l'objet du document :
 
 | N° | Critère | Test |
 |---|---|---|
-| B1 | Dans `freecadcmd`, `create_wood_part(doc, length=800, width=200, thickness=22, material_id="chene")` puis `doc.recompute()` donne un objet valide : `Shape.Volume` = 3 520 000 mm³, boîte englobante de 800 (X) × 200 (Y) × 22 (Z) avec un coin à l'origine du repère local, `MaterialId` = `"chene"`, `Category` = `"Solid"`, `Density` = 710 kg/m³, `GrainDirection` = `"Length"`, `Version` = 1. | I |
+| B1 | Dans `freecadcmd`, `create_wood_part(doc, length=800, width=200, thickness=22, material_id="chene")` puis `doc.recompute()` donne un objet valide : `Shape.Volume` = 3 520 000 mm³, boîte englobante de 800 (X) × 200 (Y) × 22 (Z) avec un coin à l'origine du repère local, `MaterialId` = `"chene"`, `Category` = `"Solid"`, `Density` = 710 kg/m³, `GrainDirection` = `"Length"`, `PreferredGrainDirection` = `"Length"`, `Version` = `MODEL_VERSION` (2 depuis le critère C10 ; 1 en J1b). | I |
 | B2 | Chaque propriété du tableau du § 4.4.2 existe avec le type, le groupe, l'infobulle et le mode d'édition indiqués. | I |
 | B3 | Modifier `Length` à 1000 mm puis recalculer donne un volume de 4 400 000 mm³ ; le `Placement` (préalablement déplacé et tourné) est **inchangé**. Idem pour `Width` et `Thickness`. | I |
 | B4 | Une expression sur une cote fonctionne : `Length` = `Width * 4` donne 800 mm, puis 1000 mm après `Width` = 250. | I |
@@ -84,7 +87,7 @@ Puis l'objet du document :
 | B6 | Une cote à 0 met l'objet en erreur au recalcul (`isValid()` faux, message traduit « cote invalide » dans `getStatusString()`), sans exception non rattrapée ni blocage du document ; remettre une cote valide rend l'objet valide. Une valeur négative saisie directement n'est jamais retenue (la propriété reste ≥ 0) ; une expression qui donne une cote ≤ 0 met l'objet en erreur sans exception (le moteur d'expressions de FreeCAD peut écrire une valeur négative dans la propriété : on ne lutte pas contre lui). | I |
 | B7 | Enregistrer, fermer, rouvrir : toutes les propriétés sont identiques, l'objet est valide et le volume inchangé. Si la bibliothèque est inchangée, aucun objet n'est marqué « Touched » après réouverture. | I |
 | B8 | Réouverture avec une bibliothèque où le matériau n'existe plus (fichier utilisateur retiré) : `MaterialId`, le libellé de `Material` et `Density` sont conservés, l'objet reste valide, un seul avertissement est écrit dans la vue rapport. | I |
-| B9 | Migration : un objet enregistré sans `Version` ni `ThicknessAllowance` (propriétés supprimées avant enregistrement pour simuler un ancien fichier) est rouvert avec les propriétés manquantes recréées à leur valeur par défaut et `Version` = 1. | I |
+| B9 | Migration : un objet enregistré sans `Version` ni `ThicknessAllowance` (propriétés supprimées avant enregistrement pour simuler un ancien fichier) est rouvert avec les propriétés manquantes recréées à leur valeur par défaut et `Version` = `MODEL_VERSION` (2 depuis C10 ; migration 1 → 2 : critère C10). | I |
 | B10 | Annuler / rétablir : création encadrée par `openTransaction` / `commitTransaction`, puis `undo()` supprime la pièce et `redo()` la restaure avec ses propriétés (`UndoMode` = 1). Idem pour une modification de `Length`. | I |
 | B11 | Le proxy enregistré dans le document est `freecad.menuiserie.features.wood_part.WoodPart` et `dumps()` renvoie `None` (test « contrat de persistance », cf. ADR 0003). | I |
 | B12 | `record_of(obj)` renvoie un `PartRecord` cohérent avec les propriétés (prépare J2) ; `is_wood_part` vaut vrai pour une pièce et faux pour un `Part::Box`. | I |
@@ -99,11 +102,14 @@ Puis l'objet du document :
 | C2 | Lancer la commande crée une pièce (chêne, 800 × 200 × 22 par défaut) et ouvre le panneau, titré « Nouvelle pièce de bois » ; « OK » laisse **une** pièce et **une** entrée d'annulation « Créer une pièce de bois ». | G |
 | C3 | « Annuler » dans le panneau de création ne laisse ni pièce ni entrée d'annulation. | G |
 | C4 | Double-clic sur une pièce : le panneau s'ouvre, titré « Modifier « <Label> » », avec ses valeurs actuelles ; chaque modification est visible immédiatement dans la vue 3D ; « OK » crée **une** entrée d'annulation « Modifier une pièce de bois » ; « Annuler » rétablit toutes les valeurs d'origine. | G (+ manuel) |
-| C5 | Le filtre « Type » (Tous, Massif, Contreplaqué, MDF, Mélaminé) restreint la liste des matériaux ; la liste « Matériau » affiche toujours le libellé de `obj.Material` (comportement d'un filtre qui exclut le matériau courant : question Q4, § 8) ; les épaisseurs standard du matériau choisi sont proposées en un clic par le menu du bouton « Épaisseurs standard » (bouton inactif si `Thickness` est pilotée par une expression ou si le matériau est inconnu localement) ; une épaisseur hors standard pour un **panneau** affiche un avertissement visible mais **non bloquant**, jamais pour du massif. Règle dans `core` : `is_nonstandard_panel_thickness` (U : contreplaqué bouleau 17 mm → vrai, 18 et 18,04 mm → faux ; chêne 17 mm → faux). | U + G (+ manuel) |
+| C5 | Le filtre « Type » (Tous, Massif, Contreplaqué, MDF, Mélaminé) restreint la liste des matériaux ; la liste « Matériau » affiche toujours le libellé de `obj.Material` (un filtre qui exclut le matériau courant applique le premier matériau du type : Q4 tranchée, critère C12) ; les épaisseurs standard du matériau choisi sont proposées en un clic par le menu du bouton « Épaisseurs standard » (bouton inactif si `Thickness` est pilotée par une expression ou si le matériau est inconnu localement) ; une épaisseur hors standard pour un **panneau** affiche un avertissement visible mais **non bloquant**, jamais pour du massif. Règle dans `core` : `is_nonstandard_panel_thickness` (U : contreplaqué bouleau 17 mm → vrai, 18 et 18,04 mm → faux ; chêne 17 mm → faux). | U + G (+ manuel) |
 | C6 | Si une cote (dimension ou surcote) est pilotée par une expression : la propriété `expression` du champ vaut le texte de l'expression ; aucune action du panneau n'écrit la propriété ; après une modification d'une autre cote puis « OK », l'expression est toujours dans `ExpressionEngine` et la valeur la suit. Si `Mark`, `Material` ou `GrainDirection` est pilotée par une expression, le champ correspondant est inactif et le panneau ne l'écrit pas. Icône d'expression et champ en lecture seule : vérifiés **à la main** sur 1.0 et 1.1 (hors écran, le volet des tâches peut être replié : pas de vérification G conditionnelle à l'affichage). | G (+ manuel) |
 | C7 | Les champs de cote acceptent les unités (`80 cm`, `2'`) et refusent une valeur ≤ 0. | manuel |
 | C8 | Toute chaîne visible (commande, panneau, `.ui`, messages) passe par `translate()`, `QT_TRANSLATE_NOOP` ou les chaînes traduisibles du `.ui` ; aucun import `PySide2`/`PySide6`. | revue + test d'imports |
-| C9 | Scénario du livrable, déroulé à la main sur FreeCAD 1.0 et 1.1 et décrit dans la PR : créer une planche de chêne 800 × 200 × 22, la passer à 1000 × 250 × 27 en hêtre, annuler, rétablir, enregistrer, rouvrir. | manuel |
+| C9 | Scénario du livrable, déroulé à la main sur FreeCAD 1.0 et 1.1 et décrit dans la PR : créer une planche de chêne 800 × 200 × 22, la passer à 1000 × 250 × 27 en hêtre, annuler, rétablir, enregistrer, rouvrir. Puis : fil en Largeur, MDF (ligne « Sans fil » absente), enregistrer, rouvrir, chêne : le fil est en Largeur (C10, C11). | manuel |
+| C10 | **Mémoire du sens du fil** (exigence de jv, § 4.4.6, ADR 0005) : chaque pièce mémorise son dernier sens du fil (`Length` ou `Width`) dans la propriété masquée `PreferredGrainDirection` et le retrouve en revenant à un matériau avec fil, quel que soit le chemin (panneau, éditeur de propriétés, `set_material`). **U** : `grain_after_material_change(chêne, NONE, preferred=WIDTH)` → `WIDTH` ; `(chêne, NONE)` → `LENGTH` (A7 inchangé) ; `(chêne, LENGTH, preferred=WIDTH)` → `LENGTH` (le fil courant prime) ; `(mdf, WIDTH, preferred=WIDTH)` → `NONE` ; `remembered_grain(WIDTH, LENGTH)` → `WIDTH`, `(NONE, WIDTH)` → `WIDTH`, `(NONE)` → `LENGTH`, `(LENGTH, WIDTH)` → `LENGTH` ; `preferred` ou `previous` = `NONE` → `ValueError`. **I** : (1) chêne, `GrainDirection = "Width"` → préférence `Width` ; `set_material(obj, "mdf")` → `None`, préférence `Width` ; `set_material(obj, "chene")` → `Width` ; idem par `obj.Material = "MDF"` puis `"Chêne"` (éditeur de propriétés) ; chêne `Width` → MDF → contreplaqué bouleau → `Width` ; pièce créée en MDF : `None`, préférence `Length`, puis chêne → `Length`. (2) Chêne `Width` → MDF, enregistrer, fermer, rouvrir : préférence `Width`, aucun objet « Touched » (B7) ; puis chêne → `Width`. (3) Annuler / rétablir, une transaction par étape : `Width` (T1), MDF (T2), chêne (T3) → `Width` ; `undo` → `None` / préférence `Width` ; `undo` → `Width` / `Width` ; `undo` → `Length` / `Length` (la préférence suit l'annulation) ; trois `redo` → `Width` / `Width`. (4) Document ancien : `PreferredGrainDirection` supprimée et `Version` remise à 1 avant enregistrement ; une pièce en chêne `Width` est rouverte avec la préférence `Width` et `Version` = 2, puis MDF → chêne donne `Width` ; une pièce en MDF (`None`) est rouverte avec la préférence `Length` ; un document de version 0 (B9) reçoit la préférence de même. (5) Contrôles de réouverture de l'ADR 0003 appliqués à la nouvelle propriété : valeur inconnue (`"Diagonal"`) dans un document de version 2 → remplacée par le sens mémorisable de `GrainDirection` (`Length` si `None`), un avertissement ; dans un document de version 3 → gardée, un avertissement ; type inattendu (`App::PropertyString`) → supprimée puis recréée d'après `GrainDirection`, un avertissement. | U + I |
+| C11 | **Fil masqué pour un matériau sans fil** (exigence de jv, § 4.4.6 et § 4.5) : si le matériau de la pièce n'a pas de fil (`has_grain` faux ; matériau inconnu localement : défaut de sa catégorie), `GrainDirection` est masquée dans l'éditeur de propriétés (`obj.getEditorMode("GrainDirection")` = `["Hidden"]`) et la ligne « Sens du fil » du panneau aussi (`grainLabel` et `grainCombo` : `isHidden()` vrai) ; avec fil, la propriété est éditable (`[]`) et la ligne affichée avec le sens mémorisé. `PreferredGrainDirection` est masquée dans tous les cas. **U** : `material_has_grain(chêne, SOLID)` vrai, `(mdf, MDF)` faux, `(None, SOLID)` et `(None, PLYWOOD)` vrais, `(None, MDF)` et `(None, MELAMINE)` faux. **I** : création en chêne puis en MDF ; chêne → MDF → chêne ; après `undo()` puis `redo()` d'un changement de matériau, le mode suit la valeur rétablie ; après réouverture d'une pièce en MDF et d'une pièce en chêne ; pièce d'un matériau inconnu localement de catégorie `MDF` → masquée. **G** : panneau ouvert sur une pièce en chêne `Width` : choisir « MDF » dans la liste masque la ligne, choisir « Chêne » la réaffiche avec « Largeur » ; panneau ouvert sur une pièce en MDF : ligne masquée dès l'ouverture. | U + I + G |
+| C12 | **Filtre « Type »** (Q4 tranchée par jv le 2026-10-20 : option (a)) : choisir un type qui **exclut** le matériau de la pièce applique aussitôt le premier matériau de ce type, dans l'ordre de la bibliothèque, par le même chemin qu'un choix dans la liste (`set_material` : fil d'après C10, surcotes d'après A7) ; un type qui l'inclut, et « Tous », ne modifient pas la pièce ; un type sans aucun matériau laisse la liste vide et la pièce inchangée. **G** (bibliothèque intégrée, sauf le dernier cas) : pièce en hêtre `Width` ; filtre « MDF » → `MaterialId` = `mdf`, `GrainDirection` = `None`, surcotes 0 / 0 / 0, ligne du fil masquée (C11) ; « Contreplaqué » → `cp-bouleau`, `Width`, ligne affichée ; « Massif » → `chene` (premier massif), `Width`, surcotes 20 / 5 / 0 ; « Tous » → pièce inchangée ; « Annuler » rétablit hêtre, `Width`, préférence `Width` et surcotes d'origine ; même parcours puis « OK » → **une** entrée d'annulation. Bibliothèque temporaire sans mélaminé : filtre « Mélaminé » → liste vide, pièce inchangée. | G |
 
 ### J1d — Textures des matériaux (`core/appearance.py`, `features/appearance.py`, `gui/`)
 
@@ -120,7 +126,7 @@ la fusion de #8 ne demande aucune modification de code.
 | D3 | Dans `freecadcmd` : `usable_texture_file(path)` est vrai pour un fichier ordinaire non vide de 16 Mio au plus, et faux **sans exception** pour un chemin absent, un dossier, un fichier vide, un fichier de plus de 16 Mio (fichier creux), un lien symbolique cassé. `appearance_of(obj)` sur une pièce d'un matériau texturé de la bibliothèque temporaire renvoie l'image et la projection de son `GrainDirection` (`Width` après `obj.GrainDirection = "Width"`), la couleur seule si l'image est absente, et `None` si `MaterialId` est inconnu localement ; l'appel ne marque pas l'objet « Touched ». | I |
 | D4 | Rendu, dans l'interface hors écran : une pièce d'un matériau texturé (image PNG 64 × 32 produite par le test) a, dans `vobj.RootNode` et avant `vobj.SwitchNode`, un `SoSwitch` nommé `MenuiserieTexture` actif, qui contient un `SoTextureCoordinatePlane` aux directions de D1 et un `SoTexture2` (modèle `MODULATE`, répétition `REPEAT` en S et T) dont l'image fait 64 × 32 pixels ; la couleur diffuse de `ShapeAppearance` est le blanc de base et `MaterialColor` la couleur du matériau. Passer `GrainDirection` à `Width` change les directions ; changer `Length` ou le `Placement` ne les change pas. Deux pièces du même matériau partagent le **même** nœud `SoTexture2` (image décodée une fois). | G |
 | D5 | Repli : image absente, contenu illisible (octets aléatoires nommés `.png`), contenu d'un autre format que celui de l'extension (JPEG nommé `.png`), image de plus de 4 096 pixels de côté → `SoSwitch` inactif (`SO_SWITCH_NONE`), couleur diffuse = `MaterialColor`, aucune exception (le script se termine), et **un seul** avertissement traduit par image et par session, même avec deux pièces (vérifié avec un cache d'images muni d'une fonction d'avertissement de test). | G |
-| D6 | Enregistrer, fermer, rouvrir dans l'interface avec la même bibliothèque : la texture est réaffichée (D4) et le document de l'interface n'est pas marqué modifié ; l'archive `.FCStd` ne contient aucune image de texture. Rouvrir après suppression de l'image : couleur `MaterialColor` (D5). Les propriétés de l'objet (`Version` = 1) sont inchangées : J1d n'ajoute aucune propriété à `WoodPart`. | G |
+| D6 | Enregistrer, fermer, rouvrir dans l'interface avec la même bibliothèque : la texture est réaffichée (D4) et le document de l'interface n'est pas marqué modifié ; l'archive `.FCStd` ne contient aucune image de texture. Rouvrir après suppression de l'image : couleur `MaterialColor` (D5). Les propriétés de l'objet (`Version` = `MODEL_VERSION`) sont inchangées : J1d n'ajoute aucune propriété à `WoodPart`. | G |
 | D7 | Vérification visuelle sur FreeCAD 1.0 et 1.1, captures dans la PR : planche texturée avec une image de test quadrillée tous les 100 mm (carreaux mesurés à 100 mm avec l'outil de mesure), veinage dans le sens de la longueur puis de la largeur selon `GrainDirection`, arêtes visibles en mode « Flat Lines », présélection et sélection toujours visibles. README : section « Ajouter une texture » (format, sens du fil = largeur de l'image, taille réelle, PNG/JPEG, 16 Mio et 4 096 pixels au plus). | manuel + revue |
 
 ## 4. Conception
@@ -395,11 +401,36 @@ def is_standard_thickness(
     material: Material, thickness: float, tolerance: float = STANDARD_THICKNESS_TOLERANCE_MM
 ) -> bool: ...
 def is_nonstandard_panel_thickness(material: Material, thickness: float) -> bool: ...  # J1c
-def grain_after_material_change(new: Material, current: GrainDirection) -> GrainDirection: ...
+def grain_after_material_change(
+    new: Material,
+    current: GrainDirection,
+    preferred: GrainDirection = GrainDirection.LENGTH,  # J1c (C10)
+) -> GrainDirection: ...
+def remembered_grain(  # J1c (C10)
+    grain: GrainDirection, previous: GrainDirection = GrainDirection.LENGTH
+) -> GrainDirection: ...
+def material_has_grain(material: Material | None, kind: MaterialKind) -> bool: ...  # J1c (C11)
 def allowances_after_material_change(
     old_kind: MaterialKind | None, new_kind: MaterialKind, current: Allowances
 ) -> Allowances: ...
 ```
+
+Règles du sens du fil (ajoutées en J1c, critères C10 et C11 ; § 4.4.6) :
+
+- `grain_after_material_change(new, current, preferred)` : `NONE` si `new` n'a pas de fil ;
+  sinon `current` s'il n'est pas `NONE`, sinon `preferred`. `preferred` = `NONE` est une erreur
+  de programmation (`ValueError`). La valeur par défaut garde le comportement de A7.
+- `remembered_grain(grain, previous)` : sens à mémoriser après que le fil a pris la valeur
+  `grain` : `grain` s'il désigne un sens (`LENGTH`, `WIDTH`), sinon `previous` (`ValueError` si
+  `previous` vaut `NONE`). Une seule règle pour trois usages : mise à jour de la mémoire à chaque
+  choix du fil, valeur initiale à la migration (`previous` = `LENGTH`), valeur de remplacement
+  d'une valeur inconnue à la réouverture.
+- `material_has_grain(material, kind)` : `material.has_grain` si le matériau est connu
+  localement, sinon le défaut de sa famille (`kind.has_grain_by_default`). Décide de la
+  visibilité du fil (éditeur de propriétés et panneau).
+
+Pas de pattern supplémentaire : trois fonctions pures, testées sans FreeCAD ; un objet valeur
+« mémoire du fil » n'aurait qu'un champ et un usage.
 
 `is_nonstandard_panel_thickness` (ajoutée en J1c, critère C5) : vrai si et seulement si le
 matériau est un panneau (`kind.is_panel`) et que l'épaisseur n'est pas standard au sens de
@@ -559,12 +590,13 @@ réappliqués dans `onDocumentRestored`).
 | `MaterialId` | `App::PropertyString` | Matériau | `chene` | lecture seule | Identifiant stable du matériau dans la bibliothèque. C'est lui qui est enregistré et utilisé par les calculs. |
 | `Category` | `App::PropertyEnumeration` (`Solid`, `Plywood`, `MDF`, `Melamine`) | Matériau | `Solid` | lecture seule | Type de matériau, déduit du matériau choisi : massif ou panneau (contreplaqué, MDF, mélaminé). |
 | `Density` | `App::PropertyDensity` | Matériau | 710 kg/m³ | lecture seule | Masse volumique recopiée de la bibliothèque au choix du matériau ; sert au calcul de la masse. |
-| `GrainDirection` | `App::PropertyEnumeration` (`Length`, `Width`, `None`) | Matériau | `Length` | oui | Sens du fil par rapport aux cotes de la pièce : le long de la longueur, de la largeur, ou sans fil (MDF, mélaminé uni). |
+| `GrainDirection` | `App::PropertyEnumeration` (`Length`, `Width`, `None`) | Matériau | `Length` | oui ; **masquée** si le matériau n'a pas de fil (C11) | Sens du fil par rapport aux cotes de la pièce : le long de la longueur, de la largeur, ou sans fil (MDF, mélaminé uni). |
+| `PreferredGrainDirection` (C10) | `App::PropertyEnumeration` (`Length`, `Width`) | Matériau | `Length` (migration : d'après `GrainDirection`) | masquée | Dernier sens du fil choisi pour la pièce, repris quand elle revient à un matériau avec fil. |
 | `Mark` | `App::PropertyString` | Débit | `""` | oui | Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 »). Des pièces identiques peuvent partager le même repère. |
 | `LengthAllowance` | `App::PropertyLength` | Débit | 20 mm (massif) / 0 (panneau) | oui | Surcote totale ajoutée à la longueur finie pour obtenir la longueur de débit. |
 | `WidthAllowance` | `App::PropertyLength` | Débit | 5 mm (massif) / 0 (panneau) | oui | Surcote totale ajoutée à la largeur finie pour obtenir la largeur de débit. |
 | `ThicknessAllowance` | `App::PropertyLength` | Débit | 0 mm | oui | Surcote totale ajoutée à l'épaisseur finie pour obtenir l'épaisseur de débit. |
-| `Version` | `App::PropertyInteger` | Base | 1 | masquée | Version du modèle de données de la pièce, utilisée pour migrer les anciens fichiers. |
+| `Version` | `App::PropertyInteger` | Base | `MODEL_VERSION` (2 depuis C10 ; 1 en J1b) | masquée | Version du modèle de données de la pièce, utilisée pour migrer les anciens fichiers. |
 
 `Placement` et `Label` sont hérités. `Label` par défaut : `translate("Menuiserie", "Pièce de bois")`.
 Nom interne : `WoodPart`.
@@ -582,7 +614,7 @@ class WoodPart:
     """Proxy du FeaturePython « pièce de bois ». Chemin de module figé (ADR 0003)."""
 
     TYPE: ClassVar[str] = "Menuiserie::WoodPart"
-    VERSION: ClassVar[int] = 1
+    VERSION: ClassVar[int] = MODEL_VERSION  # 2 depuis C10 (wood_part_schema.py)
 
     def __init__(self, obj: DocumentObject) -> None: ...  # obj.Proxy = self ; ajoute les propriétés
     def onDocumentRestored(self, obj: DocumentObject) -> None: ...
@@ -610,6 +642,7 @@ def set_material(obj: DocumentObject, material_id: str) -> None: ...  # UnknownM
 def dimensions_of(obj: DocumentObject) -> Dimensions: ...
 def allowances_of(obj: DocumentObject) -> Allowances: ...
 def record_of(obj: DocumentObject) -> PartRecord: ...  # entrée de J2
+def shows_grain(obj: DocumentObject) -> bool: ...  # J1c (C11) : fil visible pour ce matériau
 ```
 
 Découpage (issue #11) : `wood_part.py` garde le proxy et ces fonctions publiques, et ré-exporte
@@ -657,6 +690,7 @@ Comportement :
   des modes d'édition, puis reconstruction de la liste `Material` depuis la bibliothèque **seulement
   si elle diffère** ; si `MaterialId` est inconnu localement, le libellé enregistré est conservé
   comme valeur supplémentaire de la liste et `Density`/`Category` ne sont pas touchés.
+  Migration 1 → 2 et visibilité du fil : § 4.4.6.
 - **`dumps`/`loads`** : le proxy ne porte aucun état (tout est dans les propriétés).
 
 #### 4.4.4 `api.py` (façade pour scripts et console)
@@ -732,6 +766,64 @@ champs de `ShapeAppearance` (transparence, brillance…) restent à l'utilisateu
 `finishRestoring` crée `MaterialColor` si elle manque (document enregistré avant son ajout) à
 partir de la couleur diffuse enregistrée.
 
+#### 4.4.6 Mémoire et visibilité du sens du fil (J1c, critères C10 et C11)
+
+Exigences de jv du 2026-10-20, mot pour mot : « Le sens du fils doit être garder en mémoire ainsi
+que on remet ensuite un matériau avec un fils il est repris » ; « Si le matériau n'a pas de fil ,
+le fil de dois pas être visible ». Le menuisier qui a tourné le fil d'une planche en Largeur ne
+doit pas perdre ce choix en essayant un panneau sans fil, et ne doit pas voir de réglage de fil
+sur un MDF. Choix du format : ADR 0005.
+
+**Mémoire** (`wood_part_schema.py`, `wood_part.py`, `wood_part_restore.py`) :
+
+- Schéma : `PreferredGrainDirection` ajoutée à `_PROPERTIES` juste après `GrainDirection` (table
+  du § 4.4.2) ; `PREFERRED_GRAIN_DIRECTIONS: Final = ("Length", "Width")` (valeurs stockées,
+  mêmes chaînes que `GrainDirection`, ordre figé, ajouts en fin seulement) ; `MODEL_VERSION = 2`.
+  Défaut (`_default_values`) : `remembered_grain(<fil de la pièce>, LENGTH)`, le fil de la pièce
+  étant `obj.GrainDirection` s'il existe et fait partie de `GRAIN_DIRECTIONS`, sinon le fil par
+  défaut calculé pour `GrainDirection` (`default_grain`).
+- Mise à jour : `WoodPart.onChanged("GrainDirection")`, dans les mêmes conditions que
+  `"Material"` (`_follows_user_changes` : ni resynchronisation interne, ni restauration, ni
+  annulation ou rétablissement) et seulement si la propriété existe : `PreferredGrainDirection`
+  ← `remembered_grain(GrainDirection, préférence actuelle)`, écrite seulement si elle change.
+  Tout choix de `Length` ou `Width` la met donc à jour (panneau, éditeur de propriétés, console,
+  expression), y compris sur un matériau sans fil où seule la console peut l'écrire (cette
+  valeur serait de toute façon conservée par la règle A7 au retour vers un matériau avec fil) ;
+  choisir « Sans fil » ne l'efface pas (Q6). L'écriture a lieu dans la transaction ouverte par
+  l'appelant : annuler et rétablir restaurent les deux propriétés ensemble (C10 (3)).
+- Usage : `_apply_material` passe `preferred=_preferred_grain(obj)` à
+  `grain_after_material_change`. `_preferred_grain(obj)` (privée, `wood_part.py`) renvoie la
+  valeur de la propriété, ou `LENGTH` si elle est absente ou inconnue (document plus récent qui
+  garde une valeur inconnue, ADR 0003) : jamais d'exception. Le panneau, l'éditeur de propriétés
+  et `set_material` passent tous par `select_material` : aucun code de mémoire dans `gui/`.
+- Réouverture : `TYPE_BY_NAME`, donc `remove_mistyped_properties`, couvre la propriété sans code
+  supplémentaire ; `restore_enumerations` canonise aussi `PreferredGrainDirection`, **après**
+  `GrainDirection`, avec pour valeur de remplacement `remembered_grain(GrainDirection, LENGTH)`
+  et la même règle `keep_unknown` ; `_migrate` 1 → 2 = `add_missing_properties` (défaut
+  ci-dessus) puis `Version = 2`, sans autre transformation : la même fonction migre depuis 0 et
+  depuis 1.
+- Limite : le sens choisi avant la mise à jour de l'atelier n'a été enregistré nulle part ; une
+  pièce déjà en MDF dans un document de version 1 reprend `Length` (C10 (4)).
+
+**Visibilité** :
+
+- Mode d'édition de `GrainDirection` : `EDITABLE` si `material_has_grain(matériau, famille)`,
+  sinon `HIDDEN`, avec matériau = `get_library().find(obj.MaterialId)` et famille =
+  `part_kind(obj, matériau)`. `shows_grain(obj)` (publique, `wood_part.py`) porte ce calcul pour
+  `features/` et le panneau ; `apply_editor_modes(obj, *, show_grain: bool = True)` applique ce
+  mode à `GrainDirection` à la place de celui de la table. `PreferredGrainDirection` reste
+  toujours `HIDDEN`.
+- Le mode est appliqué à la création (`select_material`), à la réouverture (`onDocumentRestored`,
+  après la migration, comme aujourd'hui) et dans `onChanged("MaterialId" | "Category")` **à tout
+  moment sauf pendant la restauration**, y compris pendant une resynchronisation, une annulation
+  ou un rétablissement : le mode d'édition n'appartient ni au document ni à la transaction, il
+  doit suivre la valeur rétablie (C11). `setEditorMode` n'est appelé que si le mode change.
+- Masquer ne modifie jamais la valeur : une pièce en MDF garde `GrainDirection` = `None`, et la
+  liste de débit (J2) lit toujours la propriété.
+
+Patterns : rien de nouveau. La réaction aux changements reste l'**Observer** déjà en place
+(`onChanged` du proxy) ; les règles sont des fonctions pures de `core/` (§ 4.2.3).
+
 ### 4.5 Commande et panneau de tâche (J1c)
 
 #### `gui/commands/wood_part.py`
@@ -802,11 +894,19 @@ bornes posées par le panneau : dimensions de `MIN_DIMENSION_MM` à `MAX_DIMENSI
   l'objet ; une modification de cote ou de matériau est suivie de `obj.recompute()` (aperçu en
   direct). Choisir une épaisseur dans le menu passe par le champ Épaisseur (même chemin qu'une
   saisie).
-- Filtre « Type » : restreint la liste « Matériau », qui affiche toujours le libellé de
-  `obj.Material`. Si le matériau de la pièce est exclu par le filtre, **en attente de Q4** :
-  recommandation, le filtre ne modifie pas la pièce et le matériau courant reste affiché en tête
-  de liste (comme un matériau inconnu localement) jusqu'au choix d'un autre matériau ; option
-  livrée dans la PR #15, le premier matériau du type est appliqué.
+- Filtre « Type » (Q4 tranchée par jv le 2026-10-20 : « Prend le 1er matériau de la liste »,
+  critère C12) : restreint la liste « Matériau », qui affiche toujours le libellé de
+  `obj.Material`. Si le matériau de la pièce est exclu par le filtre, le premier matériau du type
+  (ordre de la bibliothèque) est appliqué aussitôt par `set_material`, comme un choix dans la
+  liste : le fil suit la mémoire (C10) et les surcotes la règle A7, ce qui rend le parcours des
+  filtres sans perte. Un type qui inclut le matériau de la pièce, et « Tous », ne la modifient
+  pas ; un type sans matériau laisse la liste vide et la pièce inchangée. Comportement déjà livré
+  dans la PR #15 (`_fill_materials`).
+- Ligne « Sens du fil » (`grainLabel` et `grainCombo`, critère C11) : affichée si
+  `shows_grain(obj)`, masquée (`setVisible(False)`) sinon ; recalculée dans `_show_values`, donc à
+  l'ouverture et après chaque changement de matériau (liste ou filtre). Revenue visible, elle
+  affiche la valeur de `GrainDirection`, c'est-à-dire le sens mémorisé (C10). La liste garde ses
+  trois entrées (Longueur, Largeur, Sans fil) : Q6.
 - Avertissement d'épaisseur et menu des épaisseurs : recalculés après chaque recalcul, d'après
   `get_library().find(obj.MaterialId)` et `is_nonstandard_panel_thickness` ; bouton inactif si le
   matériau est inconnu localement ou si `Thickness` est pilotée par une expression.
@@ -822,8 +922,8 @@ Choix de rendu et alternatives écartées : ADR 0004. Principes :
 
 - La texture **n'est pas enregistrée** dans le document : elle suit la bibliothèque locale et est
   recalculée à l'ouverture et à chaque changement de `MaterialId` ou de `GrainDirection`. Seule
-  `MaterialColor` (propriété de vue, J1b) est persistée. `WoodPart` ne change pas : `Version`
-  reste 1, aucune migration.
+  `MaterialColor` (propriété de vue, J1b) est persistée. J1d ne change pas `WoodPart` : ni
+  propriété, ni `Version` (`MODEL_VERSION`, porté à 2 par J1c pour C10), ni migration.
 - Répartition : `core/` calcule la projection et choisit couleur ou texture (pur, testé U) ;
   `features/` interroge la bibliothèque et contrôle le fichier image **sans l'ouvrir** (testé I) ;
   `gui/` décode l'image avec Qt et construit les nœuds Coin (testé G).
@@ -967,7 +1067,7 @@ raison d'échec citée tronquée ; l'image n'est jamais copiée dans le document
 |---|---|---|---|---|
 | **J1a** (fusionnée, 345ff4d) | `feat/bibliotheque-materiaux` | `core/i18n.py`, `core/materials.py`, `core/part_model.py`, `data/materiaux.json`, ADR 0002 accepté | ≈ 320 lignes + 130 lignes de données | A1–A10 |
 | **J1b** | `feat/piece-de-bois-document` | 1ᵉʳ commit (ou série) : reprise de la revue J1a (`core/_validation.py`, paquet `core/materials/`, validation de `Material`, épaisseur minimale, ADR 0003 accepté) ; puis `features/library.py`, `features/wood_part.py`, `api.py`, ViewProvider (icône existante, `MaterialColor`, couleur), README « Ajouter une essence » | ≈ 350 lignes + ≈ 80 lignes nettes pour la reprise (déplacements exclus, relus avec `--color-moved`) | R1–R5, B1–B14 |
-| **J1c** | `feat/panneau-piece-de-bois` | commande, panneau de tâche + `.ui`, édition au double-clic, `init_gui.py`, test G | ≈ 300 lignes + `.ui` | C1–C9 |
+| **J1c** (PR #15) | `feat/commande-piece-de-bois` | commande, panneau de tâche + `.ui`, édition au double-clic, `init_gui.py`, test G ; puis mémoire et visibilité du fil (`core/part_model.py`, `features/wood_part*.py`, ligne du fil du panneau, `MODEL_VERSION` = 2, ADR 0005) | ≈ 300 lignes + `.ui`, puis ≈ 100 lignes pour C10–C12 | C1–C12 |
 | **J1d** | `feat/textures-piece-de-bois` | `core/appearance.py`, `features/appearance.py`, `gui/textures.py`, ajouts au ViewProvider, vérifications G, README « Ajouter une texture », ADR 0004 accepté | ≈ 220 lignes | D1–D7 |
 
 J1c et J1d partent tous deux de `main` après la fusion de J1b et sont indépendants (seul point de
@@ -983,6 +1083,14 @@ rendu réaliste.
 
 - **Fichiers `.FCStd` existants** : aucun objet de l'atelier n'existe encore ; aucune migration
   n'est nécessaire. J1b introduit le **premier format persistant** (`Version` = 1).
+- **Mémoire du sens du fil (J1c, C10, ADR 0005)** : `Version` passe à 2 et
+  `PreferredGrainDirection` est ajoutée. Un document de version 1 (enregistré avec `main` après
+  J1b) est migré à la réouverture : la propriété est créée d'après `GrainDirection` (`Length` si
+  `None`) et `Version` = 2 ; le document est alors à enregistrer de nouveau. Un document de
+  version 2 ouvert avec un atelier antérieur (J1b) : avertissement « document créé par une
+  version plus récente » (ADR 0003), la propriété inconnue de cet atelier est conservée telle
+  quelle et réenregistrée, mais n'est ni lue ni mise à jour par lui. La visibilité du fil (C11)
+  n'est pas enregistrée : elle est recalculée à chaque ouverture.
 - **Contrat de persistance** (ADR 0003), vérifié par test : chemins
   `freecad.menuiserie.features.wood_part.WoodPart` et
   `freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart`, noms des propriétés,
@@ -990,7 +1098,7 @@ rendu réaliste.
   `Version` + `_migrate` dans `onDocumentRestored`, avec un test de réouverture d'un fichier ancien.
   La propriété de vue `MaterialColor` en fait partie ; une propriété de vue absente à la
   réouverture est recréée dans `finishRestoring` (le ViewProvider n'a pas de `Version`).
-- **Textures (J1d)** : aucune propriété ajoutée à `WoodPart`, `Version` reste 1, aucune migration.
+- **Textures (J1d)** : aucune propriété ajoutée à `WoodPart`, `Version` inchangée par J1d, aucune migration.
   Rien de la texture n'est écrit dans le `.FCStd` : un plan ouvert sur une machine qui a la même
   bibliothèque affiche la texture, sinon la couleur `MaterialColor` enregistrée. Les documents
   enregistrés avec J1b s'ouvrent sans changement avec J1d. Si FreeCAD active un jour ses propres
@@ -1032,6 +1140,10 @@ rendu réaliste.
   textures dans TechDraw et les exports, couleur choisie à la main sur une pièce (la couleur
   diffuse appartient au ViewProvider), textures natives de FreeCAD. Les textures intégrées
   elles-mêmes arrivent par la PR #8.
+- Sens du fil (C10, C11) : mémoire commune à toutes les pièces ou sens par défaut des nouvelles
+  pièces (la mémoire est propre à chaque pièce : Q5), mémoire par matériau, mémoire d'autres
+  réglages que le fil (les surcotes suivent déjà la règle A7), interdiction de « Sans fil » sur
+  un matériau avec fil (Q6).
 
 ## 8. Questions ouvertes pour jv
 
@@ -1055,13 +1167,33 @@ matériau de la bibliothèque, affiché en lecture seule sur la pièce et utilis
 panneau ; un contreplaqué plaqué chêne serait un matériau à part entière (`cp-chene`).
 *Recommandation : type déduit du matériau.* (ADR 0002)
 
-**Q4 — Filtre « Type » qui exclut le matériau de la pièce (ouverte le 2026-10-20, PR #15).**
+**Q4 — Filtre « Type » qui exclut le matériau de la pièce (ouverte le 2026-10-20, PR #15) —
+tranchée par jv le 2026-10-20 : option (a), « Prend le 1er matériau de la liste ».**
 La pièce est en chêne et vous choisissez le filtre « Contreplaqué » dans le panneau. Deux
 comportements possibles :
 (a) le premier contreplaqué de la liste (contreplaqué bouleau) est appliqué aussitôt : aperçu
-immédiat, mais parcourir les filtres change la pièce et peut perdre le sens du fil choisi (passage
-par « MDF » → « Sans fil », puis retour au massif → « Longueur ») et les surcotes par défaut ;
+immédiat ; parcourir les filtres change la pièce ;
 (b) le filtre ne change rien à la pièce : le chêne reste affiché en tête de liste jusqu'à ce que
 vous choisissiez un contreplaqué (un clic de plus).
-*Recommandation : (b), un filtre ne doit pas modifier la pièce.* « Annuler » rétablit tout dans
-les deux cas. Livré dans la PR #15 : (a).
+**Décision : (a)**, déjà livrée dans la PR #15 (critère C12). La perte du sens du fil au passage
+par un matériau sans fil, qui motivait la recommandation (b), disparaît avec la mémoire du fil
+(C10) ; les surcotes non modifiées reprennent les valeurs de leur famille (A7) et celles que
+vous avez saisies sont conservées. « Annuler » rétablit tout.
+
+**Q5 — Mémoire du fil : par pièce ou pour tout l'atelier ? (ouverte le 2026-10-20, C10)**
+« Le sens du fil doit être gardé en mémoire » peut s'entendre de deux façons :
+(a) chaque pièce se souvient de **son** dernier sens du fil (spécifié en C10) ;
+(b) en plus, une nouvelle pièce part du dernier sens choisi dans la session (ou d'un réglage).
+*Recommandation : (a) seule.* Une nouvelle planche en Longueur est le cas courant ; (b) ferait
+dépendre le résultat d'une commande de l'historique de la session, ce qui surprend et complique
+les scripts. (b) pourra venir avec la page de préférences (sens par défaut des nouvelles pièces).
+
+**Q6 — Garder le choix « Sans fil » pour un matériau avec fil ? (ouverte le 2026-10-20, C11)**
+Avec C11, la ligne « Sens du fil » n'apparaît que pour un matériau avec fil ; elle propose
+toujours Longueur, Largeur et Sans fil. « Sans fil » sur du chêne n'a guère de sens, mais sert
+peut-être pour une pièce dont le fil est indifférent (tasseau caché, fond de tiroir en
+contreplaqué) : la liste de débit (J2) ne la contraindra pas.
+*Recommandation : garder les trois choix (comportement actuel, rien à changer).* Choisir « Sans
+fil » n'efface pas la mémoire : un changement de matériau avec fil reprend le dernier sens
+choisi. Si vous préférez retirer « Sans fil » pour les matériaux avec fil, c'est un petit
+changement du panneau et de la règle A7.
