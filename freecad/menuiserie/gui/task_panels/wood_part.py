@@ -33,6 +33,7 @@ from freecad.menuiserie.core.part_model import (
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.wood_part import set_material, shows_grain
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
 
@@ -168,7 +169,7 @@ class WoodPartTaskPanel:
             return
         gui_doc = Gui.getDocument(name)
         in_edit = gui_doc.getInEdit()
-        if in_edit is not None and in_edit.Object.Name == self._watcher.object_name:
+        if in_edit is not None and _edits(in_edit.Object, self._watcher.object_name):
             gui_doc.resetEdit()
 
     # --- Construction du formulaire -------------------------------------------------------
@@ -306,7 +307,9 @@ class WoodPartTaskPanel:
         self.form.thicknessEdit.setProperty("rawValue", thickness)
 
     def _recompute(self) -> None:
-        self.obj.recompute()
+        """Aperçu : la pièce et ce qui en dépend (assemblages, pièce usinée), sans le reste
+        du document."""
+        self.doc.recompute([self.obj, *self.obj.InListRecursive])
         self._show_thickness_tools()
 
 
@@ -370,6 +373,13 @@ def finish_editing() -> None:
 def has_expression(obj: DocumentObject, prop: str) -> bool:
     """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
     return any(path.lstrip(".") == prop for path, _expression in obj.ExpressionEngine)
+
+
+def _edits(edited: DocumentObject, part_name: str) -> bool:
+    """Vrai si l'objet en édition ``edited`` est la pièce ``part_name`` ou sa pièce usinée
+    (dont le double-clic édite la brute)."""
+    blank = edited.Base if is_machined_part(edited) else edited
+    return blank is not None and blank.Name == part_name
 
 
 def _connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:

@@ -82,11 +82,11 @@ _JointFactory = Callable[..., DocumentObject]
 def _make_joint(
     factory: _JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
 ) -> DocumentObject:
-    """Crée l'assemblage par ``factory`` dans le document des pièces, puis recalcule."""
+    """Crée l'assemblage par ``factory`` dans le document des pièces, pose les ViewProviders
+    si l'interface est chargée, puis recalcule (:func:`_shown_and_recomputed`)."""
     document = blank_of(host).Document
     joint = factory(document, host, guest, **params)
-    document.recompute()
-    return joint
+    return _shown_and_recomputed(joint)
 
 
 def make_mortise_tenon(
@@ -134,6 +134,27 @@ def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -
     Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
     return _make_joint(create_dowels, host, guest, params)
+
+
+def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
+    """Pose les ViewProviders de l'assemblage et des pièces usinées de ses deux brutes (si
+    l'interface est chargée), puis recalcule le document. Commun à toutes les fabriques
+    d'assemblage."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
+        from freecad.menuiserie.gui.view_providers.machined_part import (
+            ViewProviderMachinedPart,
+        )
+
+        ViewProviderJoint(joint.ViewObject)
+        for blank in (joint.HostPart, joint.GuestPart):
+            machined = machined_part_of(blank)
+            if machined is not None and not isinstance(
+                machined.ViewObject.Proxy, ViewProviderMachinedPart
+            ):
+                ViewProviderMachinedPart(machined.ViewObject)
+    joint.Document.recompute()
+    return joint
 
 
 __all__ = [

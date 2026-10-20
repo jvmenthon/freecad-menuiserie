@@ -99,10 +99,25 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   l'épaisseur (22 mm → Ø 10 x 40), à deux diamètres du bord, entraxe de 128 mm au plus ; leur
   nombre suit la longueur du contact ; la forme de l'assemblage montre les tourillons, les deux
   pièces usinées sont percées (jeu de fond de 1 mm, 3 mm de fond au moins).
+- Commandes d'assemblage (J3d) dans la barre d'outils et le menu Menuiserie : **Tenon-mortaise**,
+  **Rainure-languette**, **Feuillure**, **Tourillons** (base commune `JointCommand`), actives
+  pour deux pièces distinctes sélectionnées (brutes ou usinées) et sans panneau ouvert ; rôles
+  devinés d'après la position des pièces (ordre de sélection si c'est ambigu) ; une entrée
+  d'annulation « Créer un assemblage … ». Une commande dont la fabrique n'existe pas encore dans
+  l'api reste inactive.
+- Affichage de la pièce usinée (`ViewProviderMachinedPart`) : icône de la pièce de bois,
+  couleur et texture de sa brute (suivent le matériau et le fil), brute rangée dessous dans
+  l'arbre ; le double-clic ouvre le panneau de la brute avec aperçu en direct ; suppression
+  refusée tant qu'elle porte des assemblages, sinon la brute réapparaît. Assemblages
+  (`ViewProviderJoint`) : icône de leur type, couleur hêtre. ViewProviders posés par l'api.
+- Captures de PR : un cadre assemblé par quatre tenons-mortaises à côté du caisson.
 
 ### Modifié
 - `core/contact.py` : classement contact / chevauchement / pièces séparées sorti de
   `core/geometry.py` (limite de 400 lignes par module), sans changement de comportement.
+- Apparence d'une pièce (texture et couleur) extraite du ViewProvider de la pièce de bois dans
+  `gui/part_appearance.py` (`PartAppearance`), partagée avec la pièce usinée ; l'aperçu du
+  panneau de la pièce recalcule aussi ses assemblages et sa pièce usinée.
 - `features/schema.py` : ajout, contrôle de type, `Version` et modes d'édition des propriétés
   décrits par des `PropertySpec`, partagés par la pièce de bois, la pièce usinée et les
   assemblages (refactorisation sans changement de comportement).
