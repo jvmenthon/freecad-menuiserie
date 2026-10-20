@@ -146,6 +146,8 @@ entrée une clé `texture` :
 L'image n'est jamais enregistrée dans le plan (`.FCStd`) : elle est relue dans la bibliothèque
 à l'ouverture. Sur une machine qui ne l'a pas, ou si elle est absente, illisible ou trop grande,
 la pièce garde la couleur `color` du matériau (un avertissement par image dans la vue rapport).
+Les textures affichées en même temps occupent au plus 256 Mio d'images décodées (environ cinq
+images de 4 096 × 4 096 pixels) ; au-delà, les pièces suivantes gardent leur couleur.
 Les faces en bois de bout montrent une bande étirée de l'image ; une pièce sélectionnée ou
 survolée s'affiche unie, sans sa texture, le temps de la sélection. Après avoir modifié la
 bibliothèque, `reload_library()` puis un nouveau choix de matériau, ou la réouverture du plan,

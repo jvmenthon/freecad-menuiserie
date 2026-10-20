@@ -72,9 +72,14 @@ certaines compilations de Coin ; Qt (`QImageReader`) est toujours présent dans 
    contrôle s'arrêtant à cette taille plus un octet, par morceaux d'au plus 1 Mio oubliés
    aussitôt. La taille brute est calculée exactement, entrelacement Adam7 compris (sept passes
    aux dimensions connues) : aucune borne approchée n'est nécessaire.
-6. **Un nœud `SoTexture2` par image**, partagé par toutes les pièces (cache poids-mouche explicite
-   et réinitialisable de `gui/textures.py`) : une seule copie en mémoire graphique. Les échecs
-   sont mémorisés aussi : un seul avertissement par image et par session.
+6. **Un nœud `SoTexture2` par fichier image**, partagé par toutes les pièces (cache poids-mouche
+   explicite et réinitialisable de `gui/textures.py`, clé = périphérique, inode, taille et date
+   du fichier ouvert : deux liens physiques partagent le nœud) : une seule copie en mémoire
+   graphique. Les échecs sont mémorisés aussi : un seul avertissement par image et par session.
+   La mémoire est bornée par un **budget global de 256 Mio** de pixels décodés vivants
+   (`core/budget_cache.py`), qui compte aussi les nœuds oubliés par le cache mais encore
+   affichés par une pièce (références faibles) : au-delà, la pièce garde la couleur du matériau,
+   avec un seul avertissement ; une texture masquée rend sa place.
 7. Logique testable hors interface : projection et choix couleur/texture dans `core/appearance.py`,
    ouverture confinée dans `core/texture_file.py`, contrôle du fichier (ouverture sans lecture)
    dans `features/appearance.py` ; `gui/` ne fait que décoder et brancher.

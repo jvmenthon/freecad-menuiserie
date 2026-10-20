@@ -96,4 +96,5 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   par le nom. JPEG de plus de 100 balayages refusé avant décodage (un JPEG
   progressif aux milliers de balayages vides figeait l'interface) ; PNG dont les données
   décompressées dépassent la taille de l'image annoncée refusé (bombe de décompression), sans
-  décompresser au-delà.
+  décompresser au-delà ; mémoire des textures bornée à 256 Mio d'images décodées vivantes, y
+  compris celles encore affichées, et nœud partagé par les liens physiques d'une même image.

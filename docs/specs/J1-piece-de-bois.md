@@ -797,9 +797,9 @@ Choix de rendu et alternatives écartées : ADR 0004. Principes :
   lire** (testé I) ; `core/texture_file.py` ouvre le fichier une seule fois, confiné au dossier de
   la bibliothèque (testé U) ; `gui/` décode en mémoire les octets lus avec Qt et construit les
   nœuds Coin (testé G).
-- Patterns : **cache poids-mouche** (un nœud `SoTexture2` partagé par image : une seule copie en
-  mémoire graphique, quel que soit le nombre de pièces), explicite et réinitialisable comme
-  l'exige CONTRIBUTING ; **injection de dépendances** (`image_usable`, `warn`) pour tester sans
+- Patterns : **cache poids-mouche** (un nœud `SoTexture2` partagé par fichier image : une seule
+  copie en mémoire graphique, quel que soit le nombre de pièces), explicite et réinitialisable
+  comme l'exige CONTRIBUTING, borné en mémoire par un budget global (`core/budget_cache.py`) ; **injection de dépendances** (`image_usable`, `warn`) pour tester sans
   système de fichiers ni console. Pas de Strategy : une seule projection existe (pas de pattern
   « pour le principe ») ; une famille de projections justifierait un registre plus tard.
 
@@ -894,32 +894,65 @@ l'interface `texture_cache().usable` (ouverture, lecture et décodage).
 #### 4.6.3 `gui/textures.py`
 
 ```python
+TextureNode = Decoded[SoTexture2]  # nœud partagé et octets de son image (core/budget_cache.py)
+
+
 class TextureCache:
     def __init__(
-        self, warn: Callable[[str], None] | None = None, max_entries: int = 32
+        self,
+        warn: Callable[[str], None] | None = None,
+        max_entries: int = 32,
+        max_bytes: int = DEFAULT_MAX_BYTES,  # 256 Mio
     ) -> None: ...  # warn par défaut : App.Console.PrintWarning
     def node(
         self, texture: Texture
-    ) -> SoTexture2 | None: ...  # nœud partagé ; None si l'image est refusée
+    ) -> TextureNode | None: ...  # nœud partagé ; None si l'image est refusée
     def usable(self, texture: Texture) -> bool: ...  # node(texture) is not None
     def clear(self) -> None: ...
 
 
 def texture_cache() -> TextureCache: ...  # cache de la session
-def reset_texture_cache(warn: Callable[[str], None] | None = None) -> TextureCache: ...  # tests
+def reset_texture_cache(
+    warn: Callable[[str], None] | None = None,
+    *,
+    max_entries: int = 32,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+) -> TextureCache: ...  # tests
+
+
+class TextureSwitch:  # nœuds propres à une pièce (§ 4.6.4)
+    root: SoSwitch  # nommé « MenuiserieTexture »
+    active: bool  # propriété
+
+    def insert_before(self, parent: SoNode, sibling: SoNode) -> None: ...
+    def show(self, mapping: TextureMapping, texture: TextureNode) -> None: ...  # garde le nœud
+    def hide(self) -> None: ...  # switch inactif et nœud de texture retiré (libérable)
 ```
 
-`node(texture)` : clé (chemin, taille, date de modification) lue par `fstat` sur le fichier
-ouvert, pour recharger une image remplacée ; succès **et** refus sont mémorisés (au plus
-`max_entries`, les plus anciens évincés), d'où un seul avertissement par image et par session
-(D5). Chargement :
+`node(texture)` : clé = identité du fichier ouvert, lue par `fstat` (`st_dev`, `st_ino`, taille,
+date de modification) : deux liens physiques partagent un nœud, une image remplacée est relue ;
+un fichier qui ne peut pas être ouvert est identifié par son chemin. Succès **et** refus sont
+mémorisés (au plus `max_entries`, les plus anciens évincés), d'où un seul avertissement par
+image et par session (D5).
+
+Budget mémoire (audit de sécurité) : chaque `TextureSwitch` garde le nœud qu'il affiche, donc la
+limite d'entrées ne borne pas la mémoire (≈ 48 Mio de pixels par image de 4 096 × 4 096). Le
+cache compte les octets RVB de **toutes** les images décodées encore vivantes, retenues par lui
+ou par une pièce affichée (références faibles sur les `Decoded`), et réserve
+largeur × hauteur × 3 octets, lus dans l'en-tête, avant de décoder : il oublie au besoin ses
+plus anciennes images, puis, si l'image ne tient toujours pas dans `max_bytes`, la refuse sans
+mémoriser ce refus (elle s'affichera quand de la place se libère) ; couleur du matériau et un
+seul avertissement par cache : « Textures non affichées au-delà de {max} Mio d'images décodées
+(première : « {image} ») : couleur du matériau utilisée à la place. Cet avertissement n'est pas
+répété. ». `hide()` retire le nœud de la pièce, qui libère sa place. Une image oubliée par le
+cache mais encore affichée est retrouvée par sa clé (pas de seconde copie). Chargement :
 
 1. `TextureFile(texture)` (§ 4.6.2) puis `read()` : les octets sont lus une fois ;
    `QImageReader(QBuffer(QByteArray(octets)), b"png" | b"jpeg")` selon l'extension et
    `setAutoDetectImageFormat(False)` : seuls les décodeurs PNG et JPEG de Qt sont sollicités, et
    jamais sur le fichier par son nom ;
 2. `reader.size()` lu dans l'en-tête **avant** décodage : invalide ou côté > `MAX_TEXTURE_PIXELS` →
-   refus ;
+   refus ; réservation de largeur × hauteur × 3 octets dans le budget mémoire ;
 3. contrôle des octets selon le format, avant décodage (`core/image_checks.py`,
    `check_image_bytes(data, "png" | "jpeg")`, Python pur, testé U) : JPEG de plus de
    `MAX_JPEG_SCANS` = 100 marqueurs de début de balayage (`FF DA`, comptés sur les octets : un

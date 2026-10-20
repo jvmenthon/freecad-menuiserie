@@ -406,12 +406,13 @@ def couleur_de_repli(etape: str, vobj: Any) -> list[str]:
     ]
 
 
-def avertissements_de_test() -> list[str]:
-    """Nouveau cache de textures dont les avertissements sont recueillis dans la liste."""
+def avertissements_de_test(**bornes: int) -> list[str]:
+    """Nouveau cache de textures (``bornes`` : ``max_entries``, ``max_bytes``) dont les
+    avertissements sont recueillis dans la liste."""
     from freecad.menuiserie.gui.textures import reset_texture_cache
 
     messages: list[str] = []
-    reset_texture_cache(warn=messages.append)
+    reset_texture_cache(warn=messages.append, **bornes)
     return messages
 
 
@@ -1075,6 +1076,61 @@ def verifier_texture_bombe_png() -> list[str]:
     return problemes
 
 
+def verifier_texture_budget_memoire() -> list[str]:
+    """Audit, point 3 : les images décodées encore affichées comptent dans le budget même
+    oubliées par le cache ; au-delà, couleur et un seul avertissement ; une texture masquée
+    libère sa place. Deux liens physiques vers la même image partagent un nœud."""
+    from freecad.menuiserie.api import make_wood_part
+    from freecad.menuiserie.features.wood_part import set_material
+
+    octets = IMAGE_PIXELS[0] * IMAGE_PIXELS[1] * 3
+    avertissements = avertissements_de_test(max_entries=1, max_bytes=2 * octets)
+    noms = ("a", "b", "c", "d", "physique")
+    with bibliotheque(*(materiau(n, n, f"textures/{n}.png") for n in noms)) as fichier:
+        dossier = fichier.parent / "textures"
+        for nom in noms[:4]:
+            ecrire_image(dossier / f"{nom}.png")
+        os.link(dossier / "a.png", dossier / "physique.png")
+        doc = App.newDocument("VerifBudget")
+        a, b = (make_wood_part(material_id=n, doc=doc) for n in ("a", "b"))
+        problemes = [
+            *texture_visible("a", a.ViewObject, IMAGE_PIXELS),
+            *texture_visible("b", b.ViewObject, IMAGE_PIXELS),
+            *repli_visible(
+                "c au-delà du budget", make_wood_part(material_id="c", doc=doc).ViewObject
+            ),
+            *repli_visible(
+                "d au-delà du budget", make_wood_part(material_id="d", doc=doc).ViewObject
+            ),
+        ]
+        physique = make_wood_part(material_id="physique", doc=doc)
+        problemes += [
+            *texture_visible("lien physique", physique.ViewObject, IMAGE_PIXELS),
+            *ecarts(
+                "lien physique : nœud partagé",
+                noeud_texture(physique.ViewObject) == noeud_texture(a.ViewObject),
+                True,
+            ),
+        ]
+        set_material(a, "chene")
+        set_material(physique, "chene")
+        problemes += [
+            *ecarts("texture masquée retirée", noeud_texture(a.ViewObject), None),
+            *texture_visible(
+                "c, place libérée",
+                make_wood_part(material_id="c", doc=doc).ViewObject,
+                IMAGE_PIXELS,
+            ),
+        ]
+        cites = [m for m in avertissements if "Mio d'images décodées" in m and "c.png" in m]
+        problemes += [
+            *ecarts("avertissement du budget", len(cites), 1),
+            *ecarts("avertissements", len(avertissements), 1),
+        ]
+        App.closeDocument(doc.Name)
+    return problemes
+
+
 def commutateur_sous(noeud: Any) -> bool:
     """Vrai si un ``SoSwitch`` « MenuiserieTexture » actif est atteint sous ``noeud``."""
     from pivy import coin
@@ -1109,6 +1165,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_confinement,
     verifier_texture_jpeg_balayages,
     verifier_texture_bombe_png,
+    verifier_texture_budget_memoire,
 )
 
 

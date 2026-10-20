@@ -18,7 +18,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.appearance import appearance_of
 from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
 from freecad.menuiserie.features.library import get_library
-from freecad.menuiserie.gui.textures import SoNode, TextureSwitch, texture_cache
+from freecad.menuiserie.gui.textures import TextureNode, TextureSwitch, texture_cache
 
 ViewObject = Any
 Color = tuple[float, ...]
@@ -116,7 +116,7 @@ class ViewProviderWoodPart:
         return _to_bytes(vobj.MaterialColor)
 
 
-def _shown_texture(obj: DocumentObject) -> tuple[TextureMapping, SoNode] | None:
+def _shown_texture(obj: DocumentObject) -> tuple[TextureMapping, TextureNode] | None:
     """Projection et nœud partagé de la texture à afficher ; ``None`` : couleur seule."""
     cache = texture_cache()
     appearance = appearance_of(obj, cache.usable)
