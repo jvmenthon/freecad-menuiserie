@@ -18,7 +18,7 @@ from typing import Any
 
 import FreeCAD as App
 
-from freecad.menuiserie.features.wood_part import create_wood_part
+from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 DocumentObject = Any  # objets FreeCAD, sans annotations de type
 Document = Any
@@ -36,9 +36,11 @@ def make_wood_part(
     """Crée une pièce de bois (cotes finies en mm), l'affiche si l'interface est chargée et
     recalcule le document.
 
-    ``doc`` vaut par défaut le document actif, ou un nouveau document s'il n'y en a pas. Aucune
+    ``doc`` vaut par défaut le document actif, ou un nouveau document s'il n'y en a pas : les
+    cotes et le matériau sont validés avant, si bien qu'une erreur ne crée aucun document. Aucune
     transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
     """
+    validated_arguments(length, width, thickness, material_id)
     document = doc if doc is not None else App.ActiveDocument or App.newDocument()
     obj = create_wood_part(
         document,

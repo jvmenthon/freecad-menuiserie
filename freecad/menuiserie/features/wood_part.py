@@ -306,9 +306,7 @@ def create_wood_part(
     Cotes en mm ; ``material_id`` vaut par défaut le matériau par défaut de la bibliothèque.
     ``InvalidDimensionsError`` ou ``UnknownMaterialError`` sont levées avant toute création.
     """
-    dimensions = Dimensions(length, width, thickness)
-    library = get_library()
-    material = library.default_material() if material_id is None else library.get(material_id)
+    dimensions, material = validated_arguments(length, width, thickness, material_id)
     obj = doc.addObject("Part::FeaturePython", OBJECT_NAME)
     proxy = WoodPart(obj)
     obj.Label = translated(_DEFAULT_LABEL)
@@ -318,6 +316,17 @@ def create_wood_part(
     obj.Thickness = dimensions.thickness
     obj.Mark = mark
     return obj
+
+
+def validated_arguments(
+    length: float, width: float, thickness: float, material_id: str | None
+) -> tuple[Dimensions, Material]:
+    """Cotes et matériau d'une future pièce, sans rien créer : ``InvalidDimensionsError`` ou
+    ``UnknownMaterialError`` (matériau inconnu, bibliothèque vide) s'ils sont refusés."""
+    dimensions = Dimensions(length, width, thickness)
+    library = get_library()
+    material = library.default_material() if material_id is None else library.get(material_id)
+    return dimensions, material
 
 
 def is_wood_part(obj: object) -> bool:

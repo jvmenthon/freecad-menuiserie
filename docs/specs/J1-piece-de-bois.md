@@ -578,7 +578,10 @@ def create_wood_part(
     material_id: str | None = None,
     mark: str = "",
 ) -> DocumentObject: ...  # App seulement, sans transaction
-def is_wood_part(obj: object) -> bool: ...
+def validated_arguments(
+    length: float, width: float, thickness: float, material_id: str | None
+) -> tuple[Dimensions, Material]: ...  # validation seule, partagée avec api.py
+def is_wood_part(obj: object) -> bool: ...  # faux aussi pour un objet supprimé
 def set_material(obj: DocumentObject, material_id: str) -> None: ...  # UnknownMaterialError
 def dimensions_of(obj: DocumentObject) -> Dimensions: ...
 def allowances_of(obj: DocumentObject) -> Allowances: ...
@@ -618,7 +621,8 @@ def make_wood_part(
 ) -> DocumentObject: ...
 ```
 
-Crée la pièce dans `doc` (document actif par défaut, nouveau document s'il n'y en a pas), attache
+Valide les cotes et le matériau (`validated_arguments`), **puis** crée la pièce dans `doc`
+(document actif par défaut, nouveau document s'il n'y en a pas : une erreur n'en crée aucun), attache
 le ViewProvider **si `App.GuiUp`** (import de `gui` à l'intérieur de ce test uniquement), recalcule
 et renvoie l'objet. N'ouvre pas de transaction : c'est l'appelant (commande, script) qui le fait.
 `api.py` n'est importé ni par `__init__.py` ni par `features/`.

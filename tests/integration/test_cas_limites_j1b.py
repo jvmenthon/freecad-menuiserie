@@ -568,11 +568,6 @@ def test_make_wood_part_annulable_par_l_appelant(document: Any) -> None:
     assert document.getObject(name).isValid()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D5 : sans document ouvert, make_wood_part crée un document vide avant de "
-    "valider les cotes ; l'erreur laisse un document « Unnamed » ouvert",
-)
 def test_make_wood_part_invalide_ne_cree_pas_de_document() -> None:
     for name in list(App.listDocuments()):
         App.closeDocument(name)
