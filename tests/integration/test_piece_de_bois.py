@@ -90,6 +90,14 @@ PROPERTIES = [
         "largeur, ou sans fil (MDF, mélaminé uni).",
     ),
     (
+        "PreferredGrainDirection",
+        "App::PropertyEnumeration",
+        "Matériau",
+        ["Hidden"],
+        "Dernier sens du fil choisi pour la pièce, repris quand elle revient à un matériau "
+        "avec fil.",
+    ),
+    (
         "Mark",
         "App::PropertyString",
         "Débit",
@@ -168,7 +176,8 @@ def test_creation_planche_de_chene(document: Any) -> None:
     assert obj.Category == "Solid"
     assert density(obj) == pytest.approx(710)
     assert obj.GrainDirection == "Length"
-    assert obj.Version == 1
+    assert obj.PreferredGrainDirection == "Length"
+    assert obj.Version == wood_part.WoodPart.VERSION == 2
     assert allowances(obj) == (20, 5, 0)
     assert obj.Label.startswith("Pièce de bois")
 
@@ -199,6 +208,7 @@ def test_valeurs_des_enumerations_figees(document: Any) -> None:
     obj = oak_board(document)
     assert obj.getEnumerationsOfProperty("Category") == ["Solid", "Plywood", "MDF", "Melamine"]
     assert obj.getEnumerationsOfProperty("GrainDirection") == ["Length", "Width", "None"]
+    assert obj.getEnumerationsOfProperty("PreferredGrainDirection") == ["Length", "Width"]
     labels = obj.getEnumerationsOfProperty("Material")
     assert labels[0] == OAK_LABEL
     assert len(labels) == 12
@@ -341,10 +351,12 @@ def test_migration_d_un_ancien_fichier(document: Any, rouvrir: Reopen) -> None:
     obj.ThicknessAllowance = 3
     obj.removeProperty("Version")
     obj.removeProperty("ThicknessAllowance")
+    obj.removeProperty("PreferredGrainDirection")
     name = obj.Name
     restored = rouvrir(document).getObject(name)
-    assert restored.Version == 1
+    assert restored.Version == wood_part.WoodPart.VERSION
     assert restored.ThicknessAllowance.Value == 0
+    assert restored.PreferredGrainDirection == "Length"
     assert restored.getEditorMode("Version") == ["Hidden"]
     assert restored.getGroupOfProperty("ThicknessAllowance") == "Débit"
     restored.Document.recompute()

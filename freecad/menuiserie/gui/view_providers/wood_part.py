@@ -1,16 +1,20 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Affichage de la pièce de bois : icône, couleur et texture du matériau (ADR 0004).
+"""Affichage de la pièce de bois : icône, couleur et texture du matériau (ADR 0004), édition au
+double-clic.
 
 Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe et la propriété
 de vue ``MaterialColor`` sont écrits dans les documents (``GuiDocument.xml``) ; ils ne changent
 jamais. Le ViewProvider est le seul à écrire la couleur diffuse de ``ShapeAppearance`` : le
 blanc de base quand la texture est affichée, sinon ``MaterialColor``. La texture n'est jamais
-enregistrée : elle est recalculée depuis la bibliothèque locale.
+enregistrée : elle est recalculée depuis la bibliothèque locale. Le panneau de tâche est importé
+à l'édition seulement (il importe ce module).
 """
 
 from __future__ import annotations
 
 from typing import Any, Final
+
+import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.appearance import TEXTURE_BASE_COLOR, TextureMapping
@@ -92,6 +96,33 @@ class ViewProviderWoodPart:
     def loads(self, state: object) -> None:
         """Proxy sans état : rien à relire."""
         del state
+
+    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Mode 0 : panneau de tâche de la pièce ; les autres modes restent à FreeCAD."""
+        if mode != 0:
+            return None
+        from freecad.menuiserie.gui.task_panels.wood_part import start_editing
+
+        return start_editing(vobj.Object)
+
+    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Fin du mode 0 : le panneau est fermé."""
+        del vobj
+        if mode != 0:
+            return None
+        from freecad.menuiserie.gui.task_panels.wood_part import finish_editing
+
+        finish_editing()
+        return True
+
+    def doubleClicked(self, vobj: ViewObject) -> bool:
+        """Double-clic dans l'arbre ou la vue 3D : édition de la pièce dans le panneau.
+
+        Refusé si un panneau de tâche est ouvert : ``setEdit`` quitterait d'abord l'édition en
+        cours, fermant son panneau sans « OK » ni « Annuler »."""
+        if Gui.Control.activeDialog():
+            return False
+        return bool(vobj.Document.setEdit(vobj.Object, 0))
 
     def _refresh(self, vobj: ViewObject) -> None:
         """Affiche la texture du matériau si elle est utilisable, sinon ``MaterialColor``.

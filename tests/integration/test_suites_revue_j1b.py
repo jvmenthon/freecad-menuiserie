@@ -51,7 +51,11 @@ def warnings_with(vue_rapport: Any, text: str) -> list[str]:
 UNITS = {"Length": "mm", "Density": "kg/m^3"}
 
 
-@pytest.mark.parametrize("version", [0, 1, 2], ids=["ancien", "courant", "plus-recent"])
+@pytest.mark.parametrize(
+    "version",
+    [0, schema.MODEL_VERSION, schema.MODEL_VERSION + 1],
+    ids=["ancien", "courant", "plus-recent"],
+)
 def test_categorie_d_un_type_inattendu_recreee(
     document: Any, rouvrir: Reopen, vue_rapport: Any, version: int
 ) -> None:
@@ -65,7 +69,7 @@ def test_categorie_d_un_type_inattendu_recreee(
     assert restored.getEnumerationsOfProperty("Category") == list(wood_part.CATEGORIES)
     assert restored.Category == "MDF"
     assert restored.getEditorMode("Category") == ["ReadOnly"]
-    assert restored.Version == max(version, 1)
+    assert restored.Version == max(version, schema.MODEL_VERSION)
     assert wood_part.record_of(restored).kind.value == "mdf"
     [warning] = warnings_with(vue_rapport, "type inattendu")
     assert "propriété Category" in warning
@@ -111,16 +115,17 @@ def test_proprietes_bien_typees_sans_avertissement(
     vue_rapport.messages.clear()
     restored = rouvrir(document).getObject(name)
     assert vue_rapport.de_niveau("Warning") == []
-    assert restored.Version == 1
+    assert restored.Version == schema.MODEL_VERSION
 
 
 # --- Document d'une version plus récente : valeurs d'énumération inconnues gardées --------
 
 
 def future_part(doc: Any) -> Any:
-    """Pièce « version 2 » dont les énumérations ont une valeur ajoutée en fin de liste."""
+    """Pièce d'une version plus récente dont les énumérations ont une valeur ajoutée en fin de
+    liste."""
     obj = board(doc)
-    obj.Version = 2
+    obj.Version = schema.MODEL_VERSION + 1
     obj.Category = [*wood_part.CATEGORIES, "Future"]
     obj.Category = "Future"
     obj.GrainDirection = [*wood_part.GRAIN_DIRECTIONS, "Diagonal"]
@@ -135,7 +140,7 @@ def test_version_plus_recente_garde_les_valeurs_inconnues(
     vue_rapport.messages.clear()
     restored = rouvrir(rouvrir(document)).getObject(name)
     assert (restored.Version, restored.Category, restored.GrainDirection) == (
-        2,
+        schema.MODEL_VERSION + 1,
         "Future",
         "Diagonal",
     )
@@ -154,7 +159,7 @@ def test_version_plus_recente_valeur_connue_liste_canonique(
     document: Any, rouvrir: Reopen, vue_rapport: Any
 ) -> None:
     obj = board(document, "mdf")
-    obj.Version = 2
+    obj.Version = schema.MODEL_VERSION + 1
     obj.Category = ["MDF", "Future"]
     obj.Category = "MDF"
     name = obj.Name
@@ -223,7 +228,7 @@ def test_bibliotheque_lue_une_fois_par_piece_rouverte(
 
     monkeypatch.setattr(wood_part, "get_library", counted)
     restored = rouvrir(document).getObject(name)
-    assert restored.Version == 1
+    assert restored.Version == schema.MODEL_VERSION
     assert len(calls) == 1
 
 

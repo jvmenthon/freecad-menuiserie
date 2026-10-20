@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète et gros plan texture.
+"""Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture et
+panneau de tâche de la pièce de bois.
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
 l'atelier étant installé dans le dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -42,6 +43,10 @@ PIECES = (
 # Gros plan : deux planches de 800 sur 200 mm, fil en long puis en travers (décalage en Y).
 PLANCHES = (("Length", 0.0), ("Width", 300.0))
 TAILLE = (1600, 1000)
+# Pièce ouverte dans le panneau de tâche : contreplaqué de 8 mm, hors épaisseur standard, pour
+# montrer aussi l'avertissement.
+PIECE_DU_PANNEAU = "Fond"
+ATTENTE_DU_VOLET_MS = 1500
 TEXTURE_MM = (600, 200)  # largeur (sens du fil) et hauteur couvertes par l'image
 PIXELS_PAR_MM = 2
 PAS_MM = 100
@@ -180,11 +185,35 @@ def capturer(dossier: Path) -> None:
     Gui.Selection.addSelection(App.ActiveDocument.Objects[0])
     Gui.updateGui()
     fenetre_complete(fenetre, vue).save(str(dossier / "fenetre.png"))
+    capturer_le_panneau(dossier, fenetre, vue)
 
 
-def fenetre_complete(fenetre, vue):
+def capturer_le_panneau(dossier: Path, fenetre, vue) -> None:
+    """Fenêtre complète avec le panneau de tâche ouvert sur une pièce (comme au double-clic)."""
+    Gui.Selection.clearSelection()
+    piece = App.ActiveDocument.getObjectsByLabel(PIECE_DU_PANNEAU)[0]
+    Gui.ActiveDocument.setEdit(piece, 0)
+    Gui.updateGui()
+    volet = volet_des_taches(fenetre)
+    fenetre_complete(fenetre, vue, devant=volet).save(str(dossier / "panneau.png"))
+    Gui.Control.activeTaskDialog().reject()
+
+
+def volet_des_taches(fenetre):
+    """Volet « Tasks », une fois affiché. FreeCAD 1.1 le place dans un panneau superposé à la
+    vue 3D, qui glisse depuis le bord de la fenêtre : on laisse l'animation se terminer."""
+    from PySide import QtCore, QtGui
+
+    boucle = QtCore.QEventLoop()
+    QtCore.QTimer.singleShot(ATTENTE_DU_VOLET_MS, boucle.quit)
+    boucle.exec()
+    return fenetre.findChild(QtGui.QDockWidget, "Tasks")
+
+
+def fenetre_complete(fenetre, vue, devant=None):
     """Capture de la fenêtre où la zone OpenGL, que ``grab()`` laisse vide, est remplacée
-    par un rendu de la vue 3D à la même taille."""
+    par un rendu de la vue 3D à la même taille ; ``devant`` (widget superposé à la vue 3D,
+    comme le volet des tâches de FreeCAD 1.1) est redessiné par-dessus."""
     from PySide import QtCore, QtGui
 
     image = fenetre.grab()
@@ -195,6 +224,8 @@ def fenetre_complete(fenetre, vue):
         vue.saveImage(rendu, zone_3d.width(), zone_3d.height(), "Current")
         peintre = QtGui.QPainter(image)
         peintre.drawImage(origine, QtGui.QImage(rendu))
+        if devant is not None:
+            peintre.drawPixmap(devant.mapTo(fenetre, QtCore.QPoint(0, 0)), devant.grab())
         peintre.end()
     return image
 

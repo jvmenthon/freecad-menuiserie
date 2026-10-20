@@ -23,15 +23,17 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     Icon = icon_path("menuiserie.svg")
 
     # Noms des commandes enregistrées par l'atelier ; complétés jalon après jalon.
-    commands: tuple[str, ...] = ()
+    commands: tuple[str, ...] = ("Menuiserie_WoodPart",)
 
     def Initialize(self) -> None:
         """Appelé une seule fois, à la première activation de l'atelier."""
         Gui.addLanguagePath(str(TRANSLATIONS_DIR))
         Gui.updateLocale()
-        if self.commands:
-            self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
-            self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
+        from freecad.menuiserie.gui.commands import wood_part
+
+        wood_part.register()
+        self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
+        self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 
     def GetClassName(self) -> str:
         """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""

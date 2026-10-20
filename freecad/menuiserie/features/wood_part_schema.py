@@ -18,7 +18,12 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialKind, MaterialLibrary
-from freecad.menuiserie.core.part_model import Dimensions, GrainDirection, default_allowances
+from freecad.menuiserie.core.part_model import (
+    Dimensions,
+    GrainDirection,
+    default_allowances,
+    remembered_grain,
+)
 from freecad.menuiserie.features.freecad_types import EDITABLE, HIDDEN, READ_ONLY, DocumentObject
 from freecad.menuiserie.features.library import display_language
 
@@ -39,11 +44,13 @@ CATEGORY_BY_KIND: Final[Mapping[MaterialKind, str]] = MappingProxyType(
 # Valeurs des énumérations, stockées dans les documents : ordre figé, ajouts en fin seulement.
 CATEGORIES: Final = tuple(CATEGORY_BY_KIND.values())
 GRAIN_DIRECTIONS: Final = tuple(grain.value for grain in GrainDirection)
+# Sens mémorisables (ADR 0005) : mêmes chaînes que ``GrainDirection``, sans ``None``.
+PREFERRED_GRAIN_DIRECTIONS: Final = (GrainDirection.LENGTH.value, GrainDirection.WIDTH.value)
 KIND_BY_CATEGORY: Final = {category: kind for kind, category in CATEGORY_BY_KIND.items()}
 
 DEFAULT_DIMENSIONS: Final = Dimensions(800.0, 200.0, 22.0)
 # Version du modèle de données (propriété ``Version``), cf. :meth:`WoodPart._migrate`.
-MODEL_VERSION: Final = 1
+MODEL_VERSION: Final = 2
 
 
 @dataclass(frozen=True)
@@ -139,6 +146,17 @@ _PROPERTIES: Final = (
         ),
     ),
     _PropertySpec(
+        "PreferredGrainDirection",
+        "App::PropertyEnumeration",
+        "Matériau",
+        HIDDEN,
+        QT_TRANSLATE_NOOP(
+            "App::Property",
+            "Dernier sens du fil choisi pour la pièce, repris quand elle revient à un matériau "
+            "avec fil.",
+        ),
+    ),
+    _PropertySpec(
         "Mark",
         "App::PropertyString",
         "Débit",
@@ -191,6 +209,10 @@ _PROPERTIES: Final = (
     ),
 )
 TYPE_BY_NAME: Final = MappingProxyType({spec.name: spec.type_id for spec in _PROPERTIES})
+# Mode d'édition tel que le renvoie ``getEditorMode``.
+_MODE_NAMES: Final[Mapping[int, list[str]]] = MappingProxyType(
+    {EDITABLE: [], READ_ONLY: ["ReadOnly"], HIDDEN: ["Hidden"]}
+)
 
 
 def density_quantity(value_kg_m3: float) -> Any:
@@ -225,6 +247,16 @@ def default_grain(kind: MaterialKind, material: Material | None) -> GrainDirecti
     return GrainDirection.LENGTH if has_grain else GrainDirection.NONE
 
 
+def preferred_grain_default(
+    obj: DocumentObject, kind: MaterialKind, material: Material | None
+) -> GrainDirection:
+    """Sens à mémoriser d'après le fil de la pièce (son fil par défaut s'il est absent ou
+    inconnu) : ``LENGTH`` pour une pièce sans fil (ADR 0005)."""
+    value = obj.GrainDirection if "GrainDirection" in obj.PropertiesList else None
+    grain = GrainDirection(value) if value in GRAIN_DIRECTIONS else default_grain(kind, material)
+    return remembered_grain(grain)
+
+
 def _default_values(obj: DocumentObject, material: Material | None) -> dict[str, object]:
     """Valeurs par défaut des propriétés : cotes de 800 x 200 x 22 mm, ``material``, puis
     catégorie, fil et surcotes de la famille de la pièce (:func:`part_kind`).
@@ -240,6 +272,7 @@ def _default_values(obj: DocumentObject, material: Material | None) -> dict[str,
         "Thickness": DEFAULT_DIMENSIONS.thickness,
         "Category": CATEGORY_BY_KIND[kind],
         "GrainDirection": default_grain(kind, material).value,
+        "PreferredGrainDirection": preferred_grain_default(obj, kind, material).value,
         "Mark": "",
         "LengthAllowance": allowances.length,
         "WidthAllowance": allowances.width,
@@ -263,6 +296,7 @@ def add_missing_properties(
         "Material": material_choices(library),
         "Category": list(CATEGORIES),
         "GrainDirection": list(GRAIN_DIRECTIONS),
+        "PreferredGrainDirection": list(PREFERRED_GRAIN_DIRECTIONS),
     }
     for spec in _PROPERTIES:
         if spec.name in obj.PropertiesList:
@@ -274,9 +308,26 @@ def add_missing_properties(
             setattr(obj, spec.name, defaults[spec.name])
 
 
-def apply_editor_modes(obj: DocumentObject) -> None:
+def apply_editor_modes(obj: DocumentObject, *, show_grain: bool = True) -> None:
+    """Modes d'édition du schéma ; ``GrainDirection`` est masquée si ``show_grain`` est faux
+    (matériau sans fil). ``setEditorMode`` n'est appelé que si le mode change."""
     for spec in _PROPERTIES:
-        obj.setEditorMode(spec.name, spec.mode)
+        if spec.name == "GrainDirection":
+            show_grain_direction(obj, show_grain)
+        elif spec.name in obj.PropertiesList:
+            set_editor_mode(obj, spec.name, spec.mode)
+
+
+def show_grain_direction(obj: DocumentObject, visible: bool) -> None:
+    """Affiche ou masque ``GrainDirection`` dans l'éditeur de propriétés, si elle existe."""
+    if "GrainDirection" in obj.PropertiesList:
+        set_editor_mode(obj, "GrainDirection", EDITABLE if visible else HIDDEN)
+
+
+def set_editor_mode(obj: DocumentObject, name: str, mode: int) -> None:
+    """Mode d'édition de la propriété ``name``, écrit seulement s'il change."""
+    if obj.getEditorMode(name) != _MODE_NAMES[mode]:
+        obj.setEditorMode(name, mode)
 
 
 def material_choices(library: MaterialLibrary, current: str | None = None) -> list[str]:

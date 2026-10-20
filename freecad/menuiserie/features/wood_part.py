@@ -27,6 +27,8 @@ from freecad.menuiserie.core.part_model import (
     PartRecord,
     allowances_after_material_change,
     grain_after_material_change,
+    material_has_grain,
+    remembered_grain,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -52,7 +54,9 @@ from freecad.menuiserie.features.wood_part_schema import (
     density_kg_m3,
     density_quantity,
     material_choices,
+    part_kind,
     select_label,
+    show_grain_direction,
 )
 
 __all__ = [
@@ -67,6 +71,7 @@ __all__ = [
     "is_wood_part",
     "record_of",
     "set_material",
+    "shows_grain",
     "validated_arguments",
 ]
 
@@ -112,17 +117,24 @@ class WoodPart:
             mistyped = remove_mistyped_properties(obj)
             restore_enumerations(obj, library, keep_unknown=version > self.VERSION)
             self._migrate(obj, library, version, repair=bool(mistyped))
-            apply_editor_modes(obj)
+            apply_editor_modes(obj, show_grain=_shows_grain(obj, library))
             restore_material_choices(obj, library)
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
-        volumique, et ajuste le fil et les surcotes (règles de ``core.part_model``)."""
-        if prop != "Material" or not self._follows_user_changes(obj):
+        volumique, et ajuste le fil et les surcotes (règles de ``core.part_model``). Choix d'un
+        sens du fil : mémorisé (ADR 0005). Changement de matériau, annulation comprise : le fil
+        est masqué ou affiché dans l'éditeur de propriétés."""
+        if prop in ("MaterialId", "Category") and "Restore" not in obj.State:
+            show_grain_direction(obj, shows_grain(obj))
+        if not self._follows_user_changes(obj):
             return
-        material = get_library().find_by_name(obj.Material, display_language())
-        if material is not None:
-            self.select_material(obj, material)
+        if prop == "Material":
+            material = get_library().find_by_name(obj.Material, display_language())
+            if material is not None:
+                self.select_material(obj, material)
+        elif prop == "GrainDirection":
+            _remember_grain(obj)
 
     def execute(self, obj: DocumentObject) -> None:
         """Reconstruit la forme depuis les seules cotes, sans toucher au ``Placement``."""
@@ -148,6 +160,7 @@ class WoodPart:
             label = material.name(display_language())
             select_label(obj, material_choices(get_library(), label), label)
             _apply_material(obj, material)
+            show_grain_direction(obj, material.has_grain)
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         """Faux pendant une resynchronisation interne, une restauration ou une annulation."""
@@ -166,8 +179,9 @@ class WoodPart:
     def _migrate(
         self, obj: DocumentObject, library: MaterialLibrary, from_version: int, *, repair: bool
     ) -> None:
-        """Version 0 (absente) → 1 : ajoute les propriétés manquantes avec leurs défauts, déduits
-        du matériau de la pièce (``MaterialId``). Aboutit même si la bibliothèque est vide.
+        """Version 0 (absente) ou 1 → 2 : ajoute les propriétés manquantes avec leurs défauts,
+        déduits du matériau de la pièce (``MaterialId``), dont ``PreferredGrainDirection``
+        d'après le fil (ADR 0005). Aboutit même si la bibliothèque est vide.
 
         ``repair`` : à toute version, recrée de même les propriétés supprimées à la réouverture
         (type inattendu), sans changer la ``Version``."""
@@ -234,6 +248,12 @@ def set_material(obj: DocumentObject, material_id: str) -> None:
     obj.Proxy.select_material(obj, get_library().get(material_id))
 
 
+def shows_grain(obj: DocumentObject) -> bool:
+    """Vrai si le fil de la pièce est visible : son matériau (ou, inconnu localement, sa
+    famille) a un fil."""
+    return _shows_grain(obj, get_library())
+
+
 def dimensions_of(obj: DocumentObject) -> Dimensions:
     """Cotes finies de la pièce en mm (``InvalidDimensionsError`` si l'une est invalide)."""
     return Dimensions(obj.Length.Value, obj.Width.Value, obj.Thickness.Value)
@@ -270,7 +290,9 @@ def _dimension_message(error: InvalidDimensionsError) -> str:
 def _apply_material(obj: DocumentObject, material: Material) -> None:
     """Recopie le matériau dans la pièce ; fil et surcotes suivent les règles de ``core``."""
     old_kind = KIND_BY_CATEGORY[obj.Category]
-    grain = grain_after_material_change(material, GrainDirection(obj.GrainDirection))
+    grain = grain_after_material_change(
+        material, GrainDirection(obj.GrainDirection), _preferred_grain(obj)
+    )
     allowances = allowances_after_material_change(old_kind, material.kind, allowances_of(obj))
     obj.MaterialId = material.id
     obj.Category = CATEGORY_BY_KIND[material.kind]
@@ -279,3 +301,34 @@ def _apply_material(obj: DocumentObject, material: Material) -> None:
     obj.LengthAllowance = allowances.length
     obj.WidthAllowance = allowances.width
     obj.ThicknessAllowance = allowances.thickness
+
+
+def _shows_grain(obj: DocumentObject, library: MaterialLibrary) -> bool:
+    """Visibilité du fil d'après le matériau de la pièce dans ``library``."""
+    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
+    material = library.find(material_id)
+    return material_has_grain(material, part_kind(obj, material))
+
+
+def _preferred_grain(obj: DocumentObject) -> GrainDirection:
+    """Sens mémorisé de la pièce ; ``LENGTH`` s'il est absent ou inconnu (jamais d'erreur)."""
+    value = getattr(obj, "PreferredGrainDirection", None)
+    if value == GrainDirection.WIDTH.value:
+        return GrainDirection.WIDTH
+    return GrainDirection.LENGTH
+
+
+def _remember_grain(obj: DocumentObject) -> None:
+    """Mémorise le sens du fil choisi (``Length`` ou ``Width``) ; « Sans fil » ne l'efface pas.
+    Écrit dans la transaction de l'appelant, seulement si la mémoire change."""
+    if "PreferredGrainDirection" not in obj.PropertiesList:
+        return
+    try:
+        grain = GrainDirection(obj.GrainDirection)
+    except ValueError:  # valeur d'une version plus récente, gardée à la réouverture
+        return
+    if grain is GrainDirection.NONE:  # la mémoire reste telle quelle, même illisible
+        return
+    remembered = remembered_grain(grain, _preferred_grain(obj)).value
+    if obj.PreferredGrainDirection != remembered:
+        obj.PreferredGrainDirection = remembered
