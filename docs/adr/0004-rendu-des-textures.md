@@ -1,6 +1,6 @@
 # ADR 0004 — Rendu des textures des matériaux
 
-- Statut : proposé (accepté avec la PR du lot J1d)
+- Statut : accepté (lot J1d)
 - Date : 2026-10-20
 - Spécification : [docs/specs/J1-piece-de-bois.md](../specs/J1-piece-de-bois.md), § 4.6 et
   critères D1 à D7

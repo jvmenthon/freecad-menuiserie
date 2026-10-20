@@ -39,6 +39,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   arguments sont validés avant de créer un document.
 - Affichage de la pièce : icône de la pièce de bois et couleur du matériau, enregistrée dans la
   propriété de vue `MaterialColor`.
+- Textures des matériaux dans la vue 3D (J1d, ADR 0004) : image du matériau affichée à
+  l'échelle réelle et dans le sens du fil de la pièce (`GrainDirection`), sur FreeCAD 1.0 et 1.1,
+  par des nœuds Coin propres à l'atelier ; image PNG ou JPEG décodée par Qt (décodeur imposé par
+  l'extension, 16 Mio et 4 096 pixels au plus), partagée par toutes les pièces, jamais
+  enregistrée dans le document ; couleur `MaterialColor` en secours, avec un seul avertissement
+  par image. README : section « Ajouter une texture ». Captures de PR : texture de test
+  quadrillée tous les 100 mm et gros plan `texture.png`.
 - Bibliothèque vue de FreeCAD (`features/library.py`) : fichier utilisateur
   `<données utilisateur>/Menuiserie/materiaux.json` ou paramètre `UserLibraryPath`, lecture une
   fois par session (`reload_library()`), anomalies traduites dans la vue rapport.
