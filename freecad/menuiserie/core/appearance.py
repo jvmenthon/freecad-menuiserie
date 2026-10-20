@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from freecad.menuiserie.core.materials import Material
+from freecad.menuiserie.core.materials import Material, Texture
 from freecad.menuiserie.core.part_model import GrainDirection
 
 __all__ = [
@@ -49,19 +49,24 @@ class TextureMapping:
 
 @dataclass(frozen=True)
 class Appearance:
-    """Ce qu'affiche une pièce : la couleur du matériau, ou son image projetée par ``mapping``.
+    """Ce qu'affiche une pièce : la couleur du matériau, ou sa texture projetée par ``mapping``.
 
-    ``color`` reste la couleur de secours ; ``image`` et ``mapping`` sont présents ensemble ou
+    ``color`` reste la couleur de secours ; ``texture`` et ``mapping`` sont présents ensemble ou
     absents ensemble (``ValueError`` sinon).
     """
 
     color: tuple[int, int, int]
-    image: Path | None = None
+    texture: Texture | None = None
     mapping: TextureMapping | None = None
 
     def __post_init__(self) -> None:
-        if (self.image is None) != (self.mapping is None):
-            raise ValueError("Appearance : image et mapping vont ensemble")
+        if (self.texture is None) != (self.mapping is None):
+            raise ValueError("Appearance : texture et mapping vont ensemble")
+
+    @property
+    def image(self) -> Path | None:
+        """Chemin de l'image affichée ; ``None`` : couleur seule."""
+        return None if self.texture is None else self.texture.image
 
 
 def texture_mapping(size: tuple[float, float], grain: GrainDirection) -> TextureMapping:
@@ -82,11 +87,11 @@ def texture_mapping(size: tuple[float, float], grain: GrainDirection) -> Texture
 
 
 def part_appearance(
-    material: Material, grain: GrainDirection, image_usable: Callable[[Path], bool]
+    material: Material, grain: GrainDirection, image_usable: Callable[[Texture], bool]
 ) -> Appearance:
     """Apparence d'une pièce : texture du matériau si ``image_usable`` l'accepte, sinon sa
     couleur (``image_usable`` n'est pas appelée pour un matériau sans texture)."""
     texture = material.texture
-    if texture is None or not image_usable(texture.image):
+    if texture is None or not image_usable(texture):
         return Appearance(material.color)
-    return Appearance(material.color, texture.image, texture_mapping(texture.size, grain))
+    return Appearance(material.color, texture, texture_mapping(texture.size, grain))

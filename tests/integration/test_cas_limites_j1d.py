@@ -21,6 +21,7 @@ from tests.integration.test_apparence import (
     TEXTURED_MAPLE,
     install_textured_maple,
     sized_file,
+    texture_at,
 )
 
 pytestmark = pytest.mark.integration
@@ -31,6 +32,7 @@ Reopen = Callable[[Any], Any]
 App = pytest.importorskip("FreeCAD")
 appearance = pytest.importorskip("freecad.menuiserie.features.appearance")
 core_appearance = pytest.importorskip("freecad.menuiserie.core.appearance")
+materials = pytest.importorskip("freecad.menuiserie.core.materials")
 part_model = pytest.importorskip("freecad.menuiserie.core.part_model")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 
@@ -43,7 +45,9 @@ def mapping(size: tuple[float, float], grain: str) -> Any:
 
 
 def textured(image: Path, size: tuple[float, float] = (600.0, 200.0)) -> Any:
-    return core_appearance.Appearance(MAPLE_RGB, image, mapping(size, "Length"))
+    """Apparence texturée de l'érable (image sous ``textures/`` de la bibliothèque)."""
+    texture = materials.Texture(image, size, image.parents[1])
+    return core_appearance.Appearance(MAPLE_RGB, texture, mapping(size, "Length"))
 
 
 def maple(**texture: object) -> dict[str, object]:
@@ -68,31 +72,31 @@ def touched(doc: Any) -> list[str]:
 
 
 def test_tube_nomme_png_refuse_sans_blocage(tmp_path: Path) -> None:
-    """Un tube nommé n'est jamais ouvert (``os.stat`` seul) : refus immédiat."""
+    """Un tube nommé est ouvert sans blocage (``O_NONBLOCK``) puis refusé par ``fstat``."""
     fifo = tmp_path / "tube.png"
     os.mkfifo(fifo)
-    assert not appearance.usable_texture_file(fifo)
+    assert not appearance.usable_texture_file(texture_at(fifo))
 
 
 def test_lien_vers_un_peripherique_refuse(tmp_path: Path) -> None:
     link = tmp_path / "zero.png"
     link.symlink_to("/dev/zero")
-    assert not appearance.usable_texture_file(link)
-    assert not appearance.usable_texture_file(Path("/dev/null"))
+    assert not appearance.usable_texture_file(texture_at(link))
+    assert not appearance.usable_texture_file(texture_at(Path("/dev/null")))
 
 
 def test_lien_vers_un_fichier_ordinaire_suivi(tmp_path: Path) -> None:
     target = sized_file(tmp_path / "vraie.png", 10)
     link = tmp_path / "lien.png"
     link.symlink_to(target)
-    assert appearance.usable_texture_file(link)
+    assert appearance.usable_texture_file(texture_at(link))
 
 
 def test_lien_vers_un_fichier_trop_gros_refuse(tmp_path: Path) -> None:
     """La taille contrôlée est celle de la cible, pas celle du lien."""
     link = tmp_path / "lien.png"
     link.symlink_to(sized_file(tmp_path / "enorme.png", LIMIT + 1))
-    assert not appearance.usable_texture_file(link)
+    assert not appearance.usable_texture_file(texture_at(link))
 
 
 def test_chemins_impossibles_refuses_sans_exception(tmp_path: Path) -> None:
@@ -106,9 +110,10 @@ def test_chemins_impossibles_refuses_sans_exception(tmp_path: Path) -> None:
         to_folder,
         regular / "sous.png",  # un composant du chemin est un fichier (ENOTDIR)
         tmp_path / ("x" * 300 + ".png"),  # nom trop long (ENAMETOOLONG)
-        Path("relative/absente.png"),
     ]
-    assert [path for path in refused if appearance.usable_texture_file(path)] == []
+    assert [path for path in refused if appearance.usable_texture_file(texture_at(path))] == []
+    with pytest.raises(ValueError, match="image"):
+        texture_at(Path("relative/absente.png"))
 
 
 # --- appearance_of : recalcul, annuler / rétablir ----------------------------------------
@@ -153,7 +158,9 @@ def test_annuler_retablir_fil_et_materiau(document: Any, bibliotheque_temporaire
     document.recompute()
     assert appearance.appearance_of(obj) == core_appearance.Appearance(OAK_RGB)
     document.undo()
-    expected = core_appearance.Appearance(MAPLE_RGB, image, mapping((600.0, 200.0), "Width"))
+    expected = core_appearance.Appearance(
+        MAPLE_RGB, textured(image).texture, mapping((600.0, 200.0), "Width")
+    )
     assert appearance.appearance_of(obj) == expected
     document.undo()
     assert appearance.appearance_of(obj) == textured(image)
@@ -222,7 +229,10 @@ def test_image_remplacee_ou_supprimee_sur_le_disque(
     image.unlink()
     assert appearance.appearance_of(obj) == core_appearance.Appearance(MAPLE_RGB)
     image.symlink_to(sized_file(image.with_name("autre.png"), 10))
-    assert appearance.appearance_of(obj) == textured(image)
+    assert appearance.appearance_of(obj) == textured(image)  # lien interne au dossier
+    image.unlink()
+    image.symlink_to(sized_file(image.parents[2] / "dehors.png", 10))
+    assert appearance.appearance_of(obj) == core_appearance.Appearance(MAPLE_RGB)
 
 
 def test_lien_de_la_bibliotheque_resolu_vers_sa_cible(

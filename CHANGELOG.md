@@ -90,3 +90,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `GrainDirection` rétablies (valeur inconnue remplacée, avec avertissement) ; `Version` d'un
   type inattendu traitée comme un ancien fichier ; `ShapeAppearance` vide toléré.
 - CI : dossier utilisateur FreeCAD temporaire pour les tests d'intégration.
+- Images de texture (audit de sécurité J1d) : fichier ouvert une seule fois et décodé en mémoire
+  (`core/texture_file.py` : confinement au dossier de la bibliothèque revérifié à chaque
+  ouverture, `O_NOFOLLOW`, `O_NONBLOCK`, contrôle par `fstat`, lecture bornée), sans réouverture
+  par le nom.

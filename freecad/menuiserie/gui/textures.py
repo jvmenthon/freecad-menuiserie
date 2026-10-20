@@ -8,26 +8,28 @@
   ``MenuiserieTexture`` qui contient la projection (``SoTextureCoordinatePlane``) puis le nœud
   de texture partagé.
 
-Seuls les décodeurs PNG et JPEG de Qt sont sollicités (imposés par l'extension, détection
-automatique désactivée) et les dimensions sont bornées, lues dans l'en-tête, avant décodage.
+Le fichier est ouvert une seule fois et lu en mémoire (``core/texture_file.py`` : confinement
+au dossier de la bibliothèque, ``O_NOFOLLOW``, ``fstat``) ; Qt décode ces octets, jamais le
+fichier par son nom. Seuls les décodeurs PNG et JPEG de Qt sont sollicités (imposés par
+l'extension, détection automatique désactivée) et les dimensions sont bornées, lues dans
+l'en-tête, avant décodage.
 """
 
 from __future__ import annotations
 
-import os
 from collections import OrderedDict
 from collections.abc import Callable, Mapping
-from pathlib import Path
 from typing import Any, Final
 
 import FreeCAD as App
 from pivy import coin
-from PySide import QtGui
+from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.appearance import MAX_TEXTURE_PIXELS, TextureMapping, Vector3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.materials import Texture
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.appearance import usable_texture_file
+from freecad.menuiserie.core.texture_file import TextureFile, TextureRefusedError
 from freecad.menuiserie.features.i18n import translated
 
 __all__ = [
@@ -40,20 +42,18 @@ __all__ = [
 
 SoNode = Any  # nœuds Coin (pivy), sans annotations de type
 Warn = Callable[[str], None]
-FileKey = tuple[str, int, int]  # chemin, taille, date de modification (ns)
+CacheKey = tuple[str, int, int]  # chemin, taille, date de modification (ns)
 
 SWITCH_NAME: Final = "MenuiserieTexture"
 DEFAULT_MAX_ENTRIES: Final = 32
 _DECODERS: Final[Mapping[str, bytes]] = {".png": b"png", ".jpg": b"jpeg", ".jpeg": b"jpeg"}
 _RGB_COMPONENTS: Final = 3
 _MISSING_FILE: Final = -1
+_BUFFER_MODE: Final = QtCore.QIODevice.OpenModeFlag.ReadOnly
 
 _REFUSED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Texture « {image} » non affichée ({reason}) : couleur du matériau utilisée à la place.",
-)
-_UNUSABLE_FILE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "fichier absent, vide, illisible ou de plus de 16 Mio"
 )
 _UNSUPPORTED_EXTENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "extension autre que .png, .jpg ou .jpeg"
@@ -67,17 +67,9 @@ _TOO_LARGE: Final = QT_TRANSLATE_NOOP(
 _UNREADABLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "image illisible : {error}")
 
 
-class TextureRefusedError(Exception):
-    """Image refusée ; ``reason`` est un gabarit traduisible rempli par ``params``."""
-
-    def __init__(self, reason: str, params: Mapping[str, str] | None = None) -> None:
-        super().__init__(reason)
-        self.reason = reason
-        self.params = dict(params or {})
-
-    def message(self) -> str:
-        """Raison traduite et remplie."""
-        return translated(self.reason, self.params)
+def _refusal_message(refusal: TextureRefusedError) -> str:
+    """Raison du refus, traduite et remplie."""
+    return translated(refusal.reason, refusal.params)
 
 
 def _report_warning(message: str) -> None:
@@ -85,23 +77,20 @@ def _report_warning(message: str) -> None:
     App.Console.PrintWarning(f"Menuiserie : {message}\n")
 
 
-def _file_key(image: Path) -> FileKey:
-    """Clé de cache : une image remplacée (taille ou date changée) est relue."""
-    try:
-        status = os.stat(image)
-    except (OSError, ValueError):
-        return str(image), _MISSING_FILE, _MISSING_FILE
-    return str(image), status.st_size, status.st_mtime_ns
-
-
-def _decoded(image: Path) -> QtGui.QImage:
-    """Image décodée par le décodeur de son extension ; ``TextureRefusedError`` sinon."""
-    if not usable_texture_file(image):
-        raise TextureRefusedError(_UNUSABLE_FILE)
-    decoder = _DECODERS.get(image.suffix.lower())
+def _decoder(texture: Texture) -> bytes:
+    """Nom du décodeur Qt imposé par l'extension ; ``TextureRefusedError`` sinon."""
+    decoder = _DECODERS.get(texture.image.suffix.lower())
     if decoder is None:
         raise TextureRefusedError(_UNSUPPORTED_EXTENSION)
-    reader = QtGui.QImageReader(str(image), decoder)
+    return decoder
+
+
+def _decoded(data: bytes, decoder: bytes) -> QtGui.QImage:
+    """Image décodée en mémoire par ``decoder`` ; ``TextureRefusedError`` si elle est refusée."""
+    buffer = QtCore.QBuffer()
+    buffer.setData(QtCore.QByteArray(data))
+    buffer.open(_BUFFER_MODE)
+    reader = QtGui.QImageReader(buffer, decoder)
     reader.setAutoDetectImageFormat(False)
     size = reader.size()  # lue dans l'en-tête, avant décodage
     if size.isEmpty():
@@ -146,35 +135,54 @@ class TextureCache:
     def __init__(self, warn: Warn | None = None, max_entries: int = DEFAULT_MAX_ENTRIES) -> None:
         self._warn = warn or _report_warning
         self._max_entries = max_entries
-        self._entries: OrderedDict[FileKey, SoNode | None] = OrderedDict()
+        self._entries: OrderedDict[CacheKey, SoNode | None] = OrderedDict()
 
-    def node(self, image: Path) -> SoNode | None:
-        """Nœud partagé de ``image`` ; ``None`` si l'image est refusée (avertissement unique)."""
-        key = _file_key(image)
-        if key in self._entries:
-            self._entries.move_to_end(key)
-            return self._entries[key]
-        texture = self._load(image)
-        self._remember(key, texture)
-        return texture
+    def node(self, texture: Texture) -> SoNode | None:
+        """Nœud partagé de l'image de ``texture`` ; ``None`` si elle est refusée (avertissement
+        unique). Le fichier est ouvert une seule fois et décodé en mémoire."""
+        try:
+            with TextureFile(texture) as opened:
+                return self._node_of(texture, opened)
+        except TextureRefusedError as refusal:  # fichier inutilisable : identifié par son nom
+            self._refused((str(texture.image), _MISSING_FILE, _MISSING_FILE), refusal)
+            return None
 
-    def usable(self, image: Path) -> bool:
-        """Vrai si ``image`` peut être affichée (contrôle du fichier puis décodage)."""
-        return self.node(image) is not None
+    def usable(self, texture: Texture) -> bool:
+        """Vrai si l'image de ``texture`` peut être affichée (contrôle du fichier puis décodage)."""
+        return self.node(texture) is not None
 
     def clear(self) -> None:
         """Oublie toutes les images (elles seront relues et, si besoin, signalées à nouveau)."""
         self._entries.clear()
 
-    def _load(self, image: Path) -> SoNode | None:
+    def _node_of(self, texture: Texture, opened: TextureFile) -> SoNode | None:
+        """Nœud mémorisé du fichier ouvert, sinon décodé depuis ses octets."""
+        key = str(texture.image), opened.key[2], opened.key[3]
+        if key in self._entries:
+            return self._known(key)
         try:
-            return _texture_node(_decoded(image))
+            decoder = _decoder(texture)
+            loaded = _texture_node(_decoded(opened.read(), decoder))
         except TextureRefusedError as refusal:
-            params = {"image": str(image), "reason": refusal.message()}
-            self._warn(translated(_REFUSED, params))
+            self._refused(key, refusal)
             return None
+        self._remember(key, loaded)
+        return loaded
 
-    def _remember(self, key: FileKey, texture: SoNode | None) -> None:
+    def _known(self, key: CacheKey) -> SoNode | None:
+        self._entries.move_to_end(key)
+        return self._entries[key]
+
+    def _refused(self, key: CacheKey, refusal: TextureRefusedError) -> None:
+        """Mémorise le refus ; l'avertissement n'est émis que la première fois."""
+        if key in self._entries:
+            self._known(key)
+            return
+        params = {"image": key[0], "reason": _refusal_message(refusal)}
+        self._warn(translated(_REFUSED, params))
+        self._remember(key, None)
+
+    def _remember(self, key: CacheKey, texture: SoNode | None) -> None:
         """Retient ``texture`` à la place des versions précédentes de la même image."""
         for stale in [known for known in self._entries if known[0] == key[0]]:
             del self._entries[stale]

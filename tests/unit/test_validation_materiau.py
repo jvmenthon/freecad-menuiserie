@@ -196,6 +196,31 @@ def test_texture_taille_limite_acceptee() -> None:
     assert Texture(IMAGE, [10, 10_000]).size == (10.0, 10_000.0)  # type: ignore[arg-type]
 
 
+def test_texture_dossier_par_defaut_celui_de_l_image() -> None:
+    texture = Texture(IMAGE, (600.0, 200.0))
+    assert texture.folder == texture.library_folder == IMAGE.parent
+
+
+def test_texture_dossier_de_bibliotheque_ancetre_de_l_image() -> None:
+    folder = IMAGE.parents[1]
+    texture = Texture(IMAGE, (600.0, 200.0), folder)
+    assert texture.folder == texture.library_folder == folder
+
+
+@pytest.mark.parametrize(
+    "folder",
+    [
+        pytest.param(Path("relatif"), id="relatif"),
+        pytest.param(str(IMAGE.parent), id="texte"),
+        pytest.param(IMAGE, id="image-elle-meme"),
+        pytest.param(IMAGE.parent / "autre", id="dossier-voisin"),
+    ],
+)
+def test_texture_dossier_qui_ne_contient_pas_l_image_refuse(folder: object) -> None:
+    with pytest.raises(ValueError, match="champ « folder »"):
+        Texture(IMAGE, (600.0, 200.0), folder)  # type: ignore[arg-type]
+
+
 # --- R2 : épaisseur minimale alignée sur la plus petite cote -------------------------------
 
 

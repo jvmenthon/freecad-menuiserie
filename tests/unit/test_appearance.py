@@ -25,7 +25,8 @@ from tests.unit.aides import make_material
 IMAGE = Path("/bibliotheque/textures/erable.png").resolve()
 SIZE = (600.0, 200.0)
 PLAIN = make_material("erable", "Érable")
-TEXTURED = replace(PLAIN, texture=Texture(IMAGE, SIZE))
+TEXTURE = Texture(IMAGE, SIZE)
+TEXTURED = replace(PLAIN, texture=TEXTURE)
 
 
 def coordinate(direction: Vector3, point: Vector3) -> float:
@@ -34,14 +35,14 @@ def coordinate(direction: Vector3, point: Vector3) -> float:
 
 
 class ImageUsable:
-    """Contrôle du fichier image simulé, qui retient les chemins demandés."""
+    """Contrôle du fichier image simulé, qui retient les textures demandées."""
 
     def __init__(self, answer: bool) -> None:
         self.answer = answer
-        self.calls: list[Path] = []
+        self.calls: list[Texture] = []
 
-    def __call__(self, path: Path) -> bool:
-        self.calls.append(path)
+    def __call__(self, texture: Texture) -> bool:
+        self.calls.append(texture)
         return self.answer
 
 
@@ -100,7 +101,7 @@ def test_taille_invalide_refusee(size: tuple[float, float]) -> None:
 def test_materiau_sans_texture_sans_controle_du_fichier() -> None:
     usable = ImageUsable(True)
     assert part_appearance(PLAIN, GrainDirection.LENGTH, usable) == Appearance(
-        color=PLAIN.color, image=None, mapping=None
+        color=PLAIN.color, texture=None, mapping=None
     )
     assert usable.calls == []
 
@@ -109,22 +110,27 @@ def test_materiau_sans_texture_sans_controle_du_fichier() -> None:
 def test_texture_utilisable(grain: GrainDirection) -> None:
     usable = ImageUsable(True)
     appearance = part_appearance(TEXTURED, grain, usable)
-    assert appearance == Appearance(PLAIN.color, IMAGE, texture_mapping(SIZE, grain))
-    assert usable.calls == [IMAGE]
+    assert appearance == Appearance(PLAIN.color, TEXTURE, texture_mapping(SIZE, grain))
+    assert appearance.image == IMAGE
+    assert usable.calls == [TEXTURE]
 
 
 def test_texture_inutilisable_comme_sans_texture() -> None:
     usable = ImageUsable(False)
     assert part_appearance(TEXTURED, GrainDirection.WIDTH, usable) == Appearance(PLAIN.color)
-    assert usable.calls == [IMAGE]
+    assert usable.calls == [TEXTURE]
 
 
 @pytest.mark.parametrize(
-    ("image", "mapping"),
-    [(IMAGE, None), (None, TextureMapping((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)))],
+    ("texture", "mapping"),
+    [(TEXTURE, None), (None, TextureMapping((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)))],
 )
-def test_image_et_projection_vont_ensemble(
-    image: Path | None, mapping: TextureMapping | None
+def test_texture_et_projection_vont_ensemble(
+    texture: Texture | None, mapping: TextureMapping | None
 ) -> None:
     with pytest.raises(ValueError, match="ensemble"):
-        Appearance((1, 2, 3), image, mapping)
+        Appearance((1, 2, 3), texture, mapping)
+
+
+def test_couleur_seule_sans_image() -> None:
+    assert Appearance((1, 2, 3)).image is None

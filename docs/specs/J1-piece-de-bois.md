@@ -64,7 +64,7 @@ comportement ; conception au § 4.2).
 
 | N° | Critère | Test |
 |---|---|---|
-| R1 | `Material(...)` construit directement valide **tous** ses champs dans `__post_init__` avec les mêmes bornes que la lecture JSON (§ 4.3.2) et lève `ValueError` en citant le champ : `id` (motif, 1 à 64 caractères), `kind` (instance de `MaterialKind`), `names` (au moins une langue, code `^[a-z]{2}$`, libellé normalisé NFC et sans espaces de bord, 1 à 80 caractères, sans caractère interdit), `density` (nombre fini non booléen, 50 à 2000), `thicknesses` (1 à 50 nombres finis non booléens entre 0,1 et 300 mm, **normalisées** : triées, dédoublonnées, en `float`), `color` (exactement 3 entiers non booléens de 0 à 255), `has_grain` (booléen), `texture` (`Texture` ou `None`). `Texture(...)` refuse un `image` non absolu et une `size` hors de 2 nombres finis entre 10 et 10 000 mm. Un cas refusé et un cas limite accepté par règle. | U |
+| R1 | `Material(...)` construit directement valide **tous** ses champs dans `__post_init__` avec les mêmes bornes que la lecture JSON (§ 4.3.2) et lève `ValueError` en citant le champ : `id` (motif, 1 à 64 caractères), `kind` (instance de `MaterialKind`), `names` (au moins une langue, code `^[a-z]{2}$`, libellé normalisé NFC et sans espaces de bord, 1 à 80 caractères, sans caractère interdit), `density` (nombre fini non booléen, 50 à 2000), `thicknesses` (1 à 50 nombres finis non booléens entre 0,1 et 300 mm, **normalisées** : triées, dédoublonnées, en `float`), `color` (exactement 3 entiers non booléens de 0 à 255), `has_grain` (booléen), `texture` (`Texture` ou `None`). `Texture(...)` refuse un `image` non absolu, une `size` hors de 2 nombres finis entre 10 et 10 000 mm et un `folder` qui n'est pas un dossier absolu contenant strictement l'image (par défaut : le dossier de l'image). Un cas refusé et un cas limite accepté par règle. | U |
 | R2 | Bornes alignées : une épaisseur standard < 0,1 mm (ex. 0,05) rejette l'entrée de bibliothèque (champ `thicknesses`, message citant « 0,1 » et « 300 ») ; 0,1 est acceptée. Pour chaque matériau de `data/materiaux.json` et chacune de ses épaisseurs standard `e`, `Dimensions(800, 200, e)` est valide. | U |
 | R3 | `to_finite_float` vit dans le module privé `core/_validation.py`, avec les autres aides partagées (§ 4.2.1), et `quoted_value` dans le module public `core/text.py` ; ni `core.materials` ni `core.part_model` ne les exposent plus. Test d'imports (AST, comme `test_separation_app_gui`) sur `freecad/menuiserie/` et `tests/` : aucun module n'importe un **nom** commençant par `_` ; hors de `core/` et de `tests/unit/` (qui teste ces aides directement), aucun module n'importe `core._validation` ni un sous-module privé `core.materials._…`. | U |
 | R4 | `core/materials.py` est remplacé par le paquet `core/materials/` du § 4.2.2 : `from freecad.menuiserie.core.materials import X` fonctionne pour chaque nom de `__all__` (liste figée par un test), aucun module du paquet ne dépasse 400 lignes, tous les tests J1a passent avec, pour seule modification, leurs imports (et les cas R2). | U |
@@ -114,8 +114,8 @@ la fusion de #8 ne demande aucune modification de code.
 | N° | Critère | Test |
 |---|---|---|
 | D1 | Projection : pour une texture de 600 × 200 mm, `texture_mapping((600, 200), GrainDirection.LENGTH)` donne `direction_s` = (1/600, 0, 0) et `direction_t` = (0, 1/200, 1/200) (en mm⁻¹, repère local) ; `WIDTH` donne (0, 1/600, 0) et (1/200, 0, 1/200) ; `NONE` donne le même résultat que `LENGTH`. La projection ne dépend ni des cotes ni du `Placement` : une planche de 1 200 mm de long fil en long montre exactement deux répétitions de l'image le long du fil. | U |
-| D2 | `part_appearance(material, grain, image_usable)` : matériau sans texture → `Appearance(color=<couleur du matériau>, image=None, mapping=None)` sans appeler `image_usable` ; texture et `image_usable(texture.image)` vrai → `image` = chemin de la texture et `mapping` = D1 ; texture et `image_usable` faux → comme sans texture. | U |
-| D3 | Dans `freecadcmd` : `usable_texture_file(path)` est vrai pour un fichier ordinaire non vide de 16 Mio au plus, et faux **sans exception** pour un chemin absent, un dossier, un fichier vide, un fichier de plus de 16 Mio (fichier creux), un lien symbolique cassé. `appearance_of(obj)` sur une pièce d'un matériau texturé de la bibliothèque temporaire renvoie l'image et la projection de son `GrainDirection` (`Width` après `obj.GrainDirection = "Width"`), la couleur seule si l'image est absente, et `None` si `MaterialId` est inconnu localement ; l'appel ne marque pas l'objet « Touched ». | I |
+| D2 | `part_appearance(material, grain, image_usable)` : matériau sans texture → `Appearance(color=<couleur du matériau>, texture=None, mapping=None)` sans appeler `image_usable` ; texture et `image_usable(texture)` vrai → `texture` = texture du matériau (`image` = son chemin) et `mapping` = D1 ; texture et `image_usable` faux → comme sans texture. | U |
+| D3 | Dans `freecadcmd` : `usable_texture_file(texture)` est vrai pour un fichier ordinaire non vide de 16 Mio au plus, resté dans le dossier de la bibliothèque (lien interne compris), et faux **sans exception** pour un chemin absent, un dossier, un fichier vide, un fichier de plus de 16 Mio (fichier creux), un lien symbolique cassé, un tube nommé, un périphérique, un lien qui sort du dossier (même créé après le chargement de la bibliothèque). `appearance_of(obj)` sur une pièce d'un matériau texturé de la bibliothèque temporaire renvoie l'image et la projection de son `GrainDirection` (`Width` après `obj.GrainDirection = "Width"`), la couleur seule si l'image est absente, et `None` si `MaterialId` est inconnu localement ; l'appel ne marque pas l'objet « Touched ». | I |
 | D4 | Rendu, dans l'interface hors écran : une pièce d'un matériau texturé (image PNG 64 × 32 produite par le test) a, dans `vobj.RootNode` et avant `vobj.SwitchNode`, un `SoSwitch` nommé `MenuiserieTexture` actif, qui contient un `SoTextureCoordinatePlane` aux directions de D1 et un `SoTexture2` (modèle `MODULATE`, répétition `REPEAT` en S et T) dont l'image fait 64 × 32 pixels ; la couleur diffuse de `ShapeAppearance` est le blanc de base et `MaterialColor` la couleur du matériau. Passer `GrainDirection` à `Width` change les directions ; changer `Length` ou le `Placement` ne les change pas. Deux pièces du même matériau partagent le **même** nœud `SoTexture2` (image décodée une fois). | G |
 | D5 | Repli : image absente, contenu illisible (octets aléatoires nommés `.png`), contenu d'un autre format que celui de l'extension (JPEG nommé `.png`), image de plus de 4 096 pixels de côté → `SoSwitch` inactif (`SO_SWITCH_NONE`), couleur diffuse = `MaterialColor`, aucune exception (le script se termine), et **un seul** avertissement traduit par image et par session, même avec deux pièces (vérifié avec un cache d'images muni d'une fonction d'avertissement de test). | G |
 | D6 | Enregistrer, fermer, rouvrir dans l'interface avec la même bibliothèque : la texture est réaffichée (D4) et le document de l'interface n'est pas marqué modifié ; l'archive `.FCStd` ne contient aucune image de texture. Rouvrir après suppression de l'image : couleur `MaterialColor` (D5). Les propriétés de l'objet (`Version` = 1) sont inchangées : J1d n'ajoute aucune propriété à `WoodPart`. | G |
@@ -284,6 +284,8 @@ class LibraryIssue:
 class Texture:                        # ValueError si image non absolue ou size hors bornes (R1)
     image: Path                       # chemin absolu résolu (existence non vérifiée)
     size: tuple[float, float]         # mm : largeur (sens du fil), hauteur couvertes par l'image
+    folder: Path | None = None        # dossier résolu de la bibliothèque, contenant l'image ;
+                                      # None : dossier de l'image (J1d, confinement à l'ouverture)
 
 @dataclass(frozen=True)
 class Material:                       # immuable, hachable ; tous les champs validés (R1, ValueError)
@@ -791,8 +793,10 @@ Choix de rendu et alternatives écartées : ADR 0004. Principes :
   `MaterialColor` (propriété de vue, J1b) est persistée. `WoodPart` ne change pas : `Version`
   reste 1, aucune migration.
 - Répartition : `core/` calcule la projection et choisit couleur ou texture (pur, testé U) ;
-  `features/` interroge la bibliothèque et contrôle le fichier image **sans l'ouvrir** (testé I) ;
-  `gui/` décode l'image avec Qt et construit les nœuds Coin (testé G).
+  `features/` interroge la bibliothèque et contrôle le fichier image en l'ouvrant **sans le
+  lire** (testé I) ; `core/texture_file.py` ouvre le fichier une seule fois, confiné au dossier de
+  la bibliothèque (testé U) ; `gui/` décode en mémoire les octets lus avec Qt et construit les
+  nœuds Coin (testé G).
 - Patterns : **cache poids-mouche** (un nœud `SoTexture2` partagé par image : une seule copie en
   mémoire graphique, quel que soit le nombre de pièces), explicite et réinitialisable comme
   l'exige CONTRIBUTING ; **injection de dépendances** (`image_usable`, `warn`) pour tester sans
@@ -820,13 +824,16 @@ class TextureMapping:
 @dataclass(frozen=True)
 class Appearance:
     color: tuple[int, int, int]  # couleur du matériau (secours)
-    image: Path | None = None  # None : couleur seule
-    mapping: TextureMapping | None = None  # présent si et seulement si image (ValueError sinon)
+    texture: Texture | None = None  # None : couleur seule
+    mapping: TextureMapping | None = None  # présent si et seulement si texture (ValueError sinon)
+
+    @property
+    def image(self) -> Path | None: ...  # chemin de l'image de texture, ou None
 
 
 def texture_mapping(size: tuple[float, float], grain: GrainDirection) -> TextureMapping: ...
 def part_appearance(
-    material: Material, grain: GrainDirection, image_usable: Callable[[Path], bool]
+    material: Material, grain: GrainDirection, image_usable: Callable[[Texture], bool]
 ) -> Appearance: ...
 ```
 
@@ -837,18 +844,52 @@ du fil, à l'échelle réelle, l'image se répétant tous les `w` mm le long du 
 perpendiculaires au fil (bois de bout) montrent une bande étirée : limite acceptée (§ 7).
 L'origine de l'image est le coin d'origine de chaque pièce.
 
-#### 4.6.2 `features/appearance.py`
+#### 4.6.2 `core/texture_file.py` et `features/appearance.py`
 
 ```python
-def usable_texture_file(path: Path) -> bool:
-    ...
-    # os.stat : fichier ordinaire, 0 < taille ≤ MAX_TEXTURE_FILE_BYTES ; jamais d'exception (OSError, ValueError)
+# core/texture_file.py (Python pur)
+FileKey = tuple[int, int, int, int]  # st_dev, st_ino, st_size, st_mtime_ns
 
 
-def appearance_of(obj: DocumentObject) -> Appearance | None:
+class TextureRefusedError(Exception):  # reason : gabarit traduisible ; params : valeurs
+    reason: str
+    params: dict[str, str]
+
+
+def confined_image(texture: Texture) -> Path: ...  # image résolue, dans texture.folder
+
+
+class TextureFile:  # gestionnaire de contexte ; TextureRefusedError dès la construction
+    key: FileKey
+
+    def __init__(self, texture: Texture) -> None: ...
+    def read(self) -> bytes: ...  # au plus MAX_TEXTURE_FILE_BYTES + 1 octets lus, une fois
+    def close(self) -> None: ...
+
+
+# features/appearance.py
+def usable_texture_file(texture: Texture) -> bool: ...  # TextureFile sans lecture
+
+
+def appearance_of(
+    obj: DocumentObject, image_usable: Callable[[Texture], bool] = usable_texture_file
+) -> Appearance | None:
     ...
-    # get_library().find(obj.MaterialId) ; None si inconnu ; sinon part_appearance(..., usable_texture_file)
+    # get_library().find(obj.MaterialId) ; None si inconnu ; sinon part_appearance(..., image_usable)
 ```
+
+Ouverture (audit de sécurité, TOCTOU) : `texture.image` est résolu (`resolve(strict=True)`) à
+**chaque** ouverture et doit rester strictement dans `texture.folder` (dossier résolu de la
+bibliothèque au chargement), sinon refus « fichier sorti du dossier de la bibliothèque » ; la
+cible est ouverte par `os.open(…, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC | O_NOCTTY)`
+(drapeaux absents sous Windows : 0, plus `O_BINARY`), contrôlée par `fstat` (fichier ordinaire,
+0 < taille ≤ 16 Mio) puis lue au plus une fois. Aucun accès ultérieur par le nom : `gui/` décode
+ces octets en mémoire. Un lien interne au dossier est accepté, un dossier de bibliothèque qui
+est lui-même un lien l'est aussi (résolu au chargement) ; `O_NOFOLLOW` fait échouer l'ouverture
+si le dernier composant devient un lien entre la résolution et l'ouverture.
+
+`image_usable` est injecté : `freecadcmd` utilise `usable_texture_file` (ouverture sans lecture),
+l'interface `texture_cache().usable` (ouverture, lecture et décodage).
 
 #### 4.6.3 `gui/textures.py`
 
@@ -858,8 +899,9 @@ class TextureCache:
         self, warn: Callable[[str], None] | None = None, max_entries: int = 32
     ) -> None: ...  # warn par défaut : App.Console.PrintWarning
     def node(
-        self, image: Path
+        self, texture: Texture
     ) -> SoTexture2 | None: ...  # nœud partagé ; None si l'image est refusée
+    def usable(self, texture: Texture) -> bool: ...  # node(texture) is not None
     def clear(self) -> None: ...
 
 
@@ -867,12 +909,15 @@ def texture_cache() -> TextureCache: ...  # cache de la session
 def reset_texture_cache(warn: Callable[[str], None] | None = None) -> TextureCache: ...  # tests
 ```
 
-`node(image)` : clé (chemin, taille, date de modification) relue par `stat`, pour recharger une
-image remplacée ; succès **et** refus sont mémorisés (au plus `max_entries`, les plus anciens
-évincés), d'où un seul avertissement par image et par session (D5). Chargement :
+`node(texture)` : clé (chemin, taille, date de modification) lue par `fstat` sur le fichier
+ouvert, pour recharger une image remplacée ; succès **et** refus sont mémorisés (au plus
+`max_entries`, les plus anciens évincés), d'où un seul avertissement par image et par session
+(D5). Chargement :
 
-1. `QImageReader(str(image))` avec `setFormat(b"png")` ou `setFormat(b"jpeg")` selon l'extension et
-   `setAutoDetectImageFormat(False)` : seuls les décodeurs PNG et JPEG de Qt sont sollicités ;
+1. `TextureFile(texture)` (§ 4.6.2) puis `read()` : les octets sont lus une fois ;
+   `QImageReader(QBuffer(QByteArray(octets)), b"png" | b"jpeg")` selon l'extension et
+   `setAutoDetectImageFormat(False)` : seuls les décodeurs PNG et JPEG de Qt sont sollicités, et
+   jamais sur le fichier par son nom ;
 2. `reader.size()` lu dans l'en-tête **avant** décodage : invalide ou côté > `MAX_TEXTURE_PIXELS` →
    refus ;
 3. `reader.read()` ; image nulle → refus (raison : `reader.errorString()`, tronquée) ;
@@ -921,11 +966,12 @@ du contenu d'un document ; `api.py` est le seul module hors `gui/` autorisé à 
 seulement sous `if App.GuiUp`.
 
 Images de texture (J1d) : chemin issu **uniquement** de la bibliothèque (le document ne fournit que
-l'identifiant `MaterialId`, clé de recherche et jamais chemin) ; taille ≤ 16 Mio vérifiée par
-`stat` sans ouvrir le fichier (`features/`) ; décodage seulement dans `gui/`, par les décodeurs PNG
-ou JPEG de Qt imposés par l'extension, dimensions lues dans l'en-tête et bornées à 4 096 pixels
-avant décodage (un fichier remplacé entre le `stat` et la lecture reste borné par ce contrôle) ;
-raison d'échec citée tronquée ; l'image n'est jamais copiée dans le document.
+l'identifiant `MaterialId`, clé de recherche et jamais chemin) ; fichier ouvert **une seule fois**
+(§ 4.6.2 : confinement au dossier de la bibliothèque revérifié à l'ouverture, `O_NOFOLLOW`,
+`O_NONBLOCK`, contrôle par `fstat`, lecture bornée à 16 Mio) ; décodage seulement dans `gui/`,
+en mémoire, par les décodeurs PNG ou JPEG de Qt imposés par l'extension, dimensions lues dans
+l'en-tête et bornées à 4 096 pixels avant décodage ; raison d'échec citée tronquée ; l'image
+n'est jamais copiée dans le document.
 
 ## 5. Découpage en PR
 

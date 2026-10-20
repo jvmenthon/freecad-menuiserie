@@ -1,41 +1,37 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Apparence d'une pièce de bois d'après la bibliothèque locale (ADR 0004).
 
-Le fichier image est contrôlé par ``os.stat`` **sans être ouvert** : son décodage appartient à
-``gui/``. Rien de l'apparence n'est écrit dans le document : seul ``MaterialId`` y est lu, comme
-clé de recherche dans la bibliothèque (jamais comme chemin).
+Le fichier image est ouvert et contrôlé sur son descripteur, **sans être lu** : son décodage
+appartient à ``gui/``. Rien de l'apparence n'est écrit dans le document : seul ``MaterialId`` y
+est lu, comme clé de recherche dans la bibliothèque (jamais comme chemin).
 """
 
 from __future__ import annotations
 
-import os
-import stat
 from collections.abc import Callable
-from pathlib import Path
 
-from freecad.menuiserie.core.appearance import (
-    MAX_TEXTURE_FILE_BYTES,
-    Appearance,
-    part_appearance,
-)
+from freecad.menuiserie.core.appearance import Appearance, part_appearance
+from freecad.menuiserie.core.materials import Texture
 from freecad.menuiserie.core.part_model import GrainDirection
+from freecad.menuiserie.core.texture_file import TextureFile, TextureRefusedError
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.library import get_library
 
 __all__ = ["appearance_of", "usable_texture_file"]
 
 
-def usable_texture_file(path: Path) -> bool:
-    """Vrai pour un fichier ordinaire non vide d'au plus 16 Mio (liens suivis), sans exception."""
+def usable_texture_file(texture: Texture) -> bool:
+    """Vrai si l'image est un fichier ordinaire non vide d'au plus 16 Mio, resté dans le dossier
+    de la bibliothèque (liens résolus puis confinés) ; jamais d'exception."""
     try:
-        status = os.stat(path)
-    except (OSError, ValueError):
+        with TextureFile(texture):
+            return True
+    except TextureRefusedError:
         return False
-    return stat.S_ISREG(status.st_mode) and 0 < status.st_size <= MAX_TEXTURE_FILE_BYTES
 
 
 def appearance_of(
-    obj: DocumentObject, image_usable: Callable[[Path], bool] = usable_texture_file
+    obj: DocumentObject, image_usable: Callable[[Texture], bool] = usable_texture_file
 ) -> Appearance | None:
     """Apparence de la pièce ``obj``, ou ``None`` si son matériau est inconnu localement.
 

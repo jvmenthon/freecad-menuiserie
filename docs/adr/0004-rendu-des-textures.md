@@ -55,14 +55,21 @@ certaines compilations de Coin ; Qt (`QImageReader`) est toujours présent dans 
 4. **La texture n'est pas enregistrée** dans le document : elle est recalculée depuis la
    bibliothèque locale à l'ouverture (`finishRestoring`) et à chaque changement de `MaterialId` ou
    de `GrainDirection`. Aucune propriété n'est ajoutée à `WoodPart` (`Version` reste 1).
-5. **Chargement par Qt dans `gui/` uniquement**, décodeur PNG ou JPEG imposé par l'extension
-   (détection automatique désactivée), fichier ≤ 16 Mio contrôlé par `stat` dans `features/`,
-   dimensions ≤ 4 096 pixels lues dans l'en-tête avant décodage, conversion en RGB opaque.
+5. **Fichier ouvert une seule fois, décodé en mémoire par Qt dans `gui/` uniquement**
+   (`core/texture_file.py`, audit de sécurité) : à chaque ouverture, le chemin est résolu et doit
+   rester dans le dossier de la bibliothèque (`Texture.folder`, résolu au chargement : un lien
+   interne est accepté, un lien ou un dossier remplacé depuis le chargement et qui mène dehors
+   est refusé) ; la cible est ouverte avec `O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC`, contrôlée par
+   `fstat` (fichier ordinaire, ≤ 16 Mio) et lue une fois ; Qt décode ces octets
+   (`QImageReader` sur un `QBuffer`) et ne rouvre jamais le fichier par son nom. Décodeur PNG ou
+   JPEG imposé par l'extension (détection automatique désactivée), dimensions ≤ 4 096 pixels
+   lues dans l'en-tête avant décodage, conversion en RGB opaque.
 6. **Un nœud `SoTexture2` par image**, partagé par toutes les pièces (cache poids-mouche explicite
    et réinitialisable de `gui/textures.py`) : une seule copie en mémoire graphique. Les échecs
    sont mémorisés aussi : un seul avertissement par image et par session.
 7. Logique testable hors interface : projection et choix couleur/texture dans `core/appearance.py`,
-   contrôle du fichier dans `features/appearance.py` ; `gui/` ne fait que décoder et brancher.
+   ouverture confinée dans `core/texture_file.py`, contrôle du fichier (ouverture sans lecture)
+   dans `features/appearance.py` ; `gui/` ne fait que décoder et brancher.
 
 ## Conséquences
 

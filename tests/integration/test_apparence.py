@@ -19,6 +19,7 @@ Library = Any  # fixture bibliotheque_temporaire (conftest.BibliothequeTemporair
 App = pytest.importorskip("FreeCAD")
 appearance = pytest.importorskip("freecad.menuiserie.features.appearance")
 core_appearance = pytest.importorskip("freecad.menuiserie.core.appearance")
+materials = pytest.importorskip("freecad.menuiserie.core.materials")
 part_model = pytest.importorskip("freecad.menuiserie.core.part_model")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 
@@ -35,6 +36,17 @@ TEXTURED_MAPLE = {
     "color": "#E8D2A8",
     "texture": {"image": IMAGE, "size": list(SIZE)},
 }
+
+
+def texture_at(image: Path, folder: Path | None = None) -> Any:
+    """Texture de ``image`` (taille ``SIZE``) confinée à ``folder`` (par défaut son dossier)."""
+    return materials.Texture(image, SIZE, folder)
+
+
+def maple_texture(image: Path) -> Any:
+    """Texture de l'érable telle que chargée : image sous ``textures/`` du dossier résolu de la
+    bibliothèque."""
+    return texture_at(image, image.parents[1])
 
 
 def sized_file(path: Path, size: int) -> Path:
@@ -64,7 +76,7 @@ def touched(obj: Any) -> bool:
 
 @pytest.mark.parametrize("size", [1, LIMIT])
 def test_fichier_utilisable(tmp_path: Path, size: int) -> None:
-    assert appearance.usable_texture_file(sized_file(tmp_path / "image.png", size))
+    assert appearance.usable_texture_file(texture_at(sized_file(tmp_path / "image.png", size)))
 
 
 def test_limite_partagee_avec_core() -> None:
@@ -84,15 +96,27 @@ def test_fichiers_inutilisables(tmp_path: Path) -> None:
         broken,
         Path("/nul\0.png"),
     ]
-    assert [path for path in refused if appearance.usable_texture_file(path)] == []
+    assert [path for path in refused if appearance.usable_texture_file(texture_at(path))] == []
 
 
 def test_fichier_illisible_sans_exception(tmp_path: Path) -> None:
-    """Le contenu n'est pas lu : un fichier sans droit de lecture reste « utilisable » ici, le
-    décodage (interface) le refusera."""
+    """Le fichier est ouvert (sans être lu) : sans droit de lecture, il est refusé, sauf pour
+    l'administrateur, à qui la lecture reste permise."""
     image = sized_file(tmp_path / "secrete.png", 10)
     os.chmod(image, 0)
-    assert appearance.usable_texture_file(image)
+    try:
+        assert appearance.usable_texture_file(texture_at(image)) == os.access(image, os.R_OK)
+    finally:
+        os.chmod(image, 0o600)
+
+
+def test_lien_vers_l_exterieur_apres_le_chargement(tmp_path: Path) -> None:
+    """Le confinement au dossier de la bibliothèque est revérifié à chaque ouverture."""
+    folder = tmp_path / "dossier"
+    folder.mkdir()
+    link = folder / "erable.png"
+    link.symlink_to(sized_file(tmp_path / "secret.png", 10))
+    assert not appearance.usable_texture_file(texture_at(link, folder))
 
 
 # --- appearance_of -----------------------------------------------------------------------
@@ -104,7 +128,7 @@ def test_texture_dans_le_sens_du_fil(document: Any, bibliotheque_temporaire: Lib
     document.recompute()
     grain = part_model.GrainDirection
     expected = core_appearance.Appearance(
-        MAPLE_RGB, image, core_appearance.texture_mapping(SIZE, grain.LENGTH)
+        MAPLE_RGB, maple_texture(image), core_appearance.texture_mapping(SIZE, grain.LENGTH)
     )
     assert appearance.appearance_of(obj) == expected
     assert not touched(obj)
@@ -126,14 +150,14 @@ def test_controle_injecte(document: Any, bibliotheque_temporaire: Library) -> No
     """L'interface fournit son propre contrôle (décodage) : un refus donne la couleur."""
     image = install_textured_maple(bibliotheque_temporaire)
     obj = wood_part.create_wood_part(document, material_id="erable")
-    asked: list[Path] = []
+    asked: list[Any] = []
 
-    def refuse(path: Path) -> bool:
-        asked.append(path)
+    def refuse(texture: Any) -> bool:
+        asked.append(texture)
         return False
 
     assert appearance.appearance_of(obj, refuse) == core_appearance.Appearance(MAPLE_RGB)
-    assert asked == [image]
+    assert asked == [maple_texture(image)]
 
 
 def test_materiau_inconnu_localement(document: Any, bibliotheque_temporaire: Library) -> None:

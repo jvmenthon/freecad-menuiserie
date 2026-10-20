@@ -911,6 +911,58 @@ def verifier_texture_documents_multiples() -> list[str]:
     return problemes
 
 
+def verifier_texture_confinement() -> list[str]:
+    """Audit, point 2 : l'image est ouverte une fois, confinée au dossier de la bibliothèque à
+    chaque ouverture. Un lien vers l'extérieur créé après le chargement est refusé (un
+    avertissement) ; un lien interne et une bibliothèque lue par un lien vers son dossier sont
+    acceptés."""
+    from freecad.menuiserie.api import make_wood_part
+    from freecad.menuiserie.features.library import (
+        PARAM_PATH,
+        USER_LIBRARY_PARAM,
+        reload_library,
+    )
+
+    avertissements = avertissements_de_test()
+    materiaux = (
+        materiau("erable", "Érable", "textures/erable.png"),
+        materiau("tilleul", "Tilleul", "textures/tilleul.png"),
+    )
+    with bibliotheque(*materiaux) as fichier:
+        dossier = fichier.parent / "textures"
+        ecrire_image(dossier / "erable.png")
+        ecrire_image(dossier / "tilleul.png", (16, 8))
+        lien = fichier.parent.with_name(fichier.parent.name + "-lien")
+        lien.symlink_to(fichier.parent)
+        App.ParamGet(PARAM_PATH).SetString(USER_LIBRARY_PARAM, str(lien / fichier.name))
+        reload_library()
+        doc = App.newDocument("VerifConfinement")
+        problemes = texture_visible(
+            "bibliothèque lue par un lien",
+            make_wood_part(material_id="erable", doc=doc).ViewObject,
+            IMAGE_PIXELS,
+        )
+        exterieur = Path(tempfile.mkdtemp()) / "secret.png"
+        ecrire_image(exterieur, (8, 4))
+        (dossier / "erable.png").unlink()
+        (dossier / "erable.png").symlink_to(exterieur)
+        problemes += repli_visible(
+            "lien vers l'extérieur", make_wood_part(material_id="erable", doc=doc).ViewObject
+        )
+        (dossier / "tilleul.png").rename(dossier / "autre.png")
+        (dossier / "tilleul.png").symlink_to(dossier / "autre.png")
+        problemes += texture_visible(
+            "lien interne", make_wood_part(material_id="tilleul", doc=doc).ViewObject, (16, 8)
+        )
+        cites = [m for m in avertissements if "erable.png" in m and "sorti du dossier" in m]
+        problemes += [
+            *ecarts("avertissement du lien vers l'extérieur", len(cites), 1),
+            *ecarts("avertissements", len(avertissements), 1),
+        ]
+        App.closeDocument(doc.Name)
+    return problemes
+
+
 def commutateur_sous(noeud: Any) -> bool:
     """Vrai si un ``SoSwitch`` « MenuiserieTexture » actif est atteint sous ``noeud``."""
     from pivy import coin
@@ -942,6 +994,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_image_remplacee,
     verifier_texture_bibliotheque_modifiee,
     verifier_texture_documents_multiples,
+    verifier_texture_confinement,
 )
 
 

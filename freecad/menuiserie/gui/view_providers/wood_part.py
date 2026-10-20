@@ -120,9 +120,9 @@ def _shown_texture(obj: DocumentObject) -> tuple[TextureMapping, SoNode] | None:
     """Projection et nœud partagé de la texture à afficher ; ``None`` : couleur seule."""
     cache = texture_cache()
     appearance = appearance_of(obj, cache.usable)
-    if appearance is None or appearance.image is None or appearance.mapping is None:
+    if appearance is None or appearance.texture is None or appearance.mapping is None:
         return None
-    texture = cache.node(appearance.image)
+    texture = cache.node(appearance.texture)
     return None if texture is None else (appearance.mapping, texture)
 
 

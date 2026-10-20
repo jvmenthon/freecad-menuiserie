@@ -112,11 +112,11 @@ def test_fil_en_long_et_en_travers_echangent_x_et_y() -> None:
 
 def test_resultats_immuables() -> None:
     mapping = texture_mapping((600.0, 200.0), GrainDirection.LENGTH)
-    appearance = Appearance((1, 2, 3), IMAGE, mapping)
+    appearance = Appearance((1, 2, 3), Texture(IMAGE, (600.0, 200.0)), mapping)
     with pytest.raises(FrozenInstanceError):
         mapping.direction_s = (0.0, 0.0, 0.0)  # type: ignore[misc]
     with pytest.raises(FrozenInstanceError):
-        appearance.image = None  # type: ignore[misc]
+        appearance.texture = None  # type: ignore[misc]
 
 
 @pytest.mark.parametrize("size", [(MIN_TEXTURE_SIZE_MM,) * 2, (MAX_TEXTURE_SIZE_MM,) * 2])
@@ -124,18 +124,20 @@ def test_resultats_immuables() -> None:
 def test_part_appearance_aux_tailles_extremes(
     size: tuple[float, float], grain: GrainDirection
 ) -> None:
-    textured = replace(PLAIN, texture=Texture(IMAGE, size))
-    appearance = part_appearance(textured, grain, lambda _path: True)
-    assert appearance == Appearance(PLAIN.color, IMAGE, texture_mapping(size, grain))
+    texture = Texture(IMAGE, size)
+    textured = replace(PLAIN, texture=texture)
+    appearance = part_appearance(textured, grain, lambda _texture: True)
+    assert appearance == Appearance(PLAIN.color, texture, texture_mapping(size, grain))
+    assert appearance.image == IMAGE
 
 
 def test_texture_vers_sans_texture_et_inverse() -> None:
     """Le choix ne garde aucun état : changer de matériau dans un sens puis dans l'autre redonne
     exactement les mêmes apparences."""
     textured = replace(PLAIN, texture=Texture(IMAGE, (600.0, 200.0)))
-    first = part_appearance(textured, GrainDirection.WIDTH, lambda _path: True)
-    plain = part_appearance(PLAIN, GrainDirection.WIDTH, lambda _path: True)
-    again = part_appearance(textured, GrainDirection.WIDTH, lambda _path: True)
+    first = part_appearance(textured, GrainDirection.WIDTH, lambda _texture: True)
+    plain = part_appearance(PLAIN, GrainDirection.WIDTH, lambda _texture: True)
+    again = part_appearance(textured, GrainDirection.WIDTH, lambda _texture: True)
     assert plain == Appearance(PLAIN.color)
     assert first == again
     assert first.mapping == TextureMapping((0.0, 1 / 600, 0.0), (1 / 200, 0.0, 1 / 200))
@@ -145,7 +147,7 @@ def test_controle_qui_leve_une_exception_n_est_pas_masque() -> None:
     """``part_appearance`` ne rattrape rien : c'est au contrôle fourni de ne jamais lever (D3)."""
     textured = replace(PLAIN, texture=Texture(IMAGE, (600.0, 200.0)))
 
-    def broken(_path: Path) -> bool:
+    def broken(_texture: Texture) -> bool:
         raise OSError("disque")
 
     with pytest.raises(OSError, match="disque"):

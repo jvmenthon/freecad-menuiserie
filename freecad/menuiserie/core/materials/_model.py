@@ -153,11 +153,14 @@ class Texture:
 
     ``image`` est le chemin absolu résolu de l'image, dont l'existence n'est pas vérifiée ici.
     ``size`` donne la largeur et la hauteur réelles couvertes par l'image, en mm ; le fil du
-    bois suit la largeur de l'image. ``ValueError`` si l'un des deux est invalide.
+    bois suit la largeur de l'image. ``folder`` est le dossier résolu de la bibliothèque, dont
+    l'image ne doit pas sortir quand elle est ouverte (par défaut : le dossier de l'image).
+    ``ValueError`` si l'un des trois est invalide.
     """
 
     image: Path
     size: tuple[float, float]
+    folder: Path | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.image, Path) or not self.image.is_absolute():
@@ -167,6 +170,22 @@ class Texture:
             expected = f"deux nombres entre {MIN_TEXTURE_SIZE_MM:g} et {MAX_TEXTURE_SIZE_MM:g} mm"
             raise _invalid("texture", "size", self.size, expected)
         object.__setattr__(self, "size", size)
+        folder = self.image.parent if self.folder is None else self.folder
+        if not _contains(folder, self.image):
+            raise _invalid("texture", "folder", folder, "dossier absolu contenant l'image")
+        object.__setattr__(self, "folder", folder)
+
+    @property
+    def library_folder(self) -> Path:
+        """Dossier dont l'image ne doit pas sortir (``folder``, toujours renseigné)."""
+        return self.image.parent if self.folder is None else self.folder
+
+
+def _contains(folder: object, image: Path) -> bool:
+    """Vrai si ``folder`` est un chemin absolu dont ``image`` est un descendant strict."""
+    if not isinstance(folder, Path) or not folder.is_absolute():
+        return False
+    return image != folder and image.is_relative_to(folder)
 
 
 def _kind(value: object) -> MaterialKind | None:
