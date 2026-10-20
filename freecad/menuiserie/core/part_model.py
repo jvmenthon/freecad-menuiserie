@@ -18,7 +18,7 @@ from freecad.menuiserie.core._validation import (
     MIN_DIMENSION_MM,
     to_finite_float,
 )
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.materials import Material, MaterialKind
 
 __all__ = [
@@ -74,13 +74,8 @@ class GrainDirection(str, Enum):
     NONE = "None"
 
 
-class InvalidDimensionsError(ValueError):
+class InvalidDimensionsError(TemplatedError):
     """Cote ou surcote hors bornes ; message = gabarit français rempli."""
-
-    def __init__(self, template: str, params: Mapping[str, str]) -> None:
-        self.template = template
-        self.params: Mapping[str, str] = MappingProxyType(dict(params))
-        super().__init__(template.format_map(self.params))
 
 
 def _short_repr(value: object) -> str:

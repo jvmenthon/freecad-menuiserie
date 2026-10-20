@@ -168,7 +168,6 @@ _MAXIMA: Final = MappingProxyType(
     {
         ParamKind.LENGTH: MAX_DIMENSION_MM,
         ParamKind.OFFSET: MAX_DIMENSION_MM,
-        ParamKind.FLAG: 0,
         ParamKind.COUNT: MAX_COUNT,
     }
 )
@@ -202,5 +201,7 @@ def validate_params(params: object) -> None:
         checked = _CHECKS[kind](value)
         if checked is _INVALID:
             values = {"field": item.name, "value": quoted_value(value)}
-            raise JointError(_TEMPLATES[kind], values | {"max": decimal_text(_MAXIMA[kind])})
+            if kind in _MAXIMA:
+                values["max"] = decimal_text(_MAXIMA[kind])
+            raise JointError(_TEMPLATES[kind], values)
         object.__setattr__(params, item.name, checked)

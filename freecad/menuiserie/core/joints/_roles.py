@@ -14,10 +14,10 @@ from freecad.menuiserie.core.geometry import (
 
 def _face_covered(contact: Contact, guest: PlacedBlock) -> bool:
     """Vrai si le contact couvre toute la face de l'invitée qui touche."""
-    sizes = (guest.dimensions.length, guest.dimensions.width, guest.dimensions.thickness)
+    face = guest.local_box()
     normal = contact.guest_face.index
     return all(
-        contact.rectangle.size(axis) >= sizes[axis] - CONTACT_TOLERANCE_MM
+        contact.rectangle.size(axis) >= face.size(axis) - CONTACT_TOLERANCE_MM
         for axis in range(3)
         if axis != normal
     )

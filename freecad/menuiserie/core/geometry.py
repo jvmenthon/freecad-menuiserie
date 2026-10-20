@@ -10,13 +10,12 @@ après y avoir exprimé l'invitée : seule la rotation **relative** doit être d
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
-from types import MappingProxyType
 from typing import Final
 
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.part_model import Dimensions
 
 __all__ = [
@@ -54,13 +53,8 @@ Row = tuple[float, float, float]
 Matrix3 = tuple[Row, Row, Row]
 
 
-class JointError(ValueError):
+class JointError(TemplatedError):
     """Assemblage impossible ; message = gabarit français (``QT_TRANSLATE_NOOP``) rempli."""
-
-    def __init__(self, template: str, params: Mapping[str, str]) -> None:
-        self.template = template
-        self.params: Mapping[str, str] = MappingProxyType(dict(params))
-        super().__init__(template.format_map(self.params))
 
 
 @dataclass(frozen=True)
