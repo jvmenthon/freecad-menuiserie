@@ -31,6 +31,7 @@ __all__ = [
     "ensure_machined_part",
     "is_machined_part",
     "machined_part_of",
+    "removal_refusal",
     "remove_machined_part",
 ]
 
@@ -227,9 +228,18 @@ def remove_machined_part(machined: DocumentObject) -> None:
     traduite s'il lui reste des assemblages, ``TypeError`` si ce n'est pas une pièce usinée."""
     if not is_machined_part(machined):
         raise TypeError(translated(_NOT_A_PART, {"label": quoted_value(machined.Label)}))
-    if machined.Joints:
-        raise ValueError(translated(_STILL_JOINED, {"label": quoted_value(machined.Label)}))
+    refusal = removal_refusal(machined)
+    if refusal is not None:
+        raise ValueError(refusal)
     blank = machined.Base
     machined.Document.removeObject(machined.Name)
     if blank is not None:
         blank.Visibility = True
+
+
+def removal_refusal(machined: DocumentObject) -> str | None:
+    """Message traduit si la pièce usinée ``machined`` porte encore des assemblages (sa
+    suppression est alors refusée), ``None`` sinon."""
+    if not machined.Joints:
+        return None
+    return translated(_STILL_JOINED, {"label": quoted_value(machined.Label)})

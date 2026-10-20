@@ -197,8 +197,10 @@ def test_avertissement_d_epaisseur_en_texte_brut() -> None:
 
 
 def test_commande_enregistree_par_l_atelier() -> None:
+    """Pièce de bois en tête ; les commandes d'assemblage suivent (test_commandes_assemblages)."""
     commands = declared_value(PACKAGE / "init_gui.py", "commands")
-    assert commands == (declared_value(COMMAND, "COMMAND_NAME"),)
+    assert isinstance(commands, tuple)
+    assert commands[0] == declared_value(COMMAND, "COMMAND_NAME")
 
 
 def test_atelier_charge_les_commandes_a_l_activation() -> None:

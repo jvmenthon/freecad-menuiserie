@@ -83,7 +83,27 @@ def make_mortise_tenon(
     """
     document = blank_of(host).Document
     joint = create_mortise_tenon(document, host, guest, **params)
-    document.recompute()
+    return _shown_and_recomputed(joint)
+
+
+def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
+    """Pose les ViewProviders de l'assemblage et des pièces usinées de ses deux brutes (si
+    l'interface est chargée), puis recalcule le document. Commun à toutes les fabriques
+    d'assemblage."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
+        from freecad.menuiserie.gui.view_providers.machined_part import (
+            ViewProviderMachinedPart,
+        )
+
+        ViewProviderJoint(joint.ViewObject)
+        for blank in (joint.HostPart, joint.GuestPart):
+            machined = machined_part_of(blank)
+            if machined is not None and not isinstance(
+                machined.ViewObject.Proxy, ViewProviderMachinedPart
+            ):
+                ViewProviderMachinedPart(machined.ViewObject)
+    joint.Document.recompute()
     return joint
 
 
