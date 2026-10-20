@@ -14,10 +14,11 @@ from types import MappingProxyType
 from typing import Final, TypeVar
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints import JointError, JointKind
+from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
-from freecad.menuiserie.features.i18n import templated_message, translated
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.machined_part import blank_of, ensure_machined_part
@@ -51,7 +52,7 @@ def _checked_blanks(
         raise ValueError(translated(_SAME_PART))
     for blank in (host_blank, guest_blank):
         if blank.Document != doc:
-            raise ValueError(translated(_OTHER_DOCUMENT, {"label": str(blank.Label)}))
+            raise ValueError(translated(_OTHER_DOCUMENT, {"label": quoted_value(blank.Label)}))
     if host_blank.getParentGeoFeatureGroup() != guest_blank.getParentGeoFeatureGroup():
         raise ValueError(translated(_OTHER_CONTAINER))
     return host_blank, guest_blank
@@ -60,10 +61,9 @@ def _checked_blanks(
 def _validated(params_type: Callable[..., P], params: Mapping[str, object]) -> P:
     """Paramètres de ``core`` ; ``ValueError`` traduite si l'un est refusé, ``TypeError`` si
     un nom est inconnu."""
-    try:
-        return params_type(**params)
-    except JointError as error:
-        raise ValueError(templated_message(error)) from error
+    with translated_errors():
+        values = params_type(**params)
+    return values
 
 
 def create_joint(

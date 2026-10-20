@@ -30,7 +30,7 @@ from freecad.menuiserie.core.part_model import (
     material_has_grain,
     remembered_grain,
 )
-from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.freecad_types import Document, DocumentObject, proxy_is
 from freecad.menuiserie.features.i18n import templated_message, translated
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.schema import warn
@@ -234,11 +234,7 @@ def validated_arguments(
 
 def is_wood_part(obj: object) -> bool:
     """Vrai si ``obj`` est une pièce de bois de l'atelier (faux pour un objet supprimé)."""
-    try:
-        proxy = getattr(obj, "Proxy", None)
-    except ReferenceError:  # objet FreeCAD supprimé du document
-        return False
-    return isinstance(proxy, WoodPart)
+    return proxy_is(obj, WoodPart)
 
 
 def set_material(obj: DocumentObject, material_id: str) -> None:

@@ -13,6 +13,7 @@ from tests.integration.cadre import (
     RAIL_VOLUME,
     STILE_VOLUME,
     Cadre,
+    assert_follow_blanks,
     build_frame,
     touched,
 )
@@ -182,6 +183,8 @@ def test_le_cadre_suit_les_cotes(cadre_assemble: Cadre) -> None:
     cadre_assemble.parts["M1"].Width = 80
     cadre_assemble.doc.recompute()
     assert touched(cadre_assemble.doc) == []
+    assert cadre_assemble.parts["T1"].Placement.Base.y == pytest.approx(80)
+    assert_follow_blanks(cadre_assemble)
     assert cadre_assemble.parts["T1"].Length.Value == pytest.approx(240)
     for mark in ("T1", "T2"):
         assert cadre_assemble.volume(mark) == pytest.approx(240 * 60 * 22 + 2 * 53 * 40 * 7)
@@ -191,6 +194,8 @@ def test_le_cadre_suit_les_cotes(cadre_assemble: Cadre) -> None:
     cadre_assemble.doc.recompute()
     assert touched(cadre_assemble.doc) == []
     assert cadre_assemble.volume("T1") == pytest.approx(240 * 80 * 22 + 2 * 53 * 54 * 7)
+    assert cadre_assemble.parts["T1"].Placement.Base.x == pytest.approx(80)
+    assert_follow_blanks(cadre_assemble)
 
 
 # --- O5 : paramètres de l'assemblage -----------------------------------------------------
@@ -233,6 +238,7 @@ def test_expression_sur_l_epaisseur(cadre_assemble: Cadre) -> None:
 
 def test_pieces_ecartees_puis_remises(cadre_assemble: Cadre) -> None:
     doc, rail = cadre_assemble.doc, cadre_assemble.parts["T1"]
+    # Épaisseur de 22 mm : la traverse posée à z = 27 est 5 mm au-dessus des montants.
     rail.Placement.Base.z = 27
     rail.Placement = rail.Placement
     doc.recompute()
@@ -247,6 +253,7 @@ def test_pieces_ecartees_puis_remises(cadre_assemble: Cadre) -> None:
     doc.recompute()
     assert touched(doc) == []
     assert_frame_volumes(cadre_assemble)
+    assert_follow_blanks(cadre_assemble)
 
 
 def count_and_raise(doc: Any, error: type[Exception], host: Any, guest: Any) -> None:
@@ -313,3 +320,39 @@ def test_piece_usinee_acceptee_et_reutilisee(cadre: Cadre) -> None:
     assert api.blank_of(m1) == m1
     with pytest.raises(TypeError):
         api.blank_of(first)
+
+
+# --- La pièce usinée suit sa brute (correction de revue B1) et son libellé ----------------
+
+
+def test_deplacer_la_brute_deplace_la_piece_usinee(cadre_assemble: Cadre) -> None:
+    doc = cadre_assemble.doc
+    for blank in cadre_assemble.parts.values():
+        moved = blank.Placement
+        moved.Base.x -= 50
+        blank.Placement = moved
+    doc.recompute()
+    assert touched(doc) == []
+    assert_follow_blanks(cadre_assemble)
+    assert cadre_assemble.machined("M1").Placement.Base.x == pytest.approx(-50)
+    assert_frame_volumes(cadre_assemble)
+
+
+def test_expression_sur_le_placement_de_la_brute(cadre_assemble: Cadre) -> None:
+    doc, m1 = cadre_assemble.doc, cadre_assemble.parts["M1"]
+    for blank in cadre_assemble.parts.values():
+        if blank != m1:
+            blank.setExpression("Placement.Base.z", f"{m1.Name}.Placement.Base.z")
+    m1.Placement.Base.z = 100
+    m1.Placement = m1.Placement
+    doc.recompute()
+    assert touched(doc) == []
+    assert cadre_assemble.machined("T2").Placement.Base.z == pytest.approx(100)
+    assert_follow_blanks(cadre_assemble)
+    assert_frame_volumes(cadre_assemble)
+
+
+def test_libelle_de_la_piece_usinee(cadre_assemble: Cadre) -> None:
+    for mark, blank in cadre_assemble.parts.items():
+        assert blank.Label == mark
+        assert cadre_assemble.machined(mark).Label == f"{mark} (usinée)"

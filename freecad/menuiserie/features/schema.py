@@ -29,6 +29,7 @@ __all__ = [
     "restore_schema",
     "restored_version",
     "set_editor_mode",
+    "version_spec",
     "warn",
 ]
 
@@ -64,6 +65,13 @@ class PropertySpec:
     tooltip: str
     default: object = None
     mode: int = EDITABLE
+
+
+def version_spec(tooltip: str, version: int) -> PropertySpec:
+    """Propriété ``Version`` (groupe « Base », masquée) d'un objet au modèle ``version``."""
+    return PropertySpec(
+        "Version", "App::PropertyInteger", "Base", tooltip, default=version, mode=HIDDEN
+    )
 
 
 def warn(obj: DocumentObject, template: str, **params: object) -> None:

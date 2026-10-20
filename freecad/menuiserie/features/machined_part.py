@@ -15,12 +15,12 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import Solid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.part_model import InvalidDimensionsError
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import HIDDEN, READ_ONLY, DocumentObject
-from freecad.menuiserie.features.i18n import templated_message, translated
+from freecad.menuiserie.features.freecad_types import READ_ONLY, DocumentObject, proxy_is
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, plan_for
-from freecad.menuiserie.features.schema import PropertySpec
+from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import machined_shape
 from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
 
@@ -38,6 +38,7 @@ OBJECT_NAME: Final = "MachinedPart"
 MODEL_VERSION: Final = 1
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce usinée")
 
+_MACHINED_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (usinée)")
 _NO_BLANK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Pièce usinée sans pièce de bois brute : sa pièce a été supprimée."
 )
@@ -73,17 +74,13 @@ PROPERTIES: Final = (
         ),
         mode=READ_ONLY,
     ),
-    PropertySpec(
-        "Version",
-        "App::PropertyInteger",
-        "Base",
+    version_spec(
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Version du modèle de données de la pièce usinée, utilisée pour migrer les anciens "
             "fichiers.",
         ),
-        default=MODEL_VERSION,
-        mode=HIDDEN,
+        MODEL_VERSION,
     ),
 )
 
@@ -123,14 +120,14 @@ class MachinedPart:
         """Forme = brute plus ajouts, moins enlèvements de ses assemblages, au ``Placement`` de la
         brute. ``ValueError`` traduite si la brute ou un assemblage est invalide."""
         blank = _checked_blank(obj)
-        try:
+        with translated_errors():
             dimensions = dimensions_of(blank)
-        except InvalidDimensionsError as error:
-            raise ValueError(templated_message(error)) from error
         additions, cuts = _machining_of(obj, blank)
         shape = machined_shape(dimensions, additions, cuts)
-        shape.Placement = blank.Placement
+        # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
+        # sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
+            obj.Placement = blank.Placement
             obj.Shape = shape
 
     def dumps(self) -> None:
@@ -159,7 +156,7 @@ def _checked_blank(obj: DocumentObject) -> DocumentObject:
     if blank is None:
         raise ValueError(translated(_NO_BLANK))
     if not is_wood_part(blank):
-        raise ValueError(translated(_NOT_A_PART, {"label": str(blank.Label)}))
+        raise ValueError(translated(_NOT_A_PART, {"label": quoted_value(blank.Label)}))
     return blank
 
 
@@ -169,7 +166,7 @@ def _machining_of(obj: DocumentObject, blank: DocumentObject) -> tuple[list[Soli
     cuts: list[Solid] = []
     for joint in obj.Joints:
         if not is_joint(joint):
-            raise ValueError(translated(_NOT_A_JOINT, {"label": str(joint.Label)}))
+            raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
         plan = plan_for(joint)
         if joint.HostPart == blank:
             additions.extend(plan.host_additions)
@@ -182,11 +179,7 @@ def _machining_of(obj: DocumentObject, blank: DocumentObject) -> tuple[list[Soli
 
 def is_machined_part(obj: object) -> bool:
     """Vrai si ``obj`` est une pièce usinée de l'atelier (faux pour un objet supprimé)."""
-    try:
-        proxy = getattr(obj, "Proxy", None)
-    except ReferenceError:  # objet FreeCAD supprimé du document
-        return False
-    return isinstance(proxy, MachinedPart)
+    return proxy_is(obj, MachinedPart)
 
 
 def blank_of(obj: DocumentObject) -> DocumentObject:
@@ -196,7 +189,7 @@ def blank_of(obj: DocumentObject) -> DocumentObject:
         return obj
     if is_machined_part(obj) and is_wood_part(obj.Base):
         return obj.Base
-    raise TypeError(translated(_NOT_A_PART, {"label": str(getattr(obj, "Label", obj))}))
+    raise TypeError(translated(_NOT_A_PART, {"label": quoted_value(getattr(obj, "Label", obj))}))
 
 
 def machined_part_of(blank: DocumentObject) -> DocumentObject | None:
@@ -209,15 +202,15 @@ def machined_part_of(blank: DocumentObject) -> DocumentObject | None:
 
 def create_machined_part(blank: DocumentObject) -> DocumentObject:
     """Crée la pièce usinée de ``blank`` (sans transaction ni recalcul), dans le même conteneur,
-    au même libellé et au même ``Placement`` ; la brute est masquée (après avoir été liée, pour
-    que l'annulation la réaffiche)."""
+    au libellé « <brute> (usinée) » et au même ``Placement`` ; la brute est masquée (après
+    avoir été liée, pour que l'annulation la réaffiche)."""
     obj = blank.Document.addObject("Part::FeaturePython", OBJECT_NAME)
     MachinedPart(obj)
     container = blank.getParentGeoFeatureGroup()
     if container is not None:
         container.addObject(obj)
     obj.Base = blank
-    obj.Label = blank.Label
+    obj.Label = translated(_MACHINED_LABEL, {"label": str(blank.Label)})
     obj.Placement = blank.Placement
     blank.Visibility = False
     return obj
@@ -233,9 +226,9 @@ def remove_machined_part(machined: DocumentObject) -> None:
     """Supprime une pièce usinée sans assemblage et réaffiche sa brute ; ``ValueError``
     traduite s'il lui reste des assemblages, ``TypeError`` si ce n'est pas une pièce usinée."""
     if not is_machined_part(machined):
-        raise TypeError(translated(_NOT_A_PART, {"label": str(machined.Label)}))
+        raise TypeError(translated(_NOT_A_PART, {"label": quoted_value(machined.Label)}))
     if machined.Joints:
-        raise ValueError(translated(_STILL_JOINED, {"label": str(machined.Label)}))
+        raise ValueError(translated(_STILL_JOINED, {"label": quoted_value(machined.Label)}))
     blank = machined.Base
     machined.Document.removeObject(machined.Name)
     if blank is not None:

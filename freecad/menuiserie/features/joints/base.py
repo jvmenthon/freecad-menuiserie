@@ -11,18 +11,18 @@ chemins des modules, noms des classes et des propriétés figés.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from dataclasses import fields
 from typing import Any, ClassVar, Final, TypeVar
 
 from freecad.menuiserie.core.geometry import PlacedBlock
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
-from freecad.menuiserie.features.i18n import templated_message, translated
-from freecad.menuiserie.features.schema import PropertySpec
+from freecad.menuiserie.features.freecad_types import DocumentObject, proxy_is
+from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
 
@@ -69,17 +69,13 @@ COMMON_PROPERTIES: Final = (
             "côté percé.",
         ),
     ),
-    PropertySpec(
-        "Version",
-        "App::PropertyInteger",
-        "Base",
+    version_spec(
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Version du modèle de données de l'assemblage, utilisée pour migrer les anciens "
             "fichiers.",
         ),
-        default=MODEL_VERSION,
-        mode=HIDDEN,
+        MODEL_VERSION,
     ),
 )
 
@@ -132,11 +128,7 @@ class JointFeature:
 
 def is_joint(obj: object) -> bool:
     """Vrai si ``obj`` est un assemblage de l'atelier (faux pour un objet supprimé)."""
-    try:
-        proxy = getattr(obj, "Proxy", None)
-    except ReferenceError:  # objet FreeCAD supprimé du document
-        return False
-    return isinstance(proxy, JointFeature)
+    return proxy_is(obj, JointFeature)
 
 
 def property_name(field_name: str) -> str:
@@ -171,17 +163,8 @@ def placed_blank(obj: DocumentObject | None) -> PlacedBlock:
     if obj is None:
         raise ValueError(translated(_MISSING_PART))
     if not is_wood_part(obj):
-        raise ValueError(translated(_NOT_A_WOOD_PART, {"label": str(obj.Label)}))
+        raise ValueError(translated(_NOT_A_WOOD_PART, {"label": quoted_value(obj.Label)}))
     return PlacedBlock(dimensions_of(obj), rigid_transform(obj.Placement))
-
-
-@contextmanager
-def _translated_errors() -> Iterator[None]:
-    """Les erreurs de ``core`` (gabarits) deviennent des ``ValueError`` traduites."""
-    try:
-        yield
-    except TemplatedError as error:
-        raise ValueError(templated_message(error)) from error
 
 
 def _inputs(joint: DocumentObject) -> tuple[Any, PlacedBlock, PlacedBlock, Any]:
@@ -194,7 +177,7 @@ def _inputs(joint: DocumentObject) -> tuple[Any, PlacedBlock, PlacedBlock, Any]:
 
 def plan_for(joint: DocumentObject) -> JointPlan:
     """Plan d'usinage de l'assemblage ``joint`` (``ValueError`` traduite s'il est impossible)."""
-    with _translated_errors():
+    with translated_errors():
         strategy, host, guest, params = _inputs(joint)
         plan: JointPlan = strategy.plan(host, guest, params)
     return plan
@@ -202,7 +185,7 @@ def plan_for(joint: DocumentObject) -> JointPlan:
 
 def resolved_for(joint: DocumentObject) -> object:
     """Valeurs effectives (automatiques résolues) de l'assemblage, pour le panneau (J3e)."""
-    with _translated_errors():
+    with translated_errors():
         strategy, host, guest, params = _inputs(joint)
         values: object = strategy.resolve(host, guest, params)
     return values

@@ -70,6 +70,14 @@ def build_frame(doc: Any) -> Cadre:
     return Cadre(doc, parts, {})
 
 
+def assert_follow_blanks(cadre: Cadre) -> None:
+    """Chaque pièce usinée (objet et forme) est au ``Placement`` de sa brute."""
+    for mark, blank in cadre.parts.items():
+        machined = cadre.machined(mark)
+        assert machined.Placement == blank.Placement, mark
+        assert machined.Shape.Placement == blank.Placement, mark
+
+
 def touched(doc: Any) -> list[str]:
     """Noms des objets marqués « Touched » ou invalides."""
     return [
