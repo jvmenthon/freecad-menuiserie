@@ -2,7 +2,9 @@
 
 - Jalon : J1 (version cible 0.1.0)
 - Statut : **validée par jv le 2026-10-19** (questions Q1 à Q3 : recommandations retenues) ;
-  complétée le 2026-10-20 avant J1b (reprise de la revue finale de J1a, textures : lot J1d)
+  complétée le 2026-10-20 avant J1b (reprise de la revue finale de J1a, textures : lot J1d), puis
+  pendant J1c (écarts relevés sur la PR #15 : § 4.2.3, § 4.5, critères C2 à C6 ; question Q4
+  ouverte)
 - ADR liés : [0002 — Bibliothèque de matériaux](../adr/0002-bibliotheque-de-materiaux.md),
   [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md),
   [0004 — Rendu des textures des matériaux](../adr/0004-rendu-des-textures.md)
@@ -94,11 +96,11 @@ Puis l'objet du document :
 | N° | Critère | Test |
 |---|---|---|
 | C1 | La commande `Menuiserie_WoodPart` (« Pièce de bois ») apparaît dans la barre d'outils et le menu Menuiserie, avec icône et infobulle ; elle est inactive sans document ou si un panneau de tâche est déjà ouvert. | G |
-| C2 | Lancer la commande crée une pièce (chêne, 800 × 200 × 22 par défaut) et ouvre le panneau ; « OK » laisse **une** pièce et **une** entrée d'annulation « Créer une pièce de bois ». | G |
+| C2 | Lancer la commande crée une pièce (chêne, 800 × 200 × 22 par défaut) et ouvre le panneau, titré « Nouvelle pièce de bois » ; « OK » laisse **une** pièce et **une** entrée d'annulation « Créer une pièce de bois ». | G |
 | C3 | « Annuler » dans le panneau de création ne laisse ni pièce ni entrée d'annulation. | G |
-| C4 | Double-clic sur une pièce : le panneau s'ouvre avec ses valeurs actuelles ; chaque modification est visible immédiatement dans la vue 3D ; « OK » crée **une** entrée d'annulation « Modifier une pièce de bois » ; « Annuler » rétablit toutes les valeurs d'origine. | G (+ manuel) |
-| C5 | Le filtre « Type » (Tous, Massif, Contreplaqué, MDF, Mélaminé) restreint la liste des matériaux ; les épaisseurs standard du matériau choisi sont proposées en un clic ; une épaisseur hors standard pour un **panneau** affiche un avertissement visible mais **non bloquant**. | G (+ manuel) |
-| C6 | Si une cote est pilotée par une expression, le champ l'affiche (icône d'expression) et le panneau ne supprime pas l'expression. | G (+ manuel) |
+| C4 | Double-clic sur une pièce : le panneau s'ouvre, titré « Modifier « <Label> » », avec ses valeurs actuelles ; chaque modification est visible immédiatement dans la vue 3D ; « OK » crée **une** entrée d'annulation « Modifier une pièce de bois » ; « Annuler » rétablit toutes les valeurs d'origine. | G (+ manuel) |
+| C5 | Le filtre « Type » (Tous, Massif, Contreplaqué, MDF, Mélaminé) restreint la liste des matériaux ; la liste « Matériau » affiche toujours le libellé de `obj.Material` (comportement d'un filtre qui exclut le matériau courant : question Q4, § 8) ; les épaisseurs standard du matériau choisi sont proposées en un clic par le menu du bouton « Épaisseurs standard » (bouton inactif si `Thickness` est pilotée par une expression ou si le matériau est inconnu localement) ; une épaisseur hors standard pour un **panneau** affiche un avertissement visible mais **non bloquant**, jamais pour du massif. Règle dans `core` : `is_nonstandard_panel_thickness` (U : contreplaqué bouleau 17 mm → vrai, 18 et 18,04 mm → faux ; chêne 17 mm → faux). | U + G (+ manuel) |
+| C6 | Si une cote (dimension ou surcote) est pilotée par une expression : la propriété `expression` du champ vaut le texte de l'expression ; aucune action du panneau n'écrit la propriété ; après une modification d'une autre cote puis « OK », l'expression est toujours dans `ExpressionEngine` et la valeur la suit. Si `Mark`, `Material` ou `GrainDirection` est pilotée par une expression, le champ correspondant est inactif et le panneau ne l'écrit pas. Icône d'expression et champ en lecture seule : vérifiés **à la main** sur 1.0 et 1.1 (hors écran, le volet des tâches peut être replié : pas de vérification G conditionnelle à l'affichage). | G (+ manuel) |
 | C7 | Les champs de cote acceptent les unités (`80 cm`, `2'`) et refusent une valeur ≤ 0. | manuel |
 | C8 | Toute chaîne visible (commande, panneau, `.ui`, messages) passe par `translate()`, `QT_TRANSLATE_NOOP` ou les chaînes traduisibles du `.ui` ; aucun import `PySide2`/`PySide6`. | revue + test d'imports |
 | C9 | Scénario du livrable, déroulé à la main sur FreeCAD 1.0 et 1.1 et décrit dans la PR : créer une planche de chêne 800 × 200 × 22, la passer à 1000 × 250 × 27 en hêtre, annuler, rétablir, enregistrer, rouvrir. | manuel |
@@ -392,11 +394,17 @@ def mass_kg(dimensions: Dimensions, density_kg_m3: float) -> float: ...
 def is_standard_thickness(
     material: Material, thickness: float, tolerance: float = STANDARD_THICKNESS_TOLERANCE_MM
 ) -> bool: ...
+def is_nonstandard_panel_thickness(material: Material, thickness: float) -> bool: ...  # J1c
 def grain_after_material_change(new: Material, current: GrainDirection) -> GrainDirection: ...
 def allowances_after_material_change(
     old_kind: MaterialKind | None, new_kind: MaterialKind, current: Allowances
 ) -> Allowances: ...
 ```
+
+`is_nonstandard_panel_thickness` (ajoutée en J1c, critère C5) : vrai si et seulement si le
+matériau est un panneau (`kind.is_panel`) et que l'épaisseur n'est pas standard au sens de
+`is_standard_thickness` (tolérance par défaut). Le massif se rabote : jamais signalé. La règle
+métier de l'avertissement du panneau de tâche vit ainsi dans `core/`, testée sans FreeCAD.
 
 ### 4.3 Bibliothèque de matériaux (J1a)
 
@@ -761,26 +769,52 @@ class WoodPartTaskPanel:
     def accept(self) -> bool: ...
     def reject(self) -> bool: ...
     def getStandardButtons(self) -> int: ...  # Ok | Cancel
+
+
+def start_editing(obj: DocumentObject) -> bool: ...  # setEdit(mode 0) : transaction + panneau ; faux si un panneau est ouvert
+def finish_editing() -> None: ...  # unsetEdit(mode 0) : ferme le panneau
+def has_expression(obj: DocumentObject, prop: str) -> bool: ...  # prop pilotée par ExpressionEngine
 ```
 
+Titre du panneau (`form.windowTitle`, traduit) : « Nouvelle pièce de bois » en création,
+« Modifier « {label} » » en modification (`Label` de la pièce à l'ouverture du panneau).
+
 Formulaire (`.ui`, chaînes traduisibles, champs de cote en `Gui::QuantitySpinBox` unité mm,
-minimum strictement positif) :
+bornes posées par le panneau : dimensions de `MIN_DIMENSION_MM` à `MAX_DIMENSION_MM`, surcotes de
+0 à `MAX_DIMENSION_MM`) :
 
 | Zone | Widgets |
 |---|---|
 | Identification | Repère (`QLineEdit`) |
 | Matériau | Type (`QComboBox` filtre : Tous, Massif, Contreplaqué, MDF, Mélaminé), Matériau (`QComboBox`, libellés), Sens du fil (`QComboBox` : Longueur, Largeur, Sans fil) |
-| Dimensions finies | Longueur, Largeur, Épaisseur (`Gui::QuantitySpinBox`), bouton menu « Épaisseurs standard », étiquette d'avertissement « épaisseur hors standard pour ce panneau » |
+| Dimensions finies | Longueur, Largeur, Épaisseur (`Gui::QuantitySpinBox`), bouton « Épaisseurs standard » (`QPushButton` muni d'un `QMenu`, `autoDefault` faux ; une entrée par épaisseur standard, affichée dans le système d'unités de l'utilisateur), étiquette d'avertissement « épaisseur hors standard pour ce panneau » |
 | Surcotes de débit (repliable) | Longueur, Largeur, Épaisseur (`Gui::QuantitySpinBox`) |
 
 - Les libellés d'énumération affichés sont traduits ; la valeur écrite reste la valeur stable
   (`Length`, `Width`, `None`).
-- Chaque champ est lié par `Gui.ExpressionBinding(widget).bind(obj, prop)` ; chaque modification
-  est écrite immédiatement dans l'objet puis `obj.recompute()` (aperçu en direct).
+- Les **six champs de cote** (dimensions et surcotes) sont liés par
+  `Gui.ExpressionBinding(widget).bind(obj, prop)` (application automatique) : ils affichent une
+  expression existante et permettent d'en saisir une (touche « = »), annulée avec la transaction
+  par « Annuler ». Une `QComboBox` ou un `QLineEdit` ne peut pas recevoir de liaison
+  d'expression : si `Mark`, `Material` ou `GrainDirection` est pilotée par une expression
+  (`has_expression`), le champ correspondant est inactif et le panneau ne l'écrit jamais.
+- Chaque modification d'un champ non piloté par une expression est écrite immédiatement dans
+  l'objet ; une modification de cote ou de matériau est suivie de `obj.recompute()` (aperçu en
+  direct). Choisir une épaisseur dans le menu passe par le champ Épaisseur (même chemin qu'une
+  saisie).
+- Filtre « Type » : restreint la liste « Matériau », qui affiche toujours le libellé de
+  `obj.Material`. Si le matériau de la pièce est exclu par le filtre, **en attente de Q4** :
+  recommandation, le filtre ne modifie pas la pièce et le matériau courant reste affiché en tête
+  de liste (comme un matériau inconnu localement) jusqu'au choix d'un autre matériau ; option
+  livrée dans la PR #15, le premier matériau du type est appliqué.
+- Avertissement d'épaisseur et menu des épaisseurs : recalculés après chaque recalcul, d'après
+  `get_library().find(obj.MaterialId)` et `is_nonstandard_panel_thickness` ; bouton inactif si le
+  matériau est inconnu localement ou si `Thickness` est pilotée par une expression.
 - Transactions : la création ouvre « Créer une pièce de bois » (commande) ; l'édition ouvre
-  « Modifier une pièce de bois » dans `setEdit`. `accept` → `commitTransaction`,
-  `reject` → `abortTransaction` (supprime la pièce en création, rétablit les valeurs en édition),
-  puis `doc.recompute()` et `Gui.ActiveDocument.resetEdit()`.
+  « Modifier une pièce de bois » dans `setEdit` (par `start_editing`). `accept` →
+  `commitTransaction`, `reject` → `abortTransaction` (supprime la pièce en création, rétablit les
+  valeurs en édition), puis `doc.recompute()` et `resetEdit()` du document de l'interface de la
+  pièce.
 
 ### 4.6 Textures des matériaux (J1d)
 
@@ -1020,3 +1054,14 @@ des combinaisons absurdes (« chêne » + « MDF »). Je propose que le type soi
 matériau de la bibliothèque, affiché en lecture seule sur la pièce et utilisé comme filtre dans le
 panneau ; un contreplaqué plaqué chêne serait un matériau à part entière (`cp-chene`).
 *Recommandation : type déduit du matériau.* (ADR 0002)
+
+**Q4 — Filtre « Type » qui exclut le matériau de la pièce (ouverte le 2026-10-20, PR #15).**
+La pièce est en chêne et vous choisissez le filtre « Contreplaqué » dans le panneau. Deux
+comportements possibles :
+(a) le premier contreplaqué de la liste (contreplaqué bouleau) est appliqué aussitôt : aperçu
+immédiat, mais parcourir les filtres change la pièce et peut perdre le sens du fil choisi (passage
+par « MDF » → « Sans fil », puis retour au massif → « Longueur ») et les surcotes par défaut ;
+(b) le filtre ne change rien à la pièce : le chêne reste affiché en tête de liste jusqu'à ce que
+vous choisissiez un contreplaqué (un clic de plus).
+*Recommandation : (b), un filtre ne doit pas modifier la pièce.* « Annuler » rétablit tout dans
+les deux cas. Livré dans la PR #15 : (a).
