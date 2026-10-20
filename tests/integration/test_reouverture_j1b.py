@@ -144,3 +144,48 @@ def test_document_version_0_avec_categorie_inconnue(
     assert len(unknown_value_warnings(vue_rapport)) == 1
     restored.Document.recompute()
     assert restored.isValid()
+
+
+# --- S3 : Version d'un type inattendu ou plus récente -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("type_id", "value"),
+    [("App::PropertyString", "abc" + HOSTILE), ("App::PropertyFloat", 1.0)],
+    ids=["texte", "flottant"],
+)
+def test_version_d_un_type_inattendu_traitee_comme_0(
+    document: Any, rouvrir: Reopen, vue_rapport: Any, type_id: str, value: object
+) -> None:
+    obj = board(document, "mdf")
+    obj.removeProperty("Version")
+    obj.removeProperty("ThicknessAllowance")
+    obj.addProperty(type_id, "Version")
+    obj.Version = value
+    name = obj.Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(document).getObject(name)
+    assert restored.getTypeIdOfProperty("Version") == "App::PropertyInteger"
+    assert restored.Version == 1
+    assert restored.getEditorMode("Version") == ["Hidden"]
+    assert restored.ThicknessAllowance.Value == 0
+    [warning] = vue_rapport.de_niveau("Warning")
+    assert_safe(warning)
+    assert "version du modèle illisible" in warning
+    restored.Document.recompute()
+    assert restored.isValid()
+
+
+@pytest.mark.parametrize(("version", "warned"), [(1, False), (2, True), (2**31 - 1, True)])
+def test_version_plus_recente_signalee(
+    document: Any, rouvrir: Reopen, vue_rapport: Any, version: int, warned: bool
+) -> None:
+    obj = board(document)
+    obj.Version = version
+    name = obj.Name
+    vue_rapport.messages.clear()
+    restored = rouvrir(document).getObject(name)
+    assert restored.Version == version
+    warnings = [w for w in vue_rapport.de_niveau("Warning") if "plus récente" in w]
+    assert len(warnings) == int(warned)
+    assert all(f"modèle {version}, 1 au plus" in w for w in warnings)

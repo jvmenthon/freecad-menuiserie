@@ -64,6 +64,16 @@ _EMPTY_LIBRARY_MIGRATION: Final = QT_TRANSLATE_NOOP(
     "Pièce « {label} » : bibliothèque de matériaux vide, propriétés manquantes recréées avec "
     "des valeurs par défaut (massif si la catégorie manque).",
 )
+_INVALID_VERSION: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Pièce « {label} » : version du modèle illisible (« {value} »), document traité comme un "
+    "ancien fichier (version 0).",
+)
+_NEWER_VERSION: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Pièce « {label} » : document créé par une version plus récente de l'atelier (modèle "
+    "{version}, {supported} au plus ici) ; mettez l'atelier à jour avant de le modifier.",
+)
 _UNKNOWN_VALUE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pièce « {label} » : valeur « {value} » inconnue pour {property}, remplacée par "
@@ -220,6 +230,7 @@ _PROPERTIES: Final = (
         ),
     ),
 )
+_TYPE_BY_NAME: Final = MappingProxyType({spec.name: spec.type_id for spec in _PROPERTIES})
 
 
 class WoodPart:
@@ -241,10 +252,10 @@ class WoodPart:
             _apply_editor_modes(obj)
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
-        """Énumérations canoniques, migration, modes d'édition, puis liste des matériaux de la
-        bibliothèque locale."""
-        version = obj.Version if "Version" in obj.PropertiesList else 0
+        """Version contrôlée, énumérations canoniques, migration, modes d'édition, puis liste des
+        matériaux de la bibliothèque locale."""
         with self._synchronizing():
+            version = _restored_version(obj)
             _restore_enumerations(obj, get_library())
             self._migrate(obj, version)
             _apply_editor_modes(obj)
@@ -560,3 +571,19 @@ def _restore_enumeration(
         _warn(obj, _UNKNOWN_VALUE, property=name, value=value, replacement=fallback)
     elif getattr(obj, name) != value:
         setattr(obj, name, value)
+
+
+def _restored_version(obj: DocumentObject) -> int:
+    """Version enregistrée de la pièce, 0 si elle est absente. D'un type inattendu, elle est
+    supprimée (la migration la recrée) et vaut 0 ; plus récente que l'atelier, elle est gardée.
+    Ces deux cas sont signalés par un avertissement."""
+    if "Version" not in obj.PropertiesList:
+        return 0
+    if obj.getTypeIdOfProperty("Version") != _TYPE_BY_NAME["Version"]:
+        _warn(obj, _INVALID_VERSION, value=obj.Version)
+        obj.removeProperty("Version")
+        return 0
+    version: int = obj.Version
+    if version > WoodPart.VERSION:
+        _warn(obj, _NEWER_VERSION, version=version, supported=WoodPart.VERSION)
+    return version

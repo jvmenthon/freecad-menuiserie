@@ -600,7 +600,10 @@ Comportement :
   car `__init__` n'est pas rappelé à la réouverture) : retrouve le matériau par libellé, met à jour
   `MaterialId`, `Category`, `Density`, puis `GrainDirection` et les surcotes selon les règles
   `core` (critère A7). Les cotes ne sont **jamais** modifiées automatiquement.
-- **`onDocumentRestored`** : d'abord les listes **canoniques** de `Category` et `GrainDirection`
+- **`onDocumentRestored`** : d'abord la `Version` : d'un type autre que `App::PropertyInteger`,
+  elle est supprimée et traitée comme 0 (avertissement) ; supérieure à `VERSION`, elle est gardée
+  avec un avertissement « document créé par une version plus récente de l'atelier » (ADR 0003).
+  Puis les listes **canoniques** de `Category` et `GrainDirection`
   (celles du fichier sont des données externes) ; une valeur hors liste devient la catégorie du
   matériau de la pièce (`Solid` s'il est inconnu localement) et le fil par défaut, avec un
   avertissement où la valeur est citée tronquée et échappée. Ensuite migration

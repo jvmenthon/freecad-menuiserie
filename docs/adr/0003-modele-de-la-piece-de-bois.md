@@ -1,7 +1,8 @@
 # ADR 0003 — Modèle de la pièce de bois : repère local, sens du fil et contrat de persistance
 
 - Statut : accepté (spécification J1 validée par jv le 2026-10-19)
-- Date : 2026-10-19 ; complété le 2026-10-20 (propriété de vue `MaterialColor`, cf. ADR 0004)
+- Date : 2026-10-19 ; complété le 2026-10-20 (propriété de vue `MaterialColor`, cf. ADR 0004 ;
+  `Version` plus récente ou d'un type inattendu)
 - Spécification : [docs/specs/J1-piece-de-bois.md](../specs/J1-piece-de-bois.md)
 
 ## Contexte
@@ -36,6 +37,9 @@ une pièce créée depuis la console de l'interface doit avoir son icône et sa 
    - propriété masquée `Version` (1 au départ) ; `onDocumentRestored` applique `_migrate` pour
      toute version inférieure (une `Version` absente vaut 0) ; chaque migration a son test de
      réouverture ;
+   - une `Version` supérieure à celle de l'atelier n'est ni migrée ni rétrogradée : un
+     avertissement signale un document créé par une version plus récente de l'atelier ; une
+     `Version` d'un type inattendu est traitée comme 0 (propriété recréée), avec avertissement ;
    - les propriétés de vue de l'atelier (`MaterialColor`, couleur du matériau enregistrée au
      choix du matériau) obéissent aux mêmes règles de nommage ; le ViewProvider n'a pas de
      `Version` : une propriété de vue absente à la réouverture est recréée dans `finishRestoring`.
