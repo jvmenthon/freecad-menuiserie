@@ -22,6 +22,7 @@ from freecad.menuiserie.core.part_model import (
     allowances_after_material_change,
     default_allowances,
     grain_after_material_change,
+    is_nonstandard_panel_thickness,
     is_standard_thickness,
     mass_kg,
     rough_dimensions,
@@ -241,3 +242,24 @@ def test_epaisseur_standard_du_contreplaque_bouleau(thickness: float, expected: 
 def test_tolerance_personnalisee() -> None:
     assert is_standard_thickness(material("cp-bouleau"), 17, tolerance=1.0)
     assert not is_standard_thickness(material("cp-bouleau"), 18.01, tolerance=0)
+
+
+# --- C5 : avertissement d'épaisseur hors standard (panneaux seulement) --------------------
+
+
+@pytest.mark.parametrize(
+    ("material_id", "thickness", "expected"),
+    [
+        ("cp-bouleau", 18, False),
+        ("cp-bouleau", 17, True),
+        ("mdf", 19, False),
+        ("mdf", 20, True),
+        ("melamine-blanc", 17.5, True),
+        ("chene", 22, False),
+        ("chene", 23.5, False),
+    ],
+)
+def test_epaisseur_de_panneau_hors_standard(
+    material_id: str, thickness: float, expected: bool
+) -> None:
+    assert is_nonstandard_panel_thickness(material(material_id), thickness) is expected

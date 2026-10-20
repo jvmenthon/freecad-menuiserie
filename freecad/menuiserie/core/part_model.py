@@ -35,6 +35,7 @@ __all__ = [
     "allowances_after_material_change",
     "default_allowances",
     "grain_after_material_change",
+    "is_nonstandard_panel_thickness",
     "is_standard_thickness",
     "mass_kg",
     "rough_dimensions",
@@ -176,6 +177,13 @@ def is_standard_thickness(
     """Vrai si l'épaisseur (mm) est une épaisseur standard du matériau, à la tolérance près."""
     margin = tolerance + _ROUNDING_MARGIN_MM
     return any(abs(standard - thickness) <= margin for standard in material.thicknesses)
+
+
+def is_nonstandard_panel_thickness(material: Material, thickness: float) -> bool:
+    """Vrai pour un panneau d'épaisseur (mm) hors de ses épaisseurs standard : le panneau de
+    tâche l'affiche en avertissement, sans rien bloquer. Le massif se rabote : jamais signalé."""
+    # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode non appelée.
+    return material.kind.is_panel and not is_standard_thickness(material, thickness)  # nosemgrep
 
 
 def grain_after_material_change(new: Material, current: GrainDirection) -> GrainDirection:
