@@ -37,6 +37,7 @@ from freecad.menuiserie.core.materials._model import (
     MaterialLibrary,
     Texture,
     UnknownMaterialError,
+    is_inside_folder,
 )
 from freecad.menuiserie.core.materials._parser import (
     FORMAT_VERSION,
@@ -70,6 +71,7 @@ __all__ = [
     "Severity",
     "Texture",
     "UnknownMaterialError",
+    "is_inside_folder",
     "load_library",
     "merge_materials",
     "parse_materials",

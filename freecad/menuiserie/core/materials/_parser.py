@@ -70,6 +70,7 @@ from freecad.menuiserie.core.materials._model import (
     Material,
     MaterialKind,
     Texture,
+    is_inside_folder,
     is_language_code,
     normalized_color,
     normalized_density,
@@ -176,8 +177,8 @@ def _is_safe_image_path(value: object) -> TypeGuard[str]:
     return PurePosixPath(parts[-1]).suffix.lower() in TEXTURE_EXTENSIONS
 
 
-def _resolve_in_folder(entry: Entry, relative: str) -> Path:
-    """Chemin absolu résolu de l'image ; elle doit rester dans le dossier du fichier."""
+def _resolve_in_folder(entry: Entry, relative: str) -> tuple[Path, Path]:
+    """Dossier résolu du fichier et chemin absolu résolu de l'image, qui doit y rester."""
     if entry.folder is None:
         raise entry.error(ENTRY_TEXTURE_NO_FOLDER, "texture.image")
     try:
@@ -185,12 +186,12 @@ def _resolve_in_folder(entry: Entry, relative: str) -> Path:
         image = (folder / relative).resolve()
     except (OSError, RuntimeError, ValueError) as error:  # boucle de liens, chemin invalide
         raise entry.error(ENTRY_TEXTURE_OUTSIDE, "texture.image") from error
-    if image == folder or not image.is_relative_to(folder):
+    if not is_inside_folder(folder, image):
         raise entry.error(ENTRY_TEXTURE_OUTSIDE, "texture.image")
-    return image
+    return folder, image
 
 
-def _parse_texture_image(entry: Entry, value: object) -> Path:
+def _parse_texture_image(entry: Entry, value: object) -> tuple[Path, Path]:
     if not _is_safe_image_path(value):
         raise entry.error(
             ENTRY_INVALID_TEXTURE_IMAGE,
@@ -217,8 +218,8 @@ def _parse_texture(entry: Entry) -> Texture | None:
     for key in TEXTURE_KEYS:
         if key not in value:
             raise entry.error(ENTRY_MISSING_FIELD, f"texture.{key}")
-    image = _parse_texture_image(entry, value["image"])
-    return Texture(image, _parse_texture_size(entry, value["size"]))
+    folder, image = _parse_texture_image(entry, value["image"])
+    return Texture(image, _parse_texture_size(entry, value["size"]), folder)
 
 
 def _build_material(entry: Entry, material_id: str) -> Material:

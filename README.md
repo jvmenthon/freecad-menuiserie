@@ -4,8 +4,9 @@ Atelier (workbench) FreeCAD pour concevoir des meubles et ouvrages de menuiserie
 paramétrique : pièces de bois réelles, assemblages classiques et liste de débit automatique.
 
 > **Statut : en développement (jalon J1 – pièce de bois).** La pièce de bois paramétrique se
-> crée depuis la console Python et se modifie dans l'éditeur de propriétés ; la commande de la
-> barre d'outils et son panneau arrivent avec la suite du jalon.
+> crée depuis la console Python et se modifie dans l'éditeur de propriétés ; elle s'affiche avec
+> la texture de son matériau quand la bibliothèque en fournit une. La commande de la barre
+> d'outils et son panneau arrivent avec la suite du jalon.
 
 ## Fonctionnalités prévues
 
@@ -114,6 +115,43 @@ Le fichier est lu une fois par session ; après l'avoir modifié, relancez FreeC
 `from freecad.menuiserie.features.library import reload_library; reload_library()`. Une entrée
 invalide est ignorée seule et signalée dans la vue rapport ; les pièces déjà créées gardent
 leurs valeurs.
+
+## Ajouter une texture
+
+Un matériau peut afficher une image (veinage, décor) à la place de sa couleur. Ajoutez à son
+entrée une clé `texture` :
+
+```json
+{
+  "id": "noyer-noir",
+  "kind": "solid",
+  "name": "Noyer noir",
+  "density": 610,
+  "thicknesses": [22, 27],
+  "color": "#4A3326",
+  "texture": {"image": "textures/noyer-noir.jpg", "size": [600, 200]}
+}
+```
+
+- `image` : chemin **relatif** au dossier du fichier `materiaux.json` (séparateur `/`, sans
+  `..`), qui doit y rester (un lien symbolique qui en sort est refusé) ; image **PNG** ou
+  **JPEG** (`.png`, `.jpg`, `.jpeg`), de **16 Mio** et **4 096 pixels** de côté au plus (un
+  JPEG progressif compte au plus 100 balayages).
+- `size` : largeur et hauteur **réelles**, en mm (10 à 10 000), couvertes par l'image : une
+  image de 600 × 200 mm couvre 600 mm de pièce, quelle que soit sa taille, et se répète au-delà.
+- **Sens du fil = largeur de l'image** : orientez la photo pour que le veinage soit horizontal.
+  Sur la pièce, il suit la propriété `GrainDirection` (longueur, largeur ; « sans fil » comme
+  longueur).
+
+L'image n'est jamais enregistrée dans le plan (`.FCStd`) : elle est relue dans la bibliothèque
+à l'ouverture. Sur une machine qui ne l'a pas, ou si elle est absente, illisible ou trop grande,
+la pièce garde la couleur `color` du matériau (un avertissement par image dans la vue rapport).
+Les textures affichées en même temps occupent au plus 256 Mio d'images décodées (environ cinq
+images de 4 096 × 4 096 pixels) ; au-delà, les pièces suivantes gardent leur couleur.
+Les faces en bois de bout montrent une bande étirée de l'image ; une pièce sélectionnée ou
+survolée s'affiche unie, sans sa texture, le temps de la sélection. Après avoir modifié la
+bibliothèque, `reload_library()` puis un nouveau choix de matériau, ou la réouverture du plan,
+mettent l'affichage à jour.
 
 ## Contribuer
 
