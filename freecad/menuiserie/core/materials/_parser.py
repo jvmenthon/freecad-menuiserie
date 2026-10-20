@@ -9,7 +9,7 @@ from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import Final, TypeGuard, TypeVar
 
-from freecad.menuiserie.core._validation import decimal_text, has_forbidden_character, quoted_value
+from freecad.menuiserie.core._validation import decimal_text, has_forbidden_character
 from freecad.menuiserie.core.materials._entry import (
     TEXTURE_KEYS,
     Entry,
@@ -78,6 +78,7 @@ from freecad.menuiserie.core.materials._model import (
     normalized_texture_size,
     normalized_thicknesses,
 )
+from freecad.menuiserie.core.text import quoted_value
 
 FORMAT_VERSION: Final = 1
 MAX_MATERIALS: Final = 500

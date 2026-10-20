@@ -22,8 +22,8 @@ from freecad.menuiserie.core._validation import (
     decimal_text,
     has_forbidden_character,
     nfc,
-    quoted_value,
 )
+from freecad.menuiserie.core.text import quoted_value
 
 MAX_ID_LENGTH: Final = 64
 MAX_NAME_LENGTH: Final = 80

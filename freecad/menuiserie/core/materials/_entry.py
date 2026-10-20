@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from freecad.menuiserie.core._validation import quoted_value
 from freecad.menuiserie.core.materials._issues import (
     MAX_LISTED_KEYS,
     LibraryFormatError,
@@ -22,6 +21,7 @@ from freecad.menuiserie.core.materials._messages import (
     ENTRY_UNKNOWN_KEYS,
     ENTRY_UNKNOWN_KEYS_MORE,
 )
+from freecad.menuiserie.core.text import quoted_value
 
 _ENTRY_KEYS: Final = frozenset(
     {"id", "kind", "name", "density", "thicknesses", "color", "has_grain", "texture"}

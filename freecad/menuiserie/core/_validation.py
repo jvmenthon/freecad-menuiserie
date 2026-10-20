@@ -17,7 +17,6 @@ MAX_DIMENSION_MM: Final = 20_000.0
 # Contrôle, format (invisibles, bidi), demi-substituts, usage privé, non attribués, séparateurs
 # de ligne et de paragraphe : refusés dans les libellés.
 _FORBIDDEN_CATEGORIES: Final = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
-_MAX_QUOTED_LENGTH: Final = 32
 
 
 class FrozenMapping(Mapping[str, str]):
@@ -47,23 +46,6 @@ class FrozenMapping(Mapping[str, str]):
 def nfc(text: str) -> str:
     """Texte en forme normalisée NFC (« é » composé plutôt que « e » + accent combinant)."""
     return unicodedata.normalize("NFC", text)
-
-
-def quoted_value(value: object) -> str:
-    """Valeur fournie par un fichier, raccourcie et échappée pour être citée dans un message.
-
-    Au plus ``_MAX_QUOTED_LENGTH`` caractères (suivis de « … » si elle est tronquée) ; les
-    caractères non imprimables sont échappés (``\\n``, ``\\u202e``…). Ne lève jamais d'exception.
-    """
-    if isinstance(value, str):
-        text = value
-    else:
-        try:
-            text = repr(value)
-        except ValueError:  # entier trop long pour être converti en texte
-            return "?"
-    escaped = repr(text[:_MAX_QUOTED_LENGTH])[1:-1]
-    return escaped + "…" if len(text) > _MAX_QUOTED_LENGTH else escaped
 
 
 def to_finite_float(value: object) -> float | None:

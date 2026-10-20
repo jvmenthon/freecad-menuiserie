@@ -66,7 +66,7 @@ comportement ; conception au § 4.2).
 |---|---|---|
 | R1 | `Material(...)` construit directement valide **tous** ses champs dans `__post_init__` avec les mêmes bornes que la lecture JSON (§ 4.3.2) et lève `ValueError` en citant le champ : `id` (motif, 1 à 64 caractères), `kind` (instance de `MaterialKind`), `names` (au moins une langue, code `^[a-z]{2}$`, libellé normalisé NFC et sans espaces de bord, 1 à 80 caractères, sans caractère interdit), `density` (nombre fini non booléen, 50 à 2000), `thicknesses` (1 à 50 nombres finis non booléens entre 0,1 et 300 mm, **normalisées** : triées, dédoublonnées, en `float`), `color` (exactement 3 entiers non booléens de 0 à 255), `has_grain` (booléen), `texture` (`Texture` ou `None`). `Texture(...)` refuse un `image` non absolu et une `size` hors de 2 nombres finis entre 10 et 10 000 mm. Un cas refusé et un cas limite accepté par règle. | U |
 | R2 | Bornes alignées : une épaisseur standard < 0,1 mm (ex. 0,05) rejette l'entrée de bibliothèque (champ `thicknesses`, message citant « 0,1 » et « 300 ») ; 0,1 est acceptée. Pour chaque matériau de `data/materiaux.json` et chacune de ses épaisseurs standard `e`, `Dimensions(800, 200, e)` est valide. | U |
-| R3 | `quoted_value` et `to_finite_float` vivent dans le module privé `core/_validation.py`, avec les autres aides partagées (§ 4.2.1) ; ni `core.materials` ni `core.part_model` ne les exposent plus. Test d'imports (AST, comme `test_separation_app_gui`) sur `freecad/menuiserie/` et `tests/` : aucun module n'importe un **nom** commençant par `_` ; hors de `core/` et de `tests/unit/` (qui teste ces aides directement), aucun module n'importe `core._validation` ni un sous-module privé `core.materials._…`. | U |
+| R3 | `to_finite_float` vit dans le module privé `core/_validation.py`, avec les autres aides partagées (§ 4.2.1), et `quoted_value` dans le module public `core/text.py` ; ni `core.materials` ni `core.part_model` ne les exposent plus. Test d'imports (AST, comme `test_separation_app_gui`) sur `freecad/menuiserie/` et `tests/` : aucun module n'importe un **nom** commençant par `_` ; hors de `core/` et de `tests/unit/` (qui teste ces aides directement), aucun module n'importe `core._validation` ni un sous-module privé `core.materials._…`. | U |
 | R4 | `core/materials.py` est remplacé par le paquet `core/materials/` du § 4.2.2 : `from freecad.menuiserie.core.materials import X` fonctionne pour chaque nom de `__all__` (liste figée par un test), aucun module du paquet ne dépasse 400 lignes, tous les tests J1a passent avec, pour seule modification, leurs imports (et les cas R2). | U |
 | R5 | ADR 0003 au statut « accepté » (fait avec ce complément de spécification) ; § 4.2 et § 4.3.2 conformes au code livré ; CHANGELOG complété (découpage interne, validation de `Material`, épaisseur minimale 0,1 mm). | revue |
 
@@ -190,13 +190,16 @@ MAX_DIMENSION_MM: Final = 20_000.0
 def to_finite_float(value: object) -> float | None: ...  # nombre fini non booléen, sinon None
 def bounded_float(value: object, minimum: float, maximum: float) -> float | None: ...
 def decimal_text(number: float) -> str: ...  # « 0,1 », « 300 » : bornes citées dans les messages
-def quoted_value(value: object) -> str: ...  # citation tronquée et échappée
 def nfc(text: str) -> str: ...
 def has_forbidden_character(text: str) -> bool: ...  # catégories Cc, Cf, Cs, Co, Cn, Zl, Zp
 
 
 class FrozenMapping(Mapping[str, str]): ...  # ex-_FrozenMapping
 ```
+
+`quoted_value(value: object) -> str` (citation tronquée à 32 caractères et échappée) vit dans
+le module **public** `core/text.py` : `features/` s'en sert aussi pour citer dans la vue rapport
+les textes lus dans un document (`Label`, `MaterialId`, valeurs d'énumération).
 
 Une règle de champ = **une** fonction de normalisation qui renvoie la valeur normalisée ou `None`
 (ex. `normalized_density(value) -> float | None`, `normalized_thicknesses(value) ->
