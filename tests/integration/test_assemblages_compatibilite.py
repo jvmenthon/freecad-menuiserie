@@ -107,6 +107,9 @@ def run_python(arguments: list[str], cwd: Path, pythonpath: list[Path]) -> str:
     [
         "freecad.menuiserie.features.machined_part",
         "freecad.menuiserie.features.joints.mortise_tenon",
+        "freecad.menuiserie.features.joints.tongue_groove",
+        "freecad.menuiserie.features.joints.rabbet",
+        "freecad.menuiserie.features.joints.dowels",
         "freecad.menuiserie.features.joints.base",
     ],
 )
@@ -117,14 +120,11 @@ def test_module_de_proxy_importable_seul(module: str, tmp_path: Path) -> None:
     assert output.strip().endswith("OK")
 
 
-def test_document_ouvert_sans_l_atelier(cadre_assemble: Cadre, tmp_path: Path) -> None:
-    path = tmp_path / "cadre.FCStd"
-    cadre_assemble.doc.saveAs(str(path))
-    expected = {
-        obj.Name: obj.Shape.Volume
-        for obj in cadre_assemble.doc.Objects
-        if obj.Name.startswith("MachinedPart")
-    }
+def assert_opens_without_workbench(doc: Any, expected: dict[str, float], tmp_path: Path) -> None:
+    """Enregistre ``doc`` et l'ouvre dans un interpréteur sans l'atelier : pièces usinées
+    ``expected`` (nom → volume) valides et de même volume."""
+    path = tmp_path / "sans_atelier.FCStd"
+    doc.saveAs(str(path))
     script = tmp_path / "ouvrir.py"
     script.write_text(WITHOUT_WORKBENCH, encoding="utf-8")
     output = run_python([str(script), str(path)], tmp_path, [FREECAD_LIB])
@@ -135,3 +135,12 @@ def test_document_ouvert_sans_l_atelier(cadre_assemble: Cadre, tmp_path: Path) -
     for name, (valid, volume) in result["shapes"].items():
         assert valid
         assert volume == pytest.approx(expected[name])
+
+
+def test_document_ouvert_sans_l_atelier(cadre_assemble: Cadre, tmp_path: Path) -> None:
+    expected = {
+        obj.Name: obj.Shape.Volume
+        for obj in cadre_assemble.doc.Objects
+        if obj.Name.startswith("MachinedPart")
+    }
+    assert_opens_without_workbench(cadre_assemble.doc, expected, tmp_path)

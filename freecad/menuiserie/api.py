@@ -20,10 +20,17 @@ l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import FreeCAD as App
 
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
-from freecad.menuiserie.features.joints.factories import create_mortise_tenon
+from freecad.menuiserie.features.joints.factories import (
+    create_dowels,
+    create_mortise_tenon,
+    create_rabbet,
+    create_tongue_groove,
+)
 from freecad.menuiserie.features.machined_part import (
     blank_of,
     is_machined_part,
@@ -69,6 +76,19 @@ def make_wood_part(
     return obj
 
 
+JointFactory = Callable[..., DocumentObject]
+
+
+def _make_joint(
+    factory: JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
+) -> DocumentObject:
+    """Crée l'assemblage par ``factory`` dans le document des pièces, puis recalcule."""
+    document = blank_of(host).Document
+    joint = factory(document, host, guest, **params)
+    document.recompute()
+    return joint
+
+
 def make_mortise_tenon(
     host: DocumentObject, guest: DocumentObject, **params: object
 ) -> DocumentObject:
@@ -81,17 +101,49 @@ def make_mortise_tenon(
     (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est ouverte : c'est à
     l'appelant de le faire pour pouvoir annuler.
     """
-    document = blank_of(host).Document
-    joint = create_mortise_tenon(document, host, guest, **params)
-    document.recompute()
-    return joint
+    return _make_joint(create_mortise_tenon, host, guest, params)
+
+
+def make_tongue_groove(
+    host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Relie deux pièces par une rainure-languette et recalcule le document : rainure dans
+    ``host``, languette au chant ou au bout de ``guest``.
+
+    Paramètres facultatifs en mm : ``tongue_thickness`` (0 = automatique), ``tongue_length``,
+    ``thickness_offset``, ``groove_clearance``, ``through_groove``. Mêmes validations et même
+    absence de transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_tongue_groove, host, guest, params)
+
+
+def make_rabbet(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Loge ``guest`` dans une feuillure de ``host`` (les deux pièces doivent se chevaucher) et
+    recalcule le document. Paramètre facultatif : ``through`` (feuillure filante, vrai par
+    défaut). Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_rabbet, host, guest, params)
+
+
+def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie deux pièces par des tourillons percés à travers leur contact et recalcule le
+    document.
+
+    Paramètres facultatifs en mm (0 = automatique) : ``diameter``, ``dowel_length``,
+    ``host_depth``, ``count``, ``edge_distance``, ``thickness_offset``, ``hole_clearance``.
+    Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_dowels, host, guest, params)
 
 
 __all__ = [
     "blank_of",
     "is_machined_part",
     "machined_part_of",
+    "make_dowels",
     "make_mortise_tenon",
+    "make_rabbet",
+    "make_tongue_groove",
     "make_wood_part",
     "remove_machined_part",
 ]
