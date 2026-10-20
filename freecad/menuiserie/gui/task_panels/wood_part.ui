@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>WoodPartTaskPanel</class>
+ <widget class="QWidget" name="WoodPartTaskPanel">
+  <property name="windowTitle">
+   <string>Pièce de bois</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <item>
+    <widget class="QGroupBox" name="identificationGroup">
+     <property name="title">
+      <string>Identification</string>
+     </property>
+     <layout class="QGridLayout" name="identificationGroupLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="markLabel">
+        <property name="text">
+         <string>Repère</string>
+        </property>
+        <property name="buddy">
+         <cstring>markEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="markEdit">
+        <property name="toolTip">
+         <string>Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 »).</string>
+        </property>
+        <property name="placeholderText">
+         <string>ex. M1</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="materialGroup">
+     <property name="title">
+      <string>Matériau</string>
+     </property>
+     <layout class="QGridLayout" name="materialGroupLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="kindLabel">
+        <property name="text">
+         <string>Type</string>
+        </property>
+        <property name="buddy">
+         <cstring>kindCombo</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="kindCombo">
+        <property name="toolTip">
+         <string>Restreint la liste des matériaux à un type.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="materialLabel">
+        <property name="text">
+         <string>Matériau</string>
+        </property>
+        <property name="buddy">
+         <cstring>materialCombo</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="materialCombo">
+        <property name="toolTip">
+         <string>Essence ou panneau, choisi dans la bibliothèque de matériaux.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="grainLabel">
+        <property name="text">
+         <string>Sens du fil</string>
+        </property>
+        <property name="buddy">
+         <cstring>grainCombo</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QComboBox" name="grainCombo">
+        <property name="toolTip">
+         <string>Sens du fil par rapport aux cotes de la pièce.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="dimensionsGroup">
+     <property name="title">
+      <string>Dimensions finies</string>
+     </property>
+     <layout class="QGridLayout" name="dimensionsGroupLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="lengthLabel">
+        <property name="text">
+         <string>Longueur</string>
+        </property>
+        <property name="buddy">
+         <cstring>lengthEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="Gui::QuantitySpinBox" name="lengthEdit">
+        <property name="unit" stdset="0">
+         <string notr="true">mm</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="widthLabel">
+        <property name="text">
+         <string>Largeur</string>
+        </property>
+        <property name="buddy">
+         <cstring>widthEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="Gui::QuantitySpinBox" name="widthEdit">
+        <property name="unit" stdset="0">
+         <string notr="true">mm</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="thicknessLabel">
+        <property name="text">
+         <string>Épaisseur</string>
+        </property>
+        <property name="buddy">
+         <cstring>thicknessEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <layout class="QHBoxLayout" name="thicknessLayout">
+        <item>
+         <widget class="Gui::QuantitySpinBox" name="thicknessEdit">
+          <property name="unit" stdset="0">
+           <string notr="true">mm</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="standardThicknessButton">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="toolTip">
+           <string>Épaisseurs standard du matériau choisi</string>
+          </property>
+          <property name="text">
+           <string>Épaisseurs standard</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QLabel" name="thicknessWarning">
+        <property name="styleSheet">
+         <string notr="true">color: #b35900;</string>
+        </property>
+        <property name="text">
+         <string>Épaisseur hors standard pour ce panneau : vérifiez qu'elle existe chez votre fournisseur.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QToolButton" name="allowancesToggle">
+     <property name="text">
+      <string>Surcotes de débit</string>
+     </property>
+     <property name="toolTip">
+      <string>Surcotes totales ajoutées aux cotes finies pour obtenir les cotes de débit.</string>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="toolButtonStyle">
+      <enum>Qt::ToolButtonTextBesideIcon</enum>
+     </property>
+     <property name="arrowType">
+      <enum>Qt::RightArrow</enum>
+     </property>
+     <property name="autoRaise">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="allowancesBox">
+     <layout class="QGridLayout" name="allowancesLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="lengthAllowanceLabel">
+        <property name="text">
+         <string>Longueur</string>
+        </property>
+        <property name="buddy">
+         <cstring>lengthAllowanceEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="Gui::QuantitySpinBox" name="lengthAllowanceEdit">
+        <property name="unit" stdset="0">
+         <string notr="true">mm</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="widthAllowanceLabel">
+        <property name="text">
+         <string>Largeur</string>
+        </property>
+        <property name="buddy">
+         <cstring>widthAllowanceEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="Gui::QuantitySpinBox" name="widthAllowanceEdit">
+        <property name="unit" stdset="0">
+         <string notr="true">mm</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="thicknessAllowanceLabel">
+        <property name="text">
+         <string>Épaisseur</string>
+        </property>
+        <property name="buddy">
+         <cstring>thicknessAllowanceEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="Gui::QuantitySpinBox" name="thicknessAllowanceEdit">
+        <property name="unit" stdset="0">
+         <string notr="true">mm</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>Gui::QuantitySpinBox</class>
+   <extends>QWidget</extends>
+   <header>Gui/QuantitySpinBox.h</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>markEdit</tabstop>
+  <tabstop>kindCombo</tabstop>
+  <tabstop>materialCombo</tabstop>
+  <tabstop>grainCombo</tabstop>
+  <tabstop>lengthEdit</tabstop>
+  <tabstop>widthEdit</tabstop>
+  <tabstop>thicknessEdit</tabstop>
+  <tabstop>standardThicknessButton</tabstop>
+  <tabstop>allowancesToggle</tabstop>
+  <tabstop>lengthAllowanceEdit</tabstop>
+  <tabstop>widthAllowanceEdit</tabstop>
+  <tabstop>thicknessAllowanceEdit</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>
