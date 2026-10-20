@@ -31,7 +31,7 @@ from freecad.menuiserie.core.part_model import (
     remembered_grain,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import templated_message, translated
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.schema import warn
 from freecad.menuiserie.features.wood_part_restore import (
@@ -141,7 +141,7 @@ class WoodPart:
         try:
             dimensions = dimensions_of(obj)
         except InvalidDimensionsError as error:
-            raise ValueError(_dimension_message(error)) from error
+            raise ValueError(templated_message(error)) from error
         placement = obj.Placement
         obj.Shape = Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
         obj.Placement = placement
@@ -278,13 +278,6 @@ def record_of(obj: DocumentObject) -> PartRecord:
         grain=GrainDirection(obj.GrainDirection),
         density=density_kg_m3(obj),
     )
-
-
-def _dimension_message(error: InvalidDimensionsError) -> str:
-    """Message traduit d'une cote refusée, nom de la cote compris."""
-    params = dict(error.params)
-    params["field"] = translated(params["field"])
-    return translated(error.template, params)
 
 
 def _apply_material(obj: DocumentObject, material: Material) -> None:

@@ -83,8 +83,20 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (0 = automatique), plan d'usinage (tenon et languette ajoutés, mortaise, rainure et feuillure
   enlevées), refus par messages traduisibles ; paramètres immuables validés (dont ceux des
   tourillons) ; rôles hôte / invitée devinés d'après la position des pièces.
+- Tenon-mortaise dans le document (J3b, ADR 0006) : `make_mortise_tenon(hôte, invitée, **params)`
+  relie deux pièces de bois (ou leurs pièces usinées) ; chaque pièce assemblée a une **pièce
+  usinée** (`Menuiserie::MachinedPart` : brute plus tenons, moins mortaises), la brute est
+  masquée dessous. Tenons et mortaises suivent les cotes, la position et les expressions des
+  pièces en un seul recalcul ; paramètres réglables dans l'éditeur de propriétés (0 =
+  automatique) ; déplacer une pièce usinée déplace sa brute ; erreurs traduites dans l'état de
+  l'objet, jamais de forme partielle ; réouverture contrôlée (`Version` 1), annuler / rétablir,
+  `remove_machined_part`, `machined_part_of`, `blank_of`. Pièces usinées utilisables par
+  `Part::Cut`, TechDraw et l'export STEP, et lisibles sans l'atelier (ADR 0007).
 
 ### Modifié
+- `features/schema.py` : ajout, contrôle de type, `Version` et modes d'édition des propriétés
+  décrits par des `PropertySpec`, partagés par la pièce de bois, la pièce usinée et les
+  assemblages (refactorisation sans changement de comportement).
 - **Modèle de la pièce en version 2** (`MODEL_VERSION`) : migration 1 → 2 à la réouverture
   (ajout de `PreferredGrainDirection` d'après `GrainDirection`, `Length` pour une pièce sans
   fil) ; un document de version 2 ouvert par un atelier plus ancien est signalé comme plus
