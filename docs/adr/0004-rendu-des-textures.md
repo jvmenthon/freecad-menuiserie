@@ -63,7 +63,11 @@ certaines compilations de Coin ; Qt (`QImageReader`) est toujours présent dans 
    `fstat` (fichier ordinaire, ≤ 16 Mio) et lue une fois ; Qt décode ces octets
    (`QImageReader` sur un `QBuffer`) et ne rouvre jamais le fichier par son nom. Décodeur PNG ou
    JPEG imposé par l'extension (détection automatique désactivée), dimensions ≤ 4 096 pixels
-   lues dans l'en-tête avant décodage, conversion en RGB opaque.
+   lues dans l'en-tête avant décodage, conversion en RGB opaque. Les octets sont contrôlés
+   avant décodage selon le format (`core/image_checks.py`) : un JPEG de plus de 100 balayages
+   est refusé (un JPEG progressif aux milliers de balayages vides coûte ≈ 2 ms par balayage à
+   4 096 × 4 096 pixels, soit des minutes d'interface figée ; un JPEG progressif ordinaire en
+   compte une dizaine).
 6. **Un nœud `SoTexture2` par image**, partagé par toutes les pièces (cache poids-mouche explicite
    et réinitialisable de `gui/textures.py`) : une seule copie en mémoire graphique. Les échecs
    sont mémorisés aussi : un seul avertissement par image et par session.

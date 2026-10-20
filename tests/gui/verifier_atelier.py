@@ -963,6 +963,58 @@ def verifier_texture_confinement() -> list[str]:
     return problemes
 
 
+def jpeg_progressif(chemin: Path, balayages_ajoutes: int) -> None:
+    """JPEG progressif produit par Qt, dont le dernier balayage est répété
+    ``balayages_ajoutes`` fois (Qt le décoderait, en avertissant)."""
+    from PySide import QtCore, QtGui
+
+    image = QtGui.QImage(*IMAGE_PIXELS, QtGui.QImage.Format.Format_RGB888)
+    image.fill(QtGui.QColor(*IMAGE_RGB))
+    tampon = QtCore.QBuffer()
+    tampon.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+    redacteur = QtGui.QImageWriter(tampon, b"jpeg")
+    redacteur.setProgressiveScanWrite(True)
+    if not redacteur.write(image):
+        raise OSError("JPEG progressif non écrit")
+    octets = bytes(tampon.data())
+    fin = octets.rfind(b"\xff\xd9")
+    dernier = octets[octets.rfind(b"\xff\xda") : fin]
+    chemin.parent.mkdir(parents=True, exist_ok=True)
+    chemin.write_bytes(octets[:fin] + dernier * balayages_ajoutes + octets[fin:])
+
+
+def verifier_texture_jpeg_balayages() -> list[str]:
+    """Audit, point 1 : un JPEG progressif de plus de 100 balayages est refusé avant décodage
+    (couleur, un avertissement qui cite le nombre de balayages) ; un JPEG progressif ordinaire
+    est affiché."""
+    from freecad.menuiserie.api import make_wood_part
+
+    avertissements = avertissements_de_test()
+    materiaux = (
+        materiau("progressif", "Progressif", "textures/progressif.jpg"),
+        materiau("balayages", "Balayages", "textures/balayages.jpg"),
+    )
+    with bibliotheque(*materiaux) as fichier:
+        jpeg_progressif(fichier.parent / "textures" / "progressif.jpg", 0)
+        jpeg_progressif(fichier.parent / "textures" / "balayages.jpg", 150)
+        doc = App.newDocument("VerifBalayages")
+        problemes = texture_visible(
+            "JPEG progressif",
+            make_wood_part(material_id="progressif", doc=doc).ViewObject,
+            IMAGE_PIXELS,
+        )
+        for _ in range(2):
+            vobj = make_wood_part(material_id="balayages", doc=doc).ViewObject
+            problemes += repli_visible("JPEG de 160 balayages", vobj)
+        cites = [m for m in avertissements if "balayages.jpg" in m and "160 balayages" in m]
+        problemes += [
+            *ecarts("avertissement des balayages", len(cites), 1),
+            *ecarts("avertissements", len(avertissements), 1),
+        ]
+        App.closeDocument(doc.Name)
+    return problemes
+
+
 def commutateur_sous(noeud: Any) -> bool:
     """Vrai si un ``SoSwitch`` « MenuiserieTexture » actif est atteint sous ``noeud``."""
     from pivy import coin
@@ -995,6 +1047,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_bibliotheque_modifiee,
     verifier_texture_documents_multiples,
     verifier_texture_confinement,
+    verifier_texture_jpeg_balayages,
 )
 
 

@@ -93,4 +93,5 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Images de texture (audit de sécurité J1d) : fichier ouvert une seule fois et décodé en mémoire
   (`core/texture_file.py` : confinement au dossier de la bibliothèque revérifié à chaque
   ouverture, `O_NOFOLLOW`, `O_NONBLOCK`, contrôle par `fstat`, lecture bornée), sans réouverture
-  par le nom.
+  par le nom. JPEG de plus de 100 balayages refusé avant décodage (un JPEG
+  progressif aux milliers de balayages vides figeait l'interface).

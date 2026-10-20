@@ -920,10 +920,16 @@ ouvert, pour recharger une image remplacée ; succès **et** refus sont mémoris
    jamais sur le fichier par son nom ;
 2. `reader.size()` lu dans l'en-tête **avant** décodage : invalide ou côté > `MAX_TEXTURE_PIXELS` →
    refus ;
-3. `reader.read()` ; image nulle → refus (raison : `reader.errorString()`, tronquée) ;
-4. conversion en `Format_RGB888` (opaque : pas de tri de transparence), retournement vertical
+3. contrôle des octets selon le format, avant décodage (`core/image_checks.py`,
+   `check_image_bytes(data, "png" | "jpeg")`, Python pur, testé U) : JPEG de plus de
+   `MAX_JPEG_SCANS` = 100 marqueurs de début de balayage (`FF DA`, comptés sur les octets : un
+   `FF` des données compressées est toujours suivi de `00`) → refus « JPEG en {count}
+   balayages, {max} au plus » (un JPEG progressif aux milliers de balayages vides figerait
+   l'interface plusieurs minutes) ;
+4. `reader.read()` ; image nulle → refus (raison : `reader.errorString()`, tronquée) ;
+5. conversion en `Format_RGB888` (opaque : pas de tri de transparence), retournement vertical
    (origine de Coin en bas à gauche), copie ligne par ligne sans le bourrage de `bytesPerLine` ;
-5. `SoTexture2` : `image.setValue(SbVec2s(w, h), 3, pixels)`, `model = MODULATE`,
+6. `SoTexture2` : `image.setValue(SbVec2s(w, h), 3, pixels)`, `model = MODULATE`,
    `wrapS = wrapT = REPEAT`.
 
 Refus : avertissement traduit, une fois : « Texture « {image} » non affichée ({reason}) : couleur du
@@ -970,7 +976,8 @@ l'identifiant `MaterialId`, clé de recherche et jamais chemin) ; fichier ouvert
 (§ 4.6.2 : confinement au dossier de la bibliothèque revérifié à l'ouverture, `O_NOFOLLOW`,
 `O_NONBLOCK`, contrôle par `fstat`, lecture bornée à 16 Mio) ; décodage seulement dans `gui/`,
 en mémoire, par les décodeurs PNG ou JPEG de Qt imposés par l'extension, dimensions lues dans
-l'en-tête et bornées à 4 096 pixels avant décodage ; raison d'échec citée tronquée ; l'image
+l'en-tête et bornées à 4 096 pixels avant décodage, JPEG de plus de 100 balayages refusé avant
+décodage ; raison d'échec citée tronquée ; l'image
 n'est jamais copiée dans le document.
 
 ## 5. Découpage en PR

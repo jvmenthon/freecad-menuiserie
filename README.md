@@ -135,7 +135,8 @@ entrée une clé `texture` :
 
 - `image` : chemin **relatif** au dossier du fichier `materiaux.json` (séparateur `/`, sans
   `..`), qui doit y rester (un lien symbolique qui en sort est refusé) ; image **PNG** ou
-  **JPEG** (`.png`, `.jpg`, `.jpeg`), de **16 Mio** et **4 096 pixels** de côté au plus.
+  **JPEG** (`.png`, `.jpg`, `.jpeg`), de **16 Mio** et **4 096 pixels** de côté au plus (un
+  JPEG progressif compte au plus 100 balayages).
 - `size` : largeur et hauteur **réelles**, en mm (10 à 10 000), couvertes par l'image : une
   image de 600 × 200 mm couvre 600 mm de pièce, quelle que soit sa taille, et se répète au-delà.
 - **Sens du fil = largeur de l'image** : orientez la photo pour que le veinage soit horizontal.

@@ -11,8 +11,8 @@
 Le fichier est ouvert une seule fois et lu en mémoire (``core/texture_file.py`` : confinement
 au dossier de la bibliothèque, ``O_NOFOLLOW``, ``fstat``) ; Qt décode ces octets, jamais le
 fichier par son nom. Seuls les décodeurs PNG et JPEG de Qt sont sollicités (imposés par
-l'extension, détection automatique désactivée) et les dimensions sont bornées, lues dans
-l'en-tête, avant décodage.
+l'extension, détection automatique désactivée) ; les dimensions sont bornées, lues dans
+l'en-tête, et les octets contrôlés selon le format (``core/image_checks.py``), avant décodage.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.appearance import MAX_TEXTURE_PIXELS, TextureMapping, Vector3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.image_checks import check_image_bytes
 from freecad.menuiserie.core.materials import Texture
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.core.texture_file import TextureFile, TextureRefusedError
@@ -46,7 +47,7 @@ CacheKey = tuple[str, int, int]  # chemin, taille, date de modification (ns)
 
 SWITCH_NAME: Final = "MenuiserieTexture"
 DEFAULT_MAX_ENTRIES: Final = 32
-_DECODERS: Final[Mapping[str, bytes]] = {".png": b"png", ".jpg": b"jpeg", ".jpeg": b"jpeg"}
+_DECODERS: Final[Mapping[str, str]] = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg"}
 _RGB_COMPONENTS: Final = 3
 _MISSING_FILE: Final = -1
 _BUFFER_MODE: Final = QtCore.QIODevice.OpenModeFlag.ReadOnly
@@ -77,7 +78,7 @@ def _report_warning(message: str) -> None:
     App.Console.PrintWarning(f"Menuiserie : {message}\n")
 
 
-def _decoder(texture: Texture) -> bytes:
+def _decoder(texture: Texture) -> str:
     """Nom du décodeur Qt imposé par l'extension ; ``TextureRefusedError`` sinon."""
     decoder = _DECODERS.get(texture.image.suffix.lower())
     if decoder is None:
@@ -85,12 +86,13 @@ def _decoder(texture: Texture) -> bytes:
     return decoder
 
 
-def _decoded(data: bytes, decoder: bytes) -> QtGui.QImage:
-    """Image décodée en mémoire par ``decoder`` ; ``TextureRefusedError`` si elle est refusée."""
+def _decoded(data: bytes, decoder: str) -> QtGui.QImage:
+    """Image décodée en mémoire par ``decoder`` ; ``TextureRefusedError`` si elle est refusée
+    (en-tête, dimensions, puis contrôles des octets propres au format, avant décodage)."""
     buffer = QtCore.QBuffer()
     buffer.setData(QtCore.QByteArray(data))
     buffer.open(_BUFFER_MODE)
-    reader = QtGui.QImageReader(buffer, decoder)
+    reader = QtGui.QImageReader(buffer, decoder.encode("ascii"))
     reader.setAutoDetectImageFormat(False)
     size = reader.size()  # lue dans l'en-tête, avant décodage
     if size.isEmpty():
@@ -98,6 +100,7 @@ def _decoded(data: bytes, decoder: bytes) -> QtGui.QImage:
     if max(size.width(), size.height()) > MAX_TEXTURE_PIXELS:
         params = {"width": str(size.width()), "height": str(size.height())}
         raise TextureRefusedError(_TOO_LARGE, {**params, "max": str(MAX_TEXTURE_PIXELS)})
+    check_image_bytes(data, decoder)
     picture = reader.read()
     if picture.isNull():
         raise TextureRefusedError(_UNREADABLE, {"error": quoted_value(reader.errorString())})
