@@ -32,6 +32,7 @@ from freecad.menuiserie.features.library import display_language, get_library, t
 from freecad.menuiserie.features.wood_part_restore import (
     EMPTY_LIBRARY_MIGRATION,
     migration_material,
+    remove_mistyped_properties,
     restore_enumerations,
     restore_material_choices,
     restored_version,
@@ -97,12 +98,13 @@ class WoodPart:
             apply_editor_modes(obj)
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
-        """Version contrôlée, énumérations canoniques, migration, modes d'édition, puis liste des
-        matériaux de la bibliothèque locale."""
+        """Version et types des propriétés contrôlés, énumérations canoniques, migration, modes
+        d'édition, puis liste des matériaux de la bibliothèque locale."""
         with self._synchronizing():
             version = restored_version(obj)
+            mistyped = remove_mistyped_properties(obj)
             restore_enumerations(obj, get_library())
-            self._migrate(obj, version)
+            self._migrate(obj, version, repair=bool(mistyped))
             apply_editor_modes(obj)
             restore_material_choices(obj, get_library())
 
@@ -154,16 +156,21 @@ class WoodPart:
         finally:
             self._syncing = previous
 
-    def _migrate(self, obj: DocumentObject, from_version: int) -> None:
+    def _migrate(self, obj: DocumentObject, from_version: int, *, repair: bool = False) -> None:
         """Version 0 (absente) → 1 : ajoute les propriétés manquantes avec leurs défauts, déduits
-        du matériau de la pièce (``MaterialId``). Aboutit même si la bibliothèque est vide."""
-        if from_version >= self.VERSION:
+        du matériau de la pièce (``MaterialId``). Aboutit même si la bibliothèque est vide.
+
+        ``repair`` : à toute version, recrée de même les propriétés supprimées à la réouverture
+        (type inattendu), sans changer la ``Version``."""
+        outdated = from_version < self.VERSION
+        if not (outdated or repair):
             return
         library = get_library()
         if not len(library):
             warn(obj, EMPTY_LIBRARY_MIGRATION)
         add_missing_properties(obj, library, migration_material(obj, library))
-        obj.Version = self.VERSION
+        if outdated:
+            obj.Version = self.VERSION
 
 
 def create_wood_part(

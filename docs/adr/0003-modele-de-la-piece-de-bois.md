@@ -40,6 +40,10 @@ une pièce créée depuis la console de l'interface doit avoir son icône et sa 
    - une `Version` supérieure à celle de l'atelier n'est ni migrée ni rétrogradée : un
      avertissement signale un document créé par une version plus récente de l'atelier ; une
      `Version` d'un type inattendu est traitée comme 0 (propriété recréée), avec avertissement ;
+   - toute autre propriété d'un type inattendu (par exemple `Category` en `App::PropertyString`)
+     est supprimée avec un avertissement citant son type et sa valeur, puis recréée par la
+     migration avec sa valeur par défaut, quelle que soit la `Version` (qui reste inchangée si
+     elle est à jour ou plus récente) ;
    - les propriétés de vue de l'atelier (`MaterialColor`, couleur du matériau enregistrée au
      choix du matériau) obéissent aux mêmes règles de nommage ; le ViewProvider n'a pas de
      `Version` : une propriété de vue absente à la réouverture est recréée dans `finishRestoring`.

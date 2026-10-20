@@ -51,6 +51,11 @@ _UNKNOWN_VALUE: Final = QT_TRANSLATE_NOOP(
     "Pièce « {label} » : valeur « {value} » inconnue pour {property}, remplacée par "
     "« {replacement} ».",
 )
+_UNEXPECTED_TYPE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Pièce « {label} » : propriété {property} d'un type inattendu (« {type} », valeur "
+    "« {value} »), recréée avec sa valeur par défaut.",
+)
 _MISSING_MATERIAL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pièce « {label} » : matériau « {id} » absent de la bibliothèque locale, "
@@ -115,6 +120,22 @@ def _restore_enumeration(
         warn(obj, _UNKNOWN_VALUE, property=name, value=value, replacement=fallback)
     elif getattr(obj, name) != value:
         setattr(obj, name, value)
+
+
+def remove_mistyped_properties(obj: DocumentObject) -> list[str]:
+    """Supprime chaque propriété de la pièce dont le type n'est pas celui du schéma (donnée
+    externe que ni ``record_of`` ni ``onChanged`` ne sauraient lire), avec un avertissement
+    citant son type et sa valeur ; renvoie leurs noms, à recréer par la migration."""
+    mistyped = [
+        name
+        for name, type_id in TYPE_BY_NAME.items()
+        if name in obj.PropertiesList and obj.getTypeIdOfProperty(name) != type_id
+    ]
+    for name in mistyped:
+        type_id = obj.getTypeIdOfProperty(name)
+        warn(obj, _UNEXPECTED_TYPE, property=name, type=type_id, value=getattr(obj, name))
+        obj.removeProperty(name)
+    return mistyped
 
 
 def restored_version(obj: DocumentObject) -> int:
