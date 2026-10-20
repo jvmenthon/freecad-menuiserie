@@ -11,6 +11,7 @@ dans le fichier ``RESULTAT`` car la sortie standard est captée par la console d
 Le code de retour vaut 0 si tout est correct.
 """
 
+import json
 import os
 import tempfile
 import traceback
@@ -27,6 +28,7 @@ OAK_RGB = (184, 135, 90)
 BEECH_RGB = (217, 180, 138)
 WALNUT_RGB = (107, 74, 51)
 OLD_DIFFUSE_RGB = (10, 120, 200)
+MAPLE_RGB = (232, 210, 168)
 
 
 def verifier_atelier() -> list[str]:
@@ -123,10 +125,121 @@ def verifier_reouverture() -> list[str]:
     return problemes
 
 
+def verifier_annuler_retablir() -> list[str]:
+    """B10 + B13 : couleurs suivies à l'annulation d'un matériau et de la création."""
+    from freecad.menuiserie.api import make_wood_part
+
+    doc = App.newDocument("VerifAnnuler")
+    doc.UndoMode = 1
+    doc.openTransaction("Créer")
+    obj = make_wood_part(material_id="chene", doc=doc)
+    doc.commitTransaction()
+    nom = obj.Name
+    doc.openTransaction("Matériau")
+    obj.Material = "Noyer"
+    doc.commitTransaction()
+    doc.undo()
+    problemes = couleurs("matériau annulé", obj.ViewObject, OAK_RGB)
+    doc.redo()
+    problemes += couleurs("matériau rétabli", obj.ViewObject, WALNUT_RGB)
+    doc.undo()
+    doc.undo()
+    problemes += ecarts("création annulée", doc.getObject(nom), None)
+    doc.redo()
+    obj = doc.getObject(nom)
+    problemes += [
+        *ecarts("ViewProvider rétabli", classe_du_proxy(obj.ViewObject), VIEW_PROVIDER),
+        *couleurs("création rétablie", obj.ViewObject, OAK_RGB),
+    ]
+    App.closeDocument(doc.Name)
+    return problemes
+
+
+def verifier_transparence() -> list[str]:
+    """La transparence choisie par l'utilisateur survit au changement de matériau et à la
+    réouverture (seule la couleur diffuse appartient au ViewProvider)."""
+    from freecad.menuiserie.api import make_wood_part
+
+    doc = App.newDocument("VerifTransparence")
+    obj = make_wood_part(material_id="chene", doc=doc)
+    apparence = obj.ViewObject.ShapeAppearance[0]
+    apparence.Transparency = 0.5
+    obj.ViewObject.ShapeAppearance = [apparence]
+    obj.Material = "Hêtre"
+    problemes = [
+        *ecarts("transparence après changement", obj.ViewObject.Transparency, 50),
+        *couleurs("hêtre transparent", obj.ViewObject, BEECH_RGB),
+    ]
+    nom = obj.Name
+    doc = rouvrir(doc)
+    vobj = doc.getObject(nom).ViewObject
+    problemes += [
+        *ecarts("transparence rouverte", vobj.Transparency, 50),
+        *couleurs("hêtre rouvert", vobj, BEECH_RGB),
+        *ecarts("document modifié à la réouverture", Gui.getDocument(doc.Name).Modified, False),
+    ]
+    App.closeDocument(doc.Name)
+    return problemes
+
+
+def verifier_materiau_inconnu_et_documents_multiples() -> list[str]:
+    """B8 : couleur enregistrée conservée si le matériau a disparu ; deux documents ouverts
+    restent indépendants."""
+    from freecad.menuiserie.api import make_wood_part
+    from freecad.menuiserie.features.library import (
+        PARAM_PATH,
+        USER_LIBRARY_PARAM,
+        reload_library,
+    )
+    from freecad.menuiserie.features.wood_part import set_material
+
+    parametres = App.ParamGet(PARAM_PATH)
+    precedent = parametres.GetString(USER_LIBRARY_PARAM, "")
+    fichier = Path(tempfile.mkdtemp()) / "materiaux.json"
+    erable = {
+        "id": "erable",
+        "kind": "solid",
+        "name": "Érable",
+        "density": 650,
+        "thicknesses": [22],
+        "color": "#E8D2A8",
+    }
+    fichier.write_text(json.dumps({"format": 1, "materials": [erable]}), encoding="utf-8")
+    parametres.SetString(USER_LIBRARY_PARAM, str(fichier))
+    try:
+        reload_library()
+        doc = App.newDocument("VerifInconnu")
+        nom = make_wood_part(material_id="erable", doc=doc).Name
+        fichier.unlink()
+        reload_library()
+        doc = rouvrir(doc)
+        autre = App.newDocument("VerifAutre")
+        piece = make_wood_part(material_id="chene", doc=autre)
+        set_material(piece, "noyer")
+        vobj = doc.getObject(nom).ViewObject
+        problemes = [
+            *couleurs("matériau absent rouvert", vobj, MAPLE_RGB),
+            *ecarts("document modifié à la réouverture", Gui.getDocument(doc.Name).Modified, False),
+            *couleurs("autre document", piece.ViewObject, WALNUT_RGB),
+        ]
+        App.closeDocument(autre.Name)
+        App.closeDocument(doc.Name)
+    finally:
+        if precedent:
+            parametres.SetString(USER_LIBRARY_PARAM, precedent)
+        else:
+            parametres.RemString(USER_LIBRARY_PARAM)
+        reload_library()
+    return problemes
+
+
 VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_atelier,
     verifier_piece_de_bois,
     verifier_reouverture,
+    verifier_annuler_retablir,
+    verifier_transparence,
+    verifier_materiau_inconnu_et_documents_multiples,
 )
 
 

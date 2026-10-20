@@ -82,6 +82,27 @@ REJECTED = [
     pytest.param("has_grain", 1, id="has-grain-entier"),
     pytest.param("has_grain", None, id="has-grain-none"),
     pytest.param("texture", "chene.png", id="texture-texte"),
+    # Cas limites complémentaires (revue de test J1b).
+    pytest.param("id", "Chene", id="id-majuscule"),
+    pytest.param("id", "-chene", id="id-tiret-initial"),
+    pytest.param("id", "chene-", id="id-tiret-final"),
+    pytest.param("id", "cp--bouleau", id="id-double-tiret"),
+    pytest.param("kind", 0, id="kind-entier"),
+    pytest.param("names", None, id="names-none"),
+    pytest.param("names", {1: "Chêne"}, id="names-langue-entier"),
+    pytest.param("names", {"fr": "Ch\x00ne"}, id="names-octet-nul"),
+    pytest.param("names", {"fr": "Ch\u200bene"}, id="names-espace-sans-chasse"),
+    pytest.param("names", {"fr": "Ch\u2028ene"}, id="names-separateur-de-ligne"),
+    pytest.param("density", math.inf, id="density-infinie"),
+    pytest.param("density", 10**400, id="density-entier-geant"),
+    pytest.param("density", None, id="density-none"),
+    pytest.param("thicknesses", (math.nan,), id="ep-nan"),
+    pytest.param("thicknesses", None, id="ep-none"),
+    pytest.param("thicknesses", (0,), id="ep-zero"),
+    pytest.param("thicknesses", (-18,), id="ep-negative"),
+    pytest.param("thicknesses", (10**400,), id="ep-entier-geant"),
+    pytest.param("color", None, id="color-none"),
+    pytest.param("has_grain", "true", id="has-grain-texte"),
 ]
 
 
@@ -121,6 +142,16 @@ ACCEPTED = [
     pytest.param("has_grain", False, False, id="has-grain-faux"),
     pytest.param("texture", VALID_TEXTURE, VALID_TEXTURE, id="texture"),
     pytest.param("texture", None, None, id="texture-absente"),
+    # Cas limites complémentaires (revue de test J1b).
+    pytest.param("id", "cp-bouleau-2", "cp-bouleau-2", id="id-tirets-internes"),
+    pytest.param("names", {"fr": "\u00a0Chêne\u00a0"}, {"fr": "Chêne"}, id="names-insecables"),
+    pytest.param(
+        "names",
+        {"fr": "e\u0302" * MAX_NAME_LENGTH},
+        {"fr": "ê" * MAX_NAME_LENGTH},
+        id="names-nfc-80",
+    ),
+    pytest.param("thicknesses", (0.1, 0.1, 300), (0.1, 300.0), id="ep-bornes-doublon"),
 ]
 
 
