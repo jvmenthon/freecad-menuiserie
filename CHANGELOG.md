@@ -114,6 +114,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ### Sécurité
 - Fermer le document pendant le panneau de création faisait planter FreeCAD 1.0 (J1c-3, audit
   B1) : le panneau est désormais fermé avec le document et la commande redevient active.
+- Une exception à l'ouverture du panneau (création ou modification) ne laisse plus ni pièce ni
+  transaction ouverte : le panneau est construit avant d'être affiché et la transaction est
+  abandonnée avant de propager l'exception (audit A1).
 - Bibliothèque de matériaux : lecture par un seul descripteur (`os.open` non bloquant, `fstat`,
   lecture bornée), clés JSON en double refusées, libellés sans caractère invisible, bidi, de
   contrôle ou demi-substitut, clés inconnues citées tronquées et échappées, au plus 200 anomalies

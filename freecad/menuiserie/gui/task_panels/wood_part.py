@@ -317,10 +317,15 @@ def start_editing(obj: DocumentObject) -> bool:
 
 
 def show_panel(obj: DocumentObject, *, creating: bool) -> None:
-    """Construit puis affiche le panneau, dans la transaction déjà ouverte."""
-    panel = WoodPartTaskPanel(obj, creating=creating)
-    Gui.Control.showDialog(panel)
-    panel.watch_document()
+    """Construit puis affiche le panneau, dans la transaction déjà ouverte. Une exception
+    abandonne cette transaction (pièce en création comprise) avant d'être propagée."""
+    try:
+        panel = WoodPartTaskPanel(obj, creating=creating)
+        Gui.Control.showDialog(panel)
+        panel.watch_document()
+    except BaseException:
+        close_transaction(App.getActiveTransaction(), abort=True)
+        raise
 
 
 def close_transaction(transaction: tuple[str, int] | None, *, abort: bool) -> None:
