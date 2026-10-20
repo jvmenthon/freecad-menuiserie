@@ -5,6 +5,7 @@ récents, masse volumique de l'enregistrement de débit, accès à la bibliothè
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -202,3 +203,37 @@ def test_famille_par_defaut_partagee(document: Any) -> None:
     obj.removeProperty("Category")
     assert schema.part_kind(obj, None) is materials.MaterialKind.SOLID
     assert schema.part_kind(obj, current.get("cp-bouleau")) is materials.MaterialKind.PLYWOOD
+
+
+# --- Bibliothèque lue une fois par réouverture ; construction directe sans bibliothèque ---
+
+
+def test_bibliotheque_lue_une_fois_par_piece_rouverte(
+    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    obj = board(document)
+    obj.removeProperty("Version")
+    name = obj.Name
+    calls: list[None] = []
+    get_library = wood_part.get_library
+
+    def counted() -> Any:
+        calls.append(None)
+        return get_library()
+
+    monkeypatch.setattr(wood_part, "get_library", counted)
+    restored = rouvrir(document).getObject(name)
+    assert restored.Version == 1
+    assert len(calls) == 1
+
+
+def test_construction_directe_avec_bibliotheque_vide(
+    document: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(library, "builtin_library_path", lambda: tmp_path / "absente.json")
+    assert len(library.reload_library()) == 0
+    obj = document.addObject("Part::FeaturePython", "Piece")
+    with pytest.raises(materials.UnknownMaterialError):
+        wood_part.WoodPart(obj)
+    assert isinstance(obj.Proxy, wood_part.WoodPart)
+    assert "Length" not in obj.PropertiesList

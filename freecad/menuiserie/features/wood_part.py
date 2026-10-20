@@ -18,7 +18,7 @@ from typing import Any, ClassVar, Final
 import Part
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.materials import Material
+from freecad.menuiserie.core.materials import Material, MaterialLibrary
 from freecad.menuiserie.core.part_model import (
     Allowances,
     Dimensions,
@@ -91,6 +91,13 @@ class WoodPart:
     VERSION: ClassVar[int] = MODEL_VERSION
 
     def __init__(self, obj: DocumentObject) -> None:
+        """Ajoute les propriétés de la pièce, aux valeurs du matériau par défaut de la
+        bibliothèque. :func:`create_wood_part` valide cotes et matériau avant de l'appeler.
+
+        Appelé directement avec une bibliothèque vide, il lève ``UnknownMaterialError`` (une
+        ``KeyError``) : ``obj.Proxy`` est déjà assigné mais aucune propriété n'est ajoutée,
+        l'objet est inutilisable et c'est à l'appelant de le supprimer du document.
+        """
         obj.Proxy = self
         library = get_library()
         with self._synchronizing():
@@ -100,13 +107,14 @@ class WoodPart:
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, énumérations canoniques, migration, modes
         d'édition, puis liste des matériaux de la bibliothèque locale."""
+        library = get_library()
         with self._synchronizing():
             version = restored_version(obj)
             mistyped = remove_mistyped_properties(obj)
-            restore_enumerations(obj, get_library(), keep_unknown=version > self.VERSION)
-            self._migrate(obj, version, repair=bool(mistyped))
+            restore_enumerations(obj, library, keep_unknown=version > self.VERSION)
+            self._migrate(obj, library, version, repair=bool(mistyped))
             apply_editor_modes(obj)
-            restore_material_choices(obj, get_library())
+            restore_material_choices(obj, library)
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
@@ -156,7 +164,9 @@ class WoodPart:
         finally:
             self._syncing = previous
 
-    def _migrate(self, obj: DocumentObject, from_version: int, *, repair: bool = False) -> None:
+    def _migrate(
+        self, obj: DocumentObject, library: MaterialLibrary, from_version: int, *, repair: bool
+    ) -> None:
         """Version 0 (absente) → 1 : ajoute les propriétés manquantes avec leurs défauts, déduits
         du matériau de la pièce (``MaterialId``). Aboutit même si la bibliothèque est vide.
 
@@ -165,7 +175,6 @@ class WoodPart:
         outdated = from_version < self.VERSION
         if not (outdated or repair):
             return
-        library = get_library()
         if not len(library):
             warn(obj, EMPTY_LIBRARY_MIGRATION)
         add_missing_properties(obj, library, migration_material(obj, library))
