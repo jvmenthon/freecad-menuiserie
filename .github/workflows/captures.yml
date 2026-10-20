@@ -1,0 +1,114 @@
+name: Captures
+
+# Captures d'écran de l'atelier dans FreeCAD (vue 3D et fenêtre complète), publiées dans un
+# commentaire de la PR. Les images sont poussées sur la branche « captures » (jamais fusionnée)
+# pour pouvoir être affichées dans le commentaire, et jointes au run comme artefact.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: captures-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  captures:
+    name: Captures de l'interface
+    # Les PR venant d'un fork n'ont pas le droit d'écrire : pas de captures pour elles.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: freecad
+          create-args: >-
+            freecad=1.1.*
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
+      - name: Serveur X virtuel
+        run: sudo apt-get install -y --no-install-recommends xvfb
+      - name: Captures dans FreeCAD
+        # Pas de « exit » explicite : dans ce shell de connexion (bash -l), il exécute
+        # ~/.bash_logout, dont le code de retour remplace celui du script.
+        # softpipe : avec le pilote llvmpipe, la vue 3D hors écran sort blanche ou tronquée.
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: softpipe
+        run: |
+          export FREECAD_USER_HOME="$RUNNER_TEMP/freecad-home"
+          mkdir -p "$FREECAD_USER_HOME/Mod"
+          ln -s "$GITHUB_WORKSPACE" "$FREECAD_USER_HOME/Mod/Menuiserie"
+          export CAPTURES="$RUNNER_TEMP/captures"
+          journal="$RUNNER_TEMP/freecad-captures.log"
+          timeout 300 xvfb-run -a -s "-screen 0 1600x1000x24" \
+            freecad "$GITHUB_WORKSPACE/tools/captures_interface.py" > "$journal" 2>&1 || true
+          if [ -f "$CAPTURES/OK" ]; then
+            ls -l "$CAPTURES"
+          else
+            echo "::error title=Captures::échec des captures"
+            if [ -f "$CAPTURES/ERREUR" ]; then
+              sed 's/^/::error title=Erreur::/' "$CAPTURES/ERREUR"
+            fi
+            tail -n 25 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
+            false
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: captures
+          path: ${{ runner.temp }}/captures/*.png
+      - name: Publier dans la PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          dossier="pr-$PR/${SHA:0:7}"
+          depot="$RUNNER_TEMP/branche-captures"
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$url" captures > /dev/null; then
+            git clone --quiet --depth 1 --branch captures "$url" "$depot"
+          else
+            git init --quiet --initial-branch captures "$depot"
+            git -C "$depot" remote add origin "$url"
+          fi
+          mkdir -p "$depot/$dossier"
+          cp "$RUNNER_TEMP"/captures/*.png "$depot/$dossier/"
+          git -C "$depot" add "$dossier"
+          git -C "$depot" -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "captures : PR #$PR, ${SHA:0:7}"
+          git -C "$depot" push --quiet origin captures
+          base="https://github.com/${GITHUB_REPOSITORY}/blob/captures/$dossier"
+          corps="$RUNNER_TEMP/commentaire.md"
+          {
+            echo "<!-- captures-interface -->"
+            echo "## Captures de l'interface (FreeCAD 1.1, commit ${SHA:0:7})"
+            echo
+            echo "![Fenêtre de FreeCAD avec l'atelier]($base/fenetre.png?raw=true)"
+            echo
+            echo "![Vue 3D isométrique]($base/vue-3d.png?raw=true)"
+            echo
+            echo "_Scène produite par \`tools/captures_interface.py\`, mise à jour à chaque push._"
+          } > "$corps"
+          existant=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- captures-interface -->")) | .id' | head -n 1)
+          if [ -n "$existant" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existant" \
+              -F body=@"$corps" > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@"$corps" > /dev/null
+          fi
