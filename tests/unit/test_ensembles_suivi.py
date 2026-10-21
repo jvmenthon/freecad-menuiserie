@@ -26,7 +26,7 @@ from freecad.menuiserie.core.furniture import (
 )
 from freecad.menuiserie.core.geometry import Vec3
 from tests.unit.aides_assemblages import block
-from tests.unit.aides_ensembles import BOX, FIXED_BACK, desk, piece, placed, with_options
+from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, piece, placed, with_options
 
 W, D, H = FurnitureAxis.WIDTH, FurnitureAxis.DEPTH, FurnitureAxis.HEIGHT
 L, R, F, B, BO, T = Edge.LEFT, Edge.RIGHT, Edge.FRONT, Edge.BACK, Edge.BOTTOM, Edge.TOP
@@ -93,11 +93,12 @@ def test_membre_pas_d_equerre() -> None:
 
 # --- F3, F4 : options par défaut ----------------------------------------------------------
 
+# Q7 (jv) : toute distance est fixe ; sur l'épaisseur, seule la face la plus proche de son bord.
 DEFAULTS = {
     "P": {L, R, F, B, T},
-    "JG": {L, F, BO, T},
-    "JD": {R, F, BO, T},
-    "V": {L, R, T},
+    "JG": {L, F, B, BO, T},
+    "JD": {R, F, B, BO, T},
+    "V": {L, R, B, BO, T},
 }
 
 
@@ -109,68 +110,56 @@ def test_options_independantes_de_l_ordre() -> None:
     assert default_fixed(BOX, list(reversed(desk()))) == DEFAULTS
 
 
-@pytest.mark.parametrize(("distance", "fixed"), [(0.0, True), (0.01, True), (1.0, False)])
-def test_regle_q7_bord(distance: float, fixed: bool) -> None:
-    assert fixed_by_default(distance) is fixed
-    assert fixed_by_default(40.0) is False
+@pytest.mark.parametrize("distance", [0.0, 0.01, 1.0, 40.0, -5.0])
+def test_regle_q7_toute_distance_fixe(distance: float) -> None:
+    assert fixed_by_default(distance) is True
 
 
-def test_retrait_de_1_mm_non_fixe() -> None:
+def test_retrait_de_1_mm_fixe() -> None:
     shelf = Member("E", block=placed((1198.0, 600.0, 18.0), (1.0, 0.0, 300.0)))
-    assert default_fixed(BOX, [shelf])["E"] == {F, B}
+    assert default_fixed(BOX, [shelf])["E"] == {L, R, F, B, BO}
+
+
+def test_epaisseur_une_seule_face_fixe_par_defaut() -> None:
+    full = Member("S", block=placed((1200.0, 600.0, 750.0), (0.0, 0.0, 0.0)))
+    assert default_fixed(BOX, [full])["S"] == {L, R, F, B, BO}  # égalité : le bas
+    members = with_options([full])
+    assert follow_rules(BOX, members)[1] == ()  # pas de ThicknessKept
 
 
 def test_options_donnees_gardees() -> None:
     given = piece("JG", fixed=frozenset({B}))
     result = default_fixed(BOX, [given, piece("P"), piece("V")])
     assert "JG" not in result
-    # V touche JG, dont l'épaisseur (axe X) ne suit aucun bord : V reste non fixe à gauche.
-    assert result["V"] == {T}
-
-
-def test_contact_avec_le_bord_oppose_reste_non_fixe() -> None:
-    # Cale posée sur le plateau : son dessous touche le dessus de P, qui suit le haut.
-    cale = Member("K", block=placed((100.0, 100.0, 20.0), (500.0, 200.0, 750.0)))
-    box = FurnitureBox(1200, 600, 770)
-    plateau = piece("P", fixed=frozenset({T}))
-    assert default_fixed(box, [plateau, cale])["K"] == {T}
-
-
-def test_contact_par_une_face_etiree() -> None:
-    # Deux planches bout à bout en X : seule la planche contre le bord le suit.
-    first = Member("A", block=placed((600.0, 600.0, 30.0), (0.0, 0.0, 0.0)))
-    second = Member("B", block=placed((600.0, 600.0, 30.0), (600.0, 0.0, 0.0)))
-    box = FurnitureBox(1300, 600, 30)
-    result = default_fixed(box, [first, second])
-    assert R not in result["B"]
-    assert L not in result["B"]
+    assert result["V"] == DEFAULTS["V"]
 
 
 # --- F5, F6, F7 : règles de suivi ---------------------------------------------------------
 
 
 def rules_of(
-    key: str, extra: dict[str, frozenset[Edge]] | None = None, **modes: InteriorMode
+    key: str, unfixed: dict[str, frozenset[Edge]] | None = None, **modes: InteriorMode
 ) -> dict[FurnitureAxis, FollowRule]:
-    members = with_options(desk(**modes), extra)
+    members = with_options(desk(**modes), unfixed)
     rules, _ = follow_rules(BOX, members)
     return {rule.axis: rule for rule in rules[key]}
 
 
 def test_distance_fixe_suit_son_bord() -> None:
-    joue = rules_of("JG", FIXED_BACK)
+    joue = rules_of("JG")
     assert joue[D] == FollowRule(D, START, END, "Width")
     assert joue[H] == FollowRule(H, START, END, "Length")
     assert joue[W] == FollowRule(W, START, START, None)
-    assert rules_of("JD", FIXED_BACK)[W] == FollowRule(W, END, END, None)
+    assert rules_of("JD")[W] == FollowRule(W, END, END, None)
 
 
 def test_distance_non_fixe_reste_en_place() -> None:
-    assert rules_of("JG")[D] == FollowRule(D, START, START, "Width")
+    assert rules_of("JG", FREE_BACK)[D] == FollowRule(D, START, START, "Width")
 
 
 def test_mode_proportion() -> None:
-    voile = rules_of("V", V=InteriorMode.PROPORTIONAL)
+    free = {"V": frozenset({B, BO})}
+    voile = rules_of("V", free, V=InteriorMode.PROPORTIONAL)
     assert voile[D] == FollowRule(D, RATIO, RATIO, None)  # milieu à 450 / 600
     assert voile[H] == FollowRule(H, RATIO, END, "Width")  # le haut fixe garde son bord
     assert voile[W] == FollowRule(W, START, END, "Length")

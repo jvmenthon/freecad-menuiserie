@@ -43,15 +43,6 @@ def thickness_edge(
     return (end if closer_end else start), True
 
 
-def followed_edge(
-    fixed: frozenset[Edge], span: Span, side: Edge, edge_distance: Mapping[Edge, float]
-) -> Edge | None:
-    """Bord que suit la face ``side`` d'un membre, ``None`` si elle n'en suit aucun."""
-    if not span.stretchable:
-        return thickness_edge(fixed, side.axis, edge_distance)[0]
-    return side if side in fixed else None
-
-
 def _mode_anchor(mode: InteriorMode) -> Anchor:
     return Anchor.RATIO if mode is InteriorMode.PROPORTIONAL else Anchor.START
 

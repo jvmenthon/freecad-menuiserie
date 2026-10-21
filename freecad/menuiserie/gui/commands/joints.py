@@ -37,6 +37,7 @@ MORTISE_TENON: Final = "Menuiserie_MortiseTenon"
 TONGUE_GROOVE: Final = "Menuiserie_TongueGroove"
 RABBET: Final = "Menuiserie_Rabbet"
 DOWELS: Final = "Menuiserie_Dowels"
+HALF_LAP: Final = "Menuiserie_HalfLap"
 
 
 class JointCommand:
@@ -141,6 +142,20 @@ class DowelsCommand(JointCommand):
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à tourillons")
 
 
+class HalfLapCommand(JointCommand):
+    """Mi-bois : deux pièces qui se croisent, entaillées chacune sur une part de l'épaisseur."""
+
+    NAME = HALF_LAP
+    FACTORY = api.make_half_lap
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_HalfLap", "Mi-bois")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_HalfLap",
+        "Relie à mi-bois les deux pièces sélectionnées, de même épaisseur et à fleur, qui se "
+        "croisent : la première sélectionnée est entaillée par-dessus, l'autre par-dessous.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à mi-bois")
+
+
 def selected_parts() -> tuple[DocumentObject, DocumentObject] | None:
     """Les deux pièces sélectionnées (dans l'ordre de sélection), ou ``None`` si la sélection
     n'est pas exactement deux pièces (brutes ou usinées) de brutes distinctes."""
@@ -181,8 +196,9 @@ def _is_part(obj: DocumentObject) -> bool:
 
 
 def register() -> None:
-    """Enregistre les quatre commandes auprès de FreeCAD."""
+    """Enregistre les commandes d'assemblage auprès de FreeCAD."""
     Gui.addCommand(MORTISE_TENON, MortiseTenonCommand())
     Gui.addCommand(TONGUE_GROOVE, TongueGrooveCommand())
     Gui.addCommand(RABBET, RabbetCommand())
     Gui.addCommand(DOWELS, DowelsCommand())
+    Gui.addCommand(HALF_LAP, HalfLapCommand())

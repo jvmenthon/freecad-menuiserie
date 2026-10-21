@@ -6,6 +6,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Assemblage à mi-bois (J4e) : stratégie `HalfLapStrategy` (deux pièces de même épaisseur, à
+  fleur, qui se chevauchent ; entaille de l'hôte par-dessus, de l'invitée par-dessous, profondeur
+  automatique à la moitié de l'épaisseur), objet `Menuiserie::HalfLap` (`Depth`, `FlipSide`),
+  `make_half_lap`, commande **Mi-bois** et panneau générique.
 - Contrôles qualité : détection du code dupliqué (pylint) et limites de complexité (ruff) en CI ;
   grille « Conception et design patterns » pour l'architecte, le dev et le reviewer.
 - Squelette de l'atelier : `package.xml`, enregistrement du workbench, icône.
@@ -120,11 +124,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (entrée « Modifier un assemblage »). Aperçu en direct, erreur d'assemblage affichée dans le
   panneau, paramètre piloté par une expression jamais écrit.
 - Règles de suivi des ensembles (`core/furniture/`, J4a, ADR 0009), sans FreeCAD : étendue des
-  membres et distance de chaque face au bord de son côté, options « fixe » par défaut (face contre
-  le bord, ou contre une pièce qui le suit ; toute autre distance non fixe, Q7), règles de suivi
+  membres et distance de chaque face au bord de son côté, options « fixe » par défaut (Q7 : la
+  pièce bouge par défaut, toute distance est fixe ; « non fixe » au choix), règles de suivi
   (distance fixe, `Stay`, `Proportional`, épaisseur jamais étirée), expressions FreeCAD des
-  liaisons (`<<Bureau>>.Depth - 40 mm`), formules de l'utilisateur respectées, aperçu et refus
-  d'un redimensionnement (pièce trop petite, assemblage qui perdrait son contact), sous-ensembles
+  liaisons (`<<Bureau>>.Depth - 40 mm`, positions relatives à `<<Bureau>>.Origin`), formules de
+  l'utilisateur respectées, aperçu et refus d'un redimensionnement (pièce trop petite, assemblage qui perdrait son contact), sous-ensembles
   et refus d'un cycle d'ensembles.
 
 ### Modifié

@@ -52,18 +52,20 @@ def desk(**modes: InteriorMode) -> list[Member]:
 
 
 def with_options(
-    members: Iterable[Member], extra: Mapping[str, frozenset[Edge]] | None = None
+    members: Iterable[Member], unfixed: Mapping[str, frozenset[Edge]] | None = None
 ) -> list[Member]:
-    """Options par défaut, puis options ``extra`` ajoutées (cases cochées par le menuisier)."""
+    """Options par défaut (Q7 : toute distance fixe), puis options ``unfixed`` retirées (cases
+    « fixe » décochées par le menuisier)."""
     resolved = with_default_options(BOX, list(members))
-    extra = extra or {}
+    unfixed = unfixed or {}
     return [
-        replace(m, fixed=(m.fixed or frozenset()) | extra.get(m.key, frozenset())) for m in resolved
+        replace(m, fixed=(m.fixed or frozenset()) - unfixed.get(m.key, frozenset()))
+        for m in resolved
     ]
 
 
 BACK = frozenset({Edge.BACK})
-FIXED_BACK = {"JG": BACK, "JD": BACK}
+FREE_BACK = {"JG": BACK, "JD": BACK}  # arrière des joues décoché : elles restent en place
 
 
 def desk_rules(members: list[Member], box: FurnitureBox = BOX) -> tuple[list[Member], Rules]:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from freecad.menuiserie.core.furniture._bindings import (
     bindings_for,
+    bound_by_workshop,
     driven_properties,
     expression_text,
     is_driven,
@@ -54,6 +55,7 @@ __all__ = [
     "Rules",
     "Span",
     "bindings_for",
+    "bound_by_workshop",
     "check_membership",
     "check_resize",
     "default_fixed",

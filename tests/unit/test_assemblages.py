@@ -19,6 +19,7 @@ from freecad.menuiserie.core.joints import (
 from freecad.menuiserie.core.joints._profile import ProfileValues
 from freecad.menuiserie.core.joints._registry import STRATEGIES
 from freecad.menuiserie.core.joints.dowels import DowelParams
+from freecad.menuiserie.core.joints.half_lap import HalfLapParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
@@ -239,7 +240,13 @@ def test_feuillure_refus_sans_chevauchement() -> None:
 # --- M8 : paramètres validés --------------------------------------------------------------
 
 
-PARAMS_CLASSES = (MortiseTenonParams, TongueGrooveParams, RabbetParams, DowelParams)
+PARAMS_CLASSES = (
+    MortiseTenonParams,
+    TongueGrooveParams,
+    RabbetParams,
+    DowelParams,
+    HalfLapParams,
+)
 
 
 @pytest.mark.parametrize(
@@ -261,6 +268,9 @@ PARAMS_CLASSES = (MortiseTenonParams, TongueGrooveParams, RabbetParams, DowelPar
         (DowelParams, "count", 2.0),
         (DowelParams, "count", True),
         (DowelParams, "diameter", -3),
+        (HalfLapParams, "depth", -1.0),
+        (HalfLapParams, "depth", float("inf")),
+        (HalfLapParams, "flip_side", 0),
     ],
 )
 def test_parametres_refuses(factory: type, field: str, value: object) -> None:
@@ -281,6 +291,8 @@ def test_parametres_refuses(factory: type, field: str, value: object) -> None:
         (TongueGrooveParams, "through_groove", False),
         (DowelParams, "count", 50),
         (DowelParams, "count", 0),
+        (HalfLapParams, "depth", 0),
+        (HalfLapParams, "flip_side", True),
     ],
 )
 def test_parametres_limites_acceptes(factory: type, field: str, value: object) -> None:
@@ -320,6 +332,12 @@ def test_registre_fige() -> None:
         (JointKind.TONGUE_GROOVE, board(), board(100.0), TongueGrooveParams()),
         (JointKind.RABBET, *side_and_back(), RabbetParams()),
         (JointKind.DOWELS, stile(), rail(), DowelParams()),
+        (
+            JointKind.HALF_LAP,
+            stile(),
+            block((600.0, 60.0, 22.0), (330.0, -270.0, 0.0), 90.0),
+            HalfLapParams(),
+        ),
     ],
 )
 def test_plan_par_le_registre(

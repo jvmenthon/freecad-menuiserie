@@ -28,7 +28,7 @@ BOX_FIELDS: Final[Mapping[str, str]] = MappingProxyType(
 INVALID_LABEL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Libellé d'ensemble inutilisable dans une expression : « {label} » (non vide, sans « > » "
-    "ni caractère invisible).",
+    "ni « \\ » ni caractère invisible).",
 )
 TOO_SMALL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {member} » deviendrait trop petite : {property} = {value} mm."

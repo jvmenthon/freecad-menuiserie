@@ -18,6 +18,7 @@ import pytest
 
 from freecad.menuiserie.core.joints._profile import ProfileValues
 from freecad.menuiserie.core.joints.dowels import DowelParams, DowelValues
+from freecad.menuiserie.core.joints.half_lap import HalfLapParams, HalfLapValues
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams, RabbetValues
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
@@ -32,6 +33,7 @@ TYPES = {
     "tongue_groove.py": (TongueGrooveParams, ProfileValues),
     "rabbet.py": (RabbetParams, RabbetValues),
     "dowels.py": (DowelParams, DowelValues),
+    "half_lap.py": (HalfLapParams, HalfLapValues),
 }
 
 
@@ -85,7 +87,7 @@ def test_case_auto_pour_les_cotes_automatiques(module: str) -> None:
 
 
 def test_cotes_automatiques_attendues() -> None:
-    """Paramètres « 0 = automatique » de la spécification (§ 4.3.3)."""
+    """Paramètres « 0 = automatique » des spécifications (J3 § 4.3.3, J4 § 4.8.3)."""
     automatic = {
         (module, ast.literal_eval(spec["name"]))
         for module in TYPES
@@ -102,6 +104,7 @@ def test_cotes_automatiques_attendues() -> None:
         ("dowels.py", "HostDepth"),
         ("dowels.py", "Count"),
         ("dowels.py", "EdgeDistance"),
+        ("half_lap.py", "Depth"),
     }
 
 

@@ -88,9 +88,19 @@ Options étudiées :
   (pour ne pas confondre « distance fixe » et « reste en place ») ne demandent aucune migration.
 - Le menuisier voit et règle, pièce par pièce, ce qui suit quel bord ; le cas fréquent d'une
   pièce en retrait qui devrait suivre (joue à 40 mm du fond) demande une case à cocher (question
-  Q7 de la spécification, ouverte).
+  Q7 de la spécification ; voir la mise à jour ci-dessous).
 - Une modification de cote faite dans l'éditeur de propriétés n'est pas refusée d'avance
   (question Q4, recommandation retenue par jv). Les objets touchés passent en erreur sans forme
   partielle, comme en J3, avec un avertissement.
 - Défaire cette décision (recalcul par l'atelier) demanderait de retirer les expressions de tous
   les documents J4 : c'est une décision difficile à défaire.
+
+## Mise à jour du 2026-10-21 (réponse de jv à Q7, sous-lot J4a)
+
+- **Options par défaut** (point 1 de la décision) : jv a répondu à Q7 « La pièce bouge par
+  défaut ». Toute distance au bord est fixe par défaut, nulle ou non ; sur l'axe de son épaisseur,
+  une pièce ne garde que la face la plus proche de son bord. La règle de contact, de proche en
+  proche, est retirée. L'option « non fixe » reste au choix du menuisier.
+- **Liaisons** (point 2) : les positions s'écrivent relativement à l'`Origin` de l'ensemble
+  (`<<Bureau>>.Origin.x + <<Bureau>>.Width`) pour qu'un sous-ensemble dont l'`Origin` bouge
+  entraîne ses membres. Détails : spécification J4, notes de réalisation de J4a.

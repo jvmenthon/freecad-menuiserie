@@ -25,7 +25,7 @@ from freecad.menuiserie.core.furniture import (
 )
 from freecad.menuiserie.core.geometry import Vec3
 from tests.unit.aides_assemblages import block
-from tests.unit.aides_ensembles import BOX, FIXED_BACK, desk, placed, with_options
+from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, placed, with_options
 
 W, D, H = FurnitureAxis.WIDTH, FurnitureAxis.DEPTH, FurnitureAxis.HEIGHT
 DEEPER = FurnitureBox(1200, 800, 750)
@@ -34,10 +34,10 @@ TALLER = FurnitureBox(1200, 600, 800)
 
 def predicted(
     new: FurnitureBox,
-    extra: dict[str, frozenset[Edge]] | None = None,
+    unfixed: dict[str, frozenset[Edge]] | None = None,
     **modes: InteriorMode,
 ) -> dict[str, Member]:
-    members = with_options(desk(**modes), extra)
+    members = with_options(desk(**modes), unfixed)
     rules, _ = follow_rules(BOX, members)
     return dict(predict(BOX, new, members, rules))
 
@@ -56,27 +56,29 @@ def size(member: Member) -> tuple[float, float, float]:
 # --- F10 : aperçu -------------------------------------------------------------------------
 
 
-def test_profondeur_800_avec_l_arriere_des_joues_fixe() -> None:
-    result = predicted(DEEPER, FIXED_BACK)
+def test_profondeur_800_options_par_defaut() -> None:
+    result = predicted(DEEPER)
     assert size(result["P"]) == (1200, 800, 30)
     assert size(result["JG"]) == (720, 760, 22)
     assert size(result["JD"]) == (720, 760, 22)
-    assert span(result["V"], D) == (441, 459)  # Stay : immobile
+    assert span(result["V"], D) == (641, 659)  # suit le fond (141 mm)
 
 
-def test_profondeur_800_voile_en_proportion() -> None:
-    result = predicted(DEEPER, FIXED_BACK, V=InteriorMode.PROPORTIONAL)
-    assert span(result["V"], D) == (591, 609)
+def test_profondeur_800_voile_decoche() -> None:
+    free = {"V": frozenset({Edge.BACK})}
+    assert span(predicted(DEEPER, free)["V"], D) == (441, 459)  # Stay : immobile
+    proportional = predicted(DEEPER, free, V=InteriorMode.PROPORTIONAL)
+    assert span(proportional["V"], D) == (591, 609)
 
 
-def test_profondeur_800_options_par_defaut() -> None:
-    result = predicted(DEEPER)
+def test_profondeur_800_arriere_des_joues_decoche() -> None:
+    result = predicted(DEEPER, FREE_BACK)
     assert size(result["P"]) == (1200, 800, 30)
     assert size(result["JG"]) == (720, 560, 22)
 
 
 def test_hauteur_800() -> None:
-    result = predicted(TALLER, FIXED_BACK)
+    result = predicted(TALLER)
     plateau = result["P"]
     assert plateau.block is not None
     assert math.isclose(plateau.block.placement.translation.z, 770)
@@ -106,7 +108,7 @@ def test_propriete_pilotee_gardee_par_l_apercu() -> None:
 
 
 def test_cote_pilotee_gardee_par_l_apercu() -> None:
-    members = with_options(desk(), FIXED_BACK)
+    members = with_options(desk())
     members = [replace(m, driven=frozenset({"Width"})) if m.key == "JG" else m for m in members]
     rules, _ = follow_rules(BOX, members)
     assert size(predict(BOX, DEEPER, members, rules)["JG"]) == (720, 560, 22)
@@ -126,7 +128,7 @@ def resize(
 
 def test_joue_trop_petite() -> None:
     with pytest.raises(FurnitureError) as caught:
-        resize(FurnitureBox(1200, 30, 750), with_options(desk(), FIXED_BACK))
+        resize(FurnitureBox(1200, 30, 750), with_options(desk()))
     assert (
         str(caught.value)
         == "« Joue gauche » deviendrait trop petite : Width = \N{MINUS SIGN}10 mm."
@@ -183,7 +185,7 @@ def test_paire_hors_ensemble_ignoree() -> None:
 
 
 def test_piece_qui_depasse() -> None:
-    notices = resize(FurnitureBox(1200, 500, 750), with_options(desk()))
+    notices = resize(FurnitureBox(1200, 500, 750), with_options(desk(), FREE_BACK))
     assert [(n.kind, n.params["member"]) for n in notices] == [
         (NoticeKind.OUTSIDE_BOX, "Joue gauche"),
         (NoticeKind.OUTSIDE_BOX, "Joue droite"),
