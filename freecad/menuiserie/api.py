@@ -39,6 +39,18 @@ from freecad.menuiserie.features.machined_part import (
 )
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
+__all__ = [
+    "blank_of",
+    "is_machined_part",
+    "machined_part_of",
+    "make_dowels",
+    "make_mortise_tenon",
+    "make_rabbet",
+    "make_tongue_groove",
+    "make_wood_part",
+    "remove_machined_part",
+]
+
 
 def make_wood_part(
     length: float = 800.0,
@@ -74,19 +86,6 @@ def make_wood_part(
         ViewProviderWoodPart(obj.ViewObject)
     document.recompute()
     return obj
-
-
-_JointFactory = Callable[..., DocumentObject]
-
-
-def _make_joint(
-    factory: _JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
-) -> DocumentObject:
-    """Crée l'assemblage par ``factory`` dans le document des pièces, pose les ViewProviders
-    si l'interface est chargée, puis recalcule (:func:`_shown_and_recomputed`)."""
-    document = blank_of(host).Document
-    joint = factory(document, host, guest, **params)
-    return _shown_and_recomputed(joint)
 
 
 def make_mortise_tenon(
@@ -136,6 +135,19 @@ def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -
     return _make_joint(create_dowels, host, guest, params)
 
 
+_JointFactory = Callable[..., DocumentObject]
+
+
+def _make_joint(
+    factory: _JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
+) -> DocumentObject:
+    """Crée l'assemblage par ``factory`` dans le document des pièces, pose les ViewProviders
+    si l'interface est chargée, puis recalcule (:func:`_shown_and_recomputed`)."""
+    document = blank_of(host).Document
+    joint = factory(document, host, guest, **params)
+    return _shown_and_recomputed(joint)
+
+
 def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
     """Pose les ViewProviders de l'assemblage et des pièces usinées de ses deux brutes (si
     l'interface est chargée), puis recalcule le document. Commun à toutes les fabriques
@@ -155,16 +167,3 @@ def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
                 ViewProviderMachinedPart(machined.ViewObject)
     joint.Document.recompute()
     return joint
-
-
-__all__ = [
-    "blank_of",
-    "is_machined_part",
-    "machined_part_of",
-    "make_dowels",
-    "make_mortise_tenon",
-    "make_rabbet",
-    "make_tongue_groove",
-    "make_wood_part",
-    "remove_machined_part",
-]
