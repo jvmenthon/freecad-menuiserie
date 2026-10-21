@@ -81,10 +81,6 @@ class BudgetedCache(Generic[K, V]):
             pass
         return self.bytes_alive + nbytes <= self.max_bytes
 
-    def clear(self) -> None:
-        """Oublie toutes les entrées ; les valeurs gardées ailleurs restent comptées."""
-        self._entries.clear()
-
     def _forget_oldest_value(self) -> bool:
         """Oublie la plus ancienne entrée qui porte une valeur ; faux s'il n'y en a plus."""
         oldest = next((key for key, value in self._entries.items() if value is not None), None)

@@ -11,9 +11,9 @@ import FreeCADGui as Gui
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.api import make_wood_part
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.library import get_library
-from freecad.menuiserie.gui.task_panels.base import close_transaction
+from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.wood_part import show_panel
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
 
@@ -53,15 +53,12 @@ class CreateWoodPartCommand:
         """Pièce créée dans la transaction « Créer une pièce de bois », validée ou abandonnée
         par le panneau. Une exception ne laisse ni pièce ni transaction."""
         if not len(get_library()):
-            App.Console.PrintWarning(f"Menuiserie : {translated(EMPTY_LIBRARY)}\n")
+            report_warning(translated(EMPTY_LIBRARY))
             return
         doc = App.ActiveDocument
         doc.openTransaction(translated(CREATE_TRANSACTION))
-        try:
+        with aborted_on_error(App.getActiveTransaction()):
             obj = make_wood_part(doc=doc)
-        except BaseException:
-            close_transaction(App.getActiveTransaction(), abort=True)
-            raise
         show_panel(obj, creating=True)
 
 

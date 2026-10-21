@@ -78,7 +78,7 @@ def assert_follow_blanks(cadre: Cadre) -> None:
         assert machined.Shape.Placement == blank.Placement, mark
 
 
-def touched(doc: Any) -> list[str]:
+def stale_or_invalid(doc: Any) -> list[str]:
     """Noms des objets marqués « Touched » ou invalides."""
     return [
         obj.Name

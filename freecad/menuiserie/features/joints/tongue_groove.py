@@ -12,8 +12,7 @@ from typing import ClassVar, Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
-from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.joints.base import JointFeature, params_from
+from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["TongueGrooveJoint"]
@@ -28,6 +27,7 @@ class TongueGrooveJoint(JointFeature):
     TYPE: ClassVar[str] = "Menuiserie::TongueGroove"
     OBJECT_NAME: ClassVar[str] = "TongueGroove"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Rainure-languette")
+    PARAMS: ClassVar[type[TongueGrooveParams]] = TongueGrooveParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "TongueThickness",
@@ -89,7 +89,3 @@ class TongueGrooveJoint(JointFeature):
             label=QT_TRANSLATE_NOOP("Menuiserie", "Rainure filante"),
         ),
     )
-
-    def params(self, obj: DocumentObject) -> TongueGrooveParams:
-        """Paramètres de la rainure-languette lus dans les propriétés de ``obj``."""
-        return params_from(obj, TongueGrooveParams)

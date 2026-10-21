@@ -12,18 +12,13 @@ from __future__ import annotations
 
 from typing import Any
 
-import FreeCAD as App
-
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.machined_part import removal_refusal
+from freecad.menuiserie.features.i18n import report_warning
+from freecad.menuiserie.features.machined_part import removal_refusal, show_blank
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.part_appearance import PartAppearance, material_color_of
-from freecad.menuiserie.gui.view_providers.wood_part import (
-    ICON,
-    edit_by_double_click,
-    end_panel_edit,
-)
+from freecad.menuiserie.gui.view_providers.wood_part import ICON, PanelEditing
 
 ViewObject = Any
 
@@ -31,7 +26,7 @@ ViewObject = Any
 _REFRESHING_PROPERTIES = frozenset({"Shape", "Base"})
 
 
-class ViewProviderMachinedPart:
+class ViewProviderMachinedPart(PanelEditing):
     """ViewProvider de la pièce usinée. Chemin de module figé (ADR 0003), sans état enregistré."""
 
     def __init__(self, vobj: ViewObject) -> None:
@@ -63,33 +58,15 @@ class ViewProviderMachinedPart:
         if vobj is not None:
             self._refresh(vobj)
 
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
-
-    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Mode 0 : panneau de tâche de la brute (ses cotes, son matériau, son fil) ; les autres
-        modes (Transformer…) restent à FreeCAD."""
+    def open_panel(self, vobj: ViewObject) -> bool | None:
+        """Mode 0 (double-clic) : panneau de tâche de la brute (ses cotes, son matériau, son
+        fil) ; rien sans brute."""
         blank = getattr(vobj.Object, "Base", None)
-        if mode != 0 or not is_wood_part(blank):
+        if not is_wood_part(blank):
             return None
         from freecad.menuiserie.gui.task_panels.wood_part import start_editing
 
         return start_editing(blank, vobj.Object)
-
-    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Fin du mode 0 : le panneau est fermé."""
-        del vobj
-        return end_panel_edit(mode)
-
-    def doubleClicked(self, vobj: ViewObject) -> bool:
-        """Double-clic : édition de la brute dans son panneau ; refusé si un panneau de tâche
-        est déjà ouvert."""
-        return edit_by_double_click(vobj)
 
     def onDelete(self, vobj: ViewObject, subelements: object) -> bool:
         """Suppression refusée (message dans la vue rapport) tant que la pièce porte des
@@ -98,11 +75,9 @@ class ViewProviderMachinedPart:
         obj = vobj.Object
         refusal = removal_refusal(obj)
         if refusal is not None:
-            App.Console.PrintWarning(f"Menuiserie : {refusal}\n")
+            report_warning(refusal)
             return False
-        blank = getattr(obj, "Base", None)
-        if blank is not None:
-            blank.Visibility = True
+        show_blank(getattr(obj, "Base", None))
         return True
 
     def _refresh(self, vobj: ViewObject) -> None:

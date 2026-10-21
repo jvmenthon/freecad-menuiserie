@@ -3,7 +3,8 @@
 
 :class:`JointFeature` fixe le squelette commun : propriétés ``HostPart``, ``GuestPart`` et
 ``Version``, ``execute`` (plan d'usinage de la stratégie de ``core``), réouverture et
-sérialisation. Chaque type fournit ``KIND``, ``TYPE``, ``PROPERTIES`` et :meth:`params`.
+sérialisation. Chaque type fournit ``KIND``, ``TYPE``, ``PROPERTIES`` et ``PARAMS`` (type des
+paramètres de ``core``, lus par :meth:`JointFeature.params`).
 Les paramètres de ``core`` (``tenon_thickness``) s'écrivent dans des propriétés aux noms en
 CamelCase (``TenonThickness``) : :func:`property_name`. Contrat de persistance (ADR 0003) :
 chemins des modules, noms des classes et des propriétés figés.
@@ -20,7 +21,12 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import READ_ONLY, DocumentObject, proxy_is
+from freecad.menuiserie.features.freecad_types import (
+    READ_ONLY,
+    DocumentObject,
+    StatelessProxy,
+    proxy_is,
+)
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
@@ -88,7 +94,7 @@ COMMON_PROPERTIES: Final = (
 )
 
 
-class JointFeature:
+class JointFeature(StatelessProxy):
     """Proxy commun des assemblages (Template Method). Sans état : tout est dans les
     propriétés de l'objet."""
 
@@ -98,6 +104,13 @@ class JointFeature:
     LABEL: ClassVar[str]  # libellé par défaut, gabarit traduisible
     VERSION: ClassVar[int] = MODEL_VERSION
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = ()
+    PARAMS: ClassVar[type]  # objet valeur des paramètres de ``core`` (``MortiseTenonParams``…)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Refuse dès l'import un type d'assemblage sans ``PARAMS`` (sinon : erreur au recalcul)."""
+        super().__init_subclass__(**kwargs)
+        if not isinstance(getattr(cls, "PARAMS", None), type):
+            raise TypeError(f"{cls.__name__}.PARAMS doit être le type de ses paramètres")
 
     def __init__(self, obj: DocumentObject) -> None:
         """Ajoute les propriétés communes puis celles du type, à leurs valeurs par défaut."""
@@ -111,8 +124,8 @@ class JointFeature:
         return COMMON_PROPERTIES + cls.PROPERTIES
 
     def params(self, obj: DocumentObject) -> Any:
-        """Paramètres de ``core`` lus dans les propriétés : étape fournie par chaque type."""
-        raise NotImplementedError
+        """Paramètres de ``core`` (objet valeur ``PARAMS`` du type) lus dans les propriétés."""
+        return params_from(obj, self.PARAMS)
 
     def execute(self, obj: DocumentObject) -> None:
         """Forme = pièces rapportées du plan (vide sinon), au ``Placement`` de l'hôte ;
@@ -126,14 +139,6 @@ class JointFeature:
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN)
-
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
 
 
 def is_joint(obj: object) -> bool:

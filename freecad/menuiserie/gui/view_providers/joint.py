@@ -15,7 +15,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.gui.part_appearance import Rgb, show_diffuse
-from freecad.menuiserie.gui.view_providers.wood_part import edit_by_double_click, end_panel_edit
+from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
 ViewObject = Any
 
@@ -24,7 +24,7 @@ BEECH_COLOR: Final = (0xD9, 0xB4, 0x8A)  # #D9B48A, si la bibliothèque n'a pas 
 FALLBACK_ICON: Final = "menuiserie.svg"
 
 
-class ViewProviderJoint:
+class ViewProviderJoint(PanelEditing):
     """ViewProvider commun aux assemblages. Chemin de module figé (ADR 0003), sans état."""
 
     def __init__(self, vobj: ViewObject) -> None:
@@ -43,31 +43,11 @@ class ViewProviderJoint:
             return icon_path(FALLBACK_ICON)
         return icon_path(joint_icon(proxy))
 
-    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Mode 0 : panneau de tâche de l'assemblage ; les autres modes restent à FreeCAD."""
-        if mode != 0:
-            return None
+    def open_panel(self, vobj: ViewObject) -> bool | None:
+        """Mode 0 (double-clic) : réglage de l'assemblage dans son panneau de tâche."""
         from freecad.menuiserie.gui.task_panels.joint import start_editing
 
         return start_editing(vobj.Object)
-
-    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Fin du mode 0 : le panneau est fermé."""
-        del vobj
-        return end_panel_edit(mode)
-
-    def doubleClicked(self, vobj: ViewObject) -> bool:
-        """Double-clic : réglage de l'assemblage dans son panneau ; refusé si un panneau de
-        tâche est déjà ouvert."""
-        return edit_by_double_click(vobj)
-
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
 
 
 def joint_icon(proxy: JointFeature) -> str:

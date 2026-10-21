@@ -13,8 +13,7 @@ from typing import ClassVar, Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT, DowelParams
-from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.joints.base import JointFeature, params_from
+from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["DowelJoint"]
@@ -30,6 +29,7 @@ class DowelJoint(JointFeature):
     TYPE: ClassVar[str] = "Menuiserie::Dowels"
     OBJECT_NAME: ClassVar[str] = "Dowels"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Tourillons")
+    PARAMS: ClassVar[type[DowelParams]] = DowelParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "Diameter",
@@ -120,7 +120,3 @@ class DowelJoint(JointFeature):
             label=QT_TRANSLATE_NOOP("Menuiserie", "Jeu de fond des perçages"),
         ),
     )
-
-    def params(self, obj: DocumentObject) -> DowelParams:
-        """Paramètres des tourillons lus dans les propriétés de ``obj``."""
-        return params_from(obj, DowelParams)
