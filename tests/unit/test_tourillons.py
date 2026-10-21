@@ -8,6 +8,7 @@ import pytest
 from freecad.menuiserie.core.geometry import Axis, Cylinder, JointError, PlacedBlock, Vec3
 from freecad.menuiserie.core.joints import JointKind, strategy_for
 from freecad.menuiserie.core.joints.dowels import (
+    MAX_DOWEL_COUNT,
     DowelParams,
     auto_count,
     auto_diameter,
@@ -81,6 +82,16 @@ def test_nombre_automatique_jamais_refuse(width: float) -> None:
     """Traverse de ``width`` x 22, tous paramètres automatiques : jamais de refus d'entraxe."""
     values = DOWELS.resolve(stile(), rail(width=width), DowelParams())
     assert values.count == auto_count(width, 20, 10)
+
+
+def test_contact_de_20_m_plafonne_au_nombre_maximal() -> None:
+    """Contact de 20 m : 50 tourillons au plus (l'entraxe dépasse alors 128 mm)."""
+    assert auto_count(20_000.0, 20, 10) == MAX_DOWEL_COUNT
+    long_stile = block((20_000.0, 60.0, 22.0))
+    values = DOWELS.resolve(long_stile, rail(width=20_000.0), DowelParams())
+    assert values.count == len(values.positions) == MAX_DOWEL_COUNT
+    plan = DOWELS.plan(long_stile, rail(width=20_000.0), DowelParams())
+    assert len(plan.inserts) == MAX_DOWEL_COUNT
 
 
 def test_traverse_de_45_un_tourillon_au_milieu() -> None:

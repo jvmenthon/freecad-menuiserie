@@ -14,8 +14,9 @@ from collections.abc import Callable
 from typing import Any
 
 import FreeCADGui as Gui
-from PySide import QtGui
+from PySide import QtCore, QtGui
 
+from freecad.menuiserie.core.text import quoted_value
 from tests.gui.verifications_assemblages import (
     CADRE,
     CREATION,
@@ -215,6 +216,25 @@ def verifier_creation_annulee() -> list[str]:
         ]
 
 
+def verifier_libelles_en_texte_brut() -> list[str]:
+    """Audit de sécurité J3 : libellés des pièces et message d'erreur en texte brut, titre
+    cité tronqué et échappé (libellé de l'assemblage choisi par l'utilisateur ou un fichier)."""
+    with cadre("VerifLibellesAssemblage") as (doc, pieces):
+        joint = tenon_valide(doc, pieces)
+        pieces["M1"].Label = "<b>M1</b>"
+        joint.Label = "<i>T</i>\u202e" + "x" * 40
+        if not double_cliquer(joint) or panneau() is None:
+            return ["double-clic : panneau non ouvert"]
+        form = panneau()
+        attendu = f"Modifier « {quoted_value(joint.Label)} »"
+        problemes = ecarts("titre", form.windowTitle(), attendu)
+        for nom in ("hostLabel", "guestLabel", "errorLabel"):
+            format_texte = widget(form, nom).textFormat()
+            problemes += ecarts(f"{nom} texte brut", format_texte, QtCore.Qt.TextFormat.PlainText)
+        annuler()
+        return problemes
+
+
 def verifier_modification() -> list[str]:
     """E2, E5 : double-clic sur l'assemblage ; « OK » crée « Modifier un assemblage »,
     « Annuler » rétablit les valeurs."""
@@ -371,6 +391,7 @@ VERIFICATIONS_PANNEAU_ASSEMBLAGE: tuple[Callable[[], list[str]], ...] = (
     verifier_creation_validee,
     verifier_creation_annulee,
     verifier_modification,
+    verifier_libelles_en_texte_brut,
     verifier_erreur_affichee,
     verifier_parametre_pilote,
     verifier_std_undo_pendant_la_creation,

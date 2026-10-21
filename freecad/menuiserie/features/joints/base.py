@@ -20,7 +20,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import DocumentObject, proxy_is
+from freecad.menuiserie.features.freecad_types import READ_ONLY, DocumentObject, proxy_is
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
@@ -31,6 +31,7 @@ __all__ = [
     "JointFeature",
     "is_joint",
     "params_from",
+    "parts_mismatch",
     "placed_blank",
     "plan_for",
     "property_name",
@@ -48,6 +49,11 @@ _MISSING_PART: Final = QT_TRANSLATE_NOOP(
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est pas une pièce de bois brute."
 )
+_PARTS_MISMATCH: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Les pièces de l'assemblage « {label} » ne correspondent plus à ses pièces usinées : "
+    "supprimez l'assemblage puis recréez-le.",
+)
 
 COMMON_PROPERTIES: Final = (
     PropertySpec(
@@ -58,6 +64,7 @@ COMMON_PROPERTIES: Final = (
             "App::Property",
             "Pièce qui reçoit l'assemblage : mortaise, rainure, feuillure, ou premier côté percé.",
         ),
+        mode=READ_ONLY,
     ),
     PropertySpec(
         "GuestPart",
@@ -68,6 +75,7 @@ COMMON_PROPERTIES: Final = (
             "Pièce qui porte le tenon ou la languette, se loge dans la feuillure, ou second "
             "côté percé.",
         ),
+        mode=READ_ONLY,
     ),
     version_spec(
         QT_TRANSLATE_NOOP(
@@ -108,8 +116,10 @@ class JointFeature:
 
     def execute(self, obj: DocumentObject) -> None:
         """Forme = pièces rapportées du plan (vide sinon), au ``Placement`` de l'hôte ;
-        ``ValueError`` traduite si l'assemblage est impossible."""
+        ``ValueError`` traduite si l'assemblage est impossible ou si ses pièces ne sont plus
+        celles de ses pièces usinées (``HostPart`` ou ``GuestPart`` modifiée par un script)."""
         plan = plan_for(obj)
+        _check_machined_parts(obj)
         obj.Shape = inserts_shape(plan.inserts)
         obj.Placement = obj.HostPart.Placement
 
@@ -129,6 +139,24 @@ class JointFeature:
 def is_joint(obj: object) -> bool:
     """Vrai si ``obj`` est un assemblage de l'atelier (faux pour un objet supprimé)."""
     return proxy_is(obj, JointFeature)
+
+
+def parts_mismatch(joint: DocumentObject) -> ValueError:
+    """Erreur traduite : les pièces de ``joint`` ne correspondent plus à ses pièces usinées."""
+    return ValueError(translated(_PARTS_MISMATCH, {"label": quoted_value(joint.Label)}))
+
+
+def _check_machined_parts(joint: DocumentObject) -> None:
+    """``ValueError`` traduite si les brutes des pièces usinées qui listent ``joint`` dans leurs
+    ``Joints`` ne sont pas exactement ``HostPart`` et ``GuestPart``."""
+    parts = (joint.HostPart, joint.GuestPart)
+    bases = [
+        parent.Base
+        for parent in joint.InList
+        if hasattr(parent, "Base") and joint in getattr(parent, "Joints", ())
+    ]
+    if any(base not in parts for base in bases) or any(part not in bases for part in parts):
+        raise parts_mismatch(joint)
 
 
 def property_name(field_name: str) -> str:

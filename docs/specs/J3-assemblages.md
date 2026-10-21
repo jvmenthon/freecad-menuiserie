@@ -103,7 +103,7 @@ Variante « pilotée » : `M2.Placement.Base.y = 400 mm - Width`, `M2.Width = M1
 |---|---|---|
 | R1 | `make_tongue_groove` et `make_rabbet` : objets aux propriétés du § 4.4.3, volumes conformes à M6 et M7 dans le document, réouverture et annulation comme O8 et O10, proxies `…features.joints.tongue_groove.TongueGrooveJoint` et `…features.joints.rabbet.RabbetJoint`. | I |
 | R2 | Cadre et panneau : panneau de 10 mm logé en rainure-languette (languette de 10 mm d'épaisseur) dans un montant de 22 → rainure de 10 × 11 filante ; changer la largeur du panneau par expression → la rainure suit. | I |
-| T1 | **Tourillons, valeurs automatiques** : diamètre = plus grand de 6, 8, 10, 12 ne dépassant pas la moitié de l'épaisseur au contact et dont le perçage, décalage dans l'épaisseur compris, reste dans cette épaisseur (rayon + \|décalage\| < demi-épaisseur − 0,01) (22 → **10**, 18 → **8**, 16 → 8, 12 → **6** ; 22 décalé de 6 → 8 ; 10 → refus « pièces trop minces pour des tourillons », 12 mm au moins sans décalage) ; longueur selon le diamètre : 6 → 30, 8 → **35**, 10 → 40, 12 → 50 (diamètre saisi hors de ces valeurs : longueur du plus grand diamètre du commerce qui ne le dépasse pas, 30 en dessous de 6) ; profondeur dans l'hôte = moitié de la longueur ; perçages = profondeur + **1** de jeu de fond de chaque côté ; distance au bord = 2 × diamètre ; nombre = 1 (au milieu) si contact − 2 × distance ≤ diamètre + 0,01, sinon max(2, ⌈(contact − 2 × distance) / 128⌉ + 1), réduit tant que l'entraxe serait ≤ diamètre + 0,01 : le nombre automatique n'est jamais refusé pour l'entraxe (traverse de 45 × 22 → 1 tourillon) ; répartis régulièrement ; centrés dans l'épaisseur. Exemples : contact 60 × 22 → 2 tourillons Ø 10 × 40 à 20 et 40 mm ; contact 300 × 18 → 4 tourillons Ø 8 × 35 à 16, 105,33, 194,67 et 284 mm. | U |
+| T1 | **Tourillons, valeurs automatiques** : diamètre = plus grand de 6, 8, 10, 12 ne dépassant pas la moitié de l'épaisseur au contact et dont le perçage, décalage dans l'épaisseur compris, reste dans cette épaisseur (rayon + \|décalage\| < demi-épaisseur − 0,01) (22 → **10**, 18 → **8**, 16 → 8, 12 → **6** ; 22 décalé de 6 → 8 ; 10 → refus « pièces trop minces pour des tourillons », 12 mm au moins sans décalage) ; longueur selon le diamètre : 6 → 30, 8 → **35**, 10 → 40, 12 → 50 (diamètre saisi hors de ces valeurs : longueur du plus grand diamètre du commerce qui ne le dépasse pas, 30 en dessous de 6) ; profondeur dans l'hôte = moitié de la longueur ; perçages = profondeur + **1** de jeu de fond de chaque côté ; distance au bord = 2 × diamètre ; nombre = 1 (au milieu) si contact − 2 × distance ≤ diamètre + 0,01, sinon min(50, max(2, ⌈(contact − 2 × distance) / 128⌉ + 1)) (plafonné à `MAX_DOWEL_COUNT` = 50 : contact de 20 m → 50 tourillons, entraxe alors supérieur à 128 mm), réduit tant que l'entraxe serait ≤ diamètre + 0,01 : le nombre automatique n'est jamais refusé pour l'entraxe (traverse de 45 × 22 → 1 tourillon) ; répartis régulièrement ; centrés dans l'épaisseur. Exemples : contact 60 × 22 → 2 tourillons Ø 10 × 40 à 20 et 40 mm ; contact 300 × 18 → 4 tourillons Ø 8 × 35 à 16, 105,33, 194,67 et 284 mm. | U |
 | T2 | Tourillons, paramètres saisis (diamètre, longueur, profondeur dans l'hôte, nombre, distance au bord, décalage) respectés ; refus : perçage qui traverse ou laisse moins de 3 mm de fond, diamètre ≥ épaisseur au contact, profondeur ≥ longueur, nombre qui ne tient pas. | U |
 | T3 | `make_dowels` dans le document : la forme de l'assemblage est l'ensemble des tourillons (cylindres), les deux pièces usinées sont percées ; volume = brute − perçages. | I |
 | T4 | **Le nombre suit** (exigence de jv) : contact passé de 60 à 300 mm par une expression sur la largeur de la pièce → un recompute → 4 tourillons, perçages recalculés ; `Count` saisi à 3 → toujours 3. | I |
@@ -365,7 +365,7 @@ Ajustement serré : aucun jeu latéral (Q3).
 | Tourillons | `diameter` / `Diameter` | 0 | plus grand de 6, 8, 10, 12 ≤ ½ épaisseur au contact, perçage dans l'épaisseur décalage compris |
 | | `dowel_length` / `DowelLength` | 0 | 6 → 30, 8 → 35, 10 → 40, 12 → 50 ; autre diamètre : celle du plus grand diamètre du commerce qui ne le dépasse pas (30 en dessous de 6) |
 | | `host_depth` / `HostDepth` | 0 | moitié de la longueur |
-| | `count` / `Count` | 0 | voir T1 (entraxe au plus 128 mm, au moins 2 si la place le permet, jamais refusé pour l'entraxe) |
+| | `count` / `Count` | 0 | voir T1 (entraxe au plus 128 mm, 50 au plus, au moins 2 si la place le permet, jamais refusé pour l'entraxe) |
 | | `edge_distance` / `EdgeDistance` | 0 | 2 × diamètre |
 | | `thickness_offset` / `ThicknessOffset` | 0 | centrés |
 | | `hole_clearance` / `HoleClearance` | 1 mm | jeu de fond de chaque perçage |
@@ -414,8 +414,8 @@ Propriétés communes (groupe « Assemblage ») :
 
 | Propriété | Type | Défaut | Édition | Infobulle |
 |---|---|---|---|---|
-| `HostPart` | `App::PropertyLink` | — | oui | Pièce qui reçoit l'assemblage : mortaise, rainure, feuillure, ou premier côté percé. |
-| `GuestPart` | `App::PropertyLink` | — | oui | Pièce qui porte le tenon ou la languette, se loge dans la feuillure, ou second côté percé. |
+| `HostPart` | `App::PropertyLink` | — | lecture seule | Pièce qui reçoit l'assemblage : mortaise, rainure, feuillure, ou premier côté percé. |
+| `GuestPart` | `App::PropertyLink` | — | lecture seule | Pièce qui porte le tenon ou la languette, se loge dans la feuillure, ou second côté percé. |
 | `Version` | `App::PropertyInteger` (groupe Base) | 1 | masquée | Version du modèle de données de l'assemblage, utilisée pour migrer les anciens fichiers. |
 
 ```python
@@ -432,6 +432,16 @@ def plan_for(joint: DocumentObject) -> JointPlan: ...   # ValueError traduit (Jo
 def resolved_for(joint: DocumentObject) -> object: ...  # valeurs effectives pour le panneau
 def create_mortise_tenon(doc, host, guest, **params) -> DocumentObject: ...  # sans transaction ni recalcul
 ```
+
+`HostPart` et `GuestPart` sont en lecture seule dans l'éditeur de propriétés (défaut D1) :
+changer une pièce d'un assemblage demanderait de mettre à jour les `Joints` des pièces usinées.
+L'inversion hôte / invitée reste possible par le bouton « Inverser » du panneau (les deux pièces
+restent les mêmes). Si un script modifie quand même l'une d'elles, `execute` de l'assemblage
+lève une `ValueError` traduite (« Les pièces de l'assemblage « … » ne correspondent plus à ses
+pièces usinées : supprimez l'assemblage puis recréez-le. ») lorsque les brutes des pièces
+usinées qui le listent ne sont pas exactement `HostPart` et `GuestPart` ; la pièce usinée qui
+liste un assemblage qui ne la relie plus lève la même erreur. Aucune forme partielle : les
+pièces usinées gardent leur forme précédente.
 
 Les fabriques valident (deux pièces distinctes, `WoodPart` ou `MachinedPart`, même document,
 même conteneur), résolvent les brutes, créent l'assemblage, puis `ensure_machined_part` pour
