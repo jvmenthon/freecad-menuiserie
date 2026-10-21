@@ -180,6 +180,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Bibliothèque de matériaux vide : la commande « Pièce de bois » est inactive et, lancée
   quand même, affiche un message traduit au lieu d'une trace d'exception.
 - Avertissement d'épaisseur hors standard affiché en texte brut (`textFormat` PlainText).
+- Pièce d'un assemblage modifiée par un script (défaut D1, J3) : `HostPart` et `GuestPart` sont
+  en lecture seule dans l'éditeur de propriétés (l'inversion reste possible par « Inverser ») ;
+  modifiées quand même, l'assemblage passe en erreur avec un message traduit (supprimer puis
+  recréer l'assemblage) au lieu de rester valide sans usiner les pièces.
 
 ### Sécurité
 - Fermer le document pendant le panneau de création faisait planter FreeCAD 1.0 (J1c-3, audit

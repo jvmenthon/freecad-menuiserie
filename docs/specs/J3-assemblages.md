@@ -414,8 +414,8 @@ Propriétés communes (groupe « Assemblage ») :
 
 | Propriété | Type | Défaut | Édition | Infobulle |
 |---|---|---|---|---|
-| `HostPart` | `App::PropertyLink` | — | oui | Pièce qui reçoit l'assemblage : mortaise, rainure, feuillure, ou premier côté percé. |
-| `GuestPart` | `App::PropertyLink` | — | oui | Pièce qui porte le tenon ou la languette, se loge dans la feuillure, ou second côté percé. |
+| `HostPart` | `App::PropertyLink` | — | lecture seule | Pièce qui reçoit l'assemblage : mortaise, rainure, feuillure, ou premier côté percé. |
+| `GuestPart` | `App::PropertyLink` | — | lecture seule | Pièce qui porte le tenon ou la languette, se loge dans la feuillure, ou second côté percé. |
 | `Version` | `App::PropertyInteger` (groupe Base) | 1 | masquée | Version du modèle de données de l'assemblage, utilisée pour migrer les anciens fichiers. |
 
 ```python
@@ -432,6 +432,16 @@ def plan_for(joint: DocumentObject) -> JointPlan: ...   # ValueError traduit (Jo
 def resolved_for(joint: DocumentObject) -> object: ...  # valeurs effectives pour le panneau
 def create_mortise_tenon(doc, host, guest, **params) -> DocumentObject: ...  # sans transaction ni recalcul
 ```
+
+`HostPart` et `GuestPart` sont en lecture seule dans l'éditeur de propriétés (défaut D1) :
+changer une pièce d'un assemblage demanderait de mettre à jour les `Joints` des pièces usinées.
+L'inversion hôte / invitée reste possible par le bouton « Inverser » du panneau (les deux pièces
+restent les mêmes). Si un script modifie quand même l'une d'elles, `execute` de l'assemblage
+lève une `ValueError` traduite (« Les pièces de l'assemblage « … » ne correspondent plus à ses
+pièces usinées : supprimez l'assemblage puis recréez-le. ») lorsque les brutes des pièces
+usinées qui le listent ne sont pas exactement `HostPart` et `GuestPart` ; la pièce usinée qui
+liste un assemblage qui ne la relie plus lève la même erreur. Aucune forme partielle : les
+pièces usinées gardent leur forme précédente.
 
 Les fabriques valident (deux pièces distinctes, `WoodPart` ou `MachinedPart`, même document,
 même conteneur), résolvent les brutes, créent l'assemblage, puis `ensure_machined_part` pour

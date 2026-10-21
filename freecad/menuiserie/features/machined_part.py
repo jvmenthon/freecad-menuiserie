@@ -19,7 +19,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import READ_ONLY, DocumentObject, proxy_is
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint, plan_for
+from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import machined_shape
 from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
@@ -162,12 +162,16 @@ def _checked_blank(obj: DocumentObject) -> DocumentObject:
 
 
 def _machining_of(obj: DocumentObject, blank: DocumentObject) -> tuple[list[Solid], list[Solid]]:
-    """Ajouts et enlèvements de ``blank`` d'après les plans de chacun de ses assemblages."""
+    """Ajouts et enlèvements de ``blank`` d'après les plans de chacun de ses assemblages ;
+    ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce modifiée par un
+    script)."""
     additions: list[Solid] = []
     cuts: list[Solid] = []
     for joint in obj.Joints:
         if not is_joint(joint):
             raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
+        if blank not in (joint.HostPart, joint.GuestPart):
+            raise parts_mismatch(joint)
         plan = plan_for(joint)
         if joint.HostPart == blank:
             additions.extend(plan.host_additions)

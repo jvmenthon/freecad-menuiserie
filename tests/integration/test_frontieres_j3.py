@@ -307,7 +307,9 @@ def test_pieces_de_12_mm(document: Any, factory: str) -> None:
         assert touched(document) == []
 
 
-# --- Défauts constatés (xfail strict, numérotés D1… pour J3) -------------------------------
+# --- D1 (J3) : pièces d'un assemblage modifiées par un script ------------------------------
+
+PARTS_MISMATCH = "ne correspondent plus à ses pièces usinées"
 
 
 def joints_consistent(doc: Any) -> list[str]:
@@ -326,15 +328,21 @@ def joints_consistent(doc: Any) -> list[str]:
     return problems
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D1 (J3) : HostPart modifiable, mais la pièce usinée n'est pas mise à jour : "
-    "l'assemblage reste valide, l'ancienne pièce perd sa mortaise et la nouvelle ne la "
-    "reçoit pas (machined_part.py, _machining_of ignore l'assemblage en silence).",
-)
 def test_changer_la_piece_hote_d_un_assemblage(cadre: Cadre) -> None:
     joints = assemble_mixed(cadre)
     joint = joints["mt_m1_t1"]
+    assert joint.getEditorMode("HostPart") == ["ReadOnly"]
+    assert joint.getEditorMode("GuestPart") == ["ReadOnly"]
     joint.HostPart = cadre.parts["M2"]  # T1 touche aussi M2 par son autre bout
     cadre.doc.recompute()
+    assert "Invalid" in joint.State
+    assert PARTS_MISMATCH in joint.getStatusString()
+    machined = cadre.machined("M1")
+    with pytest.raises(ValueError, match=PARTS_MISMATCH):
+        machined.Proxy.execute(machined)
+    # Jamais de forme partielle : les pièces usinées gardent leurs formes précédentes.
+    assert volumes(cadre) == pytest.approx(MIXED_VOLUMES)
+    joint.HostPart = cadre.parts["M1"]
+    cadre.doc.recompute()
+    assert_mixed(cadre)
     assert joints_consistent(cadre.doc) == []

@@ -76,8 +76,8 @@ MACHINED_PROPERTIES = [
     ("Version", "App::PropertyInteger", "Base", ["Hidden"]),
 ]
 JOINT_PROPERTIES = [
-    ("HostPart", "App::PropertyLink", "Assemblage", [], None),
-    ("GuestPart", "App::PropertyLink", "Assemblage", [], None),
+    ("HostPart", "App::PropertyLink", "Assemblage", ["ReadOnly"], None),
+    ("GuestPart", "App::PropertyLink", "Assemblage", ["ReadOnly"], None),
     ("Version", "App::PropertyInteger", "Base", ["Hidden"], 1),
     ("TenonThickness", LENGTH, "Tenon", [], 0.0),
     ("TenonWidth", LENGTH, "Tenon", [], 0.0),
