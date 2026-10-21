@@ -8,16 +8,19 @@ c'est à l'appelant (``api.py``, commandes) de les faire.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core.furniture import (
     Edge,
+    EdgeEdit,
     FurnitureBox,
     FurnitureError,
     InteriorMode,
     Notice,
     check_membership,
+    edge_edit,
     label_reference,
 )
 from freecad.menuiserie.core.geometry import Vec3
@@ -61,6 +64,7 @@ __all__ = [
     "relink",
     "remove_members",
     "resize",
+    "set_edge_distance",
     "set_options",
 ]
 
@@ -92,6 +96,9 @@ _UNKNOWN_EDGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Option « fixe » inconnue : « {value} » (Left, Right, Front, Back, Bottom ou Top, avec "
     "vrai ou faux).",
+)
+_INVALID_DISTANCE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Distance au bord invalide : « {value} » (nombre fini en mm attendu)."
 )
 _DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -335,3 +342,46 @@ def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list
         for name in changed:
             setattr(furniture, name, getattr(new, name.lower()))
     return notices
+
+
+def _shifted(obj: DocumentObject, change: EdgeEdit) -> None:
+    """Déplace l'origine locale de ``obj`` (``Placement`` d'une pièce, ``Origin`` d'un
+    sous-ensemble) de ``change.shift`` le long de son axe."""
+    coordinate = "xyz"[change.axis.index]
+    if is_furniture(obj):
+        origin = obj.Origin
+        setattr(origin, coordinate, getattr(origin, coordinate) + change.shift)
+        obj.Origin = origin
+        return
+    placement = obj.Placement
+    base = placement.Base
+    setattr(base, coordinate, getattr(base, coordinate) + change.shift)
+    placement.Base = base
+    obj.Placement = placement
+
+
+def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> list[Notice]:
+    """Distance ``distance`` (mm) entre la face ``edge`` (``Left`` … ``Top``) d'un membre et
+    ce bord de son ensemble : la pièce est déplacée, ou sa cote change si la distance opposée
+    est fixe (:func:`~freecad.menuiserie.core.furniture.edge_edit`) ; options inchangées, puis
+    ce seul membre est relié. Refus avant modification."""
+    member = member_object(obj)
+    furniture = furniture_of(member)
+    if furniture is None:
+        raise ValueError(translated(_NOT_IN_FURNITURE, _quoted(member)))
+    if edge not in {item.value for item in Edge}:
+        raise ValueError(translated(_UNKNOWN_EDGE, {"value": quoted_value(edge)}))
+    value = float(distance) if isinstance(distance, int | float) else math.nan
+    if not math.isfinite(value) or isinstance(distance, bool):
+        raise ValueError(translated(_INVALID_DISTANCE, {"value": quoted_value(distance)}))
+    members = read_members(furniture)
+    target = next(item for item in members.members if item.key == member.Name)
+    with translated_errors():
+        change = edge_edit(target, members.box, Edge(edge), value)
+    with writing(member):
+        remove_bindings(member)
+        if change.prop is not None:
+            setattr(member, change.prop, change.size)
+        if change.shift:
+            _shifted(member, change)
+    return bind_members(read_members(furniture), [member.Name])

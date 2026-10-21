@@ -42,12 +42,11 @@ DOVETAIL: Final = "Menuiserie_Dovetail"
 MITER: Final = "Menuiserie_Miter"
 
 
-class JointCommand:
-    """Base des commandes d'assemblage (Command) : chaque sous-classe fournit son nom, la
-    fabrique de l'api, ses textes et le nom de sa transaction."""
+class TransactionCommand:
+    """Base des commandes de l'atelier qui portent une entrée d'annulation (assemblages,
+    ensembles) : nom (aussi celui de l'icône), textes et nom de la transaction."""
 
     NAME: ClassVar[str]
-    FACTORY: ClassVar[Factory]  # fabrique de freecad.menuiserie.api, lue sur la classe
     MENU_TEXT: ClassVar[str]
     TOOL_TIP: ClassVar[str]
     TRANSACTION: ClassVar[str]
@@ -59,6 +58,13 @@ class JointCommand:
             "MenuText": self.MENU_TEXT,
             "ToolTip": self.TOOL_TIP,
         }
+
+
+class JointCommand(TransactionCommand):
+    """Base des commandes d'assemblage (Command) : chaque sous-classe fournit son nom, la
+    fabrique de l'api, ses textes et le nom de sa transaction."""
+
+    FACTORY: ClassVar[Factory]  # fabrique de freecad.menuiserie.api, lue sur la classe
 
     def IsActive(self) -> bool:
         """Active si aucun panneau n'est ouvert et que deux pièces distinctes sont

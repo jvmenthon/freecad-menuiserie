@@ -219,6 +219,7 @@ __all__ += [
     "rebind_furniture",
     "remove_from_furniture",
     "resize_furniture",
+    "set_edge_distance",
     "set_member_options",
 ]
 
@@ -245,6 +246,10 @@ def make_furniture(
     transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
     """
     furniture, notices = furniture_members.build_furniture(objects, label)
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
+
+        ViewProviderFurniture(furniture.ViewObject)
     return furniture, _reported(notices, furniture.Document)
 
 
@@ -271,6 +276,16 @@ def set_member_options(
     """Change le mode (``Stay``, ``Proportional``) et les options « fixe » d'un membre
     (``fixed={"Back": False}``), relie ce seul membre et recalcule."""
     notices = furniture_members.set_options(obj, mode, fixed)
+    return _reported(notices, obj.Document)
+
+
+def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> _Notices:
+    """Règle à ``distance`` mm l'écart entre une face d'un membre et le bord ``edge``
+    (``Left``, ``Right``, ``Front``, ``Back``, ``Bottom``, ``Top``) de son ensemble : la pièce
+    est déplacée, ou sa cote change si la distance opposée est fixe. Options inchangées ; ce
+    seul membre est relié, puis le document recalculé. Refus avant modification (face pilotée
+    par une formule, pièce qui n'est pas d'équerre, cote hors bornes)."""
+    notices = furniture_members.set_edge_distance(obj, edge, distance)
     return _reported(notices, obj.Document)
 
 

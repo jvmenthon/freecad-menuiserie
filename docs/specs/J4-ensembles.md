@@ -230,6 +230,44 @@ les ADR, à confirmer par l'architecte) :
 | P6 | Aucun observateur global laissé en place ; aucune préférence hors de `Mod/Menuiserie` ; chaînes traduisibles ; `from PySide import …` seulement. | G + revue |
 | P7 | Scénario du livrable (bureau dessiné à la main, Ensemble, profondeur 600 → 800 (les joues suivent par défaut), « fixe » décoché puis recoché à l'arrière des joues, voile en proportion, formule de l'utilisateur, annuler, rétablir, enregistrer, rouvrir, Std Part + `App::Link`, vue TechDraw) sur FreeCAD 1.0 et 1.1 ; coexistence avec l'atelier Assembly intégré (le Std Part sert de composant) ; captures dans la PR. | manuel |
 
+**Notes de réalisation de J4c** (dev, 2026-10-21 ; décisions les plus simples cohérentes avec
+la spécification et les ADR, à confirmer par l'architecte) :
+
+1. **Modules** : `gui/view_providers/furniture.py`, `gui/commands/furniture.py`,
+   `gui/task_panels/furniture.py` et `furniture_widgets.py` ; lecture seule des membres pour le
+   panneau dans `features/furniture_view.py` ; règles pures du panneau dans
+   `core/furniture/_edit.py` (`follow_summary`, `driven_edges`, `edge_edit`, testées sans
+   FreeCAD) ; `set_edge_distance` ajoutée à l'api. La base `TransactionCommand` (nom, textes,
+   icône, transaction) est extraite de `JointCommand` pour éviter un doublon.
+2. **Commandes** : en plus des deux de P1, `Menuiserie_FurnitureRemove` (« Retirer de
+   l'ensemble ») et `Menuiserie_FurnitureRebind` (« Relier les pièces »), demandées pour J4c ;
+   une entrée d'annulation chacune, un refus n'en laisse aucune. « Ensemble » accepte aussi des
+   ensembles (ils deviennent des sous-ensembles) et n'ouvre pas de panneau (double-clic
+   ensuite). « Ajouter » : le **premier ensemble sélectionné** reçoit tous les autres objets
+   sélectionnés. `make_furniture` pose le ViewProvider quand l'interface est chargée (§ 4.4.4).
+3. **Cote refusée dans le panneau** : elle **n'est pas écrite** (Q4 ★ : « le panneau, lui,
+   refuse avant ») ; le refus s'affiche sous les cotes, « OK » est inactif et refusé jusqu'à une
+   cote acceptée ; « Annuler » reste possible. Une cote saisie dans l'éditeur de propriétés
+   reste appliquée avec un avertissement (Q4, J4b′). « OK » est désactivé par le bouton que
+   FreeCAD passe à `modifyStandardButtons`.
+4. **Distance saisie** (P3, § 4.6) : sur un axe étirable dont la distance **opposée est
+   fixe**, la face opposée est conservée et la cote change ; sinon (option opposée non fixe, ou
+   axe de l'épaisseur) la pièce est déplacée. Puis ce seul membre est relié ; les options ne
+   changent jamais. Refus avant modification : pièce pas d'équerre, face pilotée par une
+   formule, cote hors bornes.
+5. **Colonne « Suit »** : calculée par les règles (pas d'après les expressions enregistrées),
+   donc juste avant « OK » ; les mots se cumulent dans l'ordre « pas d'équerre » (seul),
+   « formule », « étirée », « déplacée », « proportion » ; « fixe » seulement si rien ne bouge.
+   Une propriété pilotée par l'utilisateur n'y compte pas comme un mouvement.
+6. **Faces pilotées** (P5) : les deux distances d'un axe sont inactives dès que la position ou
+   la cote du membre sur cet axe suit une formule de l'utilisateur ; toutes pour un membre qui
+   n'est pas d'équerre.
+7. **Mode** : choisi dans une liste « Position » sous la liste des membres (la colonne
+   « Position » ne fait que l'afficher).
+8. **Suppression dans l'interface** (P2) : `onDelete` retire liaisons **et** propriétés de
+   membre (`remove_members`) ; un `removeObject` par script laisse toujours des orphelins
+   (note 13 de J4b′).
+
 ### J4d — Gabarit « Caisson » (`core/templates/`, `features/templates.py`, `gui/`)
 
 Q5 : seul le caisson est livré en J4. **Caisson de référence** : 600 × 400 × 720 (L × P × H),

@@ -32,6 +32,11 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         "Menuiserie_HalfLap",
         "Menuiserie_Dovetail",
         "Menuiserie_Miter",
+        # Ensembles (J4c)
+        "Menuiserie_Furniture",
+        "Menuiserie_FurnitureAdd",
+        "Menuiserie_FurnitureRemove",
+        "Menuiserie_FurnitureRebind",
     )
 
     def Initialize(self) -> None:
@@ -42,6 +47,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
 
         wood_part.register()
         joints.register()
+        from freecad.menuiserie.gui.commands import furniture
+
+        furniture.register()
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 
