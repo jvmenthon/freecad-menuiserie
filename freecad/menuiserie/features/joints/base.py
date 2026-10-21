@@ -106,6 +106,12 @@ class JointFeature(StatelessProxy):
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = ()
     PARAMS: ClassVar[type]  # objet valeur des paramètres de ``core`` (``MortiseTenonParams``…)
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Refuse dès l'import un type d'assemblage sans ``PARAMS`` (sinon : erreur au recalcul)."""
+        super().__init_subclass__(**kwargs)
+        if not isinstance(getattr(cls, "PARAMS", None), type):
+            raise TypeError(f"{cls.__name__}.PARAMS doit être le type de ses paramètres")
+
     def __init__(self, obj: DocumentObject) -> None:
         """Ajoute les propriétés communes puis celles du type, à leurs valeurs par défaut."""
         obj.Proxy = self

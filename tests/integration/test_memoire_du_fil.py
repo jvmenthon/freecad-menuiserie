@@ -108,7 +108,7 @@ def test_memoire_enregistree(document: Any, rouvrir: Reopen, board: Board) -> No
 
 def test_la_memoire_suit_l_annulation(document: Any, board: Board) -> None:
     document.UndoMode = 1
-    obj = board(document)
+    obj = board(document, grain="Length")
     steps = (
         lambda: setattr(obj, "GrainDirection", "Width"),
         lambda: wood_part.set_material(obj, "mdf"),
