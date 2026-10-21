@@ -157,6 +157,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   chemin de `WoodPart` inchangé. Alias de type et modes d'édition partagés dans
   `features/freecad_types.py`, `translated()` déplacée de `features/library.py` vers
   `features/i18n.py` ; bibliothèque lue une fois par réouverture d'une pièce.
+- Suites de la revue de code J3, sans changement de comportement ni de document : type des
+  paramètres d'assemblage déclaré par `PARAMS`, bases communes `StatelessProxy` (proxys) et
+  `PanelEditing` (ViewProviders), aides partagées des panneaux (`UpdateGuard`,
+  `expression_of`, `aborted_on_error`, `panel_title`) et de la vue rapport (`report_warning`),
+  bornes du nombre de tourillons lues dans la propriété ; code mort retiré (`to_host`,
+  `to_guest`, `TextureCache.usable`, `BudgetedCache.clear`, `JOINT_CLASSES`).
 
 ### Corrigé
 - Panneau de la brute ouvert depuis sa pièce usinée puis fermé par FreeCAD (brute supprimée,
