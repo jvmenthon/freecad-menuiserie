@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""L'ensemble dans le document : création, suivi des cotes, options (J4b', N1 à N7, B5)."""
+"""L'ensemble dans le document : création, suivi des cotes, options (J4b', N1 à N7, B5, D7, A6)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 
 from tests.integration.bureau import EXPRESSIONS, LAYOUT, Bureau, build_desk, build_parts
 from tests.integration.cadre import stale_or_invalid
-from tests.integration.types_assemblages import DOVETAIL, HALF_LAP, blanks
+from tests.integration.types_assemblages import DOVETAIL, HALF_LAP, MITER, blanks
 
 pytestmark = pytest.mark.integration
 
@@ -343,5 +343,30 @@ def test_tiroir_a_queues_d_aronde_qui_suit_la_hauteur(document: Any) -> None:
     machined = [api.machined_part_of(part) for part in (host, guest)]
     assert [m.Shape.Volume for m in machined] == pytest.approx([blank - tails, blank + tails])
     assert joint.TailCount == 0
+    assert all(len(m.Shape.Solids) == 1 for m in machined)
+    assert stale_or_invalid(document) == []
+
+
+# --- A6 : onglet dans un ensemble --------------------------------------------------------------
+
+
+def test_cadre_a_onglets_qui_suit_les_cotes(document: Any) -> None:
+    """Angle à onglet : chaque traverse s'allonge avec l'ensemble (bords touchés fixes), un
+    seul recalcul, onglets toujours jointifs."""
+    host, guest = blanks(document, MITER, frame=App.Placement())
+    api.make_miter(host, guest)
+    furniture, notices = api.make_furniture([host, guest], label="Cadre")
+    assert notices == ()
+    assert (furniture.Width.Value, furniture.Depth.Value) == pytest.approx((500, 500))
+    api.set_member_options(host, fixed={"Back": False})  # la traverse ne touche que l'avant
+    api.set_member_options(guest, fixed={"Right": False})  # ... et celle-ci que la gauche
+    api.resize_furniture(furniture, width=700, depth=600)
+    assert (host.Length.Value, guest.Length.Value) == pytest.approx((700, 600))
+    machined = [api.machined_part_of(part) for part in (host, guest)]
+    cut = 60 * 60 * 20 / 2
+    assert [m.Shape.Volume for m in machined] == pytest.approx(
+        [700 * 60 * 20 - cut, 600 * 60 * 20 - cut]
+    )
+    assert machined[0].Shape.common(machined[1].Shape).Volume == pytest.approx(0, abs=1e-6)
     assert all(len(m.Shape.Solids) == 1 for m in machined)
     assert stale_or_invalid(document) == []
