@@ -32,6 +32,11 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         "Menuiserie_HalfLap",
         "Menuiserie_Dovetail",
         "Menuiserie_Miter",
+        # Ensembles (J4c)
+        "Menuiserie_Furniture",
+        "Menuiserie_FurnitureAdd",
+        "Menuiserie_FurnitureRemove",
+        "Menuiserie_FurnitureRebind",
     )
     # Gabarits (J4d)
     commands += ("Menuiserie_Carcass",)
@@ -44,6 +49,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
 
         wood_part.register()
         joints.register()
+        from freecad.menuiserie.gui.commands import furniture
+
+        furniture.register()
         from freecad.menuiserie.gui.commands import carcass  # gabarits (J4d)
 
         carcass.register()

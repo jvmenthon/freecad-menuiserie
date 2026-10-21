@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifie l'atelier dans l'interface de FreeCAD : chargement, affichage des pièces, textures,
-puis commande et panneau de tâche (``verifications_panneau.py``).
+puis commande et panneau de tâche (``verifications_panneau.py``), assemblages et ensembles
+(``verifications_ensemble.py``, ``verifications_panneau_ensemble.py``).
 
 Exécuté par FreeCAD lui-même (pas par pytest), l'atelier étant installé dans le
 dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -30,10 +31,12 @@ import FreeCADGui as Gui
 
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
+from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
 from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASSEMBLAGE
+from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
 from tests.gui.verifications_panneau_limites import DEFAUTS_CONSTATES, VERIFICATIONS_LIMITES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
@@ -1220,6 +1223,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_PANNEAU_ASSEMBLAGE,
     *VERIFICATIONS_QUEUE_ARONDE,
     *VERIFICATIONS_ONGLET,
+    *VERIFICATIONS_ENSEMBLE,
+    *VERIFICATIONS_PANNEAU_ENSEMBLE,
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
 )

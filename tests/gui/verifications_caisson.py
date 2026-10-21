@@ -22,6 +22,7 @@ from tests.gui.verifications_panneau import (
     choisir,
     ecarts,
     emplacements,
+    formulaire_nomme,
     saisir,
     valider,
 )
@@ -33,8 +34,7 @@ FORM = "CarcassTaskPanel"
 
 def formulaire() -> Any:
     """Formulaire du panneau du caisson ouvert (``None`` s'il n'y en a pas)."""
-    trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == FORM]
-    return trouves[0] if trouves else None
+    return formulaire_nomme(FORM)
 
 
 def compte(doc: Any) -> dict[str, int]:

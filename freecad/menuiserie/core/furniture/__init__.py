@@ -24,6 +24,13 @@ from freecad.menuiserie.core.furniture._defaults import (
     fixed_by_default,
     with_default_options,
 )
+from freecad.menuiserie.core.furniture._edit import (
+    EdgeEdit,
+    Follow,
+    driven_edges,
+    edge_edit,
+    follow_summary,
+)
 from freecad.menuiserie.core.furniture._follow import Linear, Rules, follow_rules
 from freecad.menuiserie.core.furniture._model import (
     Anchor,
@@ -44,6 +51,8 @@ __all__ = [
     "Anchor",
     "Binding",
     "Edge",
+    "EdgeEdit",
+    "Follow",
     "FollowRule",
     "FurnitureAxis",
     "FurnitureBox",
@@ -60,11 +69,14 @@ __all__ = [
     "check_membership",
     "check_resize",
     "default_fixed",
+    "driven_edges",
     "driven_properties",
     "edge_distances",
+    "edge_edit",
     "expression_text",
     "fixed_by_default",
     "follow_rules",
+    "follow_summary",
     "is_driven",
     "label_reference",
     "member_spans",

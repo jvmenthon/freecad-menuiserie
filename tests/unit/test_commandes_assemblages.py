@@ -17,6 +17,7 @@ import pytest
 from freecad.menuiserie import ICONS_DIR
 from freecad.menuiserie.core.joints import JointKind
 from tests.commandes_assemblages import COMMANDES_ASSEMBLAGE
+from tests.commandes_ensembles import COMMANDES_ENSEMBLE
 from tests.unit.aides import ROOT
 
 PACKAGE = ROOT / "freecad" / "menuiserie"
@@ -56,9 +57,15 @@ def module_constants(path: Path) -> dict[str, object]:
 
 def joint_commands() -> dict[str, dict[str, ast.expr]]:
     """Attributs des sous-classes de ``JointCommand``, par nom de commande (``NAME``)."""
-    constants = module_constants(COMMANDS)
+    return commands_of(COMMANDS)
+
+
+def commands_of(path: Path) -> dict[str, dict[str, ast.expr]]:
+    """Attributs des classes de commande du module ``path``, par nom de commande (``NAME``,
+    constante du module)."""
+    constants = module_constants(path)
     commands = {}
-    for attributes in class_attributes(COMMANDS).values():
+    for attributes in class_attributes(path).values():
         name = attributes.get("NAME")
         if isinstance(name, ast.Name):
             commands[str(constants[name.id])] = attributes
@@ -100,7 +107,11 @@ def test_noms_des_commandes_selon_les_types() -> None:
 
 def test_commandes_dans_la_barre_et_le_menu() -> None:
     """Seule vérification du tuple complet des commandes de l'atelier (revue J3d, S6)."""
-    assert init_gui_commands() == ("Menuiserie_WoodPart", *COMMANDES_ASSEMBLAGE)
+    assert init_gui_commands() == (
+        "Menuiserie_WoodPart",
+        *COMMANDES_ASSEMBLAGE,
+        *COMMANDES_ENSEMBLE,
+    )
 
 
 @pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))

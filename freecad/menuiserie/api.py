@@ -34,7 +34,7 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
-from freecad.menuiserie.features import furniture_members, templates
+from freecad.menuiserie.features import furniture_edges, furniture_members, templates
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
@@ -222,6 +222,7 @@ __all__ += [
     "rebind_furniture",
     "remove_from_furniture",
     "resize_furniture",
+    "set_edge_distance",
     "set_member_options",
 ]
 
@@ -248,6 +249,10 @@ def make_furniture(
     transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
     """
     furniture, notices = furniture_members.build_furniture(objects, label)
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
+
+        ViewProviderFurniture(furniture.ViewObject)
     return furniture, _reported(notices, furniture.Document)
 
 
@@ -274,6 +279,16 @@ def set_member_options(
     """Change le mode (``Stay``, ``Proportional``) et les options « fixe » d'un membre
     (``fixed={"Back": False}``), relie ce seul membre et recalcule."""
     notices = furniture_members.set_options(obj, mode, fixed)
+    return _reported(notices, obj.Document)
+
+
+def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> _Notices:
+    """Règle à ``distance`` mm l'écart entre une face d'un membre et le bord ``edge``
+    (``Left``, ``Right``, ``Front``, ``Back``, ``Bottom``, ``Top``) de son ensemble : la pièce
+    est déplacée, ou sa cote change si la distance opposée est fixe. Options inchangées ; ce
+    seul membre est relié, puis le document recalculé. Refus avant modification (face pilotée
+    par une formule, pièce qui n'est pas d'équerre, cote hors bornes)."""
+    notices = furniture_edges.set_edge_distance(obj, edge, distance)
     return _reported(notices, obj.Document)
 
 
@@ -353,7 +368,8 @@ def make_carcass(
         chosen = params if params is not None else CarcassParams(**values)
     document = doc if doc is not None else App.ActiveDocument or App.newDocument()
     built = templates.build_carcass(document, chosen, furniture)
-    if App.GuiUp:  # ViewProviders des pièces, des pièces usinées et des assemblages
+    if App.GuiUp:  # ViewProviders des pièces, des pièces usinées, des assemblages, de l'ensemble
+        from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
         from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
         from freecad.menuiserie.gui.view_providers.machined_part import ViewProviderMachinedPart
         from freecad.menuiserie.gui.view_providers.wood_part import ViewProviderWoodPart
@@ -362,6 +378,7 @@ def make_carcass(
             (built.parts, ViewProviderWoodPart),
             (built.machined, ViewProviderMachinedPart),
             (built.joints, ViewProviderJoint),
+            ((built.furniture,), ViewProviderFurniture),
         ):
             for obj in group:
                 provider(obj.ViewObject)

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Retirer de l'ensemble : bureau et pastille « moins » -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="21.58,26.26 6.54,34.94 6.54,15.53 21.58,6.85" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="4.33,33.66 4.33,14.26 6.54,15.53 6.54,34.94" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="4.33,14.26 19.37,5.57 21.58,6.85 6.54,15.53" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="8.31,26.77 8.31,14.51 32.19,28.30 32.19,40.55" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="8.31,14.51 10.08,13.49 33.96,27.28 32.19,28.30" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="33.96,39.53 32.19,40.55 32.19,28.30 33.96,27.28" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="47.67,41.32 32.63,50.00 32.63,30.60 47.67,21.91" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="30.42,48.72 30.42,29.32 32.63,30.60 32.63,50.00" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="30.42,29.32 45.46,20.64 47.67,21.91 32.63,30.60" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="2.56,11.70 19.37,2.00 49.44,19.36 32.63,29.06" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="2.56,14.26 2.56,11.70 32.63,29.06 32.63,31.62" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="49.44,21.91 32.63,31.62 32.63,29.06 49.44,19.36" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="16.71,5.57 18.22,6.62 19.77,7.64 21.38,8.63 23.07,9.56 24.83,10.46 26.64,11.33 28.45,12.20 30.23,13.09 31.95,14.01 33.58,14.98 35.15,16.00 36.66,17.04 38.16,18.08 39.69,19.11 41.28,20.11 42.95,21.06" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="10.52,9.15 12.33,10.02 14.10,10.91 15.81,11.84 17.43,12.82 18.99,13.84 20.50,14.88 22.00,15.93 23.54,16.95 25.14,17.94 26.82,18.89 28.57,19.79 30.37,20.67 32.19,21.53 33.97,22.42 35.70,23.34 37.35,24.30" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="49" cy="49" r="13" fill="#ef2929" stroke="#a40000" stroke-width="2"/>
+  <path d="M42,49 H56" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

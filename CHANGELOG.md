@@ -6,6 +6,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
+  **Retirer de l'ensemble** et **Relier les pièces** (une entrée d'annulation chacune, icônes
+  générées) ; `ViewProviderFurniture` (membres, sous-ensembles et assemblages internes rangés
+  sous l'ensemble, liaisons et propriétés de membre retirées à la suppression) ; panneau de
+  tâche (cotes, membres avec leur position et ce qu'ils font quand une cote change, six
+  distances aux bords et cases « fixe » du membre choisi, « Relier les pièces », refus et
+  avertissements) ; `set_edge_distance` dans l'api ; scène des captures avec un ensemble.
 - Gabarit « Caisson » (J4d, ADR 0010) : `core/templates/` (`PieceSpec`, `JointSpec`, `Layout`,
   `CarcassParams`, `carcass_layout`), constructeur unique `features/templates.py`,
   `make_carcass` (côtés, dessus, dessous, fond en feuillure, étagères, tourillons et un ensemble
