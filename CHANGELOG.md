@@ -103,16 +103,28 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   **Rainure-languette**, **Feuillure**, **Tourillons** (base commune `JointCommand`), actives
   pour deux pièces distinctes sélectionnées (brutes ou usinées) et sans panneau ouvert ; rôles
   devinés d'après la position des pièces (ordre de sélection si c'est ambigu) ; une entrée
-  d'annulation « Créer un assemblage … ». Une commande dont la fabrique n'existe pas encore dans
-  l'api reste inactive.
+  d'annulation « Créer un assemblage … ». Un refus de la fabrique (pièces de deux conteneurs…)
+  est affiché dans la barre d'état et la vue rapport.
 - Affichage de la pièce usinée (`ViewProviderMachinedPart`) : icône de la pièce de bois,
   couleur et texture de sa brute (suivent le matériau et le fil), brute rangée dessous dans
   l'arbre ; le double-clic ouvre le panneau de la brute avec aperçu en direct ; suppression
   refusée tant qu'elle porte des assemblages, sinon la brute réapparaît. Assemblages
   (`ViewProviderJoint`) : icône de leur type, couleur hêtre. ViewProviders posés par l'api.
-- Captures de PR : un cadre assemblé par quatre tenons-mortaises à côté du caisson.
+- Captures de PR : un cadre assemblé par quatre tenons-mortaises à côté du caisson, et le
+  panneau d'un tenon-mortaise (`panneau-assemblage.png`).
+- Panneau de tâche des assemblages (J3e), commun aux quatre types et construit d'après la
+  description de leurs paramètres : pièces reliées, bouton **Inverser** (échange hôte et
+  invitée), un champ par paramètre avec case **Auto** pour les cotes automatiques (le champ
+  montre alors la valeur effective). Ouvert par les commandes d'assemblage (**Annuler** ne laisse
+  ni assemblage ni pièce usinée, les brutes réapparaissent) et par double-clic sur un assemblage
+  (entrée « Modifier un assemblage »). Aperçu en direct, erreur d'assemblage affichée dans le
+  panneau, paramètre piloté par une expression jamais écrit.
 
 ### Modifié
+- Panneaux de tâche : transactions, fermeture forcée et surveillance du document dans un socle
+  commun (`gui/task_panels/base.py`, `ObjectTaskPanel`) partagé par la pièce de bois et les
+  assemblages. L'aperçu de la pièce de bois ne recalcule plus les pages TechDraw ni les objets
+  d'autres documents.
 - `core/contact.py` : classement contact / chevauchement / pièces séparées sorti de
   `core/geometry.py` (limite de 400 lignes par module), sans changement de comportement.
 - Apparence d'une pièce (texture et couleur) extraite du ViewProvider de la pièce de bois dans
@@ -147,6 +159,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `features/i18n.py` ; bibliothèque lue une fois par réouverture d'une pièce.
 
 ### Corrigé
+- Panneau de la brute ouvert depuis sa pièce usinée puis fermé par FreeCAD (brute supprimée,
+  Édition > Annuler) : le mode édition est quitté même si la pièce usinée a perdu sa brute.
 - Réouverture d'un document où une propriété de la pièce a un type inattendu (par exemple
   `Category` en texte) : la propriété est recréée avec sa valeur par défaut, avec
   avertissement, au lieu de faire échouer `record_of` (#11).

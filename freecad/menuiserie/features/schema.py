@@ -62,7 +62,11 @@ _MODE_NAMES: Final[Mapping[int, list[str]]] = MappingProxyType(
 @dataclass(frozen=True)
 class PropertySpec:
     """Propriété d'un objet : type FreeCAD, groupe, infobulle, défaut (``None`` : aucun, la
-    propriété garde la valeur vide de son type) et mode d'édition."""
+    propriété garde la valeur vide de son type) et mode d'édition.
+
+    Paramètres d'assemblage (panneau de tâche, J3e) : ``label`` est le libellé du champ
+    (gabarit traduisible, vide : pas de champ) ; ``resolved`` nomme la valeur effective dans le
+    résultat de ``resolve`` quand 0 veut dire « automatique » (vide : pas de case « Auto »)."""
 
     name: str
     type_id: str
@@ -70,6 +74,8 @@ class PropertySpec:
     tooltip: str
     default: object = None
     mode: int = EDITABLE
+    label: str = ""
+    resolved: str = ""
 
 
 def version_spec(tooltip: str, version: int) -> PropertySpec:

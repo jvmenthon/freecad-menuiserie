@@ -10,7 +10,7 @@ jamais écrite par le panneau.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
@@ -30,14 +30,13 @@ from freecad.menuiserie.core.part_model import (
     GrainDirection,
     is_nonstandard_panel_thickness,
 )
-from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import display_language, get_library
-from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.wood_part import set_material, shows_grain
+from freecad.menuiserie.gui.task_panels import base
+from freecad.menuiserie.gui.task_panels.base import ObjectTaskPanel, connect, has_expression
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
-
-Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
 UI_FILE: Final = Path(__file__).with_name("wood_part.ui")
 EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier une pièce de bois")
@@ -86,17 +85,12 @@ LENGTH_FIELDS: Final = (
 )
 
 
-class WoodPartTaskPanel:
+class WoodPartTaskPanel(ObjectTaskPanel):
     """Panneau de tâche d'une pièce de bois, en création (``creating``) ou en modification."""
 
     def __init__(self, obj: DocumentObject, *, creating: bool) -> None:
-        self.obj = obj
-        self.doc = obj.Document
-        self.creating = creating
+        super().__init__(obj, creating=creating)
         self._updating = False
-        self._closed = False
-        self._transaction = App.getActiveTransaction()
-        self._watcher = DeletionWatcher(obj, Gui.Control.closeDialog)
         self.form = Gui.PySideUic.loadUi(str(UI_FILE))
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
         self.form.setWindowTitle(_title(obj, creating))
@@ -109,68 +103,6 @@ class WoodPartTaskPanel:
         self._show_allowances(False)
         self._lock_driven_fields()
         self._connect_signals()
-
-    def accept(self) -> bool:
-        """« OK » : la transaction devient une seule entrée d'annulation."""
-        self._finish(abort=False)
-        return True
-
-    def reject(self) -> bool:
-        """« Annuler » : abandon de la transaction (pièce supprimée ou valeurs rétablies)."""
-        self._finish(abort=True)
-        return True
-
-    def watch_document(self) -> None:
-        """Panneau affiché : FreeCAD le ferme si le document est fermé (sans quoi FreeCAD 1.0
-        plante en détruisant les liaisons d'expression) ou si Édition > Annuler / Rétablir
-        change la transaction ; le mode édition et la transaction sont alors soldés."""
-        dialog = Gui.Control.activeTaskDialog()
-        dialog.setDocumentName(self.doc.Name)
-        dialog.setAutoCloseOnDeletedDocument(True)
-        dialog.setAutoCloseOnTransactionChange(True)
-        _connect(self.form, "destroyed()", self._on_closed_by_freecad)
-        App.addDocumentObserver(self._watcher)
-
-    def getStandardButtons(self) -> int:
-        """Boutons « OK » et « Annuler »."""
-        buttons = QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel
-        return int(getattr(buttons, "value", buttons))  # énumérations de PySide6 ou PySide2
-
-    # --- Fermeture ------------------------------------------------------------------------
-
-    def _finish(self, *, abort: bool) -> None:
-        """Solde la transaction du panneau, sans entrée parasite, puis ferme le panneau."""
-        self._closed = True
-        self._watcher.stop()
-        App.removeDocumentObserver(self._watcher)
-        close_transaction(self._transaction, abort=abort)
-        _close(self.doc)
-
-    def _on_closed_by_freecad(self) -> None:
-        """Formulaire détruit sans « OK » ni « Annuler » (document fermé, pièce supprimée,
-        Édition > Annuler) : la suite est différée hors du signal qui a fermé le panneau."""
-        if self._closed:
-            return
-        self._closed = True
-        self._watcher.stop()
-        QtCore.QTimer.singleShot(0, self._clean_up_after_forced_close)
-
-    def _clean_up_after_forced_close(self) -> None:
-        """Observateur retiré, transaction du panneau abandonnée en création (validée en
-        modification, après recalcul comme avec « OK ») si elle est encore ouverte, mode
-        édition quitté."""
-        App.removeDocumentObserver(self._watcher)
-        name = self._watcher.document_name
-        alive = name in App.listDocuments()
-        if alive and not self.creating:
-            App.getDocument(name).recompute()
-        close_transaction(self._transaction, abort=self.creating)
-        if not alive:
-            return
-        gui_doc = Gui.getDocument(name)
-        in_edit = gui_doc.getInEdit()
-        if in_edit is not None and _edits(in_edit.Object, self._watcher.object_name):
-            gui_doc.resetEdit()
 
     # --- Construction du formulaire -------------------------------------------------------
 
@@ -198,14 +130,14 @@ class WoodPartTaskPanel:
 
     def _connect_signals(self) -> None:
         form = self.form
-        _connect(form.markEdit, "textEdited(QString)", self._on_mark_edited)
-        _connect(form.kindCombo, _INDEX_CHANGED, self._on_kind_chosen)
-        _connect(form.materialCombo, _INDEX_CHANGED, self._on_material_chosen)
-        _connect(form.grainCombo, _INDEX_CHANGED, self._on_grain_chosen)
-        _connect(form.allowancesToggle, "toggled(bool)", self._show_allowances)
+        connect(form.markEdit, "textEdited(QString)", self._on_mark_edited)
+        connect(form.kindCombo, _INDEX_CHANGED, self._on_kind_chosen)
+        connect(form.materialCombo, _INDEX_CHANGED, self._on_material_chosen)
+        connect(form.grainCombo, _INDEX_CHANGED, self._on_grain_chosen)
+        connect(form.allowancesToggle, "toggled(bool)", self._show_allowances)
         for field in LENGTH_FIELDS:
             slot = partial(self._on_length_changed, field.prop)
-            _connect(getattr(form, field.widget), "valueChanged(double)", slot)
+            connect(getattr(form, field.widget), "valueChanged(double)", slot)
 
     @contextmanager
     def _quiet(self) -> Iterator[None]:
@@ -264,7 +196,7 @@ class WoodPartTaskPanel:
         self._thickness_menu.clear()
         for thickness in material.thicknesses if material is not None else ():
             action = self._thickness_menu.addAction(_length_text(thickness))
-            _connect(action, "triggered()", partial(self._choose_thickness, thickness))
+            connect(action, "triggered()", partial(self._choose_thickness, thickness))
 
     def _show_allowances(self, shown: bool) -> None:
         """Zone « Surcotes de débit » repliée ou dépliée."""
@@ -307,86 +239,28 @@ class WoodPartTaskPanel:
         self.form.thicknessEdit.setProperty("rawValue", thickness)
 
     def _recompute(self) -> None:
-        """Aperçu : la pièce et ce qui en dépend (assemblages, pièce usinée), sans le reste
-        du document."""
-        self.doc.recompute([self.obj, *self.obj.InListRecursive])
+        """Aperçu (la pièce, ses assemblages et sa pièce usinée), puis outils d'épaisseur."""
+        self.preview()
         self._show_thickness_tools()
 
 
-def start_editing(obj: DocumentObject) -> bool:
+def start_editing(obj: DocumentObject, edited: DocumentObject | None = None) -> bool:
     """Ouvre le panneau sur une pièce existante, dans la transaction « Modifier une pièce de
-    bois » ; faux si un autre panneau de tâche est déjà ouvert."""
-    if Gui.Control.activeDialog():
-        return False
-    obj.Document.openTransaction(translated(EDIT_TRANSACTION))
-    show_panel(obj, creating=False)
-    return True
+    bois » ; ``edited`` : objet en mode édition (la pièce usinée de ``obj`` le cas échéant).
+    Faux si un autre panneau de tâche est déjà ouvert."""
+    build = partial(_build, obj, creating=False)
+    return base.start_editing(obj.Document, EDIT_TRANSACTION, build, edited or obj)
 
 
 def show_panel(obj: DocumentObject, *, creating: bool) -> None:
-    """Construit puis affiche le panneau, dans la transaction déjà ouverte. Une exception
-    abandonne cette transaction (pièce en création comprise) avant d'être propagée."""
-    try:
-        panel = WoodPartTaskPanel(obj, creating=creating)
-        Gui.Control.showDialog(panel)
-        panel.watch_document()
-    except BaseException:
-        close_transaction(App.getActiveTransaction(), abort=True)
-        raise
+    """Construit puis affiche le panneau, dans la transaction déjà ouverte (voir
+    :func:`base.show_panel`)."""
+    base.show_panel(partial(_build, obj, creating=creating))
 
 
-def close_transaction(transaction: tuple[str, int] | None, *, abort: bool) -> None:
-    """Valide ou abandonne ``transaction`` (``(nom, identifiant)``) si elle est encore la
-    transaction active. Passe par l'application : une transaction encore vide est aussi
-    refermée, sans quoi le recalcul suivant y serait enregistré (entrée parasite)."""
-    active = App.getActiveTransaction()
-    if transaction is not None and active == transaction:
-        App.closeActiveTransaction(abort, transaction[1])
-
-
-class DeletionWatcher:
-    """Observateur de document : ferme le panneau quand sa pièce est supprimée (Édition >
-    Supprimer, console). Rendu inerte par :meth:`stop` (retrait différé de l'observateur)."""
-
-    def __init__(self, obj: DocumentObject, on_deleted: Callable[[], None]) -> None:
-        self.document_name: str = obj.Document.Name
-        self.object_name: str = obj.Name
-        self._on_deleted: Callable[[], None] | None = on_deleted
-
-    def stop(self) -> None:
-        """Panneau fermé : l'observateur ne réagit plus (il peut être retiré plus tard)."""
-        self._on_deleted = None
-
-    def slotDeletedObject(self, obj: DocumentObject) -> None:
-        """Pièce du panneau supprimée : le panneau est fermé."""
-        if self._on_deleted is None:
-            return
-        if (obj.Document.Name, obj.Name) == (self.document_name, self.object_name):
-            self._on_deleted()
-
-
-def finish_editing() -> None:
-    """Fin de l'édition (``unsetEdit``) : le panneau est fermé."""
-    Gui.Control.closeDialog()
-
-
-def has_expression(obj: DocumentObject, prop: str) -> bool:
-    """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
-    return any(path.lstrip(".") == prop for path, _expression in obj.ExpressionEngine)
-
-
-def _edits(edited: DocumentObject, part_name: str) -> bool:
-    """Vrai si l'objet en édition ``edited`` est la pièce ``part_name`` ou sa pièce usinée
-    (dont le double-clic édite la brute)."""
-    blank = edited.Base if is_machined_part(edited) else edited
-    return blank is not None and blank.Name == part_name
-
-
-def _connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:
-    """Connexion par signature Qt : les champs de FreeCAD (``Gui::QuantitySpinBox``) n'ont pas
-    d'attribut de signal en Python, et la connexion par attribut garde en vie l'enveloppe
-    Python des widgets après leur destruction (enveloppe réutilisée à tort ensuite)."""
-    QtCore.QObject.connect(sender, QtCore.SIGNAL(signature), slot)
+def _build(obj: DocumentObject, *, creating: bool) -> WoodPartTaskPanel:
+    """Panneau de ``obj`` (classe lue à l'appel : remplaçable par les vérifications)."""
+    return WoodPartTaskPanel(obj, creating=creating)
 
 
 def _title(obj: DocumentObject, creating: bool) -> str:
@@ -399,10 +273,3 @@ def _length_text(length_mm: float) -> str:
     """Longueur dans le système d'unités choisi par l'utilisateur (« 22 mm », « 0,87 in »…)."""
     text: str = App.Units.Quantity(length_mm, App.Units.Length).UserString
     return text
-
-
-def _close(doc: Document) -> None:
-    """Recalcule le document, quitte le mode édition et ferme le panneau."""
-    doc.recompute()
-    Gui.getDocument(doc.Name).resetEdit()
-    Gui.Control.closeDialog()

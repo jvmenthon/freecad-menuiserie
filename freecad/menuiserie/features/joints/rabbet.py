@@ -38,6 +38,7 @@ class RabbetJoint(JointFeature):
                 "Feuillure filante : prolongée sur toute la longueur de la pièce qui la reçoit.",
             ),
             default=_DEFAULTS.through,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Feuillure filante"),
         ),
     )
 

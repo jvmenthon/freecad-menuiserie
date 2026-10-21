@@ -79,7 +79,7 @@ class ViewProviderMachinedPart:
             return None
         from freecad.menuiserie.gui.task_panels.wood_part import start_editing
 
-        return start_editing(blank)
+        return start_editing(blank, vobj.Object)
 
     def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
         """Fin du mode 0 : le panneau est fermé."""

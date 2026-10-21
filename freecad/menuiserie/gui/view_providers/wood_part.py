@@ -128,7 +128,7 @@ def end_panel_edit(mode: int) -> bool | None:
     modes restent à FreeCAD (``None``)."""
     if mode != 0:
         return None
-    from freecad.menuiserie.gui.task_panels.wood_part import finish_editing
+    from freecad.menuiserie.gui.task_panels.base import finish_editing
 
     finish_editing()
     return True

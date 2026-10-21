@@ -41,6 +41,8 @@ class DowelJoint(JointFeature):
                 "moitié de l'épaisseur au contact.",
             ),
             default=_DEFAULTS.diameter,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Diamètre"),
+            resolved="diameter",
         ),
         PropertySpec(
             "DowelLength",
@@ -52,6 +54,8 @@ class DowelJoint(JointFeature):
                 "50 mm).",
             ),
             default=_DEFAULTS.dowel_length,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Longueur des tourillons"),
+            resolved="dowel_length",
         ),
         PropertySpec(
             "HostDepth",
@@ -63,6 +67,8 @@ class DowelJoint(JointFeature):
                 "leur longueur.",
             ),
             default=_DEFAULTS.host_depth,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Profondeur dans l'hôte"),
+            resolved="host_depth",
         ),
         PropertySpec(
             "Count",
@@ -74,6 +80,8 @@ class DowelJoint(JointFeature):
                 "de 128 mm au plus).",
             ),
             default=(_DEFAULTS.count, 0, MAX_DOWEL_COUNT, 1),
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Nombre"),
+            resolved="count",
         ),
         PropertySpec(
             "EdgeDistance",
@@ -85,6 +93,8 @@ class DowelJoint(JointFeature):
                 "automatique, deux fois le diamètre.",
             ),
             default=_DEFAULTS.edge_distance,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Distance au bord"),
+            resolved="edge_distance",
         ),
         PropertySpec(
             "ThicknessOffset",
@@ -96,6 +106,7 @@ class DowelJoint(JointFeature):
                 "0 : centrés.",
             ),
             default=_DEFAULTS.thickness_offset,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Décalage en épaisseur"),
         ),
         PropertySpec(
             "HoleClearance",
@@ -106,6 +117,7 @@ class DowelJoint(JointFeature):
                 "Jeu de fond : profondeur de chaque perçage au-delà du bout du tourillon.",
             ),
             default=_DEFAULTS.hole_clearance,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Jeu de fond des perçages"),
         ),
     )
 

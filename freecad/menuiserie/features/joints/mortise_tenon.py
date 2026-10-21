@@ -39,6 +39,8 @@ class MortiseTenonJoint(JointFeature):
                 "tenon arrondi au mm.",
             ),
             default=_DEFAULTS.tenon_thickness,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Épaisseur du tenon"),
+            resolved="thickness",
         ),
         PropertySpec(
             "TenonWidth",
@@ -50,6 +52,8 @@ class MortiseTenonJoint(JointFeature):
                 "d'un sixième.",
             ),
             default=_DEFAULTS.tenon_width,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Largeur du tenon"),
+            resolved="width",
         ),
         PropertySpec(
             "TenonLength",
@@ -61,6 +65,8 @@ class MortiseTenonJoint(JointFeature):
                 "la profondeur de la pièce mortaisée.",
             ),
             default=_DEFAULTS.tenon_length,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Longueur du tenon"),
+            resolved="length",
         ),
         PropertySpec(
             "WidthOffset",
@@ -71,6 +77,7 @@ class MortiseTenonJoint(JointFeature):
                 "Décalage du tenon dans la largeur de la pièce, depuis le milieu. 0 : centré.",
             ),
             default=_DEFAULTS.width_offset,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Décalage en largeur"),
         ),
         PropertySpec(
             "ThicknessOffset",
@@ -81,6 +88,7 @@ class MortiseTenonJoint(JointFeature):
                 "Décalage du tenon dans l'épaisseur de la pièce, depuis le milieu. 0 : centré.",
             ),
             default=_DEFAULTS.thickness_offset,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Décalage en épaisseur"),
         ),
         PropertySpec(
             "Through",
@@ -91,6 +99,7 @@ class MortiseTenonJoint(JointFeature):
                 "Tenon traversant : la mortaise débouche de l'autre côté de la pièce.",
             ),
             default=_DEFAULTS.through,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Tenon traversant"),
         ),
         PropertySpec(
             "MortiseClearance",
@@ -101,6 +110,7 @@ class MortiseTenonJoint(JointFeature):
                 "Jeu de fond : profondeur de la mortaise au-delà du bout du tenon.",
             ),
             default=_DEFAULTS.mortise_clearance,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Jeu de fond de la mortaise"),
         ),
     )
 

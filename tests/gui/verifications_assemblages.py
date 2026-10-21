@@ -25,6 +25,7 @@ from tests.gui.verifications_panneau import (
     formulaire,
     nouveau_document,
     saisir,
+    valider,
 )
 
 # Commande : (libellé, fabrique de l'api).
@@ -92,11 +93,14 @@ def selectionner(*objets: Any) -> None:
         Gui.Selection.addSelection(obj)
 
 
-def assembler(doc: Any, *objets: Any) -> Any:
-    """Lance « Tenon-mortaise » sur ``objets`` (dans cet ordre) ; renvoie l'assemblage créé."""
+def assembler(doc: Any, *objets: Any, commande: str = TENON_MORTAISE, ok: bool = True) -> Any:
+    """Lance ``commande`` sur ``objets`` (dans cet ordre) ; renvoie l'assemblage créé. Son
+    panneau (J3e) est validé par « OK », sauf si ``ok`` est faux (panneau laissé ouvert)."""
     avant = set(doc.Objects)
     selectionner(*objets)
-    Gui.Command.get(TENON_MORTAISE).run()
+    Gui.Command.get(commande).run()
+    if ok and Gui.Control.activeDialog():
+        valider()
     crees = [obj for obj in doc.Objects if obj not in avant and hasattr(obj, "HostPart")]
     return crees[0] if crees else None
 

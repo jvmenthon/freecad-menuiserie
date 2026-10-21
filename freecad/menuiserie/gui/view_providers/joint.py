@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Affichage des assemblages : icône de leur type, pièces rapportées (tourillons) couleur hêtre.
+"""Affichage des assemblages : icône de leur type, pièces rapportées (tourillons) couleur hêtre,
+réglage dans le panneau de tâche au double-clic (J3e).
 
 Contrat de persistance (ADR 0003) : le chemin de ce module et le nom de la classe sont écrits
 dans les documents (``GuiDocument.xml``) ; ils ne changent jamais. La couleur est posée à la
@@ -14,6 +15,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.gui.part_appearance import Rgb, show_diffuse
+from freecad.menuiserie.gui.view_providers.wood_part import edit_by_double_click, end_panel_edit
 
 ViewObject = Any
 
@@ -40,6 +42,24 @@ class ViewProviderJoint:
         if not isinstance(proxy, JointFeature):
             return icon_path(FALLBACK_ICON)
         return icon_path(joint_icon(proxy))
+
+    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Mode 0 : panneau de tâche de l'assemblage ; les autres modes restent à FreeCAD."""
+        if mode != 0:
+            return None
+        from freecad.menuiserie.gui.task_panels.joint import start_editing
+
+        return start_editing(vobj.Object)
+
+    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Fin du mode 0 : le panneau est fermé."""
+        del vobj
+        return end_panel_edit(mode)
+
+    def doubleClicked(self, vobj: ViewObject) -> bool:
+        """Double-clic : réglage de l'assemblage dans son panneau ; refusé si un panneau de
+        tâche est déjà ouvert."""
+        return edit_by_double_click(vobj)
 
     def dumps(self) -> None:
         """Proxy sans état : rien à enregistrer."""
