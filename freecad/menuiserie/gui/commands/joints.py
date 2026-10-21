@@ -38,6 +38,7 @@ TONGUE_GROOVE: Final = "Menuiserie_TongueGroove"
 RABBET: Final = "Menuiserie_Rabbet"
 DOWELS: Final = "Menuiserie_Dowels"
 HALF_LAP: Final = "Menuiserie_HalfLap"
+DOVETAIL: Final = "Menuiserie_Dovetail"
 
 
 class JointCommand:
@@ -156,6 +157,21 @@ class HalfLapCommand(JointCommand):
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à mi-bois")
 
 
+class DovetailCommand(JointCommand):
+    """Queue d'aronde traversante : queues au bout d'une pièce, logements dans l'autre."""
+
+    NAME = DOVETAIL
+    FACTORY = api.make_dovetail
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Dovetail", "Queue d'aronde")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Dovetail",
+        "Relie à queues d'aronde traversantes les deux pièces sélectionnées : la pièce dont le "
+        "bout touche l'autre porte les queues, l'autre (à fleur de sa face extérieure) les "
+        "griffes.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à queue d'aronde")
+
+
 def selected_parts() -> tuple[DocumentObject, DocumentObject] | None:
     """Les deux pièces sélectionnées (dans l'ordre de sélection), ou ``None`` si la sélection
     n'est pas exactement deux pièces (brutes ou usinées) de brutes distinctes."""
@@ -202,3 +218,4 @@ def register() -> None:
     Gui.addCommand(RABBET, RabbetCommand())
     Gui.addCommand(DOWELS, DowelsCommand())
     Gui.addCommand(HALF_LAP, HalfLapCommand())
+    Gui.addCommand(DOVETAIL, DovetailCommand())

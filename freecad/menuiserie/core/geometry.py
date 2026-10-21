@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Géométrie pure des assemblages : repères, boîtes, cylindres et position relative (J3a).
+"""Géométrie pure des assemblages : repères, boîtes, cylindres, prismes et position relative
+(J3a, J4f).
 
 Toutes les longueurs sont en mm. Le repère local d'une pièce est celui de ``part_model`` :
 X = longueur, Y = largeur, Z = épaisseur. Les calculs se font dans le repère local de l'hôte,
@@ -16,18 +17,21 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
+from freecad.menuiserie.core._polygon import check_prism
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.part_model import Dimensions
 
 __all__ = [
     "ANGLE_TOLERANCE",
     "CONTACT_TOLERANCE_MM",
+    "CUT_OVERRUN_MM",
     "NOT_SQUARE",
     "Axis",
     "Box",
     "Cylinder",
     "JointError",
     "PlacedBlock",
+    "Prism",
     "RigidTransform",
     "Solid",
     "Vec3",
@@ -40,6 +44,9 @@ __all__ = [
 
 CONTACT_TOLERANCE_MM: Final = 0.01
 ANGLE_TOLERANCE: Final = 1e-6  # écart toléré des coefficients de la matrice à {-1, 0, 1}
+# Prolongement hors de la matière d'un enlèvement en prisme qui débouche (le volume enlevé dans
+# la pièce ne change pas ; les booléennes d'OCC évitent les faces confondues).
+CUT_OVERRUN_MM: Final = 0.1
 
 NOT_SQUARE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les deux pièces doivent être d'équerre (angles multiples de 90°)."
@@ -177,7 +184,26 @@ class Cylinder:
             raise ValueError("rayon et hauteur du cylindre doivent être > 0")
 
 
-Solid = Box | Cylinder
+@dataclass(frozen=True)
+class Prism:
+    """Polygone plan extrudé : sommets dans un plan, vecteur d'extrusion hors de ce plan.
+
+    Au moins 3 sommets distincts, non tous alignés, coplanaires, formant un polygone simple
+    (sans auto-intersection) ; extrusion finie, non nulle et non parallèle au plan.
+    ``ValueError`` sinon (:func:`._polygon.check_prism`).
+    """
+
+    points: tuple[Vec3, ...]
+    extrusion: Vec3
+
+    def __post_init__(self) -> None:
+        coordinates = [c for p in (*self.points, self.extrusion) for c in (p.x, p.y, p.z)]
+        _require_finite(*coordinates)
+        vector = self.extrusion
+        check_prism([(p.x, p.y, p.z) for p in self.points], (vector.x, vector.y, vector.z))
+
+
+Solid = Box | Cylinder | Prism
 
 
 def _row(values: Sequence[float]) -> Row:
@@ -313,8 +339,12 @@ def moved_box(box: Box, transform: RigidTransform) -> Box:
 
 
 def moved(solid: Solid, transform: RigidTransform) -> Solid:
-    """Solide exprimé dans un autre repère (rotation d'équerre)."""
+    """Solide exprimé dans un autre repère (rotation d'équerre pour une boîte ou un cylindre,
+    quelconque pour un prisme : sommets et vecteur d'extrusion transformés)."""
     if isinstance(solid, Cylinder):
         base = transform.apply(solid.base)
         return Cylinder(base, moved_axis(transform, solid.axis), solid.radius, solid.height)
+    if isinstance(solid, Prism):
+        points = tuple(transform.apply(point) for point in solid.points)
+        return Prism(points, transform.rotate(solid.extrusion))
     return moved_box(solid, transform)

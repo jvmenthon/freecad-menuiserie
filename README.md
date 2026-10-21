@@ -52,8 +52,8 @@ pilotée.
 ## Assembler deux pièces
 
 Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,
-**Rainure-languette**, **Feuillure**, **Tourillons** ou **Mi-bois** (barre d'outils ou menu
-*Menuiserie*).
+**Rainure-languette**, **Feuillure**, **Tourillons**, **Mi-bois** ou **Queue d'aronde** (barre
+d'outils ou menu *Menuiserie*).
 L'atelier devine quelle pièce reçoit la mortaise (la traverse dont le bout touche le montant
 porte le tenon) et ouvre le panneau de l'assemblage : pièces reliées, bouton **Inverser** pour
 échanger leurs rôles, et un champ par paramètre. Une cote cochée **Auto** suit les pièces

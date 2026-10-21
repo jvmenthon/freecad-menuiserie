@@ -8,6 +8,7 @@ from types import MappingProxyType
 from typing import Any, Final
 
 from freecad.menuiserie.core.joints._base import JointKind, JointStrategy
+from freecad.menuiserie.core.joints.dovetail import DovetailStrategy
 from freecad.menuiserie.core.joints.dowels import DowelStrategy
 from freecad.menuiserie.core.joints.half_lap import HalfLapStrategy
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonStrategy
@@ -23,6 +24,7 @@ STRATEGIES: Final[Mapping[JointKind, JointStrategy[Any, Any]]] = MappingProxyTyp
             RabbetStrategy(),
             DowelStrategy(),
             HalfLapStrategy(),
+            DovetailStrategy(),
         )
     }
 )

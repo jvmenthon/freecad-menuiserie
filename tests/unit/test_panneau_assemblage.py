@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from freecad.menuiserie.core.joints._profile import ProfileValues
+from freecad.menuiserie.core.joints.dovetail import DovetailParams, DovetailValues
 from freecad.menuiserie.core.joints.dowels import DowelParams, DowelValues
 from freecad.menuiserie.core.joints.half_lap import HalfLapParams, HalfLapValues
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
@@ -34,6 +35,7 @@ TYPES = {
     "rabbet.py": (RabbetParams, RabbetValues),
     "dowels.py": (DowelParams, DowelValues),
     "half_lap.py": (HalfLapParams, HalfLapValues),
+    "dovetail.py": (DovetailParams, DovetailValues),
 }
 
 
@@ -87,7 +89,7 @@ def test_case_auto_pour_les_cotes_automatiques(module: str) -> None:
 
 
 def test_cotes_automatiques_attendues() -> None:
-    """Paramètres « 0 = automatique » des spécifications (J3 § 4.3.3, J4 § 4.8.3)."""
+    """Paramètres « 0 = automatique » des spécifications (J3 § 4.3.3, J4 § 4.8.3 et 4.8.4)."""
     automatic = {
         (module, ast.literal_eval(spec["name"]))
         for module in TYPES
@@ -105,6 +107,9 @@ def test_cotes_automatiques_attendues() -> None:
         ("dowels.py", "Count"),
         ("dowels.py", "EdgeDistance"),
         ("half_lap.py", "Depth"),
+        ("dovetail.py", "TailCount"),
+        ("dovetail.py", "PinWidth"),
+        ("dovetail.py", "Slope"),
     }
 
 
@@ -125,3 +130,17 @@ def test_socle_commun_des_panneaux(panel: str) -> None:
     assert [getattr(b, "id", "") for c in classes for b in c.bases] == ["ObjectTaskPanel"]
     defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
     assert not defined & {"close_transaction", "watch_document", "accept", "reject"}
+
+
+def test_champ_de_rapport_borne_comme_core() -> None:
+    """D6 de J4 : le champ de pente prend ses bornes dans ``core`` (2 à 20, 0 par « Auto »)."""
+    path = PANELS / "joint_fields.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imported = {
+        (node.module, alias.name)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert {("freecad.menuiserie.core.joints", n) for n in ("MIN_RATIO", "MAX_RATIO")} <= imported
+    assert "setRange(*ratio_range(self.spec))" in path.read_text(encoding="utf-8")
