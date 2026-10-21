@@ -308,8 +308,9 @@ def test_refus_queues_trop_etroites(params: dict[str, object], count: str, pin: 
 
 def test_queue_de_un_mm_a_l_epaulement_acceptee() -> None:
     """b = t - 2 L / slope = 1 mm tout juste : accepté."""
-    result = values(dovetail_corner(), DovetailParams(tail_count=1, pin_width=65, slope=3))
-    assert (result.tail_width, result.tail_base) == pytest.approx((20.0, 8.0))
+    params = DovetailParams(tail_count=1, pin_width=68.5, slope=3)
+    result = values(dovetail_corner(), params)
+    assert (result.tail_width, result.tail_base) == pytest.approx((13.0, 1.0))
     refused(dovetail_corner(), "Queues trop étroites", tail_count=1, pin_width=69, slope=3)
 
 

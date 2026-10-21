@@ -4,7 +4,8 @@
 formulaire ``.ui`` par type (critère E1 de J3).
 
 - cote (longueur ou décalage) : champ d'unité de FreeCAD ; nombre : compteur entier ;
-  rapport sans unité (pente 1:n) : champ décimal ;
+  rapport sans unité (pente 1:n) : champ décimal borné comme dans ``core`` (de 2 à 20 ; 0,
+  « automatique », passe par la case « Auto ») ;
 - paramètre « 0 = automatique » (``spec.resolved``) : case « Auto » ; cochée, le champ est
   inactif et montre la valeur effective (``resolve`` de ``core``) ;
 - booléen : case à cocher ;
@@ -24,7 +25,7 @@ import FreeCADGui as Gui
 from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints import MAX_RATIO
+from freecad.menuiserie.core.joints import MAX_RATIO, MIN_RATIO
 from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -57,6 +58,13 @@ def count_range(spec: PropertySpec) -> tuple[int, int]:
     défaut ``(valeur, minimum, maximum, pas)`` : celles de ``core``."""
     _value, low, high, _step = cast(tuple[int, int, int, int], spec.default)
     return low, high
+
+
+def ratio_range(spec: PropertySpec) -> tuple[float, float]:
+    """Bornes d'un rapport (pente 1:n) : celles de ``core``. Avec une case « Auto », 0 n'est
+    jamais saisi dans le champ, qui refuse donc 0 < n < 2 comme ``core`` ; sans case, 0 reste
+    saisissable."""
+    return (MIN_RATIO if spec.resolved else 0.0), MAX_RATIO
 
 
 class ParamField:
@@ -109,7 +117,7 @@ class ParamField:
         if self.spec.type_id == RATIO:
             ratio = QtGui.QDoubleSpinBox()
             ratio.setDecimals(RATIO_DECIMALS)
-            ratio.setRange(0.0, MAX_RATIO)
+            ratio.setRange(*ratio_range(self.spec))
             connect(ratio, "valueChanged(double)", self._on_edited)
             return ratio
         field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")

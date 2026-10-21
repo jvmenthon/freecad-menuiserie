@@ -66,6 +66,12 @@ def verifier_formulaire_de_la_queue_d_aronde() -> list[str]:
             *ecarts("pente figée", joint.Slope, 6.0),
             *ecarts("pente active", pente.isEnabled(), True),
         ]
+        pente.setValue(1.5)  # refusée par core : le champ la borne à 2
+        problemes += [
+            *ecarts("bornes de la pente", (pente.minimum(), pente.maximum()), (2.0, 20.0)),
+            *ecarts("pente sous 2 bornée", (pente.value(), joint.Slope), (2.0, 2.0)),
+            *ecarts("erreur masquée", widget(form, "errorLabel").isHidden(), True),
+        ]
         pente.setValue(8.0)
         problemes += ecarts("pente saisie", joint.Slope, 8.0)
         valider()

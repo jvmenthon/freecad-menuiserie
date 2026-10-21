@@ -130,3 +130,17 @@ def test_socle_commun_des_panneaux(panel: str) -> None:
     assert [getattr(b, "id", "") for c in classes for b in c.bases] == ["ObjectTaskPanel"]
     defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
     assert not defined & {"close_transaction", "watch_document", "accept", "reject"}
+
+
+def test_champ_de_rapport_borne_comme_core() -> None:
+    """D6 de J4 : le champ de pente prend ses bornes dans ``core`` (2 à 20, 0 par « Auto »)."""
+    path = PANELS / "joint_fields.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imported = {
+        (node.module, alias.name)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert {("freecad.menuiserie.core.joints", n) for n in ("MIN_RATIO", "MAX_RATIO")} <= imported
+    assert "setRange(*ratio_range(self.spec))" in path.read_text(encoding="utf-8")

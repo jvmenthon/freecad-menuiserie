@@ -87,8 +87,9 @@ class DovetailValues:
 
 
 class DovetailStrategy:
-    """Queues de largeur égale entre des griffes de largeur ``p`` (demi-griffes aux bords),
-    flancs en pente 1:n ; 3 queues environ par largeur de trois épaisseurs."""
+    """Queues de largeur égale entre des griffes de largeur ``p`` côté pointe (griffes des
+    bords comprises, droites du côté du bord), flancs en pente 1:n ; 3 queues environ par
+    largeur de trois épaisseurs."""
 
     kind: ClassVar[JointKind] = JointKind.DOVETAIL
 

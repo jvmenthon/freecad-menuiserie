@@ -257,8 +257,9 @@ Précisions du dev (J4f, 2026-10-21), décisions les plus simples là où la sp�
   d'assemblage invalide : {field} = {value} (0 pour automatique, ou rapport fini entre {min}
   et {max} attendu). ». `MAX_RATIO` est exporté par la façade `core.joints` pour le panneau.
 - Panneau J3e : nouveau genre de champ « rapport » pour `App::PropertyFloat` (champ décimal
-  sans unité, 2 décimales, de 0 à 20). Libellés « Nombre de queues », « Largeur des griffes »,
-  « Pente 1:n », chacun avec sa case « Auto ». Transaction « Créer un assemblage à queue
+  sans unité, 2 décimales, borné de 2 à 20 comme `core` : 0 passe par la case « Auto »).
+  Libellés « Nombre de queues », « Largeur des griffes », « Pente 1:n », chacun avec sa case
+  « Auto ». Transaction « Créer un assemblage à queue
   d'aronde ».
 - `DovetailValues(tail_count, pin_width, slope, tail_width, tail_base, tails)` : `t`, `b` et
   les intervalles des queues côté pointe.
