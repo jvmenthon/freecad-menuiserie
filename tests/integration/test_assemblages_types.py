@@ -49,6 +49,7 @@ PROPERTIES: dict[str, list[Row]] = {
         ("ThicknessOffset", DISTANCE, "Tourillons", 0.0),
         ("HoleClearance", LENGTH, "Tourillons", 1.0),
     ],
+    "make_half_lap": [("Depth", LENGTH, "Mi-bois", 0.0), ("FlipSide", BOOL, "Mi-bois", False)],
 }
 
 

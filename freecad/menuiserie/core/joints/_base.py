@@ -41,6 +41,7 @@ class JointKind(str, Enum):
     TONGUE_GROOVE = "TongueGroove"
     RABBET = "Rabbet"
     DOWELS = "Dowels"
+    HALF_LAP = "HalfLap"
 
 
 @dataclass(frozen=True)

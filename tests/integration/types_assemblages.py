@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Montages de référence des assemblages de J3c : rainure-languette, feuillure, tourillons.
+"""Montages de référence des assemblages de J3c et J4 : rainure-languette, feuillure,
+tourillons, mi-bois.
 
 Chaque montage pose deux pièces de chêne (hôte, invitée), les assemble par la fabrique de
 l'API et connaît les volumes attendus des deux pièces usinées. Module d'aide des tests
@@ -25,6 +26,9 @@ Where = tuple[float, float, float]  # x, y, rotation autour de Z (degrés)
 # Repère quelconque où sont posés les montages (rotation et translation non triviales) : seule
 # la position relative des pièces compte.
 FRAME = App.Placement(App.Vector(120, -75, 40), App.Rotation(App.Vector(1, 2, 3), 37))
+
+# Entaille de chaque traverse de la croix à mi-bois (critère B3 de J4) : 60 x 60 x 11.
+HALF_LAP_CUT = 60 * 60 * 11
 
 # Deux tourillons Ø 10 x 40, percés de 20 + 1 dans chaque pièce (critère T1, cadre M1 / T1).
 DOWEL_VOLUME = math.pi * 5**2 * 40
@@ -67,11 +71,20 @@ DOWELS = Scenario(
     600 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
     280 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
 )
-SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS)
+HALF_LAP = Scenario(
+    "mi-bois",
+    "make_half_lap",
+    ((600, 60, 22), (0, 0, 0)),
+    ((600, 60, 22), (330, -270, 90)),
+    600 * 60 * 22 - HALF_LAP_CUT,
+    600 * 60 * 22 - HALF_LAP_CUT,
+)
+SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS, HALF_LAP)
 PROXIES = {
     "make_tongue_groove": ("tongue_groove", "TongueGrooveJoint"),
     "make_rabbet": ("rabbet", "RabbetJoint"),
     "make_dowels": ("dowels", "DowelJoint"),
+    "make_half_lap": ("half_lap", "HalfLapJoint"),
 }
 
 

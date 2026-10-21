@@ -27,6 +27,7 @@ import FreeCAD as App
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.joints.factories import (
     create_dowels,
+    create_half_lap,
     create_mortise_tenon,
     create_rabbet,
     create_tongue_groove,
@@ -44,6 +45,7 @@ __all__ = [
     "is_machined_part",
     "machined_part_of",
     "make_dowels",
+    "make_half_lap",
     "make_mortise_tenon",
     "make_rabbet",
     "make_tongue_groove",
@@ -133,6 +135,17 @@ def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -
     Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
     return _make_joint(create_dowels, host, guest, params)
+
+
+def make_half_lap(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie à mi-bois deux pièces de même épaisseur, à fleur, qui se chevauchent (croix, T ou
+    angle) et recalcule le document : ``host`` est entaillée par-dessus, ``guest`` par-dessous.
+
+    Paramètres facultatifs : ``depth`` (profondeur de l'entaille de ``host`` en mm, 0 = moitié
+    de l'épaisseur), ``flip_side`` (entaille de ``host`` par-dessous). Mêmes validations et même
+    absence de transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_half_lap, host, guest, params)
 
 
 _JointFactory = Callable[..., DocumentObject]

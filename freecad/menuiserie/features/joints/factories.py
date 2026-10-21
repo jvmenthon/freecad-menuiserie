@@ -18,6 +18,7 @@ from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.dowels import DowelJoint
+from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
@@ -25,6 +26,7 @@ from freecad.menuiserie.features.machined_part import blank_of, ensure_machined_
 
 __all__ = [
     "create_dowels",
+    "create_half_lap",
     "create_joint",
     "create_mortise_tenon",
     "create_rabbet",
@@ -136,3 +138,12 @@ def create_dowels(
     """Crée des tourillons percés dans ``host`` et ``guest`` à travers leur contact.
     Paramètres de ``DowelParams`` en mm, 0 = automatique."""
     return _create(DowelJoint, doc, host, guest, params)
+
+
+def create_half_lap(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée un mi-bois : ``host`` et ``guest``, de même épaisseur et à fleur, se chevauchent ;
+    chacune est entaillée dans leur boîte commune. Paramètres de ``HalfLapParams`` : ``depth``
+    en mm (0 = moitié de l'épaisseur), ``flip_side``."""
+    return _create(HalfLapJoint, doc, host, guest, params)
