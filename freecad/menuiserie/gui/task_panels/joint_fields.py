@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Final
+from typing import Final, cast
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -34,7 +34,6 @@ Write = Callable[[str, object], None]  # (propriété, valeur) écrite par le pa
 
 BOOL: Final = "App::PropertyBool"
 COUNT: Final = "App::PropertyIntegerConstraint"
-MAX_COUNT: Final = 50
 _AUTO: Final = QT_TRANSLATE_NOOP("Menuiserie", "Auto")
 _AUTO_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -48,6 +47,13 @@ def property_tooltip(spec: PropertySpec) -> str:
     """Infobulle de la propriété, traduite comme dans l'éditeur de propriétés."""
     text: str = App.Qt.translate("App::Property", spec.tooltip)
     return text
+
+
+def count_range(spec: PropertySpec) -> tuple[int, int]:
+    """Bornes d'un nombre (``App::PropertyIntegerConstraint``), lues dans sa contrainte par
+    défaut ``(valeur, minimum, maximum, pas)`` : celles de ``core``."""
+    _value, low, high, _step = cast(tuple[int, int, int, int], spec.default)
+    return low, high
 
 
 def expression_of(obj: DocumentObject, prop: str) -> str | None:
@@ -101,7 +107,7 @@ class ParamField:
             return box
         if self.spec.type_id == COUNT:
             spin = QtGui.QSpinBox()
-            spin.setRange(0, MAX_COUNT)
+            spin.setRange(*count_range(self.spec))
             connect(spin, "valueChanged(int)", self._on_edited)
             return spin
         field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
