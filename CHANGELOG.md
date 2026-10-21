@@ -6,6 +6,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Gabarit « Caisson » (J4d, ADR 0010) : `core/templates/` (`PieceSpec`, `JointSpec`, `Layout`,
+  `CarcassParams`, `carcass_layout`), constructeur unique `features/templates.py`,
+  `make_carcass` (côtés, dessus, dessous, fond en feuillure, étagères, tourillons et un ensemble
+  « Caisson » dont les options « fixe » sont données par le gabarit), commande **Caisson** avec
+  panneau de paramètres et aperçu, une seule entrée d'annulation.
 - Ensemble dans le document (J4b′, ADR 0008 et 0009) : objet `Menuiserie::Furniture` (cotes
   `Width`, `Depth`, `Height`, `Origin`, `Template`, `Version`), propriétés de membre
   (`Furniture`, `PositionMode`, `FixedLeft` … `FixedTop`, `FurnitureBindings`) et liaisons par

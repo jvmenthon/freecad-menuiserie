@@ -245,6 +245,58 @@ panneaux de 18 en `cp-bouleau`, fond de 8 logé en feuillure de 10, une étagèr
 | K6 | Commande `Menuiserie_Carcass` (« Caisson », icône existante) : panneau de paramètres, aperçu, « OK » = une entrée « Créer un caisson » ; « Annuler » ne laisse aucun objet. | G |
 | K7 | Recette du livrable du plan : « un caisson complet en quelques clics », redimensionné, vue TechDraw. | manuel |
 
+**Notes de réalisation de J4d** (dev, 2026-10-21 ; décisions les plus simples cohérentes avec
+les ADR, à confirmer par l'architecte) :
+
+1. **Fond (K1)** : fixe sur **cinq** bords, gauche, droite, bas, haut et arrière, pas à
+   l'avant. Les retraits de 8 mm sur ses quatre chants sont conservés. Sur l'axe de son
+   épaisseur, une seule face est fixe (F7) : deux faces fixes donneraient l'avertissement
+   `ThicknessKept` à chaque création. Côtés, dessus et dessous sont fixes sur toutes leurs
+   distances, sauf la face intérieure de leur épaisseur. Étagère : fixe à gauche, à droite, à
+   l'avant et à l'arrière, mode `Stay`. `Proportional` se règle ensuite avec `set_member_options`.
+2. **`CarcassParams`** (`core/templates/carcass.py`) : `width`, `depth`, `height`,
+   `thickness`, `back_thickness`, `rabbet_depth`, `shelf_count`, `material_id` et
+   `back_material_id` (les deux en `cp-bouleau` par défaut), `joinery` et `origin` (coin
+   avant gauche bas, `Vec3`, pour placer un caisson dans un bureau, K5). Chaque refus cite le
+   champ (`CarcassError`, gabarit traduisible). Les identifiants de matériaux sont contrôlés
+   par `check_materials(params, ids)`, une fonction pure à qui `features` passe les
+   identifiants de la bibliothèque, avant toute création. Les étagères (0 à 10) sont refusées
+   si elles ne tiennent pas (intervalle nul ou étagère de moins de 1 mm). Les intervalles sont
+   égaux entre le dessous, les étagères et le dessus.
+3. **Type d'assemblage** (`CarcassJoinery`) : `Dowels` (par défaut, K1) ou `None` (pièces
+   aboutées, à visser ou à coller). Le fond est toujours en feuillure filante. La
+   rainure-languette a été écartée : la languette du dessus traverserait la feuillure du fond.
+   Règle des tourillons pour toute épaisseur `e` : diamètre du commerce d'au plus `e/2`,
+   profondeur dans le côté `round(2e/3)`, longueur = cette profondeur + `e`. Pour 18 mm, cela
+   donne Ø 8 × 30, enfoncés de 12 dans le côté. Le nombre reste automatique : 4 pour 400 mm,
+   5 pour 500 mm. Avec des tourillons, il faut des panneaux d'au moins 12 mm.
+   Distance au bord : `max(2 Ø, épaisseur du fond + Ø)`, pour que le dernier perçage reste
+   à ½ Ø devant la feuillure du fond (relecture de la PR #34). Cela fait 16 mm pour le caisson
+   de référence : K3 et K4 ne changent pas.
+4. **Modules** : la commande est dans `gui/commands/carcass.py` et le panneau dans
+   `gui/task_panels/carcass.py`, et non dans `gui/commands/furniture.py`, pour ne pas toucher
+   aux fichiers de J4c, développé en parallèle. `features/templates.py` contient `build_layout`
+   (le constructeur unique) et `build_carcass`. L'entrée des pièces avec des options données
+   passe par `furniture_members.join_with_options`, avec les mêmes refus que
+   `add_to_furniture`.
+5. **API** : `make_carcass(doc=None, params=None, *, furniture=None, **champs)` renvoie
+   `(ensemble, avertissements)`, comme `make_furniture`. Elle n'ouvre aucune transaction et ne
+   lance qu'un seul recalcul. Avec `furniture`, le caisson est créé dans le conteneur de
+   l'ensemble parent, puis il y entre avec les options par défaut (F3).
+6. **Panneau (K6)** : chaque saisie abandonne la transaction « Créer un caisson », ce qui
+   retire l'aperçu précédent, puis la rouvre et recrée le caisson. Il n'y a donc jamais qu'un
+   caisson et qu'une transaction. Des paramètres refusés s'affichent sous les champs, rien n'est
+   créé et « OK » laisse le panneau ouvert. L'aperçu se reconstruit à la fin de la saisie
+   (`keyboardTracking` désactivé). Une erreur inattendue, ou un objet créé en erreur,
+   abandonne l'aperçu et affiche un message. La commande ne prend pas d'ensemble parent dans la
+   sélection : le cas du sous-ensemble (K5) passe par l'API.
+7. **À reprendre lors de la fusion de J4c** : `make_carcass` pose les ViewProviders des
+   pièces, des pièces usinées et des assemblages, mais pas celui de l'ensemble
+   (`ViewProviderFurniture`, livré par J4c). Il faudra l'ajouter au même endroit que pour
+   `make_furniture`.
+8. Toutes les étagères ont le libellé « Étagère », que FreeCAD rend unique (« Étagère001 »).
+   L'icône `Menuiserie_Carcass.svg`, déjà produite par `tools/generer_icones.py`, ne change pas.
+
 ### Assemblages 2 : règles communes à J4e, J4f, J4g
 
 Chaque assemblage est une stratégie du registre de J3 (`JointKind`, `strategy_for`) et un proxy

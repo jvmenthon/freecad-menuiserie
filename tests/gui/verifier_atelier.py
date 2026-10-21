@@ -29,6 +29,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
+from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
 from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
@@ -1219,6 +1220,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_PANNEAU_ASSEMBLAGE,
     *VERIFICATIONS_QUEUE_ARONDE,
     *VERIFICATIONS_ONGLET,
+    # Gabarits (J4d)
+    *VERIFICATIONS_CAISSON,
 )
 
 
