@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from tests.integration.cadre import STILE_VOLUME, Cadre, touched
+from tests.integration.cadre import STILE_VOLUME, Cadre, stale_or_invalid
 from tests.integration.test_assemblages_persistance import snapshot
 from tests.integration.types_assemblages import FRAME, RABBET, TONGUE_GROOVE, blanks, wood
 
@@ -56,7 +56,7 @@ def volumes(cadre: Cadre) -> dict[str, float]:
 
 def assert_mixed(cadre: Cadre) -> None:
     assert volumes(cadre) == pytest.approx(MIXED_VOLUMES)
-    assert touched(cadre.doc) == []
+    assert stale_or_invalid(cadre.doc) == []
     for mark in cadre.parts:
         assert len(cadre.machined(mark).Shape.Solids) == 1, mark
 
@@ -96,7 +96,7 @@ def test_changer_une_cote_recalcule_les_deux_types(cadre: Cadre) -> None:
     cadre.doc.recompute()
     expected = STILE - 42 * 40 * 8 - HOLE
     assert cadre.volume("M2") == pytest.approx(expected)
-    assert touched(cadre.doc) == []
+    assert stale_or_invalid(cadre.doc) == []
 
 
 # --- Suppression, annulation, rétablissement en chaîne -------------------------------------
@@ -132,12 +132,12 @@ def test_suppressions_annulees_puis_retablies_en_chaine(cadre: Cadre) -> None:
         doc.undo()
         doc.recompute()
         assert volumes(cadre) == pytest.approx(expected)
-        assert touched(doc) == []
+        assert stale_or_invalid(doc) == []
     for expected in states[1:]:
         doc.redo()
         doc.recompute()
         assert volumes(cadre) == pytest.approx(expected)
-        assert touched(doc) == []
+        assert stale_or_invalid(doc) == []
     # Tout annuler : plus aucun assemblage ni pièce usinée, brutes visibles.
     for _ in states:
         doc.undo()
@@ -174,7 +174,7 @@ def test_reouverture_avec_les_quatre_types(cadre: Cadre, rouvrir: Reopen) -> Non
     before = snapshot(cadre.doc)
     doc = rouvrir(cadre.doc)
     assert snapshot(doc) == before
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     # Les proxies rouverts recalculent : un paramètre de chaque type modifié.
     doc.getObject(names["dw_m2_t1"]).Count = 1
     doc.getObject(names["mt_m2_t2"]).TenonThickness = 8
@@ -182,7 +182,7 @@ def test_reouverture_avec_les_quatre_types(cadre: Cadre, rouvrir: Reopen) -> Non
     doc.getObject(rabbet_name).Through = False
     doc.getObject(rabbet_name).GuestPart.Length = 300
     doc.recompute()
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     m2 = api.machined_part_of(doc.getObject(m2_name))
     assert m2.Shape.Volume == pytest.approx(STILE - 42 * 40 * 8 - HOLE)
     assert joint_volumes(doc.getObject(tg_name))[0] == pytest.approx(
@@ -214,7 +214,7 @@ def test_pieces_usinees_suivent_les_brutes_dans_un_repere_quelconque(
         machined.Placement = move.multiply(machined.Placement)
     document.commitTransaction()
     document.recompute()
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
     for blank in (host, guest):
         machined = api.machined_part_of(blank)
         assert blank.Placement.isSame(machined.Placement, 1e-9)
@@ -223,7 +223,7 @@ def test_pieces_usinees_suivent_les_brutes_dans_un_repere_quelconque(
     document.undo()
     document.recompute()
     assert host.Placement.isSame(FRAME, 1e-9)
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 # --- Expressions sur les cotes des assemblages ---------------------------------------------
@@ -241,7 +241,7 @@ def test_expressions_sur_les_cotes_des_tourillons(cadre: Cadre) -> None:
     cadre.doc.recompute()
     resolved = joints_base.resolved_for(joint)
     assert (resolved.diameter, resolved.dowel_length) == (10, 40)
-    assert touched(cadre.doc) == []
+    assert stale_or_invalid(cadre.doc) == []
 
 
 def test_expression_sur_la_languette_suit_l_hote(document: Any) -> None:
@@ -254,7 +254,7 @@ def test_expression_sur_la_languette_suit_l_hote(document: Any) -> None:
     guest.Thickness = 18
     document.recompute()
     assert joint_volumes(joint)[0] == pytest.approx(1000 * 100 * 18 - 1000 * 11 * 9)
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 # --- Valeurs limites -----------------------------------------------------------------------
@@ -280,7 +280,7 @@ def test_tourillons_sur_une_traverse_etroite(
     assert resolved.positions == pytest.approx(positions)
     assert len(joint.Shape.Solids) == len(positions)
     assert joint_volumes(joint)[1] == pytest.approx(280 * width * 22 - len(positions) * HOLE)
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 @pytest.mark.parametrize("factory", ["make_mortise_tenon", "make_tongue_groove", "make_dowels"])
@@ -289,7 +289,7 @@ def test_pieces_de_12_mm(document: Any, factory: str) -> None:
     guest = wood(document, "I", (280, 60, 12), (60, 60, 90), FRAME)
     document.recompute()
     joint = getattr(api, factory)(host, guest)
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
     for blank in (host, guest):
         shape = api.machined_part_of(blank).Shape
         assert shape.isValid()
@@ -304,7 +304,7 @@ def test_pieces_de_12_mm(document: Any, factory: str) -> None:
         assert "trop minces" in joint.getStatusString()
         assert "Invalid" in joint.State
     else:
-        assert touched(document) == []
+        assert stale_or_invalid(document) == []
 
 
 # --- D1 (J3) : pièces d'un assemblage modifiées par un script ------------------------------

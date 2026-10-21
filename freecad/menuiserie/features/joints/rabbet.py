@@ -12,8 +12,7 @@ from typing import ClassVar, Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
-from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.joints.base import JointFeature, params_from
+from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.schema import PropertySpec
 
 __all__ = ["RabbetJoint"]
@@ -28,6 +27,7 @@ class RabbetJoint(JointFeature):
     TYPE: ClassVar[str] = "Menuiserie::Rabbet"
     OBJECT_NAME: ClassVar[str] = "Rabbet"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Feuillure")
+    PARAMS: ClassVar[type[RabbetParams]] = RabbetParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "Through",
@@ -41,7 +41,3 @@ class RabbetJoint(JointFeature):
             label=QT_TRANSLATE_NOOP("Menuiserie", "Feuillure filante"),
         ),
     )
-
-    def params(self, obj: DocumentObject) -> RabbetParams:
-        """Paramètres de la feuillure lus dans les propriétés de ``obj``."""
-        return params_from(obj, RabbetParams)

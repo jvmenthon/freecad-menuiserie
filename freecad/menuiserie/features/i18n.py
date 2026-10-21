@@ -2,7 +2,8 @@
 """Traduction, côté ``features/``, des gabarits français de l'atelier.
 
 Les gabarits (marqués par ``QT_TRANSLATE_NOOP`` dans ``core/`` ou ``features/``) sont traduits
-par ``App.Qt.translate``, disponible sans interface : aucun import de Qt ici.
+par ``App.Qt.translate``, disponible sans interface : aucun import de Qt ici. Les messages de
+la vue rapport portent le préfixe « Menuiserie : » (:func:`console_text`).
 """
 
 from __future__ import annotations
@@ -14,7 +15,13 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import CONTEXT, TemplatedError
 
-__all__ = ["templated_message", "translated", "translated_errors"]
+__all__ = [
+    "console_text",
+    "report_warning",
+    "templated_message",
+    "translated",
+    "translated_errors",
+]
 
 
 def translated(template: str, params: Mapping[str, str] | None = None) -> str:
@@ -40,3 +47,13 @@ def translated_errors() -> Iterator[None]:
         yield
     except TemplatedError as error:
         raise ValueError(templated_message(error)) from error
+
+
+def console_text(message: str) -> str:
+    """Ligne de la vue rapport : ``message`` précédé de « Menuiserie : »."""
+    return f"Menuiserie : {message}\n"
+
+
+def report_warning(message: str) -> None:
+    """Avertissement dans la vue rapport (``App.Console`` lu à l'appel : remplaçable)."""
+    App.Console.PrintWarning(console_text(message))

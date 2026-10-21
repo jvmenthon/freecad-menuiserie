@@ -17,6 +17,7 @@ import pytest
 
 from freecad.menuiserie.core import appearance as core_appearance
 from freecad.menuiserie.core import materials, part_model
+from tests.integration.aides import Board, touched_names
 from tests.integration.test_apparence import (
     IMAGE,
     MAPLE_RGB,
@@ -53,16 +54,6 @@ def maple(**texture: object) -> dict[str, object]:
     if texture:
         entry["texture"] = texture
     return entry
-
-
-def board(doc: Any, material_id: str = "erable") -> Any:
-    obj = wood_part.create_wood_part(doc, material_id=material_id)
-    doc.recompute()
-    return obj
-
-
-def touched(doc: Any) -> list[str]:
-    return [o.Name for o in doc.Objects if "Touched" in o.State]
 
 
 # --- usable_texture_file : fichiers piégés -----------------------------------------------
@@ -130,22 +121,24 @@ def test_chemins_impossibles_refuses_sans_exception(tmp_path: Path) -> None:
     ],
 )
 def test_apparence_independante_des_cotes(
-    document: Any, bibliotheque_temporaire: Library, prop: str, value: object
+    document: Any, bibliotheque_temporaire: Library, prop: str, value: object, board: Board
 ) -> None:
     image = install_textured_maple(bibliotheque_temporaire)
-    obj = board(document)
+    obj = board(document, "erable")
     if value is None:
         value = App.Placement(App.Vector(1e6, -2e5, 30), App.Rotation(30, 45, 60))
     setattr(obj, prop, value)
     document.recompute()
     assert appearance.appearance_of(obj) == textured(image)
-    assert touched(document) == []
+    assert touched_names(document) == []
 
 
-def test_annuler_retablir_fil_et_materiau(document: Any, bibliotheque_temporaire: Library) -> None:
+def test_annuler_retablir_fil_et_materiau(
+    document: Any, bibliotheque_temporaire: Library, board: Board
+) -> None:
     image = install_textured_maple(bibliotheque_temporaire)
     document.UndoMode = 1
-    obj = board(document)
+    obj = board(document, "erable")
     document.openTransaction("Fil")
     obj.GrainDirection = "Width"
     document.commitTransaction()
@@ -167,7 +160,7 @@ def test_annuler_retablir_fil_et_materiau(document: Any, bibliotheque_temporaire
 
 
 def test_texture_vers_sans_texture_et_inverse(
-    document: Any, bibliotheque_temporaire: Library
+    document: Any, bibliotheque_temporaire: Library, board: Board
 ) -> None:
     image = install_textured_maple(bibliotheque_temporaire)
     obj = board(document, "chene")
@@ -187,21 +180,21 @@ def test_texture_vers_sans_texture_et_inverse(
 
 @pytest.mark.parametrize("size", [(10.0, 10.0), (10_000.0, 10_000.0), (10.0, 10_000.0)])
 def test_tailles_extremes_de_la_bibliotheque(
-    document: Any, bibliotheque_temporaire: Library, size: tuple[float, float]
+    document: Any, bibliotheque_temporaire: Library, size: tuple[float, float], board: Board
 ) -> None:
     install_textured_maple(bibliotheque_temporaire)
     bibliotheque_temporaire.installer(maple(image=IMAGE, size=list(size)))
-    obj = board(document)
+    obj = board(document, "erable")
     obj.GrainDirection = "Width"
     assert appearance.appearance_of(obj).mapping == mapping(size, "Width")
 
 
 def test_bibliotheque_modifiee_entre_deux_sessions(
-    document: Any, bibliotheque_temporaire: Library, rouvrir: Reopen
+    document: Any, bibliotheque_temporaire: Library, rouvrir: Reopen, board: Board
 ) -> None:
     """Rien de la texture n'est enregistré : la réouverture suit la bibliothèque du moment."""
     image = install_textured_maple(bibliotheque_temporaire)
-    name = board(document).Name
+    name = board(document, "erable").Name
     bibliotheque_temporaire.installer(maple(image=IMAGE, size=[300, 100]))
     doc = rouvrir(document)
     assert appearance.appearance_of(doc.getObject(name)) == textured(image, (300.0, 100.0))
@@ -213,14 +206,14 @@ def test_bibliotheque_modifiee_entre_deux_sessions(
     obj = doc.getObject(name)
     assert appearance.appearance_of(obj) == textured(image)
     assert obj.Version == wood_part.WoodPart.VERSION
-    assert touched(doc) == []
+    assert touched_names(doc) == []
 
 
 def test_image_remplacee_ou_supprimee_sur_le_disque(
-    document: Any, bibliotheque_temporaire: Library
+    document: Any, bibliotheque_temporaire: Library, board: Board
 ) -> None:
     image = install_textured_maple(bibliotheque_temporaire)
-    obj = board(document)
+    obj = board(document, "erable")
     image.write_bytes(b"\x89PNG\r\n\x1a\n" + bytes(4096))
     assert appearance.appearance_of(obj) == textured(image)
     image.unlink()
@@ -233,7 +226,7 @@ def test_image_remplacee_ou_supprimee_sur_le_disque(
 
 
 def test_lien_de_la_bibliotheque_resolu_vers_sa_cible(
-    document: Any, bibliotheque_temporaire: Library
+    document: Any, bibliotheque_temporaire: Library, board: Board
 ) -> None:
     """Un lien symbolique dans le dossier de la bibliothèque est résolu au chargement : la pièce
     pointe vers la cible, toujours dans le dossier."""
@@ -242,16 +235,18 @@ def test_lien_de_la_bibliotheque_resolu_vers_sa_cible(
     target = sized_file(folder / "textures" / "vraie.png", 10)
     (folder / IMAGE).symlink_to(target)
     bibliotheque_temporaire.installer(TEXTURED_MAPLE)
-    obj = board(document)
+    obj = board(document, "erable")
     assert appearance.appearance_of(obj) == textured(target.resolve())
 
 
-def test_documents_multiples_independants(document: Any, bibliotheque_temporaire: Library) -> None:
+def test_documents_multiples_independants(
+    document: Any, bibliotheque_temporaire: Library, board: Board
+) -> None:
     image = install_textured_maple(bibliotheque_temporaire)
     other = App.newDocument("TestPieceDeBoisAutre")
     other_name = other.Name
     try:
-        first, second = board(document), board(other)
+        first, second = board(document, "erable"), board(other, "erable")
         second.GrainDirection = "Width"
         assert appearance.appearance_of(first) == textured(image)
         assert appearance.appearance_of(second).mapping == mapping((600.0, 200.0), "Width")

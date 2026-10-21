@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from tests.integration.cadre import touched
+from tests.integration.cadre import stale_or_invalid
 from tests.integration.test_assemblages_compatibilite import assert_opens_without_workbench
 from tests.integration.test_assemblages_persistance import by_name, snapshot
 from tests.integration.types_assemblages import (
@@ -50,7 +50,7 @@ def test_reouverture_a_l_identique(document: Any, rouvrir: Reopen, scenario: Sce
     name = montage.joint.Name
     doc = rouvrir(document)
     assert snapshot(doc) == before
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     joint = by_name(doc, name)
     module, cls = PROXIES[scenario.factory]
     proxy = type(joint.Proxy)

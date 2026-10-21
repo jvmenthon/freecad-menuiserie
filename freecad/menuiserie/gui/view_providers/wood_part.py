@@ -18,7 +18,7 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
+from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject, StatelessProxy
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.gui.part_appearance import (
     FALLBACK_DIFFUSE,
@@ -41,7 +41,30 @@ _MATERIAL_COLOR_TOOLTIP: Final = QT_TRANSLATE_NOOP(
 )
 
 
-class ViewProviderWoodPart:
+class PanelEditing(StatelessProxy):
+    """Base des ViewProviders édités dans un panneau de tâche (mode 0) : début et fin
+    d'édition, double-clic et sérialisation communs. Chaque ViewProvider fournit l'étape
+    :meth:`open_panel`. FreeCAD n'enregistre que le chemin de la classe concrète."""
+
+    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Mode 0 : panneau de tâche (:meth:`open_panel`) ; les autres modes restent à FreeCAD."""
+        return None if mode != 0 else self.open_panel(vobj)
+
+    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Fin du mode 0 : le panneau est fermé."""
+        del vobj
+        return end_panel_edit(mode)
+
+    def doubleClicked(self, vobj: ViewObject) -> bool:
+        """Double-clic : mode d'édition 0 ; refusé si un panneau de tâche est déjà ouvert."""
+        return edit_by_double_click(vobj)
+
+    def open_panel(self, vobj: ViewObject) -> bool | None:
+        """Ouvre le panneau de l'objet de ``vobj`` : étape fournie par chaque ViewProvider."""
+        raise NotImplementedError
+
+
+class ViewProviderWoodPart(PanelEditing):
     """ViewProvider de la pièce de bois. Chemin de module figé (ADR 0003).
 
     Sans état enregistré (``dumps`` renvoie ``None``) : la couleur est dans ``MaterialColor``,
@@ -88,30 +111,11 @@ class ViewProviderWoodPart:
         _ensure_material_color(vobj)
         self._refresh(vobj)
 
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
-
-    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Mode 0 : panneau de tâche de la pièce ; les autres modes restent à FreeCAD."""
-        if mode != 0:
-            return None
+    def open_panel(self, vobj: ViewObject) -> bool | None:
+        """Mode 0 (double-clic dans l'arbre ou la vue 3D) : panneau de tâche de la pièce."""
         from freecad.menuiserie.gui.task_panels.wood_part import start_editing
 
         return start_editing(vobj.Object)
-
-    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Fin du mode 0 : le panneau est fermé."""
-        del vobj
-        return end_panel_edit(mode)
-
-    def doubleClicked(self, vobj: ViewObject) -> bool:
-        """Double-clic dans l'arbre ou la vue 3D : édition de la pièce dans le panneau."""
-        return edit_by_double_click(vobj)
 
     def _refresh(self, vobj: ViewObject) -> None:
         """Affiche la texture du matériau si elle est utilisable, sinon ``MaterialColor``.

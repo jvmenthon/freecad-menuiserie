@@ -14,12 +14,10 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final
 
-import FreeCAD as App
-
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import EDITABLE, HIDDEN, READ_ONLY, DocumentObject
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import report_warning, translated
 
 __all__ = [
     "DISTANCE",
@@ -93,7 +91,7 @@ def warn(obj: DocumentObject, template: str, **params: object) -> None:
     if "noun" in params:
         quoted["noun"] = translated(str(params["noun"]))
     quoted["label"] = quoted_value(obj.Label)
-    App.Console.PrintWarning(f"Menuiserie : {translated(template, quoted)}\n")
+    report_warning(translated(template, quoted))
 
 
 def add_missing_properties(

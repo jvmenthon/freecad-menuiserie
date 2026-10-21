@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from tests.integration.cadre import RAIL_VOLUME, STILE_VOLUME, Cadre, placement, touched
+from tests.integration.cadre import RAIL_VOLUME, STILE_VOLUME, Cadre, placement, stale_or_invalid
 
 pytestmark = pytest.mark.integration
 
@@ -62,7 +62,7 @@ def test_reouverture_a_l_identique(cadre_assemble: Cadre, rouvrir: Reopen) -> No
     assert {name: volume for name, (volume, _) in after.items()} == {
         name: volume for name, (volume, _) in before.items()
     }
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     for name, (module, cls) in ((machined_name, MACHINED_PROXY), (joint_name, JOINT_PROXY)):
         obj = by_name(doc, name)
         assert (type(obj.Proxy).__module__, type(obj.Proxy).__name__) == (module, cls)
@@ -172,7 +172,7 @@ def test_supprimer_un_assemblage(cadre_assemble: Cadre) -> None:
     doc = cadre_assemble.doc
     doc.removeObject(cadre_assemble.joints["M1", "T1"].Name)
     doc.recompute()
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     assert cadre_assemble.volume("M1") == pytest.approx(600 * 60 * 22 - 42 * 40 * 7)
     assert cadre_assemble.volume("T1") == pytest.approx(280 * 60 * 22 + 40 * 40 * 7)
 
@@ -214,7 +214,7 @@ def test_document_j1_inchange(document: Any, rouvrir: Reopen) -> None:
     doc = rouvrir(document)
     restored = by_name(doc, name)
     assert restored.Version == 2
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     assert [o.Name for o in doc.Objects] == [name]
 
 
@@ -243,5 +243,5 @@ def test_deplacer_la_piece_usinee(cadre_assemble: Cadre) -> None:
     doc.undo()
     doc.recompute()
     assert blank.Placement == placement(60, 60, 90)
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     assert cadre_assemble.volume("T1") == pytest.approx(RAIL_VOLUME)

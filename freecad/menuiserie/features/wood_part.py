@@ -23,15 +23,19 @@ from freecad.menuiserie.core.part_model import (
     Allowances,
     Dimensions,
     GrainDirection,
-    InvalidDimensionsError,
     PartRecord,
     allowances_after_material_change,
     grain_after_material_change,
     material_has_grain,
     remembered_grain,
 )
-from freecad.menuiserie.features.freecad_types import Document, DocumentObject, proxy_is
-from freecad.menuiserie.features.i18n import templated_message, translated
+from freecad.menuiserie.features.freecad_types import (
+    Document,
+    DocumentObject,
+    StatelessProxy,
+    proxy_is,
+)
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.schema import warn
 from freecad.menuiserie.features.wood_part_restore import (
@@ -41,6 +45,7 @@ from freecad.menuiserie.features.wood_part_restore import (
     restore_enumerations,
     restore_material_choices,
     restored_version,
+    stored_material,
 )
 from freecad.menuiserie.features.wood_part_schema import (
     CATEGORIES,
@@ -83,7 +88,7 @@ _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
 )
 
 
-class WoodPart:
+class WoodPart(StatelessProxy):
     """Proxy du FeaturePython « pièce de bois ». Chemin de module figé (ADR 0003).
 
     Le proxy ne porte aucun état : tout est dans les propriétés de l'objet. Le drapeau de
@@ -138,21 +143,11 @@ class WoodPart:
 
     def execute(self, obj: DocumentObject) -> None:
         """Reconstruit la forme depuis les seules cotes, sans toucher au ``Placement``."""
-        try:
+        with translated_errors():
             dimensions = dimensions_of(obj)
-        except InvalidDimensionsError as error:
-            raise ValueError(templated_message(error)) from error
         placement = obj.Placement
         obj.Shape = Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
         obj.Placement = placement
-
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
 
     def select_material(self, obj: DocumentObject, material: Material) -> None:
         """Sélectionne ``material`` dans la liste et recopie ses valeurs dans la pièce."""
@@ -294,8 +289,7 @@ def _apply_material(obj: DocumentObject, material: Material) -> None:
 
 def _shows_grain(obj: DocumentObject, library: MaterialLibrary) -> bool:
     """Visibilité du fil d'après le matériau de la pièce dans ``library``."""
-    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
-    material = library.find(material_id)
+    material = stored_material(obj, library)
     return material_has_grain(material, part_kind(obj, material))
 
 

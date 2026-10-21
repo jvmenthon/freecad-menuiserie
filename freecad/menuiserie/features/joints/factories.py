@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Fabriques des assemblages du document (``create_…``) et classes par type (``JOINT_CLASSES``).
+"""Fabriques des assemblages du document (``create_…``).
 
 Une fabrique valide tout avant de créer quoi que ce soit (deux pièces distinctes, pièces de
 bois ou pièces usinées, même document, même conteneur, paramètres), crée l'assemblage entre
@@ -10,15 +10,9 @@ transaction ni recalcul : c'est à l'appelant de les faire.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from types import MappingProxyType
 from typing import Final, TypeVar
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints import JointKind
-from freecad.menuiserie.core.joints.dowels import DowelParams
-from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
-from freecad.menuiserie.core.joints.rabbet import RabbetParams
-from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
@@ -30,7 +24,6 @@ from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
 from freecad.menuiserie.features.machined_part import blank_of, ensure_machined_part
 
 __all__ = [
-    "JOINT_CLASSES",
     "create_dowels",
     "create_joint",
     "create_mortise_tenon",
@@ -39,15 +32,6 @@ __all__ = [
 ]
 
 P = TypeVar("P")
-
-JOINT_CLASSES: Final[Mapping[JointKind, type[JointFeature]]] = MappingProxyType(
-    {
-        JointKind.MORTISE_TENON: MortiseTenonJoint,
-        JointKind.TONGUE_GROOVE: TongueGrooveJoint,
-        JointKind.RABBET: RabbetJoint,
-        JointKind.DOWELS: DowelJoint,
-    }
-)
 
 _SAME_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Choisissez deux pièces différentes pour un assemblage."
@@ -110,13 +94,24 @@ def create_joint(
     return obj
 
 
+def _create(
+    joint_class: type[JointFeature],
+    doc: Document,
+    host: DocumentObject,
+    guest: DocumentObject,
+    params: Mapping[str, object],
+) -> DocumentObject:
+    """Paramètres validés (objet valeur ``joint_class.PARAMS``), puis assemblage créé par
+    :func:`create_joint`."""
+    return create_joint(joint_class, doc, host, guest, _validated(joint_class.PARAMS, params))
+
+
 def create_mortise_tenon(
     doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
 ) -> DocumentObject:
     """Crée un tenon-mortaise : mortaise dans ``host``, tenon au bout de ``guest`` (pièces de
     bois ou pièces usinées). Paramètres de ``MortiseTenonParams`` en mm, 0 = automatique."""
-    values = _validated(MortiseTenonParams, params)
-    return create_joint(MortiseTenonJoint, doc, host, guest, values)
+    return _create(MortiseTenonJoint, doc, host, guest, params)
 
 
 def create_tongue_groove(
@@ -124,8 +119,7 @@ def create_tongue_groove(
 ) -> DocumentObject:
     """Crée une rainure-languette : rainure dans ``host``, languette au chant ou au bout de
     ``guest``. Paramètres de ``TongueGrooveParams`` en mm, 0 = automatique."""
-    values = _validated(TongueGrooveParams, params)
-    return create_joint(TongueGrooveJoint, doc, host, guest, values)
+    return _create(TongueGrooveJoint, doc, host, guest, params)
 
 
 def create_rabbet(
@@ -133,8 +127,7 @@ def create_rabbet(
 ) -> DocumentObject:
     """Crée une feuillure (ou un logement) dans ``host`` à la place occupée par ``guest``.
     Paramètre de ``RabbetParams`` : ``through`` (filante, vrai par défaut)."""
-    values = _validated(RabbetParams, params)
-    return create_joint(RabbetJoint, doc, host, guest, values)
+    return _create(RabbetJoint, doc, host, guest, params)
 
 
 def create_dowels(
@@ -142,5 +135,4 @@ def create_dowels(
 ) -> DocumentObject:
     """Crée des tourillons percés dans ``host`` et ``guest`` à travers leur contact.
     Paramètres de ``DowelParams`` en mm, 0 = automatique."""
-    values = _validated(DowelParams, params)
-    return create_joint(DowelJoint, doc, host, guest, values)
+    return _create(DowelJoint, doc, host, guest, params)

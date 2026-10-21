@@ -12,8 +12,7 @@ from typing import ClassVar, Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
-from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.joints.base import JointFeature, params_from
+from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["MortiseTenonJoint"]
@@ -28,6 +27,7 @@ class MortiseTenonJoint(JointFeature):
     TYPE: ClassVar[str] = "Menuiserie::MortiseTenon"
     OBJECT_NAME: ClassVar[str] = "MortiseTenon"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Tenon-mortaise")
+    PARAMS: ClassVar[type[MortiseTenonParams]] = MortiseTenonParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "TenonThickness",
@@ -113,7 +113,3 @@ class MortiseTenonJoint(JointFeature):
             label=QT_TRANSLATE_NOOP("Menuiserie", "Jeu de fond de la mortaise"),
         ),
     )
-
-    def params(self, obj: DocumentObject) -> MortiseTenonParams:
-        """Paramètres du tenon-mortaise lus dans les propriétés de ``obj``."""
-        return params_from(obj, MortiseTenonParams)

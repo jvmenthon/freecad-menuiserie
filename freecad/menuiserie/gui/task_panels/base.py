@@ -10,18 +10,21 @@ Chaque modification est visible aussitôt (:func:`recompute_preview`).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any, Final, Protocol
 
 import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
+EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 # Préfixe des types TechDraw : leurs pages ne sont pas recalculées par l'aperçu.
 _TECHDRAW: Final = "TechDraw::"
 
@@ -124,13 +127,16 @@ def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None)
     """Construit le panneau par ``build`` puis l'affiche, dans la transaction déjà ouverte.
     Une exception abandonne cette transaction (objet en création compris) avant d'être
     propagée."""
-    try:
+    with aborted_on_error(App.getActiveTransaction()):
         panel = build()
         Gui.Control.showDialog(panel)
         panel.watch_document(edited)
-    except BaseException:
-        close_transaction(App.getActiveTransaction(), abort=True)
-        raise
+
+
+def panel_title(label: str, creating: bool, create_template: str) -> str:
+    """Titre du panneau : ``create_template`` en création, « Modifier « … » » sinon ; ``label``
+    (libellé de l'objet déjà mis en forme) remplit ``{label}``."""
+    return translated(create_template if creating else EDIT_TITLE, {"label": label})
 
 
 def start_editing(
@@ -157,6 +163,17 @@ def close_transaction(transaction: tuple[str, int] | None, *, abort: bool) -> No
     active = App.getActiveTransaction()
     if transaction is not None and active == transaction:
         App.closeActiveTransaction(abort, transaction[1])
+
+
+@contextmanager
+def aborted_on_error(transaction: tuple[str, int] | None) -> Iterator[None]:
+    """Toute exception du bloc abandonne ``transaction`` (:func:`close_transaction`) avant
+    d'être propagée."""
+    try:
+        yield
+    except BaseException:
+        close_transaction(transaction, abort=True)
+        raise
 
 
 def recompute_preview(obj: DocumentObject) -> None:
@@ -190,9 +207,37 @@ class DeletionWatcher:
             self._on_deleted()
 
 
+class UpdateGuard:
+    """Garde des mises à jour des widgets par le panneau (``with guard:``) : tant qu'elle est
+    levée (:attr:`active`), les saisies ne sont pas réécrites dans l'objet. Réentrante."""
+
+    def __init__(self) -> None:
+        self._depth = 0
+
+    @property
+    def active(self) -> bool:
+        """Vrai pendant une mise à jour des widgets par le panneau."""
+        return self._depth > 0
+
+    def __enter__(self) -> None:
+        self._depth += 1
+
+    def __exit__(self, *_exc_info: object) -> None:
+        self._depth -= 1
+
+
+def expression_of(obj: DocumentObject, prop: str) -> str | None:
+    """Expression qui pilote la propriété ``prop`` de ``obj``, ``None`` s'il n'y en a pas."""
+    for path, expression in obj.ExpressionEngine:
+        if path.lstrip(".") == prop:
+            text: str = expression
+            return text
+    return None
+
+
 def has_expression(obj: DocumentObject, prop: str) -> bool:
     """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
-    return any(path.lstrip(".") == prop for path, _expression in obj.ExpressionEngine)
+    return expression_of(obj, prop) is not None
 
 
 def connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:

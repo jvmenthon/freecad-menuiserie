@@ -10,8 +10,6 @@ jamais écrite par le panneau.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -35,13 +33,18 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.wood_part import set_material, shows_grain
 from freecad.menuiserie.gui.task_panels import base
-from freecad.menuiserie.gui.task_panels.base import ObjectTaskPanel, connect, has_expression
+from freecad.menuiserie.gui.task_panels.base import (
+    ObjectTaskPanel,
+    UpdateGuard,
+    connect,
+    has_expression,
+    panel_title,
+)
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
 
 UI_FILE: Final = Path(__file__).with_name("wood_part.ui")
 EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier une pièce de bois")
 _CREATE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Nouvelle pièce de bois")
-_EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 _INDEX_CHANGED: Final = "currentIndexChanged(int)"
 
 # Filtre « Type » : libellé, puis familles retenues (aucune : tous les matériaux).
@@ -90,10 +93,10 @@ class WoodPartTaskPanel(ObjectTaskPanel):
 
     def __init__(self, obj: DocumentObject, *, creating: bool) -> None:
         super().__init__(obj, creating=creating)
-        self._updating = False
+        self._guard = UpdateGuard()
         self.form = Gui.PySideUic.loadUi(str(UI_FILE))
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
-        self.form.setWindowTitle(_title(obj, creating))
+        self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
         self._bindings = [self._bind(field) for field in LENGTH_FIELDS]
         self._thickness_menu = QtGui.QMenu(self.form.standardThicknessButton)
         self.form.standardThicknessButton.setMenu(self._thickness_menu)
@@ -139,22 +142,13 @@ class WoodPartTaskPanel(ObjectTaskPanel):
             slot = partial(self._on_length_changed, field.prop)
             connect(getattr(form, field.widget), "valueChanged(double)", slot)
 
-    @contextmanager
-    def _quiet(self) -> Iterator[None]:
-        """Mise à jour des widgets par le panneau : rien n'est réécrit dans l'objet."""
-        previous, self._updating = self._updating, True
-        try:
-            yield
-        finally:
-            self._updating = previous
-
     # --- Affichage ------------------------------------------------------------------------
 
     def _fill_materials(self) -> None:
         """Matériaux du type choisi ; hors filtre, le premier de la liste est appliqué."""
         combo = self.form.materialCombo
         kinds = KIND_FILTERS[max(self.form.kindCombo.currentIndex(), 0)][1]
-        with self._quiet():
+        with self._guard:
             combo.clear()
             for material in get_library().by_kind(*kinds):
                 combo.addItem(material.name(display_language()), material.id)
@@ -167,7 +161,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
 
     def _show_values(self) -> None:
         """Valeurs de l'objet dans les champs (après ouverture ou changement de matériau)."""
-        with self._quiet():
+        with self._guard:
             self.form.markEdit.setText(self.obj.Mark)
             grain = self.form.grainCombo.findData(self.obj.GrainDirection)
             self.form.grainCombo.setCurrentIndex(grain)
@@ -214,7 +208,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._fill_materials()
 
     def _on_material_chosen(self, index: int) -> None:
-        if self._updating or index < 0 or has_expression(self.obj, "Material"):
+        if self._guard.active or index < 0 or has_expression(self.obj, "Material"):
             return
         material_id = self.form.materialCombo.itemData(index)
         if material_id == self.obj.MaterialId or get_library().find(material_id) is None:
@@ -224,11 +218,11 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._recompute()
 
     def _on_grain_chosen(self, index: int) -> None:
-        if not self._updating and index >= 0 and not has_expression(self.obj, "GrainDirection"):
+        if not self._guard.active and index >= 0 and not has_expression(self.obj, "GrainDirection"):
             self.obj.GrainDirection = self.form.grainCombo.itemData(index)
 
     def _on_length_changed(self, prop: str, value: float) -> None:
-        if self._updating or has_expression(self.obj, prop):
+        if self._guard.active or has_expression(self.obj, prop):
             return
         if getattr(self.obj, prop).Value != value:
             setattr(self.obj, prop, value)
@@ -261,12 +255,6 @@ def show_panel(obj: DocumentObject, *, creating: bool) -> None:
 def _build(obj: DocumentObject, *, creating: bool) -> WoodPartTaskPanel:
     """Panneau de ``obj`` (classe lue à l'appel : remplaçable par les vérifications)."""
     return WoodPartTaskPanel(obj, creating=creating)
-
-
-def _title(obj: DocumentObject, creating: bool) -> str:
-    if creating:
-        return translated(_CREATE_TITLE)
-    return translated(_EDIT_TITLE, {"label": str(obj.Label)})
 
 
 def _length_text(length_mm: float) -> str:

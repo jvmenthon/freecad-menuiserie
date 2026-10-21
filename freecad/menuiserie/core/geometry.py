@@ -36,8 +36,6 @@ __all__ = [
     "moved_box",
     "relative_axes",
     "relative_transform",
-    "to_guest",
-    "to_host",
 ]
 
 CONTACT_TOLERANCE_MM: Final = 0.01
@@ -275,7 +273,12 @@ def relative_axes(host: PlacedBlock, guest: PlacedBlock) -> tuple[Axis, Axis, Ax
 
     Lève :class:`JointError` si la rotation relative n'est pas un multiple de 90° par axe.
     """
-    rotation = host.placement.inverse().compose(guest.placement).rotation
+    return _square_axes(host.placement.inverse().compose(guest.placement).rotation)
+
+
+def _square_axes(rotation: Matrix3) -> tuple[Axis, Axis, Axis]:
+    """Images des axes +X, +Y et +Z par ``rotation`` ; :class:`JointError` si elle n'est pas
+    d'équerre."""
     axes = (
         _axis_of_column(rotation, 0),
         _axis_of_column(rotation, 1),
@@ -288,12 +291,11 @@ def relative_axes(host: PlacedBlock, guest: PlacedBlock) -> tuple[Axis, Axis, Ax
 
 def relative_transform(host: PlacedBlock, guest: PlacedBlock) -> RigidTransform:
     """Repère de l'invitée → repère de l'hôte, rotation arrondie à la permutation exacte."""
-    axes = relative_axes(host, guest)
+    relative = host.placement.inverse().compose(guest.placement)
     rows = [[0.0, 0.0, 0.0] for _ in range(3)]
-    for column, axis in enumerate(axes):
+    for column, axis in enumerate(_square_axes(relative.rotation)):
         rows[axis.index][column] = float(axis.sign)
-    translation = host.placement.inverse().compose(guest.placement).translation
-    return RigidTransform(_matrix3(rows), translation)
+    return RigidTransform(_matrix3(rows), relative.translation)
 
 
 def moved_axis(transform: RigidTransform, axis: Axis) -> Axis:
@@ -316,13 +318,3 @@ def moved(solid: Solid, transform: RigidTransform) -> Solid:
         base = transform.apply(solid.base)
         return Cylinder(base, moved_axis(transform, solid.axis), solid.radius, solid.height)
     return moved_box(solid, transform)
-
-
-def to_host(host: PlacedBlock, guest: PlacedBlock, solid: Solid) -> Solid:
-    """Solide du repère de l'invitée exprimé dans celui de l'hôte."""
-    return moved(solid, relative_transform(host, guest))
-
-
-def to_guest(host: PlacedBlock, guest: PlacedBlock, solid: Solid) -> Solid:
-    """Solide du repère de l'hôte exprimé dans celui de l'invitée."""
-    return moved(solid, relative_transform(host, guest).inverse())

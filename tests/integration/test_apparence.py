@@ -79,7 +79,7 @@ def install_textured_maple(library: Library, *, with_image: bool = True) -> Path
     return image
 
 
-def touched(obj: Any) -> bool:
+def is_touched(obj: Any) -> bool:
     return "Touched" in obj.State
 
 
@@ -143,13 +143,13 @@ def test_texture_dans_le_sens_du_fil(document: Any, bibliotheque_temporaire: Lib
         MAPLE_RGB, maple_texture(image), core_appearance.texture_mapping(SIZE, grain.LENGTH)
     )
     assert appearance.appearance_of(obj) == expected
-    assert not touched(obj)
+    assert not is_touched(obj)
     obj.GrainDirection = "Width"
     document.recompute()
     assert appearance.appearance_of(obj).mapping == core_appearance.texture_mapping(
         SIZE, grain.WIDTH
     )
-    assert not touched(obj)
+    assert not is_touched(obj)
 
 
 def test_image_absente_couleur_seule(document: Any, bibliotheque_temporaire: Library) -> None:
@@ -178,7 +178,7 @@ def test_materiau_inconnu_localement(document: Any, bibliotheque_temporaire: Lib
     document.recompute()
     bibliotheque_temporaire.retirer()
     assert appearance.appearance_of(obj) is None
-    assert not touched(obj)
+    assert not is_touched(obj)
 
 
 def test_materiau_sans_texture(document: Any, bibliotheque_temporaire: Library) -> None:

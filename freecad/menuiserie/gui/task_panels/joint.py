@@ -28,19 +28,19 @@ from freecad.menuiserie.features.joints.base import (
     resolved_for,
 )
 from freecad.menuiserie.gui.task_panels import base
-from freecad.menuiserie.gui.task_panels.base import ObjectTaskPanel, Widget, connect
-from freecad.menuiserie.gui.task_panels.joint_fields import (
-    ParamField,
+from freecad.menuiserie.gui.task_panels.base import (
+    ObjectTaskPanel,
+    Widget,
+    connect,
     expression_of,
-    fields_of,
-    property_tooltip,
+    panel_title,
 )
+from freecad.menuiserie.gui.task_panels.joint_fields import ParamField, fields_of, property_tooltip
 from freecad.menuiserie.gui.view_providers.joint import joint_icon
 
 FORM_NAME: Final = "JointTaskPanel"
 EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier un assemblage")
 _CREATE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Nouvel assemblage : {label}")
-_EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 _HOST: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce hôte : « {label} »")
 _GUEST: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce invitée : « {label} »")
 _MISSING: Final = QT_TRANSLATE_NOOP("Menuiserie", "(pièce supprimée)")
@@ -62,7 +62,7 @@ class JointTaskPanel(ObjectTaskPanel):
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(joint_icon(proxy))))
-        self.form.setWindowTitle(_title(obj, creating))
+        self.form.setWindowTitle(panel_title(quoted_value(obj.Label), creating, _CREATE_TITLE))
         self.fields = fields_of(proxy.PROPERTIES, self._write)
         layout = QtGui.QVBoxLayout(self.form)
         self._parts = self._add_parts(layout)
@@ -161,11 +161,6 @@ def _error_label() -> Widget:
     label.setStyleSheet(_ERROR_STYLE)
     label.setVisible(False)
     return label
-
-
-def _title(obj: DocumentObject, creating: bool) -> str:
-    template = _CREATE_TITLE if creating else _EDIT_TITLE
-    return translated(template, {"label": quoted_value(obj.Label)})
 
 
 def start_editing(obj: DocumentObject) -> bool:

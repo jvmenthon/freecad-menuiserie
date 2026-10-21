@@ -103,6 +103,23 @@ def document() -> Iterator[Any]:
 
 
 @pytest.fixture
+def board() -> Callable[..., Any]:
+    """Fabrique de pièces de 800 x 200 x 22 mm recalculées :
+    ``board(doc, material_id="chene", grain=None)`` ; ``grain``, s'il est donné, est réglé
+    comme par l'éditeur de propriétés."""
+    wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
+
+    def make(doc: Any, material_id: str = "chene", grain: str | None = None) -> Any:
+        obj = wood_part.create_wood_part(doc, material_id=material_id)
+        if grain is not None and grain != obj.GrainDirection:
+            obj.GrainDirection = grain
+        doc.recompute()
+        return obj
+
+    return make
+
+
+@pytest.fixture
 def rouvrir(tmp_path: Path) -> Callable[[Any], Any]:
     """Fonction qui enregistre un document, le ferme et le rouvre."""
     app = _freecad()

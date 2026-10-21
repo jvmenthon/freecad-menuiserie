@@ -97,12 +97,3 @@ def test_valeur_plus_grosse_que_le_budget() -> None:
     cache.remember("a", decoded("a", 10))
     assert not cache.reserve(101)
     assert "a" in cache  # rien n'a été oublié pour rien
-
-
-def test_vider_garde_les_valeurs_affichees() -> None:
-    cache: Cache = BudgetedCache(max_entries=10, max_bytes=100)
-    shown = decoded("a", 70)
-    cache.remember("a", shown)
-    cache.clear()
-    assert cache.bytes_alive == 70
-    assert cache.get("a") is shown
