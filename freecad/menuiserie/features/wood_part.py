@@ -23,7 +23,6 @@ from freecad.menuiserie.core.part_model import (
     Allowances,
     Dimensions,
     GrainDirection,
-    InvalidDimensionsError,
     PartRecord,
     allowances_after_material_change,
     grain_after_material_change,
@@ -36,7 +35,7 @@ from freecad.menuiserie.features.freecad_types import (
     StatelessProxy,
     proxy_is,
 )
-from freecad.menuiserie.features.i18n import templated_message, translated
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.schema import warn
 from freecad.menuiserie.features.wood_part_restore import (
@@ -46,6 +45,7 @@ from freecad.menuiserie.features.wood_part_restore import (
     restore_enumerations,
     restore_material_choices,
     restored_version,
+    stored_material,
 )
 from freecad.menuiserie.features.wood_part_schema import (
     CATEGORIES,
@@ -143,10 +143,8 @@ class WoodPart(StatelessProxy):
 
     def execute(self, obj: DocumentObject) -> None:
         """Reconstruit la forme depuis les seules cotes, sans toucher au ``Placement``."""
-        try:
+        with translated_errors():
             dimensions = dimensions_of(obj)
-        except InvalidDimensionsError as error:
-            raise ValueError(templated_message(error)) from error
         placement = obj.Placement
         obj.Shape = Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
         obj.Placement = placement
@@ -291,8 +289,7 @@ def _apply_material(obj: DocumentObject, material: Material) -> None:
 
 def _shows_grain(obj: DocumentObject, library: MaterialLibrary) -> bool:
     """Visibilité du fil d'après le matériau de la pièce dans ``library``."""
-    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
-    material = library.find(material_id)
+    material = stored_material(obj, library)
     return material_has_grain(material, part_kind(obj, material))
 
 
