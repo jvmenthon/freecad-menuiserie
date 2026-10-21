@@ -168,12 +168,13 @@ def auto_length(diameter: float) -> float:
 
 
 def auto_count(width: float, edge: float, diameter: float) -> int:
-    """Au moins 2 tourillons, entraxe de 128 mm au plus ; jamais un entraxe refusé (au plus
-    le diamètre, tolérance comprise) : 1 au milieu si la place manque."""
+    """Au moins 2 tourillons, entraxe de 128 mm au plus, ``MAX_DOWEL_COUNT`` au plus (l'entraxe
+    dépasse alors 128 mm sur un très long contact) ; jamais un entraxe refusé (au plus le
+    diamètre, tolérance comprise) : 1 au milieu si la place manque."""
     span = width - 2 * edge
     if span <= diameter + CONTACT_TOLERANCE_MM:
         return 1
-    count = max(2, math.ceil(span / MAX_SPACING_MM - _MARGIN) + 1)
+    count = min(MAX_DOWEL_COUNT, max(2, math.ceil(span / MAX_SPACING_MM - _MARGIN) + 1))
     while count > 1 and span / (count - 1) <= diameter + CONTACT_TOLERANCE_MM:
         count -= 1
     return count
