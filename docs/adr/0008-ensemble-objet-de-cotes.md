@@ -18,8 +18,9 @@ TechDraw ni l'export STEP.
 Dans FreeCAD, un groupe (`Group` d'une extension de groupe) **lie** ses enfants : il en dépend
 dans le graphe de recalcul. Or les pièces doivent dépendre des cotes de l'ensemble (leurs
 expressions le lisent). Si l'ensemble est le groupe de ses pièces, on obtient
-ensemble → pièce → ensemble. FreeCAD signale ce cycle ou recalcule dans un ordre faux, selon le
-type de groupe et la version. De plus, un groupe géométrique (`GeoFeatureGroup`, comme Std Part)
+ensemble → pièce → ensemble. Vérifié sur FreeCAD 1.1 (2026-10-21) : pour un `App::Part` comme
+pour un `App::DocumentObjectGroupPython` portant une cote, `setExpression` sur un enfant qui lit
+cette cote est refusé (« cyclic reference »). De plus, un groupe géométrique (`GeoFeatureGroup`, comme Std Part)
 change le repère et la portée des liens de ses enfants.
 
 Options étudiées :
