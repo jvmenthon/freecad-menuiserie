@@ -64,7 +64,10 @@ Options étudiées :
    la brute est masquée et apparaît sous elle dans l'arbre.
 4. **Graphe de recalcul** sans cycle, en une seule passe : pièces brutes → assemblages → pièces
    usinées. Chaque assemblage ne lit que des pièces brutes : deux assemblages d'une même pièce sont
-   indépendants et leur ordre de création n'a aucun effet.
+   indépendants et leur ordre de création n'a aucun effet. Seule exception (précision du
+   2026-10-21, correction D1) : pour vérifier sa cohérence, l'assemblage lit aussi `Base` et
+   `Joints` des pièces usinées qui le citent (`InList`), sans en dépendre dans le graphe ; aucun
+   cycle n'est créé.
 5. **Géométrie dans `core/`** : le plan d'usinage (enlèvements et ajouts en boîtes et cylindres
    dans le repère local de chaque pièce) est calculé en Python pur par une stratégie par type
    d'assemblage (registre), testée sans FreeCAD ; `features/` ne fait que convertir en formes Part
