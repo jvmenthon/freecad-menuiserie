@@ -3,10 +3,12 @@ name: Captures
 # Captures d'écran de l'atelier dans FreeCAD (vue 3D, fenêtre complète, gros plan d'une texture,
 # panneaux de tâche d'une pièce et d'un assemblage), publiées dans un commentaire de la PR. Les
 # images sont poussées sur la branche « captures » (jamais fusionnée) pour pouvoir être
-# affichées dans le commentaire, et jointes au run comme artefact.
+# affichées dans le commentaire, et jointes au run comme artefact. Pour économiser la CI, les
+# captures ne sont faites que sur les PR de fin de jalon (vers main), pas sur les sous-lots.
 
 on:
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
