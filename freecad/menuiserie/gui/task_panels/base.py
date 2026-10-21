@@ -209,9 +209,18 @@ class UpdateGuard:
         self._depth -= 1
 
 
+def expression_of(obj: DocumentObject, prop: str) -> str | None:
+    """Expression qui pilote la propriété ``prop`` de ``obj``, ``None`` s'il n'y en a pas."""
+    for path, expression in obj.ExpressionEngine:
+        if path.lstrip(".") == prop:
+            text: str = expression
+            return text
+    return None
+
+
 def has_expression(obj: DocumentObject, prop: str) -> bool:
     """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
-    return any(path.lstrip(".") == prop for path, _expression in obj.ExpressionEngine)
+    return expression_of(obj, prop) is not None
 
 
 def connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:

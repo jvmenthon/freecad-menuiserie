@@ -28,13 +28,13 @@ from freecad.menuiserie.features.joints.base import (
     resolved_for,
 )
 from freecad.menuiserie.gui.task_panels import base
-from freecad.menuiserie.gui.task_panels.base import ObjectTaskPanel, Widget, connect
-from freecad.menuiserie.gui.task_panels.joint_fields import (
-    ParamField,
+from freecad.menuiserie.gui.task_panels.base import (
+    ObjectTaskPanel,
+    Widget,
+    connect,
     expression_of,
-    fields_of,
-    property_tooltip,
 )
+from freecad.menuiserie.gui.task_panels.joint_fields import ParamField, fields_of, property_tooltip
 from freecad.menuiserie.gui.view_providers.joint import joint_icon
 
 FORM_NAME: Final = "JointTaskPanel"

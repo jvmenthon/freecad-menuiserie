@@ -27,7 +27,7 @@ from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.schema import DISTANCE, PropertySpec
-from freecad.menuiserie.gui.task_panels.base import UpdateGuard, Widget, connect, has_expression
+from freecad.menuiserie.gui.task_panels.base import UpdateGuard, Widget, connect, expression_of
 
 Write = Callable[[str, object], None]  # (propriété, valeur) écrite par le panneau
 
@@ -53,14 +53,6 @@ def count_range(spec: PropertySpec) -> tuple[int, int]:
     défaut ``(valeur, minimum, maximum, pas)`` : celles de ``core``."""
     _value, low, high, _step = cast(tuple[int, int, int, int], spec.default)
     return low, high
-
-
-def expression_of(obj: DocumentObject, prop: str) -> str | None:
-    """Expression qui pilote ``prop``, ``None`` s'il n'y en a pas."""
-    if not has_expression(obj, prop):
-        return None
-    expression: str = next(e for path, e in obj.ExpressionEngine if path.lstrip(".") == prop)
-    return expression
 
 
 class ParamField:
