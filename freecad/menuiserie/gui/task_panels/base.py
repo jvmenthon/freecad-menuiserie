@@ -10,7 +10,8 @@ Chaque modification est visible aussitôt (:func:`recompute_preview`).
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any, Final, Protocol
 
 import FreeCAD as App
@@ -124,13 +125,10 @@ def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None)
     """Construit le panneau par ``build`` puis l'affiche, dans la transaction déjà ouverte.
     Une exception abandonne cette transaction (objet en création compris) avant d'être
     propagée."""
-    try:
+    with aborted_on_error(App.getActiveTransaction()):
         panel = build()
         Gui.Control.showDialog(panel)
         panel.watch_document(edited)
-    except BaseException:
-        close_transaction(App.getActiveTransaction(), abort=True)
-        raise
 
 
 def start_editing(
@@ -157,6 +155,17 @@ def close_transaction(transaction: tuple[str, int] | None, *, abort: bool) -> No
     active = App.getActiveTransaction()
     if transaction is not None and active == transaction:
         App.closeActiveTransaction(abort, transaction[1])
+
+
+@contextmanager
+def aborted_on_error(transaction: tuple[str, int] | None) -> Iterator[None]:
+    """Toute exception du bloc abandonne ``transaction`` (:func:`close_transaction`) avant
+    d'être propagée."""
+    try:
+        yield
+    except BaseException:
+        close_transaction(transaction, abort=True)
+        raise
 
 
 def recompute_preview(obj: DocumentObject) -> None:

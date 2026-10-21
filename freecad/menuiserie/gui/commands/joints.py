@@ -25,7 +25,7 @@ from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.wood_part import is_wood_part
-from freecad.menuiserie.gui.task_panels.base import close_transaction
+from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
 
 Factory = Callable[[DocumentObject, DocumentObject], DocumentObject]
@@ -76,16 +76,12 @@ class JointCommand:
         host, guest = ordered_roles(*parts)
         doc = App.ActiveDocument
         doc.openTransaction(translated(self.TRANSACTION))
-        transaction = App.getActiveTransaction()
         try:
-            joint = type(self).FACTORY(host, guest)
+            with aborted_on_error(App.getActiveTransaction()):
+                joint = type(self).FACTORY(host, guest)
         except (TypeError, ValueError) as error:
-            close_transaction(transaction, abort=True)
             report_refusal(str(error))
             return
-        except BaseException:
-            close_transaction(transaction, abort=True)
-            raise
         show_panel(joint)
 
 
