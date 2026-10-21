@@ -28,6 +28,7 @@ EXPECTED = {
     "Menuiserie_Rabbet": ("Feuillure", "make_rabbet"),
     "Menuiserie_Dowels": ("Tourillons", "make_dowels"),
     "Menuiserie_HalfLap": ("Mi-bois", "make_half_lap"),
+    "Menuiserie_Dovetail": ("Queue d'aronde", "make_dovetail"),
 }
 
 
@@ -132,10 +133,11 @@ def test_textes_traduisibles_dans_le_contexte_de_la_commande(name: str) -> None:
     [
         ("Menuiserie_MortiseTenon", "Créer un assemblage tenon-mortaise"),
         ("Menuiserie_HalfLap", "Créer un assemblage à mi-bois"),
+        ("Menuiserie_Dovetail", "Créer un assemblage à queue d'aronde"),
     ],
 )
 def test_transaction_de_la_commande(name: str, text: str) -> None:
-    """C2 de J3 et B4 de J4 : entrée d'annulation « Créer un assemblage … »."""
+    """C2 de J3, B4 et D6 de J4 : entrée d'annulation « Créer un assemblage … »."""
     assert noop(joint_commands()[name]["TRANSACTION"])[1] == text
 
 

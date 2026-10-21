@@ -4,6 +4,8 @@
 formulaire ``.ui`` par type (critère E1 de J3).
 
 - cote (longueur ou décalage) : champ d'unité de FreeCAD ; nombre : compteur entier ;
+  rapport sans unité (pente 1:n) : champ décimal borné comme dans ``core`` (de 2 à 20 ; 0,
+  « automatique », passe par la case « Auto ») ;
 - paramètre « 0 = automatique » (``spec.resolved``) : case « Auto » ; cochée, le champ est
   inactif et montre la valeur effective (``resolve`` de ``core``) ;
 - booléen : case à cocher ;
@@ -23,6 +25,7 @@ import FreeCADGui as Gui
 from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.joints import MAX_RATIO, MIN_RATIO
 from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -33,6 +36,8 @@ Write = Callable[[str, object], None]  # (propriété, valeur) écrite par le pa
 
 BOOL: Final = "App::PropertyBool"
 COUNT: Final = "App::PropertyIntegerConstraint"
+RATIO: Final = "App::PropertyFloat"
+RATIO_DECIMALS: Final = 2
 _AUTO: Final = QT_TRANSLATE_NOOP("Menuiserie", "Auto")
 _AUTO_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -53,6 +58,13 @@ def count_range(spec: PropertySpec) -> tuple[int, int]:
     défaut ``(valeur, minimum, maximum, pas)`` : celles de ``core``."""
     _value, low, high, _step = cast(tuple[int, int, int, int], spec.default)
     return low, high
+
+
+def ratio_range(spec: PropertySpec) -> tuple[float, float]:
+    """Bornes d'un rapport (pente 1:n) : celles de ``core``. Avec une case « Auto », 0 n'est
+    jamais saisi dans le champ, qui refuse donc 0 < n < 2 comme ``core`` ; sans case, 0 reste
+    saisissable."""
+    return (MIN_RATIO if spec.resolved else 0.0), MAX_RATIO
 
 
 class ParamField:
@@ -91,7 +103,8 @@ class ParamField:
     # --- Étapes propres au genre de champ -------------------------------------------------
 
     def _make_editor(self) -> Widget:
-        """Champ d'unité (mm) d'une cote ; compteur pour un nombre ; case pour un booléen."""
+        """Champ d'unité (mm) d'une cote ; compteur pour un nombre ; champ décimal pour un
+        rapport ; case pour un booléen."""
         if self.spec.type_id == BOOL:
             box = QtGui.QCheckBox()
             connect(box, "toggled(bool)", self._on_edited)
@@ -101,6 +114,12 @@ class ParamField:
             spin.setRange(*count_range(self.spec))
             connect(spin, "valueChanged(int)", self._on_edited)
             return spin
+        if self.spec.type_id == RATIO:
+            ratio = QtGui.QDoubleSpinBox()
+            ratio.setDecimals(RATIO_DECIMALS)
+            ratio.setRange(*ratio_range(self.spec))
+            connect(ratio, "valueChanged(double)", self._on_edited)
+            return ratio
         field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
         field.setProperty("unit", "mm")
         minimum = -MAX_DIMENSION_MM if self.spec.type_id == DISTANCE else 0.0
@@ -114,15 +133,19 @@ class ParamField:
             self.editor.setChecked(bool(value))
         elif self.spec.type_id == COUNT:
             self.editor.setValue(int(value))  # type: ignore[call-overload]
+        elif self.spec.type_id == RATIO:
+            self.editor.setValue(float(value))  # type: ignore[arg-type]
         else:
             self.editor.setProperty("rawValue", float(value))  # type: ignore[arg-type]
 
     def _current(self) -> object:
-        """Valeur saisie dans le champ (mm, entier ou booléen)."""
+        """Valeur saisie dans le champ (mm, entier, rapport ou booléen)."""
         if self.spec.type_id == BOOL:
             return bool(self.editor.isChecked())
         if self.spec.type_id == COUNT:
             return int(self.editor.value())
+        if self.spec.type_id == RATIO:
+            return float(self.editor.value())
         return float(self.editor.property("rawValue"))
 
     # --- Saisies --------------------------------------------------------------------------

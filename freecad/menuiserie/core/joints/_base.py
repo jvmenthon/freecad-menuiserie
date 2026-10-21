@@ -20,6 +20,8 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 
 MAX_COUNT: Final = 50
+MIN_RATIO: Final = 2.0  # pente 1:n la plus forte
+MAX_RATIO: Final = 20.0  # pente 1:n la plus douce
 
 SEPARATED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Les pièces ne se touchent pas.")
 OVERLAPPING: Final = QT_TRANSLATE_NOOP(
@@ -42,6 +44,7 @@ class JointKind(str, Enum):
     RABBET = "Rabbet"
     DOWELS = "Dowels"
     HALF_LAP = "HalfLap"
+    DOVETAIL = "Dovetail"
 
 
 @dataclass(frozen=True)
@@ -108,6 +111,7 @@ class ParamKind(Enum):
     OFFSET = "offset"
     FLAG = "flag"
     COUNT = "count"
+    RATIO = "ratio"
 
 
 def _length(value: object) -> object:
@@ -129,12 +133,19 @@ def _count(value: object) -> object:
     return value if valid else _INVALID
 
 
+def _ratio(value: object) -> object:
+    number = bounded_float(value, 0.0, MAX_RATIO)
+    valid = number is not None and (number == 0 or number >= MIN_RATIO)
+    return number if valid else _INVALID
+
+
 _CHECKS: Final[Mapping[ParamKind, Callable[[object], object]]] = MappingProxyType(
     {
         ParamKind.LENGTH: _length,
         ParamKind.OFFSET: _offset,
         ParamKind.FLAG: _flag,
         ParamKind.COUNT: _count,
+        ParamKind.RATIO: _ratio,
     }
 )
 _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
@@ -158,6 +169,11 @@ _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
             "Paramètre d'assemblage invalide : {field} = {value} "
             "(nombre entier entre 0 et {max} attendu).",
         ),
+        ParamKind.RATIO: QT_TRANSLATE_NOOP(
+            "Menuiserie",
+            "Paramètre d'assemblage invalide : {field} = {value} "
+            "(0 pour automatique, ou rapport fini entre {min} et {max} attendu).",
+        ),
     }
 )
 _MAXIMA: Final = MappingProxyType(
@@ -165,6 +181,7 @@ _MAXIMA: Final = MappingProxyType(
         ParamKind.LENGTH: MAX_DIMENSION_MM,
         ParamKind.OFFSET: MAX_DIMENSION_MM,
         ParamKind.COUNT: MAX_COUNT,
+        ParamKind.RATIO: MAX_RATIO,
     }
 )
 
@@ -189,6 +206,11 @@ def count_param(default: int) -> Any:
     return field(default=default, metadata={_PARAM_KIND: ParamKind.COUNT})
 
 
+def ratio_param(default: float) -> Any:
+    """Champ « rapport » (pente 1:n) : fini, non booléen, 0 (automatique) ou 2 ≤ n ≤ 20."""
+    return field(default=default, metadata={_PARAM_KIND: ParamKind.RATIO})
+
+
 def validate_params(params: object) -> None:
     """Contrôle et normalise chaque champ d'un objet de paramètres (``ValueError`` sinon)."""
     for item in fields(params):  # type: ignore[arg-type]
@@ -199,5 +221,7 @@ def validate_params(params: object) -> None:
             values = {"field": item.name, "value": quoted_value(value)}
             if kind in _MAXIMA:
                 values["max"] = decimal_text(_MAXIMA[kind])
+            if kind is ParamKind.RATIO:
+                values["min"] = decimal_text(MIN_RATIO)
             raise JointError(_TEMPLATES[kind], values)
         object.__setattr__(params, item.name, checked)

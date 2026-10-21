@@ -17,6 +17,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import JointFeature, write_params
+from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
 from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
@@ -25,6 +26,7 @@ from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
 from freecad.menuiserie.features.machined_part import blank_of, ensure_machined_part
 
 __all__ = [
+    "create_dovetail",
     "create_dowels",
     "create_half_lap",
     "create_joint",
@@ -147,3 +149,13 @@ def create_half_lap(
     chacune est entaillée dans leur boîte commune. Paramètres de ``HalfLapParams`` : ``depth``
     en mm (0 = moitié de l'épaisseur), ``flip_side``."""
     return _create(HalfLapJoint, doc, host, guest, params)
+
+
+def create_dovetail(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée une queue d'aronde traversante : ``guest`` (pièce à queues) touche ``host`` (pièce à
+    griffes) par son bout, le bout de ``host`` à fleur de la face extérieure de ``guest``.
+    Paramètres de ``DovetailParams`` (0 = automatique) : ``tail_count``, ``pin_width`` en mm,
+    ``slope`` (pente 1:n)."""
+    return _create(DovetailJoint, doc, host, guest, params)

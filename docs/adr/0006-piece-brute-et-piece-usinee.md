@@ -68,8 +68,8 @@ Options étudiées :
    2026-10-21, correction D1) : pour vérifier sa cohérence, l'assemblage lit aussi `Base` et
    `Joints` des pièces usinées qui le citent (`InList`), sans en dépendre dans le graphe ; aucun
    cycle n'est créé.
-5. **Géométrie dans `core/`** : le plan d'usinage (enlèvements et ajouts en boîtes et cylindres
-   dans le repère local de chaque pièce) est calculé en Python pur par une stratégie par type
+5. **Géométrie dans `core/`** : le plan d'usinage (enlèvements et ajouts en boîtes, cylindres et
+   prismes (`Prism`, J4) dans le repère local de chaque pièce) est calculé en Python pur par une stratégie par type
    d'assemblage (registre), testée sans FreeCAD ; `features/` ne fait que convertir en formes Part
    et appliquer les booléennes.
 6. **Persistance** (règles de l'ADR 0003, appliquées aux nouveaux objets) : chemins figés

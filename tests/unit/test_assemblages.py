@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import pytest
@@ -18,12 +19,13 @@ from freecad.menuiserie.core.joints import (
 )
 from freecad.menuiserie.core.joints._profile import ProfileValues
 from freecad.menuiserie.core.joints._registry import STRATEGIES
+from freecad.menuiserie.core.joints.dovetail import DovetailParams
 from freecad.menuiserie.core.joints.dowels import DowelParams
 from freecad.menuiserie.core.joints.half_lap import HalfLapParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
-from tests.unit.aides_assemblages import block, rail, stile
+from tests.unit.aides_assemblages import block, dovetail_corner, rail, stile
 
 TENON = strategy_for(JointKind.MORTISE_TENON)
 TONGUE = strategy_for(JointKind.TONGUE_GROOVE)
@@ -246,6 +248,7 @@ PARAMS_CLASSES = (
     RabbetParams,
     DowelParams,
     HalfLapParams,
+    DovetailParams,
 )
 
 
@@ -271,6 +274,10 @@ PARAMS_CLASSES = (
         (HalfLapParams, "depth", -1.0),
         (HalfLapParams, "depth", float("inf")),
         (HalfLapParams, "flip_side", 0),
+        (DovetailParams, "tail_count", -1),
+        (DovetailParams, "pin_width", math.nan),
+        (DovetailParams, "slope", 1.0),
+        (DovetailParams, "slope", 21),
     ],
 )
 def test_parametres_refuses(factory: type, field: str, value: object) -> None:
@@ -293,6 +300,9 @@ def test_parametres_refuses(factory: type, field: str, value: object) -> None:
         (DowelParams, "count", 0),
         (HalfLapParams, "depth", 0),
         (HalfLapParams, "flip_side", True),
+        (DovetailParams, "tail_count", 50),
+        (DovetailParams, "slope", 2),
+        (DovetailParams, "slope", 20),
     ],
 )
 def test_parametres_limites_acceptes(factory: type, field: str, value: object) -> None:
@@ -338,6 +348,7 @@ def test_registre_fige() -> None:
             block((600.0, 60.0, 22.0), (330.0, -270.0, 0.0), 90.0),
             HalfLapParams(),
         ),
+        (JointKind.DOVETAIL, *dovetail_corner(), DovetailParams()),
     ],
 )
 def test_plan_par_le_registre(

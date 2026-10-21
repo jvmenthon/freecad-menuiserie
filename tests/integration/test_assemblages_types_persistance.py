@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Réouverture, annulation et compatibilité des assemblages de J3c et J4 (R1, T5, B3 ; O8,
-O10, O13, O14 sur la rainure-languette, la feuillure, les tourillons et le mi-bois)."""
+"""Réouverture, annulation et compatibilité des assemblages de J3c et J4 (R1, T5, B3, D5 ; O8,
+O10, O13, O14 sur la rainure-languette, la feuillure, les tourillons, le mi-bois et la queue
+d'aronde)."""
 
 from __future__ import annotations
 
@@ -36,6 +37,7 @@ CHANGES = {
     "make_rabbet": ("Through", False),
     "make_dowels": ("Count", 3),
     "make_half_lap": ("Depth", 8),
+    "make_dovetail": ("TailCount", 2),
 }
 SLAB = 4000  # bloc qui contient toutes les pièces, quel que soit le repère des montages
 IDS = [scenario.name for scenario in SCENARIOS]

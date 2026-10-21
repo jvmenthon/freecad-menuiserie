@@ -9,7 +9,7 @@ import pytest
 
 from tests.integration.bureau import EXPRESSIONS, LAYOUT, Bureau, build_desk, build_parts
 from tests.integration.cadre import stale_or_invalid
-from tests.integration.types_assemblages import HALF_LAP, blanks
+from tests.integration.types_assemblages import DOVETAIL, HALF_LAP, blanks
 
 pytestmark = pytest.mark.integration
 
@@ -322,5 +322,26 @@ def test_croix_a_mi_bois_qui_suit_la_largeur(document: Any) -> None:
         [800 * 60 * 22 - cut, 600 * 80 * 22 - cut]
     )
     assert guest.Shape.BoundBox.XMin == pytest.approx(360)
+    assert all(len(m.Shape.Solids) == 1 for m in machined)
+    assert stale_or_invalid(document) == []
+
+
+# --- D7 : queue d'aronde dans un ensemble ------------------------------------------------------
+
+
+def test_tiroir_a_queues_d_aronde_qui_suit_la_hauteur(document: Any) -> None:
+    """Façade à plat et côté debout (150 mm selon Y) : la hauteur du tiroir est la cote Y."""
+    host, guest = blanks(document, DOVETAIL, frame=App.Placement())
+    joint = api.make_dovetail(host, guest)
+    furniture, notices = api.make_furniture([host, guest], label="Tiroir")
+    assert notices == ()
+    assert furniture.Depth.Value == pytest.approx(150)
+    api.resize_furniture(furniture, depth=200)
+    assert host.Width.Value == guest.Width.Value == pytest.approx(200)
+    tails = 4 * ((200 - 5 * 6) / 4 - 18 / 6) * 18 * 18  # 4 queues automatiques
+    blank = 400 * 200 * 18
+    machined = [api.machined_part_of(part) for part in (host, guest)]
+    assert [m.Shape.Volume for m in machined] == pytest.approx([blank - tails, blank + tails])
+    assert joint.TailCount == 0
     assert all(len(m.Shape.Solids) == 1 for m in machined)
     assert stale_or_invalid(document) == []

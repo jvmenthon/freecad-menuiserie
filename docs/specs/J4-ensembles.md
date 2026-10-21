@@ -207,6 +207,9 @@ les ADR, à confirmer par l'architecte) :
 11. **B5** (J4e) est couvert ici : croix à mi-bois en ensemble, traverse invitée en
     `Proportional` sans distance fixe à gauche ni à droite ; `Width` 600 → 800 élargit
     l'invitée à 80 mm et recalcule les deux entailles en un recompute.
+12. **D7** (J4f) est couvert ici aussi : tiroir à queues d'aronde (façade à plat, côté
+    debout) en ensemble ; la hauteur du tiroir (cote `Depth` de l'ensemble) passe de 150 à
+    200 mm par `resize_furniture` → 4 queues automatiques, un recompute, tout valide.
 
 ### J4c — Affichage, commandes et panneau de l'Ensemble (`gui/`)
 
@@ -289,6 +292,37 @@ Notations : `W` = largeur du contact (selon la largeur de l'invitée), `e` = ép
 | D5 | `features/solids.solid_shape` convertit un `Prism` (`Part.makePolygon` → `Part.Face` → `extrude`). Proxy `…features.joints.dovetail.DovetailJoint`, type `Menuiserie::Dovetail`, nom interne `Dovetail`, libellé « Queue d'aronde » ; propriétés `TailCount` (`App::PropertyIntegerConstraint`, 0 à 50), `PinWidth` (`App::PropertyLength`), `Slope` (`App::PropertyFloat`, « Pente 1:n des queues ; 0 = automatique (1:6). »), groupe « Queue d'aronde » ; `Version` = 1. Planches de D3 : pièces usinées valides, un solide chacune ; invitée = brute + 37 908 mm³, hôte = brute − 37 908 mm³ ; export STEP réimporté au même volume. | I |
 | D6 | Commande `Menuiserie_Dovetail` (« Queue d'aronde », icône existante) ; panneau J3e générique (nombre, griffes, pente effectifs). | G |
 | D7 | Membres d'un Ensemble : un tiroir dont la hauteur passe de 150 à 200 mm → 4 queues automatiques, un recompute, tout valide. | I |
+
+Précisions du dev (J4f, 2026-10-21), décisions les plus simples là où la spécification se tait :
+
+- Face extérieure de l'invitée : celle de ses deux faces (selon son épaisseur) où le bout de
+  l'hôte arrive à fleur (± 0,01 mm) ; l'hôte doit en outre dépasser l'autre face de plus de
+  0,01 mm (il couvre toute l'épaisseur). Sinon, y compris pour un hôte juste aussi large que
+  l'épaisseur (ses griffes seraient détachées) : « Queue d'aronde : la pièce à griffes doit
+  arriver à fleur de la face extérieure de la pièce à queues. »
+- `W` = largeur du contact (selon la largeur de l'invitée), positions des queues comptées depuis
+  son bord ; `e` = épaisseur du contact ; `L` = profondeur de l'hôte (`host_depth` de J3).
+- Logements : prolongés de `CUT_OVERRUN_MM` au-delà des deux faces de l'hôte (flancs prolongés
+  à la même pente, le volume enlevé dans la matière ne change pas) et au-delà de la face
+  extérieure de l'invitée ; pas du côté de sa face intérieure, où l'hôte garde sa matière.
+- `b` = 1 mm tout juste est accepté (refus si `b` < 1 mm). Contact par le chant : message de
+  J3 tel quel (« Le tenon se fait au bout de la pièce, pas sur son chant. »).
+- `ratio_param` : nombre fini, non booléen, 0 ou 2 ≤ n ≤ 20, décimal permis ; refus « Paramètre
+  d'assemblage invalide : {field} = {value} (0 pour automatique, ou rapport fini entre {min}
+  et {max} attendu). ». `MAX_RATIO` est exporté par la façade `core.joints` pour le panneau.
+- Panneau J3e : nouveau genre de champ « rapport » pour `App::PropertyFloat` (champ décimal
+  sans unité, 2 décimales, borné de 2 à 20 comme `core` : 0 passe par la case « Auto »).
+  Libellés « Nombre de queues », « Largeur des griffes », « Pente 1:n », chacun avec sa case
+  « Auto ». Transaction « Créer un assemblage à queue
+  d'aronde ».
+- `DovetailValues(tail_count, pin_width, slope, tail_width, tail_base, tails)` : `t`, `b` et
+  les intervalles des queues côté pointe.
+- Les contrôles du `Prism` (polygone simple, plan, extrusion hors du plan) sont dans le module
+  privé `core/_polygon.py`, pour garder `core/geometry.py` sous 400 lignes.
+- Rôles : `guess_roles` de J3 suffit (la pièce dont le bout est entièrement couvert porte les
+  queues). Icône existante inchangée (`tools/generer_icones.py` relancé, aucun écart).
+- D7 attend J4b′ (Ensemble) : non couvert par ce lot ; le test d'intégration vérifie déjà que
+  des planches de 200 mm passent à 4 queues automatiques en un recalcul.
 
 ### J4g — Onglet (`core/joints/miter.py`, `features/joints/miter.py`)
 
