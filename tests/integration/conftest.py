@@ -146,3 +146,12 @@ def cadre_assemble(cadre: Any) -> Any:
     """Cadre de référence assemblé par quatre tenons-mortaises, recalculé."""
     cadre.assemble()
     return cadre
+
+
+@pytest.fixture
+def bureau(document: Any) -> Any:
+    """Bureau de référence de J4 assemblé et regroupé dans l'ensemble « Bureau », cf.
+    ``tests/integration/bureau.py``."""
+    from tests.integration.bureau import build_desk
+
+    return build_desk(document)

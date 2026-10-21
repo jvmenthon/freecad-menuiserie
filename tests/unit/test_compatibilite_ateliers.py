@@ -70,9 +70,13 @@ def test_commandes_prefixees() -> None:
 
 def test_types_de_proxy_prefixes() -> None:
     types = [value for path in SOURCES for value in proxy_types(path)]
-    assert {"Menuiserie::WoodPart", "Menuiserie::MachinedPart", "Menuiserie::MortiseTenon"} <= set(
-        types
-    )
+    expected = {
+        "Menuiserie::WoodPart",
+        "Menuiserie::MachinedPart",
+        "Menuiserie::MortiseTenon",
+        "Menuiserie::Furniture",
+    }
+    assert expected <= set(types)
     assert [value for value in types if not value.startswith("Menuiserie::")] == []
 
 
@@ -94,3 +98,14 @@ def project_section(text: str) -> list[str]:
 def test_aucune_dependance_d_execution(key: str) -> None:
     section = project_section((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert [line for line in section if line.replace(" ", "").startswith(f"{key}=")] == []
+
+
+def test_aucun_observateur_global_dans_app_et_features() -> None:
+    """ADR 0007 : l'ensemble réagit par ``onChanged`` de ses objets, jamais par un observateur
+    du document ou de l'application (réservés aux panneaux de ``gui/``, le temps du panneau)."""
+    layers = [PACKAGE / "core", PACKAGE / "features", PACKAGE / "api.py"]
+    sources = [path for path in SOURCES if any(path.is_relative_to(layer) for layer in layers)]
+    offenders = [
+        path.name for path in sources if "addDocumentObserver" in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == []

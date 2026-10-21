@@ -8,6 +8,7 @@ Module privé : la façade ``core.furniture`` ré-exporte l'API publique. Format
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Final
 
@@ -33,6 +34,8 @@ CONSTANT_DECIMALS: Final = 6
 _FORBIDDEN_IN_LABEL: Final = (">", "\\")
 _PIECE_BOUND: Final = ("Length", "Width", "Placement")  # propriétés que l'atelier lie
 _FURNITURE_BOUND: Final = ("Width", "Depth", "Height", "Origin")
+# Référence ``<<…>>`` telle que FreeCAD l'écrit (``\'`` et ``\"`` échappés dans le libellé).
+_REFERENCE: Final = re.compile(r"<<(?:[^>\\]|\\.)*>>")
 
 
 def number_text(value: float, decimals: int) -> str:
@@ -76,13 +79,25 @@ def is_driven(member: Member, prop: str) -> bool:
     return any(prop == name or prop.startswith(name + ".") for name in member.driven)
 
 
+def same_binding(current: str, recorded: str | None) -> bool:
+    """Vrai si l'expression ``current`` est la liaison enregistrée ``recorded``, au libellé
+    visé près : FreeCAD réécrit ``<<Bureau>>`` au renommage de l'ensemble, et une copie du
+    document garde le libellé de l'original (« Relier les pièces » vise alors la copie)."""
+    if recorded is None:
+        return False
+    return _REFERENCE.sub("<<>>", current) == _REFERENCE.sub("<<>>", recorded)
+
+
 def driven_properties(current: Mapping[str, str], recorded: Mapping[str, str]) -> frozenset[str]:
     """Propriétés dont l'expression actuelle n'est pas celle que l'atelier a posée
-    (``FurnitureBindings``) : formules de l'utilisateur, ou liaisons réécrites (cas sûr).
+    (``FurnitureBindings``, au libellé visé près : :func:`same_binding`) : formules de
+    l'utilisateur, ou liaisons réécrites autrement (cas sûr).
 
     Une liaison effacée par l'utilisateur (propriété enregistrée sans expression actuelle)
     n'est pas pilotée : « Relier les pièces » la remet."""
-    return frozenset(prop for prop, text in current.items() if recorded.get(prop) != text)
+    return frozenset(
+        prop for prop, text in current.items() if not same_binding(text, recorded.get(prop))
+    )
 
 
 def position_property(member: Member, axis: FurnitureAxis) -> str:
