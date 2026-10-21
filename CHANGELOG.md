@@ -6,6 +6,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Assemblage à mi-bois (J4e) : stratégie `HalfLapStrategy` (deux pièces de même épaisseur, à
+  fleur, qui se chevauchent ; entaille de l'hôte par-dessus, de l'invitée par-dessous, profondeur
+  automatique à la moitié de l'épaisseur), objet `Menuiserie::HalfLap` (`Depth`, `FlipSide`),
+  `make_half_lap`, commande **Mi-bois** et panneau générique.
 - Contrôles qualité : détection du code dupliqué (pylint) et limites de complexité (ruff) en CI ;
   grille « Conception et design patterns » pour l'architecte, le dev et le reviewer.
 - Squelette de l'atelier : `package.xml`, enregistrement du workbench, icône.

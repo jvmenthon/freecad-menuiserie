@@ -22,11 +22,13 @@ def guess_roles(a: PlacedBlock, b: PlacedBlock) -> tuple[int, int]:
     """Indices (hôte, invitée) parmi ``(a, b)`` ; ordre donné conservé si c'est ambigu.
 
     Contact : l'invitée est la pièce dont la face qui touche est entièrement couverte (bout de
-    traverse contre chant de montant). Chevauchement : l'invitée est la plus mince.
+    traverse contre chant de montant). Chevauchement : l'invitée est la plus mince (épaisseurs
+    égales à :data:`~.geometry.CONTACT_TOLERANCE_MM` près : ordre donné).
     """
     relation = classify(a, b)
     if isinstance(relation, Overlap):
-        swap = a.dimensions.thickness < b.dimensions.thickness
+        # Épaisseurs égales à la tolérance de contact près : ordre donné conservé.
+        swap = a.dimensions.thickness < b.dimensions.thickness - CONTACT_TOLERANCE_MM
     elif isinstance(relation, Contact):
         reverse = classify(b, a)
         b_covered = _face_covered(relation, b)

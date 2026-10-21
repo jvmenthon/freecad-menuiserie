@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Commandes et ViewProviders des assemblages (J3d) vérifiés sans FreeCAD, par analyse statique.
 
-Critère C1 : quatre commandes ``Menuiserie_<type>`` enregistrées par l'atelier (barre d'outils
+Critère C1 : une commande par type, ``Menuiserie_<type>`` enregistrées par l'atelier (barre d'outils
 et menu), chacune avec son icône existante, des textes traduisibles dans le contexte de la
 commande et une fabrique de l'api ; C6 : une icône par type d'assemblage ; E7 : textes
 traduisibles. Les modules de ``gui/`` importent ``FreeCADGui`` et ne sont pas importables ici.
@@ -27,6 +27,7 @@ EXPECTED = {
     "Menuiserie_TongueGroove": ("Rainure-languette", "make_tongue_groove"),
     "Menuiserie_Rabbet": ("Feuillure", "make_rabbet"),
     "Menuiserie_Dowels": ("Tourillons", "make_dowels"),
+    "Menuiserie_HalfLap": ("Mi-bois", "make_half_lap"),
 }
 
 
@@ -126,10 +127,16 @@ def test_textes_traduisibles_dans_le_contexte_de_la_commande(name: str) -> None:
     assert noop(attributes["TRANSACTION"])[0] == "Menuiserie"
 
 
-def test_transaction_du_tenon_mortaise() -> None:
-    """C2 : entrée d'annulation « Créer un assemblage tenon-mortaise »."""
-    transaction = joint_commands()["Menuiserie_MortiseTenon"]["TRANSACTION"]
-    assert noop(transaction)[1] == "Créer un assemblage tenon-mortaise"
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        ("Menuiserie_MortiseTenon", "Créer un assemblage tenon-mortaise"),
+        ("Menuiserie_HalfLap", "Créer un assemblage à mi-bois"),
+    ],
+)
+def test_transaction_de_la_commande(name: str, text: str) -> None:
+    """C2 de J3 et B4 de J4 : entrée d'annulation « Créer un assemblage … »."""
+    assert noop(joint_commands()[name]["TRANSACTION"])[1] == text
 
 
 @pytest.mark.parametrize("name", list(EXPECTED))
