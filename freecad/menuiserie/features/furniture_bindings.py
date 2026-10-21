@@ -32,7 +32,7 @@ from freecad.menuiserie.core.furniture import (
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import (
-    OPTIONS,
+    MEMBER_OPTIONS,
     follows_user_changes,
     furniture_of,
     is_furniture,
@@ -62,6 +62,7 @@ __all__ = [
     "notice_messages",
     "read_members",
     "rebind",
+    "release_members",
     "remove_bindings",
     "report",
     "report_resize",
@@ -107,8 +108,16 @@ def _assembly_constrained(obj: DocumentObject) -> bool:
     return any(_in_joint_group(parent) for item in candidates for parent in item.InList)
 
 
+def _recorded(obj: DocumentObject) -> dict[str, str]:
+    """Liaisons enregistrées (``FurnitureBindings``) ; celles d'un orphelin (ensemble supprimé
+    ou retiré) comptent aussi, pour être remplacées à son entrée dans un ensemble."""
+    if obj.getTypeIdOfProperty("FurnitureBindings") != "App::PropertyMap":
+        return {}
+    return dict(obj.FurnitureBindings)
+
+
 def _driven(obj: DocumentObject, entering: bool) -> frozenset[str]:
-    recorded = {} if entering else dict(obj.FurnitureBindings)
+    recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
     driven = driven_properties(expressions_of(obj), recorded)
     return driven | {"Placement"} if _assembly_constrained(obj) else driven
 
@@ -184,7 +193,8 @@ def _bindings(members: MemberSet, keys: Iterable[str]) -> tuple[list[Binding], l
 def remove_bindings(obj: DocumentObject) -> None:
     """Retire de ``obj`` les seules liaisons de l'atelier (texte = celui enregistré)."""
     current = expressions_of(obj)
-    for prop, text in dict(getattr(obj, "FurnitureBindings", {})).items():
+    recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
+    for prop, text in recorded.items():
         if prop in current and same_binding(current[prop], text):
             obj.setExpression(prop, None)
 
@@ -248,6 +258,14 @@ def resize_notices(furniture: DocumentObject, old: FurnitureBox, new: FurnitureB
     return notices
 
 
+def release_members(furniture: DocumentObject) -> None:
+    """Retire les liaisons de l'atelier de chaque membre de ``furniture`` (ensemble supprimé) ;
+    les propriétés de membre restent (orphelins)."""
+    for obj in members_of(furniture):
+        with writing(obj):
+            remove_bindings(obj)
+
+
 def notice_messages(notices: Iterable[Notice]) -> tuple[str, ...]:
     """Avertissements traduits, sans doublon, dans l'ordre."""
     messages = (translated(notice.template, notice.params) for notice in notices)
@@ -274,7 +292,7 @@ def report_resize(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBo
 def member_option_changed(obj: DocumentObject, prop: str) -> None:
     """Option ou mode changé par l'utilisateur (éditeur de propriétés, script) : recalcule
     et écrit les seules liaisons de ``obj``, dans la transaction en cours."""
-    if prop != "PositionMode" and prop not in OPTIONS:
+    if prop not in MEMBER_OPTIONS:
         return
     furniture = furniture_of(obj)
     if furniture is None or not follows_user_changes(obj):  # ni recalcul, ni annulation

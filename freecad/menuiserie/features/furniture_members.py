@@ -32,6 +32,7 @@ from freecad.menuiserie.features.furniture import (
     MODES,
     create_furniture,
     furniture_of,
+    has_member_properties,
     is_furniture,
     option_name,
     origin_of,
@@ -200,17 +201,21 @@ def _enclosing(objects: Sequence[DocumentObject]) -> tuple[FurnitureBox, Vec3]:
 
 
 def _join(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]) -> None:
-    """Ajoute à ``obj`` les propriétés de membre de ``furniture`` (mode ``Stay``)."""
-    defaults: dict[str, object] = {
+    """Fait de ``obj`` un membre de ``furniture`` (mode ``Stay``, options ``fixed``). Les
+    propriétés d'un orphelin (ensemble supprimé) sont réécrites, et ses anciennes liaisons de
+    l'atelier retirées."""
+    values: dict[str, object] = {
         "Furniture": furniture,
-        "PositionMode": InteriorMode.STAY.value,
         "FurnitureBindings": {},
         **{option_name(edge): edge in fixed for edge in Edge},
     }
     with writing(obj):
-        schema.add_missing_properties(
-            obj, MEMBER_PROPERTIES, defaults, choices={"PositionMode": list(MODES)}
-        )
+        remove_bindings(obj)
+        schema.add_missing_properties(obj, MEMBER_PROPERTIES, choices={"PositionMode": list(MODES)})
+        obj.PositionMode = list(MODES)
+        obj.PositionMode = InteriorMode.STAY.value
+        for name, value in values.items():
+            setattr(obj, name, value)
         schema.apply_editor_modes(obj, MEMBER_PROPERTIES)
 
 
@@ -262,16 +267,18 @@ def add_members(furniture: DocumentObject, objects: Sequence[DocumentObject]) ->
 
 def remove_members(objects: Sequence[DocumentObject]) -> None:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
-    de membre sont supprimées, la géométrie ne change pas."""
+    de membre sont supprimées, la géométrie ne change pas. Un orphelin (ensemble supprimé) est
+    accepté."""
     targets = {member.Name: member for member in map(member_object, objects)}
     for member in targets.values():
-        if furniture_of(member) is None:
+        if not has_member_properties(member):
             raise ValueError(translated(_NOT_IN_FURNITURE, _quoted(member)))
     for member in targets.values():
         with writing(member):
             remove_bindings(member)
             for spec in MEMBER_PROPERTIES:
-                member.removeProperty(spec.name)
+                if spec.name in member.PropertiesList:
+                    member.removeProperty(spec.name)
 
 
 def _checked_options(mode: str | None, fixed: Mapping[str, bool] | None) -> dict[str, str | bool]:

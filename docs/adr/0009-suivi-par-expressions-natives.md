@@ -72,6 +72,13 @@ Options étudiées :
    L'atelier n'y pose ni n'y retire jamais rien. La formule s'applique et un avertissement est
    émis à la liaison et à chaque changement de cote concerné. En cas de doute (texte réécrit par
    FreeCAD, copie), la propriété est traitée comme pilotée. C'est le cas sûr : rien n'est détruit.
+   *Précision de J4b′ (2026-10-21)* : la comparaison se fait **au libellé visé près**
+   (`same_binding`), pour qu'un renommage de l'ensemble (FreeCAD réécrit `<<Bureau>>`, `'` en
+   `\'`, `"` en `\"`) ou une copie du Std Part ne transforme pas les liaisons en formules.
+   Contrepartie acceptée : une formule de l'utilisateur **de même forme** que la liaison
+   enregistrée mais qui vise un autre objet (`<<Autre>>.Depth - 40 mm` à la place de
+   `<<Bureau>>.Depth - 40 mm`) est prise pour une liaison de l'atelier, et « Relier les pièces »
+   la remplace.
 5. **Assemblages** : rien de nouveau. Ils lisent les brutes (ADR 0006), qui suivent leurs
    expressions dans le même recalcul. Le panneau et `resize_furniture` refusent d'avance une cote
    qui rendrait une pièce trop petite ou ferait perdre un contact d'assemblage (`check_resize`).

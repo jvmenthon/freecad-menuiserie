@@ -19,6 +19,7 @@ from freecad.menuiserie.features.furniture import (
     MEMBER_PROPERTIES,
     MODES,
     OPTIONS,
+    has_member_properties,
     is_furniture,
     option_name,
     origin_of,
@@ -55,13 +56,17 @@ def _restore_modes(obj: DocumentObject) -> None:
 
 
 def _restore(obj: DocumentObject) -> None:
-    mistyped = schema.remove_mistyped_properties(obj, MEMBER_PROPERTIES, MEMBER_NOUN)
+    """Propriétés de membre d'un type inattendu supprimées (avertissement), puis toutes les
+    propriétés manquantes recréées : ``Stay``, options « fixe » selon F3 pour le membre
+    lui-même, ``FurnitureBindings`` vide ; les expressions ne sont pas touchées."""
+    schema.remove_mistyped_properties(obj, MEMBER_PROPERTIES, MEMBER_NOUN)
     _restore_modes(obj)
-    if not mistyped:
+    missing = [spec.name for spec in MEMBER_PROPERTIES if spec.name not in obj.PropertiesList]
+    if not missing:
         return
     furniture = getattr(obj, "Furniture", None)
     defaults: dict[str, object] = {}
-    if is_furniture(furniture) and any(name in mistyped for name in OPTIONS):
+    if is_furniture(furniture) and any(name in missing for name in OPTIONS):
         defaults.update(_default_options(obj, furniture))
     schema.add_missing_properties(
         obj, MEMBER_PROPERTIES, defaults, choices={"PositionMode": list(MODES)}
@@ -74,7 +79,7 @@ def restore_member(obj: DocumentObject) -> None:
     permet pas de supprimer une propriété d'un autre objet pendant la restauration) ; ses
     liaisons ne sont pas réécrites (écriture de l'atelier : son ``onChanged`` ne réagit pas).
     Sans effet pour un objet qui n'est membre d'aucun ensemble."""
-    if "Furniture" not in obj.PropertiesList:
+    if not has_member_properties(obj):
         return
     with writing(obj):
         _restore(obj)

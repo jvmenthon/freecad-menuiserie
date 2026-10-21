@@ -210,6 +210,13 @@ les ADR, à confirmer par l'architecte) :
 12. **D7** (J4f) est couvert ici aussi : tiroir à queues d'aronde (façade à plat, côté
     debout) en ensemble ; la hauteur du tiroir (cote `Depth` de l'ensemble) passe de 150 à
     200 mm par `resize_furniture` → 4 queues automatiques, un recompute, tout valide.
+13. **Suppression de l'ensemble** (relecture de la PR #32) : `Furniture.unsetupObject`,
+    appelé par `removeObject` dans FreeCAD 1.0 et 1.1 (interface comprise) et annulable,
+    retire les liaisons de l'atelier de ses membres : aucune expression ne reste en erreur.
+    Les membres gardent leurs propriétés de membre (**orphelins**, `Furniture` vide) ;
+    `make_furniture` et `add_to_furniture` les acceptent et réécrivent `Furniture`, le mode, les
+    options et `FurnitureBindings` ; `remove_from_furniture` les accepte aussi. À la réouverture,
+    toute propriété de membre manquante est recréée (options selon F3 pour le membre).
 
 ### J4c — Affichage, commandes et panneau de l'Ensemble (`gui/`)
 

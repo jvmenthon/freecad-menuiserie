@@ -119,6 +119,24 @@ def test_proprietes_de_membre_mal_typees(bureau: Bureau, rouvrir: Reopen, vue_ra
     assert {mark: engine(doc.getObject(n)) for mark, n in names.items()} == engines
 
 
+def test_proprietes_de_membre_manquantes(bureau: Bureau, rouvrir: Reopen) -> None:
+    bureau.parts["P"].removeProperty("FixedTop")
+    bureau.parts["JG"].removeProperty("PositionMode")
+    engines = {mark: engine(part) for mark, part in bureau.parts.items()}
+    names = {mark: part.Name for mark, part in bureau.parts.items()}
+    name = bureau.furniture.Name
+    doc = rouvrir(bureau.doc)
+    plateau, joue = doc.getObject(names["P"]), doc.getObject(names["JG"])
+    assert plateau.FixedTop is True  # option par défaut (F3)
+    assert joue.PositionMode == "Stay"
+    assert {mark: engine(doc.getObject(n)) for mark, n in names.items()} == engines
+    assert api.rebind_furniture(doc.getObject(name)) == ()
+    assert engine(plateau) == EXPRESSIONS["P"]
+    assert api.set_member_options(joue, mode="Proportional") == ()
+    doc.recompute()
+    assert stale_or_invalid(doc) == []
+
+
 # --- N13 : annuler / rétablir --------------------------------------------------------------------
 
 

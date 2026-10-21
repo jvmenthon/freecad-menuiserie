@@ -22,6 +22,7 @@ from freecad.menuiserie.features.freecad_types import (
     DocumentObject,
     StatelessProxy,
     proxy_is,
+    restoring_or_undoing,
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
@@ -161,7 +162,7 @@ class MachinedPart(StatelessProxy):
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)
-        return not executing and "Restore" not in obj.State and not obj.Document.Transacting
+        return not executing and not restoring_or_undoing(obj)
 
     @contextmanager
     def _executing(self) -> Iterator[None]:

@@ -34,7 +34,9 @@ from freecad.menuiserie.features.freecad_types import (
     DocumentObject,
     StatelessProxy,
     proxy_is,
+    restoring_or_undoing,
 )
+from freecad.menuiserie.features.furniture import MEMBER_OPTIONS
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.schema import warn
@@ -125,10 +127,9 @@ class WoodPart(StatelessProxy):
             self._migrate(obj, library, version, repair=bool(mistyped))
             apply_editor_modes(obj, show_grain=_shows_grain(obj, library))
             restore_material_choices(obj, library)
-        if "Furniture" in obj.PropertiesList:  # membre d'un ensemble (J4)
-            from freecad.menuiserie.features.furniture_restore import restore_member
+        from freecad.menuiserie.features.furniture_restore import restore_member
 
-            restore_member(obj)
+        restore_member(obj)  # membre d'un ensemble (J4) ; sans effet sinon
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
@@ -146,7 +147,7 @@ class WoodPart(StatelessProxy):
                 self.select_material(obj, material)
         elif prop == "GrainDirection":
             _remember_grain(obj)
-        elif prop == "PositionMode" or prop.startswith("Fixed"):  # membre d'un ensemble (J4)
+        elif prop in MEMBER_OPTIONS:  # membre d'un ensemble (J4)
             from freecad.menuiserie.features.furniture_bindings import member_option_changed
 
             member_option_changed(obj, prop)
@@ -170,7 +171,7 @@ class WoodPart(StatelessProxy):
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         """Faux pendant une resynchronisation interne, une restauration ou une annulation."""
         syncing: bool = getattr(self, "_syncing", False)
-        return not syncing and "Restore" not in obj.State and not obj.Document.Transacting
+        return not syncing and not restoring_or_undoing(obj)
 
     @contextmanager
     def _synchronizing(self) -> Iterator[None]:

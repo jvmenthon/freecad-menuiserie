@@ -30,6 +30,7 @@ from freecad.menuiserie.features.freecad_types import (
     DocumentObject,
     StatelessProxy,
     proxy_is,
+    restoring_or_undoing,
 )
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec, version_spec
@@ -37,6 +38,7 @@ from freecad.menuiserie.features.schema import LENGTH, PropertySpec, version_spe
 __all__ = [
     "DIMENSIONS",
     "FURNITURE_PROPERTIES",
+    "MEMBER_OPTIONS",
     "MEMBER_PROPERTIES",
     "MODES",
     "NOUN",
@@ -47,6 +49,7 @@ __all__ = [
     "create_furniture",
     "follows_user_changes",
     "furniture_of",
+    "has_member_properties",
     "is_furniture",
     "is_member",
     "option_name",
@@ -72,6 +75,7 @@ def option_name(edge: Edge) -> str:
 
 
 OPTIONS: Final = tuple(option_name(edge) for edge in Edge)
+MEMBER_OPTIONS: Final = ("PositionMode", *OPTIONS)  # réglages du membre, relié s'ils changent
 
 _TOOLTIPS: Final = {
     "Width": QT_TRANSLATE_NOOP(
@@ -195,9 +199,8 @@ def workshop_writes(obj: DocumentObject) -> bool:
 def follows_user_changes(obj: DocumentObject) -> bool:
     """Faux pendant une restauration, une annulation, un recalcul ou une écriture de
     l'atelier : seules les saisies de l'utilisateur (éditeur de propriétés, script) comptent."""
-    doc = obj.Document
-    busy = doc.Transacting or getattr(doc, "Recomputing", False)
-    return not (busy or "Restore" in obj.State or workshop_writes(obj))
+    recomputing = bool(getattr(obj.Document, "Recomputing", False))
+    return not (recomputing or restoring_or_undoing(obj) or workshop_writes(obj))
 
 
 class Furniture(StatelessProxy):
@@ -245,8 +248,19 @@ class Furniture(StatelessProxy):
             current = box_of(obj)
             if previous is not None and current is not None and previous != current:
                 furniture_bindings.report_resize(obj, previous, current)
-        elif prop == "PositionMode" or prop in OPTIONS:
+        elif prop in MEMBER_OPTIONS:
             furniture_bindings.member_option_changed(obj, prop)
+
+    def unsetupObject(self, obj: DocumentObject) -> None:
+        """Suppression de l'ensemble (``removeObject``, interface comprise) : les liaisons de
+        l'atelier sont retirées de ses membres, dans la même transaction, pour qu'aucune
+        expression ne vise un objet absent ; les membres gardent leur géométrie et deviennent
+        des orphelins (propriétés de membre sans ensemble), que ``make_furniture``,
+        ``add_to_furniture`` et ``remove_from_furniture`` acceptent. Seule exception à « un
+        objet n'écrit que dans lui-même » (ADR 0008 : retrait au moment de la suppression)."""
+        from freecad.menuiserie.features.furniture_bindings import release_members
+
+        release_members(obj)
 
     def execute(self, obj: DocumentObject) -> None:
         """Aucune forme : vérifie seulement les cotes (``ValueError`` traduite sinon)."""
@@ -266,6 +280,11 @@ def is_furniture(obj: object) -> bool:
 def is_member(obj: DocumentObject) -> bool:
     """Vrai si ``obj`` (brute ou ensemble) est membre d'un ensemble."""
     return is_furniture(furniture_of(obj))
+
+
+def has_member_properties(obj: DocumentObject) -> bool:
+    """Vrai si ``obj`` porte des propriétés de membre, même orphelin (ensemble supprimé)."""
+    return any(spec.name in obj.PropertiesList for spec in MEMBER_PROPERTIES)
 
 
 def furniture_of(obj: DocumentObject) -> DocumentObject | None:

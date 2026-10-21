@@ -208,3 +208,61 @@ def test_cycle_d_ensembles_refuse(document: Any) -> None:
     with pytest.raises(ValueError, match="un ensemble ne peut pas être membre de lui-même"):
         api.add_to_furniture(sub, [outer])
     assert [m for m in LAYOUT if api.furniture_of(bureau.parts[m]) != furniture] == []
+
+
+# --- Suppression de l'ensemble, orphelins, ré-ajout ----------------------------------------------
+
+
+def test_suppression_de_l_ensemble_annulable(bureau: Bureau) -> None:
+    doc = bureau.doc
+    doc.UndoMode = 1
+    doc.openTransaction("Supprimer l'ensemble")
+    doc.removeObject(bureau.furniture.Name)
+    doc.commitTransaction()
+    for mark, part in bureau.parts.items():
+        assert bureau.expressions(mark) == {}, mark
+        assert part.Furniture is None
+        assert api.furniture_of(part) is None
+    doc.recompute()
+    assert stale_or_invalid(doc) == []
+    assert bureau.sizes("JG") == (720, 560, 22)
+    doc.undo()
+    doc.recompute()
+    [furniture] = [obj for obj in doc.Objects if obj.Name.startswith("Furniture")]
+    assert all(part.Furniture == furniture for part in bureau.parts.values())
+    assert {mark: bureau.expressions(mark) for mark in LAYOUT} == EXPRESSIONS
+    assert stale_or_invalid(doc) == []
+
+
+def test_orphelins_remis_dans_un_nouvel_ensemble(bureau: Bureau) -> None:
+    doc = bureau.doc
+    joue = bureau.parts["JG"]
+    joue.FixedBack = False
+    joue.PositionMode = "Proportional"
+    doc.removeObject(bureau.furniture.Name)
+    furniture, notices = api.make_furniture(list(bureau.parts.values()), label="Bureau")
+    assert notices == ()
+    assert all(part.Furniture == furniture for part in bureau.parts.values())
+    assert (joue.FixedBack, joue.PositionMode) == (True, "Stay")  # options par défaut
+    assert {mark: bureau.expressions(mark) for mark in LAYOUT} == EXPRESSIONS
+    assert {mark: dict(part.FurnitureBindings) for mark, part in bureau.parts.items()} == (
+        EXPRESSIONS
+    )
+    furniture.Depth = 800
+    doc.recompute()
+    assert bureau.sizes("JG")[1] == 760
+    assert stale_or_invalid(doc) == []
+
+
+def test_orphelin_ajoute_ou_retire(bureau: Bureau) -> None:
+    doc = bureau.doc
+    doc.removeObject(bureau.furniture.Name)
+    plateau, joue = bureau.parts["P"], bureau.parts["JG"]
+    api.remove_from_furniture([plateau])
+    assert not any(name in plateau.PropertiesList for name in MEMBER_PROPERTIES)
+    furniture, _ = api.make_furniture([bureau.parts["JD"], bureau.parts["V"]], label="Meuble")
+    assert api.add_to_furniture(furniture, [joue]) == ()
+    assert joue.Furniture == furniture
+    assert bureau.expressions("JG")["Width"] == "<<Meuble>>.Depth"  # boîte de JD et V : 560
+    doc.recompute()
+    assert stale_or_invalid(doc) == []
