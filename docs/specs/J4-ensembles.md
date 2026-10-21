@@ -2,12 +2,13 @@
 
 - Jalon : J4 (version cible 0.3.0, à confirmer par jv)
 - Statut : **validée** par jv le 2026-10-21 (§ 9 : Q1, Q2, Q4, Q5 recommandations retenues ;
-  Q3 et Q6 réponses de jv intégrées). Restent ouvertes **Q7** et **Q8**, nées de ces réponses : la
-  spécification applique leur recommandation ★ en attendant.
+  Q3, Q6 et Q7 réponses de jv intégrées). Reste ouverte **Q8** : la spécification applique sa
+  recommandation ★ en attendant.
 - Exigences de jv intégrées : modifier facilement un ensemble de pièces (spécification J3, § 8,
   2026-10-20) ; position des pièces intérieures, deux modes, « par défaut elle ne bouge pas »,
   formule respectée avec avertissement (décision de jv du 2026-10-20) ; **chaque distance à un
-  bord est fixe ou non, au choix** (Q3, 2026-10-21) ; **mi-bois, queue d'aronde et onglet à 45°**
+  bord est fixe ou non, au choix** (Q3, 2026-10-21) ; **la pièce bouge par défaut** (Q7,
+  2026-10-21 : toute distance est fixe par défaut, la case « fixe » se décoche) ; **mi-bois, queue d'aronde et onglet à 45°**
   (Q6, 2026-10-21) ; les assemblages de J3 suivent ; compatibilité avec les autres addons
   (ADR 0007), y compris Std Part et `App::Link`
 - ADR liés : [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md),
@@ -44,8 +45,8 @@ Le menuisier peut :
    (gauche, droite, avant, arrière, bas, haut), si elle est **fixe** (la pièce suit ce bord quand la
    cote change) ou **non fixe** (la pièce reste où elle est, ou garde sa proportion si son mode est
    « Proportion »), dans le panneau de l'ensemble comme dans l'éditeur de propriétés. Par défaut,
-   une distance nulle (pièce contre le bord, ou contre une pièce qui suit ce bord) est fixe, toute
-   autre distance est non fixe : **par défaut, une pièce intérieure ne bouge pas** ;
+   toute distance est fixe : **la pièce bouge par défaut** et suit le bord de son côté (Q7) ; le
+   menuisier décoche « fixe » là où elle doit rester en place ;
 3. garder ses propres formules : une cote ou une position déjà pilotée par une expression ou une
    contrainte n'est jamais remplacée ; la formule s'applique et un **avertissement** le signale ;
 4. voir les assemblages de J3 et de J4 (pièces usinées, tenons, tourillons, queues…) **suivre** en
@@ -57,7 +58,7 @@ Le menuisier peut :
    TechDraw et l'exporter en STEP, sans que l'atelier gêne les autres outils (ADR 0007).
 
 **Livrable visible** : le bureau de référence (§ 3) passe de 600 à 800 mm de profondeur par une
-seule saisie, après avoir coché « fixe » pour l'arrière des joues ; le caisson de référence est
+seule saisie, les joues et le voile suivant le fond par défaut (Q7) ; le caisson de référence est
 créé en une commande puis rendu plus haut ; un tiroir simple est assemblé à queues d'aronde, un
 cadre à onglets, une croix à mi-bois.
 
@@ -69,20 +70,22 @@ Les lettres des critères sont propres à cette spécification.
 
 **Bureau de référence** (cotes en mm, ensemble « Bureau » dans le document, sans conteneur).
 Étendues dans le repère de l'ensemble (X = largeur, Y = profondeur, Z = hauteur) et distances
-**fixes par défaut** (F3, F4) :
+**fixes par défaut** (F3 ; Q7 : toute distance, sauf sur l'épaisseur où seule la face la plus
+proche de son bord l'est) :
 
 | Pièce | Cotes L × l × e | `Placement` (base ; rotation) | X | Y | Z | Fixes par défaut |
 |---|---|---|---|---|---|---|
 | Plateau P | 1200 × 600 × 30 | (0, 0, 720) ; aucune | [0, 1200] | [0, 600] | [720, 750] | gauche, droite, avant, arrière, haut |
-| Joue gauche JG | 720 × 560 × 22 | (22, 0, 0) ; −90° autour de Y (L selon Z, e selon −X) | [0, 22] | [0, 560] | [0, 720] | gauche, avant, bas, haut (contact P) |
-| Joue droite JD | 720 × 560 × 22 | (1200, 0, 0) ; idem | [1178, 1200] | [0, 560] | [0, 720] | droite, avant, bas, haut (contact P) |
-| Voile V | 1156 × 400 × 18 | (22, 459, 320) ; +90° autour de X (l selon Z, e selon −Y) | [22, 1178] | [441, 459] | [320, 720] | gauche (contact JG), droite (contact JD), haut (contact P) |
+| Joue gauche JG | 720 × 560 × 22 | (22, 0, 0) ; −90° autour de Y (L selon Z, e selon −X) | [0, 22] | [0, 560] | [0, 720] | gauche, avant, arrière, bas, haut |
+| Joue droite JD | 720 × 560 × 22 | (1200, 0, 0) ; idem | [1178, 1200] | [0, 560] | [0, 720] | droite, avant, arrière, bas, haut |
+| Voile V | 1156 × 400 × 18 | (22, 459, 320) ; +90° autour de X (l selon Z, e selon −Y) | [22, 1178] | [441, 459] | [320, 720] | gauche, droite, arrière, bas, haut |
 
 Assemblages : tourillons JG–V et JD–V (hôte = joue, invitée = voile), valeurs automatiques de
 J3 : contact 400 × 18 → 4 tourillons Ø 8 × 35. Les joues sont en retrait de 40 mm à l'arrière :
-cette distance est **non fixe par défaut** (Q7) ; le scénario de référence la rend **fixe**
-(`FixedBack` = vrai sur JG et JD) pour que les joues suivent la profondeur. Le voile est
-intérieur en profondeur (141 mm du fond, 441 mm de l'avant). Cotes de l'ensemble à la création :
+cette distance est **fixe par défaut** (Q7) : les joues suivent la profondeur sans rien cocher.
+Le scénario « reste en place » la **décoche** (`FixedBack` = faux sur JG et JD). Le voile est
+intérieur en profondeur (141 mm du fond, 441 mm de l'avant) : sur l'axe de son épaisseur, seule
+la face arrière, la plus proche de son bord, est fixe par défaut ; il suit le fond. Cotes de l'ensemble à la création :
 1200 × 600 × 750, `Origin` = (0, 0, 0). Tous les membres en mode `Stay` (« Reste en place »).
 
 ### J4a — Règles de suivi et liaisons (`core/furniture/`)
@@ -90,17 +93,49 @@ intérieur en profondeur (141 mm du fond, 441 mm de l'avant). Cotes de l'ensembl
 | N° | Critère | Test |
 |---|---|---|
 | F1 | Objets valeur validés à la construction : `FurnitureBox` (trois cotes finies, non booléennes, de `MIN_DIMENSION_MM` à `MAX_DIMENSION_MM`), `Member`, `FollowRule` ; `InteriorMode` a les valeurs stables `Stay`, `Proportional` et `Edge` les valeurs stables `Left`, `Right`, `Front`, `Back`, `Bottom`, `Top` (ordre figé) ; `Member.fixed` est un ensemble d'`Edge` ou `None` (options à calculer). `ValueError` citant le champ ; un cas refusé et un cas limite accepté par règle. | U |
-| F2 | `member_spans(member, box)` : étendue de chaque membre sur X, Y, Z du repère de l'ensemble et axe local aligné (`Length`, `Width`, `Thickness`) par `relative_axes` (J3) ; `edge_distances(member, box)` : distance de chaque face au bord de son côté (gauche = début de X… haut = fin de Z). Bureau : valeurs du tableau ; JG : arrière 40, droite 1178. Un membre tourné de 45° par rapport à l'ensemble est exclu des liaisons avec la notice `NotSquare` (« « Voile » n'est pas d'équerre avec l'ensemble : il ne suit pas ses cotes. »). | U |
-| F3 | **Options par défaut, bord** (`default_fixed`, seulement pour un membre dont `fixed` est `None`) : une distance ≤ 0,01 mm (`CONTACT_TOLERANCE_MM`) est fixe ; toute autre distance est non fixe, **quelle que soit sa valeur** (1 mm, 40 mm ; Q7). Bureau : P fixe à gauche, droite, avant, arrière, haut ; JG à gauche, avant, bas ; JD à droite, avant, bas. Un membre dont `fixed` est donné garde ses options telles quelles. | U |
-| F4 | **Options par défaut, contact** : une face en contact (`core/contact.classify`, normale selon l'axe) avec une face d'un autre membre qui suit le bord **de son propre côté** devient fixe, de proche en proche jusqu'à point fixe ; résultat indépendant de l'ordre des membres (tri par `key`). Bureau : JG et JD fixes en haut (contre le dessous de P, qui suit le haut) ; V fixe à gauche (contre JG), à droite (contre JD) et en haut (contre P) ; V non fixe en bas, à l'avant et à l'arrière. Une face en contact avec une face qui suit le bord **opposé** reste non fixe (le contrôle F10 signale le contact perdu s'il porte un assemblage). | U |
-| F5 | **Distance fixe** (`follow_rules`) : face dont la distance est fixe → elle suit le bord de son côté (`START` pour gauche, avant, bas ; `END` pour droite, arrière, haut). Bureau avec `FixedBack` sur JG : son arrière suit `END`, sa largeur suit la profondeur. Sans : son arrière ne bouge pas. | U |
-| F6 | **Distance non fixe** : mode `Stay` (défaut) → `START`, la face **ne bouge pas** (dans le repère de l'ensemble) ; mode `Proportional` → la coordonnée garde sa proportion de la cote ; sur un axe non étirable, c'est le **milieu** de la pièce qui la garde. Bureau, V en `Proportional` : milieu à 450 / 600 = 0,75 de la profondeur. Une face fixe garde son bord dans les deux modes. | U |
+| F2 | `member_spans(member)` : étendue de chaque membre sur X, Y, Z du repère de l'ensemble et axe local aligné (`Length`, `Width`, `Thickness`) par `relative_axes` (J3) ; `edge_distances(member, box)` : distance de chaque face au bord de son côté (gauche = début de X… haut = fin de Z). Bureau : valeurs du tableau ; JG : arrière 40, droite 1178. Un membre tourné de 45° par rapport à l'ensemble est exclu des liaisons avec la notice `NotSquare` (« « Voile » n'est pas d'équerre avec l'ensemble : il ne suit pas ses cotes. »). | U |
+| F3 | **Options par défaut** (`default_fixed`, seulement pour un membre dont `fixed` est `None` ; Q7, réponse de jv : « La pièce bouge par défaut ») : **toute distance est fixe**, nulle ou non (1 mm, 40 mm), règle isolée dans `fixed_by_default` ; sur l'axe de `Thickness`, seule la face la plus proche de son bord est fixe (égalité → début), sans notice. Bureau : P fixe à gauche, droite, avant, arrière, haut ; JG à gauche, avant, arrière, bas, haut ; JD à droite, avant, arrière, bas, haut ; V à gauche, droite, arrière, bas, haut. Un membre dont `fixed` est donné garde ses options telles quelles. | U |
+| F4 | **Options par défaut, contact** : *sans objet depuis la réponse de jv à Q7* (toute distance est déjà fixe par défaut ; la règle de contact, de proche en proche, est retirée). Résultat indépendant de l'ordre des membres. L'option « non fixe » reste disponible : le menuisier la choisit pièce par pièce. | U |
+| F5 | **Distance fixe** (`follow_rules`) : face dont la distance est fixe → elle suit le bord de son côté (`START` pour gauche, avant, bas ; `END` pour droite, arrière, haut). Bureau (options par défaut) : l'arrière de JG suit `END`, sa largeur suit la profondeur. `FixedBack` décoché : son arrière ne bouge pas. | U |
+| F6 | **Distance non fixe** : mode `Stay` (défaut) → `START`, la face **ne bouge pas** (dans le repère de l'ensemble) ; mode `Proportional` → la coordonnée garde sa proportion de la cote ; sur un axe non étirable, c'est le **milieu** de la pièce qui la garde. Bureau, V en `Proportional` avec `FixedBack` décoché : milieu à 450 / 600 = 0,75 de la profondeur. Une face fixe garde son bord dans les deux modes. | U |
 | F7 | **Épaisseur jamais étirée** : sur l'axe de `Thickness`, une seule règle par pièce : une seule face fixe → elle décide ; deux faces fixes (pièce aussi épaisse que l'ensemble, ou deux cases cochées) → la plus proche de son bord, égalité → `START`, et notice `ThicknessKept` ; aucune → le mode. Une cote d'ensemble ne change jamais une pièce qu'elle ne traverse pas. | U |
-| F8 | **Liaisons** (`bindings_for`) : expressions exactes pour le bureau avec `FixedBack` sur JG et JD — P : `Length` = `<<Bureau>>.Width`, `Width` = `<<Bureau>>.Depth`, `Placement.Base.z` = `<<Bureau>>.Height - 30 mm` ; JG et JD : `Length` = `<<Bureau>>.Height - 30 mm`, `Width` = `<<Bureau>>.Depth - 40 mm` ; JD : `Placement.Base.x` = `<<Bureau>>.Width` ; V : `Length` = `<<Bureau>>.Width - 44 mm`, `Width` = `<<Bureau>>.Height - 350 mm`, aucune sur Y en `Stay`, `Placement.Base.y` = `<<Bureau>>.Depth * 0.75 + 9 mm` en `Proportional`. Options par défaut (sans `FixedBack`) : mêmes liaisons, sauf `Width` de JG et JD, absente. La coordonnée de `Placement.Base` liée est celle de l'origine locale (début ou fin de l'étendue selon le signe de l'axe). Nombres : au plus 9 décimales, sans zéros inutiles, constante nulle omise. Aucune liaison qui ne changerait rien (`START` des deux côtés). | U |
-| F9 | **Formules de l'utilisateur** : une propriété listée dans `Member.driven` (expression ou contrainte) ne reçoit aucune liaison, quelle que soit l'option fixe ; notice `UserFormula` (avertissement) citant pièce et propriété. Une liaison dont le texte enregistré diffère de l'expression actuelle est traitée comme une formule de l'utilisateur. | U |
-| F10 | **Aperçu et refus** (`predict`, `check_resize`), bureau avec `FixedBack` sur JG et JD : Depth → 800 donne P 1200 × 800, JG/JD l = 760, V inchangé (`Stay`) ou Y ∈ [591, 609] (`Proportional`) ; options par défaut : JG/JD inchangées (l = 560). Height → 800 : P en z = 770, V l = 450. Refus (`FurnitureError`, gabarit traduit) : Depth → 30 avec `FixedBack` (« « Joue gauche » deviendrait trop petite : Width = −10 mm ») ; Height → 350,05 (V l = 0,05 < 0,1) ; une paire d'assemblage donnée qui changerait de classe (`Contact` → `Separated`, `Overlap` → autre). Notice `OutsideBox` (avertissement, pas un refus) pour une pièce non fixe qui dépasserait de l'ensemble (options par défaut, Depth → 500 : JG et JD). | U |
+| F8 | **Liaisons** (`bindings_for`) : expressions exactes pour le bureau, options par défaut — P : `Length` = `<<Bureau>>.Width`, `Width` = `<<Bureau>>.Depth`, `Placement.Base.z` = `<<Bureau>>.Origin.z + <<Bureau>>.Height - 30 mm` ; JG et JD : `Length` = `<<Bureau>>.Height - 30 mm`, `Width` = `<<Bureau>>.Depth - 40 mm` ; JD : `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Bureau>>.Width` ; V : `Length` = `<<Bureau>>.Width - 44 mm`, `Width` = `<<Bureau>>.Height - 350 mm`, `Placement.Base.y` = `<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm` ; V avec `FixedBack` décoché : aucune sur Y en `Stay`, `Placement.Base.y` = `<<Bureau>>.Origin.y + <<Bureau>>.Depth * 0.75 + 9 mm` en `Proportional`. `FixedBack` décoché sur JG et JD : mêmes liaisons, sauf `Width` de JG et JD, absente. Les positions (`Placement.Base`, `Origin` d'un sous-ensemble) sont écrites **relativement à `<<Ensemble>>.Origin`** ; la coordonnée liée est celle de l'origine locale (début ou fin de l'étendue selon le signe de l'axe). Nombres : ratio à 9 décimales, constante à 6, sans zéros inutiles, constante nulle omise. Aucune liaison qui ne changerait rien (`START` des deux côtés), sauf pour un ensemble lui-même membre d'un autre (`nested`) : toutes ses positions suivent son `Origin`. | U |
+| F9 | **Formules de l'utilisateur** : une propriété listée dans `Member.driven` (expression ou contrainte) ne reçoit aucune liaison, quelle que soit l'option fixe ; notice `UserFormula` (avertissement) citant pièce et propriété, seulement pour une propriété que l'atelier lie (`Length`, `Width`, `Placement` d'une pièce ; `Width`, `Depth`, `Height`, `Origin` d'un sous-ensemble : pas `Thickness` pilotée par une feuille de calcul). Une liaison dont le texte enregistré diffère de l'expression actuelle est traitée comme une formule de l'utilisateur ; une liaison **effacée** par l'utilisateur ne l'est pas : « Relier les pièces » la remet. | U |
+| F10 | **Aperçu et refus** (`predict`, `check_resize`), bureau aux options par défaut : Depth → 800 donne P 1200 × 800, JG/JD l = 760, V à Y ∈ [641, 659] (il suit le fond) ; V `FixedBack` décoché : inchangé (`Stay`) ou Y ∈ [591, 609] (`Proportional`) ; JG/JD `FixedBack` décoché : inchangées (l = 560). Height → 800 : P en z = 770, V l = 450. Refus (`FurnitureError`, gabarit traduit) : Depth → 30 (« « Joue gauche » deviendrait trop petite : Width = −10 mm ») ; Height → 350,05 (V l = 0,05 < 0,1) ; une paire d'assemblage donnée qui changerait de classe (`Contact` → `Separated`, `Overlap` → autre). Notice `OutsideBox` (avertissement, pas un refus) pour une pièce non fixe qui dépasserait de l'ensemble (`FixedBack` décoché sur JG et JD, Depth → 500 : JG et JD). | U |
 | F11 | **Sous-ensemble membre** (Q2 : Oui) : un `FurnitureBox` membre est une boîte dont les trois cotes sont étirables et qui porte les mêmes six options ; ses liaisons portent sur `Origin.x/y/z`, `Width`, `Depth`, `Height`. Un ensemble ne peut pas être membre de lui-même ni d'un de ses membres (`FurnitureError`). | U |
 | F12 | `core/` n'importe ni FreeCAD ni Qt ; couverture de `core/` ≥ 90 % ; aucun module > 400 lignes. | U |
+
+**Notes de réalisation de J4a** (dev, 2026-10-21 ; décisions les plus simples cohérentes avec les
+ADR, à confirmer par l'architecte) :
+
+1. **Q7** (réponse de jv : « La pièce bouge par défaut ») dans une seule fonction,
+   `fixed_by_default(distance)` de `core/furniture/_defaults.py`, vraie pour toute distance. Sur
+   l'axe de l'épaisseur, seule la face la plus proche de son bord est fixe par défaut : la pièce
+   n'y est jamais étirée, et deux cases cochées d'office donneraient `ThicknessKept` pour chaque
+   pièce. La règle de contact (F4) est retirée.
+2. **Repère** : `Member.block` et `Member.origin` sont relatifs à l'`Origin` de l'ensemble ; les
+   positions liées s'écrivent `<<Ensemble>>.Origin.x + …` (relecture de la PR #29, vérifié sur
+   FreeCAD 1.0 et 1.1). `bindings_for(…, nested=True)` lie aussi les positions qui ne bougent pas
+   avec la cote (`<<Caisson>>.Origin.x + 22 mm`) : à passer en J4b′ pour un ensemble lui-même
+   membre d'un autre, dont l'`Origin` peut bouger ; ses membres sont alors reliés à son entrée et
+   à sa sortie du parent.
+3. **J4b′** : `check_resize` devra descendre dans les sous-ensembles (il ne contrôle aujourd'hui
+   que les membres directs) ; le test de relecture R2 devra couvrir les libellés contenant `'` et
+   `"`, que FreeCAD réécrit en `\'` et `\"`.
+4. **Signatures** (§ 4.3 mis à jour) : `member_spans(member)` sans la boîte, qui ne sert pas,
+   renvoie des `Span` (`lo`, `hi`, `local`, `reversed`) ; `Member` reçoit `label` (nom cité dans
+   les messages) et des valeurs par défaut ; `Notice` = (`kind` : `NoticeKind`, `params`), avec
+   `template` et `message` en propriétés ; `predict` renvoie des `Member` (l'`Origin` d'un
+   sous-ensemble y figure). Aides ajoutées : `with_default_options`, `driven_properties` (F9 :
+   texte enregistré ≠ expression actuelle), `is_driven` (`Placement` couvre ses sous-chemins),
+   `check_membership` (F11 : cycle d'ensembles), `label_reference`, `expression_text`,
+   `bound_by_workshop` (F9 : `UserFormula` seulement pour une propriété que l'atelier lie).
+5. **Nombres** : ratio à 9 décimales, constante à 6 (§ 4.3, plus précis que F8).
+6. **Libellé** : refusé s'il contient `>` (pas seulement `>>` : « Bureau <2> » donnerait
+   `<<Bureau <2>>>`, lu `<<Bureau <2>>`), `\` (échappement de FreeCAD dans `<<…>>` : `Bur\'eau`
+   vise `Bur'eau`, `a\` est illisible) ou un caractère invisible (§ 4.9).
+7. **`check_resize`** renvoie aussi `UserFormula` pour une propriété pilotée sur un axe qui change
+   (N5 n'a plus qu'à traduire) et refuse une cote qui dépasserait 20 000 mm (« trop grande »).
 
 ### J4b′ — L'objet Ensemble dans le document (`features/`, `api.py`)
 
@@ -108,15 +143,15 @@ intérieur en profondeur (141 mm du fond, 441 mm de l'avant). Cotes de l'ensembl
 |---|---|---|
 | N1 | `make_furniture([P, JG, JD, V], label="Bureau")` (pièces brutes ou usinées) : un objet `Furniture`, cotes 1200 × 600 × 750, `Origin` (0, 0, 0) ; chaque brute reçoit `Furniture`, `PositionMode` = `Stay`, les six options `Fixed…` aux valeurs par défaut du tableau de référence et `FurnitureBindings` ; expressions de F8 (options par défaut) dans les `ExpressionEngine` ; après `recompute()` les formes et volumes sont inchangés et aucun objet n'est « Touched ». | I |
 | N2 | Chaque propriété des tableaux du § 4.4 existe avec type, groupe, infobulle, défaut et mode d'édition indiqués ; `WoodPart` garde `Version` = 2 ; une pièce hors ensemble n'a aucune propriété ajoutée. | I |
-| N3 | **Le bureau suit** : `set_member_options(JG, fixed={"Back": True})`, idem JD, puis `Depth` = 800 → un recompute → P 1200 × 800 × 30, JG/JD 720 × 760 × 22, V à Y ∈ [441, 459] ; `Height` = 800 → P en z = 770, joues de 770, V de 1156 × 450 et **5** tourillons de chaque côté ; `Width` = 1400 → P de 1400, JD en x ∈ [1378, 1400], V de 1356. Avec les options par défaut, `Depth` = 800 → P de 800, joues inchangées (560). Tout valide, aucun « Touched ». | I |
-| N4 | **Option dans l'éditeur de propriétés** : dans une transaction, `JG.FixedBack = True` → la liaison `Width` = `<<Bureau>>.Depth - 40 mm` de JG est posée (seulement JG), `FurnitureBindings` mis à jour ; `undo()` retire option et liaison ensemble ; `JG.FixedBack = False` retire la liaison, JG reste où elle est. Même chose pour `PositionMode` = `Proportional` sur V : `Depth` = 800 → V à Y ∈ [591, 609] ; retour à `Stay` → liaison Y supprimée, V reste où il est. Rien n'est réécrit à la réouverture ni pendant `undo()` / `redo()`. | I |
+| N3 | **Le bureau suit** (options par défaut, Q7) : `Depth` = 800 → un recompute → P 1200 × 800 × 30, JG/JD 720 × 760 × 22, V à Y ∈ [641, 659] ; `Height` = 800 → P en z = 770, joues de 770, V de 1156 × 450 et **5** tourillons de chaque côté ; `Width` = 1400 → P de 1400, JD en x ∈ [1378, 1400], V de 1356. Avec `set_member_options(JG, fixed={"Back": False})`, idem JD, `Depth` = 800 → P de 800, joues inchangées (560). Tout valide, aucun « Touched ». | I |
+| N4 | **Option dans l'éditeur de propriétés** : dans une transaction, `JG.FixedBack = False` → la liaison `Width` = `<<Bureau>>.Depth - 40 mm` de JG est retirée (seulement JG), `FurnitureBindings` mis à jour, JG reste où elle est ; `undo()` rétablit option et liaison ensemble ; `JG.FixedBack = True` la repose. Même chose pour `PositionMode` = `Proportional` sur V, `FixedBack` décoché : `Depth` = 800 → V à Y ∈ [591, 609] ; retour à `Stay` → liaison Y supprimée, V reste où il est. Rien n'est réécrit à la réouverture ni pendant `undo()` / `redo()`. | I |
 | N5 | **Formule de l'utilisateur** (décision de jv) : V porte `Placement.Base.y` = `<<Bureau>>.Depth - 141 mm` avant `make_furniture` → l'expression est gardée, la liste renvoyée et la vue rapport contiennent l'avertissement `UserFormula` ; `Depth` = 800 → `Placement.Base.y` de V = 659 (la formule s'applique) et un avertissement cite V ; changer son mode ou cocher `FixedBack` ne touche pas cette propriété (avertissement). Même règle pour une pièce placée par une contrainte de l'atelier Assembly (§ 4.4.3). | I |
 | N6 | **Assemblages J3** : les pièces usinées et leurs assemblages restent valides après chaque changement de N3, valeurs automatiques recalculées (nombre de tourillons de N3), en un seul recompute ; les liaisons sont posées sur la **brute** ; déplacer la pièce usinée d'une brute dont `Placement` est lié est refusé avec un message (aucune écriture perdue en silence). | I |
-| N7 | `resize_furniture(bureau, depth=30)` (avec `FixedBack`) → `ValueError` traduite citant JG, rien n'est modifié (cotes, expressions, aucune transaction ouverte). Cote saisie dans l'éditeur de propriétés qui casse une pièce (Q4 : appliquer) : la cote est appliquée, pièces ou assemblages en erreur sans forme partielle, avertissement dans la vue rapport, `undo()` rétablit tout. | I |
+| N7 | `resize_furniture(bureau, depth=30)` (options par défaut) → `ValueError` traduite citant JG, rien n'est modifié (cotes, expressions, aucune transaction ouverte). Cote saisie dans l'éditeur de propriétés qui casse une pièce (Q4 : appliquer) : la cote est appliquée, pièces ou assemblages en erreur sans forme partielle, avertissement dans la vue rapport, `undo()` rétablit tout. | I |
 | N8 | `add_to_furniture(bureau, objets)` et `remove_from_furniture(objets)` : ajout = options par défaut (F3, F4) et liaisons calculées sur la géométrie actuelle, sans toucher aux options des membres déjà présents ; retrait = suppression des **seules** liaisons de l'atelier (texte identique à `FurnitureBindings`) et des propriétés ajoutées, géométrie inchangée. Refus avant modification (`TypeError`/`ValueError` traduites) : objet qui n'est ni pièce ni ensemble, membre d'un autre ensemble, conteneur (`getParentGeoFeatureGroup`) différent de celui de l'ensemble, autre document. `rebind_furniture(bureau)` recalcule toutes les liaisons de l'atelier d'après la géométrie actuelle **et les options enregistrées** (il ne les remet pas aux valeurs par défaut). | I |
 | N9 | **Std Part** : bureau et pièces dans un `App::Part` tourné de 30° autour de Z et déplacé → N3 donne les mêmes cotes (repère du conteneur) ; déplacer le Std Part déplace le bureau sans toucher aux liaisons. | I |
 | N10 | **`App::Link`** : un lien vers ce Std Part suit le redimensionnement de l'original (`Part.getShape(lien)` : même volume que l'original, à 1e-6 près relatif) ; « Édition › Dupliquer la sélection » du Std Part donne un second bureau indépendant dont les liaisons visent la copie de l'ensemble (sinon : avertissement `UserFormula` et `rebind_furniture` les rétablit). | I |
-| N11 | **Sous-ensemble** (Q2 : Oui) : un ensemble « Caisson » membre du bureau, en retrait de 40 mm à l'arrière avec `FixedBack` coché, suit `Depth` (`<<Bureau>>.Depth - 40 mm`) et ses propres pièces suivent le caisson, en un recompute ; un cycle d'ensembles est refusé. | I |
+| N11 | **Sous-ensemble** (Q2 : Oui) : un ensemble « Caisson » membre du bureau, en retrait de 40 mm à l'arrière (`FixedBack` fixe par défaut), suit `Depth` (`<<Bureau>>.Depth - 40 mm`) et ses propres pièces suivent le caisson, en un recompute ; un cycle d'ensembles est refusé. | I |
 | N12 | Enregistrer, fermer, rouvrir : propriétés, options, expressions et `FurnitureBindings` identiques, aucun « Touched » ; proxy `freecad.menuiserie.features.furniture.Furniture`, `dumps()` = `None`, `Version` = 1. Réouverture contrôlée (ADR 0003, aides de `schema.py`) : `Version` absente, plus récente ou mal typée ; propriété de membre mal typée (`PositionMode` en `App::PropertyString`, `FixedTop` en `App::PropertyInteger`) supprimée avec avertissement et recréée (`Stay` ; option à sa valeur par défaut F3–F4), sans réécrire les liaisons. | I |
 | N13 | Annuler / rétablir : création, ajout, retrait, changement de mode ou d'option, redimensionnement = **une** entrée chacun ; `undo()` restaure cotes, options, expressions et propriétés de membre. | I |
 | N14 | **Compatibilité (ADR 0007)** : le bureau dans un Std Part sert de source à une vue TechDraw qui se recalcule sans erreur ; le Std Part s'exporte en STEP et se réimporte avec le même volume ; document ouvert dans un `freecadcmd` sans l'atelier : il s'ouvre, formes valides de même volume. Inventaire : type `Menuiserie::Furniture`, commandes `Menuiserie_…`, aucune dépendance d'exécution, aucun observateur global. | I (TechDraw : ignoré si non importable, alors G) |
@@ -132,7 +167,7 @@ intérieur en profondeur (141 mm du fond, 441 mm de l'avant). Cotes de l'ensembl
 | P4 | Un refus de `check_resize` s'affiche sous les champs (message traduit) et désactive « OK » ; les avertissements `UserFormula`, `NotSquare`, `ThicknessKept`, `OutsideBox` s'affichent dans le panneau et la vue rapport. | G |
 | P5 | Cote d'ensemble pilotée par une expression (sous-ensemble) : champ inactif, jamais écrit (règle C6 de J1). Distance d'une face pilotée par une formule de l'utilisateur : champ et case inactifs, infobulle « formule ». | G |
 | P6 | Aucun observateur global laissé en place ; aucune préférence hors de `Mod/Menuiserie` ; chaînes traduisibles ; `from PySide import …` seulement. | G + revue |
-| P7 | Scénario du livrable (bureau dessiné à la main, Ensemble, « fixe » coché à l'arrière des joues, profondeur 600 → 800, voile en proportion, formule de l'utilisateur, annuler, rétablir, enregistrer, rouvrir, Std Part + `App::Link`, vue TechDraw) sur FreeCAD 1.0 et 1.1 ; coexistence avec l'atelier Assembly intégré (le Std Part sert de composant) ; captures dans la PR. | manuel |
+| P7 | Scénario du livrable (bureau dessiné à la main, Ensemble, profondeur 600 → 800 (les joues suivent par défaut), « fixe » décoché puis recoché à l'arrière des joues, voile en proportion, formule de l'utilisateur, annuler, rétablir, enregistrer, rouvrir, Std Part + `App::Link`, vue TechDraw) sur FreeCAD 1.0 et 1.1 ; coexistence avec l'atelier Assembly intégré (le Std Part sert de composant) ; captures dans la PR. | manuel |
 
 ### J4d — Gabarit « Caisson » (`core/templates/`, `features/templates.py`, `gui/`)
 
@@ -273,9 +308,12 @@ freecad/menuiserie/
 │   ├── furniture/
 │   │   ├── __init__.py          J4a  façade : FurnitureBox, Member, Edge, InteriorMode, FollowRule, Binding, Notice, FurnitureError
 │   │   ├── _model.py            J4a  objets valeur, validation
-│   │   ├── _follow.py           J4a  member_spans, edge_distances, default_fixed (bord, contact), follow_rules
+│   │   ├── _messages.py         J4a  gabarits des refus et des avertissements
+│   │   ├── _spans.py            J4a  member_spans, edge_distances
+│   │   ├── _defaults.py         J4a  default_fixed, fixed_by_default (Q7)
+│   │   ├── _follow.py           J4a  follow_rules, mouvement d'une face (Linear)
 │   │   ├── _bindings.py         J4a  bindings_for, format des expressions et des nombres
-│   │   └── _check.py            J4a  predict, check_resize
+│   │   └── _check.py            J4a  predict, check_resize, check_membership
 │   ├── templates/
 │   │   ├── __init__.py          J4d  PieceSpec, JointSpec, Layout
 │   │   └── carcass.py           J4d  CarcassParams, carcass_layout
@@ -368,6 +406,7 @@ class Member:
         frozenset[Edge] | None
     )  # distances fixes ; None = nouveau membre, options par défaut à calculer
     driven: frozenset[str]  # propriétés pilotées par une formule ou une contrainte de l'utilisateur
+    label: str  # nom cité dans les messages (J4a)
 
 
 @dataclass(frozen=True)
@@ -386,8 +425,8 @@ class Binding:
 
 
 @dataclass(frozen=True)
-class Notice:  # avertissement traduisible, jamais bloquant
-    template: str
+class Notice:  # avertissement traduisible, jamais bloquant ; template et message en propriétés
+    kind: NoticeKind  # UserFormula, NotSquare, ThicknessKept, OutsideBox
     params: Mapping[str, str]
 
 
@@ -395,8 +434,8 @@ class FurnitureError(TemplatedError): ...  # refus (redimensionnement, cycle d'e
 
 
 def member_spans(
-    member: Member, box: FurnitureBox
-) -> Mapping[FurnitureAxis, tuple[float, float, str]]: ...
+    member: Member,
+) -> Mapping[FurnitureAxis, Span]: ...  # Span(lo, hi, local, reversed)
 def edge_distances(member: Member, box: FurnitureBox) -> Mapping[Edge, float]: ...
 def default_fixed(
     box: FurnitureBox, members: Sequence[Member]
@@ -409,13 +448,15 @@ def bindings_for(
     box: FurnitureBox,
     members: Sequence[Member],
     rules: Mapping[str, tuple[FollowRule, ...]],
+    *,
+    nested: bool = False,
 ) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]: ...
 def predict(
     old: FurnitureBox,
     new: FurnitureBox,
     members: Sequence[Member],
     rules: Mapping[str, tuple[FollowRule, ...]],
-) -> Mapping[str, PlacedBlock | FurnitureBox]: ...
+) -> Mapping[str, Member]: ...
 def check_resize(
     old: FurnitureBox,
     new: FurnitureBox,
@@ -432,11 +473,10 @@ porte une option **fixe / non fixe** (Q3).
 **Options par défaut** (`default_fixed`, appliquées une fois, à l'entrée du membre dans
 l'ensemble ; ensuite seul le menuisier les change) :
 
-1. **bord** : distance ≤ 0,01 mm (`CONTACT_TOLERANCE_MM`) → fixe ;
-2. **contact** : face en contact (`classify` → `Contact`, normale selon l'axe) avec une face d'un
-   autre membre dont l'ancre est celle du bord de **son** côté → fixe ; itéré jusqu'à point fixe,
-   dans un ordre canonique (tri par `key`) ;
-3. sinon **non fixe**, quelle que soit la distance (Q3 : plus de seuil `EdgeMargin` ; Q7).
+1. **toute distance est fixe**, nulle ou non (Q7, réponse de jv : « La pièce bouge par défaut » ;
+   seul endroit : `fixed_by_default`) ;
+2. sur l'axe de `Thickness`, seule la face la plus proche de son bord est fixe (égalité → début) ;
+3. le menuisier décoche ensuite « fixe » là où la pièce doit rester en place.
 
 **Règle de suivi d'une face** (`follow_rules`), première qui s'applique :
 
@@ -454,8 +494,10 @@ deux ancres différentes donnent une cote liée :
 Les constantes sont figées à la liaison ; « Relier les pièces » les recalcule après une
 modification à la main, **sans toucher aux options**.
 
-**Format des expressions** : `<<Label>>.Cote`, puis `* ratio` (9 décimales au plus), puis
-`+ k mm` ou `- k mm` (6 décimales au plus, zéros inutiles retirés, constante nulle omise). Les
+**Format des expressions** : pour une position, `<<Label>>.Origin.x + ` d'abord ; puis
+`<<Label>>.Cote`, puis `* ratio` (9 décimales au plus), puis `+ k mm` ou `- k mm` (6 décimales au
+plus, zéros inutiles retirés, constante nulle omise). Une liaison effacée par l'utilisateur n'est
+pas une formule : « Relier les pièces » la remet. Les
 expressions visent le **libellé** de l'ensemble (FreeCAD les réécrit au renommage). Le texte
 retenu est celui que relit l'`ExpressionEngine` après `setExpression` (normalisation de FreeCAD).
 
@@ -749,7 +791,7 @@ D7, A6) sont vérifiés dès que J4b′ est fusionné.
 
 | N° | Risque | Effet | Parade |
 |---|---|---|---|
-| R1 | Options par défaut inattendues (pièce posée sans contact, retrait de quelques mm laissé non fixe). | Pièce qui ne suit pas un bord que le menuisier croyait fixe. | Aperçu, colonne « Suit » et cases « fixe » visibles dans le panneau avant « OK » ; `OutsideBox` ; Q7 ; formule de l'utilisateur toujours respectée ; « Relier ». |
+| R1 | Options par défaut inattendues (Q7 : toute distance fixe ; pièce intérieure qui suit le bord le plus proche alors que le menuisier la voulait immobile). | Pièce qui bouge alors que le menuisier la croyait en place. | Aperçu, colonne « Suit » et cases « fixe » visibles dans le panneau avant « OK » ; `OutsideBox` ; Q7 ; formule de l'utilisateur toujours respectée ; « Relier ». |
 | R2 | Texte des expressions normalisé ou réécrit par FreeCAD (renommage, copie) différemment selon 1.0 / 1.1. | Liaison de l'atelier prise pour une formule de l'utilisateur. | Texte relu après écriture (§ 4.3) ; le cas défavorable est sûr : la formule est gardée, un avertissement propose « Relier ». Test en début de J4b′ sur les deux versions. |
 | R3 | Constantes figées à la liaison : une pièce modifiée à la main ensuite (plateau de 30 → 40) n'est plus cohérente. | Pièces qui se chevauchent après une cote. | `check_resize` le détecte s'il touche un assemblage ; « Relier les pièces » ; documenté dans le README. |
 | R4 | Pièce usinée déplacée à la main alors que la brute a un `Placement` lié (report de Q4 de J3). | Déplacement annulé au recalcul suivant. | Refus explicite avec message (N6). |
@@ -797,8 +839,7 @@ et garde ses propres cotes) / **Non** (le gabarit ajoute ses pièces directement
 est fix ou non ».* Plus de seuil automatique (`EdgeMargin` supprimé) : chaque distance d'une face
 au bord de son côté porte une option fixe / non fixe (six propriétés `Fixed…`, panneau et éditeur
 de propriétés) ; fixe = la pièce garde cette distance et suit le bord ; non fixe = elle reste en
-place (`Stay`) ou garde sa proportion (`Proportional`). Défaut : fixe si la face touche le bord ou
-une pièce qui suit ce bord, non fixe sinon (§ 4.3, Q7).
+place (`Stay`) ou garde sa proportion (`Proportional`). Défaut : fixe (§ 4.3, Q7).
 
 **Q4 — Cote changée dans l'éditeur de propriétés qui casserait une pièce ou un assemblage ?**
 **Appliquer** ★ (pièces en erreur, avertissement, annulable ; le panneau, lui, refuse avant) /
@@ -816,9 +857,11 @@ queue d'aronde traversante (J4f) et l'onglet (J4g), § 3 et § 4.8.
 **Q7 — Distance non nulle au bord (joue à 40 mm du fond, étagère à 1 mm du côté) : fixe par
 défaut ?** **Non** ★ (la pièce reste en place tant que vous ne cochez pas « fixe » ; seules les
 pièces contre le bord, ou contre une pièce qui le suit, le suivent) / **Oui** (toute distance est
-fixe à la création : tout suit le bord le plus proche, l'étagère comprise). ★ parce que c'est
-votre règle « par défaut elle ne bouge pas », et qu'une case à cocher vaut mieux qu'un seuil
-caché. *Question ouverte* (la spécification applique ★ en attendant).
+fixe à la création : tout suit le bord le plus proche, l'étagère comprise).
+*Réponse de jv (2026-10-21) : « La pièce bouge par défaut ».* **Oui**, contre la recommandation :
+toute distance est fixe par défaut, nulle ou non ; la pièce suit le bord de son côté (sur l'axe
+de son épaisseur, celui dont elle est le plus proche). L'option « non fixe » reste disponible
+pour le menuisier (F3, § 4.3).
 
 **Q8 — Renfort d'onglet en J4 ?** **Aucun** ★ (onglet collé seul ; renfort dans un lot suivant) /
 **Lamelle** (biscuit) / **Fausse languette**. ★ parce que chacun demande un nouvel usinage dans
