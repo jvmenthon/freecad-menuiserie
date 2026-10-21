@@ -28,14 +28,17 @@ l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Notice
-from freecad.menuiserie.features import furniture_members
+from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
+from freecad.menuiserie.features import furniture_edges, furniture_members, templates
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
+from freecad.menuiserie.features.i18n import translated_errors
 from freecad.menuiserie.features.joints.factories import (
     create_dovetail,
     create_dowels,
@@ -285,7 +288,7 @@ def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> _Notic
     est déplacée, ou sa cote change si la distance opposée est fixe. Options inchangées ; ce
     seul membre est relié, puis le document recalculé. Refus avant modification (face pilotée
     par une formule, pièce qui n'est pas d'équerre, cote hors bornes)."""
-    notices = furniture_members.set_edge_distance(obj, edge, distance)
+    notices = furniture_edges.set_edge_distance(obj, edge, distance)
     return _reported(notices, obj.Document)
 
 
@@ -333,3 +336,50 @@ def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) ->
     transaction que :func:`make_mortise_tenon`.
     """
     return _make_joint(create_miter, host, guest, params)
+
+
+# --- Gabarits (J4d) -------------------------------------------------------------------------
+
+__all__ += ["CarcassJoinery", "CarcassParams", "make_carcass"]
+
+
+def make_carcass(
+    doc: Document | None = None,
+    params: CarcassParams | None = None,
+    *,
+    furniture: DocumentObject | None = None,
+    **values: Any,
+) -> tuple[DocumentObject, _Notices]:
+    """Crée un caisson par le gabarit « Caisson » (ADR 0010) et recalcule le document une fois :
+    côtés, dessus, dessous, fond en feuillure, étagères, tourillons, et un ensemble « Caisson »
+    (``Template`` = ``Carcass``) dont les pièces suivent les cotes. Rien d'autre n'est gardé :
+    le caisson se modifie ensuite comme tout ensemble.
+
+    Paramètres : ``params`` (:class:`CarcassParams`) ou ses champs en mots-clés
+    (``width=800, shelf_count=2``…, mm). ``furniture`` : ensemble dont le caisson devient un
+    sous-ensemble (options par défaut vis-à-vis de lui). ``doc`` vaut par défaut le document
+    actif, ou un nouveau document. Renvoie l'ensemble et les avertissements traduits. Refus
+    avant toute création (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est
+    ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
+    """
+    if params is not None and values:
+        raise TypeError("make_carcass : params ou champs en mots-clés, pas les deux")
+    with translated_errors():
+        chosen = params if params is not None else CarcassParams(**values)
+    document = doc if doc is not None else App.ActiveDocument or App.newDocument()
+    built = templates.build_carcass(document, chosen, furniture)
+    if App.GuiUp:  # ViewProviders des pièces, des pièces usinées, des assemblages, de l'ensemble
+        from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
+        from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
+        from freecad.menuiserie.gui.view_providers.machined_part import ViewProviderMachinedPart
+        from freecad.menuiserie.gui.view_providers.wood_part import ViewProviderWoodPart
+
+        for group, provider in (
+            (built.parts, ViewProviderWoodPart),
+            (built.machined, ViewProviderMachinedPart),
+            (built.joints, ViewProviderJoint),
+            ((built.furniture,), ViewProviderFurniture),
+        ):
+            for obj in group:
+                provider(obj.ViewObject)
+    return built.furniture, _reported(built.notices, document)

@@ -8,19 +8,16 @@ c'est à l'appelant (``api.py``, commandes) de les faire.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core.furniture import (
     Edge,
-    EdgeEdit,
     FurnitureBox,
     FurnitureError,
     InteriorMode,
     Notice,
     check_membership,
-    edge_edit,
     label_reference,
 )
 from freecad.menuiserie.core.geometry import Vec3
@@ -57,14 +54,17 @@ from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
 __all__ = [
+    "NOT_IN_FURNITURE",
+    "UNKNOWN_EDGE",
     "add_members",
     "build_furniture",
     "checked_furniture",
+    "join_with_options",
     "member_object",
+    "quoted_label",
     "relink",
     "remove_members",
     "resize",
-    "set_edge_distance",
     "set_options",
 ]
 
@@ -78,7 +78,7 @@ _NO_OBJECT: Final = QT_TRANSLATE_NOOP(
 _ALREADY_MEMBER: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » est déjà membre de l'ensemble « {furniture} »."
 )
-_NOT_IN_FURNITURE: Final = QT_TRANSLATE_NOOP(
+NOT_IN_FURNITURE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est membre d'aucun ensemble."
 )
 _OTHER_DOCUMENT: Final = QT_TRANSLATE_NOOP(
@@ -92,13 +92,10 @@ _OTHER_CONTAINER: Final = QT_TRANSLATE_NOOP(
 _UNKNOWN_MODE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Mode de position inconnu : « {value} » (Stay ou Proportional attendu)."
 )
-_UNKNOWN_EDGE: Final = QT_TRANSLATE_NOOP(
+UNKNOWN_EDGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Option « fixe » inconnue : « {value} » (Left, Right, Front, Back, Bottom ou Top, avec "
     "vrai ou faux).",
-)
-_INVALID_DISTANCE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Distance au bord invalide : « {value} » (nombre fini en mm attendu)."
 )
 _DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -107,7 +104,7 @@ _DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
 )
 
 
-def _quoted(obj: DocumentObject) -> dict[str, str]:
+def quoted_label(obj: DocumentObject) -> dict[str, str]:
     return {"label": quoted_value(getattr(obj, "Label", obj))}
 
 
@@ -119,13 +116,13 @@ def member_object(obj: DocumentObject) -> DocumentObject:
     try:
         return blank_of(obj)
     except TypeError:
-        raise TypeError(translated(_NOT_A_MEMBER, _quoted(obj))) from None
+        raise TypeError(translated(_NOT_A_MEMBER, quoted_label(obj))) from None
 
 
 def checked_furniture(obj: DocumentObject) -> DocumentObject:
     """``obj`` s'il est un ensemble ; ``TypeError`` traduite sinon."""
     if not is_furniture(obj):
-        raise TypeError(translated(_NOT_FURNITURE, _quoted(obj)))
+        raise TypeError(translated(_NOT_FURNITURE, quoted_label(obj)))
     return obj
 
 
@@ -146,13 +143,13 @@ def _checked(
 ) -> DocumentObject:
     member = member_object(obj)
     if member.Document != doc:
-        raise ValueError(translated(_OTHER_DOCUMENT, _quoted(member)))
+        raise ValueError(translated(_OTHER_DOCUMENT, quoted_label(member)))
     current = furniture_of(member)
     if current is not None:
-        params = {**_quoted(member), "furniture": quoted_value(current.Label)}
+        params = {**quoted_label(member), "furniture": quoted_value(current.Label)}
         raise ValueError(translated(_ALREADY_MEMBER, params))
     if member.getParentGeoFeatureGroup() != container:
-        raise ValueError(translated(_OTHER_CONTAINER, _quoted(member)))
+        raise ValueError(translated(_OTHER_CONTAINER, quoted_label(member)))
     if furniture is not None and is_furniture(member):
         parents, labels = _ancestry(furniture)
         labels[member.Name] = str(member.Label)
@@ -279,7 +276,7 @@ def remove_members(objects: Sequence[DocumentObject]) -> None:
     targets = {member.Name: member for member in map(member_object, objects)}
     for member in targets.values():
         if not has_member_properties(member):
-            raise ValueError(translated(_NOT_IN_FURNITURE, _quoted(member)))
+            raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
     for member in targets.values():
         with writing(member):
             remove_bindings(member)
@@ -296,7 +293,7 @@ def _checked_options(mode: str | None, fixed: Mapping[str, bool] | None) -> dict
         values["PositionMode"] = mode
     for name, value in (fixed or {}).items():
         if name not in {edge.value for edge in Edge} or not isinstance(value, bool):
-            raise ValueError(translated(_UNKNOWN_EDGE, {"value": quoted_value(name)}))
+            raise ValueError(translated(UNKNOWN_EDGE, {"value": quoted_value(name)}))
         values[option_name(Edge(name))] = value
     return values
 
@@ -308,7 +305,7 @@ def set_options(
     member = member_object(obj)
     furniture = furniture_of(member)
     if furniture is None:
-        raise ValueError(translated(_NOT_IN_FURNITURE, _quoted(member)))
+        raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
     values = _checked_options(mode, fixed)
     read_members(furniture)  # cotes illisibles : refus avant modification
     with writing(member):
@@ -332,7 +329,7 @@ def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list
     changed = {name: value for name, value in sizes.items() if value is not None}
     driven = sorted(set(changed) & set(expressions_of(furniture)))
     if driven:
-        params = {**_quoted(furniture), "property": driven[0]}
+        params = {**quoted_label(furniture), "property": driven[0]}
         raise ValueError(translated(_DRIVEN_DIMENSION, params))
     values = [changed.get(name, getattr(old, name.lower())) for name in DIMENSIONS]
     with translated_errors():
@@ -344,44 +341,24 @@ def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list
     return notices
 
 
-def _shifted(obj: DocumentObject, change: EdgeEdit) -> None:
-    """Déplace l'origine locale de ``obj`` (``Placement`` d'une pièce, ``Origin`` d'un
-    sous-ensemble) de ``change.shift`` le long de son axe."""
-    coordinate = "xyz"[change.axis.index]
-    if is_furniture(obj):
-        origin = obj.Origin
-        setattr(origin, coordinate, getattr(origin, coordinate) + change.shift)
-        obj.Origin = origin
-        return
-    placement = obj.Placement
-    base = placement.Base
-    setattr(base, coordinate, getattr(base, coordinate) + change.shift)
-    placement.Base = base
-    obj.Placement = placement
+# --- Gabarits (J4d, ADR 0010) ---------------------------------------------------------------
 
 
-def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> list[Notice]:
-    """Distance ``distance`` (mm) entre la face ``edge`` (``Left`` … ``Top``) d'un membre et
-    ce bord de son ensemble : la pièce est déplacée, ou sa cote change si la distance opposée
-    est fixe (:func:`~freecad.menuiserie.core.furniture.edge_edit`) ; options inchangées, puis
-    ce seul membre est relié. Refus avant modification."""
-    member = member_object(obj)
-    furniture = furniture_of(member)
-    if furniture is None:
-        raise ValueError(translated(_NOT_IN_FURNITURE, _quoted(member)))
-    if edge not in {item.value for item in Edge}:
-        raise ValueError(translated(_UNKNOWN_EDGE, {"value": quoted_value(edge)}))
-    value = float(distance) if isinstance(distance, int | float) else math.nan
-    if not math.isfinite(value) or isinstance(distance, bool):
-        raise ValueError(translated(_INVALID_DISTANCE, {"value": quoted_value(distance)}))
-    members = read_members(furniture)
-    target = next(item for item in members.members if item.key == member.Name)
-    with translated_errors():
-        change = edge_edit(target, members.box, Edge(edge), value)
-    with writing(member):
-        remove_bindings(member)
-        if change.prop is not None:
-            setattr(member, change.prop, change.size)
-        if change.shift:
-            _shifted(member, change)
-    return bind_members(read_members(furniture), [member.Name])
+def join_with_options(
+    furniture: DocumentObject,
+    entries: Sequence[tuple[DocumentObject, InteriorMode, frozenset[Edge]]],
+) -> list[Notice]:
+    """Fait entrer des pièces dans ``furniture`` avec le mode et les options « fixe » donnés
+    (un gabarit fixe lui-même ses jeux et ses retraits, au lieu des options par défaut), puis
+    les relie. Mêmes refus, avant toute modification, que :func:`add_members`."""
+    checked_furniture(furniture)
+    members = _candidates([obj for obj, _mode, _fixed in entries], furniture)
+    _checked_label(str(furniture.Label))
+    read_members(furniture, entering=members)  # cotes illisibles : refus avant modification
+    options = {member_object(obj).Name: (mode, fixed) for obj, mode, fixed in entries}
+    for member in members:
+        mode, fixed = options[member.Name]
+        _join(member, furniture, fixed)
+        with writing(member):
+            member.PositionMode = mode.value
+    return bind_members(read_members(furniture), [member.Name for member in members])

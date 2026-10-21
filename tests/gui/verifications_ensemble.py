@@ -73,6 +73,9 @@ def membre(obj: Any) -> bool:
     return any(nom in obj.PropertiesList for nom in PROPRIETES_DE_MEMBRE)
 
 
+EMPLACEMENTS = [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")]
+
+
 # --- P1 : commandes ---------------------------------------------------------------------
 
 
@@ -85,17 +88,15 @@ def verifier_commandes_d_ensemble_presentes() -> list[str]:
             problemes.append(f"{nom} non enregistrée")
             continue
         infos = commande.getInfo()
-        problemes += [
-            *ecarts(f"{nom} libellé", infos["menuText"], libelle),
-            *ecarts(f"{nom} infobulle", bool(infos["toolTip"].strip()), True),
-            *ecarts(f"{nom} icône", infos["pixmap"], icon_path(f"{nom}.svg")),
-            *ecarts(f"{nom} icône affichée", commande.getAction()[0].icon().isNull(), False),
-            *ecarts(
-                f"{nom} emplacements",
-                sorted(emplacements(nom)),
-                [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
-            ),
-        ]
+        constats = {
+            "libellé": (infos["menuText"], libelle),
+            "infobulle": (bool(infos["toolTip"].strip()), True),
+            "icône": (infos["pixmap"], icon_path(f"{nom}.svg")),
+            "icône affichée": (commande.getAction()[0].icon().isNull(), False),
+            "emplacements": (sorted(emplacements(nom)), EMPLACEMENTS),
+        }
+        for quoi, (obtenu, attendu) in constats.items():
+            problemes += ecarts(f"{nom} {quoi}", obtenu, attendu)
     return problemes
 
 
@@ -238,6 +239,22 @@ def verifier_suppression_de_l_ensemble() -> list[str]:
         return problemes
 
 
+def verifier_ensemble_du_caisson() -> list[str]:
+    """P2 : l'ensemble créé par le gabarit « Caisson » reçoit aussi le ViewProvider de
+    l'ensemble (pièces rangées dessous dans l'arbre)."""
+    doc = nouveau_document("VerifCaissonEnsemble")
+    try:
+        caisson, _ = api.make_carcass(doc)
+        vobj = caisson.ViewObject
+        enfants = vobj.Proxy.claimChildren() if vobj.Proxy is not None else []
+        return [
+            *ecarts("ViewProvider", classe_du_proxy(vobj), VP_ENSEMBLE),
+            *ecarts("pièces rangées", bool(enfants), True),
+        ]
+    finally:
+        App.closeDocument(doc.Name)
+
+
 # --- P6 : observateurs ----------------------------------------------------------------------
 
 
@@ -257,6 +274,7 @@ VERIFICATIONS_ENSEMBLE: tuple[Callable[[], list[str]], ...] = (
     verifier_activation_des_commandes_d_ensemble,
     verifier_commandes_d_ensemble_annulables,
     verifier_arbre_de_l_ensemble,
+    verifier_ensemble_du_caisson,
     verifier_suppression_de_l_ensemble,
     verifier_aucun_observateur_apres_l_ensemble,
 )

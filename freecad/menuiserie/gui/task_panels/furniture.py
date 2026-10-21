@@ -26,7 +26,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.furniture import Edge, InteriorMode, Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features import furniture_members
+from freecad.menuiserie.features import furniture_edges, furniture_members
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_view import MemberView, member_views, shown_object
@@ -210,7 +210,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
     def _distance_edited(self, edge: Edge, value: float) -> None:
         member = self._member()
         if member is not None and not self._guard.active:
-            self._edit(lambda: furniture_members.set_edge_distance(member, edge.value, value))
+            self._edit(lambda: furniture_edges.set_edge_distance(member, edge.value, value))
 
     def _rebind(self) -> None:
         self._edit(lambda: furniture_members.relink(self.obj))
