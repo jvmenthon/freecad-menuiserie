@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Montages de référence des assemblages de J3c et J4 : rainure-languette, feuillure,
-tourillons, mi-bois, queue d'aronde.
+tourillons, mi-bois, queue d'aronde, onglet.
 
 Chaque montage pose deux pièces de chêne (hôte, invitée), les assemble par la fabrique de
 l'API et connaît les volumes attendus des deux pièces usinées. Module d'aide des tests
@@ -96,13 +96,25 @@ DOVETAIL = Scenario(
     400 * 150 * 18 - DOVETAIL_VOLUME,
     400 * 150 * 18 + DOVETAIL_VOLUME,
 )
-SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS, HALF_LAP, DOVETAIL)
+# Angle de cadre à onglet (critère A2 de J4) : deux traverses 500 x 60 x 20 dessinées hors
+# tout, qui se chevauchent de 60 x 60 au coin ; chacune perd la moitié de la boîte commune.
+MITER_CUT = 60 * 60 * 20 / 2
+MITER = Scenario(
+    "onglet",
+    "make_miter",
+    ((500, 60, 20), (0, 0, 0)),
+    ((500, 60, 20), (60, 0, 90)),
+    500 * 60 * 20 - MITER_CUT,
+    500 * 60 * 20 - MITER_CUT,
+)
+SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS, HALF_LAP, DOVETAIL, MITER)
 PROXIES = {
     "make_tongue_groove": ("tongue_groove", "TongueGrooveJoint"),
     "make_rabbet": ("rabbet", "RabbetJoint"),
     "make_dowels": ("dowels", "DowelJoint"),
     "make_half_lap": ("half_lap", "HalfLapJoint"),
     "make_dovetail": ("dovetail", "DovetailJoint"),
+    "make_miter": ("miter", "MiterJoint"),
 }
 
 

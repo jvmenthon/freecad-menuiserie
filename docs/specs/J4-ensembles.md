@@ -277,9 +277,43 @@ Précisions du dev (J4f, 2026-10-21), décisions les plus simples là où la sp�
 | A1 | `MiterStrategy` : les deux pièces se **chevauchent** au coin, dessinées à leur longueur **hors tout** (pointe longue). Boîte commune `C` ; axe commun `s` = axe selon lequel les deux pièces couvrent exactement `C` (à fleur, ± 0,01 mm) ; dans le plan des deux autres axes (u, v), chaque pièce s'arrête sur une face de `C` et l'autre la traverse. Plan de coupe = plan qui contient `s`, le **coin extérieur** (où les deux bouts se rejoignent) et le **coin intérieur** de `C`. Chaque pièce perd le prisme triangulaire de `C` situé du côté de l'autre pièce. Angles de coupe = atan(w_invitée / w_hôte) et son complément : **45°** pour deux largeurs égales, sinon les deux faces coupées coïncident quand même. `MiterParams` est un objet valeur sans champ en J4 (`PARAMS` exigé par `JointFeature`). | U |
 | A2 | Cadre : deux traverses 500 × 60 × 20 qui se chevauchent de 60 × 60 au coin → chacune perd 36 000 mm³, angles 45° ; coin de caisson : deux panneaux 720 × 400 × 18 et 600 × 400 × 18 qui se chevauchent sur 18 × 18 × 400 (axe commun = profondeur) → chacun perd 18 × 18 / 2 × 400 = 64 800 mm³ ; largeurs 60 et 40 → angles 33,69° et 56,31°. `resolve` renvoie les deux angles (degrés, 2 décimales). | U |
 | A3 | Refus (`JointError`, gabarit traduit) : contact ou écart (« Onglet : dessinez les deux pièces à leur longueur hors tout ; elles doivent se chevaucher au coin. ») ; une pièce qui dépasse le coin (croix, T : « Onglet : les deux pièces doivent s'arrêter au même coin. ») ; pièces pas à fleur sur l'axe commun ; pas d'équerre (M1 de J3). | U |
-| A4 | Proxy `…features.joints.miter.MiterJoint`, type `Menuiserie::Miter`, nom interne `Miter`, libellé « Onglet » ; aucune propriété propre (`PROPERTIES` = ()), `Version` = 1. Pièces de A2 : usinées valides, un solide chacune ; leur intersection a un volume nul et leur réunion vaut celle des deux brutes moins la moitié de `C` (± 1e-6 relatif). | I |
+| A4 | Proxy `…features.joints.miter.MiterJoint`, type `Menuiserie::Miter`, nom interne `Miter`, libellé « Onglet » ; aucune propriété propre (`PROPERTIES` = ()), `Version` = 1. Pièces de A2 : usinées valides, un solide chacune ; leur intersection a un volume nul, leur réunion vaut celle des deux brutes et la somme de leurs volumes celle des deux brutes moins `C` (± 1e-6 relatif). | I |
 | A5 | Commande `Menuiserie_Miter` (« Onglet ») ; icône `Menuiserie_Miter.svg` ajoutée à `tools/generer_icones.py` (test des icônes à jour) ; panneau J3e générique (angles affichés, aucun champ). | G |
 | A6 | Membres d'un Ensemble : un cadre à onglets suit `Width` et `Height` (traverses fixes aux bords qu'elles touchent), un recompute, tout valide. | I |
+
+Précisions du dev (J4g, 2026-10-21), décisions les plus simples là où la spécification se tait :
+
+- A4 (ligne du tableau corrigée) : chaque pièce garde la moitié de `C` que l'autre perd ; le
+  test vérifie aussi que les faces coupées sont coplanaires et confondues.
+- Axes, dans le repère de l'hôte : `s` = l'axe où aucune pièce ne dépasse `C` (± 0,01 mm) ;
+  `u` = l'axe où seul l'hôte dépasse, d'un seul côté ; `v` = l'axe où seule l'invitée dépasse,
+  d'un seul côté. Refus, dans cet ordre : pas de chevauchement (contact ou écart) ; aucun axe à
+  fleur (épaisseurs différentes, même centrées, pièces décalées) → « Onglet : les deux pièces
+  doivent avoir la même étendue le long de l'arête du coin et y être à fleur. » ; une pièce qui
+  dépasse `C` des deux côtés d'un axe (T, croix) → « même coin » ; toute autre disposition
+  (pièces alignées bout à bout, pièce incluse dans l'autre) → « même coin ».
+- Angles : mesurés depuis une coupe d'équerre de chaque pièce (lecture de la scie) ; `w_hôte` =
+  étendue de `C` selon `v` (largeur de l'hôte dans le plan du coin), `w_invitée` = selon `u` ;
+  angle de l'hôte = atan(w_invitée / w_hôte), de l'invitée = son complément.
+  `MiterValues(host_angle, guest_angle, host_cut, guest_cut)`, angles arrondis au centième ;
+  « Inverser » les échange.
+- Enlèvements : chaque triangle est agrandi d'au moins `CUT_OVERRUN_MM` hors de la matière
+  (sommets prolongés le long de l'hypoténuse, qui reste sur le plan de coupe) et prolongé de
+  `CUT_OVERRUN_MM` de chaque côté selon `s` : le volume enlevé dans la pièce ne change pas et
+  les deux faces coupées restent dans le même plan.
+- Panneau J3e : aucun champ ; les angles s'affichent dans un libellé (`summaryLabel`) rempli
+  par le gabarit `JointFeature.SUMMARY` du type (vide pour les autres assemblages) : « Angles de
+  coupe : {host_angle}° pour la pièce hôte, {guest_angle}° pour la pièce invitée (depuis une
+  coupe d'équerre). ». Transaction « Créer un assemblage d'onglet ». `mm_text` est exporté par la
+  façade `core.joints` pour écrire les angles à la française.
+- `make_miter(host, guest, **params)` garde la signature des autres fabriques : aucun paramètre
+  accepté en J4, un nom inconnu lève `TypeError` avant toute création.
+- Rôles : `guess_roles` de J3 (la plus mince est l'invitée ; à épaisseur égale, la première
+  pièce sélectionnée est l'hôte). Icône `Menuiserie_Miter.svg` (angle de cadre) ajoutée à
+  `tools/generer_icones.py`.
+- Renfort (lamelle, fausse languette) hors périmètre, décision de jv (issue #30). A6 attend
+  J4b′ (Ensemble) : non couvert par ce lot ; le test d'intégration vérifie déjà que la coupe suit
+  la largeur d'une traverse en un recalcul.
 
 ## 4. Conception
 

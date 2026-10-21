@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface des assemblages (J3d) : commandes, pièce usinée, assemblage.
 
-Critères C1 à C7 de ``docs/specs/J3-assemblages.md`` (et B4, D6 de ``J4-ensembles.md`` pour
-les commandes du mi-bois et de la queue d'aronde). Module importé par ``verifier_atelier.py``
-(lancé par FreeCAD hors écran) : chaque vérification renvoie la liste de ses problèmes. Le cadre
-de référence (§ 3) est construit par l'api ; les commandes sont lancées sur la sélection.
+Critères C1 à C7 de ``docs/specs/J3-assemblages.md`` (et B4, D6, A5 de ``J4-ensembles.md``
+pour les commandes du mi-bois, de la queue d'aronde et de l'onglet). Module importé par
+``verifier_atelier.py`` (lancé par FreeCAD hors écran) : chaque vérification renvoie la liste de
+ses problèmes. Le cadre de référence (§ 3) est construit par l'api ; les commandes sont lancées
+sur la sélection.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import api, icon_path
+from tests.commandes_assemblages import COMMANDES_ASSEMBLAGE
 from tests.gui.verifications_panneau import (
     annuler,
     ecarts,
@@ -29,15 +31,6 @@ from tests.gui.verifications_panneau import (
     valider,
 )
 
-# Commande : (libellé, fabrique de l'api).
-COMMANDES = {
-    "Menuiserie_MortiseTenon": ("Tenon-mortaise", "make_mortise_tenon"),
-    "Menuiserie_TongueGroove": ("Rainure-languette", "make_tongue_groove"),
-    "Menuiserie_Rabbet": ("Feuillure", "make_rabbet"),
-    "Menuiserie_Dowels": ("Tourillons", "make_dowels"),
-    "Menuiserie_HalfLap": ("Mi-bois", "make_half_lap"),
-    "Menuiserie_Dovetail": ("Queue d'aronde", "make_dovetail"),
-}
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
 CREATION = "Créer un assemblage tenon-mortaise"
 MODULES = "freecad.menuiserie.gui.view_providers"
@@ -146,7 +139,7 @@ def apparence(vobj: Any) -> tuple[object, ...]:
 def verifier_commandes_d_assemblage_presentes() -> list[str]:
     """C1 : libellés, icônes existantes, barre d'outils et menu Menuiserie."""
     problemes = []
-    for nom, (libelle, _fabrique) in COMMANDES.items():
+    for nom, (libelle, _fabrique) in COMMANDES_ASSEMBLAGE.items():
         commande = Gui.Command.get(nom)
         if commande is None:
             problemes.append(f"{nom} non enregistrée")
@@ -166,14 +159,14 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
 
 
 def actives() -> dict[str, bool]:
-    return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES}
+    return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
 
 
 def attendues(actives_si_fabrique: bool) -> dict[str, bool]:
     """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois)."""
     return {
         nom: actives_si_fabrique and hasattr(api, fabrique)
-        for nom, (_libelle, fabrique) in COMMANDES.items()
+        for nom, (_libelle, fabrique) in COMMANDES_ASSEMBLAGE.items()
     }
 
 

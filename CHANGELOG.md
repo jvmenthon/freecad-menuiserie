@@ -6,6 +6,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Assemblage d'onglet (J4g) : stratégie `MiterStrategy` (deux pièces d'angle dessinées à leur
+  longueur hors tout, qui se chevauchent au coin ; coupe du coin extérieur au coin intérieur,
+  45° pour deux largeurs égales, enlèvement seulement), objet `Menuiserie::Miter` sans propriété
+  propre, `make_miter`, commande **Onglet** et son icône, panneau générique qui affiche les
+  angles de coupe.
 - Queue d'aronde traversante (J4f) : solide `Prism` (polygone plan extrudé), stratégie
   `DovetailStrategy` (queues ajoutées au bout de la pièce à queues, logements traversants dans la
   pièce à griffes ; 3 queues environ par largeur de trois épaisseurs, griffes du tiers de

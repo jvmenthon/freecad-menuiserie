@@ -39,6 +39,7 @@ RABBET: Final = "Menuiserie_Rabbet"
 DOWELS: Final = "Menuiserie_Dowels"
 HALF_LAP: Final = "Menuiserie_HalfLap"
 DOVETAIL: Final = "Menuiserie_Dovetail"
+MITER: Final = "Menuiserie_Miter"
 
 
 class JointCommand:
@@ -172,6 +173,20 @@ class DovetailCommand(JointCommand):
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à queue d'aronde")
 
 
+class MiterCommand(JointCommand):
+    """Onglet : deux pièces d'angle coupées du coin extérieur au coin intérieur."""
+
+    NAME = MITER
+    FACTORY = api.make_miter
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Miter", "Onglet")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Miter",
+        "Coupe d'onglet les deux pièces sélectionnées, dessinées à leur longueur hors tout et "
+        "qui se chevauchent au coin : 45° pour deux largeurs égales.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage d'onglet")
+
+
 def selected_parts() -> tuple[DocumentObject, DocumentObject] | None:
     """Les deux pièces sélectionnées (dans l'ordre de sélection), ou ``None`` si la sélection
     n'est pas exactement deux pièces (brutes ou usinées) de brutes distinctes."""
@@ -219,3 +234,4 @@ def register() -> None:
     Gui.addCommand(DOWELS, DowelsCommand())
     Gui.addCommand(HALF_LAP, HalfLapCommand())
     Gui.addCommand(DOVETAIL, DovetailCommand())
+    Gui.addCommand(MITER, MiterCommand())

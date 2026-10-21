@@ -379,6 +379,17 @@ def queue_d_aronde() -> str:
     return ic.svg()
 
 
+def onglet() -> str:
+    ic = Icone("Onglet : angle de cadre, deux traverses coupées à 45°")
+    ic.prisme([(0, 0), (16, 16), (16, 72), (0, 72)], "z", 0, 12, "chene")  # traverse selon y
+    ic.veinage((22, 68), (5, 12), "chene", amplitude=0.6, axe="y")
+    ic.veinage((22, 68), (11, 12), "chene", amplitude=0.6, phase=0.5, axe="y")
+    ic.prisme([(0, 0), (72, 0), (72, 16), (16, 16)], "z", 0, 12, "chene")  # traverse selon x
+    ic.veinage((22, 68), (5, 12), "chene", amplitude=0.6)
+    ic.veinage((22, 68), (11, 12), "chene", amplitude=0.6, phase=0.5)
+    return ic.svg()
+
+
 def caisson() -> str:
     ic = Icone("Caisson : côtés, fond, tablette, dessus et dos")
     ic.boite((4, 0, 4), (42, 3, 52), "contreplaque")  # dos
@@ -403,6 +414,7 @@ ICONES = {
     "Menuiserie_Dowels.svg": tourillons,
     "Menuiserie_HalfLap.svg": mi_bois,
     "Menuiserie_Dovetail.svg": queue_d_aronde,
+    "Menuiserie_Miter.svg": onglet,
     "Menuiserie_Carcass.svg": caisson,
 }
 
