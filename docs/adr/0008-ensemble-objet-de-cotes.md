@@ -1,6 +1,6 @@
 # ADR 0008 — L'Ensemble : un objet de cotes hors conteneur
 
-- Statut : **proposé** (question Q1 de la spécification J4)
+- Statut : **accepté** (jv, 2026-10-21 : question Q1 de la spécification J4, recommandation retenue)
 - Date : 2026-10-21
 - Spécification : [docs/specs/J4-ensembles.md](../specs/J4-ensembles.md), § 4.1, § 4.4.1, § 4.9
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
@@ -44,7 +44,9 @@ Options étudiées :
 
 1. L'Ensemble est un `App::FeaturePython` (nom interne `Furniture`, type `Menuiserie::Furniture`,
    libellé « Ensemble »). Il n'a **pas de forme** et **aucun lien vers ses membres**. Il porte
-   `Width`, `Depth`, `Height`, `Origin` (coin de départ), `EdgeMargin`, `Template` et `Version`.
+   `Width`, `Depth`, `Height`, `Origin` (coin de départ), `Template` et `Version`. (`EdgeMargin`,
+   un seuil de retrait proposé avant la réponse de jv à Q3, est supprimé : chaque membre porte
+   ses propres options de distance, ADR 0009.)
 2. **Appartenance** : chaque membre (pièce brute ou sous-ensemble) porte un lien `Furniture` vers
    son ensemble. Les membres sont l'`InList` de l'ensemble, filtrée par ce lien. Les dépendances
    vont toujours des membres vers l'ensemble.
@@ -70,7 +72,8 @@ Options étudiées :
 - Supprimer l'ensemble par un script (`doc.removeObject`) laisse des pièces dont les expressions
   visent un objet absent, ce que FreeCAD signale. Dans l'interface, le ViewProvider retire d'abord
   les liaisons de l'atelier (`remove_from_furniture`) dans la même transaction (critère P2).
-- Les sous-ensembles (Q2) sont des membres comme les autres : leurs cotes et leur `Origin`
-  reçoivent des liaisons.
+- Les sous-ensembles (Q2 : retenus par jv le 2026-10-21) sont des membres comme les autres :
+  leurs cotes et leur `Origin` reçoivent des liaisons, et ils portent les mêmes options de
+  distance que les pièces.
 - Revenir à un conteneur demanderait de déplacer les pièces dans un groupe et de migrer chaque
   document J4. C'est une décision difficile à défaire, d'où cet ADR.

@@ -1,6 +1,6 @@
 # ADR 0010 — Gabarits générateurs : un gabarit crée des objets ordinaires puis disparaît
 
-- Statut : **proposé** (question Q5 de la spécification J4 pour la liste des gabarits)
+- Statut : **accepté** (jv, 2026-10-21 ; question Q5 : seul le caisson est livré en J4)
 - Date : 2026-10-21
 - Spécification : [docs/specs/J4-ensembles.md](../specs/J4-ensembles.md), § 4.7, critères K1 à K7
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
@@ -27,8 +27,10 @@ Options étudiées :
 ## Décision
 
 1. Un gabarit est une fonction pure de `core/templates/` : paramètres validés (objet valeur) →
-   `Layout`, c'est-à-dire des pièces (`PieceSpec`) et des assemblages (`JointSpec`). Elle se teste
-   sans FreeCAD.
+   `Layout`, c'est-à-dire des pièces (`PieceSpec`, avec leur mode et leurs options de distance
+   **explicites** : fixe ou non pour chaque bord, ADR 0009) et des assemblages (`JointSpec`). Elle
+   se teste sans FreeCAD. Un gabarit ne compte pas sur les options par défaut, qui laisseraient
+   non fixes les jeux et les retraits (étagère à 1 mm des côtés, fond en feuillure).
 2. Un seul constructeur, `features/templates.py`, instancie n'importe quel `Layout`. Il utilise les
    fabriques existantes (`create_wood_part`, fabriques d'assemblage J3, `create_furniture`), dans
    une transaction et un recalcul.
