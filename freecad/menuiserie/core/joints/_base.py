@@ -45,6 +45,7 @@ class JointKind(str, Enum):
     DOWELS = "Dowels"
     HALF_LAP = "HalfLap"
     DOVETAIL = "Dovetail"
+    MITER = "Miter"
 
 
 @dataclass(frozen=True)

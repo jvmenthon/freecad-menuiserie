@@ -31,6 +31,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         "Menuiserie_Dowels",
         "Menuiserie_HalfLap",
         "Menuiserie_Dovetail",
+        "Menuiserie_Miter",
     )
 
     def Initialize(self) -> None:

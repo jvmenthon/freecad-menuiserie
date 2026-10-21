@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface des assemblages (J3d) : commandes, pièce usinée, assemblage.
 
-Critères C1 à C7 de ``docs/specs/J3-assemblages.md`` (et B4, D6 de ``J4-ensembles.md`` pour
-les commandes du mi-bois et de la queue d'aronde). Module importé par ``verifier_atelier.py``
-(lancé par FreeCAD hors écran) : chaque vérification renvoie la liste de ses problèmes. Le cadre
-de référence (§ 3) est construit par l'api ; les commandes sont lancées sur la sélection.
+Critères C1 à C7 de ``docs/specs/J3-assemblages.md`` (et B4, D6, A5 de ``J4-ensembles.md``
+pour les commandes du mi-bois, de la queue d'aronde et de l'onglet). Module importé par
+``verifier_atelier.py`` (lancé par FreeCAD hors écran) : chaque vérification renvoie la liste de
+ses problèmes. Le cadre de référence (§ 3) est construit par l'api ; les commandes sont lancées
+sur la sélection.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import api, icon_path
+from tests.commandes_assemblages import COMMANDES_ASSEMBLAGE
 from tests.gui.verifications_panneau import (
     annuler,
     ecarts,
@@ -29,15 +31,7 @@ from tests.gui.verifications_panneau import (
     valider,
 )
 
-# Commande : (libellé, fabrique de l'api).
-COMMANDES = {
-    "Menuiserie_MortiseTenon": ("Tenon-mortaise", "make_mortise_tenon"),
-    "Menuiserie_TongueGroove": ("Rainure-languette", "make_tongue_groove"),
-    "Menuiserie_Rabbet": ("Feuillure", "make_rabbet"),
-    "Menuiserie_Dowels": ("Tourillons", "make_dowels"),
-    "Menuiserie_HalfLap": ("Mi-bois", "make_half_lap"),
-    "Menuiserie_Dovetail": ("Queue d'aronde", "make_dovetail"),
-}
+COMMANDES = COMMANDES_ASSEMBLAGE
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
 CREATION = "Créer un assemblage tenon-mortaise"
 MODULES = "freecad.menuiserie.gui.view_providers"

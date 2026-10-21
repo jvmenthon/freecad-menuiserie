@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Réouverture, annulation et compatibilité des assemblages de J3c et J4 (R1, T5, B3, D5 ; O8,
-O10, O13, O14 sur la rainure-languette, la feuillure, les tourillons, le mi-bois et la queue
-d'aronde)."""
+"""Réouverture, annulation et compatibilité des assemblages de J3c et J4 (R1, T5, B3, D5, A4 ;
+O8, O10, O13, O14 sur la rainure-languette, la feuillure, les tourillons, le mi-bois, la queue
+d'aronde et l'onglet)."""
 
 from __future__ import annotations
 
@@ -31,7 +31,8 @@ Part = pytest.importorskip("Part")
 api = pytest.importorskip("freecad.menuiserie.api")
 
 Reopen = Callable[[Any], Any]
-# Modification annulable de chaque type : propriété, valeur.
+# Modification annulable de chaque type qui a des propriétés propres (pas l'onglet) : propriété,
+# valeur.
 CHANGES = {
     "make_tongue_groove": ("TongueThickness", 8),
     "make_rabbet": ("Through", False),
@@ -41,6 +42,7 @@ CHANGES = {
 }
 SLAB = 4000  # bloc qui contient toutes les pièces, quel que soit le repère des montages
 IDS = [scenario.name for scenario in SCENARIOS]
+TUNABLE = [scenario for scenario in SCENARIOS if scenario.factory in CHANGES]
 
 
 # --- R1 et T5 : réouverture (comme O8) ---------------------------------------------------
@@ -71,14 +73,16 @@ def test_reouverture_a_l_identique(document: Any, rouvrir: Reopen, scenario: Sce
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=IDS)
 def test_version_absente_migree(document: Any, rouvrir: Reopen, scenario: Scenario) -> None:
     joint = build(document, scenario).joint
-    prop, _ = CHANGES[scenario.factory]
-    default = joint.getPropertyByName(prop)
     joint.removeProperty("Version")
-    joint.removeProperty(prop)
+    prop, _ = CHANGES.get(scenario.factory, ("", None))
+    default = joint.getPropertyByName(prop) if prop else None
+    if prop:
+        joint.removeProperty(prop)
     name = joint.Name
     restored = by_name(rouvrir(document), name)
     assert restored.Version == 1
-    assert restored.getPropertyByName(prop) == default
+    if prop:
+        assert restored.getPropertyByName(prop) == default
 
 
 # --- R1 et T5 : annuler / rétablir (comme O10) -------------------------------------------
@@ -103,7 +107,7 @@ def test_annuler_retablir_la_creation(document: Any, scenario: Scenario) -> None
     montage.assert_expected()
 
 
-@pytest.mark.parametrize("scenario", SCENARIOS, ids=IDS)
+@pytest.mark.parametrize("scenario", TUNABLE, ids=lambda s: s.name)
 def test_annuler_une_modification(document: Any, scenario: Scenario) -> None:
     document.UndoMode = 1
     montage = build(document, scenario)

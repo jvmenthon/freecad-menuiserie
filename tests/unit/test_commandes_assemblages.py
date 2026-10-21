@@ -16,20 +16,13 @@ import pytest
 
 from freecad.menuiserie import ICONS_DIR
 from freecad.menuiserie.core.joints import JointKind
+from tests.commandes_assemblages import COMMANDES_ASSEMBLAGE
 from tests.unit.aides import ROOT
 
 PACKAGE = ROOT / "freecad" / "menuiserie"
 COMMANDS = PACKAGE / "gui" / "commands" / "joints.py"
 VIEW_PROVIDERS = PACKAGE / "gui" / "view_providers"
-# Commande : (libellé, fabrique de l'api). Les noms suivent ``Menuiserie_<JointKind.value>``.
-EXPECTED = {
-    "Menuiserie_MortiseTenon": ("Tenon-mortaise", "make_mortise_tenon"),
-    "Menuiserie_TongueGroove": ("Rainure-languette", "make_tongue_groove"),
-    "Menuiserie_Rabbet": ("Feuillure", "make_rabbet"),
-    "Menuiserie_Dowels": ("Tourillons", "make_dowels"),
-    "Menuiserie_HalfLap": ("Mi-bois", "make_half_lap"),
-    "Menuiserie_Dovetail": ("Queue d'aronde", "make_dovetail"),
-}
+EXPECTED = COMMANDES_ASSEMBLAGE
 
 
 def tree(path: Path) -> ast.Module:
@@ -134,10 +127,11 @@ def test_textes_traduisibles_dans_le_contexte_de_la_commande(name: str) -> None:
         ("Menuiserie_MortiseTenon", "Créer un assemblage tenon-mortaise"),
         ("Menuiserie_HalfLap", "Créer un assemblage à mi-bois"),
         ("Menuiserie_Dovetail", "Créer un assemblage à queue d'aronde"),
+        ("Menuiserie_Miter", "Créer un assemblage d'onglet"),
     ],
 )
 def test_transaction_de_la_commande(name: str, text: str) -> None:
-    """C2 de J3, B4 et D6 de J4 : entrée d'annulation « Créer un assemblage … »."""
+    """C2 de J3, B4, D6 et A5 de J4 : entrée d'annulation « Créer un assemblage … »."""
     assert noop(joint_commands()[name]["TRANSACTION"])[1] == text
 
 

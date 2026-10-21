@@ -20,6 +20,7 @@ from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
 from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
+from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
@@ -30,6 +31,7 @@ __all__ = [
     "create_dowels",
     "create_half_lap",
     "create_joint",
+    "create_miter",
     "create_mortise_tenon",
     "create_rabbet",
     "create_tongue_groove",
@@ -159,3 +161,12 @@ def create_dovetail(
     Paramètres de ``DovetailParams`` (0 = automatique) : ``tail_count``, ``pin_width`` en mm,
     ``slope`` (pente 1:n)."""
     return _create(DovetailJoint, doc, host, guest, params)
+
+
+def create_miter(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée un onglet : ``host`` et ``guest``, dessinées à leur longueur hors tout, se
+    chevauchent au coin ; chacune perd le prisme triangulaire de leur boîte commune situé du
+    côté de l'autre. Aucun paramètre (``MiterParams`` est vide)."""
+    return _create(MiterJoint, doc, host, guest, params)

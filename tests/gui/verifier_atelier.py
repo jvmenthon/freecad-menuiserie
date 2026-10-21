@@ -30,6 +30,7 @@ import FreeCADGui as Gui
 
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
+from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
 from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASSEMBLAGE
 from tests.gui.verifications_panneau_limites import DEFAUTS_CONSTATES, VERIFICATIONS_LIMITES
@@ -1217,6 +1218,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_ASSEMBLAGES,
     *VERIFICATIONS_PANNEAU_ASSEMBLAGE,
     *VERIFICATIONS_QUEUE_ARONDE,
+    *VERIFICATIONS_ONGLET,
 )
 
 
