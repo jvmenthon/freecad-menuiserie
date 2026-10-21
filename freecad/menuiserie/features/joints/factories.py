@@ -15,10 +15,6 @@ from typing import Final, TypeVar
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
-from freecad.menuiserie.core.joints.dowels import DowelParams
-from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
-from freecad.menuiserie.core.joints.rabbet import RabbetParams
-from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
@@ -110,13 +106,24 @@ def create_joint(
     return obj
 
 
+def _create(
+    joint_class: type[JointFeature],
+    doc: Document,
+    host: DocumentObject,
+    guest: DocumentObject,
+    params: Mapping[str, object],
+) -> DocumentObject:
+    """Paramètres validés (objet valeur ``joint_class.PARAMS``), puis assemblage créé par
+    :func:`create_joint`."""
+    return create_joint(joint_class, doc, host, guest, _validated(joint_class.PARAMS, params))
+
+
 def create_mortise_tenon(
     doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
 ) -> DocumentObject:
     """Crée un tenon-mortaise : mortaise dans ``host``, tenon au bout de ``guest`` (pièces de
     bois ou pièces usinées). Paramètres de ``MortiseTenonParams`` en mm, 0 = automatique."""
-    values = _validated(MortiseTenonParams, params)
-    return create_joint(MortiseTenonJoint, doc, host, guest, values)
+    return _create(MortiseTenonJoint, doc, host, guest, params)
 
 
 def create_tongue_groove(
@@ -124,8 +131,7 @@ def create_tongue_groove(
 ) -> DocumentObject:
     """Crée une rainure-languette : rainure dans ``host``, languette au chant ou au bout de
     ``guest``. Paramètres de ``TongueGrooveParams`` en mm, 0 = automatique."""
-    values = _validated(TongueGrooveParams, params)
-    return create_joint(TongueGrooveJoint, doc, host, guest, values)
+    return _create(TongueGrooveJoint, doc, host, guest, params)
 
 
 def create_rabbet(
@@ -133,8 +139,7 @@ def create_rabbet(
 ) -> DocumentObject:
     """Crée une feuillure (ou un logement) dans ``host`` à la place occupée par ``guest``.
     Paramètre de ``RabbetParams`` : ``through`` (filante, vrai par défaut)."""
-    values = _validated(RabbetParams, params)
-    return create_joint(RabbetJoint, doc, host, guest, values)
+    return _create(RabbetJoint, doc, host, guest, params)
 
 
 def create_dowels(
@@ -142,5 +147,4 @@ def create_dowels(
 ) -> DocumentObject:
     """Crée des tourillons percés dans ``host`` et ``guest`` à travers leur contact.
     Paramètres de ``DowelParams`` en mm, 0 = automatique."""
-    values = _validated(DowelParams, params)
-    return create_joint(DowelJoint, doc, host, guest, values)
+    return _create(DowelJoint, doc, host, guest, params)

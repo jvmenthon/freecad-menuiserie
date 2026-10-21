@@ -3,7 +3,8 @@
 
 :class:`JointFeature` fixe le squelette commun : propriétés ``HostPart``, ``GuestPart`` et
 ``Version``, ``execute`` (plan d'usinage de la stratégie de ``core``), réouverture et
-sérialisation. Chaque type fournit ``KIND``, ``TYPE``, ``PROPERTIES`` et :meth:`params`.
+sérialisation. Chaque type fournit ``KIND``, ``TYPE``, ``PROPERTIES`` et ``PARAMS`` (type des
+paramètres de ``core``, lus par :meth:`JointFeature.params`).
 Les paramètres de ``core`` (``tenon_thickness``) s'écrivent dans des propriétés aux noms en
 CamelCase (``TenonThickness``) : :func:`property_name`. Contrat de persistance (ADR 0003) :
 chemins des modules, noms des classes et des propriétés figés.
@@ -98,6 +99,7 @@ class JointFeature:
     LABEL: ClassVar[str]  # libellé par défaut, gabarit traduisible
     VERSION: ClassVar[int] = MODEL_VERSION
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = ()
+    PARAMS: ClassVar[type]  # objet valeur des paramètres de ``core`` (``MortiseTenonParams``…)
 
     def __init__(self, obj: DocumentObject) -> None:
         """Ajoute les propriétés communes puis celles du type, à leurs valeurs par défaut."""
@@ -111,8 +113,8 @@ class JointFeature:
         return COMMON_PROPERTIES + cls.PROPERTIES
 
     def params(self, obj: DocumentObject) -> Any:
-        """Paramètres de ``core`` lus dans les propriétés : étape fournie par chaque type."""
-        raise NotImplementedError
+        """Paramètres de ``core`` (objet valeur ``PARAMS`` du type) lus dans les propriétés."""
+        return params_from(obj, self.PARAMS)
 
     def execute(self, obj: DocumentObject) -> None:
         """Forme = pièces rapportées du plan (vide sinon), au ``Placement`` de l'hôte ;
