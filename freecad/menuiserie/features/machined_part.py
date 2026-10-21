@@ -33,6 +33,7 @@ __all__ = [
     "machined_part_of",
     "removal_refusal",
     "remove_machined_part",
+    "show_blank",
 ]
 
 OBJECT_NAME: Final = "MachinedPart"
@@ -237,6 +238,11 @@ def remove_machined_part(machined: DocumentObject) -> None:
         raise ValueError(refusal)
     blank = machined.Base
     machined.Document.removeObject(machined.Name)
+    show_blank(blank)
+
+
+def show_blank(blank: DocumentObject | None) -> None:
+    """Réaffiche la brute d'une pièce usinée supprimée (seule visibilité modifiée, ADR 0007)."""
     if blank is not None:
         blank.Visibility = True
 

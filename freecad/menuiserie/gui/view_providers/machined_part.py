@@ -16,7 +16,7 @@ import FreeCAD as App
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.machined_part import removal_refusal
+from freecad.menuiserie.features.machined_part import removal_refusal, show_blank
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.part_appearance import PartAppearance, material_color_of
 from freecad.menuiserie.gui.view_providers.wood_part import (
@@ -100,9 +100,7 @@ class ViewProviderMachinedPart:
         if refusal is not None:
             App.Console.PrintWarning(f"Menuiserie : {refusal}\n")
             return False
-        blank = getattr(obj, "Base", None)
-        if blank is not None:
-            blank.Visibility = True
+        show_blank(getattr(obj, "Base", None))
         return True
 
     def _refresh(self, vobj: ViewObject) -> None:
