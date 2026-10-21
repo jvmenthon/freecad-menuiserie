@@ -50,6 +50,11 @@ _JOINERIES: Final = {
     CarcassJoinery.DOWELS: QT_TRANSLATE_NOOP("Menuiserie", "Tourillons"),
     CarcassJoinery.NONE: QT_TRANSLATE_NOOP("Menuiserie", "Aucun (pièces aboutées)"),
 }
+_UNEXPECTED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Le caisson n'a pas pu être construit avec ces paramètres ({reason}). Modifiez une cote ou "
+    "une épaisseur.",
+)
 _ERROR_STYLE: Final = "color: #c0392b;"
 
 
@@ -74,6 +79,7 @@ class CarcassTaskPanel:
         self._shelves = QtGui.QSpinBox()
         self._shelves.setObjectName("shelf_count")
         self._shelves.setRange(0, MAX_SHELVES)
+        self._shelves.setKeyboardTracking(False)  # aperçu à la fin de la saisie
         self._shelves.setValue(defaults.shelf_count)
         connect(self._shelves, "valueChanged(int)", self.rebuild)
         layout.addRow(translated(_SHELVES), self._shelves)
@@ -107,20 +113,37 @@ class CarcassTaskPanel:
 
     def rebuild(self, *_changed: object) -> None:
         """Caisson précédent abandonné avec sa transaction, puis recréé dans une transaction
-        rouverte ; un refus s'affiche sous les champs."""
-        close_transaction(self._transaction, abort=True)
-        self.doc.openTransaction(translated(CREATE_TRANSACTION))
-        self._transaction = App.getActiveTransaction()
+        rouverte ; un refus s'affiche sous les champs. Une erreur inattendue (noyau
+        géométrique) ou un objet créé en erreur abandonne aussi l'aperçu : rien ne reste."""
+        self._restart()
+        before = {obj.Name for obj in self.doc.Objects}
         self.furniture, message = None, ""
         try:
             with translated_errors():
                 params = CarcassParams(**self.values())
             self.furniture, notices = api.make_carcass(self.doc, params)
             message = "\n".join(notices)
+            failed = [
+                str(obj.Label)
+                for obj in self.doc.Objects
+                if obj.Name not in before and not obj.isValid()
+            ]
+            if failed:
+                raise RuntimeError(", ".join(failed))
         except (TypeError, ValueError) as error:
             message = str(error)
+        except Exception as error:  # OCC, objet en erreur : aperçu abandonné
+            self._restart()
+            self.furniture = None
+            message = translated(_UNEXPECTED, {"reason": str(error) or type(error).__name__})
         self._error.setText(message)
         self._error.setVisible(bool(message))
+
+    def _restart(self) -> None:
+        """Transaction abandonnée (l'aperçu disparaît) puis rouverte, vide."""
+        close_transaction(self._transaction, abort=True)
+        self.doc.openTransaction(translated(CREATE_TRANSACTION))
+        self._transaction = App.getActiveTransaction()
 
     # --- Cycle de vie (FreeCAD) -----------------------------------------------------------
 
@@ -171,6 +194,7 @@ def _length_field(
 ) -> Widget:
     """Champ de cote en mm (``Gui::QuantitySpinBox``) ajouté au formulaire."""
     field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
+    field.setKeyboardTracking(False)  # aperçu à la fin de la saisie, pas à chaque touche
     field.setObjectName(name)
     field.setProperty("unit", "mm")
     field.setProperty("minimum", 0.0)

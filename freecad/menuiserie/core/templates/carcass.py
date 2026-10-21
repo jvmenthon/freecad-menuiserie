@@ -20,7 +20,7 @@ from freecad.menuiserie.core.furniture import Edge, FurnitureBox
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.joints import JointKind, mm_round
-from freecad.menuiserie.core.joints.dowels import DowelParams
+from freecad.menuiserie.core.joints.dowels import DowelParams, auto_diameter
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.templates import JointSpec, Layout, PieceSpec
@@ -39,7 +39,6 @@ CARCASS_TEMPLATE: Final = "Carcass"  # valeur de ``Template`` (enregistrée, fig
 MAX_SHELVES: Final = 10
 SHELF_GAP_MM: Final = 1.0  # jeu de l'étagère aux côtés et devant le fond
 MIN_JOINED_THICKNESS_MM: Final = 12.0  # tourillons de 6 mm au moins, 3 mm de fond de perçage
-_STANDARD_DIAMETERS: Final = (6.0, 8.0, 10.0, 12.0)
 
 CARCASS_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Caisson")
 LABELS: Final = {
@@ -277,21 +276,26 @@ def _shelves(params: CarcassParams) -> list[PieceSpec]:
 # --- Assemblages ----------------------------------------------------------------------------
 
 
-def dowel_params(thickness: float) -> DowelParams:
+def dowel_params(thickness: float, back_thickness: float) -> DowelParams:
     """Tourillons des côtés : diamètre du commerce d'au plus la moitié de l'épaisseur,
     enfoncés des deux tiers de l'épaisseur dans le côté, aussi profond que l'épaisseur dans le
-    dessus ou le dessous (18 mm : Ø 8 x 30, 12 dans le côté). Nombre automatique."""
-    diameter = max(d for d in _STANDARD_DIAMETERS if d <= thickness / 2)
+    dessus ou le dessous (18 mm : Ø 8 x 30, 12 dans le côté). Distance au bord : 2 Ø, et au
+    moins l'épaisseur du fond + 1 Ø, pour que le dernier perçage reste à ½ Ø devant la
+    feuillure du fond. Nombre automatique."""
+    diameter = auto_diameter(thickness)
     host_depth = mm_round(2 * thickness / 3)
     return DowelParams(
-        diameter=diameter, dowel_length=host_depth + thickness, host_depth=host_depth
+        diameter=diameter,
+        dowel_length=host_depth + thickness,
+        host_depth=host_depth,
+        edge_distance=max(2 * diameter, back_thickness + diameter),
     )
 
 
 def _joints(params: CarcassParams) -> list[JointSpec]:
     joints: list[JointSpec] = []
     if params.joinery is CarcassJoinery.DOWELS:
-        dowels = dowel_params(params.thickness)
+        dowels = dowel_params(params.thickness, params.back_thickness)
         joints += [
             JointSpec(JointKind.DOWELS, side, panel, dowels)
             for side in ("left", "right")

@@ -262,3 +262,42 @@ def test_reouverture(document: Any, rouvrir: Any) -> None:
     assert furniture.Template == "Carcass"
     assert {key: engine(part) for key, part in again.parts.items()} == before
     assert stale_or_invalid(reopened) == []
+
+
+# --- Relecture de la PR #34 : tourillons hors du fond ----------------------------------------
+
+
+def overlaps(doc: Any) -> list[tuple[str, str, float]]:
+    """Volumes communs (> 1e-3 mm³) entre les pièces visibles (usinées, étagères) et les
+    tourillons, et entre pièces visibles."""
+    shown = [o for o in doc.Objects if o.Name.startswith(("MachinedPart", "Dowels"))]
+    shown += [o for o in doc.Objects if o.Name.startswith("WoodPart") and o.Visibility]
+    found = []
+    for index, first in enumerate(shown):
+        for second in shown[index + 1 :]:
+            volume = first.Shape.common(second.Shape).Volume
+            if volume > 1e-3:
+                found.append((str(first.Label), str(second.Label), round(volume, 3)))
+    return found
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {},
+        {"back_thickness": 4.0},
+        {"back_thickness": 14.0},
+        {"back_thickness": 17.0, "rabbet_depth": 18.0},
+        {"shelf_count": 3, "depth": 300, "back_thickness": 12.0},
+        {"thickness": 22.0, "back_thickness": 19.0},
+    ],
+)
+def test_aucune_intersection_entre_pieces_usinees_et_tourillons(
+    document: Any, values: dict[str, Any]
+) -> None:
+    caisson = make(document, **values)
+    assert caisson.dowel_counts()
+    assert overlaps(document) == []
+    api.resize_furniture(caisson.furniture, depth=500, height=800)
+    assert stale_or_invalid(document) == []
+    assert overlaps(document) == []

@@ -94,7 +94,9 @@ def test_assemblages_du_caisson_de_reference() -> None:
         ("right", "bottom"),
         ("right", "top"),
     ]
-    assert {j.params for j in dowels} == {DowelParams(diameter=8, dowel_length=30, host_depth=12)}
+    assert {j.params for j in dowels} == {
+        DowelParams(diameter=8, dowel_length=30, host_depth=12, edge_distance=16)
+    }
     rabbets = layout.joints_of(JointKind.RABBET)
     assert [(j.host, j.guest) for j in rabbets] == [
         ("left", "back"),
@@ -173,9 +175,18 @@ def test_caisson_sans_tourillons_et_decale() -> None:
     [(18, (8, 30, 12)), (12, (6, 20, 8)), (22, (10, 37, 15)), (16, (8, 27, 11))],
 )
 def test_tourillons_selon_l_epaisseur(thickness: float, expected: tuple[float, ...]) -> None:
-    params = dowel_params(thickness)
+    params = dowel_params(thickness, 4)
     assert (params.diameter, params.dowel_length, params.host_depth) == expected
     assert thickness - params.host_depth - params.hole_clearance >= 3  # fond de perçage
+    assert params.edge_distance == 2 * params.diameter
+
+
+@pytest.mark.parametrize(("back", "edge"), [(4, 16), (8, 16), (14, 22), (17.9, 25.9)])
+def test_tourillons_devant_la_feuillure_du_fond(back: float, edge: float) -> None:
+    """Le dernier perçage (rayon ½ Ø) reste à ½ Ø au moins devant la feuillure du fond."""
+    params = dowel_params(18, back)
+    assert params.edge_distance == pytest.approx(edge)
+    assert params.edge_distance - params.diameter / 2 >= back + params.diameter / 2 - 1e-9
 
 
 # --- K2 : validation des paramètres ---------------------------------------------------------

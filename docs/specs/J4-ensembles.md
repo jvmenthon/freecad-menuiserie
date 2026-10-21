@@ -270,6 +270,9 @@ les ADR, à confirmer par l'architecte) :
    profondeur dans le côté `round(2e/3)`, longueur = cette profondeur + `e`. Pour 18 mm, cela
    donne Ø 8 × 30, enfoncés de 12 dans le côté. Le nombre reste automatique : 4 pour 400 mm,
    5 pour 500 mm. Avec des tourillons, il faut des panneaux d'au moins 12 mm.
+   Distance au bord : `max(2 Ø, épaisseur du fond + Ø)`, pour que le dernier perçage reste
+   à ½ Ø devant la feuillure du fond (relecture de la PR #34). Cela fait 16 mm pour le caisson
+   de référence : K3 et K4 ne changent pas.
 4. **Modules** : la commande est dans `gui/commands/carcass.py` et le panneau dans
    `gui/task_panels/carcass.py`, et non dans `gui/commands/furniture.py`, pour ne pas toucher
    aux fichiers de J4c, développé en parallèle. `features/templates.py` contient `build_layout`
@@ -283,7 +286,9 @@ les ADR, à confirmer par l'architecte) :
 6. **Panneau (K6)** : chaque saisie abandonne la transaction « Créer un caisson », ce qui
    retire l'aperçu précédent, puis la rouvre et recrée le caisson. Il n'y a donc jamais qu'un
    caisson et qu'une transaction. Des paramètres refusés s'affichent sous les champs, rien n'est
-   créé et « OK » laisse le panneau ouvert. La commande ne prend pas d'ensemble parent dans la
+   créé et « OK » laisse le panneau ouvert. L'aperçu se reconstruit à la fin de la saisie
+   (`keyboardTracking` désactivé). Une erreur inattendue, ou un objet créé en erreur,
+   abandonne l'aperçu et affiche un message. La commande ne prend pas d'ensemble parent dans la
    sélection : le cas du sous-ensemble (K5) passe par l'API.
 7. **À reprendre lors de la fusion de J4c** : `make_carcass` pose les ViewProviders des
    pièces, des pièces usinées et des assemblages, mais pas celui de l'ensemble

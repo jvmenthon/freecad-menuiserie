@@ -351,8 +351,11 @@ def join_with_options(
     checked_furniture(furniture)
     members = _candidates([obj for obj, _mode, _fixed in entries], furniture)
     _checked_label(str(furniture.Label))
-    for obj, mode, fixed in entries:
-        _join(obj, furniture, fixed)
-        with writing(obj):
-            obj.PositionMode = mode.value
+    read_members(furniture, entering=members)  # cotes illisibles : refus avant modification
+    options = {member_object(obj).Name: (mode, fixed) for obj, mode, fixed in entries}
+    for member in members:
+        mode, fixed = options[member.Name]
+        _join(member, furniture, fixed)
+        with writing(member):
+            member.PositionMode = mode.value
     return bind_members(read_members(furniture), [member.Name for member in members])
