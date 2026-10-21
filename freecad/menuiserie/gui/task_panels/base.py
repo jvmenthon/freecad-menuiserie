@@ -18,11 +18,13 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
+EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 # Préfixe des types TechDraw : leurs pages ne sont pas recalculées par l'aperçu.
 _TECHDRAW: Final = "TechDraw::"
 
@@ -129,6 +131,12 @@ def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None)
         panel = build()
         Gui.Control.showDialog(panel)
         panel.watch_document(edited)
+
+
+def panel_title(label: str, creating: bool, create_template: str) -> str:
+    """Titre du panneau : ``create_template`` en création, « Modifier « … » » sinon ; ``label``
+    (libellé de l'objet déjà mis en forme) remplit ``{label}``."""
+    return translated(create_template if creating else EDIT_TITLE, {"label": label})
 
 
 def start_editing(

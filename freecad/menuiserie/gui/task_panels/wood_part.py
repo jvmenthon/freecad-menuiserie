@@ -38,13 +38,13 @@ from freecad.menuiserie.gui.task_panels.base import (
     UpdateGuard,
     connect,
     has_expression,
+    panel_title,
 )
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
 
 UI_FILE: Final = Path(__file__).with_name("wood_part.ui")
 EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier une pièce de bois")
 _CREATE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Nouvelle pièce de bois")
-_EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 _INDEX_CHANGED: Final = "currentIndexChanged(int)"
 
 # Filtre « Type » : libellé, puis familles retenues (aucune : tous les matériaux).
@@ -96,7 +96,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._guard = UpdateGuard()
         self.form = Gui.PySideUic.loadUi(str(UI_FILE))
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
-        self.form.setWindowTitle(_title(obj, creating))
+        self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
         self._bindings = [self._bind(field) for field in LENGTH_FIELDS]
         self._thickness_menu = QtGui.QMenu(self.form.standardThicknessButton)
         self.form.standardThicknessButton.setMenu(self._thickness_menu)
@@ -255,12 +255,6 @@ def show_panel(obj: DocumentObject, *, creating: bool) -> None:
 def _build(obj: DocumentObject, *, creating: bool) -> WoodPartTaskPanel:
     """Panneau de ``obj`` (classe lue à l'appel : remplaçable par les vérifications)."""
     return WoodPartTaskPanel(obj, creating=creating)
-
-
-def _title(obj: DocumentObject, creating: bool) -> str:
-    if creating:
-        return translated(_CREATE_TITLE)
-    return translated(_EDIT_TITLE, {"label": str(obj.Label)})
 
 
 def _length_text(length_mm: float) -> str:
