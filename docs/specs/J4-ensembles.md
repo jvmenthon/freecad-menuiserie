@@ -289,9 +289,7 @@ freecad/menuiserie/
 ### 4.3 `core/furniture/` (J4a)
 
 ```python
-class InteriorMode(
-    str, Enum
-):  # enregistré (PositionMode) : valeurs stables, ajout en fin seulement
+class InteriorMode(str, Enum):  # enregistré (PositionMode) : valeurs stables, ajout en fin seulement
     STAY = "Stay"  # distance non fixe : la face ne bouge pas
     PROPORTIONAL = "Proportional"  # distance non fixe : la face garde sa proportion
 
@@ -328,15 +326,11 @@ class FurnitureBox:
 @dataclass(frozen=True)
 class Member:
     key: str  # nom interne de l'objet (Name)
-    block: (
-        PlacedBlock | None
-    )  # pièce : cotes + placement dans le repère de l'ensemble (origine déduite)
+    block: PlacedBlock | None  # pièce : cotes + placement dans le repère de l'ensemble (origine déduite)
     box: FurnitureBox | None  # sous-ensemble : ses cotes (et `origin`)
     origin: Vec3 | None
     mode: InteriorMode
-    fixed: (
-        frozenset[Edge] | None
-    )  # distances fixes ; None = nouveau membre, options par défaut à calculer
+    fixed: frozenset[Edge] | None  # distances fixes ; None = nouveau membre, options par défaut à calculer
     driven: frozenset[str]  # propriétés pilotées par une formule ou une contrainte de l'utilisateur
 
 
@@ -364,35 +358,13 @@ class Notice:  # avertissement traduisible, jamais bloquant
 class FurnitureError(TemplatedError): ...  # refus (redimensionnement, cycle d'ensembles)
 
 
-def member_spans(
-    member: Member, box: FurnitureBox
-) -> Mapping[FurnitureAxis, tuple[float, float, str]]: ...
+def member_spans(member: Member, box: FurnitureBox) -> Mapping[FurnitureAxis, tuple[float, float, str]]: ...
 def edge_distances(member: Member, box: FurnitureBox) -> Mapping[Edge, float]: ...
-def default_fixed(
-    box: FurnitureBox, members: Sequence[Member]
-) -> Mapping[str, frozenset[Edge]]: ...  # membres dont fixed est None
-def follow_rules(
-    box: FurnitureBox, members: Sequence[Member]
-) -> tuple[Mapping[str, tuple[FollowRule, ...]], tuple[Notice, ...]]: ...  # fixed renseigné
-def bindings_for(
-    label: str,
-    box: FurnitureBox,
-    members: Sequence[Member],
-    rules: Mapping[str, tuple[FollowRule, ...]],
-) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]: ...
-def predict(
-    old: FurnitureBox,
-    new: FurnitureBox,
-    members: Sequence[Member],
-    rules: Mapping[str, tuple[FollowRule, ...]],
-) -> Mapping[str, PlacedBlock | FurnitureBox]: ...
-def check_resize(
-    old: FurnitureBox,
-    new: FurnitureBox,
-    members: Sequence[Member],
-    rules: Mapping[str, tuple[FollowRule, ...]],
-    joined: Sequence[tuple[str, str]],
-) -> tuple[Notice, ...]: ...  # FurnitureError si refus
+def default_fixed(box: FurnitureBox, members: Sequence[Member]) -> Mapping[str, frozenset[Edge]]: ...  # membres dont fixed est None
+def follow_rules(box: FurnitureBox, members: Sequence[Member]) -> tuple[Mapping[str, tuple[FollowRule, ...]], tuple[Notice, ...]]: ...  # fixed renseigné
+def bindings_for(label: str, box: FurnitureBox, members: Sequence[Member], rules: Mapping[str, tuple[FollowRule, ...]]) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]: ...
+def predict(old: FurnitureBox, new: FurnitureBox, members: Sequence[Member], rules: Mapping[str, tuple[FollowRule, ...]]) -> Mapping[str, PlacedBlock | FurnitureBox]: ...
+def check_resize(old: FurnitureBox, new: FurnitureBox, members: Sequence[Member], rules: Mapping[str, tuple[FollowRule, ...]], joined: Sequence[tuple[str, str]]) -> tuple[Notice, ...]: ...  # FurnitureError si refus
 ```
 
 **Distance à un bord** : chaque face d'un membre a une distance au bord de l'ensemble **de son
@@ -494,24 +466,12 @@ pièce hors ensemble.
 #### 4.4.4 API
 
 ```python
-def make_furniture(
-    objects: Sequence[DocumentObject], label: str = ""
-) -> tuple[DocumentObject, tuple[str, ...]]: ...  # (ensemble, avertissements traduits)
-def add_to_furniture(
-    furniture: DocumentObject, objects: Sequence[DocumentObject]
-) -> tuple[str, ...]: ...
+def make_furniture(objects: Sequence[DocumentObject], label: str = "") -> tuple[DocumentObject, tuple[str, ...]]: ...  # (ensemble, avertissements traduits)
+def add_to_furniture(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> tuple[str, ...]: ...
 def remove_from_furniture(objects: Sequence[DocumentObject]) -> None: ...
-def set_member_options(
-    obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None
-) -> tuple[str, ...]: ...  # fixed : {"Back": True, …}
+def set_member_options(obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None) -> tuple[str, ...]: ...  # fixed : {"Back": True, …}
 def rebind_furniture(furniture: DocumentObject) -> tuple[str, ...]: ...
-def resize_furniture(
-    furniture: DocumentObject,
-    *,
-    width: float | None = None,
-    depth: float | None = None,
-    height: float | None = None,
-) -> None: ...  # check_resize puis écriture et recalcul
+def resize_furniture(furniture: DocumentObject, *, width: float | None = None, depth: float | None = None, height: float | None = None) -> None: ...  # check_resize puis écriture et recalcul
 def furniture_of(obj: DocumentObject) -> DocumentObject | None: ...
 ```
 
@@ -583,7 +543,6 @@ class Prism:
 
     points: tuple[Vec3, ...]  # ≥ 3 sommets distincts, non alignés, coplanaires, polygone simple
     extrusion: Vec3  # non nul, non parallèle au plan
-
 
 Solid = Box | Cylinder | Prism
 ```

@@ -70,6 +70,15 @@ def test_angle_epaisseur_impaire() -> None:
     assert result.guest_cut == box((0, 0, 0), (50, 50, 9))
 
 
+def test_t_automatique() -> None:
+    """T : bout d'une traverse 400 x 60 x 22 à fleur du chant d'une autre, au milieu."""
+    host = block((600.0, 60.0, 22.0))
+    guest = block((400.0, 60.0, 22.0), (330.0, 0.0, 0.0), 90.0)
+    plan = HALF_LAP.plan(host, guest, HalfLapParams())
+    assert plan.host_cuts == (box((270, 0, 11), (330, 60, 22)),)
+    assert plan.guest_cuts == (box((0, 0, 0), (60, 60, 11)),)
+
+
 def test_flip_side_inverse_haut_et_bas() -> None:
     result = values(corner(), HalfLapParams(flip_side=True))
     assert result.host_cut == box((0, 0, 0), (50, 50, 10))
@@ -111,6 +120,22 @@ def test_a_fleur_a_la_tolerance_pres_sans_peau() -> None:
 def test_roles_a_epaisseur_egale_ordre_conserve() -> None:
     host, guest = cross()
     assert guess_roles(host, guest) == (0, 1)
+    assert guess_roles(guest, host) == (0, 1)
+
+
+@pytest.mark.parametrize("gap", [0.005, 0.009])
+def test_roles_epaisseurs_egales_a_la_tolerance_pres(gap: float) -> None:
+    """Écart d'épaisseur dans ``CONTACT_TOLERANCE_MM`` : épaisseurs égales, la première pièce
+    sélectionnée est l'hôte, dans les deux ordres."""
+    host, guest = cross(guest_thickness=22.0 + gap)
+    assert guess_roles(host, guest) == (0, 1)
+    assert guess_roles(guest, host) == (0, 1)
+    assert values((guest, host)).depth == 11.0
+
+
+def test_roles_au_dela_de_la_tolerance_piece_la_plus_mince() -> None:
+    host, guest = cross(guest_thickness=22.02)
+    assert guess_roles(host, guest) == (1, 0)
     assert guess_roles(guest, host) == (0, 1)
 
 
