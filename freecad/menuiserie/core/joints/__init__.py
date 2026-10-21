@@ -18,6 +18,7 @@ from freecad.menuiserie.core.joints._base import (
     JointPlan,
     JointStrategy,
     mm_round,
+    mm_text,
 )
 from freecad.menuiserie.core.joints._registry import strategy_for
 from freecad.menuiserie.core.joints._roles import guess_roles
@@ -31,5 +32,6 @@ __all__ = [
     "JointStrategy",
     "guess_roles",
     "mm_round",
+    "mm_text",
     "strategy_for",
 ]

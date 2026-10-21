@@ -52,8 +52,8 @@ pilotée.
 ## Assembler deux pièces
 
 Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,
-**Rainure-languette**, **Feuillure**, **Tourillons**, **Mi-bois** ou **Queue d'aronde** (barre
-d'outils ou menu *Menuiserie*).
+**Rainure-languette**, **Feuillure**, **Tourillons**, **Mi-bois**, **Queue d'aronde** ou
+**Onglet** (barre d'outils ou menu *Menuiserie*).
 L'atelier devine quelle pièce reçoit la mortaise (la traverse dont le bout touche le montant
 porte le tenon) et ouvre le panneau de l'assemblage : pièces reliées, bouton **Inverser** pour
 échanger leurs rôles, et un champ par paramètre. Une cote cochée **Auto** suit les pièces
@@ -61,6 +61,9 @@ porte le tenon) et ouvre le panneau de l'assemblage : pièces reliées, bouton *
 Chaque pièce assemblée devient une « pièce usinée » (tenons ajoutés, mortaises creusées), sa
 pièce brute rangée dessous dans l'arbre. Un double-clic sur un assemblage rouvre son panneau,
 un double-clic sur une pièce usinée ouvre celui de sa brute.
+Pour un **Onglet**, dessinez les deux pièces à leur longueur hors tout (de pointe longue à pointe
+longue), qui se chevauchent au coin : la coupe passe par le coin extérieur et le coin intérieur
+(45° pour deux largeurs égales) et le panneau affiche les angles de coupe.
 
 ## Pièce de bois (console Python)
 

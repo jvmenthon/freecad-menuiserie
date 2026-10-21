@@ -22,10 +22,11 @@ from freecad.menuiserie.core.joints._registry import STRATEGIES
 from freecad.menuiserie.core.joints.dovetail import DovetailParams
 from freecad.menuiserie.core.joints.dowels import DowelParams
 from freecad.menuiserie.core.joints.half_lap import HalfLapParams
+from freecad.menuiserie.core.joints.miter import MiterParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
-from tests.unit.aides_assemblages import block, dovetail_corner, rail, stile
+from tests.unit.aides_assemblages import block, dovetail_corner, miter_corner, rail, stile
 
 TENON = strategy_for(JointKind.MORTISE_TENON)
 TONGUE = strategy_for(JointKind.TONGUE_GROOVE)
@@ -249,6 +250,7 @@ PARAMS_CLASSES = (
     DowelParams,
     HalfLapParams,
     DovetailParams,
+    MiterParams,
 )
 
 
@@ -349,6 +351,7 @@ def test_registre_fige() -> None:
             HalfLapParams(),
         ),
         (JointKind.DOVETAIL, *dovetail_corner(), DovetailParams()),
+        (JointKind.MITER, *miter_corner(), MiterParams()),
     ],
 )
 def test_plan_par_le_registre(

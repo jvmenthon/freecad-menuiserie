@@ -55,6 +55,7 @@ PROPERTIES: dict[str, list[Row]] = {
         ("PinWidth", LENGTH, "Queue d'aronde", 0.0),
         ("Slope", "App::PropertyFloat", "Queue d'aronde", 0.0),
     ],
+    "make_miter": [],  # aucune propriété propre (A4 de J4)
 }
 
 

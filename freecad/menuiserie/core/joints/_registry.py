@@ -11,6 +11,7 @@ from freecad.menuiserie.core.joints._base import JointKind, JointStrategy
 from freecad.menuiserie.core.joints.dovetail import DovetailStrategy
 from freecad.menuiserie.core.joints.dowels import DowelStrategy
 from freecad.menuiserie.core.joints.half_lap import HalfLapStrategy
+from freecad.menuiserie.core.joints.miter import MiterStrategy
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonStrategy
 from freecad.menuiserie.core.joints.rabbet import RabbetStrategy
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveStrategy
@@ -25,6 +26,7 @@ STRATEGIES: Final[Mapping[JointKind, JointStrategy[Any, Any]]] = MappingProxyTyp
             DowelStrategy(),
             HalfLapStrategy(),
             DovetailStrategy(),
+            MiterStrategy(),
         )
     }
 )

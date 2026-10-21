@@ -58,3 +58,12 @@ def dovetail_corner(size: Point = (400.0, 150.0, 18.0)) -> tuple[PlacedBlock, Pl
     length, width, thickness = size
     guest = placed(size, rotation_y(-90.0), (thickness, 0.0, thickness))
     return block((length, width, thickness)), guest
+
+
+def miter_corner(
+    host_width: float = 60.0, guest_width: float = 60.0
+) -> tuple[PlacedBlock, PlacedBlock]:
+    """Angle de cadre à onglet (critère A2 de J4) : deux traverses 500 x l x 20 dessinées hors
+    tout, qui se chevauchent au coin (origine) ; l'hôte selon X, l'invitée selon Y."""
+    host = block((500.0, host_width, 20.0))
+    return host, block((500.0, guest_width, 20.0), (guest_width, 0.0, 0.0), 90.0)

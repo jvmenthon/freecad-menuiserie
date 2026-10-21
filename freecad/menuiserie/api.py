@@ -40,6 +40,7 @@ from freecad.menuiserie.features.joints.factories import (
     create_dovetail,
     create_dowels,
     create_half_lap,
+    create_miter,
     create_mortise_tenon,
     create_rabbet,
     create_tongue_groove,
@@ -59,6 +60,7 @@ __all__ = [
     "make_dovetail",
     "make_dowels",
     "make_half_lap",
+    "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
     "make_tongue_groove",
@@ -303,3 +305,16 @@ def furniture_of(obj: DocumentObject) -> DocumentObject | None:
     except TypeError:
         return None
     return _member_furniture(member)
+
+
+# --- Onglet (J4g) ---------------------------------------------------------------------------
+
+
+def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie à onglet ``host`` et ``guest``, dessinées à leur longueur hors tout (de pointe
+    longue à pointe longue) et qui se chevauchent au coin, puis recalcule le document. La coupe
+    passe par le coin extérieur et le coin intérieur : 45° pour deux largeurs égales. Aucun
+    paramètre en J4 (un nom inconnu lève ``TypeError``) ; mêmes validations et même absence de
+    transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_miter, host, guest, params)

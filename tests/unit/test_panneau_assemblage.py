@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import ast
 import re
+import string
 from dataclasses import fields
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from freecad.menuiserie.core.joints._profile import ProfileValues
 from freecad.menuiserie.core.joints.dovetail import DovetailParams, DovetailValues
 from freecad.menuiserie.core.joints.dowels import DowelParams, DowelValues
 from freecad.menuiserie.core.joints.half_lap import HalfLapParams, HalfLapValues
+from freecad.menuiserie.core.joints.miter import MiterParams, MiterValues
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams, RabbetValues
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
@@ -36,6 +38,7 @@ TYPES = {
     "dowels.py": (DowelParams, DowelValues),
     "half_lap.py": (HalfLapParams, HalfLapValues),
     "dovetail.py": (DovetailParams, DovetailValues),
+    "miter.py": (MiterParams, MiterValues),
 }
 
 
@@ -144,3 +147,20 @@ def test_champ_de_rapport_borne_comme_core() -> None:
     }
     assert {("freecad.menuiserie.core.joints", n) for n in ("MIN_RATIO", "MAX_RATIO")} <= imported
     assert "setRange(*ratio_range(self.spec))" in path.read_text(encoding="utf-8")
+
+
+def test_resume_des_angles_de_l_onglet() -> None:
+    """A5 de J4 : aucun champ ; le panneau affiche les angles par le gabarit ``SUMMARY``, rempli
+    avec les valeurs effectives de ``resolve``."""
+    assert property_specs(FEATURES / "miter.py") == []
+    tree = ast.parse((FEATURES / "miter.py").read_text(encoding="utf-8"))
+    summary = next(
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "SUMMARY"
+    )
+    assert isinstance(summary, ast.Call)
+    context, text = (ast.literal_eval(arg) for arg in summary.args)
+    assert context == "Menuiserie"
+    placeholders = {name for _, name, _, _ in string.Formatter().parse(text) if name}
+    assert placeholders == {"host_angle", "guest_angle"} <= {f.name for f in fields(MiterValues)}
