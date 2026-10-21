@@ -105,6 +105,7 @@ def test_noms_des_commandes_selon_les_types() -> None:
 
 
 def test_commandes_dans_la_barre_et_le_menu() -> None:
+    """Seule vérification du tuple complet des commandes de l'atelier (revue J3d, S6)."""
     assert init_gui_commands() == ("Menuiserie_WoodPart", *EXPECTED)
 
 
@@ -132,13 +133,13 @@ def test_transaction_du_tenon_mortaise() -> None:
 
 
 @pytest.mark.parametrize("name", list(EXPECTED))
-def test_fabrique_nommee(name: str) -> None:
-    assert ast.literal_eval(joint_commands()[name]["FACTORY"]) == EXPECTED[name][1]
-
-
-def test_fabrique_du_tenon_mortaise_dans_l_api() -> None:
-    """Les autres fabriques arrivent en J3c ; leur commande reste inactive d'ici là."""
-    assert "make_mortise_tenon" in api_functions()
+def test_fabrique_de_l_api_referencee(name: str) -> None:
+    """``FACTORY = api.make_…`` : référence directe, vérifiée à l'import (revue J3d, S2)."""
+    factory = joint_commands()[name]["FACTORY"]
+    assert isinstance(factory, ast.Attribute)
+    assert isinstance(factory.value, ast.Name)
+    assert (factory.value.id, factory.attr) == ("api", EXPECTED[name][1])
+    assert factory.attr in api_functions()
 
 
 @pytest.mark.parametrize(

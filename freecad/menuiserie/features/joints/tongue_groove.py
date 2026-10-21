@@ -39,6 +39,8 @@ class TongueGrooveJoint(JointFeature):
                 "pièce à languette arrondi au mm.",
             ),
             default=_DEFAULTS.tongue_thickness,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Épaisseur de la languette"),
+            resolved="thickness",
         ),
         PropertySpec(
             "TongueLength",
@@ -49,6 +51,7 @@ class TongueGrooveJoint(JointFeature):
                 "Longueur de la languette, ajoutée au chant ou au bout de la pièce. 0 : 10 mm.",
             ),
             default=_DEFAULTS.tongue_length,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Longueur de la languette"),
         ),
         PropertySpec(
             "ThicknessOffset",
@@ -60,6 +63,7 @@ class TongueGrooveJoint(JointFeature):
                 "0 : centrée.",
             ),
             default=_DEFAULTS.thickness_offset,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Décalage en épaisseur"),
         ),
         PropertySpec(
             "GrooveClearance",
@@ -70,6 +74,7 @@ class TongueGrooveJoint(JointFeature):
                 "Jeu de fond : profondeur de la rainure au-delà du bout de la languette.",
             ),
             default=_DEFAULTS.groove_clearance,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Jeu de fond de la rainure"),
         ),
         PropertySpec(
             "ThroughGroove",
@@ -81,6 +86,7 @@ class TongueGrooveJoint(JointFeature):
                 "long du contact.",
             ),
             default=_DEFAULTS.through_groove,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Rainure filante"),
         ),
     )
 

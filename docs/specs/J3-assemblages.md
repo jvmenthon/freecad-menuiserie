@@ -40,7 +40,7 @@ tenons-mortaises, qui se met à jour quand on change la largeur des montants ou 
 ## 3. Critères d'acceptation
 
 Légende : **U** = unitaire sans FreeCAD, **I** = intégration dans `freecadcmd` (1.0 et 1.1),
-**G** = interface hors écran, **manuel** = recette décrite dans `docs/recette/J3-scenarios-manuels.md`.
+**G** = interface hors écran, **manuel** = recette décrite dans `docs/recette/J3e-scenarios-manuels.md`.
 Les lettres des critères sont propres à cette spécification.
 
 **Cadre de référence** (utilisé par plusieurs critères ; cotes en mm, cadre à plat dans le plan XY) :
@@ -184,7 +184,10 @@ freecad/menuiserie/
     ├── view_providers/machined_part.py  J3d
     ├── view_providers/joint.py  J3d
     ├── commands/joints.py       J3d  JointCommand (base) + 4 commandes
-    └── task_panels/joint.py     J3e  JointTaskPanel (+ aides de transaction partagées avec J1c)
+    └── task_panels/
+        ├── base.py              J3e  ObjectTaskPanel : transactions, fermeture forcée, surveillance (ADR 0005), partagé avec J1c
+        ├── joint_fields.py      J3e  ParamField : un champ par PropertySpec (cote, nombre, booléen, case « Auto »)
+        └── joint.py             J3e  JointTaskPanel
 ```
 
 ### 4.2 Design patterns retenus
@@ -399,6 +402,9 @@ def blank_of(
 def remove_machined_part(
     machined: DocumentObject,
 ) -> None: ...  # refus s'il reste des assemblages ; réaffiche la brute
+def removal_refusal(
+    machined: DocumentObject,
+) -> str | None: ...  # message traduit du refus (ViewProvider, onDelete), None si permis
 def is_machined_part(obj: object) -> bool: ...
 ```
 
@@ -452,7 +458,10 @@ Infobulles (extrait ; les autres sur le même modèle, toutes en `QT_TRANSLATE_N
 
 #### 4.4.4 `features/schema.py` (refactorisation, premier commit de J3b)
 
-`PropertySpec(name, type_id, group, tooltip, default=None, mode=EDITABLE)`, `version_spec(tooltip,
+`PropertySpec(name, type_id, group, tooltip, default=None, mode=EDITABLE, label="", resolved="")`
+(`label` : libellé du champ du panneau J3e, gabarit traduisible ; `resolved` : nom de la valeur
+effective dans le résultat de `resolve` pour un paramètre « 0 = automatique », qui reçoit une case
+« Auto »), `version_spec(tooltip,
 version)` et les fonctions `add_missing_properties(obj, specs, defaults=None, choices=None)`
 (`choices` : listes des énumérations), `remove_mistyped_properties(obj, specs, noun)`,
 `restored_version(obj, current, noun)`, `apply_editor_modes(obj, specs)` et
@@ -494,12 +503,20 @@ traduisible).
 
 ### 4.7 Commandes et panneau (J3d, J3e)
 
-`JointCommand` (base) : `KIND`, texte, icône ; `IsActive` (deux pièces sélectionnées, pas de
-panneau ouvert) ; `Activated` : `guess_roles`, transaction « Créer un assemblage … », fabrique,
-ViewProviders, panneau. Quatre sous-classes. `JointTaskPanel` : formulaire construit d'après les
-`PropertySpec` du type (libellé, case « Auto » pour les paramètres « 0 = automatique »), aperçu
-par recalcul, « Inverser » échange `HostPart` et `GuestPart` ; aides de transaction et
-`DeletionWatcher` de `task_panels/wood_part.py` déplacées dans un module partagé.
+`JointCommand` (base) : `NAME`, `FACTORY` (référence directe à la fabrique `api.make_…`), textes,
+icône ; `IsActive` (deux pièces sélectionnées, pas de panneau ouvert) ; `Activated` :
+`guess_roles`, transaction « Créer un assemblage … », fabrique (ViewProviders posés par l'api),
+panneau en création. Un refus de la fabrique (`TypeError`, `ValueError`) abandonne la transaction
+et s'affiche dans la barre d'état et la vue rapport. Quatre sous-classes.
+
+`JointTaskPanel` (`task_panels/joint.py`) : formulaire construit en code d'après les `PropertySpec`
+du type (`label`, case « Auto » si `resolved`) ; libellés des deux pièces, « Inverser » échange
+`HostPart` et `GuestPart` ; chaque saisie est écrite puis l'assemblage et ce qui en dépend sont
+recalculés (aperçu, sans les pages TechDraw ni les autres documents) ; une erreur de `plan_for`
+s'affiche sous les champs. Cycle de vie commun avec le panneau J1c dans `task_panels/base.py`
+(`ObjectTaskPanel`, `show_panel`, `start_editing`, `close_transaction`, `DeletionWatcher`) ; l'objet
+mis en mode édition (la pièce usinée pour sa brute) est mémorisé à l'ouverture pour quitter
+l'édition après une fermeture forcée même si son lien vers la brute a disparu.
 
 ### 4.8 Sécurité
 

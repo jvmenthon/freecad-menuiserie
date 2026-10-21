@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture et
-panneau de tâche de la pièce de bois.
+"""Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture,
+panneau de tâche de la pièce de bois et panneau d'un assemblage (``panneau-assemblage.png``).
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
 l'atelier étant installé dans le dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -30,6 +30,7 @@ import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -63,6 +64,8 @@ TAILLE = (1600, 1000)
 # Pièce ouverte dans le panneau de tâche : contreplaqué de 8 mm, hors épaisseur standard, pour
 # montrer aussi l'avertissement.
 PIECE_DU_PANNEAU = "Fond"
+# Assemblage dont le panneau est capturé (premier tenon-mortaise du cadre, traversant).
+ASSEMBLAGE_DU_PANNEAU = "Tenon-mortaise"
 ATTENTE_DU_VOLET_MS = 1500
 TEXTURE_MM = (600, 200)  # largeur (sens du fil) et hauteur couvertes par l'image
 PIXELS_PAR_MM = 2
@@ -149,7 +152,7 @@ def construire() -> None:
     Gui.Selection.clearSelection()
 
 
-def construire_le_cadre(doc) -> None:
+def construire_le_cadre(doc: Any) -> None:
     """Cadre à plat assemblé par quatre tenons-mortaises (fabrique de l'api)."""
     from freecad.menuiserie import api
 
@@ -230,6 +233,18 @@ def capturer_le_panneau(dossier: Path, fenetre, vue) -> None:
     Gui.updateGui()
     volet = volet_des_taches(fenetre)
     fenetre_complete(fenetre, vue, devant=volet).save(str(dossier / "panneau.png"))
+    Gui.Control.activeTaskDialog().reject()
+    capturer_le_panneau_d_assemblage(dossier, fenetre, vue)
+
+
+def capturer_le_panneau_d_assemblage(dossier: Path, fenetre, vue) -> None:
+    """Fenêtre complète avec le panneau d'un tenon-mortaise du cadre (comme au double-clic)."""
+    assemblage = App.ActiveDocument.getObjectsByLabel(ASSEMBLAGE_DU_PANNEAU)[0]
+    Gui.ActiveDocument.setEdit(assemblage, 0)
+    Gui.updateGui()
+    volet = volet_des_taches(fenetre)
+    image = fenetre_complete(fenetre, vue, devant=volet)
+    image.save(str(dossier / "panneau-assemblage.png"))
     Gui.Control.activeTaskDialog().reject()
 
 
