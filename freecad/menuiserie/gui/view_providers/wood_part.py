@@ -17,24 +17,23 @@ from typing import Any, Final
 import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
-from freecad.menuiserie.core.appearance import TEXTURE_BASE_COLOR, TextureMapping
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.materials import Texture
-from freecad.menuiserie.features.appearance import appearance_of
-from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
+from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject, StatelessProxy
 from freecad.menuiserie.features.library import get_library
-from freecad.menuiserie.gui.textures import TextureNode, TextureSwitch, texture_cache
+from freecad.menuiserie.gui.part_appearance import (
+    FALLBACK_DIFFUSE,
+    MATERIAL_COLOR,
+    PartAppearance,
+    from_bytes,
+    to_bytes,
+)
 
 ViewObject = Any
 Color = tuple[float, ...]
 
 ICON: Final = "Menuiserie_WoodPart.svg"
-MATERIAL_COLOR: Final = "MaterialColor"
 # Propriétés de la pièce dont dépend l'apparence (la projection ne dépend pas des cotes).
 _APPEARANCE_PROPERTIES: Final = frozenset({"MaterialId", "GrainDirection"})
-_COLOR_SCALE: Final = 255
-# Gris clair des formes de FreeCAD : couleur initiale si l'apparence ne fournit aucun matériau.
-_FALLBACK_DIFFUSE: Final = (0.8, 0.8, 0.8)
 _MATERIAL_COLOR_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property",
     "Couleur du matériau, enregistrée au choix du matériau ; affichée quand aucune texture ne "
@@ -42,7 +41,30 @@ _MATERIAL_COLOR_TOOLTIP: Final = QT_TRANSLATE_NOOP(
 )
 
 
-class ViewProviderWoodPart:
+class PanelEditing(StatelessProxy):
+    """Base des ViewProviders édités dans un panneau de tâche (mode 0) : début et fin
+    d'édition, double-clic et sérialisation communs. Chaque ViewProvider fournit l'étape
+    :meth:`open_panel`. FreeCAD n'enregistre que le chemin de la classe concrète."""
+
+    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Mode 0 : panneau de tâche (:meth:`open_panel`) ; les autres modes restent à FreeCAD."""
+        return None if mode != 0 else self.open_panel(vobj)
+
+    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
+        """Fin du mode 0 : le panneau est fermé."""
+        del vobj
+        return end_panel_edit(mode)
+
+    def doubleClicked(self, vobj: ViewObject) -> bool:
+        """Double-clic : mode d'édition 0 ; refusé si un panneau de tâche est déjà ouvert."""
+        return edit_by_double_click(vobj)
+
+    def open_panel(self, vobj: ViewObject) -> bool | None:
+        """Ouvre le panneau de l'objet de ``vobj`` : étape fournie par chaque ViewProvider."""
+        raise NotImplementedError
+
+
+class ViewProviderWoodPart(PanelEditing):
     """ViewProvider de la pièce de bois. Chemin de module figé (ADR 0003).
 
     Sans état enregistré (``dumps`` renvoie ``None``) : la couleur est dans ``MaterialColor``,
@@ -59,8 +81,7 @@ class ViewProviderWoodPart:
         """Garde le ViewObject (non enregistré) pour ``finishRestoring`` et insère les nœuds
         de texture, inactifs, avant le sélecteur de modes d'affichage."""
         self.vobj = vobj
-        self._texture = TextureSwitch()
-        self._texture.insert_before(vobj.RootNode, vobj.SwitchNode)
+        self._appearance = PartAppearance(vobj)
 
     def getIcon(self) -> str:
         """Icône de l'arbre : celle de la commande « Pièce de bois »."""
@@ -77,8 +98,9 @@ class ViewProviderWoodPart:
 
     def onChanged(self, vobj: ViewObject, prop: str) -> None:
         """La couleur enregistrée est reportée sur la couleur diffuse, sauf sous une texture."""
-        if prop == MATERIAL_COLOR:
-            _show_diffuse(vobj, self._diffuse(vobj))
+        appearance: PartAppearance | None = getattr(self, "_appearance", None)
+        if prop == MATERIAL_COLOR and appearance is not None:
+            appearance.show_color(vobj, to_bytes(vobj.MaterialColor))
 
     def finishRestoring(self) -> None:
         """Recrée ``MaterialColor`` si le document est antérieur, puis réaffiche la texture
@@ -89,90 +111,40 @@ class ViewProviderWoodPart:
         _ensure_material_color(vobj)
         self._refresh(vobj)
 
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
-
-    def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Mode 0 : panneau de tâche de la pièce ; les autres modes restent à FreeCAD."""
-        if mode != 0:
-            return None
+    def open_panel(self, vobj: ViewObject) -> bool | None:
+        """Mode 0 (double-clic dans l'arbre ou la vue 3D) : panneau de tâche de la pièce."""
         from freecad.menuiserie.gui.task_panels.wood_part import start_editing
 
         return start_editing(vobj.Object)
 
-    def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Fin du mode 0 : le panneau est fermé."""
-        del vobj
-        if mode != 0:
-            return None
-        from freecad.menuiserie.gui.task_panels.wood_part import finish_editing
-
-        finish_editing()
-        return True
-
-    def doubleClicked(self, vobj: ViewObject) -> bool:
-        """Double-clic dans l'arbre ou la vue 3D : édition de la pièce dans le panneau.
-
-        Refusé si un panneau de tâche est ouvert : ``setEdit`` quitterait d'abord l'édition en
-        cours, fermant son panneau sans « OK » ni « Annuler »."""
-        if Gui.Control.activeDialog():
-            return False
-        return bool(vobj.Document.setEdit(vobj.Object, 0))
-
     def _refresh(self, vobj: ViewObject) -> None:
         """Affiche la texture du matériau si elle est utilisable, sinon ``MaterialColor``.
 
-        Sans effet tant que ``MaterialColor`` n'existe pas (attachement en cours) : ``__init__``
-        et ``finishRestoring`` rappellent cette méthode une fois la propriété créée."""
-        if MATERIAL_COLOR not in vobj.PropertiesList:
-            return
-        switch: TextureSwitch | None = getattr(self, "_texture", None)
-        if switch is not None:
-            shown = _shown_texture(vobj.Object)
-            if shown is None:
-                switch.hide()
-            else:
-                switch.show(*shown)
-        _show_diffuse(vobj, self._diffuse(vobj))
-
-    def _diffuse(self, vobj: ViewObject) -> tuple[int, int, int]:
-        """Blanc de base sous une texture affichée, sinon la couleur du matériau."""
-        switch: TextureSwitch | None = getattr(self, "_texture", None)
-        if switch is not None and switch.active:
-            return TEXTURE_BASE_COLOR
-        return _to_bytes(vobj.MaterialColor)
+        Sans effet tant que ``MaterialColor`` ou les nœuds de texture n'existent pas
+        (attachement en cours) : ``__init__`` et ``finishRestoring`` rappellent cette méthode."""
+        appearance: PartAppearance | None = getattr(self, "_appearance", None)
+        if MATERIAL_COLOR in vobj.PropertiesList and appearance is not None:
+            appearance.show(vobj, vobj.Object, to_bytes(vobj.MaterialColor))
 
 
-def _shown_texture(obj: DocumentObject) -> tuple[TextureMapping, TextureNode] | None:
-    """Projection et nœud partagé de la texture à afficher ; ``None`` : couleur seule."""
-    cache = texture_cache()
-    nodes: dict[Texture, TextureNode | None] = {}
-
-    def usable(texture: Texture) -> bool:
-        # Le nœud obtenu en contrôlant l'image est gardé : le fichier n'est ouvert qu'une fois.
-        nodes[texture] = cache.node(texture)
-        return nodes[texture] is not None
-
-    appearance = appearance_of(obj, usable)
-    if appearance is None or appearance.texture is None or appearance.mapping is None:
+def end_panel_edit(mode: int) -> bool | None:
+    """Fin du mode d'édition 0 (``unsetEdit``) : le panneau de la pièce est fermé ; les autres
+    modes restent à FreeCAD (``None``)."""
+    if mode != 0:
         return None
-    texture = nodes.get(appearance.texture)
-    return None if texture is None else (appearance.mapping, texture)
+    from freecad.menuiserie.gui.task_panels.base import finish_editing
+
+    finish_editing()
+    return True
 
 
-def _to_bytes(color: Color) -> tuple[int, int, int]:
-    """Composantes rouge, vert, bleu de 0 à 255 (comparaison sans erreur d'arrondi)."""
-    red, green, blue = (round(component * _COLOR_SCALE) for component in color[:3])
-    return red, green, blue
-
-
-def _from_bytes(color: tuple[int, int, int]) -> Color:
-    return tuple(component / _COLOR_SCALE for component in color)
+def edit_by_double_click(vobj: ViewObject) -> bool:
+    """Double-clic : mode d'édition 0 de ``vobj``. Refusé si un panneau de tâche est ouvert :
+    ``setEdit`` quitterait d'abord l'édition en cours, fermant son panneau sans « OK » ni
+    « Annuler »."""
+    if Gui.Control.activeDialog():
+        return False
+    return bool(vobj.Document.setEdit(vobj.Object, 0))
 
 
 def _ensure_material_color(vobj: ViewObject) -> None:
@@ -182,7 +154,7 @@ def _ensure_material_color(vobj: ViewObject) -> None:
     diffuse = _diffuse_color(vobj)
     vobj.addProperty("App::PropertyColor", MATERIAL_COLOR, "Matériau", _MATERIAL_COLOR_TOOLTIP)
     vobj.setEditorMode(MATERIAL_COLOR, HIDDEN)
-    vobj.MaterialColor = _from_bytes(_to_bytes(diffuse))
+    vobj.MaterialColor = from_bytes(to_bytes(diffuse))
 
 
 def _update_material_color(obj: DocumentObject, vobj: ViewObject) -> None:
@@ -190,8 +162,8 @@ def _update_material_color(obj: DocumentObject, vobj: ViewObject) -> None:
     if MATERIAL_COLOR not in vobj.PropertiesList:
         return
     material = get_library().find(obj.MaterialId)
-    if material is not None and _to_bytes(vobj.MaterialColor) != material.color:
-        vobj.MaterialColor = _from_bytes(material.color)
+    if material is not None and to_bytes(vobj.MaterialColor) != material.color:
+        vobj.MaterialColor = from_bytes(material.color)
 
 
 def _diffuse_color(vobj: ViewObject) -> Color:
@@ -199,18 +171,6 @@ def _diffuse_color(vobj: ViewObject) -> Color:
     vide (document altéré)."""
     appearance = vobj.ShapeAppearance
     if not appearance:
-        return _FALLBACK_DIFFUSE
+        return FALLBACK_DIFFUSE
     color: Color = tuple(appearance[0].DiffuseColor)
     return color
-
-
-def _show_diffuse(vobj: ViewObject, wanted: tuple[int, int, int]) -> None:
-    """Couleur diffuse de chaque matériau d'affichage = ``wanted`` (transparence et autres
-    champs inchangés) ; rien n'est écrit si elle est déjà affichée."""
-    appearance = list(vobj.ShapeAppearance)
-    if all(_to_bytes(material.DiffuseColor) == wanted for material in appearance):
-        return
-    for material in appearance:
-        alpha = tuple(material.DiffuseColor)[3:]
-        material.DiffuseColor = _from_bytes(wanted) + alpha
-    vobj.ShapeAppearance = appearance

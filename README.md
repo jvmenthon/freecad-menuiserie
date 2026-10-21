@@ -49,6 +49,18 @@ aussitôt ; **OK** crée une seule entrée d'annulation, **Annuler** ne laisse r
 double-clic sur une pièce rouvre le panneau ; une cote pilotée par une expression y reste
 pilotée.
 
+## Assembler deux pièces
+
+Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,
+**Rainure-languette**, **Feuillure** ou **Tourillons** (barre d'outils ou menu *Menuiserie*).
+L'atelier devine quelle pièce reçoit la mortaise (la traverse dont le bout touche le montant
+porte le tenon) et ouvre le panneau de l'assemblage : pièces reliées, bouton **Inverser** pour
+échanger leurs rôles, et un champ par paramètre. Une cote cochée **Auto** suit les pièces
+(proportions de menuisier, valeur effective affichée) ; décochez-la pour saisir une valeur fixe.
+Chaque pièce assemblée devient une « pièce usinée » (tenons ajoutés, mortaises creusées), sa
+pièce brute rangée dessous dans l'arbre. Un double-clic sur un assemblage rouvre son panneau,
+un double-clic sur une pièce usinée ouvre celui de sa brute.
+
 ## Pièce de bois (console Python)
 
 ```python

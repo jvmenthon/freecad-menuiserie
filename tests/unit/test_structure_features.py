@@ -46,7 +46,11 @@ def top_level_names(path: Path) -> set[str]:
     return names
 
 
-@pytest.mark.parametrize("path", sorted(FEATURES.glob("*.py")), ids=lambda p: p.name)
+@pytest.mark.parametrize(
+    "path",
+    sorted(p for p in FEATURES.rglob("*.py") if "__pycache__" not in p.parts),
+    ids=lambda p: p.relative_to(FEATURES).as_posix(),
+)
 def test_modules_de_features_courts(path: Path) -> None:
     lines = len(path.read_text(encoding="utf-8").splitlines())
     assert lines <= MAX_MODULE_LINES, f"{path.name} : {lines} lignes"

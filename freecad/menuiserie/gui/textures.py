@@ -23,7 +23,6 @@ from __future__ import annotations
 from collections.abc import Callable, Hashable, Mapping
 from typing import Any, Final
 
-import FreeCAD as App
 from pivy import coin
 from PySide import QtCore, QtGui
 
@@ -34,7 +33,7 @@ from freecad.menuiserie.core.image_checks import check_image_bytes
 from freecad.menuiserie.core.materials import Texture
 from freecad.menuiserie.core.text import escaped_text, quoted_value
 from freecad.menuiserie.core.texture_file import TextureFile, TextureRefusedError
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import report_warning, translated
 
 __all__ = [
     "DEFAULT_MAX_BYTES",
@@ -87,11 +86,6 @@ class _OverBudgetError(Exception):
 def _refusal_message(refusal: TextureRefusedError) -> str:
     """Raison du refus, traduite et remplie."""
     return translated(refusal.reason, refusal.params)
-
-
-def _report_warning(message: str) -> None:
-    """Avertissement dans la vue rapport (``PrintWarning`` lu à l'appel : remplaçable)."""
-    App.Console.PrintWarning(f"Menuiserie : {message}\n")
 
 
 def _decoder(texture: Texture) -> str:
@@ -163,7 +157,7 @@ class TextureCache:
         max_entries: int = DEFAULT_MAX_ENTRIES,
         max_bytes: int = DEFAULT_MAX_BYTES,
     ) -> None:
-        self._warn = warn or _report_warning
+        self._warn = warn or report_warning
         self._cache: BudgetedCache[Hashable, SoNode] = BudgetedCache(max_entries, max_bytes)
         self._over_budget_reported = False
 
@@ -176,10 +170,6 @@ class TextureCache:
         except TextureRefusedError as refusal:  # fichier inutilisable : identifié par son nom
             self._refused(str(texture.image), texture, refusal)
             return None
-
-    def usable(self, texture: Texture) -> bool:
-        """Vrai si l'image de ``texture`` peut être affichée (contrôle du fichier puis décodage)."""
-        return self.node(texture) is not None
 
     def _node_of(self, texture: Texture, opened: TextureFile) -> TextureNode | None:
         """Nœud mémorisé ou encore vivant du fichier ouvert, sinon décodé depuis ses octets."""

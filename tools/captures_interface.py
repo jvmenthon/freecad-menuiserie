@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture et
-panneau de tâche de la pièce de bois.
+"""Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture,
+panneau de tâche de la pièce de bois et panneau d'un assemblage (``panneau-assemblage.png``).
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
 l'atelier étant installé dans le dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -18,7 +18,9 @@ La scène utilise une bibliothèque utilisateur temporaire (paramètre ``UserLib
 à la fin) qui ajoute un chêne muni d'une texture de test produite par le script : un quadrillage
 tous les 100 mm, veiné dans le sens du fil (la largeur de l'image) et marqué « fil → ». Les
 carreaux doivent mesurer 100 mm sur toutes les pièces, quelles que soient leurs cotes (gros plan
-``texture.png``). Le meuble de ``vue-3d.png`` montre les photos des matériaux intégrés.
+``texture.png``). Le meuble de ``vue-3d.png`` montre les photos des matériaux intégrés ; à côté,
+un cadre (cadre de référence de la spécification J3) est assemblé par quatre tenons-mortaises,
+traversants dans le montant de devant pour que leurs bouts soient visibles.
 """
 
 import json
@@ -28,6 +30,7 @@ import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -41,12 +44,28 @@ PIECES = (
     (756.0, 380.0, 19.0, "mdf", "Étagère", (22.0, 10.0, 280.0)),
     (756.0, 580.0, 8.0, "cp-bouleau", "Fond", (22.0, 400.0, 0.0)),
 )
+# Cadre assemblé : (repère, longueur, position x, y en mm, rotation autour de Z en degrés).
+CADRE = (
+    ("Montant avant", 600.0, 1000.0, 0.0, 0.0),
+    ("Montant arrière", 600.0, 1000.0, 340.0, 0.0),
+    ("Traverse gauche", 280.0, 1060.0, 60.0, 90.0),
+    ("Traverse droite", 280.0, 1600.0, 60.0, 90.0),
+)
+# Tenons-mortaises (mortaise, tenon, traversant) du cadre.
+TENONS = (
+    ("Montant avant", "Traverse gauche", True),
+    ("Montant avant", "Traverse droite", True),
+    ("Montant arrière", "Traverse gauche", False),
+    ("Montant arrière", "Traverse droite", False),
+)
 # Gros plan : deux planches de 800 sur 200 mm, fil en long puis en travers (décalage en Y).
 PLANCHES = (("Length", 0.0), ("Width", 300.0))
 TAILLE = (1600, 1000)
 # Pièce ouverte dans le panneau de tâche : contreplaqué de 8 mm, hors épaisseur standard, pour
 # montrer aussi l'avertissement.
 PIECE_DU_PANNEAU = "Fond"
+# Assemblage dont le panneau est capturé (premier tenon-mortaise du cadre, traversant).
+ASSEMBLAGE_DU_PANNEAU = "Tenon-mortaise"
 ATTENTE_DU_VOLET_MS = 1500
 TEXTURE_MM = (600, 200)  # largeur (sens du fil) et hauteur couvertes par l'image
 PIXELS_PAR_MM = 2
@@ -128,8 +147,25 @@ def construire() -> None:
         else:
             piece.Placement.Base = App.Vector(*position)
     doc.recompute()
+    construire_le_cadre(doc)
     afficher_la_vue_du_document(doc.Name)
     Gui.Selection.clearSelection()
+
+
+def construire_le_cadre(doc: Any) -> None:
+    """Cadre à plat assemblé par quatre tenons-mortaises (fabrique de l'api)."""
+    from freecad.menuiserie import api
+
+    pieces = {}
+    for repere, longueur, x, y, angle in CADRE:
+        piece = api.make_wood_part(longueur, 60.0, 22.0, "chene", mark=repere, doc=doc)
+        piece.Label = repere
+        rotation = App.Rotation(App.Vector(0, 0, 1), angle)
+        piece.Placement = App.Placement(App.Vector(x, y, 0.0), rotation)
+        pieces[repere] = piece
+    doc.recompute()
+    for mortaise, tenon, traversant in TENONS:
+        api.make_mortise_tenon(pieces[mortaise], pieces[tenon], through=traversant)
 
 
 def afficher_la_vue_du_document(nom_document: str) -> None:
@@ -197,6 +233,18 @@ def capturer_le_panneau(dossier: Path, fenetre, vue) -> None:
     Gui.updateGui()
     volet = volet_des_taches(fenetre)
     fenetre_complete(fenetre, vue, devant=volet).save(str(dossier / "panneau.png"))
+    Gui.Control.activeTaskDialog().reject()
+    capturer_le_panneau_d_assemblage(dossier, fenetre, vue)
+
+
+def capturer_le_panneau_d_assemblage(dossier: Path, fenetre, vue) -> None:
+    """Fenêtre complète avec le panneau d'un tenon-mortaise du cadre (comme au double-clic)."""
+    assemblage = App.ActiveDocument.getObjectsByLabel(ASSEMBLAGE_DU_PANNEAU)[0]
+    Gui.ActiveDocument.setEdit(assemblage, 0)
+    Gui.updateGui()
+    volet = volet_des_taches(fenetre)
+    image = fenetre_complete(fenetre, vue, devant=volet)
+    image.save(str(dossier / "panneau-assemblage.png"))
     Gui.Control.activeTaskDialog().reject()
 
 

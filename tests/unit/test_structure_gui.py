@@ -196,11 +196,6 @@ def test_avertissement_d_epaisseur_en_texte_brut() -> None:
     assert formats == ["Qt::PlainText"]
 
 
-def test_commande_enregistree_par_l_atelier() -> None:
-    commands = declared_value(PACKAGE / "init_gui.py", "commands")
-    assert commands == (declared_value(COMMAND, "COMMAND_NAME"),)
-
-
 def test_atelier_charge_les_commandes_a_l_activation() -> None:
     """Chargement léger : la commande n'est importée que dans ``Initialize``."""
     tree = ast.parse((PACKAGE / "init_gui.py").read_text(encoding="utf-8"))

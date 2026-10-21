@@ -75,8 +75,64 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Jeu d'icônes SVG 64 px pour l'atelier et les commandes prévues (pièce de bois, panneau,
   essences, liste de débit et export, assemblages, caisson), produit par
   `tools/generer_icones.py`.
+- Géométrie pure des assemblages (`core/geometry.py`, J3a) : transformations rigides lues sur
+  `Placement.toMatrix()`, axes relatifs de deux pièces d'équerre, classement contact /
+  chevauchement / pièces séparées (tolérance 0,01 mm).
+- Stratégies d'assemblage (`core/joints/`, J3a) : tenon-mortaise, rainure-languette et feuillure
+  derrière un protocole commun et un registre figé ; proportions automatiques de menuisier
+  (0 = automatique), plan d'usinage (tenon et languette ajoutés, mortaise, rainure et feuillure
+  enlevées), refus par messages traduisibles ; paramètres immuables validés (dont ceux des
+  tourillons) ; rôles hôte / invitée devinés d'après la position des pièces.
+- Tenon-mortaise dans le document (J3b, ADR 0006) : `make_mortise_tenon(hôte, invitée, **params)`
+  relie deux pièces de bois (ou leurs pièces usinées) ; chaque pièce assemblée a une **pièce
+  usinée** (`Menuiserie::MachinedPart` : brute plus tenons, moins mortaises), la brute est
+  masquée dessous. Tenons et mortaises suivent les cotes, la position et les expressions des
+  pièces en un seul recalcul ; paramètres réglables dans l'éditeur de propriétés (0 =
+  automatique) ; déplacer une pièce usinée déplace sa brute ; erreurs traduites dans l'état de
+  l'objet, jamais de forme partielle ; réouverture contrôlée (`Version` 1), annuler / rétablir,
+  `remove_machined_part`, `machined_part_of`, `blank_of`. Pièces usinées utilisables par
+  `Part::Cut`, TechDraw et l'export STEP, et lisibles sans l'atelier (ADR 0007).
+- Rainure-languette, feuillure et tourillons dans le document (J3c) : `make_tongue_groove`,
+  `make_rabbet` et `make_dowels` (objets `Menuiserie::TongueGroove`, `Menuiserie::Rabbet` et
+  `Menuiserie::Dowels`, mêmes règles de réouverture et d'annulation que le tenon-mortaise).
+  Tourillons automatiques de menuisier : Ø 6, 8, 10 ou 12 mm sans dépasser la moitié de
+  l'épaisseur (22 mm → Ø 10 x 40), à deux diamètres du bord, entraxe de 128 mm au plus ; leur
+  nombre suit la longueur du contact ; la forme de l'assemblage montre les tourillons, les deux
+  pièces usinées sont percées (jeu de fond de 1 mm, 3 mm de fond au moins).
+- Commandes d'assemblage (J3d) dans la barre d'outils et le menu Menuiserie : **Tenon-mortaise**,
+  **Rainure-languette**, **Feuillure**, **Tourillons** (base commune `JointCommand`), actives
+  pour deux pièces distinctes sélectionnées (brutes ou usinées) et sans panneau ouvert ; rôles
+  devinés d'après la position des pièces (ordre de sélection si c'est ambigu) ; une entrée
+  d'annulation « Créer un assemblage … ». Un refus de la fabrique (pièces de deux conteneurs…)
+  est affiché dans la barre d'état et la vue rapport.
+- Affichage de la pièce usinée (`ViewProviderMachinedPart`) : icône de la pièce de bois,
+  couleur et texture de sa brute (suivent le matériau et le fil), brute rangée dessous dans
+  l'arbre ; le double-clic ouvre le panneau de la brute avec aperçu en direct ; suppression
+  refusée tant qu'elle porte des assemblages, sinon la brute réapparaît. Assemblages
+  (`ViewProviderJoint`) : icône de leur type, couleur hêtre. ViewProviders posés par l'api.
+- Captures de PR : un cadre assemblé par quatre tenons-mortaises à côté du caisson, et le
+  panneau d'un tenon-mortaise (`panneau-assemblage.png`).
+- Panneau de tâche des assemblages (J3e), commun aux quatre types et construit d'après la
+  description de leurs paramètres : pièces reliées, bouton **Inverser** (échange hôte et
+  invitée), un champ par paramètre avec case **Auto** pour les cotes automatiques (le champ
+  montre alors la valeur effective). Ouvert par les commandes d'assemblage (**Annuler** ne laisse
+  ni assemblage ni pièce usinée, les brutes réapparaissent) et par double-clic sur un assemblage
+  (entrée « Modifier un assemblage »). Aperçu en direct, erreur d'assemblage affichée dans le
+  panneau, paramètre piloté par une expression jamais écrit.
 
 ### Modifié
+- Panneaux de tâche : transactions, fermeture forcée et surveillance du document dans un socle
+  commun (`gui/task_panels/base.py`, `ObjectTaskPanel`) partagé par la pièce de bois et les
+  assemblages. L'aperçu de la pièce de bois ne recalcule plus les pages TechDraw ni les objets
+  d'autres documents.
+- `core/contact.py` : classement contact / chevauchement / pièces séparées sorti de
+  `core/geometry.py` (limite de 400 lignes par module), sans changement de comportement.
+- Apparence d'une pièce (texture et couleur) extraite du ViewProvider de la pièce de bois dans
+  `gui/part_appearance.py` (`PartAppearance`), partagée avec la pièce usinée ; l'aperçu du
+  panneau de la pièce recalcule aussi ses assemblages et sa pièce usinée.
+- `features/schema.py` : ajout, contrôle de type, `Version` et modes d'édition des propriétés
+  décrits par des `PropertySpec`, partagés par la pièce de bois, la pièce usinée et les
+  assemblages (refactorisation sans changement de comportement).
 - **Modèle de la pièce en version 2** (`MODEL_VERSION`) : migration 1 → 2 à la réouverture
   (ajout de `PreferredGrainDirection` d'après `GrainDirection`, `Length` pour une pièce sans
   fil) ; un document de version 2 ouvert par un atelier plus ancien est signalé comme plus
@@ -101,8 +157,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   chemin de `WoodPart` inchangé. Alias de type et modes d'édition partagés dans
   `features/freecad_types.py`, `translated()` déplacée de `features/library.py` vers
   `features/i18n.py` ; bibliothèque lue une fois par réouverture d'une pièce.
+- Suites de la revue de code J3, sans changement de comportement ni de document : type des
+  paramètres d'assemblage déclaré par `PARAMS`, bases communes `StatelessProxy` (proxys) et
+  `PanelEditing` (ViewProviders), aides partagées des panneaux (`UpdateGuard`,
+  `expression_of`, `aborted_on_error`, `panel_title`) et de la vue rapport (`report_warning`),
+  bornes du nombre de tourillons lues dans la propriété ; code mort retiré (`to_host`,
+  `to_guest`, `TextureCache.usable`, `BudgetedCache.clear`, `JOINT_CLASSES`).
 
 ### Corrigé
+- Panneau de la brute ouvert depuis sa pièce usinée puis fermé par FreeCAD (brute supprimée,
+  Édition > Annuler) : le mode édition est quitté même si la pièce usinée a perdu sa brute.
 - Réouverture d'un document où une propriété de la pièce a un type inattendu (par exemple
   `Category` en texte) : la propriété est recréée avec sa valeur par défaut, avec
   avertissement, au lieu de faire échouer `record_of` (#11).
@@ -122,8 +186,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Bibliothèque de matériaux vide : la commande « Pièce de bois » est inactive et, lancée
   quand même, affiche un message traduit au lieu d'une trace d'exception.
 - Avertissement d'épaisseur hors standard affiché en texte brut (`textFormat` PlainText).
+- Pièce d'un assemblage modifiée par un script (défaut D1, J3) : `HostPart` et `GuestPart` sont
+  en lecture seule dans l'éditeur de propriétés (l'inversion reste possible par « Inverser ») ;
+  modifiées quand même, l'assemblage passe en erreur avec un message traduit (supprimer puis
+  recréer l'assemblage) au lieu de rester valide sans usiner les pièces.
 
 ### Sécurité
+- Panneau des assemblages (audit de sécurité J3) : libellés des pièces hôte et invitée en texte
+  brut, libellé de l'assemblage cité tronqué et échappé dans le titre.
+- Tourillons automatiques plafonnés à 50 (`MAX_DOWEL_COUNT`), même sur un très long contact
+  (20 m), comme le nombre saisi.
 - Fermer le document pendant le panneau de création faisait planter FreeCAD 1.0 (J1c-3, audit
   B1) : le panneau est désormais fermé avec le document et la commande redevient active.
 - Une exception à l'ouverture du panneau (création ou modification) ne laisse plus ni pièce ni

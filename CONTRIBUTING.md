@@ -81,6 +81,21 @@ point d'extension prévu par la feuille de route.
 6. **Traductions** : toute chaîne visible passe par `translate()` ou `QT_TRANSLATE_NOOP`.
 7. **Unités** : mm en interne, propriétés `App::PropertyLength` pour les cotes.
 
+## Compatibilité avec les autres ateliers
+
+Exigence de jv : l'atelier reste compatible avec les autres ateliers et addons de FreeCAD
+(détails : [ADR 0007](docs/adr/0007-compatibilite-avec-les-autres-ateliers.md)).
+
+1. Tout objet géométrique est un `Part::FeaturePython` dont `Shape` est un solide valide,
+   enregistré dans le document : utilisable par TechDraw, Assembly, BIM, CAM, `Part::Cut`, STEP,
+   et visible sans l'atelier.
+2. Aucune modification globale : pas de monkey-patching, pas de préférences hors de
+   `Mod/Menuiserie`, pas d'observateur global laissé en place hors d'une opération de l'atelier.
+3. Tout est dans notre espace de noms : `freecad.menuiserie`, commandes `Menuiserie_…`, types
+   `Menuiserie::…` ; aucun nom qui imite un atelier existant (Woodworking, Assembly…).
+4. Aucune dépendance Python à l'exécution hors de FreeCAD et de la bibliothèque standard.
+5. Liens paramétriques entre objets par les expressions natives de FreeCAD (`ExpressionEngine`).
+
 ## Sécurité
 
 La CI de sécurité lance Bandit, Semgrep (règles communautaires Python, secrets et

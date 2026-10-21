@@ -10,7 +10,6 @@ d'édition. Les noms et valeurs écrits dans les documents relèvent du contrat 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Final
 
@@ -24,8 +23,10 @@ from freecad.menuiserie.core.part_model import (
     default_allowances,
     remembered_grain,
 )
+from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import EDITABLE, HIDDEN, READ_ONLY, DocumentObject
 from freecad.menuiserie.features.library import display_language
+from freecad.menuiserie.features.schema import LENGTH, PropertySpec
 
 DENSITY_UNIT: Final = "kg/m^3"
 # Décimales de la masse volumique relue (kg/m³). FreeCAD la stocke en kg/mm³ : l'aller-retour
@@ -53,166 +54,143 @@ DEFAULT_DIMENSIONS: Final = Dimensions(800.0, 200.0, 22.0)
 MODEL_VERSION: Final = 2
 
 
-@dataclass(frozen=True)
-class _PropertySpec:
-    """Propriété de la pièce : type FreeCAD, groupe, mode d'édition et infobulle."""
-
-    name: str
-    type_id: str
-    group: str
-    mode: int
-    tooltip: str
-
-
-_PROPERTIES: Final = (
-    _PropertySpec(
+PROPERTIES: Final = (
+    PropertySpec(
         "Length",
-        "App::PropertyLength",
+        LENGTH,
         "Dimensions",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Longueur finie de la pièce, mesurée selon l'axe X local."
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "Width",
-        "App::PropertyLength",
+        LENGTH,
         "Dimensions",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Largeur finie de la pièce, mesurée selon l'axe Y local."
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "Thickness",
-        "App::PropertyLength",
+        LENGTH,
         "Dimensions",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Épaisseur finie de la pièce, mesurée selon l'axe Z local."
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "Material",
         "App::PropertyEnumeration",
         "Matériau",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property", "Essence ou panneau, choisi dans la bibliothèque de matériaux."
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "MaterialId",
         "App::PropertyString",
         "Matériau",
-        READ_ONLY,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Identifiant stable du matériau dans la bibliothèque. C'est lui qui est enregistré "
             "et utilisé par les calculs.",
         ),
+        mode=READ_ONLY,
     ),
-    _PropertySpec(
+    PropertySpec(
         "Category",
         "App::PropertyEnumeration",
         "Matériau",
-        READ_ONLY,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Type de matériau, déduit du matériau choisi : massif ou panneau (contreplaqué, "
             "MDF, mélaminé).",
         ),
+        mode=READ_ONLY,
     ),
-    _PropertySpec(
+    PropertySpec(
         "Density",
         "App::PropertyDensity",
         "Matériau",
-        READ_ONLY,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Masse volumique recopiée de la bibliothèque au choix du matériau ; sert au calcul "
             "de la masse.",
         ),
+        mode=READ_ONLY,
     ),
-    _PropertySpec(
+    PropertySpec(
         "GrainDirection",
         "App::PropertyEnumeration",
         "Matériau",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Sens du fil par rapport aux cotes de la pièce : le long de la longueur, de la "
             "largeur, ou sans fil (MDF, mélaminé uni).",
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "PreferredGrainDirection",
         "App::PropertyEnumeration",
         "Matériau",
-        HIDDEN,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Dernier sens du fil choisi pour la pièce, repris quand elle revient à un matériau "
             "avec fil.",
         ),
+        mode=HIDDEN,
     ),
-    _PropertySpec(
+    PropertySpec(
         "Mark",
         "App::PropertyString",
         "Débit",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 »). Des "
             "pièces identiques peuvent partager le même repère.",
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "LengthAllowance",
-        "App::PropertyLength",
+        LENGTH,
         "Débit",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Surcote totale ajoutée à la longueur finie pour obtenir la longueur de débit.",
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "WidthAllowance",
-        "App::PropertyLength",
+        LENGTH,
         "Débit",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Surcote totale ajoutée à la largeur finie pour obtenir la largeur de débit.",
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "ThicknessAllowance",
-        "App::PropertyLength",
+        LENGTH,
         "Débit",
-        EDITABLE,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Surcote totale ajoutée à l'épaisseur finie pour obtenir l'épaisseur de débit.",
         ),
     ),
-    _PropertySpec(
+    PropertySpec(
         "Version",
         "App::PropertyInteger",
         "Base",
-        HIDDEN,
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Version du modèle de données de la pièce, utilisée pour migrer les anciens fichiers.",
         ),
+        mode=HIDDEN,
     ),
 )
-TYPE_BY_NAME: Final = MappingProxyType({spec.name: spec.type_id for spec in _PROPERTIES})
-# Mode d'édition tel que le renvoie ``getEditorMode``.
-_MODE_NAMES: Final[Mapping[int, list[str]]] = MappingProxyType(
-    {EDITABLE: [], READ_ONLY: ["ReadOnly"], HIDDEN: ["Hidden"]}
-)
+# Genre de l'objet cité par les avertissements de la réouverture.
+NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce")
 
 
 def density_quantity(value_kg_m3: float) -> Any:
@@ -291,43 +269,26 @@ def add_missing_properties(
 ) -> None:
     """Ajoute les propriétés absentes de ``obj``, à leur valeur par défaut (cf.
     :func:`_default_values`)."""
-    defaults = _default_values(obj, material)
     enumerations = {
         "Material": material_choices(library),
         "Category": list(CATEGORIES),
         "GrainDirection": list(GRAIN_DIRECTIONS),
         "PreferredGrainDirection": list(PREFERRED_GRAIN_DIRECTIONS),
     }
-    for spec in _PROPERTIES:
-        if spec.name in obj.PropertiesList:
-            continue
-        obj.addProperty(spec.type_id, spec.name, spec.group, spec.tooltip)
-        if spec.name in enumerations:
-            setattr(obj, spec.name, enumerations[spec.name])
-        if spec.name in defaults:
-            setattr(obj, spec.name, defaults[spec.name])
+    schema.add_missing_properties(obj, PROPERTIES, _default_values(obj, material), enumerations)
 
 
 def apply_editor_modes(obj: DocumentObject, *, show_grain: bool = True) -> None:
     """Modes d'édition du schéma ; ``GrainDirection`` est masquée si ``show_grain`` est faux
     (matériau sans fil). ``setEditorMode`` n'est appelé que si le mode change."""
-    for spec in _PROPERTIES:
-        if spec.name == "GrainDirection":
-            show_grain_direction(obj, show_grain)
-        elif spec.name in obj.PropertiesList:
-            set_editor_mode(obj, spec.name, spec.mode)
+    schema.apply_editor_modes(obj, [spec for spec in PROPERTIES if spec.name != "GrainDirection"])
+    show_grain_direction(obj, show_grain)
 
 
 def show_grain_direction(obj: DocumentObject, visible: bool) -> None:
     """Affiche ou masque ``GrainDirection`` dans l'éditeur de propriétés, si elle existe."""
     if "GrainDirection" in obj.PropertiesList:
-        set_editor_mode(obj, "GrainDirection", EDITABLE if visible else HIDDEN)
-
-
-def set_editor_mode(obj: DocumentObject, name: str, mode: int) -> None:
-    """Mode d'édition de la propriété ``name``, écrit seulement s'il change."""
-    if obj.getEditorMode(name) != _MODE_NAMES[mode]:
-        obj.setEditorMode(name, mode)
+        schema.set_editor_mode(obj, "GrainDirection", EDITABLE if visible else HIDDEN)
 
 
 def material_choices(library: MaterialLibrary, current: str | None = None) -> list[str]:
