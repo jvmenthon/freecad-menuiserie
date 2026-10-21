@@ -74,15 +74,20 @@ def test_reouverture_a_l_identique(document: Any, rouvrir: Reopen, scenario: Sce
 def test_version_absente_migree(document: Any, rouvrir: Reopen, scenario: Scenario) -> None:
     joint = build(document, scenario).joint
     joint.removeProperty("Version")
-    prop, _ = CHANGES.get(scenario.factory, ("", None))
-    default = joint.getPropertyByName(prop) if prop else None
-    if prop:
-        joint.removeProperty(prop)
     name = joint.Name
-    restored = by_name(rouvrir(document), name)
-    assert restored.Version == 1
-    if prop:
-        assert restored.getPropertyByName(prop) == default
+    assert by_name(rouvrir(document), name).Version == 1
+
+
+@pytest.mark.parametrize("scenario", TUNABLE, ids=lambda s: s.name)
+def test_propriete_absente_recreee(document: Any, rouvrir: Reopen, scenario: Scenario) -> None:
+    """Ancien fichier (sans ``Version``) sans une propriété du type : recréée à son défaut."""
+    joint = build(document, scenario).joint
+    joint.removeProperty("Version")
+    prop, _ = CHANGES[scenario.factory]
+    default = joint.getPropertyByName(prop)
+    joint.removeProperty(prop)
+    name = joint.Name
+    assert by_name(rouvrir(document), name).getPropertyByName(prop) == default
 
 
 # --- R1 et T5 : annuler / rétablir (comme O10) -------------------------------------------

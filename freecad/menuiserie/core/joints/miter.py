@@ -141,11 +141,11 @@ def _corner(host: PlacedBlock, guest: PlacedBlock) -> _Corner:
     guest_box = moved_box(guest.local_box(), to_host)
     host_runs = [_run(host.local_box(), common, axis) for axis in range(3)]
     guest_runs = [_run(guest_box, common, axis) for axis in range(3)]
+    flush = [axis for axis in range(3) if not host_runs[axis] and not guest_runs[axis]]
+    if not flush:  # avant les dépassements : une pièce plus épaisse et centrée dépasse des deux
+        raise JointError(NOT_FLUSH, {})
     if _BOTH_SIDES in host_runs + guest_runs:
         raise JointError(NOT_SAME_CORNER, {})
-    flush = [axis for axis in range(3) if not host_runs[axis] and not guest_runs[axis]]
-    if not flush:
-        raise JointError(NOT_FLUSH, {})
     host_axes = [axis for axis in range(3) if host_runs[axis] and not guest_runs[axis]]
     guest_axes = [axis for axis in range(3) if guest_runs[axis] and not host_runs[axis]]
     if len(flush) != 1 or len(host_axes) != 1 or len(guest_axes) != 1:

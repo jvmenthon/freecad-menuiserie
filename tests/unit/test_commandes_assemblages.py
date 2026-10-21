@@ -22,7 +22,6 @@ from tests.unit.aides import ROOT
 PACKAGE = ROOT / "freecad" / "menuiserie"
 COMMANDS = PACKAGE / "gui" / "commands" / "joints.py"
 VIEW_PROVIDERS = PACKAGE / "gui" / "view_providers"
-EXPECTED = COMMANDES_ASSEMBLAGE
 
 
 def tree(path: Path) -> ast.Module:
@@ -91,29 +90,29 @@ def api_functions() -> set[str]:
 
 
 def test_une_commande_par_type() -> None:
-    assert set(joint_commands()) == set(EXPECTED)
+    assert set(joint_commands()) == set(COMMANDES_ASSEMBLAGE)
 
 
 def test_noms_des_commandes_selon_les_types() -> None:
     """Types de J3b (et J3c une fois fusionné) : ``Menuiserie_<JointKind.value>``."""
-    assert {f"Menuiserie_{kind.value}" for kind in JointKind} <= set(EXPECTED)
+    assert {f"Menuiserie_{kind.value}" for kind in JointKind} <= set(COMMANDES_ASSEMBLAGE)
 
 
 def test_commandes_dans_la_barre_et_le_menu() -> None:
     """Seule vérification du tuple complet des commandes de l'atelier (revue J3d, S6)."""
-    assert init_gui_commands() == ("Menuiserie_WoodPart", *EXPECTED)
+    assert init_gui_commands() == ("Menuiserie_WoodPart", *COMMANDES_ASSEMBLAGE)
 
 
-@pytest.mark.parametrize("name", list(EXPECTED))
+@pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))
 def test_icone_existante(name: str) -> None:
     """Icône de la commande et de l'assemblage dans l'arbre (``Menuiserie_<type>.svg``)."""
     assert (ICONS_DIR / f"{name}.svg").is_file()
 
 
-@pytest.mark.parametrize("name", list(EXPECTED))
+@pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))
 def test_textes_traduisibles_dans_le_contexte_de_la_commande(name: str) -> None:
     attributes = joint_commands()[name]
-    label, _factory = EXPECTED[name]
+    label, _factory = COMMANDES_ASSEMBLAGE[name]
     assert noop(attributes["MENU_TEXT"]) == (name, label)
     context, tool_tip = noop(attributes["TOOL_TIP"])
     assert context == name
@@ -135,13 +134,13 @@ def test_transaction_de_la_commande(name: str, text: str) -> None:
     assert noop(joint_commands()[name]["TRANSACTION"])[1] == text
 
 
-@pytest.mark.parametrize("name", list(EXPECTED))
+@pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))
 def test_fabrique_de_l_api_referencee(name: str) -> None:
     """``FACTORY = api.make_…`` : référence directe, vérifiée à l'import (revue J3d, S2)."""
     factory = joint_commands()[name]["FACTORY"]
     assert isinstance(factory, ast.Attribute)
     assert isinstance(factory.value, ast.Name)
-    assert (factory.value.id, factory.attr) == ("api", EXPECTED[name][1])
+    assert (factory.value.id, factory.attr) == ("api", COMMANDES_ASSEMBLAGE[name][1])
     assert factory.attr in api_functions()
 
 

@@ -222,8 +222,9 @@ def test_refus_pas_au_meme_coin(guest: PlacedBlock) -> None:
     [
         block((500.0, 60.0, 22.0), (60.0, 0.0, 0.0), 90.0),  # plus épaisse
         block((500.0, 60.0, 20.0), (60.0, 0.0, 5.0), 90.0),  # décalée
+        block((500.0, 60.0, 24.0), (60.0, 0.0, -2.0), 90.0),  # plus épaisse et centrée
     ],
-    ids=["épaisseurs", "décalée"],
+    ids=["épaisseurs", "décalée", "centrée"],
 )
 def test_refus_pas_a_fleur(guest: PlacedBlock) -> None:
     refused((block((500.0, 60.0, 20.0)), guest), FLUSH)
@@ -259,3 +260,13 @@ def test_boite_commune_coupee_en_deux() -> None:
     guest_cut = moved(result.guest_cut, relative_transform(host, guest))
     halves = removed(result.host_cut, common) + removed(guest_cut, common)
     assert halves == pytest.approx(40 * 60 * 20)
+
+
+def test_invitee_retournee() -> None:
+    """Invitée retournée (épaisseur vers le bas), mêmes faces : même coupe, mêmes pertes."""
+    flipped = [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]]
+    host = block((500.0, 60.0, 20.0))
+    guest = placed((500.0, 60.0, 20.0), flipped, (0.0, 0.0, 20.0))
+    result = values((host, guest))
+    assert (result.host_angle, result.guest_angle) == (45.0, 45.0)
+    assert lost((host, guest)) == pytest.approx((36_000, 36_000))

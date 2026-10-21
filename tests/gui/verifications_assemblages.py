@@ -31,7 +31,6 @@ from tests.gui.verifications_panneau import (
     valider,
 )
 
-COMMANDES = COMMANDES_ASSEMBLAGE
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
 CREATION = "Créer un assemblage tenon-mortaise"
 MODULES = "freecad.menuiserie.gui.view_providers"
@@ -140,7 +139,7 @@ def apparence(vobj: Any) -> tuple[object, ...]:
 def verifier_commandes_d_assemblage_presentes() -> list[str]:
     """C1 : libellés, icônes existantes, barre d'outils et menu Menuiserie."""
     problemes = []
-    for nom, (libelle, _fabrique) in COMMANDES.items():
+    for nom, (libelle, _fabrique) in COMMANDES_ASSEMBLAGE.items():
         commande = Gui.Command.get(nom)
         if commande is None:
             problemes.append(f"{nom} non enregistrée")
@@ -160,14 +159,14 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
 
 
 def actives() -> dict[str, bool]:
-    return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES}
+    return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
 
 
 def attendues(actives_si_fabrique: bool) -> dict[str, bool]:
     """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois)."""
     return {
         nom: actives_si_fabrique and hasattr(api, fabrique)
-        for nom, (_libelle, fabrique) in COMMANDES.items()
+        for nom, (_libelle, fabrique) in COMMANDES_ASSEMBLAGE.items()
     }
 
 

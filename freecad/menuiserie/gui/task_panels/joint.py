@@ -11,7 +11,7 @@ pièces usinées (aperçu) ; une erreur d'assemblage s'affiche dans le panneau s
 
 from __future__ import annotations
 
-from dataclasses import fields
+from dataclasses import fields, is_dataclass
 from functools import partial
 from typing import Final
 
@@ -153,11 +153,11 @@ def _resolved(joint: DocumentObject) -> object | None:
 def _summary(proxy: JointFeature, resolved: object | None) -> str | None:
     """Valeurs effectives hors des champs (angles de l'onglet) : gabarit ``SUMMARY`` du type
     rempli avec les nombres de ``resolve`` ; ``None`` sans gabarit ou sans valeurs."""
-    if not proxy.SUMMARY or resolved is None:
+    if not proxy.SUMMARY or not is_dataclass(resolved):
         return None
     numbers = {
         item.name: mm_text(value)
-        for item in fields(resolved)  # type: ignore[arg-type]
+        for item in fields(resolved)
         if isinstance(value := getattr(resolved, item.name), float)
     }
     return translated(proxy.SUMMARY, numbers)
