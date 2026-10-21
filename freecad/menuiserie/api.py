@@ -26,6 +26,7 @@ import FreeCAD as App
 
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.joints.factories import (
+    create_dovetail,
     create_dowels,
     create_half_lap,
     create_mortise_tenon,
@@ -44,6 +45,7 @@ __all__ = [
     "blank_of",
     "is_machined_part",
     "machined_part_of",
+    "make_dovetail",
     "make_dowels",
     "make_half_lap",
     "make_mortise_tenon",
@@ -146,6 +148,19 @@ def make_half_lap(host: DocumentObject, guest: DocumentObject, **params: object)
     absence de transaction que :func:`make_mortise_tenon`.
     """
     return _make_joint(create_half_lap, host, guest, params)
+
+
+def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie à queue d'aronde traversante ``guest`` (pièce à queues, en contact par son bout,
+    dessinée à sa longueur visible) et ``host`` (pièce à griffes, hors tout, son bout à fleur
+    de la face extérieure de ``guest``), puis recalcule le document.
+
+    Paramètres facultatifs, 0 = automatique : ``tail_count`` (nombre de queues),
+    ``pin_width`` (largeur des griffes au plus étroit, en mm, le tiers de l'épaisseur de
+    ``host``), ``slope`` (pente 1:n, 1:6). Mêmes validations et même absence de transaction que
+    :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_dovetail, host, guest, params)
 
 
 _JointFactory = Callable[..., DocumentObject]

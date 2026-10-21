@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface des assemblages (J3d) : commandes, pièce usinée, assemblage.
 
-Critères C1 à C7 de ``docs/specs/J3-assemblages.md`` (et B4 de ``J4-ensembles.md`` pour la
-commande du mi-bois). Module importé par ``verifier_atelier.py`` (lancé par FreeCAD hors écran) :
-chaque vérification renvoie la liste de ses problèmes. Le cadre de référence (§ 3) est construit
-par l'api ; les commandes sont lancées sur la sélection.
+Critères C1 à C7 de ``docs/specs/J3-assemblages.md`` (et B4, D6 de ``J4-ensembles.md`` pour
+les commandes du mi-bois et de la queue d'aronde). Module importé par ``verifier_atelier.py``
+(lancé par FreeCAD hors écran) : chaque vérification renvoie la liste de ses problèmes. Le cadre
+de référence (§ 3) est construit par l'api ; les commandes sont lancées sur la sélection.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ COMMANDES = {
     "Menuiserie_Rabbet": ("Feuillure", "make_rabbet"),
     "Menuiserie_Dowels": ("Tourillons", "make_dowels"),
     "Menuiserie_HalfLap": ("Mi-bois", "make_half_lap"),
+    "Menuiserie_Dovetail": ("Queue d'aronde", "make_dovetail"),
 }
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
 CREATION = "Créer un assemblage tenon-mortaise"
