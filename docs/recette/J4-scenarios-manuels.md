@@ -28,7 +28,7 @@ joues, voile, deux jeux de tourillons). Ne pas encore créer l'ensemble.
 |---|---|---|
 | 2.1 | Créer une **Pièce de bois** « Tablette » (800 × 300 × 18) posée entre les joues, puis la sélectionner avec l'ensemble, bouton **Ajouter à l'ensemble**. | Elle apparaît sous l'ensemble, avec ses propriétés du groupe « Ensemble » ; les autres pièces gardent leurs options. |
 | 2.2 | Double-clic sur l'ensemble, choisir Tablette. | Elle figure dans la liste des membres avec ses six distances. |
-| 2.3 | Console Python : `from freecad.menuiserie import api; api.remove_from_furniture([App.ActiveDocument.getObject("Tablette")])` (pas de bouton en J4). | Elle garde sa forme, sans expression ni propriété « Ensemble ». *Annuler* la remet. |
+| 2.3 | Sélectionner la tablette, puis la commande *Retirer de l'ensemble*. | Elle garde sa forme, sans expression ni propriété « Ensemble ». *Annuler* la remet. |
 | 2.4 | Tenter d'ajouter une pièce déjà membre d'un autre ensemble. | Refus avec un message en français, rien n'est modifié. |
 
 ## 3. Changer les cotes, distances fixes et non fixes
