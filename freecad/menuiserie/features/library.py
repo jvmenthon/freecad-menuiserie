@@ -23,7 +23,7 @@ from freecad.menuiserie.core.materials import (
     Severity,
     load_library,
 )
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import console_text, translated
 
 PARAM_PATH: Final = "User parameter:BaseApp/Preferences/Mod/Menuiserie"
 USER_LIBRARY_PARAM: Final = "UserLibraryPath"
@@ -72,7 +72,7 @@ def _console_writer(severity: Severity) -> Callable[[str], None]:
 def report_issues(issues: Iterable[LibraryIssue]) -> None:
     """Écrit chaque anomalie dans la vue rapport : erreur, avertissement ou journal."""
     for issue in issues:
-        _console_writer(issue.severity)(f"Menuiserie : {issue_message(issue)}\n")
+        _console_writer(issue.severity)(console_text(issue_message(issue)))
 
 
 @cache

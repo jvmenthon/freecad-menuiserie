@@ -12,10 +12,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import FreeCAD as App
-
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.machined_part import removal_refusal, show_blank
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.part_appearance import PartAppearance, material_color_of
@@ -76,7 +75,7 @@ class ViewProviderMachinedPart(PanelEditing):
         obj = vobj.Object
         refusal = removal_refusal(obj)
         if refusal is not None:
-            App.Console.PrintWarning(f"Menuiserie : {refusal}\n")
+            report_warning(refusal)
             return False
         show_blank(getattr(obj, "Base", None))
         return True

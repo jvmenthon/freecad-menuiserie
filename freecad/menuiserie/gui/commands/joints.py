@@ -21,7 +21,7 @@ from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import guess_roles
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.wood_part import is_wood_part
@@ -174,7 +174,7 @@ def ordered_roles(
 
 def report_refusal(message: str) -> None:
     """Refus de la fabrique : barre d'état de la fenêtre principale et vue rapport."""
-    App.Console.PrintWarning(f"Menuiserie : {message}\n")
+    report_warning(message)
     window = Gui.getMainWindow()
     if window is not None:
         window.statusBar().showMessage(message, REFUSAL_DISPLAY_MS)
