@@ -13,6 +13,8 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import Board
+
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
@@ -29,15 +31,6 @@ GREY_MDF = {
     "thicknesses": [19],
     "color": "#8A8A8A",
 }
-
-
-def board(doc: Any, material_id: str = "chene", grain: str = "Length") -> Any:
-    """Pièce recalculée du matériau donné, fil réglé comme par l'éditeur de propriétés."""
-    obj = wood_part.create_wood_part(doc, material_id=material_id)
-    if grain != obj.GrainDirection:
-        obj.GrainDirection = grain
-    doc.recompute()
-    return obj
 
 
 def grain(obj: Any) -> tuple[str, str]:
@@ -59,7 +52,7 @@ def in_transaction(doc: Any, change: Callable[[], None]) -> None:
 # --- C10 (1) : tous les chemins ------------------------------------------------------------
 
 
-def test_set_material_retrouve_le_sens_memorise(document: Any) -> None:
+def test_set_material_retrouve_le_sens_memorise(document: Any, board: Board) -> None:
     obj = board(document, grain="Width")
     assert obj.PreferredGrainDirection == "Width"
     wood_part.set_material(obj, "mdf")
@@ -68,7 +61,7 @@ def test_set_material_retrouve_le_sens_memorise(document: Any) -> None:
     assert grain(obj) == ("Width", "Width")
 
 
-def test_editeur_de_proprietes_retrouve_le_sens_memorise(document: Any) -> None:
+def test_editeur_de_proprietes_retrouve_le_sens_memorise(document: Any, board: Board) -> None:
     obj = board(document, grain="Width")
     obj.Material = "MDF"
     assert grain(obj) == ("None", "Width")
@@ -76,14 +69,14 @@ def test_editeur_de_proprietes_retrouve_le_sens_memorise(document: Any) -> None:
     assert grain(obj) == ("Width", "Width")
 
 
-def test_passage_par_un_autre_materiau_avec_fil(document: Any) -> None:
+def test_passage_par_un_autre_materiau_avec_fil(document: Any, board: Board) -> None:
     obj = board(document, grain="Width")
     wood_part.set_material(obj, "mdf")
     wood_part.set_material(obj, "cp-bouleau")
     assert grain(obj) == ("Width", "Width")
 
 
-def test_sans_fil_n_efface_pas_la_memoire(document: Any) -> None:
+def test_sans_fil_n_efface_pas_la_memoire(document: Any, board: Board) -> None:
     obj = board(document, grain="Width")
     obj.GrainDirection = "None"
     assert grain(obj) == ("None", "Width")
@@ -91,7 +84,7 @@ def test_sans_fil_n_efface_pas_la_memoire(document: Any) -> None:
     assert obj.PreferredGrainDirection == "Length"
 
 
-def test_piece_creee_en_mdf(document: Any) -> None:
+def test_piece_creee_en_mdf(document: Any, board: Board) -> None:
     obj = board(document, "mdf", grain="None")
     assert grain(obj) == ("None", "Length")
     wood_part.set_material(obj, "chene")
@@ -101,7 +94,7 @@ def test_piece_creee_en_mdf(document: Any) -> None:
 # --- C10 (2) et (3) : réouverture, annulation ----------------------------------------------
 
 
-def test_memoire_enregistree(document: Any, rouvrir: Reopen) -> None:
+def test_memoire_enregistree(document: Any, rouvrir: Reopen, board: Board) -> None:
     obj = board(document, grain="Width")
     wood_part.set_material(obj, "mdf")
     document.recompute()
@@ -113,7 +106,7 @@ def test_memoire_enregistree(document: Any, rouvrir: Reopen) -> None:
     assert restored.GrainDirection == "Width"
 
 
-def test_la_memoire_suit_l_annulation(document: Any) -> None:
+def test_la_memoire_suit_l_annulation(document: Any, board: Board) -> None:
     document.UndoMode = 1
     obj = board(document)
     steps = (
@@ -141,7 +134,9 @@ def as_version_1(obj: Any) -> None:
     obj.Version = 1
 
 
-def test_migration_1_vers_2_d_une_piece_en_largeur(document: Any, rouvrir: Reopen) -> None:
+def test_migration_1_vers_2_d_une_piece_en_largeur(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
     obj = board(document, grain="Width")
     as_version_1(obj)
     name = obj.Name
@@ -154,7 +149,9 @@ def test_migration_1_vers_2_d_une_piece_en_largeur(document: Any, rouvrir: Reope
 
 
 @pytest.mark.parametrize("version", [0, 1])
-def test_migration_d_une_piece_en_mdf(document: Any, rouvrir: Reopen, version: int) -> None:
+def test_migration_d_une_piece_en_mdf(
+    document: Any, rouvrir: Reopen, version: int, board: Board
+) -> None:
     obj = board(document, "mdf", grain="None")
     as_version_1(obj)
     if version == 0:
@@ -179,7 +176,7 @@ def preference_warnings(vue_rapport: Any) -> list[str]:
 
 @pytest.mark.parametrize(("grain_value", "expected"), [("Width", "Width"), ("None", "Length")])
 def test_valeur_inconnue_remplacee(
-    document: Any, rouvrir: Reopen, vue_rapport: Any, grain_value: str, expected: str
+    document: Any, rouvrir: Reopen, vue_rapport: Any, grain_value: str, expected: str, board: Board
 ) -> None:
     obj = board(document, "mdf" if grain_value == "None" else "chene", grain=grain_value)
     with_unknown_preference(obj)
@@ -192,7 +189,7 @@ def test_valeur_inconnue_remplacee(
 
 
 def test_valeur_inconnue_gardee_dans_un_document_plus_recent(
-    document: Any, rouvrir: Reopen, vue_rapport: Any
+    document: Any, rouvrir: Reopen, vue_rapport: Any, board: Board
 ) -> None:
     obj = board(document, grain="Width")
     obj.Version = wood_part.WoodPart.VERSION + 1
@@ -209,7 +206,9 @@ def test_valeur_inconnue_gardee_dans_un_document_plus_recent(
     assert restored.PreferredGrainDirection == "Diagonal"  # « Sans fil » ne l'efface pas
 
 
-def test_type_inattendu_recree(document: Any, rouvrir: Reopen, vue_rapport: Any) -> None:
+def test_type_inattendu_recree(
+    document: Any, rouvrir: Reopen, vue_rapport: Any, board: Board
+) -> None:
     obj = board(document, grain="Width")
     obj.removeProperty("PreferredGrainDirection")
     obj.addProperty("App::PropertyString", "PreferredGrainDirection")
@@ -225,7 +224,7 @@ def test_type_inattendu_recree(document: Any, rouvrir: Reopen, vue_rapport: Any)
 # --- C11 : fil masqué pour un matériau sans fil --------------------------------------------
 
 
-def test_fil_masque_a_la_creation(document: Any) -> None:
+def test_fil_masque_a_la_creation(document: Any, board: Board) -> None:
     oak = board(document)
     mdf = board(document, "mdf", grain="None")
     assert grain_mode(oak) == EDITABLE
@@ -235,7 +234,7 @@ def test_fil_masque_a_la_creation(document: Any) -> None:
     assert not wood_part.shows_grain(mdf)
 
 
-def test_fil_masque_puis_affiche(document: Any) -> None:
+def test_fil_masque_puis_affiche(document: Any, board: Board) -> None:
     obj = board(document)
     wood_part.set_material(obj, "mdf")
     assert grain_mode(obj) == HIDDEN
@@ -243,7 +242,7 @@ def test_fil_masque_puis_affiche(document: Any) -> None:
     assert grain_mode(obj) == EDITABLE
 
 
-def test_le_masquage_suit_l_annulation(document: Any) -> None:
+def test_le_masquage_suit_l_annulation(document: Any, board: Board) -> None:
     document.UndoMode = 1
     obj = board(document)
     in_transaction(document, lambda: wood_part.set_material(obj, "mdf"))
@@ -253,7 +252,7 @@ def test_le_masquage_suit_l_annulation(document: Any) -> None:
     assert (obj.MaterialId, grain_mode(obj)) == ("mdf", HIDDEN)
 
 
-def test_masquage_apres_reouverture(document: Any, rouvrir: Reopen) -> None:
+def test_masquage_apres_reouverture(document: Any, rouvrir: Reopen, board: Board) -> None:
     names = (board(document, "mdf", grain="None").Name, board(document).Name)
     restored = rouvrir(document)
     modes = [grain_mode(restored.getObject(name)) for name in names]
@@ -261,7 +260,7 @@ def test_masquage_apres_reouverture(document: Any, rouvrir: Reopen) -> None:
 
 
 def test_materiau_inconnu_localement_de_categorie_mdf(
-    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any
+    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, board: Board
 ) -> None:
     bibliotheque_temporaire.installer(GREY_MDF)
     name = board(document, "mdf-gris", grain="None").Name

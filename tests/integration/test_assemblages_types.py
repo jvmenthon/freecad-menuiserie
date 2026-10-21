@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from tests.integration.cadre import touched
+from tests.integration.cadre import stale_or_invalid
 from tests.integration.types_assemblages import (
     DOWEL_HOLE_VOLUME,
     DOWEL_VOLUME,
@@ -67,7 +67,7 @@ def test_volumes_et_placements(document: Any, scenario: Scenario) -> None:
     assert montage.joint.isValid()
     assert montage.joint.Placement == montage.host.Placement
     assert montage.host.Visibility is False
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
@@ -148,7 +148,7 @@ def test_traverse_de_45_tout_automatique(document: Any) -> None:
     assert volumes == pytest.approx(
         [600 * 60 * 22 - DOWEL_HOLE_VOLUME, 280 * 45 * 22 - DOWEL_HOLE_VOLUME]
     )
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 # --- R2 : panneau en rainure-languette dans un montant -----------------------------------
@@ -172,7 +172,7 @@ def test_panneau_en_rainure(document: Any) -> None:
     )
     groove = api.machined_part_of(montage.host).Shape
     assert groove.isValid()
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 def test_la_rainure_suit_le_panneau(document: Any) -> None:
@@ -191,7 +191,7 @@ def test_la_rainure_suit_le_panneau(document: Any) -> None:
     montage.joint.ThroughGroove = True
     document.recompute()
     assert montage.volumes()[0] == pytest.approx(800 * 60 * 22 - 800 * 11 * 10)
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 # --- T4 : le nombre de tourillons suit le contact ----------------------------------------
@@ -220,7 +220,7 @@ def test_le_nombre_de_tourillons_suit(document: Any) -> None:
     assert rail.Width.Value == 250
     assert dowel_count(joint) == 3
     assert montage.volumes()[0] == pytest.approx(500 * 60 * 22 - 3 * DOWEL_HOLE_VOLUME)
-    assert touched(document) == []
+    assert stale_or_invalid(document) == []
 
 
 def test_tourillons_impossibles_en_erreur(document: Any) -> None:

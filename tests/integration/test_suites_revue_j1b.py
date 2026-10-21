@@ -10,6 +10,8 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import Board
+
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
@@ -21,13 +23,6 @@ materials = pytest.importorskip("freecad.menuiserie.core.materials")
 
 Reopen = Callable[[Any], Any]
 HOSTILE = "\n‮" + "x" * 40
-
-
-def board(doc: Any, material_id: str = "chene") -> Any:
-    """Pièce de 800 x 200 x 22 mm du matériau donné, recalculée."""
-    obj = wood_part.create_wood_part(doc, material_id=material_id)
-    doc.recompute()
-    return obj
 
 
 def retype(obj: Any, name: str, type_id: str, value: object) -> None:
@@ -57,7 +52,7 @@ UNITS = {"Length": "mm", "Density": "kg/m^3"}
     ids=["ancien", "courant", "plus-recent"],
 )
 def test_categorie_d_un_type_inattendu_recreee(
-    document: Any, rouvrir: Reopen, vue_rapport: Any, version: int
+    document: Any, rouvrir: Reopen, vue_rapport: Any, version: int, board: Board
 ) -> None:
     obj = board(document, "mdf")
     obj.Version = version
@@ -88,7 +83,11 @@ RETYPED = [
 
 @pytest.mark.parametrize("case", RETYPED, ids=["cote", "repere", "fil", "masse-volumique"])
 def test_chaque_propriete_d_un_type_inattendu_recreee(
-    document: Any, rouvrir: Reopen, vue_rapport: Any, case: tuple[str, str, object, object]
+    document: Any,
+    rouvrir: Reopen,
+    vue_rapport: Any,
+    case: tuple[str, str, object, object],
+    board: Board,
 ) -> None:
     name, type_id, value, expected = case
     obj = board(document, "mdf")
@@ -108,7 +107,7 @@ def test_chaque_propriete_d_un_type_inattendu_recreee(
 
 
 def test_proprietes_bien_typees_sans_avertissement(
-    document: Any, rouvrir: Reopen, vue_rapport: Any
+    document: Any, rouvrir: Reopen, vue_rapport: Any, board: Board
 ) -> None:
     obj = board(document)
     name = obj.Name
@@ -121,7 +120,7 @@ def test_proprietes_bien_typees_sans_avertissement(
 # --- Document d'une version plus récente : valeurs d'énumération inconnues gardées --------
 
 
-def future_part(doc: Any) -> Any:
+def future_part(board: Board, doc: Any) -> Any:
     """Pièce d'une version plus récente dont les énumérations ont une valeur ajoutée en fin de
     liste."""
     obj = board(doc)
@@ -134,9 +133,9 @@ def future_part(doc: Any) -> Any:
 
 
 def test_version_plus_recente_garde_les_valeurs_inconnues(
-    document: Any, rouvrir: Reopen, vue_rapport: Any
+    document: Any, rouvrir: Reopen, vue_rapport: Any, board: Board
 ) -> None:
-    name = future_part(document).Name
+    name = future_part(board, document).Name
     vue_rapport.messages.clear()
     restored = rouvrir(rouvrir(document)).getObject(name)
     assert (restored.Version, restored.Category, restored.GrainDirection) == (
@@ -156,7 +155,7 @@ def test_version_plus_recente_garde_les_valeurs_inconnues(
 
 
 def test_version_plus_recente_valeur_connue_liste_canonique(
-    document: Any, rouvrir: Reopen, vue_rapport: Any
+    document: Any, rouvrir: Reopen, vue_rapport: Any, board: Board
 ) -> None:
     obj = board(document, "mdf")
     obj.Version = schema.MODEL_VERSION + 1
@@ -175,7 +174,7 @@ def test_version_plus_recente_valeur_connue_liste_canonique(
 
 @pytest.mark.parametrize("material_id", ["chene", "hetre", "cp-bouleau", "mdf"])
 def test_masse_volumique_exacte_apres_reouverture(
-    document: Any, rouvrir: Reopen, material_id: str
+    document: Any, rouvrir: Reopen, material_id: str, board: Board
 ) -> None:
     obj = board(document, material_id)
     expected = library.get_library().get(material_id).density
@@ -188,7 +187,7 @@ def test_masse_volumique_exacte_apres_reouverture(
 # --- Matériau de la pièce d'après MaterialId : une seule aide -----------------------------
 
 
-def test_materiau_enregistre_d_apres_son_identifiant(document: Any) -> None:
+def test_materiau_enregistre_d_apres_son_identifiant(document: Any, board: Board) -> None:
     obj = board(document, "mdf")
     current = library.get_library()
     assert restore.stored_material(obj, current) is current.get("mdf")
@@ -200,7 +199,7 @@ def test_materiau_enregistre_d_apres_son_identifiant(document: Any) -> None:
     assert restore.stored_material(obj, materials.MaterialLibrary(())) is None
 
 
-def test_famille_par_defaut_partagee(document: Any) -> None:
+def test_famille_par_defaut_partagee(document: Any, board: Board) -> None:
     current = library.get_library()
     assert schema.material_kind(current.get("mdf")) is materials.MaterialKind.MDF
     assert schema.material_kind(None) is materials.MaterialKind.SOLID
@@ -214,7 +213,7 @@ def test_famille_par_defaut_partagee(document: Any) -> None:
 
 
 def test_bibliotheque_lue_une_fois_par_piece_rouverte(
-    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch
+    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, board: Board
 ) -> None:
     obj = board(document)
     obj.removeProperty("Version")

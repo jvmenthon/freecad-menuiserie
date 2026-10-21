@@ -15,6 +15,8 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import Board, touched_names
+
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
@@ -34,13 +36,6 @@ MAPLE = {
 }
 
 
-def board(doc: Any, material_id: str = "chene") -> Any:
-    """Pièce de 800 x 200 x 22 mm du matériau donné, recalculée."""
-    obj = wood_part.create_wood_part(doc, material_id=material_id)
-    doc.recompute()
-    return obj
-
-
 def material_state(obj: Any) -> tuple[object, ...]:
     """Matériau, catégorie, fil, surcotes et masse volumique (arrondie) de la pièce."""
     return (
@@ -55,16 +50,12 @@ def material_state(obj: Any) -> tuple[object, ...]:
     )
 
 
-def touched(doc: Any) -> list[str]:
-    return [o.Name for o in doc.Objects if "Touched" in o.State]
-
-
 # --- B3, B6 : cotes extrêmes --------------------------------------------------------------
 
 
 @pytest.mark.parametrize("name", ["Length", "Width", "Thickness"])
 @pytest.mark.parametrize("value", [0.1, 20_000])
-def test_cote_aux_bornes_acceptee(document: Any, name: str, value: float) -> None:
+def test_cote_aux_bornes_acceptee(document: Any, name: str, value: float, board: Board) -> None:
     obj = board(document)
     setattr(obj, name, value)
     document.recompute()
@@ -75,7 +66,9 @@ def test_cote_aux_bornes_acceptee(document: Any, name: str, value: float) -> Non
 
 @pytest.mark.parametrize("name", ["Length", "Width", "Thickness"])
 @pytest.mark.parametrize("value", [0.09, 20_000.001, 1e9, float("inf")])
-def test_cote_hors_bornes_en_erreur_puis_reparee(document: Any, name: str, value: float) -> None:
+def test_cote_hors_bornes_en_erreur_puis_reparee(
+    document: Any, name: str, value: float, board: Board
+) -> None:
     obj = board(document)
     placement = App.Placement(App.Vector(5, -7, 9), App.Rotation(15, 30, 45))
     obj.Placement = placement
@@ -90,7 +83,7 @@ def test_cote_hors_bornes_en_erreur_puis_reparee(document: Any, name: str, value
     assert obj.Placement.isSame(placement, 1e-9)
 
 
-def test_cote_negative_par_expression_met_en_erreur(document: Any) -> None:
+def test_cote_negative_par_expression_met_en_erreur(document: Any, board: Board) -> None:
     obj = board(document)
     obj.setExpression("Length", "Width - 1000 mm")
     document.recompute()
@@ -105,7 +98,9 @@ def test_cote_negative_par_expression_met_en_erreur(document: Any) -> None:
 @pytest.mark.parametrize(
     "expression", ["Width - 200 mm", "Width - 1000 mm"], ids=["nulle", "negative"]
 )
-def test_cote_par_expression_nulle_ou_negative_en_erreur(document: Any, expression: str) -> None:
+def test_cote_par_expression_nulle_ou_negative_en_erreur(
+    document: Any, expression: str, board: Board
+) -> None:
     """B6 : FreeCAD peut écrire une cote ≤ 0 calculée par une expression (le moteur
     d'expressions n'est pas contraint) ; l'objet passe alors en erreur, sans exception. Une
     valeur négative saisie directement, elle, n'est jamais retenue."""
@@ -122,7 +117,7 @@ def test_cote_par_expression_nulle_ou_negative_en_erreur(document: Any, expressi
 # --- B4, B7 : expressions -----------------------------------------------------------------
 
 
-def test_expression_entre_deux_pieces(document: Any) -> None:
+def test_expression_entre_deux_pieces(document: Any, board: Board) -> None:
     source, target = board(document), board(document)
     target.setExpression("Length", f"{source.Name}.Width * 2")
     source.Width = 300
@@ -131,7 +126,9 @@ def test_expression_entre_deux_pieces(document: Any) -> None:
     assert target.isValid()
 
 
-def test_expression_conservee_a_la_reouverture(document: Any, rouvrir: Reopen) -> None:
+def test_expression_conservee_a_la_reouverture(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
     obj = board(document)
     obj.setExpression("Length", "Width * 4")
     obj.Placement = App.Placement(App.Vector(1, 2, 3), App.Rotation(10, 20, 30))
@@ -141,7 +138,7 @@ def test_expression_conservee_a_la_reouverture(document: Any, rouvrir: Reopen) -
     restored = reopened.getObject(name)
     assert restored.ExpressionEngine == [("Length", "Width * 4")]
     assert restored.Placement.isSame(placement, 1e-9)
-    assert touched(reopened) == []
+    assert touched_names(reopened) == []
     restored.Width = 300
     reopened.recompute()
     assert restored.Length.Value == pytest.approx(1200)
@@ -161,18 +158,18 @@ EDITS = [
 
 
 @pytest.mark.parametrize(("name", "value"), EDITS, ids=[name for name, _ in EDITS])
-def test_recalcul_apres_modification(document: Any, name: str, value: object) -> None:
+def test_recalcul_apres_modification(document: Any, name: str, value: object, board: Board) -> None:
     obj = board(document)
     setattr(obj, name, value)
     document.recompute()
     assert obj.isValid()
-    assert touched(document) == []
+    assert touched_names(document) == []
     assert obj.Shape.Volume == pytest.approx(3_520_000)
     assert getattr(obj, name) == value or getattr(obj, name).Value == value
     assert wood_part.record_of(obj).finished == part_model.Dimensions(800, 200, 22)
 
 
-def test_surcote_negative_jamais_retenue(document: Any) -> None:
+def test_surcote_negative_jamais_retenue(document: Any, board: Board) -> None:
     obj = board(document)
     obj.LengthAllowance = -5
     assert obj.LengthAllowance.Value >= 0
@@ -189,7 +186,7 @@ CHAIN = [
 ]
 
 
-def test_changements_de_materiau_en_chaine(document: Any) -> None:
+def test_changements_de_materiau_en_chaine(document: Any, board: Board) -> None:
     obj = board(document)
     for label, expected in CHAIN:
         obj.Material = label
@@ -199,14 +196,16 @@ def test_changements_de_materiau_en_chaine(document: Any) -> None:
     assert obj.isValid()
 
 
-def test_materiau_choisi_par_son_rang(document: Any) -> None:
+def test_materiau_choisi_par_son_rang(document: Any, board: Board) -> None:
     obj = board(document)
     labels = obj.getEnumerationsOfProperty("Material")
     obj.Material = labels.index("Noyer")
     assert (obj.Material, obj.MaterialId) == ("Noyer", "noyer")
 
 
-def test_surcotes_choisies_sur_panneau_conservees_en_revenant_au_massif(document: Any) -> None:
+def test_surcotes_choisies_sur_panneau_conservees_en_revenant_au_massif(
+    document: Any, board: Board
+) -> None:
     obj = board(document, "mdf")
     obj.LengthAllowance = 3
     wood_part.set_material(obj, "chene")
@@ -214,7 +213,7 @@ def test_surcotes_choisies_sur_panneau_conservees_en_revenant_au_massif(document
     assert obj.GrainDirection == "Length"
 
 
-def test_meme_materiau_reselectionne_sans_effet(document: Any) -> None:
+def test_meme_materiau_reselectionne_sans_effet(document: Any, board: Board) -> None:
     obj = board(document)
     obj.LengthAllowance = 30
     obj.GrainDirection = "Width"
@@ -238,7 +237,9 @@ UNDOABLE = [
 
 
 @pytest.mark.parametrize(("name", "value"), UNDOABLE, ids=[name for name, _ in UNDOABLE])
-def test_annuler_retablir_chaque_propriete(document: Any, name: str, value: object) -> None:
+def test_annuler_retablir_chaque_propriete(
+    document: Any, name: str, value: object, board: Board
+) -> None:
     document.UndoMode = 1
     obj = board(document)
     before = str(getattr(obj, name))
@@ -254,7 +255,7 @@ def test_annuler_retablir_chaque_propriete(document: Any, name: str, value: obje
     assert obj.isValid()
 
 
-def test_annuler_retablir_set_material(document: Any) -> None:
+def test_annuler_retablir_set_material(document: Any, board: Board) -> None:
     document.UndoMode = 1
     obj = board(document)
     before = material_state(obj)
@@ -268,7 +269,7 @@ def test_annuler_retablir_set_material(document: Any) -> None:
     assert material_state(obj) == after
 
 
-def test_annuler_une_cote_invalide_rend_la_piece_valide(document: Any) -> None:
+def test_annuler_une_cote_invalide_rend_la_piece_valide(document: Any, board: Board) -> None:
     document.UndoMode = 1
     obj = board(document)
     document.openTransaction("Cote nulle")
@@ -282,7 +283,7 @@ def test_annuler_une_cote_invalide_rend_la_piece_valide(document: Any) -> None:
     assert obj.Length.Value == 800
 
 
-def test_annuler_retablir_la_suppression(document: Any) -> None:
+def test_annuler_retablir_la_suppression(document: Any, board: Board) -> None:
     document.UndoMode = 1
     obj = board(document)
     obj.Material = "Noyer"
@@ -304,7 +305,9 @@ def test_annuler_retablir_la_suppression(document: Any) -> None:
 # --- B7, B8 : réouverture et bibliothèque modifiée ----------------------------------------
 
 
-def test_deux_reouvertures_successives_stables(document: Any, rouvrir: Reopen) -> None:
+def test_deux_reouvertures_successives_stables(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
     obj = board(document, "cp-bouleau")
     obj.Mark = "P1"
     document.recompute()
@@ -314,11 +317,11 @@ def test_deux_reouvertures_successives_stables(document: Any, rouvrir: Reopen) -
     restored = twice.getObject(name)
     assert material_state(restored) == before
     assert restored.Mark == "P1"
-    assert touched(twice) == []
+    assert touched_names(twice) == []
 
 
 def test_reouverture_avec_un_materiau_utilisateur_present(
-    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any
+    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any, board: Board
 ) -> None:
     bibliotheque_temporaire.installer(MAPLE)
     obj = board(document, "erable")
@@ -326,12 +329,12 @@ def test_reouverture_avec_un_materiau_utilisateur_present(
     name = obj.Name
     reopened = rouvrir(document)
     assert reopened.getObject(name).Material == "Érable"
-    assert touched(reopened) == []
+    assert touched_names(reopened) == []
     assert vue_rapport.messages == []
 
 
 def test_reouverture_sans_le_materiau_puis_autre_choix_et_annulation(
-    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any
+    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, board: Board
 ) -> None:
     bibliotheque_temporaire.installer(MAPLE)
     name = board(document, "erable").Name
@@ -354,7 +357,7 @@ def test_reouverture_sans_le_materiau_puis_autre_choix_et_annulation(
 
 
 def test_reouverture_sans_le_materiau_un_avertissement_par_piece(
-    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any
+    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any, board: Board
 ) -> None:
     bibliotheque_temporaire.installer(MAPLE)
     first, second = board(document, "erable"), board(document, "erable")
@@ -370,7 +373,7 @@ def test_reouverture_sans_le_materiau_un_avertissement_par_piece(
 
 
 def test_reouverture_avec_bibliotheque_corrompue(
-    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any
+    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any, board: Board
 ) -> None:
     bibliotheque_temporaire.installer(MAPLE)
     name = board(document, "erable").Name
@@ -387,7 +390,7 @@ def test_reouverture_avec_bibliotheque_corrompue(
 
 
 def test_reouverture_avec_un_materiau_renomme_garde_l_instantane(
-    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any
+    document: Any, rouvrir: Reopen, bibliotheque_temporaire: Any, vue_rapport: Any, board: Board
 ) -> None:
     name = board(document).Name
     renamed = {**MAPLE, "id": "chene", "name": "Chêne massif", "density": 800}
@@ -402,7 +405,7 @@ def test_reouverture_avec_un_materiau_renomme_garde_l_instantane(
 # --- B9 : migration -----------------------------------------------------------------------
 
 
-def test_version_plus_recente_non_retrogradee(document: Any, rouvrir: Reopen) -> None:
+def test_version_plus_recente_non_retrogradee(document: Any, rouvrir: Reopen, board: Board) -> None:
     obj = board(document)
     obj.Version = wood_part.WoodPart.VERSION + 1
     name = obj.Name
@@ -412,7 +415,9 @@ def test_version_plus_recente_non_retrogradee(document: Any, rouvrir: Reopen) ->
     assert restored.isValid()
 
 
-def test_migration_garde_les_proprietes_presentes(document: Any, rouvrir: Reopen) -> None:
+def test_migration_garde_les_proprietes_presentes(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
     obj = board(document, "mdf")
     obj.ThicknessAllowance = 3
     obj.LengthAllowance = 7
@@ -426,7 +431,9 @@ def test_migration_garde_les_proprietes_presentes(document: Any, rouvrir: Reopen
     assert (restored.MaterialId, restored.Material) == ("mdf", "MDF")
 
 
-def test_migration_deduit_categorie_et_fil_du_materiau(document: Any, rouvrir: Reopen) -> None:
+def test_migration_deduit_categorie_et_fil_du_materiau(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
     obj = board(document, "mdf")
     for prop in ("Version", "Category", "GrainDirection"):
         obj.removeProperty(prop)
@@ -452,6 +459,7 @@ def test_migration_avec_bibliotheque_vide(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     vue_rapport: Any,
+    board: Board,
 ) -> None:
     obj = board(document)
     obj.removeProperty("Version")
@@ -468,7 +476,7 @@ def test_migration_avec_bibliotheque_vide(
 
 
 def test_migration_sans_materiau_ni_bibliotheque_valeurs_sures(
-    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, board: Board
 ) -> None:
     obj = board(document, "mdf")
     for prop in ("Version", "Material", "MaterialId", "Density", "Category", "GrainDirection"):
@@ -488,7 +496,7 @@ def test_migration_sans_materiau_ni_bibliotheque_valeurs_sures(
 
 
 def test_reouverture_avec_bibliotheque_vide_garde_la_piece(
-    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    document: Any, rouvrir: Reopen, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, board: Board
 ) -> None:
     name = board(document, "noyer").Name
     empty_library(monkeypatch, tmp_path)
@@ -503,7 +511,7 @@ def test_reouverture_avec_bibliotheque_vide_garde_la_piece(
 # --- B11, B12 : contrat et reconnaissance -------------------------------------------------
 
 
-def test_copie_d_une_piece(document: Any) -> None:
+def test_copie_d_une_piece(document: Any, board: Board) -> None:
     obj = board(document, "noyer")
     copy = document.copyObject(obj)
     document.recompute()
@@ -515,7 +523,7 @@ def test_copie_d_une_piece(document: Any) -> None:
     assert (copy.MaterialId, obj.MaterialId) == ("hetre", "noyer")
 
 
-def test_loads_accepte_l_etat_vide(document: Any) -> None:
+def test_loads_accepte_l_etat_vide(document: Any, board: Board) -> None:
     proxy = board(document).Proxy
     assert proxy.loads(None) is None
 
@@ -528,20 +536,20 @@ def test_feature_python_etrangere_n_est_pas_une_piece(document: Any) -> None:
         wood_part.set_material(other, "chene")
 
 
-def test_is_wood_part_sur_un_objet_supprime(document: Any) -> None:
+def test_is_wood_part_sur_un_objet_supprime(document: Any, board: Board) -> None:
     obj = board(document)
     document.removeObject(obj.Name)
     assert not wood_part.is_wood_part(obj)
 
 
-def test_record_of_d_une_piece_invalide_leve(document: Any) -> None:
+def test_record_of_d_une_piece_invalide_leve(document: Any, board: Board) -> None:
     obj = board(document)
     obj.Thickness = 0
     with pytest.raises(part_model.InvalidDimensionsError):
         wood_part.record_of(obj)
 
 
-def test_record_of_suit_le_materiau(document: Any) -> None:
+def test_record_of_suit_le_materiau(document: Any, board: Board) -> None:
     obj = board(document)
     obj.Material = "Contreplaqué bouleau"
     record = wood_part.record_of(obj)
@@ -552,7 +560,9 @@ def test_record_of_suit_le_materiau(document: Any) -> None:
 # --- Documents multiples ------------------------------------------------------------------
 
 
-def test_pieces_dans_deux_documents_independantes(document: Any, rouvrir: Reopen) -> None:
+def test_pieces_dans_deux_documents_independantes(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
     other = App.newDocument("TestPieceDeBoisAutre")
     try:
         first, second = board(document), board(other)
@@ -567,7 +577,7 @@ def test_pieces_dans_deux_documents_independantes(document: Any, rouvrir: Reopen
         reopened = rouvrir(document)
         assert reopened.getObject(name).MaterialId == "mdf"
         assert second.MaterialId == "chene"
-        assert touched(other) == []
+        assert touched_names(other) == []
     finally:
         App.closeDocument(other.Name)
 
@@ -619,6 +629,7 @@ def test_bibliotheque_corrompue_signalee_une_fois(
     bibliotheque_temporaire: Any,
     vue_rapport: Any,
     content: bytes,
+    board: Board,
 ) -> None:
     bibliotheque_temporaire.path.write_bytes(content)
     vue_rapport.messages.clear()

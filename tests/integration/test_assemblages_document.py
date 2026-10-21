@@ -15,7 +15,7 @@ from tests.integration.cadre import (
     Cadre,
     assert_follow_blanks,
     build_frame,
-    touched,
+    stale_or_invalid,
 )
 
 pytestmark = pytest.mark.integration
@@ -58,7 +58,7 @@ def test_cadre_en_un_seul_recalcul(cadre: Cadre) -> None:
         assert obj.Placement == obj.Base.Placement
         assert obj.Base.Visibility is False
     assert_frame_volumes(cadre)
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
 
 
 def test_forme_des_assemblages_vide(cadre_assemble: Cadre) -> None:
@@ -152,7 +152,7 @@ def test_graphe_des_dependances(cadre_assemble: Cadre) -> None:
         assert names(machined.Joints) == names(expected[1:])
     for obj in cadre_assemble.doc.Objects:
         assert obj.Name not in names(obj.OutListRecursive)
-    assert touched(cadre_assemble.doc) == []
+    assert stale_or_invalid(cadre_assemble.doc) == []
 
 
 def test_ordre_inverse_memes_volumes(document: Any) -> None:
@@ -182,7 +182,7 @@ def test_le_cadre_suit_les_cotes(cadre_assemble: Cadre) -> None:
     assert_frame_volumes(cadre_assemble)
     cadre_assemble.parts["M1"].Width = 80
     cadre_assemble.doc.recompute()
-    assert touched(cadre_assemble.doc) == []
+    assert stale_or_invalid(cadre_assemble.doc) == []
     assert cadre_assemble.parts["T1"].Placement.Base.y == pytest.approx(80)
     assert_follow_blanks(cadre_assemble)
     assert cadre_assemble.parts["T1"].Length.Value == pytest.approx(240)
@@ -192,7 +192,7 @@ def test_le_cadre_suit_les_cotes(cadre_assemble: Cadre) -> None:
         assert cadre_assemble.volume(mark) == pytest.approx(600 * 80 * 22 - 2 * 55 * 40 * 7)
     cadre_assemble.parts["T1"].Width = 80
     cadre_assemble.doc.recompute()
-    assert touched(cadre_assemble.doc) == []
+    assert stale_or_invalid(cadre_assemble.doc) == []
     assert cadre_assemble.volume("T1") == pytest.approx(240 * 80 * 22 + 2 * 53 * 54 * 7)
     assert cadre_assemble.parts["T1"].Placement.Base.x == pytest.approx(80)
     assert_follow_blanks(cadre_assemble)
@@ -230,7 +230,7 @@ def test_expression_sur_l_epaisseur(cadre_assemble: Cadre) -> None:
     cadre_assemble.doc.recompute()
     assert joint.TenonThickness.Value == pytest.approx(11)
     assert cadre_assemble.volume("T1") == pytest.approx(280 * 60 * 22 + 40 * 40 * 11 + 40 * 40 * 7)
-    assert touched(cadre_assemble.doc) == []
+    assert stale_or_invalid(cadre_assemble.doc) == []
 
 
 # --- O6 : erreurs ------------------------------------------------------------------------
@@ -251,7 +251,7 @@ def test_pieces_ecartees_puis_remises(cadre_assemble: Cadre) -> None:
     rail.Placement.Base.z = 0
     rail.Placement = rail.Placement
     doc.recompute()
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     assert_frame_volumes(cadre_assemble)
     assert_follow_blanks(cadre_assemble)
 
@@ -332,7 +332,7 @@ def test_deplacer_la_brute_deplace_la_piece_usinee(cadre_assemble: Cadre) -> Non
         moved.Base.x -= 50
         blank.Placement = moved
     doc.recompute()
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     assert_follow_blanks(cadre_assemble)
     assert cadre_assemble.machined("M1").Placement.Base.x == pytest.approx(-50)
     assert_frame_volumes(cadre_assemble)
@@ -346,7 +346,7 @@ def test_expression_sur_le_placement_de_la_brute(cadre_assemble: Cadre) -> None:
     m1.Placement.Base.z = 100
     m1.Placement = m1.Placement
     doc.recompute()
-    assert touched(doc) == []
+    assert stale_or_invalid(doc) == []
     assert cadre_assemble.machined("T2").Placement.Base.z == pytest.approx(100)
     assert_follow_blanks(cadre_assemble)
     assert_frame_volumes(cadre_assemble)
