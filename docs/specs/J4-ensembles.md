@@ -102,6 +102,31 @@ intérieur en profondeur (141 mm du fond, 441 mm de l'avant). Cotes de l'ensembl
 | F11 | **Sous-ensemble membre** (Q2 : Oui) : un `FurnitureBox` membre est une boîte dont les trois cotes sont étirables et qui porte les mêmes six options ; ses liaisons portent sur `Origin.x/y/z`, `Width`, `Depth`, `Height`. Un ensemble ne peut pas être membre de lui-même ni d'un de ses membres (`FurnitureError`). | U |
 | F12 | `core/` n'importe ni FreeCAD ni Qt ; couverture de `core/` ≥ 90 % ; aucun module > 400 lignes. | U |
 
+**Notes de réalisation de J4a** (dev, 2026-10-21 ; décisions les plus simples cohérentes avec les
+ADR, à confirmer par l'architecte) :
+
+1. **Q7** appliquée (★) dans une seule fonction, `fixed_by_default(distance)` de
+   `core/furniture/_defaults.py` : seule une distance ≤ `CONTACT_TOLERANCE_MM` est fixe.
+2. **Contact (F4)** : une face « suit un bord » si elle le suit par une option fixe (directement,
+   ou par l'épaisseur partagée de sa pièce). Une face non fixe en `Stay` (ancre `START`) ne suit
+   aucun bord : une pièce contre une pièce intérieure ne devient pas fixe.
+3. **Repère** : `Member.block` et `Member.origin` sont relatifs à l'`Origin` de l'ensemble ;
+   `bindings_for(…, origin=…)` ajoute cette `Origin` aux constantes des positions (`Placement.Base`,
+   `Origin` d'un sous-ensemble). Limite, à trancher en J4b′ : l'`Origin` d'un sous-ensemble ne
+   bouge qu'en mode `Proportional` ; ses propres membres ne la suivent alors qu'après « Relier ».
+4. **Signatures** (§ 4.3 mis à jour) : `member_spans(member)` sans la boîte, qui ne sert pas,
+   renvoie des `Span` (`lo`, `hi`, `local`, `reversed`) ; `Member` reçoit `label` (nom cité dans
+   les messages) et des valeurs par défaut ; `Notice` = (`kind` : `NoticeKind`, `params`), avec
+   `template` et `message` en propriétés ; `predict` renvoie des `Member` (l'`Origin` d'un
+   sous-ensemble y figure). Aides ajoutées : `with_default_options`, `driven_properties` (F9 :
+   texte enregistré ≠ expression actuelle), `is_driven` (`Placement` couvre ses sous-chemins),
+   `check_membership` (F11 : cycle d'ensembles), `label_reference`, `expression_text`.
+5. **Nombres** : ratio à 9 décimales, constante à 6 (§ 4.3, plus précis que F8).
+6. **Libellé** : refusé s'il contient `>` (pas seulement `>>` : « Bureau <2> » donnerait
+   `<<Bureau <2>>>`, lu `<<Bureau <2>>`) ou un caractère invisible (§ 4.9).
+7. **`check_resize`** renvoie aussi `UserFormula` pour une propriété pilotée sur un axe qui change
+   (N5 n'a plus qu'à traduire) et refuse une cote qui dépasserait 20 000 mm (« trop grande »).
+
 ### J4b′ — L'objet Ensemble dans le document (`features/`, `api.py`)
 
 | N° | Critère | Test |
@@ -225,9 +250,12 @@ freecad/menuiserie/
 │   ├── furniture/
 │   │   ├── __init__.py          J4a  façade : FurnitureBox, Member, Edge, InteriorMode, FollowRule, Binding, Notice, FurnitureError
 │   │   ├── _model.py            J4a  objets valeur, validation
-│   │   ├── _follow.py           J4a  member_spans, edge_distances, default_fixed (bord, contact), follow_rules
+│   │   ├── _messages.py         J4a  gabarits des refus et des avertissements
+│   │   ├── _spans.py            J4a  member_spans, edge_distances
+│   │   ├── _defaults.py         J4a  default_fixed (bord, contact), fixed_by_default (Q7)
+│   │   ├── _follow.py           J4a  follow_rules, mouvement d'une face (Linear)
 │   │   ├── _bindings.py         J4a  bindings_for, format des expressions et des nombres
-│   │   └── _check.py            J4a  predict, check_resize
+│   │   └── _check.py            J4a  predict, check_resize, check_membership
 │   ├── templates/
 │   │   ├── __init__.py          J4d  PieceSpec, JointSpec, Layout
 │   │   └── carcass.py           J4d  CarcassParams, carcass_layout
@@ -271,7 +299,9 @@ freecad/menuiserie/
 ### 4.3 `core/furniture/` (J4a)
 
 ```python
-class InteriorMode(str, Enum):  # enregistré (PositionMode) : valeurs stables, ajout en fin seulement
+class InteriorMode(
+    str, Enum
+):  # enregistré (PositionMode) : valeurs stables, ajout en fin seulement
     STAY = "Stay"  # distance non fixe : la face ne bouge pas
     PROPORTIONAL = "Proportional"  # distance non fixe : la face garde sa proportion
 
@@ -308,12 +338,17 @@ class FurnitureBox:
 @dataclass(frozen=True)
 class Member:
     key: str  # nom interne de l'objet (Name)
-    block: PlacedBlock | None  # pièce : cotes + placement dans le repère de l'ensemble (origine déduite)
+    block: (
+        PlacedBlock | None
+    )  # pièce : cotes + placement dans le repère de l'ensemble (origine déduite)
     box: FurnitureBox | None  # sous-ensemble : ses cotes (et `origin`)
     origin: Vec3 | None
     mode: InteriorMode
-    fixed: frozenset[Edge] | None  # distances fixes ; None = nouveau membre, options par défaut à calculer
+    fixed: (
+        frozenset[Edge] | None
+    )  # distances fixes ; None = nouveau membre, options par défaut à calculer
     driven: frozenset[str]  # propriétés pilotées par une formule ou une contrainte de l'utilisateur
+    label: str  # nom cité dans les messages (J4a)
 
 
 @dataclass(frozen=True)
@@ -332,21 +367,45 @@ class Binding:
 
 
 @dataclass(frozen=True)
-class Notice:  # avertissement traduisible, jamais bloquant
-    template: str
+class Notice:  # avertissement traduisible, jamais bloquant ; template et message en propriétés
+    kind: NoticeKind  # UserFormula, NotSquare, ThicknessKept, OutsideBox
     params: Mapping[str, str]
 
 
 class FurnitureError(TemplatedError): ...  # refus (redimensionnement, cycle d'ensembles)
 
 
-def member_spans(member: Member, box: FurnitureBox) -> Mapping[FurnitureAxis, tuple[float, float, str]]: ...
+def member_spans(
+    member: Member,
+) -> Mapping[FurnitureAxis, Span]: ...  # Span(lo, hi, local, reversed)
 def edge_distances(member: Member, box: FurnitureBox) -> Mapping[Edge, float]: ...
-def default_fixed(box: FurnitureBox, members: Sequence[Member]) -> Mapping[str, frozenset[Edge]]: ...  # membres dont fixed est None
-def follow_rules(box: FurnitureBox, members: Sequence[Member]) -> tuple[Mapping[str, tuple[FollowRule, ...]], tuple[Notice, ...]]: ...  # fixed renseigné
-def bindings_for(label: str, box: FurnitureBox, members: Sequence[Member], rules: Mapping[str, tuple[FollowRule, ...]]) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]: ...
-def predict(old: FurnitureBox, new: FurnitureBox, members: Sequence[Member], rules: Mapping[str, tuple[FollowRule, ...]]) -> Mapping[str, PlacedBlock | FurnitureBox]: ...
-def check_resize(old: FurnitureBox, new: FurnitureBox, members: Sequence[Member], rules: Mapping[str, tuple[FollowRule, ...]], joined: Sequence[tuple[str, str]]) -> tuple[Notice, ...]: ...  # FurnitureError si refus
+def default_fixed(
+    box: FurnitureBox, members: Sequence[Member]
+) -> Mapping[str, frozenset[Edge]]: ...  # membres dont fixed est None
+def follow_rules(
+    box: FurnitureBox, members: Sequence[Member]
+) -> tuple[Mapping[str, tuple[FollowRule, ...]], tuple[Notice, ...]]: ...  # fixed renseigné
+def bindings_for(
+    label: str,
+    box: FurnitureBox,
+    members: Sequence[Member],
+    rules: Mapping[str, tuple[FollowRule, ...]],
+    *,
+    origin: Vec3 = Vec3(0, 0, 0),
+) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]: ...
+def predict(
+    old: FurnitureBox,
+    new: FurnitureBox,
+    members: Sequence[Member],
+    rules: Mapping[str, tuple[FollowRule, ...]],
+) -> Mapping[str, Member]: ...
+def check_resize(
+    old: FurnitureBox,
+    new: FurnitureBox,
+    members: Sequence[Member],
+    rules: Mapping[str, tuple[FollowRule, ...]],
+    joined: Sequence[tuple[str, str]],
+) -> tuple[Notice, ...]: ...  # FurnitureError si refus
 ```
 
 **Distance à un bord** : chaque face d'un membre a une distance au bord de l'ensemble **de son
@@ -448,12 +507,24 @@ pièce hors ensemble.
 #### 4.4.4 API
 
 ```python
-def make_furniture(objects: Sequence[DocumentObject], label: str = "") -> tuple[DocumentObject, tuple[str, ...]]: ...  # (ensemble, avertissements traduits)
-def add_to_furniture(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> tuple[str, ...]: ...
+def make_furniture(
+    objects: Sequence[DocumentObject], label: str = ""
+) -> tuple[DocumentObject, tuple[str, ...]]: ...  # (ensemble, avertissements traduits)
+def add_to_furniture(
+    furniture: DocumentObject, objects: Sequence[DocumentObject]
+) -> tuple[str, ...]: ...
 def remove_from_furniture(objects: Sequence[DocumentObject]) -> None: ...
-def set_member_options(obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None) -> tuple[str, ...]: ...  # fixed : {"Back": True, …}
+def set_member_options(
+    obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None
+) -> tuple[str, ...]: ...  # fixed : {"Back": True, …}
 def rebind_furniture(furniture: DocumentObject) -> tuple[str, ...]: ...
-def resize_furniture(furniture: DocumentObject, *, width: float | None = None, depth: float | None = None, height: float | None = None) -> None: ...  # check_resize puis écriture et recalcul
+def resize_furniture(
+    furniture: DocumentObject,
+    *,
+    width: float | None = None,
+    depth: float | None = None,
+    height: float | None = None,
+) -> None: ...  # check_resize puis écriture et recalcul
 def furniture_of(obj: DocumentObject) -> DocumentObject | None: ...
 ```
 
@@ -525,6 +596,7 @@ class Prism:
 
     points: tuple[Vec3, ...]  # ≥ 3 sommets distincts, non alignés, coplanaires, polygone simple
     extrusion: Vec3  # non nul, non parallèle au plan
+
 
 Solid = Box | Cylinder | Prism
 ```
