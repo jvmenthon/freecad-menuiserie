@@ -21,7 +21,12 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import READ_ONLY, DocumentObject, proxy_is
+from freecad.menuiserie.features.freecad_types import (
+    READ_ONLY,
+    DocumentObject,
+    StatelessProxy,
+    proxy_is,
+)
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
@@ -89,7 +94,7 @@ COMMON_PROPERTIES: Final = (
 )
 
 
-class JointFeature:
+class JointFeature(StatelessProxy):
     """Proxy commun des assemblages (Template Method). Sans état : tout est dans les
     propriétés de l'objet."""
 
@@ -128,14 +133,6 @@ class JointFeature:
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN)
-
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
 
 
 def is_joint(obj: object) -> bool:

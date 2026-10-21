@@ -30,7 +30,12 @@ from freecad.menuiserie.core.part_model import (
     material_has_grain,
     remembered_grain,
 )
-from freecad.menuiserie.features.freecad_types import Document, DocumentObject, proxy_is
+from freecad.menuiserie.features.freecad_types import (
+    Document,
+    DocumentObject,
+    StatelessProxy,
+    proxy_is,
+)
 from freecad.menuiserie.features.i18n import templated_message, translated
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.schema import warn
@@ -83,7 +88,7 @@ _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
 )
 
 
-class WoodPart:
+class WoodPart(StatelessProxy):
     """Proxy du FeaturePython « pièce de bois ». Chemin de module figé (ADR 0003).
 
     Le proxy ne porte aucun état : tout est dans les propriétés de l'objet. Le drapeau de
@@ -145,14 +150,6 @@ class WoodPart:
         placement = obj.Placement
         obj.Shape = Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
         obj.Placement = placement
-
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
 
     def select_material(self, obj: DocumentObject, material: Material) -> None:
         """Sélectionne ``material`` dans la liste et recopie ses valeurs dans la pièce."""

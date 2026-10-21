@@ -17,7 +17,12 @@ from freecad.menuiserie.core.geometry import Solid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import READ_ONLY, DocumentObject, proxy_is
+from freecad.menuiserie.features.freecad_types import (
+    READ_ONLY,
+    DocumentObject,
+    StatelessProxy,
+    proxy_is,
+)
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
@@ -87,7 +92,7 @@ PROPERTIES: Final = (
 )
 
 
-class MachinedPart:
+class MachinedPart(StatelessProxy):
     """Proxy du FeaturePython « pièce usinée ». Chemin de module figé (ADR 0003).
 
     Sans état : le drapeau ``_in_execute`` (lu avec ``getattr``, ``__init__`` n'étant pas rappelé
@@ -131,14 +136,6 @@ class MachinedPart:
         with self._executing():
             obj.Placement = blank.Placement
             obj.Shape = shape
-
-    def dumps(self) -> None:
-        """Proxy sans état : rien à enregistrer."""
-        return None
-
-    def loads(self, state: object) -> None:
-        """Proxy sans état : rien à relire."""
-        del state
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)
