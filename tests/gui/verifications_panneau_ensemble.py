@@ -27,7 +27,7 @@ from tests.gui.verifications_ensemble import (
     pieces_du_bureau,
     regrouper,
 )
-from tests.gui.verifications_panneau import annuler, ecarts, saisir, valider
+from tests.gui.verifications_panneau import annuler, ecarts, formulaire_nomme, saisir, valider
 from tests.gui.verifications_panneau_assemblage import widget
 from tests.integration.bureau import LAYOUT, Bureau
 
@@ -37,8 +37,7 @@ ROLE = QtCore.Qt.ItemDataRole.UserRole
 
 
 def panneau() -> Any:
-    trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == FORM]
-    return trouves[0] if trouves else None
+    return formulaire_nomme(FORM)
 
 
 def ouvrir(ensemble: Any) -> Any:
@@ -150,7 +149,8 @@ def verifier_formulaire_de_l_ensemble() -> list[str]:
 
 def verifier_saisies_de_l_ensemble() -> list[str]:
     """P3 : profondeur 600 → 800 (les joues suivent), « fixe » décoché puis recoché, voile en
-    proportion, distance saisie sans toucher à la case ; « OK » = une entrée."""
+    proportion, distance saisie sans toucher à la case, refus effacé au changement de pièce ;
+    « OK » = une entrée."""
     with bureau_regroupe("VerifSaisiesEnsemble") as bureau:
         form = ouvrir(bureau.furniture)
         saisir(widget(form, "Depth"), 800.0)
@@ -181,6 +181,14 @@ def verifier_saisies_de_l_ensemble() -> list[str]:
             *ecarts(
                 "colonne Suit", ("Voile", "Proportion", "étirée, proportion") in lignes(form), True
             ),
+        ]
+        choisir_membre(form, bureau.parts["P"])
+        saisir(widget(form, "distanceLeft"), 1199.95)
+        refus = widget(form, "editErrorLabel").text()
+        choisir_membre(form, bureau.parts["JG"])
+        problemes += [
+            *ecarts("refus affiché", "trop petite" in refus, True),
+            *ecarts("refus effacé (autre pièce)", widget(form, "editErrorLabel").text(), ""),
         ]
         valider()
         problemes += ecarts("entrées", bureau.doc.UndoNames, [MODIFIER])

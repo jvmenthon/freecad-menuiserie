@@ -28,7 +28,7 @@ from tests.gui.verifications_assemblages import (
     selectionner,
     usinee_de,
 )
-from tests.gui.verifications_panneau import annuler, ecarts, saisir, valider
+from tests.gui.verifications_panneau import annuler, ecarts, formulaire_nomme, saisir, valider
 from tests.gui.verifications_panneau_limites import transaction_ouverte
 
 FORM = "JointTaskPanel"
@@ -44,8 +44,7 @@ Widget = Any
 
 def panneau() -> Widget:
     """Formulaire du panneau d'assemblage ouvert (``None`` s'il n'y en a pas)."""
-    trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == FORM]
-    return trouves[0] if trouves else None
+    return formulaire_nomme(FORM)
 
 
 def widget(form: Widget, nom: str) -> Widget:
@@ -396,8 +395,7 @@ def verifier_fermeture_forcee_depuis_la_piece_usinee() -> list[str]:
 
 def _formulaire_de_la_piece() -> Widget:
     """Champ de longueur du panneau de la pièce de bois ouvert."""
-    trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == "WoodPartTaskPanel"]
-    return trouves[0].lengthEdit
+    return formulaire_nomme("WoodPartTaskPanel").lengthEdit
 
 
 def verifier_aucun_observateur_apres_le_panneau() -> list[str]:

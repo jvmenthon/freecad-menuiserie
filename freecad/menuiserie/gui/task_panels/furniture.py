@@ -33,12 +33,12 @@ from freecad.menuiserie.features.furniture_view import MemberView, member_views,
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
+    EDIT_TITLE,
     ObjectTaskPanel,
     UpdateGuard,
     Widget,
     connect,
     expression_of,
-    panel_title,
 )
 from freecad.menuiserie.gui.task_panels.furniture_widgets import (
     MODE_LABELS,
@@ -53,7 +53,6 @@ from freecad.menuiserie.gui.view_providers.furniture import ICON
 
 FORM_NAME: Final = "FurnitureTaskPanel"
 EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier l'ensemble")
-_CREATE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Nouvel ensemble : {label}")
 _MEMBER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce choisie : « {label} »")
 _NO_MEMBER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisissez une pièce dans la liste.")
 _POSITION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Position")
@@ -72,11 +71,11 @@ _USER_ROLE: Final = QtCore.Qt.ItemDataRole.UserRole
 
 
 class FurnitureTaskPanel(ObjectTaskPanel):
-    """Panneau de tâche d'un ensemble (modification ; ``creating`` pour un ensemble créé dans
-    la transaction de sa commande)."""
+    """Panneau de tâche d'un ensemble, ouvert en modification seulement (aucun panneau à la
+    création)."""
 
-    def __init__(self, obj: DocumentObject, *, creating: bool = False) -> None:
-        super().__init__(obj, creating=creating)
+    def __init__(self, obj: DocumentObject) -> None:
+        super().__init__(obj, creating=False)
         self._guard = UpdateGuard()
         self._refusal = ""
         self._resize_notices: tuple[str, ...] = ()
@@ -86,7 +85,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
-        self.form.setWindowTitle(panel_title(quoted_value(obj.Label), creating, _CREATE_TITLE))
+        self.form.setWindowTitle(translated(EDIT_TITLE, {"label": quoted_value(obj.Label)}))
         layout = QtGui.QVBoxLayout(self.form)
         grid = QtGui.QGridLayout()
         self._dimensions = dimension_fields(grid)
@@ -193,6 +192,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
             return
         items = self._tree.selectedItems()
         self._current = str(items[0].data(0, _USER_ROLE)) if items else None
+        show_message(self._edit_error, "")  # un refus sur la pièce précédente ne la suit pas
         self._show_member()
 
     def _mode_chosen(self, index: int) -> None:

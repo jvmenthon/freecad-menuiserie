@@ -82,6 +82,9 @@ pièces ; après une retouche à la main (plateau passé de 30 à 40 mm), **Reli
 recalcule les expressions. Pour déplacer, tourner ou dupliquer le meuble, rangez l'ensemble et
 ses pièces dans un **Std Part**, puis utilisez **App::Link**.
 
+Depuis la console Python, `api.set_edge_distance(piece, "Left", 10)` règle la distance entre
+une face de la pièce et ce bord de l'ensemble, comme le champ du panneau.
+
 ## Pièce de bois (console Python)
 
 ```python

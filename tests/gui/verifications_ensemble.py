@@ -19,7 +19,13 @@ import FreeCADGui as Gui
 from freecad.menuiserie import api, icon_path
 from tests.commandes_ensembles import COMMANDES_ENSEMBLE
 from tests.gui.verifications_assemblages import observateurs_comptes, selectionner
-from tests.gui.verifications_panneau import annuler, ecarts, emplacements, nouveau_document
+from tests.gui.verifications_panneau import (
+    annuler,
+    ecarts,
+    emplacements,
+    formulaire_nomme,
+    nouveau_document,
+)
 from tests.integration.bureau import LAYOUT, Bureau, build_parts
 
 ENSEMBLE = "Menuiserie_Furniture"
@@ -199,9 +205,7 @@ def verifier_arbre_de_l_ensemble() -> list[str]:
 
 
 def panneau_ouvert() -> bool:
-    from PySide import QtGui
-
-    return any(w.objectName() == FORM for w in QtGui.QApplication.allWidgets())
+    return formulaire_nomme(FORM) is not None
 
 
 def verifier_suppression_de_l_ensemble() -> list[str]:
