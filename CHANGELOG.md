@@ -186,6 +186,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   recréer l'assemblage) au lieu de rester valide sans usiner les pièces.
 
 ### Sécurité
+- Panneau des assemblages (audit de sécurité J3) : libellés des pièces hôte et invitée en texte
+  brut, libellé de l'assemblage cité tronqué et échappé dans le titre.
 - Tourillons automatiques plafonnés à 50 (`MAX_DOWEL_COUNT`), même sur un très long contact
   (20 m), comme le nombre saisi.
 - Fermer le document pendant le panneau de création faisait planter FreeCAD 1.0 (J1c-3, audit

@@ -80,6 +80,7 @@ class JointTaskPanel(ObjectTaskPanel):
             (host, guest), COMMON_PROPERTIES[:2], ("hostLabel", "guestLabel"), strict=True
         ):
             label.setObjectName(name)
+            label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setToolTip(property_tooltip(spec))
             layout.addWidget(label)
         button = QtGui.QPushButton(translated(_INVERT))
@@ -164,7 +165,7 @@ def _error_label() -> Widget:
 
 def _title(obj: DocumentObject, creating: bool) -> str:
     template = _CREATE_TITLE if creating else _EDIT_TITLE
-    return translated(template, {"label": str(obj.Label)})
+    return translated(template, {"label": quoted_value(obj.Label)})
 
 
 def start_editing(obj: DocumentObject) -> bool:
