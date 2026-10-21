@@ -6,6 +6,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Ensemble dans le document (J4b′, ADR 0008 et 0009) : objet `Menuiserie::Furniture` (cotes
+  `Width`, `Depth`, `Height`, `Origin`, `Template`, `Version`), propriétés de membre
+  (`Furniture`, `PositionMode`, `FixedLeft` … `FixedTop`, `FurnitureBindings`) et liaisons par
+  expressions natives ; `make_furniture`, `add_to_furniture`, `remove_from_furniture`,
+  `set_member_options`, `rebind_furniture`, `resize_furniture` et `furniture_of`. Options
+  changées dans l'éditeur de propriétés reliant le seul membre modifié, cote qui casse une
+  pièce appliquée avec un avertissement, sous-ensembles, formules de l'utilisateur et
+  contraintes de l'atelier Assembly respectées, liaisons reconnues après un renommage ou une
+  copie, réouverture contrôlée ; déplacer une pièce usinée dont la brute est placée par une
+  expression est refusé avec un message.
 - Assemblage à mi-bois (J4e) : stratégie `HalfLapStrategy` (deux pièces de même épaisseur, à
   fleur, qui se chevauchent ; entaille de l'hôte par-dessus, de l'invitée par-dessous, profondeur
   automatique à la moitié de l'épaisseur), objet `Menuiserie::HalfLap` (`Depth`, `FlipSide`),

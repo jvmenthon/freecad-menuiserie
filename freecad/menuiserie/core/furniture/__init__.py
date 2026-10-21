@@ -16,6 +16,7 @@ from freecad.menuiserie.core.furniture._bindings import (
     expression_text,
     is_driven,
     label_reference,
+    same_binding,
 )
 from freecad.menuiserie.core.furniture._check import check_membership, check_resize, predict
 from freecad.menuiserie.core.furniture._defaults import (
@@ -68,5 +69,6 @@ __all__ = [
     "label_reference",
     "member_spans",
     "predict",
+    "same_binding",
     "with_default_options",
 ]

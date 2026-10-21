@@ -157,6 +157,57 @@ ADR, à confirmer par l'architecte) :
 | N14 | **Compatibilité (ADR 0007)** : le bureau dans un Std Part sert de source à une vue TechDraw qui se recalcule sans erreur ; le Std Part s'exporte en STEP et se réimporte avec le même volume ; document ouvert dans un `freecadcmd` sans l'atelier : il s'ouvre, formes valides de même volume. Inventaire : type `Menuiserie::Furniture`, commandes `Menuiserie_…`, aucune dépendance d'exécution, aucun observateur global. | I (TechDraw : ignoré si non importable, alors G) |
 | N15 | Les documents J1 et J3 s'ouvrent sans changement (aucune propriété ajoutée, rien de « Touched ») ; `record_of(brute)` inchangé pour un membre. | I |
 
+**Notes de réalisation de J4b′** (dev, 2026-10-21 ; décisions les plus simples cohérentes avec
+les ADR, à confirmer par l'architecte) :
+
+1. **Modules** : `features/furniture.py` (proxy, propriétés de l'ensemble et des membres,
+   `create_furniture`), `furniture_bindings.py` (lecture des membres, liaisons,
+   `member_option_changed`, contrôle descendant), `furniture_members.py` (fabrique et gestion
+   des membres, refus avant modification) et `furniture_restore.py` (réouverture des propriétés
+   de membre) ; l'API est un bloc séparé de `api.py`.
+2. **Liaison reconnue au libellé près** (R2, N10) : `same_binding` (ajouté à la façade de
+   `core.furniture`) compare l'expression actuelle au texte de `FurnitureBindings` en ignorant
+   le libellé visé dans `<<…>>`. Renommer l'ensemble (FreeCAD réécrit `<<Bureau>>`, `'` et `"`
+   devenant `\'` et `\"`) ou le copier ne transforme donc pas ses liaisons en formules de
+   l'utilisateur, et « Relier » rétablit une liaison qui vise encore l'original. F9 est précisé
+   en ce sens.
+3. **Réouverture** (N12) : les propriétés de membre sont contrôlées par le
+   `onDocumentRestored` **du membre** (`WoodPart`, ou `Furniture` pour un sous-ensemble), pas
+   par celui de l'ensemble : FreeCAD 1.0 et 1.1 quittent (code 1, sans message) quand on
+   supprime une propriété d'un autre objet pendant la restauration. `WoodPart` garde
+   `Version` = 2. Après une réparation, les objets sont à recalculer, comme en J1 et J3.
+4. **Cote saisie dans l'éditeur** (Q4, N7) : `onBeforeChange` lit les cotes d'avant (attribut
+   transitoire `previous_box`), `onChanged` les contrôle (`check_resize`, sous-ensembles
+   compris) et avertit ; rien pendant une restauration, une annulation, un recalcul, une
+   écriture de l'atelier (drapeau transitoire du proxy) ni pour une cote pilotée par une
+   expression.
+5. **Contrôle descendant** : chaque niveau contrôle ses membres et ses propres paires
+   d'assemblage ; une paire entre une pièce de l'ensemble et une pièce d'un sous-ensemble n'est
+   pas contrôlée.
+6. **N3, joues qui restent en place** : décocher `FixedBack` des seules joues fait perdre ses
+   tourillons au voile, qui suit le fond (refus de `resize_furniture`, avertissement dans
+   l'éditeur) ; « tout valide » demande de décocher aussi `FixedBack` du voile.
+7. **N5** : la formule de l'utilisateur posée avant `make_furniture` vise le plateau
+   (`<<Plateau>>.Width - 141 mm`), l'ensemble n'existant pas encore. Contrainte de l'atelier
+   Assembly : joint d'un `Assembly::JointGroup` qui cite la brute **ou sa pièce usinée**.
+8. **N6** : déplacer une pièce usinée dont la brute a une expression sur son `Placement`
+   (liaison ou formule) est refusé avec un avertissement dans la vue rapport ; la brute ne
+   bouge pas.
+9. **API** : les avertissements sont renvoyés **et** écrits dans la vue rapport ;
+   `resize_furniture` renvoie `None` (avertissements dans la vue rapport) et refuse une cote
+   pilotée par une expression (sous-ensemble). `remove_from_furniture` refuse, avant toute
+   modification, un objet qui n'est membre d'aucun ensemble. `add_to_furniture` ne change pas
+   les cotes de l'ensemble. Le libellé par défaut est « Ensemble » ; FreeCAD peut le rendre
+   unique, les liaisons visent le libellé obtenu. Un ensemble qui entre dans un autre est relié
+   à nouveau (`nested`).
+10. **N10** : « Dupliquer la sélection » est reproduit dans `freecadcmd` par
+    `doc.copyObject([std_part], True)`, qui fait viser la copie par les expressions copiées.
+    **N14** : l'export STEP d'un Std Part contient aussi les brutes masquées ; le volume
+    réimporté est comparé à la somme des formes du Std Part.
+11. **B5** (J4e) est couvert ici : croix à mi-bois en ensemble, traverse invitée en
+    `Proportional` sans distance fixe à gauche ni à droite ; `Width` 600 → 800 élargit
+    l'invitée à 80 mm et recalcule les deux entailles en un recompute.
+
 ### J4c — Affichage, commandes et panneau de l'Ensemble (`gui/`)
 
 | N° | Critère | Test |

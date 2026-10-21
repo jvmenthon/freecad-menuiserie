@@ -22,7 +22,7 @@ FREECAD_LIB = Path(App.__file__).resolve().parent
 ROOT = Path(__file__).resolve().parents[2]
 
 # Script lancé dans un interpréteur où seul FreeCAD est importable : ouvre le document et
-# écrit, en JSON, la présence de l'atelier et le volume et la validité de chaque forme.
+# écrit, en JSON, la présence de l'atelier et le volume et la validité de chaque forme non vide.
 WITHOUT_WORKBENCH = """
 import importlib.util, json, sys
 import FreeCAD
@@ -31,7 +31,7 @@ doc = FreeCAD.openDocument(sys.argv[1])
 shapes = {
     obj.Name: [obj.Shape.isValid(), obj.Shape.Volume]
     for obj in doc.Objects
-    if obj.Name.startswith("MachinedPart")
+    if hasattr(obj, "Shape") and not obj.Shape.isNull() and obj.Shape.Volume > 0
 }
 print("RESULTAT " + json.dumps({"workbench": found, "shapes": shapes}))
 """
@@ -121,8 +121,8 @@ def test_module_de_proxy_importable_seul(module: str, tmp_path: Path) -> None:
 
 
 def assert_opens_without_workbench(doc: Any, expected: dict[str, float], tmp_path: Path) -> None:
-    """Enregistre ``doc`` et l'ouvre dans un interpréteur sans l'atelier : pièces usinées
-    ``expected`` (nom → volume) valides et de même volume."""
+    """Enregistre ``doc`` et l'ouvre dans un interpréteur sans l'atelier : objets ``expected``
+    (nom → volume) présents, de forme valide et de même volume."""
     path = tmp_path / "sans_atelier.FCStd"
     doc.saveAs(str(path))
     script = tmp_path / "ouvrir.py"
@@ -131,10 +131,10 @@ def assert_opens_without_workbench(doc: Any, expected: dict[str, float], tmp_pat
     [line] = [line for line in output.splitlines() if line.startswith("RESULTAT ")]
     result: dict[str, Any] = json.loads(line.removeprefix("RESULTAT "))
     assert result["workbench"] is False
-    assert set(result["shapes"]) == set(expected)
-    for name, (valid, volume) in result["shapes"].items():
-        assert valid
-        assert volume == pytest.approx(expected[name])
+    assert set(expected) <= set(result["shapes"])
+    for name, volume in expected.items():
+        assert result["shapes"][name][0], name
+        assert result["shapes"][name][1] == pytest.approx(volume), name
 
 
 def test_document_ouvert_sans_l_atelier(cadre_assemble: Cadre, tmp_path: Path) -> None:

@@ -115,7 +115,8 @@ class WoodPart(StatelessProxy):
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, énumérations canoniques, migration, modes
-        d'édition, puis liste des matériaux de la bibliothèque locale."""
+        d'édition, puis liste des matériaux de la bibliothèque locale ; propriétés de membre
+        d'un ensemble contrôlées de même (J4)."""
         library = get_library()
         with self._synchronizing():
             version = restored_version(obj)
@@ -124,12 +125,17 @@ class WoodPart(StatelessProxy):
             self._migrate(obj, library, version, repair=bool(mistyped))
             apply_editor_modes(obj, show_grain=_shows_grain(obj, library))
             restore_material_choices(obj, library)
+        if "Furniture" in obj.PropertiesList:  # membre d'un ensemble (J4)
+            from freecad.menuiserie.features.furniture_restore import restore_member
+
+            restore_member(obj)
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
         volumique, et ajuste le fil et les surcotes (règles de ``core.part_model``). Choix d'un
         sens du fil : mémorisé (ADR 0005). Changement de matériau, annulation comprise : le fil
-        est masqué ou affiché dans l'éditeur de propriétés."""
+        est masqué ou affiché dans l'éditeur de propriétés. Mode ou option « fixe » d'un membre
+        d'ensemble : ses seules liaisons sont recalculées (sans effet hors ensemble)."""
         if prop in ("MaterialId", "Category") and "Restore" not in obj.State:
             show_grain_direction(obj, shows_grain(obj))
         if not self._follows_user_changes(obj):
@@ -140,6 +146,10 @@ class WoodPart(StatelessProxy):
                 self.select_material(obj, material)
         elif prop == "GrainDirection":
             _remember_grain(obj)
+        elif prop == "PositionMode" or prop.startswith("Fixed"):  # membre d'un ensemble (J4)
+            from freecad.menuiserie.features.furniture_bindings import member_option_changed
+
+            member_option_changed(obj, prop)
 
     def execute(self, obj: DocumentObject) -> None:
         """Reconstruit la forme depuis les seules cotes, sans toucher au ``Placement``."""

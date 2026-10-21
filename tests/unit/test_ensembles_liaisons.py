@@ -23,6 +23,7 @@ from freecad.menuiserie.core.furniture import (
     follow_rules,
     is_driven,
     label_reference,
+    same_binding,
 )
 from freecad.menuiserie.core.geometry import Vec3
 from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, with_options
@@ -197,3 +198,32 @@ def test_avertissement_seulement_pour_les_proprietes_liees() -> None:
     assert [n.params["property"] for n in notices] == ["Depth", "Origin.y"]
     assert bound_by_workshop(caisson, "Height")
     assert not bound_by_workshop(caisson, "Length")
+
+
+@pytest.mark.parametrize(
+    "current",
+    [
+        "<<Bureau>>.Depth - 40 mm",
+        "<<Nouveau>>.Depth - 40 mm",  # ensemble renommé : FreeCAD réécrit la référence
+        "<<Bureau d\\'angle>>.Depth - 40 mm",  # apostrophe échappée par FreeCAD
+        '<<Meuble \\"TV\\">>.Depth - 40 mm',  # guillemets échappés
+        "<<Bureau001>>.Depth - 40 mm",  # copie du document
+    ],
+)
+def test_liaison_reconnue_au_libelle_pres(current: str) -> None:
+    recorded = {"Width": "<<Bureau>>.Depth - 40 mm"}
+    assert same_binding(current, recorded["Width"])
+    assert driven_properties({"Width": current}, recorded) == frozenset()
+
+
+@pytest.mark.parametrize(
+    ("current", "recorded"),
+    [
+        ("<<Bureau>>.Depth - 41 mm", "<<Bureau>>.Depth - 40 mm"),
+        ("<<Bureau>>.Width - 40 mm", "<<Bureau>>.Depth - 40 mm"),
+        ("Depth - 40 mm", "<<Bureau>>.Depth - 40 mm"),
+        ("<<Bureau>>.Depth - 40 mm", None),
+    ],
+)
+def test_formule_differente_pilotee(current: str, recorded: str | None) -> None:
+    assert not same_binding(current, recorded)

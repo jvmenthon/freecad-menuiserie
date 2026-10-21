@@ -14,17 +14,28 @@ Assemblage (J3) ::
 
     assemblage = make_mortise_tenon(montant, traverse, tenon_thickness=8)
 
+Ensemble (J4) ::
+
+    from freecad.menuiserie.api import make_furniture, resize_furniture
+
+    bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
+    resize_furniture(bureau, depth=800)
+
 C'est le seul module hors de ``gui/`` autorisé à importer ``gui/``, et seulement quand
 l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.furniture import Notice
+from freecad.menuiserie.features import furniture_members
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
+from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.joints.factories import (
     create_dowels,
     create_half_lap,
@@ -180,3 +191,100 @@ def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
                 ViewProviderMachinedPart(machined.ViewObject)
     joint.Document.recompute()
     return joint
+
+
+# --- Ensembles (J4b') --------------------------------------------------------------------
+
+__all__ += [
+    "add_to_furniture",
+    "furniture_of",
+    "make_furniture",
+    "rebind_furniture",
+    "remove_from_furniture",
+    "resize_furniture",
+    "set_member_options",
+]
+
+_Notices = tuple[str, ...]
+
+
+def _reported(notices: Sequence[Notice], doc: Document) -> _Notices:
+    """Avertissements traduits, écrits dans la vue rapport, puis document recalculé."""
+    messages = notice_messages(notices)
+    report(messages)
+    doc.recompute()
+    return messages
+
+
+def make_furniture(
+    objects: Sequence[DocumentObject], label: str = ""
+) -> tuple[DocumentObject, _Notices]:
+    """Crée un ensemble (« Ensemble » par défaut) autour de ``objects`` (pièces de bois, pièces
+    usinées ou ensembles), le relie à eux par des expressions et recalcule le document.
+
+    Cotes et ``Origin`` = boîte qui contient les membres ; options « fixe » par défaut (toute
+    distance fixe, Q7). Renvoie l'ensemble et les avertissements traduits (aussi dans la vue
+    rapport). Refus avant toute création (``TypeError`` ou ``ValueError`` traduites). Aucune
+    transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
+    """
+    furniture, notices = furniture_members.build_furniture(objects, label)
+    return furniture, _reported(notices, furniture.Document)
+
+
+def add_to_furniture(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> _Notices:
+    """Fait entrer ``objects`` dans ``furniture`` (options par défaut, liaisons d'après la
+    géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus et même
+    absence de transaction que :func:`make_furniture`."""
+    notices = furniture_members.add_members(furniture, objects)
+    return _reported(notices, furniture.Document)
+
+
+def remove_from_furniture(objects: Sequence[DocumentObject]) -> None:
+    """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
+    de membre sont supprimées, la géométrie ne change pas. ``ValueError`` traduite, avant toute
+    modification, pour un objet qui n'est membre d'aucun ensemble."""
+    furniture_members.remove_members(objects)
+    if objects:
+        objects[0].Document.recompute()
+
+
+def set_member_options(
+    obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None
+) -> _Notices:
+    """Change le mode (``Stay``, ``Proportional``) et les options « fixe » d'un membre
+    (``fixed={"Back": False}``), relie ce seul membre et recalcule."""
+    notices = furniture_members.set_options(obj, mode, fixed)
+    return _reported(notices, obj.Document)
+
+
+def rebind_furniture(furniture: DocumentObject) -> _Notices:
+    """« Relier les pièces » : recalcule toutes les liaisons de l'atelier (sous-ensembles
+    compris) d'après la géométrie actuelle et les options enregistrées, puis recalcule."""
+    notices = furniture_members.relink(furniture)
+    return _reported(notices, furniture.Document)
+
+
+def resize_furniture(
+    furniture: DocumentObject,
+    *,
+    width: float | None = None,
+    depth: float | None = None,
+    height: float | None = None,
+) -> None:
+    """Change les cotes de l'ensemble (mm, ``None`` = inchangée) puis recalcule ; refusé
+    d'avance (``ValueError`` traduite, rien n'est modifié) si une pièce deviendrait trop petite
+    ou trop grande ou si un assemblage perdrait sa position. Avertissements dans la vue
+    rapport."""
+    sizes = {"Width": width, "Depth": depth, "Height": height}
+    notices = furniture_members.resize(furniture, sizes)
+    _reported(notices, furniture.Document)
+
+
+def furniture_of(obj: DocumentObject) -> DocumentObject | None:
+    """Ensemble dont ``obj`` (pièce de bois, pièce usinée ou ensemble) est membre, ``None``
+    sinon."""
+    try:
+        member = furniture_members.member_object(obj)
+    except TypeError:
+        return None
+    return _member_furniture(member)
