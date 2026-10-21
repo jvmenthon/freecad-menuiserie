@@ -171,10 +171,6 @@ class TextureCache:
             self._refused(str(texture.image), texture, refusal)
             return None
 
-    def usable(self, texture: Texture) -> bool:
-        """Vrai si l'image de ``texture`` peut être affichée (contrôle du fichier puis décodage)."""
-        return self.node(texture) is not None
-
     def _node_of(self, texture: Texture, opened: TextureFile) -> TextureNode | None:
         """Nœud mémorisé ou encore vivant du fichier ouvert, sinon décodé depuis ses octets."""
         if opened.key in self._cache:

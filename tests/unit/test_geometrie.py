@@ -20,9 +20,9 @@ from freecad.menuiserie.core.geometry import (
     JointError,
     RigidTransform,
     Vec3,
+    moved,
     relative_axes,
-    to_guest,
-    to_host,
+    relative_transform,
 )
 from tests.unit.aides_assemblages import block, matrix, rail, rotation_z, stile
 
@@ -110,16 +110,16 @@ def test_axes_et_solides() -> None:
         Cylinder(ORIGIN, Axis.X_POS, 0.0, 10.0)
 
 
-def test_to_host_et_to_guest() -> None:
-    host, guest = stile(), rail()
+def test_solides_dans_le_repere_de_l_hote_et_retour() -> None:
+    to_host = relative_transform(stile(), rail())
     box = Box(ORIGIN, Vec3(10.0, 20.0, 5.0))
-    assert to_host(host, guest, box) == Box(Vec3(40.0, 60.0, 0.0), Vec3(60.0, 70.0, 5.0))
-    assert to_guest(host, guest, to_host(host, guest, box)) == box
+    assert moved(box, to_host) == Box(Vec3(40.0, 60.0, 0.0), Vec3(60.0, 70.0, 5.0))
+    assert moved(moved(box, to_host), to_host.inverse()) == box
     cylinder = Cylinder(Vec3(0.0, 30.0, 11.0), Axis.X_NEG, 5.0, 20.0)
-    moved = to_host(host, guest, cylinder)
-    assert isinstance(moved, Cylinder)
-    assert moved.axis is Axis.Y_NEG
-    assert close(moved.base, Vec3(30.0, 60.0, 11.0))
+    turned = moved(cylinder, to_host)
+    assert isinstance(turned, Cylinder)
+    assert turned.axis is Axis.Y_NEG
+    assert close(turned.base, Vec3(30.0, 60.0, 11.0))
 
 
 # --- M2 : classement --------------------------------------------------------------------

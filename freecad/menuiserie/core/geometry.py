@@ -36,8 +36,6 @@ __all__ = [
     "moved_box",
     "relative_axes",
     "relative_transform",
-    "to_guest",
-    "to_host",
 ]
 
 CONTACT_TOLERANCE_MM: Final = 0.01
@@ -320,13 +318,3 @@ def moved(solid: Solid, transform: RigidTransform) -> Solid:
         base = transform.apply(solid.base)
         return Cylinder(base, moved_axis(transform, solid.axis), solid.radius, solid.height)
     return moved_box(solid, transform)
-
-
-def to_host(host: PlacedBlock, guest: PlacedBlock, solid: Solid) -> Solid:
-    """Solide du repère de l'invitée exprimé dans celui de l'hôte."""
-    return moved(solid, relative_transform(host, guest))
-
-
-def to_guest(host: PlacedBlock, guest: PlacedBlock, solid: Solid) -> Solid:
-    """Solide du repère de l'hôte exprimé dans celui de l'invitée."""
-    return moved(solid, relative_transform(host, guest).inverse())

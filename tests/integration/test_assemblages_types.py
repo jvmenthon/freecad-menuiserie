@@ -24,7 +24,6 @@ pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
 api = pytest.importorskip("freecad.menuiserie.api")
-factories = pytest.importorskip("freecad.menuiserie.features.joints.factories")
 
 LENGTH = "App::PropertyLength"
 DISTANCE = "App::PropertyDistance"
@@ -81,7 +80,7 @@ def test_proprietes_par_type(document: Any, scenario: Scenario) -> None:
         assert joint.getDocumentationOfProperty(name), name
         assert joint.getEditorMode(name) == [], name
         assert value_of(joint, name) == default, name
-    joint_class = factories.JOINT_CLASSES[joint.Proxy.KIND]
+    joint_class = type(joint.Proxy)
     assert {spec.name for spec in joint_class.specs()} == COMMON | {row[0] for row in rows}
     assert joint_class.TYPE.startswith("Menuiserie::")
 
