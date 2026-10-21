@@ -190,6 +190,25 @@ class DeletionWatcher:
             self._on_deleted()
 
 
+class UpdateGuard:
+    """Garde des mises à jour des widgets par le panneau (``with guard:``) : tant qu'elle est
+    levée (:attr:`active`), les saisies ne sont pas réécrites dans l'objet. Réentrante."""
+
+    def __init__(self) -> None:
+        self._depth = 0
+
+    @property
+    def active(self) -> bool:
+        """Vrai pendant une mise à jour des widgets par le panneau."""
+        return self._depth > 0
+
+    def __enter__(self) -> None:
+        self._depth += 1
+
+    def __exit__(self, *_exc_info: object) -> None:
+        self._depth -= 1
+
+
 def has_expression(obj: DocumentObject, prop: str) -> bool:
     """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
     return any(path.lstrip(".") == prop for path, _expression in obj.ExpressionEngine)

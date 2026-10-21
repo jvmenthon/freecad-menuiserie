@@ -15,8 +15,7 @@ l'écrit puis rafraîchit l'affichage par :meth:`ParamField.show`.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from typing import Final, cast
 
 import FreeCAD as App
@@ -28,7 +27,7 @@ from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.schema import DISTANCE, PropertySpec
-from freecad.menuiserie.gui.task_panels.base import Widget, connect, has_expression
+from freecad.menuiserie.gui.task_panels.base import UpdateGuard, Widget, connect, has_expression
 
 Write = Callable[[str, object], None]  # (propriété, valeur) écrite par le panneau
 
@@ -70,7 +69,7 @@ class ParamField:
     def __init__(self, spec: PropertySpec, write: Write) -> None:
         self.spec = spec
         self._write = write
-        self._updating = False
+        self._guard = UpdateGuard()
         self.label = QtGui.QLabel(translated(spec.label))
         self.editor: Widget = self._make_editor()
         self.editor.setObjectName(spec.name)
@@ -84,7 +83,7 @@ class ParamField:
         expression = expression_of(obj, self.spec.name)
         automatic = self.auto is not None and not value
         shown = getattr(resolved, self.spec.resolved, value) if automatic else value
-        with self._quiet():
+        with self._guard:
             self._display(getattr(shown, "Value", shown))
             if self.auto is not None:
                 self.auto.setChecked(automatic)
@@ -144,22 +143,13 @@ class ParamField:
         return box
 
     def _on_edited(self, *_value: object) -> None:
-        if not self._updating:
+        if not self._guard.active:
             self._write(self.spec.name, self._current())
 
     def _on_auto_toggled(self, automatic: bool) -> None:
         """Cochée : 0 (automatique) ; décochée : la valeur effective affichée devient fixe."""
-        if not self._updating:
+        if not self._guard.active:
             self._write(self.spec.name, 0 if automatic else self._current())
-
-    @contextmanager
-    def _quiet(self) -> Iterator[None]:
-        """Mise à jour des widgets par le panneau : rien n'est réécrit dans l'objet."""
-        previous, self._updating = self._updating, True
-        try:
-            yield
-        finally:
-            self._updating = previous
 
 
 def fields_of(specs: tuple[PropertySpec, ...], write: Write) -> list[ParamField]:
