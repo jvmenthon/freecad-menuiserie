@@ -57,6 +57,7 @@ __all__ = [
     "add_members",
     "build_furniture",
     "checked_furniture",
+    "join_with_options",
     "member_object",
     "relink",
     "remove_members",
@@ -335,3 +336,23 @@ def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list
         for name in changed:
             setattr(furniture, name, getattr(new, name.lower()))
     return notices
+
+
+# --- Gabarits (J4d, ADR 0010) ---------------------------------------------------------------
+
+
+def join_with_options(
+    furniture: DocumentObject,
+    entries: Sequence[tuple[DocumentObject, InteriorMode, frozenset[Edge]]],
+) -> list[Notice]:
+    """Fait entrer des pièces dans ``furniture`` avec le mode et les options « fixe » donnés
+    (un gabarit fixe lui-même ses jeux et ses retraits, au lieu des options par défaut), puis
+    les relie. Mêmes refus, avant toute modification, que :func:`add_members`."""
+    checked_furniture(furniture)
+    members = _candidates([obj for obj, _mode, _fixed in entries], furniture)
+    _checked_label(str(furniture.Label))
+    for obj, mode, fixed in entries:
+        _join(obj, furniture, fixed)
+        with writing(obj):
+            obj.PositionMode = mode.value
+    return bind_members(read_members(furniture), [member.Name for member in members])
