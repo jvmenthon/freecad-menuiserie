@@ -3,8 +3,8 @@
 Atelier (workbench) FreeCAD pour concevoir des meubles et ouvrages de menuiserie de façon
 paramétrique : pièces de bois réelles, assemblages classiques et liste de débit automatique.
 
-> **Statut : en développement (jalon J1 – pièce de bois).** La pièce de bois paramétrique se
-> crée depuis la barre d'outils ou la console Python, et se modifie dans son panneau de tâche
+> **Statut : en développement (jalon J4 – ensembles et gabarit Caisson).** La pièce de bois
+> paramétrique se crée depuis la barre d'outils ou la console Python, et se modifie dans son panneau de tâche
 > ou dans l'éditeur de propriétés ; elle s'affiche avec la texture de son matériau quand la
 > bibliothèque en fournit une.
 
@@ -16,7 +16,7 @@ paramétrique : pièces de bois réelles, assemblages classiques et liste de dé
 | J1 | Pièce de bois paramétrique, bibliothèque d'essences et de panneaux |
 | J2 | Liste de débit (tableau FreeCAD + export CSV) |
 | J3 | Assemblages : tenon-mortaise, rainure-languette, tourillons |
-| J4 | Mi-bois, queue d'aronde, gabarit de caisson |
+| J4 | Ensembles (cotes et onglet **Ensemble**), mi-bois, queue d'aronde, onglet, gabarit de caisson |
 | J5 | Plans TechDraw, traductions, publication dans l'Addon Manager |
 
 ## Prérequis
@@ -84,6 +84,14 @@ ses pièces dans un **Std Part**, puis utilisez **App::Link**.
 
 Depuis la console Python, `api.set_edge_distance(piece, "Left", 10)` règle la distance entre
 une face de la pièce et ce bord de l'ensemble, comme le champ du panneau.
+
+## Gabarit Caisson
+
+Le bouton **Caisson** ouvre un panneau de paramètres (dimensions, épaisseurs, feuillure du fond,
+étagères, assemblage des côtés) avec aperçu dans la vue 3D, puis crée côtés, dessus, dessous,
+fond, étagères et assemblages. Le résultat est un **ensemble ordinaire** : il se modifie par le
+même panneau (double-clic) et ne se régénère jamais depuis le gabarit, qui ne sert qu'à le
+construire (voir l'ADR 0010).
 
 ## Pièce de bois (console Python)
 

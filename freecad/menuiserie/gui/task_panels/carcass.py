@@ -166,11 +166,12 @@ class CarcassTaskPanel:
         return int(getattr(buttons, "value", buttons))  # énumérations de PySide6 ou PySide2
 
     def watch_document(self) -> None:
-        """Panneau affiché : FreeCAD le ferme si le document est fermé ; la transaction est
-        alors abandonnée."""
+        """Panneau affiché : FreeCAD le ferme si le document est fermé ou si la transaction change
+        (Annuler, Rétablir) ; la transaction est alors abandonnée."""
         dialog = Gui.Control.activeTaskDialog()
         dialog.setDocumentName(self.doc.Name)
         dialog.setAutoCloseOnDeletedDocument(True)
+        dialog.setAutoCloseOnTransactionChange(True)
         connect(self.form, "destroyed()", self._on_closed_by_freecad)
 
     def _finish(self, *, abort: bool) -> None:

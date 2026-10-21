@@ -33,12 +33,13 @@ from typing import Any
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Notice
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
 from freecad.menuiserie.features import furniture_edges, furniture_members, templates
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
-from freecad.menuiserie.features.i18n import translated_errors
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.factories import (
     create_dovetail,
     create_dowels,
@@ -342,6 +343,10 @@ def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) ->
 
 __all__ += ["CarcassJoinery", "CarcassParams", "make_carcass"]
 
+_CARCASS_ARGUMENTS = QT_TRANSLATE_NOOP(
+    "Menuiserie", "make_carcass : params ou champs en mots-clés, pas les deux"
+)
+
 
 def make_carcass(
     doc: Document | None = None,
@@ -363,7 +368,7 @@ def make_carcass(
     ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
     """
     if params is not None and values:
-        raise TypeError("make_carcass : params ou champs en mots-clés, pas les deux")
+        raise TypeError(translated(_CARCASS_ARGUMENTS))
     with translated_errors():
         chosen = params if params is not None else CarcassParams(**values)
     document = doc if doc is not None else App.ActiveDocument or App.newDocument()

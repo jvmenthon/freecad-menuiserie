@@ -29,7 +29,7 @@ joues, voile, deux jeux de tourillons). Ne pas encore créer l'ensemble.
 | 2.1 | Créer une **Pièce de bois** « Tablette » (800 × 300 × 18) posée entre les joues, puis la sélectionner avec l'ensemble, bouton **Ajouter à l'ensemble**. | Elle apparaît sous l'ensemble, avec ses propriétés du groupe « Ensemble » ; les autres pièces gardent leurs options. |
 | 2.2 | Double-clic sur l'ensemble, choisir Tablette. | Elle figure dans la liste des membres avec ses six distances. |
 | 2.3 | Sélectionner la tablette, puis la commande *Retirer de l'ensemble*. | Elle garde sa forme, sans expression ni propriété « Ensemble ». *Annuler* la remet. |
-| 2.4 | Tenter d'ajouter une pièce déjà membre d'un autre ensemble. | Refus avec un message en français, rien n'est modifié. |
+| 2.4 | Créer un second ensemble (par exemple deux autres pièces de bois, bouton **Ensemble**), puis sélectionner une pièce du bureau et ce second ensemble et tenter **Ajouter à l'ensemble**. | Refus avec un message en français, rien n'est modifié. |
 
 ## 3. Changer les cotes, distances fixes et non fixes
 
@@ -41,7 +41,7 @@ de l'utilisateur). Puis :
 |---|---|---|
 | 3.1 | Hauteur `800`, OK. | Plateau 50 mm plus haut, joues de 770, voile de 450 de haut, 5 tourillons de chaque côté. |
 | 3.2 | Largeur `1400`, OK. | Plateau de 1400, joue droite recalée contre le bord, voile de 1356. |
-| 3.3 | Joue gauche : décocher « fixe » à l'arrière, Profondeur `800`, OK. | Les joues ne s'allongent plus (largeur 560) ; le plateau, lui, suit. |
+| 3.3 | Joue gauche : décocher « fixe » à l'arrière (la joue droite reste fixe), Profondeur `900`, OK. | Le plateau passe à 900 et la joue droite à 860 ; la joue gauche ne s'allonge plus et reste à 760. |
 | 3.4 | Dans le panneau, saisir une distance (ex. voile, avant : `300`) sans toucher à « fixe ». | La pièce se déplace en aperçu, la case « fixe » reste telle quelle. |
 
 ## 4. Gabarit Caisson
@@ -52,7 +52,7 @@ de l'utilisateur). Puis :
 | 4.2 | **OK**. | Côtés, dessus, dessous, fond en feuillure, une étagère, 4 jonctions à tourillons, un ensemble « Caisson » ; une entrée « Créer un caisson ». |
 | 4.3 | Double-clic sur le caisson, Profondeur `500`, Hauteur `800`, OK. | Tout suit en un recalcul : fond toujours en feuillure, dessus à fleur du haut, étagère reste à sa hauteur (Reste en place), tourillons recomptés. |
 | 4.4 | Recommencer **Caisson**, puis **Annuler** dans le panneau. | Aucun objet créé. |
-| 4.5 | Dans un document avec le bureau : sélectionner le caisson et le bureau, **Ajouter à l'ensemble**. | Le caisson devient un sous-ensemble du bureau et suit sa profondeur. |
+| 4.5 | Dans le document du bureau, créer un **Caisson** à côté (bouton **Caisson**, OK), puis sélectionner d'abord le bureau, ensuite le caisson (Ctrl+clic), **Ajouter à l'ensemble**. | Le caisson devient un sous-ensemble du bureau (le premier ensemble sélectionné est la cible) et suit sa profondeur. |
 
 ## 5. Mi-bois
 

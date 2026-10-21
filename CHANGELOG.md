@@ -18,6 +18,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `make_carcass` (côtés, dessus, dessous, fond en feuillure, étagères, tourillons et un ensemble
   « Caisson » dont les options « fixe » sont données par le gabarit), commande **Caisson** avec
   panneau de paramètres et aperçu, une seule entrée d'annulation.
+- Règles de suivi des ensembles (`core/furniture/`, J4a, ADR 0009), sans FreeCAD : étendue des
+  membres et distance de chaque face au bord de son côté, options « fixe » par défaut (Q7 : la
+  pièce bouge par défaut, toute distance est fixe ; « non fixe » au choix), règles de suivi
+  (distance fixe, `Stay`, `Proportional`, épaisseur jamais étirée), expressions FreeCAD des
+  liaisons (`<<Bureau>>.Depth - 40 mm`, positions relatives à `<<Bureau>>.Origin`), formules de
+  l'utilisateur respectées, aperçu et refus d'un redimensionnement (pièce trop petite,
+  assemblage qui perdrait son contact), sous-ensembles et refus d'un cycle d'ensembles.
 - Ensemble dans le document (J4b′, ADR 0008 et 0009) : objet `Menuiserie::Furniture` (cotes
   `Width`, `Depth`, `Height`, `Origin`, `Template`, `Version`), propriétés de membre
   (`Furniture`, `PositionMode`, `FixedLeft` … `FixedTop`, `FurnitureBindings`) et liaisons par
@@ -156,13 +163,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   ni assemblage ni pièce usinée, les brutes réapparaissent) et par double-clic sur un assemblage
   (entrée « Modifier un assemblage »). Aperçu en direct, erreur d'assemblage affichée dans le
   panneau, paramètre piloté par une expression jamais écrit.
-- Règles de suivi des ensembles (`core/furniture/`, J4a, ADR 0009), sans FreeCAD : étendue des
-  membres et distance de chaque face au bord de son côté, options « fixe » par défaut (Q7 : la
-  pièce bouge par défaut, toute distance est fixe ; « non fixe » au choix), règles de suivi
-  (distance fixe, `Stay`, `Proportional`, épaisseur jamais étirée), expressions FreeCAD des
-  liaisons (`<<Bureau>>.Depth - 40 mm`, positions relatives à `<<Bureau>>.Origin`), formules de
-  l'utilisateur respectées, aperçu et refus d'un redimensionnement (pièce trop petite, assemblage qui perdrait son contact), sous-ensembles
-  et refus d'un cycle d'ensembles.
 
 ### Modifié
 - Panneaux de tâche : transactions, fermeture forcée et surveillance du document dans un socle

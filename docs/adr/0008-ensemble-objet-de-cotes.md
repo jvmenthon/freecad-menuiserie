@@ -69,9 +69,11 @@ Options étudiées :
   et leur règle « même conteneur » s'appliquent sans changement.
 - Le menuisier qui veut déplacer tout le meuble le range dans un Std Part. Le panneau et le README
   l'expliquent.
-- Supprimer l'ensemble par un script (`doc.removeObject`) laisse des pièces dont les expressions
-  visent un objet absent, ce que FreeCAD signale. Dans l'interface, le ViewProvider retire d'abord
-  les liaisons de l'atelier (`remove_from_furniture`) dans la même transaction (critère P2).
+- Supprimer l'ensemble par un script (`doc.removeObject`) appelle `Furniture.unsetupObject`, qui
+  fait `release_members` : les expressions de liaison des membres sont retirées, les pièces
+  gardent leur forme. Dans l'interface, `onDelete` du ViewProvider appelle `remove_members`
+  (critère P2), qui retire en plus les propriétés de membre (groupe « Ensemble »). Écart : par
+  script, ces propriétés restent sur les membres.
 - Les sous-ensembles (Q2 : retenus par jv le 2026-10-21) sont des membres comme les autres :
   leurs cotes et leur `Origin` reçoivent des liaisons, et ils portent les mêmes options de
   distance que les pièces.
