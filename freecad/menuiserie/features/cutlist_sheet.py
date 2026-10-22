@@ -23,11 +23,14 @@ from freecad.menuiserie.features.freecad_types import HIDDEN, Document, Document
 from freecad.menuiserie.features.i18n import translate_text, translated
 
 __all__ = [
+    "DATE_FORMAT",
     "MARKER",
     "SHEET_NAME",
+    "TITLE",
     "create_sheet",
     "find_sheet",
     "rewrite_sheet",
+    "scope_text",
 ]
 
 SHEET_NAME: Final = "MenuiserieCutList"
@@ -162,7 +165,8 @@ def _write_section(writer: _Writer, section: TableSection) -> None:
         writer.line(cells, section.text_columns)
 
 
-def _scope_text(selection_count: int | None) -> str:
+def scope_text(selection_count: int | None) -> str:
+    """Portée affichée : « Tout le document » ou « Sélection : n objet(s) »."""
     if selection_count is None:
         return translated(_WHOLE_DOCUMENT)
     if selection_count == 1:
@@ -175,7 +179,7 @@ def _write_head(writer: _Writer, selection_count: int | None, now: datetime) -> 
     writer.row += 1
     writer.text(0, translated(_DATE_LINE, {"date": now.strftime(DATE_FORMAT)}))
     writer.row += 1
-    writer.text(0, _scope_text(selection_count))
+    writer.text(0, scope_text(selection_count))
     writer.row += 2
 
 

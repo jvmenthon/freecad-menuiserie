@@ -6,7 +6,7 @@ Critère G4 (et parties visuelles de S3, S6, G1 à G3) de la
 est ouvert dans **LibreOffice Calc** et dans **Excel**, en interface française. Les résultats
 et les captures sont reportés dans la PR.
 
-G1 à G3 sont aussi vérifiés hors écran par `tests/gui/verifier_atelier.py`
+G1 à G3, la création du PDF (en-tête %PDF) et la numérotation sont aussi vérifiés hors écran par `tests/gui/verifier_atelier.py`
 (`verifications_debit.py`), le calcul, la feuille et le CSV par `tests/integration/` et
 `tests/unit/` ; cette recette ne vérifie que ce qu'un écran et un tableur montrent.
 
@@ -65,20 +65,45 @@ Cliquer dans le vide de la vue 3D pour ne rien sélectionner.
 | 17 | **Annuler** la boîte. | Rien ne se passe : aucun fichier, aucun message. |
 | 18 | Relancer, valider le nom proposé. | Le fichier est créé ; la **barre d'état** affiche « Liste de débit exportée dans « … » ». Aucune entrée d'annulation n'est ajoutée : l'export ne modifie pas le document (hormis un recalcul si des objets étaient à recalculer). La sélection n'a pas bougé. |
 | 19 | Écraser le même fichier (relancer, même nom). | Le fichier est remplacé sans message d'erreur (écriture atomique) ; aucun fichier temporaire `.…tmp` ne reste dans le dossier. |
-| 20 | Ouvrir le CSV dans **LibreOffice Calc** (double-clic, ou *Fichier › Ouvrir*). | S'ouvre **tel quel**, sans assistant d'import : colonnes séparées, accents corrects (« Épaisseur », « Chêne », « m³ »), nombres à **virgule décimale** reconnus comme nombres (alignés à droite, additionnables). Totaux et fournitures sous le tableau, séparés par une ligne vide. |
-| 21 | Ouvrir le même CSV dans **Excel** (français) par double-clic. | Même résultat : accents corrects, colonnes séparées, nombres reconnus. |
+| 20 | Ouvrir le CSV dans **LibreOffice Calc** (double-clic, ou *Fichier › Ouvrir*). | Le CSV est au format **international** (virgule, point décimal, UTF-8 avec BOM) : Calc peut ouvrir l'assistant d'import, qui doit proposer **UTF-8** et le séparateur **virgule** ; une fois validé, accents corrects (« Épaisseur », « Chêne », « m³ »), colonnes séparées, nombres reconnus (alignés à droite, additionnables). Totaux et fournitures sous le tableau, séparés par une ligne vide. |
+| 21 | Ouvrir le même CSV dans **Excel en interface française** par double-clic. | Noter précisément ce qui s'affiche : le BOM fait reconnaître l'UTF-8 (accents corrects), mais Excel français attend le **point-virgule** et la **virgule décimale** : le séparateur virgule peut laisser chaque ligne dans **une seule colonne** et les nombres à point peuvent être lus comme du texte ou des dates. Si c'est le cas, vérifier que *Données › À partir du texte/CSV* (origine UTF-8, délimiteur virgule) les lit bien, et que `api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)` s'ouvre, lui, directement. Reporter le comportement observé dans la PR (il décide si le dialecte français doit devenir un choix de l'interface). |
 | 22 | Nommer une pièce `=1+1` (repère) et exporter. | Le tableur affiche le **texte** `'=1+1` (apostrophe comprise) : aucune formule n'est exécutée. |
 | 23 | Exporter vers un nom **sans extension** (« essai »). | « essai.csv » est créé. |
 | 24 | Exporter vers un nom d'une autre extension (« essai.txt »). | Une **boîte d'avertissement** « Menuiserie : action refusée » s'affiche (« n'a pas l'extension .csv ») ; le message figure aussi dans la barre d'état et la vue rapport ; aucun fichier créé. |
 | 25 | Exporter vers un fichier ouvert en écriture dans Excel (Windows). | Boîte d'avertissement « l'écriture de … a échoué » : aucun fichier abîmé (le précédent reste lisible). |
 | 26 | Sélectionner **l'ensemble seul**, exporter. | Le CSV ne contient que les pièces du caisson, sans « Montant » ni « Traverse ». |
 
+## Export PDF
+
+| N° | Action | Résultat attendu |
+|---|---|---|
+| 32 | Sans sélection, **Exporter la liste de débit (PDF)…**. | Boîte d'enregistrement du système, dossier du document, nom proposé **« recette-debit - liste de débit.pdf »**, filtre « Fichiers PDF (*.pdf) ». |
+| 33 | **Annuler** la boîte. | Rien ne se passe : aucun fichier, aucun message. |
+| 34 | Relancer, valider. Ouvrir le PDF dans un lecteur. | Fichier créé, **barre d'état** « Liste de débit exportée dans « … » ». Page **A4 paysage**, marges d'environ 10 mm ; titre « Liste de débit - recette-debit », date, portée « Tout le document » ; tableau des pièces lisible (rien de coupé à droite, accents corrects), totaux par matériau, fournitures (tourillons), avertissements éventuels. Plusieurs pages si besoin : aucune ligne coupée en deux. |
+| 35 | Imprimer le PDF (ou l'aperçu avant impression). | Rien ne déborde de la feuille ; texte net. |
+| 36 | Sélectionner « Montant » et « Traverse », exporter en PDF. | Portée « Sélection : 2 objets » ; seules ces pièces. Le document n'a pas changé (aucune entrée d'annulation). |
+| 37 | Exporter vers « essai » (sans extension), puis vers « essai.csv ». | « essai.pdf » est créé ; le second est refusé en boîte d'avertissement (« n'a pas l'extension .pdf »), aucun fichier créé. |
+| 38 | Écraser un PDF ouvert dans le lecteur (Windows). | Soit le PDF est remplacé, soit une boîte d'avertissement d'échec s'affiche ; jamais un PDF abîmé. |
+
+## Numérotation des repères
+
+Préparation : dans un document neuf, trois pièces de chêne sans repère (800 × 100 × 22 deux
+fois, 300 × 100 × 22 une fois), une quatrième déjà repérée « M7 ».
+
+| N° | Action | Résultat attendu |
+|---|---|---|
+| 39 | Sans sélection, **Numéroter les repères**. | Les deux pièces identiques reçoivent le **même** repère « M1 », la petite « M2 » (numéros sans trou, « M7 » sauté ni modifié) ; le libellé de chaque pièce suit son repère (« M1 », « M1 (2) », « M2 »). Barre d'état : bilan du nombre de pièces et de repères. |
+| 40 | *Édition › Annuler*. | Tous les repères reviennent d'un coup (une seule entrée « Numéroter les repères »). |
+| 41 | Refaire, puis relancer **Numéroter les repères**. | Rien ne change ; la barre d'état indique qu'aucune pièce n'est sans repère. |
+| 42 | Si la liste de débit existe, la regarder après la numérotation. | Elle s'est mise à jour toute seule : une ligne « M1 » de quantité 2. |
+| 43 | Ajouter une pièce sans repère, la sélectionner seule, **Numéroter les repères**. | Seule cette pièce reçoit le premier numéro libre ; les autres sont inchangées. |
+
 ## Robustesse
 
 | N° | Action | Résultat attendu |
 |---|---|---|
 | 27 | Modifier la longueur d'un montant de l'assemblage **sans** recalculer (modifier une propriété sans appuyer sur F5), puis lancer **Liste de débit** ou l'export. | Le document est **recalculé** avant le calcul (la forme usinée de la traverse est à jour : tenons comptés) ; pas d'avertissement « forme non recalculée ». |
-| 28 | Ouvrir un panneau de tâche (double-clic sur une pièce), regarder les deux boutons. | Les deux boutons sont **grisés** tant que le panneau est ouvert ; actifs après **OK** ou **Annuler**. |
+| 28 | Ouvrir un panneau de tâche (double-clic sur une pièce), regarder les quatre boutons. | Les quatre boutons sont **grisés** tant que le panneau est ouvert ; actifs après **OK** ou **Annuler**. |
 | 29 | Sans document ouvert, regarder les boutons. | Grisés. |
 | 30 | Enregistrer, fermer, rouvrir le document **sans l'atelier** (autre atelier actif, ou `freecadcmd`). | La feuille est une feuille FreeCAD ordinaire, lisible ; aucune erreur ni message d'objet inconnu. |
 | 31 | Ouvrir *Édition › Préférences* après toutes ces opérations. | Aucune rubrique ni réglage créé par la liste de débit. |

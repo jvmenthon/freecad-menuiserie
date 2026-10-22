@@ -40,8 +40,13 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     )
     # Gabarits (J4d)
     commands += ("Menuiserie_Carcass",)
-    # Liste de débit (J2d)
-    commands += ("Menuiserie_CutList", "Menuiserie_CutListExport")
+    # Liste de débit (J2d, J2g)
+    commands += (
+        "Menuiserie_CutList",
+        "Menuiserie_CutListExport",
+        "Menuiserie_CutListPdf",
+        "Menuiserie_NumberMarks",
+    )
 
     def Initialize(self) -> None:
         """Appelé une seule fois, à la première activation de l'atelier."""
