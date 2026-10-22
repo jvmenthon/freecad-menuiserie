@@ -11,6 +11,7 @@ import os
 import time
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -102,7 +103,7 @@ def live(world: World, doc: SheetDoc) -> Obj:
     world.features.cutlist_object.ensure_cut_list(doc)
     found = world.features.cutlist_object.find_cut_list(doc)
     assert found is not None
-    return found
+    return cast(Obj, found)
 
 
 @pytest.mark.parametrize("kind", ["autre_type", "sans_marque", "autre_document"])
