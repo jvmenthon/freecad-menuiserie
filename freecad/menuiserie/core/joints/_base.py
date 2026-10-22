@@ -20,8 +20,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 
 MAX_COUNT: Final = 50
-MIN_RATIO: Final = 2.0  # pente 1:n la plus forte
-MAX_RATIO: Final = 20.0  # pente 1:n la plus douce
+MAX_ANGLE_DEG: Final = 30.0  # angle d'un flanc de queue d'aronde, au plus
 
 SEPARATED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Les pièces ne se touchent pas.")
 OVERLAPPING: Final = QT_TRANSLATE_NOOP(
@@ -112,7 +111,7 @@ class ParamKind(Enum):
     OFFSET = "offset"
     FLAG = "flag"
     COUNT = "count"
-    RATIO = "ratio"
+    ANGLE = "angle"
 
 
 def _length(value: object) -> object:
@@ -134,10 +133,9 @@ def _count(value: object) -> object:
     return value if valid else _INVALID
 
 
-def _ratio(value: object) -> object:
-    number = bounded_float(value, 0.0, MAX_RATIO)
-    valid = number is not None and (number == 0 or number >= MIN_RATIO)
-    return number if valid else _INVALID
+def _angle(value: object) -> object:
+    number = bounded_float(value, 0.0, MAX_ANGLE_DEG)
+    return _INVALID if number is None else number
 
 
 _CHECKS: Final[Mapping[ParamKind, Callable[[object], object]]] = MappingProxyType(
@@ -146,7 +144,7 @@ _CHECKS: Final[Mapping[ParamKind, Callable[[object], object]]] = MappingProxyTyp
         ParamKind.OFFSET: _offset,
         ParamKind.FLAG: _flag,
         ParamKind.COUNT: _count,
-        ParamKind.RATIO: _ratio,
+        ParamKind.ANGLE: _angle,
     }
 )
 _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
@@ -170,10 +168,11 @@ _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
             "Paramètre d'assemblage invalide : {field} = {value} "
             "(nombre entier entre 0 et {max} attendu).",
         ),
-        ParamKind.RATIO: QT_TRANSLATE_NOOP(
+        ParamKind.ANGLE: QT_TRANSLATE_NOOP(
             "Menuiserie",
             "Paramètre d'assemblage invalide : {field} = {value} "
-            "(0 pour automatique, ou rapport fini entre {min} et {max} attendu).",
+            "(0 pour automatique, ou angle fini en degrés, supérieur à 0 et d'au plus {max}, "
+            "attendu).",
         ),
     }
 )
@@ -182,7 +181,7 @@ _MAXIMA: Final = MappingProxyType(
         ParamKind.LENGTH: MAX_DIMENSION_MM,
         ParamKind.OFFSET: MAX_DIMENSION_MM,
         ParamKind.COUNT: MAX_COUNT,
-        ParamKind.RATIO: MAX_RATIO,
+        ParamKind.ANGLE: MAX_ANGLE_DEG,
     }
 )
 
@@ -207,9 +206,9 @@ def count_param(default: int) -> Any:
     return field(default=default, metadata={_PARAM_KIND: ParamKind.COUNT})
 
 
-def ratio_param(default: float) -> Any:
-    """Champ « rapport » (pente 1:n) : fini, non booléen, 0 (automatique) ou 2 ≤ n ≤ 20."""
-    return field(default=default, metadata={_PARAM_KIND: ParamKind.RATIO})
+def angle_param(default: float) -> Any:
+    """Champ « angle » en degrés : fini, non booléen, 0 (automatique) ou 0 < x ≤ 30°."""
+    return field(default=default, metadata={_PARAM_KIND: ParamKind.ANGLE})
 
 
 def validate_params(params: object) -> None:
@@ -222,7 +221,5 @@ def validate_params(params: object) -> None:
             values = {"field": item.name, "value": quoted_value(value)}
             if kind in _MAXIMA:
                 values["max"] = decimal_text(_MAXIMA[kind])
-            if kind is ParamKind.RATIO:
-                values["min"] = decimal_text(MIN_RATIO)
             raise JointError(_TEMPLATES[kind], values)
         object.__setattr__(params, item.name, checked)

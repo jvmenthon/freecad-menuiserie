@@ -36,6 +36,10 @@ NOT_FLUSH = "doit arriver à fleur de la face extérieure"
 Pair = tuple[PlacedBlock, PlacedBlock]
 SQUARE = (Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0), Vec3(1.0, 1.0, 0.0), Vec3(0.0, 1.0, 0.0))
 UP = Vec3(0.0, 0.0, 1.0)
+DEFAULT_ANGLE = 10.0  # degrés, angle automatique
+FLANK = math.tan(math.radians(DEFAULT_ANGLE))  # retrait par mm de profondeur
+# Trois queues de 42 mm côté pointe sur 18 mm de profondeur et d'épaisseur.
+TAILS_VOLUME = 3 * (42.0 - 18.0 * FLANK) * 18.0 * 18.0
 
 
 def values(pair: Pair, params: DovetailParams | None = None) -> DovetailValues:
@@ -143,21 +147,22 @@ def test_prisme_refuse(points: tuple[Vec3, ...], extrusion: Vec3) -> None:
 
 def test_parametres_par_defaut_et_normalises() -> None:
     params = DovetailParams()
-    assert (params.tail_count, params.pin_width, params.slope) == (0, 0.0, 0.0)
-    assert isinstance(DovetailParams(slope=8).slope, float)
+    assert (params.tail_count, params.pin_width, params.angle) == (0, 0.0, 0.0)
+    assert isinstance(DovetailParams(angle=8).angle, float)
     assert isinstance(DovetailParams(pin_width=5).pin_width, float)
 
 
-@pytest.mark.parametrize("slope", [1.99, 20.01, -6.0, math.inf, math.nan, True, "6"])
-def test_pente_refusee(slope: object) -> None:
-    with pytest.raises(JointError, match="slope") as error:
-        DovetailParams(slope=slope)  # type: ignore[arg-type]
-    assert "entre 2 et 20" in str(error.value)
+@pytest.mark.parametrize("angle", [30.01, 45.0, -6.0, math.inf, math.nan, True, "10"])
+def test_angle_refuse(angle: object) -> None:
+    with pytest.raises(JointError, match="angle") as error:
+        DovetailParams(angle=angle)  # type: ignore[arg-type]
+    assert "en degrés" in str(error.value)
+    assert "d'au plus 30" in str(error.value)
 
 
-@pytest.mark.parametrize("slope", [0, 2, 7.5, 20])
-def test_pente_acceptee(slope: float) -> None:
-    assert DovetailParams(slope=slope).slope == slope
+@pytest.mark.parametrize("angle", [0, 0.5, 7.5, 30])
+def test_angle_accepte(angle: float) -> None:
+    assert DovetailParams(angle=angle).angle == angle
 
 
 @pytest.mark.parametrize(
@@ -179,14 +184,14 @@ def test_autres_parametres_refuses(field: str, value: object) -> None:
 )
 def test_valeurs_automatiques(size: tuple[float, float, float], count: int, pin: float) -> None:
     result = values(dovetail_corner(size))
-    assert (result.tail_count, result.pin_width, result.slope) == (count, pin, 6.0)
+    assert (result.tail_count, result.pin_width, result.angle) == (count, pin, DEFAULT_ANGLE)
 
 
 def test_valeurs_saisies_gardees() -> None:
-    result = values(dovetail_corner(), DovetailParams(tail_count=2, pin_width=10, slope=8))
-    assert (result.tail_count, result.pin_width, result.slope) == (2, 10.0, 8.0)
+    result = values(dovetail_corner(), DovetailParams(tail_count=2, pin_width=10, angle=8))
+    assert (result.tail_count, result.pin_width, result.angle) == (2, 10.0, 8.0)
     assert result.tail_width == pytest.approx(60.0)  # (150 - 3 x 10) / 2
-    assert result.tail_base == pytest.approx(60.0 - 2 * 18 / 8)
+    assert result.tail_base == pytest.approx(60.0 - 2 * 18 * math.tan(math.radians(8)))
 
 
 # --- D3 : queues et logements ---------------------------------------------------------------
@@ -194,12 +199,13 @@ def test_valeurs_saisies_gardees() -> None:
 
 def test_planches_de_reference() -> None:
     result = values(dovetail_corner())
+    assert result.tail_base == pytest.approx(42.0 - 36.0 * FLANK)
     assert result == DovetailValues(
         tail_count=3,
         pin_width=6.0,
-        slope=6.0,
+        angle=DEFAULT_ANGLE,
         tail_width=42.0,
-        tail_base=36.0,
+        tail_base=result.tail_base,
         tails=((6.0, 48.0), (54.0, 96.0), (102.0, 144.0)),
     )
 
@@ -209,15 +215,18 @@ def test_queues_ajoutees_a_l_invitee() -> None:
     tails = prisms(plan.guest_additions)
     assert plan.guest_cuts == plan.host_additions == plan.inserts == ()
     # Repère de l'invitée : bout en x = 0, vers l'hôte selon -X ; largeur selon Y.
-    assert tails[0].points == (
-        Vec3(0.0, 9.0, 0.0),
-        Vec3(0.0, 45.0, 0.0),
+    expected = (
+        Vec3(0.0, 6.0 + 18.0 * FLANK, 0.0),
+        Vec3(0.0, 48.0 - 18.0 * FLANK, 0.0),
         Vec3(-18.0, 48.0, 0.0),
         Vec3(-18.0, 6.0, 0.0),
     )
+    assert [(p.x, p.y, p.z) for p in tails[0].points] == pytest.approx(
+        [(p.x, p.y, p.z) for p in expected]
+    )
     assert tails[0].extrusion == Vec3(0.0, 0.0, 18.0)
     assert [bounds(tail)[1] for tail in tails] == [(6.0, 48.0), (54.0, 96.0), (102.0, 144.0)]
-    assert sum(volume(tail) for tail in tails) == pytest.approx(37_908.0)
+    assert sum(volume(tail) for tail in tails) == pytest.approx(TAILS_VOLUME)
 
 
 def test_logements_traversants_prolonges_hors_de_la_matiere() -> None:
@@ -228,10 +237,10 @@ def test_logements_traversants_prolonges_hors_de_la_matiere() -> None:
     # Repère de l'hôte : bout en x = 0 (face extérieure de l'invitée), faces z = 0 et z = 18.
     assert first[0] == pytest.approx((-overrun, 18.0))
     assert first[2] == pytest.approx((-overrun, 18.0 + overrun))
-    # Flancs prolongés : côté pointe (z = 0) plus large de overrun / 6 de chaque côté.
-    assert first[1] == pytest.approx((6.0 - overrun / 6, 48.0 + overrun / 6))
-    # Largeur moyenne des queues (39 mm) gardée : prolongé sur la profondeur et l'épaisseur.
-    expected = 3 * (18.0 + 2 * overrun) * 39.0 * (18.0 + overrun)
+    # Flancs prolongés : côté pointe (z = 0) plus large de overrun x tan(angle) de chaque côté.
+    assert first[1] == pytest.approx((6.0 - overrun * FLANK, 48.0 + overrun * FLANK))
+    # Largeur moyenne des queues (42 mm - 18 tan) gardée : prolongé en profondeur et épaisseur.
+    expected = 3 * (18.0 + 2 * overrun) * (42.0 - 18.0 * FLANK) * (18.0 + overrun)
     assert sum(volume(socket) for socket in sockets) == pytest.approx(expected)
 
 
@@ -256,7 +265,7 @@ def test_tiroir_sur_chant() -> None:
     side = placed((300.0, 150.0, 18.0), side_rotation, (0.0, 18.0, 0.0))
     assert values((front, side)).tail_count == 3
     plan = DOVETAIL.plan(front, side, DovetailParams())
-    assert sum(volume(tail) for tail in prisms(plan.guest_additions)) == pytest.approx(37_908.0)
+    assert sum(volume(tail) for tail in prisms(plan.guest_additions)) == pytest.approx(TAILS_VOLUME)
 
 
 def test_roles_devines() -> None:
@@ -303,15 +312,16 @@ def test_a_fleur_a_la_tolerance_pres() -> None:
 )
 def test_refus_queues_trop_etroites(params: dict[str, object], count: str, pin: str) -> None:
     error = refused(dovetail_corner(), "Queues trop étroites", **params)
-    assert error.params == {"count": count, "width": "150", "pin": pin, "slope": "6"}
+    assert error.params == {"count": count, "width": "150", "pin": pin, "angle": "10"}
 
 
 def test_queue_de_un_mm_a_l_epaulement_acceptee() -> None:
-    """b = t - 2 L / slope = 1 mm tout juste : accepté."""
-    params = DovetailParams(tail_count=1, pin_width=68.5, slope=3)
+    """b = t - 2 L tan(angle) = 1 mm tout juste : accepté (angle de la pente 1:3)."""
+    angle = math.degrees(math.atan(1 / 3))
+    params = DovetailParams(tail_count=1, pin_width=68.5, angle=angle)
     result = values(dovetail_corner(), params)
     assert (result.tail_width, result.tail_base) == pytest.approx((13.0, 1.0))
-    refused(dovetail_corner(), "Queues trop étroites", tail_count=1, pin_width=69, slope=3)
+    refused(dovetail_corner(), "Queues trop étroites", tail_count=1, pin_width=69, angle=angle)
 
 
 def test_refus_pieces_pas_d_equerre() -> None:

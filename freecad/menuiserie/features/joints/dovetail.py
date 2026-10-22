@@ -3,19 +3,22 @@
 
 Contrat de persistance (ADR 0003) : chemin de ce module, nom de la classe et noms des propriétés
 figés. Les queues sont ajoutées au bout de la pièce invitée (pièce à queues), les logements
-enlevés dans la pièce hôte (pièce à griffes), qu'ils traversent. Nombre, griffes et pente valent
-0 pour « automatique » (:mod:`core.joints.dovetail`).
+enlevés dans la pièce hôte (pièce à griffes), qu'ils traversent. Nombre, griffes et angle (en
+degrés) valent 0 pour « automatique » (:mod:`core.joints.dovetail`).
 """
 
 from __future__ import annotations
 
+import math
 from typing import ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.dovetail import MAX_TAIL_COUNT, DovetailParams
+from freecad.menuiserie.features import schema
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import JointFeature
-from freecad.menuiserie.features.schema import LENGTH, PropertySpec
+from freecad.menuiserie.features.schema import ANGLE, LENGTH, PropertySpec
 
 __all__ = ["DovetailJoint"]
 
@@ -59,12 +62,26 @@ class DovetailJoint(JointFeature):
             resolved="pin_width",
         ),
         PropertySpec(
-            "Slope",
-            "App::PropertyFloat",
+            "Angle",
+            ANGLE,
             _GROUP,
-            QT_TRANSLATE_NOOP("App::Property", "Pente 1:n des queues ; 0 = automatique (1:6)."),
-            default=_DEFAULTS.slope,
-            label=QT_TRANSLATE_NOOP("Menuiserie", "Pente 1:n"),
-            resolved="slope",
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Angle des flancs des queues, en degrés (0 à 30) ; 0 = automatique (10°).",
+            ),
+            default=_DEFAULTS.angle,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Angle des queues"),
+            resolved="angle",
         ),
     )
+
+    def onDocumentRestored(self, obj: DocumentObject) -> None:
+        """Comme les autres assemblages ; l'ancienne propriété ``Slope`` (pente 1:n, versions de
+        développement) est convertie en ``Angle`` puis retirée."""
+        slope = getattr(obj, "Slope", None) if "Slope" in obj.PropertiesList else None
+        if "Slope" in obj.PropertiesList:
+            obj.removeProperty("Slope")
+        super().onDocumentRestored(obj)
+        schema.add_missing_properties(obj, self.specs())
+        if isinstance(slope, (int, float)) and slope > 0 and not obj.Angle.Value:
+            obj.Angle = math.degrees(math.atan(1 / slope))

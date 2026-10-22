@@ -35,8 +35,10 @@ HALF_LAP_CUT = 60 * 60 * 11
 DOWEL_VOLUME = math.pi * 5**2 * 40
 DOWEL_HOLE_VOLUME = math.pi * 5**2 * 21
 
-# Trois queues d'aronde de 42 / 36 mm sur 18 x 18 (critère D5 de J4) : 3 x 39 x 18 x 18.
-DOVETAIL_VOLUME = 37_908
+# Trois queues d'aronde de 42 mm côté pointe sur 18 x 18, flancs à 10° (angle automatique,
+# critère D5 de J4) : 3 x (42 - 18 tan 10°) x 18 x 18.
+DOVETAIL_TAN = math.tan(math.radians(10))
+DOVETAIL_VOLUME = 3 * (42 - 18 * DOVETAIL_TAN) * 18 * 18
 
 
 @dataclass(frozen=True)

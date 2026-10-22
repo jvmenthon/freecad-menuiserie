@@ -278,8 +278,8 @@ PARAMS_CLASSES = (
         (HalfLapParams, "flip_side", 0),
         (DovetailParams, "tail_count", -1),
         (DovetailParams, "pin_width", math.nan),
-        (DovetailParams, "slope", 1.0),
-        (DovetailParams, "slope", 21),
+        (DovetailParams, "angle", -1.0),
+        (DovetailParams, "angle", 31),
     ],
 )
 def test_parametres_refuses(factory: type, field: str, value: object) -> None:
@@ -303,8 +303,8 @@ def test_parametres_refuses(factory: type, field: str, value: object) -> None:
         (HalfLapParams, "depth", 0),
         (HalfLapParams, "flip_side", True),
         (DovetailParams, "tail_count", 50),
-        (DovetailParams, "slope", 2),
-        (DovetailParams, "slope", 20),
+        (DovetailParams, "angle", 0.5),
+        (DovetailParams, "angle", 30),
     ],
 )
 def test_parametres_limites_acceptes(factory: type, field: str, value: object) -> None:
