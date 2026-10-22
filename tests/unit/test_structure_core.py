@@ -18,6 +18,7 @@ PRIVATE_MODULES = (
     "freecad.menuiserie.core.materials._",
     "freecad.menuiserie.core.joints._",
     "freecad.menuiserie.core.furniture._",
+    "freecad.menuiserie.core.cutlist._",
     "freecad.menuiserie.core.snap._",
 )
 CORE_PACKAGE = PACKAGE / "core"

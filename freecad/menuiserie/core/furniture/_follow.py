@@ -20,12 +20,12 @@ from freecad.menuiserie.core.furniture._model import (
     FurnitureBox,
     InteriorMode,
     Member,
-    Notice,
     NoticeKind,
     notice,
 )
 from freecad.menuiserie.core.furniture._spans import Span, distances, square_spans
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM
+from freecad.menuiserie.core.notice import Notice
 
 Rules = Mapping[str, tuple[FollowRule, ...]]
 

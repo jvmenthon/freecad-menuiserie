@@ -133,35 +133,46 @@ assemblages de J3.
 
 ```python
 @dataclass(frozen=True)
-class CutEntry:            # une pièce brute vue une fois (quantity occurrences)
-    record: PartRecord     # J1b : repère, matériau, cotes finies, surcotes, fil, densité
+class CutEntry:  # une pièce brute vue une fois (quantity occurrences)
+    record: PartRecord  # J1b : repère, matériau, cotes finies, surcotes, fil, densité
     quantity: int = 1
-    additions: Dimensions3 = ZERO   # ajouts des assemblages (mm), le long de L, l, e
-    furniture: str = ""             # libellé de l'ensemble, affichage seulement
-    source: str = ""                # nom interne de l'objet, pour les avertissements
+    additions: Dimensions3 = ZERO  # ajouts des assemblages (mm), le long de L, l, e
+    furniture: str = ""  # libellé de l'ensemble, affichage seulement
+    source: str = ""  # nom interne de l'objet, pour les avertissements
+
 
 @dataclass(frozen=True)
-class Hardware:            # fourniture (tourillon)
-    kind: HardwareKind     # DOWEL (seul en J2)
+class Hardware:  # fourniture (tourillon)
+    kind: HardwareKind  # DOWEL (seul en J2)
     diameter: float
     length: float
     quantity: int
 
+
 @dataclass(frozen=True)
-class CutLine:             # un groupe de pièces identiques
-    mark: str; quantity: int; material_id: str; material_name: str; kind: MaterialKind
-    finished: Dimensions; rough: Dimensions; grain: GrainDirection
-    furniture: tuple[str, ...]          # ensembles concernés, triés, sans doublon
+class CutLine:  # un groupe de pièces identiques
+    mark: str
+    quantity: int
+    material_id: str
+    material_name: str
+    kind: MaterialKind
+    finished: Dimensions
+    rough: Dimensions
+    grain: GrainDirection
+    furniture: tuple[str, ...]  # ensembles concernés, triés, sans doublon
+
     def volume_m3(self, rough: bool) -> float: ...
     def mass_kg(self, rough: bool) -> float: ...
-    def area_m2(self) -> float: ...     # L × l de débit × quantité (panneaux)
+    def area_m2(self) -> float: ...  # L × l de débit × quantité (panneaux)
+
 
 @dataclass(frozen=True)
 class CutList:
     lines: tuple[CutLine, ...]
     totals: tuple[MaterialTotal, ...]
     hardware: tuple[Hardware, ...]
-    warnings: tuple[Notice, ...]        # Notice de J4 (gabarit traduit + paramètres)
+    warnings: tuple[Notice, ...]  # Notice de J4 (gabarit traduit + paramètres)
+
 
 def build_cut_list(entries: Iterable[CutEntry], hardware: Iterable[Hardware] = ()) -> CutList: ...
 def to_csv(cut_list: CutList, dialect: CsvDialect = FRENCH_CSV) -> str: ...

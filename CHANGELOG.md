@@ -6,6 +6,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Liste de débit, calcul pur (J2b, ADR 0012) : `core/cutlist/` (`CutEntry`, `build_cut_list`,
+  `CutList`, `to_csv`) regroupe les pièces identiques (repère, matériau, cotes finies, ajouts
+  d'assemblage, surcotes, fil), les trie (repère en ordre naturel « M2 » avant « M10 », sans repère
+  en dernier), calcule cotes de débit (finies + ajouts + surcotes), volumes, masses, totaux par
+  matériau (surface des panneaux), fournitures (tourillons) et avertissements (repère réutilisé,
+  pièces sans repère). Export CSV au dialecte `FRENCH_CSV` (`;`, virgule décimale, UTF-8 avec BOM,
+  CRLF), en-têtes traduisibles, injection de formule neutralisée. `Notice` des avertissements
+  déplacée dans `core/notice.py`, commune aux ensembles et à la liste de débit.
 - Accrochage à la sélection (J6d, ADR 0011) : les faces, arêtes et sommets sélectionnés avant
   **Pièce de bois** (pièces de bois, Std Part, `App::Link`, objets d'autres ateliers) reçoivent la
   nouvelle pièce, en aperçu et en direct ; le panneau cite « Contre : … » et signale les éléments

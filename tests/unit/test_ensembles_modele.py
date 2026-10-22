@@ -186,5 +186,6 @@ def test_avertissement() -> None:
 
 def test_facade_sans_logique() -> None:
     assert sorted(furniture.__all__) == furniture.__all__
-    for name in set(furniture.__all__) - {"Rules"}:  # Rules : alias de type
+    # Rules : alias de type ; Notice : type commun, défini dans core.notice
+    for name in set(furniture.__all__) - {"Rules", "Notice"}:
         assert getattr(furniture, name).__module__.startswith("freecad.menuiserie.core.furniture._")
