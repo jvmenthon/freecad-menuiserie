@@ -25,6 +25,7 @@ from freecad.menuiserie.core.cutlist._csv import (
 from freecad.menuiserie.core.cutlist._html import to_html
 from freecad.menuiserie.core.cutlist._marks import DEFAULT_MARK_PREFIX, assign_marks
 from freecad.menuiserie.core.cutlist._model import (
+    MIN_PLANING_MM,
     NO_ADDITIONS,
     NO_MARK_DISPLAY,
     CutEntry,
@@ -53,6 +54,7 @@ __all__ = [
     "DEFAULT_MARK_PREFIX",
     "FRENCH_CSV",
     "INTERNATIONAL_CSV",
+    "MIN_PLANING_MM",
     "NO_ADDITIONS",
     "NO_MARK_DISPLAY",
     "THUMBNAIL_HEIGHT",

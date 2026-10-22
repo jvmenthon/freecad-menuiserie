@@ -13,6 +13,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
+from freecad.menuiserie.core._validation import decimal_text
 from freecad.menuiserie.core.cutlist._model import (
     CutEntry,
     CutLine,
@@ -57,6 +58,7 @@ def group_key(entry: CutEntry) -> GroupKey:
         _rounded(additions.length, additions.width, additions.thickness),
         _rounded(allowances.length, allowances.width, allowances.thickness),
         record.grain,
+        _rounded(*entry.rough_thicknesses),
     )
 
 
@@ -104,6 +106,7 @@ def _make_line(entries: Sequence[CutEntry]) -> CutLine:
         allowances=record.allowances,
         furniture=tuple(furniture),
         source=first.source,
+        over_standard=first.over_standard,
     )
 
 
@@ -150,8 +153,14 @@ def _grouped_hardware(items: Iterable[Hardware]) -> tuple[Hardware, ...]:
     return tuple(sorted(grouped, key=lambda h: (h.kind.value, h.diameter, h.length)))
 
 
+def _over_standard_notice(line: CutLine) -> Notice:
+    params = {"thickness": decimal_text(line.rough.thickness), "material": line.material_name}
+    return Notice(CutNoticeKind.ROUGH_THICKNESS_OVER_STANDARD, params)
+
+
 def _warnings(lines: Sequence[CutLine], unmarked: int) -> tuple[Notice, ...]:
-    """Repère porté par plusieurs lignes (C2') ; pièces sans repère (Q5)."""
+    """Repère porté par plusieurs lignes (C2') ; pièces sans repère (Q5) ; épaisseur de débit
+    au-delà des épaisseurs de brut, une fois par ligne (B2)."""
     counts: dict[str, int] = defaultdict(int)
     for line in lines:
         for mark in line.marks:
@@ -163,6 +172,7 @@ def _warnings(lines: Sequence[CutLine], unmarked: int) -> tuple[Notice, ...]:
     ]
     if unmarked:
         notices.append(Notice(CutNoticeKind.MISSING_MARK, {"count": str(unmarked)}))
+    notices.extend(_over_standard_notice(line) for line in lines if line.over_standard)
     return tuple(notices)
 
 

@@ -223,7 +223,11 @@ Exemple complet (format 1, encodage UTF-8) :
 - `kind` : `solid` (massif), `plywood` (contreplaqué), `mdf` ou `melamine`.
 - `name` : libellé français, ou libellés par langue ; il doit être unique.
 - `density` : masse volumique en kg/m³ (50 à 2000) ; `thicknesses` : épaisseurs standard en mm
-  (0,1 à 300) ; `color` : couleur d'affichage `#RRGGBB` ; `has_grain` (facultatif) : fil du bois.
+  (0,1 à 300) ; `color` : couleur d'affichage `#RRGGBB` ; `has_grain` (facultatif) : fil du bois ;
+  `rough_thicknesses` (facultatif, massif) : épaisseurs de **brut** du commerce en mm (mêmes
+  bornes que `thicknesses`) : la liste de débit arrondit l'épaisseur de débit à la plus petite
+  épaisseur de brut qui couvre l'épaisseur finie + 3 mm de rabotage au moins
+  ([ADR 0014](docs/adr/0014-epaisseurs-de-brut.md)). Sans ce champ, pas d'arrondi.
 
 Le fichier est lu une fois par session ; après l'avoir modifié, relancez FreeCAD ou exécutez
 `from freecad.menuiserie.features.library import reload_library; reload_library()`. Une entrée

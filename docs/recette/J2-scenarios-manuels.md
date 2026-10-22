@@ -115,6 +115,17 @@ fois, 300 × 100 × 22 une fois), une quatrième déjà repérée « M7 ».
 | 42 | Si la liste de débit existe, la regarder après la numérotation. | Elle s'est mise à jour toute seule : une ligne « M1 » de quantité 2. |
 | 43 | Ajouter une pièce sans repère, la sélectionner seule, **Numéroter les repères**. | Seule cette pièce reçoit le premier numéro libre ; les autres sont inchangées. |
 
+## Épaisseurs standards de brut
+
+Préparation : dans un document neuf, une pièce de chêne 800 × 100 × 18 (« C1 »), une pièce de
+pin sylvestre 700 × 100 × 18 (« P1 »), un contreplaqué bouleau 600 × 400 × 18 (« X1 »).
+
+| N° | Action | Résultat attendu |
+|---|---|---|
+| 54 | Lancer **Liste de débit**. | Épaisseur de débit : « C1 » **27**, « P1 » **22**, « X1 » **18** (le panneau n'est pas arrondi). Volume et masse de « C1 » calculés avec 27 mm ; « Totaux par matériau et épaisseur » : une ligne par épaisseur de plot. Les cotes finies et les pièces 3D ne changent pas. |
+| 55 | Passer l'épaisseur de « C1 » à 98 mm et relancer la liste. | Épaisseur de débit **101** mm (98 + 3) et, sous le tableau, l'avertissement « Épaisseur de débit de 101 mm au-delà des épaisseurs de brut du Chêne : à commander ou à contrecoller. » (une fois par ligne). |
+| 56 | Ajouter à la bibliothèque personnelle un massif sans `rough_thicknesses`, créer une pièce de 18 mm dans ce matériau. | Épaisseur de débit **18** mm, sans avertissement (ancien calcul). Un `rough_thicknesses` invalide (ex. `[0]`) rejette l'entrée avec un message qui cite le champ. |
+
 ## Robustesse
 
 | N° | Action | Résultat attendu |

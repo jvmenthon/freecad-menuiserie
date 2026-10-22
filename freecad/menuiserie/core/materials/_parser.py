@@ -76,6 +76,7 @@ from freecad.menuiserie.core.materials._model import (
     normalized_density,
     normalized_id,
     normalized_label,
+    normalized_rough_thicknesses,
     normalized_texture_size,
     normalized_thicknesses,
 )
@@ -144,6 +145,19 @@ def _parse_thicknesses(entry: Entry) -> tuple[float, ...]:
         "max": decimal_text(MAX_THICKNESS_MM),
     }
     return _checked(entry, thicknesses, ENTRY_INVALID_THICKNESSES, "thicknesses", **params)
+
+
+def _parse_rough_thicknesses(entry: Entry) -> tuple[float, ...]:
+    """Épaisseurs de brut facultatives (ADR 0014) ; absentes : aucune."""
+    if "rough_thicknesses" not in entry.data:
+        return ()
+    rough = normalized_rough_thicknesses(entry.data["rough_thicknesses"])
+    params = {
+        "count": str(MAX_THICKNESSES),
+        "min": decimal_text(MIN_THICKNESS_MM),
+        "max": decimal_text(MAX_THICKNESS_MM),
+    }
+    return _checked(entry, rough, ENTRY_INVALID_THICKNESSES, "rough_thicknesses", **params)
 
 
 def _hex_color(value: object) -> tuple[int, int, int] | None:
@@ -233,6 +247,7 @@ def _build_material(entry: Entry, material_id: str) -> Material:
         color=_parse_color(entry),
         has_grain=_parse_has_grain(entry, kind),
         texture=_parse_texture(entry),
+        rough_thicknesses=_parse_rough_thicknesses(entry),
     )
 
 
