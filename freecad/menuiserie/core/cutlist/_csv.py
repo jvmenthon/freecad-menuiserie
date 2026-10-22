@@ -186,6 +186,9 @@ def to_csv(cut_list: CutList, dialect: CsvDialect = FRENCH_CSV, translate: Trans
     ligne vide. Les textes qui commenceraient une formule sont neutralisés (C7). Le fichier est
     écrit par l'appelant avec ``dialect.encoding`` et sans conversion de fin de ligne."""
     buffer = io.StringIO(newline="")
+    # Chaque cellule passe par neutralize_formula (C7, testé) ; defusedcsv serait une dépendance
+    # de plus (ADR 0007) pour la même protection.
+    # nosemgrep: python.lang.security.use-defusedcsv.use-defusedcsv
     writer = csv.writer(buffer, delimiter=dialect.delimiter, lineterminator=dialect.line_terminator)
     for row in _rows(cut_list, translate, dialect):
         writer.writerow(neutralize_formula(cell) for cell in row)
