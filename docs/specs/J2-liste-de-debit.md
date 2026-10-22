@@ -1,8 +1,7 @@
 # [J2] Liste de débit
 
 - Jalon : J2 (issue #13), après J4 et J6, à la demande de jv
-- Statut : **acceptée** (réponses de jv au § 10, qui priment sur les recommandations ★ ; Q6 à
-  reformuler)
+- Statut : **acceptée** (réponses de jv au § 10, qui priment sur les recommandations ★)
 - Branche : `jalon/J2`, partie de `jalon/J6` (PR #38 et #48 pas encore fusionnées dans `main`)
 - ADR liés : [0002 — Bibliothèque de matériaux](../adr/0002-bibliotheque-de-materiaux.md),
   [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md),
@@ -325,7 +324,7 @@ Exigence ajoutée, mot pour mot : « La liste de débit doit être exportable en
 | Q3 | **b** | La liste se met à jour **toute seule** à chaque recalcul : ADR 0012 remplacé par l'ADR 0013. |
 | Q4 | **b** | CSV international par défaut : séparateur `,`, point décimal, UTF-8 avec BOM, CRLF. |
 | Q5 | **b** | Numérotation automatique des repères dès J2 (commande). |
-| Q6 | à reformuler | jv n'a pas compris la question ; la recommandation (a), déjà livrée en J2a, reste en place en attendant. |
+| Q6 | a | Reformulée puis choisie : matériau verrouillé (déjà livré en J2a). |
 
 ### 10.1 Critères modifiés ou ajoutés
 
