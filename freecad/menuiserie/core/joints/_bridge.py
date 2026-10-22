@@ -24,7 +24,7 @@ from freecad.menuiserie.core.geometry import (
 from freecad.menuiserie.core.joints._base import JointPlan
 from freecad.menuiserie.core.part_model import Dimensions
 
-__all__ = ["Bridge", "bridged"]
+__all__ = ["Bridge", "bridged", "cut_plan", "through_host"]
 
 _IDENTITY = RigidTransform.identity()
 _SIZES = ("length", "width", "thickness")
@@ -87,3 +87,16 @@ def bridged(host: PlacedBlock, guest: PlacedBlock, extension: Callable[[Contact]
     sizes[face.index] += length
     prolonged = PlacedBlock(Dimensions(*sizes), guest.placement.compose(to_guest))
     return Bridge(prolonged, to_guest, Box.from_ranges(ranges), length)
+
+
+def through_host(host: PlacedBlock, guest: PlacedBlock) -> Bridge:
+    """Invitée posée au contact prolongée à travers toute l'étendue de l'hôte (mi-bois, onglet)."""
+    return bridged(host, guest, lambda contact: contact.host_depth)
+
+
+def cut_plan(host_cut: Solid, guest_cut: Solid, bridge: Bridge) -> JointPlan:
+    """Plan d'un enlèvement dans chaque pièce (repère de chacune), plus la partie ajoutée à
+    l'invitée posée au contact."""
+    return JointPlan(
+        host_cuts=(host_cut,), guest_cuts=(guest_cut,), guest_additions=bridge.additions
+    )

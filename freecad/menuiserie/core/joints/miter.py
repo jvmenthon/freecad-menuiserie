@@ -36,7 +36,7 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import JointKind, JointPlan
-from freecad.menuiserie.core.joints._bridge import Bridge, bridged
+from freecad.menuiserie.core.joints._bridge import cut_plan, through_host
 
 __all__ = ["MiterParams", "MiterStrategy", "MiterValues"]
 
@@ -83,7 +83,7 @@ class MiterStrategy:
     def resolve(self, host: PlacedBlock, guest: PlacedBlock, params: MiterParams) -> MiterValues:
         """Angles de coupe et prismes enlevés aux deux pièces."""
         del params  # aucun paramètre en J4
-        bridge = _bridge(host, guest)
+        bridge = through_host(host, guest)
         corner = _corner(host, bridge.guest)
         angle = math.degrees(math.atan2(corner.guest_width, corner.host_width))
         return MiterValues(
@@ -97,16 +97,7 @@ class MiterStrategy:
         """Un prisme triangulaire enlevé à chaque pièce ; l'invitée posée au contact est
         prolongée jusqu'au coin."""
         values = self.resolve(host, guest, params)
-        return JointPlan(
-            host_cuts=(values.host_cut,),
-            guest_cuts=(values.guest_cut,),
-            guest_additions=_bridge(host, guest).additions,
-        )
-
-
-def _bridge(host: PlacedBlock, guest: PlacedBlock) -> Bridge:
-    """Invitée posée au contact prolongée jusqu'au coin extérieur."""
-    return bridged(host, guest, lambda contact: contact.host_depth)
+        return cut_plan(values.host_cut, values.guest_cut, through_host(host, guest))
 
 
 @dataclass(frozen=True)

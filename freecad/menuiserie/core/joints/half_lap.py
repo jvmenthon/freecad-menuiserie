@@ -30,7 +30,7 @@ from freecad.menuiserie.core.joints._base import (
     mm_text,
     validate_params,
 )
-from freecad.menuiserie.core.joints._bridge import Bridge, bridged
+from freecad.menuiserie.core.joints._bridge import cut_plan, through_host
 
 __all__ = ["HalfLapParams", "HalfLapStrategy", "HalfLapValues"]
 
@@ -83,7 +83,7 @@ class HalfLapStrategy:
         self, host: PlacedBlock, guest: PlacedBlock, params: HalfLapParams
     ) -> HalfLapValues:
         """Profondeurs effectives et entailles des deux pièces (repère de l'invitée posée)."""
-        bridge = _bridge(host, guest)
+        bridge = through_host(host, guest)
         lap = _lap(host, bridge.guest)
         thickness = host.dimensions.thickness
         depth = params.depth or mm_round(thickness / 2)
@@ -106,16 +106,7 @@ class HalfLapStrategy:
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: HalfLapParams) -> JointPlan:
         """Une entaille dans chaque pièce ; l'invitée posée au contact est prolongée."""
         values = self.resolve(host, guest, params)
-        return JointPlan(
-            host_cuts=(values.host_cut,),
-            guest_cuts=(values.guest_cut,),
-            guest_additions=_bridge(host, guest).additions,
-        )
-
-
-def _bridge(host: PlacedBlock, guest: PlacedBlock) -> Bridge:
-    """Invitée posée au contact prolongée à travers l'hôte."""
-    return bridged(host, guest, lambda contact: contact.host_depth)
+        return cut_plan(values.host_cut, values.guest_cut, through_host(host, guest))
 
 
 @dataclass(frozen=True)
