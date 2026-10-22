@@ -31,7 +31,10 @@ PIECES = 200
 
 def box_of(line: Any, color: tuple[int, int, int] = OAK) -> str:
     rough = line.rough
-    return core.thumbnail_svg(core.box_faces(rough.length, rough.width, rough.thickness), color)
+    svg: str = core.thumbnail_svg(
+        core.box_faces(rough.length, rough.width, rough.thickness), color
+    )
+    return svg
 
 
 def line_of(cut_list: Any, mark: str) -> Any:
