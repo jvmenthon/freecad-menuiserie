@@ -127,18 +127,22 @@ def verifier_panneau_d_une_piece_plus_recente() -> list[str]:
         for version, editable in ((MODEL_VERSION, True), (MODEL_VERSION + 1, False)):
             obj.Version = version
             task_panel.start_editing(obj)
-            form = formulaire()
-            problemes += [
-                *ecarts(f"type (v{version})", form.kindCombo.isEnabled(), editable),
-                *ecarts(f"matériau (v{version})", form.materialCombo.isEnabled(), editable),
-                *ecarts(
-                    f"message masqué (v{version})", form.newerVersionNotice.isHidden(), editable
-                ),
-            ]
+            problemes += _ecarts_du_panneau(version, editable)
             annuler()
         return problemes
 
     return avec_document("VerifPieceRecente", verification)
+
+
+def _ecarts_du_panneau(version: int, editable: bool) -> list[str]:
+    """Écarts du panneau ouvert ; le formulaire n'est pas gardé au-delà de cet appel : une
+    enveloppe PySide survivant au panneau serait réutilisée à tort par le suivant (FreeCAD 1.0)."""
+    form = formulaire()
+    return [
+        *ecarts(f"type (v{version})", form.kindCombo.isEnabled(), editable),
+        *ecarts(f"matériau (v{version})", form.materialCombo.isEnabled(), editable),
+        *ecarts(f"message masqué (v{version})", form.newerVersionNotice.isHidden(), editable),
+    ]
 
 
 VERIFICATIONS_ROBUSTESSE: tuple[Callable[[], list[str]], ...] = (
