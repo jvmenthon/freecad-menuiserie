@@ -145,7 +145,8 @@ def test_cellules_a_droite_conservees_et_anciennes_lignes_effacees(document: Any
         document.removeObject(obj.Name)
     document.recompute()
     cut_sheet(document)
-    assert (text(sheet, "P1"), sheet.getContents("Q6"), sheet.getContents("AB3")) == (
+    formula = sheet.getContents("Q6").replace(" ", "")  # FreeCAD normalise l'expression
+    assert (text(sheet, "P1"), formula, sheet.getContents("AB3")) == (
         "ma note",
         "=B6*2",
         "12",
@@ -304,8 +305,8 @@ def test_export_csv_du_bureau(bureau: Bureau, tmp_path: Path) -> None:
     plateau = rows[1 + [line.mark for line in cut_list.lines].index("Plateau")]
     assert plateau[2:5] == ["1200", "600", "30"]
     assert ["Totaux par matériau"] in rows
-    assert any(row[0] == "Tourillon" for row in rows)
-    assert os.listdir(tmp_path) == ["bureau.csv"]
+    assert any(row and row[0] == "Tourillon" for row in rows)
+    assert sorted(set(os.listdir(tmp_path)) - {"bibliotheque"}) == ["bureau.csv"]
 
 
 def test_export_selection_et_remplacement(cadre: Cadre, tmp_path: Path) -> None:
@@ -339,7 +340,8 @@ def test_export_refuse_sans_modifier_le_document(document: Any, tmp_path: Path) 
     for path, reason in refused:
         with pytest.raises(ValueError, match=reason):
             api.export_cut_list_csv(document, path)
-    assert sorted(os.listdir(tmp_path)) == ["dossier.csv"]
+    # « bibliotheque » : dossier de l'utilisateur créé par les fixtures, pas par l'export.
+    assert sorted(set(os.listdir(tmp_path)) - {"bibliotheque"}) == ["dossier.csv"]
     assert not (tmp_path / "absent").exists()
     assert (document.UndoCount, sheets(document), touched_names(document)) == (undo_count, [], [])
 

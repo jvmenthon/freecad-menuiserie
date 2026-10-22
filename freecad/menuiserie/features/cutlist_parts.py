@@ -69,8 +69,8 @@ _TEMPLATES: Final = {
     ),
     CollectNoticeKind.NO_MACHINED_SHAPE: QT_TRANSLATE_NOOP(
         "Menuiserie",
-        "Pièce usinée « {label} » : forme absente ou invalide, les ajouts des assemblages "
-        "(tenons, languettes) ne sont pas comptés dans le débit.",
+        "Pièce usinée « {label} » : forme absente, invalide ou à recalculer, les ajouts des "
+        "assemblages (tenons, languettes) ne sont pas comptés dans le débit.",
     ),
     CollectNoticeKind.UNREADABLE_DOWELS: QT_TRANSLATE_NOOP(
         "Menuiserie", "Assemblage « {label} » : tourillons non comptés ({reason})"
@@ -142,8 +142,9 @@ def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> Cut
 
 def _local_box(machined: DocumentObject) -> Any | None:
     """Boîte englobante de la forme usinée dans le repère de sa brute, ``None`` si la forme est
-    absente ou invalide. La forme porte son ``Placement`` (celui de la brute) : on le défait."""
-    if "Invalid" in machined.State:
+    absente, invalide ou à recalculer (un assemblage en échec laisse la pièce « Touched » avec la
+    forme de la brute). La forme porte son ``Placement`` (celui de la brute) : on le défait."""
+    if "Invalid" in machined.State or "Touched" in machined.State:
         return None
     shape = machined.Shape
     if shape.isNull() or not shape.Solids or not shape.isValid():
