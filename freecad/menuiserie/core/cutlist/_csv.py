@@ -167,17 +167,55 @@ def _hardware_row(item: Hardware, translate: Translate, dialect: CsvDialect) -> 
     ]
 
 
-def _rows(cut_list: CutList, translate: Translate, dialect: CsvDialect) -> list[Sequence[str]]:
-    rows: list[Sequence[str]] = [[translate(h) for h in LINE_HEADERS]]
-    rows += [_line_row(line, translate, dialect) for line in cut_list.lines]
+@dataclass(frozen=True)
+class TableSection:
+    """Bloc du tableau (lignes, totaux, fournitures) : titre (vide pour le premier bloc),
+    en-tête, lignes de cellules déjà formatées et colonnes de texte (les autres sont des
+    nombres, formatés selon le dialecte)."""
+
+    title: str
+    header: tuple[str, ...]
+    rows: tuple[tuple[str, ...], ...]
+    text_columns: frozenset[int]
+
+
+# Repère, matériau, fil, ensemble et remarque ; les autres colonnes sont des nombres.
+_LINE_TEXT_COLUMNS: Final = frozenset({0, 8, 9, 10, 14})
+
+
+def table_sections(
+    cut_list: CutList, translate: Translate, dialect: CsvDialect = FRENCH_CSV
+) -> tuple[TableSection, ...]:
+    """Blocs du tableau : lignes, puis (s'il y a des lignes) totaux avec le total général, puis
+    fournitures. Commun au CSV et à la feuille de calcul (J2c)."""
+    lines = tuple(tuple(_line_row(line, translate, dialect)) for line in cut_list.lines)
+    sections = [TableSection("", _translated(LINE_HEADERS, translate), lines, _LINE_TEXT_COLUMNS)]
     if cut_list.lines:
-        rows += [[], [translate(TOTALS_TITLE)], [translate(h) for h in TOTALS_HEADERS]]
-        rows += [_total_row(total, dialect) for total in cut_list.totals]
         mass = _fixed(cut_list.total_mass_kg, MASS_DECIMALS, dialect)
-        rows.append([translate(GRAND_TOTAL), "", "", mass, ""])
+        rows = tuple(tuple(_total_row(total, dialect)) for total in cut_list.totals)
+        rows += ((translate(GRAND_TOTAL), "", "", mass, ""),)
+        header = _translated(TOTALS_HEADERS, translate)
+        sections.append(TableSection(translate(TOTALS_TITLE), header, rows, frozenset({0})))
     if cut_list.hardware:
-        rows += [[], [translate(HARDWARE_TITLE)], [translate(h) for h in HARDWARE_HEADERS]]
-        rows += [_hardware_row(item, translate, dialect) for item in cut_list.hardware]
+        rows = tuple(tuple(_hardware_row(item, translate, dialect)) for item in cut_list.hardware)
+        header = _translated(HARDWARE_HEADERS, translate)
+        sections.append(TableSection(translate(HARDWARE_TITLE), header, rows, frozenset({0})))
+    return tuple(sections)
+
+
+def _translated(headers: Sequence[str], translate: Translate) -> tuple[str, ...]:
+    return tuple(translate(header) for header in headers)
+
+
+def _rows(cut_list: CutList, translate: Translate, dialect: CsvDialect) -> list[Sequence[str]]:
+    rows: list[Sequence[str]] = []
+    for section in table_sections(cut_list, translate, dialect):
+        if rows:
+            rows.append([])
+        if section.title:
+            rows.append([section.title])
+        rows.append(section.header)
+        rows.extend(section.rows)
     return rows
 
 

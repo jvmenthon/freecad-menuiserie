@@ -21,21 +21,38 @@ Ensemble (J4) ::
     bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
     resize_furniture(bureau, depth=800)
 
+Liste de débit (J2) ::
+
+    from freecad.menuiserie.api import export_cut_list_csv, make_cut_list
+
+    feuille = make_cut_list(doc)  # feuille « Liste de débit » (à jour à cet instant)
+    export_cut_list_csv(doc, "/chemin/debit.csv", objects=[caisson])
+
 C'est le seul module hors de ``gui/`` autorisé à importer ``gui/``, et seulement quand
 l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd``.
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.cutlist import CutList
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
-from freecad.menuiserie.features import furniture_edges, furniture_members, templates
+from freecad.menuiserie.features import (
+    cutlist_collect,
+    cutlist_export,
+    cutlist_sheet,
+    furniture_edges,
+    furniture_members,
+    templates,
+)
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
@@ -388,3 +405,47 @@ def make_carcass(
             for obj in group:
                 provider(obj.ViewObject)
     return built.furniture, _reported(built.notices, document)
+
+
+# --- Liste de débit (J2c) --------------------------------------------------------------------
+
+__all__ += ["cut_list_of", "export_cut_list_csv", "make_cut_list"]
+
+
+def cut_list_of(doc: Document, objects: Sequence[DocumentObject] | None = None) -> CutList:
+    """Liste de débit (:class:`~freecad.menuiserie.core.cutlist.CutList`) du document ``doc`` ou,
+    si ``objects`` est donné et non vide, de ces objets : pièces de bois ou usinées, ensembles,
+    Std Part, groupes et liens (une pièce vue par un lien compte une fois de plus, fois
+    ``ElementCount``). Longueurs de débit tenons compris, tourillons en fournitures. Lecture
+    seule : le document n'est pas modifié. ``ValueError`` traduite pour un objet d'un autre
+    document."""
+    return cutlist_collect.cut_list_of(doc, objects)
+
+
+def make_cut_list(doc: Document, objects: Sequence[DocumentObject] | None = None) -> DocumentObject:
+    """Crée ou met à jour la feuille de calcul « Liste de débit » de ``doc`` (nom interne
+    ``MenuiserieCutList``, retrouvée par sa marque même renommée) et la renvoie. ``objects``
+    limite la liste à la sélection. La feuille est réécrite et datée (colonnes A à O ; les
+    cellules de P et au-delà sont conservées), jamais recalculée toute seule ; les
+    avertissements sont écrits en bas de la feuille et dans la vue rapport. Une seule
+    transaction « Liste de débit » (Annuler restaure la feuille)."""
+    cut_list = cut_list_of(doc, objects)
+    messages = notice_messages(cut_list.warnings)
+    sheet = cutlist_sheet.write_cut_list(doc, cut_list, messages, len(objects) if objects else None)
+    report(messages)
+    return sheet
+
+
+def export_cut_list_csv(
+    doc: Document, path: str | os.PathLike[str], objects: Sequence[DocumentObject] | None = None
+) -> Path:
+    """Exporte la liste de débit de ``doc`` (ou de ``objects``) en CSV français (``;``, virgule
+    décimale, UTF-8 avec BOM) dans ``path`` et renvoie le chemin. ``ValueError`` traduite, avant
+    toute écriture, si le chemin n'a pas l'extension ``.csv``, désigne un dossier, est dans un
+    dossier absent ou non accessible en écriture. Écriture atomique ; le document n'est pas
+    modifié."""
+    target = cutlist_export.validated_path(path)
+    cut_list = cut_list_of(doc, objects)
+    written = cutlist_export.export_csv(cut_list, target)
+    report(notice_messages(cut_list.warnings))
+    return written

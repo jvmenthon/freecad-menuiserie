@@ -13,9 +13,11 @@ from freecad.menuiserie.core.cutlist._csv import (
     FRENCH_CSV,
     INTERNATIONAL_CSV,
     CsvDialect,
+    TableSection,
     additions_remark,
     format_number,
     neutralize_formula,
+    table_sections,
     to_csv,
 )
 from freecad.menuiserie.core.cutlist._model import (
@@ -44,9 +46,11 @@ __all__ = [
     "HardwareKind",
     "InvalidCutEntryError",
     "MaterialTotal",
+    "TableSection",
     "additions_remark",
     "build_cut_list",
     "format_number",
     "neutralize_formula",
+    "table_sections",
     "to_csv",
 ]
