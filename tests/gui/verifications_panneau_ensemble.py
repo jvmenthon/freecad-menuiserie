@@ -71,6 +71,8 @@ def cases(form: Any) -> dict[str, bool]:
 def bouton_ok() -> Any:
     """Bouton « OK » du panneau de tâche ouvert (``None`` s'il n'est pas trouvé)."""
     for boite in Gui.getMainWindow().findChildren(QtGui.QDialogButtonBox):
+        if isinstance(boite.parent(), QtGui.QMessageBox):  # boîte de refus, pas le panneau
+            continue
         bouton = boite.button(QtGui.QDialogButtonBox.Ok)
         if bouton is not None:
             return bouton
