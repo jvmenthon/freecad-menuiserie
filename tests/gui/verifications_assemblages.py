@@ -220,6 +220,29 @@ def verifier_creation_d_un_assemblage() -> list[str]:
     return problemes
 
 
+def verifier_assemblage_impossible_refuse() -> list[str]:
+    """Demande de jv : mi-bois entre deux pièces qui ne se touchent pas : message explicatif,
+    ni objet créé, ni panneau, ni entrée d'annulation."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.gui.commands.joints import REFUSAL_BOX_NAME
+
+    with cadre("VerifAssemblageImpossible") as (doc, pieces):
+        doc.UndoMode = 1
+        avant, entrees = [o.Name for o in doc.Objects], list(doc.UndoNames)
+        assembler(doc, pieces["M1"], pieces["M2"], commande="Menuiserie_HalfLap", ok=False)
+        boite = Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
+        message = boite.text() if boite is not None and boite.isVisible() else ""
+        if boite is not None:
+            boite.hide()
+        return [
+            *ecarts("objets", [o.Name for o in doc.Objects], avant),
+            *ecarts("panneau ouvert", bool(Gui.Control.activeDialog()), False),
+            *ecarts("entrées d'annulation", list(doc.UndoNames), entrees),
+            *ecarts("message explicatif", "se chevaucher" in message, True),
+        ]
+
+
 # --- C3, C6 : affichage ------------------------------------------------------------------
 
 
@@ -396,6 +419,7 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_commandes_d_assemblage_presentes,
     verifier_activation_des_commandes_d_assemblage,
     verifier_creation_d_un_assemblage,
+    verifier_assemblage_impossible_refuse,
     verifier_affichage_de_la_piece_usinee,
     verifier_affichage_de_l_assemblage,
     verifier_reouverture_des_assemblages,
