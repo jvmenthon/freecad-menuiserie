@@ -49,6 +49,38 @@ aussitôt ; **OK** crée une seule entrée d'annulation, **Annuler** ne laisse r
 double-clic sur une pièce rouvre le panneau ; une cote pilotée par une expression y reste
 pilotée.
 
+## Poser une pièce contre une autre
+
+Avant de lancer **Pièce de bois**, sélectionnez dans la vue 3D une à trois **faces, arêtes ou
+sommets** (pièces de bois, pièces d'un ensemble ou d'un Std Part, objets d'un autre atelier :
+Part, PartDesign, esquisse…). La nouvelle pièce apparaît en aperçu semi-transparent **contre** ces
+éléments, du côté extérieur de la matière, et le groupe *Position* du panneau les cite
+(« Contre : Face3 de « Côté gauche » »). Rien de ce que vous avez sélectionné n'est modifié ni
+désélectionné.
+
+- **Une face** : la pièce est posée à plat sur la face, par le coin le plus proche du point où vous
+  avez cliqué, vers l'intérieur de la face.
+- **Une arête** : la pièce s'appuie sur la face voisine la plus tournée vers vous, une de ses
+  arêtes confondue avec l'arête choisie.
+- **Un sommet** : un coin de la pièce sur le sommet, dans le quart d'espace libre.
+- **Deux ou trois éléments** : la pièce touche tous les éléments. Deux faces en vis-à-vis
+  (l'intérieur de deux joues) étirent la longueur de la pièce à l'écart entre elles, sans jamais
+  changer l'épaisseur ; vous pouvez ensuite saisir la cote que vous voulez, votre saisie
+  l'emporte. Un élément qui n'est pas d'équerre avec le premier est ignoré, avec un message.
+- Les boutons **X**, **Y**, **Z** font tourner la pièce d'un quart de tour autour de l'axe du
+  document sans la détacher de ce qu'elle touche. Contre une face inclinée, ils tournent autour des
+  axes de cette face (sa normale et ses arêtes) : limite connue, utilisez Std Transform pour un
+  autre axe.
+- Si le premier élément est dans un Std Part, la pièce y est créée (même s'il est tourné ou
+  déplacé) ; vu à travers un lien, la pièce reste à côté de la copie. Si c'est un membre d'un
+  ensemble, la case **Ajouter à l'ensemble « … »** est cochée : la pièce suit ensuite les cotes
+  de l'ensemble ; décochez-la pour la laisser à part.
+
+La pièce ne garde aucun lien avec ce qu'elle touche : si l'élément bouge ensuite, elle ne le suit
+pas (passez par l'ensemble pour un meuble paramétrique). La sélection se fait **avant** de lancer
+la commande. Les éléments d'un même objet sont pris dans l'ordre de FreeCAD, qui regroupe les
+sélections par objet.
+
 ## Assembler deux pièces
 
 Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,
