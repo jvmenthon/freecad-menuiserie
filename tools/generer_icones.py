@@ -333,6 +333,22 @@ def _etiquette(texte: str, fond: str, bord: str) -> str:
     return "\n".join([f'{cadre} stroke-width="2"/>', *lettres])
 
 
+def apercu_liste_de_debit() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    contour = 'stroke="#4e2f12" stroke-width="1.2" stroke-linejoin="round"'
+    manche = 'stroke="#2e3436" stroke-width="5" stroke-linecap="round"'
+    lignes = [
+        "  <!-- Aperçu de la liste de débit : la feuille vue à la loupe -->",
+        _feuille(6),
+        f'  <circle cx="40" cy="42" r="14" fill="#eef3f8" fill-opacity="0.95" {trait}/>',
+        f'  <path d="M50,52 L60,62" fill="none" {manche}/>',
+        f'  <polygon points="40,32 51,38 40,44 29,38" fill="#f1c98f" {contour}/>',
+        f'  <polygon points="29,38 40,44 40,52 29,46" fill="#c4884a" {contour}/>',
+        f'  <polygon points="51,38 40,44 40,52 51,46" fill="#99622b" {contour}/>',
+    ]
+    return _document(lignes)
+
+
 def export_liste_de_debit() -> str:
     etiquette = _etiquette("CSV", "#4e9a06", "#2c5e00")
     return _document(["  <!-- Export de la liste de débit (CSV) -->", _feuille(6), etiquette])
@@ -580,6 +596,7 @@ ICONES = {
     "Menuiserie_Panel.svg": panneau,
     "Menuiserie_Species.svg": essences,
     "Menuiserie_CutList.svg": liste_de_debit,
+    "Menuiserie_CutListPreview.svg": apercu_liste_de_debit,
     "Menuiserie_CutListExport.svg": export_liste_de_debit,
     "Menuiserie_CutListPdf.svg": export_liste_de_debit_pdf,
     "Menuiserie_NumberMarks.svg": numeroter_les_reperes,

@@ -3,16 +3,21 @@
 
 from __future__ import annotations
 
+import base64
 import re
+from dataclasses import replace
 from html.parser import HTMLParser
 
 import pytest
 
 from freecad.menuiserie.core.cutlist import (
+    CutEntry,
     CutList,
     Hardware,
     HardwareKind,
+    box_faces,
     build_cut_list,
+    thumbnail_svg,
     to_html,
 )
 from tests.unit.aides_debit import entry, plywood
@@ -158,3 +163,72 @@ def test_ni_script_ni_ressource_externe() -> None:
 @pytest.mark.parametrize("marker", ['class="num"', "<thead>", "<tbody>"])
 def test_structure_du_tableau(marker: str) -> None:
     assert marker in to_html(sample(), title="T")
+
+
+# --- Miniatures (demande de jv du 2026-10-22, critères A2 et A4) -------------------------------
+
+
+def sourced(mark: str, source: str, size: tuple[float, float, float]) -> CutEntry:
+    return replace(entry(mark, size), source=source)
+
+
+def two_lines() -> CutList:
+    return build_cut_list(
+        [sourced("M1", "Part", (800, 100, 22)), sourced("M2", "Part2", (500, 90, 18))]
+    )
+
+
+def svg_of(width: float) -> str:
+    return thumbnail_svg(box_faces(width, 50, 20))
+
+
+def test_sans_miniatures_le_document_est_inchange() -> None:
+    cut_list = two_lines()
+    reference = to_html(cut_list, title="T")
+    assert to_html(cut_list, title="T", thumbnails=None) == reference
+    assert to_html(cut_list, title="T", thumbnails={}) == reference
+    assert "Miniature" not in reference
+    assert "<img" not in reference
+
+
+def test_colonne_miniature_en_tete_de_chaque_ligne() -> None:
+    thumbs = {"Part": svg_of(800), "Part2": svg_of(500)}
+    text = to_html(two_lines(), title="T", thumbnails=thumbs)
+    cells = parse(text).cells
+    assert cells[:3] == ["Miniature", "Repère", "Qté"]
+    assert text.count("<img ") == 2
+    assert text.count('class="thumb"') == 2
+    first_row = text.split("<tbody>")[1].split("</tr>")[0]
+    assert first_row.startswith('<tr><td class="thumb"><img ')
+    assert 'width="120" height="80"' in first_row
+
+
+def test_miniature_en_data_uri_et_aucune_url_externe() -> None:
+    text = to_html(two_lines(), title="T", thumbnails={"Part": svg_of(800)})
+    sources = [value for name, value in parse(text).attributes if name == "src"]
+    assert len(sources) == 1
+    assert sources[0] is not None
+    assert sources[0].startswith("data:image/svg+xml;base64,")
+    assert base64.b64decode(sources[0].split(",", 1)[1]).decode() == svg_of(800)
+    assert not re.search(r"(?i)(https?:|file:|ftp:|@import|url\()", text)
+    assert "<script" not in text
+
+
+def test_ligne_sans_miniature_a_une_cellule_vide() -> None:
+    text = to_html(two_lines(), title="T", thumbnails={"Part": svg_of(800)})
+    assert text.count("<img ") == 1
+    assert text.count('<td class="thumb"></td>') == 1
+
+
+def test_les_autres_tableaux_n_ont_pas_de_colonne_miniature() -> None:
+    cut_list = build_cut_list(
+        [sourced("M1", "a", (800, 100, 22))], [Hardware(HardwareKind.DOWEL, 8.0, 35.0, 6)]
+    )
+    text = to_html(cut_list, title="T", thumbnails={"a": svg_of(800)})
+    assert text.count("Miniature") == 1
+    assert text.count("<img ") == 1
+
+
+def test_une_miniature_qui_n_est_pas_un_svg_est_refusee() -> None:
+    with pytest.raises(ValueError, match="SVG"):
+        to_html(two_lines(), thumbnails={"Part": "<img src=x onerror=y>"})

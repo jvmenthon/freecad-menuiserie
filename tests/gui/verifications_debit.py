@@ -11,6 +11,7 @@ pièces, tourillons, ensemble) vient de ``tests/integration/bureau.py``.
 
 from __future__ import annotations
 
+import gc
 import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -19,7 +20,7 @@ from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
-from PySide import QtGui
+from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api
 from tests.commandes_debit import COMMANDES_DEBIT
@@ -32,6 +33,7 @@ LISTE = "Menuiserie_CutList"
 EXPORT = "Menuiserie_CutListExport"
 PDF = "Menuiserie_CutListPdf"
 NUMEROTER = "Menuiserie_NumberMarks"
+APERCU = "Menuiserie_CutListPreview"
 MARQUE = "MenuiserieCutList"
 COLONNES = "ABCDEFGHIJKLMNO"
 LIGNES = 80
@@ -558,6 +560,187 @@ def verifier_numerotation_des_reperes() -> list[str]:
             App.closeDocument(nom_du_document)
 
 
+# --- Aperçu avant l'export (demande de jv du 2026-10-22, critères A1 à A4) ---------------------
+
+NOMS_APERCU = {
+    "fenetre": "MenuiserieCutListPreview",
+    "navigateur": "MenuiserieCutListPreviewBrowser",
+    "actualiser": "MenuiserieCutListPreviewRefresh",
+    "pdf": "MenuiserieCutListPreviewPdf",
+    "csv": "MenuiserieCutListPreviewCsv",
+    "fermer": "MenuiserieCutListPreviewClose",
+}
+LIBELLES_APERCU = {
+    "actualiser": "Actualiser",
+    "pdf": "Exporter en PDF…",
+    "csv": "Exporter en CSV…",
+    "fermer": "Fermer",
+}
+SOURCE_IMAGE = 'src="data:image/svg+xml;base64,'
+
+
+def widgets_apercu() -> dict[str, Any]:
+    """Fenêtre d'aperçu, son navigateur et ses boutons par clé (absents si la fenêtre est
+    fermée). Cherchés parmi ``allWidgets()``, ramasse-miettes suspendu : ``findChild`` sur la
+    fenêtre principale garderait l'enveloppe Python de la fenêtre après sa fermeture."""
+    gc.collect()
+    gc.disable()
+    try:
+        noms = {nom: cle for cle, nom in NOMS_APERCU.items()}
+        return {
+            noms[w.objectName()]: w
+            for w in QtGui.QApplication.allWidgets()
+            if w.objectName() in noms
+        }
+    finally:
+        gc.enable()
+
+
+def fermer_les_apercus() -> None:
+    """Ferme toute fenêtre d'aperçu ouverte et laisse Qt la détruire (suppression différée)."""
+    trouves = widgets_apercu()
+    if "fenetre" in trouves:
+        trouves["fenetre"].close()
+    trouves.clear()
+    gc.collect()
+    QtGui.QApplication.processEvents()
+    QtCore.QCoreApplication.sendPostedEvents(None, QtCore.QEvent.DeferredDelete)
+
+
+def pixels_de_bois(navigateur: Any) -> int:
+    """Pixels brun clair du rendu du navigateur : les miniatures (matériau chêne, ombré) sont
+    dessinées. Les bordures et fonds du tableau sont gris, le texte noir."""
+    QtGui.QApplication.processEvents()
+    image = navigateur.viewport().grab().toImage()
+    compte = 0
+    for y in range(image.height()):
+        for x in range(image.width()):
+            couleur = QtGui.QColor(image.pixel(x, y))
+            rouge, vert, bleu = couleur.red(), couleur.green(), couleur.blue()
+            if rouge > vert > bleu and rouge - bleu > 50 and rouge > 100:
+                compte += 1
+    return compte
+
+
+def _etat_du_document(doc: Any) -> tuple[Any, ...]:
+    return ([o.Name for o in doc.Objects], doc.UndoNames, a_recalculer(doc), noms_selectionnes())
+
+
+def _ouverture_de_l_apercu(bureau: Bureau) -> list[str]:
+    doc = bureau.doc
+    doc.clearUndos()
+    avant = _etat_du_document(doc)
+    lignes = api.cut_list_of(doc).lines
+    Gui.Command.get(APERCU).run()
+    trouves = widgets_apercu()
+    problemes = ecarts("éléments de la fenêtre", sorted(trouves), sorted(NOMS_APERCU))
+    if problemes:
+        fermer_les_apercus()
+        return problemes
+    fenetre, navigateur = trouves["fenetre"], trouves["navigateur"]
+    html = navigateur.toHtml()
+    problemes = [
+        *ecarts("fenêtre visible", fenetre.isVisible(), True),
+        *ecarts("fenêtre non modale", fenetre.isModal(), False),
+        *ecarts("aucune boîte modale", QtGui.QApplication.activeModalWidget(), None),
+        *ecarts("titre", fenetre.windowTitle().startswith("Aperçu de la liste de débit"), True),
+        *ecarts("titre : document", doc.Label in fenetre.windowTitle(), True),
+        *ecarts("une image par ligne", html.count("<img"), len(lignes)),
+        *ecarts("miniatures en data:", html.count(SOURCE_IMAGE), len(lignes)),
+        *ecarts("aucune ressource externe", "http" in html.replace("http://www.w3.org", ""), False),
+        *ecarts("miniatures dessinées", pixels_de_bois(navigateur) > 500, True),
+        *ecarts("colonne Miniature", "Miniature" in navigateur.toPlainText(), True),
+        *ecarts("pièces listées", "Voile" in navigateur.toPlainText(), True),
+        *ecarts("liens non suivis", navigateur.openLinks(), False),
+    ]
+    for cle, libelle in LIBELLES_APERCU.items():
+        problemes += ecarts(f"bouton {cle}", trouves[cle].text(), libelle)
+        problemes += ecarts(f"bouton {cle} actif", trouves[cle].isEnabled(), True)
+    problemes += ecarts("lecture seule : document inchangé", _etat_du_document(doc), avant)
+    del fenetre, navigateur, trouves
+    fermer_les_apercus()
+    return [*problemes, *ecarts("fermée : plus de widget", sorted(widgets_apercu()), [])]
+
+
+def verifier_apercu_ouverture() -> list[str]:
+    """A1, A2 : commande d'aperçu, fenêtre non modale avec navigateur (une image ``data:`` par
+    ligne, réellement dessinée) et quatre boutons ; document et sélection inchangés ; la
+    fermeture détruit la fenêtre."""
+    return avec_bureau("VerifDebitApercu", _ouverture_de_l_apercu)
+
+
+def _exports_depuis_l_apercu(bureau: Bureau) -> list[str]:
+    doc = bureau.doc
+    with tempfile.TemporaryDirectory() as dossier:
+        doc.saveAs(str(Path(dossier) / "bureau.FCStd"))
+        doc.clearUndos()
+        Gui.Command.get(APERCU).run()
+        trouves = widgets_apercu()
+        if "pdf" not in trouves:
+            fermer_les_apercus()
+            return ["aperçu non ouvert"]
+        avant = _etat_du_document(doc)
+        nombre_de_lignes = len(api.cut_list_of(doc).lines)
+        pdf, csv = Path(dossier) / "debit.pdf", Path(dossier) / "debit.csv"
+        with boite_d_enregistrement(str(pdf)) as appels_pdf:
+            trouves["pdf"].click()
+        with boite_d_enregistrement(str(csv)) as appels_csv:
+            trouves["csv"].click()
+        octets = pdf.read_bytes() if pdf.exists() else b""
+        texte = csv.read_bytes().decode("utf-8-sig") if csv.exists() else ""
+        with boite_d_enregistrement("") as annule:
+            trouves["pdf"].click()
+        trouves["actualiser"].click()
+        html = trouves["navigateur"].toHtml()
+        problemes = [
+            *ecarts("PDF : une boîte", len(appels_pdf), 1),
+            *ecarts("PDF : filtre", "*.pdf" in appels_pdf[0][2] if appels_pdf else None, True),
+            *ecarts("PDF : valide", octets[:4], b"%PDF"),
+            *ecarts("PDF : images des miniatures", octets.count(b"/Subtype /Image") >= 1, True),
+            *ecarts("CSV : une boîte", len(appels_csv), 1),
+            *ecarts("CSV : écrit", texte.startswith("Repère,"), True),
+            *ecarts("export annulé : une boîte", len(annule), 1),
+            *ecarts("actualisé : une image par ligne", html.count("<img"), nombre_de_lignes),
+            *ecarts("fenêtre toujours ouverte", "fenetre" in widgets_apercu(), True),
+            *ecarts("aucune boîte modale", QtGui.QApplication.activeModalWidget(), None),
+            *ecarts("document inchangé", _etat_du_document(doc), avant),
+        ]
+        del trouves
+        fermer_les_apercus()
+        return problemes
+
+
+def verifier_apercu_exports() -> list[str]:
+    """A3, A4 : depuis l'aperçu, « Exporter en PDF… » écrit un PDF qui contient les images,
+    « Exporter en CSV… » le CSV, une annulation ne fait rien, « Actualiser » garde les
+    miniatures ; la fenêtre reste ouverte et le document inchangé."""
+    return avec_bureau("VerifDebitApercuExports", _exports_depuis_l_apercu)
+
+
+def _apercu_de_la_selection(bureau: Bureau) -> list[str]:
+    selectionner(bureau.shown("V"))
+    avant = noms_selectionnes()
+    Gui.Command.get(APERCU).run()
+    trouves = widgets_apercu()
+    if "navigateur" not in trouves:
+        return ["aperçu non ouvert"]
+    texte, html = trouves["navigateur"].toPlainText(), trouves["navigateur"].toHtml()
+    problemes = [
+        *ecarts("portée : une seule ligne", html.count("<img"), 1),
+        *ecarts("portée : voile listé", "Voile" in texte, True),
+        *ecarts("portée : plateau absent", "Plateau" in texte, False),
+        *ecarts("sélection intacte", noms_selectionnes(), avant),
+    ]
+    del trouves
+    fermer_les_apercus()
+    return problemes
+
+
+def verifier_apercu_de_la_selection() -> list[str]:
+    """A1 : la portée de l'aperçu est la sélection (une miniature par ligne retenue)."""
+    return avec_bureau("VerifDebitApercuSelection", _apercu_de_la_selection)
+
+
 VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_commandes_du_debit,
     verifier_liste_du_document,
@@ -575,4 +758,7 @@ VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_export_pdf,
     verifier_export_pdf_extension_et_refus,
     verifier_numerotation_des_reperes,
+    verifier_apercu_ouverture,
+    verifier_apercu_exports,
+    verifier_apercu_de_la_selection,
 )

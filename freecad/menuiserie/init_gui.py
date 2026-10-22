@@ -43,6 +43,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     # Liste de débit (J2d, J2g)
     commands += (
         "Menuiserie_CutList",
+        "Menuiserie_CutListPreview",
         "Menuiserie_CutListExport",
         "Menuiserie_CutListPdf",
         "Menuiserie_NumberMarks",

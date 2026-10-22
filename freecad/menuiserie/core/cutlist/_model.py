@@ -161,7 +161,9 @@ class Hardware:
 @dataclass(frozen=True)
 class CutLine:
     """Un groupe de pièces identiques ; volumes et masses = unitaires fois ``quantity``.
-    ``marks`` : repères distincts non vides des pièces du groupe, en ordre naturel (C1')."""
+    ``marks`` : repères distincts non vides des pièces du groupe, en ordre naturel (C1').
+    ``source`` : nom interne de la première pièce du groupe (clé de la miniature, vide si
+    inconnu)."""
 
     marks: tuple[str, ...]
     quantity: int
@@ -175,6 +177,7 @@ class CutLine:
     additions: Allowances
     allowances: Allowances
     furniture: tuple[str, ...] = ()
+    source: str = ""
 
     @property
     def display_mark(self) -> str:

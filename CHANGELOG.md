@@ -21,6 +21,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `FRENCH_CSV` (`;`, virgule décimale).
 
 ### Ajouté
+- Aperçu de la liste de débit et miniatures (demande de jv, recette J2, spécification J2 § 10.3) :
+  commande `Menuiserie_CutListPreview` « Aperçu de la liste de débit » (barre d'outils, menu,
+  icône générée) qui ouvre une fenêtre non modale montrant le document du PDF, avec les boutons
+  « Actualiser », « Exporter en PDF… », « Exporter en CSV… » et « Fermer ». Chaque ligne a la
+  **miniature isométrique** de la forme usinée de la première pièce du groupe (tenons, queues
+  d'aronde visibles ; boîte de débit si la forme n'est pas utilisable), à la couleur du matériau.
+  La projection est faite sans rendu 3D ni écran (`features/cutlist_thumbnail.py`, dessin SVG pur
+  dans `core/cutlist/_thumbnail.py`) ; `to_html(…, thumbnails=)` ajoute la colonne « Miniature »
+  (images `data:`, aucune ressource externe) ; le PDF contient les miniatures ;
+  `api.cut_list_html(doc, objects)` ; `CutLine.source`.
 - Export PDF et numérotation des repères (J2g, critères P2 et N1 de la spécification J2 § 10) :
   commandes `Menuiserie_CutListPdf` « Exporter la liste de débit (PDF)… » (boîte
   d'enregistrement, nom proposé « <document> - liste de débit.pdf », A4 paysage, marges 10 mm,

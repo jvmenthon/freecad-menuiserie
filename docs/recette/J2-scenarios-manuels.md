@@ -85,6 +85,23 @@ Cliquer dans le vide de la vue 3D pour ne rien sélectionner.
 | 37 | Exporter vers « essai » (sans extension), puis vers « essai.csv ». | « essai.pdf » est créé ; le second est refusé en boîte d'avertissement (« n'a pas l'extension .pdf »), aucun fichier créé. |
 | 38 | Écraser un PDF ouvert dans le lecteur (Windows). | Soit le PDF est remplacé, soit une boîte d'avertissement d'échec s'affiche ; jamais un PDF abîmé. |
 
+## Aperçu et miniatures
+
+Préparation : la scène de référence, avec au moins une traverse à tenons, une planche sans
+assemblage et un panneau de contreplaqué.
+
+| N° | Action | Résultat attendu |
+|---|---|---|
+| 45 | Sans sélection, **Aperçu de la liste de débit** (barre d'outils ou menu *Menuiserie*). | Une fenêtre s'ouvre ; la fenêtre principale reste utilisable (non modale) ; titre « Aperçu de la liste de débit - recette-debit ». Aucune boîte bloquante. |
+| 46 | Regarder le tableau. | Colonne **Miniature** en tête de chaque ligne : une petite vue isométrique de la pièce, à la couleur de son matériau, arêtes visibles. La traverse montre ses **tenons** (la miniature n'est pas une simple boîte) ; la planche sans assemblage est une boîte ; une pièce de même ligne (quantité 2) n'a qu'**une** miniature. |
+| 47 | Comparer avec la ligne « Remarque ». | Une ligne « Ajouts compris … » correspond à une miniature avec tenon ou queues d'aronde. |
+| 48 | Modifier une cote dans le document (fenêtre d'aperçu ouverte), puis **Actualiser**. | Le tableau et les miniatures sont à jour ; avant, la fenêtre montrait l'état au moment de l'ouverture. |
+| 49 | **Exporter en PDF…**, valider un nom. | Le PDF est écrit comme avec la commande d'export ; ouvert dans un lecteur, la colonne Miniature est présente et nette (rien de coupé, aucune ligne coupée en deux). La fenêtre reste ouverte. |
+| 50 | **Exporter en CSV…**, annuler la boîte. | Rien ne se passe. Relancer et valider : le CSV est écrit ; il ne contient pas de colonne Miniature. |
+| 51 | **Fermer**, puis sélectionner « Traverse » seule et relancer **Aperçu de la liste de débit**. | Portée « Sélection : 1 objet » : une seule ligne, une seule miniature. Le document n'a pas changé (aucune entrée d'annulation) ; la sélection est intacte. |
+| 52 | Ouvrir le document avec une pièce usinée à recalculer (modifier sans F5), lancer l'aperçu. | Le document est recalculé avant l'aperçu ; pas de miniature en boîte simple pour une pièce à tenon. |
+| 53 | Document sans aucune pièce, aperçu. | Fenêtre avec un tableau vide (en-têtes seulement), sans erreur. |
+
 ## Numérotation des repères
 
 Préparation : dans un document neuf, trois pièces de chêne sans repère (800 × 100 × 22 deux

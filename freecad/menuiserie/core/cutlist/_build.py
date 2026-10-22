@@ -103,6 +103,7 @@ def _make_line(entries: Sequence[CutEntry]) -> CutLine:
         additions=first.additions,
         allowances=record.allowances,
         furniture=tuple(furniture),
+        source=first.source,
     )
 
 
