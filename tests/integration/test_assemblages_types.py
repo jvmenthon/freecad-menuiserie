@@ -148,7 +148,9 @@ def test_feuillure_au_contact(document: Any) -> None:
     """ADR 0014 : fond posé sur la joue, à fleur de son chant arrière : feuillure de 9 mm dans
     la joue, fond prolongé d'autant ; les deux pièces usinées ne se chevauchent pas."""
     host = wood(document, "C", (600, 300, 18), (0, 0, 0))
-    guest = wood(document, "F", (600, 6, 400), (0, 294, 18))
+    guest = wood(
+        document, "F", (600, 6, 400), App.Placement(App.Vector(0, 294, 18), App.Rotation())
+    )
     document.recompute()
     joint = api.make_rabbet(host, guest)
     document.recompute()
