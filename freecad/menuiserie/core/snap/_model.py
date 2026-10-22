@@ -125,13 +125,16 @@ class FaceTarget:
 
 @dataclass(frozen=True)
 class EdgeTarget:
-    """Arête choisie, avec sa face d'appui (normale sortante ``support``, ``inward``)."""
+    """Arête choisie, avec sa face d'appui (normale sortante ``support``, ``inward``) ;
+    ``axes`` est le repère de l'objet sélectionné (origine ignorée), dont la pièce reprend la
+    rotation quand il est d'équerre avec l'arête (demande de jv)."""
 
     name: str
     start: Vec3
     end: Vec3
     support: Vec3
     inward: Vec3
+    axes: Frame | None = None
 
     def __post_init__(self) -> None:
         _check_name("EdgeTarget", self.name)
