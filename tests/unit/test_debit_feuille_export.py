@@ -19,87 +19,10 @@ import pytest
 from freecad.menuiserie.core.cutlist import CutList, Hardware, HardwareKind, build_cut_list
 from tests.unit.aides_debit import entry, plywood
 from tests.unit.aides_debit_document import Obj, World, simulated_world
+from tests.unit.aides_debit_feuille import FakeSheet, SheetDoc
 
 NOW = datetime(2026, 10, 22, 14, 30)
 ADDRESS = re.compile(r"([A-Z]+)([0-9]+)$")
-
-
-class FakeSheet(Obj):
-    """Feuille simulée : contenus, styles, alignements et largeurs enregistrés."""
-
-    def __init__(self, name: str = "MenuiserieCutList") -> None:
-        super().__init__(name, "Spreadsheet::Sheet")
-        self.cells: dict[str, str] = {}
-        self.styles: dict[str, str] = {}
-        self.alignments: dict[str, str] = {}
-        self.widths: dict[str, int] = {}
-        self.modes: dict[str, int] = {}
-        self.recomputed = 0
-
-    def addProperty(self, kind: str, name: str, group: str, doc: str) -> None:
-        assert kind == "App::PropertyBool"
-        assert (group, bool(doc)) == ("Menuiserie", True)
-        self.props[name] = False
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name in ("MenuiserieCutList", "Label") and "props" in self.__dict__:
-            self.props[name] = value
-        else:
-            super().__setattr__(name, value)
-
-    def setEditorMode(self, name: str, mode: int) -> None:
-        self.modes[name] = mode
-
-    def set(self, address: str, content: str) -> None:
-        self.cells[address] = content
-
-    def clear(self, address: str) -> None:
-        self.cells.pop(address, None)
-        self.styles.pop(address, None)
-        self.alignments.pop(address, None)
-
-    def getUsedCells(self) -> list[str]:
-        return sorted(self.cells)
-
-    def setStyle(self, address: str, style: str) -> None:
-        self.styles[address] = style
-
-    def setAlignment(self, address: str, alignment: str) -> None:
-        self.alignments[address] = alignment
-
-    def setColumnWidth(self, column: str, width: int) -> None:
-        self.widths[column] = width
-
-    def recompute(self) -> None:
-        self.recomputed += 1
-
-    def purgeTouched(self) -> None:
-        """Marque « Touched » effacée (sans effet sur le double)."""
-
-
-class SheetDoc:
-    """Document simulé qui crée la feuille et note les transactions."""
-
-    def __init__(self, *objects: Obj, fail: bool = False) -> None:
-        self.Objects = list(objects)
-        self.log: list[str] = []
-        self.fail = fail
-
-    def addObject(self, type_id: str, name: str) -> FakeSheet:
-        assert type_id == "Spreadsheet::Sheet"
-        self.log.append(f"add {name}")
-        sheet = FakeSheet(name)
-        self.Objects.append(sheet)
-        return sheet
-
-    def openTransaction(self, name: str) -> None:
-        self.log.append(f"open {name}")
-
-    def commitTransaction(self) -> None:
-        self.log.append("commit")
-
-    def abortTransaction(self) -> None:
-        self.log.append("abort")
 
 
 @pytest.fixture
@@ -114,9 +37,11 @@ def sample() -> CutList:
 
 
 def write(world: World, doc: SheetDoc, cut_list: CutList | None = None, **options: Any) -> Any:
-    return world.features.cutlist_sheet.write_cut_list(
-        doc, cut_list or sample(), now=NOW, **options
-    )
+    """Feuille retrouvée ou créée, puis réécrite (ce que fait l'objet ``CutList``)."""
+    module = world.features.cutlist_sheet
+    sheet = module.find_sheet(doc) or module.create_sheet(doc)
+    module.rewrite_sheet(sheet, cut_list or sample(), now=NOW, **options)
+    return sheet
 
 
 def column(sheet: FakeSheet, letter: str) -> dict[int, str]:
@@ -132,10 +57,10 @@ def column(sheet: FakeSheet, letter: str) -> dict[int, str]:
 # --- S1 : création, marque, transaction ----------------------------------------------------
 
 
-def test_creation_de_la_feuille_marquee_en_une_transaction(world: World) -> None:
+def test_creation_de_la_feuille_marquee_sans_transaction_propre(world: World) -> None:
     doc = SheetDoc()
     sheet = write(world, doc)
-    assert doc.log == ["open Liste de débit", "add MenuiserieCutList", "commit"]
+    assert doc.log == ["add MenuiserieCutList"]  # la transaction est celle de l'appelant
     assert sheet.Label == "Liste de débit"
     assert sheet.props["MenuiserieCutList"] is True
     assert sheet.modes == {"MenuiserieCutList": 2}  # masquée
@@ -197,7 +122,7 @@ def test_entete_date_portee_et_tableau(world: World) -> None:
     a = column(sheet, "A")
     assert a[1] == "'Liste de débit"
     assert a[2].startswith("'Calculée le 2026-10-22 14:30")
-    assert "pas mise à jour automatiquement" in a[2]
+    assert a[2].endswith("; mise à jour automatiquement à chaque recalcul du document.")
     assert a[3] == "'Tout le document"
     assert a[5] == "'Repère"
     assert [a[6], a[7]] == ["'M1", "'P1"]
@@ -264,21 +189,6 @@ def test_textes_toujours_litteraux(world: World, hostile: str) -> None:
 def test_caracteres_de_controle_remplaces(world: World) -> None:
     sheet = write(world, SheetDoc(), build_cut_list([entry("a\nb\r")]))
     assert sheet.cells["A6"] == "'a b "
-
-
-# --- S6 : échec -> transaction annulée ------------------------------------------------------
-
-
-def test_echec_annule_la_transaction(world: World, monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(*_args: Any) -> None:
-        raise RuntimeError("échec")
-
-    monkeypatch.setattr(world.features.cutlist_sheet, "_fill", boom)
-    doc = SheetDoc()
-    with pytest.raises(RuntimeError):
-        write(world, doc)
-    assert doc.log[-1] == "abort"
-    assert "commit" not in doc.log
 
 
 # --- S5 : export CSV ------------------------------------------------------------------------

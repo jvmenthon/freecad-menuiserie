@@ -328,3 +328,53 @@ def test_cut_list_regroupe_les_liens_et_garde_les_avertissements(world: World) -
     # C1' : mêmes cotes, matériau et fil, donc une seule ligne qui cite les deux repères.
     assert [(line.marks, line.quantity) for line in cut_list.lines] == [(("F", "M1"), 3)]
     assert cut_list.warnings[0].kind.value == "UnreadablePart"
+
+
+# --- J2f : objets lus (dépendances de la liste vivante) --------------------------------------
+
+
+def source_names(world: World, doc: Doc, objects: list[Obj] | None = None) -> list[str]:
+    collected = world.features.cutlist_collect.collect(doc, objects)
+    return [source.Name for source in collected.sources]
+
+
+def test_objets_lus_pieces_usinees_ensembles_liens_et_conteneurs(world: World) -> None:
+    board = world.part("WoodPart", "M1")
+    shelf = world.part("WoodPart001", "M2")
+    machined = world.machined("MachinedPart", board, Shape(PLAIN))
+    furniture = world.furniture("Furniture", shelf)
+    box = group("Part", board)
+    pointer = link("Lien", board)
+    element = Obj("Element", "App::LinkElement", LinkedObject=board)
+    doc = Doc(board, shelf, machined, furniture, box, pointer, element, Obj("Autre", "Part::Box"))
+    assert source_names(world, doc) == [
+        "Furniture",
+        "Lien",
+        "MachinedPart",
+        "Part",
+        "WoodPart",
+        "WoodPart001",
+    ]
+
+
+def test_objets_lus_limites_a_la_portee_et_sans_doublon(world: World) -> None:
+    board, shelf = world.part("WoodPart", "M1"), world.part("WoodPart001", "M2")
+    doc = Doc(board, shelf)
+    assert source_names(world, doc, [board, board]) == ["WoodPart"]
+
+
+def test_tourillons_lus_seulement_si_leurs_deux_pieces_sont_dans_la_portee(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    host, guest = world.part("WoodPart", "H"), world.part("WoodPart001", "G")
+    joint = dowel_joint(host, guest)
+    monkeypatch.setattr(world.features.cutlist_collect, "is_dowel_joint", lambda obj: obj is joint)
+    monkeypatch.setattr(
+        world.features.cutlist_parts,
+        "resolved_for",
+        lambda _joint: types.SimpleNamespace(diameter=8.0, dowel_length=35.0, count=4),
+    )
+    doc = Doc(host, guest, joint)
+    assert "Dowels" in source_names(world, doc)
+    assert "Dowels" not in source_names(world, doc, [host])
+    assert not world.features.cutlist_collect.is_source(joint)  # ajouter un joint touche les pièces

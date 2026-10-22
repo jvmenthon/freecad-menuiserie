@@ -32,7 +32,14 @@ from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.wood_part import is_wood_part
 
-__all__ = ["Collected", "collect", "cut_list_of"]
+__all__ = [
+    "Collected",
+    "checked_objects",
+    "collect",
+    "collect_cut_list",
+    "cut_list_of",
+    "is_source",
+]
 
 MAX_DEPTH: Final = 32  # liens et conteneurs imbriqués, contre les boucles
 _LINK_ELEMENT: Final = "App::LinkElement"  # compté par le tableau de liens qui le porte
@@ -49,6 +56,7 @@ class Collected:
     entries: tuple[CutEntry, ...]
     hardware: tuple[Hardware, ...]
     notices: tuple[Notice, ...]
+    sources: tuple[DocumentObject, ...] = ()  # objets lus : ce dont dépend une liste vivante
 
 
 def _is_link(obj: DocumentObject) -> bool:
@@ -60,11 +68,29 @@ def _is_container(obj: DocumentObject) -> bool:
     return "Group" in obj.PropertiesList or "ElementList" in obj.PropertiesList
 
 
+def is_source(obj: DocumentObject) -> bool:
+    """Vrai si la collecte lit ``obj`` dès qu'il est dans la portée : pièce, pièce usinée,
+    ensemble, lien ou conteneur (un élément de tableau de liens est lu par son tableau). Les
+    assemblages par tourillons n'en sont pas : ils ne sont lus que si leurs deux pièces sont dans
+    la portée, et en ajouter un modifie leurs pièces usinées."""
+    if obj.TypeId == _LINK_ELEMENT:
+        return False
+    return (
+        is_wood_part(obj)
+        or is_machined_part(obj)
+        or is_furniture(obj)
+        or _is_link(obj)
+        or _is_container(obj)
+    )
+
+
 class _Walk:
-    """Parcours : brutes vues (par nom) avec leur nombre d'occurrences, et avertissements."""
+    """Parcours : brutes vues (par nom) avec leur nombre d'occurrences, objets lus et
+    avertissements."""
 
     def __init__(self) -> None:
         self.blanks: dict[str, DocumentObject] = {}
+        self.read: dict[str, DocumentObject] = {}
         self.counts: dict[str, int] = defaultdict(int)
         self.notices: list[Notice] = []
         # Prédicats passés comme fonctions (Semgrep les prend à tort pour des attributs).
@@ -90,6 +116,7 @@ class _Walk:
             return
         for matches, read in self._readers:
             if matches(obj):
+                self.read.setdefault(obj.Name, obj)
                 read(obj, times, seen, depth)
                 return
 
@@ -140,7 +167,10 @@ def _hardware(doc: Document, walk: _Walk, notices: list[Notice]) -> list[Hardwar
         if host is None or guest is None:
             continue
         times = min(walk.counts.get(host.Name, 0), walk.counts.get(guest.Name, 0))
-        item = dowel_hardware(joint, times, notices) if times else None
+        if not times:
+            continue
+        walk.read.setdefault(joint.Name, joint)
+        item = dowel_hardware(joint, times, notices)
         if item is not None:
             found.append(item)
     return found
@@ -161,7 +191,9 @@ def collect(doc: Document, objects: Sequence[DocumentObject] | None = None) -> C
         if entry is not None:
             entries.append(entry)
     hardware = _hardware(doc, walk, notices)
-    return Collected(tuple(entries), tuple(hardware), tuple(notices))
+    read = (walk.read[name] for name in sorted(walk.read))
+    sources = [obj for obj in read if obj.TypeId != _LINK_ELEMENT]
+    return Collected(tuple(entries), tuple(hardware), tuple(notices), tuple(sources))
 
 
 def checked_objects(
@@ -175,12 +207,23 @@ def checked_objects(
     return objects or None
 
 
-def cut_list_of(doc: Document, objects: Sequence[DocumentObject] | None = None) -> CutList:
-    """Liste de débit de ``doc`` ou de ``objects`` : collecte, regroupement et totaux, les
-    avertissements de la collecte avant ceux du regroupement. Lecture seule ; ``ValueError``
-    traduite pour un objet d'un autre document ou une entrée invalide."""
+def collect_cut_list(
+    doc: Document, objects: Sequence[DocumentObject] | None = None
+) -> tuple[CutList, tuple[DocumentObject, ...]]:
+    """Liste de débit de ``doc`` ou de ``objects`` et objets lus pour la calculer : collecte,
+    regroupement et totaux, les avertissements de la collecte avant ceux du regroupement.
+    Lecture seule ; ``ValueError`` traduite pour un objet d'un autre document ou une entrée
+    invalide."""
     chosen = checked_objects(doc, objects)
     collected = collect(doc, chosen)
     with translated_errors():
         cut_list = build_cut_list(collected.entries, collected.hardware)
-    return replace(cut_list, warnings=(*collected.notices, *cut_list.warnings))
+    warnings = (*collected.notices, *cut_list.warnings)
+    return replace(cut_list, warnings=warnings), collected.sources
+
+
+def cut_list_of(doc: Document, objects: Sequence[DocumentObject] | None = None) -> CutList:
+    """Liste de débit de ``doc`` ou de ``objects`` (:func:`collect_cut_list`, sans les objets
+    lus). Lecture seule ; ``ValueError`` traduite pour un objet d'un autre document ou une
+    entrée invalide."""
+    return collect_cut_list(doc, objects)[0]

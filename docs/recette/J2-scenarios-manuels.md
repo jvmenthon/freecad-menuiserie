@@ -32,7 +32,7 @@ Cliquer dans le vide de la vue 3D pour ne rien sélectionner.
 | N° | Action | Résultat attendu |
 |---|---|---|
 | 1 | Survoler les boutons **Liste de débit** et **Exporter la liste de débit (CSV)…** de la barre d'outils, puis le menu **Menuiserie**. | Deux boutons à icône (feuille de tableau avec une planche ; feuille avec une flèche verte), placés **après** les assemblages et les ensembles ; mêmes entrées dans le menu. Infobulle de la liste : elle précise que la feuille **n'est pas recalculée toute seule**. |
-| 2 | Rien de sélectionné : **Liste de débit**. | Une feuille « Liste de débit » apparaît dans l'arbre **et s'ouvre dans un onglet** de la vue centrale. Titre en gras, ligne « Calculée le … ; elle n'est pas mise à jour automatiquement… », portée **« Tout le document »**. |
+| 2 | Rien de sélectionné : **Liste de débit**. | Une feuille « Liste de débit » apparaît dans l'arbre **et s'ouvre dans un onglet** de la vue centrale. Titre en gras, ligne « Calculée le … ; mise à jour automatiquement à chaque recalcul du document. », portée **« Tout le document »**. |
 | 3 | Lire le tableau. | Colonnes Repère, Qté, cotes finies, cotes de débit, Matériau, Fil, Ensemble, Volume, Masse, Surface, Remarque ; en-tête en gras ; nombres alignés à droite ; une ligne par groupe de pièces identiques. **Les deux côtés du caisson sont sur une seule ligne de quantité 2.** |
 | 4 | Ligne de « Traverse ». | Longueur de débit **plus grande** que la longueur finie (280 mm) de la longueur des tenons ; la colonne Remarque indique « Ajouts compris (L / l / e) : … mm ». |
 | 5 | Ligne de « Tablette ». | **Quantité 2** : la pièce d'origine et son lien. |
@@ -47,7 +47,7 @@ Cliquer dans le vide de la vue 3D pour ne rien sélectionner.
 | 9 | Dans la feuille, écrire « à vérifier » en **P2** (colonne P, à droite de Remarque). Allonger « Traverse » de 20 mm (double-clic, Longueur). Relancer **Liste de débit**. | **La même feuille** est réécrite (pas de seconde feuille), datée de l'instant ; la longueur de la traverse a changé ; **« à vérifier » est toujours en P2**. |
 | 10 | Renommer la feuille (F2) « Débit v1 », modifier une pièce, relancer **Liste de débit**. | La feuille renommée est retrouvée et mise à jour : pas de nouvelle feuille « Liste de débit ». |
 | 11 | *Édition › Annuler*. | La feuille revient à son état d'avant la dernière mise à jour (ancienne longueur, ancienne date), « à vérifier » toujours là. |
-| 12 | Modifier une pièce **sans** relancer la commande. | La feuille ne change pas toute seule (comportement voulu, ADR 0012). |
+| 12 | Modifier une pièce **sans** relancer la commande (cote dans l'éditeur de propriétés), puis recalculer (Ctrl+R). | La feuille change toute seule au recalcul (liste vivante, ADR 0013) ; Annuler restaure la pièce et la feuille. Un objet « Mise à jour de la liste de débit » est visible dans l'arbre. |
 
 ## Portée : sélection
 

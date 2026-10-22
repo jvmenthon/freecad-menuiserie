@@ -150,6 +150,8 @@ def simulated_world(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         from freecad.menuiserie.features import (
             cutlist_collect,
             cutlist_export,
+            cutlist_marks,
+            cutlist_object,
             cutlist_parts,
             cutlist_sheet,
             furniture,
@@ -161,6 +163,8 @@ def simulated_world(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
             types.SimpleNamespace(
                 cutlist_collect=cutlist_collect,
                 cutlist_export=cutlist_export,
+                cutlist_marks=cutlist_marks,
+                cutlist_object=cutlist_object,
                 cutlist_parts=cutlist_parts,
                 cutlist_sheet=cutlist_sheet,
                 furniture=furniture,
