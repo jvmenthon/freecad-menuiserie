@@ -90,8 +90,9 @@ def verifier_boutons_xyz() -> list[str]:
             for _ in range(3):
                 cliquer(form, nom)
             problemes += ecarts(f"{nom} x4", memes_placements(obj.Placement, depart), True)
+        # Rang dans la disposition du formulaire (la géométrie n'est pas calculée hors écran).
         haut = {
-            n: getattr(form, n).mapTo(form, getattr(form, n).rect().topLeft()).y()
+            n: form.layout().indexOf(getattr(form, n))
             for n in ("materialGroup", "dimensionsGroup", "positionGroup")
         }
         problemes += [
