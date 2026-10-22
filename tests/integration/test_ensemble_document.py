@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import pytest
@@ -338,7 +339,9 @@ def test_tiroir_a_queues_d_aronde_qui_suit_la_hauteur(document: Any) -> None:
     assert furniture.Depth.Value == pytest.approx(150)
     api.resize_furniture(furniture, depth=200)
     assert host.Width.Value == guest.Width.Value == pytest.approx(200)
-    tails = 4 * ((200 - 5 * 6) / 4 - 18 / 6) * 18 * 18  # 4 queues automatiques
+    tails = (
+        4 * ((200 - 5 * 6) / 4 - 18 * math.tan(math.radians(10))) * 18 * 18
+    )  # 4 queues automatiques
     blank = 400 * 200 * 18
     machined = [api.machined_part_of(part) for part in (host, guest)]
     assert [m.Shape.Volume for m in machined] == pytest.approx([blank - tails, blank + tails])

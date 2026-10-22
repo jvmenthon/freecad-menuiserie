@@ -69,8 +69,8 @@ de l'utilisateur). Puis :
 | N° | Action | Résultat attendu |
 |---|---|---|
 | 6.1 | Deux planches 400 × 150 × 18 en angle : H à plat en (0, 0, 0) ; I debout sur son bout en (18, 0, 18), tournée de −90° autour de Y. | Angle droit, face extérieure de I à fleur du bout de H. |
-| 6.2 | Sélectionner H puis I, bouton **Queue d'aronde**. | Panneau : 3 queues, griffes 6 mm, pente 1:6 (valeurs automatiques affichées) ; queues sur I, logements dans H, un seul solide chacune. |
-| 6.3 | Régler 4 queues, pente 8, OK. | Le dessin change, rien n'est en erreur. |
+| 6.2 | Sélectionner H puis I, bouton **Queue d'aronde**. | Panneau : 3 queues, griffes 6 mm, angle 10° (valeurs automatiques affichées) ; queues sur I, logements dans H, un seul solide chacune. |
+| 6.3 | Régler 4 queues, angle 8° (champ en degrés), OK. | Le dessin change, rien n'est en erreur. |
 | 6.4 | Largeur des deux planches à 200 mm (ou mettre les deux dans un ensemble et passer sa profondeur de 150 à 200). | 4 queues automatiques, aucune erreur. |
 | 6.5 | Griffes de 60 mm. | Message « Queues trop étroites… », pièces en erreur ; revenir à 0 les rétablit. |
 

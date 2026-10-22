@@ -43,9 +43,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Queue d'aronde traversante (J4f) : solide `Prism` (polygone plan extrudé), stratégie
   `DovetailStrategy` (queues ajoutées au bout de la pièce à queues, logements traversants dans la
   pièce à griffes ; 3 queues environ par largeur de trois épaisseurs, griffes du tiers de
-  l'épaisseur, pente 1:6 par défaut), objet `Menuiserie::Dovetail` (`TailCount`, `PinWidth`,
-  `Slope`), `make_dovetail`, commande **Queue d'aronde** et panneau générique (champ décimal
-  pour la pente).
+  l'épaisseur, angle des flancs de 10° par défaut, 30° au plus, en degrés), objet `Menuiserie::Dovetail`
+  (`TailCount`, `PinWidth`, `Angle` en `App::PropertyAngle`), `make_dovetail(angle=…)`, commande
+  **Queue d'aronde** et panneau générique (champ en degrés) ; une ancienne propriété `Slope`
+  rouverte est convertie en `Angle`.
 - Assemblage à mi-bois (J4e) : stratégie `HalfLapStrategy` (deux pièces de même épaisseur, à
   fleur, qui se chevauchent ; entaille de l'hôte par-dessus, de l'invitée par-dessous, profondeur
   automatique à la moitié de l'épaisseur), objet `Menuiserie::HalfLap` (`Depth`, `FlipSide`),

@@ -12,8 +12,7 @@ from __future__ import annotations
 
 from freecad.menuiserie.core.geometry import JointError
 from freecad.menuiserie.core.joints._base import (
-    MAX_RATIO,
-    MIN_RATIO,
+    MAX_ANGLE_DEG,
     JointKind,
     JointPlan,
     JointStrategy,
@@ -24,8 +23,7 @@ from freecad.menuiserie.core.joints._registry import strategy_for
 from freecad.menuiserie.core.joints._roles import guess_roles
 
 __all__ = [
-    "MAX_RATIO",
-    "MIN_RATIO",
+    "MAX_ANGLE_DEG",
     "JointError",
     "JointKind",
     "JointPlan",

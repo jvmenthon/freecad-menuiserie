@@ -2,12 +2,13 @@
 """Vérifications d'interface de la queue d'aronde (critère D6 de ``docs/specs/J4-ensembles.md``).
 
 Commande « Queue d'aronde » sur deux planches en angle, panneau générique de J3e : nombre de
-queues, griffes et pente effectifs affichés, pente saisie dans un champ décimal, une entrée
+queues, griffes et angle (°) effectifs affichés, angle saisi dans un champ en degrés, une entrée
 d'annulation à la validation. Module importé par ``verifier_atelier.py``.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import Any
 
@@ -20,7 +21,7 @@ from tests.gui.verifications_panneau_assemblage import panneau, texte, valeur, w
 
 QUEUE_D_ARONDE = "Menuiserie_Dovetail"
 BRUTE = 400 * 150 * 18
-QUEUES_PENTE_8 = 3 * (42 - 18 / 8) * 18 * 18  # trois queues de 42 mm, pente 1:8
+QUEUES_ANGLE_8 = 3 * (42 - 18 * math.tan(math.radians(8))) * 18 * 18  # 3 queues de 42 mm, 8°
 
 
 def planches(doc: Any) -> tuple[Any, Any]:
@@ -42,7 +43,7 @@ def planches(doc: Any) -> tuple[Any, Any]:
 
 def verifier_formulaire_de_la_queue_d_aronde() -> list[str]:
     """D6 : rôles devinés (I sélectionnée d'abord porte les queues), valeurs effectives,
-    pente saisie, une entrée d'annulation, volumes des pièces usinées."""
+    angle saisi, une entrée d'annulation, volumes des pièces usinées."""
     with cadre("VerifPanneauQueueAronde") as (doc, _pieces):
         hote, invitee = planches(doc)
         doc.clearUndos()
@@ -50,7 +51,7 @@ def verifier_formulaire_de_la_queue_d_aronde() -> list[str]:
         form = panneau()
         if joint is None or form is None:
             return ["queue d'aronde non créée ou panneau non ouvert"]
-        nombre, pente = widget(form, "TailCount"), widget(form, "Slope")
+        nombre, angle = widget(form, "TailCount"), widget(form, "Angle")
         problemes = [
             *ecarts("titre", form.windowTitle(), "Nouvel assemblage : Queue d'aronde"),
             *ecarts("hôte", texte(form, "hostLabel"), "Pièce hôte : « H »"),
@@ -58,29 +59,24 @@ def verifier_formulaire_de_la_queue_d_aronde() -> list[str]:
             *ecarts("nombre effectif", nombre.value(), 3),
             *ecarts("nombre inactif", nombre.isEnabled(), False),
             *ecarts("griffes effectives", valeur(widget(form, "PinWidth")), 6.0),
-            *ecarts("pente effective", pente.value(), 6.0),
-            *ecarts("pente inactive", pente.isEnabled(), False),
+            *ecarts("angle effectif (°)", valeur(angle), 10.0),
+            *ecarts("angle inactif", angle.isEnabled(), False),
         ]
-        widget(form, "SlopeAuto").setChecked(False)
+        widget(form, "AngleAuto").setChecked(False)
         problemes += [
-            *ecarts("pente figée", joint.Slope, 6.0),
-            *ecarts("pente active", pente.isEnabled(), True),
-        ]
-        pente.setValue(1.5)  # refusée par core : le champ la borne à 2
-        problemes += [
-            *ecarts("bornes de la pente", (pente.minimum(), pente.maximum()), (2.0, 20.0)),
-            *ecarts("pente sous 2 bornée", (pente.value(), joint.Slope), (2.0, 2.0)),
+            *ecarts("angle figé", joint.Angle.Value, 10.0),
+            *ecarts("angle actif", angle.isEnabled(), True),
             *ecarts("erreur masquée", widget(form, "errorLabel").isHidden(), True),
         ]
-        pente.setValue(8.0)
-        problemes += ecarts("pente saisie", joint.Slope, 8.0)
+        angle.setProperty("rawValue", 8.0)
+        problemes += ecarts("angle saisi", joint.Angle.Value, 8.0)
         valider()
         problemes += [
             *ecarts("entrées", doc.UndoNames, ["Créer un assemblage à queue d'aronde"]),
             *ecarts(
                 "volumes",
                 [round(usinee_de(p).Shape.Volume) for p in (hote, invitee)],
-                [round(BRUTE - QUEUES_PENTE_8), round(BRUTE + QUEUES_PENTE_8)],
+                [round(BRUTE - QUEUES_ANGLE_8), round(BRUTE + QUEUES_ANGLE_8)],
             ),
         ]
         return problemes

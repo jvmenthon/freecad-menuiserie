@@ -379,16 +379,17 @@ Précisions du dev (J4e, 2026-10-21), décisions les plus simples là où la sp�
 
 Pièce **à queues** = invitée (côté de tiroir), pièce **à griffes** = hôte (façade, ici traversante).
 Notations : `W` = largeur du contact (selon la largeur de l'invitée), `e` = épaisseur de l'invitée,
-`L` = profondeur de l'hôte (son épaisseur, axe normal au contact), pente « 1 : n ».
+`L` = profondeur de l'hôte (son épaisseur, axe normal au contact), `α` = angle des flancs en degrés
+(note : angle en degrés, demande jv 2026-10-22, à la place de la pente 1:n).
 
 | N° | Critère | Test |
 |---|---|---|
 | D1 | `Prism` (core/geometry) : polygone plan d'au moins 3 sommets distincts, non alignés, sans auto-intersection, extrudé d'un vecteur non nul hors de son plan ; `moved(prism, transform)` le transporte ; `Solid` = `Box \| Cylinder \| Prism`. `ValueError` sinon. | U |
-| D2 | `DovetailParams(tail_count=0, pin_width=0.0, slope=0.0)` validé : `count_param`, `length_param`, et `ratio_param` nouveau (`ParamKind.RATIO` : 0 ou 2 ≤ n ≤ 20). Automatiques : `tail_count` = max(1, ⌊W / (3 e) + 0,5⌋) ; `pin_width` (largeur des griffes au plus étroit, sur la face extérieure de l'hôte) = `mm_round(L / 3)` ; `slope` = 6 (pente 1:6). | U |
-| D3 | `DovetailStrategy` : contact par le **bout** de l'invitée (`contact_frame(…, end_only=True)` de J3) ; le bout de l'hôte arrive à fleur de la face extérieure de l'invitée (± 0,01 mm). Largeur des queues côté pointe `t = (W − (n + 1) p) / n`, côté épaulement `b = t − 2 L / slope` ; queue i : pointe de `p + i (t + p)` à `+ t`, rétrécie de `L / slope` de chaque côté à l'épaulement ; trapèze dans le plan (largeur, normale), extrudé sur `e`. Ajouts de l'invitée = les queues (longueur `L`) ; enlèvements de l'hôte = les mêmes prismes dans son repère, prolongés de `CUT_OVERRUN_MM` (0,1 mm) hors de la matière là où ils débouchent. Deux planches 400 × 150 × 18 en angle → n = 3, p = 6, t = 42, b = 36, queues à [6, 48], [54, 96], [102, 144] côté pointe ; `resolve` renvoie ces valeurs. | U |
-| D4 | Refus (`JointError`, gabarit traduit) : contact par une face ou par le chant (messages de J3) ; hôte qui dépasse ou n'arrive pas à la face extérieure de l'invitée (« Queue d'aronde : la pièce à griffes doit arriver à fleur de la face extérieure de la pièce à queues. ») ; `b` < 1 mm ou `t` ≤ 0 (« Queues trop étroites : {count} queues dans {width} mm avec des griffes de {pin} mm et une pente 1:{slope}. »). | U |
-| D5 | `features/solids.solid_shape` convertit un `Prism` (`Part.makePolygon` → `Part.Face` → `extrude`). Proxy `…features.joints.dovetail.DovetailJoint`, type `Menuiserie::Dovetail`, nom interne `Dovetail`, libellé « Queue d'aronde » ; propriétés `TailCount` (`App::PropertyIntegerConstraint`, 0 à 50), `PinWidth` (`App::PropertyLength`), `Slope` (`App::PropertyFloat`, « Pente 1:n des queues ; 0 = automatique (1:6). »), groupe « Queue d'aronde » ; `Version` = 1. Planches de D3 : pièces usinées valides, un solide chacune ; invitée = brute + 37 908 mm³, hôte = brute − 37 908 mm³ ; export STEP réimporté au même volume. | I |
-| D6 | Commande `Menuiserie_Dovetail` (« Queue d'aronde », icône existante) ; panneau J3e générique (nombre, griffes, pente effectifs). | G |
+| D2 | `DovetailParams(tail_count=0, pin_width=0.0, angle=0.0)` validé : `count_param`, `length_param`, et `angle_param` nouveau (`ParamKind.ANGLE` : 0 ou 0 < α ≤ 30°, en degrés). Automatiques : `tail_count` = max(1, ⌊W / (3 e) + 0,5⌋) ; `pin_width` (largeur des griffes au plus étroit, sur la face extérieure de l'hôte) = `mm_round(L / 3)` ; `angle` = 10° (≈ pente 1:5,7). | U |
+| D3 | `DovetailStrategy` : contact par le **bout** de l'invitée (`contact_frame(…, end_only=True)` de J3) ; le bout de l'hôte arrive à fleur de la face extérieure de l'invitée (± 0,01 mm). Largeur des queues côté pointe `t = (W − (n + 1) p) / n`, côté épaulement `b = t − 2 L tan α` ; queue i : pointe de `p + i (t + p)` à `+ t`, rétrécie de `L tan α` de chaque côté à l'épaulement ; trapèze dans le plan (largeur, normale), extrudé sur `e`. Ajouts de l'invitée = les queues (longueur `L`) ; enlèvements de l'hôte = les mêmes prismes dans son repère, prolongés de `CUT_OVERRUN_MM` (0,1 mm) hors de la matière là où ils débouchent. Deux planches 400 × 150 × 18 en angle → n = 3, p = 6, t = 42, b = 36, queues à [6, 48], [54, 96], [102, 144] côté pointe ; `resolve` renvoie ces valeurs. | U |
+| D4 | Refus (`JointError`, gabarit traduit) : contact par une face ou par le chant (messages de J3) ; hôte qui dépasse ou n'arrive pas à la face extérieure de l'invitée (« Queue d'aronde : la pièce à griffes doit arriver à fleur de la face extérieure de la pièce à queues. ») ; `b` < 1 mm ou `t` ≤ 0 (« Queues trop étroites : {count} queues dans {width} mm avec des griffes de {pin} mm et un angle de {angle} °. »). | U |
+| D5 | `features/solids.solid_shape` convertit un `Prism` (`Part.makePolygon` → `Part.Face` → `extrude`). Proxy `…features.joints.dovetail.DovetailJoint`, type `Menuiserie::Dovetail`, nom interne `Dovetail`, libellé « Queue d'aronde » ; propriétés `TailCount` (`App::PropertyIntegerConstraint`, 0 à 50), `PinWidth` (`App::PropertyLength`), `Angle` (`App::PropertyAngle`, « Angle des flancs des queues, en degrés (0 à 30) ; 0 = automatique (10°). »), groupe « Queue d'aronde » ; `Version` = 1. Planches de D3 : pièces usinées valides, un solide chacune ; invitée = brute + 37 908 mm³, hôte = brute − 37 908 mm³ ; export STEP réimporté au même volume. | I |
+| D6 | Commande `Menuiserie_Dovetail` (« Queue d'aronde », icône existante) ; panneau J3e générique (nombre, griffes, angle effectifs). | G |
 | D7 | Membres d'un Ensemble : un tiroir dont la hauteur passe de 150 à 200 mm → 4 queues automatiques, un recompute, tout valide. | I |
 
 Précisions du dev (J4f, 2026-10-21), décisions les plus simples là où la spécification se tait :
@@ -405,15 +406,18 @@ Précisions du dev (J4f, 2026-10-21), décisions les plus simples là où la sp�
   extérieure de l'invitée ; pas du côté de sa face intérieure, où l'hôte garde sa matière.
 - `b` = 1 mm tout juste est accepté (refus si `b` < 1 mm). Contact par le chant : message de
   J3 tel quel (« Le tenon se fait au bout de la pièce, pas sur son chant. »).
-- `ratio_param` : nombre fini, non booléen, 0 ou 2 ≤ n ≤ 20, décimal permis ; refus « Paramètre
-  d'assemblage invalide : {field} = {value} (0 pour automatique, ou rapport fini entre {min}
-  et {max} attendu). ». `MAX_RATIO` est exporté par la façade `core.joints` pour le panneau.
-- Panneau J3e : nouveau genre de champ « rapport » pour `App::PropertyFloat` (champ décimal
-  sans unité, 2 décimales, borné de 2 à 20 comme `core` : 0 passe par la case « Auto »).
-  Libellés « Nombre de queues », « Largeur des griffes », « Pente 1:n », chacun avec sa case
+- `angle_param` (demande jv 2026-10-22, angle en degrés) : nombre fini, non booléen, 0 ou
+  0 < α ≤ 30, décimal permis ; refus « Paramètre d'assemblage invalide : {field} = {value} (0 pour
+  automatique, ou angle fini en degrés, supérieur à 0 et d'au plus {max}, attendu). ».
+  `MAX_ANGLE_DEG` est exporté par la façade `core.joints` pour le panneau. Angle automatique 10°
+  (valeur lisible proche de 1:6 ≈ 9,5°). Une propriété `Slope` d'un document de développement
+  est convertie à la réouverture (α = atan(1/pente)) puis retirée.
+- Panneau J3e : champ d'angle pour `App::PropertyAngle` (champ d'unité en degrés, borné
+  à 30° comme `core` : 0 passe par la case « Auto »).
+  Libellés « Nombre de queues », « Largeur des griffes », « Angle des queues », chacun avec sa case
   « Auto ». Transaction « Créer un assemblage à queue
   d'aronde ».
-- `DovetailValues(tail_count, pin_width, slope, tail_width, tail_base, tails)` : `t`, `b` et
+- `DovetailValues(tail_count, pin_width, angle, tail_width, tail_base, tails)` : `t`, `b` et
   les intervalles des queues côté pointe.
 - Les contrôles du `Prism` (polygone simple, plan, extrusion hors du plan) sont dans le module
   privé `core/_polygon.py`, pour garder `core/geometry.py` sous 400 lignes.
@@ -872,16 +876,16 @@ Invitée = pièce à queues (côté de tiroir), hôte = pièce à griffes ; l'in
 de l'hôte à fleur de la face extérieure de l'invitée. Dans le repère de l'invitée (calculs de
 `contact_frame` de J3) : plan (largeur `W`, normale), épaisseur `e` ; `L` = profondeur de l'hôte.
 Griffes de bord en demi-griffes (un côté droit) de largeur `p` côté pointe, griffes intérieures de
-largeur `p` côté pointe ; queues de largeur `t` côté pointe, `b = t − 2 L / slope` côté épaulement.
+largeur `p` côté pointe ; queues de largeur `t` côté pointe, `b = t − 2 L tan α` côté épaulement.
 
 | Paramètre | Propriété | Défaut | 0 = automatique |
 |---|---|---|---|
 | `tail_count` | `TailCount` (`App::PropertyIntegerConstraint`, 0–50) | 0 | max(1, ⌊W / (3 e) + 0,5⌋) |
 | `pin_width` | `PinWidth` (`App::PropertyLength`) | 0 | `mm_round(L / 3)` |
-| `slope` | `Slope` (`App::PropertyFloat`) | 0 | 6 (pente 1:6, compromis feuillus / résineux) |
+| `angle` | `Angle` (`App::PropertyAngle`, degrés, 0–30) | 0 | 10° (≈ pente 1:5,7, compromis feuillus / résineux) |
 
 Queue i (i = 0 … n − 1), côté pointe de `x₀ = p + i (t + p)` à `x₁ = x₀ + t` ; trapèze
-`(x₀ + L/slope, 0)`, `(x₁ − L/slope, 0)`, `(x₁, L)`, `(x₀, L)` dans le plan (largeur, normale vers
+`(x₀ + L tan α, 0)`, `(x₁ − L tan α, 0)`, `(x₁, L)`, `(x₀, L)` dans le plan (largeur, normale vers
 l'hôte), extrudé sur `e`. Pas de jeu (J3 : aucun jeu latéral).
 
 #### 4.8.5 Onglet (J4g)

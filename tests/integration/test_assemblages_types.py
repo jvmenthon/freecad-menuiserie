@@ -53,7 +53,7 @@ PROPERTIES: dict[str, list[Row]] = {
     "make_dovetail": [
         ("TailCount", "App::PropertyIntegerConstraint", "Queue d'aronde", 0),
         ("PinWidth", LENGTH, "Queue d'aronde", 0.0),
-        ("Slope", "App::PropertyFloat", "Queue d'aronde", 0.0),
+        ("Angle", "App::PropertyAngle", "Queue d'aronde", 0.0),
     ],
     "make_miter": [],  # aucune propriété propre (A4 de J4)
 }
