@@ -1,6 +1,6 @@
 # ADR 0011 — Aperçu par l'objet réel, accrochage ponctuel calculé dans `core/`, nom = repère
 
-- Statut : **proposé** (en attente des réponses de jv aux questions de la spécification J6)
+- Statut : **accepté** (jv, 2026-10-22 ; réponses aux questions de la spécification J6)
 - Date : 2026-10-22
 - Spécification : [docs/specs/J6-interface.md](../specs/J6-interface.md), § 4
 - ADR liés : [0001 — Structure de l'atelier](0001-structure-de-l-atelier.md),
@@ -66,7 +66,10 @@ l'accrochage crée un lien durable, et qui détient le nom de la pièce.
    l'ADR 0009 : la brute écrit le `Label` de sa pièce usinée (« M1 (usinée) »), et seulement lui,
    parce que l'usinée est sa face visible (ADR 0006). Aucune préférence de FreeCAD n'est lue ni
    modifiée (pas de « libellés en double »). Les documents existants ne sont pas renommés à
-   l'ouverture.
+   l'ouverture. Copier-coller, Std Dupliquer et
+   fusion de documents restaurent le libellé du modèle sans passer par `onBeforeChangeLabel` :
+   `onDocumentRestored` rend alors le libellé unique quand il est déjà pris (« M1 (2) »), sans
+   toucher au repère.
 
 ## Conséquences
 
