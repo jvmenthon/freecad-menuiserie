@@ -405,6 +405,22 @@ def test_ecart_hors_bornes(right: float, low: float) -> None:
     assert result.notices[0].target == "b"
 
 
+@pytest.mark.parametrize(("left", "right"), [(22, 22), (300, 100), (578, 22)])
+def test_ecart_nul_ou_negatif_refuse(left: float, right: float) -> None:
+    result = snapped(top(0), wall("a", left, outward=1), wall("b", right, outward=-1))
+    assert kinds(result) == [SnapNoticeKind.GAP_OUT_OF_RANGE]
+    assert result.dimensions == DIMS
+    assert result.used == ("dessus", "a")
+
+
+@pytest.mark.parametrize("gap", [0.1, 20_000.0])
+def test_ecart_aux_bornes_accepte(gap: float) -> None:
+    result = snapped(top(0), wall("a", 0, outward=1), wall("b", gap, outward=-1))
+    assert result.notices == ()
+    assert result.dimensions == Dimensions(gap, 200, 22)
+    assert result.used == ("dessus", "a", "b")
+
+
 def test_sans_etirement_seule_la_premiere_est_gardee() -> None:
     result = snapped(
         top(0), wall("gauche", 22, outward=1), wall("droite", 578, outward=-1), stretch=False
