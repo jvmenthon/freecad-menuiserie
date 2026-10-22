@@ -6,6 +6,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Commandes de la liste de débit (J2d, ADR 0012) : **Liste de débit** crée ou met à jour la
+  feuille et l'ouvre dans un onglet ; **Exporter la liste de débit (CSV)…** ouvre la boîte
+  d'enregistrement (nom proposé « <document> - liste de débit.csv » à côté du document, sinon
+  dans le dossier personnel, « .csv » ajouté si absent), confirme dans la barre d'état et
+  affiche un refus dans la boîte d'avertissement des assemblages. Portée : objets sélectionnés
+  (sans doublon) sinon tout le document ; le document est recalculé avant le calcul s'il
+  contient des objets à recalculer ; la sélection n'est jamais modifiée. Boutons dans la barre
+  d'outils et le menu après les ensembles, grisés pendant un panneau de tâche. Icônes
+  `Menuiserie_CutList.svg` et `Menuiserie_CutListExport.svg` (renommée, générée par
+  `tools/generer_icones.py`), vérifications d'interface hors écran, recette
+  `docs/recette/J2-scenarios-manuels.md`, section « Liste de débit » du README et feuille dans
+  les captures.
 - Liste de débit dans le document (J2c, ADR 0012) : `api.make_cut_list(doc, objects=None)` crée ou
   met à jour la feuille `Spreadsheet::Sheet` « Liste de débit » (nom interne `MenuiserieCutList`,
   retrouvée par sa propriété masquée `MenuiserieCutList` même renommée, aucun proxy, une seule

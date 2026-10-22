@@ -125,6 +125,20 @@ fond, étagères et assemblages. Le résultat est un **ensemble ordinaire** : il
 même panneau (double-clic) et ne se régénère jamais depuis le gabarit, qui ne sert qu'à le
 construire (voir l'ADR 0010).
 
+## Liste de débit
+
+**Liste de débit** écrit dans le document une feuille de calcul « Liste de débit » et l'ouvre
+dans un onglet : une ligne par groupe de pièces identiques (repère, quantité, cotes finies et
+de débit, matériau, fil, volume, masse), puis les totaux par matériau et les tourillons en
+fournitures. Les tenons et queues d'aronde sont **compris** dans la longueur de débit ; une
+pièce vue par un `App::Link` compte une fois de plus. La liste couvre les objets
+**sélectionnés** (pièces, ensemble, Std Part), sinon tout le document. La feuille n'est
+**pas recalculée toute seule** : relancez la commande après une modification (les colonnes que
+vous ajoutez à droite de la colonne O sont gardées). **Exporter la liste de débit (CSV)…**
+enregistre la même liste dans un fichier que Excel et LibreOffice ouvrent directement en
+français (séparateur point-virgule, virgule décimale, UTF-8). Depuis la console :
+`api.make_cut_list(doc)` et `api.export_cut_list_csv(doc, "debit.csv")`.
+
 ## Pièce de bois (console Python)
 
 ```python

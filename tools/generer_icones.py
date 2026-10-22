@@ -538,7 +538,7 @@ ICONES = {
     "Menuiserie_Panel.svg": panneau,
     "Menuiserie_Species.svg": essences,
     "Menuiserie_CutList.svg": liste_de_debit,
-    "Menuiserie_ExportCutList.svg": export_liste_de_debit,
+    "Menuiserie_CutListExport.svg": export_liste_de_debit,
     "Menuiserie_MortiseTenon.svg": tenon_mortaise,
     "Menuiserie_TongueGroove.svg": rainure_languette,
     "Menuiserie_Rabbet.svg": feuillure,

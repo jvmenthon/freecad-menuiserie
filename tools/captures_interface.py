@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture,
 panneau de tâche de la pièce de bois, panneau d'un assemblage (``panneau-assemblage.png``) et
-panneau de l'ensemble (``panneau-ensemble.png``).
+panneau de l'ensemble (``panneau-ensemble.png``), puis la feuille « Liste de débit » du
+document (``feuille-de-debit.png``, commande « Liste de débit » lancée sans sélection).
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
 l'atelier étant installé dans le dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -278,6 +279,17 @@ def capturer_le_panneau_d_ensemble(dossier: Path, fenetre, vue) -> None:
     image = fenetre_complete(fenetre, vue, devant=volet)
     image.save(str(dossier / "panneau-ensemble.png"))
     Gui.Control.activeTaskDialog().reject()
+    capturer_la_feuille_de_debit(dossier, fenetre)
+
+
+def capturer_la_feuille_de_debit(dossier: Path, fenetre) -> None:
+    """Fenêtre complète avec la feuille « Liste de débit » de tout le document, ouverte dans
+    son onglet par la commande (la vue Spreadsheet n'est pas une zone OpenGL : ``grab()``
+    suffit)."""
+    Gui.Selection.clearSelection()
+    Gui.Command.get("Menuiserie_CutList").run()
+    Gui.updateGui()
+    fenetre.grab().save(str(dossier / "feuille-de-debit.png"))
 
 
 def volet_des_taches(fenetre):
