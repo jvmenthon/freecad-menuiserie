@@ -29,6 +29,7 @@ __all__ = [
     "TITLE",
     "create_sheet",
     "find_sheet",
+    "is_workshop_sheet",
     "rewrite_sheet",
     "scope_text",
 ]
@@ -65,6 +66,17 @@ def find_sheet(doc: Document) -> DocumentObject | None:
         if obj.TypeId == SHEET_TYPE and getattr(obj, MARKER, False) is True:
             return obj
     return None
+
+
+def is_workshop_sheet(obj: object, doc: Document) -> bool:
+    """Vrai si ``obj`` est une feuille de la liste de débit **de** ``doc`` : type
+    ``Spreadsheet::Sheet``, marque ``MenuiserieCutList`` vraie, même document. Un document
+    hostile peut lier ``Sheet`` à n'importe quel objet, d'un autre document ou non."""
+    return (
+        getattr(obj, "TypeId", None) == SHEET_TYPE
+        and getattr(obj, MARKER, False) is True
+        and getattr(obj, "Document", None) == doc
+    )
 
 
 def create_sheet(doc: Document) -> DocumentObject:

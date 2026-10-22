@@ -51,6 +51,8 @@ class CollectNoticeKind(Enum):
     NO_MACHINED_SHAPE = "NoMachinedShape"
     UNREADABLE_DOWELS = "UnreadableDowels"
     LINK_TOO_DEEP = "LinkTooDeep"
+    TRUNCATED = "Truncated"
+    QUANTITY_CAPPED = "QuantityCapped"
 
     @property
     def template(self) -> str:
@@ -79,6 +81,16 @@ _TEMPLATES: Final = {
         "Menuiserie",
         "« {label} » : liens ou conteneurs imbriqués trop profondément (ou en boucle), lecture "
         "interrompue.",
+    ),
+    CollectNoticeKind.TRUNCATED: QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "« {label} » : document trop vaste ou trop imbriqué (liens multiples), liste tronquée : "
+        "la lecture s'est arrêtée après {limit} objets visités.",
+    ),
+    CollectNoticeKind.QUANTITY_CAPPED: QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "« {label} » : nombre d'occurrences trop grand (tableau de liens), quantité plafonnée "
+        "à {limit}.",
     ),
 }
 

@@ -47,7 +47,8 @@ __all__ = [
 
 CSV_SUFFIX: Final = ".csv"
 PDF_SUFFIX: Final = ".pdf"
-_FILE_MODE: Final = 0o644  # le fichier temporaire est en 0600 : mode d'un fichier ordinaire
+_NEW_FILE_MODE: Final = 0o666  # mode d'un nouveau fichier avant le umask (le temporaire : 0600)
+_UMASK_LINE: Final = re.compile(r"^Umask:\s*([0-7]+)\s*$", re.MULTILINE)
 
 _FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{document} - liste de débit")
 _FORBIDDEN_IN_NAME: Final = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
@@ -75,9 +76,10 @@ def _refusal(template: str, path: Path) -> ValueError:
 
 def validated_path(path: str | os.PathLike[str], suffix: str = CSV_SUFFIX) -> Path:
     """Chemin d'export accepté ; ``ValueError`` traduite s'il n'a pas l'extension ``suffix``
-    (``.csv`` par défaut, ou ``.pdf``), s'il
-    désigne un dossier, si son dossier n'existe pas ou n'est pas accessible en écriture, ou si le
-    fichier existe sans être accessible en écriture. Rien n'est créé."""
+    (``.csv`` par défaut, ou ``.pdf``), s'il désigne un dossier, si son dossier n'existe pas ou
+    n'est pas accessible en écriture, ou si le fichier existe sans être accessible en écriture.
+    Rien n'est créé. Si ``path`` est un lien symbolique, l'export le **remplace** par un fichier
+    ordinaire (remplacement atomique) : sa cible n'est ni suivie ni modifiée."""
     target = Path(path)
     if target.suffix.lower() != suffix:
         raise _refusal(_NOT_PDF if suffix == PDF_SUFFIX else _NOT_CSV, target)
@@ -93,10 +95,27 @@ def validated_path(path: str | os.PathLike[str], suffix: str = CSV_SUFFIX) -> Pa
     return target
 
 
+def _current_umask() -> int:
+    """Masque de création de fichiers du processus. Sous Linux, lu dans ``/proc/self/status``
+    (sans rien modifier, donc sans fenêtre de course avec un autre fil qui crée un fichier) ;
+    ailleurs, ``os.umask(0)`` puis rétablissement immédiat de l'ancienne valeur : la fenêtre
+    est de quelques instructions, seule solution portable."""
+    try:
+        match = _UMASK_LINE.search(Path("/proc/self/status").read_text(encoding="ascii"))
+    except (OSError, ValueError):
+        match = None
+    if match is not None:
+        return int(match.group(1), 8)
+    previous = os.umask(0)
+    os.umask(previous)
+    return previous
+
+
 def replace_atomically(target: Path, produce: Callable[[Path], None]) -> None:
     """Fait écrire par ``produce`` un fichier temporaire du dossier de ``target`` (créé vide et
     fermé), puis le substitue à ``target``. Le temporaire disparaît en cas d'échec : ``target``
-    reste alors intact."""
+    reste alors intact. Un fichier existant garde son mode ; un nouveau fichier reçoit
+    ``0o666`` moins le umask de l'utilisateur, comme tout fichier créé par ``open``."""
     descriptor, name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.stem}-", suffix=".tmp")
     os.close(descriptor)
     temporary = Path(name)
@@ -105,7 +124,7 @@ def replace_atomically(target: Path, produce: Callable[[Path], None]) -> None:
         if target.exists():
             shutil.copymode(target, temporary)
         else:
-            temporary.chmod(_FILE_MODE)
+            temporary.chmod(_NEW_FILE_MODE & ~_current_umask())
         os.replace(temporary, target)
     except BaseException:
         temporary.unlink(missing_ok=True)
@@ -116,7 +135,7 @@ def _write_atomically(target: Path, text: str, dialect: CsvDialect) -> None:
     """Écrit ``text`` dans un fichier temporaire du dossier de ``target``, puis le substitue."""
 
     def produce(temporary: Path) -> None:
-        with temporary.open("w", encoding=dialect.encoding, newline="") as handle:
+        with temporary.open("w", encoding=dialect.encoding, errors="replace", newline="") as handle:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())

@@ -9,10 +9,12 @@ Le fichier est écrit de façon atomique (``replace_atomically``) : un échec la
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import escaped_text
 from freecad.menuiserie.features.cutlist_export import replace_atomically
 from freecad.menuiserie.features.i18n import translated
 
@@ -44,9 +46,10 @@ def _draw(html: str, temporary: Path) -> None:
     document.setHtml(html)
     document.print_(writer)
     del document, writer  # fermeture du fichier avant relecture
-    with temporary.open("rb") as written:
+    with temporary.open("r+b") as written:  # écriture permise : fsync l'exige sous Windows
         if written.read(len(PDF_MAGIC)) != PDF_MAGIC:
             raise OSError
+        os.fsync(written.fileno())  # sur disque avant le remplacement du fichier d'export
 
 
 def write_pdf(html: str, target: Path) -> Path:
@@ -55,5 +58,5 @@ def write_pdf(html: str, target: Path) -> Path:
     try:
         replace_atomically(target, lambda temporary: _draw(html, temporary))
     except OSError as error:
-        raise ValueError(translated(_NOT_WRITTEN, {"path": str(target)})) from error
+        raise ValueError(translated(_NOT_WRITTEN, {"path": escaped_text(str(target))})) from error
     return target

@@ -24,6 +24,7 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.cutlist import CutList
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import cutlist_sheet, schema
 from freecad.menuiserie.features.cutlist_collect import collect_cut_list, is_source
 from freecad.menuiserie.features.freecad_types import (
@@ -36,7 +37,7 @@ from freecad.menuiserie.features.freecad_types import (
     restoring_or_undoing,
 )
 from freecad.menuiserie.features.furniture_bindings import notice_messages
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 
 __all__ = [
@@ -54,6 +55,11 @@ MODEL_VERSION: Final = 1
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Liste de débit")
 DEFAULT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Mise à jour de la liste de débit")
 GROUP: Final = "Liste de débit"
+_FOREIGN_SHEET: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » : la feuille liée n'est pas la feuille de liste de débit de ce document ; "
+    "elle n'est pas réécrite (relancer « Liste de débit » pour en créer une).",
+)
 _Computed = tuple[CutList, Sequence[DocumentObject]]  # liste et objets lus pour la dresser
 
 PROPERTIES: Final = (
@@ -118,8 +124,14 @@ class CutListProxy(StatelessProxy):
         """Vrai quand un objet que la liste lirait a été ajouté ou supprimé depuis le dernier
         calcul (comparaison des noms), pour que la création ou la suppression d'une pièce soit
         vue sans qu'aucun lien ne la désigne encore. Une portée choisie ne change pas ainsi :
-        ses objets, eux, sont dans ``Sources``."""
-        if obj.Sheet is None or obj.Scope or restoring_or_undoing(obj):
+        ses objets, eux, sont dans ``Sources``. Faux sans feuille de l'atelier valide (voir
+        :func:`refresh`), ou pour un document plus récent que l'atelier."""
+        if (
+            not _writable(obj)
+            or obj.Version > MODEL_VERSION
+            or obj.Scope
+            or restoring_or_undoing(obj)
+        ):
             return False
         known = _names([o for o in obj.Sources if is_source(o)])
         return known != {o.Name for o in obj.Document.Objects if is_source(o)}
@@ -131,6 +143,11 @@ class CutListProxy(StatelessProxy):
 
 def _names(objects: Sequence[DocumentObject]) -> set[str]:
     return {obj.Name for obj in objects}
+
+
+def _writable(obj: DocumentObject) -> bool:
+    """Vrai si ``Sheet`` est une feuille de liste de débit de l'atelier, du même document."""
+    return obj.Sheet is not None and cutlist_sheet.is_workshop_sheet(obj.Sheet, obj.Document)
 
 
 def is_cut_list(obj: object) -> bool:
@@ -147,9 +164,16 @@ def find_cut_list(doc: Document) -> DocumentObject | None:
 def refresh(obj: DocumentObject, computed: _Computed | None = None) -> None:
     """Réécrit la feuille de ``obj`` d'après le document (ou ``computed`` : liste et objets lus
     déjà calculés), puis met ``Sources`` à jour si les objets lus ont changé. Sans feuille
-    (supprimée) ou pour un document plus récent que l'atelier, ne fait rien."""
+    (supprimée) ou pour un document plus récent que l'atelier, ne fait rien. ``Sheet`` n'est
+    utilisée que si c'est un ``Spreadsheet::Sheet`` marqué ``MenuiserieCutList`` du même
+    document (un document hostile peut lier n'importe quel objet) ; sinon rien n'est réécrit et
+    un avertissement va dans la vue rapport (choix : ne pas recréer de feuille en silence pendant
+    un recalcul ; ``make_cut_list`` rebranche la feuille propre)."""
     sheet = obj.Sheet
     if sheet is None or obj.Version > MODEL_VERSION:
+        return
+    if not _writable(obj):
+        report_warning(translated(_FOREIGN_SHEET, {"label": quoted_value(obj.Label)}))
         return
     scope = list(obj.Scope)
     cut_list, sources = computed or collect_cut_list(obj.Document, scope or None)

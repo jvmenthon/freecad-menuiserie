@@ -42,6 +42,8 @@ __all__ = [
 ]
 
 MAX_DEPTH: Final = 32  # liens et conteneurs imbriqués, contre les boucles
+MAX_VISITS: Final = 20_000  # objets lus au plus par collecte, contre les documents hostiles
+MAX_QUANTITY: Final = 1_000_000  # occurrences d'une brute (et multiplicateur d'un chemin) au plus
 _LINK_ELEMENT: Final = "App::LinkElement"  # compté par le tableau de liens qui le porte
 _OTHER_DOCUMENT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » appartient à un autre document : liste de débit refusée."
@@ -93,6 +95,9 @@ class _Walk:
         self.read: dict[str, DocumentObject] = {}
         self.counts: dict[str, int] = defaultdict(int)
         self.notices: list[Notice] = []
+        self.visits = 0  # visites faites, contre MAX_VISITS
+        self._truncated = False
+        self._capped = False
         # Prédicats passés comme fonctions (Semgrep les prend à tort pour des attributs).
         self._readers: tuple[tuple[Callable[[DocumentObject], bool], _Reader], ...] = (
             # nosemgrep: python.lang.maintainability.is-function-without-parentheses
@@ -107,7 +112,15 @@ class _Walk:
 
     def visit(self, obj: DocumentObject, times: int, seen: set[str], depth: int) -> None:
         """Lit ``obj`` et ce qu'il contient, ``times`` fois ; ``seen`` : objets déjà lus par ce
-        chemin d'accès (un objet atteint deux fois par le même chemin compte une fois)."""
+        chemin d'accès (un objet atteint deux fois par le même chemin compte une fois). Au-delà
+        de ``MAX_VISITS`` visites (liens multiples imbriqués : le nombre de chemins est
+        exponentiel), la lecture s'arrête avec un avertissement « liste tronquée »."""
+        if self.visits >= MAX_VISITS:
+            if not self._truncated:
+                self._truncated = True
+                self.notices.append(notice(CollectNoticeKind.TRUNCATED, obj, limit=str(MAX_VISITS)))
+            return
+        self.visits += 1
         if obj.Name in seen:
             return
         seen.add(obj.Name)
@@ -123,7 +136,18 @@ class _Walk:
     def _part(self, obj: DocumentObject, times: int, seen: set[str], depth: int) -> None:
         del seen, depth
         self.blanks[obj.Name] = obj
-        self.counts[obj.Name] += times
+        self.counts[obj.Name] = self._capped_quantity(obj, self.counts[obj.Name] + times)
+
+    def _capped_quantity(self, obj: DocumentObject, quantity: int) -> int:
+        """``quantity`` plafonnée à ``MAX_QUANTITY`` (avertissement une seule fois)."""
+        if quantity <= MAX_QUANTITY:
+            return quantity
+        if not self._capped:
+            self._capped = True
+            self.notices.append(
+                notice(CollectNoticeKind.QUANTITY_CAPPED, obj, limit=str(MAX_QUANTITY))
+            )
+        return MAX_QUANTITY
 
     def _machined(self, obj: DocumentObject, times: int, seen: set[str], depth: int) -> None:
         """Pièce usinée : comptée par sa brute (absente : rien)."""
@@ -147,7 +171,8 @@ class _Walk:
         del seen
         target = obj.LinkedObject
         count = int(obj.ElementCount) if "ElementCount" in obj.PropertiesList else 0
-        self.visit(target, times * max(1, count), set(), depth + 1)
+        multiplied = self._capped_quantity(obj, times * max(1, count))
+        self.visit(target, multiplied, set(), depth + 1)
 
 
 def _roots(doc: Document, objects: Sequence[DocumentObject] | None) -> list[DocumentObject]:
