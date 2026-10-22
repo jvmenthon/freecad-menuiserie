@@ -267,7 +267,7 @@ def verifier_reouverture_des_assemblages() -> list[str]:
         doc = App.openDocument(chemin)
         try:
             usinee = usinee_de(doc.getObjectsByLabel("M1")[0])
-            joint = doc.getObjectsByLabel("Tenon-mortaise")[0]
+            joint = doc.getObjectsByLabel("Tenon-mortaise : M1 T1")[0]
             return [
                 *ecarts("pièce usinée", classe_du_proxy(usinee.ViewObject), VP_PIECE_USINEE),
                 *ecarts("assemblage", classe_du_proxy(joint.ViewObject), VP_ASSEMBLAGE),

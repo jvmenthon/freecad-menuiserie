@@ -16,6 +16,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.joint_names import joint_label
 from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
@@ -90,9 +91,9 @@ def create_joint(
     container = host_blank.getParentGeoFeatureGroup()
     if container is not None:
         container.addObject(obj)
-    obj.Label = translated(joint_class.LABEL)
     obj.HostPart = host_blank
     obj.GuestPart = guest_blank
+    obj.Label = joint_label(obj)
     write_params(obj, params)
     for blank in (host_blank, guest_blank):
         machined = ensure_machined_part(blank)

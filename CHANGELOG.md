@@ -6,6 +6,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Nom d'un assemblage « {type} : {pièce hôte} {pièce invitée} » (par ex. « Tenon-mortaise : M1 T1 »),
+  mis à jour quand une des deux pièces change de repère ou de nom ; doublons « (2) »
+  (`features/joint_names.py`).
 - Nom de la pièce = repère (J6b, ADR 0011) : `core/naming.py` (`label_for_mark`,
   `mark_from_label`, suffixe « M1 (2) » pour les doublons) ; le libellé suit le repère (panneau,
   éditeur de propriétés, script, expression) et inversement (renommage dans l'arborescence, de la
