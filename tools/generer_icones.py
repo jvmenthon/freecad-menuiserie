@@ -467,6 +467,71 @@ def ensemble_relier() -> str:
     return ic.svg(cadre=(2, 50, 2, 50), devant=fleches)
 
 
+# --- Rotations X, Y, Z du panneau de la pièce de bois (J6c) ---------------------------------
+
+# Axe tourné : (vecteur de l'axe, deux vecteurs du plan de la flèche, rayon, couleur de l'axe).
+ROTATIONS = {
+    "X": ((1, 0, 0), (0, 1, 0), (0, 0, 1), 15.0, "#cc0000"),
+    "Y": ((0, 1, 0), (0, 0, 1), (1, 0, 0), 25.0, "#4e9a06"),
+    "Z": ((0, 0, 1), (1, 0, 0), (0, 1, 0), 25.0, "#3465a4"),
+}
+
+
+def _autour(centre: Point3, u: Point3, v: Point3, rayon: float, angle: float) -> Point3:
+    """Point du cercle de centre ``centre`` dans le plan (u, v), à l'angle ``angle`` (rad)."""
+    c, s = math.cos(angle), math.sin(angle)
+    return (
+        centre[0] + rayon * (c * u[0] + s * v[0]),
+        centre[1] + rayon * (c * u[1] + s * v[1]),
+        centre[2] + rayon * (c * u[2] + s * v[2]),
+    )
+
+
+def _rotation(axe: str) -> str:
+    """Planche avec l'axe X, Y ou Z qui la traverse et une flèche courbe autour de cet axe."""
+    direction, u, v, rayon, couleur = ROTATIONS[axe]
+    ic = Icone(f"Quart de tour autour de l'axe {axe} : planche, axe et flèche courbe")
+    taille = (44.0, 16.0, 8.0)
+    ic.boite((0, 0, 0), taille, "chene")
+    centre = (taille[0] / 2, taille[1] / 2, taille[2] / 2)
+    longueur = 30.0
+    ic.trait(
+        [
+            tuple(c - longueur * d for c, d in zip(centre, direction, strict=True)),
+            tuple(c + longueur * d for c, d in zip(centre, direction, strict=True)),
+        ],
+        couleur,
+        1.5,
+    )
+    debut, fin = math.radians(40), math.radians(310)
+    arc = [_autour(centre, u, v, rayon, debut + (fin - debut) * i / 24) for i in range(25)]
+    ic.trait(arc, couleur, 3.0)
+    pointe = _autour(centre, u, v, rayon, fin)
+    tangente = _autour((0, 0, 0), u, v, 1.0, fin + math.pi / 2)
+    radiale = _autour((0, 0, 0), u, v, 1.0, fin)
+    ic.bande(
+        [
+            tuple(c + 8 * t for c, t in zip(pointe, tangente, strict=True)),
+            tuple(c + 5 * r for c, r in zip(pointe, radiale, strict=True)),
+            tuple(c - 5 * r for c, r in zip(pointe, radiale, strict=True)),
+        ],
+        couleur,
+    )
+    return ic.svg()
+
+
+def rotation_x() -> str:
+    return _rotation("X")
+
+
+def rotation_y() -> str:
+    return _rotation("Y")
+
+
+def rotation_z() -> str:
+    return _rotation("Z")
+
+
 ICONES = {
     "menuiserie.svg": atelier,
     "Menuiserie_WoodPart.svg": piece_de_bois,
@@ -487,6 +552,10 @@ ICONES = {
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
     "Menuiserie_FurnitureRemove.svg": ensemble_retirer,
     "Menuiserie_FurnitureRebind.svg": ensemble_relier,
+    # Rotations du panneau de la pièce de bois (J6c)
+    "Menuiserie_RotateX.svg": rotation_x,
+    "Menuiserie_RotateY.svg": rotation_y,
+    "Menuiserie_RotateZ.svg": rotation_z,
 }
 
 
