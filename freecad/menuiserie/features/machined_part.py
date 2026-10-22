@@ -27,11 +27,14 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
+from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
+    is_importing,
     label_of_mark,
     mark_is_bound,
     other_labels,
+    unique_label_after_copy,
     warn_mark_bound,
 )
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
@@ -138,6 +141,23 @@ class MachinedPart(StatelessProxy):
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         schema.restore_schema(obj, PROPERTIES, self.VERSION, NOUN)
+        self._make_label_unique(obj)  # copie, duplication, fusion (J6, L5 bis)
+
+    def _make_label_unique(self, obj: DocumentObject) -> None:
+        """Pièce usinée restaurée avec le libellé d'un autre objet : sa brute est d'abord rendue
+        unique, puis le libellé devient « {libellé de la brute} (usinée) » ; sans brute, suffixe
+        « (2) ». Sans effet si le libellé est déjà unique."""
+        blank: DocumentObject = getattr(obj, "Base", None)
+        if is_wood_part(blank):
+            make_label_unique(blank)
+        label = unique_label_after_copy(obj)
+        if is_wood_part(blank) and (label is not None or is_importing(obj)):
+            expected = _machined_label(obj, str(blank.Label))
+            label = None if expected == str(obj.Label) else expected
+        if label is None:
+            return
+        with self._synchronizing():
+            obj.Label = label
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Déplacement de la pièce usinée par l'utilisateur : reporté sur sa brute (Q4), dans la

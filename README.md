@@ -54,7 +54,7 @@ pilotée.
 Avant de lancer **Pièce de bois**, sélectionnez dans la vue 3D une à trois **faces, arêtes ou
 sommets** (pièces de bois, pièces d'un ensemble ou d'un Std Part, objets d'un autre atelier :
 Part, PartDesign, esquisse…). La nouvelle pièce apparaît en aperçu semi-transparent **contre** ces
-éléments, du côté extérieur de la matière, et le groupe *Position* du panneau les cite
+éléments, du côté extérieur de la matière, et le groupe *Rotation* du panneau les cite
 (« Contre : Face3 de « Côté gauche » »). Rien de ce que vous avez sélectionné n'est modifié ni
 désélectionné.
 

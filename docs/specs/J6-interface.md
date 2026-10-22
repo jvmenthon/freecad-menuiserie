@@ -1,8 +1,8 @@
 # [J6] Amélioration de l'interface : aperçu, accrochage à la sélection, rotation, nom = repère
 
 - Jalon : J6 (issue #37), à faire après J4 ; version cible à confirmer par jv
-- Statut : **proposée** (en attente des réponses de jv aux questions du § 9 ; en attendant, la
-  spécification applique les recommandations ★)
+- Statut : **acceptée** (jv a répondu aux questions du § 9, voir « Réponses de jv » en fin de
+  document ; ces réponses priment sur les recommandations ★)
 - Exigences de jv (mot pour mot, 2026-10-21) : « lorsque je fais une nouvelle piece de bois une
   prévisualisation apparait; si une ou plusieurs face; point; ligne est selectionnée la nouvelle
   piece doit toucher celle-ci; ajoute un bouton rotation » ; puis : « la pièce doit porter le même
@@ -89,8 +89,11 @@ coin O**.
 | L3 | **Repère → nom** : changer `Mark` (panneau, éditeur de propriétés, script, expression qui pilote `Mark`) met à jour `Label` dans la même transaction ; la pièce usinée suit : `« E2 (usinée) »`. Une nouvelle pièce prend le libellé `label_for_mark` de son repère (`make_wood_part(mark="M1")` → « M1 »). | I |
 | L4 | **Nom → repère** (Q4 ★) : renommer la pièce dans l'arborescence (F2) ou par `obj.Label = …` change `Mark` ; renommer la pièce usinée change le repère de sa brute (et le libellé de l'usinée redevient `« {repère} (usinée) »`). `Mark` pilotée par une expression : le repère ne change pas, avertissement dans la vue rapport, le libellé revient à celui du repère. | I |
 | L5 | **Doublons** : deux pièces de repère « M1 » s'appellent « M1 » et « M1 (2) » ; toutes deux gardent `Mark` = « M1 » (la liste de débit de J2 les regroupe). Renommer « M1 (2) » en « M1 » dans l'arborescence : le repère reste « M1 », le libellé reste « M1 (2) » (FreeCAD interdit deux libellés égaux ; aucune préférence de FreeCAD n'est modifiée). | I |
+| L5 bis | **Copier-coller, Std Dupliquer, fusion de documents** : FreeCAD restaure alors le libellé du modèle sans appeler `onBeforeChangeLabel` (`allowDuplicateLabel` est vrai) ; le libellé de la copie est rendu unique à sa restauration (`onDocumentRestored`, sous `synchronizing()`) : « M1 » copiée devient « M1 (2) », puis « M1 (3) » ; sa pièce usinée copiée avec elle devient « M1 (2) (usinée) », ses assemblages suivent ; le repère (`Mark`) est inchangé. Condition : le libellé restauré est **déjà celui d'un autre objet** du document et le document n'annule pas / ne rétablit pas (`Document.Transacting`) ; `Document.Importing` n'est pas testé car il n'est pas garanti pour tout copier-coller. Une réouverture ordinaire (libellés tous uniques) n'écrit donc rien (L6). Cas testés : `copyObject(pièce)`, `copyObject([usinée], True)` (brute + usinée), deux copies successives, `mergeProject` d'un fichier enregistré, annulation d'une suppression. | U + I |
 | L6 | **Réouverture, annuler, rétablir** : aucune synchronisation pendant la restauration ou une annulation (garde `restoring_or_undoing`) ; un document J1–J4 dont les libellés diffèrent des repères s'ouvre **sans aucun changement** et sans être marqué modifié (Q5 ★) ; la synchronisation s'applique à la première modification du repère ou du nom de chaque pièce. | I |
 | L7 | **Expressions** : une expression de l'utilisateur qui cite la pièce par son libellé (`<<M1>>.Length` dans une feuille de calcul) suit le changement de repère (réécriture native de FreeCAD) ; les liaisons d'un ensemble (qui ne citent que le libellé de l'ensemble) ne changent pas. | I |
+| L8 | **Nom d'un assemblage** (demande de jv) : « {type} : {pièce hôte} {pièce invitée} » (par ex. « Tenon-mortaise : M1 T1 »), calculé à la création et tenu à jour quand le repère ou le nom d'une des deux pièces change (`features/joint_names.py`) ; deux assemblages de mêmes pièces et de même type : « … » et « … (2) ». Test de référence : `tests/integration/test_nom_assemblage.py`. | I |
+| L9 | **Suppression d'un assemblage** (demande de jv) : `MachinedPart` (ViewProvider) répond vrai à `canDelete(assemblage)` pour un assemblage de sa liste `Joints`, faux pour tout autre objet : « Supprimer » ne montre pas l'avertissement « objets référencés » pour les pièces usinées, qui sont recalculées sans la coupe. Test de référence : `verifier_suppression_d_un_assemblage` (`tests/gui/verifications_assemblages.py`). | G |
 
 ### J6c — Aperçu et boutons de rotation (`gui/task_panels/`, `features/placement.py`)
 
@@ -99,7 +102,7 @@ coin O**.
 | V1 | **Aperçu** : en création, la pièce est affichée à 60 % de transparence tant que le panneau est ouvert, puis à sa transparence d'origine après « OK » ; texture et couleur du matériau inchangées (ADR 0004). En modification, aucun changement d'affichage. | G |
 | V2 | L'aperçu suit chaque saisie (cotes, matériau, fil, rotation) sans recalculer le reste du document (`recompute_preview`, comme aujourd'hui). | G |
 | V3 | **Annuler / rétablir** : « OK » laisse exactement une entrée d'annulation « Créer une pièce de bois » (libellé, placement et transparence compris) ; « Annuler » ne laisse ni objet ni entrée d'annulation ; en modification, « Annuler » rétablit cotes, `Placement`, repère et libellé. Document fermé ou objet supprimé pendant le panneau : comportement de J3e inchangé. | G |
-| V4 | **Boutons** (Q1 ★) « Pivoter » et « Basculer » dans un groupe « Position » du panneau, infobulles traduites, icônes générées par `tools/generer_icones.py` ; en création, chaque clic applique S10 (la pièce reste accrochée) ; en modification, la pièce tourne sur place (centre fixe), sa pièce usinée et ses assemblages suivent au recalcul de l'aperçu. | G |
+| V4 | **Boutons** (Q1 ★) « Pivoter » et « Basculer » dans un groupe « Rotation » du panneau (`rotationGroup`, demande de jv ; ordre des groupes : Identification, Matériau, Dimensions, Rotation, le repère / nom étant le premier champ), infobulles traduites, icônes générées par `tools/generer_icones.py` ; en création, chaque clic applique S10 (la pièce reste accrochée) ; en modification, la pièce tourne sur place (centre fixe), sa pièce usinée et ses assemblages suivent au recalcul de l'aperçu. | G |
 | V5 | **Sens du fil** : la rotation ne change ni `GrainDirection` ni `PreferredGrainDirection` (le fil est lié aux axes de la pièce, ADR 0005) ; la texture tourne avec la pièce. | G |
 | V6 | Boutons inactifs (infobulle explicative) si le `Placement` de la pièce est piloté par une expression (membre d'un ensemble J4, formule de l'utilisateur) : « Cette pièce suit l'ensemble « Caisson » : tournez-la avec Std Transform après l'avoir retirée de l'ensemble. » | G |
 | V7 | Aucun observateur ni filtre de sélection laissé en place après la fermeture du panneau ; aucune préférence écrite hors de `Mod/Menuiserie` (ADR 0007). | G |
@@ -155,7 +158,7 @@ freecad/menuiserie/
     ├── commands/wood_part.py   J6d  lecture de la sélection avant création
     ├── selection.py            J6d  SelectionObject → (racine, chemin, point), conteneur, direction de vue
     └── task_panels/
-        ├── wood_part.py/.ui    J6c  groupe « Position », Pivoter, Basculer ; J6d « Contre : … », case Ensemble
+        ├── wood_part.py/.ui    J6c  groupe « Rotation », boutons X, Y, Z ; J6d « Contre : … », case Ensemble
         └── preview.py          J6c  PreviewStyle (transparence posée puis rétablie)
 ```
 
@@ -305,6 +308,12 @@ def mark_from_label(label: str, default: str) -> str: ...
   si `Mark` est pilotée par une expression. **À vérifier en début de J6b sur 1.0 et 1.1** (R1) ;
   repli si l'appel n'existe pas : `onChanged(obj, "Label")` seul, sur le libellé déjà rendu unique
   par FreeCAD, puis libellé réécrit par `label_for_mark`.
+- **Copie, duplication, fusion (L5 bis)** : `WoodPart.onDocumentRestored` et
+  `MachinedPart.onDocumentRestored` rendent le libellé restauré unique quand il est déjà pris
+  (`unique_label_after_copy`, sous `synchronizing()`, hors annulation) : la brute d'abord, qui
+  met à jour sa pièce usinée et ses assemblages, puis l'usinée (« {brute} (usinée) »), quel que
+  soit l'ordre de restauration. `allowDuplicateLabel` reste vrai, `Mark` n'est pas touché. Le
+  test est le doublon et non `Document.Importing` (faux pour certains copier-coller).
 - `MachinedPart.onChanged(obj, "Label")` : repère de la brute = `mark_from_label` du libellé saisi
   privé du suffixe « (usinée) » traduit.
 - `create_wood_part(..., mark=…)` pose `Label = label_for_mark(mark, …)` ; aucune propriété
@@ -319,7 +328,7 @@ def mark_from_label(label: str, default: str) -> str: ...
   disparu). Seule la composante de transparence est touchée : `show_diffuse` de
   `part_appearance` conserve déjà l'alpha.
 - `WoodPartTaskPanel` reçoit, en création, un `SnapSession` (cibles, orientation courante,
-  conteneur, ensemble candidat) ; en modification, aucun. Groupe « Position » du `.ui` : ligne
+  conteneur, ensemble candidat) ; en modification, aucun. Groupe « Rotation » du `.ui` : ligne
   « Contre : … » et notices (J6d), boutons **Pivoter** et **Basculer** (`QToolButton`, icônes
   `Menuiserie_Pivot.svg`, `Menuiserie_Tilt.svg` générées), case « Ajouter à l'ensemble » (J6d).
 - `_recompute()` : en création, `snap(...)` puis écriture de `Placement` (et de la cote étirée par
@@ -382,8 +391,8 @@ borne la recherche du suffixe libre (au plus `len(taken) + 1` essais).
 | Lot | Branche | Contenu | Diff estimé hors tests | Critères | Dépend de |
 |---|---|---|---|---|---|
 | **J6a** | `feat/accrochage-core` | `core/snap/` (modèle, repères, orientation, contraintes, étirement, notices) | ≈ 380 | S1–S11 | — |
-| **J6b** | `feat/nom-repere` | `core/naming.py`, `WoodPart` et `MachinedPart` (`onChanged`, `onBeforeChangeLabel`), libellé à la création, infobulle, CHANGELOG | ≈ 220 | L1–L7 | — |
-| **J6c** | `feat/apercu-rotation` | `features/placement.py`, `make_wood_part(placement=, container=)`, `PreviewStyle`, groupe « Position » et boutons du panneau, icônes, recette (partie aperçu) | ≈ 350 | V1–V7 | J6a |
+| **J6b** | `feat/nom-repere` | `core/naming.py`, `WoodPart` et `MachinedPart` (`onChanged`, `onBeforeChangeLabel`), libellé à la création, infobulle, CHANGELOG | ≈ 220 | L1–L9 | — |
+| **J6c** | `feat/apercu-rotation` | `features/placement.py`, `make_wood_part(placement=, container=)`, `PreviewStyle`, groupe « Rotation » et boutons du panneau, icônes, recette (partie aperçu) | ≈ 350 | V1–V7 | J6a |
 | **J6d** | `feat/accrochage-selection` | `gui/selection.py`, `features/snap_targets.py`, commande, ligne « Contre », case Ensemble, recette complète, README « Poser une pièce contre une autre » | ≈ 400 | T1–T9 | J6a, J6c |
 
 J6a et J6b partent en parallèle : J6a est une bibliothèque testée sans FreeCAD, J6b est livrable
@@ -395,12 +404,16 @@ déborde, la case « Ajouter à l'ensemble » (T5) passe dans un lot J6e.
 
 - **Documents J1–J4** : aucune propriété ajoutée, aucune `Version` changée, aucune migration ;
   ouverts sans modification (L6, Q5 ★). Les libellés existants restent tels quels jusqu'à la
-  première modification du repère ou du nom de chaque pièce.
+  première modification du repère ou du nom de chaque pièce. Seule exception : un libellé déjà
+  porté par un autre objet à la restauration (copie, fusion, ou fichier qui contenait déjà un
+  doublon) reçoit le suffixe « (2) » (L5 bis).
 - **Document J6 ouvert par un atelier plus ancien** : rien de nouveau n'est enregistré (libellés
   et placements ordinaires) ; il s'ouvre normalement ; seule la synchronisation nom ↔ repère
   n'a plus lieu.
-- **Transparence** : posée et rétablie dans la transaction de création ; jamais enregistrée à
-  60 % (« OK » la rétablit avant validation, « Annuler » supprime l'objet).
+- **Transparence** : posée et rétablie dans la transaction de création ; « OK » la rétablit
+  avant validation, « Annuler » supprime l'objet. Limite : enregistrer le document (Ctrl+S) alors
+  que le panneau de création est ouvert écrit la pièce à 60 % ; rétablir la transparence
+  d'origine dans les propriétés d'affichage de la pièce suffit à la corriger.
 - **FreeCAD 1.0 et 1.1** : `getSelectionEx("", 0)`, `PickedPoints`, `Part.getShape(…,
   needSubElement=True)`, `getSubObjectList`, `onBeforeChangeLabel` des `FeaturePython`,
   `ViewObject.Transparency` : à vérifier en début de lot sur les deux versions (R1, R2) ;

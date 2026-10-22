@@ -93,16 +93,22 @@ def verifier_boutons_xyz() -> list[str]:
         # Rang dans la disposition du formulaire (la géométrie n'est pas calculée hors écran).
         haut = {
             n: form.layout().indexOf(getattr(form, n))
-            for n in ("materialGroup", "dimensionsGroup", "positionGroup")
+            for n in ("identificationGroup", "materialGroup", "dimensionsGroup", "rotationGroup")
         }
         problemes += [
             *ecarts("fil", obj.GrainDirection, fil),
             *ecarts(
+                "Identification avant Matériau",
+                haut["identificationGroup"] < haut["materialGroup"],
+                True,
+            ),
+            *ecarts(
                 "Matériau avant Dimensions", haut["materialGroup"] < haut["dimensionsGroup"], True
             ),
             *ecarts(
-                "Dimensions avant Position", haut["dimensionsGroup"] < haut["positionGroup"], True
+                "Dimensions avant Rotation", haut["dimensionsGroup"] < haut["rotationGroup"], True
             ),
+            *ecarts("Rotation titrée", form.rotationGroup.title(), "Rotation"),
         ]
         valider()
         return problemes

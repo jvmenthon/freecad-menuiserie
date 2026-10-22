@@ -8,7 +8,7 @@ En création, la pièce est un aperçu semi-transparent (:class:`PreviewStyle`),
 Les boutons X, Y, Z font tourner la pièce d'un quart de tour autour de l'axe du document : en
 création elle reste accrochée (:class:`SnapSession`), en modification elle tourne sur place.
 Lancée avec une sélection (J6d), la pièce est posée contre les éléments choisis : le groupe
-« Position » les cite (« Contre : … »), signale ceux qui sont ignorés ou qui ne touchent pas la
+« Rotation » les cite (« Contre : … »), signale ceux qui sont ignorés ou qui ne touchent pas la
 pièce, et propose d'ajouter la pièce à l'ensemble de l'élément (case cochée par défaut).
 Toute saisie est visible aussitôt dans la vue 3D (cotes, matériau, fil, rotation).
 Une cote pilotée par une expression est affichée par le champ (icône d'expression) et n'est
@@ -85,6 +85,7 @@ _FURNITURE_REFUSED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "La pièce est créée hors de l'ensemble « {label} » : {reason}",
 )
+_FURNITURE_GONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "cet ensemble n'existe plus.")
 # Boutons de rotation : widget, axe tourné, icône générée.
 ROTATIONS: Final = (
     ("rotateXButton", Turn.X, "Menuiserie_RotateX.svg"),
@@ -155,6 +156,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._show_allowances(False)
         self._lock_driven_fields()
         self._setup_rotation_buttons()
+        self._furniture_params: dict[str, str] = {}  # libellé de l'ensemble de la case
         self._connect_signals()
         self._setup_snap_rows()
         if self._session is not None and self._session.targets:
@@ -209,6 +211,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
             return
         furniture = session.furniture if session.targets else None
         if furniture is not None:
+            self._furniture_params = quoted_label(furniture)
             self.form.furnitureCheck.setText(translated(_JOIN_FURNITURE, quoted_label(furniture)))
             self.form.furnitureCheck.setVisible(True)
             self.form.furnitureCheck.setChecked(True)
@@ -319,6 +322,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         tourne sur place en modification (aperçu recalculé)."""
         if rotate_part(self.obj, turn, self._session):
             self.preview()
+            self._show_snap()  # notices en direct : la pièce touche ou non ses cibles
 
     def _choose_thickness(self, thickness: float) -> None:
         """Épaisseur standard choisie dans le menu : écrite par le champ lui-même."""
@@ -326,16 +330,25 @@ class WoodPartTaskPanel(ObjectTaskPanel):
 
     def _before_commit(self) -> None:
         """« OK » : transparence d'origine rétablie, pièce ajoutée à l'ensemble si la case est
-        cochée, le tout avant la validation de la transaction."""
-        if self._style is not None:
-            self._style.restore()
-        self._join_furniture()
+        cochée, le tout avant la validation de la transaction. L'entrée dans l'ensemble passe en
+        premier : son refus (message) n'empêche pas de rétablir la transparence."""
+        try:
+            self._join_furniture()
+        finally:
+            if self._style is not None:
+                self._style.restore()
 
     def _join_furniture(self) -> None:
         """Entrée dans l'ensemble de l'élément touché (options par défaut de J4, dans la même
         transaction) ; refusée : la pièce reste hors de l'ensemble, avec un message traduit."""
         session = self._session
         if session is None or session.furniture is None or not self.form.furnitureCheck.isChecked():
+            return
+        if _furniture_gone(session.furniture, self.obj.Document):
+            reason = translated(_FURNITURE_GONE)
+            report_warning(
+                translated(_FURNITURE_REFUSED, {**self._furniture_params, "reason": reason})
+            )
             return
         try:
             api.add_to_furniture(session.furniture, [self.obj])
@@ -407,3 +420,13 @@ def _length_text(length_mm: float) -> str:
     """Longueur dans le système d'unités choisi par l'utilisateur (« 22 mm », « 0,87 in »…)."""
     text: str = App.Units.Quantity(length_mm, App.Units.Length).UserString
     return text
+
+
+def _furniture_gone(furniture: DocumentObject, document: DocumentObject) -> bool:
+    """Vrai si l'ensemble a été supprimé pendant que le panneau était ouvert. Dans une
+    transaction ouverte, FreeCAD garde l'objet supprimé pour l'annulation : on vérifie qu'il est
+    encore dans le document."""
+    try:
+        return not is_furniture(furniture) or document.getObject(furniture.Name) is None
+    except Exception:  # pylint: disable=broad-exception-caught  # objet supprimé : type variable
+        return True

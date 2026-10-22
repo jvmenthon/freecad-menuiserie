@@ -210,14 +210,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   panneau, paramètre piloté par une expression jamais écrit.
 
 ### Modifié
-- Panneau de la pièce de bois (J6c) : le groupe **Matériau** passe avant **Dimensions finies**,
-  suivi d'**Identification** puis de **Position** ; l'ordre des propriétés dans l'éditeur de
+- Panneau de la pièce de bois (J6c) : ordre des groupes **Identification** (repère / nom, premier
+  champ du panneau), **Matériau**, **Dimensions finies**, puis **Rotation** (ancien groupe
+  « Position », renommé, `objectName` `rotationGroup`) ; l'ordre des propriétés dans l'éditeur de
   propriétés de FreeCAD (ordre de création) est inchangé.
 - `core/snap` (J6c, Q1 de jv) : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ;
   `Orientation` porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des
   axes du document.
-- Panneau de la pièce de bois : le groupe **Matériau** passe avant **Dimensions finies**, suivi
-  d'**Identification** puis de **Position** ; l'ordre des propriétés dans l'éditeur de propriétés
+- Panneau de la pièce de bois : ordre des groupes **Identification** (repère / nom, premier
+  champ), **Matériau**, **Dimensions finies**, puis **Rotation** (ancien « Position ») ; l'ordre des propriétés dans l'éditeur de propriétés
   de FreeCAD (ordre de création) est inchangé.
 - `core/snap` : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ; `Orientation`
   porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des axes du
@@ -266,6 +267,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `to_guest`, `TextureCache.usable`, `BudgetedCache.clear`, `JOINT_CLASSES`).
 
 ### Corrigé
+- Revue finale de J6 : copier-coller, Std Dupliquer et fusion de documents ne donnent plus deux
+  pièces (ni deux pièces usinées) de même libellé : la copie de « M1 » s'appelle « M1 (2) » et sa
+  pièce usinée « M1 (2) (usinée) », repère inchangé ; une réouverture ordinaire et une annulation
+  n'écrivent rien (spécification J6, L5 bis).
+- Accrochage : un vecteur de norme nulle (arête de longueur nulle) lève une `ValueError` rattrapée
+  par l'accrochage au lieu d'une `ZeroDivisionError`.
+- Panneau de la pièce de bois : ensemble supprimé pendant que le panneau est ouvert, « OK »
+  affiche le message de refus (pièce créée hors de l'ensemble) et rétablit la transparence ; les
+  boutons X, Y, Z mettent aussitôt à jour la ligne « Contre » et les notices.
 - Panneau de la brute ouvert depuis sa pièce usinée puis fermé par FreeCAD (brute supprimée,
   Édition > Annuler) : le mode édition est quitté même si la pièce usinée a perdu sa brute.
 - Réouverture d'un document où une propriété de la pièce a un type inattendu (par exemple

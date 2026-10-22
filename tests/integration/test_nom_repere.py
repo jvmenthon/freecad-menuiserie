@@ -9,6 +9,7 @@ le libellé saisi arrive tel que tapé (risque R1 de la spécification).
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -131,6 +132,80 @@ def test_aucune_preference_de_freecad_modifiee(document: Any) -> None:
     before = group.GetBool("DuplicateLabels", False)
     part(document, "M1"), part(document, "M1")
     assert group.GetBool("DuplicateLabels", False) == before
+
+
+# --- L5 bis : copie, duplication, fusion --------------------------------------------------------
+
+
+def labels(doc: Any) -> list[str]:
+    return [str(obj.Label) for obj in doc.Objects]
+
+
+def test_copier_coller_une_piece_rend_le_libelle_unique(document: Any) -> None:
+    original = part(document, "M1")
+    copies = document.copyObject(original)
+    copy = copies[0] if isinstance(copies, (list, tuple)) else copies
+    assert (original.Label, copy.Label) == ("M1", "M1 (2)")
+    assert (original.Mark, copy.Mark) == ("M1", "M1")  # le repère n'est pas touché
+    assert len(set(labels(document))) == len(document.Objects)
+    document.copyObject([original], True)
+    assert len(set(labels(document))) == len(document.Objects)
+
+
+def test_copier_coller_avec_piece_usinee(document: Any) -> None:
+    original = part(document, "M1")
+    machined = machined_part.ensure_machined_part(original)
+    copies = document.copyObject([machined], True)  # ne renvoie que les copies demandées
+    machined_copy = copies[0] if isinstance(copies, (list, tuple)) else copies
+    blank_copy = machined_copy.Base
+    assert (original.Label, machined.Label) == ("M1", "M1 (usinée)")
+    assert (blank_copy.Label, machined_copy.Label) == ("M1 (2)", "M1 (2) (usinée)")
+    assert len(set(labels(document))) == len(document.Objects)
+
+
+def test_dupliquer_deux_fois_donne_des_libelles_distincts(document: Any) -> None:
+    original = part(document, "M1")
+    machined_part.ensure_machined_part(original)
+    for _ in range(2):
+        document.copyObject([original], True)
+    assert len(set(labels(document))) == len(document.Objects)
+    assert sorted(o.Label for o in document.Objects if getattr(o, "Mark", None) == "M1") == [
+        "M1",
+        "M1 (2)",
+        "M1 (3)",
+    ]
+
+
+def test_fusion_de_documents_rend_les_libelles_uniques(document: Any, tmp_path: Path) -> None:
+    original = part(document, "M1")
+    machined = machined_part.ensure_machined_part(original)
+    other = App.newDocument("TestFusionSource")
+    try:
+        merged = part(other, "M1")
+        machined_part.ensure_machined_part(merged)
+        path = tmp_path / "source.FCStd"
+        other.saveAs(str(path))
+    finally:
+        App.closeDocument(other.Name)
+    document.mergeProject(str(path))
+    document.recompute()
+    assert len(document.Objects) == 4
+    assert len(set(labels(document))) == 4
+    assert (original.Label, machined.Label) == ("M1", "M1 (usinée)")
+    assert sorted(labels(document)) == ["M1", "M1 (2)", "M1 (2) (usinée)", "M1 (usinée)"]
+
+
+def test_annuler_la_suppression_garde_le_libelle(document: Any) -> None:
+    document.UndoMode = 1
+    first, second = part(document, "M1"), part(document, "M1")
+    assert second.Label == "M1 (2)"
+    name = second.Name
+    document.openTransaction("Supprimer")
+    document.removeObject(name)
+    document.commitTransaction()
+    document.undo()
+    assert document.getObject(name).Label == "M1 (2)"
+    assert first.Label == "M1"
 
 
 # --- L6 : réouverture, annuler, rétablir -------------------------------------------------------

@@ -357,6 +357,15 @@ def test_pas_d_ensemble_pour_une_piece_libre(document: Any, block: Any) -> None:
     assert picked.furniture_candidate(element) is None
 
 
+def test_vecteur_de_norme_nulle_leve_value_error() -> None:
+    """Revue finale de J6 : ``unit`` ne divise pas par zéro, l'accrochage rattrape ``ERRORS``."""
+    assert ValueError in geometry.ERRORS
+    for vector in (App.Vector(0, 0, 0), App.Vector(1e-12, 0, 0)):
+        with pytest.raises(ValueError, match="norme nulle"):
+            geometry.unit(vector)
+    assert geometry.unit(App.Vector(0, 3, 4)).y == pytest.approx(0.6)
+
+
 # --- T1 : rien n'est modifié ---------------------------------------------------------------------
 
 

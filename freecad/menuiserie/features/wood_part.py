@@ -40,6 +40,7 @@ from freecad.menuiserie.features.freecad_types import (
 from freecad.menuiserie.features.furniture import MEMBER_OPTIONS
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.features.part_labels import make_label_unique, sync_dependent_labels
 from freecad.menuiserie.features.part_names import (
     default_label,
     label_of_mark,
@@ -136,6 +137,7 @@ class WoodPart(StatelessProxy):
         from freecad.menuiserie.features.furniture_restore import restore_member
 
         restore_member(obj)  # membre d'un ensemble (J4) ; sans effet sinon
+        make_label_unique(obj)  # copie, duplication, fusion (J6, L5 bis)
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
@@ -191,11 +193,7 @@ class WoodPart(StatelessProxy):
         if obj.Label != label:
             with self._synchronizing():
                 obj.Label = label
-        from freecad.menuiserie.features.joint_names import sync_joint_labels
-        from freecad.menuiserie.features.machined_part import sync_machined_label
-
-        sync_machined_label(obj)
-        sync_joint_labels(obj)
+        sync_dependent_labels(obj)
 
     def adopt_mark(self, obj: DocumentObject, mark: str) -> None:
         """Repère = ``mark`` (déduit d'un libellé saisi), puis libellés de la pièce et de sa

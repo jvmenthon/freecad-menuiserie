@@ -102,17 +102,17 @@ def test_le_formulaire_porte_les_widgets_de_l_accrochage() -> None:
     assert values["visible"] == "false"  # visible seulement si un ensemble est touché
 
 
-def test_les_widgets_de_l_accrochage_sont_dans_le_groupe_position() -> None:
+def test_les_widgets_de_l_accrochage_sont_dans_le_groupe_rotation() -> None:
     root = ET.parse(UI_FILE).getroot()  # noqa: S314 (fichier du dépôt)
-    group = next(w for w in root.iter("widget") if w.get("name") == "positionGroup")
+    group = next(w for w in root.iter("widget") if w.get("name") == "rotationGroup")
     names = {w.get("name") for w in group.iter("widget")}
     assert {"snapLabel", "snapNotices", "furnitureCheck", "rotateXButton"} <= names
 
 
-def test_l_ordre_des_widgets_du_groupe_position() -> None:
+def test_l_ordre_des_widgets_du_groupe_rotation() -> None:
     """Ligne « Contre », notices, boutons, puis case de l'ensemble (ordre des dispositions)."""
     root = ET.parse(UI_FILE).getroot()  # noqa: S314 (fichier du dépôt)
-    group = next(w for w in root.iter("widget") if w.get("name") == "positionGroup")
+    group = next(w for w in root.iter("widget") if w.get("name") == "rotationGroup")
     order = [w.get("name") for w in group.iter("widget")]
     assert order.index("snapLabel") < order.index("snapNotices") < order.index("rotateXButton")
     assert order.index("rotateZButton") < order.index("furnitureCheck")

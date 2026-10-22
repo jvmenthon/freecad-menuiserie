@@ -40,9 +40,11 @@ def parts(monkeypatch: pytest.MonkeyPatch) -> Iterator[types.SimpleNamespace]:
     before = set(sys.modules)
     monkeypatch.setitem(sys.modules, "FreeCAD", freecad)
     monkeypatch.setitem(sys.modules, "Part", _Stub("Part"))
-    from freecad.menuiserie.features import machined_part, wood_part
+    from freecad.menuiserie.features import machined_part, part_labels, wood_part
 
-    yield types.SimpleNamespace(wood=wood_part, machined=machined_part, report=report)
+    yield types.SimpleNamespace(
+        wood=wood_part, machined=machined_part, labels=part_labels, report=report
+    )
     for name in set(sys.modules) - before:
         if name.startswith("freecad.menuiserie.features") or name == "freecad.menuiserie.api":
             del sys.modules[name]
@@ -278,6 +280,74 @@ def test_reouverture_sans_changement(parts: Any, document: FakeDocument) -> None
     text = source.read_text(encoding="utf-8")
     restored = text.split("def onDocumentRestored", 1)[1].split("def onChanged", 1)[0]
     assert "Label" not in restored and "Mark" not in restored
+    assert "make_label_unique(obj)" in restored  # seule écriture : un doublon (L5 bis)
+
+
+# --- L5 bis (J6) : copie, duplication, fusion ----------------------------------------------
+
+
+def copy_of(parts: Any, doc: FakeDocument, original: FakeObject, name: str) -> FakeObject:
+    """Copie de ``original`` telle que FreeCAD la restaure : même libellé et même repère."""
+    copy = blank(parts, doc, name)
+    copy.raw_label, copy.raw_mark = original.raw_label, original.raw_mark
+    copy.changes.clear()
+    return copy
+
+
+def test_copie_d_une_piece_prend_un_libelle_unique(parts: Any, document: FakeDocument) -> None:
+    original = blank(parts, document, "A")
+    original.Mark = "M1"
+    copy = copy_of(parts, document, original, "B")
+    copy.State.append("Restore")
+    parts.labels.make_label_unique(copy)
+    assert (original.Label, copy.Label, copy.Mark) == ("M1", "M1 (2)", "M1")
+    second = copy_of(parts, document, original, "C")
+    parts.labels.make_label_unique(second)
+    assert second.Label == "M1 (3)"
+
+
+def test_libelle_deja_unique_n_est_pas_ecrit(parts: Any, document: FakeDocument) -> None:
+    """Réouverture ordinaire (L6) : aucun libellé n'est écrit."""
+    piece = blank(parts, document, "A")
+    piece.raw_label, piece.raw_mark = "Joue gauche", "JG"
+    piece.changes.clear()
+    parts.labels.make_label_unique(piece)
+    assert piece.changes == [] and piece.Label == "Joue gauche"
+
+
+def test_aucun_libelle_change_pendant_une_annulation(parts: Any, document: FakeDocument) -> None:
+    original = blank(parts, document, "A")
+    original.Mark = "M1"
+    copy = copy_of(parts, document, original, "B")
+    document.Transacting = True
+    parts.labels.make_label_unique(copy)
+    assert copy.Label == "M1"
+
+
+def test_copie_de_la_brute_et_de_l_usinee(parts: Any, document: FakeDocument) -> None:
+    original = blank(parts, document, "A")
+    original.Mark = "M1"
+    machined = machine(parts, document, original)
+    blank_copy = copy_of(parts, document, original, "B")
+    machined_copy = machine(parts, document, blank_copy)
+    machined_copy.raw_label = machined.raw_label  # « M1 (usinée) » comme dans le modèle
+    machined_copy.changes.clear()
+    parts.labels.make_label_unique(blank_copy)
+    assert (blank_copy.Label, machined_copy.Label) == ("M1 (2)", "M1 (2) (usinée)")
+    assert (original.Label, machined.Label) == ("M1", "M1 (usinée)")
+
+
+def test_usinee_restauree_avant_sa_brute(parts: Any, document: FakeDocument) -> None:
+    """L'ordre de restauration n'est pas garanti : la brute est rendue unique la première."""
+    original = blank(parts, document, "A")
+    original.Mark = "M1"
+    machine(parts, document, original)
+    blank_copy = copy_of(parts, document, original, "B")
+    machined_copy = machine(parts, document, blank_copy)
+    machined_copy.raw_label = "M1 (usinée)"
+    machined_copy.Proxy._make_label_unique(machined_copy)
+    assert (blank_copy.Label, machined_copy.Label) == ("M1 (2)", "M1 (2) (usinée)")
+    assert len({o.Label for o in document.Objects}) == len(document.Objects)
 
 
 def test_premiere_modification_apres_reouverture(parts: Any, document: FakeDocument) -> None:
