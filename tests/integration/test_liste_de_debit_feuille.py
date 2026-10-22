@@ -2,7 +2,8 @@
 """Feuille de calcul « Liste de débit » et export CSV (J2c, critères S1 à S7 de ``docs/specs/J2``).
 
 Création et mise à jour, colonnes de l'utilisateur conservées, mise en page, aucune formule,
-pas de recalcul automatique, export atomique, annulation, réouverture sans proxy.
+export atomique, annulation, réouverture sans proxy sur la feuille. La mise à jour automatique
+(ADR 0013) est vérifiée par ``test_liste_de_debit_vivante.py``.
 """
 
 from __future__ import annotations
@@ -164,8 +165,11 @@ def test_tete_date_portee_et_en_tetes(document: Any) -> None:
     board = part(document, "M1")
     sheet = cut_sheet(document)
     assert text(sheet, "A1") == "Liste de débit"
-    assert re.fullmatch(r"Calculée le \d{4}-\d{2}-\d{2} \d{2}:\d{2} ;.*", text(sheet, "A2"))
-    assert "pas mise à jour automatiquement" in text(sheet, "A2")
+    assert re.fullmatch(
+        r"Calculée le \d{4}-\d{2}-\d{2} \d{2}:\d{2} ; mise à jour automatiquement.*",
+        text(sheet, "A2"),
+    )
+    assert "pas mise à jour" not in text(sheet, "A2")
     assert text(sheet, "A3") == "Tout le document"
     assert table(sheet)[HEADER_ROW - 1] == HEADERS
     assert text(cut_sheet(document, [board]), "A3") == "Sélection : 1 objet"
@@ -237,7 +241,7 @@ def test_panneaux_avec_surface(document: Any) -> None:
     assert float(text(sheet, f"N{row}")) == pytest.approx(0.24, abs=2e-3)
 
 
-# --- S4 et sécurité : aucune formule, pas de recalcul automatique ---------------------------
+# --- Sécurité : aucune formule ---------------------------
 
 
 def test_aucune_formule_meme_avec_des_reperes_hostiles(document: Any) -> None:
@@ -265,21 +269,6 @@ def test_libelle_d_ensemble_hostile_litteral(document: Any) -> None:
     assert furniture.Label == "=1+1"
     assert sheet.getContents(f"K{row_of(sheet, 'M1')}") == "'=1+1"
     assert not [a for a, c in contents(sheet).items() if c.startswith("=")]
-
-
-def test_feuille_pas_recalculee_automatiquement(document: Any) -> None:
-    board = part(document, "M1")
-    old_length = board.Length.Value
-    sheet = cut_sheet(document)
-    before = contents(sheet)
-    board.Length = 1000
-    part(document, "M2")
-    document.recompute()
-    assert contents(sheet) == before
-    assert "Touched" not in sheet.State
-    assert float(text(sheet, f"C{row_of(sheet, 'M1')}")) == old_length  # l'ancienne valeur, datée
-    cut_sheet(document)
-    assert float(text(sheet, f"C{row_of(sheet, 'M1')}")) == 1000
 
 
 # --- S5 : export CSV ------------------------------------------------------------------------
@@ -389,10 +378,12 @@ def test_annuler_une_mise_a_jour_restaure_la_feuille(document: Any) -> None:
     document.UndoMode = 1
     board = part(document, "M1")
     sheet = cut_sheet(document)
+    part(document, "M2")  # la liste vivante s'est déjà mise à jour (hors transaction)
     before = contents(sheet)
-    part(document, "M2")
+    assert "M2" in column(sheet)
     cut_sheet(document, [board])
     assert text(sheet, "A3") == "Sélection : 1 objet"
+    assert "M2" not in column(sheet)
     document.undo()
     assert contents(sheet) == before
     assert text(sheet, "A3") == "Tout le document"

@@ -132,13 +132,18 @@ dans un onglet : une ligne par groupe de pièces identiques (repère, quantité,
 de débit, matériau, fil, volume, masse), puis les totaux par matériau et les tourillons en
 fournitures. Les tenons et queues d'aronde sont **compris** dans la longueur de débit ; une
 pièce vue par un `App::Link` compte une fois de plus. La liste couvre les objets
-**sélectionnés** (pièces, ensemble, Std Part), sinon tout le document. La feuille n'est
-**pas recalculée toute seule** : relancez la commande après une modification (les colonnes que
-vous ajoutez à droite de la colonne O sont gardées). **Exporter la liste de débit (CSV)…**
+**sélectionnés** (pièces, ensemble, Std Part), sinon tout le document. La liste est
+**vivante** : la commande crée aussi un objet « Mise à jour de la liste de débit » qui réécrit
+la feuille à chaque recalcul du document (cote modifiée, pièce ajoutée ou supprimée, tenon
+changé) ; Annuler restaure feuille et pièces ensemble. Supprimer cet objet arrête la mise à
+jour, relancer la commande la rétablit. Les colonnes que vous ajoutez à droite de la colonne O
+sont gardées, et la feuille reste une feuille FreeCAD ordinaire, lisible sans l'atelier. **Exporter la liste de débit (CSV)…**
 enregistre la même liste dans un fichier CSV au format international (séparateur virgule,
 point décimal, UTF-8) ; le format français reste disponible depuis la console :
 `api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`. Depuis la console :
-`api.make_cut_list(doc)` et `api.export_cut_list_csv(doc, "debit.csv")`.
+`api.make_cut_list(doc)`, `api.export_cut_list_csv(doc, "debit.csv")` et
+`api.number_marks(doc)`, qui donne un repère `M<n>` à chaque groupe de pièces sans repère
+(commande à venir).
 
 ## Pièce de bois (console Python)
 

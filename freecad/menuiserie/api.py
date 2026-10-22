@@ -48,7 +48,8 @@ from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassPar
 from freecad.menuiserie.features import (
     cutlist_collect,
     cutlist_export,
-    cutlist_sheet,
+    cutlist_marks,
+    cutlist_object,
     furniture_edges,
     furniture_members,
     templates,
@@ -415,6 +416,7 @@ __all__ += [
     "cut_list_of",
     "export_cut_list_csv",
     "make_cut_list",
+    "number_marks",
 ]
 
 
@@ -429,17 +431,33 @@ def cut_list_of(doc: Document, objects: Sequence[DocumentObject] | None = None) 
 
 
 def make_cut_list(doc: Document, objects: Sequence[DocumentObject] | None = None) -> DocumentObject:
-    """Crée ou met à jour la feuille de calcul « Liste de débit » de ``doc`` (nom interne
-    ``MenuiserieCutList``, retrouvée par sa marque même renommée) et la renvoie. ``objects``
-    limite la liste à la sélection. La feuille est réécrite et datée (colonnes A à O ; les
-    cellules de P et au-delà sont conservées), jamais recalculée toute seule ; les
-    avertissements sont écrits en bas de la feuille et dans la vue rapport. Une seule
-    transaction « Liste de débit » (Annuler restaure la feuille)."""
-    cut_list = cut_list_of(doc, objects)
-    messages = notice_messages(cut_list.warnings)
-    sheet = cutlist_sheet.write_cut_list(doc, cut_list, messages, len(objects) if objects else None)
+    """Crée ou met à jour la liste de débit **vivante** de ``doc`` et renvoie sa feuille de
+    calcul « Liste de débit » (nom interne ``MenuiserieCutList``, retrouvée par sa marque même
+    renommée). Deux objets : la feuille, ``Spreadsheet::Sheet`` ordinaire, et l'objet
+    ``Menuiserie::CutList`` qui la réécrit à chaque recalcul du document (cote modifiée, pièce
+    ajoutée ou supprimée) ; relancer cette fonction les retrouve, change la portée (``objects``,
+    sinon tout le document) et réécrit tout de suite. Colonnes A à O réécrites, celles de P et
+    au-delà conservées ; avertissements en bas de la feuille et dans la vue rapport. Une seule
+    transaction « Liste de débit » (Annuler restaure la feuille). Supprimer l'objet ou la feuille
+    arrête la mise à jour ; un nouvel appel la rétablit."""
+    sheet, messages = cutlist_object.ensure_cut_list(doc, objects)
     report(messages)
     return sheet
+
+
+def number_marks(
+    doc: Document,
+    objects: Sequence[DocumentObject] | None = None,
+    prefix: str = "M",
+) -> dict[str, str]:
+    """Numérote les pièces sans repère de ``doc`` (ou de ``objects``) : un repère ``<prefix><n>``
+    par groupe de pièces identiques (mêmes cotes, matériau, fil, surcotes et ajouts), au premier
+    numéro libre, ensemble puis cotes décroissantes. Les pièces qui ont déjà un repère ne
+    changent pas ; le libellé suit le repère. Renvoie le repère écrit pour chaque pièce (nom
+    interne → repère). Une seule transaction « Numéroter les repères », document recalculé (la
+    liste de débit vivante suit). ``ValueError`` traduite pour un préfixe vide ou un objet d'un
+    autre document."""
+    return cutlist_marks.number_marks(doc, objects, prefix)
 
 
 def export_cut_list_csv(

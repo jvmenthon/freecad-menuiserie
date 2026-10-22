@@ -2,7 +2,8 @@
 """Vérifications d'interface de la liste de débit (J2d, critères G1 à G3 de
 ``docs/specs/J2-liste-de-debit.md``) : commandes, feuille ouverte dans un onglet, portée
 (sélection ou document), mise à jour, export CSV (boîte d'enregistrement remplacée par un
-double), refus, recalcul préalable, sélection intacte. Module importé par
+double), refus, recalcul préalable, sélection intacte, liste vivante (J2f : l'objet de mise à jour
+suit les cotes sans relancer la commande). Module importé par
 ``verifier_atelier.py`` (lancé par FreeCAD hors écran). Le bureau de référence de J4 (quatre
 pièces, tourillons, ensemble) vient de ``tests/integration/bureau.py``.
 """
@@ -257,6 +258,39 @@ def verifier_recalcul_avant_le_calcul() -> list[str]:
     return avec_bureau("VerifDebitRecalcul", _recalcul_prealable)
 
 
+def _liste_vivante(bureau: Bureau) -> list[str]:
+    doc = bureau.doc
+    Gui.Command.get(LISTE).run()
+    Gui.Command.get(LISTE).run()  # relancée : retrouve la feuille et l'objet, n'en crée pas
+    [feuille] = feuilles(doc)
+    objets = [o for o in doc.Objects if o.Name == "CutList"]
+    problemes = [
+        *ecarts("un seul objet de mise à jour", len(objets), 1),
+        *ecarts("relié à la feuille", [o.Sheet for o in objets], [feuille]),
+        *ecarts(
+            "pièces lues",
+            {p.Name for p in bureau.parts.values()} <= {o.Name for o in objets[0].Sources},
+            True,
+        ),
+    ]
+    doc.clearUndos()
+    bureau.furniture.Width = 1400  # sans relancer la commande : le recalcul suffit
+    doc.recompute()
+    plateau = next((ligne for ligne in tableau(feuille) if ligne[0] == "Plateau"), ["", "", ""])
+    return [
+        *problemes,
+        *ecarts("plateau suit la largeur", plateau[2], "1400"),
+        *ecarts("rien à recalculer", a_recalculer(doc), []),
+        *ecarts("aucun objet en erreur", [o.Name for o in doc.Objects if "Invalid" in o.State], []),
+    ]
+
+
+def verifier_liste_vivante() -> list[str]:
+    """J2f : après la commande, un recalcul du document suffit à mettre la feuille à jour ; un
+    seul objet de mise à jour, même si la commande est relancée."""
+    return avec_bureau("VerifDebitVivante", _liste_vivante)
+
+
 # --- G2, G3 : export CSV ------------------------------------------------------------------
 
 
@@ -377,6 +411,7 @@ VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_liste_avec_un_lien,
     verifier_mise_a_jour_et_annulation,
     verifier_recalcul_avant_le_calcul,
+    verifier_liste_vivante,
     verifier_export_csv,
     verifier_export_sans_extension,
     verifier_export_annule_ou_refuse,

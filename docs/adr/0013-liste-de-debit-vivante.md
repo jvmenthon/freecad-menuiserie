@@ -45,3 +45,23 @@ inattendues.
 - Coût : une collecte par recalcul qui touche une pièce (lecture des propriétés et d'une boîte
   englobante par pièce usinée) ; négligeable pour un meuble, à mesurer sur 500 pièces (test).
 - La collecte, le calcul pur et le rendu de J2b/J2c restent valables ; seul le déclencheur change.
+
+## Addendum J2f — vérification du point 5 (FreeCAD 1.0, CI sur 1.0 et 1.1)
+
+- Modifier `Sources` dans `execute` : sans boucle ni avertissement ; `mustExecute` d'un proxy
+  Python est appelé à chaque recalcul. Le repli par observateur n'est **pas** nécessaire.
+- **Correction du point 1** : un lien `App::PropertyLinkListHidden` n'entre pas dans le graphe de
+  dépendances (`OutList` et `InList` vides, aucune propagation du « Touched » : une cote modifiée
+  ne recalculait pas la liste). `Sources` est donc un `App::PropertyLinkList` ordinaire ;
+  `Scope` reste un `PropertyLinkListHidden` (les objets choisis sont aussi dans `Sources`). Les
+  pièces ont ainsi `CutList` dans leur `InList` : les recherches de l'atelier par `InList`
+  filtrent par type et ne sont pas touchées ; la suppression d'une pièce dans l'interface peut en
+  revanche signaler que la liste la référence (à confirmer à la recette).
+- `Sources` contient les objets que la collecte lit (pièces, pièces usinées, ensembles, liens,
+  conteneurs, assemblages par tourillons dont les deux pièces sont dans la portée) ; `mustExecute`
+  ne compare que les quatre premières familles (ajouter un assemblage modifie ses pièces usinées).
+  Quand une portée est choisie, `mustExecute` reste faux : ses objets sont dans `Sources`.
+- La feuille est recalculée (`sheet.recompute()` puis `purgeTouched()`) dans `execute` : rien ne
+  reste « Touched » après `doc.recompute()`. 500 pièces : la liste coûte quelques centièmes de
+  seconde par recalcul.
+- Un document plus récent que l'atelier (`Version` > 1) n'est pas réécrit.

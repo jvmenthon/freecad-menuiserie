@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Commandes de la liste de débit (J2d, critères G1 à G3, ADR 0012).
+"""Commandes de la liste de débit (J2d, critères G1 à G3, ADR 0013).
 
-« Liste de débit » crée ou met à jour la feuille de calcul du document (une seule transaction,
-posée par l'api) puis l'ouvre dans un onglet ; « Exporter la liste de débit (CSV)… » demande un
-fichier puis y écrit le CSV. La portée est la sélection courante (objets sans doublon) ou, sans
-sélection, tout le document. Aucune des deux ne touche à la sélection ; seul le recalcul du
-document, s'il contient des objets à recalculer, précède le calcul (sinon les ajouts des pièces
-usinées seraient ignorés). Un refus de l'api est affiché comme celui des assemblages.
+« Liste de débit » crée ou met à jour la feuille de calcul du document et l'objet qui la réécrit à
+chaque recalcul (une seule transaction, posée par l'api) puis l'ouvre dans un onglet ; « Exporter
+la liste de débit (CSV)… » demande un fichier puis y écrit le CSV. La portée est la sélection
+courante (objets sans doublon) ou, sans sélection, tout le document. Aucune des deux ne touche à
+la sélection ; seul le recalcul du document, s'il contient des objets à recalculer, précède le
+calcul (sinon les ajouts des pièces usinées seraient ignorés). Un refus de l'api est affiché
+comme celui des assemblages.
 """
 
 from __future__ import annotations
@@ -108,8 +109,9 @@ class CutListSheetCommand(CutListCommand):
         "Écrit la liste de débit dans une feuille de calcul « Liste de débit » : une ligne par "
         "groupe de pièces identiques (cotes finies et de débit, matériau, volume, masse), les "
         "totaux par matériau et les tourillons. Limitée aux objets sélectionnés, sinon à tout le "
-        "document. La feuille n'est pas recalculée toute seule : relancez la commande pour la "
-        "mettre à jour (les colonnes ajoutées à droite sont gardées).",
+        "document. La liste se met ensuite à jour toute seule à chaque recalcul du document "
+        "(cote modifiée, pièce ajoutée ou supprimée) ; relancer la commande en change la portée "
+        "(les colonnes ajoutées à droite sont gardées).",
     )
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:

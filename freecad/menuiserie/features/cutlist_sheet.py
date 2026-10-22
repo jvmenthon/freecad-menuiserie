@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Liste de débit dans une feuille de calcul standard (J2c, S1 à S4, S6, S7, ADR 0012).
+"""Liste de débit dans une feuille de calcul standard (J2c et J2f, S1 à S3, S6, S7, V3, ADR 0013).
 
 ``Spreadsheet::Sheet`` sans proxy, retrouvée par la propriété booléenne masquée
 ``MenuiserieCutList`` : un document ouvert sans l'atelier garde une feuille ordinaire. La feuille
-est réécrite à la demande, jamais recalculée toute seule ; les colonnes de l'atelier sont A à O,
-les cellules de l'utilisateur à partir de P sont conservées. Aucune formule : tout texte est
-écrit en littéral (préfixe ``'`` de FreeCAD), les nombres sont déjà convertis.
+est réécrite par l'objet ``CutList`` (:mod:`.cutlist_object`) à chaque recalcul ; les colonnes
+de l'atelier sont A à O, les cellules de l'utilisateur à partir de P sont conservées. Aucune
+formule : tout texte est écrit en littéral (préfixe ``'`` de FreeCAD), les nombres sont déjà
+convertis.
 """
 
 from __future__ import annotations
@@ -21,7 +22,13 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import HIDDEN, Document, DocumentObject
 from freecad.menuiserie.features.i18n import translate_text, translated
 
-__all__ = ["MARKER", "SHEET_NAME", "find_sheet", "write_cut_list"]
+__all__ = [
+    "MARKER",
+    "SHEET_NAME",
+    "create_sheet",
+    "find_sheet",
+    "rewrite_sheet",
+]
 
 SHEET_NAME: Final = "MenuiserieCutList"
 MARKER: Final = "MenuiserieCutList"
@@ -40,8 +47,7 @@ _MARKER_TOOLTIP: Final = QT_TRANSLATE_NOOP(
 )
 _DATE_LINE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Calculée le {date} ; elle n'est pas mise à jour automatiquement : relancez « Liste de "
-    "débit » après une modification.",
+    "Calculée le {date} ; mise à jour automatiquement à chaque recalcul du document.",
 )
 _WHOLE_DOCUMENT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Tout le document")
 _SELECTION_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Sélection : 1 objet")
@@ -58,7 +64,7 @@ def find_sheet(doc: Document) -> DocumentObject | None:
     return None
 
 
-def _create_sheet(doc: Document) -> DocumentObject:
+def create_sheet(doc: Document) -> DocumentObject:
     sheet = doc.addObject(SHEET_TYPE, SHEET_NAME)
     sheet.addProperty("App::PropertyBool", MARKER, "Menuiserie", _MARKER_TOOLTIP)
     setattr(sheet, MARKER, True)
@@ -201,29 +207,18 @@ def _fill(
         sheet.setColumnWidth(letter, width)
 
 
-def write_cut_list(
-    doc: Document,
+def rewrite_sheet(
+    sheet: DocumentObject,
     cut_list: CutList,
     messages: Sequence[str] = (),
     selection_count: int | None = None,
     now: datetime | None = None,
-) -> DocumentObject:
-    """Crée ou met à jour la feuille « Liste de débit » de ``doc`` d'après ``cut_list`` et
-    renvoie la feuille. ``messages`` : avertissements déjà traduits, écrits en bas ;
-    ``selection_count`` : nombre d'objets de la sélection (``None`` : tout le document) ; ``now``
-    : date du calcul (maintenant par défaut). Une seule transaction « Liste de débit »."""
-    doc.openTransaction(translated(TITLE))
-    try:
-        sheet = find_sheet(doc)
-        if sheet is None:
-            sheet = _create_sheet(doc)
-        else:
-            _clear_workshop_columns(sheet)
-        _fill(sheet, cut_list, messages, selection_count, now or datetime.now())
-        sheet.recompute()
-        sheet.purgeTouched()  # recompute() d'un objet seul laisse la marque « Touched »
-    except Exception:
-        doc.abortTransaction()
-        raise
-    doc.commitTransaction()
-    return sheet
+) -> None:
+    """Réécrit les colonnes A à O de ``sheet`` d'après ``cut_list`` (celles de P et au-delà sont
+    gardées), puis recalcule la feuille et efface sa marque « Touched » (``recompute()`` d'un
+    objet seul la laisse). Ni transaction ni recalcul du document : appelée par l'objet
+    ``CutList`` pendant le recalcul du document ou dans la transaction de ``make_cut_list``."""
+    _clear_workshop_columns(sheet)
+    _fill(sheet, cut_list, messages, selection_count, now or datetime.now())
+    sheet.recompute()
+    sheet.purgeTouched()
