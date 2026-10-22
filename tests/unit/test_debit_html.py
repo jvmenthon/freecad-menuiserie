@@ -100,7 +100,7 @@ def test_sans_avertissement_ni_fourniture() -> None:
 
 def test_liste_vide() -> None:
     text = to_html(build_cut_list([]))
-    assert "<table>" in text
+    assert "<table " in text
     assert "Total général" not in text
     assert "<h1></h1>" in text
 
@@ -232,3 +232,24 @@ def test_les_autres_tableaux_n_ont_pas_de_colonne_miniature() -> None:
 def test_une_miniature_qui_n_est_pas_un_svg_est_refusee() -> None:
     with pytest.raises(ValueError, match="SVG"):
         to_html(two_lines(), thumbnails={"Part": "<img src=x onerror=y>"})
+
+
+def test_une_ligne_sur_deux_teintee_et_total_general_mis_en_avant() -> None:
+    text = to_html(sample())
+    lines, totals = (part.split("</tbody>")[0] for part in text.split("<tbody>")[1:3])
+    assert lines.startswith("<tr><td>")  # la première ligne n'est pas teintée
+    assert lines.count('<tr class="alt">') == lines.count("<tr") // 2
+    assert totals.count('<tr class="total">') == 1
+    assert totals.rsplit("<tr", 1)[1].startswith(' class="total"><td>Total')
+
+
+def test_en_tete_des_nombres_aligne_a_droite() -> None:
+    text = to_html(sample())
+    assert "<th>Repère</th>" in text
+    assert '<th class="num">Qté</th>' in text
+
+
+def test_tableaux_sans_espacement_entre_cellules() -> None:
+    text = to_html(sample())
+    assert text.count('<table width="100%" cellspacing="0"') == 1  # seul le tableau des lignes
+    assert text.count('cellspacing="0"') == text.count("<table ")

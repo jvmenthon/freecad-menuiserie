@@ -73,6 +73,8 @@ def _browser(dialog: QtGui.QDialog, html: str) -> QtGui.QTextBrowser:
     browser.setOpenLinks(False)  # aucun lien suivi, aucune ressource externe chargée
     browser.setOpenExternalLinks(False)
     browser.setStyleSheet("QTextBrowser { background: #ffffff; }")
+    # Coupure entre les mots seulement, comme le PDF (par défaut : aussi au milieu d'un mot).
+    browser.setWordWrapMode(QtGui.QTextOption.WordWrap)
     browser.setHtml(html)
     return browser
 
