@@ -82,7 +82,7 @@ def test_la_piece_usinee_suit_le_repere(document: Any) -> None:
 
 def test_repere_pilote_par_expression_met_le_libelle_a_jour(document: Any) -> None:
     obj = part(document, "M1")
-    obj.setExpression("Mark", "'M8'")
+    obj.setExpression("Mark", "<<M8>>")
     document.recompute()
     assert (obj.Mark, obj.Label) == ("M8", "M8")
 
@@ -107,7 +107,7 @@ def test_repere_pilote_le_nom_revient_avec_un_avertissement(
     document: Any, vue_rapport: Any
 ) -> None:
     obj = part(document, "M1")
-    obj.setExpression("Mark", "'M1'")
+    obj.setExpression("Mark", "<<M1>>")
     document.recompute()
     vue_rapport.messages.clear()
     obj.Label = "Autre"
