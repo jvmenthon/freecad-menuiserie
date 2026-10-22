@@ -39,7 +39,7 @@ App = pytest.importorskip("FreeCAD")
 api = pytest.importorskip("freecad.menuiserie.api")
 
 Reopen = Callable[[Any], Any]
-NUMERIC = "BCDEFGHLMN"  # colonnes de nombres (la colonne N, surface, est vide hors panneaux)
+NUMERIC = "BCDEFGHLMN"  # colonnes de nombres
 HEADERS = [
     "Repère",
     "Qté",
@@ -192,7 +192,7 @@ def test_lignes_alignement_gras_et_largeurs(bureau: Bureau) -> None:
         assert cells[10] == "Bureau"
         assert float(cells[11]) == pytest.approx(line.volume_m3(rough=True), abs=5e-5)
         assert float(cells[12]) == pytest.approx(line.mass_kg(rough=True), abs=5e-3)
-        assert cells[13] == ""  # surface : panneaux seulement
+        assert float(cells[13]) == pytest.approx(line.area_m2(), abs=5e-4)  # massif compris
     assert "bold" in sheet.getStyle("A1")
     assert all("bold" in sheet.getStyle(f"{letter}{HEADER_ROW}") for letter in COLUMNS)
     for letter in NUMERIC:

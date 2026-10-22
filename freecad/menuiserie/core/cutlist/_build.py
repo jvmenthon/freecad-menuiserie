@@ -117,9 +117,6 @@ def _totals(lines: Iterable[CutLine]) -> tuple[MaterialTotal, ...]:
     totals = []
     for (_material, thickness), group in by_material.items():
         first = group[0]
-        # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode.
-        # nosemgrep: python.lang.maintainability.is-function-without-parentheses
-        panel = first.kind.is_panel
         totals.append(
             MaterialTotal(
                 material_id=first.material_id,
@@ -129,7 +126,7 @@ def _totals(lines: Iterable[CutLine]) -> tuple[MaterialTotal, ...]:
                 quantity=sum(line.quantity for line in group),
                 volume_m3=math.fsum(line.volume_m3(rough=True) for line in group),
                 mass_kg=math.fsum(line.mass_kg(rough=True) for line in group),
-                area_m2=math.fsum(line.area_m2() for line in group) if panel else None,
+                area_m2=math.fsum(line.area_m2() for line in group),
             )
         )
     return tuple(

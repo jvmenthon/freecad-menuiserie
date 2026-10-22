@@ -197,7 +197,7 @@ class CutLine:
 @dataclass(frozen=True)
 class MaterialTotal:
     """Totaux d'un matériau dans une épaisseur de débit : volume de débit (m³), masse de débit
-    (kg), surface (panneaux)."""
+    (kg), surface de débit (m², massif comme panneaux : on achète au m² par épaisseur)."""
 
     material_id: str
     material_name: str
@@ -206,7 +206,7 @@ class MaterialTotal:
     quantity: int
     volume_m3: float
     mass_kg: float
-    area_m2: float | None  # ``None`` hors panneau
+    area_m2: float
 
 
 class CutNoticeKind(Enum):
