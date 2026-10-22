@@ -377,6 +377,7 @@ def test_categorie_inconnue_listee_avec_point_d_interrogation(document: Any, boa
     future.Category = "Future"
     fine = board(document)
     fine.Mark = "M1"
+    fine.Length = future.Length.Value + 100  # cotes égales : regroupées (Q1 b)
     cut_list = api.cut_list_of(document)
     assert quantities(cut_list) == {"F1": 1, "M1": 1}
     assert line_of(cut_list, "F1").material_name.startswith("? ")
