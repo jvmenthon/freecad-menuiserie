@@ -188,7 +188,8 @@ def _excess(low: float, high: float, size: float) -> float:
 
 def additions_of(blank: DocumentObject, notices: list[Notice]) -> Allowances:
     """Ajouts (mm) le long de L, l, e : étendue de la pièce usinée de ``blank`` au-delà de la
-    brute. Onglet, mi-bois, feuillure : retraits seulement, donc rien (ADR 0006). Sans pièce
+    brute : tenon, et invitée prolongée dans l'hôte d'une feuillure, d'un mi-bois ou d'un onglet
+    entre pièces au contact (ADR 0014) ; les retraits seuls ne donnent rien (ADR 0006). Sans pièce
     usinée : rien ; forme absente ou invalide : rien et un avertissement."""
     machined = machined_part_of(blank)
     if machined is None:
