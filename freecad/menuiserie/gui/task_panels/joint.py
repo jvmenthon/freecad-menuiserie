@@ -64,7 +64,9 @@ class JointTaskPanel(ObjectTaskPanel):
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(joint_icon(proxy))))
-        self.form.setWindowTitle(panel_title(quoted_value(obj.Label), creating, _CREATE_TITLE))
+        # Création : le type (« Nouvel assemblage : Onglet ») ; modification : le nom complet.
+        title = translated(proxy.LABEL) if creating else quoted_value(obj.Label)
+        self.form.setWindowTitle(panel_title(title, creating, _CREATE_TITLE))
         self.fields = fields_of(proxy.PROPERTIES, self._write)
         layout = QtGui.QVBoxLayout(self.form)
         self._parts = self._add_parts(layout)
