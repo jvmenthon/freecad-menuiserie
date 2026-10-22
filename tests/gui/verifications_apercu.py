@@ -71,7 +71,7 @@ def verifier_apercu_annule() -> list[str]:
 
 def verifier_boutons_xyz() -> list[str]:
     """V4 + V5 : trois boutons avec icône et infobulle ; quatre clics ramènent la pièce au
-    départ ; le fil ne change pas ; matériau, dimensions puis position dans cet ordre."""
+    départ ; le fil ne change pas ; repère, dimensions, matériau puis rotation dans cet ordre."""
 
     def verification(doc: Any) -> list[str]:
         obj = creer_par_la_commande(doc)
@@ -93,21 +93,19 @@ def verifier_boutons_xyz() -> list[str]:
         # Rang dans la disposition du formulaire (la géométrie n'est pas calculée hors écran).
         haut = {
             n: form.layout().indexOf(getattr(form, n))
-            for n in ("identificationGroup", "materialGroup", "dimensionsGroup", "rotationGroup")
+            for n in ("identificationGroup", "dimensionsGroup", "materialGroup", "rotationGroup")
         }
         problemes += [
             *ecarts("fil", obj.GrainDirection, fil),
             *ecarts(
-                "Identification avant Matériau",
-                haut["identificationGroup"] < haut["materialGroup"],
+                "Identification avant Dimensions",
+                haut["identificationGroup"] < haut["dimensionsGroup"],
                 True,
             ),
             *ecarts(
-                "Matériau avant Dimensions", haut["materialGroup"] < haut["dimensionsGroup"], True
+                "Dimensions avant Matériau", haut["dimensionsGroup"] < haut["materialGroup"], True
             ),
-            *ecarts(
-                "Dimensions avant Rotation", haut["dimensionsGroup"] < haut["rotationGroup"], True
-            ),
+            *ecarts("Matériau avant Rotation", haut["materialGroup"] < haut["rotationGroup"], True),
             *ecarts("Rotation titrée", form.rotationGroup.title(), "Rotation"),
         ]
         valider()

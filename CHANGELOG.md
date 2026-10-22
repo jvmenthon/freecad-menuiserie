@@ -299,14 +299,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 - Panneau de la pièce de bois (J6c) : ordre des groupes **Identification** (repère / nom, premier
-  champ du panneau), **Matériau**, **Dimensions finies**, puis **Rotation** (ancien groupe
+  champ du panneau), **Dimensions finies**, **Matériau**, puis **Rotation** (ancien groupe
   « Position », renommé, `objectName` `rotationGroup`) ; l'ordre des propriétés dans l'éditeur de
   propriétés de FreeCAD (ordre de création) est inchangé.
 - `core/snap` (J6c, Q1 de jv) : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ;
   `Orientation` porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des
   axes du document.
 - Panneau de la pièce de bois : ordre des groupes **Identification** (repère / nom, premier
-  champ), **Matériau**, **Dimensions finies**, puis **Rotation** (ancien « Position ») ; l'ordre des propriétés dans l'éditeur de propriétés
+  champ), **Dimensions finies**, **Matériau**, puis **Rotation** (ancien « Position ») ; l'ordre des propriétés dans l'éditeur de propriétés
   de FreeCAD (ordre de création) est inchangé.
 - `core/snap` : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ; `Orientation`
   porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des axes du
