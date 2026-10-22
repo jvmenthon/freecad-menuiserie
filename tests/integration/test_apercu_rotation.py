@@ -188,7 +188,14 @@ def test_sens_du_fil_inchange_par_la_rotation(document: Any) -> None:
 def test_la_piece_usinee_suit_la_rotation(cadre: Cadre) -> None:
     cadre.assemble((("M1", "T1"),))
     blank = cadre.parts["T1"]
-    placement_module.rotate_part(blank, Turn.X)
+    # Demi-tour autour de la longueur de la traverse (axe Y du document) : même encombrement,
+    # le tenon reste valide et la pièce usinée est recalculée à la nouvelle orientation. (Une
+    # rotation qui sort la traverse du montant rend le tenon invalide : la pièce usinée n'est
+    # alors pas recalculée, comme pour toute brute déplacée hors de son assemblage.)
+    before = blank.Placement
+    placement_module.rotate_part(blank, Turn.Y)
+    placement_module.rotate_part(blank, Turn.Y)
+    assert blank.Placement != before
     machined = cadre.machined("T1")
     cadre.doc.recompute()
     assert machined.Placement == blank.Placement
