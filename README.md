@@ -138,7 +138,10 @@ la feuille à chaque recalcul du document (cote modifiée, pièce ajoutée ou su
 changé) ; Annuler restaure feuille et pièces ensemble. Supprimer cet objet arrête la mise à
 jour, relancer la commande la rétablit. Les colonnes que vous ajoutez à droite de la colonne O
 sont gardées, et la feuille reste une feuille FreeCAD ordinaire, lisible sans l'atelier.
-**Exporter la liste de débit (CSV)…** enregistre la même liste dans un fichier CSV au format
+**Aperçu de la liste de débit** ouvre, avant tout export, une fenêtre qui montre la liste telle
+qu'elle sera exportée, avec la **miniature** isométrique de la pièce à chaque ligne (tenons et
+queues d'aronde visibles) et les boutons « Exporter en PDF… », « Exporter en CSV… » ; le PDF
+contient les mêmes miniatures. **Exporter la liste de débit (CSV)…** enregistre la même liste dans un fichier CSV au format
 international (séparateur virgule, point décimal, UTF-8 avec BOM) ; le format français reste
 disponible depuis la console : `api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`.
 **Exporter la liste de débit (PDF)…** produit un PDF prêt à imprimer (A4 paysage, marges de

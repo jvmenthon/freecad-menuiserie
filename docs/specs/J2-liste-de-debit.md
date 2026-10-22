@@ -346,6 +346,37 @@ Exigence ajoutée, mot pour mot : « La liste de débit doit être exportable en
 
 S4 (« pas de recalcul automatique ») est **retiré**.
 
+### 10.3 Demande de jv (recette, 2026-10-22) : aperçu et miniatures
+
+Demande, mot pour mot : « Je veux un affichage visuel avant l'export (html ?). Il doit y avoir
+une miniature de la pièce. »
+
+Choix de l'architecte du lot (sans ADR : aucune décision structurante, tout reste dans les
+couches existantes) :
+
+- **Miniature** : projection isométrique **maison** des faces de la forme usinée de la première
+  pièce du groupe (`features/cutlist_thumbnail.py` : `Face.tessellate` et `Edge.discretize` de
+  `Part`, sans rendu 3D ni écran, donc en CI et en ligne de commande) ; le calcul de la
+  projection, le tri des faces (algorithme du peintre, faces arrière écartées), l'ombrage par la
+  normale et le SVG sont **purs** (`core/cutlist/_thumbnail.py`). `TechDraw.projectEx` n'est pas
+  utilisé : il suppose un document et l'atelier TechDraw. Couleur du matériau de la bibliothèque,
+  trois tons comme les icônes ; arêtes visibles en trait. Repli : boîte de débit L × l × e quand
+  la pièce usinée est absente, invalide, à recalculer ou trop fine (plus de 20 000 triangles).
+- **HTML** : le SVG est inclus en URI `data:` (jamais de fichier ni d'URL) ; `QTextDocument`
+  l'affiche tel quel, dans la fenêtre comme dans le PDF (image rastérisée à 4 fois sa taille
+  d'affichage : 480 × 320 pour 120 × 80). Pas de `addResource`.
+- **Fenêtre** : `QDialog` non modale (fille de la fenêtre principale, détruite à sa fermeture)
+  avec un `QTextBrowser` (liens désactivés) et les boutons « Actualiser », « Exporter en PDF… »,
+  « Exporter en CSV… », « Fermer ». Elle affiche le HTML du PDF ; les exports appellent les
+  mêmes fonctions que les commandes d'export (document recalculé avant, refus visibles en boîte).
+
+| N° | Critère | Test |
+|---|---|---|
+| A1 | `core.cutlist.thumbnail_svg(faces, color)` (pur) : isométrie (`isometric`), faces tournées vers l'arrière écartées, ordre du peintre, trois tons du matériau, arêtes visibles, dessin centré dans 120 × 80 unités, SVG autonome (ni `<text>`, ni script, ni lien) ; `box_faces(L, l, e)` : repli. `features.cutlist_thumbnail.thumbnails_of(doc, cut_list)` : **une miniature par groupe** (clé `CutLine.source`, première pièce du groupe), forme **usinée** (une pièce à tenon ou à queues d'aronde ne donne pas le dessin de la boîte), repli sur la boîte de débit si la forme est absente, invalide ou à recalculer ; 200 pièces en moins de 2 s ; lecture seule. | U + I |
+| A2 | `to_html(…, thumbnails=)` : colonne « Miniature » en tête de chaque ligne de la liste (image `data:image/svg+xml;base64`, 120 × 80) ; sans miniatures, le HTML est inchangé ; aucune URL externe ni `file://` ; une miniature qui n'est pas un SVG est refusée. `api.cut_list_html(doc, objects=None)` donne ce HTML (sans interface). | U + I |
+| A3 | Commande `Menuiserie_CutListPreview` « Aperçu de la liste de débit » (icône générée par `tools/generer_icones.py`, barre d'outils et menu) : fenêtre non modale, `QTextBrowser` avec une image par ligne, quatre boutons ; portée = sélection, sinon document ; document, sélection et historique d'annulation inchangés ; aucune boîte modale bloquante. | G |
+| A4 | Le PDF contient les miniatures ; « Exporter en PDF… » et « Exporter en CSV… » de la fenêtre écrivent les mêmes fichiers que les commandes d'export (annuler la boîte ne fait rien) ; « Actualiser » relit le document. | G + manuel |
+
 ### 10.2 Découpage complété
 
 | Lot | Branche | Contenu | Critères |
