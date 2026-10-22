@@ -113,6 +113,7 @@ def test_cotes_automatiques_attendues() -> None:
         ("dovetail.py", "TailCount"),
         ("dovetail.py", "PinWidth"),
         ("dovetail.py", "Angle"),
+        ("rabbet.py", "Depth"),
     }
 
 

@@ -28,7 +28,8 @@ OVERLAPPING: Final = QT_TRANSLATE_NOOP(
 )
 NOT_OVERLAPPING: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Les pièces ne se chevauchent pas : la pièce logée doit occuper la place de la feuillure.",
+    "Les pièces ne se chevauchent pas : la pièce logée doit occuper la place de la feuillure ou "
+    "toucher l'autre par une face.",
 )
 
 _PARAM_KIND: Final = "joint_param"
