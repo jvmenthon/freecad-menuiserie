@@ -147,8 +147,9 @@ PROPERTIES: Final = (
         "Débit",
         QT_TRANSLATE_NOOP(
             "App::Property",
-            "Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 »). Des "
-            "pièces identiques peuvent partager le même repère.",
+            "Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 ») ; c'est "
+            "aussi son nom dans l'arborescence. Des pièces identiques peuvent partager le même "
+            "repère.",
         ),
     ),
     PropertySpec(

@@ -88,8 +88,7 @@ def build_parts(doc: Any, container: Any = None) -> Bureau:
     """Les quatre pièces brutes du bureau, dans ``container`` (Std Part) s'il est donné."""
     parts = {}
     for mark, (label, size, base, rotation) in LAYOUT.items():
-        part = api.make_wood_part(*size, "chene", mark=mark, doc=doc)
-        part.Label = label
+        part = api.make_wood_part(*size, "chene", mark=label, doc=doc)  # le repère nomme la pièce
         part.Placement = App.Placement(App.Vector(*base), rotation)
         if container is not None:
             container.addObject(part)

@@ -25,7 +25,7 @@
       <item row="0" column="1">
        <widget class="QLineEdit" name="markEdit">
         <property name="toolTip">
-         <string>Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 »).</string>
+         <string>Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 ») ; c'est aussi son nom dans l'arborescence.</string>
         </property>
         <property name="placeholderText">
          <string>ex. M1</string>
