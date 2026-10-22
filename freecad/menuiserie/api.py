@@ -415,6 +415,7 @@ __all__ += [
     "INTERNATIONAL_CSV",
     "cut_list_of",
     "export_cut_list_csv",
+    "export_cut_list_pdf",
     "make_cut_list",
     "number_marks",
 ]
@@ -488,3 +489,30 @@ def export_cut_list_csv(
     written = cutlist_export.export_csv(cut_list, target, dialect)
     report(notice_messages(cut_list.warnings))
     return written
+
+
+_PDF_NEEDS_GUI = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Export PDF impossible : il demande l'interface de FreeCAD."
+)
+
+
+def export_cut_list_pdf(
+    doc: Document,
+    path: str | os.PathLike[str],
+    objects: Sequence[DocumentObject] | None = None,
+) -> Path:
+    """Exporte la liste de débit de ``doc`` (ou de ``objects``) en PDF (A4 paysage, marges 10 mm)
+    dans ``path`` et renvoie le chemin. **Demande l'interface de FreeCAD** (Qt dessine les
+    polices) : sans elle, ``ValueError`` traduite. Mêmes refus que le CSV avec l'extension
+    ``.pdf`` imposée, avant toute écriture ; écriture atomique ; le document n'est pas
+    modifié."""
+    target = cutlist_export.validated_path(path, cutlist_export.PDF_SUFFIX)
+    if App.GuiUp:
+        from freecad.menuiserie.gui import cutlist_pdf
+
+        cut_list = cut_list_of(doc, objects)
+        html = cutlist_export.pdf_html(cut_list, doc.Label, len(objects) if objects else None)
+        written = cutlist_pdf.write_pdf(html, target)
+        report(notice_messages(cut_list.warnings))
+        return written
+    raise ValueError(translated(_PDF_NEEDS_GUI))

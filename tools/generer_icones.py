@@ -318,6 +318,31 @@ def export_liste_de_debit() -> str:
     return _document(["  <!-- Export de la liste de débit (CSV) -->", _feuille(6), fleche])
 
 
+def export_liste_de_debit_pdf() -> str:
+    fleche = (
+        '  <path d="M30,44 H44 V36 L60,49 L44,62 V54 H30 Z" fill="#ef2929" '
+        'stroke="#7a0000" stroke-width="2" stroke-linejoin="round"/>'
+    )
+    return _document(["  <!-- Export de la liste de débit (PDF) -->", _feuille(6), fleche])
+
+
+def numeroter_les_reperes() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    chiffre = 'fill="none" stroke="#2e3436" stroke-width="2.5" stroke-linecap="round"'
+    veinage = 'fill="none" stroke="#8f5902" stroke-width="1.5" stroke-linecap="round"'
+    lignes = [
+        "  <!-- Numérotation des repères : deux planches portant les repères 1 et 2 -->",
+        f'  <rect x="4" y="8" width="56" height="20" rx="2" fill="#c4884a" {trait}/>',
+        f'  <rect x="4" y="36" width="56" height="20" rx="2" fill="#c4884a" {trait}/>',
+        f'  <path d="M8,14 H34 M8,20 H46 M8,42 H30 M8,48 H44" {veinage}/>',
+        f'  <rect x="38" y="11" width="18" height="14" rx="2" fill="#ffffff" {trait}/>',
+        f'  <rect x="38" y="39" width="18" height="14" rx="2" fill="#ffffff" {trait}/>',
+        f'  <path d="M45,16 L48,13.5 V22.5" {chiffre}/>',
+        f'  <path d="M43.5,43.5 Q47,39 50.5,43.5 Q50.5,45.5 43.5,50 H51" {chiffre}/>',
+    ]
+    return _document(lignes)
+
+
 def tenon_mortaise() -> str:
     ic = Icone("Tenon-mortaise : une traverse et son tenon face à la mortaise d'un montant")
     ic.boite((0, 0, 0), (22, 22, 76), "chene")  # montant
@@ -539,6 +564,8 @@ ICONES = {
     "Menuiserie_Species.svg": essences,
     "Menuiserie_CutList.svg": liste_de_debit,
     "Menuiserie_CutListExport.svg": export_liste_de_debit,
+    "Menuiserie_CutListPdf.svg": export_liste_de_debit_pdf,
+    "Menuiserie_NumberMarks.svg": numeroter_les_reperes,
     "Menuiserie_MortiseTenon.svg": tenon_mortaise,
     "Menuiserie_TongueGroove.svg": rainure_languette,
     "Menuiserie_Rabbet.svg": feuillure,

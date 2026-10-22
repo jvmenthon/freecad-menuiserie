@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Export de la liste de débit (PDF) -->
+  <path d="M6,4 H36 L46,14 V60 H6 Z" fill="#ffffff" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M36,4 V14 H46" fill="#d3d7cf" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="11" y="18" width="30" height="6" fill="#c4884a" stroke="#4e2f12" stroke-width="1"/>
+  <path d="M11,30 H41 M11,36 H41 M11,42 H41 M11,48 H41 M23,24 V52" fill="none" stroke="#888a85" stroke-width="1.5"/>
+  <path d="M30,44 H44 V36 L60,49 L44,62 V54 H30 Z" fill="#ef2929" stroke="#7a0000" stroke-width="2" stroke-linejoin="round"/>
+</svg>

@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Commandes de la liste de débit (J2d, critères G1 à G3, ADR 0013).
+"""Commandes de la liste de débit (J2d et J2g, critères G1 à G4, ADR 0013).
 
 « Liste de débit » crée ou met à jour la feuille de calcul du document et l'objet qui la réécrit à
 chaque recalcul (une seule transaction, posée par l'api) puis l'ouvre dans un onglet ; « Exporter
-la liste de débit (CSV)… » demande un fichier puis y écrit le CSV. La portée est la sélection
-courante (objets sans doublon) ou, sans sélection, tout le document. Aucune des deux ne touche à
+la liste de débit (CSV)… » et « (PDF)… » demandent un fichier puis y écrivent le CSV ou le PDF ;
+« Numéroter les repères » donne un repère aux pièces qui n'en ont pas (une transaction). La
+portée est la sélection courante (objets sans doublon) ou, sans sélection, tout le document.
+Aucune ne touche à
 la sélection ; seul le recalcul du document, s'il contient des objets à recalculer, précède le
 calcul (sinon les ajouts des pièces usinées seraient ignorés). Un refus de l'api est affiché
 comme celui des assemblages.
@@ -21,7 +23,12 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.cutlist_export import proposed_path, with_csv_suffix
+from freecad.menuiserie.features.cutlist_export import (
+    CSV_SUFFIX,
+    PDF_SUFFIX,
+    proposed_path,
+    with_suffix,
+)
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.commands.joints import TransactionCommand, report_refusal
@@ -29,12 +36,19 @@ from freecad.menuiserie.gui.commands.joints import TransactionCommand, report_re
 # Noms des commandes, aussi noms de leurs icônes (``<nom>.svg``) et contextes de traduction.
 CUT_LIST: Final = "Menuiserie_CutList"
 CUT_LIST_EXPORT: Final = "Menuiserie_CutListExport"
-COMMANDS: Final = (CUT_LIST, CUT_LIST_EXPORT)
+CUT_LIST_PDF: Final = "Menuiserie_CutListPdf"
+NUMBER_MARKS: Final = "Menuiserie_NumberMarks"
+COMMANDS: Final = (CUT_LIST, CUT_LIST_EXPORT, CUT_LIST_PDF, NUMBER_MARKS)
 CONFIRMATION_DISPLAY_MS: Final = 10_000  # durée d'affichage de la confirmation d'export
 TOUCHED: Final = "Touched"
 
 _DIALOG_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter la liste de débit")
 _DIALOG_FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers CSV (*.csv)")
+_PDF_FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers PDF (*.pdf)")
+_MARKS_NUMBERED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{count} pièce(s) numérotée(s), {groups} repère(s) créé(s)."
+)
+_NOTHING_TO_NUMBER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucune pièce sans repère à numéroter.")
 _EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Liste de débit exportée dans « {path} ».")
 
 
@@ -144,22 +158,72 @@ class CutListExportCommand(CutListCommand):
         show_status(translated(_EXPORTED, {"path": str(written)}))
 
 
-def ask_path(doc: Document) -> Path | None:
-    """Boîte d'enregistrement (filtre ``*.csv``), au nom proposé « <document> - liste de
-    débit.csv » à côté du fichier du document, ou dans le dossier personnel s'il n'est pas
-    enregistré. ``None`` si l'utilisateur annule ; « .csv » est ajouté s'il n'a rien saisi
-    comme extension."""
+class CutListPdfCommand(CutListCommand):
+    """Exporte la liste de débit en PDF (A4 paysage, marges 10 mm)."""
+
+    NAME = CUT_LIST_PDF
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_CutListPdf", "Exporter la liste de débit (PDF)…")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_CutListPdf",
+        "Enregistre la liste de débit dans un fichier PDF prêt à imprimer (A4 paysage) : "
+        "tableau des pièces, totaux, fournitures et avertissements. Limitée aux objets "
+        "sélectionnés, sinon à tout le document ; le document n'est pas modifié.",
+    )
+
+    def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
+        """Fichier demandé (rien ne se passe si l'on annule), document recalculé si besoin,
+        puis PDF écrit par l'api ; confirmation dans la barre d'état."""
+        path = ask_path(doc, PDF_SUFFIX)
+        if path is None:
+            return
+        recompute_if_touched(doc)
+        written = api.export_cut_list_pdf(doc, path, objects)
+        show_status(translated(_EXPORTED, {"path": str(written)}))
+
+
+class NumberMarksCommand(CutListCommand):
+    """Numérote les repères des pièces qui n'en ont pas (``M1``, ``M2``…)."""
+
+    NAME = NUMBER_MARKS
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_NumberMarks", "Numéroter les repères")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_NumberMarks",
+        "Donne un repère (M1, M2…) à chaque groupe de pièces identiques qui n'en a pas : les "
+        "pièces de même cote, matériau et fil partagent le leur, au premier numéro libre. Les "
+        "repères existants ne changent pas. Limité aux objets sélectionnés, sinon à tout le "
+        "document ; une seule transaction (Annuler les retire).",
+    )
+
+    def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
+        """Repères écrits par l'api (une transaction) ; bilan dans la barre d'état."""
+        recompute_if_touched(doc)
+        written = api.number_marks(doc, objects)
+        if written:
+            params = {"count": str(len(written)), "groups": str(len(set(written.values())))}
+            show_status(translated(_MARKS_NUMBERED, params))
+        else:
+            show_status(translated(_NOTHING_TO_NUMBER))
+
+
+def ask_path(doc: Document, suffix: str = CSV_SUFFIX) -> Path | None:
+    """Boîte d'enregistrement (filtre ``*.csv`` ou ``*.pdf``), au nom proposé « <document> -
+    liste de débit.csv » à côté du fichier du document, ou dans le dossier personnel s'il n'est
+    pas enregistré. ``None`` si l'utilisateur annule ; l'extension est ajoutée s'il n'a rien
+    saisi comme extension."""
     from PySide import QtGui
 
-    proposed = proposed_path(doc.Label, doc.FileName)
+    proposed = proposed_path(doc.Label, doc.FileName, suffix=suffix)
+    name_filter = translated(_PDF_FILTER if suffix == PDF_SUFFIX else _DIALOG_FILTER)
     answer: Any = QtGui.QFileDialog.getSaveFileName(
-        Gui.getMainWindow(), translated(_DIALOG_TITLE), str(proposed), translated(_DIALOG_FILTER)
+        Gui.getMainWindow(), translated(_DIALOG_TITLE), str(proposed), name_filter
     )
     chosen = answer[0] if isinstance(answer, tuple) else answer
-    return Path(with_csv_suffix(chosen)) if chosen else None
+    return Path(with_suffix(chosen, suffix)) if chosen else None
 
 
 def register() -> None:
     """Enregistre les commandes de la liste de débit auprès de FreeCAD."""
     Gui.addCommand(CUT_LIST, CutListSheetCommand())
     Gui.addCommand(CUT_LIST_EXPORT, CutListExportCommand())
+    Gui.addCommand(CUT_LIST_PDF, CutListPdfCommand())
+    Gui.addCommand(NUMBER_MARKS, NumberMarksCommand())

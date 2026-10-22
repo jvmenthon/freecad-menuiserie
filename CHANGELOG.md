@@ -16,6 +16,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `FRENCH_CSV` (`;`, virgule décimale).
 
 ### Ajouté
+- Export PDF et numérotation des repères (J2g, critères P2 et N1 de la spécification J2 § 10) :
+  commandes `Menuiserie_CutListPdf` « Exporter la liste de débit (PDF)… » (boîte
+  d'enregistrement, nom proposé « <document> - liste de débit.pdf », A4 paysage, marges 10 mm,
+  titre, date, portée, tableau, totaux, fournitures et avertissements) et `Menuiserie_NumberMarks`
+  « Numéroter les repères » (sélection sinon document, une transaction, bilan dans la barre
+  d'état), ajoutées à la barre d'outils et au menu ; icônes générées par
+  `tools/generer_icones.py`. `api.export_cut_list_pdf(doc, path, objects=None)` : extension `.pdf`
+  imposée, mêmes refus et même écriture atomique que le CSV (`features/cutlist_export.py` :
+  `validated_path(path, suffix)`, `replace_atomically`, `pdf_html`) ; le dessin
+  (`QTextDocument` et `QPdfWriter` du PySide de FreeCAD) est dans `gui/cutlist_pdf.py` car Qt
+  exige l'interface : sans elle, l'api refuse avec une `ValueError` traduite. Recette J2 :
+  PDF, numérotation et ouverture du CSV international dans Excel en français.
 - Liste de débit vivante (J2f, ADR 0013, critères V1 à V4 et N1 de la spécification J2) :
   `api.make_cut_list(doc, objects=None)` crée, en plus de la feuille, un objet
   `Menuiserie::CutList` (`App::FeaturePython`, « Mise à jour de la liste de débit ») qui réécrit

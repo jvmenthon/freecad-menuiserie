@@ -3,7 +3,8 @@
 ``docs/specs/J2-liste-de-debit.md``) : commandes, feuille ouverte dans un onglet, portée
 (sélection ou document), mise à jour, export CSV (boîte d'enregistrement remplacée par un
 double), refus, recalcul préalable, sélection intacte, liste vivante (J2f : l'objet de mise à jour
-suit les cotes sans relancer la commande). Module importé par
+suit les cotes sans relancer la commande), export PDF et numérotation des repères
+(J2g). Module importé par
 ``verifier_atelier.py`` (lancé par FreeCAD hors écran). Le bureau de référence de J4 (quatre
 pièces, tourillons, ensemble) vient de ``tests/integration/bureau.py``.
 """
@@ -20,14 +21,17 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtGui
 
+from freecad.menuiserie import api
 from tests.commandes_debit import COMMANDES_DEBIT
 from tests.gui.verifications_assemblages import selectionner
 from tests.gui.verifications_ensemble import boite_de_refus, pieces_du_bureau, regrouper
-from tests.gui.verifications_panneau import ecarts, emplacements
+from tests.gui.verifications_panneau import ecarts, emplacements, nouveau_document
 from tests.integration.bureau import Bureau
 
 LISTE = "Menuiserie_CutList"
 EXPORT = "Menuiserie_CutListExport"
+PDF = "Menuiserie_CutListPdf"
+NUMEROTER = "Menuiserie_NumberMarks"
 MARQUE = "MenuiserieCutList"
 COLONNES = "ABCDEFGHIJKLMNO"
 LIGNES = 80
@@ -442,6 +446,118 @@ def verifier_export_recalcule_le_document() -> list[str]:
     return avec_bureau("VerifDebitExportRecalcul", _export_recalcule)
 
 
+def _export_pdf(bureau: Bureau) -> list[str]:
+    doc = bureau.doc
+    with tempfile.TemporaryDirectory() as dossier:
+        doc.saveAs(str(Path(dossier) / "bureau.FCStd"))
+        doc.clearUndos()
+        cible = Path(dossier) / "debit.pdf"
+        selectionner(bureau.shown("V"))
+        avant = (noms_selectionnes(), [o.Name for o in doc.Objects], doc.UndoNames)
+        with boite_d_enregistrement(str(cible)) as appels:
+            Gui.Command.get(PDF).run()
+        octets = cible.read_bytes() if cible.exists() else b""
+        message = Gui.getMainWindow().statusBar().currentMessage()
+        # Écriture atomique : aucun fichier temporaire ne reste.
+        restes = [p.name for p in Path(dossier).iterdir() if p.suffix == ".tmp"]
+        return [
+            *ecarts("une boîte d'enregistrement", len(appels), 1),
+            *ecarts(
+                "nom proposé",
+                appels[0][1] if appels else "",
+                str(Path(dossier) / f"{doc.Label} - liste de débit.pdf"),
+            ),
+            *ecarts("filtre", "*.pdf" in appels[0][2] if appels else None, True),
+            *ecarts("le PDF existe et commence par %PDF", octets[:4], b"%PDF"),
+            *ecarts("PDF non vide", len(octets) > 1000, True),
+            *ecarts("aucun temporaire", restes, []),
+            *ecarts("confirmation dans la barre d'état", str(cible) in message, True),
+            *ecarts("document inchangé", ([o.Name for o in doc.Objects], doc.UndoNames), avant[1:]),
+            *ecarts("sélection intacte", noms_selectionnes(), avant[0]),
+        ]
+
+
+def verifier_export_pdf() -> list[str]:
+    """P2 : boîte d'enregistrement (filtre PDF, nom proposé), PDF valide écrit, confirmation,
+    document et sélection inchangés."""
+    return avec_bureau("VerifDebitPdf", _export_pdf)
+
+
+def _export_pdf_sans_extension_ou_refuse(bureau: Bureau) -> list[str]:
+    with tempfile.TemporaryDirectory() as dossier:
+        with boite_d_enregistrement(str(Path(dossier) / "sans")):
+            Gui.Command.get(PDF).run()
+        problemes = list(ecarts("extension ajoutée", (Path(dossier) / "sans.pdf").is_file(), True))
+        refuse = Path(dossier) / "debit.csv"
+        with boite_d_enregistrement(str(refuse)):
+            Gui.Command.get(PDF).run()
+        boite = boite_de_refus()
+        problemes += [
+            *ecarts("refus : aucun fichier", refuse.exists(), False),
+            *ecarts("refus : boîte affichée", boite is not None and boite.isVisible(), True),
+            *ecarts("refus : cite .pdf", boite is not None and ".pdf" in boite.text(), True),
+        ]
+        if boite is not None:
+            boite.hide()
+        with boite_d_enregistrement("") as appels:
+            Gui.Command.get(PDF).run()
+        return problemes + ecarts("annulé : boîte ouverte une fois", len(appels), 1)
+
+
+def verifier_export_pdf_extension_et_refus() -> list[str]:
+    """P2 : « .pdf » ajouté à un nom sans extension ; une autre extension est refusée en boîte."""
+    return avec_bureau("VerifDebitPdfRefus", _export_pdf_sans_extension_ou_refuse)
+
+
+def _repere(piece: Any) -> str:
+    return str(piece.Mark)
+
+
+def verifier_numerotation_des_reperes() -> list[str]:
+    """N1 : sans sélection, les pièces sans repère reçoivent M1… sans trou (deux pièces
+    identiques partagent leur repère), une seule entrée d'annulation, message dans la barre
+    d'état ; un second lancement ne change rien ; la sélection est numérotée seule."""
+    doc = nouveau_document("VerifDebitNumerotation")
+    nom_du_document = doc.Name
+    try:
+        grande = api.make_wood_part(800.0, 100.0, 22.0, "chene", doc=doc)
+        jumelle = api.make_wood_part(800.0, 100.0, 22.0, "chene", doc=doc)
+        petite = api.make_wood_part(300.0, 100.0, 22.0, "chene", doc=doc)
+        doc.recompute()
+        doc.clearUndos()
+        Gui.Selection.clearSelection()
+        Gui.Command.get(NUMEROTER).run()
+        message = Gui.getMainWindow().statusBar().currentMessage()
+        reperes_obtenus = sorted({_repere(p) for p in (grande, jumelle, petite)})
+        problemes = [
+            *ecarts("repères sans trou", reperes_obtenus, ["M1", "M2"]),
+            *ecarts("identiques : même repère", _repere(grande), _repere(jumelle)),
+            *ecarts("la plus grande d'abord", _repere(grande), "M1"),
+            *ecarts("une entrée d'annulation", doc.UndoNames, ["Numéroter les repères"]),
+            *ecarts("message dans la barre d'état", "2" in message, True),
+            *ecarts("rien à recalculer", a_recalculer(doc), []),
+        ]
+        avant = [_repere(p) for p in (grande, jumelle, petite)]
+        Gui.Command.get(NUMEROTER).run()
+        problemes += ecarts(
+            "relancer : inchangé", [_repere(p) for p in (grande, jumelle, petite)], avant
+        )
+        autre = api.make_wood_part(500.0, 100.0, 22.0, "chene", doc=doc)
+        neuve = api.make_wood_part(450.0, 100.0, 22.0, "chene", doc=doc)
+        doc.recompute()
+        selectionner(neuve)
+        Gui.Command.get(NUMEROTER).run()
+        return [
+            *problemes,
+            *ecarts("sélection : pièce choisie numérotée", _repere(neuve), "M3"),
+            *ecarts("sélection : l'autre inchangée", _repere(autre), ""),
+        ]
+    finally:
+        Gui.Selection.clearSelection()
+        if nom_du_document in App.listDocuments():
+            App.closeDocument(nom_du_document)
+
+
 VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_commandes_du_debit,
     verifier_liste_du_document,
@@ -456,4 +572,7 @@ VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_export_sans_extension,
     verifier_export_annule_ou_refuse,
     verifier_export_recalcule_le_document,
+    verifier_export_pdf,
+    verifier_export_pdf_extension_et_refus,
+    verifier_numerotation_des_reperes,
 )

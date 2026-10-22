@@ -14,7 +14,7 @@ paramétrique : pièces de bois réelles, assemblages classiques et liste de dé
 |---|---|
 | J0 | Fondations : atelier chargeable, CI, outillage qualité |
 | J1 | Pièce de bois paramétrique, bibliothèque d'essences et de panneaux |
-| J2 | Liste de débit (tableau FreeCAD + export CSV) |
+| J2 | Liste de débit (tableau FreeCAD, export CSV et PDF, numérotation des repères) |
 | J3 | Assemblages : tenon-mortaise, rainure-languette, tourillons |
 | J4 | Ensembles (cotes et onglet **Ensemble**), mi-bois, queue d'aronde, onglet, gabarit de caisson |
 | J5 | Plans TechDraw, traductions, publication dans l'Addon Manager |
@@ -137,13 +137,18 @@ pièce vue par un `App::Link` compte une fois de plus. La liste couvre les objet
 la feuille à chaque recalcul du document (cote modifiée, pièce ajoutée ou supprimée, tenon
 changé) ; Annuler restaure feuille et pièces ensemble. Supprimer cet objet arrête la mise à
 jour, relancer la commande la rétablit. Les colonnes que vous ajoutez à droite de la colonne O
-sont gardées, et la feuille reste une feuille FreeCAD ordinaire, lisible sans l'atelier. **Exporter la liste de débit (CSV)…**
-enregistre la même liste dans un fichier CSV au format international (séparateur virgule,
-point décimal, UTF-8) ; le format français reste disponible depuis la console :
-`api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`. Depuis la console :
-`api.make_cut_list(doc)`, `api.export_cut_list_csv(doc, "debit.csv")` et
-`api.number_marks(doc)`, qui donne un repère `M<n>` à chaque groupe de pièces sans repère
-(commande à venir).
+sont gardées, et la feuille reste une feuille FreeCAD ordinaire, lisible sans l'atelier.
+**Exporter la liste de débit (CSV)…** enregistre la même liste dans un fichier CSV au format
+international (séparateur virgule, point décimal, UTF-8 avec BOM) ; le format français reste
+disponible depuis la console : `api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`.
+**Exporter la liste de débit (PDF)…** produit un PDF prêt à imprimer (A4 paysage, marges de
+10 mm : titre, date, portée, tableau, totaux, fournitures et avertissements). **Numéroter les
+repères** donne un repère `M1`, `M2`… à chaque groupe de pièces identiques qui n'en a pas (les
+repères existants ne changent pas, le libellé de la pièce suit le repère) ; Annuler le retire en
+une fois. Ces commandes portent sur la sélection, sinon sur tout le document. Depuis la
+console : `api.make_cut_list(doc)`, `api.export_cut_list_csv(doc, "debit.csv")`,
+`api.export_cut_list_pdf(doc, "debit.pdf")` (demande l'interface de FreeCAD : Qt dessine le
+PDF) et `api.number_marks(doc)`.
 
 ## Pièce de bois (console Python)
 
