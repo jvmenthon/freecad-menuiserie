@@ -447,3 +447,19 @@ prochain changement de repère).
 ★ (le fichier s'ouvre sans changement ; chaque pièce prend son repère comme nom dès que vous
 touchez à son repère ou à son nom) / **Oui** (toutes les pièces avec un repère sont renommées à
 l'ouverture ; le fichier est marqué modifié).
+
+## Réponses de jv (2026-10-22)
+
+Ces réponses priment sur les recommandations ★ et sur le texte ci-dessus quand ils diffèrent.
+
+- **Q1 — trois boutons X, Y, Z** (au lieu de « Pivoter » / « Basculer ») : chaque bouton fait tourner la
+  pièce d'un quart de tour autour de l'axe X, Y ou Z du document. `Turn` devient `X`, `Y`, `Z` ;
+  S10 et V4 s'appliquent avec ces trois rotations (la pièce reste accrochée en création, centre fixe en
+  modification ; quatre clics sur un même bouton reviennent au départ ; les 24 orientations sont atteintes).
+  Le fil tourne avec la pièce. Icônes `Menuiserie_RotateX/Y/Z` générées par `tools/generer_icones.py`.
+- **Q2 — oui par défaut, mais modifiable** : l'étirement (S8) donne la valeur initiale de la cote ; le
+  menuisier peut ensuite saisir la longueur, la largeur ou l'épaisseur qu'il veut dans le panneau, et sa
+  saisie l'emporte (elle n'est plus recalculée tant que la sélection ne change pas).
+- **Q3 — oui**, case cochée.
+- **Q4 — oui**.
+- **Q5 — pas de migration** (version 0) : rien n'est fait à l'ouverture des anciens fichiers.
