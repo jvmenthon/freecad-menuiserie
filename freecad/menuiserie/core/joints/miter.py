@@ -9,7 +9,8 @@ couvrent exactement ``C`` (à fleur) ; ``u`` = axe selon lequel l'hôte se prolo
 deux bouts se rejoignent) et le coin intérieur de ``C`` : 45° pour deux largeurs égales, sinon
 atan(w_invitée / w_hôte) et son complément ; les deux faces coupées coïncident toujours. Cadre
 (``s`` = épaisseur) et coin de caisson (``s`` = profondeur) sont le même calcul. Enlèvement
-seulement (ADR 0006) : les brutes gardent leur longueur hors tout.
+seulement (ADR 0006) : les brutes gardent leur longueur hors tout. Posées au contact (bout de
+l'invitée contre la face de l'hôte), l'invitée est prolongée jusqu'au coin extérieur (ADR 0014).
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import JointKind, JointPlan
+from freecad.menuiserie.core.joints._bridge import Bridge, bridged
 
 __all__ = ["MiterParams", "MiterStrategy", "MiterValues"]
 
@@ -44,7 +46,7 @@ _BOTH_SIDES: Final = 2  # pièce qui dépasse la boîte commune des deux côtés
 NOT_OVERLAPPING: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Onglet : dessinez les deux pièces à leur longueur hors tout ; elles doivent se chevaucher "
-    "au coin.",
+    "au coin, ou se toucher bout contre face.",
 )
 NOT_SAME_CORNER: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Onglet : les deux pièces doivent s'arrêter au même coin."
@@ -81,19 +83,30 @@ class MiterStrategy:
     def resolve(self, host: PlacedBlock, guest: PlacedBlock, params: MiterParams) -> MiterValues:
         """Angles de coupe et prismes enlevés aux deux pièces."""
         del params  # aucun paramètre en J4
-        corner = _corner(host, guest)
+        bridge = _bridge(host, guest)
+        corner = _corner(host, bridge.guest)
         angle = math.degrees(math.atan2(corner.guest_width, corner.host_width))
         return MiterValues(
             host_angle=round(angle, ANGLE_DECIMALS),
             guest_angle=round(90.0 - angle, ANGLE_DECIMALS),
             host_cut=_cut(corner, host_side=True),
-            guest_cut=moved(_cut(corner, host_side=False), corner.to_host.inverse()),
+            guest_cut=bridge.back(moved(_cut(corner, host_side=False), corner.to_host.inverse())),
         )
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: MiterParams) -> JointPlan:
-        """Un prisme triangulaire enlevé à chaque pièce."""
+        """Un prisme triangulaire enlevé à chaque pièce ; l'invitée posée au contact est
+        prolongée jusqu'au coin."""
         values = self.resolve(host, guest, params)
-        return JointPlan(host_cuts=(values.host_cut,), guest_cuts=(values.guest_cut,))
+        return JointPlan(
+            host_cuts=(values.host_cut,),
+            guest_cuts=(values.guest_cut,),
+            guest_additions=_bridge(host, guest).additions,
+        )
+
+
+def _bridge(host: PlacedBlock, guest: PlacedBlock) -> Bridge:
+    """Invitée posée au contact prolongée jusqu'au coin extérieur."""
+    return bridged(host, guest, lambda contact: contact.host_depth)
 
 
 @dataclass(frozen=True)

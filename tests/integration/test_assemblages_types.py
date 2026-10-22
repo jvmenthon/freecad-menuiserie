@@ -39,7 +39,7 @@ PROPERTIES: dict[str, list[Row]] = {
         ("GrooveClearance", LENGTH, "Rainure", 1.0),
         ("ThroughGroove", BOOL, "Rainure", True),
     ],
-    "make_rabbet": [("Through", BOOL, "Feuillure", True)],
+    "make_rabbet": [("Through", BOOL, "Feuillure", True), ("Depth", LENGTH, "Feuillure", 0.0)],
     "make_dowels": [
         ("Diameter", LENGTH, "Tourillons", 0.0),
         ("DowelLength", LENGTH, "Tourillons", 0.0),
@@ -136,10 +136,27 @@ def test_feuillure_non_filante(document: Any) -> None:
 
 
 def test_feuillure_refusee_sans_chevauchement(document: Any) -> None:
-    montage = build(document, TONGUE_GROOVE)
-    joint = api.make_rabbet(montage.host, montage.guest)
+    host = wood(document, "C", (600, 300, 18), (0, 0, 0))
+    guest = wood(document, "F", (200, 400, 6), (100, 310, 0))  # écartée de 10 mm
+    document.recompute()
+    joint = api.make_rabbet(host, guest)
     assert not joint.isValid()
     assert "ne se chevauchent pas" in joint.getStatusString()
+
+
+def test_feuillure_au_contact(document: Any) -> None:
+    """ADR 0014 : fond posé sur la joue, à fleur de son chant arrière : feuillure de 9 mm dans
+    la joue, fond prolongé d'autant ; les deux pièces usinées ne se chevauchent pas."""
+    host = wood(document, "C", (600, 300, 18), (0, 0, 0))
+    guest = wood(document, "F", (600, 6, 400), (0, 294, 18))
+    document.recompute()
+    joint = api.make_rabbet(host, guest)
+    document.recompute()
+    assert joint.isValid()
+    host_shape, guest_shape = (api.machined_part_of(p).Shape for p in (host, guest))
+    assert host_shape.Volume == pytest.approx(600 * 300 * 18 - 600 * 6 * 9)
+    assert guest_shape.Volume == pytest.approx(600 * 6 * 409)
+    assert host_shape.common(guest_shape).Volume == pytest.approx(0, abs=1e-6)
 
 
 def test_traverse_de_45_tout_automatique(document: Any) -> None:

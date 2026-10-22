@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Mi-bois : deux pièces de même épaisseur, à fleur, qui se chevauchent ; chacune est entaillée
-sur une partie de l'épaisseur dans leur boîte commune (croix, T ou angle)."""
+sur une partie de l'épaisseur dans leur boîte commune (croix, T ou angle). Posée au contact (bout
+contre chant), l'invitée est prolongée à travers l'hôte (ADR 0014)."""
 
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ from freecad.menuiserie.core.joints._base import (
     mm_text,
     validate_params,
 )
+from freecad.menuiserie.core.joints._bridge import Bridge, bridged
 
 __all__ = ["HalfLapParams", "HalfLapStrategy", "HalfLapValues"]
 
@@ -36,7 +38,8 @@ THICKNESS_AXIS: Final = 2  # épaisseur : axe Z local de chaque pièce
 
 NOT_CROSSING: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Mi-bois : dessinez les deux pièces qui se croisent ; elles doivent se chevaucher.",
+    "Mi-bois : dessinez les deux pièces qui se croisent ; elles doivent se chevaucher, ou se "
+    "toucher bout contre chant.",
 )
 NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Mi-bois : les deux pièces doivent avoir la même épaisseur et être à fleur."
@@ -79,8 +82,9 @@ class HalfLapStrategy:
     def resolve(
         self, host: PlacedBlock, guest: PlacedBlock, params: HalfLapParams
     ) -> HalfLapValues:
-        """Profondeurs effectives et entailles des deux pièces."""
-        lap = _lap(host, guest)
+        """Profondeurs effectives et entailles des deux pièces (repère de l'invitée posée)."""
+        bridge = _bridge(host, guest)
+        lap = _lap(host, bridge.guest)
         thickness = host.dimensions.thickness
         depth = params.depth or mm_round(thickness / 2)
         if depth >= thickness:
@@ -96,13 +100,22 @@ class HalfLapStrategy:
             depth=depth,
             guest_depth=thickness - depth,
             host_cut=lap.common.with_range(THICKNESS_AXIS, *host_range),
-            guest_cut=moved_box(guest_cut, lap.to_host.inverse()),
+            guest_cut=moved_box(moved_box(guest_cut, lap.to_host.inverse()), bridge.to_guest),
         )
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: HalfLapParams) -> JointPlan:
-        """Une entaille dans chaque pièce, rien d'ajouté."""
+        """Une entaille dans chaque pièce ; l'invitée posée au contact est prolongée."""
         values = self.resolve(host, guest, params)
-        return JointPlan(host_cuts=(values.host_cut,), guest_cuts=(values.guest_cut,))
+        return JointPlan(
+            host_cuts=(values.host_cut,),
+            guest_cuts=(values.guest_cut,),
+            guest_additions=_bridge(host, guest).additions,
+        )
+
+
+def _bridge(host: PlacedBlock, guest: PlacedBlock) -> Bridge:
+    """Invitée posée au contact prolongée à travers l'hôte."""
+    return bridged(host, guest, lambda contact: contact.host_depth)
 
 
 @dataclass(frozen=True)
