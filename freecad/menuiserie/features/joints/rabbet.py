@@ -2,7 +2,8 @@
 """Assemblage en feuillure ou logement du document : proxy ``RabbetJoint``.
 
 Contrat de persistance (ADR 0003) : chemin de ce module, nom de la classe et noms des propriétés
-figés. La pièce logée occupe déjà la place de la feuillure : elle est enlevée de la pièce hôte.
+figés. La pièce logée occupe déjà la place de la feuillure (elle est enlevée de la pièce hôte),
+ou elle touche la pièce hôte : elle est alors prolongée de ``Depth`` dans la feuillure (ADR 0014).
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
 from freecad.menuiserie.features.joints.base import JointFeature
-from freecad.menuiserie.features.schema import PropertySpec
+from freecad.menuiserie.features.schema import LENGTH, PropertySpec
 
 __all__ = ["RabbetJoint"]
 
@@ -39,5 +40,18 @@ class RabbetJoint(JointFeature):
             ),
             default=_DEFAULTS.through,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Feuillure filante"),
+        ),
+        PropertySpec(
+            "Depth",
+            LENGTH,
+            "Feuillure",
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Pièce logée posée au contact : profondeur de la feuillure, dont elle est "
+                "prolongée ; 0 = moitié de la pièce hôte.",
+            ),
+            default=_DEFAULTS.depth,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Profondeur (pièces au contact)"),
+            resolved="depth",
         ),
     )

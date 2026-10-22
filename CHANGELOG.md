@@ -5,7 +5,173 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Modifié
+- Liste de débit, épaisseurs standards de brut (demande de jv, recette J2, spécification J2
+  § 10.4, [ADR 0015](docs/adr/0015-epaisseurs-de-brut.md)) : la bibliothèque de matériaux accepte
+  un champ facultatif `rough_thicknesses` (épaisseurs de brut du commerce, en mm), renseigné pour
+  les huit massifs intégrés (feuillus 27 à 100 mm, résineux 18 à 100 mm). L'épaisseur de débit
+  d'une pièce massive devient la plus petite épaisseur de brut supérieure ou égale à l'épaisseur
+  finie + max(surcote + ajouts d'épaisseur, 3 mm de rabotage) : 18 mm de chêne sont débités en
+  27 mm. Volume, masse, surface et totaux suivent ; les totaux sont par épaisseur de plot. Au-delà
+  du plus gros brut, l'épaisseur demandée est gardée et un avertissement par ligne
+  (`ROUGH_THICKNESS_OVER_STANDARD`) propose de commander ou de contrecoller. Sans le champ
+  (panneaux, bibliothèque personnelle ancienne) : calcul inchangé. `Material.rough_thicknesses`,
+  `normalized_rough_thicknesses`, `CutEntry.rough_thicknesses`, `MIN_PLANING_MM`. La géométrie
+  des pièces ne change pas.
+- Liste de débit (demande de jv, 2026-10-22) : les totaux sont faits **par matériau et par
+  épaisseur de débit** (« Totaux par matériau et épaisseur », colonne « Épaisseur de débit
+  (mm) » ; `MaterialTotal.thickness`) ; la surface de débit (m²) est donnée pour tous les
+  matériaux, massif compris (`MaterialTotal.area_m2` n'est plus `None`). Icônes d'export : l'extension « CSV » ou « PDF » remplace
+  la flèche.
+- Liste de débit, réponses de jv (J2e, spécification J2 § 10) : le repère n'entre plus dans la clé
+  de regroupement (matériau, cotes finies, ajouts, surcotes, fil) ; `CutLine.mark` devient
+  `CutLine.marks` (repères distincts non vides, ordre naturel), affichés « M1, M3 » ou « — »
+  (`display_mark`) ; lignes triées par premier repère, sans repère en dernier. Un même repère
+  porté par deux lignes différentes reste signalé (`REPEATED_MARK`). Le CSV par défaut est
+  international (`,`, point décimal, UTF-8 avec BOM, CRLF) : `to_csv` et
+  `api.export_cut_list_csv(doc, path, objects=None, dialect=INTERNATIONAL_CSV)` acceptent aussi
+  `FRENCH_CSV` (`;`, virgule décimale).
+
 ### Ajouté
+- Présentation soignée de la liste de débit (aperçu et PDF, demande de jv « un affichage plus
+  élégant ») : teintes de bois (en-têtes brun foncé, titres brun doré), une ligne sur deux
+  teintée, total général mis en avant, nombres alignés à droite jusque dans les en-têtes, plus
+  aucun mot coupé au milieu (« Longueu-r ») ; le PDF est réduit à la largeur de la page (plus de
+  colonne coupée à droite), répète l'en-tête du tableau et numérote ses pages « n / total ».
+- Aperçu de la liste de débit et miniatures (demande de jv, recette J2, spécification J2 § 10.3) :
+  commande `Menuiserie_CutListPreview` « Aperçu de la liste de débit » (barre d'outils, menu,
+  icône générée) qui ouvre une fenêtre non modale montrant le document du PDF, avec les boutons
+  « Actualiser », « Exporter en PDF… », « Exporter en CSV… » et « Fermer ». Chaque ligne a la
+  **miniature isométrique** de la forme usinée de la première pièce du groupe (tenons, queues
+  d'aronde visibles ; boîte de débit si la forme n'est pas utilisable), à la couleur du matériau.
+  La projection est faite sans rendu 3D ni écran (`features/cutlist_thumbnail.py`, dessin SVG pur
+  dans `core/cutlist/_thumbnail.py`) ; `to_html(…, thumbnails=)` ajoute la colonne « Miniature »
+  (images `data:`, aucune ressource externe) ; le PDF contient les miniatures ;
+  `api.cut_list_html(doc, objects)` ; `CutLine.source`.
+- Export PDF et numérotation des repères (J2g, critères P2 et N1 de la spécification J2 § 10) :
+  commandes `Menuiserie_CutListPdf` « Exporter la liste de débit (PDF)… » (boîte
+  d'enregistrement, nom proposé « <document> - liste de débit.pdf », A4 paysage, marges 10 mm,
+  titre, date, portée, tableau, totaux, fournitures et avertissements) et `Menuiserie_NumberMarks`
+  « Numéroter les repères » (sélection sinon document, une transaction, bilan dans la barre
+  d'état), ajoutées à la barre d'outils et au menu ; icônes générées par
+  `tools/generer_icones.py`. `api.export_cut_list_pdf(doc, path, objects=None)` : extension `.pdf`
+  imposée, mêmes refus et même écriture atomique que le CSV (`features/cutlist_export.py` :
+  `validated_path(path, suffix)`, `replace_atomically`, `pdf_html`) ; le dessin
+  (`QTextDocument` et `QPdfWriter` du PySide de FreeCAD) est dans `gui/cutlist_pdf.py` car Qt
+  exige l'interface : sans elle, l'api refuse avec une `ValueError` traduite. Recette J2 :
+  PDF, numérotation et ouverture du CSV international dans Excel en français.
+- Liste de débit vivante (J2f, ADR 0013, critères V1 à V4 et N1 de la spécification J2) :
+  `api.make_cut_list(doc, objects=None)` crée, en plus de la feuille, un objet
+  `Menuiserie::CutList` (`App::FeaturePython`, « Mise à jour de la liste de débit ») qui réécrit
+  la feuille à chaque recalcul du document : cote modifiée, tenon ou ensemble changé, pièce,
+  lien ou assemblage ajouté ou supprimé. Il porte `Sheet` (`App::PropertyLink`), `Scope`
+  (`PropertyLinkListHidden`, vide = tout le document) et `Sources` (objets lus au dernier calcul,
+  `App::PropertyLinkList` : un lien « caché » n'entre pas dans le graphe de dépendances, voir
+  l'addendum de l'ADR 0013) ; `mustExecute` voit les ajouts et suppressions. La feuille reste un
+  `Spreadsheet::Sheet` ordinaire sans proxy, colonnes `P` et au-delà conservées, lisible dans un
+  document ouvert sans l'atelier (l'objet y est signalé sans proxy). Annuler restaure feuille et
+  pièces ; nul ne dépend de l'objet (aucun cycle, rien de « Touched » après un recalcul) ;
+  supprimer l'objet ou la feuille arrête la mise à jour, relancer la commande la rétablit. La
+  date de la feuille et l'infobulle de la commande le disent. Un ViewProvider minimal
+  (`ViewProviderCutList`, icône de la commande) laisse supprimer une pièce lue sans l'avertissement
+  « objets référencés » de FreeCAD.
+- `api.number_marks(doc, objects=None, prefix="M")` : donne un repère `M<n>` à chaque groupe de
+  pièces sans repère (ensemble puis cotes décroissantes, premier numéro libre, pièces déjà
+  repérées ou au repère piloté par une expression inchangées), en une transaction « Numéroter les
+  repères » ; le libellé suit le repère et la liste vivante est à jour. La commande vient avec J2g.
+- Commandes de la liste de débit (J2d, ADR 0012, liste rendue vivante par J2f) : **Liste de
+  débit** crée ou met à jour la feuille et l'ouvre dans un onglet ; **Exporter la liste de débit (CSV)…** ouvre la boîte
+  d'enregistrement (nom proposé « <document> - liste de débit.csv » à côté du document, sinon
+  dans le dossier personnel, « .csv » ajouté si absent), confirme dans la barre d'état et
+  affiche un refus dans la boîte d'avertissement des assemblages. Portée : objets sélectionnés
+  (sans doublon) sinon tout le document ; le document est recalculé avant le calcul s'il
+  contient des objets à recalculer ; la sélection n'est jamais modifiée. Boutons dans la barre
+  d'outils et le menu après les ensembles, grisés pendant un panneau de tâche. Icônes
+  `Menuiserie_CutList.svg` et `Menuiserie_CutListExport.svg` (renommée, générée par
+  `tools/generer_icones.py`), vérifications d'interface hors écran, recette
+  `docs/recette/J2-scenarios-manuels.md`, section « Liste de débit » du README et feuille dans
+  les captures.
+- Liste de débit, HTML et numérotation pures (J2e) : `core.cutlist.to_html(cut_list, translate,
+  title, scope, date)` produit un document HTML autonome (titre, date, portée, tableau aux mêmes
+  colonnes que la feuille, totaux, fournitures, avertissements ; tout texte échappé, aucun script
+  ni ressource externe, CSS inline pour l'A4 paysage, nombres au format international), base de
+  l'export PDF (J2g). `core.cutlist.assign_marks(entries, prefix="M", used=())` calcule, sans rien
+  modifier, le repère `M<n>` libre de chaque groupe de pièces sans repère (ensemble puis cotes
+  décroissantes, repères `M<n>` existants sautés) ; l'écriture dans le document viendra en J2f.
+- Liste de débit dans le document (J2c, ADR 0012) : `api.make_cut_list(doc, objects=None)` crée ou
+  met à jour la feuille `Spreadsheet::Sheet` « Liste de débit » (nom interne `MenuiserieCutList`,
+  retrouvée par sa propriété masquée `MenuiserieCutList` même renommée, aucun proxy, une seule
+  transaction), `api.export_cut_list_csv(doc, path, objects=None)` écrit le CSV français (extension
+  `.csv` imposée, dossier existant, écriture atomique ; dialecte international par défaut depuis
+  J2e) et `api.cut_list_of(doc, objects=None)`
+  renvoie la `CutList` sans toucher au document. La collecte (`features/cutlist_collect.py`,
+  `cutlist_parts.py`) compte une ligne par pièce brute (une pièce usinée est comptée par sa
+  brute), lit la sélection (pièces, ensembles, Std Part, groupes), suit les `App::Link` (une
+  occurrence de plus par lien, fois `ElementCount`, liens imbriqués compris) et ajoute aux cotes
+  de débit les tenons, languettes et queues (étendue de la forme usinée dans le repère de la
+  brute, retraits ignorés) ; les tourillons effectifs sont listés en fournitures. Une pièce
+  d'une version plus récente est listée avec le matériau « ? », une pièce aux cotes invalides est
+  ignorée avec un avertissement qui la nomme ; une forme usinée absente ou invalide donne des
+  ajouts nuls et un avertissement. La feuille (`features/cutlist_sheet.py`) écrit titre, date,
+  portée, tableau (colonnes A à O), totaux, fournitures et avertissements, uniquement en valeurs
+  littérales (jamais de formule), garde les cellules de la colonne P et au-delà, et n'était
+  recalculée qu'à la demande (remplacé par la liste vivante de J2f). `core.cutlist.table_sections` expose les blocs du tableau, communs au
+  CSV et à la feuille. Les commandes et la recette arrivent avec J2d.
+- Liste de débit, calcul pur (J2b, ADR 0012) : `core/cutlist/` (`CutEntry`, `build_cut_list`,
+  `CutList`, `to_csv`) regroupe les pièces identiques (repère, matériau, cotes finies, ajouts
+  d'assemblage, surcotes, fil ; repère retiré de la clé par J2e), les trie (repère en ordre naturel « M2 » avant « M10 », sans repère
+  en dernier), calcule cotes de débit (finies + ajouts + surcotes), volumes, masses, totaux par
+  matériau (surface des panneaux), fournitures (tourillons) et avertissements (repère réutilisé,
+  pièces sans repère). Export CSV au dialecte `FRENCH_CSV` (international par
+  défaut depuis J2e) (`;`, virgule décimale, UTF-8 avec BOM,
+  CRLF), en-têtes traduisibles, injection de formule neutralisée. `Notice` des avertissements
+  déplacée dans `core/notice.py`, commune aux ensembles et à la liste de débit.
+- Feuillure, mi-bois et onglet entre pièces au contact (ADR 0014, demande de jv) : l'invitée est
+  prolongée jusque dans l'hôte (feuillure : nouvelle propriété `Depth`, 0 = moitié de l'hôte
+  traversé ; mi-bois et onglet : à travers l'hôte), la superposition reste acceptée. La liste de
+  débit compte ce prolongement comme un ajout de l'invitée (longueur ou épaisseur de débit).
+- Accrochage à la sélection (J6d, ADR 0011) : les faces, arêtes et sommets sélectionnés avant
+  **Pièce de bois** (pièces de bois, Std Part, `App::Link`, objets d'autres ateliers) reçoivent la
+  nouvelle pièce, en aperçu et en direct ; le panneau cite « Contre : … » et signale les éléments
+  ignorés ou non touchés. Deux faces en vis-à-vis étirent la longueur (orientation de départ
+  choisie par `initial_orientation` pour une tablette entre deux joues), la saisie du menuisier
+  l'emporte ensuite. La pièce est créée dans le Std Part du premier élément (`placement` exprimé
+  dans son repère), et une case **Ajouter à l'ensemble** (cochée) l'ajoute à l'ensemble de
+  l'élément touché dans la même transaction. Les boutons X, Y, Z tournent autour des axes du
+  document (axes du repère d'appui contre une face inclinée). Le sens du fil s'affiche en direct.
+  `features/picked.py`, `snap_geometry.py`, `snap_targets.py`, `gui/selection.py`. Aucun objet
+  sélectionné n'est modifié, aucun observateur installé.
+- Aperçu et rotation de la pièce (J6c, ADR 0011) : en création, la pièce est affichée à 60 % de
+  transparence tant que le panneau est ouvert (`PreviewStyle`, rétablie à « OK », rien n'est
+  enregistré) ; trois boutons **X**, **Y**, **Z** (groupe « Position », icônes
+  `Menuiserie_RotateX/Y/Z` générées) font tourner la pièce d'un quart de tour autour de l'axe du
+  document : elle reste accrochée en création, tourne sur place (centre fixe) en modification,
+  et le fil tourne avec elle ; boutons inactifs si une expression pilote sa position (membre
+  d'un ensemble). `features/placement.py` (`to_placement`, `local_placement`,
+  `add_to_container`, `SnapSession`, `snap_part`, `rotate_part`). Les cotes restent modifiables
+  et la saisie l'emporte sur l'étirement de l'accrochage. Recette : `docs/recette/J6-scenarios-manuels.md`.
+- Supprimer un assemblage ne montre plus l'avertissement « Les objets référencés suivants
+  pourraient s'endommager » pour ses pièces usinées (`canDelete` de leur ViewProvider), qui sont
+  recalculées sans la coupe.
+- Nom d'un assemblage « {type} : {pièce hôte} {pièce invitée} » (par ex. « Tenon-mortaise : M1 T1 »),
+  mis à jour quand une des deux pièces change de repère ou de nom ; doublons « (2) »
+  (`features/joint_names.py`).
+- Nom de la pièce = repère (J6b, ADR 0011) : `core/naming.py` (`label_for_mark`,
+  `mark_from_label`, suffixe « M1 (2) » pour les doublons) ; le libellé suit le repère (panneau,
+  éditeur de propriétés, script, expression) et inversement (renommage dans l'arborescence, de la
+  brute ou de l'usinée) par `onBeforeChangeLabel` et `allowDuplicateLabel` de `WoodPart` et
+  `MachinedPart` ; la pièce usinée s'appelle « {repère} (usinée) » ; une nouvelle pièce prend le
+  libellé de son repère. Aucune synchronisation à la réouverture, en annulant ni en rétablissant :
+  les documents existants ne sont renommés qu'à la première modification. Repère piloté par une
+  expression : avertissement, le libellé revient à celui du repère. Aucune préférence de FreeCAD
+  modifiée. Infobulle de `Mark` complétée.
+- Géométrie de l'accrochage (J6a, ADR 0011), sans FreeCAD : `core/snap/` (`Frame`, `FaceTarget`,
+  `EdgeTarget`, `VertexTarget`, `Orientation`, `Turn`, `snap`, `turned_in_place`,
+  `tangent_frame`). Une pièce se pose contre une face, une arête ou un sommet (coin sur le coin,
+  à plat sur la face d'appui) ; deux ou trois éléments la font toucher chacun, et deux faces en
+  vis-à-vis étirent la longueur ou la largeur (jamais l'épaisseur) ; les boutons X, Y, Z
+  (24 orientations) la gardent accrochée ; refus doux par avis (`ThicknessGap`, `GapOutOfRange`,
+  `NotSquare`, `TooMany`, `Conflict`).
 - Refus d'une commande (ajout à un ensemble, assemblage…) affiché aussi dans une boîte
   d'avertissement non modale, en plus de la barre d'état et de la vue rapport (recette J4, 2.4).
 - Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
@@ -168,6 +334,19 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   panneau, paramètre piloté par une expression jamais écrit.
 
 ### Modifié
+- Panneau de la pièce de bois (J6c) : ordre des groupes **Identification** (repère / nom, premier
+  champ du panneau), **Dimensions finies**, **Matériau**, puis **Rotation** (ancien groupe
+  « Position », renommé, `objectName` `rotationGroup`) ; l'ordre des propriétés dans l'éditeur de
+  propriétés de FreeCAD (ordre de création) est inchangé.
+- `core/snap` (J6c, Q1 de jv) : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ;
+  `Orientation` porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des
+  axes du document.
+- Panneau de la pièce de bois : ordre des groupes **Identification** (repère / nom, premier
+  champ), **Dimensions finies**, **Matériau**, puis **Rotation** (ancien « Position ») ; l'ordre des propriétés dans l'éditeur de propriétés
+  de FreeCAD (ordre de création) est inchangé.
+- `core/snap` : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ; `Orientation`
+  porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des axes du
+  document.
 - Panneaux de tâche : transactions, fermeture forcée et surveillance du document dans un socle
   commun (`gui/task_panels/base.py`, `ObjectTaskPanel`) partagé par la pièce de bois et les
   assemblages. L'aperçu de la pièce de bois ne recalcule plus les pages TechDraw ni les objets
@@ -212,6 +391,25 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `to_guest`, `TextureCache.usable`, `BudgetedCache.clear`, `JOINT_CLASSES`).
 
 ### Corrigé
+- Robustesse de la pièce de bois (issue #13, J2a) : `record_of` et `set_material` lèvent
+  `UnsupportedPartError` (message traduit) au lieu de `KeyError` pour une catégorie ou un sens du
+  fil inconnus ; une pièce d'un document plus récent (`Version` > `MODEL_VERSION`) a son
+  `Material` en lecture seule, `onChanged` n'en suit plus le choix et le panneau de tâche
+  l'ouvre avec le type et le matériau inactifs et un message ; la réparation d'un `MaterialId`
+  d'un type inattendu retrouve le matériau d'après le libellé `Material` (`find_by_name`) avant
+  de prendre le matériau par défaut. Docstrings de `wood_part_restore` et `apply_editor_modes`,
+  ADR 0003 (§ Limite : propriété d'un type inattendu supprimée même sur un document plus récent).
+- Pièce accrochée à une seule arête (J6) : elle reprend la rotation de l'objet sélectionné au lieu
+  d'être tournée d'un quart de tour quand l'arête suit la largeur (`source_orientation`).
+- Revue finale de J6 : copier-coller, Std Dupliquer et fusion de documents ne donnent plus deux
+  pièces (ni deux pièces usinées) de même libellé : la copie de « M1 » s'appelle « M1 (2) » et sa
+  pièce usinée « M1 (2) (usinée) », repère inchangé ; une réouverture ordinaire et une annulation
+  n'écrivent rien (spécification J6, L5 bis).
+- Accrochage : un vecteur de norme nulle (arête de longueur nulle) lève une `ValueError` rattrapée
+  par l'accrochage au lieu d'une `ZeroDivisionError`.
+- Panneau de la pièce de bois : ensemble supprimé pendant que le panneau est ouvert, « OK »
+  affiche le message de refus (pièce créée hors de l'ensemble) et rétablit la transparence ; les
+  boutons X, Y, Z mettent aussitôt à jour la ligne « Contre » et les notices.
 - Panneau de la brute ouvert depuis sa pièce usinée puis fermé par FreeCAD (brute supprimée,
   Édition > Annuler) : le mode édition est quitté même si la pièce usinée a perdu sa brute.
 - Réouverture d'un document où une propriété de la pièce a un type inattendu (par exemple
@@ -239,6 +437,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   recréer l'assemblage) au lieu de rester valide sans usiner les pièces.
 
 ### Sécurité
+- Liste de débit, relecture de sécurité de fin de J2 : collecte bornée à 20 000 visites
+  (`MAX_VISITS`, liens multiples imbriqués : 2^n chemins) avec l'avertissement « liste tronquée »,
+  et quantités plafonnées à 1 000 000 (`MAX_QUANTITY`, avertissement) contre les
+  `ElementCount` géants et l'`OverflowError` des totaux ; `Sheet` n'est réécrite que si c'est une
+  feuille marquée `MenuiserieCutList` du même document (sinon avertissement dans la vue
+  rapport) ; `mustExecute` faux pour un document plus récent que l'atelier ; export CSV
+  tolérant aux substitutions isolées (`errors="replace"`) ; nouveau fichier exporté en
+  `0o666 & ~umask` (umask lu dans `/proc/self/status`, sinon `os.umask` rétabli aussitôt) ;
+  chemins échappés dans les messages du PDF et de la barre d'état, `fsync` du PDF temporaire
+  avant remplacement, `validated_path` documente qu'un lien symbolique est remplacé.
 - Panneau des assemblages (audit de sécurité J3) : libellés des pièces hôte et invitée en texte
   brut, libellé de l'assemblage cité tronqué et échappé dans le titre.
 - Tourillons automatiques plafonnés à 50 (`MAX_DOWEL_COUNT`), même sur un très long contact

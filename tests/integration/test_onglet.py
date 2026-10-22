@@ -50,7 +50,8 @@ def test_objet_du_document(document: Any) -> None:
     )
     assert proxy.TYPE == "Menuiserie::Miter"
     assert proxy.PROPERTIES == ()
-    assert (joint.Name, joint.Label, joint.Version) == ("Miter", "Onglet", 1)
+    assert (joint.Name, joint.Version) == ("Miter", 1)
+    assert joint.Label == f"Onglet : {joint.HostPart.Label} {joint.GuestPart.Label}"
     assert set(joint.PropertiesList) >= {"HostPart", "GuestPart", "Version"}
     assert joint.isValid()
     assert joint.Shape.isNull() or joint.Shape.Volume == pytest.approx(0)

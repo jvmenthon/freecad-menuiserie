@@ -29,8 +29,10 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
+from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
 from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
@@ -40,6 +42,7 @@ from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEM
 from tests.gui.verifications_panneau_limites import DEFAUTS_CONSTATES, VERIFICATIONS_LIMITES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
+from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -1216,6 +1219,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_budget_memoire,
     verifier_texture_chemin_echappe,
     *VERIFICATIONS_PANNEAU,
+    *VERIFICATIONS_APERCU,
+    *VERIFICATIONS_SELECTION,
     *VERIFICATIONS_LIMITES,
     *VERIFICATIONS_FIL,
     *VERIFICATIONS_ROBUSTESSE,
@@ -1227,6 +1232,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_PANNEAU_ENSEMBLE,
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
+    # Liste de débit (J2d)
+    *VERIFICATIONS_DEBIT,
 )
 
 

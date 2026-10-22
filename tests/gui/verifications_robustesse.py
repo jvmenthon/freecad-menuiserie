@@ -14,11 +14,13 @@ from typing import Any
 
 import FreeCADGui as Gui
 
+from freecad.menuiserie.features.wood_part_schema import MODEL_VERSION
 from freecad.menuiserie.gui.commands.wood_part import CreateWoodPartCommand
 from freecad.menuiserie.gui.task_panels import wood_part as task_panel
 from tests.gui.verifications_panneau import (
     COMMAND,
     CREATE,
+    annuler,
     avec_document,
     creer_par_la_commande,
     ecarts,
@@ -32,7 +34,7 @@ from tests.gui.verifications_panneau_limites import transaction_ouverte
 class PanneauDefaillant:
     """Panneau dont la construction échoue, comme sur un formulaire illisible."""
 
-    def __init__(self, obj: Any, *, creating: bool) -> None:
+    def __init__(self, obj: Any, *, creating: bool, **_options: Any) -> None:
         del obj, creating
         raise RuntimeError("panneau défaillant (vérification A1)")
 
@@ -115,8 +117,37 @@ def verifier_piece_supprimee_par_la_console() -> list[str]:
     return avec_document("VerifSuppressionConsole", verification)
 
 
+def verifier_panneau_d_une_piece_plus_recente() -> list[str]:
+    """Issue #13 : le panneau d'une pièce d'un document plus récent s'ouvre, matériau en lecture
+    seule et message affiché ; celui d'une pièce courante n'a ni l'un ni l'autre."""
+
+    def verification(doc: Any) -> list[str]:
+        obj = piece_validee(doc)
+        problemes: list[str] = []
+        for version, editable in ((MODEL_VERSION, True), (MODEL_VERSION + 1, False)):
+            obj.Version = version
+            task_panel.start_editing(obj)
+            problemes += _ecarts_du_panneau(version, editable)
+            annuler()
+        return problemes
+
+    return avec_document("VerifPieceRecente", verification)
+
+
+def _ecarts_du_panneau(version: int, editable: bool) -> list[str]:
+    """Écarts du panneau ouvert ; le formulaire n'est pas gardé au-delà de cet appel : une
+    enveloppe PySide survivant au panneau serait réutilisée à tort par le suivant (FreeCAD 1.0)."""
+    form = formulaire()
+    return [
+        *ecarts(f"type (v{version})", form.kindCombo.isEnabled(), editable),
+        *ecarts(f"matériau (v{version})", form.materialCombo.isEnabled(), editable),
+        *ecarts(f"message masqué (v{version})", form.newerVersionNotice.isHidden(), editable),
+    ]
+
+
 VERIFICATIONS_ROBUSTESSE: tuple[Callable[[], list[str]], ...] = (
     verifier_exception_a_la_creation,
     verifier_exception_a_la_modification,
     verifier_piece_supprimee_par_la_console,
+    verifier_panneau_d_une_piece_plus_recente,
 )

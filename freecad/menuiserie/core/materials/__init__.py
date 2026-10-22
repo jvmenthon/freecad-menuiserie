@@ -38,6 +38,7 @@ from freecad.menuiserie.core.materials._model import (
     Texture,
     UnknownMaterialError,
     is_inside_folder,
+    normalized_rough_thicknesses,
 )
 from freecad.menuiserie.core.materials._parser import (
     FORMAT_VERSION,
@@ -74,6 +75,7 @@ __all__ = [
     "is_inside_folder",
     "load_library",
     "merge_materials",
+    "normalized_rough_thicknesses",
     "parse_materials",
     "read_materials_file",
 ]

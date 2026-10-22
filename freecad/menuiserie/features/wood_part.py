@@ -12,18 +12,17 @@ contrôles de la réouverture dans :mod:`.wood_part_restore`.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from typing import ClassVar, Final
 
 import Part
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialLibrary
+from freecad.menuiserie.core.naming import mark_from_label
 from freecad.menuiserie.core.part_model import (
-    Allowances,
     Dimensions,
     GrainDirection,
-    PartRecord,
     allowances_after_material_change,
     grain_after_material_change,
     material_has_grain,
@@ -39,7 +38,23 @@ from freecad.menuiserie.features.freecad_types import (
 from freecad.menuiserie.features.furniture import MEMBER_OPTIONS
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.features.part_labels import make_label_unique, sync_dependent_labels
+from freecad.menuiserie.features.part_names import (
+    default_label,
+    label_of_mark,
+    mark_is_bound,
+    warn_mark_bound,
+)
 from freecad.menuiserie.features.schema import warn
+from freecad.menuiserie.features.wood_part_record import (
+    GRAIN_BY_VALUE,
+    UnsupportedPartError,
+    allowances_of,
+    dimensions_of,
+    known_value,
+    newer_version_error,
+    record_of,
+)
 from freecad.menuiserie.features.wood_part_restore import (
     EMPTY_LIBRARY_MIGRATION,
     migration_material,
@@ -58,8 +73,8 @@ from freecad.menuiserie.features.wood_part_schema import (
     MODEL_VERSION,
     add_missing_properties,
     apply_editor_modes,
-    density_kg_m3,
     density_quantity,
+    is_from_newer_version,
     material_choices,
     part_kind,
     select_label,
@@ -71,6 +86,7 @@ __all__ = [
     "CATEGORY_BY_KIND",
     "GRAIN_DIRECTIONS",
     "OBJECT_NAME",
+    "UnsupportedPartError",
     "WoodPart",
     "allowances_of",
     "create_wood_part",
@@ -84,7 +100,6 @@ __all__ = [
 
 OBJECT_NAME: Final = "WoodPart"
 
-_DEFAULT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce de bois")
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est pas une pièce de bois."
 )
@@ -117,40 +132,104 @@ class WoodPart(StatelessProxy):
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, énumérations canoniques, migration, modes
-        d'édition, puis liste des matériaux de la bibliothèque locale ; propriétés de membre
-        d'un ensemble contrôlées de même (J4)."""
+        d'édition (``Material`` en lecture seule si le document est plus récent), puis liste des
+        matériaux de la bibliothèque locale ; propriétés de membre d'un ensemble contrôlées de
+        même (J4)."""
         library = get_library()
         with self._synchronizing():
             version = restored_version(obj)
             mistyped = remove_mistyped_properties(obj)
             restore_enumerations(obj, library, keep_unknown=version > self.VERSION)
             self._migrate(obj, library, version, repair=bool(mistyped))
-            apply_editor_modes(obj, show_grain=_shows_grain(obj, library))
+            apply_editor_modes(
+                obj,
+                show_grain=_shows_grain(obj, library),
+                material_read_only=is_from_newer_version(obj),
+            )
             restore_material_choices(obj, library)
         from freecad.menuiserie.features.furniture_restore import restore_member
 
         restore_member(obj)  # membre d'un ensemble (J4) ; sans effet sinon
+        make_label_unique(obj)  # copie, duplication, fusion (J6, L5 bis)
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
         volumique, et ajuste le fil et les surcotes (règles de ``core.part_model``). Choix d'un
         sens du fil : mémorisé (ADR 0005). Changement de matériau, annulation comprise : le fil
         est masqué ou affiché dans l'éditeur de propriétés. Mode ou option « fixe » d'un membre
-        d'ensemble : ses seules liaisons sont recalculées (sans effet hors ensemble)."""
+        d'ensemble : ses seules liaisons sont recalculées (sans effet hors ensemble). Repère ou
+        libellé modifié par l'utilisateur : l'autre suit (J6b, ADR 0011). Pièce d'un document plus
+        récent (``Version`` > ``MODEL_VERSION``) : le choix du matériau n'est pas suivi (R1)."""
         if prop in ("MaterialId", "Category") and "Restore" not in obj.State:
             show_grain_direction(obj, shows_grain(obj))
         if not self._follows_user_changes(obj):
             return
         if prop == "Material":
-            material = get_library().find_by_name(obj.Material, display_language())
-            if material is not None:
-                self.select_material(obj, material)
+            self._follow_material_choice(obj)
         elif prop == "GrainDirection":
             _remember_grain(obj)
+        elif prop == "Mark":
+            self.sync_label(obj)
+        elif prop == "Label":
+            self._adopt_typed_mark(obj)
         elif prop in MEMBER_OPTIONS:  # membre d'un ensemble (J4)
             from freecad.menuiserie.features.furniture_bindings import member_option_changed
 
             member_option_changed(obj, prop)
+
+    def _follow_material_choice(self, obj: DocumentObject) -> None:
+        """Recopie le matériau choisi dans la liste ; sans effet pour une pièce d'un document
+        plus récent, dont le matériau reste tel qu'enregistré."""
+        if is_from_newer_version(obj):
+            return
+        material = get_library().find_by_name(obj.Material, display_language())
+        if material is not None:
+            self.select_material(obj, material)
+
+    def allowDuplicateLabel(self, obj: DocumentObject) -> bool:  # pylint: disable=unused-argument
+        """Vrai : FreeCAD ne rend pas lui-même le libellé unique (« M1001 ») avant
+        :meth:`onBeforeChangeLabel` ; c'est l'atelier qui le fait, par le suffixe « (2) ». Aucune
+        préférence de FreeCAD n'est lue ni modifiée (ADR 0011)."""
+        return True
+
+    def onBeforeChangeLabel(self, obj: DocumentObject, label: str) -> str | None:
+        """Libellé saisi (arborescence, script) : mémorise le repère qu'il désigne, que
+        :meth:`onChanged` écrira, et rend le libellé unique de ce repère (« M1 (2) »). Repère
+        piloté par une expression : il ne change pas, avertissement, le libellé revient à celui
+        du repère. Sans effet pendant une synchronisation, une restauration ou une annulation."""
+        self._typed_mark = None
+        if not self._follows_user_changes(obj):
+            return None
+        if mark_is_bound(obj):
+            warn_mark_bound(obj)
+            return label_of_mark(obj, obj.Mark)
+        mark = mark_from_label(label, default_label())
+        self._typed_mark = mark
+        return label_of_mark(obj, mark)
+
+    def sync_label(self, obj: DocumentObject) -> None:
+        """Libellé = celui du repère de la pièce, puis libellés de sa pièce usinée et de ses
+        assemblages."""
+        label = label_of_mark(obj, obj.Mark)
+        if obj.Label != label:
+            with self._synchronizing():
+                obj.Label = label
+        sync_dependent_labels(obj)
+
+    def adopt_mark(self, obj: DocumentObject, mark: str) -> None:
+        """Repère = ``mark`` (déduit d'un libellé saisi), puis libellés de la pièce et de sa
+        pièce usinée d'après ce repère."""
+        if obj.Mark != mark:
+            with self._synchronizing():
+                obj.Mark = mark
+        self.sync_label(obj)
+
+    def _adopt_typed_mark(self, obj: DocumentObject) -> None:
+        """Libellé changé : écrit le repère mémorisé par :meth:`onBeforeChangeLabel`."""
+        mark: str | None = getattr(self, "_typed_mark", None)
+        self._typed_mark = None
+        if mark is not None:
+            self.adopt_mark(obj, mark)
 
     def execute(self, obj: DocumentObject) -> None:
         """Reconstruit la forme depuis les seules cotes, sans toucher au ``Placement``."""
@@ -161,17 +240,25 @@ class WoodPart(StatelessProxy):
         obj.Placement = placement
 
     def select_material(self, obj: DocumentObject, material: Material) -> None:
-        """Sélectionne ``material`` dans la liste et recopie ses valeurs dans la pièce."""
+        """Sélectionne ``material`` dans la liste et recopie ses valeurs dans la pièce.
+        ``UnsupportedPartError`` si la pièce vient d'un document plus récent ou porte une valeur
+        inconnue : rien n'est écrit."""
+        if is_from_newer_version(obj):
+            raise newer_version_error(obj)
         with self._synchronizing():
             label = material.name(display_language())
-            select_label(obj, material_choices(get_library(), label), label)
             _apply_material(obj, material)
+            select_label(obj, material_choices(get_library(), label), label)
             show_grain_direction(obj, material.has_grain)
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         """Faux pendant une resynchronisation interne, une restauration ou une annulation."""
         syncing: bool = getattr(self, "_syncing", False)
         return not syncing and not restoring_or_undoing(obj)
+
+    def synchronizing(self) -> AbstractContextManager[None]:
+        """Contexte où repère et libellé ne se répercutent pas l'un sur l'autre."""
+        return self._synchronizing()
 
     @contextmanager
     def _synchronizing(self) -> Iterator[None]:
@@ -218,12 +305,13 @@ def create_wood_part(
     dimensions, material = validated_arguments(length, width, thickness, material_id)
     obj = doc.addObject("Part::FeaturePython", OBJECT_NAME)
     proxy = WoodPart(obj)
-    obj.Label = translated(_DEFAULT_LABEL)
     proxy.select_material(obj, material)
     obj.Length = dimensions.length
     obj.Width = dimensions.width
     obj.Thickness = dimensions.thickness
-    obj.Mark = mark
+    with proxy.synchronizing():  # le libellé est celui du repère (J6b), posé une seule fois
+        obj.Mark = mark
+        obj.Label = label_of_mark(obj, mark)
     return obj
 
 
@@ -256,37 +344,11 @@ def shows_grain(obj: DocumentObject) -> bool:
     return _shows_grain(obj, get_library())
 
 
-def dimensions_of(obj: DocumentObject) -> Dimensions:
-    """Cotes finies de la pièce en mm (``InvalidDimensionsError`` si l'une est invalide)."""
-    return Dimensions(obj.Length.Value, obj.Width.Value, obj.Thickness.Value)
-
-
-def allowances_of(obj: DocumentObject) -> Allowances:
-    """Surcotes de débit de la pièce en mm."""
-    return Allowances(
-        obj.LengthAllowance.Value, obj.WidthAllowance.Value, obj.ThicknessAllowance.Value
-    )
-
-
-def record_of(obj: DocumentObject) -> PartRecord:
-    """Pièce vue par la liste de débit (J2), d'après ses seules propriétés."""
-    return PartRecord(
-        mark=obj.Mark,
-        material_id=obj.MaterialId,
-        material_name=obj.Material,
-        kind=KIND_BY_CATEGORY[obj.Category],
-        finished=dimensions_of(obj),
-        allowances=allowances_of(obj),
-        grain=GrainDirection(obj.GrainDirection),
-        density=density_kg_m3(obj),
-    )
-
-
 def _apply_material(obj: DocumentObject, material: Material) -> None:
     """Recopie le matériau dans la pièce ; fil et surcotes suivent les règles de ``core``."""
-    old_kind = KIND_BY_CATEGORY[obj.Category]
+    old_kind = known_value(obj, "Category", KIND_BY_CATEGORY)
     grain = grain_after_material_change(
-        material, GrainDirection(obj.GrainDirection), _preferred_grain(obj)
+        material, known_value(obj, "GrainDirection", GRAIN_BY_VALUE), _preferred_grain(obj)
     )
     allowances = allowances_after_material_change(old_kind, material.kind, allowances_of(obj))
     obj.MaterialId = material.id

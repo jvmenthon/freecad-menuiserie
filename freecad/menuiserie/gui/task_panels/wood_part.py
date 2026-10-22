@@ -4,6 +4,13 @@
 Chaque modification est écrite aussitôt dans l'objet, puis l'objet est recalculé (aperçu en
 direct). « OK » valide la transaction ouverte par la commande ou par :func:`start_editing`,
 « Annuler » l'abandonne : la pièce créée disparaît, la pièce modifiée retrouve ses valeurs.
+En création, la pièce est un aperçu semi-transparent (:class:`PreviewStyle`), rétabli à « OK ».
+Les boutons X, Y, Z font tourner la pièce d'un quart de tour autour de l'axe du document : en
+création elle reste accrochée (:class:`SnapSession`), en modification elle tourne sur place.
+Lancée avec une sélection (J6d), la pièce est posée contre les éléments choisis : le groupe
+« Rotation » les cite (« Contre : … »), signale ceux qui sont ignorés ou qui ne touchent pas la
+pièce, et propose d'ajouter la pièce à l'ensemble de l'élément (case cochée par défaut).
+Toute saisie est visible aussitôt dans la vue 3D (cotes, matériau, fil, rotation).
 Une cote pilotée par une expression est affichée par le champ (icône d'expression) et n'est
 jamais écrite par le panneau.
 """
@@ -19,7 +26,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie import icon_path
+from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialKind
 from freecad.menuiserie.core.part_model import (
@@ -28,10 +35,22 @@ from freecad.menuiserie.core.part_model import (
     GrainDirection,
     is_nonstandard_panel_thickness,
 )
+from freecad.menuiserie.core.snap import Turn
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.furniture_members import quoted_label
+from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.features.placement import (
+    SnapSession,
+    placement_expression,
+    rotate_part,
+    snap_part,
+)
+from freecad.menuiserie.features.snap_geometry import global_shape
+from freecad.menuiserie.features.snap_targets import touches
 from freecad.menuiserie.features.wood_part import set_material, shows_grain
+from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
@@ -40,12 +59,40 @@ from freecad.menuiserie.gui.task_panels.base import (
     has_expression,
     panel_title,
 )
+from freecad.menuiserie.gui.task_panels.preview import PreviewStyle
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
 
 UI_FILE: Final = Path(__file__).with_name("wood_part.ui")
 EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier une pièce de bois")
 _CREATE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Nouvelle pièce de bois")
 _INDEX_CHANGED: Final = "currentIndexChanged(int)"
+_FOLLOWS_FURNITURE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cette pièce suit l'ensemble « {label} » : tournez-la avec Std Transform après l'avoir "
+    "retirée de l'ensemble.",
+)
+_DRIVEN_PLACEMENT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "La position de cette pièce est pilotée par une expression : retirez l'expression ou "
+    "tournez la pièce avec Std Transform.",
+)
+_AGAINST: Final = QT_TRANSLATE_NOOP("Menuiserie", "Contre : {elements}")
+_JOIN_FURNITURE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ajouter à l'ensemble « {label} »")
+_NOT_TOUCHING: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "La pièce ne touche pas « {target} » : changez son orientation avec X, Y, Z ou ses cotes.",
+)
+_FURNITURE_REFUSED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "La pièce est créée hors de l'ensemble « {label} » : {reason}",
+)
+_FURNITURE_GONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "cet ensemble n'existe plus.")
+# Boutons de rotation : widget, axe tourné, icône générée.
+ROTATIONS: Final = (
+    ("rotateXButton", Turn.X, "Menuiserie_RotateX.svg"),
+    ("rotateYButton", Turn.Y, "Menuiserie_RotateY.svg"),
+    ("rotateZButton", Turn.Z, "Menuiserie_RotateZ.svg"),
+)
 
 # Filtre « Type » : libellé, puis familles retenues (aucune : tous les matériaux).
 KIND_FILTERS: Final[tuple[tuple[str, tuple[MaterialKind, ...]], ...]] = (
@@ -91,9 +138,13 @@ LENGTH_FIELDS: Final = (
 class WoodPartTaskPanel(ObjectTaskPanel):
     """Panneau de tâche d'une pièce de bois, en création (``creating``) ou en modification."""
 
-    def __init__(self, obj: DocumentObject, *, creating: bool) -> None:
+    def __init__(
+        self, obj: DocumentObject, *, creating: bool, session: SnapSession | None = None
+    ) -> None:
         super().__init__(obj, creating=creating)
         self._guard = UpdateGuard()
+        self._session = (session or SnapSession()) if creating else None
+        self._style = PreviewStyle(getattr(obj, "ViewObject", None)) if creating else None
         self.form = Gui.PySideUic.loadUi(str(UI_FILE))
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
         self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
@@ -105,7 +156,13 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._show_values()
         self._show_allowances(False)
         self._lock_driven_fields()
+        self._lock_newer_version()
+        self._setup_rotation_buttons()
+        self._furniture_params: dict[str, str] = {}  # libellé de l'ensemble de la case
         self._connect_signals()
+        self._setup_snap_rows()
+        if self._session is not None and self._session.targets:
+            self._recompute()
 
     # --- Construction du formulaire -------------------------------------------------------
 
@@ -131,8 +188,50 @@ class WoodPartTaskPanel(ObjectTaskPanel):
             if has_expression(self.obj, prop):
                 getattr(self.form, widget).setEnabled(False)
 
+    def _lock_newer_version(self) -> None:
+        """Pièce d'un document plus récent : matériau en lecture seule (listes du type et du
+        matériau inactives) et message dans le formulaire."""
+        if not is_from_newer_version(self.obj):
+            return
+        for widget in ("kindCombo", "materialCombo"):
+            getattr(self.form, widget).setEnabled(False)
+        self.form.newerVersionNotice.setVisible(True)
+
+    def _setup_rotation_buttons(self) -> None:
+        """Icônes et infobulle des boutons X, Y, Z ; inactifs si une expression pilote la
+        position de la pièce (V6)."""
+        for widget, _turn, icon in ROTATIONS:
+            getattr(self.form, widget).setIcon(QtGui.QIcon(icon_path(icon)))
+        if placement_expression(self.obj) is None:
+            return
+        furniture = getattr(self.obj, "Furniture", None)
+        if is_furniture(furniture):
+            reason = translated(_FOLLOWS_FURNITURE, quoted_label(furniture))
+        else:
+            reason = translated(_DRIVEN_PLACEMENT)
+        for widget, _turn, _icon in ROTATIONS:
+            button = getattr(self.form, widget)
+            button.setEnabled(False)
+            button.setToolTip(reason)
+
+    def _setup_snap_rows(self) -> None:
+        """Case « Ajouter à l'ensemble » (cochée par défaut, Q3) quand le premier élément
+        sélectionné appartient à un ensemble ; texte posé une fois pour garder la case cochée."""
+        session = self._session
+        if session is None:
+            return
+        furniture = session.furniture if session.targets else None
+        if furniture is not None:
+            self._furniture_params = quoted_label(furniture)
+            self.form.furnitureCheck.setText(translated(_JOIN_FURNITURE, quoted_label(furniture)))
+            self.form.furnitureCheck.setVisible(True)
+            self.form.furnitureCheck.setChecked(True)
+        self._show_snap()
+
     def _connect_signals(self) -> None:
         form = self.form
+        for widget, turn, _icon in ROTATIONS:
+            connect(getattr(form, widget), "clicked()", partial(self._on_rotate, turn))
         connect(form.markEdit, "textEdited(QString)", self._on_mark_edited)
         connect(form.kindCombo, _INDEX_CHANGED, self._on_kind_chosen)
         connect(form.materialCombo, _INDEX_CHANGED, self._on_material_chosen)
@@ -220,6 +319,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
     def _on_grain_chosen(self, index: int) -> None:
         if not self._guard.active and index >= 0 and not has_expression(self.obj, "GrainDirection"):
             self.obj.GrainDirection = self.form.grainCombo.itemData(index)
+            self.preview()  # la texture tourne aussitôt
 
     def _on_length_changed(self, prop: str, value: float) -> None:
         if self._guard.active or has_expression(self.obj, prop):
@@ -228,14 +328,82 @@ class WoodPartTaskPanel(ObjectTaskPanel):
             setattr(self.obj, prop, value)
             self._recompute()
 
+    def _on_rotate(self, turn: Turn) -> None:
+        """Quart de tour autour de l'axe du bouton : la pièce reste accrochée en création,
+        tourne sur place en modification (aperçu recalculé)."""
+        if rotate_part(self.obj, turn, self._session):
+            self.preview()
+            self._show_snap()  # notices en direct : la pièce touche ou non ses cibles
+
     def _choose_thickness(self, thickness: float) -> None:
         """Épaisseur standard choisie dans le menu : écrite par le champ lui-même."""
         self.form.thicknessEdit.setProperty("rawValue", thickness)
 
+    def _before_commit(self) -> None:
+        """« OK » : transparence d'origine rétablie, pièce ajoutée à l'ensemble si la case est
+        cochée, le tout avant la validation de la transaction. L'entrée dans l'ensemble passe en
+        premier : son refus (message) n'empêche pas de rétablir la transparence."""
+        try:
+            self._join_furniture()
+        finally:
+            if self._style is not None:
+                self._style.restore()
+
+    def _join_furniture(self) -> None:
+        """Entrée dans l'ensemble de l'élément touché (options par défaut de J4, dans la même
+        transaction) ; refusée : la pièce reste hors de l'ensemble, avec un message traduit."""
+        session = self._session
+        if session is None or session.furniture is None or not self.form.furnitureCheck.isChecked():
+            return
+        if _furniture_gone(session.furniture, self.obj.Document):
+            reason = translated(_FURNITURE_GONE)
+            report_warning(
+                translated(_FURNITURE_REFUSED, {**self._furniture_params, "reason": reason})
+            )
+            return
+        try:
+            api.add_to_furniture(session.furniture, [self.obj])
+        except (TypeError, ValueError) as error:
+            params = {**quoted_label(session.furniture), "reason": str(error)}
+            report_warning(translated(_FURNITURE_REFUSED, params))
+
     def _recompute(self) -> None:
-        """Aperçu (la pièce, ses assemblages et sa pièce usinée), puis outils d'épaisseur."""
+        """Pièce reposée en création, aperçu (la pièce, ses assemblages et sa pièce usinée),
+        puis outils d'épaisseur."""
+        if self._session is not None and snap_part(self.obj, self._session):
+            self._show_values()  # cote étirée par l'accrochage
         self.preview()
+        self._show_snap()
         self._show_thickness_tools()
+
+    def _show_snap(self) -> None:
+        """Ligne « Contre : … » et notices (éléments ignorés, avis de l'accrochage, éléments que
+        la pièce ne touche pas) ; rien sans sélection."""
+        session = self._session
+        if session is None:
+            return
+        used = ", ".join(session.used)
+        self.form.snapLabel.setText(translated(_AGAINST, {"elements": used}) if used else "")
+        self.form.snapLabel.setVisible(bool(used))
+        notices = [
+            *session.ignored,
+            *(translated(notice.template, notice.params) for notice in session.notices),
+            *(translated(_NOT_TOUCHING, {"target": name}) for name in self._untouched(session)),
+        ]
+        self.form.snapNotices.setText("\n".join(notices))
+        self.form.snapNotices.setVisible(bool(notices))
+
+    def _untouched(self, session: SnapSession) -> list[str]:
+        """Éléments retenus que la pièce, une fois recalculée, ne touche pas (T3)."""
+        if not session.used or self.obj.Shape.isNull():
+            return []
+        part = global_shape(self.obj)
+        pairs = zip(session.targets, session.shapes, strict=False)
+        return [
+            target.name
+            for target, shape in pairs
+            if target.name in session.used and not touches(part, shape)
+        ]
 
 
 def start_editing(obj: DocumentObject, edited: DocumentObject | None = None) -> bool:
@@ -246,18 +414,30 @@ def start_editing(obj: DocumentObject, edited: DocumentObject | None = None) -> 
     return base.start_editing(obj.Document, EDIT_TRANSACTION, build, edited or obj)
 
 
-def show_panel(obj: DocumentObject, *, creating: bool) -> None:
+def show_panel(obj: DocumentObject, *, creating: bool, session: SnapSession | None = None) -> None:
     """Construit puis affiche le panneau, dans la transaction déjà ouverte (voir
-    :func:`base.show_panel`)."""
-    base.show_panel(partial(_build, obj, creating=creating))
+    :func:`base.show_panel`) ; ``session`` : accrochage de la pièce en création."""
+    base.show_panel(partial(_build, obj, creating=creating, session=session))
 
 
-def _build(obj: DocumentObject, *, creating: bool) -> WoodPartTaskPanel:
+def _build(
+    obj: DocumentObject, *, creating: bool, session: SnapSession | None = None
+) -> WoodPartTaskPanel:
     """Panneau de ``obj`` (classe lue à l'appel : remplaçable par les vérifications)."""
-    return WoodPartTaskPanel(obj, creating=creating)
+    return WoodPartTaskPanel(obj, creating=creating, session=session)
 
 
 def _length_text(length_mm: float) -> str:
     """Longueur dans le système d'unités choisi par l'utilisateur (« 22 mm », « 0,87 in »…)."""
     text: str = App.Units.Quantity(length_mm, App.Units.Length).UserString
     return text
+
+
+def _furniture_gone(furniture: DocumentObject, document: DocumentObject) -> bool:
+    """Vrai si l'ensemble a été supprimé pendant que le panneau était ouvert. Dans une
+    transaction ouverte, FreeCAD garde l'objet supprimé pour l'annulation : on vérifie qu'il est
+    encore dans le document."""
+    try:
+        return not is_furniture(furniture) or document.getObject(furniture.Name) is None
+    except Exception:  # pylint: disable=broad-exception-caught  # objet supprimé : type variable
+        return True

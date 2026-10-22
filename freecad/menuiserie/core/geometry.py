@@ -40,6 +40,7 @@ __all__ = [
     "moved_box",
     "relative_axes",
     "relative_transform",
+    "squared_rotation",
 ]
 
 CONTACT_TOLERANCE_MM: Final = 0.01
@@ -267,6 +268,20 @@ class RigidTransform:
         return RigidTransform(
             _product(self.rotation, other.rotation), self.apply(other.translation)
         )
+
+
+def squared_rotation(rotation: Matrix3) -> Matrix3:
+    """``rotation`` ramenée à la permutation exacte (coefficients -1, 0 ou 1) quand chaque
+    coefficient en est à moins de ``ANGLE_TOLERANCE`` ; inchangée sinon (rotation oblique).
+
+    Évite d'écrire 1e-16 dans un ``Placement`` d'équerre."""
+    rounded = _matrix3([[float(round(value)) for value in row] for row in rotation])
+    pairs = zip(rotation, rounded, strict=True)
+    close = all(
+        abs(a - b) <= ANGLE_TOLERANCE for row, near in pairs for a, b in zip(row, near, strict=True)
+    )
+    squared = close and all(value in (-1.0, 0.0, 1.0) for row in rounded for value in row)
+    return rounded if squared else rotation
 
 
 @dataclass(frozen=True)

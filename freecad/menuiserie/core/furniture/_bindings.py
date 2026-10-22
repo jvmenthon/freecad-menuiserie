@@ -22,11 +22,11 @@ from freecad.menuiserie.core.furniture._model import (
     FurnitureBox,
     FurnitureError,
     Member,
-    Notice,
     NoticeKind,
     notice,
 )
 from freecad.menuiserie.core.furniture._spans import member_spans
+from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.text import quoted_value
 
 RATIO_DECIMALS: Final = 9

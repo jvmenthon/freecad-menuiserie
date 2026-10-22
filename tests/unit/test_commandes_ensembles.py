@@ -15,9 +15,8 @@ from tests.unit.aides import ROOT, imported_modules
 from tests.unit.test_commandes_assemblages import (
     class_attributes,
     commands_of,
-    module_constants,
     noop,
-    tree,
+    registered_commands,
 )
 
 GUI = ROOT / "freecad" / "menuiserie" / "gui"
@@ -58,16 +57,7 @@ def test_icone_generee(name: str) -> None:
 
 
 def test_toutes_les_commandes_enregistrees() -> None:
-    registered = [
-        node.args[0].id
-        for node in ast.walk(tree(COMMANDS))
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "addCommand"
-        and isinstance(node.args[0], ast.Name)
-    ]
-    constants = module_constants(COMMANDS)
-    assert sorted(str(constants[name]) for name in registered) == sorted(COMMANDES_ENSEMBLE)
+    assert registered_commands(COMMANDS) == sorted(COMMANDES_ENSEMBLE)
 
 
 def test_view_provider_au_chemin_fige_et_pose_par_l_api() -> None:

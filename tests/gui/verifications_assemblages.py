@@ -220,6 +220,29 @@ def verifier_creation_d_un_assemblage() -> list[str]:
     return problemes
 
 
+def verifier_assemblage_impossible_refuse() -> list[str]:
+    """Demande de jv : mi-bois entre deux pièces qui ne se touchent pas : message explicatif,
+    ni objet créé, ni panneau, ni entrée d'annulation."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.gui.commands.joints import REFUSAL_BOX_NAME
+
+    with cadre("VerifAssemblageImpossible") as (doc, pieces):
+        doc.UndoMode = 1
+        avant, entrees = [o.Name for o in doc.Objects], list(doc.UndoNames)
+        assembler(doc, pieces["M1"], pieces["M2"], commande="Menuiserie_HalfLap", ok=False)
+        boite = Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
+        message = boite.text() if boite is not None and boite.isVisible() else ""
+        if boite is not None:
+            boite.hide()
+        return [
+            *ecarts("objets", [o.Name for o in doc.Objects], avant),
+            *ecarts("panneau ouvert", bool(Gui.Control.activeDialog()), False),
+            *ecarts("entrées d'annulation", list(doc.UndoNames), entrees),
+            *ecarts("message explicatif", "se chevaucher" in message, True),
+        ]
+
+
 # --- C3, C6 : affichage ------------------------------------------------------------------
 
 
@@ -267,7 +290,7 @@ def verifier_reouverture_des_assemblages() -> list[str]:
         doc = App.openDocument(chemin)
         try:
             usinee = usinee_de(doc.getObjectsByLabel("M1")[0])
-            joint = doc.getObjectsByLabel("Tenon-mortaise")[0]
+            joint = doc.getObjectsByLabel("Tenon-mortaise : M1 T1")[0]
             return [
                 *ecarts("pièce usinée", classe_du_proxy(usinee.ViewObject), VP_PIECE_USINEE),
                 *ecarts("assemblage", classe_du_proxy(joint.ViewObject), VP_ASSEMBLAGE),
@@ -335,6 +358,27 @@ def verifier_suppression_de_la_piece_usinee() -> list[str]:
         return problemes + ecarts("brute visible", pieces["M1"].Visibility, True)
 
 
+def verifier_suppression_d_un_assemblage() -> list[str]:
+    """Supprimer un assemblage : pas d'avertissement « objets référencés » pour ses pièces
+    usinées (``canDelete``), qui sont recalculées sans sa coupe."""
+    with cadre("VerifSuppressionAssemblage") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinees = [usinee_de(pieces[repere]) for repere in ("M1", "T1")]
+        problemes: list[str] = []
+        for usinee in usinees:
+            proxy = usinee.ViewObject.Proxy
+            problemes += ecarts(f"{usinee.Label} : assemblage", proxy.canDelete(joint), True)
+            problemes += ecarts(
+                f"{usinee.Label} : autre objet", proxy.canDelete(pieces["M2"]), False
+            )
+        doc.removeObject(joint.Name)
+        doc.recompute()
+        for usinee in usinees:
+            problemes += ecarts(f"{usinee.Label} recalculée", usinee.isValid(), True)
+            problemes += ecarts(f"{usinee.Label} sans coupe", list(usinee.Joints), [])
+        return problemes
+
+
 @contextmanager
 def observateurs_comptes() -> Iterator[list[int]]:
     """Compte les observateurs (document, sélection) ajoutés moins ceux retirés."""
@@ -375,11 +419,13 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_commandes_d_assemblage_presentes,
     verifier_activation_des_commandes_d_assemblage,
     verifier_creation_d_un_assemblage,
+    verifier_assemblage_impossible_refuse,
     verifier_affichage_de_la_piece_usinee,
     verifier_affichage_de_l_assemblage,
     verifier_reouverture_des_assemblages,
     verifier_double_clic_sur_la_piece_usinee,
     verifier_deplacement_de_la_piece_usinee,
     verifier_suppression_de_la_piece_usinee,
+    verifier_suppression_d_un_assemblage,
     verifier_aucun_observateur_laisse,
 )

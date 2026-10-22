@@ -290,7 +290,7 @@ def verifier_modification() -> list[str]:
         joint = tenon_valide(doc, pieces)
         if not double_cliquer(joint) or panneau() is None:
             return ["double-clic : panneau non ouvert"]
-        problemes = ecarts("titre", panneau().windowTitle(), "Modifier « Tenon-mortaise »")
+        problemes = ecarts("titre", panneau().windowTitle(), "Modifier « Tenon-mortaise : M1 T1 »")
         saisir(widget(panneau(), "MortiseClearance"), 5.0)
         annuler()
         problemes += [

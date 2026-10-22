@@ -237,7 +237,52 @@ def test_feuillure_filante(through: bool, length: float) -> None:
 
 
 def test_feuillure_refus_sans_chevauchement() -> None:
-    refused(RABBET, stile(), rail(), RabbetParams(), "ne se chevauchent pas")
+    refused(RABBET, stile(), rail(y=70.0), RabbetParams(), "ne se chevauchent pas")
+
+
+@pytest.mark.parametrize(
+    ("size", "base", "through"),
+    [
+        ((600.0, 100.0, 40.0), (0.0, 100.0, -10.0), True),  # toute l'épaisseur : coupée en deux
+        ((600.0, 400.0, 40.0), (0.0, -50.0, -10.0), True),  # pièce entièrement enlevée
+        ((100.0, 400.0, 40.0), (200.0, -50.0, -10.0), False),  # logement qui tronçonne
+    ],
+)
+def test_feuillure_refus_si_la_piece_logee_coupe_l_hote(
+    size: tuple[float, float, float], base: tuple[float, float, float], through: bool
+) -> None:
+    """Recette de jv : deux pièces qui se chevauchent de part en part donnaient « la forme
+    obtenue n'est pas un solide valide » ; le refus explique maintenant pourquoi."""
+    side = block((600.0, 300.0, 18.0))
+    refused(RABBET, side, block(size, base), RabbetParams(through=through), "part en part")
+
+
+@pytest.mark.parametrize(
+    ("size", "base", "through"),
+    [
+        ((100.0, 50.0, 40.0), (200.0, 100.0, -10.0), False),  # logement traversant l'épaisseur
+        ((600.0, 400.0, 6.0), (0.0, -50.0, 0.0), True),  # amincie sur toute une face
+        ((600.0, 20.0, 40.0), (0.0, 290.0, -10.0), True),  # rétrécie (feuillure = épaisseur)
+    ],
+)
+def test_feuillure_qui_laisse_la_piece_d_un_seul_tenant(
+    size: tuple[float, float, float], base: tuple[float, float, float], through: bool
+) -> None:
+    side = block((600.0, 300.0, 18.0))
+    assert only(RABBET.plan(side, block(size, base), RabbetParams(through=through)).host_cuts)
+
+
+def test_feuillure_au_contact_prolonge_la_piece_logee() -> None:
+    """ADR 0014 : fond (6 mm) posé sur la joue à fleur de son chant arrière = fond prolongé dans
+    une feuillure de la moitié de l'épaisseur de la joue par défaut."""
+    side = block((600.0, 300.0, 18.0))
+    back = block((600.0, 6.0, 400.0), (0.0, 294.0, 18.0))
+    plan = RABBET.plan(side, back, RabbetParams())
+    assert only(plan.host_cuts) == box((0, 294, 9), (600, 300, 18))
+    assert plan.guest_additions == (box((0, 0, -9), (600, 6, 0)),)
+    assert RABBET.resolve(side, back, RabbetParams()).depth == 9
+    assert RABBET.resolve(side, back, RabbetParams(depth=12)).depth == 12
+    refused(RABBET, side, back, RabbetParams(depth=18), "moins profonde")
 
 
 # --- M8 : paramètres validés --------------------------------------------------------------

@@ -10,11 +10,12 @@ dans les documents ; ils ne changent jamais.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import Solid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import (
@@ -26,6 +27,16 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
+from freecad.menuiserie.features.part_labels import make_label_unique
+from freecad.menuiserie.features.part_names import (
+    default_label,
+    is_importing,
+    label_of_mark,
+    mark_is_bound,
+    other_labels,
+    unique_label_after_copy,
+    warn_mark_bound,
+)
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import machined_shape
 from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
@@ -40,6 +51,7 @@ __all__ = [
     "removal_refusal",
     "remove_machined_part",
     "show_blank",
+    "sync_machined_label",
 ]
 
 OBJECT_NAME: Final = "MachinedPart"
@@ -114,7 +126,7 @@ class MachinedPart(StatelessProxy):
 
     Sans état : le drapeau ``_in_execute`` (lu avec ``getattr``, ``__init__`` n'étant pas rappelé
     à la réouverture) distingue le ``Placement`` posé par :meth:`execute` d'un déplacement par
-    l'utilisateur.
+    l'utilisateur, et ``_syncing`` le libellé écrit par la brute (J6b) d'un renommage.
     """
 
     TYPE: ClassVar[str] = "Menuiserie::MachinedPart"
@@ -129,14 +141,72 @@ class MachinedPart(StatelessProxy):
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         schema.restore_schema(obj, PROPERTIES, self.VERSION, NOUN)
+        self._make_label_unique(obj)  # copie, duplication, fusion (J6, L5 bis)
+
+    def _make_label_unique(self, obj: DocumentObject) -> None:
+        """Pièce usinée restaurée avec le libellé d'un autre objet : sa brute est d'abord rendue
+        unique, puis le libellé devient « {libellé de la brute} (usinée) » ; sans brute, suffixe
+        « (2) ». Sans effet si le libellé est déjà unique."""
+        blank: DocumentObject = getattr(obj, "Base", None)
+        if is_wood_part(blank):
+            make_label_unique(blank)
+        label = unique_label_after_copy(obj)
+        if is_wood_part(blank) and (label is not None or is_importing(obj)):
+            expected = _machined_label(obj, str(blank.Label))
+            label = None if expected == str(obj.Label) else expected
+        if label is None:
+            return
+        with self._synchronizing():
+            obj.Label = label
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Déplacement de la pièce usinée par l'utilisateur : reporté sur sa brute (Q4), dans la
         transaction de l'appelant ; jamais pendant un recalcul, une restauration ou une
         annulation. Refusé, avec un avertissement, si une expression pilote le ``Placement`` de
-        la brute (ensemble J4 : la brute y reviendrait au recalcul suivant)."""
-        if prop != "Placement" or not self._follows_user_changes(obj):
+        la brute (ensemble J4 : la brute y reviendrait au recalcul suivant). Libellé changé par
+        l'utilisateur : le repère de la brute suit (J6b, ADR 0011)."""
+        if not self._follows_user_changes(obj):
             return
+        if prop == "Label":
+            self._adopt_typed_mark(obj)
+        elif prop == "Placement":
+            self._follow_placement(obj)
+
+    def allowDuplicateLabel(self, obj: DocumentObject) -> bool:  # pylint: disable=unused-argument
+        """Vrai : le libellé est rendu unique par l'atelier (:meth:`onBeforeChangeLabel`)."""
+        return True
+
+    def onBeforeChangeLabel(self, obj: DocumentObject, label: str) -> str | None:
+        """Libellé saisi : le repère de la brute est celui qu'il désigne (suffixe « (usinée) »
+        retiré), mémorisé pour :meth:`onChanged` ; le libellé devient « {libellé de la brute}
+        (usinée) ». Repère de la brute piloté par une expression : il ne change pas,
+        avertissement, le libellé revient à celui de la brute."""
+        self._typed_mark = None
+        blank: DocumentObject = getattr(obj, "Base", None)
+        if not self._follows_user_changes(obj) or not is_wood_part(blank):
+            return None
+        if mark_is_bound(blank):
+            warn_mark_bound(blank)
+            return _machined_label(obj, str(blank.Label))
+        suffix = translated(_MACHINED_LABEL, {"label": ""})
+        mark = mark_from_label(label.removesuffix(suffix), default_label())
+        self._typed_mark = mark
+        return _machined_label(obj, label_of_mark(blank, mark))
+
+    def synchronizing(self) -> AbstractContextManager[None]:
+        """Contexte où le libellé écrit par la brute n'est pas lu comme un renommage."""
+        return self._synchronizing()
+
+    def _adopt_typed_mark(self, obj: DocumentObject) -> None:
+        """Libellé changé : écrit, dans la brute, le repère mémorisé par
+        :meth:`onBeforeChangeLabel`."""
+        mark: str | None = getattr(self, "_typed_mark", None)
+        self._typed_mark = None
+        blank: DocumentObject = getattr(obj, "Base", None)
+        if mark is not None and is_wood_part(blank):
+            blank.Proxy.adopt_mark(blank, mark)
+
+    def _follow_placement(self, obj: DocumentObject) -> None:
         blank: DocumentObject = getattr(obj, "Base", None)
         if not is_wood_part(blank) or blank.Placement == obj.Placement:
             return
@@ -162,7 +232,17 @@ class MachinedPart(StatelessProxy):
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)
-        return not executing and not restoring_or_undoing(obj)
+        syncing: bool = getattr(self, "_syncing", False)
+        return not (executing or syncing) and not restoring_or_undoing(obj)
+
+    @contextmanager
+    def _synchronizing(self) -> Iterator[None]:
+        previous: bool = getattr(self, "_syncing", False)
+        self._syncing = True
+        try:
+            yield
+        finally:
+            self._syncing = previous
 
     @contextmanager
     def _executing(self) -> Iterator[None]:
@@ -171,6 +251,25 @@ class MachinedPart(StatelessProxy):
             yield
         finally:
             self._in_execute = False
+
+
+def _machined_label(machined: DocumentObject, blank_label: str) -> str:
+    """« {libellé de la brute} (usinée) », unique dans le document de ``machined``."""
+    text = translated(_MACHINED_LABEL, {"label": blank_label})
+    return label_for_mark(text, text, other_labels(machined))
+
+
+def sync_machined_label(blank: DocumentObject) -> None:
+    """Libellé de la pièce usinée de ``blank`` d'après celui de la brute (J6b, L3). Seule
+    écriture de la brute dans un autre objet (exception documentée de l'ADR 0011) ; sans effet
+    si la brute n'a pas de pièce usinée."""
+    machined = machined_part_of(blank)
+    if machined is None:
+        return
+    label = _machined_label(machined, str(blank.Label))
+    if machined.Label != label:
+        with machined.Proxy.synchronizing():
+            machined.Label = label
 
 
 def _checked_blank(obj: DocumentObject) -> DocumentObject:
@@ -236,7 +335,8 @@ def create_machined_part(blank: DocumentObject) -> DocumentObject:
     if container is not None:
         container.addObject(obj)
     obj.Base = blank
-    obj.Label = translated(_MACHINED_LABEL, {"label": str(blank.Label)})
+    with obj.Proxy.synchronizing():
+        obj.Label = _machined_label(obj, str(blank.Label))
     obj.Placement = blank.Placement
     blank.Visibility = False
     return obj

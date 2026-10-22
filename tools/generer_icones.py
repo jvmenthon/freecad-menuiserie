@@ -15,6 +15,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Final
 
 ICONS_DIR = Path(__file__).resolve().parents[1] / "freecad" / "menuiserie" / "resources" / "icons"
 
@@ -310,12 +311,69 @@ def liste_de_debit() -> str:
     return ic.svg(cadre=(22, 62, 40, 62), fond=_feuille(10))
 
 
+# Lettres tracées (cadre 10 x 14) : une icône ne dépend d'aucune police (pas de <text>).
+_LETTRES: Final = {
+    "C": "M10,2 Q8,0 5,0 Q0,0 0,7 Q0,14 5,14 Q8,14 10,12",
+    "D": "M0,0 V14 H4 Q10,14 10,7 Q10,0 4,0 Z",
+    "F": "M10,0 H0 V14 M0,7 H7",
+    "P": "M0,14 V0 H6 Q10,0 10,3.75 Q10,7.5 6,7.5 H0",
+    "S": "M10,2 Q8,0 5,0 Q0,0 0,3.5 Q0,7 5,7 Q10,7 10,10.5 Q10,14 5,14 Q2,14 0,12",
+    "V": "M0,0 L5,14 L10,0",
+}
+
+
+def _etiquette(texte: str, fond: str, bord: str) -> str:
+    """Étiquette d'extension de fichier (« CSV », « PDF ») posée en bas à droite de la feuille."""
+    cadre = f'  <rect x="20" y="38" width="42" height="22" rx="3" fill="{fond}" stroke="{bord}"'
+    trace = 'fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"'
+    lettres = [
+        f'  <path transform="translate({23 + 13 * rang},42)" d="{_LETTRES[lettre]}" {trace}/>'
+        for rang, lettre in enumerate(texte)
+    ]
+    return "\n".join([f'{cadre} stroke-width="2"/>', *lettres])
+
+
+def apercu_liste_de_debit() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    contour = 'stroke="#4e2f12" stroke-width="1.2" stroke-linejoin="round"'
+    manche = 'stroke="#2e3436" stroke-width="5" stroke-linecap="round"'
+    lignes = [
+        "  <!-- Aperçu de la liste de débit : la feuille vue à la loupe -->",
+        _feuille(6),
+        f'  <circle cx="40" cy="42" r="14" fill="#eef3f8" fill-opacity="0.95" {trait}/>',
+        f'  <path d="M50,52 L60,62" fill="none" {manche}/>',
+        f'  <polygon points="40,32 51,38 40,44 29,38" fill="#f1c98f" {contour}/>',
+        f'  <polygon points="29,38 40,44 40,52 29,46" fill="#c4884a" {contour}/>',
+        f'  <polygon points="51,38 40,44 40,52 51,46" fill="#99622b" {contour}/>',
+    ]
+    return _document(lignes)
+
+
 def export_liste_de_debit() -> str:
-    fleche = (
-        '  <path d="M30,44 H44 V36 L60,49 L44,62 V54 H30 Z" fill="#73d216" '
-        'stroke="#2c5e00" stroke-width="2" stroke-linejoin="round"/>'
-    )
-    return _document(["  <!-- Export de la liste de débit (CSV) -->", _feuille(6), fleche])
+    etiquette = _etiquette("CSV", "#4e9a06", "#2c5e00")
+    return _document(["  <!-- Export de la liste de débit (CSV) -->", _feuille(6), etiquette])
+
+
+def export_liste_de_debit_pdf() -> str:
+    etiquette = _etiquette("PDF", "#cc0000", "#7a0000")
+    return _document(["  <!-- Export de la liste de débit (PDF) -->", _feuille(6), etiquette])
+
+
+def numeroter_les_reperes() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    chiffre = 'fill="none" stroke="#2e3436" stroke-width="2.5" stroke-linecap="round"'
+    veinage = 'fill="none" stroke="#8f5902" stroke-width="1.5" stroke-linecap="round"'
+    lignes = [
+        "  <!-- Numérotation des repères : deux planches portant les repères 1 et 2 -->",
+        f'  <rect x="4" y="8" width="56" height="20" rx="2" fill="#c4884a" {trait}/>',
+        f'  <rect x="4" y="36" width="56" height="20" rx="2" fill="#c4884a" {trait}/>',
+        f'  <path d="M8,14 H34 M8,20 H46 M8,42 H30 M8,48 H44" {veinage}/>',
+        f'  <rect x="38" y="11" width="18" height="14" rx="2" fill="#ffffff" {trait}/>',
+        f'  <rect x="38" y="39" width="18" height="14" rx="2" fill="#ffffff" {trait}/>',
+        f'  <path d="M45,16 L48,13.5 V22.5" {chiffre}/>',
+        f'  <path d="M43.5,43.5 Q47,39 50.5,43.5 Q50.5,45.5 43.5,50 H51" {chiffre}/>',
+    ]
+    return _document(lignes)
 
 
 def tenon_mortaise() -> str:
@@ -467,13 +525,81 @@ def ensemble_relier() -> str:
     return ic.svg(cadre=(2, 50, 2, 50), devant=fleches)
 
 
+# --- Rotations X, Y, Z du panneau de la pièce de bois (J6c) ---------------------------------
+
+# Axe tourné : (vecteur de l'axe, deux vecteurs du plan de la flèche, rayon, couleur de l'axe).
+ROTATIONS = {
+    "X": ((1, 0, 0), (0, 1, 0), (0, 0, 1), 15.0, "#cc0000"),
+    "Y": ((0, 1, 0), (0, 0, 1), (1, 0, 0), 25.0, "#4e9a06"),
+    "Z": ((0, 0, 1), (1, 0, 0), (0, 1, 0), 25.0, "#3465a4"),
+}
+
+
+def _autour(centre: Point3, u: Point3, v: Point3, rayon: float, angle: float) -> Point3:
+    """Point du cercle de centre ``centre`` dans le plan (u, v), à l'angle ``angle`` (rad)."""
+    c, s = math.cos(angle), math.sin(angle)
+    return (
+        centre[0] + rayon * (c * u[0] + s * v[0]),
+        centre[1] + rayon * (c * u[1] + s * v[1]),
+        centre[2] + rayon * (c * u[2] + s * v[2]),
+    )
+
+
+def _rotation(axe: str) -> str:
+    """Planche avec l'axe X, Y ou Z qui la traverse et une flèche courbe autour de cet axe."""
+    direction, u, v, rayon, couleur = ROTATIONS[axe]
+    ic = Icone(f"Quart de tour autour de l'axe {axe} : planche, axe et flèche courbe")
+    taille = (44.0, 16.0, 8.0)
+    ic.boite((0, 0, 0), taille, "chene")
+    centre = (taille[0] / 2, taille[1] / 2, taille[2] / 2)
+    longueur = 30.0
+    ic.trait(
+        [
+            tuple(c - longueur * d for c, d in zip(centre, direction, strict=True)),
+            tuple(c + longueur * d for c, d in zip(centre, direction, strict=True)),
+        ],
+        couleur,
+        1.5,
+    )
+    debut, fin = math.radians(40), math.radians(310)
+    arc = [_autour(centre, u, v, rayon, debut + (fin - debut) * i / 24) for i in range(25)]
+    ic.trait(arc, couleur, 3.0)
+    pointe = _autour(centre, u, v, rayon, fin)
+    tangente = _autour((0, 0, 0), u, v, 1.0, fin + math.pi / 2)
+    radiale = _autour((0, 0, 0), u, v, 1.0, fin)
+    ic.bande(
+        [
+            tuple(c + 8 * t for c, t in zip(pointe, tangente, strict=True)),
+            tuple(c + 5 * r for c, r in zip(pointe, radiale, strict=True)),
+            tuple(c - 5 * r for c, r in zip(pointe, radiale, strict=True)),
+        ],
+        couleur,
+    )
+    return ic.svg()
+
+
+def rotation_x() -> str:
+    return _rotation("X")
+
+
+def rotation_y() -> str:
+    return _rotation("Y")
+
+
+def rotation_z() -> str:
+    return _rotation("Z")
+
+
 ICONES = {
     "menuiserie.svg": atelier,
     "Menuiserie_WoodPart.svg": piece_de_bois,
     "Menuiserie_Panel.svg": panneau,
     "Menuiserie_Species.svg": essences,
     "Menuiserie_CutList.svg": liste_de_debit,
-    "Menuiserie_ExportCutList.svg": export_liste_de_debit,
+    "Menuiserie_CutListPreview.svg": apercu_liste_de_debit,
+    "Menuiserie_CutListExport.svg": export_liste_de_debit,
+    "Menuiserie_CutListPdf.svg": export_liste_de_debit_pdf,
+    "Menuiserie_NumberMarks.svg": numeroter_les_reperes,
     "Menuiserie_MortiseTenon.svg": tenon_mortaise,
     "Menuiserie_TongueGroove.svg": rainure_languette,
     "Menuiserie_Rabbet.svg": feuillure,
@@ -487,6 +613,10 @@ ICONES = {
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
     "Menuiserie_FurnitureRemove.svg": ensemble_retirer,
     "Menuiserie_FurnitureRebind.svg": ensemble_relier,
+    # Rotations du panneau de la pièce de bois (J6c)
+    "Menuiserie_RotateX.svg": rotation_x,
+    "Menuiserie_RotateY.svg": rotation_y,
+    "Menuiserie_RotateZ.svg": rotation_z,
 }
 
 

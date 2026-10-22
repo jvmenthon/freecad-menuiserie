@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Quart de tour autour de l'axe Y : planche, axe et flèche courbe -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="6.34,22.53 20.02,14.63 57.66,36.36 43.98,44.26" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="6.34,30.43 6.34,22.53 43.98,44.26 43.98,52.16" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="57.66,44.26 43.98,52.16 43.98,44.26 57.66,36.36" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="57.66,18.58 6.34,48.21" fill="none" stroke="#4e9a06" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="45.75,22.42 48.68,27.57 50.97,32.95 52.53,38.34 53.30,43.54 53.26,48.36 52.39,52.60 50.75,56.10 48.38,58.73 45.39,60.38 41.87,61.00 37.98,60.56 33.86,59.07 29.67,56.60 25.57,53.23 21.71,49.11 18.25,44.38 15.32,39.22 13.03,33.85 11.47,28.45 10.70,23.25 10.74,18.43 11.61,14.20 13.25,10.69 15.62,8.07" fill="none" stroke="#4e9a06" stroke-width="3.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="20.02,4.55 12.34,3.00 18.89,13.13" fill="#4e9a06" fill-opacity="0.9"/>
+</svg>

@@ -37,7 +37,7 @@ def test_objet_du_document(document: Any) -> None:
     )
     assert proxy.TYPE == "Menuiserie::Dovetail"
     assert joint.Name == "Dovetail"
-    assert joint.Label == "Queue d'aronde"
+    assert joint.Label == f"Queue d'aronde : {joint.HostPart.Label} {joint.GuestPart.Label}"
     assert joint.Version == 1
     assert joint.getDocumentationOfProperty("Angle") == (
         "Angle des flancs des queues, en degrés (0 à 30) ; 0 = automatique (10°)."

@@ -28,7 +28,7 @@ def test_objet_du_document(document: Any) -> None:
     )
     assert proxy.TYPE == "Menuiserie::HalfLap"
     assert joint.Name == "HalfLap"
-    assert joint.Label == "Mi-bois"
+    assert joint.Label == f"Mi-bois : {joint.HostPart.Label} {joint.GuestPart.Label}"
     assert joint.Version == 1
     assert joint.getDocumentationOfProperty("Depth") == (
         "Profondeur de l'entaille de la pièce hôte ; 0 = moitié de l'épaisseur."

@@ -14,7 +14,7 @@ paramétrique : pièces de bois réelles, assemblages classiques et liste de dé
 |---|---|
 | J0 | Fondations : atelier chargeable, CI, outillage qualité |
 | J1 | Pièce de bois paramétrique, bibliothèque d'essences et de panneaux |
-| J2 | Liste de débit (tableau FreeCAD + export CSV) |
+| J2 | Liste de débit (tableau FreeCAD, export CSV et PDF, numérotation des repères) |
 | J3 | Assemblages : tenon-mortaise, rainure-languette, tourillons |
 | J4 | Ensembles (cotes et onglet **Ensemble**), mi-bois, queue d'aronde, onglet, gabarit de caisson |
 | J5 | Plans TechDraw, traductions, publication dans l'Addon Manager |
@@ -48,6 +48,38 @@ standard du matériau en un clic et surcotes de débit. Chaque modification est 
 aussitôt ; **OK** crée une seule entrée d'annulation, **Annuler** ne laisse rien. Un
 double-clic sur une pièce rouvre le panneau ; une cote pilotée par une expression y reste
 pilotée.
+
+## Poser une pièce contre une autre
+
+Avant de lancer **Pièce de bois**, sélectionnez dans la vue 3D une à trois **faces, arêtes ou
+sommets** (pièces de bois, pièces d'un ensemble ou d'un Std Part, objets d'un autre atelier :
+Part, PartDesign, esquisse…). La nouvelle pièce apparaît en aperçu semi-transparent **contre** ces
+éléments, du côté extérieur de la matière, et le groupe *Rotation* du panneau les cite
+(« Contre : Face3 de « Côté gauche » »). Rien de ce que vous avez sélectionné n'est modifié ni
+désélectionné.
+
+- **Une face** : la pièce est posée à plat sur la face, par le coin le plus proche du point où vous
+  avez cliqué, vers l'intérieur de la face.
+- **Une arête** : la pièce s'appuie sur la face voisine la plus tournée vers vous, une de ses
+  arêtes confondue avec l'arête choisie.
+- **Un sommet** : un coin de la pièce sur le sommet, dans le quart d'espace libre.
+- **Deux ou trois éléments** : la pièce touche tous les éléments. Deux faces en vis-à-vis
+  (l'intérieur de deux joues) étirent la longueur de la pièce à l'écart entre elles, sans jamais
+  changer l'épaisseur ; vous pouvez ensuite saisir la cote que vous voulez, votre saisie
+  l'emporte. Un élément qui n'est pas d'équerre avec le premier est ignoré, avec un message.
+- Les boutons **X**, **Y**, **Z** font tourner la pièce d'un quart de tour autour de l'axe du
+  document sans la détacher de ce qu'elle touche. Contre une face inclinée, ils tournent autour des
+  axes de cette face (sa normale et ses arêtes) : limite connue, utilisez Std Transform pour un
+  autre axe.
+- Si le premier élément est dans un Std Part, la pièce y est créée (même s'il est tourné ou
+  déplacé) ; vu à travers un lien, la pièce reste à côté de la copie. Si c'est un membre d'un
+  ensemble, la case **Ajouter à l'ensemble « … »** est cochée : la pièce suit ensuite les cotes
+  de l'ensemble ; décochez-la pour la laisser à part.
+
+La pièce ne garde aucun lien avec ce qu'elle touche : si l'élément bouge ensuite, elle ne le suit
+pas (passez par l'ensemble pour un meuble paramétrique). La sélection se fait **avant** de lancer
+la commande. Les éléments d'un même objet sont pris dans l'ordre de FreeCAD, qui regroupe les
+sélections par objet.
 
 ## Assembler deux pièces
 
@@ -92,6 +124,34 @@ Le bouton **Caisson** ouvre un panneau de paramètres (dimensions, épaisseurs, 
 fond, étagères et assemblages. Le résultat est un **ensemble ordinaire** : il se modifie par le
 même panneau (double-clic) et ne se régénère jamais depuis le gabarit, qui ne sert qu'à le
 construire (voir l'ADR 0010).
+
+## Liste de débit
+
+**Liste de débit** écrit dans le document une feuille de calcul « Liste de débit » et l'ouvre
+dans un onglet : une ligne par groupe de pièces identiques (repère, quantité, cotes finies et
+de débit, matériau, fil, volume, masse), puis les totaux par matériau et par épaisseur de débit et les tourillons en
+fournitures. Les tenons et queues d'aronde sont **compris** dans la longueur de débit ; une
+pièce vue par un `App::Link` compte une fois de plus. La liste couvre les objets
+**sélectionnés** (pièces, ensemble, Std Part), sinon tout le document. La liste est
+**vivante** : la commande crée aussi un objet « Mise à jour de la liste de débit » qui réécrit
+la feuille à chaque recalcul du document (cote modifiée, pièce ajoutée ou supprimée, tenon
+changé) ; Annuler restaure feuille et pièces ensemble. Supprimer cet objet arrête la mise à
+jour, relancer la commande la rétablit. Les colonnes que vous ajoutez à droite de la colonne O
+sont gardées, et la feuille reste une feuille FreeCAD ordinaire, lisible sans l'atelier.
+**Aperçu de la liste de débit** ouvre, avant tout export, une fenêtre qui montre la liste telle
+qu'elle sera exportée, avec la **miniature** isométrique de la pièce à chaque ligne (tenons et
+queues d'aronde visibles) et les boutons « Exporter en PDF… », « Exporter en CSV… » ; le PDF
+contient les mêmes miniatures. **Exporter la liste de débit (CSV)…** enregistre la même liste dans un fichier CSV au format
+international (séparateur virgule, point décimal, UTF-8 avec BOM) ; le format français reste
+disponible depuis la console : `api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`.
+**Exporter la liste de débit (PDF)…** produit un PDF prêt à imprimer (A4 paysage, marges de
+10 mm : titre, date, portée, tableau, totaux, fournitures et avertissements). **Numéroter les
+repères** donne un repère `M1`, `M2`… à chaque groupe de pièces identiques qui n'en a pas (les
+repères existants ne changent pas, le libellé de la pièce suit le repère) ; Annuler le retire en
+une fois. Ces commandes portent sur la sélection, sinon sur tout le document. Depuis la
+console : `api.make_cut_list(doc)`, `api.export_cut_list_csv(doc, "debit.csv")`,
+`api.export_cut_list_pdf(doc, "debit.pdf")` (demande l'interface de FreeCAD : Qt dessine le
+PDF) et `api.number_marks(doc)`.
 
 ## Pièce de bois (console Python)
 
@@ -163,7 +223,11 @@ Exemple complet (format 1, encodage UTF-8) :
 - `kind` : `solid` (massif), `plywood` (contreplaqué), `mdf` ou `melamine`.
 - `name` : libellé français, ou libellés par langue ; il doit être unique.
 - `density` : masse volumique en kg/m³ (50 à 2000) ; `thicknesses` : épaisseurs standard en mm
-  (0,1 à 300) ; `color` : couleur d'affichage `#RRGGBB` ; `has_grain` (facultatif) : fil du bois.
+  (0,1 à 300) ; `color` : couleur d'affichage `#RRGGBB` ; `has_grain` (facultatif) : fil du bois ;
+  `rough_thicknesses` (facultatif, massif) : épaisseurs de **brut** du commerce en mm (mêmes
+  bornes que `thicknesses`) : la liste de débit arrondit l'épaisseur de débit à la plus petite
+  épaisseur de brut qui couvre l'épaisseur finie + 3 mm de rabotage au moins
+  ([ADR 0015](docs/adr/0015-epaisseurs-de-brut.md)). Sans ce champ, pas d'arrondi.
 
 Le fichier est lu une fois par session ; après l'avoir modifié, relancez FreeCAD ou exécutez
 `from freecad.menuiserie.features.library import reload_library; reload_library()`. Une entrée

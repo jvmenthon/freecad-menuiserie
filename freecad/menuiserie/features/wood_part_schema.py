@@ -147,8 +147,9 @@ PROPERTIES: Final = (
         "Débit",
         QT_TRANSLATE_NOOP(
             "App::Property",
-            "Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 »). Des "
-            "pièces identiques peuvent partager le même repère.",
+            "Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 ») ; c'est "
+            "aussi son nom dans l'arborescence. Des pièces identiques peuvent partager le même "
+            "repère.",
         ),
     ),
     PropertySpec(
@@ -278,11 +279,26 @@ def add_missing_properties(
     schema.add_missing_properties(obj, PROPERTIES, _default_values(obj, material), enumerations)
 
 
-def apply_editor_modes(obj: DocumentObject, *, show_grain: bool = True) -> None:
-    """Modes d'édition du schéma ; ``GrainDirection`` est masquée si ``show_grain`` est faux
-    (matériau sans fil). ``setEditorMode`` n'est appelé que si le mode change."""
-    schema.apply_editor_modes(obj, [spec for spec in PROPERTIES if spec.name != "GrainDirection"])
+def apply_editor_modes(
+    obj: DocumentObject, *, show_grain: bool = True, material_read_only: bool = False
+) -> None:
+    """Modes d'édition des propriétés présentes, ceux du schéma (``PROPERTIES``), sauf deux
+    cas qui dépendent de la pièce : ``GrainDirection`` est masquée si ``show_grain`` est faux
+    (matériau sans fil) et ``Material`` est en lecture seule si ``material_read_only`` est vrai
+    (pièce d'un document plus récent, :func:`is_from_newer_version`). Une propriété absente est
+    ignorée ; ``setEditorMode`` n'est appelé que si le mode change."""
+    specs = [spec for spec in PROPERTIES if spec.name not in ("GrainDirection", "Material")]
+    schema.apply_editor_modes(obj, specs)
     show_grain_direction(obj, show_grain)
+    if "Material" in obj.PropertiesList:
+        schema.set_editor_mode(obj, "Material", READ_ONLY if material_read_only else EDITABLE)
+
+
+def is_from_newer_version(obj: DocumentObject) -> bool:
+    """Vrai si ``Version`` de la pièce dépasse ``MODEL_VERSION`` : document créé par une version
+    plus récente de l'atelier, dont le matériau n'est pas modifiable ici (issue #13)."""
+    version = getattr(obj, "Version", 0) if "Version" in obj.PropertiesList else 0
+    return isinstance(version, int) and version > MODEL_VERSION
 
 
 def show_grain_direction(obj: DocumentObject, visible: bool) -> None:
