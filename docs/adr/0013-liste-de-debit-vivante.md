@@ -55,8 +55,13 @@ inattendues.
   ne recalculait pas la liste). `Sources` est donc un `App::PropertyLinkList` ordinaire ;
   `Scope` reste un `PropertyLinkListHidden` (les objets choisis sont aussi dans `Sources`). Les
   pièces ont ainsi `CutList` dans leur `InList` : les recherches de l'atelier par `InList`
-  filtrent par type et ne sont pas touchées ; la suppression d'une pièce dans l'interface peut en
-  revanche signaler que la liste la référence (à confirmer à la recette).
+  filtrent par type et ne sont pas touchées. Pour que la suppression d'une pièce ne montre pas
+  l'avertissement « objets référencés » de FreeCAD (exigence de jv, J6), `CutList` a un
+  ViewProvider Python minimal (`gui/view_providers/cutlist.py`, sans état, icône de la commande)
+  dont `canDelete(obj)` est vrai pour tout objet de `Sources` ou de `Scope`, sur le modèle de la
+  pièce usinée ; vérifié en interface hors écran par `Std_Delete` (sans lui, une boîte bloque).
+  Posé par `make_cut_list` quand l'interface est chargée ; sans l'atelier, l'objet est affiché
+  comme un objet ordinaire, sans conséquence.
 - `Sources` contient les objets que la collecte lit (pièces, pièces usinées, ensembles, liens,
   conteneurs, assemblages par tourillons dont les deux pièces sont dans la portée) ; `mustExecute`
   ne compare que les quatre premières familles (ajouter un assemblage modifie ses pièces usinées).

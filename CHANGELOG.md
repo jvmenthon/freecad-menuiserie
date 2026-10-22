@@ -28,7 +28,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   document ouvert sans l'atelier (l'objet y est signalé sans proxy). Annuler restaure feuille et
   pièces ; nul ne dépend de l'objet (aucun cycle, rien de « Touched » après un recalcul) ;
   supprimer l'objet ou la feuille arrête la mise à jour, relancer la commande la rétablit. La
-  date de la feuille et l'infobulle de la commande le disent.
+  date de la feuille et l'infobulle de la commande le disent. Un ViewProvider minimal
+  (`ViewProviderCutList`, icône de la commande) laisse supprimer une pièce lue sans l'avertissement
+  « objets référencés » de FreeCAD.
 - `api.number_marks(doc, objects=None, prefix="M")` : donne un repère `M<n>` à chaque groupe de
   pièces sans repère (ensemble puis cotes décroissantes, premier numéro libre, pièces déjà
   repérées ou au repère piloté par une expression inchangées), en une transaction « Numéroter les

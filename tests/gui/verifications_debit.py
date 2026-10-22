@@ -291,6 +291,45 @@ def verifier_liste_vivante() -> list[str]:
     return avec_bureau("VerifDebitVivante", _liste_vivante)
 
 
+def _suppression_sans_avertissement(bureau: Bureau) -> list[str]:
+    from freecad.menuiserie import api
+    from freecad.menuiserie.gui.view_providers.cutlist import ViewProviderCutList
+
+    doc = bureau.doc
+    extra = api.make_wood_part(500, 100, 20, "chene", mark="Extra", doc=doc)
+    Gui.Command.get(LISTE).run()
+    objet = doc.getObject("CutList")
+    if objet is None:
+        return ["objet de mise à jour absent"]
+    etranger = doc.addObject("Part::Box", "Etranger")
+    proxy = objet.ViewObject.Proxy
+    problemes = [
+        *ecarts("ViewProvider posé", isinstance(proxy, ViewProviderCutList), True),
+        *ecarts("canDelete d'une pièce lue", proxy.canDelete(extra), True),
+        *ecarts("canDelete d'un objet étranger", proxy.canDelete(etranger), False),
+        *ecarts("icône", proxy.getIcon().endswith("Menuiserie_CutList.svg"), True),
+    ]
+    Gui.Selection.clearSelection()
+    Gui.Selection.addSelection(extra)
+    Gui.runCommand("Std_Delete")  # une boîte d'avertissement bloquerait ici (délai de la CI)
+    Gui.Selection.clearSelection()
+    doc.recompute()
+    return [
+        *problemes,
+        *ecarts("pièce supprimée", doc.getObject("Extra") is None, True),
+        *ecarts("liste sans la pièce", "Extra" in reperes(feuilles(doc)[0]), False),
+        *ecarts("liste conservée", doc.getObject("CutList") is not None, True),
+        *ecarts("aucun objet en erreur", [o.Name for o in doc.Objects if "Invalid" in o.State], []),
+        *ecarts("rien à recalculer", a_recalculer(doc), []),
+    ]
+
+
+def verifier_suppression_sans_avertissement() -> list[str]:
+    """J2f : le ViewProvider de la liste laisse supprimer une pièce lue sans l'avertissement
+    « objets référencés » ; la liste se recalcule sans elle."""
+    return avec_bureau("VerifDebitSuppression", _suppression_sans_avertissement)
+
+
 # --- G2, G3 : export CSV ------------------------------------------------------------------
 
 
@@ -412,6 +451,7 @@ VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_mise_a_jour_et_annulation,
     verifier_recalcul_avant_le_calcul,
     verifier_liste_vivante,
+    verifier_suppression_sans_avertissement,
     verifier_export_csv,
     verifier_export_sans_extension,
     verifier_export_annule_ou_refuse,

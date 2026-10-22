@@ -441,8 +441,19 @@ def make_cut_list(doc: Document, objects: Sequence[DocumentObject] | None = None
     transaction « Liste de débit » (Annuler restaure la feuille). Supprimer l'objet ou la feuille
     arrête la mise à jour ; un nouvel appel la rétablit."""
     sheet, messages = cutlist_object.ensure_cut_list(doc, objects)
+    _shown_cut_list(doc)
     report(messages)
     return sheet
+
+
+def _shown_cut_list(doc: Document) -> None:
+    """Pose le ViewProvider de la liste vivante (si l'interface est chargée et qu'il manque)."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.cutlist import ViewProviderCutList
+
+        cut_list = cutlist_object.find_cut_list(doc)
+        if cut_list is not None and not isinstance(cut_list.ViewObject.Proxy, ViewProviderCutList):
+            ViewProviderCutList(cut_list.ViewObject)
 
 
 def number_marks(
