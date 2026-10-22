@@ -108,6 +108,9 @@ class JointFeature(StatelessProxy):
     # Valeurs effectives affichées par le panneau (J3e) hors des champs : gabarit traduisible
     # rempli avec les champs numériques de ``resolve`` (« {host_angle} »), vide : rien.
     SUMMARY: ClassVar[str] = ""
+    # Faux quand les deux rôles sont symétriques (mi-bois, onglet) : pas de bouton
+    # « Inverser » dans le panneau (demande de jv).
+    INVERTIBLE: ClassVar[bool] = True
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Refuse dès l'import un type d'assemblage sans ``PARAMS`` (sinon : erreur au recalcul)."""

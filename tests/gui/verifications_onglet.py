@@ -71,11 +71,8 @@ def verifier_formulaire_de_l_onglet() -> list[str]:
                 (False, ANGLES.format("33,69", "56,31")),
             ),
             *ecarts("erreur masquée", widget(form, "errorLabel").isHidden(), True),
-        ]
-        widget(form, "invertButton").click()
-        problemes += [
-            *ecarts("hôte inversé", joint.HostPart.Label, "I"),
-            *ecarts("angles inversés", resume.text(), ANGLES.format("56,31", "33,69")),
+            # Demande de jv : pas de bouton « Inverser » pour un onglet (rôles symétriques).
+            *ecarts("bouton Inverser", form.findChild(QtGui.QPushButton, "invertButton"), None),
         ]
         valider()
         problemes += [
