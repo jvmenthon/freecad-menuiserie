@@ -332,9 +332,11 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """« OK » : transparence d'origine rétablie, pièce ajoutée à l'ensemble si la case est
         cochée, le tout avant la validation de la transaction. L'entrée dans l'ensemble passe en
         premier : son refus (message) n'empêche pas de rétablir la transparence."""
-        self._join_furniture()
-        if self._style is not None:
-            self._style.restore()
+        try:
+            self._join_furniture()
+        finally:
+            if self._style is not None:
+                self._style.restore()
 
     def _join_furniture(self) -> None:
         """Entrée dans l'ensemble de l'élément touché (options par défaut de J4, dans la même
@@ -426,5 +428,5 @@ def _furniture_gone(furniture: DocumentObject, document: DocumentObject) -> bool
     encore dans le document."""
     try:
         return not is_furniture(furniture) or document.getObject(furniture.Name) is None
-    except (ReferenceError, RuntimeError):
+    except Exception:  # pylint: disable=broad-exception-caught  # objet supprimé : type variable
         return True
