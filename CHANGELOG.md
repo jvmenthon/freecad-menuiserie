@@ -6,6 +6,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Aperçu et rotation de la pièce (J6c, ADR 0011) : en création, la pièce est affichée à 60 % de
+  transparence tant que le panneau est ouvert (`PreviewStyle`, rétablie à « OK », rien n'est
+  enregistré) ; trois boutons **X**, **Y**, **Z** (groupe « Position », icônes
+  `Menuiserie_RotateX/Y/Z` générées) font tourner la pièce d'un quart de tour autour de l'axe du
+  document : elle reste accrochée en création, tourne sur place (centre fixe) en modification,
+  et le fil tourne avec elle ; boutons inactifs si une expression pilote sa position (membre
+  d'un ensemble). `features/placement.py` (`to_placement`, `local_placement`,
+  `add_to_container`, `SnapSession`, `snap_part`, `rotate_part`). Les cotes restent modifiables
+  et la saisie l'emporte sur l'étirement de l'accrochage. Recette : `docs/recette/J6-scenarios-manuels.md`.
 - Nom de la pièce = repère (J6b, ADR 0011) : `core/naming.py` (`label_for_mark`,
   `mark_from_label`, suffixe « M1 (2) » pour les doublons) ; le libellé suit le repère (panneau,
   éditeur de propriétés, script, expression) et inversement (renommage dans l'arborescence, de la
@@ -19,8 +28,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `EdgeTarget`, `VertexTarget`, `Orientation`, `Turn`, `snap`, `turned_in_place`,
   `tangent_frame`). Une pièce se pose contre une face, une arête ou un sommet (coin sur le coin,
   à plat sur la face d'appui) ; deux ou trois éléments la font toucher chacun, et deux faces en
-  vis-à-vis étirent la longueur ou la largeur (jamais l'épaisseur) ; pivoter et basculer
-  (12 orientations) la gardent accrochée ; refus doux par avis (`ThicknessGap`, `GapOutOfRange`,
+  vis-à-vis étirent la longueur ou la largeur (jamais l'épaisseur) ; les boutons X, Y, Z
+  (24 orientations) la gardent accrochée ; refus doux par avis (`ThicknessGap`, `GapOutOfRange`,
   `NotSquare`, `TooMany`, `Conflict`).
 - Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
   **Retirer de l'ensemble** et **Relier les pièces** (une entrée d'annulation chacune, icônes
@@ -181,6 +190,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   panneau, paramètre piloté par une expression jamais écrit.
 
 ### Modifié
+- Panneau de la pièce de bois (J6c) : le groupe **Matériau** passe avant **Dimensions finies**,
+  suivi d'**Identification** puis de **Position** ; l'ordre des propriétés dans l'éditeur de
+  propriétés de FreeCAD (ordre de création) est inchangé.
+- `core/snap` (J6c, Q1 de jv) : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ;
+  `Orientation` porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des
+  axes du document.
+- Panneau de la pièce de bois : le groupe **Matériau** passe avant **Dimensions finies**, suivi
+  d'**Identification** puis de **Position** ; l'ordre des propriétés dans l'éditeur de propriétés
+  de FreeCAD (ordre de création) est inchangé.
+- `core/snap` : `Turn` devient `X`, `Y`, `Z` (au lieu de `PIVOT` et `TILT`) ; `Orientation`
+  porte l'une des 24 rotations d'une boîte ; `turned_in_place` tourne autour des axes du
+  document.
 - Panneaux de tâche : transactions, fermeture forcée et surveillance du document dans un socle
   commun (`gui/task_panels/base.py`, `ObjectTaskPanel`) partagé par la pièce de bois et les
   assemblages. L'aperçu de la pièce de bois ne recalcule plus les pages TechDraw ni les objets

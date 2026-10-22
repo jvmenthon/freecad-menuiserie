@@ -55,8 +55,13 @@ class ObjectTaskPanel:
 
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation."""
+        self._before_commit()
         self._finish(abort=False)
         return True
+
+    def _before_commit(self) -> None:
+        """Étape des sous-classes juste avant la validation (par exemple rétablir l'affichage
+        d'un aperçu) ; rien par défaut."""
 
     def reject(self) -> bool:
         """« Annuler » : abandon de la transaction (objet supprimé ou valeurs rétablies)."""
