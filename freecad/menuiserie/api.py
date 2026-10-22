@@ -41,7 +41,7 @@ from typing import Any
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.cutlist import CutList
+from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV, CsvDialect, CutList
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
@@ -409,7 +409,13 @@ def make_carcass(
 
 # --- Liste de débit (J2c) --------------------------------------------------------------------
 
-__all__ += ["cut_list_of", "export_cut_list_csv", "make_cut_list"]
+__all__ += [
+    "FRENCH_CSV",
+    "INTERNATIONAL_CSV",
+    "cut_list_of",
+    "export_cut_list_csv",
+    "make_cut_list",
+]
 
 
 def cut_list_of(doc: Document, objects: Sequence[DocumentObject] | None = None) -> CutList:
@@ -437,15 +443,19 @@ def make_cut_list(doc: Document, objects: Sequence[DocumentObject] | None = None
 
 
 def export_cut_list_csv(
-    doc: Document, path: str | os.PathLike[str], objects: Sequence[DocumentObject] | None = None
+    doc: Document,
+    path: str | os.PathLike[str],
+    objects: Sequence[DocumentObject] | None = None,
+    dialect: CsvDialect = INTERNATIONAL_CSV,
 ) -> Path:
-    """Exporte la liste de débit de ``doc`` (ou de ``objects``) en CSV français (``;``, virgule
-    décimale, UTF-8 avec BOM) dans ``path`` et renvoie le chemin. ``ValueError`` traduite, avant
+    """Exporte la liste de débit de ``doc`` (ou de ``objects``) en CSV dans ``path`` et renvoie le
+    chemin. Dialecte par défaut ``INTERNATIONAL_CSV`` (``,``, point décimal, UTF-8 avec BOM, CRLF) ;
+    ``FRENCH_CSV`` (``;``, virgule décimale) est disponible. ``ValueError`` traduite, avant
     toute écriture, si le chemin n'a pas l'extension ``.csv``, désigne un dossier, est dans un
     dossier absent ou non accessible en écriture. Écriture atomique ; le document n'est pas
     modifié."""
     target = cutlist_export.validated_path(path)
     cut_list = cut_list_of(doc, objects)
-    written = cutlist_export.export_csv(cut_list, target)
+    written = cutlist_export.export_csv(cut_list, target, dialect)
     report(notice_messages(cut_list.warnings))
     return written

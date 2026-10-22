@@ -18,7 +18,15 @@ from freecad.menuiserie.core.part_model import Allowances
 from tests.integration.aides import touched_names
 from tests.integration.bureau import LAYOUT, Bureau
 from tests.integration.cadre import Cadre, placement
-from tests.integration.debit import kinds, line_of, link, part, quantities
+from tests.integration.debit import (
+    has_mark_in,
+    kinds,
+    line_of,
+    link,
+    marks_of,
+    part,
+    quantities,
+)
 from tests.integration.types_assemblages import DOWELS, SCENARIOS, build
 
 pytestmark = pytest.mark.integration
@@ -63,7 +71,10 @@ def test_pieces_identiques_regroupees_et_ordre_naturel(document: Any) -> None:
     for mark in ("M10", "M2", "M2"):
         part(document, mark)
     cut_list = api.cut_list_of(document)
-    assert [(line.mark, line.quantity) for line in cut_list.lines] == [("M2", 2), ("M10", 1)]
+    assert [(line.marks, line.quantity) for line in cut_list.lines] == [
+        (("M2",), 2),
+        (("M10",), 1),
+    ]
 
 
 def test_piece_usinee_comptee_par_sa_brute(cadre_assemble: Cadre) -> None:
@@ -71,7 +82,8 @@ def test_piece_usinee_comptee_par_sa_brute(cadre_assemble: Cadre) -> None:
     machined = [o for o in doc.Objects if api.is_machined_part(o)]
     assert len(machined) == 4
     cut_list = api.cut_list_of(doc)
-    assert quantities(cut_list) == {"M1": 1, "M2": 1, "T1": 1, "T2": 1}
+    # C1' : M1 et M2 (hôtes), T1 et T2 (invitées) ont les mêmes cotes, ajouts et surcotes.
+    assert quantities(cut_list) == {"M1, M2": 2, "T1, T2": 2}
 
 
 def test_liste_en_lecture_seule(cadre_assemble: Cadre) -> None:
@@ -123,7 +135,7 @@ def test_selection_d_un_autre_document_refusee(document: Any) -> None:
             api.cut_list_of(document, [stranger])
         with pytest.raises(ValueError, match="autre document"):
             api.make_cut_list(document, [stranger])
-        assert api.cut_list_of(other).lines[0].mark == "E"
+        assert api.cut_list_of(other).lines[0].marks == ("E",)
     finally:
         App.closeDocument(other.Name)
 
@@ -177,9 +189,9 @@ def test_lien_vers_un_ensemble_compte_aussi_les_tourillons(bureau: Bureau) -> No
     copy = link(doc, bureau.furniture, name="Copie")
     once = api.cut_list_of(doc, [bureau.furniture])
     twice = api.cut_list_of(doc)
-    assert set(quantities(once)) == DESK_MARKS
+    assert marks_of(once) == DESK_MARKS
     assert quantities(api.cut_list_of(doc, [copy])) == quantities(once)
-    assert quantities(twice) == {mark: 2 for mark in DESK_MARKS}
+    assert quantities(twice) == {mark: 2 * count for mark, count in quantities(once).items()}
     assert sum(item.quantity for item in once.hardware) == dowel_total(bureau)
     assert api.cut_list_of(doc, [copy]).hardware == once.hardware
     assert sum(item.quantity for item in twice.hardware) == 2 * dowel_total(bureau)
@@ -204,7 +216,7 @@ def test_ajouts_selon_l_assemblage(document: Any, scenario: Any) -> None:
                 + getattr(line.additions, axis)
                 + getattr(line.allowances, axis)
             )
-            assert getattr(line.rough, axis) == pytest.approx(expected), (line.mark, axis)
+            assert getattr(line.rough, axis) == pytest.approx(expected), (line.marks, axis)
 
 
 def test_tenons_inclus_dans_la_longueur_de_debit(cadre: Cadre) -> None:
@@ -263,11 +275,13 @@ def test_tourillons_regroupes_par_diametre_et_longueur(bureau: Bureau) -> None:
 def test_colonne_ensemble_et_selection_d_un_ensemble(bureau: Bureau) -> None:
     extra = part(bureau.doc, "Hors ensemble")
     whole = api.cut_list_of(bureau.doc)
-    assert set(quantities(whole)) == DESK_MARKS | {"Hors ensemble"}
+    assert marks_of(whole) == DESK_MARKS | {"Hors ensemble"}
     assert line_of(whole, "Hors ensemble").furniture == ()
-    assert {line.furniture for line in whole.lines if line.mark in DESK_MARKS} == {("Bureau",)}
+    assert {line.furniture for line in whole.lines if has_mark_in(line, DESK_MARKS)} == {
+        ("Bureau",)
+    }
     selected = api.cut_list_of(bureau.doc, [bureau.furniture])
-    assert set(quantities(selected)) == DESK_MARKS
+    assert marks_of(selected) == DESK_MARKS
     assert extra.isValid()
 
 
@@ -281,10 +295,12 @@ def test_sous_ensemble_lu_avec_son_propre_libelle(bureau: Bureau) -> None:
         furniture=bureau.furniture,
     )
     cut_list = api.cut_list_of(bureau.doc, [bureau.furniture])
-    carcass_lines = [line for line in cut_list.lines if line.mark not in DESK_MARKS]
+    carcass_lines = [line for line in cut_list.lines if not has_mark_in(line, DESK_MARKS)]
     assert sum(line.quantity for line in carcass_lines) == 6
     assert {line.furniture for line in carcass_lines} == {("Caisson",)}
-    assert {line.furniture for line in cut_list.lines if line.mark in DESK_MARKS} == {("Bureau",)}
+    assert {line.furniture for line in cut_list.lines if has_mark_in(line, DESK_MARKS)} == {
+        ("Bureau",)
+    }
 
 
 def test_ensembles_differents_meme_ligne(document: Any) -> None:
@@ -294,7 +310,7 @@ def test_ensembles_differents_meme_ligne(document: Any) -> None:
     api.make_furniture([first], "Armoire A")
     api.make_furniture([second], "Armoire B")
     [line] = api.cut_list_of(document).lines
-    assert (line.mark, line.quantity, line.furniture) == ("M1", 2, ("Armoire A", "Armoire B"))
+    assert (line.marks, line.quantity, line.furniture) == (("M1",), 2, ("Armoire A", "Armoire B"))
 
 
 def test_caisson_complet(document: Any) -> None:
@@ -333,7 +349,9 @@ def test_forme_usinee_invalide_ajouts_nuls_et_avertissement(cadre: Cadre) -> Non
     machined = cadre.machined("T1")
     assert "Invalid" in machined.State or "Touched" in machined.State
     cut_list = api.cut_list_of(cadre.doc)
-    assert quantities(cut_list)["T1"] == 1
+    # T1 (ajouts nuls faute de forme valide) et T2 (sans assemblage) se regroupent.
+    assert line_of(cut_list, "T1").marks == ("T1", "T2")
+    assert line_of(cut_list, "T1").quantity == 2
     assert line_of(cut_list, "T1").additions == Allowances()
     assert "NoMachinedShape" in kinds(cut_list)
 
@@ -345,7 +363,7 @@ def test_tourillons_impossibles_signales(document: Any) -> None:
     cut_list = api.cut_list_of(document)
     assert cut_list.hardware == ()
     assert "UnreadableDowels" in kinds(cut_list)
-    assert set(quantities(cut_list)) == {"H", "I"}
+    assert marks_of(cut_list) == {"H", "I"}
 
 
 # --- D8 : pièce d'un document plus récent ---------------------------------------------------
@@ -359,6 +377,7 @@ def test_categorie_inconnue_listee_avec_point_d_interrogation(document: Any, boa
     future.Category = "Future"
     fine = board(document)
     fine.Mark = "M1"
+    fine.Length = future.Length.Value + 100  # cotes égales : regroupées (Q1 b)
     cut_list = api.cut_list_of(document)
     assert quantities(cut_list) == {"F1": 1, "M1": 1}
     assert line_of(cut_list, "F1").material_name.startswith("? ")
@@ -373,7 +392,12 @@ def test_categorie_inconnue_listee_avec_point_d_interrogation(document: Any, boa
 
 def test_bureau_lignes_et_cotes(bureau: Bureau) -> None:
     cut_list = api.cut_list_of(bureau.doc)
-    assert [line.mark for line in cut_list.lines] == sorted(DESK_MARKS)
+    # C1' : les deux joues (mêmes cotes) forment une ligne ; tri par premier repère.
+    assert [line.marks for line in cut_list.lines] == [
+        ("Joue droite", "Joue gauche"),
+        ("Plateau",),
+        ("Voile",),
+    ]
     plateau = line_of(cut_list, "Plateau")
     assert (plateau.finished.length, plateau.finished.width, plateau.finished.thickness) == (
         1200,

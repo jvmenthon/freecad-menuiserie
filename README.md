@@ -135,8 +135,9 @@ pièce vue par un `App::Link` compte une fois de plus. La liste couvre les objet
 **sélectionnés** (pièces, ensemble, Std Part), sinon tout le document. La feuille n'est
 **pas recalculée toute seule** : relancez la commande après une modification (les colonnes que
 vous ajoutez à droite de la colonne O sont gardées). **Exporter la liste de débit (CSV)…**
-enregistre la même liste dans un fichier que Excel et LibreOffice ouvrent directement en
-français (séparateur point-virgule, virgule décimale, UTF-8). Depuis la console :
+enregistre la même liste dans un fichier CSV au format international (séparateur virgule,
+point décimal, UTF-8) ; le format français reste disponible depuis la console :
+`api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`. Depuis la console :
 `api.make_cut_list(doc)` et `api.export_cut_list_csv(doc, "debit.csv")`.
 
 ## Pièce de bois (console Python)

@@ -120,14 +120,14 @@ class CutListSheetCommand(CutListCommand):
 
 
 class CutListExportCommand(CutListCommand):
-    """Exporte la liste de débit en CSV (français : ``;``, virgule décimale, UTF-8 avec BOM)."""
+    """Exporte la liste de débit en CSV (international : ``,``, point décimal, UTF-8 avec BOM)."""
 
     NAME = CUT_LIST_EXPORT
     MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_CutListExport", "Exporter la liste de débit (CSV)…")
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_CutListExport",
-        "Enregistre la liste de débit dans un fichier CSV qui s'ouvre directement dans Excel ou "
-        "LibreOffice en français. Limitée aux objets sélectionnés, sinon à tout le document ; "
+        "Enregistre la liste de débit dans un fichier CSV au format international (virgule, "
+        "point décimal). Limitée aux objets sélectionnés, sinon à tout le document ; "
         "le document n'est pas modifié.",
     )
 

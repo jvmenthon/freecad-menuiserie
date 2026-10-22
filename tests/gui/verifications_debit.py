@@ -48,8 +48,9 @@ def tableau(feuille: Any, colonnes: str = COLONNES) -> list[list[str]]:
 
 
 def reperes(feuille: Any) -> list[str]:
-    """Repères de la colonne A (cellules non vides)."""
-    return [ligne[0] for ligne in tableau(feuille, "A") if ligne[0]]
+    """Repères de la colonne A (cellules non vides) ; une ligne regroupe ses repères « M1, M3 »."""
+    cellules = [ligne[0] for ligne in tableau(feuille, "A") if ligne[0]]
+    return [repere for cellule in cellules for repere in cellule.split(", ")]
 
 
 def a_recalculer(doc: Any) -> list[str]:

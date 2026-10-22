@@ -160,9 +160,10 @@ class Hardware:
 
 @dataclass(frozen=True)
 class CutLine:
-    """Un groupe de pièces identiques ; volumes et masses = unitaires fois ``quantity``."""
+    """Un groupe de pièces identiques ; volumes et masses = unitaires fois ``quantity``.
+    ``marks`` : repères distincts non vides des pièces du groupe, en ordre naturel (C1')."""
 
-    mark: str
+    marks: tuple[str, ...]
     quantity: int
     material_id: str
     material_name: str
@@ -177,8 +178,8 @@ class CutLine:
 
     @property
     def display_mark(self) -> str:
-        """Repère affiché : « — » pour une pièce sans repère."""
-        return self.mark or NO_MARK_DISPLAY
+        """Repères affichés (« M1, M3 »), ou « — » pour un groupe sans repère."""
+        return ", ".join(self.marks) or NO_MARK_DISPLAY
 
     def volume_m3(self, rough: bool = False) -> float:
         """Volume du groupe en m³, en cotes finies ou (``rough``) de débit."""

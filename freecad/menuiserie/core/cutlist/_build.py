@@ -25,6 +25,8 @@ from freecad.menuiserie.core.notice import Notice
 _KEY_DECIMALS: Final = 2  # cotes comparées au centième de mm
 _DIGITS: Final = re.compile(r"(\d+)")
 
+GroupKey = tuple[object, ...]  # clé de regroupement d'une pièce (C1')
+
 
 @dataclass(frozen=True)
 class CutList:
@@ -45,12 +47,11 @@ def _rounded(*values: float) -> tuple[float, ...]:
     return tuple(round(value, _KEY_DECIMALS) for value in values)
 
 
-def _group_key(entry: CutEntry) -> tuple[object, ...]:
-    """Clé de regroupement (Q1) : repère, matériau, cotes finies, ajouts, surcotes, fil."""
+def group_key(entry: CutEntry) -> GroupKey:
+    """Clé de regroupement (C1') : matériau, cotes finies, ajouts, surcotes, fil (sans repère)."""
     record = entry.record
     finished, allowances, additions = record.finished, record.allowances, entry.additions
     return (
-        record.mark,
         record.material_id,
         _rounded(finished.length, finished.width, finished.thickness),
         _rounded(additions.length, additions.width, additions.thickness),
@@ -66,12 +67,12 @@ def natural_key(text: str) -> tuple[tuple[int, int, str], ...]:
 
 
 def _line_order(line: CutLine) -> tuple[Any, ...]:
-    """Repère (naturel, sans repère en dernier), matériau, puis cotes de débit décroissantes."""
+    """Premier repère (naturel, sans repère en dernier), matériau, puis cotes décroissantes."""
     sizes = (line.finished.length, line.finished.width, line.finished.thickness)
     return (
-        not line.mark,
-        natural_key(line.mark),
-        line.mark,
+        not line.marks,
+        tuple(natural_key(mark) for mark in line.marks),
+        line.marks,
         natural_key(line.material_name),
         line.material_id,
         tuple(-size for size in sizes),
@@ -80,12 +81,17 @@ def _line_order(line: CutLine) -> tuple[Any, ...]:
     )
 
 
+def _mark_order(mark: str) -> tuple[tuple[tuple[int, int, str], ...], str]:
+    return natural_key(mark), mark
+
+
 def _make_line(entries: Sequence[CutEntry]) -> CutLine:
     first = entries[0]
     record = first.record
     furniture = sorted({entry.furniture for entry in entries if entry.furniture}, key=natural_key)
+    marks = sorted({entry.record.mark for entry in entries if entry.record.mark}, key=_mark_order)
     return CutLine(
-        mark=record.mark,
+        marks=tuple(marks),
         quantity=sum(entry.quantity for entry in entries),
         material_id=record.material_id,
         material_name=record.material_name,
@@ -139,17 +145,17 @@ def _grouped_hardware(items: Iterable[Hardware]) -> tuple[Hardware, ...]:
     return tuple(sorted(grouped, key=lambda h: (h.kind.value, h.diameter, h.length)))
 
 
-def _warnings(lines: Sequence[CutLine]) -> tuple[Notice, ...]:
-    """Repère réutilisé pour des pièces différentes (C2) ; pièces sans repère (Q5)."""
+def _warnings(lines: Sequence[CutLine], unmarked: int) -> tuple[Notice, ...]:
+    """Repère porté par plusieurs lignes (C2') ; pièces sans repère (Q5)."""
     counts: dict[str, int] = defaultdict(int)
     for line in lines:
-        counts[line.mark] += 1
+        for mark in line.marks:
+            counts[mark] += 1
     notices = [
         Notice(CutNoticeKind.REPEATED_MARK, {"mark": mark})
-        for mark in sorted(counts, key=natural_key)
-        if mark and counts[mark] > 1
+        for mark in sorted(counts, key=_mark_order)
+        if counts[mark] > 1
     ]
-    unmarked = sum(line.quantity for line in lines if not line.mark)
     if unmarked:
         notices.append(Notice(CutNoticeKind.MISSING_MARK, {"count": str(unmarked)}))
     return tuple(notices)
@@ -158,8 +164,12 @@ def _warnings(lines: Sequence[CutLine]) -> tuple[Notice, ...]:
 def build_cut_list(entries: Iterable[CutEntry], hardware: Iterable[Hardware] = ()) -> CutList:
     """Liste de débit : regroupe les entrées de même clé, trie, totalise par matériau et
     regroupe les fournitures. Les avertissements ne bloquent jamais."""
-    groups: dict[tuple[object, ...], list[CutEntry]] = {}
+    groups: dict[GroupKey, list[CutEntry]] = {}
+    unmarked = 0
     for entry in entries:
-        groups.setdefault(_group_key(entry), []).append(entry)
+        groups.setdefault(group_key(entry), []).append(entry)
+        if not entry.record.mark:
+            unmarked += entry.quantity
     lines = tuple(sorted((_make_line(group) for group in groups.values()), key=_line_order))
-    return CutList(lines, _totals(lines), _grouped_hardware(hardware), _warnings(lines))
+    warnings = _warnings(lines, unmarked)
+    return CutList(lines, _totals(lines), _grouped_hardware(hardware), warnings)

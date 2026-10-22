@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
 import pytest
 
@@ -25,7 +26,12 @@ TENON = Allowances(60.0, 0.0, 0.0)
 
 
 def marks(entries: list[CutEntry]) -> list[str]:
-    return [line.mark for line in build_cut_list(entries).lines]
+    return [line.display_mark for line in build_cut_list(entries).lines]
+
+
+def sized(mark: str, length: float, **options: Any) -> CutEntry:
+    """Entrée de longueur ``length`` : deux longueurs différentes ne se regroupent pas."""
+    return entry(mark, (length, 100.0, 22.0), **options)
 
 
 # --- C1 : regroupement et ordre -----------------------------------------------------------
@@ -33,17 +39,39 @@ def marks(entries: list[CutEntry]) -> list[str]:
 
 def test_pieces_identiques_regroupees() -> None:
     result = build_cut_list([entry(quantity=1), entry(quantity=2), entry("M2", (500, 80, 22))])
-    assert [(line.mark, line.quantity) for line in result.lines] == [("M1", 3), ("M2", 1)]
+    assert [(line.marks, line.quantity) for line in result.lines] == [(("M1",), 3), (("M2",), 1)]
     assert result.warnings == ()
 
 
+def test_reperes_differents_de_meme_cle_dans_une_seule_ligne() -> None:
+    entries = [entry("M3"), entry("M1", quantity=2), entry("M10"), entry("M1")]
+    (line,) = build_cut_list(entries).lines
+    assert line.marks == ("M1", "M3", "M10")
+    assert line.display_mark == "M1, M3, M10"
+    assert line.quantity == 5
+
+
+def test_repere_n_entre_pas_dans_la_cle() -> None:
+    result = build_cut_list([entry("A"), entry("B"), entry("")])
+    (line,) = result.lines
+    assert (line.marks, line.quantity) == (("A", "B"), 3)
+    (warning,) = result.warnings
+    assert warning.kind is CutNoticeKind.MISSING_MARK
+    assert warning.message == "1 pièce(s) sans repère, regroupées par cotes."
+
+
 def test_ordre_naturel_des_reperes() -> None:
-    entries = [entry(m) for m in ("M10", "M2", "M1", "m3", "A12", "A2")]
+    entries = [sized(m, 100.0 + i) for i, m in enumerate(("M10", "M2", "M1", "m3", "A12", "A2"))]
     assert marks(entries) == ["A2", "A12", "M1", "M2", "m3", "M10"]
 
 
 def test_pieces_sans_repere_en_dernier() -> None:
-    assert marks([entry(""), entry("Z9"), entry("A1")]) == ["A1", "Z9", ""]
+    assert marks([entry(""), sized("Z9", 500.0), sized("A1", 600.0)]) == ["A1", "Z9", "—"]
+
+
+def test_tri_par_premier_repere() -> None:
+    entries = [sized("M5", 100.0), sized("M2", 200.0), sized("M9", 200.0), entry("M1")]
+    assert marks([*entries, sized("M3", 300.0)]) == ["M1", "M2, M9", "M3", "M5"]
 
 
 def test_ordre_materiau_puis_cotes_decroissantes() -> None:
@@ -104,7 +132,7 @@ def test_cle_naturelle(text: str, other: str) -> None:
     ],
     ids=["cotes", "materiau", "fil", "surcotes", "ajouts"],
 )
-def test_repere_reutilise_pour_des_pieces_differentes(other: CutEntry) -> None:
+def test_repere_reutilise_pour_des_pieces_differentes(other: CutEntry) -> None:  # C2'
     result = build_cut_list([entry(), other])
     assert len(result.lines) == 2
     (warning,) = result.warnings
@@ -117,13 +145,29 @@ def test_avertissement_par_repere_une_seule_fois() -> None:
     assert len(build_cut_list(entries).warnings) == 1
 
 
+def test_repere_repete_dans_une_ligne_a_plusieurs_reperes() -> None:
+    entries = [entry("M1"), entry("M2"), sized("M2", 300.0), sized("M4", 300.0)]
+    result = build_cut_list(entries)
+    assert [line.marks for line in result.lines] == [("M1", "M2"), ("M2", "M4")]
+    (warning,) = result.warnings
+    assert warning.message == "Repère M2 utilisé pour des pièces différentes."
+
+
+def test_meme_repere_dans_un_meme_groupe_sans_avertissement() -> None:
+    result = build_cut_list([entry("M1"), entry("M1", quantity=2)])
+    assert result.warnings == ()
+
+
 # --- Q5 : pièces sans repère ---------------------------------------------------------------
 
 
 def test_pieces_sans_repere_regroupees_par_cotes_avec_avertissement() -> None:
     entries = [entry("", quantity=2), entry("", quantity=1), entry("", (300, 50, 20))]
     result = build_cut_list(entries)
-    assert [(line.display_mark, line.quantity) for line in result.lines] == [("—", 3), ("—", 1)]
+    assert [(line.display_mark, line.marks, line.quantity) for line in result.lines] == [
+        ("—", (), 3),
+        ("—", (), 1),
+    ]
     (warning,) = result.warnings
     assert warning.kind is CutNoticeKind.MISSING_MARK
     assert warning.message == "4 pièce(s) sans repère, regroupées par cotes."
