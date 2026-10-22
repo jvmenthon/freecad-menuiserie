@@ -174,8 +174,8 @@ def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object)
 
     Paramètres facultatifs, 0 = automatique : ``tail_count`` (nombre de queues),
     ``pin_width`` (largeur des griffes au plus étroit, en mm, le tiers de l'épaisseur de
-    ``host``), ``slope`` (pente 1:n, 1:6). Mêmes validations et même absence de transaction que
-    :func:`make_mortise_tenon`.
+    ``host``), ``angle`` (angle des flancs en degrés, 10° ; au plus 30°). Mêmes validations et
+    même absence de transaction que :func:`make_mortise_tenon`.
     """
     return _make_joint(create_dovetail, host, guest, params)
 

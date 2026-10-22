@@ -29,7 +29,7 @@ joues, voile, deux jeux de tourillons). Ne pas encore créer l'ensemble.
 | 2.1 | Créer une **Pièce de bois** « Tablette » (800 × 300 × 18) posée entre les joues, puis la sélectionner avec l'ensemble, bouton **Ajouter à l'ensemble**. | Elle apparaît sous l'ensemble, avec ses propriétés du groupe « Ensemble » ; les autres pièces gardent leurs options. |
 | 2.2 | Double-clic sur l'ensemble, choisir Tablette. | Elle figure dans la liste des membres avec ses six distances. |
 | 2.3 | Sélectionner la tablette, puis la commande *Retirer de l'ensemble*. | Elle garde sa forme, sans expression ni propriété « Ensemble ». *Annuler* la remet. |
-| 2.4 | Créer un second ensemble (par exemple deux autres pièces de bois, bouton **Ensemble**), puis sélectionner une pièce du bureau et ce second ensemble et tenter **Ajouter à l'ensemble**. | Refus avec un message en français, rien n'est modifié. |
+| 2.4 | Créer un second ensemble (par exemple deux autres pièces de bois, bouton **Ensemble**), puis sélectionner une pièce du bureau et ce second ensemble et tenter **Ajouter à l'ensemble**. | Refus avec un message en français dans une boîte d'avertissement (et la barre d'état), rien n'est modifié. |
 
 ## 3. Changer les cotes, distances fixes et non fixes
 
@@ -69,8 +69,8 @@ de l'utilisateur). Puis :
 | N° | Action | Résultat attendu |
 |---|---|---|
 | 6.1 | Deux planches 400 × 150 × 18 en angle : H à plat en (0, 0, 0) ; I debout sur son bout en (18, 0, 18), tournée de −90° autour de Y. | Angle droit, face extérieure de I à fleur du bout de H. |
-| 6.2 | Sélectionner H puis I, bouton **Queue d'aronde**. | Panneau : 3 queues, griffes 6 mm, pente 1:6 (valeurs automatiques affichées) ; queues sur I, logements dans H, un seul solide chacune. |
-| 6.3 | Régler 4 queues, pente 8, OK. | Le dessin change, rien n'est en erreur. |
+| 6.2 | Sélectionner H puis I, bouton **Queue d'aronde**. | Panneau : 3 queues, griffes 6 mm, angle 10° (valeurs automatiques affichées) ; queues sur I, logements dans H, un seul solide chacune. |
+| 6.3 | Régler 4 queues, angle 8° (champ en degrés), OK. | Le dessin change, rien n'est en erreur. |
 | 6.4 | Largeur des deux planches à 200 mm (ou mettre les deux dans un ensemble et passer sa profondeur de 150 à 200). | 4 queues automatiques, aucune erreur. |
 | 6.5 | Griffes de 60 mm. | Message « Queues trop étroites… », pièces en erreur ; revenir à 0 les rétablit. |
 

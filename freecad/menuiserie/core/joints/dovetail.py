@@ -28,17 +28,17 @@ from freecad.menuiserie.core.joints._base import (
     MAX_COUNT,
     JointKind,
     JointPlan,
+    angle_param,
     count_param,
     length_param,
     mm_round,
     mm_text,
-    ratio_param,
     validate_params,
 )
 from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame, contact_frame
 
 __all__ = [
-    "DEFAULT_SLOPE",
+    "DEFAULT_ANGLE_DEG",
     "MAX_TAIL_COUNT",
     "DovetailParams",
     "DovetailStrategy",
@@ -46,7 +46,7 @@ __all__ = [
 ]
 
 MAX_TAIL_COUNT: Final = MAX_COUNT  # nombre saisi de 0 (automatique) à 50
-DEFAULT_SLOPE: Final = 6.0  # pente 1:6, compromis feuillus / résineux
+DEFAULT_ANGLE_DEG: Final = 10.0  # ≈ pente 1:5,7 (feuillus 1:6 à 1:8, résineux 1:5)
 MIN_TAIL_BASE_MM: Final = 1.0  # largeur minimale d'une queue à l'épaulement
 
 NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
@@ -57,7 +57,7 @@ NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
 TOO_NARROW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Queues trop étroites : {count} queues dans {width} mm avec des griffes de {pin} mm et une "
-    "pente 1:{slope}.",
+    "angle de {angle} °.",
 )
 
 
@@ -67,7 +67,7 @@ class DovetailParams:
 
     tail_count: int = count_param(0)
     pin_width: float = length_param(0.0)  # griffes au plus étroit, face extérieure de l'hôte
-    slope: float = ratio_param(0.0)  # pente 1:n des flancs des queues
+    angle: float = angle_param(0.0)  # angle des flancs des queues, en degrés
 
     def __post_init__(self) -> None:
         validate_params(self)
@@ -75,12 +75,12 @@ class DovetailParams:
 
 @dataclass(frozen=True)
 class DovetailValues:
-    """Valeurs effectives (mm), affichées par le panneau : nombre, griffes, pente, largeurs
+    """Valeurs effectives (mm), affichées par le panneau : nombre, griffes, angle (°), largeurs
     des queues et position de chacune côté pointe, le long du contact depuis son bord."""
 
     tail_count: int
     pin_width: float
-    slope: float
+    angle: float  # degrés
     tail_width: float  # t : côté pointe (face extérieure de l'hôte)
     tail_base: float  # b : côté épaulement (face intérieure de l'hôte)
     tails: tuple[tuple[float, float], ...]
@@ -88,15 +88,15 @@ class DovetailValues:
 
 class DovetailStrategy:
     """Queues de largeur égale entre des griffes de largeur ``p`` côté pointe (griffes des
-    bords comprises, droites du côté du bord), flancs en pente 1:n ; 3 queues environ par
-    largeur de trois épaisseurs."""
+    bords comprises, droites du côté du bord), flancs inclinés de l'angle choisi ; 3 queues
+    environ par largeur de trois épaisseurs."""
 
     kind: ClassVar[JointKind] = JointKind.DOVETAIL
 
     def resolve(
         self, host: PlacedBlock, guest: PlacedBlock, params: DovetailParams
     ) -> DovetailValues:
-        """Valeurs effectives : nombre, griffes, pente et positions des queues."""
+        """Valeurs effectives : nombre, griffes, angle et positions des queues."""
         return _values(_through_frame(host, guest), params)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: DovetailParams) -> JointPlan:
@@ -158,22 +158,22 @@ def _values(through: _Through, params: DovetailParams) -> DovetailValues:
     width = through.width
     count = params.tail_count or max(1, math.floor(width / (3 * through.thickness) + 0.5))
     pin = params.pin_width or mm_round(through.depth / 3)
-    slope = params.slope or DEFAULT_SLOPE
+    angle = params.angle or DEFAULT_ANGLE_DEG
     tail_width = (width - (count + 1) * pin) / count
-    tail_base = tail_width - 2 * through.depth / slope
+    tail_base = tail_width - 2 * through.depth * math.tan(math.radians(angle))
     if tail_width <= 0 or tail_base < MIN_TAIL_BASE_MM:
         values = {
             "count": str(count),
             "width": mm_text(width),
             "pin": mm_text(pin),
-            "slope": mm_text(slope),
+            "angle": mm_text(angle),
         }
         raise JointError(TOO_NARROW, values)
     starts = (pin + i * (tail_width + pin) for i in range(count))
     return DovetailValues(
         tail_count=count,
         pin_width=pin,
-        slope=slope,
+        angle=angle,
         tail_width=tail_width,
         tail_base=tail_base,
         tails=tuple((start, start + tail_width) for start in starts),
@@ -187,7 +187,7 @@ def _tail(
     (faces intérieure et extérieure, face extérieure de l'invitée), repère de l'invitée.
 
     Trapèze dans le plan (largeur, normale) : ``tail`` côté pointe (à ``L`` de l'épaulement),
-    rétréci de ``L / slope`` de chaque côté à l'épaulement ; flancs prolongés dans le
+    rétréci de ``L tan(angle)`` de chaque côté à l'épaulement ; flancs prolongés dans le
     dépassement. Extrudé sur l'épaisseur."""
     frame = through.frame
     depth = through.depth
@@ -201,8 +201,10 @@ def _tail(
         point = point.with_component(frame.width_axis, origin + across)
         return point.with_component(frame.normal, frame.guest_plane + frame.sign * along)
 
+    flank = math.tan(math.radians(values.angle))  # retrait par unité de profondeur
+
     def inset(along: float) -> float:
-        return (depth - along) / values.slope
+        return (depth - along) * flank
 
     first, last = tail
     near, far = -overrun, depth + overrun

@@ -112,7 +112,7 @@ def test_cotes_automatiques_attendues() -> None:
         ("half_lap.py", "Depth"),
         ("dovetail.py", "TailCount"),
         ("dovetail.py", "PinWidth"),
-        ("dovetail.py", "Slope"),
+        ("dovetail.py", "Angle"),
     }
 
 
@@ -135,8 +135,8 @@ def test_socle_commun_des_panneaux(panel: str) -> None:
     assert not defined & {"close_transaction", "watch_document", "accept", "reject"}
 
 
-def test_champ_de_rapport_borne_comme_core() -> None:
-    """D6 de J4 : le champ de pente prend ses bornes dans ``core`` (2 à 20, 0 par « Auto »)."""
+def test_champ_d_angle_borne_comme_core() -> None:
+    """D6 de J4 : le champ d'angle (degrés) prend sa borne haute dans ``core`` (0 par « Auto »)."""
     path = PANELS / "joint_fields.py"
     tree = ast.parse(path.read_text(encoding="utf-8"))
     imported = {
@@ -145,8 +145,8 @@ def test_champ_de_rapport_borne_comme_core() -> None:
         if isinstance(node, ast.ImportFrom)
         for alias in node.names
     }
-    assert {("freecad.menuiserie.core.joints", n) for n in ("MIN_RATIO", "MAX_RATIO")} <= imported
-    assert "setRange(*ratio_range(self.spec))" in path.read_text(encoding="utf-8")
+    assert {("freecad.menuiserie.core.joints", n) for n in ("MAX_ANGLE_DEG",)} <= imported
+    assert "angle_range(self.spec)" in path.read_text(encoding="utf-8")
 
 
 def test_resume_des_angles_de_l_onglet() -> None:

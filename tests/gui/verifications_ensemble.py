@@ -71,6 +71,15 @@ def lancer(commande: str, *objets: Any) -> None:
     Gui.Command.get(commande).run()
 
 
+def boite_de_refus() -> Any:
+    """Boîte d'avertissement d'un refus de commande, ou ``None``."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.gui.commands.joints import REFUSAL_BOX_NAME
+
+    return Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
+
+
 def classe_du_proxy(vobj: Any) -> str:
     return f"{type(vobj.Proxy).__module__}.{type(vobj.Proxy).__qualname__}"
 
@@ -160,10 +169,15 @@ def verifier_commandes_d_ensemble_annulables() -> list[str]:
         problemes += ecarts("entrées d'annulation", doc.UndoNames, attendu)
         lancer(AJOUTER, ensemble, bureau.shown("JG"))
         message = Gui.getMainWindow().statusBar().currentMessage()
+        boite = boite_de_refus()
         problemes += [
             *ecarts("refus sans entrée", doc.UndoNames, attendu),
             *ecarts("refus affiché", "déjà membre" in message, True),
+            *ecarts("boîte de refus visible", boite is not None and boite.isVisible(), True),
+            *ecarts("boîte de refus", boite is not None and "déjà membre" in boite.text(), True),
         ]
+        if boite is not None:
+            boite.close()
         for _ in attendu:
             doc.undo()
         problemes += [

@@ -160,7 +160,7 @@ def create_dovetail(
     """Crée une queue d'aronde traversante : ``guest`` (pièce à queues) touche ``host`` (pièce à
     griffes) par son bout, le bout de ``host`` à fleur de la face extérieure de ``guest``.
     Paramètres de ``DovetailParams`` (0 = automatique) : ``tail_count``, ``pin_width`` en mm,
-    ``slope`` (pente 1:n)."""
+    ``angle`` en degrés."""
     return _create(DovetailJoint, doc, host, guest, params)
 
 

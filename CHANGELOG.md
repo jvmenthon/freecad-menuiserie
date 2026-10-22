@@ -48,6 +48,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   vis-à-vis étirent la longueur ou la largeur (jamais l'épaisseur) ; les boutons X, Y, Z
   (24 orientations) la gardent accrochée ; refus doux par avis (`ThicknessGap`, `GapOutOfRange`,
   `NotSquare`, `TooMany`, `Conflict`).
+- Refus d'une commande (ajout à un ensemble, assemblage…) affiché aussi dans une boîte
+  d'avertissement non modale, en plus de la barre d'état et de la vue rapport (recette J4, 2.4).
 - Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
   **Retirer de l'ensemble** et **Relier les pièces** (une entrée d'annulation chacune, icônes
   générées) ; `ViewProviderFurniture` (membres, sous-ensembles et assemblages internes rangés
@@ -85,9 +87,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Queue d'aronde traversante (J4f) : solide `Prism` (polygone plan extrudé), stratégie
   `DovetailStrategy` (queues ajoutées au bout de la pièce à queues, logements traversants dans la
   pièce à griffes ; 3 queues environ par largeur de trois épaisseurs, griffes du tiers de
-  l'épaisseur, pente 1:6 par défaut), objet `Menuiserie::Dovetail` (`TailCount`, `PinWidth`,
-  `Slope`), `make_dovetail`, commande **Queue d'aronde** et panneau générique (champ décimal
-  pour la pente).
+  l'épaisseur, angle des flancs de 10° par défaut, 30° au plus, en degrés), objet `Menuiserie::Dovetail`
+  (`TailCount`, `PinWidth`, `Angle` en `App::PropertyAngle`), `make_dovetail(angle=…)`, commande
+  **Queue d'aronde** et panneau générique (champ en degrés) ; une ancienne propriété `Slope`
+  rouverte est convertie en `Angle`.
 - Assemblage à mi-bois (J4e) : stratégie `HalfLapStrategy` (deux pièces de même épaisseur, à
   fleur, qui se chevauchent ; entaille de l'hôte par-dessus, de l'invitée par-dessous, profondeur
   automatique à la moitié de l'épaisseur), objet `Menuiserie::HalfLap` (`Depth`, `FlipSide`),
