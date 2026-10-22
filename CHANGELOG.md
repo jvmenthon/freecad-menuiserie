@@ -6,6 +6,24 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Liste de débit dans le document (J2c, ADR 0012) : `api.make_cut_list(doc, objects=None)` crée ou
+  met à jour la feuille `Spreadsheet::Sheet` « Liste de débit » (nom interne `MenuiserieCutList`,
+  retrouvée par sa propriété masquée `MenuiserieCutList` même renommée, aucun proxy, une seule
+  transaction), `api.export_cut_list_csv(doc, path, objects=None)` écrit le CSV français (extension
+  `.csv` imposée, dossier existant, écriture atomique) et `api.cut_list_of(doc, objects=None)`
+  renvoie la `CutList` sans toucher au document. La collecte (`features/cutlist_collect.py`,
+  `cutlist_parts.py`) compte une ligne par pièce brute (une pièce usinée est comptée par sa
+  brute), lit la sélection (pièces, ensembles, Std Part, groupes), suit les `App::Link` (une
+  occurrence de plus par lien, fois `ElementCount`, liens imbriqués compris) et ajoute aux cotes
+  de débit les tenons, languettes et queues (étendue de la forme usinée dans le repère de la
+  brute, retraits ignorés) ; les tourillons effectifs sont listés en fournitures. Une pièce
+  d'une version plus récente est listée avec le matériau « ? », une pièce aux cotes invalides est
+  ignorée avec un avertissement qui la nomme ; une forme usinée absente ou invalide donne des
+  ajouts nuls et un avertissement. La feuille (`features/cutlist_sheet.py`) écrit titre, date,
+  portée, tableau (colonnes A à O), totaux, fournitures et avertissements, uniquement en valeurs
+  littérales (jamais de formule), garde les cellules de la colonne P et au-delà, et n'est jamais
+  recalculée toute seule. `core.cutlist.table_sections` expose les blocs du tableau, communs au
+  CSV et à la feuille. Les commandes et la recette arrivent avec J2d.
 - Liste de débit, calcul pur (J2b, ADR 0012) : `core/cutlist/` (`CutEntry`, `build_cut_list`,
   `CutList`, `to_csv`) regroupe les pièces identiques (repère, matériau, cotes finies, ajouts
   d'assemblage, surcotes, fil), les trie (repère en ordre naturel « M2 » avant « M10 », sans repère
