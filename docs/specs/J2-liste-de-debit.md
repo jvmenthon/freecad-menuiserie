@@ -1,15 +1,15 @@
 # [J2] Liste de débit
 
 - Jalon : J2 (issue #13), après J4 et J6, à la demande de jv
-- Statut : **proposée** (questions du § 9 posées à jv ; les recommandations ★ s'appliquent tant
-  qu'il n'a pas répondu)
+- Statut : **acceptée** (réponses de jv au § 10, qui priment sur les recommandations ★ ; Q6 à
+  reformuler)
 - Branche : `jalon/J2`, partie de `jalon/J6` (PR #38 et #48 pas encore fusionnées dans `main`)
 - ADR liés : [0002 — Bibliothèque de matériaux](../adr/0002-bibliotheque-de-materiaux.md),
   [0003 — Modèle de la pièce de bois](../adr/0003-modele-de-la-piece-de-bois.md),
   [0006 — Pièce brute et pièce usinée](../adr/0006-piece-brute-et-piece-usinee.md),
   [0007 — Compatibilité avec les autres ateliers](../adr/0007-compatibilite-avec-les-autres-ateliers.md),
   [0008 — L'Ensemble, objet de cotes](../adr/0008-ensemble-objet-de-cotes.md),
-  **[0012 — Liste de débit calculée à la demande](../adr/0012-liste-de-debit-a-la-demande.md)** (proposé)
+  [0012](../adr/0012-liste-de-debit-a-la-demande.md) (remplacé), **[0013 — Liste de débit vivante](../adr/0013-liste-de-debit-vivante.md)** (accepté)
 - Découpage : quatre PR, **J2a ∥ J2b → J2c → J2d** (§ 5)
 
 ## 1. Contexte
@@ -312,3 +312,42 @@ dans la boîte d'export.
 **Q6 — Pièce d'un document créé par une version plus récente de l'atelier (issue #13).**
 ★ (a) *Lecture seule* : la pièce s'affiche et entre dans la liste, mais son matériau ne se modifie
 pas (message dans le panneau). (b) *Erreur explicite* à chaque modification du matériau.
+
+## 10. Réponses de jv (2026-10-22) et compléments
+
+Ces réponses priment sur les recommandations ★ du § 9 et sur les critères qu'elles contredisent.
+Exigence ajoutée, mot pour mot : « La liste de débit doit être exportable en pdf ».
+
+| Question | Réponse | Effet |
+|---|---|---|
+| Q1 | **b** | Regroupement par cotes, matériau, fil, surcotes et ajouts, **sans le repère** ; une ligne cite tous ses repères triés (« M1, M3 »). |
+| Q2 | a | Inchangé : liste commune, colonne « Ensemble ». |
+| Q3 | **b** | La liste se met à jour **toute seule** à chaque recalcul : ADR 0012 remplacé par l'ADR 0013. |
+| Q4 | **b** | CSV international par défaut : séparateur `,`, point décimal, UTF-8 avec BOM, CRLF. |
+| Q5 | **b** | Numérotation automatique des repères dès J2 (commande). |
+| Q6 | à reformuler | jv n'a pas compris la question ; la recommandation (a), déjà livrée en J2a, reste en place en attendant. |
+
+### 10.1 Critères modifiés ou ajoutés
+
+| N° | Critère | Test |
+|---|---|---|
+| C1′ | Clé de regroupement : `(material_id, finished, additions, allowances, grain)` ; `CutLine.marks` = repères distincts non vides, ordre naturel ; colonne « Repère » = `", ".join(marks)` ou « — ». Tri des lignes : premier repère (ordre naturel), lignes sans repère en dernier. | U |
+| C2′ | Un même repère porté par des pièces **différentes** (deux groupes) reste signalé (`REPEATED_MARK`). | U |
+| C7′ | `to_csv` utilise `INTERNATIONAL_CSV` par défaut ; `FRENCH_CSV` reste disponible (paramètre de l'API `export_cut_list_csv(..., dialect=…)`). | U + I |
+| P1 | `to_html(cut_list, translate, title, scope, date) -> str` (pur) : document HTML autonome (titre, date, portée, tableau, totaux, fournitures, avertissements) ; **tout texte échappé** (`html.escape`), aucun script, aucune ressource externe. | U |
+| P2 | `export_cut_list_pdf(doc, path, objects=None)` (Gui seulement : `QTextDocument` + `QPdfWriter`, A4 paysage, marges 10 mm) ; mêmes règles de chemin que le CSV (`.pdf` imposé, écriture atomique). Commande `Menuiserie_CutListPdf` « Exporter la liste de débit (PDF)… ». | G + manuel |
+| N1 | `number_marks(doc, objects=None, prefix="M")` : chaque **groupe** de pièces sans repère (Q1′) reçoit le premier numéro libre `M<n>` (les repères existants de la forme `M<n>` sont sautés) ; les pièces d'un même groupe partagent le repère ; ordre : ensemble, puis cotes décroissantes ; une transaction « Numéroter les repères » ; les pièces qui ont déjà un repère ne changent pas. Commande `Menuiserie_NumberMarks`. Le libellé suit le repère (J6, doublons « M1 (2) »). | U + I + G |
+| V1 | Liste vivante (ADR 0013) : après `make_cut_list`, modifier une cote puis recalculer met la feuille à jour **sans relancer la commande** ; ajouter ou supprimer une pièce aussi (au plus tard au recalcul suivant l'ajout, cf. ADR 0013 § risques) ; Annuler restaure la feuille avec le reste. | I |
+| V2 | La liste vivante ne crée aucun cycle : un ensemble, une pièce pilotée par expression ou un assemblage recalculent comme avant (tests J4 inchangés) ; `doc.recompute()` ne laisse rien « Touched ». | I |
+| V3 | Document ouvert sans l'atelier : la feuille reste lisible (valeurs enregistrées) ; l'objet `CutList` est signalé sans proxy, sans erreur bloquante. | I |
+| V4 | Supprimer l'objet `CutList` (ou la feuille) arrête la mise à jour sans erreur ; relancer « Liste de débit » le recrée. Colonnes `P` et au-delà toujours conservées. | I |
+
+S4 (« pas de recalcul automatique ») est **retiré**.
+
+### 10.2 Découpage complété
+
+| Lot | Branche | Contenu | Critères |
+|---|---|---|---|
+| **J2e** | `feat/debit-reponses-core` | C1′, C2′, C7′, `to_html` (P1), logique pure de numérotation (N1) | C1′, C2′, C7′, P1, N1 (U) |
+| **J2f** | `feat/debit-vivante` | objet `CutList` (ADR 0013), `make_cut_list` le crée, `number_marks` (document), API | V1–V4, N1 (I) |
+| **J2g** | `feat/debit-pdf-numerotation` | commandes PDF et numérotation, icônes, recette et README mis à jour | P2, N1 (G), G4 |

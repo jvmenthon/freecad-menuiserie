@@ -1,6 +1,6 @@
 # ADR 0012 — Liste de débit calculée à la demande dans une feuille standard
 
-- Statut : **proposé** (spécification J2, question Q3 posée à jv)
+- Statut : **remplacé** par l'ADR 0013 (jv, 2026-10-22 : Q3 b, liste mise à jour toute seule)
 - Date : 2026-10-22
 - Spécification : [docs/specs/J2-liste-de-debit.md](../specs/J2-liste-de-debit.md), § 4
 - ADR liés : [0003 — Modèle de la pièce de bois](0003-modele-de-la-piece-de-bois.md),
