@@ -147,7 +147,7 @@ def test_totaux_fournitures_et_avertissements_sous_le_tableau(world: World) -> N
     a = column(sheet, "A")
     titles = {content: row for row, content in a.items() if content.startswith("'")}
     lines_end = titles["'P1"]
-    assert lines_end < titles["'Totaux par matériau"] < titles["'Total général"]
+    assert lines_end < titles["'Totaux par matériau et épaisseur"] < titles["'Total général"]
     assert titles["'Total général"] < titles["'Fournitures"] < titles["'Tourillon"]
     assert titles["'Tourillon"] < titles["'Avertissements"]
     last = max(a)

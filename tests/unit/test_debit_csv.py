@@ -63,7 +63,7 @@ def test_structure_en_trois_blocs() -> None:
     hardware = table[blank[1] + 1 :]
     assert lines[0][:2] == ["Repère", "Qté"]
     assert len(lines) == 4
-    assert totals[0] == ["Totaux par matériau"]
+    assert totals[0] == ["Totaux par matériau et épaisseur"]
     assert totals[-1][0] == "Total général"
     assert hardware == [
         ["Fournitures"],
@@ -178,7 +178,7 @@ def test_blocs_du_tableau_lignes_totaux_fournitures() -> None:
     lines, totals, hardware = table_sections(sample(), str, INTERNATIONAL_CSV)
     assert (lines.title, totals.title, hardware.title) == (
         "",
-        "Totaux par matériau",
+        "Totaux par matériau et épaisseur",
         "Fournitures",
     )
     assert len(lines.rows) == 3

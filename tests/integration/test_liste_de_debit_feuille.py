@@ -208,11 +208,11 @@ def test_totaux_fournitures_et_avertissements_sous_le_tableau(bureau: Bureau) ->
     first_blank = len(api.cut_list_of(bureau.doc).lines) + FIRST_LINE_ROW
     assert a[first_blank - 1] == ""
     totals, grand, hardware = (
-        a.index(x) + 1 for x in ("Totaux par matériau", "Total général", "Fournitures")
+        a.index(x) + 1 for x in ("Totaux par matériau et épaisseur", "Total général", "Fournitures")
     )
     assert first_blank < totals < grand < hardware
     assert row_of(sheet, "Tourillon") > hardware
-    assert float(text(sheet, f"D{grand}")) == pytest.approx(
+    assert float(text(sheet, f"E{grand}")) == pytest.approx(
         api.cut_list_of(bureau.doc).total_mass_kg, abs=5e-3
     )
 
@@ -294,7 +294,7 @@ def test_export_csv_du_bureau(bureau: Bureau, tmp_path: Path) -> None:
     ]
     plateau = rows[1 + [line.display_mark for line in cut_list.lines].index("Plateau")]
     assert plateau[2:5] == ["1200", "600", "30"]
-    assert ["Totaux par matériau"] in rows
+    assert ["Totaux par matériau et épaisseur"] in rows
     assert any(row and row[0] == "Tourillon" for row in rows)
     assert sorted(set(os.listdir(tmp_path)) - {"bibliotheque"}) == ["bureau.csv"]
 

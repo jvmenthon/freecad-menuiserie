@@ -129,7 +129,7 @@ construire (voir l'ADR 0010).
 
 **Liste de débit** écrit dans le document une feuille de calcul « Liste de débit » et l'ouvre
 dans un onglet : une ligne par groupe de pièces identiques (repère, quantité, cotes finies et
-de débit, matériau, fil, volume, masse), puis les totaux par matériau et les tourillons en
+de débit, matériau, fil, volume, masse), puis les totaux par matériau et par épaisseur de débit et les tourillons en
 fournitures. Les tenons et queues d'aronde sont **compris** dans la longueur de débit ; une
 pièce vue par un `App::Link` compte une fois de plus. La liste couvre les objets
 **sélectionnés** (pièces, ensemble, Std Part), sinon tout le document. La liste est
