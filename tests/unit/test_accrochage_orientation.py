@@ -166,3 +166,16 @@ def test_arete_sans_axes_ou_oblique_reste_a_plat() -> None:
     half = math.sqrt(0.5)
     oblique = Frame(ZERO, Vec3(half, half, 0), Vec3(-half, half, 0), Z)
     assert source_orientation([edge_along_y(oblique)]) == Orientation()
+
+
+@pytest.mark.parametrize("degrees", [51.0, -30.0, 140.0])
+def test_arete_d_appui_incline_garde_la_rotation_de_l_objet_source(degrees: float) -> None:
+    """Recette de jv (pièce « arrete », 51° autour de X) : une normale d'appui oblique (arête
+    libre vue de biais, face courbe d'un perçage) est ramenée sur l'axe de l'objet le plus
+    proche ; la pièce reprend la rotation de l'objet, sans inclinaison."""
+    angle = math.radians(degrees)
+    support = Vec3(0, -math.sin(angle), math.cos(angle))
+    inward = Vec3(0, math.cos(angle), math.sin(angle))
+    target = EdgeTarget("arête", Vec3(18, 0, 18), Vec3(582, 0, 18), support, inward, WORLD)
+    result = snap(DIMS, initial_orientation(DIMS, [target]), [target])
+    assert squared_rotation(result.placement.rotation) == ((1, 0, 0), (0, 1, 0), (0, 0, 1))

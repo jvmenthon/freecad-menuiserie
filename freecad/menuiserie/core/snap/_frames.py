@@ -72,11 +72,25 @@ def _face_anchor(target: FaceTarget) -> Anchor:
     return Anchor(target.frame, (OCTANTS[0],))
 
 
+def _squared_support(x: Vec3, support: Vec3, axes: Frame | None) -> Vec3:
+    """Normale d'appui ramenée sur l'axe de l'objet source le plus proche quand l'arête suit un
+    de ses axes : une face d'appui courbe (perçage) ou une arête libre (plan vers
+    l'observateur) donnerait sinon une pièce inclinée (recette de jv)."""
+    if axes is None:
+        return support
+    candidates = [axis for axis in (axes.x, axes.y, axes.z) if abs(dot(axis, x)) <= ANGLE_TOLERANCE]
+    if len(candidates) != 2:  # arête oblique par rapport aux axes de l'objet
+        return support
+    best = max(candidates, key=lambda axis: abs(dot(axis, support)))
+    return unit(best) if dot(best, support) >= 0 else scale(unit(best), -1.0)
+
+
 def _edge_anchor(target: EdgeTarget) -> Anchor:
     x = unit(sub(target.end, target.start))
-    y = cross(target.support, x)
+    support = _squared_support(x, target.support, target.axes)
+    y = cross(support, x)
     side_y = 1 if dot(target.inward, y) >= 0 else -1
-    return Anchor(Frame(target.start, x, y, target.support), ((1, side_y, 1),))
+    return Anchor(Frame(target.start, x, y, support), ((1, side_y, 1),))
 
 
 def _vertex_anchor(target: VertexTarget) -> Anchor:
