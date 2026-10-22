@@ -6,6 +6,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Supprimer un assemblage ne montre plus l'avertissement « Les objets référencés suivants
+  pourraient s'endommager » pour ses pièces usinées (`canDelete` de leur ViewProvider), qui sont
+  recalculées sans la coupe.
 - Nom d'un assemblage « {type} : {pièce hôte} {pièce invitée} » (par ex. « Tenon-mortaise : M1 T1 »),
   mis à jour quand une des deux pièces change de repère ou de nom ; doublons « (2) »
   (`features/joint_names.py`).
