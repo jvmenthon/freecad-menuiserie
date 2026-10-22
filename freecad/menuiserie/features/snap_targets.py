@@ -227,19 +227,25 @@ def _edge_target(name: str, edge: Any, owner: Any, request: Request) -> EdgeTarg
     start, end = _edge_line(edge, point)
     axis = unit(end - start)
     support, inward = _support_of(edge, owner, axis, request)
-    return EdgeTarget(name, to_vec3(start), to_vec3(end), to_vec3(support), to_vec3(inward))
+    axes = _owner_axes(owner, to_vec3(start))
+    return EdgeTarget(name, to_vec3(start), to_vec3(end), to_vec3(support), to_vec3(inward), axes)
 
 
 # --- Sommets et lecture ------------------------------------------------------------------------
 
 
-def _vertex_target(name: str, vertex: Any, owner: Any, _request: Request) -> Target:
-    """Sommet : repère de l'objet sélectionné (celui du document sans ``Placement`` tourné)."""
+def _owner_axes(owner: Any, point: Vec3) -> Frame:
+    """Repère de l'objet sélectionné en ``point`` (celui du document sans ``Placement`` tourné)."""
     rotation = owner.Placement.Rotation if owner is not None else App.Rotation()
     unit_axes = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
     axes = [to_vec3(rotation.multVec(App.Vector(*axis))) for axis in unit_axes]
+    return Frame(point, axes[0], axes[1], axes[2])
+
+
+def _vertex_target(name: str, vertex: Any, owner: Any, _request: Request) -> Target:
+    """Sommet : repère de l'objet sélectionné."""
     point = to_vec3(vertex.Point)
-    return VertexTarget(name, point, Frame(point, axes[0], axes[1], axes[2]))
+    return VertexTarget(name, point, _owner_axes(owner, point))
 
 
 BUILDERS: Final[Mapping[str, Callable[[str, Any, Any, Request], Target]]] = MappingProxyType(

@@ -267,6 +267,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `to_guest`, `TextureCache.usable`, `BudgetedCache.clear`, `JOINT_CLASSES`).
 
 ### Corrigé
+- Pièce accrochée à une seule arête (J6) : elle reprend la rotation de l'objet sélectionné au lieu
+  d'être tournée d'un quart de tour quand l'arête suit la largeur (`source_orientation`).
 - Revue finale de J6 : copier-coller, Std Dupliquer et fusion de documents ne donnent plus deux
   pièces (ni deux pièces usinées) de même libellé : la copie de « M1 » s'appelle « M1 (2) » et sa
   pièce usinée « M1 (2) (usinée) », repère inchangé ; une réouverture ordinaire et une annulation
