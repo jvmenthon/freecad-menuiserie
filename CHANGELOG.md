@@ -6,6 +6,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Accrochage à la sélection (J6d, ADR 0011) : les faces, arêtes et sommets sélectionnés avant
+  **Pièce de bois** (pièces de bois, Std Part, `App::Link`, objets d'autres ateliers) reçoivent la
+  nouvelle pièce, en aperçu et en direct ; le panneau cite « Contre : … » et signale les éléments
+  ignorés ou non touchés. Deux faces en vis-à-vis étirent la longueur (orientation de départ
+  choisie par `initial_orientation` pour une tablette entre deux joues), la saisie du menuisier
+  l'emporte ensuite. La pièce est créée dans le Std Part du premier élément (`placement` exprimé
+  dans son repère), et une case **Ajouter à l'ensemble** (cochée) l'ajoute à l'ensemble de
+  l'élément touché dans la même transaction. Les boutons X, Y, Z tournent autour des axes du
+  document (axes du repère d'appui contre une face inclinée). Le sens du fil s'affiche en direct.
+  `features/picked.py`, `snap_geometry.py`, `snap_targets.py`, `gui/selection.py`. Aucun objet
+  sélectionné n'est modifié, aucun observateur installé.
 - Aperçu et rotation de la pièce (J6c, ADR 0011) : en création, la pièce est affichée à 60 % de
   transparence tant que le panneau est ouvert (`PreviewStyle`, rétablie à « OK », rien n'est
   enregistré) ; trois boutons **X**, **Y**, **Z** (groupe « Position », icônes

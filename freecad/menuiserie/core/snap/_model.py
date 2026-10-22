@@ -21,6 +21,7 @@ from freecad.menuiserie.core.geometry import (
     Matrix3,
     RigidTransform,
     Vec3,
+    squared_rotation,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
@@ -38,6 +39,24 @@ def product(left: Matrix3, right: Matrix3) -> Matrix3:
     """Produit de deux rotations ``left · right``."""
     composed = RigidTransform(left, _ZERO).compose(RigidTransform(right, _ZERO))
     return composed.rotation
+
+
+def _transposed(matrix: Matrix3) -> Matrix3:
+    columns = tuple(zip(*matrix, strict=True))
+    return (columns[0], columns[1], columns[2])
+
+
+def turn_in_frame(turn: Turn, support: Matrix3 | None) -> Matrix3:
+    """Quart de tour autour de l'axe ``turn`` du **document**, exprimé dans le repère d'appui
+    de rotation ``support`` (repère d'appui → document). Pour un appui d'équerre, c'est une
+    permutation signée exacte ; pour un appui incliné (ou ``support`` absent), le quart de tour
+    se fait autour de l'axe du même nom du repère d'appui (limite documentée)."""
+    if support is None:
+        return turn.matrix
+    squared = squared_rotation(support)
+    if any(value not in (-1.0, 0.0, 1.0) for row in squared for value in row):
+        return turn.matrix
+    return product(_transposed(squared), product(turn.matrix, squared))
 
 
 def _check_vector(owner: str, field: str, vector: Vec3) -> None:
@@ -192,9 +211,10 @@ class Orientation:
     """Orientation de la pièce dans le repère d'appui : l'une des 24 rotations d'une boîte.
 
     ``matrix`` est la rotation repère local de la pièce → repère d'appui (permutation signée de
-    déterminant +1). Chaque bouton X, Y ou Z compose un quart de tour autour de l'axe du repère
-    d'appui, qui est celui du document pour un appui d'équerre ; quatre clics sur un même bouton
-    ramènent à l'orientation de départ.
+    déterminant +1). Chaque bouton X, Y ou Z compose un quart de tour autour de l'axe du document
+    quand le repère d'appui est d'équerre avec lui (:func:`turn_in_frame`), autour de l'axe du
+    même nom du repère d'appui sinon ; quatre clics sur un même bouton ramènent à l'orientation
+    de départ.
     """
 
     matrix: Matrix3 = IDENTITY
@@ -203,9 +223,11 @@ class Orientation:
         if not _is_quarter_rotation(self.matrix):
             raise ValueError("Orientation.matrix : permutation signée de déterminant +1 attendue")
 
-    def turned(self, turn: Turn) -> Orientation:
-        """Orientation après un appui sur le bouton ``turn``."""
-        return Orientation(product(turn.matrix, self.matrix))
+    def turned(self, turn: Turn, support: Matrix3 | None = None) -> Orientation:
+        """Orientation après un appui sur le bouton ``turn`` : quart de tour autour de l'axe du
+        document si le repère d'appui (rotation ``support``) est d'équerre avec lui, sinon
+        autour de l'axe du même nom du repère d'appui (:func:`turn_in_frame`)."""
+        return Orientation(product(turn_in_frame(turn, support), self.matrix))
 
     def rotation(self) -> Matrix3:
         """Rotation repère local de la pièce → repère d'appui."""

@@ -347,6 +347,18 @@ def mark_from_label(label: str, default: str) -> str: ...
 - À « OK » : `PreviewStyle.restore()`, puis `add_to_furniture` si la case est cochée, puis
   `_finish` (une seule transaction).
 
+Écarts de mise en œuvre de J6d (sans effet sur les critères) : `container_of` et
+`furniture_candidate` vivent dans `features/picked.py` (lisibles sans interface, donc testables dans
+`freecadcmd`), les outils de lecture des formes dans `features/snap_geometry.py` ; `gui/selection.py`
+ne garde que la lecture de la sélection et de la vue. Une sélection par script reçoit de FreeCAD le
+point (0, 0, 0), lu comme « pas de point cliqué ». `getSelectionEx` regroupe les éléments d'un
+même objet : l'ordre de sélection n'est conservé qu'entre objets. Orientation de départ
+(`initial_orientation`, `core/snap/_orientation.py`) : si les deux premiers éléments en vis-à-vis
+tombent sur l'épaisseur, on garde l'orientation (parmi les 24) qui les touche tous, sans avis, avec
+l'épaisseur la plus verticale. Les boutons X, Y, Z tournent autour des axes du **document** quand le
+repère d'appui est d'équerre avec lui (`Orientation.turned(turn, support)`), autour de ses propres
+axes contre une face inclinée (limite documentée dans le README et la recette).
+
 ### 4.7 Sécurité
 
 Aucune entrée nouvelle hors de FreeCAD : la sélection et les libellés sont des données ; les
