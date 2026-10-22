@@ -55,8 +55,8 @@ une pièce créée depuis la console de l'interface doit avoir son icône et sa 
      d'une `KeyError`. Une valeur connue retrouve toujours la liste canonique. La même limite
      vaut pour le type : une propriété d'un type inattendu est supprimée, donc perdue à
      l'enregistrement, **même sur un document plus récent** ; c'est cohérent seulement parce
-     que les noms et les types des propriétés sont figés (contrat de persistance, règle 5) : une version plus récente
-     n'a pas pu en changer le type, un tel fichier est altéré ;
+     que les noms et les types des propriétés sont figés (contrat de persistance, règle 5) :
+     une version plus récente n'a pas pu en changer le type, un tel fichier est altéré ;
    - les propriétés de vue de l'atelier (`MaterialColor`, couleur du matériau enregistrée au
      choix du matériau) obéissent aux mêmes règles de nommage ; le ViewProvider n'a pas de
      `Version` : une propriété de vue absente à la réouverture est recréée dans `finishRestoring`.

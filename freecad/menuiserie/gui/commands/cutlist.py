@@ -6,10 +6,9 @@ chaque recalcul (une seule transaction, posée par l'api) puis l'ouvre dans un o
 la liste de débit (CSV)… » et « (PDF)… » demandent un fichier puis y écrivent le CSV ou le PDF ;
 « Numéroter les repères » donne un repère aux pièces qui n'en ont pas (une transaction). La
 portée est la sélection courante (objets sans doublon) ou, sans sélection, tout le document.
-Aucune ne touche à
-la sélection ; seul le recalcul du document, s'il contient des objets à recalculer, précède le
-calcul (sinon les ajouts des pièces usinées seraient ignorés). Un refus de l'api est affiché
-comme celui des assemblages.
+Aucune ne touche à la sélection ; seul le recalcul du document, s'il contient des objets à
+recalculer, précède le calcul (sinon les ajouts des pièces usinées seraient ignorés). Un refus de
+l'api est affiché comme celui des assemblages.
 """
 
 from __future__ import annotations
@@ -190,9 +189,9 @@ class NumberMarksCommand(CutListCommand):
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_NumberMarks",
         "Donne un repère (M1, M2…) à chaque groupe de pièces identiques qui n'en a pas : les "
-        "pièces de même cote, matériau et fil partagent le leur, au premier numéro libre. Les "
-        "repères existants ne changent pas. Limité aux objets sélectionnés, sinon à tout le "
-        "document ; une seule transaction (Annuler les retire).",
+        "pièces de mêmes cotes, matériau, fil et surcotes partagent le leur, au premier numéro "
+        "libre. Les repères existants ne changent pas. Limité aux objets sélectionnés, sinon à "
+        "tout le document ; une seule transaction (Annuler les retire).",
     )
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:

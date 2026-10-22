@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Liste de débit (J2b, ADR 0012) : regroupement, totaux, fournitures, CSV, HTML et numérotation
-des repères, en Python pur.
+"""Liste de débit (J2b, ADR 0012 puis 0013) : regroupement, totaux, fournitures, CSV, HTML et
+numérotation des repères, en Python pur.
 
 Ce module est une façade : il ré-exporte l'API publique des sous-modules et ne contient aucune
 logique. Enchaînement : ``CutEntry`` (une pièce brute vue) → ``build_cut_list`` → ``CutList`` →

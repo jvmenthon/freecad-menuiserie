@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Export CSV et PDF de la liste de débit (J2c, S5, ADR 0012 ; PDF : J2g, critère P2).
+"""Export CSV et PDF de la liste de débit (J2c, S5 ; PDF : J2g, critère P2).
 
 Le texte vient de :func:`freecad.menuiserie.core.cutlist.to_csv` ; ce module valide le chemin
 choisi par l'utilisateur (extension ``.csv`` ou ``.pdf``, dossier existant, ni dossier ni fichier

@@ -31,14 +31,14 @@ Cliquer dans le vide de la vue 3D pour ne rien sélectionner.
 
 | N° | Action | Résultat attendu |
 |---|---|---|
-| 1 | Survoler les boutons **Liste de débit** et **Exporter la liste de débit (CSV)…** de la barre d'outils, puis le menu **Menuiserie**. | Deux boutons à icône (feuille de tableau avec une planche ; feuille avec une flèche verte), placés **après** les assemblages et les ensembles ; mêmes entrées dans le menu. Infobulle de la liste : elle précise que la feuille **n'est pas recalculée toute seule**. |
+| 1 | Survoler les boutons **Liste de débit**, **Exporter la liste de débit (CSV)…**, **Exporter la liste de débit (PDF)…** et **Numéroter les repères** de la barre d'outils, puis le menu **Menuiserie**. | Quatre boutons à icône, placés **après** les assemblages et les ensembles ; mêmes entrées dans le menu. Infobulle de la liste : elle précise que la liste **se met à jour toute seule** à chaque recalcul ; infobulle du CSV : format **international**. |
 | 2 | Rien de sélectionné : **Liste de débit**. | Une feuille « Liste de débit » apparaît dans l'arbre **et s'ouvre dans un onglet** de la vue centrale. Titre en gras, ligne « Calculée le … ; mise à jour automatiquement à chaque recalcul du document. », portée **« Tout le document »**. |
 | 3 | Lire le tableau. | Colonnes Repère, Qté, cotes finies, cotes de débit, Matériau, Fil, Ensemble, Volume, Masse, Surface, Remarque ; en-tête en gras ; nombres alignés à droite ; une ligne par groupe de pièces identiques. **Les deux côtés du caisson sont sur une seule ligne de quantité 2.** |
 | 4 | Ligne de « Traverse ». | Longueur de débit **plus grande** que la longueur finie (280 mm) de la longueur des tenons ; la colonne Remarque indique « Ajouts compris (L / l / e) : … mm ». |
 | 5 | Ligne de « Tablette ». | **Quantité 2** : la pièce d'origine et son lien. |
 | 6 | Sous le tableau. | **Totaux par matériau** (quantité, volume en m³, masse en kg, surface des panneaux en m²) avec le total général, puis **Fournitures** : les tourillons du caisson regroupés par diamètre et longueur. Aucun avertissement s'il n'y a rien à signaler (sinon ils sont en bas de la feuille et dans la **vue rapport**, préfixés « Menuiserie : »). |
 | 7 | Cliquer dans une cellule du tableau. | Du texte et des nombres, jamais de formule (la barre de contenu ne montre ni `=` ni formule). |
-| 8 | *Édition › Annuler*. | La feuille **disparaît** (et son onglet se ferme) ; une seule entrée d'annulation « Liste de débit ». *Rétablir* la ramène, remplie. |
+| 8 | *Édition › Annuler*. | La feuille et l'objet « Mise à jour de la liste de débit » **disparaissent** (l'onglet se ferme) ; une seule entrée d'annulation « Liste de débit ». *Rétablir* les ramène, feuille remplie. |
 
 ## Mise à jour
 
@@ -105,5 +105,6 @@ fois, 300 × 100 × 22 une fois), une quatrième déjà repérée « M7 ».
 | 27 | Modifier la longueur d'un montant de l'assemblage **sans** recalculer (modifier une propriété sans appuyer sur F5), puis lancer **Liste de débit** ou l'export. | Le document est **recalculé** avant le calcul (la forme usinée de la traverse est à jour : tenons comptés) ; pas d'avertissement « forme non recalculée ». |
 | 28 | Ouvrir un panneau de tâche (double-clic sur une pièce), regarder les quatre boutons. | Les quatre boutons sont **grisés** tant que le panneau est ouvert ; actifs après **OK** ou **Annuler**. |
 | 29 | Sans document ouvert, regarder les boutons. | Grisés. |
-| 30 | Enregistrer, fermer, rouvrir le document **sans l'atelier** (autre atelier actif, ou `freecadcmd`). | La feuille est une feuille FreeCAD ordinaire, lisible ; aucune erreur ni message d'objet inconnu. |
+| 30 | Enregistrer, fermer, rouvrir le document **sans l'atelier** (atelier désinstallé, ou `freecadcmd` sans le paquet). | La feuille est une feuille FreeCAD ordinaire, lisible, aux valeurs enregistrées (elle ne suit plus les cotes) ; la feuille ne provoque aucun message. Les objets de l'atelier, dont « Mise à jour de la liste de débit », sont signalés sans proxy par FreeCAD dans la vue rapport, sans erreur bloquante (critère V3). |
 | 31 | Ouvrir *Édition › Préférences* après toutes ces opérations. | Aucune rubrique ni réglage créé par la liste de débit. |
+| 44 | La liste vivante existant, sélectionner une pièce listée, *Édition › Supprimer*. | Pas de boîte « objets référencés » de FreeCAD ; la pièce disparaît de la feuille au recalcul. Supprimer ensuite l'objet « Mise à jour de la liste de débit » : la feuille reste, figée ; relancer **Liste de débit** la rend vivante (critère V4). |

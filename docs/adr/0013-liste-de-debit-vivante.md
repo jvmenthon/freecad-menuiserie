@@ -1,6 +1,7 @@
 # ADR 0013 — Liste de débit vivante : objet `CutList` qui réécrit sa feuille au recalcul
 
-- Statut : **accepté** (jv, 2026-10-22, réponse Q3 b de la spécification J2) ; remplace l'ADR 0012
+- Statut : **accepté** (jv, 2026-10-22, réponse Q3 b de la spécification J2) ; remplace l'ADR 0012 ;
+  point 1 corrigé et point 5 tranché par l'addendum J2f (en fin de document)
 - Date : 2026-10-22
 - Spécification : [docs/specs/J2-liste-de-debit.md](../specs/J2-liste-de-debit.md), § 10
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
@@ -21,7 +22,7 @@ inattendues.
 1. Un objet `Menuiserie::CutList` (`App::FeaturePython`, sans forme, `Version` 1, proxy sans
    état) porte : `Sheet` (`App::PropertyLink` vers la feuille, qu'il réécrit), `Scope`
    (`App::PropertyLinkListHidden` : objets choisis, vide = tout le document), `Sources`
-   (`App::PropertyLinkListHidden` : brutes, pièces usinées, liens et assemblages lus au dernier
+   (`App::PropertyLinkListHidden`, **`App::PropertyLinkList` d'après l'addendum** : brutes, pièces usinées, liens et assemblages lus au dernier
    calcul, pour que FreeCAD le recalcule **après** eux et dès que l'un change).
 2. `execute` : collecte (lecture seule, J2c), calcule, réécrit les colonnes A–O de la feuille,
    puis met `Sources` à jour si l'ensemble des objets lus a changé. `mustExecute` renvoie vrai
@@ -35,7 +36,7 @@ inattendues.
    sans boucle ni avertissement ; `mustExecute` d'un proxy Python appelé à chaque recalcul. Repli
    si l'un échoue : `Sources` mis à jour par un observateur limité aux documents qui contiennent un
    `CutList` (`slotCreatedObject` / `slotDeletedObject` → `touch()` du `CutList`), sans écrire
-   dans la feuille hors du recalcul.
+   dans la feuille hors du recalcul. (Vérifié en J2f : repli inutile, voir l'addendum.)
 
 ## Conséquences
 
