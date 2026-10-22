@@ -23,6 +23,11 @@ from freecad.menuiserie.core.snap._model import (
     Turn,
     VertexTarget,
 )
+from freecad.menuiserie.core.snap._orientation import (
+    all_orientations,
+    initial_orientation,
+    support_rotation,
+)
 from freecad.menuiserie.core.snap._solve import MAX_TARGETS, snap
 
 __all__ = [
@@ -38,7 +43,10 @@ __all__ = [
     "Target",
     "Turn",
     "VertexTarget",
+    "all_orientations",
+    "initial_orientation",
     "snap",
+    "support_rotation",
     "tangent_frame",
     "turned_in_place",
 ]
