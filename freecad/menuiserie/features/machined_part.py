@@ -30,6 +30,7 @@ from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, pl
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
+    is_importing,
     label_of_mark,
     mark_is_bound,
     other_labels,
@@ -150,10 +151,11 @@ class MachinedPart(StatelessProxy):
         if is_wood_part(blank):
             make_label_unique(blank)
         label = unique_label_after_copy(obj)
+        if is_wood_part(blank) and (label is not None or is_importing(obj)):
+            expected = _machined_label(obj, str(blank.Label))
+            label = None if expected == str(obj.Label) else expected
         if label is None:
             return
-        if is_wood_part(blank):
-            label = _machined_label(obj, str(blank.Label))
         with self._synchronizing():
             obj.Label = label
 

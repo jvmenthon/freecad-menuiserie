@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.naming import label_for_mark
+from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.schema import warn
@@ -16,6 +16,8 @@ from freecad.menuiserie.features.schema import warn
 __all__ = [
     "DEFAULT_LABEL",
     "default_label",
+    "imported_label_off_mark",
+    "is_importing",
     "label_of_mark",
     "mark_is_bound",
     "other_labels",
@@ -54,6 +56,20 @@ def unique_label_after_copy(obj: DocumentObject) -> str | None:
     label = str(obj.Label)
     taken = other_labels(obj)
     return label_for_mark(label, label, taken) if label in taken else None
+
+
+def is_importing(obj: DocumentObject) -> bool:
+    """Vrai pendant une fusion de documents (``Document.Importing``), hors annulation."""
+    document = obj.Document
+    return bool(getattr(document, "Importing", False)) and not document.Transacting
+
+
+def imported_label_off_mark(obj: DocumentObject) -> bool:
+    """Pièce fusionnée depuis un autre document dont FreeCAD a rendu le libellé unique à sa
+    façon (« M001 » pour « M1 ») : vrai si le libellé ne correspond plus au repère."""
+    if not is_importing(obj):
+        return False
+    return mark_from_label(str(obj.Label), default_label()) != str(obj.Mark)
 
 
 def label_of_mark(obj: DocumentObject, mark: str) -> str:

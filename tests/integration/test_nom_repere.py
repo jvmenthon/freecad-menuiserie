@@ -155,10 +155,9 @@ def test_copier_coller_une_piece_rend_le_libelle_unique(document: Any) -> None:
 def test_copier_coller_avec_piece_usinee(document: Any) -> None:
     original = part(document, "M1")
     machined = machined_part.ensure_machined_part(original)
-    copies = document.copyObject([machined], True)
-    by_type = {obj.Proxy.TYPE: obj for obj in copies if hasattr(obj.Proxy, "TYPE")}
-    blank_copy = by_type["Menuiserie::WoodPart"]
-    machined_copy = by_type["Menuiserie::MachinedPart"]
+    copies = document.copyObject([machined], True)  # ne renvoie que les copies demandées
+    machined_copy = copies[0] if isinstance(copies, (list, tuple)) else copies
+    blank_copy = machined_copy.Base
     assert (original.Label, machined.Label) == ("M1", "M1 (usinée)")
     assert (blank_copy.Label, machined_copy.Label) == ("M1 (2)", "M1 (2) (usinée)")
     assert len(set(labels(document))) == len(document.Objects)
