@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import escaped_text
@@ -23,10 +23,60 @@ __all__ = ["MARGIN_MM", "PDF_MAGIC", "write_pdf"]
 MARGIN_MM: Final = 10.0
 PDF_MAGIC: Final = b"%PDF"
 _RESOLUTION_DPI: Final = 150
+# Largeur de mise en page (pixels logiques, comme l'aperçu) ramenée à la largeur utile de la page,
+# et hauteur du pied de page (numéro de page) dans ces mêmes pixels.
+_LAYOUT_WIDTH_PX: Final = 1250
+_FOOTER_PX: Final = 24
+_FOOTER_COLOR: Final = "#7a6f66"
+_FOOTER_POINTS: Final = 7.0
 
 _NOT_WRITTEN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Export impossible : le PDF de « {path} » n'a pas pu être écrit."
 )
+
+
+def _word_wrap(qt_gui: Any) -> Any:
+    """Retour à la ligne entre les mots seulement : par défaut, ``QTextDocument`` coupe aussi au
+    milieu d'un mot (« Longueu-r ») quand une colonne est étroite."""
+    option = qt_gui.QTextOption()
+    option.setWrapMode(qt_gui.QTextOption.WordWrap)
+    return option
+
+
+def _paint_pages(document: Any, writer: Any, qt_core: Any, qt_gui: Any) -> None:
+    """Dessine ``document`` mis en page sur ``_LAYOUT_WIDTH_PX`` pixels (la largeur de l'aperçu),
+    réduit à la largeur de la page : tout le tableau tient en largeur, comme à l'écran
+    (``print_`` garderait la taille de l'écran et couperait les dernières colonnes). Chaque page
+    porte « n / total » en pied, dans la marge du bas réservée au numéro."""
+    area = writer.pageLayout().paintRectPixels(writer.resolution())
+    scale = area.width() / _LAYOUT_WIDTH_PX
+    footer = _FOOTER_PX * scale
+    page_height = (area.height() - footer) / scale
+    document.setPageSize(qt_core.QSizeF(_LAYOUT_WIDTH_PX, page_height))
+    count = document.pageCount()
+    painter = qt_gui.QPainter(writer)
+    font = painter.font()
+    font.setPointSizeF(_FOOTER_POINTS)
+    painter.setFont(font)
+    try:
+        for index in range(count):
+            if index:
+                writer.newPage()
+            painter.save()
+            painter.scale(scale, scale)
+            painter.translate(0, -index * page_height)
+            document.drawContents(
+                painter, qt_core.QRectF(0, index * page_height, _LAYOUT_WIDTH_PX, page_height)
+            )
+            painter.restore()
+            painter.setPen(qt_gui.QColor(_FOOTER_COLOR))
+            painter.drawText(
+                qt_core.QRectF(0, area.height() - footer, area.width(), footer),
+                int(qt_core.Qt.AlignRight | qt_core.Qt.AlignBottom),
+                f"{index + 1} / {count}",
+            )
+    finally:
+        painter.end()
 
 
 def _draw(html: str, temporary: Path) -> None:
@@ -43,8 +93,10 @@ def _draw(html: str, temporary: Path) -> None:
     )
     writer.setResolution(_RESOLUTION_DPI)
     document = QtGui.QTextDocument()
+    document.setDefaultTextOption(_word_wrap(QtGui))
+    document.setDocumentMargin(0)
     document.setHtml(html)
-    document.print_(writer)
+    _paint_pages(document, writer, QtCore, QtGui)
     del document, writer  # fermeture du fichier avant relecture
     with temporary.open("r+b") as written:  # écriture permise : fsync l'exige sous Windows
         if written.read(len(PDF_MAGIC)) != PDF_MAGIC:
