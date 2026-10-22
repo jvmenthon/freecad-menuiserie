@@ -23,6 +23,7 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import escaped_text
 from freecad.menuiserie.features.cutlist_export import (
     CSV_SUFFIX,
     PDF_SUFFIX,
@@ -155,7 +156,7 @@ class CutListExportCommand(CutListCommand):
             return
         recompute_if_touched(doc)
         written = api.export_cut_list_csv(doc, path, objects)
-        show_status(translated(_EXPORTED, {"path": str(written)}))
+        show_status(translated(_EXPORTED, {"path": escaped_text(str(written))}))
 
 
 class CutListPdfCommand(CutListCommand):
@@ -178,7 +179,7 @@ class CutListPdfCommand(CutListCommand):
             return
         recompute_if_touched(doc)
         written = api.export_cut_list_pdf(doc, path, objects)
-        show_status(translated(_EXPORTED, {"path": str(written)}))
+        show_status(translated(_EXPORTED, {"path": escaped_text(str(written))}))
 
 
 class NumberMarksCommand(CutListCommand):

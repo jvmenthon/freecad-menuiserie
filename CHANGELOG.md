@@ -397,6 +397,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   recréer l'assemblage) au lieu de rester valide sans usiner les pièces.
 
 ### Sécurité
+- Liste de débit, relecture de sécurité de fin de J2 : collecte bornée à 20 000 visites
+  (`MAX_VISITS`, liens multiples imbriqués : 2^n chemins) avec l'avertissement « liste tronquée »,
+  et quantités plafonnées à 1 000 000 (`MAX_QUANTITY`, avertissement) contre les
+  `ElementCount` géants et l'`OverflowError` des totaux ; `Sheet` n'est réécrite que si c'est une
+  feuille marquée `MenuiserieCutList` du même document (sinon avertissement dans la vue
+  rapport) ; `mustExecute` faux pour un document plus récent que l'atelier ; export CSV
+  tolérant aux substitutions isolées (`errors="replace"`) ; nouveau fichier exporté en
+  `0o666 & ~umask` (umask lu dans `/proc/self/status`, sinon `os.umask` rétabli aussitôt) ;
+  chemins échappés dans les messages du PDF et de la barre d'état, `fsync` du PDF temporaire
+  avant remplacement, `validated_path` documente qu'un lien symbolique est remplacé.
 - Panneau des assemblages (audit de sécurité J3) : libellés des pièces hôte et invitée en texte
   brut, libellé de l'assemblage cité tronqué et échappé dans le titre.
 - Tourillons automatiques plafonnés à 50 (`MAX_DOWEL_COUNT`), même sur un très long contact
