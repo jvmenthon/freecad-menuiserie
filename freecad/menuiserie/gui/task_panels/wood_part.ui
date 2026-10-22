@@ -195,6 +195,25 @@
     </widget>
    </item>
    <item>
+    <widget class="QLabel" name="newerVersionNotice">
+     <property name="visible">
+      <bool>false</bool>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #b35900;</string>
+     </property>
+     <property name="text">
+      <string>Pièce d'un document créé par une version plus récente de l'atelier : son matériau ne peut pas être modifié ici. Mettez l'atelier à jour.</string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::PlainText</enum>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QToolButton" name="allowancesToggle">
      <property name="text">
       <string>Surcotes de débit</string>
