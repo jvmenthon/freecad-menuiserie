@@ -54,8 +54,8 @@ class PickedElement:
 
     def owner(self) -> DocumentObject:
         """Objet qui porte l'élément (le dernier du chemin)."""
-        found = self.root.getSubObject(self.owner_subname)
-        return found if found is not None else self.root
+        # getSubObject() renvoie la forme d'un objet Part, pas l'objet : on prend le chemin.
+        return _path_objects(self)[-1]
 
     def label(self) -> str:
         """« Face3 de « Côté gauche » » (libellé de FreeCAD)."""
