@@ -19,6 +19,7 @@ __all__ = [
     "label_of_mark",
     "mark_is_bound",
     "other_labels",
+    "unique_label_after_copy",
     "warn_mark_bound",
 ]
 
@@ -38,6 +39,21 @@ def default_label() -> str:
 def other_labels(obj: DocumentObject) -> set[str]:
     """Libellés de tous les autres objets du document de ``obj``."""
     return {str(other.Label) for other in obj.Document.Objects if other.Name != obj.Name}
+
+
+def unique_label_after_copy(obj: DocumentObject) -> str | None:
+    """Libellé unique à donner à ``obj`` qui vient d'être restauré, ``None`` s'il n'en faut pas.
+
+    Copier-coller, Std Dupliquer et fusion de documents restaurent le libellé du modèle sans
+    passer par :meth:`onBeforeChangeLabel` (``allowDuplicateLabel`` est vrai) : l'objet porte
+    alors celui d'un autre. Le test est le doublon lui-même, car ``Document.Importing`` n'est
+    pas vrai pour tout copier-coller. Une réouverture ordinaire (libellés tous uniques) et une
+    annulation / un rétablissement ne changent donc rien (J6b, L6 ; J6, L5 bis)."""
+    if obj.Document.Transacting:
+        return None
+    label = str(obj.Label)
+    taken = other_labels(obj)
+    return label_for_mark(label, label, taken) if label in taken else None
 
 
 def label_of_mark(obj: DocumentObject, mark: str) -> str:
