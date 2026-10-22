@@ -221,6 +221,7 @@ def write_cut_list(
             _clear_workshop_columns(sheet)
         _fill(sheet, cut_list, messages, selection_count, now or datetime.now())
         sheet.recompute()
+        sheet.purgeTouched()  # recompute() d'un objet seul laisse la marque « Touched »
     except Exception:
         doc.abortTransaction()
         raise

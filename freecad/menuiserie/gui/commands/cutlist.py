@@ -116,10 +116,7 @@ class CutListSheetCommand(CutListCommand):
         """Feuille écrite par l'api (transaction « Liste de débit », avertissements dans la vue
         rapport), puis ouverte."""
         recompute_if_touched(doc)
-        sheet = api.make_cut_list(doc, objects)
-        open_in_tab(sheet)
-        if TOUCHED in sheet.State:  # l'ouverture de la vue peut marquer la feuille
-            sheet.recompute()
+        open_in_tab(api.make_cut_list(doc, objects))
 
 
 class CutListExportCommand(CutListCommand):
