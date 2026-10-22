@@ -175,64 +175,90 @@ freecad/menuiserie/
 ```python
 ANGLE_TOLERANCE  # de core.geometry ; CONTACT_TOLERANCE_MM de même
 
+
 @dataclass(frozen=True)
-class Frame:            # repère d'appui : z = normale sortante
+class Frame:  # repère d'appui : z = normale sortante
     origin: Vec3
     x: Vec3
     y: Vec3
     z: Vec3
+
     def to_transform(self) -> RigidTransform: ...
+
 
 @dataclass(frozen=True)
 class FaceTarget:
-    name: str                       # « Face3 de « Côté gauche » », pour les notices
-    frame: Frame                    # O = coin du rectangle englobant le plus proche du point cliqué
-    extent: tuple[float, float]     # rectangle englobant dans le plan (0, 0) si non plane
+    name: str  # « Face3 de « Côté gauche » », pour les notices
+    frame: Frame  # O = coin du rectangle englobant le plus proche du point cliqué
+    extent: tuple[float, float]  # rectangle englobant dans le plan (0, 0) si non plane
     planar: bool
+
 
 @dataclass(frozen=True)
 class EdgeTarget:
     name: str
-    start: Vec3                     # extrémité la plus proche du point cliqué (tangente : point cliqué)
+    start: Vec3  # extrémité la plus proche du point cliqué (tangente : point cliqué)
     end: Vec3
-    support: Vec3                   # normale sortante de la face d'appui (S5)
-    inward: Vec3                    # vers l'intérieur de la face d'appui, ⟂ à l'arête
+    support: Vec3  # normale sortante de la face d'appui (S5)
+    inward: Vec3  # vers l'intérieur de la face d'appui, ⟂ à l'arête
+
 
 @dataclass(frozen=True)
 class VertexTarget:
     name: str
     point: Vec3
-    axes: Frame                     # repère de l'objet sélectionné, origine = point
+    axes: Frame  # repère de l'objet sélectionné, origine = point
+
 
 Target = FaceTarget | EdgeTarget | VertexTarget
 
+
 class Turn(Enum):
-    PIVOT = "Pivot"                 # quart de tour autour de z du repère d'appui
-    TILT = "Tilt"                   # à plat → sur chant → en bout
+    PIVOT = "Pivot"  # quart de tour autour de z du repère d'appui
+    TILT = "Tilt"  # à plat → sur chant → en bout
+
 
 @dataclass(frozen=True)
 class Orientation:
-    tilt: int = 0                   # 0 à plat (e selon z), 1 sur chant (l selon z), 2 en bout (L selon z)
-    pivot: int = 0                  # 0 à 3 quarts de tour
+    tilt: int = 0  # 0 à plat (e selon z), 1 sur chant (l selon z), 2 en bout (L selon z)
+    pivot: int = 0  # 0 à 3 quarts de tour
+
     def turned(self, turn: Turn) -> Orientation: ...
     def rotation(self) -> Matrix3: ...
 
-class SnapNoticeKind(Enum):  ThicknessGap, GapOutOfRange, NotSquare, TooMany, Conflict
+
+class SnapNoticeKind(Enum):
+    ThicknessGap, GapOutOfRange, NotSquare, TooMany, Conflict
+
+
 @dataclass(frozen=True)
-class SnapNotice:  kind: SnapNoticeKind; target: str  # + template, message (gabarits traduisibles)
+class SnapNotice:
+    kind: SnapNoticeKind
+    target: str  # + template, message (gabarits traduisibles)
+
 
 @dataclass(frozen=True)
 class SnapResult:
-    placement: RigidTransform       # repère global
-    dimensions: Dimensions          # L ou l étirée (S8), e jamais
-    used: tuple[str, ...]           # noms des cibles retenues
+    placement: RigidTransform  # repère global
+    dimensions: Dimensions  # L ou l étirée (S8), e jamais
+    used: tuple[str, ...]  # noms des cibles retenues
     notices: tuple[SnapNotice, ...]
+
 
 FreeTest = Callable[[RigidTransform, Dimensions], bool]
 
-def snap(dimensions: Dimensions, orientation: Orientation, targets: Sequence[Target],
-         *, stretch: bool = True, is_free: FreeTest | None = None) -> SnapResult: ...
-def turned_in_place(placement: RigidTransform, dimensions: Dimensions, turn: Turn) -> RigidTransform: ...
+
+def snap(
+    dimensions: Dimensions,
+    orientation: Orientation,
+    targets: Sequence[Target],
+    *,
+    stretch: bool = True,
+    is_free: FreeTest | None = None,
+) -> SnapResult: ...
+def turned_in_place(
+    placement: RigidTransform, dimensions: Dimensions, turn: Turn
+) -> RigidTransform: ...
 ```
 
 Algorithme de `snap` (fonctions pures, chacune ≤ 50 instructions) :
@@ -260,7 +286,9 @@ d'équerre).
 ### 4.4 `core/naming.py` et synchronisation (J6b)
 
 ```python
-DUPLICATE_SUFFIX = " ({n})"          # n ≥ 2
+DUPLICATE_SUFFIX = " ({n})"  # n ≥ 2
+
+
 def label_for_mark(mark: str, default: str, taken: Collection[str]) -> str: ...
 def mark_from_label(label: str, default: str) -> str: ...
 ```
