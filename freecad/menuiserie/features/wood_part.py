@@ -12,13 +12,14 @@ contrôles de la réouverture dans :mod:`.wood_part_restore`.
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from typing import ClassVar, Final
 
 import Part
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialLibrary
+from freecad.menuiserie.core.naming import mark_from_label
 from freecad.menuiserie.core.part_model import (
     Allowances,
     Dimensions,
@@ -39,6 +40,12 @@ from freecad.menuiserie.features.freecad_types import (
 from freecad.menuiserie.features.furniture import MEMBER_OPTIONS
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.features.part_names import (
+    default_label,
+    label_of_mark,
+    mark_is_bound,
+    warn_mark_bound,
+)
 from freecad.menuiserie.features.schema import warn
 from freecad.menuiserie.features.wood_part_restore import (
     EMPTY_LIBRARY_MIGRATION,
@@ -84,7 +91,6 @@ __all__ = [
 
 OBJECT_NAME: Final = "WoodPart"
 
-_DEFAULT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce de bois")
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est pas une pièce de bois."
 )
@@ -136,7 +142,8 @@ class WoodPart(StatelessProxy):
         volumique, et ajuste le fil et les surcotes (règles de ``core.part_model``). Choix d'un
         sens du fil : mémorisé (ADR 0005). Changement de matériau, annulation comprise : le fil
         est masqué ou affiché dans l'éditeur de propriétés. Mode ou option « fixe » d'un membre
-        d'ensemble : ses seules liaisons sont recalculées (sans effet hors ensemble)."""
+        d'ensemble : ses seules liaisons sont recalculées (sans effet hors ensemble). Repère ou
+        libellé modifié par l'utilisateur : l'autre suit (J6b, ADR 0011)."""
         if prop in ("MaterialId", "Category") and "Restore" not in obj.State:
             show_grain_direction(obj, shows_grain(obj))
         if not self._follows_user_changes(obj):
@@ -147,10 +154,60 @@ class WoodPart(StatelessProxy):
                 self.select_material(obj, material)
         elif prop == "GrainDirection":
             _remember_grain(obj)
+        elif prop == "Mark":
+            self.sync_label(obj)
+        elif prop == "Label":
+            self._adopt_typed_mark(obj)
         elif prop in MEMBER_OPTIONS:  # membre d'un ensemble (J4)
             from freecad.menuiserie.features.furniture_bindings import member_option_changed
 
             member_option_changed(obj, prop)
+
+    def allowDuplicateLabel(self, obj: DocumentObject) -> bool:  # pylint: disable=unused-argument
+        """Vrai : FreeCAD ne rend pas lui-même le libellé unique (« M1001 ») avant
+        :meth:`onBeforeChangeLabel` ; c'est l'atelier qui le fait, par le suffixe « (2) ». Aucune
+        préférence de FreeCAD n'est lue ni modifiée (ADR 0011)."""
+        return True
+
+    def onBeforeChangeLabel(self, obj: DocumentObject, label: str) -> str | None:
+        """Libellé saisi (arborescence, script) : mémorise le repère qu'il désigne, que
+        :meth:`onChanged` écrira, et rend le libellé unique de ce repère (« M1 (2) »). Repère
+        piloté par une expression : il ne change pas, avertissement, le libellé revient à celui
+        du repère. Sans effet pendant une synchronisation, une restauration ou une annulation."""
+        self._typed_mark = None
+        if not self._follows_user_changes(obj):
+            return None
+        if mark_is_bound(obj):
+            warn_mark_bound(obj)
+            return label_of_mark(obj, obj.Mark)
+        mark = mark_from_label(label, default_label())
+        self._typed_mark = mark
+        return label_of_mark(obj, mark)
+
+    def sync_label(self, obj: DocumentObject) -> None:
+        """Libellé = celui du repère de la pièce, puis libellé de sa pièce usinée."""
+        label = label_of_mark(obj, obj.Mark)
+        if obj.Label != label:
+            with self._synchronizing():
+                obj.Label = label
+        from freecad.menuiserie.features.machined_part import sync_machined_label
+
+        sync_machined_label(obj)
+
+    def adopt_mark(self, obj: DocumentObject, mark: str) -> None:
+        """Repère = ``mark`` (déduit d'un libellé saisi), puis libellés de la pièce et de sa
+        pièce usinée d'après ce repère."""
+        if obj.Mark != mark:
+            with self._synchronizing():
+                obj.Mark = mark
+        self.sync_label(obj)
+
+    def _adopt_typed_mark(self, obj: DocumentObject) -> None:
+        """Libellé changé : écrit le repère mémorisé par :meth:`onBeforeChangeLabel`."""
+        mark: str | None = getattr(self, "_typed_mark", None)
+        self._typed_mark = None
+        if mark is not None:
+            self.adopt_mark(obj, mark)
 
     def execute(self, obj: DocumentObject) -> None:
         """Reconstruit la forme depuis les seules cotes, sans toucher au ``Placement``."""
@@ -172,6 +229,10 @@ class WoodPart(StatelessProxy):
         """Faux pendant une resynchronisation interne, une restauration ou une annulation."""
         syncing: bool = getattr(self, "_syncing", False)
         return not syncing and not restoring_or_undoing(obj)
+
+    def synchronizing(self) -> AbstractContextManager[None]:
+        """Contexte où repère et libellé ne se répercutent pas l'un sur l'autre."""
+        return self._synchronizing()
 
     @contextmanager
     def _synchronizing(self) -> Iterator[None]:
@@ -218,12 +279,13 @@ def create_wood_part(
     dimensions, material = validated_arguments(length, width, thickness, material_id)
     obj = doc.addObject("Part::FeaturePython", OBJECT_NAME)
     proxy = WoodPart(obj)
-    obj.Label = translated(_DEFAULT_LABEL)
     proxy.select_material(obj, material)
     obj.Length = dimensions.length
     obj.Width = dimensions.width
     obj.Thickness = dimensions.thickness
-    obj.Mark = mark
+    with proxy.synchronizing():  # le libellé est celui du repère (J6b), posé une seule fois
+        obj.Mark = mark
+        obj.Label = label_of_mark(obj, mark)
     return obj
 
 

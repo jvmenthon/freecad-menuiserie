@@ -6,6 +6,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Nom de la pièce = repère (J6b, ADR 0011) : `core/naming.py` (`label_for_mark`,
+  `mark_from_label`, suffixe « M1 (2) » pour les doublons) ; le libellé suit le repère (panneau,
+  éditeur de propriétés, script, expression) et inversement (renommage dans l'arborescence, de la
+  brute ou de l'usinée) par `onBeforeChangeLabel` et `allowDuplicateLabel` de `WoodPart` et
+  `MachinedPart` ; la pièce usinée s'appelle « {repère} (usinée) » ; une nouvelle pièce prend le
+  libellé de son repère. Aucune synchronisation à la réouverture, en annulant ni en rétablissant :
+  les documents existants ne sont renommés qu'à la première modification. Repère piloté par une
+  expression : avertissement, le libellé revient à celui du repère. Aucune préférence de FreeCAD
+  modifiée. Infobulle de `Mark` complétée.
 - Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
   **Retirer de l'ensemble** et **Relier les pièces** (une entrée d'annulation chacune, icônes
   générées) ; `ViewProviderFurniture` (membres, sous-ensembles et assemblages internes rangés
