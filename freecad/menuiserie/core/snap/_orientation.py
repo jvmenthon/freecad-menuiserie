@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Orientation initiale d'une pièce accrochée à plusieurs éléments (J6d).
+"""Orientation initiale d'une pièce accrochée (J6d).
+
+Accrochée à une arête, la pièce reprend la rotation de l'objet source (demande de jv).
 
 Posée à plat sur la première face, une tablette entre deux joues ne peut pas être étirée : l'écart
 tombe sur son épaisseur (notice ``ThicknessGap``). Parmi les 24 orientations d'une boîte, on garde
@@ -11,16 +13,18 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from freecad.menuiserie.core.geometry import Matrix3
+from freecad.menuiserie.core.geometry import Matrix3, squared_rotation
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.snap._frames import anchor_of
 from freecad.menuiserie.core.snap._model import (
+    EdgeTarget,
     FreeTest,
     Orientation,
     SnapNoticeKind,
     SnapResult,
     Target,
     Turn,
+    product,
 )
 from freecad.menuiserie.core.snap._solve import snap
 
@@ -68,12 +72,37 @@ def _score(
     )
 
 
+def source_orientation(targets: Sequence[Target]) -> Orientation:
+    """Orientation qui donne à la pièce la rotation de l'objet source quand la première cible
+    est une arête dont l'objet est d'équerre avec elle (demande de jv) ; à plat sinon."""
+    flat = Orientation()
+    if not targets or not isinstance(targets[0], EdgeTarget) or targets[0].axes is None:
+        return flat
+    axes = targets[0].axes
+    source = (
+        (axes.x.x, axes.y.x, axes.z.x),
+        (axes.x.y, axes.y.y, axes.z.y),
+        (axes.x.z, axes.y.z, axes.z.z),
+    )
+    support = anchor_of(targets[0]).frame.to_transform().rotation
+    inverse = (
+        (support[0][0], support[1][0], support[2][0]),
+        (support[0][1], support[1][1], support[2][1]),
+        (support[0][2], support[1][2], support[2][2]),
+    )
+    try:
+        return Orientation(squared_rotation(product(inverse, source)))
+    except ValueError:  # arête oblique par rapport aux axes de l'objet
+        return flat
+
+
 def initial_orientation(
     dimensions: Dimensions, targets: Sequence[Target], *, is_free: FreeTest | None = None
 ) -> Orientation:
-    """Orientation de départ de la pièce : à plat, sauf si deux éléments en vis-à-vis tombent
-    sur son épaisseur (jamais étirée) ; une autre orientation les touche alors tous les deux."""
-    flat = Orientation()
+    """Orientation de départ de la pièce : à plat (rotation de l'objet source pour une arête,
+    :func:`source_orientation`), sauf si deux éléments en vis-à-vis tombent sur son épaisseur
+    (jamais étirée) ; une autre orientation les touche alors tous les deux."""
+    flat = source_orientation(targets)
     support = support_rotation(targets)
     if support is None or len(targets) < 2:
         return flat

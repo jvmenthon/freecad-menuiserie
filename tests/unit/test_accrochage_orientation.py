@@ -7,9 +7,10 @@ import math
 
 import pytest
 
-from freecad.menuiserie.core.geometry import RigidTransform, Vec3
+from freecad.menuiserie.core.geometry import RigidTransform, Vec3, squared_rotation
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.snap import (
+    EdgeTarget,
     FaceTarget,
     Frame,
     Orientation,
@@ -18,6 +19,7 @@ from freecad.menuiserie.core.snap import (
     all_orientations,
     initial_orientation,
     snap,
+    source_orientation,
     support_rotation,
 )
 
@@ -134,3 +136,46 @@ def test_orientation_a_plat_conservee_sans_vis_a_vis() -> None:
 def test_ecart_egal_a_l_epaisseur_garde_la_pose_a_plat() -> None:
     targets = (cheek(22, 1), cheek(44, -1))
     assert initial_orientation(DIMS, targets) == Orientation()
+
+
+# --- Arête seule : la pièce reprend la rotation de l'objet source (demande de jv) ---------------
+
+WORLD = Frame(ZERO, X, Y, Z)
+
+
+def edge_along_y(axes: Frame | None) -> EdgeTarget:
+    """Arête du dessus d'une planche, le long de Y, face d'appui vers +Z."""
+    return EdgeTarget("arête", Vec3(0, 0, 22), Vec3(0, 500, 22), Z, Vec3(1, 0, 0), axes)
+
+
+def test_arete_seule_garde_la_rotation_de_l_objet_source() -> None:
+    target = edge_along_y(WORLD)
+    result = snap(DIMS, initial_orientation(DIMS, [target]), [target])
+    assert squared_rotation(result.placement.rotation) == ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+
+
+def test_arete_d_un_objet_tourne_suit_sa_rotation() -> None:
+    turned = Frame(ZERO, Y, Vec3(-1, 0, 0), Z)  # objet tourné d'un quart de tour autour de Z
+    target = edge_along_y(turned)
+    result = snap(DIMS, initial_orientation(DIMS, [target]), [target])
+    assert squared_rotation(result.placement.rotation) == ((0, -1, 0), (1, 0, 0), (0, 0, 1))
+
+
+def test_arete_sans_axes_ou_oblique_reste_a_plat() -> None:
+    assert source_orientation([edge_along_y(None)]) == Orientation()
+    half = math.sqrt(0.5)
+    oblique = Frame(ZERO, Vec3(half, half, 0), Vec3(-half, half, 0), Z)
+    assert source_orientation([edge_along_y(oblique)]) == Orientation()
+
+
+@pytest.mark.parametrize("degrees", [51.0, -30.0, 140.0])
+def test_arete_d_appui_incline_garde_la_rotation_de_l_objet_source(degrees: float) -> None:
+    """Recette de jv (pièce « arrete », 51° autour de X) : une normale d'appui oblique (arête
+    libre vue de biais, face courbe d'un perçage) est ramenée sur l'axe de l'objet le plus
+    proche ; la pièce reprend la rotation de l'objet, sans inclinaison."""
+    angle = math.radians(degrees)
+    support = Vec3(0, -math.sin(angle), math.cos(angle))
+    inward = Vec3(0, math.cos(angle), math.sin(angle))
+    target = EdgeTarget("arête", Vec3(18, 0, 18), Vec3(582, 0, 18), support, inward, WORLD)
+    result = snap(DIMS, initial_orientation(DIMS, [target]), [target])
+    assert squared_rotation(result.placement.rotation) == ((1, 0, 0), (0, 1, 0), (0, 0, 1))

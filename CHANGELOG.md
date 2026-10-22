@@ -368,6 +368,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   d'un type inattendu retrouve le matériau d'après le libellé `Material` (`find_by_name`) avant
   de prendre le matériau par défaut. Docstrings de `wood_part_restore` et `apply_editor_modes`,
   ADR 0003 (§ Limite : propriété d'un type inattendu supprimée même sur un document plus récent).
+- Pièce accrochée à une seule arête (J6) : elle reprend la rotation de l'objet sélectionné au lieu
+  d'être tournée d'un quart de tour quand l'arête suit la largeur (`source_orientation`).
 - Revue finale de J6 : copier-coller, Std Dupliquer et fusion de documents ne donnent plus deux
   pièces (ni deux pièces usinées) de même libellé : la copie de « M1 » s'appelle « M1 (2) » et sa
   pièce usinée « M1 (2) (usinée) », repère inchangé ; une réouverture ordinaire et une annulation
