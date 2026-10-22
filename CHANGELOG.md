@@ -6,6 +6,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Panneau du mi-bois et de l'onglet sans bouton « Inverser » : leurs deux rôles sont symétriques
+  (demande de jv ; `JointFeature.INVERTIBLE`).
 - Feuillure, mi-bois et onglet entre pièces au contact (ADR 0014, demande de jv) : l'invitée est
   prolongée jusque dans l'hôte (feuillure : nouvelle propriété `Depth`, 0 = moitié de l'hôte
   traversé ; mi-bois et onglet : à travers l'hôte), la superposition reste acceptée.

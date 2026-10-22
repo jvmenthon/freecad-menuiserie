@@ -6,7 +6,8 @@ Le formulaire est construit d'après la description des paramètres du type
 (:mod:`joint_fields`) : pièces reliées, bouton « Inverser » (échange hôte et invitée, sauf pour
 un type aux rôles symétriques : mi-bois, onglet), un champ par paramètre. Chaque saisie est
 écrite aussitôt dans l'assemblage puis recalculée avec ses pièces usinées (aperçu) ; une erreur
-d'assemblage s'affiche dans le panneau sans empêcher « OK ». Transactions, fermeture et surveillance du document : :mod:`base` (comme J1c).
+d'assemblage s'affiche dans le panneau sans empêcher « OK ». Transactions, fermeture et
+surveillance du document : :mod:`base` (comme J1c).
 """
 
 from __future__ import annotations
