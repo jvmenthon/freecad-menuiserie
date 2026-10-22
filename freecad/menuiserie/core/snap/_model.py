@@ -27,12 +27,10 @@ from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.snap._vec import cross, dot, is_finite, norm, scale, sub, unit
 
 _ZERO: Final = Vec3(0.0, 0.0, 0.0)
-_TILTS: Final = 3
-_PIVOTS: Final = 4
-# Quart de tour autour de Z, et permutation circulaire des axes (Y vers Z, Z vers X, X vers Y) :
-# la bascule « à plat → sur chant → en bout » est la puissance 0, 1 ou 2 de cette dernière.
+# Quarts de tour directs (+90°) autour des axes X, Y et Z.
+QUARTER_TURN_X: Final[Matrix3] = ((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0))
+QUARTER_TURN_Y: Final[Matrix3] = ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0))
 QUARTER_TURN_Z: Final[Matrix3] = ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
-AXIS_CYCLE: Final[Matrix3] = ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0))
 IDENTITY: Final[Matrix3] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
 
@@ -158,42 +156,60 @@ Target = FaceTarget | EdgeTarget | VertexTarget
 
 
 class Turn(Enum):
-    """Rotation demandée par un bouton du panneau."""
+    """Rotation demandée par un bouton du panneau : un quart de tour autour d'un axe (Q1 de jv)."""
 
-    PIVOT = "Pivot"  # quart de tour autour de z du repère d'appui
-    TILT = "Tilt"  # à plat → sur chant → en bout → à plat
+    X = "X"
+    Y = "Y"
+    Z = "Z"
+
+    @property
+    def matrix(self) -> Matrix3:
+        """Matrice du quart de tour direct autour de l'axe du même nom."""
+        return _QUARTER_TURNS[self]
+
+
+_QUARTER_TURNS: Final[Mapping[Turn, Matrix3]] = MappingProxyType(
+    {Turn.X: QUARTER_TURN_X, Turn.Y: QUARTER_TURN_Y, Turn.Z: QUARTER_TURN_Z}
+)
+
+
+def _is_quarter_rotation(matrix: Matrix3) -> bool:
+    """Vrai pour une matrice de permutation signée de déterminant +1 (24 rotations d'une boîte)."""
+    if len(matrix) != 3 or any(len(row) != 3 for row in matrix):
+        return False
+    entries = [value for row in matrix for value in row]
+    if any(value not in (-1.0, 0.0, 1.0) for value in entries):
+        return False
+    if any(sum(abs(value) for value in row) != 1.0 for row in matrix):
+        return False
+    if any(sum(abs(row[j]) for row in matrix) != 1.0 for j in range(3)):
+        return False
+    return dot(cross(Vec3.of(matrix[0]), Vec3.of(matrix[1])), Vec3.of(matrix[2])) == 1.0
 
 
 @dataclass(frozen=True)
 class Orientation:
-    """Orientation de la pièce dans le repère d'appui.
+    """Orientation de la pièce dans le repère d'appui : l'une des 24 rotations d'une boîte.
 
-    ``tilt`` : 0 à plat (épaisseur selon z), 1 sur chant (largeur selon z), 2 en bout (longueur
-    selon z). ``pivot`` : nombre de quarts de tour autour de z, de 0 à 3.
+    ``matrix`` est la rotation repère local de la pièce → repère d'appui (permutation signée de
+    déterminant +1). Chaque bouton X, Y ou Z compose un quart de tour autour de l'axe du repère
+    d'appui, qui est celui du document pour un appui d'équerre ; quatre clics sur un même bouton
+    ramènent à l'orientation de départ.
     """
 
-    tilt: int = 0
-    pivot: int = 0
+    matrix: Matrix3 = IDENTITY
 
     def __post_init__(self) -> None:
-        for field, value, count in (("tilt", self.tilt, _TILTS), ("pivot", self.pivot, _PIVOTS)):
-            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < count:
-                raise ValueError(f"Orientation.{field} : entier de 0 à {count - 1} attendu")
+        if not _is_quarter_rotation(self.matrix):
+            raise ValueError("Orientation.matrix : permutation signée de déterminant +1 attendue")
 
     def turned(self, turn: Turn) -> Orientation:
         """Orientation après un appui sur le bouton ``turn``."""
-        if turn is Turn.PIVOT:
-            return Orientation(self.tilt, (self.pivot + 1) % _PIVOTS)
-        return Orientation((self.tilt + 1) % _TILTS, self.pivot)
+        return Orientation(product(turn.matrix, self.matrix))
 
     def rotation(self) -> Matrix3:
-        """Rotation repère local de la pièce → repère d'appui (matrice de permutation signée)."""
-        matrix = IDENTITY
-        for _ in range(self.tilt):
-            matrix = product(AXIS_CYCLE, matrix)
-        for _ in range(self.pivot):
-            matrix = product(QUARTER_TURN_Z, matrix)
-        return matrix
+        """Rotation repère local de la pièce → repère d'appui."""
+        return self.matrix
 
 
 class SnapNoticeKind(Enum):

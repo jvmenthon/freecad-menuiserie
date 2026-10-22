@@ -18,8 +18,6 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.snap._model import (
-    AXIS_CYCLE,
-    QUARTER_TURN_Z,
     EdgeTarget,
     FaceTarget,
     Frame,
@@ -27,7 +25,7 @@ from freecad.menuiserie.core.snap._model import (
     Turn,
     VertexTarget,
 )
-from freecad.menuiserie.core.snap._vec import cross, dot, norm, scale, sub, unit
+from freecad.menuiserie.core.snap._vec import add, cross, dot, norm, scale, sub, unit
 
 # Côté de l'origine où s'étend la pièce sur x, y et z : +1 vers l'axe, -1 à l'opposé.
 Sides = tuple[int, int, int]
@@ -114,13 +112,12 @@ def lowest_corner(rotation: Matrix3, sizes: tuple[float, float, float]) -> Vec3:
 def turned_in_place(
     placement: RigidTransform, dimensions: Dimensions, turn: Turn
 ) -> RigidTransform:
-    """Placement après une rotation sur place (modification, sans accrochage).
+    """Placement après un quart de tour sur place (modification, sans accrochage).
 
-    ``PIVOT`` : quart de tour autour de l'axe Z local (l'épaisseur) ; ``TILT`` : permutation
-    circulaire des axes locaux (même bascule que l'accrochage). Le centre de la boîte ne bouge pas.
+    La rotation se fait autour de l'axe ``X``, ``Y`` ou ``Z`` du repère dans lequel ``placement``
+    est exprimé (celui du document, ou de son conteneur) ; le centre de la boîte ne bouge pas.
     """
-    rotation = QUARTER_TURN_Z if turn is Turn.PIVOT else AXIS_CYCLE
     center = Vec3(dimensions.length / 2, dimensions.width / 2, dimensions.thickness / 2)
-    turned = RigidTransform(rotation, _ZERO).rotate(center)
-    about_center = RigidTransform(rotation, sub(center, turned))
-    return placement.compose(about_center)
+    spun = RigidTransform(turn.matrix, _ZERO).compose(placement)
+    shift = sub(placement.apply(center), spun.apply(center))
+    return RigidTransform(spun.rotation, add(spun.translation, shift))
