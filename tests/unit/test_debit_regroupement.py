@@ -206,11 +206,20 @@ def test_totaux_par_materiau() -> None:
     assert (oak.material_name, oak.quantity, oak.kind) == ("Chene", 3, MaterialKind.SOLID)
     assert oak.volume_m3 == pytest.approx((2 * 820 * 105 * 22 + 520 * 85 * 22) / 1e9)
     assert oak.mass_kg == pytest.approx(oak.volume_m3 * 710)
-    assert oak.area_m2 is None
+    assert oak.area_m2 == pytest.approx((2 * 820 * 105 + 520 * 85) / 1e6)  # massif aussi
     assert (ply.material_name, ply.quantity) == ("Cp", 2)
     assert ply.area_m2 == pytest.approx(2 * 0.6 * 0.4)
     assert ply.mass_kg == pytest.approx(2 * 600 * 400 * 18 / 1e9 * 600)
     assert result.total_mass_kg == pytest.approx(oak.mass_kg + ply.mass_kg)
+
+
+def test_totaux_par_epaisseur_de_debit() -> None:
+    """Demande de jv : un matériau débité en deux épaisseurs donne deux totaux, triés."""
+    entries = [entry("M1", (800, 100, 27)), entry("M2", (800, 100, 22), quantity=2)]
+    thin, thick = build_cut_list(entries).totals
+    assert (thin.material_name, thin.thickness, thin.quantity) == ("Chene", 22.0, 2)
+    assert (thick.material_name, thick.thickness, thick.quantity) == ("Chene", 27.0, 1)
+    assert thin.volume_m3 == pytest.approx(2 * 820 * 105 * 22 / 1e9)
 
 
 def test_surface_de_ligne() -> None:

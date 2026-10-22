@@ -15,6 +15,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Final
 
 ICONS_DIR = Path(__file__).resolve().parents[1] / "freecad" / "menuiserie" / "resources" / "icons"
 
@@ -310,20 +311,36 @@ def liste_de_debit() -> str:
     return ic.svg(cadre=(22, 62, 40, 62), fond=_feuille(10))
 
 
+# Lettres tracées (cadre 10 x 14) : une icône ne dépend d'aucune police (pas de <text>).
+_LETTRES: Final = {
+    "C": "M10,2 Q8,0 5,0 Q0,0 0,7 Q0,14 5,14 Q8,14 10,12",
+    "D": "M0,0 V14 H4 Q10,14 10,7 Q10,0 4,0 Z",
+    "F": "M10,0 H0 V14 M0,7 H7",
+    "P": "M0,14 V0 H6 Q10,0 10,3.75 Q10,7.5 6,7.5 H0",
+    "S": "M10,2 Q8,0 5,0 Q0,0 0,3.5 Q0,7 5,7 Q10,7 10,10.5 Q10,14 5,14 Q2,14 0,12",
+    "V": "M0,0 L5,14 L10,0",
+}
+
+
+def _etiquette(texte: str, fond: str, bord: str) -> str:
+    """Étiquette d'extension de fichier (« CSV », « PDF ») posée en bas à droite de la feuille."""
+    cadre = f'  <rect x="20" y="38" width="42" height="22" rx="3" fill="{fond}" stroke="{bord}"'
+    trace = 'fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"'
+    lettres = [
+        f'  <path transform="translate({23 + 13 * rang},42)" d="{_LETTRES[lettre]}" {trace}/>'
+        for rang, lettre in enumerate(texte)
+    ]
+    return "\n".join([f'{cadre} stroke-width="2"/>', *lettres])
+
+
 def export_liste_de_debit() -> str:
-    fleche = (
-        '  <path d="M30,44 H44 V36 L60,49 L44,62 V54 H30 Z" fill="#73d216" '
-        'stroke="#2c5e00" stroke-width="2" stroke-linejoin="round"/>'
-    )
-    return _document(["  <!-- Export de la liste de débit (CSV) -->", _feuille(6), fleche])
+    etiquette = _etiquette("CSV", "#4e9a06", "#2c5e00")
+    return _document(["  <!-- Export de la liste de débit (CSV) -->", _feuille(6), etiquette])
 
 
 def export_liste_de_debit_pdf() -> str:
-    fleche = (
-        '  <path d="M30,44 H44 V36 L60,49 L44,62 V54 H30 Z" fill="#ef2929" '
-        'stroke="#7a0000" stroke-width="2" stroke-linejoin="round"/>'
-    )
-    return _document(["  <!-- Export de la liste de débit (PDF) -->", _feuille(6), fleche])
+    etiquette = _etiquette("PDF", "#cc0000", "#7a0000")
+    return _document(["  <!-- Export de la liste de débit (PDF) -->", _feuille(6), etiquette])
 
 
 def numeroter_les_reperes() -> str:

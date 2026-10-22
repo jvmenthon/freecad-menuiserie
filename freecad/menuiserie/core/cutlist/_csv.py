@@ -63,9 +63,10 @@ LINE_HEADERS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "Surface (m²)"),
     QT_TRANSLATE_NOOP("Menuiserie", "Remarque"),
 )
-TOTALS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Totaux par matériau")
+TOTALS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Totaux par matériau et épaisseur")
 TOTALS_HEADERS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "Matériau"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Épaisseur de débit (mm)"),
     QT_TRANSLATE_NOOP("Menuiserie", "Qté"),
     QT_TRANSLATE_NOOP("Menuiserie", "Volume de débit (m³)"),
     QT_TRANSLATE_NOOP("Menuiserie", "Masse (kg)"),
@@ -129,9 +130,6 @@ def additions_remark(
 
 def _line_row(line: CutLine, translate: Translate, dialect: CsvDialect) -> list[str]:
     sizes = (*_sizes(line.finished), *_sizes(line.rough))
-    # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode.
-    # nosemgrep: python.lang.maintainability.is-function-without-parentheses
-    area = line.area_m2() if line.kind.is_panel else None
     return [
         line.display_mark,
         str(line.quantity),
@@ -141,7 +139,7 @@ def _line_row(line: CutLine, translate: Translate, dialect: CsvDialect) -> list[
         ", ".join(line.furniture),
         _fixed(line.volume_m3(rough=True), VOLUME_DECIMALS, dialect),
         _fixed(line.mass_kg(rough=True), MASS_DECIMALS, dialect),
-        "" if area is None else _fixed(area, AREA_DECIMALS, dialect),
+        _fixed(line.area_m2(), AREA_DECIMALS, dialect),
         additions_remark(line, translate, dialect),
     ]
 
@@ -151,13 +149,13 @@ def _sizes(dimensions: Dimensions) -> tuple[float, float, float]:
 
 
 def _total_row(total: MaterialTotal, dialect: CsvDialect) -> list[str]:
-    area = total.area_m2
     return [
         total.material_name,
+        format_number(total.thickness, DIMENSION_DECIMALS, dialect),
         str(total.quantity),
         _fixed(total.volume_m3, VOLUME_DECIMALS, dialect),
         _fixed(total.mass_kg, MASS_DECIMALS, dialect),
-        "" if area is None else _fixed(area, AREA_DECIMALS, dialect),
+        _fixed(total.area_m2, AREA_DECIMALS, dialect),
     ]
 
 
@@ -196,7 +194,7 @@ def table_sections(
     if cut_list.lines:
         mass = _fixed(cut_list.total_mass_kg, MASS_DECIMALS, dialect)
         rows = tuple(tuple(_total_row(total, dialect)) for total in cut_list.totals)
-        rows += ((translate(GRAND_TOTAL), "", "", mass, ""),)
+        rows += ((translate(GRAND_TOTAL), "", "", "", mass, ""),)
         header = _translated(TOTALS_HEADERS, translate)
         sections.append(TableSection(translate(TOTALS_TITLE), header, rows, frozenset({0})))
     if cut_list.hardware:

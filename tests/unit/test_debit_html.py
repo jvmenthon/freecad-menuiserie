@@ -80,7 +80,8 @@ def test_tableau_memes_colonnes_que_la_feuille_en_format_international() -> None
 
 def test_totaux_fournitures_et_avertissements() -> None:
     text = to_html(sample(), title="T")
-    for expected in ("Totaux par matériau", "Total général", "Fournitures", "Tourillon"):
+    titles = ("Totaux par matériau et épaisseur", "Total général", "Fournitures", "Tourillon")
+    for expected in titles:
         assert expected in text
     assert "<h2>Avertissements</h2>" in text
     assert "<li>1 pièce(s) sans repère, regroupées par cotes.</li>" in text

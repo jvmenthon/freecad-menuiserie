@@ -106,28 +106,32 @@ def _make_line(entries: Sequence[CutEntry]) -> CutLine:
     )
 
 
+_THICKNESS_DECIMALS: Final = 1  # épaisseurs regroupées au dixième de millimètre, comme affichées
+
+
 def _totals(lines: Iterable[CutLine]) -> tuple[MaterialTotal, ...]:
-    by_material: dict[str, list[CutLine]] = defaultdict(list)
+    """Totaux par matériau et par épaisseur de débit (on achète le bois par épaisseur)."""
+    by_material: dict[tuple[str, float], list[CutLine]] = defaultdict(list)
     for line in lines:
-        by_material[line.material_id].append(line)
+        by_material[line.material_id, round(line.rough.thickness, _THICKNESS_DECIMALS)].append(line)
     totals = []
-    for group in by_material.values():
+    for (_material, thickness), group in by_material.items():
         first = group[0]
-        # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode.
-        # nosemgrep: python.lang.maintainability.is-function-without-parentheses
-        panel = first.kind.is_panel
         totals.append(
             MaterialTotal(
                 material_id=first.material_id,
                 material_name=first.material_name,
                 kind=first.kind,
+                thickness=thickness,
                 quantity=sum(line.quantity for line in group),
                 volume_m3=math.fsum(line.volume_m3(rough=True) for line in group),
                 mass_kg=math.fsum(line.mass_kg(rough=True) for line in group),
-                area_m2=math.fsum(line.area_m2() for line in group) if panel else None,
+                area_m2=math.fsum(line.area_m2() for line in group),
             )
         )
-    return tuple(sorted(totals, key=lambda t: (natural_key(t.material_name), t.material_id)))
+    return tuple(
+        sorted(totals, key=lambda t: (natural_key(t.material_name), t.material_id, t.thickness))
+    )
 
 
 def _grouped_hardware(items: Iterable[Hardware]) -> tuple[Hardware, ...]:
