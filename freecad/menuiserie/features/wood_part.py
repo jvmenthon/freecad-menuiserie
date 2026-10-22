@@ -185,14 +185,17 @@ class WoodPart(StatelessProxy):
         return label_of_mark(obj, mark)
 
     def sync_label(self, obj: DocumentObject) -> None:
-        """Libellé = celui du repère de la pièce, puis libellé de sa pièce usinée."""
+        """Libellé = celui du repère de la pièce, puis libellés de sa pièce usinée et de ses
+        assemblages."""
         label = label_of_mark(obj, obj.Mark)
         if obj.Label != label:
             with self._synchronizing():
                 obj.Label = label
+        from freecad.menuiserie.features.joint_names import sync_joint_labels
         from freecad.menuiserie.features.machined_part import sync_machined_label
 
         sync_machined_label(obj)
+        sync_joint_labels(obj)
 
     def adopt_mark(self, obj: DocumentObject, mark: str) -> None:
         """Repère = ``mark`` (déduit d'un libellé saisi), puis libellés de la pièce et de sa

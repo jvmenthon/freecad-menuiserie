@@ -247,7 +247,11 @@ def capturer_le_panneau(dossier: Path, fenetre, vue) -> None:
 
 def capturer_le_panneau_d_assemblage(dossier: Path, fenetre, vue) -> None:
     """Fenêtre complète avec le panneau d'un tenon-mortaise du cadre (comme au double-clic)."""
-    assemblage = App.ActiveDocument.getObjectsByLabel(ASSEMBLAGE_DU_PANNEAU)[0]
+    assemblage = next(
+        obj
+        for obj in App.ActiveDocument.Objects
+        if str(obj.Label).startswith(f"{ASSEMBLAGE_DU_PANNEAU} : ")
+    )
     Gui.ActiveDocument.setEdit(assemblage, 0)
     Gui.updateGui()
     volet = volet_des_taches(fenetre)
