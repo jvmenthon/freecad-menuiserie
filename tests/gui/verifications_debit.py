@@ -316,6 +316,12 @@ def verifier_export_sans_extension() -> list[str]:
             )
 
 
+def refus_visible() -> bool:
+    """Boîte de refus affichée (elle est réutilisée : une boîte masquée ne compte pas)."""
+    boite = boite_de_refus()
+    return boite is not None and boite.isVisible()
+
+
 def _export_annule_ou_refuse(bureau: Bureau) -> list[str]:
     doc = bureau.doc
     doc.clearUndos()
@@ -325,7 +331,7 @@ def _export_annule_ou_refuse(bureau: Bureau) -> list[str]:
         problemes = [
             *ecarts("boîte ouverte", len(appels), 1),
             *ecarts("annulé : aucun fichier", list(Path(dossier).iterdir()), []),
-            *ecarts("annulé : pas de refus", boite_de_refus() is not None, False),
+            *ecarts("annulé : pas de refus", refus_visible(), False),
         ]
         refuse = Path(dossier) / "debit.txt"
         with boite_d_enregistrement(str(refuse)):
