@@ -36,6 +36,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.picked import PickedElement, container_of, furniture_candidate
 from freecad.menuiserie.features.placement import SnapSession, to_placement
 from freecad.menuiserie.features.snap_geometry import (
+    EPSILON,
     ERRORS,
     Request,
     Vector,
@@ -62,7 +63,6 @@ __all__ = [
 
 SAMPLES: Final = 16  # points relevés sur une arête courbe pour le rectangle englobant
 OVERLAP_MM3: Final = 1.0  # volume commun au-delà duquel la pièce « chevauche » l'objet
-_EPSILON: Final = 1e-9
 _NOT_AN_ELEMENT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » : sélectionnez une face, une arête ou un sommet ; l'objet entier est ignoré.",
@@ -89,14 +89,14 @@ class TargetReading:
 
 def _longest_direction(face: Any, normal: Vector) -> Vector | None:
     """Direction de la plus longue arête droite de ``face`` (dans son plan), ``None`` sinon."""
-    straight = [edge for edge in face.Edges if is_straight(edge) and edge.Length > _EPSILON]
+    straight = [edge for edge in face.Edges if is_straight(edge) and edge.Length > EPSILON]
     if not straight:
         return None
     edge = max(straight, key=operator.attrgetter("Length"))
     direction = without(
         edge.valueAt(edge.LastParameter) - edge.valueAt(edge.FirstParameter), normal
     )
-    return unit(direction) if direction.Length > _EPSILON else None
+    return unit(direction) if direction.Length > EPSILON else None
 
 
 def _outline(face: Any) -> list[Vector]:
@@ -138,7 +138,7 @@ def _plane_target(name: str, face: Any, nearest: Vector, normal: Vector) -> Face
     width, height = box.x_range[1] - box.x_range[0], box.y_range[1] - box.y_range[0]
     axis_x, axis_y, extent = _inward_axes(x, y, low_x, low_y, (width, height))
     frame = Frame(to_vec3(corner), to_vec3(axis_x), to_vec3(axis_y), to_vec3(normal))
-    return FaceTarget(name, frame, extent, planar=width > _EPSILON and height > _EPSILON)
+    return FaceTarget(name, frame, extent, planar=width > EPSILON and height > EPSILON)
 
 
 def _inward_axes(
@@ -192,7 +192,7 @@ def _support_of(edge: Any, owner: Any, axis: Vector, request: Request) -> tuple[
         _nearest_point, raw = nearest_on(face, middle)
         normal = outward_normal(raw, _nearest_point, owner, request.toward_observer)
         support = without(normal, axis)
-        if support.Length < _EPSILON:
+        if support.Length < EPSILON:
             continue
         support = unit(support)
         score = support.dot(request.toward_observer)
@@ -201,7 +201,7 @@ def _support_of(edge: Any, owner: Any, axis: Vector, request: Request) -> tuple[
     if best is not None:
         return best[1], best[2]
     free = without(request.toward_observer, axis)
-    support = unit(free) if free.Length > _EPSILON else perpendicular(axis)
+    support = unit(free) if free.Length > EPSILON else perpendicular(axis)
     return support, unit(support.cross(axis))
 
 
@@ -217,7 +217,7 @@ def _adjacent_faces(edge: Any, owner: Any) -> list[Any]:
 def _toward_inside(face: Any, middle: Vector, axis: Vector, support: Vector) -> Vector:
     """Direction, dans la face, perpendiculaire à l'arête, qui pénètre dans la face."""
     inward = without(without(face.CenterOfMass - middle, axis), support)
-    if inward.Length > _EPSILON:
+    if inward.Length > EPSILON:
         return unit(inward)
     return unit(support.cross(axis))
 

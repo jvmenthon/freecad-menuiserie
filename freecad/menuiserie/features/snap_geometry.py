@@ -18,6 +18,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.picked import PickedElement
 
 __all__ = [
+    "EPSILON",
     "ERRORS",
     "OFFSET_MM",
     "Request",
@@ -36,6 +37,7 @@ __all__ = [
 ]
 
 OFFSET_MM: Final = 1.0  # décalage du point testé par ``isInside`` (côté extérieur d'une face)
+EPSILON: Final = 1e-9  # norme ou longueur en deçà de laquelle un vecteur est nul (mm)
 ERRORS: Final = (RuntimeError, ValueError, TypeError, App.Base.FreeCADError, Part.OCCError)
 Vector = Any
 
@@ -59,8 +61,10 @@ def to_vector(vec: Vec3) -> Vector:
 
 
 def unit(vector: Vector) -> Vector:
-    """``vector`` normé."""
+    """``vector`` normé ; ``ValueError`` (rattrapée avec ``ERRORS``) si sa norme est nulle."""
     length = vector.Length
+    if length <= EPSILON:
+        raise ValueError("vecteur de norme nulle")
     return App.Vector(vector.x / length, vector.y / length, vector.z / length)
 
 

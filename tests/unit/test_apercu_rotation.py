@@ -73,11 +73,13 @@ def groups() -> list[str]:
     return names
 
 
-def test_ordre_des_groupes_materiau_dimensions_position() -> None:
-    names = groups()
-    assert names.index("materialGroup") < names.index("dimensionsGroup")
-    assert names.index("dimensionsGroup") < names.index("positionGroup")
-    assert names.index("identificationGroup") < names.index("positionGroup")
+def test_ordre_des_groupes_identification_materiau_dimensions_rotation() -> None:
+    assert [name for name in groups() if name.endswith("Group")] == [
+        "identificationGroup",
+        "materialGroup",
+        "dimensionsGroup",
+        "rotationGroup",
+    ]
 
 
 @pytest.mark.parametrize("axis", "XYZ")

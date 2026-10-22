@@ -29,7 +29,7 @@ from tests.gui.verifications_panneau import (
     valeur,
     valider,
 )
-from tests.gui.verifications_panneau_ensemble import bureau_regroupe
+from tests.gui.verifications_panneau_ensemble import bureau_regroupe, vue_rapport
 
 TOLERANCE = 0.01
 
@@ -274,6 +274,48 @@ def verifier_case_ensemble_decochee() -> list[str]:
         return ecarts("hors ensemble", getattr(piece, "Furniture", None) is None, True)
 
 
+def verifier_notices_apres_rotation() -> list[str]:
+    """Revue finale de J6 : un quart de tour recalcule aussitôt la ligne « Contre : … » et les
+    notices (texte périmé posé à la main, réécrit par le clic)."""
+
+    def verification(doc: Any) -> list[str]:
+        bloc = cube(doc, (600, 300, 100), (0, 0, 0))
+        creation = lancer_sur((bloc, face(bloc, (0, 0, 1), 100)))
+        form = formulaire()
+        form.snapNotices.setText("périmé")
+        form.snapLabel.setText("périmé")
+        cliquer(form, "rotateXButton")
+        problemes = [
+            *ecarts("notices recalculées", form.snapNotices.text() != "périmé", True),
+            *ecarts("Contre recalculé", form.snapLabel.text().startswith("Contre : "), True),
+            *ecarts("pièce tournée", creation.Placement.Rotation.isNull(), False),
+        ]
+        annuler()
+        return problemes
+
+    return avec_document("VerifNoticesRotation", verification)
+
+
+def verifier_ensemble_supprime_avant_ok() -> list[str]:
+    """Revue finale de J6 : ensemble supprimé pendant que le panneau est ouvert, case cochée ;
+    « OK » écrit un avertissement, crée la pièce hors de l'ensemble, rétablit la transparence et
+    ne laisse qu'une entrée d'annulation."""
+    with bureau_regroupe("VerifEnsembleSupprime") as bureau, vue_rapport() as messages:
+        piece = lancer_sur(*faces_internes(bureau))
+        form = formulaire()
+        problemes = ecarts("case cochée", form.furnitureCheck.isChecked(), True)
+        bureau.doc.removeObject(bureau.furniture.Name)
+        valider()
+        problemes += [
+            *ecarts("avertissement", any("hors de l'ensemble" in m for m in messages), True),
+            *ecarts("pièce créée", piece in bureau.doc.Objects, True),
+            *ecarts("hors ensemble", getattr(piece, "Furniture", None) is None, True),
+            *ecarts("transparence rétablie", piece.ViewObject.Transparency, 0),
+            *ecarts("une seule transaction", bureau.doc.UndoNames[-1:], [CREATE]),
+        ]
+        return problemes
+
+
 VERIFICATIONS_SELECTION: tuple[Callable[[], list[str]], ...] = (
     verifier_accrochage_a_une_face,
     verifier_accrochage_annule,
@@ -283,4 +325,6 @@ VERIFICATIONS_SELECTION: tuple[Callable[[], list[str]], ...] = (
     verifier_std_part_tourne,
     verifier_case_ensemble,
     verifier_case_ensemble_decochee,
+    verifier_notices_apres_rotation,
+    verifier_ensemble_supprime_avant_ok,
 )
