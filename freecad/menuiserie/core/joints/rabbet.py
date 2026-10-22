@@ -18,11 +18,11 @@ from freecad.menuiserie.core.joints._base import (
 
 __all__ = ["RabbetParams", "RabbetStrategy", "RabbetValues"]
 
-CROSS_SECTION: Final = (1, 2)  # largeur et épaisseur de l'hôte
+AXES: Final = (0, 1, 2)
 NO_MATERIAL_LEFT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Feuillure : la pièce logée traverse toute la largeur ou toute l'épaisseur de l'autre ; "
-    "elle doit n'en occuper qu'une partie (décalez-la ou réduisez ses cotes).",
+    "Feuillure : la pièce logée traverse l'autre de part en part et la couperait en deux (ou "
+    "l'enlèverait entièrement) ; décalez-la ou réduisez ses cotes.",
 )
 
 
@@ -58,8 +58,7 @@ class RabbetStrategy:
         cut = require_overlap(host, guest).common
         if params.through:
             cut = cut.with_range(0, 0.0, host.dimensions.length)
-        crossed = [_spans(cut, host.local_box(), axis) for axis in CROSS_SECTION]
-        if any(crossed) if params.through else all(crossed):
+        if _splits(cut, host.local_box()):
             raise JointError(NO_MATERIAL_LEFT, {})
         return RabbetValues(cut)
 
@@ -68,10 +67,25 @@ class RabbetStrategy:
         return JointPlan(host_cuts=(self.resolve(host, guest, params).cut,))
 
 
+def _splits(cut: Box, host: Box) -> bool:
+    """Vrai si enlever ``cut`` coupe ``host`` en deux ou l'enlève entièrement (forme invalide,
+    recette de jv) : ``cut`` occupe toute l'étendue de ``host`` sur deux axes et, sur le
+    troisième, ne touche aucune de ses faces (ou l'occupe aussi en entier). Une feuillure qui
+    amincit ou rétrécit la pièce sur toute sa longueur reste permise."""
+    spans = [_spans(cut, host, axis) for axis in AXES]
+    if sum(spans) < len(AXES) - 1:
+        return False
+    if all(spans):
+        return True
+    free = spans.index(False)
+    return (
+        cut.lo(free) > host.lo(free) + CONTACT_TOLERANCE_MM
+        and cut.hi(free) < host.hi(free) - CONTACT_TOLERANCE_MM
+    )
+
+
 def _spans(cut: Box, host: Box, axis: int) -> bool:
-    """Vrai si ``cut`` occupe toute l'étendue de ``host`` sur l'axe ``axis`` : une feuillure
-    filante qui traverse ainsi la pièce la coupe en deux ou l'amincit sur toute une face, un
-    logement qui traverse largeur et épaisseur la tronçonne (forme invalide, recette de jv)."""
+    """Vrai si ``cut`` occupe toute l'étendue de ``host`` sur l'axe ``axis``."""
     return (
         cut.lo(axis) <= host.lo(axis) + CONTACT_TOLERANCE_MM
         and cut.hi(axis) >= host.hi(axis) - CONTACT_TOLERANCE_MM
