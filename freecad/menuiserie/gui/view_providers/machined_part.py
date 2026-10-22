@@ -68,6 +68,13 @@ class ViewProviderMachinedPart(PanelEditing):
 
         return start_editing(blank, vobj.Object)
 
+    def canDelete(self, obj: DocumentObject) -> bool:
+        """Vrai pour un assemblage de la pièce usinée : « Supprimer » ne montre pas
+        l'avertissement « objets référencés » de FreeCAD, la pièce usinée est recalculée sans
+        sa coupe (FreeCAD retire le lien de ``Joints``). Autre objet : avertissement habituel."""
+        machined = getattr(getattr(self, "vobj", None), "Object", None)
+        return obj in getattr(machined, "Joints", ())
+
     def onDelete(self, vobj: ViewObject, subelements: object) -> bool:
         """Suppression refusée (message dans la vue rapport) tant que la pièce porte des
         assemblages ; sinon la brute est réaffichée."""
