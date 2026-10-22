@@ -73,11 +73,11 @@ def groups() -> list[str]:
     return names
 
 
-def test_ordre_des_groupes_identification_materiau_dimensions_rotation() -> None:
+def test_ordre_des_groupes_identification_dimensions_materiau_rotation() -> None:
     assert [name for name in groups() if name.endswith("Group")] == [
         "identificationGroup",
-        "materialGroup",
         "dimensionsGroup",
+        "materialGroup",
         "rotationGroup",
     ]
 

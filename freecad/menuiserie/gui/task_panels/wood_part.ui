@@ -36,66 +36,6 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="materialGroup">
-     <property name="title">
-      <string>Matériau</string>
-     </property>
-     <layout class="QGridLayout" name="materialGroupLayout">
-      <item row="0" column="0">
-       <widget class="QLabel" name="kindLabel">
-        <property name="text">
-         <string>Type</string>
-        </property>
-        <property name="buddy">
-         <cstring>kindCombo</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QComboBox" name="kindCombo">
-        <property name="toolTip">
-         <string>Restreint la liste des matériaux à un type.</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="materialLabel">
-        <property name="text">
-         <string>Matériau</string>
-        </property>
-        <property name="buddy">
-         <cstring>materialCombo</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QComboBox" name="materialCombo">
-        <property name="toolTip">
-         <string>Essence ou panneau, choisi dans la bibliothèque de matériaux.</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="grainLabel">
-        <property name="text">
-         <string>Sens du fil</string>
-        </property>
-        <property name="buddy">
-         <cstring>grainCombo</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="QComboBox" name="grainCombo">
-        <property name="toolTip">
-         <string>Sens du fil par rapport aux cotes de la pièce.</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
     <widget class="QGroupBox" name="dimensionsGroup">
      <property name="title">
       <string>Dimensions finies</string>
@@ -274,6 +214,66 @@
     </widget>
    </item>
    <item>
+    <widget class="QGroupBox" name="materialGroup">
+     <property name="title">
+      <string>Matériau</string>
+     </property>
+     <layout class="QGridLayout" name="materialGroupLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="kindLabel">
+        <property name="text">
+         <string>Type</string>
+        </property>
+        <property name="buddy">
+         <cstring>kindCombo</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="kindCombo">
+        <property name="toolTip">
+         <string>Restreint la liste des matériaux à un type.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="materialLabel">
+        <property name="text">
+         <string>Matériau</string>
+        </property>
+        <property name="buddy">
+         <cstring>materialCombo</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="materialCombo">
+        <property name="toolTip">
+         <string>Essence ou panneau, choisi dans la bibliothèque de matériaux.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="grainLabel">
+        <property name="text">
+         <string>Sens du fil</string>
+        </property>
+        <property name="buddy">
+         <cstring>grainCombo</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QComboBox" name="grainCombo">
+        <property name="toolTip">
+         <string>Sens du fil par rapport aux cotes de la pièce.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="rotationGroup">
      <property name="title">
       <string>Rotation</string>
@@ -378,9 +378,6 @@
  </customwidgets>
  <tabstops>
   <tabstop>markEdit</tabstop>
-  <tabstop>kindCombo</tabstop>
-  <tabstop>materialCombo</tabstop>
-  <tabstop>grainCombo</tabstop>
   <tabstop>lengthEdit</tabstop>
   <tabstop>widthEdit</tabstop>
   <tabstop>thicknessEdit</tabstop>
@@ -389,6 +386,9 @@
   <tabstop>lengthAllowanceEdit</tabstop>
   <tabstop>widthAllowanceEdit</tabstop>
   <tabstop>thicknessAllowanceEdit</tabstop>
+  <tabstop>kindCombo</tabstop>
+  <tabstop>materialCombo</tabstop>
+  <tabstop>grainCombo</tabstop>
   <tabstop>rotateXButton</tabstop>
   <tabstop>rotateYButton</tabstop>
   <tabstop>rotateZButton</tabstop>

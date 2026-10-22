@@ -16,7 +16,7 @@ Nouveau document, atelier **Menuiserie**, rien de sélectionné.
 | N° | Action | Résultat attendu |
 |---|---|---|
 | 1 | Bouton **Pièce de bois**. | La pièce (800 × 200 × 22) apparaît **semi-transparente** (60 %), texture et couleur du chêne visibles ; panneau « Nouvelle pièce de bois ». |
-| 2 | Lire l'ordre des groupes du panneau, de haut en bas. | **Identification** (le repère / nom de la pièce, premier champ du panneau), puis **Matériau**, puis **Dimensions finies** (et « Surcotes de débit »), puis **Rotation** avec trois boutons **X**, **Y**, **Z** (icônes en couleur, infobulles « Quart de tour autour de l'axe X du document… »). |
+| 2 | Lire l'ordre des groupes du panneau, de haut en bas. | **Identification** (le repère / nom de la pièce, premier champ du panneau), puis **Dimensions finies** (et « Surcotes de débit »), puis **Matériau**, puis **Rotation** avec trois boutons **X**, **Y**, **Z** (icônes en couleur, infobulles « Quart de tour autour de l'axe X du document… »). |
 | 3 | Changer la longueur, le matériau, le sens du fil. | L'aperçu suit chaque saisie, toujours semi-transparent. |
 | 4 | Cliquer **X**. | La pièce fait un quart de tour autour de l'axe X du document (elle se met sur chant) et reste posée sur le plan XY, coin à l'origine. Le sens du fil et la texture tournent avec la pièce ; `GrainDirection` est inchangé dans l'éditeur de propriétés. |
 | 5 | Cliquer quatre fois sur **Y**, puis quatre fois sur **Z**. | Chaque série de quatre clics ramène la pièce à sa position de départ. Les 24 orientations sont atteignables en combinant les trois boutons. |
