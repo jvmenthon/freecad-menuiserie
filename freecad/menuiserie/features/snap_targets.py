@@ -252,7 +252,7 @@ def target_of(element: PickedElement, toward_observer: Vec3) -> Target | None:
 
     ``toward_observer`` : direction de la scène vers l'observateur (+Z en ``freecadcmd``), qui
     donne le côté d'une face sans solide et la face d'appui d'une arête libre."""
-    if not element.is_subelement:
+    if not element.is_subelement():
         return None
     try:
         shape = element_shape(element)
@@ -276,7 +276,7 @@ def read_targets(elements: Sequence[PickedElement], toward_observer: Vec3) -> Ta
         if target is not None:
             kept.append((element, target))
             continue
-        template = _NO_SHAPE if element.is_subelement else _NOT_AN_ELEMENT
+        template = _NO_SHAPE if element.is_subelement() else _NOT_AN_ELEMENT
         ignored.append(translated(template, {"label": str(element.owner().Label)}))
     first = kept[0][0] if kept else None
     return TargetReading(

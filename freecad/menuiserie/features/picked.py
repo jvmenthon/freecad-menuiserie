@@ -43,7 +43,6 @@ class PickedElement:
         """Nom de l'élément (``Face3``), vide si c'est un objet entier."""
         return self.subname.rsplit(".", 1)[-1]
 
-    @property
     def is_subelement(self) -> bool:
         """Vrai pour ``FaceN``, ``EdgeN`` ou ``VertexN``."""
         return ELEMENT_PATTERN.fullmatch(self.element) is not None

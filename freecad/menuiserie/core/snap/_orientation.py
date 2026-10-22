@@ -37,11 +37,13 @@ def support_rotation(targets: Sequence[Target]) -> Matrix3 | None:
 def all_orientations() -> tuple[Orientation, ...]:
     """Les 24 orientations d'une boîte, de l'identité vers les plus tournées (ordre figé)."""
     found = [Orientation()]
-    for orientation in found:  # la liste grandit pendant le parcours
+    index = 0
+    while index < len(found):  # parcours en largeur : la liste grandit
         for turn in Turn:
-            turned = orientation.turned(turn)
+            turned = found[index].turned(turn)
             if turned not in found:
                 found.append(turned)
+        index += 1
     return tuple(found)
 
 
