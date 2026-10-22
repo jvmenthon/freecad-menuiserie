@@ -67,9 +67,13 @@ class _Walk:
         self.blanks: dict[str, DocumentObject] = {}
         self.counts: dict[str, int] = defaultdict(int)
         self.notices: list[Notice] = []
+        # Prédicats passés comme fonctions (Semgrep les prend à tort pour des attributs).
         self._readers: tuple[tuple[Callable[[DocumentObject], bool], _Reader], ...] = (
+            # nosemgrep: python.lang.maintainability.is-function-without-parentheses
             (is_wood_part, self._part),
+            # nosemgrep: python.lang.maintainability.is-function-without-parentheses
             (is_machined_part, self._machined),
+            # nosemgrep: python.lang.maintainability.is-function-without-parentheses
             (is_furniture, self._furniture),
             (_is_link, self._link),
             (_is_container, self._container),

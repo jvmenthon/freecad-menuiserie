@@ -74,15 +74,15 @@ def _write_atomically(target: Path, text: str, dialect: CsvDialect) -> None:
         suffix=".tmp",
         delete=False,
     ) as handle:
-        temporary = Path(handle.name)
         try:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
         except BaseException:
             handle.close()
-            temporary.unlink(missing_ok=True)
+            Path(handle.name).unlink(missing_ok=True)
             raise
+    temporary = Path(handle.name)  # fichier fermé : écrit et complet
     try:
         if target.exists():
             shutil.copymode(target, temporary)
