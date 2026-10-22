@@ -285,16 +285,16 @@ def export(world: World, path: Path, cut_list: CutList | None = None) -> Path:
     return Path(world.features.cutlist_export.export_csv(cut_list or sample(), path))
 
 
-def test_export_francais_bom_crlf_et_aucun_temporaire(world: World, tmp_path: Path) -> None:
+def test_export_international_bom_crlf_et_aucun_temporaire(world: World, tmp_path: Path) -> None:
     target = export(world, tmp_path / "debit.csv")
     raw = target.read_bytes()
     assert raw.startswith(b"\xef\xbb\xbf")
     assert b"\r\n" in raw
     assert b"\n" not in raw.replace(b"\r\n", b"")
     text = raw.decode("utf-8-sig")
-    assert text.splitlines()[0].split(";")[:2] == ["Repère", "Qté"]
-    assert "M1;2;800;100;22" in text
-    assert "Tourillon;8;35;8" in text
+    assert text.splitlines()[0].split(",")[:2] == ["Repère", "Qté"]
+    assert "M1,2,800,100,22" in text
+    assert "Tourillon,8,35,8" in text
     assert os.listdir(tmp_path) == ["debit.csv"]
 
 
@@ -367,4 +367,4 @@ def test_echec_d_ecriture_laisse_le_fichier_intact_et_sans_temporaire(
 
 def test_export_neutralise_les_formules(world: World, tmp_path: Path) -> None:
     target = export(world, tmp_path / "debit.csv", build_cut_list([entry("=1+1")]))
-    assert "'=1+1;" in target.read_text(encoding="utf-8-sig")
+    assert "'=1+1," in target.read_text(encoding="utf-8-sig")

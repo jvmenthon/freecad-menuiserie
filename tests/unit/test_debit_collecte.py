@@ -325,5 +325,6 @@ def test_cut_list_regroupe_les_liens_et_garde_les_avertissements(world: World) -
     future = world.part("WoodPart001", "F", Category="Composite")
     doc = Doc(board, future, link("L", board))
     cut_list = world.features.cutlist_collect.cut_list_of(doc)
-    assert sorted((line.mark, line.quantity) for line in cut_list.lines) == [("F", 1), ("M1", 2)]
+    # C1' : mêmes cotes, matériau et fil, donc une seule ligne qui cite les deux repères.
+    assert [(line.marks, line.quantity) for line in cut_list.lines] == [(("F", "M1"), 3)]
     assert cut_list.warnings[0].kind.value == "UnreadablePart"

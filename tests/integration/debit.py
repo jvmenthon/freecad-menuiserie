@@ -4,6 +4,7 @@ feuille. Module d'aide (importé seulement avec FreeCAD)."""
 
 from __future__ import annotations
 
+import zlib
 from typing import Any
 
 import pytest
@@ -16,9 +17,14 @@ LAST_ROW = 80
 SHEET_NAME = "MenuiserieCutList"
 
 
-def part(doc: Any, mark: str, size: tuple[float, float, float] = (800, 200, 22)) -> Any:
-    """Pièce de chêne de repère ``mark``, recalculée."""
-    obj = api.make_wood_part(*size, "chene", mark=mark, doc=doc)
+def default_size(mark: str) -> tuple[float, float, float]:
+    """Cotes par défaut propres au repère : deux repères différents ne se regroupent pas (C1')."""
+    return (1000.0 + zlib.crc32(mark.encode()) % 1000, 200.0, 22.0)
+
+
+def part(doc: Any, mark: str, size: tuple[float, float, float] | None = None) -> Any:
+    """Pièce de chêne de repère ``mark`` (cotes propres au repère par défaut), recalculée."""
+    obj = api.make_wood_part(*(size or default_size(mark)), "chene", mark=mark, doc=doc)
     doc.recompute()
     return obj
 
@@ -36,8 +42,18 @@ def link(doc: Any, target: Any, count: int = 0, name: str = "Lien") -> Any:
 
 
 def quantities(cut_list: Any) -> dict[str, int]:
-    """Quantité par repère."""
-    return {line.mark: line.quantity for line in cut_list.lines}
+    """Quantité par ligne, clé = repères affichés (« M1, M2 » pour une ligne regroupée)."""
+    return {line.display_mark: line.quantity for line in cut_list.lines}
+
+
+def marks_of(cut_list: Any) -> set[str]:
+    """Tous les repères cités par les lignes."""
+    return {mark for line in cut_list.lines for mark in line.marks}
+
+
+def has_mark_in(line: Any, marks: set[str]) -> bool:
+    """La ligne cite au moins un des repères ``marks``."""
+    return bool(set(line.marks) & marks)
 
 
 def kinds(cut_list: Any) -> list[str]:
@@ -46,8 +62,8 @@ def kinds(cut_list: Any) -> list[str]:
 
 
 def line_of(cut_list: Any, mark: str) -> Any:
-    """Ligne de repère ``mark`` (la seule)."""
-    [line] = [line for line in cut_list.lines if line.mark == mark]
+    """Ligne qui porte le repère ``mark`` (la seule)."""
+    [line] = [line for line in cut_list.lines if mark in line.marks]
     return line
 
 

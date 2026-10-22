@@ -37,20 +37,21 @@ def sample() -> CutList:
     return build_cut_list(entries, [Hardware(HardwareKind.DOWEL, 8.0, 35.0, 6)])
 
 
-def rows(text: str, delimiter: str = ";") -> list[list[str]]:
+def rows(text: str, delimiter: str = ",") -> list[list[str]]:
     return list(csv.reader(io.StringIO(text, newline=""), delimiter=delimiter))
 
 
 # --- C7 : structure et dialecte -----------------------------------------------------------
 
 
-def test_dialecte_francais_par_defaut() -> None:
+def test_dialecte_international_par_defaut() -> None:  # C7'
     text = to_csv(sample())
-    assert text == to_csv(sample(), FRENCH_CSV)
+    assert text == to_csv(sample(), INTERNATIONAL_CSV)
     assert text.endswith("\r\n")
     assert "\n" not in text.replace("\r\n", "")
-    assert text.encode(FRENCH_CSV.encoding).startswith(b"\xef\xbb\xbf")
-    assert (FRENCH_CSV.delimiter, FRENCH_CSV.decimal_separator) == (";", ",")
+    assert text.encode(INTERNATIONAL_CSV.encoding).startswith(b"\xef\xbb\xbf")
+    assert (INTERNATIONAL_CSV.delimiter, INTERNATIONAL_CSV.decimal_separator) == (",", ".")
+    assert (INTERNATIONAL_CSV.encoding, INTERNATIONAL_CSV.line_terminator) == ("utf-8-sig", "\r\n")
 
 
 def test_structure_en_trois_blocs() -> None:
@@ -71,24 +72,25 @@ def test_structure_en_trois_blocs() -> None:
     ]
 
 
-def test_lignes_de_donnees_francaises() -> None:
+def test_lignes_de_donnees_internationales() -> None:
     table = rows(to_csv(sample()))
     assert table[1] == [
-        *["M2", "1", "800", "100", "22,5", "880", "105", "22,5", "Chene", "Sans fil", ""],
-        *["0,0021", "1,48", "", "Ajouts compris (L / l / e) : +60 / +0 / +0 mm"],
+        *["M2", "1", "800", "100", "22.5", "880", "105", "22.5", "Chene", "Sans fil", ""],
+        *["0.0021", "1.48", "", "Ajouts compris (L / l / e) : +60 / +0 / +0 mm"],
     ]
     assert table[2][10] == "Caisson"
-    assert table[2][5:8] == ["1220", "100,5", "22"]
+    assert table[2][5:8] == ["1220", "100.5", "22"]
     assert table[3][:2] == ["P1", "1"]  # contreplaqué : surface renseignée
-    assert table[3][13] == "0,240"
+    assert table[3][13] == "0.240"
 
 
-def test_dialecte_international() -> None:
-    text = to_csv(sample(), INTERNATIONAL_CSV)
-    table = rows(text, ",")
-    assert table[1][4] == "22.5"
-    assert table[1][11] == "0.0021"
-    assert ";" not in text.splitlines()[0]
+def test_dialecte_francais_disponible() -> None:
+    text = to_csv(sample(), FRENCH_CSV)
+    table = rows(text, ";")
+    assert (FRENCH_CSV.delimiter, FRENCH_CSV.decimal_separator) == (";", ",")
+    assert table[1][4] == "22,5"
+    assert table[1][11] == "0,0021"
+    assert ";" in text.splitlines()[0]
 
 
 def test_dialecte_parametrable() -> None:
@@ -100,7 +102,7 @@ def test_dialecte_parametrable() -> None:
 
 def test_en_tetes_traduits() -> None:
     text = to_csv(sample(), translate=lambda s: f"<{s}>")
-    assert text.startswith("<Repère>;<Qté>;")
+    assert text.startswith("<Repère>,<Qté>,")
     assert "<Total général>" in text
     assert "<Tourillon>" in text
     assert "<Sans fil>" in text
@@ -149,13 +151,13 @@ def test_cellule_avec_separateur_ou_saut_de_ligne_protegee() -> None:
     [(800.0, "800"), (22.5, "22,5"), (22.54, "22,5"), (0.04, "0"), (100.06, "100,1"), (7.0, "7")],
 )
 def test_format_des_cotes(value: float, text: str) -> None:
-    assert format_number(value, 1) == text
-    assert format_number(value, 1, INTERNATIONAL_CSV) == text.replace(",", ".")
+    assert format_number(value, 1, FRENCH_CSV) == text
+    assert format_number(value, 1) == text.replace(",", ".")  # défaut : international
 
 
 def test_decimales_fixes_volume_surface_masse() -> None:
     line = rows(to_csv(build_cut_list([plywood("P1", (2500, 1220, 18))])))[1]
-    assert line[11:14] == ["0,0549", "32,94", "3,050"]  # m³ à 4, kg à 2, m² à 3
+    assert line[11:14] == ["0.0549", "32.94", "3.050"]  # m³ à 4, kg à 2, m² à 3
 
 
 # --- remarque ------------------------------------------------------------------------------
@@ -164,8 +166,8 @@ def test_decimales_fixes_volume_surface_masse() -> None:
 def test_remarque_des_ajouts() -> None:
     (with_tenon,) = build_cut_list([entry(additions=Allowances(60.0, 0.0, 2.25))]).lines
     (without,) = build_cut_list([entry()]).lines
-    assert additions_remark(with_tenon, str) == "Ajouts compris (L / l / e) : +60 / +0 / +2,2 mm"
-    assert additions_remark(with_tenon, str, INTERNATIONAL_CSV).endswith("+2.2 mm")
+    assert additions_remark(with_tenon, str) == "Ajouts compris (L / l / e) : +60 / +0 / +2.2 mm"
+    assert additions_remark(with_tenon, str, FRENCH_CSV).endswith("+2,2 mm")
     assert additions_remark(without, str) == ""
 
 
