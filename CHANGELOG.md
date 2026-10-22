@@ -6,6 +6,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Géométrie de l'accrochage (J6a, ADR 0011), sans FreeCAD : `core/snap/` (`Frame`, `FaceTarget`,
+  `EdgeTarget`, `VertexTarget`, `Orientation`, `Turn`, `snap`, `turned_in_place`,
+  `tangent_frame`). Une pièce se pose contre une face, une arête ou un sommet (coin sur le coin,
+  à plat sur la face d'appui) ; deux ou trois éléments la font toucher chacun, et deux faces en
+  vis-à-vis étirent la longueur ou la largeur (jamais l'épaisseur) ; pivoter et basculer
+  (12 orientations) la gardent accrochée ; refus doux par avis (`ThicknessGap`, `GapOutOfRange`,
+  `NotSquare`, `TooMany`, `Conflict`).
 - Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
   **Retirer de l'ensemble** et **Relier les pièces** (une entrée d'annulation chacune, icônes
   générées) ; `ViewProviderFurniture` (membres, sous-ensembles et assemblages internes rangés
