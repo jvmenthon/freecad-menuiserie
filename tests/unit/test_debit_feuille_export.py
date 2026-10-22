@@ -73,6 +73,9 @@ class FakeSheet(Obj):
     def recompute(self) -> None:
         self.recomputed += 1
 
+    def purgeTouched(self) -> None:
+        """Marque « Touched » effacée (sans effet sur le double)."""
+
 
 class SheetDoc:
     """Document simulé qui crée la feuille et note les transactions."""
