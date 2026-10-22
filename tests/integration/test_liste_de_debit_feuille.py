@@ -180,7 +180,7 @@ def test_lignes_alignement_gras_et_largeurs(bureau: Bureau) -> None:
     rows = table(sheet)
     for index, line in enumerate(cut_list.lines):
         cells = rows[FIRST_LINE_ROW - 1 + index]
-        assert cells[0] == line.mark
+        assert cells[0] == line.display_mark
         assert int(cells[1]) == line.quantity
         sizes = (*line.finished.__dict__.values(), *line.rough.__dict__.values())
         assert [float(cell) for cell in cells[2:8]] == pytest.approx(sizes)
@@ -269,6 +269,7 @@ def test_libelle_d_ensemble_hostile_litteral(document: Any) -> None:
 
 def test_feuille_pas_recalculee_automatiquement(document: Any) -> None:
     board = part(document, "M1")
+    old_length = board.Length.Value
     sheet = cut_sheet(document)
     before = contents(sheet)
     board.Length = 1000
@@ -276,7 +277,7 @@ def test_feuille_pas_recalculee_automatiquement(document: Any) -> None:
     document.recompute()
     assert contents(sheet) == before
     assert "Touched" not in sheet.State
-    assert float(text(sheet, f"C{row_of(sheet, 'M1')}")) == 800  # l'ancienne valeur, datée
+    assert float(text(sheet, f"C{row_of(sheet, 'M1')}")) == old_length  # l'ancienne valeur, datée
     cut_sheet(document)
     assert float(text(sheet, f"C{row_of(sheet, 'M1')}")) == 1000
 
@@ -284,12 +285,12 @@ def test_feuille_pas_recalculee_automatiquement(document: Any) -> None:
 # --- S5 : export CSV ------------------------------------------------------------------------
 
 
-def read_csv(path: Path) -> list[list[str]]:
+def read_csv(path: Path, delimiter: str = ",") -> list[list[str]]:
     raw = path.read_bytes()
     assert raw.startswith(b"\xef\xbb\xbf")
     assert b"\r\n" in raw
     text_ = raw.decode("utf-8-sig")
-    return list(csv.reader(io.StringIO(text_, newline=""), delimiter=";"))
+    return list(csv.reader(io.StringIO(text_, newline=""), delimiter=delimiter))
 
 
 def test_export_csv_du_bureau(bureau: Bureau, tmp_path: Path) -> None:
@@ -300,13 +301,25 @@ def test_export_csv_du_bureau(bureau: Bureau, tmp_path: Path) -> None:
     cut_list = api.cut_list_of(bureau.doc)
     assert rows[0] == HEADERS
     assert [row[0] for row in rows[1 : 1 + len(cut_list.lines)]] == [
-        line.mark for line in cut_list.lines
+        line.display_mark for line in cut_list.lines
     ]
-    plateau = rows[1 + [line.mark for line in cut_list.lines].index("Plateau")]
+    plateau = rows[1 + [line.display_mark for line in cut_list.lines].index("Plateau")]
     assert plateau[2:5] == ["1200", "600", "30"]
     assert ["Totaux par matériau"] in rows
     assert any(row and row[0] == "Tourillon" for row in rows)
     assert sorted(set(os.listdir(tmp_path)) - {"bibliotheque"}) == ["bureau.csv"]
+
+
+def test_export_dialecte_francais(document: Any, tmp_path: Path) -> None:
+    part(document, "M1", (800.5, 100, 22))
+    path = tmp_path / "debit.csv"
+    api.export_cut_list_csv(document, path, dialect=api.FRENCH_CSV)
+    rows = read_csv(path, ";")
+    assert rows[0] == HEADERS
+    assert rows[1][:3] == ["M1", "1", "800,5"]
+    default = tmp_path / "international.csv"
+    api.export_cut_list_csv(document, default)
+    assert read_csv(default)[1][:3] == ["M1", "1", "800.5"]
 
 
 def test_export_selection_et_remplacement(cadre: Cadre, tmp_path: Path) -> None:

@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 from typing import Final
 
-from freecad.menuiserie.core.cutlist import FRENCH_CSV, CsvDialect, CutList, to_csv
+from freecad.menuiserie.core.cutlist import INTERNATIONAL_CSV, CsvDialect, CutList, to_csv
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import escaped_text
 from freecad.menuiserie.features.i18n import translate_text, translated
@@ -95,10 +95,10 @@ def _write_atomically(target: Path, text: str, dialect: CsvDialect) -> None:
 
 
 def export_csv(
-    cut_list: CutList, path: str | os.PathLike[str], dialect: CsvDialect = FRENCH_CSV
+    cut_list: CutList, path: str | os.PathLike[str], dialect: CsvDialect = INTERNATIONAL_CSV
 ) -> Path:
-    """Écrit ``cut_list`` en CSV dans ``path`` (dialecte français par défaut : ``;``, virgule
-    décimale, UTF-8 avec BOM, CRLF) et renvoie le chemin. Refus : ``ValueError`` traduite
+    """Écrit ``cut_list`` en CSV dans ``path`` (dialecte international par défaut : ``,``,
+    point décimal, UTF-8 avec BOM, CRLF) et renvoie le chemin. Refus : ``ValueError`` traduite
     (:func:`validated_path`, ou échec d'écriture, le fichier existant restant alors intact)."""
     target = validated_path(path)
     text = to_csv(cut_list, dialect, translate_text)

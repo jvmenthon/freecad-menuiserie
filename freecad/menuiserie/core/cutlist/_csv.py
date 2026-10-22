@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Export CSV de la liste de débit : dialectes, nombres affichés, neutralisation (J2b, C7 et C8).
+"""Export CSV de la liste de débit : dialectes, nombres affichés, neutralisation (J2b, C7' et C8).
 
 Module privé : la façade ``core.cutlist`` ré-exporte l'API publique. ``core/`` ne traduit pas :
 les libellés sont des gabarits marqués pour ``lupdate`` que ``features/`` traduit en passant sa
@@ -40,9 +40,10 @@ class CsvDialect:
     line_terminator: str
 
 
-# Excel et LibreOffice en français : « ; », virgule décimale, UTF-8 avec BOM, CRLF (★ Q4).
-FRENCH_CSV: Final = CsvDialect(";", ",", "utf-8-sig", "\r\n")
+# Défaut (C7', Q4 = b) : « , », point décimal, UTF-8 avec BOM, CRLF.
 INTERNATIONAL_CSV: Final = CsvDialect(",", ".", "utf-8-sig", "\r\n")
+# Excel et LibreOffice en français : « ; », virgule décimale, UTF-8 avec BOM, CRLF.
+FRENCH_CSV: Final = CsvDialect(";", ",", "utf-8-sig", "\r\n")
 
 
 LINE_HEADERS: Final = (
@@ -93,7 +94,7 @@ ADDITIONS_REMARK: Final = QT_TRANSLATE_NOOP(
 )
 
 
-def format_number(value: float, decimals: int, dialect: CsvDialect = FRENCH_CSV) -> str:
+def format_number(value: float, decimals: int, dialect: CsvDialect = INTERNATIONAL_CSV) -> str:
     """Cote arrondie à ``decimals`` décimales, sans zéros inutiles (« 800 », « 22,5 »)."""
     text = f"{round(value, decimals):.{decimals}f}".rstrip("0").rstrip(".")
     return (text or "0").replace(".", dialect.decimal_separator)
@@ -108,7 +109,9 @@ def neutralize_formula(text: str) -> str:
     return f"'{text}" if text.startswith(_FORMULA_STARTS) else text
 
 
-def additions_remark(line: CutLine, translate: Translate, dialect: CsvDialect = FRENCH_CSV) -> str:
+def additions_remark(
+    line: CutLine, translate: Translate, dialect: CsvDialect = INTERNATIONAL_CSV
+) -> str:
     """Remarque d'une ligne dont le débit compte des ajouts d'assemblage, sinon texte vide."""
     additions = line.additions
     if not (additions.length or additions.width or additions.thickness):
@@ -184,7 +187,7 @@ _LINE_TEXT_COLUMNS: Final = frozenset({0, 8, 9, 10, 14})
 
 
 def table_sections(
-    cut_list: CutList, translate: Translate, dialect: CsvDialect = FRENCH_CSV
+    cut_list: CutList, translate: Translate, dialect: CsvDialect = INTERNATIONAL_CSV
 ) -> tuple[TableSection, ...]:
     """Blocs du tableau : lignes, puis (s'il y a des lignes) totaux avec le total général, puis
     fournitures. Commun au CSV et à la feuille de calcul (J2c)."""
@@ -219,7 +222,9 @@ def _rows(cut_list: CutList, translate: Translate, dialect: CsvDialect) -> list[
     return rows
 
 
-def to_csv(cut_list: CutList, dialect: CsvDialect = FRENCH_CSV, translate: Translate = str) -> str:
+def to_csv(
+    cut_list: CutList, dialect: CsvDialect = INTERNATIONAL_CSV, translate: Translate = str
+) -> str:
     """Texte CSV : en-tête, une ligne par groupe, puis totaux et fournitures séparés par une
     ligne vide. Les textes qui commenceraient une formule sont neutralisés (C7). Le fichier est
     écrit par l'appelant avec ``dialect.encoding`` et sans conversion de fin de ligne."""

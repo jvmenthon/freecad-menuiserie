@@ -5,7 +5,24 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Modifié
+- Liste de débit, réponses de jv (J2e, spécification J2 § 10) : le repère n'entre plus dans la clé
+  de regroupement (matériau, cotes finies, ajouts, surcotes, fil) ; `CutLine.mark` devient
+  `CutLine.marks` (repères distincts non vides, ordre naturel), affichés « M1, M3 » ou « — »
+  (`display_mark`) ; lignes triées par premier repère, sans repère en dernier. Un même repère
+  porté par deux lignes différentes reste signalé (`REPEATED_MARK`). Le CSV par défaut est
+  international (`,`, point décimal, UTF-8 avec BOM, CRLF) : `to_csv` et
+  `api.export_cut_list_csv(doc, path, objects=None, dialect=INTERNATIONAL_CSV)` acceptent aussi
+  `FRENCH_CSV` (`;`, virgule décimale).
+
 ### Ajouté
+- Liste de débit, HTML et numérotation pures (J2e) : `core.cutlist.to_html(cut_list, translate,
+  title, scope, date)` produit un document HTML autonome (titre, date, portée, tableau aux mêmes
+  colonnes que la feuille, totaux, fournitures, avertissements ; tout texte échappé, aucun script
+  ni ressource externe, CSS inline pour l'A4 paysage, nombres au format international), base de
+  l'export PDF (J2g). `core.cutlist.assign_marks(entries, prefix="M", used=())` calcule, sans rien
+  modifier, le repère `M<n>` libre de chaque groupe de pièces sans repère (ensemble puis cotes
+  décroissantes, repères `M<n>` existants sautés) ; l'écriture dans le document viendra en J2f.
 - Liste de débit dans le document (J2c, ADR 0012) : `api.make_cut_list(doc, objects=None)` crée ou
   met à jour la feuille `Spreadsheet::Sheet` « Liste de débit » (nom interne `MenuiserieCutList`,
   retrouvée par sa propriété masquée `MenuiserieCutList` même renommée, aucun proxy, une seule
