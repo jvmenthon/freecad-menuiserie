@@ -206,7 +206,7 @@ def test_totaux_par_materiau() -> None:
     assert (oak.material_name, oak.quantity, oak.kind) == ("Chene", 3, MaterialKind.SOLID)
     assert oak.volume_m3 == pytest.approx((2 * 820 * 105 * 22 + 520 * 85 * 22) / 1e9)
     assert oak.mass_kg == pytest.approx(oak.volume_m3 * 710)
-    assert oak.area_m2 is None
+    assert oak.area_m2 == pytest.approx((2 * 820 * 105 + 520 * 85) / 1e6)  # massif aussi
     assert (ply.material_name, ply.quantity) == ("Cp", 2)
     assert ply.area_m2 == pytest.approx(2 * 0.6 * 0.4)
     assert ply.mass_kg == pytest.approx(2 * 600 * 400 * 18 / 1e9 * 600)

@@ -8,7 +8,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ### Modifié
 - Liste de débit (demande de jv, 2026-10-22) : les totaux sont faits **par matériau et par
   épaisseur de débit** (« Totaux par matériau et épaisseur », colonne « Épaisseur de débit
-  (mm) » ; `MaterialTotal.thickness`). Icônes d'export : l'extension « CSV » ou « PDF » remplace
+  (mm) » ; `MaterialTotal.thickness`) ; la surface de débit (m²) est donnée pour tous les
+  matériaux, massif compris (`MaterialTotal.area_m2` n'est plus `None`). Icônes d'export : l'extension « CSV » ou « PDF » remplace
   la flèche.
 - Liste de débit, réponses de jv (J2e, spécification J2 § 10) : le repère n'entre plus dans la clé
   de regroupement (matériau, cotes finies, ajouts, surcotes, fil) ; `CutLine.mark` devient

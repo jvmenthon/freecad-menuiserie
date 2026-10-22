@@ -130,9 +130,6 @@ def additions_remark(
 
 def _line_row(line: CutLine, translate: Translate, dialect: CsvDialect) -> list[str]:
     sizes = (*_sizes(line.finished), *_sizes(line.rough))
-    # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode.
-    # nosemgrep: python.lang.maintainability.is-function-without-parentheses
-    area = line.area_m2() if line.kind.is_panel else None
     return [
         line.display_mark,
         str(line.quantity),
@@ -142,7 +139,7 @@ def _line_row(line: CutLine, translate: Translate, dialect: CsvDialect) -> list[
         ", ".join(line.furniture),
         _fixed(line.volume_m3(rough=True), VOLUME_DECIMALS, dialect),
         _fixed(line.mass_kg(rough=True), MASS_DECIMALS, dialect),
-        "" if area is None else _fixed(area, AREA_DECIMALS, dialect),
+        _fixed(line.area_m2(), AREA_DECIMALS, dialect),
         additions_remark(line, translate, dialect),
     ]
 
@@ -152,14 +149,13 @@ def _sizes(dimensions: Dimensions) -> tuple[float, float, float]:
 
 
 def _total_row(total: MaterialTotal, dialect: CsvDialect) -> list[str]:
-    area = total.area_m2
     return [
         total.material_name,
         format_number(total.thickness, DIMENSION_DECIMALS, dialect),
         str(total.quantity),
         _fixed(total.volume_m3, VOLUME_DECIMALS, dialect),
         _fixed(total.mass_kg, MASS_DECIMALS, dialect),
-        "" if area is None else _fixed(area, AREA_DECIMALS, dialect),
+        _fixed(total.area_m2, AREA_DECIMALS, dialect),
     ]
 
 

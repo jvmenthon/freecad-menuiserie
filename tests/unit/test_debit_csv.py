@@ -76,11 +76,11 @@ def test_lignes_de_donnees_internationales() -> None:
     table = rows(to_csv(sample()))
     assert table[1] == [
         *["M2", "1", "800", "100", "22.5", "880", "105", "22.5", "Chene", "Sans fil", ""],
-        *["0.0021", "1.48", "", "Ajouts compris (L / l / e) : +60 / +0 / +0 mm"],
+        *["0.0021", "1.48", "0.092", "Ajouts compris (L / l / e) : +60 / +0 / +0 mm"],
     ]
     assert table[2][10] == "Caisson"
     assert table[2][5:8] == ["1220", "100.5", "22"]
-    assert table[3][:2] == ["P1", "1"]  # contreplaqué : surface renseignée
+    assert table[3][:2] == ["P1", "1"]  # contreplaqué
     assert table[3][13] == "0.240"
 
 

@@ -131,7 +131,7 @@ def test_entete_date_portee_et_tableau(world: World) -> None:
     [line, _panel] = sample().lines
     assert sheet.cells["L6"] == f"{line.volume_m3(rough=True):.4f}".rstrip("0")
     assert sheet.cells["I6"] == "'Chene"
-    assert "N6" not in sheet.cells  # surface : panneaux seulement
+    assert sheet.cells["N6"] == f"{line.area_m2():.3f}"  # surface, massif compris
     assert sheet.styles["A1"] == sheet.styles["A5"] == "bold"
     assert sheet.alignments["B6"] == sheet.alignments["C5"] == "right"
     assert "A6" not in sheet.alignments
