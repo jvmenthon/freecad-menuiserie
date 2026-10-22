@@ -10,6 +10,7 @@ import pytest
 
 from freecad.menuiserie.core.geometry import (
     CUT_OVERRUN_MM,
+    Box,
     PlacedBlock,
     Prism,
     RigidTransform,
@@ -192,14 +193,37 @@ def test_roles_ordre_de_selection() -> None:
 @pytest.mark.parametrize(
     "guest",
     [
-        block((500.0, 60.0, 20.0), (60.0, 60.0, 0.0), 90.0),  # bout contre le chant
         block((500.0, 60.0, 20.0), (60.0, 70.0, 0.0), 90.0),  # écartée
-        block((500.0, 60.0, 20.0), (60.0, 0.0, 20.0), 90.0),  # posée dessus
     ],
-    ids=["contact", "écart", "dessus"],
+    ids=["écart"],
 )
 def test_refus_sans_chevauchement(guest: PlacedBlock) -> None:
     refused((block((500.0, 60.0, 20.0)), guest), OVERLAP)
+
+
+def test_refus_piece_posee_dessus() -> None:
+    refused(
+        (block((500.0, 60.0, 20.0)), block((500.0, 60.0, 20.0), (60.0, 0.0, 20.0), 90.0)), FLUSH
+    )
+
+
+def rounded_points(solids: tuple[Solid, ...]) -> list[tuple[tuple[float, ...], ...]]:
+    return [
+        tuple(tuple(round(c, 6) + 0.0 for c in (p.x, p.y, p.z)) for p in solid.points)
+        for solid in solids
+        if isinstance(solid, Prism)
+    ]
+
+
+def test_pieces_en_contact_bout_contre_chant() -> None:
+    """ADR 0014 : invitée posée bout contre le chant de l'hôte = invitée prolongée jusqu'au coin
+    extérieur ; mêmes coupes que la version dessinée à la longueur hors tout."""
+    host = block((500.0, 60.0, 20.0))
+    butted = MITER.plan(host, block((500.0, 60.0, 20.0), (60.0, 60.0, 0.0), 90.0), MiterParams())
+    overlap = MITER.plan(host, block((560.0, 60.0, 20.0), (60.0, 0.0, 0.0), 90.0), MiterParams())
+    assert rounded_points(butted.host_cuts) == rounded_points(overlap.host_cuts)
+    assert butted.guest_additions == (Box(Vec3(-60, 0, 0), Vec3(0, 60, 20)),)
+    assert len(butted.guest_cuts) == 1
 
 
 @pytest.mark.parametrize(

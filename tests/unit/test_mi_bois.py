@@ -142,8 +142,28 @@ def test_roles_au_dela_de_la_tolerance_piece_la_plus_mince() -> None:
 # --- B2 : refus ---------------------------------------------------------------------------
 
 
-def test_refus_pieces_en_contact() -> None:
-    refused((stile(), rail()), CROSSING)
+def test_pieces_en_contact_l_invitee_traverse_l_hote() -> None:
+    """ADR 0014 : traverse posée bout contre le chant du montant = traverse prolongée de la
+    largeur du montant ; la partie ajoutée est entaillée comme dans la version superposée."""
+    prolonged = block((340.0, 60.0, 22.0), (60.0, 0.0, 0.0), 90.0)
+    overlap = HALF_LAP.plan(stile(), prolonged, HalfLapParams())
+    plan = HALF_LAP.plan(stile(), rail(), HalfLapParams())
+    assert rounded(plan.host_cuts) == rounded(overlap.host_cuts) == [box((0, 0, 11), (60, 60, 22))]
+    assert rounded(plan.guest_additions) == [box((-60, 0, 0), (0, 60, 22))]
+    assert rounded(plan.guest_cuts) == [box((-60, 0, 0), (0, 60, 11))]
+
+
+def rounded(boxes: tuple[object, ...]) -> list[Box]:
+    """Boîtes aux coordonnées arrondies au micron (rotations de 90° à 1e-15 près)."""
+    result = []
+    for item in boxes:
+        assert isinstance(item, Box)
+        result.append(Box.from_ranges([(round(lo, 6), round(hi, 6)) for lo, hi in item.ranges()]))
+    return result
+
+
+def test_refus_pieces_posees_l_une_sur_l_autre() -> None:
+    refused((stile(), block((280.0, 60.0, 22.0), (60.0, 0.0, 22.0), 90.0)), NOT_FLUSH)
 
 
 def test_refus_pieces_ecartees() -> None:
