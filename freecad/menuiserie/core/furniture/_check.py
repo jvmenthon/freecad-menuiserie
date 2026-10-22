@@ -27,12 +27,12 @@ from freecad.menuiserie.core.furniture._model import (
     FurnitureBox,
     FurnitureError,
     Member,
-    Notice,
     NoticeKind,
     notice,
 )
 from freecad.menuiserie.core.furniture._spans import Span, Spans, frame_block, member_spans
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, PlacedBlock, RigidTransform, Vec3
+from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.part_model import Dimensions
 
 _MINUS: Final = "\N{MINUS SIGN}"

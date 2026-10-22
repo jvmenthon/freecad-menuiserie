@@ -42,10 +42,10 @@ from freecad.menuiserie.core.furniture._model import (
     FurnitureError,
     InteriorMode,
     Member,
-    Notice,
     NoticeKind,
 )
 from freecad.menuiserie.core.furniture._spans import Span, edge_distances, member_spans
+from freecad.menuiserie.core.notice import Notice
 
 __all__ = [
     "Anchor",
