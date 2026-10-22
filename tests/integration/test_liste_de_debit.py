@@ -36,6 +36,8 @@ api = pytest.importorskip("freecad.menuiserie.api")
 joints_base = pytest.importorskip("freecad.menuiserie.features.joints.base")
 schema = pytest.importorskip("freecad.menuiserie.features.wood_part_schema")
 
+OAK_ROUGH_THICKNESSES = (27.0, 34.0, 41.0, 54.0, 65.0, 80.0, 100.0)
+MIN_PLANING_MM = 3.0  # marge de rabotage minimale (ADR 0015)
 DESK_MARKS = {label for label, *_ in LAYOUT.values()}
 # Ajouts attendus de l'invitée (somme des trois axes, mm) pour chaque montage de J3/J4 :
 # languette de 10 mm, queues de 18 mm ; les autres assemblages ne font que retirer de la matière.
@@ -216,6 +218,10 @@ def test_ajouts_selon_l_assemblage(document: Any, scenario: Any) -> None:
                 + getattr(line.additions, axis)
                 + getattr(line.allowances, axis)
             )
+            if axis == "thickness":  # massif : brut standard (ADR 0015), au moins 3 mm de rabotage
+                assert line.rough.thickness in OAK_ROUGH_THICKNESSES, line.marks
+                assert line.rough.thickness >= expected + MIN_PLANING_MM, line.marks
+                continue
             assert getattr(line.rough, axis) == pytest.approx(expected), (line.marks, axis)
 
 

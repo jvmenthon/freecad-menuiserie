@@ -34,6 +34,7 @@ Pour le lien entre pièce et matériau :
    anglais, libellés en français. Règles de validation détaillées dans la spécification J1.
    Une `texture` facultative (image relative au fichier de bibliothèque et taille réelle couverte,
    en mm) peut compléter la couleur, qui reste le rendu de secours si l'image manque.
+   `rough_thicknesses` facultatif (épaisseurs de brut, mm) : voir l'[ADR 0015](0015-epaisseurs-de-brut.md).
 2. **Le type de la pièce est une caractéristique du matériau** (`kind`) : il n'est pas choisi
    indépendamment de l'essence (cf. question Q3 de la spécification).
 3. **Identifiant stable** (`chene`, `cp-bouleau`) : c'est lui qui relie une pièce à un matériau ;

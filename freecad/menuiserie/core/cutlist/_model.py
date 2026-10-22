@@ -22,7 +22,7 @@ from freecad.menuiserie.core._validation import (
     to_finite_float,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
-from freecad.menuiserie.core.materials import MaterialKind
+from freecad.menuiserie.core.materials import MaterialKind, normalized_rough_thicknesses
 from freecad.menuiserie.core.part_model import (
     Allowances,
     Dimensions,
@@ -38,6 +38,8 @@ from freecad.menuiserie.core.text import quoted_value
 NO_MARK_DISPLAY: Final = "—"
 _MM2_PER_M2: Final = 1e6
 NO_ADDITIONS: Final = Allowances()
+MIN_PLANING_MM: Final = 3.0  # marge de rabotage minimale d'une pièce massive (ADR 0015)
+_EPSILON_MM: Final = 1e-6
 
 _BAD_COUNT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Entrée de débit invalide : {field} = {value} (entier supérieur à 0 attendu)."
@@ -53,6 +55,11 @@ _BAD_ROUGH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Entrée de débit invalide : cotes finies, ajouts et surcotes dépassent {max} mm.",
 )
+_BAD_ROUGH_THICKNESSES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Entrée de débit invalide : {field} = {value} (liste de nombres entre {min} et {max} mm "
+    "attendue).",
+)
 _FIELDS: Final[Mapping[str, str]] = MappingProxyType(
     {
         "record": QT_TRANSLATE_NOOP("Menuiserie", "pièce"),
@@ -61,6 +68,7 @@ _FIELDS: Final[Mapping[str, str]] = MappingProxyType(
         "diameter": QT_TRANSLATE_NOOP("Menuiserie", "diamètre"),
         "length": QT_TRANSLATE_NOOP("Menuiserie", "longueur"),
         "kind": QT_TRANSLATE_NOOP("Menuiserie", "nature"),
+        "rough_thicknesses": QT_TRANSLATE_NOOP("Menuiserie", "épaisseurs de brut"),
     }
 )
 
@@ -108,22 +116,63 @@ class CutEntry:
     additions: Allowances = NO_ADDITIONS
     furniture: str = ""
     source: str = ""
+    rough_thicknesses: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
         _require_instance(self.record, PartRecord, "record")
         _require_instance(self.additions, Allowances, "additions")
         _require_count(self.quantity, "quantity")
+        self._normalize_rough_thicknesses()
         try:
             _ = self.rough
         except InvalidDimensionsError as error:
             params = {"max": decimal_text(MAX_DIMENSION_MM)}
             raise InvalidCutEntryError(_BAD_ROUGH, params) from error
 
+    def _normalize_rough_thicknesses(self) -> None:
+        """Épaisseurs de brut du matériau (ADR 0015) : vides, ou liste valide triée."""
+        value = self.rough_thicknesses
+        rough: tuple[float, ...] | None = ()
+        if not (isinstance(value, (list, tuple)) and not value):
+            rough = normalized_rough_thicknesses(value)
+        if rough is None:
+            bounds = {"min": decimal_text(MIN_DIMENSION_MM), "max": decimal_text(MAX_DIMENSION_MM)}
+            raise _refuse(_BAD_ROUGH_THICKNESSES, "rough_thicknesses", value, **bounds)
+        object.__setattr__(self, "rough_thicknesses", rough)
+
+    def _requested_thickness(self) -> float:
+        """Épaisseur demandée d'une pièce massive : finie + max(surcote + ajouts, rabotage)."""
+        margin = self.record.allowances.thickness + self.additions.thickness
+        return self.record.finished.thickness + max(margin, MIN_PLANING_MM)
+
+    @property
+    def standard_thickness(self) -> float | None:
+        """Plus petite épaisseur de brut qui couvre l'épaisseur demandée ; ``None`` sans
+        épaisseurs de brut, ou au-delà de la plus grande (:attr:`over_standard`)."""
+        if not self.rough_thicknesses:
+            return None
+        wanted = self._requested_thickness() - _EPSILON_MM
+        return next((value for value in self.rough_thicknesses if value >= wanted), None)
+
+    @property
+    def over_standard(self) -> bool:
+        """Vrai si l'épaisseur demandée dépasse la plus grande épaisseur de brut."""
+        return bool(self.rough_thicknesses) and self.standard_thickness is None
+
     @property
     def rough(self) -> Dimensions:
-        """Cotes de débit : finies + ajouts des assemblages + surcotes."""
-        return rough_dimensions(
+        """Cotes de débit : finies + ajouts des assemblages + surcotes ; l'épaisseur est celle
+        du brut standard du matériau s'il en a (ADR 0015)."""
+        rough = rough_dimensions(
             self.record.finished, _sum_allowances(self.record.allowances, self.additions)
+        )
+        if not self.rough_thicknesses:
+            return rough
+        thickness = self.standard_thickness
+        return Dimensions(
+            rough.length,
+            rough.width,
+            thickness if thickness is not None else self._requested_thickness(),
         )
 
 
@@ -178,6 +227,7 @@ class CutLine:
     allowances: Allowances
     furniture: tuple[str, ...] = ()
     source: str = ""
+    over_standard: bool = False
 
     @property
     def display_mark(self) -> str:
@@ -217,6 +267,7 @@ class CutNoticeKind(Enum):
 
     REPEATED_MARK = "RepeatedMark"
     MISSING_MARK = "MissingMark"
+    ROUGH_THICKNESS_OVER_STANDARD = "RoughThicknessOverStandard"
 
     @property
     def template(self) -> str:
@@ -231,6 +282,11 @@ _NOTICE_TEMPLATES: Final[Mapping[CutNoticeKind, str]] = MappingProxyType(
         ),
         CutNoticeKind.MISSING_MARK: QT_TRANSLATE_NOOP(
             "Menuiserie", "{count} pièce(s) sans repère, regroupées par cotes."
+        ),
+        CutNoticeKind.ROUGH_THICKNESS_OVER_STANDARD: QT_TRANSLATE_NOOP(
+            "Menuiserie",
+            "Épaisseur de débit de {thickness} mm au-delà des épaisseurs de brut du {material} : "
+            "à commander ou à contrecoller.",
         ),
     }
 )

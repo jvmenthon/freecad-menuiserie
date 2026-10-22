@@ -6,6 +6,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Modifié
+- Liste de débit, épaisseurs standards de brut (demande de jv, recette J2, spécification J2
+  § 10.4, [ADR 0015](docs/adr/0015-epaisseurs-de-brut.md)) : la bibliothèque de matériaux accepte
+  un champ facultatif `rough_thicknesses` (épaisseurs de brut du commerce, en mm), renseigné pour
+  les huit massifs intégrés (feuillus 27 à 100 mm, résineux 18 à 100 mm). L'épaisseur de débit
+  d'une pièce massive devient la plus petite épaisseur de brut supérieure ou égale à l'épaisseur
+  finie + max(surcote + ajouts d'épaisseur, 3 mm de rabotage) : 18 mm de chêne sont débités en
+  27 mm. Volume, masse, surface et totaux suivent ; les totaux sont par épaisseur de plot. Au-delà
+  du plus gros brut, l'épaisseur demandée est gardée et un avertissement par ligne
+  (`ROUGH_THICKNESS_OVER_STANDARD`) propose de commander ou de contrecoller. Sans le champ
+  (panneaux, bibliothèque personnelle ancienne) : calcul inchangé. `Material.rough_thicknesses`,
+  `normalized_rough_thicknesses`, `CutEntry.rough_thicknesses`, `MIN_PLANING_MM`. La géométrie
+  des pièces ne change pas.
 - Liste de débit (demande de jv, 2026-10-22) : les totaux sont faits **par matériau et par
   épaisseur de débit** (« Totaux par matériau et épaisseur », colonne « Épaisseur de débit
   (mm) » ; `MaterialTotal.thickness`) ; la surface de débit (m²) est donnée pour tous les

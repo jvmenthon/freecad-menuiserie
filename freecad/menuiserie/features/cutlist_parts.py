@@ -20,6 +20,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import templated_message
 from freecad.menuiserie.features.joints.base import is_joint, resolved_for
+from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.wood_part import dimensions_of
 from freecad.menuiserie.features.wood_part_record import (
@@ -135,6 +136,13 @@ def _record(blank: DocumentObject, notices: list[Notice]) -> PartRecord:
         return _unknown_record(blank)
 
 
+def _rough_thicknesses(record: PartRecord) -> tuple[float, ...]:
+    """Épaisseurs de brut du matériau de la pièce dans la bibliothèque (ADR 0015) ; aucune si
+    le matériau est introuvable."""
+    material = get_library().find(record.material_id)
+    return () if material is None else material.rough_thicknesses
+
+
 def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> CutEntry | None:
     """Entrée de débit de la brute ``blank`` vue ``quantity`` fois, ajouts compris ; ``None`` et
     un avertissement qui la nomme si ses propriétés sont inutilisables (cote invalide…)."""
@@ -143,7 +151,8 @@ def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> Cut
         additions = additions_of(blank, notices)
         owner = furniture_of(blank)
         label = str(owner.Label) if owner is not None else ""
-        return CutEntry(record, quantity, additions, label, str(blank.Name))
+        rough = _rough_thicknesses(record)
+        return CutEntry(record, quantity, additions, label, str(blank.Name), rough)
     except (ValueError, AttributeError, TypeError) as error:
         reason = _reason(error) if isinstance(error, ValueError) else type(error).__name__
         notices.append(notice(CollectNoticeKind.IGNORED_PART, blank, reason=reason))

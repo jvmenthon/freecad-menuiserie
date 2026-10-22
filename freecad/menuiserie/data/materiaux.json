@@ -7,6 +7,7 @@
       "name": {"fr": "Chêne", "en": "Oak"},
       "density": 710,
       "thicknesses": [18, 22, 27, 34, 41, 54],
+      "rough_thicknesses": [27, 34, 41, 54, 65, 80, 100],
       "color": "#B8875A",
       "texture": {"image": "textures/chene.jpg", "size": [1830, 1830]},
       "has_grain": true
@@ -17,6 +18,7 @@
       "name": {"fr": "Hêtre", "en": "Beech"},
       "density": 720,
       "thicknesses": [18, 22, 27, 34, 41, 54],
+      "rough_thicknesses": [27, 34, 41, 54, 65, 80, 100],
       "color": "#D9B48A",
       "texture": {"image": "textures/hetre.jpg", "size": [1000, 500]},
       "has_grain": true
@@ -27,6 +29,7 @@
       "name": {"fr": "Frêne", "en": "Ash"},
       "density": 690,
       "thicknesses": [18, 22, 27, 34, 41, 54],
+      "rough_thicknesses": [27, 34, 41, 54, 65, 80, 100],
       "color": "#E3CFA5",
       "texture": {"image": "textures/frene.jpg", "size": [1000, 1000]},
       "has_grain": true
@@ -37,6 +40,7 @@
       "name": {"fr": "Noyer", "en": "Walnut"},
       "density": 650,
       "thicknesses": [18, 22, 27, 34, 41],
+      "rough_thicknesses": [27, 34, 41, 54, 65, 80, 100],
       "color": "#6B4A33",
       "texture": {"image": "textures/noyer.jpg", "size": [400, 400]},
       "has_grain": true
@@ -47,6 +51,7 @@
       "name": {"fr": "Merisier", "en": "Cherry"},
       "density": 620,
       "thicknesses": [18, 22, 27, 34, 41],
+      "rough_thicknesses": [27, 34, 41, 54, 65, 80, 100],
       "color": "#B5654A",
       "texture": {"image": "textures/merisier.jpg", "size": [400, 400]},
       "has_grain": true
@@ -57,6 +62,7 @@
       "name": {"fr": "Pin sylvestre", "en": "Scots pine"},
       "density": 520,
       "thicknesses": [18, 22, 27, 34, 45],
+      "rough_thicknesses": [18, 22, 27, 32, 38, 50, 63, 75, 100],
       "color": "#E8C68E",
       "texture": {"image": "textures/pin-sylvestre.jpg", "size": [800, 800]},
       "has_grain": true
@@ -67,6 +73,7 @@
       "name": {"fr": "Sapin – épicéa", "en": "Fir – spruce"},
       "density": 450,
       "thicknesses": [18, 22, 27, 34, 45],
+      "rough_thicknesses": [18, 22, 27, 32, 38, 50, 63, 75, 100],
       "color": "#EEDDB8",
       "texture": {"image": "textures/sapin-epicea.jpg", "size": [500, 500]},
       "has_grain": true
@@ -77,6 +84,7 @@
       "name": {"fr": "Douglas", "en": "Douglas fir"},
       "density": 530,
       "thicknesses": [22, 27, 34, 45],
+      "rough_thicknesses": [18, 22, 27, 32, 38, 50, 63, 75, 100],
       "color": "#D49A6A",
       "texture": {"image": "textures/douglas.jpg", "size": [400, 400]},
       "has_grain": true

@@ -377,6 +377,34 @@ couches existantes) :
 | A3 | Commande `Menuiserie_CutListPreview` « Aperçu de la liste de débit » (icône générée par `tools/generer_icones.py`, barre d'outils et menu) : fenêtre non modale, `QTextBrowser` avec une image par ligne, quatre boutons ; portée = sélection, sinon document ; document, sélection et historique d'annulation inchangés ; aucune boîte modale bloquante. | G |
 | A4 | Le PDF contient les miniatures ; « Exporter en PDF… » et « Exporter en CSV… » de la fenêtre écrivent les mêmes fichiers que les commandes d'export (annuler la boîte ne fait rien) ; « Actualiser » relit le document. | G + manuel |
 
+### 10.4 Demande de jv (recette, 2026-10-22) : épaisseurs standards de brut
+
+Demande, mot pour mot : « pour les matériaux bruts il faut utiliser des épaisseurs standards de
+brut ». Décision structurante (format de la bibliothèque) : [ADR 0015](../adr/0015-epaisseurs-de-brut.md).
+
+- La bibliothèque donne, par matériau **massif**, un champ facultatif `rough_thicknesses` :
+  épaisseurs de brut du commerce (plots et avivés), en mm. Intégrés : feuillus (chêne, hêtre,
+  frêne, noyer, merisier) **27, 34, 41, 54, 65, 80, 100** ; résineux (pin sylvestre,
+  sapin-épicéa, douglas) **18, 22, 27, 32, 38, 50, 63, 75, 100**. Panneaux : sans champ.
+- **Épaisseur de débit** d'une pièce massive = la plus petite épaisseur de brut **≥ épaisseur
+  finie + max(surcote d'épaisseur + ajouts d'épaisseur, 3 mm de rabotage)**. Exemples chêne :
+  18 → 27, 22 → 27, 25 → 34, 27 → 34, 34 → 41. Longueur et largeur de débit inchangées.
+- Au-delà de la plus grande épaisseur de brut : épaisseur de débit = épaisseur demandée
+  (finie + marge), et un **avertissement** par ligne : « Épaisseur de débit de {thickness} mm
+  au-delà des épaisseurs de brut du {material} : à commander ou à contrecoller. »
+- Matériau sans `rough_thicknesses` (panneaux, bibliothèque personnelle ancienne) : calcul
+  inchangé (finie + surcote + ajouts).
+- Volume, masse, surface et totaux suivent l'épaisseur de débit : les totaux par matériau et
+  épaisseur deviennent des totaux **par épaisseur de plot**.
+- La géométrie des pièces (brute et usinée) ne change pas : seule la liste de débit utilise
+  l'épaisseur de débit.
+
+| N° | Critère | Test |
+|---|---|---|
+| B1 | `normalized_rough_thicknesses` / lecture JSON : champ facultatif, 1 à `MAX_THICKNESSES` nombres de 0,1 à 300 mm, triés sans doublon ; valeur invalide refusée avec message citant le champ ; absent → `()`. Bibliothèque intégrée : valeurs ci-dessus pour les 8 massifs, aucune pour les panneaux. | U |
+| B2 | `CutEntry(rough_thicknesses=…)` : épaisseur de débit arrondie selon la règle (exemples ci-dessus, marge 3 mm, surcote ou ajout d'épaisseur plus grand que 3 mm pris tel quel) ; sans épaisseurs de brut, inchangé ; au-delà du maximum, épaisseur demandée + avertissement `ROUGH_THICKNESS_OVER_STANDARD` (traduit, un par ligne). | U |
+| B3 | Collecte : la pièce en chêne de 18 mm a 27 mm de débit dans la feuille, le CSV, le PDF et les totaux ; une pièce en pin de 18 mm a 22 mm ; un contreplaqué de 18 mm reste à 18 mm. | I |
+
 ### 10.2 Découpage complété
 
 | Lot | Branche | Contenu | Critères |

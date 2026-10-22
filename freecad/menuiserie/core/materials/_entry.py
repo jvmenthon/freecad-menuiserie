@@ -24,7 +24,17 @@ from freecad.menuiserie.core.materials._messages import (
 from freecad.menuiserie.core.text import quoted_value
 
 _ENTRY_KEYS: Final = frozenset(
-    {"id", "kind", "name", "density", "thicknesses", "color", "has_grain", "texture"}
+    {
+        "id",
+        "kind",
+        "name",
+        "density",
+        "thicknesses",
+        "rough_thicknesses",
+        "color",
+        "has_grain",
+        "texture",
+    }
 )
 TEXTURE_KEYS: Final = ("image", "size")
 

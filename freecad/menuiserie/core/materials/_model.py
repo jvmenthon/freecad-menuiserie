@@ -118,6 +118,11 @@ def normalized_thicknesses(value: object) -> tuple[float, ...] | None:
     return None if numbers is None else tuple(sorted(set(numbers)))
 
 
+def normalized_rough_thicknesses(value: object) -> tuple[float, ...] | None:
+    """Épaisseurs de brut du commerce : mêmes règles que :func:`normalized_thicknesses`."""
+    return normalized_thicknesses(value)
+
+
 def normalized_color(value: object) -> tuple[int, int, int] | None:
     """Couleur RVB : exactement trois entiers (pas booléens) de 0 à 255."""
     if not isinstance(value, (list, tuple)) or len(value) != _COLOR_COMPONENTS:
@@ -196,6 +201,11 @@ def _flag(value: object) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+_THICKNESSES_EXPECTED: Final = (
+    f"1 à {MAX_THICKNESSES} nombres finis entre {decimal_text(MIN_THICKNESS_MM)} "
+    f"et {decimal_text(MAX_THICKNESS_MM)} mm"
+)
+
 # Règles appliquées par le constructeur de Material : champ, normalisation, valeur attendue.
 _MATERIAL_RULES: Final[tuple[tuple[str, Callable[[object], object | None], str], ...]] = (
     ("id", normalized_id, f"identifiant de 1 à {MAX_ID_LENGTH} caractères (a-z, 0-9, tirets)"),
@@ -209,8 +219,7 @@ _MATERIAL_RULES: Final[tuple[tuple[str, Callable[[object], object | None], str],
     (
         "thicknesses",
         normalized_thicknesses,
-        f"1 à {MAX_THICKNESSES} nombres finis entre {decimal_text(MIN_THICKNESS_MM)} "
-        f"et {decimal_text(MAX_THICKNESS_MM)} mm",
+        _THICKNESSES_EXPECTED,
     ),
     ("color", normalized_color, "trois entiers de 0 à 255"),
     ("has_grain", _flag, "booléen"),
@@ -233,6 +242,7 @@ class Material:
     color: tuple[int, int, int]
     has_grain: bool
     texture: Texture | None = None
+    rough_thicknesses: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
         owner = f"matériau « {quoted_value(self.id)} »"
@@ -242,6 +252,12 @@ class Material:
             if normalized is None:
                 raise _invalid(owner, field, value, expected)
             object.__setattr__(self, field, normalized)
+        if self.rough_thicknesses != ():
+            rough = normalized_rough_thicknesses(self.rough_thicknesses)
+            if rough is None:
+                expected = _THICKNESSES_EXPECTED
+                raise _invalid(owner, "rough_thicknesses", self.rough_thicknesses, expected)
+            object.__setattr__(self, "rough_thicknesses", rough)
         if self.texture is not None and not isinstance(self.texture, Texture):
             raise _invalid(owner, "texture", self.texture, "Texture ou None")
 
