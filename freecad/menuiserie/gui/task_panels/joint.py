@@ -3,8 +3,8 @@
 (double-clic).
 
 Le formulaire est construit d'après la description des paramètres du type
-(:mod:`joint_fields`) : pièces reliées, bouton « Inverser » (échange hôte et invitée), un champ
-par paramètre. Chaque saisie est écrite aussitôt dans l'assemblage puis recalculée avec ses
+(:mod:`joint_fields`) : pièces reliées, bouton « Inverser » (échange hôte et invitée, sauf pour
+un type aux rôles symétriques : mi-bois, onglet), un champ par paramètre. Chaque saisie est écrite aussitôt dans l'assemblage puis recalculée avec ses
 pièces usinées (aperçu) ; une erreur d'assemblage s'affiche dans le panneau sans empêcher
 « OK ». Transactions, fermeture et surveillance du document : :mod:`base` (comme J1c).
 """
@@ -80,7 +80,7 @@ class JointTaskPanel(ObjectTaskPanel):
     # --- Construction ---------------------------------------------------------------------
 
     def _add_parts(self, layout: Widget) -> tuple[Widget, Widget]:
-        """Pièces reliées (libellés) et bouton « Inverser »."""
+        """Pièces reliées (libellés) et bouton « Inverser » si le type a des rôles distincts."""
         host, guest = QtGui.QLabel(), QtGui.QLabel()
         for label, spec, name in zip(
             (host, guest), COMMON_PROPERTIES[:2], ("hostLabel", "guestLabel"), strict=True
@@ -89,6 +89,9 @@ class JointTaskPanel(ObjectTaskPanel):
             label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setToolTip(property_tooltip(spec))
             layout.addWidget(label)
+        proxy: JointFeature = self.obj.Proxy
+        if not proxy.INVERTIBLE:
+            return host, guest
         button = QtGui.QPushButton(translated(_INVERT))
         button.setObjectName("invertButton")
         button.setToolTip(translated(_INVERT_TIP))
