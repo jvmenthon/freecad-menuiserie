@@ -114,6 +114,10 @@ CONSTRAINT_BUILDERS: Final[
 )
 
 
+def _empty_entries() -> list[dict[Side, float]]:
+    return [{}, {}, {}]
+
+
 @dataclass
 class _Solver:
     """Cumul des contraintes d'un accrochage, pour une orientation et des côtés donnés."""
@@ -123,7 +127,7 @@ class _Solver:
     sides: Sides
     stretch: bool
     local_of: tuple[int, int, int] = (0, 1, 2)
-    entries: list[dict[Side, float]] = field(default_factory=lambda: [{}, {}, {}])
+    entries: list[dict[Side, float]] = field(default_factory=_empty_entries)
     locked: set[tuple[int, Side]] = field(default_factory=set)
     notices: list[SnapNotice] = field(default_factory=list)
 
