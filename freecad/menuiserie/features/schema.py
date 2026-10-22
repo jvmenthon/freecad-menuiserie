@@ -20,6 +20,7 @@ from freecad.menuiserie.features.freecad_types import EDITABLE, HIDDEN, READ_ONL
 from freecad.menuiserie.features.i18n import report_warning, translated
 
 __all__ = [
+    "ANGLE",
     "DISTANCE",
     "LENGTH",
     "PropertySpec",
@@ -51,6 +52,8 @@ _UNEXPECTED_TYPE: Final = QT_TRANSLATE_NOOP(
 # Types des propriétés de cotes (mm) : longueur positive, distance signée (décalage).
 LENGTH: Final = "App::PropertyLength"
 DISTANCE: Final = "App::PropertyDistance"
+# Angle en degrés (``Quantity`` d'unité « ° » dans FreeCAD).
+ANGLE: Final = "App::PropertyAngle"
 # Mode d'édition tel que le renvoie ``getEditorMode``.
 _MODE_NAMES: Final[Mapping[int, list[str]]] = MappingProxyType(
     {EDITABLE: [], READ_ONLY: ["ReadOnly"], HIDDEN: ["Hidden"]}

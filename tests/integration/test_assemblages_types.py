@@ -49,6 +49,13 @@ PROPERTIES: dict[str, list[Row]] = {
         ("ThicknessOffset", DISTANCE, "Tourillons", 0.0),
         ("HoleClearance", LENGTH, "Tourillons", 1.0),
     ],
+    "make_half_lap": [("Depth", LENGTH, "Mi-bois", 0.0), ("FlipSide", BOOL, "Mi-bois", False)],
+    "make_dovetail": [
+        ("TailCount", "App::PropertyIntegerConstraint", "Queue d'aronde", 0),
+        ("PinWidth", LENGTH, "Queue d'aronde", 0.0),
+        ("Angle", "App::PropertyAngle", "Queue d'aronde", 0.0),
+    ],
+    "make_miter": [],  # aucune propriété propre (A4 de J4)
 }
 
 

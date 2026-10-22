@@ -14,19 +14,37 @@ Assemblage (J3) ::
 
     assemblage = make_mortise_tenon(montant, traverse, tenon_thickness=8)
 
+Ensemble (J4) ::
+
+    from freecad.menuiserie.api import make_furniture, resize_furniture
+
+    bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
+    resize_furniture(bureau, depth=800)
+
 C'est le seul module hors de ``gui/`` autorisé à importer ``gui/``, et seulement quand
 l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.furniture import Notice
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
+from freecad.menuiserie.features import furniture_edges, furniture_members, templates
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
+from freecad.menuiserie.features.furniture_bindings import notice_messages, report
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.factories import (
+    create_dovetail,
     create_dowels,
+    create_half_lap,
+    create_miter,
     create_mortise_tenon,
     create_rabbet,
     create_tongue_groove,
@@ -43,7 +61,10 @@ __all__ = [
     "blank_of",
     "is_machined_part",
     "machined_part_of",
+    "make_dovetail",
     "make_dowels",
+    "make_half_lap",
+    "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
     "make_tongue_groove",
@@ -135,6 +156,30 @@ def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -
     return _make_joint(create_dowels, host, guest, params)
 
 
+def make_half_lap(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie à mi-bois deux pièces de même épaisseur, à fleur, qui se chevauchent (croix, T ou
+    angle) et recalcule le document : ``host`` est entaillée par-dessus, ``guest`` par-dessous.
+
+    Paramètres facultatifs : ``depth`` (profondeur de l'entaille de ``host`` en mm, 0 = moitié
+    de l'épaisseur), ``flip_side`` (entaille de ``host`` par-dessous). Mêmes validations et même
+    absence de transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_half_lap, host, guest, params)
+
+
+def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie à queue d'aronde traversante ``guest`` (pièce à queues, en contact par son bout,
+    dessinée à sa longueur visible) et ``host`` (pièce à griffes, hors tout, son bout à fleur
+    de la face extérieure de ``guest``), puis recalcule le document.
+
+    Paramètres facultatifs, 0 = automatique : ``tail_count`` (nombre de queues),
+    ``pin_width`` (largeur des griffes au plus étroit, en mm, le tiers de l'épaisseur de
+    ``host``), ``angle`` (angle des flancs en degrés, 10° ; au plus 30°). Mêmes validations et
+    même absence de transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_dovetail, host, guest, params)
+
+
 _JointFactory = Callable[..., DocumentObject]
 
 
@@ -167,3 +212,179 @@ def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
                 ViewProviderMachinedPart(machined.ViewObject)
     joint.Document.recompute()
     return joint
+
+
+# --- Ensembles (J4b') --------------------------------------------------------------------
+
+__all__ += [
+    "add_to_furniture",
+    "furniture_of",
+    "make_furniture",
+    "rebind_furniture",
+    "remove_from_furniture",
+    "resize_furniture",
+    "set_edge_distance",
+    "set_member_options",
+]
+
+_Notices = tuple[str, ...]
+
+
+def _reported(notices: Sequence[Notice], doc: Document) -> _Notices:
+    """Avertissements traduits, écrits dans la vue rapport, puis document recalculé."""
+    messages = notice_messages(notices)
+    report(messages)
+    doc.recompute()
+    return messages
+
+
+def make_furniture(
+    objects: Sequence[DocumentObject], label: str = ""
+) -> tuple[DocumentObject, _Notices]:
+    """Crée un ensemble (« Ensemble » par défaut) autour de ``objects`` (pièces de bois, pièces
+    usinées ou ensembles), le relie à eux par des expressions et recalcule le document.
+
+    Cotes et ``Origin`` = boîte qui contient les membres ; options « fixe » par défaut (toute
+    distance fixe, Q7). Renvoie l'ensemble et les avertissements traduits (aussi dans la vue
+    rapport). Refus avant toute création (``TypeError`` ou ``ValueError`` traduites). Aucune
+    transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
+    """
+    furniture, notices = furniture_members.build_furniture(objects, label)
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
+
+        ViewProviderFurniture(furniture.ViewObject)
+    return furniture, _reported(notices, furniture.Document)
+
+
+def add_to_furniture(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> _Notices:
+    """Fait entrer ``objects`` dans ``furniture`` (options par défaut, liaisons d'après la
+    géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus et même
+    absence de transaction que :func:`make_furniture`."""
+    notices = furniture_members.add_members(furniture, objects)
+    return _reported(notices, furniture.Document)
+
+
+def remove_from_furniture(objects: Sequence[DocumentObject]) -> None:
+    """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
+    de membre sont supprimées, la géométrie ne change pas. ``ValueError`` traduite, avant toute
+    modification, pour un objet qui n'est membre d'aucun ensemble."""
+    furniture_members.remove_members(objects)
+    if objects:
+        objects[0].Document.recompute()
+
+
+def set_member_options(
+    obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None
+) -> _Notices:
+    """Change le mode (``Stay``, ``Proportional``) et les options « fixe » d'un membre
+    (``fixed={"Back": False}``), relie ce seul membre et recalcule."""
+    notices = furniture_members.set_options(obj, mode, fixed)
+    return _reported(notices, obj.Document)
+
+
+def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> _Notices:
+    """Règle à ``distance`` mm l'écart entre une face d'un membre et le bord ``edge``
+    (``Left``, ``Right``, ``Front``, ``Back``, ``Bottom``, ``Top``) de son ensemble : la pièce
+    est déplacée, ou sa cote change si la distance opposée est fixe. Options inchangées ; ce
+    seul membre est relié, puis le document recalculé. Refus avant modification (face pilotée
+    par une formule, pièce qui n'est pas d'équerre, cote hors bornes)."""
+    notices = furniture_edges.set_edge_distance(obj, edge, distance)
+    return _reported(notices, obj.Document)
+
+
+def rebind_furniture(furniture: DocumentObject) -> _Notices:
+    """« Relier les pièces » : recalcule toutes les liaisons de l'atelier (sous-ensembles
+    compris) d'après la géométrie actuelle et les options enregistrées, puis recalcule."""
+    notices = furniture_members.relink(furniture)
+    return _reported(notices, furniture.Document)
+
+
+def resize_furniture(
+    furniture: DocumentObject,
+    *,
+    width: float | None = None,
+    depth: float | None = None,
+    height: float | None = None,
+) -> None:
+    """Change les cotes de l'ensemble (mm, ``None`` = inchangée) puis recalcule ; refusé
+    d'avance (``ValueError`` traduite, rien n'est modifié) si une pièce deviendrait trop petite
+    ou trop grande ou si un assemblage perdrait sa position. Avertissements dans la vue
+    rapport."""
+    sizes = {"Width": width, "Depth": depth, "Height": height}
+    notices = furniture_members.resize(furniture, sizes)
+    _reported(notices, furniture.Document)
+
+
+def furniture_of(obj: DocumentObject) -> DocumentObject | None:
+    """Ensemble dont ``obj`` (pièce de bois, pièce usinée ou ensemble) est membre, ``None``
+    sinon."""
+    try:
+        member = furniture_members.member_object(obj)
+    except TypeError:
+        return None
+    return _member_furniture(member)
+
+
+# --- Onglet (J4g) ---------------------------------------------------------------------------
+
+
+def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie à onglet ``host`` et ``guest``, dessinées à leur longueur hors tout (de pointe
+    longue à pointe longue) et qui se chevauchent au coin, puis recalcule le document. La coupe
+    passe par le coin extérieur et le coin intérieur : 45° pour deux largeurs égales. Aucun
+    paramètre en J4 (un nom inconnu lève ``TypeError``) ; mêmes validations et même absence de
+    transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_miter, host, guest, params)
+
+
+# --- Gabarits (J4d) -------------------------------------------------------------------------
+
+__all__ += ["CarcassJoinery", "CarcassParams", "make_carcass"]
+
+_CARCASS_ARGUMENTS = QT_TRANSLATE_NOOP(
+    "Menuiserie", "make_carcass : params ou champs en mots-clés, pas les deux"
+)
+
+
+def make_carcass(
+    doc: Document | None = None,
+    params: CarcassParams | None = None,
+    *,
+    furniture: DocumentObject | None = None,
+    **values: Any,
+) -> tuple[DocumentObject, _Notices]:
+    """Crée un caisson par le gabarit « Caisson » (ADR 0010) et recalcule le document une fois :
+    côtés, dessus, dessous, fond en feuillure, étagères, tourillons, et un ensemble « Caisson »
+    (``Template`` = ``Carcass``) dont les pièces suivent les cotes. Rien d'autre n'est gardé :
+    le caisson se modifie ensuite comme tout ensemble.
+
+    Paramètres : ``params`` (:class:`CarcassParams`) ou ses champs en mots-clés
+    (``width=800, shelf_count=2``…, mm). ``furniture`` : ensemble dont le caisson devient un
+    sous-ensemble (options par défaut vis-à-vis de lui). ``doc`` vaut par défaut le document
+    actif, ou un nouveau document. Renvoie l'ensemble et les avertissements traduits. Refus
+    avant toute création (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est
+    ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
+    """
+    if params is not None and values:
+        raise TypeError(translated(_CARCASS_ARGUMENTS))
+    with translated_errors():
+        chosen = params if params is not None else CarcassParams(**values)
+    document = doc if doc is not None else App.ActiveDocument or App.newDocument()
+    built = templates.build_carcass(document, chosen, furniture)
+    if App.GuiUp:  # ViewProviders des pièces, des pièces usinées, des assemblages, de l'ensemble
+        from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
+        from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
+        from freecad.menuiserie.gui.view_providers.machined_part import ViewProviderMachinedPart
+        from freecad.menuiserie.gui.view_providers.wood_part import ViewProviderWoodPart
+
+        for group, provider in (
+            (built.parts, ViewProviderWoodPart),
+            (built.machined, ViewProviderMachinedPart),
+            (built.joints, ViewProviderJoint),
+            ((built.furniture,), ViewProviderFurniture),
+        ):
+            for obj in group:
+                provider(obj.ViewObject)
+    return built.furniture, _reported(built.notices, document)

@@ -172,8 +172,14 @@ class Icone:
             pts.append((a, ecart, z) if axe == "x" else (ecart, a, z))
         self.trait(pts, VEINAGE[matiere])
 
-    def svg(self, cadre: tuple[float, float, float, float] = (3, 61, 3, 61), fond: str = "") -> str:
-        """Rend l'icône en 64 x 64, le dessin centré et mis à l'échelle dans ``cadre``."""
+    def svg(
+        self,
+        cadre: tuple[float, float, float, float] = (3, 61, 3, 61),
+        fond: str = "",
+        devant: str = "",
+    ) -> str:
+        """Rend l'icône en 64 x 64, le dessin centré et mis à l'échelle dans ``cadre`` ;
+        ``fond`` est dessiné dessous, ``devant`` par-dessus (pastille)."""
         xs = [p[0] for e in self.elements for p in e.points]
         ys = [p[1] for e in self.elements for p in e.points]
         x0, x1, y0, y1 = cadre
@@ -214,6 +220,8 @@ class Icone:
                     f'  <polyline points="{pts}" fill="none" stroke="{e.couleur}" '
                     f'stroke-width="{e.epaisseur}" stroke-linecap="round" stroke-linejoin="round"/>'
                 )
+        if devant:
+            lignes.append(devant)
         return _document(lignes)
 
 
@@ -379,6 +387,17 @@ def queue_d_aronde() -> str:
     return ic.svg()
 
 
+def onglet() -> str:
+    ic = Icone("Onglet : angle de cadre, deux traverses coupées à 45°")
+    ic.prisme([(0, 0), (16, 16), (16, 72), (0, 72)], "z", 0, 12, "chene")  # traverse selon y
+    ic.veinage((22, 68), (5, 12), "chene", amplitude=0.6, axe="y")
+    ic.veinage((22, 68), (11, 12), "chene", amplitude=0.6, phase=0.5, axe="y")
+    ic.prisme([(0, 0), (72, 0), (72, 16), (16, 16)], "z", 0, 12, "chene")  # traverse selon x
+    ic.veinage((22, 68), (5, 12), "chene", amplitude=0.6)
+    ic.veinage((22, 68), (11, 12), "chene", amplitude=0.6, phase=0.5)
+    return ic.svg()
+
+
 def caisson() -> str:
     ic = Icone("Caisson : côtés, fond, tablette, dessus et dos")
     ic.boite((4, 0, 4), (42, 3, 52), "contreplaque")  # dos
@@ -388,6 +407,64 @@ def caisson() -> str:
     ic.boite((4, 0, 56), (42, 40, 4), "contreplaque")  # dessus
     ic.boite((46, 0, 0), (4, 40, 60), "contreplaque")  # côté droit
     return ic.svg()
+
+
+# --- Ensembles (J4c) ------------------------------------------------------------------------
+
+
+def _bureau(ic: Icone) -> None:
+    """Bureau : deux joues, un voile et un plateau, du plus loin au plus proche."""
+    ic.boite((0, 0, 0), (5, 34, 38), "chene")  # joue gauche
+    ic.boite((5, 26, 14), (54, 4, 24), "chene")  # voile
+    ic.boite((59, 0, 0), (5, 34, 38), "chene")  # joue droite
+    ic.boite((-2, -2, 38), (68, 38, 5), "chene")  # plateau
+    ic.veinage((2, 62), (8, 43), "chene", amplitude=0.7)
+    ic.veinage((2, 62), (22, 43), "chene", amplitude=0.7, phase=0.5)
+
+
+def _pastille(couleur: str, bord: str, motif: str) -> str:
+    """Pastille ronde en bas à droite, motif blanc (chemin SVG) par-dessus."""
+    return (
+        f'  <circle cx="49" cy="49" r="13" fill="{couleur}" stroke="{bord}" stroke-width="2"/>\n'
+        f'  <path d="{motif}" fill="none" stroke="#ffffff" stroke-width="4" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+
+
+def ensemble() -> str:
+    ic = Icone("Ensemble : bureau dont les pièces suivent les cotes globales")
+    _bureau(ic)
+    cote = (
+        '  <path d="M4,62 H40 M4,58 V62 M40,58 V62" fill="none" stroke="#204a87" '
+        'stroke-width="2" stroke-linecap="round"/>'
+    )
+    return ic.svg(cadre=(3, 61, 3, 55), devant=cote)
+
+
+def ensemble_ajouter() -> str:
+    ic = Icone("Ajouter à l'ensemble : bureau et pastille « plus »")
+    _bureau(ic)
+    plus = _pastille("#73d216", "#2c5e00", "M49,42 V56 M42,49 H56")
+    return ic.svg(cadre=(2, 50, 2, 50), devant=plus)
+
+
+def ensemble_retirer() -> str:
+    ic = Icone("Retirer de l'ensemble : bureau et pastille « moins »")
+    _bureau(ic)
+    moins = _pastille("#ef2929", "#a40000", "M42,49 H56")
+    return ic.svg(cadre=(2, 50, 2, 50), devant=moins)
+
+
+def ensemble_relier() -> str:
+    ic = Icone("Relier les pièces : bureau et pastille de recalcul")
+    _bureau(ic)
+    fleches = _pastille(
+        "#3465a4",
+        "#204a87",
+        "M43,47 A6.5,6.5 0 0 1 55,46 M55,46 L56,41 M55,46 L50,45 "
+        "M55,51 A6.5,6.5 0 0 1 43,52 M43,52 L42,57 M43,52 L48,53",
+    )
+    return ic.svg(cadre=(2, 50, 2, 50), devant=fleches)
 
 
 ICONES = {
@@ -403,7 +480,13 @@ ICONES = {
     "Menuiserie_Dowels.svg": tourillons,
     "Menuiserie_HalfLap.svg": mi_bois,
     "Menuiserie_Dovetail.svg": queue_d_aronde,
+    "Menuiserie_Miter.svg": onglet,
     "Menuiserie_Carcass.svg": caisson,
+    # Ensembles (J4c)
+    "Menuiserie_Furniture.svg": ensemble,
+    "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
+    "Menuiserie_FurnitureRemove.svg": ensemble_retirer,
+    "Menuiserie_FurnitureRebind.svg": ensemble_relier,
 }
 
 

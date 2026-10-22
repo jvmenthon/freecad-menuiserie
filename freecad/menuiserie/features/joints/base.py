@@ -105,6 +105,9 @@ class JointFeature(StatelessProxy):
     VERSION: ClassVar[int] = MODEL_VERSION
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = ()
     PARAMS: ClassVar[type]  # objet valeur des paramètres de ``core`` (``MortiseTenonParams``…)
+    # Valeurs effectives affichées par le panneau (J3e) hors des champs : gabarit traduisible
+    # rempli avec les champs numériques de ``resolve`` (« {host_angle} »), vide : rien.
+    SUMMARY: ClassVar[str] = ""
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Refuse dès l'import un type d'assemblage sans ``PARAMS`` (sinon : erreur au recalcul)."""

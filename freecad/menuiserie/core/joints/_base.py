@@ -20,6 +20,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 
 MAX_COUNT: Final = 50
+MAX_ANGLE_DEG: Final = 30.0  # angle d'un flanc de queue d'aronde, au plus
 
 SEPARATED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Les pièces ne se touchent pas.")
 OVERLAPPING: Final = QT_TRANSLATE_NOOP(
@@ -41,6 +42,9 @@ class JointKind(str, Enum):
     TONGUE_GROOVE = "TongueGroove"
     RABBET = "Rabbet"
     DOWELS = "Dowels"
+    HALF_LAP = "HalfLap"
+    DOVETAIL = "Dovetail"
+    MITER = "Miter"
 
 
 @dataclass(frozen=True)
@@ -107,6 +111,7 @@ class ParamKind(Enum):
     OFFSET = "offset"
     FLAG = "flag"
     COUNT = "count"
+    ANGLE = "angle"
 
 
 def _length(value: object) -> object:
@@ -128,12 +133,18 @@ def _count(value: object) -> object:
     return value if valid else _INVALID
 
 
+def _angle(value: object) -> object:
+    number = bounded_float(value, 0.0, MAX_ANGLE_DEG)
+    return _INVALID if number is None else number
+
+
 _CHECKS: Final[Mapping[ParamKind, Callable[[object], object]]] = MappingProxyType(
     {
         ParamKind.LENGTH: _length,
         ParamKind.OFFSET: _offset,
         ParamKind.FLAG: _flag,
         ParamKind.COUNT: _count,
+        ParamKind.ANGLE: _angle,
     }
 )
 _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
@@ -157,6 +168,12 @@ _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
             "Paramètre d'assemblage invalide : {field} = {value} "
             "(nombre entier entre 0 et {max} attendu).",
         ),
+        ParamKind.ANGLE: QT_TRANSLATE_NOOP(
+            "Menuiserie",
+            "Paramètre d'assemblage invalide : {field} = {value} "
+            "(0 pour automatique, ou angle fini en degrés, supérieur à 0 et d'au plus {max}, "
+            "attendu).",
+        ),
     }
 )
 _MAXIMA: Final = MappingProxyType(
@@ -164,6 +181,7 @@ _MAXIMA: Final = MappingProxyType(
         ParamKind.LENGTH: MAX_DIMENSION_MM,
         ParamKind.OFFSET: MAX_DIMENSION_MM,
         ParamKind.COUNT: MAX_COUNT,
+        ParamKind.ANGLE: MAX_ANGLE_DEG,
     }
 )
 
@@ -186,6 +204,11 @@ def flag_param(default: bool) -> Any:
 def count_param(default: int) -> Any:
     """Champ « nombre » : entier, non booléen, 0 à 50 (0 = automatique)."""
     return field(default=default, metadata={_PARAM_KIND: ParamKind.COUNT})
+
+
+def angle_param(default: float) -> Any:
+    """Champ « angle » en degrés : fini, non booléen, 0 (automatique) ou 0 < x ≤ 30°."""
+    return field(default=default, metadata={_PARAM_KIND: ParamKind.ANGLE})
 
 
 def validate_params(params: object) -> None:

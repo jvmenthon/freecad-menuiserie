@@ -37,3 +37,33 @@ def stile(width: float = 60.0) -> PlacedBlock:
 def rail(width: float = 60.0, thickness: float = 22.0, y: float = 60.0) -> PlacedBlock:
     """Traverse T1 : bout contre le chant intérieur de M1 (y = ``y``)."""
     return block((280.0, width, thickness), (width, y, 0.0), 90.0)
+
+
+def rotation_y(degrees: float) -> list[list[float]]:
+    """Rotation autour de Y, par lignes."""
+    angle = math.radians(degrees)
+    cos, sin = math.cos(angle), math.sin(angle)
+    return [[cos, 0.0, sin], [0.0, 1.0, 0.0], [-sin, 0.0, cos]]
+
+
+def placed(size: Point, rotation: list[list[float]], base: Point) -> PlacedBlock:
+    """Pièce de cotes L x l x e de rotation et de base quelconques."""
+    return PlacedBlock(Dimensions(*size), RigidTransform.from_matrix(matrix(rotation, base)))
+
+
+def dovetail_corner(size: Point = (400.0, 150.0, 18.0)) -> tuple[PlacedBlock, PlacedBlock]:
+    """Deux planches en angle (critère D3 de J4) : l'hôte à plat, l'invitée debout sur sa face
+    (bout contre la face de l'hôte, épaisseur selon -X), sa face extérieure à fleur du bout de
+    l'hôte (x = 0)."""
+    length, width, thickness = size
+    guest = placed(size, rotation_y(-90.0), (thickness, 0.0, thickness))
+    return block((length, width, thickness)), guest
+
+
+def miter_corner(
+    host_width: float = 60.0, guest_width: float = 60.0
+) -> tuple[PlacedBlock, PlacedBlock]:
+    """Angle de cadre à onglet (critère A2 de J4) : deux traverses 500 x l x 20 dessinées hors
+    tout, qui se chevauchent au coin (origine) ; l'hôte selon X, l'invitée selon Y."""
+    host = block((500.0, host_width, 20.0))
+    return host, block((500.0, guest_width, 20.0), (guest_width, 0.0, 0.0), 90.0)

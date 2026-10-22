@@ -29,7 +29,17 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         "Menuiserie_TongueGroove",
         "Menuiserie_Rabbet",
         "Menuiserie_Dowels",
+        "Menuiserie_HalfLap",
+        "Menuiserie_Dovetail",
+        "Menuiserie_Miter",
+        # Ensembles (J4c)
+        "Menuiserie_Furniture",
+        "Menuiserie_FurnitureAdd",
+        "Menuiserie_FurnitureRemove",
+        "Menuiserie_FurnitureRebind",
     )
+    # Gabarits (J4d)
+    commands += ("Menuiserie_Carcass",)
 
     def Initialize(self) -> None:
         """Appelé une seule fois, à la première activation de l'atelier."""
@@ -39,6 +49,12 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
 
         wood_part.register()
         joints.register()
+        from freecad.menuiserie.gui.commands import furniture
+
+        furniture.register()
+        from freecad.menuiserie.gui.commands import carcass  # gabarits (J4d)
+
+        carcass.register()
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 

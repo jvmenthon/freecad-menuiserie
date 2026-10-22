@@ -22,8 +22,9 @@ from freecad.menuiserie.features.freecad_types import (
     DocumentObject,
     StatelessProxy,
     proxy_is,
+    restoring_or_undoing,
 )
-from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.solids import machined_shape
@@ -54,6 +55,11 @@ _NOT_A_JOINT: Final = QT_TRANSLATE_NOOP(
 )
 _NOT_A_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est ni une pièce de bois ni une pièce usinée."
+)
+_PLACEMENT_BOUND: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » est placée par une expression ({property}) : déplacement refusé ; modifiez "
+    "l'expression, l'ensemble qui la pilote, ou retirez la pièce de l'ensemble.",
 )
 _STILL_JOINED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -92,6 +98,17 @@ PROPERTIES: Final = (
 )
 
 
+def _quoted(obj: DocumentObject) -> dict[str, str]:
+    return {"label": quoted_value(obj.Label)}
+
+
+def _placement_expression(blank: DocumentObject) -> str | None:
+    """Chemin de la première expression qui pilote le ``Placement`` de ``blank`` (liaison d'un
+    ensemble ou formule de l'utilisateur), ``None`` s'il n'y en a pas."""
+    paths = (path.lstrip(".") for path, _ in blank.ExpressionEngine)
+    return next((path for path in sorted(paths) if path.split(".")[0] == "Placement"), None)
+
+
 class MachinedPart(StatelessProxy):
     """Proxy du FeaturePython « pièce usinée ». Chemin de module figé (ADR 0003).
 
@@ -116,12 +133,18 @@ class MachinedPart(StatelessProxy):
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Déplacement de la pièce usinée par l'utilisateur : reporté sur sa brute (Q4), dans la
         transaction de l'appelant ; jamais pendant un recalcul, une restauration ou une
-        annulation."""
+        annulation. Refusé, avec un avertissement, si une expression pilote le ``Placement`` de
+        la brute (ensemble J4 : la brute y reviendrait au recalcul suivant)."""
         if prop != "Placement" or not self._follows_user_changes(obj):
             return
         blank: DocumentObject = getattr(obj, "Base", None)
-        if is_wood_part(blank) and blank.Placement != obj.Placement:
-            blank.Placement = obj.Placement
+        if not is_wood_part(blank) or blank.Placement == obj.Placement:
+            return
+        bound = _placement_expression(blank)
+        if bound is not None:  # J4, N6 : refus explicite, aucune écriture perdue en silence
+            report_warning(translated(_PLACEMENT_BOUND, {**_quoted(blank), "property": bound}))
+            return
+        blank.Placement = obj.Placement
 
     def execute(self, obj: DocumentObject) -> None:
         """Forme = brute plus ajouts, moins enlèvements de ses assemblages, au ``Placement`` de la
@@ -139,7 +162,7 @@ class MachinedPart(StatelessProxy):
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)
-        return not executing and "Restore" not in obj.State and not obj.Document.Transacting
+        return not executing and not restoring_or_undoing(obj)
 
     @contextmanager
     def _executing(self) -> Iterator[None]:

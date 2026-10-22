@@ -20,6 +20,7 @@ __all__ = [
     "DocumentObject",
     "StatelessProxy",
     "proxy_is",
+    "restoring_or_undoing",
 ]
 
 DocumentObject = Any  # objets FreeCAD, sans annotations de type
@@ -38,6 +39,12 @@ def proxy_is(obj: object, proxy_class: type) -> bool:
     except ReferenceError:  # objet FreeCAD supprimé du document
         return False
     return isinstance(proxy, proxy_class)
+
+
+def restoring_or_undoing(obj: DocumentObject) -> bool:
+    """Vrai pendant la restauration de ``obj`` ou une annulation / un rétablissement du
+    document : ``onChanged`` ne doit alors réagir à rien (aucune saisie de l'utilisateur)."""
+    return "Restore" in obj.State or bool(obj.Document.Transacting)
 
 
 class StatelessProxy:

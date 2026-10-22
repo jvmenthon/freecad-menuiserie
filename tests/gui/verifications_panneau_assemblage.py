@@ -13,9 +13,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie import api
 from freecad.menuiserie.core.text import quoted_value
 from tests.gui.verifications_assemblages import (
     CADRE,
@@ -26,12 +28,13 @@ from tests.gui.verifications_assemblages import (
     selectionner,
     usinee_de,
 )
-from tests.gui.verifications_panneau import annuler, ecarts, saisir, valider
+from tests.gui.verifications_panneau import annuler, ecarts, formulaire_nomme, saisir, valider
 from tests.gui.verifications_panneau_limites import transaction_ouverte
 
 FORM = "JointTaskPanel"
 MODIFICATION = "Modifier un assemblage"
 TOURILLONS = "Menuiserie_Dowels"
+MI_BOIS = "Menuiserie_HalfLap"
 # Tenon-mortaise de M1 et T1 : valeurs automatiques (épaisseur 22 -> 7, largeur 60 -> 40,
 # profondeur 60 -> 40), jeu de fond 2 mm, non traversant.
 AUTOMATIQUES = {"TenonThickness": 7.0, "TenonWidth": 40.0, "TenonLength": 40.0}
@@ -41,8 +44,7 @@ Widget = Any
 
 def panneau() -> Widget:
     """Formulaire du panneau d'assemblage ouvert (``None`` s'il n'y en a pas)."""
-    trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == FORM]
-    return trouves[0] if trouves else None
+    return formulaire_nomme(FORM)
 
 
 def widget(form: Widget, nom: str) -> Widget:
@@ -128,6 +130,52 @@ def verifier_formulaire_des_tourillons() -> list[str]:
             *ecarts("nombre inactif", nombre.isEnabled(), False),
         ]
         annuler()
+        return problemes
+
+
+def croix(doc: Any) -> tuple[Any, Any]:
+    """Deux traverses 600 x 60 x 22 en chêne, croisées en leur milieu (A, puis B à 90°)."""
+    pieces = []
+    for repere, (x, y, angle) in {"A": (0, 1000, 0), "B": (330, 730, 90)}.items():
+        piece = api.make_wood_part(600.0, 60.0, 22.0, "chene", mark=repere, doc=doc)
+        piece.Label = repere
+        piece.Placement = App.Placement(
+            App.Vector(x, y, 0), App.Rotation(App.Vector(0, 0, 1), angle)
+        )
+        pieces.append(piece)
+    doc.recompute()
+    return pieces[0], pieces[1]
+
+
+def verifier_formulaire_du_mi_bois() -> list[str]:
+    """B4 de J4 : commande « Mi-bois », panneau générique, profondeur effective affichée,
+    une entrée d'annulation à la validation."""
+    with cadre("VerifPanneauMiBois") as (doc, _pieces):
+        a, b = croix(doc)
+        doc.clearUndos()
+        joint = assembler(doc, a, b, commande=MI_BOIS, ok=False)
+        form = panneau()
+        if joint is None or form is None:
+            return ["mi-bois non créé ou panneau non ouvert"]
+        profondeur = widget(form, "Depth")
+        problemes = [
+            *ecarts("titre", form.windowTitle(), "Nouvel assemblage : Mi-bois"),
+            *ecarts("hôte", texte(form, "hostLabel"), "Pièce hôte : « A »"),
+            *ecarts("profondeur auto", widget(form, "DepthAuto").isChecked(), True),
+            *ecarts("profondeur effective", valeur(profondeur), 11.0),
+            *ecarts("profondeur inactive", profondeur.isEnabled(), False),
+            *ecarts("par-dessous", widget(form, "FlipSide").isChecked(), False),
+        ]
+        valider()
+        volume = 600 * 60 * 22 - 60 * 60 * 11
+        problemes += [
+            *ecarts("entrées", doc.UndoNames, ["Créer un assemblage à mi-bois"]),
+            *ecarts(
+                "volumes",
+                [round(usinee_de(p).Shape.Volume) for p in (a, b)],
+                [volume, volume],
+            ),
+        ]
         return problemes
 
 
@@ -347,8 +395,7 @@ def verifier_fermeture_forcee_depuis_la_piece_usinee() -> list[str]:
 
 def _formulaire_de_la_piece() -> Widget:
     """Champ de longueur du panneau de la pièce de bois ouvert."""
-    trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == "WoodPartTaskPanel"]
-    return trouves[0].lengthEdit
+    return formulaire_nomme("WoodPartTaskPanel").lengthEdit
 
 
 def verifier_aucun_observateur_apres_le_panneau() -> list[str]:
@@ -386,6 +433,7 @@ def verifier_refus_visible() -> list[str]:
 VERIFICATIONS_PANNEAU_ASSEMBLAGE: tuple[Callable[[], list[str]], ...] = (
     verifier_formulaire_du_tenon_mortaise,
     verifier_formulaire_des_tourillons,
+    verifier_formulaire_du_mi_bois,
     verifier_case_auto,
     verifier_inverser,
     verifier_creation_validee,

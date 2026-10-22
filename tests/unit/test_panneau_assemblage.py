@@ -11,13 +11,17 @@ from __future__ import annotations
 
 import ast
 import re
+import string
 from dataclasses import fields
 from pathlib import Path
 
 import pytest
 
 from freecad.menuiserie.core.joints._profile import ProfileValues
+from freecad.menuiserie.core.joints.dovetail import DovetailParams, DovetailValues
 from freecad.menuiserie.core.joints.dowels import DowelParams, DowelValues
+from freecad.menuiserie.core.joints.half_lap import HalfLapParams, HalfLapValues
+from freecad.menuiserie.core.joints.miter import MiterParams, MiterValues
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams, RabbetValues
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
@@ -32,6 +36,9 @@ TYPES = {
     "tongue_groove.py": (TongueGrooveParams, ProfileValues),
     "rabbet.py": (RabbetParams, RabbetValues),
     "dowels.py": (DowelParams, DowelValues),
+    "half_lap.py": (HalfLapParams, HalfLapValues),
+    "dovetail.py": (DovetailParams, DovetailValues),
+    "miter.py": (MiterParams, MiterValues),
 }
 
 
@@ -85,7 +92,7 @@ def test_case_auto_pour_les_cotes_automatiques(module: str) -> None:
 
 
 def test_cotes_automatiques_attendues() -> None:
-    """Paramètres « 0 = automatique » de la spécification (§ 4.3.3)."""
+    """Paramètres « 0 = automatique » des spécifications (J3 § 4.3.3, J4 § 4.8.3 et 4.8.4)."""
     automatic = {
         (module, ast.literal_eval(spec["name"]))
         for module in TYPES
@@ -102,6 +109,10 @@ def test_cotes_automatiques_attendues() -> None:
         ("dowels.py", "HostDepth"),
         ("dowels.py", "Count"),
         ("dowels.py", "EdgeDistance"),
+        ("half_lap.py", "Depth"),
+        ("dovetail.py", "TailCount"),
+        ("dovetail.py", "PinWidth"),
+        ("dovetail.py", "Angle"),
     }
 
 
@@ -122,3 +133,34 @@ def test_socle_commun_des_panneaux(panel: str) -> None:
     assert [getattr(b, "id", "") for c in classes for b in c.bases] == ["ObjectTaskPanel"]
     defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
     assert not defined & {"close_transaction", "watch_document", "accept", "reject"}
+
+
+def test_champ_d_angle_borne_comme_core() -> None:
+    """D6 de J4 : le champ d'angle (degrés) prend sa borne haute dans ``core`` (0 par « Auto »)."""
+    path = PANELS / "joint_fields.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imported = {
+        (node.module, alias.name)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert {("freecad.menuiserie.core.joints", n) for n in ("MAX_ANGLE_DEG",)} <= imported
+    assert "angle_range(self.spec)" in path.read_text(encoding="utf-8")
+
+
+def test_resume_des_angles_de_l_onglet() -> None:
+    """A5 de J4 : aucun champ ; le panneau affiche les angles par le gabarit ``SUMMARY``, rempli
+    avec les valeurs effectives de ``resolve``."""
+    assert property_specs(FEATURES / "miter.py") == []
+    tree = ast.parse((FEATURES / "miter.py").read_text(encoding="utf-8"))
+    summary = next(
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "SUMMARY"
+    )
+    assert isinstance(summary, ast.Call)
+    context, text = (ast.literal_eval(arg) for arg in summary.args)
+    assert context == "Menuiserie"
+    placeholders = {name for _, name, _, _ in string.Formatter().parse(text) if name}
+    assert placeholders == {"host_angle", "guest_angle"} <= {f.name for f in fields(MiterValues)}

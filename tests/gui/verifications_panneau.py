@@ -9,6 +9,7 @@ propriétés et signaux Qt ; « OK » et « Annuler » passent par le dialogue a
 
 from __future__ import annotations
 
+import gc
 from collections.abc import Callable
 from typing import Any
 
@@ -49,11 +50,28 @@ def ecarts(nom: str, obtenu: object, attendu: object) -> list[str]:
 def formulaire() -> Widget:
     """Formulaire du panneau ouvert (``None`` s'il n'y en a pas).
 
-    Cherché parmi ``allWidgets()`` et non par ``findChild`` sur la fenêtre principale : PySide
-    rattacherait l'enveloppe Python du formulaire à celle de la fenêtre, qui la garderait en
-    vie après la fermeture du panneau ; ses adresses, réutilisées par les panneaux suivants,
-    donneraient alors des widgets du mauvais type."""
-    trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == FORM]
+    Cherché par :func:`formulaire_nomme` et non par ``findChild`` sur la fenêtre principale :
+    PySide rattacherait l'enveloppe Python du formulaire à celle de la fenêtre, qui la
+    garderait en vie après la fermeture du panneau ; ses adresses, réutilisées par les panneaux
+    suivants, donneraient alors des widgets du mauvais type."""
+    return formulaire_nomme(FORM)
+
+
+def formulaire_nomme(nom: str) -> Widget:
+    """Formulaire ``nom`` du panneau de tâche ouvert (``None`` s'il n'y en a pas).
+
+    ``Gui.Control.activeTaskDialog()`` ne donne pas le formulaire d'un panneau Python
+    (``getDialogContent`` : « Failed to wrap widget ») : il est cherché parmi
+    ``allWidgets()``, ramasse-miettes vidé puis suspendu pendant le parcours, pour qu'aucune
+    enveloppe PySide ne soit détruite au milieu (SIGSEGV intermittent sous FreeCAD 1.0)."""
+    if not Gui.Control.activeDialog():
+        return None
+    gc.collect()
+    gc.disable()
+    try:
+        trouves = [w for w in QtGui.QApplication.allWidgets() if w.objectName() == nom]
+    finally:
+        gc.enable()
     return trouves[0] if trouves else None
 
 

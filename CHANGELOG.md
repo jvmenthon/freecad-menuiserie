@@ -6,6 +6,53 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Refus d'une commande (ajout à un ensemble, assemblage…) affiché aussi dans une boîte
+  d'avertissement non modale, en plus de la barre d'état et de la vue rapport (recette J4, 2.4).
+- Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
+  **Retirer de l'ensemble** et **Relier les pièces** (une entrée d'annulation chacune, icônes
+  générées) ; `ViewProviderFurniture` (membres, sous-ensembles et assemblages internes rangés
+  sous l'ensemble, liaisons et propriétés de membre retirées à la suppression) ; panneau de
+  tâche (cotes, membres avec leur position et ce qu'ils font quand une cote change, six
+  distances aux bords et cases « fixe » du membre choisi, « Relier les pièces », refus et
+  avertissements) ; `set_edge_distance` dans l'api ; scène des captures avec un ensemble.
+- Gabarit « Caisson » (J4d, ADR 0010) : `core/templates/` (`PieceSpec`, `JointSpec`, `Layout`,
+  `CarcassParams`, `carcass_layout`), constructeur unique `features/templates.py`,
+  `make_carcass` (côtés, dessus, dessous, fond en feuillure, étagères, tourillons et un ensemble
+  « Caisson » dont les options « fixe » sont données par le gabarit), commande **Caisson** avec
+  panneau de paramètres et aperçu, une seule entrée d'annulation.
+- Règles de suivi des ensembles (`core/furniture/`, J4a, ADR 0009), sans FreeCAD : étendue des
+  membres et distance de chaque face au bord de son côté, options « fixe » par défaut (Q7 : la
+  pièce bouge par défaut, toute distance est fixe ; « non fixe » au choix), règles de suivi
+  (distance fixe, `Stay`, `Proportional`, épaisseur jamais étirée), expressions FreeCAD des
+  liaisons (`<<Bureau>>.Depth - 40 mm`, positions relatives à `<<Bureau>>.Origin`), formules de
+  l'utilisateur respectées, aperçu et refus d'un redimensionnement (pièce trop petite,
+  assemblage qui perdrait son contact), sous-ensembles et refus d'un cycle d'ensembles.
+- Ensemble dans le document (J4b′, ADR 0008 et 0009) : objet `Menuiserie::Furniture` (cotes
+  `Width`, `Depth`, `Height`, `Origin`, `Template`, `Version`), propriétés de membre
+  (`Furniture`, `PositionMode`, `FixedLeft` … `FixedTop`, `FurnitureBindings`) et liaisons par
+  expressions natives ; `make_furniture`, `add_to_furniture`, `remove_from_furniture`,
+  `set_member_options`, `rebind_furniture`, `resize_furniture` et `furniture_of`. Options
+  changées dans l'éditeur de propriétés reliant le seul membre modifié, cote qui casse une
+  pièce appliquée avec un avertissement, sous-ensembles, formules de l'utilisateur et
+  contraintes de l'atelier Assembly respectées, liaisons reconnues après un renommage ou une
+  copie, réouverture contrôlée ; déplacer une pièce usinée dont la brute est placée par une
+  expression est refusé avec un message.
+- Assemblage d'onglet (J4g) : stratégie `MiterStrategy` (deux pièces d'angle dessinées à leur
+  longueur hors tout, qui se chevauchent au coin ; coupe du coin extérieur au coin intérieur,
+  45° pour deux largeurs égales, enlèvement seulement), objet `Menuiserie::Miter` sans propriété
+  propre, `make_miter`, commande **Onglet** et son icône, panneau générique qui affiche les
+  angles de coupe.
+- Queue d'aronde traversante (J4f) : solide `Prism` (polygone plan extrudé), stratégie
+  `DovetailStrategy` (queues ajoutées au bout de la pièce à queues, logements traversants dans la
+  pièce à griffes ; 3 queues environ par largeur de trois épaisseurs, griffes du tiers de
+  l'épaisseur, angle des flancs de 10° par défaut, 30° au plus, en degrés), objet `Menuiserie::Dovetail`
+  (`TailCount`, `PinWidth`, `Angle` en `App::PropertyAngle`), `make_dovetail(angle=…)`, commande
+  **Queue d'aronde** et panneau générique (champ en degrés) ; une ancienne propriété `Slope`
+  rouverte est convertie en `Angle`.
+- Assemblage à mi-bois (J4e) : stratégie `HalfLapStrategy` (deux pièces de même épaisseur, à
+  fleur, qui se chevauchent ; entaille de l'hôte par-dessus, de l'invitée par-dessous, profondeur
+  automatique à la moitié de l'épaisseur), objet `Menuiserie::HalfLap` (`Depth`, `FlipSide`),
+  `make_half_lap`, commande **Mi-bois** et panneau générique.
 - Contrôles qualité : détection du code dupliqué (pylint) et limites de complexité (ruff) en CI ;
   grille « Conception et design patterns » pour l'architecte, le dev et le reviewer.
 - Squelette de l'atelier : `package.xml`, enregistrement du workbench, icône.

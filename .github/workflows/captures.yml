@@ -1,12 +1,14 @@
 name: Captures
 
 # Captures d'écran de l'atelier dans FreeCAD (vue 3D, fenêtre complète, gros plan d'une texture,
-# panneaux de tâche d'une pièce et d'un assemblage), publiées dans un commentaire de la PR. Les
-# images sont poussées sur la branche « captures » (jamais fusionnée) pour pouvoir être
-# affichées dans le commentaire, et jointes au run comme artefact.
+# panneaux de tâche d'une pièce, d'un assemblage et d'un ensemble), publiées dans un commentaire
+# de la PR. Les images sont poussées sur la branche « captures » (jamais fusionnée) pour pouvoir être
+# affichées dans le commentaire, et jointes au run comme artefact. Pour économiser la CI, les
+# captures ne sont faites que sur les PR de fin de jalon (vers main), pas sur les sous-lots.
 
 on:
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -108,6 +110,8 @@ jobs:
             echo "![Panneau de tâche d'une pièce de bois]($base/panneau.png?raw=true)"
             echo
             echo "![Panneau de tâche d'un tenon-mortaise]($base/panneau-assemblage.png?raw=true)"
+            echo
+            echo "![Panneau de tâche d'un ensemble]($base/panneau-ensemble.png?raw=true)"
             echo
             echo "_Scène produite par \`tools/captures_interface.py\`, mise à jour à chaque push._"
           } > "$corps"

@@ -11,16 +11,25 @@ ou lève :class:`JointError` (gabarit traduisible).
 from __future__ import annotations
 
 from freecad.menuiserie.core.geometry import JointError
-from freecad.menuiserie.core.joints._base import JointKind, JointPlan, JointStrategy, mm_round
+from freecad.menuiserie.core.joints._base import (
+    MAX_ANGLE_DEG,
+    JointKind,
+    JointPlan,
+    JointStrategy,
+    mm_round,
+    mm_text,
+)
 from freecad.menuiserie.core.joints._registry import strategy_for
 from freecad.menuiserie.core.joints._roles import guess_roles
 
 __all__ = [
+    "MAX_ANGLE_DEG",
     "JointError",
     "JointKind",
     "JointPlan",
     "JointStrategy",
     "guess_roles",
     "mm_round",
+    "mm_text",
     "strategy_for",
 ]

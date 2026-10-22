@@ -12,7 +12,7 @@ la mortaise, la rainure ou la feuillure.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import ClassVar, Final
+from typing import Any, ClassVar, Final
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -32,19 +32,24 @@ Factory = Callable[[DocumentObject, DocumentObject], DocumentObject]
 
 PAIR: Final = 2
 REFUSAL_DISPLAY_MS: Final = 15_000  # durée d'affichage d'un refus dans la barre d'état
+REFUSAL_BOX_NAME: Final = "MenuiserieRefusal"
+REFUSAL_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Menuiserie : action refusée")
+_REFUSAL_BOX: dict[str, Any] = {}  # boîte réutilisée, gardée en vie entre deux refus
 # Noms des commandes, aussi noms de leurs icônes (``<nom>.svg``) et contextes de traduction.
 MORTISE_TENON: Final = "Menuiserie_MortiseTenon"
 TONGUE_GROOVE: Final = "Menuiserie_TongueGroove"
 RABBET: Final = "Menuiserie_Rabbet"
 DOWELS: Final = "Menuiserie_Dowels"
+HALF_LAP: Final = "Menuiserie_HalfLap"
+DOVETAIL: Final = "Menuiserie_Dovetail"
+MITER: Final = "Menuiserie_Miter"
 
 
-class JointCommand:
-    """Base des commandes d'assemblage (Command) : chaque sous-classe fournit son nom, la
-    fabrique de l'api, ses textes et le nom de sa transaction."""
+class TransactionCommand:
+    """Base des commandes de l'atelier qui portent une entrée d'annulation (assemblages,
+    ensembles) : nom (aussi celui de l'icône), textes et nom de la transaction."""
 
     NAME: ClassVar[str]
-    FACTORY: ClassVar[Factory]  # fabrique de freecad.menuiserie.api, lue sur la classe
     MENU_TEXT: ClassVar[str]
     TOOL_TIP: ClassVar[str]
     TRANSACTION: ClassVar[str]
@@ -56,6 +61,13 @@ class JointCommand:
             "MenuText": self.MENU_TEXT,
             "ToolTip": self.TOOL_TIP,
         }
+
+
+class JointCommand(TransactionCommand):
+    """Base des commandes d'assemblage (Command) : chaque sous-classe fournit son nom, la
+    fabrique de l'api, ses textes et le nom de sa transaction."""
+
+    FACTORY: ClassVar[Factory]  # fabrique de freecad.menuiserie.api, lue sur la classe
 
     def IsActive(self) -> bool:
         """Active si aucun panneau n'est ouvert et que deux pièces distinctes sont
@@ -141,6 +153,49 @@ class DowelsCommand(JointCommand):
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à tourillons")
 
 
+class HalfLapCommand(JointCommand):
+    """Mi-bois : deux pièces qui se croisent, entaillées chacune sur une part de l'épaisseur."""
+
+    NAME = HALF_LAP
+    FACTORY = api.make_half_lap
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_HalfLap", "Mi-bois")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_HalfLap",
+        "Relie à mi-bois les deux pièces sélectionnées, de même épaisseur et à fleur, qui se "
+        "croisent : la première sélectionnée est entaillée par-dessus, l'autre par-dessous.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à mi-bois")
+
+
+class DovetailCommand(JointCommand):
+    """Queue d'aronde traversante : queues au bout d'une pièce, logements dans l'autre."""
+
+    NAME = DOVETAIL
+    FACTORY = api.make_dovetail
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Dovetail", "Queue d'aronde")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Dovetail",
+        "Relie à queues d'aronde traversantes les deux pièces sélectionnées : la pièce dont le "
+        "bout touche l'autre porte les queues, l'autre (à fleur de sa face extérieure) les "
+        "griffes.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à queue d'aronde")
+
+
+class MiterCommand(JointCommand):
+    """Onglet : deux pièces d'angle coupées du coin extérieur au coin intérieur."""
+
+    NAME = MITER
+    FACTORY = api.make_miter
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Miter", "Onglet")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Miter",
+        "Coupe d'onglet les deux pièces sélectionnées, dessinées à leur longueur hors tout et "
+        "qui se chevauchent au coin : 45° pour deux largeurs égales.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage d'onglet")
+
+
 def selected_parts() -> tuple[DocumentObject, DocumentObject] | None:
     """Les deux pièces sélectionnées (dans l'ordre de sélection), ou ``None`` si la sélection
     n'est pas exactement deux pièces (brutes ou usinées) de brutes distinctes."""
@@ -169,11 +224,32 @@ def ordered_roles(
 
 
 def report_refusal(message: str) -> None:
-    """Refus de la fabrique : barre d'état de la fenêtre principale et vue rapport."""
+    """Refus de la fabrique : boîte d'avertissement (non modale, au premier plan), barre d'état
+    de la fenêtre principale et vue rapport."""
     report_warning(message)
     window = Gui.getMainWindow()
     if window is not None:
         window.statusBar().showMessage(message, REFUSAL_DISPLAY_MS)
+        show_refusal_box(window, message)
+
+
+def show_refusal_box(window: Any, message: str) -> Any:
+    """Affiche ``message`` dans la boîte d'avertissement de l'atelier (une seule à la fois,
+    remplacée au refus suivant) ; non modale, elle ne bloque ni FreeCAD ni les scripts."""
+    from PySide import QtGui
+
+    box = _REFUSAL_BOX.get("box")
+    if box is None:
+        box = QtGui.QMessageBox(window)
+        box.setObjectName(REFUSAL_BOX_NAME)
+        box.setIcon(QtGui.QMessageBox.Warning)
+        box.setWindowTitle(translated(REFUSAL_TITLE))
+        box.setModal(False)
+        _REFUSAL_BOX["box"] = box
+    box.setText(message)
+    box.show()
+    box.raise_()
+    return box
 
 
 def _is_part(obj: DocumentObject) -> bool:
@@ -181,8 +257,11 @@ def _is_part(obj: DocumentObject) -> bool:
 
 
 def register() -> None:
-    """Enregistre les quatre commandes auprès de FreeCAD."""
+    """Enregistre les commandes d'assemblage auprès de FreeCAD."""
     Gui.addCommand(MORTISE_TENON, MortiseTenonCommand())
     Gui.addCommand(TONGUE_GROOVE, TongueGrooveCommand())
     Gui.addCommand(RABBET, RabbetCommand())
     Gui.addCommand(DOWELS, DowelsCommand())
+    Gui.addCommand(HALF_LAP, HalfLapCommand())
+    Gui.addCommand(DOVETAIL, DovetailCommand())
+    Gui.addCommand(MITER, MiterCommand())

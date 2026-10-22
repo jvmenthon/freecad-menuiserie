@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture,
-panneau de tâche de la pièce de bois et panneau d'un assemblage (``panneau-assemblage.png``).
+panneau de tâche de la pièce de bois, panneau d'un assemblage (``panneau-assemblage.png``) et
+panneau de l'ensemble (``panneau-ensemble.png``).
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
 l'atelier étant installé dans le dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -20,7 +21,9 @@ tous les 100 mm, veiné dans le sens du fil (la largeur de l'image) et marqué �
 carreaux doivent mesurer 100 mm sur toutes les pièces, quelles que soient leurs cotes (gros plan
 ``texture.png``). Le meuble de ``vue-3d.png`` montre les photos des matériaux intégrés ; à côté,
 un cadre (cadre de référence de la spécification J3) est assemblé par quatre tenons-mortaises,
-traversants dans le montant de devant pour que leurs bouts soient visibles.
+traversants dans le montant de devant pour que leurs bouts soient visibles. Les pièces du meuble
+forment l'ensemble « Meuble » (J4) : l'arbre les range sous lui, et son panneau montre ses
+cotes, ce que fait chaque pièce quand une cote change et les distances aux bords du côté gauche.
 """
 
 import json
@@ -66,6 +69,9 @@ TAILLE = (1600, 1000)
 PIECE_DU_PANNEAU = "Fond"
 # Assemblage dont le panneau est capturé (premier tenon-mortaise du cadre, traversant).
 ASSEMBLAGE_DU_PANNEAU = "Tenon-mortaise"
+# Ensemble formé des pièces du meuble, et membre choisi dans son panneau.
+ENSEMBLE = "Meuble"
+MEMBRE_DU_PANNEAU = "Côté gauche"
 ATTENTE_DU_VOLET_MS = 1500
 TEXTURE_MM = (600, 200)  # largeur (sens du fil) et hauteur couvertes par l'image
 PIXELS_PAR_MM = 2
@@ -147,6 +153,8 @@ def construire() -> None:
         else:
             piece.Placement.Base = App.Vector(*position)
     doc.recompute()
+    meuble = [doc.getObjectsByLabel(repere)[0] for *_cotes, repere, _position in PIECES]
+    api.make_furniture(meuble, label=ENSEMBLE)
     construire_le_cadre(doc)
     afficher_la_vue_du_document(doc.Name)
     Gui.Selection.clearSelection()
@@ -245,6 +253,26 @@ def capturer_le_panneau_d_assemblage(dossier: Path, fenetre, vue) -> None:
     volet = volet_des_taches(fenetre)
     image = fenetre_complete(fenetre, vue, devant=volet)
     image.save(str(dossier / "panneau-assemblage.png"))
+    Gui.Control.activeTaskDialog().reject()
+    capturer_le_panneau_d_ensemble(dossier, fenetre, vue)
+
+
+def capturer_le_panneau_d_ensemble(dossier: Path, fenetre, vue) -> None:
+    """Fenêtre complète avec le panneau de l'ensemble (comme au double-clic), un côté choisi
+    dans la liste des membres pour montrer ses six distances aux bords."""
+    from PySide import QtCore, QtGui
+
+    ensemble = App.ActiveDocument.getObjectsByLabel(ENSEMBLE)[0]
+    membre = App.ActiveDocument.getObjectsByLabel(MEMBRE_DU_PANNEAU)[0]
+    Gui.ActiveDocument.setEdit(ensemble, 0)
+    Gui.updateGui()
+    arbre = fenetre.findChild(QtGui.QTreeWidget, "membersTree")
+    for i in range(arbre.topLevelItemCount()):
+        item = arbre.topLevelItem(i)
+        item.setSelected(item.data(0, QtCore.Qt.ItemDataRole.UserRole) == membre.Name)
+    volet = volet_des_taches(fenetre)
+    image = fenetre_complete(fenetre, vue, devant=volet)
+    image.save(str(dossier / "panneau-ensemble.png"))
     Gui.Control.activeTaskDialog().reject()
 
 

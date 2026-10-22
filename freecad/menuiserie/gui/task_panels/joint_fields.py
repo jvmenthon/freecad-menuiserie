@@ -4,6 +4,8 @@
 formulaire ``.ui`` par type (critère E1 de J3).
 
 - cote (longueur ou décalage) : champ d'unité de FreeCAD ; nombre : compteur entier ;
+  angle : champ d'unité de FreeCAD en degrés, borné comme dans ``core`` (jusqu'à 30° ; 0,
+  « automatique », passe par la case « Auto ») ;
 - paramètre « 0 = automatique » (``spec.resolved``) : case « Auto » ; cochée, le champ est
   inactif et montre la valeur effective (``resolve`` de ``core``) ;
 - booléen : case à cocher ;
@@ -23,16 +25,18 @@ import FreeCADGui as Gui
 from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.joints import MAX_ANGLE_DEG
 from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.schema import DISTANCE, PropertySpec
+from freecad.menuiserie.features.schema import ANGLE, DISTANCE, PropertySpec
 from freecad.menuiserie.gui.task_panels.base import UpdateGuard, Widget, connect, expression_of
 
 Write = Callable[[str, object], None]  # (propriété, valeur) écrite par le panneau
 
 BOOL: Final = "App::PropertyBool"
 COUNT: Final = "App::PropertyIntegerConstraint"
+MIN_AUTO_ANGLE_DEG: Final = 0.1  # plus petit angle saisi avec une case « Auto » (0 = Auto)
 _AUTO: Final = QT_TRANSLATE_NOOP("Menuiserie", "Auto")
 _AUTO_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -53,6 +57,13 @@ def count_range(spec: PropertySpec) -> tuple[int, int]:
     défaut ``(valeur, minimum, maximum, pas)`` : celles de ``core``."""
     _value, low, high, _step = cast(tuple[int, int, int, int], spec.default)
     return low, high
+
+
+def angle_range(spec: PropertySpec) -> tuple[float, float]:
+    """Bornes d'un angle en degrés : celles de ``core`` (au plus ``MAX_ANGLE_DEG``). Avec une
+    case « Auto », 0 n'est jamais saisi dans le champ, qui reste au-dessus de 0 comme ``core`` ;
+    sans case, 0 reste saisissable."""
+    return (MIN_AUTO_ANGLE_DEG if spec.resolved else 0.0), MAX_ANGLE_DEG
 
 
 class ParamField:
@@ -91,7 +102,8 @@ class ParamField:
     # --- Étapes propres au genre de champ -------------------------------------------------
 
     def _make_editor(self) -> Widget:
-        """Champ d'unité (mm) d'une cote ; compteur pour un nombre ; case pour un booléen."""
+        """Champ d'unité (mm) d'une cote ; compteur pour un nombre ; champ d'unité (°) pour un
+        angle ; case pour un booléen."""
         if self.spec.type_id == BOOL:
             box = QtGui.QCheckBox()
             connect(box, "toggled(bool)", self._on_edited)
@@ -102,10 +114,15 @@ class ParamField:
             connect(spin, "valueChanged(int)", self._on_edited)
             return spin
         field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
-        field.setProperty("unit", "mm")
-        minimum = -MAX_DIMENSION_MM if self.spec.type_id == DISTANCE else 0.0
+        if self.spec.type_id == ANGLE:
+            field.setProperty("unit", "deg")
+            minimum, maximum = angle_range(self.spec)
+        else:
+            field.setProperty("unit", "mm")
+            minimum = -MAX_DIMENSION_MM if self.spec.type_id == DISTANCE else 0.0
+            maximum = MAX_DIMENSION_MM
         field.setProperty("minimum", minimum)
-        field.setProperty("maximum", MAX_DIMENSION_MM)
+        field.setProperty("maximum", maximum)
         connect(field, "valueChanged(double)", self._on_edited)
         return field
 
@@ -118,7 +135,7 @@ class ParamField:
             self.editor.setProperty("rawValue", float(value))  # type: ignore[arg-type]
 
     def _current(self) -> object:
-        """Valeur saisie dans le champ (mm, entier ou booléen)."""
+        """Valeur saisie dans le champ (mm ou degrés, entier ou booléen)."""
         if self.spec.type_id == BOOL:
             return bool(self.editor.isChecked())
         if self.spec.type_id == COUNT:

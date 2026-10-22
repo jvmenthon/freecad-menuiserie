@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Commandes et ViewProviders des assemblages (J3d) vérifiés sans FreeCAD, par analyse statique.
 
-Critère C1 : quatre commandes ``Menuiserie_<type>`` enregistrées par l'atelier (barre d'outils
+Critère C1 : une commande par type, ``Menuiserie_<type>`` enregistrées par l'atelier (barre d'outils
 et menu), chacune avec son icône existante, des textes traduisibles dans le contexte de la
 commande et une fabrique de l'api ; C6 : une icône par type d'assemblage ; E7 : textes
 traduisibles. Les modules de ``gui/`` importent ``FreeCADGui`` et ne sont pas importables ici.
@@ -16,18 +16,13 @@ import pytest
 
 from freecad.menuiserie import ICONS_DIR
 from freecad.menuiserie.core.joints import JointKind
+from tests.commandes_assemblages import COMMANDES_ASSEMBLAGE
+from tests.commandes_ensembles import COMMANDES_ENSEMBLE
 from tests.unit.aides import ROOT
 
 PACKAGE = ROOT / "freecad" / "menuiserie"
 COMMANDS = PACKAGE / "gui" / "commands" / "joints.py"
 VIEW_PROVIDERS = PACKAGE / "gui" / "view_providers"
-# Commande : (libellé, fabrique de l'api). Les noms suivent ``Menuiserie_<JointKind.value>``.
-EXPECTED = {
-    "Menuiserie_MortiseTenon": ("Tenon-mortaise", "make_mortise_tenon"),
-    "Menuiserie_TongueGroove": ("Rainure-languette", "make_tongue_groove"),
-    "Menuiserie_Rabbet": ("Feuillure", "make_rabbet"),
-    "Menuiserie_Dowels": ("Tourillons", "make_dowels"),
-}
 
 
 def tree(path: Path) -> ast.Module:
@@ -62,9 +57,15 @@ def module_constants(path: Path) -> dict[str, object]:
 
 def joint_commands() -> dict[str, dict[str, ast.expr]]:
     """Attributs des sous-classes de ``JointCommand``, par nom de commande (``NAME``)."""
-    constants = module_constants(COMMANDS)
+    return commands_of(COMMANDS)
+
+
+def commands_of(path: Path) -> dict[str, dict[str, ast.expr]]:
+    """Attributs des classes de commande du module ``path``, par nom de commande (``NAME``,
+    constante du module)."""
+    constants = module_constants(path)
     commands = {}
-    for attributes in class_attributes(COMMANDS).values():
+    for attributes in class_attributes(path).values():
         name = attributes.get("NAME")
         if isinstance(name, ast.Name):
             commands[str(constants[name.id])] = attributes
@@ -96,29 +97,33 @@ def api_functions() -> set[str]:
 
 
 def test_une_commande_par_type() -> None:
-    assert set(joint_commands()) == set(EXPECTED)
+    assert set(joint_commands()) == set(COMMANDES_ASSEMBLAGE)
 
 
 def test_noms_des_commandes_selon_les_types() -> None:
     """Types de J3b (et J3c une fois fusionné) : ``Menuiserie_<JointKind.value>``."""
-    assert {f"Menuiserie_{kind.value}" for kind in JointKind} <= set(EXPECTED)
+    assert {f"Menuiserie_{kind.value}" for kind in JointKind} <= set(COMMANDES_ASSEMBLAGE)
 
 
 def test_commandes_dans_la_barre_et_le_menu() -> None:
     """Seule vérification du tuple complet des commandes de l'atelier (revue J3d, S6)."""
-    assert init_gui_commands() == ("Menuiserie_WoodPart", *EXPECTED)
+    assert init_gui_commands() == (
+        "Menuiserie_WoodPart",
+        *COMMANDES_ASSEMBLAGE,
+        *COMMANDES_ENSEMBLE,
+    )
 
 
-@pytest.mark.parametrize("name", list(EXPECTED))
+@pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))
 def test_icone_existante(name: str) -> None:
     """Icône de la commande et de l'assemblage dans l'arbre (``Menuiserie_<type>.svg``)."""
     assert (ICONS_DIR / f"{name}.svg").is_file()
 
 
-@pytest.mark.parametrize("name", list(EXPECTED))
+@pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))
 def test_textes_traduisibles_dans_le_contexte_de_la_commande(name: str) -> None:
     attributes = joint_commands()[name]
-    label, _factory = EXPECTED[name]
+    label, _factory = COMMANDES_ASSEMBLAGE[name]
     assert noop(attributes["MENU_TEXT"]) == (name, label)
     context, tool_tip = noop(attributes["TOOL_TIP"])
     assert context == name
@@ -126,19 +131,27 @@ def test_textes_traduisibles_dans_le_contexte_de_la_commande(name: str) -> None:
     assert noop(attributes["TRANSACTION"])[0] == "Menuiserie"
 
 
-def test_transaction_du_tenon_mortaise() -> None:
-    """C2 : entrée d'annulation « Créer un assemblage tenon-mortaise »."""
-    transaction = joint_commands()["Menuiserie_MortiseTenon"]["TRANSACTION"]
-    assert noop(transaction)[1] == "Créer un assemblage tenon-mortaise"
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        ("Menuiserie_MortiseTenon", "Créer un assemblage tenon-mortaise"),
+        ("Menuiserie_HalfLap", "Créer un assemblage à mi-bois"),
+        ("Menuiserie_Dovetail", "Créer un assemblage à queue d'aronde"),
+        ("Menuiserie_Miter", "Créer un assemblage d'onglet"),
+    ],
+)
+def test_transaction_de_la_commande(name: str, text: str) -> None:
+    """C2 de J3, B4, D6 et A5 de J4 : entrée d'annulation « Créer un assemblage … »."""
+    assert noop(joint_commands()[name]["TRANSACTION"])[1] == text
 
 
-@pytest.mark.parametrize("name", list(EXPECTED))
+@pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))
 def test_fabrique_de_l_api_referencee(name: str) -> None:
     """``FACTORY = api.make_…`` : référence directe, vérifiée à l'import (revue J3d, S2)."""
     factory = joint_commands()[name]["FACTORY"]
     assert isinstance(factory, ast.Attribute)
     assert isinstance(factory.value, ast.Name)
-    assert (factory.value.id, factory.attr) == ("api", EXPECTED[name][1])
+    assert (factory.value.id, factory.attr) == ("api", COMMANDES_ASSEMBLAGE[name][1])
     assert factory.attr in api_functions()
 
 
