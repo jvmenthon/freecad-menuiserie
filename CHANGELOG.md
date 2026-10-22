@@ -6,6 +6,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Refus d'une commande (ajout à un ensemble, assemblage…) affiché aussi dans une boîte
+  d'avertissement non modale, en plus de la barre d'état et de la vue rapport (recette J4, 2.4).
 - Interface de l'ensemble (J4c) : commandes **Ensemble**, **Ajouter à l'ensemble**,
   **Retirer de l'ensemble** et **Relier les pièces** (une entrée d'annulation chacune, icônes
   générées) ; `ViewProviderFurniture` (membres, sous-ensembles et assemblages internes rangés

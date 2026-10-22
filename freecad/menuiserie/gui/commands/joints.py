@@ -12,7 +12,7 @@ la mortaise, la rainure ou la feuillure.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import ClassVar, Final
+from typing import Any, ClassVar, Final
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -32,6 +32,9 @@ Factory = Callable[[DocumentObject, DocumentObject], DocumentObject]
 
 PAIR: Final = 2
 REFUSAL_DISPLAY_MS: Final = 15_000  # durée d'affichage d'un refus dans la barre d'état
+REFUSAL_BOX_NAME: Final = "MenuiserieRefusal"
+REFUSAL_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Menuiserie : action refusée")
+_REFUSAL_BOX: dict[str, Any] = {}  # boîte réutilisée, gardée en vie entre deux refus
 # Noms des commandes, aussi noms de leurs icônes (``<nom>.svg``) et contextes de traduction.
 MORTISE_TENON: Final = "Menuiserie_MortiseTenon"
 TONGUE_GROOVE: Final = "Menuiserie_TongueGroove"
@@ -221,11 +224,32 @@ def ordered_roles(
 
 
 def report_refusal(message: str) -> None:
-    """Refus de la fabrique : barre d'état de la fenêtre principale et vue rapport."""
+    """Refus de la fabrique : boîte d'avertissement (non modale, au premier plan), barre d'état
+    de la fenêtre principale et vue rapport."""
     report_warning(message)
     window = Gui.getMainWindow()
     if window is not None:
         window.statusBar().showMessage(message, REFUSAL_DISPLAY_MS)
+        show_refusal_box(window, message)
+
+
+def show_refusal_box(window: Any, message: str) -> Any:
+    """Affiche ``message`` dans la boîte d'avertissement de l'atelier (une seule à la fois,
+    remplacée au refus suivant) ; non modale, elle ne bloque ni FreeCAD ni les scripts."""
+    from PySide import QtGui
+
+    box = _REFUSAL_BOX.get("box")
+    if box is None:
+        box = QtGui.QMessageBox(window)
+        box.setObjectName(REFUSAL_BOX_NAME)
+        box.setIcon(QtGui.QMessageBox.Warning)
+        box.setWindowTitle(translated(REFUSAL_TITLE))
+        box.setModal(False)
+        _REFUSAL_BOX["box"] = box
+    box.setText(message)
+    box.show()
+    box.raise_()
+    return box
 
 
 def _is_part(obj: DocumentObject) -> bool:
