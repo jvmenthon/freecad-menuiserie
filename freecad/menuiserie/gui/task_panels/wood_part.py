@@ -342,7 +342,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         session = self._session
         if session is None or session.furniture is None or not self.form.furnitureCheck.isChecked():
             return
-        if not is_furniture(session.furniture):  # supprimé pendant que le panneau était ouvert
+        if _furniture_gone(session.furniture, self.obj.Document):
             reason = translated(_FURNITURE_GONE)
             report_warning(
                 translated(_FURNITURE_REFUSED, {**self._furniture_params, "reason": reason})
@@ -418,3 +418,13 @@ def _length_text(length_mm: float) -> str:
     """Longueur dans le système d'unités choisi par l'utilisateur (« 22 mm », « 0,87 in »…)."""
     text: str = App.Units.Quantity(length_mm, App.Units.Length).UserString
     return text
+
+
+def _furniture_gone(furniture: DocumentObject, document: DocumentObject) -> bool:
+    """Vrai si l'ensemble a été supprimé pendant que le panneau était ouvert. Dans une
+    transaction ouverte, FreeCAD garde l'objet supprimé pour l'annulation : on vérifie qu'il est
+    encore dans le document."""
+    try:
+        return not is_furniture(furniture) or document.getObject(furniture.Name) is None
+    except (ReferenceError, RuntimeError):
+        return True
