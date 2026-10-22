@@ -128,7 +128,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   déplacée dans `core/notice.py`, commune aux ensembles et à la liste de débit.
 - Feuillure, mi-bois et onglet entre pièces au contact (ADR 0014, demande de jv) : l'invitée est
   prolongée jusque dans l'hôte (feuillure : nouvelle propriété `Depth`, 0 = moitié de l'hôte
-  traversé ; mi-bois et onglet : à travers l'hôte), la superposition reste acceptée.
+  traversé ; mi-bois et onglet : à travers l'hôte), la superposition reste acceptée. La liste de
+  débit compte ce prolongement comme un ajout de l'invitée (longueur ou épaisseur de débit).
 - Accrochage à la sélection (J6d, ADR 0011) : les faces, arêtes et sommets sélectionnés avant
   **Pièce de bois** (pièces de bois, Std Part, `App::Link`, objets d'autres ateliers) reçoivent la
   nouvelle pièce, en aperçu et en direct ; le panneau cite « Contre : … » et signale les éléments

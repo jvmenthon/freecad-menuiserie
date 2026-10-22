@@ -27,7 +27,7 @@ from tests.integration.debit import (
     part,
     quantities,
 )
-from tests.integration.types_assemblages import DOWELS, SCENARIOS, build
+from tests.integration.types_assemblages import DOWELS, SCENARIOS, build, wood
 
 pytestmark = pytest.mark.integration
 
@@ -223,6 +223,21 @@ def test_ajouts_selon_l_assemblage(document: Any, scenario: Any) -> None:
                 assert line.rough.thickness >= expected + MIN_PLANING_MM, line.marks
                 continue
             assert getattr(line.rough, axis) == pytest.approx(expected), (line.marks, axis)
+
+
+def test_feuillure_au_contact_compte_le_prolongement(document: Any) -> None:
+    """ADR 0014 (J6) : fond posé sur la joue ; la feuillure de 9 mm prolonge le fond dans la
+    joue : le prolongement est un ajout du fond, la joue (retrait) n'en a aucun."""
+    wood(document, "C", (600, 300, 18), (0, 0, 0))
+    wood(document, "F", (600, 6, 400), App.Placement(App.Vector(0, 294, 18), App.Rotation()))
+    document.recompute()
+    api.make_rabbet(*(document.getObjectsByLabel(mark)[0] for mark in ("C", "F")))
+    document.recompute()
+    cut_list = api.cut_list_of(document)
+    assert line_of(cut_list, "C").additions == Allowances()
+    back = line_of(cut_list, "F")
+    assert total_additions(back.additions) == pytest.approx(9.0)
+    assert back.finished.thickness == 400  # les cotes finies ne changent pas
 
 
 def test_tenons_inclus_dans_la_longueur_de_debit(cadre: Cadre) -> None:
