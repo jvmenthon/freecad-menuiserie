@@ -9,11 +9,21 @@ vers un autre objet n'est créé. Aucun import de ``FreeCADGui``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.geometry import RigidTransform, squared_rotation
-from freecad.menuiserie.core.snap import Orientation, Target, Turn, snap, turned_in_place
+from freecad.menuiserie.core.geometry import Matrix3, RigidTransform, squared_rotation
+from freecad.menuiserie.core.snap import (
+    FreeTest,
+    Orientation,
+    SnapNotice,
+    Target,
+    Turn,
+    snap,
+    support_rotation,
+    turned_in_place,
+)
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -66,18 +76,43 @@ def placement_expression(obj: DocumentObject) -> str | None:
 class SnapSession:
     """État de l'accrochage d'une pièce en création : cibles (coordonnées globales), orientation
     courante et étirement. L'étirement (Q2) ne donne que la valeur initiale des cotes : une fois
-    appliqué, la saisie du menuisier l'emporte et il n'est plus recalculé."""
+    appliqué, la saisie du menuisier l'emporte et il n'est plus recalculé.
+
+    ``container`` : Std Part qui reçoit la pièce (son ``Placement`` est alors exprimé dans le
+    repère du conteneur) ; ``furniture`` : ensemble candidat de la case « Ajouter à l'ensemble » ;
+    ``free`` : test de chevauchement d'un sommet ; ``shapes`` : formes des éléments retenus ;
+    ``ignored`` : messages des éléments ignorés. ``used`` et ``notices`` sont ceux du dernier
+    calcul de :func:`snap_part`."""
 
     targets: tuple[Target, ...] = ()
     orientation: Orientation = field(default_factory=Orientation)
     stretch: bool = True
+    container: DocumentObject | None = None
+    furniture: DocumentObject | None = None
+    free: FreeTest | None = None
+    shapes: tuple[Any, ...] = ()
+    ignored: tuple[str, ...] = ()
+    used: tuple[str, ...] = ()
+    notices: tuple[SnapNotice, ...] = ()
+
+    @property
+    def support(self) -> Matrix3 | None:
+        """Rotation repère d'appui → document de la première cible (``None`` sans cible)."""
+        return support_rotation(self.targets)
 
 
 def snap_part(obj: DocumentObject, session: SnapSession) -> bool:
     """Pose ``obj`` d'après ``session`` : ``Placement`` recalculé (la pièce reste accrochée),
     cote étirée écrite la première fois seulement. Une cote ou un ``Placement`` piloté par une
     expression n'est pas écrit. Vrai si une cote a été écrite."""
-    result = snap(dimensions_of(obj), session.orientation, session.targets, stretch=session.stretch)
+    result = snap(
+        dimensions_of(obj),
+        session.orientation,
+        session.targets,
+        stretch=session.stretch,
+        is_free=session.free,
+    )
+    session.used, session.notices = result.used, result.notices
     stretched = result.dimensions if session.stretch and session.targets else None
     session.stretch = False
     written = False
@@ -86,6 +121,8 @@ def snap_part(obj: DocumentObject, session: SnapSession) -> bool:
         written = _write_dimension(obj, "Width", stretched.width) or written
     if placement_expression(obj) is None:
         placement = to_placement(result.placement)
+        if session.container is not None:
+            placement = local_placement(placement, session.container.getGlobalPlacement())
         if obj.Placement != placement:
             obj.Placement = placement
     return written
@@ -101,6 +138,7 @@ def _write_dimension(obj: DocumentObject, prop: str, value: float) -> bool:
 
 def rotate_part(obj: DocumentObject, turn: Turn, session: SnapSession | None = None) -> bool:
     """Quart de tour de ``obj`` autour de l'axe X, Y ou Z du document (ou de son conteneur).
+    En création contre une face inclinée, l'axe est celui du repère d'appui (limite documentée).
 
     Avec ``session`` (création) : l'orientation change et la pièce est reposée, donc reste
     accrochée. Sans (modification) : elle tourne sur place, centre fixe. Faux, sans rien
@@ -108,7 +146,7 @@ def rotate_part(obj: DocumentObject, turn: Turn, session: SnapSession | None = N
     if placement_expression(obj) is not None:
         return False
     if session is not None:
-        session.orientation = session.orientation.turned(turn)
+        session.orientation = session.orientation.turned(turn, session.support)
         snap_part(obj, session)
         return True
     turned = turned_in_place(rigid_transform(obj.Placement), dimensions_of(obj), turn)
