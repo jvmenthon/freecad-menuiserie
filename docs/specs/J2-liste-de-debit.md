@@ -380,7 +380,7 @@ couches existantes) :
 ### 10.4 Demande de jv (recette, 2026-10-22) : épaisseurs standards de brut
 
 Demande, mot pour mot : « pour les matériaux bruts il faut utiliser des épaisseurs standards de
-brut ». Décision structurante (format de la bibliothèque) : [ADR 0014](../adr/0014-epaisseurs-de-brut.md).
+brut ». Décision structurante (format de la bibliothèque) : [ADR 0015](../adr/0015-epaisseurs-de-brut.md).
 
 - La bibliothèque donne, par matériau **massif**, un champ facultatif `rough_thicknesses` :
   épaisseurs de brut du commerce (plots et avivés), en mm. Intégrés : feuillus (chêne, hêtre,

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Épaisseurs de brut de la bibliothèque (J2, § 10.4, critère B1, ADR 0014)."""
+"""Épaisseurs de brut de la bibliothèque (J2, § 10.4, critère B1, ADR 0015)."""
 
 from __future__ import annotations
 

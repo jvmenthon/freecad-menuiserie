@@ -1,4 +1,4 @@
-# ADR 0014 — Épaisseurs standards de brut dans la bibliothèque de matériaux
+# ADR 0015 — Épaisseurs standards de brut dans la bibliothèque de matériaux
 
 - Statut : **accepté** (demande de jv, recette J2, 2026-10-22)
 - Date : 2026-10-22

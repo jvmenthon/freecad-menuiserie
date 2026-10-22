@@ -227,7 +227,7 @@ Exemple complet (format 1, encodage UTF-8) :
   `rough_thicknesses` (facultatif, massif) : épaisseurs de **brut** du commerce en mm (mêmes
   bornes que `thicknesses`) : la liste de débit arrondit l'épaisseur de débit à la plus petite
   épaisseur de brut qui couvre l'épaisseur finie + 3 mm de rabotage au moins
-  ([ADR 0014](docs/adr/0014-epaisseurs-de-brut.md)). Sans ce champ, pas d'arrondi.
+  ([ADR 0015](docs/adr/0015-epaisseurs-de-brut.md)). Sans ce champ, pas d'arrondi.
 
 Le fichier est lu une fois par session ; après l'avoir modifié, relancez FreeCAD ou exécutez
 `from freecad.menuiserie.features.library import reload_library; reload_library()`. Une entrée

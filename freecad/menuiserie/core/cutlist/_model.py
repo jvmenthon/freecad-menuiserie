@@ -38,7 +38,7 @@ from freecad.menuiserie.core.text import quoted_value
 NO_MARK_DISPLAY: Final = "—"
 _MM2_PER_M2: Final = 1e6
 NO_ADDITIONS: Final = Allowances()
-MIN_PLANING_MM: Final = 3.0  # marge de rabotage minimale d'une pièce massive (ADR 0014)
+MIN_PLANING_MM: Final = 3.0  # marge de rabotage minimale d'une pièce massive (ADR 0015)
 _EPSILON_MM: Final = 1e-6
 
 _BAD_COUNT: Final = QT_TRANSLATE_NOOP(
@@ -130,7 +130,7 @@ class CutEntry:
             raise InvalidCutEntryError(_BAD_ROUGH, params) from error
 
     def _normalize_rough_thicknesses(self) -> None:
-        """Épaisseurs de brut du matériau (ADR 0014) : vides, ou liste valide triée."""
+        """Épaisseurs de brut du matériau (ADR 0015) : vides, ou liste valide triée."""
         value = self.rough_thicknesses
         rough: tuple[float, ...] | None = ()
         if not (isinstance(value, (list, tuple)) and not value):
@@ -162,7 +162,7 @@ class CutEntry:
     @property
     def rough(self) -> Dimensions:
         """Cotes de débit : finies + ajouts des assemblages + surcotes ; l'épaisseur est celle
-        du brut standard du matériau s'il en a (ADR 0014)."""
+        du brut standard du matériau s'il en a (ADR 0015)."""
         rough = rough_dimensions(
             self.record.finished, _sum_allowances(self.record.allowances, self.additions)
         )

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Épaisseurs standards de brut dans la liste de débit (J2, § 10.4, critère B3, ADR 0014).
+"""Épaisseurs standards de brut dans la liste de débit (J2, § 10.4, critère B3, ADR 0015).
 
 Une pièce de chêne de 18 mm est débitée dans du brut de 27 mm, une pièce de pin de 18 mm dans du
 brut de 22 mm, un contreplaqué de 18 mm reste à 18 mm : dans la feuille, le CSV, le PDF (via son

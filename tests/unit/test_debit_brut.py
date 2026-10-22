@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Épaisseur de débit arrondie au brut standard (J2, § 10.4, critère B2, ADR 0014)."""
+"""Épaisseur de débit arrondie au brut standard (J2, § 10.4, critère B2, ADR 0015)."""
 
 from __future__ import annotations
 

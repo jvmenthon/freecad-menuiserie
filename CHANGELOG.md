@@ -7,7 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 - Liste de débit, épaisseurs standards de brut (demande de jv, recette J2, spécification J2
-  § 10.4, [ADR 0014](docs/adr/0014-epaisseurs-de-brut.md)) : la bibliothèque de matériaux accepte
+  § 10.4, [ADR 0015](docs/adr/0015-epaisseurs-de-brut.md)) : la bibliothèque de matériaux accepte
   un champ facultatif `rough_thicknesses` (épaisseurs de brut du commerce, en mm), renseigné pour
   les huit massifs intégrés (feuillus 27 à 100 mm, résineux 18 à 100 mm). L'épaisseur de débit
   d'une pièce massive devient la plus petite épaisseur de brut supérieure ou égale à l'épaisseur

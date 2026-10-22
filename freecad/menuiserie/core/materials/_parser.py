@@ -148,7 +148,7 @@ def _parse_thicknesses(entry: Entry) -> tuple[float, ...]:
 
 
 def _parse_rough_thicknesses(entry: Entry) -> tuple[float, ...]:
-    """Épaisseurs de brut facultatives (ADR 0014) ; absentes : aucune."""
+    """Épaisseurs de brut facultatives (ADR 0015) ; absentes : aucune."""
     if "rough_thicknesses" not in entry.data:
         return ()
     rough = normalized_rough_thicknesses(entry.data["rough_thicknesses"])

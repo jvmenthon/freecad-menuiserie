@@ -137,7 +137,7 @@ def _record(blank: DocumentObject, notices: list[Notice]) -> PartRecord:
 
 
 def _rough_thicknesses(record: PartRecord) -> tuple[float, ...]:
-    """Épaisseurs de brut du matériau de la pièce dans la bibliothèque (ADR 0014) ; aucune si
+    """Épaisseurs de brut du matériau de la pièce dans la bibliothèque (ADR 0015) ; aucune si
     le matériau est introuvable."""
     material = get_library().find(record.material_id)
     return () if material is None else material.rough_thicknesses
