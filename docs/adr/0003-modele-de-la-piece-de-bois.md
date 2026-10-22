@@ -49,9 +49,14 @@ une pièce créée depuis la console de l'interface doit avoir son icône et sa 
      avec avertissement, sauf dans un document d'une `Version` plus récente : elle y est gardée
      telle quelle, avec la liste du fichier, et signalée, car la remplacer la ferait perdre à
      l'enregistrement. Limite : l'atelier ne sait pas l'interpréter ; tant qu'il n'est
-     pas mis à jour, `record_of` et `set_material` lèvent `KeyError` sur cette pièce, et le
-     choix d'un matériau dans la liste n'est pas recopié (`MaterialId` inchangé, libellé rétabli
-     à la réouverture). Une valeur connue retrouve toujours la liste canonique ;
+     pas mis à jour, la pièce est en lecture seule pour son matériau (`Material` en lecture
+     seule, `onChanged` inactif sur le matériau, panneau de tâche avec un message) et
+     `record_of` et `set_material` lèvent `UnsupportedPartError` (message traduit) au lieu
+     d'une `KeyError`. Une valeur connue retrouve toujours la liste canonique. La même limite
+     vaut pour le type : une propriété d'un type inattendu est supprimée, donc perdue à
+     l'enregistrement, **même sur un document plus récent** ; c'est cohérent seulement parce
+     que les noms et les types des propriétés sont figés (contrat de persistance, règle 5) : une version plus récente
+     n'a pas pu en changer le type, un tel fichier est altéré ;
    - les propriétés de vue de l'atelier (`MaterialColor`, couleur du matériau enregistrée au
      choix du matériau) obéissent aux mêmes règles de nommage ; le ViewProvider n'a pas de
      `Version` : une propriété de vue absente à la réouverture est recréée dans `finishRestoring`.

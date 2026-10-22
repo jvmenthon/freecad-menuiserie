@@ -275,6 +275,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `to_guest`, `TextureCache.usable`, `BudgetedCache.clear`, `JOINT_CLASSES`).
 
 ### Corrigé
+- Robustesse de la pièce de bois (issue #13, J2a) : `record_of` et `set_material` lèvent
+  `UnsupportedPartError` (message traduit) au lieu de `KeyError` pour une catégorie ou un sens du
+  fil inconnus ; une pièce d'un document plus récent (`Version` > `MODEL_VERSION`) a son
+  `Material` en lecture seule, `onChanged` n'en suit plus le choix et le panneau de tâche
+  l'ouvre avec le type et le matériau inactifs et un message ; la réparation d'un `MaterialId`
+  d'un type inattendu retrouve le matériau d'après le libellé `Material` (`find_by_name`) avant
+  de prendre le matériau par défaut. Docstrings de `wood_part_restore` et `apply_editor_modes`,
+  ADR 0003 (§ Limite : propriété d'un type inattendu supprimée même sur un document plus récent).
 - Revue finale de J6 : copier-coller, Std Dupliquer et fusion de documents ne donnent plus deux
   pièces (ni deux pièces usinées) de même libellé : la copie de « M1 » s'appelle « M1 (2) » et sa
   pièce usinée « M1 (2) (usinée) », repère inchangé ; une réouverture ordinaire et une annulation
