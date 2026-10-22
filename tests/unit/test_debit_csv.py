@@ -19,6 +19,7 @@ from freecad.menuiserie.core.cutlist import (
     build_cut_list,
     format_number,
     neutralize_formula,
+    table_sections,
     to_csv,
 )
 from freecad.menuiserie.core.part_model import Allowances, GrainDirection
@@ -166,3 +167,27 @@ def test_remarque_des_ajouts() -> None:
     assert additions_remark(with_tenon, str) == "Ajouts compris (L / l / e) : +60 / +0 / +2,2 mm"
     assert additions_remark(with_tenon, str, INTERNATIONAL_CSV).endswith("+2.2 mm")
     assert additions_remark(without, str) == ""
+
+
+# --- blocs communs au CSV et à la feuille (J2c) ---------------------------------------------
+
+
+def test_blocs_du_tableau_lignes_totaux_fournitures() -> None:
+    lines, totals, hardware = table_sections(sample(), str, INTERNATIONAL_CSV)
+    assert (lines.title, totals.title, hardware.title) == (
+        "",
+        "Totaux par matériau",
+        "Fournitures",
+    )
+    assert len(lines.rows) == 3
+    assert lines.rows[0][:2] == ("M2", "1")
+    assert "." in lines.rows[0][11]
+    assert lines.text_columns == {0, 8, 9, 10, 14}
+    assert totals.rows[-1][0] == "Total général"
+    assert hardware.rows == (("Tourillon", "8", "35", "6"),)
+
+
+def test_liste_vide_un_seul_bloc() -> None:
+    [only] = table_sections(build_cut_list([]), str)
+    assert only.rows == ()
+    assert len(only.header) == 15

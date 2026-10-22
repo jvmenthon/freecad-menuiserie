@@ -19,6 +19,7 @@ __all__ = [
     "console_text",
     "report_warning",
     "templated_message",
+    "translate_text",
     "translated",
     "translated_errors",
 ]
@@ -28,6 +29,13 @@ def translated(template: str, params: Mapping[str, str] | None = None) -> str:
     """Gabarit français traduit (contexte « Menuiserie »), puis rempli avec ``params``."""
     text: str = App.Qt.translate(CONTEXT, template)
     return text.format_map(params or {})
+
+
+def translate_text(text: str) -> str:
+    """Gabarit français traduit (contexte « Menuiserie »), sans le remplir : pour les gabarits
+    de ``core`` que l'appelant remplit lui-même (``to_csv``, ``additions_remark``)."""
+    translated_text: str = App.Qt.translate(CONTEXT, text)
+    return translated_text
 
 
 def templated_message(error: TemplatedError) -> str:
