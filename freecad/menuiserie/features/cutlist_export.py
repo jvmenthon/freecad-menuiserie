@@ -97,10 +97,9 @@ def replace_atomically(target: Path, produce: Callable[[Path], None]) -> None:
     """Fait écrire par ``produce`` un fichier temporaire du dossier de ``target`` (créé vide et
     fermé), puis le substitue à ``target``. Le temporaire disparaît en cas d'échec : ``target``
     reste alors intact."""
-    with tempfile.NamedTemporaryFile(
-        dir=target.parent, prefix=f".{target.stem}-", suffix=".tmp", delete=False
-    ) as handle:
-        temporary = Path(handle.name)  # fichier fermé à la sortie du bloc
+    descriptor, name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.stem}-", suffix=".tmp")
+    os.close(descriptor)
+    temporary = Path(name)
     try:
         produce(temporary)
         if target.exists():

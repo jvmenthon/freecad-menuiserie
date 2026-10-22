@@ -329,12 +329,12 @@ def export_liste_de_debit_pdf() -> str:
 def numeroter_les_reperes() -> str:
     trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
     chiffre = 'fill="none" stroke="#2e3436" stroke-width="2.5" stroke-linecap="round"'
+    veinage = 'fill="none" stroke="#8f5902" stroke-width="1.5" stroke-linecap="round"'
     lignes = [
         "  <!-- Numérotation des repères : deux planches portant les repères 1 et 2 -->",
         f'  <rect x="4" y="8" width="56" height="20" rx="2" fill="#c4884a" {trait}/>',
         f'  <rect x="4" y="36" width="56" height="20" rx="2" fill="#c4884a" {trait}/>',
-        '  <path d="M8,14 H34 M8,20 H46 M8,42 H30 M8,48 H44" fill="none" stroke="#8f5902" '
-        'stroke-width="1.5" stroke-linecap="round"/>',
+        f'  <path d="M8,14 H34 M8,20 H46 M8,42 H30 M8,48 H44" {veinage}/>',
         f'  <rect x="38" y="11" width="18" height="14" rx="2" fill="#ffffff" {trait}/>',
         f'  <rect x="38" y="39" width="18" height="14" rx="2" fill="#ffffff" {trait}/>',
         f'  <path d="M45,16 L48,13.5 V22.5" {chiffre}/>',
