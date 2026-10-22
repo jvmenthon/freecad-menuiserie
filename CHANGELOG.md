@@ -21,6 +21,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `FRENCH_CSV` (`;`, virgule décimale).
 
 ### Ajouté
+- Présentation soignée de la liste de débit (aperçu et PDF, demande de jv « un affichage plus
+  élégant ») : teintes de bois (en-têtes brun foncé, titres brun doré), une ligne sur deux
+  teintée, total général mis en avant, nombres alignés à droite jusque dans les en-têtes, plus
+  aucun mot coupé au milieu (« Longueu-r ») ; le PDF est réduit à la largeur de la page (plus de
+  colonne coupée à droite), répète l'en-tête du tableau et numérote ses pages « n / total ».
 - Aperçu de la liste de débit et miniatures (demande de jv, recette J2, spécification J2 § 10.3) :
   commande `Menuiserie_CutListPreview` « Aperçu de la liste de débit » (barre d'outils, menu,
   icône générée) qui ouvre une fenêtre non modale montrant le document du PDF, avec les boutons
