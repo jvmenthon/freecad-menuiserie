@@ -188,7 +188,7 @@ def to_csv(cut_list: CutList, dialect: CsvDialect = FRENCH_CSV, translate: Trans
     buffer = io.StringIO(newline="")
     # Chaque cellule passe par neutralize_formula (C7, testé) ; defusedcsv serait une dépendance
     # de plus (ADR 0007) pour la même protection.
-    # nosemgrep: python.lang.security.use-defusedcsv.use-defusedcsv
+    # nosemgrep: python.lang.security.use-defusedcsv
     writer = csv.writer(buffer, delimiter=dialect.delimiter, lineterminator=dialect.line_terminator)
     for row in _rows(cut_list, translate, dialect):
         writer.writerow(neutralize_formula(cell) for cell in row)
