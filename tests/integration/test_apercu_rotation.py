@@ -190,7 +190,7 @@ def test_la_piece_usinee_suit_la_rotation(cadre: Cadre) -> None:
     blank = cadre.parts["T1"]
     placement_module.rotate_part(blank, Turn.X)
     machined = cadre.machined("T1")
-    cadre.doc.recompute([blank, machined])
+    cadre.doc.recompute()
     assert machined.Placement == blank.Placement
     assert machined.isValid()
     assert len(machined.Shape.Solids) == 1
