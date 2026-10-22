@@ -25,7 +25,7 @@ Liste de débit (J2) ::
 
     from freecad.menuiserie.api import export_cut_list_csv, make_cut_list
 
-    feuille = make_cut_list(doc)  # feuille « Liste de débit » (à jour à cet instant)
+    feuille = make_cut_list(doc)  # feuille « Liste de débit », réécrite à chaque recalcul
     export_cut_list_csv(doc, "/chemin/debit.csv", objects=[caisson])
 
 C'est le seul module hors de ``gui/`` autorisé à importer ``gui/``, et seulement quand

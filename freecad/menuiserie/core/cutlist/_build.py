@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Regroupement des pièces identiques, totaux et fournitures (J2b, critères C1 à C6).
+"""Regroupement des pièces identiques, totaux et fournitures (J2b, J2e : C1' et C2', C3 à C6).
 
 Module privé : la façade ``core.cutlist`` ré-exporte l'API publique.
 """

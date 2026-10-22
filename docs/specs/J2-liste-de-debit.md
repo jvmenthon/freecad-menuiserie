@@ -77,7 +77,7 @@ Légende : **U** = unitaire sans FreeCAD, **I** = intégration dans `freecadcmd`
 | D4 | Ajouts : pour une invitée de tenon-mortaise, rainure-languette ou queue d'aronde, `CutEntry.additions` vaut l'étendue de la pièce usinée au-delà de la brute selon chaque axe local (boîte englobante de la forme usinée dans le repère de la brute) ; onglet, mi-bois et feuillure ne changent rien (retraits). | I |
 | D5 | Tourillons : un assemblage `Dowels` ajoute `count` tourillons de `diameter` × `dowel_length` effectifs (valeurs automatiques résolues). | I |
 | D6 | Colonne « Ensemble » : libellé de l'ensemble d'une pièce membre, vide sinon ; la clé de regroupement l'ignore (★ Q2). | I |
-| D7 | Une pièce en erreur (forme non recalculée, cote invalide) n'interrompt pas la liste : elle est listée d'après ses propriétés et un avertissement la nomme. | I |
+| D7 | Une pièce en erreur n'interrompt pas la liste et un avertissement la nomme : une pièce usinée à la forme absente, invalide ou non recalculée est listée d'après les propriétés de sa brute, sans ajouts (`NoMachinedShape`) ; une pièce à cote invalide (nulle, négative, non finie) n'a pas de débit calculable et est **ignorée** (`IgnoredPart`, avec la raison). | I |
 | D8 | Robustesse (issue #13) : une pièce dont `Version` > `MODEL_VERSION` ou dont la catégorie est inconnue est listée avec la catégorie « ? » et un avertissement ; `record_of` lève `UnsupportedPartError` (traduite) au lieu de `KeyError`. | I |
 
 ### 3.3 Feuille de calcul et export
@@ -211,7 +211,8 @@ Surface (m²), Remarque (ex. « tenons compris : +60 mm »). Écriture par `shee
 formule construite à partir d'un repère ou d'un libellé), `setStyle`, `setAlignment`,
 `setColumnWidth`, `setDisplayUnit` non utilisé (nombres déjà convertis). La feuille porte une
 propriété `MenuiserieCutList` (bool, masquée) pour être retrouvée ; aucune autre propriété,
-aucun proxy (ADR 0012) : un document sans l'atelier l'ouvre sans message.
+aucun proxy (ADR 0012, point conservé par l'ADR 0013) : un document sans l'atelier l'ouvre sans
+message (seul l'objet `CutList` de la liste vivante y est signalé sans proxy, § 10.1 V3).
 
 ### 4.5 Export CSV
 
@@ -219,7 +220,8 @@ Module `csv` de la bibliothèque standard, écrit dans une chaîne (`io.StringIO
 fichier écrit par `features/cutlist_export.py` : `pathlib.Path`, extension `.csv` imposée,
 dossier parent existant, `tempfile.NamedTemporaryFile(dir=parent, delete=False)` puis
 `os.replace`. Dialecte `FRENCH_CSV` (★ Q4) : `;`, virgule décimale, `utf-8-sig`, `\r\n` ; le
-dialecte est un paramètre de `core` pour un futur choix « international » (`,` et point).
+dialecte est un paramètre de `core` ; **remplacé par § 10 (Q4 b)** : `INTERNATIONAL_CSV` (`,` et
+point) par défaut, `FRENCH_CSV` en paramètre de l'API.
 
 ### 4.6 Traductions, unités, sécurité
 
@@ -263,7 +265,7 @@ PR `jalon/J2` → `main`.
 
 | N° | Risque | Parade |
 |---|---|---|
-| K1 | Liste périmée après une modification (pas de recalcul automatique). | Date et portée en tête ; infobulle ; mise à jour en un clic (ADR 0012) ; Q3. |
+| K1 | Liste périmée après une modification (pas de recalcul automatique). | Levé par § 10 (Q3 b) : liste vivante, ADR 0013 (V1). |
 | K2 | Boîte englobante faussée par une forme usinée invalide ou non recalculée. | Forme absente ou invalide → ajouts nuls et avertissement (D7). |
 | K3 | Liens imbriqués, tableaux de liens, liens vers des Std Part contenant d'autres liens. | Lecture récursive avec multiplicateur, profondeur bornée, tests D3 sur 1.0 et 1.1. |
 | K4 | Tableur qui lit mal le CSV (séparateur, accents). | BOM UTF-8, `;`, virgule décimale ; recette dans le tableur de jv (G4) ; Q4. |
@@ -272,12 +274,12 @@ PR `jalon/J2` → `main`.
 ## 8. Hors périmètre
 
 - Optimisation de débit des panneaux (calepinage), chiffrage, prix (plan § 2, « Ensuite »).
-- Numérotation automatique des repères (★ Q5 : commande séparée plus tard).
+- ~~Numérotation automatique des repères~~ : entrée dans J2 (§ 10, Q5 b, N1).
 - Bandes de chant et alaises dans la liste (J4b, issue #5) : la structure `Hardware` / lignes les
   accueillera.
 - Plans TechDraw par pièce (J5).
 - Vis, lamelles, dominos, quincaillerie autre que les tourillons.
-- Liste vivante recalculée à chaque modification (ADR 0012, option écartée).
+- ~~Liste vivante recalculée à chaque modification~~ : entrée dans J2 (§ 10, Q3 b, ADR 0013).
 
 ## 9. Questions à jv
 
@@ -314,7 +316,8 @@ pas (message dans le panneau). (b) *Erreur explicite* à chaque modification du 
 
 ## 10. Réponses de jv (2026-10-22) et compléments
 
-Ces réponses priment sur les recommandations ★ du § 9 et sur les critères qu'elles contredisent.
+Ces réponses priment sur les recommandations ★ du § 9 et sur les critères qu'elles contredisent
+(C1, C2, C7, S4, § 4.4, § 4.5 et § 8 : voir les renvois).
 Exigence ajoutée, mot pour mot : « La liste de débit doit être exportable en pdf ».
 
 | Question | Réponse | Effet |

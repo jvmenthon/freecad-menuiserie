@@ -47,8 +47,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   pièces sans repère (ensemble puis cotes décroissantes, premier numéro libre, pièces déjà
   repérées ou au repère piloté par une expression inchangées), en une transaction « Numéroter les
   repères » ; le libellé suit le repère et la liste vivante est à jour. La commande vient avec J2g.
-- Commandes de la liste de débit (J2d, ADR 0012) : **Liste de débit** crée ou met à jour la
-  feuille et l'ouvre dans un onglet ; **Exporter la liste de débit (CSV)…** ouvre la boîte
+- Commandes de la liste de débit (J2d, ADR 0012, liste rendue vivante par J2f) : **Liste de
+  débit** crée ou met à jour la feuille et l'ouvre dans un onglet ; **Exporter la liste de débit (CSV)…** ouvre la boîte
   d'enregistrement (nom proposé « <document> - liste de débit.csv » à côté du document, sinon
   dans le dossier personnel, « .csv » ajouté si absent), confirme dans la barre d'état et
   affiche un refus dans la boîte d'avertissement des assemblages. Portée : objets sélectionnés
@@ -70,7 +70,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   met à jour la feuille `Spreadsheet::Sheet` « Liste de débit » (nom interne `MenuiserieCutList`,
   retrouvée par sa propriété masquée `MenuiserieCutList` même renommée, aucun proxy, une seule
   transaction), `api.export_cut_list_csv(doc, path, objects=None)` écrit le CSV français (extension
-  `.csv` imposée, dossier existant, écriture atomique) et `api.cut_list_of(doc, objects=None)`
+  `.csv` imposée, dossier existant, écriture atomique ; dialecte international par défaut depuis
+  J2e) et `api.cut_list_of(doc, objects=None)`
   renvoie la `CutList` sans toucher au document. La collecte (`features/cutlist_collect.py`,
   `cutlist_parts.py`) compte une ligne par pièce brute (une pièce usinée est comptée par sa
   brute), lit la sélection (pièces, ensembles, Std Part, groupes), suit les `App::Link` (une
@@ -81,15 +82,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   ignorée avec un avertissement qui la nomme ; une forme usinée absente ou invalide donne des
   ajouts nuls et un avertissement. La feuille (`features/cutlist_sheet.py`) écrit titre, date,
   portée, tableau (colonnes A à O), totaux, fournitures et avertissements, uniquement en valeurs
-  littérales (jamais de formule), garde les cellules de la colonne P et au-delà, et n'est jamais
-  recalculée toute seule. `core.cutlist.table_sections` expose les blocs du tableau, communs au
+  littérales (jamais de formule), garde les cellules de la colonne P et au-delà, et n'était
+  recalculée qu'à la demande (remplacé par la liste vivante de J2f). `core.cutlist.table_sections` expose les blocs du tableau, communs au
   CSV et à la feuille. Les commandes et la recette arrivent avec J2d.
 - Liste de débit, calcul pur (J2b, ADR 0012) : `core/cutlist/` (`CutEntry`, `build_cut_list`,
   `CutList`, `to_csv`) regroupe les pièces identiques (repère, matériau, cotes finies, ajouts
-  d'assemblage, surcotes, fil), les trie (repère en ordre naturel « M2 » avant « M10 », sans repère
+  d'assemblage, surcotes, fil ; repère retiré de la clé par J2e), les trie (repère en ordre naturel « M2 » avant « M10 », sans repère
   en dernier), calcule cotes de débit (finies + ajouts + surcotes), volumes, masses, totaux par
   matériau (surface des panneaux), fournitures (tourillons) et avertissements (repère réutilisé,
-  pièces sans repère). Export CSV au dialecte `FRENCH_CSV` (`;`, virgule décimale, UTF-8 avec BOM,
+  pièces sans repère). Export CSV au dialecte `FRENCH_CSV` (international par
+  défaut depuis J2e) (`;`, virgule décimale, UTF-8 avec BOM,
   CRLF), en-têtes traduisibles, injection de formule neutralisée. `Notice` des avertissements
   déplacée dans `core/notice.py`, commune aux ensembles et à la liste de débit.
 - Accrochage à la sélection (J6d, ADR 0011) : les faces, arêtes et sommets sélectionnés avant

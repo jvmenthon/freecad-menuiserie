@@ -47,7 +47,7 @@ _FALLBACK_ROWS: Final = 2000  # balayage si la feuille ne sait pas lister ses ce
 
 TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Liste de débit")
 _MARKER_TOOLTIP: Final = QT_TRANSLATE_NOOP(
-    "App::Property", "Feuille écrite par la commande « Liste de débit » de l'atelier Menuiserie."
+    "App::Property", "Feuille réécrite par la liste de débit de l'atelier Menuiserie."
 )
 _DATE_LINE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
