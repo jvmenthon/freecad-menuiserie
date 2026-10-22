@@ -7,35 +7,6 @@
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
    <item>
-    <widget class="QGroupBox" name="identificationGroup">
-     <property name="title">
-      <string>Identification</string>
-     </property>
-     <layout class="QGridLayout" name="identificationGroupLayout">
-      <item row="0" column="0">
-       <widget class="QLabel" name="markLabel">
-        <property name="text">
-         <string>Repère</string>
-        </property>
-        <property name="buddy">
-         <cstring>markEdit</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="markEdit">
-        <property name="toolTip">
-         <string>Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 ») ; c'est aussi son nom dans l'arborescence.</string>
-        </property>
-        <property name="placeholderText">
-         <string>ex. M1</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
     <widget class="QGroupBox" name="materialGroup">
      <property name="title">
       <string>Matériau</string>
@@ -273,6 +244,83 @@
      </layout>
     </widget>
    </item>
+   <item>
+    <widget class="QGroupBox" name="identificationGroup">
+     <property name="title">
+      <string>Identification</string>
+     </property>
+     <layout class="QGridLayout" name="identificationGroupLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="markLabel">
+        <property name="text">
+         <string>Repère</string>
+        </property>
+        <property name="buddy">
+         <cstring>markEdit</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="markEdit">
+        <property name="toolTip">
+         <string>Repère de la pièce sur les plans et dans la liste de débit (ex. « M1 ») ; c'est aussi son nom dans l'arborescence.</string>
+        </property>
+        <property name="placeholderText">
+         <string>ex. M1</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="positionGroup">
+     <property name="title">
+      <string>Position</string>
+     </property>
+     <layout class="QHBoxLayout" name="positionGroupLayout">
+      <item>
+       <widget class="QToolButton" name="rotateXButton">
+        <property name="toolTip">
+         <string>Quart de tour autour de l'axe X du document. Quatre clics ramènent la pièce à sa position de départ.</string>
+        </property>
+        <property name="text">
+         <string>X</string>
+        </property>
+        <property name="toolButtonStyle">
+         <enum>Qt::ToolButtonTextBesideIcon</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QToolButton" name="rotateYButton">
+        <property name="toolTip">
+         <string>Quart de tour autour de l'axe Y du document. Quatre clics ramènent la pièce à sa position de départ.</string>
+        </property>
+        <property name="text">
+         <string>Y</string>
+        </property>
+        <property name="toolButtonStyle">
+         <enum>Qt::ToolButtonTextBesideIcon</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QToolButton" name="rotateZButton">
+        <property name="toolTip">
+         <string>Quart de tour autour de l'axe Z du document. Quatre clics ramènent la pièce à sa position de départ.</string>
+        </property>
+        <property name="text">
+         <string>Z</string>
+        </property>
+        <property name="toolButtonStyle">
+         <enum>Qt::ToolButtonTextBesideIcon</enum>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
   </layout>
  </widget>
  <customwidgets>
@@ -283,7 +331,6 @@
   </customwidget>
  </customwidgets>
  <tabstops>
-  <tabstop>markEdit</tabstop>
   <tabstop>kindCombo</tabstop>
   <tabstop>materialCombo</tabstop>
   <tabstop>grainCombo</tabstop>
@@ -295,6 +342,10 @@
   <tabstop>lengthAllowanceEdit</tabstop>
   <tabstop>widthAllowanceEdit</tabstop>
   <tabstop>thicknessAllowanceEdit</tabstop>
+  <tabstop>markEdit</tabstop>
+  <tabstop>rotateXButton</tabstop>
+  <tabstop>rotateYButton</tabstop>
+  <tabstop>rotateZButton</tabstop>
  </tabstops>
  <resources/>
  <connections/>

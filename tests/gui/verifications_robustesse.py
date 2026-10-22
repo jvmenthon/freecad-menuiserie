@@ -32,7 +32,7 @@ from tests.gui.verifications_panneau_limites import transaction_ouverte
 class PanneauDefaillant:
     """Panneau dont la construction échoue, comme sur un formulaire illisible."""
 
-    def __init__(self, obj: Any, *, creating: bool) -> None:
+    def __init__(self, obj: Any, *, creating: bool, **_options: Any) -> None:
         del obj, creating
         raise RuntimeError("panneau défaillant (vérification A1)")
 

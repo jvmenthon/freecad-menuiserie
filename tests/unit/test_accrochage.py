@@ -36,6 +36,19 @@ Box = tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
 SNAP_PACKAGE = ROOT / "freecad" / "menuiserie" / "core" / "snap"
 
 
+def turned(*turns: Turn) -> Orientation:
+    """Orientation obtenue en appuyant dans l'ordre sur les boutons ``turns``."""
+    orientation = Orientation()
+    for turn in turns:
+        orientation = orientation.turned(turn)
+    return orientation
+
+
+def oriented(tilt: int, pivot: int) -> Orientation:
+    """À plat (0), sur chant (1) ou en bout (2), puis ``pivot`` quarts de tour autour de Z."""
+    return turned(*[Turn.X, Turn.Z] * tilt, *[Turn.Z] * pivot)
+
+
 def frame_of(origin: Vec3, x: Vec3, z: Vec3) -> Frame:
     """Repère direct d'origine, d'axe x et de normale z donnés (y = z ∧ x)."""
     y = Vec3(z.y * x.z - z.z * x.y, z.z * x.x - z.x * x.z, z.x * x.y - z.y * x.x)
@@ -157,11 +170,15 @@ def test_sommet_validation() -> None:
 
 
 def test_orientation_validation() -> None:
-    assert Orientation(tilt=2, pivot=3).pivot == 3
-    refused = ((3, 0, "tilt"), (0, 4, "pivot"), (-1, 0, "tilt"), (0, True, "pivot"))
-    for tilt, pivot, field in refused:
-        with pytest.raises(ValueError, match=field):
-            Orientation(tilt, pivot)
+    swap = ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    assert Orientation(swap).rotation() == swap
+    mirror = ((-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    skewed = ((1.0, 1.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    half = ((0.5, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    twice = ((1.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    for refused in (mirror, skewed, half, twice, ((1.0, 0.0), (0.0, 1.0))):
+        with pytest.raises(ValueError, match="matrix"):
+            Orientation(refused)  # type: ignore[arg-type]
 
 
 # --- S2 : sans élément --------------------------------------------------------------------
@@ -176,7 +193,7 @@ def test_sans_element_identite() -> None:
 @pytest.mark.parametrize("tilt", range(3))
 @pytest.mark.parametrize("pivot", range(4))
 def test_sans_element_octant_positif(tilt: int, pivot: int) -> None:
-    result = snap(DIMS, Orientation(tilt, pivot), ())
+    result = snap(DIMS, oriented(tilt, pivot), ())
     assert [low for low, _ in box_of(result)] == pytest.approx([0, 0, 0])
     assert sorted(high for _, high in box_of(result)) == pytest.approx([22, 200, 800])
 
@@ -356,7 +373,7 @@ def test_tablette_etiree_selon_la_largeur() -> None:
 def test_deux_joues_dont_la_premiere_est_l_appui() -> None:
     left = face("gauche", Vec3(22, 0, 0), Y, X)
     right = face("droite", Vec3(578, 0, 0), Y, NEG_X)
-    result = snapped(left, right, orientation=Orientation(tilt=2))
+    result = snapped(left, right, orientation=oriented(2, 0))
     assert result.dimensions == Dimensions(556, 200, 22)
     assert_box(result, ((22, 578), (0, 200), (0, 22)))
     flat = snapped(left, right)
@@ -367,7 +384,7 @@ def test_deux_joues_dont_la_premiere_est_l_appui() -> None:
 
 def test_dessous_d_un_plateau_en_vis_a_vis() -> None:
     plateau = face("plateau", Vec3(0, 0, 180), X, NEG_Z)
-    on_edge = snapped(top(0), plateau, orientation=Orientation(tilt=1))
+    on_edge = snapped(top(0), plateau, orientation=oriented(1, 0))
     assert on_edge.dimensions == Dimensions(800, 180, 22)
     assert kinds(snapped(top(0), plateau)) == [SnapNoticeKind.THICKNESS_GAP]
 
@@ -459,7 +476,7 @@ def test_jamais_d_exception() -> None:
     ]
     for _ in range(200):
         chosen = [rng.choice(pool) for _ in range(rng.randint(0, 5))]
-        orientation = Orientation(rng.randrange(3), rng.randrange(4))
+        orientation = oriented(rng.randrange(3), rng.randrange(4))
         result = snap(DIMS, orientation, chosen, stretch=rng.random() < 0.5)
         assert len(result.used) <= MAX_TARGETS
 
@@ -467,29 +484,26 @@ def test_jamais_d_exception() -> None:
 # --- S10 : rotation -----------------------------------------------------------------------
 
 
-def test_quatre_pivots_et_trois_bascules_ferment_le_cycle() -> None:
-    start = Orientation()
-    pivoted = start
-    for _ in range(4):
-        pivoted = pivoted.turned(Turn.PIVOT)
-    tilted = start
-    for _ in range(3):
-        tilted = tilted.turned(Turn.TILT)
-    assert pivoted == tilted == start
-    assert start.turned(Turn.TILT) == Orientation(tilt=1)
-    assert start.turned(Turn.PIVOT) == Orientation(pivot=1)
+@pytest.mark.parametrize("turn", list(Turn))
+def test_quatre_quarts_de_tour_ferment_le_cycle(turn: Turn) -> None:
+    assert turned(*[turn] * 4) == Orientation()
+    assert turned(*[turn] * 3) != Orientation()
+    assert turned(turn) != Orientation()
 
 
-def test_douze_orientations_distinctes() -> None:
-    seen = set()
-    orientation = Orientation()
-    for _ in range(3):
-        for _ in range(4):
-            orientation = orientation.turned(Turn.PIVOT)
-            seen.add(orientation.rotation())
-        orientation = orientation.turned(Turn.TILT)
-    assert len(seen) == 12
-    for rotation in seen:
+def test_vingt_quatre_orientations_atteintes() -> None:
+    seen = {Orientation()}
+    frontier = [Orientation()]
+    while frontier:
+        current = frontier.pop()
+        for turn in Turn:
+            following = current.turned(turn)
+            if following not in seen:
+                seen.add(following)
+                frontier.append(following)
+    assert len(seen) == 24
+    for orientation in seen:
+        rotation = orientation.rotation()
         det = (
             rotation[0][0] * (rotation[1][1] * rotation[2][2] - rotation[1][2] * rotation[2][1])
             - rotation[0][1] * (rotation[1][0] * rotation[2][2] - rotation[1][2] * rotation[2][0])
@@ -498,10 +512,19 @@ def test_douze_orientations_distinctes() -> None:
         assert det == 1
 
 
+def test_sens_des_quarts_de_tour() -> None:
+    assert_vec(Vec3.of(turned(Turn.Z).rotation()[1]), Vec3(1, 0, 0))
+    local_x = Vec3(1, 0, 0)
+    rotated = RigidTransform(turned(Turn.Z).rotation(), Vec3(0, 0, 0)).rotate(local_x)
+    assert_vec(rotated, Y)
+    assert_vec(RigidTransform(turned(Turn.X).rotation(), Vec3(0, 0, 0)).rotate(Y), Z)
+    assert_vec(RigidTransform(turned(Turn.Y).rotation(), Vec3(0, 0, 0)).rotate(Z), X)
+
+
 @pytest.mark.parametrize("tilt", range(3))
 @pytest.mark.parametrize("pivot", range(4))
 def test_la_piece_reste_accrochee_apres_rotation(tilt: int, pivot: int) -> None:
-    orientation = Orientation(tilt, pivot)
+    orientation = oriented(tilt, pivot)
     result = snapped(top(), orientation=orientation)
     ranges = box_of(result)
     assert ranges[2][0] == pytest.approx(100)
@@ -514,18 +537,18 @@ def test_la_piece_reste_accrochee_apres_rotation(tilt: int, pivot: int) -> None:
 
 
 def test_pivot_echange_longueur_et_largeur() -> None:
-    assert_box(snapped(top(), orientation=Orientation(pivot=1)), ((0, 200), (0, 800), (100, 122)))
-    assert_box(snapped(top(), orientation=Orientation(tilt=1)), ((0, 22), (0, 800), (100, 300)))
-    assert_box(snapped(top(), orientation=Orientation(tilt=2)), ((0, 200), (0, 22), (100, 900)))
+    assert_box(snapped(top(), orientation=oriented(0, 1)), ((0, 200), (0, 800), (100, 122)))
+    assert_box(snapped(top(), orientation=oriented(1, 0)), ((0, 22), (0, 800), (100, 300)))
+    assert_box(snapped(top(), orientation=oriented(2, 0)), ((0, 200), (0, 22), (100, 900)))
 
 
 def test_etirement_apres_bascule() -> None:
     def between(orientation: Orientation) -> SnapResult:
         return snapped(top(0), wall("a", 22, 1), wall("b", 578, -1), orientation=orientation)
 
-    assert between(Orientation(tilt=2)).dimensions == Dimensions(800, 556, 22)
-    assert between(Orientation(pivot=1)).dimensions == Dimensions(800, 556, 22)
-    on_edge = between(Orientation(tilt=1))
+    assert between(oriented(2, 0)).dimensions == Dimensions(800, 556, 22)
+    assert between(oriented(0, 1)).dimensions == Dimensions(800, 556, 22)
+    on_edge = between(oriented(1, 0))
     assert on_edge.dimensions == DIMS
     assert kinds(on_edge) == [SnapNoticeKind.THICKNESS_GAP]
 
@@ -544,18 +567,19 @@ def test_rotation_sur_place_garde_le_centre(turn: Turn) -> None:
     assert turned.rotation != placement.rotation
 
 
-def test_rotation_sur_place_cycles_et_sens() -> None:
+def test_rotation_sur_place_autour_des_axes_du_document() -> None:
     placement = placed()
-    assert_vec(turned_in_place(placement, DIMS, Turn.PIVOT).rotate(X), placement.rotate(Y))
-    for turn, count in ((Turn.PIVOT, 4), (Turn.TILT, 3)):
+    for turn in Turn:
+        spin = RigidTransform(turned(turn).rotation(), Vec3(0, 0, 0))
+        after = turned_in_place(placement, DIMS, turn)
+        for local in (X, Y, Z):
+            assert_vec(after.rotate(local), spin.rotate(placement.rotate(local)))
         current = placement
-        for _ in range(count):
+        for _ in range(4):
             current = turned_in_place(current, DIMS, turn)
         for row, wanted in zip(current.rotation, placement.rotation, strict=True):
             assert row == pytest.approx(wanted)
         assert_vec(current.translation, placement.translation)
-    tilt = turned_in_place(RigidTransform.identity(), DIMS, Turn.TILT)
-    assert tilt.rotate(Y).z == pytest.approx(1)
 
 
 # --- S11 : pureté du paquet ---------------------------------------------------------------

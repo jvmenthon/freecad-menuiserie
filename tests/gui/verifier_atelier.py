@@ -29,6 +29,7 @@ from typing import Any
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
@@ -1216,6 +1217,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_budget_memoire,
     verifier_texture_chemin_echappe,
     *VERIFICATIONS_PANNEAU,
+    *VERIFICATIONS_APERCU,
     *VERIFICATIONS_LIMITES,
     *VERIFICATIONS_FIL,
     *VERIFICATIONS_ROBUSTESSE,
