@@ -3,8 +3,10 @@
 
 Chaque commande relie les deux pièces sélectionnées (pièces de bois ou pièces usinées) par la
 fabrique ``FACTORY`` de :mod:`freecad.menuiserie.api`, puis ouvre le panneau de l'assemblage
-(J3e) ; « Annuler » ne laisse rien. Un refus de la fabrique est affiché dans la barre d'état et
-la vue rapport. Les rôles (hôte, invitée) sont devinés d'après la
+(J3e) ; « Annuler » ne laisse rien. Un refus de la fabrique, ou un assemblage impossible entre
+les pièces telles qu'elles sont posées (pièces qui ne se touchent pas, mi-bois sans croisement…),
+est expliqué dans une boîte d'avertissement, la barre d'état et la vue rapport, sans rien créer
+ni ouvrir de panneau (demande de jv). Les rôles (hôte, invitée) sont devinés d'après la
 position des pièces (``guess_roles``) ; si c'est ambigu, la première pièce sélectionnée reçoit
 la mortaise, la rainure ou la feuillure.
 """
@@ -22,7 +24,8 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import guess_roles
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import report_warning, translated
-from freecad.menuiserie.features.joints.base import placed_blank
+from freecad.menuiserie.features.joint_names import joint_label
+from freecad.menuiserie.features.joints.base import placed_blank, plan_for
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
@@ -81,7 +84,8 @@ class JointCommand(TransactionCommand):
     def Activated(self) -> None:
         """Assemblage créé dans la transaction « Créer un assemblage … », puis panneau de
         l'assemblage qui la valide (une entrée d'annulation) ou l'abandonne ; une pièce refusée
-        par la fabrique est signalée sans rien créer."""
+        par la fabrique ou un assemblage impossible est expliqué sans rien créer ni ouvrir de
+        panneau."""
         parts = selected_parts()
         if parts is None:
             return
@@ -90,7 +94,7 @@ class JointCommand(TransactionCommand):
         doc.openTransaction(translated(self.TRANSACTION))
         try:
             with aborted_on_error(App.getActiveTransaction()):
-                joint = type(self).FACTORY(host, guest)
+                joint = feasible_joint(type(self).FACTORY(host, guest))
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
@@ -221,6 +225,22 @@ def ordered_roles(
         return first, second
     pair = (first, second)
     return pair[host_index], pair[guest_index]
+
+
+def feasible_joint(joint: DocumentObject) -> DocumentObject:
+    """``joint`` s'il est réalisable entre ses pièces, au besoin rôles inversés (rôles mal
+    devinés) ; sinon ``ValueError`` traduite qui explique pourquoi, rôles d'origine."""
+    try:
+        plan_for(joint)
+    except ValueError as error:
+        joint.HostPart, joint.GuestPart = joint.GuestPart, joint.HostPart
+        try:
+            plan_for(joint)
+        except ValueError:
+            joint.HostPart, joint.GuestPart = joint.GuestPart, joint.HostPart
+            raise error from None
+        joint.Label = joint_label(joint)
+    return joint
 
 
 def report_refusal(message: str) -> None:
