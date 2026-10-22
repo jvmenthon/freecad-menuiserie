@@ -15,7 +15,7 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Final
@@ -193,9 +193,12 @@ def pdf_html(
     label: str,
     selection_count: int | None,
     now: datetime | None = None,
+    thumbnails: Mapping[str, str] | None = None,
 ) -> str:
-    """HTML de la liste de débit pour le PDF : titre « Liste de débit - <label> », date, portée
-    (tout le document, ou ``selection_count`` objets) et tableaux (``core.cutlist.to_html``)."""
+    """HTML de la liste de débit pour le PDF et pour l'aperçu (le même texte) : titre « Liste de
+    débit - <label> », date, portée (tout le document, ou ``selection_count`` objets) et tableaux
+    (``core.cutlist.to_html``), avec la colonne « Miniature » si ``thumbnails`` est donné
+    (clé de la ligne → SVG, voir ``features/cutlist_thumbnail``)."""
     title = f"{translated(TITLE)} - {label}" if label else translated(TITLE)
     stamp = (now or datetime.now()).strftime(DATE_FORMAT)
-    return to_html(cut_list, translate_text, title, scope_text(selection_count), stamp)
+    return to_html(cut_list, translate_text, title, scope_text(selection_count), stamp, thumbnails)

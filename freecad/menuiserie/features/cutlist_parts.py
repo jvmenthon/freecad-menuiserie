@@ -36,6 +36,7 @@ __all__ = [
     "dowel_hardware",
     "entry_of",
     "is_dowel_joint",
+    "local_shape",
 ]
 
 UNKNOWN_MATERIAL_PREFIX: Final = "? "
@@ -152,16 +153,22 @@ def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> Cut
 # --- Ajouts des assemblages (D4) ---------------------------------------------------------
 
 
-def _local_box(machined: DocumentObject) -> Any | None:
-    """Boîte englobante de la forme usinée dans le repère de sa brute, ``None`` si la forme est
-    absente, invalide ou à recalculer (un assemblage en échec laisse la pièce « Touched » avec la
-    forme de la brute). La forme porte son ``Placement`` (celui de la brute) : on le défait."""
+def local_shape(machined: DocumentObject) -> Any | None:
+    """Forme de la pièce usinée dans le repère de sa brute, ``None`` si elle est absente,
+    invalide ou à recalculer (un assemblage en échec laisse la pièce « Touched » avec la forme de
+    la brute). La forme porte son ``Placement`` (celui de la brute) : on le défait."""
     if "Invalid" in machined.State or "Touched" in machined.State:
         return None
     shape = machined.Shape
     if shape.isNull() or not shape.Solids or not shape.isValid():
         return None
-    return shape.transformed(shape.Placement.inverse().toMatrix()).BoundBox
+    return shape.transformed(shape.Placement.inverse().toMatrix())
+
+
+def _local_box(machined: DocumentObject) -> Any | None:
+    """Boîte englobante de :func:`local_shape`, ``None`` sans forme utilisable."""
+    shape = local_shape(machined)
+    return None if shape is None else shape.BoundBox
 
 
 def _excess(low: float, high: float, size: float) -> float:

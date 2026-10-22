@@ -11,6 +11,7 @@ from typing import Final
 
 COMMANDES_DEBIT: Final = {
     "Menuiserie_CutList": "Liste de débit",
+    "Menuiserie_CutListPreview": "Aperçu de la liste de débit",
     "Menuiserie_CutListExport": "Exporter la liste de débit (CSV)…",
     "Menuiserie_CutListPdf": "Exporter la liste de débit (PDF)…",
     "Menuiserie_NumberMarks": "Numéroter les repères",

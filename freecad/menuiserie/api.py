@@ -50,6 +50,7 @@ from freecad.menuiserie.features import (
     cutlist_export,
     cutlist_marks,
     cutlist_object,
+    cutlist_thumbnail,
     furniture_edges,
     furniture_members,
     templates,
@@ -413,6 +414,7 @@ def make_carcass(
 __all__ += [
     "FRENCH_CSV",
     "INTERNATIONAL_CSV",
+    "cut_list_html",
     "cut_list_of",
     "export_cut_list_csv",
     "export_cut_list_pdf",
@@ -510,9 +512,32 @@ def export_cut_list_pdf(
     if App.GuiUp:
         from freecad.menuiserie.gui import cutlist_pdf
 
-        cut_list = cut_list_of(doc, objects)
-        html = cutlist_export.pdf_html(cut_list, doc.Label, len(objects) if objects else None)
+        cut_list, html = _cut_list_and_html(doc, objects)
         written = cutlist_pdf.write_pdf(html, target)
         report(notice_messages(cut_list.warnings))
         return written
     raise ValueError(translated(_PDF_NEEDS_GUI))
+
+
+def _cut_list_and_html(
+    doc: Document, objects: Sequence[DocumentObject] | None
+) -> tuple[CutList, str]:
+    """Liste de débit et son HTML avec miniatures (celui du PDF et de l'aperçu)."""
+    cut_list = cut_list_of(doc, objects)
+    html = cutlist_export.pdf_html(
+        cut_list,
+        doc.Label,
+        len(objects) if objects else None,
+        thumbnails=cutlist_thumbnail.thumbnails_of(doc, cut_list),
+    )
+    return cut_list, html
+
+
+def cut_list_html(doc: Document, objects: Sequence[DocumentObject] | None = None) -> str:
+    """Document HTML autonome de la liste de débit de ``doc`` (ou de ``objects``), tel que
+    l'aperçu l'affiche et que le PDF l'imprime : tableau, totaux, fournitures, avertissements
+    et, en tête de chaque ligne, la miniature isométrique de la forme **usinée** de la première
+    pièce du groupe (boîte de débit si elle n'est pas utilisable). Images incluses en ``data:``
+    (SVG), aucune ressource externe. Lecture seule, sans interface ; ``ValueError`` traduite
+    pour un objet d'un autre document."""
+    return _cut_list_and_html(doc, objects)[1]
