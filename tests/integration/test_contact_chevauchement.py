@@ -56,3 +56,43 @@ def test_queue_d_aronde_planches_dessinees_hors_tout(document: Any) -> None:
     assert guest_shape.Volume == pytest.approx(400 * 150 * 18 + DOVETAIL_VOLUME)
     assert host_shape.common(guest_shape).Volume == pytest.approx(0, abs=1e-6)
     assert stale_or_invalid(document) == []
+
+
+# --- Liste de débit (demande de jv) ------------------------------------------------------
+
+
+def rail_line(document: Any, mark: str) -> Any:
+    cut_list = api.cut_list_of(document)
+    (line,) = [line for line in cut_list.lines if mark in line.marks]
+    return line
+
+
+def test_liste_de_debit_longueur_reelle_de_la_traverse(document: Any) -> None:
+    """Traverse de 340 dessinée hors tout : cote finie 280 (raccourcie de 60), tenon de 40 en
+    ajout, débit 320 plus la surcote ; la brute dessinée (340) ne compte plus."""
+    stile = wood(document, "M", (600, 60, 22), (0, 0, 0))
+    rail = wood(document, "T", (340, 60, 22), (60, 0, 90))
+    document.recompute()
+    api.make_mortise_tenon(stile, rail)
+    document.recompute()
+    line = rail_line(document, "T")
+    assert line.finished.length == pytest.approx(280)
+    assert (line.finished.width, line.finished.thickness) == (60, 22)
+    assert line.additions.length == pytest.approx(40)
+    assert line.rough.length == pytest.approx(280 + 40 + line.allowances.length)
+    assert rail_line(document, "M").finished.length == 600  # l'hôte n'est pas raccourci
+
+
+def test_liste_de_debit_traverse_hors_tout_entre_deux_montants(document: Any) -> None:
+    """Traverse de 400 dessinée d'un chant extérieur à l'autre de deux montants de 60 :
+    raccourcie aux deux bouts (280), deux tenons de 40."""
+    first = wood(document, "M1", (600, 60, 22), (0, 0, 0))
+    second = wood(document, "M2", (600, 60, 22), (0, 340, 0))
+    rail = wood(document, "T", (400, 60, 22), (60, 0, 90))
+    document.recompute()
+    for stile in (first, second):
+        api.make_mortise_tenon(stile, rail)
+    document.recompute()
+    line = rail_line(document, "T")
+    assert line.finished.length == pytest.approx(280)
+    assert line.additions.length == pytest.approx(80)
