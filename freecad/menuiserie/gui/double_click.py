@@ -59,21 +59,23 @@ class _DoubleClickFilter(QtCore.QObject):  # type: ignore[misc]
 
 
 class _Installation:
-    """Filtre unique et zones d'affichage où il est posé, pendant que l'atelier est actif."""
+    """Filtre unique, posé pendant que l'atelier est actif.
+
+    Aucune zone d'affichage n'est gardée : une enveloppe Python gardée après la fermeture de sa
+    vue serait rendue par PySide pour un nouveau widget créé à la même adresse, déjà « détruite ».
+    Les vues ouvertes sont relues au retrait ; celles qui ont été fermées n'ont plus rien à
+    retirer. Poser deux fois le filtre sur un widget ne le double pas (Qt le déplace en tête)."""
 
     def __init__(self) -> None:
         self.filter: _DoubleClickFilter | None = None
-        self.viewports: list[QtGui.QWidget] = []
         self.mdi_area: QtGui.QMdiArea | None = None
 
     def install(self) -> None:
         if self.filter is not None:
             return
         self.filter = _DoubleClickFilter()
-        for name in App.listDocuments():
-            for view in Gui.getDocument(name).mdiViewsOfType(VIEW_3D):
-                self.watch(view)
-        self.watch(Gui.activeView())
+        for viewport in _open_viewports():
+            viewport.installEventFilter(self.filter)
         window = Gui.getMainWindow()
         self.mdi_area = window.findChild(QtGui.QMdiArea) if window is not None else None
         if self.mdi_area is not None:
@@ -81,17 +83,9 @@ class _Installation:
 
     def on_view_activated(self, *_args: object) -> None:
         """Nouvelle vue (document ouvert ou créé pendant que l'atelier est actif)."""
-        self.watch(Gui.activeView())
-
-    def watch(self, view: View) -> None:
-        graphics_view = getattr(view, "graphicsView", None)
-        if self.filter is None or graphics_view is None:
-            return
-        viewport = graphics_view().viewport()
-        if viewport in self.viewports:
-            return
-        viewport.installEventFilter(self.filter)
-        self.viewports.append(viewport)
+        viewport = _viewport(Gui.activeView())
+        if self.filter is not None and viewport is not None:
+            viewport.installEventFilter(self.filter)
 
     def uninstall(self) -> None:
         if self.filter is None:
@@ -100,12 +94,33 @@ class _Installation:
             # Fenêtre détruite ou signal déjà déconnecté.
             with contextlib.suppress(RuntimeError, TypeError):
                 self.mdi_area.subWindowActivated.disconnect(self.on_view_activated)
-        for viewport in self.viewports:
-            with contextlib.suppress(RuntimeError):  # vue fermée : objet Qt détruit
-                viewport.removeEventFilter(self.filter)
-        self.viewports.clear()
+        for viewport in _open_viewports():
+            viewport.removeEventFilter(self.filter)
         self.mdi_area = None
+        # Dernière référence : le filtre détruit, Qt le retire aussi des vues oubliées.
         self.filter = None
+
+
+def _viewport(view: View) -> QtGui.QWidget | None:
+    """Zone d'affichage d'une vue 3D, lue à l'instant ; ``None`` pour une autre vue."""
+    graphics_view = getattr(view, "graphicsView", None)
+    if graphics_view is None:
+        return None
+    try:
+        return graphics_view().viewport()
+    except RuntimeError:  # vue en cours de fermeture
+        return None
+
+
+def _open_viewports() -> list[QtGui.QWidget]:
+    """Zones d'affichage des vues 3D de tous les documents ouverts."""
+    viewports = []
+    for name in App.listDocuments():
+        for view in Gui.getDocument(name).mdiViewsOfType(VIEW_3D):
+            viewport = _viewport(view)
+            if viewport is not None:
+                viewports.append(viewport)
+    return viewports
 
 
 _INSTALLATION: Final = _Installation()

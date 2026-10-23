@@ -8,6 +8,7 @@ et ne fait rien tant qu'un panneau de tâche est ouvert. Module importé par ``v
 
 from __future__ import annotations
 
+import gc
 from collections.abc import Callable
 from typing import Any
 
@@ -39,6 +40,7 @@ AUCUN_ATELIER = "NoneWorkbench"
 def double_clic_3d(view: Any, x: int, y: int) -> bool:
     """Curseur placé au point ``(x, y)`` de la vue (coordonnées de FreeCAD, origine en bas à
     gauche) puis double-clic gauche envoyé à sa zone d'affichage ; vrai si un panneau s'ouvre."""
+    gc.collect()  # enveloppes de widgets détruits libérées avant de relire la zone d'affichage
     viewport = view.graphicsView().viewport()
     point = QtCore.QPoint(x, viewport.height() - 1 - y)
     QtGui.QCursor.setPos(viewport.mapToGlobal(point))
