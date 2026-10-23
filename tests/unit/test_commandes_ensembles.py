@@ -74,3 +74,17 @@ def test_aucun_observateur_global(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     for forbidden in ("addDocumentObserver", "Selection.addObserver", "ParamGet"):
         assert forbidden not in text, f"{path.name} : {forbidden}"
+
+
+def test_selection_examinee_sans_preparer_l_action() -> None:
+    """Issue #40 : ``IsActive`` (à chaque rafraîchissement) n'appelle que ``accepts`` ;
+    l'action (``apply``) n'est menée que par ``Activated``."""
+    classes = {
+        node.name: {item.name for item in node.body if isinstance(item, ast.FunctionDef)}
+        for node in ast.parse(COMMANDS.read_text(encoding="utf-8")).body
+        if isinstance(node, ast.ClassDef)
+    }
+    commands = {name: methods for name, methods in classes.items() if name != "FurnitureCommand"}
+    assert commands
+    assert all({"accepts", "apply"} <= methods for methods in commands.values()), commands
+    assert all("action" not in methods for methods in classes.values())
