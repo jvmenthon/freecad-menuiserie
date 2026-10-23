@@ -1,7 +1,7 @@
 # ADR 0018 — Double-clic dans la vue 3D
 
-- Statut : **proposé** (issue #76, demande de jv du 2026-10-23 : « le double-clic doit aussi
-  marcher sur le dessin »)
+- Statut : **accepté** (option 3, choisie par jv le 2026-10-23 ; issue #76, demande de jv :
+  « le double-clic doit aussi marcher sur le dessin »)
 - Date : 2026-10-23
 - ADR liés : [0007 — Compatibilité avec les autres ateliers](0007-compatibilite-avec-les-autres-ateliers.md)
 
