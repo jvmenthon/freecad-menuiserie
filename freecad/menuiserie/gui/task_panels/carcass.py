@@ -13,6 +13,7 @@ alors sans effet.
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 from typing import Any, Final
 
 import FreeCAD as App
@@ -26,7 +27,13 @@ from freecad.menuiserie.core.templates.carcass import MAX_SHELVES, CarcassJoiner
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
-from freecad.menuiserie.gui.task_panels.base import Widget, close_transaction, connect
+from freecad.menuiserie.gui.task_panels import base
+from freecad.menuiserie.gui.task_panels.base import (
+    TransactionTaskPanel,
+    Widget,
+    close_transaction,
+    connect,
+)
 
 FORM_NAME: Final = "CarcassTaskPanel"
 ICON: Final = "Menuiserie_Carcass.svg"
@@ -58,14 +65,13 @@ _UNEXPECTED: Final = QT_TRANSLATE_NOOP(
 _ERROR_STYLE: Final = "color: #c0392b;"
 
 
-class CarcassTaskPanel:
-    """Paramètres du caisson et aperçu, dans la transaction ouverte par la commande."""
+class CarcassTaskPanel(TransactionTaskPanel):
+    """Paramètres du caisson et aperçu, dans la transaction ouverte par la commande ;
+    transaction, fermeture et surveillance du document : :mod:`base`."""
 
     def __init__(self, doc: Document) -> None:
-        self.doc = doc
+        super().__init__(doc, creating=True)
         self.furniture: DocumentObject | None = None
-        self._closed = False
-        self._transaction = App.getActiveTransaction()
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -152,42 +158,7 @@ class CarcassTaskPanel:
         (paramètres refusés), le panneau reste ouvert."""
         if self.furniture is None:
             return False
-        self._finish(abort=False)
-        return True
-
-    def reject(self) -> bool:
-        """« Annuler » : abandon de la transaction, aucun objet ne reste."""
-        self._finish(abort=True)
-        return True
-
-    def getStandardButtons(self) -> int:
-        """Boutons « OK » et « Annuler »."""
-        buttons = QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel
-        return int(getattr(buttons, "value", buttons))  # énumérations de PySide6 ou PySide2
-
-    def watch_document(self) -> None:
-        """Panneau affiché : FreeCAD le ferme si le document est fermé ou si la transaction change
-        (Annuler, Rétablir) ; la transaction est alors abandonnée."""
-        dialog = Gui.Control.activeTaskDialog()
-        dialog.setDocumentName(self.doc.Name)
-        dialog.setAutoCloseOnDeletedDocument(True)
-        dialog.setAutoCloseOnTransactionChange(True)
-        connect(self.form, "destroyed()", self._on_closed_by_freecad)
-
-    def _finish(self, *, abort: bool) -> None:
-        self._closed = True
-        close_transaction(self._transaction, abort=abort)
-        if not abort:
-            self.doc.recompute()
-        Gui.Control.closeDialog()
-
-    def _on_closed_by_freecad(self) -> None:
-        if not self._closed:
-            self._closed = True
-            QtCore.QTimer.singleShot(0, self._abandon)
-
-    def _abandon(self) -> None:
-        close_transaction(self._transaction, abort=True)
+        return super().accept()
 
 
 def _length_field(
@@ -232,10 +203,4 @@ def _material_box(
 
 def show_panel(doc: Document) -> None:
     """Ouvre le panneau dans la transaction de la commande ; une exception l'abandonne."""
-    try:
-        panel = CarcassTaskPanel(doc)
-        Gui.Control.showDialog(panel)
-        panel.watch_document()
-    except BaseException:
-        close_transaction(App.getActiveTransaction(), abort=True)
-        raise
+    base.show_panel(partial(CarcassTaskPanel, doc))
