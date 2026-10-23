@@ -199,11 +199,11 @@ def test_valeur_inconnue_gardee_dans_un_document_plus_recent(
     restored = rouvrir(document).getObject(name)
     assert restored.PreferredGrainDirection == "Diagonal"
     assert len(preference_warnings(vue_rapport)) == 1
-    restored.GrainDirection = "None"
-    wood_part.set_material(restored, "mdf")
-    wood_part.set_material(restored, "chene")
-    assert restored.GrainDirection == "Length"  # sens mémorisé illisible : Length
-    assert restored.PreferredGrainDirection == "Diagonal"  # « Sans fil » ne l'efface pas
+    # Pièce d'une version plus récente : matériau non modifiable (J2, R1), valeur gardée.
+    with pytest.raises(wood_part.UnsupportedPartError):
+        wood_part.set_material(restored, "mdf")
+    assert restored.MaterialId == "chene"
+    assert restored.PreferredGrainDirection == "Diagonal"
 
 
 def test_type_inattendu_recree(

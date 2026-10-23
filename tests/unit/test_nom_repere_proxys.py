@@ -6,51 +6,27 @@ par ``tests/integration/test_nom_repere.py``."""
 
 from __future__ import annotations
 
-import sys
 import types
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
+
+from tests.unit.aides_freecad import simulated_freecad
 
 DEFAULT = "Pièce de bois"
 
 
-class _Stub(types.ModuleType):
-    """Module FreeCAD de remplacement : tout attribut inconnu est un ``MagicMock``."""
-
-    def __getattr__(self, name: str) -> Any:
-        if name.startswith("__"):
-            raise AttributeError(name)
-        value = MagicMock(name=name)
-        setattr(self, name, value)
-        return value
-
-
 @pytest.fixture
 def parts(monkeypatch: pytest.MonkeyPatch) -> Iterator[types.SimpleNamespace]:
-    """``features.wood_part`` et ``features.machined_part`` importés sur un FreeCAD simulé,
-    puis retirés de ``sys.modules`` (les autres tests ne doivent pas les voir)."""
-    report: list[str] = []
-    freecad: Any = _Stub("FreeCAD")
-    freecad.Qt = types.SimpleNamespace(translate=lambda _context, text: text)
-    freecad.Console = types.SimpleNamespace(PrintWarning=report.append)
-    before = set(sys.modules)
-    monkeypatch.setitem(sys.modules, "FreeCAD", freecad)
-    monkeypatch.setitem(sys.modules, "Part", _Stub("Part"))
-    from freecad.menuiserie.features import machined_part, part_labels, wood_part
+    """``features.wood_part`` et ``features.machined_part`` importés sur un FreeCAD simulé."""
+    with simulated_freecad(monkeypatch) as report:
+        from freecad.menuiserie.features import machined_part, part_labels, wood_part
 
-    yield types.SimpleNamespace(
-        wood=wood_part, machined=machined_part, labels=part_labels, report=report
-    )
-    for name in set(sys.modules) - before:
-        if name.startswith("freecad.menuiserie.features") or name == "freecad.menuiserie.api":
-            del sys.modules[name]
-    features = sys.modules.get("freecad.menuiserie")
-    if features is not None and hasattr(features, "features"):
-        delattr(features, "features")
+        yield types.SimpleNamespace(
+            wood=wood_part, machined=machined_part, labels=part_labels, report=report
+        )
 
 
 class FakeDocument:

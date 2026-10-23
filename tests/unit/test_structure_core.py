@@ -18,6 +18,7 @@ PRIVATE_MODULES = (
     "freecad.menuiserie.core.materials._",
     "freecad.menuiserie.core.joints._",
     "freecad.menuiserie.core.furniture._",
+    "freecad.menuiserie.core.cutlist._",
     "freecad.menuiserie.core.snap._",
 )
 CORE_PACKAGE = PACKAGE / "core"
@@ -36,7 +37,7 @@ PUBLIC_API_BY_MODULE: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("_model", ("MAX_THICKNESS_MM", "MIN_DENSITY", "MAX_TEXTURE_PATH_LENGTH")),
     ("_model", ("MIN_TEXTURE_SIZE_MM", "MAX_TEXTURE_SIZE_MM", "TEXTURE_EXTENSIONS")),
     ("_model", ("Material", "MaterialKind", "MaterialLibrary", "Texture", "UnknownMaterialError")),
-    ("_model", ("is_inside_folder",)),
+    ("_model", ("is_inside_folder", "normalized_rough_thicknesses")),
     ("_parser", ("FORMAT_VERSION", "MAX_MATERIALS", "parse_materials")),
     ("_reader", ("MAX_FILE_BYTES", "read_materials_file")),
 )

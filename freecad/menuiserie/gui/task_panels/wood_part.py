@@ -50,6 +50,7 @@ from freecad.menuiserie.features.placement import (
 from freecad.menuiserie.features.snap_geometry import global_shape
 from freecad.menuiserie.features.snap_targets import touches
 from freecad.menuiserie.features.wood_part import set_material, shows_grain
+from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
@@ -155,6 +156,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._show_values()
         self._show_allowances(False)
         self._lock_driven_fields()
+        self._lock_newer_version()
         self._setup_rotation_buttons()
         self._furniture_params: dict[str, str] = {}  # libellé de l'ensemble de la case
         self._connect_signals()
@@ -185,6 +187,15 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         for widget, prop in DRIVEN_FIELDS:
             if has_expression(self.obj, prop):
                 getattr(self.form, widget).setEnabled(False)
+
+    def _lock_newer_version(self) -> None:
+        """Pièce d'un document plus récent : matériau en lecture seule (listes du type et du
+        matériau inactives) et message dans le formulaire."""
+        if not is_from_newer_version(self.obj):
+            return
+        for widget in ("kindCombo", "materialCombo"):
+            getattr(self.form, widget).setEnabled(False)
+        self.form.newerVersionNotice.setVisible(True)
 
     def _setup_rotation_buttons(self) -> None:
         """Icônes et infobulle des boutons X, Y, Z ; inactifs si une expression pilote la
