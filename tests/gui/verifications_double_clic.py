@@ -8,13 +8,13 @@ et ne fait rien tant qu'un panneau de tâche est ouvert. Module importé par ``v
 
 from __future__ import annotations
 
-import gc
 from collections.abc import Callable
 from typing import Any
 
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.gui import double_click
 from tests.gui.verifications_assemblages import selectionner
 from tests.gui.verifications_debit import (
     LISTE,
@@ -37,11 +37,11 @@ ATELIER = "MenuiserieWorkbench"
 AUCUN_ATELIER = "NoneWorkbench"
 
 
-def double_clic_3d(view: Any, x: int, y: int) -> bool:
+def double_clic_3d(x: int, y: int) -> bool:
     """Curseur placé au point ``(x, y)`` de la vue (coordonnées de FreeCAD, origine en bas à
     gauche) puis double-clic gauche envoyé à sa zone d'affichage ; vrai si un panneau s'ouvre."""
-    gc.collect()  # enveloppes de widgets détruits libérées avant de relire la zone d'affichage
-    viewport = view.graphicsView().viewport()
+    mdi = Gui.getMainWindow().findChild(QtGui.QMdiArea)
+    viewport = double_click.viewports_3d(mdi, current_only=True)[0]
     point = QtCore.QPoint(x, viewport.height() - 1 - y)
     QtGui.QCursor.setPos(viewport.mapToGlobal(point))
     QtGui.QApplication.processEvents()
@@ -66,15 +66,15 @@ def _double_clic_dans_la_vue(doc: Any) -> list[str]:
     x, y = (int(v) for v in view.getPointOnScreen(piece.Shape.BoundBox.Center))
     info = view.getObjectInfo((x, y)) or {}
     problemes = ecarts("pièce sous le point", info.get("Object"), piece.Name)
-    problemes += ecarts("vide : aucun panneau", double_clic_3d(view, 1, 1), False)
-    ouvert = double_clic_3d(view, x, y)
+    problemes += ecarts("vide : aucun panneau", double_clic_3d(1, 1), False)
+    ouvert = double_clic_3d(x, y)
     problemes += ecarts("pièce : panneau ouvert", ouvert, True)
     problemes += ecarts("pièce : son formulaire", formulaire() is not None, True)
     if ouvert:
         annuler()
     Gui.activateWorkbench(AUCUN_ATELIER)
     try:
-        problemes += ecarts("atelier quitté : aucun panneau", double_clic_3d(view, x, y), False)
+        problemes += ecarts("atelier quitté : aucun panneau", double_clic_3d(x, y), False)
     finally:
         if Gui.Control.activeDialog():
             annuler()
