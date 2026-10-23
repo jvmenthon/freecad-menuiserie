@@ -69,6 +69,18 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 
+    def Activated(self) -> None:
+        """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018)."""
+        from freecad.menuiserie.gui import double_click
+
+        double_click.install()
+
+    def Deactivated(self) -> None:
+        """Atelier quitté : le filtre du double-clic est retiré de toutes les vues."""
+        from freecad.menuiserie.gui import double_click
+
+        double_click.uninstall()
+
     def GetClassName(self) -> str:
         """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""
         return "Gui::PythonWorkbench"
