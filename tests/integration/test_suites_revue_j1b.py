@@ -78,10 +78,17 @@ RETYPED = [
     ("Mark", "App::PropertyInteger", 7, ""),
     ("GrainDirection", "App::PropertyString", "Length", "None"),
     ("Density", "App::PropertyFloat", 1.0, 750.0),
+    # Le matériau est retrouvé d'après l'autre propriété (issue #13) : pas le matériau par défaut.
+    ("MaterialId", "App::PropertyInteger", 7, "mdf"),
+    ("Material", "App::PropertyString", "Bogus", "MDF"),
 ]
 
 
-@pytest.mark.parametrize("case", RETYPED, ids=["cote", "repere", "fil", "masse-volumique"])
+@pytest.mark.parametrize(
+    "case",
+    RETYPED,
+    ids=["cote", "repere", "fil", "masse-volumique", "id-materiau", "materiau"],
+)
 def test_chaque_propriete_d_un_type_inattendu_recreee(
     document: Any,
     rouvrir: Reopen,
@@ -100,7 +107,7 @@ def test_chaque_propriete_d_un_type_inattendu_recreee(
     if hasattr(restored_value, "Value"):
         restored_value = round(float(restored_value.getValueAs(UNITS[name])), 6)
     assert restored_value == expected
-    assert record.material_id == "mdf"
+    assert (record.material_id, record.density) == ("mdf", 750.0)
     assert len(warnings_with(vue_rapport, f"propriété {name} d'un type inattendu")) == 1
     restored.Document.recompute()
     assert restored.isValid()
@@ -167,6 +174,53 @@ def test_version_plus_recente_valeur_connue_liste_canonique(
     assert restored.Category == "MDF"
     assert restored.getEnumerationsOfProperty("Category") == list(wood_part.CATEGORIES)
     assert warnings_with(vue_rapport, "inconnue pour") == []
+
+
+# --- Pièce d'un document plus récent : matériau en lecture seule (issue #13) ---------------
+
+
+def test_version_courante_materiau_modifiable_plus_recente_en_lecture_seule(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
+    obj = board(document, "mdf")
+    assert obj.getEditorMode("Material") == []
+    obj.Version = schema.MODEL_VERSION + 1
+    name = obj.Name
+    restored = rouvrir(document).getObject(name)
+    assert restored.getEditorMode("Material") == ["ReadOnly"]
+
+
+def test_version_plus_recente_le_choix_du_materiau_n_est_pas_suivi(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
+    obj = board(document, "mdf")
+    obj.Version = schema.MODEL_VERSION + 1
+    name = obj.Name
+    restored = rouvrir(document).getObject(name)
+    before = (restored.MaterialId, restored.Category, restored.Density.Value)
+    restored.Material = "Chêne"
+    assert (restored.MaterialId, restored.Category, restored.Density.Value) == before
+    with pytest.raises(wood_part.UnsupportedPartError, match="plus récente"):
+        wood_part.set_material(restored, "chene")
+    assert restored.MaterialId == "mdf"
+
+
+def test_version_plus_recente_connue_entre_dans_record_of(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
+    obj = board(document, "mdf")
+    obj.Version = schema.MODEL_VERSION + 1
+    name = obj.Name
+    assert wood_part.record_of(rouvrir(document).getObject(name)).material_id == "mdf"
+
+
+def test_categorie_inconnue_record_of_leve_une_erreur_traduite(
+    document: Any, rouvrir: Reopen, board: Board
+) -> None:
+    name = future_part(board, document).Name
+    restored = rouvrir(document).getObject(name)
+    with pytest.raises(wood_part.UnsupportedPartError, match="« Future » inconnue pour Category"):
+        wood_part.record_of(restored)
 
 
 # --- Masse volumique de l'enregistrement de débit -----------------------------------------

@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Réouverture d'une pièce de bois : contrôle des données relues d'un document.
 
-Un document ``.FCStd`` est une donnée externe : sa ``Version`` et ses énumérations sont
-contrôlées avant la migration, le matériau de la migration est retrouvé d'après
-``MaterialId``, et chaque anomalie est signalée par un avertissement traduit dont les textes
-du document sont cités tronqués et échappés.
+Un document ``.FCStd`` est une donnée externe : sa ``Version``, le type de chaque propriété et
+ses énumérations sont contrôlés avant la migration. Une propriété dont le type n'est pas celui
+du schéma est supprimée, quelle que soit la ``Version`` (même sur un document plus récent : noms
+et types sont figés par l'ADR 0003), puis recréée par la migration avec sa valeur par défaut ;
+elle est donc perdue à l'enregistrement. Le matériau de la migration est retrouvé d'après
+``MaterialId``, à défaut d'après le libellé ``Material``. Chaque anomalie est signalée par un
+avertissement traduit dont les textes du document sont cités tronqués et échappés.
 """
 
 from __future__ import annotations
@@ -63,12 +66,23 @@ def stored_material(obj: DocumentObject, library: MaterialLibrary) -> Material |
 
 
 def migration_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
-    """Matériau de la pièce d'après ``MaterialId`` ; s'il est absent ou inconnu localement, le
-    matériau par défaut de la bibliothèque ; ``None`` si la bibliothèque est vide."""
+    """Matériau de la pièce d'après ``MaterialId`` ; si cette propriété manque (supprimée car
+    d'un type inattendu), d'après le libellé ``Material`` (``find_by_name``) ; sinon, ou s'il
+    est inconnu localement, le matériau par défaut de la bibliothèque ; ``None`` si la
+    bibliothèque est vide."""
     material = stored_material(obj, library)
+    if material is None and "MaterialId" not in obj.PropertiesList:
+        material = _material_named(obj, library)
     if material is None and len(library):
         material = library.default_material()
     return material
+
+
+def _material_named(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
+    """Matériau dont le libellé est celui de ``Material`` ; ``None`` si la propriété manque ou
+    n'est pas un texte."""
+    label = obj.Material if "Material" in obj.PropertiesList else None
+    return library.find_by_name(label, display_language()) if isinstance(label, str) else None
 
 
 def restore_material_choices(obj: DocumentObject, library: MaterialLibrary) -> None:

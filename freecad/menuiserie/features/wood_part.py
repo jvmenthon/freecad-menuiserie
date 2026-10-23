@@ -21,10 +21,8 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialLibrary
 from freecad.menuiserie.core.naming import mark_from_label
 from freecad.menuiserie.core.part_model import (
-    Allowances,
     Dimensions,
     GrainDirection,
-    PartRecord,
     allowances_after_material_change,
     grain_after_material_change,
     material_has_grain,
@@ -48,6 +46,15 @@ from freecad.menuiserie.features.part_names import (
     warn_mark_bound,
 )
 from freecad.menuiserie.features.schema import warn
+from freecad.menuiserie.features.wood_part_record import (
+    GRAIN_BY_VALUE,
+    UnsupportedPartError,
+    allowances_of,
+    dimensions_of,
+    known_value,
+    newer_version_error,
+    record_of,
+)
 from freecad.menuiserie.features.wood_part_restore import (
     EMPTY_LIBRARY_MIGRATION,
     migration_material,
@@ -66,8 +73,8 @@ from freecad.menuiserie.features.wood_part_schema import (
     MODEL_VERSION,
     add_missing_properties,
     apply_editor_modes,
-    density_kg_m3,
     density_quantity,
+    is_from_newer_version,
     material_choices,
     part_kind,
     select_label,
@@ -79,6 +86,7 @@ __all__ = [
     "CATEGORY_BY_KIND",
     "GRAIN_DIRECTIONS",
     "OBJECT_NAME",
+    "UnsupportedPartError",
     "WoodPart",
     "allowances_of",
     "create_wood_part",
@@ -124,15 +132,20 @@ class WoodPart(StatelessProxy):
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, énumérations canoniques, migration, modes
-        d'édition, puis liste des matériaux de la bibliothèque locale ; propriétés de membre
-        d'un ensemble contrôlées de même (J4)."""
+        d'édition (``Material`` en lecture seule si le document est plus récent), puis liste des
+        matériaux de la bibliothèque locale ; propriétés de membre d'un ensemble contrôlées de
+        même (J4)."""
         library = get_library()
         with self._synchronizing():
             version = restored_version(obj)
             mistyped = remove_mistyped_properties(obj)
             restore_enumerations(obj, library, keep_unknown=version > self.VERSION)
             self._migrate(obj, library, version, repair=bool(mistyped))
-            apply_editor_modes(obj, show_grain=_shows_grain(obj, library))
+            apply_editor_modes(
+                obj,
+                show_grain=_shows_grain(obj, library),
+                material_read_only=is_from_newer_version(obj),
+            )
             restore_material_choices(obj, library)
         from freecad.menuiserie.features.furniture_restore import restore_member
 
@@ -145,15 +158,14 @@ class WoodPart(StatelessProxy):
         sens du fil : mémorisé (ADR 0005). Changement de matériau, annulation comprise : le fil
         est masqué ou affiché dans l'éditeur de propriétés. Mode ou option « fixe » d'un membre
         d'ensemble : ses seules liaisons sont recalculées (sans effet hors ensemble). Repère ou
-        libellé modifié par l'utilisateur : l'autre suit (J6b, ADR 0011)."""
+        libellé modifié par l'utilisateur : l'autre suit (J6b, ADR 0011). Pièce d'un document plus
+        récent (``Version`` > ``MODEL_VERSION``) : le choix du matériau n'est pas suivi (R1)."""
         if prop in ("MaterialId", "Category") and "Restore" not in obj.State:
             show_grain_direction(obj, shows_grain(obj))
         if not self._follows_user_changes(obj):
             return
         if prop == "Material":
-            material = get_library().find_by_name(obj.Material, display_language())
-            if material is not None:
-                self.select_material(obj, material)
+            self._follow_material_choice(obj)
         elif prop == "GrainDirection":
             _remember_grain(obj)
         elif prop == "Mark":
@@ -164,6 +176,15 @@ class WoodPart(StatelessProxy):
             from freecad.menuiserie.features.furniture_bindings import member_option_changed
 
             member_option_changed(obj, prop)
+
+    def _follow_material_choice(self, obj: DocumentObject) -> None:
+        """Recopie le matériau choisi dans la liste ; sans effet pour une pièce d'un document
+        plus récent, dont le matériau reste tel qu'enregistré."""
+        if is_from_newer_version(obj):
+            return
+        material = get_library().find_by_name(obj.Material, display_language())
+        if material is not None:
+            self.select_material(obj, material)
 
     def allowDuplicateLabel(self, obj: DocumentObject) -> bool:  # pylint: disable=unused-argument
         """Vrai : FreeCAD ne rend pas lui-même le libellé unique (« M1001 ») avant
@@ -219,11 +240,15 @@ class WoodPart(StatelessProxy):
         obj.Placement = placement
 
     def select_material(self, obj: DocumentObject, material: Material) -> None:
-        """Sélectionne ``material`` dans la liste et recopie ses valeurs dans la pièce."""
+        """Sélectionne ``material`` dans la liste et recopie ses valeurs dans la pièce.
+        ``UnsupportedPartError`` si la pièce vient d'un document plus récent ou porte une valeur
+        inconnue : rien n'est écrit."""
+        if is_from_newer_version(obj):
+            raise newer_version_error(obj)
         with self._synchronizing():
             label = material.name(display_language())
-            select_label(obj, material_choices(get_library(), label), label)
             _apply_material(obj, material)
+            select_label(obj, material_choices(get_library(), label), label)
             show_grain_direction(obj, material.has_grain)
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
@@ -319,37 +344,11 @@ def shows_grain(obj: DocumentObject) -> bool:
     return _shows_grain(obj, get_library())
 
 
-def dimensions_of(obj: DocumentObject) -> Dimensions:
-    """Cotes finies de la pièce en mm (``InvalidDimensionsError`` si l'une est invalide)."""
-    return Dimensions(obj.Length.Value, obj.Width.Value, obj.Thickness.Value)
-
-
-def allowances_of(obj: DocumentObject) -> Allowances:
-    """Surcotes de débit de la pièce en mm."""
-    return Allowances(
-        obj.LengthAllowance.Value, obj.WidthAllowance.Value, obj.ThicknessAllowance.Value
-    )
-
-
-def record_of(obj: DocumentObject) -> PartRecord:
-    """Pièce vue par la liste de débit (J2), d'après ses seules propriétés."""
-    return PartRecord(
-        mark=obj.Mark,
-        material_id=obj.MaterialId,
-        material_name=obj.Material,
-        kind=KIND_BY_CATEGORY[obj.Category],
-        finished=dimensions_of(obj),
-        allowances=allowances_of(obj),
-        grain=GrainDirection(obj.GrainDirection),
-        density=density_kg_m3(obj),
-    )
-
-
 def _apply_material(obj: DocumentObject, material: Material) -> None:
     """Recopie le matériau dans la pièce ; fil et surcotes suivent les règles de ``core``."""
-    old_kind = KIND_BY_CATEGORY[obj.Category]
+    old_kind = known_value(obj, "Category", KIND_BY_CATEGORY)
     grain = grain_after_material_change(
-        material, GrainDirection(obj.GrainDirection), _preferred_grain(obj)
+        material, known_value(obj, "GrainDirection", GRAIN_BY_VALUE), _preferred_grain(obj)
     )
     allowances = allowances_after_material_change(old_kind, material.kind, allowances_of(obj))
     obj.MaterialId = material.id

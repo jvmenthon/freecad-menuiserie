@@ -16,7 +16,6 @@ from typing import Final
 from freecad.menuiserie.core._validation import (
     MAX_DIMENSION_MM,
     MIN_DIMENSION_MM,
-    FrozenMapping,
     bounded_float,
     decimal_text,
     to_finite_float,
@@ -31,6 +30,7 @@ from freecad.menuiserie.core.furniture._messages import (
 )
 from freecad.menuiserie.core.geometry import PlacedBlock, Vec3
 from freecad.menuiserie.core.i18n import TemplatedError
+from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.text import quoted_value
 
 PIECE_AXES: Final = ("Length", "Width", "Thickness")  # axes locaux d'une pièce (X, Y, Z)
@@ -239,6 +239,11 @@ class NoticeKind(str, Enum):
     THICKNESS_KEPT = "ThicknessKept"
     OUTSIDE_BOX = "OutsideBox"
 
+    @property
+    def template(self) -> str:
+        """Gabarit français marqué pour la traduction."""
+        return _NOTICE_TEMPLATES[self]
+
 
 _NOTICE_TEMPLATES: Final[Mapping[NoticeKind, str]] = MappingProxyType(
     {
@@ -248,28 +253,6 @@ _NOTICE_TEMPLATES: Final[Mapping[NoticeKind, str]] = MappingProxyType(
         NoticeKind.OUTSIDE_BOX: OUTSIDE_BOX,
     }
 )
-
-
-@dataclass(frozen=True)
-class Notice:
-    """Avertissement traduisible, jamais bloquant : nature et paramètres du gabarit."""
-
-    kind: NoticeKind
-    params: Mapping[str, str]
-
-    def __post_init__(self) -> None:
-        _require(isinstance(self.kind, NoticeKind), "Notice.kind : NoticeKind attendu")
-        object.__setattr__(self, "params", FrozenMapping(self.params))
-
-    @property
-    def template(self) -> str:
-        """Gabarit français marqué pour la traduction."""
-        return _NOTICE_TEMPLATES[self.kind]
-
-    @property
-    def message(self) -> str:
-        """Gabarit rempli, en français."""
-        return self.template.format_map(self.params)
 
 
 def notice(kind: NoticeKind, member: Member, **params: str) -> Notice:

@@ -40,6 +40,14 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     )
     # Gabarits (J4d)
     commands += ("Menuiserie_Carcass",)
+    # Liste de débit (J2d, J2g)
+    commands += (
+        "Menuiserie_CutList",
+        "Menuiserie_CutListPreview",
+        "Menuiserie_CutListExport",
+        "Menuiserie_CutListPdf",
+        "Menuiserie_NumberMarks",
+    )
 
     def Initialize(self) -> None:
         """Appelé une seule fois, à la première activation de l'atelier."""
@@ -55,6 +63,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import carcass  # gabarits (J4d)
 
         carcass.register()
+        from freecad.menuiserie.gui.commands import cutlist  # liste de débit (J2d)
+
+        cutlist.register()
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 

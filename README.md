@@ -14,7 +14,7 @@ paramétrique : pièces de bois réelles, assemblages classiques et liste de dé
 |---|---|
 | J0 | Fondations : atelier chargeable, CI, outillage qualité |
 | J1 | Pièce de bois paramétrique, bibliothèque d'essences et de panneaux |
-| J2 | Liste de débit (tableau FreeCAD + export CSV) |
+| J2 | Liste de débit (tableau FreeCAD, export CSV et PDF, numérotation des repères) |
 | J3 | Assemblages : tenon-mortaise, rainure-languette, tourillons |
 | J4 | Ensembles (cotes et onglet **Ensemble**), mi-bois, queue d'aronde, onglet, gabarit de caisson |
 | J5 | Plans TechDraw, traductions, publication dans l'Addon Manager |
@@ -125,6 +125,34 @@ fond, étagères et assemblages. Le résultat est un **ensemble ordinaire** : il
 même panneau (double-clic) et ne se régénère jamais depuis le gabarit, qui ne sert qu'à le
 construire (voir l'ADR 0010).
 
+## Liste de débit
+
+**Liste de débit** écrit dans le document une feuille de calcul « Liste de débit » et l'ouvre
+dans un onglet : une ligne par groupe de pièces identiques (repère, quantité, cotes finies et
+de débit, matériau, fil, volume, masse), puis les totaux par matériau et par épaisseur de débit et les tourillons en
+fournitures. Les tenons et queues d'aronde sont **compris** dans la longueur de débit ; une
+pièce vue par un `App::Link` compte une fois de plus. La liste couvre les objets
+**sélectionnés** (pièces, ensemble, Std Part), sinon tout le document. La liste est
+**vivante** : la commande crée aussi un objet « Mise à jour de la liste de débit » qui réécrit
+la feuille à chaque recalcul du document (cote modifiée, pièce ajoutée ou supprimée, tenon
+changé) ; Annuler restaure feuille et pièces ensemble. Supprimer cet objet arrête la mise à
+jour, relancer la commande la rétablit. Les colonnes que vous ajoutez à droite de la colonne O
+sont gardées, et la feuille reste une feuille FreeCAD ordinaire, lisible sans l'atelier.
+**Aperçu de la liste de débit** ouvre, avant tout export, une fenêtre qui montre la liste telle
+qu'elle sera exportée, avec la **miniature** isométrique de la pièce à chaque ligne (tenons et
+queues d'aronde visibles) et les boutons « Exporter en PDF… », « Exporter en CSV… » ; le PDF
+contient les mêmes miniatures. **Exporter la liste de débit (CSV)…** enregistre la même liste dans un fichier CSV au format
+international (séparateur virgule, point décimal, UTF-8 avec BOM) ; le format français reste
+disponible depuis la console : `api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`.
+**Exporter la liste de débit (PDF)…** produit un PDF prêt à imprimer (A4 paysage, marges de
+10 mm : titre, date, portée, tableau, totaux, fournitures et avertissements). **Numéroter les
+repères** donne un repère `M1`, `M2`… à chaque groupe de pièces identiques qui n'en a pas (les
+repères existants ne changent pas, le libellé de la pièce suit le repère) ; Annuler le retire en
+une fois. Ces commandes portent sur la sélection, sinon sur tout le document. Depuis la
+console : `api.make_cut_list(doc)`, `api.export_cut_list_csv(doc, "debit.csv")`,
+`api.export_cut_list_pdf(doc, "debit.pdf")` (demande l'interface de FreeCAD : Qt dessine le
+PDF) et `api.number_marks(doc)`.
+
 ## Pièce de bois (console Python)
 
 ```python
@@ -195,7 +223,11 @@ Exemple complet (format 1, encodage UTF-8) :
 - `kind` : `solid` (massif), `plywood` (contreplaqué), `mdf` ou `melamine`.
 - `name` : libellé français, ou libellés par langue ; il doit être unique.
 - `density` : masse volumique en kg/m³ (50 à 2000) ; `thicknesses` : épaisseurs standard en mm
-  (0,1 à 300) ; `color` : couleur d'affichage `#RRGGBB` ; `has_grain` (facultatif) : fil du bois.
+  (0,1 à 300) ; `color` : couleur d'affichage `#RRGGBB` ; `has_grain` (facultatif) : fil du bois ;
+  `rough_thicknesses` (facultatif, massif) : épaisseurs de **brut** du commerce en mm (mêmes
+  bornes que `thicknesses`) : la liste de débit arrondit l'épaisseur de débit à la plus petite
+  épaisseur de brut qui couvre l'épaisseur finie + 3 mm de rabotage au moins
+  ([ADR 0015](docs/adr/0015-epaisseurs-de-brut.md)). Sans ce champ, pas d'arrondi.
 
 Le fichier est lu une fois par session ; après l'avoir modifié, relancez FreeCAD ou exécutez
 `from freecad.menuiserie.features.library import reload_library; reload_library()`. Une entrée

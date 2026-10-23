@@ -72,6 +72,20 @@ def commands_of(path: Path) -> dict[str, dict[str, ast.expr]]:
     return commands
 
 
+def registered_commands(path: Path) -> list[str]:
+    """Noms des commandes passées à ``Gui.addCommand(NOM, …)`` dans le module ``path``
+    (``NOM`` constante du module)."""
+    constants = module_constants(path)
+    return sorted(
+        str(constants[node.args[0].id])
+        for node in ast.walk(tree(path))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "addCommand"
+        and isinstance(node.args[0], ast.Name)
+    )
+
+
 def noop(value: ast.expr) -> tuple[str, str]:
     """(contexte, texte) d'un appel ``QT_TRANSLATE_NOOP`` littéral."""
     assert isinstance(value, ast.Call)
