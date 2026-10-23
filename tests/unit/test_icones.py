@@ -2,7 +2,6 @@
 """Icônes SVG de l'atelier : format attendu par FreeCAD et synchronisation avec le générateur."""
 
 import importlib.util
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from types import ModuleType
@@ -16,19 +15,23 @@ SVG = "{http://www.w3.org/2000/svg}"
 ICONES = sorted(ICONS_DIR.glob("*.svg"))
 
 
-def _generateur() -> ModuleType:
+def _generateur(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    """``tools/generer_icones.py`` importé comme lancé en script : son dossier, qui contient le
+    moteur ``icones_svg.py``, en tête de ``sys.path``."""
     chemin = ROOT / "tools" / "generer_icones.py"
+    monkeypatch.syspath_prepend(str(chemin.parent))
     spec = importlib.util.spec_from_file_location("generer_icones", chemin)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module  # requis par dataclasses
     spec.loader.exec_module(module)
     return module
 
 
-def test_toutes_les_icones_viennent_du_generateur(tmp_path: Path) -> None:
-    generees = _generateur().generer(tmp_path)
+def test_toutes_les_icones_viennent_du_generateur(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    generees = _generateur(monkeypatch).generer(tmp_path)
     assert sorted(p.name for p in generees) == [p.name for p in ICONES]
     for chemin in generees:
         attendu = (ICONS_DIR / chemin.name).read_text(encoding="utf-8")

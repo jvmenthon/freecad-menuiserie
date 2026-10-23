@@ -36,9 +36,10 @@ freecad/menuiserie/
 └── resources/       icônes SVG et traductions
 ```
 
-Les icônes sont générées par `tools/generer_icones.py` (volumes projetés en isométrie, style
-commun) : on modifie le script puis on relance `python tools/generer_icones.py`. Un test
-vérifie que les SVG du dépôt correspondent au script.
+Les icônes sont générées par `tools/generer_icones.py` (un dessin par icône), avec le moteur
+`tools/icones_svg.py` (volumes projetés en isométrie, style commun) : on modifie le script puis
+on relance `python tools/generer_icones.py`. Un test vérifie que les SVG du dépôt correspondent
+au script.
 
 ## Conception et design patterns
 
