@@ -6,6 +6,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Tenon, languette, tourillons et queue d'aronde entre pièces qui se chevauchent (ADR 0016,
+  demande de jv) : l'invitée dessinée hors tout est raccourcie jusqu'au contact, par la face où
+  elle entre dans l'hôte ; sa pièce usinée perd cette partie avant de recevoir ses ajouts
+  (`JointPlan.guest_trims`). Le contact reste accepté.
 - Panneau du mi-bois et de l'onglet sans bouton « Inverser » : leurs deux rôles sont symétriques
   (demande de jv ; `JointFeature.INVERTIBLE`).
 - Feuillure, mi-bois et onglet entre pièces au contact (ADR 0014, demande de jv) : l'invitée est

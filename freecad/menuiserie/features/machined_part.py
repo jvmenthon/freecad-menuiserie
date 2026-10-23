@@ -217,13 +217,14 @@ class MachinedPart(StatelessProxy):
         blank.Placement = obj.Placement
 
     def execute(self, obj: DocumentObject) -> None:
-        """Forme = brute plus ajouts, moins enlèvements de ses assemblages, au ``Placement`` de la
-        brute. ``ValueError`` traduite si la brute ou un assemblage est invalide."""
+        """Forme = brute moins parties retirées, plus ajouts, moins enlèvements de ses
+        assemblages, au ``Placement`` de la brute. ``ValueError`` traduite si la brute ou un
+        assemblage est invalide."""
         blank = _checked_blank(obj)
         with translated_errors():
             dimensions = dimensions_of(blank)
-        additions, cuts = _machining_of(obj, blank)
-        shape = machined_shape(dimensions, additions, cuts)
+        additions, cuts, trims = _machining_of(obj, blank)
+        shape = machined_shape(dimensions, additions, cuts, trims)
         # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
         # sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
@@ -281,12 +282,15 @@ def _checked_blank(obj: DocumentObject) -> DocumentObject:
     return blank
 
 
-def _machining_of(obj: DocumentObject, blank: DocumentObject) -> tuple[list[Solid], list[Solid]]:
-    """Ajouts et enlèvements de ``blank`` d'après les plans de chacun de ses assemblages ;
-    ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce modifiée par un
-    script)."""
+def _machining_of(
+    obj: DocumentObject, blank: DocumentObject
+) -> tuple[list[Solid], list[Solid], list[Solid]]:
+    """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
+    assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
+    modifiée par un script)."""
     additions: list[Solid] = []
     cuts: list[Solid] = []
+    trims: list[Solid] = []
     for joint in obj.Joints:
         if not is_joint(joint):
             raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
@@ -299,7 +303,8 @@ def _machining_of(obj: DocumentObject, blank: DocumentObject) -> tuple[list[Soli
         if joint.GuestPart == blank:
             additions.extend(plan.guest_additions)
             cuts.extend(plan.guest_cuts)
-    return additions, cuts
+            trims.extend(plan.guest_trims)
+    return additions, cuts, trims
 
 
 def is_machined_part(obj: object) -> bool:

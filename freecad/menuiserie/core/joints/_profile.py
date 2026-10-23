@@ -2,7 +2,8 @@
 """Profil commun du tenon et de la languette : section, longueur, logement et contrôles.
 
 Tous les calculs se font dans le repère de l'invitée (la pièce qui porte le profil) ; le
-logement est ensuite exprimé dans le repère de l'hôte. Module privé.
+logement est ensuite exprimé dans le repère de l'hôte. Une invitée qui chevauche l'hôte est
+d'abord raccourcie jusqu'au contact (ADR 0016). Module privé.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import JointPlan, mm_text, require_contact
+from freecad.menuiserie.core.joints._bridge import Bridge, trimmed
 
 THICKNESS_AXIS: Final = 2  # épaisseur du profil : axe Z local de l'invitée
 _MARGIN: Final = 1e-9
@@ -75,12 +77,19 @@ class ProfileRules:
 
 @dataclass(frozen=True)
 class ContactFrame:
-    """Contact vu de l'invitée : axe normal, plan de contact et axe de la largeur."""
+    """Contact vu de l'invitée (raccourcie si elle chevauchait l'hôte) : axe normal, plan de
+    contact et axe de la largeur."""
 
     contact: Contact
     width_axis: int
     to_host: RigidTransform  # repère de l'invitée → repère de l'hôte
     host_box: Box  # boîte de l'hôte dans le repère de l'invitée
+    bridge: Bridge  # invitée raccourcie, et retour au repère de l'invitée
+
+    @property
+    def guest(self) -> PlacedBlock:
+        """Invitée au contact de l'hôte (raccourcie si elle le chevauchait)."""
+        return self.bridge.guest
 
     @property
     def normal(self) -> int:
@@ -131,7 +140,10 @@ class ContactFrame:
 
 
 def contact_frame(host: PlacedBlock, guest: PlacedBlock, *, end_only: bool) -> ContactFrame:
-    """Contact par le bout (``±X``) ou, si permis, par le chant (``±Y``) de l'invitée."""
+    """Contact par le bout (``±X``) ou, si permis, par le chant (``±Y``) de l'invitée ; une
+    invitée qui chevauche l'hôte est raccourcie jusqu'au contact (ADR 0016)."""
+    bridge = trimmed(host, guest)
+    guest = bridge.guest
     contact = require_contact(host, guest)
     normal = contact.guest_face.index
     if normal == THICKNESS_AXIS:
@@ -140,7 +152,7 @@ def contact_frame(host: PlacedBlock, guest: PlacedBlock, *, end_only: bool) -> C
         raise JointError(EDGE_CONTACT, {})
     to_host = relative_transform(host, guest)
     host_box = moved_box(host.local_box(), to_host.inverse())
-    return ContactFrame(contact, 1 - normal, to_host, host_box)
+    return ContactFrame(contact, 1 - normal, to_host, host_box, bridge)
 
 
 def _centered(center: float, size: float) -> tuple[float, float]:
@@ -218,7 +230,8 @@ def build_profile(frame: ContactFrame, values: ProfileValues, rules: ProfileRule
         housing = housing.with_range(axis, host_box.lo(axis), host_box.hi(axis))
     walled = (frame.width_axis, THICKNESS_AXIS) if rules.walled_width else (THICKNESS_AXIS,)
     _check_walls(housing, host_box, walled)
-    return JointPlan(
+    plan = JointPlan(
         host_cuts=(moved_box(housing, frame.to_host),),
         guest_additions=(_profile(frame, section, values.length),),
     )
+    return frame.bridge.plan(plan)
