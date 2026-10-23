@@ -160,16 +160,8 @@ class CutListPreviewCommand(CutListCommand):
     )
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
-        """Document recalculé si besoin, puis fenêtre d'aperçu non modale (la portée et le
-        document sont retenus par leurs noms : ils peuvent disparaître pendant l'aperçu)."""
-        recompute_if_touched(doc)
-        document_name = str(doc.Name)
-        names = [str(obj.Name) for obj in objects] if objects else None
-        html = api.cut_list_html(doc, objects)
-        subtitle = str(doc.Label)
-        cutlist_preview.show_preview(
-            Gui.getMainWindow(), subtitle, html, _actions(document_name, names)
-        )
+        """Fenêtre d'aperçu non modale de ``doc`` limité à ``objects``."""
+        show_cut_list_preview(doc, objects)
 
 
 class CutListExportCommand(CutListCommand):
@@ -230,6 +222,20 @@ class NumberMarksCommand(CutListCommand):
             show_status(translated(_MARKS_NUMBERED, params))
         else:
             show_status(translated(_NOTHING_TO_NUMBER))
+
+
+def show_cut_list_preview(doc: Document, objects: Sequence[DocumentObject] | None) -> None:
+    """Document recalculé si besoin, puis fenêtre d'aperçu non modale (la portée et le document
+    sont retenus par leurs noms : ils peuvent disparaître pendant l'aperçu). Commande « Aperçu
+    de la liste de débit » et double-clic sur la liste vivante."""
+    recompute_if_touched(doc)
+    document_name = str(doc.Name)
+    names = [str(obj.Name) for obj in objects] if objects else None
+    html = api.cut_list_html(doc, objects)
+    subtitle = str(doc.Label)
+    cutlist_preview.show_preview(
+        Gui.getMainWindow(), subtitle, html, _actions(document_name, names)
+    )
 
 
 def export_csv(

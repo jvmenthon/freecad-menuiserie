@@ -34,6 +34,7 @@ from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
+from tests.gui.verifications_double_clic import VERIFICATIONS_DOUBLE_CLIC
 from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
@@ -1235,6 +1236,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_CAISSON,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
+    *VERIFICATIONS_DOUBLE_CLIC,
 )
 
 

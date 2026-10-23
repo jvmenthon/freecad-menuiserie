@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Affichage de la liste de débit vivante (J2f, ADR 0013) : icône de la commande, suppression
-d'une pièce sans l'avertissement « objets référencés » de FreeCAD.
+"""Affichage de la liste de débit vivante (J2f, ADR 0013) : icône de la commande, aperçu au
+double-clic (issue #76), suppression d'une pièce sans l'avertissement « objets référencés » de
+FreeCAD.
 
 Contrat de persistance (ADR 0003) : le chemin de ce module et le nom de la classe sont écrits
 dans les documents (``GuiDocument.xml``) ; ils ne changent jamais. Sans état enregistré. Ouvert
@@ -11,6 +12,8 @@ ordinaire, sans conséquence.
 from __future__ import annotations
 
 from typing import Any, Final
+
+import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.freecad_types import DocumentObject, StatelessProxy
@@ -42,6 +45,23 @@ class ViewProviderCutList(StatelessProxy):
     def getDefaultDisplayMode(self) -> str:
         """Mode d'affichage unique."""
         return "Default"
+
+    def doubleClicked(self, vobj: ViewObject) -> bool:
+        """Double-clic : aperçu de la liste sur sa portée (vide : tout le document), comme la
+        commande « Aperçu de la liste de débit » ; un refus de l'api est signalé de même.
+        Refusé si un panneau de tâche est ouvert (sa transaction serait validée par le
+        recalcul de l'aperçu)."""
+        if Gui.Control.activeDialog():
+            return False
+        from freecad.menuiserie.gui.commands.base import report_refusal
+        from freecad.menuiserie.gui.commands.cutlist import show_cut_list_preview
+
+        obj = vobj.Object
+        try:
+            show_cut_list_preview(obj.Document, list(obj.Scope) or None)
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+        return True
 
     def canDelete(self, obj: DocumentObject) -> bool:
         """Vrai pour un objet que la liste lit ou dont elle limite la portée : « Supprimer » ne
