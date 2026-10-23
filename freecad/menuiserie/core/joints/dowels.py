@@ -116,23 +116,25 @@ class DowelStrategy:
 
     def resolve(self, host: PlacedBlock, guest: PlacedBlock, params: DowelParams) -> DowelValues:
         """Valeurs effectives : cotes, nombre et positions des tourillons."""
-        return _checked_values(contact_frame(host, guest, end_only=False), guest, params)
+        frame = contact_frame(host, guest, end_only=False)
+        return _checked_values(frame, frame.guest, params)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: DowelParams) -> JointPlan:
         """Perçages dans les deux pièces ; tourillons rapportés (repère de l'hôte)."""
         frame = contact_frame(host, guest, end_only=False)
-        values = _checked_values(frame, guest, params)
+        values = _checked_values(frame, frame.guest, params)
         dowels, host_holes, guest_holes = [], [], []
         for position in values.positions:
             center = _center(frame, values, position)
             dowels.append(_dowel(frame, values, center))
             host_holes.append(_host_hole(frame, values, center))
             guest_holes.append(_guest_hole(frame, values, center))
-        return JointPlan(
+        plan = JointPlan(
             host_cuts=tuple(moved(hole, frame.to_host) for hole in host_holes),
             guest_cuts=tuple(guest_holes),
             inserts=tuple(moved(dowel, frame.to_host) for dowel in dowels),
         )
+        return frame.bridge.plan(plan)
 
 
 # --- Valeurs effectives ------------------------------------------------------------------

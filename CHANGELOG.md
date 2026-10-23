@@ -33,6 +33,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `FRENCH_CSV` (`;`, virgule décimale).
 
 ### Ajouté
+- Tenon, languette, tourillons et queue d'aronde entre pièces qui se chevauchent (ADR 0016,
+  demande de jv) : l'invitée dessinée hors tout est raccourcie jusqu'au contact, par la face où
+  elle entre dans l'hôte ; sa pièce usinée perd cette partie avant de recevoir ses ajouts
+  (`JointPlan.guest_trims`). Le contact reste accepté.
+- Liste de débit d'une pièce dessinée hors tout et raccourcie par un assemblage (ADR 0016,
+  demande de jv) : cote finie = brute moins les parties retirées, tenon compté en ajout (une
+  traverse de 340 sur un montant de 60 : 280 + 40, au lieu de la brute de 340).
+- Panneau du mi-bois et de l'onglet sans bouton « Inverser » : leurs deux rôles sont symétriques
+  (demande de jv ; `JointFeature.INVERTIBLE`).
 - Présentation soignée de la liste de débit (aperçu et PDF, demande de jv « un affichage plus
   élégant ») : teintes de bois (en-têtes brun foncé, titres brun doré), une ligne sur deux
   teintée, total général mis en avant, nombres alignés à droite jusque dans les en-têtes, plus

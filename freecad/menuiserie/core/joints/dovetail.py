@@ -108,7 +108,7 @@ class DovetailStrategy:
             moved(_tail(through, values, tail, CUT_OVERRUN_MM), through.frame.to_host)
             for tail in values.tails
         )
-        return JointPlan(host_cuts=sockets, guest_additions=tails)
+        return through.frame.bridge.plan(JointPlan(host_cuts=sockets, guest_additions=tails))
 
 
 @dataclass(frozen=True)
@@ -139,7 +139,7 @@ def _through_frame(host: PlacedBlock, guest: PlacedBlock) -> _Through:
     """Contact par le bout de l'invitée, bout de l'hôte à fleur de sa face extérieure ;
     :class:`JointError` sinon."""
     frame = contact_frame(host, guest, end_only=True)
-    guest_low, guest_high = 0.0, guest.dimensions.thickness
+    guest_low, guest_high = 0.0, frame.guest.dimensions.thickness
     host_low, host_high = frame.host_box.lo(THICKNESS_AXIS), frame.host_box.hi(THICKNESS_AXIS)
     if (
         abs(host_low - guest_low) <= CONTACT_TOLERANCE_MM

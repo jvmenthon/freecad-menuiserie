@@ -24,7 +24,9 @@ MAX_ANGLE_DEG: Final = 30.0  # angle d'un flanc de queue d'aronde, au plus
 
 SEPARATED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Les pièces ne se touchent pas.")
 OVERLAPPING: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Les pièces se chevauchent : cet assemblage demande deux pièces en contact."
+    "Menuiserie",
+    "Les pièces se chevauchent sans que la pièce logée entre dans l'autre par un seul côté : "
+    "elle ne peut pas être ramenée au contact.",
 )
 NOT_OVERLAPPING: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -56,6 +58,7 @@ class JointPlan:
     host_additions: tuple[Solid, ...] = ()
     guest_cuts: tuple[Solid, ...] = ()  # repère local de l'invitée
     guest_additions: tuple[Solid, ...] = ()
+    guest_trims: tuple[Solid, ...] = ()  # retirés de l'invitée avant ses ajouts (ADR 0016)
     inserts: tuple[Solid, ...] = ()  # pièces rapportées (tourillons), repère de l'hôte
 
 
