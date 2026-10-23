@@ -141,7 +141,8 @@ def test_tenon_longueur_plus_jeu_egale_a_la_profondeur_debouche(y: float) -> Non
 
 def test_tenon_refus_selon_la_position() -> None:
     refused(TENON, stile(), rail(y=65.0), MortiseTenonParams(), "ne se touchent pas")
-    refused(TENON, stile(), rail(y=55.0), MortiseTenonParams(), "se chevauchent")
+    inside = block((10.0, 10.0, 10.0), (5.0, 5.0, 5.0))  # aucune face par où raccourcir
+    refused(TENON, stile(), inside, MortiseTenonParams(), "se chevauchent")
     on_face = block((100.0, 50.0, 10.0), (10.0, 5.0, 22.0))
     refused(TENON, stile(), on_face, MortiseTenonParams(), "par une face")
     refused(TENON, board(), board(100.0), MortiseTenonParams(), "pas sur son chant")

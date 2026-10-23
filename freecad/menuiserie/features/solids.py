@@ -73,13 +73,19 @@ def _cylinder_shape(cylinder: Cylinder) -> Any:
 
 
 def machined_shape(
-    dimensions: Dimensions, additions: Sequence[Solid], cuts: Sequence[Solid]
+    dimensions: Dimensions,
+    additions: Sequence[Solid],
+    cuts: Sequence[Solid],
+    trims: Sequence[Solid] = (),
 ) -> Any:
-    """Boîte de la pièce plus ``additions``, moins ``cuts``, faces coplanaires fusionnées, dans le
-    repère local de la pièce. ``ValueError`` traduite si OCC échoue ou si le résultat n'est pas
-    un solide valide (jamais de forme partielle)."""
+    """Boîte de la pièce moins ``trims`` (pièce raccourcie au contact, ADR 0016), plus
+    ``additions``, moins ``cuts``, faces coplanaires fusionnées, dans le repère local de la
+    pièce. ``ValueError`` traduite si OCC échoue ou si le résultat n'est pas un solide valide
+    (jamais de forme partielle)."""
     shape = Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
     try:
+        if trims:
+            shape = shape.cut([solid_shape(solid) for solid in trims])
         if additions:
             shape = shape.fuse([solid_shape(solid) for solid in additions])
         if cuts:

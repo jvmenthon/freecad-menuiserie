@@ -5,6 +5,8 @@
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
   [0011 — Aperçu, accrochage et nom](0011-apercu-accrochage-et-nom.md)
 - Numéro : 0012 et 0013 sont pris par le jalon J2 (liste de débit).
+- Pendant : [ADR 0016](0016-assemblages-au-contact-entre-pieces-qui-se-chevauchent.md) accepte
+  le chevauchement pour les assemblages au contact.
 
 ## Contexte
 
