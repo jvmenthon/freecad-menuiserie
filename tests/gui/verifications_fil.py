@@ -13,6 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from tests.gui.aides_panneau import ERABLE, bibliotheque, editer
 from tests.gui.verifications_panneau import (
     CREATE,
     EDIT,
@@ -26,7 +27,6 @@ from tests.gui.verifications_panneau import (
     valeurs,
     valider,
 )
-from tests.gui.verifications_panneau_limites import ERABLE, bibliotheque, editer
 
 # Index du filtre « Type » : Tous, Massif, Contreplaqué, MDF, Mélaminé.
 TOUS, MASSIF, CONTREPLAQUE, MDF, MELAMINE = range(5)

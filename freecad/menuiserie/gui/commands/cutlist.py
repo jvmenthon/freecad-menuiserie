@@ -35,7 +35,7 @@ from freecad.menuiserie.features.cutlist_export import (
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui import cutlist_preview
-from freecad.menuiserie.gui.commands.joints import TransactionCommand, report_refusal
+from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 
 # Noms des commandes, aussi noms de leurs icônes (``<nom>.svg``) et contextes de traduction.
 CUT_LIST: Final = "Menuiserie_CutList"

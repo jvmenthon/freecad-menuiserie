@@ -22,7 +22,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import mm_text
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import (
     COMMON_PROPERTIES,
@@ -35,7 +35,6 @@ from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
     Widget,
     connect,
-    expression_of,
     panel_title,
 )
 from freecad.menuiserie.gui.task_panels.joint_fields import ParamField, fields_of, property_tooltip

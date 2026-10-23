@@ -10,7 +10,7 @@ sélectionnées peuvent être des pièces de bois, des pièces usinées ou des e
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import Final
 
 import FreeCAD as App
@@ -27,14 +27,12 @@ from freecad.menuiserie.features.furniture import (
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.wood_part import is_wood_part
-from freecad.menuiserie.gui.commands.joints import (
+from freecad.menuiserie.gui.commands.base import (
     REFUSAL_DISPLAY_MS,
     TransactionCommand,
     report_refusal,
 )
 from freecad.menuiserie.gui.task_panels.base import close_transaction
-
-Action = Callable[[], Sequence[str]]  # action de la commande, renvoie ses avertissements
 
 # Noms des commandes, aussi noms de leurs icônes (``<nom>.svg``) et contextes de traduction.
 FURNITURE: Final = "Menuiserie_Furniture"
@@ -60,9 +58,10 @@ def selected_candidates() -> list[DocumentObject] | None:
     return list(selection)
 
 
-def target_and_others() -> tuple[DocumentObject, list[DocumentObject]] | None:
-    """Ensemble choisi (le premier sélectionné) et les autres objets sélectionnés."""
-    selection = selected_candidates() or []
+def target_and_others(
+    selection: Sequence[DocumentObject],
+) -> tuple[DocumentObject, list[DocumentObject]] | None:
+    """Ensemble choisi (le premier de ``selection``) et les autres objets de ``selection``."""
     target = next((obj for obj in selection if is_furniture(obj)), None)
     others = [obj for obj in selection if obj is not target]
     return (target, others) if target is not None and others else None
@@ -74,28 +73,31 @@ def _member(obj: DocumentObject) -> DocumentObject:
 
 class FurnitureCommand(TransactionCommand):
     """Base des commandes de l'ensemble (Command) : chaque sous-classe fournit ses textes,
-    l'objet de sa transaction et :meth:`action` (``None`` si la sélection ne convient pas)."""
+    l'objet de sa transaction, :meth:`accepts` (la sélection convient-elle ?) et :meth:`apply`
+    (l'action sur une sélection acceptée)."""
 
     def IsActive(self) -> bool:
-        """Active s'il y a un document, aucun panneau ouvert et une sélection qui convient."""
+        """Active s'il y a un document, aucun panneau ouvert et une sélection qui convient.
+        Appelée à chaque rafraîchissement de l'interface : la sélection est seulement
+        examinée, aucune action n'est préparée."""
         return (
             App.ActiveDocument is not None
             and not Gui.Control.activeDialog()
-            and self.action() is not None
+            and self._accepted_selection() is not None
         )
 
     def Activated(self) -> None:
         """Action dans la transaction de la commande, validée (une entrée d'annulation) ou
         abandonnée sur un refus, signalé dans la barre d'état et la vue rapport."""
-        action = self.action()
-        if action is None:
+        selection = self._accepted_selection()
+        if selection is None:
             return
         doc = App.ActiveDocument
         shown = concerned_furniture()
         doc.openTransaction(translated(self.TRANSACTION))
         transaction = App.getActiveTransaction()
         try:
-            messages = action()
+            messages = self.apply(selection)
             refresh_tree(shown)
         except (TypeError, ValueError) as error:
             close_transaction(transaction, abort=True)
@@ -107,8 +109,18 @@ class FurnitureCommand(TransactionCommand):
         close_transaction(transaction, abort=False)
         show_notices(messages)
 
-    def action(self) -> Action | None:
-        """Action à mener sur la sélection actuelle, ``None`` si elle ne convient pas."""
+    def _accepted_selection(self) -> list[DocumentObject] | None:
+        """Sélection actuelle si elle ne contient que des pièces et des ensembles et que la
+        commande l'accepte, ``None`` sinon."""
+        selection = selected_candidates()
+        return selection if selection is not None and self.accepts(selection) else None
+
+    def accepts(self, selection: Sequence[DocumentObject]) -> bool:
+        """Vrai si la commande peut agir sur ``selection`` (pièces et ensembles seulement)."""
+        raise NotImplementedError
+
+    def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
+        """Action sur ``selection`` acceptée ; renvoie les avertissements traduits."""
         raise NotImplementedError
 
 
@@ -151,12 +163,13 @@ class CreateFurnitureCommand(FurnitureCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un ensemble")
 
-    def action(self) -> Action | None:
+    def accepts(self, selection: Sequence[DocumentObject]) -> bool:
+        """Toute sélection de pièces et d'ensembles."""
+        return bool(selection)
+
+    def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
         """``make_furniture`` sur la sélection."""
-        selection = selected_candidates()
-        if selection is None:
-            return None
-        return lambda: api.make_furniture(selection)[1]
+        return api.make_furniture(selection)[1]
 
 
 class AddToFurnitureCommand(FurnitureCommand):
@@ -171,13 +184,14 @@ class AddToFurnitureCommand(FurnitureCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Ajouter à l'ensemble")
 
-    def action(self) -> Action | None:
+    def accepts(self, selection: Sequence[DocumentObject]) -> bool:
+        """Un ensemble et au moins un autre objet."""
+        return target_and_others(selection) is not None
+
+    def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
         """``add_to_furniture`` : premier ensemble sélectionné, autres objets."""
-        chosen = target_and_others()
-        if chosen is None:
-            return None
-        target, others = chosen
-        return lambda: api.add_to_furniture(target, others)
+        chosen = target_and_others(selection)
+        return api.add_to_furniture(*chosen) if chosen is not None else ()
 
 
 class RemoveFromFurnitureCommand(FurnitureCommand):
@@ -192,17 +206,13 @@ class RemoveFromFurnitureCommand(FurnitureCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Retirer de l'ensemble")
 
-    def action(self) -> Action | None:
-        """``remove_from_furniture`` : sélection faite de membres seulement."""
-        selection = selected_candidates()
-        if selection is None or not all(has_member_properties(_member(o)) for o in selection):
-            return None
+    def accepts(self, selection: Sequence[DocumentObject]) -> bool:
+        """Sélection faite de membres seulement."""
+        return all(has_member_properties(_member(obj)) for obj in selection)
 
-        def remove() -> Sequence[str]:
-            api.remove_from_furniture(selection)
-            return ()
-
-        return remove
+    def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
+        """``remove_from_furniture`` sur la sélection."""
+        return api.remove_from_furniture(selection)
 
 
 class RebindFurnitureCommand(FurnitureCommand):
@@ -218,13 +228,13 @@ class RebindFurnitureCommand(FurnitureCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Relier les pièces")
 
-    def action(self) -> Action | None:
-        """``rebind_furniture`` : un seul ensemble sélectionné."""
-        selection = selected_candidates()
-        if selection is None or len(selection) != 1 or not is_furniture(selection[0]):
-            return None
-        furniture = selection[0]
-        return lambda: api.rebind_furniture(furniture)
+    def accepts(self, selection: Sequence[DocumentObject]) -> bool:
+        """Un seul ensemble sélectionné."""
+        return len(selection) == 1 and is_furniture(selection[0])
+
+    def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
+        """``rebind_furniture`` sur l'ensemble sélectionné."""
+        return api.rebind_furniture(selection[0])
 
 
 def register() -> None:

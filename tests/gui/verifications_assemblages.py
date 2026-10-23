@@ -225,7 +225,7 @@ def verifier_assemblage_impossible_refuse() -> list[str]:
     ni objet créé, ni panneau, ni entrée d'annulation."""
     from PySide import QtGui
 
-    from freecad.menuiserie.gui.commands.joints import REFUSAL_BOX_NAME
+    from freecad.menuiserie.gui.commands.base import REFUSAL_BOX_NAME
 
     with cadre("VerifAssemblageImpossible") as (doc, pieces):
         doc.UndoMode = 1

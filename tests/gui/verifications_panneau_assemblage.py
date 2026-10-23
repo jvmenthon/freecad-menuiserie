@@ -19,6 +19,7 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.core.text import quoted_value
+from tests.gui.aides_panneau import transaction_ouverte
 from tests.gui.verifications_assemblages import (
     CADRE,
     CREATION,
@@ -29,7 +30,6 @@ from tests.gui.verifications_assemblages import (
     usinee_de,
 )
 from tests.gui.verifications_panneau import annuler, ecarts, formulaire_nomme, saisir, valider
-from tests.gui.verifications_panneau_limites import transaction_ouverte
 
 FORM = "JointTaskPanel"
 MODIFICATION = "Modifier un assemblage"

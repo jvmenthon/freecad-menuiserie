@@ -9,7 +9,7 @@ from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.schema import warn
 
@@ -79,7 +79,7 @@ def label_of_mark(obj: DocumentObject, mark: str) -> str:
 
 def mark_is_bound(obj: DocumentObject) -> bool:
     """Vrai si le repère de la pièce ``obj`` est piloté par une expression."""
-    return any(path.lstrip(".") == "Mark" for path, _ in obj.ExpressionEngine)
+    return has_expression(obj, "Mark")
 
 
 def warn_mark_bound(obj: DocumentObject) -> None:

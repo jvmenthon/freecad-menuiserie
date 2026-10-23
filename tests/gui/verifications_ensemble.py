@@ -75,7 +75,7 @@ def boite_de_refus() -> Any:
     """Boîte d'avertissement d'un refus de commande, ou ``None``."""
     from PySide import QtGui
 
-    from freecad.menuiserie.gui.commands.joints import REFUSAL_BOX_NAME
+    from freecad.menuiserie.gui.commands.base import REFUSAL_BOX_NAME
 
     return Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
 

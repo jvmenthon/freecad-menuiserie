@@ -17,6 +17,7 @@ import FreeCADGui as Gui
 from freecad.menuiserie.features.wood_part_schema import MODEL_VERSION
 from freecad.menuiserie.gui.commands.wood_part import CreateWoodPartCommand
 from freecad.menuiserie.gui.task_panels import wood_part as task_panel
+from tests.gui.aides_panneau import transaction_ouverte
 from tests.gui.verifications_panneau import (
     COMMAND,
     CREATE,
@@ -28,7 +29,6 @@ from tests.gui.verifications_panneau import (
     piece_validee,
     saisir,
 )
-from tests.gui.verifications_panneau_limites import transaction_ouverte
 
 
 class PanneauDefaillant:

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Socle commun des panneaux de tâche (pièce de bois J1c, assemblage J3e).
+"""Socle commun des panneaux de tâche (pièce de bois J1c, assemblage J3e, ensemble J4c,
+caisson J4d).
 
 Un panneau modifie un objet dans une transaction ouverte par sa commande (création) ou par
 :func:`start_editing` (modification) : « OK » la valide en une seule entrée d'annulation,
@@ -38,20 +39,24 @@ class Panel(Protocol):
         """Surveillance du document une fois le panneau affiché."""
 
 
-class ObjectTaskPanel:
-    """Base des panneaux de tâche sur un objet ``obj``, en création ou en modification : cycle
-    de vie (transaction, fermeture, surveillance du document). Les sous-classes construisent
-    ``self.form`` et réagissent aux saisies."""
+class TransactionTaskPanel:
+    """Base des panneaux de tâche qui travaillent dans une transaction du document ``doc``
+    (Template Method) : « OK » la valide, « Annuler » l'abandonne, une fermeture par FreeCAD la
+    solde après coup (abandonnée en création, validée en modification). Les sous-classes
+    construisent ``self.form`` et réagissent aux saisies ; ``watcher`` ferme le panneau quand
+    son objet est supprimé."""
 
-    def __init__(self, obj: DocumentObject, *, creating: bool) -> None:
-        self.obj = obj
-        self.doc = obj.Document
+    def __init__(
+        self, doc: Document, *, creating: bool, watcher: DeletionWatcher | None = None
+    ) -> None:
+        self.doc = doc
         self.creating = creating
         self.form: Widget = None
         self._closed = False
         self._edited_name: str | None = None
+        self._document_name: str = doc.Name
         self._transaction = App.getActiveTransaction()
-        self._watcher = DeletionWatcher(obj, Gui.Control.closeDialog)
+        self._watcher = watcher
 
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation."""
@@ -85,19 +90,16 @@ class ObjectTaskPanel:
         dialog.setAutoCloseOnDeletedDocument(True)
         dialog.setAutoCloseOnTransactionChange(True)
         connect(self.form, "destroyed()", self._on_closed_by_freecad)
-        App.addDocumentObserver(self._watcher)
-
-    def preview(self) -> None:
-        """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""
-        recompute_preview(self.obj)
+        if self._watcher is not None:
+            App.addDocumentObserver(self._watcher)
 
     # --- Fermeture ------------------------------------------------------------------------
 
     def _finish(self, *, abort: bool) -> None:
         """Solde la transaction du panneau, sans entrée parasite, puis ferme le panneau."""
         self._closed = True
-        self._watcher.stop()
-        App.removeDocumentObserver(self._watcher)
+        self._stop_watching()
+        self._remove_watcher()
         close_transaction(self._transaction, abort=abort)
         _close(self.doc)
 
@@ -107,15 +109,15 @@ class ObjectTaskPanel:
         if self._closed:
             return
         self._closed = True
-        self._watcher.stop()
+        self._stop_watching()
         QtCore.QTimer.singleShot(0, self._clean_up_after_forced_close)
 
     def _clean_up_after_forced_close(self) -> None:
         """Observateur retiré, transaction du panneau abandonnée en création (validée en
         modification, après recalcul comme avec « OK ») si elle est encore ouverte, mode
         édition quitté s'il porte encore sur l'objet mémorisé par :meth:`watch_document`."""
-        App.removeDocumentObserver(self._watcher)
-        name = self._watcher.document_name
+        self._remove_watcher()
+        name = self._document_name
         alive = name in App.listDocuments()
         if alive and not self.creating:
             App.getDocument(name).recompute()
@@ -126,6 +128,29 @@ class ObjectTaskPanel:
         in_edit = gui_doc.getInEdit()
         if in_edit is not None and in_edit.Object.Name == self._edited_name:
             gui_doc.resetEdit()
+
+    def _stop_watching(self) -> None:
+        """L'observateur de suppression ne réagit plus (il peut être retiré plus tard)."""
+        if self._watcher is not None:
+            self._watcher.stop()
+
+    def _remove_watcher(self) -> None:
+        if self._watcher is not None:
+            App.removeDocumentObserver(self._watcher)
+
+
+class ObjectTaskPanel(TransactionTaskPanel):
+    """Base des panneaux de tâche sur un objet ``obj``, en création ou en modification : le
+    panneau se ferme aussi quand ``obj`` est supprimé."""
+
+    def __init__(self, obj: DocumentObject, *, creating: bool) -> None:
+        watcher = DeletionWatcher(obj, Gui.Control.closeDialog)
+        super().__init__(obj.Document, creating=creating, watcher=watcher)
+        self.obj = obj
+
+    def preview(self) -> None:
+        """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""
+        recompute_preview(self.obj)
 
 
 def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None) -> None:
@@ -229,20 +254,6 @@ class UpdateGuard:
 
     def __exit__(self, *_exc_info: object) -> None:
         self._depth -= 1
-
-
-def expression_of(obj: DocumentObject, prop: str) -> str | None:
-    """Expression qui pilote la propriété ``prop`` de ``obj``, ``None`` s'il n'y en a pas."""
-    for path, expression in obj.ExpressionEngine:
-        if path.lstrip(".") == prop:
-            text: str = expression
-            return text
-    return None
-
-
-def has_expression(obj: DocumentObject, prop: str) -> bool:
-    """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
-    return expression_of(obj, prop) is not None
 
 
 def connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:

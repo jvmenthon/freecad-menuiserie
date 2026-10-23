@@ -126,14 +126,24 @@ def test_les_commandes_ouvrent_le_panneau() -> None:
     assert "freecad.menuiserie.gui.task_panels.joint" in modules
 
 
-@pytest.mark.parametrize("panel", ["wood_part.py", "joint.py"])
-def test_socle_commun_des_panneaux(panel: str) -> None:
-    """Transactions, fermeture forcée et surveillance du document : ``base.py``."""
+@pytest.mark.parametrize(
+    ("panel", "base", "overridden"),
+    [
+        ("wood_part.py", "ObjectTaskPanel", set()),
+        ("joint.py", "ObjectTaskPanel", set()),
+        ("furniture.py", "ObjectTaskPanel", {"accept"}),  # refus d'une cote cassante
+        ("carcass.py", "TransactionTaskPanel", {"accept"}),  # issue #40
+    ],
+)
+def test_socle_commun_des_panneaux(panel: str, base: str, overridden: set[str]) -> None:
+    """Transactions, fermeture forcée et surveillance du document : ``base.py`` ; l'ensemble
+    et le caisson ne gardent que leur refus de « OK »."""
     tree = ast.parse((PANELS / panel).read_text(encoding="utf-8"))
     classes = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name.endswith("Panel")]
-    assert [getattr(b, "id", "") for c in classes for b in c.bases] == ["ObjectTaskPanel"]
+    assert [getattr(b, "id", "") for c in classes for b in c.bases] == [base]
     defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
-    assert not defined & {"close_transaction", "watch_document", "accept", "reject"}
+    lifecycle = {"close_transaction", "watch_document", "accept", "reject", "_finish"}
+    assert defined & lifecycle == overridden
 
 
 def test_champ_d_angle_borne_comme_core() -> None:

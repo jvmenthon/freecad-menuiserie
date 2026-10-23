@@ -36,14 +36,17 @@ from freecad.menuiserie.core.part_model import (
     is_nonstandard_panel_thickness,
 )
 from freecad.menuiserie.core.snap import Turn
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import (
+    DocumentObject,
+    has_expression,
+    placement_expression,
+)
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_members import quoted_label
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.placement import (
     SnapSession,
-    placement_expression,
     rotate_part,
     snap_part,
 )
@@ -56,7 +59,6 @@ from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
     UpdateGuard,
     connect,
-    has_expression,
     panel_title,
 )
 from freecad.menuiserie.gui.task_panels.preview import PreviewStyle

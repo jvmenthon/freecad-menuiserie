@@ -13,6 +13,7 @@ import pytest
 
 from freecad.menuiserie.core.geometry import RigidTransform, Vec3
 from freecad.menuiserie.core.snap import FaceTarget, Frame, Turn
+from freecad.menuiserie.features.freecad_types import placement_expression
 from tests.integration.cadre import Cadre
 
 pytestmark = pytest.mark.integration
@@ -208,10 +209,10 @@ def test_la_piece_usinee_suit_la_rotation(cadre: Cadre) -> None:
 
 def test_placement_pilote_par_expression_refuse_la_rotation(document: Any) -> None:
     obj = created(document)
-    assert placement_module.placement_expression(obj) is None
+    assert placement_expression(obj) is None
     obj.setExpression("Placement.Base.x", "10 mm")
     obj.recompute()
-    assert placement_module.placement_expression(obj) == "Placement.Base.x"
+    assert placement_expression(obj) == "Placement.Base.x"
     before = obj.Placement.copy()
     assert placement_module.rotate_part(obj, Turn.Z) is False
     assert placement_module.rotate_part(obj, Turn.Z, SnapSession()) is False

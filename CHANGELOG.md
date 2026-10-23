@@ -6,6 +6,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Modifié
+- API de l'ensemble ([ADR 0017](docs/adr/0017-avertissements-renvoyes-par-l-api-des-ensembles.md),
+  accepté, issue #40) : `resize_furniture` renvoie ses avertissements traduits (jusqu'ici
+  seulement écrits dans la vue rapport) et `remove_from_furniture` un tuple vide, comme les autres
+  fonctions de l'ensemble. `api.py` regroupé par famille, un seul `__all__`.
+- Dette technique de fin J4 (issue #40), sans changement visible : lecture des expressions
+  partagée (`expressions_of`, `expression_of`, `has_expression`, `placement_expression` dans
+  `features/freecad_types.py`) ; socle des commandes (`TransactionCommand`, refus) dans
+  `gui/commands/base.py`, les commandes de l'ensemble n'examinent que la sélection à chaque
+  rafraîchissement (`accepts` / `apply`) ; panneau du Caisson sur le socle des panneaux
+  (`TransactionTaskPanel`) ; moteur des icônes dans `tools/icones_svg.py` ; cas limites du
+  panneau de la pièce de bois répartis en quatre modules.
 - Liste de débit, épaisseurs standards de brut (demande de jv, recette J2, spécification J2
   § 10.4, [ADR 0015](docs/adr/0015-epaisseurs-de-brut.md)) : la bibliothèque de matériaux accepte
   un champ facultatif `rough_thicknesses` (épaisseurs de brut du commerce, en mm), renseigné pour
