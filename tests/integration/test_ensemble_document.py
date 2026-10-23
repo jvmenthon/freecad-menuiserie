@@ -373,3 +373,18 @@ def test_cadre_a_onglets_qui_suit_les_cotes(document: Any) -> None:
     assert machined[0].Shape.common(machined[1].Shape).Volume == pytest.approx(0, abs=1e-6)
     assert all(len(m.Shape.Solids) == 1 for m in machined)
     assert stale_or_invalid(document) == []
+
+
+# --- ADR 0017 : avertissements renvoyés par l'API de l'ensemble -----------------------------------
+
+
+def test_redimensionner_et_retirer_renvoient_leurs_avertissements(
+    bureau: Bureau, vue_rapport: Any
+) -> None:
+    """Comme les autres fonctions de l'ensemble : tuple d'avertissements traduits, ceux-là
+    mêmes qui sont écrits dans la vue rapport."""
+    messages = api.resize_furniture(bureau.furniture, depth=800, height=800)
+    assert isinstance(messages, tuple)
+    warnings = vue_rapport.de_niveau("Warning")
+    assert all(any(message in text for text in warnings) for message in messages)
+    assert api.remove_from_furniture([bureau.parts["P"]]) == ()

@@ -19,7 +19,7 @@ Ensemble (J4) ::
     from freecad.menuiserie.api import make_furniture, resize_furniture
 
     bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
-    resize_furniture(bureau, depth=800)
+    avertissements = resize_furniture(bureau, depth=800)
 
 Liste de débit (J2) ::
 
@@ -77,19 +77,41 @@ from freecad.menuiserie.features.machined_part import (
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 __all__ = [
+    "FRENCH_CSV",
+    "INTERNATIONAL_CSV",
+    "CarcassJoinery",
+    "CarcassParams",
+    "add_to_furniture",
     "blank_of",
+    "cut_list_html",
+    "cut_list_of",
+    "export_cut_list_csv",
+    "export_cut_list_pdf",
+    "furniture_of",
     "is_machined_part",
     "machined_part_of",
+    "make_carcass",
+    "make_cut_list",
     "make_dovetail",
     "make_dowels",
+    "make_furniture",
     "make_half_lap",
     "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
     "make_tongue_groove",
     "make_wood_part",
+    "number_marks",
+    "rebind_furniture",
+    "remove_from_furniture",
     "remove_machined_part",
+    "resize_furniture",
+    "set_edge_distance",
+    "set_member_options",
 ]
+
+
+# --- Pièce de bois (J1) -------------------------------------------------------------------
 
 
 def make_wood_part(
@@ -126,6 +148,9 @@ def make_wood_part(
         ViewProviderWoodPart(obj.ViewObject)
     document.recompute()
     return obj
+
+
+# --- Assemblages (J3, J4) -----------------------------------------------------------------
 
 
 def make_mortise_tenon(
@@ -199,6 +224,16 @@ def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object)
     return _make_joint(create_dovetail, host, guest, params)
 
 
+def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+    """Relie à onglet ``host`` et ``guest``, dessinées à leur longueur hors tout (de pointe
+    longue à pointe longue) et qui se chevauchent au coin, puis recalcule le document. La coupe
+    passe par le coin extérieur et le coin intérieur : 45° pour deux largeurs égales. Aucun
+    paramètre en J4 (un nom inconnu lève ``TypeError``) ; mêmes validations et même absence de
+    transaction que :func:`make_mortise_tenon`.
+    """
+    return _make_joint(create_miter, host, guest, params)
+
+
 _JointFactory = Callable[..., DocumentObject]
 
 
@@ -233,18 +268,8 @@ def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
     return joint
 
 
-# --- Ensembles (J4b') --------------------------------------------------------------------
+# --- Ensembles (J4) -----------------------------------------------------------------------
 
-__all__ += [
-    "add_to_furniture",
-    "furniture_of",
-    "make_furniture",
-    "rebind_furniture",
-    "remove_from_furniture",
-    "resize_furniture",
-    "set_edge_distance",
-    "set_member_options",
-]
 
 _Notices = tuple[str, ...]
 
@@ -284,13 +309,15 @@ def add_to_furniture(furniture: DocumentObject, objects: Sequence[DocumentObject
     return _reported(notices, furniture.Document)
 
 
-def remove_from_furniture(objects: Sequence[DocumentObject]) -> None:
+def remove_from_furniture(objects: Sequence[DocumentObject]) -> _Notices:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
     de membre sont supprimées, la géométrie ne change pas. ``ValueError`` traduite, avant toute
-    modification, pour un objet qui n'est membre d'aucun ensemble."""
+    modification, pour un objet qui n'est membre d'aucun ensemble. Renvoie les avertissements
+    traduits, comme toute fonction de l'ensemble (ADR 0017) : aucun aujourd'hui."""
     furniture_members.remove_members(objects)
     if objects:
         objects[0].Document.recompute()
+    return ()
 
 
 def set_member_options(
@@ -325,14 +352,14 @@ def resize_furniture(
     width: float | None = None,
     depth: float | None = None,
     height: float | None = None,
-) -> None:
+) -> _Notices:
     """Change les cotes de l'ensemble (mm, ``None`` = inchangée) puis recalcule ; refusé
     d'avance (``ValueError`` traduite, rien n'est modifié) si une pièce deviendrait trop petite
-    ou trop grande ou si un assemblage perdrait sa position. Avertissements dans la vue
-    rapport."""
+    ou trop grande ou si un assemblage perdrait sa position. Renvoie les avertissements
+    traduits (aussi dans la vue rapport, ADR 0017)."""
     sizes = {"Width": width, "Depth": depth, "Height": height}
     notices = furniture_members.resize(furniture, sizes)
-    _reported(notices, furniture.Document)
+    return _reported(notices, furniture.Document)
 
 
 def furniture_of(obj: DocumentObject) -> DocumentObject | None:
@@ -345,22 +372,8 @@ def furniture_of(obj: DocumentObject) -> DocumentObject | None:
     return _member_furniture(member)
 
 
-# --- Onglet (J4g) ---------------------------------------------------------------------------
+# --- Gabarits (J4) ------------------------------------------------------------------------
 
-
-def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
-    """Relie à onglet ``host`` et ``guest``, dessinées à leur longueur hors tout (de pointe
-    longue à pointe longue) et qui se chevauchent au coin, puis recalcule le document. La coupe
-    passe par le coin extérieur et le coin intérieur : 45° pour deux largeurs égales. Aucun
-    paramètre en J4 (un nom inconnu lève ``TypeError``) ; mêmes validations et même absence de
-    transaction que :func:`make_mortise_tenon`.
-    """
-    return _make_joint(create_miter, host, guest, params)
-
-
-# --- Gabarits (J4d) -------------------------------------------------------------------------
-
-__all__ += ["CarcassJoinery", "CarcassParams", "make_carcass"]
 
 _CARCASS_ARGUMENTS = QT_TRANSLATE_NOOP(
     "Menuiserie", "make_carcass : params ou champs en mots-clés, pas les deux"
@@ -409,18 +422,7 @@ def make_carcass(
     return built.furniture, _reported(built.notices, document)
 
 
-# --- Liste de débit (J2c) --------------------------------------------------------------------
-
-__all__ += [
-    "FRENCH_CSV",
-    "INTERNATIONAL_CSV",
-    "cut_list_html",
-    "cut_list_of",
-    "export_cut_list_csv",
-    "export_cut_list_pdf",
-    "make_cut_list",
-    "number_marks",
-]
+# --- Liste de débit (J2) ------------------------------------------------------------------
 
 
 def cut_list_of(doc: Document, objects: Sequence[DocumentObject] | None = None) -> CutList:

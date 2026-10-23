@@ -212,8 +212,7 @@ class RemoveFromFurnitureCommand(FurnitureCommand):
 
     def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
         """``remove_from_furniture`` sur la sélection."""
-        api.remove_from_furniture(selection)
-        return ()
+        return api.remove_from_furniture(selection)
 
 
 class RebindFurnitureCommand(FurnitureCommand):
