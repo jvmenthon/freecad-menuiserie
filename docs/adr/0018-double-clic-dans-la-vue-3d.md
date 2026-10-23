@@ -9,7 +9,7 @@
 
 Un double-clic sur un objet de l'atelier doit ouvrir son panneau de tâche, dans l'arbre **et dans
 la vue 3D**. Dans l'arbre, FreeCAD appelle `doubleClicked` du ViewProvider (fait depuis J1c). Dans
-la vue 3D, FreeCAD 1.0 et 1.1 n'appellent rien : le style de navigation
+la vue 3D, FreeCAD n'appelle rien (vérifié dans les sources de la 1.0) : le style de navigation
 (`NavigationStyle::processClickEvent`) reconnaît le second clic et l'absorbe. Aucune API Python
 ne permet à un ViewProvider de recevoir ce double-clic.
 
