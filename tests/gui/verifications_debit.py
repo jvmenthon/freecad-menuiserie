@@ -622,14 +622,14 @@ def pixels_de_bois(navigateur: Any) -> int:
     return compte
 
 
-def _etat_du_document(doc: Any) -> tuple[Any, ...]:
+def etat_du_document(doc: Any) -> tuple[Any, ...]:
     return ([o.Name for o in doc.Objects], doc.UndoNames, a_recalculer(doc), noms_selectionnes())
 
 
 def _ouverture_de_l_apercu(bureau: Bureau) -> list[str]:
     doc = bureau.doc
     doc.clearUndos()
-    avant = _etat_du_document(doc)
+    avant = etat_du_document(doc)
     lignes = api.cut_list_of(doc).lines
     Gui.Command.get(APERCU).run()
     trouves = widgets_apercu()
@@ -656,7 +656,7 @@ def _ouverture_de_l_apercu(bureau: Bureau) -> list[str]:
     for cle, libelle in LIBELLES_APERCU.items():
         problemes += ecarts(f"bouton {cle}", trouves[cle].text(), libelle)
         problemes += ecarts(f"bouton {cle} actif", trouves[cle].isEnabled(), True)
-    problemes += ecarts("lecture seule : document inchangé", _etat_du_document(doc), avant)
+    problemes += ecarts("lecture seule : document inchangé", etat_du_document(doc), avant)
     del fenetre, navigateur, trouves
     fermer_les_apercus()
     return [*problemes, *ecarts("fermée : plus de widget", sorted(widgets_apercu()), [])]
@@ -679,7 +679,7 @@ def _exports_depuis_l_apercu(bureau: Bureau) -> list[str]:
         if "pdf" not in trouves:
             fermer_les_apercus()
             return ["aperçu non ouvert"]
-        avant = _etat_du_document(doc)
+        avant = etat_du_document(doc)
         nombre_de_lignes = len(api.cut_list_of(doc).lines)
         pdf, csv = Path(dossier) / "debit.pdf", Path(dossier) / "debit.csv"
         with boite_d_enregistrement(str(pdf)) as appels_pdf:
@@ -703,7 +703,7 @@ def _exports_depuis_l_apercu(bureau: Bureau) -> list[str]:
             *ecarts("actualisé : une image par ligne", html.count("<img"), nombre_de_lignes),
             *ecarts("fenêtre toujours ouverte", "fenetre" in widgets_apercu(), True),
             *ecarts("aucune boîte modale", QtGui.QApplication.activeModalWidget(), None),
-            *ecarts("document inchangé", _etat_du_document(doc), avant),
+            *ecarts("document inchangé", etat_du_document(doc), avant),
         ]
         del trouves
         fermer_les_apercus()
