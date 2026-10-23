@@ -37,17 +37,28 @@ ATELIER = "MenuiserieWorkbench"
 AUCUN_ATELIER = "NoneWorkbench"
 
 
-def double_clic_3d(x: int, y: int) -> bool:
-    """Curseur placé au point ``(x, y)`` de la vue (coordonnées de FreeCAD, origine en bas à
-    gauche) puis double-clic gauche envoyé à sa zone d'affichage ; vrai si un panneau s'ouvre."""
+def vue_3d_active(doc: Any) -> Any:
+    """Sous-fenêtre de la vue 3D de ``doc`` (titre « <document> : 1 ») rendue active, puis sa
+    zone d'affichage ; hors écran, la page d'accueil peut s'ouvrir par-dessus. (Dans
+    l'interface, le clic dans une vue la rend active.)"""
+    QtGui.QApplication.processEvents()  # page d'accueil éventuelle ouverte d'abord
     mdi = Gui.getMainWindow().findChild(QtGui.QMdiArea)
-    viewport = double_click.viewports_3d(mdi, current_only=True)[0]
-    point = QtCore.QPoint(x, viewport.height() - 1 - y)
-    QtGui.QCursor.setPos(viewport.mapToGlobal(point))
-    QtGui.QApplication.processEvents()
+    for fenetre in mdi.subWindowList():
+        if fenetre.windowTitle().startswith(f"{doc.Label} :"):
+            mdi.setActiveSubWindow(fenetre)
+    zones = double_click.viewports_3d(mdi, current_only=True)
+    return zones[0] if zones else None
+
+
+def double_clic_envoye(viewport: Any, x: int, y: int) -> bool:
+    """Double-clic gauche envoyé au point Qt ``(x, y)`` de la zone d'affichage (sans bouger le
+    curseur) ; vrai si un panneau s'ouvre. Seulement quand le filtre doit le consommer : hors
+    écran, FreeCAD plante en traitant lui-même un clic ou un mouvement de souris (le cube de
+    navigation exige un contexte OpenGL)."""
     evenement = QtGui.QMouseEvent(
         QtCore.QEvent.MouseButtonDblClick,
-        QtCore.QPointF(point),
+        QtCore.QPointF(x, y),
+        QtCore.QPointF(viewport.mapToGlobal(QtCore.QPoint(x, y))),
         QtCore.Qt.LeftButton,
         QtCore.Qt.LeftButton,
         QtCore.Qt.NoModifier,
@@ -58,28 +69,36 @@ def double_clic_3d(x: int, y: int) -> bool:
 
 
 def _double_clic_dans_la_vue(doc: Any) -> list[str]:
+    # Une vérification précédente a pu changer d'atelier (feuille de calcul ouverte…).
+    Gui.activateWorkbench(ATELIER)
     piece = piece_validee(doc)
+    viewport = vue_3d_active(doc)
     view = Gui.activeView()
-    view.viewIsometric()
+    if viewport is None or not hasattr(view, "getObjectInfo"):
+        return ["vue 3D du document non active"]
     view.fitAll()
-    Gui.updateGui()
     x, y = (int(v) for v in view.getPointOnScreen(piece.Shape.BoundBox.Center))
-    info = view.getObjectInfo((x, y)) or {}
-    problemes = ecarts("pièce sous le point", info.get("Object"), piece.Name)
-    problemes += ecarts("vide : aucun panneau", double_clic_3d(1, 1), False)
-    ouvert = double_clic_3d(x, y)
+    qx, qy = x, viewport.height() - 1 - y  # rapport de pixels 1 hors écran
+    info = view.getObjectInfo(double_click.view_point(viewport, qx, qy)) or {}
+    problemes = [
+        *ecarts("conversion du point", double_click.view_point(viewport, qx, qy), (x, y)),
+        *ecarts("pièce sous le point", info.get("Object"), piece.Name),
+        *ecarts("vide : rien", double_click.open_at(view, (1, 1)), False),
+        *ecarts("filtre posé", double_click.installed(), True),
+    ]
+    if problemes:
+        return problemes
+    ouvert = double_clic_envoye(viewport, qx, qy)
     problemes += ecarts("pièce : panneau ouvert", ouvert, True)
     problemes += ecarts("pièce : son formulaire", formulaire() is not None, True)
     if ouvert:
         annuler()
     Gui.activateWorkbench(AUCUN_ATELIER)
     try:
-        problemes += ecarts("atelier quitté : aucun panneau", double_clic_3d(x, y), False)
+        problemes += ecarts("atelier quitté : filtre retiré", double_click.installed(), False)
     finally:
-        if Gui.Control.activeDialog():
-            annuler()
         Gui.activateWorkbench(ATELIER)
-    return problemes
+    return [*problemes, *ecarts("atelier repris : filtre posé", double_click.installed(), True)]
 
 
 def verifier_double_clic_dans_la_vue_3d() -> list[str]:
