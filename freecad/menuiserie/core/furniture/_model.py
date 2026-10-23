@@ -41,19 +41,33 @@ class FurnitureError(TemplatedError):
     """Refus (cote d'ensemble, redimensionnement, cycle d'ensembles) ; gabarit traduisible."""
 
 
+class BlockedRowError(FurnitureError):
+    """Refus d'un changement de cote ou d'épaisseur qu'aucune pièce de la rangée ne peut
+    absorber (ADR 0019, point 5).
+
+    ``locked`` : clés des membres verrouillés de la rangée (vide si les épaisseurs la
+    remplissent), ``members`` : clés de tous les membres de la rangée ; le message cite leurs
+    noms. Déverrouiller ``locked`` (ou en retirer) peut débloquer la rangée.
+    """
+
+    def __init__(
+        self,
+        template: str,
+        params: Mapping[str, str],
+        *,
+        locked: tuple[str, ...],
+        members: tuple[str, ...],
+    ) -> None:
+        super().__init__(template, params)
+        self.locked = locked
+        self.members = members
+
+
 class InteriorMode(str, Enum):
     """Mode d'un membre (propriété ``PositionMode``) : valeurs stables, ajouts en fin seulement."""
 
     STAY = "Stay"  # distance non fixe : la face ne bouge pas
     PROPORTIONAL = "Proportional"  # distance non fixe : la face garde sa proportion
-
-
-class Anchor(Enum):
-    """Ce que garde une face quand la cote change (non enregistré)."""
-
-    START = "Start"  # sa distance au bord de départ
-    END = "End"  # sa distance au bord de fin
-    RATIO = "Ratio"  # sa proportion de la cote
 
 
 class FurnitureAxis(Enum):
@@ -93,11 +107,6 @@ class Edge(str, Enum):
     def at_end(self) -> bool:
         """Vrai pour le bord de fin de l'axe (droite, arrière, haut)."""
         return tuple(Edge).index(self) % 2 == 1
-
-    @property
-    def anchor(self) -> Anchor:
-        """Ancre d'une face qui suit ce bord."""
-        return Anchor.END if self.at_end else Anchor.START
 
     @classmethod
     def of(cls, axis: FurnitureAxis, at_end: bool) -> Edge:
@@ -158,7 +167,8 @@ class Member:
     ``block`` : cotes et placement dans le repère de l'ensemble (``Origin`` déduite) ;
     ``fixed`` : bords dont la distance est fixe, ``None`` pour un membre qui entre dans
     l'ensemble (options par défaut à calculer) ; ``driven`` : propriétés pilotées par une
-    formule ou une contrainte de l'utilisateur ; ``label`` : nom cité dans les messages.
+    formule ou une contrainte de l'utilisateur ; ``label`` : nom cité dans les messages ;
+    ``locked`` : cotes fixes, la pièce ne change jamais de cotes (ADR 0019).
     """
 
     key: str
@@ -169,6 +179,7 @@ class Member:
     fixed: frozenset[Edge] | None = None
     driven: frozenset[str] = frozenset()
     label: str = ""
+    locked: bool = False
 
     def __post_init__(self) -> None:
         _require(isinstance(self.key, str) and bool(self.key), "Member.key : texte non vide")
@@ -186,35 +197,12 @@ class Member:
         )
         _require(fixed_ok, "Member.fixed : frozenset d'Edge ou None attendu")
         _require(_is_text_set(self.driven), "Member.driven : frozenset de textes attendu")
+        _require(isinstance(self.locked, bool), "Member.locked : booléen attendu")
 
     @property
     def name(self) -> str:
         """Nom cité dans les messages : le libellé, sinon la clé."""
         return self.label or self.key
-
-
-@dataclass(frozen=True)
-class FollowRule:
-    """Règle d'un membre sur un axe : ancres de ses faces de début et de fin.
-
-    ``local`` : propriété étirée (``Length``, ``Width`` d'une pièce ; ``Width``, ``Depth``,
-    ``Height`` d'un sous-ensemble), ``None`` sur l'axe de l'épaisseur (une seule ancre).
-    """
-
-    axis: FurnitureAxis
-    start: Anchor
-    end: Anchor
-    local: str | None
-
-    def __post_init__(self) -> None:
-        _require(isinstance(self.axis, FurnitureAxis), "FollowRule.axis : FurnitureAxis attendu")
-        anchors = isinstance(self.start, Anchor) and isinstance(self.end, Anchor)
-        _require(anchors, "FollowRule.start et FollowRule.end : Anchor attendu")
-        stretchable = isinstance(self.local, str) and self.local not in ("", THICKNESS)
-        _require(stretchable or self.local is None, "FollowRule.local : cote étirable ou None")
-        _require(
-            stretchable or self.start is self.end, "FollowRule : une seule ancre sur l'épaisseur"
-        )
 
 
 @dataclass(frozen=True)

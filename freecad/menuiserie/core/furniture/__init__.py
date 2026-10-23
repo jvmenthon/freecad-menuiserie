@@ -3,8 +3,9 @@
 
 Ce module est une façade : il ré-exporte l'API publique des sous-modules et ne contient aucune
 logique. Enchaînement : ``with_default_options`` (options par défaut des nouveaux membres) →
-``follow_rules`` (ancres de chaque face) → ``bindings_for`` (expressions FreeCAD) ; avant un
-redimensionnement, ``predict`` et ``check_resize``.
+``follow_rules`` (rangée, position et cote affines de chaque membre, ADR 0019) →
+``bindings_for`` (expressions FreeCAD) ; avant un redimensionnement ou un changement
+d'épaisseur, ``predict``, ``check_resize`` et ``check_thickness``.
 """
 
 from __future__ import annotations
@@ -16,9 +17,15 @@ from freecad.menuiserie.core.furniture._bindings import (
     expression_text,
     is_driven,
     label_reference,
+    piece_reference,
     same_binding,
 )
-from freecad.menuiserie.core.furniture._check import check_membership, check_resize, predict
+from freecad.menuiserie.core.furniture._check import (
+    check_membership,
+    check_resize,
+    check_thickness,
+    predict,
+)
 from freecad.menuiserie.core.furniture._defaults import (
     default_fixed,
     fixed_by_default,
@@ -31,12 +38,12 @@ from freecad.menuiserie.core.furniture._edit import (
     edge_edit,
     follow_summary,
 )
-from freecad.menuiserie.core.furniture._follow import Linear, Rules, follow_rules
+from freecad.menuiserie.core.furniture._follow import FollowRule, Rules, follow_rules
+from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._model import (
-    Anchor,
     Binding,
+    BlockedRowError,
     Edge,
-    FollowRule,
     FurnitureAxis,
     FurnitureBox,
     FurnitureError,
@@ -44,12 +51,13 @@ from freecad.menuiserie.core.furniture._model import (
     Member,
     NoticeKind,
 )
+from freecad.menuiserie.core.furniture._rows import Row
 from freecad.menuiserie.core.furniture._spans import Span, edge_distances, member_spans
 from freecad.menuiserie.core.notice import Notice
 
 __all__ = [
-    "Anchor",
     "Binding",
+    "BlockedRowError",
     "Edge",
     "EdgeEdit",
     "Follow",
@@ -62,12 +70,14 @@ __all__ = [
     "Member",
     "Notice",
     "NoticeKind",
+    "Row",
     "Rules",
     "Span",
     "bindings_for",
     "bound_by_workshop",
     "check_membership",
     "check_resize",
+    "check_thickness",
     "default_fixed",
     "driven_edges",
     "driven_properties",
@@ -80,6 +90,7 @@ __all__ = [
     "is_driven",
     "label_reference",
     "member_spans",
+    "piece_reference",
     "predict",
     "same_binding",
     "with_default_options",

@@ -17,12 +17,10 @@ from freecad.menuiserie.core.furniture._bindings import (
     is_driven,
     position_property,
 )
-from freecad.menuiserie.core.furniture._follow import axis_motion
+from freecad.menuiserie.core.furniture._follow import FollowRule
 from freecad.menuiserie.core.furniture._messages import TOO_LARGE, TOO_SMALL, USER_FORMULA
 from freecad.menuiserie.core.furniture._model import (
-    Anchor,
     Edge,
-    FollowRule,
     FurnitureAxis,
     FurnitureBox,
     FurnitureError,
@@ -37,39 +35,39 @@ class Follow(str, Enum):
 
     NOT_SQUARE = "NotSquare"  # pas d'équerre : exclu des liaisons
     FORMULA = "Formula"  # une propriété liée par l'atelier suit une formule de l'utilisateur
+    LOCKED = "Locked"  # cotes fixes : la pièce ne change jamais de cotes
     STRETCHED = "Stretched"  # une cote de la pièce change
     MOVED = "Moved"  # la pièce suit un bord
     PROPORTION = "Proportion"  # la pièce garde sa proportion de la cote
     STAYS = "Stays"  # rien ne bouge
 
 
-def _axis_follows(member: Member, rule: FollowRule, span: Span, size0: float) -> set[Follow]:
-    position, size = axis_motion(rule, span, size0)
+def _axis_follows(member: Member, rule: FollowRule) -> set[Follow]:
     found: set[Follow] = set()
-    local = rule.local
-    stretched = size is not None and local is not None and not size.constant
-    if stretched and not is_driven(member, str(local)):
+    size, local = rule.size, rule.local
+    if size is not None and not size.constant and not is_driven(member, str(local)):
         found.add(Follow.STRETCHED)
+    position = rule.position
     if not position.constant and not is_driven(member, position_property(member, rule.axis)):
-        ratio = Anchor.RATIO in (rule.start, rule.end)
-        found.add(Follow.PROPORTION if ratio else Follow.MOVED)
+        found.add(Follow.PROPORTION if position.proportional else Follow.MOVED)
     return found
 
 
-def follow_summary(
-    box: FurnitureBox, member: Member, rules: tuple[FollowRule, ...] | None
-) -> tuple[Follow, ...]:
+def follow_summary(member: Member, rules: tuple[FollowRule, ...] | None) -> tuple[Follow, ...]:
     """Ce que fait ``member`` selon ses règles (``None`` : pas d'équerre, aucune règle) ;
-    ``STAYS`` seulement si rien ne bouge et qu'aucune formule n'est en jeu."""
+    ``STAYS`` seulement si rien ne bouge et qu'aucune formule n'est en jeu. Une liaison qui ne
+    dépend que d'épaisseurs compte comme ``MOVED`` ou ``STRETCHED`` ; un membre verrouillé
+    montre aussi ``LOCKED``."""
     if rules is None:
         return (Follow.NOT_SQUARE,)
     found: set[Follow] = set()
     if any(bound_by_workshop(member, prop) for prop in member.driven):
         found.add(Follow.FORMULA)
-    spans = member_spans(member)
+    if member.locked:
+        found.add(Follow.LOCKED)
     for rule in rules:
-        found |= _axis_follows(member, rule, spans[rule.axis], box.size(rule.axis))
-    if not found:
+        found |= _axis_follows(member, rule)
+    if not found - {Follow.LOCKED}:
         found.add(Follow.STAYS)
     return tuple(follow for follow in Follow if follow in found)
 
@@ -123,7 +121,8 @@ def edge_edit(member: Member, box: FurnitureBox, edge: Edge, distance: float) ->
         raise FurnitureError(USER_FORMULA, {"member": member.name, "property": prop})
     current = box.size(edge.axis) - span.hi if edge.at_end else span.lo
     move = current - distance if edge.at_end else distance - current  # face, sens de l'axe
-    if not (span.stretchable and edge.opposite() in (member.fixed or frozenset())):
+    kept = edge.opposite() in (member.fixed or frozenset())
+    if not (span.stretchable and kept) or member.locked:  # une pièce verrouillée se déplace
         return EdgeEdit(edge.axis, move)
     size = _checked(member, span.local, span.size + (move if edge.at_end else -move))
     origin_on_face = edge.at_end == span.reversed

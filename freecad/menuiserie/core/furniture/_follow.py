@@ -1,129 +1,97 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Règles de suivi des membres et mouvement qui en découle (J4a, critères F5 à F7).
+"""Règles de suivi des membres : position et cote affines par axe (J4a, ADR 0019).
 
-Module privé : la façade ``core.furniture`` ré-exporte l'API publique. Chaîne de règles d'une
-face, première qui s'applique : distance fixe → bord de son côté ; sinon le mode du membre
-(``Stay`` → ``START``, ``Proportional`` → ``RATIO``). Les formules de l'utilisateur sont
-écartées à la liaison (``bindings_for``).
+Module privé : la façade ``core.furniture`` ré-exporte l'API publique. Pour chaque membre
+d'équerre et chaque axe, la rangée du membre (``_rows``) donne la position de son origine
+locale et sa cote étirée comme fonctions affines de la cote de l'ensemble et des épaisseurs.
+Les formules de l'utilisateur sont écartées à la liaison (``bindings_for``).
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
+from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._model import (
-    Anchor,
-    Edge,
-    FollowRule,
     FurnitureAxis,
     FurnitureBox,
-    InteriorMode,
     Member,
     NoticeKind,
     notice,
 )
-from freecad.menuiserie.core.furniture._spans import Span, distances, square_spans
-from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM
+from freecad.menuiserie.core.furniture._rows import Row, SolvedRow, solve_row
+from freecad.menuiserie.core.furniture._spans import Span, Spans, square_spans
 from freecad.menuiserie.core.notice import Notice
+
+
+@dataclass(frozen=True)
+class FollowRule:
+    """Règle d'un membre sur un axe : où va l'origine locale et ce que devient la cote.
+
+    ``local`` : propriété étirée (``Length``, ``Width`` d'une pièce ; ``Width``, ``Depth``,
+    ``Height`` d'un sous-ensemble), ``None`` sur l'axe de l'épaisseur (jamais étirée, ``size``
+    est alors ``None``). ``position`` : coordonnée de l'origine locale, ``size`` : cote étirée.
+    ``row`` : la rangée du membre sur l'axe (bloquée ou non, pièces verrouillées).
+    """
+
+    axis: FurnitureAxis
+    local: str | None
+    position: Linear
+    size: Linear | None
+    row: Row
+
+    def __post_init__(self) -> None:
+        if (self.local is None) != (self.size is None):
+            raise ValueError("FollowRule : cote étirée et propriété étirée vont ensemble")
+
 
 Rules = Mapping[str, tuple[FollowRule, ...]]
 
 
-def thickness_edge(
-    fixed: frozenset[Edge], axis: FurnitureAxis, edge_distance: Mapping[Edge, float]
-) -> tuple[Edge | None, bool]:
-    """Bord que suivent les deux faces d'un axe non étirable, et vrai si deux faces étaient
-    fixes (la plus proche de son bord l'emporte, égalité → début)."""
-    start, end = Edge.of(axis, False), Edge.of(axis, True)
-    chosen = [edge for edge in (start, end) if edge in fixed]
-    if len(chosen) < 2:
-        return (chosen[0] if chosen else None), False
-    closer_end = edge_distance[end] < edge_distance[start] - CONTACT_TOLERANCE_MM
-    return (end if closer_end else start), True
-
-
-def _mode_anchor(mode: InteriorMode) -> Anchor:
-    return Anchor.RATIO if mode is InteriorMode.PROPORTIONAL else Anchor.START
-
-
-def _face_anchor(side: Edge, member: Member, fixed: frozenset[Edge]) -> Anchor:
-    return side.anchor if side in fixed else _mode_anchor(member.mode)
-
-
-def _axis_rule(
-    member: Member, axis: FurnitureAxis, span: Span, edge_distance: Mapping[Edge, float]
-) -> tuple[FollowRule, bool]:
-    fixed = member.fixed or frozenset()
+def _rule(axis: FurnitureAxis, span: Span, solved: SolvedRow) -> FollowRule:
+    position = solved.coordinate(span.origin)
     if not span.stretchable:
-        edge, kept = thickness_edge(fixed, axis, edge_distance)
-        anchor = edge.anchor if edge is not None else _mode_anchor(member.mode)
-        return FollowRule(axis, anchor, anchor, None), kept
-    start = _face_anchor(Edge.of(axis, False), member, fixed)
-    end = _face_anchor(Edge.of(axis, True), member, fixed)
-    return FollowRule(axis, start, end, span.local), False
+        return FollowRule(axis, None, position, None, solved.row)
+    size = solved.coordinate(span.hi).minus(solved.coordinate(span.lo))
+    return FollowRule(axis, span.local, position, size, solved.row)
 
 
-def follow_rules(box: FurnitureBox, members: Sequence[Member]) -> tuple[Rules, tuple[Notice, ...]]:
+def _member_rules(
+    key: str, box: FurnitureBox, members: Mapping[str, Member], spans: Mapping[str, Spans]
+) -> tuple[tuple[FollowRule, ...], bool]:
+    """Règles du membre sur X, Y et Z, et vrai si un écart fixe a dû absorber (``kept``)."""
+    solved = [solve_row(key, axis, members, spans, box.size(axis)) for axis in FurnitureAxis]
+    rules = tuple(
+        _rule(axis, spans[key][axis], one) for axis, one in zip(FurnitureAxis, solved, strict=True)
+    )
+    return rules, any(one.kept for one in solved)
+
+
+def follow_rules(
+    box: FurnitureBox, members: Sequence[Member], keys: Collection[str] | None = None
+) -> tuple[Rules, tuple[Notice, ...]]:
     """Règles de suivi de chaque membre d'équerre, par axe (X, Y, Z), et avertissements
-    (``NotSquare`` : membre exclu ; ``ThicknessKept``). Les options ``fixed`` doivent être
-    renseignées (``with_default_options``) : ``ValueError`` sinon."""
-    rules: dict[str, tuple[FollowRule, ...]] = {}
-    notices: list[Notice] = []
+    (``NotSquare`` : membre exclu ; ``ThicknessKept``), seulement pour les membres ``keys``
+    (tous par défaut). Chaque membre se règle sur sa rangée : tous les membres doivent donc
+    être fournis. Les options ``fixed`` doivent être renseignées (``with_default_options``) :
+    ``ValueError`` sinon."""
+    square: dict[str, Spans] = {}
     for member in members:
         if member.fixed is None:
             raise ValueError(f"options de « {member.key} » à calculer (default_fixed)")
-        spans = square_spans(member)
-        if spans is None:
-            notices.append(notice(NoticeKind.NOT_SQUARE, member))
+        found = square_spans(member)
+        if found is not None:
+            square[member.key] = found
+    square_members = {member.key: member for member in members if member.key in square}
+    rules: dict[str, tuple[FollowRule, ...]] = {}
+    notices: list[Notice] = []
+    for member in members:
+        wanted = keys is None or member.key in keys
+        if member.key not in square:
+            notices.extend([notice(NoticeKind.NOT_SQUARE, member)] if wanted else [])
             continue
-        edge_distance = distances(spans, box)
-        results = [_axis_rule(member, axis, spans[axis], edge_distance) for axis in FurnitureAxis]
-        rules[member.key] = tuple(rule for rule, _ in results)
-        if any(kept for _, kept in results):
+        rules[member.key], kept = _member_rules(member.key, box, square_members, square)
+        if kept and wanted:
             notices.append(notice(NoticeKind.THICKNESS_KEPT, member))
     return rules, tuple(notices)
-
-
-@dataclass(frozen=True)
-class Linear:
-    """Coordonnée ou cote affine de la cote ``C`` de l'ensemble : ``coef * C + const``."""
-
-    coef: float
-    const: float
-
-    def at(self, size: float) -> float:
-        """Valeur pour une cote d'ensemble ``size``."""
-        return self.coef * size + self.const
-
-    def minus(self, other: Linear) -> Linear:
-        """Différence de deux fonctions affines."""
-        return Linear(self.coef - other.coef, self.const - other.const)
-
-    @property
-    def constant(self) -> bool:
-        """Vrai si la valeur ne dépend pas de la cote (aucune liaison utile)."""
-        return abs(self.coef) < 1e-12
-
-
-def anchor_linear(anchor: Anchor, coordinate: float, size0: float) -> Linear:
-    """Coordonnée d'une face selon son ancre : ``f(START) = c``, ``f(END) = C - (C0 - c)``,
-    ``f(RATIO) = C * c / C0`` (``c`` et ``C0`` à la liaison)."""
-    if anchor is Anchor.START:
-        return Linear(0.0, coordinate)
-    if anchor is Anchor.END:
-        return Linear(1.0, coordinate - size0)
-    return Linear(coordinate / size0, 0.0)
-
-
-def axis_motion(rule: FollowRule, span: Span, size0: float) -> tuple[Linear, Linear | None]:
-    """Origine locale du membre et cote étirée (``None`` sur l'épaisseur) en fonction de la
-    cote de l'ensemble sur l'axe de ``rule``."""
-    if rule.local is None:
-        if rule.start is Anchor.RATIO:  # le milieu garde sa proportion
-            middle = (span.lo + span.hi) / 2
-            return Linear(middle / size0, span.origin - middle), None
-        return anchor_linear(rule.start, span.origin, size0), None
-    low = anchor_linear(rule.start, span.lo, size0)
-    high = anchor_linear(rule.end, span.hi, size0)
-    return (high if span.reversed else low), high.minus(low)

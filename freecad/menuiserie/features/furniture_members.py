@@ -96,6 +96,9 @@ UNKNOWN_EDGE: Final = QT_TRANSLATE_NOOP(
     "Option « fixe » inconnue : « {value} » (Left, Right, Front, Back, Bottom ou Top, avec "
     "vrai ou faux).",
 )
+_UNKNOWN_LOCKED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Option « cotes fixes » inconnue : « {value} » (vrai ou faux attendu)."
+)
 _DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » : {property} suit une expression ; modifiez cette expression ou l'ensemble "
@@ -204,12 +207,13 @@ def _enclosing(objects: Sequence[DocumentObject]) -> tuple[FurnitureBox, Vec3]:
 
 
 def _join(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]) -> None:
-    """Fait de ``obj`` un membre de ``furniture`` (mode ``Stay``, options ``fixed``). Les
-    propriétés d'un orphelin (ensemble supprimé) sont réécrites, et ses anciennes liaisons de
-    l'atelier retirées."""
+    """Fait de ``obj`` un membre de ``furniture`` (mode ``Stay``, options ``fixed``, cotes non
+    fixes). Les propriétés d'un orphelin (ensemble supprimé) sont réécrites, et ses anciennes
+    liaisons de l'atelier retirées."""
     values: dict[str, object] = {
         "Furniture": furniture,
         "FurnitureBindings": {},
+        "Locked": False,
         **{option_name(edge): edge in fixed for edge in Edge},
     }
     with writing(obj):
@@ -284,8 +288,14 @@ def remove_members(objects: Sequence[DocumentObject]) -> None:
                     member.removeProperty(spec.name)
 
 
-def _checked_options(mode: str | None, fixed: Mapping[str, bool] | None) -> dict[str, str | bool]:
+def _checked_options(
+    mode: str | None, fixed: Mapping[str, bool] | None, locked: bool | None = None
+) -> dict[str, str | bool]:
     values: dict[str, str | bool] = {}
+    if locked is not None:
+        if not isinstance(locked, bool):
+            raise ValueError(translated(_UNKNOWN_LOCKED, {"value": quoted_value(locked)}))
+        values["Locked"] = locked
     if mode is not None:
         if mode not in MODES:
             raise ValueError(translated(_UNKNOWN_MODE, {"value": quoted_value(mode)}))
@@ -298,19 +308,25 @@ def _checked_options(mode: str | None, fixed: Mapping[str, bool] | None) -> dict
 
 
 def set_options(
-    obj: DocumentObject, mode: str | None, fixed: Mapping[str, bool] | None
+    obj: DocumentObject,
+    mode: str | None,
+    fixed: Mapping[str, bool] | None,
+    locked: bool | None = None,
 ) -> list[Notice]:
-    """Change le mode et les options « fixe » d'un membre puis le relie."""
+    """Change le mode, les options « fixe » et le verrou « cotes fixes » (``locked``) d'un
+    membre, puis relie tout l'ensemble : l'option d'un membre peut changer la rangée des autres
+    (ADR 0019, point 6)."""
     member = member_object(obj)
     furniture = furniture_of(member)
     if furniture is None:
         raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
-    values = _checked_options(mode, fixed)
+    values = _checked_options(mode, fixed, locked)
     read_members(furniture)  # cotes illisibles : refus avant modification
     with writing(member):
         for name, value in values.items():
             setattr(member, name, value)
-    return bind_members(read_members(furniture), [member.Name])
+    members = read_members(furniture)
+    return bind_members(members, members.objects)
 
 
 def relink(furniture: DocumentObject) -> list[Notice]:

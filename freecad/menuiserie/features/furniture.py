@@ -3,7 +3,7 @@
 
 L'ensemble (``App::FeaturePython``, nom interne ``Furniture``) porte ``Width``, ``Depth``,
 ``Height`` et ``Origin`` ; il n'a ni forme ni lien vers ses membres. Chaque membre (pièce brute
-ou sous-ensemble) porte un lien ``Furniture``, son mode, ses six options « fixe » et
+ou sous-ensemble) porte un lien ``Furniture``, son mode, ses six options « fixe », « Locked » et
 ``FurnitureBindings``. Les liaisons sont écrites par :mod:`.furniture_bindings`.
 
 Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe ``Furniture``,
@@ -55,6 +55,8 @@ __all__ = [
     "is_member",
     "option_name",
     "origin_of",
+    "remember_before_change",
+    "take_previous",
     "workshop_writes",
     "writing",
 ]
@@ -68,6 +70,8 @@ MODES: Final = tuple(mode.value for mode in InteriorMode)  # ordre figé, ajouts
 GROUP: Final = "Ensemble"
 # Drapeau (transitoire) d'une écriture de l'atelier lui-même : ``onChanged`` ne réagit pas.
 _WRITING: Final = "furniture_writing"
+# Valeur (transitoire) d'une option ou de l'épaisseur avant une saisie, lue par ``onChanged``.
+_PREVIOUS: Final = "furniture_previous"
 
 
 def option_name(edge: Edge) -> str:
@@ -76,7 +80,8 @@ def option_name(edge: Edge) -> str:
 
 
 OPTIONS: Final = tuple(option_name(edge) for edge in Edge)
-MEMBER_OPTIONS: Final = ("PositionMode", *OPTIONS)  # réglages du membre, relié s'ils changent
+# Réglages du membre, relié s'ils changent (« Locked » : cotes fixes, ADR 0019).
+MEMBER_OPTIONS: Final = ("PositionMode", *OPTIONS, "Locked")
 
 _TOOLTIPS: Final = {
     "Width": QT_TRANSLATE_NOOP(
@@ -167,6 +172,16 @@ MEMBER_PROPERTIES: Final = (
         for name, tooltip in zip(OPTIONS, _OPTION_TOOLTIPS, strict=True)
     ),
     PropertySpec(
+        "Locked",
+        "App::PropertyBool",
+        GROUP,
+        QT_TRANSLATE_NOOP(
+            "App::Property",
+            "Cotes fixes : la pièce ne change pas de cotes quand l'ensemble change.",
+        ),
+        default=False,
+    ),
+    PropertySpec(
         "FurnitureBindings",
         "App::PropertyMap",
         GROUP,
@@ -204,6 +219,28 @@ def follows_user_changes(obj: DocumentObject) -> bool:
     return not (recomputing or restoring_or_undoing(obj) or workshop_writes(obj))
 
 
+def remember_before_change(obj: DocumentObject, prop: str) -> None:
+    """Appelée par ``onBeforeChange`` : garde la valeur d'une option de membre ou de l'épaisseur
+    d'un membre avant une saisie de l'utilisateur, que ``onChanged`` relit (:func:`take_previous`).
+    Sans effet pour un objet qui n'est membre d'aucun ensemble."""
+    proxy = obj.Proxy
+    setattr(proxy, _PREVIOUS, None)
+    if prop not in (*MEMBER_OPTIONS, "Thickness") or not follows_user_changes(obj):
+        return
+    if furniture_of(obj) is not None:
+        value = getattr(obj, prop)
+        setattr(proxy, _PREVIOUS, (prop, getattr(value, "Value", value)))
+
+
+def take_previous(obj: DocumentObject, prop: str) -> tuple[object] | None:
+    """Valeur de ``prop`` avant la saisie (:func:`remember_before_change`), ``(valeur,)``, ou
+    ``None`` s'il n'y en a pas ; elle n'est lue qu'une fois."""
+    proxy = obj.Proxy
+    found = getattr(proxy, _PREVIOUS, None)
+    setattr(proxy, _PREVIOUS, None)
+    return (found[1],) if found is not None and found[0] == prop else None
+
+
 class Furniture(StatelessProxy):
     """Proxy de l'ensemble. Chemin de module figé (ADR 0008) ; sans état enregistré.
 
@@ -231,9 +268,10 @@ class Furniture(StatelessProxy):
         restore_member(obj)
 
     def onBeforeChange(self, obj: DocumentObject, prop: str) -> None:
-        """Cotes avant une saisie de l'utilisateur, pour :meth:`onChanged`."""
+        """Cotes et options avant une saisie de l'utilisateur, pour :meth:`onChanged`."""
         if prop in DIMENSIONS:
             self.previous_box = box_of(obj) if follows_user_changes(obj) else None
+        remember_before_change(obj, prop)
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Saisie de l'utilisateur : cote → avertissements (formules, pièce cassée : la cote
@@ -241,16 +279,16 @@ class Furniture(StatelessProxy):
         lui-même ; rien pendant une restauration, une annulation ou un recalcul."""
         if not follows_user_changes(obj):
             return
-        from freecad.menuiserie.features import furniture_bindings
+        from freecad.menuiserie.features import furniture_edits
 
         if prop in DIMENSIONS and not has_expression(obj, prop):
             previous: FurnitureBox | None = getattr(self, "previous_box", None)
             self.previous_box = None
             current = box_of(obj)
             if previous is not None and current is not None and previous != current:
-                furniture_bindings.report_resize(obj, previous, current)
+                furniture_edits.report_resize(obj, previous, current)
         elif prop in MEMBER_OPTIONS:
-            furniture_bindings.member_option_changed(obj, prop)
+            furniture_edits.member_option_changed(obj, prop, take_previous(obj, prop))
 
     def unsetupObject(self, obj: DocumentObject) -> None:
         """Suppression de l'ensemble (``removeObject``, interface comprise) : les liaisons de

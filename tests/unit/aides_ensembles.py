@@ -9,8 +9,10 @@ from dataclasses import replace
 from freecad.menuiserie.core.furniture import (
     Edge,
     FurnitureBox,
+    FurnitureAxis,
     InteriorMode,
     Member,
+    Row,
     Rules,
     follow_rules,
     with_default_options,
@@ -71,3 +73,23 @@ FREE_BACK = {"JG": BACK, "JD": BACK}  # arrière des joues décoché : elles res
 def desk_rules(members: list[Member], box: FurnitureBox = BOX) -> tuple[list[Member], Rules]:
     """Membres et règles de suivi (avertissements ignorés)."""
     return members, follow_rules(box, members)[0]
+
+
+def row_of(members: list[Member], key: str, axis: FurnitureAxis, box: FurnitureBox = BOX) -> Row:
+    """Rangée du membre ``key`` sur ``axis``."""
+    rules, _ = follow_rules(box, members)
+    return next(rule.row for rule in rules[key] if rule.axis is axis)
+
+
+def evaluate(
+    rules: Rules,
+    key: str,
+    axis: FurnitureAxis,
+    size: float,
+    thicknesses: Mapping[str, float] | None = None,
+) -> tuple[float, float | None]:
+    """Position et cote étirée du membre sur ``axis`` pour la cote ``size`` de l'ensemble et
+    les épaisseurs ``thicknesses`` (à compléter avec celles du bureau)."""
+    values = {"P": 30.0, "JG": 22.0, "JD": 22.0, "V": 18.0, **(thicknesses or {})}
+    rule = next(rule for rule in rules[key] if rule.axis is axis)
+    return rule.position.at(size, values), None if rule.size is None else rule.size.at(size, values)

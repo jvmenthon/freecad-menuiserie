@@ -2,30 +2,30 @@
 """Liaisons : expressions FreeCAD posées sur les membres d'un ensemble (J4a, critères F8, F9).
 
 Module privé : la façade ``core.furniture`` ré-exporte l'API publique. Format :
-``<<Label>>.Cote``, puis ``* ratio`` (9 décimales au plus), puis ``+ k mm`` ou ``- k mm``
-(6 décimales au plus) ; zéros inutiles retirés, ratio 1 et constante nulle omis.
+``<<Label>>.Cote``, puis ``* ratio`` (9 décimales au plus), puis un terme
+``<<Pièce>>.Thickness [* coefficient]`` par épaisseur citée (triées par clé), puis ``k mm``
+(6 décimales au plus), chacun précédé de ``+`` ou ``-`` ; zéros inutiles retirés, ratio 1,
+coefficient 1 et constante nulle omis.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core._validation import has_forbidden_character
-from freecad.menuiserie.core.furniture._follow import Linear, Rules, axis_motion
+from freecad.menuiserie.core.furniture._follow import FollowRule, Rules
+from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._messages import INVALID_LABEL
 from freecad.menuiserie.core.furniture._model import (
     Binding,
-    FollowRule,
     FurnitureAxis,
-    FurnitureBox,
     FurnitureError,
     Member,
     NoticeKind,
     notice,
 )
-from freecad.menuiserie.core.furniture._spans import member_spans
 from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.text import quoted_value
 
@@ -44,23 +44,60 @@ def number_text(value: float, decimals: int) -> str:
     return "0" if text == "-0" else text
 
 
+def _signed(text: str) -> tuple[bool, str]:
+    return text.startswith("-"), text.lstrip("-")
+
+
+def _terms(
+    reference: str,
+    axis: FurnitureAxis,
+    linear: Linear,
+    pieces: Mapping[str, str],
+    from_origin: bool,
+) -> list[tuple[bool, str]]:
+    """Termes (négatif, texte) de l'expression : origine, cote, épaisseurs, constante."""
+    terms = [(False, f"{reference}.Origin.{'xyz'[axis.index]}")] if from_origin else []
+    pending = [(f"{reference}.{axis.value}", linear.coef)]
+    pending += [(f"{pieces.get(key, key)}.Thickness", coef) for key, coef in linear.thickness]
+    for name, coef in pending:
+        negative, ratio = _signed(number_text(coef, RATIO_DECIMALS))
+        if ratio != "0":
+            terms.append((negative, name if ratio == "1" else f"{name} * {ratio}"))
+    negative, constant = _signed(number_text(linear.const, CONSTANT_DECIMALS))
+    if constant != "0":
+        terms.append((negative, f"{constant} mm"))
+    return terms
+
+
 def expression_text(
-    reference: str, axis: FurnitureAxis, linear: Linear, *, from_origin: bool = False
+    reference: str,
+    axis: FurnitureAxis,
+    linear: Linear,
+    pieces: Mapping[str, str] | None = None,
+    *,
+    from_origin: bool = False,
 ) -> str:
-    """Texte ``[<<Label>>.Origin.x +] <<Label>>.Cote * ratio ± k mm`` de ``linear``
-    (``reference`` = ``<<Label>>``) ; ``from_origin`` pour une position, relative à l'``Origin``
-    de l'ensemble, qui suit donc un sous-ensemble dont l'``Origin`` bouge."""
-    terms = [f"{reference}.Origin.{'xyz'[axis.index]}"] if from_origin else []
-    ratio = number_text(linear.coef, RATIO_DECIMALS)
-    if ratio != "0":
-        terms.append(f"{reference}.{axis.value}" + ("" if ratio == "1" else f" * {ratio}"))
-    text = " + ".join(terms)
-    constant = number_text(linear.const, CONSTANT_DECIMALS)
-    if not text:
-        return f"{constant} mm"
-    if constant.startswith("-"):
-        return f"{text} - {constant[1:]} mm"
-    return text if constant == "0" else f"{text} + {constant} mm"
+    """Texte ``[<<Label>>.Origin.x +] <<Label>>.Cote * ratio ± <<Pièce>>.Thickness ± k mm`` de
+    ``linear`` (``reference`` = ``<<Label>>`` ; ``pieces`` : clé de pièce → référence citée dans
+    l'expression, ``<<Libellé>>`` ou ``Name``, la clé elle-même si elle manque) ; ``from_origin``
+    pour une position, relative à l'``Origin`` de l'ensemble, qui suit donc un sous-ensemble
+    dont l'``Origin`` bouge."""
+    terms = _terms(reference, axis, linear, pieces or {}, from_origin)
+    if not terms:
+        return "0 mm"
+    negative, first = terms[0]
+    parts = [f"-{first}" if negative else first]
+    parts += [f"{'-' if negative else '+'} {term}" for negative, term in terms[1:]]
+    return " ".join(parts)
+
+
+def piece_reference(member: Member) -> str:
+    """Référence à une pièce dans une expression : ``<<Libellé>>``, ou son ``Name`` (la clé)
+    si le libellé est inutilisable (:func:`label_reference`)."""
+    try:
+        return label_reference(member.label)
+    except FurnitureError:
+        return member.key
 
 
 def label_reference(label: str) -> str:
@@ -114,49 +151,53 @@ def bound_by_workshop(member: Member, prop: str) -> bool:
 
 
 def _member_bindings(
-    reference: str, box: FurnitureBox, member: Member, rules: tuple[FollowRule, ...], nested: bool
+    reference: str,
+    member: Member,
+    rules: tuple[FollowRule, ...],
+    pieces: Mapping[str, str],
+    nested: bool,
 ) -> Iterator[Binding]:
-    spans = member_spans(member)
     for rule in rules:
-        position, size = axis_motion(rule, spans[rule.axis], box.size(rule.axis))
-        local = rule.local
-        if (
-            size is not None
-            and local is not None
-            and not (size.constant or is_driven(member, local))
-        ):
-            yield Binding(member.key, local, expression_text(reference, rule.axis, size))
+        size, local = rule.size, rule.local
+        free = not (member.locked or (local is not None and is_driven(member, local)))
+        if size is not None and local is not None and free and not size.constant:
+            text = expression_text(reference, rule.axis, size, pieces)
+            yield Binding(member.key, local, text)
         prop = position_property(member, rule.axis)
-        if (nested or not position.constant) and not is_driven(member, prop):
-            text = expression_text(reference, rule.axis, position, from_origin=True)
+        if (nested or not rule.position.constant) and not is_driven(member, prop):
+            text = expression_text(reference, rule.axis, rule.position, pieces, from_origin=True)
             yield Binding(member.key, prop, text)
 
 
 def bindings_for(
     label: str,
-    box: FurnitureBox,
     members: Sequence[Member],
     rules: Rules,
     *,
+    keys: Collection[str] | None = None,
     nested: bool = False,
 ) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]:
-    """Liaisons des membres qui ont des règles (``follow_rules``), et avertissements
-    ``UserFormula`` pour chaque propriété liée par l'atelier mais pilotée par l'utilisateur,
-    qui n'en reçoit aucune.
+    """Liaisons des membres ``keys`` (tous par défaut) qui ont des règles (``follow_rules``), et
+    avertissements ``UserFormula`` pour chaque propriété liée par l'atelier mais pilotée par
+    l'utilisateur, qui n'en reçoit aucune. ``members`` : tous les membres, dont les pièces
+    voisines dont une expression cite l'épaisseur.
 
     Les positions sont écrites relativement à ``<<Label>>.Origin`` ; ``core`` travaille en
-    coordonnées relatives à cette ``Origin``. Aucune liaison qui ne changerait rien (face qui ne
-    bouge pas, cote constante), sauf ``nested`` : l'ensemble est lui-même membre d'un autre,
-    son ``Origin`` peut bouger, toutes les positions de ses membres la suivent.
+    coordonnées relatives à cette ``Origin``. Aucune liaison qui ne dépendrait ni de la cote ni
+    d'une épaisseur, sauf ``nested`` : l'ensemble est lui-même membre d'un autre, son ``Origin``
+    peut bouger, toutes les positions de ses membres la suivent. Une pièce verrouillée ne reçoit
+    aucune liaison de cote.
     """
     reference = label_reference(label)
+    pieces = {member.key: piece_reference(member) for member in members}
     bindings: list[Binding] = []
     notices: list[Notice] = []
     for member in members:
+        if keys is not None and member.key not in keys:
+            continue
         for prop in sorted(member.driven):
             if bound_by_workshop(member, prop):
                 notices.append(notice(NoticeKind.USER_FORMULA, member, property=prop))
         if member.key in rules:
-            found = _member_bindings(reference, box, member, rules[member.key], nested)
-            bindings.extend(found)
+            bindings.extend(_member_bindings(reference, member, rules[member.key], pieces, nested))
     return tuple(bindings), tuple(notices)
