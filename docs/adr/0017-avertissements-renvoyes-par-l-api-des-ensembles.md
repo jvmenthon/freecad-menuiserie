@@ -1,6 +1,6 @@
 # ADR 0017 — Avertissements renvoyés par l'API des ensembles
 
-- Statut : **proposé** (dette technique de fin J4, issue #40), en attente de jv
+- Statut : **accepté** (option 3, choisie par jv le 2026-10-23 ; dette technique de fin J4, issue #40)
 - Date : 2026-10-23
 - Spécification : [docs/specs/J4-ensembles.md](../specs/J4-ensembles.md), § 4.4.4
 - ADR liés : [0008 — Ensemble, objet de cotes](0008-ensemble-objet-de-cotes.md),
@@ -32,7 +32,7 @@ autres commandes de l'ensemble.
    avertissements traduits (`tuple[str, ...]`, vide s'il n'y en a pas) ; une fonction qui crée
    un objet renvoie `(objet, avertissements)`.
 
-## Décision proposée
+## Décision
 
 Option 3. `resize_furniture` renvoie les avertissements qu'il écrit déjà dans la vue rapport ;
 `remove_from_furniture` renvoie `()` (aucun avertissement aujourd'hui, mais le contrat est le

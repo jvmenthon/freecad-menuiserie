@@ -7,7 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 - API de l'ensemble ([ADR 0017](docs/adr/0017-avertissements-renvoyes-par-l-api-des-ensembles.md),
-  proposé, issue #40) : `resize_furniture` renvoie ses avertissements traduits (jusqu'ici
+  accepté, issue #40) : `resize_furniture` renvoie ses avertissements traduits (jusqu'ici
   seulement écrits dans la vue rapport) et `remove_from_furniture` un tuple vide, comme les autres
   fonctions de l'ensemble. `api.py` regroupé par famille, un seul `__all__`.
 - Dette technique de fin J4 (issue #40), sans changement visible : lecture des expressions
