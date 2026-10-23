@@ -41,8 +41,10 @@ refus « Les pièces se chevauchent » reste.
 
 ## Conséquences
 
-- La pièce usinée d'une invitée dessinée hors tout est plus courte que sa brute (tenon compris) :
-  la liste de débit (J2) doit partir de la pièce usinée, ou soustraire les parties retirées.
+- La pièce usinée d'une invitée dessinée hors tout est plus courte que sa brute. La liste de
+  débit (J2) prend pour cotes finies la brute moins les parties retirées, et compte le tenon en
+  ajout : une traverse de 340 dessinée sur un montant de 60 est débitée 280 + 40 (demande de jv,
+  `features/cutlist_parts.py`, `machined_extent`).
 - Le Caisson, les documents et les scripts au contact ne changent pas (plan identique, aucune
   partie retirée).
 - Ensembles : la partie retirée suit les cotes, puisqu'elle est recalculée à chaque recalcul.

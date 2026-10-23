@@ -7,19 +7,22 @@ jamais la liste : elles deviennent des avertissements (:class:`CollectNoticeKind
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from dataclasses import replace
 from enum import Enum
 from typing import Any, Final
 
 from freecad.menuiserie.core.cutlist import NO_ADDITIONS, CutEntry, Hardware, HardwareKind
+from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Box
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.notice import Notice
-from freecad.menuiserie.core.part_model import Allowances, GrainDirection, PartRecord
+from freecad.menuiserie.core.part_model import Allowances, Dimensions, GrainDirection, PartRecord
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import templated_message
-from freecad.menuiserie.features.joints.base import is_joint, resolved_for
+from freecad.menuiserie.features.joints.base import is_joint, plan_for, resolved_for
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -38,6 +41,7 @@ __all__ = [
     "entry_of",
     "is_dowel_joint",
     "local_shape",
+    "machined_extent",
 ]
 
 UNKNOWN_MATERIAL_PREFIX: Final = "? "
@@ -148,7 +152,9 @@ def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> Cut
     un avertissement qui la nomme si ses propriétés sont inutilisables (cote invalide…)."""
     try:
         record = _record(blank, notices)
-        additions = additions_of(blank, notices)
+        finished, additions = machined_extent(blank, notices)
+        if finished != record.finished:  # pièce dessinée hors tout, raccourcie (ADR 0016)
+            record = replace(record, finished=finished)
         owner = furniture_of(blank)
         label = str(owner.Label) if owner is not None else ""
         rough = _rough_thicknesses(record)
@@ -186,24 +192,70 @@ def _excess(low: float, high: float, size: float) -> float:
     return value if value >= _EPSILON_MM else 0.0
 
 
-def additions_of(blank: DocumentObject, notices: list[Notice]) -> Allowances:
-    """Ajouts (mm) le long de L, l, e : étendue de la pièce usinée de ``blank`` au-delà de la
-    brute : tenon, et invitée prolongée dans l'hôte d'une feuillure, d'un mi-bois ou d'un onglet
-    entre pièces au contact (ADR 0014) ; les retraits seuls ne donnent rien (ADR 0006). Sans pièce
-    usinée : rien ; forme absente ou invalide : rien et un avertissement."""
+def _trims(blank: DocumentObject, machined: DocumentObject) -> Iterator[Box]:
+    """Parties retirées de ``blank`` par les assemblages dont elle est l'invitée (ADR 0016) ;
+    un assemblage impossible n'en retire aucune."""
+    for joint in getattr(machined, "Joints", ()):
+        if not is_joint(joint) or joint.GuestPart != blank:
+            continue
+        try:
+            plan = plan_for(joint)
+        except ValueError:
+            continue
+        yield from (trim for trim in plan.guest_trims if isinstance(trim, Box))
+
+
+def _spans(trim: Box, ranges: list[list[float]], axis: int) -> bool:
+    low, high = ranges[axis]
+    tolerance = CONTACT_TOLERANCE_MM
+    return trim.lo(axis) <= low + tolerance and trim.hi(axis) >= high - tolerance
+
+
+def _kept_box(blank: DocumentObject, machined: DocumentObject, size: Dimensions) -> Box:
+    """Boîte de la brute moins ses parties retirées (repère de la brute) : chacune part d'une
+    face et couvre la pièce sur les deux autres axes, la pièce est raccourcie d'autant."""
+    ranges = [[0.0, size.length], [0.0, size.width], [0.0, size.thickness]]
+    for trim in _trims(blank, machined):
+        for axis in range(3):
+            if not all(_spans(trim, ranges, other) for other in range(3) if other != axis):
+                continue
+            low, high = ranges[axis]
+            if trim.lo(axis) <= low + CONTACT_TOLERANCE_MM < trim.hi(axis) < high:
+                ranges[axis][0] = trim.hi(axis)
+            elif low < trim.lo(axis) < high - CONTACT_TOLERANCE_MM <= trim.hi(axis):
+                ranges[axis][1] = trim.lo(axis)
+    return Box.from_ranges([(low, high) for low, high in ranges])
+
+
+def machined_extent(blank: DocumentObject, notices: list[Notice]) -> tuple[Dimensions, Allowances]:
+    """Cotes finies réelles de ``blank`` et ses ajouts (mm, le long de L, l, e).
+
+    Cotes : celles de la brute, moins les parties retirées d'une invitée dessinée hors tout qui
+    chevauchait l'hôte (ADR 0016). Ajouts : étendue de la pièce usinée au-delà de ces cotes :
+    tenon, et invitée prolongée dans l'hôte d'une feuillure, d'un mi-bois ou d'un onglet entre
+    pièces au contact (ADR 0014) ; les autres retraits ne donnent rien (ADR 0006). Sans pièce
+    usinée : la brute, sans ajout ; forme absente ou invalide : de même, et un avertissement."""
+    size = dimensions_of(blank)
     machined = machined_part_of(blank)
     if machined is None:
-        return NO_ADDITIONS
+        return size, NO_ADDITIONS
     box = _local_box(machined)
     if box is None:
         notices.append(notice(CollectNoticeKind.NO_MACHINED_SHAPE, machined))
-        return NO_ADDITIONS
-    size = dimensions_of(blank)
-    return Allowances(
-        _excess(box.XMin, box.XMax, size.length),
-        _excess(box.YMin, box.YMax, size.width),
-        _excess(box.ZMin, box.ZMax, size.thickness),
-    )
+        return size, NO_ADDITIONS
+    kept = _kept_box(blank, machined, size)
+    bounds = ((box.XMin, box.XMax), (box.YMin, box.YMax), (box.ZMin, box.ZMax))
+    excess = [
+        _excess(low - kept.lo(axis), high - kept.lo(axis), kept.size(axis))
+        for axis, (low, high) in enumerate(bounds)
+    ]
+    finished = Dimensions(kept.size(0), kept.size(1), kept.size(2))
+    return (size if finished == size else finished), Allowances(*excess)
+
+
+def additions_of(blank: DocumentObject, notices: list[Notice]) -> Allowances:
+    """Ajouts de ``blank`` (mm, le long de L, l, e), d'après :func:`machined_extent`."""
+    return machined_extent(blank, notices)[1]
 
 
 # --- Tourillons (D5) ---------------------------------------------------------------------

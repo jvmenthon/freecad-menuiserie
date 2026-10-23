@@ -37,6 +37,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   demande de jv) : l'invitée dessinée hors tout est raccourcie jusqu'au contact, par la face où
   elle entre dans l'hôte ; sa pièce usinée perd cette partie avant de recevoir ses ajouts
   (`JointPlan.guest_trims`). Le contact reste accepté.
+- Liste de débit d'une pièce dessinée hors tout et raccourcie par un assemblage (ADR 0016,
+  demande de jv) : cote finie = brute moins les parties retirées, tenon compté en ajout (une
+  traverse de 340 sur un montant de 60 : 280 + 40, au lieu de la brute de 340).
 - Panneau du mi-bois et de l'onglet sans bouton « Inverser » : leurs deux rôles sont symétriques
   (demande de jv ; `JointFeature.INVERTIBLE`).
 - Présentation soignée de la liste de débit (aperçu et PDF, demande de jv « un affichage plus
