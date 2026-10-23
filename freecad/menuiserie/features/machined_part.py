@@ -22,6 +22,7 @@ from freecad.menuiserie.features.freecad_types import (
     READ_ONLY,
     DocumentObject,
     StatelessProxy,
+    placement_expression,
     proxy_is,
     restoring_or_undoing,
 )
@@ -114,13 +115,6 @@ def _quoted(obj: DocumentObject) -> dict[str, str]:
     return {"label": quoted_value(obj.Label)}
 
 
-def _placement_expression(blank: DocumentObject) -> str | None:
-    """Chemin de la première expression qui pilote le ``Placement`` de ``blank`` (liaison d'un
-    ensemble ou formule de l'utilisateur), ``None`` s'il n'y en a pas."""
-    paths = (path.lstrip(".") for path, _ in blank.ExpressionEngine)
-    return next((path for path in sorted(paths) if path.split(".")[0] == "Placement"), None)
-
-
 class MachinedPart(StatelessProxy):
     """Proxy du FeaturePython « pièce usinée ». Chemin de module figé (ADR 0003).
 
@@ -210,7 +204,7 @@ class MachinedPart(StatelessProxy):
         blank: DocumentObject = getattr(obj, "Base", None)
         if not is_wood_part(blank) or blank.Placement == obj.Placement:
             return
-        bound = _placement_expression(blank)
+        bound = placement_expression(blank)
         if bound is not None:  # J4, N6 : refus explicite, aucune écriture perdue en silence
             report_warning(translated(_PLACEMENT_BOUND, {**_quoted(blank), "property": bound}))
             return

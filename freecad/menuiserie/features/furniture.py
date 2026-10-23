@@ -29,6 +29,7 @@ from freecad.menuiserie.features.freecad_types import (
     Document,
     DocumentObject,
     StatelessProxy,
+    has_expression,
     proxy_is,
     restoring_or_undoing,
 )
@@ -242,7 +243,7 @@ class Furniture(StatelessProxy):
             return
         from freecad.menuiserie.features import furniture_bindings
 
-        if prop in DIMENSIONS and prop not in _expressions(obj):
+        if prop in DIMENSIONS and not has_expression(obj, prop):
             previous: FurnitureBox | None = getattr(self, "previous_box", None)
             self.previous_box = None
             current = box_of(obj)
@@ -266,10 +267,6 @@ class Furniture(StatelessProxy):
         """Aucune forme : vérifie seulement les cotes (``ValueError`` traduite sinon)."""
         with translated_errors():
             FurnitureBox(obj.Width.Value, obj.Depth.Value, obj.Height.Value)
-
-
-def _expressions(obj: DocumentObject) -> set[str]:
-    return {path.lstrip(".") for path, _ in obj.ExpressionEngine}
 
 
 def is_furniture(obj: object) -> bool:

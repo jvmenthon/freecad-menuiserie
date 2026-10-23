@@ -24,7 +24,11 @@ from freecad.menuiserie.core.snap import (
     support_rotation,
     turned_in_place,
 )
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import (
+    DocumentObject,
+    has_expression,
+    placement_expression,
+)
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
@@ -32,7 +36,6 @@ __all__ = [
     "SnapSession",
     "add_to_container",
     "local_placement",
-    "placement_expression",
     "rotate_part",
     "snap_part",
     "to_placement",
@@ -63,13 +66,6 @@ def add_to_container(obj: DocumentObject, container: DocumentObject | None) -> N
     Le ``Placement`` de ``obj`` est alors lu dans le repère du conteneur : le fixer après."""
     if container is not None:
         container.addObject(obj)
-
-
-def placement_expression(obj: DocumentObject) -> str | None:
-    """Chemin de la première expression qui pilote le ``Placement`` de ``obj`` (liaison d'un
-    ensemble, formule de l'utilisateur), ``None`` s'il n'y en a pas."""
-    paths = (path.lstrip(".") for path, _ in obj.ExpressionEngine)
-    return next((path for path in sorted(paths) if path.split(".")[0] == "Placement"), None)
 
 
 @dataclass
@@ -129,8 +125,7 @@ def snap_part(obj: DocumentObject, session: SnapSession) -> bool:
 
 
 def _write_dimension(obj: DocumentObject, prop: str, value: float) -> bool:
-    driven = any(path.lstrip(".") == prop for path, _ in obj.ExpressionEngine)
-    if driven or getattr(obj, prop).Value == value:
+    if has_expression(obj, prop) or getattr(obj, prop).Value == value:
         return False
     setattr(obj, prop, value)
     return True

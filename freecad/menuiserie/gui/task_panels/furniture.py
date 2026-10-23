@@ -27,7 +27,7 @@ from freecad.menuiserie.core.furniture import Edge, InteriorMode, Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import furniture_edges, furniture_members
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_view import MemberView, member_views, shown_object
 from freecad.menuiserie.features.i18n import translated
@@ -38,7 +38,6 @@ from freecad.menuiserie.gui.task_panels.base import (
     UpdateGuard,
     Widget,
     connect,
-    expression_of,
 )
 from freecad.menuiserie.gui.task_panels.furniture_widgets import (
     MODE_LABELS,

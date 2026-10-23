@@ -24,7 +24,7 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import (
     DEFAULT_LABEL,
     DIMENSIONS,
@@ -41,7 +41,6 @@ from freecad.menuiserie.features.furniture import (
 from freecad.menuiserie.features.furniture_bindings import (
     MemberSet,
     bind_members,
-    expressions_of,
     member_of,
     read_members,
     rebind,

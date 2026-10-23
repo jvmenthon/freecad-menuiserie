@@ -24,6 +24,10 @@ SHARED_NAMES = {
     "EDITABLE": "features/freecad_types.py",
     "READ_ONLY": "features/freecad_types.py",
     "HIDDEN": "features/freecad_types.py",
+    "expressions_of": "features/freecad_types.py",
+    "expression_of": "features/freecad_types.py",
+    "has_expression": "features/freecad_types.py",
+    "placement_expression": "features/freecad_types.py",
     "translated": "features/i18n.py",
 }
 FORBIDDEN_COPIES = {"_EDITABLE", "_READ_ONLY", "_HIDDEN"}
@@ -68,6 +72,20 @@ def test_noms_partages_definis_une_seule_fois(path: Path) -> None:
 @pytest.mark.parametrize("name", sorted(SHARED_NAMES))
 def test_nom_partage_defini_par_son_module(name: str) -> None:
     assert name in top_level_names(PACKAGE / SHARED_NAMES[name])
+
+
+def test_expression_engine_lu_par_un_seul_module() -> None:
+    """Issue #40 : la lecture de ``ExpressionEngine`` (chemins sans le point initial) est
+    partagée par ``expressions_of``."""
+    readers = sorted(
+        path.relative_to(PACKAGE).as_posix()
+        for path in package_files()
+        if any(
+            isinstance(node, ast.Attribute) and node.attr == "ExpressionEngine"
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        )
+    )
+    assert readers == ["features/freecad_types.py"]
 
 
 def test_wood_part_s_appuie_sur_le_schema_et_la_restauration() -> None:

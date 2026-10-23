@@ -231,20 +231,6 @@ class UpdateGuard:
         self._depth -= 1
 
 
-def expression_of(obj: DocumentObject, prop: str) -> str | None:
-    """Expression qui pilote la propriété ``prop`` de ``obj``, ``None`` s'il n'y en a pas."""
-    for path, expression in obj.ExpressionEngine:
-        if path.lstrip(".") == prop:
-            text: str = expression
-            return text
-    return None
-
-
-def has_expression(obj: DocumentObject, prop: str) -> bool:
-    """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
-    return expression_of(obj, prop) is not None
-
-
 def connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:
     """Connexion par signature Qt : les champs de FreeCAD (``Gui::QuantitySpinBox``) n'ont pas
     d'attribut de signal en Python, et la connexion par attribut garde en vie l'enveloppe

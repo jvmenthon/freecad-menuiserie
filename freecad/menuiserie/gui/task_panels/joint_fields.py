@@ -27,10 +27,10 @@ from PySide import QtGui
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import MAX_ANGLE_DEG
 from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.schema import ANGLE, DISTANCE, PropertySpec
-from freecad.menuiserie.gui.task_panels.base import UpdateGuard, Widget, connect, expression_of
+from freecad.menuiserie.gui.task_panels.base import UpdateGuard, Widget, connect
 
 Write = Callable[[str, object], None]  # (propriété, valeur) écrite par le panneau
 

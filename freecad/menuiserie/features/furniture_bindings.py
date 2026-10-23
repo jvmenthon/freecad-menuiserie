@@ -30,7 +30,7 @@ from freecad.menuiserie.core.furniture import (
     with_default_options,
 )
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import (
     MEMBER_OPTIONS,
     follows_user_changes,
@@ -54,7 +54,6 @@ from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
 __all__ = [
     "MemberSet",
     "bind_members",
-    "expressions_of",
     "joined_pairs",
     "member_of",
     "member_option_changed",
@@ -80,12 +79,6 @@ class MemberSet:
     box: FurnitureBox
     members: tuple[Member, ...]
     objects: Mapping[str, DocumentObject]
-
-
-def expressions_of(obj: DocumentObject) -> dict[str, str]:
-    """Expressions de ``obj`` par chemin de propriété (``Placement.Base.y``, sans le point
-    initial que FreeCAD ajoute aux sous-chemins)."""
-    return {path.lstrip("."): text for path, text in obj.ExpressionEngine}
 
 
 def members_of(furniture: DocumentObject) -> list[DocumentObject]:

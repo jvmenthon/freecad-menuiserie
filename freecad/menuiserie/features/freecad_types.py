@@ -4,8 +4,8 @@
 FreeCAD ne fournit pas d'annotations de type : ``DocumentObject`` et ``Document`` (``Any``)
 documentent les signatures. ``EDITABLE``, ``READ_ONLY`` et ``HIDDEN`` sont les modes de
 ``setEditorMode`` (éditeur de propriétés). :class:`StatelessProxy` est la base des proxys sans
-état (objets et ViewProviders). Module public, utilisé aussi par ``gui/`` et
-``api.py``.
+état (objets et ViewProviders). :func:`expressions_of` et ses variantes lisent
+l'``ExpressionEngine`` d'un objet. Module public, utilisé aussi par ``gui/`` et ``api.py``.
 """
 
 from __future__ import annotations
@@ -19,6 +19,10 @@ __all__ = [
     "Document",
     "DocumentObject",
     "StatelessProxy",
+    "expression_of",
+    "expressions_of",
+    "has_expression",
+    "placement_expression",
     "proxy_is",
     "restoring_or_undoing",
 ]
@@ -45,6 +49,29 @@ def restoring_or_undoing(obj: DocumentObject) -> bool:
     """Vrai pendant la restauration de ``obj`` ou une annulation / un rétablissement du
     document : ``onChanged`` ne doit alors réagir à rien (aucune saisie de l'utilisateur)."""
     return "Restore" in obj.State or bool(obj.Document.Transacting)
+
+
+def expressions_of(obj: DocumentObject) -> dict[str, str]:
+    """Expressions de ``obj`` par chemin de propriété (``Placement.Base.y``, sans le point
+    initial que FreeCAD ajoute aux sous-chemins)."""
+    return {path.lstrip("."): text for path, text in obj.ExpressionEngine}
+
+
+def expression_of(obj: DocumentObject, prop: str) -> str | None:
+    """Expression qui pilote la propriété ``prop`` de ``obj``, ``None`` s'il n'y en a pas."""
+    return expressions_of(obj).get(prop)
+
+
+def has_expression(obj: DocumentObject, prop: str) -> bool:
+    """Vrai si la propriété ``prop`` de ``obj`` est pilotée par une expression."""
+    return prop in expressions_of(obj)
+
+
+def placement_expression(obj: DocumentObject) -> str | None:
+    """Chemin de la première expression qui pilote le ``Placement`` de ``obj`` (liaison d'un
+    ensemble, formule de l'utilisateur), ``None`` s'il n'y en a pas."""
+    paths = sorted(expressions_of(obj))
+    return next((path for path in paths if path.split(".")[0] == "Placement"), None)
 
 
 class StatelessProxy:
