@@ -6,6 +6,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Définir une distance, commande et panneau (lot DI-b de l'issue #65,
+  [ADR 0022](docs/adr/0022-distance-entre-deux-pieces.md), critères E1 à E6) : commande
+  `Menuiserie_SetDistance` (menu, barre d'outils, icône, menu contextuel de la vue 3D et de
+  l'arborescence) active avec deux éléments de deux objets ; panneau « Entre … et … », distance
+  actuelle, champ Distance (unités et calculs), pièce déplacée suivant la saisie en direct,
+  bouton Inverser, liste Direction pour deux sommets ; « OK » en une transaction, « Annuler »
+  sans effet ; refus expliqués (aucune pièce de l'atelier, éléments non parallèles, arête
+  courbe, axe piloté par une formule). `api.set_distance(a, b, value, *, moving, axis)`
+  déplace une pièce de l'atelier (la brute ; membre d'ensemble relié ensuite). « Garder cette
+  distance » viendra avec DI-c.
 - Glisser une pièce à la souris, règles pures (lot SM-a de l'issue #65,
   [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), critères A1 à A8) : nouveau
   paquet `core/magnet/` sans FreeCAD ni Qt (flèches de la pièce, point de l'axe le plus proche du

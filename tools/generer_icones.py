@@ -270,6 +270,23 @@ def ensemble_relier() -> str:
     return ic.svg(cadre=(2, 50, 2, 50), devant=fleches)
 
 
+# --- Définir une distance (DI-b) -------------------------------------------------------------
+
+
+def distance() -> str:
+    ic = Icone("Définir une distance : plateau, étagère et cote entre les deux")
+    ic.boite((0, 0, 40), (70, 30, 6), "chene")  # plateau
+    ic.boite((0, 0, 0), (70, 30, 6), "chene")  # étagère
+    ic.veinage((4, 66), (10, 46), "chene", amplitude=0.7)
+    ic.veinage((4, 66), (22, 46), "chene", amplitude=0.7, phase=0.5)
+    cote = (
+        '  <path d="M58,26 V49 M53,26 H63 M53,49 H63 M58,26 L55.5,31 M58,26 L60.5,31 '
+        'M58,49 L55.5,44 M58,49 L60.5,44" fill="none" stroke="#204a87" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+    return ic.svg(cadre=(3, 50, 3, 61), devant=cote)
+
+
 # --- Rotations X, Y, Z du panneau de la pièce de bois (J6c) ---------------------------------
 
 # Axe tourné : (vecteur de l'axe, deux vecteurs du plan de la flèche, rayon, couleur de l'axe).
@@ -358,6 +375,8 @@ ICONES = {
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
     "Menuiserie_FurnitureRemove.svg": ensemble_retirer,
     "Menuiserie_FurnitureRebind.svg": ensemble_relier,
+    # Distance entre deux pièces (DI-b)
+    "Menuiserie_SetDistance.svg": distance,
     # Rotations du panneau de la pièce de bois (J6c)
     "Menuiserie_RotateX.svg": rotation_x,
     "Menuiserie_RotateY.svg": rotation_y,

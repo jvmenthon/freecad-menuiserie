@@ -34,6 +34,7 @@ from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
+from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_double_clic import VERIFICATIONS_DOUBLE_CLIC
 from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
@@ -1239,6 +1240,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
+    # Distance entre deux pièces (DI-b)
+    *VERIFICATIONS_DISTANCE,
 )
 
 
