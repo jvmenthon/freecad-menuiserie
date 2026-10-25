@@ -177,15 +177,19 @@ def _settle_border(
 def _settle_gaps(
     cells: Sequence[_Cell], entries: Sequence[_Entry], axis: FurnitureAxis, inside: range
 ) -> None:
-    """Écarts non couverts : libres entre deux cellules couvertes, sinon écarts au bord
-    (distance fixe → rigide, mode ``Stay`` → absorbant, sinon libre)."""
+    """Écarts non couverts. Entre deux cellules couvertes (écart entre pièces) : rigide s'il y
+    a une cellule libre de pièce dans la rangée (seules les pièces changent de cote), sinon
+    libre. Au bord : distance fixe → rigide, mode ``Stay`` → absorbant, sinon libre."""
+    has_piece = any(cells[i].kind is _Kind.FREE for i in inside)
     for index in inside:
         cell = cells[index]
         if cell.kind is not _Kind.GAP:
             continue
         before = any(cells[i].covered for i in range(inside.start, index))
         after = any(cells[i].covered for i in range(index + 1, inside.stop))
-        if before and after:
+        if before and after and has_piece:
+            cell.make_rigid()
+        elif before and after:
             cell.kind = _Kind.FREE
         elif before or after:
             _settle_border(cell, entries, axis, index, at_end=before)

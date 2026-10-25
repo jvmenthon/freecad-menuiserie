@@ -30,6 +30,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   Recette manuelle : `docs/recette/ensembles-epaisseurs-scenarios-manuels.md`.
 
 ### Modifié
+- Ensembles (ADR 0019), suite à la CI d'intégration : une pièce qui cite sa propre épaisseur
+  l'écrit `Thickness` (comme FreeCAD la réécrit) ; les citations d'épaisseur ne forment jamais
+  de cycle entre pièces (le terme qui fermerait un cycle est figé en constante) ; les écarts
+  entre pièces restent rigides quand la rangée a une pièce libre (« seules les pièces sont
+  modifiées » : un caisson entre deux joues absorbe seul la différence).
 - Ensembles (ADR 0019) : `set_member_options` relie désormais **tout** l'ensemble (un réglage peut
   changer la rangée des autres pièces), comme `set_edge_distance` ; les liaisons changent de
   forme (épaisseurs vivantes, pièces au prorata, pièce qui garde sa place citée par son

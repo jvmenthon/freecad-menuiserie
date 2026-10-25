@@ -60,6 +60,15 @@ class Linear:
             terms[key] = terms.get(key, 0.0) + sign * coef
         return Linear.of(self.coef + sign * other.coef, self.const + sign * other.const, terms)
 
+    def frozen(self, values: Mapping[str, float]) -> Linear:
+        """Fonction affine dont les termes d'épaisseur des pièces de ``values`` (clé → mm) sont
+        remplacés par leur valeur : constante, ne suit plus l'épaisseur."""
+        kept = {key: coef for key, coef in self.thickness if key not in values}
+        const = self.const + sum(
+            coef * values[key] for key, coef in self.thickness if key in values
+        )
+        return Linear.of(self.coef, const, kept)
+
     @property
     def keys(self) -> frozenset[str]:
         """Clés des pièces dont l'épaisseur intervient."""

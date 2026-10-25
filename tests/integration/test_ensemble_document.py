@@ -190,12 +190,10 @@ def test_mode_proportion_dans_l_editeur(bureau: Bureau) -> None:
     doc, voile = bureau.doc, bureau.parts["V"]
     voile.FixedBack = False
     # Le voile garde sa place : l'origine locale est à son bord arrière, 441 + son épaisseur.
-    stays = "<<Bureau>>.Origin.y + <<Voile>>.Thickness + 441 mm"
+    stays = "<<Bureau>>.Origin.y + Thickness + 441 mm"
     assert bureau.expressions("V")["Placement.Base.y"] == stays
     voile.PositionMode = "Proportional"
-    expected = (
-        "<<Bureau>>.Origin.y + <<Bureau>>.Depth * 0.757731959 + <<Voile>>.Thickness * 0.242268041"
-    )
+    expected = "<<Bureau>>.Origin.y + <<Bureau>>.Depth * 0.757731959 + Thickness * 0.242268041"
     assert bureau.expressions("V")["Placement.Base.y"] == expected
     bureau.furniture.Depth = 800
     doc.recompute()
@@ -203,7 +201,7 @@ def test_mode_proportion_dans_l_editeur(bureau: Bureau) -> None:
     assert bureau.bounds("V")[1] == pytest.approx((592.546, 610.546), abs=2e-3)
     voile.PositionMode = "Stay"
     assert bureau.expressions("V")["Placement.Base.y"] == (
-        "<<Bureau>>.Origin.y + <<Voile>>.Thickness + 592.546392 mm"
+        "<<Bureau>>.Origin.y + Thickness + 592.546392 mm"
     )
     doc.recompute()
     assert bureau.bounds("V")[1] == pytest.approx((592.546, 610.546), abs=2e-3)
@@ -271,7 +269,7 @@ def test_deplacer_une_piece_usinee_liee_est_refuse(bureau: Bureau, vue_rapport: 
     machined.Placement = moved
     assert blank.Placement == before
     warnings = vue_rapport.de_niveau("Warning")
-    assert any("« Voile » est placée par une expression (Placement.Base.y)" in w for w in warnings)
+    assert any("« Voile » est placée par une expression (Placement.Base." in w for w in warnings)
     bureau.doc.recompute()
     assert machined.Placement == before
     assert stale_or_invalid(bureau.doc) == []

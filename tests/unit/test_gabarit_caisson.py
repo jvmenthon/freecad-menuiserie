@@ -126,16 +126,14 @@ EXPECTED_BINDINGS = {
     "back": {
         "Length": "<<Caisson>>.Height - 16 mm",
         "Width": "<<Caisson>>.Width - 16 mm",
-        "Placement.Base.y": "<<Caisson>>.Origin.y + <<Caisson>>.Depth - <<back>>.Thickness",
+        "Placement.Base.y": "<<Caisson>>.Origin.y + <<Caisson>>.Depth - Thickness",
     },
-    "shelf1": {
-        "Length": "<<Caisson>>.Width * 0.996453901 - <<left>>.Thickness * 0.996453901"
-        " - <<right>>.Thickness * 0.996453901",
-        "Placement.Base.x": "<<Caisson>>.Origin.x + <<Caisson>>.Width * 0.00177305"
-        " + <<left>>.Thickness * 0.99822695 - <<right>>.Thickness * 0.00177305",
-        "Width": "<<Caisson>>.Depth * 0.99744898 - <<back>>.Thickness * 0.99744898",
+    "shelf1": {  # jeux de 1 mm rigides : la pièce libre de la rangée est l'étagère (ADR 0019)
+        "Length": "<<Caisson>>.Width - <<left>>.Thickness - <<right>>.Thickness - 2 mm",
+        "Placement.Base.x": "<<Caisson>>.Origin.x + <<left>>.Thickness + 1 mm",
+        "Width": "<<Caisson>>.Depth - <<back>>.Thickness - 1 mm",
         "Placement.Base.z": "<<Caisson>>.Origin.z + <<Caisson>>.Height * 0.5"
-        " + <<bottom>>.Thickness * 0.5 - <<shelf1>>.Thickness * 0.5 - <<top>>.Thickness * 0.5",
+        " + <<bottom>>.Thickness * 0.5 - Thickness * 0.5 - <<top>>.Thickness * 0.5",
     },
     "top": {
         "Length": "<<Caisson>>.Width - 36 mm",
@@ -155,8 +153,8 @@ def carcass_members(params: CarcassParams = REFERENCE) -> tuple[Layout, list[Mem
 
 def test_liaisons_des_options_du_gabarit() -> None:
     """Les options explicites donnent les liaisons attendues, sans avertissement : le fond cite
-    sa propre épaisseur, les étagères partagent la différence avec leurs jeux (écarts entre
-    pièces : ADR 0019), les côtés suivent la hauteur et la profondeur."""
+    sa propre épaisseur (``Thickness``), l'étagère garde ses jeux et se règle sur les panneaux,
+    les côtés suivent la hauteur et la profondeur."""
     layout, members = carcass_members()
     rules, rule_notices = follow_rules(layout.box, members)
     bindings, notices = bindings_for("Caisson", members, rules)

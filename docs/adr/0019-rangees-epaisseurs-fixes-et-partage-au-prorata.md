@@ -52,10 +52,15 @@ Trois défauts en découlent :
    rangée absorbent. Une épaisseur coupée par une autre face (feuillure, pièce dessinée hors
    tout) reste une constante figée.
 3. **Partage au prorata** entre les cellules libres de la rangée : pièces étirables non
-   verrouillées, écarts entre deux pièces, et écarts aux bords dont la distance n'est pas fixe en
-   mode `Proportional`. En mode `Stay`, un écart au bord non fixe prend toute la différence (la
-   pièce ne bouge pas, ou suit l'autre bord). Les expressions restent natives (ADR 0009) :
-   `<<Bureau>>.Width - <<Joue gauche>>.Thickness - <<Joue droite>>.Thickness`.
+   verrouillées (règle de jv : « seules les pièces sont modifiées »), et, **seulement s'il n'y a
+   aucune pièce libre dans la rangée**, écarts entre deux pièces et écarts aux bords dont la
+   distance n'est pas fixe en mode `Proportional`. S'il y a une pièce libre, les écarts entre
+   pièces restent rigides (constantes) : un caisson entre deux joues absorbe seul la
+   différence (`<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness - 756 mm`),
+   alors qu'une étagère seule entre deux panneaux (rangée verticale sans pièce libre) partage
+   ses deux jeux au prorata. En mode `Stay`, un écart au bord non fixe prend toute la
+   différence (la pièce ne bouge pas, ou suit l'autre bord). Les expressions restent natives
+   (ADR 0009).
 4. **Pièce verrouillée** : nouvelle propriété de membre `Locked` (« Cotes fixes »,
    `App::PropertyBool`, faux par défaut, groupe « Ensemble »). Ses cotes ne changent jamais ;
    elle compte comme une cellule rigide de sa rangée.
@@ -74,6 +79,17 @@ Trois défauts en découlent :
 
 - Les expressions des membres citent l'épaisseur des pièces voisines ; renommer une pièce est
   suivi par FreeCAD (réécriture de `<<…>>`), et `same_binding` ignore déjà les libellés visés.
+- **Auto-référence** : une pièce qui cite sa propre épaisseur l'écrit `Thickness` (sans
+  `<<Libellé>>.`), comme FreeCAD réécrit une telle référence à la pose : le texte enregistré
+  (`FurnitureBindings`) est ainsi celui qu'on relit. Une pièce peut se citer elle-même.
+- **Pas de cycle entre objets** : le graphe de dépendances de FreeCAD est par objet, et refuse
+  que deux pièces se citent l'une l'autre (`RuntimeError: cyclic reference`) — deux étagères dans
+  une même rangée, chacune citant l'épaisseur de l'autre. Les liaisons voulues de tous les
+  membres sont parcourues dans l'ordre des clés (cote avant position, axes X, Y, Z) ; le terme
+  d'épaisseur qui fermerait un cycle est **figé en constante** (coefficient x épaisseur
+  actuelle). Le calcul porte sur tous les membres puis se filtre par clés : relier un seul membre
+  donne le même texte. Limite connue : l'épaisseur ainsi figée ne suit plus un changement
+  d'épaisseur de cette pièce avant « Relier les pièces ».
 - Les liaisons de la spécification J4 (F8) changent de texte : `- 44 mm` devient deux
   `Thickness`, `- 30 mm` devient `<<Plateau>>.Thickness` ; une joue reçoit une liaison
   `Placement.Base.x` = son épaisseur. Les valeurs numériques sont inchangées, sauf le voile en

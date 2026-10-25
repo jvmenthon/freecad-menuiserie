@@ -83,7 +83,7 @@ def test_voile_verrouille_relie_tout_l_ensemble(bureau: Bureau) -> None:
     assert expressions["Placement.Base.x"] == EXPRESSIONS["V"]["Placement.Base.x"]
     # La joue droite, qui suivait la largeur, suit désormais les épaisseurs et le voile.
     assert bureau.expressions("JD")["Placement.Base.x"] == (
-        "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness + <<Joue droite>>.Thickness + 1156 mm"
+        "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness + Thickness + 1156 mm"
     )
     api.set_member_options(voile, locked=False)
     assert snapshot(bureau) == EXPRESSIONS

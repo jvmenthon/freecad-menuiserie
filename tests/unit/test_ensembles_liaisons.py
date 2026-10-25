@@ -28,15 +28,17 @@ from freecad.menuiserie.core.furniture import (
     same_binding,
 )
 from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.core.templates.carcass import CarcassParams
 from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, with_options
+from tests.unit.test_gabarit_caisson import carcass_members
 
 DESK = {
     ("P", "Length"): "<<Bureau>>.Width",
     ("P", "Width"): "<<Bureau>>.Depth",
-    ("P", "Placement.Base.z"): "<<Bureau>>.Origin.z + <<Bureau>>.Height - <<Plateau>>.Thickness",
+    ("P", "Placement.Base.z"): "<<Bureau>>.Origin.z + <<Bureau>>.Height - Thickness",
     ("JG", "Length"): "<<Bureau>>.Height - <<Plateau>>.Thickness",
     ("JG", "Width"): "<<Bureau>>.Depth - 40 mm",
-    ("JG", "Placement.Base.x"): "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness",
+    ("JG", "Placement.Base.x"): "<<Bureau>>.Origin.x + Thickness",
     ("JD", "Length"): "<<Bureau>>.Height - <<Plateau>>.Thickness",
     ("JD", "Width"): "<<Bureau>>.Depth - 40 mm",
     ("JD", "Placement.Base.x"): "<<Bureau>>.Origin.x + <<Bureau>>.Width",
@@ -74,7 +76,7 @@ def test_voile_en_proportion() -> None:
     members = with_options(desk(V=InteriorMode.PROPORTIONAL), {"V": frozenset({Edge.BACK})})
     found = bindings(members)
     assert found[("V", "Placement.Base.y")] == (
-        "<<Bureau>>.Origin.y + <<Bureau>>.Depth * 0.757731959 + <<Voile>>.Thickness * 0.242268041"
+        "<<Bureau>>.Origin.y + <<Bureau>>.Depth * 0.757731959 + Thickness * 0.242268041"
     )  # les deux écarts gardent leur proportion (441 / 582)
     assert found[("V", "Width")] == DESK[("V", "Width")]  # le bas reste fixe
     assert ("V", "Placement.Base.z") not in found
@@ -83,7 +85,7 @@ def test_voile_en_proportion() -> None:
 def test_voile_en_mode_stay_ne_depend_pas_de_la_profondeur() -> None:
     """E5 : aucune liaison de cote ; son origine (face arrière) suit seulement son épaisseur."""
     found = bindings(with_options(desk(), {"V": frozenset({Edge.BACK})}))
-    assert found[("V", "Placement.Base.y")] == "<<Bureau>>.Origin.y + <<Voile>>.Thickness + 441 mm"
+    assert found[("V", "Placement.Base.y")] == "<<Bureau>>.Origin.y + Thickness + 441 mm"
     assert ("V", "Width") in found  # la hauteur suit toujours
     assert not any("Depth" in text for (key, prop), text in found.items() if key == "V")
 
@@ -158,6 +160,14 @@ def test_epaisseur_en_position() -> None:
     assert text == "<<B>>.Origin.x + <<Joue gauche>>.Thickness"
 
 
+def test_epaisseur_de_la_piece_elle_meme_s_ecrit_thickness() -> None:
+    """FreeCAD réécrit ``<<Joue gauche>>.Thickness`` posé sur la joue en ``Thickness`` : même
+    texte, pour que la liaison enregistrée soit celle qu'on relit."""
+    linear = Linear.of(0.0, 0.0, {"A": 1.0, "B": 0.5})
+    text = expression_text("<<B>>", FurnitureAxis.WIDTH, linear, PIECES, own="A")
+    assert text == "Thickness + WoodPart001.Thickness * 0.5"
+
+
 def test_piece_au_libelle_inutilisable_citee_par_son_name() -> None:
     members = [
         replace(m, label="Joue > gauche") if m.key == "JG" else m for m in with_options(desk())
@@ -165,7 +175,7 @@ def test_piece_au_libelle_inutilisable_citee_par_son_name() -> None:
     assert piece_reference(members[1]) == "JG"
     assert piece_reference(members[0]) == "<<Plateau>>"
     found = bindings(members)
-    assert found[("JG", "Placement.Base.x")] == "<<Bureau>>.Origin.x + JG.Thickness"
+    assert found[("JG", "Placement.Base.x")] == "<<Bureau>>.Origin.x + Thickness"
     assert found[("V", "Length")].endswith(" - JG.Thickness")
 
 
@@ -283,3 +293,70 @@ def test_liaison_reconnue_au_libelle_pres(current: str) -> None:
 )
 def test_formule_differente_pilotee(current: str, recorded: str | None) -> None:
     assert not same_binding(current, recorded)
+
+
+# --- ADR 0019 : écarts entre pièces et cycles -------------------------------------------------
+
+
+def test_sous_ensemble_entre_les_joues_garde_ses_ecarts() -> None:
+    """Seules les pièces changent de cote : les écarts entre la joue et le caisson sont rigides,
+    le caisson absorbe toute la différence (aucune part du jeu)."""
+    members = with_options(desk())[:3]
+    caisson = Member(
+        "C",
+        box=FurnitureBox(400, 560, 300),
+        origin=Vec3(40, 0, 400),
+        label="Caisson",
+        fixed=frozenset(Edge),
+    )
+    found = bindings([*members, caisson])
+    assert found[("C", "Width")] == (
+        "<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness - 756 mm"
+    )
+    assert found[("C", "Origin.x")] == "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness + 18 mm"
+    assert found[("C", "Height")] == "<<Bureau>>.Height - <<Plateau>>.Thickness - 420 mm"
+
+
+def carcass_bindings(box: FurnitureBox, members: list[Member]) -> dict[tuple[str, str], str]:
+    rules, _ = follow_rules(box, members)
+    found, _ = bindings_for("Caisson", members, rules)
+    return {(b.key, b.prop): b.expression for b in found}
+
+
+def test_etagere_seule_entre_deux_montants_partage_les_ecarts() -> None:
+    """Aucune pièce libre dans sa rangée verticale (épaisseurs seules) : les jeux au-dessus et
+    au-dessous de l'étagère se partagent au prorata."""
+    layout, members = carcass_members()
+    found = carcass_bindings(layout.box, members)
+    assert found[("shelf1", "Placement.Base.z")] == (
+        "<<Caisson>>.Origin.z + <<Caisson>>.Height * 0.5 + <<bottom>>.Thickness * 0.5"
+        " - Thickness * 0.5 - <<top>>.Thickness * 0.5"
+    )
+
+
+def test_deux_etageres_ne_se_citent_pas_l_une_l_autre() -> None:
+    """Chaque étagère cite l'épaisseur de l'autre : le graphe de FreeCAD serait cyclique. La
+    seconde, dans l'ordre des clés, fige l'épaisseur de la première (18 mm x 1/3 = 6 mm)."""
+    layout, members = carcass_members(CarcassParams(shelf_count=2))
+    found = carcass_bindings(layout.box, members)
+    first, second = found[("shelf1", "Placement.Base.z")], found[("shelf2", "Placement.Base.z")]
+    assert "<<shelf2>>.Thickness" in first
+    assert "<<shelf1>>" not in second
+    assert second.endswith(" + 6 mm")
+
+
+def test_relier_un_seul_membre_donne_les_memes_liaisons() -> None:
+    """Le cycle est coupé sur tous les membres puis filtré par ``keys``."""
+    layout, members = carcass_members(CarcassParams(shelf_count=2))
+    rules, _ = follow_rules(layout.box, members)
+    everything, _ = bindings_for("Caisson", members, rules)
+    only, _ = bindings_for("Caisson", members, rules, keys={"shelf2"})
+    assert only == tuple(b for b in everything if b.key == "shelf2")
+
+
+def test_epaisseur_figee_en_constante() -> None:
+    linear = Linear.of(1.0, 5.0, {"A": 2.0, "B": 0.5})
+    frozen = linear.frozen({"A": 18.0})
+    assert frozen == Linear.of(1.0, 41.0, {"B": 0.5})
+    assert frozen.frozen({}) == frozen
+    assert Linear.of(0.0, 0.0, {"A": 1.0}).frozen({"A": 18.0}).constant

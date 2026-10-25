@@ -159,24 +159,16 @@ def test_sous_ensemble_qui_suit_le_bureau(document: Any) -> None:
     assert notices == ()
     assert sub.Furniture == furniture
     assert engine(sub)["Depth"] == "<<Bureau>>.Depth - 40 mm"
-    # Les écarts entre les joues et le caisson sont libres : le caisson garde sa part de la largeur
-    # (400 / 1156 = 0,346020761) des joues, dont les épaisseurs sont vivantes (ADR 0019).
-    ratio = "0.346020761"
+    # Seules les pièces changent de cote (ADR 0019) : les écarts entre les joues et le caisson
+    # sont rigides, le caisson absorbe toute la différence ; les épaisseurs des joues sont vivantes.
     assert engine(sub)["Width"] == (
-        f"<<Bureau>>.Width * {ratio} - <<Joue gauche>>.Thickness * {ratio}"
-        f" - <<Joue droite>>.Thickness * {ratio}"
+        "<<Bureau>>.Width - <<Joue gauche>>.Thickness - <<Joue droite>>.Thickness - 756 mm"
     )
-    assert engine(sub)["Origin.x"] == (
-        "<<Bureau>>.Origin.x + <<Bureau>>.Width * 0.015570934"
-        " + <<Joue gauche>>.Thickness * 0.984429066 - <<Joue droite>>.Thickness * 0.015570934"
-    )
-    assert (
-        engine(sub)["Height"]
-        == "<<Bureau>>.Height * 0.9375 - <<Plateau>>.Thickness * 0.9375 - 375 mm"
-    )
+    assert engine(sub)["Origin.x"] == "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness + 18 mm"
+    assert engine(sub)["Height"] == "<<Bureau>>.Height - <<Plateau>>.Thickness - 420 mm"
     # Membres d'un sous-ensemble (nested) : toutes leurs positions suivent son Origin.
     assert engine(parts["CD"]) == {
-        "Placement.Base.x": "<<Caisson>>.Origin.x + <<Caisson>>.Width - <<CD>>.Thickness",
+        "Placement.Base.x": "<<Caisson>>.Origin.x + <<Caisson>>.Width - Thickness",
         "Placement.Base.y": "<<Caisson>>.Origin.y",
         "Placement.Base.z": "<<Caisson>>.Origin.z + <<Caisson>>.Height",
         "Length": "<<Caisson>>.Height",
@@ -189,10 +181,10 @@ def test_sous_ensemble_qui_suit_le_bureau(document: Any) -> None:
     assert parts["CD"].Shape.BoundBox.YMax == pytest.approx(760)
     furniture.Width = 1400
     document.recompute()
-    assert sub.Width.Value == pytest.approx(469.204, abs=1e-3)  # 400 x (1400 - 44) / 1156
-    assert sub.Origin.x == pytest.approx(43.114, abs=1e-3)  # 22 + 18 x (1400 - 44) / 1156
-    assert parts["CD"].Shape.BoundBox.XMax == pytest.approx(512.318, abs=1e-3)
-    assert parts["CB"].Length.Value == pytest.approx(433.204, abs=1e-3)
+    assert sub.Width.Value == pytest.approx(600)
+    assert sub.Origin.x == pytest.approx(40)
+    assert parts["CD"].Shape.BoundBox.XMax == pytest.approx(640)
+    assert parts["CB"].Length.Value == pytest.approx(564)
     assert stale_or_invalid(document) == []
 
 

@@ -123,7 +123,7 @@ def test_creation_du_caisson_de_reference(document: Any) -> None:
         assert part.MaterialId == "cp-bouleau", key
         assert caisson.bounds(key) == BOUNDS[key], key
     assert engine(caisson.parts["back"])["Placement.Base.y"] == (  # épaisseur vivante (ADR 0019)
-        "<<Caisson>>.Origin.y + <<Caisson>>.Depth - <<Fond>>.Thickness"
+        "<<Caisson>>.Origin.y + <<Caisson>>.Depth - Thickness"
     )
     assert engine(caisson.parts["left"]) == {
         "Length": "<<Caisson>>.Height",
@@ -156,7 +156,7 @@ def test_profondeur_500(document: Any) -> None:
     for key in ("left", "right", "bottom", "top"):
         assert caisson.bounds(key)[1] == (0, 500), key
     assert caisson.bounds("back")[1] == (492, 500)
-    assert caisson.bounds("shelf")[1] == (0, 490.745)  # (500 - 8) x 391 / 392 : jeu partagé
+    assert caisson.bounds("shelf")[1] == (0, 491)
     assert caisson.dowel_counts() == [5, 5, 5, 5]
     assert stale_or_invalid(document) == []
 

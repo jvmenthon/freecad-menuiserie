@@ -11,10 +11,11 @@ coefficient 1 et constante nulle omis.
 from __future__ import annotations
 
 import re
-from collections.abc import Collection, Iterator, Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core._validation import has_forbidden_character
+from freecad.menuiserie.core.furniture._cycles import Wanted, break_cycles
 from freecad.menuiserie.core.furniture._follow import FollowRule, Rules
 from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._messages import INVALID_LABEL
@@ -54,11 +55,15 @@ def _terms(
     linear: Linear,
     pieces: Mapping[str, str],
     from_origin: bool,
+    own: str | None,
 ) -> list[tuple[bool, str]]:
     """Termes (négatif, texte) de l'expression : origine, cote, épaisseurs, constante."""
     terms = [(False, f"{reference}.Origin.{'xyz'[axis.index]}")] if from_origin else []
     pending = [(f"{reference}.{axis.value}", linear.coef)]
-    pending += [(f"{pieces.get(key, key)}.Thickness", coef) for key, coef in linear.thickness]
+    pending += [
+        ("Thickness" if key == own else f"{pieces.get(key, key)}.Thickness", coef)
+        for key, coef in linear.thickness
+    ]
     for name, coef in pending:
         negative, ratio = _signed(number_text(coef, RATIO_DECIMALS))
         if ratio != "0":
@@ -76,13 +81,15 @@ def expression_text(
     pieces: Mapping[str, str] | None = None,
     *,
     from_origin: bool = False,
+    own: str | None = None,
 ) -> str:
     """Texte ``[<<Label>>.Origin.x +] <<Label>>.Cote * ratio ± <<Pièce>>.Thickness ± k mm`` de
     ``linear`` (``reference`` = ``<<Label>>`` ; ``pieces`` : clé de pièce → référence citée dans
     l'expression, ``<<Libellé>>`` ou ``Name``, la clé elle-même si elle manque) ; ``from_origin``
     pour une position, relative à l'``Origin`` de l'ensemble, qui suit donc un sous-ensemble
-    dont l'``Origin`` bouge."""
-    terms = _terms(reference, axis, linear, pieces or {}, from_origin)
+    dont l'``Origin`` bouge. ``own`` : clé de la pièce qui porte l'expression, dont l'épaisseur
+    s'écrit ``Thickness`` (comme FreeCAD réécrit une référence à soi-même)."""
+    terms = _terms(reference, axis, linear, pieces or {}, from_origin, own)
     if not terms:
         return "0 mm"
     negative, first = terms[0]
@@ -150,23 +157,18 @@ def bound_by_workshop(member: Member, prop: str) -> bool:
     return prop.split(".")[0] in roots
 
 
-def _member_bindings(
-    reference: str,
-    member: Member,
-    rules: tuple[FollowRule, ...],
-    pieces: Mapping[str, str],
-    nested: bool,
-) -> Iterator[Binding]:
+def _wanted(member: Member, rules: tuple[FollowRule, ...], nested: bool) -> list[Wanted]:
+    """Liaisons voulues du membre (cote étirée puis position, par axe), sans cycle encore."""
+    found: list[Wanted] = []
     for rule in rules:
         size, local = rule.size, rule.local
         free = not (member.locked or (local is not None and is_driven(member, local)))
         if size is not None and local is not None and free and not size.constant:
-            text = expression_text(reference, rule.axis, size, pieces)
-            yield Binding(member.key, local, text)
+            found.append(Wanted(local, rule.axis, size, False))
         prop = position_property(member, rule.axis)
         if (nested or not rule.position.constant) and not is_driven(member, prop):
-            text = expression_text(reference, rule.axis, rule.position, pieces, from_origin=True)
-            yield Binding(member.key, prop, text)
+            found.append(Wanted(prop, rule.axis, rule.position, True, nested))
+    return found
 
 
 def bindings_for(
@@ -186,10 +188,16 @@ def bindings_for(
     coordonnées relatives à cette ``Origin``. Aucune liaison qui ne dépendrait ni de la cote ni
     d'une épaisseur, sauf ``nested`` : l'ensemble est lui-même membre d'un autre, son ``Origin``
     peut bouger, toutes les positions de ses membres la suivent. Une pièce verrouillée ne reçoit
-    aucune liaison de cote.
+    aucune liaison de cote. Les épaisseurs citées ne forment jamais de cycle entre pièces
+    (:func:`~freecad.menuiserie.core.furniture._cycles.break_cycles`, calculé sur tous les
+    membres : relier un seul membre donne le même texte).
     """
     reference = label_reference(label)
     pieces = {member.key: piece_reference(member) for member in members}
+    thicknesses = {m.key: m.block.dimensions.thickness for m in members if m.block is not None}
+    wanted = break_cycles(
+        {m.key: _wanted(m, rules[m.key], nested) for m in members if m.key in rules}, thicknesses
+    )
     bindings: list[Binding] = []
     notices: list[Notice] = []
     for member in members:
@@ -198,6 +206,14 @@ def bindings_for(
         for prop in sorted(member.driven):
             if bound_by_workshop(member, prop):
                 notices.append(notice(NoticeKind.USER_FORMULA, member, property=prop))
-        if member.key in rules:
-            bindings.extend(_member_bindings(reference, member, rules[member.key], pieces, nested))
+        for item in wanted.get(member.key, ()):
+            text = expression_text(
+                reference,
+                item.axis,
+                item.linear,
+                pieces,
+                from_origin=item.from_origin,
+                own=member.key,
+            )
+            bindings.append(Binding(member.key, item.prop, text))
     return tuple(bindings), tuple(notices)

@@ -24,7 +24,9 @@ Notations : axe A de l'ensemble (X, Y ou Z), cote C de l'ensemble sur A, toléra
       l'épaisseur entière de cette pièce (première pièce par clé en cas d'égalité), sinon sa
       longueur actuelle (constante) ;
    3. couverte par une cote étirable d'un membre non verrouillé → **libre** ;
-   4. non couverte, entre deux cellules couvertes → **libre** (écart entre pièces) ;
+   4. non couverte, entre deux cellules couvertes (écart entre pièces) → **libre** s'il n'y a
+      dans la rangée aucune cellule libre de la règle 3 ; sinon **rigide**, constante
+      (règle de jv : « seules les pièces sont modifiées ») ;
    5. non couverte, au bord : ses **propriétaires** sont les membres de la rangée dont la face
       la borne. Distance fixe pour l'un d'eux → **rigide** constante ; sinon, mode `Stay` pour
       tous → **absorbante** ; sinon **libre**.
@@ -33,7 +35,7 @@ Notations : axe A de l'ensemble (X, Y ou Z), cote C de l'ensemble sur A, toléra
    1. s'il y a des cellules absorbantes : si les deux bords le sont, celle du **début** devient
       rigide (la pièce ne bouge pas) ; chaque absorbante vaut `(C − R − L₀) × b / B₀` (parts
       égales si B₀ = 0), les libres gardent leur longueur ;
-   2. sinon, s'il y a des cellules libres (L₀ > 0) : chacune vaut `(C − R) × l / L₀` ;
+   2. sinon, s'il y a des cellules libres (L₀ > 0 : pièces étirables et, s'il n'y en a aucune, écarts entre pièces) : chacune vaut `(C − R) × l / L₀` ;
    3. sinon, si un écart au bord est rigide (distance fixe) : le plus long (égalité → fin)
       devient absorbant et on applique 5.1 ; notice `ThicknessKept` si la rangée est M seul et A
       l'axe de son épaisseur (comportement F7 conservé) ;
@@ -48,8 +50,13 @@ Notations : axe A de l'ensemble (X, Y ou Z), cote C de l'ensemble sur A, toléra
    <<Pièce>>.Thickness * t − k mm`, termes d'épaisseur triés par clé, coefficient 1 omis, signe
    `-` pour un coefficient négatif, mêmes arrondis (9 décimales pour r et t, 6 pour k). Une pièce
    au libellé inutilisable (`label_reference` le refuserait) est citée par son `Name`
-   (`WoodPart001.Thickness`). Aucune liaison pour une valeur qui ne dépend ni de C ni d'une
-   épaisseur (sauf `nested`).
+   (`WoodPart001.Thickness`). **L'épaisseur de la pièce qui porte l'expression s'écrit
+   `Thickness`** (FreeCAD réécrit ainsi `<<Joue gauche>>.Thickness` posé sur la joue). Aucune
+   liaison pour une valeur qui ne dépend ni de C ni d'une épaisseur (sauf `nested`).
+   **Pas de cycle entre objets** : les liaisons voulues de tous les membres sont parcourues dans
+   l'ordre des clés triées (cote avant position, axes X, Y, Z) ; un terme d'épaisseur qui
+   fermerait un cycle de citations entre pièces est figé en constante (coefficient x épaisseur
+   actuelle), avant le filtrage par `keys`. Une pièce peut citer sa propre épaisseur.
 8. **Membre** : `Member` reçoit `locked: bool = False`. Une pièce verrouillée ne reçoit aucune
    liaison de cote ; sa position suit la rangée.
 
@@ -60,11 +67,11 @@ gauche », JD = « Joue droite », V = « Voile ».
 
 | N° | Critère |
 |---|---|
-| E1 | Expressions : P `Length` = `<<Bureau>>.Width`, `Width` = `<<Bureau>>.Depth`, `Placement.Base.z` = `<<Bureau>>.Origin.z + <<Bureau>>.Height - <<Plateau>>.Thickness` ; JG `Length` = `<<Bureau>>.Height - <<Plateau>>.Thickness`, `Width` = `<<Bureau>>.Depth - 40 mm`, `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness` ; JD `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Bureau>>.Width` ; V `Length` = `<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness` (ordre des clés), `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness`, `Width` = `<<Bureau>>.Height - <<Plateau>>.Thickness - 320 mm`, `Placement.Base.y` = `<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm`. |
+| E1 | Expressions : P `Length` = `<<Bureau>>.Width`, `Width` = `<<Bureau>>.Depth`, `Placement.Base.z` = `<<Bureau>>.Origin.z + <<Bureau>>.Height - Thickness` ; JG `Length` = `<<Bureau>>.Height - <<Plateau>>.Thickness`, `Width` = `<<Bureau>>.Depth - 40 mm`, `Placement.Base.x` = `<<Bureau>>.Origin.x + Thickness` ; JD `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Bureau>>.Width` ; V `Length` = `<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness` (ordre des clés), `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness`, `Width` = `<<Bureau>>.Height - <<Plateau>>.Thickness - 320 mm`, `Placement.Base.y` = `<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm`. |
 | E2 | Aperçu (`predict`) : Width → 1400 : JD x ∈ [1378, 1400], V 1356 ; Depth → 800 : V y ∈ [641, 659], JG/JD l = 760 ; Height → 800 : P z = 770, V l = 450 (valeurs de F10, inchangées). |
 | E3 | **Épaisseur** (`predict` avec épaisseurs nouvelles, ou évaluation des `Linear`) : JG épaisseur 25 → JG x ∈ [0, 25], V x ∈ [25, 1178], V `Length` 1153, JD inchangée, l'ensemble reste à 1200. |
 | E4 | **Prorata** : rangée joue 22 | étagère S1 400 | montant D 18 | étagère S2 600 | joue 22 (C = 1062) ; Width + 100 → S1 440, S2 660, D x ∈ [462, 480]. S1 verrouillée → S1 400, S2 700. |
-| E5 | **Mode** : JG `FixedBack` décoché (`Stay`) → l'écart arrière absorbe, JG garde 560 (F10) ; V `FixedBack` décoché, `Stay` → aucune liaison sur Y ; `Proportional` → les deux écarts gardent leur proportion : Depth → 800, V y = 441 × 782 / 582 ≈ 592,546. |
+| E5 | **Mode** : JG `FixedBack` décoché (`Stay`) → l'écart arrière absorbe, JG garde 560 (F10) ; V `FixedBack` décoché, `Stay` → aucune liaison sur la profondeur de l'ensemble (sa position suit seulement son épaisseur : `<<Bureau>>.Origin.y + Thickness + 441 mm`) ; `Proportional` → les deux écarts gardent leur proportion : Depth → 800, V y = 441 × 782 / 582 ≈ 592,546. |
 | E6 | **Bloqué** : V verrouillé → rangée JG, V, JD bloquée ; `check_resize` Width → 1300 lève `BlockedRowError` (sous-classe de `FurnitureError`) dont `locked` = clés des verrouillés de la rangée (`("V",)`) et le message cite la cote et les pièces ; Depth → 800 accepté. Une rangée bloquée sans pièce verrouillée (deux pièces d'épaisseur qui remplissent C) donne le même refus avec `locked` vide. |
 | E7 | `check_thickness(box, members, key, thickness, joined)` : mêmes contrôles que `check_resize` (bornes, `JOINT_LOST`, `OutsideBox`, `BlockedRowError`) pour une épaisseur nouvelle de la pièce `key`. JG à 25 accepté (E3) ; V verrouillé → refus, `locked` = `("V",)`. |
 | E8 | Notices existantes conservées (`NotSquare`, `UserFormula`, `ThicknessKept`, `OutsideBox`) ; une propriété pilotée par l'utilisateur ne reçoit toujours aucune liaison (F9). |

@@ -331,3 +331,19 @@ def test_epaisseur_deux_faces_fixes(z: float, thickness: float, origin: float, k
     assert [n.kind for n in notices] == ([NoticeKind.THICKNESS_KEPT] if kept else [])
     assert rule.row.blocked is not kept
     assert rule.position.at(800.0, {"S": thickness}) == pytest.approx(origin)
+
+
+def test_ecarts_entre_pieces_rigides_si_une_piece_est_libre() -> None:
+    """Règle 4.4 (ADR 0019) : un sous-ensemble entre deux joues absorbe seul la différence,
+    les écarts qui l'entourent gardent leur longueur."""
+    caisson = Member(
+        "C",
+        box=FurnitureBox(400.0, 560.0, 300.0),
+        origin=Vec3(40.0, 0.0, 400.0),
+        fixed=frozenset(Edge),
+    )
+    members = [*with_options(desk())[:3], caisson]
+    rules, _ = follow_rules(BOX, members)
+    after = predict(FurnitureBox(1400.0, 600.0, 750.0), members, rules)
+    assert after["C"].box == FurnitureBox(600.0, 560.0, 300.0)
+    assert after["C"].origin == Vec3(40.0, 0.0, 400.0)
