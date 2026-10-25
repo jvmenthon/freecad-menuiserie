@@ -19,6 +19,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   les liaisons de l'atelier d'un membre d'ensemble, restaure (Échap) ou relie tout l'ensemble au
   relâchement, refuse les axes pilotés par une formule de l'utilisateur et les poignées d'une pièce
   verrouillée, et avertit d'un assemblage qui ne touche plus. Pas encore d'interface (lot SM-c).
+- Glisser une pièce à la souris, interface (lot SM-c de l'issue #65, critères C1 à C8,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md)) : atelier actif, la pièce
+  sélectionnée seule reçoit trois flèches selon ses axes (80 pixels, X rouge, Y vert, Z bleu) ;
+  tirer une flèche déplace la pièce le long de l'axe, aimantée (10 pixels) sur les faces, arêtes et
+  sommets voisins avec le guide en surbrillance, Maj coupe l'aimant, Échap annule le geste. Hors
+  panneau : transaction « Déplacer la pièce » (un Ctrl+Z) ; panneau de la pièce ouvert : quatre
+  poignées L/l, champs qui suivent, tout dans la transaction du panneau. Nouveau paquet
+  `gui/drag/` (session à états, filtre d'application et observateur de sélection posés par
+  `Activated` et retirés par `Deactivated`, incrustation Coin), `wood_part_drag.py`. Le filtre ne
+  consomme que le clic gauche sur une flèche ou une poignée. Recette manuelle :
+  `docs/recette/souris-et-distances.md`.
 - Ensembles : épaisseurs vivantes, partage au prorata et pièces verrouillées (demande de jv,
   recette J4 / J6, [ADR 0019](docs/adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
   spécification `docs/specs/ensembles-epaisseurs-fixes.md`). Un membre ne se règle plus que sur

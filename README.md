@@ -81,6 +81,34 @@ pas (passez par l'ensemble pour un meuble paramétrique). La sélection se fait 
 la commande. Les éléments d'un même objet sont pris dans l'ordre de FreeCAD, qui regroupe les
 sélections par objet.
 
+## Déplacer une pièce à la souris
+
+Quand l'atelier **Menuiserie** est actif, cliquez une pièce (brute, usinée ou assemblage) : trois
+**flèches** apparaissent en son centre, selon **ses** axes (X rouge, Y vert, Z bleu ; une pièce
+tournée a des flèches tournées). Tirez une flèche : la pièce suit la souris le long de cet axe
+seulement. Un Ctrl+Z annule le glissement (« Déplacer la pièce »). Seul le clic gauche **sur une
+flèche** est pris : sélection, cadre de sélection, rotation et zoom de la vue restent à FreeCAD,
+quel que soit le style de navigation. Plusieurs pièces sélectionnées : pas de flèches.
+
+- **Aimant** : à moins de 10 pixels d'une face, d'une arête ou d'un sommet d'une pièce voisine
+  (de l'atelier ou de tout autre objet Part), la face de la pièce vient s'y coller (contact) ou
+  s'y aligner (affleurement) et le guide s'allume en rose. **Maj** enfoncée coupe l'aimant.
+- **Échap** pendant le glissement ramène la pièce là où elle était au début du geste.
+- **Panneau de la pièce ouvert** (création ou double-clic) : les flèches sont sur la pièce du
+  panneau et quatre **poignées** orange apparaissent au milieu des bouts et des rives : tirez-en
+  une pour changer la longueur ou la largeur, la face opposée ne bouge pas (l'épaisseur vient de
+  la bibliothèque). Les champs du panneau suivent la souris et tout reste dans la transaction du
+  panneau : « Annuler » ramène la pièce à son état d'avant le panneau.
+- **Pièce d'un ensemble** : l'ensemble est relié au relâchement, sans changer ses options. Une
+  formule de l'utilisateur sur une position retire la flèche de cet axe ; une pièce verrouillée
+  (« Cotes fixes ») n'a pas de poignées. Si une rangée est bloquée par des pièces verrouillées, le
+  relâchement propose **Déverrouiller et appliquer** (sinon la pièce revient).
+- Un assemblage qui ne touche plus ses pièces après le glissement est gardé, avec un
+  avertissement dans la vue rapport.
+
+Le glissement ne crée aucun lien : une pièce posée à la souris ne suit pas sa voisine si celle-ci
+bouge (passez par l'ensemble). Recette : `docs/recette/souris-et-distances.md`.
+
 ## Assembler deux pièces
 
 Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,

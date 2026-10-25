@@ -46,6 +46,7 @@ from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROU
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
+from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -1239,6 +1240,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
+    # Glisser une pièce à la souris (SM-c)
+    *VERIFICATIONS_SOURIS,
 )
 
 
