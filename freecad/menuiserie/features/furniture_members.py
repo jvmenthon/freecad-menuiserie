@@ -24,6 +24,7 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
+from freecad.menuiserie.features.distance import remove_touching
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import (
     DEFAULT_LABEL,
@@ -282,6 +283,8 @@ def remove_members(objects: Sequence[DocumentObject]) -> None:
         if not has_member_properties(member):
             raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
     furnitures = {f.Name: f for f in (furniture_of(m) for m in targets.values()) if f is not None}
+    for furniture in furnitures.values():  # leurs Distances gardées s'en vont avec elles (F6)
+        remove_touching(furniture.Document, set(targets))
     for member in targets.values():
         with writing(member):
             remove_bindings(member)

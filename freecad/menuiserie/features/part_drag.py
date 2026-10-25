@@ -14,13 +14,13 @@ Points d'extension :
 
 - pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin, donc pas de poignée ;
   l'ajouter dans :func:`can_resize`, seul endroit qui décide des poignées d'une pièce ;
-- Distance gardée (DI-c, B6) : sa valeur doit suivre le glissement ; DI-c l'ajoutera dans
-  :func:`end_drag`, avant le recalcul, avec la lecture des Distances de l'ensemble.
+- Distance gardée (DI-c, B6) : au relâchement, la ``Value`` des Distances de la pièce prend la
+  distance nouvelle (:func:`end_drag`, avant la liaison de l'ensemble) ; Échap la rétablit.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final
 
 import FreeCAD as App
@@ -29,10 +29,12 @@ from freecad.menuiserie.core.furniture import BlockedRowError
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.distance import distances_touching
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import (
     bind_members,
+    follow_distances,
     locked_error,
     notice_messages,
     read_members,
@@ -89,8 +91,8 @@ class DragLimits:
 @dataclass(frozen=True)
 class DragMemento:
     """État d'une brute au début d'un glissement : placement, cotes, liaisons mises de côté
-    (propriété → expression), liaisons enregistrées (``FurnitureBindings``) et assemblages déjà
-    invalides (pour n'avertir que des nouveaux)."""
+    (propriété → expression), liaisons enregistrées (``FurnitureBindings``), assemblages déjà
+    invalides (pour n'avertir que des nouveaux) et ``Value`` des Distances gardées de la pièce."""
 
     part: DocumentObject
     placement: App.Placement
@@ -99,6 +101,7 @@ class DragMemento:
     aside: dict[str, str]
     recorded: dict[str, str]
     invalid_joints: frozenset[str]
+    distances: dict[str, float] = field(default_factory=dict)
 
 
 def raw_part(obj: DocumentObject) -> DocumentObject:
@@ -169,6 +172,7 @@ def begin_drag(part: DocumentObject) -> DragMemento:
         aside,
         recorded,
         _invalid_joints(raw),
+        {d.Name: d.Value.Value for d in distances_touching(raw.Document, {raw.Name})},
     )
 
 
@@ -237,6 +241,10 @@ def restore(memento: DragMemento) -> None:
             raw.setExpression(prop, text)
         if "FurnitureBindings" in raw.PropertiesList:
             raw.FurnitureBindings = memento.recorded
+    for name, value in memento.distances.items():
+        distance = raw.Document.getObject(name)
+        if distance is not None and distance.Value.Value != value:
+            distance.Value = value
     raw.recompute()
     machined = machined_part_of(raw)
     if machined is not None:
@@ -249,12 +257,13 @@ def _relink(memento: DragMemento) -> list[str]:
     furniture = furniture_of(memento.part)
     if furniture is None:
         return []
+    follow_distances(furniture, memento.distances.keys())
     members = read_members(furniture)
     try:
         return list(notice_messages(bind_members(members, members.objects)))
     except BlockedRowError as error:
         restore(memento)
-        raise locked_error(error, members.objects) from error
+        raise locked_error(error, members.named) from error
     except ValueError:
         restore(memento)
         raise

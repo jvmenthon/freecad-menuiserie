@@ -24,6 +24,7 @@ from freecad.menuiserie.core.furniture import (
     follow_rules,
     follow_summary,
 )
+from freecad.menuiserie.features.distance import is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, read_members
@@ -49,8 +50,9 @@ class MemberView:
 
 
 def shown_object(member: DocumentObject) -> DocumentObject:
-    """Objet visible d'un membre : la pièce usinée de sa brute, sinon le membre lui-même."""
-    if is_furniture(member):
+    """Objet visible d'un membre : la pièce usinée de sa brute, sinon le membre lui-même (une
+    Distance gardée aussi, qui n'a pas de pièce usinée)."""
+    if is_furniture(member) or is_distance(member):
         return member
     machined = machined_part_of(member)
     return machined if machined is not None else member

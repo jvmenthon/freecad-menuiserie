@@ -81,7 +81,7 @@ def thickness_notices(
             members.box, members.members, obj.Name, thickness, joined_pairs(members)
         )
     except BlockedRowError as error:
-        raise locked_error(error, members.objects) from error
+        raise locked_error(error, members.named) from error
     return list(found)
 
 

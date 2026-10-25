@@ -14,6 +14,8 @@ from collections.abc import Mapping, Sequence
 from freecad.menuiserie.core._validation import decimal_text
 from freecad.menuiserie.core.furniture._follow import FollowRule, Rules
 from freecad.menuiserie.core.furniture._messages import (
+    BLOCKED_GAP,
+    BLOCKED_GAP_FILLED,
     BLOCKED_SIZE,
     BLOCKED_SIZE_FILLED,
     BLOCKED_THICKNESS,
@@ -90,3 +92,25 @@ def check_blocked(
                     templates = (BLOCKED_THICKNESS, BLOCKED_THICKNESS_FILLED)
                     value = size_text(changed[key])
                     raise _error(templates, rule, names, member=names[key], value=value)
+
+
+def check_kept(members: Sequence[Member], rules: Rules, key: str) -> None:
+    """Lève :class:`BlockedRowError` si garder la Distance ``key`` (déjà portée par ``members``)
+    rend une rangée de ``rules`` sans cellule libre : elle compte comme une pièce verrouillée
+    (ADR 0022). ``locked`` de l'erreur : les pièces verrouillées de la rangée, Distance
+    comprise."""
+    names = {member.key: member.name for member in members}
+    gaps = {gap.key: gap for member in members for gap in member.gaps}
+    names[key] = gaps[key].name
+    for member in members:
+        for rule in rules.get(member.key, ()):
+            if not rule.row.blocked or key not in rule.row.locked:
+                continue
+            others = tuple(found for found in rule.row.locked if found != key)
+            texts = {
+                "gap": names[key],
+                "members": _names(names, rule.row.keys),
+                "locked": _names(names, others),
+            }
+            template = BLOCKED_GAP if others else BLOCKED_GAP_FILLED
+            raise BlockedRowError(template, texts, locked=rule.row.locked, members=rule.row.keys)

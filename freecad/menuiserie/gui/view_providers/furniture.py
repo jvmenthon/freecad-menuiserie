@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 from freecad.menuiserie import icon_path
+from freecad.menuiserie.features.distance import distances_of
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
@@ -73,7 +74,8 @@ class ViewProviderFurniture(PanelEditing):
 
 
 def furniture_children(furniture: DocumentObject) -> list[DocumentObject]:
-    """Enfants de l'ensemble dans l'arbre : membres visibles, puis assemblages internes."""
+    """Enfants de l'ensemble dans l'arbre : membres visibles, assemblages internes, puis
+    Distances gardées."""
     members = members_of(furniture)
     names = {member.Name for member in members}
     joints = {
@@ -84,4 +86,8 @@ def furniture_children(furniture: DocumentObject) -> list[DocumentObject]:
         and getattr(parent.HostPart, "Name", None) in names
         and getattr(parent.GuestPart, "Name", None) in names
     }
-    return [*(shown_object(member) for member in members), *(joints[n] for n in sorted(joints))]
+    return [
+        *(shown_object(member) for member in members),
+        *(joints[n] for n in sorted(joints)),
+        *distances_of(furniture),
+    ]

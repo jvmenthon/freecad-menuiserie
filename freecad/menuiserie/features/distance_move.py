@@ -24,6 +24,14 @@ from freecad.menuiserie.core.distance import Gap, measure, moved_by
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.snap import Target, VertexTarget
+from freecad.menuiserie.features.distance import create_distance
+from freecad.menuiserie.features.distance_keep import (
+    KeepError,
+    KeepGeometry,
+    plan_keep,
+    read_geometry,
+    reason,
+)
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.part_drag import (
@@ -135,6 +143,9 @@ class DistanceMove:
         self._pieces = pieces
         self.moving_index = _moving_index(self.elements, pieces, moving)
         self._memento: DragMemento | None = None
+        self._geometry: KeepGeometry | KeepError | None = None  # lue avant le déplacement
+        self._last_value: float | None = None
+        self.created: DocumentObject | None = None  # Distance créée par :meth:`finish`
 
     # --- Lecture ------------------------------------------------------------------------
 
@@ -176,6 +187,26 @@ class DistanceMove:
         unit = App.Vector(*_UNIT_AXES[axis])
         return to_vec3(rotation.multVec(unit) if rotation is not None else unit)
 
+    def _keep_geometry(self) -> KeepGeometry | KeepError:
+        """Géométrie d'avant déplacement, lue une fois (:func:`read_geometry`) ; le refus est
+        gardé tel quel."""
+        if self._geometry is None:
+            try:
+                self._geometry = read_geometry(self.elements, self._targets, self._pieces)
+            except KeepError as refusal:
+                self._geometry = refusal
+            except ValueError as error:  # cote ou libellé illisible
+                self._geometry = KeepError(str(error))
+        return self._geometry
+
+    def keep_reason(self, axis: str | None = None) -> str | None:
+        """Raison (texte traduit) pour laquelle la distance ne peut pas être gardée, ``None`` si
+        elle peut l'être (case « Garder cette distance », DI-c). À lire avant :meth:`begin`."""
+        try:
+            return reason(self._keep_geometry(), self.gap(axis))
+        except ValueError as error:  # éléments non parallèles : la distance n'existe pas
+            return str(error)
+
     # --- Déplacement --------------------------------------------------------------------
 
     def swap(self) -> None:
@@ -189,6 +220,7 @@ class DistanceMove:
     def begin(self) -> None:
         """Début : mémorise la brute (et met de côté les liaisons d'un membre d'ensemble)."""
         self.cancel()
+        self._keep_geometry()
         self._memento = begin_drag(self.moving_part)
 
     def move_to(self, value: float, axis: str | None = None) -> None:
@@ -200,18 +232,45 @@ class DistanceMove:
         gap = self.gap(axis)
         with translated_errors():
             shift = moved_by(gap, value)
+        self._last_value = value
         rotation = self._memento.part.getGlobalPlacement().Rotation.inverted()
         local = rotation.multVec(App.Vector(shift.x, shift.y, shift.z))
         move_part(self._memento, to_vec3(local))
 
-    def finish(self) -> list[str]:
+    def finish(self, *, keep: bool = False, axis: str | None = None) -> list[str]:
         """Fin : relie l'ensemble de la pièce, recalcule le document et renvoie les
         avertissements à écrire dans la vue rapport. Rangée bloquée : la pièce revient et
-        l'erreur (``ValueError``) est relancée."""
+        l'erreur (``ValueError``) est relancée. ``keep`` : la distance est gardée par un objet
+        Distance créé avant la liaison (``axis`` : voir :meth:`gap`) ; refus
+        (:class:`KeepError`, rangée bloquée comprise) : la pièce revient aussi."""
         if self._memento is None:
             raise RuntimeError(_NOT_STARTED)
         memento, self._memento = self._memento, None
-        return end_drag(memento)
+        created = None
+        if keep:
+            try:
+                created = self._create_distance(axis)
+            except ValueError:
+                restore(memento)
+                raise
+        try:
+            messages = end_drag(memento)
+        except BaseException:
+            if created is not None and created.Document.getObject(created.Name) is not None:
+                created.Document.removeObject(created.Name)
+            raise
+        self.created = created
+        return messages
+
+    def _create_distance(self, axis: str | None) -> DocumentObject:
+        """Contrôle (:func:`plan_keep`) puis crée la Distance de la distance mesurée."""
+        geometry = self._keep_geometry()
+        if isinstance(geometry, KeepError):
+            raise geometry
+        gap = self.gap(axis)
+        value = gap.value if self._last_value is None else self._last_value
+        plan = plan_keep(geometry, gap, value)
+        return create_distance(plan.furniture, plan.first, plan.second, plan.gap, value)
 
     def cancel(self) -> None:
         """Remet la pièce où elle était au début (sans effet avant :meth:`begin`)."""
@@ -219,13 +278,13 @@ class DistanceMove:
             restore(self._memento)
             self._memento = None
 
-    def apply(self, value: float, axis: str | None = None) -> list[str]:
-        """:meth:`begin`, :meth:`move_to` puis :meth:`finish` ; au moindre refus la pièce revient
-        à sa place avant que l'erreur soit relancée."""
+    def apply(self, value: float, axis: str | None = None, *, keep: bool = False) -> list[str]:
+        """:meth:`begin`, :meth:`move_to` puis :meth:`finish` (``keep`` : garder la distance) ; au
+        moindre refus la pièce revient à sa place avant que l'erreur soit relancée."""
         self.begin()
         try:
             self.move_to(value, axis)
-            return self.finish()
+            return self.finish(keep=keep, axis=axis)
         except BaseException:
             self.cancel()
             raise

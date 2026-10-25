@@ -87,3 +87,13 @@ GAP_SPLIT: Final = QT_TRANSLATE_NOOP(
     "« {member} » : une autre face coupe l'intervalle entre ses deux pièces ; ses cotes sont "
     "figées et ne suivent plus sa valeur.",
 )
+BLOCKED_GAP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de garder la distance « {gap} » : aucune pièce de la rangée ({members}) ne "
+    "pourrait s'adapter (cotes fixes : {locked}).",
+)
+BLOCKED_GAP_FILLED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de garder la distance « {gap} » : aucune pièce de la rangée ({members}) ne "
+    "pourrait s'adapter (les épaisseurs la remplissent).",
+)
