@@ -135,6 +135,24 @@
     </widget>
    </item>
    <item>
+    <widget class="QWidget" name="unlockHost">
+     <layout class="QVBoxLayout" name="unlockHostLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QLabel" name="newerVersionNotice">
      <property name="visible">
       <bool>false</bool>

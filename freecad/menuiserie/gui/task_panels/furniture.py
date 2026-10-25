@@ -2,13 +2,17 @@
 """Panneau de tâche de l'ensemble (J4c, critères P3 à P5), ouvert au double-clic.
 
 Trois cotes ; liste des membres (position, ce qu'ils font quand une cote change) ; pour le
-membre choisi, son mode et six lignes « distance au bord » avec une case « fixe » ; bouton
+membre choisi, son mode, la case « Cotes fixes » et six lignes « distance au bord » avec une case
+« fixe » ; bouton
 « Relier les pièces ». Chaque saisie passe par ``features`` (mêmes règles que l'api), est
 écrite aussitôt dans la transaction du panneau puis prévisualisée : « OK » donne une seule
 entrée « Modifier l'ensemble », « Annuler » rétablit tout.
 
 Une cote refusée par ``check_resize`` n'est pas écrite (le panneau refuse d'avance, Q4) : le
-refus s'affiche sous les cotes et « OK » reste inactif jusqu'à une cote acceptée. Les
+refus s'affiche sous les cotes et « OK » reste inactif jusqu'à une cote acceptée. Quand une rangée
+est bloquée par des pièces verrouillées (ADR 0019), le refus s'accompagne d'une case par pièce
+et du bouton « Déverrouiller et appliquer » (:mod:`unlock_widgets`). La case « Cotes fixes » du
+membre choisi le verrouille et relie tout l'ensemble, aperçu aussitôt. Les
 avertissements (formule de l'utilisateur, pas d'équerre, épaisseur gardée, pièce qui dépasse)
 s'affichent dans le panneau et dans la vue rapport. Transactions, fermeture et surveillance du
 document : :mod:`base`.
@@ -26,7 +30,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.furniture import Edge, InteriorMode, Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features import furniture_edges, furniture_members
+from freecad.menuiserie.features import furniture_edges, furniture_locks, furniture_members
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_view import MemberView, member_views, shown_object
@@ -44,10 +48,12 @@ from freecad.menuiserie.gui.task_panels.furniture_widgets import (
     EdgeRow,
     dimension_fields,
     fill_tree,
+    locked_check,
     members_tree,
     message_label,
     show_message,
 )
+from freecad.menuiserie.gui.task_panels.unlock_widgets import UnlockBox
 from freecad.menuiserie.gui.view_providers.furniture import ICON
 
 FORM_NAME: Final = "FurnitureTaskPanel"
@@ -76,11 +82,9 @@ class FurnitureTaskPanel(ObjectTaskPanel):
     def __init__(self, obj: DocumentObject) -> None:
         super().__init__(obj, creating=False)
         self._guard = UpdateGuard()
-        self._refusal = ""
         self._resize_notices: tuple[str, ...] = ()
         self._views: dict[str, MemberView] = {}
         self._current: str | None = None
-        self._buttons: Widget = None
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -89,8 +93,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         grid = QtGui.QGridLayout()
         self._dimensions = dimension_fields(grid)
         layout.addLayout(grid)
-        self._refusal_label = message_label("refusalLabel", error=True)
-        layout.addWidget(self._refusal_label)
+        self._unlock = UnlockBox(layout, self._unlock_and_apply)
         self._tree = members_tree()
         layout.addWidget(self._tree)
         self._rows = self._add_member_editor(layout)
@@ -103,7 +106,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
     # --- Construction ---------------------------------------------------------------------
 
     def _add_member_editor(self, layout: Widget) -> list[EdgeRow]:
-        """Pièce choisie : son mode et ses six lignes « distance au bord »."""
+        """Pièce choisie : son mode, ses cotes fixes et ses six lignes « distance au bord »."""
         self._member_label = message_label("memberLabel")
         layout.addWidget(self._member_label)
         grid = QtGui.QGridLayout()
@@ -112,7 +115,9 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         self._mode.setObjectName("modeCombo")
         for mode in InteriorMode:
             self._mode.addItem(translated(MODE_LABELS[mode.value]), mode.value)
-        grid.addWidget(self._mode, 0, 1, 1, 2)
+        grid.addWidget(self._mode, 0, 1)
+        self._locked = locked_check()
+        grid.addWidget(self._locked, 0, 2)
         rows = [EdgeRow(edge, self._distance_edited) for edge in Edge]
         for index, row in enumerate(rows, start=1):
             for column, widget in enumerate((row.label, row.distance, row.fixed)):
@@ -122,6 +127,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         self._edit_error = message_label("editErrorLabel", error=True)
         layout.addWidget(self._edit_error)
         connect(self._mode, "currentIndexChanged(int)", self._mode_chosen)
+        connect(self._locked, "toggled(bool)", self._locked_toggled)
         return rows
 
     def _add_buttons_and_messages(self, layout: Widget) -> None:
@@ -139,51 +145,59 @@ class FurnitureTaskPanel(ObjectTaskPanel):
     # --- « OK » ---------------------------------------------------------------------------
 
     def modifyStandardButtons(self, box: Widget) -> None:
-        """Boutons du panneau, passés par FreeCAD à l'affichage : gardés (l'enveloppe Python
-        de la boîte doit vivre pour que celle de « OK » reste valide) pour rendre « OK »
-        inactif pendant un refus (P4)."""
-        self._buttons = box
-        self._enable_ok()
-
-    def _enable_ok(self) -> None:
-        """« OK » actif sauf pendant un refus (boîte détruite par FreeCAD : oubliée)."""
-        try:
-            button = self._buttons.button(QtGui.QDialogButtonBox.Ok) if self._buttons else None
-            if button is not None:
-                button.setEnabled(not self._refusal)
-        except RuntimeError:
-            self._buttons = None
+        """Boutons du panneau, passés par FreeCAD à l'affichage : « OK » est inactif pendant un
+        refus (P4)."""
+        self._unlock.attach_buttons(box)
 
     def accept(self) -> bool:
         """« OK » : refusé tant qu'une cote saisie est refusée (le bouton est alors inactif)."""
-        if self._refusal:
+        if self._unlock.refused:
             return False
         return super().accept()
 
     # --- Saisies --------------------------------------------------------------------------
 
-    def _dimension_edited(self, _name: str, *_value: object) -> None:
-        """Cotes saisies : contrôlées (``check_resize``) puis écrites, ou refusées sans rien
-        écrire ; une cote pilotée par une expression n'est jamais écrite (P5)."""
-        if self._guard.active:
-            return
+    def _requested_sizes(self) -> dict[str, float | None]:
+        """Cotes saisies qui diffèrent de celles de l'ensemble (``None`` : inchangée ou pilotée
+        par une expression, jamais écrite, P5)."""
         sizes: dict[str, float | None] = {}
         for name, field in self._dimensions.items():
             value = round(float(field.property("rawValue")), 6)
             current = getattr(self.obj, name).Value
             free = expression_of(self.obj, name) is None
             sizes[name] = value if free and abs(value - current) > 1e-9 else None
+        return sizes
+
+    def _dimension_edited(self, _name: str, *_value: object) -> None:
+        """Cotes saisies : contrôlées (``check_resize``) puis écrites, ou refusées sans rien
+        écrire (avec les pièces à déverrouiller si une rangée est bloquée, G2)."""
+        if self._guard.active:
+            return
+        sizes = self._requested_sizes()
         if not any(value is not None for value in sizes.values()):
-            self._refusal = ""
+            self._unlock.clear()
             self._refresh()
             return
         try:
             notices = furniture_members.resize(self.obj, sizes)
         except ValueError as error:
-            self._refusal = str(error)
+            self._unlock.refuse(error)
             self._refresh()
             return
-        self._refusal = ""
+        self._unlock.clear()
+        self._applied(notices, resizing=True)
+
+    def _unlock_and_apply(self, pieces: Sequence[DocumentObject]) -> None:
+        """« Déverrouiller et appliquer » : pièces cochées déverrouillées, ensemble relié et
+        cotes saisies écrites, dans la transaction du panneau (une seule annulation) ; encore
+        refusé, le refus et les cases sont mis à jour sans rien écrire."""
+        try:
+            notices = furniture_locks.unlock_and_resize(self.obj, pieces, self._requested_sizes())
+        except ValueError as error:
+            self._unlock.refuse(error)
+            self._refresh()
+            return
+        self._unlock.clear()
         self._applied(notices, resizing=True)
 
     def _member_chosen(self) -> None:
@@ -199,6 +213,12 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         if member is not None and not self._guard.active:
             mode = str(self._mode.itemData(index))
             self._edit(lambda: furniture_members.set_options(member, mode, None))
+
+    def _locked_toggled(self, checked: bool) -> None:
+        """Case « Cotes fixes » : verrou écrit, tout l'ensemble relié, aperçu aussitôt."""
+        member = self._member()
+        if member is not None and not self._guard.active:
+            self._edit(lambda: furniture_members.set_options(member, None, None, bool(checked)))
 
     def _fixed_toggled(self, row: EdgeRow, checked: bool) -> None:
         member = self._member()
@@ -246,11 +266,9 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         """Cotes, refus, membres, pièce choisie et avertissements."""
         with self._guard:
             for name, field in self._dimensions.items():
-                if not self._refusal:
+                if not self._unlock.refused:
                     field.setProperty("rawValue", getattr(self.obj, name).Value)
                 field.setEnabled(expression_of(self.obj, name) is None)
-        show_message(self._refusal_label, self._refusal)
-        self._enable_ok()
         try:
             views, notices = member_views(self.obj)
         except ValueError as error:
@@ -271,7 +289,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
             item.setSelected(item.data(0, _USER_ROLE) == self._current)
 
     def _show_member(self) -> None:
-        """Mode et six distances du membre choisi (tout inactif sans membre)."""
+        """Mode, cotes fixes et six distances du membre choisi (tout inactif sans membre)."""
         view = self._views.get(self._current or "")
         label = (
             translated(_MEMBER, {"label": quoted_value(shown_object(view.obj).Label)})
@@ -281,7 +299,9 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         self._member_label.setText(label)
         with self._guard:
             self._mode.setCurrentIndex(max(self._mode.findData(view.mode if view else ""), 0))
+            self._locked.setChecked(view is not None and view.locked)
         self._mode.setEnabled(view is not None)
+        self._locked.setEnabled(view is not None)
         for row in self._rows:
             row.show(view)
 

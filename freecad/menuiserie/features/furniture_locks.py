@@ -29,9 +29,9 @@ from freecad.menuiserie.features.furniture_members import (
     quoted_label,
     write_box,
 )
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import translated, translated_errors
 
-__all__ = ["unlock_and_resize", "unlock_and_set_thickness"]
+__all__ = ["set_member_thickness", "unlock_and_resize", "unlock_and_set_thickness"]
 
 _DRIVEN_THICKNESS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -80,11 +80,11 @@ def unlock_and_resize(
     return [*relinked, *notices]
 
 
-def unlock_and_set_thickness(
-    part: DocumentObject, thickness: float, pieces: Sequence[DocumentObject]
-) -> list[Notice]:
-    """Déverrouille ``pieces``, relie tout l'ensemble de ``part`` puis écrit son épaisseur
-    ``thickness`` (mm). Même contrôle préalable que :func:`unlock_and_resize`."""
+def _checked_thickness(
+    part: DocumentObject, thickness: float
+) -> tuple[DocumentObject, DocumentObject, float]:
+    """Membre ``part``, son ensemble et l'épaisseur ``thickness`` valide (mm) ; ``ValueError``
+    traduite sinon, avant toute modification."""
     member = member_object(part)
     furniture = furniture_of(member)
     if furniture is None:
@@ -96,9 +96,36 @@ def unlock_and_set_thickness(
         thickness = math.nan
     if not math.isfinite(thickness):
         raise ValueError(translated(_INVALID_THICKNESS, {"value": quoted_value(thickness)}))
+    return member, furniture, float(thickness)
+
+
+def unlock_and_set_thickness(
+    part: DocumentObject, thickness: float, pieces: Sequence[DocumentObject]
+) -> list[Notice]:
+    """Déverrouille ``pieces``, relie tout l'ensemble de ``part`` puis écrit son épaisseur
+    ``thickness`` (mm). Même contrôle préalable que :func:`unlock_and_resize`."""
+    member, furniture, value = _checked_thickness(part, thickness)
     keys = _locked_keys(pieces)
-    notices = thickness_notices(furniture, member, float(thickness), unlocked=keys)
+    with translated_errors():
+        notices = thickness_notices(furniture, member, value, unlocked=keys)
     relinked = _unlock(furniture, pieces)
     with writing(member):
-        member.Thickness = float(thickness)
+        member.Thickness = value
     return [*relinked, *notices]
+
+
+def set_member_thickness(part: DocumentObject, thickness: float) -> list[Notice]:
+    """Écrit l'épaisseur ``thickness`` (mm) de la pièce de bois ``part``. Pour un membre d'un
+    ensemble, elle est contrôlée d'abord (``check_thickness``) : refus avant toute écriture,
+    :class:`LockedPiecesError` si une rangée est bloquée par des pièces verrouillées,
+    ``ValueError`` traduite sinon. Les liaisons sont vivantes (``<<Pièce>>.Thickness``) : rien à
+    relier. Hors ensemble, l'épaisseur est simplement écrite. Renvoie les avertissements."""
+    if furniture_of(member_object(part)) is None:
+        part.Thickness = float(thickness)
+        return []
+    member, furniture, value = _checked_thickness(part, thickness)
+    with translated_errors():
+        notices = thickness_notices(furniture, member, value)
+    with writing(member):
+        member.Thickness = value
+    return notices

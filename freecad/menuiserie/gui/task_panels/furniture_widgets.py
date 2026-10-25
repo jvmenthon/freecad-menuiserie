@@ -55,6 +55,12 @@ COLUMNS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "Position"),
     QT_TRANSLATE_NOOP("Menuiserie", "Suit"),
 )
+_LOCKED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cotes fixes")
+_LOCKED_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cotes fixes : la pièce ne change pas de cotes quand l'ensemble change. Si aucune pièce "
+    "d'une rangée ne peut s'adapter, la cote de l'ensemble est refusée.",
+)
 _FIXED: Final = QT_TRANSLATE_NOOP("Menuiserie", "fixe")
 _FIXED_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -85,6 +91,14 @@ def quantity_field(name: str, minimum: float) -> Widget:
     field.setProperty("maximum", MAX_DIMENSION_MM)
     field.setKeyboardTracking(False)
     return field
+
+
+def locked_check() -> Widget:
+    """Case « Cotes fixes » du membre choisi (ADR 0019)."""
+    check = QtGui.QCheckBox(translated(_LOCKED))
+    check.setObjectName("lockedCheck")
+    check.setToolTip(translated(_LOCKED_TIP))
+    return check
 
 
 def message_label(name: str, *, error: bool = False, hint: bool = False) -> Widget:
