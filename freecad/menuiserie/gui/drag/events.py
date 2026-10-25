@@ -129,6 +129,21 @@ class _SelectionObserver:
     addSelection = removeSelection = setSelection = clearSelection = _changed
 
 
+class _DocumentObserver:
+    """Observateur de documents : un document fermé emporte ses flèches avec sa vue."""
+
+    def __init__(self, session: DragSession) -> None:
+        self._session = session
+
+    def slotDeletedDocument(self, doc: Any) -> None:
+        _guarded(self._session, _forget, self._session, doc.Name)
+
+
+def _forget(session: DragSession, document: str) -> bool:
+    session.forget(document)
+    return False
+
+
 def _refresh(session: DragSession) -> bool:
     session.refresh()
     return False
@@ -141,6 +156,7 @@ class _Installation:
         self.session: DragSession | None = None
         self.filter: _DragFilter | None = None
         self.observer: _SelectionObserver | None = None
+        self.documents: _DocumentObserver | None = None
 
     def install(self) -> None:
         application = QtGui.QApplication.instance()
@@ -150,7 +166,9 @@ class _Installation:
         self.filter = _DragFilter(self.session)
         self.observer = _SelectionObserver(self.session)
         application.installEventFilter(self.filter)
+        self.documents = _DocumentObserver(self.session)
         Gui.Selection.addObserver(self.observer)
+        App.addDocumentObserver(self.documents)
         self.session.refresh()
 
     def uninstall(self) -> None:
@@ -160,9 +178,11 @@ class _Installation:
         if application is not None:
             application.removeEventFilter(self.filter)
         Gui.Selection.removeObserver(self.observer)
+        if self.documents is not None:
+            App.removeDocumentObserver(self.documents)
         if self.session is not None:
             self.session.shutdown()
-        self.session = self.filter = self.observer = None
+        self.session = self.filter = self.observer = self.documents = None
 
 
 _INSTALLATION: Final = _Installation()

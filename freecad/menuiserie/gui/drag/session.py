@@ -446,6 +446,16 @@ class DragSession:
         self._remove_overlay()
         self.state = Idle()
 
+    def forget(self, document: str) -> None:
+        """Le document ``document`` se ferme : s'il porte les flèches, elles sont oubliées avant
+        que sa vue soit détruite (sinon la session garderait une vue détruite)."""
+        try:
+            mine = self.part is None or self.part.Document.Name == document
+        except _RESIZE_ERRORS:  # pièce déjà détruite
+            mine = True
+        if mine and self.port is not None:
+            self.clear()
+
     def shutdown(self) -> None:
         """Atelier quitté : glissement annulé, flèches enlevées."""
         self.abort()
