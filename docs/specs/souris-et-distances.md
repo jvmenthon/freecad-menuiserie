@@ -114,7 +114,7 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 |---|---|---|
 | D1 | U | `measure(a, b)` pour les neuf paires de cibles (`FaceTarget`, `EdgeTarget`, `VertexTarget` de `core/snap`) : face–face parallèles, face–arête parallèle, face–sommet → distance le long de la normale de la face ; arête–arête parallèles, arête–sommet → distance perpendiculaire à la droite ; sommet–sommet → distance directe. Résultat `Gap(value, direction)` : `direction` = sens dans lequel la pièce mobile s'éloigne. |
 | D2 | U | Faces ou arêtes **non parallèles**, face non plane, arête courbe → `DistanceError` au message traduisible (« Les éléments ne sont pas parallèles : la distance n'est pas définie. »). |
-| D3 | U | `moved_by(gap, value)` : translation qui amène la distance à `value` (≥ 0) le long de `direction`, la pièce mobile restant **de son côté** ; distance actuelle nulle → côté donné par la normale sortante de l'élément mobile. |
+| D3 | U | `moved_by(gap, value)` : translation qui amène la distance à `value` (≥ 0) le long de `direction`, la pièce mobile restant **de son côté** ; distance actuelle nulle → la pièce s'écarte de la référence, à l'opposé de la normale sortante de l'élément mobile (qui regarde la référence au contact). |
 | D4 | U | Sommet–sommet : `axis` facultatif (X, Y, Z du conteneur) → distance et translation projetées sur cet axe seul. |
 | D5 | U | `ensemble_axis(gap, frame)` : axe de l'ensemble (X, Y, Z) si `direction` lui est parallèle, sinon `None` (la distance ne peut pas être gardée, DI-c). |
 

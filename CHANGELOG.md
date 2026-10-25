@@ -28,6 +28,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   l'épaisseur d'une pièce membre d'un ensemble avant de l'écrire et montre le même refus, les
   mêmes cases et le même bouton (composant partagé `gui/task_panels/unlock_widgets.py`).
   Recette manuelle : `docs/recette/ensembles-epaisseurs-scenarios-manuels.md`.
+- Distance entre deux éléments, règles pures (issue #65, lot DI-a,
+  [ADR 0022](docs/adr/0022-distance-entre-deux-pieces.md)) : `core/distance/` mesure la distance
+  de deux faces, arêtes ou sommets (`measure`, neuf paires), refuse les éléments non parallèles
+  (`DistanceError`), calcule la translation qui amène la distance à une valeur (`moved_by`) et
+  l'axe d'ensemble correspondant (`ensemble_axis`).
 
 ### Modifié
 - Ensembles (ADR 0019), suite à la CI d'intégration : une pièce qui cite sa propre épaisseur
