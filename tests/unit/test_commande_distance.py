@@ -54,6 +54,24 @@ def test_aucun_texte_en_dur_dans_le_panneau() -> None:
     assert literal_text_calls(PANEL) == []
 
 
-def test_pas_de_garde_avant_dic() -> None:
-    """« Garder cette distance » viendra avec l'objet Distance (DI-c) : pas de case grisée."""
-    assert "Garder" not in PANEL.read_text(encoding="utf-8").split('"""', 2)[2]
+def test_case_garder_du_panneau() -> None:
+    """DI-c : la case « Garder cette distance » est cochée par défaut, grisée avec la raison du
+    refus en infobulle (``keep_reason``), et « OK » garde la distance (``finish(keep=...)``) ;
+    une rangée bloquée propose « Ne plus garder et appliquer »."""
+    source = PANEL.read_text(encoding="utf-8")
+    assert "self._keep.setChecked(True)" in source
+    assert "self._move.keep_reason(" in source
+    assert "self._keep.setEnabled(why is None)" in source
+    assert "self._move.finish(keep=keep" in source
+    assert "Ne plus garder et appliquer" in source
+    assert literal_text_calls(GUI / "task_panels" / "distance_kept.py") == []
+
+
+def test_vue_de_la_distance_gardee() -> None:
+    """Le ViewProvider de la Distance : chemin figé (ADR 0003) et icône générée."""
+    view = GUI / "view_providers" / "distance.py"
+    assert "class ViewProviderDistance(PanelEditing)" in view.read_text(encoding="utf-8")
+    assert (ICONS_DIR / "Menuiserie_Distance.svg").is_file()
+    assert '"Menuiserie_Distance.svg"' in (ROOT / "tools" / "generer_icones.py").read_text(
+        encoding="utf-8"
+    )

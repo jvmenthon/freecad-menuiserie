@@ -21,8 +21,8 @@ from freecad.menuiserie.features.furniture_bindings import (
     notice_messages,
     read_members,
     report,
-    with_thickness,
 )
+from freecad.menuiserie.features.furniture_variants import with_thickness
 
 __all__ = ["distance_removed", "member_removed", "relink_remaining", "relink_thickness"]
 
@@ -45,7 +45,9 @@ def relink_remaining(
 ) -> list[Notice]:
     """Relie les membres de ``furniture`` sans ceux de nom ``removed`` (pièces supprimées ou
     retirées) et sans les Distances de nom ``ignoring`` : leurs voisines ne citent plus leur
-    épaisseur ni leur valeur."""
+    épaisseur ni leur valeur. Les Distances gardées qui touchent une pièce de ``removed`` sont
+    supprimées avec elle (F6)."""
+    remove_touching(furniture.Document, removed)
     members = read_members(furniture, ignoring=ignoring)
     kept = tuple(m for m in members.members if m.key not in removed)
     objects = {name: obj for name, obj in members.objects.items() if name not in removed}
@@ -59,7 +61,6 @@ def member_removed(obj: DocumentObject) -> None:
     furniture = furniture_of(obj)
     if furniture is None or "Restore" in furniture.State or obj.Document.Transacting:
         return
-    remove_touching(obj.Document, {obj.Name})  # ses Distances gardées partent avec elle (F6)
     try:
         report(notice_messages(relink_remaining(furniture, {obj.Name})))
     except (

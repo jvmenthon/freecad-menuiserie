@@ -34,12 +34,12 @@ from freecad.menuiserie.features.freecad_types import DocumentObject, expression
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import (
     bind_members,
-    follow_distances,
     locked_error,
     notice_messages,
     read_members,
     workshop_expressions,
 )
+from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of

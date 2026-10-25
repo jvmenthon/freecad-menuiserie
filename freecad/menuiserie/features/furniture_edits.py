@@ -32,11 +32,13 @@ from freecad.menuiserie.features.furniture_bindings import (
     notice_messages,
     read_members,
     report,
+)
+from freecad.menuiserie.features.furniture_relink import relink_thickness
+from freecad.menuiserie.features.furniture_variants import (
     resize_notices,
     with_locks,
     with_thickness,
 )
-from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.i18n import templated_message
 
 __all__ = [

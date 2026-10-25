@@ -421,6 +421,14 @@ def furniture_of(obj: DocumentObject) -> DocumentObject | None:
 # --- Distance entre deux pièces (DI-b) ---------------------------------------------------
 
 
+def _show_distance(distance: DocumentObject) -> None:
+    """ViewProvider de la Distance créée, quand l'interface est chargée."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.distance import ViewProviderDistance
+
+        ViewProviderDistance(distance.ViewObject)
+
+
 def set_distance(
     first: PickedElement,
     second: PickedElement,
@@ -448,10 +456,8 @@ def set_distance(
     ouverte : c'est à l'appelant de le faire pour pouvoir annuler."""
     mover = distance_move.DistanceMove(first, second, moving)
     messages = tuple(mover.apply(value, axis, keep=keep))
-    if mover.created is not None and App.GuiUp:
-        from freecad.menuiserie.gui.view_providers.distance import ViewProviderDistance
-
-        ViewProviderDistance(mover.created.ViewObject)
+    if mover.created is not None:
+        _show_distance(mover.created)
     report(messages)
     return messages
 

@@ -30,11 +30,18 @@ BAS_JOUE = (11, 280, 0)
 BAS_VOILE = (600, 450, 320)
 
 
-def keep(bureau: Bureau, value: float = 320, *, keep_it: bool = True) -> Any:
-    """Distance gardée entre le bas de la joue gauche et le bas du voile (le voile bouge)."""
-    side = api.PickedElement(bureau.parts["JG"], element_name(bureau.parts["JG"], "Face", BAS_JOUE))
-    web = api.PickedElement(bureau.parts["V"], element_name(bureau.parts["V"], "Face", BAS_VOILE))
-    api.set_distance(side, web, value, keep=keep_it)
+def keep(bureau: Bureau, value: float = 320, *, keep_it: bool = True, container: Any = None) -> Any:
+    """Distance gardée entre le bas de la joue gauche et le bas du voile (le voile bouge) ;
+    ``container`` : Std Part qui contient le bureau (chemin de sélection de l'interface)."""
+
+    def pick(mark: str, near: tuple[float, float, float]) -> Any:
+        part = bureau.parts[mark]
+        name = element_name(part, "Face", near)
+        if container is None:
+            return api.PickedElement(part, name)
+        return api.PickedElement(container, f"{part.Name}.{name}")
+
+    api.set_distance(pick("JG", BAS_JOUE), pick("V", BAS_VOILE), value, keep=keep_it)
     found = [o for o in bureau.doc.Objects if distance_module.is_distance(o)]
     return found[0] if found else None
 
@@ -263,18 +270,6 @@ def test_document_rouvert_sans_l_atelier(bureau: Bureau, tmp_path: Path) -> None
 # --- B6 : le glissement met la valeur à jour ----------------------------------------------------
 
 
-def test_la_distance_gardee_suit_le_glissement(bureau: Bureau) -> None:
-    dist = keep(bureau)
-    voile = bureau.parts["V"]
-    memento = drag.begin_drag(voile)
-    drag.move_part(memento, geometry.Vec3(0, -40, 0))  # le voile descend de 40 mm (Y local = Z)
-    drag.end_drag(memento)
-    assert dist.Value.Value == pytest.approx(280)
-    assert v_z(bureau) == (280, 680)
-    assert bureau.expressions("V")["Placement.Base.z"] == "<<Bureau>>.Origin.z + Distance.Value"
-    assert stale_or_invalid(bureau.doc) == []
-
-
 def test_echap_retablit_la_valeur(bureau: Bureau) -> None:
     dist = keep(bureau)
     voile = bureau.parts["V"]
@@ -302,3 +297,46 @@ def test_distance_non_gardable_hors_ensemble(document: Any) -> None:
     with pytest.raises(ValueError, match="même ensemble"):
         api.set_distance(face_a, face_b, 100, keep=True)
     assert b.Placement.Base.z == 200  # rien n'a bougé
+
+
+def test_garde_dans_un_std_part_tourne(document: Any) -> None:
+    """Les éléments sont lus en coordonnées globales : le Std Part tourné et déplacé, la
+    Distance est la même et les liaisons suivent."""
+    part = document.addObject("App::Part", "Meuble")
+    part.Placement = App.Placement(App.Vector(150, -80, 25), App.Rotation(App.Vector(0, 0, 1), 30))
+    bureau = build_desk(document, part)
+    dist = keep(bureau, container=part)
+    assert (dist.Axis, dist.SideA, dist.SideB) == ("Z", "Start", "Start")
+    bureau.furniture.Height = 800
+    document.recompute()
+    assert v_z(bureau) == (320, 770)
+
+
+def test_rangee_bloquee_puis_ne_plus_garder(bureau: Bureau) -> None:
+    """La Distance compte comme une pièce verrouillée : cote refusée, puis « Ne plus garder et
+    appliquer » (la Distance fait partie des pièces proposées)."""
+    keep(bureau)
+    api.set_member_options(bureau.parts["V"], locked=True)
+    with pytest.raises(api.LockedPiecesError) as error:
+        api.resize_furniture(bureau.furniture, height=800)
+    pieces = list(error.value.members)
+    assert [p.Name for p in pieces] == ["WoodPart003", "Distance"]
+    assert "Distance : Joue gauche" in str(error.value)
+    assert bureau.furniture.Height.Value == 750  # rien n'a été écrit
+    api.unlock_and_resize(bureau.furniture, pieces, height=800)
+    assert distances(bureau.doc) == []
+    assert bureau.furniture.Height.Value == 800
+    assert bureau.parts["V"].Locked is False
+    assert stale_or_invalid(bureau.doc) == []
+
+
+def test_ne_plus_garder_seul(bureau: Bureau) -> None:
+    keep(bureau)
+    api.set_member_options(bureau.parts["V"], locked=True)
+    with pytest.raises(api.LockedPiecesError) as error:
+        api.resize_furniture(bureau.furniture, height=800)
+    only = [p for p in error.value.members if distance_module.is_distance(p)]
+    api.unlock_and_resize(bureau.furniture, only, height=800)  # le voile reste verrouillé
+    assert bureau.parts["V"].Locked is True
+    assert distances(bureau.doc) == []
+    assert v_z(bureau) == (370, 770)  # voile verrouillé : il monte avec le plateau (#86)

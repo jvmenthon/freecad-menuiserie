@@ -77,13 +77,15 @@ def _unlock(
     """Déverrouille ``pieces`` (une Distance gardée n'est plus gardée : elle est supprimée) puis
     relie tout l'ensemble (sous-ensembles compris) ; ``thicknesses`` : voir
     :func:`~.furniture_bindings.bind_members`."""
-    for piece in (p for p in pieces if is_distance(p)):
-        piece.Document.removeObject(piece.Name)
-    for piece in (p for p in pieces if not is_distance(p)):
+    gaps = [piece for piece in pieces if is_distance(piece)]
+    members = [piece for piece in pieces if not is_distance(piece)]
+    for piece in members:
         member = member_object(piece)
         if member.Locked:
             with writing(member):
                 member.Locked = False
+    for piece in gaps:
+        piece.Document.removeObject(piece.Name)
     return rebind(furniture, thicknesses)
 
 
