@@ -96,6 +96,8 @@ def magnet(
     sur les autres axes est ignoré ; sans guide à portée, ``delta`` est inchangé.
     """
     _check_tolerance(tolerance)
+    if not set(axes) <= {0, 1, 2}:
+        raise ValueError("magnet : axes inclus dans {0, 1, 2} attendus")
     moved = _shifted(box, delta)
     values = [delta.x, delta.y, delta.z]
     hits = []
@@ -168,8 +170,11 @@ def handle_at(
     """Clé de la flèche (segment projeté) ou de la poignée la plus proche du curseur, à moins de
     ``radius`` pixels, sinon ``None`` (A7). À égalité, la poignée l'emporte, puis la première.
 
-    Une flèche vue de bout (segment réduit à un point) n'est pas saisissable.
+    Une flèche vue de bout (segment réduit à un point) n'est pas saisissable. Un curseur ou un
+    rayon non fini est refusé (``ValueError``).
     """
+    if not all(math.isfinite(v) for v in (*cursor_px, radius)):
+        raise ValueError("handle_at : curseur et rayon finis attendus")
     best: tuple[tuple[float, bool, int], str] | None = None
     for index, target in enumerate(handles_px):
         distance = _pixel_distance(target, cursor_px)

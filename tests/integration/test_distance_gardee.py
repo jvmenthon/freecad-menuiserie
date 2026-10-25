@@ -279,6 +279,24 @@ def test_echap_retablit_la_valeur(bureau: Bureau) -> None:
     assert dist.Value.Value == pytest.approx(320)
 
 
+def test_b6_bis_valeur_pilotee_par_une_formule_fixe_l_axe(bureau: Bureau) -> None:
+    """Le suivi ne réécrit pas une ``Value`` à formule : l'axe de la Distance est non glissable
+    (même refus que B4) au lieu de revenir en silence au recalcul."""
+    dist = keep(bureau)
+    voile = bureau.parts["V"]
+    assert drag.drag_limits(voile).fixed_axes == frozenset()
+    dist.setExpression("Value", "200 mm + 120 mm")
+    bureau.doc.recompute()
+    # le voile est couché : son axe Y (largeur) est la verticale de l'ensemble, axe de la Distance
+    assert drag.drag_limits(voile).fixed_axes == frozenset({1})
+    memento = drag.begin_drag(voile)
+    with pytest.raises(ValueError, match="piloté par une formule"):
+        drag.move_part(memento, geometry.Vec3(0, 50, 0))
+    drag.move_part(memento, geometry.Vec3(0, 0, 50))  # les autres axes restent libres
+    drag.restore(memento)
+    assert v_z(bureau) == (320, 720)
+
+
 def test_rangee_bloquee_par_la_distance(bureau: Bureau) -> None:
     api.set_member_options(bureau.parts["V"], locked=True)
     with pytest.raises(ValueError, match="garder la distance"):

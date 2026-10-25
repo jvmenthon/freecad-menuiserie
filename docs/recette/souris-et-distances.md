@@ -178,10 +178,8 @@ Préparation A de `docs/recette/ensembles-epaisseurs-scenarios-manuels.md` (bure
    au relâchement l'ensemble est relié (les constantes de position du voile sont refaites).
 2. Cocher **Cotes fixes** sur le Voile puis tirer sa poignée de longueur (panneau ouvert) : pas de
    poignée sur une pièce verrouillée.
-3. Verrouiller deux pièces d'une même rangée, puis déplacer une troisième de façon à bloquer la
-   rangée : au relâchement la pièce revient et la boîte **Déverrouiller et appliquer** propose les
-   pièces verrouillées ; choisir **Déverrouiller et appliquer** refait le déplacement, fermer la
-   boîte l'annule.
+3. Verrouiller deux pièces d'une même rangée, puis déplacer une troisième : le déplacement n'est
+   jamais refusé (il ne change ni la cote de l'ensemble ni une épaisseur).
 4. Sur une pièce dont la position est pilotée par **votre** formule (expression dans l'éditeur de
    propriétés) : la flèche de l'axe piloté n'est pas dessinée.
 5. Déplacer une pièce assemblée (Tourillons) jusqu'à ne plus toucher sa voisine : le déplacement

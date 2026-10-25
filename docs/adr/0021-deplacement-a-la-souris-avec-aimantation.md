@@ -68,8 +68,8 @@ cohabite avec les liaisons des ensembles.
    pièce ». Un Ctrl+Z dans les deux cas ; Échap ramène la pièce au début du glissement (Memento).
 5. Pour un membre d'ensemble, les expressions **de l'atelier** sur les propriétés touchées sont
    mises de côté au début du glissement et l'ensemble est relié au relâchement ; une formule de
-   l'utilisateur rend l'axe non glissable ; une rangée bloquée refuse le relâchement et propose
-   « Déverrouiller et appliquer » (ADR 0019).
+   l'utilisateur rend l'axe non glissable (voir la note du 2026-10-25 pour le refus d'une rangée
+   bloquée, retiré).
 
 ## Conséquences
 
@@ -82,4 +82,21 @@ cohabite avec les liaisons des ensembles.
   dessiner ou enlever les flèches, et n'existe que tant que l'atelier est actif (ADR 0007).
 - Une pièce posée à la souris ne suit pas sa voisine si celle-ci bouge (comme l'accrochage de
   l'ADR 0011) ; le suivi reste le rôle de l'ensemble et des Distances gardées (ADR 0022).
+- L'observateur de sélection est accompagné d'un second observateur, celui des documents : il
+  oublie les flèches d'un document qui se ferme.
 - `pivy` n'est utilisé que dans `gui/drag/overlay.py` (dessin), comme dans `gui/textures.py`.
+
+## Note (2026-10-25, relecture du jalon)
+
+Le refus prévu au point 5 (« une rangée bloquée refuse le relâchement et propose
+« Déverrouiller et appliquer ») ne peut pas se produire et il est **retiré**. Un glissement ne
+change ni la cote de l'ensemble ni une épaisseur : `bind_members` peut toujours écrire la nouvelle
+position, et `BlockedRowError` ou `LockedPiecesError` ne sont jamais levées au relâchement. Le
+code et les tests qui les attendaient (boîte « Déverrouiller et appliquer » du glissement,
+reprise du glissement après déverrouillage) sont supprimés. Le refus reste réservé aux réglages
+qui changent une cote ou une épaisseur (panneaux de l'ensemble et de la pièce, ADR 0019).
+
+Les formules de l'utilisateur rendent toujours l'axe non glissable (point 5) : une formule sur la
+position de la pièce, et aussi une formule sur la `Value` d'une Distance gardée de la pièce (le
+suivi ne réécrit pas une valeur pilotée par une formule ; l'axe de cette Distance est refusé avec
+le même message). Le statut reste **accepté**.

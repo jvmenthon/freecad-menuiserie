@@ -40,9 +40,6 @@ from freecad.menuiserie.core.magnet import (
 )
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.furniture import writing
-from freecad.menuiserie.features.furniture_bindings import LockedPiecesError
-from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.magnet_guides import collect_guides
 from freecad.menuiserie.features.part_drag import (
@@ -69,7 +66,6 @@ from freecad.menuiserie.gui.drag.geometry import (
     target_line,
 )
 from freecad.menuiserie.gui.drag.overlay import Overlay
-from freecad.menuiserie.gui.drag.refusal import ask_unlock
 from freecad.menuiserie.gui.drag.view import ViewPort
 
 __all__ = [
@@ -86,7 +82,6 @@ __all__ = [
 MOVE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacer la pièce")
 _RESIZE_ERRORS: Final = (RuntimeError, ValueError, TypeError, AttributeError, ReferenceError)
 Point = tuple[float, float]
-Unlocker = Callable[[ValueError], "Sequence[DocumentObject] | None"]
 
 
 @dataclass(frozen=True)
@@ -239,15 +234,9 @@ class Dragging(State):
     def flush(self, session: DragSession) -> None:
         """Écrit ce qui attendait la cadence (poignée)."""
 
-    def replay(self, memento: DragMemento) -> None:
-        """Refait la dernière écriture depuis le début ``memento`` (après un déverrouillage)."""
-        raise NotImplementedError
-
 
 class Moving(Dragging):
     """Flèche tirée : la pièce suit la souris le long de l'axe, aimantée sauf Maj."""
-
-    last = Vec3(0.0, 0.0, 0.0)
 
     def apply(self, session: DragSession, delta: float) -> None:
         axis = parse_key(self.target)
@@ -258,12 +247,8 @@ class Moving(Dragging):
             result = DragResult(wanted)
         else:
             result = magnet(self.box, self.guides, wanted, self.tolerance, [axis])
-        self.last = result.delta
         move_part(self.memento, result.delta)
         session.written([self.guides[hit.guide] for hit in result.hits])
-
-    def replay(self, memento: DragMemento) -> None:
-        move_part(memento, self.last)
 
 
 class Resizing(Dragging):
@@ -274,7 +259,6 @@ class Resizing(Dragging):
         super().__init__(grab)
         self.throttle = Throttle()
         self.pending: tuple[str, float, Vec3, list[Guide]] | None = None
-        self.last: tuple[str, float, Vec3] | None = None
         self.scheduled = False
 
     def apply(self, session: DragSession, delta: float) -> None:
@@ -302,21 +286,16 @@ class Resizing(Dragging):
         if self.pending is None:
             return
         prop, size, shift, guides = self.pending
-        self.pending, self.last = None, (prop, size, shift)
+        self.pending = None
         resize_part(self.memento, prop, size, shift)
         session.written(guides)
-
-    def replay(self, memento: DragMemento) -> None:
-        if self.last is not None:
-            resize_part(memento, *self.last)
 
 
 class DragSession:
     """Pièce qui porte les flèches (et les poignées si son panneau est ouvert), leur dessin dans
-    la vue 3D et état courant du glissement. ``unlock`` : boîte « Déverrouiller et appliquer »
-    (remplaçable par les vérifications)."""
+    la vue 3D et état courant du glissement."""
 
-    def __init__(self, unlock: Unlocker = ask_unlock) -> None:
+    def __init__(self) -> None:
         self.state: State = Idle()
         self.swallow_release = False  # après Échap, le relâchement du bouton est consommé
         self.part: DocumentObject | None = None
@@ -324,7 +303,6 @@ class DragSession:
         self.port: ViewPort | None = None
         self.overlay: Overlay | None = None
         self.panel: PanelContext | None = None
-        self._unlock = unlock
         self._panel_shown = False
         self._size_mm = 0.0
         self.lit: tuple[Guide, ...] = ()  # guides allumés par l'aimant
@@ -574,37 +552,11 @@ class DragSession:
 
     def finish(self, state: Dragging) -> None:
         """Relâchement : ensemble relié et document recalculé une fois (``end_drag``),
-        avertissements dans la vue rapport ; rangée bloquée : « Déverrouiller et appliquer »."""
+        avertissements dans la vue rapport."""
         try:
             warnings = end_drag(state.memento)
-        except LockedPiecesError as error:
-            self._refused(state, error)
-            return
         except ValueError as error:
             report_warning(str(error))
-            self._close(state, commit=False)
-            return
-        for warning in warnings:
-            report_warning(warning)
-        self._close(state, commit=True)
-
-    def _refused(self, state: Dragging, error: LockedPiecesError) -> None:
-        """Rangée bloquée (la pièce est revenue au début) : pièces déverrouillées au choix du
-        menuisier, puis glissement refait ; sinon il est annulé."""
-        pieces = self._unlock(error)
-        if not pieces:
-            self._close(state, commit=False)
-            return
-        try:
-            for piece in pieces:
-                member = member_object(piece)
-                with writing(member):
-                    member.Locked = False
-            memento = begin_drag(state.memento.part)
-            state.replay(memento)
-            warnings = end_drag(memento)
-        except ValueError as again:
-            report_warning(str(again))
             self._close(state, commit=False)
             return
         for warning in warnings:

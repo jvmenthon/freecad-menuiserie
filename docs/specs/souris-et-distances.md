@@ -135,12 +135,12 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 |---|---|---|
 | F1 | U | `Member` reçoit les distances gardées sous forme de `KeptGap(key, a, a_end, b, b_end, axis)` ; dans la rangée d'une des deux pièces, l'intervalle entre la face de `a` et celle de `b` est un **bloc rigide virtuel** : cellule rigide qui vaut `Name.Value` (la Distance, citée par son `Name`) quand elle est une seule cellule, constantes figées sinon (même règle que l'épaisseur coupée, ADR 0019 point 2). |
 | F2 | U | Deux pièces reliées par une distance gardée sont **en vis-à-vis** sur son axe même si leurs étendues ne se recouvrent pas sur les autres axes (règle 1 bis de la rangée). |
-| F3 | U | Bureau de référence, voile à 320 mm sous le plateau (gardée) : Height → 800, le voile monte avec le plateau (320 mm conservés) ; épaisseur du plateau 25 → le voile descend de 3 mm ; Distance.Value → 300 : le voile monte de 20 mm sans code de l'atelier (expression `… - Distance001.Value`). |
+| F3 | U | Bureau de référence, voile à 320 mm sous le plateau (gardée) : Height → 800, le voile monte avec le plateau (320 mm conservés) ; épaisseur du plateau 30 → 25 mm : le haut du voile suit la sous-face et monte de 5 mm ; Distance.Value → 300 : le bas du voile descend de 20 mm et son haut monte de 20 mm sans code de l'atelier (expression `… - Distance001.Value`). |
 | F4 | U | Distance gardée qui rend la rangée sans cellule libre → rangée **bloquée** : même refus que l'ADR 0019 (`BlockedRowError`), la Distance comptée comme une pièce verrouillée ; le panneau propose « Ne plus garder et appliquer ». |
-| F5 | I | Objet `Distance` (`App::FeaturePython`, sans forme, libellé « Distance : {a} – {b} ») : `PieceA`, `PieceB` (`App::PropertyLink`, lecture seule), `Axis` (X, Y, Z, lecture seule), `SideA`, `SideB` (début/fin, cachées), `Value` (`App::PropertyLength`). Placé dans le groupe de l'ensemble s'il en a un, sinon à côté de l'ensemble. |
+| F5 | I | Objet `Distance` (`App::FeaturePython`, sans forme, libellé « Distance : {a} – {b} ») : `PieceA`, `PieceB` (`App::PropertyLink`, lecture seule), `Axis` (X, Y, Z, lecture seule), `SideA`, `SideB` (début/fin, cachées), `Value` (`App::PropertyLength`). Les liens sont des `App::PropertyLinkHidden`, pour éviter le cycle d'expressions. Placé dans le groupe de l'ensemble s'il en a un, sinon à côté de l'ensemble. |
 | F6 | I | Supprimer l'une des deux pièces, la retirer de l'ensemble, ou supprimer l'ensemble supprime la Distance (sans boîte « objets référencés ») et relie l'ensemble. Supprimer la Distance relie l'ensemble ; la pièce ne bouge pas. |
 | F7 | I | Copier-coller, Dupliquer : la Distance copiée suit les pièces copiées (liens réécrits par FreeCAD) ; document rouvert sans l'atelier : Distance inerte, pièces à leur place (expressions natives). |
-| F8 | G | Double-clic sur une Distance (arborescence ou vue 3D, ADR 0018) : le panneau de DI-b, sur cette Distance (Valeur modifiable, case « Garder » cochée). |
+| F8 | G | Double-clic sur une Distance dans l'arborescence : le panneau de DI-b, sur cette Distance (Valeur modifiable, case « Garder » cochée). |
 
 ## 4. Conception
 
@@ -263,9 +263,10 @@ toucher à ses liaisons serait effacé au recalcul suivant. Au début du glissem
 met de côté (Memento) les expressions **de l'atelier** sur les propriétés touchées
 (`Placement.Base.x/y/z`, `Length`, `Width`) ; au relâchement, l'ensemble entier est relié par la
 voie de #86 (`bind_members`), qui recalcule les constantes d'après la position nouvelle sans
-changer les options. Une formule de l'utilisateur sur un axe le rend non glissable (B4). Une
-rangée qui deviendrait bloquée (ADR 0019, point 5) : le glissement est refusé au relâchement, la
-pièce revient (Memento) et la boîte « Déverrouiller et appliquer » de #86 est proposée.
+changer les options. Une formule de l'utilisateur sur un axe le rend non glissable (B4) ; il en va de même de
+l'axe d'une Distance gardée de la pièce dont la `Value` porte une formule (B6 bis). Un
+glissement ne change ni la cote de l'ensemble ni une épaisseur : aucune rangée ne peut en être
+bloquée, il n'est jamais refusé au relâchement (ADR 0021, note du 2026-10-25).
 
 ### 4.6 « Définir une distance » (DI-a, DI-b)
 
@@ -300,7 +301,10 @@ pièce revient (Memento) et la boîte « Déverrouiller et appliquer » de #86 e
 - Les liaisons citent la Distance par son `Name` (`Distance001.Value`), comme les épaisseurs
   (#86) : changer `Value` ne fait appel à aucun code de l'atelier (ADR 0009).
 - Glisser une pièce le long de l'axe d'une Distance gardée met sa `Value` à jour au relâchement
-  (Q8 ★).
+  (Q8 ★), sauf si cette `Value` porte une formule de l'utilisateur : l'axe est alors non
+  glissable (même règle et même message que B4), car la pièce reviendrait au recalcul.
+- **Distance nulle** : elle ne peut pas être gardée (les deux faces se touchent) ; la commande
+  refuse avec un message, aucune Distance n'est créée.
 
 ### 4.8 Sécurité
 
@@ -318,6 +322,9 @@ borne la lecture des formes d'un gros document.
 - Les guides se lisent sur tout objet Part sans le modifier ; aucun objet d'un autre atelier
   n'est déplacé par une distance.
 - Le menu contextuel n'est enrichi que quand l'atelier est actif.
+- Deux observateurs permanents tant que l'atelier est actif : l'observateur de sélection
+  (`_SelectionObserver`, dessine ou enlève les flèches) et l'observateur de documents
+  (`_DocumentObserver`), qui oublie les flèches d'un document quand il se ferme.
 - L'objet Distance est un `App::FeaturePython` ordinaire ; sans l'atelier, il reste inerte et
   les expressions qui le citent restent valables (FreeCAD lit `Value`).
 

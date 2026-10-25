@@ -185,30 +185,6 @@ def test_echap_retablit_les_liaisons(bureau: Bureau) -> None:
     assert bureau.bounds("V")[1] == (441, 459)
 
 
-def test_rangee_bloquee_refuse_le_relachement(
-    bureau: Bureau, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Rangée bloquée (erreur de #86 à la liaison) : la pièce revient, l'erreur est relancée."""
-    furniture_core = pytest.importorskip("freecad.menuiserie.core.furniture")
-    bindings = pytest.importorskip("freecad.menuiserie.features.furniture_bindings")
-    voile = bureau.parts["V"]
-    api.set_member_options(bureau.parts["JG"], locked=True)
-
-    def blocked(*_args: Any, **_kwargs: Any) -> Any:
-        raise furniture_core.BlockedRowError(
-            "Impossible", {}, locked=(bureau.parts["JG"].Name,), members=(voile.Name,)
-        )
-
-    monkeypatch.setattr(drag, "bind_members", blocked)
-    memento = drag.begin_drag(voile)
-    drag.move_part(memento, Vec3(0, 0, -100))
-    with pytest.raises(bindings.LockedPiecesError) as error:
-        drag.end_drag(memento)
-    assert error.value.members == (bureau.parts["JG"],)
-    assert bureau.bounds("V")[1] == (441, 459)
-    assert bureau.expressions("V") == EXPRESSIONS["V"]
-
-
 # --- B4 : formule de l'utilisateur ------------------------------------------------------------
 
 

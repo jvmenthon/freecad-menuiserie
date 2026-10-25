@@ -49,7 +49,7 @@ from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
-from tests.gui.verifications_souris_verrous import VERIFICATIONS_SOURIS_VERROUS
+from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -1245,7 +1245,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_DOUBLE_CLIC,
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
-    *VERIFICATIONS_SOURIS_VERROUS,
+    *VERIFICATIONS_SOURIS_DOCUMENT,
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
     *VERIFICATIONS_DISTANCE_GARDEE,

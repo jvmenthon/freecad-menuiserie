@@ -78,6 +78,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   l'axe d'ensemble correspondant (`ensemble_axis`).
 
 ### Modifié
+- Relecture du jalon « souris et distances » (issue #65,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), note du 2026-10-25) : le
+  glissement n'est plus jamais refusé pour une rangée bloquée (il ne change ni la cote de
+  l'ensemble ni une épaisseur) ; le code mort de ce refus est supprimé. Une Distance gardée dont
+  la `Value` porte une formule de l'utilisateur rend son axe non glissable (même message que
+  pour une position à formule). `magnet` refuse des axes hors {0, 1, 2} et `handle_at` un curseur
+  ou un rayon non fini (`ValueError`) ; la zone MDI est gardée en cache par le filtre de souris.
+  La spécification suit le code (liens cachés, double-clic dans l'arborescence, distance nulle
+  refusée, chiffres de F3, second observateur de documents).
 - Ensembles (ADR 0019), suite à la CI d'intégration : une pièce qui cite sa propre épaisseur
   l'écrit `Thickness` (comme FreeCAD la réécrit) ; les citations d'épaisseur ne forment jamais
   de cycle entre pièces (le terme qui fermerait un cycle est figé en constante) ; les écarts
