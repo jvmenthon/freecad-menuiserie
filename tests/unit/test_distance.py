@@ -137,8 +137,9 @@ def test_d3_la_mobile_reste_de_son_cote() -> None:
     assert close(moved_by(gap, 10.0), Vec3(0, 0, -6))  # reste sous la référence
 
 
-def test_d3_distance_nulle_cote_de_la_normale_sortante_de_la_mobile() -> None:
-    for mobile, expected in ((face(0), Z), (face(0, up=False), NEG_Z)):
+def test_d3_distance_nulle_la_mobile_s_ecarte_de_la_reference() -> None:
+    # Au contact, la face mobile regarde la référence : on s'écarte à l'opposé de sa normale.
+    for mobile, expected in ((face(0, up=False), Z), (face(0), NEG_Z)):
         gap = measure(face(0), mobile)
         assert gap.value == 0.0
         assert close(gap.direction, expected)
@@ -146,7 +147,7 @@ def test_d3_distance_nulle_cote_de_la_normale_sortante_de_la_mobile() -> None:
 
 
 def test_d3_distance_nulle_arete_et_sommet() -> None:
-    assert close(measure(edge(0, 0), edge(0, 0, support=Y)).direction, Y)
+    assert close(measure(edge(0, 0), edge(0, 0, support=Y)).direction, Vec3(0, -1, 0))
     assert close(measure(face(0), vertex(1, 1, 0)).direction, Z)
     assert close(measure(edge(0, 0), vertex(5, 0, 0)).direction, Z)
     assert close(measure(vertex(), vertex()).direction, X)

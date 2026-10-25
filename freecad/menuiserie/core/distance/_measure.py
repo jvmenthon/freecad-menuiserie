@@ -199,10 +199,12 @@ def _unit_axis(axis: Vec3 | None) -> Vec3 | None:
 
 
 def _fallback(own: Vec3 | None, reference: Vec3 | None, moving: Target) -> Vec3:
-    """Sens quand la distance est nulle : normale sortante (ou appui) de l'élément mobile ;
-    pour un sommet, celle de la référence ; sommet contre sommet : axe X du repère du sommet."""
+    """Sens quand la distance est nulle : la pièce mobile s'écarte de la référence, donc à
+    l'opposé de la normale sortante (ou de l'appui) de l'élément mobile, qui regarde la
+    référence au contact ; pour un sommet, la normale sortante de la référence ; sommet contre
+    sommet : axe X du repère du sommet."""
     if own is not None:
-        return own
+        return scale(own, -1.0)
     if reference is not None:
         return reference
     return moving.axes.x if isinstance(moving, VertexTarget) else _X
@@ -212,7 +214,8 @@ def measure(fixed: Target, moving: Target, axis: Vec3 | None = None) -> Gap:
     """Distance de ``moving`` (élément de la pièce qui bouge) à ``fixed`` (référence), et sens
     dans lequel ``moving`` s'éloigne. Les neuf paires de faces, arêtes et sommets sont
     traitées (D1) ; éléments non parallèles ou face non plane : :class:`DistanceError` (D2).
-    Distance nulle : le sens est celui de la normale sortante de l'élément mobile (D3).
+    Distance nulle : la pièce mobile s'écarte de la référence, à l'opposé de la normale sortante
+    de l'élément mobile (D3).
     ``axis`` (axe du conteneur, global) ne sert que pour sommet-sommet (D4) : la distance et le
     sens sont alors ceux de la projection sur cet axe seul."""
     unit_axis = _unit_axis(axis)
