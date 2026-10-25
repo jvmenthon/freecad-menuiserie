@@ -25,7 +25,6 @@ from typing import Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.furniture import BlockedRowError
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
@@ -34,7 +33,6 @@ from freecad.menuiserie.features.freecad_types import DocumentObject, expression
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import (
     bind_members,
-    locked_error,
     notice_messages,
     read_members,
     workshop_expressions,
@@ -252,8 +250,8 @@ def restore(memento: DragMemento) -> None:
 
 
 def _relink(memento: DragMemento) -> list[str]:
-    """Relie tout l'ensemble de la brute d'après sa position nouvelle ; rangée bloquée ou erreur :
-    la brute revient (:func:`restore`) et l'erreur est relancée."""
+    """Relie tout l'ensemble de la brute d'après sa position nouvelle ; en cas d'erreur, la brute
+    revient (:func:`restore`) et l'erreur est relancée."""
     furniture = furniture_of(memento.part)
     if furniture is None:
         return []
@@ -261,9 +259,6 @@ def _relink(memento: DragMemento) -> list[str]:
     members = read_members(furniture)
     try:
         return list(notice_messages(bind_members(members, members.objects)))
-    except BlockedRowError as error:
-        restore(memento)
-        raise locked_error(error, members.named) from error
     except ValueError:
         restore(memento)
         raise

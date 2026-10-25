@@ -101,8 +101,8 @@ quel que soit le style de navigation. Plusieurs pièces sélectionnées : pas de
   panneau : « Annuler » ramène la pièce à son état d'avant le panneau.
 - **Pièce d'un ensemble** : l'ensemble est relié au relâchement, sans changer ses options. Une
   formule de l'utilisateur sur une position retire la flèche de cet axe ; une pièce verrouillée
-  (« Cotes fixes ») n'a pas de poignées. Si une rangée est bloquée par des pièces verrouillées, le
-  relâchement propose **Déverrouiller et appliquer** (sinon la pièce revient).
+  (« Cotes fixes ») n'a pas de poignées. Le glissement ne change
+  ni la cote de l'ensemble ni une épaisseur : il n'est jamais refusé pour une rangée bloquée.
 - Un assemblage qui ne touche plus ses pièces après le glissement est gardé, avec un
   avertissement dans la vue rapport.
 
