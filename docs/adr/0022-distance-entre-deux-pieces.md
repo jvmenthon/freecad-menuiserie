@@ -1,7 +1,7 @@
 # ADR 0022 — Distance entre deux pièces : mouvement ponctuel, objet Distance dans un ensemble
 
-- Statut : **proposé** (demande de jv du 2026-10-25 ; questions Q6 à Q8 de la spécification en
-  attente)
+- Statut : **accepté** (demande de jv du 2026-10-25 ; Q6 à Q8 de la spécification : recommandations
+  validées par jv le 2026-10-25)
 - Date : 2026-10-25
 - Spécification : [docs/specs/souris-et-distances.md](../specs/souris-et-distances.md), § 4.6 et 4.7
 - ADR liés : [0007 — Compatibilité avec les autres ateliers](0007-compatibilite-avec-les-autres-ateliers.md),
