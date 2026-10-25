@@ -68,6 +68,7 @@ from freecad.menuiserie.gui.task_panels.base import (
 )
 from freecad.menuiserie.gui.task_panels.preview import PreviewStyle
 from freecad.menuiserie.gui.task_panels.unlock_widgets import UnlockBox
+from freecad.menuiserie.gui.task_panels.wood_part_drag import PanelDrag
 from freecad.menuiserie.gui.task_panels.wood_part_snap import SnapRows
 from freecad.menuiserie.gui.task_panels.wood_part_thickness import ThicknessTools
 from freecad.menuiserie.gui.view_providers.wood_part import ICON
@@ -159,6 +160,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._setup_rotation_buttons()
         self._connect_signals()
         self._snap = SnapRows(self.form, obj, self._session)
+        self._drag = PanelDrag(self)  # flèches et poignées dans la vue 3D (ADR 0021)
         if self._session is not None and self._session.targets:
             self._recompute()
 
@@ -347,6 +349,12 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         if rotate_part(self.obj, turn, self._session):
             self.preview()
             self._snap.show()  # notices en direct : la pièce touche ou non ses cibles
+
+    def after_drag(self) -> None:
+        """Pièce déplacée ou étirée à la souris : cotes relues par les champs ; l'accrochage de la
+        création ne la repose plus (il la ramènerait là où elle a été posée)."""
+        self._session = None
+        self._show_values()
 
     def _before_commit(self) -> None:
         """« OK » : transparence d'origine rétablie, pièce ajoutée à l'ensemble si la case est
