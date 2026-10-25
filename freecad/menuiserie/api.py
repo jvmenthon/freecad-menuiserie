@@ -52,12 +52,17 @@ from freecad.menuiserie.features import (
     cutlist_object,
     cutlist_thumbnail,
     furniture_edges,
+    furniture_locks,
     furniture_members,
     templates,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
-from freecad.menuiserie.features.furniture_bindings import notice_messages, report
+from freecad.menuiserie.features.furniture_bindings import (
+    LockedPiecesError,
+    notice_messages,
+    report,
+)
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.factories import (
     create_dovetail,
@@ -81,6 +86,7 @@ __all__ = [
     "INTERNATIONAL_CSV",
     "CarcassJoinery",
     "CarcassParams",
+    "LockedPiecesError",
     "add_to_furniture",
     "blank_of",
     "cut_list_html",
@@ -108,6 +114,8 @@ __all__ = [
     "resize_furniture",
     "set_edge_distance",
     "set_member_options",
+    "unlock_and_resize",
+    "unlock_and_set_thickness",
 ]
 
 
@@ -321,11 +329,16 @@ def remove_from_furniture(objects: Sequence[DocumentObject]) -> _Notices:
 
 
 def set_member_options(
-    obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None
+    obj: DocumentObject,
+    *,
+    mode: str | None = None,
+    fixed: Mapping[str, bool] | None = None,
+    locked: bool | None = None,
 ) -> _Notices:
-    """Change le mode (``Stay``, ``Proportional``) et les options « fixe » d'un membre
-    (``fixed={"Back": False}``), relie ce seul membre et recalcule."""
-    notices = furniture_members.set_options(obj, mode, fixed)
+    """Change le mode (``Stay``, ``Proportional``), les options « fixe » (``fixed={"Back":
+    False}``) et le verrou « cotes fixes » (``locked``) d'un membre, relie **tout** l'ensemble
+    (un réglage peut changer la rangée des autres pièces) et recalcule."""
+    notices = furniture_members.set_options(obj, mode, fixed, locked)
     return _reported(notices, obj.Document)
 
 
@@ -333,7 +346,7 @@ def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> _Notic
     """Règle à ``distance`` mm l'écart entre une face d'un membre et le bord ``edge``
     (``Left``, ``Right``, ``Front``, ``Back``, ``Bottom``, ``Top``) de son ensemble : la pièce
     est déplacée, ou sa cote change si la distance opposée est fixe. Options inchangées ; ce
-    seul membre est relié, puis le document recalculé. Refus avant modification (face pilotée
+    ensemble est relié, puis le document recalculé. Refus avant modification (face pilotée
     par une formule, pièce qui n'est pas d'équerre, cote hors bornes)."""
     notices = furniture_edges.set_edge_distance(obj, edge, distance)
     return _reported(notices, obj.Document)
@@ -355,11 +368,40 @@ def resize_furniture(
 ) -> _Notices:
     """Change les cotes de l'ensemble (mm, ``None`` = inchangée) puis recalcule ; refusé
     d'avance (``ValueError`` traduite, rien n'est modifié) si une pièce deviendrait trop petite
-    ou trop grande ou si un assemblage perdrait sa position. Renvoie les avertissements
-    traduits (aussi dans la vue rapport, ADR 0017)."""
+    ou trop grande ou si un assemblage perdrait sa position. Une rangée bloquée par des pièces
+    verrouillées lève :class:`LockedPiecesError` (``members`` : ces pièces ;
+    :func:`unlock_and_resize` les déverrouille). Renvoie les avertissements traduits (aussi
+    dans la vue rapport, ADR 0017)."""
     sizes = {"Width": width, "Depth": depth, "Height": height}
     notices = furniture_members.resize(furniture, sizes)
     return _reported(notices, furniture.Document)
+
+
+def unlock_and_resize(
+    furniture: DocumentObject,
+    pieces: Sequence[DocumentObject],
+    *,
+    width: float | None = None,
+    depth: float | None = None,
+    height: float | None = None,
+) -> _Notices:
+    """Déverrouille ``pieces`` (celles de ``LockedPiecesError.members``), relie tout l'ensemble
+    puis change ses cotes, comme :func:`resize_furniture`. Contrôlé d'abord pièces
+    déverrouillées : si la cote reste refusée, rien n'est modifié. Aucune transaction n'est
+    ouverte : l'appelant en ouvre une pour que le tout s'annule d'un coup."""
+    sizes = {"Width": width, "Depth": depth, "Height": height}
+    notices = furniture_locks.unlock_and_resize(furniture, pieces, sizes)
+    return _reported(notices, furniture.Document)
+
+
+def unlock_and_set_thickness(
+    part: DocumentObject, thickness: float, pieces: Sequence[DocumentObject]
+) -> _Notices:
+    """Déverrouille ``pieces``, relie tout l'ensemble de la pièce ``part`` puis fixe son
+    épaisseur (mm). Mêmes contrôle préalable et absence de transaction que
+    :func:`unlock_and_resize`."""
+    notices = furniture_locks.unlock_and_set_thickness(part, thickness, pieces)
+    return _reported(notices, part.Document)
 
 
 def furniture_of(obj: DocumentObject) -> DocumentObject | None:

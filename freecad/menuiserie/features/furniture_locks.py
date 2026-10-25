@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+"""Déverrouiller des pièces puis appliquer une cote ou une épaisseur (ADR 0019, critère D4).
+
+Une rangée bloquée par des pièces verrouillées refuse le changement (``LockedPiecesError``) ;
+ces fonctions valident d'abord le changement **avec** les pièces déverrouillées (rien n'est
+écrit si la rangée reste bloquée ou si le changement est refusé), puis déverrouillent, relient
+tout l'ensemble et écrivent la cote. Ni transaction ni recalcul : c'est à l'appelant
+(``api.py``, panneaux) de les faire, pour que le tout soit une seule annulation.
+"""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Mapping, Sequence
+from typing import Final
+
+from freecad.menuiserie.core.furniture import Notice
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
+from freecad.menuiserie.features.furniture import furniture_of, writing
+from freecad.menuiserie.features.furniture_bindings import rebind
+from freecad.menuiserie.features.furniture_edits import thickness_notices
+from freecad.menuiserie.features.furniture_members import (
+    NOT_IN_FURNITURE,
+    checked_furniture,
+    member_object,
+    planned_resize,
+    quoted_label,
+    write_box,
+)
+from freecad.menuiserie.features.i18n import translated
+
+__all__ = ["unlock_and_resize", "unlock_and_set_thickness"]
+
+_DRIVEN_THICKNESS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » : Thickness suit une expression ; modifiez cette expression.",
+)
+_INVALID_THICKNESS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Épaisseur invalide : « {value} » (nombre fini en mm attendu)."
+)
+
+
+def _locked_keys(pieces: Sequence[DocumentObject]) -> tuple[str, ...]:
+    """Noms des membres de ``pieces`` (pièces de bois, usinées ou sous-ensembles) qui sont
+    membres d'un ensemble. ``ValueError`` traduite sinon, avant toute modification."""
+    keys: list[str] = []
+    for piece in pieces:
+        member = member_object(piece)
+        if furniture_of(member) is None:
+            raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
+        keys.append(member.Name)
+    return tuple(keys)
+
+
+def _unlock(furniture: DocumentObject, pieces: Sequence[DocumentObject]) -> list[Notice]:
+    """Déverrouille ``pieces`` puis relie tout l'ensemble (sous-ensembles compris)."""
+    for piece in pieces:
+        member = member_object(piece)
+        if member.Locked:
+            with writing(member):
+                member.Locked = False
+    return rebind(furniture)
+
+
+def unlock_and_resize(
+    furniture: DocumentObject,
+    pieces: Sequence[DocumentObject],
+    sizes: Mapping[str, float | None],
+) -> list[Notice]:
+    """Déverrouille ``pieces``, relie tout l'ensemble puis écrit les cotes ``sizes``
+    (``Width``, ``Depth``, ``Height`` ; ``None`` = inchangée). Le changement est contrôlé avant
+    toute écriture, pièces déverrouillées : refus (``ValueError`` traduite, rien n'est modifié)
+    s'il reste refusé ou si la rangée reste bloquée."""
+    keys = _locked_keys(pieces)
+    new, notices = planned_resize(furniture, sizes, keys)
+    relinked = _unlock(furniture, pieces)
+    write_box(furniture, new, sizes)
+    return [*relinked, *notices]
+
+
+def unlock_and_set_thickness(
+    part: DocumentObject, thickness: float, pieces: Sequence[DocumentObject]
+) -> list[Notice]:
+    """Déverrouille ``pieces``, relie tout l'ensemble de ``part`` puis écrit son épaisseur
+    ``thickness`` (mm). Même contrôle préalable que :func:`unlock_and_resize`."""
+    member = member_object(part)
+    furniture = furniture_of(member)
+    if furniture is None:
+        raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
+    checked_furniture(furniture)
+    if has_expression(member, "Thickness"):
+        raise ValueError(translated(_DRIVEN_THICKNESS, quoted_label(member)))
+    if isinstance(thickness, bool) or not isinstance(thickness, int | float):
+        thickness = math.nan
+    if not math.isfinite(thickness):
+        raise ValueError(translated(_INVALID_THICKNESS, {"value": quoted_value(thickness)}))
+    keys = _locked_keys(pieces)
+    notices = thickness_notices(furniture, member, float(thickness), unlocked=keys)
+    relinked = _unlock(furniture, pieces)
+    with writing(member):
+        member.Thickness = float(thickness)
+    return [*relinked, *notices]

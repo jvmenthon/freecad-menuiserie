@@ -36,7 +36,8 @@ __all__ = ["MemberView", "member_views", "shown_object"]
 @dataclass(frozen=True)
 class MemberView:
     """Un membre vu par le panneau. ``distances`` est vide pour un membre qui n'est pas
-    d'équerre ; ``driven`` : bords dont la distance suit une formule de l'utilisateur."""
+    d'équerre ; ``driven`` : bords dont la distance suit une formule de l'utilisateur ;
+    ``locked`` : pièce aux cotes fixes."""
 
     obj: DocumentObject
     mode: str
@@ -44,6 +45,7 @@ class MemberView:
     distances: Mapping[Edge, float]
     fixed: frozenset[Edge]
     driven: frozenset[Edge]
+    locked: bool = False
 
 
 def shown_object(member: DocumentObject) -> DocumentObject:
@@ -69,7 +71,6 @@ def member_views(furniture: DocumentObject) -> tuple[tuple[MemberView, ...], tup
     with translated_errors():
         _bindings, formulas = bindings_for(
             str(furniture.Label),
-            members.box,
             members.members,
             rules,
             nested=furniture_of(furniture) is not None,
@@ -78,10 +79,11 @@ def member_views(furniture: DocumentObject) -> tuple[tuple[MemberView, ...], tup
         MemberView(
             obj=members.objects[member.key],
             mode=member.mode.value,
-            follows=follow_summary(members.box, member, rules.get(member.key)),
+            follows=follow_summary(member, rules.get(member.key)),
             distances=_distances(member, members.box),
             fixed=member.fixed or frozenset(),
             driven=driven_edges(member),
+            locked=member.locked,
         )
         for member in members.members
     )

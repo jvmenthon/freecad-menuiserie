@@ -33,6 +33,7 @@ from freecad.menuiserie.features.furniture import (
     follows_user_changes,
     furniture_of,
     option_name,
+    take_previous,
 )
 from freecad.menuiserie.features.furniture_bindings import (
     MemberSet,
@@ -48,7 +49,13 @@ from freecad.menuiserie.features.furniture_bindings import (
 )
 from freecad.menuiserie.features.i18n import templated_message, translated
 
-__all__ = ["member_option_changed", "report_resize", "thickness_changed", "thickness_notices"]
+__all__ = [
+    "member_changed",
+    "member_option_changed",
+    "report_resize",
+    "thickness_changed",
+    "thickness_notices",
+]
 
 _RELINK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -173,3 +180,12 @@ def member_option_changed(
         report(messages)
     except ValueError as error:  # libellé ou cote illisible : liaisons laissées telles quelles
         report([str(error)])
+
+
+def member_changed(obj: DocumentObject, prop: str) -> None:
+    """Réglage ou épaisseur d'un membre changé par l'utilisateur (``onChanged`` de la pièce)."""
+    previous = take_previous(obj, prop)
+    if prop == "Thickness":
+        thickness_changed(obj, previous)
+    else:
+        member_option_changed(obj, prop, previous)

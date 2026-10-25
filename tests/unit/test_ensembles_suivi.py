@@ -16,8 +16,8 @@ from freecad.menuiserie.core.furniture import (
     FurnitureBox,
     FurnitureError,
     InteriorMode,
-    Member,
     Linear,
+    Member,
     NoticeKind,
     default_fixed,
     edge_distances,
@@ -271,7 +271,7 @@ def size_of(member: Member) -> tuple[float, float, float]:
 # E4 : plusieurs pièces libres dans une rangée
 
 
-def shelves(**changes: object) -> tuple[list[Member], FurnitureBox]:
+def shelves(*, locked: bool = False) -> tuple[list[Member], FurnitureBox]:
     """Joue 22 | étagère S1 400 | montant D 18 | étagère S2 600 | joue 22 (C = 1062)."""
     box = FurnitureBox(1062.0, 500.0, 300.0)
     blocks = {
@@ -283,7 +283,7 @@ def shelves(**changes: object) -> tuple[list[Member], FurnitureBox]:
     }
     members = [Member(key, block=block, label=key) for key, block in blocks.items()]
     resolved = with_default_options(box, members)
-    return [replace(m, **changes) if m.key == "S1" else m for m in resolved], box
+    return [replace(m, locked=locked) if m.key == "S1" else m for m in resolved], box
 
 
 def test_partage_au_prorata_E4() -> None:
@@ -293,7 +293,7 @@ def test_partage_au_prorata_E4() -> None:
     after = predict(wider, members, rules)
     assert size_of(after["S1"])[0] == pytest.approx(440.0)
     assert size_of(after["S2"])[0] == pytest.approx(660.0)
-    assert span_of(after["D"], W) == (pytest.approx(462.0), pytest.approx(480.0))
+    assert span_of(after["D"], W) == pytest.approx((462.0, 480.0))
     assert span_of(after["JD"], W)[1] == pytest.approx(1162.0)
 
 
@@ -304,7 +304,7 @@ def test_etagere_verrouillee_E4() -> None:
     after = predict(wider, members, rules)
     assert size_of(after["S1"])[0] == 400.0
     assert size_of(after["S2"])[0] == pytest.approx(700.0)
-    assert span_of(after["D"], W) == (pytest.approx(422.0), pytest.approx(440.0))
+    assert span_of(after["D"], W) == pytest.approx((422.0, 440.0))
 
 
 # F7 : épaisseur jamais étirée, deux faces fixes

@@ -8,8 +8,8 @@ from dataclasses import replace
 
 from freecad.menuiserie.core.furniture import (
     Edge,
-    FurnitureBox,
     FurnitureAxis,
+    FurnitureBox,
     InteriorMode,
     Member,
     Row,

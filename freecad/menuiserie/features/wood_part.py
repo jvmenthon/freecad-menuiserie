@@ -35,11 +35,7 @@ from freecad.menuiserie.features.freecad_types import (
     proxy_is,
     restoring_or_undoing,
 )
-from freecad.menuiserie.features.furniture import (
-    MEMBER_OPTIONS,
-    remember_before_change,
-    take_previous,
-)
+from freecad.menuiserie.features.furniture import MEMBER_OPTIONS, remember_before_change
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.part_labels import make_label_unique, sync_dependent_labels
@@ -179,22 +175,14 @@ class WoodPart(StatelessProxy):
         elif prop == "Label":
             self._adopt_typed_mark(obj)
         elif prop in MEMBER_OPTIONS or prop == "Thickness":  # membre d'un ensemble (J4)
-            self._member_changed(obj, prop)
+            from freecad.menuiserie.features.furniture_edits import member_changed
+
+            member_changed(obj, prop)
 
     def onBeforeChange(self, obj: DocumentObject, prop: str) -> None:
         """Valeur d'un réglage ou de l'épaisseur d'un membre d'ensemble avant une saisie de
         l'utilisateur, pour :meth:`onChanged` (sans effet hors ensemble)."""
         remember_before_change(obj, prop)
-
-    def _member_changed(self, obj: DocumentObject, prop: str) -> None:
-        """Réglage ou épaisseur d'un membre d'ensemble changé par l'utilisateur."""
-        from freecad.menuiserie.features import furniture_edits
-
-        previous = take_previous(obj, prop)
-        if prop == "Thickness":
-            furniture_edits.thickness_changed(obj, previous)
-        else:
-            furniture_edits.member_option_changed(obj, prop, previous)
 
     def _follow_material_choice(self, obj: DocumentObject) -> None:
         """Recopie le matériau choisi dans la liste ; sans effet pour une pièce d'un document

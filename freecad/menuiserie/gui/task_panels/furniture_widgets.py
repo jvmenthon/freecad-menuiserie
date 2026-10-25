@@ -40,6 +40,7 @@ FOLLOW_LABELS: Final = {
     Follow.MOVED: QT_TRANSLATE_NOOP("Menuiserie", "déplacée"),
     Follow.PROPORTION: QT_TRANSLATE_NOOP("Menuiserie", "proportion"),
     Follow.STAYS: QT_TRANSLATE_NOOP("Menuiserie", "fixe"),
+    Follow.LOCKED: QT_TRANSLATE_NOOP("Menuiserie", "cotes fixes"),
 }
 EDGE_LABELS: Final = {
     Edge.LEFT: QT_TRANSLATE_NOOP("Menuiserie", "Gauche"),

@@ -23,7 +23,7 @@ from freecad.menuiserie.core.furniture import (
     follow_summary,
 )
 from freecad.menuiserie.core.geometry import Vec3
-from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, piece, placed, with_options
+from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, placed, with_options
 
 TURN_Z_180 = [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]]  # L selon -X, l selon -Y
 TURN_Z_45 = [[0.7071068, -0.7071068, 0.0], [0.7071068, 0.7071068, 0.0], [0.0, 0.0, 1.0]]

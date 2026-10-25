@@ -8,7 +8,7 @@ c'est à l'appelant (``api.py``, commandes) de les faire.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core.furniture import (
@@ -336,9 +336,12 @@ def relink(furniture: DocumentObject) -> list[Notice]:
     return rebind(furniture)
 
 
-def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list[Notice]:
-    """Contrôle (``check_resize``, sous-ensembles compris) puis écrit les cotes ``sizes``
-    (``Width``, ``Depth``, ``Height`` ; ``None`` = inchangée). Refus avant toute écriture."""
+def planned_resize(
+    furniture: DocumentObject, sizes: Mapping[str, float | None], unlocked: Collection[str] = ()
+) -> tuple[FurnitureBox, list[Notice]]:
+    """Contrôle (``check_resize``, sous-ensembles compris) des cotes ``sizes`` (``Width``,
+    ``Depth``, ``Height`` ; ``None`` = inchangée) : nouvelles cotes et avertissements. Rien n'est
+    écrit. ``unlocked`` : clés des pièces à considérer comme déverrouillées."""
     checked_furniture(furniture)
     old = read_members(furniture).box
     changed = {name: value for name, value in sizes.items() if value is not None}
@@ -349,11 +352,25 @@ def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list
     values = [changed.get(name, getattr(old, name.lower())) for name in DIMENSIONS]
     with translated_errors():
         new = FurnitureBox(*values)
-        notices = resize_notices(furniture, old, new)
-    with writing(furniture):
-        for name in changed:
-            setattr(furniture, name, getattr(new, name.lower()))
+        return new, resize_notices(furniture, old, new, unlocked)
+
+
+def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list[Notice]:
+    """Contrôle (:func:`planned_resize`) puis écrit les cotes ``sizes``. Refus avant toute
+    écriture (:class:`LockedPiecesError` si une rangée est bloquée par des pièces verrouillées)."""
+    new, notices = planned_resize(furniture, sizes)
+    write_box(furniture, new, sizes)
     return notices
+
+
+def write_box(
+    furniture: DocumentObject, new: FurnitureBox, sizes: Mapping[str, float | None]
+) -> None:
+    """Écrit les cotes de ``new`` dont ``sizes`` n'est pas ``None``."""
+    with writing(furniture):
+        for name, value in sizes.items():
+            if value is not None:
+                setattr(furniture, name, getattr(new, name.lower()))
 
 
 # --- Gabarits (J4d, ADR 0010) ---------------------------------------------------------------
