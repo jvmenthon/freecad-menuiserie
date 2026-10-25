@@ -128,7 +128,7 @@ def set_member_thickness(part: DocumentObject, thickness: float) -> list[Notice]
     """Écrit l'épaisseur ``thickness`` (mm) de la pièce de bois ``part``. Pour un membre d'un
     ensemble, elle est contrôlée d'abord (``check_thickness``) : refus avant toute écriture,
     :class:`LockedPiecesError` si une rangée est bloquée par des pièces verrouillées,
-    ``ValueError`` traduite sinon. Les liaisons sont vivantes (``<<Pièce>>.Thickness``) : rien à
+    ``ValueError`` traduite sinon. Les liaisons sont vivantes (``Name.Thickness``) : rien à
     relier. Hors ensemble, l'épaisseur est simplement écrite. Renvoie les avertissements."""
     if furniture_of(member_object(part)) is None:
         part.Thickness = float(thickness)

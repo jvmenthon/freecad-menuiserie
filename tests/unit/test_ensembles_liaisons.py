@@ -36,15 +36,15 @@ DESK = {
     ("P", "Length"): "<<Bureau>>.Width",
     ("P", "Width"): "<<Bureau>>.Depth",
     ("P", "Placement.Base.z"): "<<Bureau>>.Origin.z + <<Bureau>>.Height - Thickness",
-    ("JG", "Length"): "<<Bureau>>.Height - <<Plateau>>.Thickness",
+    ("JG", "Length"): "<<Bureau>>.Height - P.Thickness",
     ("JG", "Width"): "<<Bureau>>.Depth - 40 mm",
     ("JG", "Placement.Base.x"): "<<Bureau>>.Origin.x + Thickness",
-    ("JD", "Length"): "<<Bureau>>.Height - <<Plateau>>.Thickness",
+    ("JD", "Length"): "<<Bureau>>.Height - P.Thickness",
     ("JD", "Width"): "<<Bureau>>.Depth - 40 mm",
     ("JD", "Placement.Base.x"): "<<Bureau>>.Origin.x + <<Bureau>>.Width",
-    ("V", "Length"): "<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness",
-    ("V", "Placement.Base.x"): "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness",
-    ("V", "Width"): "<<Bureau>>.Height - <<Plateau>>.Thickness - 320 mm",
+    ("V", "Length"): "<<Bureau>>.Width - JD.Thickness - JG.Thickness",
+    ("V", "Placement.Base.x"): "<<Bureau>>.Origin.x + JG.Thickness",
+    ("V", "Width"): "<<Bureau>>.Height - P.Thickness - 320 mm",
     ("V", "Placement.Base.y"): "<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm",
 }
 
@@ -168,12 +168,14 @@ def test_epaisseur_de_la_piece_elle_meme_s_ecrit_thickness() -> None:
     assert text == "Thickness + WoodPart001.Thickness * 0.5"
 
 
-def test_piece_au_libelle_inutilisable_citee_par_son_name() -> None:
+def test_piece_citee_par_son_name() -> None:
+    """Toujours le ``Name`` (la clé), même pour un libellé inutilisable dans ``<<…>>`` : une
+    copie du document réécrit les ``Name``, pas les libellés que l'atelier renomme."""
     members = [
         replace(m, label="Joue > gauche") if m.key == "JG" else m for m in with_options(desk())
     ]
     assert piece_reference(members[1]) == "JG"
-    assert piece_reference(members[0]) == "<<Plateau>>"
+    assert piece_reference(members[0]) == "P"
     found = bindings(members)
     assert found[("JG", "Placement.Base.x")] == "<<Bureau>>.Origin.x + Thickness"
     assert found[("V", "Length")].endswith(" - JG.Thickness")
@@ -282,6 +284,16 @@ def test_liaison_reconnue_au_libelle_pres(current: str) -> None:
     assert driven_properties({"Width": current}, recorded) == frozenset()
 
 
+def test_liaison_reconnue_aux_pieces_copiees_pres() -> None:
+    """Une copie du document réécrit ``WoodPart001.Thickness`` vers la pièce copiée."""
+    recorded = "<<Bureau>>.Width - WoodPart001.Thickness - WoodPart002.Thickness"
+    assert same_binding(
+        "<<Bureau001>>.Width - WoodPart005.Thickness - WoodPart006.Thickness", recorded
+    )
+    assert not same_binding("<<Bureau>>.Width - WoodPart001.Thickness", recorded)
+    assert not same_binding("<<Bureau>>.Width - Thickness - WoodPart002.Thickness", recorded)
+
+
 @pytest.mark.parametrize(
     ("current", "recorded"),
     [
@@ -310,11 +322,9 @@ def test_sous_ensemble_entre_les_joues_garde_ses_ecarts() -> None:
         fixed=frozenset(Edge),
     )
     found = bindings([*members, caisson])
-    assert found[("C", "Width")] == (
-        "<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness - 756 mm"
-    )
-    assert found[("C", "Origin.x")] == "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness + 18 mm"
-    assert found[("C", "Height")] == "<<Bureau>>.Height - <<Plateau>>.Thickness - 420 mm"
+    assert found[("C", "Width")] == ("<<Bureau>>.Width - JD.Thickness - JG.Thickness - 756 mm")
+    assert found[("C", "Origin.x")] == "<<Bureau>>.Origin.x + JG.Thickness + 18 mm"
+    assert found[("C", "Height")] == "<<Bureau>>.Height - P.Thickness - 420 mm"
 
 
 def carcass_bindings(box: FurnitureBox, members: list[Member]) -> dict[tuple[str, str], str]:
@@ -329,8 +339,8 @@ def test_etagere_seule_entre_deux_montants_partage_les_ecarts() -> None:
     layout, members = carcass_members()
     found = carcass_bindings(layout.box, members)
     assert found[("shelf1", "Placement.Base.z")] == (
-        "<<Caisson>>.Origin.z + <<Caisson>>.Height * 0.5 + <<bottom>>.Thickness * 0.5"
-        " - Thickness * 0.5 - <<top>>.Thickness * 0.5"
+        "<<Caisson>>.Origin.z + <<Caisson>>.Height * 0.5 + bottom.Thickness * 0.5"
+        " - Thickness * 0.5 - top.Thickness * 0.5"
     )
 
 
@@ -340,7 +350,7 @@ def test_deux_etageres_ne_se_citent_pas_l_une_l_autre() -> None:
     layout, members = carcass_members(CarcassParams(shelf_count=2))
     found = carcass_bindings(layout.box, members)
     first, second = found[("shelf1", "Placement.Base.z")], found[("shelf2", "Placement.Base.z")]
-    assert "<<shelf2>>.Thickness" in first
+    assert "shelf2.Thickness" in first
     assert "<<shelf1>>" not in second
     assert second.endswith(" + 6 mm")
 

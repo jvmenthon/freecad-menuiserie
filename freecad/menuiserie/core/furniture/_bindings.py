@@ -3,7 +3,7 @@
 
 Module privé : la façade ``core.furniture`` ré-exporte l'API publique. Format :
 ``<<Label>>.Cote``, puis ``* ratio`` (9 décimales au plus), puis un terme
-``<<Pièce>>.Thickness [* coefficient]`` par épaisseur citée (triées par clé), puis ``k mm``
+``Name.Thickness [* coefficient]`` par épaisseur citée (triées par clé), puis ``k mm``
 (6 décimales au plus), chacun précédé de ``+`` ou ``-`` ; zéros inutiles retirés, ratio 1,
 coefficient 1 et constante nulle omis.
 """
@@ -37,6 +37,8 @@ _PIECE_BOUND: Final = ("Length", "Width", "Placement")  # propriétés que l'ate
 _FURNITURE_BOUND: Final = ("Width", "Depth", "Height", "Origin")
 # Référence ``<<…>>`` telle que FreeCAD l'écrit (``\'`` et ``\"`` échappés dans le libellé).
 _REFERENCE: Final = re.compile(r"<<(?:[^>\\]|\\.)*>>")
+# Pièce citée par son ``Name`` devant ``.Thickness`` (``WoodPart001.Thickness``).
+_PIECE_NAME: Final = re.compile(r"(?<![\w.<>])[A-Za-z_]\w*(?=\.Thickness\b)")
 
 
 def number_text(value: float, decimals: int) -> str:
@@ -83,7 +85,7 @@ def expression_text(
     from_origin: bool = False,
     own: str | None = None,
 ) -> str:
-    """Texte ``[<<Label>>.Origin.x +] <<Label>>.Cote * ratio ± <<Pièce>>.Thickness ± k mm`` de
+    """Texte ``[<<Label>>.Origin.x +] <<Label>>.Cote * ratio ± Name.Thickness ± k mm`` de
     ``linear`` (``reference`` = ``<<Label>>`` ; ``pieces`` : clé de pièce → référence citée dans
     l'expression, ``<<Libellé>>`` ou ``Name``, la clé elle-même si elle manque) ; ``from_origin``
     pour une position, relative à l'``Origin`` de l'ensemble, qui suit donc un sous-ensemble
@@ -99,12 +101,10 @@ def expression_text(
 
 
 def piece_reference(member: Member) -> str:
-    """Référence à une pièce dans une expression : ``<<Libellé>>``, ou son ``Name`` (la clé)
-    si le libellé est inutilisable (:func:`label_reference`)."""
-    try:
-        return label_reference(member.label)
-    except FurnitureError:
-        return member.key
+    """Référence à une pièce dans une expression : son ``Name`` (la clé), jamais son libellé.
+    Une copie du document (« Dupliquer la sélection ») réécrit les ``Name`` vers les pièces
+    copiées, mais casse les ``<<Libellé>>`` que l'atelier renomme ensuite (« Plateau (2) »)."""
+    return member.key
 
 
 def label_reference(label: str) -> str:
@@ -124,12 +124,17 @@ def is_driven(member: Member, prop: str) -> bool:
 
 
 def same_binding(current: str, recorded: str | None) -> bool:
-    """Vrai si l'expression ``current`` est la liaison enregistrée ``recorded``, au libellé
-    visé près : FreeCAD réécrit ``<<Bureau>>`` au renommage de l'ensemble, et une copie du
-    document garde le libellé de l'original (« Relier les pièces » vise alors la copie)."""
+    """Vrai si l'expression ``current`` est la liaison enregistrée ``recorded``, aux objets
+    visés près : FreeCAD réécrit ``<<Bureau>>`` au renommage de l'ensemble, une copie du
+    document garde le libellé de l'original (« Relier les pièces » vise alors la copie) et
+    réécrit ``WoodPart001.Thickness`` vers la pièce copiée."""
     if recorded is None:
         return False
-    return _REFERENCE.sub("<<>>", current) == _REFERENCE.sub("<<>>", recorded)
+    return _normalized(current) == _normalized(recorded)
+
+
+def _normalized(text: str) -> str:
+    return _PIECE_NAME.sub("<<>>", _REFERENCE.sub("<<>>", text))
 
 
 def driven_properties(current: Mapping[str, str], recorded: Mapping[str, str]) -> frozenset[str]:

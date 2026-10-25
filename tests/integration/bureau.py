@@ -34,19 +34,19 @@ EXPRESSIONS = {
         "Placement.Base.z": "<<Bureau>>.Origin.z + <<Bureau>>.Height - Thickness",
     },
     "JG": {
-        "Length": "<<Bureau>>.Height - <<Plateau>>.Thickness",
+        "Length": "<<Bureau>>.Height - WoodPart.Thickness",
         "Width": "<<Bureau>>.Depth - 40 mm",
         "Placement.Base.x": "<<Bureau>>.Origin.x + Thickness",
     },
     "JD": {
-        "Length": "<<Bureau>>.Height - <<Plateau>>.Thickness",
+        "Length": "<<Bureau>>.Height - WoodPart.Thickness",
         "Width": "<<Bureau>>.Depth - 40 mm",
         "Placement.Base.x": "<<Bureau>>.Origin.x + <<Bureau>>.Width",
     },
     "V": {
-        "Length": "<<Bureau>>.Width - <<Joue gauche>>.Thickness - <<Joue droite>>.Thickness",
-        "Width": "<<Bureau>>.Height - <<Plateau>>.Thickness - 320 mm",
-        "Placement.Base.x": "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness",
+        "Length": "<<Bureau>>.Width - WoodPart001.Thickness - WoodPart002.Thickness",
+        "Width": "<<Bureau>>.Height - WoodPart.Thickness - 320 mm",
+        "Placement.Base.x": "<<Bureau>>.Origin.x + WoodPart001.Thickness",
         "Placement.Base.y": "<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm",
     },
 }

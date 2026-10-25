@@ -47,7 +47,7 @@ Trois défauts en découlent :
    pièce sans vis-à-vis se comporte comme avec l'ADR 0009 (bords, mode `Stay` ou
    `Proportional`).
 2. **Épaisseurs vivantes** : une cellule qui est exactement l'épaisseur d'une pièce vaut
-   `<<Pièce>>.Thickness` dans l'expression. Changer l'épaisseur d'une joue ne change ni
+   `Name.Thickness` dans l'expression (la pièce est citée par son `Name`). Changer l'épaisseur d'une joue ne change ni
    l'ensemble ni la joue d'en face : la joue grandit vers l'intérieur et les pièces libres de la
    rangée absorbent. Une épaisseur coupée par une autre face (feuillure, pièce dessinée hors
    tout) reste une constante figée.
@@ -56,7 +56,7 @@ Trois défauts en découlent :
    aucune pièce libre dans la rangée**, écarts entre deux pièces et écarts aux bords dont la
    distance n'est pas fixe en mode `Proportional`. S'il y a une pièce libre, les écarts entre
    pièces restent rigides (constantes) : un caisson entre deux joues absorbe seul la
-   différence (`<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness - 756 mm`),
+   différence (`<<Bureau>>.Width - JD.Thickness - JG.Thickness - 756 mm`),
    alors qu'une étagère seule entre deux panneaux (rangée verticale sans pièce libre) partage
    ses deux jeux au prorata. En mode `Stay`, un écart au bord non fixe prend toute la
    différence (la pièce ne bouge pas, ou suit l'autre bord). Les expressions restent natives
@@ -77,10 +77,13 @@ Trois défauts en découlent :
 
 ## Conséquences
 
-- Les expressions des membres citent l'épaisseur des pièces voisines ; renommer une pièce est
-  suivi par FreeCAD (réécriture de `<<…>>`), et `same_binding` ignore déjà les libellés visés.
+- Les expressions des membres citent l'épaisseur des pièces voisines par leur `Name`
+  (`WoodPart001.Thickness`), moins lisible qu'un libellé mais seul sûr : « Dupliquer la
+  sélection » réécrit les `Name` vers les pièces copiées, alors qu'il casse les `<<Libellé>>`
+  que l'atelier renomme ensuite (vérifié sur FreeCAD 1.1). `same_binding` ignore les `Name`
+  visés comme les libellés.
 - **Auto-référence** : une pièce qui cite sa propre épaisseur l'écrit `Thickness` (sans
-  `<<Libellé>>.`), comme FreeCAD réécrit une telle référence à la pose : le texte enregistré
+  `Name.`), comme FreeCAD réécrit une telle référence à la pose : le texte enregistré
   (`FurnitureBindings`) est ainsi celui qu'on relit. Une pièce peut se citer elle-même.
 - **Pas de cycle entre objets** : le graphe de dépendances de FreeCAD est par objet, et refuse
   que deux pièces se citent l'une l'autre (`RuntimeError: cyclic reference`) — deux étagères dans
@@ -91,7 +94,7 @@ Trois défauts en découlent :
   donne le même texte. Limite connue : l'épaisseur ainsi figée ne suit plus un changement
   d'épaisseur de cette pièce avant « Relier les pièces ».
 - Les liaisons de la spécification J4 (F8) changent de texte : `- 44 mm` devient deux
-  `Thickness`, `- 30 mm` devient `<<Plateau>>.Thickness` ; une joue reçoit une liaison
+  `Thickness`, `- 30 mm` devient `P.Thickness` ; une joue reçoit une liaison
   `Placement.Base.x` = son épaisseur. Les valeurs numériques sont inchangées, sauf le voile en
   mode `Proportional` (les deux écarts gardent leur proportion au lieu de son milieu).
 - Limite connue : deux rangées qui partagent une pièce mais pas la même composition (étagère

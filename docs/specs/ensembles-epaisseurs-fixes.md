@@ -20,7 +20,7 @@ Notations : axe A de l'ensemble (X, Y ou Z), cote C de l'ensemble sur A, toléra
 4. **Nature d'une cellule** (première règle qui s'applique) :
    1. hors de [0, C] → rigide, constante ;
    2. couverte par l'épaisseur d'une pièce (axe `Thickness`) ou par l'étendue d'un membre
-      verrouillé → **rigide** ; elle vaut `<<Pièce>>.Thickness` si elle est exactement
+      verrouillé → **rigide** ; elle vaut `Name.Thickness` si elle est exactement
       l'épaisseur entière de cette pièce (première pièce par clé en cas d'égalité), sinon sa
       longueur actuelle (constante) ;
    3. couverte par une cote étirable d'un membre non verrouillé → **libre** ;
@@ -47,11 +47,13 @@ Notations : axe A de l'ensemble (X, Y ou Z), cote C de l'ensemble sur A, toléra
    coefficient. La position liée de M est la coordonnée de son origine locale (`span.origin`) ;
    la cote étirée est `hi − lo`. Une épaisseur n'est jamais étirée.
 7. **Expressions** (ADR 0009, F8) : `<<Ensemble>>.Origin.x + <<Ensemble>>.Width * r +
-   <<Pièce>>.Thickness * t − k mm`, termes d'épaisseur triés par clé, coefficient 1 omis, signe
+   Name.Thickness * t − k mm`, termes d'épaisseur triés par clé, coefficient 1 omis, signe
    `-` pour un coefficient négatif, mêmes arrondis (9 décimales pour r et t, 6 pour k). Une pièce
-   au libellé inutilisable (`label_reference` le refuserait) est citée par son `Name`
-   (`WoodPart001.Thickness`). **L'épaisseur de la pièce qui porte l'expression s'écrit
-   `Thickness`** (FreeCAD réécrit ainsi `<<Joue gauche>>.Thickness` posé sur la joue). Aucune
+   est **toujours citée par son `Name`** (`WoodPart001.Thickness`), jamais par son libellé :
+   « Dupliquer la sélection » réécrit les `Name` vers les pièces copiées, mais casse les
+   `<<Libellé>>` que l'atelier renomme ensuite (« Plateau (2) ») ; `same_binding` ignore les
+   `Name` visés comme les libellés. **L'épaisseur de la pièce qui porte l'expression s'écrit
+   `Thickness`** (FreeCAD réécrit ainsi une référence à la pièce elle-même). Aucune
    liaison pour une valeur qui ne dépend ni de C ni d'une épaisseur (sauf `nested`).
    **Pas de cycle entre objets** : les liaisons voulues de tous les membres sont parcourues dans
    l'ordre des clés triées (cote avant position, axes X, Y, Z) ; un terme d'épaisseur qui
@@ -67,7 +69,7 @@ gauche », JD = « Joue droite », V = « Voile ».
 
 | N° | Critère |
 |---|---|
-| E1 | Expressions : P `Length` = `<<Bureau>>.Width`, `Width` = `<<Bureau>>.Depth`, `Placement.Base.z` = `<<Bureau>>.Origin.z + <<Bureau>>.Height - Thickness` ; JG `Length` = `<<Bureau>>.Height - <<Plateau>>.Thickness`, `Width` = `<<Bureau>>.Depth - 40 mm`, `Placement.Base.x` = `<<Bureau>>.Origin.x + Thickness` ; JD `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Bureau>>.Width` ; V `Length` = `<<Bureau>>.Width - <<Joue droite>>.Thickness - <<Joue gauche>>.Thickness` (ordre des clés), `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness`, `Width` = `<<Bureau>>.Height - <<Plateau>>.Thickness - 320 mm`, `Placement.Base.y` = `<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm`. |
+| E1 | Expressions : P `Length` = `<<Bureau>>.Width`, `Width` = `<<Bureau>>.Depth`, `Placement.Base.z` = `<<Bureau>>.Origin.z + <<Bureau>>.Height - Thickness` ; JG `Length` = `<<Bureau>>.Height - P.Thickness`, `Width` = `<<Bureau>>.Depth - 40 mm`, `Placement.Base.x` = `<<Bureau>>.Origin.x + Thickness` ; JD `Placement.Base.x` = `<<Bureau>>.Origin.x + <<Bureau>>.Width` ; V `Length` = `<<Bureau>>.Width - JD.Thickness - JG.Thickness` (ordre des clés), `Placement.Base.x` = `<<Bureau>>.Origin.x + JG.Thickness`, `Width` = `<<Bureau>>.Height - P.Thickness - 320 mm`, `Placement.Base.y` = `<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm`. |
 | E2 | Aperçu (`predict`) : Width → 1400 : JD x ∈ [1378, 1400], V 1356 ; Depth → 800 : V y ∈ [641, 659], JG/JD l = 760 ; Height → 800 : P z = 770, V l = 450 (valeurs de F10, inchangées). |
 | E3 | **Épaisseur** (`predict` avec épaisseurs nouvelles, ou évaluation des `Linear`) : JG épaisseur 25 → JG x ∈ [0, 25], V x ∈ [25, 1178], V `Length` 1153, JD inchangée, l'ensemble reste à 1200. |
 | E4 | **Prorata** : rangée joue 22 | étagère S1 400 | montant D 18 | étagère S2 600 | joue 22 (C = 1062) ; Width + 100 → S1 440, S2 660, D x ∈ [462, 480]. S1 verrouillée → S1 400, S2 700. |

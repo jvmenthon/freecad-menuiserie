@@ -83,10 +83,7 @@ def test_duplication_independante(meuble: tuple[Any, Bureau]) -> None:
     assert len(members) == 4
     assert all(obj.Furniture == furniture for obj in members)
     assert all(obj.getParentGeoFeatureGroup() == copy for obj in [furniture, *members])
-    # Les pièces se citent par leur libellé : la copie a des libellés uniques (« Plateau (2) »), ses
-    # liaisons visent encore les pièces de l'original tant que « Relier les pièces » ne les a
-    # pas rétablies sur la copie (comme pour le libellé de l'ensemble, ci-dessous).
-    assert api.rebind_furniture(furniture) == ()
+    # Les pièces se citent par leur Name : la copie vise ses propres pièces sans rien relier.
     furniture.Depth = 800
     doc.recompute()
     assert bureau.sizes("JG")[1] == 560

@@ -129,11 +129,11 @@ EXPECTED_BINDINGS = {
         "Placement.Base.y": "<<Caisson>>.Origin.y + <<Caisson>>.Depth - Thickness",
     },
     "shelf1": {  # jeux de 1 mm rigides : la pièce libre de la rangée est l'étagère (ADR 0019)
-        "Length": "<<Caisson>>.Width - <<left>>.Thickness - <<right>>.Thickness - 2 mm",
-        "Placement.Base.x": "<<Caisson>>.Origin.x + <<left>>.Thickness + 1 mm",
-        "Width": "<<Caisson>>.Depth - <<back>>.Thickness - 1 mm",
+        "Length": "<<Caisson>>.Width - left.Thickness - right.Thickness - 2 mm",
+        "Placement.Base.x": "<<Caisson>>.Origin.x + left.Thickness + 1 mm",
+        "Width": "<<Caisson>>.Depth - back.Thickness - 1 mm",
         "Placement.Base.z": "<<Caisson>>.Origin.z + <<Caisson>>.Height * 0.5"
-        " + <<bottom>>.Thickness * 0.5 - Thickness * 0.5 - <<top>>.Thickness * 0.5",
+        " + bottom.Thickness * 0.5 - Thickness * 0.5 - top.Thickness * 0.5",
     },
     "top": {
         "Length": "<<Caisson>>.Width - 36 mm",

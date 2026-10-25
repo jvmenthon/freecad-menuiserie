@@ -104,7 +104,7 @@ def verifier_case_cotes_fixes() -> list[str]:
             *ecarts(
                 "joue droite reliée",
                 joue_droite,
-                "<<Bureau>>.Origin.x + <<Joue gauche>>.Thickness + Thickness + 1156 mm",
+                "<<Bureau>>.Origin.x + WoodPart001.Thickness + Thickness + 1156 mm",
             ),
             *ecarts("aperçu", [p.Name for p in bureau.parts.values() if "Touched" in p.State], []),
             *ecarts(
