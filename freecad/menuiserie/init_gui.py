@@ -88,12 +88,13 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
 
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une
-        distance » quand la sélection compte deux éléments de deux objets. Ce menu n'existe que
+        distance » (au premier niveau, pas dans un sous-menu) quand la sélection compte deux
+        éléments de deux objets. Ce menu n'existe que
         pendant que l'atelier est actif (ADR 0007)."""
         from freecad.menuiserie.gui.commands import distance
 
         if distance.selected_pair() is not None:
-            self.appendContextMenu(translate("Workbench", "Menuiserie"), [distance.COMMAND_NAME])
+            self.appendContextMenu("", [distance.COMMAND_NAME])  # au premier niveau du menu
 
     def GetClassName(self) -> str:
         """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""
