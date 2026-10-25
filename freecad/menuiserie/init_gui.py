@@ -40,6 +40,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     )
     # Gabarits (J4d)
     commands += ("Menuiserie_Carcass",)
+    # Distance entre deux pièces (DI-b)
+    commands += ("Menuiserie_SetDistance",)
     # Liste de débit (J2d, J2g)
     commands += (
         "Menuiserie_CutList",
@@ -66,6 +68,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import cutlist  # liste de débit (J2d)
 
         cutlist.register()
+        from freecad.menuiserie.gui.commands import distance  # distance entre deux pièces (DI-b)
+
+        distance.register()
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 
@@ -80,6 +85,15 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui import double_click
 
         double_click.uninstall()
+
+    def ContextMenu(self, recipient: str) -> None:
+        """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une
+        distance » quand la sélection compte deux éléments de deux objets. Ce menu n'existe que
+        pendant que l'atelier est actif (ADR 0007)."""
+        from freecad.menuiserie.gui.commands import distance
+
+        if distance.selected_pair() is not None:
+            self.appendContextMenu(translate("Workbench", "Menuiserie"), [distance.COMMAND_NAME])
 
     def GetClassName(self) -> str:
         """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""

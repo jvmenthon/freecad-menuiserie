@@ -56,9 +56,7 @@ _NOT_OF_THE_PAIR: Final = QT_TRANSLATE_NOOP(
 _CURVED_EDGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » : une arête courbe n'a pas de distance définie."
 )
-_UNKNOWN_AXIS: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "L'axe doit être X, Y ou Z (reçu : {axis})."
-)
+_UNKNOWN_AXIS: Final = QT_TRANSLATE_NOOP("Menuiserie", "L'axe doit être X, Y ou Z (reçu : {axis}).")
 _NOT_STARTED: Final = "begin() doit précéder move_to() et finish()"
 
 
