@@ -13,7 +13,7 @@ bloquée par des pièces verrouillées est refusée par :class:`LockedPiecesErro
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from freecad.menuiserie.core.furniture import (
     Binding,
@@ -21,20 +21,22 @@ from freecad.menuiserie.core.furniture import (
     Edge,
     FurnitureBox,
     InteriorMode,
+    KeptGap,
     Member,
     Notice,
     bindings_for,
-    check_resize,
     driven_properties,
     follow_rules,
-    predict,
     same_binding,
     with_default_options,
 )
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.part_model import Dimensions
-from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
+from freecad.menuiserie.features.distance import distances_of, kept_gap_of, remove_touching
+from freecad.menuiserie.features.freecad_types import (
+    DocumentObject,
+    expressions_of,
+)
 from freecad.menuiserie.features.furniture import (
     furniture_of,
     is_furniture,
@@ -67,9 +69,6 @@ __all__ = [
     "release_members",
     "remove_bindings",
     "report",
-    "resize_notices",
-    "with_locks",
-    "with_thickness",
     "workshop_expressions",
 ]
 
@@ -83,12 +82,20 @@ _JOINT_GROUP = "Assembly::JointGroup"  # joints de l'atelier Assembly intégré 
 
 @dataclass(frozen=True)
 class MemberSet:
-    """Ensemble lu dans le document : cotes, ``Origin``, membres et objets par clé (``Name``)."""
+    """Ensemble lu dans le document : cotes, ``Origin``, membres et objets par clé (``Name``) ;
+    ``distances`` : objets des Distances gardées par clé (leurs liaisons sont dans
+    ``Member.gaps``)."""
 
     furniture: DocumentObject
     box: FurnitureBox
     members: tuple[Member, ...]
     objects: Mapping[str, DocumentObject]
+    distances: Mapping[str, DocumentObject] = field(default_factory=dict)
+
+    @property
+    def named(self) -> Mapping[str, DocumentObject]:
+        """Membres et Distances par clé : les objets que cite un refus de rangée bloquée."""
+        return {**self.objects, **self.distances}
 
 
 class LockedPiecesError(ValueError):
@@ -192,13 +199,25 @@ def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> M
         return Member(block=PlacedBlock(dimensions_of(obj), placement), **common)
 
 
+def _with_gaps(members: Sequence[Member], gaps: Sequence[KeptGap]) -> list[Member]:
+    """``members`` dont chacun porte les Distances gardées dont il est l'une des deux pièces."""
+    return [
+        replace(member, gaps=tuple(g for g in gaps if member.key in (g.a, g.b)))
+        for member in members
+    ]
+
+
 def read_members(
     furniture: DocumentObject,
     entering: Sequence[DocumentObject] = (),
     box: FurnitureBox | None = None,
+    planned: Sequence[KeptGap] = (),
+    ignoring: Collection[str] = (),
 ) -> MemberSet:
     """Membres de ``furniture`` et objets ``entering``, options manquantes calculées (F3) ;
-    ``box`` remplace les cotes actuelles (aperçu d'un redimensionnement)."""
+    ``box`` remplace les cotes actuelles (aperçu d'un redimensionnement). Les Distances gardées
+    de l'ensemble (sauf celles de nom ``ignoring``) sont portées par leurs deux pièces ;
+    ``planned`` : Distances à créer, lues comme si elles existaient."""
     with translated_errors():
         current = box or FurnitureBox(
             furniture.Width.Value, furniture.Depth.Value, furniture.Height.Value
@@ -208,7 +227,15 @@ def read_members(
     entering_names = {obj.Name for obj in entering}
     members = [member_of(obj, origin, entering=obj.Name in entering_names) for obj in objects]
     resolved = with_default_options(current, members)
-    return MemberSet(furniture, current, resolved, {obj.Name: obj for obj in objects})
+    found = {d.Name: d for d in distances_of(furniture) if d.Name not in ignoring}
+    gaps = [g for d in found.values() if (g := kept_gap_of(d)) is not None] + list(planned)
+    return MemberSet(
+        furniture,
+        current,
+        tuple(_with_gaps(resolved, gaps)),
+        {obj.Name: obj for obj in objects},
+        found,
+    )
 
 
 def _bindings(
@@ -323,61 +350,10 @@ def joined_pairs(members: MemberSet) -> list[tuple[str, str]]:
     return sorted(pair for pair in pairs if set(pair) <= members.objects.keys())
 
 
-def with_locks(members: MemberSet, keys: Collection[str], locked: bool) -> MemberSet:
-    """``members`` dont les membres ``keys`` sont verrouillés (``locked``) ou déverrouillés :
-    pour contrôler un changement avant d'écrire le réglage."""
-    changed = tuple(
-        replace(member, locked=locked) if member.key in keys else member
-        for member in members.members
-    )
-    return replace(members, members=changed)
-
-
-def with_thickness(members: MemberSet, key: str, thickness: float) -> MemberSet:
-    """``members`` dont la pièce ``key`` a l'épaisseur ``thickness`` (son placement ne
-    change pas) : pour retrouver la géométrie d'avant une épaisseur saisie."""
-    found: list[Member] = []
-    for member in members.members:
-        if member.key == key and member.block is not None:
-            size = member.block.dimensions
-            block = PlacedBlock(
-                Dimensions(size.length, size.width, thickness), member.block.placement
-            )
-            member = replace(member, block=block)
-        found.append(member)
-    return replace(members, members=tuple(found))
-
-
-def resize_notices(
-    furniture: DocumentObject,
-    old: FurnitureBox,
-    new: FurnitureBox,
-    unlocked: Collection[str] = (),
-) -> list[Notice]:
-    """Contrôle (``check_resize``) du passage de ``old`` à ``new``, puis, pour chaque
-    sous-ensemble dont les cotes changeraient, de ses propres membres. ``unlocked`` : clés des
-    pièces à considérer comme déverrouillées. :class:`FurnitureError` si le redimensionnement
-    est refusé, :class:`LockedPiecesError` si une rangée est bloquée par des pièces
-    verrouillées."""
-    members = with_locks(read_members(furniture, box=old), unlocked, False)
-    rules, _ = follow_rules(old, members.members)
-    try:
-        notices = list(check_resize(old, new, members.members, rules, joined_pairs(members)))
-    except BlockedRowError as error:
-        raise locked_error(error, members.objects) from error
-    after = predict(new, members.members, rules)
-    for member in members.members:
-        moved = after.get(member.key)
-        new_box = moved.box if moved is not None else None
-        if member.box is not None and new_box is not None and new_box != member.box:
-            inner = members.objects[member.key]
-            notices.extend(resize_notices(inner, member.box, new_box, unlocked))
-    return notices
-
-
 def release_members(furniture: DocumentObject) -> None:
     """Retire les liaisons de l'atelier de chaque membre de ``furniture`` (ensemble supprimé) ;
     les propriétés de membre restent (orphelins)."""
+    remove_touching(furniture.Document, {obj.Name for obj in members_of(furniture)})
     for obj in members_of(furniture):
         with writing(obj):
             remove_bindings(obj)

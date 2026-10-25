@@ -17,6 +17,7 @@ from typing import Final
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.distance import is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import LockedPiecesError, rebind
@@ -58,6 +59,9 @@ def _locked_keys(pieces: Sequence[DocumentObject]) -> tuple[str, ...]:
     membres d'un ensemble. ``ValueError`` traduite sinon, avant toute modification."""
     keys: list[str] = []
     for piece in pieces:
+        if is_distance(piece):  # « ne plus garder » : la Distance sera supprimée
+            keys.append(piece.Name)
+            continue
         member = member_object(piece)
         if furniture_of(member) is None:
             raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
@@ -70,13 +74,18 @@ def _unlock(
     pieces: Sequence[DocumentObject],
     thicknesses: Mapping[str, float] | None = None,
 ) -> list[Notice]:
-    """Déverrouille ``pieces`` puis relie tout l'ensemble (sous-ensembles compris) ;
-    ``thicknesses`` : voir :func:`~.furniture_bindings.bind_members`."""
-    for piece in pieces:
+    """Déverrouille ``pieces`` (une Distance gardée n'est plus gardée : elle est supprimée) puis
+    relie tout l'ensemble (sous-ensembles compris) ; ``thicknesses`` : voir
+    :func:`~.furniture_bindings.bind_members`."""
+    gaps = [piece for piece in pieces if is_distance(piece)]
+    members = [piece for piece in pieces if not is_distance(piece)]
+    for piece in members:
         member = member_object(piece)
         if member.Locked:
             with writing(member):
                 member.Locked = False
+    for piece in gaps:
+        piece.Document.removeObject(piece.Name)
     return rebind(furniture, thicknesses)
 
 

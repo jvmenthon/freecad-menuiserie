@@ -3,7 +3,8 @@
 
 Module privé : la façade ``core.furniture`` ré-exporte l'API publique. Format :
 ``<<Label>>.Cote``, puis ``* ratio`` (9 décimales au plus), puis un terme
-``Name.Thickness [* coefficient]`` par épaisseur citée (triées par clé), puis ``k mm``
+``Name.Thickness [* coefficient]`` par épaisseur citée (``Name.Value`` pour une Distance
+gardée, ADR 0022 ; triées par clé), puis ``k mm``
 (6 décimales au plus), chacun précédé de ``+`` ou ``-`` ; zéros inutiles retirés, ratio 1,
 coefficient 1 et constante nulle omis.
 """
@@ -20,6 +21,7 @@ from freecad.menuiserie.core.furniture._follow import FollowRule, Rules
 from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._messages import INVALID_LABEL
 from freecad.menuiserie.core.furniture._model import (
+    GAP_TERM,
     Binding,
     FurnitureAxis,
     FurnitureError,
@@ -37,8 +39,8 @@ _PIECE_BOUND: Final = ("Length", "Width", "Placement")  # propriétés que l'ate
 _FURNITURE_BOUND: Final = ("Width", "Depth", "Height", "Origin")
 # Référence ``<<…>>`` telle que FreeCAD l'écrit (``\'`` et ``\"`` échappés dans le libellé).
 _REFERENCE: Final = re.compile(r"<<(?:[^>\\]|\\.)*>>")
-# Pièce citée par son ``Name`` devant ``.Thickness`` (``WoodPart001.Thickness``).
-_PIECE_NAME: Final = re.compile(r"(?<![\w.<>])[A-Za-z_]\w*(?=\.Thickness\b)")
+# Pièce ou Distance citée par son ``Name`` (``WoodPart001.Thickness``, ``Distance.Value``).
+_PIECE_NAME: Final = re.compile(r"(?<![\w.<>])[A-Za-z_]\w*(?=\.(?:Thickness|Value)\b)")
 
 
 def number_text(value: float, decimals: int) -> str:
@@ -49,6 +51,14 @@ def number_text(value: float, decimals: int) -> str:
 
 def _signed(text: str) -> tuple[bool, str]:
     return text.startswith("-"), text.lstrip("-")
+
+
+def _cited(key: str, pieces: Mapping[str, str], own: str | None) -> str:
+    """Quantité citée par le terme ``key`` : ``Name.Value`` d'une Distance gardée, sinon
+    l'épaisseur d'une pièce (``Thickness`` pour la pièce elle-même)."""
+    if key.startswith(GAP_TERM):
+        return f"{key[len(GAP_TERM) :]}.Value"
+    return "Thickness" if key == own else f"{pieces.get(key, key)}.Thickness"
 
 
 def _terms(
@@ -62,10 +72,7 @@ def _terms(
     """Termes (négatif, texte) de l'expression : origine, cote, épaisseurs, constante."""
     terms = [(False, f"{reference}.Origin.{'xyz'[axis.index]}")] if from_origin else []
     pending = [(f"{reference}.{axis.value}", linear.coef)]
-    pending += [
-        ("Thickness" if key == own else f"{pieces.get(key, key)}.Thickness", coef)
-        for key, coef in linear.thickness
-    ]
+    pending += [(_cited(key, pieces, own), coef) for key, coef in linear.thickness]
     for name, coef in pending:
         negative, ratio = _signed(number_text(coef, RATIO_DECIMALS))
         if ratio != "0":

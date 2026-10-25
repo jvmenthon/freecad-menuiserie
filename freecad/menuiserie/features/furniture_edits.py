@@ -32,11 +32,13 @@ from freecad.menuiserie.features.furniture_bindings import (
     notice_messages,
     read_members,
     report,
+)
+from freecad.menuiserie.features.furniture_relink import relink_thickness
+from freecad.menuiserie.features.furniture_variants import (
     resize_notices,
     with_locks,
     with_thickness,
 )
-from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.i18n import templated_message
 
 __all__ = [
@@ -81,7 +83,7 @@ def thickness_notices(
             members.box, members.members, obj.Name, thickness, joined_pairs(members)
         )
     except BlockedRowError as error:
-        raise locked_error(error, members.objects) from error
+        raise locked_error(error, members.named) from error
     return list(found)
 
 

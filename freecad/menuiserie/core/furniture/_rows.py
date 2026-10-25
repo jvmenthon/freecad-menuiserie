@@ -14,13 +14,16 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
+from freecad.menuiserie.core.furniture._gaps import face_of, partners
 from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._model import (
     THICKNESS,
     Edge,
     FurnitureAxis,
     InteriorMode,
+    KeptGap,
     Member,
+    gap_term,
 )
 from freecad.menuiserie.core.furniture._spans import Span, Spans
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM
@@ -43,12 +46,14 @@ class SolvedRow:
     """Rangée résolue : une fonction affine par point de coupe, ``points`` triés (mm).
 
     ``kept`` : un écart fixe a dû absorber la différence d'un membre seul sur l'axe de son
-    épaisseur (avertissement ``ThicknessKept``)."""
+    épaisseur (avertissement ``ThicknessKept``) ; ``split`` : clés des Distances gardées
+    coupées par une autre face, figées en constantes (avertissement ``GapSplit``)."""
 
     row: Row
     points: tuple[float, ...]
     coordinates: tuple[Linear, ...]
     kept: bool = False
+    split: tuple[str, ...] = ()
 
     def coordinate(self, value: float) -> Linear:
         """Fonction affine du point de coupe qui vaut ``value`` (à la tolérance près)."""
@@ -108,15 +113,21 @@ def _overlap(first: Span, second: Span) -> bool:
     return min(first.hi, second.hi) - max(first.lo, second.lo) > CONTACT_TOLERANCE_MM
 
 
-def row_keys(key: str, axis: FurnitureAxis, spans: Mapping[str, Spans]) -> list[str]:
+def row_keys(
+    key: str, axis: FurnitureAxis, spans: Mapping[str, Spans], gaps: Sequence[KeptGap] = ()
+) -> list[str]:
     """Clés du membre ``key`` et de ses vis-à-vis sur ``axis`` (étendues qui se recouvrent de
-    plus de la tolérance sur chacun des deux autres axes), dans l'ordre de ``spans``."""
+    plus de la tolérance sur chacun des deux autres axes, ou reliées à lui par une Distance
+    gardée sur cet axe : règle 1 bis), dans l'ordre de ``spans``."""
     others = [other for other in FurnitureAxis if other is not axis]
     centre = spans[key]
+    linked = partners(key, axis, gaps)
     return [
         found
         for found, found_spans in spans.items()
-        if found == key or all(_overlap(centre[o], found_spans[o]) for o in others)
+        if found == key
+        or found in linked
+        or all(_overlap(centre[o], found_spans[o]) for o in others)
     ]
 
 
@@ -151,6 +162,32 @@ def _first_pass(entries: Sequence[_Entry], points: Sequence[float], inside: rang
         elif covering:
             cell.kind = _Kind.FREE
     return cells
+
+
+def _apply_gaps(
+    cells: Sequence[_Cell],
+    points: Sequence[float],
+    gaps: Sequence[KeptGap],
+    spans: Mapping[str, Spans],
+    inside: range,
+) -> list[str]:
+    """Règle 4.2 bis : l'intervalle entre les deux faces de chaque Distance gardée est un bloc
+    rigide virtuel. Une seule cellule : ``Name.Value`` ; plusieurs (coupé par une autre face) :
+    constantes figées, renvoie leurs clés. Un intervalle nul ne change rien."""
+    split: list[str] = []
+    for gap in gaps:
+        ends = sorted(
+            _index(points, face_of(spans[name][gap.axis], at_end))
+            for name, at_end in ((gap.a, gap.a_end), (gap.b, gap.b_end))
+        )
+        covered = [i for i in range(ends[0], ends[1]) if i in inside]
+        if len(covered) == 1:
+            cells[covered[0]].make_rigid(Linear.of(0.0, 0.0, {gap_term(gap.key): 1.0}))
+        elif covered:
+            split.append(gap.key)
+            for index in covered:
+                cells[index].make_rigid()
+    return split
 
 
 def _owners(entries: Sequence[_Entry], index: int, at_end: bool) -> list[_Entry]:
@@ -266,12 +303,14 @@ def solve_row(
     members: Mapping[str, Member],
     spans: Mapping[str, Spans],
     size: float,
+    gaps: Sequence[KeptGap] = (),
 ) -> SolvedRow:
     """Rangée du membre ``key`` sur ``axis``, résolue pour la cote ``size`` de l'ensemble.
 
     ``members`` et ``spans`` : les membres d'équerre (clé → membre, étendues), options
-    renseignées."""
-    keys = row_keys(key, axis, spans)
+    renseignées ; ``gaps`` : les Distances gardées de l'ensemble (ADR 0022)."""
+    keys = row_keys(key, axis, spans, gaps)
+    active = [g for g in gaps if g.axis is axis and g.a in keys and g.b in keys]
     points = _cut_points([spans[found][axis] for found in keys], size)
     zero, end = _index(points, 0.0), _index(points, size)
     entries = [
@@ -284,13 +323,16 @@ def solve_row(
         for found in keys
     ]
     cells = _first_pass(entries, points, range(zero, end))
+    split = _apply_gaps(cells, points, active, spans, range(zero, end))
     _settle_gaps(cells, entries, axis, range(zero, end))
     blocked, converted = _distribute(cells[zero:end])
     locked = tuple(found for found in keys if members[found].locked)
+    locked += tuple(gap.key for gap in active)  # une Distance compte comme une pièce verrouillée
     kept = converted and len(entries) == 1 and entries[0].thin
     return SolvedRow(
         Row(axis, tuple(keys), locked, blocked),
         tuple(points),
         tuple(_coordinates(cells, points, zero)),
         kept,
+        tuple(split),
     )

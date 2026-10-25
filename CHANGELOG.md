@@ -14,8 +14,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   bouton Inverser, liste Direction pour deux sommets ; « OK » en une transaction, « Annuler »
   sans effet ; refus expliqués (aucune pièce de l'atelier, éléments non parallèles, arête
   courbe, axe piloté par une formule). `api.set_distance(a, b, value, *, moving, axis)`
-  déplace une pièce de l'atelier (la brute ; membre d'ensemble relié ensuite). « Garder cette
-  distance » viendra avec DI-c.
+  déplace une pièce de l'atelier (la brute ; membre d'ensemble relié ensuite).
+- Distance gardée dans un ensemble (lot DI-c de l'issue #65,
+  [ADR 0022](docs/adr/0022-distance-entre-deux-pieces.md), critères F1 à F8) : case « Garder cette
+  distance » du panneau (cochée par défaut, grisée avec la raison hors ensemble) ; nouvel objet
+  `Distance` (`Value`, `PieceA`/`PieceB`, face, axe), rangé dans le groupe de l'ensemble et
+  libellé « Distance : A – B », que les expressions des pièces citent (`Distance.Value`). Règles
+  pures de `core/furniture` (`KeptGap`, règles 1 bis et 4.2 bis) : la distance reste constante
+  quand l'ensemble change ; une rangée bloquée par la distance est refusée (« Ne plus garder et
+  appliquer »). Suppression de la Distance ou d'une pièce, copie, annulation et réouverture
+  sans l'atelier ; double-clic sur la Distance pour changer sa valeur ; glisser une pièce le
+  long de l'axe d'une Distance met sa valeur à jour (B6). `api.set_distance(..., keep=True)`.
 - Glisser une pièce à la souris, règles pures (lot SM-a de l'issue #65,
   [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), critères A1 à A8) : nouveau
   paquet `core/magnet/` sans FreeCAD ni Qt (flèches de la pièce, point de l'axe le plus proche du

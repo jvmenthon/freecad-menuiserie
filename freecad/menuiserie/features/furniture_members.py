@@ -45,9 +45,9 @@ from freecad.menuiserie.features.furniture_bindings import (
     read_members,
     rebind,
     remove_bindings,
-    resize_notices,
 )
 from freecad.menuiserie.features.furniture_relink import relink_remaining
+from freecad.menuiserie.features.furniture_variants import resize_notices
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.solids import rigid_transform

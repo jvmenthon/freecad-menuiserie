@@ -35,6 +35,7 @@ from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
 from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
+from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
 from tests.gui.verifications_double_clic import VERIFICATIONS_DOUBLE_CLIC
 from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
@@ -1242,6 +1243,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_DOUBLE_CLIC,
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
+    *VERIFICATIONS_DISTANCE_GARDEE,
 )
 
 

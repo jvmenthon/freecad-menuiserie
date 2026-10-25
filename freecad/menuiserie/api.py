@@ -421,6 +421,14 @@ def furniture_of(obj: DocumentObject) -> DocumentObject | None:
 # --- Distance entre deux pièces (DI-b) ---------------------------------------------------
 
 
+def _show_distance(distance: DocumentObject) -> None:
+    """ViewProvider de la Distance créée, quand l'interface est chargée."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.distance import ViewProviderDistance
+
+        ViewProviderDistance(distance.ViewObject)
+
+
 def set_distance(
     first: PickedElement,
     second: PickedElement,
@@ -428,6 +436,7 @@ def set_distance(
     *,
     moving: PickedElement | None = None,
     axis: str | None = None,
+    keep: bool = False,
 ) -> _Notices:
     """Amène à ``value`` mm la distance entre deux éléments (face, arête, sommet) de deux objets
     en déplaçant **une pièce de l'atelier** une fois, puis recalcule le document.
@@ -437,12 +446,18 @@ def set_distance(
     élément si elle est à l'atelier, sinon celle du premier ; une pièce usinée ou un assemblage
     déplace sa brute, un objet d'un autre atelier ne bouge jamais. ``axis`` (``"X"``, ``"Y"``,
     ``"Z"`` du conteneur) mesure deux sommets sur cet axe seul ; il est ignoré pour les autres
-    paires. Membre d'un ensemble : l'ensemble est relié ensuite. Refus avant toute modification
-    (``ValueError`` traduite) : aucune pièce de l'atelier, éléments non parallèles, arête
-    courbe, axe piloté par une formule, rangée bloquée. Renvoie les avertissements traduits
-    (aussi dans la vue rapport). Aucune transaction n'est ouverte : c'est à l'appelant de le
-    faire pour pouvoir annuler."""
-    messages = tuple(distance_move.DistanceMove(first, second, moving).apply(value, axis))
+    paires. Membre d'un ensemble : l'ensemble est relié ensuite. ``keep`` : la distance est
+    **gardée** par un objet ``Distance`` (DI-c, ADR 0022) ; il faut que les deux pièces soient
+    membres du même ensemble, que la direction soit parallèle à un axe de l'ensemble, que chaque
+    élément soit sur une face de sa pièce et que la valeur ne soit pas nulle. Refus avant toute
+    modification (``ValueError`` traduite) : aucune pièce de l'atelier, éléments non parallèles,
+    arête courbe, axe piloté par une formule, rangée bloquée, distance impossible à garder.
+    Renvoie les avertissements traduits (aussi dans la vue rapport). Aucune transaction n'est
+    ouverte : c'est à l'appelant de le faire pour pouvoir annuler."""
+    mover = distance_move.DistanceMove(first, second, moving)
+    messages = tuple(mover.apply(value, axis, keep=keep))
+    if mover.created is not None:
+        _show_distance(mover.created)
     report(messages)
     return messages
 

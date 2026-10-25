@@ -12,10 +12,12 @@ from __future__ import annotations
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
+from freecad.menuiserie.core.furniture._gaps import distinct_gaps
 from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._model import (
     FurnitureAxis,
     FurnitureBox,
+    KeptGap,
     Member,
     NoticeKind,
     notice,
@@ -58,21 +60,28 @@ def _rule(axis: FurnitureAxis, span: Span, solved: SolvedRow) -> FollowRule:
 
 
 def _member_rules(
-    key: str, box: FurnitureBox, members: Mapping[str, Member], spans: Mapping[str, Spans]
-) -> tuple[tuple[FollowRule, ...], bool]:
-    """Règles du membre sur X, Y et Z, et vrai si un écart fixe a dû absorber (``kept``)."""
-    solved = [solve_row(key, axis, members, spans, box.size(axis)) for axis in FurnitureAxis]
+    key: str,
+    box: FurnitureBox,
+    members: Mapping[str, Member],
+    spans: Mapping[str, Spans],
+    gaps: tuple[KeptGap, ...],
+) -> tuple[tuple[FollowRule, ...], bool, tuple[str, ...]]:
+    """Règles du membre sur X, Y et Z, vrai si un écart fixe a dû absorber (``kept``) et clés
+    des Distances gardées coupées par une autre face."""
+    solved = [solve_row(key, axis, members, spans, box.size(axis), gaps) for axis in FurnitureAxis]
     rules = tuple(
         _rule(axis, spans[key][axis], one) for axis, one in zip(FurnitureAxis, solved, strict=True)
     )
-    return rules, any(one.kept for one in solved)
+    split = tuple(dict.fromkeys(name for one in solved for name in one.split))
+    return rules, any(one.kept for one in solved), split
 
 
 def follow_rules(
     box: FurnitureBox, members: Sequence[Member], keys: Collection[str] | None = None
 ) -> tuple[Rules, tuple[Notice, ...]]:
     """Règles de suivi de chaque membre d'équerre, par axe (X, Y, Z), et avertissements
-    (``NotSquare`` : membre exclu ; ``ThicknessKept``), seulement pour les membres ``keys``
+    (``NotSquare`` : membre exclu ; ``ThicknessKept`` ; ``GapSplit`` : Distance gardée
+    coupée par une autre face), seulement pour les membres ``keys``
     (tous par défaut). Chaque membre se règle sur sa rangée : tous les membres doivent donc
     être fournis. Les options ``fixed`` doivent être renseignées (``with_default_options``) :
     ``ValueError`` sinon."""
@@ -84,6 +93,8 @@ def follow_rules(
         if found is not None:
             square[member.key] = found
     square_members = {member.key: member for member in members if member.key in square}
+    gaps = distinct_gaps(members, square)
+    labels = {gap.key: gap.name for gap in gaps}
     rules: dict[str, tuple[FollowRule, ...]] = {}
     notices: list[Notice] = []
     for member in members:
@@ -91,7 +102,11 @@ def follow_rules(
         if member.key not in square:
             notices.extend([notice(NoticeKind.NOT_SQUARE, member)] if wanted else [])
             continue
-        rules[member.key], kept = _member_rules(member.key, box, square_members, square)
+        rules[member.key], kept, split = _member_rules(
+            member.key, box, square_members, square, gaps
+        )
         if kept and wanted:
             notices.append(notice(NoticeKind.THICKNESS_KEPT, member))
-    return rules, tuple(notices)
+        if wanted:
+            notices.extend(Notice(NoticeKind.GAP_SPLIT, {"member": labels[k]}) for k in split)
+    return rules, tuple(dict.fromkeys(notices))

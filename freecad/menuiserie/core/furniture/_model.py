@@ -22,6 +22,7 @@ from freecad.menuiserie.core._validation import (
 )
 from freecad.menuiserie.core.furniture._messages import (
     BOX_FIELDS,
+    GAP_SPLIT,
     INVALID_BOX,
     NOT_SQUARE,
     OUTSIDE_BOX,
@@ -151,6 +152,40 @@ class FurnitureBox:
         return (self.width, self.depth, self.height)[axis.index]
 
 
+GAP_TERM: Final = "gap:"  # préfixe de la clé d'une Distance dans un terme de ``Linear``
+
+
+def gap_term(key: str) -> str:
+    """Clé, dans un terme de ``Linear``, de la Distance de ``Name`` ``key`` (``Name.Value``)."""
+    return GAP_TERM + key
+
+
+@dataclass(frozen=True)
+class KeptGap:
+    """Distance gardée (ADR 0022) : bloc rigide virtuel entre la face de la pièce ``a`` (sa
+    fin si ``a_end``, son début sinon, sur ``axis``) et celle de la pièce ``b``. ``key`` :
+    ``Name`` de l'objet Distance, cité ``Name.Value`` ; ``label`` : son nom dans les messages."""
+
+    key: str
+    a: str
+    a_end: bool
+    b: str
+    b_end: bool
+    axis: FurnitureAxis
+    label: str = ""
+
+    def __post_init__(self) -> None:
+        for name in ("key", "a", "b"):
+            _require(bool(getattr(self, name)), f"KeptGap.{name} : texte non vide")
+        _require(self.a != self.b, "KeptGap : deux pièces différentes attendues")
+        _require(isinstance(self.axis, FurnitureAxis), "KeptGap.axis : FurnitureAxis attendu")
+
+    @property
+    def name(self) -> str:
+        """Nom cité dans les messages : le libellé, sinon la clé."""
+        return self.label or self.key
+
+
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
@@ -168,7 +203,8 @@ class Member:
     ``fixed`` : bords dont la distance est fixe, ``None`` pour un membre qui entre dans
     l'ensemble (options par défaut à calculer) ; ``driven`` : propriétés pilotées par une
     formule ou une contrainte de l'utilisateur ; ``label`` : nom cité dans les messages ;
-    ``locked`` : cotes fixes, la pièce ne change jamais de cotes (ADR 0019).
+    ``locked`` : cotes fixes, la pièce ne change jamais de cotes (ADR 0019) ; ``gaps`` : distances
+    gardées dont la pièce est l'une des deux (:class:`KeptGap`, ADR 0022).
     """
 
     key: str
@@ -180,6 +216,7 @@ class Member:
     driven: frozenset[str] = frozenset()
     label: str = ""
     locked: bool = False
+    gaps: tuple[KeptGap, ...] = ()
 
     def __post_init__(self) -> None:
         _require(isinstance(self.key, str) and bool(self.key), "Member.key : texte non vide")
@@ -198,6 +235,10 @@ class Member:
         _require(fixed_ok, "Member.fixed : frozenset d'Edge ou None attendu")
         _require(_is_text_set(self.driven), "Member.driven : frozenset de textes attendu")
         _require(isinstance(self.locked, bool), "Member.locked : booléen attendu")
+        _require(
+            isinstance(self.gaps, tuple) and all(isinstance(g, KeptGap) for g in self.gaps),
+            "Member.gaps : tuple de KeptGap attendu",
+        )
 
     @property
     def name(self) -> str:
@@ -226,6 +267,7 @@ class NoticeKind(str, Enum):
     NOT_SQUARE = "NotSquare"
     THICKNESS_KEPT = "ThicknessKept"
     OUTSIDE_BOX = "OutsideBox"
+    GAP_SPLIT = "GapSplit"
 
     @property
     def template(self) -> str:
@@ -239,6 +281,7 @@ _NOTICE_TEMPLATES: Final[Mapping[NoticeKind, str]] = MappingProxyType(
         NoticeKind.NOT_SQUARE: NOT_SQUARE,
         NoticeKind.THICKNESS_KEPT: THICKNESS_KEPT,
         NoticeKind.OUTSIDE_BOX: OUTSIDE_BOX,
+        NoticeKind.GAP_SPLIT: GAP_SPLIT,
     }
 )
 

@@ -7,8 +7,10 @@ direction (directe, X, Y ou Z). La pièce suit la saisie en direct (:class:`Dist
 son ``Placement`` sans recalculer le document) ; « OK » relie l'ensemble éventuel et valide la
 transaction de la commande, « Annuler » l'abandonne : rien n'a changé (E5).
 
-Le choix « Garder cette distance » viendra avec l'objet ``Distance`` (DI-c) : il est absent
-d'ici là.
+La case « Garder cette distance » (DI-c, cochée par défaut) crée l'objet ``Distance`` à « OK » ;
+elle est grisée, avec une infobulle qui explique pourquoi, si les pièces ne sont pas dans le même
+ensemble ou si la direction n'est parallèle à aucun axe de l'ensemble. Une distance refusée (rangée
+bloquée par des pièces verrouillées) laisse le panneau ouvert avec « Ne plus garder et appliquer ».
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from PySide import QtGui
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.distance_keep import KeepError
 from freecad.menuiserie.features.distance_move import AXES, DistanceMove
 from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.i18n import translated
@@ -61,6 +64,16 @@ _SWAP_TIP: Final = QT_TRANSLATE_NOOP(
 )
 _SWAP_IMPOSSIBLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "L'autre objet n'est pas une pièce de l'atelier : il ne peut pas être déplacé."
+)
+_KEEP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Garder cette distance")
+_KEEP_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Crée une Distance dans l'ensemble : les deux pièces gardent cet écart quand l'ensemble "
+    "change, et la valeur se règle ensuite comme une cote.",
+)
+_NO_KEEP_APPLY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ne plus garder et appliquer")
+_NO_KEEP_APPLY_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Applique la distance sans la garder : les pièces ne se verrouillent pas."
 )
 _DIRECTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Direction")
 _DIRECT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Directe")
@@ -104,6 +117,10 @@ class DistanceTaskPanel(TransactionTaskPanel):
         self._field.setToolTip(translated(_DISTANCE_TIP))
         row.addWidget(self._field)
         layout.addLayout(row)
+        self._keep = QtGui.QCheckBox(translated(_KEEP))
+        self._keep.setObjectName("keepCheck")
+        self._keep.setChecked(True)
+        layout.addWidget(self._keep)
         moved = QtGui.QHBoxLayout()
         self._moved = message_label("movedLabel")
         self._swap = QtGui.QPushButton(translated(_SWAP))
@@ -126,10 +143,16 @@ class DistanceTaskPanel(TransactionTaskPanel):
         layout.addWidget(self._direction_row)
         self._error = message_label("errorLabel", error=True)
         layout.addWidget(self._error)
+        self._no_keep = QtGui.QPushButton(translated(_NO_KEEP_APPLY))
+        self._no_keep.setObjectName("noKeepButton")
+        self._no_keep.setToolTip(translated(_NO_KEEP_APPLY_TIP))
+        self._no_keep.setVisible(False)
+        layout.addWidget(self._no_keep)
         layout.addStretch(1)
         connect(self._field, "valueChanged(double)", self._distance_edited)
         connect(self._swap, "clicked()", self._swapped)
         connect(self._direction, "currentIndexChanged(int)", self._direction_chosen)
+        connect(self._no_keep, "clicked()", self._apply_without_keeping)
 
     def _axis(self) -> str | None:
         """Axe choisi pour deux sommets, ``None`` pour « Directe » ou une autre paire."""
@@ -147,6 +170,7 @@ class DistanceTaskPanel(TransactionTaskPanel):
         self._moved.setText(translated(_MOVED, {"label": label}))
         self._swap.setEnabled(self._move.can_swap)
         self._direction_row.setVisible(self._move.between_points)
+        self._show_keep()
         try:
             current = self._move.gap(self._axis()).value
         except ValueError as error:
@@ -156,6 +180,17 @@ class DistanceTaskPanel(TransactionTaskPanel):
         self._current.setText(translated(_CURRENT, {"value": shown}))
         if reset:
             self._field.setProperty("rawValue", current)
+
+    def _show_keep(self) -> None:
+        """Case « Garder » : active (et cochée) si la distance peut être gardée, sinon grisée
+        avec la raison en infobulle."""
+        why = self._move.keep_reason(self._axis())
+        self._keep.setEnabled(why is None)
+        self._keep.setToolTip(why or translated(_KEEP_TIP))
+        if why is not None:
+            self._keep.setChecked(False)
+        elif not self._keep.isEnabled():  # pragma: no cover - jamais atteint
+            self._keep.setChecked(True)
 
     # --- Saisies --------------------------------------------------------------------------
 
@@ -199,16 +234,38 @@ class DistanceTaskPanel(TransactionTaskPanel):
         s'affiche sans fermer le panneau. Une rangée bloquée annule tout (E5)."""
         if not self._preview():
             return False
+        keep = self._keep.isEnabled() and self._keep.isChecked()
         try:
-            messages = self._move.finish()
+            messages = self._move.finish(keep=keep, axis=self._axis())
+        except KeepError as error:  # la pièce est revenue : le panneau reste ouvert
+            self._move.begin()
+            self._preview()
+            show_message(self._error, str(error))
+            self._no_keep.setVisible(error.blocked)
+            return False
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return self.reject()
+        self._attach_view()
         report(messages)
         window = Gui.getMainWindow()
         if messages and window is not None:
             window.statusBar().showMessage(" ".join(messages))
         return super().accept()
+
+    def _attach_view(self) -> None:
+        """ViewProvider de la Distance créée par « OK »."""
+        created = self._move.created
+        if created is not None:
+            from freecad.menuiserie.gui.view_providers.distance import ViewProviderDistance
+
+            ViewProviderDistance(created.ViewObject)
+
+    def _apply_without_keeping(self) -> None:
+        """« Ne plus garder et appliquer » : la distance est appliquée sans objet Distance."""
+        self._keep.setChecked(False)
+        self._no_keep.setVisible(False)
+        self.accept()
 
     def reject(self) -> bool:
         """« Annuler » : la pièce revient et la transaction est abandonnée."""
