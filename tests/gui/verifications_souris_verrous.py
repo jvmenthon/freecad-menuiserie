@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
+from functools import partial
 from typing import Any
 
 import FreeCAD as App
@@ -52,18 +53,18 @@ def rangee_bloquee(bureau: Bureau, toujours: bool = False) -> Iterator[None]:
     """``bind_members`` du glissement refuse tant que la joue gauche est verrouillée (ou
     toujours, ``toujours``), comme le ferait une rangée sans cellule libre."""
     joue, voile = bureau.parts["JG"], bureau.parts["V"]
-    original = part_drag.bind_members
+    original = getattr(part_drag, "bind_members")  # noqa: B009
 
     def bloque(*args: Any, **kwargs: Any) -> Any:
         if toujours or joue.Locked:
             raise BlockedRowError("Impossible", {}, locked=(joue.Name,), members=(voile.Name,))
         return original(*args, **kwargs)
 
-    part_drag.bind_members = bloque
+    setattr(part_drag, "bind_members", bloque)  # noqa: B010
     try:
         yield
     finally:
-        part_drag.bind_members = original
+        setattr(part_drag, "bind_members", original)  # noqa: B010
 
 
 def etendue_du_voile(bureau: Bureau) -> tuple[tuple[float, float], ...]:
@@ -78,7 +79,7 @@ def glisser_le_voile(bureau: Bureau, deverrouiller: Callable[[Any], Sequence[Any
     selection_dessinee(bureau.shown("V"))
     session = DragSession(unlock=deverrouiller)
     session.refresh()
-    if not session.active:
+    if not session.active or session.layout is None:
         raise RuntimeError("la session de vérification n'a pas de flèches")
     fleche = next(a for a in session.layout.arrows if a.axis == AXE)
     a, b = fleche.start, fleche.end
@@ -101,6 +102,10 @@ class Boite:
     def __call__(self, erreur: ValueError) -> Sequence[Any] | None:
         self.erreurs.append(erreur)
         return self.reponse()
+
+
+def _repondre(reponse: Sequence[Any] | None) -> Sequence[Any] | None:
+    return reponse
 
 
 def preparer_bureau(bureau: Bureau) -> None:
@@ -144,7 +149,9 @@ def verifier_souris_deverrouiller_et_appliquer() -> list[str]:
                     "refus de la rangée", isinstance(boite.erreurs[0], LockedPiecesError), True
                 ),
                 *ecarts(
-                    "pièces proposées", [p.Name for p in boite.erreurs[0].members], [joue.Name]
+                    "pièces proposées",
+                    [p.Name for p in getattr(boite.erreurs[0], "members", ())],
+                    [joue.Name],
                 ),
                 *ecarts("joue déverrouillée", joue.Locked, False),
                 *ecarts("glissement fini", session.dragging, False),
@@ -177,7 +184,7 @@ def verifier_souris_deverrouiller_refuse() -> list[str]:
         with bureau_regroupe("VerifSourisRefus") as bureau:
             preparer_bureau(bureau)
             avant = etendue_du_voile(bureau)
-            boite = Boite(lambda reponse=reponse: reponse)
+            boite = Boite(partial(_repondre, reponse))
             with rangee_bloquee(bureau):
                 session = glisser_le_voile(bureau, boite)
             try:
