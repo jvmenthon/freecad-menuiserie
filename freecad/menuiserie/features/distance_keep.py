@@ -12,6 +12,7 @@ comme une pièce verrouillée : rangée bloquée refusée avant toute écriture,
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Final
 
@@ -192,8 +193,8 @@ def _side(item: _Located, span: Span, axis: FurnitureAxis) -> bool:
 
 
 def _along(direction: Vec3, axis: FurnitureAxis) -> bool:
-    length = (direction.x**2 + direction.y**2 + direction.z**2) ** 0.5
-    return abs(direction.component(axis.index)) >= (1.0 - ANGLE_TOLERANCE) * length
+    length = math.sqrt(direction.x**2 + direction.y**2 + direction.z**2)
+    return bool(abs(direction.component(axis.index)) >= (1.0 - ANGLE_TOLERANCE) * length)
 
 
 def _blocked(plan: KeepPlan) -> None:

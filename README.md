@@ -111,6 +111,14 @@ par une formule de l'utilisateur est refusé. **OK** valide en une seule entrée
 **Annuler** ne change rien. Depuis un script : `api.set_distance(a, b, 320)` avec deux
 `api.PickedElement(objet, "Face3")`.
 
+Pour deux pièces d'un **même ensemble**, la case **Garder cette distance** (cochée par défaut ;
+grisée, avec la raison en infobulle, si la distance ne peut pas être gardée) crée un objet
+`Distance` dans le groupe de l'ensemble : quand l'ensemble change de cote, les pièces gardent
+cette distance au lieu de la proportion d'origine. Double-clic sur la Distance dans l'arbre pour
+changer sa valeur ; décochez la case puis **OK** pour ne plus la garder. Une rangée bloquée par
+la distance est refusée avec le bouton **Ne plus garder et appliquer**. Depuis un script :
+`api.set_distance(a, b, 320, keep=True)`.
+
 ## Modifier un meuble (ensemble)
 
 Sélectionnez les pièces d'un meuble, puis **Ensemble** : l'atelier crée un ensemble (largeur,

@@ -79,7 +79,22 @@ Nouveau document, atelier **Menuiserie**, trois pièces de chêne par **Pièce d
    (**Relier les pièces** n'est pas nécessaire : l'ensemble est relié par la commande).
 2. **Édition > Annuler** rétablit la position et les liaisons d'origine.
 
-### Hors périmètre de ce lot
+### Scénario D7 : garder la distance dans l'ensemble (DI-c)
 
-La case « Garder cette distance » et l'objet `Distance` viennent avec DI-c : le panneau n'en
-a pas encore.
+1. Bureau regroupé en **Ensemble** (plateau, deux joues, voile). Sélectionner le **dessous de la
+   joue gauche** puis le **dessous du voile**, **Définir une distance** : la case **Garder cette
+   distance** est cochée et active. Saisir `320 mm`, **OK**.
+2. Attendu : un objet **Distance : Joue gauche – Voile** dans le groupe de l'ensemble ; une
+   seule entrée d'annulation. Passer la hauteur de l'ensemble à 800 mm : le voile garde ses
+   320 mm sous la joue, le plateau suit.
+3. Avec deux pièces hors ensemble : la case est grisée, l'infobulle donne la raison.
+4. **Double-clic** sur la Distance dans l'arbre : panneau « Entre … et … », champ à 320 mm,
+   case cochée. Saisir `340 mm` : le voile suit ; **OK** valide, **Annuler** rétablit.
+5. Rouvrir le panneau, décocher la case, **OK** : la Distance disparaît, le voile reste en place.
+6. Supprimer une des deux pièces : la Distance disparaît avec elle ; **Annuler** les rend.
+7. Copier-coller le meuble : la copie a sa propre Distance, liée aux pièces copiées.
+8. Verrouiller le voile (case « fixe »), puis changer la hauteur : refus nommant la Distance,
+   avec **Ne plus garder et appliquer**. Idem en créant la Distance avec le voile verrouillé :
+   message et bouton **Ne plus garder et appliquer**.
+9. Glisser le voile vers le bas à la souris, le long de l'axe de la Distance : au relâchement,
+   sa valeur est mise à jour ; **Échap** pendant le glissement la rétablit.
