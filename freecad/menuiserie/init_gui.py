@@ -88,8 +88,10 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui import double_click
         from freecad.menuiserie.gui.drag import events
 
-        double_click.uninstall()
-        events.uninstall()
+        try:
+            double_click.uninstall()
+        finally:
+            events.uninstall()
 
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une

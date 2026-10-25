@@ -8,7 +8,14 @@ verrou : FreeCAD se bloque jusqu'à la limite de temps de la CI. Les réglages s
 de l'interface, d'où ce lancement préalable.
 """
 
+import os
+import sys
+
 import FreeCAD as App
+
+if not os.environ.get("FREECAD_USER_HOME"):
+    # Sans dossier d'utilisateur dédié, ce seraient les préférences du développeur.
+    sys.exit("FREECAD_USER_HOME non défini : préférences de l'utilisateur laissées intactes")
 
 parametres = App.ParamGet("User parameter:BaseApp/Preferences/NotificationArea")
 parametres.SetBool("NotificationAreaEnabled", False)

@@ -55,7 +55,15 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         """Vrai (consommé) seulement pour la saisie d'une flèche ou d'une poignée et pour le
-        glissement qui s'en suit."""
+        glissement qui s'en suit. Une erreur annule le glissement et rend l'évènement."""
+        try:
+            return self._filter(watched, event)
+        except Exception:  # pylint: disable=broad-exception-caught
+            App.Console.PrintError(traceback.format_exc())
+            self._session.abort()
+            return False
+
+    def _filter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         kind = event.type()
         if kind in _KEYS:
             return self._key(kind, event)
@@ -172,17 +180,25 @@ class _Installation:
         self.session.refresh()
 
     def uninstall(self) -> None:
-        application = QtGui.QApplication.instance()
+        """Chaque retrait est tenté même si un autre échoue ; la session est toujours close."""
         if self.filter is None:
             return
-        if application is not None:
-            application.removeEventFilter(self.filter)
-        Gui.Selection.removeObserver(self.observer)
-        if self.documents is not None:
-            App.removeDocumentObserver(self.documents)
-        if self.session is not None:
-            self.session.shutdown()
-        self.session = self.filter = self.observer = self.documents = None
+        application = QtGui.QApplication.instance()
+        try:
+            if application is not None:
+                application.removeEventFilter(self.filter)
+        finally:
+            try:
+                Gui.Selection.removeObserver(self.observer)
+            finally:
+                try:
+                    if self.documents is not None:
+                        App.removeDocumentObserver(self.documents)
+                finally:
+                    session = self.session
+                    self.session = self.filter = self.observer = self.documents = None
+                    if session is not None:
+                        session.shutdown()
 
 
 _INSTALLATION: Final = _Installation()
