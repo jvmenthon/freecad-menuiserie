@@ -70,6 +70,7 @@ __all__ = [
     "resize_notices",
     "with_locks",
     "with_thickness",
+    "workshop_expressions",
 ]
 
 _CYCLE = QT_TRANSLATE_NOOP(
@@ -259,6 +260,12 @@ def _workshop_bindings(obj: DocumentObject) -> list[Binding]:
         for prop, text in recorded.items()
         if prop in current and same_binding(current[prop], text)
     ]
+
+
+def workshop_expressions(obj: DocumentObject) -> dict[str, str]:
+    """Expressions de l'atelier (liaisons d'ensemble) actuellement posées sur ``obj``, par
+    propriété ; toute autre expression est une formule de l'utilisateur."""
+    return {binding.prop: binding.expression for binding in _workshop_bindings(obj)}
 
 
 def _clear(objects: Iterable[DocumentObject]) -> None:
