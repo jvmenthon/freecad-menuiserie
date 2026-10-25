@@ -22,8 +22,8 @@
   [0018 — Double-clic dans la vue 3D](../adr/0018-double-clic-dans-la-vue-3d.md),
   [0019 — Rangées et épaisseurs fixes](../adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (PR #86),
   [0020 — Pièce en bois](../adr/0020-piece-en-bois-enveloppe-d-un-corps.md) (PR #87),
-  **[0021 — Déplacement à la souris avec aimantation](../adr/0021-deplacement-a-la-souris-avec-aimantation.md)** (proposé),
-  **[0022 — Distance entre deux pièces](../adr/0022-distance-entre-deux-pieces.md)** (proposé)
+  **[0021 — Déplacement à la souris avec aimantation](../adr/0021-deplacement-a-la-souris-avec-aimantation.md)** (accepté),
+  **[0022 — Distance entre deux pièces](../adr/0022-distance-entre-deux-pieces.md)** (accepté)
 - Découpage : six PR, **(SM-a ∥ DI-a) → SM-b → (SM-c ∥ DI-b) → DI-c** (§ 5)
 
 **Vocabulaire.** *Glisser* : déplacer la pièce à la souris, bouton gauche enfoncé. *Flèche* : l'une
