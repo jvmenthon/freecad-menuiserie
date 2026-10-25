@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from tests.elements_choisis import element_name
 from tests.integration.bureau import EXPRESSIONS, LAYOUT, Bureau, build_parts
 from tests.integration.cadre import stale_or_invalid
 
@@ -253,9 +254,28 @@ def test_piece_verrouillee_sans_poignees(bureau: Bureau) -> None:
 # --- B6 : Distance gardée ---------------------------------------------------------------------
 
 
-@pytest.mark.skip(reason="B6 reporté à DI-c : l'objet Distance n'existe pas encore")
-def test_la_distance_gardee_suit_le_glissement() -> None:
-    raise AssertionError("à écrire avec DI-c")
+def test_la_distance_gardee_suit_le_glissement(bureau: Bureau) -> None:
+    """Q8 : au relâchement, la ``Value`` de la Distance prend la distance nouvelle ; Échap la
+    rétablit."""
+    side = api.PickedElement(
+        bureau.parts["JG"], element_name(bureau.parts["JG"], "Face", (11, 280, 0))
+    )
+    web = api.PickedElement(
+        bureau.parts["V"], element_name(bureau.parts["V"], "Face", (600, 450, 320))
+    )
+    api.set_distance(side, web, 320, keep=True)
+    [distance] = [o for o in bureau.doc.Objects if o.Name.startswith("Distance")]
+    voile = bureau.parts["V"]
+    memento = drag.begin_drag(voile)
+    drag.move_part(memento, Vec3(0, -40, 0))  # Y local du voile = Z : il descend de 40 mm
+    drag.restore(memento)
+    assert distance.Value.Value == pytest.approx(320)
+    memento = drag.begin_drag(voile)
+    drag.move_part(memento, Vec3(0, -40, 0))
+    drag.end_drag(memento)
+    assert distance.Value.Value == pytest.approx(280)
+    assert bureau.bounds("V")[2] == (280, 680)
+    assert bureau.expressions("V")["Placement.Base.z"] == "<<Bureau>>.Origin.z + Distance.Value"
 
 
 # --- B7 : assemblage qui ne touche plus -------------------------------------------------------

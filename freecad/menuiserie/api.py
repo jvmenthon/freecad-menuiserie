@@ -51,6 +51,7 @@ from freecad.menuiserie.features import (
     cutlist_marks,
     cutlist_object,
     cutlist_thumbnail,
+    distance_move,
     furniture_edges,
     furniture_locks,
     furniture_members,
@@ -79,6 +80,7 @@ from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
 )
+from freecad.menuiserie.features.picked import PickedElement
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 __all__ = [
@@ -87,6 +89,7 @@ __all__ = [
     "CarcassJoinery",
     "CarcassParams",
     "LockedPiecesError",
+    "PickedElement",
     "add_to_furniture",
     "blank_of",
     "cut_list_html",
@@ -112,6 +115,7 @@ __all__ = [
     "remove_from_furniture",
     "remove_machined_part",
     "resize_furniture",
+    "set_distance",
     "set_edge_distance",
     "set_member_options",
     "unlock_and_resize",
@@ -412,6 +416,50 @@ def furniture_of(obj: DocumentObject) -> DocumentObject | None:
     except TypeError:
         return None
     return _member_furniture(member)
+
+
+# --- Distance entre deux pièces (DI-b) ---------------------------------------------------
+
+
+def _show_distance(distance: DocumentObject) -> None:
+    """ViewProvider de la Distance créée, quand l'interface est chargée."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.distance import ViewProviderDistance
+
+        ViewProviderDistance(distance.ViewObject)
+
+
+def set_distance(
+    first: PickedElement,
+    second: PickedElement,
+    value: float,
+    *,
+    moving: PickedElement | None = None,
+    axis: str | None = None,
+    keep: bool = False,
+) -> _Notices:
+    """Amène à ``value`` mm la distance entre deux éléments (face, arête, sommet) de deux objets
+    en déplaçant **une pièce de l'atelier** une fois, puis recalcule le document.
+
+    ``first`` et ``second`` : :class:`PickedElement` (objet racine, chemin de l'élément
+    ``"Face3"``). Pièce déplacée : ``moving`` (l'un des deux éléments), sinon celle du second
+    élément si elle est à l'atelier, sinon celle du premier ; une pièce usinée ou un assemblage
+    déplace sa brute, un objet d'un autre atelier ne bouge jamais. ``axis`` (``"X"``, ``"Y"``,
+    ``"Z"`` du conteneur) mesure deux sommets sur cet axe seul ; il est ignoré pour les autres
+    paires. Membre d'un ensemble : l'ensemble est relié ensuite. ``keep`` : la distance est
+    **gardée** par un objet ``Distance`` (DI-c, ADR 0022) ; il faut que les deux pièces soient
+    membres du même ensemble, que la direction soit parallèle à un axe de l'ensemble, que chaque
+    élément soit sur une face de sa pièce et que la valeur ne soit pas nulle. Refus avant toute
+    modification (``ValueError`` traduite) : aucune pièce de l'atelier, éléments non parallèles,
+    arête courbe, axe piloté par une formule, rangée bloquée, distance impossible à garder.
+    Renvoie les avertissements traduits (aussi dans la vue rapport). Aucune transaction n'est
+    ouverte : c'est à l'appelant de le faire pour pouvoir annuler."""
+    mover = distance_move.DistanceMove(first, second, moving)
+    messages = tuple(mover.apply(value, axis, keep=keep))
+    if mover.created is not None:
+        _show_distance(mover.created)
+    report(messages)
+    return messages
 
 
 # --- Gabarits (J4) ------------------------------------------------------------------------

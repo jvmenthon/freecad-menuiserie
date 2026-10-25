@@ -20,6 +20,7 @@ from freecad.menuiserie.core.furniture._bindings import (
     piece_reference,
     same_binding,
 )
+from freecad.menuiserie.core.furniture._blocked import check_kept
 from freecad.menuiserie.core.furniture._check import (
     check_membership,
     check_resize,
@@ -39,6 +40,7 @@ from freecad.menuiserie.core.furniture._edit import (
     follow_summary,
 )
 from freecad.menuiserie.core.furniture._follow import FollowRule, Rules, follow_rules
+from freecad.menuiserie.core.furniture._gaps import gap_values
 from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._model import (
     Binding,
@@ -48,8 +50,10 @@ from freecad.menuiserie.core.furniture._model import (
     FurnitureBox,
     FurnitureError,
     InteriorMode,
+    KeptGap,
     Member,
     NoticeKind,
+    gap_term,
 )
 from freecad.menuiserie.core.furniture._rows import Row
 from freecad.menuiserie.core.furniture._spans import Span, edge_distances, member_spans
@@ -66,6 +70,7 @@ __all__ = [
     "FurnitureBox",
     "FurnitureError",
     "InteriorMode",
+    "KeptGap",
     "Linear",
     "Member",
     "Notice",
@@ -75,6 +80,7 @@ __all__ = [
     "Span",
     "bindings_for",
     "bound_by_workshop",
+    "check_kept",
     "check_membership",
     "check_resize",
     "check_thickness",
@@ -87,6 +93,8 @@ __all__ = [
     "fixed_by_default",
     "follow_rules",
     "follow_summary",
+    "gap_term",
+    "gap_values",
     "is_driven",
     "label_reference",
     "member_spans",

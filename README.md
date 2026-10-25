@@ -125,6 +125,28 @@ Pour un **Onglet**, dessinez les deux pièces à leur longueur hors tout (de poi
 longue), qui se chevauchent au coin : la coupe passe par le coin extérieur et le coin intérieur
 (45° pour deux largeurs égales) et le panneau affiche les angles de coupe.
 
+## Définir une distance
+
+Sélectionnez **deux éléments** (face, arête ou sommet) de **deux objets différents**, dans la vue
+3D ou dans l'arbre, puis **Définir une distance** (clic droit, menu ou barre d'outils
+*Menuiserie*). Le panneau donne la distance actuelle et un champ **Distance** (unités et calculs
+de FreeCAD : `320 mm`, `300 mm + 20 mm`) : la pièce déplacée suit la saisie dans la vue 3D. Par
+défaut la pièce du **second** élément choisi bouge ; **Inverser** déplace l'autre. Seules les
+pièces de l'atelier bougent : un objet d'un autre atelier sert de référence. Les éléments doivent
+être parallèles (faces, arêtes droites) ; entre deux sommets, la liste **Direction** mesure en
+ligne droite ou sur l'axe X, Y ou Z. Une pièce d'un ensemble reste reliée à lui ; un axe piloté
+par une formule de l'utilisateur est refusé. **OK** valide en une seule entrée d'annulation,
+**Annuler** ne change rien. Depuis un script : `api.set_distance(a, b, 320)` avec deux
+`api.PickedElement(objet, "Face3")`.
+
+Pour deux pièces d'un **même ensemble**, la case **Garder cette distance** (cochée par défaut ;
+grisée, avec la raison en infobulle, si la distance ne peut pas être gardée) crée un objet
+`Distance` dans le groupe de l'ensemble : quand l'ensemble change de cote, les pièces gardent
+cette distance au lieu de la proportion d'origine. Double-clic sur la Distance dans l'arbre pour
+changer sa valeur ; décochez la case puis **OK** pour ne plus la garder. Une rangée bloquée par
+la distance est refusée avec le bouton **Ne plus garder et appliquer**. Depuis un script :
+`api.set_distance(a, b, 320, keep=True)`.
+
 ## Modifier un meuble (ensemble)
 
 Sélectionnez les pièces d'un meuble, puis **Ensemble** : l'atelier crée un ensemble (largeur,

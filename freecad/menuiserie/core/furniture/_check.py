@@ -13,6 +13,7 @@ from freecad.menuiserie.core.contact import classify
 from freecad.menuiserie.core.furniture._bindings import is_driven, position_property
 from freecad.menuiserie.core.furniture._blocked import check_blocked, size_text
 from freecad.menuiserie.core.furniture._follow import FollowRule, Rules, follow_rules
+from freecad.menuiserie.core.furniture._gaps import gap_values
 from freecad.menuiserie.core.furniture._messages import (
     FURNITURE_CYCLE,
     JOINT_LOST,
@@ -99,7 +100,7 @@ def predict(
     Seuls les membres qui ont des règles figurent dans le résultat ; une propriété pilotée par
     l'utilisateur garde sa valeur. :class:`FurnitureError` si une cote sortirait des bornes.
     """
-    values = {**_thicknesses(members), **(thicknesses or {})}
+    values = {**_thicknesses(members), **gap_values(members), **(thicknesses or {})}
     result: dict[str, Member] = {}
     for member in members:
         if member.key not in rules:

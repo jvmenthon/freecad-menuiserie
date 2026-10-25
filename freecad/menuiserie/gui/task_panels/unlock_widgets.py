@@ -22,6 +22,7 @@ from typing import Final
 from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.distance import is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_locks import refusal_of
 from freecad.menuiserie.features.furniture_view import shown_object
@@ -34,6 +35,11 @@ _APPLY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déverrouiller et appliquer")
 _APPLY_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Déverrouille les pièces cochées, relie l'ensemble puis applique la valeur refusée.",
+)
+_KEPT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Distances gardées à ne plus garder :")
+_KEPT_APPLY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ne plus garder et appliquer")
+_KEPT_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Cochée : la distance n'est plus gardée (l'objet Distance est supprimé)."
 )
 _PIECE_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Cochée : la pièce perd ses cotes fixes et peut s'adapter."
@@ -88,7 +94,8 @@ class UnlockBox:
         self._host.setObjectName("unlockPieces")
         self._column = QtGui.QVBoxLayout(self._host)
         self._column.setContentsMargins(0, 0, 0, 0)
-        self._column.addWidget(QtGui.QLabel(translated(_TITLE)))
+        self._title = QtGui.QLabel(translated(_TITLE))
+        self._column.addWidget(self._title)
         self._button = QtGui.QPushButton(translated(_APPLY))
         self._button.setObjectName("unlockButton")
         self._button.setToolTip(translated(_APPLY_TIP))
@@ -137,9 +144,13 @@ class UnlockBox:
             box = self._box(index)
             box.setText(str(shown_object(piece).Label))
             box.setObjectName(f"unlock_{piece.Name}")
+            box.setToolTip(translated(_KEPT_TIP if is_distance(piece) else _PIECE_TIP))
             box.setChecked(True)
         for index, box in enumerate(self._boxes):
             box.setVisible(index < len(pieces))
+        only_kept = bool(pieces) and all(is_distance(p) for p in pieces)
+        self._title.setText(translated(_KEPT_TITLE if only_kept else _TITLE))
+        self._button.setText(translated(_KEPT_APPLY if only_kept else _APPLY))
         self._update_button()
 
     def _box(self, index: int) -> Widget:
