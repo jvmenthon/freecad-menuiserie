@@ -6,6 +6,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Glisser une pièce à la souris, règles pures (lot SM-a de l'issue #65,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), critères A1 à A8) : nouveau
+  paquet `core/magnet/` sans FreeCAD ni Qt (flèches de la pièce, point de l'axe le plus proche du
+  rayon de la souris, aimantation par axe sur plans, droites et sommets voisins avec contact ou
+  affleurement, redimensionnement borné à 1 mm sans poignée d'épaisseur, saisie des flèches et
+  poignées en pixels, tolérance en mm). Pas encore d'interface : elle vient avec les lots suivants.
 - Ensembles : épaisseurs vivantes, partage au prorata et pièces verrouillées (demande de jv,
   recette J4 / J6, [ADR 0019](docs/adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
   spécification `docs/specs/ensembles-epaisseurs-fixes.md`). Un membre ne se règle plus que sur
