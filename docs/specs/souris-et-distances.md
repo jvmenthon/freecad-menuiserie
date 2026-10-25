@@ -1,10 +1,10 @@
 # Déplacer et redimensionner à la souris avec aimantation ; définir une distance
 
 - Issue : #65 (priorité haute, interface)
-- Statut : **proposée** (architecture fonctionnelle et technique, sans code). Questions Q2 à Q8
-  pour jv au § 9 ; les recommandations ★ servent de base en attendant ses réponses. Q1 tranchée
-  par jv le 2026-10-25 : la pièce se **déplace à la souris à tout moment**, pas seulement panneau
-  ouvert.
+- Statut : **validée par jv** (2026-10-25) (architecture fonctionnelle et technique, sans code). Réponses de jv
+  le 2026-10-25 au § 9 : Q1 déplacer **à tout moment**, Q2 **flèches**, Q3 voisines, Q4 pas
+  d'épaisseur, Q5 glisser un membre et relier l'ensemble, Q6 à Q8 recommandations ★ (« ok pour le reste »).
+  Spécification prête pour le développement.
 - Exigences de jv :
   - (2026-10-22, issue #65) « Lors de la création d'une pièce, pouvoir **déplacer la pièce et la
     redimensionner à la souris** dans la vue 3D, avec un **effet magnétique** (aimantation sur
@@ -26,9 +26,10 @@
   **[0022 — Distance entre deux pièces](../adr/0022-distance-entre-deux-pieces.md)** (proposé)
 - Découpage : six PR, **(SM-a ∥ DI-a) → SM-b → (SM-c ∥ DI-b) → DI-c** (§ 5)
 
-**Vocabulaire.** *Glisser* : déplacer la pièce à la souris, bouton gauche enfoncé. *Poignée* :
-petit carré dessiné au milieu d'une face de bout ou de rive, qu'on tire pour changer la longueur
-ou la largeur. *Guide* : plan, droite ou point d'une pièce voisine sur lequel la pièce glissée
+**Vocabulaire.** *Glisser* : déplacer la pièce à la souris, bouton gauche enfoncé. *Flèche* : l'une
+des trois flèches dessinées sur la pièce sélectionnée (axes de la pièce), qu'on tire pour la
+déplacer le long de cet axe. *Poignée* : petit carré dessiné au milieu d'une face de bout ou de
+rive, qu'on tire pour changer la longueur ou la largeur. *Guide* : plan, droite ou point d'une pièce voisine sur lequel la pièce glissée
 peut s'aimanter. *Distance* : écart mesuré entre deux éléments (face, arête, sommet) de deux
 pièces.
 
@@ -45,9 +46,10 @@ fixe »), mais rien ne permet de dire « cette étagère est à 320 mm du platea
 
 Le menuisier peut :
 
-1. **glisser** une pièce dans la vue 3D **à tout moment** quand l'atelier est actif : on la
-   sélectionne d'un clic, puis on la tire ; elle suit la souris dans un plan (§ 4.3). Pendant la
-   création et la modification (panneau ouvert), la pièce se glisse sans la sélectionner ;
+1. **déplacer** une pièce dans la vue 3D **à tout moment** quand l'atelier est actif : on la
+   sélectionne d'un clic, trois **flèches** (axes de la pièce) apparaissent, on en tire une et la
+   pièce suit la souris le long de cet axe (§ 4.3). Pendant la création et la modification
+   (panneau ouvert), les flèches sont sur la pièce du panneau ;
 2. panneau ouvert, **redimensionner** la pièce en tirant l'une des quatre **poignées** (deux bouts pour la
    longueur, deux rives pour la largeur) ; la face opposée ne bouge pas, l'épaisseur reste celle
    de la bibliothèque ;
@@ -72,13 +74,13 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 
 | N° | Type | Critère |
 |---|---|---|
-| A1 | U | `drag_plane(view_dir, frame)` : plan perpendiculaire à l'axe du repère de la pièce le plus proche de la direction de vue (vue de dessus → plan XY ; vue de face → plan XZ ; égalité → Z d'abord, puis Y). |
-| A2 | U | `ray_hit(ray, plane)` : point d'intersection ; rayon parallèle au plan (à `ANGLE_TOLERANCE` près) → `None` (le glissement s'arrête, rien n'est écrit). |
+| A1 | U | `arrows(frame, box, size)` : trois flèches (X, Y, Z du repère de la pièce) partant du centre de la boîte, longueur `size` (fixée en pixels par `gui/`, convertie en mm), sens positif de chaque axe. |
+| A2 | U | `axis_param(ray, axis_line)` : paramètre du point de l'axe le plus proche du rayon de la souris ; rayon parallèle à l'axe (à `ANGLE_TOLERANCE` près) → `None` (la pièce reste, rien n'est écrit). Le déplacement est la différence avec le paramètre du début du glissement. |
 | A3 | U | `magnet(box, guides, delta, tolerance, axes)` : sur chaque axe libre, la face (début ou fin) de la boîte déplacée la plus proche d'un guide à moins de `tolerance` s'y colle ; axes indépendants ; égalité → le guide le plus proche du curseur, puis le premier. Aucun guide à portée → `delta` inchangé. |
 | A4 | U | Un guide **plan** n'aimante que les faces parallèles ; une droite aimante les deux axes qui lui sont perpendiculaires ; un point aimante les trois axes. Un guide hors de portée de la pièce sur les autres axes (§ 4.4, Q3) est ignoré. |
 | A5 | U | Contact (normales opposées) et affleurement (normales de même sens) sont deux aimantations valables ; le résultat dit lequel (`MagnetHit.kind`) pour l'affichage. |
 | A6 | U | `resize(box, handle, delta, guides, tolerance, minimum)` : seule la face tirée bouge, le long de son axe ; cote bornée à `minimum` (1 mm) ; poignée sur l'épaisseur impossible (`ValueError`). Le résultat donne la cote nouvelle et la translation de l'origine (poignée de début). |
-| A7 | U | `handle_at(handles_px, cursor_px, radius=8)` : poignée la plus proche à moins de 8 pixels, sinon `None`. |
+| A7 | U | `handle_at(handles_px, cursor_px, radius=8)` : flèche (segment projeté) ou poignée la plus proche à moins de 8 pixels, sinon `None` ; à égalité, la poignée. |
 | A8 | U | `mm_per_pixel(p0, p1, px)` : tolérance en mm d'après deux points projetés ; jamais nulle ni négative. |
 
 ### SM-b — Guides et écriture (`features/magnet_guides.py`, `features/part_drag.py`)
@@ -97,9 +99,9 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 
 | N° | Type | Critère |
 |---|---|---|
-| C1 | G | Atelier actif : le filtre d'évènements d'application est posé (comme le double-clic, ADR 0018) ; atelier quitté, il est retiré. Panneau de la pièce ouvert : les poignées sont dessinées ; panneau fermé (OK, Annuler, document ou vue fermés), elles sont enlevées. |
-| C2 | G | **Hors panneau** : clic gauche enfoncé sur une pièce de l'atelier **déjà sélectionnée** (seule sélection), puis mouvement de plus de 4 pixels : la pièce suit la souris dans le plan A1 ; relâchement : transaction « Déplacer la pièce », un seul recalcul. Un clic sans mouvement reste un clic (sélection inchangée). **Panneau ouvert** : même geste sur la pièce du panneau, sans sélection préalable ; les champs X, Y, Z suivent ; tout reste dans la transaction du panneau. |
-| C3 | G | Clic gauche sur une pièce non sélectionnée, sur un autre objet ou dans le vide : l'évènement est rendu à FreeCAD (sélection, cadre de sélection, rotation de la vue inchangés). Molette, bouton du milieu, bouton droit : toujours rendus. Plusieurs objets sélectionnés : pas de glissement (déplacer un groupe : hors périmètre). |
+| C1 | G | Atelier actif : le filtre d'évènements d'application et l'observateur de sélection sont posés (comme le double-clic, ADR 0018) ; atelier quitté, ils sont retirés avec les flèches. Une seule pièce de l'atelier sélectionnée → ses trois flèches sont dessinées ; sélection vidée ou changée → enlevées. Panneau de la pièce ouvert : flèches et quatre poignées sur la pièce du panneau ; panneau fermé (OK, Annuler, document ou vue fermés), poignées enlevées. |
+| C2 | G | **Hors panneau** : clic gauche enfoncé sur une flèche, puis mouvement : la pièce suit la souris le long de l'axe de la flèche (A2) ; relâchement : transaction « Déplacer la pièce », un seul recalcul. **Panneau ouvert** : même geste ; les champs X, Y, Z suivent ; tout reste dans la transaction du panneau. |
+| C3 | G | Clic gauche ailleurs que sur une flèche ou une poignée (pièce, autre objet, vide) : l'évènement est rendu à FreeCAD (sélection, cadre de sélection, rotation de la vue inchangés). Molette, bouton du milieu, bouton droit : toujours rendus. Plusieurs objets sélectionnés : pas de flèches (déplacer un groupe : hors périmètre). |
 | C4 | G | Poignée tirée : la cote suit, l'autre bout ne bouge pas ; le champ de la cote du panneau suit ; l'aperçu (transparence 60 %) reste posé. |
 | C5 | G | Guide aimanté : il est dessiné en surbrillance (plan, droite ou point) pendant l'aimantation ; Maj enfoncée : aucune aimantation, aucun dessin. |
 | C6 | G | Échap pendant le glissement : la pièce revient où elle était au début de ce glissement (le panneau, s'il est ouvert, le reste). |
@@ -144,18 +146,17 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 
 ### 4.1 Principe (ADR 0021, ADR 0022)
 
-- **Glisser à tout moment, sur une pièce déjà sélectionnée** (Q1, choix de jv). Un filtre
-  d'évènements d'application est posé tant que l'atelier est actif, avec celui du double-clic
-  (ADR 0018), et retiré quand on le quitte. Il ne consomme un clic gauche que s'il tombe sur une
-  pièce de l'atelier **déjà sélectionnée seule** (hors panneau), sur la pièce du panneau ou sur
-  une de ses poignées (panneau ouvert), et seulement après 4 pixels de mouvement : un simple clic
-  reste un clic. Tout le reste (navigation, cadre de sélection, rotation au clic gauche du style
-  Gesture, autres ateliers) suit son cours, puisque ces gestes partent d'un endroit qui n'est
-  pas une pièce sélectionnée. Std Transform n'est ni remplacé ni modifié.
+- **Déplacer à tout moment, par des flèches** (Q1, Q2, choix de jv). Tant que l'atelier est
+  actif, un observateur de sélection dessine trois flèches sur la pièce de l'atelier sélectionnée
+  seule, et un filtre d'évènements d'application (posé avec celui du double-clic, ADR 0018)
+  ne consomme un clic gauche que s'il tombe **sur une flèche ou une poignée** (test en pixels).
+  Tout le reste (navigation, sélection, cadre, rotation au clic gauche du style Gesture, autres
+  ateliers) suit son cours. Les deux sont retirés quand on quitte l'atelier. Std Transform n'est
+  ni remplacé ni modifié.
 - **Hors panneau**, le glissement ouvre sa propre transaction « Déplacer la pièce » (un Ctrl+Z) ;
   **panneau ouvert**, il écrit dans la transaction du panneau. Les poignées (redimensionner) ne
   sont dessinées que panneau ouvert.
-- **Calcul pur, lecture et écriture séparées** (comme `core/snap`) : plan de glissement, rayon,
+- **Calcul pur, lecture et écriture séparées** (comme `core/snap`) : flèches, rayon, axe,
   aimantation, poignées et tolérance sont des fonctions pures (`core/magnet/`) ; la lecture des
   formes en guides et l'écriture des propriétés sont dans `features/` (testables dans
   `freecadcmd`) ; les évènements, le dessin des poignées et des guides sont dans `gui/`.
@@ -173,9 +174,9 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 freecad/menuiserie/
 ├── core/
 │   ├── magnet/
-│   │   ├── __init__.py        SM-a  façade : DragPlane, Ray, Guide, GuideKind, MagnetHit, Handle, DragResult, drag_plane, ray_hit, magnet, resize, handle_at, mm_per_pixel
+│   │   ├── __init__.py        SM-a  façade : Ray, Arrow, Guide, GuideKind, MagnetHit, Handle, DragResult, arrows, axis_param, magnet, resize, handle_at, mm_per_pixel
 │   │   ├── _model.py          SM-a  objets valeur
-│   │   ├── _plane.py          SM-a  plan de glissement, rayon
+│   │   ├── _axis.py           SM-a  flèches, rayon, paramètre sur l'axe
 │   │   └── _magnet.py         SM-a  aimantation par axe, poignées
 │   ├── distance/
 │   │   ├── __init__.py        DI-a  façade : Gap, DistanceError, measure, moved_by, ensemble_axis
@@ -192,9 +193,9 @@ freecad/menuiserie/
 └── gui/
     ├── drag/
     │   ├── __init__.py        SM-c
-    │   ├── session.py         SM-c  DragSession (State : attente, survol, glissement, poignée)
-    │   ├── events.py          SM-c  filtre Qt de la zone d'affichage (pixels → FreeCAD, view_point de l'ADR 0018)
-    │   └── overlay.py         SM-c  poignées et guides dessinés (pivy, SoAnnotation), posés puis retirés
+    │   ├── session.py         SM-c  DragSession (State : attente, survol, flèche tirée, poignée tirée)
+    │   ├── events.py          SM-c  filtre d'application (pixels → FreeCAD, view_point de l'ADR 0018), observateur de sélection
+    │   └── overlay.py         SM-c  flèches, poignées et guides dessinés (pivy, SoAnnotation), posés puis retirés
     ├── task_panels/
     │   ├── wood_part_drag.py  SM-c  branche la session sur le panneau (champs qui suivent)
     │   └── distance.py        DI-b  DistanceTaskPanel
@@ -207,27 +208,28 @@ freecad/menuiserie/
 
 | Besoin | Pattern | Justification |
 |---|---|---|
-| Glissement, poignée, survol, attente | **State** (`DragSession` : `Idle`, `Hover`, `Moving`, `Resizing`), une classe par état, transitions sur évènement | pas de drapeaux croisés ; Échap et fin du panneau ramènent à `Idle` depuis tout état |
+| Flèche, poignée, survol, attente | **State** (`DragSession` : `Idle`, `Hover`, `Moving`, `Resizing`), une classe par état, transitions sur évènement | pas de drapeaux croisés ; Échap et fin du panneau ramènent à `Idle` depuis tout état |
 | Guides (plan, droite, point) et paires d'éléments d'une distance | **Strategy** par type (registre, comme `FRAME_BUILDERS` de `core/snap`) | neuf paires de distance, trois guides, point d'extension (axe de perçage, cylindre) |
 | Retour en arrière d'un glissement (Échap) et liaisons mises de côté | **Memento** (placement, cotes et expressions du début du glissement) | rétablis tels quels, rien de persistant |
 | Dessin temporaire | **Proxy d'affichage** (`Overlay` : un nœud Coin posé à l'ouverture, retiré à la fermeture) | rien dans le document, rien qui reste si FreeCAD ferme la vue |
 | Création de la Distance | **Fabrique** `api.set_distance` (une seule voie : commande, console, tests) | règle du projet |
 | Objet Distance | **Proxy** FeaturePython + ViewProvider séparé | règle du projet |
 
-### 4.3 Plan et gestes (SM-a, SM-c)
+### 4.3 Flèches et gestes (SM-a, SM-c)
 
-- **Plan de glissement** (Q2 ★) : perpendiculaire à l'axe de la **pièce** le plus proche de la
-  direction de vue, passant par le point saisi. Vue de dessus : la pièce glisse à l'horizontale ;
-  vue de face : dans le plan vertical. **Ctrl** enfoncé : la pièce ne bouge que le long de cet
-  axe (monter, descendre). **Maj** : pas d'aimantation. Ces touches ne servent à rien d'autre
-  pendant un glissement (FreeCAD n'en reçoit pas l'évènement).
+- **Flèches** (Q2, choix de jv) : trois flèches aux couleurs des axes de FreeCAD (X rouge, Y
+  vert, Z bleu), partant du centre de la pièce selon **ses** axes (une pièce tournée a des
+  flèches tournées), longueur constante à l'écran (80 pixels). Tirer une flèche déplace la pièce
+  le long de son axe seulement, dans les deux sens. **Maj** : pas d'aimantation (FreeCAD ne
+  reçoit pas l'évènement pendant le geste).
+- **Quelle pièce** : sélectionner la pièce brute, sa pièce usinée ou l'un de ses assemblages
+  montre les flèches de la **brute** (ADR 0006). Pièce en bois (#87) : flèches, pas de poignées.
 - **Rayon** : point du plan focal `view.getPoint(x, y)` et direction de vue (caméra orthogonale,
   par défaut dans FreeCAD) ; caméra en perspective : origine = position de la caméra (lue par
-  `getCameraNode`). Calcul dans `core/magnet` (`ray_hit`).
-- **Saisie** : `view.getObjectInfo` (déjà utilisé par le double-clic) donne l'objet sous le
-  curseur ; la pièce, sa pièce usinée ou l'un de ses assemblages saisis renvoient à la brute.
-  Les **poignées** sont testées avant, en pixels (`handle_at`), d'après leurs centres projetés
-  (`view.getPointOnScreen`).
+  `getCameraNode`). Le point de l'axe le plus proche du rayon donne le déplacement
+  (`axis_param`, `core/magnet`).
+- **Saisie** : flèches et poignées sont testées en pixels (`handle_at`), d'après leurs
+  extrémités projetées (`view.getPointOnScreen`) ; aucun appel à la sélection de FreeCAD.
 - **Poignées** : quatre, au milieu des faces de bout et de rive ; aucune sur les faces de
   l'épaisseur (Q4 ★ : l'épaisseur vient de la bibliothèque, ADR 0015). Tirée, la poignée bouge le
   long de la normale de sa face ; la cote vaut au moins 1 mm.
@@ -248,8 +250,8 @@ freecad/menuiserie/
   distance (façon SketchUp) sont l'option b de Q3.
 - **Tolérance** : 10 pixels convertis en mm à la profondeur de la pièce (`mm_per_pixel`) ; zoomé
   de près, l'aimant devient fin.
-- **Par axe** : sur chaque axe libre (2 en glissement, 1 avec Ctrl ou sur une poignée), la face
-  de début ou de fin la plus proche d'un guide s'y colle. Contact et affleurement valent tous les
+- **Sur l'axe tiré** (flèche ou poignée), la face de début ou de fin la plus proche d'un guide
+  s'y colle (`magnet` reste écrit pour plusieurs axes, prêt pour un déplacement dans un plan). Contact et affleurement valent tous les
   deux (A5). Le milieu des faces n'est pas un aimant (hors périmètre).
 - **Chevauchement** : l'aimant n'empêche pas une pièce d'entrer dans une autre (les assemblages
   par superposition en ont besoin, ADR 0014, 0016).
@@ -356,7 +358,8 @@ pièces à leur place, expressions toujours évaluées par FreeCAD.
 | Un style de navigation (Gesture) commence une rotation au clic gauche avant notre filtre | filtre d'**application** posé avant celui de Quarter, comme le double-clic (ADR 0018, éprouvé sur 1.0 et 1.1) ; recette C8 sur trois styles |
 | Lenteur sur un gros document (formes lues à chaque mouvement) | guides lus une fois au début du glissement, bornés à 5 000 ; pas de recalcul du document pendant le glissement |
 | Pièce usinée affichée qui ne suit pas la brute pendant le glissement | la pièce usinée suit le `Placement` de sa brute (J3) ; ses découpes sont recalculées au relâchement |
-| Rayon parallèle au plan (vue rasante) | `ray_hit` → `None`, la pièce reste (A2) |
+| Rayon parallèle à la flèche (flèche vue de bout) | `axis_param` → `None`, la pièce reste (A2) ; flèche vue de bout dessinée en point, pas saisissable |
+| Observateur de sélection actif en permanence avec l'atelier | ne fait que dessiner ou enlever un nœud ; aucun accès au document ; retiré dans `Deactivated` (ADR 0007, comme le double-clic) |
 | Caméra en perspective | origine du rayon lue sur la caméra ; testé en recette |
 | Enveloppes PySide réutilisées sur 1.0 | aucune référence Qt gardée hors de la session ; session détruite à la fermeture du panneau |
 | Cycle d'expressions avec une Distance | Distance citée comme une épaisseur : même ordre des clés et même gel en constante que #86 (ADR 0019, point 7) |
@@ -379,29 +382,20 @@ gêner la navigation (rotation au clic gauche du style Gesture, cadre de sélect
 part d'une pièce **déjà sélectionnée** : un clic pour la choisir, puis on la tire. Panneau ouvert,
 la pièce se tire directement et les poignées de redimensionnement apparaissent.
 
-**Q2 — Dans quel plan la pièce glisse-t-elle ?**
-1. ★ **Plan perpendiculaire à l'axe de la pièce le plus proche de la vue**, Ctrl pour bouger le
-   long de cet axe seul.
-2. Le plan de la face contre laquelle la pièce est posée (elle « coulisse » sur son appui),
-   sinon comme 1.
-3. Une poignée à trois flèches (comme Std Transform) : précis, mais plus lent pour poser une
-   pièce.
+**Q2 — Comment la pièce se déplace-t-elle ?** Tranchée par jv : « ok pour les flèches » → trois
+flèches (axes de la pièce), un axe à la fois (§ 4.3).
 
-**Q3 — Sur quoi la pièce s'aimante-t-elle ?**
-1. ★ **Les pièces voisines** : faces, arêtes, sommets des objets qu'elle longe ou touche presque
-   (10 pixels).
-2. En plus, les **alignements à distance** (affleurer une face d'un autre meuble au loin) :
-   plus puissant, mais l'aimant « saute » plus souvent.
+**Q3 — Sur quoi la pièce s'aimante-t-elle ?** Tranchée par jv : **les pièces voisines** (faces,
+arêtes, sommets à moins de 10 pixels), pas les alignements à distance.
 
-**Q4 — Peut-on tirer l'épaisseur ?**
-1. ★ **Non** : quatre poignées (longueur, largeur) ; l'épaisseur se choisit dans la liste de la
-   bibliothèque.
-2. Oui, en sautant d'une épaisseur de la bibliothèque à la suivante.
+**Q4 — Peut-on tirer l'épaisseur ?** Tranchée par jv : **non**, quatre poignées (longueur,
+largeur) ; l'épaisseur se choisit dans la bibliothèque.
 
-**Q5 — Glisser une pièce d'un ensemble ?**
-1. ★ **Oui** : la pièce se place où on la lâche et l'ensemble entier est relié (comme une
-   saisie dans le panneau avec #86). Une pièce verrouillée glisse mais garde ses cotes.
-2. Non : la retirer de l'ensemble d'abord.
+**Q5 — Glisser une pièce d'un ensemble ?** Tranchée par jv : **oui**, la pièce se place où on la
+lâche et l'ensemble entier est relié (#86) ; une pièce verrouillée se déplace mais garde ses
+cotes.
+
+Q6 à Q8 : jv valide les recommandations ★ (« ok pour le reste »).
 
 **Q6 — Une distance entre deux pièces hors d'un ensemble, est-elle gardée ?**
 1. ★ **Non, ponctuelle** : la pièce se déplace une fois, comme l'accrochage de J6. Pour garder
