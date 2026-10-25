@@ -175,7 +175,7 @@ def handle_at(
         distance = _pixel_distance(target, cursor_px)
         if distance is None or distance > radius:
             continue
-        key = (round(distance, _TIE), not target.is_handle, index)
+        key = (round(distance, _TIE), target.end is not None, index)
         if best is None or key < best[0]:
             best = (key, target.key)
     return None if best is None else best[1]
