@@ -5,9 +5,9 @@ Lecture : chaque membre devient un :class:`Member` (bloc ou boîte relatifs à l
 l'ensemble, options, pièce verrouillée, propriétés pilotées par l'utilisateur). Écriture :
 ``setExpression`` puis relecture du texte normalisé par FreeCAD, enregistré dans
 ``FurnitureBindings`` ; retrait : seulement les expressions dont le texte est celui enregistré.
-Un objet n'écrit jamais dans un autre : les saisies de l'éditeur de propriétés
-(:mod:`.furniture_edits`) ne relient que le membre modifié. Une rangée bloquée par des pièces
-verrouillées est refusée par :class:`LockedPiecesError`.
+Les saisies de l'éditeur de propriétés (:mod:`.furniture_edits`) relient tout l'ensemble :
+un réglage ou une épaisseur change la rangée des autres membres (ADR 0019, point 6). Une rangée
+bloquée par des pièces verrouillées est refusée par :class:`LockedPiecesError`.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ from freecad.menuiserie.core.furniture import (
     with_default_options,
 )
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import (
@@ -71,6 +72,11 @@ __all__ = [
     "with_thickness",
 ]
 
+_CYCLE = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Liaisons impossibles : une formule de l'utilisateur forme un cycle avec elles ({detail}). "
+    "Les liaisons précédentes sont rétablies.",
+)
 _JOINT_GROUP = "Assembly::JointGroup"  # joints de l'atelier Assembly intégré (sans import)
 
 
@@ -204,7 +210,9 @@ def read_members(
     return MemberSet(furniture, current, resolved, {obj.Name: obj for obj in objects})
 
 
-def _bindings(members: MemberSet, keys: Iterable[str]) -> tuple[list[Binding], list[Notice]]:
+def _bindings(
+    members: MemberSet, keys: Iterable[str], thicknesses: Mapping[str, float] | None = None
+) -> tuple[list[Binding], list[Notice]]:
     """Liaisons et avertissements des membres ``keys`` (règles et liaisons de ``core``) ; la
     rangée de chaque membre tient compte de tous les autres."""
     chosen = set(keys)
@@ -212,7 +220,12 @@ def _bindings(members: MemberSet, keys: Iterable[str]) -> tuple[list[Binding], l
     nested = furniture_of(members.furniture) is not None
     with translated_errors():
         bindings, notices = bindings_for(
-            str(members.furniture.Label), members.members, rules, keys=chosen, nested=nested
+            str(members.furniture.Label),
+            members.members,
+            rules,
+            keys=chosen,
+            nested=nested,
+            thicknesses=thicknesses,
         )
     return list(bindings), [*rule_notices, *notices]
 
@@ -237,21 +250,55 @@ def _write(obj: DocumentObject, bindings: Sequence[Binding]) -> None:
         obj.FurnitureBindings = recorded
 
 
-def bind_members(members: MemberSet, keys: Iterable[str]) -> list[Notice]:
+def _workshop_bindings(obj: DocumentObject) -> list[Binding]:
+    """Liaisons de l'atelier actuellement posées sur ``obj`` (texte = celui enregistré)."""
+    current = expressions_of(obj)
+    recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
+    return [
+        Binding(obj.Name, prop, current[prop])
+        for prop, text in recorded.items()
+        if prop in current and same_binding(current[prop], text)
+    ]
+
+
+def _clear(objects: Iterable[DocumentObject]) -> None:
+    for obj in objects:
+        with writing(obj):
+            remove_bindings(obj)
+
+
+def bind_members(
+    members: MemberSet, keys: Iterable[str], thicknesses: Mapping[str, float] | None = None
+) -> list[Notice]:
     """Calcule et écrit les liaisons des membres ``keys`` d'après la géométrie actuelle et
-    leurs options ; renvoie les avertissements."""
+    leurs options ; renvoie les avertissements. Les liaisons de **tous** les membres visés sont
+    retirées d'abord : le graphe mélangeant anciennes et nouvelles liaisons pourrait être
+    cyclique. Un cycle avec une formule de l'utilisateur (``RuntimeError`` de FreeCAD) rétablit
+    les liaisons précédentes et devient une ``ValueError`` traduite. ``thicknesses`` : voir
+    ``bindings_for``."""
     chosen = sorted(set(keys))
-    bindings, notices = _bindings(members, chosen)
-    for key in chosen:
-        _write(members.objects[key], [b for b in bindings if b.key == key])
+    bindings, notices = _bindings(members, chosen, thicknesses)
+    objects = [members.objects[key] for key in chosen]
+    before = {obj.Name: _workshop_bindings(obj) for obj in objects}
+    _clear(objects)
+    try:
+        for obj in objects:
+            _write(obj, [b for b in bindings if b.key == obj.Name])
+    except RuntimeError as error:
+        _clear(objects)
+        for obj in objects:
+            _write(obj, before[obj.Name])
+        raise ValueError(translated(_CYCLE, {"detail": str(error)})) from error
     return notices
 
 
-def rebind(furniture: DocumentObject) -> list[Notice]:
+def rebind(
+    furniture: DocumentObject, thicknesses: Mapping[str, float] | None = None
+) -> list[Notice]:
     """Relie tous les membres de ``furniture``, puis ceux de ses sous-ensembles, d'après la
     géométrie actuelle et les options enregistrées (« Relier les pièces »)."""
     members = read_members(furniture)
-    notices = bind_members(members, members.objects)
+    notices = bind_members(members, members.objects, thicknesses)
     for obj in members.objects.values():
         if is_furniture(obj):
             notices.extend(rebind(obj))

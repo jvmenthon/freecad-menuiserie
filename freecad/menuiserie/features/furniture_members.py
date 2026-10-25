@@ -47,6 +47,7 @@ from freecad.menuiserie.features.furniture_bindings import (
     remove_bindings,
     resize_notices,
 )
+from freecad.menuiserie.features.furniture_relink import relink_remaining
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.solids import rigid_transform
@@ -275,17 +276,20 @@ def add_members(furniture: DocumentObject, objects: Sequence[DocumentObject]) ->
 def remove_members(objects: Sequence[DocumentObject]) -> None:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
     de membre sont supprimées, la géométrie ne change pas. Un orphelin (ensemble supprimé) est
-    accepté."""
+    accepté. Les pièces qui restent sont reliées sans elles."""
     targets = {member.Name: member for member in map(member_object, objects)}
     for member in targets.values():
         if not has_member_properties(member):
             raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
+    furnitures = {f.Name: f for f in (furniture_of(m) for m in targets.values()) if f is not None}
     for member in targets.values():
         with writing(member):
             remove_bindings(member)
             for spec in MEMBER_PROPERTIES:
                 if spec.name in member.PropertiesList:
                     member.removeProperty(spec.name)
+    for furniture in furnitures.values():  # les voisines ne citent plus les pièces retirées
+        relink_remaining(furniture, set(targets))
 
 
 def _checked_options(

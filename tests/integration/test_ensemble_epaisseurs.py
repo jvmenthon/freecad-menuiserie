@@ -17,7 +17,6 @@ api = pytest.importorskip("freecad.menuiserie.api")
 
 WIDTH_BLOCKED = "Impossible de changer la largeur de l'ensemble à 1300 mm"
 THICKNESS_BLOCKED = "Impossible de changer l'épaisseur de « Joue gauche » à 25 mm"
-RELINK = "utilisez « Relier les pièces »"
 
 
 def snapshot(bureau: Bureau) -> dict[str, dict[str, str]]:
@@ -175,16 +174,18 @@ def test_epaisseur_controlee_par_le_panneau(bureau: Bureau, document: Any) -> No
 
 
 def test_verrou_saisi_dans_l_editeur(bureau: Bureau, vue_rapport: Any) -> None:
+    """Tout l'ensemble est relié : la joue droite suit la rangée du voile verrouillé, sans
+    avertissement (ADR 0019, point 6)."""
     voile = bureau.parts["V"]
     vue_rapport.messages.clear()
     voile.Locked = True
     expressions = bureau.expressions("V")
     assert "Length" not in expressions
     assert "Width" not in expressions
-    warnings = vue_rapport.de_niveau("Warning")
-    assert any(RELINK in text for text in warnings)  # la joue droite est à refaire
-    api.rebind_furniture(bureau.furniture)
     assert bureau.expressions("JD")["Placement.Base.x"].endswith("+ 1156 mm")
+    assert vue_rapport.de_niveau("Warning") == []
+    voile.Locked = False
+    assert snapshot(bureau) == EXPRESSIONS
 
 
 def test_largeur_saisie_dans_une_rangee_bloquee(bureau: Bureau, vue_rapport: Any) -> None:

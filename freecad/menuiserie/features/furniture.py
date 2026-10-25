@@ -225,7 +225,7 @@ def remember_before_change(obj: DocumentObject, prop: str) -> None:
     Sans effet pour un objet qui n'est membre d'aucun ensemble."""
     proxy = obj.Proxy
     setattr(proxy, _PREVIOUS, None)
-    if prop not in (*MEMBER_OPTIONS, "Thickness") or not follows_user_changes(obj):
+    if prop != "Thickness" or not follows_user_changes(obj):
         return
     if furniture_of(obj) is not None:
         value = getattr(obj, prop)
@@ -288,7 +288,7 @@ class Furniture(StatelessProxy):
             if previous is not None and current is not None and previous != current:
                 furniture_edits.report_resize(obj, previous, current)
         elif prop in MEMBER_OPTIONS:
-            furniture_edits.member_option_changed(obj, prop, take_previous(obj, prop))
+            furniture_edits.member_option_changed(obj, prop)
 
     def unsetupObject(self, obj: DocumentObject) -> None:
         """Suppression de l'ensemble (``removeObject``, interface comprise) : les liaisons de

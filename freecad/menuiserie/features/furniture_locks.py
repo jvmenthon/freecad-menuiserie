@@ -29,6 +29,7 @@ from freecad.menuiserie.features.furniture_members import (
     quoted_label,
     write_box,
 )
+from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 
 __all__ = ["refusal_of", "set_member_thickness", "unlock_and_resize", "unlock_and_set_thickness"]
@@ -64,14 +65,19 @@ def _locked_keys(pieces: Sequence[DocumentObject]) -> tuple[str, ...]:
     return tuple(keys)
 
 
-def _unlock(furniture: DocumentObject, pieces: Sequence[DocumentObject]) -> list[Notice]:
-    """Déverrouille ``pieces`` puis relie tout l'ensemble (sous-ensembles compris)."""
+def _unlock(
+    furniture: DocumentObject,
+    pieces: Sequence[DocumentObject],
+    thicknesses: Mapping[str, float] | None = None,
+) -> list[Notice]:
+    """Déverrouille ``pieces`` puis relie tout l'ensemble (sous-ensembles compris) ;
+    ``thicknesses`` : voir :func:`~.furniture_bindings.bind_members`."""
     for piece in pieces:
         member = member_object(piece)
         if member.Locked:
             with writing(member):
                 member.Locked = False
-    return rebind(furniture)
+    return rebind(furniture, thicknesses)
 
 
 def unlock_and_resize(
@@ -118,7 +124,7 @@ def unlock_and_set_thickness(
     keys = _locked_keys(pieces)
     with translated_errors():
         notices = thickness_notices(furniture, member, value, unlocked=keys)
-    relinked = _unlock(furniture, pieces)
+    relinked = _unlock(furniture, pieces, {member.Name: value})
     with writing(member):
         member.Thickness = value
     return [*relinked, *notices]
@@ -128,14 +134,16 @@ def set_member_thickness(part: DocumentObject, thickness: float) -> list[Notice]
     """Écrit l'épaisseur ``thickness`` (mm) de la pièce de bois ``part``. Pour un membre d'un
     ensemble, elle est contrôlée d'abord (``check_thickness``) : refus avant toute écriture,
     :class:`LockedPiecesError` si une rangée est bloquée par des pièces verrouillées,
-    ``ValueError`` traduite sinon. Les liaisons sont vivantes (``Name.Thickness``) : rien à
-    relier. Hors ensemble, l'épaisseur est simplement écrite. Renvoie les avertissements."""
+    ``ValueError`` traduite sinon. Tout l'ensemble est relié sur la géométrie d'avant, les termes
+    figés en constante d'une pièce voisine prenant la nouvelle épaisseur (ADR 0019). Hors
+    ensemble, l'épaisseur est simplement écrite. Renvoie les avertissements."""
     if furniture_of(member_object(part)) is None:
         part.Thickness = float(thickness)
         return []
     member, furniture, value = _checked_thickness(part, thickness)
     with translated_errors():
         notices = thickness_notices(furniture, member, value)
+    relinked = relink_thickness(furniture, member, value)
     with writing(member):
         member.Thickness = value
-    return notices
+    return [*relinked, *notices]

@@ -11,32 +11,21 @@ restauration, une annulation, un recalcul ou une écriture de l'atelier.
 
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Final
-
 from freecad.menuiserie.core.furniture import (
     BlockedRowError,
-    Edge,
     FurnitureBox,
     FurnitureError,
-    InteriorMode,
-    Member,
     Notice,
-    bindings_for,
     check_thickness,
-    follow_rules,
 )
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
 from freecad.menuiserie.features.furniture import (
     MEMBER_OPTIONS,
     follows_user_changes,
     furniture_of,
-    option_name,
     take_previous,
 )
 from freecad.menuiserie.features.furniture_bindings import (
-    MemberSet,
     bind_members,
     joined_pairs,
     locked_error,
@@ -47,7 +36,8 @@ from freecad.menuiserie.features.furniture_bindings import (
     with_locks,
     with_thickness,
 )
-from freecad.menuiserie.features.i18n import templated_message, translated
+from freecad.menuiserie.features.furniture_relink import relink_thickness
+from freecad.menuiserie.features.i18n import templated_message
 
 __all__ = [
     "member_changed",
@@ -56,12 +46,6 @@ __all__ = [
     "thickness_changed",
     "thickness_notices",
 ]
-
-_RELINK: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Les liaisons des autres pièces de l'ensemble ne tiennent pas compte de ce réglage : "
-    "utilisez « Relier les pièces ».",
-)
 
 
 def report_resize(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBox) -> None:
@@ -110,63 +94,28 @@ def thickness_changed(obj: DocumentObject, previous: tuple[object] | None) -> No
         return
     if not follows_user_changes(obj):
         return
+    old, new = float(previous[0]), float(obj.Thickness.Value)  # type: ignore[arg-type]
+    if old == new:
+        return
+    messages: list[str] = []
     try:
-        old = float(previous[0])  # type: ignore[arg-type]
-        new = float(obj.Thickness.Value)
-        if old != new:
-            report(notice_messages(thickness_notices(furniture, obj, new, previous=old)))
+        messages += notice_messages(thickness_notices(furniture, obj, new, previous=old))
     except FurnitureError as error:
-        report([templated_message(error)])
+        messages.append(templated_message(error))
     except ValueError as error:
-        report([str(error)])
+        messages.append(str(error))
+    try:  # les autres pièces suivent la nouvelle épaisseur, quelles que soient les alertes
+        messages += notice_messages(relink_thickness(furniture, obj, new, old))
+    except ValueError as error:
+        messages.append(str(error))
+    report(messages)
 
 
-def _with_option(member: Member, prop: str, value: object) -> Member:
-    """``member`` avec le réglage ``prop`` à ``value`` (mode, option « fixe » ou verrou)."""
-    if prop == "PositionMode":
-        try:
-            return replace(member, mode=InteriorMode(value))
-        except ValueError:  # valeur d'une version plus récente : la pièce ne bouge pas
-            return replace(member, mode=InteriorMode.STAY)
-    if prop == "Locked":
-        return replace(member, locked=bool(value))
-    edge = next(edge for edge in Edge if option_name(edge) == prop)
-    fixed = member.fixed or frozenset()
-    return replace(member, fixed=fixed | {edge} if value else fixed - {edge})
-
-
-def _others_bindings(members: MemberSet, key: str) -> frozenset[tuple[str, str, str]]:
-    """Liaisons (clé, propriété, expression) de tous les membres sauf ``key``."""
-    others = {member.key for member in members.members if member.key != key}
-    rules, _ = follow_rules(members.box, members.members, others)
-    bindings, _ = bindings_for(
-        str(members.furniture.Label),
-        members.members,
-        rules,
-        keys=others,
-        nested=furniture_of(members.furniture) is not None,
-    )
-    return frozenset((b.key, b.prop, b.expression) for b in bindings)
-
-
-def _others_stale(members: MemberSet, obj: DocumentObject, prop: str, before: object) -> bool:
-    """Vrai si le réglage ``prop`` de ``obj`` (``before`` : sa valeur d'avant) change la rangée
-    d'autres membres : leurs liaisons ne seraient plus celles que l'atelier poserait."""
-    earlier = replace(
-        members,
-        members=tuple(
-            _with_option(m, prop, before) if m.key == obj.Name else m for m in members.members
-        ),
-    )
-    return _others_bindings(members, obj.Name) != _others_bindings(earlier, obj.Name)
-
-
-def member_option_changed(
-    obj: DocumentObject, prop: str, previous: tuple[object] | None = None
-) -> None:
-    """Réglage changé par l'utilisateur (éditeur de propriétés, script) : recalcule et écrit les
-    seules liaisons de ``obj``, dans la transaction en cours ; avertit si les liaisons d'autres
-    membres sont à refaire (« Relier les pièces »). ``previous`` : ``(valeur d'avant,)``."""
+def member_option_changed(obj: DocumentObject, prop: str) -> None:
+    """Réglage changé par l'utilisateur (éditeur de propriétés, script) : tout l'ensemble est
+    relié, dans la transaction en cours (le réglage d'un membre change la rangée des autres :
+    ADR 0019, point 6). Libellé ou cote illisible, cycle avec une formule de l'utilisateur :
+    avertissement, liaisons laissées telles quelles."""
     if prop not in MEMBER_OPTIONS:
         return
     furniture = furniture_of(obj)
@@ -174,11 +123,8 @@ def member_option_changed(
         return
     try:
         members = read_members(furniture)
-        messages = list(notice_messages(bind_members(members, [obj.Name])))
-        if previous is not None and _others_stale(members, obj, prop, previous[0]):
-            messages.append(translated(_RELINK))
-        report(messages)
-    except ValueError as error:  # libellé ou cote illisible : liaisons laissées telles quelles
+        report(notice_messages(bind_members(members, members.objects)))
+    except ValueError as error:
         report([str(error)])
 
 
@@ -188,4 +134,4 @@ def member_changed(obj: DocumentObject, prop: str) -> None:
     if prop == "Thickness":
         thickness_changed(obj, previous)
     else:
-        member_option_changed(obj, prop, previous)
+        member_option_changed(obj, prop)

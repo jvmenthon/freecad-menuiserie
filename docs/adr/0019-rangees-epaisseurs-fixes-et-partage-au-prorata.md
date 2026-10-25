@@ -70,10 +70,17 @@ Trois défauts en découlent :
    (Ensemble ou Pièce de bois) affiche une case à cocher par pièce verrouillée et un bouton
    « Déverrouiller et appliquer ». Dans l'éditeur de propriétés, la valeur est appliquée avec un
    avertissement (règle Q4 de J4).
-6. **Écriture** : l'option d'un membre peut changer la rangée d'autres membres. L'API et les
-   panneaux relient alors tout l'ensemble ; dans l'éditeur de propriétés, le `onChanged` du membre
-   ne relie que lui (ADR 0009, point 2) et avertit si d'autres liaisons sont à refaire
-   (« Relier les pièces »).
+6. **Écriture** : le réglage d'un membre, l'épaisseur d'une pièce ou le retrait d'une pièce
+   changent la rangée d'autres membres. L'API, les panneaux **et l'éditeur de propriétés** relient
+   donc tout l'ensemble, dans la transaction en cours : écart assumé au point 2 de l'ADR 0009
+   (« un objet n'écrit que dans lui-même »), que `onChanged` d'une pièce, la suppression d'une
+   pièce (`unsetupObject`) et `remove_from_furniture` appliquent. Sans effet pendant une
+   restauration, une annulation, un recalcul ou une écriture de l'atelier (`follows_user_changes`,
+   `writing`). Les liaisons de **tous** les membres visés sont d'abord retirées, puis posées :
+   le graphe mélangeant anciennes et nouvelles liaisons pourrait être cyclique. Un cycle restant
+   (formule de l'utilisateur) rétablit les liaisons précédentes et devient une `ValueError`
+   traduite. Un changement d'épaisseur est relié sur la géométrie d'**avant** (cohérente), les
+   termes figés en constante de cette pièce chez ses voisines prenant la nouvelle épaisseur.
 
 ## Conséquences
 
@@ -91,8 +98,10 @@ Trois défauts en découlent :
   membres sont parcourues dans l'ordre des clés (cote avant position, axes X, Y, Z) ; le terme
   d'épaisseur qui fermerait un cycle est **figé en constante** (coefficient x épaisseur
   actuelle). Le calcul porte sur tous les membres puis se filtre par clés : relier un seul membre
-  donne le même texte. Limite connue : l'épaisseur ainsi figée ne suit plus un changement
-  d'épaisseur de cette pièce avant « Relier les pièces ».
+  donne le même texte. Un changement d'épaisseur (API, panneau, éditeur de propriétés)
+  relie tout l'ensemble avec la nouvelle épaisseur pour ces termes figés (point 6) ; limite
+  connue : une épaisseur modifiée autrement (formule, script qui écrit `writing`) laisse les
+  termes figés à l'ancienne valeur jusqu'à « Relier les pièces ».
 - Les liaisons de la spécification J4 (F8) changent de texte : `- 44 mm` devient deux
   `Thickness`, `- 30 mm` devient `P.Thickness` ; une joue reçoit une liaison
   `Placement.Base.x` = son épaisseur. Les valeurs numériques sont inchangées, sauf le voile en

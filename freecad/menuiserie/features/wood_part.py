@@ -156,12 +156,10 @@ class WoodPart(StatelessProxy):
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
         volumique, et ajuste le fil et les surcotes (règles de ``core.part_model``). Choix d'un
         sens du fil : mémorisé (ADR 0005). Changement de matériau, annulation comprise : le fil
-        est masqué ou affiché dans l'éditeur de propriétés. Mode, option « fixe » ou verrou d'un
-        membre d'ensemble : ses seules liaisons sont recalculées ; épaisseur d'un membre :
-        contrôlée, appliquée avec un avertissement si elle est refusée (ADR 0019 ; sans effet
-        hors ensemble). Repère ou libellé modifié par l'utilisateur : l'autre suit (J6b,
-        ADR 0011). Pièce d'un document plus récent (``Version`` > ``MODEL_VERSION``) : le choix du
-        matériau n'est pas suivi (R1)."""
+        est masqué ou affiché dans l'éditeur de propriétés. Réglage ou épaisseur d'un membre
+        d'ensemble : tout l'ensemble est relié (ADR 0019). Repère ou libellé modifié : l'autre
+        suit (J6b, ADR 0011). Pièce d'un document plus récent (``Version`` > ``MODEL_VERSION``) :
+        le choix du matériau n'est pas suivi (R1)."""
         if prop in ("MaterialId", "Category") and "Restore" not in obj.State:
             show_grain_direction(obj, shows_grain(obj))
         if not self._follows_user_changes(obj):
@@ -179,9 +177,14 @@ class WoodPart(StatelessProxy):
 
             member_changed(obj, prop)
 
+    def unsetupObject(self, obj: DocumentObject) -> None:
+        """Pièce supprimée : ses voisines d'ensemble sont reliées sans elle (même transaction)."""
+        from freecad.menuiserie.features.furniture_relink import member_removed
+
+        member_removed(obj)
+
     def onBeforeChange(self, obj: DocumentObject, prop: str) -> None:
-        """Valeur d'un réglage ou de l'épaisseur d'un membre d'ensemble avant une saisie de
-        l'utilisateur, pour :meth:`onChanged` (sans effet hors ensemble)."""
+        """Épaisseur d'un membre d'ensemble avant une saisie, pour :meth:`onChanged`."""
         remember_before_change(obj, prop)
 
     def _follow_material_choice(self, obj: DocumentObject) -> None:

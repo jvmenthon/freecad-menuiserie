@@ -183,6 +183,7 @@ def bindings_for(
     *,
     keys: Collection[str] | None = None,
     nested: bool = False,
+    thicknesses: Mapping[str, float] | None = None,
 ) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]:
     """Liaisons des membres ``keys`` (tous par défaut) qui ont des règles (``follow_rules``), et
     avertissements ``UserFormula`` pour chaque propriété liée par l'atelier mais pilotée par
@@ -195,13 +196,16 @@ def bindings_for(
     peut bouger, toutes les positions de ses membres la suivent. Une pièce verrouillée ne reçoit
     aucune liaison de cote. Les épaisseurs citées ne forment jamais de cycle entre pièces
     (:func:`~freecad.menuiserie.core.furniture._cycles.break_cycles`, calculé sur tous les
-    membres : relier un seul membre donne le même texte).
+    membres : relier un seul membre donne le même texte). ``thicknesses`` (clé → mm) : épaisseurs
+    que prendront des pièces, à la place des actuelles, pour les termes figés en constante :
+    les liaisons sont calculées sur la géométrie d'avant un changement d'épaisseur.
     """
     reference = label_reference(label)
     pieces = {member.key: piece_reference(member) for member in members}
-    thicknesses = {m.key: m.block.dimensions.thickness for m in members if m.block is not None}
+    current = {m.key: m.block.dimensions.thickness for m in members if m.block is not None}
     wanted = break_cycles(
-        {m.key: _wanted(m, rules[m.key], nested) for m in members if m.key in rules}, thicknesses
+        {m.key: _wanted(m, rules[m.key], nested) for m in members if m.key in rules},
+        {**current, **(thicknesses or {})},
     )
     bindings: list[Binding] = []
     notices: list[Notice] = []
