@@ -12,6 +12,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   rayon de la souris, aimantation par axe sur plans, droites et sommets voisins avec contact ou
   affleurement, redimensionnement borné à 1 mm sans poignée d'épaisseur, saisie des flèches et
   poignées en pixels, tolérance en mm). Pas encore d'interface : elle vient avec les lots suivants.
+- Glisser une pièce à la souris, guides et écriture (lot SM-b de l'issue #65, critères B1 à B7) :
+  `features/magnet_guides.py` lit les faces planes, arêtes droites et sommets des objets visibles
+  du conteneur (tout atelier, au plus 5 000, les plus proches d'abord) dans le repère de la pièce ;
+  `features/part_drag.py` déplace et redimensionne la brute sans recalcul du document, met de côté
+  les liaisons de l'atelier d'un membre d'ensemble, restaure (Échap) ou relie tout l'ensemble au
+  relâchement, refuse les axes pilotés par une formule de l'utilisateur et les poignées d'une pièce
+  verrouillée, et avertit d'un assemblage qui ne touche plus. Pas encore d'interface (lot SM-c).
 - Ensembles : épaisseurs vivantes, partage au prorata et pièces verrouillées (demande de jv,
   recette J4 / J6, [ADR 0019](docs/adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
   spécification `docs/specs/ensembles-epaisseurs-fixes.md`). Un membre ne se règle plus que sur
