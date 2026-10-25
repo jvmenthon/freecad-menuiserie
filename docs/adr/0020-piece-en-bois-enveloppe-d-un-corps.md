@@ -59,6 +59,9 @@ Contraintes :
 2. **Forme** : le solide de la source (corps : forme de son `Tip` ; esquisse plane fermée :
    extrudée de `ProfileThickness`), **placement de la source défait**, exprimé dans le repère de
    la pièce (origine au coin minimal de l'encombrement, X = L, Y = l, Z = e).
+   Une pièce en bois = un solide : une forme **importée** (non paramétrique) à plusieurs solides
+   donne une pièce par solide (`SolidIndex`, empreinte contrôlée) ; une forme **paramétrique** à
+   plusieurs solides est refusée, car ses solides peuvent être renumérotés à chaque modification.
 3. **Placement libre**, comme une `WoodPart` : initialisé à la conversion pour que la pièce soit
    à la place de la source, puis indépendant d'elle. Accrochage, rotation, ensembles et pièce
    usinée l'utilisent sans cas particulier.

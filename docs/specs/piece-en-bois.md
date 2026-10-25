@@ -3,8 +3,8 @@
 - Issue : #73 (priorité haute)
 - Statut : **proposée** (architecture fonctionnelle et technique). jv a répondu aux questions
   le 2026-10-25 (§ 9) : nom « Pièce en bois », esquisse fermée acceptée, volume à acheter,
-  **assemblages, ensembles et cotes visibles inclus**. Reste Q3 (plusieurs solides), détaillée
-  au § 9.
+  **assemblages, ensembles et cotes visibles inclus**, plusieurs solides : une pièce par solide
+  pour une forme importée, refus pour une forme paramétrique.
 - Exigence de jv (2026-10-22) : « Pouvoir utiliser une pièce dessinée avec les outils FreeCAD
   (esquisse Sketcher, corps PartDesign) : **importer un corps** comme pièce de menuiserie, avec
   matériau, sens du fil, repère, et prise en compte dans la liste de débit (encombrement de la
@@ -88,7 +88,7 @@ Légende comme dans les autres spécifications : **U** unitaire sans FreeCAD, **
 | N° | Critère | Test |
 |---|---|---|
 | B1 | `api.make_shaped_part(source, material=None, mark="")` crée un `Part::FeaturePython` de proxy `ShapedPart` (type `Menuiserie::ShapedPart`), dans le **même conteneur** que la source, lié par `Source` ; la source n'est **jamais modifiée** (ni propriété, ni forme, ni placement, ni expression) ; elle est masquée (après la liaison, pour que l'annulation la réaffiche). | I |
-| B2 | Sources acceptées : `PartDesign::Body` (forme de son `Tip`), toute fonction PartDesign (ramenée à son corps), tout `Part::Feature` (dont `Part::FeaturePython` d'un autre atelier) dont la forme est **un seul solide valide** ; `Sketcher::SketchObject` (ou `Part::Part2DObject`) **plan et fermé** : extrudé de `ProfileThickness` le long de sa normale (mode profil, Q2). Refus traduits, sans objet créé : plusieurs solides (Q3, en attente), forme vide ou invalide, esquisse ouverte ou non plane, objet de l'atelier (pièce de bois, pièce usinée, pièce en bois, ensemble), source déjà convertie, cote hors `[MIN_DIMENSION_MM, MAX_DIMENSION_MM]`. | I |
+| B2 | Sources acceptées : `PartDesign::Body` (forme de son `Tip`), toute fonction PartDesign (ramenée à son corps), tout `Part::Feature` (dont `Part::FeaturePython` d'un autre atelier) dont la forme est **un seul solide valide** ; `Sketcher::SketchObject` (ou `Part::Part2DObject`) **plan et fermé** : extrudé de `ProfileThickness` le long de sa normale (mode profil, Q2) ; forme **importée** à plusieurs solides : voir B11. Refus traduits, sans objet créé : forme **paramétrique** à plusieurs solides (« séparez-les en plusieurs corps », Q3), forme vide ou invalide, esquisse ouverte ou non plane, objet de l'atelier (pièce de bois, pièce usinée, pièce en bois, ensemble), source déjà convertie, cote hors `[MIN_DIMENSION_MM, MAX_DIMENSION_MM]`. | I |
 | B3 | **Forme** : `execute()` ne lit que `Source`, `SourceAxes` et `ProfileThickness` ; forme = solide de la source **dans son propre repère** (placement de la source défait), exprimé dans le repère de la pièce (origine au coin minimal de l'encombrement, X = L, Y = l, Z = e). La pièce occupe [0, L] × [0, l] × [0, e] dans son repère, comme une `WoodPart`. | I |
 | B4 | **Placement libre** : le `Placement` de la pièce en bois est une donnée comme celui d'une `WoodPart` (jamais recalculé). À la conversion il est initialisé pour que la pièce soit **exactement à la place** de la source ; ensuite, déplacer ou tourner la pièce ne touche pas la source, et déplacer la source ne déplace pas la pièce. | I |
 | B5 | **Cotes visibles (Q6)** : `Length`, `Width`, `Thickness` (`App::PropertyLength`, groupe « Dimensions », mêmes noms que `WoodPart`) = encombrement exact (`optimalBoundingBox` sans triangulation ni tolérance) dans le repère de la pièce, arrondi au centième ; **en lecture seule** dans l'éditeur, statut `Output` (leur écriture ne remet pas l'objet à recalculer), écrites par `execute()` (exception à la règle CONTRIBUTING, § 4.4). Une expression `P1.Length` dans un autre objet ou un tableur suit le dessin. Une expression posée **sur** ces cotes est refusée (message traduit). | I |
@@ -97,6 +97,7 @@ Légende comme dans les autres spécifications : **U** unitaire sans FreeCAD, **
 | B8 | Supprimer la pièce en bois réaffiche la source, sans l'avertissement « objets référencés » ; supprimer la source met la pièce en bois en erreur (message traduit), sans exception Python. | I |
 | B9 | Contrat de persistance (ADR 0003 appliqué) : chemins figés `freecad.menuiserie.features.shaped_part.ShapedPart` et `freecad.menuiserie.gui.view_providers.shaped_part.ViewProviderShapedPart`, proxy sans état, réouverture (propriété absente, type inattendu, `Version` plus récente) testée comme pour `WoodPart`. Document ouvert **sans l'atelier** : la forme enregistrée s'affiche, la source existe et reste éditable. | I |
 | B10 | Compatibilité (ADR 0007) : la forme d'une pièce en bois sert dans un `Part::Cut`, une vue TechDraw, un export STEP ; un `App::Link` vers elle est compté dans la liste de débit. | I |
+| B11 | **Forme importée à plusieurs solides** (Q3) : une source **non paramétrique** (type exactement `Part::Feature`, sans dépendance : import STEP/IGES, copie simple) qui contient N solides donne **N pièces en bois** dans la même transaction, chacune liée à la même source avec `SolidIndex` (`App::PropertyInteger`, lecture seule) et `SolidSignature` (`App::PropertyString` masquée : empreinte volume, aire, inertie, centre de masse). Ces sources ne se recalculent jamais, donc l'index est stable ; si l'empreinte ne correspond plus (forme remplacée par un script), la pièce passe en erreur avec un message traduit, **jamais d'échange silencieux**. Une forme paramétrique (corps, fonction, booléenne, composé Part) à plusieurs solides est refusée. Deux solides identiques donnent deux pièces regroupées « 2 × » dans la liste de débit (C4). | I |
 
 ### PD-c — Liste de débit (`features/cutlist_*.py`, `core/cutlist/`)
 
@@ -325,6 +326,7 @@ usinées actuelles sont identiques (E2). Le champ `shape` de `CutEntry` a une va
 | Corps PartDesign dans un `App::Part` (portée des liens) | pièce en bois créée dans le même conteneur (B1), test dédié |
 | Conflit avec la PR #86 (`wood_part.py`, `core/furniture`) | PD-b et PD-f après sa fusion (§ 4.4, § 4.6) |
 | Mode profil : esquisse avec des trous ou plusieurs contours | `Part.Face` de tous les contours fermés (trous gérés), plusieurs faces disjointes refusées (Q3) |
+| Forme importée remplacée par un script : solides renumérotés | empreinte `SolidSignature` contrôlée à chaque recalcul, erreur explicite (B11) |
 | Nom proche de « Pièce de bois » | commande « Convertir en pièce en bois », icône distincte ; à confirmer en recette |
 
 ## 8. Hors périmètre (issues à ouvrir si jv le souhaite)
@@ -348,19 +350,9 @@ usinées actuelles sont identiques (E2). Le champ `shape` de `CutEntry` a une va
 - **Q5 — Assemblages et ensembles** : inclus (PD-e, PD-f ; limites § 4.5 et § 4.6).
 - **Q6 — Cotes visibles** : incluses (B5).
 
-### Question restante
-
-**Q3 — Une forme qui contient plusieurs solides.** Cas réels : un corps PartDesign où
-l'option « Autoriser un composé » (FreeCAD 1.0) laisse deux protrusions qui ne se touchent pas ;
-une fusion ou un composé Part de pièces séparées ; un fichier STEP d'un meuble entier importé
-d'un autre logiciel. Trois choix :
-
-1. ★ **Refus** avec le message « cette forme contient N solides : séparez-les (PartDesign,
-   Part > Composé > Éclater) puis convertissez-les un par un ». Simple et sûr ; le STEP d'un
-   meuble entier demande un éclatement préalable, que FreeCAD sait faire.
-2. **Une pièce en bois par solide**, toutes liées à la même source par un numéro de solide.
-   Pratique pour un STEP de meuble, mais fragile : quand le dessin change, OCC peut renuméroter
-   les solides, et une pièce changerait alors de forme (et de matériau, de repère, d'assemblage)
-   sans prévenir. Il faudrait reconnaître chaque solide par sa géométrie : une PR de plus.
-3. **Une seule pièce pour tous les solides** : faux pour la liste de débit (un encombrement qui
-   couvre plusieurs pièces séparées). Déconseillé.
+- **Q3 — Plusieurs solides** (après explications, accord de jv sur le compromis) : **une pièce
+  en bois par solide pour une forme importée** (STEP, copie simple : elle ne se recalcule
+  jamais, l'index du solide est stable, B11) ; **refus pour une forme paramétrique** à plusieurs
+  solides (un corps PartDesign peut renuméroter ses solides quand on le modifie : une pièce
+  prendrait la forme d'une autre sans prévenir). Rejeté : une seule pièce pour tous les solides
+  (encombrement faux).
