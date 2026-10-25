@@ -1,14 +1,17 @@
 # Déplacer et redimensionner à la souris avec aimantation ; définir une distance
 
 - Issue : #65 (priorité haute, interface)
-- Statut : **proposée** (architecture fonctionnelle et technique, sans code). Questions Q1 à Q8
-  pour jv au § 9 ; les recommandations ★ servent de base en attendant ses réponses.
+- Statut : **proposée** (architecture fonctionnelle et technique, sans code). Questions Q2 à Q8
+  pour jv au § 9 ; les recommandations ★ servent de base en attendant ses réponses. Q1 tranchée
+  par jv le 2026-10-25 : la pièce se **déplace à la souris à tout moment**, pas seulement panneau
+  ouvert.
 - Exigences de jv :
   - (2026-10-22, issue #65) « Lors de la création d'une pièce, pouvoir **déplacer la pièce et la
     redimensionner à la souris** dans la vue 3D, avec un **effet magnétique** (aimantation sur
     les faces, arêtes et sommets des pièces voisines). »
   - (2026-10-25) « Je veux pouvoir **définir une distance** : si je sélectionne 2
     faces/arêtes/points, clic droit → définir une distance. »
+  - (2026-10-25) « Je veux pouvoir aussi **déplacer la pièce à la souris** » (hors du panneau).
   - (2026-10-25) jv attend cette fonction pour faire la recette de la PR #86 (épaisseurs fixes
     des ensembles) : le travail part donc de la branche de #86 (§ 5).
 - ADR liés : [0006 — Pièce brute et pièce usinée](../adr/0006-piece-brute-et-piece-usinee.md),
@@ -42,9 +45,10 @@ fixe »), mais rien ne permet de dire « cette étagère est à 320 mm du platea
 
 Le menuisier peut :
 
-1. pendant la création **et** la modification d'une pièce (panneau ouvert), **glisser** la pièce
-   dans la vue 3D : elle suit la souris dans un plan (§ 4.3) ;
-2. **redimensionner** la pièce en tirant l'une des quatre **poignées** (deux bouts pour la
+1. **glisser** une pièce dans la vue 3D **à tout moment** quand l'atelier est actif : on la
+   sélectionne d'un clic, puis on la tire ; elle suit la souris dans un plan (§ 4.3). Pendant la
+   création et la modification (panneau ouvert), la pièce se glisse sans la sélectionner ;
+2. panneau ouvert, **redimensionner** la pièce en tirant l'une des quatre **poignées** (deux bouts pour la
    longueur, deux rives pour la largeur) ; la face opposée ne bouge pas, l'épaisseur reste celle
    de la bibliothèque ;
 3. sentir l'**aimantation** : à moins de 10 pixels d'une face, d'une arête ou d'un sommet d'une
@@ -93,13 +97,13 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 
 | N° | Type | Critère |
 |---|---|---|
-| C1 | G | Panneau ouvert (création ou modification) : le filtre d'évènements est posé sur la zone d'affichage de la vue active ; fermé (OK, Annuler, document fermé, vue fermée), il est retiré et le dessin des poignées enlevé. Aucun filtre hors du panneau. |
-| C2 | G | Clic gauche enfoncé sur la pièce puis mouvement : la pièce suit la souris dans le plan A1 ; les champs X, Y, Z du panneau suivent ; relâchement : un seul recalcul du document. |
-| C3 | G | Clic gauche ailleurs que sur la pièce ou ses poignées : l'évènement est rendu à FreeCAD (sélection, navigation inchangées). Molette, bouton du milieu, bouton droit : toujours rendus. |
+| C1 | G | Atelier actif : le filtre d'évènements d'application est posé (comme le double-clic, ADR 0018) ; atelier quitté, il est retiré. Panneau de la pièce ouvert : les poignées sont dessinées ; panneau fermé (OK, Annuler, document ou vue fermés), elles sont enlevées. |
+| C2 | G | **Hors panneau** : clic gauche enfoncé sur une pièce de l'atelier **déjà sélectionnée** (seule sélection), puis mouvement de plus de 4 pixels : la pièce suit la souris dans le plan A1 ; relâchement : transaction « Déplacer la pièce », un seul recalcul. Un clic sans mouvement reste un clic (sélection inchangée). **Panneau ouvert** : même geste sur la pièce du panneau, sans sélection préalable ; les champs X, Y, Z suivent ; tout reste dans la transaction du panneau. |
+| C3 | G | Clic gauche sur une pièce non sélectionnée, sur un autre objet ou dans le vide : l'évènement est rendu à FreeCAD (sélection, cadre de sélection, rotation de la vue inchangés). Molette, bouton du milieu, bouton droit : toujours rendus. Plusieurs objets sélectionnés : pas de glissement (déplacer un groupe : hors périmètre). |
 | C4 | G | Poignée tirée : la cote suit, l'autre bout ne bouge pas ; le champ de la cote du panneau suit ; l'aperçu (transparence 60 %) reste posé. |
 | C5 | G | Guide aimanté : il est dessiné en surbrillance (plan, droite ou point) pendant l'aimantation ; Maj enfoncée : aucune aimantation, aucun dessin. |
-| C6 | G | Échap pendant le glissement : la pièce revient où elle était au début de ce glissement (le panneau reste ouvert). |
-| C7 | G | « Annuler » du panneau : la pièce revient à son état d'avant le panneau ; « OK » puis Ctrl+Z : idem, en une étape. |
+| C6 | G | Échap pendant le glissement : la pièce revient où elle était au début de ce glissement (le panneau, s'il est ouvert, le reste). |
+| C7 | G | « Annuler » du panneau : la pièce revient à son état d'avant le panneau ; « OK » puis Ctrl+Z : idem, en une étape. Hors panneau : Ctrl+Z annule le dernier glissement en une étape. |
 | C8 | R | Recette sur FreeCAD 1.0 et 1.1 (Windows, styles de navigation « Gesture », « OpenInventor », « Blender ») : déplacer une étagère entre deux joues, l'aimanter contre la joue gauche, la redimensionner jusqu'à la joue droite ; même chose dans le bureau de #86 (rangées et épaisseurs vivantes). |
 
 ### DI-a — Distance entre deux éléments, règles pures (`core/distance/`)
@@ -140,11 +144,17 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 
 ### 4.1 Principe (ADR 0021, ADR 0022)
 
-- **Glisser = session du panneau.** Le glissement n'existe que tant que le panneau de la pièce
-  est ouvert (Q1 ★) : un filtre d'évènements Qt est posé sur la zone d'affichage de la vue 3D
-  active, comme pour le double-clic (ADR 0018), et retiré à la fermeture. Il ne consomme que les
-  clics gauches qui tombent sur la pièce ou sur une poignée ; tout le reste (navigation,
-  sélection, autres ateliers) suit son cours. Std Transform n'est ni remplacé ni modifié.
+- **Glisser à tout moment, sur une pièce déjà sélectionnée** (Q1, choix de jv). Un filtre
+  d'évènements d'application est posé tant que l'atelier est actif, avec celui du double-clic
+  (ADR 0018), et retiré quand on le quitte. Il ne consomme un clic gauche que s'il tombe sur une
+  pièce de l'atelier **déjà sélectionnée seule** (hors panneau), sur la pièce du panneau ou sur
+  une de ses poignées (panneau ouvert), et seulement après 4 pixels de mouvement : un simple clic
+  reste un clic. Tout le reste (navigation, cadre de sélection, rotation au clic gauche du style
+  Gesture, autres ateliers) suit son cours, puisque ces gestes partent d'un endroit qui n'est
+  pas une pièce sélectionnée. Std Transform n'est ni remplacé ni modifié.
+- **Hors panneau**, le glissement ouvre sa propre transaction « Déplacer la pièce » (un Ctrl+Z) ;
+  **panneau ouvert**, il écrit dans la transaction du panneau. Les poignées (redimensionner) ne
+  sont dessinées que panneau ouvert.
 - **Calcul pur, lecture et écriture séparées** (comme `core/snap`) : plan de glissement, rayon,
   aimantation, poignées et tolérance sont des fonctions pures (`core/magnet/`) ; la lecture des
   formes en guides et l'écriture des propriétés sont dans `features/` (testables dans
@@ -300,8 +310,9 @@ borne la lecture des formes d'un gros document.
 
 ### 4.9 Compatibilité avec les autres ateliers (ADR 0007)
 
-- Le filtre n'existe que pendant le panneau, ne consomme que les clics sur **notre** pièce et
-  ses poignées ; les styles de navigation de FreeCAD restent intacts.
+- Le filtre n'existe que tant que l'atelier est actif et ne consomme que le glisser qui part
+  d'une pièce **de l'atelier déjà sélectionnée** (ou de la pièce du panneau, de ses poignées) ;
+  les styles de navigation de FreeCAD restent intacts pour tout autre geste.
 - Les guides se lisent sur tout objet Part sans le modifier ; aucun objet d'un autre atelier
   n'est déplacé par une distance.
 - Le menu contextuel n'est enrichi que quand l'atelier est actif.
@@ -315,7 +326,7 @@ borne la lecture des formes d'un gros document.
 | **SM-a** | `feat/souris-core` | `core/magnet/` | ≈ 330 | A1–A8 | — |
 | **DI-a** | `feat/distance-core` | `core/distance/` | ≈ 220 | D1–D5 | — |
 | **SM-b** | `feat/souris-guides` | `features/magnet_guides.py`, `features/part_drag.py` | ≈ 280 | B1–B7 | SM-a, #86 |
-| **SM-c** | `feat/souris-interface` | `gui/drag/`, `wood_part_drag.py`, icônes de poignée, README « Glisser une pièce », recette | ≈ 420 | C1–C8 | SM-b |
+| **SM-c** | `feat/souris-interface` | `gui/drag/` (filtre posé avec l'atelier, session hors panneau et panneau), `wood_part_drag.py`, `init_gui.py`, icônes de poignée, README « Glisser une pièce », recette | ≈ 460 | C1–C8 | SM-b |
 | **DI-b** | `feat/distance-commande` | `api.set_distance`, commande, menu contextuel, panneau, icône, recette | ≈ 330 | E1–E6 | DI-a, SM-b |
 | **DI-c** | `feat/distance-gardee` | `features/distance.py`, ViewProvider, règles 1 bis et 4.2 bis de `core/furniture`, liaisons, suppression liée | ≈ 380 | F1–F8 | DI-b, #86 |
 
@@ -352,7 +363,7 @@ pièces à leur place, expressions toujours évaluées par FreeCAD.
 
 ## 8. Hors périmètre (issues à ouvrir si jv le souhaite)
 
-- Glisser une pièce **sans** ouvrir son panneau (option b de Q1).
+- Glisser plusieurs pièces sélectionnées ensemble ; redimensionner sans ouvrir le panneau.
 - Aimant sur le **milieu** des faces, sur les axes de cylindres, sur la grille.
 - Cote dessinée dans la vue 3D pour une Distance gardée (Q8 bis, plus tard).
 - Distance entre deux éléments d'**une même pièce** (ce serait « définir une cote » : longueur
@@ -362,12 +373,11 @@ pièces à leur place, expressions toujours évaluées par FreeCAD.
 
 ## 9. Questions pour jv
 
-**Q1 — Quand peut-on glisser une pièce ?**
-1. ★ **Panneau de la pièce ouvert** (création, et modification par double-clic). Aucun conflit
-   avec la navigation : hors du panneau, le clic gauche fait ce qu'il fait aujourd'hui.
-2. Tout le temps quand l'atelier est actif : plus direct, mais dans les styles de navigation où
-   le clic gauche glissé tourne la vue (Gesture) ou trace un cadre de sélection, on ne pourrait
-   plus faire l'un sans risquer l'autre.
+**Q1 — Quand peut-on glisser une pièce ?** Tranchée par jv (2026-10-25) : « je veux pouvoir
+aussi déplacer la pièce à la souris » → **à tout moment** quand l'atelier est actif. Pour ne pas
+gêner la navigation (rotation au clic gauche du style Gesture, cadre de sélection), le glissement
+part d'une pièce **déjà sélectionnée** : un clic pour la choisir, puis on la tire. Panneau ouvert,
+la pièce se tire directement et les poignées de redimensionnement apparaissent.
 
 **Q2 — Dans quel plan la pièce glisse-t-elle ?**
 1. ★ **Plan perpendiculaire à l'axe de la pièce le plus proche de la vue**, Ctrl pour bouger le

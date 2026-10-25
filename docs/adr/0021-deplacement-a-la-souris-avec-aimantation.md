@@ -1,6 +1,7 @@
 # ADR 0021 — Déplacement et redimensionnement à la souris, avec aimantation
 
-- Statut : **proposé** (issue #65 ; questions Q1 à Q5 de la spécification en attente de jv)
+- Statut : **proposé** (issue #65 ; Q1 tranchée par jv le 2026-10-25 : glisser à tout moment ;
+  questions Q2 à Q5 de la spécification en attente)
 - Date : 2026-10-25
 - Spécification : [docs/specs/souris-et-distances.md](../specs/souris-et-distances.md), § 4.1 à 4.5
 - ADR liés : [0007 — Compatibilité avec les autres ateliers](0007-compatibilite-avec-les-autres-ateliers.md),
@@ -32,9 +33,12 @@ cohabite avec les liaisons des ensembles.
 
 ### Quand
 
-1. **Seulement pendant le panneau de la pièce** (création et modification). Retenue (Q1 ★).
-2. Tout le temps quand l'atelier est actif : entre en conflit avec les styles de navigation où le
-   clic gauche glissé tourne la vue ou trace un cadre. Rejetée en attendant jv.
+1. Seulement pendant le panneau de la pièce. Sûr, mais jv veut aussi déplacer une pièce sans
+   ouvrir son panneau. Rejetée par jv.
+2. Tout le temps, dès qu'on clique sur une pièce : entre en conflit avec les styles de navigation
+   où le clic gauche glissé tourne la vue (Gesture) ou trace un cadre de sélection. Rejetée.
+3. **Tout le temps quand l'atelier est actif, en partant d'une pièce déjà sélectionnée** (panneau
+   ouvert : la pièce du panneau, sans sélection). Retenue.
 
 ### Pièces d'un ensemble
 
@@ -45,20 +49,21 @@ cohabite avec les liaisons des ensembles.
 
 ## Décision
 
-1. Le glissement est une **session** (`gui/drag/`, pattern State) créée à l'ouverture du panneau
-   de la pièce et détruite à sa fermeture. Son filtre d'évènements ne consomme que le clic gauche
-   qui tombe sur la pièce (brute, usinée ou assemblage, qui renvoient à la brute) ou sur une de
-   ses quatre poignées (longueur, largeur ; jamais l'épaisseur) ; tout autre évènement est rendu
-   à FreeCAD.
+1. Le glissement est une **session** (`gui/drag/`, pattern State). Son filtre d'évènements
+   d'application est posé quand l'atelier est activé et retiré quand on le quitte, avec celui du
+   double-clic (ADR 0018). Il ne consomme le clic gauche, après 4 pixels de mouvement, que s'il
+   part d'une pièce de l'atelier **déjà sélectionnée seule** (brute, usinée ou assemblage, qui
+   renvoient à la brute), ou, panneau ouvert, de la pièce du panneau ou d'une de ses quatre
+   poignées (longueur, largeur ; jamais l'épaisseur). Tout autre évènement est rendu à FreeCAD.
 2. Plan de glissement, rayon, aimantation par axe, poignées et tolérance (10 pixels convertis en
    mm) sont des fonctions pures de `core/magnet/`, sans FreeCAD ni Qt.
 3. Les **guides** (plans, droites, sommets des objets visibles du conteneur, tout atelier) sont
    lus une fois au début du glissement, dans le repère de la pièce, bornés à 5 000, et ne
    comptent que s'ils sont à portée de la pièce (« voisines »). Aucun objet n'est modifié.
 4. Pendant le glissement, seules les propriétés de la brute sont écrites (`Placement`, `Length`,
-   `Width`), sans recalcul du document ; un seul recalcul au relâchement. Le tout reste dans la
-   transaction du panneau (un seul Ctrl+Z) ; Échap ramène la pièce au début du glissement
-   (Memento).
+   `Width`), sans recalcul du document ; un seul recalcul au relâchement. Panneau ouvert, le tout
+   reste dans sa transaction ; hors panneau, le glissement ouvre sa transaction « Déplacer la
+   pièce ». Un Ctrl+Z dans les deux cas ; Échap ramène la pièce au début du glissement (Memento).
 5. Pour un membre d'ensemble, les expressions **de l'atelier** sur les propriétés touchées sont
    mises de côté au début du glissement et l'ensemble est relié au relâchement ; une formule de
    l'utilisateur rend l'axe non glissable ; une rangée bloquée refuse le relâchement et propose
@@ -69,8 +74,8 @@ cohabite avec les liaisons des ensembles.
 - Aucune propriété ni migration nouvelles : le glissement n'écrit que des propriétés existantes.
 - La géométrie est testée sans FreeCAD ; la lecture des guides dans `freecadcmd` ; l'interaction
   par `tests/gui` et par une recette sur trois styles de navigation, FreeCAD 1.0 et 1.1.
-- Le menuisier ouvre le panneau (double-clic) pour glisser une pièce existante ; glisser sans
-  panneau reste possible plus tard sans changer `core/magnet`.
+- Un clic pour sélectionner, puis on tire : un geste de plus qu'un glisser direct, mais aucun
+  conflit avec la navigation. Redimensionner demande le panneau (double-clic).
 - Une pièce posée à la souris ne suit pas sa voisine si celle-ci bouge (comme l'accrochage de
   l'ADR 0011) ; le suivi reste le rôle de l'ensemble et des Distances gardées (ADR 0022).
 - `pivy` n'est utilisé que dans `gui/drag/overlay.py` (dessin), comme dans `gui/textures.py`.
