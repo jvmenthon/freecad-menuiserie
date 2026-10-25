@@ -152,6 +152,25 @@ def test_sans_pieces_verrouillees_rien_ne_change(bureau: Bureau) -> None:
     assert bureau.furniture.Width.Value == 1300
 
 
+def test_epaisseur_controlee_par_le_panneau(bureau: Bureau, document: Any) -> None:
+    """``set_member_thickness`` (panneau de la pièce, G3) : contrôle puis écrit ; refus avant
+    toute écriture si la rangée est bloquée ; une pièce hors ensemble est simplement écrite."""
+    from freecad.menuiserie.features.furniture_locks import set_member_thickness
+
+    joue, voile = bureau.parts["JG"], bureau.parts["V"]
+    set_member_thickness(joue, 25.0)
+    assert joue.Thickness.Value == 25
+    api.set_member_options(voile, locked=True)
+    with pytest.raises(api.LockedPiecesError) as error:
+        set_member_thickness(joue, 30.0)
+    locked: Any = error.value
+    assert locked.members == (voile,)
+    assert joue.Thickness.Value == 25
+    alone = api.make_wood_part(doc=document)
+    assert set_member_thickness(alone, 40.0) == []
+    assert alone.Thickness.Value == 40
+
+
 # --- D5 : saisies de l'éditeur de propriétés --------------------------------------------------
 
 

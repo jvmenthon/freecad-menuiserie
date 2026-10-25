@@ -20,11 +20,11 @@ from typing import Final
 
 from PySide import QtGui
 
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.furniture_bindings import LockedPiecesError
+from freecad.menuiserie.features.furniture_locks import refusal_of
 from freecad.menuiserie.features.furniture_view import shown_object
-from freecad.menuiserie.features.i18n import templated_message, translated
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.task_panels.base import Widget, connect
 from freecad.menuiserie.gui.task_panels.furniture_widgets import message_label, show_message
 
@@ -37,16 +37,6 @@ _APPLY_TIP: Final = QT_TRANSLATE_NOOP(
 _PIECE_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Cochée : la pièce perd ses cotes fixes et peut s'adapter."
 )
-
-
-def refusal_of(error: ValueError) -> tuple[str, tuple[DocumentObject, ...]]:
-    """Texte traduit d'un refus et pièces verrouillées à proposer (vide si le refus n'en
-    cite aucune)."""
-    if isinstance(error, LockedPiecesError):
-        return str(error), tuple(error.members)
-    if isinstance(error, TemplatedError):
-        return templated_message(error), ()
-    return str(error), ()
 
 
 class OkGate:

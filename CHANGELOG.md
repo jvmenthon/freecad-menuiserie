@@ -8,9 +8,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ### Ajouté
 - Ensembles : épaisseurs vivantes, partage au prorata et pièces verrouillées (demande de jv,
   recette J4 / J6, [ADR 0019](docs/adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
-  spécification `docs/specs/ensembles-epaisseurs-fixes.md` § 1 et 2 ; l'interface suit dans un
-  autre lot). Un membre ne se règle plus que sur les pièces en vis-à-vis (sa **rangée**) : les
-  épaisseurs des pièces restent fixes et sont citées par leurs liaisons
+  spécification `docs/specs/ensembles-epaisseurs-fixes.md`). Un membre ne se règle plus que sur
+  les pièces en vis-à-vis (sa **rangée**) : les épaisseurs des pièces restent fixes et sont citées par leurs liaisons
   (`<<Joue gauche>>.Thickness`), changer l'épaisseur d'une joue décale le voile et change sa
   longueur ; les écarts entre pièces se partagent au prorata de leur longueur ; les écarts au bord
   gardent leur distance fixe, ou absorbent (mode `Stay`). Nouvelle option de membre `Locked`
@@ -21,6 +20,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `api.unlock_and_resize`, `api.unlock_and_set_thickness`, `core.furniture.check_thickness`,
   `Follow.LOCKED`. Une épaisseur ou une cote saisie dans l'éditeur de propriétés est appliquée,
   avec un avertissement si la rangée est bloquée (règle Q4).
+- Ensembles, interface (ADR 0019, critères G1 à G4) : le panneau de l'ensemble a une case
+  **Cotes fixes** pour la pièce choisie, à côté de sa position (elle relie tout l'ensemble, une
+  seule annulation, aperçu aussitôt). Une cote refusée par une rangée bloquée affiche le refus,
+  une case à cocher par pièce verrouillée (cochées par défaut) et le bouton **Déverrouiller et
+  appliquer** ; **OK** reste grisé tant que le refus dure. Le panneau de la pièce de bois contrôle
+  l'épaisseur d'une pièce membre d'un ensemble avant de l'écrire et montre le même refus, les
+  mêmes cases et le même bouton (composant partagé `gui/task_panels/unlock_widgets.py`).
+  Recette manuelle : `docs/recette/ensembles-epaisseurs-scenarios-manuels.md`.
 
 ### Modifié
 - Ensembles (ADR 0019) : `set_member_options` relie désormais **tout** l'ensemble (un réglage peut

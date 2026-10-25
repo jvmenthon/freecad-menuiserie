@@ -42,6 +42,7 @@ from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASSEMBLAGE
 from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
+from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROUS
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
@@ -1232,6 +1233,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_ONGLET,
     *VERIFICATIONS_ENSEMBLE,
     *VERIFICATIONS_PANNEAU_ENSEMBLE,
+    *VERIFICATIONS_PANNEAU_VERROUS,
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
     # Liste de débit (J2d)

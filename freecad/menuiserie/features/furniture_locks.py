@@ -15,11 +15,11 @@ from collections.abc import Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core.furniture import Notice
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
 from freecad.menuiserie.features.furniture import furniture_of, writing
-from freecad.menuiserie.features.furniture_bindings import rebind
+from freecad.menuiserie.features.furniture_bindings import LockedPiecesError, rebind
 from freecad.menuiserie.features.furniture_edits import thickness_notices
 from freecad.menuiserie.features.furniture_members import (
     NOT_IN_FURNITURE,
@@ -29,9 +29,9 @@ from freecad.menuiserie.features.furniture_members import (
     quoted_label,
     write_box,
 )
-from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 
-__all__ = ["set_member_thickness", "unlock_and_resize", "unlock_and_set_thickness"]
+__all__ = ["refusal_of", "set_member_thickness", "unlock_and_resize", "unlock_and_set_thickness"]
 
 _DRIVEN_THICKNESS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -40,6 +40,16 @@ _DRIVEN_THICKNESS: Final = QT_TRANSLATE_NOOP(
 _INVALID_THICKNESS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Épaisseur invalide : « {value} » (nombre fini en mm attendu)."
 )
+
+
+def refusal_of(error: ValueError) -> tuple[str, tuple[DocumentObject, ...]]:
+    """Texte traduit d'un refus de cote ou d'épaisseur et pièces verrouillées à proposer de
+    déverrouiller (vide si le refus n'en cite aucune), pour les panneaux (G2, G3)."""
+    if isinstance(error, LockedPiecesError):
+        return str(error), tuple(error.members)
+    if isinstance(error, TemplatedError):
+        return templated_message(error), ()
+    return str(error), ()
 
 
 def _locked_keys(pieces: Sequence[DocumentObject]) -> tuple[str, ...]:
