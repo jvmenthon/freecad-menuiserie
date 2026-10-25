@@ -48,8 +48,10 @@ from freecad.menuiserie.core.furniture._model import (
     FurnitureBox,
     FurnitureError,
     InteriorMode,
+    KeptGap,
     Member,
     NoticeKind,
+    gap_term,
 )
 from freecad.menuiserie.core.furniture._rows import Row
 from freecad.menuiserie.core.furniture._spans import Span, edge_distances, member_spans
@@ -66,6 +68,7 @@ __all__ = [
     "FurnitureBox",
     "FurnitureError",
     "InteriorMode",
+    "KeptGap",
     "Linear",
     "Member",
     "Notice",
@@ -87,6 +90,7 @@ __all__ = [
     "fixed_by_default",
     "follow_rules",
     "follow_summary",
+    "gap_term",
     "is_driven",
     "label_reference",
     "member_spans",

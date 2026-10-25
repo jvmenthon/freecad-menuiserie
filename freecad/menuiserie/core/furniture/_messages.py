@@ -82,3 +82,8 @@ THICKNESS_KEPT: Final = QT_TRANSLATE_NOOP(
 OUTSIDE_BOX: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {member} » dépasserait de l'ensemble avec ces cotes."
 )
+GAP_SPLIT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {member} » : une autre face coupe l'intervalle entre ses deux pièces ; ses cotes sont "
+    "figées et ne suivent plus sa valeur.",
+)

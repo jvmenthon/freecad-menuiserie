@@ -36,15 +36,15 @@ def size_text(value: float) -> str:
     return decimal_text(round(value, 6)).replace("-", _MINUS)
 
 
-def _names(by_key: Mapping[str, Member], keys: Sequence[str]) -> str:
-    return ", ".join(f"« {by_key[key].name} »" for key in keys)
+def _names(names: Mapping[str, str], keys: Sequence[str]) -> str:
+    return ", ".join(f"« {names[key]} »" for key in keys)
 
 
 def _error(
-    templates: tuple[str, str], rule: FollowRule, by_key: Mapping[str, Member], **params: str
+    templates: tuple[str, str], rule: FollowRule, names: Mapping[str, str], **params: str
 ) -> BlockedRowError:
     row = rule.row
-    texts = {"members": _names(by_key, row.keys), "locked": _names(by_key, row.locked), **params}
+    texts = {"members": _names(names, row.keys), "locked": _names(names, row.locked), **params}
     template = templates[0] if row.locked else templates[1]
     return BlockedRowError(template, texts, locked=row.locked, members=row.keys)
 
@@ -73,7 +73,8 @@ def check_blocked(
     """Lève :class:`BlockedRowError` si la cote de l'ensemble passe de ``old`` à ``new`` ou si
     l'épaisseur d'une pièce de ``changed`` (clé → nouvelle épaisseur) change dans une rangée
     bloquée (``rules`` : règles calculées pour ``old``)."""
-    by_key = {member.key: member for member in members}
+    names = {member.key: member.name for member in members}
+    names.update({gap.key: gap.name for member in members for gap in member.gaps})
     axes = _thickness_axes(members, changed)
     for member in members:
         for rule in rules.get(member.key, ()):
@@ -83,9 +84,9 @@ def check_blocked(
                 field = BOX_FIELDS[rule.axis.name.lower()]
                 value = size_text(new.size(rule.axis))
                 templates = (BLOCKED_SIZE, BLOCKED_SIZE_FILLED)
-                raise _error(templates, rule, by_key, field=field, value=value)
+                raise _error(templates, rule, names, field=field, value=value)
             for key, axis in axes.items():
                 if axis is rule.axis and key in rule.row.keys:
                     templates = (BLOCKED_THICKNESS, BLOCKED_THICKNESS_FILLED)
                     value = size_text(changed[key])
-                    raise _error(templates, rule, by_key, member=by_key[key].name, value=value)
+                    raise _error(templates, rule, names, member=names[key], value=value)
