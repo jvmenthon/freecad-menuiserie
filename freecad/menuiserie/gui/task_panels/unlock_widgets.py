@@ -15,6 +15,7 @@ Noms d'objets Qt pour les vérifications d'interface : ``refusalLabel``, ``unloc
 
 from __future__ import annotations
 
+import weakref
 from collections.abc import Callable, Sequence
 from typing import Final
 
@@ -67,13 +68,16 @@ class OkGate:
 class UnlockBox:
     """Refus, cases des pièces verrouillées et bouton « Déverrouiller et appliquer ».
 
-    ``on_apply`` reçoit les pièces cochées. :meth:`refuse` affiche un refus (et ses pièces) et
-    rend « OK » inactif, :meth:`clear` efface tout."""
+    ``on_apply`` (méthode du panneau) reçoit les pièces cochées ; elle est gardée par une
+    référence faible : sans cycle panneau ↔ composant, le panneau et les enveloppes PySide de ses
+    widgets disparaissent dès sa fermeture, avant que Qt ne réutilise leurs adresses (sinon
+    ``kindCombo`` d'un panneau suivant peut être vu comme un ``QBoxLayout``). :meth:`refuse`
+    affiche un refus (et ses pièces) et rend « OK » inactif, :meth:`clear` efface tout."""
 
     def __init__(
         self, layout: Widget, on_apply: Callable[[Sequence[DocumentObject]], None]
     ) -> None:
-        self._on_apply = on_apply
+        self._on_apply = weakref.WeakMethod(on_apply)
         self._gate = OkGate()
         self._pieces: tuple[DocumentObject, ...] = ()
         self._boxes: list[Widget] = []
@@ -153,4 +157,6 @@ class UnlockBox:
         self._button.setEnabled(bool(self.checked()))
 
     def _apply(self) -> None:
-        self._on_apply(self.checked())
+        on_apply = self._on_apply()
+        if on_apply is not None:
+            on_apply(self.checked())
