@@ -143,6 +143,12 @@ def test_distance_saisie(key: str, edge: Edge, distance: float, expected: EdgeEd
     assert edge_edit(member(key), BOX, edge, distance) == expected
 
 
+def test_distance_saisie_piece_verrouillee_se_deplace_sans_s_etirer() -> None:
+    """E9 : une pièce aux cotes fixes ne change jamais de cote, elle se déplace."""
+    plateau = member("P", locked=True)
+    assert edge_edit(plateau, BOX, Edge.LEFT, 10.0) == EdgeEdit(FurnitureAxis.WIDTH, 10.0)
+
+
 def test_distance_saisie_face_opposee_non_fixe_deplace() -> None:
     """Avant décochée : la joue garde sa largeur et recule."""
     joue = member("JG", fixed=frozenset({Edge.LEFT, Edge.BACK, Edge.BOTTOM, Edge.TOP}))

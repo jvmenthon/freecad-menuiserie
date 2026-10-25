@@ -122,9 +122,13 @@ def test_creation_du_caisson_de_reference(document: Any) -> None:
         assert dict(part.FurnitureBindings) == engine(part), key
         assert part.MaterialId == "cp-bouleau", key
         assert caisson.bounds(key) == BOUNDS[key], key
-    assert engine(caisson.parts["back"])["Placement.Base.y"] == (
-        "<<Caisson>>.Origin.y + <<Caisson>>.Depth - 8 mm"
+    assert engine(caisson.parts["back"])["Placement.Base.y"] == (  # épaisseur vivante (ADR 0019)
+        "<<Caisson>>.Origin.y + <<Caisson>>.Depth - <<Fond>>.Thickness"
     )
+    assert engine(caisson.parts["left"]) == {
+        "Length": "<<Caisson>>.Height",
+        "Width": "<<Caisson>>.Depth",
+    }
     assert stale_or_invalid(document) == []
 
 
@@ -152,20 +156,22 @@ def test_profondeur_500(document: Any) -> None:
     for key in ("left", "right", "bottom", "top"):
         assert caisson.bounds(key)[1] == (0, 500), key
     assert caisson.bounds("back")[1] == (492, 500)
-    assert caisson.bounds("shelf")[1] == (0, 491)
+    assert caisson.bounds("shelf")[1] == (0, 490.745)  # (500 - 8) x 391 / 392 : jeu partagé
     assert caisson.dowel_counts() == [5, 5, 5, 5]
     assert stale_or_invalid(document) == []
 
 
-@pytest.mark.parametrize(("mode", "shelf"), [("Stay", (351, 369)), ("Proportional", (391, 409))])
-def test_hauteur_800(document: Any, mode: str, shelf: tuple[float, float]) -> None:
+@pytest.mark.parametrize("mode", ["Stay", "Proportional"])
+def test_hauteur_800(document: Any, mode: str) -> None:
+    """L'étagère est entre le dessous et le dessus : les écarts entre pièces sont libres, elle
+    reste donc au milieu quel que soit son mode (ADR 0019)."""
     caisson = make(document)
     api.set_member_options(caisson.parts["shelf"], mode=mode)
     api.resize_furniture(caisson.furniture, height=800)
     assert caisson.bounds("left")[2] == (0, 800)
     assert caisson.bounds("top")[2] == (782, 800)
     assert caisson.bounds("back")[2] == (8, 792)
-    assert caisson.bounds("shelf")[2] == shelf
+    assert caisson.bounds("shelf")[2] == (391, 409)
     assert stale_or_invalid(document) == []
 
 

@@ -5,7 +5,31 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté
+- Ensembles : épaisseurs vivantes, partage au prorata et pièces verrouillées (demande de jv,
+  recette J4 / J6, [ADR 0019](docs/adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
+  spécification `docs/specs/ensembles-epaisseurs-fixes.md` § 1 et 2 ; l'interface suit dans un
+  autre lot). Un membre ne se règle plus que sur les pièces en vis-à-vis (sa **rangée**) : les
+  épaisseurs des pièces restent fixes et sont citées par leurs liaisons
+  (`<<Joue gauche>>.Thickness`), changer l'épaisseur d'une joue décale le voile et change sa
+  longueur ; les écarts entre pièces se partagent au prorata de leur longueur ; les écarts au bord
+  gardent leur distance fixe, ou absorbent (mode `Stay`). Nouvelle option de membre `Locked`
+  (« Cotes fixes », propriété `App::PropertyBool`) : une pièce verrouillée ne change plus de
+  cotes ; si plus aucune pièce d'une rangée ne peut s'adapter, la cote de l'ensemble ou
+  l'épaisseur est refusée (`BlockedRowError` dans `core`, `LockedPiecesError.members` dans
+  `api`) avec les pièces à déverrouiller. `api.set_member_options(locked=)`,
+  `api.unlock_and_resize`, `api.unlock_and_set_thickness`, `core.furniture.check_thickness`,
+  `Follow.LOCKED`. Une épaisseur ou une cote saisie dans l'éditeur de propriétés est appliquée,
+  avec un avertissement si la rangée est bloquée (règle Q4).
+
 ### Modifié
+- Ensembles (ADR 0019) : `set_member_options` relie désormais **tout** l'ensemble (un réglage peut
+  changer la rangée des autres pièces), comme `set_edge_distance` ; les liaisons changent de
+  forme (épaisseurs vivantes, pièces au prorata, pièce qui garde sa place citée par son
+  épaisseur) : « Relier les pièces » met à jour un document existant (pas de migration).
+  `core.furniture` : `Anchor` et `Edge.anchor` supprimés, `FollowRule` redéfini (position et cote
+  affines par axe), `bindings_for(label, members, rules, ...)`, `follow_summary(member, rules)`,
+  `predict(new, members, rules, thicknesses)`.
 - API de l'ensemble ([ADR 0017](docs/adr/0017-avertissements-renvoyes-par-l-api-des-ensembles.md),
   accepté, issue #40) : `resize_furniture` renvoie ses avertissements traduits (jusqu'ici
   seulement écrits dans la vue rapport) et `remove_from_furniture` un tuple vide, comme les autres

@@ -59,7 +59,23 @@ def test_reouverture_a_l_identique(bureau: Bureau, rouvrir: Reopen) -> None:
     assert furniture.Version == 1
     furniture.Depth = 800
     doc.recompute()
-    assert doc.getObject(voile).Shape.BoundBox.YMin == pytest.approx(591)
+    assert doc.getObject(voile).Shape.BoundBox.YMin == pytest.approx(592.546, abs=2e-3)
+    assert stale_or_invalid(doc) == []
+
+
+def test_verrou_relu_a_la_reouverture(bureau: Bureau, rouvrir: Reopen) -> None:
+    api.set_member_options(bureau.parts["V"], locked=True)
+    bureau.doc.recompute()
+    engines = {mark: engine(part) for mark, part in bureau.parts.items()}
+    names = {mark: part.Name for mark, part in bureau.parts.items()}
+    doc = rouvrir(bureau.doc)
+    assert {mark: doc.getObject(n).Locked for mark, n in names.items()} == {
+        "P": False,
+        "JG": False,
+        "JD": False,
+        "V": True,
+    }
+    assert {mark: engine(doc.getObject(n)) for mark, n in names.items()} == engines
     assert stale_or_invalid(doc) == []
 
 
@@ -101,6 +117,10 @@ def test_proprietes_de_membre_mal_typees(bureau: Bureau, rouvrir: Reopen, vue_ra
     joue.removeProperty("PositionMode")
     joue.addProperty("App::PropertyString", "PositionMode", "Ensemble")
     joue.PositionMode = "Proportional"
+    voile = bureau.parts["V"]
+    voile.removeProperty("Locked")
+    voile.addProperty("App::PropertyString", "Locked", "Ensemble")
+    voile.Locked = "oui"
     engines = {mark: engine(part) for mark, part in bureau.parts.items()}
     names = {mark: part.Name for mark, part in bureau.parts.items()}
     doc = rouvrir(bureau.doc)
@@ -110,8 +130,12 @@ def test_proprietes_de_membre_mal_typees(bureau: Bureau, rouvrir: Reopen, vue_ra
     assert joue.getTypeIdOfProperty("PositionMode") == "App::PropertyEnumeration"
     assert joue.PositionMode == "Stay"
     assert joue.getEnumerationsOfProperty("PositionMode") == ["Stay", "Proportional"]
+    voile = doc.getObject(names["V"])
+    assert voile.getTypeIdOfProperty("Locked") == "App::PropertyBool"
+    assert voile.Locked is False  # pièce non verrouillée par défaut (ADR 0019)
     assert {mark: engine(doc.getObject(n)) for mark, n in names.items()} == engines
     warnings = " ".join(vue_rapport.de_niveau("Warning"))
+    assert "Membre d'ensemble « Voile » : propriété Locked d'un type inattendu" in warnings
     assert "Membre d'ensemble « Plateau » : propriété FixedTop d'un type inattendu" in warnings
     assert "propriété PositionMode d'un type inattendu" in warnings
     doc.recompute()  # propriétés recréées : pièces à recalculer, comme en J1 et J3
@@ -122,6 +146,7 @@ def test_proprietes_de_membre_mal_typees(bureau: Bureau, rouvrir: Reopen, vue_ra
 def test_proprietes_de_membre_manquantes(bureau: Bureau, rouvrir: Reopen) -> None:
     bureau.parts["P"].removeProperty("FixedTop")
     bureau.parts["JG"].removeProperty("PositionMode")
+    bureau.parts["V"].removeProperty("Locked")
     engines = {mark: engine(part) for mark, part in bureau.parts.items()}
     names = {mark: part.Name for mark, part in bureau.parts.items()}
     name = bureau.furniture.Name
@@ -129,6 +154,7 @@ def test_proprietes_de_membre_manquantes(bureau: Bureau, rouvrir: Reopen) -> Non
     plateau, joue = doc.getObject(names["P"]), doc.getObject(names["JG"])
     assert plateau.FixedTop is True  # option par défaut (F3)
     assert joue.PositionMode == "Stay"
+    assert doc.getObject(names["V"]).Locked is False  # absente : faux
     assert {mark: engine(doc.getObject(n)) for mark, n in names.items()} == engines
     assert api.rebind_furniture(doc.getObject(name)) == ()
     assert engine(plateau) == EXPRESSIONS["P"]

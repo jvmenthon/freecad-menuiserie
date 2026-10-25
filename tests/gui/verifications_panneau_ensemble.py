@@ -181,7 +181,9 @@ def verifier_saisies_de_l_ensemble() -> list[str]:
             *ecarts("voile déplacé", bureau.bounds("V")[0], (30.0, 1178.0)),
             *ecarts("case inchangée", widget(form, "fixedLeft").isChecked(), True),
             *ecarts(
-                "colonne Suit", ("Voile", "Proportion", "étirée, proportion") in lignes(form), True
+                "colonne Suit",
+                ("Voile", "Proportion", "étirée, déplacée, proportion") in lignes(form),
+                True,
             ),
         ]
         choisir_membre(form, bureau.parts["P"])
