@@ -328,6 +328,7 @@ class DragSession:
         self._panel_shown = False
         self._size_mm = 0.0
         self.lit: tuple[Guide, ...] = ()  # guides allumés par l'aimant
+        self.closed = False  # atelier quitté : plus rien n'est dessiné (minuteries en retard)
 
     # --- Ce qui est affiché -------------------------------------------------------------
 
@@ -380,7 +381,7 @@ class DragSession:
 
     def refresh(self) -> None:
         """Flèches (et poignées) remises d'après la sélection, le panneau et la vue active."""
-        if self.dragging:
+        if self.dragging or self.closed:
             return
         self._remove_overlay()
         part, port = self._target_part(), None
@@ -433,7 +434,7 @@ class DragSession:
 
     def sync(self) -> None:
         """Panneau fermé ou zoom changé : disposition remise à jour (rien pendant un glissement)."""
-        if self.dragging or self.part is None or self.port is None:
+        if self.closed or self.dragging or self.part is None or self.port is None:
             return
         if self._panel_open() != self._panel_shown:
             self.refresh()
@@ -457,10 +458,13 @@ class DragSession:
             self.clear()
 
     def shutdown(self) -> None:
-        """Atelier quitté : glissement annulé, flèches enlevées."""
-        self.abort()
-        self.panel = None
-        self.clear()
+        """Atelier quitté : glissement annulé, flèches enlevées pour de bon."""
+        self.closed = True
+        try:
+            self.abort()
+        finally:
+            self.panel = None
+            self.clear()
 
     def enter(self, state: State) -> None:
         """Passe à ``state`` (surbrillance mise à jour)."""
