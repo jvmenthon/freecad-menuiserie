@@ -28,7 +28,7 @@ import FreeCAD as App
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.distance import distances_touching
+from freecad.menuiserie.features.distance import AXES, distances_touching
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import (
@@ -133,11 +133,22 @@ def _fixed_coordinates(user: set[str]) -> set[int]:
     return {i for i, path in enumerate(_BASE) if path in user}
 
 
+def _driven_gap_coordinates(part: DocumentObject) -> set[int]:
+    """Axes (0 = X…) des Distances gardées de ``part`` dont ``Value`` porte une expression : le
+    suivi n'y touche pas (:func:`follow_distances`), la pièce glissée reviendrait au recalcul."""
+    return {
+        AXES.index(distance.Axis)
+        for distance in distances_touching(part.Document, {part.Name})
+        if "Value" in expressions_of(distance) and distance.Axis in AXES
+    }
+
+
 def drag_limits(part: DocumentObject) -> DragLimits:
-    """Limites du glissement de la brute ``part`` (B4, B5) d'après ses formules **de
-    l'utilisateur** (les liaisons de l'atelier sont mises de côté, donc ne comptent pas)."""
+    """Limites du glissement de la brute ``part`` (B4, B5, B6 bis) d'après ses formules **de
+    l'utilisateur**, sur la pièce ou sur la ``Value`` de l'une de ses Distances gardées (les
+    liaisons de l'atelier sont mises de côté, donc ne comptent pas)."""
     user = _user_expressions(part)
-    coordinates = _fixed_coordinates(user)
+    coordinates = _fixed_coordinates(user) | _driven_gap_coordinates(part)
     rotation = part.Placement.Rotation
     fixed = frozenset(i for i in range(3) if _coordinates(i, rotation) & coordinates)
     sizes = frozenset(i for i, prop in enumerate(SIZE_PROPS) if prop not in user)
