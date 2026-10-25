@@ -52,6 +52,9 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
     def __init__(self, session: DragSession) -> None:
         super().__init__()
         self._session = session
+        self._mdi: QtGui.QMdiArea | None = (
+            None  # zone MDI gardée : un évènement de souris par pixel
+        )
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         """Vrai (consommé) seulement pour la saisie d'une flèche ou d'une poignée et pour le
@@ -86,9 +89,20 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
             return kind != _QEvent.KeyRelease and _guarded(session, session.escape)
         return False
 
-    @staticmethod
-    def _in_current_view(viewport: QtGui.QWidget) -> bool:
-        mdi = Gui.getMainWindow().findChild(QtGui.QMdiArea)
+    def _mdi_area(self) -> QtGui.QMdiArea | None:
+        """Zone MDI de la fenêtre principale, cherchée une fois ; cherchée de nouveau si celle
+        qu'on gardait a été détruite."""
+        if self._mdi is not None:
+            try:
+                self._mdi.objectName()  # lève RuntimeError si l'objet Qt est détruit
+            except RuntimeError:
+                self._mdi = None
+        if self._mdi is None:
+            self._mdi = Gui.getMainWindow().findChild(QtGui.QMdiArea)
+        return self._mdi
+
+    def _in_current_view(self, viewport: QtGui.QWidget) -> bool:
+        mdi = self._mdi_area()
         return mdi is not None and any(v == viewport for v in viewports_3d(mdi, current_only=True))
 
     def _mouse(self, kind: QtCore.QEvent.Type, viewport: QtGui.QWidget, event: Any) -> bool:

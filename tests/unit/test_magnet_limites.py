@@ -57,10 +57,10 @@ def test_axes_en_double_ou_vides() -> None:
     assert magnet(BOX, [guide], Vec3(9, 0, 0), 5, ()).delta == Vec3(9, 0, 0)
 
 
-@pytest.mark.xfail(strict=True, raises=IndexError, reason="axe 3 non validé dans magnet()")
-def test_axe_inexistant_refuse_proprement() -> None:
-    with pytest.raises(ValueError, match="axe"):
-        magnet(BOX, [plane(0, 20)], Vec3(0, 0, 0), 1, (3,))
+@pytest.mark.parametrize("axes", [(3,), (-1,), (0, 3)])
+def test_axe_inexistant_refuse_proprement(axes: tuple[int, ...]) -> None:
+    with pytest.raises(ValueError, match="axes"):
+        magnet(BOX, [plane(0, 20)], Vec3(0, 0, 0), 1, axes)
 
 
 def test_deja_en_contact_ne_bouge_pas() -> None:
@@ -146,6 +146,15 @@ def test_pixel_target_invalide() -> None:
         PixelTarget("a", (0, math.nan))
 
 
-@pytest.mark.xfail(strict=True, reason="curseur NaN : handle_at saisit la première cible")
-def test_handle_at_curseur_non_fini_ne_saisit_rien() -> None:
-    assert handle_at([PixelTarget("a", (0, 0))], (math.nan, math.nan)) is None
+@pytest.mark.parametrize(
+    ("cursor", "radius"),
+    [
+        ((math.nan, math.nan), 8.0),
+        ((0.0, math.inf), 8.0),
+        ((0.0, 0.0), math.nan),
+        ((0.0, 0.0), math.inf),
+    ],
+)
+def test_handle_at_valeur_non_finie_refusee(cursor: tuple[float, float], radius: float) -> None:
+    with pytest.raises(ValueError, match="finis"):
+        handle_at([PixelTarget("a", (0, 0))], cursor, radius)
