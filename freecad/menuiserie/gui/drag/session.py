@@ -251,7 +251,8 @@ class Moving(Dragging):
 
     def apply(self, session: DragSession, delta: float) -> None:
         axis = parse_key(self.target)
-        assert isinstance(axis, int)  # noqa: S101 (clé d'une flèche)
+        if not isinstance(axis, int):  # clé d'une poignée : rien à faire ici
+            return
         wanted = Vec3(0.0, 0.0, 0.0).with_component(axis, delta)
         if self.shift:
             result = DragResult(wanted)
@@ -278,7 +279,8 @@ class Resizing(Dragging):
 
     def apply(self, session: DragSession, delta: float) -> None:
         handle = parse_key(self.target)
-        assert isinstance(handle, Handle)  # noqa: S101 (clé d'une poignée)
+        if not isinstance(handle, Handle):  # clé d'une flèche : rien à faire ici
+            return
         guides = () if self.shift else self.guides
         result = resize(self.box, handle, delta, guides, self.tolerance)
         hit = [] if result.hit is None else [self.guides[result.hit.guide]]
@@ -360,8 +362,7 @@ class DragSession:
         """Brute qui porte les flèches : celle du panneau ouvert, sinon la pièce de l'atelier
         sélectionnée seule (sans panneau d'une autre commande ouvert)."""
         try:
-            if self._panel_open():
-                assert self.panel is not None  # noqa: S101
+            if self._panel_open() and self.panel is not None:
                 return raw_part(self.panel.part)
             if Gui.Control.activeDialog():
                 return None
@@ -487,12 +488,14 @@ class DragSession:
 
     def ray(self, point: Point) -> Ray:
         """Rayon de la souris au pixel ``point``."""
-        assert self.port is not None  # noqa: S101
+        if self.port is None:
+            raise RuntimeError("aucune vue 3D pour le glissement")
         return self.port.ray(point)
 
     def line(self, key: str) -> Ray:
         """Axe de la flèche ou de la poignée ``key``."""
-        assert self.layout is not None  # noqa: S101
+        if self.layout is None:
+            raise RuntimeError("aucune flèche affichée")
         return target_line(self.layout, key)
 
     def target_at(self, point: Point) -> str | None:
