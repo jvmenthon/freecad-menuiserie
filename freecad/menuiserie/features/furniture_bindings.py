@@ -2,38 +2,42 @@
 """Membres d'un ensemble vus par ``core.furniture`` et liaisons dans le document (§ 4.4.3).
 
 Lecture : chaque membre devient un :class:`Member` (bloc ou boîte relatifs à l'``Origin`` de
-l'ensemble, options, propriétés pilotées par l'utilisateur). Écriture : ``setExpression`` puis
-relecture du texte normalisé par FreeCAD, enregistré dans ``FurnitureBindings`` ; retrait :
-seulement les expressions dont le texte est celui enregistré. Un objet n'écrit jamais dans un
-autre : :func:`member_option_changed` ne relie que le membre modifié.
+l'ensemble, options, pièce verrouillée, propriétés pilotées par l'utilisateur). Écriture :
+``setExpression`` puis relecture du texte normalisé par FreeCAD, enregistré dans
+``FurnitureBindings`` ; retrait : seulement les expressions dont le texte est celui enregistré.
+Les saisies de l'éditeur de propriétés (:mod:`.furniture_edits`) relient tout l'ensemble :
+un réglage ou une épaisseur change la rangée des autres membres (ADR 0019, point 6). Une rangée
+bloquée par des pièces verrouillées est refusée par :class:`LockedPiecesError`.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Collection, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 
 from freecad.menuiserie.core.furniture import (
     Binding,
+    BlockedRowError,
     Edge,
     FurnitureBox,
-    FurnitureError,
     InteriorMode,
+    KeptGap,
     Member,
     Notice,
     bindings_for,
-    check_resize,
     driven_properties,
     follow_rules,
-    predict,
     same_binding,
     with_default_options,
 )
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
-from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.distance import distances_of, kept_gap_of, remove_touching
+from freecad.menuiserie.features.freecad_types import (
+    DocumentObject,
+    expressions_of,
+)
 from freecad.menuiserie.features.furniture import (
-    MEMBER_OPTIONS,
-    follows_user_changes,
     furniture_of,
     is_furniture,
     option_name,
@@ -52,11 +56,12 @@ from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
 
 __all__ = [
+    "LockedPiecesError",
     "MemberSet",
     "bind_members",
     "joined_pairs",
+    "locked_error",
     "member_of",
-    "member_option_changed",
     "members_of",
     "notice_messages",
     "read_members",
@@ -64,21 +69,63 @@ __all__ = [
     "release_members",
     "remove_bindings",
     "report",
-    "report_resize",
-    "resize_notices",
+    "workshop_expressions",
 ]
 
+_CYCLE = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Liaisons impossibles : une formule de l'utilisateur forme un cycle avec elles ({detail}). "
+    "Les liaisons précédentes sont rétablies.",
+)
 _JOINT_GROUP = "Assembly::JointGroup"  # joints de l'atelier Assembly intégré (sans import)
 
 
 @dataclass(frozen=True)
 class MemberSet:
-    """Ensemble lu dans le document : cotes, ``Origin``, membres et objets par clé (``Name``)."""
+    """Ensemble lu dans le document : cotes, ``Origin``, membres et objets par clé (``Name``) ;
+    ``distances`` : objets des Distances gardées par clé (leurs liaisons sont dans
+    ``Member.gaps``)."""
 
     furniture: DocumentObject
     box: FurnitureBox
     members: tuple[Member, ...]
     objects: Mapping[str, DocumentObject]
+    distances: Mapping[str, DocumentObject] = field(default_factory=dict)
+
+    @property
+    def named(self) -> Mapping[str, DocumentObject]:
+        """Membres et Distances par clé : les objets que cite un refus de rangée bloquée."""
+        return {**self.objects, **self.distances}
+
+
+class LockedPiecesError(ValueError):
+    """Changement de cote ou d'épaisseur refusé : une rangée de pièces n'a aucune pièce qui
+    puisse s'adapter, des pièces verrouillées l'en empêchent (ADR 0019, point 5).
+
+    ``members`` : les pièces verrouillées de la rangée (objets qui portent ``Locked``), à
+    déverrouiller pour débloquer la rangée ; ``row`` : tous les membres de la rangée. Le message
+    est traduit et cite la cote (ou l'épaisseur) et les pièces."""
+
+    def __init__(
+        self,
+        message: str,
+        members: tuple[DocumentObject, ...],
+        row: tuple[DocumentObject, ...],
+    ) -> None:
+        super().__init__(message)
+        self.members = members
+        self.row = row
+
+
+def locked_error(error: BlockedRowError, objects: Mapping[str, DocumentObject]) -> ValueError:
+    """Erreur à lever pour une rangée bloquée : :class:`LockedPiecesError` si des pièces
+    verrouillées en sont la cause, sinon ``ValueError`` au message traduit. ``objects`` : objets
+    des membres par clé."""
+    message = templated_message(error)
+    if not error.locked:
+        return ValueError(message)
+    locked = tuple(objects[key] for key in error.locked)
+    return LockedPiecesError(message, locked, tuple(objects[key] for key in error.members))
 
 
 def members_of(furniture: DocumentObject) -> list[DocumentObject]:
@@ -141,6 +188,7 @@ def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> M
         "mode": InteriorMode.STAY if entering else _mode(obj),
         "fixed": None if entering else _fixed(obj),
         "driven": _driven(obj, entering),
+        "locked": False if entering else bool(getattr(obj, "Locked", False)),
     }
     with translated_errors():
         if is_furniture(obj):
@@ -151,13 +199,25 @@ def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> M
         return Member(block=PlacedBlock(dimensions_of(obj), placement), **common)
 
 
+def _with_gaps(members: Sequence[Member], gaps: Sequence[KeptGap]) -> list[Member]:
+    """``members`` dont chacun porte les Distances gardées dont il est l'une des deux pièces."""
+    return [
+        replace(member, gaps=tuple(g for g in gaps if member.key in (g.a, g.b)))
+        for member in members
+    ]
+
+
 def read_members(
     furniture: DocumentObject,
     entering: Sequence[DocumentObject] = (),
     box: FurnitureBox | None = None,
+    planned: Sequence[KeptGap] = (),
+    ignoring: Collection[str] = (),
 ) -> MemberSet:
     """Membres de ``furniture`` et objets ``entering``, options manquantes calculées (F3) ;
-    ``box`` remplace les cotes actuelles (aperçu d'un redimensionnement)."""
+    ``box`` remplace les cotes actuelles (aperçu d'un redimensionnement). Les Distances gardées
+    de l'ensemble (sauf celles de nom ``ignoring``) sont portées par leurs deux pièces ;
+    ``planned`` : Distances à créer, lues comme si elles existaient."""
     with translated_errors():
         current = box or FurnitureBox(
             furniture.Width.Value, furniture.Depth.Value, furniture.Height.Value
@@ -167,18 +227,33 @@ def read_members(
     entering_names = {obj.Name for obj in entering}
     members = [member_of(obj, origin, entering=obj.Name in entering_names) for obj in objects]
     resolved = with_default_options(current, members)
-    return MemberSet(furniture, current, resolved, {obj.Name: obj for obj in objects})
+    found = {d.Name: d for d in distances_of(furniture) if d.Name not in ignoring}
+    gaps = [g for d in found.values() if (g := kept_gap_of(d)) is not None] + list(planned)
+    return MemberSet(
+        furniture,
+        current,
+        tuple(_with_gaps(resolved, gaps)),
+        {obj.Name: obj for obj in objects},
+        found,
+    )
 
 
-def _bindings(members: MemberSet, keys: Iterable[str]) -> tuple[list[Binding], list[Notice]]:
-    """Liaisons et avertissements des membres ``keys`` (règles et liaisons de ``core``)."""
+def _bindings(
+    members: MemberSet, keys: Iterable[str], thicknesses: Mapping[str, float] | None = None
+) -> tuple[list[Binding], list[Notice]]:
+    """Liaisons et avertissements des membres ``keys`` (règles et liaisons de ``core``) ; la
+    rangée de chaque membre tient compte de tous les autres."""
     chosen = set(keys)
-    subset = [member for member in members.members if member.key in chosen]
-    rules, rule_notices = follow_rules(members.box, subset)
+    rules, rule_notices = follow_rules(members.box, members.members, chosen)
     nested = furniture_of(members.furniture) is not None
     with translated_errors():
         bindings, notices = bindings_for(
-            str(members.furniture.Label), members.box, subset, rules, nested=nested
+            str(members.furniture.Label),
+            members.members,
+            rules,
+            keys=chosen,
+            nested=nested,
+            thicknesses=thicknesses,
         )
     return list(bindings), [*rule_notices, *notices]
 
@@ -203,21 +278,61 @@ def _write(obj: DocumentObject, bindings: Sequence[Binding]) -> None:
         obj.FurnitureBindings = recorded
 
 
-def bind_members(members: MemberSet, keys: Iterable[str]) -> list[Notice]:
+def _workshop_bindings(obj: DocumentObject) -> list[Binding]:
+    """Liaisons de l'atelier actuellement posées sur ``obj`` (texte = celui enregistré)."""
+    current = expressions_of(obj)
+    recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
+    return [
+        Binding(obj.Name, prop, current[prop])
+        for prop, text in recorded.items()
+        if prop in current and same_binding(current[prop], text)
+    ]
+
+
+def workshop_expressions(obj: DocumentObject) -> dict[str, str]:
+    """Expressions de l'atelier (liaisons d'ensemble) actuellement posées sur ``obj``, par
+    propriété ; toute autre expression est une formule de l'utilisateur."""
+    return {binding.prop: binding.expression for binding in _workshop_bindings(obj)}
+
+
+def _clear(objects: Iterable[DocumentObject]) -> None:
+    for obj in objects:
+        with writing(obj):
+            remove_bindings(obj)
+
+
+def bind_members(
+    members: MemberSet, keys: Iterable[str], thicknesses: Mapping[str, float] | None = None
+) -> list[Notice]:
     """Calcule et écrit les liaisons des membres ``keys`` d'après la géométrie actuelle et
-    leurs options ; renvoie les avertissements."""
+    leurs options ; renvoie les avertissements. Les liaisons de **tous** les membres visés sont
+    retirées d'abord : le graphe mélangeant anciennes et nouvelles liaisons pourrait être
+    cyclique. Un cycle avec une formule de l'utilisateur (``RuntimeError`` de FreeCAD) rétablit
+    les liaisons précédentes et devient une ``ValueError`` traduite. ``thicknesses`` : voir
+    ``bindings_for``."""
     chosen = sorted(set(keys))
-    bindings, notices = _bindings(members, chosen)
-    for key in chosen:
-        _write(members.objects[key], [b for b in bindings if b.key == key])
+    bindings, notices = _bindings(members, chosen, thicknesses)
+    objects = [members.objects[key] for key in chosen]
+    before = {obj.Name: _workshop_bindings(obj) for obj in objects}
+    _clear(objects)
+    try:
+        for obj in objects:
+            _write(obj, [b for b in bindings if b.key == obj.Name])
+    except RuntimeError as error:
+        _clear(objects)
+        for obj in objects:
+            _write(obj, before[obj.Name])
+        raise ValueError(translated(_CYCLE, {"detail": str(error)})) from error
     return notices
 
 
-def rebind(furniture: DocumentObject) -> list[Notice]:
+def rebind(
+    furniture: DocumentObject, thicknesses: Mapping[str, float] | None = None
+) -> list[Notice]:
     """Relie tous les membres de ``furniture``, puis ceux de ses sous-ensembles, d'après la
     géométrie actuelle et les options enregistrées (« Relier les pièces »)."""
     members = read_members(furniture)
-    notices = bind_members(members, members.objects)
+    notices = bind_members(members, members.objects, thicknesses)
     for obj in members.objects.values():
         if is_furniture(obj):
             notices.extend(rebind(obj))
@@ -235,25 +350,10 @@ def joined_pairs(members: MemberSet) -> list[tuple[str, str]]:
     return sorted(pair for pair in pairs if set(pair) <= members.objects.keys())
 
 
-def resize_notices(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBox) -> list[Notice]:
-    """Contrôle (``check_resize``) du passage de ``old`` à ``new``, puis, pour chaque
-    sous-ensemble dont les cotes changeraient, de ses propres membres.
-    :class:`FurnitureError` si le redimensionnement est refusé."""
-    members = read_members(furniture, box=old)
-    rules, _ = follow_rules(old, members.members)
-    notices = list(check_resize(old, new, members.members, rules, joined_pairs(members)))
-    after = predict(old, new, members.members, rules)
-    for member in members.members:
-        moved = after.get(member.key)
-        new_box = moved.box if moved is not None else None
-        if member.box is not None and new_box is not None and new_box != member.box:
-            notices.extend(resize_notices(members.objects[member.key], member.box, new_box))
-    return notices
-
-
 def release_members(furniture: DocumentObject) -> None:
     """Retire les liaisons de l'atelier de chaque membre de ``furniture`` (ensemble supprimé) ;
     les propriétés de membre restent (orphelins)."""
+    remove_touching(furniture.Document, {obj.Name for obj in members_of(furniture)})
     for obj in members_of(furniture):
         with writing(obj):
             remove_bindings(obj)
@@ -269,28 +369,3 @@ def report(messages: Iterable[str]) -> None:
     """Avertissements dans la vue rapport."""
     for message in messages:
         report_warning(message)
-
-
-def report_resize(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBox) -> None:
-    """Cote saisie dans l'éditeur de propriétés : elle est appliquée (Q4) ; avertissements
-    pour les formules de l'utilisateur et pour une pièce ou un assemblage cassé."""
-    try:
-        report(notice_messages(resize_notices(furniture, old, new)))
-    except FurnitureError as error:
-        report([templated_message(error)])
-    except ValueError as error:  # membre illisible : rien à contrôler de plus
-        report([str(error)])
-
-
-def member_option_changed(obj: DocumentObject, prop: str) -> None:
-    """Option ou mode changé par l'utilisateur (éditeur de propriétés, script) : recalcule
-    et écrit les seules liaisons de ``obj``, dans la transaction en cours."""
-    if prop not in MEMBER_OPTIONS:
-        return
-    furniture = furniture_of(obj)
-    if furniture is None or not follows_user_changes(obj):  # ni recalcul, ni annulation
-        return
-    try:
-        report(notice_messages(bind_members(read_members(furniture), [obj.Name])))
-    except ValueError as error:  # libellé ou cote illisible : liaisons laissées telles quelles
-        report([str(error)])

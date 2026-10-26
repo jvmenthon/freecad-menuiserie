@@ -85,6 +85,8 @@ jobs:
           export FREECAD_USER_HOME="$RUNNER_TEMP/freecad-home"
           mkdir -p "$FREECAD_USER_HOME/Mod"
           ln -s "$GITHUB_WORKSPACE" "$FREECAD_USER_HOME/Mod/Menuiserie"
+          # Zone de notifications coupée : sa bulle bloque FreeCAD hors écran.
+          freecadcmd "$GITHUB_WORKSPACE/tests/gui/couper_notifications.py"
           export RESULTAT="$RUNNER_TEMP/resultat-gui.txt"
           journal="$RUNNER_TEMP/freecad-gui.log"
           statut=0

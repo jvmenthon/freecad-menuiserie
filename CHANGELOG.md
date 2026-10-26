@@ -5,7 +5,110 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté
+- Glisser une pièce à la souris, poignées lisibles (demande de jv du 2026-10-26) : chaque
+  poignée est dessinée en double flèche orange dans l'axe de la cote qu'elle change, avec un
+  point de saisie au centre, au lieu d'un simple carré.
+- Glisser une pièce à la souris, épaisseur du massif (demande de jv du 2026-10-26, amende la
+  décision Q4 de l'issue #65,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md)) : une pièce en massif
+  a deux poignées de plus (dessus et dessous) pour changer son épaisseur, soit six ; un panneau
+  (contreplaqué, MDF, mélaminé) garde quatre poignées. Dans un ensemble, l'épaisseur tirée est
+  gardée et la rangée recalculée au relâchement, comme une épaisseur saisie dans le panneau ;
+  Échap la rétablit.
+- Définir une distance, commande et panneau (lot DI-b de l'issue #65,
+  [ADR 0022](docs/adr/0022-distance-entre-deux-pieces.md), critères E1 à E6) : commande
+  `Menuiserie_SetDistance` (menu, barre d'outils, icône, menu contextuel de la vue 3D et de
+  l'arborescence) active avec deux éléments de deux objets ; panneau « Entre … et … », distance
+  actuelle, champ Distance (unités et calculs), pièce déplacée suivant la saisie en direct,
+  bouton Inverser, liste Direction pour deux sommets ; « OK » en une transaction, « Annuler »
+  sans effet ; refus expliqués (aucune pièce de l'atelier, éléments non parallèles, arête
+  courbe, axe piloté par une formule). `api.set_distance(a, b, value, *, moving, axis)`
+  déplace une pièce de l'atelier (la brute ; membre d'ensemble relié ensuite).
+- Distance gardée dans un ensemble (lot DI-c de l'issue #65,
+  [ADR 0022](docs/adr/0022-distance-entre-deux-pieces.md), critères F1 à F8) : case « Garder cette
+  distance » du panneau (cochée par défaut, grisée avec la raison hors ensemble) ; nouvel objet
+  `Distance` (`Value`, `PieceA`/`PieceB`, face, axe), rangé dans le groupe de l'ensemble et
+  libellé « Distance : A – B », que les expressions des pièces citent (`Distance.Value`). Règles
+  pures de `core/furniture` (`KeptGap`, règles 1 bis et 4.2 bis) : la distance reste constante
+  quand l'ensemble change ; une rangée bloquée par la distance est refusée (« Ne plus garder et
+  appliquer »). Suppression de la Distance ou d'une pièce, copie, annulation et réouverture
+  sans l'atelier ; double-clic sur la Distance pour changer sa valeur ; glisser une pièce le
+  long de l'axe d'une Distance met sa valeur à jour (B6). `api.set_distance(..., keep=True)`.
+- Glisser une pièce à la souris, règles pures (lot SM-a de l'issue #65,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), critères A1 à A8) : nouveau
+  paquet `core/magnet/` sans FreeCAD ni Qt (flèches de la pièce, point de l'axe le plus proche du
+  rayon de la souris, aimantation par axe sur plans, droites et sommets voisins avec contact ou
+  affleurement, redimensionnement borné à 1 mm sans poignée d'épaisseur, saisie des flèches et
+  poignées en pixels, tolérance en mm). Pas encore d'interface : elle vient avec les lots suivants.
+- Glisser une pièce à la souris, guides et écriture (lot SM-b de l'issue #65, critères B1 à B7) :
+  `features/magnet_guides.py` lit les faces planes, arêtes droites et sommets des objets visibles
+  du conteneur (tout atelier, au plus 5 000, les plus proches d'abord) dans le repère de la pièce ;
+  `features/part_drag.py` déplace et redimensionne la brute sans recalcul du document, met de côté
+  les liaisons de l'atelier d'un membre d'ensemble, restaure (Échap) ou relie tout l'ensemble au
+  relâchement, refuse les axes pilotés par une formule de l'utilisateur et les poignées d'une pièce
+  verrouillée, et avertit d'un assemblage qui ne touche plus. Pas encore d'interface (lot SM-c).
+- Glisser une pièce à la souris, interface (lot SM-c de l'issue #65, critères C1 à C8,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md)) : atelier actif, la pièce
+  sélectionnée seule reçoit trois flèches selon ses axes (80 pixels, X rouge, Y vert, Z bleu) ;
+  tirer une flèche déplace la pièce le long de l'axe, aimantée (10 pixels) sur les faces, arêtes et
+  sommets voisins avec le guide en surbrillance, Maj coupe l'aimant, Échap annule le geste. Hors
+  panneau : transaction « Déplacer la pièce » (un Ctrl+Z) ; panneau de la pièce ouvert : quatre
+  poignées L/l, champs qui suivent, tout dans la transaction du panneau. Nouveau paquet
+  `gui/drag/` (session à états, filtre d'application et observateur de sélection posés par
+  `Activated` et retirés par `Deactivated`, incrustation Coin), `wood_part_drag.py`. Le filtre ne
+  consomme que le clic gauche sur une flèche ou une poignée. Recette manuelle :
+  `docs/recette/souris-et-distances.md`.
+- Ensembles : épaisseurs vivantes, partage au prorata et pièces verrouillées (demande de jv,
+  recette J4 / J6, [ADR 0019](docs/adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
+  spécification `docs/specs/ensembles-epaisseurs-fixes.md`). Un membre ne se règle plus que sur
+  les pièces en vis-à-vis (sa **rangée**) : les épaisseurs des pièces restent fixes et sont citées par leurs liaisons
+  (`<<Joue gauche>>.Thickness`), changer l'épaisseur d'une joue décale le voile et change sa
+  longueur ; les écarts entre pièces se partagent au prorata de leur longueur ; les écarts au bord
+  gardent leur distance fixe, ou absorbent (mode `Stay`). Nouvelle option de membre `Locked`
+  (« Cotes fixes », propriété `App::PropertyBool`) : une pièce verrouillée ne change plus de
+  cotes ; si plus aucune pièce d'une rangée ne peut s'adapter, la cote de l'ensemble ou
+  l'épaisseur est refusée (`BlockedRowError` dans `core`, `LockedPiecesError.members` dans
+  `api`) avec les pièces à déverrouiller. `api.set_member_options(locked=)`,
+  `api.unlock_and_resize`, `api.unlock_and_set_thickness`, `core.furniture.check_thickness`,
+  `Follow.LOCKED`. Une épaisseur ou une cote saisie dans l'éditeur de propriétés est appliquée,
+  avec un avertissement si la rangée est bloquée (règle Q4).
+- Ensembles, interface (ADR 0019, critères G1 à G4) : le panneau de l'ensemble a une case
+  **Cotes fixes** pour la pièce choisie, à côté de sa position (elle relie tout l'ensemble, une
+  seule annulation, aperçu aussitôt). Une cote refusée par une rangée bloquée affiche le refus,
+  une case à cocher par pièce verrouillée (cochées par défaut) et le bouton **Déverrouiller et
+  appliquer** ; **OK** reste grisé tant que le refus dure. Le panneau de la pièce de bois contrôle
+  l'épaisseur d'une pièce membre d'un ensemble avant de l'écrire et montre le même refus, les
+  mêmes cases et le même bouton (composant partagé `gui/task_panels/unlock_widgets.py`).
+  Recette manuelle : `docs/recette/ensembles-epaisseurs-scenarios-manuels.md`.
+- Distance entre deux éléments, règles pures (issue #65, lot DI-a,
+  [ADR 0022](docs/adr/0022-distance-entre-deux-pieces.md)) : `core/distance/` mesure la distance
+  de deux faces, arêtes ou sommets (`measure`, neuf paires), refuse les éléments non parallèles
+  (`DistanceError`), calcule la translation qui amène la distance à une valeur (`moved_by`) et
+  l'axe d'ensemble correspondant (`ensemble_axis`).
+
 ### Modifié
+- Relecture du jalon « souris et distances » (issue #65,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), note du 2026-10-25) : le
+  glissement n'est plus jamais refusé pour une rangée bloquée (il ne change ni la cote de
+  l'ensemble ni une épaisseur) ; le code mort de ce refus est supprimé. Une Distance gardée dont
+  la `Value` porte une formule de l'utilisateur rend son axe non glissable (même message que
+  pour une position à formule). `magnet` refuse des axes hors {0, 1, 2} et `handle_at` un curseur
+  ou un rayon non fini (`ValueError`) ; la zone MDI est gardée en cache par le filtre de souris.
+  La spécification suit le code (liens cachés, double-clic dans l'arborescence, distance nulle
+  refusée, chiffres de F3, second observateur de documents).
+- Ensembles (ADR 0019), suite à la CI d'intégration : une pièce qui cite sa propre épaisseur
+  l'écrit `Thickness` (comme FreeCAD la réécrit) ; les citations d'épaisseur ne forment jamais
+  de cycle entre pièces (le terme qui fermerait un cycle est figé en constante) ; les écarts
+  entre pièces restent rigides quand la rangée a une pièce libre (« seules les pièces sont
+  modifiées » : un caisson entre deux joues absorbe seul la différence).
+- Ensembles (ADR 0019) : `set_member_options` relie désormais **tout** l'ensemble (un réglage peut
+  changer la rangée des autres pièces), comme `set_edge_distance` ; les liaisons changent de
+  forme (épaisseurs vivantes, pièces au prorata, pièce qui garde sa place citée par son
+  épaisseur) : « Relier les pièces » met à jour un document existant (pas de migration).
+  `core.furniture` : `Anchor` et `Edge.anchor` supprimés, `FollowRule` redéfini (position et cote
+  affines par axe), `bindings_for(label, members, rules, ...)`, `follow_summary(member, rules)`,
+  `predict(new, members, rules, thicknesses)`.
 - API de l'ensemble ([ADR 0017](docs/adr/0017-avertissements-renvoyes-par-l-api-des-ensembles.md),
   accepté, issue #40) : `resize_furniture` renvoie ses avertissements traduits (jusqu'ici
   seulement écrits dans la vue rapport) et `remove_from_furniture` un tuple vide, comme les autres

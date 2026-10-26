@@ -2,30 +2,33 @@
 """Liaisons : expressions FreeCAD posées sur les membres d'un ensemble (J4a, critères F8, F9).
 
 Module privé : la façade ``core.furniture`` ré-exporte l'API publique. Format :
-``<<Label>>.Cote``, puis ``* ratio`` (9 décimales au plus), puis ``+ k mm`` ou ``- k mm``
-(6 décimales au plus) ; zéros inutiles retirés, ratio 1 et constante nulle omis.
+``<<Label>>.Cote``, puis ``* ratio`` (9 décimales au plus), puis un terme
+``Name.Thickness [* coefficient]`` par épaisseur citée (``Name.Value`` pour une Distance
+gardée, ADR 0022 ; triées par clé), puis ``k mm``
+(6 décimales au plus), chacun précédé de ``+`` ou ``-`` ; zéros inutiles retirés, ratio 1,
+coefficient 1 et constante nulle omis.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core._validation import has_forbidden_character
-from freecad.menuiserie.core.furniture._follow import Linear, Rules, axis_motion
+from freecad.menuiserie.core.furniture._cycles import Wanted, break_cycles
+from freecad.menuiserie.core.furniture._follow import FollowRule, Rules
+from freecad.menuiserie.core.furniture._linear import Linear
 from freecad.menuiserie.core.furniture._messages import INVALID_LABEL
 from freecad.menuiserie.core.furniture._model import (
+    GAP_TERM,
     Binding,
-    FollowRule,
     FurnitureAxis,
-    FurnitureBox,
     FurnitureError,
     Member,
     NoticeKind,
     notice,
 )
-from freecad.menuiserie.core.furniture._spans import member_spans
 from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.text import quoted_value
 
@@ -36,6 +39,8 @@ _PIECE_BOUND: Final = ("Length", "Width", "Placement")  # propriétés que l'ate
 _FURNITURE_BOUND: Final = ("Width", "Depth", "Height", "Origin")
 # Référence ``<<…>>`` telle que FreeCAD l'écrit (``\'`` et ``\"`` échappés dans le libellé).
 _REFERENCE: Final = re.compile(r"<<(?:[^>\\]|\\.)*>>")
+# Pièce ou Distance citée par son ``Name`` (``WoodPart001.Thickness``, ``Distance.Value``).
+_PIECE_NAME: Final = re.compile(r"(?<![\w.<>])[A-Za-z_]\w*(?=\.(?:Thickness|Value)\b)")
 
 
 def number_text(value: float, decimals: int) -> str:
@@ -44,23 +49,69 @@ def number_text(value: float, decimals: int) -> str:
     return "0" if text == "-0" else text
 
 
+def _signed(text: str) -> tuple[bool, str]:
+    return text.startswith("-"), text.lstrip("-")
+
+
+def _cited(key: str, pieces: Mapping[str, str], own: str | None) -> str:
+    """Quantité citée par le terme ``key`` : ``Name.Value`` d'une Distance gardée, sinon
+    l'épaisseur d'une pièce (``Thickness`` pour la pièce elle-même)."""
+    if key.startswith(GAP_TERM):
+        return f"{key[len(GAP_TERM) :]}.Value"
+    return "Thickness" if key == own else f"{pieces.get(key, key)}.Thickness"
+
+
+def _terms(
+    reference: str,
+    axis: FurnitureAxis,
+    linear: Linear,
+    pieces: Mapping[str, str],
+    from_origin: bool,
+    own: str | None,
+) -> list[tuple[bool, str]]:
+    """Termes (négatif, texte) de l'expression : origine, cote, épaisseurs, constante."""
+    terms = [(False, f"{reference}.Origin.{'xyz'[axis.index]}")] if from_origin else []
+    pending = [(f"{reference}.{axis.value}", linear.coef)]
+    pending += [(_cited(key, pieces, own), coef) for key, coef in linear.thickness]
+    for name, coef in pending:
+        negative, ratio = _signed(number_text(coef, RATIO_DECIMALS))
+        if ratio != "0":
+            terms.append((negative, name if ratio == "1" else f"{name} * {ratio}"))
+    negative, constant = _signed(number_text(linear.const, CONSTANT_DECIMALS))
+    if constant != "0":
+        terms.append((negative, f"{constant} mm"))
+    return terms
+
+
 def expression_text(
-    reference: str, axis: FurnitureAxis, linear: Linear, *, from_origin: bool = False
+    reference: str,
+    axis: FurnitureAxis,
+    linear: Linear,
+    pieces: Mapping[str, str] | None = None,
+    *,
+    from_origin: bool = False,
+    own: str | None = None,
 ) -> str:
-    """Texte ``[<<Label>>.Origin.x +] <<Label>>.Cote * ratio ± k mm`` de ``linear``
-    (``reference`` = ``<<Label>>``) ; ``from_origin`` pour une position, relative à l'``Origin``
-    de l'ensemble, qui suit donc un sous-ensemble dont l'``Origin`` bouge."""
-    terms = [f"{reference}.Origin.{'xyz'[axis.index]}"] if from_origin else []
-    ratio = number_text(linear.coef, RATIO_DECIMALS)
-    if ratio != "0":
-        terms.append(f"{reference}.{axis.value}" + ("" if ratio == "1" else f" * {ratio}"))
-    text = " + ".join(terms)
-    constant = number_text(linear.const, CONSTANT_DECIMALS)
-    if not text:
-        return f"{constant} mm"
-    if constant.startswith("-"):
-        return f"{text} - {constant[1:]} mm"
-    return text if constant == "0" else f"{text} + {constant} mm"
+    """Texte ``[<<Label>>.Origin.x +] <<Label>>.Cote * ratio ± Name.Thickness ± k mm`` de
+    ``linear`` (``reference`` = ``<<Label>>`` ; ``pieces`` : clé de pièce → référence citée dans
+    l'expression, ``<<Libellé>>`` ou ``Name``, la clé elle-même si elle manque) ; ``from_origin``
+    pour une position, relative à l'``Origin`` de l'ensemble, qui suit donc un sous-ensemble
+    dont l'``Origin`` bouge. ``own`` : clé de la pièce qui porte l'expression, dont l'épaisseur
+    s'écrit ``Thickness`` (comme FreeCAD réécrit une référence à soi-même)."""
+    terms = _terms(reference, axis, linear, pieces or {}, from_origin, own)
+    if not terms:
+        return "0 mm"
+    negative, first = terms[0]
+    parts = [f"-{first}" if negative else first]
+    parts += [f"{'-' if negative else '+'} {term}" for negative, term in terms[1:]]
+    return " ".join(parts)
+
+
+def piece_reference(member: Member) -> str:
+    """Référence à une pièce dans une expression : son ``Name`` (la clé), jamais son libellé.
+    Une copie du document (« Dupliquer la sélection ») réécrit les ``Name`` vers les pièces
+    copiées, mais casse les ``<<Libellé>>`` que l'atelier renomme ensuite (« Plateau (2) »)."""
+    return member.key
 
 
 def label_reference(label: str) -> str:
@@ -80,12 +131,17 @@ def is_driven(member: Member, prop: str) -> bool:
 
 
 def same_binding(current: str, recorded: str | None) -> bool:
-    """Vrai si l'expression ``current`` est la liaison enregistrée ``recorded``, au libellé
-    visé près : FreeCAD réécrit ``<<Bureau>>`` au renommage de l'ensemble, et une copie du
-    document garde le libellé de l'original (« Relier les pièces » vise alors la copie)."""
+    """Vrai si l'expression ``current`` est la liaison enregistrée ``recorded``, aux objets
+    visés près : FreeCAD réécrit ``<<Bureau>>`` au renommage de l'ensemble, une copie du
+    document garde le libellé de l'original (« Relier les pièces » vise alors la copie) et
+    réécrit ``WoodPart001.Thickness`` vers la pièce copiée."""
     if recorded is None:
         return False
-    return _REFERENCE.sub("<<>>", current) == _REFERENCE.sub("<<>>", recorded)
+    return _normalized(current) == _normalized(recorded)
+
+
+def _normalized(text: str) -> str:
+    return _PIECE_NAME.sub("<<>>", _REFERENCE.sub("<<>>", text))
 
 
 def driven_properties(current: Mapping[str, str], recorded: Mapping[str, str]) -> frozenset[str]:
@@ -113,50 +169,67 @@ def bound_by_workshop(member: Member, prop: str) -> bool:
     return prop.split(".")[0] in roots
 
 
-def _member_bindings(
-    reference: str, box: FurnitureBox, member: Member, rules: tuple[FollowRule, ...], nested: bool
-) -> Iterator[Binding]:
-    spans = member_spans(member)
+def _wanted(member: Member, rules: tuple[FollowRule, ...], nested: bool) -> list[Wanted]:
+    """Liaisons voulues du membre (cote étirée puis position, par axe), sans cycle encore."""
+    found: list[Wanted] = []
     for rule in rules:
-        position, size = axis_motion(rule, spans[rule.axis], box.size(rule.axis))
-        local = rule.local
-        if (
-            size is not None
-            and local is not None
-            and not (size.constant or is_driven(member, local))
-        ):
-            yield Binding(member.key, local, expression_text(reference, rule.axis, size))
+        size, local = rule.size, rule.local
+        free = not (member.locked or (local is not None and is_driven(member, local)))
+        if size is not None and local is not None and free and not size.constant:
+            found.append(Wanted(local, rule.axis, size, False))
         prop = position_property(member, rule.axis)
-        if (nested or not position.constant) and not is_driven(member, prop):
-            text = expression_text(reference, rule.axis, position, from_origin=True)
-            yield Binding(member.key, prop, text)
+        if (nested or not rule.position.constant) and not is_driven(member, prop):
+            found.append(Wanted(prop, rule.axis, rule.position, True, nested))
+    return found
 
 
 def bindings_for(
     label: str,
-    box: FurnitureBox,
     members: Sequence[Member],
     rules: Rules,
     *,
+    keys: Collection[str] | None = None,
     nested: bool = False,
+    thicknesses: Mapping[str, float] | None = None,
 ) -> tuple[tuple[Binding, ...], tuple[Notice, ...]]:
-    """Liaisons des membres qui ont des règles (``follow_rules``), et avertissements
-    ``UserFormula`` pour chaque propriété liée par l'atelier mais pilotée par l'utilisateur,
-    qui n'en reçoit aucune.
+    """Liaisons des membres ``keys`` (tous par défaut) qui ont des règles (``follow_rules``), et
+    avertissements ``UserFormula`` pour chaque propriété liée par l'atelier mais pilotée par
+    l'utilisateur, qui n'en reçoit aucune. ``members`` : tous les membres, dont les pièces
+    voisines dont une expression cite l'épaisseur.
 
     Les positions sont écrites relativement à ``<<Label>>.Origin`` ; ``core`` travaille en
-    coordonnées relatives à cette ``Origin``. Aucune liaison qui ne changerait rien (face qui ne
-    bouge pas, cote constante), sauf ``nested`` : l'ensemble est lui-même membre d'un autre,
-    son ``Origin`` peut bouger, toutes les positions de ses membres la suivent.
+    coordonnées relatives à cette ``Origin``. Aucune liaison qui ne dépendrait ni de la cote ni
+    d'une épaisseur, sauf ``nested`` : l'ensemble est lui-même membre d'un autre, son ``Origin``
+    peut bouger, toutes les positions de ses membres la suivent. Une pièce verrouillée ne reçoit
+    aucune liaison de cote. Les épaisseurs citées ne forment jamais de cycle entre pièces
+    (:func:`~freecad.menuiserie.core.furniture._cycles.break_cycles`, calculé sur tous les
+    membres : relier un seul membre donne le même texte). ``thicknesses`` (clé → mm) : épaisseurs
+    que prendront des pièces, à la place des actuelles, pour les termes figés en constante :
+    les liaisons sont calculées sur la géométrie d'avant un changement d'épaisseur.
     """
     reference = label_reference(label)
+    pieces = {member.key: piece_reference(member) for member in members}
+    current = {m.key: m.block.dimensions.thickness for m in members if m.block is not None}
+    wanted = break_cycles(
+        {m.key: _wanted(m, rules[m.key], nested) for m in members if m.key in rules},
+        {**current, **(thicknesses or {})},
+    )
     bindings: list[Binding] = []
     notices: list[Notice] = []
     for member in members:
+        if keys is not None and member.key not in keys:
+            continue
         for prop in sorted(member.driven):
             if bound_by_workshop(member, prop):
                 notices.append(notice(NoticeKind.USER_FORMULA, member, property=prop))
-        if member.key in rules:
-            found = _member_bindings(reference, box, member, rules[member.key], nested)
-            bindings.extend(found)
+        for item in wanted.get(member.key, ()):
+            text = expression_text(
+                reference,
+                item.axis,
+                item.linear,
+                pieces,
+                from_origin=item.from_origin,
+                own=member.key,
+            )
+            bindings.append(Binding(member.key, item.prop, text))
     return tuple(bindings), tuple(notices)

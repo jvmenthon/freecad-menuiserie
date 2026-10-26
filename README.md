@@ -81,6 +81,36 @@ pas (passez par l'ensemble pour un meuble paramétrique). La sélection se fait 
 la commande. Les éléments d'un même objet sont pris dans l'ordre de FreeCAD, qui regroupe les
 sélections par objet.
 
+## Déplacer une pièce à la souris
+
+Quand l'atelier **Menuiserie** est actif, cliquez une pièce (brute, usinée ou assemblage) : trois
+**flèches** apparaissent en son centre, selon **ses** axes (X rouge, Y vert, Z bleu ; une pièce
+tournée a des flèches tournées). Tirez une flèche : la pièce suit la souris le long de cet axe
+seulement. Un Ctrl+Z annule le glissement (« Déplacer la pièce »). Seul le clic gauche **sur une
+flèche** est pris : sélection, cadre de sélection, rotation et zoom de la vue restent à FreeCAD,
+quel que soit le style de navigation. Plusieurs pièces sélectionnées : pas de flèches.
+
+- **Aimant** : à moins de 10 pixels d'une face, d'une arête ou d'un sommet d'une pièce voisine
+  (de l'atelier ou de tout autre objet Part), la face de la pièce vient s'y coller (contact) ou
+  s'y aligner (affleurement) et le guide s'allume en rose. **Maj** enfoncée coupe l'aimant.
+- **Échap** pendant le glissement ramène la pièce là où elle était au début du geste.
+- **Panneau de la pièce ouvert** (création ou double-clic) : les flèches sont sur la pièce du
+  panneau et des **poignées** orange apparaissent au milieu des bouts et des rives : tirez-en
+  une pour changer la longueur ou la largeur, la face opposée ne bouge pas. Une pièce en **massif**
+  a deux poignées de plus (dessus et dessous) pour l'épaisseur ; l'épaisseur d'un panneau
+  (contreplaqué, MDF, mélaminé) vient de la bibliothèque, sans poignée. Les champs du panneau suivent la souris et tout reste dans la transaction du
+  panneau : « Annuler » ramène la pièce à son état d'avant le panneau.
+- **Pièce d'un ensemble** : l'ensemble est relié au relâchement, sans changer ses options. Une
+  formule de l'utilisateur sur une position retire la flèche de cet axe ; une pièce verrouillée
+  (« Cotes fixes ») n'a pas de poignées. Un déplacement ne change
+  ni la cote de l'ensemble ni une épaisseur : il n'est jamais refusé pour une rangée bloquée. Une
+  épaisseur tirée est gardée et la rangée se recalcule, comme une épaisseur saisie dans le panneau.
+- Un assemblage qui ne touche plus ses pièces après le glissement est gardé, avec un
+  avertissement dans la vue rapport.
+
+Le glissement ne crée aucun lien : une pièce posée à la souris ne suit pas sa voisine si celle-ci
+bouge (passez par l'ensemble). Recette : `docs/recette/souris-et-distances.md`.
+
 ## Assembler deux pièces
 
 Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,
@@ -96,6 +126,28 @@ un double-clic sur une pièce usinée ouvre celui de sa brute.
 Pour un **Onglet**, dessinez les deux pièces à leur longueur hors tout (de pointe longue à pointe
 longue), qui se chevauchent au coin : la coupe passe par le coin extérieur et le coin intérieur
 (45° pour deux largeurs égales) et le panneau affiche les angles de coupe.
+
+## Définir une distance
+
+Sélectionnez **deux éléments** (face, arête ou sommet) de **deux objets différents**, dans la vue
+3D ou dans l'arbre, puis **Définir une distance** (clic droit, menu ou barre d'outils
+*Menuiserie*). Le panneau donne la distance actuelle et un champ **Distance** (unités et calculs
+de FreeCAD : `320 mm`, `300 mm + 20 mm`) : la pièce déplacée suit la saisie dans la vue 3D. Par
+défaut la pièce du **second** élément choisi bouge ; **Inverser** déplace l'autre. Seules les
+pièces de l'atelier bougent : un objet d'un autre atelier sert de référence. Les éléments doivent
+être parallèles (faces, arêtes droites) ; entre deux sommets, la liste **Direction** mesure en
+ligne droite ou sur l'axe X, Y ou Z. Une pièce d'un ensemble reste reliée à lui ; un axe piloté
+par une formule de l'utilisateur est refusé. **OK** valide en une seule entrée d'annulation,
+**Annuler** ne change rien. Depuis un script : `api.set_distance(a, b, 320)` avec deux
+`api.PickedElement(objet, "Face3")`.
+
+Pour deux pièces d'un **même ensemble**, la case **Garder cette distance** (cochée par défaut ;
+grisée, avec la raison en infobulle, si la distance ne peut pas être gardée) crée un objet
+`Distance` dans le groupe de l'ensemble : quand l'ensemble change de cote, les pièces gardent
+cette distance au lieu de la proportion d'origine. Double-clic sur la Distance dans l'arbre pour
+changer sa valeur ; décochez la case puis **OK** pour ne plus la garder. Une rangée bloquée par
+la distance est refusée avec le bouton **Ne plus garder et appliquer**. Depuis un script :
+`api.set_distance(a, b, 320, keep=True)`.
 
 ## Modifier un meuble (ensemble)
 

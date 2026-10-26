@@ -24,6 +24,7 @@ MEMBER_PROPERTIES = {
     "FixedBack",
     "FixedBottom",
     "FixedTop",
+    "Locked",
     "FurnitureBindings",
 }
 
@@ -158,10 +159,16 @@ def test_sous_ensemble_qui_suit_le_bureau(document: Any) -> None:
     assert notices == ()
     assert sub.Furniture == furniture
     assert engine(sub)["Depth"] == "<<Bureau>>.Depth - 40 mm"
-    assert engine(sub)["Width"] == "<<Bureau>>.Width - 800 mm"
+    # Seules les pièces changent de cote (ADR 0019) : les écarts entre les joues et le caisson
+    # sont rigides, le caisson absorbe toute la différence ; les épaisseurs des joues sont vivantes.
+    assert engine(sub)["Width"] == (
+        "<<Bureau>>.Width - WoodPart001.Thickness - WoodPart002.Thickness - 756 mm"
+    )
+    assert engine(sub)["Origin.x"] == "<<Bureau>>.Origin.x + WoodPart001.Thickness + 18 mm"
+    assert engine(sub)["Height"] == "<<Bureau>>.Height - WoodPart.Thickness - 420 mm"
     # Membres d'un sous-ensemble (nested) : toutes leurs positions suivent son Origin.
     assert engine(parts["CD"]) == {
-        "Placement.Base.x": "<<Caisson>>.Origin.x + <<Caisson>>.Width - 18 mm",
+        "Placement.Base.x": "<<Caisson>>.Origin.x + <<Caisson>>.Width - Thickness",
         "Placement.Base.y": "<<Caisson>>.Origin.y",
         "Placement.Base.z": "<<Caisson>>.Origin.z + <<Caisson>>.Height",
         "Length": "<<Caisson>>.Height",
@@ -175,6 +182,7 @@ def test_sous_ensemble_qui_suit_le_bureau(document: Any) -> None:
     furniture.Width = 1400
     document.recompute()
     assert sub.Width.Value == pytest.approx(600)
+    assert sub.Origin.x == pytest.approx(40)
     assert parts["CD"].Shape.BoundBox.XMax == pytest.approx(640)
     assert parts["CB"].Length.Value == pytest.approx(564)
     assert stale_or_invalid(document) == []

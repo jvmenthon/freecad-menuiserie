@@ -40,6 +40,26 @@ JOINT_LOST: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {host} » et « {guest} » ne seraient plus placées comme leur assemblage l'exige.",
 )
+BLOCKED_SIZE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de changer la {field} de l'ensemble à {value} mm : aucune pièce de la rangée "
+    "({members}) ne peut s'adapter (cotes fixes : {locked}).",
+)
+BLOCKED_SIZE_FILLED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de changer la {field} de l'ensemble à {value} mm : aucune pièce de la rangée "
+    "({members}) ne peut s'adapter (les épaisseurs la remplissent).",
+)
+BLOCKED_THICKNESS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de changer l'épaisseur de « {member} » à {value} mm : aucune pièce de la rangée "
+    "({members}) ne peut s'adapter (cotes fixes : {locked}).",
+)
+BLOCKED_THICKNESS_FILLED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de changer l'épaisseur de « {member} » à {value} mm : aucune pièce de la rangée "
+    "({members}) ne peut s'adapter (les épaisseurs la remplissent).",
+)
 FURNITURE_CYCLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {member} » ne peut pas entrer dans « {furniture} » : un ensemble ne peut pas être membre "
@@ -61,4 +81,19 @@ THICKNESS_KEPT: Final = QT_TRANSLATE_NOOP(
 )
 OUTSIDE_BOX: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {member} » dépasserait de l'ensemble avec ces cotes."
+)
+GAP_SPLIT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {member} » : une autre face coupe l'intervalle entre ses deux pièces ; ses cotes sont "
+    "figées et ne suivent plus sa valeur.",
+)
+BLOCKED_GAP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de garder la distance « {gap} » : aucune pièce de la rangée ({members}) ne "
+    "pourrait s'adapter (cotes fixes : {locked}).",
+)
+BLOCKED_GAP_FILLED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible de garder la distance « {gap} » : aucune pièce de la rangée ({members}) ne "
+    "pourrait s'adapter (les épaisseurs la remplissent).",
 )

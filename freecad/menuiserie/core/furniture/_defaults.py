@@ -12,9 +12,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
-from freecad.menuiserie.core.furniture._follow import thickness_edge
-from freecad.menuiserie.core.furniture._model import Edge, FurnitureBox, Member
+from freecad.menuiserie.core.furniture._model import Edge, FurnitureAxis, FurnitureBox, Member
 from freecad.menuiserie.core.furniture._spans import Spans, distances, square_spans
+from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM
 
 
 def fixed_by_default(distance: float) -> bool:
@@ -28,6 +28,18 @@ def fixed_by_default(distance: float) -> bool:
     return True
 
 
+def thickness_edge(
+    fixed: frozenset[Edge], axis: FurnitureAxis, edge_distance: Mapping[Edge, float]
+) -> Edge | None:
+    """Seule face fixe d'un axe non étirable : la plus proche de son bord (égalité → début),
+    ``None`` si aucune n'est fixe."""
+    start, end = Edge.of(axis, False), Edge.of(axis, True)
+    chosen = [edge for edge in (start, end) if edge in fixed]
+    if len(chosen) < 2:
+        return chosen[0] if chosen else None
+    return end if edge_distance[end] < edge_distance[start] - CONTACT_TOLERANCE_MM else start
+
+
 def _member_defaults(spans: Spans, box: FurnitureBox) -> frozenset[Edge]:
     edge_distance = distances(spans, box)
     fixed: set[Edge] = set()
@@ -35,7 +47,7 @@ def _member_defaults(spans: Spans, box: FurnitureBox) -> frozenset[Edge]:
         sides = (Edge.of(axis, False), Edge.of(axis, True))
         chosen = frozenset(edge for edge in sides if fixed_by_default(edge_distance[edge]))
         if not span.stretchable:  # épaisseur : une seule face fixe, la plus proche de son bord
-            kept, _ = thickness_edge(chosen, axis, edge_distance)
+            kept = thickness_edge(chosen, axis, edge_distance)
             chosen = frozenset() if kept is None else frozenset({kept})
         fixed |= chosen
     return frozenset(fixed)
