@@ -137,7 +137,7 @@ def _straight_edges(shape: Any) -> tuple[tuple[Vec3, float], ...]:
     edges = []
     for edge in shape.Edges:
         if is_straight(edge) and edge.Length > 0.0 and len(edge.Vertexes) >= 2:
-            direction = edge.Vertexes[-1].Point.sub(edge.Vertexes[0].Point)
+            direction = edge.Vertexes[-1].Point - edge.Vertexes[0].Point
             edges.append((to_vec3(direction), float(edge.Length)))
     return tuple(edges)
 

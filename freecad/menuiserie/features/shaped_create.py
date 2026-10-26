@@ -35,6 +35,7 @@ from freecad.menuiserie.features.shaped_part import (
     OBJECT_NAME,
     ShapedPart,
     is_profile,
+    is_shaped_part,
     source_solid,
 )
 from freecad.menuiserie.features.shaped_part_schema import (
@@ -83,7 +84,7 @@ class _Plan:
 def converted_part_of(obj: DocumentObject) -> DocumentObject | None:
     """Pièce en bois qui enveloppe déjà ``obj`` (``Source`` = ``obj``), ``None`` sinon."""
     for other in obj.InList:
-        if type(getattr(other, "Proxy", None)) is ShapedPart and other.Source == obj:
+        if is_shaped_part(other) and other.Source == obj:
             return other
     return None
 
