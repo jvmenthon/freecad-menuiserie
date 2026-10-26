@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Pièce en bois : pied galbé dessiné avec Sketcher et PartDesign -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="39.67,53.75 41.07,43.28 28.51,50.53 27.12,61.00" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="41.07,43.28 45.25,34.42 32.70,41.67 28.51,50.53" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="27.12,61.00 28.51,50.53 32.70,41.67 35.49,30.39 35.49,17.50 22.93,10.25 21.54,20.72 18.75,32.00 15.95,43.28 17.35,55.36" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="45.25,34.42 48.05,23.14 35.49,30.39 32.70,41.67" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="48.05,10.25 35.49,3.00 22.93,10.25 35.49,17.50" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="48.05,23.14 48.05,10.25 35.49,17.50 35.49,30.39" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="19.69,55.10 19.09,45.09 22.32,34.06 25.02,22.74 25.92,13.59" fill="none" stroke="#b8823f" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="22.23,56.57 22.23,46.90 25.90,36.13 28.51,24.75 29.11,15.43" fill="none" stroke="#b8823f" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="24.77,58.04 25.37,48.72 29.47,38.19 32.00,26.76 32.30,17.27" fill="none" stroke="#b8823f" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

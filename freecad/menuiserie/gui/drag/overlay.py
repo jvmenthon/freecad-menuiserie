@@ -50,12 +50,13 @@ def _dots_node(dots: Dots) -> SoNode:
 
 
 class Overlay:
-    """Incrustation posée sur la racine ``root`` d'une vue 3D ; :meth:`remove` la retire."""
+    """Incrustation posée sur la racine ``root`` d'une vue 3D (ou sur un nœud qui la place, comme
+    le repère de la pièce en bois) ; son nœud porte le nom ``name`` ; :meth:`remove` la retire."""
 
-    def __init__(self, root: SoNode) -> None:
+    def __init__(self, root: SoNode, name: str = NODE_NAME) -> None:
         self._root: SoNode | None = root
         self._node = coin.SoAnnotation()
-        self._node.setName(NODE_NAME)
+        self._node.setName(name)
         pick = coin.SoPickStyle()
         pick.style = coin.SoPickStyle.UNPICKABLE
         light = coin.SoLightModel()

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Affichage de la pièce de bois : icône, couleur et texture du matériau (ADR 0004), édition au
-double-clic.
+double-clic. :class:`MaterialViewProvider` porte ce qui est commun avec la pièce en bois
+(ADR 0020) : texture et couleur du matériau, propriété de vue ``MaterialColor``.
 
 Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe et la propriété
 de vue ``MaterialColor`` sont écrits dans les documents (``GuiDocument.xml``) ; ils ne changent
@@ -12,7 +13,7 @@ enregistrée : elle est recalculée depuis la bibliothèque locale. Le panneau d
 
 from __future__ import annotations
 
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 import FreeCADGui as Gui
 
@@ -64,12 +65,15 @@ class PanelEditing(StatelessProxy):
         raise NotImplementedError
 
 
-class ViewProviderWoodPart(PanelEditing):
-    """ViewProvider de la pièce de bois. Chemin de module figé (ADR 0003).
-
-    Sans état enregistré (``dumps`` renvoie ``None``) : la couleur est dans ``MaterialColor``,
-    les nœuds de texture sont recréés par ``attach``.
+class MaterialViewProvider(PanelEditing):
+    """Base des ViewProviders d'une pièce qui porte un matériau (pièce de bois, pièce en bois) :
+    couleur du matériau enregistrée dans ``MaterialColor``, texture de la bibliothèque locale
+    (jamais enregistrée, recalculée par ``attach`` et ``finishRestoring``). Chaque sous-classe
+    fixe son icône (:attr:`ICON_NAME`) et son panneau (:meth:`open_panel`) ; FreeCAD n'enregistre
+    que le chemin de la classe concrète (ADR 0003).
     """
+
+    ICON_NAME: ClassVar[str] = ICON
 
     def __init__(self, vobj: ViewObject) -> None:
         vobj.Proxy = self
@@ -84,8 +88,8 @@ class ViewProviderWoodPart(PanelEditing):
         self._appearance = PartAppearance(vobj)
 
     def getIcon(self) -> str:
-        """Icône de l'arbre : celle de la commande « Pièce de bois »."""
-        return icon_path(ICON)
+        """Icône de l'arbre de la sous-classe."""
+        return icon_path(self.ICON_NAME)
 
     def updateData(self, obj: DocumentObject, prop: str) -> None:
         """Nouveau matériau ou sens du fil (hors restauration) : la couleur du matériau est
@@ -111,12 +115,6 @@ class ViewProviderWoodPart(PanelEditing):
         _ensure_material_color(vobj)
         self._refresh(vobj)
 
-    def open_panel(self, vobj: ViewObject) -> bool | None:
-        """Mode 0 (double-clic dans l'arbre ou la vue 3D) : panneau de tâche de la pièce."""
-        from freecad.menuiserie.gui.task_panels.wood_part import start_editing
-
-        return start_editing(vobj.Object)
-
     def _refresh(self, vobj: ViewObject) -> None:
         """Affiche la texture du matériau si elle est utilisable, sinon ``MaterialColor``.
 
@@ -125,6 +123,20 @@ class ViewProviderWoodPart(PanelEditing):
         appearance: PartAppearance | None = getattr(self, "_appearance", None)
         if MATERIAL_COLOR in vobj.PropertiesList and appearance is not None:
             appearance.show(vobj, vobj.Object, to_bytes(vobj.MaterialColor))
+
+
+class ViewProviderWoodPart(MaterialViewProvider):
+    """ViewProvider de la pièce de bois. Chemin de module figé (ADR 0003).
+
+    Sans état enregistré (``dumps`` renvoie ``None``) : la couleur est dans ``MaterialColor``,
+    les nœuds de texture sont recréés par ``attach``.
+    """
+
+    def open_panel(self, vobj: ViewObject) -> bool | None:
+        """Mode 0 (double-clic dans l'arbre ou la vue 3D) : panneau de tâche de la pièce."""
+        from freecad.menuiserie.gui.task_panels.wood_part import start_editing
+
+        return start_editing(vobj.Object)
 
 
 def end_panel_edit(mode: int) -> bool | None:

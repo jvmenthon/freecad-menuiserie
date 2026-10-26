@@ -252,9 +252,15 @@ def reset_shaped_axes(part: DocumentObject) -> None:
 
 
 def _show_shaped(parts: Sequence[DocumentObject]) -> None:
-    """Pose le ViewProvider des pièces en bois si l'interface est chargée. Le ViewProvider
-    arrive avec le lot PD-d : d'ici là, les pièces gardent la vue Part par défaut."""
-    del parts
+    """Pose le ViewProvider des pièces en bois si l'interface est chargée (texture et couleur du
+    matériau, source rangée sous la pièce dans l'arbre)."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.shaped_part import (
+            ViewProviderShapedPart,
+        )
+
+        for part in parts:
+            ViewProviderShapedPart(part.ViewObject)
 
 
 # --- Assemblages (J3, J4) -----------------------------------------------------------------
