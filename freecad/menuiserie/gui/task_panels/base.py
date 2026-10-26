@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any, Final, Protocol
+from weakref import WeakMethod
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -266,6 +267,22 @@ def connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:
     d'attribut de signal en Python, et la connexion par attribut garde en vie l'enveloppe
     Python des widgets après leur destruction (enveloppe réutilisée à tort ensuite)."""
     QtCore.QObject.connect(sender, QtCore.SIGNAL(signature), slot)
+
+
+def weak_callback(callback: Callable[[], None]) -> Callable[[], None]:
+    """``callback`` sans le garder en vie quand c'est une méthode : un groupe de lignes qui
+    rappelle son panneau ne forme pas avec lui un cycle, que le ramasse-miettes ne romprait
+    qu'à un moment imprévisible, en pleine destruction de widgets (SIGSEGV sous FreeCAD)."""
+    if not hasattr(callback, "__self__"):
+        return callback
+    target = WeakMethod(callback)
+
+    def call() -> None:
+        method = target()
+        if method is not None:
+            method()
+
+    return call
 
 
 def _close(doc: Document) -> None:

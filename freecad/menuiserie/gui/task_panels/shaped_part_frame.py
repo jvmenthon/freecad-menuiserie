@@ -23,7 +23,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject, placement_
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.shaped_create import reframe, reset_axes
 from freecad.menuiserie.features.shaped_frame import placement_axes
-from freecad.menuiserie.gui.task_panels.base import connect
+from freecad.menuiserie.gui.task_panels.base import connect, weak_callback
 
 __all__ = ["FRAME_TURNS", "FrameRows"]
 
@@ -83,7 +83,7 @@ class FrameRows:
 
     def __init__(self, obj: DocumentObject, on_changed: Callable[[], None]) -> None:
         self._obj = obj
-        self._on_changed = on_changed
+        self._on_changed = weak_callback(on_changed)
         self.group = QtGui.QGroupBox(translated(_TITLE))
         self.group.setObjectName("frameGroup")
         layout = QtGui.QVBoxLayout(self.group)

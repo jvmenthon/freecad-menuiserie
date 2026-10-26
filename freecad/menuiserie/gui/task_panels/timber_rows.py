@@ -33,7 +33,7 @@ from freecad.menuiserie.features.furniture_members import quoted_label
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.wood_part import set_material, shows_grain
-from freecad.menuiserie.gui.task_panels.base import UpdateGuard, connect
+from freecad.menuiserie.gui.task_panels.base import UpdateGuard, connect, weak_callback
 
 __all__ = [
     "DRIVEN_FIELDS",
@@ -134,8 +134,8 @@ class MaterialRows:
         self._form = form
         self._obj = obj
         self._guard = guard
-        self._on_material = on_material
-        self._on_grain = on_grain
+        self._on_material = weak_callback(on_material)
+        self._on_grain = weak_callback(on_grain)
 
     def fill_choices(self) -> None:
         """Libellés des filtres de type et des sens du fil."""
@@ -233,7 +233,7 @@ class AllowanceRows:
         self._obj = obj
         self._guard = guard
         self._fields = fields
-        self._on_changed = on_changed
+        self._on_changed = weak_callback(on_changed)
         self._bindings = [bind_length_field(form, obj, field) for field in fields]
 
     def show(self) -> None:
