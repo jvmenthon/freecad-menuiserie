@@ -768,6 +768,6 @@ def test_api_reset_refuse_un_objet_qui_n_est_pas_une_piece_en_bois(modules: Any)
         modules.api.reset_shaped_axes(FakePart(Label="Planche"))
 
 
-def test_viewprovider_absent_sans_effet(modules: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(modules.api.App, "GuiUp", True, raising=False)
-    modules.api._show_shaped([FakePart()])  # PD-d n'existe pas encore : aucune erreur
+def test_viewprovider_absent_sans_interface(modules: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(modules.api.App, "GuiUp", False, raising=False)
+    modules.api._show_shaped([FakePart()])  # sans interface (freecadcmd) : aucun ViewProvider

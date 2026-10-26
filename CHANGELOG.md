@@ -6,6 +6,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Pièce en bois, commande, panneau et vue, lot PD-d ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
+  critères D1 à D6) : commande « Convertir en pièce en bois » (une pièce par source sélectionnée,
+  une transaction, refus listés, accrochage contre les éléments choisis en plus), panneau (repère
+  et quarts de tour, encombrement en direct, matériau, fil, rotation, surcotes, épaisseur du
+  profil, « Modifier le dessin »), trièdre L / l / e et flèche du fil dans la vue, texture et
+  couleur du matériau, source rangée sous la pièce dans l'arbre, icônes générées.
 - Liste de débit des pièces en bois, lot PD-c (critères C1 à C5 de
   [la spécification](docs/specs/piece-en-bois.md)) : la collecte lit les pièces en bois (document,
   sélection, conteneur, lien) et la liste vivante suit le corps ; cotes finies = encombrement,
