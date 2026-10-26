@@ -14,11 +14,11 @@ import pytest
 
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.pieces_galbees import (
+    hollow_end_block,
     machined_volume,
     notched_block,
     placed,
     shaped,
-    hollow_end_block,
     void_block,
     wood_at,
 )
