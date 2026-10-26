@@ -17,7 +17,6 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.wood_part import is_wood_part
 
 __all__ = ["PickedElement", "container_of", "furniture_candidate"]
 
@@ -82,11 +81,12 @@ def container_of(element: PickedElement) -> DocumentObject | None:
 
 
 def furniture_candidate(element: PickedElement) -> DocumentObject | None:
-    """Ensemble dont l'élément sélectionné est un membre : celui de la pièce de bois (ou de la
-    brute de la pièce usinée) la plus profonde du chemin, ou l'ensemble lui-même ; ``None``
-    sinon. L'ensemble n'est pas cherché derrière un lien."""
+    """Ensemble dont l'élément sélectionné est un membre : celui de la pièce de bois ou en bois
+    (ou de la brute de la pièce usinée) la plus profonde du chemin, ou l'ensemble lui-même ;
+    ``None`` sinon. L'ensemble n'est pas cherché derrière un lien."""
     # Import différé : la pièce usinée lit la pièce en bois, dont le repère lit ce module.
     from freecad.menuiserie.features.machined_part import is_machined_part
+    from freecad.menuiserie.features.shaped_part import is_timber
 
     for obj in reversed(_path_objects(element)):
         if obj.TypeId in _LINK_TYPES:
@@ -94,6 +94,6 @@ def furniture_candidate(element: PickedElement) -> DocumentObject | None:
         if is_furniture(obj):
             return obj
         blank = obj.Base if is_machined_part(obj) else obj
-        if is_wood_part(blank):
+        if is_timber(blank):
             return furniture_of(blank)
     return None
