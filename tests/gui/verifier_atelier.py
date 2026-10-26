@@ -45,6 +45,7 @@ from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASS
 from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
 from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROUS
+from tests.gui.verifications_piece_en_bois import VERIFICATIONS_PIECE_EN_BOIS
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
@@ -1249,13 +1250,21 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
     *VERIFICATIONS_DISTANCE_GARDEE,
+    # Pièce en bois à forme libre (PD-d)
+    *VERIFICATIONS_PIECE_EN_BOIS,
 )
 
 
-def verifier() -> list[str]:
-    """Retourne la liste des problèmes constatés (vide si tout va bien)."""
+def verifier(rapport: Any = None) -> list[str]:
+    """Retourne la liste des problèmes constatés (vide si tout va bien). ``rapport`` reçoit
+    le nom de la vérification en cours : si FreeCAD plante, le fichier désigne la coupable."""
     problemes: list[str] = []
     for verification in VERIFICATIONS:
+        if rapport is not None:
+            rapport.seek(0)
+            rapport.truncate()
+            rapport.write(f"plantage pendant {verification.__name__}\n")
+            rapport.flush()
         try:
             problemes += [f"{verification.__name__} : {p}" for p in verification()]
         except Exception:
@@ -1265,7 +1274,9 @@ def verifier() -> list[str]:
 
 def main() -> None:
     with open(os.environ["RESULTAT"], "w", encoding="utf-8") as rapport:
-        problemes = verifier()
+        problemes = verifier(rapport)
+        rapport.seek(0)
+        rapport.truncate()
         lignes = problemes or ["OK : atelier chargé et pièces affichées"]
         # Défauts connus (équivalent de xfail strict) : rapportés après le résultat.
         rapport.write("\n".join([*lignes, *DEFAUTS_CONSTATES]) + "\n")

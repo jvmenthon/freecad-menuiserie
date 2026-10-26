@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Convertir en pièce en bois : pied galbé et pastille de conversion -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="33.94,54.50 35.38,43.67 22.39,51.17 20.95,62.00" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="35.38,43.67 39.71,34.50 26.72,42.00 22.39,51.17" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="20.95,62.00 22.39,51.17 26.72,42.00 29.61,30.33 29.61,17.00 16.62,9.50 15.17,20.33 12.29,32.00 9.40,43.67 10.84,56.17" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="39.71,34.50 42.60,22.83 29.61,30.33 26.72,42.00" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.60,9.50 29.61,2.00 16.62,9.50 29.61,17.00" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.60,22.83 42.60,9.50 29.61,17.00 29.61,30.33" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="13.27,55.90 12.65,45.54 15.99,34.14 18.78,22.42 19.71,12.95" fill="none" stroke="#b8823f" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="15.90,57.42 15.90,47.42 19.69,36.27 22.39,24.50 23.01,14.86" fill="none" stroke="#b8823f" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="18.53,58.93 19.14,49.29 23.38,38.41 26.00,26.58 26.31,16.76" fill="none" stroke="#b8823f" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="49" cy="49" r="13" fill="#73d216" stroke="#2c5e00" stroke-width="2"/>
+  <path d="M42,49 H56 M51,43 L57,49 L51,55" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

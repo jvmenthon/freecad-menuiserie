@@ -40,6 +40,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     )
     # Gabarits (J4d)
     commands += ("Menuiserie_Carcass",)
+    # Pièce en bois à forme libre (PD-d)
+    commands += ("Menuiserie_ShapedPart",)
     # Distance entre deux pièces (DI-b)
     commands += ("Menuiserie_SetDistance",)
     # Liste de débit (J2d, J2g)
@@ -71,6 +73,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import distance  # distance entre deux pièces (DI-b)
 
         distance.register()
+        from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
+
+        shaped_part.register()
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 

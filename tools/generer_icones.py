@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 from icones_svg import Icone, Point3, angles, document, etiquette, feuille
@@ -370,6 +371,43 @@ def rotation_z() -> str:
     return _rotation("Z")
 
 
+# --- Pièce en bois à forme libre (PD-d) ------------------------------------------------------
+
+
+def _bord(bord: list[tuple[float, float]], z: float) -> float:
+    """Abscisse du bord (suite de points x, z croissants en z) à la hauteur ``z``."""
+    for (x0, z0), (x1, z1) in pairwise(bord):
+        if z0 <= z <= z1:
+            return x0 + (x1 - x0) * (z - z0) / (z1 - z0)
+    return bord[-1][0]
+
+
+def _pied_galbe(ic: Icone) -> None:
+    """Pied galbé : profil en S dessiné dans le plan (x, z), extrudé selon y."""
+    droite = [(14, 0), (16, 14), (22, 28), (26, 44), (26, 60)]
+    gauche = [(0, 0), (-2, 14), (2, 30), (6, 46), (8, 60)]
+    ic.prisme([*droite, *reversed(gauche)], "y", 0, 18, "chene")
+    for t in (0.25, 0.5, 0.75):  # veinage de la face avant, entre les deux bords du galbe
+        ligne = [
+            (_bord(gauche, z) + t * (_bord(droite, z) - _bord(gauche, z)), z)
+            for z in (2, 14, 30, 46, 58)
+        ]
+        ic.trait([(x, 18.0, z) for x, z in ligne], "#b8823f", 1.0)
+
+
+def piece_en_bois_objet() -> str:
+    ic = Icone("Pièce en bois : pied galbé dessiné avec Sketcher et PartDesign")
+    _pied_galbe(ic)
+    return ic.svg()
+
+
+def piece_en_bois() -> str:
+    ic = Icone("Convertir en pièce en bois : pied galbé et pastille de conversion")
+    _pied_galbe(ic)
+    fleche = _pastille("#73d216", "#2c5e00", "M42,49 H56 M51,43 L57,49 L51,55")
+    return ic.svg(cadre=(2, 50, 2, 62), devant=fleche)
+
+
 ICONES = {
     "menuiserie.svg": atelier,
     "Menuiserie_WoodPart.svg": piece_de_bois,
@@ -400,6 +438,9 @@ ICONES = {
     "Menuiserie_RotateX.svg": rotation_x,
     "Menuiserie_RotateY.svg": rotation_y,
     "Menuiserie_RotateZ.svg": rotation_z,
+    # Pièce en bois à forme libre (PD-d)
+    "Menuiserie_ShapedPart.svg": piece_en_bois,
+    "Menuiserie_ShapedPartObject.svg": piece_en_bois_objet,
 }
 
 
