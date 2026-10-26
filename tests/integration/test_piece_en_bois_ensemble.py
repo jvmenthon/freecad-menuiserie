@@ -223,3 +223,39 @@ def test_deplacement_par_fleches_puis_suivi_de_l_ensemble(table: Table) -> None:
     assert table.sizes(leg) == sizes
     assert table.expressions(leg) & set(SIZES) == set()
     assert table.expressions(leg.Source) == set()
+
+
+# --- F4 : pièce en bois assemblée, membre d'un ensemble ---------------------------------------
+
+
+def test_piece_en_bois_assemblee_suit_avec_sa_piece_usinee(document: Any) -> None:
+    """Pied (pièce en bois) relié par un tenon-mortaise à une traverse (pièce de bois) : quand la
+    profondeur de l'ensemble change, le pied et sa pièce usinée sont déplacés, sans étirement."""
+    source = document.addObject("Part::Box", "SourcePied")
+    source.Length, source.Width, source.Height = LEG
+    document.recompute()
+    pied = api.make_shaped_part(source, mark="Pied")
+    traverse = api.make_wood_part(300, 60, 20, "chene", mark="Traverse", doc=document)
+    traverse.Placement = App.Placement(App.Vector(45, 17.5, 500), App.Rotation())
+    plateau = api.make_wood_part(600, 400, 30, "chene", mark="Plateau", doc=document)
+    plateau.Placement = App.Placement(App.Vector(0, 0, 720), App.Rotation())
+    document.recompute()
+    joint = api.make_mortise_tenon(pied, traverse)
+    machined = api.machined_part_of(pied)
+    assert machined is not None
+    furniture, _notices = api.make_furniture([pied, traverse, plateau], label="Table")
+    api.set_member_options(traverse, fixed={"Front": False})  # la traverse suit le pied
+    sizes = tuple(round(getattr(pied, name).Value, 6) for name in SIZES)
+    api.resize_furniture(furniture, depth=500)
+    assert pied.Shape.BoundBox.YMin == pytest.approx(405.0, abs=1e-3)
+    assert pied.Shape.BoundBox.YMax == pytest.approx(500.0, abs=1e-3)
+    assert tuple(round(getattr(pied, name).Value, 6) for name in SIZES) == sizes
+    assert machined.Placement.isSame(pied.Placement, 1e-6)  # la pièce usinée suit
+    assert machined.Shape.BoundBox.YMin == pytest.approx(405.0, abs=1e-3)
+    assert machined.isValid()
+    assert traverse.Shape.BoundBox.YMin == pytest.approx(417.5, abs=1e-3)
+    assert traverse.Width.Value == 60.0
+    assert "Invalid" not in joint.State
+    expressions = {path.lstrip(".") for path, _text in pied.ExpressionEngine}
+    assert expressions <= POSITION
+    assert source.ExpressionEngine == []

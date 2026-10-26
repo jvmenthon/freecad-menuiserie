@@ -7,7 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 - Pièce en bois dans un ensemble, lot PD-f ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
-  décision 8 ; critères F1 à F3) : `make_furniture`, `add_to_furniture` et toute l'API des
+  décision 8 ; critères F1 à F4) : `make_furniture`, `add_to_furniture` et toute l'API des
   ensembles acceptent une pièce en bois ; elle suit l'ensemble par son `Placement` (expressions
   natives), ses trois cotes sont toujours fixes (mécanisme des cotes bloquées de l'ADR 0019) : une
   règle qui voudrait l'étirer la déplace et avertit « cote dessinée : modifiez le dessin » ; aucune
@@ -15,6 +15,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   par elle est refusée sans proposer de la déverrouiller. Dans le panneau de l'ensemble, la case
   « Cotes fixes » est cochée et grisée avec une infobulle ; les poignées de la souris ne
   s'appliquent pas à une pièce en bois.
+- Assemblages avec une pièce en bois, lot PD-e (critères E1 à E6 de
+  [la spécification](docs/specs/piece-en-bois.md), [ADR 0006](docs/adr/0006-piece-brute-et-piece-usinee.md)
+  complété par l'[ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md)) : les sept types
+  d'assemblages acceptent une pièce en bois comme hôte ou invitée, avec une pièce de bois ou une
+  autre pièce en bois ; le plan d'usinage reste calculé sur la boîte d'encombrement, la pièce
+  usinée part de la forme dessinée (les pièces de bois gardent leur forme actuelle) ; si plus de
+  5 % de la matière à usiner manque (face courbe, vide), l'assemblage avertit sans refuser ; le
+  tenon d'une pièce en bois est compté dans la liste de débit.
 - Pièce en bois, commande, panneau et vue, lot PD-d ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
   critères D1 à D6) : commande « Convertir en pièce en bois » (une pièce par source sélectionnée,
   une transaction, refus listés, accrochage contre les éléments choisis en plus), panneau (repère

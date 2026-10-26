@@ -117,14 +117,14 @@ def raw_part(obj: DocumentObject) -> DocumentObject:
     la pièce invitée d'un assemblage (ADR 0006). ``TypeError`` traduite pour tout autre objet."""
     if is_joint(obj) and is_timber(obj.GuestPart):
         return obj.GuestPart
-    return obj if is_timber(obj) else blank_of(obj)
+    return blank_of(obj)
 
 
 def can_resize(part: DocumentObject) -> bool:
     """Vrai si des poignées sont permises sur la brute ``part`` : pas si elle est verrouillée
-    (``Locked``, ADR 0019, B5), ni si c'est une pièce en bois, dont les cotes viennent du dessin
-    (ADR 0020, #87)."""
-    return not (is_shaped_part(part) or bool(getattr(part, "Locked", False)))
+    (``Locked``, ADR 0019, B5), ni si c'est une pièce en bois : ses cotes sont celles du dessin
+    (#87)."""
+    return not (bool(getattr(part, "Locked", False)) or is_shaped_part(part))
 
 
 def _solid(part: DocumentObject) -> bool:
