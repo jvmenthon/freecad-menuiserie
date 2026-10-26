@@ -55,7 +55,7 @@ def twin(doc: Any, part: Any, mark: str = "") -> Any:
 def sheet_row(sheet: Any, mark: str) -> int:
     """Numéro de la ligne de la feuille dont la colonne A cite le repère ``mark``."""
     for row in range(1, 80):
-        if text(sheet, f"A{row}") == mark:
+        if mark in text(sheet, f"A{row}").split(", "):
             return row
     raise AssertionError(f"repère {mark} absent de la feuille")
 
