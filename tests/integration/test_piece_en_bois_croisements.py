@@ -179,6 +179,9 @@ def test_piece_en_bois_tournee_dans_un_ensemble(document: Any) -> None:
     rotation = leg.Placement.Rotation
     api.resize_furniture(furniture, depth=800)
     document.recompute()
+    # Avant toute lecture de ``leg.Placement.Rotation`` : lire un sous-objet du placement le
+    # marque « Touched » dans FreeCAD 1.x, sans rapport avec la pièce en bois.
+    assert stale_or_invalid(document) == []
     assert (leg.Length.Value, leg.Width.Value, leg.Thickness.Value) == pytest.approx(sizes)
     assert leg.Placement.Rotation.isSame(rotation, 1e-9)  # déplacée, jamais tournée ni étirée
     assert source.ExpressionEngine == []
@@ -187,6 +190,4 @@ def test_piece_en_bois_tournee_dans_un_ensemble(document: Any) -> None:
         "Placement.Base.y",
         "Placement.Base.z",
     }
-    states = {obj.Name: (obj.State, obj.getStatusString()) for obj in document.Objects}
-    assert stale_or_invalid(document) == [], (states, leg.ExpressionEngine)
     assert leg.Shape.Volume == pytest.approx(45.0 * 95.0 * 720.0, rel=TOLERANCE)
