@@ -441,6 +441,15 @@ def test_materiau_et_sens_du_fil_comme_la_piece_de_bois(document: Any) -> None:
     assert part.GrainDirection == board.GrainDirection
 
 
+def test_changer_le_materiau_par_l_api(document: Any) -> None:
+    part = api.make_shaped_part(leg(document), "chene")
+    wood_part.set_material(part, "noyer")
+    document.recompute()
+    assert part.MaterialId == "noyer"
+    with pytest.raises(TypeError):
+        wood_part.set_material(part.Source, "chene")
+
+
 def test_materiau_a_la_creation(document: Any) -> None:
     part = api.make_shaped_part(leg(document), "mdf", "A1")
     assert part.MaterialId == "mdf"
@@ -537,6 +546,8 @@ def test_lien_vers_la_piece(document: Any) -> None:
     document.recompute()
     assert link.LinkedObject == part
     assert link.Shape.Volume == pytest.approx(part.Shape.Volume, rel=TOLERANCE)
+    [line] = api.cut_list_of(document).lines
+    assert line.quantity == 2  # la pièce et son lien
 
 
 def test_export_et_import_step(document: Any, tmp_path: Path) -> None:
@@ -548,8 +559,13 @@ def test_export_et_import_step(document: Any, tmp_path: Path) -> None:
     assert shape.Volume == pytest.approx(part.Shape.Volume, rel=1e-3)
 
 
-def test_vue_technique_ignoree() -> None:
-    pytest.skip("La vue TechDraw (B10) exige le module TechDraw et une vue graphique : lot PD-d.")
+def test_projection_technique(document: Any) -> None:
+    techdraw = pytest.importorskip("TechDraw")
+    part = part_of(leg(document))
+    document.recompute()
+    visible = techdraw.projectEx(part.Shape, App.Vector(0, 0, 1))[0]
+    assert not visible.isNull()
+    assert visible.Edges
 
 
 def test_api_importable_apres_rechargement() -> None:

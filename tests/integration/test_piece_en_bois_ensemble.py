@@ -129,6 +129,13 @@ def test_largeur_deplace_le_pied_de_droite(table: Table) -> None:
         assert table.expressions(leg) & set(SIZES) == set()
 
 
+def test_dessin_modifie_d_un_membre_avertit(table: Table, vue_rapport: Any) -> None:
+    table.legs["A"].Source.Height = 700.0
+    table.doc.recompute()
+    assert table.sizes(table.legs["A"])[0] == 700.0
+    assert any("Relier les pièces" in text for text in vue_rapport.de_niveau("Warning"))
+
+
 def test_le_redimensionnement_avertit(table: Table) -> None:
     messages = api.resize_furniture(table.furniture, depth=800)
     assert any(DRAWN in message for message in messages)
