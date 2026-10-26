@@ -23,6 +23,7 @@ from tests.gui.verifications_double_clic import vue_3d_active
 from tests.gui.verifications_panneau import (
     annuler,
     avec_document,
+    choisir,
     creer_par_la_commande,
     ecarts,
     formulaire,
@@ -221,10 +222,29 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
     cadrer()
     ouvrir_par_double_clic(piece)
     QtGui.QApplication.processEvents()
+    form = formulaire()
     problemes = [
         *ecarts("panneau : flèches", len(session.layout.arrows), 3),
-        *ecarts("panneau : quatre poignées", len(session.layout.handles), 4),
+        *ecarts("massif : six poignées", len(session.layout.handles), 6),
+        *ecarts(
+            "massif : poignées d'épaisseur",
+            sorted((h.axis, h.at_end) for h, _ in session.layout.handles if h.axis == 2),
+            [(2, False), (2, True)],
+        ),
     ]
+    choisir(form.materialCombo, "mdf")
+    session.sync()
+    problemes += [
+        *ecarts("panneau MDF : quatre poignées", len(session.layout.handles), 4),
+        *ecarts(
+            "panneau MDF : aucune poignée d'épaisseur",
+            [h for h, _ in session.layout.handles if h.axis == 2],
+            [],
+        ),
+    ]
+    choisir(form.materialCombo, "hetre")
+    session.sync()
+    problemes += ecarts("massif de nouveau : six poignées", len(session.layout.handles), 6)
     annuler()
     QtGui.QApplication.processEvents()
     problemes += ecarts(
@@ -236,7 +256,8 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
 
 
 def verifier_souris_poignees_du_panneau() -> list[str]:
-    """C1 : panneau de la pièce ouvert, flèches et quatre poignées ; fermé, poignées enlevées."""
+    """C1 : panneau de la pièce ouvert, flèches et poignées (six pour le massif, quatre pour un
+    panneau de MDF) ; fermé, poignées enlevées."""
     return avec_document("VerifSourisPoignees", _poignees_du_panneau)
 
 
@@ -404,11 +425,37 @@ def _poignee(doc: Any) -> list[str]:
     session.release(arret)
     problemes += ecarts("aperçu toujours à 60 %", piece.ViewObject.Transparency, 60)
     problemes += ecarts("épaisseur intacte", round(piece.Thickness.Value, 3), 22.0)
+    return [*problemes, *_poignee_d_epaisseur(session, piece, form)]
+
+
+def _poignee_d_epaisseur(session: Any, piece: Any, form: Any) -> list[str]:
+    """Massif (chêne) : la poignée du dessus change l'épaisseur, la face du dessous reste et le
+    champ du panneau suit ; Échap la rétablit. La vue est isométrique : en vue de dessus, l'axe
+    de l'épaisseur est vu de bout et ses poignées ne se saisissent pas (comme une flèche vue de
+    bout)."""
+    Gui.activeView().viewIsometric()
+    cadrer()
+    pas = px_en_mm(session)
+    epaisseur, dessous = piece.Thickness.Value, piece.Placement.Base.z
+    pris = saisir(session, sur_la_poignee(session, 2, True))
+    problemes = ecarts("poignée du dessus saisie", pris, True)
+    if not pris:
+        return problemes
+    tirer(session, 8.0)
+    problemes += proche("épaisseur étirée", piece.Thickness.Value, epaisseur + 8.0, 3 * pas)
+    problemes += proche(
+        "champ de l'épaisseur", valeur(form.thicknessEdit), piece.Thickness.Value, 0.01
+    )
+    problemes += proche("face du dessous immobile", piece.Placement.Base.z, dessous, 0.01)
+    problemes += ecarts("Échap consommé", session.escape(), True)
+    problemes += proche("épaisseur rétablie", piece.Thickness.Value, epaisseur, 0.01)
+    problemes += proche("champ rétabli", valeur(form.thicknessEdit), epaisseur, 0.01)
     return problemes
 
 
 def verifier_souris_poignees() -> list[str]:
-    """C4 : poignée tirée, la cote et son champ suivent, l'autre bout reste, aperçu posé."""
+    """C4 : poignée tirée, la cote et son champ suivent, l'autre bout reste, aperçu posé ;
+    poignée d'épaisseur du massif."""
     return avec_document("VerifSourisPoignee", _poignee)
 
 

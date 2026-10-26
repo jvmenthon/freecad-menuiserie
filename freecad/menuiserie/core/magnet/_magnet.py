@@ -9,7 +9,6 @@ from collections.abc import Sequence
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Box, Vec3
 from freecad.menuiserie.core.magnet._model import (
     MIN_SIZE_MM,
-    THICKNESS_AXIS,
     DragResult,
     Guide,
     Handle,
@@ -120,13 +119,12 @@ def resize(
 ) -> ResizeResult:
     """Redimensionne ``box`` : la face de ``handle`` est tirée de ``delta`` mm sur son axe (A6).
 
-    Seule cette face bouge, aimantée aux guides ; la cote reste au moins ``minimum``. La poignée
-    d'épaisseur est refusée (``ValueError``). ``origin_shift`` vaut la translation de l'origine
+    Seule cette face bouge, aimantée aux guides ; la cote reste au moins ``minimum``. Les trois
+    axes sont permis, y compris l'épaisseur (axe Z) : savoir si la pièce a une poignée dessus est
+    l'affaire de l'appelant (massif seulement). ``origin_shift`` vaut la translation de l'origine
     (non nulle seulement pour la poignée de début).
     """
     _check_tolerance(tolerance)
-    if handle.axis == THICKNESS_AXIS:
-        raise ValueError("resize : pas de poignée sur l'épaisseur (axe Z de la pièce)")
     if not math.isfinite(delta) or not math.isfinite(minimum) or minimum <= 0:
         raise ValueError("resize : delta fini et minimum strictement positif attendus")
     axis, low, high = handle.axis, box.lo(handle.axis), box.hi(handle.axis)

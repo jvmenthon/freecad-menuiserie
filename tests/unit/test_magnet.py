@@ -304,10 +304,23 @@ def test_a6_bound_wins_over_a_guide_behind_it() -> None:
     assert result.size >= 1.0
 
 
-def test_a6_thickness_handle_is_refused() -> None:
-    """A6 : aucune poignée sur l'épaisseur (axe Z)."""
-    with pytest.raises(ValueError, match="épaisseur"):
-        resize(BOX, Handle(2, True), 5, [], 5)
+def test_a6_thickness_handle_is_no_longer_refused() -> None:
+    """A6 (amendé le 2026-10-26, Q4) : l'épaisseur (axe Z) se redimensionne comme les autres axes ;
+    c'est ``drag_limits`` qui décide de la poignée (massif seulement)."""
+    end = resize(BOX, Handle(2, True), 5, [], 5)
+    assert end.size == pytest.approx(BOX.size(2) + 5)
+    assert end.origin_shift == Vec3(0, 0, 0)
+    start = resize(BOX, Handle(2, False), -4, [], 5)
+    assert start.size == pytest.approx(BOX.size(2) + 4)
+    assert start.origin_shift == Vec3(0, 0, -4)
+
+
+def test_a6_thickness_keeps_the_minimum_and_snaps() -> None:
+    """A6 : la borne de 1 mm et l'aimant valent aussi pour l'épaisseur."""
+    assert resize(BOX, Handle(2, True), -500, [], 5).size == pytest.approx(1.0)
+    snapped = resize(BOX, Handle(2, True), 27, [plane(2, BOX.hi(2) + 30)], 5)
+    assert snapped.size == pytest.approx(BOX.size(2) + 30)
+    assert snapped.hit is not None
 
 
 # --- A7 : saisie en pixels -------------------------------------------------------------------

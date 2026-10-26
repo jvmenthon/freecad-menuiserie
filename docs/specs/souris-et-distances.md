@@ -3,7 +3,7 @@
 - Issue : #65 (priorité haute, interface)
 - Statut : **validée par jv** (2026-10-25) (architecture fonctionnelle et technique, sans code). Réponses de jv
   le 2026-10-25 au § 9 : Q1 déplacer **à tout moment**, Q2 **flèches**, Q3 voisines, Q4 pas
-  d'épaisseur, Q5 glisser un membre et relier l'ensemble, Q6 à Q8 recommandations ★ (« ok pour le reste »).
+  d'épaisseur (**amendée le 2026-10-26** : modifiable pour le massif), Q5 glisser un membre et relier l'ensemble, Q6 à Q8 recommandations ★ (« ok pour le reste »).
   Spécification prête pour le développement.
 - Exigences de jv :
   - (2026-10-22, issue #65) « Lors de la création d'une pièce, pouvoir **déplacer la pièce et la
@@ -50,9 +50,10 @@ Le menuisier peut :
    sélectionne d'un clic, trois **flèches** (axes de la pièce) apparaissent, on en tire une et la
    pièce suit la souris le long de cet axe (§ 4.3). Pendant la création et la modification
    (panneau ouvert), les flèches sont sur la pièce du panneau ;
-2. panneau ouvert, **redimensionner** la pièce en tirant l'une des quatre **poignées** (deux bouts pour la
-   longueur, deux rives pour la largeur) ; la face opposée ne bouge pas, l'épaisseur reste celle
-   de la bibliothèque ;
+2. panneau ouvert, **redimensionner** la pièce en tirant l'une de ses **poignées** (deux bouts pour la
+   longueur, deux rives pour la largeur et, **pour le massif seulement**, le dessus et le dessous
+   pour l'épaisseur) ; la face opposée ne bouge pas ; l'épaisseur d'un panneau (contreplaqué, MDF,
+   mélaminé) reste celle de la bibliothèque ;
 3. sentir l'**aimantation** : à moins de 10 pixels d'une face, d'une arête ou d'un sommet d'une
    pièce voisine (de l'atelier ou de tout autre objet Part), la face de la pièce vient s'y coller
    ou s'y aligner, et le guide s'allume ; **Maj** enfoncée coupe l'aimantation ;
@@ -79,7 +80,7 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 | A3 | U | `magnet(box, guides, delta, tolerance, axes)` : sur chaque axe libre, la face (début ou fin) de la boîte déplacée la plus proche d'un guide à moins de `tolerance` s'y colle ; axes indépendants ; égalité → le guide le plus proche du curseur, puis le premier. Aucun guide à portée → `delta` inchangé. |
 | A4 | U | Un guide **plan** n'aimante que les faces parallèles ; une droite aimante les deux axes qui lui sont perpendiculaires ; un point aimante les trois axes. Un guide hors de portée de la pièce sur les autres axes (§ 4.4, Q3) est ignoré. |
 | A5 | U | Contact (normales opposées) et affleurement (normales de même sens) sont deux aimantations valables ; le résultat dit lequel (`MagnetHit.kind`) pour l'affichage. |
-| A6 | U | `resize(box, handle, delta, guides, tolerance, minimum)` : seule la face tirée bouge, le long de son axe ; cote bornée à `minimum` (1 mm) ; poignée sur l'épaisseur impossible (`ValueError`). Le résultat donne la cote nouvelle et la translation de l'origine (poignée de début). |
+| A6 | U | `resize(box, handle, delta, guides, tolerance, minimum)` : seule la face tirée bouge, le long de son axe ; cote bornée à `minimum` (1 mm) ; les trois axes sont permis, l'épaisseur (axe Z) comprise : c'est `drag_limits` qui décide des poignées (A6 amendé le 2026-10-26, Q4). Le résultat donne la cote nouvelle et la translation de l'origine (poignée de début). |
 | A7 | U | `handle_at(handles_px, cursor_px, radius=8)` : flèche (segment projeté) ou poignée la plus proche à moins de 8 pixels, sinon `None` ; à égalité, la poignée. |
 | A8 | U | `mm_per_pixel(p0, p1, px)` : tolérance en mm d'après deux points projetés ; jamais nulle ni négative. |
 
@@ -88,10 +89,10 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 | N° | Type | Critère |
 |---|---|---|
 | B1 | I | `collect_guides(part, container)` lit, une fois au début du glissement, les sommets, faces planes et arêtes droites des objets **visibles** du conteneur (tout atelier : Part, PartDesign, Draft, BIM, objets d'addons), exprimés dans le repère de la pièce ; la pièce elle-même, sa pièce usinée et ses assemblages sont exclus ; au plus `MAX_GUIDES` (5 000), les objets les plus proches d'abord. |
-| B2 | I | `move_part(part, transform)` et `resize_part(part, prop, value, origin_shift)` écrivent `Placement`, `Length` ou `Width` de la **brute** (une pièce usinée glissée renvoie à sa brute, ADR 0006), sans recalcul du document. |
+| B2 | I | `move_part(part, transform)` et `resize_part(part, prop, value, origin_shift)` écrivent `Placement`, `Length`, `Width` ou `Thickness` de la **brute** (une pièce usinée glissée renvoie à sa brute, ADR 0006), sans recalcul du document. |
 | B3 | I | Pièce **membre d'un ensemble** : au début du glissement, les liaisons de l'ensemble sur les propriétés touchées sont mises de côté ; au relâchement, tout l'ensemble est relié (règle de l'ADR 0019, point 6). Bureau de référence : voile glissé de 100 mm vers l'avant → ses liaisons de position sont refaites avec la nouvelle constante, la largeur du bureau ne change pas. |
 | B4 | I | Propriété pilotée par une **formule de l'utilisateur** (pas une liaison de l'atelier) : l'axe correspondant n'est pas glissable (`DragLimits.fixed_axes`), aucune expression n'est retirée. |
-| B5 | I | Pièce **verrouillée** (`Locked`, #86) : glissement permis, poignées refusées. Pièce en bois (#87) : glissement permis, poignées refusées (cotes du dessin). |
+| B5 | I | Pièce **verrouillée** (`Locked`, #86) : glissement permis, poignées refusées. Pièce en bois (#87) : glissement permis, poignées refusées (cotes du dessin). **Épaisseur** (Q4 amendée, 2026-10-26) : l'axe 2 n'est redimensionnable que si la famille de la pièce est le **massif** (`MaterialKind.SOLID`) ; un panneau (contreplaqué, MDF, mélaminé), une pièce verrouillée, une pièce dont `Thickness` ou la position en Z porte une formule de l'utilisateur : pas de poignée d'épaisseur. |
 | B6 | I | Une pièce qui a une **Distance** gardée (DI-c) le long de l'axe glissé : la valeur de la Distance suit le glissement (Q8 ★). |
 | B7 | I | Assemblage qui ne touche plus après le glissement : le glissement est gardé, avertissement dans la vue rapport (règle Q4 de J4 : toujours appliquer, prévenir). |
 
@@ -99,10 +100,10 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 
 | N° | Type | Critère |
 |---|---|---|
-| C1 | G | Atelier actif : le filtre d'évènements d'application et l'observateur de sélection sont posés (comme le double-clic, ADR 0018) ; atelier quitté, ils sont retirés avec les flèches. Une seule pièce de l'atelier sélectionnée → ses trois flèches sont dessinées ; sélection vidée ou changée → enlevées. Panneau de la pièce ouvert : flèches et quatre poignées sur la pièce du panneau ; panneau fermé (OK, Annuler, document ou vue fermés), poignées enlevées. |
+| C1 | G | Atelier actif : le filtre d'évènements d'application et l'observateur de sélection sont posés (comme le double-clic, ADR 0018) ; atelier quitté, ils sont retirés avec les flèches. Une seule pièce de l'atelier sélectionnée → ses trois flèches sont dessinées ; sélection vidée ou changée → enlevées. Panneau de la pièce ouvert : flèches et poignées (quatre, ou six pour une pièce en massif) sur la pièce du panneau ; panneau fermé (OK, Annuler, document ou vue fermés), poignées enlevées. |
 | C2 | G | **Hors panneau** : clic gauche enfoncé sur une flèche, puis mouvement : la pièce suit la souris le long de l'axe de la flèche (A2) ; relâchement : transaction « Déplacer la pièce », un seul recalcul. **Panneau ouvert** : même geste ; les champs X, Y, Z suivent ; tout reste dans la transaction du panneau. |
 | C3 | G | Clic gauche ailleurs que sur une flèche ou une poignée (pièce, autre objet, vide) : l'évènement est rendu à FreeCAD (sélection, cadre de sélection, rotation de la vue inchangés). Molette, bouton du milieu, bouton droit : toujours rendus. Plusieurs objets sélectionnés : pas de flèches (déplacer un groupe : hors périmètre). |
-| C4 | G | Poignée tirée : la cote suit, l'autre bout ne bouge pas ; le champ de la cote du panneau suit ; l'aperçu (transparence 60 %) reste posé. |
+| C4 | G | Poignée tirée : la cote suit, l'autre bout ne bouge pas ; le champ de la cote du panneau suit ; l'aperçu (transparence 60 %) reste posé. Massif : la poignée du dessus ou du dessous change l'épaisseur, le champ **Épaisseur** suit. |
 | C5 | G | Guide aimanté : il est dessiné en surbrillance (plan, droite ou point) pendant l'aimantation ; Maj enfoncée : aucune aimantation, aucun dessin. |
 | C6 | G | Échap pendant le glissement : la pièce revient où elle était au début de ce glissement (le panneau, s'il est ouvert, le reste). |
 | C7 | G | « Annuler » du panneau : la pièce revient à son état d'avant le panneau ; « OK » puis Ctrl+Z : idem, en une étape. Hors panneau : Ctrl+Z annule le dernier glissement en une étape. |
@@ -230,9 +231,13 @@ freecad/menuiserie/
   (`axis_param`, `core/magnet`).
 - **Saisie** : flèches et poignées sont testées en pixels (`handle_at`), d'après leurs
   extrémités projetées (`view.getPointOnScreen`) ; aucun appel à la sélection de FreeCAD.
-- **Poignées** : quatre, au milieu des faces de bout et de rive ; aucune sur les faces de
-  l'épaisseur (Q4 ★ : l'épaisseur vient de la bibliothèque, ADR 0015). Tirée, la poignée bouge le
-  long de la normale de sa face ; la cote vaut au moins 1 mm.
+- **Poignées** : quatre, au milieu des faces de bout et de rive, plus **deux** sur les faces du
+  dessus et du dessous (six) quand la pièce est du **massif** (Q4, amendée par jv le 2026-10-26 :
+  « Si c'est du massif l'épaisseur est modifiable ») ; un panneau (contreplaqué, MDF, mélaminé)
+  garde l'épaisseur de la bibliothèque (ADR 0015) et n'a que les quatre. Les poignées d'épaisseur
+  sont décalées d'un quart de la longueur (celle du dessus vers le début, celle du dessous vers la
+  fin) : au milieu, le départ des flèches les cacherait. Tirée, la poignée bouge
+  le long de la normale de sa face ; la cote vaut au moins 1 mm.
 - **Champs du panneau** : la session écrit l'objet, puis demande au panneau de relire `Length`,
   `Width`, `Placement` (méthode existante de rafraîchissement des champs), sous le garde
   d'écriture du panneau pour ne pas reboucler.
@@ -261,12 +266,16 @@ freecad/menuiserie/
 Une pièce membre suit l'ensemble par des expressions (ADR 0009, 0019). Écrire sa position sans
 toucher à ses liaisons serait effacé au recalcul suivant. Au début du glissement, `part_drag`
 met de côté (Memento) les expressions **de l'atelier** sur les propriétés touchées
-(`Placement.Base.x/y/z`, `Length`, `Width`) ; au relâchement, l'ensemble entier est relié par la
+(`Placement.Base.x/y/z`, `Length`, `Width`, `Thickness`) ; au relâchement, l'ensemble entier est relié par la
 voie de #86 (`bind_members`), qui recalcule les constantes d'après la position nouvelle sans
 changer les options. Une formule de l'utilisateur sur un axe le rend non glissable (B4) ; il en va de même de
 l'axe d'une Distance gardée de la pièce dont la `Value` porte une formule (B6 bis). Un
-glissement ne change ni la cote de l'ensemble ni une épaisseur : aucune rangée ne peut en être
-bloquée, il n'est jamais refusé au relâchement (ADR 0021, note du 2026-10-25).
+déplacement ne change ni la cote de l'ensemble ni une épaisseur : aucune rangée ne peut en être
+bloquée, il n'est jamais refusé au relâchement (ADR 0021, note du 2026-10-25). Une **épaisseur**
+tirée (massif, 2026-10-26) se comporte comme une épaisseur saisie dans le panneau (ADR 0019,
+points 5 et 6) : l'épaisseur est gardée, la rangée des autres membres est recalculée au
+relâchement, et une rangée bloquée par des pièces verrouillées refuse le relâchement (la pièce
+revient, message dans la vue rapport) ; Échap rétablit l'épaisseur (ADR 0021, note du 2026-10-26).
 
 ### 4.6 « Définir une distance » (DI-a, DI-b)
 
@@ -395,8 +404,11 @@ flèches (axes de la pièce), un axe à la fois (§ 4.3).
 **Q3 — Sur quoi la pièce s'aimante-t-elle ?** Tranchée par jv : **les pièces voisines** (faces,
 arêtes, sommets à moins de 10 pixels), pas les alignements à distance.
 
-**Q4 — Peut-on tirer l'épaisseur ?** Tranchée par jv : **non**, quatre poignées (longueur,
-largeur) ; l'épaisseur se choisit dans la bibliothèque.
+**Q4 — Peut-on tirer l'épaisseur ?** Tranchée par jv le 2026-10-25 : **non**, quatre poignées
+(longueur, largeur) ; l'épaisseur se choisit dans la bibliothèque. **Amendée par jv le
+2026-10-26** : « Si c'est du massif l'épaisseur est modifiable. » Une pièce en massif a six
+poignées (deux de plus, sur le dessus et le dessous) ; un panneau garde quatre poignées et
+l'épaisseur de la bibliothèque.
 
 **Q5 — Glisser une pièce d'un ensemble ?** Tranchée par jv : **oui**, la pièce se place où on la
 lâche et l'ensemble entier est relié (#86) ; une pièce verrouillée se déplace mais garde ses

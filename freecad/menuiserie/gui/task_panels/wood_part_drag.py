@@ -2,11 +2,11 @@
 """Glisser à la souris pendant le panneau de la pièce de bois (SM-c, ADR 0021) : branche la session
 du glissement sur le panneau.
 
-Panneau ouvert, les flèches et les quatre poignées sont sur la pièce du panneau, le glissement
-écrit dans la transaction du panneau et les champs du panneau relisent les cotes à chaque
-écriture. Rien du formulaire n'est gardé ici : le panneau n'est tenu que par une référence faible
-(les enveloppes PySide ne doivent pas lui survivre) ; à la fermeture du panneau, les poignées
-sont enlevées.
+Panneau ouvert, les flèches et les poignées (quatre, six pour le massif) sont sur la pièce du
+panneau, le glissement écrit dans la transaction du panneau et les champs du panneau relisent les
+cotes à chaque écriture. Rien du formulaire n'est gardé ici : le panneau n'est tenu que par une
+référence faible (les enveloppes PySide ne doivent pas lui survivre) ; à la fermeture du panneau,
+les poignées sont enlevées.
 """
 
 from __future__ import annotations

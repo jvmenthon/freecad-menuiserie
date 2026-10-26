@@ -159,11 +159,14 @@ Cadrer la vue (**V, F**) pour voir les trois pièces.
 
 ### S3. Panneau ouvert : poignées L/l (C1, C2, C4, C7)
 
-1. Double-cliquer l'étagère (ou la créer par **Pièce de bois**) : le panneau s'ouvre, quatre
-   poignées orange apparaissent au milieu des bouts et des rives, avec les trois flèches.
+1. Double-cliquer l'étagère (ou la créer par **Pièce de bois**) : le panneau s'ouvre, six
+   poignées orange apparaissent (au milieu des bouts, des rives, du dessus et du dessous : le
+   chêne est du massif), avec les trois flèches. Choisir un contreplaqué ou du MDF : il ne reste
+   que quatre poignées (l'épaisseur vient de la bibliothèque).
 2. Tirer la poignée du bout droit vers la joue droite : la longueur augmente, le bout gauche ne
    bouge pas, le champ **Longueur** du panneau suit ; la poignée s'aimante contre la joue. Tirer la
-   poignée de la rive arrière : la largeur suit.
+   poignée de la rive arrière : la largeur suit. Tirer la poignée du dessus (massif) : le champ
+   **Épaisseur** suit, la face du dessous ne bouge pas.
 3. Tirer une flèche : la pièce bouge, l'aperçu transparent (en création) reste posé.
 4. **Annuler** : la pièce retrouve exactement son état d'avant le panneau. Recommencer, **OK**,
    puis **Ctrl+Z** : une seule étape.
@@ -179,7 +182,11 @@ Préparation A de `docs/recette/ensembles-epaisseurs-scenarios-manuels.md` (bure
 2. Cocher **Cotes fixes** sur le Voile puis tirer sa poignée de longueur (panneau ouvert) : pas de
    poignée sur une pièce verrouillée.
 3. Verrouiller deux pièces d'une même rangée, puis déplacer une troisième : le déplacement n'est
-   jamais refusé (il ne change ni la cote de l'ensemble ni une épaisseur).
+   jamais refusé (il ne change ni la cote de l'ensemble ni une épaisseur). Tirer en revanche
+   la poignée d'épaisseur d'un membre en massif (panneau ouvert) : l'épaisseur est gardée et la
+   rangée recalculée, comme une épaisseur saisie dans le panneau ; si une rangée est bloquée par
+   des pièces verrouillées, le relâchement est refusé (la pièce revient, message dans la vue
+   rapport). **Échap** rétablit l'épaisseur.
 4. Sur une pièce dont la position est pilotée par **votre** formule (expression dans l'éditeur de
    propriétés) : la flèche de l'axe piloté n'est pas dessinée.
 5. Déplacer une pièce assemblée (Tourillons) jusqu'à ne plus toucher sa voisine : le déplacement

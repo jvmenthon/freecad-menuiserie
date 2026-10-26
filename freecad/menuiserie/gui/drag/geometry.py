@@ -12,6 +12,7 @@ from typing import Final
 
 from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.magnet import (
+    THICKNESS_AXIS,
     Arrow,
     Guide,
     GuideKind,
@@ -92,8 +93,13 @@ class Layout:
 
 
 def _face_center(box: Box, handle: Handle) -> Vec3:
+    """Point de la poignée : milieu de sa face ; les poignées d'épaisseur, que le départ des
+    flèches cacherait, sont décalées d'un quart de longueur, l'une vers chaque bout."""
     values = [box.center(i) for i in range(3)]
     values[handle.axis] = box.hi(handle.axis) if handle.at_end else box.lo(handle.axis)
+    if handle.axis == THICKNESS_AXIS:
+        quarter = (box.hi(0) - box.lo(0)) / 4
+        values[0] += -quarter if handle.at_end else quarter
     return Vec3.of(values)
 
 
