@@ -16,7 +16,7 @@ rapidement, sans lancer FreeCAD.
    - `core/` : Python pur, sans aucun import FreeCAD ni Qt ;
    - `features/` : objets du document (FeaturePython), sans import FreeCADGui ni Qt ;
    - `gui/` : commandes, ViewProviders, panneaux de tâche.
-3. Cible FreeCAD ≥ 1.0, Python ≥ 3.10, Qt via le module `PySide` fourni par FreeCAD.
+3. Cible FreeCAD ≥ 1.0 (≥ 1.1 depuis l'[ADR 0023](0023-freecad-1-1-minimum.md)), Python ≥ 3.10, Qt via le module `PySide` fourni par FreeCAD.
 4. Licence LGPL-2.1-or-later, identique à FreeCAD.
 
 ## Conséquences

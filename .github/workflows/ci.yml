@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        freecad: ["1.0", "1.1"]
+        freecad: ["1.1"]  # version minimale prise en charge (ADR 0023)
     defaults:
       run:
         shell: bash -el {0}

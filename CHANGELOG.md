@@ -148,6 +148,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `core.furniture` : `Anchor` et `Edge.anchor` supprimés, `FollowRule` redéfini (position et cote
   affines par axe), `bindings_for(label, members, rules, ...)`, `follow_summary(member, rules)`,
   `predict(new, members, rules, thicknesses)`.
+- FreeCAD **1.1** minimum ([ADR 0023](docs/adr/0023-freecad-1-1-minimum.md), demande de jv) :
+  `freecadmin` passe à 1.1.0 dans `package.xml`, la CI ne teste plus FreeCAD 1.0. Python ≥ 3.10
+  et la compatibilité Qt 5 / Qt 6 sont inchangés.
 - API de l'ensemble ([ADR 0017](docs/adr/0017-avertissements-renvoyes-par-l-api-des-ensembles.md),
   accepté, issue #40) : `resize_furniture` renvoie ses avertissements traduits (jusqu'ici
   seulement écrits dans la vue rapport) et `remove_from_furniture` un tuple vide, comme les autres

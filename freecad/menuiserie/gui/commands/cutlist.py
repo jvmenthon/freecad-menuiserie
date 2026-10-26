@@ -82,7 +82,7 @@ def recompute_if_touched(doc: Document) -> None:
 
 def open_in_tab(sheet: DocumentObject) -> None:
     """Ouvre ``sheet`` dans l'onglet de la vue Spreadsheet, comme un double-clic dans l'arbre
-    (``doubleClicked`` du ViewProvider, présent en FreeCAD 1.0 et 1.1) ; à défaut, ``setEdit``.
+    (``doubleClicked`` du ViewProvider) ; à défaut, ``setEdit``.
     Sans interface (pas de ViewProvider), ne fait rien."""
     view_object = getattr(sheet, "ViewObject", None)
     if view_object is None:
