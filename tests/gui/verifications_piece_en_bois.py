@@ -59,6 +59,11 @@ def convertir(doc: Any, *objets: Any) -> list[Any]:
     return [o for o in doc.Objects if o not in avant and o.TypeId == "Part::FeaturePython"]
 
 
+def enfant(form: Any, nom: str) -> Any:
+    """Widget ``nom`` construit par le panneau (absent du fichier ``.ui``, donc sans attribut)."""
+    return form.findChild(QtGui.QWidget, nom)
+
+
 def noeuds_nommes(nom: str) -> int:
     """Nombre de nœuds Coin nommés ``nom`` dans la vue 3D active (0 sans vue)."""
     vue = Gui.activeView()
@@ -103,10 +108,11 @@ def _conversion(doc: Any) -> list[str]:
             ),
         ]
     del form
+    nom = piece.Name
     annuler()
     return [
         *problemes,
-        *ecarts("annulation : pièce retirée", doc.getObject(piece.Name) is None, True),
+        *ecarts("annulation : pièce retirée", doc.getObject(nom) is None, True),
         *ecarts("annulation : source réaffichée", corps.Visibility, True),
         *ecarts("trièdre retiré", noeuds_nommes(NODE_NAME), 0),
     ]
@@ -123,7 +129,7 @@ def _saisies_en_direct(doc: Any) -> list[str]:
     form = formulaire_nomme(FORM)
     if form is None:
         return ["panneau non ouvert"]
-    form.turnWidthButton.click()  # quart de tour du repère : la pièce ne bouge pas
+    enfant(form, "turnWidthButton").click()  # quart de tour du repère : la pièce ne bouge pas
     centre = piece.Shape.BoundBox.Center
     problemes = ecarts(
         "encombrement relu",
@@ -136,7 +142,7 @@ def _saisies_en_direct(doc: Any) -> list[str]:
     problemes += ecarts(
         "rotation sur place", piece.Shape.BoundBox.Center.distanceToPoint(centre) < 1e-3, True
     )
-    form.automaticAxesButton.click()
+    enfant(form, "automaticAxesButton").click()
     problemes += ecarts(
         "repère automatique : pièce en place",
         piece.Shape.BoundBox.Center.distanceToPoint(centre) < 1e-3,
@@ -198,9 +204,10 @@ def _refus(doc: Any) -> list[str]:
         w for w in QtGui.QApplication.allWidgets() if w.objectName() == "MenuiserieRefusal"
     ]
     problemes += ecarts("boîte de refus affichée", bool(boite_de_refus), True)
+    problemes += ecarts("seule la boîte est convertie", len(doc.Objects), avant + 1)
     if Gui.Control.activeDialog():
         annuler()
-    return [*problemes, *ecarts("seule la boîte est convertie", len(doc.Objects), avant + 1)]
+    return problemes
 
 
 def verifier_refus_listes() -> list[str]:
