@@ -44,6 +44,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `FRENCH_CSV` (`;`, virgule décimale).
 
 ### Ajouté
+- Pièce en bois, lot PD-a (issue #73, ADR 0020) : paquet `core/shaped/` en Python pur, repère et
+  encombrement d'une forme dessinée (`Axes`, `principal_axes`, `ordered`, `turned_axes`,
+  `measure_points`, `ShapeSample` avec plafonds de taille, `ShapeSignature`, contrôle de la
+  matière manquante à 5 %). Pas encore d'objet ni de commande.
 - Tenon, languette, tourillons et queue d'aronde entre pièces qui se chevauchent (ADR 0016,
   demande de jv) : l'invitée dessinée hors tout est raccourcie jusqu'au contact, par la face où
   elle entre dans l'hôte ; sa pièce usinée perd cette partie avant de recevoir ses ajouts
