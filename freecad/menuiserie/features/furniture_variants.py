@@ -17,6 +17,7 @@ from freecad.menuiserie.core.furniture import (
     FurnitureBox,
     Member,
     Notice,
+    NoticeKind,
     check_resize,
     follow_rules,
     gap_term,
@@ -92,11 +93,13 @@ def resize_notices(
     est refusé, :class:`LockedPiecesError` si une rangée est bloquée par des pièces
     verrouillées."""
     members = with_locks(read_members(furniture, box=old), unlocked, False)
-    rules, _ = follow_rules(old, members.members)
+    rules, followed = follow_rules(old, members.members)
     try:
         notices = list(check_resize(old, new, members.members, rules, joined_pairs(members)))
     except BlockedRowError as error:
         raise locked_error(error, members.named) from error
+    if old != new:  # une cote dessinée ne suit pas : la pièce en bois est déplacée (PD-f)
+        notices += [n for n in followed if n.kind is NoticeKind.DRAWN_SIZE]
     after = predict(new, members.members, rules)
     for member in members.members:
         moved = after.get(member.key)
