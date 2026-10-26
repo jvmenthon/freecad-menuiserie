@@ -74,7 +74,10 @@ point d'extension prévu par la feuille de route.
    Un test vérifie automatiquement les imports de `core/` et `features/`.
 2. **FeaturePython** : propriétés groupées avec infobulles, `execute()` déterministe qui ne
    fait que reconstruire `obj.Shape`, sérialisation du proxy par `dumps`/`loads`, propriété
-   `Version` et migration dans `onDocumentRestored`.
+   `Version` et migration dans `onDocumentRestored`. Exception (ADR 0020) : `execute()` peut
+   écrire les cotes de sortie de son propre objet (`Length`, `Width`, `Thickness` de la pièce
+   en bois à forme libre), déclarées `Output` et en lecture seule, seulement si leur valeur a
+   changé et jamais dans un autre objet.
 3. **Annuler / rétablir** : chaque commande encadrée par `openTransaction` / `commitTransaction`.
 4. **Chargement léger** : imports différés dans `Initialize()`.
 5. **Qt** : toujours `from PySide import QtCore, QtGui` (couche de compatibilité FreeCAD),

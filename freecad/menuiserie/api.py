@@ -8,6 +8,13 @@ Exemple (console) ::
     planche = make_wood_part(800, 200, 22, "chene")
     planche.Length = 1000
 
+Pièce en bois, forme dessinée avec Sketcher / PartDesign (PD-b) ::
+
+    from freecad.menuiserie.api import make_shaped_part, reset_shaped_axes
+
+    pied = make_shaped_part(corps, "chene", mark="P1")  # corps : PartDesign::Body
+    pied.Length  # cotes d'encombrement, en lecture seule, qui suivent le dessin
+
 Assemblage (J3) ::
 
     from freecad.menuiserie.api import make_mortise_tenon
@@ -81,6 +88,13 @@ from freecad.menuiserie.features.machined_part import (
     remove_machined_part,
 )
 from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.features.shaped_create import (
+    create_shaped_part,
+    create_shaped_parts,
+    reset_axes,
+)
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
+from freecad.menuiserie.features.shaped_part_schema import DEFAULT_PROFILE_THICKNESS
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 __all__ = [
@@ -98,6 +112,8 @@ __all__ = [
     "export_cut_list_pdf",
     "furniture_of",
     "is_machined_part",
+    "is_shaped_part",
+    "is_timber",
     "machined_part_of",
     "make_carcass",
     "make_cut_list",
@@ -108,12 +124,15 @@ __all__ = [
     "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
+    "make_shaped_part",
+    "make_shaped_parts",
     "make_tongue_groove",
     "make_wood_part",
     "number_marks",
     "rebind_furniture",
     "remove_from_furniture",
     "remove_machined_part",
+    "reset_shaped_axes",
     "resize_furniture",
     "set_distance",
     "set_edge_distance",
@@ -160,6 +179,82 @@ def make_wood_part(
         ViewProviderWoodPart(obj.ViewObject)
     document.recompute()
     return obj
+
+
+# --- Pièce en bois (PD-b) -----------------------------------------------------------------
+
+_NOT_A_SHAPED_PART = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas une pièce en bois.")
+
+
+def make_shaped_part(
+    source: DocumentObject,
+    material: str | None = None,
+    mark: str = "",
+    *,
+    profile_thickness: float = DEFAULT_PROFILE_THICKNESS,
+) -> DocumentObject:
+    """Crée la pièce en bois de ``source`` (ADR 0020) et recalcule le document.
+
+    ``source`` : corps ``PartDesign::Body`` (forme de son ``Tip``), fonction PartDesign (ramenée à
+    son corps), forme ``Part::Feature`` à un seul solide valide, ou esquisse plane et fermée
+    (extrudée de ``profile_thickness`` mm le long de sa normale). ``material`` : identifiant du
+    matériau (défaut : celui de la bibliothèque) ; ``mark`` : repère de la pièce.
+
+    La pièce est rangée dans le conteneur de la source (``App::Part``, groupe), exactement à sa
+    place ; la source n'est jamais modifiée, seulement masquée une fois liée. Une forme importée à
+    plusieurs solides se convertit avec :func:`make_shaped_parts` (une pièce par solide). Refus
+    traduits avant toute création : ``TypeError`` (objet de l'atelier, type non pris en charge),
+    ``ValueError`` (forme vide ou invalide, plusieurs solides, esquisse ouverte, cote hors bornes,
+    source déjà convertie), ``KeyError`` (matériau inconnu). Aucune transaction n'est ouverte :
+    c'est à l'appelant de le faire pour pouvoir annuler.
+    """
+    part = create_shaped_part(
+        source, material_id=material, mark=mark, profile_thickness=profile_thickness
+    )
+    _show_shaped([part])
+    part.Document.recompute()
+    return part
+
+
+def make_shaped_parts(
+    source: DocumentObject,
+    material: str | None = None,
+    mark: str = "",
+    *,
+    profile_thickness: float = DEFAULT_PROFILE_THICKNESS,
+) -> list[DocumentObject]:
+    """Crée une pièce en bois par solide de ``source`` et recalcule le document (B11).
+
+    Pour une forme importée (type exactement ``Part::Feature``, sans dépendance : STEP, IGES,
+    copie simple) à plusieurs solides : une pièce par solide, liée à la même source avec son rang
+    (``SolidIndex``) et son empreinte (``SolidSignature``), dans la transaction de l'appelant.
+    Pour toute autre source, une liste d'une pièce, comme :func:`make_shaped_part` (mêmes
+    arguments, mêmes refus)."""
+    parts = create_shaped_parts(
+        source, material_id=material, mark=mark, profile_thickness=profile_thickness
+    )
+    _show_shaped(parts)
+    source.Document.recompute()
+    return parts
+
+
+def reset_shaped_axes(part: DocumentObject) -> None:
+    """Repère automatique de la pièce en bois ``part`` : recalcule ses axes d'après la forme
+    actuelle de sa source (``SourceAxes``) sans que la pièce bouge, puis recalcule le document.
+
+    C'est, avec les quarts de tour du repère, le seul moyen de changer ``SourceAxes`` : un
+    recalcul ordinaire le garde. ``TypeError`` traduite si ``part`` n'est pas une pièce en bois.
+    """
+    if not is_shaped_part(part):
+        raise TypeError(translated(_NOT_A_SHAPED_PART, {"label": str(part.Label)}))
+    reset_axes(part)
+    part.Document.recompute()
+
+
+def _show_shaped(parts: Sequence[DocumentObject]) -> None:
+    """Pose le ViewProvider des pièces en bois si l'interface est chargée. Le ViewProvider
+    arrive avec le lot PD-d : d'ici là, les pièces gardent la vue Part par défaut."""
+    del parts
 
 
 # --- Assemblages (J3, J4) -----------------------------------------------------------------
