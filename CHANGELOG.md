@@ -6,6 +6,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Glisser une pièce à la souris, poignées lisibles (demande de jv du 2026-10-26) : chaque
+  poignée est dessinée en double flèche orange dans l'axe de la cote qu'elle change, avec un
+  point de saisie au centre, au lieu d'un simple carré.
 - Glisser une pièce à la souris, épaisseur du massif (demande de jv du 2026-10-26, amende la
   décision Q4 de l'issue #65,
   [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md)) : une pièce en massif

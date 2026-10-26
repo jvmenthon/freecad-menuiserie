@@ -44,6 +44,8 @@ __all__ = [
 
 ARROW_PX: Final = 80.0  # longueur des flèches à l'écran
 HEAD_RATIO: Final = 0.15  # barbes de la pointe, part de la longueur
+HANDLE_RATIO: Final = 0.3  # demi-longueur de la double flèche d'une poignée, part des flèches
+HANDLE_HEAD: Final = 0.35  # barbes de la double flèche, part de sa demi-longueur
 MAGNET_PX: Final = 10.0  # tolérance de l'aimant à l'écran
 MAX_RATE: Final = 30  # recalculs de la brute par seconde (poignée)
 AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  # X, Y, Z
@@ -84,12 +86,14 @@ def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
 @dataclass(frozen=True)
 class Layout:
     """Ce qui est dessiné et saisissable sur la pièce : repère global, boîte (repère de la pièce),
-    flèches des axes libres et poignées (poignée, centre de sa face en coordonnées globales)."""
+    flèches des axes libres, poignées (poignée, centre de sa face en coordonnées globales) et
+    demi-longueur en mm de la double flèche dessinée sur chaque poignée."""
 
     frame: Frame
     box: Box
     arrows: tuple[Arrow, ...]
     handles: tuple[tuple[Handle, Vec3], ...]
+    handle_mm: float = 0.0
 
 
 def _face_center(box: Box, handle: Handle) -> Vec3:
@@ -119,12 +123,18 @@ def build_layout(
         for axis in sorted(resizable_axes)
         for handle in (Handle(axis, False), Handle(axis, True))
     )
-    return Layout(frame, box, free, handles)
+    return Layout(frame, box, free, handles, HANDLE_RATIO * size_mm)
 
 
 def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
-    """Cibles saisissables en pixels : poignées d'abord (elles l'emportent à égalité), flèches."""
+    """Cibles saisissables en pixels : poignées d'abord (elles l'emportent à égalité), chacune
+    par son centre et par sa double flèche, puis flèches."""
     targets = [PixelTarget(handle_key(h), project(p)) for h, p in layout.handles]
+    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
+    for handle, point in layout.handles:
+        start = project(_plus(point, axes[handle.axis], -layout.handle_mm))
+        end = project(_plus(point, axes[handle.axis], layout.handle_mm))
+        targets.append(PixelTarget(handle_key(handle), start, end))
     for arrow in layout.arrows:
         targets.append(PixelTarget(arrow_key(arrow.axis), project(arrow.start), project(arrow.end)))
     return targets
@@ -193,6 +203,24 @@ def _arrow_lines(arrow: Arrow, frame: Frame) -> tuple[tuple[Vec3, ...], ...]:
     return ((arrow.start, arrow.end), *barbs)
 
 
+def _handle_lines(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
+    """Double flèche de la poignée : tige le long de l'axe de la cote, centrée sur ``point``, et
+    deux barbes à chaque bout, dans le plan de la grande face (X, Y de la pièce) ; celles de
+    l'épaisseur dans le plan X, Z."""
+    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
+    half = layout.handle_mm
+    barb = HANDLE_HEAD * half
+    other = 1 if handle.axis == 0 else 0
+    lines: list[tuple[Vec3, ...]] = [
+        (_plus(point, axes[handle.axis], -half), _plus(point, axes[handle.axis], half))
+    ]
+    for sign in (1.0, -1.0):
+        tip = _plus(point, axes[handle.axis], sign * half)
+        back = _plus(tip, axes[handle.axis], -sign * barb)
+        lines.extend((tip, _plus(back, axes[other], side * barb / 2)) for side in (1.0, -1.0))
+    return tuple(lines)
+
+
 def guide_outline(guide: Guide) -> tuple[Vec3, ...]:
     """Contour du guide dans le repère de la pièce : rectangle fermé (plan), segment (droite) ou
     un point (sommet)."""
@@ -214,17 +242,20 @@ def guide_outline(guide: Guide) -> tuple[Vec3, ...]:
 def build_drawing(
     layout: Layout, hover: str | None = None, guides: Sequence[Guide] = ()
 ) -> Drawing:
-    """Dessin des flèches (couleur de leur axe), des poignées, de la cible survolée en surbrillance
+    """Dessin des flèches (couleur de leur axe), des poignées (double flèche dans l'axe de la cote
+    et point de saisie au centre), de la cible survolée en surbrillance
     et des ``guides`` aimantés (repère de la pièce, portés dans le repère global)."""
     strokes = []
     for arrow in layout.arrows:
         hot = hover == arrow_key(arrow.axis)
         color = HOVER_COLOR if hot else AXIS_COLORS[arrow.axis]
         strokes.append(Stroke(color, 4.0 if hot else 2.0, _arrow_lines(arrow, layout.frame)))
-    dots = [
-        Dots(HOVER_COLOR if hover == handle_key(h) else HANDLE_COLOR, 11.0, (point,))
-        for h, point in layout.handles
-    ]
+    dots = []
+    for handle, point in layout.handles:
+        hot = hover == handle_key(handle)
+        color = HOVER_COLOR if hot else HANDLE_COLOR
+        strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_lines(layout, handle, point)))
+        dots.append(Dots(color, 7.0, (point,)))
     to_global = layout.frame.to_transform()
     for guide in guides:
         outline = tuple(to_global.apply(p) for p in guide_outline(guide))
