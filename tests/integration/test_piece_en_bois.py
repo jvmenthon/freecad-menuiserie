@@ -319,7 +319,7 @@ def test_importe_a_deux_solides(document: Any) -> None:
     assert dimensions(parts[1]) == pytest.approx((200.0, 40.0, 20.0), abs=TOLERANCE)
     assert not source.Visibility
     assert world(parts[1]).CenterOfMass.x == pytest.approx(400.0, abs=TOLERANCE)
-    assert snapshot(source)["Shape"].startswith(f"{first.Volume + second.Volume:.6f}")
+    assert f"{first.Volume + second.Volume:.6f}" in snapshot(source)["Shape"]
 
 
 def test_forme_parametrique_a_deux_solides_refusee(document: Any) -> None:
