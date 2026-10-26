@@ -6,6 +6,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Pièce en bois à forme libre, lot PD-b ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md)) :
+  `make_shaped_part` / `make_shaped_parts` convertissent un corps PartDesign, une forme Part, une
+  esquisse fermée ou une forme importée en pièce de bois (`Menuiserie::ShapedPart`) aux cotes
+  mesurées sur le dessin, sans toucher à la source ; le matériau est partagé avec `WoodPart`.
 - Glisser une pièce à la souris, poignées lisibles (demande de jv du 2026-10-26) : chaque
   poignée est dessinée en double flèche orange dans l'axe de la cote qu'elle change, avec un
   point de saisie au centre, au lieu d'un simple carré.
