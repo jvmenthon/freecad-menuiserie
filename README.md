@@ -95,14 +95,16 @@ quel que soit le style de navigation. Plusieurs pièces sélectionnées : pas de
   s'y aligner (affleurement) et le guide s'allume en rose. **Maj** enfoncée coupe l'aimant.
 - **Échap** pendant le glissement ramène la pièce là où elle était au début du geste.
 - **Panneau de la pièce ouvert** (création ou double-clic) : les flèches sont sur la pièce du
-  panneau et quatre **poignées** orange apparaissent au milieu des bouts et des rives : tirez-en
-  une pour changer la longueur ou la largeur, la face opposée ne bouge pas (l'épaisseur vient de
-  la bibliothèque). Les champs du panneau suivent la souris et tout reste dans la transaction du
+  panneau et des **poignées** orange apparaissent au milieu des bouts et des rives : tirez-en
+  une pour changer la longueur ou la largeur, la face opposée ne bouge pas. Une pièce en **massif**
+  a deux poignées de plus (dessus et dessous) pour l'épaisseur ; l'épaisseur d'un panneau
+  (contreplaqué, MDF, mélaminé) vient de la bibliothèque, sans poignée. Les champs du panneau suivent la souris et tout reste dans la transaction du
   panneau : « Annuler » ramène la pièce à son état d'avant le panneau.
 - **Pièce d'un ensemble** : l'ensemble est relié au relâchement, sans changer ses options. Une
   formule de l'utilisateur sur une position retire la flèche de cet axe ; une pièce verrouillée
-  (« Cotes fixes ») n'a pas de poignées. Le glissement ne change
-  ni la cote de l'ensemble ni une épaisseur : il n'est jamais refusé pour une rangée bloquée.
+  (« Cotes fixes ») n'a pas de poignées. Un déplacement ne change
+  ni la cote de l'ensemble ni une épaisseur : il n'est jamais refusé pour une rangée bloquée. Une
+  épaisseur tirée est gardée et la rangée se recalcule, comme une épaisseur saisie dans le panneau.
 - Un assemblage qui ne touche plus ses pièces après le glissement est gardé, avec un
   avertissement dans la vue rapport.
 

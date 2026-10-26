@@ -55,7 +55,8 @@ cohabite avec les liaisons des ensembles.
    quand on le quitte, avec le filtre du double-clic (ADR 0018). Une pièce de l'atelier
    sélectionnée seule (brute, usinée ou assemblage, qui renvoient à la brute) reçoit trois
    flèches selon ses axes ; panneau ouvert, la pièce du panneau reçoit en plus quatre poignées
-   (longueur, largeur ; jamais l'épaisseur). Le filtre ne consomme que le clic gauche qui tombe
+   (longueur, largeur) et, pour le massif seulement, deux poignées d'épaisseur (note du
+   2026-10-26). Le filtre ne consomme que le clic gauche qui tombe
    sur une flèche ou une poignée ; tout autre évènement est rendu à FreeCAD.
 2. Flèches, rayon, déplacement sur l'axe, aimantation, poignées et tolérance (10 pixels convertis en
    mm) sont des fonctions pures de `core/magnet/`, sans FreeCAD ni Qt.
@@ -100,3 +101,27 @@ Les formules de l'utilisateur rendent toujours l'axe non glissable (point 5) : u
 position de la pièce, et aussi une formule sur la `Value` d'une Distance gardée de la pièce (le
 suivi ne réécrit pas une valeur pilotée par une formule ; l'axe de cette Distance est refusé avec
 le même message). Le statut reste **accepté**.
+
+## Note (2026-10-26, décision de jv : épaisseur du massif)
+
+jv : « Si c'est du massif l'épaisseur est modifiable. » La décision Q4 de la spécification
+(« pas de poignée sur l'épaisseur », point 1 ci-dessus) est amendée : une pièce dont la famille est
+le **massif** (`MaterialKind.SOLID`, d'après `part_kind`) reçoit aussi **deux poignées
+d'épaisseur** (faces du dessus et du dessous, axe Z de la pièce) quand son panneau est ouvert, soit
+six poignées ; un panneau (contreplaqué, MDF, mélaminé) garde l'épaisseur de la bibliothèque
+(ADR 0015) et quatre poignées. La structure ne change pas : `core/magnet.resize` accepte les trois
+axes (borne de 1 mm inchangée) et `drag_limits` décide, comme pour la longueur et la largeur (pièce
+verrouillée, pièce en bois #87, formule de l'utilisateur sur `Thickness` ou sur la position en Z :
+pas de poignée).
+
+Dans un ensemble, une épaisseur tirée se comporte comme une épaisseur saisie dans le panneau
+(ADR 0019, points 5 et 6) : pendant le glissement, la liaison de l'atelier sur `Thickness` est
+mise de côté comme celles de `Length` et `Width` ; au relâchement la pièce reprend son placement
+du début, l'épaisseur est contrôlée (`thickness_notices`) puis tout l'ensemble est relié sur la
+géométrie d'avant (`relink_thickness`) : l'épaisseur est **gardée**, la rangée des autres membres
+est recalculée. Contrairement au déplacement (note du 2026-10-25), cette modification peut donc
+être **refusée** quand une rangée est bloquée par des pièces verrouillées : la pièce revient et le
+message, qui cite les pièces, va dans la vue rapport. Échap rétablit l'épaisseur du début. La face
+du dessus ou du dessous tirée n'est pas forcément celle qui bouge à l'arrivée : la position d'un
+membre d'ensemble est refaite par ses liaisons (une épaisseur saisie dans le panneau fait de
+même). Le statut reste **accepté**.

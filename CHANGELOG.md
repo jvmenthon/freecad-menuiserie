@@ -6,6 +6,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Glisser une pièce à la souris, épaisseur du massif (demande de jv du 2026-10-26, amende la
+  décision Q4 de l'issue #65,
+  [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md)) : une pièce en massif
+  a deux poignées de plus (dessus et dessous) pour changer son épaisseur, soit six ; un panneau
+  (contreplaqué, MDF, mélaminé) garde quatre poignées. Dans un ensemble, l'épaisseur tirée est
+  gardée et la rangée recalculée au relâchement, comme une épaisseur saisie dans le panneau ;
+  Échap la rétablit.
 - Définir une distance, commande et panneau (lot DI-b de l'issue #65,
   [ADR 0022](docs/adr/0022-distance-entre-deux-pieces.md), critères E1 à E6) : commande
   `Menuiserie_SetDistance` (menu, barre d'outils, icône, menu contextuel de la vue 3D et de
