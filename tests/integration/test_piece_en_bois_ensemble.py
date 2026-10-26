@@ -233,10 +233,11 @@ def test_piece_en_bois_assemblee_suit_avec_sa_piece_usinee(document: Any) -> Non
     profondeur de l'ensemble change, le pied et sa pièce usinée sont déplacés, sans étirement."""
     source = document.addObject("Part::Box", "SourcePied")
     source.Length, source.Width, source.Height = LEG
+    source.Placement = App.Placement(App.Vector(0, 305, 0), App.Rotation())  # contre le fond
     document.recompute()
     pied = api.make_shaped_part(source, mark="Pied")
     traverse = api.make_wood_part(300, 60, 20, "chene", mark="Traverse", doc=document)
-    traverse.Placement = App.Placement(App.Vector(45, 17.5, 500), App.Rotation())
+    traverse.Placement = App.Placement(App.Vector(45, 322.5, 500), App.Rotation())
     plateau = api.make_wood_part(600, 400, 30, "chene", mark="Plateau", doc=document)
     plateau.Placement = App.Placement(App.Vector(0, 0, 720), App.Rotation())
     document.recompute()
@@ -253,7 +254,7 @@ def test_piece_en_bois_assemblee_suit_avec_sa_piece_usinee(document: Any) -> Non
     assert machined.Placement.isSame(pied.Placement, 1e-6)  # la pièce usinée suit
     assert machined.Shape.BoundBox.YMin == pytest.approx(405.0, abs=1e-3)
     assert machined.isValid()
-    assert traverse.Shape.BoundBox.YMin == pytest.approx(417.5, abs=1e-3)
+    assert traverse.Shape.BoundBox.YMin == pytest.approx(422.5, abs=1e-3)
     assert traverse.Width.Value == 60.0
     assert "Invalid" not in joint.State
     expressions = {path.lstrip(".") for path, _text in pied.ExpressionEngine}
