@@ -5,7 +5,7 @@ Recette de l'issue #73 ([spécification](../specs/piece-en-bois.md),
 **FreeCAD 1.1.4 (Windows)**, atelier installé depuis la branche du lot. Les règles de calcul sont
 vérifiées par les tests unitaires et d'intégration, l'interface hors écran par
 `tests/gui/verifier_atelier.py` (`verifications_piece_en_bois.py`) ; cette recette sert à **voir** ce
-que voit jv. Les scénarios E6 (assemblages) seront complétés avec le lot PD-e.
+que voit jv. Les scénarios E6 (assemblages) et L1 à L4 (cas limites de fin de jalon) complètent les scénarios D3 à D6.
 
 ## Préparation
 
@@ -54,6 +54,46 @@ fermée en forme de console galbée.
    panneau. Convertir une esquisse ouverte avec un corps : la boîte de refus liste l'esquisse,
    le corps est converti.
 
-### Scénario E6 : assemblages (à compléter avec PD-e)
+### Scénario E6 : assemblages
 
-À compléter.
+1. Convertir un pied galbé (corps PartDesign) en pièce en bois, poser une traverse (pièce de bois)
+   bout contre son chant plat. Sélectionner dans la **vue 3D** le pied puis la traverse : la commande
+   **Tenon-mortaise** est active. Recommencer en sélectionnant les deux dans l'**arbre**.
+2. Le panneau de l'assemblage s'ouvre comme pour deux pièces de bois, sans autre différence visible.
+   **OK** : la mortaise est creusée dans la forme réelle du pied (pas dans une boîte).
+3. Double-clic sur la pièce usinée du pied (dans l'arbre ou la vue) : le panneau de la **pièce en
+   bois** s'ouvre. Allonger la protrusion du corps : pied, mortaise et ligne de débit suivent.
+4. Assembler la traverse sur une face **courbe** du pied : l'assemblage est fait, un avertissement
+   « matière manquante » cite l'assemblage et la pièce (vue rapport). Essayer les six autres types
+   (rainure-languette, feuillure, tourillons, mi-bois, queue d'aronde, onglet) sur des faces planes.
+5. **Annuler** (Ctrl+Z) : l'assemblage et les pièces usinées disparaissent, le pied reste.
+
+### Scénario L1 : cas limites des sources
+
+1. Convertir un corps vide, une esquisse ouverte, une esquisse à deux contours séparés, un lien
+   (App::Link) : chaque refus est expliqué dans la boîte de refus, rien n'est créé.
+2. Convertir une esquisse avec un trou : la pièce est percée, l'épaisseur du profil se règle.
+3. Corps dans un App::Part lui-même dans un App::Part, tournés : la pièce est rangée dans le
+   conteneur de la source et coïncide avec elle ; déplacer le conteneur emporte les deux.
+
+### Scénario L2 : annuler, supprimer, rouvrir
+
+1. Convertir, **Annuler**, **Rétablir** : la pièce revient avec sa texture et ses cotes.
+2. Supprimer le **corps** source (pas la pièce) : la pièce passe en erreur sans message technique ;
+   **Annuler** la rétablit. Enregistrer en erreur, rouvrir : la forme enregistrée s'affiche.
+3. Ouvrir le fichier sur une machine **sans l'atelier** : la forme et le corps s'affichent et se
+   modifient.
+
+### Scénario L3 : tailles extrêmes et forme tournée
+
+1. Pied de 20 m puis de 0,1 mm d'épaisseur : acceptés ; au-delà : refus traduit. Réduire la
+   protrusion d'un pied converti à 0,05 mm : la pièce passe en erreur, la rétablir la corrige.
+2. Forme importée (STEP) tournée de 30° : L suit la plus grande étendue, e la plus petite. Forme très
+   détaillée (plus de 5 000 faces) : avertissement « trop détaillée », axes de la source gardés.
+3. STEP à deux solides identiques : deux pièces, « 2 × » dans la liste de débit.
+
+### Scénario L4 : accrochage sur une pièce en bois d'un ensemble
+
+1. Mettre un pied (pièce en bois) dans un ensemble. Sélectionner une de ses faces et lancer
+   **Pièce de bois** : la planche s'accroche ; elle devrait entrer dans l'ensemble comme sur une
+   pièce de bois (constat ouvert du rapport de relecture).
