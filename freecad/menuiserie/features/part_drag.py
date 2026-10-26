@@ -48,8 +48,8 @@ from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
-from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
 __all__ = [
@@ -114,15 +114,16 @@ class DragMemento:
 def raw_part(obj: DocumentObject) -> DocumentObject:
     """Brute que glisser ``obj`` déplace : la brute elle-même, la ``Base`` d'une pièce usinée,
     la pièce invitée d'un assemblage (ADR 0006). ``TypeError`` traduite pour tout autre objet."""
-    if is_joint(obj) and is_wood_part(obj.GuestPart):
+    if is_joint(obj) and is_timber(obj.GuestPart):
         return obj.GuestPart
     return blank_of(obj)
 
 
 def can_resize(part: DocumentObject) -> bool:
     """Vrai si des poignées sont permises sur la brute ``part`` : pas si elle est verrouillée
-    (``Locked``, ADR 0019, B5). Point unique à étendre pour la pièce en bois (#87)."""
-    return not bool(getattr(part, "Locked", False))
+    (``Locked``, ADR 0019, B5), ni si c'est une pièce en bois : ses cotes sont celles du dessin
+    (#87)."""
+    return not (bool(getattr(part, "Locked", False)) or is_shaped_part(part))
 
 
 def _solid(part: DocumentObject) -> bool:

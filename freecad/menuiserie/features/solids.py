@@ -20,11 +20,20 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.features.i18n import translated
 
-__all__ = ["inserts_shape", "machined_shape", "rigid_transform", "solid_shape"]
+__all__ = [
+    "box_shape",
+    "grown_shape",
+    "inserts_shape",
+    "machined_shape",
+    "rigid_transform",
+    "solid_shape",
+]
 
 _BOOLEAN_FAILED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Usinage impossible : le calcul de la forme a échoué ({reason})."
 )
+_OFFSET_TOLERANCE: Final = 1e-6
+_SHARP_JOIN: Final = 2  # jonction « intersection » de ``makeOffsetShape`` : angles vifs
 _INVALID_SHAPE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Usinage impossible : la forme obtenue n'est pas un solide valide."
 )
@@ -72,17 +81,32 @@ def _cylinder_shape(cylinder: Cylinder) -> Any:
     )
 
 
+def box_shape(dimensions: Dimensions) -> Any:
+    """Boîte d'une pièce de bois dans son repère (coin minimal à l'origine)."""
+    return Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
+
+
+def grown_shape(shape: Any, margin: float) -> Any:
+    """``shape`` épaissie de ``margin`` mm (angles vifs) ; ``shape`` elle-même si le noyau
+    géométrique ne sait pas la calculer."""
+    try:
+        grown = shape.makeOffsetShape(margin, _OFFSET_TOLERANCE, False, False, 0, _SHARP_JOIN)
+    except Part.OCCError:
+        return shape
+    return shape if grown.isNull() else grown
+
+
 def machined_shape(
-    dimensions: Dimensions,
+    base: Any,
     additions: Sequence[Solid],
     cuts: Sequence[Solid],
     trims: Sequence[Solid] = (),
 ) -> Any:
-    """Boîte de la pièce moins ``trims`` (pièce raccourcie au contact, ADR 0016), plus
-    ``additions``, moins ``cuts``, faces coplanaires fusionnées, dans le repère local de la
-    pièce. ``ValueError`` traduite si OCC échoue ou si le résultat n'est pas un solide valide
-    (jamais de forme partielle)."""
-    shape = Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
+    """Forme de base de la pièce (sa boîte pour une pièce de bois, sa forme dessinée pour une
+    pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016),
+    plus ``additions``, moins ``cuts``, faces coplanaires fusionnées. ``ValueError`` traduite si
+    OCC échoue ou si le résultat n'est pas un solide valide (jamais de forme partielle)."""
+    shape = base
     try:
         if trims:
             shape = shape.cut([solid_shape(solid) for solid in trims])
