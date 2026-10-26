@@ -24,7 +24,6 @@ from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import label_of_mark
-from freecad.menuiserie.features.schema import warn
 from freecad.menuiserie.features.wood_material import (
     CATEGORIES,
     CATEGORY_BY_KIND,
@@ -36,8 +35,6 @@ from freecad.menuiserie.features.wood_material import shows_grain as material_sh
 from freecad.menuiserie.features.wood_material_proxy import MaterialProxy
 from freecad.menuiserie.features.wood_part_record import dimensions_of, record_of
 from freecad.menuiserie.features.wood_part_restore import (
-    EMPTY_LIBRARY_MIGRATION,
-    migration_material,
     remove_mistyped_properties,
     restore_enumerations,
     restore_material_choices,
@@ -107,6 +104,12 @@ class WoodPart(MaterialProxy):
         """Langue des libellés de matériaux."""
         return display_language()
 
+    def add_properties(
+        self, obj: DocumentObject, library: MaterialLibrary, material: Material | None
+    ) -> None:
+        """Ajoute les propriétés absentes de la pièce de bois (schéma ADR 0003)."""
+        add_missing_properties(obj, library, material)
+
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, énumérations canoniques, migration, modes
         d'édition (``Material`` en lecture seule si le document est plus récent), puis liste des
@@ -157,24 +160,6 @@ class WoodPart(MaterialProxy):
         placement = obj.Placement
         obj.Shape = Part.makeBox(dimensions.length, dimensions.width, dimensions.thickness)
         obj.Placement = placement
-
-    def _migrate(
-        self, obj: DocumentObject, library: MaterialLibrary, from_version: int, *, repair: bool
-    ) -> None:
-        """Version 0 (absente) ou 1 → 2 : ajoute les propriétés manquantes avec leurs défauts,
-        déduits du matériau de la pièce (``MaterialId``), dont ``PreferredGrainDirection``
-        d'après le fil (ADR 0005). Aboutit même si la bibliothèque est vide.
-
-        ``repair`` : à toute version, recrée de même les propriétés supprimées à la réouverture
-        (type inattendu), sans changer la ``Version``."""
-        outdated = from_version < self.VERSION
-        if not (outdated or repair):
-            return
-        if not len(library):
-            warn(obj, EMPTY_LIBRARY_MIGRATION)
-        add_missing_properties(obj, library, migration_material(obj, library))
-        if outdated:
-            obj.Version = self.VERSION
 
 
 def create_wood_part(

@@ -16,7 +16,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialLibrary
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec
 from freecad.menuiserie.features.wood_material import (
     CATEGORIES,
@@ -27,6 +27,7 @@ from freecad.menuiserie.features.wood_material import (
     KIND_BY_CATEGORY,
     MATERIAL_PROPERTIES,
     PREFERRED_GRAIN_DIRECTIONS,
+    VERSION_SPEC,
     apply_material_modes,
     default_grain,
     density_kg_m3,
@@ -98,18 +99,7 @@ _DIMENSIONS: Final = (
         ),
     ),
 )
-_VERSION: Final = (
-    PropertySpec(
-        "Version",
-        "App::PropertyInteger",
-        "Base",
-        QT_TRANSLATE_NOOP(
-            "App::Property",
-            "Version du modèle de données de la pièce, utilisée pour migrer les anciens fichiers.",
-        ),
-        mode=HIDDEN,
-    ),
-)
+_VERSION: Final = (VERSION_SPEC,)
 # Toutes les propriétés, dans l'ordre d'ajout : cotes, matériau et repère, version.
 PROPERTIES: Final = (*_DIMENSIONS, *MATERIAL_PROPERTIES, *_VERSION)
 # Genre de l'objet cité par les avertissements de la réouverture.

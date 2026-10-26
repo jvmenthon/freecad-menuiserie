@@ -68,6 +68,17 @@ _NEWER_VERSION_READ_ONLY: Final = QT_TRANSLATE_NOOP(
     "Pièce « {label} » : document créé par une version plus récente de l'atelier, le matériau "
     "n'est pas modifiable ici ; mettez l'atelier à jour.",
 )
+# Propriété ``Version`` des deux sortes de pièces (chacune fournit sa valeur par défaut).
+VERSION_SPEC: Final = PropertySpec(
+    "Version",
+    "App::PropertyInteger",
+    "Base",
+    QT_TRANSLATE_NOOP(
+        "App::Property",
+        "Version du modèle de données de la pièce, utilisée pour migrer les anciens fichiers.",
+    ),
+    mode=HIDDEN,
+)
 _T = TypeVar("_T")
 
 # Propriétés de matériau, de fil, de repère et de surcotes, dans l'ordre d'ajout (le même pour

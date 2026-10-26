@@ -29,6 +29,7 @@ from freecad.menuiserie.features.part_names import (
     mark_is_bound,
     warn_mark_bound,
 )
+from freecad.menuiserie.features.schema import warn
 from freecad.menuiserie.features.wood_material import (
     apply_material,
     is_newer_version,
@@ -38,6 +39,10 @@ from freecad.menuiserie.features.wood_material import (
     select_label,
     show_grain_direction,
     shows_grain,
+)
+from freecad.menuiserie.features.wood_part_restore import (
+    EMPTY_LIBRARY_MIGRATION,
+    migration_material,
 )
 
 __all__ = ["MaterialProxy"]
@@ -54,6 +59,13 @@ class MaterialProxy(StatelessProxy):
 
     def language(self) -> str:
         """Langue des libellés de matériaux (fournie par la sous-classe)."""
+        raise NotImplementedError
+
+    def add_properties(
+        self, obj: DocumentObject, library: MaterialLibrary, material: Material | None
+    ) -> None:
+        """Ajoute les propriétés absentes de ``obj``, aux valeurs par défaut déduites de
+        ``material`` (fournie par la sous-classe)."""
         raise NotImplementedError
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
@@ -141,6 +153,25 @@ class MaterialProxy(StatelessProxy):
             apply_material(obj, material)
             select_label(obj, material_choices(self.library(), label), label)
             show_grain_direction(obj, material.has_grain)
+
+    def _migrate(
+        self, obj: DocumentObject, library: MaterialLibrary, from_version: int, *, repair: bool
+    ) -> None:
+        """Version antérieure à ``VERSION`` (0 si absente) : ajoute les propriétés manquantes avec
+        leurs défauts, déduits du matériau de la pièce (``MaterialId``), dont
+        ``PreferredGrainDirection`` d'après le fil (ADR 0005). Aboutit même si la bibliothèque est
+        vide.
+
+        ``repair`` : à toute version, recrée de même les propriétés supprimées à la réouverture
+        (type inattendu), sans changer la ``Version``."""
+        outdated = from_version < self.VERSION
+        if not (outdated or repair):
+            return
+        if not len(library):
+            warn(obj, EMPTY_LIBRARY_MIGRATION)
+        self.add_properties(obj, library, migration_material(obj, library))
+        if outdated:
+            obj.Version = self.VERSION
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         """Faux pendant une resynchronisation interne, une restauration ou une annulation."""
