@@ -100,11 +100,12 @@ def _machined_faces(doc: Document, line: CutLine) -> tuple[ThumbFace, ...] | Non
 
 def thumbnail_of(doc: Document, line: CutLine) -> str:
     """SVG isométrique de la pièce de ``line`` : sa forme usinée, ou à défaut sa boîte de débit
-    (cotes de débit L x l x e)."""
-    faces = _machined_faces(doc, line)
+    (cotes de débit L x l x e). Une pièce en bois montre son rectangle d'encombrement (cotes
+    finies : le contour réel est hors périmètre)."""
+    box = line.finished if line.shape is not None else line.rough
+    faces = None if line.shape is not None else _machined_faces(doc, line)
     if not faces:
-        rough = line.rough
-        faces = box_faces(rough.length, rough.width, rough.thickness)
+        faces = box_faces(box.length, box.width, box.thickness)
     return thumbnail_svg(faces, _color_of(line))
 
 
