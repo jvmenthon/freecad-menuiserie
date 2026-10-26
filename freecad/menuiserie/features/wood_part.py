@@ -206,8 +206,9 @@ def is_wood_part(obj: object) -> bool:
 
 
 def set_material(obj: DocumentObject, material_id: str) -> None:
-    """Change le matériau de la pièce (``UnknownMaterialError`` si l'identifiant est inconnu)."""
-    if not is_wood_part(obj):
+    """Change le matériau d'une pièce de bois ou d'une pièce en bois (toute pièce à proxy
+    :class:`.MaterialProxy`) ; ``UnknownMaterialError`` si l'identifiant est inconnu."""
+    if not proxy_is(obj, MaterialProxy):
         raise TypeError(translated(_NOT_A_WOOD_PART, {"label": str(obj.Label)}))
     obj.Proxy.select_material(obj, get_library().get(material_id))
 

@@ -138,6 +138,15 @@ def _saisies_en_direct(doc: Any) -> list[str]:
     )
     saisir(form.lengthAllowanceEdit, 12.0)
     problemes += ecarts("surcote en direct", piece.LengthAllowance.Value, 12.0)
+    combo = form.materialCombo
+    autre = next(
+        (i for i in range(combo.count()) if combo.itemData(i) not in (None, piece.MaterialId)),
+        -1,
+    )
+    problemes += ecarts("autre matériau proposé", autre >= 0, True)
+    if autre >= 0:
+        combo.setCurrentIndex(autre)
+        problemes += ecarts("matériau en direct", piece.MaterialId, combo.itemData(autre))
     form.rotateZButton.click()
     problemes += ecarts(
         "rotation sur place", piece.Shape.BoundBox.Center.distanceToPoint(centre) < 1e-3, True

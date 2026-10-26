@@ -14,7 +14,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   expression n'est posée sur la source ni sur `Length` / `Width` / `Thickness` ; une rangée bloquée
   par elle est refusée sans proposer de la déverrouiller. Dans le panneau de l'ensemble, la case
   « Cotes fixes » est cochée et grisée avec une infobulle ; les poignées de la souris ne
-  s'appliquent pas à une pièce en bois.
+  s'appliquent pas à une pièce en bois. Quand le dessin d'une pièce en bois membre d'un ensemble
+  change ses cotes, elle avertit : relancez « Relier les pièces » pour que les voisines suivent.
 - Assemblages avec une pièce en bois, lot PD-e (critères E1 à E6 de
   [la spécification](docs/specs/piece-en-bois.md), [ADR 0006](docs/adr/0006-piece-brute-et-piece-usinee.md)
   complété par l'[ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md)) : les sept types

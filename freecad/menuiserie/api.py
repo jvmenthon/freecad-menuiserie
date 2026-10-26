@@ -52,6 +52,7 @@ from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV, CsvDi
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import (
     cutlist_collect,
     cutlist_export,
@@ -246,7 +247,7 @@ def reset_shaped_axes(part: DocumentObject) -> None:
     recalcul ordinaire le garde. ``TypeError`` traduite si ``part`` n'est pas une pièce en bois.
     """
     if not is_shaped_part(part):
-        raise TypeError(translated(_NOT_A_SHAPED_PART, {"label": str(part.Label)}))
+        raise TypeError(translated(_NOT_A_SHAPED_PART, {"label": quoted_value(part.Label)}))
     reset_axes(part)
     part.Document.recompute()
 

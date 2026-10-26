@@ -31,7 +31,7 @@ from freecad.menuiserie.core.shaped import ShapeSignature
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression, proxy_is
-from freecad.menuiserie.features.furniture import MEMBER_OPTIONS
+from freecad.menuiserie.features.furniture import MEMBER_OPTIONS, furniture_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.part_labels import make_label_unique
@@ -80,6 +80,11 @@ _AXES_UNREADABLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pièce en bois « {label} » : le repère de la pièce est illisible ; utilisez « Repère "
     "automatique ».",
+)
+_DRAWN_SIZE_CHANGED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Les cotes dessinées de « {label} » ont changé : relancez « Relier les pièces » sur son "
+    "ensemble pour que les pièces voisines en tiennent compte.",
 )
 _DIMENSION_EXPRESSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -190,15 +195,23 @@ class ShapedPart(MaterialProxy):
 
     def execute(self, obj: DocumentObject) -> None:
         """Reconstruit la forme depuis la source, dans le repère de la pièce, sans toucher au
-        ``Placement`` ; écrit les cotes d'encombrement (propriétés de sortie) si elles changent.
-        ``ValueError`` ou ``TypeError`` traduite si la source manque, a changé ou est refusée."""
+        ``Placement`` ; écrit les cotes d'encombrement (propriétés de sortie) si elles changent,
+        et avertit si c'est un membre d'ensemble. ``ValueError`` ou ``TypeError`` traduite si la
+        source manque, a changé ou est refusée."""
         form = shaped_form(obj)
         placement = obj.Placement
         obj.Shape = form.shape
         obj.Placement = placement
+        changed = False
         for name, value in zip(DIMENSION_NAMES, form.extents, strict=True):
-            if getattr(obj, name).Value != value:
+            old = getattr(obj, name).Value
+            if old != value:
+                changed = changed or old > 0.0
                 setattr(obj, name, value)
+        if changed and furniture_of(obj) is not None:
+            # Les voisines gardent leurs constantes figées (ADR 0019) : simple avertissement,
+            # la pièce n'écrit pas dans un autre objet.
+            schema.warn(obj, _DRAWN_SIZE_CHANGED)
 
 
 def source_solid(obj: DocumentObject) -> Any:

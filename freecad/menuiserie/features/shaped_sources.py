@@ -64,9 +64,6 @@ _UNSUPPORTED: Final = QT_TRANSLATE_NOOP(
     "« {label} » ne peut pas devenir une pièce en bois : choisissez un corps PartDesign, une "
     "forme Part ou une esquisse fermée.",
 )
-_ALREADY_CONVERTED: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » est déjà la forme d'une pièce en bois (« {part} »)."
-)
 _EMPTY_SHAPE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'a pas de forme à convertir (corps sans protrusion, forme vide)."
 )
