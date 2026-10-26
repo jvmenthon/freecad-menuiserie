@@ -14,6 +14,7 @@ from freecad.menuiserie.core.magnet import Guide, GuideKind, Handle, handle_at
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.gui.drag.geometry import (
     GUIDE_COLOR,
+    HANDLE_COLOR,
     HOVER_COLOR,
     Throttle,
     arrow_key,
@@ -103,6 +104,7 @@ def test_cibles_en_pixels_et_saisie() -> None:
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1}))
     targets = pixel_targets(layout, project)
     assert handle_at(targets, (810, 120)) == handle_key(Handle(0, True))
+    assert handle_at(targets, (810 + 28, 120 + 5)) == handle_key(Handle(0, True))  # pointe
     assert handle_at(targets, (410 + 50, 120)) == arrow_key(0)  # sur le corps de la flèche X
     assert handle_at(targets, (410, 120 + 40)) == arrow_key(1)
     assert handle_at(targets, (410, 400)) is None
@@ -135,9 +137,22 @@ def test_dessin_des_fleches_aux_couleurs_des_axes() -> None:
 def test_surbrillance_de_la_cible_survolee() -> None:
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0}))
     drawing = build_drawing(layout, hover=arrow_key(1))
-    assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False, True, False]
+    assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False, True, False, False, False]
     drawing = build_drawing(layout, hover=handle_key(Handle(0, True)))
     assert [d.color == HOVER_COLOR for d in drawing.dots] == [False, True]
+    assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False] * 4 + [True]
+
+
+def test_poignee_dessinee_en_double_fleche_dans_l_axe_de_la_cote() -> None:
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({1}))
+    drawing = build_drawing(layout)
+    handles = [s for s in drawing.strokes if s.color == HANDLE_COLOR]
+    assert len(handles) == 2 and all(len(s.lines) == 5 for s in handles)  # tige, 2 x 2 barbes
+    (start, end) = handles[1].lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
+    assert (start.x, end.x, start.z, end.z) == (410, 410, 41, 41)
+    assert (start.y, end.y) == (220 - 30, 220 + 30)  # 30 % des 100 mm des flèches de chaque côté
+    assert {line[1].z for line in handles[1].lines[1:]} == {41}  # barbes dans le plan X, Y
+    assert [d.points for d in drawing.dots] == [(p,) for _, p in layout.handles]
 
 
 def test_guides_aimantes_en_surbrillance() -> None:
