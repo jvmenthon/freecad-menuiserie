@@ -6,6 +6,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Assemblages avec une pièce en bois, lot PD-e (critères E1 à E6 de
+  [la spécification](docs/specs/piece-en-bois.md), [ADR 0006](docs/adr/0006-piece-brute-et-piece-usinee.md)
+  complété par l'[ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md)) : les sept types
+  d'assemblages acceptent une pièce en bois comme hôte ou invitée, avec une pièce de bois ou une
+  autre pièce en bois ; le plan d'usinage reste calculé sur la boîte d'encombrement, la pièce
+  usinée part de la forme dessinée (les pièces de bois gardent leur forme actuelle) ; si plus de
+  5 % de la matière à usiner manque (face courbe, vide), l'assemblage avertit sans refuser ; le
+  tenon d'une pièce en bois est compté dans la liste de débit.
 - Liste de débit des pièces en bois, lot PD-c (critères C1 à C5 de
   [la spécification](docs/specs/piece-en-bois.md)) : la collecte lit les pièces en bois (document,
   sélection, conteneur, lien) et la liste vivante suit le corps ; cotes finies = encombrement,

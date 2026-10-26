@@ -16,6 +16,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.machined_part import removal_refusal, show_blank
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.part_appearance import PartAppearance, material_color_of
 from freecad.menuiserie.gui.view_providers.wood_part import ICON, PanelEditing
@@ -91,5 +92,5 @@ class ViewProviderMachinedPart(PanelEditing):
         """Texture et couleur de la brute ; sans effet sans brute ou avant l'attachement."""
         appearance: PartAppearance | None = getattr(self, "_appearance", None)
         blank = getattr(vobj.Object, "Base", None)
-        if appearance is not None and is_wood_part(blank):
+        if appearance is not None and is_timber(blank):
             appearance.show(vobj, blank, material_color_of(blank))

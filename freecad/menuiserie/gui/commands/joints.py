@@ -27,7 +27,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joint_names import joint_label
 from freecad.menuiserie.features.joints.base import placed_blank, plan_for
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
-from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
@@ -223,7 +223,7 @@ def feasible_joint(joint: DocumentObject) -> DocumentObject:
 
 
 def _is_part(obj: DocumentObject) -> bool:
-    return is_wood_part(obj) or (is_machined_part(obj) and is_wood_part(obj.Base))
+    return is_timber(obj) or (is_machined_part(obj) and is_timber(obj.Base))
 
 
 def register() -> None:
