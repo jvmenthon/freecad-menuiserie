@@ -1,6 +1,6 @@
 # Atelier FreeCAD « Menuiserie »
 
-Workbench FreeCAD (≥ 1.0) de menuiserie paramétrique. Langue du projet : français
+Workbench FreeCAD (≥ 1.1) de menuiserie paramétrique. Langue du projet : français
 (docs, messages utilisateur, commits) ; identifiants de code en anglais.
 
 - Règles de code, FreeCAD et git : voir `CONTRIBUTING.md` (à respecter strictement).

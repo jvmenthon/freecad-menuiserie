@@ -5,7 +5,7 @@ L'objet (``App::FeaturePython``, nom interne ``CutList``, sans forme) lie la feu
 réécrit (``Sheet``), les objets choisis (``Scope``, vide = tout le document) et les objets lus au
 dernier calcul (``Sources``). ``Sources`` est un lien **dans le graphe de dépendances** : FreeCAD
 recalcule donc la liste après les pièces, dès que l'une change. (Un lien « caché » ne crée pas
-de dépendance : essayé sur FreeCAD 1.0, la liste ne suivait plus les cotes.) Une pièce ajoutée
+de dépendance : essayé, la liste ne suivait plus les cotes.) Une pièce ajoutée
 n'est dans le graphe de personne : ``mustExecute`` compare les objets du document à ``Sources``
 quand la portée est tout le document.
 

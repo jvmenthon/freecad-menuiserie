@@ -85,8 +85,8 @@ class TransactionTaskPanel:
         return int(getattr(buttons, "value", buttons))  # énumérations de PySide6 ou PySide2
 
     def watch_document(self, edited: DocumentObject | None = None) -> None:
-        """Panneau affiché : FreeCAD le ferme si le document est fermé (sans quoi FreeCAD 1.0
-        plante en détruisant les liaisons d'expression) ou si Édition > Annuler / Rétablir
+        """Panneau affiché : FreeCAD le ferme si le document est fermé (sans quoi FreeCAD peut
+        planter en détruisant les liaisons d'expression) ou si Édition > Annuler / Rétablir
         change la transaction ; le mode édition et la transaction sont alors soldés.
         ``edited`` : objet mis en mode édition par le double-clic (la pièce usinée pour sa
         brute), mémorisé ici car il peut perdre son lien vers ``obj`` avant la fermeture."""
