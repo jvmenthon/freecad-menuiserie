@@ -15,7 +15,7 @@
     <workbench>
       <classname>MenuiserieWorkbench</classname>
       <subdirectory>./</subdirectory>
-      <freecadmin>1.0.0</freecadmin>
+      <freecadmin>1.1.0</freecadmin>
       <pythonmin>3.10</pythonmin>
       <tag>woodworking</tag>
       <tag>menuiserie</tag>

@@ -21,7 +21,7 @@ paramétrique : pièces de bois réelles, assemblages classiques et liste de dé
 
 ## Prérequis
 
-- FreeCAD **1.0** ou plus récent.
+- FreeCAD **1.1** ou plus récent.
 
 ## Installation (développement)
 
