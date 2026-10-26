@@ -125,7 +125,7 @@ def test_echantillon_d_une_boite(frame: Any) -> None:
 
 
 def test_tolerance_du_maillage_bornee(frame: Any) -> None:
-    for size, expected in (((10.0, 10.0, 10.0), 0.1), ((100_000.0, 1.0, 1.0), 50.0)):
+    for size, expected in (((10.0, 10.0, 10.0), 0.1), ((60_000.0, 1.0, 1.0), 50.0)):
         box = Box(size)
         frame.sample_of(box)
         assert box.tessellated == [expected]

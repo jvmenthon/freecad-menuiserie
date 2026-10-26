@@ -11,6 +11,7 @@ plafonds de taille de ``core/shaped`` (spécification § 4.9), rien n'est examin
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -18,6 +19,7 @@ import FreeCAD as App
 import Part
 
 from freecad.menuiserie.core.geometry import RigidTransform, Vec3
+from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.core.shaped import (
     MAX_EDGES,
     MAX_FACES,
@@ -45,6 +47,9 @@ EXTENT_DECIMALS: Final = 2  # cotes d'encombrement arrondies au centième de mm
 MESH_DIVISIONS: Final = 200.0  # tolérance du maillage grossier = diagonale / 200 ...
 MIN_MESH_TOLERANCE_MM: Final = 0.1  # ... bornée ...
 MAX_MESH_TOLERANCE_MM: Final = 50.0  # ... des deux côtés
+# Diagonale au-delà de laquelle la forme n'est pas maillée : une cote hors bornes sera refusée de
+# toute façon, et le maillage d'une forme démesurée n'a pas de temps borné (§ 4.9).
+MAX_MESH_DIAGONAL_MM: Final = 2.0 * math.sqrt(3.0) * MAX_DIMENSION_MM
 _ORIGIN: Final = Vec3(0.0, 0.0, 0.0)
 
 
@@ -105,13 +110,14 @@ def local_form(raw: Any, axes: Axes) -> LocalForm:
 def sample_of(shape: Any) -> ShapeSample | None:
     """Échantillon de ``shape`` pour le repère automatique : sommets et points d'un maillage
     grossier (tolérance bornée), faces planes et arêtes droites. ``None`` si la forme dépasse un
-    plafond de ``core/shaped`` (faces, arêtes ou points) ou ne donne pas un échantillon valide."""
+    plafond de ``core/shaped`` (faces, arêtes, points ou diagonale, ou diagonale non finie) ou ne
+    donne pas un échantillon valide."""
     if len(shape.Faces) > MAX_FACES or len(shape.Edges) > MAX_EDGES:
         return None
-    tolerance = min(
-        max(shape.BoundBox.DiagonalLength / MESH_DIVISIONS, MIN_MESH_TOLERANCE_MM),
-        MAX_MESH_TOLERANCE_MM,
-    )
+    diagonal = shape.BoundBox.DiagonalLength
+    if not math.isfinite(diagonal) or diagonal > MAX_MESH_DIAGONAL_MM:
+        return None
+    tolerance = min(max(diagonal / MESH_DIVISIONS, MIN_MESH_TOLERANCE_MM), MAX_MESH_TOLERANCE_MM)
     try:
         mesh_points, _facets = shape.tessellate(tolerance)
         points = [to_vec3(vertex.Point) for vertex in shape.Vertexes]

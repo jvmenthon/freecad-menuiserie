@@ -35,6 +35,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.snap_geometry import ERRORS
 
 __all__ = [
+    "MAX_SOLIDS",
     "READERS",
     "BodyReader",
     "ProfileReader",
@@ -50,6 +51,7 @@ __all__ = [
 ]
 
 PLANAR_TOLERANCE_MM: Final = 1e-5  # écart à l'épaisseur nulle d'une esquisse plane
+MAX_SOLIDS: Final = 256  # solides d'une source, qu'un STEP hostile ne borne pas (§ 4.9)
 _ATELIER_PACKAGE: Final = "freecad.menuiserie"
 
 _WORKSHOP_OBJECT: Final = QT_TRANSLATE_NOOP(
@@ -78,6 +80,11 @@ _SEVERAL_SOLIDS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » contient {count} solides et se recalcule : séparez-les en plusieurs corps avant "
     "de les convertir.",
+)
+_TOO_MANY_SOLIDS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » contient {count} solides, plus que les {max} qu'une conversion accepte : "
+    "séparez la forme en plusieurs fichiers ou corps.",
 )
 _SEVERAL_IMPORTED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » contient {count} solides : convertissez-les en une pièce chacun."
@@ -177,7 +184,10 @@ def _solids_of(obj: DocumentObject, shape: Any) -> tuple[Any, ...]:
     if shape is None or shape.isNull():
         raise ValueError(_refusal(_EMPTY_SHAPE, obj))
     clean = _without_placement(shape)
-    solids = tuple(_baked(solid) for solid in clean.Solids)
+    found = clean.Solids
+    if len(found) > MAX_SOLIDS:  # avant toute copie ou contrôle : le travail reste borné
+        raise ValueError(_refusal(_TOO_MANY_SOLIDS, obj, count=len(found), max=MAX_SOLIDS))
+    solids = tuple(_baked(solid) for solid in found)
     if not solids:
         raise ValueError(_refusal(_NOT_A_SOLID, obj))
     if not all(solid.isValid() and solid.Volume > 0.0 for solid in solids):
