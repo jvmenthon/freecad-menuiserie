@@ -46,6 +46,7 @@ from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEM
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
 from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROUS
 from tests.gui.verifications_piece_en_bois import VERIFICATIONS_PIECE_EN_BOIS
+from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
@@ -1252,6 +1253,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_DISTANCE_GARDEE,
     # Pièce en bois à forme libre (PD-d)
     *VERIFICATIONS_PIECE_EN_BOIS,
+    # Pièce en bois dans un ensemble (PD-f)
+    *VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE,
 )
 
 

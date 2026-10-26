@@ -38,7 +38,8 @@ __all__ = ["MemberView", "member_views", "shown_object"]
 class MemberView:
     """Un membre vu par le panneau. ``distances`` est vide pour un membre qui n'est pas
     d'équerre ; ``driven`` : bords dont la distance suit une formule de l'utilisateur ;
-    ``locked`` : pièce aux cotes fixes."""
+    ``locked`` : pièce aux cotes fixes ; ``drawn`` : cotes dessinées (pièce en bois), fixes et
+    sans option pour les libérer."""
 
     obj: DocumentObject
     mode: str
@@ -47,6 +48,7 @@ class MemberView:
     fixed: frozenset[Edge]
     driven: frozenset[Edge]
     locked: bool = False
+    drawn: bool = False
 
 
 def shown_object(member: DocumentObject) -> DocumentObject:
@@ -86,6 +88,7 @@ def member_views(furniture: DocumentObject) -> tuple[tuple[MemberView, ...], tup
             fixed=member.fixed or frozenset(),
             driven=driven_edges(member),
             locked=member.locked,
+            drawn=member.drawn,
         )
         for member in members.members
     )

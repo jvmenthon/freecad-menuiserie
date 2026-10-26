@@ -6,6 +6,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Pièce en bois dans un ensemble, lot PD-f ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
+  décision 8 ; critères F1 à F3) : `make_furniture`, `add_to_furniture` et toute l'API des
+  ensembles acceptent une pièce en bois ; elle suit l'ensemble par son `Placement` (expressions
+  natives), ses trois cotes sont toujours fixes (mécanisme des cotes bloquées de l'ADR 0019) : une
+  règle qui voudrait l'étirer la déplace et avertit « cote dessinée : modifiez le dessin » ; aucune
+  expression n'est posée sur la source ni sur `Length` / `Width` / `Thickness` ; une rangée bloquée
+  par elle est refusée sans proposer de la déverrouiller. Dans le panneau de l'ensemble, la case
+  « Cotes fixes » est cochée et grisée avec une infobulle ; les poignées de la souris ne
+  s'appliquent pas à une pièce en bois.
 - Pièce en bois, commande, panneau et vue, lot PD-d ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
   critères D1 à D6) : commande « Convertir en pièce en bois » (une pièce par source sélectionnée,
   une transaction, refus listés, accrochage contre les éléments choisis en plus), panneau (repère

@@ -61,6 +61,12 @@ _LOCKED_TIP: Final = QT_TRANSLATE_NOOP(
     "Cotes fixes : la pièce ne change pas de cotes quand l'ensemble change. Si aucune pièce "
     "d'une rangée ne peut s'adapter, la cote de l'ensemble est refusée.",
 )
+_DRAWN_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cotes dessinées : les cotes d'une pièce en bois viennent de son dessin, elles sont "
+    "toujours fixes et ne s'étirent jamais. L'ensemble déplace la pièce ; pour changer ses "
+    "cotes, modifiez le dessin.",
+)
 _FIXED: Final = QT_TRANSLATE_NOOP("Menuiserie", "fixe")
 _FIXED_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -99,6 +105,14 @@ def locked_check() -> Widget:
     check.setObjectName("lockedCheck")
     check.setToolTip(translated(_LOCKED_TIP))
     return check
+
+
+def show_locked(check: Widget, view: MemberView | None) -> None:
+    """Case « Cotes fixes » du membre ``view`` : grisée, avec l'infobulle qui dit pourquoi, pour
+    une pièce en bois (cotes dessinées, F2) ; inactive sans membre."""
+    drawn = view is not None and view.drawn
+    check.setEnabled(view is not None and not drawn)
+    check.setToolTip(translated(_DRAWN_TIP if drawn else _LOCKED_TIP))
 
 
 def message_label(name: str, *, error: bool = False, hint: bool = False) -> Widget:

@@ -15,9 +15,10 @@ sont l'affaire de ``gui/``.
 
 Points d'extension :
 
-- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin, donc pas de poignée ;
-  l'ajouter dans :func:`can_resize`, seul endroit qui décide des poignées d'une pièce ; la
-  famille (massif ou panneau) ne décide que de l'épaisseur (:func:`_solid`) ;
+- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin (sorties), donc pas de
+  poignée (:func:`can_resize`, seul endroit qui décide des poignées d'une pièce) ; elle se
+  déplace comme une pièce de bois, par ``Placement`` ; la famille (massif ou panneau) ne décide
+  que de l'épaisseur (:func:`_solid`) ;
 - Distance gardée (DI-c, B6) : au relâchement, la ``Value`` des Distances de la pièce prend la
   distance nouvelle (:func:`end_drag`, avant la liaison de l'ensemble) ; Échap la rétablit.
 """
@@ -48,8 +49,8 @@ from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
-from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
 __all__ = [
@@ -114,15 +115,16 @@ class DragMemento:
 def raw_part(obj: DocumentObject) -> DocumentObject:
     """Brute que glisser ``obj`` déplace : la brute elle-même, la ``Base`` d'une pièce usinée,
     la pièce invitée d'un assemblage (ADR 0006). ``TypeError`` traduite pour tout autre objet."""
-    if is_joint(obj) and is_wood_part(obj.GuestPart):
+    if is_joint(obj) and is_timber(obj.GuestPart):
         return obj.GuestPart
-    return blank_of(obj)
+    return obj if is_timber(obj) else blank_of(obj)
 
 
 def can_resize(part: DocumentObject) -> bool:
     """Vrai si des poignées sont permises sur la brute ``part`` : pas si elle est verrouillée
-    (``Locked``, ADR 0019, B5). Point unique à étendre pour la pièce en bois (#87)."""
-    return not bool(getattr(part, "Locked", False))
+    (``Locked``, ADR 0019, B5), ni si c'est une pièce en bois, dont les cotes viennent du dessin
+    (ADR 0020, #87)."""
+    return not (is_shaped_part(part) or bool(getattr(part, "Locked", False)))
 
 
 def _solid(part: DocumentObject) -> bool:
@@ -168,11 +170,12 @@ def drag_limits(part: DocumentObject) -> DragLimits:
     coordinates = _fixed_coordinates(user) | _driven_gap_coordinates(part)
     rotation = part.Placement.Rotation
     fixed = frozenset(i for i in range(3) if _coordinates(i, rotation) & coordinates)
+    if not can_resize(part):
+        return DragLimits(fixed, frozenset())
     sizes = frozenset(i for i, prop in enumerate(SIZE_PROPS) if prop not in user)
     if not _solid(part):
         sizes -= {THICKNESS_AXIS}
-    resizable = sizes - fixed if can_resize(part) else frozenset()
-    return DragLimits(fixed, resizable)
+    return DragLimits(fixed, sizes - fixed)
 
 
 def _invalid_joints(part: DocumentObject) -> frozenset[str]:

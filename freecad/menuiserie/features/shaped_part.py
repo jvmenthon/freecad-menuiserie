@@ -31,6 +31,7 @@ from freecad.menuiserie.core.shaped import ShapeSignature
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression, proxy_is
+from freecad.menuiserie.features.furniture import MEMBER_OPTIONS
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.part_labels import make_label_unique
@@ -157,6 +158,9 @@ class ShapedPart(MaterialProxy):
                 profile=is_profile(obj),
             )
             restore_material_choices(obj, library)
+        from freecad.menuiserie.features.furniture_restore import restore_member
+
+        restore_member(obj)  # membre d'un ensemble (J4) ; sans effet sinon
         make_label_unique(obj)  # copie, duplication, fusion (J6, L5 bis)
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
@@ -165,6 +169,16 @@ class ShapedPart(MaterialProxy):
         super().onChanged(obj, prop)
         if prop == "ExpressionEngine" and self._follows_user_changes(obj):
             self._refuse_dimension_expressions(obj)
+        if prop in MEMBER_OPTIONS and self._follows_user_changes(obj):
+            from freecad.menuiserie.features.furniture_edits import member_changed
+
+            member_changed(obj, prop)  # membre d'ensemble (J4) : ses cotes restent fixes (F1)
+
+    def unsetupObject(self, obj: DocumentObject) -> None:
+        """Pièce supprimée : ses voisines d'ensemble sont reliées sans elle (même transaction)."""
+        from freecad.menuiserie.features.furniture_relink import member_removed
+
+        member_removed(obj)
 
     def _refuse_dimension_expressions(self, obj: DocumentObject) -> None:
         """Retire, avec un avertissement traduit, l'expression posée sur ``Length``, ``Width``
