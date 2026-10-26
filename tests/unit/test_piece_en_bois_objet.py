@@ -771,34 +771,3 @@ def test_api_reset_refuse_un_objet_qui_n_est_pas_une_piece_en_bois(modules: Any)
 def test_viewprovider_absent_sans_effet(modules: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(modules.api.App, "GuiUp", True, raising=False)
     modules.api._show_shaped([FakePart()])  # PD-d n'existe pas encore : aucune erreur
-
-
-def test_viewprovider_pose_quand_il_existe(modules: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    posed: list[Any] = []
-    provider = types.SimpleNamespace(ViewProviderShapedPart=posed.append)
-    monkeypatch.setattr(modules.api.App, "GuiUp", True, raising=False)
-    monkeypatch.setattr(modules.api.importlib, "import_module", lambda _name: provider)
-    part = types.SimpleNamespace(ViewObject="VUE")
-    modules.api._show_shaped([part])
-    assert posed == ["VUE"]
-
-
-def test_erreur_d_import_du_viewprovider_remontee(
-    modules: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def broken(_name: str) -> None:
-        raise ModuleNotFoundError("autre", name="autre")
-
-    monkeypatch.setattr(modules.api.App, "GuiUp", True, raising=False)
-    monkeypatch.setattr(modules.api.importlib, "import_module", broken)
-    with pytest.raises(ModuleNotFoundError):
-        modules.api._show_shaped([FakePart()])
-
-
-def test_aucun_viewprovider_sans_interface(modules: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(_name: str) -> None:
-        raise AssertionError("importation inattendue")
-
-    monkeypatch.setattr(modules.api.App, "GuiUp", False, raising=False)
-    monkeypatch.setattr(modules.api.importlib, "import_module", boom)
-    modules.api._show_shaped([FakePart()])

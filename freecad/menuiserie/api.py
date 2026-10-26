@@ -41,7 +41,6 @@ l'interface est chargée (``App.GuiUp``) : il fonctionne aussi dans ``freecadcmd
 
 from __future__ import annotations
 
-import importlib
 import os
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -185,10 +184,6 @@ def make_wood_part(
 # --- Pièce en bois (PD-b) -----------------------------------------------------------------
 
 _NOT_A_SHAPED_PART = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas une pièce en bois.")
-_SHAPED_VIEW_PROVIDER = (
-    "freecad.menuiserie.gui.view_providers.shaped_part",
-    "ViewProviderShapedPart",
-)
 
 
 def make_shaped_part(
@@ -257,20 +252,9 @@ def reset_shaped_axes(part: DocumentObject) -> None:
 
 
 def _show_shaped(parts: Sequence[DocumentObject]) -> None:
-    """Pose le ViewProvider des pièces en bois si l'interface est chargée. Le module du
-    ViewProvider (PD-d) est cherché à l'exécution : tant qu'il n'existe pas, les pièces gardent
-    la vue Part par défaut."""
-    if not App.GuiUp:
-        return
-    module_name, class_name = _SHAPED_VIEW_PROVIDER
-    try:
-        module = importlib.import_module(module_name)
-    except ModuleNotFoundError as error:
-        if error.name != module_name:
-            raise
-        return
-    for part in parts:
-        getattr(module, class_name)(part.ViewObject)
+    """Pose le ViewProvider des pièces en bois si l'interface est chargée. Le ViewProvider
+    arrive avec le lot PD-d : d'ici là, les pièces gardent la vue Part par défaut."""
+    del parts
 
 
 # --- Assemblages (J3, J4) -----------------------------------------------------------------
