@@ -120,6 +120,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (`DistanceError`), calcule la translation qui amène la distance à une valeur (`moved_by`) et
   l'axe d'ensemble correspondant (`ensemble_axis`).
 
+### Sécurité
+- Relecture sécurité du jalon « Pièce en bois » (issue #73, spec § 4.9) : une source compte au plus
+  256 solides, une forme de diagonale démesurée ou non finie n'est pas maillée, et le contrôle de
+  matière des assemblages (E3) ne bloque jamais un assemblage (volume dégénéré, échec du noyau) et
+  ne lance aucune booléenne sur une forme de plus de 5 000 faces.
+
 ### Modifié
 - Relecture du jalon « souris et distances » (issue #65,
   [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), note du 2026-10-25) : le
