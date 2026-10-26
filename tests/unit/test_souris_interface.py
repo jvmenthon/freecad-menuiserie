@@ -83,6 +83,16 @@ def test_trois_fleches_et_quatre_poignees() -> None:
     assert centers[(1, True)] == Vec3(410, 220, 41)
 
 
+def test_poignees_d_epaisseur_ecartees_du_depart_des_fleches() -> None:
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1, 2}))
+    centers = {(h.axis, h.at_end): p for h, p in layout.handles}
+    start = layout.arrows[0].start
+    top, bottom = centers[(2, True)], centers[(2, False)]
+    assert (top.x, top.y) == (start.x - 200, start.y)  # un quart des 800 mm vers le début
+    assert (bottom.x, bottom.y) == (start.x + 200, start.y)
+    assert top.z > start.z > bottom.z
+
+
 def test_axe_pilote_par_une_formule_sans_fleche() -> None:
     layout = build_layout(FRAME, BOX, 100.0, frozenset({1}), frozenset())
     assert [a.axis for a in layout.arrows] == [0, 2]

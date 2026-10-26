@@ -234,7 +234,9 @@ freecad/menuiserie/
 - **Poignées** : quatre, au milieu des faces de bout et de rive, plus **deux** sur les faces du
   dessus et du dessous (six) quand la pièce est du **massif** (Q4, amendée par jv le 2026-10-26 :
   « Si c'est du massif l'épaisseur est modifiable ») ; un panneau (contreplaqué, MDF, mélaminé)
-  garde l'épaisseur de la bibliothèque (ADR 0015) et n'a que les quatre. Tirée, la poignée bouge
+  garde l'épaisseur de la bibliothèque (ADR 0015) et n'a que les quatre. Les poignées d'épaisseur
+  sont décalées d'un quart de la longueur (celle du dessus vers le début, celle du dessous vers la
+  fin) : au milieu, le départ des flèches les cacherait. Tirée, la poignée bouge
   le long de la normale de sa face ; la cote vaut au moins 1 mm.
 - **Champs du panneau** : la session écrit l'objet, puis demande au panneau de relire `Length`,
   `Width`, `Placement` (méthode existante de rafraîchissement des champs), sous le garde
