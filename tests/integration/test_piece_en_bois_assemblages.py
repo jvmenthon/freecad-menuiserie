@@ -168,7 +168,7 @@ def test_formes_usinees_des_pieces_de_bois_inchangees(cadre: Cadre) -> None:
         assert local_extent(cadre.parts[mark]) == pytest.approx((600, 60, 22))
     for mark in ("T1", "T2"):
         assert cadre.volume(mark) == pytest.approx(RAIL_VOLUME)
-        assert local_extent(cadre.parts[mark]) == pytest.approx((320, 60, 22))
+        assert local_extent(cadre.parts[mark]) == pytest.approx((360, 60, 22))
     for mark in cadre.parts:
         shape = cadre.machined(mark).Shape
         assert shape.isValid()

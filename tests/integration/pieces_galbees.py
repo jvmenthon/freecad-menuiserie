@@ -63,8 +63,16 @@ def shaped(source: Any, mark: str = "") -> Any:
 
 
 def void_block(doc: Any, name: str = "Vide") -> Any:
-    """Bloc 200 x 100 x 50 dont le bout x > 140 est enlevé : un vide dans la boîte."""
-    block = Part.makeBox(200, 100, 50).cut(Part.makeBox(60, 100, 50, App.Vector(140, 0, 0)))
+    """Bloc 200 x 100 x 50 dont le chant y = 100 est évidé de x = 60 à 140 sur 60 mm de profondeur
+    : un vide dans la boîte d'encombrement."""
+    block = Part.makeBox(200, 100, 50).cut(Part.makeBox(80, 60, 50, App.Vector(60, 40, 0)))
+    return imported(doc, block, name=name)
+
+
+def hollow_end_block(doc: Any, name: str = "BoutCreux") -> Any:
+    """Bloc 200 x 100 x 50 dont le bout x = 200 est évidé (y de 20 à 80, 50 mm de profondeur) :
+    le bout de la boîte est presque sans matière."""
+    block = Part.makeBox(200, 100, 50).cut(Part.makeBox(50, 60, 50, App.Vector(150, 20, 0)))
     return imported(doc, block, name=name)
 
 
