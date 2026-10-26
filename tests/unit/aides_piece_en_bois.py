@@ -24,6 +24,7 @@ class FakeSolid:
         values = [0.0] * 16
         values[0], values[5], values[10] = inertia
         self.MatrixOfInertia = types.SimpleNamespace(A=values)
+        self.Placement = types.SimpleNamespace(isIdentity=lambda: True)
         self.CenterOfMass = types.SimpleNamespace(x=center[0], y=center[1], z=center[2])
 
     def isValid(self) -> bool:  # nom imposé par FreeCAD

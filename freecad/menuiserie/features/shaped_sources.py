@@ -159,13 +159,25 @@ def _without_placement(shape: Any) -> Any:
     return clean
 
 
+def _baked(solid: Any) -> Any:
+    """``solid`` dont la position propre (placement d'un solide de composé) est inscrite dans la
+    géométrie : la forme est alors dans le repère de la source, sans placement."""
+    placement = solid.Placement
+    if placement.isIdentity():
+        return solid
+    baked = solid.copy()
+    baked.Placement = App.Placement()
+    baked.transformShape(placement.toMatrix(), True)
+    return baked
+
+
 def _solids_of(obj: DocumentObject, shape: Any) -> tuple[Any, ...]:
     """Solides valides de ``shape`` (repère propre de ``obj``) ; refus traduits si la forme est
     vide, sans solide ou invalide."""
     if shape is None or shape.isNull():
         raise ValueError(_refusal(_EMPTY_SHAPE, obj))
     clean = _without_placement(shape)
-    solids = tuple(clean.Solids)
+    solids = tuple(_baked(solid) for solid in clean.Solids)
     if not solids:
         raise ValueError(_refusal(_NOT_A_SOLID, obj))
     if not all(solid.isValid() and solid.Volume > 0.0 for solid in solids):
@@ -293,10 +305,12 @@ def container_of(source: DocumentObject) -> DocumentObject | None:
     """Conteneur où ranger la pièce en bois : celui de la source (``App::Part`` ou groupe), ou
     ``None`` à la racine du document. Un corps ne reçoit que ses fonctions : on remonte au
     conteneur du corps."""
-    parent = source.getParentGroup()
-    while parent is not None and parent.isDerivedFrom("PartDesign::Body"):
-        parent = parent.getParentGroup()
-    return parent
+    node = source
+    while True:
+        parent = node.getParentGroup() or node.getParentGeoFeatureGroup()
+        if parent is None or not parent.isDerivedFrom("PartDesign::Body"):
+            return parent
+        node = parent
 
 
 def solid_values(solid: Any) -> list[float]:

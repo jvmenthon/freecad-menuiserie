@@ -323,3 +323,25 @@ def test_un_corps_ne_recoit_que_ses_fonctions(sources: Any) -> None:
     assert sources.container_of(esquisse) is part
     assert sources.container_of(corps) is part
     assert sources.container_of(body(solid_shape(1.0))) is None
+
+
+def test_position_propre_d_un_solide_de_compose_inscrite_dans_la_geometrie(sources: Any) -> None:
+    """Un solide importé décalé (placement propre) garde sa position dans le repère de la source."""
+    calls: list[str] = []
+
+    class Located(FakeSolid):
+        def __init__(self) -> None:
+            super().__init__()
+            self.Placement = types.SimpleNamespace(
+                isIdentity=lambda: False, toMatrix=lambda: "matrice"
+            )
+
+        def copy(self) -> Located:
+            return self
+
+        def transformShape(self, matrix: str, copy: bool) -> None:  # nom imposé par FreeCAD
+            calls.append(f"{matrix} {copy}")
+
+    baked = sources._baked(Located())
+    assert calls == ["matrice True"]
+    assert baked.Placement is not None

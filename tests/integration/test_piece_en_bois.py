@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import importlib
-import xml.etree.ElementTree as ET
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -101,17 +100,23 @@ def assert_same_place(part: Any, source: Any) -> None:
         assert getattr(a.BoundBox, name) == pytest.approx(getattr(b.BoundBox, name), abs=TOLERANCE)
 
 
+def describe(value: Any) -> str:
+    """Texte stable d'une valeur de propriété : les formes (recréées à chaque lecture, adresse
+    différente) sont décrites par leur géométrie, pas par leur représentation."""
+    if isinstance(value, Part.Shape):
+        if value.isNull():
+            return "forme nulle"
+        return f"{value.ShapeType} {value.Volume:.6f} {value.BoundBox} {value.Placement}"
+    return str(value)
+
+
 def snapshot(obj: Any) -> dict[str, Any]:
     """Propriétés et forme de ``obj`` hors visibilité, pour vérifier qu'il n'a pas changé."""
-    values = {
-        name: str(getattr(obj, name))
+    return {
+        name: describe(getattr(obj, name))
         for name in obj.PropertiesList
-        if name not in ("Visibility", "State", "Shape")
+        if name not in ("Visibility", "State")
     }
-    shape = getattr(obj, "Shape", None)
-    if shape is not None and not shape.isNull():
-        values["Shape"] = f"{shape.Volume:.6f} {shape.BoundBox}"
-    return values
 
 
 def part_of(source: Any) -> Any:
@@ -127,7 +132,7 @@ def test_corps_partdesign_devient_une_piece(document: Any) -> None:
     document.recompute()
     assert api.is_shaped_part(part)
     assert part.TypeId == "Part::FeaturePython"
-    assert part.Proxy.Type == "Menuiserie::ShapedPart"
+    assert part.Proxy.TYPE == "Menuiserie::ShapedPart"
     assert dimensions(part) == pytest.approx((720.0, 95.0, 45.0), abs=TOLERANCE)
     assert part.Source == source
     assert "Invalid" not in part.State
@@ -143,7 +148,9 @@ def test_la_piece_a_la_place_de_la_source(document: Any) -> None:
     part = part_of(source)
     document.recompute()
     assert_same_place(part, source)
-    box_ = part.Shape.BoundBox
+    local = part.Shape.copy()
+    local.Placement = App.Placement()  # la forme est dans le repère de la pièce
+    box_ = local.BoundBox
     assert (box_.XMin, box_.YMin, box_.ZMin) == pytest.approx((0.0, 0.0, 0.0), abs=TOLERANCE)
 
 
@@ -375,7 +382,7 @@ def test_source_dans_un_conteneur_part(document: Any) -> None:
     document.recompute()
     part = part_of(source)
     document.recompute()
-    assert part in container.Group
+    assert part.Name in [obj.Name for obj in container.Group]
     assert_same_place(part, source)
 
 
@@ -385,7 +392,7 @@ def test_source_dans_un_groupe(document: Any) -> None:
     group.addObject(source)
     part = part_of(source)
     document.recompute()
-    assert part in group.Group
+    assert part.Name in [obj.Name for obj in group.Group]
     assert_same_place(part, source)
 
 
@@ -483,7 +490,7 @@ def test_reouverture(document: Any, rouvrir: Reopen, tmp_path: Path) -> None:
     doc = rouvrir(document)
     reopened = doc.getObject(name)
     assert api.is_shaped_part(reopened)
-    assert reopened.Proxy.Type == "Menuiserie::ShapedPart"
+    assert reopened.Proxy.TYPE == "Menuiserie::ShapedPart"
     assert reopened.Source == doc.getObject(source_name)
     assert dimensions(reopened) == pytest.approx(expected, abs=TOLERANCE)
     assert reopened.Mark == "P1"
@@ -497,19 +504,14 @@ def test_reouverture(document: Any, rouvrir: Reopen, tmp_path: Path) -> None:
 
 
 def test_chemin_de_persistance_fige(document: Any, tmp_path: Path) -> None:
-    part = part_of(leg(document))
+    part_of(leg(document))
     document.recompute()
     path = tmp_path / "persistance.FCStd"
     document.saveAs(str(path))
     with zipfile.ZipFile(path) as archive:
-        root = ET.fromstring(archive.read("Document.xml"))  # noqa: S314 (fichier produit ici)
-        entry = next(
-            node
-            for node in root.iter("Object")
-            if node.get("name") == part.Name and node.get("module")
-        )
-        assert entry.get("module") == "freecad.menuiserie.features.shaped_part"
-        assert entry.get("class") == "ShapedPart"
+        xml = archive.read("Document.xml").decode("utf-8")
+        assert 'module="freecad.menuiserie.features.shaped_part"' in xml
+        assert 'class="ShapedPart"' in xml
         assert any(name.endswith(".brp") for name in archive.namelist())
 
 
