@@ -20,6 +20,7 @@ PRIVATE_MODULES = (
     "freecad.menuiserie.core.furniture._",
     "freecad.menuiserie.core.cutlist._",
     "freecad.menuiserie.core.snap._",
+    "freecad.menuiserie.core.shaped._",
 )
 CORE_PACKAGE = PACKAGE / "core"
 # core/ est pur (critère M11 de J3) : ni FreeCAD ni Qt.
