@@ -33,6 +33,7 @@ from freecad.menuiserie.core.part_model import (
     rough_dimensions,
     volume_m3,
 )
+from freecad.menuiserie.core.shaped import ShapeSignature
 from freecad.menuiserie.core.text import quoted_value
 
 NO_MARK_DISPLAY: Final = "—"
@@ -69,6 +70,7 @@ _FIELDS: Final[Mapping[str, str]] = MappingProxyType(
         "length": QT_TRANSLATE_NOOP("Menuiserie", "longueur"),
         "kind": QT_TRANSLATE_NOOP("Menuiserie", "nature"),
         "rough_thicknesses": QT_TRANSLATE_NOOP("Menuiserie", "épaisseurs de brut"),
+        "shape": QT_TRANSLATE_NOOP("Menuiserie", "empreinte de forme"),
     }
 )
 
@@ -109,7 +111,8 @@ def _require_instance(value: object, expected: type, field: str) -> None:
 class CutEntry:
     """Une pièce brute vue ``quantity`` fois : ``additions`` (mm, le long de L, l, e) s'ajoute
     aux cotes de débit, jamais aux cotes finies ; ``furniture`` et ``source`` ne servent
-    qu'à l'affichage et aux avertissements."""
+    qu'à l'affichage et aux avertissements. ``shape`` : empreinte de forme d'une pièce en bois
+    (PD-c), ``None`` pour une pièce de bois ; elle sépare les deux familles au regroupement."""
 
     record: PartRecord
     quantity: int = 1
@@ -117,9 +120,12 @@ class CutEntry:
     furniture: str = ""
     source: str = ""
     rough_thicknesses: tuple[float, ...] = ()
+    shape: ShapeSignature | None = None
 
     def __post_init__(self) -> None:
         _require_instance(self.record, PartRecord, "record")
+        if self.shape is not None:
+            _require_instance(self.shape, ShapeSignature, "shape")
         _require_instance(self.additions, Allowances, "additions")
         _require_count(self.quantity, "quantity")
         self._normalize_rough_thicknesses()
@@ -212,7 +218,8 @@ class CutLine:
     """Un groupe de pièces identiques ; volumes et masses = unitaires fois ``quantity``.
     ``marks`` : repères distincts non vides des pièces du groupe, en ordre naturel (C1').
     ``source`` : nom interne de la première pièce du groupe (clé de la miniature, vide si
-    inconnu)."""
+    inconnu). ``shape`` : empreinte de forme d'un groupe de pièces en bois, ``None`` pour du
+    bois (la ligne porte alors la mention « forme »)."""
 
     marks: tuple[str, ...]
     quantity: int
@@ -228,6 +235,7 @@ class CutLine:
     furniture: tuple[str, ...] = ()
     source: str = ""
     over_standard: bool = False
+    shape: ShapeSignature | None = None
 
     @property
     def display_mark(self) -> str:

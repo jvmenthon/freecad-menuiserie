@@ -18,7 +18,7 @@ from freecad.menuiserie.features.cutlist_collect import checked_objects, collect
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.part_names import mark_is_bound
-from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = ["number_marks"]
 
@@ -37,7 +37,7 @@ def _plan(doc: Document, objects: Sequence[DocumentObject] | None, prefix: str) 
         for entry in collected.entries
         if entry.record.mark or not mark_is_bound(doc.getObject(entry.source))
     ]
-    used = [str(obj.Mark) for obj in doc.Objects if is_wood_part(obj)]
+    used = [str(obj.Mark) for obj in doc.Objects if is_timber(obj)]
     marks = assign_marks(entries, prefix, used)
     return {entry.source: marks[group_key(entry)] for entry in entries if not entry.record.mark}
 

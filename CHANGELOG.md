@@ -6,6 +6,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Ajouté
+- Liste de débit des pièces en bois, lot PD-c (critères C1 à C5 de
+  [la spécification](docs/specs/piece-en-bois.md)) : la collecte lit les pièces en bois (document,
+  sélection, conteneur, lien) et la liste vivante suit le corps ; cotes finies = encombrement,
+  volume et masse = bois à acheter ; la remarque porte « forme » et la miniature l'encombrement ;
+  deux pièces de même forme sont regroupées « 2 × », jamais avec une pièce de bois de mêmes cotes ;
+  la numérotation des repères les traite comme les pièces de bois.
 - Pièce en bois à forme libre, lot PD-b ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md)) :
   `make_shaped_part` / `make_shaped_parts` convertissent un corps PartDesign, une forme Part, une
   esquisse fermée ou une forme importée en pièce de bois (`Menuiserie::ShapedPart`) aux cotes

@@ -30,6 +30,7 @@ from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.machined_part import is_machined_part
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 from freecad.menuiserie.features.wood_part import is_wood_part
 
 __all__ = [
@@ -71,14 +72,15 @@ def _is_container(obj: DocumentObject) -> bool:
 
 
 def is_source(obj: DocumentObject) -> bool:
-    """Vrai si la collecte lit ``obj`` dès qu'il est dans la portée : pièce, pièce usinée,
-    ensemble, lien ou conteneur (un élément de tableau de liens est lu par son tableau). Les
+    """Vrai si la collecte lit ``obj`` dès qu'il est dans la portée : pièce, pièce en bois, pièce
+    usinée, ensemble, lien ou conteneur (un élément de tableau de liens est lu par son tableau). Les
     assemblages par tourillons n'en sont pas : ils ne sont lus que si leurs deux pièces sont dans
     la portée, et en ajouter un modifie leurs pièces usinées."""
     if obj.TypeId == _LINK_ELEMENT:
         return False
     return (
         is_wood_part(obj)
+        or is_shaped_part(obj)
         or is_machined_part(obj)
         or is_furniture(obj)
         or _is_link(obj)
@@ -102,6 +104,8 @@ class _Walk:
         self._readers: tuple[tuple[Callable[[DocumentObject], bool], _Reader], ...] = (
             # nosemgrep: python.lang.maintainability.is-function-without-parentheses
             (is_wood_part, self._part),
+            # nosemgrep: python.lang.maintainability.is-function-without-parentheses
+            (is_shaped_part, self._part),
             # nosemgrep: python.lang.maintainability.is-function-without-parentheses
             (is_machined_part, self._machined),
             # nosemgrep: python.lang.maintainability.is-function-without-parentheses
