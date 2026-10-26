@@ -20,20 +20,23 @@ from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.library import display_language
 from freecad.menuiserie.features.schema import warn
-from freecad.menuiserie.features.wood_part_schema import (
+from freecad.menuiserie.features.wood_material import (
     CATEGORIES,
     CATEGORY_BY_KIND,
     GRAIN_DIRECTIONS,
-    MODEL_VERSION,
-    NOUN,
     PREFERRED_GRAIN_DIRECTIONS,
-    PROPERTIES,
     default_grain,
     material_choices,
     material_kind,
     part_kind,
     preferred_grain_default,
     select_label,
+    stored_material,
+)
+from freecad.menuiserie.features.wood_part_schema import (
+    MODEL_VERSION,
+    NOUN,
+    PROPERTIES,
 )
 
 EMPTY_LIBRARY_MIGRATION: Final = QT_TRANSLATE_NOOP(
@@ -56,13 +59,6 @@ _MISSING_MATERIAL: Final = QT_TRANSLATE_NOOP(
     "Pièce « {label} » : matériau « {id} » absent de la bibliothèque locale, "
     "valeurs enregistrées conservées (masse volumique, catégorie, libellé).",
 )
-
-
-def stored_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
-    """Matériau de la bibliothèque désigné par ``MaterialId`` ; ``None`` si la propriété manque
-    ou si le matériau est inconnu localement."""
-    material_id = obj.MaterialId if "MaterialId" in obj.PropertiesList else ""
-    return library.find(material_id)
 
 
 def migration_material(obj: DocumentObject, library: MaterialLibrary) -> Material | None:
