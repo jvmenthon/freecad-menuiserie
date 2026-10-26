@@ -57,7 +57,9 @@ def test_deux_solides_identiques_d_une_forme_importee_regroupes(document: Any) -
     parts = api.make_shaped_parts(source)
     document.recompute()
     assert [part.SolidIndex for part in parts] == [0, 1]
-    assert parts[0].SolidSignature == parts[1].SolidSignature
+    # L'empreinte contient le centre de masse (B11) : deux solides à deux places diffèrent, le
+    # regroupement par deux vient de la forme dans le repère de la pièce (C4).
+    assert parts[0].SolidSignature != parts[1].SolidSignature
     [line] = api.cut_list_of(document).lines
     assert line.quantity == 2
 
@@ -185,5 +187,6 @@ def test_piece_en_bois_tournee_dans_un_ensemble(document: Any) -> None:
         "Placement.Base.y",
         "Placement.Base.z",
     }
-    assert stale_or_invalid(document) == []
+    states = {obj.Name: (obj.State, obj.getStatusString()) for obj in document.Objects}
+    assert stale_or_invalid(document) == [], (states, leg.ExpressionEngine)
     assert leg.Shape.Volume == pytest.approx(45.0 * 95.0 * 720.0, rel=TOLERANCE)
