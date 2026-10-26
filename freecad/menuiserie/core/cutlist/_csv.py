@@ -93,6 +93,8 @@ HARDWARE_LABELS: Final[Mapping[HardwareKind, str]] = MappingProxyType(
 ADDITIONS_REMARK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Ajouts compris (L / l / e) : {length} / {width} / {thickness} mm"
 )
+SHAPE_REMARK: Final = QT_TRANSLATE_NOOP("Menuiserie", "forme (cotes = encombrement)")
+_REMARK_SEPARATOR: Final = " ; "
 
 
 def format_number(value: float, decimals: int, dialect: CsvDialect = INTERNATIONAL_CSV) -> str:
@@ -128,6 +130,16 @@ def additions_remark(
     return translate(ADDITIONS_REMARK).format_map(params)
 
 
+def line_remark(
+    line: CutLine, translate: Translate, dialect: CsvDialect = INTERNATIONAL_CSV
+) -> str:
+    """Colonne « Remarque » d'une ligne : « forme » pour une pièce en bois (cotes = encombrement),
+    puis les ajouts d'assemblage s'il y en a ; texte vide sinon."""
+    parts = [translate(SHAPE_REMARK)] if line.shape is not None else []
+    parts.append(additions_remark(line, translate, dialect))
+    return _REMARK_SEPARATOR.join(part for part in parts if part)
+
+
 def _line_row(line: CutLine, translate: Translate, dialect: CsvDialect) -> list[str]:
     sizes = (*_sizes(line.finished), *_sizes(line.rough))
     return [
@@ -140,7 +152,7 @@ def _line_row(line: CutLine, translate: Translate, dialect: CsvDialect) -> list[
         _fixed(line.volume_m3(rough=True), VOLUME_DECIMALS, dialect),
         _fixed(line.mass_kg(rough=True), MASS_DECIMALS, dialect),
         _fixed(line.area_m2(), AREA_DECIMALS, dialect),
-        additions_remark(line, translate, dialect),
+        line_remark(line, translate, dialect),
     ]
 
 

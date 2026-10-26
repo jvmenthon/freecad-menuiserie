@@ -49,8 +49,11 @@ def _rounded(*values: float) -> tuple[float, ...]:
 
 
 def group_key(entry: CutEntry) -> GroupKey:
-    """Clé de regroupement (C1') : matériau, cotes finies, ajouts, surcotes, fil (sans repère)."""
+    """Clé de regroupement (C1', C4) : matériau, cotes finies, ajouts, surcotes, fil, épaisseurs
+    de brut et empreinte de forme (sans repère) ; une pièce en bois n'est jamais groupée avec une
+    pièce de bois."""
     record = entry.record
+    shape = entry.shape
     finished, allowances, additions = record.finished, record.allowances, entry.additions
     return (
         record.material_id,
@@ -59,6 +62,7 @@ def group_key(entry: CutEntry) -> GroupKey:
         _rounded(allowances.length, allowances.width, allowances.thickness),
         record.grain,
         _rounded(*entry.rough_thicknesses),
+        None if shape is None else (shape.volume, shape.area, shape.faces),
     )
 
 
@@ -107,6 +111,7 @@ def _make_line(entries: Sequence[CutEntry]) -> CutLine:
         furniture=tuple(furniture),
         source=first.source,
         over_standard=first.over_standard,
+        shape=first.shape,
     )
 
 
