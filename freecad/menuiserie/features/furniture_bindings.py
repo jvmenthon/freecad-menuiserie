@@ -52,8 +52,9 @@ from freecad.menuiserie.features.i18n import (
 )
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import machined_part_of
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.solids import rigid_transform
-from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
+from freecad.menuiserie.features.wood_part import dimensions_of
 
 __all__ = [
     "LockedPiecesError",
@@ -122,9 +123,10 @@ def locked_error(error: BlockedRowError, objects: Mapping[str, DocumentObject]) 
     verrouillées en sont la cause, sinon ``ValueError`` au message traduit. ``objects`` : objets
     des membres par clé."""
     message = templated_message(error)
-    if not error.locked:
+    # Une pièce en bois ne se déverrouille pas (cotes dessinées) : jamais proposée.
+    locked = tuple(objects[key] for key in error.locked if not is_shaped_part(objects[key]))
+    if not locked:
         return ValueError(message)
-    locked = tuple(objects[key] for key in error.locked)
     return LockedPiecesError(message, locked, tuple(objects[key] for key in error.members))
 
 
@@ -142,7 +144,7 @@ def _assembly_constrained(obj: DocumentObject) -> bool:
     """Vrai si un joint de l'atelier Assembly cite ``obj`` (ou sa pièce usinée) : sa position
     est alors une « contrainte » de l'utilisateur (détection au mieux, risque R6)."""
     candidates = [obj]
-    machined = machined_part_of(obj) if is_wood_part(obj) else None
+    machined = machined_part_of(obj) if is_timber(obj) else None
     if machined is not None:
         candidates.append(machined)
     return any(_in_joint_group(parent) for item in candidates for parent in item.InList)
@@ -181,14 +183,18 @@ def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> M
     """Membre vu par ``core`` dans le repère de l'ensemble d'``Origin`` ``origin``.
 
     ``entering`` : objet qui entre dans l'ensemble (options à calculer, toutes ses expressions
-    sont des formules de l'utilisateur). ``ValueError`` traduite pour une cote invalide."""
+    sont des formules de l'utilisateur). Une pièce en bois a des cotes dessinées : toujours
+    fixes (``drawn``, ADR 0020 décision 8), quelle que soit sa propriété ``Locked``.
+    ``ValueError`` traduite pour une cote invalide."""
+    drawn = is_shaped_part(obj)
     common = {
         "key": obj.Name,
         "label": str(obj.Label),
         "mode": InteriorMode.STAY if entering else _mode(obj),
         "fixed": None if entering else _fixed(obj),
         "driven": _driven(obj, entering),
-        "locked": False if entering else bool(getattr(obj, "Locked", False)),
+        "locked": drawn or (not entering and bool(getattr(obj, "Locked", False))),
+        "drawn": drawn,
     }
     with translated_errors():
         if is_furniture(obj):

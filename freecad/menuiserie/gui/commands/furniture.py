@@ -24,9 +24,10 @@ from freecad.menuiserie.features.furniture import (
     has_member_properties,
     is_furniture,
 )
+from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
-from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.features.machined_part import is_machined_part
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui.commands.base import (
     REFUSAL_DISPLAY_MS,
     TransactionCommand,
@@ -43,11 +44,9 @@ COMMANDS: Final = (FURNITURE, FURNITURE_ADD, FURNITURE_REMOVE, FURNITURE_REBIND)
 
 
 def is_candidate(obj: DocumentObject) -> bool:
-    """Vrai pour ce qui peut être membre d'un ensemble : pièce de bois, pièce usinée d'une
-    pièce de bois, ensemble."""
-    return (
-        is_wood_part(obj) or is_furniture(obj) or (is_machined_part(obj) and is_wood_part(obj.Base))
-    )
+    """Vrai pour ce qui peut être membre d'un ensemble : pièce de bois ou pièce en bois, pièce
+    usinée de l'une d'elles, ensemble."""
+    return is_timber(obj) or is_furniture(obj) or (is_machined_part(obj) and is_timber(obj.Base))
 
 
 def selected_candidates() -> list[DocumentObject] | None:
@@ -65,10 +64,6 @@ def target_and_others(
     target = next((obj for obj in selection if is_furniture(obj)), None)
     others = [obj for obj in selection if obj is not target]
     return (target, others) if target is not None and others else None
-
-
-def _member(obj: DocumentObject) -> DocumentObject:
-    return obj if is_furniture(obj) else blank_of(obj)
 
 
 class FurnitureCommand(TransactionCommand):
@@ -128,7 +123,7 @@ def concerned_furniture() -> list[DocumentObject]:
     """Ensembles sélectionnés et ensembles des membres sélectionnés."""
     found = []
     for obj in selected_candidates() or []:
-        member = _member(obj)
+        member = member_object(obj)
         found += [item for item in (member, furniture_of(member)) if is_furniture(item)]
     return found
 
@@ -208,7 +203,7 @@ class RemoveFromFurnitureCommand(FurnitureCommand):
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Sélection faite de membres seulement."""
-        return all(has_member_properties(_member(obj)) for obj in selection)
+        return all(has_member_properties(member_object(obj)) for obj in selection)
 
     def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
         """``remove_from_furniture`` sur la sélection."""

@@ -398,8 +398,11 @@ def _reported(notices: Sequence[Notice], doc: Document) -> _Notices:
 def make_furniture(
     objects: Sequence[DocumentObject], label: str = ""
 ) -> tuple[DocumentObject, _Notices]:
-    """Crée un ensemble (« Ensemble » par défaut) autour de ``objects`` (pièces de bois, pièces
-    usinées ou ensembles), le relie à eux par des expressions et recalcule le document.
+    """Crée un ensemble (« Ensemble » par défaut) autour de ``objects`` (pièces de bois, pièces en
+    bois, pièces usinées ou ensembles), le relie à eux par des expressions et recalcule le
+    document. Une pièce en bois suit l'ensemble par son ``Placement`` seulement : ses cotes
+    viennent du dessin, toujours fixes (ADR 0020), et une règle qui voudrait l'étirer la déplace
+    en avertissant « cote dessinée : modifiez le dessin ».
 
     Cotes et ``Origin`` = boîte qui contient les membres ; options « fixe » par défaut (toute
     distance fixe, Q7). Renvoie l'ensemble et les avertissements traduits (aussi dans la vue

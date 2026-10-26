@@ -5,8 +5,8 @@ Une saisie est toujours appliquée (règle Q4 de J4) ; l'atelier écrit les seul
 membre modifié, dans la transaction en cours, et avertit dans la vue rapport quand la saisie
 casse une pièce ou un assemblage, tombe dans une rangée bloquée par des pièces verrouillées
 (ADR 0019), ou laisse des liaisons d'autres membres à refaire (« Relier les pièces »).
-Appelé par ``onChanged`` de l'ensemble et de la pièce de bois ; sans effet pendant une
-restauration, une annulation, un recalcul ou une écriture de l'atelier.
+Appelé par ``onChanged`` de l'ensemble, de la pièce de bois et de la pièce en bois ; sans effet
+pendant une restauration, une annulation, un recalcul ou une écriture de l'atelier.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from freecad.menuiserie.features.furniture import (
     follows_user_changes,
     furniture_of,
     take_previous,
+    writing,
 )
 from freecad.menuiserie.features.furniture_bindings import (
     bind_members,
@@ -33,13 +34,15 @@ from freecad.menuiserie.features.furniture_bindings import (
     read_members,
     report,
 )
+from freecad.menuiserie.features.furniture_members import DRAWN_LOCKED, quoted_label
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import (
     resize_notices,
     with_locks,
     with_thickness,
 )
-from freecad.menuiserie.features.i18n import templated_message
+from freecad.menuiserie.features.i18n import templated_message, translated
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 
 __all__ = [
     "member_changed",
@@ -113,6 +116,16 @@ def thickness_changed(obj: DocumentObject, previous: tuple[object] | None) -> No
     report(messages)
 
 
+def _keep_drawn_locked(obj: DocumentObject, prop: str) -> list[str]:
+    """Une pièce en bois a des cotes dessinées, toujours fixes (ADR 0020, décision 8) : si
+    l'utilisateur décoche ``Locked``, la case est recochée et il en est averti."""
+    if prop != "Locked" or not is_shaped_part(obj) or obj.Locked:
+        return []
+    with writing(obj):
+        obj.Locked = True
+    return [translated(DRAWN_LOCKED, quoted_label(obj))]
+
+
 def member_option_changed(obj: DocumentObject, prop: str) -> None:
     """Réglage changé par l'utilisateur (éditeur de propriétés, script) : tout l'ensemble est
     relié, dans la transaction en cours (le réglage d'un membre change la rangée des autres :
@@ -123,9 +136,10 @@ def member_option_changed(obj: DocumentObject, prop: str) -> None:
     furniture = furniture_of(obj)
     if furniture is None or not follows_user_changes(obj):  # ni recalcul, ni annulation
         return
+    messages = _keep_drawn_locked(obj, prop)
     try:
         members = read_members(furniture)
-        report(notice_messages(bind_members(members, members.objects)))
+        report([*messages, *notice_messages(bind_members(members, members.objects))])
     except ValueError as error:
         report([str(error)])
 

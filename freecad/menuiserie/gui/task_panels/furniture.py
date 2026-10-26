@@ -51,6 +51,7 @@ from freecad.menuiserie.gui.task_panels.furniture_widgets import (
     locked_check,
     members_tree,
     message_label,
+    show_locked,
     show_message,
 )
 from freecad.menuiserie.gui.task_panels.unlock_widgets import UnlockBox
@@ -301,7 +302,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
             self._mode.setCurrentIndex(max(self._mode.findData(view.mode if view else ""), 0))
             self._locked.setChecked(view is not None and view.locked)
         self._mode.setEnabled(view is not None)
-        self._locked.setEnabled(view is not None)
+        show_locked(self._locked, view)
         for row in self._rows:
             row.show(view)
 
