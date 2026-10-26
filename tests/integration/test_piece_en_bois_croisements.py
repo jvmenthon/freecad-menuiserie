@@ -14,7 +14,6 @@ import pytest
 
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.pieces_galbees import (
-    GUEST,
     curved_rail,
     expected_volume,
     machined_volume,
@@ -24,6 +23,7 @@ from tests.integration.pieces_galbees import (
     wood_at,
 )
 from tests.integration.test_piece_en_bois import TOLERANCE, box, imported
+from tests.integration.test_piece_en_bois_assemblages import GUEST
 
 pytestmark = pytest.mark.integration
 
