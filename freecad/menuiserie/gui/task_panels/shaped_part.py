@@ -26,11 +26,13 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_MM
 from freecad.menuiserie.core.snap import Turn
+from freecad.menuiserie.features.drag_joints import rotate_checked
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
 from freecad.menuiserie.features.i18n import report_warning, translated
-from freecad.menuiserie.features.placement import SnapSession, rotate_part, snap_part
+from freecad.menuiserie.features.placement import SnapSession, snap_part
 from freecad.menuiserie.features.shaped_part import is_profile
 from freecad.menuiserie.features.shaped_part_schema import DIMENSION_NAMES, is_from_newer_version
+from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
@@ -267,7 +269,7 @@ class ShapedPartTaskPanel(ObjectTaskPanel):
     def _on_rotate(self, turn: Turn) -> None:
         """Quart de tour de la pièce autour de l'axe X, Y ou Z du document : accrochée si elle a
         été posée contre des éléments, sinon sur place."""
-        if rotate_part(self.obj, turn, self._session):
+        if rotate_checked(self.obj, turn, self._session, joint_choice.choose):
             self._recompute()
 
     def _on_edit_drawing(self) -> None:

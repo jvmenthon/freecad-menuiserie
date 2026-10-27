@@ -268,7 +268,7 @@ def _show_shaped(parts: Sequence[DocumentObject]) -> None:
 
 
 def make_mortise_tenon(
-    host: DocumentObject, guest: DocumentObject, **params: object
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
 ) -> DocumentObject:
     """Relie deux pièces (pièces de bois ou pièces usinées) par un tenon-mortaise et recalcule
     le document : mortaise dans ``host``, tenon au bout de ``guest``.
@@ -278,12 +278,18 @@ def make_mortise_tenon(
     ``mortise_clearance``. Pièces et paramètres sont validés avant toute création
     (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est ouverte : c'est à
     l'appelant de le faire pour pouvoir annuler.
+
+    Toutes les fonctions ``make_…`` d'assemblage acceptent le mot-clé ``check`` : fonction
+    appelée sur l'assemblage créé **avant le premier recalcul**, qui le renvoie (rôles inversés
+    au besoin) ou lève ``ValueError`` ; la commande de l'interface y passe
+    ``features.joints.feasible.feasible_joint``, pour qu'un assemblage impossible ne soit jamais
+    recalculé (ADR 0024). Sans ``check``, l'assemblage impossible est créé en erreur.
     """
-    return _make_joint(create_mortise_tenon, host, guest, params)
+    return _make_joint(create_mortise_tenon, host, guest, params, check)
 
 
 def make_tongue_groove(
-    host: DocumentObject, guest: DocumentObject, **params: object
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
 ) -> DocumentObject:
     """Relie deux pièces par une rainure-languette et recalcule le document : rainure dans
     ``host``, languette au chant ou au bout de ``guest``.
@@ -292,18 +298,22 @@ def make_tongue_groove(
     ``thickness_offset``, ``groove_clearance``, ``through_groove``. Mêmes validations et même
     absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_tongue_groove, host, guest, params)
+    return _make_joint(create_tongue_groove, host, guest, params, check)
 
 
-def make_rabbet(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_rabbet(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Loge ``guest`` dans une feuillure de ``host`` (les deux pièces doivent se chevaucher) et
     recalcule le document. Paramètre facultatif : ``through`` (feuillure filante, vrai par
     défaut). Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_rabbet, host, guest, params)
+    return _make_joint(create_rabbet, host, guest, params, check)
 
 
-def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_dowels(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie deux pièces par des tourillons percés à travers leur contact et recalcule le
     document.
 
@@ -311,10 +321,12 @@ def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -
     ``host_depth``, ``count``, ``edge_distance``, ``thickness_offset``, ``hole_clearance``.
     Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_dowels, host, guest, params)
+    return _make_joint(create_dowels, host, guest, params, check)
 
 
-def make_half_lap(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_half_lap(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie à mi-bois deux pièces de même épaisseur, à fleur, qui se chevauchent (croix, T ou
     angle) et recalcule le document : ``host`` est entaillée par-dessus, ``guest`` par-dessous.
 
@@ -322,10 +334,12 @@ def make_half_lap(host: DocumentObject, guest: DocumentObject, **params: object)
     de l'épaisseur), ``flip_side`` (entaille de ``host`` par-dessous). Mêmes validations et même
     absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_half_lap, host, guest, params)
+    return _make_joint(create_half_lap, host, guest, params, check)
 
 
-def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_dovetail(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie à queue d'aronde traversante ``guest`` (pièce à queues, en contact par son bout,
     dessinée à sa longueur visible) et ``host`` (pièce à griffes, hors tout, son bout à fleur
     de la face extérieure de ``guest``), puis recalcule le document.
@@ -335,29 +349,41 @@ def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object)
     ``host``), ``angle`` (angle des flancs en degrés, 10° ; au plus 30°). Mêmes validations et
     même absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_dovetail, host, guest, params)
+    return _make_joint(create_dovetail, host, guest, params, check)
 
 
-def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_miter(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie à onglet ``host`` et ``guest``, dessinées à leur longueur hors tout (de pointe
     longue à pointe longue) et qui se chevauchent au coin, puis recalcule le document. La coupe
     passe par le coin extérieur et le coin intérieur : 45° pour deux largeurs égales. Aucun
     paramètre en J4 (un nom inconnu lève ``TypeError``) ; mêmes validations et même absence de
     transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_miter, host, guest, params)
+    return _make_joint(create_miter, host, guest, params, check)
 
 
 _JointFactory = Callable[..., DocumentObject]
+_Check = Callable[[DocumentObject], DocumentObject]
 
 
 def _make_joint(
-    factory: _JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
+    factory: _JointFactory,
+    host: DocumentObject,
+    guest: DocumentObject,
+    params: dict[str, object],
+    check: _Check | None = None,
 ) -> DocumentObject:
-    """Crée l'assemblage par ``factory`` dans le document des pièces, pose les ViewProviders
-    si l'interface est chargée, puis recalcule (:func:`_shown_and_recomputed`)."""
+    """Crée l'assemblage par ``factory`` dans le document des pièces, le fait contrôler par
+    ``check`` s'il est donné, pose les ViewProviders si l'interface est chargée, puis recalcule
+    (:func:`_shown_and_recomputed`). ``check`` passe **avant le premier recalcul** : un assemblage
+    impossible ferait imprimer sa trace par FreeCAD ; il renvoie l'assemblage (rôles inversés au
+    besoin) ou lève ``ValueError``, et c'est à l'appelant d'annuler sa transaction."""
     document = blank_of(host).Document
     joint = factory(document, host, guest, **params)
+    if check is not None:
+        joint = check(joint)
     return _shown_and_recomputed(joint)
 
 

@@ -6,7 +6,9 @@ fabrique ``FACTORY`` de :mod:`freecad.menuiserie.api`, puis ouvre le panneau de 
 (J3e) ; « Annuler » ne laisse rien. Un refus de la fabrique, ou un assemblage impossible entre
 les pièces telles qu'elles sont posées (pièces qui ne se touchent pas, mi-bois sans croisement…),
 est expliqué dans une boîte d'avertissement, la barre d'état et la vue rapport, sans rien créer
-ni ouvrir de panneau (demande de jv). Les rôles (hôte, invitée) sont devinés d'après la
+ni ouvrir de panneau (demande de jv). L'assemblage est essayé par ``feasible_joint`` avant son
+premier recalcul (mot-clé ``check`` de la fabrique) : un assemblage impossible ne fait jamais
+imprimer de trace à FreeCAD (ADR 0024). Les rôles (hôte, invitée) sont devinés d'après la
 position des pièces (``guess_roles``) ; si c'est ambigu, la première pièce sélectionnée reçoit
 la mortaise, la rainure ou la feuillure.
 """
@@ -24,15 +26,15 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import guess_roles
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.joint_names import joint_label
-from freecad.menuiserie.features.joints.base import placed_blank, plan_for
+from freecad.menuiserie.features.joints.base import placed_blank
+from freecad.menuiserie.features.joints.feasible import feasible_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
 
-Factory = Callable[[DocumentObject, DocumentObject], DocumentObject]
+Factory = Callable[..., DocumentObject]  # (hôte, invitée, *, check=…)
 
 PAIR: Final = 2
 # Noms des commandes, aussi noms de leurs icônes (``<nom>.svg``) et contextes de traduction.
@@ -73,7 +75,7 @@ class JointCommand(TransactionCommand):
         doc.openTransaction(translated(self.TRANSACTION))
         try:
             with aborted_on_error(App.getActiveTransaction()):
-                joint = feasible_joint(type(self).FACTORY(host, guest))
+                joint = type(self).FACTORY(host, guest, check=feasible_joint)
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
@@ -204,22 +206,6 @@ def ordered_roles(
         return first, second
     pair = (first, second)
     return pair[host_index], pair[guest_index]
-
-
-def feasible_joint(joint: DocumentObject) -> DocumentObject:
-    """``joint`` s'il est réalisable entre ses pièces, au besoin rôles inversés (rôles mal
-    devinés) ; sinon ``ValueError`` traduite qui explique pourquoi, rôles d'origine."""
-    try:
-        plan_for(joint)
-    except ValueError as error:
-        joint.HostPart, joint.GuestPart = joint.GuestPart, joint.HostPart
-        try:
-            plan_for(joint)
-        except ValueError:
-            joint.HostPart, joint.GuestPart = joint.GuestPart, joint.HostPart
-            raise error from None
-        joint.Label = joint_label(joint)
-    return joint
 
 
 def _is_part(obj: DocumentObject) -> bool:

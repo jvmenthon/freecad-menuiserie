@@ -23,7 +23,7 @@
   [0019 — Rangées et épaisseurs fixes](../adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (PR #86),
   [0020 — Pièce en bois](../adr/0020-piece-en-bois-enveloppe-d-un-corps.md) (PR #87),
   **[0021 — Déplacement à la souris avec aimantation](../adr/0021-deplacement-a-la-souris-avec-aimantation.md)** (accepté),
-  **[0022 — Distance entre deux pièces](../adr/0022-distance-entre-deux-pieces.md)** (accepté)
+  **[0022 — Distance entre deux pièces](../adr/0022-distance-entre-deux-pieces.md)** (accepté), **[0024 — Assemblage défait par un déplacement](../adr/0024-assemblage-defait-par-un-deplacement.md)** (accepté, modifie B7)
 - Découpage : six PR, **(SM-a ∥ DI-a) → SM-b → (SM-c ∥ DI-b) → DI-c** (§ 5)
 
 **Vocabulaire.** *Glisser* : déplacer la pièce à la souris, bouton gauche enfoncé. *Flèche* : l'une
@@ -96,7 +96,7 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 | B4 | I | Propriété pilotée par une **formule de l'utilisateur** (pas une liaison de l'atelier) : l'axe correspondant n'est pas glissable (`DragLimits.fixed_axes`), aucune expression n'est retirée. |
 | B5 | I | Pièce **verrouillée** (`Locked`, #86) : glissement permis, poignées refusées. Pièce en bois (#87) : glissement permis, poignées refusées (cotes du dessin). **Épaisseur** (Q4 amendée, 2026-10-26) : l'axe 2 n'est redimensionnable que si la famille de la pièce est le **massif** (`MaterialKind.SOLID`) ; un panneau (contreplaqué, MDF, mélaminé), une pièce verrouillée, une pièce dont `Thickness` ou la position en Z porte une formule de l'utilisateur : pas de poignée d'épaisseur. |
 | B6 | I | Une pièce qui a une **Distance** gardée (DI-c) le long de l'axe glissé : la valeur de la Distance suit le glissement (Q8 ★). |
-| B7 | I | Assemblage qui ne touche plus après le glissement : le glissement est gardé, avertissement dans la vue rapport (règle Q4 de J4 : toujours appliquer, prévenir). |
+| B7 | I | **Modifié par l'[ADR 0024](../adr/0024-assemblage-defait-par-un-deplacement.md).** Assemblage qui ne touche plus après le déplacement : sa faisabilité est essayée au relâchement, **avant tout recalcul** (`plan_for` dans un `try`), sans trace Python ; une fenêtre propose « Annuler le déplacement » (la pièce revient ; Échap ou fermeture = annuler) ou « Supprimer l'assemblage » / « Supprimer les assemblages » (noms listés ; assemblages et pièces usinées devenues vides supprimés, déplacement gardé). Une seule transaction annulable. Même fenêtre pour « Définir une distance » (panneau) et les rotations du panneau de la pièce ; fonction de choix injectable (`end_drag(memento, choose)`). Sans fonction de choix (script, API) : déplacement gardé, avertissement dans la vue rapport (B7 d'origine). |
 
 ### SM-c — Interaction dans la vue 3D (`gui/drag/`, panneau de la pièce)
 

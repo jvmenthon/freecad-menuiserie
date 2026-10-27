@@ -134,6 +134,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   ne lance aucune booléenne sur une forme de plus de 5 000 faces.
 
 ### Corrigé
+- Assemblage défait par un déplacement ([ADR 0024](docs/adr/0024-assemblage-defait-par-un-deplacement.md),
+  B7 de l'ADR 0021 modifié) : au relâchement d'un glissement, d'une distance définie ou d'une
+  rotation du panneau, si des assemblages ne tiennent plus (essayés avant tout recalcul), une
+  fenêtre propose « Annuler le déplacement » (Échap ou fermeture aussi) ou « Supprimer
+  l'assemblage » / « Supprimer les assemblages » (noms listés, avec leurs pièces usinées, une seule
+  transaction annulable) ; plus de trace Python. La commande d'assemblage essaie l'assemblage
+  avant son premier recalcul (mot-clé `check` des fabriques `api.make_…`) : entre pièces qui ne
+  sont pas d'équerre, un seul refus, sans trace, rien de créé. La pièce usinée ne répète plus
+  l'erreur de son assemblage impossible.
 - Recette de jv du jalon « Pièce en bois » (FreeCAD 1.1.4, issue #73) : le cadre violet de l'aimant
   reste sur la face voisine pendant le glissement (il suivait la pièce) ; nouvelle icône
   « Convertir en pièce en bois » (corps PartDesign, flèche, planche) ; la miniature de la liste de

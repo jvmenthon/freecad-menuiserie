@@ -32,6 +32,7 @@ from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import MIN_DIMENSION_MM
 from freecad.menuiserie.core.snap import Turn
+from freecad.menuiserie.features.drag_joints import rotate_checked
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_locks import (
@@ -40,10 +41,10 @@ from freecad.menuiserie.features.furniture_locks import (
 )
 from freecad.menuiserie.features.placement import (
     SnapSession,
-    rotate_part,
     snap_part,
 )
 from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
+from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
@@ -194,7 +195,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
     def _on_rotate(self, turn: Turn) -> None:
         """Quart de tour autour de l'axe du bouton : la pièce reste accrochée en création,
         tourne sur place en modification (aperçu recalculé)."""
-        if rotate_part(self.obj, turn, self._session):
+        if rotate_checked(self.obj, turn, self._session, joint_choice.choose):
             self.preview()
             self._snap.show()  # notices en direct : la pièce touche ou non ses cibles
 
