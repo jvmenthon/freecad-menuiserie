@@ -141,18 +141,45 @@ def test_surbrillance_de_la_cible_survolee() -> None:
     drawing = build_drawing(layout, hover=handle_key(Handle(0, True)))
     assert [d.color == HOVER_COLOR for d in drawing.dots] == [False, True]
     assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False] * 4 + [True]
+    assert [c.color == HOVER_COLOR for c in drawing.solids] == [False, True]
 
 
-def test_poignee_dessinee_en_double_fleche_dans_l_axe_de_la_cote() -> None:
+def test_poignee_dessinee_en_cube_plein_au_bout_d_une_tige() -> None:
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({1}))
     drawing = build_drawing(layout)
-    handles = [s for s in drawing.strokes if s.color == HANDLE_COLOR]
-    assert len(handles) == 2 and all(len(s.lines) == 5 for s in handles)  # tige, 2 x 2 barbes
-    (start, end) = handles[1].lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
+    stems = [s for s in drawing.strokes if s.color == HANDLE_COLOR]
+    assert len(stems) == 2 and all(len(s.lines) == 1 for s in stems)  # une tige, sans pointe
+    (start, end) = stems[1].lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
     assert (start.x, end.x, start.z, end.z) == (410, 410, 41, 41)
-    assert (start.y, end.y) == (220 - 30, 220 + 30)  # 30 % des 100 mm des flèches de chaque côté
-    assert {line[1].z for line in handles[1].lines[1:]} == {41}  # barbes dans le plan X, Y
+    assert (start.y, end.y) == (220, 220 + 30)  # tige de 30 % des 100 mm, vers l'extérieur
+    first = stems[0].lines[0]
+    assert (first[0].y, first[1].y) == (20, 20 - 30)  # poignée de début : vers l'autre bout
+    cubes = [c for c in drawing.solids if c.color == HANDLE_COLOR]
+    assert len(cubes) == 2 and all(len(c.faces) == 6 for c in cubes)
+    assert all(len(face) == 4 for c in cubes for face in c.faces)
+    points = [p for face in cubes[1].faces for p in face]
+    assert (min(p.y for p in points), max(p.y for p in points)) == (250 - 7.5, 250 + 7.5)
+    assert (min(p.x for p in points), max(p.x for p in points)) == (410 - 7.5, 410 + 7.5)
+    assert (min(p.z for p in points), max(p.z for p in points)) == (41 - 7.5, 41 + 7.5)
     assert [d.points for d in drawing.dots] == [(p,) for _, p in layout.handles]
+
+
+def test_cube_de_poignee_constant_a_l_ecran() -> None:
+    def side(size_mm: float) -> float:
+        layout = build_layout(FRAME, BOX, size_mm, frozenset(), frozenset({0}))
+        face = build_drawing(layout).solids[0].faces[0]
+        return max(abs(a.x - b.x) + abs(a.y - b.y) + abs(a.z - b.z) for a in face for b in face)
+
+    assert side(200.0) == pytest.approx(2 * side(100.0))  # suit l'échelle des flèches
+
+
+def test_zone_de_saisie_des_poignees_inchangee() -> None:
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0}))
+    targets = pixel_targets(layout, project)
+    assert [(t.start, t.end) for t in targets if t.key == handle_key(Handle(0, True))] == [
+        (project(Vec3(810, 120, 41)), None),
+        (project(Vec3(780, 120, 41)), project(Vec3(840, 120, 41))),
+    ]
 
 
 def test_guides_aimantes_en_surbrillance() -> None:

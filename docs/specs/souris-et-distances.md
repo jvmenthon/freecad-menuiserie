@@ -28,9 +28,9 @@
 
 **Vocabulaire.** *Glisser* : déplacer la pièce à la souris, bouton gauche enfoncé. *Flèche* : l'une
 des trois flèches dessinées sur la pièce sélectionnée (axes de la pièce), qu'on tire pour la
-déplacer le long de cet axe. *Poignée* : petite double flèche orange, dans l'axe de la cote,
-centrée sur une face de bout, de rive (ou du dessus et du dessous pour le massif) et marquée d'un
-point en son centre, qu'on tire pour changer la longueur, la largeur ou l'épaisseur (jv,
+déplacer le long de cet axe. *Poignée* : petit cube plein orange au bout d'une tige, dans l'axe de la cote,
+sortant d'une face de bout, de rive (ou du dessus et du dessous pour le massif) et marquée d'un
+point à son pied, de taille constante à l'écran, qu'on tire pour changer la longueur, la largeur ou l'épaisseur (jv,
 2026-10-26 : « un logo plus parlant à la place des points orange »). *Guide* : plan, droite ou point d'une pièce voisine sur lequel la pièce glissée
 peut s'aimanter. *Distance* : écart mesuré entre deux éléments (face, arête, sommet) de deux
 pièces.
