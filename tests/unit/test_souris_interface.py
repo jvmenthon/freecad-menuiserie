@@ -248,3 +248,16 @@ def test_observateur_de_selection_retire_avec_le_filtre() -> None:
     assert "Gui.Selection.removeObserver" in _calls(events, "uninstall", "_Installation")
     assert "application.installEventFilter" in _calls(events, "install", "_Installation")
     assert "application.removeEventFilter" in _calls(events, "uninstall", "_Installation")
+
+
+@pytest.mark.parametrize(
+    ("panel", "name"),
+    [("wood_part", "WoodPartTaskPanel"), ("shaped_part", "ShapedPartTaskPanel")],
+)
+def test_panneau_de_chaque_piece_branche_la_session_du_glissement(panel: str, name: str) -> None:
+    """Sans ``PanelDrag``, la session voit un panneau d'une autre commande ouvert et masque les
+    flèches de la pièce (recette de jv : pièce en bois issue d'une forme Part, dont le panneau
+    s'ouvre à la conversion)."""
+    path = f"gui/task_panels/{panel}.py"
+    assert "PanelDrag" in _calls(path, "__init__", name)
+    assert _calls(path, "after_drag", name) is not None

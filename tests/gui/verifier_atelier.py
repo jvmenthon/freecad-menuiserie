@@ -53,6 +53,7 @@ from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
+from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -1255,6 +1256,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Pièce en bois à forme libre (PD-d)
     *VERIFICATIONS_PIECE_EN_BOIS,
     *VERIFICATIONS_PIECE_EN_BOIS_LIMITES,
+    *VERIFICATIONS_SOURIS_PIECE_EN_BOIS,
     # Pièce en bois dans un ensemble (PD-f)
     *VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE,
 )

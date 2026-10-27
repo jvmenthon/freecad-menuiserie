@@ -127,6 +127,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   matière des assemblages (E3) ne bloque jamais un assemblage (volume dégénéré, échec du noyau) et
   ne lance aucune booléenne sur une forme de plus de 5 000 faces.
 
+### Corrigé
+- Recette de jv du jalon « Pièce en bois » (FreeCAD 1.1.4, issue #73) : le cadre violet de l'aimant
+  reste sur la face voisine pendant le glissement (il suivait la pièce) ; nouvelle icône
+  « Convertir en pièce en bois » (corps PartDesign, flèche, planche) ; la miniature de la liste de
+  débit montre la forme de la pièce en bois et non sa boîte L x l x e ; le message d'un assemblage
+  impossible n'est plus chaîné deux fois dans la trace de FreeCAD, et la pièce usinée n'est plus
+  recalculée à chaque image d'une poignée tant que son assemblage ne tient plus ; le panneau de la
+  pièce en bois garde les flèches de glissement à la souris (le panneau ouvert à la conversion les
+  masquait).
+
 ### Modifié
 - Relecture du jalon « souris et distances » (issue #65,
   [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), note du 2026-10-25) : le

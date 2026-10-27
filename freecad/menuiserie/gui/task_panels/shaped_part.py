@@ -8,7 +8,9 @@ dans l'ordre Identification, Matériau, Repère de la pièce (:mod:`.shaped_part
 l'objet puis la pièce est recalculée (aperçu en direct) ; « OK » valide la transaction ouverte par
 la commande ou par :func:`start_editing`, « Annuler » l'abandonne (la conversion disparaît, ou les
 valeurs reviennent à l'état d'avant). Pendant le panneau, le repère de la pièce (trièdre L / l / e
-et fil) est dessiné dans la vue 3D (:mod:`.shaped_part_axes`), retiré à la fermeture.
+et fil) est dessiné dans la vue 3D (:mod:`.shaped_part_axes`), retiré à la fermeture ; ses flèches
+de glissement à la souris restent actives (:class:`.PanelDrag`, ADR 0021), sans poignée : les cotes
+viennent du dessin.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ from freecad.menuiserie.gui.task_panels.timber_rows import (
     setup_rotation_buttons,
 )
 from freecad.menuiserie.gui.task_panels.wood_part import ALLOWANCE_FIELDS, UI_FILE
+from freecad.menuiserie.gui.task_panels.wood_part_drag import PanelDrag
 from freecad.menuiserie.gui.task_panels.wood_part_snap import SnapRows
 from freecad.menuiserie.gui.view_providers.shaped_part import ICON
 
@@ -145,6 +148,7 @@ class ShapedPartTaskPanel(ObjectTaskPanel):
         self._snap = SnapRows(self.form, obj, self._session)
         self._axes = AxesView(obj)
         connect(self.form, "destroyed()", self._axes.remove)
+        self._drag = PanelDrag(self)  # flèches dans la vue 3D, pas de poignées (ADR 0021)
         if self._session is not None:
             self._recompute()
 
@@ -239,6 +243,13 @@ class ShapedPartTaskPanel(ObjectTaskPanel):
         self._axes.refresh()
 
     # --- Saisies --------------------------------------------------------------------------
+
+    def after_drag(self) -> None:
+        """Pièce déplacée à la souris : l'accrochage de la conversion ne la repose plus (il la
+        ramènerait là où elle a été posée) et le repère dessiné suit la pièce."""
+        self._session = None
+        self._show_values()
+        self._axes.refresh()
 
     def _on_frame_changed(self) -> None:
         """Repère changé : la pièce n'est plus posée par l'accrochage (il la déplacerait), aperçu
