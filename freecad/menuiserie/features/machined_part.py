@@ -219,7 +219,15 @@ class MachinedPart(StatelessProxy):
         blank = _checked_blank(obj)
         with translated_errors():
             base = blank_shape(blank)
-        additions, cuts, trims = _machining_of(obj, blank)
+        try:
+            additions, cuts, trims = _machining_of(obj, blank)
+        except _JointFailedError:
+            # Un assemblage impossible signale lui-même son erreur dans son propre recalcul : la
+            # pièce usinée ne la répète pas (une seule trace, ADR 0024). Sa forme reste celle
+            # d'avant (jamais de forme partielle) ; seul son placement suit la brute.
+            with self._executing():
+                obj.Placement = blank.Placement
+            return
         shape = machined_shape(base, additions, cuts, trims)
         # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
         # sous le drapeau qui évite de le reporter sur la brute (Q4).
@@ -278,12 +286,16 @@ def _checked_blank(obj: DocumentObject) -> DocumentObject:
     return blank
 
 
+class _JointFailedError(Exception):
+    """Un assemblage de la pièce usinée est impossible : il le signale lui-même."""
+
+
 def _machining_of(
     obj: DocumentObject, blank: DocumentObject
 ) -> tuple[list[Solid], list[Solid], list[Solid]]:
     """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
     assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
-    modifiée par un script)."""
+    modifiée par un script), :class:`_JointFailedError` si l'un d'eux est impossible."""
     additions: list[Solid] = []
     cuts: list[Solid] = []
     trims: list[Solid] = []
@@ -292,7 +304,10 @@ def _machining_of(
             raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
         if blank not in (joint.HostPart, joint.GuestPart):
             raise parts_mismatch(joint)
-        plan = plan_for(joint)
+        try:
+            plan = plan_for(joint)
+        except ValueError:
+            raise _JointFailedError from None  # l'assemblage signale lui-même son erreur
         if joint.HostPart == blank:
             additions.extend(plan.host_additions)
             cuts.extend(plan.host_cuts)

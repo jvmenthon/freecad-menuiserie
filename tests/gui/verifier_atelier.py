@@ -31,6 +31,7 @@ import FreeCADGui as Gui
 
 from tests.gui.aides_panneau import DEFAUTS_CONSTATES
 from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
+from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELACHEMENT
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
@@ -1250,6 +1251,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,
+    # Assemblage défait au relâchement (ADR 0024)
+    *VERIFICATIONS_ARONDE_RELACHEMENT,
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
     *VERIFICATIONS_DISTANCE_GARDEE,

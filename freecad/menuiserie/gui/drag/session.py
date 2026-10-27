@@ -11,7 +11,9 @@ chaque méthode renvoie vrai si l'évènement est consommé.
 Hors panneau, un glissement ouvre sa transaction « Déplacer la pièce » (un Ctrl+Z) ; panneau
 ouvert, ou si une autre transaction est en cours, il écrit dans la transaction déjà ouverte. Aucun
 recalcul pendant le glissement d'une flèche ; une poignée recalcule la seule brute, au plus 30
-fois par seconde ; ``end_drag`` fait le recalcul du document au relâchement.
+fois par seconde ; ``end_drag`` fait le recalcul du document au relâchement, après avoir proposé
+(fenêtre de ``gui/joint_choice``) d'annuler le déplacement ou de supprimer les assemblages qu'il
+défait (ADR 0024).
 """
 
 from __future__ import annotations
@@ -44,6 +46,7 @@ from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.magnet_guides import collect_guides
 from freecad.menuiserie.features.part_drag import (
     SIZE_PROPS,
+    DragCancelledError,
     DragMemento,
     begin_drag,
     drag_limits,
@@ -54,6 +57,7 @@ from freecad.menuiserie.features.part_drag import (
     restore,
 )
 from freecad.menuiserie.features.snap_geometry import to_vec3
+from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.drag.geometry import (
     ARROW_PX,
     MAGNET_PX,
@@ -556,9 +560,14 @@ class DragSession:
 
     def finish(self, state: Dragging) -> None:
         """Relâchement : ensemble relié et document recalculé une fois (``end_drag``),
-        avertissements dans la vue rapport."""
+        avertissements dans la vue rapport. Si le déplacement défait des assemblages, la fenêtre
+        de choix s'ouvre avant le recalcul (``gui/joint_choice``, ADR 0024) : annuler remet la
+        pièce, supprimer garde le déplacement."""
         try:
-            warnings = end_drag(state.memento)
+            warnings = end_drag(state.memento, joint_choice.choose)
+        except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0024)
+            self._close(state, commit=False)
+            return
         except ValueError as error:
             report_warning(str(error))
             self._close(state, commit=False)
