@@ -396,3 +396,19 @@ def test_assemblage_qui_touche_encore(document: Any) -> None:
     memento = drag.begin_drag(parts.parts["V"])
     drag.move_part(memento, Vec3(0, 0, -100))
     assert drag.end_drag(memento) == []
+
+
+def test_poignee_sur_une_piece_dont_l_assemblage_ne_tient_plus(document: Any) -> None:
+    """Recette de jv : tant que l'assemblage ne tient plus, la poignée ne recalcule pas la pièce
+    usinée (son ``execute()`` lèverait à chaque image, avec sa trace) ; le relâchement recalcule le
+    document une fois et prévient (B7)."""
+    parts = build_parts(document)
+    api.make_dowels(parts.parts["JG"], parts.parts["V"])
+    document.recompute()
+    voile = parts.parts["V"]
+    machined = machined_module.machined_part_of(voile)
+    memento = drag.begin_drag(voile)
+    drag.move_part(memento, Vec3(60, 0, 0))
+    drag.resize_part(memento, "Length", voile.Length.Value - 10, Vec3(0, 0, 0))
+    assert "Invalid" not in machined.State
+    assert any("ne touche plus" in warning for warning in drag.end_drag(memento))

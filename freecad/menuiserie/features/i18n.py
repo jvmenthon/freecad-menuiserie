@@ -50,11 +50,13 @@ def templated_message(error: TemplatedError) -> str:
 @contextmanager
 def translated_errors() -> Iterator[None]:
     """Les erreurs de ``core`` (gabarits ``TemplatedError``) deviennent des ``ValueError`` au
-    message traduit."""
+    message traduit. L'erreur d'origine n'est pas chaînée (``from None``) : FreeCAD imprime la
+    trace d'une exception levée par ``execute()`` avec ses causes, et le même message (gabarit
+    puis texte traduit) y paraîtrait deux fois."""
     try:
         yield
     except TemplatedError as error:
-        raise ValueError(templated_message(error)) from error
+        raise ValueError(templated_message(error)) from None
 
 
 def console_text(message: str) -> str:
