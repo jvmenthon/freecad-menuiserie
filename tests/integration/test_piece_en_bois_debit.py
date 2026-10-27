@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+from freecad.menuiserie.core import cutlist as core
 from freecad.menuiserie.core.cutlist import to_csv
 from tests.integration.debit import link, text
 from tests.integration.test_piece_en_bois import box, leg
@@ -162,6 +163,19 @@ def test_miniature_de_l_encombrement(document: Any) -> None:
     thumbnails = cutlist_thumbnail.thumbnails_of(document, cut_list)
     [svg] = thumbnails.values()
     assert svg.lstrip().startswith("<svg")
+
+
+def test_miniature_de_la_forme_reelle(document: Any) -> None:
+    """Un cylindre n'a pas la miniature de sa boîte L x l x e : elle montre sa forme (facettes)."""
+    cylinder = document.addObject("Part::Cylinder", "Rond")
+    cylinder.Radius, cylinder.Height = 40.0, 300.0
+    api.make_shaped_part(cylinder, mark="R1")
+    document.recompute()
+    cut_list = api.cut_list_of(document)
+    [svg] = cutlist_thumbnail.thumbnails_of(document, cut_list).values()
+    size = cut_list.lines[0].finished
+    boxed = core.thumbnail_svg(core.box_faces(size.length, size.width, size.thickness))
+    assert svg.count("<path ") > boxed.count("<path ")
 
 
 # --- C4 : regroupement ---------------------------------------------------------------------

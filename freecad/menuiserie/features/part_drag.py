@@ -47,7 +47,7 @@ from freecad.menuiserie.features.furniture_edits import thickness_notices
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.features.joints.base import is_joint, plan_for
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
@@ -219,6 +219,22 @@ def _write_placement(memento: DragMemento, placement: App.Placement) -> None:
         machined.Placement = placement
 
 
+def _recompute_machined(raw: DocumentObject) -> None:
+    """Recalcule la pièce usinée de ``raw`` (affichage pendant le glissement), sauf si l'un de ses
+    assemblages ne tient plus : son ``execute()`` lèverait à chaque appel et FreeCAD imprimerait
+    sa trace à chaque image. Le recalcul du document au relâchement la reprend et prévient
+    (:func:`end_drag`, B7)."""
+    machined = machined_part_of(raw)
+    if machined is None:
+        return
+    for joint in getattr(machined, "Joints", ()):
+        try:
+            plan_for(joint)
+        except ValueError:
+            return
+    machined.recompute()
+
+
 def _shifted(memento: DragMemento, shift: Vec3) -> App.Placement:
     """Placement du début décalé de ``shift`` (mm, repère de la pièce)."""
     start = memento.placement
@@ -255,9 +271,7 @@ def resize_part(memento: DragMemento, prop: str, value: float, origin_shift: Vec
         setattr(raw, prop, value)
     _write_placement(memento, _shifted(memento, origin_shift))
     raw.recompute()
-    machined = machined_part_of(raw)
-    if machined is not None:
-        machined.recompute()
+    _recompute_machined(raw)
 
 
 def restore(memento: DragMemento) -> None:
@@ -279,9 +293,7 @@ def restore(memento: DragMemento) -> None:
         if distance is not None and distance.Value.Value != value:
             distance.Value = value
     raw.recompute()
-    machined = machined_part_of(raw)
-    if machined is not None:
-        machined.recompute()
+    _recompute_machined(raw)
 
 
 def _relink_thickness(memento: DragMemento, furniture: DocumentObject) -> list[str]:

@@ -165,6 +165,19 @@ def test_guides_aimantes_en_surbrillance() -> None:
     assert [d.points for d in drawing.dots if d.color == GUIDE_COLOR] == [(Vec3(11, 22, 33),)]
 
 
+def test_guide_dessine_la_ou_il_est_malgre_le_deplacement_de_la_piece() -> None:
+    """La pièce a glissé de 300 mm en X depuis le début : le guide (lu dans son repère de départ)
+    reste sur la face voisine au lieu de la suivre."""
+    moved = Frame(Vec3(310, 20, 30), Vec3(1, 0, 0), Vec3(0, 1, 0), Vec3(0, 0, 1))
+    layout = build_layout(moved, BOX, 100.0, frozenset(), frozenset())
+    plane = Guide(GuideKind.PLANE, Box.from_ranges([(850, 850), (0, 200), (0, 22)]), 0, -1)
+    drawing = build_drawing(layout, guides=[plane], guides_frame=FRAME)
+    lit = [s for s in drawing.strokes if s.color == GUIDE_COLOR]
+    assert {p.x for p in lit[0].lines[0]} == {860}  # 10 + 850, pas 310 + 850
+    suivi = build_drawing(layout, guides=[plane])  # sans repère de départ : repère courant
+    assert {p.x for s in suivi.strokes if s.color == GUIDE_COLOR for p in s.lines[0]} == {1160}
+
+
 def test_contour_des_guides() -> None:
     plane = Guide(GuideKind.PLANE, Box.from_ranges([(5, 5), (0, 2), (0, 3)]), 0, 1)
     outline = guide_outline(plane)
@@ -235,3 +248,16 @@ def test_observateur_de_selection_retire_avec_le_filtre() -> None:
     assert "Gui.Selection.removeObserver" in _calls(events, "uninstall", "_Installation")
     assert "application.installEventFilter" in _calls(events, "install", "_Installation")
     assert "application.removeEventFilter" in _calls(events, "uninstall", "_Installation")
+
+
+@pytest.mark.parametrize(
+    ("panel", "name"),
+    [("wood_part", "WoodPartTaskPanel"), ("shaped_part", "ShapedPartTaskPanel")],
+)
+def test_panneau_de_chaque_piece_branche_la_session_du_glissement(panel: str, name: str) -> None:
+    """Sans ``PanelDrag``, la session voit un panneau d'une autre commande ouvert et masque les
+    flèches de la pièce (recette de jv : pièce en bois issue d'une forme Part, dont le panneau
+    s'ouvre à la conversion)."""
+    path = f"gui/task_panels/{panel}.py"
+    assert "PanelDrag" in _calls(path, "__init__", name)
+    assert _calls(path, "after_drag", name) is not None

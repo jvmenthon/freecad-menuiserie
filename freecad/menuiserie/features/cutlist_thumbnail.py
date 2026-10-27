@@ -4,7 +4,8 @@ demande de jv du 2026-10-22).
 
 Lecture seule, sans rendu 3D ni écran : la forme usinée (tenons, queues d'aronde, rainures…) est
 discrétisée par OpenCascade (``Face.tessellate``, ``Edge.discretize``), puis projetée en isométrie
-et dessinée en SVG par ``core.cutlist`` (module pur). Repli : boîte de débit L x l x e quand la
+et dessinée en SVG par ``core.cutlist`` (module pur). Une pièce en bois montre sa propre forme
+dans son repère (L, l, e), ou celle de sa pièce usinée. Repli : boîte de débit L x l x e quand la
 pièce n'est plus dans le document, n'a pas de forme usinée utilisable (absente, invalide, à
 recalculer) ou que la forme est trop fine pour une miniature. Une miniature par groupe (ligne),
 clé ``CutLine.source``, couleur du matériau.
@@ -27,6 +28,7 @@ from freecad.menuiserie.features.cutlist_parts import local_shape
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import machined_part_of
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 
 __all__ = ["MAX_TRIANGLES", "shape_faces", "thumbnail_of", "thumbnails_of"]
 
@@ -84,12 +86,23 @@ def _color_of(line: CutLine) -> tuple[int, int, int]:
     return DEFAULT_COLOR if material is None else material.color
 
 
+def _shape_holder(blank: DocumentObject | None) -> DocumentObject | None:
+    """Objet dont la forme est dessinée : la pièce usinée de ``blank`` si elle existe, sinon la
+    pièce en bois elle-même (sa forme est déjà dans son repère L, l, e, ADR 0020) ; ``None`` pour
+    une brute sans pièce usinée, qui reste une boîte."""
+    if blank is None:
+        return None
+    machined = machined_part_of(blank)
+    return machined if machined is not None else (blank if is_shaped_part(blank) else None)
+
+
 def _machined_faces(doc: Document, line: CutLine) -> tuple[ThumbFace, ...] | None:
-    """Faces de la forme usinée de la première pièce de ``line``, ``None`` sans forme
-    utilisable (pièce absente, jamais usinée, forme invalide ou à recalculer, ou trop fine)."""
+    """Faces de la forme de la première pièce de ``line`` (usinée, ou celle d'une pièce en bois),
+    ``None`` sans forme utilisable (pièce absente, brute jamais usinée, forme invalide ou à
+    recalculer, ou trop fine)."""
     blank: DocumentObject | None = doc.getObject(line.source) if line.source else None
-    machined = None if blank is None else machined_part_of(blank)
-    shape = None if machined is None else local_shape(machined)
+    holder = _shape_holder(blank)
+    shape = None if holder is None else local_shape(holder)
     if shape is None:
         return None
     try:
@@ -99,11 +112,11 @@ def _machined_faces(doc: Document, line: CutLine) -> tuple[ThumbFace, ...] | Non
 
 
 def thumbnail_of(doc: Document, line: CutLine) -> str:
-    """SVG isométrique de la pièce de ``line`` : sa forme usinée, ou à défaut sa boîte de débit
-    (cotes de débit L x l x e). Une pièce en bois montre son rectangle d'encombrement (cotes
-    finies : le contour réel est hors périmètre)."""
+    """SVG isométrique de la pièce de ``line`` : sa forme usinée, ou celle de la pièce en bois dans
+    son repère (L, l, e), ou à défaut sa boîte (cotes de débit L x l x e ; cotes finies, donc
+    l'encombrement, pour une pièce en bois dont la forme est illisible)."""
     box = line.finished if line.shape is not None else line.rough
-    faces = None if line.shape is not None else _machined_faces(doc, line)
+    faces = _machined_faces(doc, line)
     if not faces:
         faces = box_faces(box.length, box.width, box.thickness)
     return thumbnail_svg(faces, _color_of(line))

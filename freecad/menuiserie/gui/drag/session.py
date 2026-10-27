@@ -200,6 +200,8 @@ class Dragging(State):
         self.own = grab.own  # transaction ouverte par le glissement
         self.shift = False
         self.box = _box_of(grab.memento.part)
+        # repère de la pièce au début : celui des guides, qui ne suivent pas la pièce
+        self.frame = _frame_of(grab.memento.part.getGlobalPlacement())
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:
         self.cursor, self.shift = point, shift
@@ -248,7 +250,7 @@ class Moving(Dragging):
         else:
             result = magnet(self.box, self.guides, wanted, self.tolerance, [axis])
         move_part(self.memento, result.delta)
-        session.written([self.guides[hit.guide] for hit in result.hits])
+        session.written([self.guides[hit.guide] for hit in result.hits], self.frame)
 
 
 class Resizing(Dragging):
@@ -288,7 +290,7 @@ class Resizing(Dragging):
         prop, size, shift, guides = self.pending
         self.pending = None
         resize_part(self.memento, prop, size, shift)
-        session.written(guides)
+        session.written(guides, self.frame)
 
 
 class DragSession:
@@ -404,11 +406,13 @@ class DragSession:
         if changed and redraw:
             self.draw()
 
-    def draw(self, guides: Sequence[Guide] = ()) -> None:
-        """Redessine la disposition, ``guides`` aimantés en surbrillance."""
+    def draw(self, guides: Sequence[Guide] = (), guides_frame: Frame | None = None) -> None:
+        """Redessine la disposition, ``guides`` aimantés en surbrillance (lus dans le repère
+        ``guides_frame`` de la pièce au début du glissement)."""
         self.lit = tuple(guides)
         if self.overlay is not None and self.layout is not None:
-            self.overlay.draw(build_drawing(self.layout, self.state.key, guides))
+            drawing = build_drawing(self.layout, self.state.key, guides, guides_frame)
+            self.overlay.draw(drawing)
 
     def sync(self) -> None:
         """Panneau fermé ou zoom changé : disposition remise à jour (rien pendant un glissement)."""
@@ -529,11 +533,11 @@ class DragSession:
         self.enter(state)
         return True
 
-    def written(self, guides: Sequence[Guide]) -> None:
-        """La pièce a été écrite : flèches redessinées avec les ``guides`` aimantés, champs du
-        panneau relus."""
+    def written(self, guides: Sequence[Guide], guides_frame: Frame) -> None:
+        """La pièce a été écrite : flèches redessinées avec les ``guides`` aimantés (dans le repère
+        ``guides_frame`` de départ), champs du panneau relus."""
         self._build(redraw=False)
-        self.draw(guides)
+        self.draw(guides, guides_frame)
         if self.panel is not None and self._panel_open():
             self.panel.refresh()
 

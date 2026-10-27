@@ -401,11 +401,31 @@ def piece_en_bois_objet() -> str:
     return ic.svg()
 
 
+def _corps_bleu() -> str:
+    """Corps (« Body » de PartDesign) : bloc bleu en perspective isométrique, creusé d'une
+    poche sur le dessus ; dessin propre à l'atelier, placé à gauche de l'icône."""
+    contour = 'stroke="#0b2a52" stroke-width="2" stroke-linejoin="round"'
+    return "\n".join(
+        (
+            f'  <polygon points="13,14 25,21 13,28 1,21" fill="#8bb4e0" {contour}/>',
+            f'  <polygon points="1,21 13,28 13,44 1,37" fill="#3465a4" {contour}/>',
+            f'  <polygon points="13,28 25,21 25,37 13,44" fill="#204a87" {contour}/>',
+            '  <polygon points="13,18 19,21.5 13,25 7,21.5" fill="#204a87" '
+            'stroke="#0b2a52" stroke-width="1.2" stroke-linejoin="round"/>',
+        )
+    )
+
+
 def piece_en_bois() -> str:
-    ic = Icone("Convertir en pièce en bois : pied galbé et pastille de conversion")
-    _pied_galbe(ic)
-    fleche = _pastille("#73d216", "#2c5e00", "M42,49 H56 M51,43 L57,49 L51,55")
-    return ic.svg(cadre=(2, 50, 2, 62), devant=fleche)
+    ic = Icone("Convertir en pièce en bois : corps PartDesign, flèche, planche")
+    ic.boite((0, 0, 0), (50, 22, 12), "chene")
+    for y, phase in ((6, 0.1), (15, 0.6)):
+        ic.veinage((3, 47), (y, 12), "chene", amplitude=0.8, phase=phase)
+    fleche = (
+        '  <path d="M27,31 H37 M32,25 L38,31 L32,37" fill="none" stroke="#4e9a06" '
+        'stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+    return ic.svg(cadre=(38, 63, 26, 50), fond=_corps_bleu(), devant=fleche)
 
 
 ICONES = {
