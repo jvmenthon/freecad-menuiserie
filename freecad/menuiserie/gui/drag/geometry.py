@@ -29,6 +29,7 @@ __all__ = [
     "Dots",
     "Drawing",
     "Layout",
+    "Solid",
     "Stroke",
     "Throttle",
     "arrow_key",
@@ -44,8 +45,8 @@ __all__ = [
 
 ARROW_PX: Final = 80.0  # longueur des flèches à l'écran
 HEAD_RATIO: Final = 0.15  # barbes de la pointe, part de la longueur
-HANDLE_RATIO: Final = 0.3  # demi-longueur de la double flèche d'une poignée, part des flèches
-HANDLE_HEAD: Final = 0.35  # barbes de la double flèche, part de sa demi-longueur
+HANDLE_RATIO: Final = 0.3  # longueur de la tige d'une poignée (zone de saisie), part des flèches
+CUBE_RATIO: Final = 0.25  # demi-côté du cube au bout de la tige, part de la longueur de la tige
 MAGNET_PX: Final = 10.0  # tolérance de l'aimant à l'écran
 MAX_RATE: Final = 30  # recalculs de la brute par seconde (poignée)
 AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  # X, Y, Z
@@ -87,7 +88,7 @@ def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
 class Layout:
     """Ce qui est dessiné et saisissable sur la pièce : repère global, boîte (repère de la pièce),
     flèches des axes libres, poignées (poignée, centre de sa face en coordonnées globales) et
-    demi-longueur en mm de la double flèche dessinée sur chaque poignée."""
+    longueur en mm de la tige (et zone de saisie) dessinée sur chaque poignée."""
 
     frame: Frame
     box: Box
@@ -128,7 +129,7 @@ def build_layout(
 
 def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
     """Cibles saisissables en pixels : poignées d'abord (elles l'emportent à égalité), chacune
-    par son centre et par sa double flèche, puis flèches."""
+    par son centre et par sa tige, puis flèches."""
     targets = [PixelTarget(handle_key(h), project(p)) for h, p in layout.handles]
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
     for handle, point in layout.handles:
@@ -175,11 +176,20 @@ class Dots:
 
 
 @dataclass(frozen=True)
+class Solid:
+    """Faces pleines d'une couleur (polygones convexes, sommets dans l'ordre)."""
+
+    color: Color
+    faces: tuple[tuple[Vec3, ...], ...]
+
+
+@dataclass(frozen=True)
 class Drawing:
     """Tout ce que l'incrustation affiche."""
 
     strokes: tuple[Stroke, ...] = ()
     dots: tuple[Dots, ...] = ()
+    solids: tuple[Solid, ...] = ()
 
 
 def _plus(a: Vec3, b: Vec3, factor: float) -> Vec3:
@@ -203,22 +213,35 @@ def _arrow_lines(arrow: Arrow, frame: Frame) -> tuple[tuple[Vec3, ...], ...]:
     return ((arrow.start, arrow.end), *barbs)
 
 
-def _handle_lines(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
-    """Double flèche de la poignée : tige le long de l'axe de la cote, centrée sur ``point``, et
-    deux barbes à chaque bout, dans le plan de la grande face (X, Y de la pièce) ; celles de
-    l'épaisseur dans le plan X, Z."""
+def _handle_tip(layout: Layout, handle: Handle, point: Vec3) -> Vec3:
+    """Bout de la tige de la poignée : à la longueur de la tige, vers l'extérieur de la pièce."""
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    half = layout.handle_mm
-    barb = HANDLE_HEAD * half
-    other = 1 if handle.axis == 0 else 0
-    lines: list[tuple[Vec3, ...]] = [
-        (_plus(point, axes[handle.axis], -half), _plus(point, axes[handle.axis], half))
-    ]
-    for sign in (1.0, -1.0):
-        tip = _plus(point, axes[handle.axis], sign * half)
-        back = _plus(tip, axes[handle.axis], -sign * barb)
-        lines.extend((tip, _plus(back, axes[other], side * barb / 2)) for side in (1.0, -1.0))
-    return tuple(lines)
+    return _plus(point, axes[handle.axis], layout.handle_mm if handle.at_end else -layout.handle_mm)
+
+
+def _handle_stem(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
+    """Tige de la poignée : de ``point`` (milieu de la face) au centre du cube."""
+    return ((point, _handle_tip(layout, handle, point)),)
+
+
+def _handle_cube(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
+    """Six faces du cube plein au bout de la tige, alignées sur les axes de la pièce ; son côté
+    est proportionnel à la tige, donc constant à l'écran comme les flèches."""
+    center = _handle_tip(layout, handle, point)
+    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
+    half = CUBE_RATIO * layout.handle_mm
+    faces = []
+    for axis in range(3):
+        first, second = (axes[i] for i in range(3) if i != axis)
+        for sign in (1.0, -1.0):
+            middle = _plus(center, axes[axis], sign * half)
+            faces.append(
+                tuple(
+                    _plus(_plus(middle, first, a * half), second, b * half)
+                    for a, b in ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))
+                )
+            )
+    return tuple(faces)
 
 
 def guide_outline(guide: Guide) -> tuple[Vec3, ...]:
@@ -245,9 +268,9 @@ def build_drawing(
     guides: Sequence[Guide] = (),
     guides_frame: Frame | None = None,
 ) -> Drawing:
-    """Dessin des flèches (couleur de leur axe), des poignées (double flèche dans l'axe de la cote
-    et point de saisie au centre), de la cible survolée en surbrillance
-    et des ``guides`` aimantés, portés dans le repère global.
+    """Dessin des flèches (couleur de leur axe), des poignées (tige dans l'axe de la cote, cube
+    plein au bout et point de saisie au pied), de la cible survolée en surbrillance et des
+    ``guides`` aimantés, portés dans le repère global.
 
     Les guides sont lus dans le repère de la pièce **au début du glissement** : ``guides_frame``
     est ce repère de départ (celui de ``layout`` s'il est absent). La pièce bouge pendant le
@@ -259,10 +282,12 @@ def build_drawing(
         color = HOVER_COLOR if hot else AXIS_COLORS[arrow.axis]
         strokes.append(Stroke(color, 4.0 if hot else 2.0, _arrow_lines(arrow, layout.frame)))
     dots = []
+    solids = []
     for handle, point in layout.handles:
         hot = hover == handle_key(handle)
         color = HOVER_COLOR if hot else HANDLE_COLOR
-        strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_lines(layout, handle, point)))
+        strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_stem(layout, handle, point)))
+        solids.append(Solid(color, _handle_cube(layout, handle, point)))
         dots.append(Dots(color, 7.0, (point,)))
     to_global = (guides_frame or layout.frame).to_transform()
     for guide in guides:
@@ -271,7 +296,7 @@ def build_drawing(
             dots.append(Dots(GUIDE_COLOR, 12.0, outline))
         else:
             strokes.append(Stroke(GUIDE_COLOR, 3.0, (outline,)))
-    return Drawing(tuple(strokes), tuple(dots))
+    return Drawing(tuple(strokes), tuple(dots), tuple(solids))
 
 
 class Throttle:

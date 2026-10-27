@@ -5,6 +5,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Modifié
+- Glisser une pièce à la souris, poignées de taille (demande de jv) : chaque poignée est dessinée
+  en petit cube plein orange au bout d'une tige, comme dans les logiciels de CAO, au lieu d'une
+  double flèche qu'on confondait avec les flèches de déplacement ; taille constante à l'écran,
+  couleur, zone de saisie et comportement inchangés.
+
 ### Ajouté
 - Pièce en bois dans un ensemble, lot PD-f ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
   décision 8 ; critères F1 à F4) : `make_furniture`, `add_to_furniture` et toute l'API des
