@@ -240,11 +240,19 @@ def guide_outline(guide: Guide) -> tuple[Vec3, ...]:
 
 
 def build_drawing(
-    layout: Layout, hover: str | None = None, guides: Sequence[Guide] = ()
+    layout: Layout,
+    hover: str | None = None,
+    guides: Sequence[Guide] = (),
+    guides_frame: Frame | None = None,
 ) -> Drawing:
     """Dessin des flèches (couleur de leur axe), des poignées (double flèche dans l'axe de la cote
     et point de saisie au centre), de la cible survolée en surbrillance
-    et des ``guides`` aimantés (repère de la pièce, portés dans le repère global)."""
+    et des ``guides`` aimantés, portés dans le repère global.
+
+    Les guides sont lus dans le repère de la pièce **au début du glissement** : ``guides_frame``
+    est ce repère de départ (celui de ``layout`` s'il est absent). La pièce bouge pendant le
+    glissement, pas les guides : les porter dans le repère courant les décalerait de son
+    déplacement."""
     strokes = []
     for arrow in layout.arrows:
         hot = hover == arrow_key(arrow.axis)
@@ -256,7 +264,7 @@ def build_drawing(
         color = HOVER_COLOR if hot else HANDLE_COLOR
         strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_lines(layout, handle, point)))
         dots.append(Dots(color, 7.0, (point,)))
-    to_global = layout.frame.to_transform()
+    to_global = (guides_frame or layout.frame).to_transform()
     for guide in guides:
         outline = tuple(to_global.apply(p) for p in guide_outline(guide))
         if guide.kind is GuideKind.POINT:
