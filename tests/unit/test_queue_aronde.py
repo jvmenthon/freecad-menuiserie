@@ -221,8 +221,9 @@ def test_queues_ajoutees_a_l_invitee() -> None:
         Vec3(-18.0, 48.0, 0.0),
         Vec3(-18.0, 6.0, 0.0),
     )
-    assert [(p.x, p.y, p.z) for p in tails[0].points] == pytest.approx(
-        [(p.x, p.y, p.z) for p in expected]
+    # approx n'accepte pas les listes imbriquées (pytest récent) : coordonnées mises à plat
+    assert [c for p in tails[0].points for c in (p.x, p.y, p.z)] == pytest.approx(
+        [c for p in expected for c in (p.x, p.y, p.z)]
     )
     assert tails[0].extrusion == Vec3(0.0, 0.0, 18.0)
     assert [bounds(tail)[1] for tail in tails] == [(6.0, 48.0), (54.0, 96.0), (102.0, 144.0)]
