@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Nom de la pièce = repère dans un vrai document FreeCAD (critères L3 à L7 de J6b, ADR 0011).
 
-Vérifie aussi, sur la version de FreeCAD qui exécute les tests (1.0 et 1.1 en CI), que
+Vérifie aussi, sur la version de FreeCAD qui exécute les tests (1.1 en CI), que
 ``onBeforeChangeLabel`` et ``allowDuplicateLabel`` sont appelés pour un ``FeaturePython`` et que
 le libellé saisi arrive tel que tapé (risque R1 de la spécification).
 """
