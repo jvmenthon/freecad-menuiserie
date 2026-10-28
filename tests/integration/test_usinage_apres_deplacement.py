@@ -126,3 +126,38 @@ def test_traverse_tiree_dans_son_axe(document: Any, shift: float) -> None:
         assert machined.Shape.Volume > 0, info
         assert machined.Placement == montage.parts[mark].Placement, info
     assert stale_or_invalid(document) == [], (shift, stale_or_invalid(document))
+
+
+def test_traverse_passee_de_l_autre_cote_du_montant(document: Any) -> None:
+    """Scénario de jv : l'invitée T1 est tirée par sa flèche de l'autre côté de M1, c'est son
+    bout opposé qui touche le montant. Jamais d'usinage silencieusement absent : le tenon est au
+    bon bout et la mortaise dans la bonne face, ou l'assemblage est déclaré défait."""
+    montage, _volumes = assembled(document)
+    asked: list[Any] = []
+    blank_t1 = montage.parts["T1"]
+    start = App.Placement(blank_t1.Placement)
+
+    def choose(labels: Any) -> bool:
+        asked.append(list(labels))
+        return False
+
+    document.openTransaction(TRANSACTION)
+    memento = drag.begin_drag(montage.machined("T1"))
+    drag.move_part(memento, Vec3(-340, 0, 0))
+    try:
+        drag.end_drag(memento, choose)
+        document.commitTransaction()
+    except drag.DragCancelledError:
+        document.abortTransaction()
+    document.recompute()
+    info = (bool(asked), blank_t1.Placement.Base, montage.volume("M1"), montage.volume("T1"))
+    if asked:
+        assert blank_t1.Placement == start, info
+        return
+    tenon_end = montage.machined("T1").Shape.BoundBox
+    assert montage.volume("T1") > blank_t1.Shape.Volume, info  # tenon présent
+    assert montage.volume("M1") < montage.parts["M1"].Shape.Volume, info  # mortaise creusée
+    assert stale_or_invalid(document) == [], info
+    # la mortaise est dans la face du montant tournée vers la traverse (y = 0) : le bout
+    # opposé de la traverse, côté y = 0, porte le tenon qui entre dans M1
+    assert tenon_end.YMax > blank_t1.Shape.BoundBox.YMax + 1, (info, tenon_end)

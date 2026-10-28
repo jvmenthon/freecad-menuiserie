@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from freecad.menuiserie.gui import joint_choice
 from tests.gui.verifications_assemblages import cadre, usinee_de
 from tests.gui.verifications_panneau import ecarts
 from tests.gui.verifications_panneau_assemblage import tenon_valide
@@ -28,6 +29,8 @@ from tests.gui.verifications_souris import (
 # (pièce tirée, axe de la flèche, distance tirée en mm le long de la flèche) : la traverse T1
 # (invitée) glisse le long de la rive de M1 (hôte), qui glisse le long de son propre axe X.
 GLISSEMENTS = {"invitée": ("T1", 1, -20.0), "hôte": ("M1", 0, -100.0)}
+# jv : la traverse passe de l'autre côté du montant, son bout opposé touche M1.
+AUTRE_COTE = ("T1", 0, -340.0)
 
 
 def _forme(piece: Any) -> tuple[float, bool]:
@@ -84,7 +87,46 @@ def verifier_usinage_apres_glissement_de_l_hote() -> list[str]:
     return _glissement("VerifUsinageHote", "hôte")
 
 
+def verifier_usinage_traverse_de_l_autre_cote() -> list[str]:
+    """Scénario de jv : la traverse tirée de l'autre côté du montant (son bout opposé touche M1).
+    Soit le tenon et la mortaise sont recalculés et visibles, soit la fenêtre de choix s'ouvre
+    (annulation : la traverse revient) ; jamais d'usinage silencieusement absent."""
+    repere, axe, mm = AUTRE_COTE
+    with cadre("VerifUsinageAutreCote") as (doc, pieces):
+        session = preparer(doc)
+        tenon_valide(doc, pieces)
+        brutes = {r: float(pieces[r].Shape.Volume) for r in ("M1", "T1")}
+        piece = pieces[repere]
+        avant = place(piece)
+        selection_dessinee(usinee_de(piece))
+        problemes = ecarts(
+            "flèche saisie", saisir(session, sur_la_fleche(session, axe, 40.0)), True
+        )
+        point = tirer(session, mm)
+        questions: list[Any] = []
+
+        def choisir(libelles: Any) -> bool:
+            questions.append(list(libelles))
+            return False
+
+        original, joint_choice.chooser = joint_choice.chooser, choisir
+        try:
+            problemes += ecarts("relâchement consommé", session.release(point), True)
+        finally:
+            joint_choice.chooser = original
+        if questions:
+            return [*problemes, *ecarts("annulé : la traverse revient", place(piece), avant)]
+        volumes = {r: float(usinee_de(pieces[r]).Shape.Volume) for r in brutes}
+        return [
+            *problemes,
+            *_affichage(pieces),
+            *ecarts("tenon présent", volumes["T1"] > brutes["T1"], True),
+            *ecarts("mortaise creusée", volumes["M1"] < brutes["M1"], True),
+        ]
+
+
 VERIFICATIONS_USINAGE_DEPLACEMENT: tuple[Callable[[], list[str]], ...] = (
     verifier_usinage_apres_glissement_de_l_invitee,
     verifier_usinage_apres_glissement_de_l_hote,
+    verifier_usinage_traverse_de_l_autre_cote,
 )
