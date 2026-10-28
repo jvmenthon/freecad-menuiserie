@@ -74,6 +74,10 @@ class TransactionTaskPanel:
         """Étape des sous-classes juste avant la validation (par exemple rétablir l'affichage
         d'un aperçu) ; rien par défaut."""
 
+    def _release_display(self) -> None:
+        """Étape des sous-classes à chaque fermeture, avant le solde de la transaction (par
+        exemple rétablir l'affichage modifié par le panneau) ; rien par défaut."""
+
     def reject(self) -> bool:
         """« Annuler » : abandon de la transaction (objet supprimé ou valeurs rétablies)."""
         self._finish(abort=True)
@@ -106,6 +110,7 @@ class TransactionTaskPanel:
         self._closed = True
         self._stop_watching()
         self._remove_watcher()
+        self._release_display()
         close_transaction(self._transaction, abort=abort)
         _close(self.doc)
 
@@ -116,6 +121,7 @@ class TransactionTaskPanel:
             return
         self._closed = True
         self._stop_watching()
+        self._release_display()
         QtCore.QTimer.singleShot(0, self._clean_up_after_forced_close)
 
     def _clean_up_after_forced_close(self) -> None:
@@ -157,6 +163,16 @@ class ObjectTaskPanel(TransactionTaskPanel):
     def preview(self) -> None:
         """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""
         recompute_preview(self.obj)
+
+
+def object_alive(obj: DocumentObject) -> bool:
+    """Vrai si ``obj`` existe encore dans un document ouvert (faux pour un objet supprimé ou
+    dont le document est fermé)."""
+    try:
+        doc = obj.Document
+        return doc.Name in App.listDocuments() and doc.getObject(obj.Name) == obj
+    except (ReferenceError, RuntimeError):
+        return False
 
 
 def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None) -> None:

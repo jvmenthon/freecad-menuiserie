@@ -7,7 +7,10 @@ Le formulaire est construit d'après la description des paramètres du type
 un type aux rôles symétriques : mi-bois, onglet), un champ par paramètre. Chaque saisie est
 écrite aussitôt dans l'assemblage puis recalculée avec ses pièces usinées (aperçu) ; une erreur
 d'assemblage s'affiche dans le panneau sans empêcher « OK ». Transactions, fermeture et
-surveillance du document : :mod:`base` (comme J1c).
+surveillance du document : :mod:`base` (comme J1c). Tant que le panneau est ouvert, les objets
+affichés des deux pièces (pièce usinée, sinon brute) sont transparents pour montrer l'usinage
+(:class:`PartsPreview`) ; leur transparence d'origine est rétablie à la fermeture, quelle qu'en
+soit la cause.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import mm_text
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
+from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import (
     COMMON_PROPERTIES,
@@ -35,9 +39,11 @@ from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
     Widget,
     connect,
+    object_alive,
     panel_title,
 )
 from freecad.menuiserie.gui.task_panels.joint_fields import ParamField, fields_of, property_tooltip
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 from freecad.menuiserie.gui.view_providers.joint import joint_icon
 
 FORM_NAME: Final = "JointTaskPanel"
@@ -76,6 +82,7 @@ class JointTaskPanel(ObjectTaskPanel):
         self._error = _error_label()
         layout.addWidget(self._error)
         self._refresh()
+        self._transparency = PartsPreview(self._shown_parts, object_alive)
 
     # --- Construction ---------------------------------------------------------------------
 
@@ -99,6 +106,23 @@ class JointTaskPanel(ObjectTaskPanel):
         connect(button, "clicked()", self._invert)
         layout.addWidget(button)
         return host, guest
+
+    # --- Transparence ---------------------------------------------------------------------
+
+    def _shown_parts(self) -> list[DocumentObject]:
+        """Objets affichés de l'hôte et de l'invitée : pièce usinée si elle existe, sinon brute."""
+        parts = (self.obj.HostPart, self.obj.GuestPart)
+        return [shown_object(part) for part in parts if part is not None]
+
+    def preview(self) -> None:
+        """Aperçu comme les autres panneaux, puis transparence sur les objets affichés (une
+        pièce usinée peut être apparue au recalcul)."""
+        super().preview()
+        self._transparency.sync()
+
+    def _release_display(self) -> None:
+        """Fermeture : transparence d'origine des pièces rétablie."""
+        self._transparency.restore()
 
     # --- Saisies --------------------------------------------------------------------------
 

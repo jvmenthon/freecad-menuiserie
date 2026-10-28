@@ -132,6 +132,7 @@ Variante « pilotée » : `M2.Placement.Base.y = 400 mm - Width`, `M2.Width = M1
 | E5 | Double-clic sur un assemblage : ouvre son panneau. | G |
 | E6 | Scénario du livrable sur FreeCAD 1.0 et 1.1 : cadre de référence dessiné à la main, quatre tenons-mortaises par la commande, changement de largeur des montants et traverses, annuler, rétablir, enregistrer, rouvrir ; vue TechDraw d'un montant (mortaises visibles en traits cachés) ; captures dans la PR. | manuel |
 | E7 | Chaînes traduisibles, `from PySide import …` seulement. | revue + test d'imports |
+| E8 | Tant que le panneau d'un assemblage est ouvert (création ou modification), les objets affichés de l'hôte et de l'invitée (pièce usinée si elle existe, sinon brute) sont transparents à 60 % pour montrer l'usinage. La transparence d'origine de chaque objet est rétablie exactement à la fermeture (« OK », « Annuler », Échap, document fermé, assemblage supprimé), jamais sur un objet supprimé ; si l'objet affiché change pendant l'édition (pièce usinée créée au recalcul), le nouveau devient transparent et l'ancien est rétabli. Seul le ViewObject est modifié : aucune entrée d'annulation, rien d'enregistré durablement, aucune modification globale. | U + G |
 
 ## 4. Conception
 
@@ -527,6 +528,15 @@ s'affiche sous les champs. Cycle de vie commun avec le panneau J1c dans `task_pa
 (`ObjectTaskPanel`, `show_panel`, `start_editing`, `close_transaction`, `DeletionWatcher`) ; l'objet
 mis en mode édition (la pièce usinée pour sa brute) est mémorisé à l'ouverture pour quitter
 l'édition après une fermeture forcée même si son lien vers la brute a disparu.
+
+Transparence (E8) : `PartsPreview` (`task_panels/preview.py`, sans import FreeCAD) mémorise la
+transparence d'origine de chaque objet affiché (`shown_object` de chaque pièce) par un
+`PreviewStyle`, la pose à l'ouverture et après chaque aperçu (`JointTaskPanel.preview`), et la
+rétablit par le point d'extension `_release_display` de `base.py`, appelé à chaque fermeture
+(`_finish`, fermeture par FreeCAD) avant le solde de la transaction. Un objet supprimé
+(`object_alive`) n'est jamais écrit. Les propriétés du ViewObject ne passent pas par les
+transactions du document : la vérification d'interface contrôle qu'aucune entrée d'annulation n'est
+créée.
 
 ### 4.8 Sécurité
 
