@@ -92,3 +92,36 @@ def test_pieces_usinees_apres_annulation_du_glissement(document: Any, case: str)
     assert montage.machined(mark).Visibility is True
     assert stale_or_invalid(document) == []
     assert montage.machined(mark).Shape.Volume == pytest.approx(volumes[mark])
+
+
+@pytest.mark.parametrize("shift", [-10.0, 10.0, -40.0])
+def test_traverse_tiree_dans_son_axe(document: Any, shift: float) -> None:
+    """La traverse (tenon) tirée le long de sa longueur, vers le montant (recouvrement) ou à
+    l'opposé (jour) : soit l'assemblage tient et les deux pièces restent usinées et visibles,
+    soit il est défait et la fenêtre de choix en est informée ; jamais de pièce disparue."""
+    montage, volumes = assembled(document)
+    asked: list[Any] = []
+
+    def choose(labels: Any) -> bool:
+        asked.append(list(labels))
+        return False  # « Annuler le déplacement »
+
+    document.openTransaction(TRANSACTION)
+    memento = drag.begin_drag(montage.machined("T1"))
+    drag.move_part(memento, Vec3(shift, 0, 0))
+    try:
+        drag.end_drag(memento, choose)
+        document.commitTransaction()
+    except drag.DragCancelledError:
+        document.abortTransaction()
+    if asked:  # annulé : tout est revenu
+        check_state(montage, volumes)
+        return
+    for mark in volumes:
+        machined = montage.machined(mark)
+        info = (shift, mark, machined.Shape.Volume, machined.Shape.isValid(), machined.State)
+        assert machined.Visibility is True, info
+        assert montage.parts[mark].Visibility is False, info
+        assert machined.Shape.Volume > 0, info
+        assert machined.Placement == montage.parts[mark].Placement, info
+    assert stale_or_invalid(document) == [], (shift, stale_or_invalid(document))
