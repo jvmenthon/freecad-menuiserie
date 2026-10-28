@@ -6,6 +6,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ## [Non publié]
 
 ### Modifié
+- Panneau d'assemblage (demande de jv, critère E8 de
+  [la spécification](docs/specs/J3-assemblages.md)) : tant qu'il est ouvert, à la création comme à
+  la modification, les deux pièces de l'assemblage (pièce usinée, sinon brute) s'affichent à 60 %
+  de transparence pour voir l'usinage (tenon, mortaise, queues…) à l'intérieur ; la transparence
+  d'origine est rétablie exactement à la fermeture, quelle qu'en soit la cause, sans entrée
+  d'annulation ni modification globale.
 - Glisser une pièce à la souris, poignées de taille (demande de jv) : chaque poignée est dessinée
   en petit cube plein orange au bout d'une tige, comme dans les logiciels de CAO, au lieu d'une
   double flèche qu'on confondait avec les flèches de déplacement ; taille constante à l'écran,
