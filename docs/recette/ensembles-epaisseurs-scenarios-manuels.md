@@ -2,7 +2,7 @@
 
 Critères G1 à G4 de la [spécification](../specs/ensembles-epaisseurs-fixes.md) et
 [ADR 0019](../adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (règle de jv du
-2026-10-23), à dérouler à la main sur **FreeCAD 1.0** et **FreeCAD 1.1**, atelier installé depuis
+2026-10-23), à dérouler à la main sur **FreeCAD 1.1** (minimum depuis l’ADR 0023), atelier installé depuis
 la branche du lot. Les résultats et les captures sont reportés dans la PR.
 
 Les règles de calcul (E1 à E9) et le document (D1 à D6) sont vérifiés par les tests unitaires et
