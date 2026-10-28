@@ -246,7 +246,7 @@ class DistanceMove:
         l'erreur (``ValueError``) est relancée. ``keep`` : la distance est gardée par un objet
         Distance créé avant la liaison (``axis`` : voir :meth:`gap`) ; refus
         (:class:`KeepError`, rangée bloquée comprise) : la pièce revient aussi. ``choose`` : que
-        faire des assemblages que le déplacement défait (:func:`end_drag`, ADR 0024) ; annulé, la
+        faire des assemblages que le déplacement défait (:func:`end_drag`, ADR 0026) ; annulé, la
         pièce revient, la Distance créée est retirée et ``DragCancelledError`` est levée."""
         if self._memento is None:
             raise RuntimeError(_NOT_STARTED)

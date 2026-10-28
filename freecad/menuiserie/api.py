@@ -283,7 +283,7 @@ def make_mortise_tenon(
     appelée sur l'assemblage créé **avant le premier recalcul**, qui le renvoie (rôles inversés
     au besoin) ou lève ``ValueError`` ; la commande de l'interface y passe
     ``features.joints.feasible.feasible_joint``, pour qu'un assemblage impossible ne soit jamais
-    recalculé (ADR 0024). Sans ``check``, l'assemblage impossible est créé en erreur.
+    recalculé (ADR 0026). Sans ``check``, l'assemblage impossible est créé en erreur.
     """
     return _make_joint(create_mortise_tenon, host, guest, params, check)
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Fenêtre « Assemblage défait » au relâchement d'un déplacement (ADR 0024, B7 modifié).
+"""Fenêtre « Assemblage défait » au relâchement d'un déplacement (ADR 0026, B7 modifié).
 
 Quand le déplacement d'une pièce (flèches ou poignées de la vue 3D, panneau « Définir une
 distance ») rend un ou plusieurs assemblages impossibles, :func:`choose` propose :

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Vérifications d'interface : assemblage défait par un glissement, au relâchement (ADR 0024).
+"""Vérifications d'interface : assemblage défait par un glissement, au relâchement (ADR 0026).
 
 Une flèche tirée hors de portée de l'assemblage à tourillons de la joue gauche et du voile : au
 relâchement, la fenêtre de choix s'ouvre (``gui/joint_choice``). Hors écran, la fenêtre modale est

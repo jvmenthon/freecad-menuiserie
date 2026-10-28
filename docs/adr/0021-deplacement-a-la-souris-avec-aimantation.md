@@ -126,9 +126,9 @@ du dessus ou du dessous tirée n'est pas forcément celle qui bouge à l'arrivé
 membre d'ensemble est refaite par ses liaisons (une épaisseur saisie dans le panneau fait de
 même). Le statut reste **accepté**.
 
-## Note (2026-10-27, B7 modifié par l'ADR 0024)
+## Note (2026-10-27, B7 modifié par l'ADR 0026)
 
 Le critère B7 (assemblage qui ne touche plus : déplacement gardé, avertissement) est **modifié**
-par l'[ADR 0024](0024-assemblage-defait-par-un-deplacement.md) : au relâchement, une fenêtre
+par l'[ADR 0026](0026-assemblage-defait-par-un-deplacement.md) : au relâchement, une fenêtre
 propose d'annuler le déplacement ou de supprimer les assemblages défaits, sans trace Python. Le
 statut reste **accepté**.

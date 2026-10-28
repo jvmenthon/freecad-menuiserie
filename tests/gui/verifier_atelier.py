@@ -1253,7 +1253,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,
-    # Assemblage défait au relâchement (ADR 0024)
+    # Assemblage défait au relâchement (ADR 0026)
     *VERIFICATIONS_ARONDE_RELACHEMENT,
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
