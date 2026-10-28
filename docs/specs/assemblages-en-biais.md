@@ -1,7 +1,7 @@
 # Assemblages entre pièces en biais (angles composés compris)
 
 - Issue : #114 (priorité moyenne)
-- Statut : **proposée**, en attente des réponses de jv (§ 9). Architecture seule : aucun code.
+- Statut : **proposée** ; jv a répondu à Q1 à Q5 (§ 9), reste Q6. Architecture seule : aucun code.
 - Décisions de jv : traiter à part, **après** le jalon « pièce en bois » (#111, 2026-10-27) ;
   « Je veux pouvoir faire des assemblages de pièces avec 0 côté perpendiculaire »
   (2026-10-28) : **toute orientation** est acceptée, angles composés compris ;
@@ -93,7 +93,7 @@ comme aujourd'hui (sélection de deux pièces → « Tenon-mortaise »). Il obti
 - **A5** `guess_roles` passe par `relation` : en biais, l'invitée est la pièce dont le bout
   rencontre une face de l'autre.
 - **A6** Tests purs : volumes de boîtes coupées comparés aux formules (coin, biseau, double
-  biseau) ; biais simples de 5°, 10°, 30°, 45° et 46° (refus) ; angles composés (8° / 8°,
+  biseau) ; biais simples de 5°, 10°, 30°, 45°, 70° et 71° (refus) ; angles composés (8° / 8°,
   20° / 15°, torsion seule de 30° autour de l'axe de l'invitée) ; les trois façons de dessiner ;
   α sous la tolérance traité d'équerre.
 
@@ -194,7 +194,9 @@ quelconque : aucun axe commun n'est supposé.
 - `contact.relation()` : d'équerre → `classify`. En biais (`_oblique_contact`), dans le repère
   de l'invitée :
   - candidates : ses faces de contact possibles (bout ±X ; chant ±Y aussi pour la languette) ;
-    pour chacune, la face de l'hôte dont la normale est la plus proche de l'opposée (α = écart) ;
+    pour chacune, la face de l'hôte qu'elle rencontre **réellement** (celle que traverse ou
+    touche son bout, à l'intérieur de son contour), et non la plus proche en angle : jusqu'à
+    70°, une face voisine peut être plus proche en angle (α = écart entre les normales) ;
   - distances signées des quatre coins de la face de l'invitée au plan de cette face de l'hôte :
     toutes > tolérance → `Separated` ;
   - le coin retiré (invitée au-delà du plan) doit rester dans l'hôte, sans atteindre sa face
@@ -218,7 +220,10 @@ Dans le repère de l'invitée, *n* = normale de sa face de contact, plan d'épau
   d'équerre à *n*. Sa longueur se mesure sur l'axe du tenon, depuis le point où cet axe
   traverse P. Débouchant : la barre est coupée par la face opposée de l'hôte.
 - **Longueur automatique** : `mm_round(2 · profondeur / (3 · cos α))`, profondeur = étendue de
-  l'hôte perpendiculairement à P : même formule qu'aujourd'hui pour α = 0 (B4).
+  l'hôte perpendiculairement à P : même formule qu'aujourd'hui pour α = 0 (B4). À fort biais
+  (jusqu'à 70°, le tenon fait alors près de deux fois la profondeur), elle est réduite au mm
+  jusqu'à ce que le point le plus profond de la mortaise laisse une paroi ; une valeur saisie
+  n'est jamais réduite (refus `TOO_DEEP`).
 - **Mortaise** = la même barre, prolongée du jeu de fond le long de *n* et coupée par P décalé
   de `CUT_OVERRUN_MM` vers l'invitée (elle n'enlève que de la matière de l'hôte) ; exprimée dans
   le repère de l'hôte par `moved`.
@@ -349,7 +354,7 @@ antérieure de l'atelier affiche le refus actuel « Les deux pièces doivent êt
 | Risque | Parade |
 |---|---|
 | Découpe de polyèdre fausse sur un cas limite (plan qui passe par un sommet, face confondue) | tests par volumes analytiques ; comparaison volume `core` / volume OCC en intégration (B9) ; tolérance de fusion des sommets |
-| Coin très aigu à 45° : épaulement fragile, booléenne OCC délicate | borne `MAX_OBLIQUE_DEG` (Q1), tests à la borne, `removeSplitter` déjà en place |
+| Coin très aigu à 70° (pointe de près de trois fois l'épaisseur) : épaulement fragile, booléenne OCC délicate | borne `MAX_OBLIQUE_DEG` = 70° (Q1), tests à la borne, `removeSplitter` déjà en place ; avertissement « épaulement très aigu » dans la vue rapport au-delà de 45° |
 | Rotation « presque d'équerre » (89,9999°) prise en biais avec un coin de 1e-5 mm | tolérance `ANGLE_TOLERANCE` inchangée, `squared_rotation` des placements ; polyèdre plus mince que `CONTACT_TOLERANCE_MM` écarté (A1) |
 | Bout qui tombe sur une arête de l'hôte (pied de section carrée, ceinture décalée) | refus `EDGE_HIT` explicite plutôt qu'un usinage faux |
 | Ensemble modifié qui défait un assemblage en biais | avertissement `JOINT_LOST` (D3) ; la pièce usinée garde le refus de recalcul existant |
@@ -376,18 +381,14 @@ nouvelle décision d'architecture :
   référence, sinon coupe la moitié de l'angle » : référence au choix, pièce à tenon, pièce
   mortaisée ou mi-angle (§ 4.8, lot AB-e).
 
-### Questions ouvertes
+- **Q1 — Borne d'angle (2026-10-28)** : **70° au plus** (`MAX_OBLIQUE_DEG` = 70 ; au-delà,
+  refus avec l'angle cité).
+- **Q3, Q4, Q5 (2026-10-28)** : recommandations acceptées : « Bout biais 10° » / « Coupe
+  composée 8° / lame 8° » ; un membre d'ensemble en biais suit par translation (AB-d) ;
+  tenon-mortaise et rainure-languette dans le jalon.
 
-- **Q1 — Borne d'angle.** ★ Écart à l'équerre **jusqu'à 45°** compris (au-delà, refus avec
-  l'angle cité). Autres choix : 30° (prudent, épaulement moins fragile) ou 60°.
-- **Q3 — Mention dans la liste de débit.** ★ « Bout biais 10° » pour un biais simple,
-  « Coupe composée 8° / lame 8° » pour un angle composé (les réglages de la scie). Autre :
-  angles mesurés entre le bout et les arêtes (« 80° »).
-- **Q4 — Ensembles.** ★ (a) un membre en biais **suit par translation**, sans jamais être
-  étiré (AB-d). (b) aucune liaison comme aujourd'hui (AB-d réduit à B7 : pas d'erreur) ; on
-  repousse AB-d.
-- **Q5 — Assemblages du jalon.** ★ **tenon-mortaise et rainure-languette** (même code de
-  profil). Les autres types (tourillons d'abord ?) dans des issues suivantes.
+### Question ouverte
+
 - **Q6 — Référence par défaut.** ★ **pièce à tenon** (tenon dans le fil, le plus solide ; la
   mortaise prend le biais). Autre : pièce mortaisée (mortaise d'équerre, plus simple à la
   machine, tenon à fil tranché).

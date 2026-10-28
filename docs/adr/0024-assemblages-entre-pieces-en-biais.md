@@ -1,6 +1,6 @@
 # ADR 0024 — Assemblages entre pièces en biais : polyèdres convexes, angle quelconque
 
-- Statut : **proposé** (issue #114, en attente de jv)
+- Statut : **proposé** (issue #114 ; jv a tranché les questions de conception le 2026-10-28, reste le défaut de la référence)
 - Date : 2026-10-27, revu deux fois le 2026-10-28 (demandes de jv : « Je veux pouvoir faire des assemblages
   de pièces avec 0 côté perpendiculaire » : les angles composés sont dans le périmètre ; référence du tenon au choix, mi-angle compris)
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
@@ -54,7 +54,7 @@ pour un tenon dont l'épaulement est coupé selon un plan gauche par rapport à 
 3. **Contact en biais** : la face de contact de l'invitée (bout ±X pour un tenon, bout ou chant
    pour une languette) rencontre une face de l'hôte, le *plan d'épaulement*. L'écart à
    l'équerre α est l'angle entre leurs normales ; il est accepté pour 0 < α ≤ `MAX_OBLIQUE_DEG`
-   (45° proposé, Q1). La section de l'invitée peut être tournée sur ce plan (torsion) : c'est
+   (**70°**, choix de jv du 2026-10-28). La section de l'invitée peut être tournée sur ce plan (torsion) : c'est
    un cas comme un autre.
 4. **Mise au contact dans le calcul seulement**, comme en ADR 0014 et 0016 : la partie de
    l'invitée au-delà du plan d'épaulement va dans `guest_trims`, le coin qui manque entre son
