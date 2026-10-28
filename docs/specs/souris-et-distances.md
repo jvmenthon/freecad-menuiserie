@@ -109,7 +109,7 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 | C5 | G | Guide aimanté : il est dessiné en surbrillance (plan, droite ou point) pendant l'aimantation ; Maj enfoncée : aucune aimantation, aucun dessin. |
 | C6 | G | Échap pendant le glissement : la pièce revient où elle était au début de ce glissement (le panneau, s'il est ouvert, le reste). |
 | C7 | G | « Annuler » du panneau : la pièce revient à son état d'avant le panneau ; « OK » puis Ctrl+Z : idem, en une étape. Hors panneau : Ctrl+Z annule le dernier glissement en une étape. |
-| C8 | R | Recette sur FreeCAD 1.0 et 1.1 (Windows, styles de navigation « Gesture », « OpenInventor », « Blender ») : déplacer une étagère entre deux joues, l'aimanter contre la joue gauche, la redimensionner jusqu'à la joue droite ; même chose dans le bureau de #86 (rangées et épaisseurs vivantes). |
+| C8 | R | Recette sur FreeCAD 1.1 (minimum depuis l'ADR 0023 ; Windows, styles de navigation « Gesture », « OpenInventor », « Blender ») : déplacer une étagère entre deux joues, l'aimanter contre la joue gauche, la redimensionner jusqu'à la joue droite ; même chose dans le bureau de #86 (rangées et épaisseurs vivantes). |
 
 ### DI-a — Distance entre deux éléments, règles pures (`core/distance/`)
 

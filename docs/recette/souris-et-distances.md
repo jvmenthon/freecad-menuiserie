@@ -1,8 +1,8 @@
 # Souris et distances : scénarios de recette manuelle
 
 Recette de l'issue #65 ([spécification](../specs/souris-et-distances.md),
-[ADR 0022](../adr/0022-distance-entre-deux-pieces.md)), à dérouler à la main sur **FreeCAD 1.0** et
-**FreeCAD 1.1**, atelier installé depuis la branche du lot. Les résultats et les captures sont
+[ADR 0022](../adr/0022-distance-entre-deux-pieces.md)), à dérouler à la main sur **FreeCAD 1.1**
+(minimum depuis l'ADR 0023), atelier installé depuis la branche du lot. Les résultats et les captures sont
 reportés dans la PR. Les règles de calcul et le déplacement sont vérifiés par les tests unitaires
 et d'intégration ; l'interface hors écran par `tests/gui/verifier_atelier.py`
 (`verifications_distance.py`) ; cette recette sert à **voir** ce que voit jv : la pièce déplacée
@@ -103,8 +103,8 @@ Nouveau document, atelier **Menuiserie**, trois pièces de chêne par **Pièce d
 
 Critère C8 de la [spécification](../specs/souris-et-distances.md) et
 [ADR 0021](../adr/0021-deplacement-a-la-souris-avec-aimantation.md) (choix de jv du 2026-10-25 :
-déplacer à tout moment, par trois flèches). À dérouler à la main sur **FreeCAD 1.0** et
-**FreeCAD 1.1** (Windows), avec les trois styles de navigation **Gesture**, **OpenInventor** et
+déplacer à tout moment, par trois flèches). À dérouler à la main sur **FreeCAD 1.1**
+(Windows, minimum depuis l'ADR 0023), avec les trois styles de navigation **Gesture**, **OpenInventor** et
 **Blender** (Édition > Préférences > Affichage > Navigation), atelier installé depuis la branche
 du lot. Les résultats et les captures sont reportés dans la PR.
 
