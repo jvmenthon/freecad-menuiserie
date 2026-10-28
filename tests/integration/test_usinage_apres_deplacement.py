@@ -114,7 +114,8 @@ def test_traverse_tiree_dans_son_axe(document: Any, shift: float) -> None:
         document.commitTransaction()
     except drag.DragCancelledError:
         document.abortTransaction()
-    if asked:  # annulé : tout est revenu
+    if asked:  # annulé : tout est revenu (l'annulation de FreeCAD marque les objets à recalculer)
+        document.recompute()
         check_state(montage, volumes)
         return
     for mark in volumes:
