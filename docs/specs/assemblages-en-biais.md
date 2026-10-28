@@ -1,9 +1,11 @@
-# Assemblages entre pièces en biais (tenon-mortaise oblique…)
+# Assemblages entre pièces en biais (angles composés compris)
 
 - Issue : #114 (priorité moyenne)
 - Statut : **proposée**, en attente des réponses de jv (§ 9). Architecture seule : aucun code.
-- Décision de jv (2026-10-27) : traiter à part, **après** le jalon « pièce en bois » (#111).
-- ADR : **[0024 — Assemblages entre pièces en biais : une charnière, un calcul plan](../adr/0024-assemblages-entre-pieces-en-biais.md)**
+- Décisions de jv : traiter à part, **après** le jalon « pièce en bois » (#111, 2026-10-27) ;
+  « Je veux pouvoir faire des assemblages de pièces avec 0 côté perpendiculaire »
+  (2026-10-28) : **toute orientation** est acceptée, angles composés compris.
+- ADR : **[0024 — Assemblages entre pièces en biais : polyèdres convexes, angle quelconque](../adr/0024-assemblages-entre-pieces-en-biais.md)**
   (proposé) ; ADR liés 0006, 0014, 0016, 0019 (PR #86), 0020.
 - Découpage : quatre PR, **AB-a → AB-b → (AB-c ∥ AB-d)** (§ 5), branche de jalon
   `jalon/assemblages-en-biais` partie de `main` **après la fusion de #111**.
@@ -11,14 +13,17 @@
 **Vocabulaire.**
 
 - *D'équerre* : rotation relative des deux pièces faite de quarts de tour (cas actuel).
-- *Charnière* : axe commun aux deux pièces autour duquel l'une est tournée (la profondeur d'un
-  caisson à côtés inclinés, l'épaisseur d'un cadre trapézoïdal).
+- *En biais* : toute autre rotation, y compris quand aucune face de l'une n'est perpendiculaire
+  à une face de l'autre (*angle composé* : pied de tabouret écarté dans deux directions).
+- *Plan d'épaulement* : la face de l'hôte que rencontre le bout de l'invitée ; les épaulements
+  de l'invitée y sont coupés.
 - *Écart à l'équerre* α : angle entre l'axe de l'invitée (normale de sa face de contact) et la
-  normale de la face de l'hôte qu'elle rencontre. α = 0 : d'équerre. Un côté incliné de 10° sur
-  la verticale reçoit une étagère horizontale avec α = 10°.
-- *Plan d'épaulement* : la face de l'hôte touchée ; les épaulements de l'invitée y sont coupés.
-- *Long point* : sur un bout coupé en biais, l'arête la plus éloignée de l'autre bout (la cote
-  que le menuisier reporte avant de couper le biais).
+  normale du plan d'épaulement. α = 0 : d'équerre.
+- *Coupe composée* : bout coupé selon un plan incliné dans les deux sens ; il se règle par un
+  **angle de coupe** (rotation de la table de la scie, biais vu de la face) et une
+  **inclinaison de lame** (biais vu du chant). Un biais simple n'a que l'un des deux.
+- *Long point* : sur un bout coupé en biais, le point le plus éloigné de l'autre bout (la cote
+  que le menuisier reporte avant de couper).
 
 ## 1. Contexte
 
@@ -29,167 +34,181 @@ trace) : « Les deux pièces doivent être d'équerre (angles multiples de 90°)
 
 Ce qui existe déjà et sert ici :
 
-- `Prism` : polygone plan extrudé, orientation quelconque ; `moved` le change de repère pour
-  toute rotation ; `features/solids.py` en fait un solide `Part` (queue d'aronde, onglet).
+- `RigidTransform` (rotation quelconque) et `moved`, qui change de repère un `Prism` pour toute
+  rotation ; `Box` et `Cylinder` ne savent être que d'équerre.
 - Pièce ramenée au contact dans le calcul seulement, sans toucher la brute : prolongée
   (ADR 0014, `guest_additions`) ou raccourcie (ADR 0016, `guest_trims`, retirés avant les ajouts
   dans `machined_shape`).
 - Profil commun tenon / languette (`core/joints/_profile.py` : `ContactFrame`,
-  `build_profile`, contrôles de matière et de parois).
+  `build_profile`, contrôles de matière et de parois) et ses règles de valeurs automatiques.
 - Avertissement de matière manquante pour une pièce en bois (E3 du jalon #73), retournement
   automatique des rôles (`feasible_joint`), avertissement B7 pendant un glissement.
 
+Un tenon dont l'épaulement est coupé selon un plan gauche n'est pas un prisme (ses arêtes n'ont
+pas toutes la même longueur) : il faut un nouveau solide, le polyèdre convexe (ADR 0024).
+
 ## 2. Objectif
 
-Exemple de référence (issue) : caisson dont les deux côtés sont inclinés de 10°, étagères
-horizontales assemblées par tenon-mortaise. L'utilisateur dessine ses pièces comme d'habitude
-(pièces de bois d'équerre dans leur propre repère, côtés tournés de 10° autour de la profondeur)
-et crée l'assemblage comme aujourd'hui (sélection de deux pièces → « Tenon-mortaise »). Il
-obtient :
+Deux exemples de référence :
 
-- une **mortaise oblique** dans le côté, qui suit l'axe de l'étagère ;
-- des **épaulements coupés en biais** selon la face du côté, que l'étagère ait été dessinée
-  pointe contre la face, ou hors tout (son bout entre dans le côté) ;
-- un **tenon** droit dans le prolongement de l'étagère ;
-- une **liste de débit** juste : longueur au long point, tenon en ajout, mention de la coupe
-  biaise ;
-- dans un **ensemble**, des côtés inclinés qui suivent la largeur par translation (Q4).
+1. **Biais simple** (issue) : caisson dont les côtés sont inclinés de 10°, étagères horizontales
+   assemblées par tenon-mortaise.
+2. **Angle composé** (demande de jv) : tabouret dont les pieds sont écartés de 8° vers l'avant
+   et de 8° vers le côté ; ceinture horizontale assemblée aux pieds par tenon-mortaise. Aucune
+   face de la ceinture n'est perpendiculaire à une face du pied.
 
-Les angles composés, les tourillons, l'onglet à angle quelconque et l'accrochage en biais sont
-hors périmètre (§ 8).
+L'utilisateur dessine ses pièces comme d'habitude (pièces d'équerre dans leur propre repère,
+tournées par leur `Placement`, à la main ou par les boutons de rotation) et crée l'assemblage
+comme aujourd'hui (sélection de deux pièces → « Tenon-mortaise »). Il obtient :
+
+- une **mortaise oblique** qui suit l'axe de l'invitée ;
+- des **épaulements coupés selon la face de l'hôte**, que l'invitée ait été dessinée pointe
+  contre la face, hors tout (son bout entre dans l'hôte) ou à cheval ;
+- un **tenon** droit dans le prolongement de l'invitée ;
+- une **liste de débit** juste : longueur au long point, tenon en ajout, réglages de la coupe
+  (angle de coupe, inclinaison de lame) ;
+- dans un **ensemble**, des pièces en biais qui suivent les cotes par translation (Q4).
 
 ## 3. Critères d'acceptation
 
-### AB-a — Relation angulaire et contact en biais (`core/geometry.py`, `core/oblique.py`, pur)
+### AB-a — Polyèdre convexe, relation et contact en biais (`core/`, pur)
 
-- **A1** `angular_relation(host, guest)` renvoie `Square(axes)` (cas actuel, même tolérance),
-  `Hinged(host_axis, guest_axis, angle)` ou `Compound`. Les fonctions actuelles ne changent pas.
-- **A2** `relation(host, guest)` renvoie `Contact | Overlap | Separated` (inchangés pour des
-  pièces d'équerre, même résultat que `classify`) ou `ObliqueContact` (§ 4.3) ; elle lève
-  `JointError` avec un message dédié pour un angle composé (`COMPOUND_ANGLE`), une torsion
-  (`TWISTED`) ou un écart trop grand (`TOO_OBLIQUE`, angle cité).
-- **A3** Le contact en biais est reconnu que l'invitée soit dessinée pointe contre la face
+- **A1** `core/_polyhedron.py` : `Polyhedron` (boîte dans un repère quelconque, coupée par des
+  demi-espaces), `clipped_box(box, frame, planes)`, `moved` pour toute rotation, `vertices()`,
+  `faces()`, `volume()`. Polyèdre vide ou plus mince que `CONTACT_TOLERANCE_MM` : `None`
+  (rien à usiner), jamais un solide dégénéré.
+- **A2** `geometry.is_square(host, guest)` : même tolérance que `_square_axes`. Les fonctions
+  actuelles ne changent pas.
+- **A3** `contact.relation(host, guest)` renvoie `Contact | Overlap | Separated` (pièces
+  d'équerre : exactement le résultat de `classify`) ou `ObliqueContact` (§ 4.3). Refus dédiés :
+  écart trop grand (`TOO_OBLIQUE`, angle cité), bout qui rencontre une arête ou un coin de
+  l'hôte au lieu d'une face (`EDGE_HIT`).
+- **A4** Le contact en biais est reconnu que l'invitée soit dessinée pointe contre la face
   (coin ajouté), hors tout (coin retiré) ou à cheval (les deux). Pièces écartées : `SEPARATED`.
   Invitée qui traverse l'hôte, ou qui y entre par un chant : refus existant `OVERLAPPING`.
-- **A4** `guess_roles` passe par `relation` : en biais, l'invitée est la pièce dont le bout
-  rencontre la face de l'autre.
-- **A5** Tests purs : α = 5°, 10°, 30°, 45°, 46° (refus) ; charnière selon la largeur et selon
-  l'épaisseur de l'invitée ; les trois façons de dessiner ; torsion et angle composé refusés ;
-  α inférieur à la tolérance traité d'équerre.
+- **A5** `guess_roles` passe par `relation` : en biais, l'invitée est la pièce dont le bout
+  rencontre une face de l'autre.
+- **A6** Tests purs : volumes de boîtes coupées comparés aux formules (coin, biseau, double
+  biseau) ; biais simples de 5°, 10°, 30°, 45° et 46° (refus) ; angles composés (8° / 8°,
+  20° / 15°, torsion seule de 30° autour de l'axe de l'invitée) ; les trois façons de dessiner ;
+  α sous la tolérance traité d'équerre.
 
-### AB-b — Tenon-mortaise et rainure-languette en biais (`core/joints/`, `features/joints/`)
+### AB-b — Tenon-mortaise et rainure-languette en biais (`core/joints/`, `features/`)
 
 - **B1** `core/joints/_oblique.py` : `ObliqueFrame` et `build_oblique_profile`, frères de
   `ContactFrame` et `build_profile` (§ 4.4) ; `MortiseTenonStrategy` et `TongueGrooveStrategy`
   choisissent le cadre selon `relation`. `_profile.py` n'est pas modifié.
-- **B2** Tenon : charnière selon la largeur (biais dans l'épaisseur) ou selon l'épaisseur
-  (biais dans la largeur). Languette : charnière le long de la rainure seulement.
+- **B2** `features/solids.py` construit un `Polyhedron` (§ 4.5) ; `machined_shape` et
+  `check_joint_material` l'acceptent comme les autres solides.
 - **B3** Plans identiques au bit près pour toute paire d'équerre (tests de non-régression sur
   les plans actuels du Caisson et des tests existants).
-- **B4** Continuité : pour α → 0 (1e-4°), le plan en biais égale le plan d'équerre à 1e-6 mm.
-- **B5** `JointPlan.guest_bevels` (nouveau champ, vide par défaut) décrit chaque bout coupé en
-  biais : face de l'invitée, angle α, coordonnées du long point et du court point.
-- **B6** Feuillure, mi-bois, queue d'aronde, onglet, tourillons : refus
-  `SQUARE_ONLY` (« Cet assemblage demande des pièces d'équerre ; entre pièces en biais :
-  tenon-mortaise ou rainure-languette. »).
+- **B4** Continuité : pour α → 0 (1e-4°), le plan en biais égale le plan d'équerre à 1e-6 mm
+  près (volumes et sommets).
+- **B5** `JointPlan.guest_bevels` (nouveau champ, vide par défaut) : un `Bevel` par bout coupé
+  en biais (face de l'invitée, normale du plan d'épaulement dans le repère de l'invitée, long
+  point).
+- **B6** Feuillure, mi-bois, queue d'aronde, onglet, tourillons : refus `SQUARE_ONLY`
+  (« Cet assemblage demande des pièces d'équerre ; entre pièces en biais : tenon-mortaise ou
+  rainure-languette. »).
 - **B7** `core/furniture/_check.py` compare les relations par `relation()` : modifier un
   ensemble qui contient un assemblage en biais ne lève plus `NOT_SQUARE`.
-- **B8** Panneau de l'assemblage : ligne en lecture seule « Biais : 10° » quand α > 0 (rien
-  d'équerre) ; les valeurs effectives restent celles du tenon, mesurées perpendiculairement à
-  l'axe de l'invitée.
-- **B9** Intégration FreeCAD : pièce usinée valide (un solide, `isValid`) pour α ∈ {5, 10, 30,
-  45}, les deux charnières, les trois façons de dessiner, tenon borgne et débouchant, hôte pièce
-  de bois et pièce en bois.
+- **B8** Panneau de l'assemblage : ligne en lecture seule « Biais : 10° » (biais simple) ou
+  « Biais : 8° et 8° » (angle composé, angle de coupe et inclinaison) quand α > 0 ; rien
+  d'équerre.
+- **B9** Intégration FreeCAD : pièce usinée valide (un solide, `isValid`) et volume OCC égal au
+  volume calculé par `core` (1e-6 relatif) pour les cas de A6, tenon borgne et débouchant,
+  hôte pièce de bois et pièce en bois.
 
 ### AB-c — Liste de débit (`features/cutlist_parts.py`, `core/cutlist/`)
 
 - **C1** Cotes finies d'une invitée à bout biais : longueur **au long point** (corps de la pièce,
   coins ajoutés compris, coins retirés exclus) ; le tenon reste un ajout (ADR 0006).
-- **C2** Mention de la coupe sur la ligne et dans le PDF / CSV : « Bout biais 10° » par bout
-  coupé (formulation selon Q3).
-- **C3** Deux pièces de même cotes mais de biais différents ne sont pas regroupées sur une
-  même ligne.
+- **C2** Mention de la coupe sur la ligne et dans le PDF / CSV, par bout coupé (formulation
+  selon Q3) : « Bout biais 10° » ou « Coupe composée 8° / lame 8° ».
+- **C3** Deux pièces de mêmes cotes mais de coupes différentes ne sont pas regroupées.
 - **C4** Hôte : inchangé (la mortaise est un enlèvement).
 
 ### AB-d — Ensembles (`core/furniture/`, `features/furniture*.py`) — selon Q4
 
-- **D1** Un membre en biais autour d'un axe de l'ensemble suit **par translation** : son
-  encombrement dans le repère de l'ensemble est lié comme un membre verrouillé (cotes fixes,
-  ADR 0019 : jamais étiré), colonne « Suit » = « Déplacée (en biais) ».
+- **D1** Un membre en biais suit **par translation** : son encombrement dans le repère de
+  l'ensemble est lié comme un membre verrouillé (cotes fixes, ADR 0019 : jamais étiré),
+  colonne « Suit » = « Déplacée (en biais) ».
 - **D2** Il n'entre dans aucune rangée et ne bloque aucune épaisseur.
-- **D3** Une modification qui défait un assemblage en biais (étagère qui ne rencontre plus le
-  côté) donne l'avertissement existant `JOINT_LOST`, sans refus.
-- **D4** Recette : caisson à côtés inclinés de 10°, largeur 600 → 800 : côtés déplacés,
-  étagères allongées, tenons recalculés.
+- **D3** Une modification qui défait un assemblage en biais (ceinture qui ne rencontre plus le
+  pied) donne l'avertissement existant `JOINT_LOST`, sans refus.
+- **D4** Recettes : caisson à côtés inclinés, largeur 600 → 800 ; tabouret, largeur 350 → 400 :
+  pièces en biais déplacées, pièces d'équerre allongées, tenons recalculés.
 
 ## 4. Conception
 
 ### 4.1 Principe (ADR 0024)
 
-Une rotation autour d'**une** charnière commune ramène tout à un problème **plan** : dans le
-plan perpendiculaire à la charnière (la *section*), l'hôte et l'invitée sont deux rectangles,
-l'un tourné de α ; le long de la charnière, leur recouvrement est un intervalle, comme
-aujourd'hui. Chaque solide du plan (coin retiré, coin ajouté, tenon, mortaise) est un polygone
-de la section extrudé le long de la charnière : un `Prism`. Aucun nouveau type de solide,
-aucune booléenne dans `core/`.
+Chaque solide d'un assemblage en biais est l'intersection d'une **boîte posée dans un repère
+quelconque** et de **quelques demi-espaces** : le coin retiré (l'invitée au-delà du plan
+d'épaulement), le coin ajouté (le prolongement de l'invitée jusqu'au plan), le tenon (une barre
+de la section du tenon, entre le plan d'épaulement et son bout), la mortaise (la même barre,
+plus le jeu de fond). Ces solides sont convexes : `core/` en calcule les sommets et les faces
+en Python pur, ce qui garde les contrôles de matière, les valeurs effectives et les tests hors
+de FreeCAD. Les deux pièces peuvent être tournées l'une par rapport à l'autre de façon
+quelconque : aucun axe commun n'est supposé.
 
 ### 4.2 Design patterns retenus
 
-- **Strategy** (inchangé) : chaque type garde sa stratégie ; seules deux d'entre elles
-  savent le biais.
+- **Strategy** (inchangé) : chaque type garde sa stratégie ; seules deux d'entre elles savent
+  le biais pour l'instant.
 - **Cadre** (*Parameter Object*) : `ObliqueFrame` regroupe ce que `ContactFrame` regroupe
-  aujourd'hui (normale, plans, axes, passage de repère), plus la charnière, α et les prismes
-  de mise au contact. Les règles de valeurs (`_values` de chaque type) restent communes.
-- **Value objects** figés : `Hinged`, `ObliqueContact`, `Bevel`.
+  aujourd'hui (normale, plans, passage de repère), plus α, le plan d'épaulement et les
+  polyèdres de mise au contact. Les règles de valeurs (`_values` de chaque type) restent
+  communes aux deux cadres.
+- **Value objects** figés : `Plane`, `Polyhedron`, `ObliqueContact`, `Bevel`.
 
-### 4.3 `core/geometry.py` et `core/oblique.py` (AB-a)
+### 4.3 `core/_polyhedron.py`, `core/geometry.py`, `core/contact.py` (AB-a)
 
-- `geometry.angular_relation` lit la rotation relative `R` (invitée → hôte). D'équerre : comme
-  `_square_axes`. Sinon, cherche les couples (axe i de l'invitée, axe j de l'hôte) tels que
-  `R·eᵢ = ±eⱼ` à `ANGLE_TOLERANCE` près : un seul couple → `Hinged(j, i, θ)` ; aucun →
-  `Compound`.
-- `oblique.oblique_contact(host, guest, hinged)` travaille dans la section, en 2D :
-  - repère la face de l'invitée qui rencontre l'hôte (bout ±X, ou chant ±Y pour la languette),
-    et la face de l'hôte rencontrée (plan d'épaulement) ; α = écart entre leurs normales ;
-  - distances signées des deux coins du bout de l'invitée au plan d'épaulement : toutes deux
-    > tolérance → `Separated` ; un coin au-delà de la face opposée de l'hôte, ou un chant de
-    l'invitée qui entre dans l'hôte hors du bout → `OVERLAPPING` ;
-  - coin retiré = partie de l'invitée au-delà du plan ; coin ajouté = bande de l'invitée
-    prolongée jusqu'au plan, moins l'invitée ; chacun est un polygone (triangle ou trapèze)
-    extrudé sur l'étendue de l'invitée le long de la charnière ;
-  - le rectangle de contact le long de la charnière est l'intersection des deux étendues.
-- `ObliqueContact` : faces, charnière (axe de l'invitée et de l'hôte), α, plan d'épaulement
-  (point, normale, repère de l'invitée), plan de la face opposée de l'hôte, prismes retiré et
-  ajouté, intervalle de contact sur la charnière, transformation exacte invitée → hôte (rotation
-  non arrondie : `RigidTransform`, sans passer par `relative_transform`).
-- `contact.relation()` appelle `classify` si `angular_relation` est `Square`, sinon
-  `oblique_contact` : un seul point d'entrée pour les appelants qui doivent accepter le biais
-  (`guess_roles`, `core/furniture/_check.py`, les deux stratégies).
+- `Plane(point, normal)` : demi-espace gardé du côté opposé à la normale.
+  `Polyhedron(box, frame, planes)` : `box` dans le repère `frame` (`RigidTransform`
+  quelconque), coupée par `planes` (exprimés dans le repère où vit le polyèdre). `moved`
+  transforme `frame` et les plans. Les sommets et faces sont calculés par découpe successive
+  des six faces de la boîte (Sutherland–Hodgman en 3D) ; pas de dépendance externe.
+- `geometry.is_square` lit la rotation relative comme `_square_axes`, sans lever.
+- `contact.relation()` : d'équerre → `classify`. En biais (`_oblique_contact`), dans le repère
+  de l'invitée :
+  - candidates : ses faces de contact possibles (bout ±X ; chant ±Y aussi pour la languette) ;
+    pour chacune, la face de l'hôte dont la normale est la plus proche de l'opposée (α = écart) ;
+  - distances signées des quatre coins de la face de l'invitée au plan de cette face de l'hôte :
+    toutes > tolérance → `Separated` ;
+  - le coin retiré (invitée au-delà du plan) doit rester dans l'hôte, sans atteindre sa face
+    opposée, et entrer par la face choisie seulement : sinon `OVERLAPPING` ; un bout qui
+    déborde de la face sur deux faces voisines de l'hôte → `EDGE_HIT` ;
+  - α > `MAX_OBLIQUE_DEG` → `TOO_OBLIQUE`.
+- `ObliqueContact` : face de l'invitée, face de l'hôte, α, plan d'épaulement et plan de la face
+  opposée de l'hôte (repère de l'invitée), polyèdres retiré et ajouté, transformation exacte
+  invitée → hôte (rotation non arrondie).
+- Un seul point d'entrée pour les appelants qui doivent accepter le biais : `guess_roles`,
+  `core/furniture/_check.py` et les deux stratégies passent par `relation()`.
 
 ### 4.4 Profil en biais (AB-b, `core/joints/_oblique.py`)
 
-Dans le repère de l'invitée, section ⟂ charnière (axes : normale de contact *n*, et l'axe
-*s* de la section qui n'est pas *n*) :
+Dans le repère de l'invitée, *n* = normale de sa face de contact, plan d'épaulement P :
 
 - **Section du tenon** mesurée perpendiculairement à *n* : épaisseur et largeur comme
-  aujourd'hui (tiers de l'épaisseur, épaulements d'un sixième), décalages compris, contrôlées
-  contre la section de l'invitée (`OUTSIDE_CONTACT` inchangé) et, le long de la charnière,
-  contre l'intervalle de contact.
-- **Tenon** : polygone borné par le plan d'épaulement côté invitée et par un bout d'équerre à
-  *n* ; sa longueur se mesure sur l'axe du tenon, depuis l'épaulement. Débouchant : le bout
-  est coupé selon la face opposée de l'hôte.
-- **Longueur automatique** : `mm_round(2 · profondeur / (3 · cos α))` (profondeur = étendue de
-  l'hôte perpendiculairement à sa face) : même formule qu'aujourd'hui pour α = 0 (B4).
-- **Mortaise** : le tenon prolongé du jeu de fond le long de *n*, et reculé de
-  `CUT_OVERRUN_MM` hors de l'hôte côté épaulement (il n'enlève que de la matière de l'hôte) ;
-  exprimée dans le repère de l'hôte par `moved`.
-- **Contrôles** dans le repère de l'hôte, sur les sommets de la mortaise : point le plus
-  profond ≤ profondeur de l'hôte (`TOO_DEEP`, sinon débouchant), parois de chaque côté sur
-  l'axe de la section et sur la charnière (`NO_WALL`), comme `_check_walls`.
+  aujourd'hui (tiers de l'épaisseur, épaulements d'un sixième de la section de l'invitée),
+  décalages compris, contrôlée contre la section de l'invitée (`OUTSIDE_CONTACT` inchangé).
+- **Tenon** = barre de cette section le long de *n*, coupée par P côté invitée et par un bout
+  d'équerre à *n*. Sa longueur se mesure sur l'axe du tenon, depuis le point où cet axe
+  traverse P. Débouchant : la barre est coupée par la face opposée de l'hôte.
+- **Longueur automatique** : `mm_round(2 · profondeur / (3 · cos α))`, profondeur = étendue de
+  l'hôte perpendiculairement à P : même formule qu'aujourd'hui pour α = 0 (B4).
+- **Mortaise** = la même barre, prolongée du jeu de fond le long de *n* et coupée par P décalé
+  de `CUT_OVERRUN_MM` vers l'invitée (elle n'enlève que de la matière de l'hôte) ; exprimée dans
+  le repère de l'hôte par `moved`.
+- **Contrôles** dans le repère de l'hôte, sur les sommets de la mortaise : point le plus profond
+  sous P ≤ profondeur (`TOO_DEEP`, sinon débouchant) ; une paroi de matière de chaque côté, sur
+  les deux axes de l'hôte parallèles à P (`NO_WALL`), comme `_check_walls`.
 - **Plan** : `host_cuts` = mortaise ; `guest_trims` = coin retiré ; `guest_additions` = coin
   ajouté + tenon ; `guest_bevels` = un `Bevel` pour le bout.
-- **Languette** : même calcul, *s* = épaisseur ; la rainure est prolongée sur toute l'étendue
-  de l'hôte le long de la charnière quand `ThroughGroove` est vrai.
+- **Languette** : même calcul ; la rainure filante (`ThroughGroove`) est la barre prolongée le
+  long de la largeur de la languette et coupée par les faces de l'hôte (plus `CUT_OVERRUN_MM`) ;
+  parois contrôlées seulement de part et d'autre de l'épaisseur.
 
 Les paramètres et les propriétés ne changent pas : `TenonThickness`, `TenonWidth`,
 `TenonLength`, décalages, `Through`, `MortiseClearance` gardent leur sens (mesurés
@@ -197,53 +216,55 @@ perpendiculairement à l'axe de l'invitée, longueur sur l'axe du tenon).
 
 ### 4.5 `features/` (AB-b)
 
-- `features/joints/base.py` : rien à changer pour le calcul (le plan arrive par la stratégie).
-  Le résumé du panneau (`SUMMARY`) reçoit un champ `bevel_angle` de `resolve`, affiché
-  seulement s'il est non nul.
-- `features/solids.py` : rien (prismes déjà construits) ; `machined_shape` garde l'ordre
-  retirés → ajouts → enlèvements, indispensable ici (le tenon occupe la place du coin retiré).
+- `features/solids.py` : `_polyhedron_shape` construit la boîte (`Part.makeBox` au repère
+  `frame`) puis retire, pour chaque plan, une grande boîte posée sur ce plan du côté exclu
+  (taille tirée de la diagonale de la boîte). Booléennes de faces planes : robustes et sans
+  couture. Le résultat est contrôlé (`isValid`, un solide) comme les autres.
+- `machined_shape` garde l'ordre retirés → ajouts → enlèvements, indispensable ici (le tenon
+  occupe la place du coin retiré).
+- `features/joints/base.py` : rien à changer pour le calcul (le plan arrive par la stratégie) ;
+  le résumé du panneau reçoit les angles du biais par `resolve` (B8).
 - `joint_material.check_joint_material` (E3) s'applique tel quel à une pièce en bois en biais.
 - `gui/commands/joints.py` : `ordered_roles` et `feasible_joint` inchangés (ils passent par
-  `guess_roles` et `plan_for`). Le message de refus d'un assemblage d'équerre seulement est
-  `SQUARE_ONLY` (B6).
+  `guess_roles` et `plan_for`).
 
 ### 4.6 Liste de débit (AB-c)
 
 `machined_extent` calcule aujourd'hui la longueur gardée par `_kept_box`, qui n'accepte que
 des boîtes retirées. Il lit en plus les `guest_bevels` des assemblages dont la pièce est
-l'invitée : la cote finie sur l'axe du bout est portée au **long point** (coins ajoutés compris,
-coins retirés exclus) ; le reste de la matière au-delà (le tenon) reste un ajout. La ligne
-porte la liste des biais (face, angle) pour la mention C2 et pour la clé de regroupement C3
-(`core/cutlist`).
+l'invitée : la cote finie sur l'axe du bout est portée au **long point** ; la matière au-delà
+(le tenon) reste un ajout. `core/cutlist` tire de la normale du plan d'épaulement
+*m* = (mx, my, mz), dans le repère de l'invitée (bout ±X), les deux réglages de la scie :
+angle de coupe = atan(|my| / |mx|), inclinaison de lame = atan(|mz| / √(mx² + my²)), arrondis
+au dixième de degré. Ils servent à la mention C2 et à la clé de regroupement C3.
 
 ### 4.7 Ensembles (AB-d)
 
 `square_spans` renvoie `None` pour un membre en biais (exclu de toute liaison, ADR 0019). AB-d
-ajoute `hinged_spans` : pour un membre dont la rotation est une charnière selon un axe de
-l'ensemble, son **encombrement** dans le repère de l'ensemble donne des règles de position
-seulement (cotes constantes, comme une pièce verrouillée) ; il n'entre dans aucune rangée. Le
-membre est déplacé par son `Placement` (rotation gardée). Les assemblages en biais sont
-vérifiés après coup par `relation()` (B7, D3).
+ajoute `oblique_spans` : l'**encombrement** du membre dans le repère de l'ensemble donne des
+règles de position seulement (cotes constantes, comme une pièce verrouillée) ; il n'entre dans
+aucune rangée. Le membre est déplacé par son `Placement` (rotation gardée). Les assemblages en
+biais sont vérifiés après coup par `relation()` (B7, D3).
 
 ### 4.8 Sécurité
 
 Pas de nouvelle entrée utilisateur : angles et cotes viennent des `Placement` et des
-propriétés existantes, déjà bornées. Les cas dégénérés sont arrêtés avant OCC : α borné
-(pas de biais rasant, donc pas de coin infiniment long), polygones contrôlés par
-`check_prism` (`ValueError` sinon), valeurs non finies refusées par `Vec3`/`Box`. Aucun accès
-fichier, réseau ou `eval`.
+propriétés existantes, déjà bornées. Les cas dégénérés sont arrêtés avant OCC : α borné (pas
+de biais rasant, donc pas de coin infiniment long), polyèdres vides ou trop minces écartés
+(A1), valeurs non finies refusées par `Vec3`/`Box`, nombre de plans par polyèdre borné (au plus
+quatre). Aucun accès fichier, réseau ou `eval`.
 
 ### 4.9 Compatibilité avec les autres ateliers (ADR 0007)
 
-Formes `Part` standard (prismes extrudés, booléennes), aucun réglage global, noms dans notre
-espace. Rien de neuf côté dépendances.
+Formes `Part` standard (boîtes et booléennes), aucun réglage global, noms dans notre espace.
+Rien de neuf côté dépendances.
 
 ## 5. Découpage en PR et impact
 
 | PR | Contenu | Dépend de | Taille estimée |
 |---|---|---|---|
-| **AB-a** | relation angulaire, contact en biais, `relation()`, `guess_roles` (A1 à A5) | #111 fusionnée | moyenne |
-| **AB-b** | profil en biais, deux stratégies, `guest_bevels`, `SQUARE_ONLY`, `_check.py`, panneau (B1 à B9) | AB-a | grande |
+| **AB-a** | `Polyhedron`, `is_square`, `relation()`, contact en biais, `guess_roles` (A1 à A6) | #111 fusionnée | moyenne à grande |
+| **AB-b** | profil en biais, deux stratégies, solide `Part`, `guest_bevels`, `SQUARE_ONLY`, `_check.py`, panneau (B1 à B9) | AB-a | grande |
 | **AB-c** | liste de débit (C1 à C4) | AB-b | petite |
 | **AB-d** | ensembles (D1 à D4), selon Q4 | AB-b, #86 / #98 fusionnées (∥ AB-c) | moyenne |
 
@@ -264,18 +285,19 @@ antérieure de l'atelier affiche le refus actuel « Les deux pièces doivent êt
 
 | Risque | Parade |
 |---|---|
-| Coin très aigu à 45° : épaulement fragile, booléenne OCC délicate | borne `MAX_OBLIQUE_DEG` (Q1), tests d'intégration à la borne, `removeSplitter` déjà en place |
-| Rotation « presque d'équerre » (89,9999°) prise en biais avec un coin de 1e-5 mm | tolérance `ANGLE_TOLERANCE` inchangée, `squared_rotation` des placements ; coin plus fin que `CONTACT_TOLERANCE_MM` ignoré |
-| Charnière vraie mais placements arrondis (angle saisi au degré, 1e-12 de bruit) | recherche de la charnière à `ANGLE_TOLERANCE`, pas à l'égalité exacte |
+| Découpe de polyèdre fausse sur un cas limite (plan qui passe par un sommet, face confondue) | tests par volumes analytiques ; comparaison volume `core` / volume OCC en intégration (B9) ; tolérance de fusion des sommets |
+| Coin très aigu à 45° : épaulement fragile, booléenne OCC délicate | borne `MAX_OBLIQUE_DEG` (Q1), tests à la borne, `removeSplitter` déjà en place |
+| Rotation « presque d'équerre » (89,9999°) prise en biais avec un coin de 1e-5 mm | tolérance `ANGLE_TOLERANCE` inchangée, `squared_rotation` des placements ; polyèdre plus mince que `CONTACT_TOLERANCE_MM` écarté (A1) |
+| Bout qui tombe sur une arête de l'hôte (pied de section carrée, ceinture décalée) | refus `EDGE_HIT` explicite plutôt qu'un usinage faux |
 | Ensemble modifié qui défait un assemblage en biais | avertissement `JOINT_LOST` (D3) ; la pièce usinée garde le refus de recalcul existant |
 | Conflit avec #111 (`core/joints`, validation) et #98 (`core/furniture`) | AB-a part de `main` après #111 ; AB-d après #86 / #98 |
-| Utilisateur qui attend une mortaise d'équerre à la face (façon mortaiseuse) | hors périmètre, Q2 ; le choix de la spec suit l'issue |
 
 ## 8. Hors périmètre (issues à ouvrir si jv le souhaite)
 
-- Angles composés (pied de chaise écarté dans deux directions).
-- Torsion (invitée tournée autour de son propre axe).
-- Tourillons en biais (cylindre à axe quelconque : `Cylinder` à généraliser).
+Le socle (`Polyhedron`, `relation()`) sert à tous ; chaque type s'ouvre ensuite au biais sans
+nouvelle décision d'architecture :
+
+- Tourillons en biais (`Cylinder` à axe quelconque, perçages suivant l'axe de l'invitée).
 - Onglet à angle quelconque (cadre non rectangulaire, coupe à la bissectrice).
 - Feuillure, mi-bois et queue d'aronde en biais.
 - Accrochage, aimant et « Définir une distance » entre pièces en biais.
@@ -283,15 +305,23 @@ antérieure de l'atelier affiche le refus actuel « Les deux pièces doivent êt
 
 ## 9. Questions pour jv
 
+### Réponses de jv
+
+- **2026-10-28** : angles composés inclus (« 0 côté perpendiculaire ») ; la restriction à une
+  seule charnière de la première version est abandonnée.
+
+### Questions ouvertes
+
 - **Q1 — Borne d'angle.** ★ Écart à l'équerre **jusqu'à 45°** compris (au-delà, refus avec
   l'angle cité). Autres choix : 30° (prudent, épaulement moins fragile) ou 60°.
 - **Q2 — Sens de la mortaise.** ★ (a) **suit l'axe de l'invitée** (ce que dit l'issue : tenon
   droit, mortaise oblique taillée au ciseau ou à la défonceuse inclinée). (b) d'équerre à la
   face de l'hôte (mortaiseuse), tenon coudé : hors périmètre.
-- **Q3 — Mention dans la liste de débit.** ★ « Bout biais 10° » (écart à l'équerre, l'angle
-  qu'on règle sur la scie). Autre : « Bout à 80° » (angle entre le bout et le chant).
+- **Q3 — Mention dans la liste de débit.** ★ « Bout biais 10° » pour un biais simple,
+  « Coupe composée 8° / lame 8° » pour un angle composé (les réglages de la scie). Autre :
+  angles mesurés entre le bout et les arêtes (« 80° »).
 - **Q4 — Ensembles.** ★ (a) un membre en biais **suit par translation**, sans jamais être
   étiré (AB-d). (b) aucune liaison comme aujourd'hui (AB-d réduit à B7 : pas d'erreur) ; on
   repousse AB-d.
-- **Q5 — Rainure-languette.** ★ **dans le jalon** (même code de profil que le tenon, coût
-  faible). Autre : tenon-mortaise seul.
+- **Q5 — Assemblages du jalon.** ★ **tenon-mortaise et rainure-languette** (même code de
+  profil). Les autres types (tourillons d'abord ?) dans des issues suivantes.

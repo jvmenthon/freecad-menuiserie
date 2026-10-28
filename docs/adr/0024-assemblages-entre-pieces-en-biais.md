@@ -1,7 +1,8 @@
-# ADR 0024 — Assemblages entre pièces en biais : une charnière, un calcul plan
+# ADR 0024 — Assemblages entre pièces en biais : polyèdres convexes, angle quelconque
 
 - Statut : **proposé** (issue #114, en attente de jv)
-- Date : 2026-10-27
+- Date : 2026-10-27, revu le 2026-10-28 (demande de jv : « Je veux pouvoir faire des assemblages
+  de pièces avec 0 côté perpendiculaire » : les angles composés sont dans le périmètre)
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
   [0014 — Feuillure, mi-bois et onglet entre pièces au contact](0014-assemblages-par-superposition-au-contact.md),
   [0016 — Assemblages entre pièces qui se chevauchent](0016-assemblages-au-contact-entre-pieces-qui-se-chevauchent.md),
@@ -15,61 +16,65 @@
 Tous les calculs d'assemblage (`core/joints`) se font dans le repère de l'hôte, sur des boîtes
 alignées : `relative_transform` exige une rotation relative d'équerre et lève sinon
 « Les deux pièces doivent être d'équerre (angles multiples de 90°) ». Un caisson à côtés
-inclinés, un cadre trapézoïdal ou un piètement écarté ne peuvent donc pas recevoir de
-tenon-mortaise, alors qu'en atelier c'est courant (mortaise oblique, épaulements coupés en
-biais).
+inclinés, un piètement écarté dans deux directions (chaise, tabouret), une pièce posée de
+travers ne peuvent donc recevoir aucun assemblage, alors qu'en atelier ils se font (mortaise
+oblique, épaulements coupés en biais, coupe composée).
 
-Trois faits du code orientent la décision :
+jv demande que **n'importe quelle orientation** soit acceptée, y compris quand aucune face de
+l'une n'est perpendiculaire à une face de l'autre.
 
-1. `Prism` (polygone plan extrudé) accepte déjà n'importe quelle orientation, et `moved` le
-   change de repère quelle que soit la rotation ; `features/solids.py` le construit déjà.
-2. `Box` et `Cylinder` (axe signé `Axis`) ne savent être que d'équerre.
-3. Les pièces en biais réelles tournent presque toujours autour d'**un seul axe commun** aux
-   deux pièces : la profondeur du caisson pour des côtés inclinés, l'épaisseur du cadre pour
-   un cadre trapézoïdal. Les angles composés (pied de chaise écarté dans deux directions) sont
-   rares et relèvent d'un autre niveau de difficulté, en atelier comme dans le calcul.
+Ce qui existe : `Box` et `Cylinder` ne savent être que d'équerre ; `Prism` (polygone extrudé)
+accepte une orientation quelconque mais une seule direction d'extrusion, ce qui ne suffit pas
+pour un tenon dont l'épaulement est coupé selon un plan gauche par rapport à sa section.
 
 ## Options
 
-1. **Calcul 3D général** (rotation quelconque, demi-espaces, booléennes OCC dans `features/`).
-   Couvre les angles composés, mais sort le calcul de `core/` (plus de tests purs), multiplie
-   les cas (sections en losange, épaulements gauches) et les messages. Rejetée pour ce jalon.
-2. **Arrondir à l'équerre** (calculer comme si la pièce était d'équerre, puis tourner le
-   résultat). Faux : épaulements qui baillent, mortaise qui sort de la matière. Rejetée.
-3. **Une charnière, un calcul plan** : accepter seulement une rotation relative autour d'un axe
-   commun aux deux pièces ; tout le problème se ramène alors à des polygones dans le plan
-   perpendiculaire à cet axe, extrudés le long de lui (des `Prism`). **Retenue.**
+1. **Une charnière, un calcul plan** (première version de cet ADR) : rotation autour d'un seul
+   axe commun, tout en prismes. Ne couvre pas la demande (angles composés refusés). Rejetée.
+2. **Booléennes OCC dans `features/`** : le calcul quitte `core/` (plus de tests purs, plus de
+   valeurs effectives affichables sans FreeCAD, contrôles de matière faits après coup). Rejetée.
+3. **Polyèdres convexes calculés dans `core/`** : chaque solide d'un assemblage en biais (coin
+   retiré, coin ajouté, tenon, mortaise, rainure) est l'intersection d'une boîte, posée dans un
+   repère quelconque, avec quelques demi-espaces. Un tel solide est convexe ; `core/` calcule
+   ses sommets et ses faces en Python pur (découpe d'une boîte par des plans), `features/` en
+   fait un solide `Part`. **Retenue.**
 
 ## Décision
 
-1. **Relation angulaire** (`core/geometry`, pur) : la rotation relative de deux pièces est
-   classée en *d'équerre* (cas actuel, tolérance `ANGLE_TOLERANCE` inchangée), *en biais autour
-   d'une charnière* (un axe de l'invitée est, au signe près, un axe de l'hôte ; l'angle est la
-   rotation autour de cet axe) ou *composée* (refus, message dédié). Les fonctions actuelles
-   (`relative_axes`, `relative_transform`, `classify`) ne changent pas : le cas d'équerre garde
-   **exactement** son calcul et ses plans.
-2. **Écart à l'équerre** α : angle entre la normale de la face de contact de l'invitée et celle
-   de la face de l'hôte qu'elle rencontre. Accepté pour 0 < α ≤ `MAX_OBLIQUE_DEG` (45° proposé,
-   question Q1 de la spec). Le biais « en torsion » (charnière = axe de la normale de contact)
-   est refusé dans ce jalon.
-3. **Plan de l'épaulement** : la face de l'hôte touchée. L'invitée est ramenée à ce plan dans
-   le calcul seulement, comme en ADR 0014 et 0016 : la partie qui entre dans l'hôte va dans
-   `guest_trims`, le coin qui manque entre son bout d'équerre et le plan (pièce dessinée pointe
-   contre la face) va dans `guest_additions`. Les deux sont des prismes. La brute ne change pas.
-4. **Profil** (tenon, puis languette) : section mesurée perpendiculairement à l'axe de
-   l'invitée, comme on le trace à l'établi ; le profil part du plan de l'épaulement et suit
-   l'axe de l'invitée ; son bout est d'équerre à cet axe (débouchant : coupé selon la face
-   opposée de l'hôte). Le logement **suit l'axe de l'invitée** (mortaise oblique) ; ses parois et
-   sa profondeur sont contrôlées dans le repère de l'hôte, au point le plus profond.
-5. **Assemblages acceptés en biais** : tenon-mortaise (lot 1) et rainure-languette (même code de
-   profil, rainure le long de la charnière). Tourillons, feuillure, mi-bois, queue d'aronde et
-   onglet restent d'équerre seulement, avec un message qui nomme les assemblages possibles.
-6. **Le plan porte les biais** : nouveau champ `JointPlan.guest_bevels` (bout coupé en biais :
-   face, angle, long point), vide par défaut. La liste de débit s'en sert (cotes au long point,
-   mention de la coupe) sans refaire de géométrie.
-7. **Persistance** : aucune nouvelle propriété, aucun nouveau type d'objet ; les paramètres
-   actuels (`TenonThickness`… `MortiseClearance`) gardent leur sens, mesurés perpendiculairement
-   à l'axe de l'invitée. `Version` inchangée.
+1. **Nouveau solide `Polyhedron`** (`core/geometry`, pur) : polyèdre convexe donné par ses faces
+   (polygones plans orientés vers l'extérieur), construit par `clipped_box(box, frame, planes)`
+   (boîte dans le repère `frame`, coupée par des demi-espaces). Il se déplace par `moved` pour
+   toute rotation, donne son volume et ses sommets (contrôles et tests sans FreeCAD).
+   `features/solids.py` le construit par `Part.Face` / `Part.Shell` / `Part.Solid`.
+   `Box`, `Cylinder` et `Prism` ne changent pas.
+2. **Relation angulaire** : la rotation relative est *d'équerre* (cas actuel, même tolérance
+   `ANGLE_TOLERANCE`) ou *en biais* (toute autre rotation, angles composés compris). Les
+   fonctions actuelles (`relative_axes`, `relative_transform`, `classify`) ne changent pas : le
+   cas d'équerre garde **exactement** son calcul et ses plans.
+3. **Contact en biais** : la face de contact de l'invitée (bout ±X pour un tenon, bout ou chant
+   pour une languette) rencontre une face de l'hôte, le *plan d'épaulement*. L'écart à
+   l'équerre α est l'angle entre leurs normales ; il est accepté pour 0 < α ≤ `MAX_OBLIQUE_DEG`
+   (45° proposé, Q1). La section de l'invitée peut être tournée sur ce plan (torsion) : c'est
+   un cas comme un autre.
+4. **Mise au contact dans le calcul seulement**, comme en ADR 0014 et 0016 : la partie de
+   l'invitée au-delà du plan d'épaulement va dans `guest_trims`, le coin qui manque entre son
+   bout d'équerre et le plan va dans `guest_additions`. La brute ne change pas.
+5. **Profil** (tenon, languette) : section mesurée perpendiculairement à l'axe de l'invitée,
+   comme on la trace à l'établi ; le profil part du plan d'épaulement et suit l'axe de
+   l'invitée ; son bout est d'équerre à cet axe (débouchant : coupé selon la face opposée de
+   l'hôte). Le logement **suit l'axe de l'invitée** ; profondeur et parois sont contrôlées
+   dans le repère de l'hôte sur les sommets du logement.
+6. **Assemblages acceptés en biais** : tenon-mortaise et rainure-languette (lot 1, même code de
+   profil). Les autres restent d'équerre seulement, avec un message qui nomme ceux qui
+   acceptent le biais ; leur ouverture au biais se fait type par type (spec § 8), sur le même
+   socle.
+7. **Le plan porte les biais** : `JointPlan.guest_bevels` (bout coupé en biais : face, normale du
+   plan d'épaulement dans le repère de l'invitée, long point), vide par défaut. La liste de
+   débit en tire les deux réglages d'une coupe composée (angle de coupe et inclinaison de la
+   lame) et la longueur au long point.
+8. **Persistance** : aucune nouvelle propriété, aucun nouveau type d'objet ; les paramètres
+   actuels gardent leur sens (mesurés perpendiculairement à l'axe de l'invitée). `Version`
+   inchangée.
 
 ## Conséquences
 
@@ -77,12 +82,12 @@ Trois faits du code orientent la décision :
   n'est pas touché, le chemin en biais ne s'ouvre que là où l'on refusait.
 - Continuité : quand α tend vers 0, le plan en biais tend vers le plan d'équerre (valeurs
   automatiques comprises) ; un test le vérifie.
-- `core/joints` gagne un module de cadre en biais (`_oblique.py`) à côté de `_profile.py` ;
-  `MortiseTenonStrategy` et `TongueGrooveStrategy` choisissent le cadre selon la relation.
-- Tout appel à `classify` sur un couple d'assemblés doit accepter le biais : les ensembles
-  (`core/furniture/_check.py`) et le choix des rôles (`guess_roles`) passent par une nouvelle
-  fonction `relation()` qui renvoie aussi le contact en biais.
-- Ensembles : un membre en biais n'est plus seulement « pas d'équerre » ; il peut suivre par
-  translation (spec, Q4). L'accrochage, l'aimant et « Définir une distance » restent d'équerre.
-- Les angles composés, les tourillons et l'onglet à angle quelconque restent hors périmètre ;
-  l'option 1 reste ouverte pour eux, sans remettre en cause ce découpage.
+- `core/` gagne la découpe de polyèdres convexes (`core/_polyhedron.py`, ~150 lignes, testée
+  par volumes et sommets) et un cadre en biais (`core/joints/_oblique.py`) à côté de
+  `_profile.py`.
+- Tout appel à `classify` sur un couple d'assemblés doit accepter le biais : le choix des rôles
+  et les ensembles passent par une nouvelle fonction `relation()`.
+- Ensembles : un membre en biais peut suivre par translation (spec, Q4). L'accrochage, l'aimant
+  et « Définir une distance » restent d'équerre.
+- Le même socle (`Polyhedron`, `relation()`) servira à ouvrir au biais les autres assemblages
+  sans nouvelle décision d'architecture.
