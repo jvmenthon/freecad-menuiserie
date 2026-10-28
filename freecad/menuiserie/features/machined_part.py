@@ -223,7 +223,7 @@ class MachinedPart(StatelessProxy):
             additions, cuts, trims = _machining_of(obj, blank)
         except _JointFailedError:
             # Un assemblage impossible signale lui-même son erreur dans son propre recalcul : la
-            # pièce usinée ne la répète pas (une seule trace, ADR 0024). Sa forme reste celle
+            # pièce usinée ne la répète pas (une seule trace, ADR 0026). Sa forme reste celle
             # d'avant (jamais de forme partielle) ; seul son placement suit la brute.
             with self._executing():
                 obj.Placement = blank.Placement

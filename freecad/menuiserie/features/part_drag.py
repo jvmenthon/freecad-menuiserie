@@ -349,7 +349,7 @@ def _joint_warnings(memento: DragMemento) -> list[str]:
 
 
 def _settle(memento: DragMemento, choose: JointChoice | None) -> list[str]:
-    """Assemblages défaits par le déplacement, essayés avant tout recalcul (ADR 0024) ; si le
+    """Assemblages défaits par le déplacement, essayés avant tout recalcul (ADR 0026) ; si le
     déplacement est annulé, la brute revient (:func:`restore`) et ``DragCancelledError`` passe."""
     try:
         return settle_joints(memento.part, memento.invalid_joints, choose)
@@ -363,7 +363,7 @@ def end_drag(memento: DragMemento, choose: JointChoice | None = None) -> list[st
     document une fois et renvoie les avertissements à mettre dans la vue rapport (liaisons,
     assemblage qui ne touche plus : B7).
 
-    ``choose`` (ADR 0024) : si le déplacement défait des assemblages, il décide avant tout
+    ``choose`` (ADR 0026) : si le déplacement défait des assemblages, il décide avant tout
     recalcul de les supprimer (déplacement gardé) ou d'annuler (``DragCancelledError``, la brute est
     revenue). Sans ``choose`` (script, API), le déplacement est gardé et l'on prévient seulement.
     Rangée bloquée : la brute revient à son état du début et

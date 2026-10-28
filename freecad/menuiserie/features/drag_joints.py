@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Assemblages défaits par un déplacement, au relâchement (ADR 0024, qui modifie B7 de l'ADR 0021).
+"""Assemblages défaits par un déplacement, au relâchement (ADR 0026, qui modifie B7 de l'ADR 0021).
 
 Un glissement (souris) ou une distance définie déplace la brute sans recalcul. Au relâchement,
 avant tout recalcul, :func:`settle_joints` essaie le plan de chaque assemblage lié à la pièce
@@ -134,7 +134,7 @@ def rotate_checked(
     choose: JointChoice | None = None,
 ) -> bool:
     """:func:`~freecad.menuiserie.features.placement.rotate_part` avec le contrôle des assemblages
-    (ADR 0024) : en modification (sans ``session``), le quart de tour est écrit sans recalcul,
+    (ADR 0026) : en modification (sans ``session``), le quart de tour est écrit sans recalcul,
     puis les assemblages de ``part`` sont essayés (:func:`settle_joints`). Supprimés au choix de
     ``choose`` (avertissement dans la vue rapport, rotation gardée), ou rotation annulée :
     ``Placement`` redevient celui d'avant, celui de la pièce usinée aussi, et le résultat est

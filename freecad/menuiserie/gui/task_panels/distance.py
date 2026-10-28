@@ -239,7 +239,7 @@ class DistanceTaskPanel(TransactionTaskPanel):
         keep = self._keep.isEnabled() and self._keep.isChecked()
         try:
             messages = self._move.finish(keep=keep, axis=self._axis(), choose=joint_choice.choose)
-        except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0024)
+        except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0026)
             return self.reject()
         except KeepError as error:  # la pièce est revenue : le panneau reste ouvert
             self._move.begin()

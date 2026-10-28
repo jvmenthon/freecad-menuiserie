@@ -8,7 +8,7 @@ les pièces telles qu'elles sont posées (pièces qui ne se touchent pas, mi-boi
 est expliqué dans une boîte d'avertissement, la barre d'état et la vue rapport, sans rien créer
 ni ouvrir de panneau (demande de jv). L'assemblage est essayé par ``feasible_joint`` avant son
 premier recalcul (mot-clé ``check`` de la fabrique) : un assemblage impossible ne fait jamais
-imprimer de trace à FreeCAD (ADR 0024). Les rôles (hôte, invitée) sont devinés d'après la
+imprimer de trace à FreeCAD (ADR 0026). Les rôles (hôte, invitée) sont devinés d'après la
 position des pièces (``guess_roles``) ; si c'est ambigu, la première pièce sélectionnée reçoit
 la mortaise, la rainure ou la feuillure.
 """

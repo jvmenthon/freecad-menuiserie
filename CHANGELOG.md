@@ -140,7 +140,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   ne lance aucune booléenne sur une forme de plus de 5 000 faces.
 
 ### Corrigé
-- Assemblage défait par un déplacement ([ADR 0024](docs/adr/0024-assemblage-defait-par-un-deplacement.md),
+- Assemblage défait par un déplacement ([ADR 0026](docs/adr/0026-assemblage-defait-par-un-deplacement.md),
   B7 de l'ADR 0021 modifié) : au relâchement d'un glissement, d'une distance définie ou d'une
   rotation du panneau, si des assemblages ne tiennent plus (essayés avant tout recalcul), une
   fenêtre propose « Annuler le déplacement » (Échap ou fermeture aussi) ou « Supprimer
