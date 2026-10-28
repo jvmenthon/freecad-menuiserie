@@ -1,6 +1,6 @@
 # ADR 0024 — Assemblages entre pièces en biais : polyèdres convexes, angle quelconque
 
-- Statut : **proposé** (issue #114 ; jv a tranché les questions de conception le 2026-10-28, reste le défaut de la référence)
+- Statut : **accepté** (issue #114 ; jv a tranché toutes les questions de conception le 2026-10-28)
 - Date : 2026-10-27, revu deux fois le 2026-10-28 (demandes de jv : « Je veux pouvoir faire des assemblages
   de pièces avec 0 côté perpendiculaire » : les angles composés sont dans le périmètre ; référence du tenon au choix, mi-angle compris)
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
@@ -65,8 +65,8 @@ pour un tenon dont l'épaulement est coupé selon un plan gauche par rapport à 
    l'hôte). Profondeur et parois du logement sont contrôlées dans le repère de l'hôte sur ses
    sommets.
    **Référence** (jv, 2026-10-28 : « Par défaut on prend une des faces en référence, sinon coupe
-   la moitié de l'angle ») : tenon et logement suivent, au choix, l'axe de l'invitée (défaut
-   proposé), la normale de la face de l'hôte, ou la bissectrice des deux (mi-angle) ; le plan
+   la moitié de l'angle ») : tenon et logement suivent, au choix, l'axe de l'invitée (défaut,
+   choix de jv), la normale de la face de l'hôte, ou la bissectrice des deux (mi-angle) ; le plan
    d'épaulement reste toujours la face de l'hôte. Paramètre `reference`, propriété
    `ObliqueReference`.
 6. **Assemblages acceptés en biais** : tenon-mortaise et rainure-languette (lot 1, même code de

@@ -1,7 +1,7 @@
 # Assemblages entre pièces en biais (angles composés compris)
 
 - Issue : #114 (priorité moyenne)
-- Statut : **proposée** ; jv a répondu à Q1 à Q5 (§ 9), reste Q6. Architecture seule : aucun code.
+- Statut : **validée** (jv a répondu à toutes les questions le 2026-10-28, § 9). Architecture seule : aucun code.
 - Décisions de jv : traiter à part, **après** le jalon « pièce en bois » (#111, 2026-10-27) ;
   « Je veux pouvoir faire des assemblages de pièces avec 0 côté perpendiculaire »
   (2026-10-28) : **toute orientation** est acceptée, angles composés compris ;
@@ -280,7 +280,7 @@ normale extérieure du plan d'épaulement (repère de l'invitée) :
 
 | Référence | *d* | Tenon / fil de l'invitée | Mortaise / face de l'hôte | Usage |
 |---|---|---|---|---|
-| Pièce à tenon (défaut ★) | *n* | dans le fil | inclinée de α | tenon le plus solide, mortaise au ciseau ou défonceuse inclinée |
+| Pièce à tenon (défaut) | *n* | dans le fil | inclinée de α | tenon le plus solide, mortaise au ciseau ou défonceuse inclinée |
 | Pièce mortaisée | −*m* | incliné de α | d'équerre | mortaiseuse, défonceuse droite |
 | Mi-angle | (*n* − *m*) / ‖*n* − *m*‖ | incliné de α / 2 | inclinée de α / 2 | compromis : chaque pièce reçoit la moitié du biais |
 
@@ -386,9 +386,5 @@ nouvelle décision d'architecture :
 - **Q3, Q4, Q5 (2026-10-28)** : recommandations acceptées : « Bout biais 10° » / « Coupe
   composée 8° / lame 8° » ; un membre d'ensemble en biais suit par translation (AB-d) ;
   tenon-mortaise et rainure-languette dans le jalon.
-
-### Question ouverte
-
-- **Q6 — Référence par défaut.** ★ **pièce à tenon** (tenon dans le fil, le plus solide ; la
-  mortaise prend le biais). Autre : pièce mortaisée (mortaise d'équerre, plus simple à la
-  machine, tenon à fil tranché).
+- **Q6 — Référence par défaut (2026-10-28)** : « ok, on peut toujours dans les options » :
+  **pièce à tenon** par défaut ; pièce mortaisée et mi-angle au choix dans le panneau (AB-e).
