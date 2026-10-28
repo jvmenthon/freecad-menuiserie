@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Essai d'un assemblage qui vient d'être créé, avant son premier recalcul (ADR 0024).
+"""Essai d'un assemblage qui vient d'être créé, avant son premier recalcul (ADR 0026).
 
 Un assemblage impossible (pièces qui ne sont pas d'équerre, qui ne se touchent pas…) lève
 ``ValueError`` dans ``execute()`` ; FreeCAD en imprime la trace, puis le message de l'assemblage

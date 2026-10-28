@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Assemblages défaits par un déplacement, au relâchement (ADR 0024, B7 modifié) : « Annuler le
+"""Assemblages défaits par un déplacement, au relâchement (ADR 0026, B7 modifié) : « Annuler le
 déplacement » remet la pièce, « Supprimer l'assemblage » supprime les assemblages (et leurs pièces
 usinées) et garde le déplacement, une seule transaction annulable, aucun recalcul en erreur."""
 

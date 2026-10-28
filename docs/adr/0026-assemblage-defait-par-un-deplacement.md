@@ -1,4 +1,4 @@
-# ADR 0024 — Assemblage défait par un déplacement : choix au relâchement, sans trace Python
+# ADR 0026 — Assemblage défait par un déplacement : choix au relâchement, sans trace Python
 
 - Statut : **accepté** (décision de jv, propriétaire, après la recette de la PR #112 ; extension aux
   rotations et à la création d'un assemblage demandée le 2026-10-27)

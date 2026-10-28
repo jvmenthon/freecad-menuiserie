@@ -13,7 +13,7 @@ ouvert, ou si une autre transaction est en cours, il écrit dans la transaction 
 recalcul pendant le glissement d'une flèche ; une poignée recalcule la seule brute, au plus 30
 fois par seconde ; ``end_drag`` fait le recalcul du document au relâchement, après avoir proposé
 (fenêtre de ``gui/joint_choice``) d'annuler le déplacement ou de supprimer les assemblages qu'il
-défait (ADR 0024).
+défait (ADR 0026).
 """
 
 from __future__ import annotations
@@ -561,11 +561,11 @@ class DragSession:
     def finish(self, state: Dragging) -> None:
         """Relâchement : ensemble relié et document recalculé une fois (``end_drag``),
         avertissements dans la vue rapport. Si le déplacement défait des assemblages, la fenêtre
-        de choix s'ouvre avant le recalcul (``gui/joint_choice``, ADR 0024) : annuler remet la
+        de choix s'ouvre avant le recalcul (``gui/joint_choice``, ADR 0026) : annuler remet la
         pièce, supprimer garde le déplacement."""
         try:
             warnings = end_drag(state.memento, joint_choice.choose)
-        except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0024)
+        except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0026)
             self._close(state, commit=False)
             return
         except ValueError as error:

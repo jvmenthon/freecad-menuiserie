@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Assemblages défaits par un déplacement, au relâchement (ADR 0024, B7 modifié), sans FreeCAD :
+"""Assemblages défaits par un déplacement, au relâchement (ADR 0026, B7 modifié), sans FreeCAD :
 essai du plan avant tout recalcul, choix injecté, suppression avec les pièces usinées, annulation,
 et branchement de la fenêtre dans le glissement et le panneau de distance."""
 
