@@ -1,8 +1,8 @@
 # ADR 0024 — Assemblages entre pièces en biais : polyèdres convexes, angle quelconque
 
 - Statut : **proposé** (issue #114, en attente de jv)
-- Date : 2026-10-27, revu le 2026-10-28 (demande de jv : « Je veux pouvoir faire des assemblages
-  de pièces avec 0 côté perpendiculaire » : les angles composés sont dans le périmètre)
+- Date : 2026-10-27, revu deux fois le 2026-10-28 (demandes de jv : « Je veux pouvoir faire des assemblages
+  de pièces avec 0 côté perpendiculaire » : les angles composés sont dans le périmètre ; référence du tenon au choix, mi-angle compris)
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
   [0014 — Feuillure, mi-bois et onglet entre pièces au contact](0014-assemblages-par-superposition-au-contact.md),
   [0016 — Assemblages entre pièces qui se chevauchent](0016-assemblages-au-contact-entre-pieces-qui-se-chevauchent.md),
@@ -62,8 +62,13 @@ pour un tenon dont l'épaulement est coupé selon un plan gauche par rapport à 
 5. **Profil** (tenon, languette) : section mesurée perpendiculairement à l'axe de l'invitée,
    comme on la trace à l'établi ; le profil part du plan d'épaulement et suit l'axe de
    l'invitée ; son bout est d'équerre à cet axe (débouchant : coupé selon la face opposée de
-   l'hôte). Le logement **suit l'axe de l'invitée** ; profondeur et parois sont contrôlées
-   dans le repère de l'hôte sur les sommets du logement.
+   l'hôte). Profondeur et parois du logement sont contrôlées dans le repère de l'hôte sur ses
+   sommets.
+   **Référence** (jv, 2026-10-28 : « Par défaut on prend une des faces en référence, sinon coupe
+   la moitié de l'angle ») : tenon et logement suivent, au choix, l'axe de l'invitée (défaut
+   proposé), la normale de la face de l'hôte, ou la bissectrice des deux (mi-angle) ; le plan
+   d'épaulement reste toujours la face de l'hôte. Paramètre `reference`, propriété
+   `ObliqueReference`.
 6. **Assemblages acceptés en biais** : tenon-mortaise et rainure-languette (lot 1, même code de
    profil). Les autres restent d'équerre seulement, avec un message qui nomme ceux qui
    acceptent le biais ; leur ouverture au biais se fait type par type (spec § 8), sur le même
@@ -72,9 +77,10 @@ pour un tenon dont l'épaulement est coupé selon un plan gauche par rapport à 
    plan d'épaulement dans le repère de l'invitée, long point), vide par défaut. La liste de
    débit en tire les deux réglages d'une coupe composée (angle de coupe et inclinaison de la
    lame) et la longueur au long point.
-8. **Persistance** : aucune nouvelle propriété, aucun nouveau type d'objet ; les paramètres
-   actuels gardent leur sens (mesurés perpendiculairement à l'axe de l'invitée). `Version`
-   inchangée.
+8. **Persistance** : aucun nouveau type d'objet ; une seule propriété nouvelle,
+   `ObliqueReference`, sur le tenon-mortaise et la rainure-languette (`Version` 1 → 2, ajoutée à
+   sa valeur par défaut à la réouverture). Les paramètres actuels gardent leur sens (mesurés
+   perpendiculairement à la direction du tenon).
 
 ## Conséquences
 

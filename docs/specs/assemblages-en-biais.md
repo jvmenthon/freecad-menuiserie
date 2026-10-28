@@ -4,10 +4,12 @@
 - Statut : **proposée**, en attente des réponses de jv (§ 9). Architecture seule : aucun code.
 - Décisions de jv : traiter à part, **après** le jalon « pièce en bois » (#111, 2026-10-27) ;
   « Je veux pouvoir faire des assemblages de pièces avec 0 côté perpendiculaire »
-  (2026-10-28) : **toute orientation** est acceptée, angles composés compris.
+  (2026-10-28) : **toute orientation** est acceptée, angles composés compris ;
+  « Par défaut on prend une des faces en référence, sinon coupe la moitié de l'angle »
+  (2026-10-28) : **référence du tenon** au choix (§ 4.8), analyse d'impact § 5.1.
 - ADR : **[0024 — Assemblages entre pièces en biais : polyèdres convexes, angle quelconque](../adr/0024-assemblages-entre-pieces-en-biais.md)**
   (proposé) ; ADR liés 0006, 0014, 0016, 0019 (PR #86), 0020.
-- Découpage : quatre PR, **AB-a → AB-b → (AB-c ∥ AB-d)** (§ 5), branche de jalon
+- Découpage : cinq PR, **AB-a → AB-b → (AB-c ∥ AB-d ∥ AB-e)** (§ 5), branche de jalon
   `jalon/assemblages-en-biais` partie de `main` **après la fusion de #111**.
 
 **Vocabulaire.**
@@ -22,6 +24,8 @@
 - *Coupe composée* : bout coupé selon un plan incliné dans les deux sens ; il se règle par un
   **angle de coupe** (rotation de la table de la scie, biais vu de la face) et une
   **inclinaison de lame** (biais vu du chant). Un biais simple n'a que l'un des deux.
+- *Référence du tenon* : la direction que suivent le tenon et la mortaise : l'axe de la pièce à
+  tenon, la normale de la face de la pièce mortaisée, ou la bissectrice des deux (mi-angle).
 - *Long point* : sur un bout coupé en biais, le point le plus éloigné de l'autre bout (la cote
   que le menuisier reporte avant de couper).
 
@@ -139,6 +143,23 @@ comme aujourd'hui (sélection de deux pièces → « Tenon-mortaise »). Il obti
 - **D4** Recettes : caisson à côtés inclinés, largeur 600 → 800 ; tabouret, largeur 350 → 400 :
   pièces en biais déplacées, pièces d'équerre allongées, tenons recalculés.
 
+### AB-e — Référence du tenon (`core/joints/`, `features/joints/`, `gui/task_panels/`)
+
+- **E1** Nouveau paramètre `reference` (tenon-mortaise et rainure-languette) : **pièce à tenon**
+  (défaut, Q6), **pièce mortaisée** ou **mi-angle** ; propriété `ObliqueReference`
+  (`App::PropertyEnumeration`, groupe « Biais »).
+- **E2** Sans effet entre pièces d'équerre (plans identiques au bit près, B3 inchangé).
+- **E3** Pièce mortaisée : mortaise d'équerre à la face de l'hôte, tenon incliné de α par rapport
+  au fil de l'invitée. Mi-angle : tenon et mortaise inclinés chacun de α / 2.
+- **E4** La base du tenon sur le plan d'épaulement reste dans l'empreinte du bout de l'invitée
+  (`OUTSIDE_CONTACT` étendu) ; avertissement « tenon à fil tranché » dans la vue rapport quand
+  le tenon s'écarte du fil de plus de `GRAIN_WARNING_DEG` (20° proposé).
+- **E5** Panneau : liste déroulante « Référence », visible seulement en biais ; changement
+  appliqué en direct dans la vue 3D (règle de jv).
+- **E6** Documents : `Version` des deux types d'assemblage 1 → 2, propriété ajoutée à sa valeur
+  par défaut à la réouverture (aucun assemblage en biais n'existe avant ce jalon : aucune forme
+  ne change).
+
 ## 4. Conception
 
 ### 4.1 Principe (ADR 0024)
@@ -246,7 +267,26 @@ règles de position seulement (cotes constantes, comme une pièce verrouillée) 
 aucune rangée. Le membre est déplacé par son `Placement` (rotation gardée). Les assemblages en
 biais sont vérifiés après coup par `relation()` (B7, D3).
 
-### 4.8 Sécurité
+### 4.8 Référence du tenon (AB-e, réponse de jv du 2026-10-28)
+
+Le plan d'épaulement reste toujours la face de l'hôte (sinon les épaulements bâillent) ; seule
+la **direction** *d* du tenon et de la mortaise change. Avec *n* l'axe de l'invitée et *m* la
+normale extérieure du plan d'épaulement (repère de l'invitée) :
+
+| Référence | *d* | Tenon / fil de l'invitée | Mortaise / face de l'hôte | Usage |
+|---|---|---|---|---|
+| Pièce à tenon (défaut ★) | *n* | dans le fil | inclinée de α | tenon le plus solide, mortaise au ciseau ou défonceuse inclinée |
+| Pièce mortaisée | −*m* | incliné de α | d'équerre | mortaiseuse, défonceuse droite |
+| Mi-angle | (*n* − *m*) / ‖*n* − *m*‖ | incliné de α / 2 | inclinée de α / 2 | compromis : chaque pièce reçoit la moitié du biais |
+
+Tout le reste du § 4.4 s'applique en remplaçant *n* par *d* : barre de la section du tenon
+le long de *d*, section mesurée perpendiculairement à *d* (sa largeur orientée selon la
+projection de la largeur de l'invitée), longueur sur l'axe du tenon depuis P,
+longueur automatique `mm_round(2 · profondeur / (3 · cos β))` avec β l'angle entre *d* et −*m*
+(β = α, 0 ou α / 2), donc toujours la formule d'équerre quand α tend vers 0. Le polyèdre
+convexe accepte déjà une barre dans un repère quelconque : aucun nouveau solide.
+
+### 4.9 Sécurité
 
 Pas de nouvelle entrée utilisateur : angles et cotes viennent des `Placement` et des
 propriétés existantes, déjà bornées. Les cas dégénérés sont arrêtés avant OCC : α borné (pas
@@ -254,7 +294,7 @@ de biais rasant, donc pas de coin infiniment long), polyèdres vides ou trop min
 (A1), valeurs non finies refusées par `Vec3`/`Box`, nombre de plans par polyèdre borné (au plus
 quatre). Aucun accès fichier, réseau ou `eval`.
 
-### 4.9 Compatibilité avec les autres ateliers (ADR 0007)
+### 4.10 Compatibilité avec les autres ateliers (ADR 0007)
 
 Formes `Part` standard (boîtes et booléennes), aucun réglage global, noms dans notre espace.
 Rien de neuf côté dépendances.
@@ -267,16 +307,39 @@ Rien de neuf côté dépendances.
 | **AB-b** | profil en biais, deux stratégies, solide `Part`, `guest_bevels`, `SQUARE_ONLY`, `_check.py`, panneau (B1 à B9) | AB-a | grande |
 | **AB-c** | liste de débit (C1 à C4) | AB-b | petite |
 | **AB-d** | ensembles (D1 à D4), selon Q4 | AB-b, #86 / #98 fusionnées (∥ AB-c) | moyenne |
+| **AB-e** | référence du tenon (E1 à E6) | AB-b (∥ AB-c, AB-d) | moyenne |
 
 Aucun module d'équerre réécrit : `_profile.py`, `contact.classify`, `relative_transform` et les
 cinq autres stratégies ne changent que par le message `SQUARE_ONLY`. La PR #111 fixe la façon
 dont les refus s'affichent (`translated_errors`, un seul message) : les nouveaux messages en
 profitent sans rien y changer.
 
+### 5.1 Analyse d'impact de la référence du tenon (AB-e)
+
+| Zone | Ce qui change | Effort |
+|---|---|---|
+| `core/joints/_base.py` | nouveau `ParamKind.CHOICE` (énumération validée comme les autres paramètres, message traduit) | petit |
+| `core/joints/mortise_tenon.py`, `tongue_groove.py` | champ `reference` (défaut pièce à tenon) dans les paramètres | petit |
+| `core/joints/_oblique.py` | direction *d* selon la référence, contrôle d'empreinte E4, angle du tenon au fil pour l'avertissement | moyen (le polyèdre fait déjà le travail) |
+| `features/joints/` | propriété `ObliqueReference` sur deux types, conversion texte ↔ énumération dans `params_from` / `write_params`, `Version` 1 → 2 | petit |
+| `features/schema.py` | réouverture d'une énumération à liste fixe (aujourd'hui seule la pièce de bois en a, avec sa propre fonction `restore_enumerations`) : aide commune extraite | petit à moyen |
+| `gui/task_panels/joint_fields.py` | premier champ « liste déroulante » des panneaux d'assemblage (aujourd'hui cases et nombres seulement), masqué d'équerre | moyen |
+| `api.py`, scripts | rien : les paramètres passent par l'objet valeur ; le nouveau mot-clé est facultatif | nul |
+| Liste de débit, ensembles | rien : l'épaulement est toujours sur la face de l'hôte | nul |
+| Documents existants | `Version` 2, propriété ajoutée à la réouverture, formes identiques | nul pour l'utilisateur |
+| Tests | trois références × cas de A6 (purs), volumes OCC, case du panneau, recette tabouret | moyen |
+
+Bilan : une PR de plus (AB-e, taille moyenne, environ 250 lignes de code et autant de tests),
+en parallèle d'AB-c et d'AB-d ; rien à reprendre dans AB-a ni dans le polyèdre. Le seul
+nouveau motif d'interface est la liste déroulante du panneau d'assemblage. Le seul risque
+métier est le tenon à fil tranché (référence pièce mortaisée à fort biais), couvert par
+l'avertissement E4.
+
 ## 6. Compatibilité des documents
 
-Aucune propriété ni aucun type ajouté ; `Version` des assemblages, pièces usinées, ensembles
-et listes de débit inchangées. Les documents actuels s'ouvrent sans migration et donnent les
+Aucun type ajouté ; la propriété `ObliqueReference` porte la `Version` du tenon-mortaise et de
+la rainure-languette à 2 (AB-e), les autres `Version` (pièces usinées, ensembles, listes de
+débit) sont inchangées. Les documents actuels s'ouvrent sans migration et donnent les
 mêmes formes (B3). Un document qui contient un assemblage en biais ouvert par une version
 antérieure de l'atelier affiche le refus actuel « Les deux pièces doivent être d'équerre »
 (pas de perte de données).
@@ -290,6 +353,7 @@ antérieure de l'atelier affiche le refus actuel « Les deux pièces doivent êt
 | Rotation « presque d'équerre » (89,9999°) prise en biais avec un coin de 1e-5 mm | tolérance `ANGLE_TOLERANCE` inchangée, `squared_rotation` des placements ; polyèdre plus mince que `CONTACT_TOLERANCE_MM` écarté (A1) |
 | Bout qui tombe sur une arête de l'hôte (pied de section carrée, ceinture décalée) | refus `EDGE_HIT` explicite plutôt qu'un usinage faux |
 | Ensemble modifié qui défait un assemblage en biais | avertissement `JOINT_LOST` (D3) ; la pièce usinée garde le refus de recalcul existant |
+| Tenon à fil tranché (référence pièce mortaisée, biais fort) | avertissement E4 au-delà de `GRAIN_WARNING_DEG`, défaut pièce à tenon |
 | Conflit avec #111 (`core/joints`, validation) et #98 (`core/furniture`) | AB-a part de `main` après #111 ; AB-d après #86 / #98 |
 
 ## 8. Hors périmètre (issues à ouvrir si jv le souhaite)
@@ -301,7 +365,6 @@ nouvelle décision d'architecture :
 - Onglet à angle quelconque (cadre non rectangulaire, coupe à la bissectrice).
 - Feuillure, mi-bois et queue d'aronde en biais.
 - Accrochage, aimant et « Définir une distance » entre pièces en biais.
-- Mortaise d'équerre à la face de l'hôte avec tenon coudé (Q2, option b).
 
 ## 9. Questions pour jv
 
@@ -309,14 +372,14 @@ nouvelle décision d'architecture :
 
 - **2026-10-28** : angles composés inclus (« 0 côté perpendiculaire ») ; la restriction à une
   seule charnière de la première version est abandonnée.
+- **Q2 — Sens de la mortaise (2026-10-28)** : « Par défaut on prend une des faces en
+  référence, sinon coupe la moitié de l'angle » : référence au choix, pièce à tenon, pièce
+  mortaisée ou mi-angle (§ 4.8, lot AB-e).
 
 ### Questions ouvertes
 
 - **Q1 — Borne d'angle.** ★ Écart à l'équerre **jusqu'à 45°** compris (au-delà, refus avec
   l'angle cité). Autres choix : 30° (prudent, épaulement moins fragile) ou 60°.
-- **Q2 — Sens de la mortaise.** ★ (a) **suit l'axe de l'invitée** (ce que dit l'issue : tenon
-  droit, mortaise oblique taillée au ciseau ou à la défonceuse inclinée). (b) d'équerre à la
-  face de l'hôte (mortaiseuse), tenon coudé : hors périmètre.
 - **Q3 — Mention dans la liste de débit.** ★ « Bout biais 10° » pour un biais simple,
   « Coupe composée 8° / lame 8° » pour un angle composé (les réglages de la scie). Autre :
   angles mesurés entre le bout et les arêtes (« 80° »).
@@ -325,3 +388,6 @@ nouvelle décision d'architecture :
   repousse AB-d.
 - **Q5 — Assemblages du jalon.** ★ **tenon-mortaise et rainure-languette** (même code de
   profil). Les autres types (tourillons d'abord ?) dans des issues suivantes.
+- **Q6 — Référence par défaut.** ★ **pièce à tenon** (tenon dans le fil, le plus solide ; la
+  mortaise prend le biais). Autre : pièce mortaisée (mortaise d'équerre, plus simple à la
+  machine, tenon à fil tranché).
