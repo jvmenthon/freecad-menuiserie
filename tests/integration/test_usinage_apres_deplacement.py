@@ -25,7 +25,7 @@ TRANSACTION = "Déplacer la pièce"
 # (pièce déplacée, déplacement dans son repère, déplacement dans le repère du document) : la
 # traverse T1 (invitée, porte le tenon) glisse le long de la rive de M1 (hôte, porte la mortaise).
 CASES = {
-    "invitee": ("T1", Vec3(0, 20, 0), App.Vector(-20, 0, 0)),
+    "invitee": ("T1", Vec3(0, -20, 0), App.Vector(20, 0, 0)),
     "hote": ("M1", Vec3(-100, 0, 0), App.Vector(-100, 0, 0)),
 }
 
