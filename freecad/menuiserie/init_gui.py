@@ -40,6 +40,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     )
     # Gabarits (J4d)
     commands += ("Menuiserie_Carcass",)
+    # Distance entre deux pièces (DI-b)
+    commands += ("Menuiserie_SetDistance",)
     # Liste de débit (J2d, J2g)
     commands += (
         "Menuiserie_CutList",
@@ -66,20 +68,40 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import cutlist  # liste de débit (J2d)
 
         cutlist.register()
+        from freecad.menuiserie.gui.commands import distance  # distance entre deux pièces (DI-b)
+
+        distance.register()
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 
     def Activated(self) -> None:
-        """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018)."""
+        """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018) et flèches de
+        déplacement de la pièce sélectionnée (ADR 0021)."""
         from freecad.menuiserie.gui import double_click
+        from freecad.menuiserie.gui.drag import events
 
         double_click.install()
+        events.install()
 
     def Deactivated(self) -> None:
-        """Atelier quitté : le filtre du double-clic est retiré de toutes les vues."""
+        """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""
         from freecad.menuiserie.gui import double_click
+        from freecad.menuiserie.gui.drag import events
 
-        double_click.uninstall()
+        try:
+            double_click.uninstall()
+        finally:
+            events.uninstall()
+
+    def ContextMenu(self, recipient: str) -> None:
+        """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une
+        distance » (au premier niveau, pas dans un sous-menu) quand la sélection compte deux
+        éléments de deux objets. Ce menu n'existe que
+        pendant que l'atelier est actif (ADR 0007)."""
+        from freecad.menuiserie.gui.commands import distance
+
+        if distance.selected_pair() is not None:
+            self.appendContextMenu("", [distance.COMMAND_NAME])  # au premier niveau du menu
 
     def GetClassName(self) -> str:
         """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""

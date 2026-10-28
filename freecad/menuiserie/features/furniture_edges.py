@@ -56,7 +56,8 @@ def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> list[N
     """Distance ``distance`` (mm) entre la face ``edge`` (``Left`` … ``Top``) d'un membre et
     ce bord de son ensemble : la pièce est déplacée, ou sa cote change si la distance opposée
     est fixe (:func:`~freecad.menuiserie.core.furniture.edge_edit`) ; options inchangées, puis
-    ce seul membre est relié. Refus avant modification."""
+    tout l'ensemble est relié (la pièce déplacée change la rangée des autres). Refus avant
+    modification."""
     member = member_object(obj)
     furniture = furniture_of(member)
     if furniture is None:
@@ -76,4 +77,5 @@ def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> list[N
             setattr(member, change.prop, change.size)
         if change.shift:
             _shifted(member, change)
-    return bind_members(read_members(furniture), [member.Name])
+    relinked = read_members(furniture)
+    return bind_members(relinked, relinked.objects)

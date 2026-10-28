@@ -51,13 +51,19 @@ from freecad.menuiserie.features import (
     cutlist_marks,
     cutlist_object,
     cutlist_thumbnail,
+    distance_move,
     furniture_edges,
+    furniture_locks,
     furniture_members,
     templates,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
-from freecad.menuiserie.features.furniture_bindings import notice_messages, report
+from freecad.menuiserie.features.furniture_bindings import (
+    LockedPiecesError,
+    notice_messages,
+    report,
+)
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.factories import (
     create_dovetail,
@@ -74,6 +80,7 @@ from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
 )
+from freecad.menuiserie.features.picked import PickedElement
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 __all__ = [
@@ -81,6 +88,8 @@ __all__ = [
     "INTERNATIONAL_CSV",
     "CarcassJoinery",
     "CarcassParams",
+    "LockedPiecesError",
+    "PickedElement",
     "add_to_furniture",
     "blank_of",
     "cut_list_html",
@@ -106,8 +115,11 @@ __all__ = [
     "remove_from_furniture",
     "remove_machined_part",
     "resize_furniture",
+    "set_distance",
     "set_edge_distance",
     "set_member_options",
+    "unlock_and_resize",
+    "unlock_and_set_thickness",
 ]
 
 
@@ -321,11 +333,16 @@ def remove_from_furniture(objects: Sequence[DocumentObject]) -> _Notices:
 
 
 def set_member_options(
-    obj: DocumentObject, *, mode: str | None = None, fixed: Mapping[str, bool] | None = None
+    obj: DocumentObject,
+    *,
+    mode: str | None = None,
+    fixed: Mapping[str, bool] | None = None,
+    locked: bool | None = None,
 ) -> _Notices:
-    """Change le mode (``Stay``, ``Proportional``) et les options « fixe » d'un membre
-    (``fixed={"Back": False}``), relie ce seul membre et recalcule."""
-    notices = furniture_members.set_options(obj, mode, fixed)
+    """Change le mode (``Stay``, ``Proportional``), les options « fixe » (``fixed={"Back":
+    False}``) et le verrou « cotes fixes » (``locked``) d'un membre, relie **tout** l'ensemble
+    (un réglage peut changer la rangée des autres pièces) et recalcule."""
+    notices = furniture_members.set_options(obj, mode, fixed, locked)
     return _reported(notices, obj.Document)
 
 
@@ -333,7 +350,7 @@ def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> _Notic
     """Règle à ``distance`` mm l'écart entre une face d'un membre et le bord ``edge``
     (``Left``, ``Right``, ``Front``, ``Back``, ``Bottom``, ``Top``) de son ensemble : la pièce
     est déplacée, ou sa cote change si la distance opposée est fixe. Options inchangées ; ce
-    seul membre est relié, puis le document recalculé. Refus avant modification (face pilotée
+    ensemble est relié, puis le document recalculé. Refus avant modification (face pilotée
     par une formule, pièce qui n'est pas d'équerre, cote hors bornes)."""
     notices = furniture_edges.set_edge_distance(obj, edge, distance)
     return _reported(notices, obj.Document)
@@ -355,11 +372,40 @@ def resize_furniture(
 ) -> _Notices:
     """Change les cotes de l'ensemble (mm, ``None`` = inchangée) puis recalcule ; refusé
     d'avance (``ValueError`` traduite, rien n'est modifié) si une pièce deviendrait trop petite
-    ou trop grande ou si un assemblage perdrait sa position. Renvoie les avertissements
-    traduits (aussi dans la vue rapport, ADR 0017)."""
+    ou trop grande ou si un assemblage perdrait sa position. Une rangée bloquée par des pièces
+    verrouillées lève :class:`LockedPiecesError` (``members`` : ces pièces ;
+    :func:`unlock_and_resize` les déverrouille). Renvoie les avertissements traduits (aussi
+    dans la vue rapport, ADR 0017)."""
     sizes = {"Width": width, "Depth": depth, "Height": height}
     notices = furniture_members.resize(furniture, sizes)
     return _reported(notices, furniture.Document)
+
+
+def unlock_and_resize(
+    furniture: DocumentObject,
+    pieces: Sequence[DocumentObject],
+    *,
+    width: float | None = None,
+    depth: float | None = None,
+    height: float | None = None,
+) -> _Notices:
+    """Déverrouille ``pieces`` (celles de ``LockedPiecesError.members``), relie tout l'ensemble
+    puis change ses cotes, comme :func:`resize_furniture`. Contrôlé d'abord pièces
+    déverrouillées : si la cote reste refusée, rien n'est modifié. Aucune transaction n'est
+    ouverte : l'appelant en ouvre une pour que le tout s'annule d'un coup."""
+    sizes = {"Width": width, "Depth": depth, "Height": height}
+    notices = furniture_locks.unlock_and_resize(furniture, pieces, sizes)
+    return _reported(notices, furniture.Document)
+
+
+def unlock_and_set_thickness(
+    part: DocumentObject, thickness: float, pieces: Sequence[DocumentObject]
+) -> _Notices:
+    """Déverrouille ``pieces``, relie tout l'ensemble de la pièce ``part`` puis fixe son
+    épaisseur (mm). Mêmes contrôle préalable et absence de transaction que
+    :func:`unlock_and_resize`."""
+    notices = furniture_locks.unlock_and_set_thickness(part, thickness, pieces)
+    return _reported(notices, part.Document)
 
 
 def furniture_of(obj: DocumentObject) -> DocumentObject | None:
@@ -370,6 +416,50 @@ def furniture_of(obj: DocumentObject) -> DocumentObject | None:
     except TypeError:
         return None
     return _member_furniture(member)
+
+
+# --- Distance entre deux pièces (DI-b) ---------------------------------------------------
+
+
+def _show_distance(distance: DocumentObject) -> None:
+    """ViewProvider de la Distance créée, quand l'interface est chargée."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.distance import ViewProviderDistance
+
+        ViewProviderDistance(distance.ViewObject)
+
+
+def set_distance(
+    first: PickedElement,
+    second: PickedElement,
+    value: float,
+    *,
+    moving: PickedElement | None = None,
+    axis: str | None = None,
+    keep: bool = False,
+) -> _Notices:
+    """Amène à ``value`` mm la distance entre deux éléments (face, arête, sommet) de deux objets
+    en déplaçant **une pièce de l'atelier** une fois, puis recalcule le document.
+
+    ``first`` et ``second`` : :class:`PickedElement` (objet racine, chemin de l'élément
+    ``"Face3"``). Pièce déplacée : ``moving`` (l'un des deux éléments), sinon celle du second
+    élément si elle est à l'atelier, sinon celle du premier ; une pièce usinée ou un assemblage
+    déplace sa brute, un objet d'un autre atelier ne bouge jamais. ``axis`` (``"X"``, ``"Y"``,
+    ``"Z"`` du conteneur) mesure deux sommets sur cet axe seul ; il est ignoré pour les autres
+    paires. Membre d'un ensemble : l'ensemble est relié ensuite. ``keep`` : la distance est
+    **gardée** par un objet ``Distance`` (DI-c, ADR 0022) ; il faut que les deux pièces soient
+    membres du même ensemble, que la direction soit parallèle à un axe de l'ensemble, que chaque
+    élément soit sur une face de sa pièce et que la valeur ne soit pas nulle. Refus avant toute
+    modification (``ValueError`` traduite) : aucune pièce de l'atelier, éléments non parallèles,
+    arête courbe, axe piloté par une formule, rangée bloquée, distance impossible à garder.
+    Renvoie les avertissements traduits (aussi dans la vue rapport). Aucune transaction n'est
+    ouverte : c'est à l'appelant de le faire pour pouvoir annuler."""
+    mover = distance_move.DistanceMove(first, second, moving)
+    messages = tuple(mover.apply(value, axis, keep=keep))
+    if mover.created is not None:
+        _show_distance(mover.created)
+    report(messages)
+    return messages
 
 
 # --- Gabarits (J4) ------------------------------------------------------------------------

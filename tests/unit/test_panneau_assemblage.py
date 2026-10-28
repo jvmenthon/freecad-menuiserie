@@ -129,15 +129,15 @@ def test_les_commandes_ouvrent_le_panneau() -> None:
 @pytest.mark.parametrize(
     ("panel", "base", "overridden"),
     [
-        ("wood_part.py", "ObjectTaskPanel", set()),
+        ("wood_part.py", "ObjectTaskPanel", {"accept"}),  # refus d'une épaisseur (ADR 0019)
         ("joint.py", "ObjectTaskPanel", set()),
         ("furniture.py", "ObjectTaskPanel", {"accept"}),  # refus d'une cote cassante
         ("carcass.py", "TransactionTaskPanel", {"accept"}),  # issue #40
     ],
 )
 def test_socle_commun_des_panneaux(panel: str, base: str, overridden: set[str]) -> None:
-    """Transactions, fermeture forcée et surveillance du document : ``base.py`` ; l'ensemble
-    et le caisson ne gardent que leur refus de « OK »."""
+    """Transactions, fermeture forcée et surveillance du document : ``base.py`` ; l'ensemble,
+    le caisson et la pièce de bois ne gardent que leur refus de « OK »."""
     tree = ast.parse((PANELS / panel).read_text(encoding="utf-8"))
     classes = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name.endswith("Panel")]
     assert [getattr(b, "id", "") for c in classes for b in c.bases] == [base]

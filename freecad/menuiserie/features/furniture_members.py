@@ -8,7 +8,7 @@ c'est à l'appelant (``api.py``, commandes) de les faire.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core.furniture import (
@@ -45,8 +45,9 @@ from freecad.menuiserie.features.furniture_bindings import (
     read_members,
     rebind,
     remove_bindings,
-    resize_notices,
 )
+from freecad.menuiserie.features.furniture_relink import relink_remaining
+from freecad.menuiserie.features.furniture_variants import resize_notices
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.solids import rigid_transform
@@ -95,6 +96,9 @@ UNKNOWN_EDGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Option « fixe » inconnue : « {value} » (Left, Right, Front, Back, Bottom ou Top, avec "
     "vrai ou faux).",
+)
+_UNKNOWN_LOCKED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Option « cotes fixes » inconnue : « {value} » (vrai ou faux attendu)."
 )
 _DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -204,12 +208,13 @@ def _enclosing(objects: Sequence[DocumentObject]) -> tuple[FurnitureBox, Vec3]:
 
 
 def _join(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]) -> None:
-    """Fait de ``obj`` un membre de ``furniture`` (mode ``Stay``, options ``fixed``). Les
-    propriétés d'un orphelin (ensemble supprimé) sont réécrites, et ses anciennes liaisons de
-    l'atelier retirées."""
+    """Fait de ``obj`` un membre de ``furniture`` (mode ``Stay``, options ``fixed``, cotes non
+    fixes). Les propriétés d'un orphelin (ensemble supprimé) sont réécrites, et ses anciennes
+    liaisons de l'atelier retirées."""
     values: dict[str, object] = {
         "Furniture": furniture,
         "FurnitureBindings": {},
+        "Locked": False,
         **{option_name(edge): edge in fixed for edge in Edge},
     }
     with writing(obj):
@@ -271,21 +276,30 @@ def add_members(furniture: DocumentObject, objects: Sequence[DocumentObject]) ->
 def remove_members(objects: Sequence[DocumentObject]) -> None:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
     de membre sont supprimées, la géométrie ne change pas. Un orphelin (ensemble supprimé) est
-    accepté."""
+    accepté. Les pièces qui restent sont reliées sans elles."""
     targets = {member.Name: member for member in map(member_object, objects)}
     for member in targets.values():
         if not has_member_properties(member):
             raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
+    furnitures = {f.Name: f for f in (furniture_of(m) for m in targets.values()) if f is not None}
     for member in targets.values():
         with writing(member):
             remove_bindings(member)
             for spec in MEMBER_PROPERTIES:
                 if spec.name in member.PropertiesList:
                     member.removeProperty(spec.name)
+    for furniture in furnitures.values():  # les voisines ne citent plus les pièces retirées
+        relink_remaining(furniture, set(targets))
 
 
-def _checked_options(mode: str | None, fixed: Mapping[str, bool] | None) -> dict[str, str | bool]:
+def _checked_options(
+    mode: str | None, fixed: Mapping[str, bool] | None, locked: bool | None = None
+) -> dict[str, str | bool]:
     values: dict[str, str | bool] = {}
+    if locked is not None:
+        if not isinstance(locked, bool):
+            raise ValueError(translated(_UNKNOWN_LOCKED, {"value": quoted_value(locked)}))
+        values["Locked"] = locked
     if mode is not None:
         if mode not in MODES:
             raise ValueError(translated(_UNKNOWN_MODE, {"value": quoted_value(mode)}))
@@ -298,19 +312,25 @@ def _checked_options(mode: str | None, fixed: Mapping[str, bool] | None) -> dict
 
 
 def set_options(
-    obj: DocumentObject, mode: str | None, fixed: Mapping[str, bool] | None
+    obj: DocumentObject,
+    mode: str | None,
+    fixed: Mapping[str, bool] | None,
+    locked: bool | None = None,
 ) -> list[Notice]:
-    """Change le mode et les options « fixe » d'un membre puis le relie."""
+    """Change le mode, les options « fixe » et le verrou « cotes fixes » (``locked``) d'un
+    membre, puis relie tout l'ensemble : l'option d'un membre peut changer la rangée des autres
+    (ADR 0019, point 6)."""
     member = member_object(obj)
     furniture = furniture_of(member)
     if furniture is None:
         raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
-    values = _checked_options(mode, fixed)
+    values = _checked_options(mode, fixed, locked)
     read_members(furniture)  # cotes illisibles : refus avant modification
     with writing(member):
         for name, value in values.items():
             setattr(member, name, value)
-    return bind_members(read_members(furniture), [member.Name])
+    members = read_members(furniture)
+    return bind_members(members, members.objects)
 
 
 def relink(furniture: DocumentObject) -> list[Notice]:
@@ -320,9 +340,12 @@ def relink(furniture: DocumentObject) -> list[Notice]:
     return rebind(furniture)
 
 
-def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list[Notice]:
-    """Contrôle (``check_resize``, sous-ensembles compris) puis écrit les cotes ``sizes``
-    (``Width``, ``Depth``, ``Height`` ; ``None`` = inchangée). Refus avant toute écriture."""
+def planned_resize(
+    furniture: DocumentObject, sizes: Mapping[str, float | None], unlocked: Collection[str] = ()
+) -> tuple[FurnitureBox, list[Notice]]:
+    """Contrôle (``check_resize``, sous-ensembles compris) des cotes ``sizes`` (``Width``,
+    ``Depth``, ``Height`` ; ``None`` = inchangée) : nouvelles cotes et avertissements. Rien n'est
+    écrit. ``unlocked`` : clés des pièces à considérer comme déverrouillées."""
     checked_furniture(furniture)
     old = read_members(furniture).box
     changed = {name: value for name, value in sizes.items() if value is not None}
@@ -333,11 +356,25 @@ def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list
     values = [changed.get(name, getattr(old, name.lower())) for name in DIMENSIONS]
     with translated_errors():
         new = FurnitureBox(*values)
-        notices = resize_notices(furniture, old, new)
-    with writing(furniture):
-        for name in changed:
-            setattr(furniture, name, getattr(new, name.lower()))
+        return new, resize_notices(furniture, old, new, unlocked)
+
+
+def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list[Notice]:
+    """Contrôle (:func:`planned_resize`) puis écrit les cotes ``sizes``. Refus avant toute
+    écriture (:class:`LockedPiecesError` si une rangée est bloquée par des pièces verrouillées)."""
+    new, notices = planned_resize(furniture, sizes)
+    write_box(furniture, new, sizes)
     return notices
+
+
+def write_box(
+    furniture: DocumentObject, new: FurnitureBox, sizes: Mapping[str, float | None]
+) -> None:
+    """Écrit les cotes de ``new`` dont ``sizes`` n'est pas ``None``."""
+    with writing(furniture):
+        for name, value in sizes.items():
+            if value is not None:
+                setattr(furniture, name, getattr(new, name.lower()))
 
 
 # --- Gabarits (J4d, ADR 0010) ---------------------------------------------------------------

@@ -30,7 +30,7 @@ Relier **Joue gauche** et **Voile**, puis **Joue droite** et **Voile**, par **To
 | 2 | Double-clic sur **Bureau**. | Panneau « Modifier « Bureau » » : trois cotes, quatre pièces « Reste en place » (Joue gauche « étirée », les autres « étirée, déplacée ») ; Joue gauche choisie : distances 0, 1178, 0, 40, 0, 30 mm, « fixe » coché sauf à droite. |
 | 3 | Profondeur `800`. | Plateau de 800, joues de 760 (elles suivent le fond, Q7), voile à 141 mm du fond, tourillons suivis, aussitôt. |
 | 4 | Joue gauche : décocher **fixe** à l'arrière, puis le recocher. | Décoché : sa largeur ne suit plus (expression `Width` retirée) ; recoché : l'expression revient. Même chose pour la joue droite. |
-| 5 | Voile : décocher **fixe** à l'arrière, Position **Proportion**. | Colonne « Suit » : « étirée, proportion ». |
+| 5 | Voile : décocher **fixe** à l'arrière, Position **Proportion**. | Colonne « Suit » : « étirée, déplacée, proportion ». |
 | 6 | Profondeur `30`. | Message rouge « « Joue gauche » deviendrait trop petite… » sous les cotes, **OK** grisé, rien ne bouge. Profondeur `800` : le message disparaît. |
 | 7 | **OK**, puis *Annuler* et *Rétablir*. | Une seule entrée « Modifier l'ensemble » ; tout revient puis repart. |
 | 8 | Voile, éditeur d'expressions : `Placement.Base.y` = `<<Plateau>>.Width - 141 mm` ; double-clic sur Bureau, choisir Voile. | Avertissement « Placement.Base.y suit une formule… » dans le panneau ; distances avant et arrière et leurs cases grisées, infobulle « Formule de l'utilisateur… ». |

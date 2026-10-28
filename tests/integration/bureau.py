@@ -24,22 +24,29 @@ LAYOUT = {
     "JD": ("Joue droite", (720, 560, 22), (1200, 0, 0), App.Rotation(Y_AXIS, -90)),
     "V": ("Voile", (1156, 400, 18), (22, 459, 320), App.Rotation(X_AXIS, 90)),
 }
-# Expressions de F8 (options par défaut), par repère et propriété.
+# Expressions de l'ADR 0019 (options par défaut), par repère et propriété : l'épaisseur d'une pièce
+# est vivante, citée par son libellé (``Thickness`` pour la pièce elle-même, comme FreeCAD réécrit
+# la référence) ; les termes sont triés par ``Name`` (JG avant JD).
 EXPRESSIONS = {
     "P": {
         "Length": "<<Bureau>>.Width",
         "Width": "<<Bureau>>.Depth",
-        "Placement.Base.z": "<<Bureau>>.Origin.z + <<Bureau>>.Height - 30 mm",
+        "Placement.Base.z": "<<Bureau>>.Origin.z + <<Bureau>>.Height - Thickness",
     },
-    "JG": {"Length": "<<Bureau>>.Height - 30 mm", "Width": "<<Bureau>>.Depth - 40 mm"},
+    "JG": {
+        "Length": "<<Bureau>>.Height - WoodPart.Thickness",
+        "Width": "<<Bureau>>.Depth - 40 mm",
+        "Placement.Base.x": "<<Bureau>>.Origin.x + Thickness",
+    },
     "JD": {
-        "Length": "<<Bureau>>.Height - 30 mm",
+        "Length": "<<Bureau>>.Height - WoodPart.Thickness",
         "Width": "<<Bureau>>.Depth - 40 mm",
         "Placement.Base.x": "<<Bureau>>.Origin.x + <<Bureau>>.Width",
     },
     "V": {
-        "Length": "<<Bureau>>.Width - 44 mm",
-        "Width": "<<Bureau>>.Height - 350 mm",
+        "Length": "<<Bureau>>.Width - WoodPart001.Thickness - WoodPart002.Thickness",
+        "Width": "<<Bureau>>.Height - WoodPart.Thickness - 320 mm",
+        "Placement.Base.x": "<<Bureau>>.Origin.x + WoodPart001.Thickness",
         "Placement.Base.y": "<<Bureau>>.Origin.y + <<Bureau>>.Depth - 141 mm",
     },
 }

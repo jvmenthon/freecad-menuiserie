@@ -23,7 +23,7 @@ from freecad.menuiserie.core.furniture import (
     follow_summary,
 )
 from freecad.menuiserie.core.geometry import Vec3
-from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, piece, placed, with_options
+from tests.unit.aides_ensembles import BOX, FREE_BACK, desk, placed, with_options
 
 TURN_Z_180 = [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]]  # L selon -X, l selon -Y
 TURN_Z_45 = [[0.7071068, -0.7071068, 0.0], [0.7071068, 0.7071068, 0.0], [0.0, 0.0, 1.0]]
@@ -37,7 +37,7 @@ def oblique() -> Member:
 
 def summaries(members: list[Member]) -> dict[str, tuple[Follow, ...]]:
     rules, _ = follow_rules(BOX, members)
-    return {m.key: follow_summary(BOX, m, rules.get(m.key)) for m in members}
+    return {m.key: follow_summary(m, rules.get(m.key)) for m in members}
 
 
 def member(key: str, **changes: object) -> Member:
@@ -50,25 +50,41 @@ def member(key: str, **changes: object) -> Member:
 
 
 def test_suit_bureau_aux_options_par_defaut() -> None:
-    assert summaries(with_options(desk())) == {
-        "P": (Follow.STRETCHED, Follow.MOVED),
-        "JG": (Follow.STRETCHED,),
-        "JD": (Follow.STRETCHED, Follow.MOVED),
-        "V": (Follow.STRETCHED, Follow.MOVED),
-    }
+    """E9 : la joue gauche, qui ne dépend que de son épaisseur, est tout de même « déplacée »."""
+    both = (Follow.STRETCHED, Follow.MOVED)
+    assert summaries(with_options(desk())) == {"P": both, "JG": both, "JD": both, "V": both}
 
 
 def test_suit_voile_en_proportion() -> None:
     members = with_options(desk(V=InteriorMode.PROPORTIONAL), {"V": frozenset({Edge.BACK})})
-    assert summaries(members)["V"] == (Follow.STRETCHED, Follow.PROPORTION)
+    assert summaries(members)["V"] == (Follow.STRETCHED, Follow.MOVED, Follow.PROPORTION)
 
 
 def test_suit_joues_qui_restent_en_place_en_profondeur() -> None:
-    assert summaries(with_options(desk(), FREE_BACK))["JG"] == (Follow.STRETCHED,)
+    assert summaries(with_options(desk(), FREE_BACK))["JG"] == (Follow.STRETCHED, Follow.MOVED)
 
 
 def test_suit_piece_sans_distance_fixe() -> None:
-    assert summaries([piece("V", fixed=frozenset())]) == {"V": (Follow.STAYS,)}
+    shelf = Member(
+        "S", block=placed((1000.0, 500.0, 20.0), (100.0, 50.0, 300.0)), fixed=frozenset()
+    )
+    assert summaries([shelf]) == {"S": (Follow.STAYS,)}
+
+
+def test_suit_piece_verrouillee_E9() -> None:
+    """Une pièce verrouillée montre « Locked » en plus de ce qu'elle fait."""
+    voile = member("V", locked=True)
+    assert summaries([voile])["V"] == (Follow.LOCKED, Follow.MOVED)
+    assert summaries(with_options(desk(), None))["V"] == (Follow.STRETCHED, Follow.MOVED)
+    locked = [replace(m, locked=m.key == "V") for m in with_options(desk())]
+    assert summaries(locked)["V"] == (Follow.LOCKED, Follow.MOVED)
+    shelf = Member(
+        "S",
+        block=placed((1000.0, 500.0, 20.0), (100.0, 50.0, 300.0)),
+        fixed=frozenset(),
+        locked=True,
+    )
+    assert summaries([shelf]) == {"S": (Follow.LOCKED, Follow.STAYS)}
 
 
 def test_suit_formule_de_l_utilisateur() -> None:
@@ -83,7 +99,7 @@ def test_suit_formule_hors_liaisons_ignoree() -> None:
 
 
 def test_suit_pas_d_equerre() -> None:
-    assert follow_summary(BOX, member("V"), None) == (Follow.NOT_SQUARE,)
+    assert follow_summary(member("V"), None) == (Follow.NOT_SQUARE,)
 
 
 # --- Faces pilotées (P5) --------------------------------------------------------------------
@@ -125,6 +141,12 @@ def test_faces_pilotees_pas_d_equerre() -> None:
 def test_distance_saisie(key: str, edge: Edge, distance: float, expected: EdgeEdit) -> None:
     """Face opposée fixe sur un axe étirable : la cote change ; sinon la pièce se déplace."""
     assert edge_edit(member(key), BOX, edge, distance) == expected
+
+
+def test_distance_saisie_piece_verrouillee_se_deplace_sans_s_etirer() -> None:
+    """E9 : une pièce aux cotes fixes ne change jamais de cote, elle se déplace."""
+    plateau = member("P", locked=True)
+    assert edge_edit(plateau, BOX, Edge.LEFT, 10.0) == EdgeEdit(FurnitureAxis.WIDTH, 10.0)
 
 
 def test_distance_saisie_face_opposee_non_fixe_deplace() -> None:

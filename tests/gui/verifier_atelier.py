@@ -34,6 +34,8 @@ from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
+from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
+from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
 from tests.gui.verifications_double_clic import VERIFICATIONS_DOUBLE_CLIC
 from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
@@ -42,9 +44,12 @@ from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASSEMBLAGE
 from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
+from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROUS
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
+from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
+from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -1232,11 +1237,18 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_ONGLET,
     *VERIFICATIONS_ENSEMBLE,
     *VERIFICATIONS_PANNEAU_ENSEMBLE,
+    *VERIFICATIONS_PANNEAU_VERROUS,
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
+    # Glisser une pièce à la souris (SM-c)
+    *VERIFICATIONS_SOURIS,
+    *VERIFICATIONS_SOURIS_DOCUMENT,
+    # Distance entre deux pièces (DI-b)
+    *VERIFICATIONS_DISTANCE,
+    *VERIFICATIONS_DISTANCE_GARDEE,
 )
 
 

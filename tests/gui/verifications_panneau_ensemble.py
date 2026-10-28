@@ -110,7 +110,8 @@ def verifier_formulaire_de_l_ensemble() -> list[str]:
                 sorted(
                     [
                         ("Plateau", "Reste en place", "étirée, déplacée"),
-                        ("Joue gauche", "Reste en place", "étirée"),
+                        # Sa position suit sa propre épaisseur (ADR 0019).
+                        ("Joue gauche", "Reste en place", "étirée, déplacée"),
                         ("Joue droite", "Reste en place", "étirée, déplacée"),
                         ("Voile", "Reste en place", "étirée, déplacée"),
                     ]
@@ -181,7 +182,9 @@ def verifier_saisies_de_l_ensemble() -> list[str]:
             *ecarts("voile déplacé", bureau.bounds("V")[0], (30.0, 1178.0)),
             *ecarts("case inchangée", widget(form, "fixedLeft").isChecked(), True),
             *ecarts(
-                "colonne Suit", ("Voile", "Proportion", "étirée, proportion") in lignes(form), True
+                "colonne Suit",
+                ("Voile", "Proportion", "étirée, déplacée, proportion") in lignes(form),
+                True,
             ),
         ]
         choisir_membre(form, bureau.parts["P"])

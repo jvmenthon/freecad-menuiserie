@@ -35,7 +35,7 @@ from freecad.menuiserie.features.freecad_types import (
     proxy_is,
     restoring_or_undoing,
 )
-from freecad.menuiserie.features.furniture import MEMBER_OPTIONS
+from freecad.menuiserie.features.furniture import MEMBER_OPTIONS, remember_before_change
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.part_labels import make_label_unique, sync_dependent_labels
@@ -156,10 +156,10 @@ class WoodPart(StatelessProxy):
         """Choix d'un matériau dans la liste : recopie son identifiant, sa catégorie, sa masse
         volumique, et ajuste le fil et les surcotes (règles de ``core.part_model``). Choix d'un
         sens du fil : mémorisé (ADR 0005). Changement de matériau, annulation comprise : le fil
-        est masqué ou affiché dans l'éditeur de propriétés. Mode ou option « fixe » d'un membre
-        d'ensemble : ses seules liaisons sont recalculées (sans effet hors ensemble). Repère ou
-        libellé modifié par l'utilisateur : l'autre suit (J6b, ADR 0011). Pièce d'un document plus
-        récent (``Version`` > ``MODEL_VERSION``) : le choix du matériau n'est pas suivi (R1)."""
+        est masqué ou affiché dans l'éditeur de propriétés. Réglage ou épaisseur d'un membre
+        d'ensemble : tout l'ensemble est relié (ADR 0019). Repère ou libellé modifié : l'autre
+        suit (J6b, ADR 0011). Pièce d'un document plus récent (``Version`` > ``MODEL_VERSION``) :
+        le choix du matériau n'est pas suivi (R1)."""
         if prop in ("MaterialId", "Category") and "Restore" not in obj.State:
             show_grain_direction(obj, shows_grain(obj))
         if not self._follows_user_changes(obj):
@@ -172,10 +172,20 @@ class WoodPart(StatelessProxy):
             self.sync_label(obj)
         elif prop == "Label":
             self._adopt_typed_mark(obj)
-        elif prop in MEMBER_OPTIONS:  # membre d'un ensemble (J4)
-            from freecad.menuiserie.features.furniture_bindings import member_option_changed
+        elif prop in MEMBER_OPTIONS or prop == "Thickness":  # membre d'un ensemble (J4)
+            from freecad.menuiserie.features.furniture_edits import member_changed
 
-            member_option_changed(obj, prop)
+            member_changed(obj, prop)
+
+    def unsetupObject(self, obj: DocumentObject) -> None:
+        """Pièce supprimée : ses voisines d'ensemble sont reliées sans elle (même transaction)."""
+        from freecad.menuiserie.features.furniture_relink import member_removed
+
+        member_removed(obj)
+
+    def onBeforeChange(self, obj: DocumentObject, prop: str) -> None:
+        """Épaisseur d'un membre d'ensemble avant une saisie, pour :meth:`onChanged`."""
+        remember_before_change(obj, prop)
 
     def _follow_material_choice(self, obj: DocumentObject) -> None:
         """Recopie le matériau choisi dans la liste ; sans effet pour une pièce d'un document

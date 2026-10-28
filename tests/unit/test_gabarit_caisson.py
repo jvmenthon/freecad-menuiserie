@@ -16,8 +16,10 @@ from freecad.menuiserie.core.furniture import (
     InteriorMode,
     Member,
     bindings_for,
+    check_resize,
     follow_rules,
     member_spans,
+    predict,
 )
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.joints import JointKind
@@ -124,9 +126,15 @@ EXPECTED_BINDINGS = {
     "back": {
         "Length": "<<Caisson>>.Height - 16 mm",
         "Width": "<<Caisson>>.Width - 16 mm",
-        "Placement.Base.y": "<<Caisson>>.Origin.y + <<Caisson>>.Depth - 8 mm",
+        "Placement.Base.y": "<<Caisson>>.Origin.y + <<Caisson>>.Depth - Thickness",
     },
-    "shelf1": {"Length": "<<Caisson>>.Width - 38 mm", "Width": "<<Caisson>>.Depth - 9 mm"},
+    "shelf1": {  # jeux de 1 mm rigides : la pièce libre de la rangée est l'étagère (ADR 0019)
+        "Length": "<<Caisson>>.Width - left.Thickness - right.Thickness - 2 mm",
+        "Placement.Base.x": "<<Caisson>>.Origin.x + left.Thickness + 1 mm",
+        "Width": "<<Caisson>>.Depth - back.Thickness - 1 mm",
+        "Placement.Base.z": "<<Caisson>>.Origin.z + <<Caisson>>.Height * 0.5"
+        " + bottom.Thickness * 0.5 - Thickness * 0.5 - top.Thickness * 0.5",
+    },
     "top": {
         "Length": "<<Caisson>>.Width - 36 mm",
         "Width": "<<Caisson>>.Depth",
@@ -135,18 +143,56 @@ EXPECTED_BINDINGS = {
 }
 
 
-def test_liaisons_des_options_du_gabarit() -> None:
-    """Les options explicites donnent les liaisons attendues (retraits et jeux conservés), sans
-    avertissement (une seule face fixe sur l'épaisseur de chaque pièce)."""
-    layout = carcass_layout(REFERENCE)
+def carcass_members(params: CarcassParams = REFERENCE) -> tuple[Layout, list[Member]]:
+    layout = carcass_layout(params)
     members = [
         Member(p.key, block=p.block, fixed=p.fixed, mode=p.mode, label=p.key) for p in layout.pieces
     ]
+    return layout, members
+
+
+def test_liaisons_des_options_du_gabarit() -> None:
+    """Les options explicites donnent les liaisons attendues, sans avertissement : le fond cite
+    sa propre épaisseur (``Thickness``), l'étagère garde ses jeux et se règle sur les panneaux,
+    les côtés suivent la hauteur et la profondeur."""
+    layout, members = carcass_members()
     rules, rule_notices = follow_rules(layout.box, members)
-    bindings, notices = bindings_for("Caisson", layout.box, members, rules)
+    bindings, notices = bindings_for("Caisson", members, rules)
     assert (rule_notices, notices) == ((), ())
     for key, expected in EXPECTED_BINDINGS.items():
         assert {b.prop: b.expression for b in bindings if b.key == key} == expected, key
+    assert not any(rule.row.blocked for found in rules.values() for rule in found)
+
+
+@pytest.mark.parametrize(
+    "new",
+    [
+        FurnitureBox(800, 400, 720),
+        FurnitureBox(600, 500, 720),
+        FurnitureBox(600, 400, 900),
+        FurnitureBox(800, 500, 900),
+        FurnitureBox(500, 300, 500),
+    ],
+    ids=["plus large", "plus profond", "plus haut", "plus large et plus haut", "plus petit"],
+)
+def test_caisson_redimensionne_reste_valide_D6(new: FurnitureBox) -> None:
+    """Les assemblages (tourillons, feuillures) gardent leur position relative ; le fond reste
+    logé dans les feuillures et les étagères restent entre les panneaux."""
+    layout, members = carcass_members()
+    rules, _ = follow_rules(layout.box, members)
+    joined = [(joint.host, joint.guest) for joint in layout.joints]
+    assert check_resize(layout.box, new, members, rules, joined) == ()
+    after = predict(new, members, rules)
+    assert extents_of(after["back"])[0] == (8, new.width - 8)
+    assert extents_of(after["right"])[0] == (new.width - 18, new.width)
+    shelf = extents_of(after["shelf1"])
+    assert shelf[2][0] == pytest.approx((new.height - 18) / 2)  # reste au milieu
+    assert 18 < shelf[0][0] < shelf[0][1] < new.width - 18
+
+
+def extents_of(member: Member) -> list[tuple[float, float]]:
+    spans = member_spans(member)
+    return [(round(spans[axis].lo, 6), round(spans[axis].hi, 6)) for axis in FurnitureAxis]
 
 
 def test_etageres_reparties_a_intervalles_egaux() -> None:

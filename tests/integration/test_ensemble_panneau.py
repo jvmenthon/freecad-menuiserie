@@ -47,13 +47,17 @@ def test_distance_sur_l_epaisseur_deplace(document: Any) -> None:
 
 
 def test_distance_face_opposee_non_fixe_deplace(document: Any) -> None:
-    """Avant de la joue décoché : l'arrière à 20 mm la recule, sa largeur ne change pas."""
+    """Avant de la joue décoché : l'arrière à 20 mm la recule, sa largeur ne change pas ; l'écart
+    à l'avant absorbe, la joue suit le fond (ADR 0019)."""
     bureau = loose_desk(document)
     api.set_member_options(bureau.parts["JG"], fixed={"Front": False})
     api.set_edge_distance(bureau.parts["JG"], "Back", 20.0)
     assert bureau.bounds("JG")[1] == (20.0, 580.0)
     assert bureau.sizes("JG")[1] == 560.0
-    assert "Width" in bureau.expressions("JG")
+    assert "Width" not in bureau.expressions("JG")
+    assert bureau.expressions("JG")["Placement.Base.y"] == (
+        "<<Bureau>>.Origin.y + <<Bureau>>.Depth - 580 mm"
+    )
 
 
 def test_distance_annulable_en_une_entree(document: Any) -> None:
@@ -107,7 +111,8 @@ def test_membres_vus_par_le_panneau(bureau: Bureau) -> None:
     views, notices = furniture_view.member_views(bureau.furniture)
     by_label = {view.obj.Label: view for view in views}
     joue = by_label["Joue gauche"]
-    assert (joue.mode, joue.follows) == ("Stay", (core.Follow.STRETCHED,))
+    assert (joue.mode, joue.follows) == ("Stay", (core.Follow.STRETCHED, core.Follow.MOVED))
+    assert joue.locked is False
     assert round(joue.distances[core.Edge.BACK], 6) == 40.0
     assert core.Edge.RIGHT not in joue.fixed
     assert by_label["Voile"].follows == (core.Follow.STRETCHED, core.Follow.MOVED)

@@ -84,6 +84,7 @@ MEMBER_SPECS = {
     "FixedBack": ("App::PropertyBool", [], "Distance fixe au bord arrière"),
     "FixedBottom": ("App::PropertyBool", [], "Distance fixe au bas de l'ensemble."),
     "FixedTop": ("App::PropertyBool", [], "Distance fixe au haut de l'ensemble"),
+    "Locked": ("App::PropertyBool", [], "Cotes fixes : la pièce ne change pas de cotes"),
     "FurnitureBindings": ("App::PropertyMap", ["Hidden"], "Expressions posées par l'atelier"),
 }
 
@@ -106,6 +107,7 @@ def test_proprietes_de_l_ensemble_et_des_membres(bureau: Bureau) -> None:
     joue = bureau.parts["JG"]
     assert_specs(joue, MEMBER_SPECS)
     assert joue.getEnumerationsOfProperty("PositionMode") == ["Stay", "Proportional"]
+    assert joue.Locked is False
     assert joue.Version == 2
 
 
@@ -168,8 +170,9 @@ def test_option_changee_dans_l_editeur(bureau: Bureau) -> None:
     doc.openTransaction("Modifier FixedBack")
     joue.FixedBack = False
     doc.commitTransaction()
-    assert "Width" not in bureau.expressions("JG")
-    assert "Width" not in joue.FurnitureBindings
+    without_width = {k: v for k, v in EXPRESSIONS["JG"].items() if k != "Width"}
+    assert bureau.expressions("JG") == without_width
+    assert dict(joue.FurnitureBindings) == without_width
     assert bureau.expressions("JD") == before
     doc.recompute()
     assert bureau.sizes("JG")[1] == 560
@@ -178,7 +181,7 @@ def test_option_changee_dans_l_editeur(bureau: Bureau) -> None:
     assert bureau.expressions("JG") == EXPRESSIONS["JG"]
     assert dict(joue.FurnitureBindings) == EXPRESSIONS["JG"]
     doc.redo()
-    assert bureau.expressions("JG") == {"Length": EXPRESSIONS["JG"]["Length"]}
+    assert bureau.expressions("JG") == without_width
     joue.FixedBack = True
     assert bureau.expressions("JG") == EXPRESSIONS["JG"]
 
@@ -186,17 +189,22 @@ def test_option_changee_dans_l_editeur(bureau: Bureau) -> None:
 def test_mode_proportion_dans_l_editeur(bureau: Bureau) -> None:
     doc, voile = bureau.doc, bureau.parts["V"]
     voile.FixedBack = False
-    assert "Placement.Base.y" not in bureau.expressions("V")
+    # Le voile garde sa place : l'origine locale est à son bord arrière, 441 + son épaisseur.
+    stays = "<<Bureau>>.Origin.y + Thickness + 441 mm"
+    assert bureau.expressions("V")["Placement.Base.y"] == stays
     voile.PositionMode = "Proportional"
-    expected = "<<Bureau>>.Origin.y + <<Bureau>>.Depth * 0.75 + 9 mm"
+    expected = "<<Bureau>>.Origin.y + <<Bureau>>.Depth * 0.757731959 + Thickness * 0.242268041"
     assert bureau.expressions("V")["Placement.Base.y"] == expected
     bureau.furniture.Depth = 800
     doc.recompute()
-    assert bureau.bounds("V")[1] == (591, 609)
+    # Les deux écarts gardent leur proportion : 441 x 782 / 582.
+    assert bureau.bounds("V")[1] == pytest.approx((592.546, 610.546), abs=2e-3)
     voile.PositionMode = "Stay"
-    assert "Placement.Base.y" not in bureau.expressions("V")
+    assert bureau.expressions("V")["Placement.Base.y"] == (
+        "<<Bureau>>.Origin.y + Thickness + 592.546392 mm"
+    )
     doc.recompute()
-    assert bureau.bounds("V")[1] == (591, 609)
+    assert bureau.bounds("V")[1] == pytest.approx((592.546, 610.546), abs=2e-3)
     assert stale_or_invalid(doc) == []
 
 
@@ -261,7 +269,7 @@ def test_deplacer_une_piece_usinee_liee_est_refuse(bureau: Bureau, vue_rapport: 
     machined.Placement = moved
     assert blank.Placement == before
     warnings = vue_rapport.de_niveau("Warning")
-    assert any("« Voile » est placée par une expression (Placement.Base.y)" in w for w in warnings)
+    assert any("« Voile » est placée par une expression (Placement.Base." in w for w in warnings)
     bureau.doc.recompute()
     assert machined.Placement == before
     assert stale_or_invalid(bureau.doc) == []
@@ -363,12 +371,13 @@ def test_cadre_a_onglets_qui_suit_les_cotes(document: Any) -> None:
     assert (furniture.Width.Value, furniture.Depth.Value) == pytest.approx((500, 500))
     api.set_member_options(host, fixed={"Back": False})  # la traverse ne touche que l'avant
     api.set_member_options(guest, fixed={"Right": False})  # ... et celle-ci que la gauche
-    api.resize_furniture(furniture, width=700, depth=600)
-    assert (host.Length.Value, guest.Length.Value) == pytest.approx((700, 600))
+    api.resize_furniture(furniture, width=700, depth=700)
+    assert (host.Length.Value, guest.Length.Value) == pytest.approx((700, 700))
+    assert (host.Width.Value, guest.Width.Value) == pytest.approx((84, 84))
     machined = [api.machined_part_of(part) for part in (host, guest)]
-    cut = 60 * 60 * 20 / 2
+    cut = 84 * 84 * 20 / 2  # les largeurs suivent la rangée : 60 x 700 / 500 = 84
     assert [m.Shape.Volume for m in machined] == pytest.approx(
-        [700 * 60 * 20 - cut, 600 * 60 * 20 - cut]
+        [700 * 84 * 20 - cut, 700 * 84 * 20 - cut]
     )
     assert machined[0].Shape.common(machined[1].Shape).Volume == pytest.approx(0, abs=1e-6)
     assert all(len(m.Shape.Solids) == 1 for m in machined)

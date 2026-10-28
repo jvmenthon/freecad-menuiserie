@@ -58,6 +58,11 @@ class TransactionTaskPanel:
         self._transaction = App.getActiveTransaction()
         self._watcher = watcher
 
+    @property
+    def closed(self) -> bool:
+        """Vrai une fois le panneau fermé (« OK », « Annuler » ou fermeture par FreeCAD)."""
+        return self._closed
+
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation."""
         self._before_commit()
