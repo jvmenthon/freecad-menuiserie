@@ -18,6 +18,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   couleur, zone de saisie et comportement inchangés.
 
 ### Ajouté
+- Rotation libre d'une pièce, lot RO-b ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères B1 à B5) : `features/part_rotate.py` écrit la rotation dans le `Placement` de la brute,
+  autour de son centre et sans recalcul du document : `rotate_to` (angles X, Y, Z absolus),
+  `rotate_by` (geste à la souris par rapport au `DragMemento`, rien ne s'accumule, Échap par
+  `restore`) et `end_rotation` (même chemin que `end_drag` : Distances, assemblages défaits,
+  un recalcul) ; refusée sans rien écrire si une expression pilote le `Placement`. Le quart de
+  tour en modification s'appuie sur `turned_about`, à l'identique. Rien n'est encore visible dans
+  l'interface (lots RO-c et RO-d).
 - Rotation libre d'une pièce, lot RO-a ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
   critères A1 à A5) : paquet pur `core/rotation/` (angles X, Y, Z du `Placement`, rotation autour
   d'un axe fixe du document par le centre de la brute, aimantation de l'angle à 15° ou au dixième,

@@ -71,6 +71,7 @@ __all__ = [
     "raw_part",
     "resize_part",
     "restore",
+    "write_placement",
 ]
 
 SIZE_PROPS: Final = ("Length", "Width", "Thickness")  # axes 0, 1 et 2 de la pièce
@@ -209,9 +210,9 @@ def begin_drag(part: DocumentObject) -> DragMemento:
     )
 
 
-def _write_placement(memento: DragMemento, placement: App.Placement) -> None:
-    """Écrit ``placement`` dans la brute, puis dans sa pièce usinée (affichage sans recalcul)."""
-    raw = memento.part
+def write_placement(raw: DocumentObject, placement: App.Placement) -> None:
+    """Écrit ``placement`` dans la brute ``raw``, puis dans sa pièce usinée (affichage sans
+    recalcul). Commun au glissement et à la rotation (``part_rotate``)."""
     with writing(raw):
         if raw.Placement != placement:
             raw.Placement = placement
@@ -256,7 +257,7 @@ def move_part(memento: DragMemento, delta: Vec3) -> None:
     recalcul du document. ``ValueError`` traduite si ``delta`` bouge un axe fixé par une formule
     de l'utilisateur."""
     _check_axes(memento, delta)
-    _write_placement(memento, _shifted(memento, delta))
+    write_placement(memento.part, _shifted(memento, delta))
 
 
 def resize_part(memento: DragMemento, prop: str, value: float, origin_shift: Vec3) -> None:
@@ -270,7 +271,7 @@ def resize_part(memento: DragMemento, prop: str, value: float, origin_shift: Vec
     raw = memento.part
     with writing(raw):
         setattr(raw, prop, value)
-    _write_placement(memento, _shifted(memento, origin_shift))
+    write_placement(memento.part, _shifted(memento, origin_shift))
     raw.recompute()
     _recompute_machined(raw)
 
@@ -279,7 +280,7 @@ def restore(memento: DragMemento) -> None:
     """Échap : ramène la brute à son état du début (placement, cotes, liaisons mises de côté).
     Le document n'est pas recalculé ; la pièce usinée reprend le placement."""
     raw = memento.part
-    _write_placement(memento, memento.placement)
+    write_placement(memento.part, memento.placement)
     with writing(raw):
         sizes = (memento.length, memento.width, memento.thickness)
         for prop, value in zip(SIZE_PROPS, sizes, strict=True):
@@ -321,7 +322,7 @@ def _relink(memento: DragMemento) -> list[str]:
     thicker = memento.part.Thickness.Value != memento.thickness
     try:
         if thicker:
-            _write_placement(memento, memento.placement)
+            write_placement(memento.part, memento.placement)
         follow_distances(furniture, memento.distances.keys())
         if thicker:
             return _relink_thickness(memento, furniture)

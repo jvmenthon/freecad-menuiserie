@@ -14,6 +14,7 @@ from typing import Any
 import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import Matrix3, RigidTransform, squared_rotation
+from freecad.menuiserie.core.rotation import turned_about
 from freecad.menuiserie.core.snap import (
     FreeTest,
     Orientation,
@@ -22,7 +23,6 @@ from freecad.menuiserie.core.snap import (
     Turn,
     snap,
     support_rotation,
-    turned_in_place,
 )
 from freecad.menuiserie.features.freecad_types import (
     DocumentObject,
@@ -144,6 +144,7 @@ def rotate_part(obj: DocumentObject, turn: Turn, session: SnapSession | None = N
         session.orientation = session.orientation.turned(turn, session.support)
         snap_part(obj, session)
         return True
-    turned = turned_in_place(rigid_transform(obj.Placement), dimensions_of(obj), turn)
+    axis = "XYZ".index(turn.value)
+    turned = turned_about(rigid_transform(obj.Placement), dimensions_of(obj), axis, 90.0)
     obj.Placement = to_placement(turned)
     return True
