@@ -79,7 +79,6 @@ from freecad.menuiserie.gui.drag.geometry import (
 )
 from freecad.menuiserie.gui.drag.overlay import Overlay
 from freecad.menuiserie.gui.drag.rings import (
-    RING_PX,
     Sweep,
     advance,
     build_rings,
@@ -609,11 +608,12 @@ class DragSession:
             return None
 
     def _ring_at(self, point: Point) -> str | None:
-        """Anneau sous le pixel ``point`` (à 8 pixels près) ; aucun s'il est vu par la tranche."""
+        """Anneau sous le pixel ``point`` (à 8 pixels près, mesurés à l'écran) ; aucun s'il est vu
+        par la tranche ou si son rayon à l'écran est inférieur à 16 pixels (pièce dézoomée)."""
         rings = () if self.layout is None else self.layout.rings
         if not rings or self.port is None:
             return None
-        return ring_under(rings, self.port.ray(point), self.port.mm(rings[0].center, RING_PX))
+        return ring_under(rings, self.port.ray(point), self.port.project, point)
 
     # --- Début, fin et annulation -------------------------------------------------------
 

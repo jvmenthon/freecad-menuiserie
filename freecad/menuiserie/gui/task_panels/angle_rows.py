@@ -2,12 +2,13 @@
 """Champs d'angle X, Y, Z du groupe « Rotation » du panneau de la pièce de bois (RO-c, ADR 0025).
 
 Les champs montrent les trois angles du ``Placement`` de la brute (degrés, au dixième, de -180 à
-180). Une saisie tourne la pièce aussitôt autour de son centre (:func:`rotate_to`) et l'aperçu de
-la seule brute suit, au plus 30 fois par seconde (comme une poignée de taille) ; en fin de saisie
-(``editingFinished``), les assemblages sont contrôlés et le document recalculé comme au
-relâchement d'un glissement (:func:`end_rotation`, fenêtre de ``gui/joint_choice``) : « Annuler »
-remet l'angle d'avant la saisie. Les boutons de quart de tour, un glissement et un anneau font
-relire les champs par :meth:`AngleRows.show`, signaux bloqués : pas de boucle.
+180 pour X et Z, de -90 à 90 pour Y, le tangage). Une saisie tourne la pièce aussitôt autour de
+son centre (:func:`rotate_to`) et l'aperçu de la seule brute suit, au plus 30 fois par seconde
+(comme une poignée de taille) ; en fin de saisie (``editingFinished``), les assemblages sont
+contrôlés et le document recalculé comme au relâchement d'un glissement (:func:`end_rotation`,
+fenêtre de ``gui/joint_choice``) : « Annuler » remet l'angle d'avant la saisie. Les boutons de
+quart de tour, un glissement et un anneau font relire les champs par :meth:`AngleRows.show`,
+signaux bloqués : pas de boucle.
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ ANGLE_FIELDS: Final = (
     ("angleYEdit", "angleYLabel"),
     ("angleZEdit", "angleZLabel"),
 )
-MAX_ANGLE_DEGREES: Final = 180.0
+MAX_ANGLE_DEGREES: Final = (180.0, 90.0, 180.0)  # X, Z : tour complet ; Y : tangage de angles_of
 DECIMALS: Final = 1
 _DRIVEN_BY_FURNITURE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Position pilotée par l'ensemble")
 _DRIVEN_BY_FORMULA: Final = QT_TRANSLATE_NOOP("Menuiserie", "Position pilotée par une formule")
@@ -83,9 +84,9 @@ class AngleRows:
     def setup(self) -> None:
         """Bornes et pas des champs ; grisés, avec la raison en infobulle, si une expression
         pilote la position de la pièce (C4)."""
-        for field in self._fields():
-            field.setProperty("minimum", -MAX_ANGLE_DEGREES)
-            field.setProperty("maximum", MAX_ANGLE_DEGREES)
+        for field, limit in zip(self._fields(), MAX_ANGLE_DEGREES, strict=True):
+            field.setProperty("minimum", -limit)
+            field.setProperty("maximum", limit)
             field.setProperty("singleStep", 1.0)
             field.setProperty("decimals", DECIMALS)
         if placement_expression(self._obj) is None:
@@ -125,11 +126,12 @@ class AngleRows:
 
     def _on_value_changed(self, _value: float) -> None:
         """Un champ a changé : la pièce tourne aussitôt, l'aperçu de la brute suit."""
-        if self._memento is None:
-            self._memento = begin_drag(self._obj)
+        memento = self._memento
+        if memento is None:
+            memento = self._memento = begin_drag(self._obj)
         self._on_edit()
         try:
-            written = rotate_to(self._obj, self.angles())
+            written = rotate_to(self._obj, self.angles(), memento.aside)
         except ValueError as error:  # angle non fini : rien n'est écrit
             report_warning(str(error))
             return

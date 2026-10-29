@@ -58,4 +58,7 @@ def snapped_angle(angle: float, step: float = _DEFAULT_STEP_DEGREES, free: bool 
     if not math.isfinite(step) or step <= 0:
         raise ValueError("snapped_angle.step : pas fini strictement positif attendu")
     unit = 0.1 if free else step
-    return math.floor(angle / unit + 0.5) * unit + 0.0
+    count = angle / unit
+    if not math.isfinite(count):  # angle immense ou pas minuscule : le quotient déborde
+        raise ValueError("snapped_angle : angle ou pas hors des valeurs admises")
+    return math.floor(count + 0.5) * unit + 0.0

@@ -10,14 +10,17 @@ texte. Aucun import de FreeCAD, de Qt ni de pivy.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import Final
 
 from freecad.menuiserie.core.geometry import Box, RigidTransform, Vec3
 from freecad.menuiserie.core.magnet import Ray
-from freecad.menuiserie.core.rotation import Ring, ring_hit, ring_of
+from freecad.menuiserie.core.rotation import Ring, plane_point, ring_of
 
 __all__ = [
+    "MIN_RING_SCREEN_PX",
     "RING_PX",
     "RING_SEGMENTS",
     "Sweep",
@@ -30,13 +33,18 @@ __all__ = [
     "ring_key",
     "ring_ray",
     "ring_under",
+    "screen_distance",
     "sector",
 ]
 
-RING_PX: Final = 8.0  # tolérance de saisie d'un anneau à l'écran
+RING_PX: Final = 8.0  # tolérance de saisie d'un anneau à l'écran, en pixels
+MIN_RING_SCREEN_PX: Final = 2 * RING_PX  # en dessous, l'anneau est trop petit pour être proposé
+PICK_SEGMENTS: Final = 48  # côtés du cercle projeté pour mesurer la distance à l'écran
 RING_SEGMENTS: Final = 96  # côtés du cercle dessiné
 _FAR: Final = 1000.0  # le rayon est reculé de ce nombre de rayons d'anneau devant le plan
 _FULL_TURN: Final = 360.0
+
+Point = tuple[float, float]
 
 
 def ring_key(axis: int) -> str:
@@ -125,13 +133,48 @@ def ring_ray(ray: Ray, ring: Ring) -> Ray:
     return Ray(_plus(ray.origin, d, min(0.0, ahead) - _FAR * ring.radius), d)
 
 
-def ring_under(rings: tuple[Ring, ...], ray: Ray, tolerance: float) -> str | None:
-    """Clé du premier anneau (X, Y, Z) que le rayon de la souris touche à ``tolerance`` mm près ;
-    un anneau vu par la tranche n'est pas touché (D5)."""
+def _segment_distance(p: Point, a: Point, b: Point) -> float:
+    """Distance (pixels) du point ``p`` au segment ``a`` - ``b``."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length2 = dx * dx + dy * dy
+    t = (
+        0.0
+        if length2 == 0
+        else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length2))
+    )
+    return math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
+
+
+def screen_distance(ring: Ring, project: Callable[[Vec3], Point], point: Point) -> float | None:
+    """Distance (pixels) entre le pixel ``point`` et l'ellipse que dessine l'anneau à l'écran ;
+    ``None`` si son rayon à l'écran (demi-grand axe) est inférieur à :data:`MIN_RING_SCREEN_PX` :
+    dézoomé, un anneau minuscule ne doit pas happer les clics sur la pièce."""
+    outline = [project(p) for p in circle(ring, PICK_SEGMENTS)]
+    cx, cy = project(ring.center)
+    if max(math.hypot(x - cx, y - cy) for x, y in outline) < MIN_RING_SCREEN_PX:
+        return None
+    return min(_segment_distance(point, a, b) for a, b in pairwise(outline))
+
+
+def ring_under(
+    rings: tuple[Ring, ...],
+    ray: Ray,
+    project: Callable[[Vec3], Point],
+    point: Point,
+    tolerance_px: float = RING_PX,
+) -> str | None:
+    """Clé de l'anneau (X, Y, Z) le plus proche du pixel ``point`` à ``tolerance_px`` pixels près,
+    mesurés sur l'ellipse projetée (la bande garde la même largeur vue de biais) ; ``ray`` est le
+    rayon de la souris. Pas d'anneau vu par la tranche (D5) ni plus petit que
+    :data:`MIN_RING_SCREEN_PX` à l'écran."""
+    best: tuple[float, str] | None = None
     for ring in rings:
-        if ring_hit(ring_ray(ray, ring), ring, tolerance):
-            return ring_key(ring.axis)
-    return None
+        if plane_point(ring_ray(ray, ring), ring) is None:
+            continue
+        gap = screen_distance(ring, project, point)
+        if gap is not None and gap <= tolerance_px and (best is None or gap < best[0]):
+            best = (gap, ring_key(ring.axis))
+    return None if best is None else best[1]
 
 
 def advance(total: float, last: float, now: float) -> float:

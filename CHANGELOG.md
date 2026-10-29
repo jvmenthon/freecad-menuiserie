@@ -5,6 +5,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Corrigé
+
+- Revue de fin de jalon « Rotation » (#117) : un anneau n'est plus proposé quand son rayon à
+  l'écran est inférieur à 16 pixels (pièce dézoomée), et la tolérance de saisie de 8 pixels se
+  mesure sur l'ellipse projetée ; un glissement qui prend le relais d'une saisie d'angle la
+  contrôle (ADR 0026) au lieu de l'abandonner ; le champ Y est borné à ±90° (tangage) ;
+  `snapped_angle` refuse un quotient qui déborde (`ValueError`) ; `rotate_to` refuse un angle hors
+  de [-360, 360] et tient compte des liaisons mises de côté. Recette
+  `docs/recette/rotation-scenarios-manuels.md`.
+
 ### Modifié
 - Panneau d'assemblage (demande de jv, critère E8 de
   [la spécification](docs/specs/J3-assemblages.md)) : tant qu'il est ouvert, à la création comme à

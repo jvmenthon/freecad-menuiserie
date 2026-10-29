@@ -21,6 +21,7 @@ import FreeCADGui as Gui
 from PySide import QtCore
 
 from freecad.menuiserie import api
+from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.rotation import plane_point
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.drag import events
@@ -94,6 +95,29 @@ def viser_anneau(session: Any, axe: int, degres: float, depart: Point | None = N
     return x, y
 
 
+def viser_projete(session: Any, axe: int, degres: float) -> Point:
+    """Pixel où l'anneau ``axe`` est dessiné (projection) au point d'angle ``degres`` : celui que
+    l'on survole et saisit. Hors écran, ``getPoint`` et ``getPointOnScreen`` ne s'accordent pas à
+    une vingtaine de pixels près ; le survol (à l'écran) se vise donc par la projection, le geste
+    (par les rayons) par :func:`viser_anneau` à partir de l'angle réellement saisi."""
+    ring = anneau(session, axe)
+    u, v = ring_basis(ring.normal)
+    c, s = math.cos(math.radians(degres)), math.sin(math.radians(degres))
+    point = Vec3(
+        ring.center.x + ring.radius * (c * u.x + s * v.x),
+        ring.center.y + ring.radius * (c * u.y + s * v.y),
+        ring.center.z + ring.radius * (c * u.z + s * v.z),
+    )
+    x, y = session.port.project(point)
+    return round(x), round(y)
+
+
+def angle_saisi(session: Any, axe: int, pixel: Point) -> float:
+    """Angle (degrés, dans le plan de l'anneau) que le rayon de la souris lit au pixel ``pixel``."""
+    lu = _lire(session, anneau(session, axe), pixel)
+    return 0.0 if lu is None else math.degrees(math.atan2(lu[1], lu[0]))
+
+
 def lacet(piece: Any) -> float:
     """Angle autour de Z (degrés) du ``Placement`` de la pièce."""
     return float(piece.Placement.Rotation.getYawPitchRoll()[0])
@@ -115,7 +139,7 @@ def vue_isometrique() -> None:
 def saisir_anneau(session: Any, axe: int, *, shift: bool = False) -> tuple[bool, Point]:
     """Survole puis saisit l'anneau ``axe`` au point d'angle :data:`DEPART` ; renvoie la réponse
     de la session et le pixel."""
-    depart = viser_anneau(session, axe, DEPART)
+    depart = viser_projete(session, axe, DEPART)
     session.move(depart)
     return bool(session.press(depart, shift)), depart
 
@@ -124,7 +148,7 @@ def tourner_de(
     session: Any, axe: int, degres: float, depart: Point, *, shift: bool = False
 ) -> Point:
     """Souris placée pour tourner de ``degres`` depuis le point saisi ; vrai mouvement envoyé."""
-    arrivee = viser_anneau(session, axe, DEPART + degres, depart)
+    arrivee = viser_anneau(session, axe, angle_saisi(session, axe, depart) + degres, depart)
     session.move(arrivee, shift)
     return arrivee
 
@@ -144,7 +168,7 @@ def _anneaux_et_survol(doc: Any) -> list[str]:
         *ecarts("incrustation dessinée", session.overlay.shows(), True),
     ]
     for axe in range(3):
-        session.move(viser_anneau(session, axe, DEPART))
+        session.move(viser_projete(session, axe, DEPART))
         etat = type(session.state).__name__, session.state.key
         problemes += ecarts(f"survol de l'anneau {axe}", etat, ("Hover", f"ring{axe}"))
     session.move((5, 5))
@@ -323,7 +347,7 @@ def _evenements_rendus(doc: Any) -> list[str]:
     viewport, filtre = vue_3d_active(doc), events._INSTALLATION.filter
     if viewport is None or filtre is None:
         return ["vue 3D ou filtre absents"]
-    sur = viser_anneau(session, 1, DEPART)
+    sur = viser_projete(session, 1, DEPART)
     gauche, droit = QtCore.Qt.LeftButton, QtCore.Qt.RightButton
     press, move, release = (
         QtCore.QEvent.MouseButtonPress,
@@ -346,7 +370,7 @@ def _evenements_rendus(doc: Any) -> list[str]:
     problemes += ecarts("aucun geste commencé", session.dragging, False)
     pris = filtre.eventFilter(viewport, souris(viewport, press, sur))
     problemes += ecarts("clic gauche sur l'anneau consommé", bool(pris), True)
-    arrivee = viser_anneau(session, 1, DEPART + 50.0, sur)
+    arrivee = viser_anneau(session, 1, angle_saisi(session, 1, sur) + 50.0, sur)
     problemes += ecarts(
         "mouvement du geste consommé",
         filtre.eventFilter(viewport, souris(viewport, move, arrivee)),
