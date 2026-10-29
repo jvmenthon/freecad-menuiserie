@@ -1,19 +1,23 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Session de glissement d'une pièce dans la vue 3D (SM-c, ADR 0021, spécification § 4.3).
+"""Session de glissement d'une pièce dans la vue 3D (SM-c, ADR 0021, spécification § 4.3 ; anneaux
+de rotation : RO-d, ADR 0025).
 
-:class:`DragSession` (pattern State) garde la pièce qui porte les flèches, leur dessin et l'état
-courant : :class:`Idle` (rien sous la souris), :class:`Hover` (une flèche ou une poignée sous la
-souris), :class:`Moving` (flèche tirée) et :class:`Resizing` (poignée tirée). Les évènements de la
-souris arrivent en pixels de FreeCAD par :meth:`DragSession.press`, :meth:`~DragSession.move`,
-:meth:`~DragSession.release` et :meth:`~DragSession.escape` (``events.py`` les traduit depuis Qt) ;
-chaque méthode renvoie vrai si l'évènement est consommé.
+:class:`DragSession` (pattern State) garde la pièce qui porte les flèches et les anneaux, leur
+dessin et l'état courant : :class:`Idle` (rien sous la souris), :class:`Hover` (une flèche, une
+poignée ou un anneau sous la souris), :class:`Moving` (flèche tirée), :class:`Resizing` (poignée
+tirée) et :class:`Rotating` (anneau tiré : la pièce tourne autour de son centre). Les évènements
+de la souris arrivent en pixels de FreeCAD par :meth:`DragSession.press`,
+:meth:`~DragSession.move`, :meth:`~DragSession.release` et :meth:`~DragSession.escape`
+(``events.py`` les traduit depuis Qt) ; chaque méthode renvoie vrai si l'évènement est consommé.
 
-Hors panneau, un glissement ouvre sa transaction « Déplacer la pièce » (un Ctrl+Z) ; panneau
-ouvert, ou si une autre transaction est en cours, il écrit dans la transaction déjà ouverte. Aucun
-recalcul pendant le glissement d'une flèche ; une poignée recalcule la seule brute, au plus 30
-fois par seconde ; ``end_drag`` fait le recalcul du document au relâchement, après avoir proposé
-(fenêtre de ``gui/joint_choice``) d'annuler le déplacement ou de supprimer les assemblages qu'il
-défait (ADR 0026).
+Hors panneau, un glissement ouvre sa transaction « Déplacer la pièce » (« Tourner la pièce » pour
+un anneau ; un Ctrl+Z) ; panneau ouvert, ou si une autre transaction est en cours, il écrit dans
+la transaction déjà ouverte. Aucun recalcul pendant le glissement d'une flèche ou d'un anneau ;
+une poignée recalcule la seule brute, au plus 30 fois par seconde ; ``end_drag`` (``end_rotation``
+pour un anneau) fait le recalcul du document au relâchement, après avoir proposé (fenêtre de
+``gui/joint_choice``) d'annuler le geste ou de supprimer les assemblages qu'il défait (ADR 0026).
+Une pièce dont une expression pilote le ``Placement`` (membre d'ensemble, formule) ne porte pas
+d'anneau (D6).
 """
 
 from __future__ import annotations
@@ -21,7 +25,7 @@ from __future__ import annotations
 import time
 import traceback
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
 
 import FreeCAD as App
@@ -40,8 +44,10 @@ from freecad.menuiserie.core.magnet import (
     magnet,
     resize,
 )
+from freecad.menuiserie.core.rotation import Ring, plane_point, ring_angle, snapped_angle
 from freecad.menuiserie.core.snap import Frame
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.drag_joints import JointChoice
+from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.magnet_guides import collect_guides
 from freecad.menuiserie.features.part_drag import (
@@ -56,7 +62,9 @@ from freecad.menuiserie.features.part_drag import (
     resize_part,
     restore,
 )
+from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
 from freecad.menuiserie.features.snap_geometry import to_vec3
+from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.drag.geometry import (
     ARROW_PX,
@@ -70,20 +78,34 @@ from freecad.menuiserie.gui.drag.geometry import (
     target_line,
 )
 from freecad.menuiserie.gui.drag.overlay import Overlay
+from freecad.menuiserie.gui.drag.rings import (
+    RING_PX,
+    Sweep,
+    advance,
+    build_rings,
+    ring_axis,
+    ring_key,
+    ring_ray,
+    ring_under,
+)
 from freecad.menuiserie.gui.drag.view import ViewPort
 
 __all__ = [
     "DragSession",
     "Dragging",
+    "Gesture",
     "Hover",
     "Idle",
     "Moving",
     "PanelContext",
     "Resizing",
+    "Rotating",
     "State",
+    "Turn",
 ]
 
 MOVE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacer la pièce")
+ROTATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Tourner la pièce")
 _RESIZE_ERRORS: Final = (RuntimeError, ValueError, TypeError, AttributeError, ReferenceError)
 Point = tuple[float, float]
 
@@ -102,6 +124,15 @@ def _frame_of(placement: App.Placement) -> Frame:
     rotation = placement.Rotation
     axes = [to_vec3(rotation.multVec(App.Vector(*v))) for v in ((1, 0, 0), (0, 1, 0), (0, 0, 1))]
     return Frame(to_vec3(placement.Base), *axes)
+
+
+def _rings_of(part: DocumentObject, box: Box) -> tuple[Ring, ...]:
+    """Anneaux de rotation de la brute ``part`` ; aucun si une expression pilote son ``Placement``
+    (membre d'ensemble, formule : D6). Ils suivent les axes de son conteneur (B5)."""
+    if placement_expression(part) is not None:
+        return ()
+    container = part.getGlobalPlacement() * part.Placement.inverse()
+    return build_rings(box, rigid_transform(part.Placement), rigid_transform(container))
 
 
 def _box_of(part: DocumentObject) -> Box:
@@ -127,11 +158,26 @@ class Grab:
     own: bool
 
 
+@dataclass(frozen=True)
+class Turn:
+    """Ce qu'il faut pour tourner une pièce par un anneau : l'anneau (axe, centre, rayon), le rayon
+    de la souris au départ (reculé devant le plan de l'anneau), le vecteur du centre au point
+    saisi, pixel de départ, début de l'écriture (Memento) et transaction ouverte (``own``)."""
+
+    ring: Ring
+    first: Ray
+    from_center: Vec3
+    start: Point
+    memento: DragMemento
+    own: bool
+
+
 class State:
     """État de la session : réponse (vrai = évènement consommé) à chaque évènement de la souris."""
 
     dragging = False
     key: str | None = None
+    sweep: Sweep | None = None  # secteur parcouru et angle, pendant la rotation par un anneau
 
     def press(self, session: DragSession, point: Point, shift: bool) -> bool:
         """Clic gauche enfoncé."""
@@ -188,24 +234,17 @@ class Hover(Idle):
         self.key = key
 
 
-class Dragging(State):
-    """Flèche ou poignée tirée (Template Method : les sous-classes écrivent la pièce)."""
+class Gesture(State):
+    """Geste en cours (flèche, poignée ou anneau tiré ; Template Method : les sous-classes écrivent
+    la pièce). Tous les évènements sont consommés jusqu'au relâchement ou à Échap."""
 
     dragging = True
 
-    def __init__(self, grab: Grab) -> None:
-        self.key = self.target = grab.key
-        self.cursor = grab.start
-        self.line = grab.line  # axe au début : les flèches suivent la pièce, pas lui
-        self.origin = grab.origin  # paramètre de l'axe sous le curseur au début
-        self.memento = grab.memento
-        self.guides = grab.guides
-        self.tolerance = grab.tolerance
-        self.own = grab.own  # transaction ouverte par le glissement
+    def __init__(self, memento: DragMemento, start: Point, own: bool) -> None:
+        self.memento = memento
+        self.cursor = start
+        self.own = own  # transaction ouverte par le geste
         self.shift = False
-        self.box = _box_of(grab.memento.part)
-        # repère de la pièce au début : celui des guides, qui ne suivent pas la pièce
-        self.frame = _frame_of(grab.memento.part.getGlobalPlacement())
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:
         self.cursor, self.shift = point, shift
@@ -228,6 +267,32 @@ class Dragging(State):
         return True
 
     def _follow(self, session: DragSession) -> None:
+        """Pièce placée d'après le curseur."""
+        raise NotImplementedError
+
+    def flush(self, session: DragSession) -> None:
+        """Écrit ce qui attendait la cadence (poignée)."""
+
+    def end(self, choose: JointChoice) -> list[str]:
+        """Fin du geste au relâchement : recalcul du document, avertissements."""
+        return end_drag(self.memento, choose)
+
+
+class Dragging(Gesture):
+    """Flèche ou poignée tirée."""
+
+    def __init__(self, grab: Grab) -> None:
+        super().__init__(grab.memento, grab.start, grab.own)
+        self.key = self.target = grab.key
+        self.line = grab.line  # axe au début : les flèches suivent la pièce, pas lui
+        self.origin = grab.origin  # paramètre de l'axe sous le curseur au début
+        self.guides = grab.guides
+        self.tolerance = grab.tolerance
+        self.box = _box_of(grab.memento.part)
+        # repère de la pièce au début : celui des guides, qui ne suivent pas la pièce
+        self.frame = _frame_of(grab.memento.part.getGlobalPlacement())
+
+    def _follow(self, session: DragSession) -> None:
         """Pièce placée d'après le curseur ; rayon parallèle à l'axe : elle reste."""
         value = axis_param(session.ray(self.cursor), self.line)
         if value is not None:
@@ -236,9 +301,6 @@ class Dragging(State):
     def apply(self, session: DragSession, delta: float) -> None:
         """Écrit la pièce pour un déplacement ``delta`` mm du curseur le long de l'axe."""
         raise NotImplementedError
-
-    def flush(self, session: DragSession) -> None:
-        """Écrit ce qui attendait la cadence (poignée)."""
 
 
 class Moving(Dragging):
@@ -297,9 +359,42 @@ class Resizing(Dragging):
         session.written(guides, self.frame)
 
 
+class Rotating(Gesture):
+    """Anneau tiré : la pièce tourne autour de l'axe de l'anneau, par son centre, depuis son
+    orientation du début (RO-b, ``rotate_by``). L'angle est aimanté tous les 15° (libre avec Maj,
+    au dixième de degré) ; il s'ajoute d'un demi-tour à l'autre (plusieurs tours possibles). Seul
+    le ``Placement`` est écrit, sans recalcul."""
+
+    def __init__(self, grab: Turn) -> None:
+        super().__init__(grab.memento, grab.start, grab.own)
+        self.ring = grab.ring
+        self.key = ring_key(grab.ring.axis)
+        self.first = grab.first
+        self.from_center = grab.from_center
+        self.last = 0.0  # angle lu au dernier mouvement (]-180, 180])
+        self.total = 0.0  # angle parcouru depuis la saisie, tours compris
+        self.frame = _frame_of(grab.memento.part.getGlobalPlacement())
+
+    def _follow(self, session: DragSession) -> None:
+        """Pièce tournée d'après le curseur ; rayon rasant le plan de l'anneau : elle reste."""
+        ray = ring_ray(session.ray(self.cursor), self.ring)
+        raw = ring_angle(ray, self.ring, self.first)
+        if raw is not None:
+            self.total, self.last = advance(self.total, self.last, raw), raw
+        angle = snapped_angle(self.total, free=self.shift)
+        if not rotate_by(self.memento, self.ring.axis, angle):
+            return
+        anchor = plane_point(ray, self.ring) or self.ring.center
+        self.sweep = Sweep(self.ring, self.from_center, angle, anchor)
+        session.written((), self.frame)
+
+    def end(self, choose: JointChoice) -> list[str]:
+        return end_rotation(self.memento, choose)
+
+
 class DragSession:
-    """Pièce qui porte les flèches (et les poignées si son panneau est ouvert), leur dessin dans
-    la vue 3D et état courant du glissement."""
+    """Pièce qui porte les flèches et les anneaux (et les poignées si son panneau est ouvert),
+    leur dessin dans la vue 3D et état courant du glissement."""
 
     def __init__(self) -> None:
         self.state: State = Idle()
@@ -323,7 +418,8 @@ class DragSession:
 
     @property
     def dragging(self) -> bool:
-        """Vrai pendant le glissement d'une flèche ou d'une poignée."""
+        """Vrai pendant le glissement d'une flèche ou d'une poignée, ou la rotation par un
+        anneau."""
         return self.state.dragging
 
     def set_panel(self, panel: PanelContext) -> None:
@@ -403,6 +499,7 @@ class DragSession:
             self._size_mm = port.mm(center, ARROW_PX)
             resizable = limits.resizable_axes if self._panel_shown else frozenset()
             layout = build_layout(frame, box, self._size_mm, limits.fixed_axes, resizable)
+            layout = replace(layout, rings=_rings_of(part, box))
         except _RESIZE_ERRORS:
             self.clear()
             return
@@ -415,7 +512,9 @@ class DragSession:
         ``guides_frame`` de la pièce au début du glissement)."""
         self.lit = tuple(guides)
         if self.overlay is not None and self.layout is not None:
-            drawing = build_drawing(self.layout, self.state.key, guides, guides_frame)
+            drawing = build_drawing(
+                self.layout, self.state.key, guides, guides_frame, self.state.sweep
+            )
             self.overlay.draw(drawing)
 
     def sync(self) -> None:
@@ -481,7 +580,7 @@ class DragSession:
 
     def abort(self) -> None:
         """Annule le glissement en cours, quel que soit son état (erreur, atelier quitté)."""
-        if isinstance(self.state, Dragging):
+        if isinstance(self.state, Gesture):
             self.cancel(self.state)
 
     # --- Rayon et cibles ----------------------------------------------------------------
@@ -499,19 +598,31 @@ class DragSession:
         return target_line(self.layout, key)
 
     def target_at(self, point: Point) -> str | None:
-        """Flèche ou poignée sous le pixel ``point`` (à 8 pixels près), sinon ``None``."""
+        """Flèche ou poignée sous le pixel ``point`` (à 8 pixels près), sinon l'anneau touché par
+        le rayon de la souris (les flèches ont la priorité), sinon ``None``."""
         if self.layout is None or self.port is None:
             return None
         try:
-            return handle_at(pixel_targets(self.layout, self.port.project), point)
+            key = handle_at(pixel_targets(self.layout, self.port.project), point)
+            return key if key is not None else self._ring_at(point)
         except _RESIZE_ERRORS:
             return None
+
+    def _ring_at(self, point: Point) -> str | None:
+        """Anneau sous le pixel ``point`` (à 8 pixels près) ; aucun s'il est vu par la tranche."""
+        rings = () if self.layout is None else self.layout.rings
+        if not rings or self.port is None:
+            return None
+        return ring_under(rings, self.port.ray(point), self.port.mm(rings[0].center, RING_PX))
 
     # --- Début, fin et annulation -------------------------------------------------------
 
     def begin(self, key: str, point: Point, shift: bool) -> bool:
-        """Saisit la cible ``key`` au pixel ``point`` ; faux (rien n'est pris) si la flèche est
-        vue de bout ou si la pièce ne peut pas être lue."""
+        """Saisit la cible ``key`` (flèche, poignée ou anneau) au pixel ``point`` ; faux (rien
+        n'est pris) si la flèche ou l'anneau est vu de bout ou si la pièce ne peut pas être lue."""
+        axis = ring_axis(key)
+        if axis is not None:
+            return self._begin_rotation(axis, point, shift)
         part, port = self.part, self.port
         if part is None or port is None:
             return False
@@ -519,20 +630,57 @@ class DragSession:
         origin = axis_param(port.ray(point), line)
         if origin is None:
             return False
-        own = App.getActiveTransaction() is None
-        if own:
-            part.Document.openTransaction(translated(MOVE_TRANSACTION))
+        own = self._open(part, MOVE_TRANSACTION)
         try:
             memento = begin_drag(part)
             guides = collect_guides(part, part.getParentGeoFeatureGroup())
             tolerance = port.mm(_frame_of(part.getGlobalPlacement()).origin, MAGNET_PX)
         except (*_RESIZE_ERRORS, App.Base.FreeCADError):
-            if own:
-                part.Document.abortTransaction()
-            App.Console.PrintError(traceback.format_exc())
+            self._give_up(part, own)
             return False
         kind = Moving if isinstance(parse_key(key), int) else Resizing
         state = kind(Grab(key, point, line, origin, memento, guides, tolerance, own))
+        state.shift = shift
+        self.enter(state)
+        return True
+
+    @staticmethod
+    def _open(part: DocumentObject, name: str) -> bool:
+        """Ouvre la transaction ``name`` si aucune n'est en cours (celle du panneau, sinon) ; vrai
+        si c'est le geste qui l'a ouverte."""
+        own = App.getActiveTransaction() is None
+        if own:
+            part.Document.openTransaction(translated(name))
+        return own
+
+    @staticmethod
+    def _give_up(part: DocumentObject, own: bool) -> None:
+        """Début de geste raté : transaction du geste abandonnée, erreur dans la vue rapport."""
+        if own:
+            part.Document.abortTransaction()
+        App.Console.PrintError(traceback.format_exc())
+
+    def _begin_rotation(self, axis: int, point: Point, shift: bool) -> bool:
+        """Saisit l'anneau de l'axe ``axis`` au pixel ``point`` : transaction « Tourner la pièce »
+        hors panneau, état :class:`Rotating`. Faux si l'anneau est vu par la tranche."""
+        part, port, layout = self.part, self.port, self.layout
+        ring = next((r for r in layout.rings if r.axis == axis), None) if layout else None
+        if part is None or port is None or ring is None:
+            return False
+        first = ring_ray(port.ray(point), ring)
+        hit = plane_point(first, ring)
+        if hit is None:
+            return False
+        from_center = Vec3(hit.x - ring.center.x, hit.y - ring.center.y, hit.z - ring.center.z)
+        if from_center == Vec3(0.0, 0.0, 0.0):
+            return False
+        own = self._open(part, ROTATE_TRANSACTION)
+        try:
+            memento = begin_drag(part)
+        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+            self._give_up(part, own)
+            return False
+        state = Rotating(Turn(ring, first, from_center, point, memento, own))
         state.shift = shift
         self.enter(state)
         return True
@@ -545,7 +693,7 @@ class DragSession:
         if self.panel is not None and self._panel_open():
             self.panel.refresh()
 
-    def _close(self, state: Dragging, *, commit: bool) -> None:
+    def _close(self, state: Gesture, *, commit: bool) -> None:
         """Fin du glissement : transaction validée (``commit``) ou abandonnée."""
         document = state.memento.part.Document
         if state.own:
@@ -558,13 +706,13 @@ class DragSession:
         if self.panel is not None and self._panel_open():
             self.panel.refresh()
 
-    def finish(self, state: Dragging) -> None:
+    def finish(self, state: Gesture) -> None:
         """Relâchement : ensemble relié et document recalculé une fois (``end_drag``),
         avertissements dans la vue rapport. Si le déplacement défait des assemblages, la fenêtre
         de choix s'ouvre avant le recalcul (``gui/joint_choice``, ADR 0026) : annuler remet la
         pièce, supprimer garde le déplacement."""
         try:
-            warnings = end_drag(state.memento, joint_choice.choose)
+            warnings = state.end(joint_choice.choose)
         except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0026)
             self._close(state, commit=False)
             return
@@ -576,7 +724,7 @@ class DragSession:
             report_warning(warning)
         self._close(state, commit=True)
 
-    def cancel(self, state: Dragging) -> None:
+    def cancel(self, state: Gesture) -> None:
         """Échap : la pièce revient où elle était au début du glissement (le panneau, s'il est
         ouvert, reste) ; le relâchement du bouton est consommé."""
         restore(state.memento)
