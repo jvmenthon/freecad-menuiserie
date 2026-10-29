@@ -103,17 +103,18 @@ def nouvelle_piece(doc: Any, angles: Angles = (0.0, 0.0, 0.0)) -> Any:
 def apercus_comptes() -> Iterator[list[int]]:
     """Compteur des aperçus de la brute (recalculs par ``recompute_blank``) pendant le bloc."""
     compteur = [0]
-    original = angle_rows.recompute_blank
+    table = vars(angle_rows)
+    original = table["recompute_blank"]
 
     def compter(brute: Any) -> None:
         compteur[0] += 1
         original(brute)
 
-    angle_rows.recompute_blank = compter
+    table["recompute_blank"] = compter
     try:
         yield compteur
     finally:
-        angle_rows.recompute_blank = original
+        table["recompute_blank"] = original
 
 
 def nomme(layouts: Iterable[Any]) -> list[str]:
