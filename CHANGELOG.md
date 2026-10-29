@@ -30,7 +30,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   d'angle arrête l'accrochage, les boutons le gardent. Vérifications hors écran
   (`tests/gui/verifications_panneau_rotation.py`) et capture `panneau-rotation.png` (pièce tournée
   de 15°).
-
 - Rotation libre d'une pièce, lot RO-d ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
   critères D1 à D7) : trois anneaux (X rouge, Y vert, Z bleu) autour de la pièce sélectionnée
   seule, dessinés par l'incrustation de la vue 3D avec ses flèches et invisibles pour la
