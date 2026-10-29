@@ -10,6 +10,7 @@ création elle reste accrochée (:class:`SnapSession`), en modification elle tou
 Lancée avec une sélection (J6d), la pièce est posée contre les éléments choisis : le groupe
 « Rotation » les cite (« Contre : … »), signale ceux qui sont ignorés ou qui ne touchent pas la
 pièce, et propose d'ajouter la pièce à l'ensemble de l'élément (case cochée par défaut).
+Trois champs d'angle X, Y, Z (:class:`AngleRows`) donnent la rotation libre de la pièce.
 Toute saisie est visible aussitôt dans la vue 3D (cotes, matériau, fil, rotation).
 Une cote pilotée par une expression est affichée par le champ (icône d'expression) et n'est
 jamais écrite par le panneau. L'épaisseur d'une pièce membre d'un ensemble est contrôlée avant
@@ -46,6 +47,7 @@ from freecad.menuiserie.features.placement import (
 from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
+from freecad.menuiserie.gui.task_panels.angle_rows import AngleRows
 from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
     UpdateGuard,
@@ -99,6 +101,9 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._bindings = [bind_length_field(self.form, obj, field) for field in LENGTH_FIELDS[:3]]
         self._unlock = UnlockBox(self.form.unlockHost.layout(), self._unlock_and_apply)
         self._thickness_tools = ThicknessTools(self.form, obj)
+        self._angles = AngleRows(
+            self.form, obj, self._on_angle_edit, self._recompute, joint_choice.choose
+        )
         self._material = MaterialRows(self.form, obj, self._guard, self._on_material, self.preview)
         self._allowances = AllowanceRows(
             self.form, obj, self._guard, ALLOWANCE_FIELDS, self._recompute
@@ -109,6 +114,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._allowances.fold(False)
         self._material.lock(is_from_newer_version(obj))
         setup_rotation_buttons(self.form, obj)
+        self._angles.setup()
         self._connect_signals()
         self._snap = SnapRows(self.form, obj, self._session)
         self._drag = PanelDrag(self)  # flèches et poignées dans la vue 3D (ADR 0021)
@@ -119,6 +125,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
 
     def _connect_signals(self) -> None:
         connect_rotations(self.form, self._on_rotate)
+        self._angles.connect_signals()
         self._material.connect_signals()
         self._allowances.connect_signals()
         for field in LENGTH_FIELDS[:3]:
@@ -133,6 +140,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
                 value = getattr(self.obj, field.prop).Value
                 getattr(self.form, field.widget).setProperty("rawValue", value)
         self._allowances.show()
+        self._angles.show()
         self._thickness_tools.show()
 
     def _on_material(self) -> None:
@@ -194,8 +202,11 @@ class WoodPartTaskPanel(ObjectTaskPanel):
 
     def _on_rotate(self, turn: Turn) -> None:
         """Quart de tour autour de l'axe du bouton : la pièce reste accrochée en création,
-        tourne sur place en modification (aperçu recalculé)."""
+        tourne sur place en modification (aperçu recalculé) ; les champs d'angle relisent le
+        placement."""
+        self._angles.finish()  # saisie d'angle en cours : contrôlée avant le quart de tour
         if rotate_checked(self.obj, turn, self._session, joint_choice.choose):
+            self._angles.show()
             self.preview()
             self._snap.show()  # notices en direct : la pièce touche ou non ses cibles
 
@@ -203,17 +214,29 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Pièce déplacée ou étirée à la souris : cotes relues par les champs ; l'accrochage de la
         création ne la repose plus (il la ramènerait là où elle a été posée)."""
         self._session = None
+        self._angles.drop()  # le glissement prend le relais d'une saisie d'angle en cours
         self._show_values()
+
+    def _on_angle_edit(self) -> None:
+        """Angle saisi : comme un glissement, la saisie arrête l'accrochage de la création (la
+        pièce n'est plus reposée) ; les boutons de quart de tour le gardent (C5)."""
+        self._session = None
 
     def _before_commit(self) -> None:
         """« OK » : transparence d'origine rétablie, pièce ajoutée à l'ensemble si la case est
-        cochée, le tout avant la validation de la transaction. L'entrée dans l'ensemble passe en
-        premier : son refus (message) n'empêche pas de rétablir la transparence."""
+        cochée, le tout avant la validation de la transaction. Une saisie d'angle en cours est
+        d'abord contrôlée. L'entrée dans l'ensemble passe en premier : son refus (message)
+        n'empêche pas de rétablir la transparence."""
+        self._angles.finish()
         try:
             self._snap.join_furniture()
         finally:
             if self._style is not None:
                 self._style.restore()
+
+    def _release_display(self) -> None:
+        """Panneau fermé : plus d'aperçu d'angle différé."""
+        self._angles.drop()
 
     def _recompute(self) -> None:
         """Pièce reposée en création, aperçu (la pièce, ses assemblages et sa pièce usinée),

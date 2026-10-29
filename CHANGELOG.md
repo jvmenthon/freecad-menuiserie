@@ -18,6 +18,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   couleur, zone de saisie et comportement inchangés.
 
 ### Ajouté
+- Rotation libre d'une pièce, lot RO-c ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères C1 à C6) : le groupe « Rotation » du panneau de la pièce de bois porte, sous les trois
+  boutons de quart de tour, trois champs d'angle « Autour de X / Y / Z » (degrés, de -180 à 180,
+  une décimale) qui montrent les angles du `Placement`. Une saisie tourne la pièce autour de son
+  centre et la vue 3D suit (aperçu de la seule brute, 30 fois par seconde au plus) ; en fin de
+  saisie, les assemblages sont contrôlés et le document recalculé comme au relâchement d'un
+  glissement (fenêtre « Assemblage défait », « Annuler » remet l'angle d'avant la saisie). Les
+  boutons de quart de tour et les glissements relisent les champs ; une position pilotée par un
+  ensemble ou une formule grise les champs (infobulle explicative) ; en création, une saisie
+  d'angle arrête l'accrochage, les boutons le gardent. Vérifications hors écran
+  (`tests/gui/verifications_panneau_rotation.py`) et capture `panneau-rotation.png` (pièce tournée
+  de 15°).
 - Rotation libre d'une pièce, lot RO-d ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
   critères D1 à D7) : trois anneaux (X rouge, Y vert, Z bleu) autour de la pièce sélectionnée
   seule, dessinés par l'incrustation de la vue 3D avec ses flèches et invisibles pour la

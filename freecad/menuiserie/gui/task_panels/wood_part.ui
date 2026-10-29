@@ -389,6 +389,79 @@
        </layout>
       </item>
       <item>
+       <layout class="QGridLayout" name="angleLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="angleXLabel">
+          <property name="toolTip">
+           <string>Angle de la pièce autour de l'axe X du document, de -180 à 180 degrés.</string>
+          </property>
+          <property name="text">
+           <string>Autour de X</string>
+          </property>
+          <property name="buddy">
+           <cstring>angleXEdit</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="Gui::QuantitySpinBox" name="angleXEdit">
+          <property name="toolTip">
+           <string>Angle de la pièce autour de l'axe X du document, de -180 à 180 degrés. La pièce tourne autour de son centre et la vue 3D suit votre saisie.</string>
+          </property>
+          <property name="unit" stdset="0">
+           <string notr="true">deg</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="angleYLabel">
+          <property name="toolTip">
+           <string>Angle de la pièce autour de l'axe Y du document, de -180 à 180 degrés.</string>
+          </property>
+          <property name="text">
+           <string>Autour de Y</string>
+          </property>
+          <property name="buddy">
+           <cstring>angleYEdit</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="Gui::QuantitySpinBox" name="angleYEdit">
+          <property name="toolTip">
+           <string>Angle de la pièce autour de l'axe Y du document, de -180 à 180 degrés. La pièce tourne autour de son centre et la vue 3D suit votre saisie.</string>
+          </property>
+          <property name="unit" stdset="0">
+           <string notr="true">deg</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLabel" name="angleZLabel">
+          <property name="toolTip">
+           <string>Angle de la pièce autour de l'axe Z du document, de -180 à 180 degrés.</string>
+          </property>
+          <property name="text">
+           <string>Autour de Z</string>
+          </property>
+          <property name="buddy">
+           <cstring>angleZEdit</cstring>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="Gui::QuantitySpinBox" name="angleZEdit">
+          <property name="toolTip">
+           <string>Angle de la pièce autour de l'axe Z du document, de -180 à 180 degrés. La pièce tourne autour de son centre et la vue 3D suit votre saisie.</string>
+          </property>
+          <property name="unit" stdset="0">
+           <string notr="true">deg</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
        <widget class="QCheckBox" name="furnitureCheck">
         <property name="toolTip">
          <string>La pièce suivra les cotes de l'ensemble. Décochez pour la laisser à part ; vous pourrez l'ajouter plus tard avec « Ajouter à l'ensemble ».</string>
@@ -429,6 +502,9 @@
   <tabstop>rotateXButton</tabstop>
   <tabstop>rotateYButton</tabstop>
   <tabstop>rotateZButton</tabstop>
+  <tabstop>angleXEdit</tabstop>
+  <tabstop>angleYEdit</tabstop>
+  <tabstop>angleZEdit</tabstop>
   <tabstop>furnitureCheck</tabstop>
  </tabstops>
  <resources/>

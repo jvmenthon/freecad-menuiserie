@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture,
-panneau de tâche de la pièce de bois, panneau d'un assemblage (``panneau-assemblage.png``) et
+panneau de tâche de la pièce de bois, panneau d'une pièce tournée de 15 degrés
+(``panneau-rotation.png``), panneau d'un assemblage (``panneau-assemblage.png``) et
 panneau de l'ensemble (``panneau-ensemble.png``), puis la feuille « Liste de débit » du
 document (``feuille-de-debit.png``, commande « Liste de débit » lancée sans sélection).
 
@@ -73,6 +74,11 @@ ASSEMBLAGE_DU_PANNEAU = "Tenon-mortaise"
 # Ensemble formé des pièces du meuble, et membre choisi dans son panneau.
 ENSEMBLE = "Meuble"
 MEMBRE_DU_PANNEAU = "Côté gauche"
+# Pièce hors ensemble, tournée de 15 degrés autour de Z, dont le panneau montre les champs d'angle
+# (lot RO-c de la rotation libre) ; position en mm.
+PIECE_INCLINEE = "Tablette inclinée"
+ANGLE_INCLINE = 15.0
+POSITION_INCLINEE = (0.0, -700.0, 0.0)
 ATTENTE_DU_VOLET_MS = 1500
 TEXTURE_MM = (600, 200)  # largeur (sens du fil) et hauteur couvertes par l'image
 PIXELS_PAR_MM = 2
@@ -158,6 +164,7 @@ def construire() -> None:
     api.make_furniture(meuble, label=ENSEMBLE)
     construire_le_cadre(doc)
     construire_la_piece_en_bois(doc)
+    construire_la_piece_inclinee(doc)
     afficher_la_vue_du_document(doc.Name)
     Gui.Selection.clearSelection()
 
@@ -188,6 +195,17 @@ def construire_la_piece_en_bois(doc: Any) -> None:
     doc.recompute()
     piece = api.make_shaped_part(rond, "noyer", "Pied tourné")
     piece.Label = "Pied tourné"
+    doc.recompute()
+
+
+def construire_la_piece_inclinee(doc: Any) -> None:
+    """Tablette hors ensemble, tournée de 15 degrés autour de Z (champs d'angle du panneau)."""
+    from freecad.menuiserie import api
+
+    piece = api.make_wood_part(600.0, 300.0, 22.0, "chene", mark=PIECE_INCLINEE, doc=doc)
+    piece.Label = PIECE_INCLINEE
+    rotation = App.Rotation(App.Vector(0, 0, 1), ANGLE_INCLINE)
+    piece.Placement = App.Placement(App.Vector(*POSITION_INCLINEE), rotation)
     doc.recompute()
 
 
@@ -256,6 +274,18 @@ def capturer_le_panneau(dossier: Path, fenetre, vue) -> None:
     Gui.updateGui()
     volet = volet_des_taches(fenetre)
     fenetre_complete(fenetre, vue, devant=volet).save(str(dossier / "panneau.png"))
+    Gui.Control.activeTaskDialog().reject()
+    capturer_le_panneau_de_rotation(dossier, fenetre, vue)
+
+
+def capturer_le_panneau_de_rotation(dossier: Path, fenetre, vue) -> None:
+    """Fenêtre complète avec le panneau d'une pièce tournée de 15 degrés : groupe « Rotation »
+    avec ses boutons de quart de tour et ses champs d'angle X, Y, Z."""
+    piece = App.ActiveDocument.getObjectsByLabel(PIECE_INCLINEE)[0]
+    Gui.ActiveDocument.setEdit(piece, 0)
+    Gui.updateGui()
+    volet = volet_des_taches(fenetre)
+    fenetre_complete(fenetre, vue, devant=volet).save(str(dossier / "panneau-rotation.png"))
     Gui.Control.activeTaskDialog().reject()
     capturer_le_panneau_d_assemblage(dossier, fenetre, vue)
 

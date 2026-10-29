@@ -21,6 +21,7 @@ GUI = PACKAGE / "gui"
 UI_FILE = GUI / "task_panels" / "wood_part.ui"
 PANEL = GUI / "task_panels" / "wood_part.py"
 COMMAND = GUI / "commands" / "wood_part.py"
+ANGLE_WIDGETS = ("angleXEdit", "angleYEdit", "angleZEdit")
 FORBIDDEN_QT = ("PySide2", "PySide6")
 # Propriétés du .ui affichées à l'utilisateur : chaînes traduisibles, non vides.
 VISIBLE_PROPERTIES = {"text", "title", "toolTip", "windowTitle", "placeholderText"}
@@ -178,14 +179,33 @@ def test_widgets_utilises_presents_dans_le_formulaire() -> None:
     assert used <= names, sorted(used - names)
 
 
-def test_champs_de_cote_en_mm() -> None:
-    spin_boxes = [w for w in ui_tree().iter("widget") if w.get("class") == "Gui::QuantitySpinBox"]
-    assert {w.get("name") for w in spin_boxes} == length_field_widgets(PANEL)
-    for widget in spin_boxes:
-        units = [
-            p.findtext("string") for p in widget.findall("property") if p.get("name") == "unit"
+def quantity_boxes() -> dict[str, list[str | None]]:
+    """Champs ``Gui::QuantitySpinBox`` du formulaire : nom → unités déclarées."""
+    return {
+        str(w.get("name")): [
+            p.findtext("string") for p in w.findall("property") if p.get("name") == "unit"
         ]
-        assert units == ["mm"], widget.get("name")
+        for w in ui_tree().iter("widget")
+        if w.get("class") == "Gui::QuantitySpinBox"
+    }
+
+
+def test_champs_de_cote_en_mm() -> None:
+    boxes = quantity_boxes()
+    lengths = {name: units for name, units in boxes.items() if name not in ANGLE_WIDGETS}
+    assert set(lengths) == length_field_widgets(PANEL)
+    for name, units in lengths.items():
+        assert units == ["mm"], name
+
+
+def test_champs_d_angle_en_degres() -> None:
+    """RO-c (C1) : trois champs d'angle X, Y, Z en degrés, les champs lus par ``AngleRows``."""
+    boxes = quantity_boxes()
+    assert {name: boxes[name] for name in ANGLE_WIDGETS} == {
+        name: ["deg"] for name in ANGLE_WIDGETS
+    }
+    declared = declared_value(GUI / "task_panels" / "angle_rows.py", "ANGLE_FIELDS")
+    assert [field for field, _label in declared] == list(ANGLE_WIDGETS)  # type: ignore[attr-defined]
 
 
 def test_avertissement_d_epaisseur_en_texte_brut() -> None:
