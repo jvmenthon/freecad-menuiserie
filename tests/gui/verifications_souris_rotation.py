@@ -376,11 +376,12 @@ def _assemblage_defait(nom: str, supprimer: bool) -> list[str]:
     s'ouvre au relâchement (fonction de choix injectée) ; refus : la pièce revient, accord :
     l'assemblage disparaît et la rotation reste."""
     with pieces_du_bureau(nom) as bureau:
-        doc, voile = bureau.doc, bureau.parts["V"]
-        session = preparer(doc)
+        doc = bureau.doc
+        voile = bureau.parts["V"]
         joint = api.make_dowels(bureau.parts["JG"], voile)
         doc.recompute()
-        identifiant, libelle = joint.Name, joint.Label
+        session = preparer(doc)
+        libelle, identifiant = joint.Label, joint.Name
         doc.clearUndos()
         vue_isometrique()
         avant = App.Placement(voile.Placement)
