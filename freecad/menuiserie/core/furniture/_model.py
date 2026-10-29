@@ -22,6 +22,7 @@ from freecad.menuiserie.core._validation import (
 )
 from freecad.menuiserie.core.furniture._messages import (
     BOX_FIELDS,
+    DRAWN_SIZE,
     GAP_SPLIT,
     INVALID_BOX,
     NOT_SQUARE,
@@ -203,8 +204,10 @@ class Member:
     ``fixed`` : bords dont la distance est fixe, ``None`` pour un membre qui entre dans
     l'ensemble (options par défaut à calculer) ; ``driven`` : propriétés pilotées par une
     formule ou une contrainte de l'utilisateur ; ``label`` : nom cité dans les messages ;
-    ``locked`` : cotes fixes, la pièce ne change jamais de cotes (ADR 0019) ; ``gaps`` : distances
-    gardées dont la pièce est l'une des deux (:class:`KeptGap`, ADR 0022).
+    ``locked`` : cotes fixes, la pièce ne change jamais de cotes (ADR 0019) ; ``drawn`` : cotes
+    dessinées (pièce en bois, ADR 0020 décision 8) : toujours fixes, donc verrouillées sans
+    pouvoir être déverrouillées ; ``gaps`` : distances gardées dont la pièce est l'une des deux
+    (:class:`KeptGap`, ADR 0022).
     """
 
     key: str
@@ -217,6 +220,7 @@ class Member:
     label: str = ""
     locked: bool = False
     gaps: tuple[KeptGap, ...] = ()
+    drawn: bool = False
 
     def __post_init__(self) -> None:
         _require(isinstance(self.key, str) and bool(self.key), "Member.key : texte non vide")
@@ -235,6 +239,9 @@ class Member:
         _require(fixed_ok, "Member.fixed : frozenset d'Edge ou None attendu")
         _require(_is_text_set(self.driven), "Member.driven : frozenset de textes attendu")
         _require(isinstance(self.locked, bool), "Member.locked : booléen attendu")
+        _require(isinstance(self.drawn, bool), "Member.drawn : booléen attendu")
+        if self.drawn and not self.locked:  # des cotes dessinées sont toujours fixes
+            object.__setattr__(self, "locked", True)
         _require(
             isinstance(self.gaps, tuple) and all(isinstance(g, KeptGap) for g in self.gaps),
             "Member.gaps : tuple de KeptGap attendu",
@@ -268,6 +275,7 @@ class NoticeKind(str, Enum):
     THICKNESS_KEPT = "ThicknessKept"
     OUTSIDE_BOX = "OutsideBox"
     GAP_SPLIT = "GapSplit"
+    DRAWN_SIZE = "DrawnSize"
 
     @property
     def template(self) -> str:
@@ -282,6 +290,7 @@ _NOTICE_TEMPLATES: Final[Mapping[NoticeKind, str]] = MappingProxyType(
         NoticeKind.THICKNESS_KEPT: THICKNESS_KEPT,
         NoticeKind.OUTSIDE_BOX: OUTSIDE_BOX,
         NoticeKind.GAP_SPLIT: GAP_SPLIT,
+        NoticeKind.DRAWN_SIZE: DRAWN_SIZE,
     }
 )
 

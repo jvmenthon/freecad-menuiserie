@@ -32,6 +32,7 @@ from freecad.menuiserie.features.distance_keep import (
     read_geometry,
     reason,
 )
+from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.part_drag import (
@@ -237,12 +238,16 @@ class DistanceMove:
         local = rotation.multVec(App.Vector(shift.x, shift.y, shift.z))
         move_part(self._memento, to_vec3(local))
 
-    def finish(self, *, keep: bool = False, axis: str | None = None) -> list[str]:
+    def finish(
+        self, *, keep: bool = False, axis: str | None = None, choose: JointChoice | None = None
+    ) -> list[str]:
         """Fin : relie l'ensemble de la pièce, recalcule le document et renvoie les
         avertissements à écrire dans la vue rapport. Rangée bloquée : la pièce revient et
         l'erreur (``ValueError``) est relancée. ``keep`` : la distance est gardée par un objet
         Distance créé avant la liaison (``axis`` : voir :meth:`gap`) ; refus
-        (:class:`KeepError`, rangée bloquée comprise) : la pièce revient aussi."""
+        (:class:`KeepError`, rangée bloquée comprise) : la pièce revient aussi. ``choose`` : que
+        faire des assemblages que le déplacement défait (:func:`end_drag`, ADR 0026) ; annulé, la
+        pièce revient, la Distance créée est retirée et ``DragCancelledError`` est levée."""
         if self._memento is None:
             raise RuntimeError(_NOT_STARTED)
         memento, self._memento = self._memento, None
@@ -254,7 +259,7 @@ class DistanceMove:
                 restore(memento)
                 raise
         try:
-            messages = end_drag(memento)
+            messages = end_drag(memento, choose)
         except BaseException:
             if created is not None and created.Document.getObject(created.Name) is not None:
                 created.Document.removeObject(created.Name)

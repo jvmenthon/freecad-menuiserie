@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 from icones_svg import Icone, Point3, angles, document, etiquette, feuille
@@ -370,6 +371,63 @@ def rotation_z() -> str:
     return _rotation("Z")
 
 
+# --- Pièce en bois à forme libre (PD-d) ------------------------------------------------------
+
+
+def _bord(bord: list[tuple[float, float]], z: float) -> float:
+    """Abscisse du bord (suite de points x, z croissants en z) à la hauteur ``z``."""
+    for (x0, z0), (x1, z1) in pairwise(bord):
+        if z0 <= z <= z1:
+            return x0 + (x1 - x0) * (z - z0) / (z1 - z0)
+    return bord[-1][0]
+
+
+def _pied_galbe(ic: Icone) -> None:
+    """Pied galbé : profil en S dessiné dans le plan (x, z), extrudé selon y."""
+    droite = [(14, 0), (16, 14), (22, 28), (26, 44), (26, 60)]
+    gauche = [(0, 0), (-2, 14), (2, 30), (6, 46), (8, 60)]
+    ic.prisme([*droite, *reversed(gauche)], "y", 0, 18, "chene")
+    for t in (0.25, 0.5, 0.75):  # veinage de la face avant, entre les deux bords du galbe
+        ligne = [
+            (_bord(gauche, z) + t * (_bord(droite, z) - _bord(gauche, z)), z)
+            for z in (2, 14, 30, 46, 58)
+        ]
+        ic.trait([(x, 18.0, z) for x, z in ligne], "#b8823f", 1.0)
+
+
+def piece_en_bois_objet() -> str:
+    ic = Icone("Pièce en bois : pied galbé dessiné avec Sketcher et PartDesign")
+    _pied_galbe(ic)
+    return ic.svg()
+
+
+def _corps_bleu() -> str:
+    """Corps (« Body » de PartDesign) : bloc bleu en perspective isométrique, creusé d'une
+    poche sur le dessus ; dessin propre à l'atelier, placé à gauche de l'icône."""
+    contour = 'stroke="#0b2a52" stroke-width="2" stroke-linejoin="round"'
+    return "\n".join(
+        (
+            f'  <polygon points="13,14 25,21 13,28 1,21" fill="#8bb4e0" {contour}/>',
+            f'  <polygon points="1,21 13,28 13,44 1,37" fill="#3465a4" {contour}/>',
+            f'  <polygon points="13,28 25,21 25,37 13,44" fill="#204a87" {contour}/>',
+            '  <polygon points="13,18 19,21.5 13,25 7,21.5" fill="#204a87" '
+            'stroke="#0b2a52" stroke-width="1.2" stroke-linejoin="round"/>',
+        )
+    )
+
+
+def piece_en_bois() -> str:
+    ic = Icone("Convertir en pièce en bois : corps PartDesign, flèche, planche")
+    ic.boite((0, 0, 0), (50, 22, 12), "chene")
+    for y, phase in ((6, 0.1), (15, 0.6)):
+        ic.veinage((3, 47), (y, 12), "chene", amplitude=0.8, phase=phase)
+    fleche = (
+        '  <path d="M27,31 H37 M32,25 L38,31 L32,37" fill="none" stroke="#4e9a06" '
+        'stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+    return ic.svg(cadre=(38, 63, 26, 50), fond=_corps_bleu(), devant=fleche)
+
+
 ICONES = {
     "menuiserie.svg": atelier,
     "Menuiserie_WoodPart.svg": piece_de_bois,
@@ -400,6 +458,9 @@ ICONES = {
     "Menuiserie_RotateX.svg": rotation_x,
     "Menuiserie_RotateY.svg": rotation_y,
     "Menuiserie_RotateZ.svg": rotation_z,
+    # Pièce en bois à forme libre (PD-d)
+    "Menuiserie_ShapedPart.svg": piece_en_bois,
+    "Menuiserie_ShapedPartObject.svg": piece_en_bois_objet,
 }
 
 

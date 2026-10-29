@@ -5,7 +5,53 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Modifié
+- Panneau d'assemblage (demande de jv, critère E8 de
+  [la spécification](docs/specs/J3-assemblages.md)) : tant qu'il est ouvert, à la création comme à
+  la modification, les deux pièces de l'assemblage (pièce usinée, sinon brute) s'affichent à 60 %
+  de transparence pour voir l'usinage (tenon, mortaise, queues…) à l'intérieur ; la transparence
+  d'origine est rétablie exactement à la fermeture, quelle qu'en soit la cause, sans entrée
+  d'annulation ni modification globale.
+- Glisser une pièce à la souris, poignées de taille (demande de jv) : chaque poignée est dessinée
+  en petit cube plein orange au bout d'une tige, comme dans les logiciels de CAO, au lieu d'une
+  double flèche qu'on confondait avec les flèches de déplacement ; taille constante à l'écran,
+  couleur, zone de saisie et comportement inchangés.
+
 ### Ajouté
+- Pièce en bois dans un ensemble, lot PD-f ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
+  décision 8 ; critères F1 à F4) : `make_furniture`, `add_to_furniture` et toute l'API des
+  ensembles acceptent une pièce en bois ; elle suit l'ensemble par son `Placement` (expressions
+  natives), ses trois cotes sont toujours fixes (mécanisme des cotes bloquées de l'ADR 0019) : une
+  règle qui voudrait l'étirer la déplace et avertit « cote dessinée : modifiez le dessin » ; aucune
+  expression n'est posée sur la source ni sur `Length` / `Width` / `Thickness` ; une rangée bloquée
+  par elle est refusée sans proposer de la déverrouiller. Dans le panneau de l'ensemble, la case
+  « Cotes fixes » est cochée et grisée avec une infobulle ; les poignées de la souris ne
+  s'appliquent pas à une pièce en bois. Quand le dessin d'une pièce en bois membre d'un ensemble
+  change ses cotes, elle avertit : relancez « Relier les pièces » pour que les voisines suivent.
+- Assemblages avec une pièce en bois, lot PD-e (critères E1 à E6 de
+  [la spécification](docs/specs/piece-en-bois.md), [ADR 0006](docs/adr/0006-piece-brute-et-piece-usinee.md)
+  complété par l'[ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md)) : les sept types
+  d'assemblages acceptent une pièce en bois comme hôte ou invitée, avec une pièce de bois ou une
+  autre pièce en bois ; le plan d'usinage reste calculé sur la boîte d'encombrement, la pièce
+  usinée part de la forme dessinée (les pièces de bois gardent leur forme actuelle) ; si plus de
+  5 % de la matière à usiner manque (face courbe, vide), l'assemblage avertit sans refuser ; le
+  tenon d'une pièce en bois est compté dans la liste de débit.
+- Pièce en bois, commande, panneau et vue, lot PD-d ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
+  critères D1 à D6) : commande « Convertir en pièce en bois » (une pièce par source sélectionnée,
+  une transaction, refus listés, accrochage contre les éléments choisis en plus), panneau (repère
+  et quarts de tour, encombrement en direct, matériau, fil, rotation, surcotes, épaisseur du
+  profil, « Modifier le dessin »), trièdre L / l / e et flèche du fil dans la vue, texture et
+  couleur du matériau, source rangée sous la pièce dans l'arbre, icônes générées.
+- Liste de débit des pièces en bois, lot PD-c (critères C1 à C5 de
+  [la spécification](docs/specs/piece-en-bois.md)) : la collecte lit les pièces en bois (document,
+  sélection, conteneur, lien) et la liste vivante suit le corps ; cotes finies = encombrement,
+  volume et masse = bois à acheter ; la remarque porte « forme » et la miniature l'encombrement ;
+  deux pièces de même forme sont regroupées « 2 × », jamais avec une pièce de bois de mêmes cotes ;
+  la numérotation des repères les traite comme les pièces de bois.
+- Pièce en bois à forme libre, lot PD-b ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md)) :
+  `make_shaped_part` / `make_shaped_parts` convertissent un corps PartDesign, une forme Part, une
+  esquisse fermée ou une forme importée en pièce de bois (`Menuiserie::ShapedPart`) aux cotes
+  mesurées sur le dessin, sans toucher à la source ; le matériau est partagé avec `WoodPart`.
 - Glisser une pièce à la souris, poignées lisibles (demande de jv du 2026-10-26) : chaque
   poignée est dessinée en double flèche orange dans l'axe de la cote qu'elle change, avec un
   point de saisie au centre, au lieu d'un simple carré.
@@ -87,6 +133,31 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (`DistanceError`), calcule la translation qui amène la distance à une valeur (`moved_by`) et
   l'axe d'ensemble correspondant (`ensemble_axis`).
 
+### Sécurité
+- Relecture sécurité du jalon « Pièce en bois » (issue #73, spec § 4.9) : une source compte au plus
+  256 solides, une forme de diagonale démesurée ou non finie n'est pas maillée, et le contrôle de
+  matière des assemblages (E3) ne bloque jamais un assemblage (volume dégénéré, échec du noyau) et
+  ne lance aucune booléenne sur une forme de plus de 5 000 faces.
+
+### Corrigé
+- Assemblage défait par un déplacement ([ADR 0026](docs/adr/0026-assemblage-defait-par-un-deplacement.md),
+  B7 de l'ADR 0021 modifié) : au relâchement d'un glissement, d'une distance définie ou d'une
+  rotation du panneau, si des assemblages ne tiennent plus (essayés avant tout recalcul), une
+  fenêtre propose « Annuler le déplacement » (Échap ou fermeture aussi) ou « Supprimer
+  l'assemblage » / « Supprimer les assemblages » (noms listés, avec leurs pièces usinées, une seule
+  transaction annulable) ; plus de trace Python. La commande d'assemblage essaie l'assemblage
+  avant son premier recalcul (mot-clé `check` des fabriques `api.make_…`) : entre pièces qui ne
+  sont pas d'équerre, un seul refus, sans trace, rien de créé. La pièce usinée ne répète plus
+  l'erreur de son assemblage impossible.
+- Recette de jv du jalon « Pièce en bois » (FreeCAD 1.1.4, issue #73) : le cadre violet de l'aimant
+  reste sur la face voisine pendant le glissement (il suivait la pièce) ; nouvelle icône
+  « Convertir en pièce en bois » (corps PartDesign, flèche, planche) ; la miniature de la liste de
+  débit montre la forme de la pièce en bois et non sa boîte L x l x e ; le message d'un assemblage
+  impossible n'est plus chaîné deux fois dans la trace de FreeCAD, et la pièce usinée n'est plus
+  recalculée à chaque image d'une poignée tant que son assemblage ne tient plus ; le panneau de la
+  pièce en bois garde les flèches de glissement à la souris (le panneau ouvert à la conversion les
+  masquait).
+
 ### Modifié
 - Relecture du jalon « souris et distances » (issue #65,
   [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), note du 2026-10-25) : le
@@ -150,6 +221,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `FRENCH_CSV` (`;`, virgule décimale).
 
 ### Ajouté
+- Pièce en bois, lot PD-a (issue #73, ADR 0020) : paquet `core/shaped/` en Python pur, repère et
+  encombrement d'une forme dessinée (`Axes`, `principal_axes`, `ordered`, `turned_axes`,
+  `measure_points`, `ShapeSample` avec plafonds de taille, `ShapeSignature`, contrôle de la
+  matière manquante à 5 %). Pas encore d'objet ni de commande.
 - Tenon, languette, tourillons et queue d'aronde entre pièces qui se chevauchent (ADR 0016,
   demande de jv) : l'invitée dessinée hors tout est raccourcie jusqu'au contact, par la face où
   elle entre dans l'hôte ; sa pièce usinée perd cette partie avant de recevoir ses ajouts

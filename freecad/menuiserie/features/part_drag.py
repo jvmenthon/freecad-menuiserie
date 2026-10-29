@@ -15,9 +15,10 @@ sont l'affaire de ``gui/``.
 
 Points d'extension :
 
-- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin, donc pas de poignée ;
-  l'ajouter dans :func:`can_resize`, seul endroit qui décide des poignées d'une pièce ; la
-  famille (massif ou panneau) ne décide que de l'épaisseur (:func:`_solid`) ;
+- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin (sorties), donc pas de
+  poignée (:func:`can_resize`, seul endroit qui décide des poignées d'une pièce) ; elle se
+  déplace comme une pièce de bois, par ``Placement`` ; la famille (massif ou panneau) ne décide
+  que de l'épaisseur (:func:`_solid`) ;
 - Distance gardée (DI-c, B6) : au relâchement, la ``Value`` des Distances de la pièce prend la
   distance nouvelle (:func:`end_drag`, avant la liaison de l'ensemble) ; Échap la rétablit.
 """
@@ -34,6 +35,12 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import THICKNESS_AXIS
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.distance import AXES, distances_touching
+from freecad.menuiserie.features.drag_joints import (
+    DragCancelledError,
+    JointChoice,
+    invalid_joints,
+    settle_joints,
+)
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import (
@@ -46,13 +53,14 @@ from freecad.menuiserie.features.furniture_edits import thickness_notices
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.features.joints.base import is_joint, plan_for
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
-from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
 __all__ = [
+    "DragCancelledError",
     "DragLimits",
     "DragMemento",
     "begin_drag",
@@ -114,15 +122,16 @@ class DragMemento:
 def raw_part(obj: DocumentObject) -> DocumentObject:
     """Brute que glisser ``obj`` déplace : la brute elle-même, la ``Base`` d'une pièce usinée,
     la pièce invitée d'un assemblage (ADR 0006). ``TypeError`` traduite pour tout autre objet."""
-    if is_joint(obj) and is_wood_part(obj.GuestPart):
+    if is_joint(obj) and is_timber(obj.GuestPart):
         return obj.GuestPart
     return blank_of(obj)
 
 
 def can_resize(part: DocumentObject) -> bool:
     """Vrai si des poignées sont permises sur la brute ``part`` : pas si elle est verrouillée
-    (``Locked``, ADR 0019, B5). Point unique à étendre pour la pièce en bois (#87)."""
-    return not bool(getattr(part, "Locked", False))
+    (``Locked``, ADR 0019, B5), ni si c'est une pièce en bois : ses cotes sont celles du dessin
+    (#87)."""
+    return not (bool(getattr(part, "Locked", False)) or is_shaped_part(part))
 
 
 def _solid(part: DocumentObject) -> bool:
@@ -168,17 +177,12 @@ def drag_limits(part: DocumentObject) -> DragLimits:
     coordinates = _fixed_coordinates(user) | _driven_gap_coordinates(part)
     rotation = part.Placement.Rotation
     fixed = frozenset(i for i in range(3) if _coordinates(i, rotation) & coordinates)
+    if not can_resize(part):
+        return DragLimits(fixed, frozenset())
     sizes = frozenset(i for i, prop in enumerate(SIZE_PROPS) if prop not in user)
     if not _solid(part):
         sizes -= {THICKNESS_AXIS}
-    resizable = sizes - fixed if can_resize(part) else frozenset()
-    return DragLimits(fixed, resizable)
-
-
-def _invalid_joints(part: DocumentObject) -> frozenset[str]:
-    return frozenset(
-        joint.Name for joint in part.InList if is_joint(joint) and "Invalid" in joint.State
-    )
+    return DragLimits(fixed, sizes - fixed)
 
 
 def begin_drag(part: DocumentObject) -> DragMemento:
@@ -200,7 +204,7 @@ def begin_drag(part: DocumentObject) -> DragMemento:
         raw.Thickness.Value,
         aside,
         recorded,
-        _invalid_joints(raw),
+        invalid_joints(raw),
         {d.Name: d.Value.Value for d in distances_touching(raw.Document, {raw.Name})},
     )
 
@@ -214,6 +218,22 @@ def _write_placement(memento: DragMemento, placement: App.Placement) -> None:
     machined = machined_part_of(raw)
     if machined is not None and machined.Placement != placement:
         machined.Placement = placement
+
+
+def _recompute_machined(raw: DocumentObject) -> None:
+    """Recalcule la pièce usinée de ``raw`` (affichage pendant le glissement), sauf si l'un de ses
+    assemblages ne tient plus : son ``execute()`` lèverait à chaque appel et FreeCAD imprimerait
+    sa trace à chaque image. Le recalcul du document au relâchement la reprend et prévient
+    (:func:`end_drag`, B7)."""
+    machined = machined_part_of(raw)
+    if machined is None:
+        return
+    for joint in getattr(machined, "Joints", ()):
+        try:
+            plan_for(joint)
+        except ValueError:
+            return
+    machined.recompute()
 
 
 def _shifted(memento: DragMemento, shift: Vec3) -> App.Placement:
@@ -252,9 +272,7 @@ def resize_part(memento: DragMemento, prop: str, value: float, origin_shift: Vec
         setattr(raw, prop, value)
     _write_placement(memento, _shifted(memento, origin_shift))
     raw.recompute()
-    machined = machined_part_of(raw)
-    if machined is not None:
-        machined.recompute()
+    _recompute_machined(raw)
 
 
 def restore(memento: DragMemento) -> None:
@@ -276,9 +294,7 @@ def restore(memento: DragMemento) -> None:
         if distance is not None and distance.Value.Value != value:
             distance.Value = value
     raw.recompute()
-    machined = machined_part_of(raw)
-    if machined is not None:
-        machined.recompute()
+    _recompute_machined(raw)
 
 
 def _relink_thickness(memento: DragMemento, furniture: DocumentObject) -> list[str]:
@@ -332,12 +348,29 @@ def _joint_warnings(memento: DragMemento) -> list[str]:
     return warnings
 
 
-def end_drag(memento: DragMemento) -> list[str]:
+def _settle(memento: DragMemento, choose: JointChoice | None) -> list[str]:
+    """Assemblages défaits par le déplacement, essayés avant tout recalcul (ADR 0026) ; si le
+    déplacement est annulé, la brute revient (:func:`restore`) et ``DragCancelledError`` passe."""
+    try:
+        return settle_joints(memento.part, memento.invalid_joints, choose)
+    except DragCancelledError:
+        restore(memento)
+        raise
+
+
+def end_drag(memento: DragMemento, choose: JointChoice | None = None) -> list[str]:
     """Relâchement : relie tout l'ensemble de la brute (membre d'ensemble, B3), recalcule le
     document une fois et renvoie les avertissements à mettre dans la vue rapport (liaisons,
-    assemblage qui ne touche plus : B7). Rangée bloquée : la brute revient à son état du début et
+    assemblage qui ne touche plus : B7).
+
+    ``choose`` (ADR 0026) : si le déplacement défait des assemblages, il décide avant tout
+    recalcul de les supprimer (déplacement gardé) ou d'annuler (``DragCancelledError``, la brute est
+    revenue). Sans ``choose`` (script, API), le déplacement est gardé et l'on prévient seulement.
+    Rangée bloquée : la brute revient à son état du début et
     :class:`~freecad.menuiserie.features.furniture_bindings.LockedPiecesError` (ou ``ValueError``)
     est levée, pour proposer « Déverrouiller et appliquer » (ADR 0019)."""
+    removed = _settle(memento, choose)
     messages = _relink(memento)
+    removed += _settle(memento, choose)  # la liaison peut avoir changé la géométrie
     memento.part.Document.recompute()
-    return [*messages, *_joint_warnings(memento)]
+    return [*removed, *messages, *_joint_warnings(memento)]

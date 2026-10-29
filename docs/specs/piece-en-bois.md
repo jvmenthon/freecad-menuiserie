@@ -1,7 +1,7 @@
 # Pièce en bois : convertir un corps Sketcher / PartDesign en pièce de menuiserie
 
 - Issue : #73 (priorité haute)
-- Statut : **proposée** (architecture fonctionnelle et technique). jv a répondu aux questions
+- Statut : **réalisée** (jalon `jalon/piece-en-bois`, ADR 0020 accepté). jv a répondu aux questions
   le 2026-10-25 (§ 9) : nom « Pièce en bois », esquisse fermée acceptée, volume à acheter,
   **assemblages, ensembles et cotes visibles inclus**, plusieurs solides : une pièce par solide
   pour une forme importée, refus pour une forme paramétrique.
@@ -327,6 +327,7 @@ usinées actuelles sont identiques (E2). Le champ `shape` de `CutEntry` a une va
 | Conflit avec la PR #86 (`wood_part.py`, `core/furniture`) | PD-b et PD-f après sa fusion (§ 4.4, § 4.6) |
 | Mode profil : esquisse avec des trous ou plusieurs contours | `Part.Face` de tous les contours fermés (trous gérés), plusieurs faces disjointes refusées (Q3) |
 | Forme importée remplacée par un script : solides renumérotés | empreinte `SolidSignature` contrôlée à chaque recalcul, erreur explicite (B11) |
+| Dessin d'un membre d'ensemble modifié : les constantes figées des voisines (ADR 0019) ne suivent pas | limite assumée : la pièce n'écrit pas dans les autres objets ; elle avertit « relancez Relier les pièces » quand ses cotes changent |
 | Nom proche de « Pièce de bois » | commande « Convertir en pièce en bois », icône distincte ; à confirmer en recette |
 
 ## 8. Hors périmètre (issues à ouvrir si jv le souhaite)

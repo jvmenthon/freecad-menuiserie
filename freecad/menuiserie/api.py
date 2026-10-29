@@ -8,6 +8,13 @@ Exemple (console) ::
     planche = make_wood_part(800, 200, 22, "chene")
     planche.Length = 1000
 
+Pièce en bois, forme dessinée avec Sketcher / PartDesign (PD-b) ::
+
+    from freecad.menuiserie.api import make_shaped_part, reset_shaped_axes
+
+    pied = make_shaped_part(corps, "chene", mark="P1")  # corps : PartDesign::Body
+    pied.Length  # cotes d'encombrement, en lecture seule, qui suivent le dessin
+
 Assemblage (J3) ::
 
     from freecad.menuiserie.api import make_mortise_tenon
@@ -45,6 +52,7 @@ from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV, CsvDi
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import (
     cutlist_collect,
     cutlist_export,
@@ -81,6 +89,13 @@ from freecad.menuiserie.features.machined_part import (
     remove_machined_part,
 )
 from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.features.shaped_create import (
+    create_shaped_part,
+    create_shaped_parts,
+    reset_axes,
+)
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
+from freecad.menuiserie.features.shaped_part_schema import DEFAULT_PROFILE_THICKNESS
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 __all__ = [
@@ -98,6 +113,8 @@ __all__ = [
     "export_cut_list_pdf",
     "furniture_of",
     "is_machined_part",
+    "is_shaped_part",
+    "is_timber",
     "machined_part_of",
     "make_carcass",
     "make_cut_list",
@@ -108,12 +125,15 @@ __all__ = [
     "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
+    "make_shaped_part",
+    "make_shaped_parts",
     "make_tongue_groove",
     "make_wood_part",
     "number_marks",
     "rebind_furniture",
     "remove_from_furniture",
     "remove_machined_part",
+    "reset_shaped_axes",
     "resize_furniture",
     "set_distance",
     "set_edge_distance",
@@ -162,11 +182,93 @@ def make_wood_part(
     return obj
 
 
+# --- Pièce en bois (PD-b) -----------------------------------------------------------------
+
+_NOT_A_SHAPED_PART = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas une pièce en bois.")
+
+
+def make_shaped_part(
+    source: DocumentObject,
+    material: str | None = None,
+    mark: str = "",
+    *,
+    profile_thickness: float = DEFAULT_PROFILE_THICKNESS,
+) -> DocumentObject:
+    """Crée la pièce en bois de ``source`` (ADR 0020) et recalcule le document.
+
+    ``source`` : corps ``PartDesign::Body`` (forme de son ``Tip``), fonction PartDesign (ramenée à
+    son corps), forme ``Part::Feature`` à un seul solide valide, ou esquisse plane et fermée
+    (extrudée de ``profile_thickness`` mm le long de sa normale). ``material`` : identifiant du
+    matériau (défaut : celui de la bibliothèque) ; ``mark`` : repère de la pièce.
+
+    La pièce est rangée dans le conteneur de la source (``App::Part``, groupe), exactement à sa
+    place ; la source n'est jamais modifiée, seulement masquée une fois liée. Une forme importée à
+    plusieurs solides se convertit avec :func:`make_shaped_parts` (une pièce par solide). Refus
+    traduits avant toute création : ``TypeError`` (objet de l'atelier, type non pris en charge),
+    ``ValueError`` (forme vide ou invalide, plusieurs solides, esquisse ouverte, cote hors bornes,
+    source déjà convertie), ``KeyError`` (matériau inconnu). Aucune transaction n'est ouverte :
+    c'est à l'appelant de le faire pour pouvoir annuler.
+    """
+    part = create_shaped_part(
+        source, material_id=material, mark=mark, profile_thickness=profile_thickness
+    )
+    _show_shaped([part])
+    part.Document.recompute()
+    return part
+
+
+def make_shaped_parts(
+    source: DocumentObject,
+    material: str | None = None,
+    mark: str = "",
+    *,
+    profile_thickness: float = DEFAULT_PROFILE_THICKNESS,
+) -> list[DocumentObject]:
+    """Crée une pièce en bois par solide de ``source`` et recalcule le document (B11).
+
+    Pour une forme importée (type exactement ``Part::Feature``, sans dépendance : STEP, IGES,
+    copie simple) à plusieurs solides : une pièce par solide, liée à la même source avec son rang
+    (``SolidIndex``) et son empreinte (``SolidSignature``), dans la transaction de l'appelant.
+    Pour toute autre source, une liste d'une pièce, comme :func:`make_shaped_part` (mêmes
+    arguments, mêmes refus)."""
+    parts = create_shaped_parts(
+        source, material_id=material, mark=mark, profile_thickness=profile_thickness
+    )
+    _show_shaped(parts)
+    source.Document.recompute()
+    return parts
+
+
+def reset_shaped_axes(part: DocumentObject) -> None:
+    """Repère automatique de la pièce en bois ``part`` : recalcule ses axes d'après la forme
+    actuelle de sa source (``SourceAxes``) sans que la pièce bouge, puis recalcule le document.
+
+    C'est, avec les quarts de tour du repère, le seul moyen de changer ``SourceAxes`` : un
+    recalcul ordinaire le garde. ``TypeError`` traduite si ``part`` n'est pas une pièce en bois.
+    """
+    if not is_shaped_part(part):
+        raise TypeError(translated(_NOT_A_SHAPED_PART, {"label": quoted_value(part.Label)}))
+    reset_axes(part)
+    part.Document.recompute()
+
+
+def _show_shaped(parts: Sequence[DocumentObject]) -> None:
+    """Pose le ViewProvider des pièces en bois si l'interface est chargée (texture et couleur du
+    matériau, source rangée sous la pièce dans l'arbre)."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.shaped_part import (
+            ViewProviderShapedPart,
+        )
+
+        for part in parts:
+            ViewProviderShapedPart(part.ViewObject)
+
+
 # --- Assemblages (J3, J4) -----------------------------------------------------------------
 
 
 def make_mortise_tenon(
-    host: DocumentObject, guest: DocumentObject, **params: object
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
 ) -> DocumentObject:
     """Relie deux pièces (pièces de bois ou pièces usinées) par un tenon-mortaise et recalcule
     le document : mortaise dans ``host``, tenon au bout de ``guest``.
@@ -176,12 +278,18 @@ def make_mortise_tenon(
     ``mortise_clearance``. Pièces et paramètres sont validés avant toute création
     (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est ouverte : c'est à
     l'appelant de le faire pour pouvoir annuler.
+
+    Toutes les fonctions ``make_…`` d'assemblage acceptent le mot-clé ``check`` : fonction
+    appelée sur l'assemblage créé **avant le premier recalcul**, qui le renvoie (rôles inversés
+    au besoin) ou lève ``ValueError`` ; la commande de l'interface y passe
+    ``features.joints.feasible.feasible_joint``, pour qu'un assemblage impossible ne soit jamais
+    recalculé (ADR 0026). Sans ``check``, l'assemblage impossible est créé en erreur.
     """
-    return _make_joint(create_mortise_tenon, host, guest, params)
+    return _make_joint(create_mortise_tenon, host, guest, params, check)
 
 
 def make_tongue_groove(
-    host: DocumentObject, guest: DocumentObject, **params: object
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
 ) -> DocumentObject:
     """Relie deux pièces par une rainure-languette et recalcule le document : rainure dans
     ``host``, languette au chant ou au bout de ``guest``.
@@ -190,18 +298,22 @@ def make_tongue_groove(
     ``thickness_offset``, ``groove_clearance``, ``through_groove``. Mêmes validations et même
     absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_tongue_groove, host, guest, params)
+    return _make_joint(create_tongue_groove, host, guest, params, check)
 
 
-def make_rabbet(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_rabbet(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Loge ``guest`` dans une feuillure de ``host`` (les deux pièces doivent se chevaucher) et
     recalcule le document. Paramètre facultatif : ``through`` (feuillure filante, vrai par
     défaut). Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_rabbet, host, guest, params)
+    return _make_joint(create_rabbet, host, guest, params, check)
 
 
-def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_dowels(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie deux pièces par des tourillons percés à travers leur contact et recalcule le
     document.
 
@@ -209,10 +321,12 @@ def make_dowels(host: DocumentObject, guest: DocumentObject, **params: object) -
     ``host_depth``, ``count``, ``edge_distance``, ``thickness_offset``, ``hole_clearance``.
     Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_dowels, host, guest, params)
+    return _make_joint(create_dowels, host, guest, params, check)
 
 
-def make_half_lap(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_half_lap(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie à mi-bois deux pièces de même épaisseur, à fleur, qui se chevauchent (croix, T ou
     angle) et recalcule le document : ``host`` est entaillée par-dessus, ``guest`` par-dessous.
 
@@ -220,10 +334,12 @@ def make_half_lap(host: DocumentObject, guest: DocumentObject, **params: object)
     de l'épaisseur), ``flip_side`` (entaille de ``host`` par-dessous). Mêmes validations et même
     absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_half_lap, host, guest, params)
+    return _make_joint(create_half_lap, host, guest, params, check)
 
 
-def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_dovetail(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie à queue d'aronde traversante ``guest`` (pièce à queues, en contact par son bout,
     dessinée à sa longueur visible) et ``host`` (pièce à griffes, hors tout, son bout à fleur
     de la face extérieure de ``guest``), puis recalcule le document.
@@ -233,29 +349,41 @@ def make_dovetail(host: DocumentObject, guest: DocumentObject, **params: object)
     ``host``), ``angle`` (angle des flancs en degrés, 10° ; au plus 30°). Mêmes validations et
     même absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_dovetail, host, guest, params)
+    return _make_joint(create_dovetail, host, guest, params, check)
 
 
-def make_miter(host: DocumentObject, guest: DocumentObject, **params: object) -> DocumentObject:
+def make_miter(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
     """Relie à onglet ``host`` et ``guest``, dessinées à leur longueur hors tout (de pointe
     longue à pointe longue) et qui se chevauchent au coin, puis recalcule le document. La coupe
     passe par le coin extérieur et le coin intérieur : 45° pour deux largeurs égales. Aucun
     paramètre en J4 (un nom inconnu lève ``TypeError``) ; mêmes validations et même absence de
     transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_miter, host, guest, params)
+    return _make_joint(create_miter, host, guest, params, check)
 
 
 _JointFactory = Callable[..., DocumentObject]
+_Check = Callable[[DocumentObject], DocumentObject]
 
 
 def _make_joint(
-    factory: _JointFactory, host: DocumentObject, guest: DocumentObject, params: dict[str, object]
+    factory: _JointFactory,
+    host: DocumentObject,
+    guest: DocumentObject,
+    params: dict[str, object],
+    check: _Check | None = None,
 ) -> DocumentObject:
-    """Crée l'assemblage par ``factory`` dans le document des pièces, pose les ViewProviders
-    si l'interface est chargée, puis recalcule (:func:`_shown_and_recomputed`)."""
+    """Crée l'assemblage par ``factory`` dans le document des pièces, le fait contrôler par
+    ``check`` s'il est donné, pose les ViewProviders si l'interface est chargée, puis recalcule
+    (:func:`_shown_and_recomputed`). ``check`` passe **avant le premier recalcul** : un assemblage
+    impossible ferait imprimer sa trace par FreeCAD ; il renvoie l'assemblage (rôles inversés au
+    besoin) ou lève ``ValueError``, et c'est à l'appelant d'annuler sa transaction."""
     document = blank_of(host).Document
     joint = factory(document, host, guest, **params)
+    if check is not None:
+        joint = check(joint)
     return _shown_and_recomputed(joint)
 
 
@@ -297,8 +425,11 @@ def _reported(notices: Sequence[Notice], doc: Document) -> _Notices:
 def make_furniture(
     objects: Sequence[DocumentObject], label: str = ""
 ) -> tuple[DocumentObject, _Notices]:
-    """Crée un ensemble (« Ensemble » par défaut) autour de ``objects`` (pièces de bois, pièces
-    usinées ou ensembles), le relie à eux par des expressions et recalcule le document.
+    """Crée un ensemble (« Ensemble » par défaut) autour de ``objects`` (pièces de bois, pièces en
+    bois, pièces usinées ou ensembles), le relie à eux par des expressions et recalcule le
+    document. Une pièce en bois suit l'ensemble par son ``Placement`` seulement : ses cotes
+    viennent du dessin, toujours fixes (ADR 0020), et une règle qui voudrait l'étirer la déplace
+    en avertissant « cote dessinée : modifiez le dessin ».
 
     Cotes et ``Origin`` = boîte qui contient les membres ; options « fixe » par défaut (toute
     distance fixe, Q7). Renvoie l'ensemble et les avertissements traduits (aussi dans la vue

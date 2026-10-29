@@ -207,6 +207,7 @@ def test_avertissement() -> None:
         "ThicknessKept",
         "OutsideBox",
         "GapSplit",
+        "DrawnSize",
     ]
     with pytest.raises(ValueError, match=r"Notice\.kind"):
         Notice("NotSquare", {})  # type: ignore[arg-type]

@@ -20,7 +20,6 @@ from freecad.menuiserie.core.furniture import (
     check_membership,
     label_reference,
 )
-from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
@@ -35,7 +34,6 @@ from freecad.menuiserie.features.furniture import (
     has_member_properties,
     is_furniture,
     option_name,
-    origin_of,
     writing,
 )
 from freecad.menuiserie.features.furniture_bindings import (
@@ -46,14 +44,15 @@ from freecad.menuiserie.features.furniture_bindings import (
     rebind,
     remove_bindings,
 )
+from freecad.menuiserie.features.furniture_enclosing import enclosing
 from freecad.menuiserie.features.furniture_relink import relink_remaining
 from freecad.menuiserie.features.furniture_variants import resize_notices
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.machined_part import blank_of
-from freecad.menuiserie.features.solids import rigid_transform
-from freecad.menuiserie.features.wood_part import dimensions_of
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 
 __all__ = [
+    "DRAWN_LOCKED",
     "NOT_IN_FURNITURE",
     "UNKNOWN_EDGE",
     "add_members",
@@ -69,7 +68,9 @@ __all__ = [
 ]
 
 _NOT_A_MEMBER: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » n'est ni une pièce de bois, ni une pièce usinée, ni un ensemble."
+    "Menuiserie",
+    "« {label} » n'est ni une pièce de bois, ni une pièce en bois, ni une pièce usinée, ni un "
+    "ensemble.",
 )
 _NOT_FURNITURE: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas un ensemble.")
 _NO_OBJECT: Final = QT_TRANSLATE_NOOP(
@@ -100,6 +101,11 @@ UNKNOWN_EDGE: Final = QT_TRANSLATE_NOOP(
 _UNKNOWN_LOCKED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Option « cotes fixes » inconnue : « {value} » (vrai ou faux attendu)."
 )
+DRAWN_LOCKED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » : cotes dessinées, toujours fixes ; une pièce en bois ne s'étire pas, "
+    "modifiez le dessin.",
+)
 _DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » : {property} suit une expression ; modifiez cette expression ou l'ensemble "
@@ -113,8 +119,8 @@ def quoted_label(obj: DocumentObject) -> dict[str, str]:
 
 def member_object(obj: DocumentObject) -> DocumentObject:
     """Objet qui porte les propriétés de membre : l'ensemble lui-même, ou la brute d'une pièce
-    (de bois ou usinée) ; ``TypeError`` traduite sinon."""
-    if is_furniture(obj):
+    (de bois, en bois ou usinée) ; ``TypeError`` traduite sinon."""
+    if is_furniture(obj) or is_timber(obj):
         return obj
     try:
         return blank_of(obj)
@@ -180,33 +186,6 @@ def _candidates(
     return list(found.values())
 
 
-def _corners(obj: DocumentObject) -> list[Vec3]:
-    """Sommets de la boîte d'un membre dans le repère de son conteneur."""
-    if is_furniture(obj):
-        low = origin_of(obj)
-        sizes = (obj.Width.Value, obj.Depth.Value, obj.Height.Value)
-        return [low, Vec3(low.x + sizes[0], low.y + sizes[1], low.z + sizes[2])]
-    with translated_errors():
-        size = dimensions_of(obj)
-    transform = rigid_transform(obj.Placement)
-    return [
-        transform.apply(Vec3(x, y, z))
-        for x in (0.0, size.length)
-        for y in (0.0, size.width)
-        for z in (0.0, size.thickness)
-    ]
-
-
-def _enclosing(objects: Sequence[DocumentObject]) -> tuple[FurnitureBox, Vec3]:
-    """Boîte qui contient les membres (cotes et coin minimal), arrondie au millionième de mm."""
-    points = [point for obj in objects for point in _corners(obj)]
-    low = [round(min(p.component(i) for p in points), 6) + 0.0 for i in range(3)]  # pas de -0
-    high = [round(max(p.component(i) for p in points), 6) for i in range(3)]
-    with translated_errors():
-        box = FurnitureBox(*(hi - lo for lo, hi in zip(low, high, strict=True)))
-    return box, Vec3.of(low)
-
-
 def _join(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]) -> None:
     """Fait de ``obj`` un membre de ``furniture`` (mode ``Stay``, options ``fixed``, cotes non
     fixes). Les propriétés d'un orphelin (ensemble supprimé) sont réécrites, et ses anciennes
@@ -214,7 +193,7 @@ def _join(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]
     values: dict[str, object] = {
         "Furniture": furniture,
         "FurnitureBindings": {},
-        "Locked": False,
+        "Locked": is_shaped_part(obj),  # cotes dessinées : toujours fixes (ADR 0020, décision 8)
         **{option_name(edge): edge in fixed for edge in Edge},
     }
     with writing(obj):
@@ -255,7 +234,7 @@ def build_furniture(
     tout est contrôlé avant la création."""
     members = _candidates(objects, None)
     text = _checked_label(label or translated(DEFAULT_LABEL))
-    box, origin = _enclosing(members)
+    box, origin = enclosing(members)
     for obj in members:
         member_of(obj, origin, entering=True)  # cote illisible : refus avant création
     container = members[0].getParentGeoFeatureGroup()
@@ -324,6 +303,8 @@ def set_options(
     furniture = furniture_of(member)
     if furniture is None:
         raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
+    if locked is False and is_shaped_part(member):
+        raise ValueError(translated(DRAWN_LOCKED, quoted_label(member)))
     values = _checked_options(mode, fixed, locked)
     read_members(furniture)  # cotes illisibles : refus avant modification
     with writing(member):

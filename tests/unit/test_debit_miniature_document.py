@@ -217,3 +217,53 @@ def test_aucun_import_de_l_interface() -> None:
     source = (ROOT / "freecad/menuiserie/features/cutlist_thumbnail.py").read_text(encoding="utf-8")
     assert "FreeCADGui" not in source
     assert "PySide" not in source
+
+
+# --- Pièce en bois à forme libre (ADR 0020) : la miniature montre sa forme, pas sa boîte --------
+
+
+class DrawnShape(FakeShape):
+    """Forme d'une pièce en bois : volume, aire et faces servent à son empreinte."""
+
+    Volume = 1.0e6
+    Area = 5.0e5
+
+
+def drawn_part(world: World, name: str, shape: Any, mark: str = "M1") -> Any:
+    """Pièce en bois (proxy ``ShapedPart``) de forme ``shape``, dans son repère."""
+    proxy = world._proxy("shaped_part", "ShapedPart")
+    return world.part(name, mark, Proxy=proxy, Shape=shape)
+
+
+def test_piece_en_bois_miniature_de_sa_forme_et_non_de_sa_boite(world: World) -> None:
+    pied = drawn_part(world, "Pied", DrawnShape(tenon_faces()))
+    doc = Document(pied)
+    cut_list = cut_list_of(world, doc)
+    assert cut_list.lines[0].shape is not None
+    svg = world.features.cutlist_thumbnail.thumbnails_of(doc, cut_list)["Pied"]
+    assert svg == thumbnail_svg(tenon_faces(), (184, 135, 90))
+    finished = cut_list.lines[0].finished
+    box = box_faces(finished.length, finished.width, finished.thickness)
+    assert svg != thumbnail_svg(box, (184, 135, 90))
+
+
+def test_piece_en_bois_usinee_miniature_de_la_piece_usinee(world: World) -> None:
+    pied = drawn_part(world, "Pied", DrawnShape(box_faces(800, 200, 22)))
+    machined = world.machined("Pied_usinee", pied, FakeShape(tenon_faces()))
+    doc = Document(pied, machined)
+    cut_list = cut_list_of(world, doc)
+    svg = world.features.cutlist_thumbnail.thumbnails_of(doc, cut_list)["Pied"]
+    assert svg == thumbnail_svg(tenon_faces(), (184, 135, 90))
+
+
+@pytest.mark.parametrize("state", [["Invalid"], ["Touched"]])
+def test_piece_en_bois_illisible_repli_sur_son_encombrement(world: World, state: list[str]) -> None:
+    pied = drawn_part(world, "Pied", DrawnShape(tenon_faces()))
+    pied.State = state
+    doc = Document(pied)
+    cut_list = cut_list_of(world, doc)
+    finished = cut_list.lines[0].finished
+    expected = thumbnail_svg(
+        box_faces(finished.length, finished.width, finished.thickness), (184, 135, 90)
+    )
+    assert world.features.cutlist_thumbnail.thumbnails_of(doc, cut_list)["Pied"] == expected

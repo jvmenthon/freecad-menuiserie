@@ -25,6 +25,7 @@ from freecad.menuiserie.features.i18n import templated_message
 from freecad.menuiserie.features.joints.base import is_joint, plan_for, resolved_for
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import machined_part_of
+from freecad.menuiserie.features.shaped_part import is_shaped_part, signature_of
 from freecad.menuiserie.features.wood_part import dimensions_of
 from freecad.menuiserie.features.wood_part_record import (
     GRAIN_BY_VALUE,
@@ -148,8 +149,10 @@ def _rough_thicknesses(record: PartRecord) -> tuple[float, ...]:
 
 
 def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> CutEntry | None:
-    """Entrée de débit de la brute ``blank`` vue ``quantity`` fois, ajouts compris ; ``None`` et
-    un avertissement qui la nomme si ses propriétés sont inutilisables (cote invalide…)."""
+    """Entrée de débit de la brute ou de la pièce en bois ``blank`` vue ``quantity`` fois, ajouts
+    compris (cotes finies = encombrement pour une pièce en bois, qui porte aussi son empreinte de
+    forme) ; ``None`` et un avertissement qui la nomme si ses propriétés sont inutilisables (cote
+    invalide, forme absente…)."""
     try:
         record = _record(blank, notices)
         finished, additions = machined_extent(blank, notices)
@@ -158,7 +161,8 @@ def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> Cut
         owner = furniture_of(blank)
         label = str(owner.Label) if owner is not None else ""
         rough = _rough_thicknesses(record)
-        return CutEntry(record, quantity, additions, label, str(blank.Name), rough)
+        shape = signature_of(blank) if is_shaped_part(blank) else None
+        return CutEntry(record, quantity, additions, label, str(blank.Name), rough, shape)
     except (ValueError, AttributeError, TypeError) as error:
         reason = _reason(error) if isinstance(error, ValueError) else type(error).__name__
         notices.append(notice(CollectNoticeKind.IGNORED_PART, blank, reason=reason))

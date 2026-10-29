@@ -10,7 +10,7 @@ Les formules de l'utilisateur sont écartées à la liaison (``bindings_for``).
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from freecad.menuiserie.core.furniture._gaps import distinct_gaps
 from freecad.menuiserie.core.furniture._linear import Linear
@@ -76,6 +76,22 @@ def _member_rules(
     return rules, any(one.kept for one in solved), split
 
 
+def _would_stretch(
+    member: Member,
+    box: FurnitureBox,
+    members: Mapping[str, Member],
+    spans: Mapping[str, Spans],
+    gaps: tuple[KeptGap, ...],
+) -> bool:
+    """Vrai si les règles de ``member`` l'étireraient sur un axe sans ses cotes dessinées
+    (ADR 0020, décision 8) : sa rangée est résolue comme s'il pouvait changer de cote."""
+    free = replace(member, locked=False, drawn=False)
+    rules, _kept, _split = _member_rules(
+        member.key, box, {**members, member.key: free}, spans, gaps
+    )
+    return any(rule.size is not None and not rule.size.constant for rule in rules)
+
+
 def follow_rules(
     box: FurnitureBox, members: Sequence[Member], keys: Collection[str] | None = None
 ) -> tuple[Rules, tuple[Notice, ...]]:
@@ -107,6 +123,8 @@ def follow_rules(
         )
         if kept and wanted:
             notices.append(notice(NoticeKind.THICKNESS_KEPT, member))
+        if wanted and member.drawn and _would_stretch(member, box, square_members, square, gaps):
+            notices.append(notice(NoticeKind.DRAWN_SIZE, member))
         if wanted:
             notices.extend(Notice(NoticeKind.GAP_SPLIT, {"member": labels[k]}) for k in split)
     return rules, tuple(dict.fromkeys(notices))

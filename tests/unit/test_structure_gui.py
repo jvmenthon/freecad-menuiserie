@@ -172,7 +172,8 @@ def test_commande_traduite_dans_son_contexte() -> None:
 
 def test_widgets_utilises_presents_dans_le_formulaire() -> None:
     names = {widget.get("name") for widget in ui_tree().iter("widget")}
-    used = form_attributes(PANEL) | length_field_widgets(PANEL)
+    rows = GUI / "task_panels" / "timber_rows.py"  # lignes communes aux deux panneaux
+    used = form_attributes(PANEL) | form_attributes(rows) | length_field_widgets(PANEL)
     assert len(used) > 10
     assert used <= names, sorted(used - names)
 

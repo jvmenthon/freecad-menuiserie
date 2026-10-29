@@ -27,8 +27,10 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.distance_keep import KeepError
 from freecad.menuiserie.features.distance_move import AXES, DistanceMove
+from freecad.menuiserie.features.drag_joints import DragCancelledError
 from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.task_panels.base import (
     DeletionWatcher,
@@ -236,7 +238,9 @@ class DistanceTaskPanel(TransactionTaskPanel):
             return False
         keep = self._keep.isEnabled() and self._keep.isChecked()
         try:
-            messages = self._move.finish(keep=keep, axis=self._axis())
+            messages = self._move.finish(keep=keep, axis=self._axis(), choose=joint_choice.choose)
+        except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0026)
+            return self.reject()
         except KeepError as error:  # la pièce est revenue : le panneau reste ouvert
             self._move.begin()
             self._preview()

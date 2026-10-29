@@ -28,9 +28,11 @@ from freecad.menuiserie.features.freecad_types import (
     proxy_is,
 )
 from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.joint_material import check_joint_material
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
-from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
+from freecad.menuiserie.features.wood_part_record import dimensions_of
 
 __all__ = [
     "COMMON_PROPERTIES",
@@ -53,7 +55,7 @@ _MISSING_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Assemblage incomplet : une des deux pièces a été supprimée."
 )
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » n'est pas une pièce de bois brute."
+    "Menuiserie", "« {label} » n'est pas une pièce de bois ni une pièce en bois."
 )
 _PARTS_MISMATCH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -135,10 +137,12 @@ class JointFeature(StatelessProxy):
 
     def execute(self, obj: DocumentObject) -> None:
         """Forme = pièces rapportées du plan (vide sinon), au ``Placement`` de l'hôte ;
+        avertit si une pièce en bois n'a pas la matière à usiner (E3) ;
         ``ValueError`` traduite si l'assemblage est impossible ou si ses pièces ne sont plus
         celles de ses pièces usinées (``HostPart`` ou ``GuestPart`` modifiée par un script)."""
         plan = plan_for(obj)
         _check_machined_parts(obj)
+        check_joint_material(obj, plan)
         obj.Shape = inserts_shape(plan.inserts)
         obj.Placement = obj.HostPart.Placement
 
@@ -201,7 +205,7 @@ def placed_blank(obj: DocumentObject | None) -> PlacedBlock:
     manque ou n'est pas une pièce de bois, ``InvalidDimensionsError`` si une cote est invalide."""
     if obj is None:
         raise ValueError(translated(_MISSING_PART))
-    if not is_wood_part(obj):
+    if not is_timber(obj):
         raise ValueError(translated(_NOT_A_WOOD_PART, {"label": quoted_value(obj.Label)}))
     return PlacedBlock(dimensions_of(obj), rigid_transform(obj.Placement))
 

@@ -31,6 +31,7 @@ import FreeCADGui as Gui
 
 from tests.gui.aides_panneau import DEFAUTS_CONSTATES
 from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
+from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELACHEMENT
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
@@ -45,11 +46,17 @@ from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASS
 from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
 from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROUS
+from tests.gui.verifications_piece_en_bois import VERIFICATIONS_PIECE_EN_BOIS
+from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE
+from tests.gui.verifications_piece_en_bois_limites import VERIFICATIONS_PIECE_EN_BOIS_LIMITES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
+from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
+from tests.gui.verifications_transparence_assemblage import VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE
+from tests.gui.verifications_usinage_deplacement import VERIFICATIONS_USINAGE_DEPLACEMENT
 
 ATELIER = "MenuiserieWorkbench"
 VIEW_PROVIDER = "freecad.menuiserie.gui.view_providers.wood_part.ViewProviderWoodPart"
@@ -1233,6 +1240,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_ROBUSTESSE,
     *VERIFICATIONS_ASSEMBLAGES,
     *VERIFICATIONS_PANNEAU_ASSEMBLAGE,
+    *VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE,
+    *VERIFICATIONS_USINAGE_DEPLACEMENT,
     *VERIFICATIONS_QUEUE_ARONDE,
     *VERIFICATIONS_ONGLET,
     *VERIFICATIONS_ENSEMBLE,
@@ -1246,16 +1255,30 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,
+    # Assemblage défait au relâchement (ADR 0026)
+    *VERIFICATIONS_ARONDE_RELACHEMENT,
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
     *VERIFICATIONS_DISTANCE_GARDEE,
+    # Pièce en bois à forme libre (PD-d)
+    *VERIFICATIONS_PIECE_EN_BOIS,
+    *VERIFICATIONS_PIECE_EN_BOIS_LIMITES,
+    *VERIFICATIONS_SOURIS_PIECE_EN_BOIS,
+    # Pièce en bois dans un ensemble (PD-f)
+    *VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE,
 )
 
 
-def verifier() -> list[str]:
-    """Retourne la liste des problèmes constatés (vide si tout va bien)."""
+def verifier(rapport: Any = None) -> list[str]:
+    """Retourne la liste des problèmes constatés (vide si tout va bien). ``rapport`` reçoit
+    le nom de la vérification en cours : si FreeCAD plante, le fichier désigne la coupable."""
     problemes: list[str] = []
     for verification in VERIFICATIONS:
+        if rapport is not None:
+            rapport.seek(0)
+            rapport.truncate()
+            rapport.write(f"plantage pendant {verification.__name__}\n")
+            rapport.flush()
         try:
             problemes += [f"{verification.__name__} : {p}" for p in verification()]
         except Exception:
@@ -1265,7 +1288,9 @@ def verifier() -> list[str]:
 
 def main() -> None:
     with open(os.environ["RESULTAT"], "w", encoding="utf-8") as rapport:
-        problemes = verifier()
+        problemes = verifier(rapport)
+        rapport.seek(0)
+        rapport.truncate()
         lignes = problemes or ["OK : atelier chargé et pièces affichées"]
         # Défauts connus (équivalent de xfail strict) : rapportés après le résultat.
         rapport.write("\n".join([*lignes, *DEFAUTS_CONSTATES]) + "\n")

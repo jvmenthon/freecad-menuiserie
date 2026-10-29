@@ -23,14 +23,14 @@
   [0019 — Rangées et épaisseurs fixes](../adr/0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (PR #86),
   [0020 — Pièce en bois](../adr/0020-piece-en-bois-enveloppe-d-un-corps.md) (PR #87),
   **[0021 — Déplacement à la souris avec aimantation](../adr/0021-deplacement-a-la-souris-avec-aimantation.md)** (accepté),
-  **[0022 — Distance entre deux pièces](../adr/0022-distance-entre-deux-pieces.md)** (accepté)
+  **[0022 — Distance entre deux pièces](../adr/0022-distance-entre-deux-pieces.md)** (accepté), **[0026 — Assemblage défait par un déplacement](../adr/0026-assemblage-defait-par-un-deplacement.md)** (accepté, modifie B7)
 - Découpage : six PR, **(SM-a ∥ DI-a) → SM-b → (SM-c ∥ DI-b) → DI-c** (§ 5)
 
 **Vocabulaire.** *Glisser* : déplacer la pièce à la souris, bouton gauche enfoncé. *Flèche* : l'une
 des trois flèches dessinées sur la pièce sélectionnée (axes de la pièce), qu'on tire pour la
-déplacer le long de cet axe. *Poignée* : petite double flèche orange, dans l'axe de la cote,
-centrée sur une face de bout, de rive (ou du dessus et du dessous pour le massif) et marquée d'un
-point en son centre, qu'on tire pour changer la longueur, la largeur ou l'épaisseur (jv,
+déplacer le long de cet axe. *Poignée* : petit cube plein orange au bout d'une tige, dans l'axe de la cote,
+sortant d'une face de bout, de rive (ou du dessus et du dessous pour le massif) et marquée d'un
+point à son pied, de taille constante à l'écran, qu'on tire pour changer la longueur, la largeur ou l'épaisseur (jv,
 2026-10-26 : « un logo plus parlant à la place des points orange »). *Guide* : plan, droite ou point d'une pièce voisine sur lequel la pièce glissée
 peut s'aimanter. *Distance* : écart mesuré entre deux éléments (face, arête, sommet) de deux
 pièces.
@@ -96,7 +96,7 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 | B4 | I | Propriété pilotée par une **formule de l'utilisateur** (pas une liaison de l'atelier) : l'axe correspondant n'est pas glissable (`DragLimits.fixed_axes`), aucune expression n'est retirée. |
 | B5 | I | Pièce **verrouillée** (`Locked`, #86) : glissement permis, poignées refusées. Pièce en bois (#87) : glissement permis, poignées refusées (cotes du dessin). **Épaisseur** (Q4 amendée, 2026-10-26) : l'axe 2 n'est redimensionnable que si la famille de la pièce est le **massif** (`MaterialKind.SOLID`) ; un panneau (contreplaqué, MDF, mélaminé), une pièce verrouillée, une pièce dont `Thickness` ou la position en Z porte une formule de l'utilisateur : pas de poignée d'épaisseur. |
 | B6 | I | Une pièce qui a une **Distance** gardée (DI-c) le long de l'axe glissé : la valeur de la Distance suit le glissement (Q8 ★). |
-| B7 | I | Assemblage qui ne touche plus après le glissement : le glissement est gardé, avertissement dans la vue rapport (règle Q4 de J4 : toujours appliquer, prévenir). |
+| B7 | I | **Modifié par l'[ADR 0026](../adr/0026-assemblage-defait-par-un-deplacement.md).** Assemblage qui ne touche plus après le déplacement : sa faisabilité est essayée au relâchement, **avant tout recalcul** (`plan_for` dans un `try`), sans trace Python ; une fenêtre propose « Annuler le déplacement » (la pièce revient ; Échap ou fermeture = annuler) ou « Supprimer l'assemblage » / « Supprimer les assemblages » (noms listés ; assemblages et pièces usinées devenues vides supprimés, déplacement gardé). Une seule transaction annulable. Même fenêtre pour « Définir une distance » (panneau) et les rotations du panneau de la pièce ; fonction de choix injectable (`end_drag(memento, choose)`). Sans fonction de choix (script, API) : déplacement gardé, avertissement dans la vue rapport (B7 d'origine). |
 
 ### SM-c — Interaction dans la vue 3D (`gui/drag/`, panneau de la pièce)
 
@@ -109,7 +109,7 @@ Unitaires (**U**, sans FreeCAD), intégration (**I**, `freecadcmd` 1.0 et 1.1), 
 | C5 | G | Guide aimanté : il est dessiné en surbrillance (plan, droite ou point) pendant l'aimantation ; Maj enfoncée : aucune aimantation, aucun dessin. |
 | C6 | G | Échap pendant le glissement : la pièce revient où elle était au début de ce glissement (le panneau, s'il est ouvert, le reste). |
 | C7 | G | « Annuler » du panneau : la pièce revient à son état d'avant le panneau ; « OK » puis Ctrl+Z : idem, en une étape. Hors panneau : Ctrl+Z annule le dernier glissement en une étape. |
-| C8 | R | Recette sur FreeCAD 1.1 (minimum depuis l'ADR 0023 ; Windows, styles de navigation « Gesture », « OpenInventor », « Blender ») : déplacer une étagère entre deux joues, l'aimanter contre la joue gauche, la redimensionner jusqu'à la joue droite ; même chose dans le bureau de #86 (rangées et épaisseurs vivantes). |
+| C8 | R | Recette sur FreeCAD 1.0 et 1.1 (Windows, styles de navigation « Gesture », « OpenInventor », « Blender ») : déplacer une étagère entre deux joues, l'aimanter contre la joue gauche, la redimensionner jusqu'à la joue droite ; même chose dans le bureau de #86 (rangées et épaisseurs vivantes). |
 
 ### DI-a — Distance entre deux éléments, règles pures (`core/distance/`)
 

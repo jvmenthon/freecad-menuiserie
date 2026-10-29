@@ -157,6 +157,7 @@ def construire() -> None:
     meuble = [doc.getObjectsByLabel(repere)[0] for *_cotes, repere, _position in PIECES]
     api.make_furniture(meuble, label=ENSEMBLE)
     construire_le_cadre(doc)
+    construire_la_piece_en_bois(doc)
     afficher_la_vue_du_document(doc.Name)
     Gui.Selection.clearSelection()
 
@@ -175,6 +176,19 @@ def construire_le_cadre(doc: Any) -> None:
     doc.recompute()
     for mortaise, tenon, traversant in TENONS:
         api.make_mortise_tenon(pieces[mortaise], pieces[tenon], through=traversant)
+
+
+def construire_la_piece_en_bois(doc: Any) -> None:
+    """Pied tourné dessiné avec Part (cylindre), converti en pièce en bois de noyer."""
+    from freecad.menuiserie import api
+
+    rond = doc.addObject("Part::Cylinder", "PiedTourne")
+    rond.Radius, rond.Height = 25.0, 600.0
+    rond.Placement = App.Placement(App.Vector(1300.0, 600.0, 0.0), App.Rotation())
+    doc.recompute()
+    piece = api.make_shaped_part(rond, "noyer", "Pied tourné")
+    piece.Label = "Pied tourné"
+    doc.recompute()
 
 
 def afficher_la_vue_du_document(nom_document: str) -> None:

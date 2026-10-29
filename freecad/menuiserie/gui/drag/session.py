@@ -11,7 +11,9 @@ chaque méthode renvoie vrai si l'évènement est consommé.
 Hors panneau, un glissement ouvre sa transaction « Déplacer la pièce » (un Ctrl+Z) ; panneau
 ouvert, ou si une autre transaction est en cours, il écrit dans la transaction déjà ouverte. Aucun
 recalcul pendant le glissement d'une flèche ; une poignée recalcule la seule brute, au plus 30
-fois par seconde ; ``end_drag`` fait le recalcul du document au relâchement.
+fois par seconde ; ``end_drag`` fait le recalcul du document au relâchement, après avoir proposé
+(fenêtre de ``gui/joint_choice``) d'annuler le déplacement ou de supprimer les assemblages qu'il
+défait (ADR 0026).
 """
 
 from __future__ import annotations
@@ -44,6 +46,7 @@ from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.magnet_guides import collect_guides
 from freecad.menuiserie.features.part_drag import (
     SIZE_PROPS,
+    DragCancelledError,
     DragMemento,
     begin_drag,
     drag_limits,
@@ -54,6 +57,7 @@ from freecad.menuiserie.features.part_drag import (
     restore,
 )
 from freecad.menuiserie.features.snap_geometry import to_vec3
+from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.drag.geometry import (
     ARROW_PX,
     MAGNET_PX,
@@ -200,6 +204,8 @@ class Dragging(State):
         self.own = grab.own  # transaction ouverte par le glissement
         self.shift = False
         self.box = _box_of(grab.memento.part)
+        # repère de la pièce au début : celui des guides, qui ne suivent pas la pièce
+        self.frame = _frame_of(grab.memento.part.getGlobalPlacement())
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:
         self.cursor, self.shift = point, shift
@@ -248,7 +254,7 @@ class Moving(Dragging):
         else:
             result = magnet(self.box, self.guides, wanted, self.tolerance, [axis])
         move_part(self.memento, result.delta)
-        session.written([self.guides[hit.guide] for hit in result.hits])
+        session.written([self.guides[hit.guide] for hit in result.hits], self.frame)
 
 
 class Resizing(Dragging):
@@ -288,7 +294,7 @@ class Resizing(Dragging):
         prop, size, shift, guides = self.pending
         self.pending = None
         resize_part(self.memento, prop, size, shift)
-        session.written(guides)
+        session.written(guides, self.frame)
 
 
 class DragSession:
@@ -404,11 +410,13 @@ class DragSession:
         if changed and redraw:
             self.draw()
 
-    def draw(self, guides: Sequence[Guide] = ()) -> None:
-        """Redessine la disposition, ``guides`` aimantés en surbrillance."""
+    def draw(self, guides: Sequence[Guide] = (), guides_frame: Frame | None = None) -> None:
+        """Redessine la disposition, ``guides`` aimantés en surbrillance (lus dans le repère
+        ``guides_frame`` de la pièce au début du glissement)."""
         self.lit = tuple(guides)
         if self.overlay is not None and self.layout is not None:
-            self.overlay.draw(build_drawing(self.layout, self.state.key, guides))
+            drawing = build_drawing(self.layout, self.state.key, guides, guides_frame)
+            self.overlay.draw(drawing)
 
     def sync(self) -> None:
         """Panneau fermé ou zoom changé : disposition remise à jour (rien pendant un glissement)."""
@@ -529,11 +537,11 @@ class DragSession:
         self.enter(state)
         return True
 
-    def written(self, guides: Sequence[Guide]) -> None:
-        """La pièce a été écrite : flèches redessinées avec les ``guides`` aimantés, champs du
-        panneau relus."""
+    def written(self, guides: Sequence[Guide], guides_frame: Frame) -> None:
+        """La pièce a été écrite : flèches redessinées avec les ``guides`` aimantés (dans le repère
+        ``guides_frame`` de départ), champs du panneau relus."""
         self._build(redraw=False)
-        self.draw(guides)
+        self.draw(guides, guides_frame)
         if self.panel is not None and self._panel_open():
             self.panel.refresh()
 
@@ -552,9 +560,14 @@ class DragSession:
 
     def finish(self, state: Dragging) -> None:
         """Relâchement : ensemble relié et document recalculé une fois (``end_drag``),
-        avertissements dans la vue rapport."""
+        avertissements dans la vue rapport. Si le déplacement défait des assemblages, la fenêtre
+        de choix s'ouvre avant le recalcul (``gui/joint_choice``, ADR 0026) : annuler remet la
+        pièce, supprimer garde le déplacement."""
         try:
-            warnings = end_drag(state.memento)
+            warnings = end_drag(state.memento, joint_choice.choose)
+        except DragCancelledError:  # assemblages défaits, « Annuler le déplacement » (ADR 0026)
+            self._close(state, commit=False)
+            return
         except ValueError as error:
             report_warning(str(error))
             self._close(state, commit=False)

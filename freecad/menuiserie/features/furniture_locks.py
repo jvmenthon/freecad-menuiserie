@@ -23,6 +23,7 @@ from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import LockedPiecesError, rebind
 from freecad.menuiserie.features.furniture_edits import thickness_notices
 from freecad.menuiserie.features.furniture_members import (
+    DRAWN_LOCKED,
     NOT_IN_FURNITURE,
     checked_furniture,
     member_object,
@@ -32,12 +33,17 @@ from freecad.menuiserie.features.furniture_members import (
 )
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 
 __all__ = ["refusal_of", "set_member_thickness", "unlock_and_resize", "unlock_and_set_thickness"]
 
 _DRIVEN_THICKNESS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » : Thickness suit une expression ; modifiez cette expression.",
+)
+_DRAWN_THICKNESS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » : Thickness vient du dessin (pièce en bois) ; modifiez le dessin.",
 )
 _INVALID_THICKNESS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Épaisseur invalide : « {value} » (nombre fini en mm attendu)."
@@ -65,6 +71,8 @@ def _locked_keys(pieces: Sequence[DocumentObject]) -> tuple[str, ...]:
         member = member_object(piece)
         if furniture_of(member) is None:
             raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
+        if is_shaped_part(member):  # cotes dessinées : une pièce en bois ne se déverrouille pas
+            raise ValueError(translated(DRAWN_LOCKED, quoted_label(member)))
         keys.append(member.Name)
     return tuple(keys)
 
@@ -105,6 +113,12 @@ def unlock_and_resize(
     return [*relinked, *notices]
 
 
+def _refuse_drawn(member: DocumentObject) -> None:
+    """``ValueError`` traduite pour une pièce en bois : son épaisseur vient du dessin."""
+    if is_shaped_part(member):
+        raise ValueError(translated(_DRAWN_THICKNESS, quoted_label(member)))
+
+
 def _checked_thickness(
     part: DocumentObject, thickness: float
 ) -> tuple[DocumentObject, DocumentObject, float]:
@@ -115,6 +129,7 @@ def _checked_thickness(
     if furniture is None:
         raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
     checked_furniture(furniture)
+    _refuse_drawn(member)
     if has_expression(member, "Thickness"):
         raise ValueError(translated(_DRIVEN_THICKNESS, quoted_label(member)))
     if isinstance(thickness, bool) or not isinstance(thickness, int | float):
@@ -146,6 +161,7 @@ def set_member_thickness(part: DocumentObject, thickness: float) -> list[Notice]
     ``ValueError`` traduite sinon. Tout l'ensemble est relié sur la géométrie d'avant, les termes
     figés en constante d'une pièce voisine prenant la nouvelle épaisseur (ADR 0019). Hors
     ensemble, l'épaisseur est simplement écrite. Renvoie les avertissements."""
+    _refuse_drawn(member_object(part))
     if furniture_of(member_object(part)) is None:
         part.Thickness = float(thickness)
         return []

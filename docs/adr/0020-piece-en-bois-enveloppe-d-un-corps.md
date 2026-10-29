@@ -1,6 +1,6 @@
 # ADR 0020 — La pièce en bois, enveloppe d'un corps FreeCAD
 
-- Statut : **proposé** (issue #73 ; réponses de jv du 2026-10-25 intégrées : nom « Pièce en
+- Statut : **accepté** (issue #73 ; réponses de jv du 2026-10-25 intégrées : nom « Pièce en
   bois », assemblages, ensembles et cotes visibles inclus)
 - Date : 2026-10-25
 - Spécification : [docs/specs/piece-en-bois.md](../specs/piece-en-bois.md), § 4.1

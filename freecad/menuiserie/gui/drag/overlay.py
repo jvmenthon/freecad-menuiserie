@@ -12,7 +12,7 @@ from typing import Any, Final
 
 from pivy import coin
 
-from freecad.menuiserie.gui.drag.geometry import Dots, Drawing, Stroke
+from freecad.menuiserie.gui.drag.geometry import Dots, Drawing, Solid, Stroke
 
 __all__ = ["NODE_NAME", "Overlay"]
 
@@ -49,13 +49,28 @@ def _dots_node(dots: Dots) -> SoNode:
     return node
 
 
-class Overlay:
-    """Incrustation posée sur la racine ``root`` d'une vue 3D ; :meth:`remove` la retire."""
+def _solid_node(solid: Solid) -> SoNode:
+    node = coin.SoSeparator()
+    color = coin.SoBaseColor()
+    color.rgb.setValue(*solid.color)
+    points = [p for face in solid.faces for p in face]
+    coordinates = coin.SoCoordinate3()
+    coordinates.point.setValues(0, len(points), [(p.x, p.y, p.z) for p in points])
+    faces = coin.SoFaceSet()
+    faces.numVertices.setValues(0, len(solid.faces), [len(face) for face in solid.faces])
+    for child in (color, coordinates, faces):
+        node.addChild(child)
+    return node
 
-    def __init__(self, root: SoNode) -> None:
+
+class Overlay:
+    """Incrustation posée sur la racine ``root`` d'une vue 3D (ou sur un nœud qui la place, comme
+    le repère de la pièce en bois) ; son nœud porte le nom ``name`` ; :meth:`remove` la retire."""
+
+    def __init__(self, root: SoNode, name: str = NODE_NAME) -> None:
         self._root: SoNode | None = root
         self._node = coin.SoAnnotation()
-        self._node.setName(NODE_NAME)
+        self._node.setName(name)
         pick = coin.SoPickStyle()
         pick.style = coin.SoPickStyle.UNPICKABLE
         light = coin.SoLightModel()
@@ -72,6 +87,8 @@ class Overlay:
             self._node.addChild(_stroke_node(stroke))
         for dots in drawing.dots:
             self._node.addChild(_dots_node(dots))
+        for solid in drawing.solids:
+            self._node.addChild(_solid_node(solid))
 
     def remove(self) -> None:
         """Retire l'incrustation de la vue (sans effet si elle n'y est plus)."""

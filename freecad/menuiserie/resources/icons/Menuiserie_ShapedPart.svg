@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Convertir en pièce en bois : corps PartDesign, flèche, planche -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="13,14 25,21 13,28 1,21" fill="#8bb4e0" stroke="#0b2a52" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="1,21 13,28 13,44 1,37" fill="#3465a4" stroke="#0b2a52" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="13,28 25,21 25,37 13,44" fill="#204a87" stroke="#0b2a52" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="13,18 19,21.5 13,25 7,21.5" fill="#204a87" stroke="#0b2a52" stroke-width="1.2" stroke-linejoin="round"/>
+  <polygon points="38.00,32.79 45.64,28.38 63.00,38.40 55.36,42.81" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="38.00,37.60 38.00,32.79 55.36,42.81 55.36,47.62" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="63.00,43.21 55.36,47.62 55.36,42.81 63.00,38.40" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="44.43,30.28 45.30,30.88 46.23,31.44 47.23,31.97 48.29,32.46 49.38,32.93 50.47,33.41 51.52,33.90 52.51,34.43 53.43,35.00 54.29,35.61 55.11,36.24 55.93,36.87 56.78,37.48 57.69,38.06 58.67,38.60 59.71,39.10" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="41.64,31.89 42.68,32.39 43.66,32.93 44.57,33.51 45.42,34.12 46.24,34.75 47.06,35.38 47.91,35.98 48.83,36.56 49.82,37.09 50.88,37.58 51.96,38.06 53.06,38.53 54.12,39.02 55.12,39.54 56.05,40.11 56.91,40.71" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27,31 H37 M32,25 L38,31 L32,37" fill="none" stroke="#4e9a06" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

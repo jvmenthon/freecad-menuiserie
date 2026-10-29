@@ -156,6 +156,7 @@ def simulated_world(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
             cutlist_sheet,
             furniture,
             machined_part,
+            shaped_part,
             wood_part,
         )
 
@@ -169,6 +170,7 @@ def simulated_world(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
                 cutlist_sheet=cutlist_sheet,
                 furniture=furniture,
                 machined_part=machined_part,
+                shaped_part=shaped_part,
                 wood_part=wood_part,
             )
         )

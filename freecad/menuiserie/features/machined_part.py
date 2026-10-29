@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Pièce usinée : pièce de bois brute après ses assemblages (ADR 0006).
+"""Pièce usinée : pièce brute (pièce de bois ou pièce en bois) après ses assemblages (ADR 0006).
 
-Forme = boîte de la brute plus ajouts, moins enlèvements des assemblages, placée au ``Placement`` de
-la brute. La brute est masquée sous sa pièce usinée. Contrat de persistance (ADR 0003) : le
-chemin de ce module, le nom de la classe ``MachinedPart`` et les noms des propriétés sont écrits
-dans les documents ; ils ne changent jamais.
+Forme = forme de base de la brute (sa boîte, ou sa forme dessinée) plus ajouts, moins enlèvements
+des assemblages, placée au ``Placement`` de la brute. La brute est masquée sous sa pièce usinée.
+Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe ``MachinedPart``
+et les noms des propriétés sont écrits dans les documents ; ils ne changent jamais.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
+from freecad.menuiserie.features.blank_shape import blank_shape
 from freecad.menuiserie.features.freecad_types import (
     READ_ONLY,
     DocumentObject,
@@ -39,8 +40,8 @@ from freecad.menuiserie.features.part_names import (
     warn_mark_bound,
 )
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.solids import machined_shape
-from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
 
 __all__ = [
     "MachinedPart",
@@ -67,7 +68,8 @@ _NOT_A_JOINT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est pas un assemblage de l'atelier Menuiserie."
 )
 _NOT_A_PART: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » n'est ni une pièce de bois ni une pièce usinée."
+    "Menuiserie",
+    "« {label} » n'est ni une pièce de bois, ni une pièce en bois, ni une pièce usinée.",
 )
 _PLACEMENT_BOUND: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -142,10 +144,10 @@ class MachinedPart(StatelessProxy):
         unique, puis le libellé devient « {libellé de la brute} (usinée) » ; sans brute, suffixe
         « (2) ». Sans effet si le libellé est déjà unique."""
         blank: DocumentObject = getattr(obj, "Base", None)
-        if is_wood_part(blank):
+        if is_timber(blank):
             make_label_unique(blank)
         label = unique_label_after_copy(obj)
-        if is_wood_part(blank) and (label is not None or is_importing(obj)):
+        if is_timber(blank) and (label is not None or is_importing(obj)):
             expected = _machined_label(obj, str(blank.Label))
             label = None if expected == str(obj.Label) else expected
         if label is None:
@@ -177,7 +179,7 @@ class MachinedPart(StatelessProxy):
         avertissement, le libellé revient à celui de la brute."""
         self._typed_mark = None
         blank: DocumentObject = getattr(obj, "Base", None)
-        if not self._follows_user_changes(obj) or not is_wood_part(blank):
+        if not self._follows_user_changes(obj) or not is_timber(blank):
             return None
         if mark_is_bound(blank):
             warn_mark_bound(blank)
@@ -197,12 +199,12 @@ class MachinedPart(StatelessProxy):
         mark: str | None = getattr(self, "_typed_mark", None)
         self._typed_mark = None
         blank: DocumentObject = getattr(obj, "Base", None)
-        if mark is not None and is_wood_part(blank):
+        if mark is not None and is_timber(blank):
             blank.Proxy.adopt_mark(blank, mark)
 
     def _follow_placement(self, obj: DocumentObject) -> None:
         blank: DocumentObject = getattr(obj, "Base", None)
-        if not is_wood_part(blank) or blank.Placement == obj.Placement:
+        if not is_timber(blank) or blank.Placement == obj.Placement:
             return
         bound = placement_expression(blank)
         if bound is not None:  # J4, N6 : refus explicite, aucune écriture perdue en silence
@@ -216,9 +218,17 @@ class MachinedPart(StatelessProxy):
         assemblage est invalide."""
         blank = _checked_blank(obj)
         with translated_errors():
-            dimensions = dimensions_of(blank)
-        additions, cuts, trims = _machining_of(obj, blank)
-        shape = machined_shape(dimensions, additions, cuts, trims)
+            base = blank_shape(blank)
+        try:
+            additions, cuts, trims = _machining_of(obj, blank)
+        except _JointFailedError:
+            # Un assemblage impossible signale lui-même son erreur dans son propre recalcul : la
+            # pièce usinée ne la répète pas (une seule trace, ADR 0026). Sa forme reste celle
+            # d'avant (jamais de forme partielle) ; seul son placement suit la brute.
+            with self._executing():
+                obj.Placement = blank.Placement
+            return
+        shape = machined_shape(base, additions, cuts, trims)
         # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
         # sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
@@ -271,9 +281,13 @@ def _checked_blank(obj: DocumentObject) -> DocumentObject:
     blank = getattr(obj, "Base", None)
     if blank is None:
         raise ValueError(translated(_NO_BLANK))
-    if not is_wood_part(blank):
+    if not is_timber(blank):
         raise ValueError(translated(_NOT_A_PART, {"label": quoted_value(blank.Label)}))
     return blank
+
+
+class _JointFailedError(Exception):
+    """Un assemblage de la pièce usinée est impossible : il le signale lui-même."""
 
 
 def _machining_of(
@@ -281,7 +295,7 @@ def _machining_of(
 ) -> tuple[list[Solid], list[Solid], list[Solid]]:
     """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
     assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
-    modifiée par un script)."""
+    modifiée par un script), :class:`_JointFailedError` si l'un d'eux est impossible."""
     additions: list[Solid] = []
     cuts: list[Solid] = []
     trims: list[Solid] = []
@@ -290,7 +304,10 @@ def _machining_of(
             raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
         if blank not in (joint.HostPart, joint.GuestPart):
             raise parts_mismatch(joint)
-        plan = plan_for(joint)
+        try:
+            plan = plan_for(joint)
+        except ValueError:
+            raise _JointFailedError from None  # l'assemblage signale lui-même son erreur
         if joint.HostPart == blank:
             additions.extend(plan.host_additions)
             cuts.extend(plan.host_cuts)
@@ -309,9 +326,9 @@ def is_machined_part(obj: object) -> bool:
 def blank_of(obj: DocumentObject) -> DocumentObject:
     """Brute d'une pièce : la pièce de bois elle-même, ou la ``Base`` d'une pièce usinée.
     ``TypeError`` traduite pour tout autre objet."""
-    if is_wood_part(obj):
+    if is_timber(obj):
         return obj
-    if is_machined_part(obj) and is_wood_part(obj.Base):
+    if is_machined_part(obj) and is_timber(obj.Base):
         return obj.Base
     raise TypeError(translated(_NOT_A_PART, {"label": quoted_value(getattr(obj, "Label", obj))}))
 
