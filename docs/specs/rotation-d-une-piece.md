@@ -1,13 +1,13 @@
 # Rotation d'une pièce : angle saisi dans le panneau, anneaux dans la vue 3D
 
 - Issue : #117
-- Statut : **proposée** (Q1 tranchée par jv le 2026-10-28 : angle libre ; Q2 à Q6 au § 9, ★ appliquées
-  en attendant). Architecture seule : aucun code.
+- Statut : **acceptée** (Q1 tranchée par jv le 2026-10-28 : angle libre ; Q2 à Q6 validées par jv le
+  2026-10-29 : « c'est ok », voir § 9).
 - Demande de jv (2026-10-28) : « ajoute la possibilité de choisir la rotation d'une pièce dans le
   formulaire et dans la vue ».
-- ADR : **[0025 — Rotation libre d'une pièce](../adr/0025-rotation-libre-d-une-piece.md)** (proposé) ;
-  ADR liés 0011 (aperçu et accrochage), 0021 (glissement à la souris), 0024 (assemblage défait par
-  un déplacement, PR #111 ; voir § 7 pour le numéro).
+- ADR : **[0025 — Rotation libre d'une pièce](../adr/0025-rotation-libre-d-une-piece.md)** (accepté) ;
+  ADR liés 0011 (aperçu et accrochage), 0021 (glissement à la souris), 0026 (assemblage défait par
+  un déplacement, PR #111).
 - Découpage : quatre PR, **RO-a → RO-b → (RO-c ∥ RO-d)** (§ 5), branche de jalon `jalon/rotation`
   partie de `main` **après la fusion de #111**.
 
@@ -24,8 +24,8 @@
 
 Aujourd'hui (J6, Q1 de jv) le groupe « Rotation » du panneau de la pièce n'a que trois boutons de
 quart de tour X, Y, Z (`features/placement.rotate_part`, `core/snap.Turn`). Après #111, ils passent
-par `rotate_checked`, qui propose d'annuler ou de supprimer les assemblages défaits (ADR 0024 du
-jalon). Dans la vue 3D, la pièce sélectionnée porte trois flèches de déplacement et, panneau
+par `rotate_checked`, qui propose d'annuler ou de supprimer les assemblages défaits (ADR 0026). Dans la vue 3D, la pièce sélectionnée porte trois flèches de
+déplacement et, panneau
 ouvert, des poignées de taille (ADR 0021, `gui/drag/`, `core/magnet/`). Rien ne permet un autre
 angle que le quart de tour, sauf l'éditeur de `Placement` de FreeCAD.
 
@@ -36,7 +36,7 @@ Ce qui sert déjà :
   lit que L, l, e ;
 - les assemblages d'une pièce hors d'équerre sont refusés proprement jusqu'à #114 (angles
   composés, 70° max), qui les rendra possibles ;
-- la session de glissement (pattern State, Memento, transaction, Échap, fenêtre d'ADR 0024) est le
+- la session de glissement (pattern State, Memento, transaction, Échap, fenêtre d'ADR 0026) est le
   bon endroit pour un état « Rotating ».
 
 ## 2. Objectif
@@ -49,7 +49,7 @@ Ce qui sert déjà :
    l'axe du document qui passe par son centre ; l'angle parcouru s'affiche près de la souris ;
    l'anneau s'aimante tous les 15° ; Maj enfoncée, il tourne librement (au dixième de degré).
 3. Un Ctrl+Z défait une rotation ; Échap pendant le geste ramène la pièce à son début.
-4. Une rotation qui défait un assemblage passe par la fenêtre « Annuler / Supprimer » (ADR 0024).
+4. Une rotation qui défait un assemblage passe par la fenêtre « Annuler / Supprimer » (ADR 0026).
 
 ## 3. Critères d'acceptation
 
@@ -78,17 +78,18 @@ Ce qui sert déjà :
 - B3 Le geste à la souris réutilise `DragMemento` : écritures absolues par rapport au début, rien
   ne s'accumule ; Échap rétablit le `Placement` et les `Distance` touchées.
 - B4 Fin de rotation : même chemin que `end_drag` (Distances gardées mises à jour, fenêtre
-  d'ADR 0024 si un assemblage est défait, un recalcul).
+  d'ADR 0026 si un assemblage est défait, un recalcul).
 - B5 Dans un conteneur (`App::Part`, Body), les angles sont ceux du `Placement` local ; les
   anneaux suivent les axes globaux du conteneur.
 
 ### RO-c — Panneau (`gui/task_panels/wood_part.*`)
 
-- C1 Trois `Gui::QuantitySpinBox` en degrés (−180 à 180, pas de 1, une décimale), étiquettes
+- C1 Trois `Gui::QuantitySpinBox` en degrés (−180 à 180, Y de −90 à 90 : c'est le tangage de
+  `angles_of` ; pas de 1, une décimale), étiquettes
   « Autour de X », « Autour de Y », « Autour de Z », sous les boutons.
 - C2 `valueChanged` : `rotate_to` puis aperçu de la seule brute (comme une poignée, au plus
   30 fois par seconde) ; `editingFinished` : recalcul et contrôle des assemblages (fenêtre
-  d'ADR 0024 ; « Annuler » remet l'angle d'avant la saisie).
+  d'ADR 0026 ; « Annuler » remet l'angle d'avant la saisie).
 - C3 Les boutons de quart de tour, un glissement et un anneau relisent les champs (signaux
   bloqués pendant l'écriture : pas de boucle).
 - C4 Placement piloté par une expression : champs et boutons grisés, infobulle « Position
@@ -107,7 +108,10 @@ Ce qui sert déjà :
   (« 37,5° ») ; secteur parcouru dessiné en transparence.
 - D4 Hors panneau, le geste ouvre la transaction « Tourner la pièce » (un Ctrl+Z) ; panneau
   ouvert, il écrit dans la sienne et le panneau relit ses champs (C3).
-- D5 Anneau vu par la tranche (A4 renvoie `None`) : il n'est pas proposé au survol.
+- D5 Anneau vu par la tranche (A4 renvoie `None`) : il n'est pas proposé au survol. Il n'est pas
+  non plus proposé quand son rayon à l'écran est inférieur à 16 pixels (pièce dézoomée) ; la
+  tolérance de saisie (8 pixels) se mesure à l'écran, sur l'ellipse projetée, pas en mm au centre
+  (revue #117).
 - D6 Pièce pilotée par une expression : pas d'anneau (comme les flèches d'un axe bloqué).
 - D7 Vérification hors écran (`tests/gui`) : dessin des anneaux, geste simulé par la session
   (pas de clic Qt réel, cf. leçons de l'interface hors écran), Ctrl+Z, Échap.
@@ -144,7 +148,7 @@ fois au relâchement. Les guides d'aimantation de position ne servent pas : seul
 ### 4.4 Assemblages et ensembles
 
 - Assemblages : la fin d'une rotation passe par le même contrôle que la fin d'un glissement
-  (ADR 0024). Une pièce tournée hors d'équerre ne peut pas recevoir de **nouvel** assemblage
+  (ADR 0026). Une pièce tournée hors d'équerre ne peut pas recevoir de **nouvel** assemblage
   avant #114 : le refus existant (« Les deux pièces doivent être d'équerre ») reste.
 - Ensembles (Q5 ★) : un membre dont le `Placement` est piloté ne tourne pas (champs grisés, pas
   d'anneau), comme les boutons aujourd'hui. Le suivi d'un membre en biais par translation est
@@ -158,8 +162,8 @@ fois au relâchement. Les guides d'aimantation de position ne servent pas : seul
 
 ### 4.6 Sécurité
 
-Angles bornés et finis avant écriture (A3) ; rayon d'anneau borné (pièce démesurée : rayon plafonné
-à 10 m) ; aucune lecture de fichier, aucune évaluation de texte.
+Angles finis (A3) et compris entre −360° et 360° avant écriture (`rotate_to`) ; rayon d'anneau
+borné (pièce démesurée : rayon plafonné à 10 m) ; aucune lecture de fichier, aucune évaluation de texte.
 
 ### 4.7 Compatibilité avec les autres ateliers (ADR 0007)
 
@@ -193,9 +197,8 @@ l'atelier (seul `Placement` change).
   que les champs ne sautent pas.
 - Anneaux et flèches se gênent sur une petite pièce : rayon d'au moins 20 mm, flèches dessinées
   par-dessus, priorité au survol à la flèche.
-- **Numéro d'ADR** : `main` a déjà une ADR 0024 (assemblages en biais) et #111 en apporte une
-  autre (assemblage défait par un déplacement). La renumérotation de celle de #111 (en 0026 par
-  exemple) est à faire avant sa fusion ; cette spécification prend 0025.
+- **Numéro d'ADR** : `main` a déjà une ADR 0024 (assemblages en biais) ; celle de #111 (assemblage
+  défait par un déplacement) est l'ADR 0026, et cette spécification prend 0025.
 
 ## 8. Hors périmètre
 
@@ -205,6 +208,8 @@ l'atelier (seul `Placement` change).
 - Rotation d'un membre d'ensemble (après #114).
 
 ## 9. Questions pour jv
+
+Q2 à Q6 : choix ★ validés par jv le 2026-10-29 (« c'est ok »).
 
 - Q1 Angles autorisés : **angle libre** (jv, 2026-10-28).
 - Q2 Axes des champs et des anneaux : ★ **ceux du document**, comme les boutons actuels ; sinon

@@ -1,12 +1,14 @@
 # ADR 0025 — Rotation libre d'une pièce : angles du `Placement` et anneaux de la session de glissement
 
-- Statut : **proposé** (issue #117 ; Q1 tranchée par jv le 2026-10-28 : angle libre)
+- Statut : **accepté** (issue #117 ; Q1 tranchée par jv le 2026-10-28 : angle libre ; Q2 à Q6
+  validées par jv le 2026-10-29 : « c'est ok »)
 - Date : 2026-10-28
 - Spécification : [docs/specs/rotation-d-une-piece.md](../specs/rotation-d-une-piece.md)
 - ADR liés : [0007 — Compatibilité avec les autres ateliers](0007-compatibilite-avec-les-autres-ateliers.md),
   [0011 — Aperçu, accrochage et nom](0011-apercu-accrochage-et-nom.md),
   [0021 — Déplacement à la souris](0021-deplacement-a-la-souris-avec-aimantation.md),
-  [0024 — Assemblages entre pièces en biais](0024-assemblages-entre-pieces-en-biais.md)
+  [0024 — Assemblages entre pièces en biais](0024-assemblages-entre-pieces-en-biais.md),
+  [0026 — Assemblage défait par un déplacement](0026-assemblage-defait-par-un-deplacement.md)
 
 ## Contexte
 
@@ -33,13 +35,14 @@ mécanisme du geste dans la vue.
 2. **`SoRotateDiscDragger` de Coin** : le geste est fourni, mais sa saisie dépend du style de
    navigation et il faut corriger sa valeur à chaque mouvement. Rejetée.
 3. **État `Rotating` de la session de l'atelier** (ADR 0021) : même filtre d'évènements, même
-   Memento, même transaction, même fenêtre d'ADR 0024 ; anneaux dessinés par l'incrustation
+   Memento, même transaction, même fenêtre d'ADR 0026 ; anneaux dessinés par l'incrustation
    existante ; géométrie pure dans `core/rotation/`. Retenue.
 
 ## Décision
 
 1. Les champs du panneau sont les trois angles du `Placement` (convention `getYawPitchRoll`),
-   en degrés au dixième, de −180 à 180 ; à ±90° de tangage, X vaut 0 et Z porte tout.
+   en degrés au dixième, de −180 à 180 (Y, le tangage, de −90 à 90) ; à ±90° de tangage, X vaut 0
+   et Z porte tout.
 2. Toute rotation (champ, anneau, quart de tour) se fait autour du centre de la brute.
 3. Un anneau tourne à partir de l'orientation courante, autour d'un axe fixe du document,
    aimanté tous les 15° (libre avec Maj) ; c'est un état de la session de glissement, qui ne
