@@ -69,6 +69,7 @@ __all__ = [
     "end_drag",
     "move_part",
     "raw_part",
+    "recompute_blank",
     "resize_part",
     "restore",
     "write_placement",
@@ -235,6 +236,13 @@ def _recompute_machined(raw: DocumentObject) -> None:
         except ValueError:
             return
     machined.recompute()
+
+
+def recompute_blank(raw: DocumentObject) -> None:
+    """Aperçu de la seule brute ``raw`` (et de sa pièce usinée) pendant un geste, sans recalcul du
+    document : ce que font la poignée de taille et le champ d'angle du panneau (RO-c)."""
+    raw.recompute()
+    _recompute_machined(raw)
 
 
 def _shifted(memento: DragMemento, shift: Vec3) -> App.Placement:
