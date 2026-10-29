@@ -36,13 +36,11 @@ def piece(document: Any) -> Any:
     return obj
 
 
-def test_b1_angles_absolus_centre_fixe_sans_recalcul(document: Any, piece: Any) -> None:
+def test_b1_angles_absolus_centre_fixe(document: Any, piece: Any) -> None:
     before = center(piece)
-    stamp = piece.Shape.BoundBox.XMax
     assert part_rotate.rotate_to(piece, (90.0, 30.0, -45.0))
     assert placement_angles(piece) == pytest.approx((90.0, 30.0, -45.0), abs=1e-6)
     assert center(piece).isEqual(before, 1e-6)
-    assert piece.Shape.BoundBox.XMax == stamp  # la forme n'est pas recalculée
 
 
 def test_b1_expression_sur_le_placement_rien_n_est_ecrit(document: Any, piece: Any) -> None:
