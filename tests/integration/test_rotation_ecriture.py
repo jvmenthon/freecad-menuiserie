@@ -101,3 +101,51 @@ def test_b5_dans_un_conteneur_les_angles_sont_ceux_du_placement_local(
     assert part_rotate.rotate_to(piece, (0.0, 0.0, 20.0))
     assert placement_angles(piece) == pytest.approx((0.0, 0.0, 20.0), abs=1e-6)  # local
     assert center(piece).isEqual(before, 1e-6)
+
+
+def test_b2_piece_en_bois_tourne_par_son_placement_sans_toucher_sa_source(document: Any) -> None:
+    from tests.integration.test_piece_en_bois import box, part_of
+
+    source = box(document, (300.0, 120.0, 40.0), "Boite")
+    shaped = part_of(source)
+    source_placement = App.Placement(source.Placement)
+    before = center(shaped)
+    assert part_rotate.rotate_to(shaped, (0.0, 0.0, 30.0))
+    document.recompute()
+    assert placement_angles(shaped) == pytest.approx((0.0, 0.0, 30.0), abs=1e-6)
+    assert center(shaped).isEqual(before, 1e-6)
+    assert source.Placement.isSame(source_placement, 1e-9)
+    assert stale_or_invalid(document) == []
+    # le geste à la souris passe par le même chemin
+    memento = part_drag.begin_drag(shaped)
+    assert part_rotate.rotate_by(memento, 2, 15.0)
+    assert source.Placement.isSame(source_placement, 1e-9)
+    part_drag.restore(memento)
+    assert placement_angles(shaped) == pytest.approx((0.0, 0.0, 30.0), abs=1e-6)
+
+
+def test_saisie_d_angle_puis_quart_de_tour(document: Any, piece: Any) -> None:
+    """Un angle saisi, puis un bouton de quart de tour : le quart de tour part de l'angle saisi,
+    autour de l'axe fixe, et le centre ne bouge pas."""
+    from freecad.menuiserie.core.snap import Turn
+    from freecad.menuiserie.features.placement import rotate_part
+
+    before = center(piece)
+    assert part_rotate.rotate_to(piece, (0.0, 0.0, 30.0))
+    assert rotate_part(piece, Turn.X)
+    expected = App.Rotation(App.Vector(1, 0, 0), 90).multiply(App.Rotation(App.Vector(0, 0, 1), 30))
+    assert piece.Placement.Rotation.isSame(expected, 1e-9)
+    assert center(piece).isEqual(before, 1e-6)
+
+
+def test_le_centre_ne_derive_pas_apres_beaucoup_de_quarts_de_tour(
+    document: Any, piece: Any
+) -> None:
+    from freecad.menuiserie.core.snap import Turn
+    from freecad.menuiserie.features.placement import rotate_part
+
+    part_rotate.rotate_to(piece, (10.0, 20.0, 30.0))
+    before = center(piece)
+    for i in range(1000):
+        assert rotate_part(piece, (Turn.X, Turn.Y, Turn.Z)[i % 3])
+    assert center(piece).isEqual(before, 1e-6)

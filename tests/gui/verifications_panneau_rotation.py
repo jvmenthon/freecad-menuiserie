@@ -125,8 +125,9 @@ def nomme(layouts: Iterable[Any]) -> list[str]:
 
 
 def verifier_champs_d_angle() -> list[str]:
-    """C1, C6 : trois champs en degrés de -180 à 180, étiquettes « Autour de X/Y/Z » sous les
-    boutons de quart de tour, valeurs relues dans le ``Placement`` (ici 15° autour de Z)."""
+    """C1, C6 : trois champs en degrés (-180 à 180, Y de -90 à 90 : le tangage), étiquettes
+    « Autour de X/Y/Z » sous les boutons de quart de tour, valeurs relues dans le ``Placement``
+    (ici 15° autour de Z)."""
 
     def verification(doc: Any) -> list[str]:
         piece = nouvelle_piece(doc, (0.0, 0.0, 15.0))
@@ -146,12 +147,12 @@ def verifier_champs_d_angle() -> list[str]:
             ),
             *proches("valeurs affichées", champs(form), (0.0, 0.0, 15.0)),
         ]
-        for nom in CHAMPS:
+        for nom, limite in zip(CHAMPS, (180.0, 90.0, 180.0), strict=True):
             champ = getattr(form, nom)
             problemes += proches(
                 f"{nom} bornes et pas",
                 [float(champ.property(p)) for p in ("minimum", "maximum", "singleStep")],
-                (-180.0, 180.0, 1.0),
+                (-limite, limite, 1.0),
             )
             decimales = champ.property("decimals")
             if decimales is not None:
@@ -219,9 +220,13 @@ def verifier_saisie_en_direct() -> list[str]:
 # --- C2 : fin de saisie et assemblages ---------------------------------------------------------
 
 
-def _fin_de_saisie_avec_assemblage(nom: str, supprimer: bool) -> list[str]:
+def _fin_de_saisie_avec_assemblage(
+    nom: str, supprimer: bool, par_glissement: bool = False
+) -> list[str]:
+    """Saisie d'angle qui défait le tenon, puis fin de saisie (``editingFinished``) ou, avec
+    ``par_glissement``, fin d'un glissement signalée au panneau (``after_drag``)."""
     with cadre(nom) as (doc, pieces):
-        preparer(doc)
+        session = preparer(doc)
         nom_assemblage = tenon_valide(doc, pieces).Name
         traverse = pieces["T1"]
         depart = angles_de(traverse)
@@ -237,7 +242,10 @@ def _fin_de_saisie_avec_assemblage(nom: str, supprimer: bool) -> list[str]:
         try:
             saisir_angle(form, "angleZEdit", depart[2] + 30.0)
             problemes = ecarts("pas de fenêtre pendant la saisie", questions, [])
-            fin_de_saisie(form, "angleZEdit")
+            if par_glissement:
+                session.panel.refresh()
+            else:
+                fin_de_saisie(form, "angleZEdit")
         finally:
             joint_choice.chooser = original
         problemes += ecarts("fenêtre ouverte une fois", len(questions), 1)
@@ -260,6 +268,12 @@ def verifier_fin_de_saisie_annulee() -> list[str]:
 def verifier_fin_de_saisie_supprimee() -> list[str]:
     """C2 : « Supprimer l'assemblage » garde l'angle saisi et retire l'assemblage."""
     return _fin_de_saisie_avec_assemblage("VerifAnglesSupprime", supprimer=True)
+
+
+def verifier_glissement_pendant_une_saisie() -> list[str]:
+    """Revue #117 : un glissement qui prend le relais d'une saisie d'angle en cours la contrôle
+    (fenêtre d'ADR 0026, « Annuler » remet l'angle d'avant) au lieu de l'abandonner."""
+    return _fin_de_saisie_avec_assemblage("VerifAnglesGlissement", False, par_glissement=True)
 
 
 # --- C3 : relecture des champs ----------------------------------------------------------------
@@ -362,6 +376,7 @@ VERIFICATIONS_PANNEAU_ROTATION: tuple[Callable[[], list[str]], ...] = (
     verifier_saisie_en_direct,
     verifier_fin_de_saisie_annulee,
     verifier_fin_de_saisie_supprimee,
+    verifier_glissement_pendant_une_saisie,
     verifier_champs_relus,
     verifier_position_pilotee_par_une_formule,
     verifier_position_pilotee_par_l_ensemble,

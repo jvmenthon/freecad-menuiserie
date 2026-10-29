@@ -214,7 +214,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Pièce déplacée ou étirée à la souris : cotes relues par les champs ; l'accrochage de la
         création ne la repose plus (il la ramènerait là où elle a été posée)."""
         self._session = None
-        self._angles.drop()  # le glissement prend le relais d'une saisie d'angle en cours
+        self._angles.finish()  # saisie d'angle en cours : contrôlée (ADR 0026), non abandonnée
         self._show_values()
 
     def _on_angle_edit(self) -> None:

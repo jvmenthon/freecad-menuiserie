@@ -416,7 +416,7 @@
         <item row="1" column="0">
          <widget class="QLabel" name="angleYLabel">
           <property name="toolTip">
-           <string>Angle de la pièce autour de l'axe Y du document, de -180 à 180 degrés.</string>
+           <string>Angle de la pièce autour de l'axe Y du document, de -90 à 90 degrés.</string>
           </property>
           <property name="text">
            <string>Autour de Y</string>
@@ -429,7 +429,7 @@
         <item row="1" column="1">
          <widget class="Gui::QuantitySpinBox" name="angleYEdit">
           <property name="toolTip">
-           <string>Angle de la pièce autour de l'axe Y du document, de -180 à 180 degrés. La pièce tourne autour de son centre et la vue 3D suit votre saisie.</string>
+           <string>Angle de la pièce autour de l'axe Y du document, de -90 à 90 degrés. La pièce tourne autour de son centre et la vue 3D suit votre saisie.</string>
           </property>
           <property name="unit" stdset="0">
            <string notr="true">deg</string>

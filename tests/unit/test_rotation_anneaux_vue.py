@@ -7,6 +7,7 @@ tours, texte de l'angle, secteur parcouru et dessin."""
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import replace
 
 import pytest
@@ -26,6 +27,7 @@ from freecad.menuiserie.gui.drag.geometry import (
     build_layout,
 )
 from freecad.menuiserie.gui.drag.rings import (
+    RING_PX,
     RING_SEGMENTS,
     Sweep,
     advance,
@@ -37,6 +39,7 @@ from freecad.menuiserie.gui.drag.rings import (
     ring_key,
     ring_ray,
     ring_under,
+    screen_distance,
     sector,
 )
 
@@ -142,13 +145,61 @@ def test_base_du_plan_directe(normal: Vec3) -> None:
 # --- Anneau sous la souris ----------------------------------------------------------------
 
 
+def top_view(scale: float = 1.0) -> Callable[[Vec3], tuple[float, float]]:
+    """Projection orthogonale vue de dessus : ``scale`` pixels par mm."""
+    return lambda v: (v.x * scale, -v.y * scale)
+
+
+def top_ray(pixel: tuple[float, float], scale: float = 1.0) -> Ray:
+    """Rayon vertical de la caméra de ``top_view`` au pixel ``pixel``."""
+    return Ray(Vec3(pixel[0] / scale, -pixel[1] / scale, 500), Vec3(0, 0, -1))
+
+
+def under(rings: tuple[Ring, ...], pixel: tuple[float, float], scale: float = 1.0) -> str | None:
+    return ring_under(rings, top_ray(pixel, scale), top_view(scale), pixel)
+
+
 def test_anneau_touche_vu_de_dessus() -> None:
     rings = build_rings(BOX, IDENTITY, IDENTITY)
     radius = rings[2].radius
-    on_ring = Ray(Vec3(400 + radius, 100, 500), Vec3(0, 0, -1))
-    assert ring_under(rings, on_ring, 5.0) == ring_key(2)
-    assert ring_under(rings, Ray(Vec3(400, 100, 500), Vec3(0, 0, -1)), 5.0) is None
-    assert ring_under(rings, Ray(Vec3(400 + radius + 30, 100, 500), Vec3(0, 0, -1)), 5.0) is None
+    assert under(rings, (400 + radius, -100)) == ring_key(2)
+    assert under(rings, (400 + radius + 5, -100)) == ring_key(2)  # dans les 8 pixels
+    assert under(rings, (400, -100)) is None  # le centre n'est pas l'anneau
+    assert under(rings, (400 + radius + 30, -100)) is None
+
+
+def test_clic_au_centre_dezoome_ne_lance_pas_de_rotation() -> None:
+    """Revue #117 : dézoomé, la pièce tient dans quelques pixels ; ni son centre ni ses abords ne
+    proposent un anneau (la tolérance de 8 pixels, convertie en mm, couvrait tout l'anneau)."""
+    rings = build_rings(Box.from_ranges([(0, 100), (0, 60), (0, 20)]), IDENTITY, IDENTITY)
+    scale = 0.05  # l'anneau Z (rayon 67 mm) mesure 3 pixels à l'écran
+    center = top_view(scale)(rings[2].center)
+    for dx in range(-12, 13, 3):
+        for dy in range(-12, 13, 3):
+            assert under(rings, (center[0] + dx, center[1] + dy), scale) is None
+
+
+def test_petit_anneau_propose_des_que_son_rayon_depasse_deux_fois_la_tolerance() -> None:
+    rings = build_rings(BOX, IDENTITY, IDENTITY)
+    radius = rings[2].radius
+    just_enough = (2 * RING_PX + 1) / radius
+    too_small = (2 * RING_PX - 1) / radius
+    for scale, expected in ((just_enough, ring_key(2)), (too_small, None)):
+        center = top_view(scale)(rings[2].center)
+        assert under(rings, (center[0] + radius * scale, center[1]), scale) == expected
+
+
+def test_distance_a_l_ellipse_vue_de_biais() -> None:
+    """Vu de biais (80° d'inclinaison), la bande reste large de 8 pixels, mesurés à l'écran."""
+    ring = ring_z()
+    tilt = math.radians(80)
+    project = lambda v: (v.x, v.y * math.cos(tilt) + v.z * math.sin(tilt))  # noqa: E731
+    flat = ring.radius * math.cos(tilt)  # demi-petit axe, environ 0,17 rayon
+    center = project(ring.center)
+    inside = screen_distance(ring, project, (center[0], center[1] + flat - 4))
+    outside = screen_distance(ring, project, (center[0], center[1] + flat + 20))
+    assert inside is not None and inside == pytest.approx(4, abs=0.5)
+    assert outside is not None and outside == pytest.approx(20, abs=0.5)
 
 
 def test_anneau_vu_par_la_tranche_n_est_pas_propose() -> None:
@@ -156,8 +207,7 @@ def test_anneau_vu_par_la_tranche_n_est_pas_propose() -> None:
     rings = build_rings(BOX, IDENTITY, IDENTITY)
     for x in range(-600, 1400, 25):
         for y in range(-500, 700, 25):
-            key = ring_under(rings[:2], Ray(Vec3(x, y, 500), Vec3(0, 0, -1)), 12.0)
-            assert key is None
+            assert under(rings[:2], (x, y)) is None
 
 
 def test_camera_orthogonale_origine_au_dela_de_l_anneau() -> None:
@@ -165,7 +215,8 @@ def test_camera_orthogonale_origine_au_dela_de_l_anneau() -> None:
     ce plan reste saisissable (``ring_ray`` recule l'origine)."""
     ring = ring_z()
     behind = Ray(Vec3(400 + ring.radius, 100, -300), Vec3(0, 0, -1))  # plan de l'anneau derrière
-    assert ring_under((ring,), behind, 5.0) == ring_key(2)
+    pixel = top_view()(Vec3(400 + ring.radius, 100, 0))
+    assert ring_under((ring,), behind, top_view(), pixel) == ring_key(2)
     moved = ring_ray(behind, ring)
     assert moved.direction == behind.direction
     assert moved.origin.z > ring.center.z
@@ -176,7 +227,8 @@ def test_camera_en_perspective() -> None:
     camera = Vec3(400, 100, 1500)
     target = Vec3(400 + ring.radius, 100, 11)
     ray = Ray(camera, Vec3(target.x - camera.x, target.y - camera.y, target.z - camera.z))
-    assert ring_under((ring,), ray, 5.0) == ring_key(2)
+    pixel = top_view()(target)
+    assert ring_under((ring,), ray, top_view(), pixel) == ring_key(2)
 
 
 # --- Angle cumulé -------------------------------------------------------------------------

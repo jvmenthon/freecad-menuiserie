@@ -21,11 +21,14 @@ mises de côté par ``begin_drag`` ; le mémento les retient (``aside``) et elle
 from __future__ import annotations
 
 import math
+from typing import Final
 
 from freecad.menuiserie.core.geometry import RigidTransform, Vec3
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.rotation import Angles, matrix_of, turned_about
 from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.part_drag import (
     DragMemento,
     end_drag,
@@ -36,7 +39,12 @@ from freecad.menuiserie.features.placement import to_placement
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
-__all__ = ["end_rotation", "rotate_by", "rotate_to"]
+__all__ = ["MAX_ANGLE_DEGREES", "end_rotation", "rotate_by", "rotate_to"]
+
+MAX_ANGLE_DEGREES: Final = 360.0  # borne des angles écrits (spécification § 4.6)
+_OUT_OF_RANGE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Les angles doivent être compris entre -360 et 360 degrés"
+)
 
 
 def _driven(raw: DocumentObject, aside: dict[str, str] | None = None) -> bool:
@@ -52,14 +60,17 @@ def _center(raw: DocumentObject) -> Vec3:
     return Vec3(size.length / 2, size.width / 2, size.thickness / 2)
 
 
-def rotate_to(obj: DocumentObject, angles: Angles) -> bool:
+def rotate_to(obj: DocumentObject, angles: Angles, aside: dict[str, str] | None = None) -> bool:
     """Donne à la brute de ``obj`` les angles absolus ``angles`` (X, Y, Z du ``Placement``,
     degrés), le centre de la brute restant fixe (B1, B2, B5). Sans recalcul du document. Faux,
-    sans rien écrire, si une expression pilote le ``Placement``. ``ValueError`` si un angle n'est
-    pas fini."""
+    sans rien écrire, si une expression pilote le ``Placement`` ou le pilotait avant qu'un geste
+    ne la mette de côté (``aside``, comme :func:`rotate_by`). ``ValueError`` si un angle n'est
+    pas fini ou sort de [-360, 360] (spécification § 4.6)."""
     raw = raw_part(obj)
     rotation = matrix_of(angles)  # refuse les angles non finis avant toute écriture
-    if _driven(raw):
+    if any(abs(angle) > MAX_ANGLE_DEGREES for angle in angles):
+        raise ValueError(translated(_OUT_OF_RANGE))
+    if _driven(raw, aside):
         return False
     start = rigid_transform(raw.Placement)
     center = _center(raw)

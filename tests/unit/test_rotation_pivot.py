@@ -107,3 +107,26 @@ def test_valeurs_non_finies_refusees(bad: float, free: bool) -> None:
 def test_pas_invalide_refuse(step: float) -> None:
     with pytest.raises(ValueError, match="step"):
         snapped_angle(10.0, step=step)
+
+
+@pytest.mark.parametrize(
+    ("angle", "step", "free"),
+    [(1e308, 15.0, True), (-1e308, 15.0, True), (10.0, 1e-320, False), (1e308, 1e-320, False)],
+)
+def test_quotient_qui_deborde_est_une_valeur_refusee(angle: float, step: float, free: bool) -> None:
+    """A3 : angle/pas infini (ni ``OverflowError`` ni angle non fini écrit) : ``ValueError``."""
+    with pytest.raises(ValueError, match="angle"):
+        snapped_angle(angle, step=step, free=free)
+
+
+def test_derive_du_centre_apres_beaucoup_de_quarts_de_tour() -> None:
+    """A2 : 10 000 quarts de tour consécutifs autour d'axes tournants ne font pas dériver le
+    centre (la rotation reste orthonormée à 1e-9 près)."""
+    size = Dimensions(800.0, 200.0, 22.0)
+    center = Vec3(400.0, 100.0, 11.0)
+    transform = RigidTransform(matrix_of((10.0, 20.0, 30.0)), Vec3(100.0, 50.0, 0.0))
+    before = transform.apply(center)
+    for i in range(10_000):
+        transform = turned_about(transform, size, i % 3, 90.0)
+    after = transform.apply(center)
+    assert (after.x, after.y, after.z) == pytest.approx((before.x, before.y, before.z), abs=1e-9)

@@ -171,3 +171,29 @@ def test_b4_la_fin_de_rotation_est_celle_du_glissement(
     start, choose = memento(), object()
     assert rotate.end_rotation(start, choose) == ["message"]
     assert seen == [(start, choose)]
+
+
+@pytest.mark.parametrize("angles", [(361.0, 0.0, 0.0), (0.0, -360.5, 0.0), (0.0, 0.0, 1e9)])
+def test_rotate_to_refuse_un_angle_hors_de_360_sans_ecrire(
+    rotate: ModuleType, writes: Writes, angles: tuple[float, float, float]
+) -> None:
+    """Spécification § 4.6 : angles bornés avant écriture."""
+    with pytest.raises(ValueError, match="360"):
+        rotate.rotate_to(part(), angles)
+    assert writes.calls == []
+
+
+@pytest.mark.parametrize("angles", [(360.0, 0.0, 0.0), (0.0, -360.0, 360.0)])
+def test_rotate_to_accepte_les_bornes(
+    rotate: ModuleType, writes: Writes, angles: tuple[float, float, float]
+) -> None:
+    assert rotate.rotate_to(part(), angles) is True
+
+
+def test_rotate_to_compte_les_liaisons_mises_de_cote(rotate: ModuleType, writes: Writes) -> None:
+    """Comme ``rotate_by`` : une liaison de l'atelier sur le ``Placement`` mise de côté par
+    ``begin_drag`` interdit encore la rotation."""
+    aside = {"Placement.Base.x": "Bureau.Placement.Base.x"}
+    assert rotate.rotate_to(part(), (0.0, 0.0, 45.0), aside) is False
+    assert writes.calls == []
+    assert rotate.rotate_to(part(), (0.0, 0.0, 45.0), {"Length": "Bureau.Length"}) is True
