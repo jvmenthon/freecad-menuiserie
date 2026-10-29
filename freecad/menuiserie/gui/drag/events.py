@@ -4,7 +4,8 @@
 Comme le double-clic (ADR 0018), le filtre est posé sur l'application **tant que l'atelier est
 actif** (ADR 0007) puis retiré, avec l'observateur de sélection qui dessine ou enlève les flèches.
 Le filtre ne consomme que le clic gauche enfoncé sur une flèche ou une poignée (testé en pixels
-par ``handle_at``) et, pendant le glissement, les mouvements, le relâchement et Échap : tout le
+par ``handle_at``) ou sur un anneau de rotation (testé par le rayon de la souris, ``ring_hit``) et,
+pendant le glissement ou la rotation, les mouvements, le relâchement et Échap : tout le
 reste, molette, autres boutons, clic ailleurs, est rendu à FreeCAD sans y toucher.
 """
 
