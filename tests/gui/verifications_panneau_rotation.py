@@ -109,11 +109,11 @@ def apercus_comptes() -> Iterator[list[int]]:
         compteur[0] += 1
         original(brute)
 
-    angle_rows.recompute_blank = compter  # type: ignore[assignment]
+    angle_rows.recompute_blank = compter
     try:
         yield compteur
     finally:
-        angle_rows.recompute_blank = original  # type: ignore[assignment]
+        angle_rows.recompute_blank = original
 
 
 def nomme(layouts: Iterable[Any]) -> list[str]:
