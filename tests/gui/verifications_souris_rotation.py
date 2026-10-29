@@ -21,6 +21,7 @@ import FreeCADGui as Gui
 from PySide import QtCore
 
 from freecad.menuiserie import api
+from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.rotation import plane_point
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.drag import events
@@ -152,7 +153,7 @@ def _anneaux_et_survol(doc: Any) -> list[str]:
         problemes.append(
             f"DIAG axe {axe} rayon {_r.radius} centre {_c} pixel {_px} "
             f"dist {_rings.screen_distance(_r, session.port.project, _px)} "
-            f"bord {session.port.project(_r.center.__class__(_r.center.x + _r.radius, _r.center.y, _r.center.z))}"
+            f"bord {session.port.project(Vec3(_r.center.x + _r.radius, _r.center.y, _r.center.z))}"
         )
         session.move(_px)
         etat = type(session.state).__name__, session.state.key
