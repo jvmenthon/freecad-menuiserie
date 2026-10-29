@@ -143,8 +143,18 @@ def _anneaux_et_survol(doc: Any) -> list[str]:
         *ecarts("un seul nœud d'incrustation", noeuds_incrustes(), 1),
         *ecarts("incrustation dessinée", session.overlay.shows(), True),
     ]
+    from freecad.menuiserie.gui.drag import rings as _rings
+
     for axe in range(3):
-        session.move(viser_anneau(session, axe, DEPART))
+        _r = anneau(session, axe)
+        _px = viser_anneau(session, axe, DEPART)
+        _c = session.port.project(_r.center)
+        problemes.append(
+            f"DIAG axe {axe} rayon {_r.radius} centre {_c} pixel {_px} "
+            f"dist {_rings.screen_distance(_r, session.port.project, _px)} "
+            f"bord {session.port.project(_r.center.__class__(_r.center.x + _r.radius, _r.center.y, _r.center.z))}"
+        )
+        session.move(_px)
         etat = type(session.state).__name__, session.state.key
         problemes += ecarts(f"survol de l'anneau {axe}", etat, ("Hover", f"ring{axe}"))
     session.move((5, 5))

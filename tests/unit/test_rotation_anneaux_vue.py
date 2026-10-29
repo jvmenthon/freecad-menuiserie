@@ -193,7 +193,10 @@ def test_distance_a_l_ellipse_vue_de_biais() -> None:
     """Vu de biais (80° d'inclinaison), la bande reste large de 8 pixels, mesurés à l'écran."""
     ring = ring_z()
     tilt = math.radians(80)
-    project = lambda v: (v.x, v.y * math.cos(tilt) + v.z * math.sin(tilt))  # noqa: E731
+
+    def project(v: Vec3) -> tuple[float, float]:
+        return (v.x, v.y * math.cos(tilt) + v.z * math.sin(tilt))
+
     flat = ring.radius * math.cos(tilt)  # demi-petit axe, environ 0,17 rayon
     center = project(ring.center)
     inside = screen_distance(ring, project, (center[0], center[1] + flat - 4))
