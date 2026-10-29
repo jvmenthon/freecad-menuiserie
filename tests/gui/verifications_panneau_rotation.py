@@ -12,7 +12,8 @@ l'émission du signal ``editingFinished``, la fenêtre de choix des assemblages 
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import FreeCAD as App
@@ -20,7 +21,7 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.gui import joint_choice
-from freecad.menuiserie.gui.task_panels import wood_part
+from freecad.menuiserie.gui.task_panels import angle_rows, wood_part
 from tests.gui.aides_panneau import ecritures
 from tests.gui.verifications_apercu import cliquer
 from tests.gui.verifications_assemblages import cadre
@@ -96,6 +97,23 @@ def nouvelle_piece(doc: Any, angles: Angles = (0.0, 0.0, 0.0)) -> Any:
     piece.Placement = App.Placement(App.Vector(100, 50, 0), App.Rotation(z, y, x))
     doc.recompute()
     return piece
+
+
+@contextmanager
+def apercus_comptes() -> Iterator[list[int]]:
+    """Compteur des aperçus de la brute (recalculs par ``recompute_blank``) pendant le bloc."""
+    compteur = [0]
+    original = angle_rows.recompute_blank
+
+    def compter(brute: Any) -> None:
+        compteur[0] += 1
+        original(brute)
+
+    angle_rows.recompute_blank = compter  # type: ignore[assignment]
+    try:
+        yield compteur
+    finally:
+        angle_rows.recompute_blank = original  # type: ignore[assignment]
 
 
 def nomme(layouts: Iterable[Any]) -> list[str]:
@@ -174,7 +192,7 @@ def verifier_saisie_en_direct() -> list[str]:
                 ),
                 *ecarts("aucun contrôle avant la fin de saisie", questions, []),
             ]
-            with ecritures(piece) as proprietes:
+            with apercus_comptes() as apercus:
                 debut = time.monotonic()
                 for degres in range(1, 41):
                     saisir_angle(form, "angleYEdit", float(degres) / 2)
@@ -182,15 +200,14 @@ def verifier_saisie_en_direct() -> list[str]:
                 attente = time.monotonic()
                 while time.monotonic() - attente < 1.0:
                     QtGui.QApplication.processEvents()
-            apercus = proprietes.count("Shape")
-            problemes += ecarts("dernier angle écrit", round(angles_de(piece)[1], 6), 20.0)
+                        problemes += ecarts("dernier angle écrit", round(angles_de(piece)[1], 6), 20.0)
             problemes += proches(
                 "dernier angle montré",
                 piece.Shape.Placement.Rotation.getYawPitchRoll(),
                 piece.Placement.Rotation.getYawPitchRoll(),
             )
-            if not 1 <= apercus <= duree * 30 + 2:
-                problemes.append(f"cadence : {apercus} aperçus en {duree:.3f} s (30/s au plus)")
+            if not 1 <= apercus[0] <= duree * 30 + 2:
+                problemes.append(f"cadence : {apercus[0]} aperçus en {duree:.3f} s (30/s au plus)")
         finally:
             joint_choice.chooser = original
         return problemes
@@ -204,7 +221,7 @@ def verifier_saisie_en_direct() -> list[str]:
 def _fin_de_saisie_avec_assemblage(nom: str, supprimer: bool) -> list[str]:
     with cadre(nom) as (doc, pieces):
         preparer(doc)
-        joint = tenon_valide(doc, pieces)
+        nom_assemblage = tenon_valide(doc, pieces).Name
         traverse = pieces["T1"]
         depart = angles_de(traverse)
         wood_part.start_editing(traverse)
@@ -223,7 +240,7 @@ def _fin_de_saisie_avec_assemblage(nom: str, supprimer: bool) -> list[str]:
         finally:
             joint_choice.chooser = original
         problemes += ecarts("fenêtre ouverte une fois", len(questions), 1)
-        gardee = doc.getObject(joint.Name) is not None
+        gardee = doc.getObject(nom_assemblage) is not None
         attendu = (depart[0], depart[1], depart[2] + 30.0) if supprimer else depart
         return [
             *problemes,
