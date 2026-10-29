@@ -200,7 +200,7 @@ def verifier_saisie_en_direct() -> list[str]:
                 attente = time.monotonic()
                 while time.monotonic() - attente < 1.0:
                     QtGui.QApplication.processEvents()
-                        problemes += ecarts("dernier angle écrit", round(angles_de(piece)[1], 6), 20.0)
+            problemes += ecarts("dernier angle écrit", round(angles_de(piece)[1], 6), 20.0)
             problemes += proches(
                 "dernier angle montré",
                 piece.Shape.Placement.Rotation.getYawPitchRoll(),
