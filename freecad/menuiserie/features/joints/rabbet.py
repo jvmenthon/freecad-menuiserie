@@ -36,7 +36,8 @@ class RabbetJoint(JointFeature):
             "Feuillure",
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Feuillure filante : prolongée sur toute la longueur de la pièce qui la reçoit.",
+                "Feuillure filante : prolongée d'un bout à l'autre de la pièce qui la reçoit, dans "
+                "le sens où la pièce logée l'occupe.",
             ),
             default=_DEFAULTS.through,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Feuillure filante"),
@@ -48,7 +49,8 @@ class RabbetJoint(JointFeature):
             QT_TRANSLATE_NOOP(
                 "App::Property",
                 "Pièce logée posée au contact : profondeur de la feuillure, dont elle est "
-                "prolongée ; 0 = moitié de la pièce hôte.",
+                "prolongée ; 0 = moitié de l'épaisseur de la pièce hôte (épaisseur de la pièce "
+                "logée contre un chant ou un bout).",
             ),
             default=_DEFAULTS.depth,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Profondeur (pièces au contact)"),

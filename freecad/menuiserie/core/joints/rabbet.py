@@ -38,8 +38,10 @@ TOO_DEEP: Final = QT_TRANSLATE_NOOP(
 
 @dataclass(frozen=True)
 class RabbetParams:
-    """Paramètres de la feuillure : filante (toute la longueur de l'hôte) par défaut ;
-    ``depth`` (mm) ne sert qu'aux pièces posées au contact, 0 = moitié de l'hôte traversé."""
+    """Paramètres de la feuillure : filante (d'un bout à l'autre de l'hôte, dans le sens où la
+    pièce logée l'occupe, ADR 0027) par défaut ; ``depth`` (mm) ne sert qu'aux pièces posées
+    au contact, 0 = moitié de l'épaisseur de l'hôte (épaisseur de la pièce logée contre un
+    chant ou un bout)."""
 
     through: bool = flag_param(True)
     depth: float = length_param(0.0)
@@ -58,12 +60,14 @@ class RabbetValues:
 
     @property
     def length(self) -> float:
-        """Longueur de la feuillure (axe X de l'hôte)."""
-        return self.cut.size(0)
+        """Longueur de la feuillure : la plus grande de ses étendues sur les axes X et Y de
+        l'hôte (axe où elle file)."""
+        return self.cut.size(_run_axis(self.cut))
 
 
 class RabbetStrategy:
-    """Enlèvement = boîte commune aux deux pièces, prolongée si la feuillure est filante."""
+    """Enlèvement = boîte commune aux deux pièces, prolongée d'un bout à l'autre de l'hôte, dans
+    le sens où la pièce logée l'occupe, si la feuillure est filante (ADR 0027)."""
 
     kind: ClassVar[JointKind] = JointKind.RABBET
 
@@ -82,23 +86,34 @@ class RabbetStrategy:
     def _resolve(host: PlacedBlock, bridge: Bridge, params: RabbetParams) -> RabbetValues:
         cut = require_overlap(host, bridge.guest).common
         if params.through:
-            cut = cut.with_range(0, 0.0, host.dimensions.length)
+            axis = _run_axis(cut)
+            cut = cut.with_range(axis, host.local_box().lo(axis), host.local_box().hi(axis))
         if _splits(cut, host.local_box()):
             raise JointError(NO_MATERIAL_LEFT, {})
         return RabbetValues(cut, bridge.extension)
 
 
+def _run_axis(cut: Box) -> int:
+    """Axe de l'hôte où file la feuillure : X ou Y, celui où la pièce logée occupe le plus de
+    longueur dans l'hôte (X à égalité). Un logement d'étagère en travers d'une joue file
+    ainsi sur sa largeur, un fond le long de la joue (ADR 0027)."""
+    return 0 if cut.size(0) >= cut.size(1) else 1
+
+
 def _bridge(host: PlacedBlock, guest: PlacedBlock, params: RabbetParams) -> Bridge:
-    """Pièce logée prolongée de ``depth`` (moitié de l'hôte traversé par défaut) quand elle
-    est posée au contact ; ``JointError`` si la feuillure traverserait l'hôte."""
+    """Pièce logée prolongée de ``depth`` quand elle est posée au contact ; ``JointError`` si
+    la feuillure traverserait l'hôte. Par défaut : moitié de l'épaisseur de l'hôte contre sa
+    face, épaisseur de la pièce logée contre un chant ou un bout (ADR 0027)."""
 
     def extension(contact: Contact) -> float:
-        depth = params.depth or mm_round(contact.host_depth / 2)
+        default = contact.host_depth / 2 if contact.host_face.index == 2 else guest_thickness
+        depth = params.depth or mm_round(default)
         if depth >= contact.host_depth:
             values = {"depth": mm_text(depth), "available": mm_text(contact.host_depth)}
             raise JointError(TOO_DEEP, values)
         return depth
 
+    guest_thickness = guest.dimensions.thickness
     return bridged(host, guest, extension)
 
 
