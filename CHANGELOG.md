@@ -18,6 +18,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   couleur, zone de saisie et comportement inchangés.
 
 ### Ajouté
+- Rotation libre d'une pièce, lot RO-a ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères A1 à A5) : paquet pur `core/rotation/` (angles X, Y, Z du `Placement`, rotation autour
+  d'un axe fixe du document par le centre de la brute, aimantation de l'angle à 15° ou au dixième,
+  anneaux de rotation et angle parcouru), sans FreeCAD ni Qt ; rien n'est encore visible dans
+  l'interface (lots RO-b à RO-d).
 - Pièce en bois dans un ensemble, lot PD-f ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
   décision 8 ; critères F1 à F4) : `make_furniture`, `add_to_furniture` et toute l'API des
   ensembles acceptent une pièce en bois ; elle suit l'ensemble par son `Placement` (expressions
