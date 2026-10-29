@@ -50,7 +50,7 @@ def ring_of(box: Box, rotation: RigidTransform, axis: int) -> Ring:
     return Ring(rotation.apply(local), normal, radius, axis)
 
 
-def _plane_point(ray: Ray, ring: Ring) -> Vec3 | None:
+def plane_point(ray: Ray, ring: Ring) -> Vec3 | None:
     """Point où le rayon coupe le plan de l'anneau ; ``None`` si le rayon rase ce plan (moins
     de 5°) ou si le plan est derrière l'origine."""
     slope = dot(ray.direction, ring.normal)
@@ -71,7 +71,7 @@ def ring_hit(ray: Ray, ring: Ring, tolerance: float) -> bool:
     """
     if not math.isfinite(tolerance) or tolerance < 0:
         raise ValueError("ring_hit.tolerance : tolérance finie positive attendue")
-    point = _plane_point(ray, ring)
+    point = plane_point(ray, ring)
     if point is None:
         return False
     return abs(norm(sub(point, ring.center)) - ring.radius) <= tolerance
@@ -83,8 +83,8 @@ def ring_angle(ray: Ray, ring: Ring, start: Ray) -> float | None:
 
     ``None`` si l'un des deux rayons est à moins de 5° du plan, ou passe par le centre.
     """
-    first = _plane_point(start, ring)
-    last = _plane_point(ray, ring)
+    first = plane_point(start, ring)
+    last = plane_point(ray, ring)
     if first is None or last is None:
         return None
     u = sub(first, ring.center)

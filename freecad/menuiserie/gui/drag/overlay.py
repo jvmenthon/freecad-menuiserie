@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Incrustation Coin des flèches, poignées et guides aimantés (SM-c, ADR 0021).
+"""Incrustation Coin des flèches, poignées, anneaux de rotation et guides aimantés (SM-c, ADR 0021,
+RO-d, ADR 0025).
 
 Un seul nœud (``SoAnnotation`` nommé :data:`NODE_NAME`) est posé sur la racine de la vue puis
 retiré ; rien n'est écrit dans le document. Il est invisible pour la sélection de FreeCAD
@@ -12,11 +13,12 @@ from typing import Any, Final
 
 from pivy import coin
 
-from freecad.menuiserie.gui.drag.geometry import Dots, Drawing, Solid, Stroke
+from freecad.menuiserie.gui.drag.geometry import Dots, Drawing, Label, Solid, Stroke
 
 __all__ = ["NODE_NAME", "Overlay"]
 
 NODE_NAME: Final = "MenuiserieDrag"
+LABEL_PX: Final = 18  # taille du texte de l'angle
 SoNode = Any
 
 
@@ -51,14 +53,37 @@ def _dots_node(dots: Dots) -> SoNode:
 
 def _solid_node(solid: Solid) -> SoNode:
     node = coin.SoSeparator()
-    color = coin.SoBaseColor()
-    color.rgb.setValue(*solid.color)
+    if solid.transparency > 0:  # secteur d'un anneau : fondu avec la scène
+        kind = coin.SoTransparencyType()
+        kind.value = coin.SoTransparencyType.BLEND
+        color = coin.SoMaterial()
+        color.diffuseColor.setValue(*solid.color)
+        color.transparency.setValue(solid.transparency)
+        node.addChild(kind)
+    else:
+        color = coin.SoBaseColor()
+        color.rgb.setValue(*solid.color)
     points = [p for face in solid.faces for p in face]
     coordinates = coin.SoCoordinate3()
     coordinates.point.setValues(0, len(points), [(p.x, p.y, p.z) for p in points])
     faces = coin.SoFaceSet()
     faces.numVertices.setValues(0, len(solid.faces), [len(face) for face in solid.faces])
     for child in (color, coordinates, faces):
+        node.addChild(child)
+    return node
+
+
+def _label_node(label: Label) -> SoNode:
+    node = coin.SoSeparator()
+    color = coin.SoBaseColor()
+    color.rgb.setValue(*label.color)
+    font = coin.SoFont()
+    font.size = LABEL_PX
+    place = coin.SoTranslation()
+    place.translation.setValue(label.position.x, label.position.y, label.position.z)
+    text = coin.SoText2()
+    text.string.setValue(label.text)
+    for child in (color, font, place, text):
         node.addChild(child)
     return node
 
@@ -89,6 +114,8 @@ class Overlay:
             self._node.addChild(_dots_node(dots))
         for solid in drawing.solids:
             self._node.addChild(_solid_node(solid))
+        for label in drawing.labels:
+            self._node.addChild(_label_node(label))
 
     def remove(self) -> None:
         """Retire l'incrustation de la vue (sans effet si elle n'y est plus)."""

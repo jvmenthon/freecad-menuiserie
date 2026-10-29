@@ -55,6 +55,7 @@ from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
 from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
+from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATION
 from tests.gui.verifications_transparence_assemblage import VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE
 from tests.gui.verifications_usinage_deplacement import VERIFICATIONS_USINAGE_DEPLACEMENT
 
@@ -1255,6 +1256,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,
+    # Anneaux de rotation (RO-d)
+    *VERIFICATIONS_SOURIS_ROTATION,
     # Assemblage défait au relâchement (ADR 0026)
     *VERIFICATIONS_ARONDE_RELACHEMENT,
     # Distance entre deux pièces (DI-b)

@@ -21,13 +21,23 @@ from freecad.menuiserie.core.magnet import (
     Ray,
     arrows,
 )
+from freecad.menuiserie.core.rotation import Ring
 from freecad.menuiserie.core.snap import Frame
+from freecad.menuiserie.gui.drag.rings import (
+    RING_SEGMENTS,
+    Sweep,
+    angle_label,
+    circle,
+    ring_key,
+    sector,
+)
 
 __all__ = [
     "ARROW_PX",
     "MAGNET_PX",
     "Dots",
     "Drawing",
+    "Label",
     "Layout",
     "Solid",
     "Stroke",
@@ -53,6 +63,7 @@ AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  
 HANDLE_COLOR: Final = (1.0, 0.55, 0.0)
 HOVER_COLOR: Final = (1.0, 0.85, 0.1)
 GUIDE_COLOR: Final = (1.0, 0.1, 0.8)
+SECTOR_TRANSPARENCY: Final = 0.6  # secteur parcouru par un anneau tiré
 Color = tuple[float, float, float]
 Project = Callable[[Vec3], tuple[float, float]]
 
@@ -87,14 +98,16 @@ def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
 @dataclass(frozen=True)
 class Layout:
     """Ce qui est dessiné et saisissable sur la pièce : repère global, boîte (repère de la pièce),
-    flèches des axes libres, poignées (poignée, centre de sa face en coordonnées globales) et
-    longueur en mm de la tige (et zone de saisie) dessinée sur chaque poignée."""
+    flèches des axes libres, poignées (poignée, centre de sa face en coordonnées globales),
+    longueur en mm de la tige (et zone de saisie) dessinée sur chaque poignée et anneaux de
+    rotation (aucun si une expression pilote le placement, D6)."""
 
     frame: Frame
     box: Box
     arrows: tuple[Arrow, ...]
     handles: tuple[tuple[Handle, Vec3], ...]
     handle_mm: float = 0.0
+    rings: tuple[Ring, ...] = ()
 
 
 def _face_center(box: Box, handle: Handle) -> Vec3:
@@ -181,6 +194,16 @@ class Solid:
 
     color: Color
     faces: tuple[tuple[Vec3, ...], ...]
+    transparency: float = 0.0
+
+
+@dataclass(frozen=True)
+class Label:
+    """Texte d'une couleur écrit à côté du point ``position`` (taille fixe à l'écran)."""
+
+    color: Color
+    text: str
+    position: Vec3
 
 
 @dataclass(frozen=True)
@@ -190,6 +213,7 @@ class Drawing:
     strokes: tuple[Stroke, ...] = ()
     dots: tuple[Dots, ...] = ()
     solids: tuple[Solid, ...] = ()
+    labels: tuple[Label, ...] = ()
 
 
 def _plus(a: Vec3, b: Vec3, factor: float) -> Vec3:
@@ -262,15 +286,37 @@ def guide_outline(guide: Guide) -> tuple[Vec3, ...]:
     return tuple(corners)
 
 
+def _ring_drawing(layout: Layout, hover: str | None, sweep: Sweep | None) -> Drawing:
+    """Anneaux (couleur de leur axe, épaissis et en surbrillance sous la souris ou tirés) et, durant
+    un geste, secteur parcouru en transparence et angle écrit près de la souris."""
+    strokes = []
+    for ring in layout.rings:
+        hot = hover == ring_key(ring.axis)
+        color = HOVER_COLOR if hot else AXIS_COLORS[ring.axis]
+        strokes.append(Stroke(color, 5.0 if hot else 2.5, (circle(ring, RING_SEGMENTS),)))
+    if sweep is None:
+        return Drawing(strokes=tuple(strokes))
+    color = AXIS_COLORS[sweep.ring.axis]
+    faces = sector(sweep)
+    solids = (Solid(color, faces, SECTOR_TRANSPARENCY),) if faces else ()
+    return Drawing(
+        tuple(strokes),
+        solids=solids,
+        labels=(Label(color, angle_label(sweep.angle), sweep.anchor),),
+    )
+
+
 def build_drawing(
     layout: Layout,
     hover: str | None = None,
     guides: Sequence[Guide] = (),
     guides_frame: Frame | None = None,
+    sweep: Sweep | None = None,
 ) -> Drawing:
     """Dessin des flèches (couleur de leur axe), des poignées (tige dans l'axe de la cote, cube
-    plein au bout et point de saisie au pied), de la cible survolée en surbrillance et des
-    ``guides`` aimantés, portés dans le repère global.
+    plein au bout et point de saisie au pied), des anneaux de rotation (et, pendant un geste, de
+    ``sweep``), de la cible survolée en surbrillance et des ``guides`` aimantés, portés dans le
+    repère global.
 
     Les guides sont lus dans le repère de la pièce **au début du glissement** : ``guides_frame``
     est ce repère de départ (celui de ``layout`` s'il est absent). La pièce bouge pendant le
@@ -296,7 +342,8 @@ def build_drawing(
             dots.append(Dots(GUIDE_COLOR, 12.0, outline))
         else:
             strokes.append(Stroke(GUIDE_COLOR, 3.0, (outline,)))
-    return Drawing(tuple(strokes), tuple(dots), tuple(solids))
+    rings = _ring_drawing(layout, hover, sweep)
+    return Drawing((*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), rings.labels)
 
 
 class Throttle:

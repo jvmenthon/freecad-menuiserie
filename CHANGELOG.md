@@ -18,6 +18,20 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   couleur, zone de saisie et comportement inchangés.
 
 ### Ajouté
+- Rotation libre d'une pièce, lot RO-d ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères D1 à D7) : trois anneaux (X rouge, Y vert, Z bleu) autour de la pièce sélectionnée
+  seule, dessinés par l'incrustation de la vue 3D avec ses flèches et invisibles pour la
+  sélection ; survol = anneau épaissi ; un clic gauche sur un anneau (le seul évènement pris)
+  fait tourner la pièce autour de son centre, par un nouvel état `Rotating` de la session de
+  glissement (`gui/drag/session.py`, `rings.py`). L'angle s'aimante tous les 15° (libre, au
+  dixième, avec Maj), s'écrit près de la souris (« 37,5° ») et le secteur parcouru est dessiné
+  en transparence ; il s'ajoute sur plusieurs tours. Hors panneau, transaction « Tourner la
+  pièce » (un Ctrl+Z) ; panneau ouvert, celle du panneau, qui relit ses champs ; Échap ramène la
+  pièce au début ; au relâchement, `end_rotation` propose Annuler / Supprimer si un assemblage est
+  défait ([ADR 0026](docs/adr/0026-assemblage-defait-par-un-deplacement.md)). Un anneau vu par la
+  tranche n'est pas proposé ; une pièce pilotée par une expression (membre d'ensemble, formule)
+  n'a pas d'anneau. Dans un conteneur, les anneaux suivent ses axes. `core/rotation.plane_point`
+  devient public.
 - Rotation libre d'une pièce, lot RO-b ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
   critères B1 à B5) : `features/part_rotate.py` écrit la rotation dans le `Placement` de la brute,
   autour de son centre et sans recalcul du document : `rotate_to` (angles X, Y, Z absolus),
