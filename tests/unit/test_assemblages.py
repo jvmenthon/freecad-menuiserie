@@ -237,6 +237,39 @@ def test_feuillure_filante(through: bool, length: float) -> None:
     assert RABBET.resolve(side, back, RabbetParams(through=through)).length == length
 
 
+@pytest.mark.parametrize(
+    ("size", "base", "expected"),
+    [
+        # étagère logée en travers de la joue : logement de 18 mm, pas la joue amincie
+        ((18.0, 300.0, 200.0), (200.0, 0.0, 9.0), box((200, 0, 9), (218, 300, 18))),
+        # logement arrêté en travers : filant, il traverse la largeur de la joue
+        ((18.0, 200.0, 200.0), (200.0, 50.0, 9.0), box((200, 0, 9), (218, 300, 18))),
+        # fond plus court que la joue : filant sur la longueur, comme avant
+        ((300.0, 10.0, 200.0), (100.0, 290.0, 9.0), box((0, 290, 9), (600, 300, 18))),
+    ],
+)
+def test_feuillure_filante_dans_le_sens_de_la_piece_logee(
+    size: tuple[float, float, float], base: tuple[float, float, float], expected: Box
+) -> None:
+    """ADR 0027 (vérification de jv) : la feuillure file sur l'axe X ou Y de l'hôte où la pièce
+    logée l'occupe le plus."""
+    side = block((600.0, 300.0, 18.0))
+    values = RABBET.resolve(side, block(size, base), RabbetParams())
+    assert values.cut == expected
+    assert values.length == max(expected.size(0), expected.size(1))
+
+
+def test_feuillure_au_contact_d_un_chant() -> None:
+    """ADR 0027 : contre un chant, la pièce logée est prolongée de sa propre épaisseur (6 mm)
+    et non de la moitié de la largeur de l'hôte (150 mm)."""
+    side = block((600.0, 300.0, 18.0))
+    back = block((600.0, 400.0, 6.0), (0.0, 300.0, 0.0))
+    plan = RABBET.plan(side, back, RabbetParams())
+    assert only(plan.host_cuts) == box((0, 294, 0), (600, 300, 6))
+    assert plan.guest_additions == (box((0, -6, 0), (600, 0, 6)),)
+    assert RABBET.resolve(side, back, RabbetParams(depth=20)).depth == 20
+
+
 def test_feuillure_refus_sans_chevauchement() -> None:
     refused(RABBET, stile(), rail(y=70.0), RabbetParams(), "ne se chevauchent pas")
 

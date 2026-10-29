@@ -159,6 +159,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   masquait).
 
 ### Modifié
+- Feuillure filante dans le sens de la pièce logée (vérification de jv du 2026-10-28,
+  [ADR 0027](docs/adr/0027-sens-de-la-feuillure-filante.md)) : la feuillure est prolongée sur
+  l'axe X ou Y de l'hôte où la pièce logée l'occupe, et non plus toujours sur sa longueur ; un
+  logement d'étagère en travers d'une joue n'amincit plus toute la joue. Une pièce posée contre
+  un chant ou un bout est prolongée de sa propre épaisseur (au lieu de la moitié de l'hôte).
 - Relecture du jalon « souris et distances » (issue #65,
   [ADR 0021](docs/adr/0021-deplacement-a-la-souris-avec-aimantation.md), note du 2026-10-25) : le
   glissement n'est plus jamais refusé pour une rangée bloquée (il ne change ni la cote de
