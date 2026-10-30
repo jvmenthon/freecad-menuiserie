@@ -308,8 +308,7 @@ def verifier_champs_relus() -> list[str]:
 
 def verifier_tangage_au_dela_de_90() -> list[str]:
     """Demande de jv : Y = 120° est accepté, la pièce tourne comme demandé, puis les champs sont
-    recalculés à l'enregistrement (tangage ramené dans [-90, 90], même orientation) ; Z = 270°
-    (jusqu'à 360° sur les trois axes) est recalculé en -90°."""
+    recalculés à l'enregistrement (tangage ramené dans [-90, 90], même orientation)."""
 
     def verification(doc: Any) -> list[str]:
         piece = nouvelle_piece(doc)
@@ -322,16 +321,27 @@ def verifier_tangage_au_dela_de_90() -> list[str]:
             problemes.append("Y = 120° : orientation différente de celle demandée")
         if abs(y) > 90.0 + TOLERANCE:
             problemes.append(f"Y = 120° : champ Y non recalculé ({y!r})")
-        autre = nouvelle_piece(doc)
-        form = ouvrir_par_double_clic(autre)
+        return problemes
+
+    return avec_document("VerifAnglesTangage", verification)
+
+
+def verifier_lacet_jusqu_a_360() -> list[str]:
+    """Demande de jv : Z = 270° (jusqu'à 360° sur les trois axes) est accepté puis recalculé en
+    -90° à l'enregistrement, même orientation. Document à part : un seul panneau ouvert."""
+
+    def verification(doc: Any) -> list[str]:
+        piece = nouvelle_piece(doc)
+        form = ouvrir_par_double_clic(piece)
         saisir_angle(form, "angleZEdit", 270.0)
         fin_de_saisie(form, "angleZEdit")
-        if not autre.Placement.Rotation.isSame(App.Rotation(270.0, 0.0, 0.0), 1e-6):
+        problemes = []
+        if not piece.Placement.Rotation.isSame(App.Rotation(270.0, 0.0, 0.0), 1e-6):
             problemes.append("Z = 270° : orientation différente de celle demandée")
         problemes += proches("Z = 270° : champs recalculés", champs(form), (0.0, 0.0, -90.0))
         return problemes
 
-    return avec_document("VerifAnglesTangage", verification)
+    return avec_document("VerifAnglesLacet", verification)
 
 
 # --- C4 : position pilotée ---------------------------------------------------------------------
@@ -407,6 +417,7 @@ VERIFICATIONS_PANNEAU_ROTATION: tuple[Callable[[], list[str]], ...] = (
     verifier_glissement_pendant_une_saisie,
     verifier_champs_relus,
     verifier_tangage_au_dela_de_90,
+    verifier_lacet_jusqu_a_360,
     verifier_position_pilotee_par_une_formule,
     verifier_position_pilotee_par_l_ensemble,
     verifier_creation_accrochage,
