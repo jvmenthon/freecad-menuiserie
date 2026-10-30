@@ -38,6 +38,10 @@ Pour R5 à R7, voir leur propre préparation. Pour R9 : une petite pièce de ch�
    étape.
 7. Tangage à 90° (**Autour de Y** = 90) : **Autour de X** passe à 0 et **Autour de Z** porte le
    reste, sans saut ni valeur absurde.
+8. Les trois champs acceptent de **-360 à 360**. Saisir **Autour de Y** = 120 : la planche tourne
+   de 120° aussitôt ; en quittant le champ (Entrée ou clic ailleurs), les trois champs sont
+   **recalculés** (Y revient à 60 avec X et Z à ±180) et la planche garde la même orientation.
+   Même chose pour **Autour de Z** = 270 : le champ passe à -90 à la fin de la saisie.
 
 ### Scénario R2 : anneaux, survol, aimant, Maj, angle affiché (D1 à D5)
 
