@@ -45,6 +45,7 @@ from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASSEMBLAGE
 from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
+from tests.gui.verifications_panneau_rotation import VERIFICATIONS_PANNEAU_ROTATION
 from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROUS
 from tests.gui.verifications_piece_en_bois import VERIFICATIONS_PIECE_EN_BOIS
 from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE
@@ -55,6 +56,7 @@ from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
 from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
+from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATION
 from tests.gui.verifications_transparence_assemblage import VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE
 from tests.gui.verifications_usinage_deplacement import VERIFICATIONS_USINAGE_DEPLACEMENT
 
@@ -1247,6 +1249,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_ENSEMBLE,
     *VERIFICATIONS_PANNEAU_ENSEMBLE,
     *VERIFICATIONS_PANNEAU_VERROUS,
+    # Champs d'angle du panneau de la pièce (RO-c)
+    *VERIFICATIONS_PANNEAU_ROTATION,
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
     # Liste de débit (J2d)
@@ -1255,6 +1259,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,
+    # Anneaux de rotation (RO-d)
+    *VERIFICATIONS_SOURIS_ROTATION,
     # Assemblage défait au relâchement (ADR 0026)
     *VERIFICATIONS_ARONDE_RELACHEMENT,
     # Distance entre deux pièces (DI-b)

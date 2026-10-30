@@ -128,6 +128,8 @@ jobs:
             echo
             echo "![Panneau de tâche d'une pièce de bois]($base/panneau.png?raw=true)"
             echo
+            echo "![Panneau de tâche d'une pièce tournée de 15 degrés]($base/panneau-rotation.png?raw=true)"
+            echo
             echo "![Panneau de tâche d'un tenon-mortaise]($base/panneau-assemblage.png?raw=true)"
             echo
             echo "![Panneau de tâche d'un ensemble]($base/panneau-ensemble.png?raw=true)"

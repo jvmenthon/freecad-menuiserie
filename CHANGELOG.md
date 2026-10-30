@@ -5,6 +5,24 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Corrigé
+
+- Rotation, champs d'angle du panneau (demande de jv, 2026-10-30) : les trois champs acceptent de
+  -360 à 360 (Y au-delà de 90° compris) ; la pièce tourne comme saisi, puis les trois angles sont
+  recalculés à la fin de la saisie en la forme canonique (X et Z dans [-180, 180], Y dans
+  [-90, 90]), à orientation identique.
+
+- Rotation par un anneau (demande de jv, 2026-10-30) : l'aimant de 15° vise l'angle **obtenu** de
+  la pièce autour de l'axe de l'anneau et non le seul angle parcouru ; une pièce à 7,3° revient
+  d'équerre en la tirant par l'anneau. Maj : toujours libre, au dixième de degré.
+- Revue de fin de jalon « Rotation » (#117) : un anneau n'est plus proposé quand son rayon à
+  l'écran est inférieur à 16 pixels (pièce dézoomée), et la tolérance de saisie de 8 pixels se
+  mesure sur l'ellipse projetée ; un glissement qui prend le relais d'une saisie d'angle la
+  contrôle (ADR 0026) au lieu de l'abandonner ;
+  `snapped_angle` refuse un quotient qui déborde (`ValueError`) ; `rotate_to` refuse un angle hors
+  de [-360, 360] et tient compte des liaisons mises de côté. Recette
+  `docs/recette/rotation-scenarios-manuels.md`.
+
 ### Modifié
 - Panneau d'assemblage (demande de jv, critère E8 de
   [la spécification](docs/specs/J3-assemblages.md)) : tant qu'il est ouvert, à la création comme à
@@ -18,6 +36,45 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   couleur, zone de saisie et comportement inchangés.
 
 ### Ajouté
+- Rotation libre d'une pièce, lot RO-c ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères C1 à C6) : le groupe « Rotation » du panneau de la pièce de bois porte, sous les trois
+  boutons de quart de tour, trois champs d'angle « Autour de X / Y / Z » (degrés, de -180 à 180,
+  une décimale) qui montrent les angles du `Placement`. Une saisie tourne la pièce autour de son
+  centre et la vue 3D suit (aperçu de la seule brute, 30 fois par seconde au plus) ; en fin de
+  saisie, les assemblages sont contrôlés et le document recalculé comme au relâchement d'un
+  glissement (fenêtre « Assemblage défait », « Annuler » remet l'angle d'avant la saisie). Les
+  boutons de quart de tour et les glissements relisent les champs ; une position pilotée par un
+  ensemble ou une formule grise les champs (infobulle explicative) ; en création, une saisie
+  d'angle arrête l'accrochage, les boutons le gardent. Vérifications hors écran
+  (`tests/gui/verifications_panneau_rotation.py`) et capture `panneau-rotation.png` (pièce tournée
+  de 15°).
+- Rotation libre d'une pièce, lot RO-d ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères D1 à D7) : trois anneaux (X rouge, Y vert, Z bleu) autour de la pièce sélectionnée
+  seule, dessinés par l'incrustation de la vue 3D avec ses flèches et invisibles pour la
+  sélection ; survol = anneau épaissi ; un clic gauche sur un anneau (le seul évènement pris)
+  fait tourner la pièce autour de son centre, par un nouvel état `Rotating` de la session de
+  glissement (`gui/drag/session.py`, `rings.py`). L'angle s'aimante tous les 15° (libre, au
+  dixième, avec Maj), s'écrit près de la souris (« 37,5° ») et le secteur parcouru est dessiné
+  en transparence ; il s'ajoute sur plusieurs tours. Hors panneau, transaction « Tourner la
+  pièce » (un Ctrl+Z) ; panneau ouvert, celle du panneau, qui relit ses champs ; Échap ramène la
+  pièce au début ; au relâchement, `end_rotation` propose Annuler / Supprimer si un assemblage est
+  défait ([ADR 0026](docs/adr/0026-assemblage-defait-par-un-deplacement.md)). Un anneau vu par la
+  tranche n'est pas proposé ; une pièce pilotée par une expression (membre d'ensemble, formule)
+  n'a pas d'anneau. Dans un conteneur, les anneaux suivent ses axes. `core/rotation.plane_point`
+  devient public.
+- Rotation libre d'une pièce, lot RO-b ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères B1 à B5) : `features/part_rotate.py` écrit la rotation dans le `Placement` de la brute,
+  autour de son centre et sans recalcul du document : `rotate_to` (angles X, Y, Z absolus),
+  `rotate_by` (geste à la souris par rapport au `DragMemento`, rien ne s'accumule, Échap par
+  `restore`) et `end_rotation` (même chemin que `end_drag` : Distances, assemblages défaits,
+  un recalcul) ; refusée sans rien écrire si une expression pilote le `Placement`. Le quart de
+  tour en modification s'appuie sur `turned_about`, à l'identique. Rien n'est encore visible dans
+  l'interface (lots RO-c et RO-d).
+- Rotation libre d'une pièce, lot RO-a ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
+  critères A1 à A5) : paquet pur `core/rotation/` (angles X, Y, Z du `Placement`, rotation autour
+  d'un axe fixe du document par le centre de la brute, aimantation de l'angle à 15° ou au dixième,
+  anneaux de rotation et angle parcouru), sans FreeCAD ni Qt ; rien n'est encore visible dans
+  l'interface (lots RO-b à RO-d).
 - Pièce en bois dans un ensemble, lot PD-f ([ADR 0020](docs/adr/0020-piece-en-bois-enveloppe-d-un-corps.md),
   décision 8 ; critères F1 à F4) : `make_furniture`, `add_to_furniture` et toute l'API des
   ensembles acceptent une pièce en bois ; elle suit l'ensemble par son `Placement` (expressions
