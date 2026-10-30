@@ -48,7 +48,9 @@ Pour R5 à R7, voir leur propre préparation. Pour R9 : une petite pièce de ch�
    et un clic dessus est rendu à FreeCAD (sélection ou navigation habituelle).
 3. Tirer l'anneau **Z** : la planche tourne autour de la verticale ; l'angle s'affiche près de la
    souris (« 15° », « -30° », virgule décimale) et un secteur transparent montre le chemin
-   parcouru. L'angle **saute de 15° en 15°** (aimant).
+   parcouru. L'angle **obtenu** de la planche autour de l'axe saute de 15° en 15° (aimant) : une planche
+   déjà à 7° (champ « Autour de Z ») revient d'équerre (0°) en la tirant par l'anneau, sans passer
+   par 7° + 15°.
 4. Même geste en maintenant **Maj** : l'angle varie librement, au dixième (« 37,5° ») ; relâcher
    Maj pendant le geste : l'aimant revient aussitôt.
 5. Faire plus d'un tour : l'angle continue de s'additionner (« 400° »), il ne revient pas à 40°.

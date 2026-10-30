@@ -7,6 +7,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Rotation par un anneau (demande de jv, 2026-10-30) : l'aimant de 15° vise l'angle **obtenu** de
+  la pièce autour de l'axe de l'anneau et non le seul angle parcouru ; une pièce à 7,3° revient
+  d'équerre en la tirant par l'anneau. Maj : toujours libre, au dixième de degré.
 - Revue de fin de jalon « Rotation » (#117) : un anneau n'est plus proposé quand son rayon à
   l'écran est inférieur à 16 pixels (pièce dézoomée), et la tolérance de saisie de 8 pixels se
   mesure sur l'ellipse projetée ; un glissement qui prend le relais d'une saisie d'angle la

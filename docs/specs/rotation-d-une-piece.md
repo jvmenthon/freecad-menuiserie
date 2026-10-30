@@ -104,7 +104,7 @@ Ce qui sert déjà :
   dessinés par l'incrustation existante (`Overlay`), invisibles pour la sélection de FreeCAD.
 - D2 Survol d'un anneau : il s'épaissit (état `Hover`). Clic gauche sur un anneau : état
   `Rotating` ; seul ce clic est consommé, tout autre évènement est rendu à FreeCAD.
-- D3 Pendant le geste : angle aimanté à 15°, libre avec Maj, affiché près de la souris
+- D3 Pendant le geste : angle **obtenu** (angle de départ + angle parcouru, `snapped_turn`) aimanté à 15°, libre avec Maj, affiché près de la souris
   (« 37,5° ») ; secteur parcouru dessiné en transparence.
 - D4 Hors panneau, le geste ouvre la transaction « Tourner la pièce » (un Ctrl+Z) ; panneau
   ouvert, il écrit dans la sienne et le panneau relit ses champs (C3).

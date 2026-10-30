@@ -45,7 +45,7 @@ mécanisme du geste dans la vue.
    et Z porte tout.
 2. Toute rotation (champ, anneau, quart de tour) se fait autour du centre de la brute.
 3. Un anneau tourne à partir de l'orientation courante, autour d'un axe fixe du document,
-   aimanté tous les 15° (libre avec Maj) ; c'est un état de la session de glissement, qui ne
+   aimanté tous les 15° sur l'angle **obtenu** et non sur le seul angle parcouru (jv, 2026-10-30) (libre avec Maj) ; c'est un état de la session de glissement, qui ne
    consomme que le clic sur un anneau.
 4. Seul `Placement` est écrit ; une expression sur le `Placement` interdit la rotation (pas de
    rotation d'un membre d'ensemble avant #114).

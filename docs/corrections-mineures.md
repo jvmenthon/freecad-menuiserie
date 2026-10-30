@@ -45,6 +45,5 @@ contournable), **mineur** (confort, docs, dette de test).
 
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
-| r1 | mineur (question de conception pour jv) | `freecad/menuiserie/gui/drag/session.py` (`Rotating._follow`, `snapped_angle(self.total, …)`) | L'aimant de l'anneau porte sur l'angle **parcouru** et non sur l'angle **obtenu** : une pièce à 7,3° ne revient jamais d'équerre en la tirant par l'anneau (7,3° + multiples de 15°). | À poser à jv : aimanter l'angle obtenu (orientation du début + angle parcouru, ramenée au multiple de 15° le plus proche) ou garder l'angle parcouru ? |
 | r2 | mineur | `tests/gui/` | Test manquant, non ajouté : Ctrl+Z dans le panneau ouvert après un geste d'anneau (la transaction du panneau est celle qui annule). | Ajouter une vérification hors écran : panneau ouvert, anneau tiré, Ctrl+Z, angle d'avant. |
 | r3 | mineur | `tests/gui/verifications_souris_rotation.py` | Test manquant, non ajouté : anneaux d'une pièce rangée dans un conteneur `App::Part` ou `PartDesign::Body` (B5 : les anneaux suivent les axes du conteneur ; seul le calcul pur est testé). | Ajouter une vérification hors écran avec un conteneur tourné. |
