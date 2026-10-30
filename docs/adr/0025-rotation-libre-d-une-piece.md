@@ -41,7 +41,7 @@ mécanisme du geste dans la vue.
 ## Décision
 
 1. Les champs du panneau sont les trois angles du `Placement` (convention `getYawPitchRoll`),
-   en degrés au dixième, de −180 à 180 (Y, le tangage, de −90 à 90) ; à ±90° de tangage, X vaut 0
+   en degrés au dixième, de −360 à 360 pour les trois champs (jv, 2026-10-30) : la saisie tourne la pièce comme demandé puis les champs sont recalculés en fin de saisie (X et Z ramenés dans [−180, 180], le tangage Y dans [−90, 90]) ; à ±90° de tangage, X vaut 0
    et Z porte tout.
 2. Toute rotation (champ, anneau, quart de tour) se fait autour du centre de la brute.
 3. Un anneau tourne à partir de l'orientation courante, autour d'un axe fixe du document,

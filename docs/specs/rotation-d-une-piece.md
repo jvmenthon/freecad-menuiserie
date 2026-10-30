@@ -84,8 +84,10 @@ Ce qui sert déjà :
 
 ### RO-c — Panneau (`gui/task_panels/wood_part.*`)
 
-- C1 Trois `Gui::QuantitySpinBox` en degrés (−180 à 180, Y de −90 à 90 : c'est le tangage de
-  `angles_of` ; pas de 1, une décimale), étiquettes
+- C1 Trois `Gui::QuantitySpinBox` en degrés (−360 à 360 pour les trois axes, demande de jv du 2026-10-30 ;
+  la saisie tourne la pièce comme demandé, puis les champs sont recalculés à la fin de la saisie
+  en la forme canonique de `angles_of` : X et Z dans [−180, 180], Y dans [−90, 90] ; pas de 1, une
+  décimale), étiquettes
   « Autour de X », « Autour de Y », « Autour de Z », sous les boutons.
 - C2 `valueChanged` : `rotate_to` puis aperçu de la seule brute (comme une poignée, au plus
   30 fois par seconde) ; `editingFinished` : recalcul et contrôle des assemblages (fenêtre

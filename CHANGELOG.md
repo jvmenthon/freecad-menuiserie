@@ -7,13 +7,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Rotation, champs d'angle du panneau (demande de jv, 2026-10-30) : les trois champs acceptent de
+  -360 à 360 (Y au-delà de 90° compris) ; la pièce tourne comme saisi, puis les trois angles sont
+  recalculés à la fin de la saisie en la forme canonique (X et Z dans [-180, 180], Y dans
+  [-90, 90]), à orientation identique.
+
 - Rotation par un anneau (demande de jv, 2026-10-30) : l'aimant de 15° vise l'angle **obtenu** de
   la pièce autour de l'axe de l'anneau et non le seul angle parcouru ; une pièce à 7,3° revient
   d'équerre en la tirant par l'anneau. Maj : toujours libre, au dixième de degré.
 - Revue de fin de jalon « Rotation » (#117) : un anneau n'est plus proposé quand son rayon à
   l'écran est inférieur à 16 pixels (pièce dézoomée), et la tolérance de saisie de 8 pixels se
   mesure sur l'ellipse projetée ; un glissement qui prend le relais d'une saisie d'angle la
-  contrôle (ADR 0026) au lieu de l'abandonner ; le champ Y est borné à ±90° (tangage) ;
+  contrôle (ADR 0026) au lieu de l'abandonner ;
   `snapped_angle` refuse un quotient qui déborde (`ValueError`) ; `rotate_to` refuse un angle hors
   de [-360, 360] et tient compte des liaisons mises de côté. Recette
   `docs/recette/rotation-scenarios-manuels.md`.

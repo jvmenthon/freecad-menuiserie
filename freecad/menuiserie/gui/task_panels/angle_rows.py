@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Champs d'angle X, Y, Z du groupe « Rotation » du panneau de la pièce de bois (RO-c, ADR 0025).
 
-Les champs montrent les trois angles du ``Placement`` de la brute (degrés, au dixième, de -180 à
-180 pour X et Z, de -90 à 90 pour Y, le tangage). Une saisie tourne la pièce aussitôt autour de
+Les champs montrent les trois angles du ``Placement`` de la brute (degrés, au dixième). Ils
+acceptent de -360 à 360 sur les trois axes (jv) : la pièce tourne comme saisi, puis les champs
+sont recalculés à l'enregistrement (fin de saisie) en la forme canonique de :func:`angles_of`
+(X et Z dans [-180, 180], Y dans [-90, 90]). Une saisie tourne la pièce aussitôt autour de
 son centre (:func:`rotate_to`) et l'aperçu de la seule brute suit, au plus 30 fois par seconde
 (comme une poignée de taille) ; en fin de saisie (``editingFinished``), les assemblages sont
 contrôlés et le document recalculé comme au relâchement d'un glissement (:func:`end_rotation`,
@@ -47,7 +49,7 @@ ANGLE_FIELDS: Final = (
     ("angleYEdit", "angleYLabel"),
     ("angleZEdit", "angleZLabel"),
 )
-MAX_ANGLE_DEGREES: Final = (180.0, 90.0, 180.0)  # X, Z : tour complet ; Y : tangage de angles_of
+MAX_ANGLE_DEGREES: Final = (360.0, 360.0, 360.0)  # recalculés en fin de saisie (jv)
 DECIMALS: Final = 1
 _DRIVEN_BY_FURNITURE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Position pilotée par l'ensemble")
 _DRIVEN_BY_FORMULA: Final = QT_TRANSLATE_NOOP("Menuiserie", "Position pilotée par une formule")
