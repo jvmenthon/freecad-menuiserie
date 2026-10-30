@@ -62,3 +62,12 @@ def snapped_angle(angle: float, step: float = _DEFAULT_STEP_DEGREES, free: bool 
     if not math.isfinite(count):  # angle immense ou pas minuscule : le quotient déborde
         raise ValueError("snapped_angle : angle ou pas hors des valeurs admises")
     return math.floor(count + 0.5) * unit + 0.0
+
+
+def snapped_turn(
+    start: float, travelled: float, step: float = _DEFAULT_STEP_DEGREES, free: bool = False
+) -> float:
+    """Angle à tourner (degrés) pour que l'angle **obtenu** ``start + travelled`` tombe sur un
+    multiple de ``step`` (au dixième si ``free``) : une pièce à 7,3° revient d'équerre en
+    tournant de -7,3° (jv, 2026-10-30). Mêmes erreurs que :func:`snapped_angle`."""
+    return snapped_angle(start + travelled, step, free) - start

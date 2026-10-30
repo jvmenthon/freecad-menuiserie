@@ -9,7 +9,7 @@ import pytest
 
 from freecad.menuiserie.core.geometry import RigidTransform, Vec3
 from freecad.menuiserie.core.part_model import Dimensions
-from freecad.menuiserie.core.rotation import matrix_of, snapped_angle, turned_about
+from freecad.menuiserie.core.rotation import matrix_of, snapped_angle, snapped_turn, turned_about
 from freecad.menuiserie.core.snap import Turn
 from freecad.menuiserie.core.snap._frames import turned_in_place
 
@@ -130,3 +130,13 @@ def test_derive_du_centre_apres_beaucoup_de_quarts_de_tour() -> None:
         transform = turned_about(transform, size, i % 3, 90.0)
     after = transform.apply(center)
     assert (after.x, after.y, after.z) == pytest.approx((before.x, before.y, before.z), abs=1e-9)
+
+
+def test_snapped_turn_vise_l_angle_obtenu() -> None:
+    # une pièce à 7,3° revient d'équerre en tournant de -7,3° (et non de 0° ou de 15°)
+    assert snapped_turn(7.3, 0.0) == pytest.approx(-7.3)
+    assert snapped_turn(7.3, 10.0) == pytest.approx(7.7)  # 17,3° -> 15°
+    assert snapped_turn(0.0, 37.0) == pytest.approx(30.0)
+    assert snapped_turn(7.3, 10.0, free=True) == pytest.approx(10.0)  # libre : au dixième
+    with pytest.raises(ValueError, match="fini"):
+        snapped_turn(float("nan"), 1.0)

@@ -44,7 +44,7 @@ from freecad.menuiserie.core.magnet import (
     magnet,
     resize,
 )
-from freecad.menuiserie.core.rotation import Ring, plane_point, ring_angle, snapped_angle
+from freecad.menuiserie.core.rotation import Ring, angles_of, plane_point, ring_angle, snapped_turn
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
@@ -360,9 +360,10 @@ class Resizing(Dragging):
 
 class Rotating(Gesture):
     """Anneau tiré : la pièce tourne autour de l'axe de l'anneau, par son centre, depuis son
-    orientation du début (RO-b, ``rotate_by``). L'angle est aimanté tous les 15° (libre avec Maj,
-    au dixième de degré) ; il s'ajoute d'un demi-tour à l'autre (plusieurs tours possibles). Seul
-    le ``Placement`` est écrit, sans recalcul."""
+    orientation du début (RO-b, ``rotate_by``). L'angle **obtenu** (et non le seul angle parcouru)
+    est aimanté tous les 15° (libre avec Maj, au dixième de degré) ; l'angle parcouru s'ajoute
+    d'un demi-tour à l'autre (plusieurs tours possibles). Seul le ``Placement`` est écrit, sans
+    recalcul."""
 
     def __init__(self, grab: Turn) -> None:
         super().__init__(grab.memento, grab.start, grab.own)
@@ -372,6 +373,8 @@ class Rotating(Gesture):
         self.from_center = grab.from_center
         self.last = 0.0  # angle lu au dernier mouvement (]-180, 180])
         self.total = 0.0  # angle parcouru depuis la saisie, tours compris
+        # angle de la pièce autour de l'anneau au début : l'aimant vise l'angle obtenu
+        self.base = angles_of(rigid_transform(grab.memento.placement).rotation)[self.ring.axis]
         self.frame = _frame_of(grab.memento.part.getGlobalPlacement())
 
     def _follow(self, session: DragSession) -> None:
@@ -380,7 +383,7 @@ class Rotating(Gesture):
         raw = ring_angle(ray, self.ring, self.first)
         if raw is not None:
             self.total, self.last = advance(self.total, self.last, raw), raw
-        angle = snapped_angle(self.total, free=self.shift)
+        angle = snapped_turn(self.base, self.total, free=self.shift)
         if not rotate_by(self.memento, self.ring.axis, angle):
             return
         anchor = plane_point(ray, self.ring) or self.ring.center
