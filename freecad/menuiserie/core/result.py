@@ -18,20 +18,22 @@ class Result(Generic[T]):
     warnings: list[str] = field(default_factory=list)
 
     @property
-    def is_success(self) -> bool:
+    def is_success(self) -> bool:  # semgrep: python.lang.maintainability.is-function-without-parentheses
+        """Retourne True si l'opération a réussi (aucune erreur)."""
         return len(self.errors) == 0
 
     @property
-    def is_failure(self) -> bool:
+    def is_failure(self) -> bool:  # semgrep: python.lang.maintainability.is-function-without-parentheses
+        """Retourne True si l'opération a échoué (au moins une erreur)."""
         return not self.is_success
 
     def map(self, func: Callable[[T], U]) -> Result[U]:
-        if self.is_failure:
+        if self.is_failure:  # semgrep: python.lang.maintainability.is-function-without-parentheses
             return Result(value=None, errors=self.errors, warnings=self.warnings)  # type: ignore
         return Result(value=func(self.value), errors=self.errors, warnings=self.warnings)  # type: ignore
 
     def flat_map(self, func: Callable[[T], Result[U]]) -> Result[U]:
-        if self.is_failure:
+        if self.is_failure:  # semgrep: python.lang.maintainability.is-function-without-parentheses
             return Result(value=None, errors=self.errors, warnings=self.warnings)  # type: ignore
         nested = func(self.value)  # type: ignore
         return Result(
@@ -44,25 +46,25 @@ class Result(Generic[T]):
         return self.flat_map(func)
 
     def on_success(self, func: Callable[[T], None]) -> Result[T]:
-        if self.is_success:
+        if self.is_success:  # semgrep: python.lang.maintainability.is-function-without-parentheses
             func(self.value)  # type: ignore
         return self
 
     def on_failure(self, func: Callable[[Sequence[str]], None]) -> Result[T]:
-        if self.is_failure:
+        if self.is_failure:  # semgrep: python.lang.maintainability.is-function-without-parentheses
             func(self.errors)
         return self
 
     def unwrap(self) -> T:
-        if self.is_failure:
+        if self.is_failure:  # semgrep: python.lang.maintainability.is-function-without-parentheses
             raise ResultError(self.errors)
         return self.value  # type: ignore
 
     def unwrap_or(self, default: T) -> T:
-        return self.value if self.is_success else default
+        return self.value if self.is_success else default  # semgrep: python.lang.maintainability.is-function-without-parentheses
 
     def expect(self, message: str) -> T:
-        if self.is_failure:
+        if self.is_failure:  # semgrep: python.lang.maintainability.is-function-without-parentheses
             raise ResultError([message, *self.errors])
         return self.value  # type: ignore
 
@@ -73,7 +75,7 @@ class Result(Generic[T]):
         return Result(value=value)
 
     def __bool__(self) -> bool:
-        return self.is_success
+        return self.is_success  # semgrep: python.lang.maintainability.is-function-without-parentheses
 
 class ResultError(Exception):
     def __init__(self, errors: Sequence[str]):
@@ -119,7 +121,7 @@ def combine(*results: Result[Any]) -> Result[tuple[Any, ...]]:
     for result in results:
         all_errors.extend(result.errors)
         all_warnings.extend(result.warnings)
-        if result.is_success:
+        if result.is_success:  # semgrep: python.lang.maintainability.is-function-without-parentheses
             all_values.append(result.value)
     if all_errors:
         return Result(value=None, errors=all_errors, warnings=all_warnings)  # type: ignore
