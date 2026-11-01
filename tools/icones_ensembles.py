@@ -1,0 +1,225 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+"""Dessins des icônes de l'atelier ajoutées après les assemblages : ensembles, distance,
+rotations et pièce en bois à forme libre. Reliés à leur fichier par :data:`ICONES` dans
+``tools/generer_icones.py`` (même moteur ``tools/icones_svg.py``)."""
+
+from __future__ import annotations
+
+import math
+from itertools import pairwise
+
+from icones_svg import Icone, Point3
+
+# --- Ensembles (J4c) ------------------------------------------------------------------------
+
+
+def _bureau(ic: Icone) -> None:
+    """Bureau : deux joues, un voile et un plateau, du plus loin au plus proche."""
+    ic.boite((0, 0, 0), (5, 34, 38), "chene")  # joue gauche
+    ic.boite((5, 26, 14), (54, 4, 24), "chene")  # voile
+    ic.boite((59, 0, 0), (5, 34, 38), "chene")  # joue droite
+    ic.boite((-2, -2, 38), (68, 38, 5), "chene")  # plateau
+    ic.veinage((2, 62), (8, 43), "chene", amplitude=0.7)
+    ic.veinage((2, 62), (22, 43), "chene", amplitude=0.7, phase=0.5)
+
+
+def _pastille(couleur: str, bord: str, motif: str) -> str:
+    """Pastille ronde en bas à droite, motif blanc (chemin SVG) par-dessus."""
+    return (
+        f'  <circle cx="49" cy="49" r="13" fill="{couleur}" stroke="{bord}" stroke-width="2"/>\n'
+        f'  <path d="{motif}" fill="none" stroke="#ffffff" stroke-width="4" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+
+
+def ensemble() -> str:
+    ic = Icone("Ensemble : bureau dont les pièces suivent les cotes globales")
+    _bureau(ic)
+    cote = (
+        '  <path d="M4,62 H40 M4,58 V62 M40,58 V62" fill="none" stroke="#204a87" '
+        'stroke-width="2" stroke-linecap="round"/>'
+    )
+    return ic.svg(cadre=(3, 61, 3, 55), devant=cote)
+
+
+def ensemble_ajouter() -> str:
+    ic = Icone("Ajouter à l'ensemble : bureau et pastille « plus »")
+    _bureau(ic)
+    plus = _pastille("#73d216", "#2c5e00", "M49,42 V56 M42,49 H56")
+    return ic.svg(cadre=(2, 50, 2, 50), devant=plus)
+
+
+def ensemble_retirer() -> str:
+    ic = Icone("Retirer de l'ensemble : bureau et pastille « moins »")
+    _bureau(ic)
+    moins = _pastille("#ef2929", "#a40000", "M42,49 H56")
+    return ic.svg(cadre=(2, 50, 2, 50), devant=moins)
+
+
+def ensemble_relier() -> str:
+    ic = Icone("Relier les pièces : bureau et pastille de recalcul")
+    _bureau(ic)
+    fleches = _pastille(
+        "#3465a4",
+        "#204a87",
+        "M43,47 A6.5,6.5 0 0 1 55,46 M55,46 L56,41 M55,46 L50,45 "
+        "M55,51 A6.5,6.5 0 0 1 43,52 M43,52 L42,57 M43,52 L48,53",
+    )
+    return ic.svg(cadre=(2, 50, 2, 50), devant=fleches)
+
+
+# --- Définir une distance (DI-b) -------------------------------------------------------------
+
+
+def distance() -> str:
+    ic = Icone("Définir une distance : plateau, étagère et cote entre les deux")
+    ic.boite((0, 0, 40), (70, 30, 6), "chene")  # plateau
+    ic.boite((0, 0, 0), (70, 30, 6), "chene")  # étagère
+    ic.veinage((4, 66), (10, 46), "chene", amplitude=0.7)
+    ic.veinage((4, 66), (22, 46), "chene", amplitude=0.7, phase=0.5)
+    cote = (
+        '  <path d="M58,26 V49 M53,26 H63 M53,49 H63 M58,26 L55.5,31 M58,26 L60.5,31 '
+        'M58,49 L55.5,44 M58,49 L60.5,44" fill="none" stroke="#204a87" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+    return ic.svg(cadre=(3, 50, 3, 61), devant=cote)
+
+
+def distance_gardee() -> str:
+    ic = Icone("Distance gardée : plateau, étagère et cote verrouillée entre les deux")
+    ic.boite((0, 0, 40), (70, 30, 6), "chene")  # plateau
+    ic.boite((0, 0, 0), (70, 30, 6), "chene")  # étagère
+    ic.veinage((4, 66), (10, 46), "chene", amplitude=0.7)
+    ic.veinage((4, 66), (22, 46), "chene", amplitude=0.7, phase=0.5)
+    cote = (
+        '  <path d="M58,26 V49 M53,26 H63 M53,49 H63 M58,26 L55.5,31 M58,26 L60.5,31 '
+        'M58,49 L55.5,44 M58,49 L60.5,44" fill="none" stroke="#204a87" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+        '  <rect x="54" y="35" width="8" height="7" rx="1" fill="#f57900" stroke="#204a87" '
+        'stroke-width="1.2"/>\n'  # cadenas : la distance est gardée
+        '  <path d="M56,35 V32.5 a2,2 0 0 1 4,0 V35" fill="none" stroke="#204a87" '
+        'stroke-width="1.2"/>'
+    )
+    return ic.svg(cadre=(3, 50, 3, 61), devant=cote)
+
+
+# --- Rotations X, Y, Z du panneau de la pièce de bois (J6c) ---------------------------------
+
+# Axe tourné : (vecteur de l'axe, deux vecteurs du plan de la flèche, rayon, couleur de l'axe).
+ROTATIONS = {
+    "X": ((1, 0, 0), (0, 1, 0), (0, 0, 1), 15.0, "#cc0000"),
+    "Y": ((0, 1, 0), (0, 0, 1), (1, 0, 0), 25.0, "#4e9a06"),
+    "Z": ((0, 0, 1), (1, 0, 0), (0, 1, 0), 25.0, "#3465a4"),
+}
+
+
+def _autour(centre: Point3, u: Point3, v: Point3, rayon: float, angle: float) -> Point3:
+    """Point du cercle de centre ``centre`` dans le plan (u, v), à l'angle ``angle`` (rad)."""
+    c, s = math.cos(angle), math.sin(angle)
+    return (
+        centre[0] + rayon * (c * u[0] + s * v[0]),
+        centre[1] + rayon * (c * u[1] + s * v[1]),
+        centre[2] + rayon * (c * u[2] + s * v[2]),
+    )
+
+
+def _rotation(axe: str) -> str:
+    """Planche avec l'axe X, Y ou Z qui la traverse et une flèche courbe autour de cet axe."""
+    direction, u, v, rayon, couleur = ROTATIONS[axe]
+    ic = Icone(f"Quart de tour autour de l'axe {axe} : planche, axe et flèche courbe")
+    taille = (44.0, 16.0, 8.0)
+    ic.boite((0, 0, 0), taille, "chene")
+    centre = (taille[0] / 2, taille[1] / 2, taille[2] / 2)
+    longueur = 30.0
+    ic.trait(
+        [
+            tuple(c - longueur * d for c, d in zip(centre, direction, strict=True)),
+            tuple(c + longueur * d for c, d in zip(centre, direction, strict=True)),
+        ],
+        couleur,
+        1.5,
+    )
+    debut, fin = math.radians(40), math.radians(310)
+    arc = [_autour(centre, u, v, rayon, debut + (fin - debut) * i / 24) for i in range(25)]
+    ic.trait(arc, couleur, 3.0)
+    pointe = _autour(centre, u, v, rayon, fin)
+    tangente = _autour((0, 0, 0), u, v, 1.0, fin + math.pi / 2)
+    radiale = _autour((0, 0, 0), u, v, 1.0, fin)
+    ic.bande(
+        [
+            tuple(c + 8 * t for c, t in zip(pointe, tangente, strict=True)),
+            tuple(c + 5 * r for c, r in zip(pointe, radiale, strict=True)),
+            tuple(c - 5 * r for c, r in zip(pointe, radiale, strict=True)),
+        ],
+        couleur,
+    )
+    return ic.svg()
+
+
+def rotation_x() -> str:
+    return _rotation("X")
+
+
+def rotation_y() -> str:
+    return _rotation("Y")
+
+
+def rotation_z() -> str:
+    return _rotation("Z")
+
+
+# --- Pièce en bois à forme libre (PD-d) ------------------------------------------------------
+
+
+def _bord(bord: list[tuple[float, float]], z: float) -> float:
+    """Abscisse du bord (suite de points x, z croissants en z) à la hauteur ``z``."""
+    for (x0, z0), (x1, z1) in pairwise(bord):
+        if z0 <= z <= z1:
+            return x0 + (x1 - x0) * (z - z0) / (z1 - z0)
+    return bord[-1][0]
+
+
+def _pied_galbe(ic: Icone) -> None:
+    """Pied galbé : profil en S dessiné dans le plan (x, z), extrudé selon y."""
+    droite = [(14, 0), (16, 14), (22, 28), (26, 44), (26, 60)]
+    gauche = [(0, 0), (-2, 14), (2, 30), (6, 46), (8, 60)]
+    ic.prisme([*droite, *reversed(gauche)], "y", 0, 18, "chene")
+    for t in (0.25, 0.5, 0.75):  # veinage de la face avant, entre les deux bords du galbe
+        ligne = [
+            (_bord(gauche, z) + t * (_bord(droite, z) - _bord(gauche, z)), z)
+            for z in (2, 14, 30, 46, 58)
+        ]
+        ic.trait([(x, 18.0, z) for x, z in ligne], "#b8823f", 1.0)
+
+
+def piece_en_bois_objet() -> str:
+    ic = Icone("Pièce en bois : pied galbé dessiné avec Sketcher et PartDesign")
+    _pied_galbe(ic)
+    return ic.svg()
+
+
+def _corps_bleu() -> str:
+    """Corps (« Body » de PartDesign) : bloc bleu en perspective isométrique, creusé d'une
+    poche sur le dessus ; dessin propre à l'atelier, placé à gauche de l'icône."""
+    contour = 'stroke="#0b2a52" stroke-width="2" stroke-linejoin="round"'
+    return "\n".join(
+        (
+            f'  <polygon points="13,14 25,21 13,28 1,21" fill="#8bb4e0" {contour}/>',
+            f'  <polygon points="1,21 13,28 13,44 1,37" fill="#3465a4" {contour}/>',
+            f'  <polygon points="13,28 25,21 25,37 13,44" fill="#204a87" {contour}/>',
+            '  <polygon points="13,18 19,21.5 13,25 7,21.5" fill="#204a87" '
+            'stroke="#0b2a52" stroke-width="1.2" stroke-linejoin="round"/>',
+        )
+    )
+
+
+def piece_en_bois() -> str:
+    ic = Icone("Convertir en pièce en bois : corps PartDesign, flèche, planche")
+    ic.boite((0, 0, 0), (50, 22, 12), "chene")
+    for y, phase in ((6, 0.1), (15, 0.6)):
+        ic.veinage((3, 47), (y, 12), "chene", amplitude=0.8, phase=phase)
+    fleche = (
+        '  <path d="M27,31 H37 M32,25 L38,31 L32,37" fill="none" stroke="#4e9a06" '
+        'stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+    return ic.svg(cadre=(38, 63, 26, 50), fond=_corps_bleu(), devant=fleche)

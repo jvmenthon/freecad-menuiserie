@@ -13,6 +13,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (« OK », « Annuler », document fermé, pièce supprimée, Édition > Annuler). Une pièce qui a des
   assemblages devient transparente sous sa forme usinée, la seule visible.
 
+### Modifié
+
+- Fin de la dette technique de J4 (issue #40) : `tools/generer_icones.py` (dessins des ensembles,
+  de la distance, des rotations et de la pièce en bois déplacés dans `tools/icones_ensembles.py`),
+  `tests/gui/verifications_panneau.py` et `verifications_panneau_assemblage.py` ramenés sous
+  400 lignes (nouveaux modules `*_expressions` et `*_fermeture`), sans changement de
+  comportement : icônes identiques, mêmes vérifications dans le même ordre.
+
 ### Corrigé
 
 - Suppression d'une pièce usinée qui porte des assemblages (demande de jv, 2026-11-01) : au lieu
