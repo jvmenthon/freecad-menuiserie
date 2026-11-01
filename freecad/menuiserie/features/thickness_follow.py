@@ -58,11 +58,14 @@ def _attached(root: DocumentObject, excluded: DocumentObject) -> list[DocumentOb
     """``root`` et les pièces qui lui sont assemblées de proche en proche, sans passer par
     ``excluded``."""
     found = [root]
-    for part in found:
+    pending = [root]
+    while pending:
+        part = pending.pop()
         for joint in _joints_of(part):
             other = _other(joint, part)
             if other is not None and other != excluded and other not in found:
                 found.append(other)
+                pending.append(other)
     return found
 
 
