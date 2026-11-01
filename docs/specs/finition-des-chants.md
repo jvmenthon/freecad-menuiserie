@@ -1,7 +1,7 @@
 # Finition des chants : profils d'arête et bande de chant
 
 - Issue : #5
-- Statut : **proposée**, en attente des réponses de jv (§ 9).
+- Statut : **proposée**, en attente des réponses de jv (§ 9) ; Q2 tranchée le 2026-11-01.
 - Demande de jv : « pouvoir donner une finition aux chants et aux arêtes des pièces de bois »
   (quart de rond, chanfrein, arête cassée, bec-de-corbin, doucine, gorge, demi-rond ; bande de
   chant collée ; alaise).
@@ -322,7 +322,7 @@ touché. Pas de migration utilisateur (« c'est une v0 », jv).
 - Q1 **Périmètre et ordre.** ★ Deux jalons : profils d'abord, bande de chant ensuite ; l'alaise
   reste une pièce ordinaire. Sinon : bande d'abord (panneaux mélaminés tôt, comme le suggère
   l'issue), ou tout dans un seul jalon.
-- Q2 **Cotes d'un panneau bandé.** ★ Les cotes de la pièce restent les cotes **finies, bande
+- Q2 **Cotes d'un panneau bandé.** **Tranché par jv le 2026-11-01 : cotes finies, bande comprise.** Les cotes de la pièce restent les cotes **finies, bande
   comprise** ; la liste de débit donne la cote de coupe. Sinon : la bande s'ajoute à l'extérieur
   des cotes (les cotes de la pièce sont celles du panneau nu).
 - Q3 **Choix des arêtes.** ★ Cases à cocher + raccourcis **et** clic dans la vue 3D. Sinon : cases

@@ -1,6 +1,6 @@
 # ADR 0030 — Bande de chant : solide séparé, cotes finies incluant la bande
 
-- Statut : **proposé** (issue #5 ; à valider par jv avec la spécification, question Q2)
+- Statut : **proposé** (issue #5 ; décision 1 (Q2) validée par jv le 2026-11-01, le reste à valider)
 - Date : 2026-11-01
 - Spécification : [docs/specs/finition-des-chants.md](../specs/finition-des-chants.md), § 4.6
 - ADR liés : [0002 — Bibliothèque de matériaux](0002-bibliotheque-de-materiaux.md) (complété),
