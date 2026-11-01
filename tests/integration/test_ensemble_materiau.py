@@ -48,7 +48,7 @@ def test_materiau_pilote_par_une_expression(document: Any) -> None:
     bureau = build_parts(document)
     furniture, _ = api.make_furniture(list(bureau.parts.values()), label="Bureau")
     driven = bureau.parts["P"]
-    driven.setExpression("MaterialId", "'chene'")
+    driven.setExpression("MaterialId", "<<chene>>")
     notices = api.set_furniture_material(furniture, "hetre")
     assert len(notices) == 1
     assert driven.MaterialId == "chene"
@@ -58,6 +58,7 @@ def test_materiau_pilote_par_une_expression(document: Any) -> None:
 def test_annulable_en_une_transaction(document: Any) -> None:
     bureau = build_parts(document)
     furniture, _ = api.make_furniture(list(bureau.parts.values()), label="Bureau")
+    document.UndoMode = 1
     document.openTransaction("Matériau")
     api.set_furniture_material(furniture, "hetre")
     document.commitTransaction()
