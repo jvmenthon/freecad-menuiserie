@@ -1,7 +1,7 @@
 # ADR 0028 — Épaisseurs et formats de panneaux personnels, partagés entre projets
 
-- Statut : **proposé** (demande de jv, issue #71, 2026-10-22 ; choix de conception à valider en
-  recette)
+- Statut : **accepté** (demande de jv, issue #71, 2026-10-22 ; conception validée par jv le
+  2026-11-01 après explication)
 - Date : 2026-11-01
 - ADR liés : [0002 — Bibliothèque de matériaux](0002-bibliotheque-de-materiaux.md),
   [0015 — Épaisseurs de brut](0015-epaisseurs-de-brut.md)
