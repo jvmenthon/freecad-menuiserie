@@ -10,7 +10,7 @@ et les noms des propriétés sont écrits dans les documents ; ils ne changent j
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import Solid
@@ -22,7 +22,7 @@ from freecad.menuiserie.features.blank_shape import blank_shape
 from freecad.menuiserie.features.freecad_types import (
     READ_ONLY,
     DocumentObject,
-    StatelessProxy,
+    SyncingProxy,
     placement_expression,
     proxy_is,
     restoring_or_undoing,
@@ -117,7 +117,7 @@ def _quoted(obj: DocumentObject) -> dict[str, str]:
     return {"label": quoted_value(obj.Label)}
 
 
-class MachinedPart(StatelessProxy):
+class MachinedPart(SyncingProxy):
     """Proxy du FeaturePython « pièce usinée ». Chemin de module figé (ADR 0003).
 
     Sans état : le drapeau ``_in_execute`` (lu avec ``getattr``, ``__init__`` n'étant pas rappelé
@@ -189,10 +189,6 @@ class MachinedPart(StatelessProxy):
         self._typed_mark = mark
         return _machined_label(obj, label_of_mark(blank, mark))
 
-    def synchronizing(self) -> AbstractContextManager[None]:
-        """Contexte où le libellé écrit par la brute n'est pas lu comme un renommage."""
-        return self._synchronizing()
-
     def _adopt_typed_mark(self, obj: DocumentObject) -> None:
         """Libellé changé : écrit, dans la brute, le repère mémorisé par
         :meth:`onBeforeChangeLabel`."""
@@ -237,17 +233,8 @@ class MachinedPart(StatelessProxy):
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)
-        syncing: bool = getattr(self, "_syncing", False)
+        syncing = self.is_syncing()
         return not (executing or syncing) and not restoring_or_undoing(obj)
-
-    @contextmanager
-    def _synchronizing(self) -> Iterator[None]:
-        previous: bool = getattr(self, "_syncing", False)
-        self._syncing = True
-        try:
-            yield
-        finally:
-            self._syncing = previous
 
     @contextmanager
     def _executing(self) -> Iterator[None]:

@@ -11,15 +11,13 @@ document.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import AbstractContextManager, contextmanager
 from typing import ClassVar
 
 from freecad.menuiserie.core.materials import Material, MaterialLibrary
 from freecad.menuiserie.core.naming import mark_from_label
 from freecad.menuiserie.features.freecad_types import (
     DocumentObject,
-    StatelessProxy,
+    SyncingProxy,
     restoring_or_undoing,
 )
 from freecad.menuiserie.features.part_labels import sync_dependent_labels
@@ -48,7 +46,7 @@ from freecad.menuiserie.features.wood_part_restore import (
 __all__ = ["MaterialProxy"]
 
 
-class MaterialProxy(StatelessProxy):
+class MaterialProxy(SyncingProxy):
     """Base des proxys de pièces : matériau, fil, repère et libellé de la pièce (sans état)."""
 
     VERSION: ClassVar[int]
@@ -175,18 +173,5 @@ class MaterialProxy(StatelessProxy):
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         """Faux pendant une resynchronisation interne, une restauration ou une annulation."""
-        syncing: bool = getattr(self, "_syncing", False)
+        syncing = self.is_syncing()
         return not syncing and not restoring_or_undoing(obj)
-
-    def synchronizing(self) -> AbstractContextManager[None]:
-        """Contexte où repère et libellé ne se répercutent pas l'un sur l'autre."""
-        return self._synchronizing()
-
-    @contextmanager
-    def _synchronizing(self) -> Iterator[None]:
-        previous: bool = getattr(self, "_syncing", False)
-        self._syncing = True
-        try:
-            yield
-        finally:
-            self._syncing = previous

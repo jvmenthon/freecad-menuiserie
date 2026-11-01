@@ -10,6 +10,8 @@ l'``ExpressionEngine`` d'un objet. Module public, utilisé aussi par ``gui/`` et
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import AbstractContextManager, contextmanager
 from typing import Any, Final
 
 __all__ = [
@@ -19,6 +21,7 @@ __all__ = [
     "Document",
     "DocumentObject",
     "StatelessProxy",
+    "SyncingProxy",
     "expression_of",
     "expressions_of",
     "has_expression",
@@ -85,3 +88,28 @@ class StatelessProxy:
     def loads(self, state: object) -> None:
         """Proxy sans état : rien à relire."""
         del state
+
+
+class SyncingProxy(StatelessProxy):
+    """Proxy sans état qui écrit lui-même certaines de ses propriétés (libellé, repère) : le
+    drapeau ``_syncing`` distingue ces écritures internes d'un changement de l'utilisateur.
+    Il est lu avec ``getattr`` car ``__init__`` n'est pas rappelé à l'ouverture d'un document."""
+
+    def is_syncing(self) -> bool:
+        """Vrai pendant une resynchronisation interne (contexte :meth:`synchronizing`)."""
+        syncing: bool = getattr(self, "_syncing", False)
+        return syncing
+
+    def synchronizing(self) -> AbstractContextManager[None]:
+        """Contexte où les écritures internes ne sont pas lues comme des changements de
+        l'utilisateur ; réentrant (l'état précédent est rétabli en sortie)."""
+        return self._synchronizing()
+
+    @contextmanager
+    def _synchronizing(self) -> Iterator[None]:
+        previous = self.is_syncing()
+        self._syncing = True
+        try:
+            yield
+        finally:
+            self._syncing = previous

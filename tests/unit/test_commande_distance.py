@@ -70,7 +70,9 @@ def test_case_garder_du_panneau() -> None:
 def test_vue_de_la_distance_gardee() -> None:
     """Le ViewProvider de la Distance : chemin figé (ADR 0003) et icône générée."""
     view = GUI / "view_providers" / "distance.py"
-    assert "class ViewProviderDistance(PanelEditing)" in view.read_text(encoding="utf-8")
+    assert "class ViewProviderDistance(NoGeometryView, PanelEditing)" in view.read_text(
+        encoding="utf-8"
+    )
     assert (ICONS_DIR / "Menuiserie_Distance.svg").is_file()
     assert '"Menuiserie_Distance.svg"' in (ROOT / "tools" / "generer_icones.py").read_text(
         encoding="utf-8"
