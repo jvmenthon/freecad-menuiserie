@@ -1,48 +1,39 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Position relative de deux pièces d'équerre : contact, chevauchement ou pièces écartées (J3a).
+"""Position relative de deux pièces : contact, chevauchement ou pièces écartées (J3a, AB-a).
 
 Toutes les longueurs sont en mm ; la comparaison se fait dans le repère local de l'hôte, à
-:data:`~.geometry.CONTACT_TOLERANCE_MM` près.
+:data:`~.geometry.CONTACT_TOLERANCE_MM` près. :func:`classify` ne traite que les pièces
+d'équerre ; :func:`relation` accepte aussi les pièces en biais (ADR 0024, voir
+:mod:`._oblique_contact`).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
+from freecad.menuiserie.core._contact_types import Contact, ObliqueContact, Overlap, Separated
+from freecad.menuiserie.core._oblique_contact import oblique_relation
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
     Axis,
     Box,
     PlacedBlock,
     RigidTransform,
+    is_square,
     moved_axis,
     moved_box,
     relative_transform,
 )
 
-__all__ = ["Contact", "Overlap", "Separated", "classify"]
+__all__ = [
+    "Contact",
+    "ObliqueContact",
+    "Overlap",
+    "Relation",
+    "Separated",
+    "classify",
+    "relation",
+]
 
-
-@dataclass(frozen=True)
-class Contact:
-    """Deux pièces qui se touchent par une face (chevauchement nul à la tolérance près)."""
-
-    guest_face: Axis
-    host_face: Axis
-    rectangle: Box  # aplati, repère de l'invitée
-    host_depth: float  # étendue de l'hôte dans l'axe normal au contact
-
-
-@dataclass(frozen=True)
-class Overlap:
-    """Deux pièces qui se chevauchent sur les trois axes."""
-
-    common: Box  # repère de l'hôte
-
-
-@dataclass(frozen=True)
-class Separated:
-    """Pièces écartées, ou qui ne se touchent que par une arête ou un coin."""
+Relation = Contact | Overlap | Separated | ObliqueContact
 
 
 def _contact(host_box: Box, guest_box: Box, normal: int, transform: RigidTransform) -> Contact:
@@ -80,3 +71,17 @@ def classify(host: PlacedBlock, guest: PlacedBlock) -> Contact | Overlap | Separ
     if len(touching) > 1:
         return Separated()
     return _contact(host_box, guest_box, touching[0], transform)
+
+
+def relation(
+    host: PlacedBlock, guest: PlacedBlock
+) -> Contact | Overlap | Separated | ObliqueContact:
+    """Position relative de deux pièces, d'équerre ou en biais.
+
+    Pièces d'équerre : exactement le résultat de :func:`classify`. En biais, un
+    :class:`ObliqueContact`, ou ``JointError`` (écart trop grand, bout sur une
+    arête de l'hôte).
+    """
+    if is_square(host, guest):
+        return classify(host, guest)
+    return oblique_relation(host, guest)
