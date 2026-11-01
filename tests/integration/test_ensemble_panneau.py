@@ -140,9 +140,10 @@ def test_pas_d_equerre_suit_par_translation(document: Any) -> None:
     document.recompute()
     furniture, _ = api.make_furniture(list(bureau.parts.values()), "Bureau")
     sizes = bureau.sizes("V")
+    start = furniture.Width.Value  # l'ensemble englobe aussi le voile tourné
     api.resize_furniture(furniture, width=1400)
     assert bureau.sizes("V") == sizes
     placement = bureau.parts["V"].Placement
-    assert placement.Base.x == pytest.approx(1200.0)
+    assert placement.Base.x == pytest.approx(1000.0 + 1400.0 - start)
     assert placement.Rotation.isSame(rotation, 1e-6)
     assert stale_or_invalid(document) == []
