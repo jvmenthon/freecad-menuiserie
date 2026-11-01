@@ -13,6 +13,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   panneau. Contre une grande face ou un chant, la longueur part de la face ; contre une extrémité,
   elle suit l'épaisseur de l'autre pièce (angle droit). Sans effet pour plusieurs
   éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre atelier.
+- Épaisseurs et formats de panneaux personnels (#71, demande de jv, 2026-10-22, ADR 0028) : le
+  menu « Épaisseurs standard » du panneau d'une pièce propose les épaisseurs ajoutées par
+  l'utilisateur et « Ajouter une épaisseur… » ; pour un panneau, un sous-menu « Formats de
+  panneau » (2500 x 1250, 2440 x 1220, 3050 x 1525 et les formats ajoutés par « Ajouter un
+  format… ») règle longueur et largeur. Les valeurs sont enregistrées dans `dimensions.json`, à
+  côté de la bibliothèque personnelle de matériaux, donc disponibles dans tous les projets ; une
+  épaisseur ajoutée ne déclenche plus l'avertissement « hors standard ».
 - Matériau de toute une armoire en une fois (#77, demande de jv, 2026-10-22) : le panneau de
   l'ensemble a une ligne « Matériau de toutes les pièces » (liste de la bibliothèque et bouton
   « Appliquer ») ; `api.set_furniture_material(ensemble, id)` fait de même par script. Les

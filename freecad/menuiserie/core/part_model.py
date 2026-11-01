@@ -7,7 +7,7 @@ de la pièce est : X = longueur, Y = largeur, Z = épaisseur.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields
 from enum import Enum
 from types import MappingProxyType
@@ -170,19 +170,25 @@ def mass_kg(dimensions: Dimensions, density_kg_m3: float) -> float:
 
 
 def is_standard_thickness(
-    material: Material, thickness: float, tolerance: float = STANDARD_THICKNESS_TOLERANCE_MM
+    material: Material,
+    thickness: float,
+    tolerance: float = STANDARD_THICKNESS_TOLERANCE_MM,
+    extra: Sequence[float] = (),
 ) -> bool:
-    """Vrai si l'épaisseur (mm) est une épaisseur standard du matériau, à la tolérance près."""
+    """Vrai si l'épaisseur (mm) est une épaisseur standard du matériau, ou une des épaisseurs
+    personnelles ``extra`` de l'utilisateur, à la tolérance près."""
     margin = tolerance + _ROUNDING_MARGIN_MM
-    return any(abs(standard - thickness) <= margin for standard in material.thicknesses)
+    return any(abs(standard - thickness) <= margin for standard in (*material.thicknesses, *extra))
 
 
-def is_nonstandard_panel_thickness(material: Material, thickness: float) -> bool:
+def is_nonstandard_panel_thickness(
+    material: Material, thickness: float, extra: Sequence[float] = ()
+) -> bool:
     """Vrai pour un panneau d'épaisseur (mm) hors de ses épaisseurs standard : le panneau de
     tâche l'affiche en avertissement, sans rien bloquer. Le massif se rabote : jamais signalé."""
     # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode non appelée.
     # nosemgrep: python.lang.maintainability.is-function-without-parentheses
-    return material.kind.is_panel and not is_standard_thickness(material, thickness)
+    return material.kind.is_panel and not is_standard_thickness(material, thickness, extra=extra)
 
 
 def grain_after_material_change(
