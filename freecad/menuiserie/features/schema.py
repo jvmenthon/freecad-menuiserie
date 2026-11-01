@@ -77,6 +77,10 @@ class PropertySpec:
     mode: int = EDITABLE
     label: str = ""
     resolved: str = ""
+    choices: tuple[tuple[str, str], ...] = ()  # énumération : (identifiant, libellé traduisible)
+    visible_if: str = (
+        ""  # champ du panneau montré seulement si cette valeur effective est non nulle
+    )
 
 
 def version_spec(tooltip: str, version: int) -> PropertySpec:
@@ -166,7 +170,11 @@ def restored_version(obj: DocumentObject, current: int, noun: str) -> int:
 
 
 def restore_schema(
-    obj: DocumentObject, specs: tuple[PropertySpec, ...], current: int, noun: str
+    obj: DocumentObject,
+    specs: tuple[PropertySpec, ...],
+    current: int,
+    noun: str,
+    choices: Mapping[str, list[str]] | None = None,
 ) -> None:
     """Réouverture d'un objet sans énumération ni défaut calculé : ``Version`` et types
     contrôlés, propriétés manquantes recréées (``Version`` portée à ``current`` si elle est
@@ -174,7 +182,7 @@ def restore_schema(
     version = restored_version(obj, current, noun)
     mistyped = remove_mistyped_properties(obj, specs, noun)
     if version < current or mistyped:
-        add_missing_properties(obj, specs)
+        add_missing_properties(obj, specs, choices=choices)
     if version < current:
         obj.Version = current
     apply_editor_modes(obj, specs)

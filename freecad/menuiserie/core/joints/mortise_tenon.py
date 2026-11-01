@@ -8,8 +8,11 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import PlacedBlock
 from freecad.menuiserie.core.joints._base import (
+    OBLIQUE_REFERENCES,
     JointKind,
     JointPlan,
+    ObliqueReference,
+    choice_param,
     flag_param,
     length_param,
     mm_round,
@@ -37,6 +40,8 @@ class MortiseTenonParams:
     through: bool = flag_param(False)
     mortise_clearance: float = length_param(2.0)
 
+    oblique_reference: str = choice_param(ObliqueReference.TENON_PIECE.value, OBLIQUE_REFERENCES)
+
     def __post_init__(self) -> None:
         validate_params(self)
 
@@ -50,11 +55,13 @@ class MortiseTenonStrategy:
         self, host: PlacedBlock, guest: PlacedBlock, params: MortiseTenonParams
     ) -> ProfileValues:
         """Valeurs effectives du tenon et de la mortaise."""
-        return _values(profile_frame(host, guest, end_only=True), params)
+        return _values(
+            profile_frame(host, guest, end_only=True, reference=params.oblique_reference), params
+        )
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: MortiseTenonParams) -> JointPlan:
         """Tenon ajouté à l'invitée, mortaise enlevée à l'hôte."""
-        frame = profile_frame(host, guest, end_only=True)
+        frame = profile_frame(host, guest, end_only=True, reference=params.oblique_reference)
         return build_any(frame, _values(frame, params), _RULES)
 
 

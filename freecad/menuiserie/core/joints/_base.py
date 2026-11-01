@@ -41,7 +41,21 @@ NOT_OVERLAPPING: Final = QT_TRANSLATE_NOOP(
 )
 
 _PARAM_KIND: Final = "joint_param"
+_CHOICES_KEY: Final = "joint_choices"
 _INVALID: Final = object()
+
+
+class ObliqueReference(str, Enum):
+    """Pièce qui sert de référence au tenon entre pièces en biais (ADR 0024) : le tenon suit le
+    fil de la pièce à tenon (défaut), est d'équerre à la face de la pièce mortaisée, ou partage
+    l'écart par moitié. Sans effet entre pièces d'équerre."""
+
+    TENON_PIECE = "TenonPiece"
+    MORTISED_PIECE = "MortisedPiece"
+    HALF_ANGLE = "HalfAngle"
+
+
+OBLIQUE_REFERENCES: Final = tuple(reference.value for reference in ObliqueReference)
 
 
 class JointKind(str, Enum):
@@ -152,6 +166,7 @@ class ParamKind(Enum):
     FLAG = "flag"
     COUNT = "count"
     ANGLE = "angle"
+    CHOICE = "choice"
 
 
 def _length(value: object) -> object:
@@ -178,6 +193,10 @@ def _angle(value: object) -> object:
     return _INVALID if number is None else number
 
 
+def _choice(value: object) -> object:
+    return value  # contrôlé par validate_params, qui connaît la liste
+
+
 _CHECKS: Final[Mapping[ParamKind, Callable[[object], object]]] = MappingProxyType(
     {
         ParamKind.LENGTH: _length,
@@ -185,6 +204,7 @@ _CHECKS: Final[Mapping[ParamKind, Callable[[object], object]]] = MappingProxyTyp
         ParamKind.FLAG: _flag,
         ParamKind.COUNT: _count,
         ParamKind.ANGLE: _angle,
+        ParamKind.CHOICE: _choice,
     }
 )
 _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
@@ -207,6 +227,10 @@ _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
             "Menuiserie",
             "Paramètre d'assemblage invalide : {field} = {value} "
             "(nombre entier entre 0 et {max} attendu).",
+        ),
+        ParamKind.CHOICE: QT_TRANSLATE_NOOP(
+            "Menuiserie",
+            "Paramètre d'assemblage invalide : {field} = {value} (choix attendu parmi {max}).",
         ),
         ParamKind.ANGLE: QT_TRANSLATE_NOOP(
             "Menuiserie",
@@ -251,15 +275,24 @@ def angle_param(default: float) -> Any:
     return field(default=default, metadata={_PARAM_KIND: ParamKind.ANGLE})
 
 
+def choice_param(default: str, choices: tuple[str, ...]) -> Any:
+    """Champ « choix » : texte parmi ``choices``."""
+    return field(default=default, metadata={_PARAM_KIND: ParamKind.CHOICE, _CHOICES_KEY: choices})
+
+
 def validate_params(params: object) -> None:
     """Contrôle et normalise chaque champ d'un objet de paramètres (``ValueError`` sinon)."""
     for item in fields(params):  # type: ignore[arg-type]
         kind: ParamKind = item.metadata[_PARAM_KIND]
         value = getattr(params, item.name)
         checked = _CHECKS[kind](value)
+        if kind is ParamKind.CHOICE and value not in item.metadata[_CHOICES_KEY]:
+            checked = _INVALID
         if checked is _INVALID:
             values = {"field": item.name, "value": quoted_value(value)}
             if kind in _MAXIMA:
                 values["max"] = decimal_text(_MAXIMA[kind])
+            if kind is ParamKind.CHOICE:
+                values["max"] = ", ".join(item.metadata[_CHOICES_KEY])
             raise JointError(_TEMPLATES[kind], values)
         object.__setattr__(params, item.name, checked)
