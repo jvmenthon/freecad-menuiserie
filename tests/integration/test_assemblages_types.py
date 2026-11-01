@@ -55,6 +55,7 @@ PROPERTIES: dict[str, list[Row]] = {
         ("TailCount", "App::PropertyIntegerConstraint", "Queue d'aronde", 0),
         ("PinWidth", LENGTH, "Queue d'aronde", 0.0),
         ("Angle", "App::PropertyAngle", "Queue d'aronde", 0.0),
+        ("TailsOnHost", BOOL, "Queue d'aronde", False),
     ],
     "make_miter": [],  # aucune propriété propre (A4 de J4)
 }

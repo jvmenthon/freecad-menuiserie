@@ -136,6 +136,21 @@ def members_of(furniture: DocumentObject) -> list[DocumentObject]:
     return [found[name] for name in sorted(found)]
 
 
+def common_furniture(first: DocumentObject, second: DocumentObject) -> DocumentObject | None:
+    """Ensemble le plus proche qui contient ``first`` et ``second`` (directement ou par ses
+    sous-ensembles), ``None`` si aucun."""
+
+    def chain(obj: DocumentObject) -> list[DocumentObject]:
+        found: list[DocumentObject] = []
+        while (parent := furniture_of(obj)) is not None and parent not in found:
+            found.append(parent)
+            obj = parent
+        return found
+
+    above = chain(first)
+    return next((f for f in chain(second) if f in above), None)
+
+
 def _in_joint_group(obj: DocumentObject) -> bool:
     return obj.TypeId == _JOINT_GROUP or any(parent.TypeId == _JOINT_GROUP for parent in obj.InList)
 

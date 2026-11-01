@@ -18,6 +18,24 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   panneau. Contre une grande face ou un chant, la longueur part de la face ; contre une extrémité,
   elle suit l'épaisseur de l'autre pièce (angle droit). Sans effet pour plusieurs
   éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre atelier.
+- Queue d'aronde, queues sur la pièce hôte (#85, demande de jv, 2026-10-23) : case « Queues sur la
+  pièce hôte » (propriété `TailsOnHost`) pour choisir quelle pièce porte les queues sans changer
+  les pièces ni leurs rôles. L'invitée est alors prolongée de ses griffes jusqu'à l'angle et
+  l'hôte les perd : aucun recouvrement, même matière que dans l'autre sens. Les flancs
+  se rétrécissent sur l'épaisseur de l'invitée.
+- Épaisseurs et formats de panneaux personnels (#71, demande de jv, 2026-10-22, ADR 0028) : le
+  menu « Épaisseurs standard » du panneau d'une pièce propose les épaisseurs ajoutées par
+  l'utilisateur et « Ajouter une épaisseur… » ; pour un panneau, un sous-menu « Formats de
+  panneau » (2500 x 1250, 2440 x 1220, 3050 x 1525 et les formats ajoutés par « Ajouter un
+  format… ») règle longueur et largeur. Les valeurs sont enregistrées dans `dimensions.json`, à
+  côté de la bibliothèque personnelle de matériaux, donc disponibles dans tous les projets ; une
+  épaisseur ajoutée ne déclenche plus l'avertissement « hors standard ».
+- Matériau de toute une armoire en une fois (#77, demande de jv, 2026-10-22) : le panneau de
+  l'ensemble a une ligne « Matériau de toutes les pièces » (liste de la bibliothèque et bouton
+  « Appliquer ») ; `api.set_furniture_material(ensemble, id)` fait de même par script. Les
+  pièces des sous-ensembles sont comprises ; une pièce dont le matériau suit une expression, ou
+  qui vient d'un document plus récent, est laissée telle quelle avec un avertissement. Un matériau
+  inconnu ne change rien ; tout est annulable en une entrée « Modifier l'ensemble ».
 - Pièce en édition en transparence (demande de jv, 2026-11-01) : tant que le panneau d'une pièce
   de bois ou d'une pièce en bois (convertie) est ouvert, en création comme en modification, la
   pièce s'affiche en semi-transparence ; sa transparence d'origine est rétablie à toute fermeture
@@ -25,6 +43,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   assemblages devient transparente sous sa forme usinée, la seule visible.
 
 ### Corrigé
+
+- Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même
+  ensemble se range sous l'ensemble le plus proche qui les contient (sous-ensembles compris) dans
+  l'arbre, dès sa création.
+- Queue d'aronde inversée (demande de jv, 2026-11-01) : le nombre de queues et la largeur des
+  griffes automatiques se règlent sur la plus mince des deux pièces ; inverser l'assemblage ne les
+  change plus.
+- Épaisseur d'une pièce tirée à la souris (demande de jv, 2026-11-01) : ce n'est pas un
+  déplacement, les assemblages sont recalculés sans proposer de les supprimer ; un assemblage
+  devenu impossible est signalé par un avertissement.
+- Tourillons (demande de jv, 2026-11-01) : par défaut la longueur est celle du commerce adaptée à
+  la plus mince des deux pièces (raccourcie par 5 mm au besoin), plus de refus « trop profond ».
 
 - Épaisseur d'une pièce assemblée (#133, demande de jv, 2026-11-01) : modifier l'épaisseur d'une
   pièce isolée (panneau ou éditeur de propriétés) ne défait plus les assemblages posés sur sa face

@@ -15,7 +15,7 @@ from typing import Any, Final
 from freecad.menuiserie.features.distance import distances_of
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
-from freecad.menuiserie.features.furniture_bindings import members_of
+from freecad.menuiserie.features.furniture_bindings import common_furniture, members_of
 from freecad.menuiserie.features.furniture_members import remove_members
 from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.joints.base import is_joint
@@ -55,18 +55,27 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
         return True
 
 
+def _pieces_below(furniture: DocumentObject) -> list[DocumentObject]:
+    """Pièces de ``furniture`` et de ses sous-ensembles (sans les ensembles)."""
+    found: list[DocumentObject] = []
+    for member in members_of(furniture):
+        found.extend(_pieces_below(member) if is_furniture(member) else [member])
+    return found
+
+
 def furniture_children(furniture: DocumentObject) -> list[DocumentObject]:
-    """Enfants de l'ensemble dans l'arbre : membres visibles, assemblages internes, puis
+    """Enfants de l'ensemble dans l'arbre : membres visibles, assemblages dont l'ensemble est le
+    plus proche contenant leurs deux pièces (même au travers d'un sous-ensemble), puis
     Distances gardées."""
     members = members_of(furniture)
-    names = {member.Name for member in members}
     joints = {
         parent.Name: parent
-        for member in members
-        for parent in member.InList
+        for piece in _pieces_below(furniture)
+        for parent in piece.InList
         if is_joint(parent)
-        and getattr(parent.HostPart, "Name", None) in names
-        and getattr(parent.GuestPart, "Name", None) in names
+        and parent.HostPart is not None
+        and parent.GuestPart is not None
+        and common_furniture(parent.HostPart, parent.GuestPart) == furniture
     }
     return [
         *(shown_object(member) for member in members),

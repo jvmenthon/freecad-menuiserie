@@ -18,6 +18,7 @@ from freecad.menuiserie.features import (
     distance_move,
     furniture_edges,
     furniture_locks,
+    furniture_material,
     furniture_members,
     templates,
 )
@@ -94,6 +95,18 @@ def set_member_options(
     (un réglage peut changer la rangée des autres pièces) et recalcule."""
     notices = furniture_members.set_options(obj, mode, fixed, locked)
     return _reported(notices, obj.Document)
+
+
+def set_furniture_material(furniture: DocumentObject, material_id: str) -> _Notices:
+    """Donne le matériau ``material_id`` à toutes les pièces de ``furniture``, sous-ensembles
+    compris, et recalcule. Une pièce dont le matériau suit une expression, ou qui vient d'un
+    document plus récent, est laissée telle quelle avec un avertissement (renvoyé et écrit dans la
+    vue rapport). ``TypeError`` traduite si ``furniture`` n'est pas un ensemble,
+    ``UnknownMaterialError`` si le matériau est inconnu : rien n'est écrit. Aucune transaction."""
+    messages = furniture_material.set_furniture_material(furniture, material_id)
+    report(messages)
+    furniture.Document.recompute()
+    return messages
 
 
 def set_edge_distance(obj: DocumentObject, edge: str, distance: float) -> _Notices:

@@ -30,7 +30,12 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.furniture import Edge, InteriorMode, Notice
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features import furniture_edges, furniture_locks, furniture_members
+from freecad.menuiserie.features import (
+    furniture_edges,
+    furniture_locks,
+    furniture_material,
+    furniture_members,
+)
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_view import MemberView, member_views, shown_object
@@ -43,6 +48,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     Widget,
     connect,
 )
+from freecad.menuiserie.gui.task_panels.furniture_material import MaterialRow
 from freecad.menuiserie.gui.task_panels.furniture_widgets import (
     MODE_LABELS,
     EdgeRow,
@@ -98,6 +104,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         self._tree = members_tree()
         layout.addWidget(self._tree)
         self._rows = self._add_member_editor(layout)
+        self._material = MaterialRow(layout, self._material_applied)
         self._add_buttons_and_messages(layout)
         for name, field in self._dimensions.items():
             connect(field, "valueChanged(double)", partial(self._dimension_edited, name))
@@ -234,6 +241,19 @@ class FurnitureTaskPanel(ObjectTaskPanel):
 
     def _rebind(self) -> None:
         self._edit(lambda: furniture_members.relink(self.obj))
+
+    def _material_applied(self, material_id: str) -> None:
+        """« Appliquer » : matériau de toutes les pièces ; les pièces laissées telles quelles sont
+        signalées sous la pièce choisie, un refus aussi, sans rien écrire."""
+        try:
+            messages = furniture_material.set_furniture_material(self.obj, material_id)
+        except (ValueError, TypeError) as error:
+            show_message(self._edit_error, str(error))
+            return
+        show_message(self._edit_error, "\n".join(messages))
+        report(messages)
+        self.preview()
+        self._refresh()
 
     def _edit(self, action: Callable[[], Sequence[Notice]]) -> None:
         """Action sur un membre ou sur l'ensemble ; un refus s'affiche sous la pièce choisie,

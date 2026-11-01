@@ -23,6 +23,7 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.joints import JointKind, guess_roles, strategy_for
 from freecad.menuiserie.core.joints.dovetail import DovetailParams, DovetailValues
+from freecad.menuiserie.core.part_model import Dimensions
 from tests.unit.aides_assemblages import (
     block,
     dovetail_corner,
@@ -329,3 +330,80 @@ def test_queue_de_un_mm_a_l_epaulement_acceptee() -> None:
 def test_refus_pieces_pas_d_equerre() -> None:
     guest = placed((400.0, 150.0, 18.0), rotation_y(-60.0), (18.0, 0.0, 18.0))
     refused((block((400.0, 150.0, 18.0)), guest), "d'équerre")
+
+
+# --- Queues sur la pièce hôte (issue #85) -------------------------------------------------------
+
+
+def host_tails(**params: object) -> DovetailParams:
+    return DovetailParams(tails_on_host=True, **params)  # type: ignore[arg-type]
+
+
+def test_queues_sur_l_hote_valeurs_selon_l_epaisseur() -> None:
+    """Les flancs se rétrécissent sur l'épaisseur de l'invitée (18 mm), pas sur la profondeur."""
+    result = DOVETAIL.resolve(*dovetail_corner((400.0, 150.0, 18.0)), host_tails())
+    assert result.tail_count == 3
+    assert result.pin_width == 6.0
+    assert result.tail_base == pytest.approx(result.tail_width - 36.0 * FLANK)
+
+
+def test_queues_sur_l_hote_griffes_ajoutees_a_l_invitee_et_retirees_a_l_hote() -> None:
+    plan = DOVETAIL.plan(*dovetail_corner(), host_tails())
+    pins = prisms(plan.guest_additions)
+    assert plan.guest_cuts == plan.host_additions == plan.inserts == ()
+    assert (
+        len(pins) == len(plan.host_cuts) == 4
+    )  # trois queues : deux griffes de bord et deux autres
+    # Matière rendue à l'invitée : (150 x 18 - queues) sur la profondeur de l'hôte (18 mm).
+    tails_area = 3 * (42.0 - 18.0 * FLANK) * 18.0
+    assert sum(volume(pin) for pin in pins) == pytest.approx((150.0 * 18.0 - tails_area) * 18.0)
+
+
+def test_queues_sur_l_hote_complement_exact_des_queues_de_l_invitee() -> None:
+    """Griffes + queues de l'invitée couvrent le même carré de coin : aux flancs près, les
+    volumes sont complémentaires, à l'inversion des rôles près (même angle, même nombre)."""
+    default = DOVETAIL.plan(*dovetail_corner(), DovetailParams())
+    inverted = DOVETAIL.plan(*dovetail_corner(), host_tails())
+    corner = 150.0 * 18.0 * 18.0
+    on_guest = sum(volume(tail) for tail in prisms(default.guest_additions))
+    on_host = sum(volume(pin) for pin in prisms(inverted.guest_additions))
+    assert on_guest == pytest.approx(TAILS_VOLUME)
+    assert on_host == pytest.approx(corner - TAILS_VOLUME)
+
+
+def test_queues_sur_l_hote_logements_prolonges() -> None:
+    plan = DOVETAIL.plan(*dovetail_corner(), host_tails())
+    overrun = CUT_OVERRUN_MM
+    first = bounds(prisms(plan.host_cuts)[0])
+    # Repère de l'hôte : prolongés de chaque côté de la profondeur et hors de la face extérieure.
+    assert first[0] == pytest.approx((-overrun, 18.0))
+    assert first[2] == pytest.approx((-overrun, 18.0 + overrun))
+
+
+def test_queues_sur_l_hote_face_exterieure_de_l_autre_cote() -> None:
+    host = block((400.0, 150.0, 18.0))
+    guest = placed((400.0, 150.0, 18.0), rotation_y(90.0), (382.0, 0.0, 0.0))
+    plan = DOVETAIL.plan(host, guest, host_tails())
+    assert bounds(prisms(plan.guest_additions)[0])[2] == pytest.approx((0.0, 18.0))
+    assert sum(volume(pin) for pin in prisms(plan.guest_additions)) == pytest.approx(
+        (150.0 * 18.0 - 3 * (42.0 - 18.0 * FLANK) * 18.0) * 18.0
+    )
+
+
+def test_queues_sur_l_hote_refus_queues_trop_etroites() -> None:
+    refused(dovetail_corner(), "Queues trop étroites", tails_on_host=True, tail_count=20)
+
+
+def test_parametre_queues_sur_l_hote_booleen() -> None:
+    with pytest.raises(JointError):
+        DovetailParams(tails_on_host=1)  # type: ignore[arg-type]
+
+
+def test_nombre_et_griffes_automatiques_d_apres_la_plus_mince() -> None:
+    """Nombre et griffes viennent de la plus mince des deux pièces : échanger les rôles (la
+    profondeur de l'hôte devient l'épaisseur de l'invitée) ne les change pas."""
+    thin = values(dovetail_corner((400.0, 150.0, 18.0)))
+    host, guest = dovetail_corner((400.0, 150.0, 18.0))
+    deep_host = PlacedBlock(Dimensions(400.0, 150.0, 30.0), host.placement)
+    thick = values((deep_host, guest))
+    assert (thick.tail_count, thick.pin_width) == (thin.tail_count, thin.pin_width)

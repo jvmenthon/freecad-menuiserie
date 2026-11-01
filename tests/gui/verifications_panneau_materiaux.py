@@ -34,6 +34,7 @@ from tests.gui.verifications_panneau import (
     creer_par_la_commande,
     ecarts,
     formulaire,
+    menu_des_epaisseurs,
     modifier_tout,
     nouveau_document,
     piece_validee,
@@ -238,7 +239,7 @@ def verifier_cotes_pilotees_jamais_ecrites() -> list[str]:
         with ecritures(obj) as ecrites:
             saisir(formulaire().lengthEdit, 1234.0)
             saisir(formulaire().thicknessEdit, 18.0)
-            for action in formulaire().standardThicknessButton.menu().actions():
+            for action in menu_des_epaisseurs(formulaire()):
                 action.trigger()
         valider()
         return [
