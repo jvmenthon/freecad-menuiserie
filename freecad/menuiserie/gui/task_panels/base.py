@@ -139,10 +139,7 @@ class TransactionTaskPanel:
         connect(self.form, "destroyed()", self._on_closed_by_freecad)
         if self._watcher is not None:
             App.addDocumentObserver(self._watcher)
-        # en dernier : le panneau est affiché, plus rien ne peut échouer avant sa fermeture
-        self._styles = [
-            PreviewStyle(getattr(o, "ViewObject", None)) for o in self.transparent_objects()
-        ]
+        self._apply_styles()  # en dernier : le panneau est affiché, plus rien ne peut échouer
 
     # --- Fermeture ------------------------------------------------------------------------
 
