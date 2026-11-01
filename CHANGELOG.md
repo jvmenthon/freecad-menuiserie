@@ -8,11 +8,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ### Ajouté
 
 - Pièce créée contre une face (#136, demande de jv, 2026-11-01) : si une seule face d'une pièce de
-  bois est sélectionnée au lancement de « Pièce de bois », la nouvelle pièce part perpendiculaire à
-  la face (longueur selon la normale, largeur et épaisseur parallèles à celles de l'autre pièce) et
-  reprend sa largeur et son épaisseur ; tout reste modifiable dans le panneau. Sans effet pour
-  plusieurs éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre
-  atelier.
+  bois est sélectionnée au lancement de « Pièce de bois », la nouvelle pièce est perpendiculaire à
+  la pièce qui porte la face, avec sa largeur et son épaisseur ; tout reste modifiable dans le
+  panneau. Contre une grande face ou un chant, la longueur part de la face ; contre une extrémité,
+  elle suit la largeur de l'autre pièce (angle droit, comme un cadre). Sans effet pour plusieurs
+  éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre atelier.
 - Pièce en édition en transparence (demande de jv, 2026-11-01) : tant que le panneau d'une pièce
   de bois ou d'une pièce en bois (convertie) est ouvert, en création comme en modification, la
   pièce s'affiche en semi-transparence ; sa transparence d'origine est rétablie à toute fermeture

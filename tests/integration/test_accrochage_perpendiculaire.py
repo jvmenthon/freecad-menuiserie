@@ -58,13 +58,14 @@ def create_against(document: Any, root: Any, subname: str) -> tuple[Any, Any]:
     return part, start
 
 
-def test_extremite_prolonge_la_piece(document: Any, board: Any) -> None:
+def test_extremite_angle_droit_avec_la_piece(document: Any, board: Any) -> None:
     part, start = create_against(document, board, face_at(board, (1, 0, 0), 800))
     assert (start.width, start.thickness) == (100, 30)
     box = geometry.global_shape(part).BoundBox
-    assert (round(box.XMin, 6), round(box.XMax, 6)) == (800, 1600)  # longueur par défaut 800
-    assert (round(box.YMin, 6), round(box.YMax, 6)) == (0, 100)
-    assert (round(box.ZMin, 6), round(box.ZMax, 6)) == (0, 30)
+    assert round(box.XMin, 6) == 800  # appuyée sur l'extrémité
+    assert round(box.XMax - box.XMin, 6) == 100  # sa largeur part de la face
+    assert round(box.YMax - box.YMin, 6) == 800  # longueur selon la largeur de l'autre pièce
+    assert (round(box.ZMin, 6), round(box.ZMax, 6)) == (0, 30)  # épaisseur parallèle
 
 
 def test_grande_face_dresse_la_piece(document: Any, board: Any) -> None:

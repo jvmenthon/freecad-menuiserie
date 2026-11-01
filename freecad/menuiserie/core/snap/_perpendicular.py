@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Orientation d'une pièce posée perpendiculairement à la face d'une autre pièce (issue #136).
 
-La longueur de la nouvelle pièce part de la face (le long de sa normale sortante) ; ses deux
-autres axes suivent ceux de la pièce qui porte la face, pour que les largeurs et épaisseurs
-restent parallèles : contre une extrémité, la pièce prolonge l'autre ; contre une grande face
-(épaisseur), sa largeur reste parallèle à celle de l'autre ; contre un chant (largeur), son
-épaisseur reste parallèle à celle de l'autre.
+La nouvelle pièce est toujours perpendiculaire à la pièce qui porte la face, et ses axes restent
+parallèles aux siens : contre une grande face (épaisseur), la longueur part de la face (normale
+sortante) et la largeur reste parallèle à celle de l'autre ; contre un chant (largeur), la
+longueur part du chant et l'épaisseur reste parallèle ; contre une extrémité, la longueur suit la
+largeur de l'autre pièce (angle droit, comme un cadre), l'épaisseur reste parallèle et la largeur
+de la nouvelle pièce s'appuie sur la face.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from freecad.menuiserie.core.vectors import cross
 
 __all__ = ["perpendicular_orientation"]
 
-_WIDTH, _THICKNESS = 1, 2
+_LENGTH, _WIDTH, _THICKNESS = 0, 1, 2
 _NORMAL_ROW = 2  # ligne « normale sortante » du repère d'appui
 
 
@@ -41,10 +42,14 @@ def perpendicular_orientation(support: Matrix3, owner: Matrix3) -> Orientation |
         return None
     normal_axis = next(i for i in range(3) if seen[_NORMAL_ROW][i] != 0.0)
     length = Vec3(0.0, 0.0, 1.0)
-    if normal_axis == _THICKNESS:  # grande face : la largeur reste parallèle à l'autre
+    if normal_axis == _LENGTH:  # extrémité : angle droit, épaisseur parallèle à l'autre
+        length = _column(seen, _WIDTH)
+        thickness = _column(seen, _THICKNESS)
+        width = cross(thickness, length)
+    elif normal_axis == _THICKNESS:  # grande face : la largeur reste parallèle à l'autre
         width = _column(seen, _WIDTH)
         thickness = cross(length, width)
-    else:  # extrémité ou chant : l'épaisseur reste parallèle à l'autre
+    else:  # chant : l'épaisseur reste parallèle à l'autre
         thickness = _column(seen, _THICKNESS)
         width = cross(thickness, length)
     axes = (length, width, thickness)
