@@ -45,7 +45,7 @@ EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier un profil d'
 _TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Finition des chants")
 _FAMILY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Profil")
 _SIZE_A: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote A (rayon, distance)")
-_SIZE_B: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote B (0 : égale à A)")
+_SIZE_B: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote B (0 : selon la famille)")
 _BROKEN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Arête cassée 1 mm")
 _PICK: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisir dans la vue 3D")
 _DELETE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Supprimer ce profil")
@@ -73,6 +73,9 @@ _REPLACE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Arêtes déjà profilé
 _REPLACE_TEXT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Ces arêtes ont déjà un profil : {edges}. Le nouveau profil le remplace. Continuer ?",
+)
+_CONFLICT_NOTE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Déjà profilées ailleurs (remplacées à la validation) : {edges}."
 )
 _NO_EDGE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cochez au moins une arête à profiler.")
 _ERROR_STYLE: Final = "color: #c0392b;"
@@ -239,28 +242,40 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         if self._guard.active:
             return
         codes = self.codes()
-        family = str(self._family.currentData())
-        size_a = float(self._size_a.property("rawValue"))
-        size_b = float(self._size_b.property("rawValue"))
+        conflicts = sorted(set(codes) & self._others)
         message = ""
         self._failed = False
         try:
-            if not codes:
-                if self.profile is not None:
-                    raise ValueError(translated(_NO_EDGE))
-            elif self.profile is None:
-                self.profile, notices = api.add_edge_profile(
-                    self.part, codes, family, size_a, size_b, replace=True
-                )
-                message = "\n".join(notices)
-            else:
-                message = "\n".join(
-                    api.set_edge_profile(self.profile, codes, family, size_a, size_b, replace=True)
-                )
+            # Aperçu : les arêtes déjà profilées par un autre profil ne lui sont retirées
+            # qu'après confirmation, dans accept().
+            free = [code for code in codes if code not in self._others]
+            if free or not conflicts:
+                message = "\n".join(self._apply(free, replace=False))
+            if conflicts:
+                note = translated(_CONFLICT_NOTE, {"edges": ", ".join(conflicts)})
+                message = f"{message}\n{note}" if message else note
         except (TypeError, ValueError) as error:
             message, self._failed = str(error), True
         self._error.setText(message)
         self._error.setVisible(bool(message))
+
+    def _apply(self, codes: list[str], *, replace: bool) -> tuple[str, ...]:
+        """Profil créé ou modifié d'après les champs, pour ``codes`` ; avertissements."""
+        family = str(self._family.currentData())
+        size_a = float(self._size_a.property("rawValue"))
+        size_b = float(self._size_b.property("rawValue"))
+        if not codes:
+            if self.profile is not None:
+                raise ValueError(translated(_NO_EDGE))
+            return ()
+        if self.profile is None:
+            self.profile, notices = api.add_edge_profile(
+                self.part, codes, family, size_a, size_b, replace=replace
+            )
+            return tuple(notices)
+        return tuple(
+            api.set_edge_profile(self.profile, codes, family, size_a, size_b, replace=replace)
+        )
 
     def _delete(self) -> None:
         """« Supprimer ce profil » : profil retiré (la pièce usinée disparaît si elle n'a plus
@@ -284,10 +299,19 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         codes = self.codes()
         if not codes and self.profile is None:
             return self.reject()
-        if self._failed or self.profile is None:
+        if self._failed:
             return False
         conflicts = sorted(set(codes) & self._others)
-        if conflicts and not self._confirmed(conflicts):
+        if conflicts:
+            if not self._confirmed(conflicts):
+                return False
+            try:
+                self._apply(codes, replace=True)
+            except (TypeError, ValueError) as error:
+                self._error.setText(str(error))
+                self._error.setVisible(True)
+                return False
+        elif self.profile is None:
             return False
         return super().accept()
 

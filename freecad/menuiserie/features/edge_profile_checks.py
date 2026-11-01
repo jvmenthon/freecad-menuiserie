@@ -40,7 +40,7 @@ def _solids_on(joint: DocumentObject, blank: DocumentObject) -> list[PlanSolid]:
     if joint.HostPart == blank:
         solids += [*plan.host_additions, *plan.host_cuts]
     if joint.GuestPart == blank:
-        solids += [*plan.guest_additions, *plan.guest_cuts]
+        solids += [*plan.guest_additions, *plan.guest_cuts, *plan.guest_trims]
     return solids[:MAX_SOLIDS]
 
 

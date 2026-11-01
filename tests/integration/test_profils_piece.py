@@ -317,3 +317,20 @@ def test_modifier_un_profil_reprend_les_aretes_d_un_autre(document: Any, board: 
     api.set_edge_profile(profile, ["Z+Y-", "Z-Y-"], "Chamfer", 2.0, replace=True)
     with pytest.raises(ReferenceError):
         _ = other.Name
+
+
+def test_profil_sur_l_hote_d_un_onglet_reste_jointif(document: Any) -> None:
+    """Revue M4 : un profil sur toutes les arêtes de l'hôte ne crée ni chevauchement ni second
+    morceau avec la pièce invitée d'un onglet."""
+    from freecad.menuiserie.core.edges import all_edges
+    from tests.integration.types_assemblages import MITER, build
+
+    montage = build(document, MITER, frame=App.Placement())
+    before = machined_of(montage.host).Shape.Volume
+    api.add_edge_profile(montage.host, [e.code for e in all_edges()], "Chamfer", 1.0)
+    document.recompute()
+    host = machined_of(montage.host).Shape
+    guest = machined_of(montage.guest).Shape
+    assert host.isValid() and len(host.Solids) == 1
+    assert host.common(guest).Volume == pytest.approx(0, abs=1e-6)
+    assert host.Volume < before

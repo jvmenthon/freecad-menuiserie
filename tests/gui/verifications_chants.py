@@ -214,10 +214,41 @@ def verifier_modification_et_suppression() -> list[str]:
     return avec_document("VerifChantsModifier", _modifier_et_supprimer)
 
 
+def _conflit(doc: Any) -> list[str]:
+    from freecad.menuiserie import api
+
+    blank = piece(doc)
+    first, _ = api.add_edge_profile(blank, ["Z+Y-"], "Chamfer", 5.0, 5.0)
+    doc.recompute()
+    form = lancer(blank)
+    if form is None:
+        return ["panneau de finition non ouvert"]
+    widget(form, "Z+Y-").setChecked(True)  # déjà profilée par un autre profil
+    widget(form, "Z-Y-").setChecked(True)
+    problemes = ecarts("aperçu : premier profil intact", first.Edges, ["Z+Y-"])
+    widget(form, "Z+Y-").setChecked(False)
+    valider()
+    return [
+        *problemes,
+        *ecarts("premier profil intact après OK", first.Edges, ["Z+Y-"]),
+        *ecarts(
+            "profils",
+            sorted(tuple(p.Edges) for p in api.edge_profiles_of(blank)),
+            [("Z+Y-",), ("Z-Y-",)],
+        ),
+    ]
+
+
+def verifier_arete_deja_profilee() -> list[str]:
+    """Une arête cochée puis décochée n'enlève rien à l'autre profil (revue M1)."""
+    return avec_document("VerifChantsConflit", _conflit)
+
+
 VERIFICATIONS_CHANTS: tuple[Callable[[], list[str]], ...] = (
     verifier_commande,
     verifier_creation,
     verifier_annulation,
     verifier_cote_refusee,
     verifier_modification_et_suppression,
+    verifier_arete_deja_profilee,
 )

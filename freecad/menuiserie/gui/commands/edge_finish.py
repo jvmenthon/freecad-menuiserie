@@ -15,6 +15,7 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.edge_profile import is_edge_profile
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -85,7 +86,7 @@ class EdgeFinishCommand:
             start_editing(target)
             return
         if is_shaped_part(target):
-            report_refusal(translated(_SHAPED, {"label": str(target.Label)}))
+            report_refusal(translated(_SHAPED, {"label": quoted_value(target.Label)}))
             return
         App.ActiveDocument.openTransaction(translated(CREATE_TRANSACTION))
         show_panel(target)

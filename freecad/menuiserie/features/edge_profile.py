@@ -96,8 +96,9 @@ PROPERTIES: Final = (
         QT_TRANSLATE_NOOP(
             "App::Property",
             'Arêtes profilées, par leurs deux faces dans le repère de la pièce ("Z+Y-" : '
-            "dessus-avant).",
+            "dessus-avant). Modifiez-les par la commande « Finition des chants ».",
         ),
+        mode=READ_ONLY,
     ),
     PropertySpec(
         "Family",

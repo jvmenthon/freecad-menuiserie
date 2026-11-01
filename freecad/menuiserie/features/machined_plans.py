@@ -19,7 +19,12 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
 
-__all__ = ["JointFailedError", "finishes_of", "machining_of"]
+__all__ = ["MAX_FINISHES", "JointFailedError", "finishes_of", "machining_of"]
+
+MAX_FINISHES: Final = 12  # une arête, un profil : au plus douze profils par pièce
+_TOO_MANY_FINISHES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "La pièce usinée « {label} » porte plus de douze profils d'arête."
+)
 
 _NOT_A_JOINT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est pas un assemblage de l'atelier Menuiserie."
@@ -71,6 +76,8 @@ def finishes_of(obj: DocumentObject, blank: DocumentObject) -> list[Extrusion]:
     pas un profil de la brute, :class:`JointFailedError` si l'un d'eux est impossible (il
     signale lui-même son erreur)."""
     profiles: list[Extrusion] = []
+    if len(obj.Finishes) > MAX_FINISHES:
+        raise ValueError(translated(_TOO_MANY_FINISHES, {"label": quoted_value(obj.Label)}))
     for finish in obj.Finishes:
         if not is_edge_profile(finish):
             raise ValueError(translated(_NOT_A_FINISH, {"label": quoted_value(finish.Label)}))

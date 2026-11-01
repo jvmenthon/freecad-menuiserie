@@ -379,3 +379,13 @@ def test_chaque_arete_se_retrouve_par_son_milieu() -> None:
         for face in (edge.first, edge.second):
             values[face.index] = sizes[face.index] if face.sign > 0 else 0.0
         assert nearest_edge(PIECE, Vec3.of(values)) == edge
+
+
+def test_morceau_d_arete_pres_d_un_bout_garde_son_arete() -> None:
+    """Un segment d'arête coupé par un assemblage reste rattaché à son arête (revue M2)."""
+    from freecad.menuiserie.core.edges import nearest_edge
+
+    long_piece = Dimensions(1000.0, 50.0, 20.0)
+    assert nearest_edge(long_piece, Vec3(25.0, 0.0, 20.0)).code == "Z+Y-"
+    assert nearest_edge(long_piece, Vec3(50.0, 0.0, 20.0)).code == "Z+Y-"
+    assert nearest_edge(long_piece, Vec3(975.0, 50.0, 0.0)).code == "Z-Y+"

@@ -26,6 +26,7 @@ from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.machined_part import (
     ensure_machined_part,
+    is_machined_part,
     machined_part_of,
     remove_machined_part,
 )
@@ -55,7 +56,7 @@ _ALREADY_PROFILED: Final = QT_TRANSLATE_NOOP(
 
 def edge_profiles_of(part: DocumentObject) -> list[DocumentObject]:
     """Profils d'arête de la pièce ``part`` (brute ou usinée), vide s'il n'y en a pas."""
-    blank = part if is_wood_part(part) else getattr(part, "Base", None)
+    blank = part.Base if is_machined_part(part) else part
     machined = None if blank is None else machined_part_of(blank)
     if machined is None:
         return []
@@ -64,7 +65,7 @@ def edge_profiles_of(part: DocumentObject) -> list[DocumentObject]:
 
 def _blank_of(part: DocumentObject) -> DocumentObject:
     """Pièce de bois (boîte) de ``part``, brute ou usinée ; ``ValueError`` traduite sinon."""
-    blank = part if not hasattr(part, "Base") else part.Base
+    blank = part.Base if is_machined_part(part) else part
     label = quoted_value(getattr(part, "Label", part))
     if is_shaped_part(blank):
         raise ValueError(translated(_SHAPED_PART, {"label": label}))
