@@ -359,7 +359,12 @@ def _joint_warnings(memento: DragMemento) -> list[str]:
 
 def _settle(memento: DragMemento, choose: JointChoice | None) -> list[str]:
     """Assemblages défaits par le déplacement, essayés avant tout recalcul (ADR 0026) ; si le
-    déplacement est annulé, la brute revient (:func:`restore`) et ``DragCancelledError`` passe."""
+    déplacement est annulé, la brute revient (:func:`restore`) et ``DragCancelledError`` passe.
+    Une épaisseur tirée n'est pas un déplacement : les assemblages sont seulement recalculés (un
+    qui devient impossible est signalé par :func:`_joint_warnings`), jamais proposés à la
+    suppression."""
+    if memento.part.Thickness.Value != memento.thickness:
+        return []
     try:
         return settle_joints(memento.part, memento.invalid_joints, choose)
     except DragCancelledError:

@@ -191,10 +191,27 @@ def positions(width: float, edge: float, count: int) -> tuple[float, ...]:
     return tuple(edge + index * step for index in range(count))
 
 
-def _values(frame: ContactFrame, params: DowelParams) -> DowelValues:
+def adapted_length(diameter: float, shortest_depth: float, clearance: float) -> float:
+    """Longueur du tourillon du commerce, raccourcie (par 5 mm) si la plus mince des deux pièces,
+    de ``shortest_depth`` selon la direction du tourillon, ne peut pas recevoir la moitié de
+    cette longueur avec son jeu et ``MIN_BOTTOM_MM`` de fond ; jamais sous 2 diamètres."""
+    length = auto_length(diameter)
+    room = 2 * (shortest_depth - clearance - MIN_BOTTOM_MM)
+    if room >= length:
+        return length
+    return max(2 * diameter, math.floor(room / 5) * 5.0)
+
+
+def _values(frame: ContactFrame, guest: PlacedBlock, params: DowelParams) -> DowelValues:
     width = frame.contact_width
     diameter = params.diameter or auto_diameter(frame.contact_thickness, params.thickness_offset)
-    length = params.dowel_length or auto_length(diameter)
+    if params.dowel_length:
+        length = params.dowel_length
+    elif params.host_depth:
+        length = auto_length(diameter)
+    else:
+        shortest = min(frame.contact.host_depth, guest.local_box().size(frame.normal))
+        length = adapted_length(diameter, shortest, params.hole_clearance)
     edge = params.edge_distance or 2 * diameter
     count = params.count or auto_count(width, edge, diameter)
     return DowelValues(
@@ -210,7 +227,7 @@ def _values(frame: ContactFrame, params: DowelParams) -> DowelValues:
 
 
 def _checked_values(frame: ContactFrame, guest: PlacedBlock, params: DowelParams) -> DowelValues:
-    values = _values(frame, params)
+    values = _values(frame, guest, params)
     _check_section(frame, values)
     _check_depths(frame, guest, values)
     _check_spacing(frame, values)

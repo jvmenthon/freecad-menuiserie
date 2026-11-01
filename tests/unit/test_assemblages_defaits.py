@@ -201,7 +201,8 @@ def release(drag: ModuleType, monkeypatch: pytest.MonkeyPatch, events: list[str]
         return []
 
     document = SimpleNamespace(recompute=lambda: note("recompute"))
-    memento = SimpleNamespace(part=SimpleNamespace(Document=document), invalid_joints=frozenset())
+    part = SimpleNamespace(Document=document, Thickness=SimpleNamespace(Value=18.0))
+    memento = SimpleNamespace(part=part, thickness=18.0, invalid_joints=frozenset())
     monkeypatch.setattr(drag, "restore", lambda m: note("restore"))
     monkeypatch.setattr(drag, "_relink", lambda m: note("relink"))
     monkeypatch.setattr(drag, "_joint_warnings", lambda m: [])

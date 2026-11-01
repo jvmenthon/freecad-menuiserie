@@ -39,6 +39,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Queue d'aronde inversée (demande de jv, 2026-11-01) : le nombre de queues et la largeur des
+  griffes automatiques se règlent sur la plus mince des deux pièces ; inverser l'assemblage ne les
+  change plus.
+- Épaisseur d'une pièce tirée à la souris (demande de jv, 2026-11-01) : ce n'est pas un
+  déplacement, les assemblages sont recalculés sans proposer de les supprimer ; un assemblage
+  devenu impossible est signalé par un avertissement.
+- Tourillons (demande de jv, 2026-11-01) : par défaut la longueur est celle du commerce adaptée à
+  la plus mince des deux pièces (raccourcie par 5 mm au besoin), plus de refus « trop profond ».
+
 - Épaisseur d'une pièce assemblée (#133, demande de jv, 2026-11-01) : modifier l'épaisseur d'une
   pièce isolée (panneau ou éditeur de propriétés) ne défait plus les assemblages posés sur sa face
   haute (tenon dans la mortaise de cette face) : les pièces qui s'y appuient, avec celles qui leur

@@ -191,3 +191,11 @@ def test_fond_de_3_mm_accepte() -> None:
 def test_contact_par_la_face_refuse() -> None:
     on_face = block((100.0, 50.0, 10.0), (10.0, 5.0, 22.0))
     refused(stile(), on_face, DowelParams(), "par une face")
+
+
+def test_longueur_raccourcie_pour_une_piece_mince() -> None:
+    host = block((300.0, 20.0, 18.0))
+    guest = block((300.0, 100.0, 18.0), (0.0, 20.0, 0.0))
+    values = DOWELS.resolve(host, guest, DowelParams())
+    assert (values.diameter, values.dowel_length, values.host_depth) == (8, 30, 15)
+    DOWELS.plan(host, guest, DowelParams())  # plus de refus « trop profond »

@@ -22,6 +22,7 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.joints import JointKind, guess_roles, strategy_for
 from freecad.menuiserie.core.joints.dovetail import DovetailParams, DovetailValues
+from freecad.menuiserie.core.part_model import Dimensions
 from tests.unit.aides_assemblages import (
     block,
     dovetail_corner,
@@ -395,3 +396,13 @@ def test_queues_sur_l_hote_refus_queues_trop_etroites() -> None:
 def test_parametre_queues_sur_l_hote_booleen() -> None:
     with pytest.raises(JointError):
         DovetailParams(tails_on_host=1)  # type: ignore[arg-type]
+
+
+def test_nombre_et_griffes_automatiques_d_apres_la_plus_mince() -> None:
+    """Nombre et griffes viennent de la plus mince des deux pièces : échanger les rôles (la
+    profondeur de l'hôte devient l'épaisseur de l'invitée) ne les change pas."""
+    thin = values(dovetail_corner((400.0, 150.0, 18.0)))
+    host, guest = dovetail_corner((400.0, 150.0, 18.0))
+    deep_host = PlacedBlock(Dimensions(400.0, 150.0, 30.0), host.placement)
+    thick = values((deep_host, guest))
+    assert (thick.tail_count, thick.pin_width) == (thin.tail_count, thin.pin_width)

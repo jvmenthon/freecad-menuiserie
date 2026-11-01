@@ -161,11 +161,14 @@ def _through_frame(host: PlacedBlock, guest: PlacedBlock) -> _Through:
 
 def _values(through: _Through, params: DovetailParams) -> DovetailValues:
     width = through.width
-    count = params.tail_count or max(1, math.floor(width / (3 * through.thickness) + 0.5))
+    # Nombre et griffes automatiques d'après la plus mince des deux pièces : inverser l'assemblage
+    # (hôte et invitée échangés) ne les change pas.
+    reference = min(through.thickness, through.depth)
+    count = params.tail_count or max(1, math.floor(width / (3 * reference) + 0.5))
     # Les flancs se rétrécissent sur la profondeur des queues : celle de l'hôte, ou, quand les
     # queues sont sur l'hôte, l'épaisseur de l'invitée.
     depth = through.thickness if params.tails_on_host else through.depth
-    pin = params.pin_width or mm_round(depth / 3)
+    pin = params.pin_width or mm_round(reference / 3)
     angle = params.angle or DEFAULT_ANGLE_DEG
     tail_width = (width - (count + 1) * pin) / count
     tail_base = tail_width - 2 * depth * math.tan(math.radians(angle))
