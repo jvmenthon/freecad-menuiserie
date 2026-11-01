@@ -25,6 +25,7 @@ __all__ = [
     "ANGLE_TOLERANCE",
     "CONTACT_TOLERANCE_MM",
     "CUT_OVERRUN_MM",
+    "MAX_OBLIQUE_DEG",
     "NOT_SQUARE",
     "Axis",
     "Box",
@@ -35,6 +36,7 @@ __all__ = [
     "RigidTransform",
     "Solid",
     "Vec3",
+    "is_square",
     "moved",
     "moved_axis",
     "moved_box",
@@ -48,6 +50,8 @@ ANGLE_TOLERANCE: Final = 1e-6  # écart toléré des coefficients de la matrice 
 # Prolongement hors de la matière d'un enlèvement en prisme qui débouche (le volume enlevé dans
 # la pièce ne change pas ; les booléennes d'OCC évitent les faces confondues).
 CUT_OVERRUN_MM: Final = 0.1
+# Écart maximal accepté entre deux pièces assemblées en biais (ADR 0024, réponse de jv).
+MAX_OBLIQUE_DEG: Final = 70.0
 
 NOT_SQUARE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les deux pièces doivent être d'équerre (angles multiples de 90°)."
@@ -328,6 +332,15 @@ def relative_axes(host: PlacedBlock, guest: PlacedBlock) -> tuple[Axis, Axis, Ax
     Lève :class:`JointError` si la rotation relative n'est pas un multiple de 90° par axe.
     """
     return _square_axes(host.placement.inverse().compose(guest.placement).rotation)
+
+
+def is_square(host: PlacedBlock, guest: PlacedBlock) -> bool:
+    """Vrai si la rotation relative est d'équerre (même tolérance que :func:`relative_axes`)."""
+    try:
+        relative_axes(host, guest)
+    except JointError:
+        return False
+    return True
 
 
 def _square_axes(rotation: Matrix3) -> tuple[Axis, Axis, Axis]:
