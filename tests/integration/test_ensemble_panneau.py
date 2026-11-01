@@ -128,5 +128,21 @@ def test_pas_d_equerre_vu_par_le_panneau(document: Any) -> None:
     furniture, _ = api.make_furniture(list(bureau.parts.values()), "Bureau")
     views, notices = furniture_view.member_views(furniture)
     voile = next(view for view in views if view.obj == bureau.parts["V"])
-    assert (voile.follows, dict(voile.distances)) == ((core.Follow.NOT_SQUARE,), {})
-    assert any("pas d'équerre" in message for message in notices)
+    assert (voile.follows, dict(voile.distances)) == ((core.Follow.OBLIQUE,), {})
+    assert not any("pas d'équerre" in message for message in notices)
+
+
+def test_pas_d_equerre_suit_par_translation(document: Any) -> None:
+    """AB-d (D1) : la pièce en biais garde ses cotes et sa rotation, son origine suit le bord."""
+    bureau = build_parts(document)
+    rotation = App.Rotation(App.Vector(0, 0, 1), 45)
+    bureau.parts["V"].Placement = App.Placement(App.Vector(1000, 300, 100), rotation)
+    document.recompute()
+    furniture, _ = api.make_furniture(list(bureau.parts.values()), "Bureau")
+    sizes = bureau.sizes("V")
+    api.resize_furniture(furniture, width=1400)
+    assert bureau.sizes("V") == sizes
+    placement = bureau.parts["V"].Placement
+    assert placement.Base.x == pytest.approx(1200.0)
+    assert placement.Rotation.isSame(rotation, 1e-6)
+    assert stale_or_invalid(document) == []

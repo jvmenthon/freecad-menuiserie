@@ -32,9 +32,9 @@ from freecad.menuiserie.core.furniture._model import (
 )
 from freecad.menuiserie.core.furniture._spans import (
     Span,
-    Spans,
     frame_block,
     member_spans,
+    oblique_bounds,
     square_spans,
 )
 from freecad.menuiserie.core.geometry import (
@@ -93,6 +93,25 @@ def _moved_member(member: Member, axes: Mapping[FurnitureAxis, tuple[float, floa
     return replace(member, block=PlacedBlock(Dimensions(*dimensions), placement))
 
 
+def _moved_oblique(
+    member: Member, block: PlacedBlock, rules: tuple[FollowRule, ...], target: FurnitureBox
+) -> Member:
+    """Pièce en biais déplacée par ses règles : mêmes cotes, même rotation (D1)."""
+    here = block.placement.translation
+    origin = Vec3.of(
+        [
+            here.component(rule.axis.index)
+            if is_driven(member, position_property(member, rule.axis))
+            else rule.position.at(target.size(rule.axis))
+            for rule in sorted(rules, key=lambda rule: rule.axis.index)
+        ]
+    )
+    return replace(
+        member,
+        block=PlacedBlock(block.dimensions, RigidTransform(block.placement.rotation, origin)),
+    )
+
+
 def predict(
     new: FurnitureBox,
     members: Sequence[Member],
@@ -110,6 +129,9 @@ def predict(
     result: dict[str, Member] = {}
     for member in members:
         if member.key not in rules:
+            continue
+        if member.block is not None and oblique_bounds(member) is not None:
+            result[member.key] = _moved_oblique(member, member.block, rules[member.key], new)
             continue
         spans = member_spans(member)
         axes = {
@@ -146,10 +168,16 @@ def _check_joints(
             raise FurnitureError(JOINT_LOST, names)
 
 
-def _outside(spans: Spans, box: FurnitureBox) -> bool:
+def _outside(member: Member, box: FurnitureBox) -> bool:
+    bounds = oblique_bounds(member)
+    ranges = (
+        {axis: (bounds.lo(axis.index), bounds.hi(axis.index)) for axis in FurnitureAxis}
+        if bounds is not None
+        else {axis: (span.lo, span.hi) for axis, span in member_spans(member).items()}
+    )
     return any(
-        span.lo < -CONTACT_TOLERANCE_MM or span.hi > box.size(axis) + CONTACT_TOLERANCE_MM
-        for axis, span in spans.items()
+        lo < -CONTACT_TOLERANCE_MM or hi > box.size(axis) + CONTACT_TOLERANCE_MM
+        for axis, (lo, hi) in ranges.items()
     )
 
 
@@ -194,7 +222,7 @@ def _check(
         if member.key not in after:
             continue
         notices.extend(_user_formulas(member, rules[member.key], old, new, changed))
-        if _outside(member_spans(after[member.key]), new):
+        if _outside(after[member.key], new):
             notices.append(notice(NoticeKind.OUTSIDE_BOX, member))
     return tuple(notices)
 

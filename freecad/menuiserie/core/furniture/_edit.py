@@ -26,14 +26,20 @@ from freecad.menuiserie.core.furniture._model import (
     FurnitureError,
     Member,
 )
-from freecad.menuiserie.core.furniture._spans import Span, member_spans, square_spans
+from freecad.menuiserie.core.furniture._spans import (
+    Span,
+    member_spans,
+    oblique_bounds,
+    square_spans,
+)
 
 
 class Follow(str, Enum):
     """Ce que fait un membre quand une cote de l'ensemble change (colonne « Suit »), dans
     l'ordre d'affichage."""
 
-    NOT_SQUARE = "NotSquare"  # pas d'équerre : exclu des liaisons
+    NOT_SQUARE = "NotSquare"  # pas d'équerre et sans règle de suivi
+    OBLIQUE = "Oblique"  # pièce en biais : déplacée sans changer de cotes (ADR 0024)
     FORMULA = "Formula"  # une propriété liée par l'atelier suit une formule de l'utilisateur
     LOCKED = "Locked"  # cotes fixes : la pièce ne change jamais de cotes
     STRETCHED = "Stretched"  # une cote de la pièce change
@@ -60,6 +66,8 @@ def follow_summary(member: Member, rules: tuple[FollowRule, ...] | None) -> tupl
     montre aussi ``LOCKED``."""
     if rules is None:
         return (Follow.NOT_SQUARE,)
+    if oblique_bounds(member) is not None:
+        return (Follow.OBLIQUE,)
     found: set[Follow] = set()
     if any(bound_by_workshop(member, prop) for prop in member.driven):
         found.add(Follow.FORMULA)

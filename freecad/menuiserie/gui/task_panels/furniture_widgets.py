@@ -35,6 +35,7 @@ MODE_LABELS: Final = {
 }
 FOLLOW_LABELS: Final = {
     Follow.NOT_SQUARE: QT_TRANSLATE_NOOP("Menuiserie", "pas d'équerre"),
+    Follow.OBLIQUE: QT_TRANSLATE_NOOP("Menuiserie", "déplacée (en biais)"),
     Follow.FORMULA: QT_TRANSLATE_NOOP("Menuiserie", "formule"),
     Follow.STRETCHED: QT_TRANSLATE_NOOP("Menuiserie", "étirée"),
     Follow.MOVED: QT_TRANSLATE_NOOP("Menuiserie", "déplacée"),
