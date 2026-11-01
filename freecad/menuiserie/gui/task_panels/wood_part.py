@@ -41,6 +41,7 @@ from freecad.menuiserie.features.furniture_locks import (
     set_member_thickness,
     unlock_and_set_thickness,
 )
+from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.placement import (
     SnapSession,
     snap_part,
@@ -153,8 +154,8 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._unlock.attach_buttons(box)
 
     def transparent_objects(self) -> list[DocumentObject]:
-        """La pièce en édition."""
-        return [self.obj]
+        """La pièce en édition, telle qu'elle s'affiche (usinée si elle a des assemblages)."""
+        return [shown_object(self.obj)]
 
     def accept(self) -> bool:
         """« OK » : refusé tant qu'une épaisseur saisie est refusée (le bouton est inactif)."""

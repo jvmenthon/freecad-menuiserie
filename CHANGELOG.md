@@ -10,7 +10,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Pièce en édition en transparence (demande de jv, 2026-11-01) : tant que le panneau d'une pièce
   de bois ou d'une pièce en bois (convertie) est ouvert, en création comme en modification, la
   pièce s'affiche en semi-transparence ; sa transparence d'origine est rétablie à toute fermeture
-  (« OK », « Annuler », document fermé, pièce supprimée, Édition > Annuler).
+  (« OK », « Annuler », document fermé, pièce supprimée, Édition > Annuler). Une pièce qui a des
+  assemblages devient transparente sous sa forme usinée, la seule visible.
 
 ### Corrigé
 

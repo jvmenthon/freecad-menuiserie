@@ -28,6 +28,7 @@ from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_M
 from freecad.menuiserie.core.snap import Turn
 from freecad.menuiserie.features.drag_joints import rotate_checked
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
+from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.placement import SnapSession, snap_part
 from freecad.menuiserie.features.shaped_part import is_profile
@@ -157,8 +158,8 @@ class ShapedPartTaskPanel(ObjectTaskPanel):
     # --- Construction du formulaire -------------------------------------------------------
 
     def transparent_objects(self) -> list[DocumentObject]:
-        """La pièce en édition."""
-        return [self.obj]
+        """La pièce en édition, telle qu'elle s'affiche (usinée si elle a des assemblages)."""
+        return [shown_object(self.obj)]
 
     def _make_profile_group(self, obj: DocumentObject) -> tuple[Any, Any]:
         """Groupe de l'épaisseur du profil : champ d'unité lié à ``ProfileThickness``, visible

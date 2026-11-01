@@ -23,7 +23,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.gui.task_panels.preview import PreviewStyle
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
@@ -59,12 +59,13 @@ class TransactionTaskPanel:
         self._document_name: str = doc.Name
         self._transaction = App.getActiveTransaction()
         self._watcher = watcher
-        self._styles: list[PreviewStyle] = []
+        self._edit_transparency: PartsPreview | None = None
 
     def transparent_objects(self) -> list[DocumentObject]:
-        """Objets affichés en transparence tant que le panneau est ouvert (pièce en édition) ;
-        aucun par défaut. Leur transparence d'origine est rétablie à toute fermeture (« OK »,
-        « Annuler » ou fermeture par FreeCAD). Sans effet hors interface."""
+        """Objets affichés en transparence tant que le panneau est ouvert (pièce en édition, ou
+        sa pièce usinée si elle a des assemblages), relus à chaque aperçu ; aucun par défaut. Leur
+        transparence d'origine est rétablie à toute fermeture (« OK », « Annuler » ou fermeture
+        par FreeCAD)."""
         return []
 
     def _apply_styles(self) -> None:
@@ -84,7 +85,7 @@ class TransactionTaskPanel:
         if reopen:
             App.closeActiveTransaction(True, transaction[1])
         try:
-            self._styles = [PreviewStyle(getattr(o, "ViewObject", None)) for o in objects]
+            self._edit_transparency = PartsPreview(self.transparent_objects, object_alive)
         finally:
             if reopen:
                 self.doc.openTransaction(transaction[0])
@@ -92,9 +93,9 @@ class TransactionTaskPanel:
 
     def _restore_styles(self) -> None:
         """Transparence d'origine rétablie (idempotent, sans effet sur un objet supprimé)."""
-        styles, self._styles = self._styles, []
-        for style in styles:
-            style.restore()
+        transparency, self._edit_transparency = self._edit_transparency, None
+        if transparency is not None:
+            transparency.restore()
 
     @property
     def closed(self) -> bool:
@@ -207,6 +208,8 @@ class ObjectTaskPanel(TransactionTaskPanel):
     def preview(self) -> None:
         """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""
         recompute_preview(self.obj)
+        if self._edit_transparency is not None:
+            self._edit_transparency.sync()  # une pièce usinée a pu apparaître au recalcul
 
 
 def object_alive(obj: DocumentObject) -> bool:
