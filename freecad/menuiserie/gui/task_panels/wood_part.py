@@ -4,7 +4,8 @@
 Chaque modification est écrite aussitôt dans l'objet, puis l'objet est recalculé (aperçu en
 direct). « OK » valide la transaction ouverte par la commande ou par :func:`start_editing`,
 « Annuler » l'abandonne : la pièce créée disparaît, la pièce modifiée retrouve ses valeurs.
-En création, la pièce est un aperçu semi-transparent (:class:`PreviewStyle`), rétabli à « OK ».
+Tant que le panneau est ouvert (création ou modification), la pièce est semi-transparente
+(:meth:`transparent_objects`) ; son apparence est rétablie à toute fermeture.
 Les boutons X, Y, Z font tourner la pièce d'un quart de tour autour de l'axe du document : en
 création elle reste accrochée (:class:`SnapSession`), en modification elle tourne sur place.
 Lancée avec une sélection (J6d), la pièce est posée contre les éléments choisis : le groupe
@@ -54,7 +55,6 @@ from freecad.menuiserie.gui.task_panels.base import (
     connect,
     panel_title,
 )
-from freecad.menuiserie.gui.task_panels.preview import PreviewStyle
 from freecad.menuiserie.gui.task_panels.timber_rows import (
     AllowanceRows,
     LengthField,
@@ -94,7 +94,6 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         super().__init__(obj, creating=creating)
         self._guard = UpdateGuard()
         self._session = (session or SnapSession()) if creating else None
-        self._style = PreviewStyle(getattr(obj, "ViewObject", None)) if creating else None
         self.form = Gui.PySideUic.loadUi(str(UI_FILE))
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
         self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
@@ -152,6 +151,10 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Boutons du panneau, passés par FreeCAD à l'affichage : « OK » est inactif pendant le
         refus d'une épaisseur."""
         self._unlock.attach_buttons(box)
+
+    def transparent_objects(self) -> list[DocumentObject]:
+        """La pièce en édition."""
+        return [self.obj]
 
     def accept(self) -> bool:
         """« OK » : refusé tant qu'une épaisseur saisie est refusée (le bouton est inactif)."""
@@ -223,16 +226,11 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._session = None
 
     def _before_commit(self) -> None:
-        """« OK » : transparence d'origine rétablie, pièce ajoutée à l'ensemble si la case est
+        """« OK » : pièce ajoutée à l'ensemble si la case est
         cochée, le tout avant la validation de la transaction. Une saisie d'angle en cours est
-        d'abord contrôlée. L'entrée dans l'ensemble passe en premier : son refus (message)
-        n'empêche pas de rétablir la transparence."""
+        d'abord contrôlée."""
         self._angles.finish()
-        try:
-            self._snap.join_furniture()
-        finally:
-            if self._style is not None:
-                self._style.restore()
+        self._snap.join_furniture()
 
     def _release_display(self) -> None:
         """Panneau fermé : plus d'aperçu d'angle différé."""

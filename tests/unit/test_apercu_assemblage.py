@@ -149,3 +149,18 @@ def test_le_panneau_d_assemblage_rend_les_pieces_transparentes() -> None:
         if isinstance(f, ast.FunctionDef) and "self._release_display()" in ast.unparse(f)
     }
     assert callers == {"_finish", "_on_closed_by_freecad"}
+
+
+def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture() -> None:
+    """Câblage : la pièce en édition (création ou modification) est transparente, et ``base``
+    rétablit son apparence pour « OK », « Annuler » et la fermeture par FreeCAD."""
+    for name in ("wood_part.py", "shaped_part.py"):
+        assert "def transparent_objects" in (PANELS / name).read_text(encoding="utf-8")
+    base = ast.parse((PANELS / "base.py").read_text(encoding="utf-8"))
+    cls = next(
+        n for n in base.body if isinstance(n, ast.ClassDef) and n.name == "TransactionTaskPanel"
+    )
+    methods = {n.name: ast.unparse(n) for n in cls.body if isinstance(n, ast.FunctionDef)}
+    assert "PreviewStyle" in methods["watch_document"]
+    assert "_restore_styles()" in methods["_finish"]
+    assert "_restore_styles()" in methods["_on_closed_by_freecad"]

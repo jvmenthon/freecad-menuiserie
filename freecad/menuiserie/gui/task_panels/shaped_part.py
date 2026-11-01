@@ -156,6 +156,10 @@ class ShapedPartTaskPanel(ObjectTaskPanel):
 
     # --- Construction du formulaire -------------------------------------------------------
 
+    def transparent_objects(self) -> list[DocumentObject]:
+        """La pièce en édition."""
+        return [self.obj]
+
     def _make_profile_group(self, obj: DocumentObject) -> tuple[Any, Any]:
         """Groupe de l'épaisseur du profil : champ d'unité lié à ``ProfileThickness``, visible
         seulement pour une pièce tirée d'une esquisse. Rend le groupe et son champ."""

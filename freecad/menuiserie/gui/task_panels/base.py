@@ -23,6 +23,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui.task_panels.preview import PreviewStyle
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
@@ -58,6 +59,19 @@ class TransactionTaskPanel:
         self._document_name: str = doc.Name
         self._transaction = App.getActiveTransaction()
         self._watcher = watcher
+        self._styles: list[PreviewStyle] = []
+
+    def transparent_objects(self) -> list[DocumentObject]:
+        """Objets affichés en transparence tant que le panneau est ouvert (pièce en édition) ;
+        aucun par défaut. Leur transparence d'origine est rétablie à toute fermeture (« OK »,
+        « Annuler » ou fermeture par FreeCAD). Sans effet hors interface."""
+        return []
+
+    def _restore_styles(self) -> None:
+        """Transparence d'origine rétablie (idempotent, sans effet sur un objet supprimé)."""
+        styles, self._styles = self._styles, []
+        for style in styles:
+            style.restore()
 
     @property
     def closed(self) -> bool:
@@ -102,6 +116,10 @@ class TransactionTaskPanel:
         connect(self.form, "destroyed()", self._on_closed_by_freecad)
         if self._watcher is not None:
             App.addDocumentObserver(self._watcher)
+        # en dernier : le panneau est affiché, plus rien ne peut échouer avant sa fermeture
+        self._styles = [
+            PreviewStyle(getattr(o, "ViewObject", None)) for o in self.transparent_objects()
+        ]
 
     # --- Fermeture ------------------------------------------------------------------------
 
@@ -110,6 +128,7 @@ class TransactionTaskPanel:
         self._closed = True
         self._stop_watching()
         self._remove_watcher()
+        self._restore_styles()
         self._release_display()
         close_transaction(self._transaction, abort=abort)
         _close(self.doc)
@@ -121,6 +140,7 @@ class TransactionTaskPanel:
             return
         self._closed = True
         self._stop_watching()
+        self._restore_styles()
         self._release_display()
         QtCore.QTimer.singleShot(0, self._clean_up_after_forced_close)
 
