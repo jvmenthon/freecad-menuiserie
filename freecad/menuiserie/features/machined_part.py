@@ -13,7 +13,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core._polyhedron import PlanSolid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.core.text import quoted_value
@@ -28,7 +27,7 @@ from freecad.menuiserie.features.freecad_types import (
     restoring_or_undoing,
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
+from freecad.menuiserie.features.machined_plans import JointFailedError, finishes_of, machining_of
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
@@ -57,15 +56,12 @@ __all__ = [
 ]
 
 OBJECT_NAME: Final = "MachinedPart"
-MODEL_VERSION: Final = 1
+MODEL_VERSION: Final = 2  # 2 : ajout de Finishes (profils d'arête, ADR 0029)
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce usinée")
 
 _MACHINED_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (usinée)")
 _NO_BLANK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Pièce usinée sans pièce de bois brute : sa pièce a été supprimée."
-)
-_NOT_A_JOINT: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » n'est pas un assemblage de l'atelier Menuiserie."
 )
 _NOT_A_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -78,7 +74,8 @@ _PLACEMENT_BOUND: Final = QT_TRANSLATE_NOOP(
 )
 _STILL_JOINED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "La pièce usinée « {label} » porte encore des assemblages : supprimez-les d'abord.",
+    "La pièce usinée « {label} » porte encore des assemblages ou des finitions : supprimez-les "
+    "d'abord.",
 )
 
 PROPERTIES: Final = (
@@ -99,6 +96,16 @@ PROPERTIES: Final = (
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Assemblages qui usinent cette pièce (tenons, mortaises, rainures, perçages).",
+        ),
+        mode=READ_ONLY,
+    ),
+    PropertySpec(
+        "Finishes",
+        "App::PropertyLinkList",
+        "Pièce",
+        QT_TRANSLATE_NOOP(
+            "App::Property",
+            "Finitions qui usinent cette pièce (profils d'arête).",
         ),
         mode=READ_ONLY,
     ),
@@ -209,22 +216,23 @@ class MachinedPart(SyncingProxy):
         blank.Placement = obj.Placement
 
     def execute(self, obj: DocumentObject) -> None:
-        """Forme = brute moins parties retirées, plus ajouts, moins enlèvements de ses
-        assemblages, au ``Placement`` de la brute. ``ValueError`` traduite si la brute ou un
-        assemblage est invalide."""
+        """Forme = brute moins parties retirées et profils d'arête, plus ajouts, moins
+        enlèvements de ses assemblages, au ``Placement`` de la brute. ``ValueError`` traduite si
+        la brute ou un assemblage est invalide."""
         blank = _checked_blank(obj)
         with translated_errors():
             base = blank_shape(blank)
         try:
-            additions, cuts, trims = _machining_of(obj, blank)
-        except _JointFailedError:
+            additions, cuts, trims = machining_of(obj, blank)
+            profiles = finishes_of(obj, blank)
+        except JointFailedError:
             # Un assemblage impossible signale lui-même son erreur dans son propre recalcul : la
             # pièce usinée ne la répète pas (une seule trace, ADR 0026). Sa forme reste celle
             # d'avant (jamais de forme partielle) ; seul son placement suit la brute.
             with self._executing():
                 obj.Placement = blank.Placement
             return
-        shape = machined_shape(base, additions, cuts, trims)
+        shape = machined_shape(base, additions, cuts, trims, profiles)
         # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
         # sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
@@ -271,38 +279,6 @@ def _checked_blank(obj: DocumentObject) -> DocumentObject:
     if not is_timber(blank):
         raise ValueError(translated(_NOT_A_PART, {"label": quoted_value(blank.Label)}))
     return blank
-
-
-class _JointFailedError(Exception):
-    """Un assemblage de la pièce usinée est impossible : il le signale lui-même."""
-
-
-def _machining_of(
-    obj: DocumentObject, blank: DocumentObject
-) -> tuple[list[PlanSolid], list[PlanSolid], list[PlanSolid]]:
-    """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
-    assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
-    modifiée par un script), :class:`_JointFailedError` si l'un d'eux est impossible."""
-    additions: list[PlanSolid] = []
-    cuts: list[PlanSolid] = []
-    trims: list[PlanSolid] = []
-    for joint in obj.Joints:
-        if not is_joint(joint):
-            raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
-        if blank not in (joint.HostPart, joint.GuestPart):
-            raise parts_mismatch(joint)
-        try:
-            plan = plan_for(joint)
-        except ValueError:
-            raise _JointFailedError from None  # l'assemblage signale lui-même son erreur
-        if joint.HostPart == blank:
-            additions.extend(plan.host_additions)
-            cuts.extend(plan.host_cuts)
-        if joint.GuestPart == blank:
-            additions.extend(plan.guest_additions)
-            cuts.extend(plan.guest_cuts)
-            trims.extend(plan.guest_trims)
-    return additions, cuts, trims
 
 
 def is_machined_part(obj: object) -> bool:
@@ -373,6 +349,6 @@ def show_blank(blank: DocumentObject | None) -> None:
 def removal_refusal(machined: DocumentObject) -> str | None:
     """Message traduit si la pièce usinée ``machined`` porte encore des assemblages (sa
     suppression est alors refusée), ``None`` sinon."""
-    if not machined.Joints:
+    if not machined.Joints and not machined.Finishes:
         return None
     return translated(_STILL_JOINED, {"label": quoted_value(machined.Label)})

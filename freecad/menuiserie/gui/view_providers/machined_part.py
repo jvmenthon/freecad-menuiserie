@@ -78,7 +78,7 @@ class ViewProviderMachinedPart(PanelEditing):
         l'avertissement « objets référencés » de FreeCAD, la pièce usinée est recalculée sans
         sa coupe (FreeCAD retire le lien de ``Joints``). Autre objet : avertissement habituel."""
         machined = getattr(getattr(self, "vobj", None), "Object", None)
-        return obj in getattr(machined, "Joints", ())
+        return obj in (*getattr(machined, "Joints", ()), *getattr(machined, "Finishes", ()))
 
     def onDelete(self, vobj: ViewObject, subelements: object) -> bool:
         """Suppression d'une pièce usinée. Sans assemblage : normale (la brute est réaffichée).

@@ -9,7 +9,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 - Finition des chants, lot CH-a (#5, ADR 0029) : règles pures des profils d'arête (12 arêtes par
   code local, chanfrein, quart de rond, arête cassée, gorge, demi-rond, bec-de-corbin, doucine) et
-  section balayée `Extrusion` ; pas encore d'objet ni de commande.
+  section balayée `Extrusion`.
+- Finition des chants, lot CH-b (#5, ADR 0029) : objet `EdgeProfile`, propriété `Finishes` de la pièce
+  usinée (modèle 2, migration sans perte), profils soustraits avant les assemblages, avertissement
+  « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
+  `edge_profiles_of` de l'API ; pas encore de commande.
 - Assemblages entre pièces en biais (#114, ADR 0024) : tenon-mortaise et rainure-languette entre
   deux pièces dont l'angle n'est pas un multiple de 90° (70° au plus, angles composés compris),
   épaulement sur la face de l'hôte, référence du tenon au choix (pièce à tenon, pièce mortaisée,
