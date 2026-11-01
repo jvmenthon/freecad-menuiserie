@@ -163,4 +163,4 @@ def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture()
     methods = {n.name: ast.unparse(n) for n in cls.body if isinstance(n, ast.FunctionDef)}
     assert "PreviewStyle" in methods["watch_document"]
     assert "_restore_styles()" in methods["_finish"]
-    assert "_restore_styles()" in methods["_on_closed_by_freecad"]
+    assert "_restore_styles()" in methods["_clean_up_after_forced_close"]

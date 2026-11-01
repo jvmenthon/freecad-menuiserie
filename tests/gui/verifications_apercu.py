@@ -125,11 +125,12 @@ def verifier_rotation_en_modification() -> list[str]:
         problemes = [
             *ecarts("tourne", memes_placements(obj.Placement, depart), False),
             *ecarts("centre fixe", obj.Shape.BoundBox.Center.isEqual(centre, 1e-6), True),
-            *ecarts("transparence inchangée", obj.ViewObject.Transparency, 0),
+            *ecarts("pièce en transparence", obj.ViewObject.Transparency, 60),
         ]
         annuler()
         return [
             *problemes,
+            *ecarts("transparence rétablie", obj.ViewObject.Transparency, 0),
             *ecarts("placement rétabli", memes_placements(obj.Placement, depart), True),
             *ecarts("entrées d'annulation", doc.UndoNames, [CREATE]),
         ]

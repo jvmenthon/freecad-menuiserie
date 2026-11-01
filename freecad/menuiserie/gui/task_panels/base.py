@@ -67,6 +67,29 @@ class TransactionTaskPanel:
         « Annuler » ou fermeture par FreeCAD). Sans effet hors interface."""
         return []
 
+    def _apply_styles(self) -> None:
+        """Transparence posée sur :meth:`transparent_objects`. FreeCAD enregistre une propriété
+        du ViewObject modifiée dans la transaction ouverte : en modification, la transaction
+        encore vide est donc refermée (abandonnée) le temps de la pose, puis rouverte, afin que
+        « OK » sans changement ne laisse aucune entrée d'annulation. En création, la pose reste
+        dans la transaction de création."""
+        objects = self.transparent_objects()
+        transaction = self._transaction
+        reopen = (
+            not self.creating
+            and objects
+            and transaction is not None
+            and App.getActiveTransaction() == transaction
+        )
+        if reopen:
+            App.closeActiveTransaction(True, transaction[1])
+        try:
+            self._styles = [PreviewStyle(getattr(o, "ViewObject", None)) for o in objects]
+        finally:
+            if reopen:
+                self.doc.openTransaction(transaction[0])
+                self._transaction = App.getActiveTransaction()
+
     def _restore_styles(self) -> None:
         """Transparence d'origine rétablie (idempotent, sans effet sur un objet supprimé)."""
         styles, self._styles = self._styles, []
@@ -128,9 +151,11 @@ class TransactionTaskPanel:
         self._closed = True
         self._stop_watching()
         self._remove_watcher()
-        self._restore_styles()
+        if self.creating:
+            self._restore_styles()  # dans la transaction de création : rien d'enregistré en plus
         self._release_display()
         close_transaction(self._transaction, abort=abort)
+        self._restore_styles()  # modification : transaction close, aucune entrée d'annulation
         _close(self.doc)
 
     def _on_closed_by_freecad(self) -> None:
@@ -140,7 +165,8 @@ class TransactionTaskPanel:
             return
         self._closed = True
         self._stop_watching()
-        self._restore_styles()
+        if self.creating:
+            self._restore_styles()
         self._release_display()
         QtCore.QTimer.singleShot(0, self._clean_up_after_forced_close)
 
@@ -154,6 +180,7 @@ class TransactionTaskPanel:
         if alive and not self.creating:
             App.getDocument(name).recompute()
         close_transaction(self._transaction, abort=self.creating)
+        self._restore_styles()  # après la transaction : aucune entrée d'annulation
         if not alive:
             return
         gui_doc = Gui.getDocument(name)
