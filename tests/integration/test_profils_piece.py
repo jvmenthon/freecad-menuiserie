@@ -168,7 +168,6 @@ def test_famille_inconnue_refusee(document: Any, board: Any) -> None:
 def test_une_arete_a_un_seul_profil(document: Any, board: Any) -> None:
     blank = board(document)
     first, _ = api.add_edge_profile(blank, ["Z+Y-", "Z+Y+"], "Chamfer", 2.0)
-    first_name = first.Name
     with pytest.raises(ValueError, match="Z\\+Y-"):
         api.add_edge_profile(blank, ["Z+Y-"], "Round", 3.0)
     second, _ = api.add_edge_profile(blank, ["Z+Y-"], "Round", 3.0, replace=True)
@@ -176,7 +175,8 @@ def test_une_arete_a_un_seul_profil(document: Any, board: Any) -> None:
     assert second.Edges == ["Z+Y-"]
     assert api.edge_profiles_of(blank) == [first, second]
     api.add_edge_profile(blank, ["Z+Y+"], "Round", 3.0, replace=True)
-    assert document.getObject(first_name) is None  # plus aucune arête : supprimé
+    with pytest.raises(ReferenceError):  # plus aucune arête : profil supprimé
+        _ = first.Name
 
 
 def test_profils_d_une_piece_usinee(document: Any, board: Any) -> None:
