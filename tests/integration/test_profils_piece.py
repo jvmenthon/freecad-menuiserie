@@ -168,6 +168,7 @@ def test_famille_inconnue_refusee(document: Any, board: Any) -> None:
 def test_une_arete_a_un_seul_profil(document: Any, board: Any) -> None:
     blank = board(document)
     first, _ = api.add_edge_profile(blank, ["Z+Y-", "Z+Y+"], "Chamfer", 2.0)
+    first_name = first.Name
     with pytest.raises(ValueError, match="Z\\+Y-"):
         api.add_edge_profile(blank, ["Z+Y-"], "Round", 3.0)
     second, _ = api.add_edge_profile(blank, ["Z+Y-"], "Round", 3.0, replace=True)
@@ -175,7 +176,7 @@ def test_une_arete_a_un_seul_profil(document: Any, board: Any) -> None:
     assert second.Edges == ["Z+Y-"]
     assert api.edge_profiles_of(blank) == [first, second]
     api.add_edge_profile(blank, ["Z+Y+"], "Round", 3.0, replace=True)
-    assert document.getObject(first.Name) is None  # plus aucune arête : supprimé
+    assert document.getObject(first_name) is None  # plus aucune arête : supprimé
 
 
 def test_profils_d_une_piece_usinee(document: Any, board: Any) -> None:
@@ -225,10 +226,11 @@ def test_supprimer_la_piece_usinee_supprime_ses_profils(document: Any, board: An
     blank = board(document)
     profile, _ = api.add_edge_profile(blank, ["Z+Y-"], "Chamfer", 2.0)
     machined = machined_of(blank)
+    names = (machined.Name, profile.Name, blank.Name)
     assert delete_machined_part(machined, lambda _name, _labels: True) is False
-    assert document.getObject(machined.Name) is None
-    assert document.getObject(profile.Name) is None
-    assert document.getObject(blank.Name) is None  # pièce entière, comme avec ses assemblages
+    assert all(
+        document.getObject(name) is None for name in names
+    )  # pièce entière, comme avec ses assemblages
 
 
 def test_supprimer_le_profil_par_un_script_refuse_un_autre_objet(document: Any, board: Any) -> None:
@@ -245,7 +247,7 @@ def test_reouverture_a_l_identique(document: Any, board: Any, rouvrir: Reopen) -
     volume = machined_of(blank).Shape.Volume
     names = (blank.Name, profile.Name, machined_of(blank).Name)
     doc = rouvrir(document)
-    reopened = doc.getObject(profile.Name)
+    reopened = doc.getObject(names[1])
     assert (reopened.Edges, reopened.Family, reopened.SizeA.Value) == (
         ["Z+Y-", "Z-Y-"],
         "Ogee",
@@ -264,10 +266,11 @@ def test_reouverture_a_l_identique(document: Any, board: Any, rouvrir: Reopen) -
 def test_ancienne_pièce_usinee_migree_sans_perte(cadre_assemble: Cadre, rouvrir: Reopen) -> None:
     machined = cadre_assemble.machined("M1")
     volume = machined.Shape.Volume
+    name = machined.Name
     machined.removeProperty("Finishes")
     machined.Version = 1
     doc = rouvrir(cadre_assemble.doc)
-    restored = doc.getObject(machined.Name)
+    restored = doc.getObject(name)
     assert restored.Version == 2
     assert restored.Finishes == []
     doc.recompute()
