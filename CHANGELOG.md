@@ -13,6 +13,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   panneau. Contre une grande face ou un chant, la longueur part de la face ; contre une extrémité,
   elle suit l'épaisseur de l'autre pièce (angle droit). Sans effet pour plusieurs
   éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre atelier.
+- Queue d'aronde, queues sur la pièce hôte (#85, demande de jv, 2026-10-23) : case « Queues sur la
+  pièce hôte » (propriété `TailsOnHost`) pour choisir quelle pièce porte les queues sans changer
+  les pièces ni leurs rôles. L'invitée est alors prolongée de ses griffes jusqu'à l'angle et
+  l'hôte les perd : aucun recouvrement, même matière que dans l'autre sens. Les flancs
+  se rétrécissent sur l'épaisseur de l'invitée.
 - Épaisseurs et formats de panneaux personnels (#71, demande de jv, 2026-10-22, ADR 0028) : le
   menu « Épaisseurs standard » du panneau d'une pièce propose les épaisseurs ajoutées par
   l'utilisateur et « Ajouter une épaisseur… » ; pour un panneau, un sous-menu « Formats de

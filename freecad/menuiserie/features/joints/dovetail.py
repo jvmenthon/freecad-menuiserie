@@ -73,6 +73,18 @@ class DovetailJoint(JointFeature):
             label=QT_TRANSLATE_NOOP("Menuiserie", "Angle des queues"),
             resolved="angle",
         ),
+        PropertySpec(
+            "TailsOnHost",
+            "App::PropertyBool",
+            _GROUP,
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Queues sur la pièce hôte : l'ordre des rôles est inversé sans changer les "
+                "pièces, la pièce invitée est prolongée de ses griffes jusqu'à l'angle.",
+            ),
+            default=_DEFAULTS.tails_on_host,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Queues sur la pièce hôte"),
+        ),
     )
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:

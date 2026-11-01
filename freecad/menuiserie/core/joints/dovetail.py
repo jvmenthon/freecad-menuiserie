@@ -30,6 +30,7 @@ from freecad.menuiserie.core.joints._base import (
     JointPlan,
     angle_param,
     count_param,
+    flag_param,
     length_param,
     mm_round,
     mm_text,
@@ -68,6 +69,8 @@ class DovetailParams:
     tail_count: int = count_param(0)
     pin_width: float = length_param(0.0)  # griffes au plus étroit, face extérieure de l'hôte
     angle: float = angle_param(0.0)  # angle des flancs des queues, en degrés
+    # Queues sur la pièce hôte (issue #85) : l'invitée est prolongée de ses griffes jusqu'à l'angle.
+    tails_on_host: bool = flag_param(False)
 
     def __post_init__(self) -> None:
         validate_params(self)
@@ -103,6 +106,8 @@ class DovetailStrategy:
         """Queues ajoutées à l'invitée, logements traversants enlevés à l'hôte."""
         through = _through_frame(host, guest)
         values = _values(through, params)
+        if params.tails_on_host:
+            return _host_tails_plan(through, values)
         tails = tuple(_tail(through, values, tail, 0.0) for tail in values.tails)
         sockets = tuple(
             moved(_tail(through, values, tail, CUT_OVERRUN_MM), through.frame.to_host)
@@ -157,10 +162,13 @@ def _through_frame(host: PlacedBlock, guest: PlacedBlock) -> _Through:
 def _values(through: _Through, params: DovetailParams) -> DovetailValues:
     width = through.width
     count = params.tail_count or max(1, math.floor(width / (3 * through.thickness) + 0.5))
-    pin = params.pin_width or mm_round(through.depth / 3)
+    # Les flancs se rétrécissent sur la profondeur des queues : celle de l'hôte, ou, quand les
+    # queues sont sur l'hôte, l'épaisseur de l'invitée.
+    depth = through.thickness if params.tails_on_host else through.depth
+    pin = params.pin_width or mm_round(depth / 3)
     angle = params.angle or DEFAULT_ANGLE_DEG
     tail_width = (width - (count + 1) * pin) / count
-    tail_base = tail_width - 2 * through.depth * math.tan(math.radians(angle))
+    tail_base = tail_width - 2 * depth * math.tan(math.radians(angle))
     if tail_width <= 0 or tail_base < MIN_TAIL_BASE_MM:
         values = {
             "count": str(count),
@@ -215,3 +223,60 @@ def _tail(
         corner(first + inset(far), far),
     )
     return Prism(points, Vec3(0.0, 0.0, high - low))
+
+
+def _host_tails_plan(through: _Through, values: DovetailValues) -> JointPlan:
+    """Queues sur l'hôte : l'invitée est prolongée de ses griffes jusqu'à l'angle (ajoutées à
+    l'invitée) et l'hôte les perd (logements), les queues restant la matière de l'hôte.
+
+    Griffes dans le plan (largeur, épaisseur de l'invitée), extrudées sur la profondeur de
+    l'hôte : ``pin_width`` sur la face extérieure, élargies de ``e tan(angle)`` de chaque côté sur
+    la face intérieure ; les griffes des bords sont droites du côté du bord."""
+    pins = tuple(_pin(through, values, span, 0.0) for span in _pin_spans(through, values))
+    sockets = tuple(
+        moved(_pin(through, values, span, CUT_OVERRUN_MM), through.frame.to_host)
+        for span in _pin_spans(through, values)
+    )
+    return through.frame.bridge.plan(JointPlan(host_cuts=sockets, guest_additions=pins))
+
+
+def _pin_spans(through: _Through, values: DovetailValues) -> tuple[tuple[float, float], ...]:
+    """Griffes (début, fin) côté face extérieure : entre les queues et jusqu'aux bords."""
+    edges = [0.0]
+    for first, last in values.tails:
+        edges += [first, last]
+    edges.append(through.width)
+    return tuple((edges[i], edges[i + 1]) for i in range(0, len(edges), 2))
+
+
+def _pin(
+    through: _Through, values: DovetailValues, span: tuple[float, float], overrun: float
+) -> Prism:
+    """Griffe extrudée sur la profondeur de l'hôte (``overrun`` de part et d'autre pour un
+    logement, et vers l'extérieur de la face extérieure), repère de l'invitée."""
+    frame = through.frame
+    origin = frame.contact.rectangle.lo(frame.width_axis)
+    flank = math.tan(math.radians(values.angle))
+    thickness = through.thickness
+    outward = -1.0 if through.outer_side < 0 else 1.0
+    outer = 0.0 if through.outer_side < 0 else thickness
+    inner = thickness if through.outer_side < 0 else 0.0
+    first, last = span
+    edge_first, edge_last = first == 0.0, last == through.width
+
+    def point(across: float, level: float) -> Vec3:
+        base = Vec3(0.0, 0.0, level).with_component(frame.width_axis, origin + across)
+        return base.with_component(frame.normal, frame.guest_plane - frame.sign * overrun)
+
+    reach = thickness * flank  # élargissement de la griffe entre la face extérieure et l'intérieure
+    spill = overrun * flank  # prolongement du flanc au-delà de la face extérieure
+    out_first = first if edge_first else first + spill
+    out_last = last if edge_last else last - spill
+    points = (
+        point(out_first, outer + outward * overrun),
+        point(out_last, outer + outward * overrun),
+        point(last if edge_last else last + reach, inner),
+        point(first if edge_first else first - reach, inner),
+    )
+    along = through.depth + 2 * overrun
+    return Prism(points, Vec3(0.0, 0.0, 0.0).with_component(frame.normal, frame.sign * along))

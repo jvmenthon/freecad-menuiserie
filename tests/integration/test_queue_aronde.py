@@ -132,3 +132,21 @@ def test_ancienne_pente_convertie_en_angle(document: Any) -> None:
     joint.Proxy.onDocumentRestored(joint)
     assert "Slope" not in joint.PropertiesList
     assert joint.Angle.Value == pytest.approx(math.degrees(math.atan(1 / 8)))
+
+
+def test_queues_sur_la_piece_hote(document: Any) -> None:
+    """Issue #85 : l'hôte garde les queues, l'invitée reçoit les griffes jusqu'à l'angle ;
+    aucun recouvrement, réunion = les deux brutes, et la bascule se défait."""
+    montage = build(document, DOVETAIL, frame=App.Placement())
+    montage.joint.TailsOnHost = True
+    document.recompute()
+    pins = 150 * 18 * 18 - tails_volume(3, 150)
+    assert montage.volumes() == pytest.approx((BLANK - pins, BLANK + pins))
+    host, guest = (api.machined_part_of(part).Shape for part in (montage.host, montage.guest))
+    assert host.common(guest).Volume == pytest.approx(0, abs=1e-6)
+    assert host.fuse(guest).Volume == pytest.approx(2 * BLANK)
+    montage.joint.TailsOnHost = False
+    document.recompute()
+    tails = tails_volume(3, 150)
+    assert montage.volumes() == pytest.approx((BLANK - tails, BLANK + tails))
+    assert stale_or_invalid(document) == []
