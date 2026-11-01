@@ -13,14 +13,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (« OK », « Annuler », document fermé, pièce supprimée, Édition > Annuler). Une pièce qui a des
   assemblages devient transparente sous sa forme usinée, la seule visible.
 
-### Modifié
-
-- Fin de la dette technique de J4 (issue #40) : `tools/generer_icones.py` (dessins des ensembles,
-  de la distance, des rotations et de la pièce en bois déplacés dans `tools/icones_ensembles.py`),
-  `tests/gui/verifications_panneau.py` et `verifications_panneau_assemblage.py` ramenés sous
-  400 lignes (nouveaux modules `*_expressions` et `*_fermeture`), sans changement de
-  comportement : icônes identiques, mêmes vérifications dans le même ordre.
-
 ### Corrigé
 
 - Suppression d'une pièce usinée qui porte des assemblages (demande de jv, 2026-11-01) : au lieu
@@ -58,6 +50,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   en petit cube plein orange au bout d'une tige, comme dans les logiciels de CAO, au lieu d'une
   double flèche qu'on confondait avec les flèches de déplacement ; taille constante à l'écran,
   couleur, zone de saisie et comportement inchangés.
+- Fin de la dette technique de J4 (issue #40) : `tools/generer_icones.py` (dessins des ensembles,
+  de la distance, des rotations et de la pièce en bois déplacés dans `tools/icones_ensembles.py`),
+  `tests/gui/verifications_panneau.py` et `verifications_panneau_assemblage.py` ramenés sous
+  400 lignes (nouveaux modules `*_expressions` et `*_fermeture`), sans changement de
+  comportement : icônes identiques, mêmes vérifications dans le même ordre.
 
 ### Ajouté
 - Rotation libre d'une pièce, lot RO-c ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
