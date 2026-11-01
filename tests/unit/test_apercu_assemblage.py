@@ -161,6 +161,7 @@ def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture()
         n for n in base.body if isinstance(n, ast.ClassDef) and n.name == "TransactionTaskPanel"
     )
     methods = {n.name: ast.unparse(n) for n in cls.body if isinstance(n, ast.FunctionDef)}
-    assert "PreviewStyle" in methods["watch_document"]
+    assert "_apply_styles()" in methods["watch_document"]
+    assert "PreviewStyle" in methods["_apply_styles"]
     assert "_restore_styles()" in methods["_finish"]
     assert "_restore_styles()" in methods["_clean_up_after_forced_close"]
