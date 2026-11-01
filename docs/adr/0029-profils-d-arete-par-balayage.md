@@ -1,6 +1,6 @@
 # ADR 0029 — Profils d'arête : section balayée, soustraite dans la pièce usinée
 
-- Statut : **proposé** (issue #5 ; à valider par jv avec la spécification)
+- Statut : **accepté** (jv, 2026-11-01)
 - Date : 2026-11-01
 - Spécification : [docs/specs/finition-des-chants.md](../specs/finition-des-chants.md), § 4.1 à 4.5
 - ADR liés : [0003 — Modèle de la pièce de bois](0003-modele-de-la-piece-de-bois.md),

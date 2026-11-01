@@ -1,13 +1,13 @@
 # Finition des chants : profils d'arête et bande de chant
 
 - Issue : #5
-- Statut : **proposée**, en attente des réponses de jv (§ 9) ; Q2 tranchée le 2026-11-01.
+- Statut : **acceptée** (Q2 tranchée par jv le 2026-11-01 ; Q1, Q3 à Q7 : « go » de jv le 2026-11-01 sur les choix ★ ; Q8 : voir § 9).
 - Demande de jv : « pouvoir donner une finition aux chants et aux arêtes des pièces de bois »
   (quart de rond, chanfrein, arête cassée, bec-de-corbin, doucine, gorge, demi-rond ; bande de
   chant collée ; alaise).
 - ADR : **[0029 — Profils d'arête usinés par balayage](../adr/0029-profils-d-arete-par-balayage.md)**
   et **[0030 — Bande de chant : solide séparé, cotes finies](../adr/0030-bande-de-chant.md)**
-  (proposés). ADR liés : 0002 (matériaux), 0003, 0006 (brute et usinée), 0007 (compatibilité),
+  (acceptés). ADR liés : 0002 (matériaux), 0003, 0006 (brute et usinée), 0007 (compatibilité),
   0008/0019 (ensembles), 0020 (pièce en bois).
 - Découpage : deux jalons, **profils (CH-a à CH-c)** puis **bande de chant (CH-d à CH-f)** (§ 5).
 
@@ -312,12 +312,13 @@ touché. Pas de migration utilisateur (« c'est une v0 », jv).
   rend possible ; reportée (Q5).
 - **Perçage des bandes** par un assemblage (tourillons au chant) : visuel seulement, les
   bandes restent pleines.
+- **Configuration de l'atelier** (préférences, dont l'arête cassée par défaut) : issue #148.
 - Profils différents par moitié d'arête, bande de chant sur chant courbe, bande à épaisseurs
   différentes par chant dans un même objet (deux objets suffisent).
 
 ## 9. Questions pour jv
 
-★ = recommandation de l'architecte, appliquée tant que jv n'a pas répondu.
+Réponses de jv du 2026-11-01 : Q2 tranchée sur sa carte ; « go pour le reste » valide les choix ★ de Q1 et de Q3 à Q7 ; Q8 ci-dessous. ★ = choix retenu.
 
 - Q1 **Périmètre et ordre.** ★ Deux jalons : profils d'abord, bande de chant ensuite ; l'alaise
   reste une pièce ordinaire. Sinon : bande d'abord (panneaux mélaminés tôt, comme le suggère
@@ -335,6 +336,6 @@ touché. Pas de migration utilisateur (« c'est une v0 », jv).
   marge de perte réglable (ex. +10 %), ou +50 mm par pièce pour le rognage.
 - Q7 **Matériaux de bande.** ★ Dans la même bibliothèque (`materiaux.json`, kind `banding`),
   donc extensibles par l'utilisateur et texturables. Sinon : fichier séparé `bandes.json`.
-- Q8 **Arête cassée par défaut.** ★ Pas de profil appliqué automatiquement aux nouvelles pièces :
-  la finition est un choix explicite. Sinon : option de préférence « arête cassée de 1 mm sur
-  toutes les pièces neuves ».
+- Q8 **Arête cassée par défaut.** Réponse de jv : pas d'application automatique ; ajouter une
+  fonction de **configuration de l'atelier** (page de préférences), traitée plus tard : issue #148.
+  Hors périmètre de ce chantier.
