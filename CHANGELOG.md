@@ -13,6 +13,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   panneau. Contre une grande face ou un chant, la longueur part de la face ; contre une extrémité,
   elle suit l'épaisseur de l'autre pièce (angle droit). Sans effet pour plusieurs
   éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre atelier.
+- Matériau de toute une armoire en une fois (#77, demande de jv, 2026-10-22) : le panneau de
+  l'ensemble a une ligne « Matériau de toutes les pièces » (liste de la bibliothèque et bouton
+  « Appliquer ») ; `api.set_furniture_material(ensemble, id)` fait de même par script. Les
+  pièces des sous-ensembles sont comprises ; une pièce dont le matériau suit une expression, ou
+  qui vient d'un document plus récent, est laissée telle quelle avec un avertissement. Un matériau
+  inconnu ne change rien ; tout est annulable en une entrée « Modifier l'ensemble ».
 - Pièce en édition en transparence (demande de jv, 2026-11-01) : tant que le panneau d'une pièce
   de bois ou d'une pièce en bois (convertie) est ouvert, en création comme en modification, la
   pièce s'affiche en semi-transparence ; sa transparence d'origine est rétablie à toute fermeture
