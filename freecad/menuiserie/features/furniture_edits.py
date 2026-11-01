@@ -43,6 +43,7 @@ from freecad.menuiserie.features.furniture_variants import (
 )
 from freecad.menuiserie.features.i18n import templated_message, translated
 from freecad.menuiserie.features.shaped_part import is_shaped_part
+from freecad.menuiserie.features.thickness_follow import follow_thickness
 
 __all__ = [
     "member_changed",
@@ -91,16 +92,18 @@ def thickness_notices(
 
 
 def thickness_changed(obj: DocumentObject, previous: tuple[object] | None) -> None:
-    """Épaisseur saisie dans l'éditeur de propriétés pour un membre d'ensemble : elle est
+    """Épaisseur saisie dans l'éditeur de propriétés ou le panneau. Pièce isolée : les pièces
+    posées sur sa face haute la suivent (:func:`follow_thickness`). Membre d'ensemble : elle est
     appliquée ; avertissements si elle casse une pièce ou un assemblage, ou si la rangée est
     bloquée. ``previous`` : ``(épaisseur d'avant,)`` lu par ``onBeforeChange``."""
-    furniture = furniture_of(obj)
-    if furniture is None or previous is None or has_expression(obj, "Thickness"):
-        return
-    if not follows_user_changes(obj):
+    if previous is None or has_expression(obj, "Thickness") or not follows_user_changes(obj):
         return
     old, new = float(previous[0]), float(obj.Thickness.Value)  # type: ignore[arg-type]
     if old == new:
+        return
+    furniture = furniture_of(obj)
+    if furniture is None:  # pièce isolée : les pièces posées sur sa face haute la suivent (#133)
+        report(follow_thickness(obj, old, new))
         return
     messages: list[str] = []
     try:

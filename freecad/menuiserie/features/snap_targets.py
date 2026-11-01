@@ -27,6 +27,7 @@ from freecad.menuiserie.core.snap import (
     FaceTarget,
     Frame,
     FreeTest,
+    Orientation,
     Target,
     VertexTarget,
     initial_orientation,
@@ -321,16 +322,19 @@ def free_test(shape: Any) -> FreeTest:
     return is_free
 
 
-def new_session(reading: TargetReading, dimensions: Dimensions) -> SnapSession:
+def new_session(
+    reading: TargetReading, dimensions: Dimensions, orientation: Orientation | None = None
+) -> SnapSession:
     """Session d'accrochage d'une pièce de cotes ``dimensions`` d'après ``reading`` : orientation
     de départ (celle qui permet l'étirement entre deux faces en vis-à-vis), Std Part qui reçoit
-    la pièce et ensemble candidat, tous deux d'après le **premier** élément (T4, T5)."""
+    la pièce et ensemble candidat, tous deux d'après le **premier** élément (T4, T5).
+    ``orientation`` impose l'orientation de départ (pièce perpendiculaire à une face, #136)."""
     first = reading.elements[0] if reading.elements else None
     is_vertex = bool(reading.targets) and isinstance(reading.targets[0], VertexTarget)
     free = free_test(reading.owner_shape) if is_vertex and reading.owner_shape is not None else None
     return SnapSession(
         targets=reading.targets,
-        orientation=initial_orientation(dimensions, reading.targets, is_free=free),
+        orientation=orientation or initial_orientation(dimensions, reading.targets, is_free=free),
         container=container_of(first) if first is not None else None,
         furniture=furniture_candidate(first) if first is not None else None,
         free=free,
