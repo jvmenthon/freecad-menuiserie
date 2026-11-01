@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core.geometry import Solid
+from freecad.menuiserie.core._polyhedron import PlanSolid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.core.text import quoted_value
@@ -279,13 +279,13 @@ class _JointFailedError(Exception):
 
 def _machining_of(
     obj: DocumentObject, blank: DocumentObject
-) -> tuple[list[Solid], list[Solid], list[Solid]]:
+) -> tuple[list[PlanSolid], list[PlanSolid], list[PlanSolid]]:
     """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
     assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
     modifiée par un script), :class:`_JointFailedError` si l'un d'eux est impossible."""
-    additions: list[Solid] = []
-    cuts: list[Solid] = []
-    trims: list[Solid] = []
+    additions: list[PlanSolid] = []
+    cuts: list[PlanSolid] = []
+    trims: list[PlanSolid] = []
     for joint in obj.Joints:
         if not is_joint(joint):
             raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))

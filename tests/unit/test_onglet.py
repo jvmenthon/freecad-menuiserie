@@ -8,13 +8,13 @@ from dataclasses import FrozenInstanceError, fields
 
 import pytest
 
+from freecad.menuiserie.core._polyhedron import PlanSolid
 from freecad.menuiserie.core.geometry import (
     CUT_OVERRUN_MM,
     Box,
     PlacedBlock,
     Prism,
     RigidTransform,
-    Solid,
     Vec3,
     moved,
     relative_transform,
@@ -81,12 +81,12 @@ def _area(polygon: list[Point2]) -> float:
     return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in pairs)) / 2
 
 
-def as_prism(solid: Solid) -> Prism:
+def as_prism(solid: PlanSolid) -> Prism:
     assert isinstance(solid, Prism)
     return solid
 
 
-def removed(solid: Solid, part: PlacedBlock) -> float:
+def removed(solid: PlanSolid, part: PlacedBlock) -> float:
     """Volume du prisme (extrudé selon un axe du repère local) dans la boîte de la pièce."""
     prism = as_prism(solid)
     box = part.local_box()
@@ -207,7 +207,7 @@ def test_refus_piece_posee_dessus() -> None:
     )
 
 
-def rounded_points(solids: tuple[Solid, ...]) -> list[tuple[tuple[float, ...], ...]]:
+def rounded_points(solids: tuple[PlanSolid, ...]) -> list[tuple[tuple[float, ...], ...]]:
     return [
         tuple(tuple(round(c, 6) + 0.0 for c in (p.x, p.y, p.z)) for p in solid.points)
         for solid in solids

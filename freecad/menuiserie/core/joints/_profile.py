@@ -23,7 +23,7 @@ from freecad.menuiserie.core.geometry import (
     relative_transform,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints._base import JointPlan, mm_text, require_contact
+from freecad.menuiserie.core.joints._base import JointPlan, mm_round, mm_text, require_contact
 from freecad.menuiserie.core.joints._bridge import Bridge, trimmed
 
 THICKNESS_AXIS: Final = 2  # épaisseur du profil : axe Z local de l'invitée
@@ -65,6 +65,9 @@ class ProfileValues:
     thickness_offset: float
     width_offset: float
     housing_depth: float  # profondeur de la mortaise ou de la rainure
+    oblique: float = 0.0  # biais (degrés) : 0 entre pièces d'équerre
+    cut_angle: float = 0.0  # réglages de la scie pour le bout biais (degrés)
+    blade_tilt: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -127,6 +130,26 @@ class ContactFrame:
     def through_length(self) -> float:
         """Longueur d'un profil traversant : face de l'invitée → face opposée de l'hôte."""
         return abs(self.host_far - self.guest_plane)
+
+    @property
+    def host_depth(self) -> float:
+        """Étendue de l'hôte perpendiculairement au contact."""
+        return self.contact.host_depth
+
+    def oblique_values(self) -> dict[str, float]:
+        """Biais à afficher avec les valeurs effectives : aucun entre pièces d'équerre."""
+        return {}
+
+    @property
+    def full_depth(self) -> float:
+        """Profondeur d'un logement traversant, mesurée sur l'axe du profil."""
+        return self.host_depth
+
+    def auto_length(self, clearance: float) -> float:
+        """Longueur automatique du tenon : les deux tiers de l'hôte (``clearance``, jeu de fond,
+        n'y change rien d'équerre)."""
+        del clearance
+        return mm_round(2 * self.host_depth / 3)
 
     @property
     def contact_width(self) -> float:
@@ -202,7 +225,7 @@ def _outside(frame: ContactFrame, values: ProfileValues) -> JointError:
     return JointError(OUTSIDE_CONTACT, params)
 
 
-def _check_walls(housing: Box, host_box: Box, axes: tuple[int, ...]) -> None:
+def check_walls(housing: Box, host_box: Box, axes: tuple[int, ...]) -> None:
     for axis in axes:
         low_wall = housing.lo(axis) - host_box.lo(axis)
         high_wall = host_box.hi(axis) - housing.hi(axis)
@@ -229,7 +252,7 @@ def build_profile(frame: ContactFrame, values: ProfileValues, rules: ProfileRule
         axis = frame.width_axis
         housing = housing.with_range(axis, host_box.lo(axis), host_box.hi(axis))
     walled = (frame.width_axis, THICKNESS_AXIS) if rules.walled_width else (THICKNESS_AXIS,)
-    _check_walls(housing, host_box, walled)
+    check_walls(housing, host_box, walled)
     plan = JointPlan(
         host_cuts=(moved_box(housing, frame.to_host),),
         guest_additions=(_profile(frame, section, values.length),),

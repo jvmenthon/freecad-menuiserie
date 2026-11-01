@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core.contact import Overlap, classify
+from freecad.menuiserie.core.contact import Overlap
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
     Axis,
@@ -28,6 +28,7 @@ from freecad.menuiserie.core.joints._base import (
     length_param,
     mm_round,
     mm_text,
+    square_relation,
     validate_params,
 )
 from freecad.menuiserie.core.joints._bridge import cut_plan, through_host
@@ -121,7 +122,7 @@ class _Lap:
 def _lap(host: PlacedBlock, guest: PlacedBlock) -> _Lap:
     """Chevauchement de deux pièces d'épaisseurs parallèles et égales, à fleur ;
     :class:`JointError` sinon (``NOT_SQUARE`` si elles ne sont pas d'équerre)."""
-    relation = classify(host, guest)
+    relation = square_relation(host, guest)
     if not isinstance(relation, Overlap):
         raise JointError(NOT_CROSSING, {})
     to_host = relative_transform(host, guest)

@@ -24,11 +24,12 @@ from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
     Box,
     RigidTransform,
+    Solid,
     Vec3,
 )
 from freecad.menuiserie.core.vectors import cross, dot, norm, unit
 
-__all__ = ["Plane", "Polyhedron", "clipped_box"]
+__all__ = ["PlanSolid", "Plane", "Polyhedron", "clipped_box"]
 
 _MERGE_MM: Final = 1e-6  # sommets plus proches : un seul ; plan : « sur » ce plan
 _PARALLEL: Final = 1e-9  # déterminant sous lequel trois plans n'ont pas de point commun unique
@@ -244,3 +245,7 @@ def clipped_box(box: Box, frame: RigidTransform, planes: tuple[Plane, ...]) -> P
     ou une lame plus mince que :data:`~.geometry.CONTACT_TOLERANCE_MM` (rien à usiner)."""
     polyhedron = Polyhedron(box, frame, planes)
     return None if polyhedron.thickness() < CONTACT_TOLERANCE_MM else polyhedron
+
+
+PlanSolid = Solid | Polyhedron
+"""Solide d'un plan d'usinage : forme d'équerre (boîte, cylindre, prisme) ou polyèdre en biais."""
