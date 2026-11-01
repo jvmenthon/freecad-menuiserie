@@ -81,7 +81,7 @@ def test_detection_des_imports_relatifs(tmp_path: Path) -> None:
     assert "freecad.menuiserie.features.autre" in modules
 
 
-API = PAQUET / "api.py"
+API_MODULES = sorted((PAQUET / "_api").glob("*.py"))
 GUI_MODULES = {"FreeCADGui", "freecad.menuiserie.gui"}
 
 
@@ -98,7 +98,14 @@ def _is_gui_up_test(node: ast.AST) -> bool:
 
 
 def test_api_importe_gui_seulement_si_l_interface_est_chargee() -> None:
-    tree = ast.parse(API.read_text(encoding="utf-8"))
+    tree = ast.Module(
+        body=[
+            node
+            for path in API_MODULES
+            for node in ast.parse(path.read_text(encoding="utf-8")).body
+        ],
+        type_ignores=[],
+    )
     guarded = {
         id(child)
         for node in ast.walk(tree)
@@ -107,7 +114,7 @@ def test_api_importe_gui_seulement_si_l_interface_est_chargee() -> None:
         if _imports_gui(child)
     }
     gui_imports = [node for node in ast.walk(tree) if _imports_gui(node)]
-    assert gui_imports, "api.py doit attacher le ViewProvider quand l'interface est chargée"
+    assert gui_imports, "_api/ doit attacher le ViewProvider quand l'interface est chargée"
     assert all(id(node) in guarded for node in gui_imports)
 
 

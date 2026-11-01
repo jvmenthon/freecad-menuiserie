@@ -63,7 +63,7 @@ def test_toutes_les_commandes_enregistrees() -> None:
 def test_view_provider_au_chemin_fige_et_pose_par_l_api() -> None:
     """P2 : chemin enregistré dans les documents (ADR 0003), posé par ``make_furniture``."""
     assert "ViewProviderFurniture" in class_attributes(GUI / "view_providers" / "furniture.py")
-    api = ROOT / "freecad" / "menuiserie" / "api.py"
+    api = ROOT / "freecad" / "menuiserie" / "_api" / "furniture.py"
     assert "freecad.menuiserie.gui.view_providers.furniture" in imported_modules(api)
 
 

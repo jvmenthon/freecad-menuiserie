@@ -332,7 +332,7 @@ def test_la_commande_essaie_l_assemblage_avant_son_premier_recalcul() -> None:
     commande passe ``feasible_joint`` à la fabrique, qui l'appelle avant ``recompute``."""
     command = source(GUI / "commands" / "joints.py")
     assert "FACTORY(host, guest, check=feasible_joint)" in command
-    api_text = source(ROOT / "freecad" / "menuiserie" / "api.py")
+    api_text = source(ROOT / "freecad" / "menuiserie" / "_api" / "joints.py")
     body = api_text[api_text.index("def _make_joint") : api_text.index("def _shown_and_recomputed")]
     assert body.index("check(joint)") < body.index("_shown_and_recomputed(joint)")
 
