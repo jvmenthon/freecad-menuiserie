@@ -12,7 +12,11 @@ from typing import ClassVar, Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
-from freecad.menuiserie.features.joints.base import JointFeature
+from freecad.menuiserie.features.joints.base import (
+    OBLIQUE_SUMMARY,
+    OBLIQUE_SUMMARY_IF,
+    JointFeature,
+)
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["MortiseTenonJoint"]
@@ -28,6 +32,8 @@ class MortiseTenonJoint(JointFeature):
     OBJECT_NAME: ClassVar[str] = "MortiseTenon"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Tenon-mortaise")
     PARAMS: ClassVar[type[MortiseTenonParams]] = MortiseTenonParams
+    SUMMARY: ClassVar[str] = OBLIQUE_SUMMARY
+    SUMMARY_IF: ClassVar[tuple[str, ...]] = OBLIQUE_SUMMARY_IF
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "TenonThickness",

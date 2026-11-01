@@ -13,11 +13,11 @@ from typing import Any
 
 import pytest
 
+from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron
 from freecad.menuiserie.core.geometry import (
     Box,
     JointError,
     RigidTransform,
-    Solid,
     Vec3,
     moved,
 )
@@ -42,7 +42,7 @@ def box(low: tuple[float, float, float], high: tuple[float, float, float]) -> Bo
     return Box(Vec3(*low), Vec3(*high))
 
 
-def rounded(solids: tuple[Solid, ...]) -> list[Any]:
+def rounded(solids: tuple[PlanSolid, ...]) -> list[Any]:
     """Solides comparables malgré le bruit des rotations (cotes arrondies au µm)."""
     return [_round(solid) for solid in solids]
 
@@ -57,9 +57,10 @@ def _round(value: Any) -> Any:
     return value
 
 
-def shifted(solids: tuple[Solid, ...], shift: Vec3) -> tuple[Solid, ...]:
+def shifted(solids: tuple[PlanSolid, ...], shift: Vec3) -> tuple[PlanSolid, ...]:
     back = RigidTransform(RigidTransform.identity().rotation, shift)
-    return tuple(moved(solid, back) for solid in solids)
+    assert not any(isinstance(solid, Polyhedron) for solid in solids)
+    return tuple(moved(solid, back) for solid in solids)  # type: ignore[arg-type]
 
 
 # Hôte, invitée au contact, invitée dessinée hors tout, retour au repère de l'invitée, partie

@@ -16,13 +16,9 @@ from freecad.menuiserie.core.joints._base import (
     offset_param,
     validate_params,
 )
-from freecad.menuiserie.core.joints._profile import (
-    ContactFrame,
-    ProfileRules,
-    ProfileValues,
-    build_profile,
-    contact_frame,
-)
+from freecad.menuiserie.core.joints._oblique import build_any
+from freecad.menuiserie.core.joints._oblique_frame import Frame, profile_frame
+from freecad.menuiserie.core.joints._profile import ProfileRules, ProfileValues
 
 __all__ = ["DEFAULT_TONGUE_LENGTH_MM", "TongueGrooveParams", "TongueGrooveStrategy"]
 
@@ -52,16 +48,16 @@ class TongueGrooveStrategy:
         self, host: PlacedBlock, guest: PlacedBlock, params: TongueGrooveParams
     ) -> ProfileValues:
         """Valeurs effectives de la languette et de la rainure."""
-        return _values(contact_frame(host, guest, end_only=False), params)
+        return _values(profile_frame(host, guest, end_only=False), params)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: TongueGrooveParams) -> JointPlan:
         """Languette ajoutée à l'invitée, rainure enlevée à l'hôte."""
-        frame = contact_frame(host, guest, end_only=False)
+        frame = profile_frame(host, guest, end_only=False)
         rules = ProfileRules(walled_width=False, extend_housing=params.through_groove)
-        return build_profile(frame, _values(frame, params), rules)
+        return build_any(frame, _values(frame, params), rules)
 
 
-def _values(frame: ContactFrame, params: TongueGrooveParams) -> ProfileValues:
+def _values(frame: Frame, params: TongueGrooveParams) -> ProfileValues:
     length = params.tongue_length or DEFAULT_TONGUE_LENGTH_MM
     return ProfileValues(
         thickness=params.tongue_thickness or mm_round(frame.contact_thickness / 3),

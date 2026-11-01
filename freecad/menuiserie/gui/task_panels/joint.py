@@ -184,6 +184,8 @@ def _summary(proxy: JointFeature, resolved: object | None) -> str | None:
     rempli avec les nombres de ``resolve`` ; ``None`` sans gabarit ou sans valeurs."""
     if not proxy.SUMMARY or not is_dataclass(resolved):
         return None
+    if proxy.SUMMARY_IF and not any(getattr(resolved, name) for name in proxy.SUMMARY_IF):
+        return None
     numbers = {
         item.name: mm_text(value)
         for item in fields(resolved)

@@ -36,6 +36,8 @@ from freecad.menuiserie.features.wood_part_record import dimensions_of
 
 __all__ = [
     "COMMON_PROPERTIES",
+    "OBLIQUE_SUMMARY",
+    "OBLIQUE_SUMMARY_IF",
     "JointFeature",
     "is_joint",
     "params_from",
@@ -62,6 +64,14 @@ _PARTS_MISMATCH: Final = QT_TRANSLATE_NOOP(
     "Les pièces de l'assemblage « {label} » ne correspondent plus à ses pièces usinées : "
     "supprimez l'assemblage puis recréez-le.",
 )
+
+# Ligne du panneau des assemblages qui savent le biais (ADR 0024) : valeurs de ``resolve``.
+OBLIQUE_SUMMARY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Biais de {oblique}° entre les pièces. Coupe du bout de l'invitée : {cut_angle}° "
+    "d'angle de coupe, {blade_tilt}° d'inclinaison de lame.",
+)
+OBLIQUE_SUMMARY_IF: Final = ("oblique",)
 
 COMMON_PROPERTIES: Final = (
     PropertySpec(
@@ -110,6 +120,9 @@ class JointFeature(StatelessProxy):
     # Valeurs effectives affichées par le panneau (J3e) hors des champs : gabarit traduisible
     # rempli avec les champs numériques de ``resolve`` (« {host_angle} »), vide : rien.
     SUMMARY: ClassVar[str] = ""
+    # Champs de ``resolve`` dont l'un au moins doit être non nul pour afficher ``SUMMARY``
+    # (vide : toujours affiché) : le biais n'apparaît pas entre pièces d'équerre.
+    SUMMARY_IF: ClassVar[tuple[str, ...]] = ()
     # Faux quand les deux rôles sont symétriques (mi-bois, onglet) : pas de bouton
     # « Inverser » dans le panneau (demande de jv).
     INVERTIBLE: ClassVar[bool] = True

@@ -73,6 +73,15 @@ def tilted_rail(
     return rail_against_stile(rotation_z(90.0 + degrees), mode, centre_x, centre_z)
 
 
+def leaning_rail(
+    degrees: float, mode: Mode = "cheval", centre_x: float = 300.0, centre_z: float = 40.0
+) -> PlacedBlock:
+    """Traverse inclinée de ``degrees`` autour de sa largeur (le bout penche vers l'épaisseur du
+    montant) : pour un montant épais (``stile_block(thickness=80)``)."""
+    rotation = product(rotation_z(90.0), rotation_y(degrees))
+    return rail_against_stile(rotation, mode, centre_x, centre_z)
+
+
 def spun_rail(degrees: float) -> PlacedBlock:
     """Traverse d'équerre dont le bout est tourné de ``degrees`` autour de son propre axe."""
     return rail_against_stile(product(rotation_z(90.0), rotation_x(degrees)), "cheval")
@@ -80,6 +89,7 @@ def spun_rail(degrees: float) -> PlacedBlock:
 
 __all__ = [
     "Mode",
+    "leaning_rail",
     "product",
     "rail_against_stile",
     "rotation_x",
