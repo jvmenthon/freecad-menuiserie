@@ -38,6 +38,7 @@ PROPERTIES: dict[str, list[Row]] = {
         ("ThicknessOffset", DISTANCE, "Languette", 0.0),
         ("GrooveClearance", LENGTH, "Rainure", 1.0),
         ("ThroughGroove", BOOL, "Rainure", True),
+        ("ObliqueReference", "App::PropertyEnumeration", "Biais", "TenonPiece"),
     ],
     "make_rabbet": [("Through", BOOL, "Feuillure", True), ("Depth", LENGTH, "Feuillure", 0.0)],
     "make_dowels": [
