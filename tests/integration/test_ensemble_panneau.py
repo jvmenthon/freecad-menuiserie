@@ -146,4 +146,5 @@ def test_pas_d_equerre_suit_par_translation(document: Any) -> None:
     placement = bureau.parts["V"].Placement
     assert placement.Base.x == pytest.approx(1000.0 + 1400.0 - start)
     assert placement.Rotation.isSame(rotation, 1e-6)
+    document.recompute()
     assert stale_or_invalid(document) == []
