@@ -55,6 +55,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `tests/gui/verifications_panneau.py` et `verifications_panneau_assemblage.py` ramenés sous
   400 lignes (nouveaux modules `*_expressions` et `*_fermeture`), sans changement de
   comportement : icônes identiques, mêmes vérifications dans le même ordre.
+- Refactoring sans changement visible (revue de code du 2026-11-01) : `api.py` devient une
+  façade qui réexporte le paquet privé `_api/` (même API publique) ; `gui/drag/session.py` découpé
+  en `session.py`, `states.py` (machine à états du glisser) et `parts.py` ; un seul module de
+  calcul vectoriel `core/vectors.py` et opérateurs `+`, `-`, `scaled()` sur `Vec3` (corrections
+  mineures m2 et p2) ; drapeau de synchronisation commun (`SyncingProxy`) et socle des
+  ViewProviders sans géométrie (`NoGeometryView`). Plus aucun module de `freecad/` au-delà de
+  400 lignes.
 
 ### Ajouté
 - Rotation libre d'une pièce, lot RO-c ([ADR 0025](docs/adr/0025-rotation-libre-d-une-piece.md),
