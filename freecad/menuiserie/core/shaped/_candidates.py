@@ -15,7 +15,7 @@ from typing import Final
 
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.shaped._sample import ShapeSample, StraightEdge
-from freecad.menuiserie.core.shaped._vec import added, dot, scaled, subtracted, unit
+from freecad.menuiserie.core.vectors import dot, unit_or_none
 
 MAX_FAMILIES: Final = 6
 MAX_DIRECTIONS: Final = 6
@@ -27,12 +27,12 @@ Key = tuple[float, float, float]
 
 def _canonical(vector: Vec3) -> tuple[Vec3, Key]:
     """Vecteur unitaire de signe fixé (première coordonnée non nulle > 0) et sa clé arrondie."""
-    direction = unit(vector)
+    direction = unit_or_none(vector)
     if direction is None:
         raise ValueError("direction nulle")  # exclu par la validation de ShapeSample
     key = tuple(round(c, KEY_DIGITS) + 0.0 for c in (direction.x, direction.y, direction.z))
     if next((c for c in key if c != 0.0), 1.0) < 0.0:
-        direction, key = scaled(direction, -1.0), tuple(-c + 0.0 for c in key)
+        direction, key = -direction, tuple(-c + 0.0 for c in key)
     return direction, (key[0], key[1], key[2])
 
 
@@ -42,8 +42,8 @@ def face_families(faces: Sequence[tuple[Vec3, float]]) -> list[tuple[Vec3, float
     sums: dict[Key, tuple[Vec3, float]] = {}
     for (normal, key), area in keyed:
         total, total_area = sums.get(key, (Vec3(0.0, 0.0, 0.0), 0.0))
-        sums[key] = (added(total, scaled(normal, area)), total_area + area)
-    families = [(unit(total), area, key) for key, (total, area) in sums.items()]
+        sums[key] = (total + normal.scaled(area), total_area + area)
+    families = [(unit_or_none(total), area, key) for key, (total, area) in sums.items()]
     families.sort(key=lambda f: (-f[1], f[2]))
     return [(normal, area) for normal, area, _ in families if normal is not None]
 
@@ -60,7 +60,7 @@ def edge_directions(edges: Sequence[StraightEdge]) -> list[Vec3]:
 
 def _in_plane(vector: Vec3, normal: Vec3) -> Vec3 | None:
     """Projection de ``vector`` dans le plan de normale ``normal``, normée (ou ``None``)."""
-    return unit(subtracted(vector, scaled(normal, dot(vector, normal))), PERPENDICULAR_TOLERANCE)
+    return unit_or_none(vector - normal.scaled(dot(vector, normal)), PERPENDICULAR_TOLERANCE)
 
 
 def _face_directions(

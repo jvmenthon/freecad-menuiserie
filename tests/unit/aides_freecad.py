@@ -40,7 +40,9 @@ def simulated_freecad(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
         yield report
     finally:
         for name in set(sys.modules) - before:
-            if name.startswith("freecad.menuiserie.features") or name == "freecad.menuiserie.api":
+            if name.startswith(("freecad.menuiserie.features", "freecad.menuiserie._api")) or (
+                name == "freecad.menuiserie.api"
+            ):
                 del sys.modules[name]
         features = sys.modules.get("freecad.menuiserie")
         if features is not None and hasattr(features, "features"):

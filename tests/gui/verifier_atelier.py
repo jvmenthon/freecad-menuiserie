@@ -43,7 +43,11 @@ from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
 from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
 from tests.gui.verifications_panneau_assemblage import VERIFICATIONS_PANNEAU_ASSEMBLAGE
+from tests.gui.verifications_panneau_assemblage_fermeture import (
+    VERIFICATIONS_PANNEAU_ASSEMBLAGE_FERMETURE,
+)
 from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
+from tests.gui.verifications_panneau_expressions import VERIFICATIONS_PANNEAU_EXPRESSIONS
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
 from tests.gui.verifications_panneau_rotation import VERIFICATIONS_PANNEAU_ROTATION
 from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROUS
@@ -1235,6 +1239,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     verifier_texture_budget_memoire,
     verifier_texture_chemin_echappe,
     *VERIFICATIONS_PANNEAU,
+    *VERIFICATIONS_PANNEAU_EXPRESSIONS,
     *VERIFICATIONS_APERCU,
     *VERIFICATIONS_SELECTION,
     *VERIFICATIONS_LIMITES,
@@ -1242,6 +1247,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_ROBUSTESSE,
     *VERIFICATIONS_ASSEMBLAGES,
     *VERIFICATIONS_PANNEAU_ASSEMBLAGE,
+    *VERIFICATIONS_PANNEAU_ASSEMBLAGE_FERMETURE,
     *VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE,
     *VERIFICATIONS_USINAGE_DEPLACEMENT,
     *VERIFICATIONS_QUEUE_ARONDE,

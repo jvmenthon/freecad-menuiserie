@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.distance import distances_of
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
@@ -20,6 +19,7 @@ from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.furniture_members import remove_members
 from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.gui.view_providers.no_geometry import NoGeometryView
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
 ViewObject = Any
@@ -27,28 +27,10 @@ ViewObject = Any
 ICON: Final = "Menuiserie_Furniture.svg"
 
 
-class ViewProviderFurniture(PanelEditing):
+class ViewProviderFurniture(NoGeometryView, PanelEditing):
     """ViewProvider de l'ensemble. Chemin de module figé (ADR 0003), sans état enregistré."""
 
-    def __init__(self, vobj: ViewObject) -> None:
-        vobj.Proxy = self
-
-    def attach(self, vobj: ViewObject) -> None:
-        """Garde le ViewObject (non enregistré) pour l'arbre."""
-        self.vobj = vobj
-
-    def getIcon(self) -> str:
-        """Icône de l'arbre : celle de la commande « Ensemble »."""
-        return icon_path(ICON)
-
-    def getDisplayModes(self, vobj: ViewObject) -> list[str]:
-        """Aucune géométrie : un seul mode d'affichage, vide."""
-        del vobj
-        return ["Default"]
-
-    def getDefaultDisplayMode(self) -> str:
-        """Mode d'affichage unique."""
-        return "Default"
+    ICON = ICON
 
     def claimChildren(self) -> list[DocumentObject]:
         """Membres (pièce usinée à la place de sa brute), sous-ensembles et assemblages dont

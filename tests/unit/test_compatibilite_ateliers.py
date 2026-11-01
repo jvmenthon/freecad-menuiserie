@@ -103,7 +103,7 @@ def test_aucune_dependance_d_execution(key: str) -> None:
 def test_aucun_observateur_global_dans_app_et_features() -> None:
     """ADR 0007 : l'ensemble réagit par ``onChanged`` de ses objets, jamais par un observateur
     du document ou de l'application (réservés aux panneaux de ``gui/``, le temps du panneau)."""
-    layers = [PACKAGE / "core", PACKAGE / "features", PACKAGE / "api.py"]
+    layers = [PACKAGE / "core", PACKAGE / "features", PACKAGE / "api.py", PACKAGE / "_api"]
     sources = [path for path in SOURCES if any(path.is_relative_to(layer) for layer in layers)]
     offenders = [
         path.name for path in sources if "addDocumentObserver" in path.read_text(encoding="utf-8")

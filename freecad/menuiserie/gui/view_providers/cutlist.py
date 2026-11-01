@@ -15,36 +15,18 @@ from typing import Any, Final
 
 import FreeCADGui as Gui
 
-from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.freecad_types import DocumentObject, StatelessProxy
+from freecad.menuiserie.gui.view_providers.no_geometry import NoGeometryView
 
 ViewObject = Any
 
 ICON: Final = "Menuiserie_CutList.svg"
 
 
-class ViewProviderCutList(StatelessProxy):
+class ViewProviderCutList(NoGeometryView, StatelessProxy):
     """ViewProvider de la liste de débit vivante. Chemin de module figé (ADR 0003)."""
 
-    def __init__(self, vobj: ViewObject) -> None:
-        vobj.Proxy = self
-
-    def attach(self, vobj: ViewObject) -> None:
-        """Garde le ViewObject (non enregistré) pour ``canDelete``."""
-        self.vobj = vobj
-
-    def getIcon(self) -> str:
-        """Icône de l'arbre : celle de la commande « Liste de débit »."""
-        return icon_path(ICON)
-
-    def getDisplayModes(self, vobj: ViewObject) -> list[str]:
-        """Aucune géométrie : un seul mode d'affichage, vide."""
-        del vobj
-        return ["Default"]
-
-    def getDefaultDisplayMode(self) -> str:
-        """Mode d'affichage unique."""
-        return "Default"
+    ICON = ICON
 
     def doubleClicked(self, vobj: ViewObject) -> bool:
         """Double-clic : aperçu de la liste sur sa portée (vide : tout le document), comme la

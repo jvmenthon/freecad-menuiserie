@@ -106,7 +106,9 @@ def init_gui_commands() -> tuple[str, ...]:
 
 def api_functions() -> set[str]:
     return {
-        node.name for node in tree(PACKAGE / "api.py").body if isinstance(node, ast.FunctionDef)
+        node.name
+        for node in tree(PACKAGE / "_api" / "joints.py").body
+        if isinstance(node, ast.FunctionDef)
     }
 
 
@@ -182,7 +184,7 @@ def test_view_providers_poses_par_l_api() -> None:
     """L'api pose les ViewProviders des assemblages et des pièces usinées, sous ``GuiUp``."""
     imported = {
         node.module
-        for node in ast.walk(tree(PACKAGE / "api.py"))
+        for node in ast.walk(tree(PACKAGE / "_api" / "joints.py"))
         if isinstance(node, ast.ImportFrom) and node.module
     }
     assert {

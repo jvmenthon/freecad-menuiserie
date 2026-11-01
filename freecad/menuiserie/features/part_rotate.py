@@ -76,7 +76,7 @@ def rotate_to(obj: DocumentObject, angles: Angles, aside: dict[str, str] | None 
     center = _center(raw)
     held = start.apply(center)
     carried = RigidTransform(rotation, Vec3(0.0, 0.0, 0.0)).rotate(center)
-    translation = Vec3(held.x - carried.x, held.y - carried.y, held.z - carried.z)
+    translation = held - carried
     write_placement(raw, to_placement(RigidTransform(rotation, translation)))
     return True
 

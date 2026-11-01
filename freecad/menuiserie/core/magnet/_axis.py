@@ -8,6 +8,7 @@ import math
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
 from freecad.menuiserie.core.magnet._model import Arrow, Ray
 from freecad.menuiserie.core.snap import Frame
+from freecad.menuiserie.core.vectors import dot
 
 
 def arrows(frame: Frame, box: Box, size: float) -> tuple[Arrow, Arrow, Arrow]:
@@ -25,14 +26,7 @@ def arrows(frame: Frame, box: Box, size: float) -> tuple[Arrow, Arrow, Arrow]:
 
 
 def _arrow(axis: int, center: Vec3, direction: Vec3, size: float) -> Arrow:
-    end = Vec3(
-        center.x + direction.x * size, center.y + direction.y * size, center.z + direction.z * size
-    )
-    return Arrow(axis, center, end)
-
-
-def _dot(a: Vec3, b: Vec3) -> float:
-    return a.x * b.x + a.y * b.y + a.z * b.z
+    return Arrow(axis, center, center + direction.scaled(size))
 
 
 def axis_param(ray: Ray, axis_line: Ray) -> float | None:
@@ -42,9 +36,9 @@ def axis_param(ray: Ray, axis_line: Ray) -> float | None:
     Le déplacement est la différence avec le paramètre relevé au début du glissement.
     """
     d1, d2 = ray.direction, axis_line.direction
-    cosine = _dot(d1, d2)
+    cosine = dot(d1, d2)
     if math.sqrt(max(0.0, 1.0 - cosine * cosine)) <= ANGLE_TOLERANCE:
         return None
     o1, o2 = ray.origin, axis_line.origin
-    w = Vec3(o1.x - o2.x, o1.y - o2.y, o1.z - o2.z)
-    return (_dot(d2, w) - cosine * _dot(d1, w)) / (1.0 - cosine * cosine)
+    w = o1 - o2
+    return (dot(d2, w) - cosine * dot(d1, w)) / (1.0 - cosine * cosine)

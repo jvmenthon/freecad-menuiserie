@@ -246,11 +246,11 @@ def source(path: Path) -> str:
 
 
 def test_le_glissement_et_le_panneau_de_distance_proposent_le_choix() -> None:
-    session = source(GUI / "drag" / "session.py")
-    assert "state.end(joint_choice.choose)" in session  # glissement : end_drag ; anneau : RO-d
-    assert "end_drag(self.memento, choose)" in session
-    assert "end_rotation(self.memento, choose)" in session
-    assert "except DragCancelledError" in session
+    states = source(GUI / "drag" / "states.py")
+    assert "self.end(joint_choice.choose)" in states  # glissement : end_drag ; anneau : RO-d
+    assert "end_drag(self.memento, choose)" in states
+    assert "end_rotation(self.memento, choose)" in states
+    assert "except DragCancelledError" in states
     panel = source(GUI / "task_panels" / "distance.py")
     assert "choose=joint_choice.choose" in panel
     assert "except DragCancelledError" in panel
@@ -332,7 +332,7 @@ def test_la_commande_essaie_l_assemblage_avant_son_premier_recalcul() -> None:
     commande passe ``feasible_joint`` à la fabrique, qui l'appelle avant ``recompute``."""
     command = source(GUI / "commands" / "joints.py")
     assert "FACTORY(host, guest, check=feasible_joint)" in command
-    api_text = source(ROOT / "freecad" / "menuiserie" / "api.py")
+    api_text = source(ROOT / "freecad" / "menuiserie" / "_api" / "joints.py")
     body = api_text[api_text.index("def _make_joint") : api_text.index("def _shown_and_recomputed")]
     assert body.index("check(joint)") < body.index("_shown_and_recomputed(joint)")
 

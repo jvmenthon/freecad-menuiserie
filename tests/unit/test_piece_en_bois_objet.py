@@ -43,6 +43,7 @@ def modules(monkeypatch: pytest.MonkeyPatch) -> Iterator[types.SimpleNamespace]:
     """Modules de la pièce de bois et de la pièce en bois sur un FreeCAD simulé."""
     with simulated_freecad(monkeypatch) as report:
         api = importlib.import_module("freecad.menuiserie.api")  # pas l'ancien attribut du paquet
+        api_wood = importlib.import_module("freecad.menuiserie._api.wood")  # code appelé par l'api
         from freecad.menuiserie.features import (
             shaped_create,
             shaped_part,
@@ -55,6 +56,7 @@ def modules(monkeypatch: pytest.MonkeyPatch) -> Iterator[types.SimpleNamespace]:
 
         yield types.SimpleNamespace(
             api=api,
+            api_wood=api_wood,
             create=shaped_create,
             shaped=shaped_part,
             shaped_schema=shaped_part_schema,
@@ -731,8 +733,8 @@ def test_api_make_shaped_part(modules: Any, monkeypatch: pytest.MonkeyPatch) -> 
         calls.append({"source": source, **kwargs})
         return part
 
-    monkeypatch.setattr(modules.api, "create_shaped_part", create)
-    monkeypatch.setattr(modules.api.App, "GuiUp", False, raising=False)
+    monkeypatch.setattr(modules.api_wood, "create_shaped_part", create)
+    monkeypatch.setattr(modules.api_wood.App, "GuiUp", False, raising=False)
     assert modules.api.make_shaped_part("SRC", "chene", "P1") is part
     assert calls == [
         {"source": "SRC", "material_id": "chene", "mark": "P1", "profile_thickness": 22.0}
@@ -745,8 +747,8 @@ def test_api_make_shaped_part(modules: Any, monkeypatch: pytest.MonkeyPatch) -> 
 def test_api_make_shaped_parts(modules: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     document = Recompute()
     parts = [types.SimpleNamespace(Document=document), types.SimpleNamespace(Document=document)]
-    monkeypatch.setattr(modules.api, "create_shaped_parts", lambda _source, **_kwargs: parts)
-    monkeypatch.setattr(modules.api.App, "GuiUp", False, raising=False)
+    monkeypatch.setattr(modules.api_wood, "create_shaped_parts", lambda _source, **_kwargs: parts)
+    monkeypatch.setattr(modules.api_wood.App, "GuiUp", False, raising=False)
     source = types.SimpleNamespace(Document=document)
     assert modules.api.make_shaped_parts(source) == parts
     assert document.count == 1
@@ -757,7 +759,7 @@ def test_api_reset_shaped_axes(modules: Any, monkeypatch: pytest.MonkeyPatch) ->
     part = with_proxy(modules)
     object.__setattr__(part, "Document", document)
     reset: list[Any] = []
-    monkeypatch.setattr(modules.api, "reset_axes", reset.append)
+    monkeypatch.setattr(modules.api_wood, "reset_axes", reset.append)
     modules.api.reset_shaped_axes(part)
     assert reset == [part]
     assert document.count == 1
@@ -769,5 +771,5 @@ def test_api_reset_refuse_un_objet_qui_n_est_pas_une_piece_en_bois(modules: Any)
 
 
 def test_viewprovider_absent_sans_interface(modules: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(modules.api.App, "GuiUp", False, raising=False)
-    modules.api._show_shaped([FakePart()])  # sans interface (freecadcmd) : aucun ViewProvider
+    monkeypatch.setattr(modules.api_wood.App, "GuiUp", False, raising=False)
+    modules.api_wood._show_shaped([FakePart()])  # sans interface (freecadcmd) : aucun ViewProvider

@@ -23,7 +23,6 @@ contournable), **mineur** (confort, docs, dette de test).
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
 | m1 | mineur | `freecad/menuiserie/gui/drag/geometry.py` | `mouse_ray`, le placement des poignées et `MAGNET_PX` sont dans `gui/` alors que l'ADR 0021 (point 2) les met dans `core/magnet` ; le nom `geometry.py` est trompeur (le module dessine). | Déplacer ces trois éléments vers `core/magnet` et renommer `geometry.py` en `drawing.py`. |
-| m2 | mineur | `freecad/menuiserie/core/geometry.py` (`Vec3`) | `Vec3` n'a ni addition, ni soustraction, ni produit par un réel : six réécritures composante par composante dans `core/magnet`, `features/part_drag.py` et `gui/drag/`. | Ajouter `__add__`, `__sub__` et `scaled()` à `Vec3` et supprimer les six réécritures. |
 | m5 | mineur | `freecad/menuiserie/gui/drag/events.py` (`_Installation.uninstall`) | Quatre `try/finally` imbriqués pour que chaque retrait soit tenté même si un autre échoue. | Utiliser `contextlib.ExitStack` (un `callback` par retrait). |
 | m8 | mineur | `.github/workflows/ci.yml` (étape « Chargement dans l'interface de FreeCAD ») | Le commentaire sur la zone de notifications coupée ne cite pas le ticket FreeCAD de l'interblocage des notifications hors écran. | Citer le ticket FreeCAD dans le commentaire. |
 
@@ -32,7 +31,6 @@ contournable), **mineur** (confort, docs, dette de test).
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
 | p1 | mineur | `freecad/menuiserie/features/shaped_create.py` (`reframe`), `api.reset_shaped_axes` | La garde « Placement piloté par une expression » n'existe que dans le panneau : par l'API, un membre d'ensemble change de repère puis l'expression remet son `Placement`, et la forme bouge. | Déplacer la garde dans `reframe` (`ValueError` traduite), le panneau la réutilise. |
-| p2 | mineur | `freecad/menuiserie/core/shaped/_vec.py` | Reprend `core/snap/_vec.py` (dot, cross, norm, scale, unit, is_finite). | Un seul module de vecteurs partagé dans `core/` (avec m2). |
 | p3 | mineur | `features/wood_material_proxy.py`, `features/shaped_part.py` | La base commune `MaterialProxy` importe ses aides de `wood_part_restore` ; `shaped_part` ré-exporte `dimensions_of` / `record_of` de `wood_part_record`. | Déplacer les aides de matériau dans `wood_material_restore.py`. |
 | p4 | mineur | `features/picked.py` (`furniture_candidate`) | Imports différés pour casser le cycle `picked → machined_part → … → shaped_frame → placement`. | Sortir `to_placement` vers un module de bas niveau (à côté de `rigid_transform`). |
 | p5 | mineur | `features/shaped_create.py` (`create_shaped_part`) | La source est lue deux fois (booléennes, `isValid`). | Passer la lecture déjà faite à une fonction interne commune. |

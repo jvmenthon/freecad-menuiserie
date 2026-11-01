@@ -143,7 +143,7 @@ def _located(
     point, direction = _reference(target)
     inverse = placement.inverse()
     local = inverse.multVec(App.Vector(point.x, point.y, point.z))
-    relative = Vec3(local.x - origin.x, local.y - origin.y, local.z - origin.z)
+    relative = to_vec3(local) - origin
     turned = None
     if direction is not None:
         vector = inverse.Rotation.multVec(App.Vector(direction.x, direction.y, direction.z))

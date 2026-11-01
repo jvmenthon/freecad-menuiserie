@@ -25,7 +25,7 @@ from freecad.menuiserie.core.snap._model import (
     Turn,
     VertexTarget,
 )
-from freecad.menuiserie.core.snap._vec import add, cross, dot, norm, scale, sub, unit
+from freecad.menuiserie.core.vectors import cross, dot, norm, unit
 
 # Côté de l'origine où s'étend la pièce sur x, y et z : +1 vers l'axe, -1 à l'opposé.
 Sides = tuple[int, int, int]
@@ -61,7 +61,7 @@ def tangent_frame(point: Vec3, normal: Vec3) -> Frame:
     """
     z = unit(normal)
     for hint in _DOCUMENT_XY:
-        projected = sub(hint, scale(z, dot(hint, z)))
+        projected = hint - z.scaled(dot(hint, z))
         if norm(projected) > ANGLE_TOLERANCE:
             x = unit(projected)
             return Frame(point, x, cross(z, x), z)
@@ -82,11 +82,11 @@ def _squared_support(x: Vec3, support: Vec3, axes: Frame | None) -> Vec3:
     if len(candidates) != 2:  # arête oblique par rapport aux axes de l'objet
         return support
     best = max(candidates, key=lambda axis: abs(dot(axis, support)))
-    return unit(best) if dot(best, support) >= 0 else scale(unit(best), -1.0)
+    return unit(best) if dot(best, support) >= 0 else -unit(best)
 
 
 def _edge_anchor(target: EdgeTarget) -> Anchor:
-    x = unit(sub(target.end, target.start))
+    x = unit(target.end - target.start)
     support = _squared_support(x, target.support, target.axes)
     y = cross(support, x)
     side_y = 1 if dot(target.inward, y) >= 0 else -1
@@ -133,5 +133,5 @@ def turned_in_place(
     """
     center = Vec3(dimensions.length / 2, dimensions.width / 2, dimensions.thickness / 2)
     spun = RigidTransform(turn.matrix, _ZERO).compose(placement)
-    shift = sub(placement.apply(center), spun.apply(center))
-    return RigidTransform(spun.rotation, add(spun.translation, shift))
+    shift = placement.apply(center) - spun.apply(center)
+    return RigidTransform(spun.rotation, spun.translation + shift)

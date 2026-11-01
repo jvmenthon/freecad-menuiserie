@@ -92,7 +92,7 @@ def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
     orthogonale (``camera`` absent) : direction de vue ; perspective : caméra vers ``focal``."""
     if camera is None:
         return Ray(focal, direction)
-    return Ray(camera, Vec3(focal.x - camera.x, focal.y - camera.y, focal.z - camera.z))
+    return Ray(camera, focal - camera)
 
 
 @dataclass(frozen=True)
@@ -146,8 +146,8 @@ def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
     targets = [PixelTarget(handle_key(h), project(p)) for h, p in layout.handles]
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
     for handle, point in layout.handles:
-        start = project(_plus(point, axes[handle.axis], -layout.handle_mm))
-        end = project(_plus(point, axes[handle.axis], layout.handle_mm))
+        start = project(point + axes[handle.axis].scaled(-layout.handle_mm))
+        end = project(point + axes[handle.axis].scaled(layout.handle_mm))
         targets.append(PixelTarget(handle_key(handle), start, end))
     for arrow in layout.arrows:
         targets.append(PixelTarget(arrow_key(arrow.axis), project(arrow.start), project(arrow.end)))
@@ -216,20 +216,14 @@ class Drawing:
     labels: tuple[Label, ...] = ()
 
 
-def _plus(a: Vec3, b: Vec3, factor: float) -> Vec3:
-    return Vec3(a.x + b.x * factor, a.y + b.y * factor, a.z + b.z * factor)
-
-
 def _arrow_lines(arrow: Arrow, frame: Frame) -> tuple[tuple[Vec3, ...], ...]:
     """Tige et quatre barbes de la pointe (le long des deux autres axes de la pièce)."""
     axes = (frame.x, frame.y, frame.z)
-    span = Vec3(
-        arrow.end.x - arrow.start.x, arrow.end.y - arrow.start.y, arrow.end.z - arrow.start.z
-    )
+    span = arrow.end - arrow.start
     length = (span.x**2 + span.y**2 + span.z**2) ** 0.5
-    back = _plus(arrow.end, axes[arrow.axis], -HEAD_RATIO * length)
+    back = arrow.end + axes[arrow.axis].scaled(-HEAD_RATIO * length)
     barbs = [
-        (arrow.end, _plus(back, axes[other], sign * HEAD_RATIO * length / 2))
+        (arrow.end, back + axes[other].scaled(sign * HEAD_RATIO * length / 2))
         for other in range(3)
         if other != arrow.axis
         for sign in (1.0, -1.0)
@@ -240,7 +234,8 @@ def _arrow_lines(arrow: Arrow, frame: Frame) -> tuple[tuple[Vec3, ...], ...]:
 def _handle_tip(layout: Layout, handle: Handle, point: Vec3) -> Vec3:
     """Bout de la tige de la poignée : à la longueur de la tige, vers l'extérieur de la pièce."""
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    return _plus(point, axes[handle.axis], layout.handle_mm if handle.at_end else -layout.handle_mm)
+    reach = layout.handle_mm if handle.at_end else -layout.handle_mm
+    return point + axes[handle.axis].scaled(reach)
 
 
 def _handle_stem(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
@@ -258,10 +253,10 @@ def _handle_cube(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec
     for axis in range(3):
         first, second = (axes[i] for i in range(3) if i != axis)
         for sign in (1.0, -1.0):
-            middle = _plus(center, axes[axis], sign * half)
+            middle = center + axes[axis].scaled(sign * half)
             faces.append(
                 tuple(
-                    _plus(_plus(middle, first, a * half), second, b * half)
+                    middle + first.scaled(a * half) + second.scaled(b * half)
                     for a, b in ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))
                 )
             )

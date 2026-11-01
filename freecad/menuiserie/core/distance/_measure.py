@@ -25,7 +25,7 @@ from typing import Final
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.snap import EdgeTarget, FaceTarget, Frame, Target, VertexTarget
-from freecad.menuiserie.core.snap._vec import cross, dot, is_finite, norm, scale, sub, unit
+from freecad.menuiserie.core.vectors import cross, dot, is_finite, norm, unit
 
 NOT_PARALLEL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les éléments ne sont pas parallèles : la distance n'est pas définie."
@@ -102,7 +102,7 @@ def _reduce(target: Target) -> tuple[_Primitive, Vec3 | None]:
             raise DistanceError(NOT_PARALLEL, {})
         return _Plane(target.frame.origin, target.frame.z), target.frame.z
     if isinstance(target, EdgeTarget):
-        return _Line(target.start, unit(sub(target.end, target.start))), target.support
+        return _Line(target.start, unit(target.end - target.start)), target.support
     return _Point(target.point), None
 
 
@@ -115,16 +115,16 @@ def _along(axis: Vec3, delta: Vec3, fallback: Vec3) -> Gap:
     offset = dot(delta, axis)
     if abs(offset) <= _ZERO_MM:
         return Gap(0.0, fallback)
-    return Gap(abs(offset), axis if offset > 0 else scale(axis, -1.0))
+    return Gap(abs(offset), axis if offset > 0 else -axis)
 
 
 def _across(line: Vec3, delta: Vec3, fallback: Vec3) -> Gap:
     """Distance de ``delta`` perpendiculairement à la droite unitaire ``line``."""
-    transverse = sub(delta, scale(line, dot(delta, line)))
+    transverse = delta - line.scaled(dot(delta, line))
     length = norm(transverse)
     if length <= _ZERO_MM:
         return Gap(0.0, fallback)
-    return Gap(length, scale(transverse, 1.0 / length))
+    return Gap(length, transverse.scaled(1.0 / length))
 
 
 def _plane_plane(fixed: _Primitive, moving: _Primitive, fallback: Vec3, _axis: Vec3 | None) -> Gap:
@@ -132,7 +132,7 @@ def _plane_plane(fixed: _Primitive, moving: _Primitive, fallback: Vec3, _axis: V
         raise TypeError("plan-plan attendu")
     if not _is_parallel(fixed.normal, moving.normal):
         raise DistanceError(NOT_PARALLEL, {})
-    return _along(fixed.normal, sub(moving.point, fixed.point), fallback)
+    return _along(fixed.normal, moving.point - fixed.point, fallback)
 
 
 def _plane_other(fixed: _Primitive, moving: _Primitive, fallback: Vec3, _axis: Vec3 | None) -> Gap:
@@ -142,7 +142,7 @@ def _plane_other(fixed: _Primitive, moving: _Primitive, fallback: Vec3, _axis: V
         raise TypeError("plan attendu")
     if isinstance(other, _Line) and abs(dot(plane.normal, other.direction)) > ANGLE_TOLERANCE:
         raise DistanceError(NOT_PARALLEL, {})
-    return _along(plane.normal, sub(_point(moving), _point(fixed)), fallback)
+    return _along(plane.normal, _point(moving) - _point(fixed), fallback)
 
 
 def _point(primitive: _Primitive) -> Vec3:
@@ -154,24 +154,24 @@ def _line_line(fixed: _Primitive, moving: _Primitive, fallback: Vec3, _axis: Vec
         raise TypeError("droite-droite attendu")
     if not _is_parallel(fixed.direction, moving.direction):
         raise DistanceError(NOT_PARALLEL, {})
-    return _across(fixed.direction, sub(moving.point, fixed.point), fallback)
+    return _across(fixed.direction, moving.point - fixed.point, fallback)
 
 
 def _line_point(fixed: _Primitive, moving: _Primitive, fallback: Vec3, _axis: Vec3 | None) -> Gap:
     line = fixed if isinstance(fixed, _Line) else moving
     if not isinstance(line, _Line):
         raise TypeError("droite attendue")
-    return _across(line.direction, sub(_point(moving), _point(fixed)), fallback)
+    return _across(line.direction, _point(moving) - _point(fixed), fallback)
 
 
 def _point_point(fixed: _Primitive, moving: _Primitive, fallback: Vec3, axis: Vec3 | None) -> Gap:
-    delta = sub(_point(moving), _point(fixed))
+    delta = _point(moving) - _point(fixed)
     if axis is not None:
         return _along(axis, delta, axis)
     length = norm(delta)
     if length <= _ZERO_MM:
         return Gap(0.0, fallback)
-    return Gap(length, scale(delta, 1.0 / length))
+    return Gap(length, delta.scaled(1.0 / length))
 
 
 # Registre : (primitive de référence, primitive mobile) → calcul. Neuf paires, quatre calculs.
@@ -204,7 +204,7 @@ def _fallback(own: Vec3 | None, reference: Vec3 | None, moving: Target) -> Vec3:
     référence au contact ; pour un sommet, la normale sortante de la référence ; sommet contre
     sommet : axe X du repère du sommet."""
     if own is not None:
-        return scale(own, -1.0)
+        return -own
     if reference is not None:
         return reference
     return moving.axes.x if isinstance(moving, VertexTarget) else _X
@@ -231,7 +231,7 @@ def moved_by(gap: Gap, value: float) -> Vec3:
     ``gap.direction`` : la pièce reste de son côté, même si la distance actuelle est nulle (D3)."""
     if not math.isfinite(value) or value < 0:
         raise DistanceError(INVALID_VALUE, {"value": f"{value:g}"})
-    return scale(gap.direction, value - gap.value)
+    return gap.direction.scaled(value - gap.value)
 
 
 def ensemble_axis(gap: Gap, frame: Frame) -> FrameAxis | None:

@@ -18,8 +18,8 @@ from freecad.menuiserie.core._validation import MIN_DIMENSION_MM
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.shaped._candidates import frame_candidates
 from freecad.menuiserie.core.shaped._sample import ShapeSample
-from freecad.menuiserie.core.shaped._vec import added, cross, dot, is_finite, norm, scaled, unit
 from freecad.menuiserie.core.snap import Turn
+from freecad.menuiserie.core.vectors import cross, dot, is_finite, norm, unit_or_none
 
 VOLUME_TIE: Final = 1e-3  # volumes égaux à 0,1 % près : l'ordre figé des candidats tranche
 EXTENT_DIGITS: Final = 6  # arrondi (mm) des étendues pour départager les égalités
@@ -48,7 +48,7 @@ class Axes:
         if dot(cross(self.x, self.y), self.z) < 1.0 - ANGLE_TOLERANCE:
             raise ValueError("z : repère indirect")
         for field in ("x", "y", "z"):
-            object.__setattr__(self, field, unit(getattr(self, field)))
+            object.__setattr__(self, field, unit_or_none(getattr(self, field)))
 
     @classmethod
     def identity(cls) -> Axes:
@@ -148,6 +148,6 @@ def turned_axes(axes: Axes, turn: Turn) -> Axes:
     for column in range(3):
         total = Vec3(0.0, 0.0, 0.0)
         for row in range(3):
-            total = added(total, scaled(vectors[row], matrix[row][column]))
+            total = total + vectors[row].scaled(matrix[row][column])
         columns.append(total)
     return Axes(*columns)
