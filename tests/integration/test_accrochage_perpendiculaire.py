@@ -63,9 +63,9 @@ def test_extremite_angle_droit_avec_la_piece(document: Any, board: Any) -> None:
     assert (start.width, start.thickness) == (100, 30)
     box = geometry.global_shape(part).BoundBox
     assert round(box.XMin, 6) == 800  # appuyée sur l'extrémité
-    assert round(box.XMax - box.XMin, 6) == 100  # sa largeur part de la face
-    assert round(box.YMax - box.YMin, 6) == 800  # longueur selon la largeur de l'autre pièce
-    assert (round(box.ZMin, 6), round(box.ZMax, 6)) == (0, 30)  # épaisseur parallèle
+    assert round(box.XMax - box.XMin, 6) == 30  # son épaisseur part de la face
+    assert round(box.ZMax - box.ZMin, 6) == 800  # longueur selon l'épaisseur de l'autre pièce
+    assert (round(box.YMin, 6), round(box.YMax, 6)) == (0, 100)  # largeur parallèle
 
 
 def test_grande_face_dresse_la_piece(document: Any, board: Any) -> None:

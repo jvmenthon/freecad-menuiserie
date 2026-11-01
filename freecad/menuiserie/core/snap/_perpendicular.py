@@ -4,9 +4,9 @@
 La nouvelle pièce est toujours perpendiculaire à la pièce qui porte la face, et ses axes restent
 parallèles aux siens : contre une grande face (épaisseur), la longueur part de la face (normale
 sortante) et la largeur reste parallèle à celle de l'autre ; contre un chant (largeur), la
-longueur part du chant et l'épaisseur reste parallèle ; contre une extrémité, la longueur suit la
-largeur de l'autre pièce (angle droit, comme un cadre), l'épaisseur reste parallèle et la largeur
-de la nouvelle pièce s'appuie sur la face.
+longueur part du chant et l'épaisseur reste parallèle ; contre une extrémité, la longueur suit
+l'épaisseur de l'autre pièce (angle droit), la largeur reste parallèle et l'épaisseur de la
+nouvelle pièce s'appuie sur la face.
 """
 
 from __future__ import annotations
@@ -42,10 +42,10 @@ def perpendicular_orientation(support: Matrix3, owner: Matrix3) -> Orientation |
         return None
     normal_axis = next(i for i in range(3) if seen[_NORMAL_ROW][i] != 0.0)
     length = Vec3(0.0, 0.0, 1.0)
-    if normal_axis == _LENGTH:  # extrémité : angle droit, épaisseur parallèle à l'autre
-        length = _column(seen, _WIDTH)
-        thickness = _column(seen, _THICKNESS)
-        width = cross(thickness, length)
+    if normal_axis == _LENGTH:  # extrémité : angle droit, largeur parallèle à l'autre
+        length = _column(seen, _THICKNESS)
+        width = _column(seen, _WIDTH)
+        thickness = cross(length, width)
     elif normal_axis == _THICKNESS:  # grande face : la largeur reste parallèle à l'autre
         width = _column(seen, _WIDTH)
         thickness = cross(length, width)

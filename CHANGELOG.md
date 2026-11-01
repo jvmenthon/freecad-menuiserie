@@ -11,7 +11,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   bois est sélectionnée au lancement de « Pièce de bois », la nouvelle pièce est perpendiculaire à
   la pièce qui porte la face, avec sa largeur et son épaisseur ; tout reste modifiable dans le
   panneau. Contre une grande face ou un chant, la longueur part de la face ; contre une extrémité,
-  elle suit la largeur de l'autre pièce (angle droit, comme un cadre). Sans effet pour plusieurs
+  elle suit l'épaisseur de l'autre pièce (angle droit). Sans effet pour plusieurs
   éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre atelier.
 - Pièce en édition en transparence (demande de jv, 2026-11-01) : tant que le panneau d'une pièce
   de bois ou d'une pièce en bois (convertie) est ouvert, en création comme en modification, la

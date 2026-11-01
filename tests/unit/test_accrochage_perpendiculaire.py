@@ -45,10 +45,10 @@ def occupied(target: FaceTarget, owner: Matrix3 = IDENTITY) -> tuple[Vec3, Vec3]
 
 
 def test_extremite_angle_droit_avec_la_piece() -> None:
-    """Contre l'extrémité (x = 800), la pièce est perpendiculaire à l'autre : sa longueur suit la
-    largeur de l'autre (Y), son épaisseur reste selon Z, sa largeur s'appuie sur la face."""
+    """Contre l'extrémité (x = 800), la pièce est perpendiculaire à l'autre : sa longueur suit
+    l'épaisseur de l'autre (Z), sa largeur reste selon Y, son épaisseur s'appuie sur la face."""
     low, high = occupied(face(Vec3(800, 0, 0), Y, Z, X))
-    assert (high.y - low.y, high.z - low.z, high.x - low.x) == (500, 30, 100)
+    assert (high.z - low.z, high.y - low.y, high.x - low.x) == (500, 100, 30)
     assert low.x == 800
 
 
@@ -70,7 +70,7 @@ def test_face_orientee_vers_moins_x() -> None:
     """La pièce part toujours du côté sortant de la face."""
     target = face(Vec3(0, 0, 0), Z, Y, MINUS_X)
     low, high = occupied(target)
-    assert (low.x, high.x) == (-100, 0)
+    assert (low.x, high.x) == (-30, 0)
 
 
 def test_piece_oblique_donne_la_main_a_l_orientation_habituelle() -> None:
@@ -83,4 +83,4 @@ def test_piece_tournee_d_un_quart_de_tour(quarter: Matrix3) -> None:
     """La pièce de départ tournée de 90° autour de Z : la face +Y est son extrémité."""
     target = face(Vec3(0, 800, 0), Z, X, Y)  # normale +Y = longueur de la pièce tournée
     low, high = occupied(target, quarter)
-    assert (low.y, high.y) == (800, 900)
+    assert (low.y, high.y) == (800, 830)
