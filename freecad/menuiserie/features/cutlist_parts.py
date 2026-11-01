@@ -12,10 +12,16 @@ from dataclasses import replace
 from enum import Enum
 from typing import Any, Final
 
-from freecad.menuiserie.core.cutlist import NO_ADDITIONS, CutEntry, Hardware, HardwareKind
+from freecad.menuiserie.core.cutlist import (
+    NO_ADDITIONS,
+    BevelCut,
+    CutEntry,
+    Hardware,
+    HardwareKind,
+)
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Box
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
-from freecad.menuiserie.core.joints import JointKind
+from freecad.menuiserie.core.joints import Bevel, JointKind, JointPlan
 from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.part_model import Allowances, Dimensions, GrainDirection, PartRecord
 from freecad.menuiserie.core.text import quoted_value
@@ -162,7 +168,9 @@ def entry_of(blank: DocumentObject, quantity: int, notices: list[Notice]) -> Cut
         label = str(owner.Label) if owner is not None else ""
         rough = _rough_thicknesses(record)
         shape = signature_of(blank) if is_shaped_part(blank) else None
-        return CutEntry(record, quantity, additions, label, str(blank.Name), rough, shape)
+        return CutEntry(
+            record, quantity, additions, label, str(blank.Name), rough, shape, bevels_of(blank)
+        )
     except (ValueError, AttributeError, TypeError) as error:
         reason = _reason(error) if isinstance(error, ValueError) else type(error).__name__
         notices.append(notice(CollectNoticeKind.IGNORED_PART, blank, reason=reason))
@@ -196,17 +204,38 @@ def _excess(low: float, high: float, size: float) -> float:
     return value if value >= _EPSILON_MM else 0.0
 
 
-def _trims(blank: DocumentObject, machined: DocumentObject) -> Iterator[Box]:
-    """Parties retirées de ``blank`` par les assemblages dont elle est l'invitée (ADR 0016) ;
-    un assemblage impossible n'en retire aucune."""
+def _guest_plans(blank: DocumentObject, machined: DocumentObject) -> Iterator[JointPlan]:
+    """Plans des assemblages dont ``blank`` est l'invitée ; un assemblage impossible n'en donne
+    aucun."""
     for joint in getattr(machined, "Joints", ()):
         if not is_joint(joint) or joint.GuestPart != blank:
             continue
         try:
-            plan = plan_for(joint)
+            yield plan_for(joint)
         except ValueError:
             continue
+
+
+def _trims(blank: DocumentObject, machined: DocumentObject) -> Iterator[Box]:
+    """Parties retirées de ``blank`` par les assemblages dont elle est l'invitée (ADR 0016) ;
+    un assemblage impossible n'en retire aucune. Les coins retirés en biais (polyèdres) sont
+    pris en compte par :func:`bevels_of`."""
+    for plan in _guest_plans(blank, machined):
         yield from (trim for trim in plan.guest_trims if isinstance(trim, Box))
+
+
+def _bevels(blank: DocumentObject, machined: DocumentObject) -> Iterator[Bevel]:
+    for plan in _guest_plans(blank, machined):
+        yield from plan.guest_bevels
+
+
+def bevels_of(blank: DocumentObject) -> tuple[BevelCut, ...]:
+    """Coupes en biais des bouts de ``blank`` (réglages de la scie, ADR 0024), vide sans
+    assemblage en biais."""
+    machined = machined_part_of(blank)
+    if machined is None:
+        return ()
+    return tuple(BevelCut(*bevel.saw_angles()) for bevel in _bevels(blank, machined))
 
 
 def _spans(trim: Box, ranges: list[list[float]], axis: int) -> bool:
@@ -228,6 +257,8 @@ def _kept_box(blank: DocumentObject, machined: DocumentObject, size: Dimensions)
                 ranges[axis][0] = trim.hi(axis)
             elif low < trim.lo(axis) < high - CONTACT_TOLERANCE_MM <= trim.hi(axis):
                 ranges[axis][1] = trim.lo(axis)
+    for bevel in _bevels(blank, machined):  # bout biais : cote finie au long point
+        ranges[bevel.face.index][1 if bevel.face.sign > 0 else 0] = bevel.long_point
     return Box.from_ranges([(low, high) for low, high in ranges])
 
 

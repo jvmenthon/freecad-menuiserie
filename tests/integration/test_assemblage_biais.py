@@ -4,6 +4,7 @@ pièces usinées valides, un seul solide, volumes égaux à ceux que calcule ``c
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import pytest
@@ -134,3 +135,15 @@ def test_autre_assemblage_refuse_le_biais(document: Any) -> None:
     document.recompute()
     with pytest.raises(ValueError, match="équerre"):
         api.make_half_lap(host, guest, check=feasible.feasible_joint)
+
+
+def test_liste_de_debit_longueur_au_long_point(document: Any) -> None:
+    """Bout biais de 10°, dessiné pointe contre la face : cote finie au long point, coupe
+    mentionnée, tenon en ajout (ADR 0024, C1 et C2)."""
+    host_block, guest_block = stile_block(), tilted_rail(10.0, "pointe")
+    assemble(document, host_block, guest_block, api.make_mortise_tenon)
+    cut_list = api.cut_list_of(document)
+    (line,) = [line for line in cut_list.lines if "I" in line.marks]
+    assert line.finished.length == pytest.approx(280 + 60 * math.tan(math.radians(10)), abs=0.05)
+    assert [(b.cut_angle, b.blade_tilt) for b in line.bevels] == [(10.0, 0.0)]
+    assert line.additions.length > 0  # le tenon

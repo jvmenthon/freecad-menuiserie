@@ -41,6 +41,7 @@ _MM2_PER_M2: Final = 1e6
 NO_ADDITIONS: Final = Allowances()
 MIN_PLANING_MM: Final = 3.0  # marge de rabotage minimale d'une pièce massive (ADR 0015)
 _EPSILON_MM: Final = 1e-6
+_MAX_BEVEL_DEG: Final = 90.0
 
 _BAD_COUNT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Entrée de débit invalide : {field} = {value} (entier supérieur à 0 attendu)."
@@ -51,6 +52,10 @@ _BAD_TYPE: Final = QT_TRANSLATE_NOOP(
 _BAD_LENGTH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Fourniture invalide : {field} = {value} mm (valeur finie, entre {min} et {max} mm attendue).",
+)
+_BAD_BEVEL: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Entrée de débit invalide : {field} = {value} (angle fini entre 0 et 90° attendu).",
 )
 _BAD_ROUGH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -71,8 +76,25 @@ _FIELDS: Final[Mapping[str, str]] = MappingProxyType(
         "kind": QT_TRANSLATE_NOOP("Menuiserie", "nature"),
         "rough_thicknesses": QT_TRANSLATE_NOOP("Menuiserie", "épaisseurs de brut"),
         "shape": QT_TRANSLATE_NOOP("Menuiserie", "empreinte de forme"),
+        "bevels": QT_TRANSLATE_NOOP("Menuiserie", "coupes en biais"),
     }
 )
+
+
+@dataclass(frozen=True)
+class BevelCut:
+    """Coupe en biais d'un bout (ADR 0024) : réglages de la scie, en degrés au dixième. Deux
+    pièces de mêmes cotes mais de coupes différentes ne sont pas regroupées."""
+
+    cut_angle: float
+    blade_tilt: float
+
+    def __post_init__(self) -> None:
+        for name in ("cut_angle", "blade_tilt"):
+            number = bounded_float(getattr(self, name), 0.0, _MAX_BEVEL_DEG)
+            if number is None:
+                raise _refuse(_BAD_BEVEL, "bevels", getattr(self, name))
+            object.__setattr__(self, name, number)
 
 
 class InvalidCutEntryError(TemplatedError):
@@ -121,9 +143,12 @@ class CutEntry:
     source: str = ""
     rough_thicknesses: tuple[float, ...] = ()
     shape: ShapeSignature | None = None
+    bevels: tuple[BevelCut, ...] = ()
 
     def __post_init__(self) -> None:
         _require_instance(self.record, PartRecord, "record")
+        for bevel in self.bevels:
+            _require_instance(bevel, BevelCut, "bevels")
         if self.shape is not None:
             _require_instance(self.shape, ShapeSignature, "shape")
         _require_instance(self.additions, Allowances, "additions")
@@ -236,6 +261,7 @@ class CutLine:
     source: str = ""
     over_standard: bool = False
     shape: ShapeSignature | None = None
+    bevels: tuple[BevelCut, ...] = ()
 
     @property
     def display_mark(self) -> str:
