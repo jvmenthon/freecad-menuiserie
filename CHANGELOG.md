@@ -7,6 +7,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Assemblages entre pièces en biais (#114, ADR 0024) : tenon-mortaise et rainure-languette entre
+  deux pièces dont l'angle n'est pas un multiple de 90° (70° au plus, angles composés compris),
+  épaulement sur la face de l'hôte, référence du tenon au choix (pièce à tenon, pièce mortaisée,
+  mi-angle), coupes en biais et long point dans la liste de débit, pièces en biais suivies par
+  translation dans un ensemble. Les autres assemblages refusent encore le biais (#78).
 - Pièce créée contre une face (#136, demande de jv, 2026-11-01) : si une seule face d'une pièce de
   bois est sélectionnée au lancement de « Pièce de bois », la nouvelle pièce est perpendiculaire à
   la pièce qui porte la face, avec sa largeur et son épaisseur ; tout reste modifiable dans le
