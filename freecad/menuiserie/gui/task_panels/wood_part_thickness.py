@@ -69,6 +69,8 @@ class ThicknessTools:
             connect(action, "triggered()", partial(self._choose, thickness))
         add = self._menu.addAction(translated(_ADD_THICKNESS))
         connect(add, "triggered()", self._add_thickness)
+        # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode.
+        # nosemgrep: python.lang.maintainability.is-function-without-parentheses
         if material is not None and material.kind.is_panel:
             self._fill_sheets()
 
