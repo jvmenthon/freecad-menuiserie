@@ -22,7 +22,7 @@ from freecad.menuiserie.features.edge_profile import (
     is_edge_profile,
     profile_cuts,
 )
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.machined_part import (
     ensure_machined_part,
@@ -33,7 +33,7 @@ from freecad.menuiserie.features.shaped_part import is_shaped_part
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
-__all__ = ["create_edge_profile", "edge_profiles_of", "remove_edge_profile"]
+__all__ = ["create_edge_profile", "edge_profiles_of", "remove_edge_profile", "update_edge_profile"]
 
 _PROFILE_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Profil d'arête")
 _SHAPED_PART: Final = QT_TRANSLATE_NOOP(
@@ -85,6 +85,16 @@ def _free_edges(
     return shared
 
 
+def _strip(document: Document, shared: list[DocumentObject], codes: list[str]) -> None:
+    """Retire ``codes`` des profils ``shared`` ; un profil sans arête est supprimé."""
+    for old in shared:
+        remaining = [code for code in old.Edges if code not in codes]
+        if remaining:
+            old.Edges = remaining
+        else:
+            document.removeObject(old.Name)
+
+
 def create_edge_profile(
     part: DocumentObject,
     edges: object,
@@ -109,14 +119,8 @@ def create_edge_profile(
     with translated_errors():
         dimensions = dimensions_of(blank)
     profile_cuts(str(blank.Label), dimensions, codes, kind, size_a, size_b)
-    shared = _free_edges(edge_profiles_of(blank), codes, replace)
     document = blank.Document
-    for old in shared:
-        remaining = [code for code in old.Edges if code not in codes]
-        if remaining:
-            old.Edges = remaining
-        else:
-            document.removeObject(old.Name)
+    _strip(document, _free_edges(edge_profiles_of(blank), codes, replace), codes)
     obj = document.addObject("Part::FeaturePython", OBJECT_NAME)
     EdgeProfile(obj)
     container = blank.getParentGeoFeatureGroup()
@@ -144,3 +148,31 @@ def remove_edge_profile(profile: DocumentObject) -> None:
     profile.Document.removeObject(profile.Name)
     if machined is not None and not machined.Joints and not machined.Finishes:
         remove_machined_part(machined)
+
+
+def update_edge_profile(
+    profile: DocumentObject,
+    edges: object,
+    family: EdgeFamily | str,
+    size_a: float,
+    size_b: float = 0.0,
+    *,
+    replace: bool = False,
+) -> None:
+    """Change les arêtes, la famille et les cotes de ``profile`` (mêmes validations et mêmes
+    refus que :func:`create_edge_profile`, avant toute écriture). Sans recalcul ni transaction.
+    ``TypeError`` traduite si ``profile`` n'est pas un profil d'arête."""
+    if not is_edge_profile(profile):
+        raise TypeError(translated(_NOT_A_PROFILE, {"label": quoted_value(profile.Label)}))
+    blank = _blank_of(profile.Part)
+    codes = checked_codes(edges)
+    kind = family_of(family.value if isinstance(family, EdgeFamily) else family)
+    with translated_errors():
+        dimensions = dimensions_of(blank)
+    profile_cuts(str(blank.Label), dimensions, codes, kind, size_a, size_b)
+    others = [other for other in edge_profiles_of(blank) if other != profile]
+    _strip(blank.Document, _free_edges(others, codes, replace), codes)
+    profile.Edges = codes
+    profile.Family = kind.value
+    profile.SizeA = size_a
+    profile.SizeB = size_b

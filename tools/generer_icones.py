@@ -225,6 +225,14 @@ def caisson() -> str:
     return ic.svg()
 
 
+def finition_des_chants() -> str:
+    ic = Icone("Finition des chants : planche à l'arête chanfreinée")
+    ic.prisme([(0, 0), (70, 0), (70, 16), (56, 30), (0, 30)], "z", 0, 36, "chene")
+    for y, phase in ((6, 0.1), (13, 0.5), (21, 0.8)):
+        ic.veinage((4, 60), (y, 24), "chene", amplitude=0.6, phase=phase)
+    return ic.svg()
+
+
 ICONES = {
     "menuiserie.svg": atelier,
     "Menuiserie_WoodPart.svg": piece_de_bois,
@@ -243,6 +251,8 @@ ICONES = {
     "Menuiserie_Dovetail.svg": queue_d_aronde,
     "Menuiserie_Miter.svg": onglet,
     "Menuiserie_Carcass.svg": caisson,
+    # Finition des chants (issue #5)
+    "Menuiserie_FinitionChants.svg": finition_des_chants,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,

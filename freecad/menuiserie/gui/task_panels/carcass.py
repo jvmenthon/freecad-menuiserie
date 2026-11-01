@@ -17,12 +17,10 @@ from functools import partial
 from typing import Any, Final
 
 import FreeCAD as App
-import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.core.templates.carcass import MAX_SHELVES, CarcassJoinery, CarcassParams
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
@@ -33,6 +31,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     Widget,
     close_transaction,
     connect,
+    length_spinbox,
 )
 
 FORM_NAME: Final = "CarcassTaskPanel"
@@ -165,13 +164,7 @@ def _length_field(
     layout: Widget, name: str, label: str, value: float, slot: Callable[..., None]
 ) -> Widget:
     """Champ de cote en mm (``Gui::QuantitySpinBox``) ajouté au formulaire."""
-    field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
-    field.setKeyboardTracking(False)  # aperçu à la fin de la saisie, pas à chaque touche
-    field.setObjectName(name)
-    field.setProperty("unit", "mm")
-    field.setProperty("minimum", 0.0)
-    field.setProperty("maximum", MAX_DIMENSION_MM)
-    field.setProperty("rawValue", value)
+    field = length_spinbox(name, value)
     connect(field, "valueChanged(double)", slot)
     layout.addRow(translated(label), field)
     return field

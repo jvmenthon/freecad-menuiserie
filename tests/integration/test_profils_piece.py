@@ -285,3 +285,35 @@ def test_la_forme_est_ordinaire_sans_l_atelier(document: Any, board: Any) -> Non
     assert shape.isValid()
     assert shape.ShapeType in ("Solid", "Compound")
     assert len(shape.Solids) == 1
+
+
+# --- Modification d'un profil (panneau de tâche) ---------------------------------------------
+
+
+def test_modifier_un_profil_recalcule_la_piece(document: Any, board: Any) -> None:
+    blank = board(document)
+    profile, _ = api.add_edge_profile(blank, ["Z+Y-"], "Chamfer", 5.0, 5.0)
+    warnings = api.set_edge_profile(profile, ["Z+Y-", "Z-Y-"], "Round", 4.0)
+    assert warnings == ()
+    assert (profile.Edges, profile.Family, profile.SizeA.Value) == (["Z+Y-", "Z-Y-"], "Round", 4.0)
+    removed = BOARD_VOLUME - machined_of(blank).Shape.Volume
+    assert removed == pytest.approx(2 * (1 - math.pi / 4) * 16.0 * LENGTH, rel=1e-4)
+
+
+def test_modifier_un_profil_refuse_avant_d_ecrire(document: Any, board: Any) -> None:
+    blank = board(document)
+    profile, _ = api.add_edge_profile(blank, ["Z+Y-"], "Chamfer", 5.0, 5.0)
+    with pytest.raises(ValueError, match="trop grand"):
+        api.set_edge_profile(profile, ["Z+Y-"], "Chamfer", 5.0, 30.0)
+    assert (profile.Family, profile.SizeB.Value) == ("Chamfer", 5.0)
+
+
+def test_modifier_un_profil_reprend_les_aretes_d_un_autre(document: Any, board: Any) -> None:
+    blank = board(document)
+    other, _ = api.add_edge_profile(blank, ["Z-Y-"], "Chamfer", 2.0)
+    profile, _ = api.add_edge_profile(blank, ["Z+Y-"], "Chamfer", 2.0)
+    with pytest.raises(ValueError, match="Z-Y-"):
+        api.set_edge_profile(profile, ["Z+Y-", "Z-Y-"], "Chamfer", 2.0)
+    api.set_edge_profile(profile, ["Z+Y-", "Z-Y-"], "Chamfer", 2.0, replace=True)
+    with pytest.raises(ReferenceError):
+        _ = other.Name

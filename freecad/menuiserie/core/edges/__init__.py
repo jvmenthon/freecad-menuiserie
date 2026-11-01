@@ -35,6 +35,7 @@ from freecad.menuiserie.core.edges._ids import (
     parse_edge,
     parse_face,
 )
+from freecad.menuiserie.core.edges._pick import nearest_edge
 
 __all__ = [
     "BROKEN_EDGE_MM",
@@ -55,6 +56,7 @@ __all__ = [
     "face_edges",
     "family_for",
     "loop_edges",
+    "nearest_edge",
     "parse_edge",
     "parse_face",
 ]

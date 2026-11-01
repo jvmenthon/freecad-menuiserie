@@ -13,6 +13,7 @@ from freecad.menuiserie.features.edge_profile_checks import profile_warnings
 from freecad.menuiserie.features.edge_profile_create import (
     create_edge_profile,
     edge_profiles_of,
+    update_edge_profile,
 )
 from freecad.menuiserie.features.edge_profile_create import (
     remove_edge_profile as _remove_edge_profile,
@@ -21,7 +22,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.machined_part import machined_part_of
 
-__all__ = ["add_edge_profile", "edge_profiles_of", "remove_edge_profile"]
+__all__ = ["add_edge_profile", "edge_profiles_of", "remove_edge_profile", "set_edge_profile"]
 
 
 def add_edge_profile(
@@ -54,6 +55,25 @@ def add_edge_profile(
     return profile, messages
 
 
+def set_edge_profile(
+    profile: DocumentObject,
+    edges: object,
+    family: EdgeFamily | str,
+    size_a: float,
+    size_b: float = 0.0,
+    *,
+    replace: bool = False,
+) -> tuple[str, ...]:
+    """Modifie un profil d'arête (arêtes, famille, cotes) et recalcule le document ; mêmes
+    arguments, refus avant toute écriture et avertissements que :func:`add_edge_profile`.
+    Aucune transaction n'est ouverte : c'est à l'appelant de le faire."""
+    update_edge_profile(profile, edges, family, size_a, size_b, replace=replace)
+    profile.Document.recompute()
+    messages = profile_warnings(profile)
+    report(messages)
+    return messages
+
+
 def remove_edge_profile(profile: DocumentObject) -> tuple[str, ...]:
     """Supprime un profil d'arête et recalcule le document ; la pièce usinée disparaît aussi
     quand il ne lui reste ni assemblage ni finition. Renvoie les avertissements traduits (aucun
@@ -65,12 +85,15 @@ def remove_edge_profile(profile: DocumentObject) -> tuple[str, ...]:
 
 
 def _show_machined_part(profile: DocumentObject) -> None:
-    """Pose le ViewProvider de la pièce usinée du profil si l'interface est chargée."""
+    """Pose les ViewProviders du profil et de sa pièce usinée si l'interface est chargée."""
     if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.edge_profile import ViewProviderEdgeProfile
         from freecad.menuiserie.gui.view_providers.machined_part import (
             ViewProviderMachinedPart,
         )
 
+        if not isinstance(profile.ViewObject.Proxy, ViewProviderEdgeProfile):
+            ViewProviderEdgeProfile(profile.ViewObject)
         machined = machined_part_of(profile.Part)
         if machined is not None and not isinstance(
             machined.ViewObject.Proxy, ViewProviderMachinedPart

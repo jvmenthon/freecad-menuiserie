@@ -50,7 +50,12 @@ from freecad.menuiserie._api.cutlist import (
     make_cut_list,
     number_marks,
 )
-from freecad.menuiserie._api.edges import add_edge_profile, edge_profiles_of, remove_edge_profile
+from freecad.menuiserie._api.edges import (
+    add_edge_profile,
+    edge_profiles_of,
+    remove_edge_profile,
+    set_edge_profile,
+)
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
     furniture_of,
@@ -135,6 +140,7 @@ __all__ = [
     "resize_furniture",
     "set_distance",
     "set_edge_distance",
+    "set_edge_profile",
     "set_furniture_material",
     "set_member_options",
     "unlock_and_resize",

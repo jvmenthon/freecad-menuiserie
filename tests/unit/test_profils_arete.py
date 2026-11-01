@@ -355,3 +355,27 @@ def test_core_edges_n_importe_ni_freecad_ni_qt() -> None:
     for path in [*sorted((folder / "edges").glob("*.py")), folder / "_extrusion.py"]:
         for module in imported_modules(path):
             assert module.split(".")[0] not in forbidden, (path.name, module)
+
+
+# --- Choix en 3D (C3, spécification § 4.5) -------------------------------------------------
+
+
+def test_arete_la_plus_proche_d_un_point() -> None:
+    from freecad.menuiserie.core.edges import nearest_edge
+
+    # Milieu de l'arête dessus-avant : x = L/2, y = 0, z = e.
+    assert nearest_edge(PIECE, Vec3(300.0, 0.0, 20.0)).code == "Z+Y-"
+    assert nearest_edge(PIECE, Vec3(600.0, 300.0, 10.0)).code == "Y+X+"
+    # Un point à peine décalé (arête déjà chanfreinée) se rapproche de la même arête.
+    assert nearest_edge(PIECE, Vec3(301.0, 2.5, 17.5)).code == "Z+Y-"
+
+
+def test_chaque_arete_se_retrouve_par_son_milieu() -> None:
+    from freecad.menuiserie.core.edges import nearest_edge
+
+    sizes = (PIECE.length, PIECE.width, PIECE.thickness)
+    for edge in all_edges():
+        values = [sizes[i] / 2 for i in range(3)]
+        for face in (edge.first, edge.second):
+            values[face.index] = sizes[face.index] if face.sign > 0 else 0.0
+        assert nearest_edge(PIECE, Vec3.of(values)) == edge
