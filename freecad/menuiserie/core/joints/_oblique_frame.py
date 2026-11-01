@@ -9,7 +9,13 @@ from typing import Final
 
 from freecad.menuiserie.core.contact import ObliqueContact, Overlap, relation
 from freecad.menuiserie.core.geometry import Box, JointError, PlacedBlock, Vec3, is_square
-from freecad.menuiserie.core.joints._base import OVERLAPPING, SEPARATED, Bevel, mm_round
+from freecad.menuiserie.core.joints._base import (
+    OVERLAPPING,
+    SEPARATED,
+    Bevel,
+    ObliqueReference,
+    mm_round,
+)
 from freecad.menuiserie.core.joints._profile import (
     EDGE_CONTACT,
     THICKNESS_AXIS,
@@ -21,6 +27,7 @@ from freecad.menuiserie.core.vectors import dot, norm, unit
 __all__ = ["Frame", "ObliqueFrame", "profile_frame"]
 
 _MARGIN: Final = 1e-9
+_TENON: Final = ObliqueReference.TENON_PIECE.value
 _MIN_WALL_MM: Final = 1.0  # paroi laissée au fond par la longueur automatique
 
 
@@ -33,6 +40,7 @@ class ObliqueFrame:
     guest: PlacedBlock
     host_box: Box  # boîte de l'hôte, repère de l'hôte
     width_axis: int
+    reference: str = ObliqueReference.TENON_PIECE.value
 
     @property
     def normal(self) -> int:
@@ -50,9 +58,19 @@ class ObliqueFrame:
         return unit(self.contact.shoulder.normal)
 
     @property
-    def direction(self) -> Vec3:
-        """Axe du tenon : celui de l'invitée, de son bout vers l'hôte."""
+    def fibre(self) -> Vec3:
+        """Axe de l'invitée (son fil), de son bout vers l'hôte."""
         return self.contact.guest_face.unit()
+
+    @property
+    def direction(self) -> Vec3:
+        """Axe du tenon selon la référence : celui de l'invitée (pièce à tenon, défaut), la
+        perpendiculaire à la face de l'hôte (pièce mortaisée) ou la bissectrice (mi-angle)."""
+        if self.reference == ObliqueReference.MORTISED_PIECE.value:
+            return -self.outward
+        if self.reference == ObliqueReference.HALF_ANGLE.value:
+            return unit(self.fibre - self.outward)
+        return self.fibre
 
     @property
     def cosine(self) -> float:
@@ -124,7 +142,13 @@ class ObliqueFrame:
     def oblique_values(self) -> dict[str, float]:
         """Biais et réglages de la scie, affichés avec les valeurs effectives."""
         cut, tilt = self.bevel().saw_angles()
-        return {"oblique": round(self.contact.angle, 1), "cut_angle": cut, "blade_tilt": tilt}
+        grain = math.degrees(math.acos(min(1.0, max(-1.0, dot(self.direction, self.fibre)))))
+        return {
+            "oblique": round(self.contact.angle, 1),
+            "cut_angle": cut,
+            "blade_tilt": tilt,
+            "grain_angle": round(grain, 1),
+        }
 
     def auto_length(self, clearance: float) -> float:
         """Longueur automatique : ``mm_round(2 · profondeur / (3 · cos β))`` (la formule
@@ -144,7 +168,9 @@ class ObliqueFrame:
 Frame = ContactFrame | ObliqueFrame
 
 
-def profile_frame(host: PlacedBlock, guest: PlacedBlock, *, end_only: bool) -> Frame:
+def profile_frame(
+    host: PlacedBlock, guest: PlacedBlock, *, end_only: bool, reference: str = _TENON
+) -> Frame:
     """Cadre du profil : celui des pièces d'équerre (``contact_frame``, ADR 0016) ou, si leur
     angle n'est pas un multiple de 90°, le cadre en biais (ADR 0024)."""
     if is_square(host, guest):
@@ -154,4 +180,4 @@ def profile_frame(host: PlacedBlock, guest: PlacedBlock, *, end_only: bool) -> F
         raise JointError(OVERLAPPING if isinstance(found, Overlap) else SEPARATED, {})
     if end_only and found.guest_face.index != 0:
         raise JointError(EDGE_CONTACT, {})
-    return ObliqueFrame(found, guest, host.local_box(), 1 - found.guest_face.index)
+    return ObliqueFrame(found, guest, host.local_box(), 1 - found.guest_face.index, reference)

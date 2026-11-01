@@ -27,7 +27,7 @@ from freecad.menuiserie.features.freecad_types import (
     StatelessProxy,
     proxy_is,
 )
-from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joint_material import check_joint_material
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.shaped_part import is_timber
@@ -36,6 +36,8 @@ from freecad.menuiserie.features.wood_part_record import dimensions_of
 
 __all__ = [
     "COMMON_PROPERTIES",
+    "GRAIN_WARNING_DEG",
+    "OBLIQUE_REFERENCE_SPEC",
     "OBLIQUE_SUMMARY",
     "OBLIQUE_SUMMARY_IF",
     "JointFeature",
@@ -72,6 +74,32 @@ OBLIQUE_SUMMARY: Final = QT_TRANSLATE_NOOP(
     "d'angle de coupe, {blade_tilt}° d'inclinaison de lame.",
 )
 OBLIQUE_SUMMARY_IF: Final = ("oblique",)
+
+OBLIQUE_REFERENCE_SPEC: Final = PropertySpec(
+    "ObliqueReference",
+    "App::PropertyEnumeration",
+    "Biais",
+    QT_TRANSLATE_NOOP(
+        "App::Property",
+        "Entre pièces en biais : pièce de référence du tenon. Pièce à tenon (défaut) : le tenon "
+        "suit le fil de l'invitée, la mortaise est inclinée. Pièce mortaisée : mortaise d'équerre "
+        "à la face de l'hôte, tenon incliné. Mi-angle : chacune reçoit la moitié du biais.",
+    ),
+    default="TenonPiece",
+    label=QT_TRANSLATE_NOOP("Menuiserie", "Référence du tenon"),
+    choices=(
+        ("TenonPiece", QT_TRANSLATE_NOOP("Menuiserie", "Pièce à tenon")),
+        ("MortisedPiece", QT_TRANSLATE_NOOP("Menuiserie", "Pièce mortaisée")),
+        ("HalfAngle", QT_TRANSLATE_NOOP("Menuiserie", "Mi-angle")),
+    ),
+    visible_if="oblique",
+)
+GRAIN_WARNING_DEG: Final = 20.0  # tenon qui s'écarte du fil au-delà : avertissement (E4)
+_CROSS_GRAIN: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Assemblage « {joint} » : le tenon s'écarte de {angle}° du fil de la pièce, il sera fragile "
+    "(fil tranché). Choisissez la pièce à tenon comme référence.",
+)
 
 COMMON_PROPERTIES: Final = (
     PropertySpec(
@@ -136,13 +164,23 @@ class JointFeature(StatelessProxy):
     def __init__(self, obj: DocumentObject) -> None:
         """Ajoute les propriétés communes puis celles du type, à leurs valeurs par défaut."""
         obj.Proxy = self
-        schema.add_missing_properties(obj, self.specs())
+        schema.add_missing_properties(obj, self.specs(), choices=self.choices())
+        obj.Version = self.VERSION
         schema.apply_editor_modes(obj, self.specs())
 
     @classmethod
     def specs(cls) -> tuple[PropertySpec, ...]:
         """Propriétés communes puis propres au type."""
         return COMMON_PROPERTIES + cls.PROPERTIES
+
+    @classmethod
+    def choices(cls) -> dict[str, list[str]]:
+        """Listes des propriétés énumérées du type (identifiants stables, ADR 0003)."""
+        return {
+            spec.name: [identifier for identifier, _ in spec.choices]
+            for spec in cls.specs()
+            if spec.choices
+        }
 
     def params(self, obj: DocumentObject) -> Any:
         """Paramètres de ``core`` (objet valeur ``PARAMS`` du type) lus dans les propriétés."""
@@ -156,12 +194,28 @@ class JointFeature(StatelessProxy):
         plan = plan_for(obj)
         _check_machined_parts(obj)
         check_joint_material(obj, plan)
+        _warn_cross_grain(obj)
         obj.Shape = inserts_shape(plan.inserts)
         obj.Placement = obj.HostPart.Placement
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
-        schema.restore_schema(obj, self.specs(), self.VERSION, NOUN)
+        schema.restore_schema(obj, self.specs(), self.VERSION, NOUN, self.choices())
+        for name, choices in self.choices().items():
+            if name in obj.PropertiesList and obj.getEnumerationsOfProperty(name) != choices:
+                current = getattr(obj, name)
+                setattr(obj, name, choices)
+                setattr(obj, name, current if current in choices else choices[0])
+
+
+def _warn_cross_grain(joint: DocumentObject) -> None:
+    """Avertit si le tenon s'écarte du fil de l'invitée de plus de ``GRAIN_WARNING_DEG`` (E4)."""
+    if OBLIQUE_REFERENCE_SPEC.name not in joint.PropertiesList:
+        return
+    angle = getattr(resolved_for(joint), "grain_angle", 0.0)
+    if angle > GRAIN_WARNING_DEG:
+        params = {"joint": quoted_value(joint.Label), "angle": str(round(angle))}
+        report_warning(translated(_CROSS_GRAIN, params))
 
 
 def is_joint(obj: object) -> bool:

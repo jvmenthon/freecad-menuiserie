@@ -13,6 +13,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.features.joints.base import (
+    OBLIQUE_REFERENCE_SPEC,
     OBLIQUE_SUMMARY,
     OBLIQUE_SUMMARY_IF,
     JointFeature,
@@ -32,6 +33,7 @@ class MortiseTenonJoint(JointFeature):
     OBJECT_NAME: ClassVar[str] = "MortiseTenon"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Tenon-mortaise")
     PARAMS: ClassVar[type[MortiseTenonParams]] = MortiseTenonParams
+    VERSION: ClassVar[int] = 2  # ObliqueReference (ADR 0024)
     SUMMARY: ClassVar[str] = OBLIQUE_SUMMARY
     SUMMARY_IF: ClassVar[tuple[str, ...]] = OBLIQUE_SUMMARY_IF
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
@@ -118,4 +120,5 @@ class MortiseTenonJoint(JointFeature):
             default=_DEFAULTS.mortise_clearance,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Jeu de fond de la mortaise"),
         ),
+        OBLIQUE_REFERENCE_SPEC,
     )

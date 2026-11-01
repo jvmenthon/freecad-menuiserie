@@ -68,6 +68,7 @@ class ProfileValues:
     oblique: float = 0.0  # biais (degrés) : 0 entre pièces d'équerre
     cut_angle: float = 0.0  # réglages de la scie pour le bout biais (degrés)
     blade_tilt: float = 0.0
+    grain_angle: float = 0.0  # écart du tenon au fil de l'invitée (degrés)
 
 
 @dataclass(frozen=True)

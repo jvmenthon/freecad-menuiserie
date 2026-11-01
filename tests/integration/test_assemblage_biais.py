@@ -147,3 +147,32 @@ def test_liste_de_debit_longueur_au_long_point(document: Any) -> None:
     assert line.finished.length == pytest.approx(280 + 60 * math.tan(math.radians(10)), abs=0.05)
     assert [(b.cut_angle, b.blade_tilt) for b in line.bevels] == [(10.0, 0.0)]
     assert line.additions.length > 0  # le tenon
+
+
+@pytest.mark.parametrize("reference", ["MortisedPiece", "HalfAngle"])
+def test_reference_du_tenon_en_biais(document: Any, reference: str) -> None:
+    host_block, guest_block = stile_block(), tilted_rail(10.0, "cheval")
+    host, guest, joint = assemble(
+        document,
+        host_block,
+        guest_block,
+        lambda h, g: api.make_mortise_tenon(h, g, oblique_reference=reference),
+    )
+    assert joint.isValid(), joint.getStatusString()
+    assert joint.ObliqueReference == reference
+    assert joint.Version == 2
+    host_volume, guest_volume = expected_volumes(
+        TENON, host_block, guest_block, MortiseTenonParams(oblique_reference=reference)
+    )
+    assert api.machined_part_of(host).Shape.Volume == pytest.approx(host_volume, rel=1e-6)
+    assert api.machined_part_of(guest).Shape.Volume == pytest.approx(guest_volume, rel=1e-6)
+
+
+def test_reference_par_defaut_et_liste_des_choix(document: Any) -> None:
+    *_, joint = assemble(document, stile_block(), tilted_rail(10.0), api.make_mortise_tenon)
+    assert joint.ObliqueReference == "TenonPiece"
+    assert joint.getEnumerationsOfProperty("ObliqueReference") == [
+        "TenonPiece",
+        "MortisedPiece",
+        "HalfAngle",
+    ]

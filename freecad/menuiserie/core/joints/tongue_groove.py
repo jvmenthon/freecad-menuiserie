@@ -8,8 +8,11 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import PlacedBlock
 from freecad.menuiserie.core.joints._base import (
+    OBLIQUE_REFERENCES,
     JointKind,
     JointPlan,
+    ObliqueReference,
+    choice_param,
     flag_param,
     length_param,
     mm_round,
@@ -35,6 +38,8 @@ class TongueGrooveParams:
     groove_clearance: float = length_param(1.0)
     through_groove: bool = flag_param(True)
 
+    oblique_reference: str = choice_param(ObliqueReference.TENON_PIECE.value, OBLIQUE_REFERENCES)
+
     def __post_init__(self) -> None:
         validate_params(self)
 
@@ -48,11 +53,13 @@ class TongueGrooveStrategy:
         self, host: PlacedBlock, guest: PlacedBlock, params: TongueGrooveParams
     ) -> ProfileValues:
         """Valeurs effectives de la languette et de la rainure."""
-        return _values(profile_frame(host, guest, end_only=False), params)
+        return _values(
+            profile_frame(host, guest, end_only=False, reference=params.oblique_reference), params
+        )
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: TongueGrooveParams) -> JointPlan:
         """Languette ajoutée à l'invitée, rainure enlevée à l'hôte."""
-        frame = profile_frame(host, guest, end_only=False)
+        frame = profile_frame(host, guest, end_only=False, reference=params.oblique_reference)
         rules = ProfileRules(walled_width=False, extend_housing=params.through_groove)
         return build_any(frame, _values(frame, params), rules)
 

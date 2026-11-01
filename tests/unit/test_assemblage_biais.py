@@ -193,3 +193,57 @@ def test_reglages_de_la_scie_biais_dans_l_epaisseur() -> None:
 def test_pas_de_reglage_d_equerre() -> None:
     values = TENON.resolve(stile(), rail(), MortiseTenonParams())
     assert (values.oblique, values.cut_angle, values.blade_tilt) == (0.0, 0.0, 0.0)
+
+
+# --- Référence du tenon (AB-e, E1 à E4) ---------------------------------------------------
+
+REFERENCES = ("TenonPiece", "MortisedPiece", "HalfAngle")
+
+
+def test_reference_invalide_refusee() -> None:
+    with pytest.raises(JointError):
+        MortiseTenonParams(oblique_reference="Autre")
+    with pytest.raises(JointError):
+        TongueGrooveParams(oblique_reference="Autre")
+
+
+@pytest.mark.parametrize("reference", REFERENCES)
+def test_reference_sans_effet_entre_pieces_d_equerre(reference: str) -> None:
+    default = TENON.plan(stile(), rail(), MortiseTenonParams())
+    assert TENON.plan(stile(), rail(), MortiseTenonParams(oblique_reference=reference)) == default
+
+
+@pytest.mark.parametrize("reference", REFERENCES)
+@pytest.mark.parametrize("mode", ["pointe", "hors tout", "cheval"])
+def test_tenon_de_meme_section_quelle_que_soit_la_reference(reference: str, mode: Mode) -> None:
+    host, guest = stile_block(), tilted_rail(10.0, mode)
+    params = MortiseTenonParams(oblique_reference=reference)
+    values = TENON.resolve(host, guest, params)
+    plan = TENON.plan(host, guest, params)
+    assert size_of(tenon_of(plan)) == pytest.approx(SECTION * values.length, rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("reference", "grain"), [("TenonPiece", 0.0), ("MortisedPiece", 10.0), ("HalfAngle", 5.0)]
+)
+def test_ecart_du_tenon_au_fil(reference: str, grain: float) -> None:
+    params = MortiseTenonParams(oblique_reference=reference)
+    values = TENON.resolve(stile_block(), tilted_rail(10.0), params)
+    assert values.grain_angle == pytest.approx(grain, abs=0.05)
+
+
+def test_pieces_mortaisee_donne_une_mortaise_d_equerre() -> None:
+    params = MortiseTenonParams(oblique_reference="MortisedPiece")
+    plan = TENON.plan(stile_block(), tilted_rail(10.0), params)
+    housing = plan.host_cuts[0]
+    assert isinstance(housing, Polyhedron)
+    columns = {(round(v.x, 6), round(v.z, 6)) for v in housing.vertices()}
+    assert len(columns) == 4  # parois perpendiculaires à la face de l'hôte
+
+
+def test_reference_continue_quand_l_angle_tend_vers_zero() -> None:
+    square = TENON.plan(stile(), rail(), MortiseTenonParams())
+    for reference in REFERENCES:
+        params = MortiseTenonParams(oblique_reference=reference)
+        nearly = TENON.plan(stile_block(), tilted_rail(1e-4, "pointe"), params)
+        assert total(nearly.host_cuts) == pytest.approx(total(square.host_cuts), rel=1e-4)

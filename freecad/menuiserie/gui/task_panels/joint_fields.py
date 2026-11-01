@@ -35,6 +35,7 @@ from freecad.menuiserie.gui.task_panels.base import UpdateGuard, Widget, connect
 Write = Callable[[str, object], None]  # (propriété, valeur) écrite par le panneau
 
 BOOL: Final = "App::PropertyBool"
+ENUM: Final = "App::PropertyEnumeration"
 COUNT: Final = "App::PropertyIntegerConstraint"
 MIN_AUTO_ANGLE_DEG: Final = 0.1  # plus petit angle saisi avec une case « Auto » (0 = Auto)
 _AUTO: Final = QT_TRANSLATE_NOOP("Menuiserie", "Auto")
@@ -92,6 +93,10 @@ class ParamField:
                 self.auto.setChecked(automatic)
                 self.auto.setEnabled(expression is None)
         self.editor.setEnabled(expression is None and not automatic)
+        if self.spec.visible_if:  # champ propre au biais : masqué entre pièces d'équerre
+            visible = bool(getattr(resolved, self.spec.visible_if, 0))
+            self.label.setVisible(visible)
+            self.editor.setVisible(visible)
         if expression is not None:
             self.editor.setToolTip(translated(_DRIVEN_TIP, {"expression": expression}))
 
@@ -108,6 +113,12 @@ class ParamField:
             box = QtGui.QCheckBox()
             connect(box, "toggled(bool)", self._on_edited)
             return box
+        if self.spec.type_id == ENUM:
+            combo = QtGui.QComboBox()
+            for identifier, label in self.spec.choices:
+                combo.addItem(translated(label), identifier)
+            connect(combo, "currentIndexChanged(int)", self._on_edited)
+            return combo
         if self.spec.type_id == COUNT:
             spin = QtGui.QSpinBox()
             spin.setRange(*count_range(self.spec))
@@ -129,6 +140,8 @@ class ParamField:
     def _display(self, value: object) -> None:
         if self.spec.type_id == BOOL:
             self.editor.setChecked(bool(value))
+        elif self.spec.type_id == ENUM:
+            self.editor.setCurrentIndex(max(0, self.editor.findData(str(value))))
         elif self.spec.type_id == COUNT:
             self.editor.setValue(int(value))  # type: ignore[call-overload]
         else:
@@ -138,6 +151,8 @@ class ParamField:
         """Valeur saisie dans le champ (mm ou degrés, entier ou booléen)."""
         if self.spec.type_id == BOOL:
             return bool(self.editor.isChecked())
+        if self.spec.type_id == ENUM:
+            return str(self.editor.currentData())
         if self.spec.type_id == COUNT:
             return int(self.editor.value())
         return float(self.editor.property("rawValue"))

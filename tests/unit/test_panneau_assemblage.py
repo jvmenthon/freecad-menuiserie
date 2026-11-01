@@ -45,6 +45,17 @@ TYPES = {
 def property_specs(path: Path) -> list[dict[str, ast.expr]]:
     """Arguments (positionnels nommés et mots-clés) de chaque ``PropertySpec(...)``."""
     names = ("name", "type_id", "group", "tooltip")
+    specs = _specs_in(path, names)
+    if "OBLIQUE_REFERENCE_SPEC" in path.read_text(encoding="utf-8"):  # spec commune (base.py)
+        specs += [
+            spec
+            for spec in _specs_in(FEATURES / "base.py", names)
+            if ast.literal_eval(spec["name"]) == "ObliqueReference"
+        ]
+    return specs
+
+
+def _specs_in(path: Path, names: tuple[str, ...]) -> list[dict[str, ast.expr]]:
     specs = []
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "PropertySpec":

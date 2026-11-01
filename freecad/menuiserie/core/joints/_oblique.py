@@ -96,20 +96,29 @@ def _section(frame: ObliqueFrame, values: ProfileValues) -> _Section:
     origin = centre.with_component(
         frame.width_axis, centre.component(frame.width_axis) + values.width_offset
     ).with_component(THICKNESS_AXIS, centre.component(THICKNESS_AXIS) + values.thickness_offset)
-    for axis, size in ((frame.width_axis, values.width), (THICKNESS_AXIS, values.thickness)):
-        low, high = origin.component(axis) - size / 2, origin.component(axis) + size / 2
-        if low < face.lo(axis) - _MARGIN or high > face.hi(axis) + _MARGIN:
-            params = {
-                "width": mm_text(values.width),
-                "thickness": mm_text(values.thickness),
-                "contact_width": mm_text(frame.contact_width),
-                "contact_thickness": mm_text(frame.contact_thickness),
-            }
-            raise JointError(OUTSIDE_CONTACT, params)
     d = frame.direction
     wide = Axis.of(frame.width_axis, 1).unit()
     u = unit(wide - d.scaled(dot(wide, d)))
-    return _Section(origin, u, cross(d, u), d, values.width, values.thickness)
+    section = _Section(origin, u, cross(d, u), d, values.width, values.thickness)
+    _check_footprint(frame, section, values)
+    return section
+
+
+def _check_footprint(frame: ObliqueFrame, section: _Section, values: ProfileValues) -> None:
+    """La base du tenon sur le plan d'épaulement (la section projetée le long de l'axe du
+    tenon) reste dans l'empreinte du bout de l'invitée sur ce plan (E4)."""
+    plane, outward, box = frame.contact.shoulder, frame.outward, frame.guest.local_box()
+    for corner in section.corners():
+        base = corner + section.d.scaled(dot(corner - plane.point, outward) / frame.cosine)
+        for axis in (frame.width_axis, THICKNESS_AXIS):
+            if not box.lo(axis) - _MARGIN <= base.component(axis) <= box.hi(axis) + _MARGIN:
+                params = {
+                    "width": mm_text(values.width),
+                    "thickness": mm_text(values.thickness),
+                    "contact_width": mm_text(frame.contact_width),
+                    "contact_thickness": mm_text(frame.contact_thickness),
+                }
+                raise JointError(OUTSIDE_CONTACT, params)
 
 
 def _enter(frame: ObliqueFrame, section: _Section) -> float:
