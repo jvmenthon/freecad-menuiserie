@@ -165,3 +165,19 @@ def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture()
     assert "PartsPreview(self.transparent_objects" in methods["_apply_styles"]
     assert "_restore_styles()" in methods["_finish"]
     assert "_restore_styles()" in methods["_clean_up_after_forced_close"]
+
+
+def test_objet_supprime_pendant_la_fermeture_ne_leve_rien() -> None:
+    """Pièce supprimée avant la restauration (assemblage défait par un déplacement) : FreeCAD
+    lève ``TypeError`` en lisant son nom ; la fermeture du panneau n'échoue pas."""
+    piece = FakeObject("Piece", 25)
+    deleted = False
+
+    def alive(_obj: Any) -> bool:
+        if deleted:
+            raise TypeError("a string or integer is required")
+        return True
+
+    preview = PartsPreview(lambda: [piece], alive)
+    deleted = True
+    preview.restore()

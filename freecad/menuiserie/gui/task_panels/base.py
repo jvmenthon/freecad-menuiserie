@@ -218,7 +218,7 @@ def object_alive(obj: DocumentObject) -> bool:
     try:
         doc = obj.Document
         return doc.Name in App.listDocuments() and doc.getObject(obj.Name) == obj
-    except (ReferenceError, RuntimeError):
+    except (ReferenceError, RuntimeError, TypeError):
         return False
 
 
