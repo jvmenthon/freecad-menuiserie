@@ -13,6 +13,7 @@ from freecad.menuiserie.api import make_wood_part
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.library import get_library
+from freecad.menuiserie.features.perpendicular import perpendicular_start
 from freecad.menuiserie.features.placement import add_to_container
 from freecad.menuiserie.features.snap_targets import new_session, read_targets
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -33,7 +34,8 @@ EMPTY_LIBRARY: Final = QT_TRANSLATE_NOOP(
 class CreateWoodPartCommand:
     """Crée une pièce de bois aux valeurs par défaut, puis ouvre le panneau pour la régler. Les
     faces, arêtes et sommets sélectionnés avant le lancement sont lus d'abord : la pièce est
-    posée contre eux, dans le Std Part du premier (J6d)."""
+    posée contre eux, dans le Std Part du premier (J6d). Contre une seule face de pièce de bois, la
+    pièce est perpendiculaire à la face, de mêmes largeur et épaisseur (#136)."""
 
     def GetResources(self) -> dict[str, str]:
         """Icône, libellé et infobulle (traduits par FreeCAD, contexte = nom de la commande)."""
@@ -66,8 +68,12 @@ class CreateWoodPartCommand:
         reading = read_targets(picked_elements(), view_direction())
         doc.openTransaction(translated(CREATE_TRANSACTION))
         with aborted_on_error(App.getActiveTransaction()):
-            obj = make_wood_part(doc=doc)
-            session = new_session(reading, dimensions_of(obj))
+            start = perpendicular_start(reading)  # #136 : contre une face de pièce de bois
+            if start is None:
+                obj = make_wood_part(doc=doc)
+            else:
+                obj = make_wood_part(width=start.width, thickness=start.thickness, doc=doc)
+            session = new_session(reading, dimensions_of(obj), start.orientation if start else None)
             add_to_container(obj, session.container)
         show_panel(obj, creating=True, session=session)
 

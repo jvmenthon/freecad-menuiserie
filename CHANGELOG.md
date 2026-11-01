@@ -7,6 +7,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Pièce créée contre une face (#136, demande de jv, 2026-11-01) : si une seule face d'une pièce de
+  bois est sélectionnée au lancement de « Pièce de bois », la nouvelle pièce part perpendiculaire à
+  la face (longueur selon la normale, largeur et épaisseur parallèles à celles de l'autre pièce) et
+  reprend sa largeur et son épaisseur ; tout reste modifiable dans le panneau. Sans effet pour
+  plusieurs éléments, une arête, un sommet, une face courbe ou oblique, ou un objet d'un autre
+  atelier.
 - Pièce en édition en transparence (demande de jv, 2026-11-01) : tant que le panneau d'une pièce
   de bois ou d'une pièce en bois (convertie) est ouvert, en création comme en modification, la
   pièce s'affiche en semi-transparence ; sa transparence d'origine est rétablie à toute fermeture
@@ -14,6 +20,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   assemblages devient transparente sous sa forme usinée, la seule visible.
 
 ### Corrigé
+
+- Épaisseur d'une pièce assemblée (#133, demande de jv, 2026-11-01) : modifier l'épaisseur d'une
+  pièce isolée (panneau ou éditeur de propriétés) ne défait plus les assemblages posés sur sa face
+  haute (tenon dans la mortaise de cette face) : les pièces qui s'y appuient, avec celles qui leur
+  sont assemblées, suivent la face du même écart. Une pièce membre d'un ensemble, dont la position
+  est pilotée par une expression ou assemblée aussi ailleurs reste en place, avec un message dans la
+  vue rapport. Les cotes des assemblages sont recalculées ; une cote devenue impossible reste
+  signalée par l'assemblage.
 
 - Suppression d'une pièce usinée qui porte des assemblages (demande de jv, 2026-11-01) : au lieu
   du seul message « supprimez-les d'abord » dans la vue rapport, une fenêtre « Menuiserie :

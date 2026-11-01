@@ -220,16 +220,14 @@ def follows_user_changes(obj: DocumentObject) -> bool:
 
 
 def remember_before_change(obj: DocumentObject, prop: str) -> None:
-    """Appelée par ``onBeforeChange`` : garde la valeur d'une option de membre ou de l'épaisseur
-    d'un membre avant une saisie de l'utilisateur, que ``onChanged`` relit (:func:`take_previous`).
-    Sans effet pour un objet qui n'est membre d'aucun ensemble."""
+    """Appelée par ``onBeforeChange`` : garde l'épaisseur de la pièce avant une saisie de
+    l'utilisateur, que ``onChanged`` relit (:func:`take_previous`)."""
     proxy = obj.Proxy
     setattr(proxy, _PREVIOUS, None)
     if prop != "Thickness" or not follows_user_changes(obj):
         return
-    if furniture_of(obj) is not None:
-        value = getattr(obj, prop)
-        setattr(proxy, _PREVIOUS, (prop, getattr(value, "Value", value)))
+    value = getattr(obj, prop)
+    setattr(proxy, _PREVIOUS, (prop, getattr(value, "Value", value)))
 
 
 def take_previous(obj: DocumentObject, prop: str) -> tuple[object] | None:

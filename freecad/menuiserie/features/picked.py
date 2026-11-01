@@ -18,7 +18,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.i18n import translated
 
-__all__ = ["PickedElement", "container_of", "furniture_candidate"]
+__all__ = ["PickedElement", "container_of", "crosses_link", "furniture_candidate"]
 
 ELEMENT_PATTERN: Final = re.compile(r"(Face|Edge|Vertex)[1-9][0-9]*$")
 STD_PART: Final = "App::Part"
@@ -78,6 +78,12 @@ def container_of(element: PickedElement) -> DocumentObject | None:
         if obj.TypeId == STD_PART:
             container = obj
     return container
+
+
+def crosses_link(element: PickedElement) -> bool:
+    """Vrai si le chemin de ``element`` traverse un lien (``App::Link``) : l'objet vu n'est alors
+    pas à la position de l'original."""
+    return any(obj.TypeId in _LINK_TYPES for obj in _path_objects(element))
 
 
 def furniture_candidate(element: PickedElement) -> DocumentObject | None:
