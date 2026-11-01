@@ -14,18 +14,15 @@ from enum import Enum
 from typing import Final
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
+from freecad.menuiserie.core.vectors import is_finite, norm
 
 THICKNESS_AXIS: Final = 2  # Z du repère de la pièce : poignée d'épaisseur du massif seulement (Q4)
 MIN_SIZE_MM: Final = 1.0  # cote minimale d'une pièce redimensionnée (A6)
 
 
 def _finite(owner: str, field: str, vector: Vec3) -> None:
-    if not all(math.isfinite(value) for value in (vector.x, vector.y, vector.z)):
+    if not is_finite(vector):
         raise ValueError(f"{owner}.{field} : coordonnées non finies")
-
-
-def _length(vector: Vec3) -> float:
-    return math.sqrt(vector.x**2 + vector.y**2 + vector.z**2)
 
 
 def _check_axis(owner: str, axis: int) -> None:
@@ -43,7 +40,7 @@ class Ray:
     def __post_init__(self) -> None:
         _finite("Ray", "origin", self.origin)
         _finite("Ray", "direction", self.direction)
-        length = _length(self.direction)
+        length = norm(self.direction)
         if length <= ANGLE_TOLERANCE:
             raise ValueError("Ray.direction : vecteur nul")
         d = self.direction
@@ -66,7 +63,7 @@ class Arrow:
     def line(self) -> Ray:
         """Droite portée par la flèche, orientée dans le sens positif de l'axe."""
         s, e = self.start, self.end
-        return Ray(s, Vec3(e.x - s.x, e.y - s.y, e.z - s.z))
+        return Ray(s, e - s)
 
 
 class GuideKind(Enum):

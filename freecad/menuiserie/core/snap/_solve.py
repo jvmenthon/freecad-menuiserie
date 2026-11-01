@@ -43,7 +43,7 @@ from freecad.menuiserie.core.snap._model import (
     Target,
     VertexTarget,
 )
-from freecad.menuiserie.core.snap._vec import sub, unit
+from freecad.menuiserie.core.vectors import unit
 
 MAX_TARGETS: Final = 3
 _LOCAL_THICKNESS: Final = 2
@@ -87,7 +87,7 @@ def _face_constraints(target: FaceTarget, to_frame: RigidTransform) -> tuple[Axi
 
 def _edge_constraints(target: EdgeTarget, to_frame: RigidTransform) -> tuple[AxisConstraint, ...]:
     start = to_frame.apply(target.start)
-    direction = unit(to_frame.rotate(sub(target.end, target.start)))
+    direction = unit(to_frame.rotate(target.end - target.start))
     return tuple(
         AxisConstraint(axis, Side.NEAREST, start.component(axis))
         for axis in (0, 1)

@@ -42,9 +42,7 @@ def turned_about(
     rotation = spin.compose(transform).rotation
     held = transform.apply(center)
     carried = RigidTransform(rotation, Vec3(0.0, 0.0, 0.0)).rotate(center)
-    return RigidTransform(
-        rotation, Vec3(held.x - carried.x, held.y - carried.y, held.z - carried.z)
-    )
+    return RigidTransform(rotation, held - carried)
 
 
 def snapped_angle(angle: float, step: float = _DEFAULT_STEP_DEGREES, free: bool = False) -> float:

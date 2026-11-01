@@ -78,6 +78,19 @@ class Vec3:
         """Vecteur construit depuis trois coordonnées."""
         return cls(float(values[0]), float(values[1]), float(values[2]))
 
+    def __add__(self, other: Vec3) -> Vec3:
+        return Vec3(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __sub__(self, other: Vec3) -> Vec3:
+        return Vec3(self.x - other.x, self.y - other.y, self.z - other.z)
+
+    def __neg__(self) -> Vec3:
+        return Vec3(-self.x, -self.y, -self.z)
+
+    def scaled(self, factor: float) -> Vec3:
+        """Vecteur multiplié par le réel ``factor``."""
+        return Vec3(self.x * factor, self.y * factor, self.z * factor)
+
     def with_component(self, index: int, value: float) -> Vec3:
         """Même vecteur, coordonnée d'indice ``index`` remplacée par ``value``."""
         values = [self.x, self.y, self.z]

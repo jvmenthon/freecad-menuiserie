@@ -25,7 +25,7 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
-from freecad.menuiserie.core.snap._vec import cross, dot, is_finite, norm, scale, sub, unit
+from freecad.menuiserie.core.vectors import cross, dot, is_finite, norm, unit
 
 _ZERO: Final = Vec3(0.0, 0.0, 0.0)
 # Quarts de tour directs (+90°) autour des axes X, Y et Z.
@@ -90,7 +90,7 @@ class Frame:
             raise ValueError("Frame : les axes x, y et z doivent être orthogonaux")
         if dot(cross(x, y), z) < 1.0 - ANGLE_TOLERANCE:
             raise ValueError("Frame.z : le repère doit être direct (z = x ∧ y)")
-        y = unit(sub(y, scale(x, dot(x, y))))
+        y = unit(y - x.scaled(dot(x, y)))
         object.__setattr__(self, "x", unit(x))
         object.__setattr__(self, "y", y)
         object.__setattr__(self, "z", cross(self.x, y))
@@ -140,7 +140,7 @@ class EdgeTarget:
         _check_name("EdgeTarget", self.name)
         for field in ("start", "end", "support", "inward"):
             _check_vector("EdgeTarget", field, getattr(self, field))
-        direction = sub(self.end, self.start)
+        direction = self.end - self.start
         if norm(direction) <= CONTACT_TOLERANCE_MM:
             raise ValueError("EdgeTarget.end : extrémités confondues")
         support, inward = self._unit("support", self.support), self._unit("inward", self.inward)

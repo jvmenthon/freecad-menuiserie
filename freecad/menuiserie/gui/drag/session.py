@@ -674,7 +674,7 @@ class DragSession:
         hit = plane_point(first, ring)
         if hit is None:
             return False
-        from_center = Vec3(hit.x - ring.center.x, hit.y - ring.center.y, hit.z - ring.center.z)
+        from_center = hit - ring.center
         if from_center == Vec3(0.0, 0.0, 0.0):
             return False
         own = self._open(part, ROTATE_TRANSACTION)

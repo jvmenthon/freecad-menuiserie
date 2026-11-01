@@ -79,10 +79,7 @@ def _check_tolerance(tolerance: float) -> None:
 
 def _shifted(box: Box, delta: Vec3) -> Box:
     low, high = box.min, box.max
-    return Box(
-        Vec3(low.x + delta.x, low.y + delta.y, low.z + delta.z),
-        Vec3(high.x + delta.x, high.y + delta.y, high.z + delta.z),
-    )
+    return Box(low + delta, high + delta)
 
 
 def magnet(

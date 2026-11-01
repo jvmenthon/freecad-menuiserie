@@ -176,7 +176,7 @@ def _fixed(obj: DocumentObject) -> frozenset[Edge]:
 
 
 def _relative(point: Vec3, origin: Vec3) -> Vec3:
-    return Vec3(point.x - origin.x, point.y - origin.y, point.z - origin.z)
+    return point - origin
 
 
 def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> Member:

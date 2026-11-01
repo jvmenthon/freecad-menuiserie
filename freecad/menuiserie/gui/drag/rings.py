@@ -18,6 +18,7 @@ from typing import Final
 from freecad.menuiserie.core.geometry import Box, RigidTransform, Vec3
 from freecad.menuiserie.core.magnet import Ray
 from freecad.menuiserie.core.rotation import Ring, plane_point, ring_of
+from freecad.menuiserie.core.vectors import cross, dot, norm, unit
 
 __all__ = [
     "MIN_RING_SCREEN_PX",
@@ -60,50 +61,27 @@ def ring_axis(key: str | None) -> int | None:
     return None
 
 
-def _cross(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
-
-
-def _plus(a: Vec3, b: Vec3, factor: float = 1.0) -> Vec3:
-    return Vec3(a.x + b.x * factor, a.y + b.y * factor, a.z + b.z * factor)
-
-
-def _length(a: Vec3) -> float:
-    return math.sqrt(a.x**2 + a.y**2 + a.z**2)
-
-
-def _unit(a: Vec3) -> Vec3:
-    length = _length(a)
-    return Vec3(a.x / length, a.y / length, a.z / length)
-
-
 def ring_basis(normal: Vec3) -> tuple[Vec3, Vec3]:
     """Deux vecteurs unitaires ``(u, v)`` du plan de normale ``normal`` (unitaire), tels que
     ``u x v = normal`` : l'angle positif va de ``u`` vers ``v`` (sens direct autour de la normale,
     celui de ``ring_angle``)."""
     helper = Vec3(1.0, 0.0, 0.0) if abs(normal.x) < 0.9 else Vec3(0.0, 1.0, 0.0)
-    u = _unit(_cross(normal, helper))
-    return u, _cross(normal, u)
+    u = unit(cross(normal, helper))
+    return u, cross(normal, u)
 
 
 def _turned(vector: Vec3, normal: Vec3, degrees: float) -> Vec3:
     """``vector`` (perpendiculaire à ``normal``) tourné de ``degrees`` autour de ``normal``."""
     angle = math.radians(degrees)
-    return _plus(
-        Vec3(vector.x * math.cos(angle), vector.y * math.cos(angle), vector.z * math.cos(angle)),
-        _cross(normal, vector),
-        math.sin(angle),
-    )
+    return vector.scaled(math.cos(angle)) + cross(normal, vector).scaled(math.sin(angle))
 
 
 def circle(ring: Ring, segments: int = RING_SEGMENTS) -> tuple[Vec3, ...]:
     """Polyligne fermée (``segments`` côtés, premier point répété) du cercle de l'anneau."""
     u, _ = ring_basis(ring.normal)
-    start = Vec3(u.x * ring.radius, u.y * ring.radius, u.z * ring.radius)
+    start = u.scaled(ring.radius)
     step = _FULL_TURN / segments
-    return tuple(
-        _plus(ring.center, _turned(start, ring.normal, step * i)) for i in range(segments + 1)
-    )
+    return tuple(ring.center + _turned(start, ring.normal, step * i) for i in range(segments + 1))
 
 
 def build_rings(box: Box, local: RigidTransform, container: RigidTransform) -> tuple[Ring, ...]:
@@ -126,11 +104,8 @@ def ring_ray(ray: Ray, ring: Ring) -> Ray:
     l'origine est un point du plan focal, qui peut se trouver au-delà d'un anneau.
     """
     d = ray.direction
-    offset = Vec3(
-        ring.center.x - ray.origin.x, ring.center.y - ray.origin.y, ring.center.z - ray.origin.z
-    )
-    ahead = offset.x * d.x + offset.y * d.y + offset.z * d.z
-    return Ray(_plus(ray.origin, d, min(0.0, ahead) - _FAR * ring.radius), d)
+    ahead = dot(ring.center - ray.origin, d)
+    return Ray(ray.origin + d.scaled(min(0.0, ahead) - _FAR * ring.radius), d)
 
 
 def _segment_distance(p: Point, a: Point, b: Point) -> float:
@@ -211,10 +186,7 @@ def sector(sweep: Sweep) -> tuple[tuple[Vec3, ...], ...]:
     angle = max(-_FULL_TURN, min(_FULL_TURN, sweep.angle))
     if abs(angle) < 1e-9:
         return ()
-    factor = ring.radius / _length(sweep.start)
-    start = Vec3(sweep.start.x * factor, sweep.start.y * factor, sweep.start.z * factor)
+    start = sweep.start.scaled(ring.radius / norm(sweep.start))
     count = max(1, math.ceil(abs(angle) / (_FULL_TURN / RING_SEGMENTS)))
-    edge = [
-        _plus(ring.center, _turned(start, ring.normal, angle * i / count)) for i in range(count + 1)
-    ]
+    edge = [ring.center + _turned(start, ring.normal, angle * i / count) for i in range(count + 1)]
     return tuple((ring.center, edge[i], edge[i + 1]) for i in range(count))

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from freecad.menuiserie.core.geometry import Vec3
-from freecad.menuiserie.core.shaped._vec import is_finite, norm
+from freecad.menuiserie.core.vectors import is_finite, norm
 
 MAX_FACES: Final = 5_000
 MAX_EDGES: Final = 5_000

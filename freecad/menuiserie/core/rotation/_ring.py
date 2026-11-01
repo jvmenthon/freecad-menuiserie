@@ -10,7 +10,7 @@ from typing import Final
 from freecad.menuiserie.core.geometry import Box, RigidTransform, Vec3
 from freecad.menuiserie.core.magnet import Ray
 from freecad.menuiserie.core.rotation._turn import check_axis
-from freecad.menuiserie.core.snap._vec import cross, dot, is_finite, norm, sub
+from freecad.menuiserie.core.vectors import cross, dot, is_finite, norm
 
 MIN_RING_RADIUS_MM: Final = 20.0
 MAX_RING_RADIUS_MM: Final = 10_000.0  # plafond de sécurité : pièce démesurée (ADR 0025)
@@ -56,12 +56,12 @@ def plane_point(ray: Ray, ring: Ring) -> Vec3 | None:
     slope = dot(ray.direction, ring.normal)
     if abs(slope) < _SIN_EDGE_ON:
         return None
-    ahead = dot(sub(ring.center, ray.origin), ring.normal) / slope
+    ahead = dot(ring.center - ray.origin, ring.normal) / slope
     if ahead < 0:
         return None
     d = ray.direction
     o = ray.origin
-    return Vec3(o.x + d.x * ahead, o.y + d.y * ahead, o.z + d.z * ahead)
+    return o + d.scaled(ahead)
 
 
 def ring_hit(ray: Ray, ring: Ring, tolerance: float) -> bool:
@@ -74,7 +74,7 @@ def ring_hit(ray: Ray, ring: Ring, tolerance: float) -> bool:
     point = plane_point(ray, ring)
     if point is None:
         return False
-    return abs(norm(sub(point, ring.center)) - ring.radius) <= tolerance
+    return abs(norm(point - ring.center) - ring.radius) <= tolerance
 
 
 def ring_angle(ray: Ray, ring: Ring, start: Ray) -> float | None:
@@ -87,8 +87,8 @@ def ring_angle(ray: Ray, ring: Ring, start: Ray) -> float | None:
     last = plane_point(ray, ring)
     if first is None or last is None:
         return None
-    u = sub(first, ring.center)
-    v = sub(last, ring.center)
+    u = first - ring.center
+    v = last - ring.center
     if norm(u) <= 1e-9 or norm(v) <= 1e-9:
         return None
     return math.degrees(math.atan2(dot(ring.normal, cross(u, v)), dot(u, v))) + 0.0
