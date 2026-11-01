@@ -64,7 +64,7 @@ def test_reouverture_a_l_identique(document: Any, rouvrir: Reopen, scenario: Sce
         cls,
     )
     assert joint.Proxy.dumps() is None
-    assert joint.Version == 1
+    assert joint.Version == type(joint.Proxy).VERSION
     doc.recompute()
     restored = Montage(scenario, joint.HostPart, joint.GuestPart, joint)
     restored.assert_expected()
@@ -75,7 +75,8 @@ def test_version_absente_migree(document: Any, rouvrir: Reopen, scenario: Scenar
     joint = build(document, scenario).joint
     joint.removeProperty("Version")
     name = joint.Name
-    assert by_name(rouvrir(document), name).Version == 1
+    restored = by_name(rouvrir(document), name)
+    assert restored.Version == type(restored.Proxy).VERSION
 
 
 @pytest.mark.parametrize("scenario", TUNABLE, ids=lambda s: s.name)

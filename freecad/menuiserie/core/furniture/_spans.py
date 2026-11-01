@@ -20,6 +20,7 @@ from freecad.menuiserie.core.furniture._model import (
     Member,
 )
 from freecad.menuiserie.core.geometry import (
+    Box,
     JointError,
     PlacedBlock,
     RigidTransform,
@@ -105,6 +106,26 @@ def square_spans(member: Member) -> Spans | None:
         return member_spans(member)
     except FurnitureError:
         return None
+
+
+def oblique_bounds(member: Member) -> Box | None:
+    """Encombrement d'une pièce en biais dans le repère de l'ensemble (boîte alignée sur ses
+    axes), ``None`` pour un membre d'équerre ou un sous-ensemble (AB-d, ADR 0024)."""
+    if member.block is None or square_spans(member) is not None:
+        return None
+    local, placement = member.block.local_box(), member.block.placement
+    corners = [
+        placement.apply(Vec3(x, y, z))
+        for x in (local.lo(0), local.hi(0))
+        for y in (local.lo(1), local.hi(1))
+        for z in (local.lo(2), local.hi(2))
+    ]
+    return Box.from_ranges(
+        [
+            (min(c.component(i) for c in corners), max(c.component(i) for c in corners))
+            for i in range(3)
+        ]
+    )
 
 
 def distances(spans: Spans, box: FurnitureBox) -> Mapping[Edge, float]:

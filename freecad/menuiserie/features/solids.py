@@ -15,9 +15,11 @@ from typing import Any, Final
 import FreeCAD as App
 import Part
 
-from freecad.menuiserie.core.geometry import Box, Cylinder, Prism, RigidTransform, Solid
+from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron
+from freecad.menuiserie.core.geometry import Box, Cylinder, Prism, RigidTransform
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
+from freecad.menuiserie.core.vectors import norm
 from freecad.menuiserie.features.i18n import translated
 
 __all__ = [
@@ -49,9 +51,11 @@ def _vector(x: float, y: float, z: float) -> Any:
     return App.Vector(x, y, z)
 
 
-def solid_shape(solid: Solid) -> Any:
-    """Solide ``Part`` d'une boîte, d'un cylindre ou d'un prisme, dans le repère où ils sont
-    exprimés."""
+def solid_shape(solid: PlanSolid) -> Any:
+    """Solide ``Part`` d'une boîte, d'un cylindre, d'un prisme ou d'un polyèdre, dans le repère
+    où ils sont exprimés."""
+    if isinstance(solid, Polyhedron):
+        return _polyhedron_shape(solid)
     if isinstance(solid, Box):
         low = solid.min
         return Part.makeBox(
@@ -60,6 +64,46 @@ def solid_shape(solid: Solid) -> Any:
     if isinstance(solid, Prism):
         return _prism_shape(solid)
     return _cylinder_shape(solid)
+
+
+def _matrix(transform: RigidTransform) -> Any:
+    """Matrice FreeCAD équivalente à une transformation rigide de ``core``."""
+    rows = transform.rotation
+    shift = transform.translation
+    return App.Matrix(
+        rows[0][0], rows[0][1], rows[0][2], shift.x,
+        rows[1][0], rows[1][1], rows[1][2], shift.y,
+        rows[2][0], rows[2][1], rows[2][2], shift.z,
+        0.0, 0.0, 0.0, 1.0,
+    )  # fmt: skip
+
+
+def _polyhedron_shape(polyhedron: Polyhedron) -> Any:
+    """Boîte posée dans son repère, puis amputée de chaque demi-espace retiré (booléennes de
+    faces planes : robustes et sans couture, spécification AB, § 4.5). Résultat contrôlé comme
+    les autres usinages (``ValueError`` traduite si ce n'est pas un solide valide)."""
+    box = polyhedron.box
+    low = box.min
+    shape = Part.makeBox(box.size(0), box.size(1), box.size(2), _vector(low.x, low.y, low.z))
+    shape.transformShape(_matrix(polyhedron.frame))
+    centre = polyhedron.frame.apply(low + (box.max - low).scaled(0.5))
+    radius = norm(box.max - low) / 2
+    try:
+        for plane in polyhedron.planes:
+            size = norm(centre - plane.point) + radius + 1.0
+            cutter = Part.makeBox(2 * size, 2 * size, size, _vector(-size, -size, 0.0))
+            normal = plane.normal
+            rotation = App.Rotation(_vector(0.0, 0.0, 1.0), _vector(normal.x, normal.y, normal.z))
+            point = plane.point
+            cutter.transformShape(
+                App.Placement(_vector(point.x, point.y, point.z), rotation).toMatrix()
+            )
+            shape = shape.cut(cutter)
+    except Part.OCCError as error:
+        raise ValueError(translated(_BOOLEAN_FAILED, {"reason": str(error)})) from error
+    if shape.isNull() or not shape.Solids or not shape.isValid():
+        raise ValueError(translated(_INVALID_SHAPE))
+    return shape
 
 
 def _prism_shape(prism: Prism) -> Any:
@@ -98,9 +142,9 @@ def grown_shape(shape: Any, margin: float) -> Any:
 
 def machined_shape(
     base: Any,
-    additions: Sequence[Solid],
-    cuts: Sequence[Solid],
-    trims: Sequence[Solid] = (),
+    additions: Sequence[PlanSolid],
+    cuts: Sequence[PlanSolid],
+    trims: Sequence[PlanSolid] = (),
 ) -> Any:
     """Forme de base de la pièce (sa boîte pour une pièce de bois, sa forme dessinée pour une
     pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016),
@@ -122,7 +166,7 @@ def machined_shape(
     return shape
 
 
-def inserts_shape(inserts: Sequence[Solid]) -> Any:
+def inserts_shape(inserts: Sequence[PlanSolid]) -> Any:
     """Pièces rapportées (tourillons) réunies en un composé ; forme vide s'il n'y en a pas."""
     if not inserts:
         return Part.Shape()

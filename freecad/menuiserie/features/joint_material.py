@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Final
 
-from freecad.menuiserie.core.geometry import Solid
+from freecad.menuiserie.core._polyhedron import PlanSolid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointPlan
 from freecad.menuiserie.core.shaped import (
@@ -45,15 +45,18 @@ _MISSING: Final = QT_TRANSLATE_NOOP(
 
 
 def worst_missing_ratio(
-    part: DocumentObject, cuts: Sequence[Solid], additions: Sequence[Solid]
+    part: DocumentObject, cuts: Sequence[PlanSolid], additions: Sequence[PlanSolid]
 ) -> float:
     """Plus grande part (0 à 1) de matière manquante sur la pièce en bois ``part`` parmi ses
     enlèvements ``cuts`` et ses ajouts ``additions`` (repère de la pièce), 0 si aucune n'atteint
     le seuil de 5 % ou si le noyau géométrique échoue (contrôle indicatif : un volume non fini ou
     négatif, ou une forme de plus de ``MAX_FACES`` faces, ne le fait jamais échouer)."""
-    probes = [solid_shape(solid) for solid in cuts[:MAX_PROBES]]
-    room = MAX_PROBES - len(probes)
-    probes += [grown_shape(solid_shape(solid), CONTACT_MARGIN_MM) for solid in additions[:room]]
+    try:
+        probes = [solid_shape(solid) for solid in cuts[:MAX_PROBES]]
+        room = MAX_PROBES - len(probes)
+        probes += [grown_shape(solid_shape(solid), CONTACT_MARGIN_MM) for solid in additions[:room]]
+    except ERRORS:  # solide dégénéré : contrôle indicatif, jamais bloquant
+        return 0.0
     if not probes:
         return 0.0
     box, shape = box_of(part), base_shape_of(part)

@@ -8,21 +8,20 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import PlacedBlock
 from freecad.menuiserie.core.joints._base import (
+    OBLIQUE_REFERENCES,
     JointKind,
     JointPlan,
+    ObliqueReference,
+    choice_param,
     flag_param,
     length_param,
     mm_round,
     offset_param,
     validate_params,
 )
-from freecad.menuiserie.core.joints._profile import (
-    ContactFrame,
-    ProfileRules,
-    ProfileValues,
-    build_profile,
-    contact_frame,
-)
+from freecad.menuiserie.core.joints._oblique import build_any
+from freecad.menuiserie.core.joints._oblique_frame import Frame, profile_frame
+from freecad.menuiserie.core.joints._profile import ProfileRules, ProfileValues
 
 __all__ = ["DEFAULT_TONGUE_LENGTH_MM", "TongueGrooveParams", "TongueGrooveStrategy"]
 
@@ -39,6 +38,8 @@ class TongueGrooveParams:
     groove_clearance: float = length_param(1.0)
     through_groove: bool = flag_param(True)
 
+    oblique_reference: str = choice_param(ObliqueReference.TENON_PIECE.value, OBLIQUE_REFERENCES)
+
     def __post_init__(self) -> None:
         validate_params(self)
 
@@ -52,16 +53,18 @@ class TongueGrooveStrategy:
         self, host: PlacedBlock, guest: PlacedBlock, params: TongueGrooveParams
     ) -> ProfileValues:
         """Valeurs effectives de la languette et de la rainure."""
-        return _values(contact_frame(host, guest, end_only=False), params)
+        return _values(
+            profile_frame(host, guest, end_only=False, reference=params.oblique_reference), params
+        )
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: TongueGrooveParams) -> JointPlan:
         """Languette ajoutée à l'invitée, rainure enlevée à l'hôte."""
-        frame = contact_frame(host, guest, end_only=False)
+        frame = profile_frame(host, guest, end_only=False, reference=params.oblique_reference)
         rules = ProfileRules(walled_width=False, extend_housing=params.through_groove)
-        return build_profile(frame, _values(frame, params), rules)
+        return build_any(frame, _values(frame, params), rules)
 
 
-def _values(frame: ContactFrame, params: TongueGrooveParams) -> ProfileValues:
+def _values(frame: Frame, params: TongueGrooveParams) -> ProfileValues:
     length = params.tongue_length or DEFAULT_TONGUE_LENGTH_MM
     return ProfileValues(
         thickness=params.tongue_thickness or mm_round(frame.contact_thickness / 3),
@@ -70,4 +73,5 @@ def _values(frame: ContactFrame, params: TongueGrooveParams) -> ProfileValues:
         thickness_offset=params.thickness_offset,
         width_offset=0.0,
         housing_depth=length + params.groove_clearance,
+        **frame.oblique_values(),
     )

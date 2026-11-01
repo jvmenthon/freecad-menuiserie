@@ -12,7 +12,12 @@ from typing import ClassVar, Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
-from freecad.menuiserie.features.joints.base import JointFeature
+from freecad.menuiserie.features.joints.base import (
+    OBLIQUE_REFERENCE_SPEC,
+    OBLIQUE_SUMMARY,
+    OBLIQUE_SUMMARY_IF,
+    JointFeature,
+)
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["TongueGrooveJoint"]
@@ -28,6 +33,9 @@ class TongueGrooveJoint(JointFeature):
     OBJECT_NAME: ClassVar[str] = "TongueGroove"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Rainure-languette")
     PARAMS: ClassVar[type[TongueGrooveParams]] = TongueGrooveParams
+    VERSION: ClassVar[int] = 2  # ObliqueReference (ADR 0024)
+    SUMMARY: ClassVar[str] = OBLIQUE_SUMMARY
+    SUMMARY_IF: ClassVar[tuple[str, ...]] = OBLIQUE_SUMMARY_IF
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "TongueThickness",
@@ -88,4 +96,5 @@ class TongueGrooveJoint(JointFeature):
             default=_DEFAULTS.through_groove,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Rainure filante"),
         ),
+        OBLIQUE_REFERENCE_SPEC,
     )

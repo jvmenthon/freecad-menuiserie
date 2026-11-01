@@ -67,7 +67,7 @@ def test_reouverture_a_l_identique(cadre_assemble: Cadre, rouvrir: Reopen) -> No
         obj = by_name(doc, name)
         assert (type(obj.Proxy).__module__, type(obj.Proxy).__name__) == (module, cls)
         assert obj.Proxy.dumps() is None
-        assert obj.Version == 1
+        assert obj.Version == type(obj.Proxy).VERSION
     doc.recompute()
     assert by_name(doc, machined_name).Shape.Volume == pytest.approx(STILE_VOLUME)
 
@@ -84,7 +84,8 @@ def test_version_absente_migree(cadre_assemble: Cadre, rouvrir: Reopen) -> None:
     names = (joint.Name, machined.Name)
     doc = rouvrir(cadre_assemble.doc)
     for name in names:
-        assert by_name(doc, name).Version == 1
+        restored = by_name(doc, name)
+        assert restored.Version == type(restored.Proxy).VERSION
     assert by_name(doc, names[0]).MortiseClearance.Value == pytest.approx(2)
 
 
@@ -92,12 +93,12 @@ def test_version_plus_recente_non_migree(
     cadre_assemble: Cadre, rouvrir: Reopen, vue_rapport: Any
 ) -> None:
     joint = cadre_assemble.joints["M1", "T1"]
-    joint.Version = 2
+    joint.Version = 3
     joint.removeProperty("MortiseClearance")
     name = joint.Name
     doc = rouvrir(cadre_assemble.doc)
     restored = by_name(doc, name)
-    assert restored.Version == 2
+    assert restored.Version == 3
     assert "MortiseClearance" not in restored.PropertiesList
     warnings = [text for text in vue_rapport.de_niveau("Warning") if "version plus récente" in text]
     assert len(warnings) == 1

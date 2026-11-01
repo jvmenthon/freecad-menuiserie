@@ -16,7 +16,13 @@ from types import MappingProxyType
 from typing import Final
 
 from freecad.menuiserie.core.cutlist._build import CutList
-from freecad.menuiserie.core.cutlist._model import CutLine, Hardware, HardwareKind, MaterialTotal
+from freecad.menuiserie.core.cutlist._model import (
+    BevelCut,
+    CutLine,
+    Hardware,
+    HardwareKind,
+    MaterialTotal,
+)
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions, GrainDirection
 
@@ -93,6 +99,10 @@ HARDWARE_LABELS: Final[Mapping[HardwareKind, str]] = MappingProxyType(
 ADDITIONS_REMARK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Ajouts compris (L / l / e) : {length} / {width} / {thickness} mm"
 )
+SIMPLE_BEVEL_REMARK: Final = QT_TRANSLATE_NOOP("Menuiserie", "bout biais {cut_angle}°")
+COMPOUND_BEVEL_REMARK: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "coupe composée {cut_angle}° / lame {blade_tilt}°"
+)
 SHAPE_REMARK: Final = QT_TRANSLATE_NOOP("Menuiserie", "forme (cotes = encombrement)")
 _REMARK_SEPARATOR: Final = " ; "
 
@@ -130,12 +140,24 @@ def additions_remark(
     return translate(ADDITIONS_REMARK).format_map(params)
 
 
+def bevel_remark(bevel: BevelCut, translate: Translate, dialect: CsvDialect) -> str:
+    """Mention de la coupe d'un bout biais : angle de coupe seul, ou coupe composée avec
+    l'inclinaison de lame (réglages de la scie, au dixième de degré)."""
+    template = COMPOUND_BEVEL_REMARK if bevel.blade_tilt > 0 else SIMPLE_BEVEL_REMARK
+    params = {
+        "cut_angle": format_number(bevel.cut_angle, 1, dialect),
+        "blade_tilt": format_number(bevel.blade_tilt, 1, dialect),
+    }
+    return translate(template).format_map(params)
+
+
 def line_remark(
     line: CutLine, translate: Translate, dialect: CsvDialect = INTERNATIONAL_CSV
 ) -> str:
     """Colonne « Remarque » d'une ligne : « forme » pour une pièce en bois (cotes = encombrement),
     puis les ajouts d'assemblage s'il y en a ; texte vide sinon."""
     parts = [translate(SHAPE_REMARK)] if line.shape is not None else []
+    parts.extend(bevel_remark(bevel, translate, dialect) for bevel in line.bevels)
     parts.append(additions_remark(line, translate, dialect))
     return _REMARK_SEPARATOR.join(part for part in parts if part)
 

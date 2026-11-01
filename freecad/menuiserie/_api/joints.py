@@ -33,8 +33,9 @@ def make_mortise_tenon(
 
     Paramètres facultatifs en mm (0 = automatique) : ``tenon_thickness``, ``tenon_width``,
     ``tenon_length``, ``width_offset``, ``thickness_offset``, ``through``,
-    ``mortise_clearance``. Pièces et paramètres sont validés avant toute création
-    (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est ouverte : c'est à
+    ``mortise_clearance`` ; entre pièces en biais, ``oblique_reference`` (« TenonPiece » par
+    défaut, « MortisedPiece », « HalfAngle »). Pièces et paramètres sont validés avant toute
+    création (``TypeError`` ou ``ValueError`` traduites). Aucune transaction n'est ouverte : c'est à
     l'appelant de le faire pour pouvoir annuler.
 
     Toutes les fonctions ``make_…`` d'assemblage acceptent le mot-clé ``check`` : fonction

@@ -63,6 +63,7 @@ def group_key(entry: CutEntry) -> GroupKey:
         record.grain,
         _rounded(*entry.rough_thicknesses),
         None if shape is None else (shape.volume, shape.area, shape.faces),
+        tuple(sorted((b.cut_angle, b.blade_tilt) for b in entry.bevels)),
     )
 
 
@@ -112,6 +113,7 @@ def _make_line(entries: Sequence[CutEntry]) -> CutLine:
         source=first.source,
         over_standard=first.over_standard,
         shape=first.shape,
+        bevels=first.bevels,
     )
 
 

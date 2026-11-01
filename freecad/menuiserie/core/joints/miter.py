@@ -19,7 +19,7 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core.contact import Overlap, classify
+from freecad.menuiserie.core.contact import Overlap
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
     CUT_OVERRUN_MM,
@@ -35,7 +35,7 @@ from freecad.menuiserie.core.geometry import (
     relative_transform,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints._base import JointKind, JointPlan
+from freecad.menuiserie.core.joints._base import JointKind, JointPlan, square_relation
 from freecad.menuiserie.core.joints._bridge import cut_plan, through_host
 
 __all__ = ["MiterParams", "MiterStrategy", "MiterValues"]
@@ -137,7 +137,7 @@ def _run(box: Box, common: Box, axis: int) -> int:
 def _corner(host: PlacedBlock, guest: PlacedBlock) -> _Corner:
     """Coin d'onglet des deux pièces ; :class:`JointError` sinon (``NOT_SQUARE`` si elles ne
     sont pas d'équerre)."""
-    relation = classify(host, guest)
+    relation = square_relation(host, guest)
     if not isinstance(relation, Overlap):
         raise JointError(NOT_OVERLAPPING, {})
     to_host = relative_transform(host, guest)

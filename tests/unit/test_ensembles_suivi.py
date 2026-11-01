@@ -97,9 +97,9 @@ def test_membre_pas_d_equerre() -> None:
     assert str(caught.value) == (
         "« Voile » n'est pas d'équerre avec l'ensemble : il ne suit pas ses cotes."
     )
-    _, notices = follow_rules(BOX, [replace(turned, fixed=frozenset())])
-    assert [n.kind for n in notices] == [NoticeKind.NOT_SQUARE]
-    assert notices[0].params["member"] == "Voile"
+    rules, notices = follow_rules(BOX, [replace(turned, fixed=frozenset())])
+    assert notices == ()  # D1 : suit par translation, sans avertissement
+    assert all(rule.size is None and rule.local is None for rule in rules["V"])
     assert default_fixed(BOX, [turned, piece("P")])["V"] == frozenset()
 
 

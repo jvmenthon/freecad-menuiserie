@@ -23,7 +23,8 @@ from freecad.menuiserie.core.furniture._model import (
     notice,
 )
 from freecad.menuiserie.core.furniture._rows import Row, SolvedRow, solve_row
-from freecad.menuiserie.core.furniture._spans import Span, Spans, square_spans
+from freecad.menuiserie.core.furniture._spans import Span, Spans, oblique_bounds, square_spans
+from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Box
 from freecad.menuiserie.core.notice import Notice
 
 
@@ -57,6 +58,32 @@ def _rule(axis: FurnitureAxis, span: Span, solved: SolvedRow) -> FollowRule:
         return FollowRule(axis, None, position, None, solved.row)
     size = solved.coordinate(span.hi).minus(solved.coordinate(span.lo))
     return FollowRule(axis, span.local, position, size, solved.row)
+
+
+def _oblique_rule(axis: FurnitureAxis, box: FurnitureBox, bounds: Box, origin: float) -> FollowRule:
+    """Règle d'une pièce en biais sur un axe : translation seule (cotes constantes), au bord le
+    plus proche de son encombrement, ou à la proportion 1/2 si elle est au milieu (D1)."""
+    size, centre = box.size(axis), (bounds.lo(axis.index) + bounds.hi(axis.index)) / 2
+    if abs(centre - size / 2) <= CONTACT_TOLERANCE_MM:
+        position = Linear.of(0.5, origin - size / 2)
+    elif centre < size / 2:
+        position = Linear.of(0.0, origin)
+    else:
+        position = Linear.of(1.0, origin - size)
+    return FollowRule(axis, None, position, None, Row(axis, (), (), False))
+
+
+def oblique_rules(box: FurnitureBox, member: Member) -> tuple[FollowRule, ...] | None:
+    """Règles de translation d'une pièce en biais (D1, D2 : hors de toute rangée), ``None``
+    pour un membre d'équerre."""
+    bounds = oblique_bounds(member)
+    if bounds is None or member.block is None:
+        return None
+    translation = member.block.placement.translation
+    return tuple(
+        _oblique_rule(axis, box, bounds, translation.component(axis.index))
+        for axis in FurnitureAxis
+    )
 
 
 def _member_rules(
@@ -95,8 +122,9 @@ def _would_stretch(
 def follow_rules(
     box: FurnitureBox, members: Sequence[Member], keys: Collection[str] | None = None
 ) -> tuple[Rules, tuple[Notice, ...]]:
-    """Règles de suivi de chaque membre d'équerre, par axe (X, Y, Z), et avertissements
-    (``NotSquare`` : membre exclu ; ``ThicknessKept`` ; ``GapSplit`` : Distance gardée
+    """Règles de suivi de chaque membre, par axe (X, Y, Z) : rangée pour un membre d'équerre,
+    translation seule pour une pièce en biais (:func:`oblique_rules`), et avertissements
+    (``ThicknessKept`` ; ``GapSplit`` : Distance gardée
     coupée par une autre face), seulement pour les membres ``keys``
     (tous par défaut). Chaque membre se règle sur sa rangée : tous les membres doivent donc
     être fournis. Les options ``fixed`` doivent être renseignées (``with_default_options``) :
@@ -116,7 +144,8 @@ def follow_rules(
     for member in members:
         wanted = keys is None or member.key in keys
         if member.key not in square:
-            notices.extend([notice(NoticeKind.NOT_SQUARE, member)] if wanted else [])
+            if (translated := oblique_rules(box, member)) is not None:
+                rules[member.key] = translated
             continue
         rules[member.key], kept, split = _member_rules(
             member.key, box, square_members, square, gaps

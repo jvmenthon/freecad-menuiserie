@@ -16,7 +16,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 
-from freecad.menuiserie.core.contact import Contact, Overlap, classify
+from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron
+from freecad.menuiserie.core.contact import Contact, Overlap
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
     Axis,
@@ -29,7 +30,7 @@ from freecad.menuiserie.core.geometry import (
     moved_box,
     relative_transform,
 )
-from freecad.menuiserie.core.joints._base import JointPlan
+from freecad.menuiserie.core.joints._base import JointPlan, square_relation
 from freecad.menuiserie.core.part_model import Dimensions
 
 __all__ = ["Bridge", "bridged", "cut_plan", "through_host", "trimmed"]
@@ -65,6 +66,11 @@ class Bridge:
         """``solid`` du repère de l'invitée prolongée ou raccourcie vers celui de l'invitée."""
         return moved(solid, self.to_guest)
 
+    def _carry(self, solid: PlanSolid) -> PlanSolid:
+        if isinstance(solid, Polyhedron):
+            return solid.moved(self.to_guest)
+        return self.back(solid)
+
     def plan(self, plan: JointPlan) -> JointPlan:
         """Plan calculé sur l'invitée prolongée ou raccourcie, ramené à l'invitée : ses
         enlèvements, ajouts et parties retirées changent de repère ; la partie ajoutée s'ajoute
@@ -73,12 +79,12 @@ class Bridge:
             return plan
         return replace(
             plan,
-            guest_cuts=tuple(self.back(solid) for solid in plan.guest_cuts),
+            guest_cuts=tuple(self._carry(solid) for solid in plan.guest_cuts),
             guest_additions=(
-                *(self.back(solid) for solid in plan.guest_additions),
+                *(self._carry(solid) for solid in plan.guest_additions),
                 *self.additions,
             ),
-            guest_trims=(*(self.back(solid) for solid in plan.guest_trims), *self.trims),
+            guest_trims=(*(self._carry(solid) for solid in plan.guest_trims), *self.trims),
         )
 
 
@@ -104,7 +110,7 @@ def bridged(host: PlacedBlock, guest: PlacedBlock, extension: Callable[[Contact]
     """Invitée prolongée de ``extension(contact)`` mm par sa face au contact de l'hôte ; elle
     reste telle quelle si les pièces ne se touchent pas par une face (superposition, pièces
     écartées : le calcul par superposition donne alors son message)."""
-    relation = classify(host, guest)
+    relation = square_relation(host, guest)
     if not isinstance(relation, Contact):
         return Bridge(guest)
     length = extension(relation)
@@ -135,7 +141,7 @@ def trimmed(host: PlacedBlock, guest: PlacedBlock) -> Bridge:
     perdant le moins de matière (bout d'une traverse dessinée hors tout). Elle reste telle
     quelle si les pièces ne se chevauchent pas, ou si aucune face ne la ramène au contact :
     le calcul au contact donne alors son message."""
-    relation = classify(host, guest)
+    relation = square_relation(host, guest)
     if not isinstance(relation, Overlap):
         return Bridge(guest)
     common = moved_box(relation.common, relative_transform(host, guest).inverse())

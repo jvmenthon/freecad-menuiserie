@@ -8,6 +8,7 @@ import typing
 
 import pytest
 
+from freecad.menuiserie.core._polyhedron import PlanSolid
 from freecad.menuiserie.core.geometry import (
     CUT_OVERRUN_MM,
     Box,
@@ -53,7 +54,7 @@ def refused(pair: Pair, text: str, **params: object) -> JointError:
     return error.value
 
 
-def prisms(solids: tuple[Solid, ...]) -> list[Prism]:
+def prisms(solids: tuple[PlanSolid, ...]) -> list[Prism]:
     assert all(isinstance(solid, Prism) for solid in solids)
     return typing.cast(list[Prism], list(solids))
 
