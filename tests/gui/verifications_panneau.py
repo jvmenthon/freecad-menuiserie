@@ -332,7 +332,15 @@ def verifier_filtre_des_materiaux() -> list[str]:
 
 
 def menu_des_epaisseurs(form: Widget) -> list[Any]:
-    return list(form.standardThicknessButton.menu().actions())
+    """Épaisseurs du menu : ni séparateur, ni sous-menu des formats, ni « Ajouter… » (qui ouvre
+    une boîte de dialogue)."""
+    return [
+        action
+        for action in form.standardThicknessButton.menu().actions()
+        if not action.isSeparator()
+        and action.menu() is None
+        and action.objectName() != "addThicknessAction"
+    ]
 
 
 def verifier_epaisseurs_standard() -> list[str]:

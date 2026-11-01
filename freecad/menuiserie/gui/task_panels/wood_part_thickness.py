@@ -36,6 +36,7 @@ _ADD_SHEET: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ajouter un format…")
 _SHEET_LENGTH_PROMPT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Longueur du format (mm) :")
 _SHEET_WIDTH_PROMPT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Largeur du format (mm) :")
 _REFUSED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Valeur refusée")
+ADD_THICKNESS_ACTION: Final = "addThicknessAction"  # repérée par les vérifications du panneau
 
 
 class ThicknessTools:
@@ -68,6 +69,7 @@ class ThicknessTools:
             action = self._menu.addAction(_length_text(thickness))
             connect(action, "triggered()", partial(self._choose, thickness))
         add = self._menu.addAction(translated(_ADD_THICKNESS))
+        add.setObjectName(ADD_THICKNESS_ACTION)
         connect(add, "triggered()", self._add_thickness)
         # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode.
         # nosemgrep: python.lang.maintainability.is-function-without-parentheses
