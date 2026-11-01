@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Suppression d'une pièce usinée qui porte des assemblages : la fonction de choix injectée décide
-(fenêtre « assemblage lié »), une seule transaction annulable, aucun objet détruit supprimé deux
+(fenêtre « assemblage lié »). « Supprimer » retire la pièce entière (assemblages, pièce usinée et
+brute) en une seule transaction annulable, aucun objet détruit supprimé deux
 fois. ``ui_delete`` rejoue ce que fait la commande « Supprimer » de FreeCAD autour de ``onDelete``
 (``delete_machined_part``) : transaction, ``onDelete``, puis ``removeObject`` si le résultat est
 vrai."""
@@ -11,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from tests.integration.bureau import build_parts
+from tests.integration.bureau import build_desk, build_parts
 from tests.integration.cadre import stale_or_invalid
 
 pytestmark = pytest.mark.integration
@@ -60,14 +61,14 @@ def test_un_assemblage_supprime_avec_la_piece(document: Any) -> None:
     bureau, [joint] = assembled(document, "JG")
     voile, joue = bureau.parts["V"], bureau.parts["JG"]
     usinee = machined.machined_part_of(voile)
-    names = [joint.Name, usinee.Name]
+    names = [joint.Name, usinee.Name, voile.Name]
     labels = (usinee.Label, joint.Label)
     choose = Chooser(True)
     assert ui_delete(document, usinee, choose) is False  # déjà détruite : FreeCAD n'y touche pas
     assert choose.asked == [(f"« {labels[0]} »", [f"« {labels[1]} »"])]
     assert all(document.getObject(name) is None for name in names)
-    assert machined.machined_part_of(voile) is None and machined.machined_part_of(joue) is None
-    assert voile.Visibility and joue.Visibility  # les brutes sont réaffichées
+    assert machined.machined_part_of(joue) is None  # son voisin n'a plus d'assemblage
+    assert joue.Visibility  # la brute du voisin est réaffichée, la pièce supprimée a disparu
     assert stale_or_invalid(document) == []
 
 
@@ -76,12 +77,14 @@ def test_plusieurs_assemblages_en_une_seule_fenetre(document: Any) -> None:
     voile = bureau.parts["V"]
     usinee = machined.machined_part_of(voile)
     labels = sorted(f"« {joint.Label} »" for joint in made)
-    names = [joint.Name for joint in made]
+    names = [joint.Name for joint in made] + [usinee.Name, voile.Name]
     choose = Chooser(True)
     assert ui_delete(document, usinee, choose) is False
     assert len(choose.asked) == 1 and sorted(choose.asked[0][1]) == labels
     assert all(document.getObject(name) is None for name in names)
-    assert all(machined.machined_part_of(part) is None for part in bureau.parts.values())
+    for mark in ("JG", "JD"):  # les voisines restent, sans pièce usinée, brutes visibles
+        part = bureau.parts[mark]
+        assert machined.machined_part_of(part) is None and part.Visibility
     assert stale_or_invalid(document) == []
 
 
@@ -104,12 +107,15 @@ def test_une_seule_transaction_annulable(document: Any, sides: tuple[str, ...]) 
     bureau, made = assembled(document, *sides)
     voile = bureau.parts["V"]
     names = [joint.Name for joint in made]
+    voile_name = voile.Name
     usinee = machined.machined_part_of(voile)
     ui_delete(document, usinee, Chooser(True))
     assert document.UndoNames == ["Delete"]
     document.undo()  # un seul Ctrl+Z : assemblages et pièces usinées reviennent
     assert document.UndoNames == []
     assert all(document.getObject(name) is not None for name in names)
+    voile = document.getObject(voile_name)  # la brute revient avec la pièce usinée
+    assert voile is not None
     restored = machined.machined_part_of(voile)
     assert restored is not None and len(restored.Joints) == len(names)
     assert not voile.Visibility
@@ -136,3 +142,27 @@ def test_l_api_garde_son_refus(document: Any) -> None:
     usinee = machined.machined_part_of(bureau.parts["V"])
     with pytest.raises(ValueError, match="porte encore des assemblages"):
         api.remove_machined_part(usinee)
+
+
+def test_piece_membre_d_un_ensemble_en_est_retiree(document: Any) -> None:
+    """La brute liée à un ensemble : liaisons et propriétés de membre retirées avant sa
+    suppression, les autres membres sont reliés sans elle ; Ctrl+Z remet tout."""
+    bureau = build_desk(document)
+    document.recompute()
+    document.UndoMode = 1
+    document.clearUndos()
+    voile = bureau.parts["V"]
+    name, before = voile.Name, bureau.expressions("V")
+    assert before  # liée à l'ensemble
+    assert ui_delete(document, bureau.shown("V"), Chooser(True)) is False
+    assert document.getObject(name) is None
+    assert bureau.furniture.isValid()
+    assert all("Furniture" in bureau.parts[m].PropertiesList for m in ("P", "JG", "JD"))
+    assert stale_or_invalid(document) == []
+    assert document.UndoNames == ["Delete"]
+    document.undo()
+    document.recompute()
+    restored = document.getObject(name)
+    assert restored is not None and "Furniture" in restored.PropertiesList
+    assert {path.lstrip("."): text for path, text in restored.ExpressionEngine} == before
+    assert stale_or_invalid(document) == []

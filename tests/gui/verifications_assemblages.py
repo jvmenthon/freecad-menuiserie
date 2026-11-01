@@ -375,15 +375,16 @@ def supprimer_depuis_l_arbre(doc: Any, objet: Any) -> None:
 
 def verifier_suppression_de_la_piece_usinee() -> list[str]:
     """Supprimer une pièce usinée qui porte un assemblage ouvre la fenêtre « assemblage lié » :
-    « Annuler » ne change rien ; « Supprimer l'assemblage » retire l'assemblage et la pièce, la
-    brute réapparaît, en une seule entrée d'annulation (Ctrl+Z rétablit tout). Sans assemblage,
-    suppression normale et aucune fenêtre."""
+    « Annuler » ne change rien ; « Supprimer la pièce et l'assemblage » retire l'assemblage, la
+    pièce usinée et sa brute (la brute de l'autre pièce réapparaît), en une seule entrée
+    d'annulation (Ctrl+Z rétablit tout). Sans assemblage, suppression normale et aucune fenêtre."""
     with cadre("VerifSuppressionPieceUsinee") as (doc, pieces):
         joint = assembler(doc, pieces["M1"], pieces["T1"])
         doc.UndoMode = 1
         doc.clearUndos()
         usinee = usinee_de(pieces["M1"])
-        noms = [joint.Name, usinee.Name, usinee_de(pieces["T1"]).Name]
+        noms = [joint.Name, usinee.Name, pieces["M1"].Name]
+        autre = pieces["T1"].Name
         with choix_de_suppression(False) as questions:
             supprimer_depuis_l_arbre(doc, usinee)
         problemes = [
@@ -396,24 +397,28 @@ def verifier_suppression_de_la_piece_usinee() -> list[str]:
         problemes += [
             *ecarts("supprimée : une question", len(questions), 1),
             *ecarts("supprimée : objets", [doc.getObject(n) is None for n in noms], [True] * 3),
-            *ecarts("brutes visibles", [pieces[r].Visibility for r in ("M1", "T1")], [True] * 2),
+            *ecarts("autre brute visible", doc.getObject(autre).Visibility, True),
+            *ecarts("autre pièce usinée retirée", api.machined_part_of(doc.getObject(autre)), None),
             *ecarts("une entrée", len(doc.UndoNames), 1),
         ]
         doc.undo()
         doc.recompute()
         problemes += [
             *ecarts("Ctrl+Z : objets", [doc.getObject(n) is not None for n in noms], [True] * 3),
-            *ecarts("Ctrl+Z : pièce usinée", api.machined_part_of(pieces["M1"]) is not None, True),
+            *ecarts(
+                "Ctrl+Z : pièce usinée", api.machined_part_of(doc.getObject(noms[2])) is None, False
+            ),
         ]
+        brute = doc.getObject(noms[2])
         doc.removeObject(noms[0])
         doc.recompute()
         with choix_de_suppression(True) as questions:
-            supprimer_depuis_l_arbre(doc, usinee_de(pieces["M1"]))
+            supprimer_depuis_l_arbre(doc, usinee_de(brute))
         return [
             *problemes,
             *ecarts("sans assemblage : aucune fenêtre", questions, []),
-            *ecarts("sans assemblage : supprimée", api.machined_part_of(pieces["M1"]), None),
-            *ecarts("sans assemblage : brute visible", pieces["M1"].Visibility, True),
+            *ecarts("sans assemblage : supprimée", api.machined_part_of(brute), None),
+            *ecarts("sans assemblage : brute réaffichée", brute.Visibility, True),
         ]
 
 

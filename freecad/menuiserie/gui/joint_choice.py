@@ -60,14 +60,11 @@ _REMOVAL_TEXT_MANY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "La pièce usinée {part} porte encore {count} assemblages :\n{labels}"
 )
 _REMOVAL_ADVICE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Supprimer l'assemblage supprime aussi la pièce usinée ; la pièce de bois brute "
-    "réapparaît. Annuler ne change rien.",
+    "Menuiserie", "Annuler garde tout. Supprimer retire la pièce et ses assemblages."
 )
-_REMOVAL_ADVICE_MANY: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Supprimer les assemblages supprime aussi la pièce usinée ; la pièce de bois brute "
-    "réapparaît. Annuler ne change rien.",
+_REMOVAL_REMOVE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Supprimer la pièce et l'assemblage")
+_REMOVAL_REMOVE_MANY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Supprimer la pièce et les assemblages"
 )
 _CANCEL_REMOVAL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Annuler")
 _CANCEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Annuler le déplacement")
@@ -96,7 +93,7 @@ def removal_message_for(part: str, labels: Sequence[str]) -> str:
     head = translated(
         _REMOVAL_TEXT_MANY, {"part": part, "count": str(len(labels)), "labels": listed}
     )
-    return f"{head}\n\n{translated(_REMOVAL_ADVICE_MANY)}"
+    return f"{head}\n\n{translated(_REMOVAL_ADVICE)}"
 
 
 def _ask_box(title: str, text: str, cancel_label: str, remove_label: str) -> bool:
@@ -127,14 +124,14 @@ def ask(labels: Sequence[str]) -> bool:
 
 
 def ask_removal(part: str, labels: Sequence[str]) -> bool:
-    """Fenêtre « assemblage lié » à la suppression d'une pièce usinée : vrai si « Supprimer
-    l'assemblage » (« les assemblages ») est cliqué, faux pour « Annuler », Échap ou fermeture."""
+    """Fenêtre « assemblage lié » à la suppression d'une pièce usinée : vrai si « Supprimer la
+    pièce et l'assemblage » (« les assemblages ») est cliqué, faux pour « Annuler », Échap, X."""
     many = len(labels) > 1
     return _ask_box(
         translated(_REMOVAL_TITLE_MANY if many else _REMOVAL_TITLE),
         removal_message_for(part, labels),
         translated(_CANCEL_REMOVAL),
-        translated(_REMOVE_MANY if many else _REMOVE),
+        translated(_REMOVAL_REMOVE_MANY if many else _REMOVAL_REMOVE),
     )
 
 

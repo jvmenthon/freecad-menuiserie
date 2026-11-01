@@ -501,10 +501,12 @@ traduisible).
   ViewProvider de la pièce usinée réaffiche la brute quand on supprime la pièce usinée
   (`onDelete`). S'il reste des assemblages, `onDelete` ouvre la fenêtre « assemblage lié »
   (`gui/joint_choice`, même modèle que l'ADR 0026, fonction de choix `part_chooser` remplaçable par
-  les tests) : « Annuler » (défaut, Échap) refuse la suppression, « Supprimer l'assemblage »
-  (« les assemblages ») supprime tous les assemblages liés puis la pièce usinée
-  (`delete_machined_part`), en une transaction ; la pièce est alors déjà détruite et `onDelete`
-  renvoie faux. L'API non interactive `remove_machined_part` garde son refus (`ValueError`).
+  les tests) : « Annuler » (défaut, Échap) refuse la suppression, « Supprimer la pièce et
+  l'assemblage » (« les assemblages ») supprime la pièce entière (`delete_machined_part`) :
+  retrait de l'ensemble si la brute en est membre (`remove_members`), assemblages liés, pièce
+  usinée, puis brute (la source d'une pièce en forme libre est réaffichée), en une transaction ;
+  les pièces voisines gardent leur brute, réaffichée. Les objets sont alors déjà détruits :
+  `onDelete` renvoie faux. L'API non interactive `remove_machined_part` garde son refus (`ValueError`).
 
 ### 4.6 Affichage (J3d)
 

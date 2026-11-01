@@ -378,8 +378,10 @@ def doomed(module: ModuleType, s: SimpleNamespace, monkeypatch: pytest.MonkeyPat
     """``MV`` porte ses deux assemblages ; la suppression de la dernière pièce usinée détruit
     l'objet. Renvoie les appels à ``show_blank``."""
     s.machined.Label, s.machined.Document = "Pièce (usinée)", s.document
-    s.machined.Base = SimpleNamespace(Name="V")
+    s.machined.Base = SimpleNamespace(Name="V", PropertiesList=[])
+    s.members = []
     shown: list[str] = []
+    monkeypatch.setattr(module, "remove_members", lambda blanks: s.members.extend(blanks))
     monkeypatch.setattr(module, "show_blank", lambda blank: shown.append(blank.Name))
 
     def remove(machined: Any) -> None:
@@ -418,11 +420,22 @@ def test_supprimer_les_assemblages_puis_la_piece_sans_double_suppression(
     s = scene(module, monkeypatch)
     doomed(module, s, monkeypatch)
     assert module.delete_machined_part(s.machined, RemovalChooser(True)) is False
-    assert s.document.removed == ["Aronde", "Tourillons"]
-    assert s.removed_parts == [
-        "MV",
-        "MJ",
-    ]  # une fois chacune : la pièce n'est pas retirée deux fois
+    assert s.document.removed == ["Aronde", "Tourillons", "V"]  # assemblages, puis la brute
+    assert s.removed_parts == ["MV", "MJ"]  # une fois chacune : pas de double suppression
+    assert s.document.removed[-1] == "V" and s.document.removed.count("V") == 1  # puis la brute
+    assert s.members == []  # pas membre d'un ensemble
+
+
+def test_brute_membre_d_un_ensemble_en_est_retiree_avant(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    s = scene(module, monkeypatch)
+    doomed(module, s, monkeypatch)
+    s.machined.Base.PropertiesList = ["Furniture", "FurnitureBindings", "PositionMode"]
+    monkeypatch.setattr(module, "has_member_properties", lambda blank: True)
+    assert module.delete_machined_part(s.machined, RemovalChooser(True)) is False
+    assert s.members == [s.machined.Base]
+    assert s.document.removed[-1] == "V"
 
 
 def test_piece_non_retrouvee_par_ses_assemblages_est_retiree(
@@ -441,6 +454,8 @@ def test_la_fenetre_de_suppression_et_son_branchement() -> None:
         "Menuiserie : assemblage lié",
         "Menuiserie : assemblages liés",
         "porte encore l'assemblage",
+        "Supprimer la pièce et l'assemblage",
+        "Supprimer la pièce et les assemblages",
         "assemblages :",
         "setDefaultButton(cancel)",
         "part_chooser: RemovalChoice = ask_removal",
@@ -472,7 +487,7 @@ def test_fenetre_de_suppression_texte_singulier_et_pluriel(
         finally:
             sys.modules.pop("freecad.menuiserie.gui.joint_choice", None)
     assert one.startswith("La pièce usinée « P (usinée) » porte encore l'assemblage « Aronde ».")
-    assert "Supprimer l'assemblage supprime" in one and "Annuler ne change rien" in one
+    assert "Annuler garde tout. Supprimer retire la pièce et ses assemblages." in one
     assert "porte encore 2 assemblages :\n- « A »\n- « B »" in many
-    assert "Supprimer les assemblages supprime" in many
+    assert "Supprimer retire la pièce" in many
     assert calls == [("« P »", ["« A »"])]  # le choix est lu à l'appel
