@@ -5,6 +5,8 @@ et branchement de la fenêtre dans le glissement et le panneau de distance."""
 
 from __future__ import annotations
 
+import sys
+import types
 from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -24,6 +26,10 @@ class Document:
     def __init__(self, machined: list[Any]) -> None:
         self.removed: list[str] = []
         self.machined = machined
+        self.destroyed: set[str] = set()
+
+    def getObject(self, name: str) -> Any:
+        return None if name in self.destroyed else name
 
     def removeObject(self, name: str) -> None:
         self.removed.append(name)
@@ -351,3 +357,122 @@ def test_essai_de_l_assemblage_avec_inversion_des_roles(monkeypatch: pytest.Monk
         with pytest.raises(ValueError, match="impossible"):
             feasible.feasible_joint(impossible)
         assert (impossible.HostPart, impossible.GuestPart) == ("A", "C")  # rôles d'origine
+
+
+# --- Suppression d'une pièce usinée qui porte des assemblages ---------------------------------
+
+
+class RemovalChooser:
+    """Fonction de choix de la suppression : garde (pièce, libellés) reçus, répond ``answer``."""
+
+    def __init__(self, answer: bool) -> None:
+        self.answer = answer
+        self.asked: list[tuple[str, list[str]]] = []
+
+    def __call__(self, part: str, labels: Any) -> bool:
+        self.asked.append((part, list(labels)))
+        return self.answer
+
+
+def doomed(module: ModuleType, s: SimpleNamespace, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """``MV`` porte ses deux assemblages ; la suppression de la dernière pièce usinée détruit
+    l'objet. Renvoie les appels à ``show_blank``."""
+    s.machined.Label, s.machined.Document = "Pièce (usinée)", s.document
+    s.machined.Base = SimpleNamespace(Name="V")
+    shown: list[str] = []
+    monkeypatch.setattr(module, "show_blank", lambda blank: shown.append(blank.Name))
+
+    def remove(machined: Any) -> None:
+        s.removed_parts.append(machined.Name)
+        s.document.destroyed.add(machined.Name)
+
+    monkeypatch.setattr(module, "remove_machined_part", remove)
+    return shown
+
+
+def test_suppression_sans_assemblage_est_normale(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    s = scene(module, monkeypatch)
+    shown = doomed(module, s, monkeypatch)
+    s.machined.Joints = []
+    choose = RemovalChooser(True)
+    assert module.delete_machined_part(s.machined, choose) is True  # FreeCAD supprime
+    assert choose.asked == [] and s.document.removed == [] and shown == ["V"]
+
+
+def test_annuler_la_suppression_ne_change_rien(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    s = scene(module, monkeypatch)
+    shown = doomed(module, s, monkeypatch)
+    choose = RemovalChooser(False)
+    assert module.delete_machined_part(s.machined, choose) is False
+    assert choose.asked == [("« Pièce (usinée) »", ["« Aronde »", "« Tourillons »"])]
+    assert s.document.removed == [] and s.removed_parts == [] and shown == []
+
+
+def test_supprimer_les_assemblages_puis_la_piece_sans_double_suppression(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    s = scene(module, monkeypatch)
+    doomed(module, s, monkeypatch)
+    assert module.delete_machined_part(s.machined, RemovalChooser(True)) is False
+    assert s.document.removed == ["Aronde", "Tourillons"]
+    assert s.removed_parts == [
+        "MV",
+        "MJ",
+    ]  # une fois chacune : la pièce n'est pas retirée deux fois
+
+
+def test_piece_non_retrouvee_par_ses_assemblages_est_retiree(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    s = scene(module, monkeypatch)
+    doomed(module, s, monkeypatch)
+    monkeypatch.setattr(module, "machined_part_of", lambda part: None)
+    assert module.delete_machined_part(s.machined, RemovalChooser(True)) is False
+    assert s.removed_parts == ["MV"]
+
+
+def test_la_fenetre_de_suppression_et_son_branchement() -> None:
+    text = source(GUI / "joint_choice.py")
+    for expected in (
+        "Menuiserie : assemblage lié",
+        "Menuiserie : assemblages liés",
+        "porte encore l'assemblage",
+        "assemblages :",
+        "setDefaultButton(cancel)",
+        "part_chooser: RemovalChoice = ask_removal",
+    ):
+        assert expected in text
+    provider = source(GUI / "view_providers" / "machined_part.py")
+    assert "delete_machined_part(vobj.Object, joint_choice.choose_removal)" in provider
+
+
+def test_fenetre_de_suppression_texte_singulier_et_pluriel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with simulated_freecad(monkeypatch):
+        monkeypatch.setitem(sys.modules, "FreeCADGui", types.ModuleType("FreeCADGui"))
+        pyside = types.ModuleType("PySide")
+        pyside.QtGui = types.SimpleNamespace()  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "PySide", pyside)
+        monkeypatch.delitem(sys.modules, "freecad.menuiserie.gui.joint_choice", raising=False)
+        from freecad.menuiserie.gui import joint_choice
+
+        try:
+            one = joint_choice.removal_message_for("« P (usinée) »", ["« Aronde »"])
+            many = joint_choice.removal_message_for("« P (usinée) »", ["« A »", "« B »"])
+            calls: list[tuple[str, list[str]]] = []
+            monkeypatch.setattr(
+                joint_choice, "part_chooser", lambda p, labels: calls.append((p, list(labels)))
+            )
+            assert joint_choice.choose_removal("« P »", ["« A »"]) is False
+        finally:
+            sys.modules.pop("freecad.menuiserie.gui.joint_choice", None)
+    assert one.startswith("La pièce usinée « P (usinée) » porte encore l'assemblage « Aronde ».")
+    assert "Supprimer l'assemblage supprime" in one and "Annuler ne change rien" in one
+    assert "porte encore 2 assemblages :\n- « A »\n- « B »" in many
+    assert "Supprimer les assemblages supprime" in many
+    assert calls == [("« P »", ["« A »"])]  # le choix est lu à l'appel

@@ -499,7 +499,12 @@ traduisible).
   font dans la transaction de l'appelant et jamais pendant `Transacting`.
 - **Suppression** : FreeCAD retire un assemblage supprimé des `Joints` qui le citent ; le
   ViewProvider de la pièce usinée réaffiche la brute quand on supprime la pièce usinée
-  (`onDelete`), refusé s'il reste des assemblages (message).
+  (`onDelete`). S'il reste des assemblages, `onDelete` ouvre la fenêtre « assemblage lié »
+  (`gui/joint_choice`, même modèle que l'ADR 0026, fonction de choix `part_chooser` remplaçable par
+  les tests) : « Annuler » (défaut, Échap) refuse la suppression, « Supprimer l'assemblage »
+  (« les assemblages ») supprime tous les assemblages liés puis la pièce usinée
+  (`delete_machined_part`), en une transaction ; la pièce est alors déjà détruite et `onDelete`
+  renvoie faux. L'API non interactive `remove_machined_part` garde son refus (`ValueError`).
 
 ### 4.6 Affichage (J3d)
 

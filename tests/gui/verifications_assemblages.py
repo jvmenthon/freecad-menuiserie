@@ -20,6 +20,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import api, icon_path
+from freecad.menuiserie.gui import joint_choice
 from tests.commandes_assemblages import COMMANDES_ASSEMBLAGE
 from tests.gui.verifications_panneau import (
     annuler,
@@ -347,15 +348,73 @@ def verifier_deplacement_de_la_piece_usinee() -> list[str]:
 # --- Suppression et C7 -------------------------------------------------------------------
 
 
+@contextmanager
+def choix_de_suppression(reponse: bool) -> Iterator[list[tuple[str, list[str]]]]:
+    """Fonction de choix de la fenêtre « assemblage lié » remplacée (hors écran, une boîte modale
+    ne se clique pas) ; donne les questions posées (pièce, libellés des assemblages)."""
+    questions: list[tuple[str, list[str]]] = []
+
+    def choisir(piece: str, libelles: Any) -> bool:
+        questions.append((piece, list(libelles)))
+        return reponse
+
+    original, joint_choice.part_chooser = joint_choice.part_chooser, choisir
+    try:
+        yield questions
+    finally:
+        joint_choice.part_chooser = original
+
+
+def supprimer_depuis_l_arbre(doc: Any, objet: Any) -> None:
+    """Vraie suppression : « Supprimer » (``Std_Delete``) sur l'objet sélectionné."""
+    selectionner(objet)
+    Gui.runCommand("Std_Delete")
+    Gui.Selection.clearSelection()
+    doc.recompute()
+
+
 def verifier_suppression_de_la_piece_usinee() -> list[str]:
-    """Suppression refusée tant qu'il reste un assemblage ; ensuite la brute réapparaît."""
+    """Supprimer une pièce usinée qui porte un assemblage ouvre la fenêtre « assemblage lié » :
+    « Annuler » ne change rien ; « Supprimer l'assemblage » retire l'assemblage et la pièce, la
+    brute réapparaît, en une seule entrée d'annulation (Ctrl+Z rétablit tout). Sans assemblage,
+    suppression normale et aucune fenêtre."""
     with cadre("VerifSuppressionPieceUsinee") as (doc, pieces):
         joint = assembler(doc, pieces["M1"], pieces["T1"])
-        vobj = usinee_de(pieces["M1"]).ViewObject
-        problemes = ecarts("refusée", vobj.Proxy.onDelete(vobj, []), False)
-        doc.removeObject(joint.Name)
-        problemes += ecarts("acceptée", vobj.Proxy.onDelete(vobj, []), True)
-        return problemes + ecarts("brute visible", pieces["M1"].Visibility, True)
+        doc.UndoMode = 1
+        doc.clearUndos()
+        usinee = usinee_de(pieces["M1"])
+        noms = [joint.Name, usinee.Name, usinee_de(pieces["T1"]).Name]
+        with choix_de_suppression(False) as questions:
+            supprimer_depuis_l_arbre(doc, usinee)
+        problemes = [
+            *ecarts("annulée : une question", len(questions), 1),
+            *ecarts("annulée : objets", [doc.getObject(n) is not None for n in noms], [True] * 3),
+            *ecarts("annulée : aucune entrée", doc.UndoNames, []),
+        ]
+        with choix_de_suppression(True) as questions:
+            supprimer_depuis_l_arbre(doc, usinee_de(pieces["M1"]))
+        problemes += [
+            *ecarts("supprimée : une question", len(questions), 1),
+            *ecarts("supprimée : objets", [doc.getObject(n) is None for n in noms], [True] * 3),
+            *ecarts("brutes visibles", [pieces[r].Visibility for r in ("M1", "T1")], [True] * 2),
+            *ecarts("une entrée", len(doc.UndoNames), 1),
+        ]
+        doc.undo()
+        doc.recompute()
+        problemes += [
+            *ecarts("Ctrl+Z : objets", [doc.getObject(n) is not None for n in noms], [True] * 3),
+            *ecarts("Ctrl+Z : pièce usinée", api.machined_part_of(pieces["M1"]) is not None, True),
+        ]
+        doc.removeObject(noms[0])
+        doc.recompute()
+        with choix_de_suppression(True) as questions:
+            supprimer_depuis_l_arbre(doc, usinee_de(pieces["M1"]))
+        return [
+            *problemes,
+            *ecarts("sans assemblage : aucune fenêtre", questions, []),
+            *ecarts("sans assemblage : supprimée", api.machined_part_of(pieces["M1"]), None),
+            *ecarts("sans assemblage : brute visible", pieces["M1"].Visibility, True),
+        ]
 
 
 def verifier_suppression_d_un_assemblage() -> list[str]:

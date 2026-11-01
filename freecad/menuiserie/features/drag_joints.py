@@ -32,13 +32,19 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.joints.base import is_joint, plan_for
-from freecad.menuiserie.features.machined_part import machined_part_of, remove_machined_part
+from freecad.menuiserie.features.machined_part import (
+    machined_part_of,
+    remove_machined_part,
+    show_blank,
+)
 from freecad.menuiserie.features.placement import SnapSession, rotate_part
 
 __all__ = [
     "DragCancelledError",
     "JointChoice",
+    "RemovalChoice",
     "broken_joints",
+    "delete_machined_part",
     "invalid_joints",
     "remove_joints",
     "rotate_checked",
@@ -48,6 +54,10 @@ __all__ = [
 # Fonction de choix : reçoit les libellés (entre guillemets) des assemblages défaits ; vrai =
 # supprimer les assemblages et garder le déplacement, faux = annuler le déplacement.
 JointChoice = Callable[[Sequence[str]], bool]
+
+# Fonction de choix de la suppression d'une pièce usinée : reçoit son libellé et ceux de ses
+# assemblages (entre guillemets) ; vrai = supprimer les assemblages puis la pièce, faux = annuler.
+RemovalChoice = Callable[[str, Sequence[str]], bool]
 
 _REMOVED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "L'assemblage {labels} a été supprimé : le déplacement le défaisait."
@@ -105,6 +115,29 @@ def remove_joints(joints: Sequence[DocumentObject]) -> None:
     for found in machined:
         if not found.Joints:
             remove_machined_part(found)
+
+
+def delete_machined_part(machined: DocumentObject, choose: RemovalChoice) -> bool:
+    """Suppression, depuis l'interface, de la pièce usinée ``machined`` (``onDelete``).
+
+    Sans assemblage : la brute est réaffichée et le résultat est vrai, FreeCAD supprime la pièce
+    lui-même. Avec assemblages, ``choose`` décide
+    (sans transaction ni recalcul, ils sont à l'appelant) : faux = rien ne change et la
+    suppression est refusée ; vrai = :func:`remove_joints` supprime les assemblages, puis la pièce
+    usinée devenue vide (la brute est réaffichée). La pièce est alors déjà détruite : le résultat
+    est faux, pour que FreeCAD ne supprime pas un objet qui n'existe plus."""
+    joints = list(machined.Joints)
+    if not joints:
+        show_blank(getattr(machined, "Base", None))
+        return True
+    labels = [f"« {quoted_value(joint.Label)} »" for joint in joints]
+    if not choose(f"« {quoted_value(machined.Label)} »", labels):
+        return False
+    document, name = machined.Document, machined.Name
+    remove_joints(joints)
+    if document.getObject(name) is not None:  # pièce non retrouvée par ses assemblages
+        remove_machined_part(machined)
+    return False
 
 
 def settle_joints(
