@@ -15,6 +15,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Suppression d'une pièce usinée qui porte des assemblages (demande de jv, 2026-11-01) : au lieu
+  du seul message « supprimez-les d'abord » dans la vue rapport, une fenêtre « Menuiserie :
+  assemblage lié » propose « Annuler » (défaut, Échap) ou « Supprimer la pièce et l'assemblage »
+  (« les assemblages »), qui supprime les assemblages liés, la pièce usinée et sa brute (retirée
+  d'abord de son ensemble si elle en est membre) en une seule transaction annulable ; les pièces
+  voisines restent, brutes réaffichées. Sans assemblage, rien ne change ; l'API
+  `remove_machined_part` garde son refus.
+
 - Rotation, champs d'angle du panneau (demande de jv, 2026-10-30) : les trois champs acceptent de
   -360 à 360 (Y au-delà de 90° compris) ; la pièce tourne comme saisi, puis les trois angles sont
   recalculés à la fin de la saisie en la forme canonique (X et Z dans [-180, 180], Y dans

@@ -13,11 +13,11 @@ from __future__ import annotations
 from typing import Any
 
 from freecad.menuiserie import icon_path
+from freecad.menuiserie.features.drag_joints import delete_machined_part
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.i18n import report_warning
-from freecad.menuiserie.features.machined_part import removal_refusal, show_blank
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.part_appearance import PartAppearance, material_color_of
 from freecad.menuiserie.gui.view_providers.wood_part import ICON, PanelEditing
 
@@ -81,16 +81,13 @@ class ViewProviderMachinedPart(PanelEditing):
         return obj in getattr(machined, "Joints", ())
 
     def onDelete(self, vobj: ViewObject, subelements: object) -> bool:
-        """Suppression refusée (message dans la vue rapport) tant que la pièce porte des
-        assemblages ; sinon la brute est réaffichée."""
+        """Suppression d'une pièce usinée. Sans assemblage : normale (la brute est réaffichée).
+        Avec assemblages : la fenêtre « assemblage lié » propose de les supprimer avec la pièce
+        (une seule transaction, celle de FreeCAD) ou d'annuler. Faux si la suppression est
+        refusée, et aussi quand la pièce vient d'être supprimée avec ses assemblages : FreeCAD ne
+        doit pas supprimer un objet déjà détruit."""
         del subelements
-        obj = vobj.Object
-        refusal = removal_refusal(obj)
-        if refusal is not None:
-            report_warning(refusal)
-            return False
-        show_blank(getattr(obj, "Base", None))
-        return True
+        return delete_machined_part(vobj.Object, joint_choice.choose_removal)
 
     def _refresh(self, vobj: ViewObject) -> None:
         """Texture et couleur de la brute ; sans effet sans brute ou avant l'attachement."""
