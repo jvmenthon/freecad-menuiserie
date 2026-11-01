@@ -159,6 +159,41 @@ def test_languette_en_biais(mode: Mode) -> None:
     assert bounds.hi(0) == pytest.approx(600.0, abs=1e-6)
 
 
+@pytest.mark.parametrize("degrees", [5.0, 10.0, 30.0])
+def test_rainure_filante_biais_dans_la_largeur(degrees: float) -> None:
+    """Rainure de toute la longueur et de profondeur constante, quel que soit le biais."""
+    host, guest = stile_block(), tilted_rail(degrees)
+    plan = TONGUE.plan(host, guest, TongueGrooveParams())
+    groove = plan.host_cuts[0]
+    assert isinstance(groove, Polyhedron)
+    bounds = groove.bounds()
+    assert bounds.lo(0) == pytest.approx(0.0, abs=1e-6)
+    assert bounds.hi(0) == pytest.approx(600.0, abs=1e-6)
+    assert bounds.hi(1) <= 60.0 + 1e-6  # ne sort pas de l'hôte
+
+
+def test_languette_publie_le_biais() -> None:
+    values = TONGUE.resolve(stile_block(), tilted_rail(10.0), TongueGrooveParams())
+    assert values.oblique == pytest.approx(10.0)
+    assert values.cut_angle > 0.0
+
+
+def test_tenon_garde_sa_longueur_si_le_logement_debouche() -> None:
+    """B4 : un tenon de 58 mm avec 2 mm de jeu dans un hôte de 60 mm reste de 58 mm."""
+    params = MortiseTenonParams(tenon_length=58.0, mortise_clearance=2.0)
+    plan = TENON.plan(stile_block(), tilted_rail(1e-4), params)
+    assert tenon_of(plan).bounds().size(0) == pytest.approx(58.0, abs=0.05)
+
+
+@pytest.mark.parametrize("reference", ["TenonPiece", "MortisedPiece", "HalfAngle"])
+def test_long_point_independant_de_la_reference(reference: str) -> None:
+    host, guest = stile_block(), tilted_rail(10.0, "pointe")
+    params = MortiseTenonParams(oblique_reference=reference)
+    bevel = TENON.plan(host, guest, params).guest_bevels[0]
+    base = TENON.plan(host, guest, MortiseTenonParams()).guest_bevels[0]
+    assert bevel.long_point == pytest.approx(base.long_point, abs=1e-6)
+
+
 @pytest.mark.parametrize(
     ("kind", "params"),
     [

@@ -45,7 +45,6 @@ from freecad.menuiserie.core.vectors import cross, dot, unit
 __all__ = ["build_any", "build_oblique_profile"]
 
 _MARGIN: Final = 1e-9
-_MIN_WALL_MM: Final = 1.0  # paroi laissée au fond par la longueur automatique
 _SLACK_MM: Final = 2.0  # marge des barres, hors matière
 _BEVEL_MIN_DEG: Final = 1e-4  # sous cet écart, le bout est coupé d'équerre
 
@@ -181,6 +180,8 @@ def _mortise(
 ) -> Polyhedron | None:
     """Logement : la barre prolongée du jeu de fond, coupée par le plan d'épaulement (comme le
     logement d'équerre, il part de la face de l'hôte : B4)."""
+    if rules.extend_housing:
+        return _groove(frame, section, values, through)
     planes = [frame.contact.shoulder]
     start = _enter(frame, section) - _SLACK_MM
     if through:
@@ -188,13 +189,43 @@ def _mortise(
         end = _leave(frame, section) + _SLACK_MM
     else:
         end = _axis_origin(frame, section) + values.housing_depth
-    reach = 0.0
-    if rules.extend_housing:
-        faces = _host_faces(frame)
-        host = frame.contact.host_face
-        planes.extend(plane for axis, plane in faces.items() if axis.index != host.index)
-        reach = _extent(frame) + _SLACK_MM
-    return clipped_box(section.bar(start, end, reach), section.frame(), tuple(planes))
+    return clipped_box(section.bar(start, end), section.frame(), tuple(planes))
+
+
+def _groove_bottom(frame: ObliqueFrame, section: _Section, values: ProfileValues) -> Plane:
+    """Fond de la rainure : parallèle au plan d'épaulement (profondeur constante sur toute la
+    longueur), juste sous le coin le plus profond de la languette, plus le jeu de fond."""
+    outward = frame.outward
+    tip = _axis_origin(frame, section) + values.length
+    deepest = max(
+        -dot(corner + section.d.scaled(tip) - frame.contact.shoulder.point, outward)
+        for corner in section.corners()
+    )
+    clearance = values.housing_depth - values.length
+    point = frame.contact.shoulder.point - outward.scaled(deepest + clearance)
+    return Plane(point, -outward)
+
+
+def _groove(
+    frame: ObliqueFrame, section: _Section, values: ProfileValues, through: bool
+) -> Polyhedron | None:
+    """Rainure filante : elle suit l'intersection du plan d'épaulement et du plan de la
+    languette, pas la largeur de l'invitée, qui sort du plan d'épaulement quand le biais tourne
+    la pièce dans sa largeur. Fond : plan normal à l'axe de la languette."""
+    shoulder = frame.contact.shoulder
+    along = unit(cross(frame.outward, section.v))
+    depth = cross(along, section.v)
+    rows = tuple((along.component(i), section.v.component(i), depth.component(i)) for i in range(3))
+    matrix = (rows[0], rows[1], rows[2])
+    reach = _extent(frame) + _SLACK_MM
+    box = Box.from_ranges(
+        [(-reach, reach), (-section.thickness / 2, section.thickness / 2), (-reach, reach)]
+    )
+    bottom = frame.contact.opposite if through else _groove_bottom(frame, section, values)
+    faces = _host_faces(frame)
+    host = frame.contact.host_face
+    planes = [shoulder, bottom, *(p for axis, p in faces.items() if axis.index != host.index)]
+    return clipped_box(box, RigidTransform(matrix, section.origin), tuple(planes))
 
 
 def _extent(frame: ObliqueFrame) -> float:
@@ -230,8 +261,9 @@ def build_oblique_profile(
         raise JointError(TOO_SMALL, {})
     section = _section(frame, values)
     through = values.housing_depth >= frame.full_depth - _MARGIN
+    flush = values.length >= frame.full_depth - _MARGIN  # tenon traversant (B4)
     housing = _mortise(frame, section, values, rules, through)
-    tenon = _tenon(frame, section, values.length, through)
+    tenon = _tenon(frame, section, values.length, flush)
     if housing is None or tenon is None:
         raise JointError(TOO_SMALL, {})
     if values.housing_depth > frame.full_depth + _MARGIN:
@@ -244,7 +276,7 @@ def build_oblique_profile(
             raise JointError(TOO_DEEP, depth)
         through = True  # affleure la face opposée : débouchant (pas de peau nulle)
         housing = _mortise(frame, section, values, rules, through)
-        tenon = _tenon(frame, section, values.length, through)
+        tenon = _tenon(frame, section, values.length, flush)
         if housing is None or tenon is None:
             raise JointError(TOO_SMALL, {})
     _walls(frame, housing, rules)

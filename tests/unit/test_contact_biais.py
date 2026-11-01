@@ -117,8 +117,20 @@ def test_invitee_ecartee_est_separee() -> None:
     assert isinstance(relation(stile_block(), lifted), Separated)
 
 
-def test_bout_sur_l_arete_est_refuse() -> None:
-    guest = tilted_rail(10.0, "cheval", centre_z=THICKNESS)
+@pytest.mark.parametrize("mode", ["pointe", "cheval", "hors tout"])
+@pytest.mark.parametrize(
+    ("centre_x", "centre_z"), [(300.0, 15.0), (20.0, 11.0), (300.0, THICKNESS)]
+)
+def test_debord_sur_une_seule_face_voisine_est_un_contact(
+    mode: Mode, centre_x: float, centre_z: float
+) -> None:
+    """A4 : comme à 0°, une invitée qui déborde d'une face voisine reste en contact."""
+    found = oblique(stile_block(), tilted_rail(10.0, mode, centre_x=centre_x, centre_z=centre_z))
+    assert found.angle == pytest.approx(10.0)
+
+
+def test_bout_sur_deux_faces_voisines_est_refuse() -> None:
+    guest = tilted_rail(10.0, "cheval", centre_x=0.0, centre_z=THICKNESS)
     with pytest.raises(JointError) as error:
         relation(stile_block(), guest)
     assert error.value.template == EDGE_HIT
@@ -187,3 +199,10 @@ def test_roles_en_biais_l_invitee_est_celle_dont_le_bout_touche(mode: Mode) -> N
     host, guest = stile_block(), tilted_rail(10.0, mode)
     assert guess_roles(host, guest) == (0, 1)
     assert guess_roles(guest, host) == (1, 0)
+
+
+@pytest.mark.parametrize("degrees", [30.0, 65.0, 69.0])
+def test_roles_justes_jusqu_a_70_degres(degrees: float) -> None:
+    stile_piece, rail_piece = stile_block(), tilted_rail(degrees, "cheval")
+    assert guess_roles(stile_piece, rail_piece) == (0, 1)
+    assert guess_roles(rail_piece, stile_piece) == (1, 0)

@@ -131,8 +131,10 @@ class ObliqueFrame:
         plane, outward = self.contact.shoulder, self.outward
         face, sign, index = self.face, self.sign, self.normal
         bound = face.hi(index) if sign > 0 else face.lo(index)
+        # Le long point se mesure le long du fil de l'invitée, quelle que soit la référence.
+        grain_cosine = max(abs(dot(self.fibre, outward)), _MARGIN)
         reaches = [
-            dot(Vec3(x, y, z) - plane.point, outward) / self.cosine
+            dot(Vec3(x, y, z) - plane.point, outward) / grain_cosine
             for x in (face.lo(0), face.hi(0))
             for y in (face.lo(1), face.hi(1))
             for z in (face.lo(2), face.hi(2))

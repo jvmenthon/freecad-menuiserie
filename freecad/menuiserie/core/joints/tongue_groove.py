@@ -73,4 +73,5 @@ def _values(frame: Frame, params: TongueGrooveParams) -> ProfileValues:
         thickness_offset=params.thickness_offset,
         width_offset=0.0,
         housing_depth=length + params.groove_clearance,
+        **frame.oblique_values(),
     )

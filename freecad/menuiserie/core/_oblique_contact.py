@@ -147,9 +147,13 @@ def _candidate(setup: _Setup, faces: list[_HostFace], guest_face: Axis) -> _Cand
     return valid[0] if valid else None
 
 
-def _removed(setup: _Setup, face: _HostFace) -> Polyhedron | None:
-    """Partie de l'invitée qui entre dans l'hôte au-delà du plan de la face."""
-    return clipped_box(setup.guest_box, _IDENTITY, (Plane(face.point, face.normal),))
+def _removed(
+    setup: _Setup, face: _HostFace, bounded_by: tuple[_HostFace, ...] = ()
+) -> Polyhedron | None:
+    """Partie de l'invitée qui entre dans l'hôte au-delà du plan de la face, bornée par les
+    faces latérales ``bounded_by`` que l'invitée déborde."""
+    planes = (face, *bounded_by)
+    return clipped_box(setup.guest_box, _IDENTITY, tuple(Plane(f.point, f.normal) for f in planes))
 
 
 def _added(setup: _Setup, candidate: _Candidate, cosine: float) -> Polyhedron | None:
@@ -199,8 +203,11 @@ def _build(setup: _Setup, candidate: _Candidate) -> ObliqueContact | Overlap:
         escapes = _escapes(setup, face, removed)
         if face.axis.opposite() in escapes:
             return _common(setup) or Overlap(setup.host_box)
-        if escapes:
+        if len(escapes) > 1:  # arête ou coin de l'hôte (A4)
             raise JointError(EDGE_HIT, {})
+        if escapes:  # débord sur une seule face voisine : comme le contact d'équerre
+            sides = tuple(f for f in _host_faces(setup) if f.axis in escapes)
+            removed = _removed(setup, face, sides)
     opposite = next(f for f in _host_faces(setup) if f.axis == face.axis.opposite())
     return ObliqueContact(
         guest_face=guest_face,

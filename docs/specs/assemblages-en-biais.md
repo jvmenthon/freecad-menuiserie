@@ -101,7 +101,7 @@ comme aujourd'hui (sélection de deux pièces → « Tenon-mortaise »). Il obti
 
 - **B1** `core/joints/_oblique.py` : `ObliqueFrame` et `build_oblique_profile`, frères de
   `ContactFrame` et `build_profile` (§ 4.4) ; `MortiseTenonStrategy` et `TongueGrooveStrategy`
-  choisissent le cadre selon `relation`. `_profile.py` n'est pas modifié.
+  choisissent le cadre selon `relation`. `_profile.py` ne change que par des champs ajoutés à `ProfileValues` et `check_walls` rendu public.
 - **B2** `features/solids.py` construit un `Polyhedron` (§ 4.5) ; `machined_shape` et
   `check_joint_material` l'acceptent comme les autres solides.
 - **B3** Plans identiques au bit près pour toute paire d'équerre (tests de non-régression sur
@@ -139,7 +139,7 @@ comme aujourd'hui (sélection de deux pièces → « Tenon-mortaise »). Il obti
   colonne « Suit » = « Déplacée (en biais) ».
 - **D2** Il n'entre dans aucune rangée et ne bloque aucune épaisseur.
 - **D3** Une modification qui défait un assemblage en biais (ceinture qui ne rencontre plus le
-  pied) donne l'avertissement existant `JOINT_LOST`, sans refus.
+  pied) est refusée par le contrôle existant `JOINT_LOST` (`check_resize`), avant toute écriture.
 - **D4** Recettes : caisson à côtés inclinés, largeur 600 → 800 ; tabouret, largeur 350 → 400 :
   pièces en biais déplacées, pièces d'équerre allongées, tenons recalculés.
 
@@ -226,14 +226,17 @@ Dans le repère de l'invitée, *n* = normale de sa face de contact, plan d'épau
   n'est jamais réduite (refus `TOO_DEEP`).
 - **Mortaise** = la même barre, prolongée du jeu de fond le long de *n* et coupée par P décalé
   de `CUT_OVERRUN_MM` vers l'invitée (elle n'enlève que de la matière de l'hôte) ; exprimée dans
-  le repère de l'hôte par `moved`.
+  le repère de l'hôte par `moved`. Écart de réalisation : la mortaise n'est pas décalée de
+  `CUT_OVERRUN_MM`, comme le logement d'équerre, pour que l'épaulement soit continu (B4).
 - **Contrôles** dans le repère de l'hôte, sur les sommets de la mortaise : point le plus profond
   sous P ≤ profondeur (`TOO_DEEP`, sinon débouchant) ; une paroi de matière de chaque côté, sur
   les deux axes de l'hôte parallèles à P (`NO_WALL`), comme `_check_walls`.
 - **Plan** : `host_cuts` = mortaise ; `guest_trims` = coin retiré ; `guest_additions` = coin
   ajouté + tenon ; `guest_bevels` = un `Bevel` pour le bout.
 - **Languette** : même calcul ; la rainure filante (`ThroughGroove`) est la barre prolongée le
-  long de la largeur de la languette et coupée par les faces de l'hôte (plus `CUT_OVERRUN_MM`) ;
+  long de l'intersection du plan d'épaulement et du plan de la languette (et non de sa largeur, qui
+  sort du plan d'épaulement quand le biais tourne la pièce dans sa largeur), coupée par les faces
+  de l'hôte ; fond parallèle au plan d'épaulement (profondeur constante) ;
   parois contrôlées seulement de part et d'autre de l'épaisseur.
 
 Les paramètres et les propriétés ne changent pas : `TenonThickness`, `TenonWidth`,
@@ -297,7 +300,7 @@ Pas de nouvelle entrée utilisateur : angles et cotes viennent des `Placement` e
 propriétés existantes, déjà bornées. Les cas dégénérés sont arrêtés avant OCC : α borné (pas
 de biais rasant, donc pas de coin infiniment long), polyèdres vides ou trop minces écartés
 (A1), valeurs non finies refusées par `Vec3`/`Box`, nombre de plans par polyèdre borné (au plus
-quatre). Aucun accès fichier, réseau ou `eval`.
+six : `MAX_PLANES`). Aucun accès fichier, réseau ou `eval`.
 
 ### 4.10 Compatibilité avec les autres ateliers (ADR 0007)
 

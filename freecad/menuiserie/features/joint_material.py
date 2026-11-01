@@ -51,9 +51,12 @@ def worst_missing_ratio(
     enlèvements ``cuts`` et ses ajouts ``additions`` (repère de la pièce), 0 si aucune n'atteint
     le seuil de 5 % ou si le noyau géométrique échoue (contrôle indicatif : un volume non fini ou
     négatif, ou une forme de plus de ``MAX_FACES`` faces, ne le fait jamais échouer)."""
-    probes = [solid_shape(solid) for solid in cuts[:MAX_PROBES]]
-    room = MAX_PROBES - len(probes)
-    probes += [grown_shape(solid_shape(solid), CONTACT_MARGIN_MM) for solid in additions[:room]]
+    try:
+        probes = [solid_shape(solid) for solid in cuts[:MAX_PROBES]]
+        room = MAX_PROBES - len(probes)
+        probes += [grown_shape(solid_shape(solid), CONTACT_MARGIN_MM) for solid in additions[:room]]
+    except ERRORS:  # solide dégénéré : contrôle indicatif, jamais bloquant
+        return 0.0
     if not probes:
         return 0.0
     box, shape = box_of(part), base_shape_of(part)

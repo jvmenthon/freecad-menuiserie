@@ -56,6 +56,8 @@ def guess_roles(a: PlacedBlock, b: PlacedBlock) -> tuple[int, int]:
 
 def _swap(a: PlacedBlock, b: PlacedBlock, found: Relation) -> bool:
     """Vrai si l'invitée est ``a`` : la relation ``found`` est celle de ``a`` (hôte) et ``b``."""
+    if not is_square(a, b) and not _is_end(found) and _is_end(_safe_relation(b, a)):
+        return True  # en biais : l'invitée est la pièce dont le bout rencontre l'autre
     if isinstance(found, Overlap):
         # Épaisseurs égales à la tolérance de contact près : ordre donné conservé.
         return a.dimensions.thickness < b.dimensions.thickness - CONTACT_TOLERANCE_MM
