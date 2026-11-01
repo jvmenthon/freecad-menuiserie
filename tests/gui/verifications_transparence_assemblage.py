@@ -122,6 +122,30 @@ def verifier_transparence_a_la_modification() -> list[str]:
         return problemes
 
 
+def verifier_transparence_d_une_piece_assemblee_en_edition() -> list[str]:
+    """Demande de jv (2026-11-01) : le panneau d'une pièce qui a un assemblage rend sa pièce
+    usinée (celle qu'on voit) transparente, puis rétablit son apparence sans entrée en plus."""
+    with cadre("VerifTransparencePieceAssemblee") as (doc, pieces):
+        tenon_valide(doc, pieces)
+        poser_origines(pieces)
+        usinee = usinee_de(pieces["M1"])
+        problemes: list[str] = []
+        for sortie, fermer in (("Annuler", annuler), ("OK", valider)):
+            doc.clearUndos()
+            if not double_cliquer(usinee) or not Gui.Control.activeDialog():
+                return [*problemes, f"{sortie} : double-clic, panneau non ouvert"]
+            problemes += [
+                *ecarts(f"{sortie} : ouverte", transparence(usinee), TRANSPARENCE),
+                *ecarts(f"{sortie} : entrées en plus", entrees_en_plus(doc), []),
+            ]
+            fermer()
+            problemes += [
+                *ecarts(f"{sortie} : rétablie", transparence(usinee), ORIGINES["M1"]),
+                *ecarts(f"{sortie} : entrées", doc.UndoNames, []),
+            ]
+        return problemes
+
+
 def verifier_transparence_apres_inversion() -> list[str]:
     """« Inverser » recalcule l'aperçu : les mêmes objets restent transparents, puis rétablis."""
     with cadre("VerifTransparenceInversion") as (doc, pieces):
@@ -169,6 +193,7 @@ VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE: tuple[Callable[[], list[str]], ...] = (
     verifier_transparence_a_la_creation_validee,
     verifier_transparence_a_la_creation_annulee,
     verifier_transparence_a_la_modification,
+    verifier_transparence_d_une_piece_assemblee_en_edition,
     verifier_transparence_apres_inversion,
     verifier_transparence_retablie_si_l_assemblage_est_supprime,
     verifier_transparence_retablie_par_edition_annuler,

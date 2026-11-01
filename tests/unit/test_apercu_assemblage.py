@@ -149,3 +149,35 @@ def test_le_panneau_d_assemblage_rend_les_pieces_transparentes() -> None:
         if isinstance(f, ast.FunctionDef) and "self._release_display()" in ast.unparse(f)
     }
     assert callers == {"_finish", "_on_closed_by_freecad"}
+
+
+def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture() -> None:
+    """Câblage : la pièce en édition (création ou modification) est transparente, et ``base``
+    rétablit son apparence pour « OK », « Annuler » et la fermeture par FreeCAD."""
+    for name in ("wood_part.py", "shaped_part.py"):
+        assert "def transparent_objects" in (PANELS / name).read_text(encoding="utf-8")
+    base = ast.parse((PANELS / "base.py").read_text(encoding="utf-8"))
+    cls = next(
+        n for n in base.body if isinstance(n, ast.ClassDef) and n.name == "TransactionTaskPanel"
+    )
+    methods = {n.name: ast.unparse(n) for n in cls.body if isinstance(n, ast.FunctionDef)}
+    assert "_apply_styles()" in methods["watch_document"]
+    assert "PartsPreview(self.transparent_objects" in methods["_apply_styles"]
+    assert "_restore_styles()" in methods["_finish"]
+    assert "_restore_styles()" in methods["_clean_up_after_forced_close"]
+
+
+def test_objet_supprime_pendant_la_fermeture_ne_leve_rien() -> None:
+    """Pièce supprimée avant la restauration (assemblage défait par un déplacement) : FreeCAD
+    lève ``TypeError`` en lisant son nom ; la fermeture du panneau n'échoue pas."""
+    piece = FakeObject("Piece", 25)
+    deleted = False
+
+    def alive(_obj: Any) -> bool:
+        if deleted:
+            raise TypeError("a string or integer is required")
+        return True
+
+    preview = PartsPreview(lambda: [piece], alive)
+    deleted = True
+    preview.restore()

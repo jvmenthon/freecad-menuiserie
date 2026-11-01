@@ -40,7 +40,7 @@ class PreviewStyle:
             return
         try:
             vobj.Transparency = original
-        except (ReferenceError, RuntimeError):
+        except (ReferenceError, RuntimeError, TypeError):
             return  # objet supprimé (annulation, document fermé) : plus rien à rétablir
 
 
@@ -80,12 +80,15 @@ class PartsPreview:
         self._released = True
         styles, self._styles = self._styles, {}
         for obj, style in styles.values():
-            if self._alive(obj):
-                style.restore()
+            try:
+                if self._alive(obj):
+                    style.restore()
+            except (ReferenceError, RuntimeError, TypeError):
+                continue  # objet disparu pendant la fermeture : rien à rétablir
 
     def _current(self) -> dict[str, Any]:
         """Objets affichés qui existent, par nom ; aucun si les pièces sont illisibles."""
         try:
             return {obj.Name: obj for obj in self._shown() if self._alive(obj)}
-        except (ReferenceError, RuntimeError):
+        except (ReferenceError, RuntimeError, TypeError):
             return {}

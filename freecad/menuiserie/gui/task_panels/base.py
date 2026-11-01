@@ -23,6 +23,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
@@ -58,6 +59,43 @@ class TransactionTaskPanel:
         self._document_name: str = doc.Name
         self._transaction = App.getActiveTransaction()
         self._watcher = watcher
+        self._edit_transparency: PartsPreview | None = None
+
+    def transparent_objects(self) -> list[DocumentObject]:
+        """Objets affichés en transparence tant que le panneau est ouvert (pièce en édition, ou
+        sa pièce usinée si elle a des assemblages), relus à chaque aperçu ; aucun par défaut. Leur
+        transparence d'origine est rétablie à toute fermeture (« OK », « Annuler » ou fermeture
+        par FreeCAD)."""
+        return []
+
+    def _apply_styles(self) -> None:
+        """Transparence posée sur :meth:`transparent_objects`. FreeCAD enregistre une propriété
+        du ViewObject modifiée dans la transaction ouverte : en modification, la transaction
+        encore vide est donc refermée (abandonnée) le temps de la pose, puis rouverte, afin que
+        « OK » sans changement ne laisse aucune entrée d'annulation. En création, la pose reste
+        dans la transaction de création."""
+        objects = self.transparent_objects()
+        transaction = self._transaction
+        reopen = (
+            not self.creating
+            and objects
+            and transaction is not None
+            and App.getActiveTransaction() == transaction
+        )
+        if reopen:
+            App.closeActiveTransaction(True, transaction[1])
+        try:
+            self._edit_transparency = PartsPreview(self.transparent_objects, object_alive)
+        finally:
+            if reopen:
+                self.doc.openTransaction(transaction[0])
+                self._transaction = App.getActiveTransaction()
+
+    def _restore_styles(self) -> None:
+        """Transparence d'origine rétablie (idempotent, sans effet sur un objet supprimé)."""
+        transparency, self._edit_transparency = self._edit_transparency, None
+        if transparency is not None:
+            transparency.restore()
 
     @property
     def closed(self) -> bool:
@@ -102,6 +140,7 @@ class TransactionTaskPanel:
         connect(self.form, "destroyed()", self._on_closed_by_freecad)
         if self._watcher is not None:
             App.addDocumentObserver(self._watcher)
+        self._apply_styles()  # en dernier : le panneau est affiché, plus rien ne peut échouer
 
     # --- Fermeture ------------------------------------------------------------------------
 
@@ -110,8 +149,11 @@ class TransactionTaskPanel:
         self._closed = True
         self._stop_watching()
         self._remove_watcher()
+        if self.creating:
+            self._restore_styles()  # dans la transaction de création : rien d'enregistré en plus
         self._release_display()
         close_transaction(self._transaction, abort=abort)
+        self._restore_styles()  # modification : transaction close, aucune entrée d'annulation
         _close(self.doc)
 
     def _on_closed_by_freecad(self) -> None:
@@ -121,6 +163,8 @@ class TransactionTaskPanel:
             return
         self._closed = True
         self._stop_watching()
+        if self.creating:
+            self._restore_styles()
         self._release_display()
         QtCore.QTimer.singleShot(0, self._clean_up_after_forced_close)
 
@@ -134,6 +178,7 @@ class TransactionTaskPanel:
         if alive and not self.creating:
             App.getDocument(name).recompute()
         close_transaction(self._transaction, abort=self.creating)
+        self._restore_styles()  # après la transaction : aucune entrée d'annulation
         if not alive:
             return
         gui_doc = Gui.getDocument(name)
@@ -163,6 +208,8 @@ class ObjectTaskPanel(TransactionTaskPanel):
     def preview(self) -> None:
         """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""
         recompute_preview(self.obj)
+        if self._edit_transparency is not None:
+            self._edit_transparency.sync()  # une pièce usinée a pu apparaître au recalcul
 
 
 def object_alive(obj: DocumentObject) -> bool:
@@ -171,7 +218,7 @@ def object_alive(obj: DocumentObject) -> bool:
     try:
         doc = obj.Document
         return doc.Name in App.listDocuments() and doc.getObject(obj.Name) == obj
-    except (ReferenceError, RuntimeError):
+    except (ReferenceError, RuntimeError, TypeError):
         return False
 
 
