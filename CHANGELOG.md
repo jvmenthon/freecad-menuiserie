@@ -39,6 +39,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même
+  ensemble se range sous l'ensemble le plus proche qui les contient (sous-ensembles compris) dans
+  l'arbre, dès sa création.
 - Queue d'aronde inversée (demande de jv, 2026-11-01) : le nombre de queues et la largeur des
   griffes automatiques se règlent sur la plus mince des deux pièces ; inverser l'assemblage ne les
   change plus.

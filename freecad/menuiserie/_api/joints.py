@@ -11,6 +11,7 @@ from collections.abc import Callable
 import FreeCAD as App
 
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.furniture_bindings import common_furniture
 from freecad.menuiserie.features.joints.factories import (
     create_dovetail,
     create_dowels,
@@ -162,5 +163,10 @@ def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
                 machined.ViewObject.Proxy, ViewProviderMachinedPart
             ):
                 ViewProviderMachinedPart(machined.ViewObject)
+    # L'assemblage de deux pièces d'un même ensemble se range sous lui dans l'arbre : l'ensemble
+    # est marqué modifié pour que l'arbre relise ses enfants (``claimChildren``).
+    ensemble = common_furniture(joint.HostPart, joint.GuestPart)
+    if ensemble is not None:
+        ensemble.touch()
     joint.Document.recompute()
     return joint
