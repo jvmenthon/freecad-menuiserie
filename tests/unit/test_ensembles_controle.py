@@ -389,12 +389,15 @@ def test_ensemble_accepte() -> None:
     check_membership("A", "C", {"A": "X", "X": "A"}, {})  # boucle déjà présente : pas d'attente
 
 
-def test_membre_pas_d_equerre_ignore() -> None:
+def test_membre_pas_d_equerre_translate() -> None:
     turned = Member(
         "X", block=block((100.0, 100.0, 18.0), (500.0, 200.0, 0.0), 45.0), fixed=frozenset()
     )
     members = [*with_options(desk()), turned]
     rules, notices = follow_rules(BOX, members)
-    assert "X" not in predict(DEEPER, members, rules)
+    moved = predict(DEEPER, members, rules)["X"]
+    assert moved.block is not None and turned.block is not None
+    assert moved.block.dimensions == turned.block.dimensions  # D1 : cotes constantes
+    assert moved.block.placement.rotation == turned.block.placement.rotation
     assert check_resize(BOX, DEEPER, members, rules, [("X", "P")]) == ()
-    assert [n.kind for n in notices] == [NoticeKind.NOT_SQUARE]
+    assert notices == ()
