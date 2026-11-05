@@ -103,6 +103,24 @@ Fichier JSON, strict comme `dimensions.json` (ADR 0028) :
 - **Catalogue personnel** (dossier de l'atelier) : l'utilisateur ajoute ses références ; une entrée du
   même `id` remplace l'intégrée (comme les matériaux).
 - Pas de prix ni de marque figurative dans le catalogue intégré (simple nomenclature factuelle).
+
+### 5 bis. Décision de jv (2026-11-05) : catalogue local d'abord, téléchargement plus tard
+
+- **Ce jalon** : seulement un **petit catalogue local** livré avec l'addon, de quelques références de
+  base (voie C). Aucune connexion réseau, aucun compte, l'addon reste utilisable hors ligne.
+- **Plus tard, dans le cadre du SaaS** : télécharger d'autres références depuis un service. Cela
+  relève d'issues séparées portant le label **Saas-feature** (issue #161), hors de ce jalon.
+- Pour que ce second temps ne change rien au format, le catalogue est conçu comme un **jeu de
+  sources** : `items` du catalogue intégré, du catalogue personnel, et plus tard des « paquets »
+  téléchargés dans le dossier de l'atelier, tous au même format `{"format": 1, "items": […]}` et
+  fusionnés par `id` (la source la plus proche de l'utilisateur l'emporte : personnel, paquet,
+  intégré). Un paquet est un simple fichier JSON déposé dans le dossier : le téléchargement viendra
+  l'y mettre, sans que l'addon ait à changer.
+- **Contenu minimal du catalogue local** (valeurs à confirmer sur fiches techniques) :
+  tourillons Ø6×30, Ø8×35, Ø10×40 ; faux tenons Domino 5×30, 6×40, 8×40, 8×50, 10×50 ; biscuits
+  Lamello n° 0, 10, 20 ; vis à bois / aggloméré Ø3,5, 4, 5 à longueurs courantes ; une charnière
+  à cuvette Ø35 générique et une coulisse à billes générique, sans fabricant, pour tester le parcours.
+  Les références Blum, Hettich, etc. viendront avec le lot Q-e.
 - Famille inconnue d'une version plus ancienne : la référence reste dans la liste de débit, sans forme.
 
 ## 6. Types de quincaillerie : priorités
@@ -157,12 +175,13 @@ Les logements usinés viennent d'un **plan d'usinage** de la quincaillerie, comm
 | Lot | Contenu |
 |---|---|
 | Q-a | `core/hardware/` : schéma du catalogue, lecture stricte, familles et leurs cotes d'usinage (pur Python, tests) |
-| Q-b | Catalogue intégré minimal : tourillons, faux tenons Domino, biscuits, quelques vis |
+| Q-b | Catalogue local intégré minimal (§ 5 bis) : tourillons, faux tenons Domino, biscuits, quelques vis |
 | Q-c | Fonctionnalité : pose sur face / assemblage, plan d'usinage, aperçu en direct, panneau de choix |
 | Q-d | Liste de débit : section quincaillerie, export CSV |
 | Q-e | Pieds de caisson et charnières à cuvette (références réelles Blum, Salice, Grass, Hettich) |
 | Q-f | Coulisses de tiroir |
 | Q-g | Import facultatif d'un STEP du fabricant (niveau 2) |
+| (SaaS) | Téléchargement de paquets de références : issues **Saas-feature**, hors jalon |
 
 ADR à écrire avant Q-a : « Quincaillerie : catalogue de références, modèles génériques » (décisions
 de §4 et §5).
