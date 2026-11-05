@@ -23,6 +23,7 @@ from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.shaped_part import is_shaped_part
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.commands.base import report_refusal
+from freecad.menuiserie.gui.pick_edge import selected_codes
 from freecad.menuiserie.gui.task_panels.edge_finish import (
     CREATE_TRANSACTION,
     show_panel,
@@ -63,8 +64,9 @@ class EdgeFinishCommand:
             "MenuText": QT_TRANSLATE_NOOP("Menuiserie_EdgeFinish", "Finition des chants"),
             "ToolTip": QT_TRANSLATE_NOOP(
                 "Menuiserie_EdgeFinish",
-                "Donne un profil aux arêtes d'une pièce de bois : chanfrein, quart de rond, "
-                "arête cassée, gorge, demi-rond, bec-de-corbin ou doucine. Les cotes finies ne "
+                "Donne un profil aux arêtes d'une pièce de bois : quart de rond (arête cassée), "
+                "chanfrein, gorge, demi-rond, bec-de-corbin ou doucine. Sélectionnez avant une "
+                "face, une arête ou un sommet pour cocher ses arêtes. Les cotes finies ne "
                 "changent pas.",
             ),
         }
@@ -89,7 +91,7 @@ class EdgeFinishCommand:
             report_refusal(translated(_SHAPED, {"label": quoted_value(target.Label)}))
             return
         App.ActiveDocument.openTransaction(translated(CREATE_TRANSACTION))
-        show_panel(target)
+        show_panel(target, preselected=selected_codes(target))
 
 
 def register() -> None:

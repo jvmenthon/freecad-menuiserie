@@ -36,6 +36,13 @@ def formulaire() -> Any:
     return formulaire_nomme(FORM)
 
 
+def form_codes(form: Any) -> list[str]:
+    """Codes des cases cochées du panneau ``form``."""
+    from freecad.menuiserie.core.edges import all_edges
+
+    return [e.code for e in all_edges() if widget(form, e.code).isChecked()]
+
+
 def piece(doc: Any) -> Any:
     from freecad.menuiserie import api
 
@@ -100,17 +107,23 @@ def _creer(doc: Any) -> list[str]:
         *ecarts("aucun profil sans arête", usinee(blank), None),
         *ecarts("erreur masquée", widget(form, "errorLabel").isHidden(), True),
     ]
+    problemes += [
+        *ecarts("profil par défaut", widget(form, "family").currentData(), "Round"),
+        *ecarts("cote par défaut", widget(form, "size_a").property("rawValue"), 1.0),
+        *ecarts("cote B masquée", widget(form, "size_b").isHidden(), True),
+    ]
     choisir(widget(form, "family"), "Chamfer")
     saisir(widget(form, "size_a"), 5.0)
-    saisir(widget(form, "size_b"), 4.0)
     widget(form, "Z+Y-").setChecked(True)
     machined = usinee(blank)
     problemes += ecarts(
-        "aperçu", round(machined.Shape.Volume) if machined else None, round(VOLUME - 10.0 * 800.0)
+        "aperçu", round(machined.Shape.Volume) if machined else None, round(VOLUME - 12.5 * 800.0)
     )
-    widget(form, "shortcut_Z+").click()
-    coches = [code for code in ("Z+Y-", "Z+Y+", "Z+X-", "Z+X+") if widget(form, code).isChecked()]
-    problemes += ecarts("raccourci du dessus", len(coches), 4)
+    choisir(widget(form, "family"), "Beak")
+    problemes += ecarts("cote B demandée", widget(form, "size_b").isHidden(), False)
+    choisir(widget(form, "family"), "Chamfer")
+    widget(form, "shortcut_all").click()
+    problemes += ecarts("raccourci « toutes »", len(form_codes(form)), 12)
     widget(form, "shortcut_none").click()
     problemes += ecarts("aucune arête cochée", usinee(blank) is None or bool(usinee(blank)), True)
     widget(form, "Z+Y-").setChecked(True)
@@ -135,9 +148,13 @@ def _annuler(doc: Any) -> list[str]:
     form = lancer(blank)
     if form is None:
         return ["panneau de finition non ouvert"]
-    widget(form, "broken_edge").click()
-    widget(form, "Z+Y-").setChecked(True)
-    problemes = ecarts("aperçu", usinee(blank) is not None, True)
+    widget(form, "Z+Y-").setChecked(True)  # profil par défaut : arête cassée (quart de rond 1 mm)
+    machined = usinee(blank)
+    problemes = ecarts(
+        "arête cassée",
+        [(p.Family, p.SizeA.Value) for p in machined.Finishes] if machined else None,
+        [("Round", 1.0)],
+    )
     annuler()
     return [
         *problemes,
@@ -159,8 +176,7 @@ def _refus(doc: Any) -> list[str]:
         return ["panneau de finition non ouvert"]
     choisir(widget(form, "family"), "Chamfer")
     widget(form, "Z+Y-").setChecked(True)
-    saisir(widget(form, "size_a"), 5.0)
-    saisir(widget(form, "size_b"), 30.0)
+    saisir(widget(form, "size_a"), 30.0)
     erreur = widget(form, "errorLabel")
     problemes = [
         *ecarts("refus affiché", erreur.isHidden(), False),
@@ -168,7 +184,7 @@ def _refus(doc: Any) -> list[str]:
     ]
     valider()  # sans effet : le panneau reste ouvert
     problemes += ecarts("panneau resté ouvert", formulaire() is not None, True)
-    saisir(widget(form, "size_b"), 4.0)
+    saisir(widget(form, "size_a"), 4.0)
     problemes += ecarts("refus effacé", erreur.isHidden(), True)
     annuler()
     return problemes
@@ -177,6 +193,33 @@ def _refus(doc: Any) -> list[str]:
 def verifier_cote_refusee() -> list[str]:
     """A5 dans le panneau : cote trop grande affichée, « OK » sans effet, refus effacé."""
     return avec_document("VerifChantsRefus", _refus)
+
+
+def _preselection(doc: Any) -> list[str]:
+    blank = piece(doc)
+    index = next(
+        i + 1
+        for i, face in enumerate(blank.Shape.Faces)
+        if face.normalAt(0, 0).z > 0.99 and face.CenterOfMass.z > 1
+    )
+    Gui.Selection.clearSelection()
+    Gui.Selection.addSelection(blank, f"Face{index}")
+    Gui.Command.get(COMMANDE).run()
+    form = formulaire()
+    if form is None:
+        return ["panneau de finition non ouvert"]
+    problemes = ecarts(
+        "arêtes du dessus cochées",
+        sorted(form_codes(form)),
+        sorted(["Z+Y-", "Z+Y+", "Z+X-", "Z+X+"]),
+    )
+    annuler()
+    return problemes
+
+
+def verifier_preselection() -> list[str]:
+    """Une face sélectionnée avant la commande coche ses 4 arêtes."""
+    return avec_document("VerifChantsPresel", _preselection)
 
 
 def _modifier_et_supprimer(doc: Any) -> list[str]:
@@ -251,4 +294,5 @@ VERIFICATIONS_CHANTS: tuple[Callable[[], list[str]], ...] = (
     verifier_cote_refusee,
     verifier_modification_et_suppression,
     verifier_arete_deja_profilee,
+    verifier_preselection,
 )

@@ -389,3 +389,17 @@ def test_morceau_d_arete_pres_d_un_bout_garde_son_arete() -> None:
     assert nearest_edge(long_piece, Vec3(25.0, 0.0, 20.0)).code == "Z+Y-"
     assert nearest_edge(long_piece, Vec3(50.0, 0.0, 20.0)).code == "Z+Y-"
     assert nearest_edge(long_piece, Vec3(975.0, 50.0, 0.0)).code == "Z-Y+"
+
+
+def test_elements_cliques_donnent_leurs_aretes() -> None:
+    from freecad.menuiserie.core.edges import edges_at
+
+    def codes(kind: str, x: float, y: float, z: float) -> list[str]:
+        return sorted(e.code for e in edges_at(PIECE, kind, Vec3(x, y, z)))
+
+    assert codes("Face", 300.0, 150.0, 20.0) == ["Z+X+", "Z+X-", "Z+Y+", "Z+Y-"]
+    assert codes("Face", 0.0, 150.0, 10.0) == ["Y+X-", "Y-X-", "Z+X-", "Z-X-"]
+    assert codes("Edge", 300.0, 0.0, 20.0) == ["Z+Y-"]
+    assert codes("Vertex", 0.0, 0.0, 20.0) == ["Y-X-", "Z+X-", "Z+Y-"]
+    with pytest.raises(ValueError):
+        edges_at(PIECE, "Solid", Vec3(0.0, 0.0, 0.0))

@@ -15,7 +15,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
   `edge_profiles_of` de l'API.
 - Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cotes A
-  et B, douze arêtes en cases à cocher, raccourcis, arête cassée 1 mm, choix dans la vue 3D),
+  douze arêtes en cases à cocher cochées d'après la face, l'arête ou le sommet sélectionné, cote B
+  seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
   aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
 - Assemblages entre pièces en biais (#114, ADR 0024) : tenon-mortaise et rainure-languette entre
   deux pièces dont l'angle n'est pas un multiple de 90° (70° au plus, angles composés compris),
