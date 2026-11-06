@@ -7,6 +7,15 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Quincaillerie, lots Q-c et Q-d (#159, ADR 0033) : deux nouveaux assemblages, **faux tenons**
+  (type Domino) et **biscuits**, avec une mortaise plate dans chaque pièce, taille du commerce
+  choisie automatiquement d'après le contact (au plus un tiers de l'épaisseur), nombre,
+  décalage et jeu de fond réglables, commandes, icônes et fabriques `make_loose_tenons` et
+  `make_biscuits`. Le paramètre `reference` des fabriques `make_dowels`, `make_loose_tenons` et
+  `make_biscuits` prend l'identifiant d'une référence du catalogue (ex. `domino-8x50`) et fixe
+  les cotes du commerce. La liste de débit compte les faux tenons et les biscuits (taille et
+  largeur) avec les tourillons ; l'en-tête « Diamètre (mm) » du CSV devient « Diamètre ou
+  épaisseur (mm) ». Les formes arrondies du commerce sont simplifiées en boîtes.
 - Quincaillerie, lots Q-a et Q-b (#159, ADR 0033) : catalogue de références du commerce en JSON
   strict (`quincaillerie.json`, format 1), lu avec les mêmes garde-fous que les matériaux,
   entrées invalides ignorées une à une avec anomalie, sources fusionnées par identifiant (la plus

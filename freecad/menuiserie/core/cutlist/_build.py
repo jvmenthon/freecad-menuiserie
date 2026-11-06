@@ -146,18 +146,18 @@ def _totals(lines: Iterable[CutLine]) -> tuple[MaterialTotal, ...]:
 
 
 def _grouped_hardware(items: Iterable[Hardware]) -> tuple[Hardware, ...]:
-    """Fournitures regroupées par (nature, diamètre, longueur), triées."""
+    """Fournitures regroupées par (nature, diamètre, longueur, largeur), triées."""
     quantities: dict[tuple[object, ...], int] = defaultdict(int)
     first: dict[tuple[object, ...], Hardware] = {}
     for item in items:
-        key = (item.kind, *_rounded(item.diameter, item.length))
+        key = (item.kind, *_rounded(item.diameter, item.length, item.width))
         first.setdefault(key, item)
         quantities[key] += item.quantity
     grouped = (
-        Hardware(item.kind, item.diameter, item.length, quantities[key])
+        Hardware(item.kind, item.diameter, item.length, quantities[key], item.width)
         for key, item in first.items()
     )
-    return tuple(sorted(grouped, key=lambda h: (h.kind.value, h.diameter, h.length)))
+    return tuple(sorted(grouped, key=lambda h: (h.kind.value, h.diameter, h.width, h.length)))
 
 
 def _over_standard_notice(line: CutLine) -> Notice:

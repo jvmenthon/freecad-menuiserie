@@ -73,6 +73,7 @@ _FIELDS: Final[Mapping[str, str]] = MappingProxyType(
         "additions": QT_TRANSLATE_NOOP("Menuiserie", "ajouts"),
         "diameter": QT_TRANSLATE_NOOP("Menuiserie", "diamètre"),
         "length": QT_TRANSLATE_NOOP("Menuiserie", "longueur"),
+        "width": QT_TRANSLATE_NOOP("Menuiserie", "largeur"),
         "kind": QT_TRANSLATE_NOOP("Menuiserie", "nature"),
         "rough_thicknesses": QT_TRANSLATE_NOOP("Menuiserie", "épaisseurs de brut"),
         "shape": QT_TRANSLATE_NOOP("Menuiserie", "empreinte de forme"),
@@ -219,16 +220,21 @@ class HardwareKind(str, Enum):
     """Famille de fourniture ; ajouts en fin seulement."""
 
     DOWEL = "Dowel"
+    LOOSE_TENON = "LooseTenon"
+    BISCUIT = "Biscuit"
 
 
 @dataclass(frozen=True)
 class Hardware:
-    """Fourniture : ``quantity`` tourillons de ``diameter`` sur ``length`` (mm)."""
+    """Fourniture : ``quantity`` pièces de ``diameter`` sur ``length`` (mm). Un tourillon donne
+    son diamètre ; un faux tenon ou un biscuit son épaisseur (``diameter``), sa pénétration
+    totale (``length``) et sa largeur le long du joint (``width``, 0 pour un tourillon)."""
 
     kind: HardwareKind
     diameter: float
     length: float
     quantity: int
+    width: float = 0.0
 
     def __post_init__(self) -> None:
         if not isinstance(self.kind, HardwareKind):
@@ -236,6 +242,8 @@ class Hardware:
         object.__setattr__(self, "diameter", _require_length(self.diameter, "diameter"))
         object.__setattr__(self, "length", _require_length(self.length, "length"))
         _require_count(self.quantity, "quantity")
+        if self.width:
+            object.__setattr__(self, "width", _require_length(self.width, "width"))
 
 
 @dataclass(frozen=True)
