@@ -17,7 +17,6 @@ from freecad.menuiserie.core.joints.dowels import DowelParams
 from freecad.menuiserie.core.joints.half_lap import HalfLapParams
 from freecad.menuiserie.core.joints.miter import MiterParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
-from freecad.menuiserie.core.joints.rabbet import RabbetParams
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from tests.unit.aides_assemblages import rail, stile
 from tests.unit.aides_biais import Mode, leaning_rail, stile_block, tilted_rail
@@ -197,7 +196,6 @@ def test_long_point_independant_de_la_reference(reference: str) -> None:
 @pytest.mark.parametrize(
     ("kind", "params"),
     [
-        (JointKind.RABBET, RabbetParams()),
         (JointKind.DOWELS, DowelParams()),
         (JointKind.HALF_LAP, HalfLapParams()),
         (JointKind.DOVETAIL, DovetailParams()),

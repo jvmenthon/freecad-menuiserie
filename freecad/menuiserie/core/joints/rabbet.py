@@ -6,8 +6,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
+from freecad.menuiserie.core._polyhedron import Polyhedron
 from freecad.menuiserie.core.contact import Contact
-from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Box, JointError, PlacedBlock
+from freecad.menuiserie.core.geometry import (
+    CONTACT_TOLERANCE_MM,
+    CUT_OVERRUN_MM,
+    Box,
+    JointError,
+    PlacedBlock,
+    is_square,
+)
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import (
     JointKind,
@@ -20,6 +28,7 @@ from freecad.menuiserie.core.joints._base import (
     validate_params,
 )
 from freecad.menuiserie.core.joints._bridge import Bridge, bridged
+from freecad.menuiserie.core.joints._overlap import oblique_overlap
 
 __all__ = ["RabbetParams", "RabbetStrategy", "RabbetValues"]
 
@@ -55,14 +64,15 @@ class RabbetValues:
     """Valeurs effectives : enlèvement dans le repère de l'hôte, prolongement de la pièce
     logée posée au contact (0 si elle occupe déjà la place de la feuillure)."""
 
-    cut: Box
+    cut: Box | Polyhedron
     depth: float = 0.0
 
     @property
     def length(self) -> float:
         """Longueur de la feuillure : la plus grande de ses étendues sur les axes X et Y de
         l'hôte (axe où elle file)."""
-        return self.cut.size(_run_axis(self.cut))
+        box = self.cut.bounds() if isinstance(self.cut, Polyhedron) else self.cut
+        return box.size(_run_axis(box))
 
 
 class RabbetStrategy:
@@ -73,11 +83,15 @@ class RabbetStrategy:
 
     def resolve(self, host: PlacedBlock, guest: PlacedBlock, params: RabbetParams) -> RabbetValues:
         """Enlèvement effectif dans l'hôte."""
+        if not is_square(host, guest):
+            return _oblique_values(host, guest)
         return self._resolve(host, _bridge(host, guest, params), params)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: RabbetParams) -> JointPlan:
         """Feuillure enlevée à l'hôte ; invitée inchangée, ou prolongée dans la feuillure si
         elle est posée au contact."""
+        if not is_square(host, guest):
+            return JointPlan(host_cuts=(_oblique_values(host, guest).cut,))
         bridge = _bridge(host, guest, params)
         cut = self._resolve(host, bridge, params).cut
         return bridge.plan(JointPlan(host_cuts=(cut,)))
@@ -91,6 +105,17 @@ class RabbetStrategy:
         if _splits(cut, host.local_box()):
             raise JointError(NO_MATERIAL_LEFT, {})
         return RabbetValues(cut, bridge.extension)
+
+
+def _oblique_values(host: PlacedBlock, guest: PlacedBlock) -> RabbetValues:
+    """Feuillure entre pièces en biais (ADR 0034) : la boîte de l'invitée, prolongée de
+    ``CUT_OVERRUN_MM`` à chaque bout de son axe le plus long ; l'option « filante » est sans
+    effet. Refus si elle enlèverait tout l'hôte."""
+    overlap = oblique_overlap(host, guest)
+    box = host.local_box()
+    if overlap.common.volume() >= box.size(0) * box.size(1) * box.size(2) - CONTACT_TOLERANCE_MM:
+        raise JointError(NO_MATERIAL_LEFT, {})
+    return RabbetValues(overlap.guest_solid(CUT_OVERRUN_MM))
 
 
 def _run_axis(cut: Box) -> int:
