@@ -32,6 +32,19 @@
       "source": "Tourillons cannelés du commerce (norme courante, cotes à confirmer sur fiche), 2026-11"
     },
     {
+      "id": "domino-4x20",
+      "family": "loose-tenon",
+      "label": "Faux tenon Domino 4 × 20 mm",
+      "params": {
+        "thickness": 4,
+        "width": 16.6,
+        "length": 20
+      },
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
+      "manufacturer": "Festool",
+      "reference": "Domino 4x20"
+    },
+    {
       "id": "domino-5x30",
       "family": "loose-tenon",
       "label": "Faux tenon Domino 5 × 30 mm",
@@ -40,7 +53,7 @@
         "width": 19,
         "length": 30
       },
-      "source": "Tableau public des tailles Domino de Festool, 2026-11 (largeur à confirmer)",
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
       "manufacturer": "Festool",
       "reference": "Domino 5x30"
     },
@@ -53,7 +66,7 @@
         "width": 20,
         "length": 40
       },
-      "source": "Tableau public des tailles Domino de Festool, 2026-11 (largeur à confirmer)",
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
       "manufacturer": "Festool",
       "reference": "Domino 6x40"
     },
@@ -66,7 +79,7 @@
         "width": 22,
         "length": 40
       },
-      "source": "Tableau public des tailles Domino de Festool, 2026-11 (largeur à confirmer)",
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
       "manufacturer": "Festool",
       "reference": "Domino 8x40"
     },
@@ -79,7 +92,7 @@
         "width": 22,
         "length": 50
       },
-      "source": "Tableau public des tailles Domino de Festool, 2026-11 (largeur à confirmer)",
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
       "manufacturer": "Festool",
       "reference": "Domino 8x50"
     },
@@ -92,7 +105,7 @@
         "width": 24,
         "length": 50
       },
-      "source": "Tableau public des tailles Domino de Festool, 2026-11 (largeur à confirmer)",
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
       "manufacturer": "Festool",
       "reference": "Domino 10x50"
     },

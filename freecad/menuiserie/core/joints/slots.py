@@ -183,7 +183,7 @@ class LooseTenonStrategy(_SlotStrategy):
 
     kind: ClassVar[JointKind] = JointKind.LOOSE_TENON
     sizes: ClassVar[tuple[SlotSize, ...]] = (
-        SlotSize(4.0, 17.0, 20.0),
+        SlotSize(4.0, 16.6, 20.0),
         SlotSize(5.0, 19.0, 30.0),
         SlotSize(6.0, 20.0, 40.0),
         SlotSize(8.0, 22.0, 50.0),
