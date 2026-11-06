@@ -110,3 +110,65 @@ Une fois les problématiques partagées, il restera à trancher, dans cet ordre 
 5. Quel format pour les gabarits personnels (P14, P15) ?
 6. Faut-il bâtir le socle commun (description des paramètres, panneau unique) avant les nouveaux
    gabarits, ou après les premiers (P1 à P3) ?
+
+## 5. Pistes de jv (2026-11-05 et 2026-11-06), à approfondir
+
+### 5.1 Gabarit personnel : local ou par le SaaS et l'IA
+
+Idée de jv : on sélectionne un ensemble. S'il est **fixe**, il est enregistré tel quel, en local.
+Si on veut quelque chose de **modulaire**, on passe par le cloud : l'IA propose des dimensions
+personnalisées que l'utilisateur accepte ou refuse. Tout se passe dans l'interface de FreeCAD, par
+des appels REST.
+
+Problématiques soulevées :
+
+- **P17 — Format de règles d'abord.** L'IA ne peut proposer que ce que le format sait dire. Elle
+  renvoie une **description** (paramètres, bornes, répétitions), jamais du code ; `core` la revalide
+  entière avant l'aperçu.
+- **P18 — Fiabilité.** Propositions fausses possibles (jeux absurdes, pièces qui se traversent) :
+  tout est revalidé par les règles de l'atelier. Deux demandes identiques donnent deux réponses :
+  on enregistre le résultat accepté, on ne le regénère pas.
+- **P19 — Confidentialité.** Les plans de clients partent dans le cloud : consentement explicite,
+  affichage de ce qui est envoyé, RGPD.
+- **P20 — Hors ligne et Addon Manager.** Sans connexion, pas de mode modulaire par l'IA. Un addon
+  libre qui appelle un service payant doit rester utile sans lui ; l'appel réseau est volontaire.
+- **P21 — Technique.** Appels asynchrones (réseau Qt) pour ne pas figer FreeCAD, réponses bornées
+  en taille, jeton hors des préférences en clair, format versionné des deux côtés.
+- **P22 — Coût.** Chaque appel coûte : quotas liés à l'abonnement.
+
+### 5.2 Éditeur de règles local
+
+Piste : quatre verbes, pas de langage de programmation.
+
+1. **Suivre** : chaque pièce s'étire, se déplace ou ne bouge pas quand le meuble change de taille.
+   C'est le « fixe / non fixe » des distances de l'Ensemble (ADR 0008, 0009), montré par un cadenas
+   sur chaque face dans la vue 3D.
+2. **Répéter** : une pièce (et ses assemblages) se répète entre deux autres, par un nombre ou un
+   espacement maximal (« un montant au moins tous les 600 mm »).
+3. **Exposer** : une valeur devient un paramètre nommé, avec bornes et défaut.
+4. **Optionnel** : une pièce ou un groupe peut être coché ou décoché (socle, entretoise).
+
+Parcours : clic droit sur l'ensemble → « Créer un gabarit… » → panneau en trois étapes (cotes,
+répétitions et options, paramètres et essai avec curseurs et aperçu). Les règles « Suivre » sont
+pré-remplies d'après la géométrie. Champ « formule » facultatif et replié : paramètres nommés et
+quatre opérations, évalué par `core`, sans exécuter de code. Pas de conditions, de solveur ni de
+script. L'IA du SaaS (§ 5.1) pré-remplirait ces mêmes règles.
+
+### 5.3 Couleurs par rôle (demande de jv, 2026-11-06)
+
+Dans l'éditeur de règles, chaque pièce prend une **couleur selon son rôle** : totalement fixe, qui
+se redimensionne, qui se déplace, qui se répète, optionnelle. Une légende dans le panneau.
+
+Problématiques :
+
+- **P23 — Couleur du matériau.** Décision de jv (2026-10-20) : la couleur d'une pièce suit toujours
+  son matériau. Les couleurs de rôle ne sont donc qu'un **affichage temporaire** pendant
+  l'éditeur, rétabli à la fermeture, et posé hors transaction pour ne pas créer d'entrée
+  d'annulation (même mécanisme que la transparence en édition, PR #132).
+- **P24 — Rôles cumulés.** Une étagère peut à la fois se répéter et s'étirer. Il faut une règle
+  d'affichage : couleur du rôle principal plus un marqueur (contour, icône), ou une couleur par
+  combinaison (vite illisible).
+- **P25 — Lisibilité.** Palette lisible par les daltoniens et sur fond clair comme sombre ;
+  cinq couleurs au plus ; la légende donne aussi le nom du rôle.
+- **P26 — Pièces non fixes « par axe ».** Une pièce peut s'étirer en largeur et rester fixe en
+  hauteur. La couleur dit « elle bouge » ; le détail par face reste porté par les cadenas.
