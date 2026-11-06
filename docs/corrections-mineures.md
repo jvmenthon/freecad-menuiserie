@@ -53,3 +53,13 @@ contournable), **mineur** (confort, docs, dette de test).
 | b1 | mineur | spec § 7, `features/joints/base.py` | L'avertissement « épaulement très aigu » au-delà de 45° n'est pas implémenté ; B8 prévoit « Biais : 10° », le code affiche une phrase plus longue. | Ajouter l'avertissement dans la vue rapport ; aligner le texte ou la spec. |
 | b2 | mineur | `core/furniture/_model.py`, `_edit.py` | `NoticeKind.NOT_SQUARE` et `Follow.NOT_SQUARE` ne sont plus produits depuis AB-d (toute pièce non d'équerre suit par translation). | Retirer les deux valeurs et leurs gabarits à la prochaine évolution du modèle d'ensemble. |
 | b3 | mineur | `tests/unit/test_assemblage_biais.py` | Chemins refusés sans test : `NO_WALL` en biais, invitée qui entre par un chant (`OVERLAPPING`), `TOO_SMALL` (polyèdre vide), rainure-languette en biais composé. | Ajouter les cas. |
+
+## Jalon « Quincaillerie » (issue #159, ADR 0033), 2026-11-06
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| Q1 | mineur | `freecad/menuiserie/data/quincaillerie.json` | Largeurs des Domino et cotes des biscuits saisies de mémoire d'après les tableaux publics, non relues sur fiche (marquées « à confirmer »). | jv ou une relecture compare avec les fiches Festool et Lamello, puis retire la mention. |
+| Q2 | mineur | `core/joints/slots.py` | Mortaises en boîtes : la forme arrondie (Domino) et en lentille (biscuit) du commerce est simplifiée. | Prisme à bouts arrondis si le volume enlevé ou le rendu le demande. |
+| Q3 | mineur | `features/joints/slots.py`, `core/cutlist` | La référence choisie (`reference=`) fixe les cotes mais n'est pas mémorisée sur l'assemblage : la liste de débit n'a ni fabricant ni référence, seulement taille et quantité. | Propriété `Reference` sur l'assemblage et colonnes fabricant / référence du CSV (spec § 8). |
+| Q4 | mineur | `gui/task_panels/joint.py` | Pas de panneau de choix de référence (filtre par type et mot-clé, spec § 7) : la référence ne se choisit que par l'API. | Liste filtrable de `core.hardware.Catalog.search` dans le panneau de l'assemblage. |
+| Q5 | mineur | `core/hardware/_families.py` | Familles vis, charnière et coulisse : cotes validées, mais aucune forme ni pose (lots Q-e à Q-g). | Lots ultérieurs de la spec § 10. |
