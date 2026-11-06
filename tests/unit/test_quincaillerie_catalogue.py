@@ -180,3 +180,30 @@ def test_recherche_et_acces() -> None:
     assert len(catalog.of_family("biscuit")) == 3
     with pytest.raises(ValueError, match="double"):
         Catalog((catalog.items[0], catalog.items[0]))
+
+
+def test_reference_vers_parametres_d_assemblage() -> None:
+    from freecad.menuiserie.core.hardware import joint_kind_of, joint_params
+    from freecad.menuiserie.core.i18n import TemplatedError
+    from freecad.menuiserie.core.joints import JointKind
+
+    catalog, _ = load_catalog(DATA)
+    dowel, domino, biscuit = (
+        catalog.get(i) for i in ("tourillon-8x35", "domino-8x50", "biscuit-20")
+    )
+    assert joint_params(dowel, JointKind.DOWELS) == {"diameter": 8.0, "dowel_length": 35.0}
+    assert joint_params(domino, JointKind.LOOSE_TENON) == {
+        "thickness": 8.0,
+        "along": 22.0,
+        "total_depth": 50.0,
+    }
+    assert joint_params(biscuit, JointKind.BISCUIT) == {
+        "thickness": 4.0,
+        "along": 56.0,
+        "total_depth": 23.0,
+    }
+    assert joint_kind_of(catalog.get("vis-bois-4x40")) is None
+    with pytest.raises(TemplatedError, match="ne convient pas"):
+        joint_params(domino, JointKind.BISCUIT)
+    with pytest.raises(TemplatedError, match="ne se pose pas"):
+        joint_params(catalog.get("vis-bois-4x40"), JointKind.DOWELS)

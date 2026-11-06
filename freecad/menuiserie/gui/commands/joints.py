@@ -45,6 +45,8 @@ DOWELS: Final = "Menuiserie_Dowels"
 HALF_LAP: Final = "Menuiserie_HalfLap"
 DOVETAIL: Final = "Menuiserie_Dovetail"
 MITER: Final = "Menuiserie_Miter"
+LOOSE_TENON: Final = "Menuiserie_LooseTenon"
+BISCUIT: Final = "Menuiserie_Biscuit"
 
 
 class JointCommand(TransactionCommand):
@@ -181,6 +183,34 @@ class MiterCommand(JointCommand):
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage d'onglet")
 
 
+class LooseTenonCommand(JointCommand):
+    """Faux tenons : mortaises plates en vis-à-vis dans les deux pièces."""
+
+    NAME = LOOSE_TENON
+    FACTORY = api.make_loose_tenons
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_LooseTenon", "Faux tenons")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_LooseTenon",
+        "Relie les deux pièces sélectionnées par des faux tenons (type Domino) : taille et "
+        "nombre automatiques d'après la surface de contact.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à faux tenons")
+
+
+class BiscuitCommand(JointCommand):
+    """Biscuits : fentes en vis-à-vis dans les deux pièces."""
+
+    NAME = BISCUIT
+    FACTORY = api.make_biscuits
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Biscuit", "Biscuits")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Biscuit",
+        "Relie les deux pièces sélectionnées par des biscuits (lamelles) : taille et nombre "
+        "automatiques d'après la surface de contact.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à biscuits")
+
+
 def selected_parts() -> tuple[DocumentObject, DocumentObject] | None:
     """Les deux pièces sélectionnées (dans l'ordre de sélection), ou ``None`` si la sélection
     n'est pas exactement deux pièces (brutes ou usinées) de brutes distinctes."""
@@ -221,3 +251,5 @@ def register() -> None:
     Gui.addCommand(HALF_LAP, HalfLapCommand())
     Gui.addCommand(DOVETAIL, DovetailCommand())
     Gui.addCommand(MITER, MiterCommand())
+    Gui.addCommand(LOOSE_TENON, LooseTenonCommand())
+    Gui.addCommand(BISCUIT, BiscuitCommand())

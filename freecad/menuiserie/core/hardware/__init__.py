@@ -8,6 +8,7 @@ l'emporte. Aucun accès réseau, aucun fichier de fabricant.
 
 from __future__ import annotations
 
+from freecad.menuiserie.core.hardware._apply import joint_kind_of, joint_params
 from freecad.menuiserie.core.hardware._families import FAMILIES, Family, ParamSpec, family_of
 from freecad.menuiserie.core.hardware._loader import (
     CatalogSource,
@@ -29,6 +30,8 @@ __all__ = [
     "ParamSpec",
     "UnknownHardwareError",
     "family_of",
+    "joint_kind_of",
+    "joint_params",
     "load_catalog",
     "merge_catalogs",
     "parse_catalog",

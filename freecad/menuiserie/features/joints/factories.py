@@ -24,14 +24,17 @@ from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
+from freecad.menuiserie.features.joints.slots import BiscuitJoint, LooseTenonJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
 from freecad.menuiserie.features.machined_part import blank_of, ensure_machined_part
 
 __all__ = [
+    "create_biscuits",
     "create_dovetail",
     "create_dowels",
     "create_half_lap",
     "create_joint",
+    "create_loose_tenons",
     "create_miter",
     "create_mortise_tenon",
     "create_rabbet",
@@ -171,3 +174,19 @@ def create_miter(
     chevauchent au coin ; chacune perd le prisme triangulaire de leur boîte commune situé du
     côté de l'autre. Aucun paramètre (``MiterParams`` est vide)."""
     return _create(MiterJoint, doc, host, guest, params)
+
+
+def create_loose_tenons(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée des faux tenons logés dans une mortaise plate de ``host`` et de ``guest``, à travers
+    leur contact. Paramètres de ``SlotParams`` en mm, 0 = automatique."""
+    return _create(LooseTenonJoint, doc, host, guest, params)
+
+
+def create_biscuits(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée des biscuits logés dans une fente de ``host`` et de ``guest``, à travers leur
+    contact. Paramètres de ``SlotParams`` en mm, 0 = automatique."""
+    return _create(BiscuitJoint, doc, host, guest, params)

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Montages de référence des assemblages de J3c et J4 : rainure-languette, feuillure,
-tourillons, mi-bois, queue d'aronde, onglet.
+tourillons, faux tenons, biscuits, mi-bois, queue d'aronde, onglet.
 
 Chaque montage pose deux pièces de chêne (hôte, invitée), les assemble par la fabrique de
 l'API et connaît les volumes attendus des deux pièces usinées. Module d'aide des tests
@@ -77,6 +77,27 @@ DOWELS = Scenario(
     600 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
     280 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
 )
+# Contact de 60 x 22 (cadre M1 / T1) : deux faux tenons 6 x 20 (taille automatique, au plus le tiers
+# de l'épaisseur), mortaisés de 20 + 1 dans chaque pièce ; un seul biscuit n° 20 (56 x 4, 23 de
+# pénétration), fente de 11,5 + 1 dans chaque pièce.
+LOOSE_TENON_HOLE_VOLUME = 6 * 20 * 21
+BISCUIT_HOLE_VOLUME = 56 * 4 * 12.5
+LOOSE_TENON = Scenario(
+    "faux tenons",
+    "make_loose_tenons",
+    ((600, 60, 22), (0, 0, 0)),
+    ((280, 60, 22), (60, 60, 90)),
+    600 * 60 * 22 - 2 * LOOSE_TENON_HOLE_VOLUME,
+    280 * 60 * 22 - 2 * LOOSE_TENON_HOLE_VOLUME,
+)
+BISCUIT = Scenario(
+    "biscuits",
+    "make_biscuits",
+    ((600, 60, 22), (0, 0, 0)),
+    ((280, 60, 22), (60, 60, 90)),
+    600 * 60 * 22 - BISCUIT_HOLE_VOLUME,
+    280 * 60 * 22 - BISCUIT_HOLE_VOLUME,
+)
 HALF_LAP = Scenario(
     "mi-bois",
     "make_half_lap",
@@ -109,11 +130,13 @@ MITER = Scenario(
     500 * 60 * 20 - MITER_CUT,
     500 * 60 * 20 - MITER_CUT,
 )
-SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS, HALF_LAP, DOVETAIL, MITER)
+SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS, LOOSE_TENON, BISCUIT, HALF_LAP, DOVETAIL, MITER)
 PROXIES = {
     "make_tongue_groove": ("tongue_groove", "TongueGrooveJoint"),
     "make_rabbet": ("rabbet", "RabbetJoint"),
     "make_dowels": ("dowels", "DowelJoint"),
+    "make_loose_tenons": ("slots", "LooseTenonJoint"),
+    "make_biscuits": ("slots", "BiscuitJoint"),
     "make_half_lap": ("half_lap", "HalfLapJoint"),
     "make_dovetail": ("dovetail", "DovetailJoint"),
     "make_miter": ("miter", "MiterJoint"),

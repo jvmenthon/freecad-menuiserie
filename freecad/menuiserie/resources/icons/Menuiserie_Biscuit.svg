@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Biscuits : deux planches à chant, une lamelle ovale rapportée dans une fente -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+    <linearGradient id="tourillon-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fdf0d5"/><stop offset="1" stop-color="#f3d8a6"/></linearGradient>
+    <linearGradient id="tourillon-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecca8d"/><stop offset="1" stop-color="#dcb070"/></linearGradient>
+    <linearGradient id="tourillon-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfa262"/><stop offset="1" stop-color="#b88b4c"/></linearGradient>
+  </defs>
+  <polygon points="3.00,18.72 16.00,11.22 61.00,37.20 48.00,44.70" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,26.80 3.00,18.72 48.00,44.70 48.00,52.78" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,45.28 48.00,52.78 48.00,44.70 61.00,37.20" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="15.50,13.81 17.87,15.41 20.28,16.97 22.79,18.48 25.39,19.94 28.09,21.34 30.84,22.71 33.60,24.07 36.32,25.46 38.96,26.90 41.49,28.39 43.94,29.94 46.31,31.53 48.67,33.13 51.07,34.70 53.55,36.23 56.12,37.70" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="7.74,18.30 10.43,19.70 13.02,21.16 15.52,22.68 17.93,24.25 20.30,25.84 22.67,27.43 25.09,28.99 27.60,30.50 30.21,31.95 32.92,33.35 35.67,34.72 38.43,36.08 41.15,37.47 43.77,38.91 46.30,40.41 48.74,41.97" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="14.00,20.45 21.00,16.41 34.00,23.92 27.00,27.96" fill="url(#tourillon-z)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="14.00,21.61 14.00,20.45 27.00,27.96 27.00,29.11" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="34.00,25.07 27.00,29.11 27.00,27.96 34.00,23.92" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32.00,30.85 39.00,26.80 52.00,34.31 45.00,38.35" fill="url(#tourillon-z)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32.00,32.00 32.00,30.85 45.00,38.35 45.00,39.51" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="52.00,35.46 45.00,39.51 45.00,38.35 52.00,34.31" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+</svg>

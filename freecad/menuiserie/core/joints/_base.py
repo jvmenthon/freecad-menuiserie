@@ -68,6 +68,8 @@ class JointKind(str, Enum):
     HALF_LAP = "HalfLap"
     DOVETAIL = "Dovetail"
     MITER = "Miter"
+    LOOSE_TENON = "LooseTenon"
+    BISCUIT = "Biscuit"
 
 
 @dataclass(frozen=True)

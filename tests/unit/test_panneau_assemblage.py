@@ -24,6 +24,7 @@ from freecad.menuiserie.core.joints.half_lap import HalfLapParams, HalfLapValues
 from freecad.menuiserie.core.joints.miter import MiterParams, MiterValues
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams, RabbetValues
+from freecad.menuiserie.core.joints.slots import SlotParams, SlotValues
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from tests.unit.aides import ROOT, imported_modules
 
@@ -36,6 +37,7 @@ TYPES = {
     "tongue_groove.py": (TongueGrooveParams, ProfileValues),
     "rabbet.py": (RabbetParams, RabbetValues),
     "dowels.py": (DowelParams, DowelValues),
+    "slots.py": (SlotParams, SlotValues),
     "half_lap.py": (HalfLapParams, HalfLapValues),
     "dovetail.py": (DovetailParams, DovetailValues),
     "miter.py": (MiterParams, MiterValues),
@@ -120,6 +122,11 @@ def test_cotes_automatiques_attendues() -> None:
         ("dowels.py", "HostDepth"),
         ("dowels.py", "Count"),
         ("dowels.py", "EdgeDistance"),
+        ("slots.py", "Thickness"),
+        ("slots.py", "Along"),
+        ("slots.py", "TotalDepth"),
+        ("slots.py", "Count"),
+        ("slots.py", "EdgeDistance"),
         ("half_lap.py", "Depth"),
         ("dovetail.py", "TailCount"),
         ("dovetail.py", "PinWidth"),

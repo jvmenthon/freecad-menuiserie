@@ -10,12 +10,20 @@ from collections.abc import Callable
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.hardware import joint_params
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.joints import JointKind
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_bindings import common_furniture
+from freecad.menuiserie.features.hardware import get_catalog
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.factories import (
+    create_biscuits,
     create_dovetail,
     create_dowels,
     create_half_lap,
+    create_loose_tenons,
     create_miter,
     create_mortise_tenon,
     create_rabbet,
@@ -78,10 +86,12 @@ def make_dowels(
     document.
 
     Paramètres facultatifs en mm (0 = automatique) : ``diameter``, ``dowel_length``,
-    ``host_depth``, ``count``, ``edge_distance``, ``thickness_offset``, ``hole_clearance``.
+    ``host_depth``, ``count``, ``edge_distance``, ``thickness_offset``, ``hole_clearance`` ;
+    ``reference`` : identifiant d'un tourillon du catalogue de quincaillerie (ADR 0033), qui fixe
+    ``diameter`` et ``dowel_length`` sauf s'ils sont donnés.
     Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
-    return _make_joint(create_dowels, host, guest, params, check)
+    return _make_joint(create_dowels, host, guest, _with_reference(JointKind.DOWELS, params), check)
 
 
 def make_half_lap(
@@ -122,6 +132,54 @@ def make_miter(
     transaction que :func:`make_mortise_tenon`.
     """
     return _make_joint(create_miter, host, guest, params, check)
+
+
+def make_loose_tenons(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
+    """Relie deux pièces par des faux tenons (type Domino) logés dans une mortaise plate de
+    chaque pièce, et recalcule le document.
+
+    Paramètres facultatifs en mm (0 = automatique, la plus grande taille du commerce qui tient) :
+    ``thickness``, ``along``, ``total_depth``, ``count``, ``edge_distance``,
+    ``thickness_offset``, ``hole_clearance`` ; ``reference`` : identifiant d'un faux tenon du
+    catalogue de quincaillerie (ADR 0033), qui fixe la taille sauf cotes données. Mêmes
+    validations et même absence de transaction que :func:`make_mortise_tenon`.
+    """
+    kind = JointKind.LOOSE_TENON
+    return _make_joint(create_loose_tenons, host, guest, _with_reference(kind, params), check)
+
+
+def make_biscuits(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
+    """Relie deux pièces par des biscuits (lamelles) logés dans une fente de chaque pièce, et
+    recalcule le document. Mêmes paramètres que :func:`make_loose_tenons` ; ``reference`` désigne
+    un biscuit du catalogue."""
+    return _make_joint(
+        create_biscuits, host, guest, _with_reference(JointKind.BISCUIT, params), check
+    )
+
+
+_UNKNOWN_REFERENCE = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Référence de quincaillerie inconnue : « {id} »."
+)
+
+
+def _with_reference(kind: JointKind, params: dict[str, object]) -> dict[str, object]:
+    """``params`` sans ``reference`` (identifiant du catalogue de quincaillerie, ADR 0033), mais
+    avec les cotes du commerce de cette référence, sauf celles déjà données ; ``ValueError``
+    traduite si la référence est inconnue ou d'une autre famille."""
+    if "reference" not in params:
+        return params
+    rest = {name: value for name, value in params.items() if name != "reference"}
+    reference = str(params["reference"])
+    item = get_catalog().find(reference)
+    if item is None:
+        raise ValueError(translated(_UNKNOWN_REFERENCE, {"id": quoted_value(reference)}))
+    with translated_errors():
+        fixed = joint_params(item, kind)
+    return {**fixed, **rest}
 
 
 _JointFactory = Callable[..., DocumentObject]

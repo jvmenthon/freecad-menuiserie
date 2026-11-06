@@ -179,6 +179,26 @@ def tourillons() -> str:
     return ic.svg()
 
 
+def faux_tenons() -> str:
+    ic = Icone("Faux tenons : deux planches à chant, une pièce plate rapportée dans une mortaise")
+    ic.boite((0, 0, 0), (90, 26, 14), "chene")
+    ic.veinage((4, 86), (5, 14), "chene", amplitude=0.8)
+    ic.veinage((4, 86), (21, 14), "chene", amplitude=0.8, phase=0.6)
+    ic.boite((20, 8, 14), (16, 10, 3), "tourillon")
+    ic.boite((52, 8, 14), (16, 10, 3), "tourillon")
+    return ic.svg()
+
+
+def biscuits() -> str:
+    ic = Icone("Biscuits : deux planches à chant, une lamelle ovale rapportée dans une fente")
+    ic.boite((0, 0, 0), (90, 26, 14), "chene")
+    ic.veinage((4, 86), (5, 14), "chene", amplitude=0.8)
+    ic.veinage((4, 86), (21, 14), "chene", amplitude=0.8, phase=0.6)
+    ic.boite((16, 6, 14), (26, 14, 2), "tourillon")
+    ic.boite((52, 6, 14), (26, 14, 2), "tourillon")
+    return ic.svg()
+
+
 def mi_bois() -> str:
     ic = Icone("Entaille à mi-bois : deux pièces croisées, entaillées à mi-épaisseur")
     profil_bas = [(0, 0), (80, 0), (80, 12), (50, 12), (50, 6), (30, 6), (30, 12), (0, 12)]
@@ -242,6 +262,8 @@ ICONES = {
     "Menuiserie_HalfLap.svg": mi_bois,
     "Menuiserie_Dovetail.svg": queue_d_aronde,
     "Menuiserie_Miter.svg": onglet,
+    "Menuiserie_LooseTenon.svg": faux_tenons,
+    "Menuiserie_Biscuit.svg": biscuits,
     "Menuiserie_Carcass.svg": caisson,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,
