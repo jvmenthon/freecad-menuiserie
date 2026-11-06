@@ -131,7 +131,7 @@ def test_rainure_languette_en_biais(document: Any) -> None:
 
 def test_autre_assemblage_refuse_le_biais(document: Any) -> None:
     host = wood(document, "H", (600, 60, 22), (0, 0, 0))
-    guest = wood(document, "I", RAIL, placement_of(tilted_rail(10.0)))
+    guest = wood(document, "I", RAIL, placement_of(tilted_rail(10.0, "pointe")))
     document.recompute()
     with pytest.raises(ValueError, match="chevauchent"):
         api.make_half_lap(host, guest, check=feasible.feasible_joint)
