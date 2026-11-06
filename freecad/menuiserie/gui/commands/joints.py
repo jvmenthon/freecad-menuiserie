@@ -47,6 +47,8 @@ DOVETAIL: Final = "Menuiserie_Dovetail"
 MITER: Final = "Menuiserie_Miter"
 LOOSE_TENON: Final = "Menuiserie_LooseTenon"
 BISCUIT: Final = "Menuiserie_Biscuit"
+FOOT: Final = "Menuiserie_Foot"
+DRAWER_SLIDE: Final = "Menuiserie_DrawerSlide"
 
 
 class JointCommand(TransactionCommand):
@@ -211,6 +213,67 @@ class BiscuitCommand(JointCommand):
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à biscuits")
 
 
+class DrawerSlideCommand(JointCommand):
+    """Coulisse de tiroir : côté de caisson et côté de tiroir face à face."""
+
+    NAME = DRAWER_SLIDE
+    FACTORY = api.make_drawer_slide
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_DrawerSlide", "Coulisse de tiroir")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_DrawerSlide",
+        "Pose une coulisse à billes entre le côté de caisson (première pièce) et le côté de "
+        "tiroir (seconde), face à face avec un jeu : longueur du commerce, hauteur et avant-trous "
+        "au pas de 32 mm.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser une coulisse de tiroir")
+
+
+class FootCommand(JointCommand):
+    """Pieds de caisson : une seule pièce sélectionnée, le panneau du dessous."""
+
+    NAME = FOOT
+    FACTORY = api.make_foot
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Foot", "Pieds de caisson")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Foot",
+        "Pose des pieds réglables sous le panneau sélectionné : quatre pieds aux coins par "
+        "défaut, tiges percées dans le panneau.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser des pieds de caisson")
+
+    def IsActive(self) -> bool:
+        """Active si aucun panneau n'est ouvert et qu'une seule pièce est sélectionnée."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and selected_part() is not None
+        )
+
+    def Activated(self) -> None:
+        """Pieds posés sous la pièce sélectionnée, dans leur transaction, puis panneau ; une
+        pièce refusée ou des pieds impossibles sont expliqués sans rien créer."""
+        part = selected_part()
+        if part is None:
+            return
+        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
+        try:
+            with aborted_on_error(App.getActiveTransaction()):
+                joint = api.make_foot(part, check=feasible_joint)
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        show_panel(joint)
+
+
+def selected_part() -> DocumentObject | None:
+    """La pièce sélectionnée (brute ou usinée), ou ``None`` si la sélection n'est pas une seule
+    pièce."""
+    selection = Gui.Selection.getSelection()
+    if len(selection) != 1 or not _is_part(selection[0]):
+        return None
+    return selection[0]
+
+
 def selected_parts() -> tuple[DocumentObject, DocumentObject] | None:
     """Les deux pièces sélectionnées (dans l'ordre de sélection), ou ``None`` si la sélection
     n'est pas exactement deux pièces (brutes ou usinées) de brutes distinctes."""
@@ -253,3 +316,5 @@ def register() -> None:
     Gui.addCommand(MITER, MiterCommand())
     Gui.addCommand(LOOSE_TENON, LooseTenonCommand())
     Gui.addCommand(BISCUIT, BiscuitCommand())
+    Gui.addCommand(FOOT, FootCommand())
+    Gui.addCommand(DRAWER_SLIDE, DrawerSlideCommand())

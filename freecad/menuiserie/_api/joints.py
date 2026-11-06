@@ -22,6 +22,8 @@ from freecad.menuiserie.features.joints.factories import (
     create_biscuits,
     create_dovetail,
     create_dowels,
+    create_drawer_slide,
+    create_foot,
     create_half_lap,
     create_loose_tenons,
     create_miter,
@@ -159,6 +161,32 @@ def make_biscuits(
     return _make_joint(
         create_biscuits, host, guest, _with_reference(JointKind.BISCUIT, params), check
     )
+
+
+def make_drawer_slide(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
+    """Pose une coulisse de tiroir entre le côté de caisson ``host`` et le côté de tiroir
+    ``guest``, face à face avec un jeu, et recalcule le document. Paramètres de ``SlideParams`` en
+    mm, 0 = automatique ; ``reference`` désigne une coulisse du catalogue."""
+    return _make_joint(
+        create_drawer_slide, host, guest, _with_reference(JointKind.DRAWER_SLIDE, params), check
+    )
+
+
+def _foot_factory(
+    document: App.Document, part: DocumentObject, _guest: DocumentObject, **params: object
+) -> DocumentObject:
+    return create_foot(document, part, **params)
+
+
+def make_foot(
+    part: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
+    """Pose des pieds de caisson réglables sous le panneau ``part`` (pièce de bois ou pièce
+    usinée couchée) et recalcule le document. Paramètres de ``FootParams`` en mm ; ``columns`` et
+    ``rows`` donnent la grille (2 x 2 par défaut) ; ``reference`` désigne un pied du catalogue."""
+    return _make_joint(_foot_factory, part, part, _with_reference(JointKind.FOOT, params), check)
 
 
 _UNKNOWN_REFERENCE = QT_TRANSLATE_NOOP(

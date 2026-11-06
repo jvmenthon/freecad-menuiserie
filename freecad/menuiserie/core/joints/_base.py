@@ -70,6 +70,8 @@ class JointKind(str, Enum):
     MITER = "Miter"
     LOOSE_TENON = "LooseTenon"
     BISCUIT = "Biscuit"
+    FOOT = "Foot"
+    DRAWER_SLIDE = "DrawerSlide"
 
 
 @dataclass(frozen=True)

@@ -199,6 +199,24 @@ def biscuits() -> str:
     return ic.svg()
 
 
+def pieds() -> str:
+    ic = Icone("Pieds de caisson : panneau posé sur deux pieds réglables")
+    for cx in (14, 76):
+        ic.cylindre(cx, 13, 0, 12, 7, "tourillon")
+    ic.boite((0, 0, 12), (90, 26, 12), "chene")
+    ic.veinage((4, 86), (5, 24), "chene", amplitude=0.8)
+    ic.veinage((4, 86), (21, 24), "chene", amplitude=0.8, phase=0.6)
+    return ic.svg()
+
+
+def coulisse() -> str:
+    ic = Icone("Coulisse de tiroir : côté de caisson, coulisse et côté de tiroir face à face")
+    ic.boite((0, 0, 0), (90, 6, 26), "chene")
+    ic.boite((0, 6, 8), (90, 4, 8), "tourillon")
+    ic.boite((0, 10, 2), (80, 6, 20), "chene")
+    return ic.svg()
+
+
 def mi_bois() -> str:
     ic = Icone("Entaille à mi-bois : deux pièces croisées, entaillées à mi-épaisseur")
     profil_bas = [(0, 0), (80, 0), (80, 12), (50, 12), (50, 6), (30, 6), (30, 12), (0, 12)]
@@ -264,6 +282,8 @@ ICONES = {
     "Menuiserie_Miter.svg": onglet,
     "Menuiserie_LooseTenon.svg": faux_tenons,
     "Menuiserie_Biscuit.svg": biscuits,
+    "Menuiserie_Foot.svg": pieds,
+    "Menuiserie_DrawerSlide.svg": coulisse,
     "Menuiserie_Carcass.svg": caisson,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,

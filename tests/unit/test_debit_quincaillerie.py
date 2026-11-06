@@ -51,3 +51,16 @@ def test_csv_nomme_la_largeur_des_pieces_plates() -> None:
 def test_largeur_invalide_refusee() -> None:
     with pytest.raises(ValueError):
         Hardware(HardwareKind.BISCUIT, 4.0, 23.0, 1, float("nan"))
+
+
+def test_csv_pieds_et_coulisses() -> None:
+    cut_list = build_cut_list(
+        [],
+        [
+            Hardware(HardwareKind.FOOT, 10.0, 15.0, 4),
+            Hardware(HardwareKind.DRAWER_SLIDE, 12.7, 450.0, 2),
+        ],
+    )
+    text = to_csv(cut_list, FRENCH_CSV)
+    assert "Pied de caisson;10;15;4" in text
+    assert "Coulisse de tiroir;12,7;450;2" in text

@@ -293,14 +293,20 @@ def additions_of(blank: DocumentObject, notices: list[Notice]) -> Allowances:
     return machined_extent(blank, notices)[1]
 
 
-# --- Fournitures : tourillons (D5), faux tenons et biscuits (ADR 0033) -------------------
+# --- Fournitures : tourillons (D5), faux tenons, biscuits, pieds, coulisses (ADR 0033) ------
 
-_HARDWARE_KINDS: Final = (JointKind.DOWELS, JointKind.LOOSE_TENON, JointKind.BISCUIT)
+_HARDWARE_KINDS: Final = (
+    JointKind.DOWELS,
+    JointKind.LOOSE_TENON,
+    JointKind.BISCUIT,
+    JointKind.FOOT,
+    JointKind.DRAWER_SLIDE,
+)
 
 
 def is_hardware_joint(obj: DocumentObject) -> bool:
-    """Vrai si ``obj`` est un assemblage à pièces rapportées (tourillons, faux tenons,
-    biscuits)."""
+    """Vrai si ``obj`` est un assemblage à pièces rapportées (tourillons, faux tenons, biscuits,
+    pieds, coulisses)."""
     return is_joint(obj) and obj.Proxy.KIND in _HARDWARE_KINDS
 
 
@@ -313,6 +319,10 @@ def hardware_of(joint: DocumentObject, times: int, notices: list[Notice]) -> Har
         quantity = values.count * times
         if hasattr(values, "dowel_length"):  # tourillons : valeurs de DowelValues
             return Hardware(HardwareKind.DOWEL, values.diameter, values.dowel_length, quantity)
+        if hasattr(values, "base_diameter"):  # pieds : valeurs de FootValues
+            return Hardware(HardwareKind.FOOT, values.stem_diameter, values.height, quantity)
+        if hasattr(values, "hole_positions"):  # coulisse : valeurs de SlideValues
+            return Hardware(HardwareKind.DRAWER_SLIDE, values.thickness, values.length, quantity)
         kind = (
             HardwareKind.LOOSE_TENON
             if joint.Proxy.KIND is JointKind.LOOSE_TENON

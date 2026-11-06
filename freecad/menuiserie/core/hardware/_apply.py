@@ -2,7 +2,8 @@
 """Cotes d'une référence du catalogue, traduites en paramètres d'assemblage (ADR 0033).
 
 Choisir une référence fixe les cotes du commerce de l'assemblage (diamètre et longueur d'un
-tourillon, taille d'un faux tenon ou d'un biscuit) ; les autres paramètres restent automatiques.
+tourillon, taille d'un faux tenon ou d'un biscuit, d'un pied ou d'une coulisse) ; les autres
+paramètres restent automatiques.
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
         "dowel": JointKind.DOWELS,
         "loose-tenon": JointKind.LOOSE_TENON,
         "biscuit": JointKind.BISCUIT,
+        "cabinet-foot": JointKind.FOOT,
+        "drawer-slide-ball": JointKind.DRAWER_SLIDE,
     }
 )
 
@@ -59,11 +62,25 @@ def _biscuit(item: HardwareItem) -> dict[str, float]:
     }
 
 
+def _foot(item: HardwareItem) -> dict[str, float]:
+    return {
+        "stem_diameter": item.param("stem_diameter"),
+        "base_diameter": item.param("base_diameter"),
+        "height": item.param("height"),
+    }
+
+
+def _drawer_slide(item: HardwareItem) -> dict[str, float]:
+    return {"length": item.param("length"), "thickness": item.param("thickness")}
+
+
 _PARAMS: Final[Mapping[JointKind, _Params]] = MappingProxyType(
     {
         JointKind.DOWELS: _dowel,
         JointKind.LOOSE_TENON: _loose_tenon,
         JointKind.BISCUIT: _biscuit,
+        JointKind.FOOT: _foot,
+        JointKind.DRAWER_SLIDE: _drawer_slide,
     }
 )
 

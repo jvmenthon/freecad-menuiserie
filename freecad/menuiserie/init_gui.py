@@ -34,6 +34,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         "Menuiserie_Miter",
         "Menuiserie_LooseTenon",
         "Menuiserie_Biscuit",
+        "Menuiserie_Foot",
+        "Menuiserie_DrawerSlide",
         # Ensembles (J4c)
         "Menuiserie_Furniture",
         "Menuiserie_FurnitureAdd",

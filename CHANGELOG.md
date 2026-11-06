@@ -7,6 +7,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Quincaillerie, lots Q-e (pieds) et Q-f (coulisses) (#159, ADR 0033) : **pieds de caisson
+  réglables** (`make_foot`, une seule pièce : grille de pieds sous un panneau couché, logements de
+  tige percés, embase et tige rapportées) et **coulisses de tiroir à billes** (`make_drawer_slide`,
+  entre un côté de caisson et un côté de tiroir face à face avec un jeu : longueur du commerce de
+  250 à 600 mm, hauteur réglée, avant-trous au pas de 32 mm dans les deux côtés). Références
+  génériques au catalogue (`pied-caisson-m10-50`, `coulisse-billes-450`…), commandes, icônes et
+  décompte dans la liste de débit. Charnières à cuvette et vis restent à faire.
 - Quincaillerie, lots Q-c et Q-d (#159, ADR 0033) : deux nouveaux assemblages, **faux tenons**
   (type Domino) et **biscuits**, avec une mortaise plate dans chaque pièce, taille du commerce
   choisie automatiquement d'après le contact (au plus un tiers de l'épaisseur), nombre,

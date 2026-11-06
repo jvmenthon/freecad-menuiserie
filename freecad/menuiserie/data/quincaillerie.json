@@ -259,6 +259,46 @@
       "source": "Cotes usuelles des charnières à cuvette, générique sans marque, 2026-11"
     },
     {
+      "id": "coulisse-billes-300",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 300 mm (générique)",
+      "params": {
+        "length": 300,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-350",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 350 mm (générique)",
+      "params": {
+        "length": 350,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-400",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 400 mm (générique)",
+      "params": {
+        "length": 400,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-450",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 450 mm (générique)",
+      "params": {
+        "length": 450,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
       "id": "coulisse-billes-500",
       "family": "drawer-slide-ball",
       "label": "Coulisse à billes 500 mm (générique)",
@@ -266,7 +306,39 @@
         "length": 500,
         "thickness": 12.7
       },
-      "source": "Cotes usuelles des coulisses à billes, générique sans marque, 2026-11"
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-550",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 550 mm (générique)",
+      "params": {
+        "length": 550,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "pied-caisson-m10-50",
+      "family": "cabinet-foot",
+      "label": "Pied de caisson réglable M10, embase Ø50 (générique)",
+      "params": {
+        "stem_diameter": 10,
+        "base_diameter": 50,
+        "height": 15
+      },
+      "source": "Cotes usuelles des pieds de caisson à tige M10, générique sans marque, 2026-11"
+    },
+    {
+      "id": "pied-caisson-m8-40",
+      "family": "cabinet-foot",
+      "label": "Pied de caisson réglable M8, embase Ø40 (générique)",
+      "params": {
+        "stem_diameter": 8,
+        "base_diameter": 40,
+        "height": 12
+      },
+      "source": "Cotes usuelles des pieds de caisson à tige M8, générique sans marque, 2026-11"
     }
   ]
 }

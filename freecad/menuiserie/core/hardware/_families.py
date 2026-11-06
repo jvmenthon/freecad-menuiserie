@@ -79,6 +79,15 @@ _FAMILY_LIST: Final = (
         (ParamSpec("cup_diameter", 10.0, 60.0), ParamSpec("cup_depth", 3.0, 30.0)),
     ),
     Family(
+        "cabinet-foot",
+        QT_TRANSLATE_NOOP("Menuiserie", "Pied de caisson réglable"),
+        (
+            ParamSpec("stem_diameter", 4.0, 20.0),
+            ParamSpec("base_diameter", 20.0, 120.0),
+            ParamSpec("height", 5.0, 150.0),
+        ),
+    ),
+    Family(
         "drawer-slide-ball",
         QT_TRANSLATE_NOOP("Menuiserie", "Coulisse à billes"),
         (ParamSpec("length", 100.0, 1_200.0), ParamSpec("thickness", 5.0, 30.0)),

@@ -222,6 +222,8 @@ class HardwareKind(str, Enum):
     DOWEL = "Dowel"
     LOOSE_TENON = "LooseTenon"
     BISCUIT = "Biscuit"
+    FOOT = "Foot"
+    DRAWER_SLIDE = "DrawerSlide"
 
 
 @dataclass(frozen=True)

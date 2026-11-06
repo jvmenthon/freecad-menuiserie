@@ -98,6 +98,8 @@ HARDWARE_LABELS: Final[Mapping[HardwareKind, str]] = MappingProxyType(
         HardwareKind.DOWEL: QT_TRANSLATE_NOOP("Menuiserie", "Tourillon"),
         HardwareKind.LOOSE_TENON: QT_TRANSLATE_NOOP("Menuiserie", "Faux tenon"),
         HardwareKind.BISCUIT: QT_TRANSLATE_NOOP("Menuiserie", "Biscuit"),
+        HardwareKind.FOOT: QT_TRANSLATE_NOOP("Menuiserie", "Pied de caisson"),
+        HardwareKind.DRAWER_SLIDE: QT_TRANSLATE_NOOP("Menuiserie", "Coulisse de tiroir"),
     }
 )
 HARDWARE_WIDTH: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (largeur {width} mm)")
