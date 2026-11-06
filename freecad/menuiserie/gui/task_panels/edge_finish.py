@@ -50,6 +50,10 @@ _TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Finition des chants")
 _FAMILY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Profil")
 _SIZE_A: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote A (rayon, distance)")
 _SIZE_B: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote B")
+_LIST: Final = QT_TRANSLATE_NOOP("Menuiserie", "Arêtes concernées")
+_NONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucune arête")
+_CROSS: Final = QT_TRANSLATE_NOOP("Menuiserie", "✕")
+_REMOVE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Retirer cette arête")
 _DELETE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Supprimer ce profil")
 _GROUPS: Final = (
     (QT_TRANSLATE_NOOP("Menuiserie", "Dessus"), "Z+"),
@@ -112,12 +116,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         form.addRow(self._label_b, self._size_b)
         self._boxes = self._edge_boxes(layout)
         self._add_shortcuts(layout)
-        self._error = QtGui.QLabel()
-        self._error.setObjectName("errorLabel")
-        self._error.setWordWrap(True)
-        self._error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
-        self._error.setStyleSheet(_ERROR_STYLE)
-        layout.addWidget(self._error)
+        self._add_feedback(layout)
         if profile is not None:
             delete = QtGui.QPushButton(translated(_DELETE))
             delete.setObjectName("delete_profile")
@@ -156,6 +155,19 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
                 boxes[edge.code] = box
             layout.addWidget(group)
         return boxes
+
+    def _add_feedback(self, layout: Widget) -> None:
+        """Liste des arêtes concernées et zone d'erreur."""
+        self._listed = QtGui.QGroupBox(translated(_LIST))
+        self._listed.setObjectName("edge_list")
+        self._rows = QtGui.QVBoxLayout(self._listed)
+        layout.addWidget(self._listed)
+        self._error = QtGui.QLabel()
+        self._error.setObjectName("errorLabel")
+        self._error.setWordWrap(True)
+        self._error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        self._error.setStyleSheet(_ERROR_STYLE)
+        layout.addWidget(self._error)
 
     def _add_shortcuts(self, layout: Widget) -> None:
         row = QtGui.QHBoxLayout()
@@ -205,6 +217,38 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
                 box.setChecked(key == "all")
         self.rebuild()
 
+    def _refresh_list(self, codes: Sequence[str]) -> None:
+        """Liste des arêtes concernées : une ligne par arête, avec une croix pour la retirer."""
+        while self._rows.count():
+            item = self._rows.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.hide()
+                widget.deleteLater()
+        for edge in all_edges():
+            if edge.code not in codes:
+                continue
+            row = QtGui.QWidget()
+            line = QtGui.QHBoxLayout(row)
+            line.setContentsMargins(0, 0, 0, 0)
+            line.addWidget(QtGui.QLabel(edge.name))
+            line.addStretch()
+            remove = QtGui.QToolButton()
+            remove.setObjectName(f"remove_{edge.code}")
+            remove.setText(translated(_CROSS))
+            remove.setToolTip(translated(_REMOVE))
+            connect(remove, "clicked()", partial(self.remove_edge, edge.code))
+            line.addWidget(remove)
+            self._rows.addWidget(row)
+        if not codes:
+            self._rows.addWidget(QtGui.QLabel(translated(_NONE)))
+
+    def remove_edge(self, code: str) -> None:
+        """Croix d'une ligne de la liste : case décochée (l'arête perd son profil)."""
+        box = self._boxes.get(code)
+        if box is not None:
+            box.setChecked(False)
+
     def check_edges(self, codes: Sequence[str]) -> None:
         """Arêtes désignées dans la vue 3D : cases cochées."""
         with self._guard:
@@ -221,6 +265,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         if self._guard.active:
             return
         codes = self.codes()
+        self._refresh_list(codes)
         conflicts = sorted(set(codes) & self._others)
         message = ""
         self._failed = False
