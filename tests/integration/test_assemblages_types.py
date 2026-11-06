@@ -50,6 +50,15 @@ PROPERTIES: dict[str, list[Row]] = {
         ("ThicknessOffset", DISTANCE, "Tourillons", 0.0),
         ("HoleClearance", LENGTH, "Tourillons", 1.0),
     ],
+    "make_loose_tenons": [
+        ("Thickness", LENGTH, "Mortaises", 0.0),
+        ("Along", LENGTH, "Mortaises", 0.0),
+        ("TotalDepth", LENGTH, "Mortaises", 0.0),
+        ("Count", "App::PropertyIntegerConstraint", "Mortaises", 0),
+        ("EdgeDistance", LENGTH, "Mortaises", 0.0),
+        ("ThicknessOffset", DISTANCE, "Mortaises", 0.0),
+        ("HoleClearance", LENGTH, "Mortaises", 1.0),
+    ],
     "make_half_lap": [("Depth", LENGTH, "Mi-bois", 0.0), ("FlipSide", BOOL, "Mi-bois", False)],
     "make_dovetail": [
         ("TailCount", "App::PropertyIntegerConstraint", "Queue d'aronde", 0),
@@ -57,8 +66,11 @@ PROPERTIES: dict[str, list[Row]] = {
         ("Angle", "App::PropertyAngle", "Queue d'aronde", 0.0),
         ("TailsOnHost", BOOL, "Queue d'aronde", False),
     ],
+    "make_biscuits": [],  # mêmes propriétés que les faux tenons (voir ci-dessous)
     "make_miter": [],  # aucune propriété propre (A4 de J4)
 }
+
+PROPERTIES["make_biscuits"] = PROPERTIES["make_loose_tenons"]
 
 
 def value_of(obj: Any, name: str) -> object:
