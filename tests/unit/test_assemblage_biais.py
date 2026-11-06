@@ -14,8 +14,6 @@ from freecad.menuiserie.core.joints._base import SQUARE_ONLY
 from freecad.menuiserie.core.joints._profile import OUTSIDE_CONTACT, TOO_DEEP
 from freecad.menuiserie.core.joints.dovetail import DovetailParams
 from freecad.menuiserie.core.joints.dowels import DowelParams
-from freecad.menuiserie.core.joints.half_lap import HalfLapParams
-from freecad.menuiserie.core.joints.miter import MiterParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from tests.unit.aides_assemblages import rail, stile
@@ -197,9 +195,7 @@ def test_long_point_independant_de_la_reference(reference: str) -> None:
     ("kind", "params"),
     [
         (JointKind.DOWELS, DowelParams()),
-        (JointKind.HALF_LAP, HalfLapParams()),
         (JointKind.DOVETAIL, DovetailParams()),
-        (JointKind.MITER, MiterParams()),
     ],
 )
 def test_les_autres_assemblages_demandent_des_pieces_d_equerre(

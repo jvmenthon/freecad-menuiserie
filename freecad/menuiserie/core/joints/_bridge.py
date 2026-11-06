@@ -157,7 +157,7 @@ def trimmed(host: PlacedBlock, guest: PlacedBlock) -> Bridge:
     return replace(bridge, trim=trim)
 
 
-def cut_plan(host_cut: Solid, guest_cut: Solid, bridge: Bridge) -> JointPlan:
+def cut_plan(host_cut: PlanSolid, guest_cut: PlanSolid, bridge: Bridge) -> JointPlan:
     """Plan d'un enlèvement dans chaque pièce (repère de chacune), plus la partie ajoutée à
     l'invitée posée au contact."""
     return JointPlan(

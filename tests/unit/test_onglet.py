@@ -142,7 +142,7 @@ def test_coupe_par_le_coin_exterieur_et_le_coin_interieur() -> None:
     host_cut = as_prism(result.host_cut)
     assert _close(host_cut.points, expected_host)
     assert _close((host_cut.extrusion,), (Vec3(0.0, 0.0, 20.2),))
-    guest_cut = as_prism(moved(result.guest_cut, relative_transform(host, guest)))
+    guest_cut = as_prism(moved(as_prism(result.guest_cut), relative_transform(host, guest)))
     assert _close(guest_cut.points[:2], expected_host[:2])  # même plan de coupe
     assert _close(guest_cut.points[2:], (Vec3(high, low, -0.1),))
 
@@ -254,13 +254,6 @@ def test_refus_pas_a_fleur(guest: PlacedBlock) -> None:
     refused((block((500.0, 60.0, 20.0)), guest), FLUSH)
 
 
-def test_refus_pas_d_equerre() -> None:
-    refused(
-        (block((500.0, 60.0, 20.0)), block((500.0, 60.0, 20.0), (60.0, 0.0, 0.0), 60.0)),
-        "d'équerre",
-    )
-
-
 def test_tolerance_de_contact() -> None:
     """Invitée plus épaisse de 0,005 mm : à fleur à la tolérance près, coupe acceptée."""
     host = block((500.0, 60.0, 20.0))
@@ -281,7 +274,7 @@ def test_boite_commune_coupee_en_deux() -> None:
     host, guest = miter_corner(guest_width=40.0)
     result = values((host, guest))
     common = PlacedBlock(block((40.0, 60.0, 20.0)).dimensions, host.placement)
-    guest_cut = moved(result.guest_cut, relative_transform(host, guest))
+    guest_cut = moved(as_prism(result.guest_cut), relative_transform(host, guest))
     halves = removed(result.host_cut, common) + removed(guest_cut, common)
     assert halves == pytest.approx(40 * 60 * 20)
 

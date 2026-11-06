@@ -42,7 +42,7 @@ def test_la_feuillure_en_biais_refuse_des_pieces_ecartees() -> None:
 
 def test_la_feuillure_en_biais_refuse_des_pieces_au_contact() -> None:
     with pytest.raises(JointError) as error:
-        RABBET.plan(stile_block(), tilted_rail(10.0), RabbetParams())
+        RABBET.plan(stile_block(), tilted_rail(10.0, "pointe"), RabbetParams())
     assert error.value.template == OBLIQUE_OVERLAP_ONLY
 
 

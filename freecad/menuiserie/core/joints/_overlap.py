@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from freecad.menuiserie.core._polyhedron import Plane, Polyhedron, clipped_box
-from freecad.menuiserie.core.contact import ObliqueContact, Overlap, relation
+from freecad.menuiserie.core.contact import ObliqueContact, relation
 from freecad.menuiserie.core.geometry import (
     Box,
     JointError,
@@ -40,6 +40,10 @@ class ObliqueOverlap:
     host_box: Box  # boîte de l'hôte, repère de l'hôte
     common: Polyhedron  # matière commune, repère de l'hôte
 
+    def guest_faces(self) -> tuple[Plane, ...]:
+        """Les six faces de l'invitée en demi-espaces du repère de l'hôte."""
+        return _faces(self.guest_box, self.to_host)
+
     def guest_solid(self, overrun: float = 0.0) -> Polyhedron:
         """Invitée dans le repère de l'hôte, prolongée de ``overrun`` à chaque bout de son axe
         le plus long."""
@@ -63,16 +67,15 @@ def _faces(box: Box, transform: RigidTransform) -> tuple[Plane, ...]:
 
 def oblique_overlap(host: PlacedBlock, guest: PlacedBlock) -> ObliqueOverlap:
     """Chevauchement de deux pièces dont la rotation n'est pas d'équerre ; :class:`JointError`
-    si elles sont écartées, au contact (``OBLIQUE_OVERLAP_ONLY``) ou trop obliques."""
-    found = relation(host, guest)
-    if isinstance(found, ObliqueContact):
-        raise JointError(OBLIQUE_OVERLAP_ONLY, {})
-    if not isinstance(found, Overlap):
-        raise JointError(SEPARATED, {})
+    si elles sont écartées ou ne font que se toucher (``OBLIQUE_OVERLAP_ONLY``).
+
+    La matière commune est calculée directement : un bout d'invitée qui entre dans l'hôte est un
+    chevauchement pour ces assemblages, même si ``relation`` y voit un contact (ADR 0016)."""
     to_host = host.placement.inverse().compose(guest.placement)
-    common = clipped_box(
-        host.local_box(), RigidTransform.identity(), _faces(guest.local_box(), to_host)
-    )
+    planes = _faces(guest.local_box(), to_host)
+    common = clipped_box(host.local_box(), RigidTransform.identity(), planes)
     if common is None:
+        if isinstance(relation(host, guest), ObliqueContact):
+            raise JointError(OBLIQUE_OVERLAP_ONLY, {})
         raise JointError(SEPARATED, {})
     return ObliqueOverlap(to_host, guest.local_box(), host.local_box(), common)
