@@ -163,20 +163,25 @@ def actives() -> dict[str, bool]:
     return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
 
 
-def attendues(actives_si_fabrique: bool) -> dict[str, bool]:
-    """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois)."""
+PIEDS = "Menuiserie_Foot"  # seule commande qui se pose sous une seule pièce
+
+
+def attendues(actives_si_fabrique: bool, une_piece: bool = False) -> dict[str, bool]:
+    """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois) ;
+    ``une_piece`` : la sélection est une seule pièce, que seuls les pieds acceptent."""
     return {
-        nom: actives_si_fabrique and hasattr(api, fabrique)
+        nom: (une_piece if nom == PIEDS else actives_si_fabrique) and hasattr(api, fabrique)
         for nom, (_libelle, fabrique) in COMMANDES_ASSEMBLAGE.items()
     }
 
 
 def verifier_activation_des_commandes_d_assemblage() -> list[str]:
-    """C1 : actives seulement pour deux pièces distinctes et sans panneau ouvert."""
+    """C1 : actives seulement pour deux pièces distinctes (les pieds : une pièce) et sans panneau
+    ouvert."""
     with cadre("VerifActivationAssemblage") as (doc, pieces):
         problemes = ecarts("aucune sélection", actives(), attendues(False))
         selectionner(pieces["M1"])
-        problemes += ecarts("une pièce", actives(), attendues(False))
+        problemes += ecarts("une pièce", actives(), attendues(False, une_piece=True))
         selectionner(pieces["M1"], pieces["T1"])
         problemes += ecarts("deux pièces", actives(), attendues(True))
         selectionner(pieces["M1"], pieces["T1"], pieces["T2"])
