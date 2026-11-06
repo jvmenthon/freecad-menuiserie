@@ -35,22 +35,35 @@ _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
         "biscuit": JointKind.BISCUIT,
     }
 )
+
+
+def _dowel(item: HardwareItem) -> dict[str, float]:
+    return {"diameter": item.param("diameter"), "dowel_length": item.param("length")}
+
+
+def _loose_tenon(item: HardwareItem) -> dict[str, float]:
+    # Domino : largeur le long du joint, longueur à travers le joint.
+    return {
+        "thickness": item.param("thickness"),
+        "along": item.param("width"),
+        "total_depth": item.param("length"),
+    }
+
+
+def _biscuit(item: HardwareItem) -> dict[str, float]:
+    # Lamelle : longueur le long du joint, largeur à travers le joint.
+    return {
+        "thickness": item.param("thickness"),
+        "along": item.param("length"),
+        "total_depth": item.param("width"),
+    }
+
+
 _PARAMS: Final[Mapping[JointKind, _Params]] = MappingProxyType(
     {
-        JointKind.DOWELS: lambda i: {
-            "diameter": i.param("diameter"),
-            "dowel_length": i.param("length"),
-        },
-        JointKind.LOOSE_TENON: lambda i: {
-            "thickness": i.param("thickness"),
-            "along": i.param("width"),
-            "total_depth": i.param("length"),
-        },
-        JointKind.BISCUIT: lambda i: {
-            "thickness": i.param("thickness"),
-            "along": i.param("length"),
-            "total_depth": i.param("width"),
-        },
+        JointKind.DOWELS: _dowel,
+        JointKind.LOOSE_TENON: _loose_tenon,
+        JointKind.BISCUIT: _biscuit,
     }
 )
 
