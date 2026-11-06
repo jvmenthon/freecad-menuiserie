@@ -175,14 +175,19 @@ Problématiques :
 
 ### 5.4 Emplacement des gabarits (exigence de jv, 2026-11-06)
 
-Les gabarits personnels doivent être **utilisables dans différents projets** : ils ne sont donc
-jamais rangés dans un document `.FCStd`.
+Les gabarits personnels doivent être **utilisables dans différents projets**. Complément de jv
+(même jour) : on doit pouvoir **choisir** d'enregistrer un gabarit **pour le projet seul**, puis, si
+on le souhaite, **le rendre disponible pour les autres projets**. Deux portées donc :
 
 - Gabarits intégrés : livrés avec l'atelier (code de `core/templates/`).
 - Gabarits personnels : `<dossier de l'atelier>/gabarits/`, un fichier par gabarit plus sa
   vignette. Le dossier de l'atelier (ADR 0031, issue #148) contient déjà `materiaux.json` et
   `dimensions.json` ; on peut le placer dans un dossier synchronisé pour le retrouver sur plusieurs
   machines. Partager un gabarit = copier son fichier (puis, plus tard, par le SaaS).
+- Gabarits du projet : rangés **dans le document `.FCStd`**, même format que dans le dossier de
+  l'atelier. Ils voyagent avec le fichier (un collègue qui l'ouvre les a). Commande « Rendre
+  disponible pour les autres projets » : copie le gabarit dans le dossier de l'atelier.
+  L'inverse (« Copier dans ce projet ») sert à envoyer un projet avec ses gabarits.
 - Un meuble créé ne dépend pas du fichier : modifier ou supprimer un gabarit ne change pas les
   meubles déjà faits (ADR 0010) ; l'ensemble ne garde que le nom du gabarit (`Template`).
 
@@ -190,3 +195,18 @@ Problématique : **P27 — Dépendance.** Ce rangement suppose le dossier de l'a
 (proposé, non livré). Soit il est livré avant les gabarits personnels, soit ceux-ci utilisent en
 attendant un dossier par défaut `<données utilisateur FreeCAD>/Menuiserie/gabarits/`, repris
 ensuite par le réglage.
+
+Problématiques des deux portées :
+
+- **P28 — Rangement dans le document.** Un fichier joint au document (`App::PropertyFileIncluded`,
+  inclus dans le `.FCStd`) porté par un objet caché « Gabarits du projet » ; ou un texte JSON dans une
+  propriété. Cet objet ne crée aucune forme : les autres ateliers l'ignorent (ADR 0007). Il ne
+  contredit pas l'ADR 0010 : il garde la **définition** du gabarit, pas un générateur vivant.
+- **P29 — Doublons de nom.** Un gabarit du projet et un de l'atelier peuvent porter le même nom ;
+  à la copie, demander « remplacer / renommer », et dans la galerie afficher la portée (« Projet »,
+  « Atelier »).
+- **P30 — Versions divergentes.** Après copie, les deux exemplaires vivent séparément ; modifier
+  l'un ne change pas l'autre. Faut-il le signaler (date, numéro de version du gabarit) ?
+- **P31 — Ouverture par une version plus ancienne de l'atelier** ou sans l'atelier : le document
+  s'ouvre, l'objet caché est ignoré, les meubles restent intacts.
+
