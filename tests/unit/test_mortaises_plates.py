@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from freecad.menuiserie.core.geometry import Box, JointError, PlacedBlock
@@ -89,7 +91,7 @@ def test_contact_par_une_face_refuse() -> None:
 
 @pytest.mark.parametrize("field", ["thickness", "along", "total_depth", "hole_clearance"])
 def test_parametres_invalides(field: str) -> None:
-    with pytest.raises(JointError, match="invalide"):
-        SlotParams(**{field: float("nan")})
-    with pytest.raises(JointError, match="invalide"):
-        SlotParams(**{field: -1.0})
+    for bad in (float("nan"), -1.0):
+        values: dict[str, Any] = {field: bad}
+        with pytest.raises(JointError, match="invalide"):
+            SlotParams(**values)
