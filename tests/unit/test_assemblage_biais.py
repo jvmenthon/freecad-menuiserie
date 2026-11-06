@@ -8,12 +8,9 @@ import math
 import pytest
 
 from freecad.menuiserie.core._polyhedron import Polyhedron
-from freecad.menuiserie.core.geometry import Axis, Box, JointError, PlacedBlock
+from freecad.menuiserie.core.geometry import Axis, Box, JointError
 from freecad.menuiserie.core.joints import JointKind, JointPlan, strategy_for
-from freecad.menuiserie.core.joints._base import SQUARE_ONLY
 from freecad.menuiserie.core.joints._profile import OUTSIDE_CONTACT, TOO_DEEP
-from freecad.menuiserie.core.joints.dovetail import DovetailParams
-from freecad.menuiserie.core.joints.dowels import DowelParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from tests.unit.aides_assemblages import rail, stile
@@ -189,23 +186,6 @@ def test_long_point_independant_de_la_reference(reference: str) -> None:
     bevel = TENON.plan(host, guest, params).guest_bevels[0]
     base = TENON.plan(host, guest, MortiseTenonParams()).guest_bevels[0]
     assert bevel.long_point == pytest.approx(base.long_point, abs=1e-6)
-
-
-@pytest.mark.parametrize(
-    ("kind", "params"),
-    [
-        (JointKind.DOWELS, DowelParams()),
-        (JointKind.DOVETAIL, DovetailParams()),
-    ],
-)
-def test_les_autres_assemblages_demandent_des_pieces_d_equerre(
-    kind: JointKind, params: object
-) -> None:
-    host: PlacedBlock = stile_block()
-    guest = tilted_rail(10.0)
-    with pytest.raises(JointError) as error:
-        strategy_for(kind).plan(host, guest, params)
-    assert error.value.template == SQUARE_ONLY
 
 
 def test_reglages_de_la_scie_biais_dans_la_largeur() -> None:

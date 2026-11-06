@@ -3,6 +3,9 @@
 - Issue : #78 (priorité basse, jv « Go » 2026-11-06). Suite de #114 (spec
   [assemblages-en-biais.md](assemblages-en-biais.md), ADR 0024 ; tenon-mortaise et
   rainure-languette livrés). ADR : [0034](../adr/0034-assemblages-en-biais-suite.md).
+- Statut : **livré** (lots S-a à S-c sur la branche de jalon ; CI et revue de fin de jalon à suivre).
+  Écart à la spec initiale : `SQUARE_ONLY` est gardé comme garde-fou interne de `square_relation`
+  (plus atteint par les stratégies) ; T3 (ligne « Biais » du panneau) reste à faire pour ces types.
 - Branche de jalon `jalon/biais-suite` ; lots **S-a → S-b → S-c** (sous-branches squashées, CI
   seule) puis une PR de jalon vers `main` avec revue complète. Compatibilité avec le jalon
   quincaillerie (#159, tourillons) : S-c passe en dernier et ne touche que le calcul d'axe.

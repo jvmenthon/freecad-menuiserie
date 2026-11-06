@@ -29,11 +29,35 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.vectors import cross, dot, norm, unit
 
-__all__ = ["PlanSolid", "Plane", "Polyhedron", "clipped_box"]
+__all__ = ["PlanSolid", "Plane", "Polyhedron", "SlantedCylinder", "clipped_box"]
 
 _MERGE_MM: Final = 1e-6  # sommets plus proches : un seul ; plan : « sur » ce plan
 _PARALLEL: Final = 1e-9  # déterminant sous lequel trois plans n'ont pas de point commun unique
 MAX_PLANES: Final = 6  # plans de coupe d'un polyèdre (§ 4.9 de la spécification)
+
+
+@dataclass(frozen=True)
+class SlantedCylinder:
+    """Cylindre d'axe quelconque (tourillon entre pièces en biais, ADR 0034) : base au centre
+    d'une face, direction unitaire de l'axe, rayon et hauteur > 0."""
+
+    base: Vec3
+    direction: Vec3
+    radius: float
+    height: float
+
+    def __post_init__(self) -> None:
+        values = (*(c for c in (self.base.x, self.base.y, self.base.z)), self.radius, self.height)
+        if not all(math.isfinite(value) for value in values):
+            raise ValueError("cylindre : valeurs finies attendues")
+        if self.radius <= 0 or self.height <= 0 or abs(norm(self.direction) - 1.0) > 1e-6:
+            raise ValueError("cylindre : rayon, hauteur > 0 et direction unitaire attendus")
+
+    def moved(self, transform: RigidTransform) -> SlantedCylinder:
+        """Même cylindre exprimé dans un autre repère (toute rotation)."""
+        return SlantedCylinder(
+            transform.apply(self.base), transform.rotate(self.direction), self.radius, self.height
+        )
 
 
 @dataclass(frozen=True)
@@ -247,5 +271,5 @@ def clipped_box(box: Box, frame: RigidTransform, planes: tuple[Plane, ...]) -> P
     return None if polyhedron.thickness() < CONTACT_TOLERANCE_MM else polyhedron
 
 
-PlanSolid = Solid | Polyhedron
+PlanSolid = Solid | Polyhedron | SlantedCylinder
 """Solide d'un plan d'usinage : forme d'équerre (boîte, cylindre, prisme) ou polyèdre en biais."""

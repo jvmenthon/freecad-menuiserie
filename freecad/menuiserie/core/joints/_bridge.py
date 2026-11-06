@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 
-from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron
+from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron, SlantedCylinder
 from freecad.menuiserie.core.contact import Contact, Overlap
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
@@ -67,7 +67,7 @@ class Bridge:
         return moved(solid, self.to_guest)
 
     def _carry(self, solid: PlanSolid) -> PlanSolid:
-        if isinstance(solid, Polyhedron):
+        if isinstance(solid, Polyhedron | SlantedCylinder):
             return solid.moved(self.to_guest)
         return self.back(solid)
 
