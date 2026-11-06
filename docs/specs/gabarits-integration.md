@@ -179,12 +179,16 @@ Les gabarits personnels doivent être **utilisables dans différents projets**. 
 (même jour) : on doit pouvoir **choisir** d'enregistrer un gabarit **pour le projet seul**, puis, si
 on le souhaite, **le rendre disponible pour les autres projets**. Deux portées donc :
 
+**Décision de jv (2026-11-06) : dans un premier temps, seule la portée globale (atelier) est
+livrée.** La portée « projet » et les commandes de copie restent décrites pour plus tard ; le
+format est choisi pour qu'elles s'ajoutent sans migration.
+
 - Gabarits intégrés : livrés avec l'atelier (code de `core/templates/`).
 - Gabarits personnels : `<dossier de l'atelier>/gabarits/`, un fichier par gabarit plus sa
   vignette. Le dossier de l'atelier (ADR 0031, issue #148) contient déjà `materiaux.json` et
   `dimensions.json` ; on peut le placer dans un dossier synchronisé pour le retrouver sur plusieurs
   machines. Partager un gabarit = copier son fichier (puis, plus tard, par le SaaS).
-- Gabarits du projet : rangés **dans le document `.FCStd`**, même format que dans le dossier de
+- *(Plus tard)* Gabarits du projet : rangés **dans le document `.FCStd`**, même format que dans le dossier de
   l'atelier. Ils voyagent avec le fichier (un collègue qui l'ouvre les a). Commande « Rendre
   disponible pour les autres projets » : copie le gabarit dans le dossier de l'atelier.
   L'inverse (« Copier dans ce projet ») sert à envoyer un projet avec ses gabarits.
@@ -196,7 +200,7 @@ Problématique : **P27 — Dépendance.** Ce rangement suppose le dossier de l'a
 attendant un dossier par défaut `<données utilisateur FreeCAD>/Menuiserie/gabarits/`, repris
 ensuite par le réglage.
 
-Problématiques des deux portées :
+Problématiques des deux portées (P28 à P31 : pour le lot « portée projet », plus tard) :
 
 - **P28 — Rangement dans le document.** Un fichier joint au document (`App::PropertyFileIncluded`,
   inclus dans le `.FCStd`) porté par un objet caché « Gabarits du projet » ; ou un texte JSON dans une
