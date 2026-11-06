@@ -1,7 +1,10 @@
 # Quincaillerie : références fournisseurs, modèles 3D et pose simple
 
 - Issue : #159
-- Statut : **étude fonctionnelle, à valider par jv** (aucun code, aucun ADR accepté).
+- Statut : **acceptée** (« Go » de jv le 2026-11-06 : choix ★ de Q1 à Q5 retenus ; catalogue local
+  d'abord, téléchargement renvoyé au SaaS, issue #161). Q6 (gamme réellement utilisée par jv) reste
+  ouverte : elle ajustera le contenu du catalogue, pas l'architecture.
+- ADR : **[0033 — Quincaillerie : catalogue de références et modèles génériques](../adr/0033-quincaillerie-catalogue-et-modeles-generiques.md)**.
 - Demande de jv (2026-11-05) : « la feature doit être facile à utiliser » ; proposer les **vraies
   références** des fournisseurs ; savoir qui sont les principaux fournisseurs, comment récupérer leurs
   caractéristiques, s'ils fournissent des modèles 3D, sinon utiliser des modèles 3D génériques ;
