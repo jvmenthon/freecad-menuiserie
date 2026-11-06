@@ -201,8 +201,8 @@ def test_rotation_qui_supprime_l_assemblage(document: Any) -> None:
 
 
 def test_assemblage_impossible_refuse_avant_tout_recalcul(document: Any) -> None:
-    """Un assemblage impossible (mi-bois dont une pièce penche hors de l'épaisseur) est refusé : la commande passe
-    ``feasible_joint`` (mot-clé ``check``), le refus vient avant le premier recalcul, donc sans
+    """Un assemblage impossible (mi-bois dont une pièce penche hors de l'épaisseur) est refusé :
+    la commande passe ``feasible_joint`` (mot-clé ``check``), le refus vient avant le premier recalcul, donc sans
     trace de FreeCAD ; la transaction abandonnée ne laisse rien."""
     document.UndoMode = 1  # sans historique, abandonner la transaction ne retire rien
     host = api.make_wood_part(600, 100, 20, "chene", doc=document)
