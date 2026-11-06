@@ -172,3 +172,21 @@ Problématiques :
   cinq couleurs au plus ; la légende donne aussi le nom du rôle.
 - **P26 — Pièces non fixes « par axe ».** Une pièce peut s'étirer en largeur et rester fixe en
   hauteur. La couleur dit « elle bouge » ; le détail par face reste porté par les cadenas.
+
+### 5.4 Emplacement des gabarits (exigence de jv, 2026-11-06)
+
+Les gabarits personnels doivent être **utilisables dans différents projets** : ils ne sont donc
+jamais rangés dans un document `.FCStd`.
+
+- Gabarits intégrés : livrés avec l'atelier (code de `core/templates/`).
+- Gabarits personnels : `<dossier de l'atelier>/gabarits/`, un fichier par gabarit plus sa
+  vignette. Le dossier de l'atelier (ADR 0031, issue #148) contient déjà `materiaux.json` et
+  `dimensions.json` ; on peut le placer dans un dossier synchronisé pour le retrouver sur plusieurs
+  machines. Partager un gabarit = copier son fichier (puis, plus tard, par le SaaS).
+- Un meuble créé ne dépend pas du fichier : modifier ou supprimer un gabarit ne change pas les
+  meubles déjà faits (ADR 0010) ; l'ensemble ne garde que le nom du gabarit (`Template`).
+
+Problématique : **P27 — Dépendance.** Ce rangement suppose le dossier de l'atelier de l'ADR 0031
+(proposé, non livré). Soit il est livré avant les gabarits personnels, soit ceux-ci utilisent en
+attendant un dossier par défaut `<données utilisateur FreeCAD>/Menuiserie/gabarits/`, repris
+ensuite par le réglage.
