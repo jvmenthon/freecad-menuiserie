@@ -166,8 +166,8 @@ Problématiques :
   l'éditeur, rétabli à la fermeture, et posé hors transaction pour ne pas créer d'entrée
   d'annulation (même mécanisme que la transparence en édition, PR #132).
 - **P24 — Rôles cumulés.** Une étagère peut à la fois se répéter et s'étirer. Il faut une règle
-  d'affichage : couleur du rôle principal plus un marqueur (contour, icône), ou une couleur par
-  combinaison (vite illisible).
+  d'affichage. **Tranché par jv (2026-11-06) : une couleur (rôle principal) plus un marqueur**
+  (contour, icône) pour le rôle cumulé.
 - **P25 — Lisibilité.** Palette lisible par les daltoniens et sur fond clair comme sombre ;
   cinq couleurs au plus ; la légende donne aussi le nom du rôle.
 - **P26 — Pièces non fixes « par axe ».** Une pièce peut s'étirer en largeur et rester fixe en
