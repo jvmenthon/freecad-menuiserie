@@ -7,6 +7,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Quincaillerie, lots Q-a et Q-b (#159, ADR 0033) : catalogue de références du commerce en JSON
+  strict (`quincaillerie.json`, format 1), lu avec les mêmes garde-fous que les matériaux,
+  entrées invalides ignorées une à une avec anomalie, sources fusionnées par identifiant (la plus
+  proche de l'utilisateur l'emporte), familles génériques et cotes bornées. Catalogue intégré
+  minimal saisi à la main : tourillons, faux tenons Domino, biscuits Lamello, vis à bois,
+  charnière à cuvette et coulisse génériques. Aucun accès réseau.
 - Assemblages entre pièces en biais (#114, ADR 0024) : tenon-mortaise et rainure-languette entre
   deux pièces dont l'angle n'est pas un multiple de 90° (70° au plus, angles composés compris),
   épaulement sur la face de l'hôte, référence du tenon au choix (pièce à tenon, pièce mortaisée,
