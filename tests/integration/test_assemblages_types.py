@@ -9,9 +9,11 @@ import pytest
 
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.types_assemblages import (
+    BISCUIT,
     DOWEL_HOLE_VOLUME,
     DOWEL_VOLUME,
     DOWELS,
+    LOOSE_TENON,
     SCENARIOS,
     TONGUE_GROOVE,
     Montage,
@@ -272,3 +274,25 @@ def test_tourillons_impossibles_en_erreur(document: Any) -> None:
     montage.joint.Count = 0
     document.recompute()
     montage.assert_expected()
+
+
+def test_reference_du_catalogue_fixe_les_cotes(document: Any) -> None:
+    """``reference`` (ADR 0033) fixe les cotes du commerce ; une cote donnée l'emporte."""
+    montage = build(document, LOOSE_TENON, reference="domino-8x50")
+    joint = montage.joint
+    assert (joint.Thickness.Value, joint.Along.Value, joint.TotalDepth.Value) == (8, 22, 50)
+    other = build(document, BISCUIT, reference="biscuit-10", thickness=3)
+    assert (other.joint.Thickness.Value, other.joint.Along.Value) == (3, 53)
+    dowels = build(document, DOWELS, reference="tourillon-8x35")
+    assert (dowels.joint.Diameter.Value, dowels.joint.DowelLength.Value) == (8, 35)
+
+
+def test_reference_refusee_avant_creation(document: Any) -> None:
+    count = len(document.Objects)
+    with pytest.raises(ValueError, match="inconnue"):
+        build(document, BISCUIT, reference="n-existe-pas")
+    with pytest.raises(ValueError, match="ne convient pas"):
+        build(document, BISCUIT, reference="domino-8x50")
+    with pytest.raises(ValueError, match="ne se pose pas"):
+        build(document, DOWELS, reference="vis-bois-4x40")
+    assert len(document.Objects) == count + 6  # seules les pièces brutes des trois essais
