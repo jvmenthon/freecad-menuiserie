@@ -5,7 +5,6 @@ pure de ``features/cutlist_export.py``, sur FreeCAD simulé)."""
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -15,7 +14,12 @@ from freecad.menuiserie import ICONS_DIR
 from tests.commandes_debit import COMMANDES_DEBIT
 from tests.unit.aides import ROOT
 from tests.unit.aides_debit_document import World, simulated_world
-from tests.unit.test_commandes_assemblages import commands_of, noop, registered_commands, tree
+from tests.unit.test_commandes_assemblages import (
+    commands_of,
+    init_gui_themes,
+    noop,
+    registered_commands,
+)
 
 PACKAGE = ROOT / "freecad" / "menuiserie"
 COMMANDS = PACKAGE / "gui" / "commands" / "cutlist.py"
@@ -50,16 +54,9 @@ def test_commandes_enregistrees() -> None:
     assert registered_commands(COMMANDS) == sorted(COMMANDES_DEBIT)
 
 
-def test_commandes_dans_la_barre_et_le_menu_apres_les_ensembles() -> None:
-    """Complétées après les assemblages et les ensembles (``commands += (…)``), dans l'ordre."""
-    added = [
-        ast.literal_eval(node.value)
-        for node in ast.walk(tree(PACKAGE / "init_gui.py"))
-        if isinstance(node, ast.AugAssign)
-        and isinstance(node.target, ast.Name)
-        and node.target.id == "commands"
-    ]
-    assert added[-1] == tuple(COMMANDES_DEBIT)
+def test_commandes_dans_leur_theme_de_la_barre_et_du_menu() -> None:
+    """Les commandes de débit forment le dernier thème, dans l'ordre."""
+    assert init_gui_themes()["Liste de débit"] == tuple(COMMANDES_DEBIT)
 
 
 def test_les_commandes_ne_modifient_pas_la_selection() -> None:

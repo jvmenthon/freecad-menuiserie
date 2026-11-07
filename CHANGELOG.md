@@ -7,6 +7,41 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
+- Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; rangs du montant opposé aux mêmes hauteurs que ceux du côté (tablette de niveau même si les montants ne partent pas du même bas) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).
+- Double-clic dans la vue 3D : plus d'erreur « Internal C++ object already deleted » quand la zone d'affichage vient d'être détruite (clic ignoré).
+- Panneau d'assemblage : « OK » est grisé et refusé (message) tant que l'assemblage est en erreur ; « Annuler » reste possible.
+- Entrées utilisateur : le pas du perçage est refusé sous diamètre + 2 mm (saisir un pas à la main pouvait figer FreeCAD), tout plan d'usinage est plafonné à 1000 formes, et les champs des panneaux d'assemblage s'appliquent en fin de saisie. Nouvelle norme « Entrées utilisateur » dans `CONTRIBUTING.md`.
+- Perçage LR32 : en déplaçant une tablette, son dessous s'aimante sur le dessus de taquet de n'importe quel rang de trous (et plus seulement sur l'ancien taquet) ; le taquet suit la tablette.
+- Perçage LR32 : la commande perce la face et la zone (entre deux pièces assemblées au côté) où l'on a cliqué (propriété « Hauteur de la zone percée », 0 : la plus grande zone) ; le bouton « Inverser » du panneau perce l'autre face.
+- Faux tenons et biscuits en automatique : le premier et le dernier sont à 50 mm des bords (au milieu sur un contact plus court) et à 150 mm au plus l'un de l'autre, comme l'usage courant (avant : jusqu'au bord, une mortaise tous les 60 mm). La liste devient « Taille standard » (sans la marque) et l'entrée « Automatique » indique la taille choisie ; elle se masque avec la case « Taille personnalisée ».
+- Perçage LR32 : la face percée est la face intérieure (contre laquelle sont posées des pièces), les trous s'arrêtent aux pièces assemblées au côté (fond, dessus) avec 64 mm de marge, un taquet est posé sous chaque tablette libre, et le déplacement d'une tablette s'aimante entre son dessous et le dessus plat du taquet. Un réglage « Auto » à 0 ne refuse plus les pieds ni le perçage.
+- **Perçage LR32** (`make_shelf_pins`, commande « Perçage LR32 et taquets », une seule pièce : un côté de caisson debout) : deux colonnes de trous de 5 mm au pas de 32 mm, à 37 mm des bords et 64 mm du haut et du bas, autant de rangs que le côté en reçoit ; les **taquets de tablette** (acier) sont posés dans un rang au choix (rang du milieu par défaut) et comptés dans la liste de débit. Références génériques `taquet-tablette-5` et `taquet-tablette-8`.
+- Faux tenons et biscuits : les planches qui se touchent **face contre face** sont acceptées (le plus long côté du contact porte la longueur de la mortaise), en plus du bout et du chant.
+- Faux tenons et biscuits rangés avec les assemblages. **Faux tenons** : mortaise à bouts demi-ronds comme les Domino de Festool, taille choisie dans la liste Festool (4 x 20 à 10 x 50 mm, ou « Automatique », par défaut) ; la case « Taille personnalisée » masque la liste et montre les cotes à saisir. **Biscuits** : forme de lamelle Lamello, taille choisie dans la liste (n° 0, 10, 20 ou « Automatique »), sans taille personnalisée. Dans l'API, `size=` choisit la taille ; `reference=` en tire la taille ; des cotes données (`thickness`, `along`, `total_depth`) passent un faux tenon en taille personnalisée.
+- Barre d'outils et menu de l'atelier regroupés par thème : Pièces, Assemblages, Quincaillerie, Ensembles, Liste de débit (une barre d'outils chacun, séparés par un trait dans le menu). Icônes des faux tenons, des biscuits et des coulisses redessinées (la pièce seule, sans planches), et celle des pieds.
+- Quincaillerie, lots Q-e (pieds) et Q-f (coulisses) (#159, ADR 0033) : **pieds de caisson
+  réglables** (`make_foot`, une seule pièce : grille de pieds sous un panneau couché, logements de
+  tige percés, embase et tige rapportées) et **coulisses de tiroir à billes** (`make_drawer_slide`,
+  entre un côté de caisson et un côté de tiroir face à face avec un jeu : longueur du commerce de
+  250 à 600 mm, hauteur réglée, avant-trous au pas de 32 mm dans les deux côtés). Références
+  génériques au catalogue (`pied-caisson-m10-50`, `coulisse-billes-450`…), commandes, icônes et
+  décompte dans la liste de débit. Les pieds ont une matière, plastique (par défaut : vissé, sans tige ni perçage, vis non modélisées) ou bois (tige percée dans le panneau), qui colore le pied et figure dans la liste de débit. Charnières à cuvette et vis restent à faire. Une coulisse se pose même si les côtés se touchent ou se chevauchent ; une fenêtre propose alors de réduire le tiroir ou d'élargir le meuble du jeu qui manque (`api.slide_shortfall`, `api.make_room_for_slide`).
+- Quincaillerie, lots Q-c et Q-d (#159, ADR 0033) : deux nouveaux assemblages, **faux tenons**
+  (type Domino) et **biscuits**, avec une mortaise plate dans chaque pièce, taille du commerce
+  choisie automatiquement d'après le contact (au plus un tiers de l'épaisseur), nombre,
+  décalage et jeu de fond réglables, commandes, icônes et fabriques `make_loose_tenons` et
+  `make_biscuits`. Le paramètre `reference` des fabriques `make_dowels`, `make_loose_tenons` et
+  `make_biscuits` prend l'identifiant d'une référence du catalogue (ex. `domino-8x50`) et fixe
+  les cotes du commerce. La liste de débit compte les faux tenons et les biscuits (taille et
+  largeur) avec les tourillons ; l'en-tête « Diamètre (mm) » du CSV devient « Diamètre ou
+  épaisseur (mm) ».
+- Quincaillerie, lots Q-a et Q-b (#159, ADR 0033) : catalogue de références du commerce en JSON
+  strict (`quincaillerie.json`, format 1), lu avec les mêmes garde-fous que les matériaux,
+  entrées invalides ignorées une à une avec anomalie, sources fusionnées par identifiant (la plus
+  proche de l'utilisateur l'emporte), familles génériques et cotes bornées. Catalogue intégré
+  minimal saisi à la main : tourillons, faux tenons Domino, biscuits Lamello, vis à bois,
+  charnière à cuvette et coulisse génériques. Aucun accès réseau.
 - Pièces proches à l'assemblage (demande de jv, 2026-11-07, ADR 0039) : si les deux pièces
   sélectionnées ne se touchent pas mais sont écartées de 20 mm au plus, une fenêtre propose de
   déplacer une pièce jusqu'au contact, de l'agrandir jusqu'au contact ou d'annuler ; le
@@ -49,6 +84,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   pièce s'affiche en semi-transparence ; sa transparence d'origine est rétablie à toute fermeture
   (« OK », « Annuler », document fermé, pièce supprimée, Édition > Annuler). Une pièce qui a des
   assemblages devient transparente sous sa forme usinée, la seule visible.
+
+### Modifié
+
+- Interne : `core/joints/shelf_pins` et `core/joints/slots` deviennent des paquets (`_params`, `_strategy`, même interface, ADR 0040) ; `MIN_WALL_MM` partagé, `timber_blanks_around` dans `machined_part`, valeurs de coulisse et de perçage typées au lieu de `type: ignore`.
 
 ### Corrigé
 

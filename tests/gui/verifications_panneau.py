@@ -9,8 +9,10 @@ propriétés et signaux Qt ; « OK » et « Annuler » passent par le dialogue a
 
 from __future__ import annotations
 
+import ast
 import gc
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import FreeCAD as App
@@ -151,6 +153,22 @@ def emplacements(commande: str = COMMAND) -> list[tuple[str, str]]:
     ]
 
 
+def emplacements_attendus(commande: str) -> list[tuple[str, str]]:
+    """Menu et barre d'outils attendus pour ``commande`` : le menu « Menuiserie » (thèmes séparés)
+    et la barre de son thème, lue dans ``themes`` de ``init_gui.py``."""
+    source = Path(__file__).resolve().parents[2] / "freecad" / "menuiserie" / "init_gui.py"
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "themes":
+            assert isinstance(node.value, ast.Tuple)
+            for entry in node.value.elts:
+                assert isinstance(entry, ast.Tuple)
+                title, names = entry.elts
+                if commande in ast.literal_eval(names):
+                    theme = ast.literal_eval(title.args[1])  # type: ignore[attr-defined]
+                    return [("QMenu", "&Menuiserie"), ("QToolBar", f"Menuiserie : {theme}")]
+    raise AssertionError(f"{commande} absente des thèmes de init_gui.py")
+
+
 def verifier_commande_presente() -> list[str]:
     """C1 : commande avec libellé, infobulle et icône, dans la barre d'outils et le menu."""
     from freecad.menuiserie import icon_path
@@ -163,7 +181,7 @@ def verifier_commande_presente() -> list[str]:
         *ecarts("infobulle renseignée", bool(infos["toolTip"].strip()), True),
         *ecarts("icône", infos["pixmap"], icon_path("Menuiserie_WoodPart.svg")),
         *ecarts("icône affichée", [a.icon().isNull() for a in actions], [False]),
-        *ecarts("emplacements", places, [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")]),
+        *ecarts("emplacements", places, emplacements_attendus(COMMAND)),
     ]
 
 

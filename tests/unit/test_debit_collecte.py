@@ -248,7 +248,9 @@ def test_tourillons_effectifs_et_multiplicite(
     host, guest = world.part("WoodPart", "H"), world.part("WoodPart001", "G")
     joint = dowel_joint(host, guest)
     parts = world.features.cutlist_parts
-    monkeypatch.setattr(world.features.cutlist_collect, "is_dowel_joint", lambda obj: obj is joint)
+    monkeypatch.setattr(
+        world.features.cutlist_collect, "is_hardware_joint", lambda obj: obj is joint
+    )
     values = types.SimpleNamespace(diameter=8.0, dowel_length=35.0, count=4)
     monkeypatch.setattr(parts, "resolved_for", lambda _joint: values)
     doc = Doc(host, guest, joint, link("L", host), link("L2", guest))
@@ -270,7 +272,9 @@ def test_tourillons_impossibles_avertissement(
         raise ValueError("pièces trop minces")
 
     monkeypatch.setattr(parts, "resolved_for", failing)
-    monkeypatch.setattr(world.features.cutlist_collect, "is_dowel_joint", lambda obj: obj is joint)
+    monkeypatch.setattr(
+        world.features.cutlist_collect, "is_hardware_joint", lambda obj: obj is joint
+    )
     doc = Doc(host, guest, joint)
     collected = world.features.cutlist_collect.collect(doc)
     assert collected.hardware == ()
@@ -368,7 +372,9 @@ def test_tourillons_lus_seulement_si_leurs_deux_pieces_sont_dans_la_portee(
 ) -> None:
     host, guest = world.part("WoodPart", "H"), world.part("WoodPart001", "G")
     joint = dowel_joint(host, guest)
-    monkeypatch.setattr(world.features.cutlist_collect, "is_dowel_joint", lambda obj: obj is joint)
+    monkeypatch.setattr(
+        world.features.cutlist_collect, "is_hardware_joint", lambda obj: obj is joint
+    )
     monkeypatch.setattr(
         world.features.cutlist_parts,
         "resolved_for",
