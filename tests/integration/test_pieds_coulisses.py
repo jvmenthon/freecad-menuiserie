@@ -162,6 +162,25 @@ def test_assemblage_ajoute_apres_le_percage_recalcule_le_montant_oppose(document
     assert stale_or_invalid(document) == []
 
 
+def test_deuxieme_zone_percee_aussi_sur_le_montant_oppose(document: Any) -> None:
+    """Retour de jv : côté déjà percé sous une séparation assemblée ; un perçage ajouté au-dessus
+    perce aussi le montant opposé (autre zone), mais pas deux fois la même."""
+    side = upright_side(document)
+    where = App.Placement(App.Vector(619, 0, 0), App.Rotation(App.Vector(0, 1, 0), 90))
+    other = wood(document, "S", (720, 500, 19), where)
+    middle = shelf(document, 360)  # séparation assemblée aux deux côtés
+    document.recompute()
+    api.make_dowels(side, middle)
+    api.make_dowels(other, middle)
+    lower = api.make_shelf_pins(side, zone_height=100)
+    assert lower.GuestPart == other
+    upper = api.make_shelf_pins(side, zone_height=600)
+    assert upper.GuestPart == other and upper.isValid()
+    again = api.make_shelf_pins(side, zone_height=600)  # même zone : pas de doublon en face
+    assert again.GuestPart == side
+    assert stale_or_invalid(document) == []
+
+
 def test_pas_saisi_trop_petit_refuse_sans_figer(document: Any) -> None:
     joint = api.make_shelf_pins(upright_side(document))
     joint.Pitch = 1  # valeur transitoire en tapant « 16 »

@@ -14,7 +14,12 @@ from typing import Any, ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, strategy_for
-from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams, facing_side
+from freecad.menuiserie.core.joints.shelf_pins import (
+    Neighbor,
+    ShelfPinsParams,
+    facing_side,
+    opposite_values,
+)
 from freecad.menuiserie.core.part_model import InvalidDimensionsError
 from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
 from freecad.menuiserie.features.joints.base import (
@@ -52,8 +57,8 @@ def _assembled_with(part: DocumentObject, other: DocumentObject) -> bool:
 
 def opposite_upright(part: DocumentObject, params: ShelfPinsParams) -> DocumentObject | None:
     """Montant opposé de ``part`` : le côté debout parallèle le plus proche en face de sa face
-    percée avec ``params`` ; ``None`` s'il n'y en a pas, s'il est déjà percé ou si le perçage
-    est impossible."""
+    percée avec ``params`` ; ``None`` s'il n'y en a pas, si le perçage y est impossible ou s'il
+    y retomberait sur des trous déjà percés (même face, même hauteur : autre zone acceptée)."""
     container = part.getParentGeoFeatureGroup()
     candidates, blocks = [], []
     for other in timber_blanks_around(part):
@@ -70,20 +75,42 @@ def opposite_upright(part: DocumentObject, params: ShelfPinsParams) -> DocumentO
         with_neighbors = replace(params, neighbors=_neighbors_of(part))
         face = strategy.resolve(host, host, with_neighbors).face
         found = facing_side(host, face, tuple(blocks))
-        if found is None or _has_shelf_pins(candidates[found[0]]):
+        if found is None:
             return None
         other = candidates[found[0]]
         mirrored = replace(with_neighbors, guest_neighbors=_neighbors_of(other))
         strategy.plan(host, blocks[found[0]], mirrored)  # montant opposé perçable
+        planned = opposite_values(host, blocks[found[0]], mirrored)
     except (JointError, ValueError, InvalidDimensionsError):
+        return None
+    if planned is None or _levels(planned) & _drilled_levels(other):
         return None
     return other
 
 
-def _has_shelf_pins(part: DocumentObject) -> bool:
+def _levels(values: Any) -> set[tuple[str, float]]:
+    """(face, hauteur au dixième de mm) de chaque rang de trous."""
+    return {(values.face, round(height, 1)) for height in values.heights}
+
+
+def _drilled_levels(part: DocumentObject) -> set[tuple[str, float]]:
+    """Rangs déjà percés dans ``part`` par ses perçages LR32 (comme côté ou montant opposé)."""
+    levels: set[tuple[str, float]] = set()
     machined = machined_part_of(part)
-    joints = getattr(machined, "Joints", ())
-    return any(is_joint(item) and item.Proxy.KIND is JointKind.SHELF_PINS for item in joints)
+    for joint in getattr(machined, "Joints", ()):
+        if not is_joint(joint) or joint.Proxy.KIND is not JointKind.SHELF_PINS:
+            continue
+        try:
+            if joint.HostPart == part:
+                levels |= _levels(resolved_for(joint))
+            elif joint.GuestPart == part:
+                host = placed_blank(joint.HostPart)
+                params = joint.Proxy.params(joint)
+                values = opposite_values(host, placed_blank(part), params)
+                levels |= _levels(values) if values is not None else set()
+        except (JointError, ValueError, InvalidDimensionsError):
+            continue
+    return levels
 
 
 def _neighbors_of(part: DocumentObject) -> tuple[Neighbor, ...]:
