@@ -75,10 +75,14 @@ class _DoubleClickFilter(QtCore.QObject):  # type: ignore[misc]
         """Vrai (évènement consommé) seulement si le panneau d'un objet de l'atelier s'ouvre."""
         if event.type() != QtCore.QEvent.MouseButtonDblClick:
             return False
-        if event.button() != QtCore.Qt.LeftButton or not is_viewport_3d(watched):
+        try:
+            if event.button() != QtCore.Qt.LeftButton or not is_viewport_3d(watched):
+                return False
+            position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6/5
+            point = view_point(watched, position.x(), position.y())
+        except RuntimeError:  # widget Qt déjà détruit (vue fermée ou recréée) : clic ignoré
             return False
-        position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6, Qt 5
-        return open_at(Gui.activeView(), view_point(watched, position.x(), position.y()))
+        return open_at(Gui.activeView(), point)
 
 
 class _Installation:

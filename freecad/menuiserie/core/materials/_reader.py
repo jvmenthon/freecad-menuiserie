@@ -131,10 +131,18 @@ def read_materials_file(
     return ([], []) if result is None else result
 
 
+def read_json_file(path: Path, label: str) -> object:
+    """Document JSON strict du fichier ``path`` (mêmes garde-fous que les matériaux : taille
+    bornée, fichier ordinaire, UTF-8, pas de NaN) ; ``FileNotFoundError`` si le fichier est absent,
+    :class:`LibraryFormatError` s'il est illisible ou invalide. Les objets à clés en double sont
+    des :class:`JsonObject`."""
+    return _decode_json(_read_bytes(path, label), label)
+
+
 def read_existing_file(path: Path, label: str) -> tuple[list[Material], list[LibraryIssue]] | None:
     """Comme :func:`read_materials_file`, mais ``None`` si le fichier est absent."""
     try:
-        data = _decode_json(_read_bytes(path, label), label)
+        data = read_json_file(path, label)
     except FileNotFoundError:
         return None
     except LibraryFormatError as error:

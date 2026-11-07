@@ -26,6 +26,7 @@ from tests.gui.verifications_panneau import (
     annuler,
     ecarts,
     emplacements,
+    emplacements_attendus,
     formulaire,
     nouveau_document,
     saisir,
@@ -153,7 +154,7 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
             *ecarts(
                 f"{nom} emplacements",
                 sorted(emplacements(nom)),
-                [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+                emplacements_attendus(nom),
             ),
         ]
     return problemes
@@ -163,20 +164,25 @@ def actives() -> dict[str, bool]:
     return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
 
 
-def attendues(actives_si_fabrique: bool) -> dict[str, bool]:
-    """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois)."""
+PIEDS = ("Menuiserie_Foot", "Menuiserie_ShelfPins")  # commandes sur une seule pièce
+
+
+def attendues(actives_si_fabrique: bool, une_piece: bool = False) -> dict[str, bool]:
+    """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois) ;
+    ``une_piece`` : la sélection est une seule pièce, que seuls les pieds acceptent."""
     return {
-        nom: actives_si_fabrique and hasattr(api, fabrique)
+        nom: (une_piece if nom in PIEDS else actives_si_fabrique) and hasattr(api, fabrique)
         for nom, (_libelle, fabrique) in COMMANDES_ASSEMBLAGE.items()
     }
 
 
 def verifier_activation_des_commandes_d_assemblage() -> list[str]:
-    """C1 : actives seulement pour deux pièces distinctes et sans panneau ouvert."""
+    """C1 : actives seulement pour deux pièces distinctes (les pieds : une pièce) et sans panneau
+    ouvert."""
     with cadre("VerifActivationAssemblage") as (doc, pieces):
         problemes = ecarts("aucune sélection", actives(), attendues(False))
         selectionner(pieces["M1"])
-        problemes += ecarts("une pièce", actives(), attendues(False))
+        problemes += ecarts("une pièce", actives(), attendues(False, une_piece=True))
         selectionner(pieces["M1"], pieces["T1"])
         problemes += ecarts("deux pièces", actives(), attendues(True))
         selectionner(pieces["M1"], pieces["T1"], pieces["T2"])
@@ -242,6 +248,35 @@ def verifier_assemblage_impossible_refuse() -> list[str]:
             *ecarts("entrées d'annulation", list(doc.UndoNames), entrees),
             *ecarts("message explicatif", "se chevaucher" in message, True),
         ]
+
+
+def verifier_ok_refuse_si_assemblage_en_erreur() -> list[str]:
+    """Demande de jv : « OK » du panneau d'assemblage refusé (et grisé) tant que l'assemblage
+    est en erreur ; « Annuler » reste possible."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.gui.commands.base import REFUSAL_BOX_NAME
+
+    with cadre("VerifOkRefuse") as (doc, pieces):
+        joint = assembler(doc, pieces["T1"], pieces["M1"], ok=False)
+        if joint is None or not Gui.Control.activeDialog():
+            return ["aucun panneau d'assemblage ouvert"]
+        loin = App.Placement(App.Vector(5000, 5000, 5000), App.Rotation())
+        pieces["T1"].Placement = loin  # les pièces ne se touchent plus : impossible
+        doc.recompute()
+        valider()
+        boite = Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
+        message = boite.text() if boite is not None and boite.isVisible() else ""
+        if boite is not None:
+            boite.hide()
+        problemes = [
+            *ecarts("panneau toujours ouvert", bool(Gui.Control.activeDialog()), True),
+            *ecarts("message de refus", "non validé" in message, True),
+        ]
+        if Gui.Control.activeDialog():
+            annuler()
+        problemes += ecarts("annulé", bool(Gui.Control.activeDialog()), False)
+    return problemes
 
 
 # --- C3, C6 : affichage ------------------------------------------------------------------
@@ -484,6 +519,7 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_activation_des_commandes_d_assemblage,
     verifier_creation_d_un_assemblage,
     verifier_assemblage_impossible_refuse,
+    verifier_ok_refuse_si_assemblage_en_erreur,
     verifier_affichage_de_la_piece_usinee,
     verifier_affichage_de_l_assemblage,
     verifier_reouverture_des_assemblages,

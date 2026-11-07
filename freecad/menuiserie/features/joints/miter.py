@@ -29,6 +29,10 @@ class MiterJoint(JointFeature):
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Onglet")
     PARAMS: ClassVar[type[MiterParams]] = MiterParams
     INVERTIBLE: ClassVar[bool] = False
+    INVERT_DISABLED_TIP: ClassVar[str] = QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
+    )
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = ()
     SUMMARY: ClassVar[str] = QT_TRANSLATE_NOOP(
         "Menuiserie",

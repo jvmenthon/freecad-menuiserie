@@ -26,7 +26,12 @@ from freecad.menuiserie import api
 from tests.commandes_debit import COMMANDES_DEBIT
 from tests.gui.verifications_assemblages import selectionner
 from tests.gui.verifications_ensemble import boite_de_refus, pieces_du_bureau, regrouper
-from tests.gui.verifications_panneau import ecarts, emplacements, nouveau_document
+from tests.gui.verifications_panneau import (
+    ecarts,
+    emplacements,
+    emplacements_attendus,
+    nouveau_document,
+)
 from tests.integration.bureau import Bureau
 
 LISTE = "Menuiserie_CutList"
@@ -124,7 +129,7 @@ def verifier_commandes_du_debit() -> list[str]:
             *ecarts(
                 f"{nom} emplacements",
                 sorted(emplacements(nom)),
-                [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+                emplacements_attendus(nom),
             ),
             *ecarts(f"{nom} active sans document", commande.isActive(), False),
         ]

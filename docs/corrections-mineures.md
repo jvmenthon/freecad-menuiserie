@@ -68,3 +68,31 @@ Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés d
 | e14 | mineur | `tests/` | Tests manquants : Ctrl+Z / Ctrl+Y de `make_furniture` (Std Part), Ctrl+Y d'un geste, « Annuler » du panneau après un geste et une saisie d'angle, réouverture d'un document au sous-ensemble déplacé ou tourné, taille et rotation d'un sous-sous-ensemble. | Ajouter les vérifications (intégration et GUI hors écran). |
 | e15 | mineur | `gui/drag/furniture_target.py:137`, `core/geometry.py` (`_box_drawing`), `features/furniture_drag.py:131` et `:216` | Code dupliqué : les huit coins d'une boîte ; le décalage tourné suivi de `write_std_placement`. | Factoriser en `box_corners` et en `_shifted_placement`. |
 | e16 | mineur | `tests/gui/verifications_souris_ensemble.py` | Le fichier fait 661 lignes. | Le découper par thème (taille, déplacement, rotation, sous-ensemble, panneau). |
+
+## Relecture « assemblages en biais, suite » (issue #78, ADR 0034), 2026-11-07
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| s1 | mineur | `features/joints/base.py` (résumé du panneau) | T3 : la ligne « Biais » du panneau n'existe pas pour feuillure, mi-bois, onglet, tourillons, queue d'aronde. | Ajouter les champs `oblique`/`cut_angle` aux valeurs effectives de ces types. |
+| s3 | mineur | feuillure, mi-bois, onglet | Pièces au contact en biais refusées (`OBLIQUE_OVERLAP_ONLY`). | Prolonger l'invitée par le coin ajouté (ADR 0014 en biais). |
+
+## Jalon « Quincaillerie » (issue #159, ADR 0033), 2026-11-06
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| Q1 | mineur | `freecad/menuiserie/data/quincaillerie.json` | Cotes des biscuits Lamello saisies de mémoire d'après les tableaux publics, non relues sur fiche (marquées « à confirmer »). Les Domino ont été relus sur les fiches Festool le 2026-11-06. | Comparer avec la fiche Lamello, puis retirer la mention. |
+| Q2 | mineur | `features/joints/slots.py` | Le choix entre liste de tailles et taille personnalisée est fixé (liste par défaut pour les faux tenons). jv veut pouvoir régler ce comportement par défaut dans la configuration de l'atelier (issue #148). | Lire le réglage de l'atelier à la création de l'assemblage. |
+| Q3 | mineur | `features/joints/slots.py`, `core/cutlist` | La référence choisie (`reference=`) fixe les cotes mais n'est pas mémorisée sur l'assemblage : la liste de débit n'a ni fabricant ni référence, seulement taille et quantité. | Propriété `Reference` sur l'assemblage et colonnes fabricant / référence du CSV (spec § 8). |
+| Q4 | mineur | `gui/task_panels/joint.py` | Pas de panneau de choix de référence (filtre par type et mot-clé, spec § 7) : la référence ne se choisit que par l'API. | Liste filtrable de `core.hardware.Catalog.search` dans le panneau de l'assemblage. |
+| Q5 | mineur | `core/hardware/_families.py` | Familles vis, charnière et coulisse : cotes validées, mais aucune forme ni pose (lots Q-e à Q-g). | Lots ultérieurs de la spec § 10. |
+| Q6 | mineur | `core/hardware/_parser.py` (`parse_item`) | Une clé en double dans `params` (objet imbriqué) n'est pas signalée : la dernière valeur gagne en silence ; seule une clé en double au niveau de l'entrée est refusée. | Refuser aussi un `JsonObject` en `params`. |
+| Q7 | mineur | `core/joints/slots.py` | Une mortaise peut toucher le bord du contact (marge de tolérance seulement) et ouvrir le chant de la pièce. | Exiger une paroi minimale (`MIN_WALL_MM`) entre la mortaise et le bord du contact. |
+| Q8 | mineur | `core/joints/slides.py` | La coulisse est une boîte simple et ses avant-trous du côté du tiroir reprennent les positions du côté du caisson ; la coulisse réelle (rail, billes, verrou) et sa fixation propre ne sont pas modélisées. | Famille de coulisses avec cotes de fixation propres à chaque côté. |
+| Q9 | mineur | `core/joints/feet.py` | Les pieds ne se posent que sous un panneau couché dans le repère du document ; pas de pied sur un panneau en biais ni de position libre (grille régulière seulement). | Positions saisies ou pose depuis une face choisie. |
+
+## Relecture « factorisation » du jalon quincaillerie (PR #164), 2026-11-07
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| Q10 | mineur | `features/joints/{feet,slides,shelf_pins,slots}.py` | Les `PropertySpec` « diamètre/profondeur des trous », « distance au bord », « nombre » se répètent (environ 10 lignes chacune). Une fabrique ne gagnerait presque rien : l'extraction des traductions exige `QT_TRANSLATE_NOOP("…", "texte")` littéral à l'endroit de la propriété, donc infobulle et libellé restent écrits à chaque appel. | Abandonné tant que l'extraction des traductions ne lit pas les paramètres de fabrique. |
+| Q11 | mineur | `core/joints/slides.py` | 316 lignes : à passer en paquet comme `shelf_pins` et `slots` (ADR 0040) avant d'approcher 400. | Même découpage `_params` / `_strategy`. |

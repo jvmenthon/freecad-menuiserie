@@ -17,9 +17,11 @@ import FreeCAD as App
 import Part
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
+from freecad.menuiserie.core.joints import JointError, JointKind
+from freecad.menuiserie.core.joints.shelf_pins import opposite_values, pin_rests
 from freecad.menuiserie.core.magnet import Guide, GuideKind
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.features.joints.base import is_joint, placed_blank, resolved_for
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.snap_geometry import ERRORS, is_straight, to_vec3
 
@@ -31,12 +33,17 @@ _PARALLEL: Final = 1e-6  # composante (relative) hors axe en deçà de laquelle 
 
 
 def _excluded(part: DocumentObject) -> set[str]:
-    """Noms des objets qui ne guident pas la pièce : elle-même, sa pièce usinée, ses assemblages."""
+    """Noms des objets qui ne guident pas la pièce : elle-même, sa pièce usinée, ses assemblages
+    (ceux qui la citent seulement comme voisine, tels les taquets sous une tablette, la guident)."""
     names = {part.Name}
     machined = machined_part_of(part)
     if machined is not None:
         names.add(machined.Name)
-    names.update(parent.Name for parent in part.InList if is_joint(parent))
+    names.update(
+        parent.Name
+        for parent in part.InList
+        if is_joint(parent) and part in (parent.HostPart, parent.GuestPart)
+    )
     return names
 
 
@@ -166,6 +173,39 @@ def _guides_of(shape: Any, inverse: App.Placement) -> list[Guide]:
         return []
 
 
+def _pin_rests_shape(obj: DocumentObject) -> Any:
+    """Appuis de tablette d'un perçage LR32 (dessus de taquet à chaque rang, sur le côté et le
+    montant opposé), en coordonnées globales ; ``None`` pour un autre objet ou un perçage
+    impossible."""
+    if not is_joint(obj) or obj.Proxy.KIND is not JointKind.SHELF_PINS:
+        return None
+    try:
+        host = placed_blank(obj.HostPart)
+        values: Any = resolved_for(obj)
+        sides = [(obj.HostPart, pin_rests(host, values))]
+        guest = obj.GuestPart
+        if guest is not None and guest != obj.HostPart:
+            other = opposite_values(host, placed_blank(guest), obj.Proxy.params(obj))
+            if other is not None:
+                sides.append((guest, pin_rests(placed_blank(guest), other)))
+    except (*ERRORS, ValueError, JointError):
+        return None
+    shapes = []
+    for part, rests in sides:
+        if not rests:
+            continue
+        boxes = [
+            Part.makeBox(
+                *(rest.size(i) for i in range(3)), App.Vector(rest.min.x, rest.min.y, rest.min.z)
+            )
+            for rest in rests
+        ]
+        shape = Part.makeCompound(boxes)
+        shape.transformShape(part.getGlobalPlacement().toMatrix())  # repère du document
+        shapes.append(shape)
+    return Part.makeCompound(shapes) if shapes else None
+
+
 def collect_guides(
     part: DocumentObject,
     container: DocumentObject | None,
@@ -197,6 +237,12 @@ def collect_guides(
     found: list[tuple[float, int, Any]] = []
     for index, obj in enumerate(_leaves(roots, set(skipped))):
         if obj.Name in skipped or not obj.Visibility:
+            continue
+        rests = _pin_rests_shape(obj)  # dessus de taquet de chaque rang de trous
+        if rests is not None:
+            # Seul le dessus du taquet attire la tablette : ni le dessous, ni les arêtes, ni
+            # la forme du perçage lui-même (haut du trou).
+            found.append((0.0, index, rests))
             continue
         shape = _global_shape(obj)
         if shape is None:

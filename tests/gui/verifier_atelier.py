@@ -58,6 +58,7 @@ from tests.gui.verifications_panneau_verrous import VERIFICATIONS_PANNEAU_VERROU
 from tests.gui.verifications_piece_en_bois import VERIFICATIONS_PIECE_EN_BOIS
 from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE
 from tests.gui.verifications_piece_en_bois_limites import VERIFICATIONS_PIECE_EN_BOIS_LIMITES
+from tests.gui.verifications_pieces_proches import VERIFICATIONS_PIECES_PROCHES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
@@ -1255,6 +1256,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_PANNEAU_ASSEMBLAGE_FERMETURE,
     *VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE,
     *VERIFICATIONS_USINAGE_DEPLACEMENT,
+    *VERIFICATIONS_PIECES_PROCHES,
     *VERIFICATIONS_QUEUE_ARONDE,
     *VERIFICATIONS_ONGLET,
     *VERIFICATIONS_ENSEMBLE,
