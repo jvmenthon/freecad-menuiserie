@@ -227,27 +227,20 @@ def _checked_label(label: str) -> str:
     return label
 
 
-def _common_parent(objects: Sequence[DocumentObject]) -> DocumentObject | None:
-    """Ensemble dont toutes les ``objects`` sont membres (``None`` s'il n'y en a pas un seul,
-    commun à tous) : le geste « tiroir » crée alors un sous-ensemble dans cet ensemble."""
-    if not objects:
-        return None
-    parents = {furniture_of(member_object(obj)) for obj in objects}
-    parent = next(iter(parents))
-    return parent if len(parents) == 1 and parent is not None else None
-
-
 def _build_inside(
-    parent: DocumentObject, objects: Sequence[DocumentObject], label: str
-) -> tuple[DocumentObject, list[Notice]]:
-    """Sous-ensemble de ``parent`` autour de ``objects`` (ses membres) : les pièces sortent de
-    ``parent``, entrent dans le nouvel ensemble, qui devient membre de ``parent`` (ADR 0037).
-    Un refus après la sortie des pièces relève de la transaction de l'appelant (annulation)."""
+    objects: Sequence[DocumentObject], label: str
+) -> tuple[DocumentObject, list[Notice]] | None:
+    """Sous-ensemble de l'ensemble commun à ``objects`` (tous membres du même, ADR 0037) : les
+    pièces en sortent, entrent dans le nouvel ensemble, membre du parent. ``None`` sinon. Un
+    refus après la sortie relève de la transaction de l'appelant (annulation)."""
+    parents = {furniture_of(member_object(obj)) for obj in objects}
+    parent = next(iter(parents), None)
+    if parent is None or len(parents) != 1:
+        return None
     _checked_label(label or translated(DEFAULT_LABEL))
     remove_members(objects)
     furniture, notices = build_furniture(objects, label)
-    notices.extend(add_members(parent, [furniture]))
-    return furniture, notices
+    return furniture, [*notices, *add_members(parent, [furniture])]
 
 
 def build_furniture(
@@ -255,9 +248,8 @@ def build_furniture(
 ) -> tuple[DocumentObject, list[Notice]]:
     """Crée un ensemble autour de ``objects`` (boîte qui les contient) et les y fait entrer ;
     tout est contrôlé avant la création."""
-    parent = _common_parent(objects)
-    if parent is not None:
-        return _build_inside(parent, objects, label)
+    if (inside := _build_inside(objects, label)) is not None:
+        return inside
     members = _candidates(objects, None)
     text = _checked_label(label or translated(DEFAULT_LABEL))
     box, origin = enclosing(members)
