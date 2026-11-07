@@ -61,6 +61,7 @@ contournable), **mineur** (confort, docs, dette de test).
 | s1 | mineur | `features/joints/base.py` (résumé du panneau) | T3 : la ligne « Biais » du panneau n'existe pas pour feuillure, mi-bois, onglet, tourillons, queue d'aronde. | Ajouter les champs `oblique`/`cut_angle` aux valeurs effectives de ces types. |
 | s2 | mineur | `core/joints/rabbet.py` | La feuillure en biais n'a pas de garde `_splits` en `core` (refus seulement à la forme, par `machined_shape`). | Détecter le fractionnement dans `core` pour un message plus précis. |
 | s3 | mineur | feuillure, mi-bois, onglet | Pièces au contact en biais refusées (`OBLIQUE_OVERLAP_ONLY`). | Prolonger l'invitée par le coin ajouté (ADR 0014 en biais). |
+
 ## Jalon « Quincaillerie » (issue #159, ADR 0033), 2026-11-06
 
 | N° | Niveau | Où | Problème | Correction proposée |
