@@ -112,6 +112,8 @@ class FurnitureTarget(Target):
         del panel_shown  # les poignées sont là dès la sélection
         frame, box = self.frame(), self.box()
         found = furniture_layout(box, frame, size_mm)
+        # is_empty est une propriété : faux positif de Semgrep (méthode non appelée).
+        # nosemgrep: python.lang.maintainability.is-function-without-parentheses
         if found.is_empty:
             raise ValueError(_NO_VOLUME)
         free = self._free()
