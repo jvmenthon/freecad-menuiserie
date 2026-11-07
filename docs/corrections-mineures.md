@@ -54,6 +54,14 @@ contournable), **mineur** (confort, docs, dette de test).
 | b2 | mineur | `core/furniture/_model.py`, `_edit.py` | `NoticeKind.NOT_SQUARE` et `Follow.NOT_SQUARE` ne sont plus produits depuis AB-d (toute pièce non d'équerre suit par translation). | Retirer les deux valeurs et leurs gabarits à la prochaine évolution du modèle d'ensemble. |
 | b3 | mineur | `tests/unit/test_assemblage_biais.py` | Chemins refusés sans test : `NO_WALL` en biais, invitée qui entre par un chant (`OVERLAPPING`), `TOO_SMALL` (polyèdre vide), rainure-languette en biais composé. | Ajouter les cas. |
 
+## Relecture « assemblages en biais, suite » (issue #78, ADR 0034), 2026-11-07
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| s1 | mineur | `features/joints/base.py` (résumé du panneau) | T3 : la ligne « Biais » du panneau n'existe pas pour feuillure, mi-bois, onglet, tourillons, queue d'aronde. | Ajouter les champs `oblique`/`cut_angle` aux valeurs effectives de ces types. |
+| s2 | mineur | `core/joints/rabbet.py` | La feuillure en biais n'a pas de garde `_splits` en `core` (refus seulement à la forme, par `machined_shape`). | Détecter le fractionnement dans `core` pour un message plus précis. |
+| s3 | mineur | feuillure, mi-bois, onglet | Pièces au contact en biais refusées (`OBLIQUE_OVERLAP_ONLY`). | Prolonger l'invitée par le coin ajouté (ADR 0014 en biais). |
+
 ## Jalon « Quincaillerie » (issue #159, ADR 0033), 2026-11-06
 
 | N° | Niveau | Où | Problème | Correction proposée |

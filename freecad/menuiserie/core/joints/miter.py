@@ -19,6 +19,7 @@ import math
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
+from freecad.menuiserie.core._polyhedron import Polyhedron
 from freecad.menuiserie.core.contact import Overlap
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
@@ -30,6 +31,7 @@ from freecad.menuiserie.core.geometry import (
     RigidTransform,
     Solid,
     Vec3,
+    is_square,
     moved,
     moved_box,
     relative_transform,
@@ -37,6 +39,7 @@ from freecad.menuiserie.core.geometry import (
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import JointKind, JointPlan, square_relation
 from freecad.menuiserie.core.joints._bridge import cut_plan, through_host
+from freecad.menuiserie.core.joints._miter_oblique import oblique_miter
 
 __all__ = ["MiterParams", "MiterStrategy", "MiterValues"]
 
@@ -70,8 +73,8 @@ class MiterValues:
 
     host_angle: float  # atan(w_invitée / w_hôte)
     guest_angle: float  # son complément
-    host_cut: Solid  # prisme, repère de l'hôte
-    guest_cut: Solid  # prisme, repère de l'invitée
+    host_cut: Solid | Polyhedron  # prisme (ou polyèdre en biais), repère de l'hôte
+    guest_cut: Solid | Polyhedron  # idem, repère de l'invitée
 
 
 class MiterStrategy:
@@ -83,6 +86,8 @@ class MiterStrategy:
     def resolve(self, host: PlacedBlock, guest: PlacedBlock, params: MiterParams) -> MiterValues:
         """Angles de coupe et prismes enlevés aux deux pièces."""
         del params  # aucun paramètre en J4
+        if not is_square(host, guest):
+            return MiterValues(*oblique_miter(host, guest))
         bridge = through_host(host, guest)
         corner = _corner(host, bridge.guest)
         angle = math.degrees(math.atan2(corner.guest_width, corner.host_width))
@@ -97,6 +102,8 @@ class MiterStrategy:
         """Un prisme triangulaire enlevé à chaque pièce ; l'invitée posée au contact est
         prolongée jusqu'au coin."""
         values = self.resolve(host, guest, params)
+        if not is_square(host, guest):
+            return JointPlan(host_cuts=(values.host_cut,), guest_cuts=(values.guest_cut,))
         return cut_plan(values.host_cut, values.guest_cut, through_host(host, guest))
 
 
