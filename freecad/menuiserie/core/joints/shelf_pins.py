@@ -44,6 +44,7 @@ __all__ = [
     "ShelfPinsStrategy",
     "ShelfPinsValues",
     "picked_choice",
+    "pin_rests",
 ]
 
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond d'un trou
@@ -195,6 +196,36 @@ def _ledge(  # noqa: PLR0913
     ranges[horizontal] = (column - radius, column + radius)
     ranges[2] = (min(plane, out), max(plane, out))
     return Box.from_ranges(ranges)
+
+
+REST_SLAB_MM: Final = 0.01  # épaisseur des appuis d'aimantation (seule leur face haute compte)
+
+
+def pin_rests(host: PlacedBlock, values: ShelfPinsValues) -> tuple[Box, ...]:
+    """Appuis possibles d'une tablette : à chaque rang de trous et dans chaque colonne, une
+    plaque mince sous le dessus qu'aurait un taquet (repère du côté). Leur face haute guide
+    l'aimantation du dessous de la tablette sur n'importe quel rang."""
+    vertical, down = _upright(host)
+    box = host.local_box()
+    horizontal = 1 - vertical
+    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
+    plane = box.hi(2) if values.face == "plus" else box.lo(2)
+    out = plane + (1.0 if values.face == "plus" else -1.0) * values.pin_projection
+    radius = values.hole_diameter / 2
+    rests = []
+    for height in values.heights:
+        top = bottom - down * (height + radius)
+        under = bottom - down * (height + radius - REST_SLAB_MM)
+        for column in (
+            box.lo(horizontal) + values.edge_distance,
+            box.hi(horizontal) - values.edge_distance,
+        ):
+            ranges = [(0.0, 0.0)] * 3
+            ranges[vertical] = (min(top, under), max(top, under))
+            ranges[horizontal] = (column - radius, column + radius)
+            ranges[2] = (min(plane, out), max(plane, out))
+            rests.append(Box.from_ranges(ranges))
+    return tuple(rests)
 
 
 def picked_choice(host: PlacedBlock, point: Vec3) -> tuple[str, float]:

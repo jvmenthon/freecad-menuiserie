@@ -17,9 +17,11 @@ import FreeCAD as App
 import Part
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
+from freecad.menuiserie.core.joints import JointError, JointKind
+from freecad.menuiserie.core.joints.shelf_pins import pin_rests
 from freecad.menuiserie.core.magnet import Guide, GuideKind
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.features.joints.base import is_joint, placed_blank, resolved_for
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.snap_geometry import ERRORS, is_straight, to_vec3
 
@@ -158,6 +160,29 @@ def _guides_of(shape: Any, inverse: App.Placement) -> list[Guide]:
         return []
 
 
+def _pin_rests_shape(obj: DocumentObject) -> Any:
+    """Appuis de tablette d'un perçage LR32 (dessus de taquet à chaque rang), en coordonnées
+    globales ; ``None`` pour un autre objet ou un perçage impossible."""
+    if not is_joint(obj) or obj.Proxy.KIND is not JointKind.SHELF_PINS:
+        return None
+    try:
+        values: Any = resolved_for(obj)
+        rests = pin_rests(placed_blank(obj.HostPart), values)
+    except (*ERRORS, ValueError, JointError):
+        return None
+    boxes = [
+        Part.makeBox(
+            *(rest.size(i) for i in range(3)), App.Vector(rest.min.x, rest.min.y, rest.min.z)
+        )
+        for rest in rests
+    ]
+    if not boxes:
+        return None
+    shape = Part.makeCompound(boxes)
+    shape.Placement = obj.HostPart.getGlobalPlacement()
+    return shape
+
+
 def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tuple[Guide, ...]:
     """Guides d'aimantation de la pièce brute ``part`` (B1), dans son repère.
 
@@ -178,6 +203,9 @@ def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tu
     for index, obj in enumerate(_leaves(roots, set())):
         if obj.Name in skip or not obj.Visibility:
             continue
+        rests = _pin_rests_shape(obj)  # dessus de taquet de chaque rang de trous
+        if rests is not None:
+            found.append((0.0, index, rests))
         shape = _global_shape(obj)
         if shape is None:
             continue

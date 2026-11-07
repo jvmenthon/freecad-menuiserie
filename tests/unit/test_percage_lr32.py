@@ -7,7 +7,12 @@ import pytest
 
 from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock, Vec3
 from freecad.menuiserie.core.joints import JointKind, strategy_for
-from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams, picked_choice
+from freecad.menuiserie.core.joints.shelf_pins import (
+    Neighbor,
+    ShelfPinsParams,
+    picked_choice,
+    pin_rests,
+)
 from tests.unit.aides_assemblages import block, placed, rotation_y
 
 SHELF_PINS = strategy_for(JointKind.SHELF_PINS)
@@ -114,6 +119,18 @@ def test_zone_du_clic_entre_deux_pieces_assemblees() -> None:
     assert upper.heights[0] == 419.0 + 64.0 and upper.heights[-1] <= 701.0 - 64.0
     assert upper.zone_height == (419.0 + 701.0) / 2 and upper.face == "plus"
     assert picked_choice(wall, Vec3(100.0, 250.0, 0.0))[0] == "minus"
+
+
+def test_appuis_d_aimantation_a_chaque_rang() -> None:
+    wall = side()
+    values = SHELF_PINS.resolve(wall, wall, ShelfPinsParams(neighbors=cabinet(360.0)))
+    rests = pin_rests(wall, values)
+    assert len(rests) == 2 * values.rows
+    # repère du côté : le haut est vers x décroissant, la face haute de l'appui est en lo(0)
+    tops = sorted({round(720.0 - r.lo(0), 6) for r in rests})
+    assert tops == [round(values.pin_top(i), 6) for i in range(values.rows)]
+    ledges = boxes(SHELF_PINS.plan(wall, wall, ShelfPinsParams(neighbors=cabinet(360.0))).inserts)
+    assert {round(720.0 - b.lo(0), 6) for b in ledges} == {round(values.pin_top(8), 6)}
 
 
 def test_valeurs_automatiques_a_zero() -> None:
