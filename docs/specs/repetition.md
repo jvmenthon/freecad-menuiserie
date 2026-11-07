@@ -1,92 +1,127 @@
 # Répétition de pièces
 
 - Issue [#180](https://github.com/jvmenthon/freecad-menuiserie/issues/180), demande de jv (2026-11-07).
-- Décision : [ADR 0043](../adr/0043-repetition-par-copies-ordinaires.md) (proposé).
-- Statut : **en attente des réponses de jv** (§ 6). Les choix ★ s'appliquent par défaut.
+- Décision : [ADR 0043](../adr/0043-repetition-objet-de-cotes-et-copies-liees.md) (proposé).
+- Statut : **en attente des réponses de jv** (§ 7). Les choix ★ s'appliquent par défaut.
+- Révision 2 (même jour) : intègre les demandes de jv — copies modifiables après coup, liées à
+  l'original, dissociables, copie par Maj + déplacement, cercle et trajet ensuite, réemploi de
+  FreeCAD.
 
 ## 1. Besoin
 
-Répéter une sélection (une ou plusieurs pièces, avec leurs assemblages) N fois à pas régulier :
-tasseaux d'un lattis, lames d'un bardage, barreaux d'un garde-corps ou d'une chaise, étagères,
-pieds, tiroirs d'un module. Aujourd'hui on doit copier à la main chaque pièce, puis recréer ses
-assemblages. Le gabarit « Caisson » sait déjà répartir des étagères, mais seulement lui.
+Répéter une ou plusieurs pièces (avec leurs assemblages) N fois : tasseaux, lames, barreaux,
+étagères, pieds, tiroirs en série. Exigences de jv :
 
-Hors périmètre : répétition en grille 2D ou selon une courbe, répétition d'un usinage seul dans
-une pièce (les tourillons et les tasseaux de pied ont déjà leurs assemblages à plusieurs
-éléments), liaison par expressions entre copies (voir Q6).
+1. la répétition se **modifie facilement après coup** (nombre, pas) ;
+2. les copies gardent les **dimensions de l'original** : si l'original change, les copies
+   changent ;
+3. on peut **dissocier** une copie de son original ;
+4. un **déplacement avec Maj** enfoncée crée automatiquement une copie ;
+5. d'abord **linéaire**, puis **circulaire** et **le long d'un trait** (le modèle doit les
+   prévoir) ;
+6. réemployer ce que FreeCAD fournit quand c'est pertinent (§ 5).
 
-## 2. Comportement proposé
+## 2. Modèle : un objet « Répétition » + des pièces ordinaires
 
-Commande **« Répéter »** (barre d'outils et menu) : l'utilisateur sélectionne des pièces ou des
-ensembles, lance la commande ; un panneau de tâche propose :
+- **Objet `Repeat`** (« Répétition ») : objet de données sans forme, dans le même esprit que
+  l'Ensemble (ADR 0008). Propriétés : `Source` (la ou les pièces répétées), `Mode`
+  (`Linear` ; `Circular` et `Path` réservés), `Count` (copies en plus de la source), `Step`,
+  `Axis`, `Reverse`, plus, pour le mode longueur, `Span`.
+- **Copies** : de **vraies pièces** (brute + usinée, ADR 0006), car il faut des assemblages, de
+  l'usinage et une ligne par copie dans la liste de débit. Chacune porte `Repeat` (lien vers
+  la répétition) et `RepeatIndex` (lecture seule).
+- **Liaison par expressions natives** (comme l'ADR 0009) : les cotes de la copie
+  (`Length`, `Width`, `Thickness`, matériau, finitions) et son `Placement` sont des expressions
+  sur la source et sur la répétition : `Placement = Source.Placement + k × Step × axe`. Changer
+  `Step` dans l'éditeur de propriétés déplace donc toutes les copies ; déplacer ou redimensionner
+  la source les suit.
+- **Changer le nombre** : commande « Modifier la répétition » (double-clic sur la répétition ou
+  sur une copie) qui rouvre le panneau ; elle ajoute ou retire des copies **hors recalcul**,
+  dans une transaction. Les copies retirées sont les dernières. Un assemblage de la source est
+  recréé pour chaque nouvelle copie.
+- **Dissocier** : commande « Dissocier la copie » : supprime les expressions de la copie (elle
+  garde ses valeurs actuelles) et la sort de la répétition ; elle devient une pièce libre. La
+  répétition garde son décompte (les index suivants ne bougent pas).
 
-| Champ | Sens |
-|---|---|
-| Mode | « Nombre et pas » · « Nombre sur une longueur » · « Pas sur une longueur » |
-| Nombre N | copies **en plus** de la source (la source reste n° 1), 1 à 100 |
-| Pas | entraxe (mm) entre deux copies, de point homologue à point homologue |
-| Longueur | étendue totale (du début de la source à la fin de la dernière copie), mode 2 et 3 |
-| Direction | axe X, Y ou Z du repère global, avec bouton « Inverser » |
-
-Les trois modes donnent la même chose : une liste de décalages `k × pas`, k = 1..N.
-Mode 2 : `pas = (longueur − étendue de la source) / N` ; mode 3 : `N = ⌊(longueur − étendue) / pas⌋`.
-Un pas inférieur à l'étendue de la source sur l'axe fait se chevaucher les copies : avertissement
-(non bloquant) « les copies se touchent ou se chevauchent ».
-
-Aperçu en direct dans la vue 3D à chaque saisie (règle de jv du 2026-10-22), refus en rouge
-si N ou le pas sont hors bornes. **OK** crée tout dans une seule transaction (une annulation).
+À vérifier dans FreeCAD au premier lot (R-a, essai jetable) : expressions sur `Placement`
+composée, indexation d'une liste (`Rep.Offsets[2]`) pour les modes cercle et trajet, coût de
+recalcul à 100 copies.
 
 ## 3. Ce que « copier » veut dire
 
-1. Chaque copie d'une pièce est une **pièce ordinaire** (brute + usinée, ADR 0006), mêmes cotes,
-   matériau, sens du fil, finitions et options, décalée de `k × pas`. Nom : « {nom} {k+1} ».
-2. Assemblage entre deux pièces **toutes deux sélectionnées** : recréé pour chaque copie entre
-   les copies homologues (mêmes paramètres).
-3. Assemblage entre une pièce sélectionnée et une pièce **non sélectionnée** (ex. barreau avec
-   tenons dans deux traverses) : recréé pour chaque copie, la pièce non sélectionnée gardant son
-   rôle (hôte ou invitée). Si l'assemblage ne tient plus géométriquement (copie qui sort de la
-   traverse), il est créé quand même et la vérification J3 signale le problème sur la copie.
-4. Quincaillerie : référence et modèle repris comme les assemblages.
-5. Si la source est membre d'un ensemble, les copies le sont aussi, avec les mêmes options
-   (mode, « fixe », verrou). Les copies ne sont **pas** réparties à nouveau quand on redimensionne
-   l'ensemble : pour des étagères qui doivent suivre, rester sur le gabarit Caisson.
-6. Les copies sont indépendantes (pas d'expression vers la source) sauf choix de jv en Q6.
-7. Chaque copie porte `RepeatGroup` (identifiant de la répétition) et `RepeatIndex`, en lecture
-   seule : base d'une future commande « Changer le nombre ».
+1. Copie d'une pièce : mêmes cotes, matériau, sens du fil, finitions ; nom « {nom} {k+1} ».
+2. **Assemblages** (Q4 détaillée) : voir ci-dessous.
+3. Quincaillerie : reprise avec l'assemblage.
+4. Si la source est membre d'un ensemble, les copies le sont aussi (options reprises) ; elles ne
+   sont **pas** redistribuées quand on redimensionne l'ensemble (pour des étagères qui doivent
+   suivre, le gabarit Caisson).
+5. Compatibilité (ADR 0007) : `Part::FeaturePython` ordinaires, forme `Part` standard,
+   propriétés dans notre espace de noms.
 
-## 4. Compatibilité avec les autres ateliers
+### Q4 en détail : les assemblages
 
-Les copies sont des `Part::FeaturePython` ordinaires avec forme `Part` standard : elles se
-déplacent, se mesurent et s'exportent comme toute pièce. Aucune modification globale de FreeCAD,
-propriétés dans l'espace de noms de l'atelier (ADR 0007).
+Exemple : un barreau tenonné dans une traverse haute et une traverse basse, répété 5 fois.
 
-## 5. Découpage et critères (tests)
+| Cas | Comportement ★ |
+|---|---|
+| A. Assemblage entre deux pièces **toutes deux sélectionnées** (ex. barreau + pied) | recréé pour chaque copie, entre les copies homologues, mêmes paramètres, **liés** à ceux de l'assemblage d'origine |
+| B. Assemblage entre une pièce sélectionnée et une **non sélectionnée** (barreau ↔ traverse) | recréé pour chaque copie, la pièce non sélectionnée gardant son rôle (hôte ou invitée) : la traverse reçoit 5 tenons |
+| C. Assemblage entre deux pièces non sélectionnées | ignoré |
+| D. Une copie sort de l'hôte (pas trop grand) | assemblage créé quand même ; la vérification J3 le signale sur la copie, la copie reste modifiable |
+| E. Changer un paramètre de l'assemblage d'origine (diamètre de tourillon) | suit sur les copies tant qu'elles sont liées ; dissocier la copie dissocie aussi ses assemblages |
+| F. Ajouter une copie après coup | ses assemblages sont créés comme pour A et B |
+| G. Supprimer une copie | ses assemblages sont supprimés avec elle (comportement J3 existant) |
+
+Variante plus simple (refusée ★) : copier les pièces seules et laisser jv réassembler.
+
+## 4. Geste : Maj + déplacement
+
+Dans le déplacement à la souris (J6, `gui/drag/`), l'appui sur **Maj** au début du glissement
+crée une copie au lieu de déplacer l'original : l'original reste en place, la copie suit la
+souris, avec l'aimantation habituelle. Le lâcher crée une répétition de 1 copie liée (donc
+modifiable ensuite : nombre, pas, dissociation). **Conflit** : Maj coupe déjà l'aimantation
+pendant le glissement (spec souris, C5). Voir Q9.
+
+## 5. Réemploi de FreeCAD
+
+| Fonction FreeCAD | Pertinent ? |
+|---|---|
+| Expressions natives | **Oui**, base du modèle (déjà utilisées, ADR 0009) |
+| Draft `OrthoArray`, `PolarArray`, `PathArray` (`Draft.make_*_array`) | **Non comme objet** : un tableau est un seul objet à éléments virtuels, donc pas d'usinage ni d'assemblage par copie ni de ligne de débit par copie. **Oui comme source de calcul** pour le mode trajet : les placements le long d'une arête (`draftobjects/patharray.py`, répartition et orientation avec `Align`, `Tangent`) évitent de réécrire la géométrie des courbes. Draft est livré avec FreeCAD ; import tardif dans `features/` seulement, repli propre s'il manque. |
+| `App::Link` / `LinkArray` | **Non** : les éléments partagent la forme de la source, on ne peut pas usiner chaque copie ; en revanche, utile plus tard pour une répétition de pièces **sans** assemblage (grandes quantités de lames) si la lenteur à 100 copies pose problème. |
+| `Part::Compound` | Non (idem tableau) |
+| Rotation/axe de `Base.Placement` | Oui pour le mode cercle : une rotation autour d'un axe et d'un centre |
+
+Le calcul des décalages (linéaire, cercle) reste dans `core/repeat/`, Python pur, testé sans
+FreeCAD ; seul le trajet appelle Draft, dans `features/`.
+
+## 6. Découpage et critères
 
 | Lot | Contenu | Tests |
 |---|---|---|
-| R-a | `core/repeat/` (Python pur) : décalages des trois modes, bornes, détection du chevauchement | unitaires : R1 N+pas, R2 sur longueur, R3 pas sur longueur (N entier), R4 pas ≤ 0, N hors 1..100 refusés, R5 chevauchement signalé, R6 inversion |
-| R-b | `features/repeat.py` + `_api/repeat.py` : copies, assemblages, quincaillerie, ensemble, une transaction | intégration FreeCAD : R7 trois barreaux entre deux traverses = 3 × 2 assemblages, R8 annulation en un bloc, R9 ensemble : copies membres, R10 liste de débit : N+1 lignes regroupées |
-| R-c | commande, panneau, aperçu, icône, traductions | GUI hors écran : R11 aperçu = copies créées, R12 refus affiché |
-| R-d | recette manuelle `docs/recette/` + captures | — |
+| R-a | essai jetable des expressions (§ 2) puis `core/repeat/` : décalages linéaires, bornes, chevauchement, modes de longueur ; mode `Circular`/`Path` réservés dans le modèle | R1 N+pas, R2 N sur une longueur, R3 pas sur une longueur, R4 bornes, R5 chevauchement signalé, R6 inversion |
+| R-b | `features/repeat.py` : objet `Repeat`, copies liées, assemblages A à G, ensemble, une transaction, `_api/repeat.py` | R7 5 barreaux entre 2 traverses = 10 assemblages, R8 annulation en un bloc, R9 source modifiée → copies suivent, R10 `Step` modifié → copies déplacées, R11 dissocier, R12 ensemble, R13 liste de débit N+1 lignes |
+| R-c | commande « Répéter », panneau avec aperçu en direct, « Modifier la répétition », « Dissocier », icônes, traductions | GUI hors écran : R14 aperçu = copies créées, R15 refus affiché, R16 changer le nombre |
+| R-d | Maj + déplacement | R17 copie par glissement, R18 annulation |
+| R-e | recette manuelle, captures | — |
+| plus tard | cercle, trajet (jalons séparés, même objet `Repeat`) | — |
 
-## 6. Questions à jv (★ = recommandé)
+## 7. Questions à jv (★ = recommandé)
 
-- **Q1 — Nature.** ★ A : copies ordinaires, aucun objet « Répétition » gardé (comme les gabarits,
-  ADR 0010) ; B : objet persistant dont N et le pas se modifient après coup (FreeCAD interdit de
-  créer/supprimer des pièces pendant un recalcul, donc copies virtuelles non usinables) ;
-  C : comme A + commande « Changer le nombre » plus tard grâce à `RepeatGroup`.
-  ★ A maintenant, C dans un lot ultérieur.
-- **Q2 — Modes.** ★ Les trois (nombre+pas, nombre sur une longueur, pas sur une longueur) ; ou
-  seulement nombre+pas.
-- **Q3 — Direction.** ★ Axe X/Y/Z global + « Inverser » ; ou aussi les axes de la pièce quand
-  elle est tournée ; ou choix d'une arête.
-- **Q4 — Assemblages.** ★ Recréés comme au § 3 (internes et vers les pièces non sélectionnées) ;
-  ou pièces seules (plus simple, mais il faut tout réassembler à la main).
-- **Q5 — Ensemble.** ★ Copies membres de l'ensemble de la source, sans redistribution au
-  redimensionnement ; ou aussi les mettre dans un sous-ensemble « Répétition ».
-- **Q6 — Cotes liées.** ★ Copies indépendantes ; ou cotes (section, longueur) liées à la source
-  par expressions natives : changer la source change toutes les copies. Lien plus fragile (une
-  copie modifiée à la main casse la liaison).
-- **Q7 — Maximum.** ★ 100 copies ; autre valeur ?
-- **Q8 — Nom.** ★ « Barreau 2 », « Barreau 3 »… (suit le renommage de la source seulement à la
-  création) ; ou « Barreau (2/5) ».
+- **Q1 — Nature.** ★ Objet `Repeat` + copies réelles liées par expressions (§ 2). Rejeté :
+  tableau Draft (copies virtuelles).
+- **Q2 — Modes de saisie.** ★ Nombre+pas, nombre sur une longueur, pas sur une longueur.
+- **Q3 — Direction.** ★ Axe X/Y/Z global + « Inverser » ; ensuite axes de la pièce.
+- **Q4 — Assemblages.** ★ Tableau du § 3 (A, B, F, G ; C ignoré). Confirmer le cas B (la
+  traverse reçoit un tenon par copie) et le cas E (paramètres suivent l'origine).
+- **Q5 — Ensemble.** ★ Copies membres, sans redistribution au redimensionnement.
+- **Q6 — Ce qui est lié.** ★ Cotes, matériau, finitions et placement ; la **position** d'une copie
+  déplacée à la main reste libre (la copie se dissocie de la position seulement ?). Alternative :
+  toute modification manuelle d'une copie la dissocie entièrement.
+- **Q7 — Maximum.** ★ 100 copies.
+- **Q8 — Nom.** ★ « Barreau 2 », « Barreau 3 »…
+- **Q9 — Maj.** Maj coupe déjà l'aimantation. ★ **Ctrl** pour copier (convention FreeCAD et
+  la plupart des logiciels), Maj reste « sans aimantation » ; ou Maj = copier et **Alt** =
+  « sans aimantation ».
+- **Q10 — Après la copie par glissement.** ★ Le panneau « Modifier la répétition » s'ouvre
+  aussitôt (nombre, pas) ; ou pas de panneau, un simple clic droit « Modifier ».
