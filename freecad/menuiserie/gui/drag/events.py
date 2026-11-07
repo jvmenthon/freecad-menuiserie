@@ -2,7 +2,8 @@
 """Évènements du glissement : filtre d'application et observateur de sélection (ADR 0021).
 
 Comme le double-clic (ADR 0018), le filtre est posé sur l'application **tant que l'atelier est
-actif** (ADR 0007) puis retiré, avec l'observateur de sélection qui dessine ou enlève les flèches.
+actif** (ADR 0007) puis retiré, avec l'observateur de sélection qui dessine ou enlève les flèches
+et l'observateur de documents (fermeture, suppression d'un Std Part d'ensemble).
 Le filtre ne consomme que le clic gauche enfoncé sur une flèche ou une poignée (testé en pixels
 par ``handle_at``) ou sur un anneau de rotation (testé par le rayon de la souris, ``ring_hit``) et,
 pendant le glissement ou la rotation, les mouvements, le relâchement et Échap : tout le
@@ -19,6 +20,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.features.std_part_watch import StdPartObserver
 from freecad.menuiserie.gui.double_click import is_viewport_3d, view_point, viewports_3d
 from freecad.menuiserie.gui.drag.session import DragSession
 
@@ -153,10 +155,20 @@ class _SelectionObserver:
 
 
 class _DocumentObserver:
-    """Observateur de documents : un document fermé emporte ses flèches avec sa vue."""
+    """Observateur de documents : un document fermé emporte ses flèches avec sa vue ; un Std Part
+    d'ensemble supprimé laisse ses objets en place (:class:`StdPartObserver`)."""
 
     def __init__(self, session: DragSession) -> None:
         self._session = session
+        self._std_parts = StdPartObserver()
+
+    def slotDeletedObject(self, obj: Any) -> None:
+        """Std Part supprimé à la main : ses pièces gardent leur place (ADR 0038). Une erreur est
+        écrite dans la vue rapport, jamais relancée dans la suppression de FreeCAD."""
+        try:
+            self._std_parts.slotDeletedObject(obj)
+        except Exception:  # pylint: disable=broad-exception-caught
+            App.Console.PrintError(traceback.format_exc())
 
     def slotDeletedDocument(self, doc: Any) -> None:
         _guarded(self._session, _forget, self._session, doc.Name)

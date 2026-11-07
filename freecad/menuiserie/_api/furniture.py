@@ -78,11 +78,13 @@ def remove_from_furniture(objects: Sequence[DocumentObject]) -> _Notices:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
     de membre sont supprimées, la géométrie ne change pas. ``ValueError`` traduite, avant toute
     modification, pour un objet qui n'est membre d'aucun ensemble. Renvoie les avertissements
-    traduits, comme toute fonction de l'ensemble (ADR 0017) : aucun aujourd'hui."""
-    furniture_members.remove_members(objects)
+    traduits, aussi écrits dans la vue rapport (ADR 0017) : une pièce assemblée à une pièce qui
+    reste dans l'ensemble reste dans son Std Part (elle n'est plus membre)."""
+    messages = tuple(furniture_members.remove_members(objects))
+    report(messages)
     if objects:
         objects[0].Document.recompute()
-    return ()
+    return messages
 
 
 def set_member_options(

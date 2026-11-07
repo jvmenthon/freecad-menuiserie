@@ -67,6 +67,7 @@ __all__ = [
     "add_members",
     "build_furniture",
     "checked_furniture",
+    "detach_members",
     "join_with_options",
     "member_object",
     "planned_resize",
@@ -254,12 +255,11 @@ def add_members(furniture: DocumentObject, objects: Sequence[DocumentObject]) ->
     return _enter(furniture, members)
 
 
-def remove_members(objects: Sequence[DocumentObject]) -> list[str]:
-    """Retire ``objects`` de leur ensemble : les liaisons de l'atelier et les propriétés de membre
-    sont supprimées, puis ils sortent du Std Part de l'ensemble sans bouger (E2) ; la géométrie
-    ne change pas. Un orphelin (ensemble supprimé) est accepté. Les pièces qui restent sont
-    reliées sans elles. Renvoie les avertissements traduits (pièce assemblée à une pièce qui
-    reste : elle garde son Std Part)."""
+def detach_members(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
+    """Première moitié de :func:`remove_members` : les liaisons de l'atelier et les propriétés de
+    membre de ``objects`` sont supprimées, les voisines reliées sans eux ; ils ne sortent pas de
+    leur Std Part. Renvoie ceux qui avaient un ensemble. ``ValueError`` traduite, avant toute
+    modification, pour un objet qui n'est membre d'aucun ensemble."""
     targets = {member.Name: member for member in map(member_object, objects)}
     for member in targets.values():
         if not has_member_properties(member):
@@ -274,7 +274,16 @@ def remove_members(objects: Sequence[DocumentObject]) -> list[str]:
                     member.removeProperty(spec.name)
     for furniture in furnitures.values():  # les voisines ne citent plus les pièces retirées
         relink_remaining(furniture, set(targets))
-    return leave(owned)
+    return owned
+
+
+def remove_members(objects: Sequence[DocumentObject]) -> list[str]:
+    """Retire ``objects`` de leur ensemble : les liaisons de l'atelier et les propriétés de membre
+    sont supprimées, puis ils sortent du Std Part de l'ensemble sans bouger (E2) ; la géométrie
+    ne change pas. Un orphelin (ensemble supprimé) est accepté. Les pièces qui restent sont
+    reliées sans elles. Renvoie les avertissements traduits (pièce assemblée à une pièce qui
+    reste : elle garde son Std Part)."""
+    return leave(detach_members(objects))
 
 
 def _checked_options(

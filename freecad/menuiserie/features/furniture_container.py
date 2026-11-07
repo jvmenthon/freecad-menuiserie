@@ -49,6 +49,7 @@ __all__ = [
     "carrier",
     "check_assembled",
     "create_with_std_part",
+    "dissolve",
     "guide_container",
     "is_std_part",
     "leave",
@@ -71,6 +72,12 @@ _STAYS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » est assemblée à une pièce qui reste dans l'ensemble : elle reste dans son Std "
     "Part (elle n'est plus membre de l'ensemble).",
+)
+
+
+_KEPT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Le Std Part « {part} » est conservé : il contient encore {labels}.",
 )
 
 
@@ -363,3 +370,19 @@ def leave(members: Sequence[DocumentObject]) -> list[str]:
             [item for obj in mine for item in _bundle(obj)], holder.getParentGeoFeatureGroup()
         )
     return [translated(_STAYS, {"label": str(obj.Label)}) for obj in inside if obj.Name in kept]
+
+
+def dissolve(furniture: DocumentObject) -> list[str]:
+    """Suppression de ``furniture`` (après la sortie de ses membres, :func:`leave`) : son Std Part
+    est supprimé s'il ne contient plus que l'ensemble ; sinon il est conservé (pièces restées
+    dedans, objets de l'utilisateur) et le message traduit le dit. L'ensemble, sorti du Std Part,
+    est supprimé ensuite par l'appelant."""
+    part = std_part_of(furniture)
+    if part is None:
+        return []
+    rest = [o for o in part.Group if o != furniture and o.TypeId != "App::Origin"]
+    if rest:
+        labels = ", ".join(f"« {obj.Label} »" for obj in rest)
+        return [translated(_KEPT, {"part": str(part.Label), "labels": labels})]
+    part.Document.removeObject(part.Name)
+    return []

@@ -139,7 +139,9 @@ def delete_machined_part(machined: DocumentObject, choose: RemovalChoice) -> boo
         return False
     document, name = machined.Document, machined.Name
     if blank is not None and has_member_properties(blank):
-        remove_members([blank])  # les voisines ne citent plus la pièce
+        # Les voisines ne citent plus la pièce. Le message « reste dans son Std Part » est omis :
+        # la pièce, assemblée par définition, disparaît juste après avec ses assemblages.
+        remove_members([blank])
     remove_joints(joints)
     if document.getObject(name) is not None:  # pièce non retrouvée par ses assemblages
         remove_machined_part(machined)
