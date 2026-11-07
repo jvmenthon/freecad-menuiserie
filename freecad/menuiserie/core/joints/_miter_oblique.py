@@ -35,8 +35,8 @@ _IDENTITY: Final = RigidTransform.identity()
 
 MITER_COMPOUND: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Onglet en biais : les deux pièces doivent pivoter autour de l'arête du coin et y être à "
-    "fleur, avec des longueurs et des largeurs différentes.",
+    "Onglet en biais : les deux pièces doivent pivoter autour de l'arête du coin (leur largeur "
+    "ou leur épaisseur) et y être à fleur.",
 )
 MITER_TOO_OBLIQUE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -64,9 +64,23 @@ def _fixed_axis(transform: RigidTransform) -> int:
     raise JointError(MITER_COMPOUND, {})
 
 
-def _long_axis(box: Box, axes: tuple[int, int]) -> int:
-    first, second = axes
-    return first if box.size(first) >= box.size(second) else second
+def _away(
+    box: Box,
+    axis: int,
+    direction: Vec3,
+    cross: Vec3,
+    origin: Vec3,
+    transform: RigidTransform | None,
+) -> Vec3:
+    """Sens, sur la longueur de la pièce, qui s'éloigne du coin (croisement des deux axes) : la
+    pièce part du bout le plus proche du croisement vers son autre bout."""
+    del origin
+    ends = []
+    for value in (box.lo(axis), box.hi(axis)):
+        point = Vec3(box.center(0), box.center(1), box.center(2)).with_component(axis, value)
+        ends.append(point if transform is None else transform.apply(point))
+    far = max(ends, key=lambda end: abs(dot(end - cross, direction)))
+    return direction.scaled(1.0 if dot(far - cross, direction) >= 0 else -1.0)
 
 
 def _line_crossing(
@@ -115,9 +129,11 @@ def oblique_miter(host: PlacedBlock, guest: PlacedBlock) -> ObliqueMiter:
         or abs(max(along) - host_box.hi(edge)) > CONTACT_TOLERANCE_MM
     ):
         raise JointError(MITER_COMPOUND, {})
-    host_long = _long_axis(host_box, (plane[0], plane[1]))
+    # Convention du projet : la longueur d'une pièce est son axe X local.
+    host_long = guest_long = 0
     guest_axes = tuple(j for j in range(3) if j != guest_edge)
-    guest_long = _long_axis(guest_box, (guest_axes[0], guest_axes[1]))
+    if edge == host_long or guest_edge == guest_long:
+        raise JointError(MITER_COMPOUND, {})
     e_host = Vec3(0.0, 0.0, 0.0).with_component(host_long, 1.0)
     e_guest = to_host.rotate(Vec3(0.0, 0.0, 0.0).with_component(guest_long, 1.0))
     n_host = Vec3(0.0, 0.0, 0.0).with_component(next(i for i in plane if i != host_long), 1.0)
@@ -130,8 +146,9 @@ def oblique_miter(host: PlacedBlock, guest: PlacedBlock) -> ObliqueMiter:
         raise JointError(MITER_TOO_OBLIQUE, values)
     centre_host = Vec3(*(host_box.center(i) for i in range(3)))
     centre_guest = to_host.apply(Vec3(*(guest_box.center(i) for i in range(3))))
-    away_host = e_host.scaled(-1.0 if dot(centre_guest - centre_host, e_host) > 0 else 1.0)
-    away_guest = e_guest.scaled(-1.0 if dot(centre_host - centre_guest, e_guest) > 0 else 1.0)
+    cross = _line_crossing(centre_host, e_host, centre_guest, e_guest, (plane[0], plane[1]))
+    away_host = _away(host_box, host_long, e_host, cross, Vec3(0.0, 0.0, 0.0), None)
+    away_guest = _away(guest_box, guest_long, e_guest, cross, to_host.translation, to_host)
     # Longues faces : droites parallèles à l'axe long, sur les deux bords de l'autre axe.
     host_n_index = next(i for i in plane if i != host_long)
     guest_n_index = next(j for j in guest_axes if j != guest_long)

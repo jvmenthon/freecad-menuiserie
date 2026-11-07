@@ -27,7 +27,7 @@
   de l'invitée (`Polyhedron` sans plan) prolongée de `CUT_OVERRUN_MM` à chaque bout de son axe de
   longueur ; l'option « filante » n'a pas d'effet en biais (documentée dans le panneau).
 - **R2** Refus `NO_MATERIAL_LEFT` si le volume restant de l'hôte est inférieur à la tolérance ;
-  la validité du solide (un seul morceau) est de toute façon contrôlée avant écriture.
+  un usinage en biais qui laisse plusieurs morceaux est refusé à la construction de la forme (`machined_shape`, un seul solide exigé quand un solide en biais est en jeu).
 - **R3** Volume OCC égal au volume `core` (1e-6 relatif) ; hôte et invitée pièces de bois.
 
 **Mi-bois (S-b).**
@@ -41,7 +41,7 @@
 
 **Onglet (S-b).**
 - **M1** Rotation autour de l'arête du coin seulement (pièces à fleur sur cet axe) ; sinon refus
-  `MITER_COMPOUND` (« Onglet : les deux pièces doivent pivoter autour de l'arête du coin. »).
+  `MITER_COMPOUND` ; la longueur de chaque pièce est son axe X local (convention du projet).
 - **M2** Dans le plan perpendiculaire à l'arête : parallélogramme commun aux deux largeurs ;
   plan d'onglet = plan contenant l'arête et les deux sommets extrêmes du parallélogramme le long
   de a + b (a, b = sens dans lesquels hôte et invitée se prolongent). Chaque pièce perd son

@@ -124,3 +124,14 @@ def test_tourillons_en_biais_pieces_valides(document: Any) -> None:
     assert api.machined_part_of(host).Shape.isValid()
     assert api.machined_part_of(guest).Shape.isValid()
     assert host_block and stale_or_invalid(document) == []
+
+
+def test_feuillure_en_biais_qui_coupe_l_hote_en_deux_est_refusee(document: Any) -> None:
+    host_block = placed((300.0, 40.0, 20.0), rotation_z(0.0), (0.0, 0.0, 0.0))
+    guest_block = placed((300.0, 40.0, 20.0), rotation_z(45.0), (100.0, -100.0, 0.0))
+    host = wood(document, "H", size_of(host_block), placement_of(host_block))
+    guest = wood(document, "I", size_of(guest_block), placement_of(guest_block))
+    document.recompute()
+    with pytest.raises(ValueError):
+        api.make_rabbet(host, guest)
+        document.recompute()

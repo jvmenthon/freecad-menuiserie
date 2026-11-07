@@ -71,3 +71,30 @@ def test_onglet_en_biais_refuse_un_angle_trop_ferme() -> None:
     host, guest = _frame(10.0)
     with pytest.raises(JointError):
         MITER.plan(host, guest, MiterParams())
+
+
+@pytest.mark.parametrize(
+    ("guest_length", "start"),
+    [(200.0, 0.0), (300.0, 0.0), (500.0, 0.0), (200.0, 50.0), (300.0, 50.0), (400.0, 100.0)],
+)
+def test_onglet_en_biais_longueurs_et_departs_differents(guest_length: float, start: float) -> None:
+    """Le plan d'onglet reste la bissectrice quand les pièces n'ont pas la même longueur ni le même
+    dépassement du coin."""
+    angle = math.radians(60.0)
+    along = (math.cos(angle), math.sin(angle))
+    across = (-math.sin(angle), math.cos(angle))
+    base = (-start * along[0] - 40.0 * across[0], -start * along[1] - 40.0 * across[1], 0.0)
+    host = placed((500.0, 40.0, 20.0), rotation_z(0.0), (-100.0, 0.0, 0.0))
+    guest = placed((guest_length, 40.0, 20.0), rotation_z(60.0), base)
+    values = MITER.resolve(host, guest, MiterParams())
+    assert values.host_angle == pytest.approx(60.0, abs=0.01)
+    assert values.guest_angle == pytest.approx(60.0, abs=0.01)
+
+
+def test_onglet_en_biais_une_piece_courte_est_une_piece_normale() -> None:
+    """Invitée plus courte que large : sa longueur reste son axe X local (angle exact)."""
+    host, guest = _frame(60.0)
+    short = placed((39.0, 40.0, 20.0), rotation_z(60.0), (0.0, 0.0, 0.0))
+    values = MITER.resolve(host, short, MiterParams())
+    assert values.host_angle > 0 and values.guest_angle > 0
+    del guest
