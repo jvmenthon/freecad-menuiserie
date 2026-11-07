@@ -49,6 +49,7 @@ def test_deplacer_amene_l_invitee_au_contact(document: Any) -> None:
     assert upper.Thickness.Value == pytest.approx(THICKNESS)
     assert api.closing_options(lower, upper) is None
     api.make_dowels(lower, upper)
+    document.recompute()
     assert stale_or_invalid(document) == []
 
 
