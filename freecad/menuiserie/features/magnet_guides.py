@@ -10,7 +10,7 @@ rien n'est modifié) sont exprimés dans le repère de la pièce et rendus sous 
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any, Final
 
 import FreeCAD as App
@@ -166,25 +166,37 @@ def _guides_of(shape: Any, inverse: App.Placement) -> list[Guide]:
         return []
 
 
-def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tuple[Guide, ...]:
+def collect_guides(
+    part: DocumentObject,
+    container: DocumentObject | None,
+    *,
+    origin: App.Placement | None = None,
+    skip: Iterable[str] = (),
+    reference: Any = None,
+) -> tuple[Guide, ...]:
     """Guides d'aimantation de la pièce brute ``part`` (B1), dans son repère.
 
     Objets du Std Part ``container`` (``None`` : racine du document) qui sont visibles, de
     tout atelier ; la pièce, sa pièce usinée et ses assemblages sont exclus. Plans : faces
     planes normales à un axe de la pièce ; droites : arêtes droites parallèles à un axe ;
     points : tous les sommets. Les objets les plus proches de la pièce viennent d'abord ;
-    au plus :data:`MAX_GUIDES` guides. Un objet illisible est ignoré."""
-    origin = part.getGlobalPlacement()
-    try:
-        own = _global_shape(part)
-        reference = own.BoundBox if own is not None else None
-    except ERRORS:
-        reference = None
+    au plus :data:`MAX_GUIDES` guides. Un objet illisible est ignoré.
+
+    Un ensemble (sans forme) donne son repère par ``origin`` (placement global de son Std Part),
+    l'étendue de sa boîte par ``reference`` (``App.BoundBox``) et les noms de ses propres objets,
+    Std Part compris, par ``skip`` : ses pièces ne guident pas l'ensemble (EN-c)."""
+    placement = origin if origin is not None else part.getGlobalPlacement()
+    if reference is None:
+        try:
+            own = _global_shape(part)
+            reference = own.BoundBox if own is not None else None
+        except ERRORS:
+            reference = None
     roots = list(container.Group) if container is not None else _roots(part.Document)
-    skip = _excluded(part)
+    skipped = _excluded(part) | set(skip)
     found: list[tuple[float, int, Any]] = []
-    for index, obj in enumerate(_leaves(roots, set())):
-        if obj.Name in skip or not obj.Visibility:
+    for index, obj in enumerate(_leaves(roots, set(skipped))):
+        if obj.Name in skipped or not obj.Visibility:
             continue
         shape = _global_shape(obj)
         if shape is None:
@@ -192,7 +204,7 @@ def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tu
         distance = 0.0 if reference is None else _distance(reference, shape.BoundBox)
         found.append((distance, index, shape))
     guides: list[Guide] = []
-    inverse = origin.inverse()
+    inverse = placement.inverse()
     for _, _, shape in sorted(found, key=lambda item: item[:2]):
         guides.extend(_guides_of(shape, inverse))
         if len(guides) >= MAX_GUIDES:

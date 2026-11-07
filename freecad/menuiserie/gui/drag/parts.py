@@ -10,6 +10,7 @@ from __future__ import annotations
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import FreeCAD as App
 
@@ -19,11 +20,13 @@ from freecad.menuiserie.core.rotation import Ring
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.part_drag import DragMemento
 from freecad.menuiserie.features.snap_geometry import to_vec3
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui.drag.rings import build_rings
 from freecad.menuiserie.gui.drag.view import Point
+
+if TYPE_CHECKING:
+    from freecad.menuiserie.gui.drag.target import Memento, Target
 
 __all__ = [
     "Grab",
@@ -73,30 +76,33 @@ def box_of(part: DocumentObject) -> Box:
 class Grab:
     """Ce qu'il faut pour tirer une cible : clé de la flèche ou de la poignée, pixel de départ,
     paramètre de l'axe sous le curseur, début de l'écriture (Memento), guides, tolérance de
-    l'aimant (mm) et transaction ouverte par le glissement (``own``)."""
+    l'aimant (mm), transaction ouverte par le glissement (``own``) et cible (pièce ou ensemble)."""
 
     key: str
     start: Point
     line: Ray
     origin: float
-    memento: DragMemento
+    memento: Memento
     guides: tuple[Guide, ...]
     tolerance: float
     own: bool
+    target: Target
 
 
 @dataclass(frozen=True)
 class Turn:
     """Ce qu'il faut pour tourner une pièce par un anneau : l'anneau (axe, centre, rayon), le rayon
     de la souris au départ (reculé devant le plan de l'anneau), le vecteur du centre au point
-    saisi, pixel de départ, début de l'écriture (Memento) et transaction ouverte (``own``)."""
+    saisi, pixel de départ, début de l'écriture (Memento), transaction ouverte (``own``) et cible
+    (pièce ou ensemble)."""
 
     ring: Ring
     first: Ray
     from_center: Vec3
     start: Point
-    memento: DragMemento
+    memento: Memento
     own: bool
+    target: Target
 
 
 def open_transaction(part: DocumentObject, name: str) -> bool:

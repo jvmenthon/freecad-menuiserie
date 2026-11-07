@@ -99,3 +99,39 @@ def test_les_voisines_hors_ensemble_guident_aussi_un_membre(document: Any) -> No
     assert any(g.kind is magnet.GuideKind.PLANE and g.axis == 2 for g in found)
     assert set(LAYOUT) == set(bureau.parts)
     assert len(found) >= 4 * PER_BOX
+
+
+# --- EN-c : l'ensemble lui-même est aimanté par ses voisins ---------------------------------
+
+
+def furniture_guides(furniture: Any) -> tuple[Any, ...]:
+    """Guides de l'ensemble comme ``FurnitureTarget.guides`` les lit : repère du Std Part, objets
+    du Std Part exclus."""
+    drag_state = pytest.importorskip("freecad.menuiserie.features.furniture_drag_state")
+    std = container_module.std_part_of(furniture)
+    found: tuple[Any, ...] = guides_module.collect_guides(
+        furniture,
+        container_module.guide_container(furniture),
+        origin=drag_state.furniture_placement(furniture),
+        skip={furniture.Name, std.Name},
+    )
+    return found
+
+
+def test_les_pieces_de_l_ensemble_ne_le_guident_pas(document: Any) -> None:
+    bureau = build_parts(document)
+    furniture, _ = api.make_furniture(list(bureau.parts.values()), label="Bureau")
+    assert furniture_guides(furniture) == ()
+
+
+def test_un_objet_voisin_guide_l_ensemble_dans_son_repere(document: Any) -> None:
+    bureau = build_parts(document)
+    furniture, _ = api.make_furniture(list(bureau.parts.values()), label="Bureau")
+    std = container_module.std_part_of(furniture)
+    std.Placement = App.Placement(App.Vector(100, 0, 0), App.Rotation())
+    neighbour = document.addObject("Part::Box", "Voisine")
+    neighbour.Placement.Base = App.Vector(1500, 0, 0)  # face gauche à x = 1500 dans le document
+    document.recompute()
+    planes = [g for g in furniture_guides(furniture) if g.kind is magnet.GuideKind.PLANE]
+    levels = {round(g.extent.lo(g.axis), 3) for g in planes if g.axis == 0}
+    assert 1400.0 in levels  # 1500 - 100 : coordonnées locales du Std Part

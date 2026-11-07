@@ -53,6 +53,7 @@ __all__ = [
     "changed_sizes",
     "furniture_box",
     "furniture_frame",
+    "furniture_placement",
     "recompute_blanks",
     "restore",
     "turn_refusal",
@@ -131,13 +132,18 @@ def furniture_box(furniture: DocumentObject) -> Box:
     return Box(origin, origin + size)
 
 
+def furniture_placement(furniture: DocumentObject) -> App.Placement:
+    """Placement global (local vers global) de la boîte de ``furniture`` : celui de son Std Part,
+    ou de son conteneur sans Std Part."""
+    part = std_part_of(furniture)
+    holder = part if part is not None else furniture.getParentGeoFeatureGroup()
+    return holder.getGlobalPlacement() if holder is not None else App.Placement()
+
+
 def furniture_frame(furniture: DocumentObject) -> Frame:
     """Repère (local vers global) de la boîte de ``furniture`` : le placement global de son Std
     Part, ou de son conteneur sans Std Part."""
-    part = std_part_of(furniture)
-    holder = part if part is not None else furniture.getParentGeoFeatureGroup()
-    placement = holder.getGlobalPlacement() if holder is not None else App.Placement()
-    rows = rigid_transform(placement)
+    rows = rigid_transform(furniture_placement(furniture))
     columns = [Vec3(*(rows.rotation[r][c] for r in range(3))) for c in range(3)]
     return Frame(rows.translation, columns[0], columns[1], columns[2])
 
