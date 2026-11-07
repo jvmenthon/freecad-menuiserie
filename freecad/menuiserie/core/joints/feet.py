@@ -10,7 +10,7 @@ vers le bas du document.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import pairwise
 from typing import ClassVar, Final
 
@@ -57,10 +57,6 @@ HOLE_TOO_DEEP: Final = QT_TRANSLATE_NOOP(
     "Logement de tige de {depth} mm trop profond pour un panneau de {thickness} mm : il faut "
     "laisser {bottom} mm de matière.",
 )
-BAD_VALUE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Les dimensions du pied doivent être strictement positives.",
-)
 STEM_TOO_WIDE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "La tige ({diameter} mm) doit être plus fine que l'embase ({base} mm)."
 )
@@ -68,7 +64,8 @@ STEM_TOO_WIDE: Final = QT_TRANSLATE_NOOP(
 
 @dataclass(frozen=True)
 class FootParams:
-    """Paramètres des pieds (mm) ; 0 = automatique pour la distance au bord."""
+    """Paramètres des pieds (mm) ; 0 = automatique (M10, embase Ø50, 15 mm de haut, trou de
+    12 mm, distance au bord de 50 mm)."""
 
     stem_diameter: float = length_param(10.0)  # tige filetée
     base_diameter: float = length_param(50.0)
@@ -81,9 +78,6 @@ class FootParams:
 
     def __post_init__(self) -> None:
         validate_params(self)
-        dimensions = (self.stem_diameter, self.base_diameter, self.height, self.hole_depth)
-        if min(dimensions) <= 0:
-            raise JointError(BAD_VALUE, {})
 
 
 @dataclass(frozen=True)
@@ -143,7 +137,20 @@ def _underside(host: PlacedBlock) -> Axis:
     return Axis.of(2, down.component(2))
 
 
-def _checked(host: PlacedBlock, params: FootParams) -> FootValues:
+def _effective(params: FootParams) -> FootParams:
+    """Paramètres sans zéro : une cote à 0 (automatique) prend la valeur par défaut."""
+    defaults = FootParams()
+    return replace(
+        params,
+        stem_diameter=params.stem_diameter or defaults.stem_diameter,
+        base_diameter=params.base_diameter or defaults.base_diameter,
+        height=params.height or defaults.height,
+        hole_depth=params.hole_depth or defaults.hole_depth,
+    )
+
+
+def _checked(host: PlacedBlock, given: FootParams) -> FootValues:
+    params = _effective(given)
     box = host.local_box()
     thickness = box.size(2)
     wood = params.foot_material == "wood"  # seul un pied en bois a une tige et perce le panneau

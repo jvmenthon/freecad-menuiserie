@@ -80,19 +80,42 @@ def upright_side(document: Any, thickness: float = 19) -> Any:
     return side
 
 
-def test_percage_lr32_et_taquets(document: Any) -> None:
+def shelf(document: Any, height: float) -> Any:
+    """Planche horizontale contre la face intérieure du côté (x = 19), dessous à ``height`` du
+    bas du côté (le côté va de z = -720 à 0)."""
+    where = App.Placement(App.Vector(19, 0, -720 + height), App.Rotation())
+    board = wood(document, "T", (600, 500, 19), where)
+    document.recompute()
+    return board
+
+
+def test_percage_lr32_seul(document: Any) -> None:
     side = upright_side(document)
     joint = api.make_shelf_pins(side)
     assert joint.HostPart == joint.GuestPart == side
-    assert (joint.Rows, joint.PinRow, joint.WithPins) == (0, 0, True)
+    assert (joint.Rows, joint.PinRow, joint.WithPins, joint.Face) == (0, 0, True, "auto")
     hole = math.pi * 2.5**2 * 12
     assert volume(side) == pytest.approx(720 * 500 * 19 - 38 * hole)  # 19 rangs, 2 colonnes
-    assert joint.Shape.Volume == pytest.approx(2 * math.pi * 2.5**2 * (12 + 7))  # deux taquets
-    joint.WithPins = False
     joint.Rows = 5
     document.recompute()
     assert joint.isValid() and volume(side) == pytest.approx(720 * 500 * 19 - 10 * hole)
     assert api.machined_part_of(side).Joints == [joint]
+    assert stale_or_invalid(document) == []
+
+
+def test_taquets_sous_chaque_tablette(document: Any) -> None:
+    side = upright_side(document)
+    board = shelf(document, 360)
+    joint = api.make_shelf_pins(side)
+    assert board in joint.Neighbors
+    pin = math.pi * 2.5**2 * (12 + 7)
+    assert joint.Shape.Volume == pytest.approx(2 * pin)  # deux taquets sous la tablette
+    board.Placement = App.Placement(App.Vector(19, 0, -720 + 424), App.Rotation())  # monte de 64
+    document.recompute()
+    assert joint.isValid() and joint.Shape.Volume == pytest.approx(2 * pin)
+    joint.WithPins = False
+    document.recompute()
+    assert not joint.Shape.Solids  # plus de taquets
     assert stale_or_invalid(document) == []
 
 

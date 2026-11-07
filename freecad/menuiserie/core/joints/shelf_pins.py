@@ -18,20 +18,36 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import (
     JointKind,
     JointPlan,
+    choice_param,
     count_param,
+    derived_param,
     flag_param,
     length_param,
     mm_text,
     validate_params,
 )
+from freecad.menuiserie.core.joints._shelf_layout import (
+    Layout,
+    Neighbor,
+    choose_face,
+    free_window,
+    heights_of,
+    pin_rows,
+    side_boxes,
+    touching_boxes,
+)
 
-__all__ = ["ShelfPinsParams", "ShelfPinsStrategy", "ShelfPinsValues"]
+__all__ = ["FACES", "Neighbor", "ShelfPinsParams", "ShelfPinsStrategy", "ShelfPinsValues"]
 
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond d'un trou
 AUTO_EDGE_MM: Final = 37.0  # distance des colonnes aux bouts horizontaux, par défaut
 AUTO_MARGIN_MM: Final = 64.0  # distance du premier et du dernier trou aux bouts verticaux
+AUTO_DIAMETER_MM: Final = 5.0
+AUTO_DEPTH_MM: Final = 12.0
+FACES: Final = ("auto", "plus", "minus")  # face percée : intérieure, +Z ou -Z du côté
 _DOWN: Final = Vec3(0.0, 0.0, -1.0)
 _TILT_TOLERANCE: Final = 1e-3
+_EPSILON: Final = 1e-9
 
 NOT_UPRIGHT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -39,7 +55,7 @@ NOT_UPRIGHT: Final = QT_TRANSLATE_NOOP(
     "ou sa largeur verticale.",
 )
 BAD_VALUE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Les dimensions du perçage doivent être strictement positives."
+    "Menuiserie", "Le pas et la saillie des taquets doivent être strictement positifs."
 )
 HOLE_TOO_DEEP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -58,22 +74,26 @@ NO_SUCH_ROW: Final = QT_TRANSLATE_NOOP(
 
 @dataclass(frozen=True)
 class ShelfPinsParams:
-    """Paramètres du perçage et des taquets (mm) ; 0 = automatique."""
+    """Paramètres du perçage et des taquets (mm) ; 0 = automatique.
 
-    hole_diameter: float = length_param(5.0)
-    hole_depth: float = length_param(12.0)
+    ``neighbors`` n'est pas un réglage : les pièces du document autour du côté, qui bornent la
+    zone percée et reçoivent des taquets."""
+
+    hole_diameter: float = length_param(0.0)  # 5
+    hole_depth: float = length_param(0.0)  # 12
     pitch: float = length_param(32.0)
     edge_distance: float = length_param(0.0)  # colonnes aux bouts horizontaux : 37 mm
-    end_margin: float = length_param(0.0)  # premier et dernier trou aux bouts verticaux : 64 mm
-    rows: int = count_param(0)  # 0 = autant de rangs que le côté en reçoit
+    end_margin: float = length_param(0.0)  # trou le plus proche d'une pièce assemblée : 64 mm
+    rows: int = count_param(0)  # 0 = autant de rangs que la zone libre en reçoit
     with_pins: bool = flag_param(True)
-    pin_row: int = count_param(0)  # rang des taquets, depuis le bas ; 0 = rang du milieu
+    pin_row: int = count_param(0)  # 0 = un rang sous chaque tablette ; sinon rang depuis le bas
     pin_projection: float = length_param(7.0)  # saillie du taquet hors de la face
-    reversed: bool = flag_param(False)  # face opposée (par défaut la face +Z du côté)
+    face: str = choice_param("auto", FACES)
+    neighbors: tuple[Neighbor, ...] = derived_param(())
 
     def __post_init__(self) -> None:
         validate_params(self)
-        if min(self.hole_diameter, self.hole_depth, self.pitch, self.pin_projection) <= 0:
+        if min(self.pitch, self.pin_projection) <= 0:
             raise JointError(BAD_VALUE, {})
 
 
@@ -87,19 +107,25 @@ class ShelfPinsValues:
     edge_distance: float
     end_margin: float
     rows: int
-    pin_row: int  # 0 : pas de taquet
+    pin_row: int  # premier rang de taquets depuis le bas (1 : le plus bas), 0 : aucun
     pin_projection: float
     with_pins: bool
+    pin_rows: tuple[int, ...] = ()  # rangs (depuis 0) qui portent des taquets
+    heights: tuple[float, ...] = ()  # hauteur de chaque rang depuis le bas du côté
 
     @property
     def count(self) -> int:
-        """Nombre de taquets (un par colonne dans le rang choisi)."""
-        return 2 if self.with_pins else 0
+        """Nombre de taquets (un par colonne dans chaque rang choisi)."""
+        return 2 * len(self.pin_rows)
 
     @property
     def hole_count(self) -> int:
         """Nombre de trous percés."""
         return 2 * self.rows
+
+    def pin_top(self, row: int) -> float:
+        """Hauteur du dessus du taquet du rang ``row`` (où repose le dessous de la tablette)."""
+        return self.heights[row] + self.hole_diameter / 2
 
 
 class ShelfPinsStrategy:
@@ -110,16 +136,15 @@ class ShelfPinsStrategy:
     def resolve(
         self, host: PlacedBlock, guest: PlacedBlock, params: ShelfPinsParams
     ) -> ShelfPinsValues:
-        """Valeurs effectives : distances, nombre de rangs et rang des taquets."""
-        _upright(host)
-        return _checked(host, params)
+        """Valeurs effectives : distances, nombre de rangs et rangs des taquets."""
+        return _checked(host, params)[0]
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: ShelfPinsParams) -> JointPlan:
-        """Trous percés dans la face choisie ; taquets plantés dans le rang choisi."""
+        """Trous percés dans la face intérieure ; taquets plantés dans les rangs choisis."""
+        values, layout = _checked(host, params)
         vertical, down = _upright(host)
-        values = _checked(host, params)
         box = host.local_box()
-        face = Axis.of(2, -1.0 if params.reversed else 1.0)
+        face = Axis.of(2, layout.face_sign)
         plane = box.lo(2) if face.sign < 0 else box.hi(2)
         horizontal = 1 - vertical
         bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
@@ -129,17 +154,16 @@ class ShelfPinsStrategy:
         )
         holes, pins = [], []
         radius = values.hole_diameter / 2
-        for row in range(values.rows):
-            level = bottom - down * (values.end_margin + row * values.pitch)
+        for row, height in enumerate(layout.heights):
+            level = bottom - down * height
             for column in columns:
                 base = _point(vertical, level, horizontal, column, plane)
                 holes.append(Cylinder(base, face.opposite(), radius, values.hole_depth))
-                if values.with_pins and row + 1 == values.pin_row:
-                    deep = _point(
-                        vertical, level, horizontal, column, plane - face.sign * values.hole_depth
-                    )
-                    height = values.hole_depth + values.pin_projection
-                    pins.append(Cylinder(deep, face, radius, height))
+                if row in layout.pin_rows:
+                    bottom_of_hole = plane - face.sign * values.hole_depth
+                    deep = _point(vertical, level, horizontal, column, bottom_of_hole)
+                    height_of_pin = values.hole_depth + values.pin_projection
+                    pins.append(Cylinder(deep, face, radius, height_of_pin))
         return JointPlan(host_cuts=tuple(holes), inserts=tuple(pins))
 
 
@@ -157,22 +181,32 @@ def _upright(host: PlacedBlock) -> tuple[int, float]:
     return vertical, 1.0 if down.component(vertical) > 0 else -1.0
 
 
-def _checked(host: PlacedBlock, params: ShelfPinsParams) -> ShelfPinsValues:
+def _checked(host: PlacedBlock, params: ShelfPinsParams) -> tuple[ShelfPinsValues, Layout]:
     box = host.local_box()
-    vertical, _down = _upright(host)
-    thickness, height = box.size(2), box.size(vertical)
-    if params.hole_depth > thickness - MIN_BOTTOM_MM:
+    vertical, down = _upright(host)
+    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
+    diameter = params.hole_diameter or AUTO_DIAMETER_MM
+    depth = params.hole_depth or AUTO_DEPTH_MM
+    thickness, total = box.size(2), box.size(vertical)
+    if depth > thickness - MIN_BOTTOM_MM:
         text = {
-            "depth": mm_text(params.hole_depth),
+            "depth": mm_text(depth),
             "thickness": mm_text(thickness),
             "bottom": mm_text(MIN_BOTTOM_MM),
         }
         raise JointError(HOLE_TOO_DEEP, text)
     edge = params.edge_distance or AUTO_EDGE_MM
     margin = params.end_margin or AUTO_MARGIN_MM
-    span = height - 2 * margin
-    rows = params.rows or (int(span // params.pitch) + 1 if span >= 0 else 0)
-    wide = box.size(1 - vertical) - 2 * edge - params.hole_diameter
+    boxes = side_boxes(host, params.neighbors, vertical)
+    sign = choose_face(params.face, host, boxes)
+    touching = touching_boxes(boxes, host, sign)
+    fixed = [heights_of(other, bottom, down, vertical) for other, fixed in touching if fixed]
+    shelves = [heights_of(other, bottom, down, vertical) for other, fixed in touching if not fixed]
+    window = free_window(fixed, total)
+    first = window[0] + (margin if fixed or window[0] == 0.0 else 0.0)
+    span = window[1] - margin - first
+    rows = params.rows or (int(span // params.pitch + _EPSILON) + 1 if span >= 0 else 0)
+    wide = box.size(1 - vertical) - 2 * edge - diameter
     if rows < 1 or span < (rows - 1) * params.pitch - 1e-6 or wide < 0:
         text = {
             "rows": str(max(rows, 1)),
@@ -181,17 +215,26 @@ def _checked(host: PlacedBlock, params: ShelfPinsParams) -> ShelfPinsValues:
             "edge": mm_text(edge),
         }
         raise JointError(TOO_SHORT, text)
-    pin_row = params.pin_row or (rows + 1) // 2
-    if params.with_pins and pin_row > rows:
-        raise JointError(NO_SUCH_ROW, {"row": str(pin_row), "rows": str(rows)})
-    return ShelfPinsValues(
-        params.hole_diameter,
-        params.hole_depth,
+    heights = tuple(first + index * params.pitch for index in range(rows))
+    if not params.with_pins:
+        chosen: tuple[int, ...] = ()
+    elif params.pin_row:
+        if params.pin_row > rows:
+            raise JointError(NO_SUCH_ROW, {"row": str(params.pin_row), "rows": str(rows)})
+        chosen = (params.pin_row - 1,)
+    else:
+        chosen = pin_rows(heights, shelves, diameter / 2)
+    values = ShelfPinsValues(
+        diameter,
+        depth,
         params.pitch,
         edge,
         margin,
         rows,
-        pin_row if params.with_pins else 0,
+        chosen[0] + 1 if chosen else 0,
         params.pin_projection,
         params.with_pins,
+        chosen,
+        heights,
     )
+    return values, Layout(sign, heights, chosen)

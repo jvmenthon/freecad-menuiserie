@@ -249,7 +249,8 @@ def property_name(field_name: str) -> str:
 def write_params(obj: DocumentObject, params: object) -> None:
     """Écrit chaque paramètre de ``params`` (objet valeur de ``core``) dans sa propriété."""
     for item in fields(params):  # type: ignore[arg-type]
-        setattr(obj, property_name(item.name), getattr(params, item.name))
+        if not item.metadata.get("joint_derived"):  # champ dérivé : pas de propriété
+            setattr(obj, property_name(item.name), getattr(params, item.name))
 
 
 def params_from(obj: DocumentObject, params_type: Callable[..., P]) -> P:
@@ -257,6 +258,8 @@ def params_from(obj: DocumentObject, params_type: Callable[..., P]) -> P:
     une valeur refusée lève ``JointError`` qui cite le nom de la propriété."""
     values = {}
     for item in fields(params_type):  # type: ignore[arg-type]
+        if item.metadata.get("joint_derived"):  # fourni par l'assemblage (voisines du document)
+            continue
         value = getattr(obj, property_name(item.name))
         values[item.name] = getattr(value, "Value", value)
     try:

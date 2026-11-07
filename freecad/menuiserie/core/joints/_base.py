@@ -42,6 +42,7 @@ NOT_OVERLAPPING: Final = QT_TRANSLATE_NOOP(
 
 _PARAM_KIND: Final = "joint_param"
 _CHOICES_KEY: Final = "joint_choices"
+_DERIVED: Final = "joint_derived"  # champ fourni par le document, pas par une propriété
 _INVALID: Final = object()
 
 
@@ -285,9 +286,16 @@ def choice_param(default: str, choices: tuple[str, ...]) -> Any:
     return field(default=default, metadata={_PARAM_KIND: ParamKind.CHOICE, _CHOICES_KEY: choices})
 
 
+def derived_param(default: Any) -> Any:
+    """Champ « dérivé » : fourni par le document (pièces voisines…), sans propriété ni contrôle."""
+    return field(default=default, metadata={_DERIVED: True})
+
+
 def validate_params(params: object) -> None:
     """Contrôle et normalise chaque champ d'un objet de paramètres (``ValueError`` sinon)."""
     for item in fields(params):  # type: ignore[arg-type]
+        if item.metadata.get(_DERIVED):
+            continue
         kind: ParamKind = item.metadata[_PARAM_KIND]
         value = getattr(params, item.name)
         checked = _CHECKS[kind](value)

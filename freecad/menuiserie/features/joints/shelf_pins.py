@@ -8,19 +8,44 @@ pièce (le côté est percé, les taquets sont les pièces rapportées de la for
 
 from __future__ import annotations
 
-from typing import ClassVar, Final
+from dataclasses import replace
+from typing import Any, ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
-from freecad.menuiserie.core.joints.shelf_pins import ShelfPinsParams
-from freecad.menuiserie.features.joints.base import JointFeature
+from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams
+from freecad.menuiserie.core.part_model import InvalidDimensionsError
+from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
+from freecad.menuiserie.features.joints.base import (
+    JointFeature,
+    is_joint,
+    params_from,
+    placed_blank,
+)
+from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec
+from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = ["ShelfPinsJoint"]
 
 _GROUP: Final = "Perçage LR32"
 _DEFAULTS: Final = ShelfPinsParams()
 _MAX_ROWS: Final = 50
+
+
+def timber_blanks_around(part: DocumentObject) -> list[DocumentObject]:
+    """Pièces de bois du document de ``part``, sauf elle-même (voisines possibles du côté)."""
+    return [obj for obj in part.Document.Objects if obj is not part and is_timber(obj)]
+
+
+def _assembled_with(part: DocumentObject, other: DocumentObject) -> bool:
+    """Vrai si un assemblage (autre que des perçages LR32) relie ``other`` à ``part``."""
+    machined = machined_part_of(part)
+    for joint in getattr(machined, "Joints", ()):
+        other_kind = is_joint(joint) and joint.Proxy.KIND is not JointKind.SHELF_PINS
+        if other_kind and other in (joint.HostPart, joint.GuestPart):
+            return True
+    return False
 
 
 class ShelfPinsJoint(JointFeature):
@@ -32,12 +57,39 @@ class ShelfPinsJoint(JointFeature):
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Perçage LR32")
     PARAMS: ClassVar[type[ShelfPinsParams]] = ShelfPinsParams
     INVERTIBLE: ClassVar[bool] = False  # une seule pièce
+
+    def params(self, obj: DocumentObject) -> Any:
+        """Réglages des propriétés, plus les pièces voisines du côté dans le document : celles
+        qui lui sont assemblées bornent la zone percée, les autres (tablettes) reçoivent un
+        taquet sous elles."""
+        neighbors = []
+        for other in timber_blanks_around(obj.HostPart):
+            try:
+                block = placed_blank(other)
+            except (ValueError, InvalidDimensionsError):
+                continue
+            neighbors.append(Neighbor(block, _assembled_with(obj.HostPart, other)))
+        return replace(params_from(obj, ShelfPinsParams), neighbors=tuple(neighbors))
+
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
+        PropertySpec(
+            "Neighbors",
+            "App::PropertyLinkList",
+            _GROUP,
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Pièces du document qui bornent le perçage ou reposent sur ses taquets : leur "
+                "déplacement recalcule le perçage.",
+            ),
+            mode=HIDDEN,
+        ),
         PropertySpec(
             "HoleDiameter",
             LENGTH,
             _GROUP,
-            QT_TRANSLATE_NOOP("App::Property", "Diamètre des trous (taquets à tige : 5 mm)."),
+            QT_TRANSLATE_NOOP(
+                "App::Property", "Diamètre des trous (taquets à tige). 0 : automatique (5 mm)."
+            ),
             default=_DEFAULTS.hole_diameter,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Diamètre des trous"),
             resolved="hole_diameter",
@@ -46,7 +98,9 @@ class ShelfPinsJoint(JointFeature):
             "HoleDepth",
             LENGTH,
             _GROUP,
-            QT_TRANSLATE_NOOP("App::Property", "Profondeur des trous dans le côté."),
+            QT_TRANSLATE_NOOP(
+                "App::Property", "Profondeur des trous dans le côté. 0 : automatique (12 mm)."
+            ),
             default=_DEFAULTS.hole_depth,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Profondeur des trous"),
             resolved="hole_depth",
@@ -78,11 +132,11 @@ class ShelfPinsJoint(JointFeature):
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Distance du premier et du dernier trou au bas et au haut du côté. 0 : "
-                "automatique (64 mm).",
+                "Distance du premier et du dernier trou aux pièces assemblées au côté (fond, "
+                "dessus) ou à ses bouts. 0 : automatique (64 mm).",
             ),
             default=_DEFAULTS.end_margin,
-            label=QT_TRANSLATE_NOOP("Menuiserie", "Marge en haut et en bas"),
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Marge aux pièces assemblées"),
             resolved="end_margin",
         ),
         PropertySpec(
@@ -91,7 +145,8 @@ class ShelfPinsJoint(JointFeature):
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Nombre de trous par colonne. 0 : automatique, autant que le côté en reçoit.",
+                "Nombre de trous par colonne. 0 : automatique, autant que la zone libre entre les "
+                "pièces assemblées au côté en reçoit.",
             ),
             default=(_DEFAULTS.rows, 0, _MAX_ROWS, 1),
             label=QT_TRANSLATE_NOOP("Menuiserie", "Trous par colonne"),
@@ -102,7 +157,9 @@ class ShelfPinsJoint(JointFeature):
             "App::PropertyBool",
             _GROUP,
             QT_TRANSLATE_NOOP(
-                "App::Property", "Poser les taquets de la tablette (un par colonne) dans un rang."
+                "App::Property",
+                "Poser les taquets : sous chaque tablette posée contre le côté, ou dans le rang "
+                "choisi.",
             ),
             default=_DEFAULTS.with_pins,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Poser les taquets"),
@@ -113,8 +170,8 @@ class ShelfPinsJoint(JointFeature):
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Rang des taquets, compté depuis le bas (1 : le plus bas). 0 : automatique, rang "
-                "du milieu.",
+                "Rang des taquets, compté depuis le bas de la zone percée (1 : le plus bas). 0 : "
+                "automatique, un rang sous chaque tablette posée contre le côté.",
             ),
             default=(_DEFAULTS.pin_row, 0, _MAX_ROWS, 1),
             label=QT_TRANSLATE_NOOP("Menuiserie", "Rang des taquets"),
@@ -129,14 +186,20 @@ class ShelfPinsJoint(JointFeature):
             label=QT_TRANSLATE_NOOP("Menuiserie", "Saillie des taquets"),
         ),
         PropertySpec(
-            "Reversed",
-            "App::PropertyBool",
+            "Face",
+            "App::PropertyEnumeration",
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Percer la face opposée du côté (par défaut la face tournée vers +Z de la pièce).",
+                "Face percée du côté. Automatique : la face intérieure, celle contre laquelle sont "
+                "posées des pièces et qui regarde l'autre côté.",
             ),
-            default=_DEFAULTS.reversed,
-            label=QT_TRANSLATE_NOOP("Menuiserie", "Face opposée"),
+            default=_DEFAULTS.face,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Face percée"),
+            choices=(
+                ("auto", QT_TRANSLATE_NOOP("Menuiserie", "Automatique (face intérieure)")),
+                ("plus", QT_TRANSLATE_NOOP("Menuiserie", "Face +Z de la pièce")),
+                ("minus", QT_TRANSLATE_NOOP("Menuiserie", "Face -Z de la pièce")),
+            ),
         ),
     )
