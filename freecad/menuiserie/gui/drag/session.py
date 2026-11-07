@@ -40,6 +40,7 @@ from freecad.menuiserie.core.magnet import (
 from freecad.menuiserie.core.rotation import plane_point
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.furniture_container import guide_container
 from freecad.menuiserie.features.magnet_guides import collect_guides
 from freecad.menuiserie.features.part_drag import (
     begin_drag,
@@ -330,7 +331,7 @@ class DragSession:
         own = open_transaction(part, MOVE_TRANSACTION)
         try:
             memento = begin_drag(part)
-            guides = collect_guides(part, part.getParentGeoFeatureGroup())
+            guides = collect_guides(part, guide_container(part))
             tolerance = port.mm(frame_of(part.getGlobalPlacement()).origin, MAGNET_PX)
         except (*_RESIZE_ERRORS, App.Base.FreeCADError):
             give_up(part, own)
