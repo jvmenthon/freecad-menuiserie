@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Conservation de la caméra de la vue 3D pendant une création (planche, ensemble).
+"""Caméra de la vue 3D pendant une création (planche, ensemble).
 
 FreeCAD recadre parfois la vue quand un objet apparaît. La vue de l'utilisateur est rétablie
 aussitôt après la création et encore une fois à la fin de la boucle d'événements (le recadrage
-peut être différé), sauf pour la première création d'un document vide : le recadrage de FreeCAD
-reste alors utile.
+peut être différé). Pour la première création d'un document vide, FreeCAD cadre l'objet encore
+vide (zoom excessif) : toute la vue est recadrée une fois la pièce construite.
 """
 
 from __future__ import annotations
@@ -29,6 +29,11 @@ def _view_3d() -> Any | None:
     return view
 
 
+def _fit(view: Any) -> None:
+    with suppress(RuntimeError, ReferenceError):
+        view.fitAll()
+
+
 def _restore(view: Any, camera: str) -> None:
     with suppress(RuntimeError, ReferenceError):  # vue fermée entre-temps
         view.setCamera(camera)
@@ -36,11 +41,18 @@ def _restore(view: Any, camera: str) -> None:
 
 @contextmanager
 def keep_camera(doc: Document) -> Iterator[None]:
-    """Rétablit la caméra de la vue active à la sortie, sauf si ``doc`` était vide (première
-    planche ou premier ensemble : le cadrage de FreeCAD est conservé)."""
+    """Rétablit la caméra de la vue active à la sortie ; si ``doc`` était vide (première planche
+    ou premier ensemble), recadre toute la vue à la place."""
     view = _view_3d()
-    if view is None or not doc.Objects:
+    if view is None:
         yield
+        return
+    if not doc.Objects:
+        try:
+            yield
+        finally:
+            _fit(view)
+            QtCore.QTimer.singleShot(0, lambda: _fit(view))
         return
     camera = view.getCamera()
     try:
