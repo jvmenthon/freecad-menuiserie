@@ -211,6 +211,30 @@ def test_sous_ensemble_lie_par_origin_et_cotes() -> None:
     assert ("C", "Origin.y") not in found
 
 
+def test_sous_ensemble_porte_par_son_std_part_lie_placement_base() -> None:
+    """EN-e, E3 : la position d'un sous-ensemble est le ``Placement.Base`` de son Std Part."""
+    caisson = Member(
+        "C",
+        box=FurnitureBox(600, 520, 720),
+        origin=Vec3(22, 0, 0),
+        fixed=frozenset({Edge.FRONT, Edge.BACK}),
+        mode=InteriorMode.PROPORTIONAL,
+        label="Caisson",
+        carried=True,
+    )
+    found = bindings([caisson])
+    assert found[("C", "Width")] == "<<Bureau>>.Width * 0.5"
+    assert found[("C", "Placement.Base.x")] == (
+        "<<Bureau>>.Origin.x + <<Bureau>>.Width * 0.018333333"
+    )
+    assert not any(prop.startswith("Origin") for _, prop in found)
+
+
+def test_placement_du_std_part_est_lie_par_l_atelier() -> None:
+    caisson = Member("C", box=FurnitureBox(1, 1, 1), origin=Vec3(0, 0, 0), carried=True)
+    assert bound_by_workshop(caisson, "Placement.Base.x")
+
+
 # --- F9 : formules de l'utilisateur -------------------------------------------------------
 
 

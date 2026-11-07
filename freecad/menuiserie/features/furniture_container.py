@@ -321,7 +321,8 @@ def leave(members: Sequence[DocumentObject]) -> list[str]:
     """Sort les ``members`` de leur Std Part, dans le conteneur de ce Std Part, à la même position
     globale (E2) ; renvoie les messages traduits des pièces qui restent dedans (:func:`stays`).
     Appelé après le retrait des liaisons et des propriétés de membre."""
-    holders = [(obj, _holder(obj)) for obj in members]
+    found = [(obj, _holder(obj)) for obj in members]
+    holders = [(obj, holder) for obj, holder in found if holder is not None]
     inside = [obj for obj, holder in holders if is_std_part(holder)]
     kept = stays(inside)
     moving = [obj for obj in inside if obj.Name not in kept]

@@ -7,6 +7,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Std Part d'ensemble (EN-e, ADR 0038) : chaque ensemble, gabarit Caisson compris, est rangé à sa
+  création dans un Std Part (`App::Part`, « {ensemble} (Std Part) ») avec ses pièces, pièces
+  usinées, assemblages et Distances, sans rien déplacer à l'écran ; une pièce ajoutée y entre, une
+  pièce retirée en sort à la même position (une pièce assemblée à un membre qui reste garde le
+  Std Part). Un sous-ensemble a son propre Std Part, rangé dans celui du parent : son `Origin`
+  vaut (0, 0, 0), le parent lie le `Placement.Base` de ce Std Part. Pas de reprise des anciens
+  documents. Essai sur FreeCAD 1.1 dans l'ADR 0038.
 - Taille initiale d'une nouvelle pièce limitée par les collisions (demande de jv, 2026-11-07) : à
   l'ouverture du panneau « Nouvelle pièce de bois », longueur, largeur puis épaisseur sont ramenées
   au jeu libre avant les autres pièces de bois ; ensuite la saisie n'est jamais limitée.
@@ -47,6 +54,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Une pièce membre d'un ensemble est aimantée quand on la déplace ou la redimensionne à la souris
+  (flèche et poignée) : les guides étaient lus dans `Document.RootObjects`, qui exclut les objets
+  cités par une expression ; les Std Parts d'ensemble sont transparents pour l'aimant.
 - Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même
   ensemble se range sous l'ensemble le plus proche qui les contient (sous-ensembles compris) dans
   l'arbre, dès sa création.
