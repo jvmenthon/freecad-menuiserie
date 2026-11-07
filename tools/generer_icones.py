@@ -190,9 +190,9 @@ def _plat(x0: float, x1: float, y0: float, y1: float) -> list[tuple[float, float
 
 
 def faux_tenons() -> str:
-    ic = Icone("Faux tenon : pièce plate aux bouts arrondis")
-    ic.prisme(_plat(0, 80, 0, 30), "z", 0, 12, "chene")
-    ic.veinage((8, 72), (15, 12), "chene", amplitude=0.8)
+    ic = Icone("Faux tenon : section en stade (bouts demi-ronds) étirée sur sa longueur")
+    ic.prisme(_plat(0, 34, 0, 10), "x", 0, 56, "chene")  # comme la forme générée
+    ic.veinage((4, 52), (17, 10), "chene", amplitude=0.8)
     return ic.svg()
 
 
@@ -228,7 +228,8 @@ def percage_lr32() -> str:
                 continue
             ic.trou([(8, cy + 2.6 * math.cos(t), cz + 2.6 * math.sin(t)) for t in angles()])
     for cy in (10, 36):
-        ic.boite((8, cy - 2.6, 40 - 2.6), (12, 5.2, 5.2), "acier")  # taquet sorti de la face
+        rond = [(cy + 2.8 * math.cos(t), 40 + 2.8 * math.sin(t)) for t in angles(24)]
+        ic.prisme(rond, "x", 8, 20, "acier")  # taquet rond sorti de la face
     return ic.svg()
 
 
