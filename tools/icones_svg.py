@@ -126,7 +126,8 @@ class Icone:
                 faces.append((pts, normale))
         faces.append(([en_3d(u, v, a1) for u, v in profil], en_3d(0, 0, 1)))
         # Peintre : les faces les plus éloignées d'abord.
-        faces.sort(key=lambda f: sum(sum(p) for p in f[0]) / len(f[0]))
+        # Clé arrondie : ordre identique d'une version de Python à l'autre (ex æquo stables).
+        faces.sort(key=lambda f: round(sum(sum(p) for p in f[0]) / len(f[0]), 6))
         for pts, normale in faces:
             axe_dominant = max(range(3), key=lambda k: abs(normale[k]))
             self.face(pts, matiere, "xyz"[axe_dominant], opacite)
