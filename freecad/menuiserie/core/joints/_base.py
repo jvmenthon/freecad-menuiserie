@@ -22,6 +22,13 @@ from freecad.menuiserie.core.text import quoted_value
 
 MAX_COUNT: Final = 50
 MAX_ANGLE_DEG: Final = 30.0  # angle d'un flanc de queue d'aronde, au plus
+# Garde-fou : au-delà, les opérations booléennes d'OCC peuvent figer FreeCAD (saisie aberrante).
+MAX_PLAN_SOLIDS: Final = 1000
+TOO_MANY_SOLIDS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "L'assemblage demanderait {count} formes d'usinage (au plus {max}) : vérifier les cotes "
+    "saisies (pas, nombre, longueurs).",
+)
 
 SEPARATED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Les pièces ne se touchent pas.")
 OVERLAPPING: Final = QT_TRANSLATE_NOOP(
@@ -108,6 +115,19 @@ class JointPlan:
     guest_trims: tuple[PlanSolid, ...] = ()  # retirés de l'invitée avant ses ajouts (ADR 0016)
     inserts: tuple[PlanSolid, ...] = ()  # pièces rapportées (tourillons), repère de l'hôte
     guest_bevels: tuple[Bevel, ...] = ()  # bouts coupés en biais (ADR 0024)
+
+    def __post_init__(self) -> None:
+        solids = (
+            self.host_cuts,
+            self.host_additions,
+            self.guest_cuts,
+            self.guest_additions,
+            self.guest_trims,
+            self.inserts,
+        )
+        count = sum(len(group) for group in solids)
+        if count > MAX_PLAN_SOLIDS:
+            raise JointError(TOO_MANY_SOLIDS, {"count": str(count), "max": str(MAX_PLAN_SOLIDS)})
 
 
 P = TypeVar("P", contravariant=True)

@@ -25,7 +25,11 @@ from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
-from freecad.menuiserie.features.joints.shelf_pins import ShelfPinsJoint, timber_blanks_around
+from freecad.menuiserie.features.joints.shelf_pins import (
+    ShelfPinsJoint,
+    opposite_upright,
+    timber_blanks_around,
+)
 from freecad.menuiserie.features.joints.slides import DrawerSlideJoint
 from freecad.menuiserie.features.joints.slots import BiscuitJoint, LooseTenonJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
@@ -213,11 +217,17 @@ def create_foot(doc: Document, part: DocumentObject, **params: object) -> Docume
 
 def create_shelf_pins(doc: Document, part: DocumentObject, **params: object) -> DocumentObject:
     """Crée un perçage LR32 dans le côté debout ``part`` (pièce de bois ou pièce usinée) : deux
-    colonnes de trous au pas de 32 mm, taquets de tablette rapportés. Paramètres de
-    ``ShelfPinsParams`` en mm, 0 = automatique."""
+    colonnes de trous au pas de 32 mm, taquets de tablette rapportés. Le montant opposé (côté
+    debout en face) est percé en miroir par le même objet (``GuestPart``), sauf
+    ``both_sides=False``. Paramètres de ``ShelfPinsParams`` en mm, 0 = automatique."""
     values = _validated(ShelfPinsJoint.PARAMS, params)
-    joint = create_joint(ShelfPinsJoint, doc, part, part, values, same_part=True)
-    joint.Neighbors = timber_blanks_around(blank_of(part))  # leur déplacement recalcule le perçage
+    blank = blank_of(part)
+    opposite = opposite_upright(blank, values) if values.both_sides else None
+    if opposite is None:
+        joint = create_joint(ShelfPinsJoint, doc, part, part, values, same_part=True)
+    else:
+        joint = create_joint(ShelfPinsJoint, doc, part, opposite, values)
+    joint.Neighbors = timber_blanks_around(blank)  # leur déplacement recalcule le perçage
     return joint
 
 

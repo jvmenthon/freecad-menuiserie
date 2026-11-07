@@ -73,8 +73,10 @@ def test_pieds_reference_du_catalogue(document: Any) -> None:
 
 
 def upright_side(document: Any, thickness: float = 19) -> Any:
-    """Côté de caisson debout : 720 de haut (longueur de la pièce, tournée sur sa tranche)."""
-    where = App.Placement(App.Vector(thickness, 0, 720), App.Rotation(App.Vector(0, 1, 0), 90))
+    """Côté de caisson debout : 720 de haut (longueur de la pièce, tournée sur sa tranche), de
+    x = 0 à ``thickness`` et de z = -720 à 0 (la rotation envoie X local vers -Z, Z local vers
+    +X)."""
+    where = App.Placement(App.Vector(0, 0, 0), App.Rotation(App.Vector(0, 1, 0), 90))
     side = wood(document, "S", (720, 500, thickness), where)
     document.recompute()
     return side
@@ -119,21 +121,34 @@ def test_taquets_sous_chaque_tablette(document: Any) -> None:
     assert stale_or_invalid(document) == []
 
 
-def test_percage_lr32_du_montant_oppose(document: Any) -> None:
+def test_un_seul_percage_pour_les_deux_montants(document: Any) -> None:
     side = upright_side(document)
     board = shelf(document, 360)
-    where = App.Placement(App.Vector(638, 0, 720), App.Rotation(App.Vector(0, 1, 0), 90))
+    where = App.Placement(App.Vector(619, 0, 0), App.Rotation(App.Vector(0, 1, 0), 90))
     other = wood(document, "S", (720, 500, 19), where)  # montant opposé, x = 619 à 638
     document.recompute()
     joint = api.make_shelf_pins(side)
-    mirror = api.make_opposite_shelf_pins(joint)
-    assert mirror is not None and mirror.HostPart == other and board in mirror.Neighbors
-    assert mirror.Face != "auto" and mirror.isValid()
+    assert (joint.HostPart, joint.GuestPart, joint.BothSides) == (side, other, True)
+    assert board in joint.Neighbors and joint.isValid()
     pin = math.pi * 2.5**2 * (12 + 7)
-    assert mirror.Shape.Volume == pytest.approx(2 * pin)  # taquets sous la même tablette
-    assert mirror.Shape.BoundBox.XMin == pytest.approx(619 - 7)  # face qui regarde le côté
-    assert api.make_opposite_shelf_pins(mirror) is None  # le premier côté est déjà percé
+    assert joint.Shape.Volume == pytest.approx(4 * pin)  # deux taquets de chaque côté
+    hole = math.pi * 2.5**2 * 12
+    assert volume(other) == pytest.approx(720 * 500 * 19 - 38 * hole)  # percé en miroir
+    joint.Pitch = 64  # un seul réglage pour les deux montants
+    document.recompute()
+    assert volume(other) == volume(side) and joint.isValid()
+    joint.BothSides = False
+    document.recompute()
+    assert volume(other) == pytest.approx(720 * 500 * 19)
+    assert len(api.machined_part_of(other).Joints) == 1
     assert stale_or_invalid(document) == []
+
+
+def test_pas_saisi_trop_petit_refuse_sans_figer(document: Any) -> None:
+    joint = api.make_shelf_pins(upright_side(document))
+    joint.Pitch = 1  # valeur transitoire en tapant « 16 »
+    document.recompute()
+    assert not joint.isValid() and "trop petit" in joint.getStatusString()
 
 
 def test_percage_lr32_refuse_sur_panneau_couche(document: Any) -> None:

@@ -307,7 +307,7 @@ class ShelfPinsCommand(FootCommand):
 
     def Activated(self) -> None:
         """Perçage de la pièce sélectionnée, sur la face et dans la zone du clic, et par défaut
-        du montant opposé en miroir, dans la même transaction."""
+        du montant opposé en miroir (même objet)."""
         part = selected_part()
         if part is None:
             return
@@ -315,7 +315,6 @@ class ShelfPinsCommand(FootCommand):
         try:
             with aborted_on_error(App.getActiveTransaction()):
                 joint = api.make_shelf_pins(part, check=feasible_joint, **picked_zone(part))
-                api.make_opposite_shelf_pins(joint, check=feasible_joint)
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return

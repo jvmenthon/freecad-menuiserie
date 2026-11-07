@@ -2,17 +2,18 @@
 """Perçage LR32 du document : proxy ``ShelfPinsJoint``.
 
 Contrat de persistance (ADR 0003) : chemin de ce module, nom de la classe et des propriétés
-figés. Le perçage concerne **un seul** côté debout : ``HostPart`` et ``GuestPart`` sont la même
-pièce (le côté est percé, les taquets sont les pièces rapportées de la forme).
+figés. ``HostPart`` est le côté debout percé ; ``GuestPart`` est le montant opposé percé en
+miroir (un seul objet pour les deux côtés), ou la même pièce s'il n'y a pas de montant en face
+(documents antérieurs compris). Les taquets sont les pièces rapportées de la forme.
 """
 
 from __future__ import annotations
 
-from dataclasses import fields, replace
+from dataclasses import replace
 from typing import Any, ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints import JointError, JointKind
+from freecad.menuiserie.core.joints import JointError, JointKind, strategy_for
 from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams, facing_side
 from freecad.menuiserie.core.part_model import InvalidDimensionsError
 from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
@@ -27,7 +28,7 @@ from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["ShelfPinsJoint", "opposite_drilling"]
+__all__ = ["ShelfPinsJoint", "opposite_upright"]
 
 _GROUP: Final = "Perçage LR32"
 _DEFAULTS: Final = ShelfPinsParams()
@@ -49,46 +50,52 @@ def _assembled_with(part: DocumentObject, other: DocumentObject) -> bool:
     return False
 
 
-def opposite_drilling(joint: DocumentObject) -> tuple[DocumentObject, dict[str, object]] | None:
-    """Côté debout en face de la face percée par ``joint`` (montant opposé du caisson) et
-    réglages de son perçage en miroir (mêmes cotes, face tournée vers ``joint``, même zone) ;
-    ``None`` s'il n'y en a pas, s'il est déjà percé ou si le perçage est impossible."""
-    part = joint.HostPart
-    try:
-        face = resolved_for(joint).face  # type: ignore[attr-defined]
-        host = placed_blank(part)
-    except (ValueError, InvalidDimensionsError):
-        return None
+def opposite_upright(part: DocumentObject, params: ShelfPinsParams) -> DocumentObject | None:
+    """Montant opposé de ``part`` : le côté debout parallèle le plus proche en face de sa face
+    percée avec ``params`` ; ``None`` s'il n'y en a pas, s'il est déjà percé ou si le perçage
+    est impossible."""
+    container = part.getParentGeoFeatureGroup()
     candidates, blocks = [], []
     for other in timber_blanks_around(part):
+        if other.getParentGeoFeatureGroup() != container:
+            continue
         try:
             blocks.append(placed_blank(other))
         except (ValueError, InvalidDimensionsError):
             continue
         candidates.append(other)
+    strategy = strategy_for(JointKind.SHELF_PINS)
     try:
+        host = placed_blank(part)
+        with_neighbors = replace(params, neighbors=_neighbors_of(part))
+        face = strategy.resolve(host, host, with_neighbors).face
         found = facing_side(host, face, tuple(blocks))
-    except JointError:
+        if found is None or _has_shelf_pins(candidates[found[0]]):
+            return None
+        other = candidates[found[0]]
+        mirrored = replace(with_neighbors, guest_neighbors=_neighbors_of(other))
+        strategy.plan(host, blocks[found[0]], mirrored)  # montant opposé perçable
+    except (JointError, ValueError, InvalidDimensionsError):
         return None
-    if found is None or _has_shelf_pins(candidates[found[0]]):
-        return None
-    index, other_face, low = found
-    params = params_from(joint, ShelfPinsParams)
-    settings: dict[str, object] = {
-        field.name: getattr(params, field.name)
-        for field in fields(params)
-        if field.name not in {"neighbors", "face", "zone_height"}
-    }
-    zone = params.zone_height
-    settings["face"] = other_face
-    settings["zone_height"] = max(zone - low, 0.0) if zone else 0.0
-    return candidates[index], settings
+    return other
 
 
 def _has_shelf_pins(part: DocumentObject) -> bool:
     machined = machined_part_of(part)
     joints = getattr(machined, "Joints", ())
     return any(is_joint(item) and item.Proxy.KIND is JointKind.SHELF_PINS for item in joints)
+
+
+def _neighbors_of(part: DocumentObject) -> tuple[Neighbor, ...]:
+    """Pièces voisines de ``part`` : assemblées (bornent la zone percée) ou libres (tablettes)."""
+    neighbors = []
+    for other in timber_blanks_around(part):
+        try:
+            block = placed_blank(other)
+        except (ValueError, InvalidDimensionsError):
+            continue
+        neighbors.append(Neighbor(block, _assembled_with(part, other)))
+    return tuple(neighbors)
 
 
 class ShelfPinsJoint(JointFeature):
@@ -104,7 +111,8 @@ class ShelfPinsJoint(JointFeature):
     )
 
     def invert(self, obj: DocumentObject) -> None:
-        """« Inverser » : l'autre face du côté est percée."""
+        """« Inverser » : l'autre face du côté est percée (le montant opposé reste percé sur sa
+        face tournée vers le côté)."""
         try:
             current = resolved_for(obj).face  # type: ignore[attr-defined]
         except ValueError:
@@ -112,17 +120,16 @@ class ShelfPinsJoint(JointFeature):
         obj.Face = "minus" if current == "plus" else "plus"
 
     def params(self, obj: DocumentObject) -> Any:
-        """Réglages des propriétés, plus les pièces voisines du côté dans le document : celles
-        qui lui sont assemblées bornent la zone percée, les autres (tablettes) reçoivent un
-        taquet sous elles."""
-        neighbors = []
-        for other in timber_blanks_around(obj.HostPart):
-            try:
-                block = placed_blank(other)
-            except (ValueError, InvalidDimensionsError):
-                continue
-            neighbors.append(Neighbor(block, _assembled_with(obj.HostPart, other)))
-        return replace(params_from(obj, ShelfPinsParams), neighbors=tuple(neighbors))
+        """Réglages des propriétés, plus les pièces voisines du côté et du montant opposé dans
+        le document : celles qui leur sont assemblées bornent la zone percée, les autres
+        (tablettes) reçoivent un taquet sous elles."""
+        guest = obj.GuestPart
+        opposite = _neighbors_of(guest) if guest is not None and guest != obj.HostPart else ()
+        return replace(
+            params_from(obj, ShelfPinsParams),
+            neighbors=_neighbors_of(obj.HostPart),
+            guest_neighbors=opposite,
+        )
 
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
@@ -251,6 +258,18 @@ class ShelfPinsJoint(JointFeature):
             default=_DEFAULTS.zone_height,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Hauteur de la zone percée"),
             resolved="zone_height",
+        ),
+        PropertySpec(
+            "BothSides",
+            "App::PropertyBool",
+            _GROUP,
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Percer aussi le montant opposé (le côté en face), en miroir et avec les mêmes "
+                "réglages.",
+            ),
+            default=_DEFAULTS.both_sides,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Montant opposé aussi"),
         ),
         PropertySpec(
             "Face",

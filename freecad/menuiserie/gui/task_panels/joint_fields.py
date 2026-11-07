@@ -141,6 +141,7 @@ class ParamField:
         if self.spec.type_id == COUNT:
             spin = QtGui.QSpinBox()
             spin.setRange(*count_range(self.spec))
+            spin.setKeyboardTracking(False)  # appliqué en fin de saisie, pas à chaque touche
             connect(spin, "valueChanged(int)", self._on_edited)
             return spin
         field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
@@ -153,6 +154,9 @@ class ParamField:
             maximum = MAX_DIMENSION_MM
         field.setProperty("minimum", minimum)
         field.setProperty("maximum", maximum)
+        # Appliqué en fin de saisie (Entrée, changement de champ) ou aux flèches, jamais sur une
+        # valeur transitoire (« 3 » en tapant « 32 »), qui peut coûter un long recalcul.
+        field.setKeyboardTracking(False)
         connect(field, "valueChanged(double)", self._on_edited)
         return field
 

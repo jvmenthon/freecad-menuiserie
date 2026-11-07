@@ -18,7 +18,7 @@ import Part
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
 from freecad.menuiserie.core.joints import JointError, JointKind
-from freecad.menuiserie.core.joints.shelf_pins import pin_rests
+from freecad.menuiserie.core.joints.shelf_pins import opposite_values, pin_rests
 from freecad.menuiserie.core.magnet import Guide, GuideKind
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import is_joint, placed_blank, resolved_for
@@ -161,26 +161,36 @@ def _guides_of(shape: Any, inverse: App.Placement) -> list[Guide]:
 
 
 def _pin_rests_shape(obj: DocumentObject) -> Any:
-    """Appuis de tablette d'un perçage LR32 (dessus de taquet à chaque rang), en coordonnées
-    globales ; ``None`` pour un autre objet ou un perçage impossible."""
+    """Appuis de tablette d'un perçage LR32 (dessus de taquet à chaque rang, sur le côté et le
+    montant opposé), en coordonnées globales ; ``None`` pour un autre objet ou un perçage
+    impossible."""
     if not is_joint(obj) or obj.Proxy.KIND is not JointKind.SHELF_PINS:
         return None
     try:
+        host = placed_blank(obj.HostPart)
         values: Any = resolved_for(obj)
-        rests = pin_rests(placed_blank(obj.HostPart), values)
+        sides = [(obj.HostPart, pin_rests(host, values))]
+        guest = obj.GuestPart
+        if guest is not None and guest != obj.HostPart:
+            other = opposite_values(host, placed_blank(guest), obj.Proxy.params(obj))
+            if other is not None:
+                sides.append((guest, pin_rests(placed_blank(guest), other)))
     except (*ERRORS, ValueError, JointError):
         return None
-    boxes = [
-        Part.makeBox(
-            *(rest.size(i) for i in range(3)), App.Vector(rest.min.x, rest.min.y, rest.min.z)
-        )
-        for rest in rests
-    ]
-    if not boxes:
-        return None
-    shape = Part.makeCompound(boxes)
-    shape.Placement = obj.HostPart.getGlobalPlacement()
-    return shape
+    shapes = []
+    for part, rests in sides:
+        if not rests:
+            continue
+        boxes = [
+            Part.makeBox(
+                *(rest.size(i) for i in range(3)), App.Vector(rest.min.x, rest.min.y, rest.min.z)
+            )
+            for rest in rests
+        ]
+        shape = Part.makeCompound(boxes)
+        shape.transformShape(part.getGlobalPlacement().toMatrix())  # repère du document
+        shapes.append(shape)
+    return Part.makeCompound(shapes) if shapes else None
 
 
 def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tuple[Guide, ...]:

@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock, Vec3
-from freecad.menuiserie.core.joints import JointKind, strategy_for
+from freecad.menuiserie.core.joints import MAX_PLAN_SOLIDS, JointKind, JointPlan, strategy_for
 from freecad.menuiserie.core.joints.shelf_pins import (
     Neighbor,
     ShelfPinsParams,
@@ -178,3 +180,32 @@ def test_montant_oppose_en_face_de_la_face_percee() -> None:
 def test_pas_de_montant_oppose_de_l_autre_cote_ni_decale() -> None:
     assert facing_side(side(), "minus", (other_side(619.0),)) is None
     assert facing_side(side(), "plus", (other_side(619.0, 600.0),)) is None  # recouvre trop peu
+
+
+def test_pas_trop_petit_refuse() -> None:
+    wall = side()
+    with pytest.raises(JointError, match="trop petit"):
+        SHELF_PINS.plan(wall, wall, ShelfPinsParams(pitch=1.0))  # trous de 5 mm qui se chevauchent
+    SHELF_PINS.plan(wall, wall, ShelfPinsParams(pitch=7.0))  # 5 mm + 2 mm de matière
+
+
+def test_un_seul_perçage_pour_les_deux_montants() -> None:
+    wall, other = side(), other_side(619.0)
+    shelf = Neighbor(block((600.0, 500.0, 19.0), (19.0, 0.0, -360.0)), False)
+    params = ShelfPinsParams(neighbors=(shelf,), guest_neighbors=(shelf,))
+    plan = SHELF_PINS.plan(wall, other, params)
+    single = SHELF_PINS.plan(wall, wall, params)
+    assert len(plan.guest_cuts) == len(single.host_cuts) and plan.host_cuts == single.host_cuts
+    assert all(hole.base.z == 0.0 for hole in cylinders(plan.guest_cuts))  # face -Z du montant
+    assert len(plan.inserts) == 2 * len(single.inserts)  # taquets des deux côtés
+    values = SHELF_PINS.resolve(wall, other, params)
+    assert values.count == 4 and values.hole_count == 2 * len(single.host_cuts)
+    alone = SHELF_PINS.plan(wall, other, replace(params, both_sides=False))
+    assert alone.guest_cuts == ()
+
+
+def test_plan_plafonne_le_nombre_de_formes() -> None:
+    hole = Box(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 1.0, 1.0))
+    JointPlan(host_cuts=(hole,) * MAX_PLAN_SOLIDS)
+    with pytest.raises(JointError, match="formes d'usinage"):
+        JointPlan(host_cuts=(hole,) * MAX_PLAN_SOLIDS, inserts=(hole,))

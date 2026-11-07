@@ -10,7 +10,7 @@ côté ; sa longueur ou sa largeur est la verticale du document, son épaisseur 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import ClassVar, Final
 
 from freecad.menuiserie.core.geometry import (
@@ -19,8 +19,9 @@ from freecad.menuiserie.core.geometry import (
     Cylinder,
     JointError,
     PlacedBlock,
+    RigidTransform,
     Vec3,
-    is_square,
+    moved_axis,
     moved_box,
     relative_transform,
 )
@@ -37,42 +38,42 @@ from freecad.menuiserie.core.joints._base import (
     validate_params,
 )
 from freecad.menuiserie.core.joints._shelf_layout import (
+    NOT_UPRIGHT,
     Layout,
     Neighbor,
     choose_face,
+    facing_side,
     free_window,
     heights_of,
+    picked_choice,
     pin_rows,
     side_boxes,
     touching_boxes,
+    upright,
 )
 
 __all__ = [
     "FACES",
+    "NOT_UPRIGHT",
     "Neighbor",
     "ShelfPinsParams",
     "ShelfPinsStrategy",
     "ShelfPinsValues",
     "facing_side",
+    "opposite_values",
     "picked_choice",
     "pin_rests",
 ]
 
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond d'un trou
+MIN_WALL_MM: Final = 2.0  # matière entre deux trous d'une colonne : pas ≥ diamètre + 2 mm
 AUTO_EDGE_MM: Final = 37.0  # distance des colonnes aux bouts horizontaux, par défaut
 AUTO_MARGIN_MM: Final = 64.0  # distance du premier et du dernier trou aux bouts verticaux
 AUTO_DIAMETER_MM: Final = 5.0
 AUTO_DEPTH_MM: Final = 12.0
 FACES: Final = ("auto", "plus", "minus")  # face percée : intérieure, +Z ou -Z du côté
-_DOWN: Final = Vec3(0.0, 0.0, -1.0)
-_TILT_TOLERANCE: Final = 1e-3
 _EPSILON: Final = 1e-9
 
-NOT_UPRIGHT: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Le perçage se pose sur un côté debout : son épaisseur doit être horizontale et sa longueur "
-    "ou sa largeur verticale.",
-)
 BAD_VALUE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Le pas et la saillie des taquets doivent être strictement positifs."
 )
@@ -86,6 +87,10 @@ TOO_SHORT: Final = QT_TRANSLATE_NOOP(
     "Le côté est trop petit pour {rows} rangs de trous au pas de {pitch} mm, à {margin} mm des "
     "bouts et {edge} mm des bords.",
 )
+PITCH_TOO_SMALL: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Pas de {pitch} mm trop petit pour des trous de {diameter} mm : il faut au moins {minimum} mm.",
+)
 NO_SUCH_ROW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Le taquet est prévu au rang {row} mais il n'y a que {rows} rangs de trous."
 )
@@ -95,8 +100,8 @@ NO_SUCH_ROW: Final = QT_TRANSLATE_NOOP(
 class ShelfPinsParams:
     """Paramètres du perçage et des taquets (mm) ; 0 = automatique.
 
-    ``neighbors`` n'est pas un réglage : les pièces du document autour du côté, qui bornent la
-    zone percée et reçoivent des taquets."""
+    ``neighbors`` et ``guest_neighbors`` ne sont pas des réglages : les pièces du document autour
+    du côté (et du montant opposé), qui bornent la zone percée et reçoivent des taquets."""
 
     hole_diameter: float = length_param(0.0)  # 5
     hole_depth: float = length_param(0.0)  # 12
@@ -109,7 +114,9 @@ class ShelfPinsParams:
     pin_projection: float = length_param(7.0)  # saillie du taquet hors de la face
     face: str = choice_param("auto", FACES)
     zone_height: float = length_param(0.0)  # hauteur (depuis le bas) dans la zone à percer
+    both_sides: bool = flag_param(True)  # percer aussi le montant opposé (``guest``) en miroir
     neighbors: tuple[Neighbor, ...] = derived_param(())
+    guest_neighbors: tuple[Neighbor, ...] = derived_param(())  # autour du montant opposé
 
     def __post_init__(self) -> None:
         validate_params(self)
@@ -134,16 +141,18 @@ class ShelfPinsValues:
     heights: tuple[float, ...] = ()  # hauteur de chaque rang depuis le bas du côté
     face: str = "plus"  # face percée : « plus » (+Z du côté) ou « minus » (-Z)
     zone_height: float = 0.0  # milieu de la zone percée, depuis le bas du côté
+    opposite_pins: int = 0  # taquets du montant opposé
+    opposite_holes: int = 0  # trous du montant opposé
 
     @property
     def count(self) -> int:
-        """Nombre de taquets (un par colonne dans chaque rang choisi)."""
-        return 2 * len(self.pin_rows)
+        """Nombre de taquets (un par colonne dans chaque rang choisi, montant opposé compris)."""
+        return 2 * len(self.pin_rows) + self.opposite_pins
 
     @property
     def hole_count(self) -> int:
-        """Nombre de trous percés."""
-        return 2 * self.rows
+        """Nombre de trous percés (montant opposé compris)."""
+        return 2 * self.rows + self.opposite_holes
 
     def pin_top(self, row: int) -> float:
         """Hauteur du dessus du taquet du rang ``row`` (où repose le dessous de la tablette)."""
@@ -158,35 +167,93 @@ class ShelfPinsStrategy:
     def resolve(
         self, host: PlacedBlock, guest: PlacedBlock, params: ShelfPinsParams
     ) -> ShelfPinsValues:
-        """Valeurs effectives : distances, nombre de rangs et rangs des taquets."""
-        return _checked(host, params)[0]
+        """Valeurs effectives du côté ``host`` (distances, rangs, taquets), avec le nombre de
+        trous et de taquets du montant opposé ``guest`` s'il est percé aussi."""
+        values = _checked(host, params)[0]
+        opposite = _opposite(host, guest, params, values)
+        if opposite is None:
+            return values
+        other = opposite[0]
+        return replace(values, opposite_pins=other.count, opposite_holes=other.hole_count)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: ShelfPinsParams) -> JointPlan:
-        """Trous percés dans la face intérieure ; taquets plantés dans les rangs choisis."""
+        """Trous percés dans la face intérieure ; taquets plantés dans les rangs choisis ; de
+        même en miroir dans le montant opposé ``guest`` (s'il est distinct de ``host``)."""
         values, layout = _checked(host, params)
-        vertical, down = _upright(host)
-        box = host.local_box()
-        face = Axis.of(2, layout.face_sign)
-        plane = box.lo(2) if face.sign < 0 else box.hi(2)
-        horizontal = 1 - vertical
-        bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
-        columns = (
-            box.lo(horizontal) + values.edge_distance,
-            box.hi(horizontal) - values.edge_distance,
-        )
-        holes: list[Cylinder] = []
-        pins: list[Cylinder | Box] = []
-        radius = values.hole_diameter / 2
-        for row, height in enumerate(layout.heights):
-            level = bottom - down * height
-            for column in columns:
-                base = _point(vertical, level, horizontal, column, plane)
-                holes.append(Cylinder(base, face.opposite(), radius, values.hole_depth))
-                if row in layout.pin_rows:
-                    stem_base = _point(vertical, level, horizontal, column, plane)
-                    pins.append(Cylinder(stem_base, face.opposite(), radius, values.hole_depth))
-                    pins.append(_ledge(vertical, level, horizontal, column, plane, face, values))
-        return JointPlan(host_cuts=tuple(holes), inserts=tuple(pins))
+        holes, pins = _drilling(host, values, layout)
+        opposite = _opposite(host, guest, params, values)
+        if opposite is None:
+            return JointPlan(host_cuts=holes, inserts=pins)
+        guest_holes, guest_pins = _drilling(guest, *opposite)
+        transform = relative_transform(host, guest)
+        moved = tuple(_moved(solid, transform) for solid in guest_pins)
+        return JointPlan(host_cuts=holes, guest_cuts=guest_holes, inserts=(*pins, *moved))
+
+
+def opposite_values(
+    host: PlacedBlock, guest: PlacedBlock, params: ShelfPinsParams
+) -> ShelfPinsValues | None:
+    """Valeurs effectives du perçage du montant opposé ``guest`` (``None`` s'il n'est pas
+    percé)."""
+    opposite = _opposite(host, guest, params, _checked(host, params)[0])
+    return None if opposite is None else opposite[0]
+
+
+def _opposite(
+    host: PlacedBlock, guest: PlacedBlock, params: ShelfPinsParams, values: ShelfPinsValues
+) -> tuple[ShelfPinsValues, Layout] | None:
+    """Perçage en miroir du montant opposé : face tournée vers ``host``, même zone (hauteurs
+    ramenées au bas de ``guest``), voisines de ``guest``."""
+    if guest == host or not params.both_sides:
+        return None
+    vertical, down = upright(host)
+    box = host.local_box()
+    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
+    transform = relative_transform(host, guest)
+    sign = 1.0 if values.face == "plus" else -1.0
+    toward = transform.rotate(Vec3(0.0, 0.0, 1.0)).z * -sign
+    low, _high = heights_of(moved_box(guest.local_box(), transform), bottom, down, vertical)
+    mirrored = replace(
+        params,
+        face="plus" if toward > 0 else "minus",
+        zone_height=max(params.zone_height - low, 0.0) if params.zone_height else 0.0,
+        neighbors=params.guest_neighbors,
+        guest_neighbors=(),
+    )
+    return _checked(guest, mirrored)
+
+
+def _drilling(
+    side: PlacedBlock, values: ShelfPinsValues, layout: Layout
+) -> tuple[tuple[Cylinder, ...], tuple[Cylinder | Box, ...]]:
+    """Trous et taquets d'un côté, dans son repère."""
+    vertical, down = upright(side)
+    box = side.local_box()
+    face = Axis.of(2, layout.face_sign)
+    plane = box.lo(2) if face.sign < 0 else box.hi(2)
+    horizontal = 1 - vertical
+    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
+    columns = (box.lo(horizontal) + values.edge_distance, box.hi(horizontal) - values.edge_distance)
+    holes: list[Cylinder] = []
+    pins: list[Cylinder | Box] = []
+    radius = values.hole_diameter / 2
+    for row, height in enumerate(layout.heights):
+        level = bottom - down * height
+        for column in columns:
+            base = _point(vertical, level, horizontal, column, plane)
+            holes.append(Cylinder(base, face.opposite(), radius, values.hole_depth))
+            if row in layout.pin_rows:
+                pins.append(Cylinder(base, face.opposite(), radius, values.hole_depth))
+                pins.append(_ledge(vertical, level, horizontal, column, plane, face, values))
+    return tuple(holes), tuple(pins)
+
+
+def _moved(solid: Cylinder | Box, transform: RigidTransform) -> Cylinder | Box:
+    """Taquet du montant opposé exprimé dans le repère de l'hôte."""
+    if isinstance(solid, Box):
+        return moved_box(solid, transform)
+    axis = moved_axis(transform, solid.axis)
+    return Cylinder(transform.apply(solid.base), axis, solid.radius, solid.height)
 
 
 def _ledge(  # noqa: PLR0913
@@ -216,7 +283,7 @@ def pin_rests(host: PlacedBlock, values: ShelfPinsValues) -> tuple[Box, ...]:
     """Appuis possibles d'une tablette : à chaque rang de trous et dans chaque colonne, une
     plaque mince sous le dessus qu'aurait un taquet (repère du côté). Leur face haute guide
     l'aimantation du dessous de la tablette sur n'importe quel rang."""
-    vertical, down = _upright(host)
+    vertical, down = upright(host)
     box = host.local_box()
     horizontal = 1 - vertical
     bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
@@ -239,72 +306,14 @@ def pin_rests(host: PlacedBlock, values: ShelfPinsValues) -> tuple[Box, ...]:
     return tuple(rests)
 
 
-def picked_choice(host: PlacedBlock, point: Vec3) -> tuple[str, float]:
-    """Face (``plus`` ou ``minus``) et hauteur depuis le bas du côté d'un point cliqué sur le
-    côté (repère du côté) : le perçage se fait sur cette face, dans la zone de ce point."""
-    vertical, down = _upright(host)
-    box = host.local_box()
-    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
-    near_plus = abs(point.z - box.hi(2)) <= abs(point.z - box.lo(2))
-    height = (bottom - point.component(vertical)) * down
-    return ("plus" if near_plus else "minus"), max(height, 0.0)
-
-
-def facing_side(
-    host: PlacedBlock, face: str, others: tuple[PlacedBlock, ...]
-) -> tuple[int, str, float] | None:
-    """Côté debout parallèle le plus proche en face de la face percée ``face`` (``plus`` ou
-    ``minus``) de ``host`` et qui le recouvre au moins de moitié : (indice dans ``others``, sa face
-    tournée vers ``host``, hauteur de son bas au-dessus du bas de ``host``) ; ``None`` sans côté."""
-    vertical, down = _upright(host)
-    horizontal = 1 - vertical
-    box = host.local_box()
-    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
-    sign = 1.0 if face == "plus" else -1.0
-    best: tuple[float, int, str, float] | None = None
-    for index, other in enumerate(others):
-        if not is_square(host, other):
-            continue
-        try:
-            _upright(other)
-        except JointError:
-            continue
-        transform = relative_transform(host, other)
-        moved = moved_box(other.local_box(), transform)
-        if moved.size(2) >= min(moved.size(vertical), moved.size(horizontal)):
-            continue  # pas parallèle au côté
-        gap = moved.lo(2) - box.hi(2) if sign > 0 else box.lo(2) - moved.hi(2)
-        if gap <= 0 or not all(_half_cover(box, moved, axis) for axis in (vertical, horizontal)):
-            continue
-        if best is None or gap < best[0]:
-            toward = transform.rotate(Vec3(0.0, 0.0, 1.0)).z * -sign
-            low, _high = heights_of(moved, bottom, down, vertical)
-            best = (gap, index, "plus" if toward > 0 else "minus", low)
-    return None if best is None else best[1:]
-
-
-def _half_cover(box: Box, other: Box, axis: int) -> bool:
-    common = min(box.hi(axis), other.hi(axis)) - max(box.lo(axis), other.lo(axis))
-    return common >= min(box.size(axis), other.size(axis)) / 2
-
-
 def _point(vertical: int, level: float, horizontal: int, column: float, z: float) -> Vec3:
     point = Vec3(0.0, 0.0, z).with_component(vertical, level)
     return point.with_component(horizontal, column)
 
 
-def _upright(host: PlacedBlock) -> tuple[int, float]:
-    """(axe local vertical, sens vers le bas sur cet axe) d'un côté debout, sinon refus."""
-    down = host.placement.inverse().rotate(_DOWN)
-    vertical = 0 if abs(down.component(0)) > abs(down.component(1)) else 1
-    if abs(abs(down.component(vertical)) - 1.0) > _TILT_TOLERANCE:
-        raise JointError(NOT_UPRIGHT, {})
-    return vertical, 1.0 if down.component(vertical) > 0 else -1.0
-
-
 def _checked(host: PlacedBlock, params: ShelfPinsParams) -> tuple[ShelfPinsValues, Layout]:
     box = host.local_box()
-    vertical, down = _upright(host)
+    vertical, down = upright(host)
     bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
     diameter = params.hole_diameter or AUTO_DIAMETER_MM
     depth = params.hole_depth or AUTO_DEPTH_MM
@@ -318,6 +327,13 @@ def _checked(host: PlacedBlock, params: ShelfPinsParams) -> tuple[ShelfPinsValue
         raise JointError(HOLE_TOO_DEEP, text)
     edge = params.edge_distance or AUTO_EDGE_MM
     margin = params.end_margin or AUTO_MARGIN_MM
+    if params.pitch < diameter + MIN_WALL_MM:
+        text = {
+            "pitch": mm_text(params.pitch),
+            "diameter": mm_text(diameter),
+            "minimum": mm_text(diameter + MIN_WALL_MM),
+        }
+        raise JointError(PITCH_TOO_SMALL, text)
     boxes = side_boxes(host, params.neighbors, vertical)
     sign = choose_face(params.face, host, boxes)
     touching = touching_boxes(boxes, host, sign)
