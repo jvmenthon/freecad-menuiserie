@@ -113,6 +113,7 @@ def test_invitee_retournee() -> None:
 
 def test_a_fleur_a_la_tolerance_pres_sans_peau() -> None:
     result = values(cross(guest_z=0.005))
+    assert isinstance(result.guest_cut, Box)
     assert result.guest_cut.lo(2) == pytest.approx(0.0)
     assert result.guest_cut.hi(2) == pytest.approx(11.0 - 0.005)
 
@@ -191,7 +192,3 @@ def test_refus_profondeur_trop_grande(depth: float) -> None:
     with pytest.raises(JointError, match="moins profonde que l'épaisseur") as error:
         HALF_LAP.plan(*cross(), HalfLapParams(depth=depth))
     assert error.value.params["thickness"] == "22"
-
-
-def test_refus_pieces_pas_d_equerre() -> None:
-    refused((stile(), block((600.0, 60.0, 22.0), (330.0, -270.0, 0.0), 45.0)), "d'équerre")

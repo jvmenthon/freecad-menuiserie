@@ -34,7 +34,9 @@ from freecad.menuiserie.core.joints._base import (
     offset_param,
     validate_params,
 )
-from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame, contact_frame
+from freecad.menuiserie.core.joints._dowels_oblique import oblique_dowel_plan, oblique_reach
+from freecad.menuiserie.core.joints._oblique_frame import Frame, ObliqueFrame, profile_frame
+from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame
 
 __all__ = ["MAX_DOWEL_COUNT", "DowelParams", "DowelStrategy", "DowelValues"]
 
@@ -116,13 +118,15 @@ class DowelStrategy:
 
     def resolve(self, host: PlacedBlock, guest: PlacedBlock, params: DowelParams) -> DowelValues:
         """Valeurs effectives : cotes, nombre et positions des tourillons."""
-        frame = contact_frame(host, guest, end_only=False)
+        frame = profile_frame(host, guest, end_only=False)
         return _checked_values(frame, frame.guest, params)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: DowelParams) -> JointPlan:
         """Perçages dans les deux pièces ; tourillons rapportés (repère de l'hôte)."""
-        frame = contact_frame(host, guest, end_only=False)
+        frame = profile_frame(host, guest, end_only=False)
         values = _checked_values(frame, frame.guest, params)
+        if isinstance(frame, ObliqueFrame):
+            return oblique_dowel_plan(frame, values)
         dowels, host_holes, guest_holes = [], [], []
         for position in values.positions:
             center = _center(frame, values, position)
@@ -202,7 +206,7 @@ def adapted_length(diameter: float, shortest_depth: float, clearance: float) -> 
     return max(2 * diameter, math.floor(room / 5) * 5.0)
 
 
-def _values(frame: ContactFrame, guest: PlacedBlock, params: DowelParams) -> DowelValues:
+def _values(frame: Frame, guest: PlacedBlock, params: DowelParams) -> DowelValues:
     width = frame.contact_width
     diameter = params.diameter or auto_diameter(frame.contact_thickness, params.thickness_offset)
     if params.dowel_length:
@@ -226,7 +230,7 @@ def _values(frame: ContactFrame, guest: PlacedBlock, params: DowelParams) -> Dow
     )
 
 
-def _checked_values(frame: ContactFrame, guest: PlacedBlock, params: DowelParams) -> DowelValues:
+def _checked_values(frame: Frame, guest: PlacedBlock, params: DowelParams) -> DowelValues:
     values = _values(frame, guest, params)
     _check_section(frame, values)
     _check_depths(frame, guest, values)
@@ -237,24 +241,27 @@ def _checked_values(frame: ContactFrame, guest: PlacedBlock, params: DowelParams
 # --- Contrôles ---------------------------------------------------------------------------
 
 
-def _check_section(frame: ContactFrame, values: DowelValues) -> None:
+def _check_section(frame: Frame, values: DowelValues) -> None:
     thickness = frame.contact_thickness
     if not _fits_thickness(values.diameter, thickness, values.thickness_offset):
         text = {"diameter": mm_text(values.diameter), "thickness": mm_text(thickness)}
         raise JointError(TOO_WIDE, text)
 
 
-def _check_depths(frame: ContactFrame, guest: PlacedBlock, values: DowelValues) -> None:
+def _check_depths(frame: Frame, guest: PlacedBlock, values: DowelValues) -> None:
     if values.host_depth >= values.dowel_length:
         text = {"depth": mm_text(values.host_depth), "length": mm_text(values.dowel_length)}
         raise JointError(DEPTH_NOT_SHORTER, text)
     guest_extent = guest.local_box().size(frame.normal)
-    for depth, extent in (
-        (values.host_depth, frame.contact.host_depth),
-        (values.guest_depth, guest_extent),
+    for depth, extent, in_host in (
+        (values.host_depth, frame.contact.host_depth, True),
+        (values.guest_depth, guest_extent, False),
     ):
         hole = depth + values.hole_clearance
-        if extent - hole < MIN_BOTTOM_MM - _MARGIN:
+        reach = hole
+        if in_host and isinstance(frame, ObliqueFrame):
+            reach = oblique_reach(frame, hole, values.diameter / 2)
+        if extent - reach < MIN_BOTTOM_MM - _MARGIN:
             text = {
                 "depth": mm_text(hole),
                 "extent": mm_text(extent),
@@ -263,7 +270,7 @@ def _check_depths(frame: ContactFrame, guest: PlacedBlock, values: DowelValues) 
             raise JointError(HOLE_TOO_DEEP, text)
 
 
-def _check_spacing(frame: ContactFrame, values: DowelValues) -> None:
+def _check_spacing(frame: Frame, values: DowelValues) -> None:
     width, radius = frame.contact_width, values.diameter / 2
     first, last = values.positions[0], values.positions[-1]
     inside = first - radius > CONTACT_TOLERANCE_MM and width - last - radius > CONTACT_TOLERANCE_MM

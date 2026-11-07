@@ -15,6 +15,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   épaulement sur la face de l'hôte, référence du tenon au choix (pièce à tenon, pièce mortaisée,
   mi-angle), coupes en biais et long point dans la liste de débit, pièces en biais suivies par
   translation dans un ensemble. Les autres assemblages refusent encore le biais (#78).
+- Assemblages en biais, suite (#78, ADR 0034) : feuillure, mi-bois (pièces tournées autour de
+  l'épaisseur), onglet (cadre non rectangulaire), tourillons et queue d'aronde acceptent le biais.
 - Pièce créée contre une face (#136, demande de jv, 2026-11-01) : si une seule face d'une pièce de
   bois est sélectionnée au lancement de « Pièce de bois », la nouvelle pièce est perpendiculaire à
   la pièce qui porte la face, avec sa largeur et son épaisseur ; tout reste modifiable dans le

@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
+from freecad.menuiserie.core._polyhedron import Polyhedron, clipped_box
 from freecad.menuiserie.core.contact import Overlap
 from freecad.menuiserie.core.geometry import (
     CONTACT_TOLERANCE_MM,
@@ -16,6 +17,8 @@ from freecad.menuiserie.core.geometry import (
     JointError,
     PlacedBlock,
     RigidTransform,
+    Vec3,
+    is_square,
     moved_axis,
     moved_box,
     relative_transform,
@@ -32,10 +35,13 @@ from freecad.menuiserie.core.joints._base import (
     validate_params,
 )
 from freecad.menuiserie.core.joints._bridge import cut_plan, through_host
+from freecad.menuiserie.core.joints._overlap import oblique_overlap
 
 __all__ = ["HalfLapParams", "HalfLapStrategy", "HalfLapValues"]
 
 THICKNESS_AXIS: Final = 2  # épaisseur : axe Z local de chaque pièce
+_PARALLEL: Final = 1e-6
+_IDENTITY: Final = RigidTransform.identity()
 
 NOT_CROSSING: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -70,8 +76,8 @@ class HalfLapValues:
 
     depth: float  # entaille de l'hôte
     guest_depth: float  # entaille de l'invitée : le reste de l'épaisseur
-    host_cut: Box  # repère de l'hôte
-    guest_cut: Box  # repère de l'invitée
+    host_cut: Box | Polyhedron  # repère de l'hôte
+    guest_cut: Box | Polyhedron  # repère de l'invitée
 
 
 class HalfLapStrategy:
@@ -84,6 +90,8 @@ class HalfLapStrategy:
         self, host: PlacedBlock, guest: PlacedBlock, params: HalfLapParams
     ) -> HalfLapValues:
         """Profondeurs effectives et entailles des deux pièces (repère de l'invitée posée)."""
+        if not is_square(host, guest):
+            return _oblique_values(host, guest, params)
         bridge = through_host(host, guest)
         lap = _lap(host, bridge.guest)
         thickness = host.dimensions.thickness
@@ -106,6 +114,9 @@ class HalfLapStrategy:
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: HalfLapParams) -> JointPlan:
         """Une entaille dans chaque pièce ; l'invitée posée au contact est prolongée."""
+        if not is_square(host, guest):
+            values = _oblique_values(host, guest, params)
+            return JointPlan(host_cuts=(values.host_cut,), guest_cuts=(values.guest_cut,))
         values = self.resolve(host, guest, params)
         return cut_plan(values.host_cut, values.guest_cut, through_host(host, guest))
 
@@ -135,3 +146,46 @@ def _lap(host: PlacedBlock, guest: PlacedBlock) -> _Lap:
     if not (parallel and flush):
         raise JointError(NOT_FLUSH, {})
     return _Lap(relation.common, guest_box, to_host)
+
+
+def _oblique_values(host: PlacedBlock, guest: PlacedBlock, params: HalfLapParams) -> HalfLapValues:
+    """Mi-bois entre pièces tournées autour de l'épaisseur (ADR 0034) : la boîte commune est
+    l'hôte coupé par les quatre faces latérales de l'invitée, partagée à ``level`` en épaisseur."""
+    overlap = oblique_overlap(host, guest)
+    to_host = overlap.to_host
+    if abs(abs(to_host.rotate(Vec3(0.0, 0.0, 1.0)).z) - 1.0) > _PARALLEL:
+        raise JointError(NOT_FLUSH, {})
+    zs = [
+        to_host.apply(Vec3(x, y, z)).z
+        for x in (0.0, 1.0)
+        for y in (0.0, 1.0)
+        for z in (0.0, guest.dimensions.thickness)
+    ]
+    thickness = host.dimensions.thickness
+    flush = (
+        abs(min(zs)) <= CONTACT_TOLERANCE_MM and abs(max(zs) - thickness) <= CONTACT_TOLERANCE_MM
+    )
+    if not flush:
+        raise JointError(NOT_FLUSH, {})
+    depth = params.depth or mm_round(thickness / 2)
+    if depth >= thickness:
+        values = {"depth": mm_text(depth), "thickness": mm_text(thickness)}
+        raise JointError(TOO_DEEP, values)
+    level = depth if params.flip_side else thickness - depth
+    host_range = (0.0, level) if params.flip_side else (level, thickness)
+    guest_range = (level, thickness) if params.flip_side else (0.0, level)
+    sides = tuple(plane for plane in overlap.guest_faces() if abs(plane.normal.z) < _PARALLEL)
+    host_cut = clipped_box(
+        overlap.host_box.with_range(THICKNESS_AXIS, *host_range), _IDENTITY, sides
+    )
+    guest_cut = clipped_box(
+        overlap.host_box.with_range(THICKNESS_AXIS, *guest_range), _IDENTITY, sides
+    )
+    if host_cut is None or guest_cut is None:
+        raise JointError(NOT_CROSSING, {})
+    return HalfLapValues(
+        depth=depth,
+        guest_depth=thickness - depth,
+        host_cut=host_cut,
+        guest_cut=guest_cut.moved(to_host.inverse()),
+    )
