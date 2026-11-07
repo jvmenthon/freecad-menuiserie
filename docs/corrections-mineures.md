@@ -53,3 +53,18 @@ contournable), **mineur** (confort, docs, dette de test).
 | b1 | mineur | spec § 7, `features/joints/base.py` | L'avertissement « épaulement très aigu » au-delà de 45° n'est pas implémenté ; B8 prévoit « Biais : 10° », le code affiche une phrase plus longue. | Ajouter l'avertissement dans la vue rapport ; aligner le texte ou la spec. |
 | b2 | mineur | `core/furniture/_model.py`, `_edit.py` | `NoticeKind.NOT_SQUARE` et `Follow.NOT_SQUARE` ne sont plus produits depuis AB-d (toute pièce non d'équerre suit par translation). | Retirer les deux valeurs et leurs gabarits à la prochaine évolution du modèle d'ensemble. |
 | b3 | mineur | `tests/unit/test_assemblage_biais.py` | Chemins refusés sans test : `NO_WALL` en biais, invitée qui entre par un chant (`OVERLAPPING`), `TOO_SMALL` (polyèdre vide), rainure-languette en biais composé. | Ajouter les cas. |
+
+## Relecture de fin de jalon « Ensemble à la souris » (ADR 0038), 2026-11-07
+
+Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés dans la branche
+`fix/ensemble-souris-revue` ; restent les points suivants (e13 corrigé : spec § 2.2 et § 4.2, note
+« amendé par l'ADR 0038 » dans l'ADR 0008).
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| e10 | mineur | `gui/drag/furniture_target.py:117-127` | Ensemble ancien sans Std Part : les poignées avant, gauche et basse sont affichées mais toujours refusées. | Les masquer, ou retomber sur `Origin` pour ces trois faces. |
+| e11 | mineur | `features/furniture_container.py:135` (`guide_container`) | Un ancien ensemble rangé dans un `App::Part` de l'utilisateur rend ce conteneur transparent pour l'aimant. | Limiter la transparence aux Std Parts propres (`carried_furniture`). |
+| e12 | mineur | `features/states.py` (`_finish`), `features/furniture_drag.py:297` | `LockedPiecesError` au relâchement n'est traitée que dans la vue rapport : pas de « Déverrouiller et appliquer » dans la vue 3D, contrairement à ce que dit la docstring. | Corriger la docstring, ou ajouter la proposition dans la vue 3D. |
+| e14 | mineur | `tests/` | Tests manquants : Ctrl+Z / Ctrl+Y de `make_furniture` (Std Part), Ctrl+Y d'un geste, « Annuler » du panneau après un geste et une saisie d'angle, réouverture d'un document au sous-ensemble déplacé ou tourné, taille et rotation d'un sous-sous-ensemble. | Ajouter les vérifications (intégration et GUI hors écran). |
+| e15 | mineur | `gui/drag/furniture_target.py:137`, `core/geometry.py` (`_box_drawing`), `features/furniture_drag.py:131` et `:216` | Code dupliqué : les huit coins d'une boîte ; le décalage tourné suivi de `write_std_placement`. | Factoriser en `box_corners` et en `_shifted_placement`. |
+| e16 | mineur | `tests/gui/verifications_souris_ensemble.py` | Le fichier fait 661 lignes. | Le découper par thème (taille, déplacement, rotation, sous-ensemble, panneau). |
