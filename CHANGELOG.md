@@ -7,6 +7,30 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Faux tenons et biscuits rangés avec les assemblages. **Faux tenons** : mortaise à bouts demi-ronds comme les Domino de Festool, taille choisie dans la liste Festool (4 x 20 à 10 x 50 mm, ou « Automatique », par défaut) ; la case « Taille personnalisée » masque la liste et montre les cotes à saisir. **Biscuits** : forme de lamelle Lamello, taille choisie dans la liste (n° 0, 10, 20 ou « Automatique »), sans taille personnalisée. Dans l'API, `size=` choisit la taille ; `reference=` en tire la taille ; des cotes données (`thickness`, `along`, `total_depth`) passent un faux tenon en taille personnalisée.
+- Barre d'outils et menu de l'atelier regroupés par thème : Pièces, Assemblages, Quincaillerie, Ensembles, Liste de débit (une barre d'outils chacun, séparés par un trait dans le menu). Icônes des faux tenons, des biscuits et des coulisses redessinées (la pièce seule, sans planches), et celle des pieds.
+- Quincaillerie, lots Q-e (pieds) et Q-f (coulisses) (#159, ADR 0033) : **pieds de caisson
+  réglables** (`make_foot`, une seule pièce : grille de pieds sous un panneau couché, logements de
+  tige percés, embase et tige rapportées) et **coulisses de tiroir à billes** (`make_drawer_slide`,
+  entre un côté de caisson et un côté de tiroir face à face avec un jeu : longueur du commerce de
+  250 à 600 mm, hauteur réglée, avant-trous au pas de 32 mm dans les deux côtés). Références
+  génériques au catalogue (`pied-caisson-m10-50`, `coulisse-billes-450`…), commandes, icônes et
+  décompte dans la liste de débit. Les pieds ont une matière, plastique (par défaut : vissé, sans tige ni perçage, vis non modélisées) ou bois (tige percée dans le panneau), qui colore le pied et figure dans la liste de débit. Charnières à cuvette et vis restent à faire. Une coulisse se pose même si les côtés se touchent ou se chevauchent ; une fenêtre propose alors de réduire le tiroir ou d'élargir le meuble du jeu qui manque (`api.slide_shortfall`, `api.make_room_for_slide`).
+- Quincaillerie, lots Q-c et Q-d (#159, ADR 0033) : deux nouveaux assemblages, **faux tenons**
+  (type Domino) et **biscuits**, avec une mortaise plate dans chaque pièce, taille du commerce
+  choisie automatiquement d'après le contact (au plus un tiers de l'épaisseur), nombre,
+  décalage et jeu de fond réglables, commandes, icônes et fabriques `make_loose_tenons` et
+  `make_biscuits`. Le paramètre `reference` des fabriques `make_dowels`, `make_loose_tenons` et
+  `make_biscuits` prend l'identifiant d'une référence du catalogue (ex. `domino-8x50`) et fixe
+  les cotes du commerce. La liste de débit compte les faux tenons et les biscuits (taille et
+  largeur) avec les tourillons ; l'en-tête « Diamètre (mm) » du CSV devient « Diamètre ou
+  épaisseur (mm) ».
+- Quincaillerie, lots Q-a et Q-b (#159, ADR 0033) : catalogue de références du commerce en JSON
+  strict (`quincaillerie.json`, format 1), lu avec les mêmes garde-fous que les matériaux,
+  entrées invalides ignorées une à une avec anomalie, sources fusionnées par identifiant (la plus
+  proche de l'utilisateur l'emporte), familles génériques et cotes bornées. Catalogue intégré
+  minimal saisi à la main : tourillons, faux tenons Domino, biscuits Lamello, vis à bois,
+  charnière à cuvette et coulisse génériques. Aucun accès réseau.
 - Assemblages entre pièces en biais (#114, ADR 0024) : tenon-mortaise et rainure-languette entre
   deux pièces dont l'angle n'est pas un multiple de 90° (70° au plus, angles composés compris),
   épaulement sur la face de l'hôte, référence du tenon au choix (pièce à tenon, pièce mortaisée,

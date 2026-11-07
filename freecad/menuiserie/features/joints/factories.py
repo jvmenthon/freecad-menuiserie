@@ -20,18 +20,25 @@ from freecad.menuiserie.features.joint_names import joint_label
 from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
+from freecad.menuiserie.features.joints.feet import FootJoint
 from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
+from freecad.menuiserie.features.joints.slides import DrawerSlideJoint
+from freecad.menuiserie.features.joints.slots import BiscuitJoint, LooseTenonJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
 from freecad.menuiserie.features.machined_part import blank_of, ensure_machined_part
 
 __all__ = [
+    "create_biscuits",
     "create_dovetail",
     "create_dowels",
+    "create_drawer_slide",
+    "create_foot",
     "create_half_lap",
     "create_joint",
+    "create_loose_tenons",
     "create_miter",
     "create_mortise_tenon",
     "create_rabbet",
@@ -43,6 +50,9 @@ P = TypeVar("P")
 _SAME_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Choisissez deux pièces différentes pour un assemblage."
 )
+_NEEDS_ONE_PART: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Les pieds se posent sous une seule pièce."
+)
 _OTHER_DOCUMENT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » appartient à un autre document."
 )
@@ -52,13 +62,13 @@ _OTHER_CONTAINER: Final = QT_TRANSLATE_NOOP(
 
 
 def _checked_blanks(
-    doc: Document, host: DocumentObject, guest: DocumentObject
+    doc: Document, host: DocumentObject, guest: DocumentObject, *, same_part: bool = False
 ) -> tuple[DocumentObject, DocumentObject]:
     """Brutes de ``host`` et ``guest`` ; ``TypeError`` ou ``ValueError`` traduites si elles ne
     peuvent pas être assemblées."""
     host_blank, guest_blank = blank_of(host), blank_of(guest)
-    if host_blank == guest_blank:
-        raise ValueError(translated(_SAME_PART))
+    if (host_blank == guest_blank) != same_part:
+        raise ValueError(translated(_SAME_PART if not same_part else _NEEDS_ONE_PART))
     for blank in (host_blank, guest_blank):
         if blank.Document != doc:
             raise ValueError(translated(_OTHER_DOCUMENT, {"label": quoted_value(blank.Label)}))
@@ -81,11 +91,13 @@ def create_joint(
     host: DocumentObject,
     guest: DocumentObject,
     params: object,
+    *,
+    same_part: bool = False,
 ) -> DocumentObject:
     """Crée un assemblage ``joint_class`` entre les brutes de ``host`` et ``guest`` avec les
     paramètres validés ``params``, puis les pièces usinées qui manquent ; rien n'est créé si
-    les pièces sont refusées."""
-    host_blank, guest_blank = _checked_blanks(doc, host, guest)
+    les pièces sont refusées. ``same_part`` : l'assemblage ne concerne qu'une pièce (pieds)."""
+    host_blank, guest_blank = _checked_blanks(doc, host, guest, same_part=same_part)
     obj = doc.addObject("Part::FeaturePython", joint_class.OBJECT_NAME)
     joint_class(obj)
     container = host_blank.getParentGeoFeatureGroup()
@@ -95,7 +107,7 @@ def create_joint(
     obj.GuestPart = guest_blank
     obj.Label = joint_label(obj)
     write_params(obj, params)
-    for blank in (host_blank, guest_blank):
+    for blank in dict.fromkeys((host_blank, guest_blank)):
         machined = ensure_machined_part(blank)
         machined.Joints = [*machined.Joints, obj]
     return obj
@@ -171,3 +183,35 @@ def create_miter(
     chevauchent au coin ; chacune perd le prisme triangulaire de leur boîte commune situé du
     côté de l'autre. Aucun paramètre (``MiterParams`` est vide)."""
     return _create(MiterJoint, doc, host, guest, params)
+
+
+def create_loose_tenons(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée des faux tenons logés dans une mortaise plate de ``host`` et de ``guest``, à travers
+    leur contact. Paramètres de ``SlotParams`` en mm, 0 = automatique."""
+    return _create(LooseTenonJoint, doc, host, guest, params)
+
+
+def create_biscuits(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée des biscuits logés dans une fente de ``host`` et de ``guest``, à travers leur
+    contact. Paramètres de ``SlotParams`` en mm, 0 = automatique."""
+    return _create(BiscuitJoint, doc, host, guest, params)
+
+
+def create_foot(doc: Document, part: DocumentObject, **params: object) -> DocumentObject:
+    """Crée des pieds de caisson sous le panneau ``part`` (pièce de bois ou pièce usinée) :
+    logements de tige percés dans le panneau, embases rapportées. Paramètres de ``FootParams``
+    en mm, 0 = automatique pour la distance au bord."""
+    values = _validated(FootJoint.PARAMS, params)
+    return create_joint(FootJoint, doc, part, part, values, same_part=True)
+
+
+def create_drawer_slide(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée une coulisse de tiroir entre le côté de caisson ``host`` et le côté de tiroir
+    ``guest``, face à face avec un jeu. Paramètres de ``SlideParams`` en mm, 0 = automatique."""
+    return _create(DrawerSlideJoint, doc, host, guest, params)

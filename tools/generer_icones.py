@@ -179,6 +179,52 @@ def tourillons() -> str:
     return ic.svg()
 
 
+def _plat(x0: float, x1: float, y0: float, y1: float) -> list[tuple[float, float]]:
+    """Contour d'un plat aux deux bouts arrondis (faux tenon), vu de dessus."""
+    r = (y1 - y0) / 2
+    cy = y0 + r
+    pas = [math.pi * (i / 12 - 0.5) for i in range(13)]
+    droite = [(x1 - r + r * math.cos(t), cy + r * math.sin(t)) for t in pas]
+    gauche = [(x0 + r - r * math.cos(t), cy - r * math.sin(t)) for t in pas]
+    return droite + gauche
+
+
+def faux_tenons() -> str:
+    ic = Icone("Faux tenon : pièce plate aux bouts arrondis")
+    ic.prisme(_plat(0, 80, 0, 30), "z", 0, 12, "chene")
+    ic.veinage((8, 72), (15, 12), "chene", amplitude=0.8)
+    return ic.svg()
+
+
+def biscuits() -> str:
+    ic = Icone("Biscuit : lamelle ovale")
+    haut = [(40 + 40 * u, 20 + 18 * (1 - u * u) ** 0.5) for u in (i / 10 - 1 for i in range(1, 20))]
+    bas = [(40 + 40 * u, 20 - 18 * (1 - u * u) ** 0.5) for u in (1 - i / 10 for i in range(1, 20))]
+    lamelle = [(0, 20), *haut, (80, 20), *bas]
+    ic.prisme(lamelle, "z", 0, 4, "hetre")
+    ic.veinage((8, 72), (20, 4), "hetre", amplitude=0.8)
+    return ic.svg()
+
+
+def pieds() -> str:
+    ic = Icone("Pieds de caisson : panneau posé sur deux pieds réglables")
+    for cx in (12, 76):
+        ic.cylindre(cx, 20, 0, 16, 8, "acier")
+    ic.boite((0, 0, 16), (90, 26, 12), "chene")
+    ic.veinage((4, 86), (5, 28), "chene", amplitude=0.8)
+    ic.veinage((4, 86), (21, 28), "chene", amplitude=0.8, phase=0.6)
+    return ic.svg()
+
+
+def coulisse() -> str:
+    ic = Icone("Coulisse de tiroir : deux rails d'acier emboîtés, vis de fixation")
+    ic.boite((0, 0, 0), (90, 4, 12), "acier")
+    ic.boite((12, 4, 2), (78, 3, 9), "acier")
+    for x in (12, 45, 78):
+        ic.trou([(x + 2.5 * math.cos(t), 0, 6 + 2.5 * math.sin(t)) for t in angles(12)])
+    return ic.svg()
+
+
 def mi_bois() -> str:
     ic = Icone("Entaille à mi-bois : deux pièces croisées, entaillées à mi-épaisseur")
     profil_bas = [(0, 0), (80, 0), (80, 12), (50, 12), (50, 6), (30, 6), (30, 12), (0, 12)]
@@ -242,6 +288,10 @@ ICONES = {
     "Menuiserie_HalfLap.svg": mi_bois,
     "Menuiserie_Dovetail.svg": queue_d_aronde,
     "Menuiserie_Miter.svg": onglet,
+    "Menuiserie_LooseTenon.svg": faux_tenons,
+    "Menuiserie_Biscuit.svg": biscuits,
+    "Menuiserie_Foot.svg": pieds,
+    "Menuiserie_DrawerSlide.svg": coulisse,
     "Menuiserie_Carcass.svg": caisson,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,

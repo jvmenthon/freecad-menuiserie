@@ -30,6 +30,7 @@ from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.joints.feasible import feasible_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.gui import slide_room
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
@@ -45,6 +46,10 @@ DOWELS: Final = "Menuiserie_Dowels"
 HALF_LAP: Final = "Menuiserie_HalfLap"
 DOVETAIL: Final = "Menuiserie_Dovetail"
 MITER: Final = "Menuiserie_Miter"
+LOOSE_TENON: Final = "Menuiserie_LooseTenon"
+BISCUIT: Final = "Menuiserie_Biscuit"
+FOOT: Final = "Menuiserie_Foot"
+DRAWER_SLIDE: Final = "Menuiserie_DrawerSlide"
 
 
 class JointCommand(TransactionCommand):
@@ -181,6 +186,118 @@ class MiterCommand(JointCommand):
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage d'onglet")
 
 
+class LooseTenonCommand(JointCommand):
+    """Faux tenons : mortaises plates en vis-à-vis dans les deux pièces."""
+
+    NAME = LOOSE_TENON
+    FACTORY = api.make_loose_tenons
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_LooseTenon", "Faux tenons")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_LooseTenon",
+        "Relie les deux pièces sélectionnées par des faux tenons (type Domino) : taille et "
+        "nombre automatiques d'après la surface de contact.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à faux tenons")
+
+
+class BiscuitCommand(JointCommand):
+    """Biscuits : fentes en vis-à-vis dans les deux pièces."""
+
+    NAME = BISCUIT
+    FACTORY = api.make_biscuits
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Biscuit", "Biscuits")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Biscuit",
+        "Relie les deux pièces sélectionnées par des biscuits (lamelles) : taille et nombre "
+        "automatiques d'après la surface de contact.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à biscuits")
+
+
+class DrawerSlideCommand(JointCommand):
+    """Coulisse de tiroir : côté de caisson et côté de tiroir face à face ; si les côtés se
+    touchent, la coulisse est posée puis une fenêtre propose de réduire le tiroir ou d'élargir le
+    meuble."""
+
+    NAME = DRAWER_SLIDE
+    FACTORY = api.make_drawer_slide
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_DrawerSlide", "Coulisse de tiroir")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_DrawerSlide",
+        "Pose une coulisse à billes entre le côté de caisson (première pièce) et le côté de "
+        "tiroir (seconde), face à face avec un jeu : longueur du commerce, hauteur et avant-trous "
+        "au pas de 32 mm.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser une coulisse de tiroir")
+
+    def Activated(self) -> None:
+        """Coulisse posée dans sa transaction ; s'il manque du jeu, la fenêtre propose d'écarter
+        les côtés (dans la même transaction), puis le panneau s'ouvre."""
+        parts = selected_parts()
+        if parts is None:
+            return
+        host, guest = ordered_roles(*parts)
+        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
+        try:
+            with aborted_on_error(App.getActiveTransaction()):
+                joint = api.make_drawer_slide(host, guest, check=feasible_joint)
+                missing = api.slide_shortfall(joint)
+                side = slide_room.choose(missing) if missing else None
+                if side is not None:
+                    for message in api.make_room_for_slide(joint, side):
+                        App.Console.PrintWarning(f"{message}\n")
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        show_panel(joint)
+
+
+class FootCommand(JointCommand):
+    """Pieds de caisson : une seule pièce sélectionnée, le panneau du dessous."""
+
+    NAME = FOOT
+    FACTORY = api.make_foot
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Foot", "Pieds de caisson")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Foot",
+        "Pose des pieds réglables sous le panneau sélectionné : quatre pieds aux coins par "
+        "défaut, tiges percées dans le panneau.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser des pieds de caisson")
+
+    def IsActive(self) -> bool:
+        """Active si aucun panneau n'est ouvert et qu'une seule pièce est sélectionnée."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and selected_part() is not None
+        )
+
+    def Activated(self) -> None:
+        """Pieds posés sous la pièce sélectionnée, dans leur transaction, puis panneau ; une
+        pièce refusée ou des pieds impossibles sont expliqués sans rien créer."""
+        part = selected_part()
+        if part is None:
+            return
+        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
+        try:
+            with aborted_on_error(App.getActiveTransaction()):
+                joint = api.make_foot(part, check=feasible_joint)
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        show_panel(joint)
+
+
+def selected_part() -> DocumentObject | None:
+    """La pièce sélectionnée (brute ou usinée), ou ``None`` si la sélection n'est pas une seule
+    pièce."""
+    selection = Gui.Selection.getSelection()
+    if len(selection) != 1 or not _is_part(selection[0]):
+        return None
+    return selection[0]
+
+
 def selected_parts() -> tuple[DocumentObject, DocumentObject] | None:
     """Les deux pièces sélectionnées (dans l'ordre de sélection), ou ``None`` si la sélection
     n'est pas exactement deux pièces (brutes ou usinées) de brutes distinctes."""
@@ -221,3 +338,7 @@ def register() -> None:
     Gui.addCommand(HALF_LAP, HalfLapCommand())
     Gui.addCommand(DOVETAIL, DovetailCommand())
     Gui.addCommand(MITER, MiterCommand())
+    Gui.addCommand(LOOSE_TENON, LooseTenonCommand())
+    Gui.addCommand(BISCUIT, BiscuitCommand())
+    Gui.addCommand(FOOT, FootCommand())
+    Gui.addCommand(DRAWER_SLIDE, DrawerSlideCommand())

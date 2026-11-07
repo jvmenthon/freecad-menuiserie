@@ -17,4 +17,8 @@ COMMANDES_ASSEMBLAGE: Final = {
     "Menuiserie_HalfLap": ("Mi-bois", "make_half_lap"),
     "Menuiserie_Dovetail": ("Queue d'aronde", "make_dovetail"),
     "Menuiserie_Miter": ("Onglet", "make_miter"),
+    "Menuiserie_LooseTenon": ("Faux tenons", "make_loose_tenons"),
+    "Menuiserie_Biscuit": ("Biscuits", "make_biscuits"),
+    "Menuiserie_Foot": ("Pieds de caisson", "make_foot"),
+    "Menuiserie_DrawerSlide": ("Coulisse de tiroir", "make_drawer_slide"),
 }

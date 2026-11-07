@@ -93,10 +93,11 @@ class ParamField:
                 self.auto.setChecked(automatic)
                 self.auto.setEnabled(expression is None)
         self.editor.setEnabled(expression is None and not automatic)
-        if self.spec.visible_if:  # champ propre au biais : masqué entre pièces d'équerre
+        if self.spec.visible_if:  # champ propre à un cas (biais, taille personnalisée…)
             visible = bool(getattr(resolved, self.spec.visible_if, 0))
-            self.label.setVisible(visible)
-            self.editor.setVisible(visible)
+            for widget in (self.label, self.editor, self.auto):
+                if widget is not None:
+                    widget.setVisible(visible)
         if expression is not None:
             self.editor.setToolTip(translated(_DRIVEN_TIP, {"expression": expression}))
 

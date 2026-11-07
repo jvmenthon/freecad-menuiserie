@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Faux tenon : pièce plate aux bouts arrondis -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="3.45,29.28 3.00,27.29 3.00,18.59 3.45,20.58" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="4.78,31.13 3.45,29.28 3.45,20.58 4.78,22.44" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="6.90,32.72 4.78,31.13 4.78,22.44 6.90,24.03" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="57.10,31.28 59.22,32.87 60.55,34.72 61.00,36.71 60.55,38.70 59.22,40.55 57.10,42.14 54.34,43.37 51.13,44.13 47.69,44.40 44.24,44.13 41.03,43.37 38.28,42.14 6.90,24.03 4.78,22.44 3.45,20.58 3.00,18.59 3.45,16.61 4.78,14.75 6.90,13.16 9.66,11.94 12.87,11.17 16.31,10.91 19.76,11.17 22.97,11.94 25.72,13.16" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="38.28,50.84 6.90,32.72 6.90,24.03 38.28,42.14" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,45.41 60.55,47.39 60.55,38.70 61.00,36.71" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="60.55,47.39 59.22,49.25 59.22,40.55 60.55,38.70" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="59.22,49.25 57.10,50.84 57.10,42.14 59.22,40.55" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="57.10,50.84 54.34,52.06 54.34,43.37 57.10,42.14" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="41.03,52.06 38.28,50.84 38.28,42.14 41.03,43.37" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="54.34,52.06 51.13,52.83 51.13,44.13 54.34,43.37" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="44.24,52.83 41.03,52.06 41.03,43.37 44.24,44.13" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="51.13,52.83 47.69,53.09 47.69,44.40 51.13,44.13" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="47.69,53.09 44.24,52.83 44.24,44.13 47.69,44.40" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="11.92,16.06 14.18,17.65 16.51,19.20 18.95,20.70 21.51,22.11 24.19,23.47 26.94,24.78 29.70,26.08 32.41,27.42 35.01,28.81 37.48,30.28 39.84,31.82 42.12,33.40 44.38,35.00 46.68,36.57 49.08,38.08 51.60,39.52" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -53,3 +53,17 @@ contournable), **mineur** (confort, docs, dette de test).
 | b1 | mineur | spec § 7, `features/joints/base.py` | L'avertissement « épaulement très aigu » au-delà de 45° n'est pas implémenté ; B8 prévoit « Biais : 10° », le code affiche une phrase plus longue. | Ajouter l'avertissement dans la vue rapport ; aligner le texte ou la spec. |
 | b2 | mineur | `core/furniture/_model.py`, `_edit.py` | `NoticeKind.NOT_SQUARE` et `Follow.NOT_SQUARE` ne sont plus produits depuis AB-d (toute pièce non d'équerre suit par translation). | Retirer les deux valeurs et leurs gabarits à la prochaine évolution du modèle d'ensemble. |
 | b3 | mineur | `tests/unit/test_assemblage_biais.py` | Chemins refusés sans test : `NO_WALL` en biais, invitée qui entre par un chant (`OVERLAPPING`), `TOO_SMALL` (polyèdre vide), rainure-languette en biais composé. | Ajouter les cas. |
+
+## Jalon « Quincaillerie » (issue #159, ADR 0033), 2026-11-06
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| Q1 | mineur | `freecad/menuiserie/data/quincaillerie.json` | Cotes des biscuits Lamello saisies de mémoire d'après les tableaux publics, non relues sur fiche (marquées « à confirmer »). Les Domino ont été relus sur les fiches Festool le 2026-11-06. | Comparer avec la fiche Lamello, puis retirer la mention. |
+| Q2 | mineur | `features/joints/slots.py` | Le choix entre liste de tailles et taille personnalisée est fixé (liste par défaut pour les faux tenons). jv veut pouvoir régler ce comportement par défaut dans la configuration de l'atelier (issue #148). | Lire le réglage de l'atelier à la création de l'assemblage. |
+| Q3 | mineur | `features/joints/slots.py`, `core/cutlist` | La référence choisie (`reference=`) fixe les cotes mais n'est pas mémorisée sur l'assemblage : la liste de débit n'a ni fabricant ni référence, seulement taille et quantité. | Propriété `Reference` sur l'assemblage et colonnes fabricant / référence du CSV (spec § 8). |
+| Q4 | mineur | `gui/task_panels/joint.py` | Pas de panneau de choix de référence (filtre par type et mot-clé, spec § 7) : la référence ne se choisit que par l'API. | Liste filtrable de `core.hardware.Catalog.search` dans le panneau de l'assemblage. |
+| Q5 | mineur | `core/hardware/_families.py` | Familles vis, charnière et coulisse : cotes validées, mais aucune forme ni pose (lots Q-e à Q-g). | Lots ultérieurs de la spec § 10. |
+| Q6 | mineur | `core/hardware/_parser.py` (`parse_item`) | Une clé en double dans `params` (objet imbriqué) n'est pas signalée : la dernière valeur gagne en silence ; seule une clé en double au niveau de l'entrée est refusée. | Refuser aussi un `JsonObject` en `params`. |
+| Q7 | mineur | `core/joints/slots.py` | Une mortaise peut toucher le bord du contact (marge de tolérance seulement) et ouvrir le chant de la pièce. | Exiger une paroi minimale (`MIN_WALL_MM`) entre la mortaise et le bord du contact. |
+| Q8 | mineur | `core/joints/slides.py` | La coulisse est une boîte simple et ses avant-trous du côté du tiroir reprennent les positions du côté du caisson ; la coulisse réelle (rail, billes, verrou) et sa fixation propre ne sont pas modélisées. | Famille de coulisses avec cotes de fixation propres à chaque côté. |
+| Q9 | mineur | `core/joints/feet.py` | Les pieds ne se posent que sous un panneau couché dans le repère du document ; pas de pied sur un panneau en biais ni de position libre (grille régulière seulement). | Positions saisies ou pose depuis une face choisie. |

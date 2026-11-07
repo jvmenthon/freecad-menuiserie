@@ -22,6 +22,7 @@ from tests.gui.verifications_panneau import (
     choisir,
     ecarts,
     emplacements,
+    emplacements_attendus,
     formulaire_nomme,
     saisir,
     valider,
@@ -63,7 +64,7 @@ def verifier_commande_du_caisson() -> list[str]:
         *ecarts(
             "emplacements",
             sorted(emplacements(CAISSON)),
-            [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+            emplacements_attendus(CAISSON),
         ),
     ]
 

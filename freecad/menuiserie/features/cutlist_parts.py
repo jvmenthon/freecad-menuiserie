@@ -44,9 +44,9 @@ from freecad.menuiserie.features.wood_part_schema import density_kg_m3, part_kin
 __all__ = [
     "UNKNOWN_MATERIAL_PREFIX",
     "CollectNoticeKind",
-    "dowel_hardware",
     "entry_of",
-    "is_dowel_joint",
+    "hardware_of",
+    "is_hardware_joint",
     "local_shape",
     "machined_extent",
 ]
@@ -88,7 +88,7 @@ _TEMPLATES: Final = {
         "assemblages (tenons, languettes) ne sont pas comptés dans le débit.",
     ),
     CollectNoticeKind.UNREADABLE_DOWELS: QT_TRANSLATE_NOOP(
-        "Menuiserie", "Assemblage « {label} » : tourillons non comptés ({reason})"
+        "Menuiserie", "Assemblage « {label} » : fournitures non comptées ({reason})"
     ),
     CollectNoticeKind.LINK_TOO_DEEP: QT_TRANSLATE_NOOP(
         "Menuiserie",
@@ -293,23 +293,48 @@ def additions_of(blank: DocumentObject, notices: list[Notice]) -> Allowances:
     return machined_extent(blank, notices)[1]
 
 
-# --- Tourillons (D5) ---------------------------------------------------------------------
+# --- Fournitures : tourillons (D5), faux tenons, biscuits, pieds, coulisses (ADR 0033) ------
+
+_HARDWARE_KINDS: Final = (
+    JointKind.DOWELS,
+    JointKind.LOOSE_TENON,
+    JointKind.BISCUIT,
+    JointKind.FOOT,
+    JointKind.DRAWER_SLIDE,
+)
 
 
-def is_dowel_joint(obj: DocumentObject) -> bool:
-    """Vrai si ``obj`` est un assemblage par tourillons de l'atelier."""
-    return is_joint(obj) and obj.Proxy.KIND is JointKind.DOWELS
+def is_hardware_joint(obj: DocumentObject) -> bool:
+    """Vrai si ``obj`` est un assemblage à pièces rapportées (tourillons, faux tenons, biscuits,
+    pieds, coulisses)."""
+    return is_joint(obj) and obj.Proxy.KIND in _HARDWARE_KINDS
 
 
-def dowel_hardware(joint: DocumentObject, times: int, notices: list[Notice]) -> Hardware | None:
-    """Fourniture de l'assemblage ``joint``, répétée ``times`` fois : ``count`` tourillons de
-    ``diameter`` sur ``dowel_length`` effectifs (valeurs automatiques résolues). ``None`` et un
+def hardware_of(joint: DocumentObject, times: int, notices: list[Notice]) -> Hardware | None:
+    """Fourniture de l'assemblage ``joint``, répétée ``times`` fois : le nombre de pièces
+    rapportées de leurs cotes effectives (valeurs automatiques résolues). ``None`` et un
     avertissement si l'assemblage est impossible."""
     try:
         values: Any = resolved_for(joint)
-        return Hardware(
-            HardwareKind.DOWEL, values.diameter, values.dowel_length, values.count * times
+        quantity = values.count * times
+        if hasattr(values, "dowel_length"):  # tourillons : valeurs de DowelValues
+            return Hardware(HardwareKind.DOWEL, values.diameter, values.dowel_length, quantity)
+        if hasattr(values, "base_diameter"):  # pieds : valeurs de FootValues
+            return Hardware(
+                HardwareKind.FOOT,
+                values.stem_diameter,
+                values.height,
+                quantity,
+                material=values.foot_material,
+            )
+        if hasattr(values, "hole_positions"):  # coulisse : valeurs de SlideValues
+            return Hardware(HardwareKind.DRAWER_SLIDE, values.thickness, values.length, quantity)
+        kind = (
+            HardwareKind.LOOSE_TENON
+            if joint.Proxy.KIND is JointKind.LOOSE_TENON
+            else HardwareKind.BISCUIT
         )
+        return Hardware(kind, values.thickness, values.total_depth, quantity, values.along)
     except ValueError as error:
         notices.append(notice(CollectNoticeKind.UNREADABLE_DOWELS, joint, reason=_reason(error)))
         return None

@@ -82,7 +82,7 @@ GRAND_TOTAL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Total général")
 HARDWARE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fournitures")
 HARDWARE_HEADERS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "Fourniture"),
-    QT_TRANSLATE_NOOP("Menuiserie", "Diamètre (mm)"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Diamètre ou épaisseur (mm)"),
     QT_TRANSLATE_NOOP("Menuiserie", "Longueur (mm)"),
     QT_TRANSLATE_NOOP("Menuiserie", "Qté"),
 )
@@ -94,7 +94,21 @@ GRAIN_LABELS: Final[Mapping[GrainDirection, str]] = MappingProxyType(
     }
 )
 HARDWARE_LABELS: Final[Mapping[HardwareKind, str]] = MappingProxyType(
-    {HardwareKind.DOWEL: QT_TRANSLATE_NOOP("Menuiserie", "Tourillon")}
+    {
+        HardwareKind.DOWEL: QT_TRANSLATE_NOOP("Menuiserie", "Tourillon"),
+        HardwareKind.LOOSE_TENON: QT_TRANSLATE_NOOP("Menuiserie", "Faux tenon"),
+        HardwareKind.BISCUIT: QT_TRANSLATE_NOOP("Menuiserie", "Biscuit"),
+        HardwareKind.FOOT: QT_TRANSLATE_NOOP("Menuiserie", "Pied de caisson"),
+        HardwareKind.DRAWER_SLIDE: QT_TRANSLATE_NOOP("Menuiserie", "Coulisse de tiroir"),
+    }
+)
+HARDWARE_WIDTH: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (largeur {width} mm)")
+HARDWARE_MATERIAL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} ({material})")
+HARDWARE_MATERIALS_LABELS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "plastic": QT_TRANSLATE_NOOP("Menuiserie", "plastique"),
+        "wood": QT_TRANSLATE_NOOP("Menuiserie", "bois"),
+    }
 )
 ADDITIONS_REMARK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Ajouts compris (L / l / e) : {length} / {width} / {thickness} mm"
@@ -194,8 +208,15 @@ def _total_row(total: MaterialTotal, dialect: CsvDialect) -> list[str]:
 
 
 def _hardware_row(item: Hardware, translate: Translate, dialect: CsvDialect) -> list[str]:
+    label = translate(HARDWARE_LABELS[item.kind])
+    if item.width:
+        width = format_number(item.width, DIMENSION_DECIMALS, dialect)
+        label = translate(HARDWARE_WIDTH).format(label=label, width=width)
+    if item.material:
+        material = translate(HARDWARE_MATERIALS_LABELS[item.material])
+        label = translate(HARDWARE_MATERIAL).format(label=label, material=material)
     return [
-        translate(HARDWARE_LABELS[item.kind]),
+        label,
         format_number(item.diameter, DIMENSION_DECIMALS, dialect),
         format_number(item.length, DIMENSION_DECIMALS, dialect),
         str(item.quantity),

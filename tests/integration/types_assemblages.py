@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Montages de référence des assemblages de J3c et J4 : rainure-languette, feuillure,
-tourillons, mi-bois, queue d'aronde, onglet.
+tourillons, faux tenons, biscuits, mi-bois, queue d'aronde, onglet.
 
 Chaque montage pose deux pièces de chêne (hôte, invitée), les assemble par la fabrique de
 l'API et connaît les volumes attendus des deux pièces usinées. Module d'aide des tests
@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from freecad.menuiserie.core.joints.slots import half_stadium, rounded_rectangle
 from tests.integration.cadre import placement
 
 App = pytest.importorskip("FreeCAD")
@@ -23,6 +24,13 @@ api = pytest.importorskip("freecad.menuiserie.api")
 Size = tuple[float, float, float]
 Where = tuple[float, float, float]  # x, y, rotation autour de Z (degrés)
 Pose = Where | Any  # ou un ``App.Placement`` (pièce debout)
+
+
+def polygon_area(points: tuple[tuple[float, float], ...]) -> float:
+    """Aire d'un polygone plan (formule du lacet)."""
+    pairs = zip(points, (*points[1:], points[0]), strict=True)
+    return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in pairs)) / 2
+
 
 # Repère quelconque où sont posés les montages (rotation et translation non triviales) : seule
 # la position relative des pièces compte.
@@ -77,6 +85,28 @@ DOWELS = Scenario(
     600 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
     280 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
 )
+# Contact de 60 x 22 (cadre M1 / T1) : deux faux tenons 6 x 20 (taille automatique, au plus le tiers
+# de l'épaisseur), mortaisés de 20 + 1 dans chaque pièce ; un seul biscuit n° 20 (56 x 4, 23 de
+# pénétration), fente de 11,5 + 1 dans chaque pièce.
+# Mortaises à bouts demi-ronds (stade 20 x 6) et fente en demi-lamelle (stade de 56, rayon 12,5).
+LOOSE_TENON_HOLE_VOLUME = polygon_area(rounded_rectangle(20, 6, 3)) * 21
+BISCUIT_HOLE_VOLUME = polygon_area(half_stadium(56, 12.5)) * 4
+LOOSE_TENON = Scenario(
+    "faux tenons",
+    "make_loose_tenons",
+    ((600, 60, 22), (0, 0, 0)),
+    ((280, 60, 22), (60, 60, 90)),
+    600 * 60 * 22 - 2 * LOOSE_TENON_HOLE_VOLUME,
+    280 * 60 * 22 - 2 * LOOSE_TENON_HOLE_VOLUME,
+)
+BISCUIT = Scenario(
+    "biscuits",
+    "make_biscuits",
+    ((600, 60, 22), (0, 0, 0)),
+    ((280, 60, 22), (60, 60, 90)),
+    600 * 60 * 22 - BISCUIT_HOLE_VOLUME,
+    280 * 60 * 22 - BISCUIT_HOLE_VOLUME,
+)
 HALF_LAP = Scenario(
     "mi-bois",
     "make_half_lap",
@@ -109,11 +139,13 @@ MITER = Scenario(
     500 * 60 * 20 - MITER_CUT,
     500 * 60 * 20 - MITER_CUT,
 )
-SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS, HALF_LAP, DOVETAIL, MITER)
+SCENARIOS = (TONGUE_GROOVE, RABBET, DOWELS, LOOSE_TENON, BISCUIT, HALF_LAP, DOVETAIL, MITER)
 PROXIES = {
     "make_tongue_groove": ("tongue_groove", "TongueGrooveJoint"),
     "make_rabbet": ("rabbet", "RabbetJoint"),
     "make_dowels": ("dowels", "DowelJoint"),
+    "make_loose_tenons": ("slots", "LooseTenonJoint"),
+    "make_biscuits": ("slots", "BiscuitJoint"),
     "make_half_lap": ("half_lap", "HalfLapJoint"),
     "make_dovetail": ("dovetail", "DovetailJoint"),
     "make_miter": ("miter", "MiterJoint"),
