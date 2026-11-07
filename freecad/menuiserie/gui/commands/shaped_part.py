@@ -30,6 +30,7 @@ from freecad.menuiserie.features.shaped_create import converted_part_of
 from freecad.menuiserie.features.shaped_sources import is_workshop_object
 from freecad.menuiserie.features.snap_targets import TargetReading, new_session, read_targets
 from freecad.menuiserie.features.wood_part_record import dimensions_of
+from freecad.menuiserie.gui.camera import keep_camera
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.selection import picked_elements, view_direction
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error, close_transaction
@@ -159,7 +160,7 @@ class ConvertToShapedPartCommand:
         doc: Document = App.ActiveDocument
         doc.openTransaction(translated(TRANSACTION))
         transaction = App.getActiveTransaction()
-        with aborted_on_error(transaction):
+        with keep_camera(doc), aborted_on_error(transaction):
             parts, refusals = convert_sources(sources)
             session = snap_converted(parts[0], reading) if len(parts) == 1 else None
         if refusals:
