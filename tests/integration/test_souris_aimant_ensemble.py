@@ -109,12 +109,13 @@ def furniture_guides(furniture: Any) -> tuple[Any, ...]:
     du Std Part exclus."""
     drag_state = pytest.importorskip("freecad.menuiserie.features.furniture_drag_state")
     std = container_module.std_part_of(furniture)
-    return guides_module.collect_guides(
+    found: tuple[Any, ...] = guides_module.collect_guides(
         furniture,
         container_module.guide_container(furniture),
         origin=drag_state.furniture_placement(furniture),
         skip={furniture.Name, std.Name},
     )
+    return found
 
 
 def test_les_pieces_de_l_ensemble_ne_le_guident_pas(document: Any) -> None:

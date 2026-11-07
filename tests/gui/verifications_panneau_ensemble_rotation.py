@@ -15,14 +15,19 @@ from typing import Any
 import FreeCAD as App
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.features.furniture_container import std_part_of
 from freecad.menuiserie.features.furniture_drag import rotate_furniture_to
 from tests.gui.verifications_ensemble import pieces_du_bureau
 from tests.gui.verifications_panneau import annuler, ecarts, saisir, valider
 from tests.gui.verifications_panneau_assemblage import widget
 from tests.gui.verifications_panneau_ensemble import MODIFIER, bureau_regroupe, ouvrir
 from tests.gui.verifications_souris import preparer, proche, selection_dessinee
-from tests.gui.verifications_souris_ensemble import bureau_et_caisson, centre, cotes, lacet
+from tests.gui.verifications_souris_ensemble import (
+    bureau_et_caisson,
+    centre,
+    cotes,
+    lacet,
+    std_de,
+)
 from tests.gui.verifications_souris_rotation import saisir_anneau, tourner_de, vue_isometrique
 
 ANGLES = ("angleXEdit", "angleYEdit", "angleZEdit")
@@ -133,7 +138,7 @@ def verifier_panneau_ensemble_champs_d_angle_grises() -> list[str]:
         bureau_ens, caisson = bureau_et_caisson(bureau)
         form = ouvrir(caisson)
         etats, infobulles = _grises(form)
-        avant = App.Placement(std_part_of(caisson).Placement)
+        avant = App.Placement(std_de(caisson).Placement)
         problemes = [
             *ecarts("sous-ensemble : champs grisés", etats, [False] * 3),
             *ecarts("sous-ensemble : raison en infobulle", "parent" in infobulles, True),
@@ -142,7 +147,7 @@ def verifier_panneau_ensemble_champs_d_angle_grises() -> list[str]:
                 rotate_furniture_to(caisson, (0, 0, 10)),
                 False,
             ),
-            *ecarts("sous-ensemble : rien d'écrit", std_part_of(caisson).Placement == avant, True),
+            *ecarts("sous-ensemble : rien d'écrit", std_de(caisson).Placement == avant, True),
         ]
         annuler()
         form = ouvrir(bureau_ens)
@@ -150,7 +155,7 @@ def verifier_panneau_ensemble_champs_d_angle_grises() -> list[str]:
         problemes += ecarts("ensemble du sous-ensemble : champs actifs", etats, [True] * 3)
         annuler()
         etranger = bureau.doc.addObject("Part::Box", "Etranger")
-        std_part_of(bureau_ens).addObject(etranger)
+        std_de(bureau_ens).addObject(etranger)
         form = ouvrir(bureau_ens)
         etats, infobulles = _grises(form)
         annuler()

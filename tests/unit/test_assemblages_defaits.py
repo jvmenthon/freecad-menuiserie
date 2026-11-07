@@ -249,8 +249,9 @@ def source(path: Path) -> str:
 def test_le_glissement_et_le_panneau_de_distance_proposent_le_choix() -> None:
     states = source(GUI / "drag" / "states.py")
     assert "self.end(joint_choice.choose)" in states  # glissement : end_drag ; anneau : RO-d
-    assert "end_drag(self.memento, choose)" in states
-    assert "end_rotation(self.memento, choose)" in states
+    target = source(GUI / "drag" / "target.py")
+    assert "end_drag(_part(memento), choose)" in target
+    assert "end_rotation(_part(memento), choose)" in target
     assert "except DragCancelledError" in states
     panel = source(GUI / "task_panels" / "distance.py")
     assert "choose=joint_choice.choose" in panel

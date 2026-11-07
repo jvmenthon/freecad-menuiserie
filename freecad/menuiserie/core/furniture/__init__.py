@@ -67,8 +67,7 @@ from freecad.menuiserie.core.furniture._rows import Row
 from freecad.menuiserie.core.furniture._spans import Span, edge_distances, member_spans
 from freecad.menuiserie.core.notice import Notice
 
-__all__ = [
-    "MIN_FURNITURE_MM",
+__all__ = [  # noqa: RUF022 (ordre de tri de Python, vérifié par un test de la façade)
     "Binding",
     "BlockedRowError",
     "Edge",
@@ -83,6 +82,7 @@ __all__ = [
     "InteriorMode",
     "KeptGap",
     "Linear",
+    "MIN_FURNITURE_MM",
     "Member",
     "Notice",
     "NoticeKind",

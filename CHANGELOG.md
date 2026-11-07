@@ -7,6 +7,18 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Ensemble à la souris, vue 3D et panneau (EN-c et EN-d, ADR 0038) : un ensemble sélectionné seul
+  dans l'arbre (ou dont le panneau est ouvert) est dessiné en transparence avec six doubles flèches
+  de face (taille, aimant de 10 px sur les voisines, cote et message de refus près de la souris,
+  aperçu des brutes à 10 Hz au plus), trois flèches de déplacement et trois anneaux de rotation
+  (15°, Maj libre, angle affiché), en transactions « Redimensionner l'ensemble », « Déplacer
+  l'ensemble » et « Tourner l'ensemble » (un Ctrl+Z, Échap, transaction du panneau s'il est
+  ouvert). La session de glissement passe par une abstraction `Target` (pièce, ensemble) sans
+  changer le comportement des pièces. Sans Std Part propre : ni flèches ni anneaux, faces avant,
+  gauche et basse refusées avec la raison. Le panneau de l'ensemble a trois champs d'angle
+  (-360 à 360, forme canonique en fin de saisie, grisés avec infobulle si l'ensemble est lié par
+  son parent ou sans Std Part propre), relit cotes et angles après un geste, et la case « Cotes
+  fixes » d'un sous-ensemble (Q7).
 - Ensemble à la souris, règles et écriture (EN-a et EN-b, ADR 0038) : `core/furniture` donne la
   disposition d'une boîte d'ensemble (`furniture_layout` : six poignées de face, trois flèches
   au centre, trois anneaux, réutilisant `core/magnet` et `core/rotation`) et `resized_box` (face

@@ -72,12 +72,20 @@ def proches(nom: str, obtenu: tuple[float, ...], attendu: tuple[float, ...]) -> 
 
 def base(ensemble: Any) -> tuple[float, float, float]:
     """Position du Std Part de l'ensemble (mm)."""
-    p = std_part_of(ensemble).Placement.Base
+    p = std_de(ensemble).Placement.Base
     return round(p.x, 3), round(p.y, 3), round(p.z, 3)
 
 
+def std_de(ensemble: Any) -> Any:
+    """Std Part de l'ensemble (toujours présent dans ces vérifications)."""
+    part = std_part_of(ensemble)
+    if part is None:
+        raise AssertionError("ensemble sans Std Part")
+    return part
+
+
 def lacet(ensemble: Any) -> float:
-    return float(std_part_of(ensemble).Placement.Rotation.getYawPitchRoll()[0])
+    return float(std_de(ensemble).Placement.Rotation.getYawPitchRoll()[0])
 
 
 def centre(ensemble: Any) -> tuple[float, float, float]:
@@ -86,7 +94,7 @@ def centre(ensemble: Any) -> tuple[float, float, float]:
         ensemble.Width.Value / 2, ensemble.Depth.Value / 2, ensemble.Height.Value / 2
     )
     o = ensemble.Origin
-    p = std_part_of(ensemble).Placement.multVec(local + App.Vector(o.x, o.y, o.z))
+    p = std_de(ensemble).Placement.multVec(local + App.Vector(o.x, o.y, o.z))
     return round(p.x, 3), round(p.y, 3), round(p.z, 3)
 
 
@@ -382,7 +390,7 @@ def verifier_souris_ensemble_rotation() -> list[str]:
 
 def _std_part_tourne(bureau: Bureau, session: Any) -> list[str]:
     ensemble, doc = bureau.furniture, bureau.doc
-    std = std_part_of(ensemble)
+    std = std_de(ensemble)
     std.Placement = App.Placement(App.Vector(0, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
     doc.recompute()
     doc.clearUndos()
@@ -452,9 +460,7 @@ def _echap(bureau: Bureau, session: Any) -> list[str]:
     tourner_de(session, 0, 60.0, depart)
     problemes += [
         *ecarts("Échap (anneau) consommé", echapper(session), True),
-        *proche(
-            "rotation annulée", float(std_part_of(ensemble).Placement.Rotation.Angle), 0.0, 1e-9
-        ),
+        *proche("rotation annulée", float(std_de(ensemble).Placement.Rotation.Angle), 0.0, 1e-9),
         *ecarts("historique inchangé après l'anneau", doc.UndoNames, []),
     ]
     return problemes
@@ -471,7 +477,7 @@ def verifier_souris_ensemble_echap() -> list[str]:
 
 def _sans_std_part_propre(bureau: Bureau, session: Any) -> list[str]:
     ensemble, doc = bureau.furniture, bureau.doc
-    std = std_part_of(ensemble)
+    std = std_de(ensemble)
     etranger = doc.addObject("Part::Box", "Etranger")
     std.addObject(etranger)  # le Std Part contient autre chose que l'ensemble
     doc.recompute()
@@ -559,7 +565,7 @@ def verifier_souris_ensemble_panneau_ouvert() -> list[str]:
 
 
 def _sous_ensemble(bureau: Any, session: Any, caisson: Any) -> list[str]:
-    doc, std = bureau.doc, std_part_of(caisson)
+    doc, std = bureau.doc, std_de(caisson)
     doc.clearUndos()
     selection_dessinee(caisson)
     avant = App.Placement(std.Placement)
@@ -608,25 +614,20 @@ def _evenements_rendus(bureau: Bureau, session: Any) -> list[str]:
     if viewport is None or filtre is None:
         return ["vue 3D ou filtre absents"]
     sur = sur_la_poignee(session, 0, True)
-    gauche, droit = QtCore.Qt.LeftButton, QtCore.Qt.RightButton
-    press, move, release = (
-        QtCore.QEvent.MouseButtonPress,
-        QtCore.QEvent.MouseMove,
-        QtCore.QEvent.MouseButtonRelease,
+    gauche, droit, controle = QtCore.Qt.LeftButton, QtCore.Qt.RightButton, QtCore.Qt.ControlModifier
+    evt = QtCore.QEvent
+    cas = (
+        ("clic gauche ailleurs", evt.MouseButtonPress, (5, 5), gauche, QtCore.Qt.NoModifier),
+        ("clic droit sur la poignée", evt.MouseButtonPress, sur, droit, QtCore.Qt.NoModifier),
+        ("Ctrl + clic sur la poignée", evt.MouseButtonPress, sur, gauche, controle),
+        ("relâchement sans geste", evt.MouseButtonRelease, sur, gauche, QtCore.Qt.NoModifier),
+        ("mouvement sans geste", evt.MouseMove, sur, gauche, QtCore.Qt.NoModifier),
     )
-    rendus = [
-        ("clic gauche ailleurs", souris(viewport, press, (5, 5))),
-        ("clic droit sur la poignée", souris(viewport, press, sur, droit)),
-        (
-            "Ctrl + clic sur la poignée",
-            souris(viewport, press, sur, gauche, QtCore.Qt.ControlModifier),
-        ),
-        ("relâchement sans geste", souris(viewport, release, sur)),
-        ("mouvement sans geste", souris(viewport, move, sur)),
-    ]
     problemes = []
-    for nom, evenement in rendus:
+    for nom, type_, point, bouton, modifs in cas:
+        evenement = souris(viewport, type_, point, bouton, modifs)
         problemes += ecarts(f"{nom} rendu", bool(filtre.eventFilter(viewport, evenement)), False)
+    press = evt.MouseButtonPress
     pris = filtre.eventFilter(viewport, souris(viewport, press, sur))
     problemes += [
         *ecarts("clic gauche sur la poignée consommé", bool(pris), True),
