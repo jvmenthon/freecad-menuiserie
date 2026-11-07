@@ -207,27 +207,28 @@ def biscuits() -> str:
 
 
 def pieds() -> str:
-    ic = Icone("Pieds de caisson : panneau posé sur deux pieds réglables")
-    for cx in (12, 76):
-        ic.cylindre(cx, 20, 0, 16, 8, "acier")
-    ic.boite((0, 0, 16), (90, 26, 12), "chene")
-    ic.veinage((4, 86), (5, 28), "chene", amplitude=0.8)
-    ic.veinage((4, 86), (21, 28), "chene", amplitude=0.8, phase=0.6)
+    ic = Icone("Pieds de caisson : quatre pieds réglables sous un panneau en transparence")
+    coins = sorted(((12, 12), (78, 12), (12, 52), (78, 52)), key=sum)  # du fond vers l'avant
+    for cx, cy in coins:
+        ic.cylindre(cx, cy, 0, 4, 8, "acier")  # embase réglable
+        ic.cylindre(cx, cy, 4, 32, 4.5, "acier")  # tige
+    ic.boite((0, 0, 32), (90, 64, 9), "chene", opacite=0.4)
     return ic.svg()
 
 
 def percage_lr32() -> str:
-    ic = Icone("Perçage LR32 : côté percé de deux colonnes de trous, taquets dans un rang")
-    ic.boite((0, 0, 0), (90, 26, 12), "chene")
-    ic.veinage((4, 86), (13, 12), "chene", amplitude=0.8)
-    for cy in (6, 20):
-        for i in range(4):
-            cx = 12 + 22 * i
+    ic = Icone("Perçage LR32 : côté debout percé de deux colonnes de trous, taquets dans un rang")
+    ic.boite((0, 0, 0), (8, 46, 92), "chene")
+    fil = [(8, 23 + 0.8 * math.sin(2 * math.pi * k / 10), 4 + 84 * k / 16) for k in range(17)]
+    ic.trait(fil, "#8a5524", 1.0)  # fil du bois, vertical
+    for cy in (10, 36):
+        for i in range(6):
+            cz = 12 + 14 * i
             if i == 2:
                 continue
-            ic.trou([(cx + 3 * math.cos(t), cy + 3 * math.sin(t), 12) for t in angles()])
-    for cy in (6, 20):
-        ic.cylindre(56, cy, 12, 22, 2.6, "acier")
+            ic.trou([(8, cy + 2.6 * math.cos(t), cz + 2.6 * math.sin(t)) for t in angles()])
+    for cy in (10, 36):
+        ic.boite((8, cy - 2.6, 40 - 2.6), (12, 5.2, 5.2), "acier")  # taquet sorti de la face
     return ic.svg()
 
 
