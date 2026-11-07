@@ -48,7 +48,21 @@ def test_deplacer_amene_l_invitee_au_contact(document: Any) -> None:
     assert upper.Placement.Base.z == pytest.approx(THICKNESS)
     assert upper.Thickness.Value == pytest.approx(THICKNESS)
     assert api.closing_options(lower, upper) is None
-    api.make_dowels(lower, upper)
+
+
+def test_assemblage_possible_apres_le_deplacement(document: Any) -> None:
+    """Montant et traverse (cadre de référence des tourillons), la traverse à 8 mm du montant."""
+    host = api.make_wood_part(600, 60, 22, "chene", mark="M", doc=document)
+    guest = api.make_wood_part(280, 60, 22, "chene", mark="T", doc=document)
+    rotation = App.Rotation(App.Vector(0, 0, 1), 90)
+    guest.Placement = App.Placement(App.Vector(60, 60 + GAP, 0), rotation)
+    document.recompute()
+    closing = api.closing_options(host, guest)
+    assert closing is not None
+    assert closing.distance == pytest.approx(GAP)
+    api.close_gap(host, guest, "move")
+    assert guest.Placement.Base.y == pytest.approx(60.0)
+    api.make_dowels(host, guest)
     document.recompute()
     assert stale_or_invalid(document) == []
 
