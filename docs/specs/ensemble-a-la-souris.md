@@ -30,8 +30,8 @@ Un ensemble sélectionné (dans l'arbre, ou une de ses pièces avec le raccourci
 1. **Boîte** : sa boîte englobante (`Origin`, `Width`, `Depth`, `Height`) est dessinée en
    transparence dans la vue 3D.
 2. **Taille** : une double flèche au milieu de chacune des six faces ; la tirer change la cote
-   correspondante, la face opposée reste en place (`Origin` suit si on tire la face avant,
-   gauche ou basse). Les pièces suivent selon leurs options « fixe », leur mode et leurs rangées
+   correspondante, la face opposée reste en place (si on tire la face avant, gauche ou basse,
+   le `Placement` du Std Part de l'ensemble est décalé, `Origin` ne bouge pas). Les pièces suivent selon leurs options « fixe », leur mode et leurs rangées
    (étirement, **pas** une mise à l'échelle : les épaisseurs ne changent pas). Aimant comme
    celui des pièces (10 px, Maj coupe) sur les faces voisines ; cote affichée près de la souris.
 3. **Orientation** : trois anneaux autour du centre de la boîte (X rouge, Y vert, Z bleu), aimantés
@@ -108,8 +108,10 @@ pièce membre n'ouvre pas l'ensemble (Q4).
 
 ### 4.2 Taille
 
-Une poignée de face écrit la cote et, pour les faces avant, gauche et basse, `Origin` du même
-delta (face opposée fixe). Les liaisons sont des expressions (`<<Ensemble>>.Width`…) : un recalcul
+Une poignée de face écrit la cote et, pour les faces avant, gauche et basse, décale le
+`Placement` du Std Part de l'ensemble (le décalage est tourné par son orientation) du même delta
+(face opposée fixe) ; `Origin` ne bouge pas. Un ensemble sans Std Part (ancien document) n'a
+pas ces poignées. Les liaisons sont des expressions (`<<Ensemble>>.Width`…) : un recalcul
 fait suivre les pièces. Aucun code de rangée n'est touché : on appelle `resize_furniture`
 (`features/furniture_members.resize`) comme le panneau.
 
@@ -162,8 +164,8 @@ sélectionnés, gabarits.
 - **Q4 — Comment sélectionner ?** a) l'ensemble dans l'arbre ★ ; b) aussi un bouton « Sélectionner
   l'ensemble » dans le panneau d'une pièce membre.
 - **Q5 — Flèches de déplacement** : **tranchée par jv (2026-11-07) : oui, dans ce jalon.** Trois
-  flèches au centre de la boîte ; le geste décale `Origin` et les positions des pièces qui ne
-  suivent pas `Origin` (pas de liaison sur cet axe), dans une transaction « Déplacer
+  flèches au centre de la boîte ; le geste décale le `Placement` du Std Part (les pièces le suivent
+  sans qu'aucune liaison change), dans une transaction « Déplacer
   l'ensemble ». Aimant sur les objets voisins comme pour une pièce.
 - **Q6 — Pièce ou sous-ensemble en biais qui se redimensionne** : **reportée par jv** (2026-11-07)
   à l'issue #169 ; dans ce jalon, un membre en biais suit toujours par translation seulement.

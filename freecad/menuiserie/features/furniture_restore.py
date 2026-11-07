@@ -55,10 +55,25 @@ def _restore_modes(obj: DocumentObject) -> None:
         obj.PositionMode = value
 
 
+def _globalize_link(obj: DocumentObject) -> None:
+    """Lien ``Furniture`` d'un document d'avant l'ADR 0038 (``App::PropertyLink``) recréé en
+    ``App::PropertyLinkGlobal``, sans perdre l'ensemble qu'il cite."""
+    if obj.getTypeIdOfProperty("Furniture") != "App::PropertyLink":
+        return
+    furniture = obj.Furniture
+    obj.setPropertyStatus("Furniture", "-ReadOnly")
+    obj.removeProperty("Furniture")
+    specs = [spec for spec in MEMBER_PROPERTIES if spec.name == "Furniture"]
+    schema.add_missing_properties(obj, specs)
+    obj.Furniture = furniture
+    schema.apply_editor_modes(obj, specs)
+
+
 def _restore(obj: DocumentObject) -> None:
     """Propriétés de membre d'un type inattendu supprimées (avertissement), puis toutes les
     propriétés manquantes recréées : ``Stay``, options « fixe » selon F3 pour le membre
     lui-même, ``FurnitureBindings`` vide ; les expressions ne sont pas touchées."""
+    _globalize_link(obj)
     schema.remove_mistyped_properties(obj, MEMBER_PROPERTIES, MEMBER_NOUN)
     _restore_modes(obj)
     missing = [spec.name for spec in MEMBER_PROPERTIES if spec.name not in obj.PropertiesList]

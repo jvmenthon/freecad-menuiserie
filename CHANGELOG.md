@@ -77,6 +77,25 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Ensemble d'ensembles : sélectionner les Std Parts de deux ensembles dans l'arbre active de
+  nouveau la commande « Ensemble » (le Std Part compte pour l'ensemble qu'il porte, ADR 0038) ; le
+  lien `Furniture` d'un membre devient `App::PropertyLinkGlobal` (un sous-ensemble cite son parent
+  rangé dans le Std Part du dessus : plus d'avertissement « lien hors de portée » à chaque
+  recalcul), recréé sans perte à la réouverture d'un document plus ancien.
+
+- Relecture de fin de jalon « Ensemble à la souris » (ADR 0038) : un ensemble déjà tourné puis rangé
+  dans un parent ne se décale plus au recalcul (l'`Origin` passe tournée dans la `Base` du Std
+  Part) ; `remove_from_furniture` renvoie les avertissements de sortie (« reste dans son Std Part »)
+  et la suppression de l'ensemble les écrit dans la vue rapport ; supprimer à la main le Std Part
+  d'un ensemble laisse les pièces en place (décalage reporté dans leurs `Placement` et l'`Origin`,
+  ou, Std Part tourné, liaisons retirées avec avertissement) ; supprimer l'ensemble supprime son Std
+  Part vide, ou le signale s'il contient encore des objets ; la source d'une pièce en bois (corps,
+  esquisse) rangée avec elle garde sa place globale à l'entrée et à la sortie d'un Std Part tourné
+  et ne rend plus le Std Part « impropre » (rotation refusée) ; seul le Std Part d'un
+  sous-ensemble membre est accepté dans le Std Part propre d'un ensemble (pas un `App::Part` de
+  l'utilisateur) ; une pièce libre liée à un membre (assemblage, Distance, formule) rangée avec lui
+  est signalée ; le Std Part sélectionné dans l'arbre cible l'ensemble qu'il porte ; son libellé
+  suit le renommage de l'ensemble. `furniture_entry` regroupe les entrées et sorties du Std Part.
 - Une pièce membre d'un ensemble est aimantée quand on la déplace ou la redimensionne à la souris
   (flèche et poignée) : les guides étaient lus dans `Document.RootObjects`, qui exclut les objets
   cités par une expression ; les Std Parts d'ensemble sont transparents pour l'aimant.

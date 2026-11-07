@@ -16,8 +16,10 @@ from freecad.menuiserie.features.distance import distances_of
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import common_furniture, members_of
+from freecad.menuiserie.features.furniture_entry import dissolve
 from freecad.menuiserie.features.furniture_members import remove_members
 from freecad.menuiserie.features.furniture_view import shown_object
+from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.gui.view_providers.no_geometry import NoGeometryView
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
@@ -47,11 +49,14 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
     def onDelete(self, vobj: ViewObject, subelements: object) -> bool:
         """Suppression dans l'interface : liaisons de l'atelier et propriétés de membre retirées
         de chaque membre, dans la transaction de la suppression ; aucune expression ne vise
-        plus l'ensemble."""
+        plus l'ensemble. Son Std Part est supprimé avec lui s'il est vide, conservé sinon (avec
+        un avertissement) ; les messages vont dans la vue rapport (ADR 0017)."""
         del subelements
-        members = members_of(vobj.Object)
-        if members:
-            remove_members(members)
+        furniture = vobj.Object
+        members = members_of(furniture)
+        messages = remove_members(members) if members else []
+        for message in [*messages, *dissolve(furniture)]:
+            report_warning(message)
         return True
 
 
