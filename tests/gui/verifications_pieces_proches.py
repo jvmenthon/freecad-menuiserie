@@ -19,17 +19,23 @@ from tests.gui.verifications_panneau import annuler, ecarts, nouveau_document, v
 
 TOURILLONS = "Menuiserie_Dowels"
 ECART = 8.0
-EPAISSEUR = 22.0
+LONGUEUR = 280.0  # traverse (invitée) ; le montant (hôte) fait 600 x 60 x 22
+
+
+def placement(y: float) -> Any:
+    """Traverse tournée de 90° autour de Z, son bout en ``y``."""
+    return App.Placement(App.Vector(60, y, 0), App.Rotation(App.Vector(0, 0, 1), 90))
 
 
 @contextmanager
 def deux_planches(nom: str) -> Iterator[tuple[Any, Any, Any]]:
-    """Document avec deux planches superposées, la seconde à ``ECART`` mm de la première."""
+    """Document avec un montant et une traverse (cadre de référence des tourillons) dont le bout
+    est à ``ECART`` mm de la rive du montant."""
     doc = nouveau_document(nom)
     try:
-        bas = api.make_wood_part(400, 60, EPAISSEUR, "chene", mark="A", doc=doc)
-        haut = api.make_wood_part(400, 60, EPAISSEUR, "chene", mark="B", doc=doc)
-        haut.Placement = App.Placement(App.Vector(0, 0, EPAISSEUR + ECART), App.Rotation())
+        bas = api.make_wood_part(600, 60, 22, "chene", mark="M", doc=doc)
+        haut = api.make_wood_part(LONGUEUR, 60, 22, "chene", mark="T", doc=doc)
+        haut.Placement = placement(60 + ECART)
         doc.recompute()
         yield doc, bas, haut
     finally:
@@ -61,7 +67,7 @@ def lancer(doc: Any, bas: Any, haut: Any, reponse: str | None) -> tuple[list[Any
 
 
 def verifier_deplacer_puis_assembler() -> list[str]:
-    """« Déplacer » : la seconde planche vient au contact, l'assemblage est créé, une seule
+    """« Déplacer » : la traverse vient au contact, l'assemblage est créé, une seule
     entrée d'annulation qui remet tout."""
     with deux_planches("VerifPiecesProchesDeplacer") as (doc, bas, haut):
         doc.UndoMode = 1
@@ -72,23 +78,23 @@ def verifier_deplacer_puis_assembler() -> list[str]:
             *ecarts("écart annoncé", questions[0][0] if questions else None, ECART),
             *ecarts("deux options", sorted(questions[0][1]) if questions else [], ["grow", "move"]),
             *ecarts("assemblage créé", len(joints), 1),
-            *ecarts("seconde planche au contact", round(haut.Placement.Base.z, 3), EPAISSEUR),
-            *ecarts("épaisseur gardée", round(haut.Thickness.Value, 3), EPAISSEUR),
+            *ecarts("traverse au contact", round(haut.Placement.Base.y, 3), 60.0),
+            *ecarts("longueur gardée", round(haut.Length.Value, 3), LONGUEUR),
         ]
         doc.undo()
         problemes += ecarts("un seul undo", list(doc.UndoNames), entrees)
-        problemes += ecarts("planche revenue", round(haut.Placement.Base.z, 3), EPAISSEUR + ECART)
+        problemes += ecarts("traverse revenue", round(haut.Placement.Base.y, 3), 60 + ECART)
         return problemes
 
 
 def verifier_agrandir_puis_assembler() -> list[str]:
-    """« Agrandir » : la seconde planche s'épaissit jusqu'au contact, sans bouger sa face haute."""
+    """« Agrandir » : la traverse s'allonge jusqu'au contact."""
     with deux_planches("VerifPiecesProchesAgrandir") as (doc, bas, haut):
         _, joints = lancer(doc, bas, haut, "grow")
         return [
             *ecarts("assemblage créé", len(joints), 1),
-            *ecarts("épaisseur", round(haut.Thickness.Value, 3), EPAISSEUR + ECART),
-            *ecarts("face basse au contact", round(haut.Placement.Base.z, 3), EPAISSEUR),
+            *ecarts("longueur", round(haut.Length.Value, 3), LONGUEUR + ECART),
+            *ecarts("bout au contact", round(haut.Placement.Base.y, 3), 60.0),
         ]
 
 
@@ -101,7 +107,7 @@ def verifier_annuler_ne_change_rien() -> list[str]:
         return [
             *ecarts("question posée", len(questions), 1),
             *ecarts("aucun assemblage", len(joints), 0),
-            *ecarts("planche immobile", round(haut.Placement.Base.z, 3), EPAISSEUR + ECART),
+            *ecarts("traverse immobile", round(haut.Placement.Base.y, 3), 60 + ECART),
             *ecarts("entrées d'annulation", list(doc.UndoNames), entrees),
         ]
 
@@ -109,7 +115,7 @@ def verifier_annuler_ne_change_rien() -> list[str]:
 def verifier_pas_de_question_au_contact() -> list[str]:
     """Pièces déjà en contact : aucune fenêtre."""
     with deux_planches("VerifPiecesProchesContact") as (doc, bas, haut):
-        haut.Placement = App.Placement(App.Vector(0, 0, EPAISSEUR), App.Rotation())
+        haut.Placement = placement(60.0)
         doc.recompute()
         questions, joints = lancer(doc, bas, haut, "move")
         return [
