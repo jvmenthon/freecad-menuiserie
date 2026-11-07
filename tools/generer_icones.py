@@ -190,23 +190,19 @@ def _plat(x0: float, x1: float, y0: float, y1: float) -> list[tuple[float, float
 
 
 def faux_tenons() -> str:
-    ic = Icone("Faux tenons : deux planches, un tenon plat aux bouts arrondis qui les relie")
-    ic.boite((0, 0, 0), (38, 30, 12), "chene")
-    ic.boite((52, 0, 0), (38, 30, 12), "chene")
-    ic.veinage((2, 36), (6, 12), "chene", amplitude=0.7)
-    ic.veinage((54, 88), (24, 12), "chene", amplitude=0.7, phase=0.5)
-    ic.prisme(_plat(26, 64, 8, 22), "z", 12, 15, "tourillon")
+    ic = Icone("Faux tenon : pièce plate aux bouts arrondis")
+    ic.prisme(_plat(0, 80, 0, 30), "z", 0, 12, "chene")
+    ic.veinage((8, 72), (15, 12), "chene", amplitude=0.8)
     return ic.svg()
 
 
 def biscuits() -> str:
-    ic = Icone("Biscuits : deux planches, une lamelle ovale qui les relie")
-    ic.boite((0, 0, 0), (38, 30, 12), "chene")
-    ic.boite((52, 0, 0), (38, 30, 12), "chene")
-    ic.veinage((2, 36), (6, 12), "chene", amplitude=0.7)
-    ic.veinage((54, 88), (24, 12), "chene", amplitude=0.7, phase=0.5)
-    lamelle = [(45 + 21 * math.cos(t), 15 + 8 * math.sin(t)) for t in angles(32)]
-    ic.prisme(lamelle, "z", 12, 14, "hetre")
+    ic = Icone("Biscuit : lamelle ovale")
+    haut = [(40 + 40 * u, 20 + 18 * (1 - u * u) ** 0.5) for u in (i / 10 - 1 for i in range(1, 20))]
+    bas = [(40 + 40 * u, 20 - 18 * (1 - u * u) ** 0.5) for u in (1 - i / 10 for i in range(1, 20))]
+    lamelle = [(0, 20), *haut, (80, 20), *bas]
+    ic.prisme(lamelle, "z", 0, 4, "hetre")
+    ic.veinage((8, 72), (20, 4), "hetre", amplitude=0.8)
     return ic.svg()
 
 
@@ -221,13 +217,11 @@ def pieds() -> str:
 
 
 def coulisse() -> str:
-    ic = Icone("Coulisse de tiroir : rail d'acier entre le côté du caisson et le côté du tiroir")
-    ic.boite((0, 0, 0), (90, 5, 30), "chene")
-    ic.boite((4, 5, 11), (82, 3, 9), "acier")
-    ic.boite((10, 8, 12), (76, 3, 7), "acier")
-    for x in (18, 45, 72):
-        ic.trou([(x + 2.5 * math.cos(t), 5.5, 15.5 + 2.5 * math.sin(t)) for t in angles(12)])
-    ic.boite((36, 11, 4), (54, 5, 20), "chene")
+    ic = Icone("Coulisse de tiroir : deux rails d'acier emboîtés, vis de fixation")
+    ic.boite((0, 0, 0), (90, 4, 12), "acier")
+    ic.boite((12, 4, 2), (78, 3, 9), "acier")
+    for x in (12, 45, 78):
+        ic.trou([(x + 2.5 * math.cos(t), 0, 6 + 2.5 * math.sin(t)) for t in angles(12)])
     return ic.svg()
 
 

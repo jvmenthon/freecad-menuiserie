@@ -7,7 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
-- Barre d'outils et menu de l'atelier regroupés par thème : Pièces, Assemblages, Quincaillerie, Ensembles, Liste de débit (une barre d'outils chacun, séparés par un trait dans le menu). Icônes des faux tenons, des biscuits, des pieds et des coulisses redessinées.
+- Barre d'outils et menu de l'atelier regroupés par thème : Pièces, Assemblages, Quincaillerie, Ensembles, Liste de débit (une barre d'outils chacun, séparés par un trait dans le menu). Icônes des faux tenons, des biscuits et des coulisses redessinées (la pièce seule, sans planches), et celle des pieds.
 - Quincaillerie, lots Q-e (pieds) et Q-f (coulisses) (#159, ADR 0033) : **pieds de caisson
   réglables** (`make_foot`, une seule pièce : grille de pieds sous un panneau couché, logements de
   tige percés, embase et tige rapportées) et **coulisses de tiroir à billes** (`make_drawer_slide`,
