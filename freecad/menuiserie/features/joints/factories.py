@@ -28,12 +28,15 @@ from freecad.menuiserie.features.joints.rabbet import RabbetJoint
 from freecad.menuiserie.features.joints.shelf_pins import (
     ShelfPinsJoint,
     opposite_upright,
-    timber_blanks_around,
 )
 from freecad.menuiserie.features.joints.slides import DrawerSlideJoint
 from freecad.menuiserie.features.joints.slots import BiscuitJoint, LooseTenonJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
-from freecad.menuiserie.features.machined_part import blank_of, ensure_machined_part
+from freecad.menuiserie.features.machined_part import (
+    blank_of,
+    ensure_machined_part,
+    timber_blanks_around,
+)
 
 __all__ = [
     "create_biscuits",

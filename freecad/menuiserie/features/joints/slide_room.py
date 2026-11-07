@@ -10,13 +10,14 @@ d'ensemble relié ensuite). Aucun import de ``FreeCADGui`` ; la transaction est 
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, cast
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
+from freecad.menuiserie.core.joints.slides import SlideValues
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint, resolved_for
@@ -33,15 +34,15 @@ _UNKNOWN_SIDE: Final = QT_TRANSLATE_NOOP(
 )
 
 
-def _slide_values(joint: DocumentObject) -> object:
+def _slide_values(joint: DocumentObject) -> SlideValues:
     if not is_joint(joint) or joint.Proxy.KIND is not JointKind.DRAWER_SLIDE:
         raise ValueError(translated(_NOT_A_SLIDE, {"label": str(getattr(joint, "Label", joint))}))
-    return resolved_for(joint)
+    return cast(SlideValues, resolved_for(joint))
 
 
 def slide_shortfall(joint: DocumentObject) -> float:
     """Jeu qui manque (mm) entre les côtés de la coulisse ``joint``, 0 s'il est suffisant."""
-    shortfall: float = _slide_values(joint).shortfall  # type: ignore[attr-defined]
+    shortfall = _slide_values(joint).shortfall
     return 0.0 if shortfall <= CONTACT_TOLERANCE_MM else shortfall
 
 
@@ -56,7 +57,7 @@ def make_room_for_slide(joint: DocumentObject, move: str) -> list[str]:
     missing = slide_shortfall(joint)
     if not missing:
         return []
-    direction = values.direction.unit()  # type: ignore[attr-defined]
+    direction = values.direction.unit()
     away = App.Vector(direction.x, direction.y, direction.z) * missing
     world = joint.HostPart.Placement.Rotation.multVec(away)
     part, sign = (joint.GuestPart, 1.0) if move == DRAWER else (joint.HostPart, -1.0)

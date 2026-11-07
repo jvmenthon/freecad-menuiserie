@@ -54,6 +54,7 @@ __all__ = [
     "remove_machined_part",
     "show_blank",
     "sync_machined_label",
+    "timber_blanks_around",
 ]
 
 OBJECT_NAME: Final = "MachinedPart"
@@ -330,6 +331,11 @@ def machined_part_of(blank: DocumentObject) -> DocumentObject | None:
         if is_machined_part(parent) and parent.Base == blank:
             return parent
     return None
+
+
+def timber_blanks_around(part: DocumentObject) -> list[DocumentObject]:
+    """Pièces de bois du document de ``part``, sauf elle-même (voisines possibles du côté)."""
+    return [obj for obj in part.Document.Objects if obj is not part and is_timber(obj)]
 
 
 def create_machined_part(blank: DocumentObject) -> DocumentObject:

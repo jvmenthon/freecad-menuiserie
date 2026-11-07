@@ -80,6 +80,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (« OK », « Annuler », document fermé, pièce supprimée, Édition > Annuler). Une pièce qui a des
   assemblages devient transparente sous sa forme usinée, la seule visible.
 
+### Modifié
+
+- Interne : `core/joints/shelf_pins` et `core/joints/slots` deviennent des paquets (`_params`, `_strategy`, même interface, ADR 0040) ; `MIN_WALL_MM` partagé, `timber_blanks_around` dans `machined_part`, valeurs de coulisse et de perçage typées au lieu de `type: ignore`.
+
 ### Corrigé
 
 - Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même

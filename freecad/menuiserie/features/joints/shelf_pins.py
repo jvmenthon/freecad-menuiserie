@@ -10,13 +10,14 @@ miroir (un seul objet pour les deux côtés), ou la même pièce s'il n'y a pas 
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar, Final, cast
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, strategy_for
 from freecad.menuiserie.core.joints.shelf_pins import (
     Neighbor,
     ShelfPinsParams,
+    ShelfPinsValues,
     facing_side,
     opposite_values,
 )
@@ -29,20 +30,14 @@ from freecad.menuiserie.features.joints.base import (
     placed_blank,
     resolved_for,
 )
-from freecad.menuiserie.features.machined_part import machined_part_of
+from freecad.menuiserie.features.machined_part import machined_part_of, timber_blanks_around
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec
-from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = ["ShelfPinsJoint", "opposite_upright"]
 
 _GROUP: Final = "Perçage LR32"
 _DEFAULTS: Final = ShelfPinsParams()
 _MAX_ROWS: Final = 50
-
-
-def timber_blanks_around(part: DocumentObject) -> list[DocumentObject]:
-    """Pièces de bois du document de ``part``, sauf elle-même (voisines possibles du côté)."""
-    return [obj for obj in part.Document.Objects if obj is not part and is_timber(obj)]
 
 
 def _assembled_with(part: DocumentObject, other: DocumentObject) -> bool:
@@ -88,7 +83,7 @@ def opposite_upright(part: DocumentObject, params: ShelfPinsParams) -> DocumentO
     return other
 
 
-def _levels(values: Any) -> set[tuple[str, float]]:
+def _levels(values: ShelfPinsValues) -> set[tuple[str, float]]:
     """(face, hauteur au dixième de mm) de chaque rang de trous."""
     return {(values.face, round(height, 1)) for height in values.heights}
 
@@ -102,7 +97,7 @@ def _drilled_levels(part: DocumentObject) -> set[tuple[str, float]]:
             continue
         try:
             if joint.HostPart == part:
-                levels |= _levels(resolved_for(joint))
+                levels |= _levels(cast(ShelfPinsValues, resolved_for(joint)))
             elif joint.GuestPart == part:
                 host = placed_blank(joint.HostPart)
                 params = joint.Proxy.params(joint)
@@ -141,7 +136,7 @@ class ShelfPinsJoint(JointFeature):
         """« Inverser » : l'autre face du côté est percée (le montant opposé reste percé sur sa
         face tournée vers le côté)."""
         try:
-            current = resolved_for(obj).face  # type: ignore[attr-defined]
+            current = cast(ShelfPinsValues, resolved_for(obj)).face
         except ValueError:
             current = "minus" if obj.Face == "plus" else "plus"
         obj.Face = "minus" if current == "plus" else "plus"

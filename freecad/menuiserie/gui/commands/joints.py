@@ -255,7 +255,39 @@ class DrawerSlideCommand(JointCommand):
         show_panel(joint)
 
 
-class FootCommand(JointCommand):
+class SinglePartCommand(JointCommand):
+    """Assemblage posé sur une seule pièce sélectionnée (pieds, perçage LR32)."""
+
+    def IsActive(self) -> bool:
+        """Active si aucun panneau n'est ouvert et qu'une seule pièce est sélectionnée."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and selected_part() is not None
+        )
+
+    def Activated(self) -> None:
+        """Assemblage posé sur la pièce sélectionnée, dans sa transaction, puis panneau ; une
+        pièce refusée ou un usinage impossible sont expliqués sans rien créer."""
+        part = selected_part()
+        if part is None:
+            return
+        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
+        try:
+            with aborted_on_error(App.getActiveTransaction()):
+                joint = type(self).FACTORY(part, check=feasible_joint, **self.options(part))
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        show_panel(joint)
+
+    @staticmethod
+    def options(part: DocumentObject) -> dict[str, object]:
+        """Paramètres de la fabrique tirés de la pièce (aucun par défaut)."""
+        return {}
+
+
+class FootCommand(SinglePartCommand):
     """Pieds de caisson : une seule pièce sélectionnée, le panneau du dessous."""
 
     NAME = FOOT
@@ -268,31 +300,8 @@ class FootCommand(JointCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser des pieds de caisson")
 
-    def IsActive(self) -> bool:
-        """Active si aucun panneau n'est ouvert et qu'une seule pièce est sélectionnée."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_part() is not None
-        )
 
-    def Activated(self) -> None:
-        """Pieds posés sous la pièce sélectionnée, dans leur transaction, puis panneau ; une
-        pièce refusée ou des pieds impossibles sont expliqués sans rien créer."""
-        part = selected_part()
-        if part is None:
-            return
-        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
-        try:
-            with aborted_on_error(App.getActiveTransaction()):
-                joint = type(self).FACTORY(part, check=feasible_joint)
-        except (TypeError, ValueError) as error:
-            report_refusal(str(error))
-            return
-        show_panel(joint)
-
-
-class ShelfPinsCommand(FootCommand):
+class ShelfPinsCommand(SinglePartCommand):
     """Perçage LR32 : une seule pièce sélectionnée, le côté debout."""
 
     NAME = SHELF_PINS
@@ -305,20 +314,10 @@ class ShelfPinsCommand(FootCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Percer un côté au pas de 32 mm")
 
-    def Activated(self) -> None:
-        """Perçage de la pièce sélectionnée, sur la face et dans la zone du clic, et par défaut
-        du montant opposé en miroir (même objet)."""
-        part = selected_part()
-        if part is None:
-            return
-        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
-        try:
-            with aborted_on_error(App.getActiveTransaction()):
-                joint = api.make_shelf_pins(part, check=feasible_joint, **picked_zone(part))
-        except (TypeError, ValueError) as error:
-            report_refusal(str(error))
-            return
-        show_panel(joint)
+    @staticmethod
+    def options(part: DocumentObject) -> dict[str, object]:
+        """Face et zone du clic ; le montant opposé est percé par défaut (même objet)."""
+        return picked_zone(part)
 
 
 def picked_zone(part: DocumentObject) -> dict[str, object]:

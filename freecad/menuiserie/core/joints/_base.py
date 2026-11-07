@@ -21,6 +21,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 
 MAX_COUNT: Final = 50
+MIN_WALL_MM: Final = 2.0  # matière laissée entre deux usinages voisins ou de chaque côté de l'un
 MAX_ANGLE_DEG: Final = 30.0  # angle d'un flanc de queue d'aronde, au plus
 # Garde-fou : au-delà, les opérations booléennes d'OCC peuvent figer FreeCAD (saisie aberrante).
 MAX_PLAN_SOLIDS: Final = 1000

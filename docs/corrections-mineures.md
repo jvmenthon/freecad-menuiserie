@@ -67,3 +67,10 @@ contournable), **mineur** (confort, docs, dette de test).
 | Q7 | mineur | `core/joints/slots.py` | Une mortaise peut toucher le bord du contact (marge de tolérance seulement) et ouvrir le chant de la pièce. | Exiger une paroi minimale (`MIN_WALL_MM`) entre la mortaise et le bord du contact. |
 | Q8 | mineur | `core/joints/slides.py` | La coulisse est une boîte simple et ses avant-trous du côté du tiroir reprennent les positions du côté du caisson ; la coulisse réelle (rail, billes, verrou) et sa fixation propre ne sont pas modélisées. | Famille de coulisses avec cotes de fixation propres à chaque côté. |
 | Q9 | mineur | `core/joints/feet.py` | Les pieds ne se posent que sous un panneau couché dans le repère du document ; pas de pied sur un panneau en biais ni de position libre (grille régulière seulement). | Positions saisies ou pose depuis une face choisie. |
+
+## Relecture « factorisation » du jalon quincaillerie (PR #164), 2026-11-07
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| Q10 | mineur | `features/joints/{feet,slides,shelf_pins,slots}.py` | Les `PropertySpec` « diamètre/profondeur des trous », « distance au bord », « nombre » se répètent (environ 10 lignes chacune). Une fabrique ne gagnerait presque rien : l'extraction des traductions exige `QT_TRANSLATE_NOOP("…", "texte")` littéral à l'endroit de la propriété, donc infobulle et libellé restent écrits à chaque appel. | Abandonné tant que l'extraction des traductions ne lit pas les paramètres de fabrique. |
+| Q11 | mineur | `core/joints/slides.py` | 316 lignes : à passer en paquet comme `shelf_pins` et `slots` (ADR 0040) avant d'approcher 400. | Même découpage `_params` / `_strategy`. |
