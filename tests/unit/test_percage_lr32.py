@@ -130,8 +130,8 @@ def test_appuis_d_aimantation_a_chaque_rang() -> None:
     tops = sorted({round(720.0 - r.lo(0), 6) for r in rests})
     assert tops == [round(values.pin_top(i), 6) for i in range(values.rows)]
     pins = cylinders(SHELF_PINS.plan(wall, wall, ShelfPinsParams(neighbors=cabinet(360.0))).inserts)
-    tops = {round(720.0 - p.base.x + p.radius, 6) for p in pins}  # haut du taquet rond
-    assert tops == {round(values.pin_top(8), 6)}
+    pin_tops = {round(720.0 - p.base.x + p.radius, 6) for p in pins}  # haut du taquet rond
+    assert pin_tops == {round(values.pin_top(8), 6)}
 
 
 def test_valeurs_automatiques_a_zero() -> None:
