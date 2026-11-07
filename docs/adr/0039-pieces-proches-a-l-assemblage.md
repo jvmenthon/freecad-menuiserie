@@ -32,6 +32,14 @@ relié ensuite, assemblages existants contrôlés) et se fait dans **la même tr
 l'assemblage : une seule entrée d'annulation. La mesure de l'écart est pure (`core/near_gap.py`) ;
 l'api expose `closing_options` et `close_gap`.
 
+## Assemblages déjà portés par la pièce
+
+Déplacer une pièce peut défaire ses autres assemblages (celui du bout opposé). Le rapprochement
+passe donc par le même contrôle qu'un glissement à la souris (ADR 0026) : la fenêtre « assemblage
+défait » propose d'annuler (l'assemblage en cours n'est pas créé, rien ne change) ou de supprimer
+les assemblages défaits. Quand la pièce déplacée en porte déjà, la fenêtre « Pièces proches » le
+dit et propose **Agrandir** par défaut : la face opposée ne bouge pas, ses assemblages tiennent.
+
 ## Conséquences
 
 - Le seuil de 20 mm est une constante ; le rendre réglable relève de la configuration de
