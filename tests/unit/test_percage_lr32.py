@@ -220,3 +220,13 @@ def test_taquets_du_montant_oppose_au_niveau_de_ceux_du_cote() -> None:
     host_levels = {round(p.base.x, 6) for p in pins if p.base.z < 19.0 + 1e-6}
     guest_levels = {round(p.base.x, 6) for p in pins if p.base.z > 600.0}
     assert len(pins) == 4 and host_levels == guest_levels
+
+
+def test_trous_du_montant_oppose_gardes_dans_sa_zone_libre() -> None:
+    """Fond assemblé au montant opposé seulement : ses trous alignés sur ceux du côté
+    s'arrêtent à 64 mm du fond (le premier rang du côté, à 64 mm du bas, n'y est pas percé)."""
+    wall, other = side(), other_side(619.0)
+    bottom = Neighbor(block((600.0, 500.0, 19.0), (19.0, 0.0, -720.0)), True)
+    params = ShelfPinsParams(guest_neighbors=(bottom,))
+    plan = SHELF_PINS.plan(wall, other, params)
+    assert len(plan.host_cuts) == 38 and len(plan.guest_cuts) == 36

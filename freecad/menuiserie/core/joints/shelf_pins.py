@@ -73,6 +73,7 @@ AUTO_DIAMETER_MM: Final = 5.0
 AUTO_DEPTH_MM: Final = 12.0
 FACES: Final = ("auto", "plus", "minus")  # face percée : intérieure, +Z ou -Z du côté
 _EPSILON: Final = 1e-9
+_TOLERANCE_MM: Final = 1e-6
 
 BAD_VALUE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Le pas et la saillie des taquets doivent être strictement positifs."
@@ -141,6 +142,7 @@ class ShelfPinsValues:
     heights: tuple[float, ...] = ()  # hauteur de chaque rang depuis le bas du côté
     face: str = "plus"  # face percée : « plus » (+Z du côté) ou « minus » (-Z)
     zone_height: float = 0.0  # milieu de la zone percée, depuis le bas du côté
+    zone: tuple[float, float] = (0.0, 0.0)  # zone libre (entre pièces assemblées), depuis le bas
     opposite_pins: int = 0  # taquets du montant opposé
     opposite_holes: int = 0  # trous du montant opposé
 
@@ -223,11 +225,12 @@ def _opposite(
         guest_neighbors=(),
     )
     own, own_layout = _checked(guest, mirrored)
-    reach = own.pitch - _EPSILON  # zone libre de ``guest`` : ses rangs à un pas près
+    lowest = own.zone[0] + own.end_margin - _TOLERANCE_MM  # zone libre de ``guest``, marges
+    highest = own.zone[1] - own.end_margin + _TOLERANCE_MM
     kept = [
         (row, height - low)
         for row, height in enumerate(values.heights)
-        if own.heights[0] - reach <= height - low <= own.heights[-1] + reach
+        if lowest <= height - low <= highest
     ]
     heights = tuple(height for _row, height in kept)
     pins = tuple(index for index, (row, _h) in enumerate(kept) if row in values.pin_rows)
@@ -369,5 +372,6 @@ def _checked(host: PlacedBlock, params: ShelfPinsParams) -> tuple[ShelfPinsValue
         heights,
         "plus" if sign > 0 else "minus",
         (window[0] + window[1]) / 2,
+        window,
     )
     return values, Layout(sign, heights, chosen)
