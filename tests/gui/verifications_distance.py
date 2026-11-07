@@ -22,6 +22,7 @@ from tests.gui.verifications_panneau import (
     annuler,
     ecarts,
     emplacements,
+    emplacements_attendus,
     formulaire_nomme,
     nouveau_document,
     saisir,
@@ -105,7 +106,7 @@ def verifier_commande_de_distance_presente() -> list[str]:
         "icône affichée": (commande.getAction()[0].icon().isNull(), False),
         "emplacements": (
             sorted(set(emplacements(COMMANDE))),
-            [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+            emplacements_attendus(COMMANDE),
         ),
     }
     return [

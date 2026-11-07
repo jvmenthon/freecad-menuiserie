@@ -26,6 +26,7 @@ from tests.gui.verifications_panneau import (
     annuler,
     ecarts,
     emplacements,
+    emplacements_attendus,
     formulaire,
     nouveau_document,
     saisir,
@@ -153,7 +154,7 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
             *ecarts(
                 f"{nom} emplacements",
                 sorted(emplacements(nom)),
-                [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+                emplacements_attendus(nom),
             ),
         ]
     return problemes

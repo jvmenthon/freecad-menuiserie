@@ -22,8 +22,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     ToolTip = QT_TRANSLATE_NOOP("Workbench", "Pièces de bois, assemblages et liste de débit")
     Icon = icon_path("menuiserie.svg")
 
-    # Commandes enregistrées par l'atelier, regroupées par thème : une barre d'outils et un
-    # sous-menu par thème.
+    # Commandes enregistrées par l'atelier, regroupées par thème : une barre d'outils par
+    # thème, séparés par un trait dans le menu.
     themes: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             QT_TRANSLATE_NOOP("Workbench", "Pièces"),
@@ -99,11 +99,13 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
-        menu = translate("Workbench", "&Menuiserie")
+        # Un menu, thèmes séparés : FreeCAD déforme les accents du titre d'un sous-menu.
+        menu: list[str] = []
         for theme, names in self.themes:
             title = translate("Workbench", theme)
             self.appendToolbar(f"{translate('Workbench', 'Menuiserie')} : {title}", list(names))
-            self.appendMenu([menu, title], list(names))
+            menu += [*names, "Separator"]
+        self.appendMenu(translate("Workbench", "&Menuiserie"), menu[:-1])
 
     def Activated(self) -> None:
         """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018) et flèches de

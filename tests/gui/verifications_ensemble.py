@@ -23,6 +23,7 @@ from tests.gui.verifications_panneau import (
     annuler,
     ecarts,
     emplacements,
+    emplacements_attendus,
     formulaire_nomme,
     nouveau_document,
 )
@@ -88,9 +89,6 @@ def membre(obj: Any) -> bool:
     return any(nom in obj.PropertiesList for nom in PROPRIETES_DE_MEMBRE)
 
 
-EMPLACEMENTS = [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")]
-
-
 # --- P1 : commandes ---------------------------------------------------------------------
 
 
@@ -108,7 +106,7 @@ def verifier_commandes_d_ensemble_presentes() -> list[str]:
             "infobulle": (bool(infos["toolTip"].strip()), True),
             "icône": (infos["pixmap"], icon_path(f"{nom}.svg")),
             "icône affichée": (commande.getAction()[0].icon().isNull(), False),
-            "emplacements": (sorted(emplacements(nom)), EMPLACEMENTS),
+            "emplacements": (sorted(emplacements(nom)), emplacements_attendus(nom)),
         }
         for quoi, (obtenu, attendu) in constats.items():
             problemes += ecarts(f"{nom} {quoi}", obtenu, attendu)
