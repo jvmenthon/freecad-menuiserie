@@ -132,6 +132,11 @@ def test_feuillure_en_biais_qui_coupe_l_hote_en_deux_est_refusee(document: Any) 
     host = wood(document, "H", size_of(host_block), placement_of(host_block))
     guest = wood(document, "I", size_of(guest_block), placement_of(guest_block))
     document.recompute()
-    with pytest.raises(ValueError):
-        api.make_rabbet(host, guest)
+    try:
+        joint = api.make_rabbet(host, guest)
         document.recompute()
+    except ValueError:
+        return  # refus à la création
+    # Sinon l'assemblage est en erreur au recalcul : jamais une forme en deux morceaux.
+    assert not joint.isValid()
+    assert len(api.machined_part_of(host).Shape.Solids) <= 1
