@@ -51,6 +51,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
             QT_TRANSLATE_NOOP("Workbench", "Quincaillerie"),
             (
                 "Menuiserie_Foot",
+                "Menuiserie_ShelfPins",
                 "Menuiserie_DrawerSlide",
             ),
         ),

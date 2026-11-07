@@ -20,5 +20,6 @@ COMMANDES_ASSEMBLAGE: Final = {
     "Menuiserie_LooseTenon": ("Faux tenons", "make_loose_tenons"),
     "Menuiserie_Biscuit": ("Biscuits", "make_biscuits"),
     "Menuiserie_Foot": ("Pieds de caisson", "make_foot"),
+    "Menuiserie_ShelfPins": ("Perçage LR32 et taquets", "make_shelf_pins"),
     "Menuiserie_DrawerSlide": ("Coulisse de tiroir", "make_drawer_slide"),
 }

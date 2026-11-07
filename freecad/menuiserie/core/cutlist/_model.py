@@ -224,6 +224,7 @@ class HardwareKind(str, Enum):
     LOOSE_TENON = "LooseTenon"
     BISCUIT = "Biscuit"
     FOOT = "Foot"
+    SHELF_PIN = "ShelfPin"
     DRAWER_SLIDE = "DrawerSlide"
 
 

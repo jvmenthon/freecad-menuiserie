@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 from freecad.menuiserie import icon_path
+from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.gui.part_appearance import Rgb, show_diffuse
@@ -22,6 +23,7 @@ ViewObject = Any
 BEECH_ID: Final = "hetre"
 BEECH_COLOR: Final = (0xD9, 0xB4, 0x8A)  # #D9B48A, si la bibliothèque n'a pas de hêtre
 PLASTIC_COLOR: Final = (0x3A, 0x3A, 0x3C)  # #3A3A3C, pieds en plastique
+STEEL_COLOR: Final = (0xB4, 0xB8, 0xBC)  # #B4B8BC, taquets de tablette en acier
 FALLBACK_ICON: Final = "menuiserie.svg"
 
 
@@ -30,8 +32,7 @@ class ViewProviderJoint(PanelEditing):
 
     def __init__(self, vobj: ViewObject) -> None:
         vobj.Proxy = self
-        plastic = getattr(vobj.Object, "FootMaterial", "") == "plastic"
-        show_diffuse(vobj, PLASTIC_COLOR if plastic else beech_color())
+        show_diffuse(vobj, part_color(vobj.Object))
 
     def attach(self, vobj: ViewObject) -> None:
         """Garde le ViewObject (non enregistré) pour l'icône."""
@@ -40,8 +41,7 @@ class ViewProviderJoint(PanelEditing):
     def updateData(self, obj: Any, prop: str) -> None:
         """Couleur du pied selon sa matière (gris foncé : plastique, hêtre : bois)."""
         if prop == "FootMaterial" and hasattr(self, "vobj"):
-            plastic = getattr(obj, "FootMaterial", "") == "plastic"
-            show_diffuse(self.vobj, PLASTIC_COLOR if plastic else beech_color())
+            show_diffuse(self.vobj, part_color(obj))
 
     def getIcon(self) -> str:
         """Icône de la commande du type : ``Menuiserie_<type>.svg``."""
@@ -56,6 +56,15 @@ class ViewProviderJoint(PanelEditing):
         from freecad.menuiserie.gui.task_panels.joint import start_editing
 
         return start_editing(vobj.Object)
+
+
+def part_color(obj: Any) -> Rgb:
+    """Couleur des pièces rapportées : acier pour les taquets, gris foncé pour un pied en
+    plastique, hêtre sinon."""
+    proxy = getattr(obj, "Proxy", None)
+    if isinstance(proxy, JointFeature) and proxy.KIND is JointKind.SHELF_PINS:
+        return STEEL_COLOR
+    return PLASTIC_COLOR if getattr(obj, "FootMaterial", "") == "plastic" else beech_color()
 
 
 def joint_icon(proxy: JointFeature) -> str:

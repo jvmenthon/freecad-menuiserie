@@ -71,6 +71,7 @@ class JointKind(str, Enum):
     LOOSE_TENON = "LooseTenon"
     BISCUIT = "Biscuit"
     FOOT = "Foot"
+    SHELF_PINS = "ShelfPins"
     DRAWER_SLIDE = "DrawerSlide"
 
 

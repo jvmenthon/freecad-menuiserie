@@ -216,6 +216,21 @@ def pieds() -> str:
     return ic.svg()
 
 
+def percage_lr32() -> str:
+    ic = Icone("Perçage LR32 : côté percé de deux colonnes de trous, taquets dans un rang")
+    ic.boite((0, 0, 0), (90, 26, 12), "chene")
+    ic.veinage((4, 86), (13, 12), "chene", amplitude=0.8)
+    for cy in (6, 20):
+        for i in range(4):
+            cx = 12 + 22 * i
+            if i == 2:
+                continue
+            ic.trou([(cx + 3 * math.cos(t), cy + 3 * math.sin(t), 12) for t in angles()])
+    for cy in (6, 20):
+        ic.cylindre(56, cy, 12, 22, 2.6, "acier")
+    return ic.svg()
+
+
 def coulisse() -> str:
     ic = Icone("Coulisse de tiroir : deux rails d'acier emboîtés, vis de fixation")
     ic.boite((0, 0, 0), (90, 4, 12), "acier")
@@ -291,6 +306,7 @@ ICONES = {
     "Menuiserie_LooseTenon.svg": faux_tenons,
     "Menuiserie_Biscuit.svg": biscuits,
     "Menuiserie_Foot.svg": pieds,
+    "Menuiserie_ShelfPins.svg": percage_lr32,
     "Menuiserie_DrawerSlide.svg": coulisse,
     "Menuiserie_Carcass.svg": caisson,
     # Ensembles (J4c)

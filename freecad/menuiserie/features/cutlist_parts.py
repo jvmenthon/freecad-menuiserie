@@ -300,6 +300,7 @@ _HARDWARE_KINDS: Final = (
     JointKind.LOOSE_TENON,
     JointKind.BISCUIT,
     JointKind.FOOT,
+    JointKind.SHELF_PINS,
     JointKind.DRAWER_SLIDE,
 )
 
@@ -310,31 +311,41 @@ def is_hardware_joint(obj: DocumentObject) -> bool:
     return is_joint(obj) and obj.Proxy.KIND in _HARDWARE_KINDS
 
 
+def _hardware(joint: DocumentObject, values: Any, quantity: int) -> Hardware | None:
+    """Fourniture d'après les valeurs effectives de l'assemblage (son type se lit à leurs
+    champs)."""
+    if hasattr(values, "pin_projection"):  # perçage LR32 : valeurs de ShelfPinsValues
+        length = values.hole_depth + values.pin_projection
+        shelf_pin = Hardware(HardwareKind.SHELF_PIN, values.hole_diameter, length, quantity)
+        return shelf_pin if quantity else None
+    if hasattr(values, "dowel_length"):  # tourillons : valeurs de DowelValues
+        return Hardware(HardwareKind.DOWEL, values.diameter, values.dowel_length, quantity)
+    if hasattr(values, "base_diameter"):  # pieds : valeurs de FootValues
+        return Hardware(
+            HardwareKind.FOOT,
+            values.stem_diameter,
+            values.height,
+            quantity,
+            material=values.foot_material,
+        )
+    if hasattr(values, "hole_positions"):  # coulisse : valeurs de SlideValues
+        return Hardware(HardwareKind.DRAWER_SLIDE, values.thickness, values.length, quantity)
+    kind = (
+        HardwareKind.LOOSE_TENON
+        if joint.Proxy.KIND is JointKind.LOOSE_TENON
+        else HardwareKind.BISCUIT
+    )
+    return Hardware(kind, values.thickness, values.total_depth, quantity, values.along)
+
+
 def hardware_of(joint: DocumentObject, times: int, notices: list[Notice]) -> Hardware | None:
     """Fourniture de l'assemblage ``joint``, répétée ``times`` fois : le nombre de pièces
     rapportées de leurs cotes effectives (valeurs automatiques résolues). ``None`` et un
-    avertissement si l'assemblage est impossible."""
+    avertissement si l'assemblage est impossible ; ``None`` sans avertissement si l'assemblage
+    n'apporte aucune pièce (perçage sans taquets)."""
     try:
         values: Any = resolved_for(joint)
-        quantity = values.count * times
-        if hasattr(values, "dowel_length"):  # tourillons : valeurs de DowelValues
-            return Hardware(HardwareKind.DOWEL, values.diameter, values.dowel_length, quantity)
-        if hasattr(values, "base_diameter"):  # pieds : valeurs de FootValues
-            return Hardware(
-                HardwareKind.FOOT,
-                values.stem_diameter,
-                values.height,
-                quantity,
-                material=values.foot_material,
-            )
-        if hasattr(values, "hole_positions"):  # coulisse : valeurs de SlideValues
-            return Hardware(HardwareKind.DRAWER_SLIDE, values.thickness, values.length, quantity)
-        kind = (
-            HardwareKind.LOOSE_TENON
-            if joint.Proxy.KIND is JointKind.LOOSE_TENON
-            else HardwareKind.BISCUIT
-        )
-        return Hardware(kind, values.thickness, values.total_depth, quantity, values.along)
+        return _hardware(joint, values, values.count * times)
     except ValueError as error:
         notices.append(notice(CollectNoticeKind.UNREADABLE_DOWELS, joint, reason=_reason(error)))
         return None

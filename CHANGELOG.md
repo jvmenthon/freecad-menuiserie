@@ -7,6 +7,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- **Perçage LR32** (`make_shelf_pins`, commande « Perçage LR32 et taquets », une seule pièce : un côté de caisson debout) : deux colonnes de trous de 5 mm au pas de 32 mm, à 37 mm des bords et 64 mm du haut et du bas, autant de rangs que le côté en reçoit ; les **taquets de tablette** (acier) sont posés dans un rang au choix (rang du milieu par défaut) et comptés dans la liste de débit. Références génériques `taquet-tablette-5` et `taquet-tablette-8`.
+- Faux tenons et biscuits : les planches qui se touchent **face contre face** sont acceptées (le plus long côté du contact porte la longueur de la mortaise), en plus du bout et du chant.
 - Faux tenons et biscuits rangés avec les assemblages. **Faux tenons** : mortaise à bouts demi-ronds comme les Domino de Festool, taille choisie dans la liste Festool (4 x 20 à 10 x 50 mm, ou « Automatique », par défaut) ; la case « Taille personnalisée » masque la liste et montre les cotes à saisir. **Biscuits** : forme de lamelle Lamello, taille choisie dans la liste (n° 0, 10, 20 ou « Automatique »), sans taille personnalisée. Dans l'API, `size=` choisit la taille ; `reference=` en tire la taille ; des cotes données (`thickness`, `along`, `total_depth`) passent un faux tenon en taille personnalisée.
 - Barre d'outils et menu de l'atelier regroupés par thème : Pièces, Assemblages, Quincaillerie, Ensembles, Liste de débit (une barre d'outils chacun, séparés par un trait dans le menu). Icônes des faux tenons, des biscuits et des coulisses redessinées (la pièce seule, sans planches), et celle des pieds.
 - Quincaillerie, lots Q-e (pieds) et Q-f (coulisses) (#159, ADR 0033) : **pieds de caisson

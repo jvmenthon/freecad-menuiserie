@@ -15,6 +15,7 @@ from freecad.menuiserie.core.joints.half_lap import HalfLapStrategy
 from freecad.menuiserie.core.joints.miter import MiterStrategy
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonStrategy
 from freecad.menuiserie.core.joints.rabbet import RabbetStrategy
+from freecad.menuiserie.core.joints.shelf_pins import ShelfPinsStrategy
 from freecad.menuiserie.core.joints.slides import SlideStrategy
 from freecad.menuiserie.core.joints.slots import BiscuitStrategy, LooseTenonStrategy
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveStrategy
@@ -33,6 +34,7 @@ STRATEGIES: Final[Mapping[JointKind, JointStrategy[Any, Any]]] = MappingProxyTyp
             LooseTenonStrategy(),
             BiscuitStrategy(),
             FootStrategy(),
+            ShelfPinsStrategy(),
             SlideStrategy(),
         )
     }

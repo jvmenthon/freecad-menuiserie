@@ -296,6 +296,21 @@ def test_reference_du_catalogue_fixe_la_taille(document: Any) -> None:
     assert (dowels.joint.Diameter.Value, dowels.joint.DowelLength.Value) == (8, 35)
 
 
+@pytest.mark.parametrize("factory", ["make_loose_tenons", "make_biscuits"])
+def test_planches_face_contre_face(document: Any, factory: str) -> None:
+    """Faux tenons et biscuits se posent aussi entre deux planches qui se touchent par leurs
+    faces."""
+    host = wood(document, "H", (600, 100, 22), (0, 0, 0))
+    guest = wood(document, "I", (600, 100, 22), (0, 0, 22))
+    document.recompute()
+    joint = getattr(api, factory)(host, guest)
+    document.recompute()
+    assert joint.isValid() and joint.Shape.Volume > 0
+    assert api.machined_part_of(host).Shape.Volume < 600 * 100 * 22
+    assert api.machined_part_of(guest).Shape.Volume < 600 * 100 * 22
+    assert stale_or_invalid(document) == []
+
+
 def test_reference_refusee_avant_creation(document: Any) -> None:
     count = len(document.Objects)
     with pytest.raises(ValueError, match="inconnue"):

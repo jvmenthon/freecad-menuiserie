@@ -30,6 +30,7 @@ from freecad.menuiserie.features.joints.factories import (
     create_miter,
     create_mortise_tenon,
     create_rabbet,
+    create_shelf_pins,
     create_tongue_groove,
 )
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
@@ -206,6 +207,23 @@ def make_foot(
     usinée couchée) et recalcule le document. Paramètres de ``FootParams`` en mm ; ``columns`` et
     ``rows`` donnent la grille (2 x 2 par défaut) ; ``reference`` désigne un pied du catalogue."""
     return _make_joint(_foot_factory, part, part, _with_reference(JointKind.FOOT, params), check)
+
+
+def _shelf_pins_factory(
+    document: App.Document, part: DocumentObject, _guest: DocumentObject, **params: object
+) -> DocumentObject:
+    return create_shelf_pins(document, part, **params)
+
+
+def make_shelf_pins(
+    part: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
+    """Perce le côté debout ``part`` (pièce de bois ou pièce usinée) de deux colonnes de trous au
+    pas de 32 mm (système LR32) et pose les taquets de la tablette, puis recalcule le document.
+    Paramètres de ``ShelfPinsParams`` en mm, 0 = automatique ; ``reference`` désigne un taquet du
+    catalogue."""
+    fixed = _with_reference(JointKind.SHELF_PINS, params)
+    return _make_joint(_shelf_pins_factory, part, part, fixed, check)
 
 
 _UNKNOWN_REFERENCE = QT_TRANSLATE_NOOP(

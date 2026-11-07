@@ -36,7 +36,7 @@ from freecad.menuiserie.core.joints._base import (
     offset_param,
     validate_params,
 )
-from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame, contact_frame
+from freecad.menuiserie.core.joints._profile import ContactFrame, contact_frame
 from freecad.menuiserie.core.joints._slot_shapes import half_stadium, rounded_rectangle
 from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT, positions
 
@@ -168,12 +168,12 @@ class _SlotStrategy:
 
     def resolve(self, host: PlacedBlock, guest: PlacedBlock, params: SlotParams) -> SlotValues:
         """Valeurs effectives : taille, nombre et positions."""
-        frame = contact_frame(host, guest, end_only=False)
+        frame = contact_frame(host, guest, end_only=False, face_ok=True)
         return self._checked(frame, params)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: SlotParams) -> JointPlan:
         """Mortaises dans les deux pièces ; pièce rapportée (repère de l'hôte)."""
-        frame = contact_frame(host, guest, end_only=False)
+        frame = contact_frame(host, guest, end_only=False, face_ok=True)
         values = self._checked(frame, params)
         host_cuts, guest_cuts, inserts = [], [], []
         for position in values.positions:
@@ -267,7 +267,7 @@ class LooseTenonStrategy(_SlotStrategy):
         rectangle = frame.contact.rectangle
         center = (
             rectangle.lo(frame.width_axis) + position,
-            rectangle.center(THICKNESS_AXIS) + values.thickness_offset,
+            rectangle.center(frame.thickness_axis) + values.thickness_offset,
         )
         outline = rounded_rectangle(values.along, values.thickness, values.thickness / 2)
         points = tuple(_point(frame, center[0] + u, center[1] + v, base) for u, v in outline)
@@ -287,7 +287,9 @@ class BiscuitStrategy(_SlotStrategy):
         base, direction, length = _extent(frame, values, role)
         rectangle = frame.contact.rectangle
         along = rectangle.lo(frame.width_axis) + position
-        thick = rectangle.center(THICKNESS_AXIS) + values.thickness_offset - values.thickness / 2
+        thick = (
+            rectangle.center(frame.thickness_axis) + values.thickness_offset - values.thickness / 2
+        )
         if role == "insert":
             outline = rounded_rectangle(values.along, length, length / 2)
             centre = base + direction * length / 2
@@ -298,7 +300,7 @@ class BiscuitStrategy(_SlotStrategy):
         for u, v in outline:
             normal = centre + (v if role == "insert" else direction * v)
             points.append(_point(frame, along + u, thick, normal))
-        extrusion = Vec3(0.0, 0.0, 0.0).with_component(THICKNESS_AXIS, values.thickness)
+        extrusion = Vec3(0.0, 0.0, 0.0).with_component(frame.thickness_axis, values.thickness)
         return Prism(tuple(points), extrusion)
 
 
@@ -318,7 +320,7 @@ def _point(frame: ContactFrame, across: float, level: float, normal: float) -> V
     """Point du repère de l'invitée : ``across`` selon la largeur du contact, ``level`` selon
     l'épaisseur, ``normal`` selon la normale du contact."""
     point = Vec3(0.0, 0.0, 0.0).with_component(frame.width_axis, across)
-    return point.with_component(THICKNESS_AXIS, level).with_component(frame.normal, normal)
+    return point.with_component(frame.thickness_axis, level).with_component(frame.normal, normal)
 
 
 def _fits(frame: ContactFrame, size: SlotSize, shortest: float, clearance: float) -> bool:

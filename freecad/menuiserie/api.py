@@ -77,6 +77,7 @@ from freecad.menuiserie._api.joints import (
     make_mortise_tenon,
     make_rabbet,
     make_room_for_slide,
+    make_shelf_pins,
     make_tongue_groove,
     slide_shortfall,
 )
@@ -132,6 +133,7 @@ __all__ = [
     "make_room_for_slide",
     "make_shaped_part",
     "make_shaped_parts",
+    "make_shelf_pins",
     "make_tongue_groove",
     "make_wood_part",
     "number_marks",

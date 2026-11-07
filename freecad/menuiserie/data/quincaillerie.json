@@ -339,6 +339,26 @@
         "height": 12
       },
       "source": "Cotes usuelles des pieds de caisson à tige M8, générique sans marque, 2026-11"
+    },
+    {
+      "id": "taquet-tablette-5",
+      "family": "shelf-pin",
+      "label": "Taquet de tablette à tige Ø5 (générique)",
+      "params": {
+        "diameter": 5,
+        "length": 19
+      },
+      "source": "Taquets à tige pour perçage 32 mm, Ø5, générique sans marque, 2026-11"
+    },
+    {
+      "id": "taquet-tablette-8",
+      "family": "shelf-pin",
+      "label": "Taquet de tablette à tige Ø8 (générique)",
+      "params": {
+        "diameter": 8,
+        "length": 24
+      },
+      "source": "Taquets à tige Ø8, générique sans marque, 2026-11"
     }
   ]
 }

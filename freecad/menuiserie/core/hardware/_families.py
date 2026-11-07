@@ -88,6 +88,11 @@ _FAMILY_LIST: Final = (
         ),
     ),
     Family(
+        "shelf-pin",
+        QT_TRANSLATE_NOOP("Menuiserie", "Taquet de tablette"),
+        (ParamSpec("diameter", 2.0, 20.0), ParamSpec("length", 3.0, 60.0)),
+    ),
+    Family(
         "drawer-slide-ball",
         QT_TRANSLATE_NOOP("Menuiserie", "Coulisse à billes"),
         (ParamSpec("length", 100.0, 1_200.0), ParamSpec("thickness", 5.0, 30.0)),

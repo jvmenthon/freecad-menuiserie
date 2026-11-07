@@ -157,9 +157,30 @@ def test_aucune_taille_ne_tient() -> None:
         TENON.plan(*boards(thickness=6.0), SlotParams())
 
 
-def test_contact_par_une_face_refuse() -> None:
-    host, guest = block((300.0, 100.0, 22.0)), block((300.0, 100.0, 22.0), (0.0, 0.0, 22.0))
-    with pytest.raises(JointError, match="par une face"):
+def stacked() -> tuple[PlacedBlock, PlacedBlock]:
+    """Deux planches face contre face (contact en z = 22)."""
+    return block((600.0, 100.0, 22.0)), block((600.0, 100.0, 22.0), (0.0, 0.0, 22.0))
+
+
+def test_contact_face_contre_face_accepte() -> None:
+    host, guest = stacked()
+    values = BISCUIT.resolve(host, guest, SlotParams())
+    assert values.size == "20" and values.count >= 2
+    plan = TENON.plan(host, guest, SlotParams(count=1))
+    (hole,), (guest_hole,), (insert,) = (
+        prisms(p) for p in (plan.host_cuts, plan.guest_cuts, plan.inserts)
+    )
+    # taille 5 x 30 (la plus grande qui tient dans 22 mm) : épaisseur selon y, pénétration selon z
+    assert extent(insert, 2) == pytest.approx((7.0, 37.0))
+    assert extent(insert, 1) == pytest.approx((47.5, 52.5))
+    assert extent(insert, 0) == pytest.approx((290.5, 309.5))
+    assert extent(hole, 2) == pytest.approx((6.0, 22.0)) and extent(guest_hole, 2)[0] == 0.0
+
+
+def test_contact_face_contre_face_en_biais_refuse() -> None:
+    host = block((600.0, 100.0, 22.0))
+    guest = block((600.0, 100.0, 22.0), (0.0, 0.0, 40.0))  # écartées de 18 mm
+    with pytest.raises(JointError, match="ne se touchent pas"):
         BISCUIT.plan(host, guest, SlotParams())
 
 

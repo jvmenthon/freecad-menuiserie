@@ -25,6 +25,7 @@ from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
+from freecad.menuiserie.features.joints.shelf_pins import ShelfPinsJoint
 from freecad.menuiserie.features.joints.slides import DrawerSlideJoint
 from freecad.menuiserie.features.joints.slots import BiscuitJoint, LooseTenonJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
@@ -42,6 +43,7 @@ __all__ = [
     "create_miter",
     "create_mortise_tenon",
     "create_rabbet",
+    "create_shelf_pins",
     "create_tongue_groove",
 ]
 
@@ -51,7 +53,7 @@ _SAME_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Choisissez deux pièces différentes pour un assemblage."
 )
 _NEEDS_ONE_PART: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Les pieds se posent sous une seule pièce."
+    "Menuiserie", "Cet assemblage se pose sur une seule pièce."
 )
 _OTHER_DOCUMENT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » appartient à un autre document."
@@ -207,6 +209,14 @@ def create_foot(doc: Document, part: DocumentObject, **params: object) -> Docume
     en mm, 0 = automatique pour la distance au bord."""
     values = _validated(FootJoint.PARAMS, params)
     return create_joint(FootJoint, doc, part, part, values, same_part=True)
+
+
+def create_shelf_pins(doc: Document, part: DocumentObject, **params: object) -> DocumentObject:
+    """Crée un perçage LR32 dans le côté debout ``part`` (pièce de bois ou pièce usinée) : deux
+    colonnes de trous au pas de 32 mm, taquets de tablette rapportés. Paramètres de
+    ``ShelfPinsParams`` en mm, 0 = automatique."""
+    values = _validated(ShelfPinsJoint.PARAMS, params)
+    return create_joint(ShelfPinsJoint, doc, part, part, values, same_part=True)
 
 
 def create_drawer_slide(

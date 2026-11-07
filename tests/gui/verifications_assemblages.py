@@ -164,14 +164,14 @@ def actives() -> dict[str, bool]:
     return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
 
 
-PIEDS = "Menuiserie_Foot"  # seule commande qui se pose sous une seule pièce
+PIEDS = ("Menuiserie_Foot", "Menuiserie_ShelfPins")  # commandes sur une seule pièce
 
 
 def attendues(actives_si_fabrique: bool, une_piece: bool = False) -> dict[str, bool]:
     """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois) ;
     ``une_piece`` : la sélection est une seule pièce, que seuls les pieds acceptent."""
     return {
-        nom: (une_piece if nom == PIEDS else actives_si_fabrique) and hasattr(api, fabrique)
+        nom: (une_piece if nom in PIEDS else actives_si_fabrique) and hasattr(api, fabrique)
         for nom, (_libelle, fabrique) in COMMANDES_ASSEMBLAGE.items()
     }
 

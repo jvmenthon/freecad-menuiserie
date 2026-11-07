@@ -49,6 +49,7 @@ MITER: Final = "Menuiserie_Miter"
 LOOSE_TENON: Final = "Menuiserie_LooseTenon"
 BISCUIT: Final = "Menuiserie_Biscuit"
 FOOT: Final = "Menuiserie_Foot"
+SHELF_PINS: Final = "Menuiserie_ShelfPins"
 DRAWER_SLIDE: Final = "Menuiserie_DrawerSlide"
 
 
@@ -282,11 +283,25 @@ class FootCommand(JointCommand):
         App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
         try:
             with aborted_on_error(App.getActiveTransaction()):
-                joint = api.make_foot(part, check=feasible_joint)
+                joint = type(self).FACTORY(part, check=feasible_joint)
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
         show_panel(joint)
+
+
+class ShelfPinsCommand(FootCommand):
+    """Perçage LR32 : une seule pièce sélectionnée, le côté debout."""
+
+    NAME = SHELF_PINS
+    FACTORY = api.make_shelf_pins
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_ShelfPins", "Perçage LR32 et taquets")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_ShelfPins",
+        "Perce le côté sélectionné de deux colonnes de trous au pas de 32 mm et pose les "
+        "taquets de la tablette dans un rang.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Percer un côté au pas de 32 mm")
 
 
 def selected_part() -> DocumentObject | None:
@@ -341,4 +356,5 @@ def register() -> None:
     Gui.addCommand(LOOSE_TENON, LooseTenonCommand())
     Gui.addCommand(BISCUIT, BiscuitCommand())
     Gui.addCommand(FOOT, FootCommand())
+    Gui.addCommand(SHELF_PINS, ShelfPinsCommand())
     Gui.addCommand(DRAWER_SLIDE, DrawerSlideCommand())

@@ -72,6 +72,43 @@ def test_pieds_reference_du_catalogue(document: Any) -> None:
     assert (joint.StemDiameter.Value, joint.BaseDiameter.Value, joint.Height.Value) == (8, 40, 12)
 
 
+def upright_side(document: Any, thickness: float = 19) -> Any:
+    """Côté de caisson debout : 720 de haut (longueur de la pièce, tournée sur sa tranche)."""
+    where = App.Placement(App.Vector(thickness, 0, 720), App.Rotation(App.Vector(0, 1, 0), 90))
+    side = wood(document, "S", (720, 500, thickness), where)
+    document.recompute()
+    return side
+
+
+def test_percage_lr32_et_taquets(document: Any) -> None:
+    side = upright_side(document)
+    joint = api.make_shelf_pins(side)
+    assert joint.HostPart == joint.GuestPart == side
+    assert (joint.Rows, joint.PinRow, joint.WithPins) == (0, 0, True)
+    hole = math.pi * 2.5**2 * 12
+    assert volume(side) == pytest.approx(720 * 500 * 19 - 38 * hole)  # 19 rangs, 2 colonnes
+    assert joint.Shape.Volume == pytest.approx(2 * math.pi * 2.5**2 * (12 + 7))  # deux taquets
+    joint.WithPins = False
+    joint.Rows = 5
+    document.recompute()
+    assert joint.isValid() and volume(side) == pytest.approx(720 * 500 * 19 - 10 * hole)
+    assert api.machined_part_of(side).Joints == [joint]
+    assert stale_or_invalid(document) == []
+
+
+def test_percage_lr32_refuse_sur_panneau_couche(document: Any) -> None:
+    panel = wood(document, "F", (600, 500, 19), (0, 0, 0))
+    document.recompute()
+    joint = api.make_shelf_pins(panel)
+    assert not joint.isValid()
+    assert "debout" in joint.getStatusString()
+
+
+def test_percage_lr32_reference_du_catalogue(document: Any) -> None:
+    joint = api.make_shelf_pins(upright_side(document), reference="taquet-tablette-8")
+    assert joint.HoleDiameter.Value == 8
+
+
 def sides(document: Any, gap: float = 12.7) -> tuple[Any, Any]:
     host = wood(document, "C", (500, 300, 19), (0, 0, 0), FRAME)
     where = App.Placement(App.Vector(0, 50, 19 + gap), App.Rotation())

@@ -35,6 +35,7 @@ _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
         "loose-tenon": JointKind.LOOSE_TENON,
         "biscuit": JointKind.BISCUIT,
         "cabinet-foot": JointKind.FOOT,
+        "shelf-pin": JointKind.SHELF_PINS,
         "drawer-slide-ball": JointKind.DRAWER_SLIDE,
     }
 )
@@ -62,6 +63,11 @@ def _foot(item: HardwareItem) -> dict[str, float | str]:
     }
 
 
+def _shelf_pin(item: HardwareItem) -> dict[str, float | str]:
+    # Le trou prend le diamètre de la tige du taquet.
+    return {"hole_diameter": item.param("diameter")}
+
+
 def _drawer_slide(item: HardwareItem) -> dict[str, float | str]:
     return {"length": item.param("length"), "thickness": item.param("thickness")}
 
@@ -72,6 +78,7 @@ _PARAMS: Final[Mapping[JointKind, _Params]] = MappingProxyType(
         JointKind.LOOSE_TENON: _loose_tenon,
         JointKind.BISCUIT: _biscuit,
         JointKind.FOOT: _foot,
+        JointKind.SHELF_PINS: _shelf_pin,
         JointKind.DRAWER_SLIDE: _drawer_slide,
     }
 )
