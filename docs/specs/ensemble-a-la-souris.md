@@ -131,9 +131,11 @@ sélectionnés, gabarits.
 - **Q1 — Taille.** a) étirer l'ensemble comme dans le panneau : les pièces suivent leurs options
   « fixe » (épaisseurs inchangées) ★ ; b) mise à l'échelle de toutes les pièces, épaisseurs
   comprises.
-- **Q2 — Orientation.** a) Std Part créé automatiquement au premier geste, l'ensemble et ses
-  pièces rangés dedans ★ ; b) refuser tant que l'ensemble n'est pas déjà dans un Std Part ;
-  c) donner un `Placement` à l'ensemble (grosse refonte d'ADR 0008).
+- **Q2 — Orientation.** **Tranchée par jv (2026-11-07) : a) Std Part.** Proposition en cours
+  (jv) : le Std Part est créé **dès la création de l'ensemble** (et non au premier geste) ; un
+  ensemble d'un ancien document en reçoit un au premier geste ; une pièce ajoutée à l'ensemble est
+  rangée dedans ; un sous-ensemble n'a pas son propre Std Part (même conteneur que son parent,
+  ADR 0008 point 3).
 - **Q3 — Aperçu pendant le geste.** a) les pièces bougent en direct (brutes seules) ★ ; b) seule
   la boîte bouge, les pièces suivent au relâchement.
 - **Q4 — Comment sélectionner ?** a) l'ensemble dans l'arbre ★ ; b) aussi un bouton « Sélectionner
