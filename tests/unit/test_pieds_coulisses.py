@@ -102,3 +102,19 @@ def test_coulisse_refus() -> None:
     away = block((450.0, 150.0, 16.0), (900.0, 50.0, 40.0))
     with pytest.raises(JointError):
         SLIDE.plan(host, away, SlideParams())
+
+
+def test_coulisse_refus_dit_l_ecart_reel() -> None:
+    host, _ = sides()
+    flush = block((450.0, 150.0, 16.0), (0.0, 50.0, 10.0))  # chevauche le côté du caisson de 9 mm
+    with pytest.raises(JointError) as error:
+        SLIDE.plan(host, flush, SlideParams())
+    assert error.value.params["gap"] == "-9"
+
+
+def test_coulisse_choisit_l_axe_le_plus_proche() -> None:
+    """Deux axes séparés : le plus proche (l'épaisseur) fait face, puis le recouvrement manque."""
+    host = block((500.0, 300.0, 19.0))
+    guest = block((450.0, 150.0, 16.0), (600.0, 50.0, 31.7))  # séparé aussi selon X (100 mm)
+    with pytest.raises(JointError):  # aucun recouvrement : refus net
+        SLIDE.plan(host, guest, SlideParams())

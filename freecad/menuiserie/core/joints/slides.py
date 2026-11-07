@@ -51,8 +51,9 @@ GUEST_PILOT_DEPTH_MM: Final = 8.0
 
 NO_GAP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Les côtés doivent se faire face avec un jeu pour la coulisse (parallèles, sans se toucher "
-    "ni se chevaucher) ; ils sont à {gap} mm l'un de l'autre.",
+    "Les côtés doivent se faire face avec un jeu pour la coulisse (12,7 mm d'ordinaire) : sur "
+    "l'axe où ils sont les plus proches, l'écart est de {gap} mm (négatif : ils se chevauchent). "
+    "Écartez le côté du tiroir de celui du caisson.",
 )
 NO_OVERLAP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les deux côtés ne se font pas face : leurs surfaces ne se recouvrent pas."
@@ -178,12 +179,16 @@ def _frame(host: PlacedBlock, guest: PlacedBlock) -> _Frame:
     to_host = relative_transform(host, guest)
     host_box = host.local_box()
     guest_box = moved_box(guest.local_box(), to_host)
-    for index in range(3):
-        gap_up = guest_box.lo(index) - host_box.hi(index)
-        gap_down = host_box.lo(index) - guest_box.hi(index)
-        if max(gap_up, gap_down) > CONTACT_TOLERANCE_MM:
-            return _facing(index, gap_up > gap_down, host_box, guest_box, to_host)
-    raise JointError(NO_GAP, {"gap": mm_text(0.0)})
+    gaps = [
+        (max(guest_box.lo(i) - host_box.hi(i), host_box.lo(i) - guest_box.hi(i)), i)
+        for i in range(3)
+    ]
+    separated = [item for item in gaps if item[0] > CONTACT_TOLERANCE_MM]
+    if not separated:
+        raise JointError(NO_GAP, {"gap": mm_text(max(gaps)[0])})  # axe le plus proche du jeu
+    _gap, index = min(separated)  # côtés face à face : l'axe de plus petit écart
+    above = guest_box.lo(index) - host_box.hi(index) > host_box.lo(index) - guest_box.hi(index)
+    return _facing(index, above, host_box, guest_box, to_host)
 
 
 def _facing(
