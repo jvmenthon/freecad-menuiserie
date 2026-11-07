@@ -22,6 +22,9 @@ from freecad.menuiserie.features.joints.factories import (
     create_tongue_groove,
 )
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
+from freecad.menuiserie.features.near_gap import Closing
+from freecad.menuiserie.features.near_gap import close_gap as _close_gap
+from freecad.menuiserie.features.near_gap import closing_options as _closing_options
 
 # --- Assemblages (J3, J4) -----------------------------------------------------------------
 
@@ -171,3 +174,22 @@ def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
         ensemble.touch()
     joint.Document.recompute()
     return joint
+
+
+# --- Pièces proches qui ne se touchent pas (ADR 0039) ---------------------------------------
+
+
+def closing_options(host: DocumentObject, guest: DocumentObject) -> Closing | None:
+    """Écart (mm) et façons de le combler (``"move"`` : une pièce se déplace jusqu'au contact,
+    ``"grow"`` : une pièce s'agrandit jusqu'au contact, avec le nom de la pièce) si les deux
+    pièces d'équerre ne sont écartées que de 20 mm au plus sur un seul axe ; ``None`` sinon
+    (déjà en contact, chevauchées, éloignées, en biais)."""
+    return _closing_options(host, guest)
+
+
+def close_gap(host: DocumentObject, guest: DocumentObject, how: str) -> list[str]:
+    """Comble l'écart entre deux pièces proches (``how`` : ``"move"`` ou ``"grow"``), l'invitée
+    de préférence, et recalcule le document. Renvoie les avertissements (membre d'ensemble relié,
+    assemblage qui ne touche plus…) ; ``ValueError`` traduite si l'option n'est pas permise.
+    Aucune transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler."""
+    return _close_gap(host, guest, how)

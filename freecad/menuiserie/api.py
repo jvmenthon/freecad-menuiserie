@@ -66,6 +66,8 @@ from freecad.menuiserie._api.furniture import (
     unlock_and_set_thickness,
 )
 from freecad.menuiserie._api.joints import (
+    close_gap,
+    closing_options,
     make_dovetail,
     make_dowels,
     make_half_lap,
@@ -101,6 +103,8 @@ __all__ = [
     "PickedElement",
     "add_to_furniture",
     "blank_of",
+    "close_gap",
+    "closing_options",
     "cut_list_html",
     "cut_list_of",
     "export_cut_list_csv",
