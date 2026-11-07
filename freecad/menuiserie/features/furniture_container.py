@@ -227,10 +227,24 @@ def check_assembled(
     pièce libre est rangée avec elle, à la même position."""
     pieces = [obj for obj in members if not is_furniture(obj)]
     allowed = {item.Name for obj in pieces for item in _bundle(obj)}
+    for sub in (obj for obj in members if is_furniture(obj)):  # un sous-ensemble entre en entier
+        part = std_part_of(sub)
+        allowed.add(sub.Name)
+        allowed |= {obj.Name for obj in _content(part)} if part is not None else set()
     other = _linked_members(pieces, allowed, target)
     if other is not None:
         label = next(p.Label for p in pieces if other.Name in _closure(p))
         raise ValueError(translated(_ASSEMBLED, {"label": str(label), "other": str(other.Label)}))
+
+
+def _content(part: DocumentObject) -> list[DocumentObject]:
+    """Objets d'un Std Part, ceux de ses Std Parts compris."""
+    found: list[DocumentObject] = []
+    for obj in part.Group:
+        found.append(obj)
+        if is_std_part(obj):
+            found.extend(_content(obj))
+    return found
 
 
 def _relocate(objects: Sequence[DocumentObject], target: DocumentObject | None) -> None:
@@ -295,9 +309,9 @@ def adopt(furniture: DocumentObject, members: Sequence[DocumentObject]) -> None:
     if part is None:
         return
     pieces = [obj for obj in members if not is_furniture(obj)]
-    _relocate([item for obj in pieces for item in _bundle(obj)], part)
     for sub in (obj for obj in members if is_furniture(obj)):
         _nest(sub, part)
+    _relocate([item for obj in pieces for item in _bundle(obj)], part)
 
 
 def stays(members: Sequence[DocumentObject]) -> set[str]:

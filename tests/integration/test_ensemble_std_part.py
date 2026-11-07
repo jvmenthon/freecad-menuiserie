@@ -169,3 +169,18 @@ def test_un_ensemble_sans_std_part_reste_utilisable(document: Any) -> None:
     old = furniture_module.create_furniture(document, box, container.Vec3(0, 0, 0), "Ancien", None)
     assert container.std_part_of(old) is None
     assert container.position_of(old) == container.Vec3(0, 0, 0)
+
+
+def test_formule_entre_une_piece_et_un_membre_du_sous_ensemble(document: Any) -> None:
+    """Une formule de l'utilisateur lie le voile (du caisson) au plateau : le voile reste dans le
+    Std Part du caisson, rien ne bouge."""
+    desk = build_parts(document)
+    desk.parts["V"].setExpression("Placement.Base.y", "<<Plateau>>.Width - 141 mm")
+    sub, _ = api.make_furniture([desk.parts[m] for m in ("JG", "JD", "V")], "Caisson")
+    before = geometry(document)
+    furniture, _ = api.make_furniture([desk.parts["P"], sub], label="Bureau")
+    sub_std = container.std_part_of(sub)
+    assert desk.parts["V"].getParentGeoFeatureGroup() == sub_std
+    assert sub_std.getParentGeoFeatureGroup() == container.std_part_of(furniture)
+    assert geometry(document) == before
+    assert stale_or_invalid(document) == []
