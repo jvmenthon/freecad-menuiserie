@@ -159,3 +159,13 @@ def test_pieds_en_plastique_sans_tige_ni_percage() -> None:
     assert base.axis.value == "-Z" and base.height == 15.0
     # Sans tige : ni tige trop large ni logement trop profond ne gênent.
     assert FOOT.plan(panel, panel, FootParams(stem_diameter=60, hole_depth=18)).inserts
+
+
+def test_nombre_de_pieds_automatique() -> None:
+    small = bottom_panel()  # 600 x 500 : 2 x 2
+    assert FOOT.resolve(small, small, WOOD).count == 4
+    long = block((1800.0, 500.0, 19.0))  # 1700 mm entre les pieds extrêmes : 4 en longueur
+    values = FOOT.resolve(long, long, WOOD)
+    assert (values.columns, values.rows, values.count) == (4, 2, 8)
+    fixed = FootParams(columns=3, rows=1, foot_material="wood")
+    assert FOOT.resolve(long, long, fixed).count == 3

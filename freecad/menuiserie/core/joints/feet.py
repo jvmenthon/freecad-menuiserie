@@ -9,6 +9,7 @@ vers le bas du document.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from itertools import pairwise
 from typing import ClassVar, Final
@@ -36,6 +37,7 @@ __all__ = ["FOOT_MATERIALS", "FootParams", "FootStrategy", "FootValues"]
 
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au-dessus du logement de la tige
 FOOT_MATERIALS: Final = ("plastic", "wood")  # matière du pied : plastique (défaut) ou bois
+AUTO_SPAN_MM: Final = 800.0  # écart maximal entre deux pieds, en nombre automatique
 AUTO_EDGE_MM: Final = 50.0  # distance des pieds au bord du panneau, par défaut
 _DOWN: Final = Vec3(0.0, 0.0, -1.0)
 _TILT_TOLERANCE: Final = 1e-3
@@ -57,7 +59,7 @@ HOLE_TOO_DEEP: Final = QT_TRANSLATE_NOOP(
 )
 BAD_VALUE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Les dimensions du pied doivent être strictement positives et il faut au moins un pied.",
+    "Les dimensions du pied doivent être strictement positives.",
 )
 STEM_TOO_WIDE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "La tige ({diameter} mm) doit être plus fine que l'embase ({base} mm)."
@@ -72,8 +74,8 @@ class FootParams:
     base_diameter: float = length_param(50.0)
     height: float = length_param(15.0)  # hauteur visible sous le panneau
     hole_depth: float = length_param(12.0)
-    columns: int = count_param(2)
-    rows: int = count_param(2)
+    columns: int = count_param(0)  # 0 = automatique selon la longueur du panneau
+    rows: int = count_param(0)
     edge_distance: float = length_param(0.0)
     foot_material: str = choice_param("plastic", FOOT_MATERIALS)
 
@@ -81,8 +83,6 @@ class FootParams:
         validate_params(self)
         dimensions = (self.stem_diameter, self.base_diameter, self.height, self.hole_depth)
         if min(dimensions) <= 0:
-            raise JointError(BAD_VALUE, {})
-        if self.columns < 1 or self.rows < 1:
             raise JointError(BAD_VALUE, {})
 
 
@@ -158,12 +158,14 @@ def _checked(host: PlacedBlock, params: FootParams) -> FootValues:
         }
         raise JointError(HOLE_TOO_DEEP, text)
     edge = params.edge_distance or AUTO_EDGE_MM
-    xs = _line(box.size(0), edge, params.columns, params.base_diameter)
-    ys = _line(box.size(1), edge, params.rows, params.base_diameter)
+    columns = params.columns or _auto_count(box.size(0), edge)
+    rows = params.rows or _auto_count(box.size(1), edge)
+    xs = _line(box.size(0), edge, columns, params.base_diameter)
+    ys = _line(box.size(1), edge, rows, params.base_diameter)
     if xs is None or ys is None:
         text = {
-            "columns": str(params.columns),
-            "rows": str(params.rows),
+            "columns": str(columns),
+            "rows": str(rows),
             "base": mm_text(params.base_diameter),
             "edge": mm_text(edge),
         }
@@ -174,12 +176,18 @@ def _checked(host: PlacedBlock, params: FootParams) -> FootValues:
         params.base_diameter,
         params.height,
         params.hole_depth,
-        params.columns,
-        params.rows,
+        columns,
+        rows,
         edge,
         centers,
         params.foot_material,
     )
+
+
+def _auto_count(size: float, edge: float) -> int:
+    """Pieds le long d'un côté : 2, plus un par tranche entamée de 800 mm entre les pieds
+    extrêmes."""
+    return max(2, math.ceil((size - 2 * edge) / AUTO_SPAN_MM) + 1)
 
 
 def _line(size: float, edge: float, count: int, base: float) -> tuple[float, ...] | None:

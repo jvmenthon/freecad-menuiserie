@@ -79,20 +79,26 @@ class FootJoint(JointFeature):
             "App::PropertyIntegerConstraint",
             _GROUP,
             QT_TRANSLATE_NOOP(
-                "App::Property", "Nombre de pieds le long de la longueur du panneau."
+                "App::Property",
+                "Nombre de pieds le long de la longueur du panneau. 0 : automatique (2, plus un "
+                "par tranche de 800 mm).",
             ),
             label=QT_TRANSLATE_NOOP("Menuiserie", "Pieds en longueur"),
             resolved="columns",
-            default=(_DEFAULTS.columns, 1, MAX_DOWEL_COUNT, 1),
+            default=(_DEFAULTS.columns, 0, MAX_DOWEL_COUNT, 1),
         ),
         PropertySpec(
             "Rows",
             "App::PropertyIntegerConstraint",
             _GROUP,
-            QT_TRANSLATE_NOOP("App::Property", "Nombre de pieds le long de la largeur du panneau."),
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Nombre de pieds le long de la largeur du panneau. 0 : automatique (2, plus un "
+                "par tranche de 800 mm).",
+            ),
             label=QT_TRANSLATE_NOOP("Menuiserie", "Pieds en largeur"),
             resolved="rows",
-            default=(_DEFAULTS.rows, 1, MAX_DOWEL_COUNT, 1),
+            default=(_DEFAULTS.rows, 0, MAX_DOWEL_COUNT, 1),
         ),
         PropertySpec(
             "EdgeDistance",
