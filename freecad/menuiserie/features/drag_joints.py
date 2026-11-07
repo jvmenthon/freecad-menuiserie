@@ -115,7 +115,7 @@ def remove_joints(joints: Sequence[DocumentObject]) -> None:
     for joint in joints:
         document.removeObject(joint.Name)
     for found in machined:
-        if not found.Joints:
+        if not found.Joints and not found.Finishes:
             remove_machined_part(found)
 
 
@@ -130,16 +130,19 @@ def delete_machined_part(machined: DocumentObject, choose: RemovalChoice) -> boo
     en forme libre. Les objets sont alors déjà détruits : le résultat est faux, pour que FreeCAD
     ne supprime pas un objet qui n'existe plus."""
     joints = list(machined.Joints)
+    finishes = list(machined.Finishes)
     blank = getattr(machined, "Base", None)
-    if not joints:
+    if not joints and not finishes:
         show_blank(blank)
         return True
-    labels = [f"« {quoted_value(joint.Label)} »" for joint in joints]
+    labels = [f"« {quoted_value(item.Label)} »" for item in (*joints, *finishes)]
     if not choose(f"« {quoted_value(machined.Label)} »", labels):
         return False
     document, name = machined.Document, machined.Name
     if blank is not None and has_member_properties(blank):
         remove_members([blank])  # les voisines ne citent plus la pièce
+    for finish in finishes:
+        document.removeObject(finish.Name)
     remove_joints(joints)
     if document.getObject(name) is not None:  # pièce non retrouvée par ses assemblages
         remove_machined_part(machined)

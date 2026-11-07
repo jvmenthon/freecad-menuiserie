@@ -21,6 +21,7 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.task_panels.preview import PartsPreview
@@ -323,6 +324,18 @@ class UpdateGuard:
 
     def __exit__(self, *_exc_info: object) -> None:
         self._depth -= 1
+
+
+def length_spinbox(name: str, value: float) -> Widget:
+    """Champ de cote en mm (``Gui::QuantitySpinBox``) de 0 à ``MAX_DIMENSION_MM``, à ``value``."""
+    field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
+    field.setKeyboardTracking(False)  # aperçu à la fin de la saisie, pas à chaque touche
+    field.setObjectName(name)
+    field.setProperty("unit", "mm")
+    field.setProperty("minimum", 0.0)
+    field.setProperty("maximum", MAX_DIMENSION_MM)
+    field.setProperty("rawValue", value)
+    return field
 
 
 def connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:

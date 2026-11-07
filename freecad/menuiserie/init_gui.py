@@ -44,6 +44,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     commands += ("Menuiserie_ShapedPart",)
     # Distance entre deux pièces (DI-b)
     commands += ("Menuiserie_SetDistance",)
+    # Finition des chants (issue #5)
+    commands += ("Menuiserie_EdgeFinish",)
     # Liste de débit (J2d, J2g)
     commands += (
         "Menuiserie_CutList",
@@ -76,6 +78,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
+        from freecad.menuiserie.gui.commands import edge_finish  # finition des chants (#5)
+
+        edge_finish.register()
         self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
         self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
 

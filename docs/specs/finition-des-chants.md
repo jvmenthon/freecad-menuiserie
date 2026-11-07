@@ -91,13 +91,14 @@ seule pièce.
 - C1 Commande « Finition des chants » (icône `Menuiserie_FinitionChants.svg`, générée par
   `tools/generer_icones.py`), active quand une pièce de l'atelier (brute ou usinée) est
   sélectionnée.
-- C2 Panneau de tâche : famille (liste), distances A et B (`Gui::QuantitySpinBox`), réglage
-  « Arête cassée 1 mm », les 12 arêtes en cases à cocher groupées par face (dessus, dessous,
-  quatre côtés), raccourcis « Toutes les arêtes du dessus », « Les 4 arêtes d'une face »,
-  « Toutes les arêtes », « Aucune ».
-- C3 Choix **dans la vue 3D** : bouton « Choisir dans la vue 3D » ; un clic sur une arête de la
-  pièce coche l'arête correspondante (le point cliqué est converti en code local, B7).
-  Les arêtes cochées sont surlignées dans la vue.
+- C2 Panneau de tâche (simplifié le 2026-11-05 à la demande de jv) : famille (liste, « Quart de
+  rond » 1 mm par défaut : c'est l'arête cassée, sans bouton dédié), cote A
+  (`Gui::QuantitySpinBox`), cote B **visible seulement si la famille la demande** (bec-de-corbin,
+  doucine ; ou profil relu asymétrique), les 12 arêtes en cases à cocher groupées par face
+  (dessus, dessous, quatre côtés), raccourcis « Toutes » et « Aucune ».
+- C3 Arêtes cochées d'après la **sélection** : avant la commande, une face coche ses 4 arêtes,
+  une arête cette arête, un sommet les 3 arêtes du coin ; panneau ouvert, un clic sur un de ces
+  éléments coche de même (le point cliqué est converti en code local, B7). Pas de bouton.
 - C4 Règle de jv du 2026-10-22 : toute modification du panneau s'affiche en direct (aperçu
   recalculé, `valueChanged`), Annuler remet l'état d'avant, un Ctrl+Z défait l'ensemble.
 - C5 Éditer un profil existant : double-clic sur la pièce usinée → le panneau de la pièce propose
