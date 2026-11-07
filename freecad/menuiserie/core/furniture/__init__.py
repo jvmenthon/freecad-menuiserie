@@ -55,20 +55,31 @@ from freecad.menuiserie.core.furniture._model import (
     NoticeKind,
     gap_term,
 )
+from freecad.menuiserie.core.furniture._mouse import (
+    MIN_FURNITURE_MM,
+    FaceHandle,
+    FurnitureLayout,
+    furniture_layout,
+    resized_box,
+    resized_by,
+)
 from freecad.menuiserie.core.furniture._rows import Row
 from freecad.menuiserie.core.furniture._spans import Span, edge_distances, member_spans
 from freecad.menuiserie.core.notice import Notice
 
 __all__ = [
+    "MIN_FURNITURE_MM",
     "Binding",
     "BlockedRowError",
     "Edge",
     "EdgeEdit",
+    "FaceHandle",
     "Follow",
     "FollowRule",
     "FurnitureAxis",
     "FurnitureBox",
     "FurnitureError",
+    "FurnitureLayout",
     "InteriorMode",
     "KeptGap",
     "Linear",
@@ -93,6 +104,7 @@ __all__ = [
     "fixed_by_default",
     "follow_rules",
     "follow_summary",
+    "furniture_layout",
     "gap_term",
     "gap_values",
     "is_driven",
@@ -100,6 +112,8 @@ __all__ = [
     "member_spans",
     "piece_reference",
     "predict",
+    "resized_box",
+    "resized_by",
     "same_binding",
     "with_default_options",
 ]
