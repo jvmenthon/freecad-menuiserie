@@ -7,6 +7,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Pièces proches à l'assemblage (demande de jv, 2026-11-07, ADR 0039) : si les deux pièces
+  sélectionnées ne se touchent pas mais sont écartées de 20 mm au plus, une fenêtre propose de
+  déplacer une pièce jusqu'au contact, de l'agrandir jusqu'au contact ou d'annuler ; le
+  rapprochement et l'assemblage forment une seule entrée d'annulation (`api.closing_options`,
+  `api.close_gap`).
 - Taille initiale d'une nouvelle pièce limitée par les collisions (demande de jv, 2026-11-07) : à
   l'ouverture du panneau « Nouvelle pièce de bois », longueur, largeur puis épaisseur sont ramenées
   au jeu libre avant les autres pièces de bois ; ensuite la saisie n'est jamais limitée.

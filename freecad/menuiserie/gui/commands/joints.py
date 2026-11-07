@@ -10,7 +10,9 @@ ni ouvrir de panneau (demande de jv). L'assemblage est essayé par ``feasible_jo
 premier recalcul (mot-clé ``check`` de la fabrique) : un assemblage impossible ne fait jamais
 imprimer de trace à FreeCAD (ADR 0026). Les rôles (hôte, invitée) sont devinés d'après la
 position des pièces (``guess_roles``) ; si c'est ambigu, la première pièce sélectionnée reçoit
-la mortaise, la rainure ou la feuillure.
+la mortaise, la rainure ou la feuillure. Deux pièces proches qui ne se touchent pas (20 mm au
+plus) : une fenêtre propose de les rapprocher (déplacer ou agrandir une pièce) ou d'annuler ;
+le rapprochement et l'assemblage forment une seule entrée d'annulation (ADR 0039).
 """
 
 from __future__ import annotations
@@ -24,12 +26,14 @@ import FreeCADGui as Gui
 from freecad.menuiserie import api
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import guess_roles
+from freecad.menuiserie.features.drag_joints import DragCancelledError
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.joints.feasible import feasible_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.gui import joint_choice, near_gap
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
@@ -71,11 +75,20 @@ class JointCommand(TransactionCommand):
         if parts is None:
             return
         host, guest = ordered_roles(*parts)
+        closing = near_gap.propose(host, guest)
+        if closing == near_gap.CANCEL:
+            return
         doc = App.ActiveDocument
         doc.openTransaction(translated(self.TRANSACTION))
         try:
             with aborted_on_error(App.getActiveTransaction()):
+                if closing != near_gap.KEEP:
+                    for message in api.close_gap(host, guest, closing, joint_choice.choose):
+                        App.Console.PrintWarning(f"{message}\n")
+                    host, guest = ordered_roles(host, guest)
                 joint = type(self).FACTORY(host, guest, check=feasible_joint)
+        except DragCancelledError:
+            return  # rapprochement refusé (assemblage défait) : transaction abandonnée
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
