@@ -49,3 +49,25 @@ l'échelle (épaisseurs fixes, rangées de l'ADR 0019). Retenue.
   sans toucher au comportement des pièces.
 - Un Std Part apparaît dans l'arbre à la création de chaque ensemble.
 - Le glissement recalcule beaucoup plus que pour une pièce : brutes seules pendant le geste.
+
+## Essai sur FreeCAD 1.1
+
+Essai du 2026-11-07 sur FreeCAD 1.1.3 (conda-forge, `freecadcmd`), avec le bureau de référence des
+tests et son caisson. Résultats :
+
+- Un `App::Part` qui contient l'ensemble, ses pièces (brutes et usinées), ses assemblages et ses
+  Distances garde toutes les expressions `<<Ensemble>>.Width`… valides : aucun « cyclic
+  reference », aucune erreur de portée, géométrie inchangée, y compris après un changement de cote,
+  une rotation du Std Part, un enregistrement et une réouverture.
+- Un sous-ensemble dans son propre `App::Part`, imbriqué dans celui du parent, fonctionne : ses
+  cotes et le `Placement.Base` de son Std Part sont liés par expression à l'ensemble parent (portée
+  d'un enfant vers son ancêtre acceptée), ses pièces citent `<<Caisson>>` sans erreur.
+- `addObject` / `removeObject` d'un Std Part déplacent aussi la **fermeture des liens** de l'objet
+  (assemblages, pièces usinées, pièces assemblées, ensemble cité par une expression) et renvoient la
+  liste des objets déplacés. Conséquences : l'ensemble et ses membres se rangent d'un coup, mais un
+  sous-ensemble déjà lié à son parent par des expressions ne peut plus être séparé de lui ; il faut
+  le ranger **avant** de poser ses liaisons, et défaire ses liaisons avant de le sortir. Une pièce
+  assemblée à une autre qui reste dans l'ensemble ne peut pas en sortir seule : elle reste alors dans
+  le Std Part (le retrait ne touche que ses propriétés de membre et ses liaisons).
+- FreeCAD impose des libellés uniques : le Std Part ne peut pas porter le libellé exact de
+  l'ensemble (`<<Bureau>>` viserait un objet ambigu). Le Std Part s'appelle « Bureau (Std Part) ».
