@@ -147,3 +147,12 @@ sélectionnés, gabarits.
   flèches au centre de la boîte ; le geste décale `Origin` et les positions des pièces qui ne
   suivent pas `Origin` (pas de liaison sur cet axe), dans une transaction « Déplacer
   l'ensemble ». Aimant sur les objets voisins comme pour une pièce.
+- **Q6 — Pièce ou sous-ensemble en biais** (demande de jv, 2026-11-07 : « se redimensionne
+  aussi ») : aujourd'hui il suit son ensemble par translation seulement. a) sa cote la plus
+  alignée avec l'axe qui change s'allonge pour que son encombrement suive la cote de l'ensemble,
+  l'angle ne change pas (ΔL = ΔC / cos θ) ★ ; b) ses deux bouts restent sur les mêmes faces de
+  l'ensemble, l'angle change (écharpe de porte) ; plus long, lot à part.
+- **Q7 — Ensemble « fixe »** (demande de jv, 2026-11-07) : a) cotes fixes : un sous-ensemble garde
+  ses cotes quand son parent change (comme « Cotes fixes » d'une pièce) ★ ; b) position et
+  orientation bloquées : pas de flèches ni d'anneaux, le Std Part ne bouge pas ; c) les deux, en
+  deux cases séparées.
