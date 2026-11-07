@@ -4,7 +4,8 @@
 
 Le formulaire est construit d'après la description des paramètres du type
 (:mod:`joint_fields`) : pièces reliées, bouton « Inverser » (échange hôte et invitée, sauf pour
-un type aux rôles symétriques : bouton grisé, infobulle explicative), un champ par paramètre. Chaque saisie est
+un type aux rôles symétriques : bouton grisé, infobulle explicative), un champ par
+paramètre. Chaque saisie est
 écrite aussitôt dans l'assemblage puis recalculée avec ses pièces usinées (aperçu) ; une erreur
 d'assemblage s'affiche dans le panneau sans empêcher « OK ». Transactions, fermeture et
 surveillance du document : :mod:`base` (comme J1c). Tant que le panneau est ouvert, les objets
