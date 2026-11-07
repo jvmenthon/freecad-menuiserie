@@ -300,18 +300,21 @@ def _shift_content(part: DocumentObject, shift: App.Vector) -> None:
 
 def _nest(sub: DocumentObject, container: DocumentObject) -> None:
     """Range le Std Part du sous-ensemble ``sub`` dans ``container`` et fait passer son
-    ``Origin`` dans le ``Placement`` du Std Part (E3) : ses pièces gardent leur place."""
+    ``Origin`` dans le ``Placement`` du Std Part (E3) : ses pièces gardent leur place. Le Std Part
+    peut être déjà tourné : sa ``Base`` prend alors ``R · Origin`` et le contenu est décalé de
+    ``-Origin`` dans son propre repère."""
     part = std_part_of(sub)
     if part is None:  # ensemble ancien sans Std Part (E5) : son Origin porte sa position
         return
     _relocate([part], container)
     origin = origin_of(sub)
     shift = App.Vector(origin.x, origin.y, origin.z)
-    if shift.Length == 0 or not part.Placement.Rotation.isIdentity():
+    if shift.Length == 0:
         return
     with writing(sub):
         sub.Origin = App.Vector()
-    part.Placement = App.Placement(part.Placement.Base + shift, part.Placement.Rotation)
+    rotation = part.Placement.Rotation  # Std Part déjà tourné : l'Origin passe tournée dans la Base
+    part.Placement = App.Placement(part.Placement.Base + rotation.multVec(shift), rotation)
     _shift_content(part, shift)
 
 
