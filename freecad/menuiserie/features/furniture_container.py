@@ -48,11 +48,13 @@ from freecad.menuiserie.features.shaped_part import is_timber
 __all__ = [
     "STD_PART",
     "adopt",
+    "carried_furniture",
     "carrier",
     "EntryNoticeKind",
     "check_assembled",
     "create_with_std_part",
     "dissolve",
+    "follow_label",
     "guide_container",
     "is_std_part",
     "leave",
@@ -122,6 +124,14 @@ def _sub_std_part(obj: DocumentObject, furniture: DocumentObject) -> bool:
     return is_std_part(obj) and any(
         is_furniture(item) and furniture_of(item) == furniture for item in obj.Group
     )
+
+
+def carried_furniture(obj: object) -> DocumentObject | None:
+    """Ensemble que porte le Std Part ``obj`` (celui qui y est rangé directement), ``None`` si
+    ``obj`` n'est pas le Std Part d'un ensemble."""
+    if not is_std_part(obj):
+        return None
+    return next((item for item in obj.Group if is_furniture(item)), None)  # type: ignore[attr-defined]
 
 
 def own_std_part(furniture: DocumentObject) -> DocumentObject | None:
@@ -212,6 +222,17 @@ def set_member_expression(obj: DocumentObject, prop: str, text: str | None) -> N
 
 
 # --- Création ---------------------------------------------------------------------------------
+
+
+def follow_label(furniture: DocumentObject) -> None:
+    """Le libellé du Std Part de ``furniture`` suit le sien (« {libellé} (Std Part) »), pour un
+    ensemble renommé par l'utilisateur."""
+    part = std_part_of(furniture)
+    if part is None:
+        return
+    wanted = translated(LABEL, {"label": str(furniture.Label)})
+    if part.Label != wanted:
+        part.Label = wanted
 
 
 def create_with_std_part(

@@ -273,13 +273,17 @@ class Furniture(StatelessProxy):
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Saisie de l'utilisateur : cote → avertissements (formules, pièce cassée : la cote
-        est appliquée, Q4) ; option d'un sous-ensemble → ses liaisons. N'écrit que dans
-        lui-même ; rien pendant une restauration, une annulation ou un recalcul."""
+        est appliquée, Q4) ; option d'un sous-ensemble → ses liaisons ; libellé → celui de son Std Part.
+        N'écrit que dans lui-même (et le libellé de son Std Part) ; rien pendant une restauration, une annulation ou un recalcul."""
         if not follows_user_changes(obj):
             return
         from freecad.menuiserie.features import furniture_edits
 
-        if prop in DIMENSIONS and not has_expression(obj, prop):
+        if prop == "Label":  # le Std Part suit le nom de l'ensemble
+            from freecad.menuiserie.features.furniture_container import follow_label
+
+            follow_label(obj)
+        elif prop in DIMENSIONS and not has_expression(obj, prop):
             previous: FurnitureBox | None = getattr(self, "previous_box", None)
             self.previous_box = None
             current = box_of(obj)

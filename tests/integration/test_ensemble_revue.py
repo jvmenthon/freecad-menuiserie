@@ -240,3 +240,13 @@ def test_piece_libre_liee_a_un_membre_est_signalee_a_l_entree(document: Any) -> 
     assert "Voile" in notices[0] and "Joue gauche" in notices[0] and "Std Part" in notices[0]
     quiet, none = api.make_furniture([desk.parts["JD"]], "Seul")
     assert none == ()  # rien à signaler sans pièce liée
+
+
+# --- 9 : le libellé du Std Part suit le renommage de l'ensemble ---------------------------------
+
+
+def test_libelle_du_std_part_suit_le_renommage(bureau: Any) -> None:
+    std = container.std_part_of(bureau.furniture)
+    assert std.Label == "Bureau (Std Part)"
+    bureau.furniture.Label = "Secrétaire"
+    assert std.Label == "Secrétaire (Std Part)"

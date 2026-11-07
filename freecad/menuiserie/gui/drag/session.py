@@ -46,6 +46,7 @@ from freecad.menuiserie.core.rotation import plane_point
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.furniture_container import carried_furniture
 from freecad.menuiserie.features.part_drag import raw_part
 from freecad.menuiserie.gui.drag.furniture_target import FurnitureTarget
 from freecad.menuiserie.gui.drag.geometry import (
@@ -136,7 +137,7 @@ class DragSession:
     def _target(self) -> Target | None:
         """Cible qui porte les flèches : celle du panneau ouvert, sinon l'objet de l'atelier
         sélectionné seul (sans panneau d'une autre commande ouvert). Un ensemble est sa propre
-        cible, une pièce (membre ou non) celle de sa brute (Q4)."""
+        cible (son Std Part sélectionné dans l'arbre aussi), une pièce (membre ou non) celle de sa brute (Q4)."""
         try:
             if self._panel_open() and self.panel is not None:
                 obj = self.panel.part
@@ -147,6 +148,7 @@ class DragSession:
                 if len(selection) != 1:
                     return None
                 obj = selection[0]
+            obj = carried_furniture(obj) or obj  # « X (Std Part) » : cible de l'ensemble qu'il porte
             return FurnitureTarget(obj) if is_furniture(obj) else PartTarget(raw_part(obj))
         except (TypeError, *_RESIZE_ERRORS):
             return None
