@@ -40,6 +40,19 @@ def _excluded(part: DocumentObject) -> set[str]:
     return names
 
 
+def _roots(doc: Any) -> list[DocumentObject]:
+    """Objets du document qui ne sont dans aucun groupe ni Std Part, dans l'ordre du document.
+
+    Pas ``Document.RootObjects`` : ce sont les objets que **rien ne cite** (liste ``InList``
+    vide). Un membre d'ensemble cité par une expression d'un autre membre (épaisseur) ou par un
+    assemblage en serait absent, et n'aimanterait plus ses voisins (bogue EN-e, E6)."""
+    return [
+        obj
+        for obj in doc.Objects
+        if obj.getParentGroup() is None and obj.getParentGeoFeatureGroup() is None
+    ]
+
+
 def _leaves(objects: list[DocumentObject], seen: set[str]) -> Iterator[DocumentObject]:
     """Objets feuilles (hors groupes ``App::Part`` et ``App::DocumentObjectGroup``, parcourus)."""
     for obj in objects:
@@ -167,7 +180,7 @@ def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tu
         reference = own.BoundBox if own is not None else None
     except ERRORS:
         reference = None
-    roots = list(container.Group) if container is not None else list(part.Document.RootObjects)
+    roots = list(container.Group) if container is not None else _roots(part.Document)
     skip = _excluded(part)
     found: list[tuple[float, int, Any]] = []
     for index, obj in enumerate(_leaves(roots, set())):
