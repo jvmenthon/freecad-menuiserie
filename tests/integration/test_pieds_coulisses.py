@@ -110,7 +110,7 @@ def test_taquets_sous_chaque_tablette(document: Any) -> None:
     board = shelf(document, 360)
     joint = api.make_shelf_pins(side)
     assert board in joint.Neighbors
-    pin = math.pi * 2.5**2 * (12 + 7)
+    pin = math.pi * 2.5**2 * 12 + 5 * 5 * 7  # tige dans le trou + saillie à dessus plat
     assert joint.Shape.Volume == pytest.approx(2 * pin)  # deux taquets sous la tablette
     board.Placement = App.Placement(App.Vector(19, 0, -720 + 424), App.Rotation())  # monte de 64
     document.recompute()
@@ -130,7 +130,7 @@ def test_un_seul_percage_pour_les_deux_montants(document: Any) -> None:
     joint = api.make_shelf_pins(side)
     assert (joint.HostPart, joint.GuestPart, joint.BothSides) == (side, other, True)
     assert board in joint.Neighbors and joint.isValid()
-    pin = math.pi * 2.5**2 * (12 + 7)
+    pin = math.pi * 2.5**2 * 12 + 5 * 5 * 7  # tige dans le trou + saillie à dessus plat
     assert joint.Shape.Volume == pytest.approx(4 * pin)  # deux taquets de chaque côté
     hole = math.pi * 2.5**2 * 12
     assert volume(other) == pytest.approx(720 * 500 * 19 - 38 * hole)  # percé en miroir

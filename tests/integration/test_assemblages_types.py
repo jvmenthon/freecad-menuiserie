@@ -305,7 +305,8 @@ def test_planches_face_contre_face(document: Any, factory: str) -> None:
     document.recompute()
     joint = getattr(api, factory)(host, guest)
     document.recompute()
-    assert joint.isValid() and joint.Shape.Volume > 0
+    assert joint.isValid(), joint.getStatusString()
+    assert joint.Shape.Volume > 0
     assert api.machined_part_of(host).Shape.Volume < 600 * 100 * 22
     assert api.machined_part_of(guest).Shape.Volume < 600 * 100 * 22
     assert stale_or_invalid(document) == []
