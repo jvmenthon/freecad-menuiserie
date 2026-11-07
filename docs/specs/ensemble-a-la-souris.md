@@ -123,7 +123,7 @@ sécurité + reviewer), PR unique vers `main`.
 
 ## 7. Hors périmètre
 
-Déplacer un ensemble avec des flèches (Q5), mise à l'échelle homogène, plusieurs ensembles
+Mise à l'échelle homogène, plusieurs ensembles
 sélectionnés, gabarits.
 
 ## 8. Questions pour jv (★ recommandé)
@@ -138,5 +138,7 @@ sélectionnés, gabarits.
   la boîte bouge, les pièces suivent au relâchement.
 - **Q4 — Comment sélectionner ?** a) l'ensemble dans l'arbre ★ ; b) aussi un bouton « Sélectionner
   l'ensemble » dans le panneau d'une pièce membre.
-- **Q5 — Flèches de déplacement** de l'ensemble (changer `Origin` / Std Part) : a) pas pour
-  l'instant ★ ; b) dans ce jalon.
+- **Q5 — Flèches de déplacement** : **tranchée par jv (2026-11-07) : oui, dans ce jalon.** Trois
+  flèches au centre de la boîte ; le geste décale `Origin` et les positions des pièces qui ne
+  suivent pas `Origin` (pas de liaison sur cet axe), dans une transaction « Déplacer
+  l'ensemble ». Aimant sur les objets voisins comme pour une pièce.
