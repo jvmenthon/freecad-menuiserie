@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 import FreeCAD as App
 
+from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_bindings import common_furniture
 from freecad.menuiserie.features.joints.factories import (
@@ -187,9 +188,13 @@ def closing_options(host: DocumentObject, guest: DocumentObject) -> Closing | No
     return _closing_options(host, guest)
 
 
-def close_gap(host: DocumentObject, guest: DocumentObject, how: str) -> list[str]:
+def close_gap(
+    host: DocumentObject, guest: DocumentObject, how: str, choose: JointChoice | None = None
+) -> list[str]:
     """Comble l'écart entre deux pièces proches (``how`` : ``"move"`` ou ``"grow"``), l'invitée
     de préférence, et recalcule le document. Renvoie les avertissements (membre d'ensemble relié,
     assemblage qui ne touche plus…) ; ``ValueError`` traduite si l'option n'est pas permise.
+    ``choose`` (facultatif) décide du sort des assemblages que le déplacement défait, comme pour
+    un glissement à la souris : sans lui, on prévient seulement.
     Aucune transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler."""
-    return _close_gap(host, guest, how)
+    return _close_gap(host, guest, how, choose)

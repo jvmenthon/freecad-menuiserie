@@ -50,7 +50,7 @@ def lancer(doc: Any, bas: Any, haut: Any, reponse: str | None) -> tuple[list[Any
     questions posées et les assemblages créés (panneau validé)."""
     questions: list[Any] = []
 
-    def choisir(ecart: float, options: Mapping[str, str]) -> str | None:
+    def choisir(ecart: float, options: Mapping[str, str], _defait: bool) -> str | None:
         questions.append((ecart, dict(options)))
         return reponse
 

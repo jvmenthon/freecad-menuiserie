@@ -7,7 +7,8 @@ Quand les pièces ne sont écartées que de quelques millimètres, :func:`choose
 l'assemblage. Seules les options possibles sont proposées.
 
 La fenêtre est modale et ne peut pas être cliquée hors écran : ``chooser`` est un attribut de
-module que les tests remplacent par une fonction ``(écart, options) -> "move" | "grow" | None``.
+module que les tests remplacent par une fonction
+``(écart, options, déplacer_défait) -> "move" | "grow" | None``.
 """
 
 from __future__ import annotations
@@ -40,49 +41,57 @@ _MOVE_TEXT: Final = QT_TRANSLATE_NOOP(
 _GROW_TEXT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Agrandir étend « {label} » de {gap} mm, jusqu'au contact."
 )
+_JOINTS_WARNING: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » porte déjà des assemblages : Déplacer peut les défaire (une question vous sera "
+    "posée), Agrandir les garde.",
+)
 _MOVE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacer")
 _GROW: Final = QT_TRANSLATE_NOOP("Menuiserie", "Agrandir")
 _CANCEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Annuler")
 _EXPLANATIONS: Final = {MOVE: _MOVE_TEXT, GROW: _GROW_TEXT}
 
 
-def message_for(gap: float, options: Mapping[str, str]) -> str:
+def message_for(gap: float, options: Mapping[str, str], move_has_joints: bool = False) -> str:
     """Texte de la fenêtre pour un écart de ``gap`` mm ; ``options`` : option → nom de la pièce
-    qui bouge ou grandit."""
+    qui bouge ou grandit ; ``move_has_joints`` : la pièce déplacée porte déjà des assemblages."""
     text = mm_text(gap)
     lines = [translated(_TEXT, {"gap": text})]
     lines += [
         translated(_EXPLANATIONS[how], {"label": label, "gap": text})
         for how, label in options.items()
     ]
+    if move_has_joints and MOVE in options:
+        lines.append(translated(_JOINTS_WARNING, {"label": options[MOVE]}))
     return lines[0] + "\n\n" + "\n".join(lines[1:]) if len(lines) > 1 else lines[0]
 
 
-def ask(gap: float, options: Mapping[str, str]) -> str | None:
+def ask(gap: float, options: Mapping[str, str], move_has_joints: bool = False) -> str | None:
     """Ouvre la fenêtre modale ; ``"move"``, ``"grow"``, ou ``None`` pour « Annuler », Échap ou
     la fermeture de la fenêtre."""
     box = QtGui.QMessageBox(Gui.getMainWindow())
     box.setIcon(QtGui.QMessageBox.Question)
     box.setWindowTitle(translated(_TITLE))
-    box.setText(message_for(gap, options))
+    box.setText(message_for(gap, options, move_has_joints))
     buttons = {}
     if MOVE in options:
         buttons[box.addButton(translated(_MOVE), QtGui.QMessageBox.AcceptRole)] = MOVE
     if GROW in options:
         buttons[box.addButton(translated(_GROW), QtGui.QMessageBox.AcceptRole)] = GROW
     cancel = box.addButton(translated(_CANCEL), QtGui.QMessageBox.RejectRole)
-    box.setDefaultButton(next(iter(buttons)))
+    safest = GROW if move_has_joints and GROW in options else next(iter(buttons.values()))
+    box.setDefaultButton(next(button for button, how in buttons.items() if how == safest))
     box.setEscapeButton(cancel)
     box.exec()
     return buttons.get(box.clickedButton())
 
 
-chooser: Callable[[float, Mapping[str, str]], str | None] = ask
+chooser: Callable[[float, Mapping[str, str], bool], str | None] = ask
 
 
-def choose(gap: float, options: Mapping[str, str]) -> str | None:
+def choose(gap: float, options: Mapping[str, str], move_has_joints: bool = False) -> str | None:
     """Choix de l'utilisateur pour un écart de ``gap`` mm, par ``chooser``."""
-    return chooser(gap, options)
+    return chooser(gap, options, move_has_joints)
 
 
 def propose(host: DocumentObject, guest: DocumentObject) -> str:
@@ -93,4 +102,4 @@ def propose(host: DocumentObject, guest: DocumentObject) -> str:
     closing = api.closing_options(host, guest)
     if closing is None or not closing.options:
         return KEEP
-    return choose(closing.distance, closing.options) or CANCEL
+    return choose(closing.distance, closing.options, closing.move_has_joints) or CANCEL

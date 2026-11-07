@@ -99,3 +99,58 @@ def test_option_inconnue_refusee(document: Any) -> None:
     lower, upper = stack(document)
     with pytest.raises(ValueError, match="rapprochées"):
         api.close_gap(lower, upper, "teleporter")
+
+
+def frame_with_joint(doc: Any) -> tuple[Any, Any, Any, Any]:
+    """Traverse T déjà assemblée au montant M2 (en y = 340) ; le montant M est à 8 mm de son
+    autre bout. Rapprocher T de M défait l'assemblage avec M2."""
+    rotation = App.Rotation(App.Vector(0, 0, 1), 90)
+    near = api.make_wood_part(600, 60, 22, "chene", mark="M", doc=doc)
+    far = api.make_wood_part(600, 60, 22, "chene", mark="N", doc=doc)
+    rail = api.make_wood_part(280, 60, 22, "chene", mark="T", doc=doc)
+    near.Placement = App.Placement(App.Vector(0, -GAP, 0), App.Rotation())
+    far.Placement = App.Placement(App.Vector(0, 340, 0), App.Rotation())
+    rail.Placement = App.Placement(App.Vector(60, 60, 0), rotation)
+    doc.recompute()
+    joint = api.make_dowels(far, rail)
+    doc.recompute()
+    return near, far, rail, joint
+
+
+def test_deplacer_qui_defait_un_assemblage_peut_etre_annule(document: Any) -> None:
+    drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
+    near, _far, rail, joint = frame_with_joint(document)
+    asked: list[Any] = []
+
+    def refuse(labels: Any) -> bool:
+        asked.append(list(labels))
+        return False
+
+    with pytest.raises(drag.DragCancelledError):
+        api.close_gap(near, rail, "move", refuse)
+    assert len(asked) == 1
+    assert rail.Placement.Base.y == pytest.approx(60.0)
+    assert document.getObject(joint.Name) is not None
+
+
+def test_deplacer_qui_defait_un_assemblage_peut_le_supprimer(document: Any) -> None:
+    near, _far, rail, joint = frame_with_joint(document)
+    name = joint.Name
+    api.close_gap(near, rail, "move", lambda labels: True)
+    assert rail.Placement.Base.y == pytest.approx(60.0 - GAP)
+    assert document.getObject(name) is None
+
+
+def test_agrandir_garde_l_assemblage_de_l_autre_bout(document: Any) -> None:
+    near, _far, rail, joint = frame_with_joint(document)
+    api.close_gap(near, rail, "grow", lambda labels: pytest.fail("rien n'est défait"))
+    assert rail.Length.Value == pytest.approx(280.0 + GAP)
+    assert document.getObject(joint.Name) is not None
+    assert "Invalid" not in joint.State
+
+
+def test_option_deplacer_signale_les_assemblages_portes(document: Any) -> None:
+    near, _far, rail, _joint = frame_with_joint(document)
+    closing = api.closing_options(near, rail)
+    assert closing is not None
+    assert closing.move_has_joints is True
