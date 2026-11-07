@@ -101,7 +101,7 @@ class JointTaskPanel(ObjectTaskPanel):
             return host, guest
         button = QtGui.QPushButton(translated(_INVERT))
         button.setObjectName("invertButton")
-        button.setToolTip(translated(_INVERT_TIP))
+        button.setToolTip(translated(proxy.INVERT_TIP or _INVERT_TIP))
         button.setEnabled(not any(expression_of(self.obj, role) for role in _ROLES))
         connect(button, "clicked()", self._invert)
         layout.addWidget(button)
@@ -137,8 +137,9 @@ class JointTaskPanel(ObjectTaskPanel):
         self._refresh()
 
     def _invert(self) -> None:
-        """« Inverser » : la pièce hôte devient l'invitée et inversement."""
-        self.obj.HostPart, self.obj.GuestPart = self.obj.GuestPart, self.obj.HostPart
+        """« Inverser » : la pièce hôte devient l'invitée et inversement (ou, pour un perçage,
+        l'autre face est percée)."""
+        self.obj.Proxy.invert(self.obj)
         self.preview()
         self._refresh()
 

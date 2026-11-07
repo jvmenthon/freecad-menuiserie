@@ -37,7 +37,14 @@ from freecad.menuiserie.core.joints._shelf_layout import (
     touching_boxes,
 )
 
-__all__ = ["FACES", "Neighbor", "ShelfPinsParams", "ShelfPinsStrategy", "ShelfPinsValues"]
+__all__ = [
+    "FACES",
+    "Neighbor",
+    "ShelfPinsParams",
+    "ShelfPinsStrategy",
+    "ShelfPinsValues",
+    "picked_choice",
+]
 
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond d'un trou
 AUTO_EDGE_MM: Final = 37.0  # distance des colonnes aux bouts horizontaux, par défaut
@@ -89,6 +96,7 @@ class ShelfPinsParams:
     pin_row: int = count_param(0)  # 0 = un rang sous chaque tablette ; sinon rang depuis le bas
     pin_projection: float = length_param(7.0)  # saillie du taquet hors de la face
     face: str = choice_param("auto", FACES)
+    zone_height: float = length_param(0.0)  # hauteur (depuis le bas) dans la zone à percer
     neighbors: tuple[Neighbor, ...] = derived_param(())
 
     def __post_init__(self) -> None:
@@ -112,6 +120,8 @@ class ShelfPinsValues:
     with_pins: bool
     pin_rows: tuple[int, ...] = ()  # rangs (depuis 0) qui portent des taquets
     heights: tuple[float, ...] = ()  # hauteur de chaque rang depuis le bas du côté
+    face: str = "plus"  # face percée : « plus » (+Z du côté) ou « minus » (-Z)
+    zone_height: float = 0.0  # milieu de la zone percée, depuis le bas du côté
 
     @property
     def count(self) -> int:
@@ -187,6 +197,17 @@ def _ledge(  # noqa: PLR0913
     return Box.from_ranges(ranges)
 
 
+def picked_choice(host: PlacedBlock, point: Vec3) -> tuple[str, float]:
+    """Face (``plus`` ou ``minus``) et hauteur depuis le bas du côté d'un point cliqué sur le
+    côté (repère du côté) : le perçage se fait sur cette face, dans la zone de ce point."""
+    vertical, down = _upright(host)
+    box = host.local_box()
+    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
+    near_plus = abs(point.z - box.hi(2)) <= abs(point.z - box.lo(2))
+    height = (bottom - point.component(vertical)) * down
+    return ("plus" if near_plus else "minus"), max(height, 0.0)
+
+
 def _point(vertical: int, level: float, horizontal: int, column: float, z: float) -> Vec3:
     point = Vec3(0.0, 0.0, z).with_component(vertical, level)
     return point.with_component(horizontal, column)
@@ -222,8 +243,8 @@ def _checked(host: PlacedBlock, params: ShelfPinsParams) -> tuple[ShelfPinsValue
     touching = touching_boxes(boxes, host, sign)
     fixed = [heights_of(other, bottom, down, vertical) for other, fixed in touching if fixed]
     shelves = [heights_of(other, bottom, down, vertical) for other, fixed in touching if not fixed]
-    window = free_window(fixed, total)
-    first = window[0] + (margin if fixed or window[0] == 0.0 else 0.0)
+    window = free_window(fixed, total, params.zone_height)
+    first = window[0] + margin
     span = window[1] - margin - first
     rows = params.rows or (int(span // params.pitch + _EPSILON) + 1 if span >= 0 else 0)
     wide = box.size(1 - vertical) - 2 * edge - diameter
@@ -256,5 +277,7 @@ def _checked(host: PlacedBlock, params: ShelfPinsParams) -> tuple[ShelfPinsValue
         params.with_pins,
         chosen,
         heights,
+        "plus" if sign > 0 else "minus",
+        (window[0] + window[1]) / 2,
     )
     return values, Layout(sign, heights, chosen)

@@ -22,8 +22,10 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import api
+from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints import guess_roles
+from freecad.menuiserie.core.joints import JointError, guess_roles
+from freecad.menuiserie.core.joints.shelf_pins import picked_choice
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import placed_blank
@@ -302,6 +304,35 @@ class ShelfPinsCommand(FootCommand):
         "taquets de la tablette dans un rang.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Percer un côté au pas de 32 mm")
+
+    def Activated(self) -> None:
+        """Perçage de la pièce sélectionnée, sur la face et dans la zone du clic."""
+        part = selected_part()
+        if part is None:
+            return
+        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
+        try:
+            with aborted_on_error(App.getActiveTransaction()):
+                joint = api.make_shelf_pins(part, check=feasible_joint, **picked_zone(part))
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        show_panel(joint)
+
+
+def picked_zone(part: DocumentObject) -> dict[str, object]:
+    """Face et hauteur de zone du point cliqué sur ``part`` (vide sans point ou si la pièce
+    n'est pas un côté debout : réglages automatiques)."""
+    selection = Gui.Selection.getSelectionEx()
+    points = selection[0].PickedPoints if selection else ()
+    if not points:
+        return {}
+    local = part.getGlobalPlacement().inverse().multVec(points[0])
+    try:
+        face, height = picked_choice(placed_blank(blank_of(part)), Vec3(local.x, local.y, local.z))
+    except (JointError, ValueError):
+        return {}
+    return {"face": face, "zone_height": round(height, 3)}
 
 
 def selected_part() -> DocumentObject | None:

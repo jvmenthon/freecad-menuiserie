@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import pytest
 
-from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock
+from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock, Vec3
 from freecad.menuiserie.core.joints import JointKind, strategy_for
-from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams
+from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams, picked_choice
 from tests.unit.aides_assemblages import block, placed, rotation_y
 
 SHELF_PINS = strategy_for(JointKind.SHELF_PINS)
@@ -97,6 +97,23 @@ def test_face_interieure_automatique_ou_choisie() -> None:
     assert cylinders(SHELF_PINS.plan(wall, wall, other).host_cuts)[0].base.z == 0.0
     forced = ShelfPinsParams(neighbors=cabinet(), face="minus")
     assert cylinders(SHELF_PINS.plan(wall, wall, forced).host_cuts)[0].base.z == 0.0
+
+
+def test_zone_du_clic_entre_deux_pieces_assemblees() -> None:
+    wall = side()
+    middle = panel(-720.0 + 400.0)  # séparation fixe au milieu (de 400 à 419 mm)
+    neighbors = (*cabinet(), middle)
+    lower = SHELF_PINS.resolve(wall, wall, ShelfPinsParams(neighbors=neighbors))
+    assert lower.heights[0] == 83.0 and lower.heights[-1] <= 400.0 - 64.0  # zone la plus grande
+    # clic à 550 mm du bas, sur la face +Z : zone du haut, de 419 à 701 mm
+    face, height = picked_choice(wall, Vec3(720.0 - 550.0, 250.0, 19.0))
+    assert (face, height) == ("plus", 550.0)
+    upper = SHELF_PINS.resolve(
+        wall, wall, ShelfPinsParams(neighbors=neighbors, face=face, zone_height=height)
+    )
+    assert upper.heights[0] == 419.0 + 64.0 and upper.heights[-1] <= 701.0 - 64.0
+    assert upper.zone_height == (419.0 + 701.0) / 2 and upper.face == "plus"
+    assert picked_choice(wall, Vec3(100.0, 250.0, 0.0))[0] == "minus"
 
 
 def test_valeurs_automatiques_a_zero() -> None:

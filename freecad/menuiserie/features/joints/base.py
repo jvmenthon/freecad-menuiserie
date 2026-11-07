@@ -154,6 +154,7 @@ class JointFeature(StatelessProxy):
     # Faux quand les deux rôles sont symétriques (mi-bois, onglet) : pas de bouton
     # « Inverser » dans le panneau (demande de jv).
     INVERTIBLE: ClassVar[bool] = True
+    INVERT_TIP: ClassVar[str] = ""  # infobulle du bouton « Inverser » (vide : échange des rôles)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Refuse dès l'import un type d'assemblage sans ``PARAMS`` (sinon : erreur au recalcul)."""
@@ -181,6 +182,10 @@ class JointFeature(StatelessProxy):
             for spec in cls.specs()
             if spec.choices
         }
+
+    def invert(self, obj: DocumentObject) -> None:
+        """« Inverser » du panneau : la pièce hôte devient l'invitée et inversement."""
+        obj.HostPart, obj.GuestPart = obj.GuestPart, obj.HostPart
 
     def params(self, obj: DocumentObject) -> Any:
         """Paramètres de ``core`` (objet valeur ``PARAMS`` du type) lus dans les propriétés."""

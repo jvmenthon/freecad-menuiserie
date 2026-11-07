@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Perçage LR32 : la commande perce la face et la zone (entre deux pièces assemblées au côté) où l'on a cliqué (propriété « Hauteur de la zone percée », 0 : la plus grande zone) ; le bouton « Inverser » du panneau perce l'autre face.
 - Faux tenons et biscuits en automatique : le premier et le dernier sont à 50 mm des bords (au milieu sur un contact plus court) et à 150 mm au plus l'un de l'autre, comme l'usage courant (avant : jusqu'au bord, une mortaise tous les 60 mm). La liste devient « Taille standard » (sans la marque) et l'entrée « Automatique » indique la taille choisie ; elle se masque avec la case « Taille personnalisée ».
 - Perçage LR32 : la face percée est la face intérieure (contre laquelle sont posées des pièces), les trous s'arrêtent aux pièces assemblées au côté (fond, dessus) avec 64 mm de marge, un taquet est posé sous chaque tablette libre, et le déplacement d'une tablette s'aimante entre son dessous et le dessus plat du taquet. Un réglage « Auto » à 0 ne refuse plus les pieds ni le perçage.
 - **Perçage LR32** (`make_shelf_pins`, commande « Perçage LR32 et taquets », une seule pièce : un côté de caisson debout) : deux colonnes de trous de 5 mm au pas de 32 mm, à 37 mm des bords et 64 mm du haut et du bas, autant de rangs que le côté en reçoit ; les **taquets de tablette** (acier) sont posés dans un rang au choix (rang du milieu par défaut) et comptés dans la liste de débit. Références génériques `taquet-tablette-5` et `taquet-tablette-8`.

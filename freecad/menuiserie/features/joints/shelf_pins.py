@@ -21,6 +21,7 @@ from freecad.menuiserie.features.joints.base import (
     is_joint,
     params_from,
     placed_blank,
+    resolved_for,
 )
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec
@@ -56,7 +57,17 @@ class ShelfPinsJoint(JointFeature):
     OBJECT_NAME: ClassVar[str] = "ShelfPins"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Perçage LR32")
     PARAMS: ClassVar[type[ShelfPinsParams]] = ShelfPinsParams
-    INVERTIBLE: ClassVar[bool] = False  # une seule pièce
+    INVERT_TIP: ClassVar[str] = QT_TRANSLATE_NOOP(
+        "Menuiserie", "Perce l'autre face du côté (les trous et les taquets changent de face)."
+    )
+
+    def invert(self, obj: DocumentObject) -> None:
+        """« Inverser » : l'autre face du côté est percée."""
+        try:
+            current = resolved_for(obj).face  # type: ignore[attr-defined]
+        except ValueError:
+            current = "minus" if obj.Face == "plus" else "plus"
+        obj.Face = "minus" if current == "plus" else "plus"
 
     def params(self, obj: DocumentObject) -> Any:
         """Réglages des propriétés, plus les pièces voisines du côté dans le document : celles
@@ -184,6 +195,20 @@ class ShelfPinsJoint(JointFeature):
             QT_TRANSLATE_NOOP("App::Property", "Saillie du taquet hors de la face du côté."),
             default=_DEFAULTS.pin_projection,
             label=QT_TRANSLATE_NOOP("Menuiserie", "Saillie des taquets"),
+        ),
+        PropertySpec(
+            "ZoneHeight",
+            LENGTH,
+            _GROUP,
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Hauteur, depuis le bas du côté, d'un point de la zone à percer (entre deux pièces "
+                "assemblées au côté) : celle du clic à la création. 0 : automatique, la plus "
+                "grande zone libre.",
+            ),
+            default=_DEFAULTS.zone_height,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Hauteur de la zone percée"),
+            resolved="zone_height",
         ),
         PropertySpec(
             "Face",

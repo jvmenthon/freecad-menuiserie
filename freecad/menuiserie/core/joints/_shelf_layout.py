@@ -118,9 +118,12 @@ def heights_of(box: Box, bottom: float, down: float, vertical: int) -> tuple[flo
     return min(first, second), max(first, second)
 
 
-def free_window(fixed: list[tuple[float, float]], total: float) -> tuple[float, float]:
-    """Plus grand intervalle libre de ``[0, total]`` entre les zones occupées par les pièces
-    assemblées (le plus bas en cas d'égalité) ; ``(0, 0)`` si tout est occupé."""
+def free_window(
+    fixed: list[tuple[float, float]], total: float, target: float = 0.0
+) -> tuple[float, float]:
+    """Intervalle libre de ``[0, total]`` entre les zones occupées par les pièces assemblées :
+    celui qui contient la hauteur ``target`` (point cliqué), sinon le plus grand (le plus bas en
+    cas d'égalité) ; ``(0, 0)`` si tout est occupé."""
     gaps = []
     cursor = 0.0
     for low, high in sorted((max(low, 0.0), min(high, total)) for low, high in fixed):
@@ -131,6 +134,10 @@ def free_window(fixed: list[tuple[float, float]], total: float) -> tuple[float, 
         gaps.append((cursor, total))
     if not gaps:
         return 0.0, 0.0
+    if target > 0:
+        for low, high in gaps:
+            if low <= target <= high:
+                return low, high
     return max(gaps, key=lambda gap: (round(gap[1] - gap[0], 6), -gap[0]))
 
 
