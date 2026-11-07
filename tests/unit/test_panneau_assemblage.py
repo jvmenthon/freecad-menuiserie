@@ -148,7 +148,7 @@ def test_les_commandes_ouvrent_le_panneau() -> None:
     ("panel", "base", "overridden"),
     [
         ("wood_part.py", "ObjectTaskPanel", {"accept"}),  # refus d'une épaisseur (ADR 0019)
-        ("joint.py", "ObjectTaskPanel", set()),
+        ("joint.py", "ObjectTaskPanel", {"accept"}),  # refus d'un assemblage en erreur
         ("furniture.py", "ObjectTaskPanel", {"accept"}),  # refus d'une cote cassante
         ("carcass.py", "TransactionTaskPanel", {"accept"}),  # issue #40
     ],

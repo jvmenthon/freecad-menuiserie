@@ -250,6 +250,35 @@ def verifier_assemblage_impossible_refuse() -> list[str]:
         ]
 
 
+def verifier_ok_refuse_si_assemblage_en_erreur() -> list[str]:
+    """Demande de jv : « OK » du panneau d'assemblage refusé (et grisé) tant que l'assemblage
+    est en erreur ; « Annuler » reste possible."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.gui.commands.base import REFUSAL_BOX_NAME
+
+    with cadre("VerifOkRefuse") as (doc, pieces):
+        joint = assembler(doc, pieces["T1"], pieces["M1"], ok=False)
+        if joint is None or not Gui.Control.activeDialog():
+            return ["aucun panneau d'assemblage ouvert"]
+        loin = App.Placement(App.Vector(5000, 5000, 5000), App.Rotation())
+        pieces["T1"].Placement = loin  # les pièces ne se touchent plus : impossible
+        doc.recompute()
+        valider()
+        boite = Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
+        message = boite.text() if boite is not None and boite.isVisible() else ""
+        if boite is not None:
+            boite.hide()
+        problemes = [
+            *ecarts("panneau toujours ouvert", bool(Gui.Control.activeDialog()), True),
+            *ecarts("message de refus", "non validé" in message, True),
+        ]
+        if Gui.Control.activeDialog():
+            annuler()
+        problemes += ecarts("annulé", bool(Gui.Control.activeDialog()), False)
+    return problemes
+
+
 # --- C3, C6 : affichage ------------------------------------------------------------------
 
 
@@ -490,6 +519,7 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_activation_des_commandes_d_assemblage,
     verifier_creation_d_un_assemblage,
     verifier_assemblage_impossible_refuse,
+    verifier_ok_refuse_si_assemblage_en_erreur,
     verifier_affichage_de_la_piece_usinee,
     verifier_affichage_de_l_assemblage,
     verifier_reouverture_des_assemblages,
