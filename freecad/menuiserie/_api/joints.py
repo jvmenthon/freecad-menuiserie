@@ -143,22 +143,27 @@ def make_loose_tenons(
     """Relie deux pièces par des faux tenons (type Domino) logés dans une mortaise plate de
     chaque pièce, et recalcule le document.
 
-    Paramètres facultatifs en mm (0 = automatique, la plus grande taille du commerce qui tient) :
-    ``thickness``, ``along``, ``total_depth``, ``count``, ``edge_distance``,
-    ``thickness_offset``, ``hole_clearance`` ; ``reference`` : identifiant d'un faux tenon du
-    catalogue de quincaillerie (ADR 0033), qui fixe la taille sauf cotes données. Mêmes
-    validations et même absence de transaction que :func:`make_mortise_tenon`.
+    ``size`` : taille de la liste Festool (``"auto"``, la plus grande qui tient, par défaut ;
+    ``"8x50"``…) ; ``reference`` : identifiant d'un faux tenon du catalogue de quincaillerie
+    (ADR 0033), qui fixe cette taille. Des cotes données en mm (``thickness``, ``along``,
+    ``total_depth``, 0 = automatique) passent en taille personnalisée (``custom_size``).
+    Autres paramètres : ``count``, ``edge_distance``, ``thickness_offset``, ``hole_clearance``.
+    Mêmes validations et même absence de transaction que :func:`make_mortise_tenon`.
     """
     kind = JointKind.LOOSE_TENON
-    return _make_joint(create_loose_tenons, host, guest, _with_reference(kind, params), check)
+    fixed = _with_reference(kind, params)
+    if any(name in fixed for name in ("thickness", "along", "total_depth")):
+        fixed = {"custom_size": True, **fixed}  # cotes saisies : taille personnalisée
+    return _make_joint(create_loose_tenons, host, guest, fixed, check)
 
 
 def make_biscuits(
     host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
 ) -> DocumentObject:
     """Relie deux pièces par des biscuits (lamelles) logés dans une fente de chaque pièce, et
-    recalcule le document. Mêmes paramètres que :func:`make_loose_tenons` ; ``reference`` désigne
-    un biscuit du catalogue."""
+    recalcule le document. ``size`` : lamelle Lamello (``"auto"``, la plus grande qui tient, par
+    défaut ; ``"0"``, ``"10"``, ``"20"``) ; ``reference`` désigne un biscuit du catalogue ; pas
+    de taille personnalisée. Autres paramètres comme :func:`make_loose_tenons`."""
     return _make_joint(
         create_biscuits, host, guest, _with_reference(JointKind.BISCUIT, params), check
     )

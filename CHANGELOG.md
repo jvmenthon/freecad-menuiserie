@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Faux tenons et biscuits rangés avec les assemblages. **Faux tenons** : mortaise à bouts demi-ronds comme les Domino de Festool, taille choisie dans la liste Festool (4 x 20 à 10 x 50 mm, ou « Automatique », par défaut) ; la case « Taille personnalisée » masque la liste et montre les cotes à saisir. **Biscuits** : forme de lamelle Lamello, taille choisie dans la liste (n° 0, 10, 20 ou « Automatique »), sans taille personnalisée. Dans l'API, `size=` choisit la taille ; `reference=` en tire la taille ; des cotes données (`thickness`, `along`, `total_depth`) passent un faux tenon en taille personnalisée.
 - Barre d'outils et menu de l'atelier regroupés par thème : Pièces, Assemblages, Quincaillerie, Ensembles, Liste de débit (une barre d'outils chacun, séparés par un trait dans le menu). Icônes des faux tenons, des biscuits et des coulisses redessinées (la pièce seule, sans planches), et celle des pieds.
 - Quincaillerie, lots Q-e (pieds) et Q-f (coulisses) (#159, ADR 0033) : **pieds de caisson
   réglables** (`make_foot`, une seule pièce : grille de pieds sous un panneau couché, logements de
@@ -23,7 +24,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   `make_biscuits` prend l'identifiant d'une référence du catalogue (ex. `domino-8x50`) et fixe
   les cotes du commerce. La liste de débit compte les faux tenons et les biscuits (taille et
   largeur) avec les tourillons ; l'en-tête « Diamètre (mm) » du CSV devient « Diamètre ou
-  épaisseur (mm) ». Les formes arrondies du commerce sont simplifiées en boîtes.
+  épaisseur (mm) ».
 - Quincaillerie, lots Q-a et Q-b (#159, ADR 0033) : catalogue de références du commerce en JSON
   strict (`quincaillerie.json`, format 1), lu avec les mêmes garde-fous que les matériaux,
   entrées invalides ignorées une à une avec anomalie, sources fusionnées par identifiant (la plus

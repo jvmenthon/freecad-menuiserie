@@ -192,16 +192,8 @@ def test_reference_vers_parametres_d_assemblage() -> None:
         catalog.get(i) for i in ("tourillon-8x35", "domino-8x50", "biscuit-20")
     )
     assert joint_params(dowel, JointKind.DOWELS) == {"diameter": 8.0, "dowel_length": 35.0}
-    assert joint_params(domino, JointKind.LOOSE_TENON) == {
-        "thickness": 8.0,
-        "along": 22.0,
-        "total_depth": 50.0,
-    }
-    assert joint_params(biscuit, JointKind.BISCUIT) == {
-        "thickness": 4.0,
-        "along": 56.0,
-        "total_depth": 23.0,
-    }
+    assert joint_params(domino, JointKind.LOOSE_TENON) == {"size": "8x50"}
+    assert joint_params(biscuit, JointKind.BISCUIT) == {"size": "20"}
     assert joint_kind_of(catalog.get("vis-bois-4x40")) is None
     with pytest.raises(TemplatedError, match="ne convient pas"):
         joint_params(domino, JointKind.BISCUIT)

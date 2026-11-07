@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from freecad.menuiserie.core.joints._slot_shapes import Point2, half_stadium, rounded_rectangle
 from tests.integration.cadre import placement
 
 App = pytest.importorskip("FreeCAD")
@@ -23,6 +24,13 @@ api = pytest.importorskip("freecad.menuiserie.api")
 Size = tuple[float, float, float]
 Where = tuple[float, float, float]  # x, y, rotation autour de Z (degrés)
 Pose = Where | Any  # ou un ``App.Placement`` (pièce debout)
+
+
+def polygon_area(points: tuple[Point2, ...]) -> float:
+    """Aire d'un polygone plan (formule du lacet)."""
+    pairs = zip(points, (*points[1:], points[0]), strict=True)
+    return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in pairs)) / 2
+
 
 # Repère quelconque où sont posés les montages (rotation et translation non triviales) : seule
 # la position relative des pièces compte.
@@ -80,8 +88,9 @@ DOWELS = Scenario(
 # Contact de 60 x 22 (cadre M1 / T1) : deux faux tenons 6 x 20 (taille automatique, au plus le tiers
 # de l'épaisseur), mortaisés de 20 + 1 dans chaque pièce ; un seul biscuit n° 20 (56 x 4, 23 de
 # pénétration), fente de 11,5 + 1 dans chaque pièce.
-LOOSE_TENON_HOLE_VOLUME = 6 * 20 * 21
-BISCUIT_HOLE_VOLUME = 56 * 4 * 12.5
+# Mortaises à bouts demi-ronds (stade 20 x 6) et fente en demi-lamelle (stade de 56, rayon 12,5).
+LOOSE_TENON_HOLE_VOLUME = polygon_area(rounded_rectangle(20, 6, 3)) * 21
+BISCUIT_HOLE_VOLUME = polygon_area(half_stadium(56, 12.5)) * 4
 LOOSE_TENON = Scenario(
     "faux tenons",
     "make_loose_tenons",

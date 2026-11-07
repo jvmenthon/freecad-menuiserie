@@ -40,6 +40,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
                 "Menuiserie_TongueGroove",
                 "Menuiserie_Rabbet",
                 "Menuiserie_Dowels",
+                "Menuiserie_LooseTenon",
+                "Menuiserie_Biscuit",
                 "Menuiserie_HalfLap",
                 "Menuiserie_Dovetail",
                 "Menuiserie_Miter",
@@ -48,8 +50,6 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         (
             QT_TRANSLATE_NOOP("Workbench", "Quincaillerie"),
             (
-                "Menuiserie_LooseTenon",
-                "Menuiserie_Biscuit",
                 "Menuiserie_Foot",
                 "Menuiserie_DrawerSlide",
             ),

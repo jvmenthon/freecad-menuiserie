@@ -27,7 +27,7 @@ NOT_A_JOINT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "La référence « {id} » ({family}) ne se pose pas comme un assemblage."
 )
 
-_Params = Callable[[HardwareItem], dict[str, float]]
+_Params = Callable[[HardwareItem], dict[str, float | str]]
 
 _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
     {
@@ -40,29 +40,21 @@ _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
 )
 
 
-def _dowel(item: HardwareItem) -> dict[str, float]:
+def _dowel(item: HardwareItem) -> dict[str, float | str]:
     return {"diameter": item.param("diameter"), "dowel_length": item.param("length")}
 
 
-def _loose_tenon(item: HardwareItem) -> dict[str, float]:
-    # Domino : largeur le long du joint, longueur à travers le joint.
-    return {
-        "thickness": item.param("thickness"),
-        "along": item.param("width"),
-        "total_depth": item.param("length"),
-    }
+def _loose_tenon(item: HardwareItem) -> dict[str, float | str]:
+    # Domino : taille de la liste Festool (identifiant du catalogue sans préfixe).
+    return {"size": item.id.removeprefix("domino-")}
 
 
-def _biscuit(item: HardwareItem) -> dict[str, float]:
-    # Lamelle : longueur le long du joint, largeur à travers le joint.
-    return {
-        "thickness": item.param("thickness"),
-        "along": item.param("length"),
-        "total_depth": item.param("width"),
-    }
+def _biscuit(item: HardwareItem) -> dict[str, float | str]:
+    # Lamelle : taille de la liste Lamello (identifiant du catalogue sans préfixe).
+    return {"size": item.id.removeprefix("biscuit-")}
 
 
-def _foot(item: HardwareItem) -> dict[str, float]:
+def _foot(item: HardwareItem) -> dict[str, float | str]:
     return {
         "stem_diameter": item.param("stem_diameter"),
         "base_diameter": item.param("base_diameter"),
@@ -70,7 +62,7 @@ def _foot(item: HardwareItem) -> dict[str, float]:
     }
 
 
-def _drawer_slide(item: HardwareItem) -> dict[str, float]:
+def _drawer_slide(item: HardwareItem) -> dict[str, float | str]:
     return {"length": item.param("length"), "thickness": item.param("thickness")}
 
 
@@ -90,7 +82,7 @@ def joint_kind_of(item: HardwareItem) -> JointKind | None:
     return _KINDS.get(item.family)
 
 
-def joint_params(item: HardwareItem, kind: JointKind) -> dict[str, float]:
+def joint_params(item: HardwareItem, kind: JointKind) -> dict[str, float | str]:
     """Paramètres de l'assemblage ``kind`` fixés par ``item`` (mm) ; ``TemplatedError`` si la
     référence est d'une autre famille."""
     own = joint_kind_of(item)
