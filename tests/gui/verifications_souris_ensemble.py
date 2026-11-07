@@ -20,10 +20,13 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore
 
+from freecad.menuiserie import api
+from freecad.menuiserie.features.freecad_types import placement_expression
 from freecad.menuiserie.features.furniture_container import std_part_of
 from freecad.menuiserie.features.furniture_drag import turn_refusal
 from freecad.menuiserie.gui.drag import events
 from tests.gui.verifications_double_clic import vue_3d_active
+from tests.gui.verifications_ensemble import pieces_du_bureau
 from tests.gui.verifications_panneau import annuler, ecarts
 from tests.gui.verifications_panneau_ensemble import bureau_regroupe, ouvrir
 from tests.gui.verifications_souris import (
@@ -85,6 +88,16 @@ def centre(ensemble: Any) -> tuple[float, float, float]:
     o = ensemble.Origin
     p = std_part_of(ensemble).Placement.multVec(local + App.Vector(o.x, o.y, o.z))
     return round(p.x, 3), round(p.y, 3), round(p.z, 3)
+
+
+def bureau_et_caisson(bureau: Any) -> tuple[Any, Any]:
+    """Bureau (plateau, joue gauche, caisson) dont le caisson (joue droite et voile) est lié par
+    son parent : le ``Placement`` de son Std Part suit une expression de l'atelier."""
+    caisson, _ = api.make_furniture([bureau.parts[m] for m in ("JD", "V")], "Caisson")
+    ensemble, _ = api.make_furniture(
+        [bureau.parts["P"], bureau.parts["JG"], caisson], label="Bureau"
+    )
+    return ensemble, caisson
 
 
 @contextmanager
@@ -542,6 +555,51 @@ def verifier_souris_ensemble_panneau_ouvert() -> list[str]:
         return _panneau_ouvert(bureau, session)
 
 
+# --- Sous-ensemble --------------------------------------------------------------------------
+
+
+def _sous_ensemble(bureau: Any, session: Any, caisson: Any) -> list[str]:
+    doc, std = bureau.doc, std_part_of(caisson)
+    doc.clearUndos()
+    selection_dessinee(caisson)
+    avant = App.Placement(std.Placement)
+    problemes = [
+        *ecarts("sous-ensemble : la cible", session.part, caisson),
+        *ecarts("sous-ensemble lié : flèches", len(session.layout.arrows), 3),
+        *ecarts("sous-ensemble lié : anneaux", len(session.layout.rings), 3),
+        *ecarts("sous-ensemble : liaison du parent", placement_expression(std) is not None, True),
+    ]
+    fleche = next(a for a in session.layout.arrows if a.axis == 0)
+    point = session.port.project(fleche.end)
+    session.move((round(point[0]), round(point[1])))
+    problemes += ecarts("flèche X saisie", session.press((round(point[0]), round(point[1]))), True)
+    tirer(session, 40.0, shift=True)
+    arrivee = tirer(session, 40.0, shift=True)
+    problemes += [
+        *proche("sous-ensemble déplacé", std.Placement.Base.x, avant.Base.x + 40.0, TOLERANCE),
+        *ecarts("relâchement consommé", session.release(arrivee), True),
+        *ecarts("une transaction", doc.UndoNames, [DEPLACER]),
+        *ecarts("liaison reposée par le parent", placement_expression(std) is not None, True),
+    ]
+    doc.undo()
+    session.sync()
+    return [
+        *problemes,
+        *ecarts("Ctrl+Z : position", std.Placement == avant, True),
+        *ecarts("Ctrl+Z : liaison", placement_expression(std) is not None, True),
+    ]
+
+
+def verifier_souris_ensemble_sous_ensemble() -> list[str]:
+    """B5, Q2 : un sous-ensemble lié par son parent se déplace par son propre Std Part (le parent
+    repose sa liaison), un Ctrl+Z rend la position et la liaison."""
+    with pieces_du_bureau("VerifSourisEnsembleSous") as bureau:
+        session = preparer(bureau.doc)
+        vue_isometrique()
+        _, caisson = bureau_et_caisson(bureau)
+        return _sous_ensemble(bureau, session, caisson)
+
+
 # --- Le reste est rendu à FreeCAD -----------------------------------------------------------
 
 
@@ -597,5 +655,6 @@ VERIFICATIONS_SOURIS_ENSEMBLE: tuple[Callable[[], list[str]], ...] = (
     verifier_souris_ensemble_echap,
     verifier_souris_ensemble_sans_std_part_propre,
     verifier_souris_ensemble_panneau_ouvert,
+    verifier_souris_ensemble_sous_ensemble,
     verifier_souris_ensemble_evenements_rendus,
 )

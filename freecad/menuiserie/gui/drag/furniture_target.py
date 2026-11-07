@@ -6,9 +6,10 @@ boîte en transparence, de six doubles flèches de face (taille), de trois flèc
 et de trois anneaux de rotation. Les écritures viennent de ``features/furniture_drag`` : la
 taille par ``resize_furniture_to`` (brutes seules, cote refusée = arrêt à la dernière valeur
 permise), le déplacement et la rotation par le ``Placement`` du Std Part propre à l'ensemble.
-Sans Std Part propre (ancien document, Std Part partagé, formule), ni flèches de déplacement ni
-anneaux : les faces avant, gauche et basse sont refusées par la taille avec le message de
-``turn_refusal``.
+Sans Std Part propre (ancien document, Std Part partagé, formule de l'utilisateur sur son
+placement), ni flèches de déplacement ni anneaux : les faces avant, gauche et basse sont refusées
+par la taille avec le message de ``turn_refusal``. Un sous-ensemble lié par son parent garde
+flèches et anneaux : le geste met ses liaisons de côté et le parent les repose au relâchement.
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ from freecad.menuiserie.core.magnet import Guide, Handle, ResizeResult
 from freecad.menuiserie.core.rotation import Ring
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.features.drag_joints import JointChoice
+from freecad.menuiserie.features.freecad_types import expressions_of
+from freecad.menuiserie.features.furniture_bindings import workshop_expressions
 from freecad.menuiserie.features.furniture_container import guide_container, own_std_part
 from freecad.menuiserie.features.furniture_drag import (
     FurnitureMemento,
@@ -37,7 +40,6 @@ from freecad.menuiserie.features.furniture_drag import (
     resize_furniture_to,
     restore,
     rotate_furniture_by,
-    turn_refusal,
 )
 from freecad.menuiserie.features.magnet_guides import collect_guides
 from freecad.menuiserie.features.solids import rigid_transform
@@ -94,13 +96,25 @@ class FurnitureTarget(Target):
         container = part.getGlobalPlacement() * part.Placement.inverse()
         return build_rings(box, rigid_transform(part.Placement), rigid_transform(container))
 
+    def _free(self) -> bool:
+        """Vrai si l'ensemble a un Std Part propre dont aucune formule de l'utilisateur ne pilote le
+        ``Placement`` : flèches et anneaux sont proposés. Les liaisons de l'atelier d'un
+        sous-ensemble ne comptent pas : le geste les met de côté et le parent les repose (B5)."""
+        part = own_std_part(self.obj)
+        if part is None:
+            return False
+        workshop = workshop_expressions(self.obj)
+        return all(
+            path.split(".")[0] != "Placement" or path in workshop for path in expressions_of(part)
+        )
+
     def layout(self, size_mm: float, panel_shown: bool) -> Layout:
         del panel_shown  # les poignées sont là dès la sélection
         frame, box = self.frame(), self.box()
         found = furniture_layout(box, frame, size_mm)
         if found.is_empty:
             raise ValueError(_NO_VOLUME)
-        free = turn_refusal(self.obj) is None  # Std Part propre, sans formule sur son placement
+        free = self._free()
         return Layout(
             frame,
             box,

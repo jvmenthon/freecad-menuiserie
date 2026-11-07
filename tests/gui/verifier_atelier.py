@@ -47,6 +47,9 @@ from tests.gui.verifications_panneau_assemblage_fermeture import (
     VERIFICATIONS_PANNEAU_ASSEMBLAGE_FERMETURE,
 )
 from tests.gui.verifications_panneau_ensemble import VERIFICATIONS_PANNEAU_ENSEMBLE
+from tests.gui.verifications_panneau_ensemble_rotation import (
+    VERIFICATIONS_PANNEAU_ENSEMBLE_ROTATION,
+)
 from tests.gui.verifications_panneau_expressions import VERIFICATIONS_PANNEAU_EXPRESSIONS
 from tests.gui.verifications_panneau_limites import VERIFICATIONS_LIMITES
 from tests.gui.verifications_panneau_rotation import VERIFICATIONS_PANNEAU_ROTATION
@@ -59,6 +62,7 @@ from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
+from tests.gui.verifications_souris_ensemble import VERIFICATIONS_SOURIS_ENSEMBLE
 from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
 from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATION
 from tests.gui.verifications_transparence_assemblage import VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE
@@ -1267,6 +1271,9 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_SOURIS_DOCUMENT,
     # Anneaux de rotation (RO-d)
     *VERIFICATIONS_SOURIS_ROTATION,
+    # Taille et orientation d'un ensemble à la souris (EN-c) et dans son panneau (EN-d)
+    *VERIFICATIONS_SOURIS_ENSEMBLE,
+    *VERIFICATIONS_PANNEAU_ENSEMBLE_ROTATION,
     # Assemblage défait au relâchement (ADR 0026)
     *VERIFICATIONS_ARONDE_RELACHEMENT,
     # Distance entre deux pièces (DI-b)

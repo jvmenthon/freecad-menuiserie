@@ -24,8 +24,9 @@ from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.rotation import Angles, angles_of
-from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.furniture_bindings import workshop_expressions
 from freecad.menuiserie.features.furniture_checks import quoted_label
 from freecad.menuiserie.features.furniture_container import own_std_part
 from freecad.menuiserie.features.furniture_drag import rotate_furniture_to, turn_refusal
@@ -56,12 +57,19 @@ _LINKED: Final = QT_TRANSLATE_NOOP(
 )
 
 
+def _linked_by_parent(furniture: DocumentObject) -> bool:
+    """Vrai si l'ensemble est un sous-ensemble dont le parent lie la position du Std Part
+    (liaison de l'atelier sur son ``Placement``)."""
+    if furniture_of(furniture) is None:
+        return False
+    return any(path.split(".")[0] == "Placement" for path in workshop_expressions(furniture))
+
+
 def angle_refusal(furniture: DocumentObject) -> str | None:
     """Raison (traduite) pour laquelle ``rotate_furniture_to`` est impossible pour ``furniture``,
     ``None`` s'il peut tourner : sous-ensemble lié par son parent, pas de Std Part propre, position
     du Std Part pilotée par une formule."""
-    part = own_std_part(furniture)
-    if part is not None and furniture_of(furniture) is not None and placement_expression(part):
+    if own_std_part(furniture) is not None and _linked_by_parent(furniture):
         return translated(_LINKED, quoted_label(furniture))
     return turn_refusal(furniture)
 
