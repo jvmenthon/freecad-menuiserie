@@ -41,6 +41,7 @@ __all__ = [
     "OBLIQUE_SUMMARY",
     "OBLIQUE_SUMMARY_IF",
     "JointFeature",
+    "inverted_error",
     "is_joint",
     "params_from",
     "parts_mismatch",
@@ -190,6 +191,11 @@ class JointFeature(StatelessProxy):
         """« Inverser » du panneau : la pièce hôte devient l'invitée et inversement."""
         obj.HostPart, obj.GuestPart = obj.GuestPart, obj.HostPart
 
+    def invert_error(self, obj: DocumentObject) -> str | None:
+        """Message traduit si les rôles échangés rendraient l'assemblage impossible, ``None``
+        sinon ; ne modifie rien (panneau : « Inverser » grisé avec cette explication)."""
+        return inverted_error(obj)
+
     def part_joints_changed(self, obj: DocumentObject) -> None:
         """Un assemblage a été ajouté à une de ses pièces ou retiré ; rien par défaut (le
         perçage LR32, qui dépend des assemblages voisins, se fait recalculer)."""
@@ -306,6 +312,17 @@ def plan_for(joint: DocumentObject) -> JointPlan:
         strategy, host, guest, params = _inputs(joint)
         plan: JointPlan = strategy.plan(host, guest, params)
     return plan
+
+
+def inverted_error(joint: DocumentObject) -> str | None:
+    """Message traduit si ``joint`` serait impossible rôles échangés, ``None`` sinon."""
+    try:
+        with translated_errors():
+            strategy, host, guest, params = _inputs(joint)
+            strategy.plan(guest, host, params)
+    except ValueError as error:
+        return str(error)
+    return None
 
 
 def resolved_for(joint: DocumentObject) -> object:

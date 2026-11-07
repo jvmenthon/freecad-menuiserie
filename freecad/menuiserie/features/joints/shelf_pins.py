@@ -132,6 +132,10 @@ class ShelfPinsJoint(JointFeature):
         "Menuiserie", "Perce l'autre face du côté (les trous et les taquets changent de face)."
     )
 
+    def invert_error(self, obj: DocumentObject) -> str | None:
+        """Toujours possible : « Inverser » change de face, pas de rôles."""
+        return None
+
     def invert(self, obj: DocumentObject) -> None:
         """« Inverser » : l'autre face du côté est percée (le montant opposé reste percé sur sa
         face tournée vers le côté)."""
