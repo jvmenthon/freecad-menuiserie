@@ -81,6 +81,10 @@ class PropertySpec:
     visible_if: str = (
         ""  # champ du panneau montré seulement si cette valeur effective est non nulle
     )
+    hidden_if: str = ""  # champ du panneau masqué si cette valeur effective est non nulle
+    shows_chosen: str = (
+        ""  # énumération dont l'entrée « automatique » nomme la valeur effective choisie
+    )
 
 
 def version_spec(tooltip: str, version: int) -> PropertySpec:

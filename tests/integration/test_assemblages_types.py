@@ -9,9 +9,11 @@ import pytest
 
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.types_assemblages import (
+    BISCUIT,
     DOWEL_HOLE_VOLUME,
     DOWEL_VOLUME,
     DOWELS,
+    LOOSE_TENON,
     SCENARIOS,
     TONGUE_GROOVE,
     Montage,
@@ -50,6 +52,17 @@ PROPERTIES: dict[str, list[Row]] = {
         ("ThicknessOffset", DISTANCE, "Tourillons", 0.0),
         ("HoleClearance", LENGTH, "Tourillons", 1.0),
     ],
+    "make_loose_tenons": [
+        ("Size", "App::PropertyEnumeration", "Mortaises", "auto"),
+        ("CustomSize", BOOL, "Mortaises", False),
+        ("Thickness", LENGTH, "Mortaises", 0.0),
+        ("Along", LENGTH, "Mortaises", 0.0),
+        ("TotalDepth", LENGTH, "Mortaises", 0.0),
+        ("Count", "App::PropertyIntegerConstraint", "Mortaises", 0),
+        ("EdgeDistance", LENGTH, "Mortaises", 0.0),
+        ("ThicknessOffset", DISTANCE, "Mortaises", 0.0),
+        ("HoleClearance", LENGTH, "Mortaises", 1.0),
+    ],
     "make_half_lap": [("Depth", LENGTH, "Mi-bois", 0.0), ("FlipSide", BOOL, "Mi-bois", False)],
     "make_dovetail": [
         ("TailCount", "App::PropertyIntegerConstraint", "Queue d'aronde", 0),
@@ -57,8 +70,13 @@ PROPERTIES: dict[str, list[Row]] = {
         ("Angle", "App::PropertyAngle", "Queue d'aronde", 0.0),
         ("TailsOnHost", BOOL, "Queue d'aronde", False),
     ],
+    "make_biscuits": [],  # mêmes propriétés que les faux tenons (voir ci-dessous)
     "make_miter": [],  # aucune propriété propre (A4 de J4)
 }
+
+PROPERTIES["make_biscuits"] = PROPERTIES["make_loose_tenons"]  # taille de la liste Lamello
+# Biscuits : pas de taille personnalisée, ses propriétés sont masquées.
+HIDDEN = {"make_biscuits": {"CustomSize", "Thickness", "Along", "TotalDepth"}}
 
 
 def value_of(obj: Any, name: str) -> object:
@@ -87,7 +105,8 @@ def test_proprietes_par_type(document: Any, scenario: Scenario) -> None:
         assert joint.getTypeIdOfProperty(name) == type_id, name
         assert joint.getGroupOfProperty(name) == group, name
         assert joint.getDocumentationOfProperty(name), name
-        assert joint.getEditorMode(name) == [], name
+        hidden = name in HIDDEN.get(scenario.factory, ())
+        assert joint.getEditorMode(name) == (["Hidden"] if hidden else []), name
         assert value_of(joint, name) == default, name
     joint_class = type(joint.Proxy)
     assert {spec.name for spec in joint_class.specs()} == COMMON | {row[0] for row in rows}
@@ -260,3 +279,46 @@ def test_tourillons_impossibles_en_erreur(document: Any) -> None:
     montage.joint.Count = 0
     document.recompute()
     montage.assert_expected()
+
+
+def test_reference_du_catalogue_fixe_la_taille(document: Any) -> None:
+    """``reference`` (ADR 0033) choisit la taille de la liste ; des cotes données passent en
+    taille personnalisée (faux tenons) et l'emportent."""
+    montage = build(document, LOOSE_TENON, reference="domino-8x50")
+    joint = montage.joint
+    assert (joint.Size, joint.CustomSize) == ("8x50", False)
+    assert (joint.Thickness.Value, joint.Along.Value, joint.TotalDepth.Value) == (0, 0, 0)
+    custom = build(document, LOOSE_TENON, reference="domino-8x50", thickness=5)
+    assert custom.joint.CustomSize is True and custom.joint.Thickness.Value == 5
+    other = build(document, BISCUIT, reference="biscuit-10")
+    assert (other.joint.Size, other.joint.CustomSize) == ("10", False)
+    dowels = build(document, DOWELS, reference="tourillon-8x35")
+    assert (dowels.joint.Diameter.Value, dowels.joint.DowelLength.Value) == (8, 35)
+
+
+@pytest.mark.parametrize("factory", ["make_loose_tenons", "make_biscuits"])
+def test_planches_face_contre_face(document: Any, factory: str) -> None:
+    """Faux tenons et biscuits se posent aussi entre deux planches qui se touchent par leurs
+    faces."""
+    host = wood(document, "H", (600, 100, 22), (0, 0, 0))
+    above = App.Placement(App.Vector(0, 0, 22), App.Rotation())  # (x, y, angle) ne monte pas
+    guest = wood(document, "I", (600, 100, 22), above)
+    document.recompute()
+    joint = getattr(api, factory)(host, guest)
+    document.recompute()
+    assert joint.isValid(), joint.getStatusString()
+    assert joint.Shape.Volume > 0
+    assert api.machined_part_of(host).Shape.Volume < 600 * 100 * 22
+    assert api.machined_part_of(guest).Shape.Volume < 600 * 100 * 22
+    assert stale_or_invalid(document) == []
+
+
+def test_reference_refusee_avant_creation(document: Any) -> None:
+    count = len(document.Objects)
+    with pytest.raises(ValueError, match="inconnue"):
+        build(document, BISCUIT, reference="n-existe-pas")
+    with pytest.raises(ValueError, match="ne convient pas"):
+        build(document, BISCUIT, reference="domino-8x50")
+    with pytest.raises(ValueError, match="ne se pose pas"):
+        build(document, DOWELS, reference="vis-bois-4x40")
+    assert len(document.Objects) == count + 6  # seules les pièces brutes des trois essais

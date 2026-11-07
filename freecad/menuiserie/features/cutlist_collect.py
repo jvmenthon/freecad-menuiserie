@@ -20,9 +20,9 @@ from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.cutlist_parts import (
     CollectNoticeKind,
-    dowel_hardware,
     entry_of,
-    is_dowel_joint,
+    hardware_of,
+    is_hardware_joint,
     notice,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -186,11 +186,11 @@ def _roots(doc: Document, objects: Sequence[DocumentObject] | None) -> list[Docu
 
 
 def _hardware(doc: Document, walk: _Walk, notices: list[Notice]) -> list[Hardware]:
-    """Tourillons des assemblages dont les deux pièces sont dans la portée, autant de fois que
-    les deux pièces sont vues ensemble (liens compris)."""
+    """Pièces rapportées (tourillons, faux tenons, biscuits) des assemblages dont les deux pièces
+    sont dans la portée, autant de fois que les deux pièces sont vues ensemble (liens compris)."""
     found = []
     for joint in doc.Objects:
-        if not is_dowel_joint(joint):
+        if not is_hardware_joint(joint):
             continue
         host, guest = joint.HostPart, joint.GuestPart
         if host is None or guest is None:
@@ -199,7 +199,7 @@ def _hardware(doc: Document, walk: _Walk, notices: list[Notice]) -> list[Hardwar
         if not times:
             continue
         walk.read.setdefault(joint.Name, joint)
-        item = dowel_hardware(joint, times, notices)
+        item = hardware_of(joint, times, notices)
         if item is not None:
             found.append(item)
     return found

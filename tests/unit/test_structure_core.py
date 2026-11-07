@@ -30,6 +30,11 @@ MAX_MODULE_LINES = 400
 # API publique figée de la façade (critère R4), par sous-module d'origine : un retrait ou un
 # ajout se décide en revue.
 PUBLIC_API_BY_MODULE: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # Ajoutés pour le catalogue de quincaillerie (ADR 0033), qui réutilise la lecture bornée.
+    ("_entry", ("JsonObject",)),
+    ("_issues", ("capped", "make_issue")),
+    ("_model", ("normalized_id",)),
+    ("_reader", ("read_json_file",)),
     ("_issues", ("MAX_ISSUES", "MAX_LISTED_KEYS", "LibraryFormatError", "LibraryIssue")),
     ("_issues", ("Severity",)),
     ("_merge", ("load_library", "merge_materials")),

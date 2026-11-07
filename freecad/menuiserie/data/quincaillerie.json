@@ -1,0 +1,364 @@
+{
+  "format": 1,
+  "items": [
+    {
+      "id": "tourillon-6x30",
+      "family": "dowel",
+      "label": "Tourillon cannelé Ø6 × 30 mm",
+      "params": {
+        "diameter": 6,
+        "length": 30
+      },
+      "source": "Tourillons cannelés du commerce (norme courante, cotes à confirmer sur fiche), 2026-11"
+    },
+    {
+      "id": "tourillon-8x35",
+      "family": "dowel",
+      "label": "Tourillon cannelé Ø8 × 35 mm",
+      "params": {
+        "diameter": 8,
+        "length": 35
+      },
+      "source": "Tourillons cannelés du commerce (norme courante, cotes à confirmer sur fiche), 2026-11"
+    },
+    {
+      "id": "tourillon-10x40",
+      "family": "dowel",
+      "label": "Tourillon cannelé Ø10 × 40 mm",
+      "params": {
+        "diameter": 10,
+        "length": 40
+      },
+      "source": "Tourillons cannelés du commerce (norme courante, cotes à confirmer sur fiche), 2026-11"
+    },
+    {
+      "id": "domino-4x20",
+      "family": "loose-tenon",
+      "label": "Faux tenon Domino 4 × 20 mm",
+      "params": {
+        "thickness": 4,
+        "width": 16.6,
+        "length": 20
+      },
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
+      "manufacturer": "Festool",
+      "reference": "Domino 4x20"
+    },
+    {
+      "id": "domino-5x30",
+      "family": "loose-tenon",
+      "label": "Faux tenon Domino 5 × 30 mm",
+      "params": {
+        "thickness": 5,
+        "width": 19,
+        "length": 30
+      },
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
+      "manufacturer": "Festool",
+      "reference": "Domino 5x30"
+    },
+    {
+      "id": "domino-6x40",
+      "family": "loose-tenon",
+      "label": "Faux tenon Domino 6 × 40 mm",
+      "params": {
+        "thickness": 6,
+        "width": 20,
+        "length": 40
+      },
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
+      "manufacturer": "Festool",
+      "reference": "Domino 6x40"
+    },
+    {
+      "id": "domino-8x40",
+      "family": "loose-tenon",
+      "label": "Faux tenon Domino 8 × 40 mm",
+      "params": {
+        "thickness": 8,
+        "width": 22,
+        "length": 40
+      },
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
+      "manufacturer": "Festool",
+      "reference": "Domino 8x40"
+    },
+    {
+      "id": "domino-8x50",
+      "family": "loose-tenon",
+      "label": "Faux tenon Domino 8 × 50 mm",
+      "params": {
+        "thickness": 8,
+        "width": 22,
+        "length": 50
+      },
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
+      "manufacturer": "Festool",
+      "reference": "Domino 8x50"
+    },
+    {
+      "id": "domino-10x50",
+      "family": "loose-tenon",
+      "label": "Faux tenon Domino 10 × 50 mm",
+      "params": {
+        "thickness": 10,
+        "width": 24,
+        "length": 50
+      },
+      "source": "Fiches produit Festool (festoolusa.com, festool.com, festool.fr), 2026-11 ; largeur nominale",
+      "manufacturer": "Festool",
+      "reference": "Domino 10x50"
+    },
+    {
+      "id": "biscuit-0",
+      "family": "biscuit",
+      "label": "Biscuit n° 0 (47 × 15 mm)",
+      "params": {
+        "thickness": 4,
+        "width": 15,
+        "length": 47
+      },
+      "source": "Tailles de lamelles Lamello P-system, fiche technique publique, 2026-11 (à confirmer)",
+      "manufacturer": "Lamello",
+      "reference": "n° 0"
+    },
+    {
+      "id": "biscuit-10",
+      "family": "biscuit",
+      "label": "Biscuit n° 10 (53 × 19 mm)",
+      "params": {
+        "thickness": 4,
+        "width": 19,
+        "length": 53
+      },
+      "source": "Tailles de lamelles Lamello P-system, fiche technique publique, 2026-11 (à confirmer)",
+      "manufacturer": "Lamello",
+      "reference": "n° 10"
+    },
+    {
+      "id": "biscuit-20",
+      "family": "biscuit",
+      "label": "Biscuit n° 20 (56 × 23 mm)",
+      "params": {
+        "thickness": 4,
+        "width": 23,
+        "length": 56
+      },
+      "source": "Tailles de lamelles Lamello P-system, fiche technique publique, 2026-11 (à confirmer)",
+      "manufacturer": "Lamello",
+      "reference": "n° 20"
+    },
+    {
+      "id": "vis-bois-3-5x16",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø3,5 × 16 mm",
+      "params": {
+        "diameter": 3.5,
+        "length": 16
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-3-5x25",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø3,5 × 25 mm",
+      "params": {
+        "diameter": 3.5,
+        "length": 25
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-3-5x30",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø3,5 × 30 mm",
+      "params": {
+        "diameter": 3.5,
+        "length": 30
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-3-5x40",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø3,5 × 40 mm",
+      "params": {
+        "diameter": 3.5,
+        "length": 40
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-4x30",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø4 × 30 mm",
+      "params": {
+        "diameter": 4,
+        "length": 30
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-4x40",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø4 × 40 mm",
+      "params": {
+        "diameter": 4,
+        "length": 40
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-4x50",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø4 × 50 mm",
+      "params": {
+        "diameter": 4,
+        "length": 50
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-5x50",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø5 × 50 mm",
+      "params": {
+        "diameter": 5,
+        "length": 50
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-5x60",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø5 × 60 mm",
+      "params": {
+        "diameter": 5,
+        "length": 60
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "vis-bois-5x80",
+      "family": "wood-screw",
+      "label": "Vis à bois Ø5 × 80 mm",
+      "params": {
+        "diameter": 5,
+        "length": 80
+      },
+      "source": "Visserie à bois et aggloméré courante, tête fraisée, 2026-11 (longueurs courantes)"
+    },
+    {
+      "id": "charniere-cuvette-35",
+      "family": "hinge-cup-35",
+      "label": "Charnière à cuvette Ø35 (générique)",
+      "params": {
+        "cup_diameter": 35,
+        "cup_depth": 13
+      },
+      "source": "Cotes usuelles des charnières à cuvette, générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-300",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 300 mm (générique)",
+      "params": {
+        "length": 300,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-350",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 350 mm (générique)",
+      "params": {
+        "length": 350,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-400",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 400 mm (générique)",
+      "params": {
+        "length": 400,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-450",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 450 mm (générique)",
+      "params": {
+        "length": 450,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-500",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 500 mm (générique)",
+      "params": {
+        "length": 500,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "coulisse-billes-550",
+      "family": "drawer-slide-ball",
+      "label": "Coulisse à billes 550 mm (générique)",
+      "params": {
+        "length": 550,
+        "thickness": 12.7
+      },
+      "source": "Cotes usuelles des coulisses à billes (45 mm de haut, 12,7 mm d'épaisseur), générique sans marque, 2026-11"
+    },
+    {
+      "id": "pied-caisson-m10-50",
+      "family": "cabinet-foot",
+      "label": "Pied de caisson réglable M10, embase Ø50 (générique)",
+      "params": {
+        "stem_diameter": 10,
+        "base_diameter": 50,
+        "height": 15
+      },
+      "source": "Cotes usuelles des pieds de caisson à tige M10, générique sans marque, 2026-11"
+    },
+    {
+      "id": "pied-caisson-m8-40",
+      "family": "cabinet-foot",
+      "label": "Pied de caisson réglable M8, embase Ø40 (générique)",
+      "params": {
+        "stem_diameter": 8,
+        "base_diameter": 40,
+        "height": 12
+      },
+      "source": "Cotes usuelles des pieds de caisson à tige M8, générique sans marque, 2026-11"
+    },
+    {
+      "id": "taquet-tablette-5",
+      "family": "shelf-pin",
+      "label": "Taquet de tablette à tige Ø5 (générique)",
+      "params": {
+        "diameter": 5,
+        "length": 19
+      },
+      "source": "Taquets à tige pour perçage 32 mm, Ø5, générique sans marque, 2026-11"
+    },
+    {
+      "id": "taquet-tablette-8",
+      "family": "shelf-pin",
+      "label": "Taquet de tablette à tige Ø8 (générique)",
+      "params": {
+        "diameter": 8,
+        "length": 24
+      },
+      "source": "Taquets à tige Ø8, générique sans marque, 2026-11"
+    }
+  ]
+}

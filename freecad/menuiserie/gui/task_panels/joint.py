@@ -34,6 +34,7 @@ from freecad.menuiserie.features.joints.base import (
     plan_for,
     resolved_for,
 )
+from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
@@ -59,6 +60,10 @@ _INVERT_TIP: Final = QT_TRANSLATE_NOOP(
 )
 _ROLES: Final = ("HostPart", "GuestPart")
 _ERROR_STYLE: Final = "color: #c0392b;"
+_FIX_FIRST: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Assemblage impossible, non validé : corriger l'erreur ou annuler. {error}"
+)
+_TASK_VIEW: Final = "TaskView"  # classe Qt de la vue des tâches de FreeCAD (porte « OK »)
 
 
 class JointTaskPanel(ObjectTaskPanel):
@@ -83,6 +88,8 @@ class JointTaskPanel(ObjectTaskPanel):
         layout.addWidget(self._error)
         self._refresh()
         self._transparency = PartsPreview(self._shown_parts, object_alive)
+        # « OK » grisé dès l'affichage si l'assemblage est déjà en erreur (bouton créé après).
+        QtCore.QTimer.singleShot(0, self._refresh_ok)
 
     # --- Construction ---------------------------------------------------------------------
 
@@ -101,11 +108,35 @@ class JointTaskPanel(ObjectTaskPanel):
             return host, guest
         button = QtGui.QPushButton(translated(_INVERT))
         button.setObjectName("invertButton")
-        button.setToolTip(translated(_INVERT_TIP))
+        button.setToolTip(translated(proxy.INVERT_TIP or _INVERT_TIP))
         button.setEnabled(not any(expression_of(self.obj, role) for role in _ROLES))
         connect(button, "clicked()", self._invert)
         layout.addWidget(button)
         return host, guest
+
+    # --- Validation -----------------------------------------------------------------------
+
+    def accept(self) -> bool:
+        """« OK » refusé tant que l'assemblage est en erreur : le panneau reste ouvert."""
+        error = joint_error(self.obj)
+        if error is not None:
+            report_refusal(translated(_FIX_FIRST, {"error": error}))
+            self._refresh()
+            return False
+        return super().accept()
+
+    def _ok_button(self) -> Widget | None:
+        """Bouton « OK » de la vue des tâches qui affiche le panneau, ``None`` hors affichage."""
+        widget = self.form.parentWidget() if self.form is not None else None
+        while widget is not None and _TASK_VIEW not in widget.metaObject().className():
+            widget = widget.parentWidget()
+        if widget is None:
+            return None
+        for box in widget.findChildren(QtGui.QDialogButtonBox):
+            button = box.button(QtGui.QDialogButtonBox.Ok)
+            if button is not None:
+                return button
+        return None
 
     # --- Transparence ---------------------------------------------------------------------
 
@@ -137,8 +168,9 @@ class JointTaskPanel(ObjectTaskPanel):
         self._refresh()
 
     def _invert(self) -> None:
-        """« Inverser » : la pièce hôte devient l'invitée et inversement."""
-        self.obj.HostPart, self.obj.GuestPart = self.obj.GuestPart, self.obj.HostPart
+        """« Inverser » : la pièce hôte devient l'invitée et inversement (ou, pour un perçage,
+        l'autre face est percée)."""
+        self.obj.Proxy.invert(self.obj)
         self.preview()
         self._refresh()
 
@@ -160,6 +192,15 @@ class JointTaskPanel(ObjectTaskPanel):
         error = joint_error(self.obj)
         self._error.setText(error or "")
         self._error.setVisible(error is not None)
+        self._refresh_ok(error)
+
+    def _refresh_ok(self, error: str | None = None) -> None:
+        """« OK » grisé tant que l'assemblage est en erreur (sans effet panneau fermé)."""
+        if self.closed:
+            return
+        button = self._ok_button()
+        if button is not None:
+            button.setEnabled((error if error is not None else joint_error(self.obj)) is None)
 
 
 def joint_error(joint: DocumentObject) -> str | None:
