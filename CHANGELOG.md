@@ -14,7 +14,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   entre un côté de caisson et un côté de tiroir face à face avec un jeu : longueur du commerce de
   250 à 600 mm, hauteur réglée, avant-trous au pas de 32 mm dans les deux côtés). Références
   génériques au catalogue (`pied-caisson-m10-50`, `coulisse-billes-450`…), commandes, icônes et
-  décompte dans la liste de débit. Charnières à cuvette et vis restent à faire. Une coulisse se pose même si les côtés se touchent ou se chevauchent ; une fenêtre propose alors de réduire le tiroir ou d'élargir le meuble du jeu qui manque (`api.slide_shortfall`, `api.make_room_for_slide`).
+  décompte dans la liste de débit. Les pieds ont une matière, plastique (par défaut : vissé, sans tige ni perçage, vis non modélisées) ou bois (tige percée dans le panneau), qui colore le pied et figure dans la liste de débit. Charnières à cuvette et vis restent à faire. Une coulisse se pose même si les côtés se touchent ou se chevauchent ; une fenêtre propose alors de réduire le tiroir ou d'élargir le meuble du jeu qui manque (`api.slide_shortfall`, `api.make_room_for_slide`).
 - Quincaillerie, lots Q-c et Q-d (#159, ADR 0033) : deux nouveaux assemblages, **faux tenons**
   (type Domino) et **biscuits**, avec une mortaise plate dans chaque pièce, taille du commerce
   choisie automatiquement d'après le contact (au plus un tiers de l'épaisseur), nombre,

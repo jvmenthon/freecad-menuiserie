@@ -103,6 +103,13 @@ HARDWARE_LABELS: Final[Mapping[HardwareKind, str]] = MappingProxyType(
     }
 )
 HARDWARE_WIDTH: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (largeur {width} mm)")
+HARDWARE_MATERIAL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} ({material})")
+HARDWARE_MATERIALS_LABELS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "plastic": QT_TRANSLATE_NOOP("Menuiserie", "plastique"),
+        "wood": QT_TRANSLATE_NOOP("Menuiserie", "bois"),
+    }
+)
 ADDITIONS_REMARK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Ajouts compris (L / l / e) : {length} / {width} / {thickness} mm"
 )
@@ -205,6 +212,9 @@ def _hardware_row(item: Hardware, translate: Translate, dialect: CsvDialect) -> 
     if item.width:
         width = format_number(item.width, DIMENSION_DECIMALS, dialect)
         label = translate(HARDWARE_WIDTH).format(label=label, width=width)
+    if item.material:
+        material = translate(HARDWARE_MATERIALS_LABELS[item.material])
+        label = translate(HARDWARE_MATERIAL).format(label=label, material=material)
     return [
         label,
         format_number(item.diameter, DIMENSION_DECIMALS, dialect),

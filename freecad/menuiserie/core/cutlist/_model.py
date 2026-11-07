@@ -68,6 +68,7 @@ _BAD_ROUGH_THICKNESSES: Final = QT_TRANSLATE_NOOP(
 )
 _FIELDS: Final[Mapping[str, str]] = MappingProxyType(
     {
+        "material": QT_TRANSLATE_NOOP("Menuiserie", "matière"),
         "record": QT_TRANSLATE_NOOP("Menuiserie", "pièce"),
         "quantity": QT_TRANSLATE_NOOP("Menuiserie", "quantité"),
         "additions": QT_TRANSLATE_NOOP("Menuiserie", "ajouts"),
@@ -226,6 +227,9 @@ class HardwareKind(str, Enum):
     DRAWER_SLIDE = "DrawerSlide"
 
 
+HARDWARE_MATERIALS: Final = ("", "plastic", "wood")
+
+
 @dataclass(frozen=True)
 class Hardware:
     """Fourniture : ``quantity`` pièces de ``diameter`` sur ``length`` (mm). Un tourillon donne
@@ -237,8 +241,11 @@ class Hardware:
     length: float
     quantity: int
     width: float = 0.0
+    material: str = ""  # "plastic" ou "wood" (pieds) ; vide : sans objet
 
     def __post_init__(self) -> None:
+        if self.material not in HARDWARE_MATERIALS:
+            raise _refuse(_BAD_TYPE, "material", self.material)
         if not isinstance(self.kind, HardwareKind):
             raise _refuse(_BAD_TYPE, "kind", self.kind)
         object.__setattr__(self, "diameter", _require_length(self.diameter, "diameter"))

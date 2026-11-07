@@ -24,6 +24,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import (
     JointKind,
     JointPlan,
+    choice_param,
     count_param,
     length_param,
     mm_text,
@@ -31,9 +32,10 @@ from freecad.menuiserie.core.joints._base import (
 )
 from freecad.menuiserie.core.joints.dowels import positions
 
-__all__ = ["FootParams", "FootStrategy", "FootValues"]
+__all__ = ["FOOT_MATERIALS", "FootParams", "FootStrategy", "FootValues"]
 
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au-dessus du logement de la tige
+FOOT_MATERIALS: Final = ("plastic", "wood")  # matière du pied : plastique (défaut) ou bois
 AUTO_EDGE_MM: Final = 50.0  # distance des pieds au bord du panneau, par défaut
 _DOWN: Final = Vec3(0.0, 0.0, -1.0)
 _TILT_TOLERANCE: Final = 1e-3
@@ -73,6 +75,7 @@ class FootParams:
     columns: int = count_param(2)
     rows: int = count_param(2)
     edge_distance: float = length_param(0.0)
+    foot_material: str = choice_param("plastic", FOOT_MATERIALS)
 
     def __post_init__(self) -> None:
         validate_params(self)
@@ -95,6 +98,7 @@ class FootValues:
     rows: int
     edge_distance: float
     centers: tuple[tuple[float, float], ...]  # (x, y) de chaque pied dans l'hôte
+    foot_material: str = "plastic"
 
     @property
     def count(self) -> int:
@@ -113,7 +117,8 @@ class FootStrategy:
         return _checked(host, params)
 
     def plan(self, host: PlacedBlock, guest: PlacedBlock, params: FootParams) -> JointPlan:
-        """Perçages du panneau et pièces rapportées (embase et tige) sous chaque pied."""
+        """Pieds en bois : logement de tige percé et tige rapportée. Pieds en plastique (vissés,
+        vis non modélisées) : embase seule sous le panneau, qui n'est pas percé."""
         face = _underside(host)
         values = _checked(host, params)
         box = host.local_box()
@@ -121,13 +126,11 @@ class FootStrategy:
         holes, inserts = [], []
         for x, y in values.centers:
             base = Vec3(x, y, plane)
-            holes.append(
-                Cylinder(base, face.opposite(), values.stem_diameter / 2, values.hole_depth)
-            )
             inserts.append(Cylinder(base, face, values.base_diameter / 2, values.height))
-            inserts.append(
-                Cylinder(base, face.opposite(), values.stem_diameter / 2, values.hole_depth)
-            )
+            if values.foot_material == "wood":
+                stem = Cylinder(base, face.opposite(), values.stem_diameter / 2, values.hole_depth)
+                holes.append(stem)
+                inserts.append(stem)
         return JointPlan(host_cuts=tuple(holes), inserts=tuple(inserts))
 
 
@@ -143,10 +146,11 @@ def _underside(host: PlacedBlock) -> Axis:
 def _checked(host: PlacedBlock, params: FootParams) -> FootValues:
     box = host.local_box()
     thickness = box.size(2)
-    if params.stem_diameter >= params.base_diameter:
+    wood = params.foot_material == "wood"  # seul un pied en bois a une tige et perce le panneau
+    if wood and params.stem_diameter >= params.base_diameter:
         text = {"diameter": mm_text(params.stem_diameter), "base": mm_text(params.base_diameter)}
         raise JointError(STEM_TOO_WIDE, text)
-    if params.hole_depth > thickness - MIN_BOTTOM_MM:
+    if wood and params.hole_depth > thickness - MIN_BOTTOM_MM:
         text = {
             "depth": mm_text(params.hole_depth),
             "thickness": mm_text(thickness),
@@ -174,6 +178,7 @@ def _checked(host: PlacedBlock, params: FootParams) -> FootValues:
         params.rows,
         edge,
         centers,
+        params.foot_material,
     )
 
 

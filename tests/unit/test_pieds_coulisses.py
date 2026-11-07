@@ -12,6 +12,7 @@ from freecad.menuiserie.core.joints.slides import SlideParams
 from tests.unit.aides_assemblages import block, placed, rotation_y
 
 FOOT = strategy_for(JointKind.FOOT)
+WOOD = FootParams(foot_material="wood")
 SLIDE = strategy_for(JointKind.DRAWER_SLIDE)
 
 
@@ -30,7 +31,7 @@ def test_quatre_pieds_aux_coins() -> None:
     values = FOOT.resolve(panel, panel, FootParams())
     assert values.count == 4 and values.edge_distance == 50.0
     assert sorted({x for x, _ in values.centers}) == [50.0, 550.0]
-    plan = FOOT.plan(panel, panel, FootParams())
+    plan = FOOT.plan(panel, panel, WOOD)
     holes = cylinders(plan.host_cuts)
     assert len(holes) == 4 and not plan.guest_cuts
     assert holes[0].base.z == 0.0 and holes[0].axis.value == "+Z"  # dans le panneau, vers le haut
@@ -56,9 +57,9 @@ def test_pieds_trop_serres_ou_trop_profonds() -> None:
     with pytest.raises(JointError):
         FOOT.plan(panel, panel, FootParams(columns=12))
     with pytest.raises(JointError):
-        FOOT.plan(panel, panel, FootParams(hole_depth=18))
+        FOOT.plan(panel, panel, FootParams(hole_depth=18, foot_material="wood"))
     with pytest.raises(JointError):
-        FOOT.plan(panel, panel, FootParams(stem_diameter=60))
+        FOOT.plan(panel, panel, FootParams(stem_diameter=60, foot_material="wood"))
 
 
 def sides(gap: float = 12.7) -> tuple[PlacedBlock, PlacedBlock]:
@@ -139,3 +140,22 @@ def test_coulisse_choisit_l_axe_le_plus_proche() -> None:
     guest = block((450.0, 150.0, 16.0), (600.0, 50.0, 31.7))  # séparé aussi selon X (100 mm)
     with pytest.raises(JointError):  # aucun recouvrement : refus net
         SLIDE.plan(host, guest, SlideParams())
+
+
+def test_matiere_des_pieds() -> None:
+    panel = bottom_panel()
+    assert FOOT.resolve(panel, panel, FootParams()).foot_material == "plastic"
+    assert FOOT.resolve(panel, panel, FootParams(foot_material="wood")).foot_material == "wood"
+    with pytest.raises(JointError):
+        FootParams(foot_material="acier")
+
+
+def test_pieds_en_plastique_sans_tige_ni_percage() -> None:
+    panel = bottom_panel()
+    plan = FOOT.plan(panel, panel, FootParams())
+    assert not plan.host_cuts and not plan.guest_cuts
+    assert len(plan.inserts) == 4  # l'embase seule, sous le panneau
+    base = cylinders(plan.inserts)[0]
+    assert base.axis.value == "-Z" and base.height == 15.0
+    # Sans tige : ni tige trop large ni logement trop profond ne gênent.
+    assert FOOT.plan(panel, panel, FootParams(stem_diameter=60, hole_depth=18)).inserts

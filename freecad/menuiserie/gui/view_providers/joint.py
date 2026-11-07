@@ -21,6 +21,7 @@ ViewObject = Any
 
 BEECH_ID: Final = "hetre"
 BEECH_COLOR: Final = (0xD9, 0xB4, 0x8A)  # #D9B48A, si la bibliothèque n'a pas de hêtre
+PLASTIC_COLOR: Final = (0x3A, 0x3A, 0x3C)  # #3A3A3C, pieds en plastique
 FALLBACK_ICON: Final = "menuiserie.svg"
 
 
@@ -29,11 +30,18 @@ class ViewProviderJoint(PanelEditing):
 
     def __init__(self, vobj: ViewObject) -> None:
         vobj.Proxy = self
-        show_diffuse(vobj, beech_color())
+        plastic = getattr(vobj.Object, "FootMaterial", "") == "plastic"
+        show_diffuse(vobj, PLASTIC_COLOR if plastic else beech_color())
 
     def attach(self, vobj: ViewObject) -> None:
         """Garde le ViewObject (non enregistré) pour l'icône."""
         self.vobj = vobj
+
+    def updateData(self, obj: Any, prop: str) -> None:
+        """Couleur du pied selon sa matière (gris foncé : plastique, hêtre : bois)."""
+        if prop == "FootMaterial" and hasattr(self, "vobj"):
+            plastic = getattr(obj, "FootMaterial", "") == "plastic"
+            show_diffuse(self.vobj, PLASTIC_COLOR if plastic else beech_color())
 
     def getIcon(self) -> str:
         """Icône de la commande du type : ``Menuiserie_<type>.svg``."""

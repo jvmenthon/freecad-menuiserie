@@ -29,7 +29,7 @@ def volume(blank: Any) -> float:
 def test_pieds_sous_un_panneau(document: Any) -> None:
     panel = wood(document, "F", (600, 500, 19), (0, 0, 0))
     document.recompute()
-    joint = api.make_foot(panel)
+    joint = api.make_foot(panel, foot_material="wood")
     assert joint.HostPart == joint.GuestPart == panel
     assert volume(panel) == pytest.approx(PANEL - 4 * math.pi * 5**2 * 12)
     assert joint.Shape.Volume > 0  # embases et tiges rapportées
@@ -38,6 +38,22 @@ def test_pieds_sous_un_panneau(document: Any) -> None:
     assert volume(panel) == pytest.approx(PANEL - 6 * math.pi * 5**2 * 12)
     assert api.machined_part_of(panel).Joints == [joint]
     assert stale_or_invalid(document) == []
+
+
+def test_matiere_des_pieds(document: Any) -> None:
+    panel = wood(document, "F", (600, 500, 19), (0, 0, 0))
+    document.recompute()
+    joint = api.make_foot(panel, foot_material="wood")
+    assert joint.FootMaterial == "wood"
+    assert volume(panel) < PANEL  # tige percée dans le panneau
+    other = wood(document, "G", (600, 500, 19), (0, 900, 0))
+    document.recompute()
+    plastic = api.make_foot(other)
+    assert plastic.FootMaterial == "plastic"
+    assert volume(other) == pytest.approx(PANEL)  # vissé : le panneau n'est pas percé
+    joint.FootMaterial = "plastic"
+    document.recompute()
+    assert joint.isValid() and volume(panel) == pytest.approx(PANEL)
 
 
 def test_pieds_refuses_sur_panneau_pose_en_biais(document: Any) -> None:

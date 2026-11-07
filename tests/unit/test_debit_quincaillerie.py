@@ -64,3 +64,23 @@ def test_csv_pieds_et_coulisses() -> None:
     text = to_csv(cut_list, FRENCH_CSV)
     assert "Pied de caisson;10;15;4" in text
     assert "Coulisse de tiroir;12,7;450;2" in text
+
+
+def test_csv_matiere_des_pieds() -> None:
+    cut_list = build_cut_list(
+        [],
+        [
+            Hardware(HardwareKind.FOOT, 10.0, 15.0, 4, material="wood"),
+            Hardware(HardwareKind.FOOT, 10.0, 15.0, 2, material="wood"),
+            Hardware(HardwareKind.FOOT, 10.0, 15.0, 4, material="plastic"),
+        ],
+    )
+    assert [(h.material, h.quantity) for h in cut_list.hardware] == [("plastic", 4), ("wood", 6)]
+    text = to_csv(cut_list, FRENCH_CSV)
+    assert "Pied de caisson (plastique);10;15;4" in text
+    assert "Pied de caisson (bois);10;15;6" in text
+
+
+def test_matiere_inconnue_refusee() -> None:
+    with pytest.raises(ValueError):
+        Hardware(HardwareKind.FOOT, 10.0, 15.0, 4, material="acier")

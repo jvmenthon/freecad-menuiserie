@@ -106,4 +106,21 @@ class FootJoint(JointFeature):
             resolved="edge_distance",
             default=_DEFAULTS.edge_distance,
         ),
+        PropertySpec(
+            "FootMaterial",
+            "App::PropertyEnumeration",
+            _GROUP,
+            QT_TRANSLATE_NOOP(
+                "App::Property",
+                "Matière des pieds : plastique (vissé, ni tige ni perçage ; les vis ne sont pas "
+                "modélisées) ou bois (tige percée dans le panneau). Elle colore le pied et figure "
+                "dans la liste de débit.",
+            ),
+            default=_DEFAULTS.foot_material,
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Matière des pieds"),
+            choices=(
+                ("plastic", QT_TRANSLATE_NOOP("Menuiserie", "Plastique")),
+                ("wood", QT_TRANSLATE_NOOP("Menuiserie", "Bois")),
+            ),
+        ),
     )

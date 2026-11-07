@@ -320,7 +320,13 @@ def hardware_of(joint: DocumentObject, times: int, notices: list[Notice]) -> Har
         if hasattr(values, "dowel_length"):  # tourillons : valeurs de DowelValues
             return Hardware(HardwareKind.DOWEL, values.diameter, values.dowel_length, quantity)
         if hasattr(values, "base_diameter"):  # pieds : valeurs de FootValues
-            return Hardware(HardwareKind.FOOT, values.stem_diameter, values.height, quantity)
+            return Hardware(
+                HardwareKind.FOOT,
+                values.stem_diameter,
+                values.height,
+                quantity,
+                material=values.foot_material,
+            )
         if hasattr(values, "hole_positions"):  # coulisse : valeurs de SlideValues
             return Hardware(HardwareKind.DRAWER_SLIDE, values.thickness, values.length, quantity)
         kind = (
