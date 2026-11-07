@@ -301,7 +301,8 @@ def test_planches_face_contre_face(document: Any, factory: str) -> None:
     """Faux tenons et biscuits se posent aussi entre deux planches qui se touchent par leurs
     faces."""
     host = wood(document, "H", (600, 100, 22), (0, 0, 0))
-    guest = wood(document, "I", (600, 100, 22), (0, 0, 22))
+    above = App.Placement(App.Vector(0, 0, 22), App.Rotation())  # (x, y, angle) ne monte pas
+    guest = wood(document, "I", (600, 100, 22), above)
     document.recompute()
     joint = getattr(api, factory)(host, guest)
     document.recompute()
