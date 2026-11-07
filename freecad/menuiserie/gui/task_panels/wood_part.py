@@ -12,6 +12,8 @@ Lancée avec une sélection (J6d), la pièce est posée contre les éléments ch
 « Rotation » les cite (« Contre : … »), signale ceux qui sont ignorés ou qui ne touchent pas la
 pièce, et propose d'ajouter la pièce à l'ensemble de l'élément (case cochée par défaut).
 Trois champs d'angle X, Y, Z (:class:`AngleRows`) donnent la rotation libre de la pièce.
+À l'ouverture en création, les cotes initiales sont ramenées au jeu libre avant les autres
+pièces de bois (:func:`limit_initial_size`) ; la saisie du menuisier n'est jamais limitée.
 Toute saisie est visible aussitôt dans la vue 3D (cotes, matériau, fil, rotation).
 Une cote pilotée par une expression est affichée par le champ (icône d'expression) et n'est
 jamais écrite par le panneau. L'épaisseur d'une pièce membre d'un ensemble est contrôlée avant
@@ -46,6 +48,7 @@ from freecad.menuiserie.features.placement import (
     SnapSession,
     snap_part,
 )
+from freecad.menuiserie.features.size_limit import limit_initial_size
 from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
@@ -120,6 +123,9 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._drag = PanelDrag(self)  # flèches et poignées dans la vue 3D (ADR 0021)
         if self._session is not None and self._session.targets:
             self._recompute()
+        if self._session is not None and limit_initial_size(obj, self._session):
+            self._show_values()  # taille initiale ramenée au jeu libre (collision)
+            self.preview()
 
     # --- Affichage et saisies -------------------------------------------------------------
 
