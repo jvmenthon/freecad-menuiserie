@@ -7,6 +7,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Taille initiale d'une nouvelle pièce limitée par les collisions (demande de jv, 2026-11-07) : à
+  l'ouverture du panneau « Nouvelle pièce de bois », longueur, largeur puis épaisseur sont ramenées
+  au jeu libre avant les autres pièces de bois ; ensuite la saisie n'est jamais limitée.
 - Assemblages entre pièces en biais (#114, ADR 0024) : tenon-mortaise et rainure-languette entre
   deux pièces dont l'angle n'est pas un multiple de 90° (70° au plus, angles composés compris),
   épaulement sur la face de l'hôte, référence du tenon au choix (pièce à tenon, pièce mortaisée,

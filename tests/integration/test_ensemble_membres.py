@@ -89,7 +89,7 @@ def test_refus_avant_modification(bureau: Bureau, document: Any) -> None:
     with pytest.raises(TypeError, match="« Boite » n'est ni une pièce de bois"):
         api.add_to_furniture(bureau.furniture, [box])
     with pytest.raises(ValueError, match="« Plateau » est déjà membre de l'ensemble « Bureau »"):
-        api.make_furniture([bureau.parts["P"]])
+        api.make_furniture([bureau.parts["P"], api.make_wood_part(doc=document)])
     part = document.addObject("App::Part", "Conteneur")
     loose = api.make_wood_part(doc=document)
     part.addObject(loose)
@@ -274,3 +274,18 @@ def test_orphelin_ajoute_ou_retire(bureau: Bureau) -> None:
     assert bureau.expressions("JG")["Width"] == "<<Meuble>>.Depth"  # boîte de JD et V : 560
     doc.recompute()
     assert stale_or_invalid(doc) == []
+
+
+def test_sous_ensemble_depuis_des_membres(document: Any) -> None:
+    """Pièces déjà membres d'un ensemble : « Ensemble » crée un sous-ensemble (tiroir) dedans."""
+    bureau = build_parts(document)
+    furniture, _ = api.make_furniture(list(bureau.parts.values()), label="Bureau")
+    chosen = list(bureau.parts.values())[:2]
+    sub, _ = api.make_furniture(chosen, label="Tiroir")
+    assert sub.Furniture == furniture
+    assert all(part.Furniture == sub for part in chosen)
+    assert stale_or_invalid(document) == []
+    # Sélection mêlant membres d'ensembles différents : toujours refusée.
+    other = list(bureau.parts.values())[2]
+    with pytest.raises(ValueError, match="déjà membre"):
+        api.make_furniture([chosen[0], other])
