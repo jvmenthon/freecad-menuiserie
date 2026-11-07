@@ -8,12 +8,12 @@ pièce (le côté est percé, les taquets sont les pièces rapportées de la for
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, replace
 from typing import Any, ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints import JointKind
-from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams
+from freecad.menuiserie.core.joints import JointError, JointKind
+from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams, facing_side
 from freecad.menuiserie.core.part_model import InvalidDimensionsError
 from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject
 from freecad.menuiserie.features.joints.base import (
@@ -27,7 +27,7 @@ from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["ShelfPinsJoint"]
+__all__ = ["ShelfPinsJoint", "opposite_drilling"]
 
 _GROUP: Final = "Perçage LR32"
 _DEFAULTS: Final = ShelfPinsParams()
@@ -47,6 +47,48 @@ def _assembled_with(part: DocumentObject, other: DocumentObject) -> bool:
         if other_kind and other in (joint.HostPart, joint.GuestPart):
             return True
     return False
+
+
+def opposite_drilling(joint: DocumentObject) -> tuple[DocumentObject, dict[str, object]] | None:
+    """Côté debout en face de la face percée par ``joint`` (montant opposé du caisson) et
+    réglages de son perçage en miroir (mêmes cotes, face tournée vers ``joint``, même zone) ;
+    ``None`` s'il n'y en a pas, s'il est déjà percé ou si le perçage est impossible."""
+    part = joint.HostPart
+    try:
+        face = resolved_for(joint).face  # type: ignore[attr-defined]
+        host = placed_blank(part)
+    except (ValueError, InvalidDimensionsError):
+        return None
+    candidates, blocks = [], []
+    for other in timber_blanks_around(part):
+        try:
+            blocks.append(placed_blank(other))
+        except (ValueError, InvalidDimensionsError):
+            continue
+        candidates.append(other)
+    try:
+        found = facing_side(host, face, tuple(blocks))
+    except JointError:
+        return None
+    if found is None or _has_shelf_pins(candidates[found[0]]):
+        return None
+    index, other_face, low = found
+    params = params_from(joint, ShelfPinsParams)
+    settings: dict[str, object] = {
+        field.name: getattr(params, field.name)
+        for field in fields(params)
+        if field.name not in {"neighbors", "face", "zone_height"}
+    }
+    zone = params.zone_height
+    settings["face"] = other_face
+    settings["zone_height"] = max(zone - low, 0.0) if zone else 0.0
+    return candidates[index], settings
+
+
+def _has_shelf_pins(part: DocumentObject) -> bool:
+    machined = machined_part_of(part)
+    joints = getattr(machined, "Joints", ())
+    return any(is_joint(item) and item.Proxy.KIND is JointKind.SHELF_PINS for item in joints)
 
 
 class ShelfPinsJoint(JointFeature):

@@ -10,6 +10,7 @@ from freecad.menuiserie.core.joints import JointKind, strategy_for
 from freecad.menuiserie.core.joints.shelf_pins import (
     Neighbor,
     ShelfPinsParams,
+    facing_side,
     picked_choice,
     pin_rests,
 )
@@ -157,3 +158,23 @@ def test_refus() -> None:
         ShelfPinsParams(rows=-1)
     with pytest.raises(JointError, match="strictement positifs"):
         ShelfPinsParams(pitch=0)
+
+
+def other_side(x: float, z: float = 0.0) -> PlacedBlock:
+    """Côté debout parallèle à :func:`side`, à ``x`` (document), son haut à ``z``."""
+    return placed((720.0, 500.0, 19.0), rotation_y(90.0), (x, 0.0, z))
+
+
+def test_montant_oppose_en_face_de_la_face_percee() -> None:
+    shelf = block((600.0, 500.0, 19.0), (19.0, 0.0, -400.0))  # tablette : pas un côté debout
+    far, near = other_side(900.0), other_side(619.0, 19.0)
+    found = facing_side(side(), "plus", (shelf, far, near))
+    assert found is not None
+    index, face, low = found
+    # le plus proche ; sa face -Z regarde le premier côté ; son bas 19 mm plus haut
+    assert (index, face) == (2, "minus") and low == pytest.approx(19.0)
+
+
+def test_pas_de_montant_oppose_de_l_autre_cote_ni_decale() -> None:
+    assert facing_side(side(), "minus", (other_side(619.0),)) is None
+    assert facing_side(side(), "plus", (other_side(619.0, 600.0),)) is None  # recouvre trop peu

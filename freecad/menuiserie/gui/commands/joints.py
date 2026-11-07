@@ -300,13 +300,14 @@ class ShelfPinsCommand(FootCommand):
     MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_ShelfPins", "Perçage LR32 et taquets")
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_ShelfPins",
-        "Perce le côté sélectionné de deux colonnes de trous au pas de 32 mm et pose les "
-        "taquets de la tablette dans un rang.",
+        "Perce le côté sélectionné et le montant opposé de deux colonnes de trous au pas de "
+        "32 mm et pose les taquets sous les tablettes.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Percer un côté au pas de 32 mm")
 
     def Activated(self) -> None:
-        """Perçage de la pièce sélectionnée, sur la face et dans la zone du clic."""
+        """Perçage de la pièce sélectionnée, sur la face et dans la zone du clic, et par défaut
+        du montant opposé en miroir, dans la même transaction."""
         part = selected_part()
         if part is None:
             return
@@ -314,6 +315,7 @@ class ShelfPinsCommand(FootCommand):
         try:
             with aborted_on_error(App.getActiveTransaction()):
                 joint = api.make_shelf_pins(part, check=feasible_joint, **picked_zone(part))
+                api.make_opposite_shelf_pins(joint, check=feasible_joint)
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return

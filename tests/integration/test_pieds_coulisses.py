@@ -119,6 +119,23 @@ def test_taquets_sous_chaque_tablette(document: Any) -> None:
     assert stale_or_invalid(document) == []
 
 
+def test_percage_lr32_du_montant_oppose(document: Any) -> None:
+    side = upright_side(document)
+    board = shelf(document, 360)
+    where = App.Placement(App.Vector(638, 0, 720), App.Rotation(App.Vector(0, 1, 0), 90))
+    other = wood(document, "S", (720, 500, 19), where)  # montant opposé, x = 619 à 638
+    document.recompute()
+    joint = api.make_shelf_pins(side)
+    mirror = api.make_opposite_shelf_pins(joint)
+    assert mirror is not None and mirror.HostPart == other and board in mirror.Neighbors
+    assert mirror.Face != "auto" and mirror.isValid()
+    pin = math.pi * 2.5**2 * (12 + 7)
+    assert mirror.Shape.Volume == pytest.approx(2 * pin)  # taquets sous la même tablette
+    assert mirror.Shape.BoundBox.XMin == pytest.approx(619 - 7)  # face qui regarde le côté
+    assert api.make_opposite_shelf_pins(mirror) is None  # le premier côté est déjà percé
+    assert stale_or_invalid(document) == []
+
+
 def test_percage_lr32_refuse_sur_panneau_couche(document: Any) -> None:
     panel = wood(document, "F", (600, 500, 19), (0, 0, 0))
     document.recompute()

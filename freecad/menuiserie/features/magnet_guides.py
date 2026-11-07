@@ -205,7 +205,10 @@ def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tu
             continue
         rests = _pin_rests_shape(obj)  # dessus de taquet de chaque rang de trous
         if rests is not None:
+            # Seul le dessus du taquet attire la tablette : ni le dessous, ni les arêtes, ni
+            # la forme du perçage lui-même (haut du trou).
             found.append((0.0, index, rests))
+            continue
         shape = _global_shape(obj)
         if shape is None:
             continue

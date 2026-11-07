@@ -33,6 +33,7 @@ from freecad.menuiserie.features.joints.factories import (
     create_shelf_pins,
     create_tongue_groove,
 )
+from freecad.menuiserie.features.joints.shelf_pins import opposite_drilling
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 
 # --- Assemblages (J3, J4) -----------------------------------------------------------------
@@ -224,6 +225,19 @@ def make_shelf_pins(
     catalogue."""
     fixed = _with_reference(JointKind.SHELF_PINS, params)
     return _make_joint(_shelf_pins_factory, part, part, fixed, check)
+
+
+def make_opposite_shelf_pins(
+    joint: DocumentObject, *, check: _Check | None = None
+) -> DocumentObject | None:
+    """Perce en miroir du perçage LR32 ``joint`` le côté debout d'en face (montant opposé du
+    caisson) : mêmes cotes, face tournée vers le premier côté, même zone ; ``None`` sans côté
+    en face ou s'il est déjà percé."""
+    found = opposite_drilling(joint)
+    if found is None:
+        return None
+    part, params = found
+    return _make_joint(_shelf_pins_factory, part, part, params, check)
 
 
 _UNKNOWN_REFERENCE = QT_TRANSLATE_NOOP(

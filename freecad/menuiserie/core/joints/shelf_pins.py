@@ -13,7 +13,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core.geometry import Axis, Box, Cylinder, JointError, PlacedBlock, Vec3
+from freecad.menuiserie.core.geometry import (
+    Axis,
+    Box,
+    Cylinder,
+    JointError,
+    PlacedBlock,
+    Vec3,
+    is_square,
+    moved_box,
+    relative_transform,
+)
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import (
     JointKind,
@@ -43,6 +53,7 @@ __all__ = [
     "ShelfPinsParams",
     "ShelfPinsStrategy",
     "ShelfPinsValues",
+    "facing_side",
     "picked_choice",
     "pin_rests",
 ]
@@ -237,6 +248,44 @@ def picked_choice(host: PlacedBlock, point: Vec3) -> tuple[str, float]:
     near_plus = abs(point.z - box.hi(2)) <= abs(point.z - box.lo(2))
     height = (bottom - point.component(vertical)) * down
     return ("plus" if near_plus else "minus"), max(height, 0.0)
+
+
+def facing_side(
+    host: PlacedBlock, face: str, others: tuple[PlacedBlock, ...]
+) -> tuple[int, str, float] | None:
+    """Côté debout parallèle le plus proche en face de la face percée ``face`` (``plus`` ou
+    ``minus``) de ``host`` et qui le recouvre au moins de moitié : (indice dans ``others``, sa face
+    tournée vers ``host``, hauteur de son bas au-dessus du bas de ``host``) ; ``None`` sans côté."""
+    vertical, down = _upright(host)
+    horizontal = 1 - vertical
+    box = host.local_box()
+    bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
+    sign = 1.0 if face == "plus" else -1.0
+    best: tuple[float, int, str, float] | None = None
+    for index, other in enumerate(others):
+        if not is_square(host, other):
+            continue
+        try:
+            _upright(other)
+        except JointError:
+            continue
+        transform = relative_transform(host, other)
+        moved = moved_box(other.local_box(), transform)
+        if moved.size(2) >= min(moved.size(vertical), moved.size(horizontal)):
+            continue  # pas parallèle au côté
+        gap = moved.lo(2) - box.hi(2) if sign > 0 else box.lo(2) - moved.hi(2)
+        if gap <= 0 or not all(_half_cover(box, moved, axis) for axis in (vertical, horizontal)):
+            continue
+        if best is None or gap < best[0]:
+            toward = transform.rotate(Vec3(0.0, 0.0, 1.0)).z * -sign
+            low, _high = heights_of(moved, bottom, down, vertical)
+            best = (gap, index, "plus" if toward > 0 else "minus", low)
+    return None if best is None else best[1:]
+
+
+def _half_cover(box: Box, other: Box, axis: int) -> bool:
+    common = min(box.hi(axis), other.hi(axis)) - max(box.lo(axis), other.lo(axis))
+    return common >= min(box.size(axis), other.size(axis)) / 2
 
 
 def _point(vertical: int, level: float, horizontal: int, column: float, z: float) -> Vec3:
