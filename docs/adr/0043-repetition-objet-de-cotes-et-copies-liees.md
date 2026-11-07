@@ -1,6 +1,6 @@
 # ADR 0043 — Répétition : un objet de cotes et des pièces ordinaires liées par expressions
 
-- Statut : **proposé** (en attente de jv, questions Q1 à Q10 de la spécification)
+- Statut : **proposé** (en attente de jv, questions Q1 à Q11 de la spécification)
 - Date : 2026-11-07
 - Spécification : [docs/specs/repetition.md](../specs/repetition.md), issue #180
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
@@ -24,7 +24,7 @@ extensible au cercle et au trajet. Options :
 
 ## Décision
 
-1. `Repeat` est un objet de données sans forme (comme l'Ensemble) : `Source`, `Mode`
+1. `Repeat` est un objet de données sans forme (comme l'Ensemble) : `Source` (pièces ou ensembles ; un ensemble copié devient un sous-ensemble copie dont les cotes sont liées à la source), `Mode`
    (`Linear`, `Circular` et `Path` réservés, valeurs stables), `Count`, `Step`, `Axis`, `Reverse`.
 2. Chaque copie est une pièce ordinaire portant `Repeat` et `RepeatIndex` (lecture seule) ; ses
    cotes et son placement sont des expressions sur la source et sur `Repeat`, écrites par l'API

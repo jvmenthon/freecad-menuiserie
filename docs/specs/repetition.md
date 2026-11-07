@@ -47,6 +47,27 @@ Répéter une ou plusieurs pièces (avec leurs assemblages) N fois : tasseaux, l
 composée, indexation d'une liste (`Rep.Offsets[2]`) pour les modes cercle et trajet, coût de
 recalcul à 100 copies.
 
+## 2 bis. Répéter un ensemble (demande de jv)
+
+La source peut être une pièce, plusieurs pièces ou un **ensemble** (tiroir, caisson, module).
+Copier un ensemble crée un **ensemble copie**, sous-ensemble du même parent s'il y en a un :
+
+- l'ensemble copie reçoit une copie de **chaque membre** (pièces et sous-ensembles, récursivement),
+  avec leurs assemblages internes, leurs options et leurs distances ;
+- ses cotes globales (`Width`, `Depth`, `Height`) et son `Origin` sont des expressions sur
+  l'ensemble source et sur la répétition : redimensionner l'ensemble source redimensionne toutes
+  les copies, qui recalculent leurs membres avec les mêmes règles (rangées, parts, ADR 0019) ;
+- les assemblages entre un membre de l'ensemble et une pièce extérieure (cas B du § 3) sont
+  recréés pour chaque copie, comme pour une pièce ;
+- « Dissocier » une copie d'ensemble coupe les expressions de l'ensemble et de tous ses membres ;
+  elle devient un ensemble libre ;
+- sélection mixte (pièces et ensembles) : acceptée, chaque élément est répété avec le même pas ;
+  une pièce membre d'un ensemble ne peut pas être répétée seule en même temps que son ensemble.
+
+Piège connu : un membre qui lit une cote par expression vers son ensemble donne une « cyclic
+reference » si l'ensemble était un conteneur ; l'Ensemble étant un objet de cotes (ADR 0008), les
+liaisons source → copie ne forment pas de cycle. Vérifié au lot R-a.
+
 ## 3. Ce que « copier » veut dire
 
 1. Copie d'une pièce : mêmes cotes, matériau, sens du fil, finitions ; nom « {nom} {k+1} ».
@@ -100,7 +121,7 @@ FreeCAD ; seul le trajet appelle Draft, dans `features/`.
 | Lot | Contenu | Tests |
 |---|---|---|
 | R-a | essai jetable des expressions (§ 2) puis `core/repeat/` : décalages linéaires, bornes, chevauchement, modes de longueur ; mode `Circular`/`Path` réservés dans le modèle | R1 N+pas, R2 N sur une longueur, R3 pas sur une longueur, R4 bornes, R5 chevauchement signalé, R6 inversion |
-| R-b | `features/repeat.py` : objet `Repeat`, copies liées, assemblages A à G, ensemble, une transaction, `_api/repeat.py` | R7 5 barreaux entre 2 traverses = 10 assemblages, R8 annulation en un bloc, R9 source modifiée → copies suivent, R10 `Step` modifié → copies déplacées, R11 dissocier, R12 ensemble, R13 liste de débit N+1 lignes |
+| R-b | `features/repeat.py` : objet `Repeat`, copies liées de pièces **et d'ensembles**, assemblages A à G, ensemble, une transaction, `_api/repeat.py` | R7 5 barreaux entre 2 traverses = 10 assemblages, R8 annulation en un bloc, R9 source modifiée → copies suivent, R10 `Step` modifié → copies déplacées, R11 dissocier, R12 ensemble, R13 liste de débit N+1 lignes, R19 répéter un caisson : membres copiés, redimensionner le caisson source redimensionne la copie, R20 dissocier un ensemble copie |
 | R-c | commande « Répéter », panneau avec aperçu en direct, « Modifier la répétition », « Dissocier », icônes, traductions | GUI hors écran : R14 aperçu = copies créées, R15 refus affiché, R16 changer le nombre |
 | R-d | Maj + déplacement | R17 copie par glissement, R18 annulation |
 | R-e | recette manuelle, captures | — |
@@ -118,6 +139,8 @@ FreeCAD ; seul le trajet appelle Draft, dans `features/`.
 - **Q6 — Ce qui est lié.** ★ Cotes, matériau, finitions et placement ; la **position** d'une copie
   déplacée à la main reste libre (la copie se dissocie de la position seulement ?). Alternative :
   toute modification manuelle d'une copie la dissocie entièrement.
+- **Q11 — Ensembles.** ★ Copie d'ensemble = sous-ensemble copie complet, lié aux cotes de l'ensemble
+  source (§ 2 bis). Alternative : copier seulement les pièces, sans ensemble.
 - **Q7 — Maximum.** ★ 100 copies.
 - **Q8 — Nom.** ★ « Barreau 2 », « Barreau 3 »…
 - **Q9 — Maj.** Maj coupe déjà l'aimantation. ★ **Ctrl** pour copier (convention FreeCAD et
