@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# Fins de ligne : LF pour tous les fichiers texte
+* text=auto eol=lf
+
+# Fichiers binaires
+*.FCStd binary
+*.fcstd binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.tar binary
+*.tar.gz binary
+
+# Scripts shell
+*.sh text eol=lf
+
+# Fichiers Docker
+Dockerfile text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Makefile
+Makefile text eol=lf
+
+# Markdown
+*.md text eol=lf
+
+# YAML
+*.yml text eol=lf
+*.yaml text eol=lf

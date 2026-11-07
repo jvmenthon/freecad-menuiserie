@@ -21,3 +21,19 @@ semgrep.json
 
 # Traductions compilées : générées à la publication
 # (les .ts sources restent versionnés)
+
+# Docker
+Dockerfile
+docker-entrypoint.sh
+docker-compose*.yml
+Makefile
+.dockerignore
+DOCKER.md
+requirements-dev.txt
+
+# Fichiers temporaires Docker
+tmp/freecad-home/
+
+# Images Docker
+*.tar
+*.tar.gz
