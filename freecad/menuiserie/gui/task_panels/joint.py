@@ -4,7 +4,7 @@
 
 Le formulaire est construit d'après la description des paramètres du type
 (:mod:`joint_fields`) : pièces reliées, bouton « Inverser » (échange hôte et invitée, sauf pour
-un type aux rôles symétriques : mi-bois, onglet), un champ par paramètre. Chaque saisie est
+un type aux rôles symétriques : bouton grisé, infobulle explicative), un champ par paramètre. Chaque saisie est
 écrite aussitôt dans l'assemblage puis recalculée avec ses pièces usinées (aperçu) ; une erreur
 d'assemblage s'affiche dans le panneau sans empêcher « OK ». Transactions, fermeture et
 surveillance du document : :mod:`base` (comme J1c). Tant que le panneau est ouvert, les objets
@@ -104,12 +104,16 @@ class JointTaskPanel(ObjectTaskPanel):
             label.setToolTip(property_tooltip(spec))
             layout.addWidget(label)
         proxy: JointFeature = self.obj.Proxy
-        if not proxy.INVERTIBLE:
+        if not proxy.INVERTIBLE and not proxy.INVERT_DISABLED_TIP:
             return host, guest
         button = QtGui.QPushButton(translated(_INVERT))
         button.setObjectName("invertButton")
-        button.setToolTip(translated(proxy.INVERT_TIP or _INVERT_TIP))
-        button.setEnabled(not any(expression_of(self.obj, role) for role in _ROLES))
+        if proxy.INVERTIBLE:
+            button.setToolTip(translated(proxy.INVERT_TIP or _INVERT_TIP))
+            button.setEnabled(not any(expression_of(self.obj, role) for role in _ROLES))
+        else:
+            button.setToolTip(translated(proxy.INVERT_DISABLED_TIP))
+            button.setEnabled(False)
         connect(button, "clicked()", self._invert)
         layout.addWidget(button)
         return host, guest

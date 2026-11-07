@@ -193,6 +193,11 @@ class LooseTenonJoint(JointFeature):
     TYPE: ClassVar[str] = "Menuiserie::LooseTenon"
     OBJECT_NAME: ClassVar[str] = "LooseTenon"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Faux tenons")
+    INVERTIBLE: ClassVar[bool] = False
+    INVERT_DISABLED_TIP: ClassVar[str] = QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
+    )
     PARAMS: ClassVar[type[SlotParams]] = SlotParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = _LOOSE_TENON_PROPERTIES
 
@@ -204,5 +209,10 @@ class BiscuitJoint(JointFeature):
     TYPE: ClassVar[str] = "Menuiserie::Biscuit"
     OBJECT_NAME: ClassVar[str] = "Biscuit"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Biscuits")
+    INVERTIBLE: ClassVar[bool] = False
+    INVERT_DISABLED_TIP: ClassVar[str] = QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
+    )
     PARAMS: ClassVar[type[SlotParams]] = SlotParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = _BISCUIT_PROPERTIES

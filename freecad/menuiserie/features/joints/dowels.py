@@ -29,6 +29,11 @@ class DowelJoint(JointFeature):
     TYPE: ClassVar[str] = "Menuiserie::Dowels"
     OBJECT_NAME: ClassVar[str] = "Dowels"
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Tourillons")
+    INVERTIBLE: ClassVar[bool] = False
+    INVERT_DISABLED_TIP: ClassVar[str] = QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
+    )
     PARAMS: ClassVar[type[DowelParams]] = DowelParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(

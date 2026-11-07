@@ -151,9 +151,12 @@ class JointFeature(StatelessProxy):
     # Champs de ``resolve`` dont l'un au moins doit être non nul pour afficher ``SUMMARY``
     # (vide : toujours affiché) : le biais n'apparaît pas entre pièces d'équerre.
     SUMMARY_IF: ClassVar[tuple[str, ...]] = ()
-    # Faux quand les deux rôles sont symétriques (mi-bois, onglet) : pas de bouton
-    # « Inverser » dans le panneau (demande de jv).
+    # Faux quand l'inversion n'a pas de sens (rôles symétriques) : bouton « Inverser » grisé
+    # avec une infobulle qui explique pourquoi (demande de jv).
     INVERTIBLE: ClassVar[bool] = True
+    # Explication affichée en infobulle du bouton « Inverser » grisé quand ``INVERTIBLE`` est faux
+    # (vide : pas de bouton, ex. une seule pièce).
+    INVERT_DISABLED_TIP: ClassVar[str] = ""
     INVERT_TIP: ClassVar[str] = ""  # infobulle du bouton « Inverser » (vide : échange des rôles)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

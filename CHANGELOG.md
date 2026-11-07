@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Panneau d'assemblage : le bouton « Inverser » reste visible mais grisé, avec une infobulle qui explique pourquoi, quand l'inversion n'a pas de sens (mi-bois, onglet, tourillons, faux tenons, biscuits).
 - Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
 - Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; rangs du montant opposé aux mêmes hauteurs que ceux du côté (tablette de niveau même si les montants ne partent pas du même bas) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).
 - Double-clic dans la vue 3D : plus d'erreur « Internal C++ object already deleted » quand la zone d'affichage vient d'être détruite (clic ignoré).
