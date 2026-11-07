@@ -1,10 +1,11 @@
 # Taille et orientation d'un ensemble à la souris
 
-- Statut : **proposée**, en attente des réponses de jv (§ 8).
+- Statut : **acceptée** (jv, 2026-11-07 : Q2 Std Part dès la création, Q5 flèches, Q6 reportée à
+  l'issue #169, « ok pour le reste » : Q1, Q3, Q4, Q7 ★).
 - Demande de jv (2026-11-07) : « quand je suis sur un ensemble je veux pouvoir aussi modifier la
   taille et l'orientation avec la souris ».
 - ADR : **[0038 — Taille et orientation d'un ensemble à la souris](../adr/0038-ensemble-a-la-souris.md)**
-  (proposé). ADR liés : 0008 (Ensemble, objet de cotes), 0019 (rangées), 0021 (glissement),
+  (accepté). ADR liés : 0008 (Ensemble, objet de cotes), 0019 (rangées), 0021 (glissement),
   0025 (rotation), 0007 (compatibilité).
 - Reprend pour l'**ensemble** (`Furniture`, issue #86) les poignées de taille de la pièce (#65,
   PR #98) et les anneaux de rotation (#117, PR #128).
@@ -75,6 +76,22 @@ Un ensemble sélectionné (dans l'arbre, ou une de ses pièces avec le raccourci
 - C4 Vérification hors écran (`tests/gui`) : dessin, geste simulé par la session, Ctrl+Z, Échap,
   ensemble dans un Std Part tourné.
 
+### EN-e — Std Part de l'ensemble (`features/furniture_container.py`)
+
+- E1 `make_furniture` (et le gabarit Caisson, la création d'un sous-ensemble) crée un Std Part
+  (`App::Part`, libellé « {ensemble} ») et y range l'ensemble, ses pièces (brutes et usinées), ses
+  assemblages et ses Distances, sans les déplacer à l'écran.
+- E2 Ajouter une pièce à l'ensemble la range dans son Std Part ; la retirer la remet dans le
+  conteneur du Std Part, à la même position globale.
+- E3 Sous-ensemble : son propre Std Part, rangé dans celui du parent ; les liaisons du parent sur
+  le sous-ensemble portent sur `Placement.Base` de ce Std Part (au lieu de `Origin`), ses cotes
+  comme avant ; `Origin` du sous-ensemble vaut (0, 0, 0) dans son Std Part.
+- E4 Essai préalable sur FreeCAD 1.1 (portée des expressions entre Std Part imbriqués, liens des
+  assemblages) ; refus expliqué si un cas ne passe pas.
+- E5 Pas de reprise des documents existants (jv) : un ensemble sans Std Part n'a pas d'anneaux.
+- E6 Bug signalé par jv : une pièce membre d'un ensemble n'est pas aimantée quand on la modifie à
+  la souris ; reproduire, corriger, tester.
+
 ### EN-d — Panneau de l'ensemble
 
 - D1 Trois champs d'angle (−360 à 360, comme la pièce) dans le panneau de l'ensemble, qui
@@ -105,6 +122,7 @@ membres et leurs assemblages sont rangés dedans, aucune propriété nouvelle su
 
 | Lot | Branche | Contenu |
 |-----|---------|---------|
+| EN-e | `feat/ensemble-std-part` | Std Part à la création, sous-ensembles, bug d'aimantation |
 | EN-a | `feat/ensemble-souris-core` | `core/` : disposition, `resized_box` |
 | EN-b | `feat/ensemble-souris-write` | `features/furniture_drag.py`, Std Part |
 | EN-c ∥ EN-d | `feat/ensemble-souris-vue`, `feat/ensemble-souris-panneau` | session, dessin ; champs |
@@ -147,12 +165,8 @@ sélectionnés, gabarits.
   flèches au centre de la boîte ; le geste décale `Origin` et les positions des pièces qui ne
   suivent pas `Origin` (pas de liaison sur cet axe), dans une transaction « Déplacer
   l'ensemble ». Aimant sur les objets voisins comme pour une pièce.
-- **Q6 — Pièce ou sous-ensemble en biais** (demande de jv, 2026-11-07 : « se redimensionne
-  aussi ») : aujourd'hui il suit son ensemble par translation seulement. a) sa cote la plus
-  alignée avec l'axe qui change s'allonge pour que son encombrement suive la cote de l'ensemble,
-  l'angle ne change pas (ΔL = ΔC / cos θ) ★ ; b) ses deux bouts restent sur les mêmes faces de
-  l'ensemble, l'angle change (écharpe de porte) ; plus long, lot à part.
-- **Q7 — Ensemble « fixe »** (demande de jv, 2026-11-07) : a) cotes fixes : un sous-ensemble garde
-  ses cotes quand son parent change (comme « Cotes fixes » d'une pièce) ★ ; b) position et
-  orientation bloquées : pas de flèches ni d'anneaux, le Std Part ne bouge pas ; c) les deux, en
-  deux cases séparées.
+- **Q6 — Pièce ou sous-ensemble en biais qui se redimensionne** : **reportée par jv** (2026-11-07)
+  à l'issue #169 ; dans ce jalon, un membre en biais suit toujours par translation seulement.
+- **Q7 — Ensemble « fixe »** : **a) cotes fixes** (jv, « ok pour le reste ») : un sous-ensemble
+  porte la case « Cotes fixes » (`Locked`, ADR 0019) et garde ses cotes quand son parent change ;
+  vérifier qu'elle est lue pour un sous-ensemble, l'afficher dans le panneau, la tester.

@@ -1,6 +1,6 @@
 # ADR 0038 — Taille et orientation d'un ensemble à la souris
 
-- Statut : **proposé** (en attente de jv : questions Q1 à Q5 de la spécification)
+- Statut : **accepté** (jv, 2026-11-07)
 - Date : 2026-11-07
 - Spécification : [docs/specs/ensemble-a-la-souris.md](../specs/ensemble-a-la-souris.md)
 - ADR liés : [0007](0007-compatibilite-avec-les-autres-ateliers.md),
@@ -30,15 +30,22 @@ repère de leur conteneur commun, et supposent qu'elles sont d'équerre avec lui
 Le geste appelle `resize_furniture` (comme le panneau) : cotes en étirement, pas de mise à
 l'échelle (épaisseurs fixes, rangées de l'ADR 0019). Retenue.
 
-## Décision (provisoire)
+## Décision
 
-Taille par six poignées de face et orientation par trois anneaux, dessinés par la session de
-glissement existante (`gui/drag`) pour une cible « ensemble » ; rotation par un Std Part créé au
-besoin. Les points Q1 à Q5 de la spécification peuvent la modifier.
+1. Chaque ensemble est rangé, **dès sa création**, dans un Std Part qui contient l'ensemble, ses
+   pièces, leurs assemblages et ses Distances. Tourner ou déplacer l'ensemble, c'est écrire le
+   `Placement` de ce Std Part (outil natif de FreeCAD, utilisable aussi par les autres ateliers).
+2. **Un sous-ensemble a son propre Std Part**, rangé dans celui de son parent. Les liaisons du
+   parent portent sur le `Placement.Base` de ce Std Part au lieu de l'`Origin` du sous-ensemble.
+   Cela amende le point 3 de l'ADR 0008 (« même conteneur ») pour les sous-ensembles.
+3. Taille par six poignées de face (`resize_furniture`, étirement), déplacement par trois flèches,
+   orientation par trois anneaux, dessinés par la session de glissement (`gui/drag`) pour une
+   cible « ensemble ».
+4. Pas de reprise des documents existants pour l'instant (jv).
 
 ## Conséquences
 
 - La session de glissement a deux cibles (pièce, ensemble) : une abstraction `Target` à introduire
   sans toucher au comportement des pièces.
-- Un Std Part apparaît dans l'arbre au premier geste de rotation : à signaler dans l'interface.
+- Un Std Part apparaît dans l'arbre à la création de chaque ensemble.
 - Le glissement recalcule beaucoup plus que pour une pièce : brutes seules pendant le geste.
