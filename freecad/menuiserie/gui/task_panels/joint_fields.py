@@ -93,13 +93,31 @@ class ParamField:
                 self.auto.setChecked(automatic)
                 self.auto.setEnabled(expression is None)
         self.editor.setEnabled(expression is None and not automatic)
-        if self.spec.visible_if:  # champ propre à un cas (biais, taille personnalisée…)
-            visible = bool(getattr(resolved, self.spec.visible_if, 0))
+        if self.spec.shows_chosen:
+            self._show_chosen(resolved)
+        if self.spec.visible_if or self.spec.hidden_if:  # champ propre à un cas
+            visible = True
+            if self.spec.visible_if:
+                visible = bool(getattr(resolved, self.spec.visible_if, False))
+            if self.spec.hidden_if and getattr(resolved, self.spec.hidden_if, False):
+                visible = False
             for widget in (self.label, self.editor, self.auto):
                 if widget is not None:
                     widget.setVisible(visible)
         if expression is not None:
             self.editor.setToolTip(translated(_DRIVEN_TIP, {"expression": expression}))
+
+    def _show_chosen(self, resolved: object | None) -> None:
+        """Entrée « automatique » d'une énumération : nomme la valeur choisie (ex. « Automatique
+        : 6 x 40 mm »)."""
+        automatic, label = self.spec.choices[0]
+        text = translated(label)
+        chosen = str(getattr(resolved, self.spec.shows_chosen, "") or "")
+        names = dict(self.spec.choices)
+        if chosen and chosen != automatic and chosen in names:
+            text = f"{text} : {translated(names[chosen])}"
+        with self._guard:
+            self.editor.setItemText(self.editor.findData(automatic), text)
 
     def widgets(self) -> tuple[Widget, Widget, Widget | None]:
         """Libellé, champ et case « Auto » (ligne de la grille du panneau)."""

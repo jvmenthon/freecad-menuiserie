@@ -31,12 +31,17 @@ _PARALLEL: Final = 1e-6  # composante (relative) hors axe en deçà de laquelle 
 
 
 def _excluded(part: DocumentObject) -> set[str]:
-    """Noms des objets qui ne guident pas la pièce : elle-même, sa pièce usinée, ses assemblages."""
+    """Noms des objets qui ne guident pas la pièce : elle-même, sa pièce usinée, ses assemblages
+    (ceux qui la citent seulement comme voisine, tels les taquets sous une tablette, la guident)."""
     names = {part.Name}
     machined = machined_part_of(part)
     if machined is not None:
         names.add(machined.Name)
-    names.update(parent.Name for parent in part.InList if is_joint(parent))
+    names.update(
+        parent.Name
+        for parent in part.InList
+        if is_joint(parent) and part in (parent.HostPart, parent.GuestPart)
+    )
     return names
 
 

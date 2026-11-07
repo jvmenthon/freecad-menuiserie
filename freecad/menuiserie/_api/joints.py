@@ -141,10 +141,10 @@ def make_miter(
 def make_loose_tenons(
     host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
 ) -> DocumentObject:
-    """Relie deux pièces par des faux tenons (type Domino) logés dans une mortaise plate de
+    """Relie deux pièces par des faux tenons logés dans une mortaise plate de
     chaque pièce, et recalcule le document.
 
-    ``size`` : taille de la liste Festool (``"auto"``, la plus grande qui tient, par défaut ;
+    ``size`` : taille de la liste standard (``"auto"``, la plus grande qui tient, par défaut ;
     ``"8x50"``…) ; ``reference`` : identifiant d'un faux tenon du catalogue de quincaillerie
     (ADR 0033), qui fixe cette taille. Des cotes données en mm (``thickness``, ``along``,
     ``total_depth``, 0 = automatique) passent en taille personnalisée (``custom_size``).

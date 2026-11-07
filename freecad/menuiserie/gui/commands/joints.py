@@ -195,7 +195,7 @@ class LooseTenonCommand(JointCommand):
     MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_LooseTenon", "Faux tenons")
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_LooseTenon",
-        "Relie les deux pièces sélectionnées par des faux tenons (type Domino) : taille et "
+        "Relie les deux pièces sélectionnées par des faux tenons : taille et "
         "nombre automatiques d'après la surface de contact.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un assemblage à faux tenons")

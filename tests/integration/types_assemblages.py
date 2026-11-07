@@ -85,9 +85,10 @@ DOWELS = Scenario(
     600 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
     280 * 60 * 22 - 2 * DOWEL_HOLE_VOLUME,
 )
-# Contact de 60 x 22 (cadre M1 / T1) : deux faux tenons 6 x 20 (taille automatique, au plus le tiers
-# de l'épaisseur), mortaisés de 20 + 1 dans chaque pièce ; un seul biscuit n° 20 (56 x 4, 23 de
-# pénétration), fente de 11,5 + 1 dans chaque pièce.
+# Contact de 60 x 22 (cadre M1 / T1) : un seul faux tenon 6 x 20 au milieu (taille automatique, au
+# plus le tiers de l'épaisseur ; 50 mm du bord est impossible sur 60 mm), mortaisé de 20 + 1 dans
+# chaque pièce ; un seul biscuit n° 20 (56 x 4, 23 de pénétration), fente de 11,5 + 1 dans chaque
+# pièce.
 # Mortaises à bouts demi-ronds (stade 20 x 6) et fente en demi-lamelle (stade de 56, rayon 12,5).
 LOOSE_TENON_HOLE_VOLUME = polygon_area(rounded_rectangle(20, 6, 3)) * 21
 BISCUIT_HOLE_VOLUME = polygon_area(half_stadium(56, 12.5)) * 4
@@ -96,8 +97,8 @@ LOOSE_TENON = Scenario(
     "make_loose_tenons",
     ((600, 60, 22), (0, 0, 0)),
     ((280, 60, 22), (60, 60, 90)),
-    600 * 60 * 22 - 2 * LOOSE_TENON_HOLE_VOLUME,
-    280 * 60 * 22 - 2 * LOOSE_TENON_HOLE_VOLUME,
+    600 * 60 * 22 - LOOSE_TENON_HOLE_VOLUME,
+    280 * 60 * 22 - LOOSE_TENON_HOLE_VOLUME,
 )
 BISCUIT = Scenario(
     "biscuits",

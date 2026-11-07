@@ -4,8 +4,8 @@
 Contrat de persistance (ADR 0003) : chemin de ce module, noms des classes et des propriétés
 figés. Les deux types partagent les mêmes propriétés ; la forme de l'assemblage est l'ensemble
 des pièces rapportées, et les deux pièces sont mortaisées (:mod:`core.joints.slots`).
-La taille se choisit dans la liste du commerce (Festool Domino, Lamello) ; seul le faux tenon
-accepte des cotes personnalisées (case « Taille personnalisée »), 0 valant « automatique »
+La taille se choisit dans la liste des tailles standard (faux tenons, lamelles) ; seul le faux
+tenon accepte des cotes personnalisées (case « Taille personnalisée »), 0 valant « automatique »
 (taille du commerce qui tient). Le nombre vaut 0 pour « automatique » aussi.
 """
 
@@ -29,8 +29,8 @@ _DEFAULTS: Final = SlotParams()
 
 _SIZE_TIP: Final = QT_TRANSLATE_NOOP(
     "App::Property",
-    "Taille de la pièce rapportée, dans la liste du commerce. Automatique : la plus grande "
-    "taille qui tient dans les pièces.",
+    "Taille de la pièce rapportée, dans la liste des tailles standard. Automatique : la plus "
+    "grande taille qui tient dans les pièces (la taille choisie est indiquée).",
 )
 
 _DOMINO_SIZE = PropertySpec(
@@ -39,15 +39,17 @@ _DOMINO_SIZE = PropertySpec(
     _GROUP,
     _SIZE_TIP,
     default=_DEFAULTS.size,
-    label=QT_TRANSLATE_NOOP("Menuiserie", "Taille Festool"),
+    label=QT_TRANSLATE_NOOP("Menuiserie", "Taille standard"),
+    shows_chosen="size",
+    hidden_if="custom_size",
     choices=(
         ("auto", QT_TRANSLATE_NOOP("Menuiserie", "Automatique")),
-        ("4x20", QT_TRANSLATE_NOOP("Menuiserie", "Domino 4 x 20 mm")),
-        ("5x30", QT_TRANSLATE_NOOP("Menuiserie", "Domino 5 x 30 mm")),
-        ("6x40", QT_TRANSLATE_NOOP("Menuiserie", "Domino 6 x 40 mm")),
-        ("8x40", QT_TRANSLATE_NOOP("Menuiserie", "Domino 8 x 40 mm")),
-        ("8x50", QT_TRANSLATE_NOOP("Menuiserie", "Domino 8 x 50 mm")),
-        ("10x50", QT_TRANSLATE_NOOP("Menuiserie", "Domino 10 x 50 mm")),
+        ("4x20", QT_TRANSLATE_NOOP("Menuiserie", "4 x 20 mm")),
+        ("5x30", QT_TRANSLATE_NOOP("Menuiserie", "5 x 30 mm")),
+        ("6x40", QT_TRANSLATE_NOOP("Menuiserie", "6 x 40 mm")),
+        ("8x40", QT_TRANSLATE_NOOP("Menuiserie", "8 x 40 mm")),
+        ("8x50", QT_TRANSLATE_NOOP("Menuiserie", "8 x 50 mm")),
+        ("10x50", QT_TRANSLATE_NOOP("Menuiserie", "10 x 50 mm")),
     ),
 )
 _BISCUIT_SIZE = PropertySpec(
@@ -56,7 +58,9 @@ _BISCUIT_SIZE = PropertySpec(
     _GROUP,
     _SIZE_TIP,
     default=_DEFAULTS.size,
-    label=QT_TRANSLATE_NOOP("Menuiserie", "Taille Lamello"),
+    label=QT_TRANSLATE_NOOP("Menuiserie", "Taille de lamelle"),
+    shows_chosen="size",
+    hidden_if="custom_size",
     choices=(
         ("auto", QT_TRANSLATE_NOOP("Menuiserie", "Automatique")),
         ("0", QT_TRANSLATE_NOOP("Menuiserie", "Lamelle n° 0 (47 x 15 mm)")),
@@ -183,7 +187,7 @@ _BISCUIT_PROPERTIES: Final = (
 
 
 class LooseTenonJoint(JointFeature):
-    """Faux tenons (type Domino) logés dans une mortaise de chaque pièce."""
+    """Faux tenons logés dans une mortaise de chaque pièce."""
 
     KIND: ClassVar[JointKind] = JointKind.LOOSE_TENON
     TYPE: ClassVar[str] = "Menuiserie::LooseTenon"

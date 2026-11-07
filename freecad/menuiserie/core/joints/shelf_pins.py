@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core.geometry import Axis, Cylinder, JointError, PlacedBlock, Vec3
+from freecad.menuiserie.core.geometry import Axis, Box, Cylinder, JointError, PlacedBlock, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import (
     JointKind,
@@ -152,7 +152,8 @@ class ShelfPinsStrategy:
             box.lo(horizontal) + values.edge_distance,
             box.hi(horizontal) - values.edge_distance,
         )
-        holes, pins = [], []
+        holes: list[Cylinder] = []
+        pins: list[Cylinder | Box] = []
         radius = values.hole_diameter / 2
         for row, height in enumerate(layout.heights):
             level = bottom - down * height
@@ -160,11 +161,30 @@ class ShelfPinsStrategy:
                 base = _point(vertical, level, horizontal, column, plane)
                 holes.append(Cylinder(base, face.opposite(), radius, values.hole_depth))
                 if row in layout.pin_rows:
-                    bottom_of_hole = plane - face.sign * values.hole_depth
-                    deep = _point(vertical, level, horizontal, column, bottom_of_hole)
-                    height_of_pin = values.hole_depth + values.pin_projection
-                    pins.append(Cylinder(deep, face, radius, height_of_pin))
+                    stem_base = _point(vertical, level, horizontal, column, plane)
+                    pins.append(Cylinder(stem_base, face.opposite(), radius, values.hole_depth))
+                    pins.append(_ledge(vertical, level, horizontal, column, plane, face, values))
         return JointPlan(host_cuts=tuple(holes), inserts=tuple(pins))
+
+
+def _ledge(  # noqa: PLR0913
+    vertical: int,
+    level: float,
+    horizontal: int,
+    column: float,
+    plane: float,
+    face: Axis,
+    values: ShelfPinsValues,
+) -> Box:
+    """Partie du taquet hors du côté : section carrée de la largeur de la tige, à dessus plat
+    (où repose la tablette), qui sort de ``pin_projection`` hors de la face."""
+    radius = values.hole_diameter / 2
+    out = plane + face.sign * values.pin_projection
+    ranges = [(0.0, 0.0)] * 3
+    ranges[vertical] = (level - radius, level + radius)
+    ranges[horizontal] = (column - radius, column + radius)
+    ranges[2] = (min(plane, out), max(plane, out))
+    return Box.from_ranges(ranges)
 
 
 def _point(vertical: int, level: float, horizontal: int, column: float, z: float) -> Vec3:

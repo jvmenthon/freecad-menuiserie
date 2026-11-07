@@ -55,7 +55,8 @@ __all__ = [
 
 MIN_WALL_MM: Final = 2.0  # matière laissée de chaque côté de la mortaise, dans l'épaisseur
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond de chaque logement
-_EDGE_FACTOR: Final = 0.5  # distance au bord automatique : moitié de la longueur de la mortaise
+AUTO_EDGE_MM: Final = 50.0  # centre de la première mortaise au bord du contact (usage courant)
+AUTO_SPACING_MM: Final = 150.0  # écart maximal entre deux mortaises (100 à 150 mm, usage courant)
 AUTO_SIZE: Final = "auto"  # taille : la plus grande du commerce qui tient dans les pièces
 
 TOO_THIN: Final = QT_TRANSLATE_NOOP(
@@ -232,7 +233,7 @@ class _SlotStrategy:
     def _checked(self, frame: ContactFrame, params: SlotParams) -> SlotValues:
         guest = frame.guest
         size = self._size(frame, guest, params)
-        edge = params.edge_distance or size.along * _EDGE_FACTOR
+        edge = params.edge_distance or min(AUTO_EDGE_MM, frame.contact_width / 2)
         count = params.count or _auto_count(frame.contact_width, edge, size.along)
         custom = self.custom_allowed and params.custom_size
         values = SlotValues(
@@ -334,11 +335,12 @@ def _fits(frame: ContactFrame, size: SlotSize, shortest: float, clearance: float
 
 
 def _auto_count(width: float, edge: float, along: float) -> int:
-    """Une mortaise sur un contact étroit, sinon une tous les 3 fois leur longueur environ."""
+    """Une mortaise sur un contact étroit, sinon assez pour qu'elles soient espacées de 150 mm au
+    plus entre centres (le premier et le dernier à ``edge`` des bords)."""
     span = width - 2 * edge
     if span <= along:
         return 1
-    return min(MAX_DOWEL_COUNT, max(2, math.ceil(span / (3 * along)) + 1))
+    return min(MAX_DOWEL_COUNT, max(2, math.ceil(span / AUTO_SPACING_MM) + 1))
 
 
 def _check_section(frame: ContactFrame, values: SlotValues) -> None:

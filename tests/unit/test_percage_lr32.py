@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from freecad.menuiserie.core.geometry import Cylinder, JointError, PlacedBlock
+from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock
 from freecad.menuiserie.core.joints import JointKind, strategy_for
 from freecad.menuiserie.core.joints.shelf_pins import Neighbor, ShelfPinsParams
 from tests.unit.aides_assemblages import block, placed, rotation_y
@@ -32,8 +32,11 @@ def cabinet(*shelves: float) -> tuple[Neighbor, ...]:
 
 
 def cylinders(solids: tuple[object, ...]) -> list[Cylinder]:
-    assert all(isinstance(solid, Cylinder) for solid in solids)
     return [solid for solid in solids if isinstance(solid, Cylinder)]
+
+
+def boxes(solids: tuple[object, ...]) -> list[Box]:
+    return [solid for solid in solids if isinstance(solid, Box)]
 
 
 def test_percage_limite_aux_pieces_assemblees() -> None:
@@ -63,9 +66,16 @@ def test_taquet_sous_chaque_tablette() -> None:
     params = ShelfPinsParams(neighbors=cabinet(360.0, 500.0))
     values = SHELF_PINS.resolve(wall, wall, params)
     assert values.pin_rows == (8, 12) and values.count == 4  # 83 + 32 x 8 = 339, 83 + 32 x 12 = 467
-    pins = cylinders(SHELF_PINS.plan(wall, wall, params).inserts)
-    assert len(pins) == 4 and all(p.height == 12.0 + 7.0 for p in pins)
+    inserts = SHELF_PINS.plan(wall, wall, params).inserts
+    assert len(cylinders(inserts)) == 4 and all(p.height == 12.0 for p in cylinders(inserts))
+    ledges = boxes(inserts)  # partie saillante, à dessus plat
+    assert len(ledges) == 4 and all(b.size(2) == 7.0 and b.size(0) == 5.0 for b in ledges)
     assert values.pin_top(8) == 339.0 + 2.5  # le dessous de la tablette repose dessus
+    top = {round(b.hi(0), 6) for b in ledges}  # repère du côté : le haut est vers x décroissant
+    assert top == {720.0 - 339.0 + 2.5, 720.0 - 467.0 + 2.5} or top == {
+        720.0 - 339.0 - 2.5,
+        720.0 - 467.0 - 2.5,
+    }
 
 
 def test_taquets_au_rang_choisi_ou_absents() -> None:

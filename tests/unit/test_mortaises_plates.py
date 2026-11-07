@@ -125,6 +125,18 @@ def test_biscuit_automatique_prend_la_plus_grande_lamelle_qui_tient() -> None:
     assert thin.thickness == 4.0
 
 
+def test_nombre_et_bords_automatiques_d_usage() -> None:
+    host, guest = boards(length=600.0)
+    values = TENON.resolve(host, guest, SlotParams())
+    # premier et dernier centres à 50 mm des bords, écart de 150 mm au plus entre centres
+    assert values.edge_distance == 50.0 and values.count == 5
+    assert values.positions[0] == 50.0 and values.positions[-1] == 550.0
+    gaps = [b - a for a, b in zip(values.positions, values.positions[1:], strict=False)]
+    assert max(gaps) <= 150.0
+    narrow = TENON.resolve(*boards(length=60.0), SlotParams())
+    assert narrow.count == 1 and narrow.positions == (30.0,)  # contact trop court pour 50 mm
+
+
 def test_decalage_en_epaisseur_et_une_seule_mortaise_sur_contact_etroit() -> None:
     host, guest = boards(length=30.0)
     values = TENON.resolve(host, guest, SlotParams(thickness_offset=2.0))
