@@ -302,6 +302,13 @@ def _double_arrow(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Ve
     return ((inner, outer), *heads)
 
 
+def _corner_key(bits: tuple[int, int], axis: int, side: int) -> tuple[int, ...]:
+    """Clé du coin : ``bits`` complétés par ``side`` à la place de l'axe ``axis``."""
+    key = list(bits)
+    key.insert(axis, side)
+    return tuple(key)
+
+
 def _box_drawing(layout: Layout) -> tuple[Stroke, Solid]:
     """Boîte de l'ensemble : six faces en transparence et douze arêtes, en coordonnées globales."""
     to_global = layout.frame.to_transform()
@@ -316,9 +323,7 @@ def _box_drawing(layout: Layout) -> tuple[Stroke, Solid]:
         if sum(x != y for x, y in zip(a, b, strict=True)) == 1
     )
     faces = tuple(
-        tuple(
-            corners[(*bits[:axis], side, *bits[axis:])] for bits in ((0, 0), (1, 0), (1, 1), (0, 1))
-        )
+        tuple(corners[_corner_key(bits, axis, side)] for bits in ((0, 0), (1, 0), (1, 1), (0, 1)))
         for axis in range(3)
         for side in (0, 1)
     )
