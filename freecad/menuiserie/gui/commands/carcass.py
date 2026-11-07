@@ -13,7 +13,7 @@ from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import get_library
-from freecad.menuiserie.gui.camera import keep_camera
+from freecad.menuiserie.gui.camera import frame_view
 from freecad.menuiserie.gui.task_panels.carcass import CREATE_TRANSACTION, ICON, show_panel
 
 COMMAND_NAME: Final = "Menuiserie_Carcass"
@@ -47,7 +47,7 @@ class CreateCarcassCommand:
         """Panneau ouvert dans la transaction « Créer un caisson », validée (une entrée
         d'annulation) ou abandonnée (aucun objet) par le panneau."""
         doc = App.ActiveDocument
-        with keep_camera(doc):
+        with frame_view():
             doc.openTransaction(translated(CREATE_TRANSACTION))
             show_panel(doc)
 

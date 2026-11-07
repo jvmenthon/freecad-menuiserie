@@ -17,7 +17,7 @@ from freecad.menuiserie.features.perpendicular import perpendicular_start
 from freecad.menuiserie.features.placement import add_to_container
 from freecad.menuiserie.features.snap_targets import new_session, read_targets
 from freecad.menuiserie.features.wood_part import dimensions_of
-from freecad.menuiserie.gui.camera import keep_camera
+from freecad.menuiserie.gui.camera import frame_view
 from freecad.menuiserie.gui.selection import picked_elements, view_direction
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.wood_part import show_panel
@@ -67,7 +67,7 @@ class CreateWoodPartCommand:
             return
         doc = App.ActiveDocument
         reading = read_targets(picked_elements(), view_direction())
-        with keep_camera(doc):
+        with frame_view():
             doc.openTransaction(translated(CREATE_TRANSACTION))
             with aborted_on_error(App.getActiveTransaction()):
                 start = perpendicular_start(reading)  # #136 : contre une face de pièce de bois
