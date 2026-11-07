@@ -53,6 +53,8 @@ from freecad.menuiserie.features.furniture_container import (
     leave,
     placement_container,
     scopes,
+    std_part_of,
+    taken_along,
 )
 from freecad.menuiserie.features.furniture_enclosing import enclosing
 from freecad.menuiserie.features.furniture_relink import relink_remaining
@@ -192,12 +194,13 @@ def _enter(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> list
     """Les ``objects`` sont rangés dans le Std Part de ``furniture`` (E1 à E3), puis reçoivent
     leurs options par défaut (F3), leurs propriétés de membre et leurs liaisons ; les
     sous-ensembles sont ensuite reliés à nouveau (leur ``Origin`` vient de passer au Std Part)."""
+    notices = taken_along(objects) if std_part_of(furniture) is not None else []
     adopt(furniture, objects)
     entering: MemberSet = read_members(furniture, entering=objects)
     for member in entering.members:
         if member.key in {obj.Name for obj in objects}:
             _join(entering.objects[member.key], furniture, member.fixed or frozenset())
-    notices = bind_members(entering, [obj.Name for obj in objects])
+    notices.extend(bind_members(entering, [obj.Name for obj in objects]))
     for obj in objects:
         if is_furniture(obj):
             notices.extend(rebind(obj))

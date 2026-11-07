@@ -224,3 +224,19 @@ def test_std_part_d_un_sous_ensemble_membre_reste_propre(document: Any) -> None:
     )
     assert container.own_std_part(furniture) == container.std_part_of(furniture)
     assert api.rotate_furniture(furniture, (0, 0, 30))
+
+
+# --- 7 : pièce libre rangée avec un membre -------------------------------------------------------
+
+
+def test_piece_libre_liee_a_un_membre_est_signalee_a_l_entree(document: Any) -> None:
+    desk = build_parts(document)
+    api.make_dowels(desk.parts["JG"], desk.parts["V"])  # le voile (libre) est lié à la joue
+    furniture, notices = api.make_furniture([desk.parts["P"], desk.parts["JG"]], "Bureau")
+    std = container.std_part_of(furniture)
+    assert desk.parts["V"].getParentGeoFeatureGroup() == std  # rangé avec la joue
+    assert api.furniture_of(desk.parts["V"]) is None  # sans être membre
+    assert len(notices) == 1
+    assert "Voile" in notices[0] and "Joue gauche" in notices[0] and "Std Part" in notices[0]
+    quiet, none = api.make_furniture([desk.parts["JD"]], "Seul")
+    assert none == ()  # rien à signaler sans pièce liée

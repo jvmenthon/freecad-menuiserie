@@ -17,12 +17,14 @@ ni recalcul : c'est à l'appelant de les faire.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from enum import Enum
 from typing import Final
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.features.distance import is_distance
 from freecad.menuiserie.features.freecad_types import (
     Document,
@@ -47,6 +49,7 @@ __all__ = [
     "STD_PART",
     "adopt",
     "carrier",
+    "EntryNoticeKind",
     "check_assembled",
     "create_with_std_part",
     "dissolve",
@@ -60,6 +63,7 @@ __all__ = [
     "positioned",
     "scopes",
     "set_member_expression",
+    "taken_along",
     "std_part_of",
     "write_placement",
 ]
@@ -75,6 +79,24 @@ _STAYS: Final = QT_TRANSLATE_NOOP(
     "« {label} » est assemblée à une pièce qui reste dans l'ensemble : elle reste dans son Std "
     "Part (elle n'est plus membre de l'ensemble).",
 )
+
+
+_TAKEN_ALONG: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » est liée à « {other} » (assemblage, Distance ou formule) : FreeCAD la range avec "
+    "elle dans le Std Part de l'ensemble, sans qu'elle en devienne membre.",
+)
+
+
+class EntryNoticeKind(Enum):
+    """Nature d'un avertissement à l'entrée de pièces dans le Std Part d'un ensemble."""
+
+    TAKEN_ALONG = "TakenAlong"
+
+    @property
+    def template(self) -> str:
+        """Gabarit français marqué pour la traduction."""
+        return _TAKEN_ALONG
 
 
 _KEPT: Final = QT_TRANSLATE_NOOP(
@@ -273,6 +295,21 @@ def check_assembled(
     if other is not None:
         label = next(p.Label for p in pieces if other.Name in _closure(p))
         raise ValueError(translated(_ASSEMBLED, {"label": str(label), "other": str(other.Label)}))
+
+
+def taken_along(members: Sequence[DocumentObject]) -> list[Notice]:
+    """Avertissements des pièces **libres** (membres d'aucun ensemble) liées à un des ``members``
+    par un assemblage, une Distance ou une formule : FreeCAD les range avec lui dans le Std Part
+    sans qu'elles deviennent membres (à appeler avant :func:`adopt`)."""
+    pieces = [obj for obj in members if not is_furniture(obj)]
+    allowed = {item.Name for obj in pieces for item in _bundle(obj)}
+    found: dict[str, Notice] = {}
+    for piece in pieces:
+        for other in _closure(piece).values():
+            if is_timber(other) and other.Name not in allowed and furniture_of(other) is None:
+                params = {"label": str(other.Label), "other": str(piece.Label)}
+                found.setdefault(other.Name, Notice(EntryNoticeKind.TAKEN_ALONG, params))
+    return list(found.values())
 
 
 def _content(part: DocumentObject) -> list[DocumentObject]:
