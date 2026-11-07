@@ -56,6 +56,7 @@ from freecad.menuiserie.core.furniture._model import (
     gap_term,
 )
 from freecad.menuiserie.core.furniture._mouse import (
+    MIN_FURNITURE_MM,
     FaceHandle,
     FurnitureLayout,
     furniture_layout,
@@ -67,6 +68,7 @@ from freecad.menuiserie.core.furniture._spans import Span, edge_distances, membe
 from freecad.menuiserie.core.notice import Notice
 
 __all__ = [
+    "MIN_FURNITURE_MM",
     "Binding",
     "BlockedRowError",
     "Edge",
