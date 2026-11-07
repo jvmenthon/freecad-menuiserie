@@ -77,6 +77,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Ensemble d'ensembles : sélectionner les Std Parts de deux ensembles dans l'arbre active de
+  nouveau la commande « Ensemble » (le Std Part compte pour l'ensemble qu'il porte, ADR 0038) ; le
+  lien `Furniture` d'un membre devient `App::PropertyLinkGlobal` (un sous-ensemble cite son parent
+  rangé dans le Std Part du dessus : plus d'avertissement « lien hors de portée » à chaque
+  recalcul), recréé sans perte à la réouverture d'un document plus ancien.
+
 - Relecture de fin de jalon « Ensemble à la souris » (ADR 0038) : un ensemble déjà tourné puis rangé
   dans un parent ne se décale plus au recalcul (l'`Origin` passe tournée dans la `Base` du Std
   Part) ; `remove_from_furniture` renvoie les avertissements de sortie (« reste dans son Std Part »)

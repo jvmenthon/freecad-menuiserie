@@ -150,7 +150,9 @@ _OPTION_TOOLTIPS: Final = (
 MEMBER_PROPERTIES: Final = (
     PropertySpec(
         "Furniture",
-        "App::PropertyLink",
+        # Global : un sous-ensemble, rangé dans son propre Std Part, cite son parent rangé dans le
+        # Std Part du dessus ; un lien ordinaire serait « hors de portée » (ADR 0038).
+        "App::PropertyLinkGlobal",
         GROUP,
         QT_TRANSLATE_NOOP("App::Property", "Ensemble dont la pièce suit les cotes."),
         mode=READ_ONLY,
