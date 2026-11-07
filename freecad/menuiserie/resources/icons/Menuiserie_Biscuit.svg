@@ -1,23 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- Biscuits : deux planches à chant, une lamelle ovale rapportée dans une fente -->
+  <!-- Biscuits : deux planches, une lamelle ovale qui les relie -->
   <defs>
     <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
     <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
     <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
-    <linearGradient id="tourillon-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fdf0d5"/><stop offset="1" stop-color="#f3d8a6"/></linearGradient>
-    <linearGradient id="tourillon-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecca8d"/><stop offset="1" stop-color="#dcb070"/></linearGradient>
-    <linearGradient id="tourillon-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfa262"/><stop offset="1" stop-color="#b88b4c"/></linearGradient>
+    <linearGradient id="hetre-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbe6c8"/><stop offset="1" stop-color="#f0c99b"/></linearGradient>
+    <linearGradient id="hetre-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8b98a"/><stop offset="1" stop-color="#d9a277"/></linearGradient>
+    <linearGradient id="hetre-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c99068"/><stop offset="1" stop-color="#b07a52"/></linearGradient>
   </defs>
-  <polygon points="3.00,18.72 16.00,11.22 61.00,37.20 48.00,44.70" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="3.00,26.80 3.00,18.72 48.00,44.70 48.00,52.78" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="61.00,45.28 48.00,52.78 48.00,44.70 61.00,37.20" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
-  <polyline points="15.50,13.81 17.87,15.41 20.28,16.97 22.79,18.48 25.39,19.94 28.09,21.34 30.84,22.71 33.60,24.07 36.32,25.46 38.96,26.90 41.49,28.39 43.94,29.94 46.31,31.53 48.67,33.13 51.07,34.70 53.55,36.23 56.12,37.70" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <polyline points="7.74,18.30 10.43,19.70 13.02,21.16 15.52,22.68 17.93,24.25 20.30,25.84 22.67,27.43 25.09,28.99 27.60,30.50 30.21,31.95 32.92,33.35 35.67,34.72 38.43,36.08 41.15,37.47 43.77,38.91 46.30,40.41 48.74,41.97" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <polygon points="14.00,20.45 21.00,16.41 34.00,23.92 27.00,27.96" fill="url(#tourillon-z)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="14.00,21.61 14.00,20.45 27.00,27.96 27.00,29.11" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="34.00,25.07 27.00,29.11 27.00,27.96 34.00,23.92" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="32.00,30.85 39.00,26.80 52.00,34.31 45.00,38.35" fill="url(#tourillon-z)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="32.00,32.00 32.00,30.85 45.00,38.35 45.00,39.51" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="52.00,35.46 45.00,39.51 45.00,38.35 52.00,34.31" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,20.28 17.50,11.91 35.87,22.51 21.37,30.88" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,26.98 3.00,20.28 21.37,30.88 21.37,37.58" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="35.87,29.21 21.37,37.58 21.37,30.88 35.87,22.51" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="28.13,34.79 42.63,26.42 61.00,37.02 46.50,45.39" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="28.13,41.49 28.13,34.79 46.50,45.39 46.50,52.09" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,43.72 46.50,52.09 46.50,45.39 61.00,37.02" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="15.57,14.14 16.43,14.83 17.33,15.49 18.31,16.11 19.37,16.69 20.51,17.21 21.70,17.71 22.90,18.21 24.06,18.73 25.15,19.28 26.15,19.89 27.07,20.54 27.94,21.23 28.80,21.92 29.69,22.59 30.64,23.23 31.68,23.81" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="32.00,33.67 33.19,34.17 34.34,34.69 35.42,35.26 36.41,35.87 37.32,36.53 38.19,37.22 39.05,37.91 39.94,38.58 40.91,39.21 41.96,39.78 43.09,40.32 44.27,40.82 45.47,41.32 46.64,41.83 47.74,42.38 48.76,42.98" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="21.41,25.02 21.14,24.09 21.14,22.98 21.41,23.90" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="22.09,26.09 21.41,25.02 21.41,23.90 22.09,24.97" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="23.15,27.25 22.09,26.09 22.09,24.97 23.15,26.14" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="24.54,28.47 23.15,27.25 23.15,26.14 24.54,27.36" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.15,33.40 41.20,33.72 39.90,33.80 38.29,33.65 36.44,33.26 34.42,32.65 32.31,31.84 30.19,30.87 28.13,29.77 26.23,28.58 24.54,27.36 23.15,26.14 22.09,24.97 21.41,23.90 21.14,22.98 21.29,22.22 21.85,21.68 22.80,21.35 24.10,21.27 25.71,21.42 27.56,21.81 29.58,22.42 31.69,23.23 33.81,24.20 35.87,25.30 37.77,26.49 39.46,27.72 40.85,28.93 41.91,30.10 42.59,31.17 42.86,32.09 42.71,32.85" fill="url(#hetre-z)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="26.23,29.70 24.54,28.47 24.54,27.36 26.23,28.58" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="28.13,30.88 26.23,29.70 26.23,28.58 28.13,29.77" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="30.19,31.98 28.13,30.88 28.13,29.77 30.19,30.87" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32.31,32.96 30.19,31.98 30.19,30.87 32.31,31.84" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="34.42,33.76 32.31,32.96 32.31,31.84 34.42,32.65" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.86,33.21 42.71,33.96 42.71,32.85 42.86,32.09" fill="url(#hetre-x)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="36.44,34.37 34.42,33.76 34.42,32.65 36.44,33.26" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.71,33.96 42.15,34.51 42.15,33.40 42.71,32.85" fill="url(#hetre-x)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="38.29,34.76 36.44,34.37 36.44,33.26 38.29,33.65" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.15,34.51 41.20,34.83 41.20,33.72 42.15,33.40" fill="url(#hetre-x)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="39.90,34.92 38.29,34.76 38.29,33.65 39.90,33.80" fill="url(#hetre-y)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="41.20,34.83 39.90,34.92 39.90,33.80 41.20,33.72" fill="url(#hetre-x)" stroke="#5a3520" stroke-width="2" stroke-linejoin="round"/>
 </svg>

@@ -22,39 +22,58 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     ToolTip = QT_TRANSLATE_NOOP("Workbench", "Pièces de bois, assemblages et liste de débit")
     Icon = icon_path("menuiserie.svg")
 
-    # Noms des commandes enregistrées par l'atelier ; complétés jalon après jalon.
-    commands: tuple[str, ...] = (
-        "Menuiserie_WoodPart",
-        "Menuiserie_MortiseTenon",
-        "Menuiserie_TongueGroove",
-        "Menuiserie_Rabbet",
-        "Menuiserie_Dowels",
-        "Menuiserie_HalfLap",
-        "Menuiserie_Dovetail",
-        "Menuiserie_Miter",
-        "Menuiserie_LooseTenon",
-        "Menuiserie_Biscuit",
-        "Menuiserie_Foot",
-        "Menuiserie_DrawerSlide",
-        # Ensembles (J4c)
-        "Menuiserie_Furniture",
-        "Menuiserie_FurnitureAdd",
-        "Menuiserie_FurnitureRemove",
-        "Menuiserie_FurnitureRebind",
-    )
-    # Gabarits (J4d)
-    commands += ("Menuiserie_Carcass",)
-    # Pièce en bois à forme libre (PD-d)
-    commands += ("Menuiserie_ShapedPart",)
-    # Distance entre deux pièces (DI-b)
-    commands += ("Menuiserie_SetDistance",)
-    # Liste de débit (J2d, J2g)
-    commands += (
-        "Menuiserie_CutList",
-        "Menuiserie_CutListPreview",
-        "Menuiserie_CutListExport",
-        "Menuiserie_CutListPdf",
-        "Menuiserie_NumberMarks",
+    # Commandes enregistrées par l'atelier, regroupées par thème : une barre d'outils et un
+    # sous-menu par thème.
+    themes: tuple[tuple[str, tuple[str, ...]], ...] = (
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Pièces"),
+            (
+                "Menuiserie_WoodPart",  # pièce en bois
+                "Menuiserie_ShapedPart",  # pièce à forme libre (PD-d)
+                "Menuiserie_SetDistance",  # distance entre deux pièces (DI-b)
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Assemblages"),
+            (
+                "Menuiserie_MortiseTenon",
+                "Menuiserie_TongueGroove",
+                "Menuiserie_Rabbet",
+                "Menuiserie_Dowels",
+                "Menuiserie_HalfLap",
+                "Menuiserie_Dovetail",
+                "Menuiserie_Miter",
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Quincaillerie"),
+            (
+                "Menuiserie_LooseTenon",
+                "Menuiserie_Biscuit",
+                "Menuiserie_Foot",
+                "Menuiserie_DrawerSlide",
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Ensembles"),
+            (
+                "Menuiserie_Furniture",  # (J4c)
+                "Menuiserie_FurnitureAdd",
+                "Menuiserie_FurnitureRemove",
+                "Menuiserie_FurnitureRebind",
+                "Menuiserie_Carcass",  # gabarits (J4d)
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Liste de débit"),
+            (
+                "Menuiserie_CutList",  # (J2d, J2g)
+                "Menuiserie_CutListPreview",
+                "Menuiserie_CutListExport",
+                "Menuiserie_CutListPdf",
+                "Menuiserie_NumberMarks",
+            ),
+        ),
     )
 
     def Initialize(self) -> None:
@@ -80,8 +99,11 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
-        self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
-        self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
+        menu = translate("Workbench", "&Menuiserie")
+        for theme, names in self.themes:
+            title = translate("Workbench", theme)
+            self.appendToolbar(f"{translate('Workbench', 'Menuiserie')} : {title}", list(names))
+            self.appendMenu([menu, title], list(names))
 
     def Activated(self) -> None:
         """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018) et flèches de

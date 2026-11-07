@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- Faux tenons : deux planches à chant, une pièce plate rapportée dans une mortaise -->
+  <!-- Faux tenons : deux planches, un tenon plat aux bouts arrondis qui les relie -->
   <defs>
     <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
     <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
@@ -9,15 +9,26 @@
     <linearGradient id="tourillon-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ecca8d"/><stop offset="1" stop-color="#dcb070"/></linearGradient>
     <linearGradient id="tourillon-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfa262"/><stop offset="1" stop-color="#b88b4c"/></linearGradient>
   </defs>
-  <polygon points="3.00,18.72 16.00,11.22 61.00,37.20 48.00,44.70" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="3.00,26.80 3.00,18.72 48.00,44.70 48.00,52.78" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="61.00,45.28 48.00,52.78 48.00,44.70 61.00,37.20" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
-  <polyline points="15.50,13.81 17.87,15.41 20.28,16.97 22.79,18.48 25.39,19.94 28.09,21.34 30.84,22.71 33.60,24.07 36.32,25.46 38.96,26.90 41.49,28.39 43.94,29.94 46.31,31.53 48.67,33.13 51.07,34.70 53.55,36.23 56.12,37.70" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <polyline points="7.74,18.30 10.43,19.70 13.02,21.16 15.52,22.68 17.93,24.25 20.30,25.84 22.67,27.43 25.09,28.99 27.60,30.50 30.21,31.95 32.92,33.35 35.67,34.72 38.43,36.08 41.15,37.47 43.77,38.91 46.30,40.41 48.74,41.97" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <polygon points="17.00,20.45 22.00,17.57 30.00,22.19 25.00,25.07" fill="url(#tourillon-z)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="17.00,22.19 17.00,20.45 25.00,25.07 25.00,26.80" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="30.00,23.92 25.00,26.80 25.00,25.07 30.00,22.19" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="33.00,29.69 38.00,26.80 46.00,31.42 41.00,34.31" fill="url(#tourillon-z)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="33.00,31.42 33.00,29.69 41.00,34.31 41.00,36.04" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
-  <polygon points="46.00,33.15 41.00,36.04 41.00,34.31 46.00,31.42" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,20.28 17.50,11.91 35.87,22.51 21.37,30.88" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,26.98 3.00,20.28 21.37,30.88 21.37,37.58" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="35.87,29.21 21.37,37.58 21.37,30.88 35.87,22.51" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="28.13,34.79 42.63,26.42 61.00,37.02 46.50,45.39" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="28.13,41.49 28.13,34.79 46.50,45.39 46.50,52.09" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,43.72 46.50,52.09 46.50,45.39 61.00,37.02" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="15.57,14.14 16.43,14.83 17.33,15.49 18.31,16.11 19.37,16.69 20.51,17.21 21.70,17.71 22.90,18.21 24.06,18.73 25.15,19.28 26.15,19.89 27.07,20.54 27.94,21.23 28.80,21.92 29.69,22.59 30.64,23.23 31.68,23.81" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="32.00,33.67 33.19,34.17 34.34,34.69 35.42,35.26 36.41,35.87 37.32,36.53 38.19,37.22 39.05,37.91 39.94,38.58 40.91,39.21 41.96,39.78 43.09,40.32 44.27,40.82 45.47,41.32 46.64,41.83 47.74,42.38 48.76,42.98" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="21.58,26.02 21.42,25.30 21.42,23.63 21.58,24.34" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="22.06,26.68 21.58,26.02 21.58,24.34 22.06,25.01" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="22.82,27.26 22.06,26.68 22.06,25.01 22.82,25.58" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="41.18,28.37 41.94,28.94 42.42,29.61 42.58,30.33 42.42,31.04 41.94,31.71 41.18,32.28 40.19,32.72 39.04,32.99 37.80,33.09 36.56,32.99 35.41,32.72 34.42,32.28 22.82,25.58 22.06,25.01 21.58,24.34 21.42,23.63 21.58,22.91 22.06,22.25 22.82,21.68 23.81,21.24 24.96,20.96 26.20,20.87 27.44,20.96 28.59,21.24 29.58,21.68" fill="url(#tourillon-z)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="34.42,33.95 22.82,27.26 22.82,25.58 34.42,32.28" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.58,32.00 42.42,32.71 42.42,31.04 42.58,30.33" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="42.42,32.71 41.94,33.38 41.94,31.71 42.42,31.04" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="41.94,33.38 41.18,33.95 41.18,32.28 41.94,31.71" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="41.18,33.95 40.19,34.39 40.19,32.72 41.18,32.28" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="35.41,34.39 34.42,33.95 34.42,32.28 35.41,32.72" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="40.19,34.39 39.04,34.67 39.04,32.99 40.19,32.72" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="36.56,34.67 35.41,34.39 35.41,32.72 36.56,32.99" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="39.04,34.67 37.80,34.76 37.80,33.09 39.04,32.99" fill="url(#tourillon-x)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="37.80,34.76 36.56,34.67 36.56,32.99 37.80,33.09" fill="url(#tourillon-y)" stroke="#5c3a17" stroke-width="2" stroke-linejoin="round"/>
 </svg>

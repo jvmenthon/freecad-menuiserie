@@ -179,41 +179,55 @@ def tourillons() -> str:
     return ic.svg()
 
 
+def _plat(x0: float, x1: float, y0: float, y1: float) -> list[tuple[float, float]]:
+    """Contour d'un plat aux deux bouts arrondis (faux tenon), vu de dessus."""
+    r = (y1 - y0) / 2
+    cy = y0 + r
+    pas = [math.pi * (i / 12 - 0.5) for i in range(13)]
+    droite = [(x1 - r + r * math.cos(t), cy + r * math.sin(t)) for t in pas]
+    gauche = [(x0 + r - r * math.cos(t), cy - r * math.sin(t)) for t in pas]
+    return droite + gauche
+
+
 def faux_tenons() -> str:
-    ic = Icone("Faux tenons : deux planches à chant, une pièce plate rapportée dans une mortaise")
-    ic.boite((0, 0, 0), (90, 26, 14), "chene")
-    ic.veinage((4, 86), (5, 14), "chene", amplitude=0.8)
-    ic.veinage((4, 86), (21, 14), "chene", amplitude=0.8, phase=0.6)
-    ic.boite((20, 8, 14), (16, 10, 3), "tourillon")
-    ic.boite((52, 8, 14), (16, 10, 3), "tourillon")
+    ic = Icone("Faux tenons : deux planches, un tenon plat aux bouts arrondis qui les relie")
+    ic.boite((0, 0, 0), (38, 30, 12), "chene")
+    ic.boite((52, 0, 0), (38, 30, 12), "chene")
+    ic.veinage((2, 36), (6, 12), "chene", amplitude=0.7)
+    ic.veinage((54, 88), (24, 12), "chene", amplitude=0.7, phase=0.5)
+    ic.prisme(_plat(26, 64, 8, 22), "z", 12, 15, "tourillon")
     return ic.svg()
 
 
 def biscuits() -> str:
-    ic = Icone("Biscuits : deux planches à chant, une lamelle ovale rapportée dans une fente")
-    ic.boite((0, 0, 0), (90, 26, 14), "chene")
-    ic.veinage((4, 86), (5, 14), "chene", amplitude=0.8)
-    ic.veinage((4, 86), (21, 14), "chene", amplitude=0.8, phase=0.6)
-    ic.boite((16, 6, 14), (26, 14, 2), "tourillon")
-    ic.boite((52, 6, 14), (26, 14, 2), "tourillon")
+    ic = Icone("Biscuits : deux planches, une lamelle ovale qui les relie")
+    ic.boite((0, 0, 0), (38, 30, 12), "chene")
+    ic.boite((52, 0, 0), (38, 30, 12), "chene")
+    ic.veinage((2, 36), (6, 12), "chene", amplitude=0.7)
+    ic.veinage((54, 88), (24, 12), "chene", amplitude=0.7, phase=0.5)
+    lamelle = [(45 + 21 * math.cos(t), 15 + 8 * math.sin(t)) for t in angles(32)]
+    ic.prisme(lamelle, "z", 12, 14, "hetre")
     return ic.svg()
 
 
 def pieds() -> str:
     ic = Icone("Pieds de caisson : panneau posé sur deux pieds réglables")
-    for cx in (14, 76):
-        ic.cylindre(cx, 13, 0, 12, 7, "tourillon")
-    ic.boite((0, 0, 12), (90, 26, 12), "chene")
-    ic.veinage((4, 86), (5, 24), "chene", amplitude=0.8)
-    ic.veinage((4, 86), (21, 24), "chene", amplitude=0.8, phase=0.6)
+    for cx in (12, 76):
+        ic.cylindre(cx, 20, 0, 16, 8, "acier")
+    ic.boite((0, 0, 16), (90, 26, 12), "chene")
+    ic.veinage((4, 86), (5, 28), "chene", amplitude=0.8)
+    ic.veinage((4, 86), (21, 28), "chene", amplitude=0.8, phase=0.6)
     return ic.svg()
 
 
 def coulisse() -> str:
-    ic = Icone("Coulisse de tiroir : côté de caisson, coulisse et côté de tiroir face à face")
-    ic.boite((0, 0, 0), (90, 6, 26), "chene")
-    ic.boite((0, 6, 8), (90, 4, 8), "tourillon")
-    ic.boite((0, 10, 2), (80, 6, 20), "chene")
+    ic = Icone("Coulisse de tiroir : rail d'acier entre le côté du caisson et le côté du tiroir")
+    ic.boite((0, 0, 0), (90, 5, 30), "chene")
+    ic.boite((4, 5, 11), (82, 3, 9), "acier")
+    ic.boite((10, 8, 12), (76, 3, 7), "acier")
+    for x in (18, 45, 72):
+        ic.trou([(x + 2.5 * math.cos(t), 5.5, 15.5 + 2.5 * math.sin(t)) for t in angles(12)])
+    ic.boite((36, 11, 4), (54, 5, 20), "chene")
     return ic.svg()
 
 
