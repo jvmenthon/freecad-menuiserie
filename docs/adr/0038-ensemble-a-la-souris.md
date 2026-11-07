@@ -1,4 +1,4 @@
-# ADR 0036 — Taille et orientation d'un ensemble à la souris
+# ADR 0038 — Taille et orientation d'un ensemble à la souris
 
 - Statut : **proposé** (en attente de jv : questions Q1 à Q5 de la spécification)
 - Date : 2026-11-07

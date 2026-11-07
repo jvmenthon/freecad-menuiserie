@@ -3,7 +3,7 @@
 - Statut : **proposée**, en attente des réponses de jv (§ 8).
 - Demande de jv (2026-11-07) : « quand je suis sur un ensemble je veux pouvoir aussi modifier la
   taille et l'orientation avec la souris ».
-- ADR : **[0036 — Taille et orientation d'un ensemble à la souris](../adr/0036-ensemble-a-la-souris.md)**
+- ADR : **[0038 — Taille et orientation d'un ensemble à la souris](../adr/0038-ensemble-a-la-souris.md)**
   (proposé). ADR liés : 0008 (Ensemble, objet de cotes), 0019 (rangées), 0021 (glissement),
   0025 (rotation), 0007 (compatibilité).
 - Reprend pour l'**ensemble** (`Furniture`, issue #86) les poignées de taille de la pièce (#65,
@@ -35,7 +35,7 @@ Un ensemble sélectionné (dans l'arbre, ou une de ses pièces avec le raccourci
    celui des pièces (10 px, Maj coupe) sur les faces voisines ; cote affichée près de la souris.
 3. **Orientation** : trois anneaux autour du centre de la boîte (X rouge, Y vert, Z bleu), aimantés
    tous les 15°, Maj libre, angle affiché. Tout l'ensemble tourne, ses pièces avec lui et ses
-   liaisons restent intactes (ADR 0036 : par un Std Part).
+   liaisons restent intactes (ADR 0038 : par un Std Part).
 4. Un Ctrl+Z défait le geste ; Échap pendant le geste le ramène au début ; refus expliqué si une
    cote est bloquée (pièces verrouillées, cote minimale) comme dans le panneau.
 
@@ -58,7 +58,7 @@ Un ensemble sélectionné (dans l'arbre, ou une de ses pièces avec le raccourci
 - B3 Cote refusée (`LockedPiecesError`, pièce trop petite) : le geste s'arrête à la dernière
   valeur permise, message près de la souris ; jamais d'écriture perdue en silence.
 - B4 Rotation : `ensure_container(furniture)` renvoie le Std Part (`App::Part`) qui contient
-  l'ensemble et tous ses membres, le crée au premier geste (ADR 0036) ; le geste écrit son
+  l'ensemble et tous ses membres, le crée au premier geste (ADR 0038) ; le geste écrit son
   `Placement`. Ensemble déjà dans un Std Part : on tourne ce Std Part (refus expliqué s'il
   contient autre chose que l'ensemble, Q2).
 - B5 Sous-ensemble : taille, déplacement et rotation permis, par son propre Std Part (Q2).
@@ -81,7 +81,7 @@ Un ensemble sélectionné (dans l'arbre, ou une de ses pièces avec le raccourci
   relisent le Std Part ; grisés avec une infobulle si l'ensemble est un sous-ensemble.
 - D2 Les champs `Width`, `Depth`, `Height` du panneau relisent la valeur après un glissement.
 
-## 4. Conception (voir ADR 0036)
+## 4. Conception (voir ADR 0038)
 
 ### 4.1 Sélection
 
@@ -98,7 +98,7 @@ fait suivre les pièces. Aucun code de rangée n'est touché : on appelle `resiz
 
 ### 4.3 Orientation
 
-Voir ADR 0036. Le Std Part est le mécanisme natif de FreeCAD (ADR 0008, point 4) ; l'ensemble, ses
+Voir ADR 0038. Le Std Part est le mécanisme natif de FreeCAD (ADR 0008, point 4) ; l'ensemble, ses
 membres et leurs assemblages sont rangés dedans, aucune propriété nouvelle sur l'ensemble.
 
 ## 5. Découpage
