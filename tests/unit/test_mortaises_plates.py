@@ -9,8 +9,7 @@ import pytest
 
 from freecad.menuiserie.core.geometry import JointError, PlacedBlock, Prism
 from freecad.menuiserie.core.joints import JointKind, strategy_for
-from freecad.menuiserie.core.joints._slot_shapes import half_stadium, rounded_rectangle
-from freecad.menuiserie.core.joints.slots import SlotParams
+from freecad.menuiserie.core.joints.slots import SlotParams, half_stadium, rounded_rectangle
 from tests.unit.aides_assemblages import block
 
 TENON = strategy_for(JointKind.LOOSE_TENON)

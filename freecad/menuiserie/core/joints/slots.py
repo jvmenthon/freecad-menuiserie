@@ -49,6 +49,8 @@ __all__ = [
     "SlotParams",
     "SlotSize",
     "SlotValues",
+    "half_stadium",
+    "rounded_rectangle",
 ]
 
 MIN_WALL_MM: Final = 2.0  # matière laissée de chaque côté de la mortaise, dans l'épaisseur

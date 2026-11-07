@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from freecad.menuiserie.core.joints._slot_shapes import Point2, half_stadium, rounded_rectangle
+from freecad.menuiserie.core.joints.slots import half_stadium, rounded_rectangle
 from tests.integration.cadre import placement
 
 App = pytest.importorskip("FreeCAD")
@@ -26,7 +26,7 @@ Where = tuple[float, float, float]  # x, y, rotation autour de Z (degrés)
 Pose = Where | Any  # ou un ``App.Placement`` (pièce debout)
 
 
-def polygon_area(points: tuple[Point2, ...]) -> float:
+def polygon_area(points: tuple[tuple[float, float], ...]) -> float:
     """Aire d'un polygone plan (formule du lacet)."""
     pairs = zip(points, (*points[1:], points[0]), strict=True)
     return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in pairs)) / 2
