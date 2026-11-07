@@ -53,7 +53,8 @@ def verifier_suppression_du_std_part_a_la_main() -> list[str]:
         api.rotate_furniture(bureau.furniture, (0.0, 0.0, 30.0))
         bureau.doc.recompute()
         avant = _geometrie(bureau.doc)
-        bureau.doc.removeObject(std_part_of(bureau.furniture).Name)
+        part = std_part_of(bureau.furniture)
+        bureau.doc.removeObject("" if part is None else part.Name)
         bureau.doc.recompute()
         return ecarts("pièces en place après la suppression", _geometrie(bureau.doc), avant)
 
@@ -62,7 +63,8 @@ def verifier_suppression_de_l_ensemble_et_de_son_std_part() -> list[str]:
     """Majeur 4 : supprimer l'ensemble (``onDelete``) supprime son Std Part vide."""
     with bureau_regroupe("VerifRevueEnsembleSupprime") as bureau:
         preparer(bureau.doc)
-        nom_std = std_part_of(bureau.furniture).Name
+        part = std_part_of(bureau.furniture)
+        nom_std = "" if part is None else part.Name
         avant = _geometrie(bureau.doc)
         ensemble = bureau.furniture
         autorise = ensemble.ViewObject.Proxy.onDelete(ensemble.ViewObject, [])
