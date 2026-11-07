@@ -15,6 +15,7 @@ pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
 api = pytest.importorskip("freecad.menuiserie.api")
+plan_for = pytest.importorskip("freecad.menuiserie.features.joints.base").plan_for
 
 PANEL = 600 * 500 * 19
 SIDE = 500 * 300 * 19
@@ -110,7 +111,7 @@ def test_taquets_sous_chaque_tablette(document: Any) -> None:
     board = shelf(document, 360)
     joint = api.make_shelf_pins(side)
     assert board in joint.Neighbors
-    pin = math.pi * 2.5**2 * 12 + 5 * 5 * 7  # tige dans le trou + saillie à dessus plat
+    pin = math.pi * 2.5**2 * (12 + 7)  # taquet rond : tige dans le trou et saillie
     assert joint.Shape.Volume == pytest.approx(2 * pin)  # deux taquets sous la tablette
     board.Placement = App.Placement(App.Vector(19, 0, -720 + 424), App.Rotation())  # monte de 64
     document.recompute()
@@ -130,7 +131,7 @@ def test_un_seul_percage_pour_les_deux_montants(document: Any) -> None:
     joint = api.make_shelf_pins(side)
     assert (joint.HostPart, joint.GuestPart, joint.BothSides) == (side, other, True)
     assert board in joint.Neighbors and joint.isValid()
-    pin = math.pi * 2.5**2 * 12 + 5 * 5 * 7  # tige dans le trou + saillie à dessus plat
+    pin = math.pi * 2.5**2 * (12 + 7)  # taquet rond : tige dans le trou et saillie
     assert joint.Shape.Volume == pytest.approx(4 * pin)  # deux taquets de chaque côté
     hole = math.pi * 2.5**2 * 12
     assert volume(other) == pytest.approx(720 * 500 * 19 - 38 * hole)  # percé en miroir
@@ -141,6 +142,23 @@ def test_un_seul_percage_pour_les_deux_montants(document: Any) -> None:
     document.recompute()
     assert volume(other) == pytest.approx(720 * 500 * 19)
     assert len(api.machined_part_of(other).Joints) == 1
+    assert stale_or_invalid(document) == []
+
+
+def test_assemblage_ajoute_apres_le_percage_recalcule_le_montant_oppose(document: Any) -> None:
+    side = upright_side(document)
+    shelf(document, 360)
+    where = App.Placement(App.Vector(619, 0, 0), App.Rotation(App.Vector(0, 1, 0), 90))
+    other = wood(document, "S", (720, 500, 19), where)
+    document.recompute()
+    joint = api.make_shelf_pins(side)
+    assert len(plan_for(joint).guest_cuts) == 38  # 19 rangs sur toute la hauteur
+    where = App.Placement(App.Vector(19, 0, -720), App.Rotation())
+    bottom = wood(document, "B", (600, 500, 19), where)  # fond, contre le bas des côtés
+    document.recompute()
+    api.make_dowels(other, bottom)  # assemblé au montant opposé seulement, après le perçage
+    assert bottom in joint.Neighbors and joint.isValid()
+    assert len(plan_for(joint).guest_cuts) == 36  # zone du montant opposé bornée par le fond
     assert stale_or_invalid(document) == []
 
 

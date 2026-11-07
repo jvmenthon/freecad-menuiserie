@@ -8,6 +8,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 ### Ajouté
 
 - Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
+- Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).
 - Panneau d'assemblage : « OK » est grisé et refusé (message) tant que l'assemblage est en erreur ; « Annuler » reste possible.
 - Entrées utilisateur : le pas du perçage est refusé sous diamètre + 2 mm (saisir un pas à la main pouvait figer FreeCAD), tout plan d'usinage est plafonné à 1000 formes, et les champs des panneaux d'assemblage s'appliquent en fin de saisie. Nouvelle norme « Entrées utilisateur » dans `CONTRIBUTING.md`.
 - Perçage LR32 : en déplaçant une tablette, son dessous s'aimante sur le dessus de taquet de n'importe quel rang de trous (et plus seulement sur l'ancien taquet) ; le taquet suit la tablette.

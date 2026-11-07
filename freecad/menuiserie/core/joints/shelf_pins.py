@@ -225,7 +225,7 @@ def _opposite(
 
 def _drilling(
     side: PlacedBlock, values: ShelfPinsValues, layout: Layout
-) -> tuple[tuple[Cylinder, ...], tuple[Cylinder | Box, ...]]:
+) -> tuple[tuple[Cylinder, ...], tuple[Cylinder, ...]]:
     """Trous et taquets d'un côté, dans son repère."""
     vertical, down = upright(side)
     box = side.local_box()
@@ -235,45 +235,23 @@ def _drilling(
     bottom = box.hi(vertical) if down > 0 else box.lo(vertical)
     columns = (box.lo(horizontal) + values.edge_distance, box.hi(horizontal) - values.edge_distance)
     holes: list[Cylinder] = []
-    pins: list[Cylinder | Box] = []
-    radius = values.hole_diameter / 2
+    pins: list[Cylinder] = []
+    radius, depth = values.hole_diameter / 2, values.hole_depth
     for row, height in enumerate(layout.heights):
         level = bottom - down * height
         for column in columns:
             base = _point(vertical, level, horizontal, column, plane)
             holes.append(Cylinder(base, face.opposite(), radius, values.hole_depth))
-            if row in layout.pin_rows:
-                pins.append(Cylinder(base, face.opposite(), radius, values.hole_depth))
-                pins.append(_ledge(vertical, level, horizontal, column, plane, face, values))
+            if row in layout.pin_rows:  # taquet rond : tige dans le trou et saillie d'un tenant
+                inner = _point(vertical, level, horizontal, column, plane - face.sign * depth)
+                pins.append(Cylinder(inner, face, radius, depth + values.pin_projection))
     return tuple(holes), tuple(pins)
 
 
-def _moved(solid: Cylinder | Box, transform: RigidTransform) -> Cylinder | Box:
+def _moved(pin: Cylinder, transform: RigidTransform) -> Cylinder:
     """Taquet du montant opposé exprimé dans le repère de l'hôte."""
-    if isinstance(solid, Box):
-        return moved_box(solid, transform)
-    axis = moved_axis(transform, solid.axis)
-    return Cylinder(transform.apply(solid.base), axis, solid.radius, solid.height)
-
-
-def _ledge(  # noqa: PLR0913
-    vertical: int,
-    level: float,
-    horizontal: int,
-    column: float,
-    plane: float,
-    face: Axis,
-    values: ShelfPinsValues,
-) -> Box:
-    """Partie du taquet hors du côté : section carrée de la largeur de la tige, à dessus plat
-    (où repose la tablette), qui sort de ``pin_projection`` hors de la face."""
-    radius = values.hole_diameter / 2
-    out = plane + face.sign * values.pin_projection
-    ranges = [(0.0, 0.0)] * 3
-    ranges[vertical] = (level - radius, level + radius)
-    ranges[horizontal] = (column - radius, column + radius)
-    ranges[2] = (min(plane, out), max(plane, out))
-    return Box.from_ranges(ranges)
+    axis = moved_axis(transform, pin.axis)
+    return Cylinder(transform.apply(pin.base), axis, pin.radius, pin.height)
 
 
 REST_SLAB_MM: Final = 0.01  # épaisseur des appuis d'aimantation (seule leur face haute compte)

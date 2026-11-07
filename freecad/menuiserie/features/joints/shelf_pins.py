@@ -119,6 +119,17 @@ class ShelfPinsJoint(JointFeature):
             current = "minus" if obj.Face == "plus" else "plus"
         obj.Face = "minus" if current == "plus" else "plus"
 
+    def part_joints_changed(self, obj: DocumentObject) -> None:
+        """Assemblage ajouté au côté ou au montant opposé (ou retiré) : la zone percée change ;
+        voisines relues (une pièce ajoutée depuis le perçage est suivie) et recalcul demandé."""
+        host = obj.HostPart
+        if host is None:
+            return
+        around = timber_blanks_around(host)
+        if list(obj.Neighbors) != around:
+            obj.Neighbors = around
+        obj.touch()
+
     def params(self, obj: DocumentObject) -> Any:
         """Réglages des propriétés, plus les pièces voisines du côté et du montant opposé dans
         le document : celles qui leur sont assemblées bornent la zone percée, les autres

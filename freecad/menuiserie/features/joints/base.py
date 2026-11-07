@@ -187,6 +187,10 @@ class JointFeature(StatelessProxy):
         """« Inverser » du panneau : la pièce hôte devient l'invitée et inversement."""
         obj.HostPart, obj.GuestPart = obj.GuestPart, obj.HostPart
 
+    def part_joints_changed(self, obj: DocumentObject) -> None:
+        """Un assemblage a été ajouté à une de ses pièces ou retiré ; rien par défaut (le
+        perçage LR32, qui dépend des assemblages voisins, se fait recalculer)."""
+
     def params(self, obj: DocumentObject) -> Any:
         """Paramètres de ``core`` (objet valeur ``PARAMS`` du type) lus dans les propriétés."""
         return params_from(obj, self.PARAMS)

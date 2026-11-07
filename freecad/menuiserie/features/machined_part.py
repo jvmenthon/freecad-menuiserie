@@ -167,6 +167,10 @@ class MachinedPart(SyncingProxy):
             self._adopt_typed_mark(obj)
         elif prop == "Placement":
             self._follow_placement(obj)
+        elif prop == "Joints":
+            for joint in obj.Joints:  # assemblage ajouté ou retiré : ceux qui en dépendent suivent
+                if is_joint(joint):
+                    joint.Proxy.part_joints_changed(joint)
 
     def allowDuplicateLabel(self, obj: DocumentObject) -> bool:  # pylint: disable=unused-argument
         """Vrai : le libellé est rendu unique par l'atelier (:meth:`onBeforeChangeLabel`)."""

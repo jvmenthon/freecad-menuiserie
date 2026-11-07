@@ -75,15 +75,12 @@ def test_taquet_sous_chaque_tablette() -> None:
     values = SHELF_PINS.resolve(wall, wall, params)
     assert values.pin_rows == (8, 12) and values.count == 4  # 83 + 32 x 8 = 339, 83 + 32 x 12 = 467
     inserts = SHELF_PINS.plan(wall, wall, params).inserts
-    assert len(cylinders(inserts)) == 4 and all(p.height == 12.0 for p in cylinders(inserts))
-    ledges = boxes(inserts)  # partie saillante, à dessus plat
-    assert len(ledges) == 4 and all(b.size(2) == 7.0 and b.size(0) == 5.0 for b in ledges)
+    pins = cylinders(inserts)  # taquets ronds d'un tenant : tige de 12 + saillie de 7
+    assert len(pins) == 4 and not boxes(inserts)
+    assert all(p.height == 19.0 and p.radius == 2.5 for p in pins)
+    assert all(p.base.z == 19.0 - 12.0 and p.axis.sign > 0 for p in pins)  # du fond du trou
     assert values.pin_top(8) == 339.0 + 2.5  # le dessous de la tablette repose dessus
-    top = {round(b.hi(0), 6) for b in ledges}  # repère du côté : le haut est vers x décroissant
-    assert top == {720.0 - 339.0 + 2.5, 720.0 - 467.0 + 2.5} or top == {
-        720.0 - 339.0 - 2.5,
-        720.0 - 467.0 - 2.5,
-    }
+    assert {round(720.0 - p.base.x, 6) for p in pins} == {339.0, 467.0}
 
 
 def test_taquets_au_rang_choisi_ou_absents() -> None:
@@ -132,8 +129,9 @@ def test_appuis_d_aimantation_a_chaque_rang() -> None:
     # repère du côté : le haut est vers x décroissant, la face haute de l'appui est en lo(0)
     tops = sorted({round(720.0 - r.lo(0), 6) for r in rests})
     assert tops == [round(values.pin_top(i), 6) for i in range(values.rows)]
-    ledges = boxes(SHELF_PINS.plan(wall, wall, ShelfPinsParams(neighbors=cabinet(360.0))).inserts)
-    assert {round(720.0 - b.lo(0), 6) for b in ledges} == {round(values.pin_top(8), 6)}
+    pins = cylinders(SHELF_PINS.plan(wall, wall, ShelfPinsParams(neighbors=cabinet(360.0))).inserts)
+    tops = {round(720.0 - p.base.x + p.radius, 6) for p in pins}  # haut du taquet rond
+    assert tops == {round(values.pin_top(8), 6)}
 
 
 def test_valeurs_automatiques_a_zero() -> None:
