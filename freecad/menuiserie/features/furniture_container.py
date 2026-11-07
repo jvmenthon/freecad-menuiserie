@@ -57,9 +57,11 @@ __all__ = [
     "own_std_part",
     "placement_container",
     "position_of",
+    "positioned",
     "scopes",
     "set_member_expression",
     "std_part_of",
+    "write_placement",
 ]
 
 STD_PART: Final = "App::Part"
@@ -92,17 +94,32 @@ def std_part_of(furniture: DocumentObject) -> DocumentObject | None:
     return parent if is_std_part(parent) else None
 
 
+def _sub_std_part(obj: DocumentObject, furniture: DocumentObject) -> bool:
+    """Vrai si ``obj`` est le Std Part d'un sous-ensemble **membre** de ``furniture`` (et non un
+    ``App::Part`` de l'utilisateur)."""
+    return is_std_part(obj) and any(
+        is_furniture(item) and furniture_of(item) == furniture for item in obj.Group
+    )
+
+
 def own_std_part(furniture: DocumentObject) -> DocumentObject | None:
     """Std Part **propre** à l'ensemble : celui qui ne contient que l'ensemble, ses membres (pièces,
-    pièces usinées, assemblages, Distances) et les Std Parts de ses sous-ensembles. ``None`` sans
-    Std Part (ancien document) ou si le Std Part contient autre chose (objet de l'utilisateur,
-    autre ensemble) : le tourner ou le déplacer entraînerait ces objets."""
+    pièces usinées, assemblages, Distances), les Std Parts de ses sous-ensembles et les objets que
+    FreeCAD y range avec ses pièces (source d'une pièce en bois). ``None`` sans Std Part (ancien
+    document) ou si le Std Part contient autre chose (objet de l'utilisateur, autre ensemble, Std
+    Part de l'utilisateur) : le tourner ou le déplacer entraînerait ces objets."""
     part = std_part_of(furniture)
     if part is None:
         return None
     others = [o for o in part.Group if o != furniture and o.TypeId != "App::Origin"]
-    own = all((is_std_part(o) or _workshop(o)) and not is_furniture(o) for o in others)
-    return part if own else None
+    ours = [o for o in others if _workshop(o) and not is_furniture(o)]
+    for obj in others:
+        if obj in ours:
+            continue
+        linked = any(obj in item.OutList for item in ours)  # source tirée dans le Std Part
+        if not (_sub_std_part(obj, furniture) or (linked and not is_std_part(obj))):
+            return None
+    return part
 
 
 def placement_container(obj: DocumentObject) -> DocumentObject | None:
@@ -268,18 +285,56 @@ def _content(part: DocumentObject) -> list[DocumentObject]:
     return found
 
 
+def positioned(obj: DocumentObject) -> bool:
+    """Objet géométrique dont le ``Placement`` est à garder quand FreeCAD le change de conteneur :
+    tout sauf l'ensemble, la pièce usinée, l'assemblage et la Distance (leur position suit leur
+    brute) et les éléments d'une origine."""
+    return (
+        "Placement" in obj.PropertiesList
+        and obj.isDerivedFrom("App::GeoFeature")
+        and not obj.isDerivedFrom("App::OriginFeature")
+        and obj.TypeId != "App::Origin"
+        and not (is_furniture(obj) or is_machined_part(obj) or is_joint(obj) or is_distance(obj))
+    )
+
+
+def write_placement(obj: DocumentObject, placement: App.Placement) -> None:
+    """Écrit le ``Placement`` de ``obj``, sans réaction de l'atelier si c'est un de ses objets."""
+    if getattr(obj, "Proxy", None) is not None:
+        with writing(obj):
+            obj.Placement = placement
+    else:
+        obj.Placement = placement
+
+
+def _depth(obj: DocumentObject) -> int:
+    count, parent = 0, obj.getParentGeoFeatureGroup()
+    while parent is not None:
+        count, parent = count + 1, parent.getParentGeoFeatureGroup()
+    return count
+
+
+def _kept_places(doc: Document) -> dict[str, App.Placement]:
+    """Position globale des objets de ``doc`` que FreeCAD pourrait ranger ailleurs avec ceux qu'on
+    déplace (pièces, Std Parts, source d'une pièce en bois, corps d'un autre atelier) : à la
+    racine ou dans un Std Part, sans expression sur leur ``Placement``."""
+    found = {}
+    for obj in doc.Objects:
+        parent = obj.getParentGeoFeatureGroup()
+        if (parent is None or is_std_part(parent)) and positioned(obj):
+            if placement_expression(obj) is None:
+                found[obj.Name] = obj.getGlobalPlacement()
+    return found
+
+
 def _relocate(objects: Sequence[DocumentObject], target: DocumentObject | None) -> None:
-    """Range ``objects`` dans ``target`` (``None`` : racine) en gardant la position globale des
-    brutes et des Std Parts (leur ``Placement`` est relu dans le nouveau repère), sauf si une
-    expression pilote leur ``Placement``."""
-    moved = {obj.Name: obj for obj in objects}
-    for obj in objects:  # FreeCAD range aussi les pièces liées : elles gardent leur place
-        moved.update({name: item for name, item in _closure(obj).items() if name not in moved})
-    placed = {
-        name: obj.getGlobalPlacement()
-        for name, obj in moved.items()
-        if (is_timber(obj) or is_std_part(obj)) and placement_expression(obj) is None
-    }
+    """Range ``objects`` dans ``target`` (``None`` : racine) en gardant la position globale de tout
+    ce que FreeCAD range avec eux (brutes, Std Parts, source des pièces en bois : leur ``Placement``
+    est relu dans le nouveau repère), sauf si une expression pilote leur ``Placement``."""
+    if not objects:
+        return
+    doc = objects[0].Document
+    kept = _kept_places(doc)
     for obj in objects:
         current = obj.getParentGeoFeatureGroup()
         if current == target:
@@ -288,13 +343,12 @@ def _relocate(objects: Sequence[DocumentObject], target: DocumentObject | None) 
             target.addObject(obj)
         elif current is not None:
             current.removeObject(obj)
-    base = target.getGlobalPlacement() if target is not None else App.Placement()
-    for name, obj in moved.items():
-        if name in placed:
-            wanted = local_placement(placed[name], base)
-            if obj.Placement != wanted:
-                with writing(obj):
-                    obj.Placement = wanted
+    moved = sorted((doc.getObject(name) for name in kept), key=_depth)  # conteneurs d'abord
+    for obj in moved:
+        parent = obj.getParentGeoFeatureGroup()
+        base = parent.getGlobalPlacement() if parent is not None else App.Placement()
+        if not obj.getGlobalPlacement().isSame(kept[obj.Name], 1e-9):
+            write_placement(obj, local_placement(kept[obj.Name], base))
 
 
 def _shift_content(part: DocumentObject, shift: App.Vector) -> None:

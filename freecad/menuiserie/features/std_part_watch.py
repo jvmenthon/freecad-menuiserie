@@ -24,15 +24,16 @@ from typing import Final
 import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.distance import is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture, writing
 from freecad.menuiserie.features.furniture_bindings import release_members
-from freecad.menuiserie.features.furniture_container import is_std_part
+from freecad.menuiserie.features.furniture_container import (
+    is_std_part,
+    positioned,
+    write_placement,
+)
 from freecad.menuiserie.features.furniture_members import detach_members
 from freecad.menuiserie.features.i18n import report_warning, translated
-from freecad.menuiserie.features.joints.base import is_joint
-from freecad.menuiserie.features.machined_part import is_machined_part
 
 __all__ = ["StdPartObserver", "std_part_deleted"]
 
@@ -42,25 +43,6 @@ _TURNED: Final = QT_TRANSLATE_NOOP(
     "gardent leur place (« Relier les pièces » les relie à nouveau).",
 )
 _EPSILON: Final = 1e-9
-
-
-def _placed(obj: DocumentObject) -> bool:
-    """Objet géométrique rangé dans le Std Part, qui a un ``Placement`` à compenser : ni l'ensemble,
-    ni une pièce usinée, un assemblage ou une Distance (leur position suit leur brute)."""
-    return (
-        obj.TypeId != "App::Origin"
-        and not (is_furniture(obj) or is_machined_part(obj) or is_joint(obj) or is_distance(obj))
-        and "Placement" in obj.PropertiesList
-        and obj.isDerivedFrom("App::GeoFeature")
-    )
-
-
-def _write_placement(obj: DocumentObject, placement: App.Placement) -> None:
-    if getattr(obj, "Proxy", None) is not None:
-        with writing(obj):
-            obj.Placement = placement
-    else:
-        obj.Placement = placement
 
 
 def _shift(furniture: DocumentObject, shift: App.Vector) -> None:
@@ -75,7 +57,7 @@ def std_part_deleted(part: DocumentObject) -> list[str]:
     if not is_std_part(part):
         return []
     furnitures = [obj for obj in part.Group if is_furniture(obj)]
-    objects = [obj for obj in part.Group if _placed(obj)]
+    objects = [obj for obj in part.Group if positioned(obj)]
     if not furnitures or not objects:
         return []
     where = part.getGlobalPlacement()
@@ -94,7 +76,7 @@ def std_part_deleted(part: DocumentObject) -> list[str]:
         moved = where.multiply(obj.Placement) if turned else obj.Placement
         if not turned:
             moved = App.Placement(moved.Base + where.Base, moved.Rotation)
-        _write_placement(obj, moved)
+        write_placement(obj, moved)
     return messages
 
 

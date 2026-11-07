@@ -111,3 +111,116 @@ def test_std_part_d_un_sous_ensemble_supprime(document: Any, watching: Any) -> N
     api.resize_furniture(furniture, depth=800)
     assert stale_or_invalid(document) == []
     assert geometry(document)[parts["CG"].Name][:3] == before[parts["CG"].Name][:3]
+
+
+# --- 4 : suppression de l'ensemble --------------------------------------------------------------
+
+
+def test_suppression_de_l_ensemble_supprime_son_std_part_vide(bureau: Any) -> None:
+    from freecad.menuiserie.features.furniture_bindings import members_of
+    from freecad.menuiserie.features.furniture_members import remove_members
+
+    furniture, doc = bureau.furniture, bureau.doc
+    std_name = container.std_part_of(furniture).Name
+    before = geometry(doc)
+    messages = remove_members(members_of(furniture))  # ce que fait onDelete
+    messages += container.dissolve(furniture)
+    assert doc.getObject(std_name) is None and doc.getObject(furniture.Name) is not None
+    doc.removeObject(furniture.Name)  # FreeCAD supprime l'ensemble ensuite
+    doc.recompute()
+    assert [m for m in messages if "Std Part" in m and "conservé" in m] == []
+    assert {k: v for k, v in geometry(doc).items() if k in before} == before
+    assert stale_or_invalid(doc) == []
+
+
+def test_suppression_de_l_ensemble_garde_un_std_part_non_vide(document: Any) -> None:
+    from freecad.menuiserie.features.furniture_bindings import members_of
+    from freecad.menuiserie.features.furniture_members import remove_members
+
+    desk = build_parts(document)
+    furniture, _ = api.make_furniture(list(desk.parts.values()), "Bureau")
+    std = container.std_part_of(furniture)
+    stranger = document.addObject("App::FeaturePython", "Etranger")
+    std.addObject(stranger)
+    remove_members(members_of(furniture))
+    messages = container.dissolve(furniture)
+    assert document.getObject(std.Name) is not None
+    assert len(messages) == 1 and "Etranger" in messages[0] and "conservé" in messages[0]
+
+
+# --- 5 : source d'une pièce en bois, Std Part tourné ---------------------------------------------
+
+
+def global_box(obj: Any) -> tuple[float, ...]:
+    shape = obj.Shape.copy()
+    shape.Placement = obj.getGlobalPlacement()
+    b = shape.BoundBox
+    return tuple(round(v, 3) for v in (b.XMin, b.YMin, b.ZMin, b.XMax, b.YMax, b.ZMax))
+
+
+def test_piece_en_bois_membre_std_part_tourne_retrait(document: Any) -> None:
+    from tests.integration.pieces_galbees import curved_rail, shaped
+
+    desk = build_parts(document)
+    body = curved_rail(document)
+    piece = shaped(body, "S")
+    piece.Placement = App.Placement(App.Vector(100, 100, 300), App.Rotation())
+    document.recompute()
+    members = [desk.parts["P"], desk.parts["JG"], desk.parts["JD"], piece]
+    furniture, _ = api.make_furniture(members, "Bureau")
+    std = container.std_part_of(furniture)
+    assert body.getParentGeoFeatureGroup() == std  # FreeCAD range la source avec la pièce
+    assert api.rotate_furniture(furniture, (0, 0, 30))  # la source ne rend pas le Std Part impropre
+    document.recompute()
+    where_piece, where_body = global_box(piece), body.getGlobalPlacement()
+    assert not where_body.Rotation.isIdentity()
+    api.remove_from_furniture([piece])
+    document.recompute()
+    assert piece.getParentGeoFeatureGroup() is None
+    assert body.getParentGeoFeatureGroup() is None  # la source sort avec la pièce
+    assert global_box(piece) == where_piece
+    assert body.getGlobalPlacement().isSame(where_body, 1e-6)  # et garde sa place
+    assert stale_or_invalid(document) == []
+
+
+def test_entree_d_une_piece_en_bois_dans_un_std_part_tourne(document: Any) -> None:
+    from tests.integration.pieces_galbees import curved_rail, shaped
+
+    desk = build_parts(document)
+    furniture, _ = api.make_furniture([desk.parts["P"], desk.parts["JG"], desk.parts["JD"]], "B")
+    assert api.rotate_furniture(furniture, (0, 0, 30))
+    body = curved_rail(document)
+    piece = shaped(body, "S")
+    document.recompute()
+    where_piece, where_body = global_box(piece), body.getGlobalPlacement()
+    api.add_to_furniture(furniture, [piece])
+    document.recompute()
+    assert global_box(piece) == where_piece
+    assert body.getGlobalPlacement().isSame(where_body, 1e-6)
+
+
+# --- 6 : Std Part imbriqué de l'utilisateur ------------------------------------------------------
+
+
+def test_std_part_de_l_utilisateur_dans_le_std_part_refuse_la_rotation(document: Any) -> None:
+    desk = build_parts(document)
+    furniture, _ = api.make_furniture(list(desk.parts.values()), "Bureau")
+    std = container.std_part_of(furniture)
+    assert container.own_std_part(furniture) == std
+    theirs = document.addObject("App::Part", "Meuble")
+    std.addObject(theirs)
+    assert container.own_std_part(furniture) is None
+    before = std.Placement
+    assert api.rotate_furniture(furniture, (0, 0, 30)) is False
+    assert api.move_furniture(furniture, (10.0, 0.0, 0.0)) is False
+    assert std.Placement.isSame(before, 1e-9)
+
+
+def test_std_part_d_un_sous_ensemble_membre_reste_propre(document: Any) -> None:
+    desk = build_parts(document)
+    sub, _ = caisson(document)
+    furniture, _ = api.make_furniture(
+        [desk.parts["P"], desk.parts["JG"], desk.parts["JD"], sub], "Bureau"
+    )
+    assert container.own_std_part(furniture) == container.std_part_of(furniture)
+    assert api.rotate_furniture(furniture, (0, 0, 30))
