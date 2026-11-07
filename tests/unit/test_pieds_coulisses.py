@@ -96,20 +96,41 @@ def test_coulisse_refus() -> None:
     for params in (SlideParams(length=500), SlideParams(slide_height=200)):
         with pytest.raises(JointError):
             SLIDE.plan(host, guest, params)
-    touching = block((450.0, 150.0, 16.0), (0.0, 50.0, 19.0))
-    with pytest.raises(JointError):
-        SLIDE.plan(host, touching, SlideParams())
     away = block((450.0, 150.0, 16.0), (900.0, 50.0, 40.0))
     with pytest.raises(JointError):
         SLIDE.plan(host, away, SlideParams())
 
 
-def test_coulisse_refus_dit_l_ecart_reel() -> None:
+def test_cotes_qui_se_touchent_acceptes_avec_le_jeu_manquant() -> None:
+    host, guest = sides(gap=0.0)
+    values = SLIDE.resolve(host, guest, SlideParams())
+    assert values.gap == pytest.approx(0.0) and values.shortfall == pytest.approx(12.7)
+    assert values.direction.value == "+Z"
+    plan = SLIDE.plan(host, guest, SlideParams())
+    (body,) = plan.inserts
+    assert isinstance(body, Box) and body.size(2) == pytest.approx(12.7)
+
+
+def test_cotes_qui_se_chevauchent_acceptes() -> None:
     host, _ = sides()
-    flush = block((450.0, 150.0, 16.0), (0.0, 50.0, 10.0))  # chevauche le côté du caisson de 9 mm
+    inside = block((450.0, 150.0, 16.0), (0.0, 50.0, 10.0))  # chevauche le côté de 9 mm
+    values = SLIDE.resolve(host, inside, SlideParams())
+    assert values.gap == pytest.approx(-9.0) and values.shortfall == pytest.approx(21.7)
+    plan = SLIDE.plan(host, inside, SlideParams())
+    assert len(cylinders(plan.host_cuts)) == len(cylinders(plan.guest_cuts)) == 3
+
+
+def test_jeu_suffisant_sans_manque() -> None:
+    host, guest = sides()
+    assert SLIDE.resolve(host, guest, SlideParams()).shortfall == 0.0
+
+
+def test_cotes_confondus_refuses() -> None:
+    host, _ = sides()
+    same = block((450.0, 150.0, 16.0), (0.0, 50.0, 3.0))  # moitié dans le côté du caisson
     with pytest.raises(JointError) as error:
-        SLIDE.plan(host, flush, SlideParams())
-    assert error.value.params["gap"] == "-9"
+        SLIDE.plan(host, same, SlideParams())
+    assert error.value.params["gap"] == "-16"
 
 
 def test_coulisse_choisit_l_axe_le_plus_proche() -> None:

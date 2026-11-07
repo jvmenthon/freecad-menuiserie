@@ -76,7 +76,9 @@ from freecad.menuiserie._api.joints import (
     make_miter,
     make_mortise_tenon,
     make_rabbet,
+    make_room_for_slide,
     make_tongue_groove,
+    slide_shortfall,
 )
 from freecad.menuiserie._api.wood import (
     make_shaped_part,
@@ -127,6 +129,7 @@ __all__ = [
     "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
+    "make_room_for_slide",
     "make_shaped_part",
     "make_shaped_parts",
     "make_tongue_groove",
@@ -141,6 +144,7 @@ __all__ = [
     "set_edge_distance",
     "set_furniture_material",
     "set_member_options",
+    "slide_shortfall",
     "unlock_and_resize",
     "unlock_and_set_thickness",
 ]

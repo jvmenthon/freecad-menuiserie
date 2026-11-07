@@ -18,6 +18,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_bindings import common_furniture
 from freecad.menuiserie.features.hardware import get_catalog
 from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.joints import slide_room
 from freecad.menuiserie.features.joints.factories import (
     create_biscuits,
     create_dovetail,
@@ -172,6 +173,19 @@ def make_drawer_slide(
     return _make_joint(
         create_drawer_slide, host, guest, _with_reference(JointKind.DRAWER_SLIDE, params), check
     )
+
+
+def slide_shortfall(joint: DocumentObject) -> float:
+    """Jeu qui manque (mm) entre les côtés d'une coulisse de tiroir pour la loger : 0 si les côtés
+    sont assez écartés, l'épaisseur de la coulisse moins l'écart s'ils se touchent."""
+    return slide_room.slide_shortfall(joint)
+
+
+def make_room_for_slide(joint: DocumentObject, move: str) -> list[str]:
+    """Écarte les côtés d'une coulisse du jeu qui manque : ``move`` = ``"drawer"`` éloigne le côté
+    du tiroir (réduire le tiroir), ``"cabinet"`` celui du caisson (élargir le meuble). Recalcule le
+    document ; renvoie les avertissements à afficher."""
+    return slide_room.make_room_for_slide(joint, move)
 
 
 def _foot_factory(

@@ -55,9 +55,9 @@ def test_pieds_reference_du_catalogue(document: Any) -> None:
     assert (joint.StemDiameter.Value, joint.BaseDiameter.Value, joint.Height.Value) == (8, 40, 12)
 
 
-def sides(document: Any) -> tuple[Any, Any]:
+def sides(document: Any, gap: float = 12.7) -> tuple[Any, Any]:
     host = wood(document, "C", (500, 300, 19), (0, 0, 0), FRAME)
-    where = App.Placement(App.Vector(0, 50, 31.7), App.Rotation())
+    where = App.Placement(App.Vector(0, 50, 19 + gap), App.Rotation())
     guest = wood(document, "T", (450, 150, 16), where, FRAME)
     document.recompute()
     return host, guest
@@ -88,3 +88,36 @@ def test_coulisse_reference_du_catalogue(document: Any) -> None:
     host, guest = sides(document)
     joint = api.make_drawer_slide(host, guest, reference="coulisse-billes-400")
     assert (joint.Length.Value, joint.Thickness.Value) == (400, 12.7)
+
+
+def test_cotes_qui_se_touchent_acceptes_puis_ecartes_en_reduisant_le_tiroir(
+    document: Any,
+) -> None:
+    host, guest = sides(document, gap=0.0)
+    joint = api.make_drawer_slide(host, guest)
+    assert joint.isValid()
+    assert api.slide_shortfall(joint) == pytest.approx(12.7)
+    before = guest.Placement.Base
+    api.make_room_for_slide(joint, "drawer")
+    assert api.slide_shortfall(joint) == 0.0
+    assert (guest.Placement.Base - before).Length == pytest.approx(12.7)
+    assert stale_or_invalid(document) == []
+
+
+def test_cotes_qui_se_touchent_puis_ecartes_en_elargissant_le_meuble(document: Any) -> None:
+    host, guest = sides(document, gap=0.0)
+    joint = api.make_drawer_slide(host, guest)
+    before = host.Placement.Base
+    api.make_room_for_slide(joint, "cabinet")
+    assert api.slide_shortfall(joint) == 0.0
+    assert (host.Placement.Base - before).Length == pytest.approx(12.7)
+    assert stale_or_invalid(document) == []
+
+
+def test_jeu_suffisant_rien_a_ecarter(document: Any) -> None:
+    host, guest = sides(document)
+    joint = api.make_drawer_slide(host, guest)
+    assert api.slide_shortfall(joint) == 0.0
+    assert api.make_room_for_slide(joint, "drawer") == []
+    with pytest.raises(ValueError, match="drawer"):
+        api.make_room_for_slide(joint, "autre")

@@ -51,9 +51,8 @@ GUEST_PILOT_DEPTH_MM: Final = 8.0
 
 NO_GAP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Les côtés doivent se faire face avec un jeu pour la coulisse (12,7 mm d'ordinaire) : sur "
-    "l'axe où ils sont les plus proches, l'écart est de {gap} mm (négatif : ils se chevauchent). "
-    "Écartez le côté du tiroir de celui du caisson.",
+    "Les côtés ne se font pas face : ils se chevauchent trop (écart de {gap} mm selon "
+    "l'épaisseur). Écartez le côté du tiroir de celui du caisson.",
 )
 NO_OVERLAP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les deux côtés ne se font pas face : leurs surfaces ne se recouvrent pas."
@@ -109,10 +108,16 @@ class SlideValues:
     """Valeurs effectives de la coulisse (mm), affichées par le panneau."""
 
     length: float
-    gap: float
+    gap: float  # jeu entre les côtés ; négatif s'ils se chevauchent
     thickness: float
     hole_count: int
     hole_positions: tuple[float, ...]  # depuis l'avant de la coulisse
+    direction: Axis  # de l'hôte vers l'invité, dans le repère de l'hôte
+
+    @property
+    def shortfall(self) -> float:
+        """Jeu qui manque pour loger la coulisse (0 si les côtés sont assez écartés)."""
+        return max(0.0, self.thickness - self.gap)
 
     @property
     def count(self) -> int:
@@ -184,10 +189,13 @@ def _frame(host: PlacedBlock, guest: PlacedBlock) -> _Frame:
         for i in range(3)
     ]
     separated = [item for item in gaps if item[0] > CONTACT_TOLERANCE_MM]
-    if not separated:
-        raise JointError(NO_GAP, {"gap": mm_text(max(gaps)[0])})  # axe le plus proche du jeu
-    _gap, index = min(separated)  # côtés face à face : l'axe de plus petit écart
-    above = guest_box.lo(index) - host_box.hi(index) > host_box.lo(index) - guest_box.hi(index)
+    if separated:
+        _gap, index = min(separated)  # côtés face à face : l'axe de plus petit écart
+    else:  # côtés qui se touchent ou se chevauchent : l'axe de moindre pénétration
+        gap, index = max(gaps)
+        if -gap >= min(host_box.size(index), guest_box.size(index)) - CONTACT_TOLERANCE_MM:
+            raise JointError(NO_GAP, {"gap": mm_text(gap)})
+    above = guest_box.center(index) > host_box.center(index)
     return _facing(index, above, host_box, guest_box, to_host)
 
 
@@ -223,7 +231,7 @@ def _facing(
 
 
 def _values(frame: _Frame, params: SlideParams) -> SlideValues:
-    gap = abs(frame.guest_plane - frame.host_plane)
+    gap = frame.sign * (frame.guest_plane - frame.host_plane)
     span = frame.overlap.size(frame.length_axis)
     room = span - params.front_setback
     if params.length:
@@ -246,7 +254,14 @@ def _values(frame: _Frame, params: SlideParams) -> SlideValues:
         text = {"height": mm_text(params.slide_height), "overlap": mm_text(height)}
         raise JointError(TOO_LOW, text)
     count = params.hole_count or AUTO_HOLE_COUNT
-    return SlideValues(length, gap, params.thickness, count, _holes(length, count))
+    return SlideValues(
+        length,
+        gap,
+        params.thickness,
+        count,
+        _holes(length, count),
+        Axis.of(frame.normal, frame.sign),
+    )
 
 
 def _holes(length: float, count: int) -> tuple[float, ...]:
@@ -288,12 +303,12 @@ def _depth(thickness: float, wanted: float) -> float:
 
 
 def _body(frame: _Frame, params: SlideParams, values: SlideValues) -> Box:
-    """Coulisse : boîte dans le jeu, collée au côté du caisson."""
+    """Coulisse : boîte collée au côté du caisson, de toute son épaisseur (elle déborde dans le côté
+    du tiroir si le jeu manque)."""
     start, direction = _front(frame, params)
     end = start + direction * values.length
     middle = frame.overlap.center(frame.height_axis) + params.height_offset
-    reach = min(params.thickness, values.gap)
-    far = frame.host_plane + frame.sign * reach
+    far = frame.host_plane + frame.sign * params.thickness
     box = frame.overlap.with_range(frame.length_axis, min(start, end), max(start, end))
     box = box.with_range(
         frame.height_axis, middle - params.slide_height / 2, middle + params.slide_height / 2

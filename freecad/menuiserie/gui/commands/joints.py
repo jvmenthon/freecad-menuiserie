@@ -30,6 +30,7 @@ from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.joints.feasible import feasible_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.gui import slide_room
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
@@ -214,7 +215,9 @@ class BiscuitCommand(JointCommand):
 
 
 class DrawerSlideCommand(JointCommand):
-    """Coulisse de tiroir : côté de caisson et côté de tiroir face à face."""
+    """Coulisse de tiroir : côté de caisson et côté de tiroir face à face ; si les côtés se
+    touchent, la coulisse est posée puis une fenêtre propose de réduire le tiroir ou d'élargir le
+    meuble."""
 
     NAME = DRAWER_SLIDE
     FACTORY = api.make_drawer_slide
@@ -226,6 +229,27 @@ class DrawerSlideCommand(JointCommand):
         "au pas de 32 mm.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser une coulisse de tiroir")
+
+    def Activated(self) -> None:
+        """Coulisse posée dans sa transaction ; s'il manque du jeu, la fenêtre propose d'écarter
+        les côtés (dans la même transaction), puis le panneau s'ouvre."""
+        parts = selected_parts()
+        if parts is None:
+            return
+        host, guest = ordered_roles(*parts)
+        App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
+        try:
+            with aborted_on_error(App.getActiveTransaction()):
+                joint = api.make_drawer_slide(host, guest, check=feasible_joint)
+                missing = api.slide_shortfall(joint)
+                side = slide_room.choose(missing) if missing else None
+                if side is not None:
+                    for message in api.make_room_for_slide(joint, side):
+                        App.Console.PrintWarning(f"{message}\n")
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        show_panel(joint)
 
 
 class FootCommand(JointCommand):
