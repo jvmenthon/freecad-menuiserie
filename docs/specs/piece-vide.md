@@ -2,7 +2,7 @@
 
 - Statut : **proposée**, en attente des réponses de jv (§ 8).
 - Demande de jv (2026-11-07) : « je veux une feature pour créer une pièce vide qui permet de positionner un meuble ».
-- ADR : **[0041 — Pièce vide, objet de contexte hors débit](../adr/0041-piece-vide-contexte-hors-debit.md)** (proposé).
+- ADR : **[0042 — Pièce vide, objet de contexte hors débit](../adr/0042-piece-vide-contexte-hors-debit.md)** (proposé).
 - ADR liés : 0008 (Ensemble, objet de cotes), 0010 (gabarits générateurs), 0021 (glissement à la souris et aimantation), 0007 (compatibilité avec les autres ateliers).
 - Branche de jalon : `jalon/piece-vide`, partie de `main`.
 

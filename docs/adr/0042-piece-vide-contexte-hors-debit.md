@@ -1,4 +1,4 @@
-# ADR 0041 — Pièce vide : un objet de contexte aimanté mais hors débit
+# ADR 0042 — Pièce vide : un objet de contexte aimanté mais hors débit
 
 - Statut : **proposé** (en attente des réponses de jv, spec § 8)
 - Date : 2026-11-07
