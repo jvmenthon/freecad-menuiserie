@@ -44,6 +44,12 @@ def traverses(doc: Any) -> tuple[Any, Any]:
     return pieces[0], pieces[1]
 
 
+def bouton_inverser_grise(form: Any) -> tuple[bool, bool]:
+    """(grisé, infobulle non vide) du bouton « Inverser »."""
+    bouton = form.findChild(QtGui.QPushButton, "invertButton")
+    return (not bouton.isEnabled(), bool(bouton.toolTip()))
+
+
 def champs_de_saisie(form: Any) -> list[str]:
     """Noms des champs de saisie du panneau (il ne doit y en avoir aucun)."""
     types = (QtGui.QAbstractSpinBox, QtGui.QCheckBox, QtGui.QLineEdit)
@@ -71,8 +77,8 @@ def verifier_formulaire_de_l_onglet() -> list[str]:
                 (False, ANGLES.format("33,69", "56,31")),
             ),
             *ecarts("erreur masquée", widget(form, "errorLabel").isHidden(), True),
-            # Demande de jv : pas de bouton « Inverser » pour un onglet (rôles symétriques).
-            *ecarts("bouton Inverser", form.findChild(QtGui.QPushButton, "invertButton"), None),
+            # Demande de jv : « Inverser » grisé et expliqué pour un onglet.
+            *ecarts("bouton Inverser grisé", bouton_inverser_grise(form), (True, True)),
         ]
         valider()
         problemes += [

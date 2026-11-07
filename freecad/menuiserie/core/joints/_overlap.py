@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from freecad.menuiserie.core._polyhedron import Plane, Polyhedron, clipped_box
 from freecad.menuiserie.core.contact import ObliqueContact, relation
 from freecad.menuiserie.core.geometry import (
+    CONTACT_TOLERANCE_MM,
     Box,
     JointError,
     PlacedBlock,
@@ -51,6 +52,57 @@ class ObliqueOverlap:
         axis = max(range(3), key=box.size)
         extended = box.with_range(axis, box.lo(axis) - overrun, box.hi(axis) + overrun)
         return Polyhedron(extended, self.to_host)
+
+    def splits_host(self, overrun: float = 0.0) -> bool:
+        """Vrai si enlever :meth:`guest_solid` coupe l'hôte en deux ou l'enlève entièrement.
+
+        L'invitée (prolongée de ``overrun``) doit sortir de l'hôte par ses deux bouts (sinon c'est
+        une entaille) ; la coupe est alors un prisme de section rectangulaire qui sépare l'hôte si
+        cette section en couvre toute l'étendue dans un sens et laisse de la matière de part et
+        d'autre dans l'autre."""
+        box, to_host = self.guest_box, self.to_host
+        long_axis = max(range(3), key=box.size)
+        others = [axis for axis in range(3) if axis != long_axis]
+        dirs = {
+            axis: to_host.rotate(Vec3(0.0, 0.0, 0.0).with_component(axis, 1.0)) for axis in range(3)
+        }
+        corners = [
+            Vec3(x, y, z)
+            for x in (self.host_box.lo(0), self.host_box.hi(0))
+            for y in (self.host_box.lo(1), self.host_box.hi(1))
+            for z in (self.host_box.lo(2), self.host_box.hi(2))
+        ]
+        origin = to_host.apply(Vec3(0.0, 0.0, 0.0))
+
+        def coords(axis: int) -> list[float]:
+            direction = dirs[axis]
+            return [
+                (c.x - origin.x) * direction.x
+                + (c.y - origin.y) * direction.y
+                + (c.z - origin.z) * direction.z
+                for c in corners
+            ]
+
+        tol = CONTACT_TOLERANCE_MM
+        extended = box.with_range(
+            long_axis, box.lo(long_axis) - overrun, box.hi(long_axis) + overrun
+        )
+        reach = clipped_box(self.host_box, RigidTransform.identity(), _faces(extended, to_host))
+        sides = tuple(
+            plane for index, plane in enumerate(_faces(box, to_host)) if index // 2 != long_axis
+        )
+        endless = clipped_box(self.host_box, RigidTransform.identity(), sides)
+        if reach is None or endless is None:
+            return False
+        if reach.volume() < endless.volume() * (1.0 - 1e-6):
+            return False  # l'invitée s'arrête avant de traverser l'hôte : simple entaille
+        covered, free = [], []
+        for axis in others:
+            values = coords(axis)
+            covered.append(box.lo(axis) <= min(values) + tol and box.hi(axis) >= max(values) - tol)
+            free.append(box.lo(axis) > min(values) + tol and box.hi(axis) < max(values) - tol)
+        # Tout couvert, ou couvert dans un sens et matière restante des deux côtés dans l'autre.
+        return all(covered) or (covered[0] and free[1]) or (covered[1] and free[0])
 
 
 def _faces(box: Box, transform: RigidTransform) -> tuple[Plane, ...]:

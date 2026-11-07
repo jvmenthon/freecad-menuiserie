@@ -115,6 +115,8 @@ def _oblique_values(host: PlacedBlock, guest: PlacedBlock) -> RabbetValues:
     box = host.local_box()
     if overlap.common.volume() >= box.size(0) * box.size(1) * box.size(2) - CONTACT_TOLERANCE_MM:
         raise JointError(NO_MATERIAL_LEFT, {})
+    if overlap.splits_host(CUT_OVERRUN_MM):
+        raise JointError(NO_MATERIAL_LEFT, {})
     return RabbetValues(overlap.guest_solid(CUT_OVERRUN_MM))
 
 

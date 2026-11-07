@@ -41,6 +41,7 @@ __all__ = [
     "OBLIQUE_SUMMARY",
     "OBLIQUE_SUMMARY_IF",
     "JointFeature",
+    "inverted_error",
     "is_joint",
     "params_from",
     "parts_mismatch",
@@ -151,9 +152,12 @@ class JointFeature(StatelessProxy):
     # Champs de ``resolve`` dont l'un au moins doit être non nul pour afficher ``SUMMARY``
     # (vide : toujours affiché) : le biais n'apparaît pas entre pièces d'équerre.
     SUMMARY_IF: ClassVar[tuple[str, ...]] = ()
-    # Faux quand les deux rôles sont symétriques (mi-bois, onglet) : pas de bouton
-    # « Inverser » dans le panneau (demande de jv).
+    # Faux quand l'inversion n'a pas de sens (rôles symétriques) : bouton « Inverser » grisé
+    # avec une infobulle qui explique pourquoi (demande de jv).
     INVERTIBLE: ClassVar[bool] = True
+    # Explication affichée en infobulle du bouton « Inverser » grisé quand ``INVERTIBLE`` est faux
+    # (vide : pas de bouton, ex. une seule pièce).
+    INVERT_DISABLED_TIP: ClassVar[str] = ""
     INVERT_TIP: ClassVar[str] = ""  # infobulle du bouton « Inverser » (vide : échange des rôles)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -186,6 +190,11 @@ class JointFeature(StatelessProxy):
     def invert(self, obj: DocumentObject) -> None:
         """« Inverser » du panneau : la pièce hôte devient l'invitée et inversement."""
         obj.HostPart, obj.GuestPart = obj.GuestPart, obj.HostPart
+
+    def invert_error(self, obj: DocumentObject) -> str | None:
+        """Message traduit si les rôles échangés rendraient l'assemblage impossible, ``None``
+        sinon ; ne modifie rien (panneau : « Inverser » grisé avec cette explication)."""
+        return inverted_error(obj)
 
     def part_joints_changed(self, obj: DocumentObject) -> None:
         """Un assemblage a été ajouté à une de ses pièces ou retiré ; rien par défaut (le
@@ -303,6 +312,17 @@ def plan_for(joint: DocumentObject) -> JointPlan:
         strategy, host, guest, params = _inputs(joint)
         plan: JointPlan = strategy.plan(host, guest, params)
     return plan
+
+
+def inverted_error(joint: DocumentObject) -> str | None:
+    """Message traduit si ``joint`` serait impossible rôles échangés, ``None`` sinon."""
+    try:
+        with translated_errors():
+            strategy, host, guest, params = _inputs(joint)
+            strategy.plan(guest, host, params)
+    except ValueError as error:
+        return str(error)
+    return None
 
 
 def resolved_for(joint: DocumentObject) -> object:

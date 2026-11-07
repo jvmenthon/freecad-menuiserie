@@ -207,8 +207,8 @@ def verifier_case_auto() -> list[str]:
 
 
 def verifier_inverser() -> list[str]:
-    """E1, E3 : « Inverser » échange les pièces ; l'assemblage impossible est signalé dans le
-    panneau, et un second « Inverser » le rétablit."""
+    """E1, E3 : quand les rôles échangés rendent l'assemblage impossible, « Inverser » est grisé
+    et son infobulle donne la raison (demande de jv) ; rien n'est échangé."""
     with cadre("VerifInverser") as (doc, pieces):
         joint = creer_sans_valider(doc, pieces)
         form = panneau()
@@ -216,13 +216,12 @@ def verifier_inverser() -> list[str]:
         bouton.click()
         erreur = widget(form, "errorLabel")
         problemes = [
-            *ecarts("hôte", joint.HostPart.Label, "T1"),
-            *ecarts("libellé hôte", texte(form, "hostLabel"), "Pièce hôte : « T1 »"),
-            *ecarts("erreur affichée", (erreur.isHidden(), bool(erreur.text())), (False, True)),
-        ]
-        bouton.click()
-        problemes += [
-            *ecarts("hôte rétabli", joint.HostPart.Label, "M1"),
+            *ecarts("bouton grisé", bouton.isEnabled(), False),
+            *ecarts(
+                "raison en infobulle", bouton.toolTip().startswith("Inverser est impossible"), True
+            ),
+            *ecarts("hôte inchangé", joint.HostPart.Label, "M1"),
+            *ecarts("libellé hôte", texte(form, "hostLabel"), "Pièce hôte : « M1 »"),
             *ecarts("erreur masquée", erreur.isHidden(), True),
         ]
         annuler()

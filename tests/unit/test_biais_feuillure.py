@@ -52,3 +52,24 @@ def test_la_feuillure_en_biais_ne_peut_pas_enlever_tout_l_hote() -> None:
     with pytest.raises(JointError) as error:
         RABBET.plan(host, guest, RabbetParams())
     assert error.value.template == NO_MATERIAL_LEFT
+
+
+def test_la_feuillure_en_biais_refuse_une_piece_qui_coupe_l_hote_en_deux() -> None:
+    """Recette de jv : une pièce qui traverse l'hôte de part en part le couperait en deux."""
+    host = stile_block()
+    guest = placed((300.0, 20.0, 22.0), rotation_z(30.0), (230.0, -50.0, 0.0))
+    with pytest.raises(JointError) as error:
+        RABBET.plan(host, guest, RabbetParams())
+    assert error.value.template == NO_MATERIAL_LEFT
+
+
+def test_la_feuillure_en_biais_accepte_une_entaille_qui_n_atteint_pas_les_deux_bords() -> None:
+    host = stile_block()
+    guest = placed((50.0, 20.0, 22.0), rotation_z(30.0), (300.0, 10.0, 0.0))
+    assert RABBET.plan(host, guest, RabbetParams()).host_cuts
+
+
+def test_la_feuillure_en_biais_accepte_une_piece_moins_epaisse_qui_traverse() -> None:
+    host = stile_block()
+    guest = placed((300.0, 20.0, 10.0), rotation_z(30.0), (230.0, -50.0, 0.0))
+    assert RABBET.plan(host, guest, RabbetParams()).host_cuts
