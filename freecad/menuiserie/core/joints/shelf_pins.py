@@ -202,8 +202,10 @@ def opposite_values(
 def _opposite(
     host: PlacedBlock, guest: PlacedBlock, params: ShelfPinsParams, values: ShelfPinsValues
 ) -> tuple[ShelfPinsValues, Layout] | None:
-    """Perçage en miroir du montant opposé : face tournée vers ``host``, même zone (hauteurs
-    ramenées au bas de ``guest``), voisines de ``guest``."""
+    """Perçage en miroir du montant opposé : face tournée vers ``host``, rangs **aux mêmes
+    hauteurs** que ceux de ``host`` (ramenées au bas de ``guest``) pour que la tablette repose de
+    niveau, gardés seulement dans la zone libre de ``guest`` (ses propres assemblages) ; taquets
+    dans les mêmes rangs."""
     if guest == host or not params.both_sides:
         return None
     vertical, down = upright(host)
@@ -220,7 +222,21 @@ def _opposite(
         neighbors=params.guest_neighbors,
         guest_neighbors=(),
     )
-    return _checked(guest, mirrored)
+    own, own_layout = _checked(guest, mirrored)
+    reach = own.pitch - _EPSILON  # zone libre de ``guest`` : ses rangs à un pas près
+    kept = [
+        (row, height - low)
+        for row, height in enumerate(values.heights)
+        if own.heights[0] - reach <= height - low <= own.heights[-1] + reach
+    ]
+    heights = tuple(height for _row, height in kept)
+    pins = tuple(index for index, (row, _h) in enumerate(kept) if row in values.pin_rows)
+    if not heights:
+        return own, own_layout
+    aligned = replace(
+        own, rows=len(heights), heights=heights, pin_rows=pins, pin_row=pins[0] + 1 if pins else 0
+    )
+    return aligned, Layout(own_layout.face_sign, heights, pins)
 
 
 def _drilling(

@@ -207,3 +207,16 @@ def test_plan_plafonne_le_nombre_de_formes() -> None:
     JointPlan(host_cuts=(hole,) * MAX_PLAN_SOLIDS)
     with pytest.raises(JointError, match="formes d'usinage"):
         JointPlan(host_cuts=(hole,) * MAX_PLAN_SOLIDS, inserts=(hole,))
+
+
+def test_taquets_du_montant_oppose_au_niveau_de_ceux_du_cote() -> None:
+    """Retour de jv : le montant opposé posé plus haut (19 mm) garde ses taquets au niveau de
+    ceux du côté, sous la même tablette."""
+    wall, other = side(), other_side(619.0, 19.0)
+    shelf = Neighbor(block((600.0, 500.0, 19.0), (19.0, 0.0, -360.0)), False)
+    params = ShelfPinsParams(neighbors=(shelf,), guest_neighbors=(shelf,))
+    plan = SHELF_PINS.plan(wall, other, params)
+    pins = cylinders(plan.inserts)  # tous dans le repère du côté : x = 720 - hauteur
+    host_levels = {round(p.base.x, 6) for p in pins if p.base.z < 19.0 + 1e-6}
+    guest_levels = {round(p.base.x, 6) for p in pins if p.base.z > 600.0}
+    assert len(pins) == 4 and host_levels == guest_levels
