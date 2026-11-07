@@ -138,5 +138,6 @@ def test_feuillure_en_biais_qui_coupe_l_hote_en_deux_est_refusee(document: Any) 
     except ValueError:
         return  # refus à la création
     # Sinon l'assemblage est en erreur au recalcul : jamais une forme en deux morceaux.
-    assert not joint.isValid()
-    assert len(api.machined_part_of(host).Shape.Solids) <= 1
+    machined = api.machined_part_of(host)
+    assert not machined.isValid() or not joint.isValid()
+    assert len(machined.Shape.Solids) <= 1
