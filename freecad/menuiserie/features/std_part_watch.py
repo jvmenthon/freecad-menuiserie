@@ -2,8 +2,8 @@
 """Suppression à la main d'un Std Part d'ensemble (revue de fin de jalon, ADR 0038).
 
 FreeCAD range les objets d'un Std Part supprimé à la racine **sans** compenser son ``Placement`` :
-les pièces sautent. L'atelier ne modifie pas FreeCAD (ADR 0007, point 3) : un observateur de
-documents, posé par ``gui/`` seulement tant que l'atelier est actif, appelle
+les pièces sautent. L'atelier ne modifie pas FreeCAD (ADR 0007, point 3) : l'observateur de
+documents que ``gui/drag/events.py`` pose seulement tant que l'atelier est actif appelle
 :func:`std_part_deleted` quand un Std Part qui contient un ensemble est supprimé (ses membres y
 sont encore rangés à ce moment-là) :
 
@@ -27,15 +27,12 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture, writing
 from freecad.menuiserie.features.furniture_bindings import release_members
-from freecad.menuiserie.features.furniture_container import (
-    is_std_part,
-    positioned,
-    write_placement,
-)
+from freecad.menuiserie.features.furniture_container import is_std_part
+from freecad.menuiserie.features.furniture_entry import positioned, write_placement
 from freecad.menuiserie.features.furniture_members import detach_members
-from freecad.menuiserie.features.i18n import report_warning, translated
+from freecad.menuiserie.features.i18n import translated
 
-__all__ = ["StdPartObserver", "std_part_deleted"]
+__all__ = ["std_part_deleted"]
 
 _TURNED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -78,14 +75,3 @@ def std_part_deleted(part: DocumentObject) -> list[str]:
             moved = App.Placement(moved.Base + where.Base, moved.Rotation)
         write_placement(obj, moved)
     return messages
-
-
-class StdPartObserver:
-    """Observateur de documents (:func:`App.addDocumentObserver`) : une fois un Std Part supprimé,
-    ses objets gardent leur place. Posé et retiré par ``gui/`` ; les messages vont dans la vue
-    rapport."""
-
-    def slotDeletedObject(self, obj: DocumentObject) -> None:
-        """Std Part supprimé : voir :func:`std_part_deleted`."""
-        for message in std_part_deleted(obj):
-            report_warning(message)

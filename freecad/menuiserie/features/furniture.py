@@ -273,8 +273,9 @@ class Furniture(StatelessProxy):
 
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Saisie de l'utilisateur : cote → avertissements (formules, pièce cassée : la cote
-        est appliquée, Q4) ; option d'un sous-ensemble → ses liaisons ; libellé → celui de son Std Part.
-        N'écrit que dans lui-même (et le libellé de son Std Part) ; rien pendant une restauration, une annulation ou un recalcul."""
+        est appliquée, Q4) ; option d'un sous-ensemble → ses liaisons ; libellé → celui de son Std
+        Part. N'écrit que dans lui-même (et le libellé de son Std Part) ; rien pendant une
+        restauration, une annulation ou un recalcul."""
         if not follows_user_changes(obj):
             return
         from freecad.menuiserie.features import furniture_edits

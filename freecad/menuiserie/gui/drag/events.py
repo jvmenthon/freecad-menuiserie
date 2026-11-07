@@ -20,7 +20,8 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.features.std_part_watch import StdPartObserver
+from freecad.menuiserie.features.i18n import report_warning
+from freecad.menuiserie.features.std_part_watch import std_part_deleted
 from freecad.menuiserie.gui.double_click import is_viewport_3d, view_point, viewports_3d
 from freecad.menuiserie.gui.drag.session import DragSession
 
@@ -156,17 +157,17 @@ class _SelectionObserver:
 
 class _DocumentObserver:
     """Observateur de documents : un document fermé emporte ses flèches avec sa vue ; un Std Part
-    d'ensemble supprimé laisse ses objets en place (:class:`StdPartObserver`)."""
+    d'ensemble supprimé laisse ses objets en place (:func:`std_part_deleted`)."""
 
     def __init__(self, session: DragSession) -> None:
         self._session = session
-        self._std_parts = StdPartObserver()
 
     def slotDeletedObject(self, obj: Any) -> None:
         """Std Part supprimé à la main : ses pièces gardent leur place (ADR 0038). Une erreur est
         écrite dans la vue rapport, jamais relancée dans la suppression de FreeCAD."""
         try:
-            self._std_parts.slotDeletedObject(obj)
+            for message in std_part_deleted(obj):
+                report_warning(message)
         except Exception:  # pylint: disable=broad-exception-caught
             App.Console.PrintError(traceback.format_exc())
 

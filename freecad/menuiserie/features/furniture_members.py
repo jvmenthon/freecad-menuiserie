@@ -47,16 +47,13 @@ from freecad.menuiserie.features.furniture_checks import (
     quoted_label,
 )
 from freecad.menuiserie.features.furniture_container import (
-    adopt,
-    check_assembled,
     create_with_std_part,
-    leave,
     placement_container,
     scopes,
     std_part_of,
-    taken_along,
 )
 from freecad.menuiserie.features.furniture_enclosing import enclosing
+from freecad.menuiserie.features.furniture_entry import adopt, check_assembled, leave, taken_along
 from freecad.menuiserie.features.furniture_relink import relink_remaining
 from freecad.menuiserie.features.furniture_resize import planned_resize, resize, write_box
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors

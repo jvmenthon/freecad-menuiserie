@@ -137,7 +137,8 @@ class DragSession:
     def _target(self) -> Target | None:
         """Cible qui porte les flèches : celle du panneau ouvert, sinon l'objet de l'atelier
         sélectionné seul (sans panneau d'une autre commande ouvert). Un ensemble est sa propre
-        cible (son Std Part sélectionné dans l'arbre aussi), une pièce (membre ou non) celle de sa brute (Q4)."""
+        cible (son Std Part sélectionné dans l'arbre aussi), une pièce (membre ou non) celle de sa
+        brute (Q4)."""
         try:
             if self._panel_open() and self.panel is not None:
                 obj = self.panel.part
@@ -148,7 +149,9 @@ class DragSession:
                 if len(selection) != 1:
                     return None
                 obj = selection[0]
-            obj = carried_furniture(obj) or obj  # « X (Std Part) » : cible de l'ensemble qu'il porte
+            obj = (
+                carried_furniture(obj) or obj
+            )  # « X (Std Part) » : cible de l'ensemble qu'il porte
             return FurnitureTarget(obj) if is_furniture(obj) else PartTarget(raw_part(obj))
         except (TypeError, *_RESIZE_ERRORS):
             return None

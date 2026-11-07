@@ -18,6 +18,7 @@ pytestmark = pytest.mark.integration
 App = pytest.importorskip("FreeCAD")
 api = pytest.importorskip("freecad.menuiserie.api")
 container = pytest.importorskip("freecad.menuiserie.features.furniture_container")
+entry = pytest.importorskip("freecad.menuiserie.features.furniture_entry")
 
 
 # --- 1 : ensemble déjà tourné, puis rangé dans un parent ----------------------------------------
@@ -59,9 +60,13 @@ def test_retrait_renvoie_les_messages_de_sortie(bureau: Any) -> None:
 @pytest.fixture
 def watching() -> Any:
     """Observateur de suppression des Std Parts, posé comme le fait l'atelier actif."""
-    from freecad.menuiserie.features.std_part_watch import StdPartObserver
+    from freecad.menuiserie.features.std_part_watch import std_part_deleted
 
-    observer = StdPartObserver()
+    class Observer:
+        def slotDeletedObject(self, obj: Any) -> None:
+            std_part_deleted(obj)
+
+    observer = Observer()
     App.addDocumentObserver(observer)
     yield observer
     App.removeDocumentObserver(observer)
@@ -82,9 +87,7 @@ def test_std_part_deplace_supprime_les_pieces_ne_sautent_pas(bureau: Any, watchi
     assert geometry(doc)[bureau.parts["P"].Name][:3] == before[bureau.parts["P"].Name][:3]
 
 
-def test_std_part_tourne_supprime_les_pieces_gardent_leur_place(
-    bureau: Any, watching: Any
-) -> None:
+def test_std_part_tourne_supprime_les_pieces_gardent_leur_place(bureau: Any, watching: Any) -> None:
     furniture, doc = bureau.furniture, bureau.doc
     assert api.rotate_furniture(furniture, (0, 0, 30))
     doc.recompute()
@@ -124,7 +127,7 @@ def test_suppression_de_l_ensemble_supprime_son_std_part_vide(bureau: Any) -> No
     std_name = container.std_part_of(furniture).Name
     before = geometry(doc)
     messages = remove_members(members_of(furniture))  # ce que fait onDelete
-    messages += container.dissolve(furniture)
+    messages += entry.dissolve(furniture)
     assert doc.getObject(std_name) is None and doc.getObject(furniture.Name) is not None
     doc.removeObject(furniture.Name)  # FreeCAD supprime l'ensemble ensuite
     doc.recompute()
@@ -143,7 +146,7 @@ def test_suppression_de_l_ensemble_garde_un_std_part_non_vide(document: Any) -> 
     stranger = document.addObject("App::FeaturePython", "Etranger")
     std.addObject(stranger)
     remove_members(members_of(furniture))
-    messages = container.dissolve(furniture)
+    messages = entry.dissolve(furniture)
     assert document.getObject(std.Name) is not None
     assert len(messages) == 1 and "Etranger" in messages[0] and "conservé" in messages[0]
 
@@ -238,7 +241,7 @@ def test_piece_libre_liee_a_un_membre_est_signalee_a_l_entree(document: Any) -> 
     assert api.furniture_of(desk.parts["V"]) is None  # sans être membre
     assert len(notices) == 1
     assert "Voile" in notices[0] and "Joue gauche" in notices[0] and "Std Part" in notices[0]
-    quiet, none = api.make_furniture([desk.parts["JD"]], "Seul")
+    _, none = api.make_furniture([desk.parts["JD"]], "Seul")
     assert none == ()  # rien à signaler sans pièce liée
 
 

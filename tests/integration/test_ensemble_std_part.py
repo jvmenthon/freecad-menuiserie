@@ -17,6 +17,7 @@ pytestmark = pytest.mark.integration
 App = pytest.importorskip("FreeCAD")
 api = pytest.importorskip("freecad.menuiserie.api")
 container = pytest.importorskip("freecad.menuiserie.features.furniture_container")
+entry = pytest.importorskip("freecad.menuiserie.features.furniture_entry")
 furniture_module = pytest.importorskip("freecad.menuiserie.features.furniture")
 
 TURNED = App.Placement(App.Vector(150, -80, 25), App.Rotation(App.Vector(0, 0, 1), 30))
@@ -119,7 +120,7 @@ def test_ajouter_une_piece_la_range_dans_le_std_part(document: Any) -> None:
 
 def test_retirer_une_piece_assemblee_la_laisse_dans_le_std_part(bureau: Any) -> None:
     joue = bureau.parts["JG"]
-    messages = container.leave([joue])  # appelé après le retrait : la joue touche le voile
+    messages = entry.leave([joue])  # appelé après le retrait : la joue touche le voile
     assert messages and "Std Part" in messages[0]
     assert joue.getParentGeoFeatureGroup() == container.std_part_of(bureau.furniture)
 

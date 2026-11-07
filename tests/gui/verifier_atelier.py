@@ -39,6 +39,7 @@ from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
 from tests.gui.verifications_double_clic import VERIFICATIONS_DOUBLE_CLIC
 from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
+from tests.gui.verifications_ensemble_revue import VERIFICATIONS_ENSEMBLE_REVUE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
 from tests.gui.verifications_panneau import VERIFICATIONS_PANNEAU
@@ -1273,6 +1274,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_SOURIS_ROTATION,
     # Taille et orientation d'un ensemble à la souris (EN-c) et dans son panneau (EN-d)
     *VERIFICATIONS_SOURIS_ENSEMBLE,
+    *VERIFICATIONS_ENSEMBLE_REVUE,
     *VERIFICATIONS_PANNEAU_ENSEMBLE_ROTATION,
     # Assemblage défait au relâchement (ADR 0026)
     *VERIFICATIONS_ARONDE_RELACHEMENT,
