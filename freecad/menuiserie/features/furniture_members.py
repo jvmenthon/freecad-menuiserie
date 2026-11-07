@@ -227,11 +227,29 @@ def _checked_label(label: str) -> str:
     return label
 
 
+def _build_inside(
+    objects: Sequence[DocumentObject], label: str
+) -> tuple[DocumentObject, list[Notice]] | None:
+    """Sous-ensemble de l'ensemble commun à ``objects`` (tous membres du même, ADR 0037) : les
+    pièces en sortent, entrent dans le nouvel ensemble, membre du parent. ``None`` sinon. Un
+    refus après la sortie relève de la transaction de l'appelant (annulation)."""
+    parents = {furniture_of(member_object(obj)) for obj in objects}
+    parent = next(iter(parents), None)
+    if parent is None or len(parents) != 1:
+        return None
+    _checked_label(label or translated(DEFAULT_LABEL))
+    remove_members(objects)
+    furniture, notices = build_furniture(objects, label)
+    return furniture, [*notices, *add_members(parent, [furniture])]
+
+
 def build_furniture(
     objects: Sequence[DocumentObject], label: str = ""
 ) -> tuple[DocumentObject, list[Notice]]:
     """Crée un ensemble autour de ``objects`` (boîte qui les contient) et les y fait entrer ;
     tout est contrôlé avant la création."""
+    if (inside := _build_inside(objects, label)) is not None:
+        return inside
     members = _candidates(objects, None)
     text = _checked_label(label or translated(DEFAULT_LABEL))
     box, origin = enclosing(members)
