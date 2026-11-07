@@ -11,6 +11,8 @@ from __future__ import annotations
 import math
 from typing import Final
 
+import FreeCAD as App
+
 from freecad.menuiserie.core.furniture import Edge, EdgeEdit, Notice, edge_edit
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
@@ -21,6 +23,7 @@ from freecad.menuiserie.features.furniture_bindings import (
     read_members,
     remove_bindings,
 )
+from freecad.menuiserie.features.furniture_container import std_part_of
 from freecad.menuiserie.features.furniture_members import (
     NOT_IN_FURNITURE,
     UNKNOWN_EDGE,
@@ -41,6 +44,12 @@ def _shifted(obj: DocumentObject, change: EdgeEdit) -> None:
     sous-ensemble) de ``change.shift`` le long de son axe."""
     coordinate = "xyz"[change.axis.index]
     if is_furniture(obj):
+        part = std_part_of(obj)
+        if part is not None:  # la position d'un sous-ensemble est celle de son Std Part (E3)
+            base = part.Placement.Base
+            setattr(base, coordinate, getattr(base, coordinate) + change.shift)
+            part.Placement = App.Placement(base, part.Placement.Rotation)
+            return
         origin = obj.Origin
         setattr(origin, coordinate, getattr(origin, coordinate) + change.shift)
         obj.Origin = origin
