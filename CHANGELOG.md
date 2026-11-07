@@ -7,6 +7,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Ensemble à la souris, règles et écriture (EN-a et EN-b, ADR 0038) : `core/furniture` donne la
+  disposition d'une boîte d'ensemble (`furniture_layout` : six poignées de face, trois flèches
+  au centre, trois anneaux, réutilisant `core/magnet` et `core/rotation`) et `resized_box` (face
+  opposée fixe, cote minimale 0,1 mm). `features/furniture_drag` écrit le geste : `begin_furniture_drag`
+  (Memento), `resize_furniture_to` (cotes absolues par le chemin du panneau, brutes seules
+  recalculées, arrêt à la dernière valeur permise avec message en cas de refus), `move_furniture_by`,
+  `rotate_furniture_by` et `rotate_furniture_to` (`Placement` du Std Part, rotation autour du
+  centre de la boîte), `restore` (Échap) et `end_furniture_drag` (recalcul complet, avertissements,
+  liaison du parent pour un sous-ensemble). Sans Std Part propre, déplacement et rotation sont
+  refusés. Façade : `api.move_furniture` et `api.rotate_furniture`. « Cotes fixes » d'un
+  sous-ensemble : lecture par les liaisons vérifiée et testée (Q7).
 - Std Part d'ensemble (EN-e, ADR 0038) : chaque ensemble, gabarit Caisson compris, est rangé à sa
   création dans un Std Part (`App::Part`, « {ensemble} (Std Part) ») avec ses pièces, pièces
   usinées, assemblages et Distances, sans rien déplacer à l'écran ; une pièce ajoutée y entre, une

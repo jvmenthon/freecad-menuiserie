@@ -19,7 +19,13 @@ from freecad.menuiserie.core.rotation._ring import (
     ring_hit,
     ring_of,
 )
-from freecad.menuiserie.core.rotation._turn import snapped_angle, snapped_turn, turned_about
+from freecad.menuiserie.core.rotation._turn import (
+    snapped_angle,
+    snapped_turn,
+    turned_about,
+    turned_about_point,
+    turned_to,
+)
 
 __all__ = [
     "EDGE_ON_DEGREES",
@@ -36,4 +42,6 @@ __all__ = [
     "snapped_angle",
     "snapped_turn",
     "turned_about",
+    "turned_about_point",
+    "turned_to",
 ]

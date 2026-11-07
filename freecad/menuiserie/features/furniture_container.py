@@ -53,6 +53,7 @@ __all__ = [
     "is_std_part",
     "leave",
     "member_expressions",
+    "own_std_part",
     "placement_container",
     "position_of",
     "scopes",
@@ -82,6 +83,19 @@ def std_part_of(furniture: DocumentObject) -> DocumentObject | None:
     """Std Part qui contient l'ensemble ``furniture`` (le sien), ``None`` s'il n'en a pas."""
     parent = furniture.getParentGeoFeatureGroup()
     return parent if is_std_part(parent) else None
+
+
+def own_std_part(furniture: DocumentObject) -> DocumentObject | None:
+    """Std Part **propre** à l'ensemble : celui qui ne contient que l'ensemble, ses membres (pièces,
+    pièces usinées, assemblages, Distances) et les Std Parts de ses sous-ensembles. ``None`` sans
+    Std Part (ancien document) ou si le Std Part contient autre chose (objet de l'utilisateur,
+    autre ensemble) : le tourner ou le déplacer entraînerait ces objets."""
+    part = std_part_of(furniture)
+    if part is None:
+        return None
+    others = [o for o in part.Group if o != furniture and o.TypeId != "App::Origin"]
+    own = all((is_std_part(o) or _workshop(o)) and not is_furniture(o) for o in others)
+    return part if own else None
 
 
 def placement_container(obj: DocumentObject) -> DocumentObject | None:

@@ -23,9 +23,9 @@ from __future__ import annotations
 import math
 from typing import Final
 
-from freecad.menuiserie.core.geometry import RigidTransform, Vec3
+from freecad.menuiserie.core.geometry import Matrix3, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.rotation import Angles, matrix_of, turned_about
+from freecad.menuiserie.core.rotation import Angles, matrix_of, turned_about, turned_to
 from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
 from freecad.menuiserie.features.i18n import translated
@@ -39,7 +39,7 @@ from freecad.menuiserie.features.placement import to_placement
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
-__all__ = ["MAX_ANGLE_DEGREES", "end_rotation", "rotate_by", "rotate_to"]
+__all__ = ["MAX_ANGLE_DEGREES", "checked_rotation", "end_rotation", "rotate_by", "rotate_to"]
 
 MAX_ANGLE_DEGREES: Final = 360.0  # borne des angles écrits (spécification § 4.6)
 _OUT_OF_RANGE: Final = QT_TRANSLATE_NOOP(
@@ -60,6 +60,15 @@ def _center(raw: DocumentObject) -> Vec3:
     return Vec3(size.length / 2, size.width / 2, size.thickness / 2)
 
 
+def checked_rotation(angles: Angles) -> Matrix3:
+    """Matrice de rotation des angles ``angles`` (X, Y, Z du ``Placement``, degrés). ``ValueError``
+    si un angle n'est pas fini ou sort de [-360, 360] (spécification § 4.6)."""
+    rotation = matrix_of(angles)  # refuse les angles non finis avant toute écriture
+    if any(abs(angle) > MAX_ANGLE_DEGREES for angle in angles):
+        raise ValueError(translated(_OUT_OF_RANGE))
+    return rotation
+
+
 def rotate_to(obj: DocumentObject, angles: Angles, aside: dict[str, str] | None = None) -> bool:
     """Donne à la brute de ``obj`` les angles absolus ``angles`` (X, Y, Z du ``Placement``,
     degrés), le centre de la brute restant fixe (B1, B2, B5). Sans recalcul du document. Faux,
@@ -67,17 +76,11 @@ def rotate_to(obj: DocumentObject, angles: Angles, aside: dict[str, str] | None 
     ne la mette de côté (``aside``, comme :func:`rotate_by`). ``ValueError`` si un angle n'est
     pas fini ou sort de [-360, 360] (spécification § 4.6)."""
     raw = raw_part(obj)
-    rotation = matrix_of(angles)  # refuse les angles non finis avant toute écriture
-    if any(abs(angle) > MAX_ANGLE_DEGREES for angle in angles):
-        raise ValueError(translated(_OUT_OF_RANGE))
+    rotation = checked_rotation(angles)
     if _driven(raw, aside):
         return False
-    start = rigid_transform(raw.Placement)
-    center = _center(raw)
-    held = start.apply(center)
-    carried = RigidTransform(rotation, Vec3(0.0, 0.0, 0.0)).rotate(center)
-    translation = held - carried
-    write_placement(raw, to_placement(RigidTransform(rotation, translation)))
+    turned = turned_to(rigid_transform(raw.Placement), _center(raw), rotation)
+    write_placement(raw, to_placement(turned))
     return True
 
 
