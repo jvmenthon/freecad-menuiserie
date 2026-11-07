@@ -8,11 +8,11 @@ import math
 import pytest
 
 from freecad.menuiserie.core.furniture import (
-    MIN_FURNITURE_MM,
     furniture_layout,
     resized_box,
     resized_by,
 )
+from freecad.menuiserie.core.furniture._mouse import MIN_FURNITURE_MM
 from freecad.menuiserie.core.geometry import Box, RigidTransform, Vec3
 from freecad.menuiserie.core.magnet import Guide, GuideKind, Handle, arrows, resize
 from freecad.menuiserie.core.part_model import Dimensions

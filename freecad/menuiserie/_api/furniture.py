@@ -12,10 +12,12 @@ from typing import Any
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Notice
+from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.carcass import CarcassParams
 from freecad.menuiserie.features import (
     distance_move,
+    furniture_drag,
     furniture_edges,
     furniture_locks,
     furniture_material,
@@ -142,6 +144,32 @@ def resize_furniture(
     sizes = {"Width": width, "Depth": depth, "Height": height}
     notices = furniture_members.resize(furniture, sizes)
     return _reported(notices, furniture.Document)
+
+
+def move_furniture(furniture: DocumentObject, delta: tuple[float, float, float]) -> bool:
+    """Déplace l'ensemble de ``delta`` (dx, dy, dz en mm, repère de son Std Part) en écrivant le
+    ``Placement`` de son Std Part, comme les flèches de la vue 3D, puis recalcule. Faux, sans
+    rien écrire, si l'ensemble n'a pas de Std Part propre (ancien document) ou si une expression
+    pilote ce ``Placement``. Un sous-ensemble est relié à son parent (ADR 0019). Aucune
+    transaction n'est ouverte."""
+    memento = furniture_drag.begin_furniture_drag(furniture)
+    if not furniture_drag.move_furniture_by(memento, Vec3(*delta)):
+        furniture_drag.restore(memento)
+        return False
+    report(furniture_drag.end_furniture_drag(memento))
+    return True
+
+
+def rotate_furniture(furniture: DocumentObject, angles: tuple[float, float, float]) -> bool:
+    """Donne à l'ensemble l'orientation ``angles`` (X, Y, Z du ``Placement`` de son Std Part,
+    degrés, de -360 à 360) autour du centre de sa boîte, pièces et liaisons comprises, puis
+    recalcule. Faux, sans rien écrire, si l'ensemble n'a pas de Std Part propre ou si une
+    expression pilote ce ``Placement`` (un sous-ensemble relié à son parent se tourne à la
+    souris). ``ValueError`` traduite si un angle est invalide. Aucune transaction."""
+    turned = furniture_drag.rotate_furniture_to(furniture, angles)
+    if turned:
+        furniture.Document.recompute()
+    return turned
 
 
 def unlock_and_resize(
