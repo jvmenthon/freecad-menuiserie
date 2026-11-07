@@ -61,8 +61,7 @@ Un ensemble sélectionné (dans l'arbre, ou une de ses pièces avec le raccourci
   l'ensemble et tous ses membres, le crée au premier geste (ADR 0036) ; le geste écrit son
   `Placement`. Ensemble déjà dans un Std Part : on tourne ce Std Part (refus expliqué s'il
   contient autre chose que l'ensemble, Q2).
-- B5 Ensemble membre d'un sous-ensemble : taille permise (ses liaisons suivent), rotation
-  refusée (on tourne l'ensemble parent).
+- B5 Sous-ensemble : taille, déplacement et rotation permis, par son propre Std Part (Q2).
 
 ### EN-c — Vue 3D (`gui/drag/`)
 
@@ -131,11 +130,15 @@ sélectionnés, gabarits.
 - **Q1 — Taille.** a) étirer l'ensemble comme dans le panneau : les pièces suivent leurs options
   « fixe » (épaisseurs inchangées) ★ ; b) mise à l'échelle de toutes les pièces, épaisseurs
   comprises.
-- **Q2 — Orientation.** **Tranchée par jv (2026-11-07) : a) Std Part.** Proposition en cours
-  (jv) : le Std Part est créé **dès la création de l'ensemble** (et non au premier geste) ; un
-  ensemble d'un ancien document en reçoit un au premier geste ; une pièce ajoutée à l'ensemble est
-  rangée dedans ; un sous-ensemble n'a pas son propre Std Part (même conteneur que son parent,
-  ADR 0008 point 3).
+- **Q2 — Orientation.** **Tranchée par jv (2026-11-07) : a) Std Part, créé dès la création de
+  l'ensemble.** Pas de reprise des anciens documents pour l'instant (jv). Une pièce ajoutée à
+  l'ensemble est rangée dans son Std Part, une pièce retirée en sort à la même position.
+  **Un sous-ensemble a son propre Std Part** (jv), rangé dans celui de son parent : l'objet
+  sous-ensemble et ses membres sont dedans, son `Origin` y vaut (0, 0, 0) ; les liaisons du parent
+  pilotent la position (`Placement.Base`) du Std Part du sous-ensemble au lieu de son `Origin`, et
+  ses cotes comme avant. Cela amende l'ADR 0008 (point 3) et la règle F11 de J4 : à vérifier par
+  l'essai sur FreeCAD 1.1 (expressions entre Std Part imbriqués). Un sous-ensemble tourné n'est plus
+  d'équerre avec son parent : il le suit alors par translation seulement (règle des pièces en biais).
 - **Q3 — Aperçu pendant le geste.** a) les pièces bougent en direct (brutes seules) ★ ; b) seule
   la boîte bouge, les pièces suivent au relâchement.
 - **Q4 — Comment sélectionner ?** a) l'ensemble dans l'arbre ★ ; b) aussi un bouton « Sélectionner
