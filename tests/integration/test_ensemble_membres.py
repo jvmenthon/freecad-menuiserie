@@ -89,7 +89,7 @@ def test_refus_avant_modification(bureau: Bureau, document: Any) -> None:
     with pytest.raises(TypeError, match="« Boite » n'est ni une pièce de bois"):
         api.add_to_furniture(bureau.furniture, [box])
     with pytest.raises(ValueError, match="« Plateau » est déjà membre de l'ensemble « Bureau »"):
-        api.make_furniture([bureau.parts["P"]])
+        api.make_furniture([bureau.parts["P"], api.make_wood_part(doc=document)])
     part = document.addObject("App::Part", "Conteneur")
     loose = api.make_wood_part(doc=document)
     part.addObject(loose)
