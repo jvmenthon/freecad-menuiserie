@@ -168,7 +168,8 @@ class DissociateCommand(TransactionCommand):
             return
         with refusable_transaction(copies[0].Document, self.TRANSACTION):
             for copy in copies:
-                api.dissociate(copy, transaction=False)
+                if is_copy(copy):  # un ensemble copie dissocié a déjà dissocié ses membres
+                    api.dissociate(copy, transaction=False)
 
 
 def register() -> None:

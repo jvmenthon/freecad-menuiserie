@@ -372,7 +372,8 @@ class DragSession:
             return False
         try:
             check_copyable(part)
-            axis, sign = copy_axis(frame_of(part.getGlobalPlacement()), local)
+            # Repère du conteneur (celui de ``Placement``) : c'est l'axe X, Y ou Z de la répétition.
+            axis, sign = copy_axis(frame_of(part.Placement), local)
             memento = passive_memento(part)
             guides = collect_guides(part, part.getParentGeoFeatureGroup())
             tolerance = port.mm(frame_of(part.getGlobalPlacement()).origin, MAGNET_PX)

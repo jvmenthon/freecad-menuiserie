@@ -19,12 +19,14 @@ _AXES: Final = (RepeatAxis.X, RepeatAxis.Y, RepeatAxis.Z)
 _NOT_ON_AN_AXIS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Copie par glissement impossible : cette flèche n'est pas parallèle à un axe X, Y ou Z du "
-    "document (pièce tournée). Utilisez la commande « Répéter », ou déplacez la pièce sans Ctrl.",
+    "document, ou de son conteneur (pièce tournée). Utilisez la commande « Répéter », ou déplacez "
+    "la pièce sans Ctrl.",
 )
 
 
 def global_axis(frame: Frame, axis: int) -> tuple[RepeatAxis, float]:
-    """Axe global et sens (+1 ou -1) de l'axe ``axis`` de la pièce de repère ``frame`` ;
+    """Axe X, Y ou Z et sens (+1 ou -1) de l'axe ``axis`` de la pièce de repère ``frame`` (celui
+    de son ``Placement``, donc du conteneur ``App::Part`` s'il y en a un, comme la répétition) ;
     ``TemplatedError`` s'il n'est pas parallèle à X, Y ou Z."""
     direction = (frame.x, frame.y, frame.z)[axis]
     main = max(range(3), key=lambda i: abs(direction.component(i)))

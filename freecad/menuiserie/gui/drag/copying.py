@@ -3,27 +3,28 @@
 ``repetition.md`` § 4, Q9 et Q10).
 
 Au lieu de déplacer la pièce, le glissement fait suivre la souris à un **fantôme** (boîte
-translucide dessinée par l'incrustation du glissement, aimantée comme un déplacement, Maj la
-coupe) ; la pièce reste en place et le document n'est pas touché avant le lâcher. Au lâcher,
+translucide dessinée par l'incrustation du glissement, aimantée comme un déplacement, Maj la coupe)
+; la pièce reste en place et le document n'est pas touché avant le lâcher. Au lâcher,
 :func:`~freecad.menuiserie.api.make_repeat` crée une répétition de **une copie** liée, en
-``CountAndStep`` : axe global du déplacement, pas = distance parcourue, ``reverse`` si le
-déplacement va dans le sens négatif de l'axe. C'est une seule transaction (« Répéter », un
-Ctrl+Z). Le panneau « Modifier la répétition » s'ouvre aussitôt (nombre, pas). Échap ne laisse
-rien : aucune transaction n'a été ouverte.
+``CountAndStep`` : axe X, Y ou Z du repère du conteneur (le document à la racine), pas = distance
+parcourue, ``reverse`` si le déplacement va dans le sens négatif de l'axe. C'est une seule
+transaction (« Répéter », un Ctrl+Z). Le panneau « Modifier la répétition » s'ouvre aussitôt
+(nombre, pas). Échap ne laisse rien : aucune transaction n'a été ouverte.
 
-Une flèche est tirée **sur un seul axe de la pièce** ; la copie n'est donc possible que si cet
-axe est un axe global X, Y ou Z (pièce non tournée, ou tournée d'un multiple de 90°) : sinon le
-geste est refusé avec un message, plutôt que de répéter dans une direction que le panneau ne sait
-pas montrer. Une copie liée ne se copie pas par glissement (elle suit déjà sa source) : son
-placement est piloté par la répétition, donc elle ne porte aucune flèche à saisir ; si elle
-en portait une, :func:`check_copyable` refuserait le geste avec un message (copier la source,
-« Modifier la répétition », ou dissocier la copie d'abord).
+Une flèche est tirée **sur un seul axe de la pièce** ; la copie n'est donc possible que si cet axe
+est un axe X, Y ou Z du repère du conteneur de la pièce, celui de son ``Placement`` (pièce non
+tournée, ou tournée d'un multiple de 90° ; le conteneur peut, lui, être tourné de n'importe quel
+angle) : sinon le geste est refusé avec un message, plutôt que de répéter dans une direction que le
+panneau ne sait pas montrer. Une copie liée ne se copie pas par glissement (elle suit déjà sa
+source) : son placement est piloté par la répétition, donc elle ne porte aucune flèche à saisir ; si
+elle en portait une, :func:`check_copyable` refuserait le geste avec un message (copier la source, «
+Modifier la répétition », ou dissocier la copie d'abord).
 
 Ctrl et FreeCAD : le filtre ne prend que Ctrl + clic gauche **sur une flèche** de la pièce
-sélectionnée seule ; Ctrl + clic ailleurs (sélection multiple, dont Ctrl+clic sur un objet sous
-une poignée ou un anneau) et tous les raccourcis clavier avec Ctrl (aucun évènement clavier de
-Ctrl n'est consommé) restent à FreeCAD. Comme un clic simple, un Ctrl + clic sur une flèche est
-consommé, qu'il glisse ou non : sans glissement, rien n'est créé.
+sélectionnée seule ; Ctrl + clic ailleurs (sélection multiple, dont Ctrl+clic sur un objet sous une
+poignée ou un anneau) et tous les raccourcis clavier avec Ctrl (aucun évènement clavier de Ctrl
+n'est consommé) restent à FreeCAD. Comme un clic simple, un Ctrl + clic sur une flèche est consommé,
+qu'il glisse ou non : sans glissement, rien n'est créé.
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import RepeatAxis
 from freecad.menuiserie.core.snap import Frame
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.part_drag import DragMemento
@@ -78,7 +80,7 @@ def check_copyable(part: DocumentObject) -> None:
     """``ValueError`` traduite si ``part`` ne peut pas être copiée par glissement : copie déjà
     liée, ou panneau de tâche ouvert (celui de la copie ne pourrait pas s'ouvrir)."""
     if is_copy(part):
-        raise ValueError(translated(_IS_A_COPY, {"label": str(part.Label)}))
+        raise ValueError(translated(_IS_A_COPY, {"label": quoted_value(part.Label)}))
     if Gui.Control.activeDialog():
         raise ValueError(translated(_PANEL_OPEN))
 

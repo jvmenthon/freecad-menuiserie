@@ -35,6 +35,7 @@ from freecad.menuiserie.features.joints.base import (
     plan_for,
     resolved_for,
 )
+from freecad.menuiserie.features.repeat_joints import origin_of
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
@@ -59,6 +60,9 @@ _INVERT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Inverser")
 _INVERT_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Échange les rôles des deux pièces : la pièce hôte devient la pièce invitée et inversement.",
+)
+_INVERT_DERIVED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Modifiez l'assemblage d'origine ou dissociez la copie."
 )
 _INVERT_IMPOSSIBLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Inverser est impossible : {error}")
 _ROLES: Final = ("HostPart", "GuestPart")
@@ -111,7 +115,10 @@ class JointTaskPanel(ObjectTaskPanel):
             return host, guest
         button = QtGui.QPushButton(translated(_INVERT))
         button.setObjectName("invertButton")
-        if proxy.INVERTIBLE:
+        if origin_of(self.obj) is not None:  # enfant d'une répétition : rôles de l'origine
+            button.setToolTip(translated(_INVERT_DERIVED))
+            button.setEnabled(False)
+        elif proxy.INVERTIBLE:
             button.setToolTip(translated(proxy.INVERT_TIP or _INVERT_TIP))
             button.setEnabled(not any(expression_of(self.obj, role) for role in _ROLES))
         else:
@@ -193,7 +200,7 @@ class JointTaskPanel(ObjectTaskPanel):
     def _refresh_invert(self) -> None:
         """« Inverser » grisé, avec la raison en infobulle, si les rôles échangés sont refusés."""
         button, proxy = self._invert_button, self.obj.Proxy
-        if button is None or not proxy.INVERTIBLE:
+        if button is None or not proxy.INVERTIBLE or origin_of(self.obj) is not None:
             return
         reason = proxy.invert_error(self.obj)
         if reason is None:
