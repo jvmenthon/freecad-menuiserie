@@ -1,11 +1,11 @@
 # Répétition de pièces
 
 - Issue [#180](https://github.com/jvmenthon/freecad-menuiserie/issues/180), demande de jv (2026-11-07).
-- Décision : [ADR 0043](../adr/0043-repetition-objet-de-cotes-et-copies-liees.md) (proposé).
+- Décision : [ADR 0043](../adr/0043-repetition-objet-de-cotes-et-copies-liees.md) (accepté).
 - Statut : **validée par jv** (2026-11-08) : Q4 et Q5 modifiées (cases à cocher), toutes les
   autres questions selon les choix ★.
 - Révision 2 (même jour) : intègre les demandes de jv — copies modifiables après coup, liées à
-  l'original, dissociables, copie par Maj + déplacement, cercle et trajet ensuite, réemploi de
+  l'original, dissociables, copie par Ctrl + déplacement, cercle et trajet ensuite, réemploi de
   FreeCAD.
 
 ## 1. Besoin
@@ -17,7 +17,7 @@ Répéter une ou plusieurs pièces (avec leurs assemblages) N fois : tasseaux, l
 2. les copies gardent les **dimensions de l'original** : si l'original change, les copies
    changent ;
 3. on peut **dissocier** une copie de son original ;
-4. un **déplacement avec Maj** enfoncée crée automatiquement une copie ;
+4. un **déplacement avec Ctrl** enfoncée crée automatiquement une copie ;
 5. d'abord **linéaire**, puis **circulaire** et **le long d'un trait** (le modèle doit les
    prévoir) ;
 6. réemployer ce que FreeCAD fournit quand c'est pertinent (§ 5).
@@ -39,7 +39,11 @@ Répéter une ou plusieurs pièces (avec leurs assemblages) N fois : tasseaux, l
 - **Changer le nombre** : commande « Modifier la répétition » (double-clic sur la répétition ou
   sur une copie) qui rouvre le panneau ; elle ajoute ou retire des copies **hors recalcul**,
   dans une transaction. Les copies retirées sont les dernières. Un assemblage de la source est
-  recréé pour chaque nouvelle copie.
+  recréé pour chaque copie qui n'en a pas encore (aussi un assemblage ajouté à la source après
+  coup), et un membre ajouté à un ensemble source est copié dans chaque ensemble copie.
+- **Conteneur** : la répétition est créée dans le conteneur `App::Part` de ses sources (qui doivent
+  être dans le même), comme leurs copies. L'axe X, Y ou Z est celui du **repère du conteneur**, pas
+  celui du document ; la copie par glissement lit l'axe de la flèche dans ce même repère.
 - **Dissocier** : commande « Dissocier la copie » : supprime les expressions de la copie (elle
   garde ses valeurs actuelles) et la sort de la répétition ; elle devient une pièce libre. La
   répétition garde son décompte (les index suivants ne bougent pas).
@@ -143,7 +147,7 @@ FreeCAD ; seul le trajet appelle Draft, dans `features/`.
 | R-a | essai jetable des expressions (§ 2) puis `core/repeat/` : décalages linéaires, bornes, chevauchement, modes de longueur ; mode `Circular`/`Path` réservés dans le modèle | R1 N+pas, R2 N sur une longueur, R3 pas sur une longueur, R4 bornes, R5 chevauchement signalé, R6 inversion |
 | R-b | `features/repeat.py` : objet `Repeat`, copies liées de pièces **et d'ensembles**, assemblages A à G, ensemble, une transaction, `_api/repeat.py` | R7 5 barreaux entre 2 traverses = 10 assemblages, R8 annulation en un bloc, R9 source modifiée → copies suivent, R10 `Step` modifié → copies déplacées, R11 dissocier, R12 ensemble, R13 liste de débit N+1 lignes, R19 répéter un caisson : membres copiés, redimensionner le caisson source redimensionne la copie, R20 dissocier un ensemble copie |
 | R-c | commande « Répéter », panneau avec aperçu en direct, « Modifier la répétition », « Dissocier », icônes, traductions | GUI hors écran : R14 aperçu = copies créées, R15 refus affiché, R16 changer le nombre |
-| R-d | Maj + déplacement | R17 copie par glissement, R18 annulation |
+| R-d | Ctrl + déplacement | R17 copie par glissement, R18 annulation |
 | R-e | recette manuelle, captures | — |
 | plus tard | cercle, trajet (jalons séparés, même objet `Repeat`) | — |
 

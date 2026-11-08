@@ -101,6 +101,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Répétition : double-clic sur une copie (pièce ou ensemble) et menu contextuel ouvrent « Modifier la répétition » ; un assemblage ou un membre ajouté à la source après coup est copié dans toutes les copies ; une répétition de pièces d'un conteneur `App::Part` est rangée dans ce conteneur (axe du conteneur) et les pièces de conteneurs différents sont refusées ; « Dissocier » accepte un ensemble copie et l'un de ses membres ; « Modifier » une répétition sans source est refusé avec un message ; « Inverser » est grisé sur un assemblage copié ; la copie par glissement se fait avec Ctrl.
 - Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même
   ensemble se range sous l'ensemble le plus proche qui les contient (sous-ensembles compris) dans
   l'arbre, dès sa création.
