@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# Git
+.git
+.git/
+.gitignore
+
+# Build et temporaire
+tmp/
+.tmp/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+.log/
+
+# Environment
+.env
+.env.*
+venv/
+.venv/
+
+# Data
+*.FCStd
+*.fcstd
+*.cache
+
+# Documentation (optionnel)
+# docs/
+# *.md
+
+# Tests - on les inclus car ils sont nécessaires
+# tests/
+
+# Note: Le dossier 'freecad/' est inclus intentionnellement
+# Dockerfile, docker-entrypoint.sh, docker-compose*.yml, Makefile, .dockerignore, 
+# DOCKER.md et requirements-dev.txt sont aussi inclus pour le build Docker

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Dépendances de développement pour freecad-menuiserie
+# Ces dépendances sont gérées via pyproject.toml mais ce fichier est fourni
+# pour une utilisation directe avec pip si nécessaire
+
+# Outils de qualité de code
+ruff>=0.17
+mypy>=2.0
+pylint>=3.3
+bandit>=1.7
+pre-commit>=3.7
+
+# Tests
+pytest>=8
+pytest-cov>=5
+
+# Note: FreeCAD et ses dépendances sont installées via conda dans le Dockerfile
+# et ne sont pas incluses ici car elles ne sont pas disponibles sur PyPI

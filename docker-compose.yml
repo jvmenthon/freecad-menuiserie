@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# Configuration Docker Compose pour freecad-menuiserie
+#
+# Utilisation :
+#   docker-compose build       # Construire l'image
+#   docker-compose run test     # Exécuter les tests
+#   docker-compose run shell    # Démarrer un shell
+#
+# Pour développer avec montage de volume :
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # Service pour exécuter les tests
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - TZ=${TZ:-Europe/Paris}
+    image: freecad-menuiserie-test
+    container_name: freecad-menuiserie-test
+    volumes:
+      # Monter le code source pour développement
+      - .:/workspace/freecad-menuiserie:ro
+      # Répertoire temporaire pour FreeCAD
+      - ./tmp/freecad-home:/tmp/freecad-home
+    environment:
+      - TZ=${TZ:-Europe/Paris}
+      - FREECAD_USER_HOME=/tmp/freecad-home
+      - QT_QPA_PLATFORM=offscreen
+    entrypoint: ["/docker-entrypoint.sh"]
+    command: ["test", "all"]
+    # Limites de ressources (optionnel)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 4G
+    #       cpus: 2
+
+  # Service pour un shell interactif
+  shell:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - TZ=${TZ:-Europe/Paris}
+    image: freecad-menuiserie-test
+    container_name: freecad-menuiserie-shell
+    volumes:
+      - .:/workspace/freecad-menuiserie
+      - ./tmp/freecad-home:/tmp/freecad-home
+    environment:
+      - TZ=${TZ:-Europe/Paris}
+      - FREECAD_USER_HOME=/tmp/freecad-home
+      - QT_QPA_PLATFORM=offscreen
+    entrypoint: ["/docker-entrypoint.sh"]
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+
+  # Service pour les tests unitaires
+  test-unit:
+    extends: test
+    command: ["test", "unit", "-v"]
+
+  # Service pour les tests d'intégration
+  test-integration:
+    extends: test
+    command: ["test", "integration", "-v"]
+
+  # Service pour le linting
+  lint:
+    extends: test
+    command: ["ruff", "check", "--output-format=github", "."]
+
+  # Service pour la vérification de typage
+  type-check:
+    extends: test
+    command: ["mypy", "freecad", "tests"]
