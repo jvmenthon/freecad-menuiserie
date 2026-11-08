@@ -73,9 +73,15 @@ liaisons source → copie ne forment pas de cycle. Vérifié au lot R-a.
 1. Copie d'une pièce : mêmes cotes, matériau, sens du fil, finitions ; nom « {nom} {k+1} ».
 2. **Assemblages** (Q4 détaillée) : voir ci-dessous.
 3. Quincaillerie : reprise avec l'assemblage.
-4. Si la source est membre d'un ensemble, les copies le sont aussi (options reprises) ; elles ne
-   sont **pas** redistribuées quand on redimensionne l'ensemble (pour des étagères qui doivent
-   suivre, le gabarit Caisson).
+4. Si la source est membre d'un ensemble, les copies le sont aussi (options reprises). **Réponse
+   de jv (2026-11-08)** : une case **« Suivre le redimensionnement »** dans le panneau
+   (`FollowResize` dans `Repeat`, décochée par défaut = pas fixe) :
+   - décochée : le pas reste fixe ; agrandir l'ensemble ne déplace pas les copies ;
+   - cochée : la répétition passe en « nombre sur une longueur » et sa longueur est une
+     expression sur la cote de l'ensemble le long de l'axe (moins les retraits actuels aux deux
+     bords) ; agrandir l'ensemble recalcule le pas et redistribue les copies, le nombre ne change
+     pas. Si l'axe de la répétition n'est pas un axe de l'ensemble (pièce hors ensemble), la case
+     est grisée.
 5. Compatibilité (ADR 0007) : `Part::FeaturePython` ordinaires, forme `Part` standard,
    propriétés dans notre espace de noms.
 
@@ -139,7 +145,7 @@ FreeCAD ; seul le trajet appelle Draft, dans `features/`.
 - **Q3 — Direction.** ★ Axe X/Y/Z global + « Inverser » ; ensuite axes de la pièce.
 - **Q4 — Assemblages.** ✅ jv (2026-11-08) : case « Recopier les assemblages » ; assemblages
   enfants liés au premier (§ 3).
-- **Q5 — Ensemble.** ★ Copies membres, sans redistribution au redimensionnement.
+- **Q5 — Ensemble.** ✅ jv (2026-11-08) : case « Suivre le redimensionnement » (fixe ou suit), § 3.4.
 - **Q6 — Ce qui est lié.** ★ Cotes, matériau, finitions et placement ; la **position** d'une copie
   déplacée à la main reste libre (la copie se dissocie de la position seulement ?). Alternative :
   toute modification manuelle d'une copie la dissocie entièrement.
