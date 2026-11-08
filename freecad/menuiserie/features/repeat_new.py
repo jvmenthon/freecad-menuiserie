@@ -37,7 +37,7 @@ from freecad.menuiserie.features.machined_part import (
 from freecad.menuiserie.features.repeat import COPY_PROPERTIES, is_copy
 from freecad.menuiserie.features.wood_part import create_wood_part
 
-__all__ = ["drop_copy", "new_copies", "new_part_copy"]
+__all__ = ["add_missing_members", "drop_copy", "new_copies", "new_part_copy"]
 
 
 def _mark_copy(
@@ -132,6 +132,41 @@ def new_copies(
     created: list[DocumentObject] = []
     _copy_into(source, furniture_of(source), repeat, index, shift, created)
     return created
+
+
+def _copy_of(
+    member: DocumentObject, furniture: DocumentObject, repeat: DocumentObject
+) -> DocumentObject | None:
+    """Copie de ``member`` rangée dans l'ensemble copie ``furniture``, ``None`` si elle manque."""
+    return next(
+        (
+            obj
+            for obj in members_of(furniture)
+            if is_copy(obj) and obj.Repeat == repeat and obj.RepeatSource == member
+        ),
+        None,
+    )
+
+
+def add_missing_members(
+    source: DocumentObject,
+    copy: DocumentObject,
+    known: set[str],
+    shift: App.Vector,
+    created: list[DocumentObject],
+) -> None:
+    """Ajoute à l'ensemble copie ``copy`` la copie de chaque membre de l'ensemble ``source`` qui
+    n'a encore aucune copie dans la répétition (``known`` : noms des originaux déjà copiés à un
+    rang quelconque) : un membre ajouté à la source après coup. Un membre dont la copie a été
+    supprimée ou dissociée ne revient pas, sauf s'il n'a plus aucune copie nulle part. Les
+    sous-ensembles déjà copiés sont parcourus à leur tour."""
+    repeat, index = copy.Repeat, copy.RepeatIndex
+    for member in members_of(source):
+        existing = _copy_of(member, copy, repeat)
+        if existing is not None and is_furniture(member):
+            add_missing_members(member, existing, known, shift, created)
+        elif existing is None and member.Name not in known:
+            _copy_into(member, copy, repeat, index, shift, created)
 
 
 def _drop_part(copy: DocumentObject) -> None:

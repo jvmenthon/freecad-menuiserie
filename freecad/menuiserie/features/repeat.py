@@ -329,11 +329,17 @@ def copies_of(repeat: DocumentObject, source: DocumentObject | None = None) -> l
     )
 
 
-def create_repeat(doc: Document, sources: list[DocumentObject]) -> DocumentObject:
+def create_repeat(
+    doc: Document, sources: list[DocumentObject], container: DocumentObject | None = None
+) -> DocumentObject:
     """Crée une répétition vide des ``sources`` (sans transaction ni recalcul) ; ses réglages
-    sont écrits ensuite par :func:`write_params`."""
+    sont écrits ensuite par :func:`write_params`. ``container`` : conteneur ``App::Part`` des
+    sources, où la répétition est rangée comme leurs copies (sans quoi les liens des copies
+    sortiraient de la portée de leur conteneur)."""
     obj = doc.addObject("App::FeaturePython", OBJECT_NAME)
     Repeat(obj)
+    if container is not None:
+        container.addObject(obj)
     obj.Label = translated(NOUN)
     obj.Source = sources
     return obj

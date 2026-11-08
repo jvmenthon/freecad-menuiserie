@@ -101,7 +101,7 @@ def make_repeat(
     repeat_copies.resolve_for(sources, params)
     doc = sources[0].Document
     with _undoable(doc, _MAKE_TRANSACTION, own=transaction):
-        obj = repeat.create_repeat(doc, sources)
+        obj = repeat.create_repeat(doc, sources, repeat_copies.common_container(sources))
         _show_repeat(obj)
         _show(repeat_copies.apply_repeat(obj, params))
     return obj
