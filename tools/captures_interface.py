@@ -2,7 +2,9 @@
 """Captures d'écran de l'atelier pour les PR : vue 3D, fenêtre complète, gros plan texture,
 panneau de tâche de la pièce de bois, panneau d'une pièce tournée de 15 degrés
 (``panneau-rotation.png``), panneau d'un assemblage (``panneau-assemblage.png``) et
-panneau de l'ensemble (``panneau-ensemble.png``), puis la feuille « Liste de débit » du
+panneau de l'ensemble (``panneau-ensemble.png``), l'ensemble sélectionné seul dans la vue 3D
+(``ensemble-selectionne.png`` : boîte en transparence, doubles flèches de face, flèches de
+déplacement et anneaux de rotation), puis la feuille « Liste de débit » du
 document (``feuille-de-debit.png``, commande « Liste de débit » lancée sans sélection).
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
@@ -323,7 +325,21 @@ def capturer_le_panneau_d_ensemble(dossier: Path, fenetre, vue) -> None:
     image = fenetre_complete(fenetre, vue, devant=volet)
     image.save(str(dossier / "panneau-ensemble.png"))
     Gui.Control.activeTaskDialog().reject()
+    capturer_l_ensemble_selectionne(dossier, vue)
     capturer_la_feuille_de_debit(dossier, fenetre)
+
+
+def capturer_l_ensemble_selectionne(dossier: Path, vue) -> None:
+    """Vue 3D isométrique avec l'ensemble sélectionné seul dans l'arbre : la session de glissement
+    dessine sa boîte, ses six poignées de face, ses trois flèches et ses trois anneaux (EN-c)."""
+    ensemble = App.ActiveDocument.getObjectsByLabel(ENSEMBLE)[0]
+    Gui.Selection.clearSelection()
+    Gui.Selection.addSelection(ensemble)
+    Gui.updateGui()  # l'observateur de sélection dessine au tour de boucle suivant
+    vue.fitAll()
+    Gui.updateGui()
+    vue.saveImage(str(dossier / "ensemble-selectionne.png"), TAILLE[0], TAILLE[1], "White")
+    Gui.Selection.clearSelection()
 
 
 def capturer_la_feuille_de_debit(dossier: Path, fenetre) -> None:

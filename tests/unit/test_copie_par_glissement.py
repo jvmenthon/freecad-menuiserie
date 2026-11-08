@@ -14,7 +14,7 @@ from freecad.menuiserie.core.i18n import TemplatedError
 from freecad.menuiserie.core.repeat import RepeatAxis, SpacingMode
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.gui.drag.copy_rules import MIN_MOVE, copy_params, global_axis
-from freecad.menuiserie.gui.drag.geometry import GHOST_COLOR, build_drawing, build_layout
+from freecad.menuiserie.gui.drag.geometry import GHOST_COLOR, Cues, build_drawing, build_layout
 from tests.unit.aides import ROOT, imported_modules
 
 PACKAGE = ROOT / "freecad" / "menuiserie"
@@ -98,7 +98,7 @@ def test_simple_clic_sans_copie() -> None:
 def test_fantome_boite_decalee_sans_toucher_aux_fleches() -> None:
     layout = build_layout(STRAIGHT, BOX, 100.0, frozenset(), frozenset())
     plain = build_drawing(layout)
-    shown = build_drawing(layout, ghost=Vec3(300, 0, 0))
+    shown = build_drawing(layout, cues=Cues(ghost=Vec3(300, 0, 0)))
     assert len(shown.strokes) == len(plain.strokes) + 1
     assert len(shown.solids) == len(plain.solids) + 1
     outline = next(s for s in shown.strokes if s.color == GHOST_COLOR)
@@ -115,7 +115,9 @@ def test_fantome_boite_decalee_sans_toucher_aux_fleches() -> None:
 def test_fantome_dans_le_repere_de_la_piece() -> None:
     layout = build_layout(QUARTER_TURN, BOX, 100.0, frozenset(), frozenset())
     outline = next(
-        s for s in build_drawing(layout, ghost=Vec3(100, 0, 0)).strokes if s.color == GHOST_COLOR
+        s
+        for s in build_drawing(layout, cues=Cues(ghost=Vec3(100, 0, 0))).strokes
+        if s.color == GHOST_COLOR
     )
     points = {(round(p.x, 6), round(p.y, 6)) for line in outline.lines for p in line}
     assert {y for _, y in points} == {100.0, 900.0}  # X de la pièce = Y du document

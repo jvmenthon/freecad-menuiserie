@@ -10,6 +10,7 @@ souris), :class:`Moving` (flèche tirée), :class:`Resizing` (poignée tirée) e
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from PySide import QtCore
@@ -19,6 +20,7 @@ from freecad.menuiserie.core.magnet import (
     DragResult,
     Guide,
     Handle,
+    ResizeResult,
     axis_param,
     magnet,
     resize,
@@ -26,21 +28,19 @@ from freecad.menuiserie.core.magnet import (
 from freecad.menuiserie.core.rotation import angles_of, plane_point, ring_angle, snapped_turn
 from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.i18n import report_warning
-from freecad.menuiserie.features.part_drag import (
-    SIZE_PROPS,
-    DragCancelledError,
-    DragMemento,
-    end_drag,
-    move_part,
-    resize_part,
-    restore,
-)
-from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
+from freecad.menuiserie.features.part_drag import DragCancelledError
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
-from freecad.menuiserie.gui.drag.geometry import Throttle, parse_key
-from freecad.menuiserie.gui.drag.parts import Grab, Turn, box_of, frame_of
+from freecad.menuiserie.gui.drag.geometry import (
+    HOVER_COLOR,
+    REFUSAL_COLOR,
+    Label,
+    Throttle,
+    parse_key,
+)
+from freecad.menuiserie.gui.drag.parts import Grab, Turn
 from freecad.menuiserie.gui.drag.rings import Sweep, advance, ring_key, ring_ray
+from freecad.menuiserie.gui.drag.target import Memento, Step, Target
 from freecad.menuiserie.gui.drag.view import Point
 
 if TYPE_CHECKING:
@@ -56,6 +56,7 @@ class State:
     key: str | None = None
     sweep: Sweep | None = None  # secteur parcouru et angle, pendant la rotation par un anneau
     ghost: Vec3 | None = None  # décalage du fantôme (repère de la pièce), pendant une copie
+    note: Label | None = None  # cote tirée et message d'un refus, près de la souris (ensemble)
 
     def press(self, session: DragSession, point: Point, shift: bool, copy: bool = False) -> bool:
         """Clic gauche enfoncé (``copy`` : Ctrl enfoncé)."""
@@ -120,8 +121,9 @@ class Gesture(State):
 
     dragging = True
 
-    def __init__(self, memento: DragMemento, start: Point, own: bool) -> None:
+    def __init__(self, memento: Memento, start: Point, own: bool, target: Target) -> None:
         self.memento = memento
+        self.target = target
         self.cursor = start
         self.own = own  # transaction ouverte par le geste
         self.shift = False
@@ -145,9 +147,9 @@ class Gesture(State):
     def escape(self, session: DragSession) -> bool:
         """Échap : la pièce revient où elle était au début du geste (le panneau, s'il est ouvert,
         reste) ; le relâchement du bouton est consommé."""
-        restore(self.memento)
+        self.target.restore(self.memento)
         if self.own:
-            self.memento.part.Document.abortTransaction()
+            self.target.document.abortTransaction()
         session.swallow_release = True
         session.leave()
         return True
@@ -172,7 +174,7 @@ class Gesture(State):
 
     def _close(self, session: DragSession, *, commit: bool) -> None:
         """Fin du geste : transaction validée (``commit``) ou abandonnée."""
-        document = self.memento.part.Document
+        document = self.target.document
         if self.own:
             if commit:
                 document.commitTransaction()
@@ -189,22 +191,22 @@ class Gesture(State):
 
     def end(self, choose: JointChoice) -> list[str]:
         """Fin du geste au relâchement : recalcul du document, avertissements."""
-        return end_drag(self.memento, choose)
+        return self.target.end_move(self.memento, choose)
 
 
 class Dragging(Gesture):
     """Flèche ou poignée tirée."""
 
     def __init__(self, grab: Grab) -> None:
-        super().__init__(grab.memento, grab.start, grab.own)
-        self.key = self.target = grab.key
+        super().__init__(grab.memento, grab.start, grab.own, grab.target)
+        self.key = self.grabbed = grab.key
         self.line = grab.line  # axe au début : les flèches suivent la pièce, pas lui
         self.origin = grab.origin  # paramètre de l'axe sous le curseur au début
         self.guides = grab.guides
         self.tolerance = grab.tolerance
-        self.box = box_of(grab.memento.part)
+        self.box = grab.target.box()
         # repère de la pièce au début : celui des guides, qui ne suivent pas la pièce
-        self.frame = frame_of(grab.memento.part.getGlobalPlacement())
+        self.frame = grab.target.frame()
 
     def _follow(self, session: DragSession) -> None:
         """Pièce placée d'après le curseur ; rayon parallèle à l'axe : elle reste."""
@@ -228,32 +230,44 @@ class Moving(Dragging):
         return magnet(self.box, self.guides, wanted, self.tolerance, [axis])
 
     def apply(self, session: DragSession, delta: float) -> None:
-        axis = parse_key(self.target)
+        axis = parse_key(self.grabbed)
         if not isinstance(axis, int):  # clé d'une poignée : rien à faire ici
             return
         result = self.solve(axis, delta)
-        move_part(self.memento, result.delta)
+        self.target.move(self.memento, result.delta)
         session.written([self.guides[hit.guide] for hit in result.hits], self.frame)
+
+
+@dataclass(frozen=True)
+class _Pending:
+    """Cote à écrire à la prochaine application de la cadence : poignée, cote obtenue, guide
+    aimanté et point de l'axe sous la souris (où la cote s'écrit)."""
+
+    handle: Handle
+    result: ResizeResult
+    hit: list[Guide]
+    anchor: Vec3
 
 
 class Resizing(Dragging):
     """Poignée tirée : la cote suit, l'autre bout ne bouge pas ; brute recalculée 30 fois par
-    seconde au plus."""
+    seconde au plus (10 pour un ensemble, dont la cote est écrite près de la souris)."""
 
     def __init__(self, grab: Grab) -> None:
         super().__init__(grab)
-        self.throttle = Throttle()
-        self.pending: tuple[str, float, Vec3, list[Guide]] | None = None
+        self.throttle = Throttle(grab.target.resize_rate)
+        self.pending: _Pending | None = None
         self.scheduled = False
 
     def apply(self, session: DragSession, delta: float) -> None:
-        handle = parse_key(self.target)
+        handle = parse_key(self.grabbed)
         if not isinstance(handle, Handle):  # clé d'une flèche : rien à faire ici
             return
         guides = () if self.shift else self.guides
-        result = resize(self.box, handle, delta, guides, self.tolerance)
+        result = resize(self.box, handle, delta, guides, self.tolerance, self.target.min_size)
         hit = [] if result.hit is None else [self.guides[result.hit.guide]]
-        self.pending = (SIZE_PROPS[handle.axis], result.size, result.origin_shift, hit)
+        anchor = self.line.origin + self.line.direction.scaled(self.origin + delta)
+        self.pending = _Pending(handle, result, hit, anchor)
         now = time.monotonic()
         if self.throttle.ready(now):
             self.flush(session)
@@ -268,12 +282,21 @@ class Resizing(Dragging):
             self.flush(session)
 
     def flush(self, session: DragSession) -> None:
-        if self.pending is None:
+        pending, self.pending = self.pending, None
+        if pending is None:
             return
-        prop, size, shift, guides = self.pending
-        self.pending = None
-        resize_part(self.memento, prop, size, shift)
-        session.written(guides, self.frame)
+        step = self.target.resize(self.memento, pending.handle, pending.result)
+        if self.target.shows_size:
+            self.note = _size_note(step, pending.anchor)
+        session.written([] if step.message else pending.hit, self.frame)
+
+
+def _size_note(step: Step, anchor: Vec3) -> Label:
+    """Cote écrite (puis, si le pas est arrêté, le message du refus) près de la souris."""
+    text = f"{step.size:.1f} mm"
+    if not step.message:
+        return Label(HOVER_COLOR, text, anchor)
+    return Label(REFUSAL_COLOR, f"{text}\n{step.message}", anchor)
 
 
 class Rotating(Gesture):
@@ -284,7 +307,7 @@ class Rotating(Gesture):
     recalcul."""
 
     def __init__(self, grab: Turn) -> None:
-        super().__init__(grab.memento, grab.start, grab.own)
+        super().__init__(grab.memento, grab.start, grab.own, grab.target)
         self.ring = grab.ring
         self.key = ring_key(grab.ring.axis)
         self.first = grab.first
@@ -293,7 +316,7 @@ class Rotating(Gesture):
         self.total = 0.0  # angle parcouru depuis la saisie, tours compris
         # angle de la pièce autour de l'anneau au début : l'aimant vise l'angle obtenu
         self.base = angles_of(rigid_transform(grab.memento.placement).rotation)[self.ring.axis]
-        self.frame = frame_of(grab.memento.part.getGlobalPlacement())
+        self.frame = grab.target.frame()
 
     def _follow(self, session: DragSession) -> None:
         """Pièce tournée d'après le curseur ; rayon rasant le plan de l'anneau : elle reste."""
@@ -302,11 +325,11 @@ class Rotating(Gesture):
         if raw is not None:
             self.total, self.last = advance(self.total, self.last, raw), raw
         angle = snapped_turn(self.base, self.total, free=self.shift)
-        if not rotate_by(self.memento, self.ring.axis, angle):
+        if not self.target.rotate(self.memento, self.ring.axis, angle):
             return
         anchor = plane_point(ray, self.ring) or self.ring.center
         self.sweep = Sweep(self.ring, self.from_center, angle, anchor)
         session.written((), self.frame)
 
     def end(self, choose: JointChoice) -> list[str]:
-        return end_rotation(self.memento, choose)
+        return self.target.end_rotation(self.memento, choose)

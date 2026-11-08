@@ -36,7 +36,7 @@ RATIO_DECIMALS: Final = 9
 CONSTANT_DECIMALS: Final = 6
 _FORBIDDEN_IN_LABEL: Final = (">", "\\")
 _PIECE_BOUND: Final = ("Length", "Width", "Placement")  # propriétés que l'atelier lie
-_FURNITURE_BOUND: Final = ("Width", "Depth", "Height", "Origin")
+_FURNITURE_BOUND: Final = ("Width", "Depth", "Height", "Origin", "Placement")
 # Référence ``<<…>>`` telle que FreeCAD l'écrit (``\'`` et ``\"`` échappés dans le libellé).
 _REFERENCE: Final = re.compile(r"<<(?:[^>\\]|\\.)*>>")
 # Pièce ou Distance citée par son ``Name`` (``WoodPart001.Thickness``, ``Distance.Value``).
@@ -157,14 +157,16 @@ def driven_properties(current: Mapping[str, str], recorded: Mapping[str, str]) -
 
 
 def position_property(member: Member, axis: FurnitureAxis) -> str:
-    """Propriété de position liée sur ``axis`` : ``Placement.Base.x`` ou ``Origin.x``…"""
-    root = "Placement.Base" if member.block is not None else "Origin"
+    """Propriété de position liée sur ``axis`` : ``Placement.Base.x`` pour une pièce et pour un
+    sous-ensemble porté par son Std Part (``carried``, ADR 0038), ``Origin.x`` sinon."""
+    root = "Placement.Base" if member.block is not None or member.carried else "Origin"
     return f"{root}.{'xyz'[axis.index]}"
 
 
 def bound_by_workshop(member: Member, prop: str) -> bool:
     """Vrai si l'atelier lie lui-même ``prop`` : ``Length``, ``Width``, ``Placement`` d'une
-    pièce ; ``Width``, ``Depth``, ``Height``, ``Origin`` d'un sous-ensemble (et sous-chemins)."""
+    pièce ; ``Width``, ``Depth``, ``Height``, ``Origin``, ``Placement`` (celui de son Std Part) d'un
+    sous-ensemble (et sous-chemins)."""
     roots = _PIECE_BOUND if member.block is not None else _FURNITURE_BOUND
     return prop.split(".")[0] in roots
 

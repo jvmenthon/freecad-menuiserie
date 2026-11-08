@@ -33,16 +33,19 @@ from freecad.menuiserie.core.furniture import (
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.distance import distances_of, kept_gap_of, remove_touching
-from freecad.menuiserie.features.freecad_types import (
-    DocumentObject,
-    expressions_of,
-)
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import (
     furniture_of,
     is_furniture,
     option_name,
     origin_of,
     writing,
+)
+from freecad.menuiserie.features.furniture_container import (
+    member_expressions,
+    position_of,
+    set_member_expression,
+    std_part_of,
 )
 from freecad.menuiserie.features.i18n import (
     report_warning,
@@ -176,7 +179,7 @@ def _recorded(obj: DocumentObject) -> dict[str, str]:
 
 def _driven(obj: DocumentObject, entering: bool) -> frozenset[str]:
     recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
-    driven = driven_properties(expressions_of(obj), recorded)
+    driven = driven_properties(member_expressions(obj), recorded)
     return driven | {"Placement"} if _assembly_constrained(obj) else driven
 
 
@@ -216,7 +219,9 @@ def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> M
     with translated_errors():
         if is_furniture(obj):
             box = FurnitureBox(obj.Width.Value, obj.Depth.Value, obj.Height.Value)
-            return Member(box=box, origin=_relative(origin_of(obj), origin), **common)
+            carried = std_part_of(obj) is not None
+            position = _relative(position_of(obj), origin)
+            return Member(box=box, origin=position, carried=carried, **common)
         transform = rigid_transform(obj.Placement)
         placement = RigidTransform(transform.rotation, _relative(transform.translation, origin))
         return Member(block=PlacedBlock(dimensions_of(obj), placement), **common)
@@ -268,7 +273,11 @@ def _bindings(
     rangée de chaque membre tient compte de tous les autres."""
     chosen = set(keys)
     rules, rule_notices = follow_rules(members.box, members.members, chosen)
-    nested = furniture_of(members.furniture) is not None or is_copy(members.furniture)
+    # Sous-ensemble ancien sans Std Part (E5) : son Origin bouge, ses positions la suivent.
+    # Une copie d'ensemble a son propre Std Part (ADR 0044), qui porte alors sa position.
+    nested = (
+        furniture_of(members.furniture) is not None or is_copy(members.furniture)
+    ) and std_part_of(members.furniture) is None
     thicknesses = copy_thicknesses(members.objects.values(), thicknesses)
     with translated_errors():
         bindings, notices = bindings_for(
@@ -284,11 +293,11 @@ def _bindings(
 
 def remove_bindings(obj: DocumentObject) -> None:
     """Retire de ``obj`` les seules liaisons de l'atelier (texte = celui enregistré)."""
-    current = expressions_of(obj)
+    current = member_expressions(obj)
     recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
     for prop, text in recorded.items():
         if prop in current and same_binding(current[prop], text):
-            obj.setExpression(prop, None)
+            set_member_expression(obj, prop, None)
 
 
 def _write(obj: DocumentObject, bindings: Sequence[Binding]) -> None:
@@ -297,14 +306,14 @@ def _write(obj: DocumentObject, bindings: Sequence[Binding]) -> None:
         remove_bindings(obj)
         recorded: dict[str, str] = {}
         for binding in bindings:
-            obj.setExpression(binding.prop, binding.expression)
-            recorded[binding.prop] = expressions_of(obj)[binding.prop]
+            set_member_expression(obj, binding.prop, binding.expression)
+            recorded[binding.prop] = member_expressions(obj)[binding.prop]
         obj.FurnitureBindings = recorded
 
 
 def _workshop_bindings(obj: DocumentObject) -> list[Binding]:
     """Liaisons de l'atelier actuellement posées sur ``obj`` (texte = celui enregistré)."""
-    current = expressions_of(obj)
+    current = member_expressions(obj)
     recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
     return [
         Binding(obj.Name, prop, current[prop])

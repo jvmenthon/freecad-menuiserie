@@ -110,7 +110,7 @@ class Copying(Moving):
         self.ghost: Vec3 | None = Vec3(0.0, 0.0, 0.0)  # décalage du fantôme, repère de la pièce
 
     def _local_axis(self) -> int:
-        local = parse_key(self.target)
+        local = parse_key(self.grabbed)
         return local if isinstance(local, int) else 0
 
     def apply(self, session: DragSession, delta: float) -> None:
@@ -127,7 +127,7 @@ class Copying(Moving):
     def _finish(self, session: DragSession) -> None:
         """Relâchement : une copie liée est créée (une transaction) puis son panneau s'ouvre ;
         un refus de l'api est affiché, rien n'est créé."""
-        part = self.memento.part
+        part = self.target.obj
         offset = self.ghost.component(self._local_axis()) if self.ghost else 0.0
         session.leave()
         params = copy_params(self.axis, self.sign, offset)

@@ -210,7 +210,8 @@ class Member:
     (:class:`KeptGap`, ADR 0022) ; ``linked`` : copie de répétition liée à sa source (ADR 0043),
     qui compte dans les rangées de ses voisines mais ne reçoit aucune règle ni liaison (elle suit
     sa source) ; ``repeated`` : propriétés qui suivent la source d'une répétition (pilotées, sans
-    avertissement).
+    avertissement) ; ``carried`` : pour un sous-ensemble, sa position est portée par le
+    ``Placement.Base`` de son Std Part (ADR 0038) et non par son ``Origin``.
     """
 
     key: str
@@ -226,6 +227,7 @@ class Member:
     drawn: bool = False
     linked: bool = False
     repeated: frozenset[str] = frozenset()
+    carried: bool = False
 
     def __post_init__(self) -> None:
         _require(isinstance(self.key, str) and bool(self.key), "Member.key : texte non vide")
@@ -247,6 +249,7 @@ class Member:
         _require(isinstance(self.drawn, bool), "Member.drawn : booléen attendu")
         _require(isinstance(self.linked, bool), "Member.linked : booléen attendu")
         _require(_is_text_set(self.repeated), "Member.repeated : frozenset de textes attendu")
+        _require(isinstance(self.carried, bool), "Member.carried : booléen attendu")
         if self.drawn and not self.locked:  # des cotes dessinées sont toujours fixes
             object.__setattr__(self, "locked", True)
         _require(
