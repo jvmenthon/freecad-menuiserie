@@ -128,7 +128,8 @@ def follow_rules(
     coupée par une autre face), seulement pour les membres ``keys``
     (tous par défaut). Chaque membre se règle sur sa rangée : tous les membres doivent donc
     être fournis. Les options ``fixed`` doivent être renseignées (``with_default_options``) :
-    ``ValueError`` sinon."""
+    ``ValueError`` sinon. Une copie liée de répétition (``linked``) compte dans les rangées mais
+    n'a ni règle ni avertissement : elle suit sa source."""
     square: dict[str, Spans] = {}
     for member in members:
         if member.fixed is None:
@@ -141,7 +142,7 @@ def follow_rules(
     labels = {gap.key: gap.name for gap in gaps}
     rules: dict[str, tuple[FollowRule, ...]] = {}
     notices: list[Notice] = []
-    for member in members:
+    for member in (member for member in members if not member.linked):
         wanted = keys is None or member.key in keys
         if member.key not in square:
             if (translated := oblique_rules(box, member)) is not None:

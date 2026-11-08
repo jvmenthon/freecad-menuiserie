@@ -21,6 +21,8 @@ noms des propriétés (de la répétition et des copies) et les valeurs de ``Mod
 
 from __future__ import annotations
 
+import re
+from collections.abc import Collection, Iterable, Mapping
 from typing import ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -37,8 +39,10 @@ from freecad.menuiserie.features.freecad_types import (
     Document,
     DocumentObject,
     StatelessProxy,
+    expressions_of,
     proxy_is,
 )
+from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec, version_spec
 
@@ -48,11 +52,16 @@ __all__ = [
     "OBJECT_NAME",
     "REPEAT_PROPERTIES",
     "Repeat",
+    "cites",
     "copies_of",
+    "copy_thicknesses",
     "create_repeat",
     "is_copy",
+    "is_inner_copy",
     "is_repeat",
+    "member_flags",
     "repeat_of",
+    "repeated_properties",
     "sources_of",
     "write_params",
 ]
@@ -247,6 +256,51 @@ def is_repeat(obj: object) -> bool:
 def is_copy(obj: DocumentObject) -> bool:
     """Vrai si ``obj`` est une copie liée à une répétition."""
     return all(name in obj.PropertiesList for name in COPY_PROPERTY_NAMES) and is_repeat(obj.Repeat)
+
+
+def is_inner_copy(obj: DocumentObject) -> bool:
+    """Vrai si ``obj`` est la copie d'un membre, rangée dans l'ensemble copie de la même
+    répétition (spécification § 2 bis) : ses cotes pilotées par l'ensemble viennent des liaisons
+    de cet ensemble, les autres suivent le membre source."""
+    parent = furniture_of(obj) if is_copy(obj) else None
+    return parent is not None and is_copy(parent) and parent.Repeat == obj.Repeat
+
+
+def cites(text: str, names: Collection[str]) -> bool:
+    """Vrai si l'expression ``text`` cite l'un des objets ``names`` (``Nom.propriété``)."""
+    return any(re.search(rf"(?<![\w.]){re.escape(name)}\.", text) for name in names)
+
+
+def repeated_properties(obj: DocumentObject) -> frozenset[str]:
+    """Propriétés de la copie ``obj`` dont l'expression cite sa source ou sa répétition."""
+    if not is_copy(obj):
+        return frozenset()
+    names = {item.Name for item in (obj.Repeat, obj.RepeatSource) if item is not None}
+    return frozenset(path for path, text in expressions_of(obj).items() if cites(text, names))
+
+
+def member_flags(obj: DocumentObject) -> dict[str, object]:
+    """Ce que ``core.furniture`` doit savoir de ``obj`` en tant que membre : ``linked`` (copie qui
+    suit sa source, sans liaison d'ensemble) et ``repeated`` (propriétés qui la suivent)."""
+    return {
+        "linked": is_copy(obj) and not is_inner_copy(obj),
+        "repeated": repeated_properties(obj),
+    }
+
+
+def copy_thicknesses(
+    objects: Iterable[DocumentObject], thicknesses: Mapping[str, float] | None
+) -> Mapping[str, float] | None:
+    """``thicknesses`` (nom → épaisseur à venir) complétées : une copie liée prend l'épaisseur que
+    prend sa source."""
+    if not thicknesses:
+        return thicknesses
+    found = dict(thicknesses)
+    for obj in objects:
+        source = obj.RepeatSource if is_copy(obj) and not is_inner_copy(obj) else None
+        if source is not None and source.Name in thicknesses:
+            found[obj.Name] = thicknesses[source.Name]
+    return found
 
 
 def repeat_of(obj: DocumentObject) -> DocumentObject | None:

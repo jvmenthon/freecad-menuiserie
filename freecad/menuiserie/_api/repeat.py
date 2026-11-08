@@ -18,6 +18,8 @@ from freecad.menuiserie.core.repeat import RepeatParams
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import repeat, repeat_copies, repeat_links
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.i18n import translated
 
 __all__ = ["dissociate", "edit_repeat", "make_repeat", "repeat_of"]
@@ -53,29 +55,48 @@ def _undoable(doc: Document, title: str, *, own: bool) -> Iterator[None]:
 def _show(created: repeat_copies.Created) -> None:
     """ViewProviders des copies et des assemblages créés, quand l'interface est chargée."""
     if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
         from freecad.menuiserie.gui.view_providers.wood_part import ViewProviderWoodPart
 
         for copy in created.copies:
-            ViewProviderWoodPart(copy.ViewObject)
+            provider = ViewProviderFurniture if is_furniture(copy) else ViewProviderWoodPart
+            provider(copy.ViewObject)
     for joint in created.joints:
         show_joint(joint)
+    report(created.notices)
 
 
 def make_repeat(
     objects: Sequence[DocumentObject], params: RepeatParams, *, transaction: bool = True
 ) -> DocumentObject:
-    """Répète les pièces de bois ``objects`` selon ``params`` (:class:`RepeatParams`, mm) et
-    renvoie la répétition (objet de cotes sans forme, nom interne ``Repeat``).
+    """Répète les pièces de bois et les ensembles ``objects`` selon ``params``
+    (:class:`RepeatParams`, mm) et renvoie la répétition (objet de cotes sans forme, nom interne
+    ``Repeat``).
 
     Chaque source reçoit ``Count`` copies, au même pas, qui sont de vraies pièces de bois
     liées à la source par expressions natives : cotes, matériau, sens du fil et surcotes sont
     ceux de la source, le placement suit la source plus ``k`` pas sur l'axe. Modifier la source
     ou ``Step`` déplace ou redimensionne donc les copies au recalcul. Libellé d'une copie :
-    « {libellé de la source} {k+1} ». Un seul bloc annulable, un seul recalcul. Refus traduits
-    avant toute création : ``TypeError`` (autre chose qu'une pièce de bois), ``ValueError``
-    (aucune pièce, copie déjà liée, longueur trop courte, trop de copies…), ``KeyError``
-    (matériau inconnu). ``transaction=False`` : l'appelant a ouvert la sienne (commande de
-    l'interface) et la valide ; sinon elle est ouverte et validée ici."""
+    « {libellé de la source} {k+1} ».
+
+    Source membre d'un ensemble : ses copies le sont aussi, avec les mêmes options (mode,
+    « fixe », verrou) ; une copie liée suit sa source et ne reçoit pas les liaisons de
+    l'ensemble, mais compte comme membre pour ses voisines. ``params.follow_resize`` : le pas
+    suit la cote de l'ensemble (``ValueError`` traduite si une source n'est dans aucun ensemble).
+
+    Source = ensemble (ou sous-ensemble) : chaque copie est un nouvel ensemble, sous-ensemble du
+    même parent s'il y en a un, dont ``Width``, ``Depth``, ``Height`` et ``Origin`` suivent la
+    source, avec une copie de chaque membre (récursivement) rangée dedans avec ses options. Les
+    cotes d'un membre que l'ensemble de la source pilote viennent des liaisons de l'ensemble
+    copie, les autres suivent le membre source. Assemblages internes (cas A) et vers une pièce
+    extérieure (cas B) recopiés selon ``copy_joints``. Une sélection peut mêler pièces et
+    ensembles ; une pièce n'est pas répétée en même temps que son ensemble.
+
+    Un seul bloc annulable, un seul recalcul. Refus traduits avant toute création : ``TypeError``
+    (autre chose qu'une pièce de bois ou un ensemble de pièces de bois), ``ValueError`` (aucune
+    pièce, copie déjà liée, pièce répétée avec son ensemble, longueur trop courte, trop de
+    copies…), ``KeyError`` (matériau inconnu). ``transaction=False`` : l'appelant a ouvert la
+    sienne (commande de l'interface) et la valide ; sinon elle est ouverte et validée ici."""
     sources = repeat_copies.checked_sources(objects)
     repeat_copies.resolve_for(sources, params)
     doc = sources[0].Document
@@ -95,9 +116,10 @@ def _checked_repeat(obj: DocumentObject) -> DocumentObject:
 def edit_repeat(obj: DocumentObject, params: RepeatParams, *, transaction: bool = True) -> None:
     """Change le réglage de la répétition ``obj`` (ou d'une de ses copies) : ajoute les copies qui
     manquent (rangs à la suite de l'ancien nombre), supprime les dernières si le nombre baisse
-    (avec leur pièce usinée et leurs assemblages), réécrit le pas et les expressions. Même
-    transaction (``transaction``), même recalcul et mêmes refus que :func:`make_repeat` ; rien
-    n'est modifié si le réglage est refusé."""
+    (avec leur pièce usinée et leurs assemblages), réécrit le pas et les expressions, bascule
+    ``FollowResize`` (le pas devient, ou cesse d'être, une expression sur la cote de l'ensemble).
+    Même transaction (``transaction``), même recalcul et mêmes refus que :func:`make_repeat` ;
+    rien n'est modifié si le réglage est refusé."""
     found = _checked_repeat(obj)
     repeat_copies.resolve_for(repeat.sources_of(found), params)
     with _undoable(found.Document, _EDIT_TRANSACTION, own=transaction):
@@ -106,10 +128,11 @@ def edit_repeat(obj: DocumentObject, params: RepeatParams, *, transaction: bool 
 
 def dissociate(copy: DocumentObject, *, transaction: bool = True) -> None:
     """Dissocie la copie ``copy`` : ses expressions et ses propriétés ``Repeat``, ``RepeatSource``
-    et ``RepeatIndex`` sont retirées, la pièce garde ses valeurs actuelles et devient libre. La
-    répétition garde les autres copies et son nombre (les rangs ne bougent pas). ``TypeError``
-    traduite si ``copy`` n'est pas une copie liée. Un bloc annulable, un recalcul (``transaction``
-    : voir :func:`make_repeat`)."""
+    et ``RepeatIndex`` sont retirées, la pièce garde ses valeurs actuelles et devient libre,
+    reliée à son ensemble par les liaisons normales. Une copie d'ensemble est dissociée avec tous
+    ses membres copiés. La répétition garde les autres copies et son nombre (les rangs ne bougent
+    pas). ``TypeError`` traduite si ``copy`` n'est pas une copie liée. Un bloc annulable, un
+    recalcul (``transaction`` : voir :func:`make_repeat`)."""
     if not repeat.is_copy(copy):
         raise TypeError(translated(_NOT_A_COPY, {"label": quoted_value(copy.Label)}))
     with _undoable(copy.Document, _DISSOCIATE_TRANSACTION, own=transaction):

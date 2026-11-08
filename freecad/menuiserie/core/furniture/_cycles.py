@@ -11,7 +11,7 @@ pièce peut citer sa propre épaisseur.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, replace
 
 from freecad.menuiserie.core.furniture._linear import Linear
@@ -46,12 +46,17 @@ def _reaches(edges: Mapping[str, set[str]], start: str, target: str) -> bool:
 
 
 def _acyclic(
-    key: str, linear: Linear, edges: dict[str, set[str]], thicknesses: Mapping[str, float]
+    key: str,
+    linear: Linear,
+    edges: dict[str, set[str]],
+    thicknesses: Mapping[str, float],
+    always: Collection[str],
 ) -> Linear:
-    """``linear`` de la liaison de ``key``, ses termes qui fermeraient un cycle figés."""
+    """``linear`` de la liaison de ``key``, ses termes qui fermeraient un cycle figés, ainsi que
+    ceux des pièces ``always`` (copies de répétition, qui dépendent de leur source)."""
     frozen: dict[str, float] = {}
     for cited in sorted(linear.keys - {key}):
-        if _reaches(edges, cited, key):
+        if cited in always or _reaches(edges, cited, key):
             frozen[cited] = thicknesses[cited]
         else:
             edges.setdefault(key, set()).add(cited)
@@ -59,16 +64,20 @@ def _acyclic(
 
 
 def break_cycles(
-    wanted: Mapping[str, list[Wanted]], thicknesses: Mapping[str, float]
+    wanted: Mapping[str, list[Wanted]],
+    thicknesses: Mapping[str, float],
+    frozen: Collection[str] = (),
 ) -> dict[str, list[Wanted]]:
     """Liaisons voulues (par clé de membre) sans cycle entre membres. ``thicknesses`` : épaisseur
-    actuelle de chaque pièce. Une liaison devenue constante est retirée (sauf ``always``)."""
+    actuelle de chaque pièce ; ``frozen`` : pièces dont l'épaisseur est toujours figée en
+    constante (copies liées de répétition). Une liaison devenue constante est retirée (sauf
+    ``always``)."""
     edges: dict[str, set[str]] = {}
     result: dict[str, list[Wanted]] = {}
     for key in sorted(wanted):
         kept: list[Wanted] = []
         for item in wanted[key]:
-            linear = _acyclic(key, item.linear, edges, thicknesses)
+            linear = _acyclic(key, item.linear, edges, thicknesses, frozen)
             if item.always or not linear.constant:
                 kept.append(replace(item, linear=linear))
         result[key] = kept
