@@ -115,13 +115,16 @@ def _unlink_own(copy: DocumentObject) -> None:
         copy.removeProperty(name)
 
 
-def _inner_copies(copy: DocumentObject) -> list[DocumentObject]:
-    """Copies des membres de la copie d'ensemble ``copy`` (à tous les niveaux)."""
+def _inner_copies(copy: DocumentObject, seen: set[str] | None = None) -> list[DocumentObject]:
+    """Copies des membres de la copie d'ensemble ``copy`` (à tous les niveaux). ``seen`` : noms
+    déjà parcourus, pour ne pas boucler sur un document forgé."""
+    seen = {copy.Name} if seen is None else seen
     found: list[DocumentObject] = []
     for member in members_of(copy) if is_furniture(copy) else ():
-        if is_copy(member) and member.Repeat == copy.Repeat:
+        if member.Name not in seen and is_copy(member) and member.Repeat == copy.Repeat:
+            seen.add(member.Name)
             found.append(member)
-            found.extend(_inner_copies(member))
+            found.extend(_inner_copies(member, seen))
     return found
 
 

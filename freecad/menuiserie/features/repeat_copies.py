@@ -33,7 +33,14 @@ import FreeCAD as App
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.repeat import RepeatAxis, RepeatParams, Resolved, offsets, resolve
+from freecad.menuiserie.core.repeat import (
+    MAX_COPIES,
+    RepeatAxis,
+    RepeatParams,
+    Resolved,
+    offsets,
+    resolve,
+)
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
@@ -255,7 +262,7 @@ def apply_repeat(repeat: DocumentObject, params: RepeatParams) -> Created:
     resolved = resolve_for(sources, params)
     extent = source_extent(sources, params.axis)
     shifts = offsets(params, extent)
-    previous = int(repeat.Count)
+    previous = min(max(int(repeat.Count), 0), MAX_COPIES)
     joints_were_copied = bool(repeat.CopyJoints)
     unbind_follow(repeat)
     written = follow_params(params, resolved, extent) if params.follow_resize else params
