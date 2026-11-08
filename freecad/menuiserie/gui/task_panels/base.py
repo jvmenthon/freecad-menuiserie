@@ -27,6 +27,7 @@ from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
+_TASK_VIEW: Final = "Gui::TaskView::TaskView"  # classe Qt de la vue des tâches (porte « OK »)
 EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 # Préfixe des types TechDraw : leurs pages ne sont pas recalculées par l'aperçu.
 _TECHDRAW: Final = "TechDraw::"
@@ -210,6 +211,21 @@ class ObjectTaskPanel(TransactionTaskPanel):
         recompute_preview(self.obj)
         if self._edit_transparency is not None:
             self._edit_transparency.sync()  # une pièce usinée a pu apparaître au recalcul
+
+
+def set_ok_enabled(form: Widget, enabled: bool) -> None:
+    """Grise ou rétablit le bouton « OK » de la vue des tâches qui affiche ``form`` ; sans effet
+    hors affichage. La classe de la vue est comparée en entier : ``Gui::TaskView::TaskBox`` et
+    ``TaskPanel``, ancêtres du formulaire, portent aussi « TaskView » dans leur nom. Le bouton
+    n'est jamais rendu : son enveloppe Python ne survivrait pas à celle de sa boîte."""
+    view = form.parentWidget() if form is not None else None
+    while view is not None and view.metaObject().className() != _TASK_VIEW:
+        view = view.parentWidget()
+    for box in view.findChildren(QtGui.QDialogButtonBox) if view is not None else []:
+        button = box.button(QtGui.QDialogButtonBox.Ok)
+        if button is not None:
+            button.setEnabled(enabled)
+            return
 
 
 def object_alive(obj: DocumentObject) -> bool:

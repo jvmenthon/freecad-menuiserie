@@ -56,6 +56,7 @@ from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_E
 from tests.gui.verifications_piece_en_bois_limites import VERIFICATIONS_PIECE_EN_BOIS_LIMITES
 from tests.gui.verifications_pieces_proches import VERIFICATIONS_PIECES_PROCHES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
+from tests.gui.verifications_repetition import VERIFICATIONS_REPETITION
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
@@ -1280,6 +1281,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_SOURIS_PIECE_EN_BOIS,
     # Pièce en bois dans un ensemble (PD-f)
     *VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE,
+    # Répétition de pièces (R-c)
+    *VERIFICATIONS_REPETITION,
 )
 
 
