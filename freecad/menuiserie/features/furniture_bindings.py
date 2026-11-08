@@ -273,12 +273,8 @@ def _bindings(
     rangée de chaque membre tient compte de tous les autres."""
     chosen = set(keys)
     rules, rule_notices = follow_rules(members.box, members.members, chosen)
-    # Sous-ensemble ancien sans Std Part (E5) : son Origin bouge, ses positions la suivent.
-    # Une copie d'ensemble a son propre Std Part (ADR 0044), qui porte alors sa position.
-    nested = (
-        furniture_of(members.furniture) is not None or is_copy(members.furniture)
-    ) and std_part_of(members.furniture) is None
-    thicknesses = copy_thicknesses(members.objects.values(), thicknesses)
+    furniture = members.furniture  # Origin mobile : sous-ensemble ou copie sans Std Part (E5)
+    nested = bool(furniture_of(furniture) or is_copy(furniture)) and std_part_of(furniture) is None
     with translated_errors():
         bindings, notices = bindings_for(
             str(members.furniture.Label),
@@ -286,7 +282,7 @@ def _bindings(
             rules,
             keys=chosen,
             nested=nested,
-            thicknesses=thicknesses,
+            thicknesses=copy_thicknesses(members.objects.values(), thicknesses),
         )
     return list(bindings), [*rule_notices, *notices]
 
