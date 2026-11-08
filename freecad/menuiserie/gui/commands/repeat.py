@@ -57,7 +57,10 @@ def selected_repeat() -> DocumentObject | None:
     """Répétition de l'unique objet sélectionné (la répétition ou une de ses copies), ``None``
     sinon."""
     selection = Gui.Selection.getSelection()
-    return api.repeat_of(selection[0]) if len(selection) == 1 else None
+    if len(selection) != 1:
+        return None
+    chosen = selection[0]
+    return api.repeat_of(chosen.Base if is_machined_part(chosen) else chosen)
 
 
 def selected_copies() -> list[DocumentObject] | None:

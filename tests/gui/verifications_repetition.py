@@ -482,15 +482,33 @@ def _double_clic(doc: Any) -> list[str]:
         "double-clic sur une copie", bool(copie_vobj.Proxy.doubleClicked(copie_vobj)), True
     )
     problemes += [
-        *ecarts("copie : panneau de la pièce", formulaire() is not None, True),
-        *ecarts("copie : pas le panneau de la répétition", panneau() is None, True),
+        *ecarts("copie : panneau de la répétition", panneau() is not None, True),
+        *ecarts("copie : titre", panneau().windowTitle(), "Modifier « Répétition »"),
+        *ecarts("copie : pas le panneau de la pièce", formulaire() is None, True),
     ]
-    return problemes
+    annuler()
+    return problemes + _menu_contextuel(doc, rep)
+
+
+def _menu_contextuel(doc: Any, rep: Any) -> list[str]:
+    """Le menu contextuel d'une copie propose « Modifier la répétition », pas celui d'une pièce
+    libre."""
+    copie = copies_de(rep)[1]
+    menu = QtGui.QMenu()
+    copie.ViewObject.Proxy.setupContextMenu(copie.ViewObject, menu)
+    textes = [action.text() for action in menu.actions()]
+    libre = api.make_wood_part(100, 40, 22, "chene", mark="Libre", doc=doc)
+    menu_libre = QtGui.QMenu()
+    libre.ViewObject.Proxy.setupContextMenu(libre.ViewObject, menu_libre)
+    return [
+        *ecarts("menu d'une copie", textes, ["Modifier la répétition"]),
+        *ecarts("menu d'une pièce libre", menu_libre.actions(), []),
+    ]
 
 
 def verifier_double_clic() -> list[str]:
-    """Double-clic sur la répétition : « Modifier la répétition » ; sur une copie : le panneau de
-    la pièce de bois."""
+    """Double-clic sur la répétition ou sur une copie : « Modifier la répétition » ; menu
+    contextuel d'une copie."""
     return avec_document("VerifRepetitionDoubleClic", _double_clic)
 
 
