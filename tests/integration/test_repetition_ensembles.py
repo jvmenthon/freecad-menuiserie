@@ -9,6 +9,7 @@ mixte et refus, annulation en un bloc, enregistrer et rouvrir.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -22,6 +23,7 @@ pytestmark = pytest.mark.integration
 App = pytest.importorskip("FreeCAD")
 api = pytest.importorskip("freecad.menuiserie.api")
 repeat = pytest.importorskip("freecad.menuiserie.features.repeat")
+container = pytest.importorskip("freecad.menuiserie.features.furniture_container")
 
 Reopen = Callable[[Any], Any]
 Y_AXIS = App.Vector(0, 1, 0)
@@ -58,6 +60,15 @@ class Meuble:
 
     def repeat(self, **values: Any) -> Any:
         return api.make_repeat([self.shelf], params(**values))
+
+
+def corner(furniture: Any) -> tuple[float, float, float]:
+    """Coin (avant, gauche, bas) de l'ensemble en coordonnées globales : le ``Placement`` de son
+    Std Part (ADR 0038) appliqué à son ``Origin``."""
+    std = container.std_part_of(furniture)
+    base = std.getGlobalPlacement() if std is not None else App.Placement()
+    point = base.multVec(furniture.Origin)
+    return (round(point.x, 6), round(point.y, 6), round(point.z, 6))
 
 
 def copies(rep: Any, src: Any = None) -> list[Any]:
@@ -232,6 +243,17 @@ def caisson(doc: Any, **values: Any) -> Any:
     return furniture
 
 
+def caisson_with_inner(doc: Any) -> tuple[Any, Any]:
+    """Caisson sans étagère et son sous-ensemble (200 x 300 x 200 en (100, 0, 100))."""
+    source = caisson(doc, shelf_count=0)
+    inner, _ = api.make_carcass(
+        doc, width=200, depth=300, height=200, shelf_count=0, furniture=source,
+        origin=Vec3(100, 0, 100),
+    )  # fmt: skip
+    doc.recompute()
+    return source, inner
+
+
 def row(**values: Any) -> Any:
     """Deux caissons de plus tous les 700 mm sur X, sauf réglage contraire."""
     return api.RepeatParams(**{"count": 2, "step": 700.0, "axis": "X", **values})
@@ -251,7 +273,12 @@ def joints(doc: Any) -> list[Any]:
 
 
 def bounds(part: Any) -> tuple[float, ...]:
-    box = part.Shape.BoundBox
+    """Étendue de la pièce en coordonnées globales (le Std Part de son ensemble compris)."""
+    shape = part.Shape.copy()
+    shape.Placement = (
+        part.getGlobalPlacement().multiply(part.Placement.inverse()).multiply(shape.Placement)
+    )
+    box = shape.BoundBox
     values = (box.XMin, box.XMax, box.YMin, box.YMax, box.ZMin, box.ZMax)
     return tuple(round(v, 3) for v in values)
 
@@ -266,11 +293,25 @@ def test_repeter_un_caisson_cree_des_ensembles_copies(document: Any) -> None:
     for index, copy in enumerate((first, second), start=1):
         assert api.furniture_of(copy) is None  # le caisson source n'est dans aucun ensemble
         assert (copy.Width.Value, copy.Depth.Value, copy.Height.Value) == (600, 400, 720)
-        assert tuple(copy.Origin) == (700.0 * index, 0.0, 0.0)
+        assert corner(copy) == (700.0 * index, 0.0, 0.0)
         expressions = engine(copy)
         assert expressions["Width"] == f"{source.Name}.Width"
-        assert expressions["Origin.x"].startswith(f"{source.Name}.Origin.x + {index} * ")
+        assert (
+            expressions["Origin.x"] == f"{source.Name}.Origin.x"
+        )  # le décalage est dans le Std Part
         assert expressions["Origin.y"] == f"{source.Name}.Origin.y"
+        std, std_source = container.std_part_of(copy), container.std_part_of(source)
+        assert std is not None and std != std_source and std.Label == f"{copy.Label} (Std Part)"
+        assert std.getParentGeoFeatureGroup() == std_source.getParentGeoFeatureGroup()
+        placed = engine(std)
+        assert placed["Placement.Base.x"].startswith(
+            f"{std_source.Name}.Placement.Base.x + {index} *"
+        )
+        assert placed["Placement.Base.y"] == f"{std_source.Name}.Placement.Base.y"
+        assert placed["Placement.Rotation"] == f"{std_source.Name}.Placement.Rotation"
+        assert {m.getParentGeoFeatureGroup() for m in members(copy)} == {
+            std
+        }  # membres rangés dedans
         assert sorted(m.Label for m in members(copy)) == sorted(
             f"{n} {index + 1}" for n in MEMBER_LABELS
         )
@@ -315,7 +356,7 @@ def test_redimensionner_le_caisson_source_redimensionne_la_copie(document: Any) 
     assert stale_or_invalid(document) == []
     for index, copy in enumerate(copies(rep, source), start=1):
         assert (copy.Width.Value, copy.Depth.Value, copy.Height.Value) == (800, 500, 900)
-        assert tuple(copy.Origin) == (700.0 * index, 0.0, 0.0)  # le pas est fixe
+        assert corner(copy) == (700.0 * index, 0.0, 0.0)  # le pas est fixe
         x0 = 700.0 * index
         assert bounds(member(copy, f"Côté droit {index + 1}")) == (
             x0 + 782,
@@ -384,13 +425,16 @@ def test_changer_le_nombre_de_caissons(undoable: Any) -> None:
     api.edit_repeat(rep, row(count=3))
     assert [c.Label for c in copies(rep, source)] == ["Caisson 2", "Caisson 3", "Caisson 4"]
     assert len(joints(undoable)) == 8 * 4 and stale_or_invalid(undoable) == []
-    assert tuple(copies(rep, source)[2].Origin) == (2100.0, 0.0, 0.0)
+    assert corner(copies(rep, source)[2]) == (2100.0, 0.0, 0.0)
     api.edit_repeat(rep, row(count=1))
     assert len(undoable.Objects) == base and len(joints(undoable)) == 8 * 2
-    assert not [o for o in undoable.Objects if o.Label.endswith(("3", "4"))]
+    left = [o for o in undoable.Objects if container.is_workshop(o) or container.is_std_part(o)]
+    assert not [
+        o for o in left if re.search(r"[34]( \(Std Part\))?$", o.Label)
+    ]  # Std Parts compris
     assert stale_or_invalid(undoable) == []
     api.edit_repeat(rep, row(count=2, step=900, axis="Y", reverse=True))
-    assert [tuple(c.Origin) for c in copies(rep, source)] == [(0, -900, 0), (0, -1800, 0)]
+    assert [corner(c) for c in copies(rep, source)] == [(0, -900, 0), (0, -1800, 0)]
     assert stale_or_invalid(undoable) == []
 
 
@@ -413,7 +457,7 @@ def test_copie_d_un_sous_ensemble_dans_le_meme_parent(bureau: Any) -> None:
         assert dict(copy.FurnitureBindings) == {}  # elle suit sa source, pas le bureau
         assert "Depth" in engine(copy) and engine(copy)["Depth"] == f"{source.Name}.Depth"
     assert stale_or_invalid(doc) == []
-    assert tuple(first.Origin) == (360.0, 0.0, 0.0)
+    assert corner(first) == (360.0, 0.0, 0.0)
     for other in (source, first, second):  # les liaisons du bureau sont intactes
         assert other.Depth.Value == 400.0
     api.resize_furniture(bureau.furniture, depth=800)
@@ -432,24 +476,19 @@ def test_copie_d_un_sous_ensemble_dans_le_meme_parent(bureau: Any) -> None:
 
 
 def test_ensemble_dans_un_ensemble_copie_recursivement(document: Any) -> None:
-    source = caisson(document, shelf_count=0)
-    inner, _ = api.make_carcass(
-        document, width=200, depth=300, height=200, shelf_count=0, furniture=source,
-        origin=Vec3(100, 0, 100),
-    )  # fmt: skip
-    document.recompute()
+    source, inner = caisson_with_inner(document)
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
     (inner_copy,) = [m for m in members(copy) if m.Label.startswith("Caisson")]
     assert inner_copy.RepeatSource == inner and api.furniture_of(inner_copy) == copy
     assert len(members(inner_copy)) == 5
-    assert tuple(inner_copy.Origin) == (800.0, 0.0, 100.0)
+    assert corner(inner_copy) == (800.0, 0.0, 100.0)
     assert len(joints(document)) == 2 * (8 + 8)
     api.resize_furniture(source, width=800, height=900)
     assert stale_or_invalid(document) == []
     assert copy.Width.Value == 800
-    assert inner_copy.Origin.z == pytest.approx(inner.Origin.z)
-    assert inner_copy.Origin.x == pytest.approx(inner.Origin.x + 700)
+    assert corner(inner_copy)[2] == pytest.approx(corner(inner)[2])
+    assert corner(inner_copy)[0] == pytest.approx(corner(inner)[0] + 700)
     api.dissociate(copy)
     assert not repeat.is_copy(inner_copy) and all(not repeat.is_copy(m) for m in members(copy))
     api.resize_furniture(copy, width=1000)
@@ -466,8 +505,9 @@ def test_formule_de_l_utilisateur_sur_un_membre_suivie_par_la_copie(document: An
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
     twin = member(copy, "Côté gauche 2")
-    assert engine(twin)["Placement.Base.x"].startswith(f"{left.Name}.Placement.Base.x + ")
-    assert twin.Placement.Base.x == pytest.approx(730.0)
+    # le décalage de la copie (700 mm) est dans son Std Part : la formule cite seulement la source
+    assert engine(twin)["Placement.Base.x"] == f"{left.Name}.Placement.Base.x"
+    assert twin.getGlobalPlacement().Base.x == pytest.approx(730.0)
     assert stale_or_invalid(document) == []
 
 
@@ -482,7 +522,7 @@ def test_selection_mixte_pieces_et_ensembles(document: Any) -> None:
     assert [c.Label for c in copies(rep, source)] == ["Caisson 2", "Caisson 3"]
     assert [c.Label for c in copies(rep, plank)] == ["Tasseau 2", "Tasseau 3"]
     assert [c.Placement.Base.x for c in copies(rep, plank)] == [500.0, 1000.0]
-    assert [c.Origin.x for c in copies(rep, source)] == [500.0, 1000.0]
+    assert [corner(c)[0] for c in copies(rep, source)] == [500.0, 1000.0]
     assert stale_or_invalid(document) == []
 
 
@@ -521,7 +561,8 @@ def test_dissocier_un_ensemble_copie(undoable: Any) -> None:
     api.dissociate(first)
     assert not repeat.is_copy(first) and api.repeat_of(first) is None
     assert engine(first) == {} and first.Width.Value == 600.0
-    assert tuple(first.Origin) == (700.0, 0.0, 0.0)
+    assert engine(container.std_part_of(first)) == {}  # le Std Part ne cite plus la source
+    assert corner(first) == (700.0, 0.0, 0.0)
     for piece in pieces:
         assert not repeat.is_copy(piece) and "Repeat" not in piece.PropertiesList
         assert not [t for t in engine(piece).values() if source.Name in t or "Repeat" in t]
@@ -660,7 +701,7 @@ def test_suivre_le_redimensionnement_d_un_caisson_dans_le_bureau(bureau: Any) ->
     api.resize_furniture(bureau.furniture, width=1500)
     assert stale_or_invalid(doc) == []
     assert rep.Step.Value == pytest.approx(470.0)
-    assert [round(c.Origin.x, 6) for c in copies(rep, source)] == [510.0, 980.0]
+    assert [corner(c)[0] for c in copies(rep, source)] == [510.0, 980.0]
     assert [len(copies(rep, source)), rep.Count] == [2, 2]
 
 

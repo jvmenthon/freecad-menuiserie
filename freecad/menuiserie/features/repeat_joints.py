@@ -59,7 +59,7 @@ __all__ = [
 PROPERTY: Final = "RepeatJoint"
 _SPEC: Final = PropertySpec(
     PROPERTY,
-    "App::PropertyLink",
+    "App::PropertyLinkGlobal",
     "Répétition",
     QT_TRANSLATE_NOOP(
         "App::Property",

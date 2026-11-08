@@ -59,9 +59,17 @@ Copier un ensemble crée un **ensemble copie**, sous-ensemble du même parent s'
 
 - l'ensemble copie reçoit une copie de **chaque membre** (pièces et sous-ensembles, récursivement),
   avec leurs assemblages internes, leurs options et leurs distances ;
-- ses cotes globales (`Width`, `Depth`, `Height`) et son `Origin` sont des expressions sur
-  l'ensemble source et sur la répétition : redimensionner l'ensemble source redimensionne toutes
+- ses cotes globales (`Width`, `Depth`, `Height`) et son `Origin` (sa position, pour un ensemble
+  sans Std Part) sont des expressions sur l'ensemble source et sur la répétition : redimensionner l'ensemble source redimensionne toutes
   les copies, qui recalculent leurs membres avec les mêmes règles (rangées, parts, ADR 0019) ;
+- **Std Part** (ADR 0038, ADR 0044 « Std Part de l'ensemble ») : l'ensemble source est rangé dans
+  son Std Part ; l'ensemble copie a **le sien**, créé comme celui d'un ensemble neuf et rangé dans
+  le même conteneur, où entrent les copies de ses membres. Le `Placement` du Std Part de la copie
+  est celui du Std Part de la source plus le pas (et la même rotation), son `Origin` est celui de
+  la source : déplacer ou tourner la source à la souris entraîne les copies. Un sous-ensemble
+  copié avec son parent a son Std Part dans celui de la copie du parent (position portée par ce
+  Std Part, règle `carried`) ; dissocier une copie lui laisse son Std Part ; supprimer une copie
+  (nombre réduit, ou dans l'interface) supprime son Std Part vide, sans en laisser d'orphelin ;
 - les assemblages entre un membre de l'ensemble et une pièce extérieure (cas B du § 3) sont
   recréés pour chaque copie, comme pour une pièce ;
 - « Dissocier » une copie d'ensemble coupe les expressions de l'ensemble et de tous ses membres ;

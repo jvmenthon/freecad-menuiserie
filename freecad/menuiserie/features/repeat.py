@@ -39,10 +39,10 @@ from freecad.menuiserie.features.freecad_types import (
     Document,
     DocumentObject,
     StatelessProxy,
-    expressions_of,
     proxy_is,
 )
-from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.furniture import furniture_of, is_furniture
+from freecad.menuiserie.features.furniture_container import member_expressions, std_part_of
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec, version_spec
 
@@ -52,6 +52,7 @@ __all__ = [
     "OBJECT_NAME",
     "REPEAT_PROPERTIES",
     "Repeat",
+    "cited_names",
     "cites",
     "copies_of",
     "copy_thicknesses",
@@ -80,7 +81,7 @@ CHOICES: Final = {
 REPEAT_PROPERTIES: Final = (
     PropertySpec(
         "Source",
-        "App::PropertyLinkList",
+        "App::PropertyLinkListGlobal",
         GROUP,
         QT_TRANSLATE_NOOP("App::Property", "Pièces répétées (chacune a ses propres copies)."),
         mode=READ_ONLY,
@@ -193,14 +194,14 @@ REPEAT_PROPERTIES: Final = (
 COPY_PROPERTIES: Final = (
     PropertySpec(
         "Repeat",
-        "App::PropertyLink",
+        "App::PropertyLinkGlobal",
         GROUP,
         QT_TRANSLATE_NOOP("App::Property", "Répétition dont la pièce est une copie liée."),
         mode=READ_ONLY,
     ),
     PropertySpec(
         "RepeatSource",
-        "App::PropertyLink",
+        "App::PropertyLinkGlobal",
         GROUP,
         QT_TRANSLATE_NOOP("App::Property", "Pièce dont celle-ci est la copie."),
         mode=READ_ONLY,
@@ -271,12 +272,23 @@ def cites(text: str, names: Collection[str]) -> bool:
     return any(re.search(rf"(?<![\w.]){re.escape(name)}\.", text) for name in names)
 
 
+def cited_names(obj: DocumentObject) -> set[str]:
+    """Noms que les expressions de liaison de la copie ``obj`` citent : sa répétition, sa source
+    et, pour un ensemble source, le Std Part de celui-ci (ADR 0044, « Std Part »)."""
+    items = [obj.Repeat, obj.RepeatSource]
+    if is_furniture(obj.RepeatSource):
+        items.append(std_part_of(obj.RepeatSource))
+    return {item.Name for item in items if item is not None}
+
+
 def repeated_properties(obj: DocumentObject) -> frozenset[str]:
-    """Propriétés de la copie ``obj`` dont l'expression cite sa source ou sa répétition."""
+    """Propriétés de la copie ``obj`` dont l'expression cite sa source ou sa répétition (le
+    ``Placement`` du Std Part d'un ensemble compris)."""
     if not is_copy(obj):
         return frozenset()
-    names = {item.Name for item in (obj.Repeat, obj.RepeatSource) if item is not None}
-    return frozenset(path for path, text in expressions_of(obj).items() if cites(text, names))
+    names = cited_names(obj)
+    found = member_expressions(obj)
+    return frozenset(path for path, text in found.items() if cites(text, names))
 
 
 def member_flags(obj: DocumentObject) -> dict[str, object]:

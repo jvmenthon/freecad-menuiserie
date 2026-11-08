@@ -7,6 +7,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Répétition d'un ensemble et Std Part (ADR 0044, fusion avec l'ADR 0038) : une copie d'ensemble a son
+  propre Std Part, créé comme celui d'un ensemble neuf et rangé dans le conteneur de celui de la
+  source (dans celui de la copie du parent pour un sous-ensemble, règle `carried`) ; ses membres
+  copiés y entrent à la même place que dans la source, son `Placement` suit celui du Std Part de la
+  source (Base + pas, rotation) : déplacer ou tourner la source à la souris entraîne les copies.
+  Dissocier laisse à la copie son Std Part ; réduire le nombre, supprimer la copie ou la source
+  dans l'interface ne laisse pas de Std Part orphelin (`release_furniture`) ; `Source`, `Repeat`,
+  `RepeatSource` et `RepeatJoint` deviennent des liens globaux.
 - Répétition : la commande « Répéter » accepte aussi les ensembles ; une répétition créée par script reçoit son icône et son double-clic.
 - Répétition (lot R-d) : Ctrl + glisser une flèche copie la pièce (copie liée, un pas = la distance du glissement) et ouvre aussitôt « Modifier la répétition » ; Échap annule ; Maj coupe toujours l'aimantation.
 - Répétition : ensembles (lot R-b3, ADR 0044). Les copies d'une pièce membre entrent dans l'ensemble avec les mêmes options ; la case « Suivre le redimensionnement » répartit les copies sur la cote de l'ensemble ; un ensemble ou un caisson se répète avec tous ses membres et ses assemblages, et se dissocie en bloc.

@@ -37,6 +37,7 @@ from freecad.menuiserie.features.furniture_bindings import (
     MemberSet,
     bind_members,
     member_of,
+    members_of,
     read_members,
     rebind,
     remove_bindings,
@@ -53,7 +54,13 @@ from freecad.menuiserie.features.furniture_container import (
     std_part_of,
 )
 from freecad.menuiserie.features.furniture_enclosing import enclosing
-from freecad.menuiserie.features.furniture_entry import adopt, check_assembled, leave, taken_along
+from freecad.menuiserie.features.furniture_entry import (
+    adopt,
+    check_assembled,
+    dissolve,
+    leave,
+    taken_along,
+)
 from freecad.menuiserie.features.furniture_relink import relink_remaining
 from freecad.menuiserie.features.furniture_resize import planned_resize, resize, write_box
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
@@ -72,6 +79,7 @@ __all__ = [
     "member_object",
     "planned_resize",
     "quoted_label",
+    "release_furniture",
     "relink",
     "remove_members",
     "resize",
@@ -285,6 +293,21 @@ def remove_members(objects: Sequence[DocumentObject]) -> list[str]:
     reliées sans elles. Renvoie les avertissements traduits (pièce assemblée à une pièce qui
     reste : elle garde son Std Part)."""
     return leave(detach_members(objects))
+
+
+def release_furniture(furniture: DocumentObject) -> list[str]:
+    """Suppression de ``furniture`` par l'interface (avant ``removeObject``) : ses copies de
+    répétition sont dissociées (ADR 0044 : leurs expressions citent son Std Part et ses pièces,
+    qui sans cela ne sortiraient pas), ses membres sortent du Std Part, qui est supprimé s'il est
+    vide (:func:`.furniture_entry.dissolve`). Renvoie les avertissements traduits."""
+    from freecad.menuiserie.features.repeat import is_copy
+    from freecad.menuiserie.features.repeat_links import detach_copies, unlink_inner_copies
+
+    detach_copies(furniture)
+    if is_copy(furniture):  # copie supprimée à la main : ses membres copiés deviennent libres
+        unlink_inner_copies(furniture)
+    members = members_of(furniture)
+    return [*(remove_members(members) if members else []), *dissolve(furniture)]
 
 
 def _checked_options(

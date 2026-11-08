@@ -97,11 +97,12 @@ def make_repeat(
     pièce, copie déjà liée, pièce répétée avec son ensemble, longueur trop courte, trop de
     copies…), ``KeyError`` (matériau inconnu). ``transaction=False`` : l'appelant a ouvert la
     sienne (commande de l'interface) et la valide ; sinon elle est ouverte et validée ici."""
-    sources = repeat_copies.checked_sources(objects)
+    sources = repeat_copies.checked_sources(objects, one_container=False)
     repeat_copies.resolve_for(sources, params)
+    container = repeat_copies.common_container(sources)
     doc = sources[0].Document
     with _undoable(doc, _MAKE_TRANSACTION, own=transaction):
-        obj = repeat.create_repeat(doc, sources, repeat_copies.common_container(sources))
+        obj = repeat.create_repeat(doc, sources, container)
         _show_repeat(obj)
         _show(repeat_copies.apply_repeat(obj, params))
     return obj

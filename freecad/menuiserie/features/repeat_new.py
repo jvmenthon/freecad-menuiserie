@@ -4,9 +4,17 @@
 Une copie de pièce est une pièce de bois créée par :func:`.wood_part.create_wood_part`, au
 libellé « {libellé source} {k+1} », rangée dans le conteneur de la source. Une copie d'ensemble
 est un ensemble neuf (sous-ensemble du même parent s'il y en a un) qui reçoit une copie de chaque
-membre de la source, récursivement. Les copies d'un membre d'ensemble entrent dans l'ensemble avec
-les mêmes options que la source (mode, options « fixe », verrou) ; aucune liaison n'est écrite
-ici. Leurs expressions sont écrites par :mod:`.repeat_links`.
+membre de la source, récursivement.
+
+Std Part (ADR 0038 et 0044) : l'ensemble source étant rangé dans son Std Part, sa copie reçoit le
+sien, créé comme celui d'un ensemble neuf (:func:`.furniture_container.create_with_std_part`),
+dans le conteneur du Std Part de la source (dans le Std Part de la copie du parent pour un
+sous-ensemble) ; les copies de ses membres y sont créées, à la même place que dans le Std Part de
+la source (le décalage est dans le Std Part de la copie, pas dans leurs placements).
+
+Les copies d'un membre d'ensemble entrent dans l'ensemble avec les mêmes options que la source
+(mode, options « fixe », verrou) ; aucune liaison n'est écrite ici.
+Leurs expressions sont écrites par :mod:`.repeat_links`.
 
 Rien ici n'ouvre de transaction ni ne recalcule : c'est le rôle de ``_api/repeat.py``.
 """
@@ -29,7 +37,13 @@ from freecad.menuiserie.features.furniture import (
     writing,
 )
 from freecad.menuiserie.features.furniture_bindings import members_of
-from freecad.menuiserie.features.furniture_members import join_member
+from freecad.menuiserie.features.furniture_container import (
+    create_with_std_part,
+    placement_container,
+    std_part_of,
+)
+from freecad.menuiserie.features.furniture_members import join_member, release_furniture
+from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
@@ -50,9 +64,14 @@ def _mark_copy(
 
 
 def new_part_copy(
-    source: DocumentObject, repeat: DocumentObject, index: int, shift: App.Vector
+    source: DocumentObject,
+    repeat: DocumentObject,
+    index: int,
+    shift: App.Vector,
+    container: DocumentObject | None,
 ) -> DocumentObject:
-    """Copie de rang ``index`` de la pièce ``source`` (sans expressions), à ``shift`` d'elle."""
+    """Copie de rang ``index`` de la pièce ``source`` (sans expressions), à ``shift`` d'elle,
+    rangée dans ``container`` (``None`` : racine)."""
     copy = create_wood_part(
         source.Document,
         length=source.Length.Value,
@@ -61,7 +80,6 @@ def new_part_copy(
         material_id=source.MaterialId,
         mark=f"{source.Label} {index + 1}",
     )
-    container = source.getParentGeoFeatureGroup()
     if container is not None:
         container.addObject(copy)
     copy.GrainDirection = source.GrainDirection
@@ -74,19 +92,30 @@ def new_part_copy(
 
 
 def _new_furniture_copy(
-    source: DocumentObject, repeat: DocumentObject, index: int, shift: App.Vector
+    source: DocumentObject,
+    repeat: DocumentObject,
+    index: int,
+    shift: App.Vector,
+    outer: DocumentObject | None,
 ) -> DocumentObject:
-    """Copie de rang ``index`` de l'ensemble ``source`` (vide, sans expressions), à ``shift``."""
+    """Copie de rang ``index`` de l'ensemble ``source`` (vide, sans expressions), à ``shift``.
+    Source dans un Std Part : la copie a le sien, rangé dans ``outer`` (``None`` : racine), à la
+    place de celui de la source plus ``shift`` ; son ``Origin`` est celle de la source. Sans Std
+    Part : ``shift`` est ajouté à l'``Origin``, la copie est rangée dans le conteneur de la
+    source."""
     box = FurnitureBox(source.Width.Value, source.Depth.Value, source.Height.Value)
-    here = origin_of(source)
-    origin = Vec3(here.x + shift.x, here.y + shift.y, here.z + shift.z)
-    copy = create_furniture(
-        source.Document,
-        box,
-        origin,
-        f"{source.Label} {index + 1}",
-        source.getParentGeoFeatureGroup(),
-    )
+    here, label = origin_of(source), f"{source.Label} {index + 1}"
+    source_part = std_part_of(source)
+    if source_part is None:
+        origin = Vec3(here.x + shift.x, here.y + shift.y, here.z + shift.z)
+        copy = create_furniture(
+            source.Document, box, origin, label, source.getParentGeoFeatureGroup()
+        )
+    else:
+        copy = create_with_std_part(source.Document, box, here, label, outer)
+        placement, part = source_part.Placement, std_part_of(copy)
+        if part is not None:
+            part.Placement = App.Placement(placement.Base + shift, placement.Rotation)
     _mark_copy(copy, source, repeat, index)
     return copy
 
@@ -111,10 +140,15 @@ def _copy_into(
 ) -> None:
     """Copie ``original`` dans l'ensemble ``parent`` (``None`` : hors ensemble) ; un ensemble
     reçoit ensuite la copie de chacun de ses membres."""
+    inner = parent is not None and is_copy(parent) and std_part_of(parent) is not None
+    here = App.Vector() if inner else shift  # copie d'un membre : dans le Std Part de la copie
+    holder = std_part_of(parent) if inner and parent is not None else None
     if is_furniture(original):
-        copy = _new_furniture_copy(original, repeat, index, shift)
+        outer = holder if inner else placement_container(original)
+        copy = _new_furniture_copy(original, repeat, index, here, outer)
     else:
-        copy = new_part_copy(original, repeat, index, shift)
+        container = holder if inner else original.getParentGeoFeatureGroup()
+        copy = new_part_copy(original, repeat, index, here, container)
     created.append(copy)
     if parent is not None:
         _join_like(copy, parent, original)
@@ -188,6 +222,8 @@ def drop_copy(copy: DocumentObject) -> None:
         for member in members_of(copy):
             if is_copy(member) and member.Repeat == copy.Repeat:
                 drop_copy(member)
+        for message in release_furniture(copy):  # pièces ajoutées à la main : elles sortent
+            report_warning(message)
         copy.Document.removeObject(copy.Name)
     else:
         _drop_part(copy)

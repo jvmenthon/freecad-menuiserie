@@ -58,7 +58,7 @@ source.
 ## Conséquences
 
 - `core.furniture.Member` gagne `linked` et `repeated` (défauts faux et vide : aucun effet sur les
-  documents existants) ; `break_cycles` gagne le paramètre `frozen`. Aucune propriété persistante
+  documents existants), à côté de `carried` (ADR 0038) ; `break_cycles` gagne le paramètre `frozen`. Aucune propriété persistante
   nouvelle : les propriétés de copie (`Repeat`, `RepeatSource`, `RepeatIndex`) existent déjà et
   sont ajoutées aussi aux ensembles copie.
 - Un ensemble avec des copies liées partage les redimensionnements entre la source et ses
@@ -71,3 +71,69 @@ source.
   ensemble copie la copie du membre qui n'en a encore aucune dans la répétition (sous-ensembles
   compris). Un membre dont la copie a été supprimée ou dissociée à la main ne revient pas tant qu'il
   a une copie à un autre rang. Un membre retiré de l'ensemble source garde ses copies.
+
+## Std Part de l'ensemble (fusion avec l'ADR 0038)
+
+L'ADR 0038 range chaque ensemble dans un Std Part (`App::Part`) qui porte sa position
+(`Placement`), ses membres, ses assemblages et ses Distances. La répétition d'un ensemble s'y
+adapte au plus simple : **la copie d'un ensemble qui a un Std Part reçoit le sien**, créé comme
+celui d'un ensemble neuf (`create_with_std_part`), puis tout ce qui était décidé plus haut se
+transpose ainsi.
+
+- **Où.** Le Std Part de la copie est rangé dans le conteneur du Std Part de la source (la
+  racine, ou le `App::Part` de l'utilisateur) ; pour un sous-ensemble copié avec son parent, dans
+  le Std Part de la copie du parent. La répétition (`Repeat`) est rangée dans ce même conteneur
+  (`placement_container`), comme les copies de pièces d'un conteneur.
+- **Position.** C'est le Std Part de la copie qui porte le décalage : `Placement.Base.c` = celui
+  du Std Part de la source (+ `k * (Reverse ? -1 : 1) * Step` sur l'axe) et `Placement.Rotation` =
+  celle du Std Part de la source, en expressions natives. `Origin` de la copie est celle de la
+  source, sans décalage. Une source déplacée ou tournée à la souris entraîne donc ses copies, et
+  le pas reste mesuré dans le repère du conteneur (les cotes liées sont `Width`, `Depth`,
+  `Height`, `Origin`, `Placement` du Std Part). Une source sans Std Part (ancien document) garde
+  l'ancien régime : copie sans Std Part, décalage dans son `Origin`.
+- **Membres.** Les copies des membres sont créées dans le Std Part de la copie, **à la même place
+  locale** que leur original dans le Std Part de la source (aucun décalage dans leurs `Placement`
+  ; leur position globale est celle de la source plus le décalage du Std Part). Une formule de
+  l'utilisateur sur la position d'un membre est donc recopiée telle quelle, sans le décalage
+  `E'.Origin - E.Origin` des copies sans Std Part. Les liaisons de l'ensemble copie (`rebind`)
+  s'appliquent comme avant ; `nested` (« mon `Origin` bouge ») ne vaut que pour un ensemble sans
+  Std Part.
+- **Sous-ensemble (`carried`).** Le sous-ensemble copié avec son parent a son propre Std Part,
+  rangé dans celui de la copie du parent, et son `Origin` vaut celle de l'original (nulle) : sa
+  position est portée par le `Placement.Base` de son Std Part, que les liaisons de la copie du
+  parent écrivent (règle `carried` de l'ADR 0038 ; `member_expressions` et `set_member_expression`
+  lisent et écrivent sur le bon objet). Un sous-ensemble **répété** (copie liée du même parent)
+  est `carried` et `linked` : son Std Part suit le Std Part de la source (Base + pas, rotation) et
+  le parent ne le lie pas.
+- **Liens hors portée.** Les copies sont rangées dans des conteneurs différents de ceux de leurs
+  sources (Std Part de la copie, conteneur de la répétition). `Source` devient
+  `App::PropertyLinkListGlobal`, `Repeat` et `RepeatSource` `App::PropertyLinkGlobal` (comme
+  `Furniture`, ADR 0038), `RepeatJoint` aussi : sans cela FreeCAD refuse le lien « hors de la
+  portée » du conteneur. Les propriétés n'ont pas encore été publiées : aucune migration.
+- **Dissociation.** `dissociate` retire aussi les expressions du Std Part de la copie (le Std
+  Part cité est celui de la source) : la copie reste un ensemble normal, avec son Std Part
+  (qu'on déplace ou tourne à la souris). Les copies de ses membres sont dissociées avec elle.
+- **Suppression, sans Std Part orphelin.**
+  - Nombre réduit (`edit_repeat`) : `drop_copy` supprime les copies des membres, fait sortir les
+    pièces ajoutées à la main (elles gardent leur position globale), supprime le Std Part vide puis
+    l'ensemble copie.
+  - Suppression d'une copie d'ensemble dans l'interface : les copies de ses membres sont
+    dissociées (elles restent des pièces libres), puis les membres sortent et le Std Part vide est
+    supprimé comme pour tout ensemble (`release_furniture`, utilisée par `onDelete`).
+  - Suppression de la source (ou de son Std Part à la main) : ses copies sont dissociées d'abord
+    (`detach_copies`), sans quoi leurs expressions citeraient un objet absent et leurs pièces,
+    liées à celles de la source, ne pourraient pas sortir du Std Part. Supprimer la répétition
+    dissocie ses copies, qui gardent leur Std Part.
+  - FreeCAD garde dans `InList` l'objet qui vient de perdre une expression ; `_closure`
+    (fermeture de liens des entrées et sorties du Std Part) vérifie donc que le lien existe
+    encore. On ne dissocie jamais un objet juste avant de le supprimer (le lien resterait
+    pendant dans `InList` de la source).
+- **Inchangé.** « Suivre le redimensionnement » (le pas suit la cote de l'ensemble parent des
+  sources) et les assemblages recopiés (`create_joint` les range dans le conteneur de la pièce
+  hôte, donc dans le Std Part de la copie). L'axe du pas reste celui du conteneur : pour un Std
+  Part de la source tourné, les copies sont décalées dans le repère du conteneur et tournées
+  comme la source.
+- **Copie par glissement (Ctrl, lot R-d).** Elle ne concerne que les pièces : l'abstraction
+  `Target` de l'ADR 0038 donne `PartTarget` pour la brute d'une pièce ; sur un ensemble
+  (`FurnitureTarget`), Ctrl + clic n'est pas pris (le clic reste à FreeCAD). La copie utilise les
+  guides, le repère et la tolérance de la cible.

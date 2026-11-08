@@ -45,6 +45,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, rebind
+from freecad.menuiserie.features.furniture_container import placement_container
 from freecad.menuiserie.features.furniture_relink import bind_furniture
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.machined_part import is_machined_part
@@ -165,7 +166,7 @@ def common_container(sources: Sequence[DocumentObject]) -> DocumentObject | None
     """Conteneur (``App::Part``) commun des ``sources``, ``None`` si elles sont à la racine ;
     ``ValueError`` traduite si elles sont réparties dans des conteneurs différents (les copies
     sont rangées avec la source, la répétition avec elles)."""
-    containers = [obj.getParentGeoFeatureGroup() for obj in sources]
+    containers = [placement_container(obj) for obj in sources]
     first = containers[0]
     for other in containers[1:]:
         if other != first:
@@ -175,12 +176,15 @@ def common_container(sources: Sequence[DocumentObject]) -> DocumentObject | None
     return first
 
 
-def checked_sources(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
+def checked_sources(
+    objects: Sequence[DocumentObject], *, one_container: bool = True
+) -> list[DocumentObject]:
     """Pièces et ensembles à répéter, sans doublon, dans l'ordre. Refus traduits avant toute
     création : ``ValueError`` (aucune pièce, documents différents, copie déjà liée, pièce répétée
     en même temps que son propre ensemble, cote ou matériau inconnu), ``TypeError`` (autre chose
     qu'une pièce de bois ou un ensemble de pièces de bois) ; ``KeyError`` pour un matériau absent
-    de la bibliothèque locale."""
+    de la bibliothèque locale. ``one_container`` faux : le conteneur commun n'est pas contrôlé
+    (l'appelant le fait après les autres réglages, avec :func:`common_container`)."""
     sources = list(
         dict.fromkeys(
             machined.Base if is_machined_part(machined) else machined for machined in objects
@@ -193,7 +197,8 @@ def checked_sources(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
     if len({obj.Document.Name for obj in sources}) > 1:
         raise ValueError(translated(_OTHER_DOCUMENT))
     _refuse_nested(sources)
-    common_container(sources)
+    if one_container:
+        common_container(sources)
     return sources
 
 

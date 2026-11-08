@@ -25,13 +25,19 @@ from __future__ import annotations
 from typing import Final
 
 from freecad.menuiserie.core.repeat import RepeatAxis
-from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of, rebind
+from freecad.menuiserie.features.furniture_container import (
+    member_expressions,
+    set_member_expression,
+    std_part_of,
+)
 from freecad.menuiserie.features.furniture_relink import bind_furniture
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.repeat import (
     COPY_PROPERTY_NAMES,
+    cited_names,
     cites,
     copies_of,
     is_copy,
@@ -54,11 +60,13 @@ from freecad.menuiserie.features.repeat_joints import unlink_part_joints
 __all__ = [
     "BOUND_PATHS",
     "copy_expressions",
+    "detach_copies",
     "link_copy",
     "link_inner",
     "repeat_removed",
     "source_removed",
     "unlink_copy",
+    "unlink_inner_copies",
 ]
 
 BOUND_PATHS: Final = tuple(
@@ -91,26 +99,32 @@ def link_copy(
 ) -> None:
     """Écrit (ou réécrit) les expressions de ``copy`` (pièce ou ensemble) d'après son rang
     ``RepeatIndex``."""
-    make = furniture_expressions if is_furniture(copy) else copy_expressions
-    for path, text in make(source.Name, repeat.Name, copy.RepeatIndex, axis).items():
-        copy.setExpression(path, text)
+    if is_furniture(copy):
+        part = std_part_of(source) if std_part_of(copy) is not None else None
+        made = furniture_expressions(
+            source.Name, repeat.Name, copy.RepeatIndex, axis, None if part is None else part.Name
+        )
+    else:
+        made = copy_expressions(source.Name, repeat.Name, copy.RepeatIndex, axis)
+    for path, text in made.items():
+        set_member_expression(copy, path, text)
 
 
 def link_inner(copy: DocumentObject) -> None:
     """Écrit les expressions de ``copy``, copie d'un membre rangée dans un ensemble copie
     (:func:`.repeat_furniture_links.inner_expressions`)."""
     for path, text in inner_expressions(copy, copy.RepeatSource).items():
-        copy.setExpression(path, text)
+        set_member_expression(copy, path, text)
 
 
 def _unlink_own(copy: DocumentObject) -> None:
     """Retire de ``copy`` ses expressions de liaison et ses propriétés de copie."""
     if not is_furniture(copy):
         unlink_part_joints(copy)
-    names = {obj.Name for obj in (copy.Repeat, copy.RepeatSource) if obj is not None}
-    for path, text in expressions_of(copy).items():
+    names = cited_names(copy)
+    for path, text in member_expressions(copy).items():
         if path in BOUND_PATHS and cites(text, names):
-            copy.setExpression(path, None)
+            set_member_expression(copy, path, None)
     for name in COPY_PROPERTY_NAMES:
         copy.removeProperty(name)
 
@@ -126,6 +140,15 @@ def _inner_copies(copy: DocumentObject, seen: set[str] | None = None) -> list[Do
             found.append(member)
             found.extend(_inner_copies(member, seen))
     return found
+
+
+def unlink_inner_copies(copy: DocumentObject) -> None:
+    """Dissocie les copies des membres de la copie d'ensemble ``copy`` (à tous les niveaux), sans
+    toucher à ``copy`` : ses membres deviennent libres, ``copy`` garde ses expressions (elle va
+    être supprimée : FreeCAD ne retire pas proprement le lien d'un objet supprimé dont on vient
+    de retirer les expressions)."""
+    for inner in reversed(_inner_copies(copy)):
+        _unlink_own(inner)
 
 
 def unlink_copy(copy: DocumentObject, *, relink: bool = True) -> None:
@@ -183,13 +206,23 @@ def repeat_removed(repeat: DocumentObject) -> None:
             _unlink_quietly(copy)
 
 
-def source_removed(source: DocumentObject) -> None:
-    """Pièce ou ensemble source supprimé (``unsetupObject``) : ses copies restantes sont
-    dissociées, puis il sort de ``Source`` de ses répétitions."""
+def detach_copies(source: DocumentObject) -> None:
+    """Dissocie les copies de ``source`` (aucune expression ne doit citer un objet qui disparaît :
+    la source, ou le Std Part d'un ensemble source supprimé à la main). Rien pendant une
+    annulation, un rétablissement ou une restauration."""
     if _during_deletion(source):
         return
     for parent in list(source.InList):
         if is_copy(parent) and parent.RepeatSource == source:
             _unlink_quietly(parent)
-        elif is_repeat(parent) and source in sources_of(parent):
+
+
+def source_removed(source: DocumentObject) -> None:
+    """Pièce ou ensemble source supprimé (``unsetupObject``) : ses copies restantes sont
+    dissociées, puis il sort de ``Source`` de ses répétitions."""
+    if _during_deletion(source):
+        return
+    detach_copies(source)
+    for parent in list(source.InList):
+        if is_repeat(parent) and source in sources_of(parent):
             parent.Source = [obj for obj in sources_of(parent) if obj != source]

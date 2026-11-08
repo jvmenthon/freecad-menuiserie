@@ -16,8 +16,7 @@ from freecad.menuiserie.features.distance import distances_of
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import common_furniture, members_of
-from freecad.menuiserie.features.furniture_entry import dissolve
-from freecad.menuiserie.features.furniture_members import remove_members
+from freecad.menuiserie.features.furniture_members import release_furniture
 from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.joints.base import is_joint
@@ -52,10 +51,7 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
         plus l'ensemble. Son Std Part est supprimé avec lui s'il est vide, conservé sinon (avec
         un avertissement) ; les messages vont dans la vue rapport (ADR 0017)."""
         del subelements
-        furniture = vobj.Object
-        members = members_of(furniture)
-        messages = remove_members(members) if members else []
-        for message in [*messages, *dissolve(furniture)]:
+        for message in release_furniture(vobj.Object):
             report_warning(message)
         return True
 
