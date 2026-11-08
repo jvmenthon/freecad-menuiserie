@@ -4,7 +4,8 @@
 Quand ``CopyJoints`` est vrai, chaque assemblage « d'origine » dont une pièce est une source de la
 répétition est recréé pour chaque copie :
 
-- A : les deux pièces sont des sources → assemblage entre les copies de même rang ;
+- A : les deux pièces sont des sources (ou des membres d'un ensemble source) → assemblage entre
+  les copies de même rang ;
 - B : une seule pièce est une source → assemblage entre la copie et l'autre pièce, rôles
   conservés (la traverse reçoit un tenon par copie) ;
 - C : aucune pièce n'est une source → rien (l'assemblage n'est pas une origine) ;
@@ -38,7 +39,8 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.joints.base import is_joint, property_name
 from freecad.menuiserie.features.joints.factories import create_joint
-from freecad.menuiserie.features.repeat import copies_of, sources_of
+from freecad.menuiserie.features.repeat import copies_of
+from freecad.menuiserie.features.repeat_members import original_parts
 from freecad.menuiserie.features.schema import PropertySpec, set_editor_mode
 
 __all__ = [
@@ -157,9 +159,10 @@ def joint_removed(origin: DocumentObject) -> None:
 
 
 def _origins(repeat: DocumentObject) -> list[DocumentObject]:
-    """Assemblages d'origine : ceux d'une source de ``repeat`` qui ne sont pas déjà des enfants."""
+    """Assemblages d'origine : ceux d'une pièce copiée par ``repeat`` (source, ou membre d'un
+    ensemble source) qui ne sont pas déjà des enfants."""
     found: list[DocumentObject] = []
-    for source in sources_of(repeat):
+    for source in original_parts(repeat):
         found.extend(joint for joint in joints_of_part(source) if origin_of(joint) is None)
     return _unique(found)
 
@@ -214,7 +217,7 @@ def update_joints(
         remove_joints(_repeat_children(repeat))
         return []
     by_rank = {(copy.RepeatSource.Name, copy.RepeatIndex): copy for copy in copies_of(repeat)}
-    sources = {source.Name for source in sources_of(repeat)}
+    sources = {source.Name for source in original_parts(repeat)}
     origins = _origins(repeat)
     created: list[DocumentObject] = []
     for rank in ranks:

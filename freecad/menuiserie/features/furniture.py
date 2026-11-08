@@ -296,7 +296,9 @@ class Furniture(StatelessProxy):
         ``add_to_furniture`` et ``remove_from_furniture`` acceptent. Seule exception à « un
         objet n'écrit que dans lui-même » (ADR 0008 : retrait au moment de la suppression)."""
         from freecad.menuiserie.features.furniture_bindings import release_members
+        from freecad.menuiserie.features.repeat_links import source_removed
 
+        source_removed(obj)  # ses copies de répétition sont dissociées (ADR 0043)
         release_members(obj)
 
     def execute(self, obj: DocumentObject) -> None:

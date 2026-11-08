@@ -168,3 +168,19 @@ FreeCAD ; seul le trajet appelle Draft, dans `features/`.
   « sans aimantation ».
 - **Q10 — Après la copie par glissement.** ★ Le panneau « Modifier la répétition » s'ouvre
   aussitôt (nombre, pas) ; ou pas de panneau, un simple clic droit « Modifier ».
+
+## 8. Notes de réalisation du lot R-b3 (ensembles)
+
+Décisions détaillées : [ADR 0044](../adr/0044-repetition-d-ensembles-et-liaisons-des-copies.md).
+
+- Une copie liée d'une pièce membre entre dans l'ensemble avec les mêmes options, **sans liaison
+  d'ensemble** (elle suit sa source) mais comptée dans les rangées de ses voisines ; dissociée,
+  elle est reliée normalement. Les options de la source changées après la copie ne se propagent
+  pas aux copies.
+- « Suivre le redimensionnement » : `Span` et `Step` deviennent des expressions (retraits actuels
+  figés) ; refus traduit si une source n'est dans aucun ensemble ou si les sources sont dans des
+  ensembles différents. Avec des copies liées, la source et ses copies se partagent un
+  redimensionnement au prorata : à pas fixe, des copies serrées peuvent se chevaucher.
+- Copie d'ensemble : ensemble neuf (sous-ensemble du même parent) dont les cotes et l'`Origin`
+  suivent la source, avec une copie de chaque membre ; limites : pièce en bois à forme libre
+  refusée, Distances gardées non copiées, cote des sources figée dans `Step`.

@@ -58,6 +58,7 @@ __all__ = [
     "add_members",
     "build_furniture",
     "checked_furniture",
+    "join_member",
     "join_with_options",
     "member_object",
     "quoted_label",
@@ -186,7 +187,7 @@ def _candidates(
     return list(found.values())
 
 
-def _join(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]) -> None:
+def join_member(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]) -> None:
     """Fait de ``obj`` un membre de ``furniture`` (mode ``Stay``, options ``fixed``, cotes non
     fixes). Les propriétés d'un orphelin (ensemble supprimé) sont réécrites, et ses anciennes
     liaisons de l'atelier retirées."""
@@ -213,7 +214,7 @@ def _enter(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> list
     entering: MemberSet = read_members(furniture, entering=objects)
     for member in entering.members:
         if member.key in {obj.Name for obj in objects}:
-            _join(entering.objects[member.key], furniture, member.fixed or frozenset())
+            join_member(entering.objects[member.key], furniture, member.fixed or frozenset())
     notices = bind_members(entering, [obj.Name for obj in objects])
     for obj in objects:
         if is_furniture(obj):
@@ -393,7 +394,7 @@ def join_with_options(
     options = {member_object(obj).Name: (mode, fixed) for obj, mode, fixed in entries}
     for member in members:
         mode, fixed = options[member.Name]
-        _join(member, furniture, fixed)
+        join_member(member, furniture, fixed)
         with writing(member):
             member.PositionMode = mode.value
     return bind_members(read_members(furniture), [member.Name for member in members])

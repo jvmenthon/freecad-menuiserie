@@ -213,13 +213,14 @@ def bindings_for(
     wanted = break_cycles(
         {m.key: _wanted(m, rules[m.key], nested) for m in members if m.key in rules},
         {**current, **(thicknesses or {})},
+        {m.key for m in members if m.linked},
     )
     bindings: list[Binding] = []
     notices: list[Notice] = []
     for member in members:
         if keys is not None and member.key not in keys:
             continue
-        for prop in sorted(member.driven):
+        for prop in sorted(member.driven - member.repeated):
             if bound_by_workshop(member, prop):
                 notices.append(notice(NoticeKind.USER_FORMULA, member, property=prop))
         for item in wanted.get(member.key, ()):

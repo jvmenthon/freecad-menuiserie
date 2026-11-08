@@ -52,6 +52,7 @@ from freecad.menuiserie.features.i18n import (
 )
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import machined_part_of
+from freecad.menuiserie.features.repeat import copy_thicknesses, is_copy, member_flags
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -210,6 +211,7 @@ def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> M
         "driven": _driven(obj, entering),
         "locked": drawn or (not entering and bool(getattr(obj, "Locked", False))),
         "drawn": drawn,
+        **member_flags(obj),  # copie de répétition (ADR 0044)
     }
     with translated_errors():
         if is_furniture(obj):
@@ -266,7 +268,8 @@ def _bindings(
     rangée de chaque membre tient compte de tous les autres."""
     chosen = set(keys)
     rules, rule_notices = follow_rules(members.box, members.members, chosen)
-    nested = furniture_of(members.furniture) is not None
+    nested = furniture_of(members.furniture) is not None or is_copy(members.furniture)
+    thicknesses = copy_thicknesses(members.objects.values(), thicknesses)
     with translated_errors():
         bindings, notices = bindings_for(
             str(members.furniture.Label),
@@ -331,7 +334,7 @@ def bind_members(
     cyclique. Un cycle avec une formule de l'utilisateur (``RuntimeError`` de FreeCAD) rétablit
     les liaisons précédentes et devient une ``ValueError`` traduite. ``thicknesses`` : voir
     ``bindings_for``."""
-    chosen = sorted(set(keys))
+    chosen = sorted(set(keys) - {m.key for m in members.members if m.linked})  # ADR 0044
     bindings, notices = _bindings(members, chosen, thicknesses)
     objects = [members.objects[key] for key in chosen]
     before = {obj.Name: _workshop_bindings(obj) for obj in objects}
