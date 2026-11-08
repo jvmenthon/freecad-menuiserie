@@ -102,8 +102,17 @@ def make_repeat(
     doc = sources[0].Document
     with _undoable(doc, _MAKE_TRANSACTION, own=transaction):
         obj = repeat.create_repeat(doc, sources)
+        _show_repeat(obj)
         _show(repeat_copies.apply_repeat(obj, params))
     return obj
+
+
+def _show_repeat(obj: DocumentObject) -> None:
+    """ViewProvider de la répétition (icône, double-clic), quand l'interface est chargée."""
+    if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.repeat import ensure_view_provider
+
+        ensure_view_provider(obj)
 
 
 def _checked_repeat(obj: DocumentObject) -> DocumentObject:

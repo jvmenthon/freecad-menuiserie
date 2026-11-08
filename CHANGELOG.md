@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Répétition : la commande « Répéter » accepte aussi les ensembles ; une répétition créée par script reçoit son icône et son double-clic.
 - Répétition : ensembles (lot R-b3, ADR 0044). Les copies d'une pièce membre entrent dans l'ensemble avec les mêmes options ; la case « Suivre le redimensionnement » répartit les copies sur la cote de l'ensemble ; un ensemble ou un caisson se répète avec tous ses membres et ses assemblages, et se dissocie en bloc.
 - Répétition de pièces (ADR 0043, lot R-c) : commandes « Répéter », « Modifier la répétition » et « Dissocier la copie », panneau avec aperçu en direct des copies dans la vue 3D, avertissement de chevauchement, refus affichés, icône et double-clic de l'objet Répétition, nouvelles icônes ; le bouton « OK » du panneau d'assemblage se grise enfin quand l'assemblage est en erreur.
 - Répétition (ADR 0043, lot R-b2) : assemblages recopiés quand `CopyJoints` est vrai (modifiable par `edit_repeat`) : entre les copies homologues si les deux pièces sont répétées, entre la copie et la pièce fixe sinon (une traverse reçoit un tenon par copie), ignorés si aucune pièce n'est répétée, créés même infaisables (la vérification existante les signale) ; paramètres de chaque assemblage enfant en expressions sur ceux de l'origine, lecture seule, lien `RepeatJoint` ; copie ajoutée ou retirée, dissociation de la copie ou suppression de l'origine suivent. Une pièce usinée choisie comme source répète sa pièce brute.
