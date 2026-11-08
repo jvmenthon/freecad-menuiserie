@@ -1,6 +1,7 @@
 # ADR 0043 — Répétition : un objet de cotes et des pièces ordinaires liées par expressions
 
-- Statut : **proposé** (en attente de jv, questions Q1 à Q11 de la spécification)
+- Statut : **accepté** (jv, 2026-11-08 ; Q4 et Q5 : cases « Recopier les assemblages » et
+  « Suivre le redimensionnement », autres questions selon les ★)
 - Date : 2026-11-07
 - Spécification : [docs/specs/repetition.md](../specs/repetition.md), issue #180
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),

@@ -2,7 +2,8 @@
 
 - Issue [#180](https://github.com/jvmenthon/freecad-menuiserie/issues/180), demande de jv (2026-11-07).
 - Décision : [ADR 0043](../adr/0043-repetition-objet-de-cotes-et-copies-liees.md) (proposé).
-- Statut : **en attente des réponses de jv** (§ 7). Les choix ★ s'appliquent par défaut.
+- Statut : **validée par jv** (2026-11-08) : Q4 et Q5 modifiées (cases à cocher), toutes les
+  autres questions selon les choix ★.
 - Révision 2 (même jour) : intègre les demandes de jv — copies modifiables après coup, liées à
   l'original, dissociables, copie par Maj + déplacement, cercle et trajet ensuite, réemploi de
   FreeCAD.
