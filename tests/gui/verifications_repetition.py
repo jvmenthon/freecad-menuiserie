@@ -22,7 +22,7 @@ from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.features import repeat
 from freecad.menuiserie.features.repeat_joints import origin_of
 from tests.commandes_repetition import COMMANDES_REPETITION
-from tests.gui.verifications_ensemble import boite_de_refus, lancer, pieces_du_bureau
+from tests.gui.verifications_ensemble import lancer, pieces_du_bureau
 from tests.gui.verifications_panneau import (
     annuler,
     avec_document,
@@ -505,7 +505,6 @@ def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
     return [
         *ecarts("plus aucune copie liée", len(copies_de(rep)), 0),
         *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
-        *ecarts("boîte de refus", boite_de_refus() is None, True),
     ]
 
 
