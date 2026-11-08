@@ -224,6 +224,15 @@ class JointFeature(StatelessProxy):
                 current = getattr(obj, name)
                 setattr(obj, name, choices)
                 setattr(obj, name, current if current in choices else choices[0])
+        from freecad.menuiserie.features.repeat_joints import restored
+
+        restored(obj)  # assemblage enfant d'une répétition : paramètres en lecture seule (R-b2)
+
+    def unsetupObject(self, obj: DocumentObject) -> None:
+        """Assemblage supprimé (même transaction) : ses enfants de répétition sont dissociés."""
+        from freecad.menuiserie.features.repeat_joints import joint_removed
+
+        joint_removed(obj)
 
 
 def _warn_cross_grain(joint: DocumentObject) -> None:
