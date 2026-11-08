@@ -106,13 +106,22 @@ Cochée : les assemblages répétés **partagent la configuration** de l'assembl
 changement sur le premier assemblage modifie tous les assemblages enfants (cas E). La case est
 mémorisée dans `Repeat` (`CopyJoints`) et reprise par « Modifier la répétition ».
 
-## 4. Geste : Maj + déplacement
+## 4. Geste : Ctrl + déplacement (lot R-d, réponses de jv Q9 et Q10)
 
-Dans le déplacement à la souris (J6, `gui/drag/`), l'appui sur **Maj** au début du glissement
-crée une copie au lieu de déplacer l'original : l'original reste en place, la copie suit la
-souris, avec l'aimantation habituelle. Le lâcher crée une répétition de 1 copie liée (donc
-modifiable ensuite : nombre, pas, dissociation). **Conflit** : Maj coupe déjà l'aimantation
-pendant le glissement (spec souris, C5). Voir Q9.
+Dans le déplacement à la souris (J6, `gui/drag/`), **Ctrl** + clic sur une flèche de la pièce
+sélectionnée crée une copie au lieu de déplacer l'original : l'original reste en place, un
+fantôme (boîte translucide) suit la souris avec l'aimantation habituelle (Maj la coupe toujours,
+Ctrl + Maj = copie sans aimantation). Le lâcher crée une répétition de 1 copie liée (`CountAndStep`,
+axe global du déplacement, pas = distance, `Reverse` si le sens est négatif), en une transaction
+« Répéter », puis le panneau « Modifier la répétition » s'ouvre aussitôt (nombre, pas,
+dissociation). Échap, un simple clic ou un déplacement inférieur à 0,01 mm ne créent rien.
+
+- Une flèche se tire sur un seul axe de la pièce : la copie exige que cet axe soit X, Y ou Z du
+  document (pièce non tournée ou tournée d'un multiple de 90°) ; sinon refus expliqué.
+- Une copie liée n'a pas de flèche (son placement est piloté) : on ne copie pas une copie ; le
+  garde-fou `check_copyable` la refuse avec un message au cas où.
+- Ctrl + clic ailleurs que sur une flèche reste à FreeCAD (sélection multiple) ; aucun
+  raccourci clavier n'est consommé. Poignées et anneaux ne copient pas.
 
 ## 5. Réemploi de FreeCAD
 

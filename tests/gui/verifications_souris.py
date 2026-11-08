@@ -359,8 +359,8 @@ def _evenements_rendus(doc: Any) -> list[str]:
         ("clic droit sur la flèche", souris(viewport, press, sur, droit)),
         ("clic du milieu sur la flèche", souris(viewport, press, sur, milieu)),
         (
-            "Ctrl + clic sur la flèche",
-            souris(viewport, press, sur, gauche, QtCore.Qt.ControlModifier),
+            "Alt + clic sur la flèche",
+            souris(viewport, press, sur, gauche, QtCore.Qt.AltModifier),
         ),
         ("relâchement sans glissement", souris(viewport, release, loin)),
     ]
@@ -385,7 +385,7 @@ def _evenements_rendus(doc: Any) -> list[str]:
 
 
 def verifier_souris_evenements_rendus() -> list[str]:
-    """C3 : clic ailleurs, autres boutons, Ctrl, mouvements sans glissement : rendus à FreeCAD
+    """C3 : clic ailleurs, autres boutons, Alt, mouvements sans glissement : rendus à FreeCAD
     (le filtre répond faux) ; seul le clic gauche sur une flèche est pris."""
     return avec_document("VerifSourisRendus", _evenements_rendus)
 
