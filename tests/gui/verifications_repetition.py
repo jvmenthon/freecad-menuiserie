@@ -20,6 +20,7 @@ from PySide import QtGui
 
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.features import repeat
+from freecad.menuiserie.features.repeat_joints import origin_of
 from tests.commandes_repetition import COMMANDES_REPETITION
 from tests.gui.verifications_ensemble import lancer, pieces_du_bureau
 from tests.gui.verifications_panneau import (
@@ -34,7 +35,8 @@ from tests.gui.verifications_panneau import (
     saisir,
     valider,
 )
-from tests.gui.verifications_panneau_assemblage import widget
+from tests.gui.verifications_panneau_assemblage import double_cliquer, widget
+from tests.gui.verifications_panneau_assemblage import panneau as panneau_assemblage
 from tests.gui.verifications_panneau_ensemble import bouton_ok
 
 REPETER = "Menuiserie_Repeat"
@@ -333,6 +335,37 @@ def verifier_assemblages_recopies() -> list[str]:
     return avec_document("VerifRepetitionAssemblages", _assemblages_recopies)
 
 
+def _inverser_grise(doc: Any) -> list[str]:
+    mortaise = api.make_wood_part(300, 60, 22, "chene", mark="Montant", doc=doc)
+    tenon = api.make_wood_part(200, 40, 22, "chene", mark="Traverse", doc=doc)
+    tenon.Placement = App.Placement(App.Vector(300, 10, 0), App.Rotation())
+    doc.recompute()
+    api.make_mortise_tenon(mortaise, tenon)
+    doc.recompute()
+    api.make_repeat([tenon], api.RepeatParams(count=1, step=100.0, axis=api.RepeatAxis.Z))
+    doc.clearUndos()
+    enfant = next(j for j in doc.Objects if hasattr(j, "HostPart") and origin_of(j) is not None)
+    origine = next(j for j in doc.Objects if hasattr(j, "HostPart") and origin_of(j) is None)
+    problemes = []
+    for nom, joint, actif in (("enfant", enfant, False), ("origine", origine, True)):
+        double_cliquer(joint)
+        form = panneau_assemblage()
+        bouton = widget(form, "invertButton") if form is not None else None
+        if bouton is None:
+            problemes.append(f"{nom} : panneau de l'assemblage non ouvert")
+            continue
+        problemes += ecarts(f"{nom} : « Inverser » actif", bouton.isEnabled(), actif)
+        if not actif:
+            problemes += ecarts("infobulle", "assemblage d'origine" in bouton.toolTip(), True)
+        annuler()
+    return problemes
+
+
+def verifier_inverser_grise_sur_un_enfant() -> list[str]:
+    """« Inverser » est grisé, avec une infobulle, sur un assemblage enfant d'une répétition."""
+    return avec_document("VerifRepetitionInverser", _inverser_grise)
+
+
 # --- Suivre le redimensionnement ----------------------------------------------------------------
 
 
@@ -459,6 +492,28 @@ def verifier_dissocier_la_copie() -> list[str]:
     return avec_document("VerifRepetitionDissocie", _dissocier)
 
 
+def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
+    gauche, droite = source(doc, "Gauche"), source(doc, "Droite")
+    droite.Placement = App.Placement(App.Vector(0, 100, 0), App.Rotation())
+    doc.recompute()
+    meuble, _ = api.make_furniture([gauche, droite], "Meuble")
+    rep = api.make_repeat([meuble], api.RepeatParams(count=1, step=500.0, axis=api.RepeatAxis.Z))
+    doc.clearUndos()
+    ensemble = next(c for c in copies_de(rep) if c.RepeatSource == meuble)
+    membre = next(c for c in copies_de(rep) if c.RepeatSource == gauche)
+    lancer(DISSOCIER, ensemble, membre)  # le membre est déjà dissocié avec son ensemble
+    return [
+        *ecarts("plus aucune copie liée", len(copies_de(rep)), 0),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+    ]
+
+
+def verifier_dissocier_un_ensemble_et_son_membre() -> list[str]:
+    """Dissocier une sélection qui contient un ensemble copie et l'un de ses membres copiés ne
+    lève pas d'erreur : le membre déjà dissocié est sauté."""
+    return avec_document("VerifRepetitionDissocieEnsemble", _dissocier_ensemble_et_membre)
+
+
 # --- ViewProvider --------------------------------------------------------------------------
 
 
@@ -482,15 +537,33 @@ def _double_clic(doc: Any) -> list[str]:
         "double-clic sur une copie", bool(copie_vobj.Proxy.doubleClicked(copie_vobj)), True
     )
     problemes += [
-        *ecarts("copie : panneau de la pièce", formulaire() is not None, True),
-        *ecarts("copie : pas le panneau de la répétition", panneau() is None, True),
+        *ecarts("copie : panneau de la répétition", panneau() is not None, True),
+        *ecarts("copie : titre", panneau().windowTitle(), "Modifier « Répétition »"),
+        *ecarts("copie : pas le panneau de la pièce", formulaire() is None, True),
     ]
-    return problemes
+    annuler()
+    return problemes + _menu_contextuel(doc, rep)
+
+
+def _menu_contextuel(doc: Any, rep: Any) -> list[str]:
+    """Le menu contextuel d'une copie propose « Modifier la répétition », pas celui d'une pièce
+    libre."""
+    copie = copies_de(rep)[1]
+    menu = QtGui.QMenu()
+    copie.ViewObject.Proxy.setupContextMenu(copie.ViewObject, menu)
+    textes = [action.text() for action in menu.actions()]
+    libre = api.make_wood_part(100, 40, 22, "chene", mark="Libre", doc=doc)
+    menu_libre = QtGui.QMenu()
+    libre.ViewObject.Proxy.setupContextMenu(libre.ViewObject, menu_libre)
+    return [
+        *ecarts("menu d'une copie", textes, ["Modifier la répétition"]),
+        *ecarts("menu d'une pièce libre", menu_libre.actions(), []),
+    ]
 
 
 def verifier_double_clic() -> list[str]:
-    """Double-clic sur la répétition : « Modifier la répétition » ; sur une copie : le panneau de
-    la pièce de bois."""
+    """Double-clic sur la répétition ou sur une copie : « Modifier la répétition » ; menu
+    contextuel d'une copie."""
     return avec_document("VerifRepetitionDoubleClic", _double_clic)
 
 
@@ -515,10 +588,12 @@ VERIFICATIONS_REPETITION: tuple[Callable[[], list[str]], ...] = (
     verifier_chevauchement_signale,
     verifier_axe_sens_et_assemblages,
     verifier_assemblages_recopies,
+    verifier_inverser_grise_sur_un_enfant,
     verifier_suivi_grise_hors_ensemble,
     verifier_modifier_le_nombre,
     verifier_modification_annulee,
     verifier_dissocier_la_copie,
+    verifier_dissocier_un_ensemble_et_son_membre,
     verifier_double_clic,
     verifier_document_ferme_panneau_ouvert,
 )

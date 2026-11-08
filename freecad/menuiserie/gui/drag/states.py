@@ -55,10 +55,11 @@ class State:
     dragging = False
     key: str | None = None
     sweep: Sweep | None = None  # secteur parcouru et angle, pendant la rotation par un anneau
+    ghost: Vec3 | None = None  # décalage du fantôme (repère de la pièce), pendant une copie
 
-    def press(self, session: DragSession, point: Point, shift: bool) -> bool:
-        """Clic gauche enfoncé."""
-        del session, point, shift
+    def press(self, session: DragSession, point: Point, shift: bool, copy: bool = False) -> bool:
+        """Clic gauche enfoncé (``copy`` : Ctrl enfoncé)."""
+        del session, point, shift, copy
         return False
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:
@@ -84,10 +85,12 @@ class Idle(State):
     """Rien sous la souris : les évènements sont rendus à FreeCAD (sauf après un Échap, jusqu'au
     relâchement du bouton)."""
 
-    def press(self, session: DragSession, point: Point, shift: bool) -> bool:
+    def press(self, session: DragSession, point: Point, shift: bool, copy: bool = False) -> bool:
         session.sync()
         key = session.target_at(point)
-        return key is not None and session.begin(key, point, shift)
+        if key is None:
+            return False
+        return session.begin_copy(key, point, shift) if copy else session.begin(key, point, shift)
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:
         if session.swallow_release:
@@ -217,15 +220,18 @@ class Dragging(Gesture):
 class Moving(Dragging):
     """Flèche tirée : la pièce suit la souris le long de l'axe, aimantée sauf Maj."""
 
+    def solve(self, axis: int, delta: float) -> DragResult:
+        """Déplacement voulu de ``delta`` mm sur l'axe ``axis``, aimanté sauf Maj."""
+        wanted = Vec3(0.0, 0.0, 0.0).with_component(axis, delta)
+        if self.shift:
+            return DragResult(wanted)
+        return magnet(self.box, self.guides, wanted, self.tolerance, [axis])
+
     def apply(self, session: DragSession, delta: float) -> None:
         axis = parse_key(self.target)
         if not isinstance(axis, int):  # clé d'une poignée : rien à faire ici
             return
-        wanted = Vec3(0.0, 0.0, 0.0).with_component(axis, delta)
-        if self.shift:
-            result = DragResult(wanted)
-        else:
-            result = magnet(self.box, self.guides, wanted, self.tolerance, [axis])
+        result = self.solve(axis, delta)
         move_part(self.memento, result.delta)
         session.written([self.guides[hit.guide] for hit in result.hits], self.frame)
 

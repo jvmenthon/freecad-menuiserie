@@ -428,12 +428,13 @@ def open_panel(sources: Sequence[DocumentObject]) -> None:
     base.show_panel(partial(RepeatTaskPanel, doc, list(sources)))
 
 
-def start_editing(repeat: DocumentObject) -> bool:
+def start_editing(repeat: DocumentObject, edited: DocumentObject | None = None) -> bool:
     """Ouvre le panneau prérempli de ``repeat`` dans la transaction « Modifier la répétition » ;
-    faux si un autre panneau de tâche est déjà ouvert."""
+    ``edited`` : objet en mode édition si ce n'est pas la répétition (une de ses copies). Faux si
+    un autre panneau de tâche est déjà ouvert."""
     return base.start_editing(
         repeat.Document,
         EDIT_TRANSACTION,
         partial(RepeatTaskPanel, repeat.Document, sources_of(repeat), repeat),
-        repeat,
+        edited or repeat,
     )

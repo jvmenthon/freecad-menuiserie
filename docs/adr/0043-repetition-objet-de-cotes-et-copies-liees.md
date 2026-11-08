@@ -52,3 +52,17 @@ extensible au cercle et au trajet. Options :
   copie est une brute neuve qui reçoit sa propre pièce usinée par ses assemblages recopiés. Cela
   évite de refuser la sélection naturelle (la pièce visible) sans copier un usinage qui n'a pas de
   sens pour la copie.
+- **Conteneur `App::Part`** : la répétition est créée dans le conteneur de ses sources, comme leurs
+  copies (un lien ne sort pas de la portée de son conteneur). L'**axe X, Y ou Z est celui du repère
+  du conteneur** (celui de `Placement`, de `Origin` et de la boîte englobante lue sur la forme), pas
+  celui du document : un conteneur translaté ou tourné déplace les copies le long de ses propres
+  axes. Le glissement Ctrl (R-d) lit donc l'axe de la flèche dans `Placement` de la pièce, non dans
+  son placement global, et n'a pas à refuser un conteneur tourné. Des sources réparties dans des
+  conteneurs différents sont refusées (message traduit).
+- **Ajouts après coup** : « Modifier la répétition » recopie les assemblages de la source sur
+  **tous** les rangs (un assemblage ajouté à la source après la création va aussi aux copies
+  existantes, sans doublon). Conséquence : un assemblage enfant supprimé à la main revient à la
+  prochaine édition ; pour s'en passer, dissocier la copie ou décocher « Recopier les assemblages ».
+  Un enfant dissocié (`unlink_joint`) ne revient pas.
+- Une répétition dont la dernière source a été supprimée reste dans le document, vide : « Modifier »
+  la refuse avec le message « aucune pièce à répéter » ; elle se supprime à la main.

@@ -81,3 +81,15 @@ contournable), **mineur** (confort, docs, dette de test).
 |----|--------|----|----------|---------------------|
 | Q10 | mineur | `features/joints/{feet,slides,shelf_pins,slots}.py` | Les `PropertySpec` « diamètre/profondeur des trous », « distance au bord », « nombre » se répètent (environ 10 lignes chacune). Une fabrique ne gagnerait presque rien : l'extraction des traductions exige `QT_TRANSLATE_NOOP("…", "texte")` littéral à l'endroit de la propriété, donc infobulle et libellé restent écrits à chaque appel. | Abandonné tant que l'extraction des traductions ne lit pas les paramètres de fabrique. |
 | Q11 | mineur | `core/joints/slides.py` | 316 lignes : à passer en paquet comme `shelf_pins` et `slots` (ADR 0040) avant d'approcher 400. | Même découpage `_params` / `_strategy`. |
+
+## Relecture finale du jalon « Répétition » (issue #180, ADR 0043 et 0044), 2026-11-08
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| rp1 | mineur | `features/repeat.py` | `Step` et `Reverse` de la répétition sont modifiables dans l'éditeur de propriétés sans que l'ensemble soit relié (les copies de membres suivent, pas les liaisons de l'ensemble). | Les passer en lecture seule, ou relier l'ensemble à chaque changement. |
+| rp2 | mineur | `gui/task_panels/repeat.py` (docstring l. 13 et 362) | L'aperçu ne garde pas le dernier réglage accepté si `bind_furniture` lève après la création des copies. | Défaire les copies créées avant de rendre le refus, ou valider les liaisons avant de créer. |
+| rp3 | mineur | `features/repeat_copies.py`, `repeat_furniture_links.py`, `repeat_follow.py`, `repeat_joints.py`, `repeat_links.py`, `core/repeat/`, `gui/drag/copy_rules.py` | Duplications : `_SIZES` et la table axe → cote ; `_AXES`, `COMPONENTS` et `copy_rules._AXES` ; `_during_deletion` ≡ `restoring_or_undoing` ; calcul de la longueur répété dans `repeat_follow` ; `resolve_for` et `source_extent` recalculés trois fois par saisie ; littéral `"joint_derived"` répété. | Une table d'axes dans `core/repeat`, réemployer `restoring_or_undoing`, une fonction de longueur, un résultat mis en cache par saisie, une constante pour `joint_derived`. |
+| rp4 | mineur | `features/repeat.py` (`copies_of`) | `copies_of(repeat)` renvoie aussi les copies de membres d'un ensemble copie, ce que ne dit pas la docstring. | Préciser la docstring ou séparer `copies_of` et `inner_copies_of`. |
+| rp5 | mineur | `features/` (préexistant) | Supprimer directement un membre d'un ensemble copie par `doc.removeObject` laisse des assemblages invalides. | Retirer les assemblages du membre dans `unsetupObject`. |
+| rp6 | mineur | `tests/gui/` | Pas d'essai en interface réelle d'un Ctrl + glisser sur une pièce tournée hors multiple de 90° (refus), ni sur une pièce d'un conteneur tourné. | Ajouter une vérification hors écran avec un conteneur tourné. |
+

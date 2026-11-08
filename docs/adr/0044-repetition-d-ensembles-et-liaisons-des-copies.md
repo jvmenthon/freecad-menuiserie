@@ -67,3 +67,7 @@ source.
 - Limites : la cote des sources écrite dans `Step` est figée (changer la source ne redistribue
   qu'à la prochaine modification de la répétition) ; une pièce en bois à forme libre dans un
   ensemble répété est refusée ; les Distances gardées d'un ensemble source ne sont pas copiées.
+- **Membre ajouté à l'ensemble source après coup** : « Modifier la répétition » ajoute à chaque
+  ensemble copie la copie du membre qui n'en a encore aucune dans la répétition (sous-ensembles
+  compris). Un membre dont la copie a été supprimée ou dissociée à la main ne revient pas tant qu'il
+  a une copie à un autre rang. Un membre retiré de l'ensemble source garde ses copies.

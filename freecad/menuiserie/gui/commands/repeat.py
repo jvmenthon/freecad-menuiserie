@@ -57,7 +57,10 @@ def selected_repeat() -> DocumentObject | None:
     """Répétition de l'unique objet sélectionné (la répétition ou une de ses copies), ``None``
     sinon."""
     selection = Gui.Selection.getSelection()
-    return api.repeat_of(selection[0]) if len(selection) == 1 else None
+    if len(selection) != 1:
+        return None
+    chosen = selection[0]
+    return api.repeat_of(chosen.Base if is_machined_part(chosen) else chosen)
 
 
 def selected_copies() -> list[DocumentObject] | None:
@@ -165,7 +168,8 @@ class DissociateCommand(TransactionCommand):
             return
         with refusable_transaction(copies[0].Document, self.TRANSACTION):
             for copy in copies:
-                api.dissociate(copy, transaction=False)
+                if is_copy(copy):  # un ensemble copie dissocié a déjà dissocié ses membres
+                    api.dissociate(copy, transaction=False)
 
 
 def register() -> None:

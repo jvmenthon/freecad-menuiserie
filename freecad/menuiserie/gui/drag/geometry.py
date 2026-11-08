@@ -63,6 +63,8 @@ AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  
 HANDLE_COLOR: Final = (1.0, 0.55, 0.0)
 HOVER_COLOR: Final = (1.0, 0.85, 0.1)
 GUIDE_COLOR: Final = (1.0, 0.1, 0.8)
+GHOST_COLOR: Final = (0.2, 0.75, 1.0)  # fantôme de la copie par glissement
+GHOST_TRANSPARENCY: Final = 0.7
 SECTOR_TRANSPARENCY: Final = 0.6  # secteur parcouru par un anneau tiré
 Color = tuple[float, float, float]
 Project = Callable[[Vec3], tuple[float, float]]
@@ -301,12 +303,47 @@ def _ring_drawing(layout: Layout, hover: str | None, sweep: Sweep | None) -> Dra
     )
 
 
+def _ghost_drawing(layout: Layout, offset: Vec3) -> tuple[Stroke, Solid]:
+    """Boîte de la pièce décalée de ``offset`` (repère de la pièce) : contour et faces
+    translucides, portés dans le repère global."""
+    to_global = layout.frame.to_transform()
+    box = layout.box
+
+    def corner(index: int) -> Vec3:
+        values = [
+            (box.lo, box.hi)[(index >> axis) & 1](axis) + offset.component(axis)
+            for axis in range(3)
+        ]
+        return to_global.apply(Vec3.of(values))
+
+    corners = [corner(index) for index in range(8)]
+    edges = tuple(
+        (corners[a], corners[b])
+        for a in range(8)
+        for b in range(a + 1, 8)
+        if bin(a ^ b).count("1") == 1
+    )
+    faces = tuple(
+        tuple(corners[i] for i in ring)
+        for ring in (
+            (0, 1, 3, 2),
+            (4, 5, 7, 6),
+            (0, 1, 5, 4),
+            (2, 3, 7, 6),
+            (0, 2, 6, 4),
+            (1, 3, 7, 5),
+        )
+    )
+    return Stroke(GHOST_COLOR, 2.5, edges), Solid(GHOST_COLOR, faces, GHOST_TRANSPARENCY)
+
+
 def build_drawing(
     layout: Layout,
     hover: str | None = None,
     guides: Sequence[Guide] = (),
     guides_frame: Frame | None = None,
     sweep: Sweep | None = None,
+    ghost: Vec3 | None = None,
 ) -> Drawing:
     """Dessin des flèches (couleur de leur axe), des poignées (tige dans l'axe de la cote, cube
     plein au bout et point de saisie au pied), des anneaux de rotation (et, pendant un geste, de
@@ -316,7 +353,8 @@ def build_drawing(
     Les guides sont lus dans le repère de la pièce **au début du glissement** : ``guides_frame``
     est ce repère de départ (celui de ``layout`` s'il est absent). La pièce bouge pendant le
     glissement, pas les guides : les porter dans le repère courant les décalerait de son
-    déplacement."""
+    déplacement. ``ghost`` : décalage (repère de la pièce) du fantôme de la copie par glissement,
+    sa boîte translucide."""
     strokes = []
     for arrow in layout.arrows:
         hot = hover == arrow_key(arrow.axis)
@@ -338,6 +376,10 @@ def build_drawing(
         else:
             strokes.append(Stroke(GUIDE_COLOR, 3.0, (outline,)))
     rings = _ring_drawing(layout, hover, sweep)
+    if ghost is not None:
+        ghost_lines, ghost_faces = _ghost_drawing(layout, ghost)
+        strokes.append(ghost_lines)
+        solids.append(ghost_faces)
     return Drawing((*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), rings.labels)
 
 

@@ -33,7 +33,14 @@ import FreeCAD as App
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.repeat import RepeatAxis, RepeatParams, Resolved, offsets, resolve
+from freecad.menuiserie.core.repeat import (
+    MAX_COPIES,
+    RepeatAxis,
+    RepeatParams,
+    Resolved,
+    offsets,
+    resolve,
+)
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
@@ -57,10 +64,17 @@ from freecad.menuiserie.features.repeat_follow import (
 from freecad.menuiserie.features.repeat_joints import update_joints
 from freecad.menuiserie.features.repeat_links import link_copy, link_inner
 from freecad.menuiserie.features.repeat_members import ancestors_of, descendants_of
-from freecad.menuiserie.features.repeat_new import drop_copy, new_copies
+from freecad.menuiserie.features.repeat_new import add_missing_members, drop_copy, new_copies
 from freecad.menuiserie.features.wood_part import is_wood_part, validated_arguments
 
-__all__ = ["Created", "apply_repeat", "checked_sources", "resolve_for", "source_extent"]
+__all__ = [
+    "Created",
+    "apply_repeat",
+    "checked_sources",
+    "common_container",
+    "resolve_for",
+    "source_extent",
+]
 
 _NO_SOURCE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répétition : aucune pièce à répéter.")
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
@@ -90,6 +104,12 @@ _EMPTY_SHAPE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Répétition : « {label} » n'a pas de forme ; recalculez le document avant de la répéter.",
 )
+_OTHER_CONTAINERS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Répétition : les pièces à répéter sont dans des conteneurs différents (« {first} » et "
+    "« {second} ») ; répétez-les séparément.",
+)
+_ROOT: Final = QT_TRANSLATE_NOOP("Menuiserie", "la racine du document")
 _AXES: Final = {RepeatAxis.X: "X", RepeatAxis.Y: "Y", RepeatAxis.Z: "Z"}
 _SIZES: Final = {RepeatAxis.X: "Width", RepeatAxis.Y: "Depth", RepeatAxis.Z: "Height"}
 
@@ -141,6 +161,20 @@ def _refuse_nested(sources: Sequence[DocumentObject]) -> None:
                 raise ValueError(translated(_WITH_ITS_FURNITURE, params))
 
 
+def common_container(sources: Sequence[DocumentObject]) -> DocumentObject | None:
+    """Conteneur (``App::Part``) commun des ``sources``, ``None`` si elles sont à la racine ;
+    ``ValueError`` traduite si elles sont réparties dans des conteneurs différents (les copies
+    sont rangées avec la source, la répétition avec elles)."""
+    containers = [obj.getParentGeoFeatureGroup() for obj in sources]
+    first = containers[0]
+    for other in containers[1:]:
+        if other != first:
+            names = [getattr(c, "Label", None) or translated(_ROOT) for c in (first, other)]
+            params = {"first": names[0], "second": names[1]}
+            raise ValueError(translated(_OTHER_CONTAINERS, params))
+    return first
+
+
 def checked_sources(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
     """Pièces et ensembles à répéter, sans doublon, dans l'ordre. Refus traduits avant toute
     création : ``ValueError`` (aucune pièce, documents différents, copie déjà liée, pièce répétée
@@ -159,12 +193,16 @@ def checked_sources(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
     if len({obj.Document.Name for obj in sources}) > 1:
         raise ValueError(translated(_OTHER_DOCUMENT))
     _refuse_nested(sources)
+    common_container(sources)
     return sources
 
 
 def source_extent(sources: Sequence[DocumentObject], axis: RepeatAxis) -> float:
     """Cote des ``sources`` le long de l'axe global (mm) : boîte englobante de leurs formes, ou
-    de ``Origin`` à ``Origin`` plus la cote pour un ensemble."""
+    de ``Origin`` à ``Origin`` plus la cote pour un ensemble. ``ValueError`` traduite sans source
+    (la dernière a été supprimée : la répétition vidée ne se modifie plus)."""
+    if not sources:
+        raise ValueError(translated(_NO_SOURCE))
     low, high = [], []
     for source in sources:
         if is_furniture(source):
@@ -200,6 +238,27 @@ class Created(NamedTuple):
     notices: tuple[str, ...] = ()
 
 
+def _complete_furniture_copies(
+    repeat: DocumentObject,
+    source: DocumentObject,
+    shifts: Sequence[Vec3],
+    created: list[DocumentObject],
+) -> None:
+    """Chaque copie de l'ensemble ``source`` reçoit les membres que la source a gagnés depuis (ils
+    sont ajoutés à ``created``, liés comme les autres copies de membres)."""
+    if not is_furniture(source):
+        return
+    known = {copy.RepeatSource.Name for copy in copies_of(repeat)}
+    for copy in copies_of(repeat, source):
+        shift = shifts[copy.RepeatIndex - 1]
+        added: list[DocumentObject] = []
+        add_missing_members(source, copy, known, App.Vector(shift.x, shift.y, shift.z), added)
+        for member in added:
+            if is_inner_copy(member):
+                link_inner(member)
+        created.extend(added)
+
+
 def _sync_copies(
     repeat: DocumentObject,
     source: DocumentObject,
@@ -215,6 +274,7 @@ def _sync_copies(
         if copy.RepeatIndex > resolved.count:
             drop_copy(copy)
     created: list[DocumentObject] = []
+    _complete_furniture_copies(repeat, source, shifts, created)
     for index in range(previous + 1, resolved.count + 1):
         shift = shifts[index - 1]
         made = new_copies(source, repeat, index, App.Vector(shift.x, shift.y, shift.z))
@@ -227,15 +287,27 @@ def _sync_copies(
     return created
 
 
+def _top_copies(created: Sequence[DocumentObject]) -> list[DocumentObject]:
+    """Ensembles copie (hors copies de membres) à relier : ceux qui ont été créés, et ceux qui
+    ont reçu une copie de membre."""
+    found: dict[str, DocumentObject] = {}
+    for copy in created:
+        top = copy
+        while is_inner_copy(top) and (parent := furniture_of(top)) is not None:
+            top = parent
+        if is_furniture(top):
+            found[top.Name] = top
+    return list(found.values())
+
+
 def _bind_furnitures(
     sources: Sequence[DocumentObject], created: Sequence[DocumentObject]
 ) -> list[Notice]:
     """Liaisons des ensembles touchés : chaque ensemble copie créé (membres et sous-ensembles
     compris), puis l'ensemble de chaque source, dont les copies comptent désormais comme membres."""
     notices: list[Notice] = []
-    for copy in created:
-        if is_furniture(copy) and not is_inner_copy(copy):
-            notices.extend(rebind(copy))
+    for copy in _top_copies(created):
+        notices.extend(rebind(copy))
     parents = {parent.Name: parent for parent in map(furniture_of, sources) if parent is not None}
     for parent in parents.values():
         notices.extend(bind_furniture(parent))
@@ -255,8 +327,7 @@ def apply_repeat(repeat: DocumentObject, params: RepeatParams) -> Created:
     resolved = resolve_for(sources, params)
     extent = source_extent(sources, params.axis)
     shifts = offsets(params, extent)
-    previous = int(repeat.Count)
-    joints_were_copied = bool(repeat.CopyJoints)
+    previous = min(max(int(repeat.Count), 0), MAX_COPIES)
     unbind_follow(repeat)
     written = follow_params(params, resolved, extent) if params.follow_resize else params
     write_params(repeat, written, resolved)
@@ -265,9 +336,6 @@ def apply_repeat(repeat: DocumentObject, params: RepeatParams) -> Created:
     created: list[DocumentObject] = []
     for source in sources:
         created.extend(_sync_copies(repeat, source, resolved, previous, shifts, params.axis))
-    first = previous + 1 if joints_were_copied else 1
-    joints = update_joints(
-        repeat, enabled=params.copy_joints, ranks=range(first, resolved.count + 1)
-    )
+    joints = update_joints(repeat, enabled=params.copy_joints, ranks=range(1, resolved.count + 1))
     notices = _bind_furnitures(sources, created)
     return Created(created, joints, notice_messages(notices))

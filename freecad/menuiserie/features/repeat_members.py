@@ -15,14 +15,19 @@ from freecad.menuiserie.features.repeat import sources_of
 __all__ = ["ancestors_of", "descendants_of", "original_parts"]
 
 
-def descendants_of(furniture: DocumentObject) -> list[DocumentObject]:
+def descendants_of(furniture: DocumentObject, seen: set[str] | None = None) -> list[DocumentObject]:
     """Membres de ``furniture`` à tous les niveaux (pièces et sous-ensembles), un ensemble avant
-    ses membres, dans l'ordre des noms."""
+    ses membres, dans l'ordre des noms. ``seen`` : noms déjà parcourus, pour ne pas boucler sur
+    un document forgé où des ensembles se contiennent l'un l'autre."""
+    seen = {furniture.Name} if seen is None else seen
     found: list[DocumentObject] = []
     for member in members_of(furniture):
+        if member.Name in seen:
+            continue
+        seen.add(member.Name)
         found.append(member)
         if is_furniture(member):
-            found.extend(descendants_of(member))
+            found.extend(descendants_of(member, seen))
     return found
 
 

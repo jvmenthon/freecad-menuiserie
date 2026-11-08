@@ -111,12 +111,13 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
         position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6, Qt 5
         point = view_point(viewport, position.x(), position.y())
         modifiers = event.modifiers()
-        shift = modifiers == QtCore.Qt.ShiftModifier
+        shift = bool(modifiers & QtCore.Qt.ShiftModifier)
+        copy = bool(modifiers & QtCore.Qt.ControlModifier)
         if kind == _QEvent.MouseButtonPress:
-            plain = shift or modifiers == QtCore.Qt.NoModifier
+            plain = not modifiers & (QtCore.Qt.AltModifier | QtCore.Qt.MetaModifier)
             if event.button() != QtCore.Qt.LeftButton or not plain:
                 return False
-            return _guarded(session, session.press, point, shift)
+            return _guarded(session, session.press, point, shift, copy)
         if kind == _QEvent.MouseMove:
             moving = event.buttons() == QtCore.Qt.NoButton
             if not moving and not session.dragging and not session.swallow_release:

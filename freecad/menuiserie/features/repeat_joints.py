@@ -191,8 +191,13 @@ def _counterpart(
 def _create_child(
     origin: DocumentObject, host: DocumentObject, guest: DocumentObject
 ) -> DocumentObject | None:
-    """Assemblage enfant de ``origin`` entre ``host`` et ``guest`` ; ``None`` s'il existe déjà."""
-    if any((child.HostPart, child.GuestPart) == (host, guest) for child in children_of(origin)):
+    """Assemblage enfant de ``origin`` entre ``host`` et ``guest`` ; ``None`` s'il existe déjà un
+    assemblage du même type entre eux (enfant, ou enfant dissocié : il ne revient pas)."""
+    kind = type(origin.Proxy)
+    if any(
+        type(joint.Proxy) is kind and (joint.HostPart, joint.GuestPart) == (host, guest)
+        for joint in joints_of_part(host)
+    ):
         return None
     child = create_joint(
         type(origin.Proxy),
@@ -211,7 +216,8 @@ def update_joints(
 ) -> list[DocumentObject]:
     """Met les assemblages enfants de ``repeat`` au réglage ``CopyJoints`` = ``enabled`` : faux,
     tous sont supprimés (avec leurs pièces usinées devenues sans assemblage) ; vrai, ils sont
-    créés pour les copies des rangs ``ranks`` (une copie dissociée ou supprimée n'en reçoit pas).
+    créés pour les copies des rangs ``ranks`` qui n'en ont pas encore (une copie dissociée ou
+    supprimée n'en reçoit pas ; un enfant supprimé à la main revient).
     Renvoie les assemblages créés. Ni transaction ni recalcul."""
     if not enabled:
         remove_joints(_repeat_children(repeat))
