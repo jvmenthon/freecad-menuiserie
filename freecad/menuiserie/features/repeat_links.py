@@ -34,6 +34,7 @@ from freecad.menuiserie.features.repeat import (
     is_repeat,
     sources_of,
 )
+from freecad.menuiserie.features.repeat_joints import unlink_part_joints
 
 __all__ = [
     "BOUND_PATHS",
@@ -90,10 +91,12 @@ def _cites(text: str, names: set[str]) -> bool:
 
 def unlink_copy(copy: DocumentObject) -> None:
     """Dissocie ``copy`` : retire ses expressions de liaison et ses propriétés ``Repeat``,
-    ``RepeatSource`` et ``RepeatIndex``. Elle garde ses valeurs actuelles et devient une pièce
-    libre. Sans effet sur ce qui n'est pas une copie liée."""
+    ``RepeatSource`` et ``RepeatIndex``, et dissocie ses assemblages enfants
+    (:func:`.repeat_joints.unlink_part_joints`). Elle garde ses valeurs actuelles et devient une
+    pièce libre. Sans effet sur ce qui n'est pas une copie liée."""
     if not is_copy(copy):
         return
+    unlink_part_joints(copy)
     names = {obj.Name for obj in (copy.Repeat, copy.RepeatSource) if obj is not None}
     for path, text in expressions_of(copy).items():
         if path in BOUND_PATHS and _cites(text, names):

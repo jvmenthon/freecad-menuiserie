@@ -12,6 +12,7 @@ from typing import Final
 
 import FreeCAD as App
 
+from freecad.menuiserie._api.joints import show_joint
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import RepeatParams
 from freecad.menuiserie.core.text import quoted_value
@@ -49,13 +50,15 @@ def _undoable(doc: Document, title: str, *, own: bool) -> Iterator[None]:
         doc.commitTransaction()
 
 
-def _show(copies: Sequence[DocumentObject]) -> None:
-    """ViewProvider des copies créées, quand l'interface est chargée."""
+def _show(created: repeat_copies.Created) -> None:
+    """ViewProviders des copies et des assemblages créés, quand l'interface est chargée."""
     if App.GuiUp:
         from freecad.menuiserie.gui.view_providers.wood_part import ViewProviderWoodPart
 
-        for copy in copies:
+        for copy in created.copies:
             ViewProviderWoodPart(copy.ViewObject)
+    for joint in created.joints:
+        show_joint(joint)
 
 
 def make_repeat(

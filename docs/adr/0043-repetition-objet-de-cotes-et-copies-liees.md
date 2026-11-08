@@ -45,3 +45,10 @@ extensible au cercle et au trajet. Options :
 - Le nombre de copies ne change que par la commande « Modifier la répétition », pas en tapant
   `Count` dans l'éditeur de propriétés (champ en lecture seule).
 - 100 copies liées par expressions : coût de recalcul à mesurer au lot R-a.
+- Lot R-b2 (assemblages) : un assemblage enfant porte `RepeatJoint` (lien vers l'origine, lecture
+  seule) et ses paramètres sont des expressions sur ceux de l'origine. Une **pièce usinée** choisie
+  comme source est remplacée par sa **pièce brute** : cotes, matériau et placement sont dans la
+  brute (ADR 0006), la forme usinée dépend des assemblages de la source et ne se copie pas ; la
+  copie est une brute neuve qui reçoit sa propre pièce usinée par ses assemblages recopiés. Cela
+  évite de refuser la sélection naturelle (la pièce visible) sans copier un usinage qui n'a pas de
+  sens pour la copie.
