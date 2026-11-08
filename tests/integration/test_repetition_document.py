@@ -4,7 +4,7 @@
 R1 copies et positions, R8 annulation en un bloc, R9 la source modifiée, R10 le pas modifié,
 R11 dissocier, R13 liste de débit, R16 changer le nombre ; suppression de la répétition ou de la
 source, réouverture du document, refus. Assemblages : ``test_repetition_assemblages.py`` (R-b2) ;
-pas d'ensemble (lot suivant).
+ensembles : ``test_repetition_ensembles.py`` (R-b3).
 """
 
 from __future__ import annotations
@@ -172,17 +172,6 @@ def test_refus_avant_toute_creation(document: Any) -> None:
     with pytest.raises(TypeError, match="pas une pièce de bois"):
         api.make_repeat([barreau, box], params())
     assert len(document.Objects) == count
-
-
-def test_autres_types_de_pieces_refuses(document: Any) -> None:
-    host, guest = source(document, "H"), source(document, "G")
-    guest.Placement = placement(0, 40)
-    document.recompute()
-    api.make_dowels(host, guest)
-    document.recompute()
-    furniture, _ = api.make_furniture([host, guest])
-    with pytest.raises(TypeError, match="seules les pièces de bois"):
-        api.make_repeat([furniture], params())
 
 
 def test_une_copie_liee_ne_se_repete_pas(document: Any) -> None:

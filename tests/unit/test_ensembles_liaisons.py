@@ -370,3 +370,52 @@ def test_epaisseur_figee_en_constante() -> None:
     assert frozen == Linear.of(1.0, 41.0, {"B": 0.5})
     assert frozen.frozen({}) == frozen
     assert Linear.of(0.0, 0.0, {"A": 1.0}).frozen({"A": 18.0}).constant
+
+
+# --- Copies liées d'une répétition (ADR 0044) ---------------------------------------------
+
+
+def linked(members: list[Member], *keys: str) -> list[Member]:
+    return [replace(m, linked=True) if m.key in keys else m for m in members]
+
+
+def test_copie_liee_compte_dans_les_rangees_sans_regle_ni_liaison() -> None:
+    """La copie liée reste un membre de la rangée de ses voisines, mais elle suit sa source :
+    aucune règle, aucune liaison."""
+    layout, members = carcass_members(CarcassParams(shelf_count=2))
+    members = linked(members, "shelf2")
+    rules, _ = follow_rules(layout.box, members)
+    assert "shelf2" not in rules and "shelf1" in rules
+    found = carcass_bindings(layout.box, members)
+    assert not [key for key, _ in found if key == "shelf2"]
+    assert {key for key, _ in found} >= {"shelf1", "left", "right", "top", "bottom"}
+
+
+def test_epaisseur_d_une_copie_liee_toujours_figee() -> None:
+    """Une copie dépend de sa source : si une voisine citait son épaisseur, la source qui cite
+    cette voisine fermerait un cycle. Le terme est figé en constante (18 mm x 1/3)."""
+    layout, members = carcass_members(CarcassParams(shelf_count=2))
+    plain = carcass_bindings(layout.box, members)[("shelf1", "Placement.Base.z")]
+    assert "shelf2.Thickness" in plain
+    frozen = carcass_bindings(layout.box, linked(members, "shelf2"))[("shelf1", "Placement.Base.z")]
+    assert "shelf2" not in frozen
+    assert frozen.endswith(" mm")
+
+
+def test_copie_liee_sans_avertissement_de_formule() -> None:
+    caisson = Member(
+        "C",
+        box=FurnitureBox(600, 520, 720),
+        origin=Vec3(0, 0, 0),
+        fixed=frozenset(),
+        driven=frozenset({"Depth", "Origin.y"}),
+    )
+    _, notices = bindings_for("Bureau", [caisson], {})
+    assert len(notices) == 2
+    followed = replace(caisson, repeated=frozenset({"Depth"}))
+    _, notices = bindings_for("Bureau", [followed], {})
+    assert [n.params["property"] for n in notices] == ["Origin.y"]  # la formule de l'utilisateur
+    with pytest.raises(ValueError, match=r"Member\.linked"):
+        replace(caisson, linked="oui")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match=r"Member\.repeated"):
+        replace(caisson, repeated={"Depth"})  # type: ignore[arg-type]
