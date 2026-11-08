@@ -28,6 +28,14 @@ Ensemble (J4) ::
     bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
     avertissements = resize_furniture(bureau, depth=800)
 
+Répétition (R-b1) ::
+
+    from freecad.menuiserie.api import RepeatParams, dissociate, edit_repeat, make_repeat
+
+    lames = make_repeat([lame], RepeatParams(count=9, step=120, axis="Y"))
+    edit_repeat(lames, RepeatParams(count=12, step=100, axis="Y"))
+    dissociate(copie)  # la copie devient une pièce libre
+
 Liste de débit (J2) ::
 
     from freecad.menuiserie.api import export_cut_list_csv, make_cut_list
@@ -83,6 +91,7 @@ from freecad.menuiserie._api.joints import (
     make_tongue_groove,
     slide_shortfall,
 )
+from freecad.menuiserie._api.repeat import dissociate, edit_repeat, make_repeat, repeat_of
 from freecad.menuiserie._api.wood import (
     make_shaped_part,
     make_shaped_parts,
@@ -90,6 +99,7 @@ from freecad.menuiserie._api.wood import (
     reset_shaped_axes,
 )
 from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV
+from freecad.menuiserie.core.repeat import RepeatAxis, RepeatMode, RepeatParams, SpacingMode
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
 from freecad.menuiserie.features.furniture_bindings import LockedPiecesError
 from freecad.menuiserie.features.machined_part import (
@@ -108,12 +118,18 @@ __all__ = [
     "CarcassParams",
     "LockedPiecesError",
     "PickedElement",
+    "RepeatAxis",
+    "RepeatMode",
+    "RepeatParams",
+    "SpacingMode",
     "add_to_furniture",
     "blank_of",
     "close_gap",
     "closing_options",
     "cut_list_html",
     "cut_list_of",
+    "dissociate",
+    "edit_repeat",
     "export_cut_list_csv",
     "export_cut_list_pdf",
     "furniture_of",
@@ -134,6 +150,7 @@ __all__ = [
     "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
+    "make_repeat",
     "make_room_for_slide",
     "make_shaped_part",
     "make_shaped_parts",
@@ -144,6 +161,7 @@ __all__ = [
     "rebind_furniture",
     "remove_from_furniture",
     "remove_machined_part",
+    "repeat_of",
     "reset_shaped_axes",
     "resize_furniture",
     "set_distance",
