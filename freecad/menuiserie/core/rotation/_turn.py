@@ -26,6 +26,30 @@ def axis_rotation(axis: int, angle: float) -> Matrix3:
     return matrix_of((angles[0], angles[1], angles[2]))
 
 
+def turned_about_point(
+    transform: RigidTransform, center: Vec3, axis: int, angle: float
+) -> RigidTransform:
+    """Placement après une rotation de ``angle`` degrés autour de l'axe fixe ``axis`` (0 = X,
+    1 = Y, 2 = Z) du repère de ``transform``, passant par ``center`` (repère local de
+    ``transform``).
+
+    R' = R(axe, Δ) · R ; le point ``center`` ne bouge pas. Angle non fini : ``ValueError``.
+    """
+    check_axis("turned_about", axis)
+    if not math.isfinite(angle):
+        raise ValueError("turned_about.angle : angle fini attendu")
+    spin = RigidTransform(axis_rotation(axis, angle), Vec3(0.0, 0.0, 0.0))
+    return turned_to(transform, center, spin.compose(transform).rotation)
+
+
+def turned_to(transform: RigidTransform, center: Vec3, rotation: Matrix3) -> RigidTransform:
+    """Placement de rotation ``rotation`` qui garde fixe l'image de ``center`` (repère local de
+    ``transform``) : le centre reste où ``transform`` le mettait."""
+    held = transform.apply(center)
+    carried = RigidTransform(rotation, Vec3(0.0, 0.0, 0.0)).rotate(center)
+    return RigidTransform(rotation, held - carried)
+
+
 def turned_about(
     transform: RigidTransform, dimensions: Dimensions, axis: int, angle: float
 ) -> RigidTransform:
@@ -34,15 +58,8 @@ def turned_about(
 
     R' = R(axe, Δ) · R ; le centre ne bouge pas. Angle non fini : ``ValueError``.
     """
-    check_axis("turned_about", axis)
-    if not math.isfinite(angle):
-        raise ValueError("turned_about.angle : angle fini attendu")
     center = Vec3(dimensions.length / 2, dimensions.width / 2, dimensions.thickness / 2)
-    spin = RigidTransform(axis_rotation(axis, angle), Vec3(0.0, 0.0, 0.0))
-    rotation = spin.compose(transform).rotation
-    held = transform.apply(center)
-    carried = RigidTransform(rotation, Vec3(0.0, 0.0, 0.0)).rotate(center)
-    return RigidTransform(rotation, held - carried)
+    return turned_about_point(transform, center, axis, angle)
 
 
 def snapped_angle(angle: float, step: float = _DEFAULT_STEP_DEGREES, free: bool = False) -> float:

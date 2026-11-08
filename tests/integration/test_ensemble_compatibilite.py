@@ -41,7 +41,8 @@ def meuble(document: Any) -> tuple[Any, Bureau]:
 
 def test_bureau_dans_un_std_part(meuble: tuple[Any, Bureau]) -> None:
     part, bureau = meuble
-    assert bureau.furniture.getParentGeoFeatureGroup() == part
+    own = bureau.furniture.getParentGeoFeatureGroup()  # Std Part de l'ensemble, dans « Meuble »
+    assert own.TypeId == "App::Part" and own.getParentGeoFeatureGroup() == part
     assert tuple(bureau.furniture.Origin) == pytest.approx((0, 0, 0))
     bureau.furniture.Depth = 800
     bureau.doc.recompute()
@@ -82,7 +83,10 @@ def test_duplication_independante(meuble: tuple[Any, Bureau]) -> None:
     members = [obj for obj in created if "FurnitureBindings" in obj.PropertiesList]
     assert len(members) == 4
     assert all(obj.Furniture == furniture for obj in members)
-    assert all(obj.getParentGeoFeatureGroup() == copy for obj in [furniture, *members])
+    own = furniture.getParentGeoFeatureGroup()  # Std Part copié de l'ensemble, dans la copie
+    assert own != bureau.furniture.getParentGeoFeatureGroup()
+    assert own.getParentGeoFeatureGroup() == copy
+    assert all(obj.getParentGeoFeatureGroup() == own for obj in [furniture, *members])
     # Les pièces se citent par leur Name : la copie vise ses propres pièces sans rien relier.
     furniture.Depth = 800
     doc.recompute()
@@ -117,6 +121,17 @@ def test_vue_techdraw_du_std_part(meuble: tuple[Any, Bureau]) -> None:
     assert "Invalid" not in view.State
 
 
+def leaves(container: Any) -> list[Any]:
+    """Objets à forme du Std Part, ceux de ses Std Parts compris."""
+    found: list[Any] = []
+    for obj in container.Group:
+        if obj.TypeId == "App::Part":
+            found.extend(leaves(obj))
+        elif hasattr(obj, "Shape") and not obj.Shape.isNull():
+            found.append(obj)
+    return found
+
+
 def test_export_et_import_step(meuble: tuple[Any, Bureau], tmp_path: Path) -> None:
     import_module = pytest.importorskip("Import")
     part, _ = meuble
@@ -125,7 +140,7 @@ def test_export_et_import_step(meuble: tuple[Any, Bureau], tmp_path: Path) -> No
     shape = Part.read(str(path))
     assert shape.isValid()
     # Tout le contenu du Std Part est exporté, brutes masquées comprises.
-    solids = [obj.Shape for obj in part.Group if hasattr(obj, "Shape") and not obj.Shape.isNull()]
+    solids = [obj.Shape for obj in leaves(part)]
     assert shape.Volume == pytest.approx(sum(item.Volume for item in solids), rel=1e-6)
 
 
@@ -138,7 +153,9 @@ def test_document_ouvert_sans_l_atelier(meuble: tuple[Any, Bureau], tmp_path: Pa
         for obj in bureau.doc.Objects
         if hasattr(obj, "Shape") and not obj.Shape.isNull() and obj.Shape.Volume > 0
     }
-    assert len(expected) == 10  # Std Part, 4 brutes, 3 pièces usinées, 2 jeux de tourillons
+    # Deux Std Parts (« Meuble » et celui de l'ensemble), 4 brutes, 3 pièces usinées, 2 jeux de
+    # tourillons
+    assert len(expected) == 11
     assert_opens_without_workbench(bureau.doc, expected, tmp_path)
 
 

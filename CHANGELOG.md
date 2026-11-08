@@ -7,6 +7,37 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Ensemble à la souris, vue 3D et panneau (EN-c et EN-d, ADR 0038) : un ensemble sélectionné seul
+  dans l'arbre (ou dont le panneau est ouvert) est dessiné en transparence avec six doubles flèches
+  de face (taille, aimant de 10 px sur les voisines, cote et message de refus près de la souris,
+  aperçu des brutes à 10 Hz au plus), trois flèches de déplacement et trois anneaux de rotation
+  (15°, Maj libre, angle affiché), en transactions « Redimensionner l'ensemble », « Déplacer
+  l'ensemble » et « Tourner l'ensemble » (un Ctrl+Z, Échap, transaction du panneau s'il est
+  ouvert). La session de glissement passe par une abstraction `Target` (pièce, ensemble) sans
+  changer le comportement des pièces. Sans Std Part propre : ni flèches ni anneaux, faces avant,
+  gauche et basse refusées avec la raison. Le panneau de l'ensemble a trois champs d'angle
+  (-360 à 360, forme canonique en fin de saisie, grisés avec infobulle si l'ensemble est lié par
+  son parent ou sans Std Part propre), relit cotes et angles après un geste, et la case « Cotes
+  fixes » d'un sous-ensemble (Q7).
+- Ensemble à la souris, règles et écriture (EN-a et EN-b, ADR 0038) : `core/furniture` donne la
+  disposition d'une boîte d'ensemble (`furniture_layout` : six poignées de face, trois flèches
+  au centre, trois anneaux, réutilisant `core/magnet` et `core/rotation`) et `resized_box` (face
+  opposée fixe, cote minimale 0,1 mm). `features/furniture_drag` écrit le geste : `begin_furniture_drag`
+  (Memento), `resize_furniture_to` (cotes absolues par le chemin du panneau, brutes seules
+  recalculées, arrêt à la dernière valeur permise avec message en cas de refus), `move_furniture_by`,
+  `rotate_furniture_by` et `rotate_furniture_to` (`Placement` du Std Part, rotation autour du
+  centre de la boîte), `restore` (Échap) et `end_furniture_drag` (recalcul complet, avertissements,
+  liaison du parent pour un sous-ensemble). Sans Std Part propre, déplacement et rotation sont
+  refusés. Façade : `api.move_furniture` et `api.rotate_furniture`. « Cotes fixes » d'un
+  sous-ensemble : lecture par les liaisons vérifiée et testée (Q7).
+- Std Part d'ensemble (EN-e, ADR 0038) : chaque ensemble, gabarit Caisson compris, est rangé à sa
+  création dans un Std Part (`App::Part`, « {ensemble} (Std Part) ») avec ses pièces, pièces
+  usinées, assemblages et Distances, sans rien déplacer à l'écran ; une pièce ajoutée y entre, une
+  pièce retirée en sort à la même position (une pièce assemblée à un membre qui reste garde le
+  Std Part). Un sous-ensemble a son propre Std Part, rangé dans celui du parent : son `Origin`
+  vaut (0, 0, 0), le parent lie le `Placement.Base` de ce Std Part. Pas de reprise des anciens
+  documents. Essai sur FreeCAD 1.1 dans l'ADR 0038.
+
 - Panneau d'assemblage : le bouton « Inverser » reste visible mais grisé, avec une infobulle qui explique pourquoi, quand l'inversion n'a pas de sens (mi-bois, onglet, tourillons, faux tenons, biscuits) ou que les rôles échangés rendraient l'assemblage impossible (ex. tenon-mortaise en biais : l'infobulle donne la raison).
 - Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
 - Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; rangs du montant opposé aux mêmes hauteurs que ceux du côté (tablette de niveau même si les montants ne partent pas du même bas) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).
@@ -94,6 +125,28 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Ensemble d'ensembles : sélectionner les Std Parts de deux ensembles dans l'arbre active de
+  nouveau la commande « Ensemble » (le Std Part compte pour l'ensemble qu'il porte, ADR 0038) ; le
+  lien `Furniture` d'un membre devient `App::PropertyLinkGlobal` (un sous-ensemble cite son parent
+  rangé dans le Std Part du dessus : plus d'avertissement « lien hors de portée » à chaque
+  recalcul), recréé sans perte à la réouverture d'un document plus ancien.
+
+- Relecture de fin de jalon « Ensemble à la souris » (ADR 0038) : un ensemble déjà tourné puis rangé
+  dans un parent ne se décale plus au recalcul (l'`Origin` passe tournée dans la `Base` du Std
+  Part) ; `remove_from_furniture` renvoie les avertissements de sortie (« reste dans son Std Part »)
+  et la suppression de l'ensemble les écrit dans la vue rapport ; supprimer à la main le Std Part
+  d'un ensemble laisse les pièces en place (décalage reporté dans leurs `Placement` et l'`Origin`,
+  ou, Std Part tourné, liaisons retirées avec avertissement) ; supprimer l'ensemble supprime son Std
+  Part vide, ou le signale s'il contient encore des objets ; la source d'une pièce en bois (corps,
+  esquisse) rangée avec elle garde sa place globale à l'entrée et à la sortie d'un Std Part tourné
+  et ne rend plus le Std Part « impropre » (rotation refusée) ; seul le Std Part d'un
+  sous-ensemble membre est accepté dans le Std Part propre d'un ensemble (pas un `App::Part` de
+  l'utilisateur) ; une pièce libre liée à un membre (assemblage, Distance, formule) rangée avec lui
+  est signalée ; le Std Part sélectionné dans l'arbre cible l'ensemble qu'il porte ; son libellé
+  suit le renommage de l'ensemble. `furniture_entry` regroupe les entrées et sorties du Std Part.
+- Une pièce membre d'un ensemble est aimantée quand on la déplace ou la redimensionne à la souris
+  (flèche et poignée) : les guides étaient lus dans `Document.RootObjects`, qui exclut les objets
+  cités par une expression ; les Std Parts d'ensemble sont transparents pour l'aimant.
 - Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même
   ensemble se range sous l'ensemble le plus proche qui les contient (sous-ensembles compris) dans
   l'arbre, dès sa création.

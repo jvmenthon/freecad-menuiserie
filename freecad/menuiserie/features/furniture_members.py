@@ -8,12 +8,11 @@ c'est à l'appelant (``api.py``, commandes) de les faire.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core.furniture import (
     Edge,
-    FurnitureBox,
     FurnitureError,
     InteriorMode,
     Notice,
@@ -23,13 +22,11 @@ from freecad.menuiserie.core.furniture import (
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import (
     DEFAULT_LABEL,
-    DIMENSIONS,
     MEMBER_PROPERTIES,
     MODES,
-    create_furniture,
     furniture_of,
     has_member_properties,
     is_furniture,
@@ -44,12 +41,23 @@ from freecad.menuiserie.features.furniture_bindings import (
     rebind,
     remove_bindings,
 )
+from freecad.menuiserie.features.furniture_checks import (
+    checked_furniture,
+    member_object,
+    quoted_label,
+)
+from freecad.menuiserie.features.furniture_container import (
+    create_with_std_part,
+    placement_container,
+    scopes,
+    std_part_of,
+)
 from freecad.menuiserie.features.furniture_enclosing import enclosing
+from freecad.menuiserie.features.furniture_entry import adopt, check_assembled, leave, taken_along
 from freecad.menuiserie.features.furniture_relink import relink_remaining
-from freecad.menuiserie.features.furniture_variants import resize_notices
+from freecad.menuiserie.features.furniture_resize import planned_resize, resize, write_box
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
-from freecad.menuiserie.features.machined_part import blank_of
-from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 
 __all__ = [
     "DRAWN_LOCKED",
@@ -58,21 +66,18 @@ __all__ = [
     "add_members",
     "build_furniture",
     "checked_furniture",
+    "detach_members",
     "join_with_options",
     "member_object",
+    "planned_resize",
     "quoted_label",
     "relink",
     "remove_members",
     "resize",
     "set_options",
+    "write_box",
 ]
 
-_NOT_A_MEMBER: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "« {label} » n'est ni une pièce de bois, ni une pièce en bois, ni une pièce usinée, ni un "
-    "ensemble.",
-)
-_NOT_FURNITURE: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas un ensemble.")
 _NO_OBJECT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Choisissez au moins une pièce pour former un ensemble."
 )
@@ -106,33 +111,6 @@ DRAWN_LOCKED: Final = QT_TRANSLATE_NOOP(
     "« {label} » : cotes dessinées, toujours fixes ; une pièce en bois ne s'étire pas, "
     "modifiez le dessin.",
 )
-_DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "« {label} » : {property} suit une expression ; modifiez cette expression ou l'ensemble "
-    "qui la pilote.",
-)
-
-
-def quoted_label(obj: DocumentObject) -> dict[str, str]:
-    return {"label": quoted_value(getattr(obj, "Label", obj))}
-
-
-def member_object(obj: DocumentObject) -> DocumentObject:
-    """Objet qui porte les propriétés de membre : l'ensemble lui-même, ou la brute d'une pièce
-    (de bois, en bois ou usinée) ; ``TypeError`` traduite sinon."""
-    if is_furniture(obj) or is_timber(obj):
-        return obj
-    try:
-        return blank_of(obj)
-    except TypeError:
-        raise TypeError(translated(_NOT_A_MEMBER, quoted_label(obj))) from None
-
-
-def checked_furniture(obj: DocumentObject) -> DocumentObject:
-    """``obj`` s'il est un ensemble ; ``TypeError`` traduite sinon."""
-    if not is_furniture(obj):
-        raise TypeError(translated(_NOT_FURNITURE, quoted_label(obj)))
-    return obj
 
 
 def _ancestry(furniture: DocumentObject) -> tuple[dict[str, str], dict[str, str]]:
@@ -148,7 +126,10 @@ def _ancestry(furniture: DocumentObject) -> tuple[dict[str, str], dict[str, str]
 
 
 def _checked(
-    obj: DocumentObject, doc: object, container: object, furniture: DocumentObject | None
+    obj: DocumentObject,
+    doc: object,
+    allowed: Sequence[DocumentObject | None],
+    furniture: DocumentObject | None,
 ) -> DocumentObject:
     member = member_object(obj)
     if member.Document != doc:
@@ -157,8 +138,6 @@ def _checked(
     if current is not None:
         params = {**quoted_label(member), "furniture": quoted_value(current.Label)}
         raise ValueError(translated(_ALREADY_MEMBER, params))
-    if member.getParentGeoFeatureGroup() != container:
-        raise ValueError(translated(_OTHER_CONTAINER, quoted_label(member)))
     if furniture is not None and is_furniture(member):
         parents, labels = _ancestry(furniture)
         labels[member.Name] = str(member.Label)
@@ -166,6 +145,8 @@ def _checked(
             check_membership(furniture.Name, member.Name, parents, labels)
         except FurnitureError as error:
             raise ValueError(templated_message(error)) from error
+    if placement_container(member) not in allowed:
+        raise ValueError(translated(_OTHER_CONTAINER, quoted_label(member)))
     return member
 
 
@@ -173,15 +154,15 @@ def _candidates(
     objects: Sequence[DocumentObject], furniture: DocumentObject | None
 ) -> list[DocumentObject]:
     """Objets qui entrent dans l'ensemble (brutes ou ensembles, sans doublon), contrôlés :
-    même document et même conteneur que l'ensemble (ou que le premier objet), aucun membre
-    d'un ensemble, aucun cycle d'ensembles."""
+    même document et même conteneur que le Std Part de l'ensemble (ou que le premier objet), aucun
+    membre d'un ensemble, aucun cycle d'ensembles."""
     if not objects:
         raise ValueError(translated(_NO_OBJECT))
     reference = furniture if furniture is not None else member_object(objects[0])
-    doc, container = reference.Document, reference.getParentGeoFeatureGroup()
+    allowed = scopes(furniture) if furniture is not None else (placement_container(reference),)
     found: dict[str, DocumentObject] = {}
     for obj in objects:
-        member = _checked(obj, doc, container, furniture)
+        member = _checked(obj, reference.Document, allowed, furniture)
         found.setdefault(member.Name, member)
     return list(found.values())
 
@@ -207,14 +188,16 @@ def _join(obj: DocumentObject, furniture: DocumentObject, fixed: frozenset[Edge]
 
 
 def _enter(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> list[Notice]:
-    """Options par défaut (F3), propriétés de membre et liaisons des ``objects`` ; les
-    sous-ensembles sont ensuite reliés à nouveau (``nested`` : leurs membres suivent leur
-    ``Origin``)."""
+    """Les ``objects`` sont rangés dans le Std Part de ``furniture`` (E1 à E3), puis reçoivent
+    leurs options par défaut (F3), leurs propriétés de membre et leurs liaisons ; les
+    sous-ensembles sont ensuite reliés à nouveau (leur ``Origin`` vient de passer au Std Part)."""
+    notices = taken_along(objects) if std_part_of(furniture) is not None else []
+    adopt(furniture, objects)
     entering: MemberSet = read_members(furniture, entering=objects)
     for member in entering.members:
         if member.key in {obj.Name for obj in objects}:
             _join(entering.objects[member.key], furniture, member.fixed or frozenset())
-    notices = bind_members(entering, [obj.Name for obj in objects])
+    notices.extend(bind_members(entering, [obj.Name for obj in objects]))
     for obj in objects:
         if is_furniture(obj):
             notices.extend(rebind(obj))
@@ -255,8 +238,9 @@ def build_furniture(
     box, origin = enclosing(members)
     for obj in members:
         member_of(obj, origin, entering=True)  # cote illisible : refus avant création
-    container = members[0].getParentGeoFeatureGroup()
-    furniture = create_furniture(members[0].Document, box, origin, text, container)
+    check_assembled(members)
+    outer = placement_container(members[0])
+    furniture = create_with_std_part(members[0].Document, box, origin, text, outer)
     return furniture, _enter(furniture, members)
 
 
@@ -267,18 +251,21 @@ def add_members(furniture: DocumentObject, objects: Sequence[DocumentObject]) ->
     members = _candidates(objects, furniture)
     _checked_label(str(furniture.Label))
     read_members(furniture, entering=members)  # cotes illisibles : refus avant modification
+    check_assembled(members, furniture)
     return _enter(furniture, members)
 
 
-def remove_members(objects: Sequence[DocumentObject]) -> None:
-    """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
-    de membre sont supprimées, la géométrie ne change pas. Un orphelin (ensemble supprimé) est
-    accepté. Les pièces qui restent sont reliées sans elles."""
+def detach_members(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
+    """Première moitié de :func:`remove_members` : les liaisons de l'atelier et les propriétés de
+    membre de ``objects`` sont supprimées, les voisines reliées sans eux ; ils ne sortent pas de
+    leur Std Part. Renvoie ceux qui avaient un ensemble. ``ValueError`` traduite, avant toute
+    modification, pour un objet qui n'est membre d'aucun ensemble."""
     targets = {member.Name: member for member in map(member_object, objects)}
     for member in targets.values():
         if not has_member_properties(member):
             raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
     furnitures = {f.Name: f for f in (furniture_of(m) for m in targets.values()) if f is not None}
+    owned = [member for member in targets.values() if furniture_of(member) is not None]
     for member in targets.values():
         with writing(member):
             remove_bindings(member)
@@ -287,6 +274,16 @@ def remove_members(objects: Sequence[DocumentObject]) -> None:
                     member.removeProperty(spec.name)
     for furniture in furnitures.values():  # les voisines ne citent plus les pièces retirées
         relink_remaining(furniture, set(targets))
+    return owned
+
+
+def remove_members(objects: Sequence[DocumentObject]) -> list[str]:
+    """Retire ``objects`` de leur ensemble : les liaisons de l'atelier et les propriétés de membre
+    sont supprimées, puis ils sortent du Std Part de l'ensemble sans bouger (E2) ; la géométrie
+    ne change pas. Un orphelin (ensemble supprimé) est accepté. Les pièces qui restent sont
+    reliées sans elles. Renvoie les avertissements traduits (pièce assemblée à une pièce qui
+    reste : elle garde son Std Part)."""
+    return leave(detach_members(objects))
 
 
 def _checked_options(
@@ -339,43 +336,6 @@ def relink(furniture: DocumentObject) -> list[Notice]:
     return rebind(furniture)
 
 
-def planned_resize(
-    furniture: DocumentObject, sizes: Mapping[str, float | None], unlocked: Collection[str] = ()
-) -> tuple[FurnitureBox, list[Notice]]:
-    """Contrôle (``check_resize``, sous-ensembles compris) des cotes ``sizes`` (``Width``,
-    ``Depth``, ``Height`` ; ``None`` = inchangée) : nouvelles cotes et avertissements. Rien n'est
-    écrit. ``unlocked`` : clés des pièces à considérer comme déverrouillées."""
-    checked_furniture(furniture)
-    old = read_members(furniture).box
-    changed = {name: value for name, value in sizes.items() if value is not None}
-    driven = sorted(set(changed) & set(expressions_of(furniture)))
-    if driven:
-        params = {**quoted_label(furniture), "property": driven[0]}
-        raise ValueError(translated(_DRIVEN_DIMENSION, params))
-    values = [changed.get(name, getattr(old, name.lower())) for name in DIMENSIONS]
-    with translated_errors():
-        new = FurnitureBox(*values)
-        return new, resize_notices(furniture, old, new, unlocked)
-
-
-def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list[Notice]:
-    """Contrôle (:func:`planned_resize`) puis écrit les cotes ``sizes``. Refus avant toute
-    écriture (:class:`LockedPiecesError` si une rangée est bloquée par des pièces verrouillées)."""
-    new, notices = planned_resize(furniture, sizes)
-    write_box(furniture, new, sizes)
-    return notices
-
-
-def write_box(
-    furniture: DocumentObject, new: FurnitureBox, sizes: Mapping[str, float | None]
-) -> None:
-    """Écrit les cotes de ``new`` dont ``sizes`` n'est pas ``None``."""
-    with writing(furniture):
-        for name, value in sizes.items():
-            if value is not None:
-                setattr(furniture, name, getattr(new, name.lower()))
-
-
 # --- Gabarits (J4d, ADR 0010) ---------------------------------------------------------------
 
 
@@ -390,6 +350,8 @@ def join_with_options(
     members = _candidates([obj for obj, _mode, _fixed in entries], furniture)
     _checked_label(str(furniture.Label))
     read_members(furniture, entering=members)  # cotes illisibles : refus avant modification
+    check_assembled(members, furniture)
+    adopt(furniture, members)
     options = {member_object(obj).Name: (mode, fixed) for obj, mode, fixed in entries}
     for member in members:
         mode, fixed = options[member.Name]
