@@ -25,15 +25,13 @@ from freecad.menuiserie.features.furniture import (
     is_furniture,
 )
 from freecad.menuiserie.features.furniture_members import member_object
-from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui.commands.base import (
     REFUSAL_DISPLAY_MS,
     TransactionCommand,
-    report_refusal,
+    refusable_transaction,
 )
-from freecad.menuiserie.gui.task_panels.base import close_transaction
 
 # Noms des commandes, aussi noms de leurs icônes (``<nom>.svg``) et contextes de traduction.
 FURNITURE: Final = "Menuiserie_Furniture"
@@ -87,22 +85,14 @@ class FurnitureCommand(TransactionCommand):
         selection = self._accepted_selection()
         if selection is None:
             return
-        doc = App.ActiveDocument
         shown = concerned_furniture()
-        doc.openTransaction(translated(self.TRANSACTION))
-        transaction = App.getActiveTransaction()
-        try:
-            messages = self.apply(selection)
+        messages: Sequence[str] | None = None
+        with refusable_transaction(App.ActiveDocument, self.TRANSACTION):
+            applied = self.apply(selection)
             refresh_tree(shown)
-        except (TypeError, ValueError) as error:
-            close_transaction(transaction, abort=True)
-            report_refusal(str(error))
-            return
-        except BaseException:
-            close_transaction(transaction, abort=True)
-            raise
-        close_transaction(transaction, abort=False)
-        show_notices(messages)
+            messages = applied  # notices rappelés seulement si la transaction est validée
+        if messages is not None:
+            show_notices(messages)
 
     def _accepted_selection(self) -> list[DocumentObject] | None:
         """Sélection actuelle si elle ne contient que des pièces et des ensembles et que la

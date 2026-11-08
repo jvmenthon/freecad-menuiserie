@@ -43,6 +43,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     connect,
     object_alive,
     panel_title,
+    set_ok_enabled,
 )
 from freecad.menuiserie.gui.task_panels.joint_fields import ParamField, fields_of, property_tooltip
 from freecad.menuiserie.gui.task_panels.preview import PartsPreview
@@ -65,7 +66,6 @@ _ERROR_STYLE: Final = "color: #c0392b;"
 _FIX_FIRST: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Assemblage impossible, non validé : corriger l'erreur ou annuler. {error}"
 )
-_TASK_VIEW: Final = "TaskView"  # classe Qt de la vue des tâches de FreeCAD (porte « OK »)
 
 
 class JointTaskPanel(ObjectTaskPanel):
@@ -132,19 +132,6 @@ class JointTaskPanel(ObjectTaskPanel):
             self._refresh()
             return False
         return super().accept()
-
-    def _ok_button(self) -> Widget | None:
-        """Bouton « OK » de la vue des tâches qui affiche le panneau, ``None`` hors affichage."""
-        widget = self.form.parentWidget() if self.form is not None else None
-        while widget is not None and _TASK_VIEW not in widget.metaObject().className():
-            widget = widget.parentWidget()
-        if widget is None:
-            return None
-        for box in widget.findChildren(QtGui.QDialogButtonBox):
-            button = box.button(QtGui.QDialogButtonBox.Ok)
-            if button is not None:
-                return button
-        return None
 
     # --- Transparence ---------------------------------------------------------------------
 
@@ -220,9 +207,7 @@ class JointTaskPanel(ObjectTaskPanel):
         """« OK » grisé tant que l'assemblage est en erreur (sans effet panneau fermé)."""
         if self.closed:
             return
-        button = self._ok_button()
-        if button is not None:
-            button.setEnabled((error if error is not None else joint_error(self.obj)) is None)
+        set_ok_enabled(self.form, (error if error is not None else joint_error(self.obj)) is None)
 
 
 def joint_error(joint: DocumentObject) -> str | None:

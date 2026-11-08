@@ -23,7 +23,7 @@ def _bureau(ic: Icone) -> None:
     ic.veinage((2, 62), (22, 43), "chene", amplitude=0.7, phase=0.5)
 
 
-def _pastille(couleur: str, bord: str, motif: str) -> str:
+def pastille(couleur: str, bord: str, motif: str) -> str:
     """Pastille ronde en bas à droite, motif blanc (chemin SVG) par-dessus."""
     return (
         f'  <circle cx="49" cy="49" r="13" fill="{couleur}" stroke="{bord}" stroke-width="2"/>\n'
@@ -45,21 +45,21 @@ def ensemble() -> str:
 def ensemble_ajouter() -> str:
     ic = Icone("Ajouter à l'ensemble : bureau et pastille « plus »")
     _bureau(ic)
-    plus = _pastille("#73d216", "#2c5e00", "M49,42 V56 M42,49 H56")
+    plus = pastille("#73d216", "#2c5e00", "M49,42 V56 M42,49 H56")
     return ic.svg(cadre=(2, 50, 2, 50), devant=plus)
 
 
 def ensemble_retirer() -> str:
     ic = Icone("Retirer de l'ensemble : bureau et pastille « moins »")
     _bureau(ic)
-    moins = _pastille("#ef2929", "#a40000", "M42,49 H56")
+    moins = pastille("#ef2929", "#a40000", "M42,49 H56")
     return ic.svg(cadre=(2, 50, 2, 50), devant=moins)
 
 
 def ensemble_relier() -> str:
     ic = Icone("Relier les pièces : bureau et pastille de recalcul")
     _bureau(ic)
-    fleches = _pastille(
+    fleches = pastille(
         "#3465a4",
         "#204a87",
         "M43,47 A6.5,6.5 0 0 1 55,46 M55,46 L56,41 M55,46 L50,45 "

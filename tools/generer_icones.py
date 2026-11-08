@@ -27,6 +27,7 @@ from icones_ensembles import (
     rotation_y,
     rotation_z,
 )
+from icones_repetition import dissocier_la_copie, modifier_la_repetition, repeter, repetition
 from icones_svg import Icone, angles, document, etiquette, feuille
 
 ICONS_DIR = Path(__file__).resolve().parents[1] / "freecad" / "menuiserie" / "resources" / "icons"
@@ -326,6 +327,11 @@ ICONES = {
     # Pièce en bois à forme libre (PD-d)
     "Menuiserie_ShapedPart.svg": piece_en_bois,
     "Menuiserie_ShapedPartObject.svg": piece_en_bois_objet,
+    # Répétition (R-c)
+    "Menuiserie_Repeat.svg": repeter,
+    "Menuiserie_RepeatEdit.svg": modifier_la_repetition,
+    "Menuiserie_RepeatDissociate.svg": dissocier_la_copie,
+    "Menuiserie_RepeatObject.svg": repetition,
 }
 
 
