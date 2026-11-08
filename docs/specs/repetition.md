@@ -93,7 +93,11 @@ Exemple : un barreau tenonné dans une traverse haute et une traverse basse, ré
 | F. Ajouter une copie après coup | ses assemblages sont créés comme pour A et B |
 | G. Supprimer une copie | ses assemblages sont supprimés avec elle (comportement J3 existant) |
 
-Variante plus simple (refusée ★) : copier les pièces seules et laisser jv réassembler.
+**Réponse de jv (2026-11-08)** : le panneau a une case **« Recopier les assemblages »**
+(cochée par défaut). Décochée : seules les pièces sont copiées (cas A, B et F ne créent rien).
+Cochée : les assemblages répétés **partagent la configuration** de l'assemblage d'origine ; un
+changement sur le premier assemblage modifie tous les assemblages enfants (cas E). La case est
+mémorisée dans `Repeat` (`CopyJoints`) et reprise par « Modifier la répétition ».
 
 ## 4. Geste : Maj + déplacement
 
@@ -133,8 +137,8 @@ FreeCAD ; seul le trajet appelle Draft, dans `features/`.
   tableau Draft (copies virtuelles).
 - **Q2 — Modes de saisie.** ★ Nombre+pas, nombre sur une longueur, pas sur une longueur.
 - **Q3 — Direction.** ★ Axe X/Y/Z global + « Inverser » ; ensuite axes de la pièce.
-- **Q4 — Assemblages.** ★ Tableau du § 3 (A, B, F, G ; C ignoré). Confirmer le cas B (la
-  traverse reçoit un tenon par copie) et le cas E (paramètres suivent l'origine).
+- **Q4 — Assemblages.** ✅ jv (2026-11-08) : case « Recopier les assemblages » ; assemblages
+  enfants liés au premier (§ 3).
 - **Q5 — Ensemble.** ★ Copies membres, sans redistribution au redimensionnement.
 - **Q6 — Ce qui est lié.** ★ Cotes, matériau, finitions et placement ; la **position** d'une copie
   déplacée à la main reste libre (la copie se dissocie de la position seulement ?). Alternative :
