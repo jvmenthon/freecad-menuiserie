@@ -108,3 +108,13 @@ Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés d
 | rp5 | mineur | `features/` (préexistant) | Supprimer directement un membre d'un ensemble copie par `doc.removeObject` laisse des assemblages invalides. | Retirer les assemblages du membre dans `unsetupObject`. |
 | rp6 | mineur | `tests/gui/` | Pas d'essai en interface réelle d'un Ctrl + glisser sur une pièce tournée hors multiple de 90° (refus), ni sur une pièce d'un conteneur tourné. | Ajouter une vérification hors écran avec un conteneur tourné. |
 
+
+## Répétition en grille (ADR 0045), 2026-11-08
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| rg1 | mineur | `core/repeat/_model.py` (`RepeatParams._set_grid`) | Pour une grille, `axis`, `count`, `step`, `span` et `reverse` reflètent la première ligne (compatibilité avec le code à un axe) : `replace(params, axis=...)` est sans effet sur une grille, qui l'emporte. | Retirer les champs reflets quand plus aucun appelant ne lit `params.axis` / `params.count`, et ne garder que `lines`. |
+| rg2 | mineur | `features/repeat_props.py` | Les propriétés `Step2`/`Reverse2`/`Step3`/`Reverse3` restent visibles et modifiables dans l'éditeur quand la ligne est inutilisée (`Axis2` = `None`) ; même réserve que rp1 (ensemble non relié). | Les masquer (mode d'édition) tant que la ligne n'est pas utilisée ; voir rp1. |
+| rg3 | mineur | `core/repeat/_grid.py` (`grid_overlaps`, `rank_of`) | Comparaison deux à deux de toutes les boîtes (101 au plus, environ 5 000 paires) à chaque saisie du panneau, et recherche linéaire du rang. Sans effet mesurable à 100 copies, mais inutilement quadratique ; `grid_overlaps` vaut d'ailleurs « un axe au moins se chevauche » (vérifié par tests). | Sortie anticipée ou test par axe seulement ; table cellule → rang calculée une fois par grille. |
+| rg4 | mineur | `features/repeat_copies.py` (`_renumber`) | Le rang et les libellés automatiques suivent la grille, mais un libellé de copie que l'utilisateur a tapé à la main et qui ressemble au libellé automatique d'un autre rang est pris pour automatique. | Mémoriser le libellé attribué (propriété cachée) plutôt que le déduire. |
+| rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |

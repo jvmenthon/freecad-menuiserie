@@ -1,7 +1,8 @@
 # Répétition de pièces
 
 - Issue [#180](https://github.com/jvmenthon/freecad-menuiserie/issues/180), demande de jv (2026-11-07).
-- Décision : [ADR 0043](../adr/0043-repetition-objet-de-cotes-et-copies-liees.md) (accepté).
+- Décision : [ADR 0043](../adr/0043-repetition-objet-de-cotes-et-copies-liees.md) (accepté) ;
+  grille X × Y × Z : [ADR 0045](../adr/0045-repetition-en-grille.md) (proposé).
 - Statut : **validée par jv** (2026-11-08) : Q4 et Q5 modifiées (cases à cocher), toutes les
   autres questions selon les choix ★.
 - Révision 2 (même jour) : intègre les demandes de jv — copies modifiables après coup, liées à
@@ -196,3 +197,78 @@ Décisions détaillées : [ADR 0044](../adr/0044-repetition-d-ensembles-et-liais
 - Copie d'ensemble : ensemble neuf (sous-ensemble du même parent) dont les cotes et l'`Origin`
   suivent la source, avec une copie de chaque membre ; limites : pièce en bois à forme libre
   refusée, Distances gardées non copiées, cote des sources figée dans `Step`.
+
+## 9. Grille X × Y × Z (demande de jv, 2026-11-08 ; ADR 0045, proposé)
+
+Demande de jv : « la répétition peut se faire sur tous les axes en même temps mais avec le même mode
+de saisie ». Lecture retenue : une **grille**. La répétition à un axe (§ 2 à 8) en est le cas
+particulier d'une seule ligne.
+
+### 9.1 Saisie
+
+- **Un seul mode de saisie** pour toute la répétition : nombre et pas, nombre sur une longueur, ou
+  pas sur une longueur.
+- **Une ligne par axe** (X, Y, Z), chacune avec sa valeur selon le mode (nombre et pas, nombre et
+  longueur, ou pas et longueur) et son sens (« Inverser »).
+- Le **nombre** d'un axe est celui des éléments de l'axe, **original compris** ; un axe de nombre 1
+  est inactif. Dans le panneau, la case d'activation de la ligne est équivalente (nombre ≥ 2).
+- Exemple : 4 × 3 sur X et Y, pas de 100 mm sur X et de 150 mm sur Y = **11 copies** en plus de
+  l'original ; avec un troisième axe de 2, 4 × 3 × 2 = 23 copies.
+- Total des copies = (nx · ny · nz) − 1, au plus **100** ; au-delà, refus avec un message
+  (« 11 × 10 donneraient 109 copies en plus de l'original ; le maximum est 100 »), dans le panneau
+  comme par l'API. Un axe seul reste borné à 100 copies.
+
+### 9.2 Copies et cellules
+
+- La copie de cellule `(i, j, k)` est à `source + Σ (rang × pas × sens)` sur chaque axe du repère
+  du conteneur (§ 2) ; l'original est `(0, 0, 0)`.
+- Chaque copie porte sa **cellule** (`RepeatCell`) en plus du rang linéaire `RepeatIndex` (X, puis
+  Y, puis Z) : changer le nombre d'un axe **ne renumérote pas** les copies, seul l'ordre
+  d'affichage et les libellés automatiques suivent.
+- Réglages de la répétition : première ligne = `Axis`, `Count`, `Step`, `Span`, `Reverse` (comme
+  avant) ; lignes suivantes = mêmes noms suffixés `2` et `3`. `Count*` : copies en plus de
+  l'original le long de l'axe.
+
+### 9.3 Modifier la grille
+
+« Modifier la répétition » (`edit_repeat`) :
+
+| Changement | Effet |
+|---|---|
+| nombre d'un axe en plus | cellules manquantes créées (copies, assemblages, ensembles) ; les autres intactes |
+| nombre d'un axe en moins, axe désactivé | copies des cellules qui sortent supprimées, avec assemblages et Std Part |
+| pas ou sens | copies conservées déplacées (expressions) |
+| un seul axe remplacé par un seul autre axe | les copies suivent sur le nouvel axe |
+| copie dissociée ou supprimée à la main | elle ne revient pas |
+
+### 9.4 Assemblages, ensembles, suivi
+
+- **Assemblages** : l'assemblage entre copies homologues vise la **même cellule** ; une pièce fixe
+  reçoit un assemblage par copie ; « Recopier les assemblages » est inchangé (§ 3, Q4).
+- **Ensembles** : même position relative dans chaque cellule, un Std Part par copie (§ 2 bis,
+  ADR 0044).
+- **Suivre le redimensionnement** : axe par axe. Chaque axe actif suit la cote de l'ensemble sur son
+  axe (`Width` pour X, `Depth` pour Y, `Height` pour Z) ; refus traduit hors ensemble (§ 3.4).
+- **Chevauchement** : signalé par axe (pas inférieur à la cote des sources sur l'axe), puis pour la
+  grille complète ; avertissement non bloquant.
+
+### 9.5 Panneau
+
+Un sélecteur de mode ; trois lignes X, Y, Z (case d'activation, nombre, pas ou longueur selon le
+mode, « Inverser ») ; aperçu en direct de **toutes** les copies ; total affiché (« Grille 4 × 3 :
+11 copies en plus de l'original ») ; refus clair au-delà de 100 copies. Ctrl + glisser (§ 4) garde
+son comportement : une copie sur un axe.
+
+### 9.6 Critères
+
+| Réf. | Critère | Tests |
+|---|---|---|
+| G1 | 4 × 3, pas 100 et 150 mm : 11 copies aux bonnes cellules | `test_repetition_grille.py` (unitaire et intégration) |
+| G2 | les trois modes de saisie, par axe ; sens par axe | idem |
+| G3 | total > 100 refusé (message), 100 accepté, rien n'est créé en cas de refus | idem |
+| G4 | changer le nombre ou le pas d'un axe garde les copies des cellules conservées | idem |
+| G5 | dissocier une copie de la grille : elle ne revient pas | idem |
+| G6 | annuler et rétablir, enregistrer et rouvrir ; document d'avant la grille | idem |
+| G7 | assemblages par cellule, pièce fixe, copie d'ensemble en grille | `test_repetition_grille_assemblages.py`, `test_repetition_grille_ensembles.py` |
+| G8 | suivre le redimensionnement sur deux axes | `test_repetition_grille_ensembles.py` |
+| G9 | panneau hors écran : aperçu, total, refus, modes, chevauchement, modification | `tests/gui/verifications_repetition_grille.py` |

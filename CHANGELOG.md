@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Répétition en grille X × Y × Z (ADR 0045, proposé) : un seul mode de saisie, une ligne par axe (nombre, pas ou longueur, sens), 4 × 3 sur X et Y = 11 copies, 100 copies au plus au total ; chaque copie est repérée par sa cellule (`RepeatCell`), de sorte que changer le nombre ou le pas d'un axe garde les copies et leurs assemblages ; assemblages par cellule, ensembles en grille, « Suivre le redimensionnement » axe par axe, chevauchement par axe puis pour la grille, panneau à trois lignes X, Y, Z avec aperçu de toutes les copies ; la répétition à un axe reste valable.
 - Répétition d'un ensemble et Std Part (ADR 0044, fusion avec l'ADR 0038) : une copie d'ensemble a son
   propre Std Part, créé comme celui d'un ensemble neuf et rangé dans le conteneur de celui de la
   source (dans celui de la copie du parent pour un sous-ensemble, règle `carried`) ; ses membres
