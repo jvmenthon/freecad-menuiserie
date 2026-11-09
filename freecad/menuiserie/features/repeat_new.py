@@ -21,10 +21,13 @@ Rien ici n'ouvre de transaction ni ne recalcule : c'est le rôle de ``_api/repea
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Edge, FurnitureBox
 from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.core.repeat import Cell
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.drag_joints import remove_joints
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -48,63 +51,68 @@ from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
 )
-from freecad.menuiserie.features.repeat import COPY_PROPERTIES, is_copy
+from freecad.menuiserie.features.repeat import COPY_PROPERTIES, cell_of, is_copy, write_cell
 from freecad.menuiserie.features.wood_part import create_wood_part
 
-__all__ = ["add_missing_members", "drop_copy", "new_copies", "new_part_copy"]
+__all__ = ["Place", "add_missing_members", "drop_copy", "new_copies", "new_part_copy"]
+
+
+class Place(NamedTuple):
+    """Où se trouve une copie dans la grille : sa ``cell`` (identité, ADR 0045), son ``rank``
+    linéaire (à partir de 1, ordre d'affichage et libellé) et son décalage ``shift`` par rapport à
+    la source (repère du conteneur)."""
+
+    cell: Cell
+    rank: int
+    shift: App.Vector
 
 
 def _mark_copy(
-    copy: DocumentObject, source: DocumentObject, repeat: DocumentObject, index: int
+    copy: DocumentObject, source: DocumentObject, repeat: DocumentObject, at: Place
 ) -> None:
-    """``copy`` porte ``Repeat``, ``RepeatSource`` et ``RepeatIndex`` (lecture seule)."""
+    """``copy`` porte ``Repeat``, ``RepeatSource``, ``RepeatIndex`` et ``RepeatCell`` (lecture
+    seule)."""
     schema.add_missing_properties(copy, COPY_PROPERTIES)
     schema.apply_editor_modes(copy, COPY_PROPERTIES)
-    copy.Repeat, copy.RepeatSource, copy.RepeatIndex = repeat, source, index
+    copy.Repeat, copy.RepeatSource, copy.RepeatIndex = repeat, source, at.rank
+    write_cell(copy, at.cell)
 
 
 def new_part_copy(
-    source: DocumentObject,
-    repeat: DocumentObject,
-    index: int,
-    shift: App.Vector,
-    container: DocumentObject | None,
+    source: DocumentObject, repeat: DocumentObject, at: Place, container: DocumentObject | None
 ) -> DocumentObject:
-    """Copie de rang ``index`` de la pièce ``source`` (sans expressions), à ``shift`` d'elle,
-    rangée dans ``container`` (``None`` : racine)."""
+    """Copie de la pièce ``source`` à la place ``at`` (sans expressions), rangée dans ``container``
+    (``None`` : racine)."""
     copy = create_wood_part(
         source.Document,
         length=source.Length.Value,
         width=source.Width.Value,
         thickness=source.Thickness.Value,
         material_id=source.MaterialId,
-        mark=f"{source.Label} {index + 1}",
+        mark=f"{source.Label} {at.rank + 1}",
     )
     if container is not None:
         container.addObject(copy)
     copy.GrainDirection = source.GrainDirection
     for name in ("LengthAllowance", "WidthAllowance", "ThicknessAllowance"):
         setattr(copy, name, getattr(source, name))
-    _mark_copy(copy, source, repeat, index)
+    _mark_copy(copy, source, repeat, at)
     placement = source.Placement
-    copy.Placement = App.Placement(placement.Base + shift, placement.Rotation)
+    copy.Placement = App.Placement(placement.Base + at.shift, placement.Rotation)
     return copy
 
 
 def _new_furniture_copy(
-    source: DocumentObject,
-    repeat: DocumentObject,
-    index: int,
-    shift: App.Vector,
-    outer: DocumentObject | None,
+    source: DocumentObject, repeat: DocumentObject, at: Place, outer: DocumentObject | None
 ) -> DocumentObject:
-    """Copie de rang ``index`` de l'ensemble ``source`` (vide, sans expressions), à ``shift``.
+    """Copie de l'ensemble ``source`` (vide, sans expressions), à la place ``at``.
     Source dans un Std Part : la copie a le sien, rangé dans ``outer`` (``None`` : racine), à la
     place de celui de la source plus ``shift`` ; son ``Origin`` est celle de la source. Sans Std
     Part : ``shift`` est ajouté à l'``Origin``, la copie est rangée dans le conteneur de la
     source."""
     box = FurnitureBox(source.Width.Value, source.Depth.Value, source.Height.Value)
-    here, label = origin_of(source), f"{source.Label} {index + 1}"
+    here, label = origin_of(source), f"{source.Label} {at.rank + 1}"
+    shift = at.shift
     source_part = std_part_of(source)
     if source_part is None:
         origin = Vec3(here.x + shift.x, here.y + shift.y, here.z + shift.z)
@@ -116,7 +124,7 @@ def _new_furniture_copy(
         placement, part = source_part.Placement, std_part_of(copy)
         if part is not None:
             part.Placement = App.Placement(placement.Base + shift, placement.Rotation)
-    _mark_copy(copy, source, repeat, index)
+    _mark_copy(copy, source, repeat, at)
     return copy
 
 
@@ -134,37 +142,35 @@ def _copy_into(
     original: DocumentObject,
     parent: DocumentObject | None,
     repeat: DocumentObject,
-    index: int,
-    shift: App.Vector,
+    at: Place,
     created: list[DocumentObject],
 ) -> None:
     """Copie ``original`` dans l'ensemble ``parent`` (``None`` : hors ensemble) ; un ensemble
     reçoit ensuite la copie de chacun de ses membres."""
     inner = parent is not None and is_copy(parent) and std_part_of(parent) is not None
-    here = App.Vector() if inner else shift  # copie d'un membre : dans le Std Part de la copie
+    # copie d'un membre : dans le Std Part de la copie, sans décalage
+    here = at._replace(shift=App.Vector()) if inner else at
     holder = std_part_of(parent) if inner and parent is not None else None
     if is_furniture(original):
         outer = holder if inner else placement_container(original)
-        copy = _new_furniture_copy(original, repeat, index, here, outer)
+        copy = _new_furniture_copy(original, repeat, here, outer)
     else:
         container = holder if inner else original.getParentGeoFeatureGroup()
-        copy = new_part_copy(original, repeat, index, here, container)
+        copy = new_part_copy(original, repeat, here, container)
     created.append(copy)
     if parent is not None:
         _join_like(copy, parent, original)
     if is_furniture(original):
         for member in members_of(original):
-            _copy_into(member, copy, repeat, index, shift, created)
+            _copy_into(member, copy, repeat, at, created)
 
 
-def new_copies(
-    source: DocumentObject, repeat: DocumentObject, index: int, shift: App.Vector
-) -> list[DocumentObject]:
-    """Copie de rang ``index`` de ``source`` (pièce ou ensemble) et, pour un ensemble, de tous ses
+def new_copies(source: DocumentObject, repeat: DocumentObject, at: Place) -> list[DocumentObject]:
+    """Copie de ``source`` (pièce ou ensemble) à la place ``at`` et, pour un ensemble, de tous ses
     membres : la copie de ``source`` en premier, puis celles des membres, un ensemble avant les
     siens. Elle entre dans l'ensemble de ``source`` s'il y en a un, avec les mêmes options."""
     created: list[DocumentObject] = []
-    _copy_into(source, furniture_of(source), repeat, index, shift, created)
+    _copy_into(source, furniture_of(source), repeat, at, created)
     return created
 
 
@@ -194,13 +200,13 @@ def add_missing_members(
     rang quelconque) : un membre ajouté à la source après coup. Un membre dont la copie a été
     supprimée ou dissociée ne revient pas, sauf s'il n'a plus aucune copie nulle part. Les
     sous-ensembles déjà copiés sont parcourus à leur tour."""
-    repeat, index = copy.Repeat, copy.RepeatIndex
+    repeat, at = copy.Repeat, Place(cell_of(copy), copy.RepeatIndex, shift)
     for member in members_of(source):
         existing = _copy_of(member, copy, repeat)
         if existing is not None and is_furniture(member):
             add_missing_members(member, existing, known, shift, created)
         elif existing is None and member.Name not in known:
-            _copy_into(member, copy, repeat, index, shift, created)
+            _copy_into(member, copy, repeat, at, created)
 
 
 def _drop_part(copy: DocumentObject) -> None:

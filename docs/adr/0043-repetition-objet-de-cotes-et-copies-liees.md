@@ -7,7 +7,8 @@
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
   [0007 — Compatibilité avec les autres ateliers](0007-compatibilite-avec-les-autres-ateliers.md),
   [0008 — L'Ensemble, objet de cotes](0008-ensemble-objet-de-cotes.md),
-  [0009 — Suivi des pièces par expressions natives](0009-suivi-par-expressions-natives.md)
+  [0009 — Suivi des pièces par expressions natives](0009-suivi-par-expressions-natives.md),
+  [0045 — Répétition en grille](0045-repetition-en-grille.md) (proposé : plusieurs axes à la fois)
 
 ## Contexte
 

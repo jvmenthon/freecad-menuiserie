@@ -8,11 +8,10 @@ from dataclasses import dataclass
 from typing import Final
 
 from freecad.menuiserie.core._validation import decimal_text
-from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat._model import (
     MAX_COPIES,
-    RepeatAxis,
+    AxisRepeat,
     RepeatError,
     RepeatParams,
     SpacingMode,
@@ -37,64 +36,54 @@ TOO_MANY: Final = QT_TRANSLATE_NOOP(
     "le maximum est {max}.",
 )
 
-_DIRECTIONS: Final = {
-    RepeatAxis.X: Vec3(1.0, 0.0, 0.0),
-    RepeatAxis.Y: Vec3(0.0, 1.0, 0.0),
-    RepeatAxis.Z: Vec3(0.0, 0.0, 1.0),
-}
-
 
 @dataclass(frozen=True)
 class Resolved:
-    """Nombre de copies et pas (mm) effectifs d'une répétition."""
+    """Nombre de copies et pas (mm) effectifs d'une répétition (le long d'un axe)."""
 
     count: int
     step: float
 
 
-def resolve(params: RepeatParams, source_extent: float) -> Resolved:
-    """Nombre et pas effectifs selon le mode de saisie.
-
-    ``source_extent`` : cote de la source le long de l'axe (mm, finie et positive).
-    ``CountOnSpan`` : ``pas = (longueur - cote) / nombre`` ; ``StepOnSpan`` :
-    ``nombre = floor((longueur - cote) / pas)``. Refus (:class:`RepeatError`) si le pas calculé est
-    nul ou négatif, si aucune copie ne tient ou si le nombre dépasse ``MAX_COPIES``.
-    """
-    extent = positive("extent", source_extent)
-    if params.spacing is SpacingMode.COUNT_AND_STEP:
-        return Resolved(params.count, params.step)
-    room = params.span - extent
-    if params.spacing is SpacingMode.COUNT_ON_SPAN:
+def resolve_line(spacing: SpacingMode, line: AxisRepeat, extent: float) -> Resolved:
+    """Copies (en plus de l'original) et pas effectifs de la ligne ``line`` selon le mode de
+    saisie ``spacing`` ; ``extent`` : cote des sources le long de l'axe (mm, finie et positive).
+    ``CountOnSpan`` : ``pas = (longueur - cote) / copies`` ; ``StepOnSpan`` :
+    ``copies = floor((longueur - cote) / pas)``. Refus (:class:`RepeatError`) si le pas calculé est
+    nul ou négatif, si aucune copie ne tient ou si le nombre dépasse ``MAX_COPIES``."""
+    extent = positive("extent", extent)
+    copies = line.count - 1
+    if spacing is SpacingMode.COUNT_AND_STEP:
+        return Resolved(copies, line.step)
+    room = line.span - extent
+    if spacing is SpacingMode.COUNT_ON_SPAN:
         if room <= 0.0:
             raise RepeatError(
                 NO_ROOM,
                 {
-                    "span": decimal_text(params.span),
-                    "count": str(params.count),
+                    "span": decimal_text(line.span),
+                    "count": str(copies),
                     "extent": decimal_text(extent),
                 },
             )
-        return Resolved(params.count, room / params.count)
-    return _step_on_span(params, extent, room)
+        return Resolved(copies, room / copies)
+    return _step_on_span(line, extent, room)
 
 
-def _step_on_span(params: RepeatParams, extent: float, room: float) -> Resolved:
-    count = math.floor(room / params.step + _COUNT_TOLERANCE)
-    shown = {"step": decimal_text(params.step), "span": decimal_text(params.span)}
+def resolve(params: RepeatParams, source_extent: float) -> Resolved:
+    """Nombre et pas effectifs de la répétition **sur un axe** (la ligne unique ; la première d'une
+    grille : voir :func:`~freecad.menuiserie.core.repeat.resolve_grid`) selon le mode de saisie."""
+    return resolve_line(params.spacing, params.lines[0], source_extent)
+
+
+def _step_on_span(line: AxisRepeat, extent: float, room: float) -> Resolved:
+    count = math.floor(room / line.step + _COUNT_TOLERANCE)
+    shown = {"step": decimal_text(line.step), "span": decimal_text(line.span)}
     if count < 1:
         raise RepeatError(NO_COPY, {**shown, "extent": decimal_text(extent)})
     if count > MAX_COPIES:
         raise RepeatError(TOO_MANY, {**shown, "count": str(count), "max": str(MAX_COPIES)})
-    return Resolved(count, params.step)
-
-
-def offsets(params: RepeatParams, source_extent: float) -> tuple[Vec3, ...]:
-    """Décalage de chaque copie (k = 1 à nombre) : ``k x pas`` le long de l'axe, inversé si
-    ``reverse``. La source (k = 0) n'est pas comprise."""
-    resolved = resolve(params, source_extent)
-    direction = _DIRECTIONS[params.axis]
-    sign = -1.0 if params.reverse else 1.0
-    return tuple(direction.scaled(sign * k * resolved.step) for k in range(1, resolved.count + 1))
+    return Resolved(count, line.step)
 
 
 def overlaps(resolved: Resolved, source_extent: float) -> bool:

@@ -8,6 +8,9 @@ d'**aujourd'hui** (figés en constante au moment de l'écriture). Le pas devient
 ``Step = (Span - cote des sources) / Count``. Agrandir l'ensemble redistribue donc les copies sur
 la nouvelle cote ; leur nombre ne change pas.
 
+En grille (ADR 0045), le suivi s'applique **axe par axe** : chaque ligne (``Span``/``Step``,
+``Span2``/``Step2``, ``Span3``/``Step3``) suit la cote de l'ensemble sur son propre axe.
+
 Les sources doivent être membres d'un même ensemble : la cote suivie est la sienne (``Width`` pour
 l'axe X, ``Depth`` pour Y, ``Height`` pour Z). Les expressions sont écrites par l'API, dans la
 transaction en cours, jamais pendant un recalcul.
@@ -15,18 +18,34 @@ transaction en cours, jamais pendant un recalcul.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.repeat import RepeatAxis, RepeatParams, Resolved, SpacingMode
+from freecad.menuiserie.core.repeat import (
+    AxisRepeat,
+    RepeatAxis,
+    RepeatParams,
+    Resolved,
+    ResolvedAxis,
+    ResolvedGrid,
+    SpacingMode,
+)
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.repeat_props import LINE_COUNT, line_name
 
-__all__ = ["bind_follow", "follow_furniture", "follow_params", "unbind_follow"]
+__all__ = [
+    "bind_follow",
+    "bind_follow_grid",
+    "follow_furniture",
+    "follow_grid_params",
+    "follow_params",
+    "unbind_follow",
+]
 
 _NO_FURNITURE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -66,18 +85,31 @@ def follow_furniture(sources: Sequence[DocumentObject]) -> DocumentObject:
     return furniture
 
 
-def follow_params(params: RepeatParams, resolved: Resolved, extent: float) -> RepeatParams:
+def follow_grid_params(
+    params: RepeatParams, grid: ResolvedGrid, extents: Mapping[RepeatAxis, float]
+) -> RepeatParams:
     """Réglage écrit dans la répétition qui suit le redimensionnement : « nombre sur une
-    longueur », avec la longueur que donnent le nombre et le pas effectifs (``extent`` : cote des
-    sources sur l'axe)."""
-    span = extent + resolved.count * resolved.step
-    return replace(
-        params,
-        spacing=SpacingMode.COUNT_ON_SPAN,
-        count=resolved.count,
-        step=resolved.step,
-        span=span,
+    longueur », avec, pour chaque axe, la longueur que donnent le nombre et le pas effectifs
+    (``extents`` : cote des sources sur chaque axe)."""
+    lines = tuple(
+        AxisRepeat(
+            line.axis,
+            line.cells,
+            line.step,
+            extents[line.axis] + line.count * line.step,
+            line.reverse,
+        )
+        for line in grid.axes
     )
+    return replace(params, spacing=SpacingMode.COUNT_ON_SPAN, grid=lines)
+
+
+def follow_params(params: RepeatParams, resolved: Resolved, extent: float) -> RepeatParams:
+    """:func:`follow_grid_params` pour une répétition sur un seul axe : nombre et pas effectifs
+    ``resolved``, cote des sources ``extent`` sur l'axe."""
+    line = params.lines[0]
+    axis = ResolvedAxis(line.axis, resolved.count + 1, resolved.step, line.reverse)
+    return follow_grid_params(params, ResolvedGrid((axis,)), {line.axis: extent})
 
 
 def _mm(value: float) -> str:
@@ -87,10 +119,40 @@ def _mm(value: float) -> str:
 
 
 def unbind_follow(repeat: DocumentObject) -> None:
-    """Retire les expressions de ``Span`` et ``Step`` (le pas redevient fixe, à sa valeur)."""
-    for name in ("Span", "Step"):
-        if has_expression(repeat, name):
-            repeat.setExpression(name, None)
+    """Retire les expressions de ``Span`` et ``Step`` de chaque ligne (le pas redevient fixe, à sa
+    valeur)."""
+    for line in range(LINE_COUNT):
+        for field in ("Span", "Step"):
+            name = line_name(field, line)
+            if has_expression(repeat, name):
+                repeat.setExpression(name, None)
+
+
+def bind_follow_line(
+    repeat: DocumentObject, furniture: DocumentObject, line: int, axis: ResolvedAxis, extent: float
+) -> None:
+    """Écrit ``Span`` et ``Step`` de la ligne ``line`` (``Span2`` et ``Step2`` pour la deuxième…) en
+    expressions : retraits actuels figés, nombre de copies en constante (il ne change que par
+    l'API, qui réécrit alors ces expressions)."""
+    size = _SIZE_OF_AXIS[axis.axis]
+    span_name, step_name = line_name("Span", line), line_name("Step", line)
+    span = extent + axis.count * axis.step
+    margins = float(getattr(furniture, size).Value) - span
+    sign = "-" if margins >= 0 else "+"
+    repeat.setExpression(span_name, f"{furniture.Name}.{size} {sign} {_mm(margins)}")
+    repeat.setExpression(step_name, f"({span_name} - {_mm(extent)}) / {axis.count}")
+
+
+def bind_follow_grid(
+    repeat: DocumentObject,
+    furniture: DocumentObject,
+    grid: ResolvedGrid,
+    extents: Mapping[RepeatAxis, float],
+) -> None:
+    """Chaque ligne de la grille suit la cote de ``furniture`` sur son axe
+    (:func:`bind_follow_line`)."""
+    for line, axis in enumerate(grid.axes):
+        bind_follow_line(repeat, furniture, line, axis, extents[axis.axis])
 
 
 def bind_follow(
@@ -100,11 +162,6 @@ def bind_follow(
     extent: float,
     resolved: Resolved,
 ) -> None:
-    """Écrit ``Span`` et ``Step`` en expressions : retraits actuels figés, nombre ``Count`` en
-    constante (il ne change que par l'API, qui réécrit alors ces expressions)."""
-    size = _SIZE_OF_AXIS[axis]
-    span = extent + resolved.count * resolved.step
-    margins = float(getattr(furniture, size).Value) - span
-    sign = "-" if margins >= 0 else "+"
-    repeat.setExpression("Span", f"{furniture.Name}.{size} {sign} {_mm(margins)}")
-    repeat.setExpression("Step", f"(Span - {_mm(extent)}) / {resolved.count}")
+    """:func:`bind_follow_grid` pour une répétition sur un seul axe."""
+    line = ResolvedAxis(axis, resolved.count + 1, resolved.step)
+    bind_follow_line(repeat, furniture, 0, line, extent)

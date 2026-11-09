@@ -4,8 +4,9 @@
 Copie d'ensemble ``E'`` de rang ``k`` de l'ensemble source ``E`` :
 
 - ``Width``, ``Depth``, ``Height`` = celles de ``E`` ;
-- ``Origin.c`` = ``E.Origin.c`` (+ ``k * (R.Reverse ? -1 : 1) * R.Step`` pour la seule composante
-  de l'axe de la répétition) ;
+- ``Origin.c`` = ``E.Origin.c`` (+ ``i * (R.Reverse ? -1 : 1) * R.Step`` pour chaque composante dont
+  la copie n'est pas à l'original ; ``Reverse2`` et ``Step2`` pour la deuxième ligne de la grille,
+  ADR 0045) ;
 - ensemble rangé dans un Std Part (ADR 0038, ADR 0044 « Std Part »), cas normal : la position est
   portée par le Std Part de la copie, dont ``Placement.Base.c`` = celui du Std Part de ``E`` (+ le
   décalage sur l'axe) et ``Placement.Rotation`` = la sienne ; ``Origin`` est alors celle de ``E``,
@@ -30,13 +31,15 @@ bouge, toutes les positions de ses membres la suivent.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Final
 
-from freecad.menuiserie.core.repeat import RepeatAxis
+from freecad.menuiserie.core.repeat import Cell, RepeatAxis, axis_index
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import workshop_expressions
 from freecad.menuiserie.features.furniture_container import member_expressions, std_part_of
+from freecad.menuiserie.features.repeat_props import line_name
 
 __all__ = [
     "COMPONENTS",
@@ -45,9 +48,12 @@ __all__ = [
     "FURNITURE_PATHS",
     "MATERIAL",
     "ROTATION",
+    "furniture_cell_expressions",
     "furniture_expressions",
     "inner_expressions",
+    "shift_terms",
     "shift_text",
+    "step_text",
 ]
 
 DIMENSIONS: Final = ("Length", "Width", "Thickness")
@@ -67,28 +73,58 @@ FURNITURE_PATHS: Final = (
 )
 
 
+def step_text(repeat: str, line: int, count: int) -> str:
+    """Décalage de ``count`` pas sur l'axe de la ligne ``line`` de la répétition :
+    ``count * (R.Reverse ? -1 : 1) * R.Step`` (``Reverse2`` et ``Step2`` pour la ligne 2…)."""
+    reverse, step = line_name("Reverse", line), line_name("Step", line)
+    return f"{count} * ({repeat}.{reverse} ? -1 : 1) * {repeat}.{step}"
+
+
 def shift_text(repeat: str, index: int) -> str:
-    """Décalage de la copie de rang ``index`` sur l'axe : ``k * (R.Reverse ? -1 : 1) * R.Step``."""
-    return f"{index} * ({repeat}.Reverse ? -1 : 1) * {repeat}.Step"
+    """Décalage de la copie de rang ``index`` sur l'axe de la première ligne :
+    ``k * (R.Reverse ? -1 : 1) * R.Step``."""
+    return step_text(repeat, 0, index)
+
+
+def shift_terms(repeat: str, cell: Cell, axes: Sequence[RepeatAxis]) -> dict[RepeatAxis, str]:
+    """Décalage de la copie de cellule ``cell`` sur chaque axe où elle n'est pas à l'original :
+    axe → texte d'expression. ``axes`` : axe de chaque ligne de la répétition, dans l'ordre des
+    lignes (la ligne ``n`` lit ``Step`` ou ``Step{n+1}``)."""
+    return {
+        axis: step_text(repeat, line, cell[axis_index(axis)])
+        for line, axis in enumerate(axes)
+        if cell[axis_index(axis)] > 0
+    }
+
+
+def furniture_cell_expressions(
+    source: str, shifts: Mapping[RepeatAxis, str], std_part: str | None = None
+) -> dict[str, str]:
+    """Expressions de la copie d'ensemble : propriété → texte. ``source`` : nom (``Name``) de
+    l'ensemble ; ``shifts`` : décalage de la copie sur chaque axe (:func:`shift_terms`) ;
+    ``std_part`` : nom du Std Part de la source (la copie a le sien, qui porte le décalage),
+    ``None`` pour un ensemble sans Std Part (le décalage est dans ``Origin``)."""
+    expressions = {name: f"{source}.{name}" for name in FURNITURE_DIMENSIONS}
+    for component in COMPONENTS.values():
+        expressions[f"Origin.{component}"] = f"{source}.Origin.{component}"
+    if std_part is None:
+        for axis, text in shifts.items():
+            expressions[f"Origin.{COMPONENTS[axis]}"] += f" + {text}"
+        return expressions
+    for component in COMPONENTS.values():
+        expressions[f"Placement.Base.{component}"] = f"{std_part}.Placement.Base.{component}"
+    for axis, text in shifts.items():
+        expressions[f"Placement.Base.{COMPONENTS[axis]}"] += f" + {text}"
+    expressions[ROTATION] = f"{std_part}.{ROTATION}"
+    return expressions
 
 
 def furniture_expressions(
     source: str, repeat: str, index: int, axis: RepeatAxis, std_part: str | None = None
 ) -> dict[str, str]:
-    """Expressions de la copie d'ensemble de rang ``index`` : propriété → texte. ``source`` et
-    ``repeat`` sont les noms (``Name``) des objets ; ``std_part`` : nom du Std Part de la source
-    (la copie a le sien, qui porte le décalage), ``None`` pour un ensemble sans Std Part."""
-    expressions = {name: f"{source}.{name}" for name in FURNITURE_DIMENSIONS}
-    for component in COMPONENTS.values():
-        expressions[f"Origin.{component}"] = f"{source}.Origin.{component}"
-    if std_part is None:
-        expressions[f"Origin.{COMPONENTS[axis]}"] += f" + {shift_text(repeat, index)}"
-        return expressions
-    for component in COMPONENTS.values():
-        expressions[f"Placement.Base.{component}"] = f"{std_part}.Placement.Base.{component}"
-    expressions[f"Placement.Base.{COMPONENTS[axis]}"] += f" + {shift_text(repeat, index)}"
-    expressions[ROTATION] = f"{std_part}.{ROTATION}"
-    return expressions
+    """:func:`furniture_cell_expressions` pour la copie de rang ``index`` d'une répétition sur un
+    seul axe (``repeat`` : nom de la répétition)."""
+    return furniture_cell_expressions(source, {axis: shift_text(repeat, index)}, std_part)
 
 
 def inner_expressions(copy: DocumentObject, original: DocumentObject) -> dict[str, str]:

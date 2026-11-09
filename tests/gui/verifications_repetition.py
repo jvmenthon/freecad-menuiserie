@@ -143,10 +143,15 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
         *ecarts("assemblages recopiés cochée", widget(form, "copyJoints").isChecked(), True),
         *ecarts("suivi décoché", widget(form, "followResize").isChecked(), False),
         *ecarts("erreur masquée", widget(form, "errorLabel").isHidden(), True),
-        *ecarts("maximum de copies", widget(form, "count").maximum(), 100),
+        *ecarts("maximum d'éléments (100 copies)", widget(form, "countX").maximum(), 101),
+        *ecarts(
+            "axe X actif seul",
+            [widget(form, f"axis{a}").isChecked() for a in "XYZ"],
+            [True, False, False],
+        ),
     ]
-    widget(form, "count").setValue(5)
-    saisir(widget(form, "step"), 400.0)
+    widget(form, "countX").setValue(6)  # 6 éléments : 5 copies
+    saisir(widget(form, "stepX"), 400.0)
     apercu = [c.Name for c in copies_de(rep)]
     problemes += [
         *ecarts("aperçu en direct, positions", positions_x(rep), [400.0 * k for k in range(1, 6)]),
@@ -181,7 +186,7 @@ def _annule(doc: Any) -> list[str]:
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert"]
-    widget(form, "count").setValue(4)
+    widget(form, "countX").setValue(5)
     annuler()
     return [
         *ecarts("aucune copie", [o.Name for o in doc.Objects], [barreau.Name]),
@@ -205,7 +210,7 @@ def _refus(doc: Any) -> list[str]:
     if form is None:
         return ["panneau « Répéter » non ouvert"]
     erreur = widget(form, "errorLabel")
-    saisir(widget(form, "step"), 0.0)
+    saisir(widget(form, "stepX"), 0.0)
     problemes = [
         *ecarts("refus affiché", erreur.isHidden(), False),
         *ecarts("champ cité", "pas" in erreur.text(), True),
@@ -215,12 +220,12 @@ def _refus(doc: Any) -> list[str]:
     valider()  # sans effet : le panneau reste ouvert
     problemes += ecarts("panneau resté ouvert", panneau() is not None, True)
     choisir(widget(form, "spacing"), "CountOnSpan")
-    saisir(widget(form, "span"), 200.0)  # plus courte que la pièce (300 mm)
+    saisir(widget(form, "spanX"), 200.0)  # plus courte que la pièce (300 mm)
     problemes += [
         *ecarts("longueur trop courte refusée", erreur.isHidden(), False),
         *ecarts("longueur citée", "longueur" in erreur.text(), True),
     ]
-    saisir(widget(form, "span"), 1275.0)
+    saisir(widget(form, "spanX"), 1275.0)
     rep = doc.getObject("Repeat")
     problemes += [
         *ecarts("refus effacé", erreur.isHidden(), True),
@@ -244,14 +249,14 @@ def _chevauchement(doc: Any) -> list[str]:
     if form is None:
         return ["panneau « Répéter » non ouvert"]
     avertissement = widget(form, "warningLabel")
-    saisir(widget(form, "step"), 100.0)
+    saisir(widget(form, "stepX"), 100.0)
     problemes = [
         *ecarts("avertissement affiché", avertissement.isHidden(), False),
         *ecarts("avertissement, texte", "chevauchent" in avertissement.text(), True),
         *ecarts("« OK » reste actif", bouton_ok().isEnabled(), True),
         *ecarts("copies créées", len(copies_de(doc.getObject("Repeat"))), PAR_DEFAUT),
     ]
-    saisir(widget(form, "step"), 400.0)
+    saisir(widget(form, "stepX"), 400.0)
     return problemes + ecarts("avertissement effacé", avertissement.isHidden(), True)
 
 
@@ -267,12 +272,14 @@ def _axe_et_sens(doc: Any) -> list[str]:
     if form is None:
         return ["panneau « Répéter » non ouvert"]
     rep = doc.getObject("Repeat")
-    widget(form, "axisY").setChecked(True)
+    widget(form, "axisY").setChecked(True)  # X et Y ensemble : une grille
+    widget(form, "countY").setValue(4)
+    widget(form, "axisX").setChecked(False)  # Y seul
     problemes = ecarts("axe Y : pas = cote sur Y", rep.Axis, "Y")
     problemes += ecarts(
         "axe Y : positions", [round(c.Placement.Base.y) for c in copies_de(rep)], [40, 80, 120]
     )
-    widget(form, "reverse").setChecked(True)
+    widget(form, "reverseY").setChecked(True)
     problemes += ecarts(
         "inversé", [round(c.Placement.Base.y) for c in copies_de(rep)], [-40, -80, -120]
     )
@@ -316,8 +323,8 @@ def _assemblages_recopies(doc: Any) -> list[str]:
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert sur la pièce usinée"]
-    saisir(widget(form, "step"), 100.0)
-    widget(form, "count").setValue(4)
+    saisir(widget(form, "stepX"), 100.0)
+    widget(form, "countX").setValue(5)  # 5 éléments : 4 copies
     problemes = ecarts("assemblages recopiés (2 + 4 x 2)", assemblages(), 10)
     widget(form, "copyJoints").setChecked(False)
     problemes += ecarts("case décochée : assemblages enfants retirés", assemblages(), 2)
@@ -419,19 +426,25 @@ def _modifier_le_nombre(doc: Any) -> list[str]:
         return ["panneau « Modifier la répétition » non ouvert"]
     problemes = [
         *ecarts("titre", form.windowTitle(), "Modifier « Répétition »"),
-        *ecarts("nombre prérempli", widget(form, "count").value(), 4),
-        *ecarts("pas prérempli", round(float(widget(form, "step").property("rawValue")), 3), 400.0),
-        *ecarts("axe prérempli", widget(form, "axisX").isChecked(), True),
+        *ecarts("nombre prérempli (original compris)", widget(form, "countX").value(), 5),
+        *ecarts(
+            "pas prérempli", round(float(widget(form, "stepX").property("rawValue")), 3), 400.0
+        ),
+        *ecarts(
+            "axe prérempli",
+            [widget(form, f"axis{a}").isChecked() for a in "XYZ"],
+            [True, False, False],
+        ),
         *ecarts("assemblages prérempli", widget(form, "copyJoints").isChecked(), True),
         *ecarts("entrées avant saisie", doc.UndoNames, []),
     ]
-    widget(form, "count").setValue(6)
+    widget(form, "countX").setValue(7)
     problemes += ecarts(
         "aperçu : copies ajoutées", positions_x(rep), [400.0 * k for k in range(1, 7)]
     )
-    widget(form, "count").setValue(2)
+    widget(form, "countX").setValue(3)
     problemes += ecarts("aperçu : dernières copies retirées", positions_x(rep), [400.0, 800.0])
-    widget(form, "count").setValue(6)
+    widget(form, "countX").setValue(7)
     valider()
     return [
         *problemes,
@@ -455,8 +468,8 @@ def _modification_annulee(doc: Any) -> list[str]:
     form = panneau()
     if form is None:
         return ["panneau « Modifier la répétition » non ouvert"]
-    widget(form, "count").setValue(2)
-    saisir(widget(form, "step"), 500.0)
+    widget(form, "countX").setValue(3)
+    saisir(widget(form, "stepX"), 500.0)
     annuler()
     rep = doc.getObject("Repeat")
     return [

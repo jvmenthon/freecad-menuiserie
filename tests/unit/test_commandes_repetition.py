@@ -24,6 +24,7 @@ from tests.unit.test_commandes_assemblages import (
 GUI = ROOT / "freecad" / "menuiserie" / "gui"
 COMMANDS = GUI / "commands" / "repeat.py"
 PANEL = GUI / "task_panels" / "repeat.py"
+ROWS = GUI / "task_panels" / "repeat_rows.py"  # lignes X, Y, Z (ADR 0045)
 VIEW_PROVIDER = GUI / "view_providers" / "repeat.py"
 MODULES = (COMMANDS, PANEL, VIEW_PROVIDER)
 FIELDS = (
@@ -121,13 +122,14 @@ def test_panneau_par_l_api_dans_la_transaction_du_panneau() -> None:
 
 @pytest.mark.parametrize("name", FIELDS)
 def test_champs_du_panneau(name: str) -> None:
-    assert f'"{name}"' in PANEL.read_text(encoding="utf-8")
+    text = PANEL.read_text(encoding="utf-8") + ROWS.read_text(encoding="utf-8")
+    assert f'"{name}"' in text or f'f"{name}{{' in text
 
 
 def test_saisie_appliquee_en_fin_de_frappe() -> None:
     """CONTRIBUTING, « Entrées utilisateur » 3 : le nombre est en ``setKeyboardTracking(False)``
     et les champs de cote viennent de ``quantity_field`` (même réglage)."""
-    text = PANEL.read_text(encoding="utf-8")
+    text = ROWS.read_text(encoding="utf-8")
     assert "setKeyboardTracking(False)" in text
     assert text.count("quantity_field(") == 2
     furniture_widgets = (GUI / "task_panels" / "furniture_widgets.py").read_text(encoding="utf-8")
