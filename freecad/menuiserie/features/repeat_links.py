@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Liaison d'une copie à sa source par expressions natives (ADR 0043, comme l'ADR 0009).
 
-Pour la copie de rang ``k`` de la source ``S`` d'une répétition ``R`` sur l'axe ``a`` :
+Pour la copie de cellule ``(i, j, k)`` de la source ``S`` d'une répétition ``R`` (rang ``i`` sur X,
+``j`` sur Y, ``k`` sur Z ; un seul est non nul pour une répétition sur un axe) :
 
 - ``Length``, ``Width``, ``Thickness`` = celles de ``S`` ;
-- ``Placement.Base.c`` = ``S.Placement.Base.c`` (+ ``k * (R.Reverse ? -1 : 1) * R.Step`` pour la
-  seule composante ``c`` de l'axe) ; ``Placement.Rotation`` = celle de ``S`` ;
+- ``Placement.Base.c`` = ``S.Placement.Base.c`` (+ ``n * (R.Reverse ? -1 : 1) * R.Step`` pour chaque
+  composante ``c`` dont le rang ``n`` n'est pas nul ; ``Reverse2`` et ``Step2`` pour la deuxième
+  ligne de la grille, ``Reverse3`` et ``Step3`` pour la troisième, ADR 0045) ;
+  ``Placement.Rotation`` = celle de ``S`` ;
 - matériau, sens du fil et surcotes : **expressions aussi** (FreeCAD accepte une expression sur une
   énumération). Choix vérifié dans FreeCAD 1.1 : à l'évaluation, ``Material`` appelle le proxy de
   la copie (``select_material``), qui recopie identifiant, catégorie et masse volumique ; le sens
@@ -22,6 +25,7 @@ répétition sont retirées, une formule de l'utilisateur sur la même propriét
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Final
 
 from freecad.menuiserie.core.repeat import RepeatAxis
@@ -37,6 +41,7 @@ from freecad.menuiserie.features.furniture_relink import bind_furniture
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.repeat import (
     COPY_PROPERTY_NAMES,
+    cell_of,
     cited_names,
     cites,
     copies_of,
@@ -44,6 +49,7 @@ from freecad.menuiserie.features.repeat import (
     is_inner_copy,
     is_repeat,
     sources_of,
+    stored_lines,
 )
 from freecad.menuiserie.features.repeat_furniture_links import (
     COMPONENTS,
@@ -51,16 +57,21 @@ from freecad.menuiserie.features.repeat_furniture_links import (
     FURNITURE_PATHS,
     MATERIAL,
     ROTATION,
+    furniture_cell_expressions,
     furniture_expressions,
     inner_expressions,
+    shift_terms,
     shift_text,
 )
 from freecad.menuiserie.features.repeat_joints import unlink_part_joints
+from freecad.menuiserie.features.repeat_props import CELL_PROPERTY
 
 __all__ = [
     "BOUND_PATHS",
+    "cell_expressions",
     "copy_expressions",
     "detach_copies",
+    "furniture_expressions",
     "link_copy",
     "link_inner",
     "repeat_removed",
@@ -82,30 +93,34 @@ BOUND_PATHS: Final = tuple(
 )
 
 
-def copy_expressions(source: str, repeat: str, index: int, axis: RepeatAxis) -> dict[str, str]:
-    """Expressions de la copie de rang ``index`` : propriété → texte. ``source`` et ``repeat``
-    sont les noms (``Name``) des objets."""
+def cell_expressions(source: str, shifts: Mapping[RepeatAxis, str]) -> dict[str, str]:
+    """Expressions d'une copie de pièce : propriété → texte. ``source`` : nom (``Name``) de la
+    source ; ``shifts`` : décalage sur chaque axe où la copie n'est pas à l'original
+    (:func:`.repeat_furniture_links.shift_terms`)."""
     expressions = {name: f"{source}.{name}" for name in (*DIMENSIONS, *MATERIAL)}
     for component in COMPONENTS.values():
         expressions[f"Placement.Base.{component}"] = f"{source}.Placement.Base.{component}"
     expressions[ROTATION] = f"{source}.{ROTATION}"
-    moved = f"Placement.Base.{COMPONENTS[axis]}"
-    expressions[moved] += f" + {shift_text(repeat, index)}"
+    for axis, text in shifts.items():
+        expressions[f"Placement.Base.{COMPONENTS[axis]}"] += f" + {text}"
     return expressions
 
 
-def link_copy(
-    copy: DocumentObject, source: DocumentObject, repeat: DocumentObject, axis: RepeatAxis
-) -> None:
-    """Écrit (ou réécrit) les expressions de ``copy`` (pièce ou ensemble) d'après son rang
-    ``RepeatIndex``."""
+def copy_expressions(source: str, repeat: str, index: int, axis: RepeatAxis) -> dict[str, str]:
+    """Expressions de la copie de rang ``index`` d'une répétition sur un seul axe : propriété →
+    texte. ``source`` et ``repeat`` sont les noms (``Name``) des objets."""
+    return cell_expressions(source, {axis: shift_text(repeat, index)})
+
+
+def link_copy(copy: DocumentObject, source: DocumentObject, repeat: DocumentObject) -> None:
+    """Écrit (ou réécrit) les expressions de ``copy`` (pièce ou ensemble) d'après sa cellule
+    ``RepeatCell`` et les lignes de la répétition (axe, pas et sens de chacune)."""
+    shifts = shift_terms(repeat.Name, cell_of(copy), [line.axis for line in stored_lines(repeat)])
     if is_furniture(copy):
         part = std_part_of(source) if std_part_of(copy) is not None else None
-        made = furniture_expressions(
-            source.Name, repeat.Name, copy.RepeatIndex, axis, None if part is None else part.Name
-        )
+        made = furniture_cell_expressions(source.Name, shifts, None if part is None else part.Name)
     else:
-        made = copy_expressions(source.Name, repeat.Name, copy.RepeatIndex, axis)
+        made = cell_expressions(source.Name, shifts)
     for path, text in made.items():
         set_member_expression(copy, path, text)
 
@@ -125,8 +140,9 @@ def _unlink_own(copy: DocumentObject) -> None:
     for path, text in member_expressions(copy).items():
         if path in BOUND_PATHS and cites(text, names):
             set_member_expression(copy, path, None)
-    for name in COPY_PROPERTY_NAMES:
-        copy.removeProperty(name)
+    for name in (*COPY_PROPERTY_NAMES, CELL_PROPERTY):
+        if name in copy.PropertiesList:
+            copy.removeProperty(name)
 
 
 def _inner_copies(copy: DocumentObject, seen: set[str] | None = None) -> list[DocumentObject]:

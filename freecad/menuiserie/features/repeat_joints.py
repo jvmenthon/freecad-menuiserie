@@ -5,7 +5,7 @@ Quand ``CopyJoints`` est vrai, chaque assemblage « d'origine » dont une pièce
 répétition est recréé pour chaque copie :
 
 - A : les deux pièces sont des sources (ou des membres d'un ensemble source) → assemblage entre
-  les copies de même rang ;
+  les copies homologues, celles de la **même cellule** ``(i, j, k)`` de la grille ;
 - B : une seule pièce est une source → assemblage entre la copie et l'autre pièce, rôles
   conservés (la traverse reçoit un tenon par copie) ;
 - C : aucune pièce n'est une source → rien (l'assemblage n'est pas une origine) ;
@@ -29,6 +29,7 @@ from dataclasses import fields
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.repeat import Cell
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.drag_joints import remove_joints
 from freecad.menuiserie.features.freecad_types import (
@@ -39,7 +40,7 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.joints.base import is_joint, property_name
 from freecad.menuiserie.features.joints.factories import create_joint
-from freecad.menuiserie.features.repeat import copies_of
+from freecad.menuiserie.features.repeat import cell_of, copies_of
 from freecad.menuiserie.features.repeat_members import original_parts
 from freecad.menuiserie.features.schema import PropertySpec, set_editor_mode
 
@@ -177,15 +178,16 @@ def _repeat_children(repeat: DocumentObject) -> list[DocumentObject]:
 
 def _counterpart(
     part: DocumentObject | None,
-    rank: int,
-    by_rank: dict[tuple[str, int], DocumentObject],
+    cell: Cell,
+    by_cell: dict[tuple[str, Cell], DocumentObject],
     sources: set[str],
 ) -> DocumentObject | None:
-    """Pièce qui remplace ``part`` dans l'assemblage du rang ``rank`` : sa copie si c'est une
-    source (``None`` si elle n'existe pas ou plus), elle-même sinon."""
+    """Pièce qui remplace ``part`` dans l'assemblage de la cellule ``cell`` : sa copie si c'est une
+    source (``None`` si elle n'existe pas ou plus), elle-même sinon (pièce fixe : elle reçoit un
+    assemblage par copie)."""
     if part is None or part.Name not in sources:
         return part
-    return by_rank.get((part.Name, rank))
+    return by_cell.get((part.Name, cell))
 
 
 def _create_child(
@@ -212,24 +214,24 @@ def _create_child(
 
 
 def update_joints(
-    repeat: DocumentObject, *, enabled: bool, ranks: Iterable[int]
+    repeat: DocumentObject, *, enabled: bool, cells: Iterable[Cell]
 ) -> list[DocumentObject]:
     """Met les assemblages enfants de ``repeat`` au réglage ``CopyJoints`` = ``enabled`` : faux,
     tous sont supprimés (avec leurs pièces usinées devenues sans assemblage) ; vrai, ils sont
-    créés pour les copies des rangs ``ranks`` qui n'en ont pas encore (une copie dissociée ou
+    créés pour les copies des cellules ``cells`` qui n'en ont pas encore (une copie dissociée ou
     supprimée n'en reçoit pas ; un enfant supprimé à la main revient).
     Renvoie les assemblages créés. Ni transaction ni recalcul."""
     if not enabled:
         remove_joints(_repeat_children(repeat))
         return []
-    by_rank = {(copy.RepeatSource.Name, copy.RepeatIndex): copy for copy in copies_of(repeat)}
+    by_cell = {(copy.RepeatSource.Name, cell_of(copy)): copy for copy in copies_of(repeat)}
     sources = {source.Name for source in original_parts(repeat)}
     origins = _origins(repeat)
     created: list[DocumentObject] = []
-    for rank in ranks:
+    for cell in cells:
         for origin in origins:
-            host = _counterpart(origin.HostPart, rank, by_rank, sources)
-            guest = _counterpart(origin.GuestPart, rank, by_rank, sources)
+            host = _counterpart(origin.HostPart, cell, by_cell, sources)
+            guest = _counterpart(origin.GuestPart, cell, by_cell, sources)
             child = None if host is None or guest is None else _create_child(origin, host, guest)
             if child is not None:
                 created.append(child)

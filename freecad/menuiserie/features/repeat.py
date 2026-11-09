@@ -2,21 +2,26 @@
 """Répétition : objet de cotes sans forme (ADR 0043), propriétés de ses copies.
 
 La répétition (``App::FeaturePython``, nom interne ``Repeat``) décrit comment une ou plusieurs
-pièces sources sont répétées : ``Source``, ``Mode``, ``Spacing``, ``Axis``, ``Count`` (copies en
-plus de chaque source), ``Step``, ``Span``, ``Reverse``, ``CopyJoints``, ``FollowResize``. Elle n'a
-pas de forme. Chaque copie est une vraie pièce de bois qui porte ``Repeat`` (lien vers la
-répétition), ``RepeatSource`` (la source dont elle est la copie) et ``RepeatIndex`` (rang, à
-partir de 1), en lecture seule. Les expressions qui lient la copie à sa source sont écrites par
-:mod:`.repeat_links` et :mod:`.repeat_copies`, jamais ici ni pendant un recalcul.
+pièces sources sont répétées : ``Source``, ``Mode``, ``Spacing``, une ligne par axe actif de la
+grille (``Axis``, ``Count`` en copies le long de l'axe, ``Step``, ``Span``, ``Reverse`` ; suffixe
+``2`` et ``3`` pour les lignes suivantes, voir :mod:`.repeat_props`), ``CopyJoints``,
+``FollowResize``. Elle n'a pas de forme. Chaque copie est une vraie pièce de bois qui porte
+``Repeat`` (lien vers la répétition), ``RepeatSource`` (la source dont elle est la copie),
+``RepeatIndex`` (rang linéaire, à partir de 1, pour l'ordre d'affichage) et ``RepeatCell`` (sa
+cellule ``(i, j, k)`` dans la grille, qui l'identifie), en lecture seule. Les expressions qui lient
+la copie à sa source sont écrites par :mod:`.repeat_links` et :mod:`.repeat_copies`, jamais ici ni
+pendant un recalcul.
 
-Modifiable dans l'éditeur de propriétés : ``Step`` (les copies suivent) et ``Reverse`` (le sens
-est lu par les expressions des copies). Les autres propriétés sont en lecture seule : leur
-changement réécrit des expressions, ce que seule l'API (:mod:`freecad.menuiserie.api`) fait, dans
-une transaction. ``Count`` ne change donc que par l'API (``edit_repeat``).
+Modifiable dans l'éditeur de propriétés : les pas (``Step``, ``Step2``, ``Step3``) et les sens
+(``Reverse``…) : les copies suivent. Les autres propriétés sont en lecture seule : leur changement
+réécrit des expressions, ce que seule l'API (:mod:`freecad.menuiserie.api`) fait, dans une
+transaction. Les nombres ne changent donc que par l'API (``edit_repeat``).
 
-Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe ``Repeat``, les
-noms des propriétés (de la répétition et des copies) et les valeurs de ``Mode``, ``Spacing`` et
-``Axis`` (celles de ``core.repeat``) sont écrits dans les documents ; ils ne changent jamais.
+Contrat de persistance (ADR 0003 et 0045) : le chemin de ce module, le nom de la classe
+``Repeat``, les noms des propriétés (de la répétition et des copies) et les valeurs de ``Mode``,
+``Spacing`` et ``Axis`` (celles de ``core.repeat``) sont écrits dans les documents ; ils ne
+changent jamais. Un document d'avant la grille n'a ni lignes 2 et 3 ni ``RepeatCell`` : la
+première ligne suffit, et la cellule d'une copie se déduit de son rang (``cell_of``).
 """
 
 from __future__ import annotations
@@ -25,17 +30,17 @@ import re
 from collections.abc import Collection, Iterable, Mapping
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import (
+    AxisRepeat,
+    Cell,
     RepeatAxis,
-    RepeatMode,
     RepeatParams,
-    Resolved,
+    ResolvedGrid,
     SpacingMode,
+    axis_index,
 )
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import (
-    READ_ONLY,
     Document,
     DocumentObject,
     StatelessProxy,
@@ -44,7 +49,20 @@ from freecad.menuiserie.features.freecad_types import (
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_container import member_expressions, std_part_of
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.schema import LENGTH, PropertySpec, version_spec
+from freecad.menuiserie.features.repeat_props import (
+    CELL_PROPERTY,
+    CELL_SPEC,
+    CHOICES,
+    COPY_PROPERTIES,
+    COPY_PROPERTY_NAMES,
+    GRID_PROPERTIES,
+    LINE_COUNT,
+    MODEL_VERSION,
+    NO_AXIS,
+    NOUN,
+    REPEAT_PROPERTIES,
+    line_name,
+)
 
 __all__ = [
     "COPY_PROPERTIES",
@@ -52,11 +70,13 @@ __all__ = [
     "OBJECT_NAME",
     "REPEAT_PROPERTIES",
     "Repeat",
+    "cell_of",
     "cited_names",
     "cites",
     "copies_of",
     "copy_thicknesses",
     "create_repeat",
+    "ensure_lines",
     "is_copy",
     "is_inner_copy",
     "is_repeat",
@@ -64,160 +84,15 @@ __all__ = [
     "repeat_of",
     "repeated_properties",
     "sources_of",
+    "stored_dims",
+    "stored_lines",
+    "stored_params",
+    "write_cell",
     "write_params",
 ]
 
 OBJECT_NAME: Final = "Repeat"
-MODEL_VERSION: Final = 1
-NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répétition")
-GROUP: Final = "Répétition"
-# Listes de choix des énumérations : valeurs de ``core.repeat`` (stables), ajouts en fin.
-CHOICES: Final = {
-    "Mode": [mode.value for mode in RepeatMode],
-    "Spacing": [spacing.value for spacing in SpacingMode],
-    "Axis": [axis.value for axis in RepeatAxis],
-}
-
-REPEAT_PROPERTIES: Final = (
-    PropertySpec(
-        "Source",
-        "App::PropertyLinkListGlobal",
-        GROUP,
-        QT_TRANSLATE_NOOP("App::Property", "Pièces répétées (chacune a ses propres copies)."),
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "Mode",
-        "App::PropertyEnumeration",
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property", "Genre de répétition : Linear ; Circular et Path sont réservés."
-        ),
-        default=RepeatMode.LINEAR.value,
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "Spacing",
-        "App::PropertyEnumeration",
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property",
-            "Manière de saisir la répétition : CountAndStep (nombre et pas), CountOnSpan (nombre "
-            "sur une longueur) ou StepOnSpan (pas sur une longueur).",
-        ),
-        default=SpacingMode.COUNT_AND_STEP.value,
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "Axis",
-        "App::PropertyEnumeration",
-        GROUP,
-        QT_TRANSLATE_NOOP("App::Property", "Axe global de la répétition linéaire."),
-        default=RepeatAxis.X.value,
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "Count",
-        "App::PropertyInteger",
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property",
-            "Nombre de copies en plus de chaque source. Il ne change que par la commande "
-            "« Modifier la répétition » (les copies se créent et se suppriment hors recalcul).",
-        ),
-        default=0,
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "Step",
-        LENGTH,
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property",
-            "Pas entre deux copies, mesuré sur l'axe. Les copies suivent quand il change ; en "
-            "mode « sur une longueur », la prochaine modification de la répétition le recalcule.",
-        ),
-        default=100.0,
-    ),
-    PropertySpec(
-        "Span",
-        LENGTH,
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property",
-            "Longueur à remplir (modes CountOnSpan et StepOnSpan), source comprise.",
-        ),
-        default=0.0,
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "Reverse",
-        "App::PropertyBool",
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property", "Répète dans le sens négatif de l'axe ; les copies suivent."
-        ),
-        default=False,
-    ),
-    PropertySpec(
-        "CopyJoints",
-        "App::PropertyBool",
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property", "Recopie les assemblages de la source sur chaque copie."
-        ),
-        default=True,
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "FollowResize",
-        "App::PropertyBool",
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property",
-            "Suit le redimensionnement de l'ensemble : le pas se recalcule pour garder la "
-            "longueur.",
-        ),
-        default=False,
-        mode=READ_ONLY,
-    ),
-    version_spec(
-        QT_TRANSLATE_NOOP(
-            "App::Property",
-            "Version du modèle de données de la répétition, utilisée pour migrer les anciens "
-            "fichiers.",
-        ),
-        MODEL_VERSION,
-    ),
-)
-
-COPY_PROPERTIES: Final = (
-    PropertySpec(
-        "Repeat",
-        "App::PropertyLinkGlobal",
-        GROUP,
-        QT_TRANSLATE_NOOP("App::Property", "Répétition dont la pièce est une copie liée."),
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "RepeatSource",
-        "App::PropertyLinkGlobal",
-        GROUP,
-        QT_TRANSLATE_NOOP("App::Property", "Pièce dont celle-ci est la copie."),
-        mode=READ_ONLY,
-    ),
-    PropertySpec(
-        "RepeatIndex",
-        "App::PropertyInteger",
-        GROUP,
-        QT_TRANSLATE_NOOP(
-            "App::Property", "Rang de la copie (1 pour la première copie après la source)."
-        ),
-        default=1,
-        mode=READ_ONLY,
-    ),
-)
-COPY_PROPERTY_NAMES: Final = tuple(spec.name for spec in COPY_PROPERTIES)
+_LINE_FIELDS: Final = ("Axis", "Count", "Step", "Span", "Reverse")
 
 
 class Repeat(StatelessProxy):
@@ -233,12 +108,15 @@ class Repeat(StatelessProxy):
     def __init__(self, obj: DocumentObject) -> None:
         """Ajoute les propriétés de la répétition, à leurs valeurs par défaut."""
         obj.Proxy = self
-        schema.add_missing_properties(obj, REPEAT_PROPERTIES, choices=CHOICES)
-        schema.apply_editor_modes(obj, REPEAT_PROPERTIES)
+        for specs in (REPEAT_PROPERTIES, GRID_PROPERTIES):
+            schema.add_missing_properties(obj, specs, choices=CHOICES)
+            schema.apply_editor_modes(obj, specs)
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types contrôlés, propriétés manquantes recréées (ADR 0003)."""
         schema.restore_schema(obj, REPEAT_PROPERTIES, self.VERSION, NOUN, CHOICES)
+        # Lignes 2 et 3 : absentes d'un document d'avant la grille (même version du modèle).
+        ensure_lines(obj)
 
     def unsetupObject(self, obj: DocumentObject) -> None:
         """Répétition supprimée (``removeObject``, interface comprise) : ses copies sont
@@ -357,20 +235,97 @@ def create_repeat(
     return obj
 
 
-def write_params(repeat: DocumentObject, params: RepeatParams, resolved: Resolved) -> None:
-    """Écrit les réglages, le nombre et le pas effectifs dans la répétition (propriétés écrites
-    seulement si elles changent, pour ne pas toucher l'objet pour rien)."""
+def ensure_lines(repeat: DocumentObject) -> None:
+    """Propriétés des lignes 2 et 3 de la grille, ajoutées si le document est d'avant la grille."""
+    schema.add_missing_properties(repeat, GRID_PROPERTIES, choices=CHOICES)
+    schema.apply_editor_modes(repeat, GRID_PROPERTIES)
+
+
+def stored_lines(repeat: DocumentObject) -> tuple[AxisRepeat, ...]:
+    """Lignes de la grille telles que la répétition les garde (valeurs brutes, non contrôlées) :
+    une par axe actif, X avant Y avant Z. ``count`` en éléments (copies le long de l'axe plus un).
+    Les lignes 2 et 3 d'un document d'avant la grille n'existent pas : elles sont sautées."""
+    lines = []
+    for index in range(LINE_COUNT):
+        axis = str(getattr(repeat, line_name("Axis", index), NO_AXIS))
+        if axis == NO_AXIS:
+            continue
+        value = {name: getattr(repeat, line_name(name, index)) for name in _LINE_FIELDS}
+        lines.append(
+            AxisRepeat(
+                RepeatAxis(axis),
+                int(value["Count"]) + 1,
+                float(value["Step"].Value),
+                float(value["Span"].Value),
+                bool(value["Reverse"]),
+            )
+        )
+    return tuple(lines)
+
+
+def stored_params(repeat: DocumentObject) -> RepeatParams:
+    """Réglage de la répétition, tel que l'écrit :func:`write_params` (``RepeatError`` si les
+    valeurs gardées sont refusées par le noyau)."""
+    return RepeatParams(
+        spacing=SpacingMode(str(repeat.Spacing)),
+        grid=stored_lines(repeat),
+        copy_joints=bool(repeat.CopyJoints),
+        follow_resize=bool(repeat.FollowResize),
+    )
+
+
+def stored_dims(repeat: DocumentObject) -> Cell:
+    """Nombre d'éléments sur X, Y et Z de la grille que garde la répétition (1 : axe inactif)."""
+    dims = [1, 1, 1]
+    for line in stored_lines(repeat):
+        dims[axis_index(line.axis)] = line.count
+    return (dims[0], dims[1], dims[2])
+
+
+def cell_of(copy: DocumentObject) -> Cell:
+    """Cellule ``(i, j, k)`` de la copie ``copy`` dans la grille de sa répétition. Une copie d'avant
+    la grille (sans ``RepeatCell``) est sur l'axe de la première ligne, à son rang."""
+    value = list(getattr(copy, CELL_PROPERTY, ()) or ())
+    if len(value) == 3:
+        return (int(value[0]), int(value[1]), int(value[2]))
+    cell = [0, 0, 0]
+    cell[axis_index(RepeatAxis(str(copy.Repeat.Axis)))] = int(copy.RepeatIndex)
+    return (cell[0], cell[1], cell[2])
+
+
+def write_cell(copy: DocumentObject, cell: Cell) -> None:
+    """Écrit ``RepeatCell`` (ajoutée pour une copie d'avant la grille), si elle change."""
+    schema.add_missing_properties(copy, (CELL_SPEC,))
+    schema.apply_editor_modes(copy, (CELL_SPEC,))
+    if tuple(getattr(copy, CELL_PROPERTY)) != cell:
+        setattr(copy, CELL_PROPERTY, list(cell))
+
+
+def write_params(repeat: DocumentObject, params: RepeatParams, grid: ResolvedGrid) -> None:
+    """Écrit les réglages, le nombre et le pas effectifs de chaque ligne dans la répétition
+    (propriétés écrites seulement si elles changent, pour ne pas toucher l'objet pour rien). Les
+    lignes 2 et 3 sans axe sont marquées ``None``."""
+    ensure_lines(repeat)
     values: dict[str, object] = {
         "Mode": params.mode.value,
         "Spacing": params.spacing.value,
-        "Axis": params.axis.value,
-        "Count": resolved.count,
-        "Step": resolved.step,
-        "Span": params.span,
-        "Reverse": params.reverse,
         "CopyJoints": params.copy_joints,
         "FollowResize": params.follow_resize,
     }
+    spans = {line.axis: line for line in params.lines}
+    for index in range(LINE_COUNT):
+        names = {name: line_name(name, index) for name in _LINE_FIELDS}
+        if index < len(grid.axes):
+            resolved = grid.axes[index]
+            line = spans[resolved.axis]
+            values[names["Axis"]] = resolved.axis.value
+            values[names["Count"]] = resolved.count
+            values[names["Step"]] = resolved.step
+            values[names["Span"]] = line.span
+            values[names["Reverse"]] = line.reverse
+        elif index > 0:
+            values[names["Axis"]] = NO_AXIS
+            values[names["Count"]] = 0
     for name, value in values.items():
         current = getattr(repeat, name)
         if getattr(current, "Value", current) != value:

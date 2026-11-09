@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Réglage d'une répétition : sources contrôlées, copies créées, retirées et liées (ADR 0043).
+"""Réglage d'une répétition : copies créées, retirées et liées (ADR 0043).
 
 Les copies sont de vraies pièces de bois, ou des ensembles copie qui reçoivent une copie de chaque
 membre de l'ensemble source (:mod:`.repeat_new`), au libellé « {libellé source} {k+1} », rangées
@@ -18,55 +18,67 @@ recopié, elle reste une pièce brute simple.
 Rien ici n'ouvre de transaction ni ne recalcule : c'est le rôle de ``_api/repeat.py``.
 Les copies ne se créent et ne se suppriment jamais pendant un recalcul.
 
-Pas commun à plusieurs sources : la cote qui sert aux modes « sur une longueur » est celle de
-l'ensemble des sources le long de l'axe (boîte englobante de leurs formes, ou cote d'un ensemble,
-lues à l'écriture).
+Les sources sont contrôlées par :mod:`.repeat_sources` (et ses noms réexportés ici).
+
+Grille (ADR 0045) : chaque copie est repérée par sa **cellule** ``(i, j, k)`` (``RepeatCell``),
+non par son rang. Modifier la grille garde les copies des cellules conservées (et leurs assemblages
+enfants), crée celles des cellules nouvelles, supprime celles des cellules qui sortent ; le rang
+linéaire ``RepeatIndex`` n'est qu'un ordre d'affichage, remis à jour. Une cellule qui avait une
+copie avant la modification et n'en a plus (supprimée ou dissociée à la main) n'est pas recréée.
+Quand la répétition passe d'un seul axe à un autre axe, les copies suivent sur le nouvel axe.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Final, NamedTuple
+from typing import NamedTuple
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Vec3
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import (
-    MAX_COPIES,
-    RepeatAxis,
+    Cell,
     RepeatParams,
-    Resolved,
-    offsets,
-    resolve,
+    ResolvedGrid,
+    axis_index,
+    cells_of,
 )
-from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, rebind
-from freecad.menuiserie.features.furniture_container import placement_container
 from freecad.menuiserie.features.furniture_relink import bind_furniture
-from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.repeat import (
+    cell_of,
     copies_of,
-    is_copy,
     is_inner_copy,
     sources_of,
+    stored_dims,
+    stored_lines,
+    write_cell,
     write_params,
 )
 from freecad.menuiserie.features.repeat_follow import (
-    bind_follow,
+    bind_follow_grid,
     follow_furniture,
-    follow_params,
+    follow_grid_params,
     unbind_follow,
 )
 from freecad.menuiserie.features.repeat_joints import update_joints
 from freecad.menuiserie.features.repeat_links import link_copy, link_inner
-from freecad.menuiserie.features.repeat_members import ancestors_of, descendants_of
-from freecad.menuiserie.features.repeat_new import add_missing_members, drop_copy, new_copies
-from freecad.menuiserie.features.wood_part import is_wood_part, validated_arguments
+from freecad.menuiserie.features.repeat_new import (
+    Place,
+    add_missing_members,
+    drop_copy,
+    new_copies,
+)
+from freecad.menuiserie.features.repeat_sources import (
+    checked_sources,
+    common_container,
+    resolve_for,
+    source_extent,
+    source_extents,
+)
 
 __all__ = [
     "Created",
@@ -75,163 +87,8 @@ __all__ = [
     "common_container",
     "resolve_for",
     "source_extent",
+    "source_extents",
 ]
-
-_NO_SOURCE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répétition : aucune pièce à répéter.")
-_NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Répétition : « {label} » n'est pas une pièce de bois ; pour l'instant, seules les pièces "
-    "de bois (ou leur pièce usinée) et les ensembles se répètent (pas les pièces en bois).",
-)
-_FOREIGN_MEMBER: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Répétition : l'ensemble « {furniture} » contient « {label} », qui n'est pas une pièce de "
-    "bois ; pour l'instant, seuls les ensembles de pièces de bois se répètent.",
-)
-_IS_A_COPY: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Répétition : « {label} » est déjà la copie d'une répétition ; dissociez-la d'abord pour la "
-    "répéter.",
-)
-_WITH_ITS_FURNITURE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Répétition : « {label} » est membre de « {furniture} », répété en même temps ; répétez "
-    "l'ensemble, ou la pièce seule.",
-)
-_OTHER_DOCUMENT: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Répétition : les pièces à répéter doivent être dans le même document."
-)
-_EMPTY_SHAPE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Répétition : « {label} » n'a pas de forme ; recalculez le document avant de la répéter.",
-)
-_OTHER_CONTAINERS: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Répétition : les pièces à répéter sont dans des conteneurs différents (« {first} » et "
-    "« {second} ») ; répétez-les séparément.",
-)
-_ROOT: Final = QT_TRANSLATE_NOOP("Menuiserie", "la racine du document")
-_AXES: Final = {RepeatAxis.X: "X", RepeatAxis.Y: "Y", RepeatAxis.Z: "Z"}
-_SIZES: Final = {RepeatAxis.X: "Width", RepeatAxis.Y: "Depth", RepeatAxis.Z: "Height"}
-
-
-def _checked_part(obj: DocumentObject) -> None:
-    """Pièce de bois de dimensions et matériau valides (``ValueError`` traduite sinon)."""
-    validated_arguments(*(obj.Length.Value, obj.Width.Value, obj.Thickness.Value), obj.MaterialId)
-
-
-def _checked_furniture(furniture: DocumentObject) -> None:
-    """Un ensemble ne se répète que si tous ses membres, à tous les niveaux, sont des pièces de
-    bois ou des ensembles (``TypeError`` traduite sinon)."""
-    for member in descendants_of(furniture):
-        if is_furniture(member):
-            continue
-        if not is_wood_part(member):
-            params = {
-                "furniture": quoted_value(furniture.Label),
-                "label": quoted_value(member.Label),
-            }
-            raise TypeError(translated(_FOREIGN_MEMBER, params))
-        _checked_part(member)
-
-
-def _checked_source(obj: DocumentObject) -> None:
-    """Une source valide : pièce de bois ou ensemble, qui n'est pas déjà une copie liée."""
-    params = {"label": quoted_value(getattr(obj, "Label", obj))}
-    if not (is_furniture(obj) or is_wood_part(obj)):
-        raise TypeError(translated(_NOT_A_WOOD_PART, params))
-    if is_copy(obj):
-        raise ValueError(translated(_IS_A_COPY, params))
-    if is_furniture(obj):
-        _checked_furniture(obj)
-    else:
-        _checked_part(obj)
-
-
-def _refuse_nested(sources: Sequence[DocumentObject]) -> None:
-    """Une source ne peut pas être répétée en même temps que l'un de ses ensembles (``ValueError``
-    traduite) : elle serait copiée deux fois."""
-    names = {obj.Name for obj in sources}
-    for obj in sources:
-        for furniture in ancestors_of(obj):
-            if furniture.Name in names:
-                params = {
-                    "label": quoted_value(obj.Label),
-                    "furniture": quoted_value(furniture.Label),
-                }
-                raise ValueError(translated(_WITH_ITS_FURNITURE, params))
-
-
-def common_container(sources: Sequence[DocumentObject]) -> DocumentObject | None:
-    """Conteneur (``App::Part``) commun des ``sources``, ``None`` si elles sont à la racine ;
-    ``ValueError`` traduite si elles sont réparties dans des conteneurs différents (les copies
-    sont rangées avec la source, la répétition avec elles)."""
-    containers = [placement_container(obj) for obj in sources]
-    first = containers[0]
-    for other in containers[1:]:
-        if other != first:
-            names = [getattr(c, "Label", None) or translated(_ROOT) for c in (first, other)]
-            params = {"first": names[0], "second": names[1]}
-            raise ValueError(translated(_OTHER_CONTAINERS, params))
-    return first
-
-
-def checked_sources(
-    objects: Sequence[DocumentObject], *, one_container: bool = True
-) -> list[DocumentObject]:
-    """Pièces et ensembles à répéter, sans doublon, dans l'ordre. Refus traduits avant toute
-    création : ``ValueError`` (aucune pièce, documents différents, copie déjà liée, pièce répétée
-    en même temps que son propre ensemble, cote ou matériau inconnu), ``TypeError`` (autre chose
-    qu'une pièce de bois ou un ensemble de pièces de bois) ; ``KeyError`` pour un matériau absent
-    de la bibliothèque locale. ``one_container`` faux : le conteneur commun n'est pas contrôlé
-    (l'appelant le fait après les autres réglages, avec :func:`common_container`)."""
-    sources = list(
-        dict.fromkeys(
-            machined.Base if is_machined_part(machined) else machined for machined in objects
-        )
-    )
-    if not sources:
-        raise ValueError(translated(_NO_SOURCE))
-    for obj in sources:
-        _checked_source(obj)
-    if len({obj.Document.Name for obj in sources}) > 1:
-        raise ValueError(translated(_OTHER_DOCUMENT))
-    _refuse_nested(sources)
-    if one_container:
-        common_container(sources)
-    return sources
-
-
-def source_extent(sources: Sequence[DocumentObject], axis: RepeatAxis) -> float:
-    """Cote des ``sources`` le long de l'axe global (mm) : boîte englobante de leurs formes, ou
-    de ``Origin`` à ``Origin`` plus la cote pour un ensemble. ``ValueError`` traduite sans source
-    (la dernière a été supprimée : la répétition vidée ne se modifie plus)."""
-    if not sources:
-        raise ValueError(translated(_NO_SOURCE))
-    low, high = [], []
-    for source in sources:
-        if is_furniture(source):
-            start = getattr(source.Origin, _AXES[axis].lower())
-            low.append(start)
-            high.append(start + getattr(source, _SIZES[axis]).Value)
-            continue
-        if source.Shape.isNull():
-            raise ValueError(translated(_EMPTY_SHAPE, {"label": quoted_value(source.Label)}))
-        box = source.Shape.BoundBox
-        low.append(getattr(box, f"{_AXES[axis]}Min"))
-        high.append(getattr(box, f"{_AXES[axis]}Max"))
-    return float(max(high) - min(low))
-
-
-def resolve_for(sources: Sequence[DocumentObject], params: RepeatParams) -> Resolved:
-    """Nombre de copies et pas effectifs de ``params`` pour ces ``sources`` ; ``ValueError``
-    traduite si la répétition est refusée (longueur trop courte, trop de copies, « suivre le
-    redimensionnement » sans ensemble…)."""
-    if params.follow_resize:
-        follow_furniture(sources)
-    extent = source_extent(sources, params.axis)
-    with translated_errors():
-        return resolve(params, extent)
 
 
 class Created(NamedTuple):
@@ -243,10 +100,34 @@ class Created(NamedTuple):
     notices: tuple[str, ...] = ()
 
 
+class _Plan(NamedTuple):
+    """Ce que :func:`apply_repeat` doit obtenir : la grille, les cellules qui avaient une copie
+    avant la modification (``previous``), le décalage et le rang de chaque cellule."""
+
+    grid: ResolvedGrid
+    previous: frozenset[Cell]
+    shifts: dict[Cell, Vec3]
+    ranks: dict[Cell, int]
+
+
+def _plan(grid: ResolvedGrid, previous_dims: Cell) -> _Plan:
+    cells = grid.cells()
+    return _Plan(
+        grid,
+        frozenset(cells_of(previous_dims)),
+        {cell: grid.offset(cell) for cell in cells},
+        {cell: rank for rank, cell in enumerate(cells, start=1)},
+    )
+
+
+def _vector(shift: Vec3) -> App.Vector:
+    return App.Vector(shift.x, shift.y, shift.z)
+
+
 def _complete_furniture_copies(
     repeat: DocumentObject,
     source: DocumentObject,
-    shifts: Sequence[Vec3],
+    shifts: dict[Cell, Vec3],
     created: list[DocumentObject],
 ) -> None:
     """Chaque copie de l'ensemble ``source`` reçoit les membres que la source a gagnés depuis (ils
@@ -255,9 +136,8 @@ def _complete_furniture_copies(
         return
     known = {copy.RepeatSource.Name for copy in copies_of(repeat)}
     for copy in copies_of(repeat, source):
-        shift = shifts[copy.RepeatIndex - 1]
         added: list[DocumentObject] = []
-        add_missing_members(source, copy, known, App.Vector(shift.x, shift.y, shift.z), added)
+        add_missing_members(source, copy, known, _vector(shifts[cell_of(copy)]), added)
         for member in added:
             if is_inner_copy(member):
                 link_inner(member)
@@ -265,31 +145,75 @@ def _complete_furniture_copies(
 
 
 def _sync_copies(
-    repeat: DocumentObject,
-    source: DocumentObject,
-    resolved: Resolved,
-    previous: int,
-    shifts: Sequence[Vec3],
-    axis: RepeatAxis,
+    repeat: DocumentObject, source: DocumentObject, plan: _Plan
 ) -> list[DocumentObject]:
-    """Copies de ``source`` : celles de rang supérieur au nombre sont supprimées, celles qui
-    manquent créées (rangs à la suite de ``previous``), puis les expressions de toutes réécrites.
-    Renvoie les objets créés (copie d'un ensemble et copies de ses membres comprises)."""
-    for copy in copies_of(repeat, source):
-        if copy.RepeatIndex > resolved.count:
-            drop_copy(copy)
+    """Copies de ``source`` : celles des cellules nouvelles sont créées (une cellule qui avait déjà
+    sa copie, même disparue depuis, non), puis les expressions de toutes réécrites. Renvoie les
+    objets créés (copie d'un ensemble et copies de ses membres comprises)."""
     created: list[DocumentObject] = []
-    _complete_furniture_copies(repeat, source, shifts, created)
-    for index in range(previous + 1, resolved.count + 1):
-        shift = shifts[index - 1]
-        made = new_copies(source, repeat, index, App.Vector(shift.x, shift.y, shift.z))
+    _complete_furniture_copies(repeat, source, plan.shifts, created)
+    present = {cell_of(copy) for copy in copies_of(repeat, source)}
+    for cell, rank in plan.ranks.items():
+        if cell in present or cell in plan.previous:
+            continue
+        made = new_copies(source, repeat, Place(cell, rank, _vector(plan.shifts[cell])))
         for copy in made:
             if is_inner_copy(copy):
                 link_inner(copy)
         created.extend(made)
     for copy in copies_of(repeat, source):
-        link_copy(copy, source, repeat, axis)
+        link_copy(copy, source, repeat)
     return created
+
+
+def _drop_outside(repeat: DocumentObject, source: DocumentObject, plan: _Plan) -> None:
+    """Supprime les copies de ``source`` dont la cellule sort de la grille."""
+    for copy in copies_of(repeat, source):
+        if cell_of(copy) not in plan.ranks:
+            drop_copy(copy)
+
+
+def _renumber(repeat: DocumentObject, ranks: dict[Cell, int]) -> None:
+    """Rang linéaire (``RepeatIndex``) de chaque copie, d'après sa cellule : ordre d'affichage.
+    Un libellé automatique (« {source} {rang + 1} ») suit le nouveau rang ; un libellé que
+    l'utilisateur a changé reste. Les libellés sont libérés d'abord, pour que deux copies ne se
+    les disputent pas."""
+    changes = []
+    for copy in copies_of(repeat):
+        rank = ranks.get(cell_of(copy))
+        if rank is not None and copy.RepeatIndex != rank:
+            label = f"{copy.RepeatSource.Label} {copy.RepeatIndex + 1}"
+            changes.append(
+                (copy, rank, f"{copy.RepeatSource.Label} {rank + 1}", copy.Label == label)
+            )
+    for copy, _rank, _label, automatic in changes:
+        if automatic:
+            copy.Label = copy.Name
+    for copy, rank, label, automatic in changes:
+        copy.RepeatIndex = rank
+        if automatic:
+            copy.Label = label
+
+
+def _previous_dims(repeat: DocumentObject, grid: ResolvedGrid) -> Cell:
+    """Nombre d'éléments par axe de la grille actuelle de ``repeat`` (avant modification), après
+    avoir écrit la cellule de chaque copie (``RepeatCell`` : absente d'une copie d'avant la grille).
+    Si la répétition passe d'un seul axe à un seul autre axe, les copies suivent : leur cellule
+    passe sur le nouvel axe et le nombre précédent est reporté sur lui."""
+    for copy in copies_of(repeat):
+        write_cell(copy, cell_of(copy))
+    dims = stored_dims(repeat)
+    old, new = stored_lines(repeat), grid.axes
+    if len(old) == len(new) == 1 and old[0].axis is not new[0].axis:
+        source, target = axis_index(old[0].axis), axis_index(new[0].axis)
+        for copy in copies_of(repeat):
+            cell = list(cell_of(copy))
+            cell[target], cell[source] = cell[source], 0
+            write_cell(copy, (cell[0], cell[1], cell[2]))
+        moved = [1, 1, 1]
+        moved[target] = dims[source]
+        dims = (moved[0], moved[1], moved[2])
+    return dims
 
 
 def _top_copies(created: Sequence[DocumentObject]) -> list[DocumentObject]:
@@ -320,27 +244,29 @@ def _bind_furnitures(
 
 
 def apply_repeat(repeat: DocumentObject, params: RepeatParams) -> Created:
-    """Met la répétition au réglage ``params`` : écrit ses propriétés, supprime les copies de
-    rang supérieur au nombre, crée celles qui manquent (rangs à la suite de l'ancien nombre : une
-    copie dissociée ou supprimée à la main ne revient pas), réécrit les expressions de toutes,
-    puis recopie les assemblages (``CopyJoints`` vrai : ceux des nouvelles copies, ou de toutes
-    si la case vient d'être cochée ; faux : les assemblages enfants sont supprimés) et relie les
-    ensembles touchés. ``FollowResize`` vrai : le pas devient une expression sur la cote de
-    l'ensemble (:mod:`.repeat_follow`). Renvoie les copies, les assemblages créés et les
-    avertissements. Aucune transaction ni recalcul."""
+    """Met la répétition au réglage ``params`` : écrit ses propriétés, supprime les copies dont la
+    cellule sort de la grille, crée celles des cellules nouvelles (une copie dissociée ou supprimée
+    à la main ne revient pas), réécrit les expressions de toutes, puis recopie les assemblages
+    (``CopyJoints`` vrai : ceux des nouvelles copies, ou de toutes si la case vient d'être cochée ;
+    faux : les assemblages enfants sont supprimés) et relie les ensembles touchés. ``FollowResize``
+    vrai : le pas de chaque axe devient une expression sur la cote de l'ensemble
+    (:mod:`.repeat_follow`). Renvoie les copies, les assemblages créés et les avertissements.
+    Aucune transaction ni recalcul."""
     sources = sources_of(repeat)
-    resolved = resolve_for(sources, params)
-    extent = source_extent(sources, params.axis)
-    shifts = offsets(params, extent)
-    previous = min(max(int(repeat.Count), 0), MAX_COPIES)
+    grid = resolve_for(sources, params)
+    extents = source_extents(sources, [line.axis for line in grid.axes])
+    plan = _plan(grid, _previous_dims(repeat, grid))
     unbind_follow(repeat)
-    written = follow_params(params, resolved, extent) if params.follow_resize else params
-    write_params(repeat, written, resolved)
+    written = follow_grid_params(params, grid, extents) if params.follow_resize else params
+    write_params(repeat, written, grid)
     if params.follow_resize:
-        bind_follow(repeat, follow_furniture(sources), params.axis, extent, resolved)
+        bind_follow_grid(repeat, follow_furniture(sources), grid, extents)
+    for source in sources:
+        _drop_outside(repeat, source, plan)
+    _renumber(repeat, plan.ranks)
     created: list[DocumentObject] = []
     for source in sources:
-        created.extend(_sync_copies(repeat, source, resolved, previous, shifts, params.axis))
-    joints = update_joints(repeat, enabled=params.copy_joints, ranks=range(1, resolved.count + 1))
+        created.extend(_sync_copies(repeat, source, plan))
+    joints = update_joints(repeat, enabled=params.copy_joints, cells=plan.ranks)
     notices = _bind_furnitures(sources, created)
     return Created(created, joints, notice_messages(notices))

@@ -36,6 +36,16 @@ Répétition (R-b1) ::
     edit_repeat(lames, RepeatParams(count=12, step=100, axis="Y"))
     dissociate(copie)  # la copie devient une pièce libre
 
+Répétition en grille X x Y x Z (ADR 0045) : un seul mode de saisie, une ligne par axe ; le nombre
+d'un axe est celui de ses éléments, original compris (1 : axe inactif) ::
+
+    from freecad.menuiserie.api import AxisRepeat, RepeatAxis, RepeatParams, make_repeat
+
+    grille = RepeatParams(
+        grid=(AxisRepeat(RepeatAxis.X, 4, 100.0), AxisRepeat(RepeatAxis.Y, 3, 150.0))
+    )
+    make_repeat([barreau], grille)  # 4 x 3 = 11 copies en plus de l'original
+
 Liste de débit (J2) ::
 
     from freecad.menuiserie.api import export_cut_list_csv, make_cut_list
@@ -101,7 +111,13 @@ from freecad.menuiserie._api.wood import (
     reset_shaped_axes,
 )
 from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV
-from freecad.menuiserie.core.repeat import RepeatAxis, RepeatMode, RepeatParams, SpacingMode
+from freecad.menuiserie.core.repeat import (
+    AxisRepeat,
+    RepeatAxis,
+    RepeatMode,
+    RepeatParams,
+    SpacingMode,
+)
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
 from freecad.menuiserie.features.furniture_bindings import LockedPiecesError
 from freecad.menuiserie.features.machined_part import (
@@ -116,6 +132,7 @@ from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 __all__ = [
     "FRENCH_CSV",
     "INTERNATIONAL_CSV",
+    "AxisRepeat",
     "CarcassJoinery",
     "CarcassParams",
     "LockedPiecesError",
