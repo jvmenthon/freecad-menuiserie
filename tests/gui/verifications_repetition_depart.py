@@ -43,7 +43,6 @@ def _depart(doc: Any) -> list[str]:
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert"]
-    widget(form, "stopX").click()
     cliquer_dans_la_vue(doc, barreau, face(barreau, "Y", 40.0))  # face de la pièce répétée
     actifs = [widget(form, f"axis{a}").isChecked() for a in "XYZ"]
     problemes = [
@@ -96,6 +95,7 @@ def _essai_epaisseur(doc: Any) -> list[str]:
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert"]
+    widget(form, "stopX").click()  # annule le choix d'ouverture (son axe serait Y)
     choisir_sur_x(doc, form, proche, 250.0)
     problemes = [
         *ecarts("trop proche : case décochée", case(form), False),

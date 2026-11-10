@@ -16,12 +16,14 @@ import FreeCADGui as Gui
 from PySide import QtCore
 
 from freecad.menuiserie import api
+from freecad.menuiserie.features import repeat
 from tests.gui.verifications_ensemble import lancer
 from tests.gui.verifications_panneau import avec_document, choisir, ecarts, saisir, valider
 from tests.gui.verifications_panneau_assemblage import widget
 from tests.gui.verifications_panneau_ensemble import bouton_ok
 from tests.gui.verifications_repetition import (
     MODIFIER,
+    REPETER,
     copies_de,
     panneau,
     positions_x,
@@ -154,7 +156,45 @@ def verifier_modifier_une_repetition_a_butee() -> list[str]:
     return avec_document("VerifButeeModifie", _modifier)
 
 
+def _axe_deduit(doc: Any) -> list[str]:
+    barreau = source(doc)
+    plafond = api.make_wood_part(400, 400, 20, "chene", mark="Plafond", doc=doc)
+    plafond.Placement = App.Placement(App.Vector(0, 0, 800), App.Rotation())
+    doc.recompute()
+    lancer(REPETER, barreau)
+    form = panneau()
+    if form is None:
+        return ["panneau « Répéter » non ouvert"]
+    cliquer_dans_la_vue(doc, plafond)  # premier clic : la butée, sans bouton
+    rep = doc.getObject("Repeat")
+    if rep is None:
+        return ["aucune répétition après le choix de la butée"]
+    problemes = [
+        *ecarts(
+            "axe Z seul actif",
+            [widget(form, f"axis{a}").isChecked() for a in "XYZ"],
+            [False, False, True],
+        ),
+        *ecarts("butée sur Z", "Plafond" in widget(form, "stopNameZ").text(), True),
+        *ecarts("2 éléments", widget(form, "countZ").value(), 2),
+        *ecarts("longueur jusqu'au plafond", round(rep.Span.Value, 3), 800.0),
+        *ecarts(
+            "copie à fleur du plafond",
+            round(repeat.copies_of(rep)[0].Shape.BoundBox.ZMax, 3),
+            800.0,
+        ),
+    ]
+    valider()
+    return problemes
+
+
+def verifier_butee_a_l_ouverture_axe_deduit() -> list[str]:
+    """Création : le premier clic dans la vue est la butée, son axe devient le seul actif."""
+    return avec_document("VerifButeeAxe", _axe_deduit)
+
+
 VERIFICATIONS_REPETITION_BUTEE: tuple[Callable[[], list[str]], ...] = (
     verifier_butee_dans_le_panneau,
     verifier_modifier_une_repetition_a_butee,
+    verifier_butee_a_l_ouverture_axe_deduit,
 )

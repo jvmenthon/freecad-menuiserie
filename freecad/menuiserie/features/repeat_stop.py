@@ -28,6 +28,7 @@ from freecad.menuiserie.core.repeat import (
     RepeatAxis,
     RepeatParams,
     SpacingMode,
+    farthest_axis,
     resolve_line,
     stop_kind,
     stop_reverse,
@@ -59,6 +60,7 @@ __all__ = [
     "follow_stops",
     "kept_stops",
     "start_axis",
+    "stop_axis",
     "stop_bounds",
     "stop_text",
     "stored_stops",
@@ -193,6 +195,17 @@ def start_axis(stop: Stop, sources: Sequence[DocumentObject]) -> RepeatAxis | No
     spans = {axis: stop_bounds(stop, container, axis) for axis in RepeatAxis}
     flat = [axis for axis, (low, high) in spans.items() if high - low < _TOLERANCE]
     return flat[0] if len(flat) == 1 else None
+
+
+def stop_axis(stop: Stop, sources: Sequence[DocumentObject]) -> RepeatAxis:
+    """Axe vers la butée (le plus grand écart aux sources), pour un choix sans axe donné ;
+    ``ValueError`` traduite si la butée est refusée."""
+    checked_stop(stop, sources, None)
+    container = common_container(sources)
+    return farthest_axis(
+        {axis: source_bounds(sources, axis) for axis in RepeatAxis},
+        {axis: stop_bounds(stop, container, axis) for axis in RepeatAxis},
+    )
 
 
 def bounded_params(

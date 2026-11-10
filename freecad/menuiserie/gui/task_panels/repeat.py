@@ -119,6 +119,8 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._stops.settle_with(self._deduct, partial(attrgetter("_refused", "_overlapping"), self))
         self._fill(repeat)
         self._connect()  # création : aucune copie avant la première saisie (demande de jv)
+        if repeat is None:
+            self._stops.pick_auto()  # le premier clic dans la vue 3D est la butée
 
     # --- Construction ---------------------------------------------------------------------
 

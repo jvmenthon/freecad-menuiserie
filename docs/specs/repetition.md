@@ -299,9 +299,11 @@ peut être **calculée jusqu'à une butée** au lieu d'être saisie.
 - **Sens** (jv, 2026-11-10) : déduit de la butée, la répétition va toujours vers elle ; la case
   « Inverser » est grisée tant qu'une butée est choisie. Une butée qui chevauche l'original est
   refusée.
-- **Ouverture de « Répéter »** (jv, 2026-11-10) : « nombre sur une longueur », 2 éléments, aucune
-  copie avant la première saisie (« OK » grisé jusque-là) ; aucune
-  butée n'est choisie d'office (le choix automatique à l'ouverture a été retiré à la demande de jv).
+- **Ouverture de « Répéter »** (jv, 2026-11-10/11) : « nombre sur une longueur », 2 éléments, aucune
+  copie et aucune butée avant le premier choix (« OK » grisé jusque-là), mais le choix de la butée
+  est déjà en cours : le premier clic dans la vue 3D donne la butée et l'axe (celui où elle est le
+  plus loin de l'original), seul actif. « Butée… » sur une ligne ou un second clic sur ce bouton
+  reprend la main.
 - **Case « Intervalle avant la fin »** (jv, 2026-11-10 ; propriété `EndGap`) : `n` éléments
   partagent la longueur en `n` intervalles égaux au lieu de `n - 1` ; la dernière pièce s'arrête
   un intervalle avant la fin (ou la butée). « Déduire l'épaisseur » est alors grisée. Avec « Suivre

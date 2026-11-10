@@ -13,6 +13,7 @@ from freecad.menuiserie.core.repeat import (
     Resolved,
     SpacingMode,
     StopKind,
+    farthest_axis,
     resolve,
     resolve_grid,
     stop_kind,
@@ -138,3 +139,13 @@ def test_intervalle_avant_la_fin_pas_sur_une_longueur() -> None:
     )
     with pytest.raises(RepeatError):
         resolve(short, 30.0)  # un seul élément tient
+
+
+def test_axe_deduit_de_la_butee() -> None:
+    sources = {X: (0.0, 30.0), RepeatAxis.Y: (0.0, 20.0), RepeatAxis.Z: (0.0, 10.0)}
+    mur = {X: (300.0, 330.0), RepeatAxis.Y: (0.0, 20.0), RepeatAxis.Z: (0.0, 10.0)}
+    assert farthest_axis(sources, mur) is X
+    dessous = {X: (0.0, 30.0), RepeatAxis.Y: (-50.0, 70.0), RepeatAxis.Z: (-400.0, -380.0)}
+    assert farthest_axis(sources, dessous) is RepeatAxis.Z  # côté négatif aussi
+    cube = dict.fromkeys(RepeatAxis, (0.0, 10.0))
+    assert farthest_axis(cube, dict.fromkeys(RepeatAxis, (20.0, 30.0))) is X  # à égalité : X

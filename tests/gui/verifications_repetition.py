@@ -56,8 +56,9 @@ def source(doc: Any, mark: str = "Barreau") -> Any:
 
 
 def retablir(form: Any) -> None:
-    """Réglages sur lesquels portent ces vérifications : « nombre et pas », ``PAR_DEFAUT``
-    copies sur X."""
+    """Réglages sur lesquels portent ces vérifications : choix de butée d'ouverture annulé,
+    « nombre et pas », ``PAR_DEFAUT`` copies sur X."""
+    widget(form, "stopX").click()  # second clic sur « Butée… » : choix annulé
     choisir(widget(form, "spacing"), "CountAndStep")
     widget(form, "countX").setValue(PAR_DEFAUT + 1)
 
@@ -154,7 +155,8 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
     problemes = [
         *ecarts("ouverture : mode", widget(form, "spacing").currentData(), "CountOnSpan"),
         *ecarts("ouverture : 2 éléments", widget(form, "countX").value(), 2),
-        *ecarts("ouverture : aucun choix de butée", widget(form, "stopX").isDown(), False),
+        *ecarts("ouverture : choix de butée en cours", widget(form, "stopX").isDown(), True),
+        *ecarts("ouverture : aucune butée", widget(form, "stopClearX").isHidden(), True),
         *ecarts("ouverture : aucune copie", doc.getObject("Repeat"), None),
         *ecarts("ouverture : « OK » grisé", bouton_ok().isEnabled(), False),
     ]
