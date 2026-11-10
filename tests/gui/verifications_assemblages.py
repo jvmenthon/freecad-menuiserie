@@ -494,6 +494,29 @@ def verifier_suppression_du_contenu_d_un_groupe() -> list[str]:
         ]
 
 
+def verifier_groupe_supprime_avec_une_seule_piece() -> list[str]:
+    """Groupe de l'utilisateur supprimé avec son contenu, qui ne contient qu'une des deux pièces :
+    l'assemblage resté dehors est supprimé (pas d'« Assemblage incomplet »), la pièce usinée de
+    l'autre pièce aussi, sa brute réaffichée."""
+    with cadre("VerifGroupeUnePiece") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinee = usinee_de(pieces["M1"])
+        autre = usinee_de(pieces["T1"])
+        noms = [joint.Name, autre.Name]
+        groupe = doc.addObject("App::DocumentObjectGroup", "GroupeUtilisateur")
+        groupe.addObject(usinee)
+        groupe.addObject(pieces["M1"])
+        accepte = usinee.ViewObject.Proxy.onDelete(usinee.ViewObject, ["group_recursive_deletion"])
+        return [
+            *ecarts("acceptée", accepte, True),
+            *ecarts(
+                "assemblage et autre usinée supprimés", [doc.getObject(n) for n in noms], [None] * 2
+            ),
+            *ecarts("pièce usinée gardée pour FreeCAD", usinee.isValid(), True),
+            *ecarts("autre brute visible", pieces["T1"].Visibility, True),
+        ]
+
+
 def verifier_suppression_d_un_assemblage() -> list[str]:
     """Supprimer un assemblage : pas d'avertissement « objets référencés » pour ses pièces
     usinées (``canDelete``), qui sont recalculées sans sa coupe."""
@@ -565,6 +588,7 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_suppression_de_la_piece_usinee,
     verifier_suppression_groupee_sans_question,
     verifier_suppression_du_contenu_d_un_groupe,
+    verifier_groupe_supprime_avec_une_seule_piece,
     verifier_suppression_d_un_assemblage,
     verifier_aucun_observateur_laisse,
 )

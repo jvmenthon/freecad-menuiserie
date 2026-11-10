@@ -22,7 +22,7 @@ from freecad.menuiserie.features.furniture_members import detach_members, remove
 from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.joints.base import is_joint
-from freecad.menuiserie.gui.view_providers.deletion import in_group_deletion
+from freecad.menuiserie.gui.view_providers.deletion import in_group_deletion, inside_group
 from freecad.menuiserie.gui.view_providers.no_geometry import NoGeometryView
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
@@ -73,7 +73,8 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
         leurs liaisons, pour qu'aucune expression ne vise plus l'ensemble supprimé."""
         furniture = vobj.Object
         if in_group_deletion(subelements):
-            outside = [m for m in members_of(furniture) if not _inside(m, furniture)]
+            group = furniture.getParentGroup()
+            outside = [m for m in members_of(furniture) if not inside_group(m, group)]
             if outside:
                 detach_members(outside)
             return True
@@ -82,17 +83,6 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
         for message in [*messages, *dissolve(furniture)]:
             report_warning(message)
         return True
-
-
-def _inside(obj: DocumentObject, furniture: DocumentObject) -> bool:
-    """Vrai si ``obj`` est rangé (même indirectement) dans le groupe qui contient ``furniture``."""
-    group = furniture.getParentGroup()
-    parent = obj.getParentGroup()
-    while parent is not None:
-        if parent == group:
-            return True
-        parent = parent.getParentGroup()
-    return False
 
 
 def _pieces_below(furniture: DocumentObject) -> list[DocumentObject]:

@@ -125,6 +125,7 @@ def _all_inside(machined: DocumentObject, deleted: Collection[str]) -> bool:
     joints = list(machined.Joints)
     if not joints:
         return False
+    deleted = set(deleted)
     for joint in joints:
         names = {joint.Name}
         for part in (joint.HostPart, joint.GuestPart):
@@ -132,7 +133,7 @@ def _all_inside(machined: DocumentObject, deleted: Collection[str]) -> bool:
                 return False
             found = machined_part_of(part)
             names |= {part.Name} | ({found.Name} if found is not None else set())
-        if not names <= set(deleted):
+        if not names <= deleted:
             return False
     return True
 
