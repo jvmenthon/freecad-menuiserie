@@ -11,6 +11,7 @@ from collections.abc import Sequence
 
 import pytest
 
+from freecad.menuiserie.core._validation import has_forbidden_character
 from freecad.menuiserie.core.structure_actions import (
     MAX_NAME_LENGTH,
     MoveFacts,
@@ -111,7 +112,8 @@ def test_nom_vide_ou_blanc_refuse(text: str) -> None:
 
 @pytest.mark.parametrize("label", [n for n in NASTY if len(n) <= MAX_NAME_LENGTH])
 def test_renommer_une_piece_accepte_les_caracteres_speciaux(label: str) -> None:
-    assert decide_rename("ancien", label, furniture=False).allowed
+    allowed = not has_forbidden_character(label)  # saut de ligne, contrôle de direction : refusés
+    assert decide_rename("ancien", label, furniture=False).allowed is allowed
 
 
 def test_le_et_commercial_est_double_dans_un_menu_qt() -> None:

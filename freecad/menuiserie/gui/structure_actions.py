@@ -35,6 +35,7 @@ from freecad.menuiserie.core.structure_actions import (
     creates_sub_furniture,
     decide_drop,
     decide_rename,
+    plain_tooltip,
 )
 from freecad.menuiserie.core.structure_menu import Action, MenuEntry, menu_entries, verbatim_text
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -226,8 +227,8 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         action.setEnabled(decision.allowed)
         reason = decision_text(decision)
         if reason:
-            action.setToolTip(reason)
-            action.setStatusTip(reason)
+            action.setToolTip(plain_tooltip(reason))
+            action.setStatusTip(plain_tooltip(reason))
 
     def run_action(self, action: Action, keys: Sequence[str], target: str | None = None) -> bool:
         """Exécute l'entrée ``action`` (``target`` : ensemble d'accueil d'un « Ajouter à
@@ -320,7 +321,8 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
             return
         Gui.Selection.clearSelection()
         for key in entry.decision.keys:
-            Gui.Selection.addSelection(doc.Name, key)
+            if doc.getObject(key) is not None:
+                Gui.Selection.addSelection(doc.Name, key)
         Gui.runCommand("Std_Delete")
 
 

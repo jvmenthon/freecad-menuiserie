@@ -14,7 +14,7 @@ from typing import Any
 
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.core.structure_actions import drop_blocked, drop_target
+from freecad.menuiserie.core.structure_actions import drop_blocked, drop_target, plain_tooltip
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.structure_tree_widget import draggable_keys, row_path
 
@@ -74,7 +74,7 @@ class DropTree(QtGui.QTreeWidget):  # type: ignore[misc]
         reason = self.blocked_reason(point) or self._reason(self.target_at(point))
         if reason:
             event.ignore()
-            QtGui.QToolTip.showText(self.viewport().mapToGlobal(point), reason, self)
+            QtGui.QToolTip.showText(self.viewport().mapToGlobal(point), plain_tooltip(reason), self)
         else:
             event.acceptProposedAction()
             QtGui.QToolTip.hideText()

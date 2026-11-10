@@ -25,6 +25,7 @@ from freecad.menuiserie.core.structure_actions import (
     decide_rename_target,
     decide_selection,
     drop_target,
+    plain_tooltip,
     top_level,
 )
 from freecad.menuiserie.core.structure_menu import Action, menu_entries
@@ -280,11 +281,26 @@ def test_renommer_bornes_du_nom(text: str, allowed: bool, silent: bool) -> None:
     assert (decision.allowed, decision.silent) == (allowed, silent)
 
 
-@pytest.mark.parametrize("name", ["Bu>reau", "Bu\\reau", "Bu‮reau"])
+@pytest.mark.parametrize("name", ["Bu>reau", "Bu\\reau"])
 def test_renommer_un_ensemble_refuse_un_nom_inutilisable_dans_une_expression(name: str) -> None:
     decision = decide_rename("Bureau", name, furniture=True)
     assert not decision.allowed
     assert "inutilisable dans une expression" in decision.message
+
+
+@pytest.mark.parametrize("furniture", [False, True])
+@pytest.mark.parametrize("name", ["Pla\nteau", "Pla\tteau", "Pla\x00teau"])
+def test_renommer_refuse_les_caracteres_de_controle(name: str, furniture: bool) -> None:
+    decision = decide_rename("Plateau", name, furniture=furniture)
+    assert not decision.allowed
+    assert not decision.silent
+    assert "caractère de contrôle" in decision.message
+
+
+def test_infobulle_echappe_le_html_saisi() -> None:
+    tip = plain_tooltip("<b>Gras</b> & <img src=x>")
+    assert tip == "<span>&lt;b&gt;Gras&lt;/b&gt; &amp; &lt;img src=x&gt;</span>"
+    assert "<b>" not in tip
 
 
 def test_renommer_une_piece_accepte_ce_qu_un_ensemble_refuse() -> None:

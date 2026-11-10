@@ -20,6 +20,7 @@ from typing import Any, Final
 
 import FreeCAD as App
 import FreeCADGui as Gui
+import shiboken6
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -113,6 +114,40 @@ class _SelectionWatcher:
     addSelection = removeSelection = setSelection = clearSelection = _changed
 
 
+class _Observers:
+    """Observateurs posés dans FreeCAD, hors de tout QObject : le retrait doit rester possible
+    quand le dock et son contrôleur sont déjà détruits (ADR 0007)."""
+
+    def __init__(self, request_refresh: Callable[[], None], request_select: Callable[[], None]):
+        self._documents = _DocumentWatcher(request_refresh)
+        self._activation = _ActivationWatcher(request_refresh)
+        self._selection = _SelectionWatcher(request_select)
+        self.attached = False
+
+    def attach(self) -> bool:
+        """Pose les observateurs ; faux s'ils l'étaient déjà."""
+        if self.attached:
+            return False
+        self.attached = True
+        App.addDocumentObserver(self._documents)
+        if hasattr(Gui, "addDocumentObserver"):
+            Gui.addDocumentObserver(self._activation)
+        Gui.Selection.addObserver(self._selection)
+        return True
+
+    def detach(self) -> bool:
+        """Retire les observateurs, chaque retrait étant tenté même si un autre échoue ; faux
+        s'ils étaient déjà retirés."""
+        if not self.attached:
+            return False
+        self.attached = False
+        _try(App.removeDocumentObserver, self._documents)
+        if hasattr(Gui, "removeDocumentObserver"):
+            _try(Gui.removeDocumentObserver, self._activation)
+        _try(Gui.Selection.removeObserver, self._selection)
+        return True
+
+
 class StructureSync(QtCore.QObject):  # type: ignore[misc]
     """Contrôleur du panneau : rafraîchissement, sélection et double-clic. Enfant du dock,
     donc détruit avec lui ; :meth:`attach` et :meth:`detach` posent et retirent les
@@ -124,11 +159,8 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         self._guard = ReentrancyGuard()
         self._refresh = Coalescer(later, self._guarded_refresh)
         self._select = Coalescer(later, self._guarded_pull_selection)
-        self._documents = _DocumentWatcher(self._refresh.request)
-        self._activation = _ActivationWatcher(self._refresh.request)
-        self._selection = _SelectionWatcher(self._select.request)
+        self._observers = _Observers(self._refresh.request, self._select.request)
         self._shown: tuple[str, tuple[StructureNode, ...]] | None = None
-        self._attached = False
         tree.itemSelectionChanged.connect(self._push_selection)
         tree.itemDoubleClicked.connect(self._open_panel)
 
@@ -137,29 +169,30 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
     @property
     def attached(self) -> bool:
         """Vrai tant que les observateurs sont posés."""
-        return self._attached
+        return self._observers.attached
+
+    @property
+    def observers(self) -> _Observers:
+        """Les observateurs, que le retrait à la destruction du dock appelle sans le QObject."""
+        return self._observers
 
     def attach(self) -> None:
         """Pose les observateurs (sans effet s'ils le sont) et met le panneau à jour."""
-        if not self._attached:
-            self._attached = True
-            App.addDocumentObserver(self._documents)
-            if hasattr(Gui, "addDocumentObserver"):
-                Gui.addDocumentObserver(self._activation)
-            Gui.Selection.addObserver(self._selection)
+        self._observers.attach()
         self.refresh_now()
 
     def detach(self) -> None:
-        """Retire les observateurs ; chaque retrait est tenté même si un autre échoue."""
-        if not self._attached:
-            return
-        self._attached = False
-        self._refresh.cancel()
-        self._select.cancel()
-        _try(App.removeDocumentObserver, self._documents)
-        if hasattr(Gui, "removeDocumentObserver"):
-            _try(Gui.removeDocumentObserver, self._activation)
-        _try(Gui.Selection.removeObserver, self._selection)
+        """Retire les observateurs et annule les rafraîchissements en attente."""
+        if self._observers.detach():
+            self._refresh.cancel()
+            self._select.cancel()
+
+    def _tree_alive(self) -> bool:
+        """Faux (et observateurs retirés) si l'arbre Qt est déjà détruit."""
+        if shiboken6.isValid(self._tree):
+            return True
+        self._observers.detach()
+        return False
 
     # --- Document -------------------------------------------------------------------------
 
@@ -167,6 +200,8 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         """Recalcule l'arbre du document actif et rend la sélection de FreeCAD au panneau.
         Un arbre identique à celui affiché n'est pas reconstruit, sauf avec ``force`` (après un
         glisser-déposer, qui a pu laisser des lignes déplacées)."""
+        if not self._tree_alive():
+            return
         doc = App.ActiveDocument
         name = doc.Name if doc is not None else ""
         nodes = structure_of(doc) if doc is not None else ()
@@ -185,6 +220,8 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
     def pull_selection(self) -> None:
         """FreeCAD → panneau : surligne les lignes des objets sélectionnés (sans rien envoyer
         en retour)."""
+        if not self._tree_alive():
+            return
         wanted = rows_for_selection(self._freecad_row_keys(), self._row_keys())
         if wanted == selected_keys(self._tree):
             return
@@ -202,6 +239,8 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         report_errors(self._push_now)
 
     def _push_now(self) -> None:
+        if not self._tree_alive():
+            return
         doc = App.ActiveDocument
         if doc is None:
             return

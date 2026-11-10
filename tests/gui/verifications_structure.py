@@ -296,8 +296,12 @@ def _verifier_renommer(bureau: Bureau, dock: Any, arbre: Any, _synchro: Structur
         actions.run_action(Action.RENAME, [cle])
     with _saisie("Bu>reau"):
         actions.run_action(Action.RENAME, [bureau.furniture.Name])
+    with _saisie("Pla\nteau"):
+        actions.run_action(Action.RENAME, [cle])
     return [
         *problemes,
+        *ecarts("caractère de contrôle : inchangé", bureau.parts["P"].Label, "Plateau"),
+        *ecarts("refus en texte brut", boite_de_refus().textFormat(), QtCore.Qt.PlainText),
         *ecarts("nom vide : inchangé", bureau.parts["P"].Label, "Plateau"),
         *ecarts("nom inutilisable : inchangé", bureau.furniture.Label, "Bureau"),
         *ecarts("refus : aucune entrée", doc.UndoNames, []),
