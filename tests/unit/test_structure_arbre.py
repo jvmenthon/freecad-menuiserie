@@ -71,6 +71,9 @@ class FakeSource:
     def joints(self, furniture: str) -> Sequence[str]:
         return [c for c in self.CHILDREN[furniture] if c[0] in "JD"]
 
+    def loose_joints(self) -> Sequence[str]:
+        return []
+
     def label(self, key: str) -> str:
         return self.LABELS[key]
 

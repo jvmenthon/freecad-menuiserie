@@ -59,6 +59,9 @@ class FakeExtras:
     def other_objects(self) -> Sequence[str]:
         return ["Sk", "Box"]
 
+    def workshop_objects(self) -> Sequence[str]:
+        return []
+
 
 class LotSource(FakeSource):
     LABELS: ClassVar[dict[str, str]] = {

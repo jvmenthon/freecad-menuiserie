@@ -13,6 +13,7 @@ from collections.abc import Collection, Sequence
 
 from freecad.menuiserie.core.structure_tree import (
     JOINTS_TITLE,
+    LEFTOVERS_TITLE,
     OTHERS_TITLE,
     REPEAT_LABEL,
     StructureNode,
@@ -28,6 +29,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.shaped_sources import is_workshop_object
 from freecad.menuiserie.features.structure_foreign import foreign_objects
 from freecad.menuiserie.features.structure_repetitions import RepetitionReader, repetition_reader
 
@@ -48,11 +50,20 @@ def _others_title(count: int) -> str:
     return translated(OTHERS_TITLE, {"count": str(count)})
 
 
+def _leftovers_title(count: int) -> str:
+    return translated(LEFTOVERS_TITLE, {"count": str(count)})
+
+
 def _repeat_label(name: str, count: int) -> str:
     return translated(REPEAT_LABEL, {"name": name, "count": str(count)})
 
 
-_TITLES = Titles(joints=_joints_title, others=_others_title, repeat=_repeat_label)
+_TITLES = Titles(
+    joints=_joints_title,
+    others=_others_title,
+    repeat=_repeat_label,
+    leftovers=_leftovers_title,
+)
 
 
 class DocumentStructure:
@@ -93,6 +104,20 @@ class DocumentStructure:
             obj.Name for obj in self._children_of(furniture) if is_joint(obj) or is_distance(obj)
         ]
 
+    def loose_joints(self) -> Sequence[str]:
+        """Assemblages, quincaillerie et Distances qu'aucun ensemble ne range : pieds ou coulisses
+        d'une pièce hors ensemble, pièces d'ensembles sans ensemble commun, pièce supprimée…"""
+        ranged = {name for furniture in self.all_furnitures() for name in self.joints(furniture)}
+        return [
+            obj.Name
+            for obj in self._doc.Objects
+            if (is_joint(obj) or is_distance(obj)) and obj.Name not in ranged
+        ]
+
+    def all_furnitures(self) -> Sequence[str]:
+        """Tous les ensembles du document, dans l'ordre du document."""
+        return [obj.Name for obj in self._doc.Objects if is_furniture(obj)]
+
     def repetitions(self, container: str | None) -> Sequence[str]:
         """Répétitions rangées dans l'ensemble ``container`` (``None`` : hors ensemble)."""
         return [
@@ -116,6 +141,10 @@ class DocumentStructure:
     def other_objects(self) -> Sequence[str]:
         """Objets d'autres ateliers (voir ``structure_foreign``)."""
         return [obj.Name for obj in foreign_objects(self._doc)]
+
+    def workshop_objects(self) -> Sequence[str]:
+        """Clés de ligne de tous les objets de l'atelier (``is_workshop_object``)."""
+        return [row_key_of(obj) for obj in self._doc.Objects if is_workshop_object(obj)]
 
     def label(self, key: str) -> str:
         """Libellé de l'objet ``key`` ; une pièce usinée porte celui de sa brute (sans

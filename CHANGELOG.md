@@ -5,6 +5,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Corrigé
+
+- Panneau « Structure » : les pieds, coulisses, LR32, faux tenons, assemblages et Distances dont les pièces sont hors ensemble (ou dans des ensembles sans ensemble commun) n'apparaissaient nulle part, car ils n'étaient lus que sous un ensemble. Ils forment désormais un nœud replié « Assemblages (N) » à la racine (menu, suppression, renommage, double-clic, sélection et icônes comme sous un ensemble) ; tout autre objet de l'atelier encore invisible est montré sous « Autres objets de l'atelier (N) ». Invariant testé : tout objet de l'atelier est dans l'arbre, une seule fois (ADR 0046).
+
 ### Ajouté
 
 - Panneau « Structure » : une icône sur chaque ligne selon son genre (ensemble, pièce, assemblage et groupe « Assemblages », répétition, liste de débit, autre objet), avec les icônes de l'atelier ; deux nouvelles icônes (Répétition, Autre objet) générées par `tools/generer_icones.py`. Le panneau s'ouvre par défaut à l'activation de l'atelier (en onglet avec la vue combinée, sans prendre le focus), sauf si l'utilisateur l'a fermé : le choix est mémorisé dans les préférences de l'atelier. Pas d'icône distincte pour la pièce en forme ni pour la Distance (le genre de ligne ne les distingue pas).
