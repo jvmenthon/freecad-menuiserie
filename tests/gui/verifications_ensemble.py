@@ -158,7 +158,9 @@ def verifier_commandes_d_ensemble_annulables() -> list[str]:
             *ecarts("panneau ouvert", bool(Gui.Control.activeDialog()), False),
         ]
         lancer(RETIRER, bureau.shown("JG"))
-        problemes += ecarts("retirée", membre(joue), False)
+        problemes += ecarts(
+            "retirée", api.furniture_of(joue), None
+        )  # orphelin : propriétés gardées
         lancer(AJOUTER, ensemble, bureau.shown("JG"))
         problemes += ecarts("ajoutée", api.furniture_of(joue), ensemble)
         lancer(RELIER, ensemble)
