@@ -106,17 +106,20 @@ def _owners(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
 
 def move_rows(doc: Any, keys: Sequence[str], target: str | None) -> Sequence[str] | None:
     """Range les lignes ``keys`` dans l'ensemble ``target`` (``None`` : les sort de leur
-    ensemble) en une transaction : sortie de l'ancien ensemble puis entrée dans le nouveau, comme
-    la commande de l'ADR 0037 ; refus de l'api = rien ne change."""
+    ensemble) en une transaction ; les propriétés de membre ne sont jamais retirées puis recréées
+    (FreeCAD 1.1 ne les rétablit pas au Ctrl+Z) : ``move=True`` et ``keep_properties=True`` ;
+    refus de l'api = rien ne change."""
     objects = _objects(doc, keys)
     destination = doc.getObject(target) if target is not None else None
 
     def action() -> Sequence[str]:
         owners = _owners(objects)
         leaving = [obj for obj in objects if furniture_of(member_object(obj)) is not None]
-        messages = list(api.remove_from_furniture(leaving)) if leaving else []
+        messages: list[str] = []
         if destination is not None:
-            messages += api.add_to_furniture(destination, objects)
+            messages += api.add_to_furniture(destination, objects, move=True)
+        elif leaving:
+            messages += api.remove_from_furniture(leaving, keep_properties=True)
         refresh_tree([*owners, *([destination] if destination is not None else [])])
         return messages
 

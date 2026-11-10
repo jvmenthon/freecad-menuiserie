@@ -20,6 +20,7 @@ from freecad.menuiserie.features import (
     furniture_locks,
     furniture_material,
     furniture_members,
+    furniture_resize,
     templates,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -64,20 +65,31 @@ def make_furniture(
     return furniture, _reported(notices, furniture.Document)
 
 
-def add_to_furniture(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> _Notices:
+def add_to_furniture(
+    furniture: DocumentObject, objects: Sequence[DocumentObject], *, move: bool = False
+) -> _Notices:
     """Fait entrer ``objects`` dans ``furniture`` (options par défaut, liaisons d'après la
     géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus et même
-    absence de transaction que :func:`make_furniture`."""
-    notices = furniture_members.add_members(furniture, objects)
+    absence de transaction que :func:`make_furniture`. Avec ``move``, des objets déjà membres
+    d'un autre ensemble en sortent pour entrer ici (leurs propriétés de membre sont gardées, ce
+    qui s'annule d'un Ctrl+Z)."""
+    notices = furniture_members.add_members(furniture, objects, move=move)
     return _reported(notices, furniture.Document)
 
 
-def remove_from_furniture(objects: Sequence[DocumentObject]) -> _Notices:
+def remove_from_furniture(
+    objects: Sequence[DocumentObject], *, keep_properties: bool = False
+) -> _Notices:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
     de membre sont supprimées, la géométrie ne change pas. ``ValueError`` traduite, avant toute
     modification, pour un objet qui n'est membre d'aucun ensemble. Renvoie les avertissements
-    traduits, comme toute fonction de l'ensemble (ADR 0017) : aucun aujourd'hui."""
-    furniture_members.remove_members(objects)
+    traduits, comme toute fonction de l'ensemble (ADR 0017) : aucun aujourd'hui. Avec
+    ``keep_properties``, les propriétés de membre restent (état d'orphelin) : seuls le lien et
+    les liaisons sont retirés, ce qui s'annule d'un Ctrl+Z."""
+    if keep_properties:
+        furniture_members.detach_members(objects)
+    else:
+        furniture_members.remove_members(objects)
     if objects:
         objects[0].Document.recompute()
     return ()
@@ -140,7 +152,7 @@ def resize_furniture(
     :func:`unlock_and_resize` les déverrouille). Renvoie les avertissements traduits (aussi
     dans la vue rapport, ADR 0017)."""
     sizes = {"Width": width, "Depth": depth, "Height": height}
-    notices = furniture_members.resize(furniture, sizes)
+    notices = furniture_resize.resize(furniture, sizes)
     return _reported(notices, furniture.Document)
 
 

@@ -468,6 +468,10 @@ def test_chaque_ecriture_passe_par_l_api_dans_une_transaction() -> None:
     for call in ("api.remove_from_furniture", "api.add_to_furniture", "api.make_furniture"):
         assert call in source
     assert "openTransaction" in calls_in(GUI / "structure_actions.py")
+    # jamais « retirer puis recréer » les propriétés de membre (FreeCAD 1.1 ne les rétablit pas
+    # au Ctrl+Z) : changement d'ensemble et sortie gardent les propriétés
+    assert "move=True" in source
+    assert "keep_properties=True" in source
     assert "Std_Delete" in source
 
 

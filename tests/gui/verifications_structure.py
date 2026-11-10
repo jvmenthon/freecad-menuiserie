@@ -15,6 +15,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any, cast
 
+import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
@@ -215,12 +216,25 @@ def _ensemble_de(piece: Any) -> str | None:
     return None if ensemble is None else str(ensemble.Name)
 
 
-def _annuler(doc: Any) -> None:
-    """Ctrl+Z puis recalcul, comme les vérifications de l'ensemble (liens rétablis par l'annulation
-    relus après le recalcul)."""
+def _etat(piece: Any) -> str:
+    """État réel des propriétés de membre de ``piece`` (diagnostic d'une annulation)."""
+    noms = [
+        n for n in ("Furniture", "PositionMode", "FurnitureBindings") if n in piece.PropertiesList
+    ]
+    lien = getattr(piece, "Furniture", None) if "Furniture" in noms else None
+    return f"{piece.Name} : propriétés {noms}, Furniture = {getattr(lien, 'Name', lien)!r}"
+
+
+def _annuler(doc: Any, *pieces: Any) -> str:
+    """Ctrl+Z puis recalcul, comme les vérifications de l'ensemble. Renvoie (et écrit dans la vue
+    rapport) l'état réel des ``pieces`` après l'annulation, pour diagnostiquer un échec sans
+    deviner : propriété présente ou non, valeur du lien."""
     doc.undo()
     doc.recompute()
     _traiter()
+    etat = " ; ".join(_etat(piece) for piece in pieces)
+    App.Console.PrintMessage(f"Menuiserie : diagnostic Ctrl+Z, {etat}\n")
+    return etat
 
 
 def _ligne_dans(arbre: Any, cle: str) -> str | None:
@@ -291,22 +305,22 @@ def _verifier_ranger(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
         *ecarts("une entrée d'annulation", len(doc.UndoNames), 1),
         *ecarts("aucun objet ajouté", [o.Name for o in doc.Objects], noms),
     ]
-    _annuler(doc)
-    problemes += ecarts("Ctrl+Z : libre", _ensemble_de(libre), None)
+    etat = _annuler(doc, libre)
+    problemes += ecarts(f"Ctrl+Z : libre ({etat})", _ensemble_de(libre), None)
     doc.clearUndos()
     arbre.on_drop([etagere.Name], bureau.furniture.Name)
     _traiter()
     problemes += ecarts("armoire -> bureau", _ensemble_de(etagere), bureau.furniture.Name)
     problemes += ecarts("changement : une entrée", len(doc.UndoNames), 1)
-    _annuler(doc)
-    problemes += ecarts("Ctrl+Z : étagère", _ensemble_de(etagere), armoire.Name)
+    etat = _annuler(doc, etagere)
+    problemes += ecarts(f"Ctrl+Z : étagère ({etat})", _ensemble_de(etagere), armoire.Name)
     doc.clearUndos()
     arbre.on_drop([etagere.Name], None)
     _traiter()
     problemes += ecarts("sortie de l'armoire", _ensemble_de(etagere), None)
     problemes += ecarts("sortie : racine", _ligne_dans(arbre, etagere.Name), None)
-    _annuler(doc)
-    return problemes + ecarts("Ctrl+Z : sortie", _ensemble_de(etagere), armoire.Name)
+    etat = _annuler(doc, etagere)
+    return problemes + ecarts(f"Ctrl+Z : sortie ({etat})", _ensemble_de(etagere), armoire.Name)
 
 
 def _verifier_refus(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
@@ -355,10 +369,11 @@ def _verifier_sous_ensemble(
         *ecarts("une entrée d'annulation", len(doc.UndoNames), 1),
         *ecarts("nouvel ensemble sélectionné", _noms_selectionnes(), [nouveau[0].Name]),
     ]
-    _annuler(doc)
+    etat = _annuler(doc, bureau.parts["P"])
+    restants = len([o for o in doc.Objects if is_furniture(o)])
     return problemes + ecarts(
-        "Ctrl+Z",
-        [_ensemble_de(bureau.parts["P"]), len([o for o in doc.Objects if is_furniture(o)])],
+        f"Ctrl+Z ({etat})",
+        [_ensemble_de(bureau.parts["P"]), restants],
         [bureau.furniture.Name, len(avant)],
     )
 

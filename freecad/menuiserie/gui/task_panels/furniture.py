@@ -35,6 +35,7 @@ from freecad.menuiserie.features import (
     furniture_locks,
     furniture_material,
     furniture_members,
+    furniture_resize,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
@@ -187,7 +188,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
             self._refresh()
             return
         try:
-            notices = furniture_members.resize(self.obj, sizes)
+            notices = furniture_resize.resize(self.obj, sizes)
         except ValueError as error:
             self._unlock.refuse(error)
             self._refresh()
