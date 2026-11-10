@@ -116,12 +116,14 @@ def _selection_teintee(
         [SELECTION] * 4,
     )
     _choisir(arbre, bureau.joints[0].Name)
-    hote, invitee = bureau.joints[0].HostPart, bureau.joints[0].GuestPart
-    concernees = {bureau.shown(m).Name for m in ("JG", "V")}
     problemes += ecarts(
-        "assemblage : pièces concernées", {hote.Name, invitee.Name} <= concernees, True
+        "assemblage : ses deux pièces",
+        [_etat(bureau.shown(m)) for m in ("JG", "V")],
+        [SELECTION] * 2,
     )
-    problemes += ecarts("assemblage : pièce hors assemblage intacte", _etat(piece), origine)
+    problemes += ecarts("assemblage : les autres pièces intactes", _etat(piece), origine) + ecarts(
+        "assemblage : joue droite intacte", _etat(bureau.shown("JD"))[0], 0
+    )
     _choisir(arbre)
     return problemes + ecarts("tout désélectionné : plus de calque", DISPLAY.tracked(), [])
 
@@ -324,7 +326,7 @@ def _deplacer_et_tourner(doc: Any) -> list[str]:
     problemes += [
         *ecarts("anneau saisi", pris, True),
         *proche("tournée de 30° (aimant)", lacet(piece), 30.0, 0.01),
-        *ecarts("rotation : une transaction de plus", doc.UndoNames[-1:], [TRANSACTION_ROTATION]),
+        *ecarts("rotation : une transaction de plus", doc.UndoNames[:1], [TRANSACTION_ROTATION]),
         *ecarts("rotation : transparence gardée", _etat(piece), SELECTION),
     ]
     _choisir(arbre)
