@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Commande « Structure » : ouvre le panneau ancré de l'arbre simplifié (ADR 0046, lot 1).
 
-Lecture seule : aucune transaction, aucun objet créé ; le panneau est dans ``gui/structure_panel``.
+Cette commande n'écrit rien dans le document ; le panneau est dans ``gui/structure_panel``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,8 @@ class StructureCommand:
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_Structure",
         "Ouvre le panneau « Structure » : l'arbre simplifié des ensembles, de leurs pièces et "
-        "de leurs assemblages (lecture seule ; l'arbre de FreeCAD reste inchangé).",
+        "de leurs assemblages. Clic droit ou glisser-déposer pour ranger les pièces dans les "
+        "ensembles ; l'arbre de FreeCAD reste inchangé.",
     )
 
     def GetResources(self) -> dict[str, str]:
