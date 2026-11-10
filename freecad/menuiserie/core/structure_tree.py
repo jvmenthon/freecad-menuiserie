@@ -4,8 +4,9 @@
 L'arbre est une valeur immuable bâtie par :func:`build_structure` d'après une
 :class:`StructureSource` (lecture du document, fournie par ``features/``). Un nœud par ensemble
 (les sous-ensembles sont ses enfants), ses pièces (brute et pièce usinée : une seule ligne), puis
-un nœud « Assemblages (N) » qui regroupe assemblages, quincaillerie et Distances. Les pièces hors
-ensemble sont à la racine. Les clés des nœuds sont les noms des objets du document.
+un nœud « Assemblages (N) » (assemblages taillés dans le bois et Distances) et un nœud
+« Quincaillerie (N) » (objets du commerce, ADR 0033 : voir ``core/structure_hardware``). Les
+pièces hors ensemble sont à la racine. Les clés des nœuds sont les noms des objets du document.
 
 Lot 4 : une répétition est une seule ligne « <nom> xN » dépliable en ses copies (qui ne sont plus
 montrées à plat), la liste de débit une ligne, et les objets des autres ateliers sont repliés sous
@@ -14,7 +15,8 @@ montrées à plat), la liste de débit une ligne, et les objets des autres ateli
 
 Garantie : tout objet de l'atelier apparaît exactement une fois. Les assemblages et Distances
 sans ensemble de rattachement (pieds ou coulisses sur une pièce hors ensemble, pièces d'ensembles
-sans ensemble commun…) forment un nœud « Assemblages (N) » à la racine ; tout objet de l'atelier
+sans ensemble commun…) forment à la racine un nœud « Assemblages (N) » et un nœud
+« Quincaillerie (N) », comme sous un ensemble ; tout objet de l'atelier
 resté invisible va sous « Autres objets de l'atelier (N) » plutôt que d'être perdu.
 """
 
@@ -29,6 +31,8 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 
 # Gabarit du nœud replié des assemblages ; ``{count}`` est le nombre d'éléments qu'il contient.
 JOINTS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Assemblages ({count})")
+# Gabarit du nœud replié de la quincaillerie ; ``{count}`` est le nombre d'objets qu'il contient.
+HARDWARE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Quincaillerie ({count})")
 # Nœud replié des objets d'autres ateliers ; ``{count}`` est leur nombre.
 OTHERS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Autres objets ({count})")
 # Ligne d'une répétition ; ``{count}`` est le nombre de copies qu'elle déplie.
@@ -43,7 +47,9 @@ class NodeKind(Enum):
     FURNITURE = "furniture"
     PIECE = "piece"
     JOINTS = "joints"  # nœud replié « Assemblages (N) »
-    JOINT = "joint"  # assemblage, quincaillerie ou Distance
+    JOINT = "joint"  # assemblage taillé dans le bois ou Distance
+    HARDWARE = "hardware"  # nœud replié « Quincaillerie (N) »
+    HARDWARE_ITEM = "hardware_item"  # pieds, coulisse, LR32, tourillons, faux tenons, biscuits
     REPEAT = "repeat"  # « <nom> xN », dépliable en ses copies
     COPY = "copy"  # copie d'une répétition (jamais glissable hors d'elle)
     CUTLIST = "cutlist"  # liste de débit
@@ -56,11 +62,13 @@ class NodeKind(Enum):
 @dataclass(frozen=True)
 class StructureNode:
     """Un nœud de l'arbre. ``key`` est le nom de l'objet du document que la ligne sélectionne
-    (pièce usinée à la place de sa brute) ; vide pour le nœud « Assemblages (N) »."""
+    (pièce usinée à la place de sa brute) ; vide pour les nœuds repliés (« Assemblages (N) »…).
+    ``subtype`` précise le type de l'objet pour choisir l'icône (vide : celle du genre)."""
 
     kind: NodeKind
     label: str
     key: str = ""
+    subtype: str = ""  # type précis de l'objet (icône) : valeur de ``JointKind``, « distance »…
     children: tuple[StructureNode, ...] = ()
     expanded: bool = True
 
@@ -88,11 +96,21 @@ class StructureSource(Protocol):
         """Pièces directes de ``furniture`` (la pièce usinée à la place de sa brute)."""
 
     def joints(self, furniture: str) -> Sequence[str]:
-        """Assemblages, quincaillerie et Distances de ``furniture``."""
+        """Assemblages (hors quincaillerie) et Distances de ``furniture``."""
+
+    def hardware(self, furniture: str) -> Sequence[str]:
+        """Objets de quincaillerie de ``furniture`` (pieds, coulisses, LR32, tourillons…)."""
 
     def loose_joints(self) -> Sequence[str]:
-        """Assemblages, quincaillerie et Distances qu'aucun ensemble ne range (``joints`` ne les
-        rend pour aucun ensemble)."""
+        """Assemblages et Distances qu'aucun ensemble ne range (``joints`` ne les rend pour
+        aucun ensemble)."""
+
+    def loose_hardware(self) -> Sequence[str]:
+        """Objets de quincaillerie qu'aucun ensemble ne range."""
+
+    def subtype(self, key: str) -> str:
+        """Type précis de l'objet ``key`` (valeur de ``JointKind``, « distance », « shaped »),
+        vide si le genre de ligne suffit."""
 
     def label(self, key: str) -> str:
         """Libellé affiché pour l'objet ``key`` (vocabulaire du débutant)."""
@@ -121,6 +139,11 @@ class StructureExtras(Protocol):
         """Clés de ligne de **tous** les objets de l'atelier du document (la pièce usinée à la
         place de sa brute) : ceux que l'arbre ne montre pas vont sous « Autres objets de
         l'atelier »."""
+
+
+def default_hardware_title(count: int) -> str:
+    """Gabarit français (non traduit) du nœud « Quincaillerie (n) »."""
+    return HARDWARE_TITLE.format(count=count)
 
 
 def default_joints_title(count: int) -> str:
@@ -152,6 +175,7 @@ class Titles:
     others: Callable[[int], str] = default_others_title
     repeat: Callable[[str, int], str] = default_repeat_label
     leftovers: Callable[[int], str] = default_leftovers_title
+    hardware: Callable[[int], str] = default_hardware_title
 
 
 def build_structure(
@@ -184,6 +208,7 @@ class _Builder:
         roots = [self._furniture(key) for key in self._visible(self._source.root_furnitures())]
         roots.extend(self._piece(key) for key in self._visible(self._source.loose_pieces()))
         roots.extend(self._joints(self._source.loose_joints()))
+        roots.extend(self._hardware(self._source.loose_hardware()))
         roots.extend(self._repetitions(None))
         roots.extend(self._cut_lists())
         roots.extend(self._leftovers(roots))
@@ -194,8 +219,11 @@ class _Builder:
         """``keys`` sans les copies de répétition (montrées sous leur répétition)."""
         return [key for key in keys if key not in self._hidden]
 
+    def _leaf(self, kind: NodeKind, key: str) -> StructureNode:
+        return StructureNode(kind, self._source.label(key), key, self._source.subtype(key))
+
     def _piece(self, key: str) -> StructureNode:
-        return StructureNode(NodeKind.PIECE, self._source.label(key), key)
+        return self._leaf(NodeKind.PIECE, key)
 
     def _furniture(self, key: str) -> StructureNode:
         """Nœud de l'ensemble ``key`` : sous-ensembles, pièces, répétitions, puis les
@@ -210,15 +238,28 @@ class _Builder:
         children.extend(self._piece(piece) for piece in self._visible(source.pieces(key)))
         children.extend(self._repetitions(key))
         children.extend(self._joints(source.joints(key)))
-        return StructureNode(NodeKind.FURNITURE, source.label(key), key, tuple(children))
+        children.extend(self._hardware(source.hardware(key)))
+        return StructureNode(NodeKind.FURNITURE, source.label(key), key, children=tuple(children))
 
     def _joints(self, joints: Sequence[str]) -> list[StructureNode]:
         """Nœud replié « Assemblages (N) » de ``joints``, absent s'il n'y en a pas."""
-        if not joints:
+        return self._group(joints, NodeKind.JOINTS, NodeKind.JOINT, self._titles.joints)
+
+    def _hardware(self, items: Sequence[str]) -> list[StructureNode]:
+        """Nœud replié « Quincaillerie (N) » de ``items``, absent s'il n'y en a pas."""
+        return self._group(items, NodeKind.HARDWARE, NodeKind.HARDWARE_ITEM, self._titles.hardware)
+
+    def _group(
+        self,
+        keys: Sequence[str],
+        group: NodeKind,
+        leaf: NodeKind,
+        title: Callable[[int], str],
+    ) -> list[StructureNode]:
+        if not keys:
             return []
-        leaves = tuple(StructureNode(NodeKind.JOINT, self._source.label(j), j) for j in joints)
-        title = self._titles.joints(len(leaves))
-        return [StructureNode(NodeKind.JOINTS, title, "", leaves, expanded=False)]
+        leaves = tuple(self._leaf(leaf, key) for key in keys)
+        return [StructureNode(group, title(len(leaves)), "", children=leaves, expanded=False)]
 
     def _repetitions(self, container: str | None) -> list[StructureNode]:
         """Une ligne « <nom> xN » par répétition, repliée sur ses copies."""
@@ -231,7 +272,9 @@ class _Builder:
                 for copy in self._extras.copies(key)
             )
             label = self._titles.repeat(self._source.label(key), len(copies))
-            nodes.append(StructureNode(NodeKind.REPEAT, label, key, copies, expanded=False))
+            nodes.append(
+                StructureNode(NodeKind.REPEAT, label, key, children=copies, expanded=False)
+            )
         return nodes
 
     def _cut_lists(self) -> list[StructureNode]:
@@ -249,7 +292,7 @@ class _Builder:
             return []
         leaves = tuple(StructureNode(NodeKind.OTHER, self._source.label(k), k) for k in keys)
         title = self._titles.others(len(leaves))
-        return [StructureNode(NodeKind.OTHERS, title, "", leaves, expanded=False)]
+        return [StructureNode(NodeKind.OTHERS, title, "", children=leaves, expanded=False)]
 
     def _leftovers(self, roots: Sequence[StructureNode]) -> list[StructureNode]:
         """Objets de l'atelier que ``roots`` ne montre pas, repliés ; absent s'il n'y en a pas."""
@@ -259,6 +302,6 @@ class _Builder:
         keys = [key for key in dict.fromkeys(self._extras.workshop_objects()) if key not in shown]
         if not keys:
             return []
-        leaves = tuple(StructureNode(NodeKind.LEFTOVER, self._source.label(k), k) for k in keys)
+        leaves = tuple(self._leaf(NodeKind.LEFTOVER, k) for k in keys)
         title = self._titles.leftovers(len(leaves))
-        return [StructureNode(NodeKind.LEFTOVERS, title, "", leaves, expanded=False)]
+        return [StructureNode(NodeKind.LEFTOVERS, title, "", children=leaves, expanded=False)]

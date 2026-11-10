@@ -13,6 +13,7 @@ from collections.abc import Iterator, Mapping
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.structure_actions import DRAGGABLE_KINDS
+from freecad.menuiserie.core.structure_icons import icon_name
 from freecad.menuiserie.core.structure_sync import expanded_after_refresh, node_id
 from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
 from freecad.menuiserie.gui.structure_icons import load_icons
@@ -42,14 +43,15 @@ def _add_node(
     node: StructureNode,
     parent_id: str,
     previous: Mapping[str, bool],
-    icons: Mapping[NodeKind, QtGui.QIcon],
+    icons: Mapping[str, QtGui.QIcon],
 ) -> None:
     """Ajoute ``node`` et ses descendants sous ``parent``."""
     item = QtGui.QTreeWidgetItem(parent)
     ident = node_id(parent_id, node)
     item.setText(0, node.label)
-    if node.kind in icons:
-        item.setIcon(0, icons[node.kind])
+    name = icon_name(node.kind, node.subtype)
+    if name in icons:
+        item.setIcon(0, icons[name])
     item.setData(0, KEY_ROLE, node.key)
     item.setData(0, ID_ROLE, ident)
     item.setData(0, KIND_ROLE, node.kind.value)

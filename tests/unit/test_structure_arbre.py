@@ -71,8 +71,17 @@ class FakeSource:
     def joints(self, furniture: str) -> Sequence[str]:
         return [c for c in self.CHILDREN[furniture] if c[0] in "JD"]
 
+    def hardware(self, furniture: str) -> Sequence[str]:
+        return []
+
     def loose_joints(self) -> Sequence[str]:
         return []
+
+    def loose_hardware(self) -> Sequence[str]:
+        return []
+
+    def subtype(self, key: str) -> str:
+        return ""
 
     def label(self, key: str) -> str:
         return self.LABELS[key]
