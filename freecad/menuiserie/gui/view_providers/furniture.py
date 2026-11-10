@@ -22,6 +22,7 @@ from freecad.menuiserie.features.furniture_members import remove_members
 from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.gui.view_providers.deletion import in_group_deletion
 from freecad.menuiserie.gui.view_providers.no_geometry import NoGeometryView
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
@@ -66,7 +67,8 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
         de chaque membre, dans la transaction de la suppression ; aucune expression ne vise
         plus l'ensemble. Son Std Part est supprimé avec lui s'il est vide, conservé sinon (avec
         un avertissement) ; les messages vont dans la vue rapport (ADR 0017)."""
-        del subelements
+        if in_group_deletion(subelements):
+            return True  # son Std Part est supprimé avec tout son contenu (membres compris)
         furniture = vobj.Object
         members = members_of(furniture)
         messages = remove_members(members) if members else []

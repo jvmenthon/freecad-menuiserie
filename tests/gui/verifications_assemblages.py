@@ -476,6 +476,24 @@ def verifier_suppression_groupee_sans_question() -> list[str]:
         ]
 
 
+def verifier_suppression_du_contenu_d_un_groupe() -> list[str]:
+    """« Supprimer le contenu du groupe » (Std Part supprimé avec son contenu) : FreeCAD appelle
+    ``onDelete`` avec ``group_recursive_deletion`` ; la pièce usinée accepte sans question et ne
+    supprime rien elle-même (sinon pointeurs morts dans la boucle de FreeCAD)."""
+    with cadre("VerifSuppressionContenuGroupe") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinee = usinee_de(pieces["M1"])
+        with choix_de_suppression(False) as questions:
+            accepte = usinee.ViewObject.Proxy.onDelete(
+                usinee.ViewObject, ["group_recursive_deletion"]
+            )
+        return [
+            *ecarts("aucune question", questions, []),
+            *ecarts("acceptée", accepte, True),
+            *ecarts("rien supprimé par l'atelier", doc.getObject(joint.Name) is not None, True),
+        ]
+
+
 def verifier_suppression_d_un_assemblage() -> list[str]:
     """Supprimer un assemblage : pas d'avertissement « objets référencés » pour ses pièces
     usinées (``canDelete``), qui sont recalculées sans sa coupe."""
@@ -546,6 +564,7 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_deplacement_de_la_piece_usinee,
     verifier_suppression_de_la_piece_usinee,
     verifier_suppression_groupee_sans_question,
+    verifier_suppression_du_contenu_d_un_groupe,
     verifier_suppression_d_un_assemblage,
     verifier_aucun_observateur_laisse,
 )

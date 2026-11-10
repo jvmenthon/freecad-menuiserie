@@ -21,6 +21,7 @@ from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.part_appearance import PartAppearance, material_color_of
+from freecad.menuiserie.gui.view_providers.deletion import in_group_deletion
 from freecad.menuiserie.gui.view_providers.wood_part import ICON, PanelEditing
 
 ViewObject = Any
@@ -101,7 +102,8 @@ class ViewProviderMachinedPart(PanelEditing):
         (une seule transaction, celle de FreeCAD) ou d'annuler. Faux si la suppression est
         refusée, et aussi quand la pièce vient d'être supprimée avec ses assemblages : FreeCAD ne
         doit pas supprimer un objet déjà détruit."""
-        del subelements
+        if in_group_deletion(subelements):
+            return True  # Std Part supprimé avec son contenu : tout part, rien à demander
         return delete_machined_part(
             vobj.Object, joint_choice.choose_removal, selected_with_contents()
         )
