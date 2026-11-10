@@ -8,12 +8,11 @@ c'est à l'appelant (``api.py``, commandes) de les faire.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Final
 
 from freecad.menuiserie.core.furniture import (
     Edge,
-    FurnitureBox,
     FurnitureError,
     InteriorMode,
     Notice,
@@ -23,10 +22,9 @@ from freecad.menuiserie.core.furniture import (
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
-from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import (
     DEFAULT_LABEL,
-    DIMENSIONS,
     MEMBER_PROPERTIES,
     MODES,
     create_furniture,
@@ -46,7 +44,6 @@ from freecad.menuiserie.features.furniture_bindings import (
 )
 from freecad.menuiserie.features.furniture_enclosing import enclosing
 from freecad.menuiserie.features.furniture_relink import relink_remaining
-from freecad.menuiserie.features.furniture_variants import resize_notices
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
@@ -58,12 +55,12 @@ __all__ = [
     "add_members",
     "build_furniture",
     "checked_furniture",
+    "detach_members",
     "join_with_options",
     "member_object",
     "quoted_label",
     "relink",
     "remove_members",
-    "resize",
     "set_options",
 ]
 
@@ -106,11 +103,6 @@ DRAWN_LOCKED: Final = QT_TRANSLATE_NOOP(
     "« {label} » : cotes dessinées, toujours fixes ; une pièce en bois ne s'étire pas, "
     "modifiez le dessin.",
 )
-_DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "« {label} » : {property} suit une expression ; modifiez cette expression ou l'ensemble "
-    "qui la pilote.",
-)
 
 
 def quoted_label(obj: DocumentObject) -> dict[str, str]:
@@ -148,13 +140,17 @@ def _ancestry(furniture: DocumentObject) -> tuple[dict[str, str], dict[str, str]
 
 
 def _checked(
-    obj: DocumentObject, doc: object, container: object, furniture: DocumentObject | None
+    obj: DocumentObject,
+    doc: object,
+    container: object,
+    furniture: DocumentObject | None,
+    move: bool = False,
 ) -> DocumentObject:
     member = member_object(obj)
     if member.Document != doc:
         raise ValueError(translated(_OTHER_DOCUMENT, quoted_label(member)))
     current = furniture_of(member)
-    if current is not None:
+    if current is not None and not move:
         params = {**quoted_label(member), "furniture": quoted_value(current.Label)}
         raise ValueError(translated(_ALREADY_MEMBER, params))
     if member.getParentGeoFeatureGroup() != container:
@@ -170,18 +166,18 @@ def _checked(
 
 
 def _candidates(
-    objects: Sequence[DocumentObject], furniture: DocumentObject | None
+    objects: Sequence[DocumentObject], furniture: DocumentObject | None, move: bool = False
 ) -> list[DocumentObject]:
     """Objets qui entrent dans l'ensemble (brutes ou ensembles, sans doublon), contrôlés :
     même document et même conteneur que l'ensemble (ou que le premier objet), aucun membre
-    d'un ensemble, aucun cycle d'ensembles."""
+    d'un ensemble (sauf avec ``move``, où ils changent d'ensemble), aucun cycle d'ensembles."""
     if not objects:
         raise ValueError(translated(_NO_OBJECT))
     reference = furniture if furniture is not None else member_object(objects[0])
     doc, container = reference.Document, reference.getParentGeoFeatureGroup()
     found: dict[str, DocumentObject] = {}
     for obj in objects:
-        member = _checked(obj, doc, container, furniture)
+        member = _checked(obj, doc, container, furniture, move)
         found.setdefault(member.Name, member)
     return list(found.values())
 
@@ -238,7 +234,7 @@ def _build_inside(
     if parent is None or len(parents) != 1:
         return None
     _checked_label(label or translated(DEFAULT_LABEL))
-    remove_members(objects)
+    detach_members(objects)  # propriétés gardées : Ctrl+Z les rétablit (FreeCAD 1.1)
     furniture, notices = build_furniture(objects, label)
     return furniture, [*notices, *add_members(parent, [furniture])]
 
@@ -260,20 +256,26 @@ def build_furniture(
     return furniture, _enter(furniture, members)
 
 
-def add_members(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> list[Notice]:
+def add_members(
+    furniture: DocumentObject, objects: Sequence[DocumentObject], *, move: bool = False
+) -> list[Notice]:
     """Fait entrer ``objects`` dans ``furniture`` ; les membres présents gardent leurs options
-    et leurs liaisons."""
+    et leurs liaisons. Avec ``move``, des objets déjà membres d'un autre ensemble en sortent
+    (:func:`detach_members`, propriétés gardées) puis entrent ici, avec les options par défaut."""
     checked_furniture(furniture)
-    members = _candidates(objects, furniture)
+    members = _candidates(objects, furniture, move)
     _checked_label(str(furniture.Label))
     read_members(furniture, entering=members)  # cotes illisibles : refus avant modification
+    leaving = [member for member in members if furniture_of(member) is not None]
+    if leaving:
+        detach_members(leaving)
     return _enter(furniture, members)
 
 
-def remove_members(objects: Sequence[DocumentObject]) -> None:
-    """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
-    de membre sont supprimées, la géométrie ne change pas. Un orphelin (ensemble supprimé) est
-    accepté. Les pièces qui restent sont reliées sans elles."""
+def _release(objects: Sequence[DocumentObject], *, keep_properties: bool) -> None:
+    """Retire ``objects`` de leur ensemble ; les pièces qui restent sont reliées sans elles.
+    Avec ``keep_properties``, les propriétés de membre restent (état d'orphelin, comme après la
+    suppression de l'ensemble) et seul le lien ``Furniture`` est remis à zéro."""
     targets = {member.Name: member for member in map(member_object, objects)}
     for member in targets.values():
         if not has_member_properties(member):
@@ -282,11 +284,31 @@ def remove_members(objects: Sequence[DocumentObject]) -> None:
     for member in targets.values():
         with writing(member):
             remove_bindings(member)
+            if keep_properties:
+                member.Furniture = None
+                member.FurnitureBindings = {}
+                continue
             for spec in MEMBER_PROPERTIES:
                 if spec.name in member.PropertiesList:
                     member.removeProperty(spec.name)
     for furniture in furnitures.values():  # les voisines ne citent plus les pièces retirées
         relink_remaining(furniture, set(targets))
+
+
+def remove_members(objects: Sequence[DocumentObject]) -> None:
+    """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
+    de membre sont supprimées, la géométrie ne change pas. Un orphelin (ensemble supprimé) est
+    accepté. Les pièces qui restent sont reliées sans elles."""
+    _release(objects, keep_properties=False)
+
+
+def detach_members(objects: Sequence[DocumentObject]) -> None:
+    """Comme :func:`remove_members`, mais les propriétés de membre restent (orphelins) : seuls
+    le lien ``Furniture`` et les liaisons sont retirés. FreeCAD 1.1 ne rétablit pas, à
+    l'annulation, une propriété dynamique retirée puis recréée dans la même transaction ; changer
+    d'ensemble, créer un sous-ensemble et sortir d'un ensemble depuis le panneau « Structure »
+    passent donc par ici."""
+    _release(objects, keep_properties=True)
 
 
 def _checked_options(
@@ -337,43 +359,6 @@ def relink(furniture: DocumentObject) -> list[Notice]:
     checked_furniture(furniture)
     _checked_label(str(furniture.Label))
     return rebind(furniture)
-
-
-def planned_resize(
-    furniture: DocumentObject, sizes: Mapping[str, float | None], unlocked: Collection[str] = ()
-) -> tuple[FurnitureBox, list[Notice]]:
-    """Contrôle (``check_resize``, sous-ensembles compris) des cotes ``sizes`` (``Width``,
-    ``Depth``, ``Height`` ; ``None`` = inchangée) : nouvelles cotes et avertissements. Rien n'est
-    écrit. ``unlocked`` : clés des pièces à considérer comme déverrouillées."""
-    checked_furniture(furniture)
-    old = read_members(furniture).box
-    changed = {name: value for name, value in sizes.items() if value is not None}
-    driven = sorted(set(changed) & set(expressions_of(furniture)))
-    if driven:
-        params = {**quoted_label(furniture), "property": driven[0]}
-        raise ValueError(translated(_DRIVEN_DIMENSION, params))
-    values = [changed.get(name, getattr(old, name.lower())) for name in DIMENSIONS]
-    with translated_errors():
-        new = FurnitureBox(*values)
-        return new, resize_notices(furniture, old, new, unlocked)
-
-
-def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list[Notice]:
-    """Contrôle (:func:`planned_resize`) puis écrit les cotes ``sizes``. Refus avant toute
-    écriture (:class:`LockedPiecesError` si une rangée est bloquée par des pièces verrouillées)."""
-    new, notices = planned_resize(furniture, sizes)
-    write_box(furniture, new, sizes)
-    return notices
-
-
-def write_box(
-    furniture: DocumentObject, new: FurnitureBox, sizes: Mapping[str, float | None]
-) -> None:
-    """Écrit les cotes de ``new`` dont ``sizes`` n'est pas ``None``."""
-    with writing(furniture):
-        for name, value in sizes.items():
-            if value is not None:
-                setattr(furniture, name, getattr(new, name.lower()))
 
 
 # --- Gabarits (J4d, ADR 0010) ---------------------------------------------------------------

@@ -41,7 +41,7 @@ from freecad.menuiserie.gui.structure_tree_widget import (
     selected_keys,
 )
 
-__all__ = ["StructureSync", "open_object_panel"]
+__all__ = ["StructureSync", "later", "open_object_panel", "report_errors"]
 
 NO_DOCUMENT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun document ouvert.")
 EMPTY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun ensemble ni aucune pièce.")
@@ -51,7 +51,7 @@ _PANEL_BUSY: Final = QT_TRANSLATE_NOOP(
 _STATUS_MS: Final = 4000
 
 
-def _later(callback: Callable[[], None]) -> None:
+def later(callback: Callable[[], None]) -> None:
     QtCore.QTimer.singleShot(0, callback)
 
 
@@ -121,8 +121,8 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         super().__init__(parent)
         self._tree = tree
         self._guard = ReentrancyGuard()
-        self._refresh = Coalescer(_later, self._guarded_refresh)
-        self._select = Coalescer(_later, self._guarded_pull_selection)
+        self._refresh = Coalescer(later, self._guarded_refresh)
+        self._select = Coalescer(later, self._guarded_pull_selection)
         self._documents = _DocumentWatcher(self._refresh.request)
         self._activation = _ActivationWatcher(self._refresh.request)
         self._selection = _SelectionWatcher(self._select.request)
@@ -162,13 +162,14 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
 
     # --- Document -------------------------------------------------------------------------
 
-    def refresh_now(self) -> None:
+    def refresh_now(self, *, force: bool = False) -> None:
         """Recalcule l'arbre du document actif et rend la sélection de FreeCAD au panneau.
-        Un arbre identique à celui affiché n'est pas reconstruit."""
+        Un arbre identique à celui affiché n'est pas reconstruit, sauf avec ``force`` (après un
+        glisser-déposer, qui a pu laisser des lignes déplacées)."""
         doc = App.ActiveDocument
         name = doc.Name if doc is not None else ""
         nodes = structure_of(doc) if doc is not None else ()
-        if self._shown != (name, nodes):
+        if force or self._shown != (name, nodes):
             message = translated(EMPTY if doc is not None else NO_DOCUMENT)
             with self._guard.applying():
                 fill_tree(self._tree, nodes, message, expansion_of(self._tree))
@@ -176,7 +177,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         self.pull_selection()
 
     def _guarded_refresh(self) -> None:
-        _report_errors(self.refresh_now)
+        report_errors(self.refresh_now)
 
     # --- Sélection ------------------------------------------------------------------------
 
@@ -190,14 +191,14 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
             select_keys(self._tree, wanted)
 
     def _guarded_pull_selection(self) -> None:
-        _report_errors(self.pull_selection)
+        report_errors(self.pull_selection)
 
     def _push_selection(self) -> None:
         """Panneau → FreeCAD : sélectionne les objets des lignes choisies (arbre natif et 3D).
         Ignoré quand c'est le panneau qui vient d'être écrit par FreeCAD."""
         if self._guard.active:
             return
-        _report_errors(self._push_now)
+        report_errors(self._push_now)
 
     def _push_now(self) -> None:
         doc = App.ActiveDocument
@@ -232,7 +233,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         doc = App.ActiveDocument
         obj = doc.getObject(key) if key and doc is not None else None
         if obj is not None:
-            _report_errors(self._open, obj)
+            report_errors(self._open, obj)
 
     def _open(self, obj: Any) -> None:
         if not open_object_panel(obj) and Gui.Control.activeDialog():
@@ -246,7 +247,7 @@ def _try(action: Callable[[Any], object], observer: object) -> None:
         App.Console.PrintError(traceback.format_exc())
 
 
-def _report_errors(action: Callable[..., object], *args: object) -> None:
+def report_errors(action: Callable[..., object], *args: object) -> None:
     """Une erreur est écrite dans la vue rapport et ne remonte pas dans la boucle Qt."""
     try:
         action(*args)

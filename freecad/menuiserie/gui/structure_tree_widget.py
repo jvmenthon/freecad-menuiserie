@@ -12,22 +12,28 @@ from collections.abc import Iterator, Mapping
 
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.core.structure_actions import DRAGGABLE_KINDS
 from freecad.menuiserie.core.structure_sync import expanded_after_refresh, node_id
-from freecad.menuiserie.core.structure_tree import StructureNode
+from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
 
 __all__ = [
     "ID_ROLE",
     "KEY_ROLE",
+    "KIND_ROLE",
+    "draggable_keys",
     "expansion_of",
     "fill_tree",
     "item_for",
+    "row_path",
     "select_keys",
     "selected_keys",
 ]
 
 KEY_ROLE = QtCore.Qt.UserRole  # nom de l'objet du document ("" : ligne sans objet)
 ID_ROLE = QtCore.Qt.UserRole + 1  # chemin de la ligne, stable d'un rafraîchissement à l'autre
+KIND_ROLE = QtCore.Qt.UserRole + 2  # genre de la ligne (``NodeKind.value``)
 _ROW_FLAGS = QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable
+_DRAG_FLAGS = _ROW_FLAGS | QtCore.Qt.ItemIsDragEnabled  # pièces et ensembles se glissent
 
 
 def _add_node(
@@ -42,8 +48,11 @@ def _add_node(
     item.setText(0, node.label)
     item.setData(0, KEY_ROLE, node.key)
     item.setData(0, ID_ROLE, ident)
-    # Seules les lignes qui ont un objet se sélectionnent ; le nœud « Assemblages » se déplie.
-    item.setFlags(_ROW_FLAGS if node.key else QtCore.Qt.ItemIsEnabled)
+    item.setData(0, KIND_ROLE, node.kind.value)
+    # Seules les lignes qui ont un objet se sélectionnent ; le nœud « Assemblages » se déplie ;
+    # les pièces et les ensembles se glissent (lot 3).
+    flags = _DRAG_FLAGS if node.kind in DRAGGABLE_KINDS else _ROW_FLAGS
+    item.setFlags(flags if node.key else QtCore.Qt.ItemIsEnabled)
     for child in node.children:
         _add_node(item, child, ident, previous)
     item.setExpanded(expanded_after_refresh(node.expanded, ident, previous))
@@ -117,3 +126,29 @@ def _reveal(tree: QtGui.QTreeWidget, item: QtGui.QTreeWidgetItem | None) -> None
         ancestor.setExpanded(True)
         ancestor = ancestor.parent()
     tree.scrollToItem(item)
+
+
+def _kind_of(item: QtGui.QTreeWidgetItem) -> NodeKind | None:
+    value = item.data(0, KIND_ROLE)
+    return NodeKind(value) if value else None
+
+
+def row_path(item: QtGui.QTreeWidgetItem | None) -> list[tuple[NodeKind, str]]:
+    """Genre et clé de la ligne ``item`` puis de chacun de ses ancêtres (vide sans ligne), pour
+    trouver l'ensemble qu'une ligne représente (``drop_target``)."""
+    path: list[tuple[NodeKind, str]] = []
+    while item is not None:
+        kind = _kind_of(item)
+        if kind is not None:
+            path.append((kind, str(item.data(0, KEY_ROLE) or "")))
+        item = item.parent()
+    return path
+
+
+def draggable_keys(tree: QtGui.QTreeWidget) -> list[str]:
+    """Clés des lignes sélectionnées qu'on peut glisser (pièces et ensembles)."""
+    return [
+        str(item.data(0, KEY_ROLE))
+        for item in tree.selectedItems()
+        if _kind_of(item) in DRAGGABLE_KINDS and item.data(0, KEY_ROLE)
+    ]

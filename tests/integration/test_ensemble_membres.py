@@ -76,6 +76,42 @@ def test_retrait_des_seules_liaisons_de_l_atelier(document: Any) -> None:
     assert api.furniture_of(bureau.parts["JG"]) == furniture
 
 
+def test_changement_d_ensemble_et_sortie_s_annulent(document: Any) -> None:
+    """Changer d'ensemble (``move``) ou sortir (``keep_properties``) garde les propriétés de
+    membre : un seul Ctrl+Z rétablit le lien (FreeCAD 1.1 ne rétablit pas une propriété
+    dynamique retirée puis recréée dans la même transaction)."""
+    bureau = build_parts(document)
+    document.UndoMode = 1
+    first, _ = api.make_furniture([bureau.parts["P"]], "Bureau")
+    second, _ = api.make_furniture([bureau.parts["V"]], "Armoire")
+    plateau = bureau.parts["P"]
+    names = set(plateau.PropertiesList)
+    document.clearUndos()
+    document.openTransaction("Changer")
+    api.add_to_furniture(second, [plateau], move=True)
+    document.commitTransaction()
+    assert api.furniture_of(plateau) == second
+    assert set(plateau.PropertiesList) == names
+    document.undo()
+    document.recompute()
+    assert api.furniture_of(plateau) == first
+    document.clearUndos()
+    document.openTransaction("Sortir")
+    api.remove_from_furniture([plateau], keep_properties=True)
+    document.commitTransaction()
+    assert api.furniture_of(plateau) is None
+    assert bureau.expressions("P") == {}
+    document.undo()
+    document.recompute()
+    assert api.furniture_of(plateau) == first
+    api.add_to_furniture(second, [plateau], move=True)  # un orphelin se range aussi
+    api.remove_from_furniture([plateau], keep_properties=True)
+    api.add_to_furniture(second, [plateau])
+    assert api.furniture_of(plateau) == second
+    with pytest.raises(ValueError, match="déjà membre"):
+        api.add_to_furniture(first, [plateau])  # sans ``move``, le refus reste
+
+
 def test_refus_avant_modification(bureau: Bureau, document: Any) -> None:
     before = snapshot(bureau)
     other = App.newDocument("TestPieceDeBoisAutre")
