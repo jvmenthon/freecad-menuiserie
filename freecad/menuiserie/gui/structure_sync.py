@@ -1,0 +1,254 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+"""Synchronisation du panneau « Structure » avec FreeCAD (ADR 0046, lot 2).
+
+Le panneau reste en lecture seule du modèle : il lit le document, la sélection et l'état de
+l'interface, et n'écrit que dans la **sélection** de FreeCAD (``Gui.Selection``) et dans la
+vue d'édition (double-clic). Observateurs posés tant que le panneau est visible, retirés
+à sa fermeture ou à sa destruction (ADR 0007 : aucun observateur laissé en place).
+
+- document : les notifications sont fondues par un :class:`Coalescer` (un seul recalcul par
+  rafale) ; un arbre inchangé ne reconstruit rien, un arbre modifié garde son état déplié ;
+- sélection : ligne → FreeCAD par ``itemSelectionChanged``, FreeCAD → ligne par un observateur
+  de sélection ; la garde et la comparaison des deux ensembles coupent la rétroaction.
+"""
+
+from __future__ import annotations
+
+import traceback
+from collections.abc import Callable
+from typing import Any, Final
+
+import FreeCAD as App
+import FreeCADGui as Gui
+from PySide import QtCore, QtGui
+
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.structure_sync import (
+    Coalescer,
+    ReentrancyGuard,
+    is_relevant_change,
+    keys_to_select_in_freecad,
+    rows_for_selection,
+)
+from freecad.menuiserie.core.structure_tree import StructureNode
+from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.structure_source import row_key_of, structure_of
+from freecad.menuiserie.gui.structure_tree_widget import (
+    KEY_ROLE,
+    expansion_of,
+    fill_tree,
+    select_keys,
+    selected_keys,
+)
+
+__all__ = ["StructureSync", "open_object_panel"]
+
+NO_DOCUMENT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun document ouvert.")
+EMPTY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun ensemble ni aucune pièce.")
+_PANEL_BUSY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Terminez d'abord le panneau de tâche ouvert (OK ou Annuler)."
+)
+_STATUS_MS: Final = 4000
+
+
+def _later(callback: Callable[[], None]) -> None:
+    QtCore.QTimer.singleShot(0, callback)
+
+
+def open_object_panel(obj: Any) -> bool:
+    """Ouvre le panneau de tâche de ``obj`` comme le double-clic de l'arbre natif : le
+    ``doubleClicked`` de son ViewProvider (``PanelEditing`` ou liste de débit), sinon le mode
+    d'édition 0. Refusé tant qu'un panneau de tâche est ouvert."""
+    vobj = getattr(obj, "ViewObject", None)
+    if vobj is None:
+        return False
+    double_click = getattr(getattr(vobj, "Proxy", None), "doubleClicked", None)
+    if callable(double_click):
+        return bool(double_click(vobj))
+    if Gui.Control.activeDialog():
+        return False
+    return bool(vobj.Document.setEdit(obj, 0))
+
+
+class _DocumentWatcher:
+    """Observateur de documents : ne fait que demander un rafraîchissement différé."""
+
+    def __init__(self, request: Callable[[], None]) -> None:
+        self._request = request
+
+    def slotCreatedObject(self, _obj: Any) -> None:
+        self._request()
+
+    def slotDeletedObject(self, _obj: Any) -> None:
+        self._request()
+
+    def slotChangedObject(self, _obj: Any, prop: str) -> None:
+        if is_relevant_change(prop):
+            self._request()
+
+    def slotDeletedDocument(self, _doc: Any) -> None:
+        self._request()
+
+
+class _ActivationWatcher:
+    """Observateur de l'interface : le document actif change."""
+
+    def __init__(self, request: Callable[[], None]) -> None:
+        self._request = request
+
+    def slotActivateDocument(self, _doc: Any) -> None:
+        self._request()
+
+
+class _SelectionWatcher:
+    """Observateur de sélection : une notification par élément, fondues par l'appelant."""
+
+    def __init__(self, request: Callable[[], None]) -> None:
+        self._request = request
+
+    def _changed(self, *_args: object) -> None:
+        self._request()
+
+    addSelection = removeSelection = setSelection = clearSelection = _changed
+
+
+class StructureSync(QtCore.QObject):  # type: ignore[misc]
+    """Contrôleur du panneau : rafraîchissement, sélection et double-clic. Enfant du dock,
+    donc détruit avec lui ; :meth:`attach` et :meth:`detach` posent et retirent les
+    observateurs."""
+
+    def __init__(self, tree: QtGui.QTreeWidget, parent: QtCore.QObject) -> None:
+        super().__init__(parent)
+        self._tree = tree
+        self._guard = ReentrancyGuard()
+        self._refresh = Coalescer(_later, self._guarded_refresh)
+        self._select = Coalescer(_later, self._guarded_pull_selection)
+        self._documents = _DocumentWatcher(self._refresh.request)
+        self._activation = _ActivationWatcher(self._refresh.request)
+        self._selection = _SelectionWatcher(self._select.request)
+        self._shown: tuple[str, tuple[StructureNode, ...]] | None = None
+        self._attached = False
+        tree.itemSelectionChanged.connect(self._push_selection)
+        tree.itemDoubleClicked.connect(self._open_panel)
+
+    # --- Observateurs ---------------------------------------------------------------------
+
+    @property
+    def attached(self) -> bool:
+        """Vrai tant que les observateurs sont posés."""
+        return self._attached
+
+    def attach(self) -> None:
+        """Pose les observateurs (sans effet s'ils le sont) et met le panneau à jour."""
+        if not self._attached:
+            self._attached = True
+            App.addDocumentObserver(self._documents)
+            if hasattr(Gui, "addDocumentObserver"):
+                Gui.addDocumentObserver(self._activation)
+            Gui.Selection.addObserver(self._selection)
+        self.refresh_now()
+
+    def detach(self) -> None:
+        """Retire les observateurs ; chaque retrait est tenté même si un autre échoue."""
+        if not self._attached:
+            return
+        self._attached = False
+        self._refresh.cancel()
+        self._select.cancel()
+        _try(App.removeDocumentObserver, self._documents)
+        if hasattr(Gui, "removeDocumentObserver"):
+            _try(Gui.removeDocumentObserver, self._activation)
+        _try(Gui.Selection.removeObserver, self._selection)
+
+    # --- Document -------------------------------------------------------------------------
+
+    def refresh_now(self) -> None:
+        """Recalcule l'arbre du document actif et rend la sélection de FreeCAD au panneau.
+        Un arbre identique à celui affiché n'est pas reconstruit."""
+        doc = App.ActiveDocument
+        name = doc.Name if doc is not None else ""
+        nodes = structure_of(doc) if doc is not None else ()
+        if self._shown != (name, nodes):
+            message = translated(EMPTY if doc is not None else NO_DOCUMENT)
+            with self._guard.applying():
+                fill_tree(self._tree, nodes, message, expansion_of(self._tree))
+            self._shown = (name, nodes)
+        self.pull_selection()
+
+    def _guarded_refresh(self) -> None:
+        _report_errors(self.refresh_now)
+
+    # --- Sélection ------------------------------------------------------------------------
+
+    def pull_selection(self) -> None:
+        """FreeCAD → panneau : surligne les lignes des objets sélectionnés (sans rien envoyer
+        en retour)."""
+        wanted = rows_for_selection(self._freecad_row_keys(), self._row_keys())
+        if wanted == selected_keys(self._tree):
+            return
+        with self._guard.applying():
+            select_keys(self._tree, wanted)
+
+    def _guarded_pull_selection(self) -> None:
+        _report_errors(self.pull_selection)
+
+    def _push_selection(self) -> None:
+        """Panneau → FreeCAD : sélectionne les objets des lignes choisies (arbre natif et 3D).
+        Ignoré quand c'est le panneau qui vient d'être écrit par FreeCAD."""
+        if self._guard.active:
+            return
+        _report_errors(self._push_now)
+
+    def _push_now(self) -> None:
+        doc = App.ActiveDocument
+        if doc is None:
+            return
+        keys = keys_to_select_in_freecad(selected_keys(self._tree))
+        if keys == self._freecad_row_keys():
+            return
+        with self._guard.applying():
+            Gui.Selection.clearSelection()
+            for key in keys:
+                Gui.Selection.addSelection(doc.Name, key)
+
+    def _freecad_row_keys(self) -> list[str]:
+        """Clés de ligne des objets sélectionnés du document actif (la brute compte pour sa
+        pièce usinée)."""
+        doc = App.ActiveDocument
+        if doc is None:
+            return []
+        return list(dict.fromkeys(row_key_of(o) for o in Gui.Selection.getSelection(doc.Name)))
+
+    def _row_keys(self) -> set[str]:
+        """Clés des objets que le panneau montre."""
+        roots = self._shown[1] if self._shown is not None else ()
+        return {node.key for root in roots for node in root.walk() if node.key}
+
+    # --- Double-clic ----------------------------------------------------------------------
+
+    def _open_panel(self, item: QtGui.QTreeWidgetItem, _column: int) -> None:
+        """Même panneau de tâche que le double-clic de l'arbre natif."""
+        key = item.data(0, KEY_ROLE)
+        doc = App.ActiveDocument
+        obj = doc.getObject(key) if key and doc is not None else None
+        if obj is not None:
+            _report_errors(self._open, obj)
+
+    def _open(self, obj: Any) -> None:
+        if not open_object_panel(obj) and Gui.Control.activeDialog():
+            Gui.getMainWindow().statusBar().showMessage(translated(_PANEL_BUSY), _STATUS_MS)
+
+
+def _try(action: Callable[[Any], object], observer: object) -> None:
+    try:
+        action(observer)
+    except Exception:  # pylint: disable=broad-exception-caught
+        App.Console.PrintError(traceback.format_exc())
+
+
+def _report_errors(action: Callable[..., object], *args: object) -> None:
+    """Une erreur est écrite dans la vue rapport et ne remonte pas dans la boucle Qt."""
+    try:
+        action(*args)
+    except Exception:  # pylint: disable=broad-exception-caught
+        App.Console.PrintError(traceback.format_exc())

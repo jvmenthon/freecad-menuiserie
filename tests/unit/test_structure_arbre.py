@@ -30,7 +30,10 @@ NAME = "Menuiserie_Structure"
 READ_ONLY_MODULES = (
     PACKAGE / "core" / "structure_tree.py",
     PACKAGE / "features" / "structure_source.py",
+    PACKAGE / "core" / "structure_sync.py",
     PACKAGE / "gui" / "structure_panel.py",
+    PACKAGE / "gui" / "structure_sync.py",
+    PACKAGE / "gui" / "structure_tree_widget.py",
     COMMAND,
 )
 
