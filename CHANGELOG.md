@@ -136,6 +136,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
+- Performance de la répétition en grille (4 × 2 × 4 : 31 copies, 929 objets ; sans interface, création 8,1 s → 1,8 s, recalcul après changement de cote 3,8 s → 0,5 s) : cache borné des formes usinées et des plans d'assemblage (clé exacte, les copies ont les mêmes cotes et enlèvements dans leur repère que la source), forme d'un assemblage non réaffectée quand il a seulement été déplacé, libellés uniques interrogés au document (`getObjectsByLabel`) au lieu de relire tous les objets à chaque création. Aucun changement de résultat ni de conception.
 - Interne : `core/joints/shelf_pins` et `core/joints/slots` deviennent des paquets (`_params`, `_strategy`, même interface, ADR 0040) ; `MIN_WALL_MM` partagé, `timber_blanks_around` dans `machined_part`, valeurs de coulisse et de perçage typées au lieu de `type: ignore`.
 
 ### Corrigé
