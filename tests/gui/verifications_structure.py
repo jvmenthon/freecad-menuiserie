@@ -52,14 +52,14 @@ from tests.gui.verifications_panneau import ecarts
 from tests.integration.bureau import Bureau
 
 
-def _traiter() -> None:
+def traiter() -> None:
     for _ in range(3):
         QtGui.QApplication.processEvents()
 
 
-def _panneau() -> tuple[Any, Any, StructureSync]:
+def panneau_structure() -> tuple[Any, Any, StructureSync]:
     show_panel()
-    _traiter()
+    traiter()
     fenetre = Gui.getMainWindow()
     dock = fenetre.findChild(QtGui.QDockWidget, DOCK_NAME)
     return dock, dock.findChild(QtGui.QTreeWidget, TREE_NAME), dock.findChild(StructureSync)
@@ -69,17 +69,17 @@ def _noms_selectionnes() -> list[str]:
     return [objet.Name for objet in Gui.Selection.getSelection()]
 
 
-def _avec_panneau(
+def avec_panneau(
     verification: Callable[[Bureau, Any, Any, StructureSync], list[str]],
 ) -> list[str]:
     def corps(bureau: Bureau) -> list[str]:
-        dock, arbre, synchro = _panneau()
+        dock, arbre, synchro = panneau_structure()
         try:
             return verification(bureau, dock, arbre, synchro)
         finally:
             Gui.Control.closeDialog()
             dock.hide()
-            _traiter()
+            traiter()
 
     return avec_bureau("structure", corps)
 
@@ -94,17 +94,17 @@ def _verifier_lignes_et_selection(
         return problemes
     # panneau -> FreeCAD
     ligne.setSelected(True)
-    _traiter()
+    traiter()
     problemes += ecarts("clic sur une ligne", _noms_selectionnes(), [piece])
     # FreeCAD -> panneau, par la brute (une seule ligne pour la brute et la pièce usinée)
     Gui.Selection.clearSelection()
     Gui.Selection.addSelection(bureau.doc.Name, bureau.parts["JG"].Name)
-    _traiter()
+    traiter()
     problemes += ecarts("sélection côté FreeCAD", selected_keys(arbre), [bureau.shown("JG").Name])
     # pas de rétroaction : la sélection de FreeCAD n'a pas été remplacée
     problemes += ecarts("pas d'écho", _noms_selectionnes(), [bureau.parts["JG"].Name])
     Gui.Selection.clearSelection()
-    _traiter()
+    traiter()
     return problemes + ecarts("sélection vidée", selected_keys(arbre), [])
 
 
@@ -114,7 +114,7 @@ def _verifier_rafraichissement(
     piece = bureau.shown("P")
     bureau.parts["P"].Label = "Dessus de test"
     bureau.doc.recompute()
-    _traiter()
+    traiter()
     ligne = item_for(arbre, piece.Name)
     texte = ligne.text(0) if ligne is not None else None
     return ecarts("libellé suivi", texte, "Dessus de test")
@@ -127,7 +127,7 @@ def _verifier_double_clic(
     if ligne is None:
         return ["ligne du plateau absente"]
     arbre.itemDoubleClicked.emit(ligne, 0)
-    _traiter()
+    traiter()
     return ecarts("panneau de tâche ouvert", bool(Gui.Control.activeDialog()), True)
 
 
@@ -136,32 +136,32 @@ def _verifier_detachement(
 ) -> list[str]:
     problemes = ecarts("observateurs posés", synchro.attached, True)
     dock.hide()
-    _traiter()
+    traiter()
     problemes += ecarts("observateurs retirés à la fermeture", synchro.attached, False)
     bureau.parts["P"].Label = "Après fermeture"
-    _traiter()
+    traiter()
     ligne = item_for(arbre, bureau.shown("P").Name)
     texte = ligne.text(0) if ligne is not None else None
     problemes += [] if texte != "Après fermeture" else ["panneau fermé mais encore mis à jour"]
     show_panel()
-    _traiter()
+    traiter()
     return problemes + ecarts("observateurs reposés", synchro.attached, True)
 
 
 def verifier_structure_selection() -> list[str]:
-    return _avec_panneau(_verifier_lignes_et_selection)
+    return avec_panneau(_verifier_lignes_et_selection)
 
 
 def verifier_structure_rafraichissement() -> list[str]:
-    return _avec_panneau(_verifier_rafraichissement)
+    return avec_panneau(_verifier_rafraichissement)
 
 
 def verifier_structure_double_clic() -> list[str]:
-    return _avec_panneau(_verifier_double_clic)
+    return avec_panneau(_verifier_double_clic)
 
 
 def verifier_structure_detachement() -> list[str]:
-    return _avec_panneau(_verifier_detachement)
+    return avec_panneau(_verifier_detachement)
 
 
 # --- Lot 3 : menu contextuel et glisser-déposer ---------------------------------------------
@@ -226,7 +226,7 @@ def _armoire(bureau: Bureau) -> tuple[Any, Any, Any]:
     bureau.doc.recompute()
     bureau.doc.UndoMode = 1
     bureau.doc.clearUndos()
-    _traiter()
+    traiter()
     return libre, etagere, armoire
 
 
@@ -250,7 +250,7 @@ def _annuler(doc: Any, *pieces: Any) -> str:
     deviner : propriété présente ou non, valeur du lien."""
     doc.undo()
     doc.recompute()
-    _traiter()
+    traiter()
     etat = " ; ".join(_etat(piece) for piece in pieces)
     App.Console.PrintMessage(f"Menuiserie : diagnostic Ctrl+Z, {etat}\n")
     return etat
@@ -288,7 +288,7 @@ def _verifier_renommer(bureau: Bureau, dock: Any, arbre: Any, _synchro: Structur
     noms = [o.Name for o in doc.Objects]
     with _saisie("Dessus"):
         actions.run_action(Action.RENAME, [cle])
-    _traiter()
+    traiter()
     ligne = item_for(arbre, cle)
     problemes = [
         *ecarts("libellé de la brute", bureau.parts["P"].Label, "Dessus"),
@@ -322,7 +322,7 @@ def _verifier_ranger(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
     libre, etagere, armoire = _armoire(bureau)
     noms = [o.Name for o in doc.Objects]
     arbre.on_drop([libre.Name], armoire.Name)
-    _traiter()
+    traiter()
     problemes = [
         *ecarts("libre -> armoire", _ensemble_de(libre), armoire.Name),
         *ecarts("ligne sous l'armoire", _ligne_dans(arbre, libre.Name), armoire.Name),
@@ -333,14 +333,14 @@ def _verifier_ranger(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
     problemes += ecarts(f"Ctrl+Z : libre ({etat})", _ensemble_de(libre), None)
     doc.clearUndos()
     arbre.on_drop([etagere.Name], bureau.furniture.Name)
-    _traiter()
+    traiter()
     problemes += ecarts("armoire -> bureau", _ensemble_de(etagere), bureau.furniture.Name)
     problemes += ecarts("changement : une entrée", len(doc.UndoNames), 1)
     etat = _annuler(doc, etagere)
     problemes += ecarts(f"Ctrl+Z : étagère ({etat})", _ensemble_de(etagere), armoire.Name)
     doc.clearUndos()
     arbre.on_drop([etagere.Name], None)
-    _traiter()
+    traiter()
     problemes += ecarts("sortie de l'armoire", _ensemble_de(etagere), None)
     problemes += ecarts("sortie : racine", _ligne_dans(arbre, etagere.Name), None)
     etat = _annuler(doc, etagere)
@@ -353,7 +353,7 @@ def _verifier_refus(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureS
     joue, ensemble = bureau.shown("JG").Name, bureau.furniture.Name
     survol = arbre.judge([joue], armoire.Name)
     arbre.on_drop([joue], armoire.Name)
-    _traiter()
+    traiter()
     problemes = [
         *ecarts("survol : raison", "assemblée à" in survol, True),
         *ecarts("rien ne change", _ensemble_de(bureau.parts["JG"]), ensemble),
@@ -361,7 +361,7 @@ def _verifier_refus(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureS
         *ecarts("refus affiché", "assemblée à" in boite_de_refus().text(), True),
     ]
     arbre.on_drop([ensemble], ensemble)
-    _traiter()
+    traiter()
     problemes += ecarts("cycle expliqué", "ne peut pas entrer" in boite_de_refus().text(), True)
     problemes += ecarts("cycle : aucune entrée", doc.UndoNames, [])
     problemes += ecarts("autre document", "ne se range pas" in arbre.judge(["Absent"], None), True)
@@ -382,7 +382,7 @@ def _verifier_sous_ensemble(
     cles = [bureau.shown("P").Name]  # le voile est assemblé aux joues : il resterait seul (refus)
     avant = [o.Name for o in doc.Objects if is_furniture(o)]
     actions.run_action(Action.CREATE, cles)
-    _traiter()
+    traiter()
     nouveau = [o for o in doc.Objects if is_furniture(o) and o.Name not in avant]
     if len(nouveau) != 1:
         return [f"un sous-ensemble attendu, {len(nouveau)} créé(s)"]
@@ -433,7 +433,7 @@ def _verifier_suppression(
 def _verifier_ouvrir(bureau: Bureau, dock: Any, _arbre: Any, _synchro: StructureSync) -> list[str]:
     actions, cle = _actions(dock), bureau.shown("P").Name
     problemes = ecarts("ouvrir", actions.run_action(Action.OPEN, [cle]), True)
-    _traiter()
+    traiter()
     problemes += ecarts("panneau de tâche ouvert", bool(Gui.Control.activeDialog()), True)
     # panneau de tâche ouvert : ouvrir et supprimer sont grisés (règle des commandes de l'atelier)
     ferme = [actions.run_action(Action.OPEN, [cle]), actions.run_action(Action.DELETE, [cle])]
@@ -441,31 +441,31 @@ def _verifier_ouvrir(bureau: Bureau, dock: Any, _arbre: Any, _synchro: Structure
 
 
 def verifier_structure_menu() -> list[str]:
-    return _avec_panneau(_verifier_menu)
+    return avec_panneau(_verifier_menu)
 
 
 def verifier_structure_renommer() -> list[str]:
-    return _avec_panneau(_verifier_renommer)
+    return avec_panneau(_verifier_renommer)
 
 
 def verifier_structure_ranger() -> list[str]:
-    return _avec_panneau(_verifier_ranger)
+    return avec_panneau(_verifier_ranger)
 
 
 def verifier_structure_refus() -> list[str]:
-    return _avec_panneau(_verifier_refus)
+    return avec_panneau(_verifier_refus)
 
 
 def verifier_structure_sous_ensemble() -> list[str]:
-    return _avec_panneau(_verifier_sous_ensemble)
+    return avec_panneau(_verifier_sous_ensemble)
 
 
 def verifier_structure_suppression() -> list[str]:
-    return _avec_panneau(_verifier_suppression)
+    return avec_panneau(_verifier_suppression)
 
 
 def verifier_structure_ouvrir() -> list[str]:
-    return _avec_panneau(_verifier_ouvrir)
+    return avec_panneau(_verifier_ouvrir)
 
 
 # --- Lot 4 : liste de débit, autres objets, répétition ------------------------------------
@@ -513,7 +513,7 @@ def _verifier_liste_de_debit(
     feuille = api.make_cut_list(bureau.doc)
     bureau.doc.recompute()
     synchro.refresh_now(force=True)
-    _traiter()
+    traiter()
     liste = find_cut_list(bureau.doc)
     if liste is None:
         return ["objet liste de débit absent"]
@@ -525,10 +525,10 @@ def _verifier_liste_de_debit(
         return [*problemes, "ligne de la liste absente"]
     problemes += ecarts("liste à la racine", ligne.parent(), None)
     ligne.setSelected(True)
-    _traiter()
+    traiter()
     problemes += ecarts("clic : liste sélectionnée", _noms_selectionnes(), [liste.Name])
     arbre.itemDoubleClicked.emit(ligne, 0)
-    _traiter()
+    traiter()
     # Le double-clic de la liste ouvre l'aperçu (fenêtre non modale), pas un panneau de tâche.
     apercus = [
         d for d in Gui.getMainWindow().findChildren(QtGui.QDialog, DIALOG_NAME) if d.isVisible()
@@ -543,7 +543,7 @@ def _verifier_liste_de_debit(
     problemes += ecarts("double-clic : aperçu de la liste ouvert", len(apercus), 1)
     for apercu in apercus:
         apercu.close()
-    _traiter()
+    traiter()
     return problemes
 
 
@@ -555,7 +555,7 @@ def _verifier_autres_objets(
     bureau.doc.recompute()
     avant = (boite.Label, tuple(boite.Placement.Base), len(bureau.doc.Objects))
     synchro.refresh_now(force=True)
-    _traiter()
+    traiter()
     noeuds = _genres(arbre, NodeKind.OTHERS)
     problemes = ecarts(
         "un nœud « Autres objets »", [t for _g, t, _c in noeuds], ["Autres objets (1)"]
@@ -568,7 +568,7 @@ def _verifier_autres_objets(
     problemes += ecarts("glissable", bool(ligne.flags() & QtCore.Qt.ItemIsDragEnabled), False)
     # double-clic : rien ne s'ouvre ; menu : tout est grisé, raison expliquée
     arbre.itemDoubleClicked.emit(ligne, 0)
-    _traiter()
+    traiter()
     problemes += ecarts("double-clic : aucun panneau", bool(Gui.Control.activeDialog()), False)
     entrees = _menu_de(arbre, boite.Name)
     problemes += ecarts("menu : tout grisé", [on for _t, on, _tip in entrees], [False] * 6)
@@ -578,7 +578,7 @@ def _verifier_autres_objets(
     problemes += ecarts("ouvrir et supprimer refusés", refus, [False, False])
     # la sélection (lecture) fonctionne dans les deux sens
     ligne.setSelected(True)
-    _traiter()
+    traiter()
     problemes += ecarts("sélection de l'objet", _noms_selectionnes(), [boite.Name])
     # dépôt refusé sur la ligne : raison (infobulle) et aucune écriture
     point = arbre.visualItemRect(ligne).center()
@@ -602,19 +602,19 @@ def _verifier_aucune_repetition(
 
 
 def verifier_structure_bureau_ordinaire() -> list[str]:
-    return _avec_panneau(_verifier_bureau_sans_ligne_parasite)
+    return avec_panneau(_verifier_bureau_sans_ligne_parasite)
 
 
 def verifier_structure_liste_de_debit() -> list[str]:
-    return _avec_panneau(_verifier_liste_de_debit)
+    return avec_panneau(_verifier_liste_de_debit)
 
 
 def verifier_structure_autres_objets() -> list[str]:
-    return _avec_panneau(_verifier_autres_objets)
+    return avec_panneau(_verifier_autres_objets)
 
 
 def verifier_structure_sans_repetition() -> list[str]:
-    return _avec_panneau(_verifier_aucune_repetition)
+    return avec_panneau(_verifier_aucune_repetition)
 
 
 def _verifier_icones(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
@@ -639,7 +639,7 @@ def _verifier_icones(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
 
 
 def verifier_structure_icones() -> list[str]:
-    return _avec_panneau(_verifier_icones)
+    return avec_panneau(_verifier_icones)
 
 
 def _docks() -> list[Any]:
@@ -650,7 +650,7 @@ def _retirer_docks() -> None:
     for dock in _docks():
         dock.setParent(None)
         dock.deleteLater()
-    _traiter()
+    traiter()
 
 
 def verifier_structure_ouverture_par_defaut() -> list[str]:
@@ -661,21 +661,21 @@ def verifier_structure_ouverture_par_defaut() -> list[str]:
         _retirer_docks()
         remember_closed(True)
         open_by_default()
-        _traiter()
+        traiter()
         problemes = ecarts("fermé par l'utilisateur : pas d'ouverture", len(_docks()), 0)
         remember_closed(False)
         open_by_default()
         open_by_default()
-        _traiter()
+        traiter()
         problemes += ecarts("ouvert une seule fois", len(_docks()), 1)
         problemes += ecarts("ouverture seule : réglage gardé", closed_by_user(), False)
         _docks()[0].close()
-        _traiter()
+        traiter()
         problemes += ecarts("fermeture mémorisée", closed_by_user(), True)
         open_by_default()
         problemes += ecarts("fermé : pas de doublon", len(_docks()), 1)
         show_panel()
-        _traiter()
+        traiter()
         problemes += ecarts("commande : réglage levé", closed_by_user(), False)
         return problemes
     finally:

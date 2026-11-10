@@ -23,7 +23,6 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.structure_actions import BUSY
 from freecad.menuiserie.core.structure_sync import (
     Coalescer,
     ReentrancyGuard,
@@ -34,6 +33,8 @@ from freecad.menuiserie.core.structure_sync import (
 from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.structure_source import row_key_of, structure_of
+from freecad.menuiserie.gui.structure_highlight import RowHighlight
+from freecad.menuiserie.gui.structure_switch import switch_to
 from freecad.menuiserie.gui.structure_tree_widget import (
     KEY_ROLE,
     KIND_ROLE,
@@ -47,7 +48,6 @@ __all__ = ["StructureSync", "later", "open_object_panel", "report_errors"]
 
 NO_DOCUMENT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun document ouvert.")
 EMPTY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun ensemble ni aucune pièce.")
-_STATUS_MS: Final = 4000
 
 
 def later(callback: Callable[[], None]) -> None:
@@ -127,7 +127,13 @@ class _Observers:
     """Observateurs posés dans FreeCAD, hors de tout QObject : le retrait doit rester possible
     quand le dock et son contrôleur sont déjà détruits (ADR 0007)."""
 
-    def __init__(self, request_refresh: Callable[[], None], request_select: Callable[[], None]):
+    def __init__(
+        self,
+        request_refresh: Callable[[], None],
+        request_select: Callable[[], None],
+        on_detach: Callable[[], None],
+    ):
+        self._on_detach = on_detach
         self._documents = _DocumentWatcher(request_refresh)
         self._activation = _ActivationWatcher(request_refresh)
         self._selection = _SelectionWatcher(request_select)
@@ -154,6 +160,7 @@ class _Observers:
         if hasattr(Gui, "removeDocumentObserver"):
             _try(Gui.removeDocumentObserver, self._activation)
         _try(Gui.Selection.removeObserver, self._selection)
+        _try_call(self._on_detach)  # transparence de sélection rendue
         return True
 
 
@@ -170,9 +177,13 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         self._guard = ReentrancyGuard()
         self._refresh = Coalescer(later, self._guarded_refresh)
         self._select = Coalescer(later, self._guarded_pull_selection)
-        self._observers = _Observers(self._refresh.request, self._select.request)
+        self._highlight = RowHighlight(tree)
+        self._observers = _Observers(
+            self._refresh.request, self._select.request, self._highlight.clear
+        )
         self._shown: tuple[str, tuple[StructureNode, ...]] | None = None
         tree.itemSelectionChanged.connect(self._push_selection)
+        tree.itemSelectionChanged.connect(self._highlight_rows)
         tree.itemDoubleClicked.connect(self._open_panel)
 
     # --- Observateurs ---------------------------------------------------------------------
@@ -222,6 +233,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
                 fill_tree(self._tree, nodes, message, expansion_of(self._tree))
             self._shown = (name, nodes)
         self.pull_selection()
+        self._highlight_rows()
 
     def _guarded_refresh(self) -> None:
         report_errors(self.refresh_now)
@@ -237,7 +249,14 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         if wanted == selected_keys(self._tree):
             return
         with self._guard.applying():
-            select_keys(self._tree, wanted)
+            select_keys(self._tree, wanted)  # signaux bloqués : la transparence suit à part
+        self._highlight_rows()
+
+    def _highlight_rows(self) -> None:
+        """Transparence de sélection posée sur les objets des lignes sélectionnées (venues du
+        clic, de la sélection de FreeCAD ou d'un nouvel arbre), retirée à la désélection."""
+        if self._lifetime.alive and self._observers.attached and not self._guard.active:
+            report_errors(self._highlight.sync)
 
     def _guarded_pull_selection(self) -> None:
         report_errors(self.pull_selection)
@@ -280,18 +299,22 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
 
     def _open_panel(self, item: QtGui.QTreeWidgetItem, _column: int) -> None:
         """Même panneau de tâche que le double-clic de l'arbre natif. Jamais pour un objet d'un
-        autre atelier : l'éditer, ce serait le modifier."""
+        autre atelier : l'éditer, ce serait le modifier. Une tâche en cours est d'abord réglée
+        (``structure_switch`` : fermée si inchangée, sinon l'utilisateur choisit)."""
         if item.data(0, KIND_ROLE) == NodeKind.OTHER.value:
             return
         key = item.data(0, KEY_ROLE)
         doc = App.ActiveDocument
         obj = doc.getObject(key) if key and doc is not None else None
         if obj is not None:
-            report_errors(self._open, obj)
+            report_errors(switch_to, obj, open_object_panel)
 
-    def _open(self, obj: Any) -> None:
-        if not open_object_panel(obj) and Gui.Control.activeDialog():
-            Gui.getMainWindow().statusBar().showMessage(translated(BUSY), _STATUS_MS)
+
+def _try_call(action: Callable[[], object]) -> None:
+    try:
+        action()
+    except Exception:  # pylint: disable=broad-exception-caught
+        App.Console.PrintError(traceback.format_exc())
 
 
 def _try(action: Callable[[Any], object], observer: object) -> None:
