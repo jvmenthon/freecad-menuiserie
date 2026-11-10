@@ -80,6 +80,7 @@ __all__ = [
     "planned_resize",
     "quoted_label",
     "release_furniture",
+    "release_repeat_links",
     "relink",
     "remove_members",
     "resize",
@@ -300,14 +301,21 @@ def release_furniture(furniture: DocumentObject) -> list[str]:
     répétition sont dissociées (ADR 0044 : leurs expressions citent son Std Part et ses pièces,
     qui sans cela ne sortiraient pas), ses membres sortent du Std Part, qui est supprimé s'il est
     vide (:func:`.furniture_entry.dissolve`). Renvoie les avertissements traduits."""
+    release_repeat_links(furniture)
+    members = members_of(furniture)
+    return [*(remove_members(members) if members else []), *dissolve(furniture)]
+
+
+def release_repeat_links(furniture: DocumentObject) -> None:
+    """Copies de répétition de ``furniture`` dissociées, et ses membres copiés libérés si c'est
+    une copie supprimée à la main ; rien n'est supprimé (sûr pendant la suppression d'un
+    groupe avec son contenu)."""
     from freecad.menuiserie.features.repeat import is_copy
     from freecad.menuiserie.features.repeat_links import detach_copies, unlink_inner_copies
 
     detach_copies(furniture)
     if is_copy(furniture):  # copie supprimée à la main : ses membres copiés deviennent libres
         unlink_inner_copies(furniture)
-    members = members_of(furniture)
-    return [*(remove_members(members) if members else []), *dissolve(furniture)]
 
 
 def _checked_options(

@@ -464,7 +464,7 @@ def test_la_fenetre_de_suppression_et_son_branchement() -> None:
     ):
         assert expected in text
     provider = source(GUI / "view_providers" / "machined_part.py")
-    assert "delete_machined_part(vobj.Object, joint_choice.choose_removal)" in provider
+    assert "vobj.Object, joint_choice.choose_removal, selected_with_contents()" in provider
 
 
 def test_fenetre_de_suppression_texte_singulier_et_pluriel(

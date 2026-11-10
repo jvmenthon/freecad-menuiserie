@@ -457,6 +457,70 @@ def verifier_suppression_de_la_piece_usinee() -> list[str]:
         ]
 
 
+def verifier_suppression_groupee_sans_question() -> list[str]:
+    """Supprimer ensemble les deux pièces usinées et leur assemblage (cas d'un Std Part supprimé
+    avec son contenu) : aucun lien ne sort de la suppression, la fenêtre « assemblage lié » n'est
+    pas ouverte. Une pièce usinée supprimée seule garde sa question."""
+    with cadre("VerifSuppressionGroupee") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinees = [usinee_de(pieces[repere]) for repere in ("M1", "T1")]
+        noms = [joint.Name, *(u.Name for u in usinees)]
+        with choix_de_suppression(False) as questions:
+            selectionner(joint, *usinees)
+            Gui.runCommand("Std_Delete")
+            Gui.Selection.clearSelection()
+            doc.recompute()
+        return [
+            *ecarts("aucune question", questions, []),
+            *ecarts("supprimés", [doc.getObject(n) is None for n in noms], [True] * 3),
+        ]
+
+
+def verifier_suppression_du_contenu_d_un_groupe() -> list[str]:
+    """« Supprimer le contenu du groupe » (Std Part supprimé avec son contenu) : FreeCAD appelle
+    ``onDelete`` avec ``group_recursive_deletion`` ; la pièce usinée accepte sans question et ne
+    supprime rien elle-même (sinon pointeurs morts dans la boucle de FreeCAD)."""
+    with cadre("VerifSuppressionContenuGroupe") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinee = usinee_de(pieces["M1"])
+        groupe = doc.addObject("App::DocumentObjectGroup", "GroupeComplet")
+        for objet in (joint, usinee, usinee_de(pieces["T1"]), pieces["M1"], pieces["T1"]):
+            groupe.addObject(objet)
+        nom = joint.Name
+        with choix_de_suppression(False) as questions:
+            accepte = usinee.ViewObject.Proxy.onDelete(
+                usinee.ViewObject, ["group_recursive_deletion"]
+            )
+        return [
+            *ecarts("aucune question", questions, []),
+            *ecarts("acceptée", accepte, True),
+            *ecarts("rien supprimé par l'atelier", doc.getObject(nom) is not None, True),
+        ]
+
+
+def verifier_groupe_supprime_avec_une_seule_piece() -> list[str]:
+    """Groupe de l'utilisateur supprimé avec son contenu, qui ne contient qu'une des deux pièces :
+    l'assemblage resté dehors est supprimé (pas d'« Assemblage incomplet »), la pièce usinée de
+    l'autre pièce aussi, sa brute réaffichée."""
+    with cadre("VerifGroupeUnePiece") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinee = usinee_de(pieces["M1"])
+        autre = usinee_de(pieces["T1"])
+        noms = [joint.Name, autre.Name]
+        groupe = doc.addObject("App::DocumentObjectGroup", "GroupeUtilisateur")
+        groupe.addObject(usinee)
+        groupe.addObject(pieces["M1"])
+        accepte = usinee.ViewObject.Proxy.onDelete(usinee.ViewObject, ["group_recursive_deletion"])
+        return [
+            *ecarts("acceptée", accepte, True),
+            *ecarts(
+                "assemblage et autre usinée supprimés", [doc.getObject(n) for n in noms], [None] * 2
+            ),
+            *ecarts("pièce usinée gardée pour FreeCAD", usinee.isValid(), True),
+            *ecarts("autre brute visible", pieces["T1"].Visibility, True),
+        ]
+
+
 def verifier_suppression_d_un_assemblage() -> list[str]:
     """Supprimer un assemblage : pas d'avertissement « objets référencés » pour ses pièces
     usinées (``canDelete``), qui sont recalculées sans sa coupe."""
@@ -526,6 +590,9 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_double_clic_sur_la_piece_usinee,
     verifier_deplacement_de_la_piece_usinee,
     verifier_suppression_de_la_piece_usinee,
+    verifier_suppression_groupee_sans_question,
+    verifier_suppression_du_contenu_d_un_groupe,
+    verifier_groupe_supprime_avec_une_seule_piece,
     verifier_suppression_d_un_assemblage,
     verifier_aucun_observateur_laisse,
 )
