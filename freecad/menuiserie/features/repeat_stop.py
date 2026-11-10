@@ -59,6 +59,7 @@ __all__ = [
     "bounded_params",
     "follow_stops",
     "kept_stops",
+    "start_axis",
     "stop_axis",
     "stop_bounds",
     "stop_text",
@@ -183,6 +184,17 @@ def stop_bounds(
     box = shape.BoundBox
     low, high = (float(getattr(box, f"{axis.value}{end}")) for end in ("Min", "Max"))
     return round(low, 6), round(high, 6)
+
+
+def start_axis(stop: Stop, sources: Sequence[DocumentObject]) -> RepeatAxis | None:
+    """Face plane d'une pièce répétée choisie comme butée : c'est le point de départ (retour de
+    jv), son axe est renvoyé ; ``None`` pour tout autre choix."""
+    if not stop.sub.startswith("Face") or not _is_source(stop.obj, sources, None):
+        return None
+    container = common_container(sources)
+    spans = {axis: stop_bounds(stop, container, axis) for axis in RepeatAxis}
+    flat = [axis for axis, (low, high) in spans.items() if high - low < _TOLERANCE]
+    return flat[0] if len(flat) == 1 else None
 
 
 def stop_axis(stop: Stop, sources: Sequence[DocumentObject]) -> RepeatAxis:

@@ -37,11 +37,7 @@ from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.repeat import sources_of, stored_lines
 from freecad.menuiserie.features.repeat_copies import resolve_for, source_extent, source_extents
 from freecad.menuiserie.features.repeat_joints import not_copied_warning
-from freecad.menuiserie.features.repeat_stop import (
-    Stops,
-    bounded_params,
-    stored_stops,
-)
+from freecad.menuiserie.features.repeat_stop import Stops, bounded_params, stored_stops
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     DeletionWatcher,
@@ -108,6 +104,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._repeat_name: str | None = None if repeat is None else repeat.Name
         self._sources = list(sources)
         self._refused = False
+        self._overlapping = False  # copies qui se chevauchent (avertissement)
         self._steps_edited: set[RepeatAxis] = set()  # pas saisis : ils ne suivent plus la cote
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
@@ -118,6 +115,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._stops = StopControls(doc.Name, self._rows, self._update, self._sources_now)
         self._captions: dict[str, Widget] = {}
         self._build()
+        self._stops.settle_with(self._deduct, lambda: (self._refused, self._overlapping))
         self._fill(repeat)
         self._connect()
         if repeat is None:
@@ -290,6 +288,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
             return
         self._show_rows()
         summary, warning, error = "", "", ""
+        self._overlapping = False
         try:
             params = self.params()
             sources = self._sources_now()
@@ -300,6 +299,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
             self._show_resolved(params, grid)
             summary = summary_text(grid)
             warning = overlap_text(grid, source_extents(sources, [a.axis for a in grid.axes]))
+            self._overlapping = bool(warning)
             warning = "\n".join(
                 filter(None, (warning, collision_text(params, stops), self._not_copied()))
             )

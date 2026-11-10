@@ -18,8 +18,15 @@ from PySide import QtCore
 from freecad.menuiserie.core.repeat import RepeatAxis, RepeatParams, SpacingMode
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.repeat_stop import Stop, Stops, stop_axis, stop_text
+from freecad.menuiserie.features.repeat_stop import (
+    Stop,
+    Stops,
+    start_axis,
+    stop_axis,
+    stop_text,
+)
 from freecad.menuiserie.features.repeat_stop_raw import raw_stop
+from freecad.menuiserie.gui.task_panels.base import Widget
 from freecad.menuiserie.gui.task_panels.repeat_rows import AxisRow
 from freecad.menuiserie.gui.task_panels.repeat_texts import STOP_COLLISION
 
@@ -101,6 +108,13 @@ class StopControls:
         self._picker = StopPicker(document, self._picked)
         self._picking: RepeatAxis | None = None
         self._closed = False
+        self._deduct: Widget = None
+        self._trouble: Callable[[], tuple[bool, bool]] = lambda: (False, False)
+
+    def settle_with(self, deduct: Widget, trouble: Callable[[], tuple[bool, bool]]) -> None:
+        """Case « Déduire l'épaisseur » essayée dans l'autre état après un choix de butée
+        (``trouble`` : saisie refusée, copies qui se chevauchent)."""
+        self._deduct, self._trouble = deduct, trouble
 
     def active(self, params: RepeatParams) -> dict[RepeatAxis, Stop]:
         """Butées utilisées : celles des axes actifs, si le mode de saisie a une longueur."""
@@ -141,11 +155,38 @@ class StopControls:
         auto, self._auto = self._auto, False
         if axis is None or self._closed:
             return
+        start = self._start_of(stop)
+        if (
+            start is not None
+        ):  # face de la pièce répétée : point de départ, la butée reste à choisir
+            self._activate(start, axis)
+            self.pick(start)
+            self._changed()
+            return
         if auto:
             axis = self._axis_of(stop, axis)
         self.stops[axis] = stop
         self.show(axis)
         self._changed()
+        self._settle()
+
+    def _start_of(self, stop: Stop) -> RepeatAxis | None:
+        try:
+            return start_axis(stop, self._sources())
+        except ValueError:
+            return None
+
+    def _settle(self) -> None:
+        """Chevauchement ou refus après le choix d'une butée (retour de jv) : la case « Déduire
+        l'épaisseur » passe dans l'autre état ; si le problème reste, elle revient à son état
+        initial (le refus ou l'avertissement restent affichés)."""
+        box, trouble = self._deduct, self._trouble()
+        if box is None or not any(trouble):
+            return
+        before = box.isChecked()
+        box.setChecked(not before)
+        if self._trouble() >= trouble:  # pas mieux (un refus est pire qu'un chevauchement)
+            box.setChecked(before)
 
     def _axis_of(self, stop: Stop, default: RepeatAxis) -> RepeatAxis:
         """Axe déduit de ``stop`` (``default`` si elle est refusée : le refus sera affiché), rendu
@@ -154,12 +195,16 @@ class StopControls:
             axis = stop_axis(stop, self._sources())
         except ValueError:
             return default
-        count = self._rows[default].count.value()
-        self.show(default)
+        self._activate(axis, default)
+        return axis
+
+    def _activate(self, axis: RepeatAxis, previous: RepeatAxis) -> None:
+        """``axis`` devient le seul axe actif, avec le nombre de ``previous``."""
+        count = self._rows[previous].count.value()
+        self.show(previous)
         for other, row in self._rows.items():
             row.active.setChecked(other is axis)
         self._rows[axis].count.setValue(count)
-        return axis
 
     def clear(self, axis: RepeatAxis) -> None:
         """Bouton pour enlever la butée de ``axis``."""

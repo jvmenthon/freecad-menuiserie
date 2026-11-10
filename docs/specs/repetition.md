@@ -303,6 +303,11 @@ peut être **calculée jusqu'à une butée** au lieu d'être saisie.
   choix de la butée est déjà en cours : le premier clic dans la vue 3D donne la butée et l'axe
   (celui où elle est le plus loin de l'original), seul actif. « Butée… » sur une ligne ou un
   second clic sur ce bouton reprend la main.
+- **Face de la pièce répétée** (jv, 2026-11-10) : cliquée comme butée, c'est le point de départ :
+  son axe devient le seul actif et la butée reste à choisir.
+- **Essai de « Déduire l'épaisseur »** (jv, 2026-11-10) : après le choix d'une butée, si la saisie
+  est refusée ou si des copies se chevauchent, la case passe dans l'autre état ; si ce n'est pas
+  mieux, elle revient à son état initial et le refus ou l'avertissement restent affichés.
 - **Longueur** = distance, sur l'axe et dans le sens de la répétition, de la face de départ de
   l'original à la butée ; affichée en lecture seule. On garde le choix de ce qui est fixé : le
   nombre (`CountOnSpan`, le pas se calcule) ou le pas (`StepOnSpan`, le nombre se calcule).

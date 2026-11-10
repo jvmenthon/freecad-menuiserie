@@ -62,6 +62,7 @@ from tests.gui.verifications_pieces_proches import VERIFICATIONS_PIECES_PROCHES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_repetition import VERIFICATIONS_REPETITION
 from tests.gui.verifications_repetition_butee import VERIFICATIONS_REPETITION_BUTEE
+from tests.gui.verifications_repetition_depart import VERIFICATIONS_REPETITION_DEPART
 from tests.gui.verifications_repetition_grille import VERIFICATIONS_REPETITION_GRILLE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
@@ -1298,6 +1299,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Répétition en grille X x Y x Z (ADR 0045)
     *VERIFICATIONS_REPETITION_GRILLE,
     *VERIFICATIONS_REPETITION_BUTEE,
+    *VERIFICATIONS_REPETITION_DEPART,
     # Copie par glissement (R-d)
     *VERIFICATIONS_SOURIS_COPIE,
 )
