@@ -215,6 +215,14 @@ def _ensemble_de(piece: Any) -> str | None:
     return None if ensemble is None else str(ensemble.Name)
 
 
+def _annuler(doc: Any) -> None:
+    """Ctrl+Z puis recalcul, comme les vérifications de l'ensemble (liens rétablis par l'annulation
+    relus après le recalcul)."""
+    doc.undo()
+    doc.recompute()
+    _traiter()
+
+
 def _ligne_dans(arbre: Any, cle: str) -> str | None:
     """Clé de la ligne parente de la ligne ``cle`` (``None`` : à la racine)."""
     ligne = item_for(arbre, cle)
@@ -255,7 +263,7 @@ def _verifier_renommer(bureau: Bureau, dock: Any, arbre: Any, _synchro: Structur
         *ecarts("une entrée d'annulation", len(doc.UndoNames), 1),
         *ecarts("aucun objet ajouté", [o.Name for o in doc.Objects], noms),
     ]
-    doc.undo()
+    _annuler(doc)
     problemes += ecarts("Ctrl+Z", bureau.parts["P"].Label, "Plateau")
     doc.clearUndos()
     with _saisie("   "):
@@ -283,22 +291,21 @@ def _verifier_ranger(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
         *ecarts("une entrée d'annulation", len(doc.UndoNames), 1),
         *ecarts("aucun objet ajouté", [o.Name for o in doc.Objects], noms),
     ]
-    doc.undo()
-    _traiter()
+    _annuler(doc)
     problemes += ecarts("Ctrl+Z : libre", _ensemble_de(libre), None)
     doc.clearUndos()
     arbre.on_drop([etagere.Name], bureau.furniture.Name)
     _traiter()
     problemes += ecarts("armoire -> bureau", _ensemble_de(etagere), bureau.furniture.Name)
     problemes += ecarts("changement : une entrée", len(doc.UndoNames), 1)
-    doc.undo()
+    _annuler(doc)
     problemes += ecarts("Ctrl+Z : étagère", _ensemble_de(etagere), armoire.Name)
     doc.clearUndos()
     arbre.on_drop([etagere.Name], None)
     _traiter()
     problemes += ecarts("sortie de l'armoire", _ensemble_de(etagere), None)
     problemes += ecarts("sortie : racine", _ligne_dans(arbre, etagere.Name), None)
-    doc.undo()
+    _annuler(doc)
     return problemes + ecarts("Ctrl+Z : sortie", _ensemble_de(etagere), armoire.Name)
 
 
@@ -320,7 +327,13 @@ def _verifier_refus(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureS
     problemes += ecarts("cycle expliqué", "ne peut pas entrer" in boite_de_refus().text(), True)
     problemes += ecarts("cycle : aucune entrée", doc.UndoNames, [])
     problemes += ecarts("autre document", "ne se range pas" in arbre.judge(["Absent"], None), True)
-    return problemes + ecarts("rien à faire", arbre.judge([joue], ensemble), "")
+    # déposer une pièce là où elle est déjà : refus expliqué (jamais une raison vide, qui voudrait
+    # dire « permis »)
+    return problemes + ecarts(
+        "déjà en place : refus expliqué",
+        arbre.judge([joue], ensemble),
+        "« Joue gauche » est déjà dans « Bureau ».",
+    )
 
 
 def _verifier_sous_ensemble(
@@ -342,8 +355,7 @@ def _verifier_sous_ensemble(
         *ecarts("une entrée d'annulation", len(doc.UndoNames), 1),
         *ecarts("nouvel ensemble sélectionné", _noms_selectionnes(), [nouveau[0].Name]),
     ]
-    doc.undo()
-    _traiter()
+    _annuler(doc)
     return problemes + ecarts(
         "Ctrl+Z",
         [_ensemble_de(bureau.parts["P"]), len([o for o in doc.Objects if is_furniture(o)])],
