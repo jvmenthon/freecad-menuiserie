@@ -457,6 +457,25 @@ def verifier_suppression_de_la_piece_usinee() -> list[str]:
         ]
 
 
+def verifier_suppression_groupee_sans_question() -> list[str]:
+    """Supprimer ensemble les deux pièces usinées et leur assemblage (cas d'un Std Part supprimé
+    avec son contenu) : aucun lien ne sort de la suppression, la fenêtre « assemblage lié » n'est
+    pas ouverte. Une pièce usinée supprimée seule garde sa question."""
+    with cadre("VerifSuppressionGroupee") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinees = [usinee_de(pieces[repere]) for repere in ("M1", "T1")]
+        noms = [joint.Name, *(u.Name for u in usinees)]
+        with choix_de_suppression(False) as questions:
+            selectionner(joint, *usinees)
+            Gui.runCommand("Std_Delete")
+            Gui.Selection.clearSelection()
+            doc.recompute()
+        return [
+            *ecarts("aucune question", questions, []),
+            *ecarts("supprimés", [doc.getObject(n) is None for n in noms], [True] * 3),
+        ]
+
+
 def verifier_suppression_d_un_assemblage() -> list[str]:
     """Supprimer un assemblage : pas d'avertissement « objets référencés » pour ses pièces
     usinées (``canDelete``), qui sont recalculées sans sa coupe."""
@@ -526,6 +545,7 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_double_clic_sur_la_piece_usinee,
     verifier_deplacement_de_la_piece_usinee,
     verifier_suppression_de_la_piece_usinee,
+    verifier_suppression_groupee_sans_question,
     verifier_suppression_d_un_assemblage,
     verifier_aucun_observateur_laisse,
 )
