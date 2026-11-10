@@ -9,13 +9,17 @@ modifié, et aucun import de l'interface.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from freecad.menuiserie.core.structure_tree import (
     JOINTS_TITLE,
+    OTHERS_TITLE,
+    REPEAT_LABEL,
     StructureNode,
+    Titles,
     build_structure,
 )
+from freecad.menuiserie.features.cutlist_object import is_cut_list
 from freecad.menuiserie.features.distance import is_distance
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture, is_member
@@ -24,23 +28,32 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.structure_foreign import foreign_objects
+from freecad.menuiserie.features.structure_repetitions import RepetitionReader, repetition_reader
 
 __all__ = ["DocumentStructure", "row_key_of", "structure_of"]
 
 
 def structure_of(doc: Document) -> tuple[StructureNode, ...]:
     """Arbre simplifié de ``doc`` (libellés traduits)."""
-    return build_structure(
-        DocumentStructure(doc), lambda count: translated(JOINTS_TITLE, {"count": str(count)})
+    titles = Titles(
+        joints=lambda count: translated(JOINTS_TITLE, {"count": str(count)}),
+        others=lambda count: translated(OTHERS_TITLE, {"count": str(count)}),
+        repeat=lambda name, count: translated(REPEAT_LABEL, {"name": name, "count": str(count)}),
     )
+    source = DocumentStructure(doc)
+    return build_structure(source, titles.joints, source, titles)
 
 
 class DocumentStructure:
     """Un document vu comme la source de l'arbre simplifié. Les enfants de chaque ensemble sont
-    lus une fois (``furniture_children``) puis classés : sous-ensemble, pièce ou assemblage."""
+    lus une fois (``furniture_children``) puis classés : sous-ensemble, pièce ou assemblage.
+    Fournit aussi les lectures du lot 4 (``StructureExtras``) : répétitions (par un
+    ``RepetitionReader``, vide tant que le type n'existe pas), listes de débit, autres objets."""
 
-    def __init__(self, doc: Document) -> None:
+    def __init__(self, doc: Document, repetitions: RepetitionReader | None = None) -> None:
         self._doc = doc
+        self._repetitions = repetitions if repetitions is not None else repetition_reader(doc)
         self._by_name = {obj.Name: obj for obj in doc.Objects}
         self._children: dict[str, list[DocumentObject]] = {}
 
@@ -69,6 +82,30 @@ class DocumentStructure:
         return [
             obj.Name for obj in self._children_of(furniture) if is_joint(obj) or is_distance(obj)
         ]
+
+    def repetitions(self, container: str | None) -> Sequence[str]:
+        """Répétitions rangées dans l'ensemble ``container`` (``None`` : hors ensemble)."""
+        return [
+            key
+            for key in self._repetitions.all_repetitions()
+            if key in self._by_name and self._repetitions.container_of(key) == container
+        ]
+
+    def copies(self, repetition: str) -> Sequence[str]:
+        """Copies de ``repetition`` (clés de ligne) qui existent dans le document."""
+        return [key for key in self._repetitions.copies_of(repetition) if key in self._by_name]
+
+    def all_copies(self) -> Collection[str]:
+        """Copies de toutes les répétitions."""
+        return {key for rep in self._repetitions.all_repetitions() for key in self.copies(rep)}
+
+    def cut_lists(self) -> Sequence[str]:
+        """Listes de débit (le tableur n'est pas montré)."""
+        return [obj.Name for obj in self._doc.Objects if is_cut_list(obj)]
+
+    def other_objects(self) -> Sequence[str]:
+        """Objets d'autres ateliers (voir ``structure_foreign``)."""
+        return [obj.Name for obj in foreign_objects(self._doc)]
 
     def label(self, key: str) -> str:
         """Libellé de l'objet ``key`` ; une pièce usinée porte celui de sa brute (sans
