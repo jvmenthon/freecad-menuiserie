@@ -57,7 +57,15 @@ DRAGGABLE_KINDS: Final = frozenset({NodeKind.PIECE, NodeKind.FURNITURE})
 # Lignes qui ne reçoivent jamais de dépôt (une répétition gère ses copies, les autres objets
 # ne se touchent pas) : y glisser une pièce est refusé, pas interprété comme « hors ensemble ».
 NO_DROP_KINDS: Final = frozenset(
-    {NodeKind.REPEAT, NodeKind.COPY, NodeKind.CUTLIST, NodeKind.OTHERS, NodeKind.OTHER}
+    {
+        NodeKind.REPEAT,
+        NodeKind.COPY,
+        NodeKind.CUTLIST,
+        NodeKind.OTHERS,
+        NodeKind.OTHER,
+        NodeKind.LEFTOVERS,
+        NodeKind.LEFTOVER,
+    }
 )
 
 BUSY: Final = QT_TRANSLATE_NOOP(

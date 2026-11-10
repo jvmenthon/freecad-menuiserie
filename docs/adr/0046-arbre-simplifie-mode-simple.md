@@ -128,6 +128,12 @@ ou ne sont pas montrés, au choix du lot 1.
   l'activation de l'atelier, en onglet avec la vue combinée et sans prendre le premier plan, tant
   que l'utilisateur ne l'a pas fermé (réglage `StructureClosedByUser` des préférences de l'atelier,
   pas dans le document) ; la commande et l'ouverture par défaut partagent `show_panel`.
+- **Complétude** (correctif). Tout objet de l'atelier apparaît exactement une fois dans le panneau.
+  Les assemblages, quincaillerie (pieds, coulisses, LR32, tenons…) et Distances qu'aucun ensemble
+  ne range (pièce hors ensemble, pièces d'ensembles sans ensemble commun) forment un nœud replié
+  « Assemblages (N) » à la racine (`StructureSource.loose_joints`) ; tout objet de l'atelier encore
+  invisible va sous « Autres objets de l'atelier (N) » (`StructureExtras.workshop_objects`) plutôt
+  que d'être perdu. Mêmes actions et icônes que sous un ensemble.
 - L'arbre natif reste complet : le débutant peut le voir à côté ; on peut proposer d'ouvrir le
   panneau en onglet de la vue combinée.
 

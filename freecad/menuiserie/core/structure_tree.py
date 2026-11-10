@@ -11,6 +11,11 @@ Lot 4 : une répétition est une seule ligne « <nom> xN » dépliable en ses co
 montrées à plat), la liste de débit une ligne, et les objets des autres ateliers sont repliés sous
 « Autres objets (N) ». Ces lectures viennent d'une source **optionnelle**
 (:class:`StructureExtras`).
+
+Garantie : tout objet de l'atelier apparaît exactement une fois. Les assemblages et Distances
+sans ensemble de rattachement (pieds ou coulisses sur une pièce hors ensemble, pièces d'ensembles
+sans ensemble commun…) forment un nœud « Assemblages (N) » à la racine ; tout objet de l'atelier
+resté invisible va sous « Autres objets de l'atelier (N) » plutôt que d'être perdu.
 """
 
 from __future__ import annotations
@@ -28,6 +33,8 @@ JOINTS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Assemblages ({count})")
 OTHERS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Autres objets ({count})")
 # Ligne d'une répétition ; ``{count}`` est le nombre de copies qu'elle déplie.
 REPEAT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{name} \u00d7{count}")
+# Nœud replié des objets de l'atelier qu'aucune autre ligne ne montre ; ``{count}`` est leur nombre.
+LEFTOVERS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Autres objets de l'atelier ({count})")
 
 
 class NodeKind(Enum):
@@ -42,6 +49,8 @@ class NodeKind(Enum):
     CUTLIST = "cutlist"  # liste de débit
     OTHERS = "others"  # nœud replié « Autres objets (N) »
     OTHER = "other"  # objet d'un autre atelier (lecture seule)
+    LEFTOVERS = "leftovers"  # nœud replié « Autres objets de l'atelier (N) »
+    LEFTOVER = "leftover"  # objet de l'atelier qu'aucune autre ligne ne montre
 
 
 @dataclass(frozen=True)
@@ -81,6 +90,10 @@ class StructureSource(Protocol):
     def joints(self, furniture: str) -> Sequence[str]:
         """Assemblages, quincaillerie et Distances de ``furniture``."""
 
+    def loose_joints(self) -> Sequence[str]:
+        """Assemblages, quincaillerie et Distances qu'aucun ensemble ne range (``joints`` ne les
+        rend pour aucun ensemble)."""
+
     def label(self, key: str) -> str:
         """Libellé affiché pour l'objet ``key`` (vocabulaire du débutant)."""
 
@@ -104,6 +117,11 @@ class StructureExtras(Protocol):
     def other_objects(self) -> Sequence[str]:
         """Objets d'autres ateliers à montrer sous « Autres objets »."""
 
+    def workshop_objects(self) -> Sequence[str]:
+        """Clés de ligne de **tous** les objets de l'atelier du document (la pièce usinée à la
+        place de sa brute) : ceux que l'arbre ne montre pas vont sous « Autres objets de
+        l'atelier »."""
+
 
 def default_joints_title(count: int) -> str:
     """Gabarit français (non traduit) du nœud « Assemblages (n) »."""
@@ -113,6 +131,11 @@ def default_joints_title(count: int) -> str:
 def default_others_title(count: int) -> str:
     """Gabarit français (non traduit) du nœud « Autres objets (n) »."""
     return OTHERS_TITLE.format(count=count)
+
+
+def default_leftovers_title(count: int) -> str:
+    """Gabarit français (non traduit) du nœud « Autres objets de l'atelier (n) »."""
+    return LEFTOVERS_TITLE.format(count=count)
 
 
 def default_repeat_label(name: str, count: int) -> str:
@@ -128,6 +151,7 @@ class Titles:
     joints: Callable[[int], str] = default_joints_title
     others: Callable[[int], str] = default_others_title
     repeat: Callable[[str, int], str] = default_repeat_label
+    leftovers: Callable[[int], str] = default_leftovers_title
 
 
 def build_structure(
@@ -159,8 +183,10 @@ class _Builder:
     def roots(self) -> tuple[StructureNode, ...]:
         roots = [self._furniture(key) for key in self._visible(self._source.root_furnitures())]
         roots.extend(self._piece(key) for key in self._visible(self._source.loose_pieces()))
+        roots.extend(self._joints(self._source.loose_joints()))
         roots.extend(self._repetitions(None))
         roots.extend(self._cut_lists())
+        roots.extend(self._leftovers(roots))
         roots.extend(self._others())
         return tuple(roots)
 
@@ -183,12 +209,16 @@ class _Builder:
         ]
         children.extend(self._piece(piece) for piece in self._visible(source.pieces(key)))
         children.extend(self._repetitions(key))
-        joints = source.joints(key)
-        if joints:
-            leaves = tuple(StructureNode(NodeKind.JOINT, source.label(j), j) for j in joints)
-            title = self._titles.joints(len(leaves))
-            children.append(StructureNode(NodeKind.JOINTS, title, "", leaves, expanded=False))
+        children.extend(self._joints(source.joints(key)))
         return StructureNode(NodeKind.FURNITURE, source.label(key), key, tuple(children))
+
+    def _joints(self, joints: Sequence[str]) -> list[StructureNode]:
+        """Nœud replié « Assemblages (N) » de ``joints``, absent s'il n'y en a pas."""
+        if not joints:
+            return []
+        leaves = tuple(StructureNode(NodeKind.JOINT, self._source.label(j), j) for j in joints)
+        title = self._titles.joints(len(leaves))
+        return [StructureNode(NodeKind.JOINTS, title, "", leaves, expanded=False)]
 
     def _repetitions(self, container: str | None) -> list[StructureNode]:
         """Une ligne « <nom> xN » par répétition, repliée sur ses copies."""
@@ -220,3 +250,15 @@ class _Builder:
         leaves = tuple(StructureNode(NodeKind.OTHER, self._source.label(k), k) for k in keys)
         title = self._titles.others(len(leaves))
         return [StructureNode(NodeKind.OTHERS, title, "", leaves, expanded=False)]
+
+    def _leftovers(self, roots: Sequence[StructureNode]) -> list[StructureNode]:
+        """Objets de l'atelier que ``roots`` ne montre pas, repliés ; absent s'il n'y en a pas."""
+        if self._extras is None:
+            return []
+        shown = {node.key for root in roots for node in root.walk() if node.key}
+        keys = [key for key in dict.fromkeys(self._extras.workshop_objects()) if key not in shown]
+        if not keys:
+            return []
+        leaves = tuple(StructureNode(NodeKind.LEFTOVER, self._source.label(k), k) for k in keys)
+        title = self._titles.leftovers(len(leaves))
+        return [StructureNode(NodeKind.LEFTOVERS, title, "", leaves, expanded=False)]

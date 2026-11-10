@@ -25,6 +25,8 @@ ICON_BY_KIND: Final[Mapping[NodeKind, str]] = {
     NodeKind.CUTLIST: "Menuiserie_CutList.svg",
     NodeKind.OTHERS: "Menuiserie_Other.svg",
     NodeKind.OTHER: "Menuiserie_Other.svg",
+    NodeKind.LEFTOVERS: "Menuiserie_Other.svg",
+    NodeKind.LEFTOVER: "Menuiserie_Other.svg",
 }
 
 
