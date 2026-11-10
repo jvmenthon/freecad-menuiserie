@@ -304,10 +304,13 @@ peut être **calculée jusqu'à une butée** au lieu d'être saisie.
   est déjà en cours : le premier clic dans la vue 3D donne la butée et l'axe (celui où elle est le
   plus loin de l'original), seul actif. « Butée… » sur une ligne ou un second clic sur ce bouton
   reprend la main.
-- **Case « Intervalle avant la fin »** (jv, 2026-11-10 ; propriété `EndGap`) : `n` éléments
-  partagent la longueur en `n` intervalles égaux au lieu de `n - 1` ; la dernière pièce s'arrête
+- **Case « Laisser un pas libre après la dernière pièce »** (jv, 2026-11-10, libellé du 2026-11-11 ;
+  propriété `EndGap`) : `n` éléments partagent la longueur en `n` intervalles égaux au lieu de `n - 1` ; la dernière pièce s'arrête
   un intervalle avant la fin (ou la butée). « Déduire l'épaisseur » est alors grisée. Avec « Suivre
   le redimensionnement », le pas suit `longueur / n`.
+- **Aperçu** (jv, 2026-11-11) : tant que le panneau est ouvert, les copies sont transparentes et
+  les pièces d'origine transparentes et teintes en bleu ; l'apparence d'origine revient à la
+  fermeture.
 - **Face de la pièce répétée** (jv, 2026-11-10) : cliquée comme butée, c'est le point de départ :
   son axe devient le seul actif et la butée reste à choisir.
 - **Essai de « Déduire l'épaisseur »** (jv, 2026-11-10) : après le choix d'une butée, si la saisie

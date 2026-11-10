@@ -55,7 +55,7 @@ DEDUCT_TIP: Final = QT_TRANSLATE_NOOP(
     "longueur, la dernière copie arrive à fleur de la fin. Décochée : elle commence à la fin de "
     "la longueur (contre une butée, elle est alors en collision avec elle).",
 )
-GAP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Intervalle avant la fin")
+GAP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Laisser un pas libre après la dernière pièce")
 GAP_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Modes sur une longueur. Cochée : les éléments partagent la longueur en autant d'intervalles "

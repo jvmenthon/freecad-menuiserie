@@ -146,8 +146,17 @@ def _activation(doc: Any) -> list[str]:
 # --- R14 : aperçu et validation ------------------------------------------------------------
 
 
+def _transparences(objets: list[Any]) -> list[int]:
+    return [int(o.ViewObject.Transparency) for o in objets]
+
+
+def _diffuse(objet: Any) -> tuple[int, ...]:
+    return tuple(round(c * 255) for c in objet.ViewObject.ShapeAppearance[0].DiffuseColor[:3])
+
+
 def _apercu_puis_ok(doc: Any) -> list[str]:
     barreau = source(doc)
+    couleur = _diffuse(barreau)
     lancer(REPETER, barreau)  # réglages d'ouverture vérifiés ici
     form = panneau()
     if form is None:
@@ -187,10 +196,16 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
             len(doc.findObjects("App::FeaturePython", "Repeat*")),
             1,
         ),
+        *ecarts("copies transparentes", _transparences(copies_de(rep)), [60] * 5),
+        *ecarts("original transparent", _transparences([barreau]), [60]),
+        *ecarts("original teint", _diffuse(barreau), (70, 140, 230)),
     ]
     valider()
     rep = doc.getObject("Repeat")
     problemes += [
+        *ecarts("copies opaques après OK", _transparences(copies_de(rep)), [0] * 5),
+        *ecarts("original opaque après OK", _transparences([barreau]), [0]),
+        *ecarts("original retrouve sa couleur", _diffuse(barreau), couleur),
         *ecarts("panneau fermé", panneau() is None, True),
         *ecarts("copies créées = aperçu", [c.Name for c in copies_de(rep)], apercu),
         *ecarts("nombre", rep.Count, 5),

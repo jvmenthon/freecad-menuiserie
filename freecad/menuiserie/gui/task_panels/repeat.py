@@ -1,12 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Panneau de tâche « Répéter » et « Modifier la répétition » (ADR 0043, 0045 et 0047).
 
-Réglage d'une répétition en grille : un mode de saisie (« nombre sur une longueur » par défaut),
-trois lignes X, Y, Z (:mod:`.repeat_rows`, une butée par axe : :mod:`.repeat_stops`, choisie dès
-l'ouverture en création, l'axe s'en déduit), options. Chaque saisie validée recalcule l'aperçu par
-l'api dans la transaction du panneau : « OK » la valide, « Annuler » l'abandonne. Une saisie
-refusée s'affiche en rouge (« OK » grisé, aperçu gardé) ; un chevauchement n'est qu'un
-avertissement. Champs : norme « Entrées utilisateur » (``CONTRIBUTING.md``).
+Un mode de saisie, trois lignes X, Y, Z (:mod:`.repeat_rows`, butées : :mod:`.repeat_stops`) et
+des options. Chaque saisie recalcule l'aperçu dans la transaction du panneau (copies
+transparentes, originaux teints) ; un refus s'affiche en rouge (« OK » grisé), un chevauchement
+n'est qu'un avertissement. Champs : norme « Entrées utilisateur » (``CONTRIBUTING.md``).
 """
 
 from __future__ import annotations
@@ -50,6 +48,7 @@ from freecad.menuiserie.gui.task_panels.base import (
 )
 from freecad.menuiserie.gui.task_panels.furniture_widgets import message_label, show_message
 from freecad.menuiserie.gui.task_panels.repeat_messages import overlap_text, summary_text
+from freecad.menuiserie.gui.task_panels.repeat_preview import copy_parts, shown_parts
 from freecad.menuiserie.gui.task_panels.repeat_rows import (
     COLUMN_CAPTIONS,
     AxisRow,
@@ -316,10 +315,19 @@ class RepeatTaskPanel(TransactionTaskPanel):
             self._restart()
             error = translated(UNEXPECTED, {"reason": str(failure) or type(failure).__name__})
         self._refused = bool(error)
+        self.sync_styles()
         show_message(self._summary, summary)
         show_message(self._warning, warning)
         show_message(self._error, error)
         self._refresh_ok()
+
+    def transparent_objects(self) -> list[DocumentObject]:
+        """Copies en transparence (jv, 2026-11-11)."""
+        return copy_parts(self._repeat())
+
+    def tinted_objects(self) -> list[DocumentObject]:
+        """Pièces d'origine en transparence, d'une autre couleur que les copies."""
+        return shown_parts(self._sources_now())
 
     def _release_display(self) -> None:
         """Fermeture : l'observateur de sélection n'est jamais laissé en place."""

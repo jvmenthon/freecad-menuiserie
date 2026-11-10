@@ -737,8 +737,9 @@ def test_aucun_cycle_de_dependance(document: Any) -> None:
 
 
 def test_suivre_le_redimensionnement_avec_intervalle_avant_la_fin(document: Any) -> None:
-    """« Intervalle avant la fin » (jv, 2026-11-10) : la longueur suivie est partagée en autant
-    d'intervalles que d'éléments, sans déduire l'épaisseur."""
+    """« Laisser un pas libre après la dernière pièce » (case ``EndGap``, jv, 2026-11-10) : la
+    longueur suivie est partagée en autant d'intervalles que d'éléments, sans déduire
+    l'épaisseur."""
     meuble = Meuble(document)
     rep = meuble.repeat(follow_resize=True, end_gap=True)
     assert rep.EndGap is True and engine(rep)["Step"] == "(Span - 0 mm) / 3"
