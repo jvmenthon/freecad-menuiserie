@@ -29,9 +29,11 @@ MEMBER_PROPERTIES = {
 }
 
 
-def snapshot(bureau: Bureau) -> dict[str, Any]:
-    """Propriétés et expressions de l'ensemble et de ses pièces, boîtes des pièces."""
-    objects = {"F": bureau.furniture, **bureau.parts}
+def snapshot(bureau: Bureau, *furnitures: Any) -> dict[str, Any]:
+    """Propriétés et expressions des ensembles et de leurs pièces, boîtes des pièces."""
+    chosen = furnitures or (bureau.furniture,)
+    objects = {f"F{index}": furniture for index, furniture in enumerate(chosen)}
+    objects.update(bureau.parts)
     result: dict[str, Any] = {
         name: (sorted(obj.PropertiesList), list(obj.ExpressionEngine))
         for name, obj in objects.items()
@@ -336,10 +338,10 @@ def test_changement_d_ensemble_vers_le_meme_ensemble_garde_les_options(document:
     second, _ = api.make_furniture([bureau.parts["V"]], "Armoire")
     plateau = bureau.parts["P"]
     plateau.FixedLeft = True
-    before = snapshot(bureau)
+    before = snapshot(bureau, first, second)
     with pytest.raises(ValueError, match="déjà membre"):
         api.add_to_furniture(first, [plateau], move=True)
-    assert snapshot(bureau) == before
+    assert snapshot(bureau, first, second) == before
     assert plateau.FixedLeft is True
     with pytest.raises(ValueError):  # cycle : un ensemble ne rentre pas dans son sous-ensemble
         api.add_to_furniture(first, [first], move=True)
@@ -366,15 +368,17 @@ def test_changement_d_ensemble_et_sortie_survivent_a_l_enregistrement(
     plateau = bureau.parts["P"]
     api.add_to_furniture(second, [plateau], move=True)
     api.remove_from_furniture([bureau.parts["V"]], keep_properties=True)
+    names = (plateau.Name, bureau.parts["V"].Name, first.Name, second.Name)
+    plateau_name, armoire_name, first_name, second_name = names
     path = str(tmp_path / "structure.FCStd")
     document.saveAs(path)
     App.closeDocument(document.Name)
     reopened = App.openDocument(path)
     try:
         again = {obj.Name: obj for obj in reopened.Objects}
-        assert api.furniture_of(again[plateau.Name]).Name == second.Name
-        assert api.furniture_of(again[bureau.parts["V"].Name]) is None
-        assert set(again[bureau.parts["V"].Name].PropertiesList) >= MEMBER_PROPERTIES
-        assert first.Name in again
+        assert api.furniture_of(again[plateau_name]).Name == second_name
+        assert api.furniture_of(again[armoire_name]) is None
+        assert set(again[armoire_name].PropertiesList) >= MEMBER_PROPERTIES
+        assert first_name in again
     finally:
         App.closeDocument(reopened.Name)
