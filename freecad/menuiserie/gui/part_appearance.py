@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 from freecad.menuiserie.core.appearance import TEXTURE_BASE_COLOR, TextureMapping
+from freecad.menuiserie.core.colors import Rgb, from_bytes, to_bytes
 from freecad.menuiserie.core.materials import Texture
 from freecad.menuiserie.features.appearance import appearance_of
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -31,12 +32,10 @@ __all__ = [
 
 ViewObject = Any
 Color = tuple[float, ...]
-Rgb = tuple[int, int, int]
 
 MATERIAL_COLOR: Final = "MaterialColor"
 # Gris clair des formes de FreeCAD : couleur si l'apparence ne fournit aucun matériau.
 FALLBACK_DIFFUSE: Final = (0.8, 0.8, 0.8)
-_COLOR_SCALE: Final = 255
 
 
 class PartAppearance:
@@ -89,17 +88,6 @@ def _shown_texture(obj: DocumentObject) -> tuple[TextureMapping, TextureNode] | 
         return None
     texture = nodes.get(appearance.texture)
     return None if texture is None else (appearance.mapping, texture)
-
-
-def to_bytes(color: Color) -> Rgb:
-    """Composantes rouge, vert, bleu de 0 à 255 (comparaison sans erreur d'arrondi)."""
-    red, green, blue = (round(component * _COLOR_SCALE) for component in color[:3])
-    return red, green, blue
-
-
-def from_bytes(color: Rgb) -> Color:
-    """Composantes de 0 à 1 de la couleur ``color`` (0 à 255)."""
-    return tuple(component / _COLOR_SCALE for component in color)
 
 
 def show_diffuse(vobj: ViewObject, wanted: Rgb) -> None:

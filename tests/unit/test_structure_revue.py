@@ -120,6 +120,7 @@ def test_le_et_commercial_est_double_dans_un_menu_qt() -> None:
     assert verbatim_text("R&D") == "R&&D"
     assert verbatim_text("Cuisine") == "Cuisine"
     assert verbatim_text("") == ""
+    assert verbatim_text("x" * 500) == "x" * 79 + "…"  # libellé démesuré tronqué
 
 
 def test_les_entrees_d_ensemble_sont_citees_sans_interpretation() -> None:

@@ -27,7 +27,9 @@ from freecad.menuiserie.core.structure_actions import (
     decide_selection,
 )
 
-__all__ = ["Action", "MenuEntry", "menu_entries", "verbatim_text"]
+__all__ = ["MAX_MENU_LABEL", "Action", "MenuEntry", "menu_entries", "verbatim_text"]
+
+MAX_MENU_LABEL: Final = 80  # caractères d'un libellé dans un menu
 
 
 class Action(Enum):
@@ -68,7 +70,10 @@ class MenuEntry:
 
 def verbatim_text(label: str) -> str:
     """Libellé d'un ensemble tel qu'il s'affiche dans un menu Qt : un « & » y marquerait un
-    raccourci (« R&D » s'afficherait « RD »), il est donc doublé."""
+    raccourci (« R&D » s'afficherait « RD »), il est donc doublé ; un libellé démesuré est
+    tronqué (``MAX_MENU_LABEL`` caractères, « … » à la fin)."""
+    if len(label) > MAX_MENU_LABEL:
+        label = label[: MAX_MENU_LABEL - 1] + "…"
     return label.replace("&", "&&")
 
 

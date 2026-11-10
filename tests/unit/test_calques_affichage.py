@@ -7,8 +7,6 @@ Logique pure (``core/display_layers``) et pose sur des doubles de ViewObject
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import contextmanager
 from typing import Any
 
 from freecad.menuiserie.core.display_layers import (
@@ -68,15 +66,31 @@ class Observers:
         self.posed.remove(watcher)
 
 
-@contextmanager
-def no_transaction() -> Iterator[None]:
-    yield
+class Transaction:
+    """Transaction ouverte ou non, comme ``App.getActiveTransaction()``."""
+
+    def __init__(self) -> None:
+        self.open = False
+
+    def __call__(self) -> bool:
+        return self.open
 
 
-def layers(dead: list[Any] | None = None) -> tuple[DisplayLayers, Observers]:
+def layers(
+    dead: list[Any] | None = None,
+    transaction: Transaction | None = None,
+    errors: list[str] | None = None,
+) -> tuple[DisplayLayers, Observers]:
     gone = dead if dead is not None else []
     observers = Observers()
-    return DisplayLayers(lambda obj: obj not in gone, observers, no_transaction), observers
+    in_transaction = transaction if transaction is not None else Transaction()
+    display = DisplayLayers(
+        lambda obj: obj not in gone,
+        observers,
+        in_transaction,
+        report=(errors if errors is not None else []).append,
+    )
+    return display, observers
 
 
 # --- Logique pure -----------------------------------------------------------------------
@@ -248,7 +262,7 @@ def test_suppression_et_fermeture_du_document_oublient_les_objets() -> None:
     display.show(SELECTION, [piece, other], SELECTION_LOOK)
     (watcher,) = observers.posed
     watcher.slotDeletedObject(piece)  # type: ignore[attr-defined]
-    assert display.tracked() == ["/Q"]
+    assert display.tracked() == [("", "Q")]
     watcher.slotDeletedDocument(type("Doc", (), {"Name": ""})())  # type: ignore[attr-defined]
     assert display.tracked() == []
     assert observers.posed == []  # observateur retiré avec le dernier calque
@@ -275,3 +289,106 @@ def test_release_all_rend_tout() -> None:
     display.release_all()
     assert (first.view.Transparency, second.view.Transparency) == (3, 4)
     assert observers.posed == []
+
+
+# --- Transaction ouverte, suppression, enregistrement (revue finale) ---------------------
+
+
+def test_calque_differe_pendant_une_transaction_puis_joue_a_sa_fin() -> None:
+    transaction = Transaction()
+    display, _ = layers(transaction=transaction)
+    piece = Piece("P", 10)
+    transaction.open = True
+    display.show(SELECTION, [piece], SELECTION_LOOK, deferrable=True)
+    assert piece.view.writes == 0  # rien écrit dans la transaction ouverte
+    assert display.pending() == [SELECTION]
+    display.flush()
+    assert piece.view.writes == 0  # transaction toujours ouverte
+    transaction.open = False
+    display.flush()
+    assert (piece.view.Transparency, piece.view.rgb) == (SELECTION_TRANSPARENCY, SELECTION_TINT)
+    assert display.pending() == []
+
+
+def test_retrait_differe_pendant_une_transaction() -> None:
+    transaction = Transaction()
+    display, _ = layers(transaction=transaction)
+    piece = Piece("P", 10)
+    display.show(SELECTION, [piece], SELECTION_LOOK, deferrable=True)
+    transaction.open = True
+    display.show(SELECTION, [], SELECTION_LOOK, deferrable=True)
+    assert piece.view.Transparency == SELECTION_TRANSPARENCY  # pas écrit dans la transaction
+    transaction.open = False
+    display.flush()
+    assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)
+
+
+def test_calque_non_differable_s_ecrit_meme_en_transaction() -> None:
+    transaction = Transaction()
+    display, _ = layers(transaction=transaction)
+    piece = Piece("P", 10)
+    transaction.open = True
+    display.show(EDIT, [piece], EDIT_LOOK)  # l'édition vit dans la transaction du panneau
+    assert piece.view.Transparency == EDIT_TRANSPARENCY
+
+
+def test_objet_supprime_recoit_son_origine_avant_d_etre_oublie() -> None:
+    display, observers = layers()
+    piece = Piece("P", 10)
+    display.show(SELECTION, [piece], SELECTION_LOOK)
+    (watcher,) = observers.posed
+    watcher.slotDeletedObject(piece)  # type: ignore[attr-defined]
+    # la transaction de suppression garde le ViewObject : Ctrl+Z ne doit pas le recréer teinté
+    assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)
+    assert display.tracked() == []
+
+
+def test_objet_supprime_avec_edition_et_selection_recoit_l_origine() -> None:
+    display, observers = layers()
+    piece = Piece("P", 10)
+    display.show(SELECTION, [piece], SELECTION_LOOK)
+    display.show(EDIT, [piece], EDIT_LOOK)
+    observers.posed[0].slotDeletedObject(piece)  # type: ignore[attr-defined]
+    assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)
+
+
+class Fragile(FakeView):
+    """ViewObject dont l'écriture échoue avec une erreur autre que « objet supprimé »."""
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "Transparency" and "Transparency" in self.__dict__ and value == 10:
+            raise ValueError("écriture refusée")
+        super().__setattr__(name, value)
+
+
+def test_enregistrement_une_erreur_n_interrompt_pas_les_autres_objets() -> None:
+    errors: list[str] = []
+    display, observers = layers(errors=errors)
+    broken, fine = Piece("A", 10), Piece("B", 10)
+    broken.ViewObject = Fragile(10)
+    display.show(SELECTION, [broken, fine], SELECTION_LOOK)
+    document = type("Doc", (), {"Name": ""})()
+    observers.posed[0].slotStartSaveDocument(document, "f")  # type: ignore[attr-defined]
+    assert fine.view.Transparency == 10  # restauré malgré l'erreur de l'autre
+    assert len(errors) == 1
+
+
+def test_enregistrement_echoue_le_calque_est_reécrit_a_la_demande_suivante() -> None:
+    display, observers = layers()
+    piece = Piece("P", 10)
+    display.show(SELECTION, [piece], SELECTION_LOOK)
+    document = type("Doc", (), {"Name": ""})()
+    observers.posed[0].slotStartSaveDocument(document, "f")  # type: ignore[attr-defined]
+    assert piece.view.Transparency == 10  # pas de « fin d'enregistrement » (échec)
+    display.show(SELECTION, [piece], SELECTION_LOOK)
+    assert piece.view.Transparency == SELECTION_TRANSPARENCY
+
+
+def test_cle_par_document_et_nom() -> None:
+    display, _ = layers()
+    first, second = Piece("P"), Piece("P")
+    first.Document = type("Doc", (), {"Name": "A"})()  # type: ignore[attr-defined]
+    second.Document = type("Doc", (), {"Name": "AB"})()  # type: ignore[attr-defined]
+    display.show(SELECTION, [first, second], SELECTION_LOOK)
+    display.forget_document("A")  # « A » n'emporte pas « AB »
+    assert display.tracked() == [("AB", "P")]

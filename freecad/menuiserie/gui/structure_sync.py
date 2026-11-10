@@ -34,7 +34,7 @@ from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.structure_source import row_key_of, structure_of
 from freecad.menuiserie.gui.structure_highlight import RowHighlight
-from freecad.menuiserie.gui.structure_switch import switch_to
+from freecad.menuiserie.gui.structure_switch import ask_user, switch_to
 from freecad.menuiserie.gui.structure_tree_widget import (
     KEY_ROLE,
     KIND_ROLE,
@@ -156,11 +156,11 @@ class _Observers:
         if not self.attached:
             return False
         self.attached = False
-        _try(App.removeDocumentObserver, self._documents)
+        report_errors(App.removeDocumentObserver, self._documents)
         if hasattr(Gui, "removeDocumentObserver"):
-            _try(Gui.removeDocumentObserver, self._activation)
-        _try(Gui.Selection.removeObserver, self._selection)
-        _try_call(self._on_detach)  # transparence de sélection rendue
+            report_errors(Gui.removeDocumentObserver, self._activation)
+        report_errors(Gui.Selection.removeObserver, self._selection)
+        report_errors(self._on_detach)  # transparence de sélection rendue
         return True
 
 
@@ -177,6 +177,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         self._guard = ReentrancyGuard()
         self._refresh = Coalescer(later, self._guarded_refresh)
         self._select = Coalescer(later, self._guarded_pull_selection)
+        self.choose = ask_user  # boîte « appliquer / annuler » ; remplaçable (tests hors écran)
         self._highlight = RowHighlight(tree)
         self._observers = _Observers(
             self._refresh.request, self._select.request, self._highlight.clear
@@ -313,21 +314,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         doc = App.ActiveDocument
         obj = doc.getObject(key) if key and doc is not None else None
         if obj is not None:
-            report_errors(switch_to, obj, open_object_panel)
-
-
-def _try_call(action: Callable[[], object]) -> None:
-    try:
-        action()
-    except Exception:  # pylint: disable=broad-exception-caught
-        App.Console.PrintError(traceback.format_exc())
-
-
-def _try(action: Callable[[Any], object], observer: object) -> None:
-    try:
-        action(observer)
-    except Exception:  # pylint: disable=broad-exception-caught
-        App.Console.PrintError(traceback.format_exc())
+            report_errors(switch_to, obj, open_object_panel, self.choose)
 
 
 def report_errors(action: Callable[..., object], *args: object) -> None:

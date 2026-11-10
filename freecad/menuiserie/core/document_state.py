@@ -4,7 +4,7 @@
 FreeCAD ne dit pas si la transaction ouverte d'un panneau est vide. Le panneau garde donc une
 photo des propriétés que l'utilisateur peut changer (``features/document_snapshot``) à son
 ouverture et la compare à la demande : lecture seule, la transaction et Ctrl+Z ne sont pas touchés.
-Les propriétés calculées (``Output``, en lecture seule, forme, proxy) et la visibilité ne comptent
+Les propriétés calculées (``Output``, ``Transient``, forme, proxy) et la visibilité ne comptent
 pas : un recalcul ne rend pas une tâche « modifiée ».
 """
 
@@ -21,7 +21,9 @@ UNTRACKED_NAMES: Final = frozenset({"Shape", "Proxy", "Visibility", "Touched"})
 UNTRACKED_TYPES: Final = frozenset(
     {"Part::PropertyPartShape", "App::PropertyPythonObject", "Part::PropertyGeometryList"}
 )
-UNTRACKED_STATUS: Final = frozenset({"Output", "ReadOnly", "Transient"})
+# « ReadOnly » n'en fait pas partie : c'est un mode d'éditeur, et des panneaux écrivent des
+# propriétés ainsi déclarées (« Inverser » écrit HostPart et GuestPart).
+UNTRACKED_STATUS: Final = frozenset({"Output", "Transient"})
 
 
 def is_tracked(name: str, type_id: str, status: Collection[str]) -> bool:

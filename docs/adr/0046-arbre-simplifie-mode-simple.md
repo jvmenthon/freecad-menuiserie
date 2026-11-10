@@ -169,15 +169,31 @@ d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règl
   celles de ses sous-ensembles ; un assemblage ou une quincaillerie, ses deux pièces. Les nœuds
   repliés, la liste de débit et les objets d'autres ateliers ne mettent rien en évidence.
   Seul le choix d'une ligne par l'utilisateur rend transparent : une sélection faite dans l'arbre natif ou la 3D ne change aucun affichage, et reprise par le panneau elle retire la transparence du choix précédent.
-- **Sorties.** Les propriétés du ViewObject sont enregistrées dans le fichier et dans la transaction
-  ouverte : (1) l'écriture se fait hors transaction (`outside_transaction` du panneau : la
-  transaction d'une modification encore inchangée est refermée puis rouverte, « OK » sans
-  changement ne laisse donc aucune entrée d'annulation ; modifiée ou en création, l'écriture est
-  fusionnée dans la transaction) ; (2) l'origine est rendue avant tout enregistrement du document
-  (`slotStartSaveDocument`) et les calques reposés après ; (3) objet supprimé, document fermé :
-  calque oublié sans écriture ; (4) calque de sélection retiré à la désélection, au masquage ou à
-  la destruction du panneau ; calque d'édition retiré à toute fermeture de la tâche. L'observateur
-  de document n'existe que tant qu'un calque existe (ADR 0007).
+- **Sorties.** Les propriétés du ViewObject sont enregistrées dans le fichier et dans la
+  transaction ouverte (revue finale) :
+  (1) le calque d'édition est posé à l'ouverture du panneau, la transaction d'une modification
+  (encore vide à cet instant seulement) étant refermée puis rouverte : « OK » sans changement ne
+  laisse aucune entrée d'annulation ; la transaction n'est **jamais** abandonnée ailleurs (rien ne
+  dit alors qu'elle est vide) ;
+  (2) le calque de **sélection** n'est ni posé ni retiré tant qu'une transaction est ouverte (tâche
+  en cours, commande) : la demande est mémorisée (`DisplayLayers.show(..., deferrable=True)`) et
+  jouée à la fermeture de la tâche (`flush`, après le solde de la transaction) ou à la demande
+  suivante. Une ligne choisie **avant** la tâche reste affichée pendant elle ; une ligne choisie
+  **pendant** la tâche s'affiche à sa fermeture ;
+  (3) l'origine est rendue avant tout enregistrement du document (`slotStartSaveDocument`, chaque
+  objet isolément : une erreur est écrite dans le rapport sans interrompre les autres) et les
+  calques reposés après (`slotFinishSaveDocument`) ; si l'enregistrement échoue, la demande
+  suivante réécrit le calque (`_already_shown` exige l'écriture faite) ;
+  (4) objet supprimé : son origine lui est rendue avant l'oubli (la transaction de suppression garde
+  son ViewObject, Ctrl+Z ne le recrée pas teinté) ; document fermé : calque oublié ;
+  (5) calque de sélection retiré à la désélection, au masquage ou à la destruction du panneau ;
+  calque d'édition à toute fermeture de la tâche. L'observateur de document n'existe que tant
+  qu'un calque existe (ADR 0007), son retrait est différé hors de la notification en cours.
+  **Limite connue** : les fichiers de récupération automatique de FreeCAD ne passent pas par
+  `slotStartSaveDocument` ; une récupération après plantage peut contenir la teinte de la ligne
+  choisie à cet instant (un calque ne survit pas à la fermeture normale).
+  **Exception documentée** : `gui/view_providers/wood_part.py` dit que le ViewProvider écrit la
+  couleur diffuse ; `gui/display_layers` en est l'unique autre écrivain, et toujours temporaire.
 - **Déplacer et tourner à la souris** depuis une ligne : les flèches et anneaux (ADR 0038, #65,
   #117) suivent `Gui.Selection` par un observateur ; le panneau écrit dans cette sélection, ils
   s'activent donc déjà comme pour une sélection faite en 3D, avec les mêmes conditions (un seul
@@ -196,8 +212,8 @@ d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règl
   corriger), on reste sur la tâche.
 - **Détecter « modifié ».** FreeCAD n'indique pas si la transaction ouverte est vide. Le panneau
   prend à son ouverture une photo des propriétés saisies de tous les objets (`features/document_snapshot`,
-  filtre pur `core/document_state` : ni `Output`, ni lecture seule, ni forme, ni proxy, ni visibilité)
-  et la compare à la demande : lecture seule, la transaction et Ctrl+Z ne sont pas touchés, un
+  filtre pur `core/document_state` : ni `Output`, ni `Transient`, ni forme, ni proxy, ni visibilité ; « lecture seule » est un simple mode d'éditeur et des panneaux écrivent de telles propriétés, par exemple « Inverser » sur HostPart et GuestPart)
+  et la compare au seul double-clic (jamais à un clic de ligne) : lecture seule, la transaction et Ctrl+Z ne sont pas touchés, un
   recalcul n'est pas une modification.
 
 ## Lots proposés

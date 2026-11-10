@@ -71,7 +71,10 @@ def test_proprietes_suivies_sont_les_saisies() -> None:
     assert not is_tracked("Shape", "Part::PropertyPartShape", [])
     assert not is_tracked("Proxy", "App::PropertyPythonObject", [])
     assert not is_tracked("Visibility", "App::PropertyBool", [])
-    assert not is_tracked("Width", "App::PropertyLength", ["Output", "ReadOnly"])
+    assert not is_tracked("Width", "App::PropertyLength", ["Output"])
+    assert not is_tracked("Cache", "App::PropertyString", ["Transient"])
+    # « ReadOnly » est un mode d'éditeur : « Inverser » écrit HostPart et GuestPart ainsi déclarées
+    assert is_tracked("HostPart", "App::PropertyLink", ["ReadOnly"])
 
 
 def test_photo_identique_n_est_pas_une_modification() -> None:
@@ -189,8 +192,9 @@ def methods_of(path: str, class_name: str) -> dict[str, str]:
 
 def test_la_selection_de_ligne_pose_le_calque_de_selection() -> None:
     methods = methods_of("structure_highlight.py", "RowHighlight")
+    assert "deferrable=True" in methods["choose"]  # jamais écrit dans une transaction ouverte
+    assert "deferrable=True" in methods["clear"]
     assert "SELECTION_LOOK" in methods["choose"]
-    assert "release" in methods["clear"]
     assert "self.clear()" in methods["follow"]  # lignes plus choisies : calque retiré
     sync = methods_of("structure_sync.py", "StructureSync")
     assert "itemSelectionChanged.connect(self._choose_rows)" in sync["__init__"]
@@ -218,7 +222,13 @@ def test_le_panneau_s_inscrit_et_s_efface() -> None:
     assert "snapshot_of" in base["watch_document"]
     assert "active.unregister(self)" in base["_finish"]
     assert "active.unregister(self)" in base["_on_closed_by_freecad"]
-    assert "has_changes" in base["outside_transaction"]
+    assert "_without_transaction" in base["_apply_styles"]
+    assert "DISPLAY.flush()" in base["_finish"]  # sélection différée jouée à la fin de la tâche
+    assert "DISPLAY.flush()" in base["_clean_up_after_forced_close"]
+    # la transaction n'est jamais abandonnée que pour poser l'édition à l'ouverture
+    assert "closeActiveTransaction" not in "".join(
+        text for name, text in base.items() if name != "_without_transaction"
+    )
 
 
 def test_aucun_nombre_magique_de_teinte_hors_core() -> None:

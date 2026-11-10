@@ -36,7 +36,7 @@ from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.display_layers import object_alive
 from freecad.menuiserie.gui.task_panels import active
 
-__all__ = ["ASK_BOX_NAME", "ask_user", "chooser", "switch_to"]
+__all__ = ["ASK_BOX_NAME", "ask_user", "switch_to"]
 
 ASK_BOX_NAME: Final = "MenuiserieTaskSwitchBox"
 _STATUS_MS: Final = 4000
@@ -61,13 +61,11 @@ def ask_user() -> Choice | None:
     return {apply: Choice.APPLY, discard: Choice.DISCARD}.get(clicked, Choice.STAY)
 
 
-# Fonction de choix en service : les tests la remplacent (hors écran, une boîte modale ne se clique
-# pas). Lue à l'appel.
-chooser: Callable[[], Choice | None] = ask_user
-
-
-def switch_to(obj: Any, open_panel: Callable[[Any], bool]) -> None:
-    """Ouvre le panneau de ``obj`` (par ``open_panel``) en réglant d'abord la tâche en cours."""
+def switch_to(
+    obj: Any, open_panel: Callable[[Any], bool], choose: Callable[[], Choice | None] = ask_user
+) -> None:
+    """Ouvre le panneau de ``obj`` (par ``open_panel``) en réglant d'abord la tâche en cours ;
+    ``choose`` demande quoi faire (appliquer, annuler, poursuivre) s'il y a des modifications."""
     panel = active.current()
     action = plan(
         task_open=bool(Gui.Control.activeDialog()),
@@ -76,7 +74,7 @@ def switch_to(obj: Any, open_panel: Callable[[Any], bool]) -> None:
         changed=panel is not None and panel.has_changes(),
     )
     if action is Action.ASK:
-        action = resolve(chooser())
+        action = resolve(choose())
     _run(action, panel, obj, open_panel)
 
 

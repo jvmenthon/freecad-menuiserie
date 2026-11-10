@@ -69,6 +69,8 @@ from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PI
 from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATION
 from tests.gui.verifications_structure import VERIFICATIONS_STRUCTURE
 from tests.gui.verifications_structure_selection import VERIFICATIONS_STRUCTURE_SELECTION
+from tests.gui.verifications_structure_souris import VERIFICATIONS_STRUCTURE_SOURIS
+from tests.gui.verifications_structure_tache import VERIFICATIONS_STRUCTURE_TACHE
 from tests.gui.verifications_transparence_assemblage import VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE
 from tests.gui.verifications_usinage_deplacement import VERIFICATIONS_USINAGE_DEPLACEMENT
 
@@ -1274,6 +1276,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Panneau « Structure » (ADR 0046, lot 2)
     *VERIFICATIONS_STRUCTURE,
     *VERIFICATIONS_STRUCTURE_SELECTION,
+    *VERIFICATIONS_STRUCTURE_TACHE,
+    *VERIFICATIONS_STRUCTURE_SOURIS,
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,

@@ -15,6 +15,8 @@ from collections.abc import Hashable
 from dataclasses import dataclass
 from typing import Final, Generic, TypeVar
 
+from freecad.menuiserie.core.colors import Rgb
+
 __all__ = [
     "EDIT_LOOK",
     "EDIT_PRIORITY",
@@ -28,7 +30,6 @@ __all__ = [
     "Update",
 ]
 
-Rgb = tuple[int, int, int]
 T = TypeVar("T")
 
 EDIT_TRANSPARENCY: Final = 60  # pour cent : pièce en cours d'édition (ADR 0011)
@@ -70,8 +71,8 @@ class LayerStack(Generic[T]):
     """Calques par objet (``key``) et par propriétaire (``owner``, nom du mécanisme)."""
 
     def __init__(self) -> None:
-        self._originals: dict[str, T] = {}
-        self._layers: dict[str, dict[Hashable, Look]] = {}
+        self._originals: dict[Hashable, T] = {}
+        self._layers: dict[Hashable, dict[Hashable, Look]] = {}
 
     def __len__(self) -> int:
         return len(self._layers)
@@ -79,35 +80,35 @@ class LayerStack(Generic[T]):
     def __contains__(self, key: object) -> bool:
         return key in self._layers
 
-    def tracked(self) -> list[str]:
+    def tracked(self) -> list[Hashable]:
         """Objets qui portent au moins un calque."""
         return list(self._layers)
 
-    def keys_of(self, owner: Hashable) -> list[str]:
+    def keys_of(self, owner: Hashable) -> list[Hashable]:
         """Objets sur lesquels ``owner`` a un calque."""
         return [key for key, layers in self._layers.items() if owner in layers]
 
-    def layer(self, key: str, owner: Hashable) -> Look | None:
+    def layer(self, key: Hashable, owner: Hashable) -> Look | None:
         """Calque de ``owner`` sur ``key`` (``None`` s'il n'en a pas)."""
         return self._layers.get(key, {}).get(owner)
 
-    def original(self, key: str) -> T:
+    def original(self, key: Hashable) -> T:
         """État d'origine retenu pour ``key`` (``KeyError`` si aucun calque)."""
         return self._originals[key]
 
-    def rebase(self, key: str, original: T) -> None:
+    def rebase(self, key: Hashable, original: T) -> None:
         """Un tiers a modifié l'objet pendant les calques : son nouvel état devient l'origine."""
         if key in self._originals:
             self._originals[key] = original
 
-    def effective(self, key: str) -> Look | None:
+    def effective(self, key: Hashable) -> Look | None:
         """Aspect à afficher : calque le plus prioritaire, à égalité le plus récent."""
         layers = self._layers.get(key)
         if not layers:
             return None
         return max(enumerate(layers.values()), key=_rank)[1]
 
-    def put(self, key: str, owner: Hashable, look: Look, original: T) -> Update[T]:
+    def put(self, key: Hashable, owner: Hashable, look: Look, original: T) -> Update[T]:
         """Pose le calque de ``owner`` ; ``original`` n'est retenu que pour le premier."""
         if key not in self._layers:
             self._layers[key] = {}
@@ -116,7 +117,7 @@ class LayerStack(Generic[T]):
         self._layers[key][owner] = look
         return Update(self.effective(key), self._originals[key])
 
-    def drop(self, key: str, owner: Hashable) -> Update[T] | None:
+    def drop(self, key: Hashable, owner: Hashable) -> Update[T] | None:
         """Retire le calque de ``owner`` ; ``None`` s'il n'en avait pas. Sans calque restant,
         l'objet est oublié et ``look`` vaut ``None``."""
         layers = self._layers.get(key)
@@ -129,7 +130,7 @@ class LayerStack(Generic[T]):
             del self._originals[key]
         return Update(self.effective(key), original)
 
-    def forget(self, key: str) -> None:
+    def forget(self, key: Hashable) -> None:
         """Objet supprimé : plus rien à rétablir."""
         self._layers.pop(key, None)
         self._originals.pop(key, None)

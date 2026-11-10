@@ -79,19 +79,18 @@ class TransactionTaskPanel:
         return []
 
     @contextmanager
-    def outside_transaction(self, *, unchanged: bool | None = None) -> Iterator[None]:
+    def _without_transaction(self) -> Iterator[None]:
         """Contexte où une propriété du ViewObject s'écrit sans entrée d'annulation : FreeCAD
-        l'enregistre dans la transaction ouverte, donc en modification celle-ci, tant qu'elle est
-        encore inchangée (``unchanged`` : déjà connu, sinon comparé à l'état initial), est
-        refermée (abandonnée) le temps de l'écriture, puis rouverte : « OK » sans changement ne
-        laisse aucune entrée d'annulation. Modifiée ou en création, l'écriture reste dans la
-        transaction du panneau (fusionnée avec ses changements)."""
+        l'enregistre dans la transaction ouverte, donc celle d'une modification, encore vide
+        puisque le panneau vient de s'ouvrir, est refermée (abandonnée) le temps de la pose puis
+        rouverte : « OK » sans changement ne laisse aucune entrée d'annulation. Seulement à
+        l'ouverture : plus tard, rien ne dit que la transaction est vide, et l'abandonner
+        défairait les modifications. En création, la pose reste dans la transaction de création."""
         transaction = self._transaction
         reopen = (
             not self.creating
             and transaction is not None
             and App.getActiveTransaction() == transaction
-            and (not self.has_changes() if unchanged is None else unchanged)
         )
         if reopen:
             App.closeActiveTransaction(True, transaction[1])
@@ -104,9 +103,9 @@ class TransactionTaskPanel:
 
     def _apply_styles(self) -> None:
         """Transparence d'édition posée sur :meth:`transparent_objects` (calque « édition », partagé
-        avec la sélection de ligne), hors transaction (:meth:`outside_transaction`)."""
+        avec la sélection de ligne), hors transaction (:meth:`_without_transaction`)."""
         objects = self.transparent_objects()
-        context = self.outside_transaction(unchanged=True) if objects else nullcontext()
+        context = self._without_transaction() if objects else nullcontext()
         with context:
             self._edit_transparency = PartsPreview(self.transparent_objects, object_alive, DISPLAY)
 
@@ -176,6 +175,7 @@ class TransactionTaskPanel:
         self._release_display()
         close_transaction(self._transaction, abort=abort)
         self._restore_styles()  # modification : transaction close, aucune entrée d'annulation
+        DISPLAY.flush()  # transaction close : sélection de ligne demandée pendant la tâche
         _close(self.doc)
 
     def _on_closed_by_freecad(self) -> None:
@@ -202,6 +202,7 @@ class TransactionTaskPanel:
             App.getDocument(name).recompute()
         close_transaction(self._transaction, abort=self.creating)
         self._restore_styles()  # après la transaction : aucune entrée d'annulation
+        DISPLAY.flush()
         if not alive:
             return
         gui_doc = Gui.getDocument(name)

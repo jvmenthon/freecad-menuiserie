@@ -116,3 +116,23 @@ Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés d
 | m3 | mineur | `core/structure_tree.py` (`build_structure`) | Le paramètre `joints_title` fait double emploi avec `Titles.joints` : il est ignoré dès que `titles` est donné. | Retirer `joints_title` (signature `build_structure(source, extras=None, titles=None)`) et adapter les 13 appels des tests. |
 | m4 | corrigé | `docs/adr/0046-…` ligne 9 | Lien mort vers l'ADR 0043 (PR #181 non fusionnée). | Marqué « à venir » sans lien ; à relier à la fusion de la PR #181. |
 | m5 | mineur | `features/structure_repetitions.py`, `core/structure_tree.py` (nœuds `REPEAT` et `COPY`) | Code de répétition (lecteur vide, lignes « ×N », règles de dépôt) inutilisé tant que l'objet Répétition (ADR 0043) n'existe pas ; seuls des tests à lecteur factice l'exercent. | À brancher au lecteur réel à la fusion de la PR #181 ; sinon à retirer. |
+
+## Revue finale du jalon « Panneau Structure » (branche `fix/structure-revue-finale`), 2026-11-11
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| R1 | corrigé | `core/display_layers.py`, `core/colors.py`, `gui/part_appearance.py` | Couleurs en double (`_COLOR_SCALE`, conversions). | `core/colors` partagé ; `_write_diffuse` (par matériau) reste distinct de `show_diffuse` (même couleur partout). |
+| R2 | corrigé | `gui/view_providers/wood_part.py`, ADR 0046 | Docstring « seul à écrire la couleur diffuse » fausse. | Corrigée, exception notée dans l'ADR. |
+| R3 | corrigé (documenté) | ADR 0046 « Sorties » | Fichiers de récupération automatique sans `slotStartSaveDocument`. | Limite documentée. |
+| R4 | corrigé | `gui/task_panels/preview.py` | `_no_quiet`, `layers=None`, `PREVIEW_TRANSPARENCY` faits pour les tests. | Supprimés ; `layers` requis, tests mis à jour. |
+| R5 | corrigé | `gui/display_layers.py` (`release_all`) | Ne vidait pas `_written`. | Vidé avec `_objects` et `_deferred`. |
+| R6 | corrigé | `gui/structure_switch.py`, `gui/structure_sync.py` | `chooser` global mutable. | Paramètre `choose` de `switch_to`, attribut `StructureSync.choose`. |
+| R7 | corrigé | `gui/structure_sync.py` | `_try_call` / `_try` dupliquaient `report_errors`. | Fusionnés. |
+| R8 | mineur | `tests/unit/test_apercu_assemblage.py`, `test_changement_de_tache.py` | Tests qui lisent le source (analyse statique du câblage). | Remplacer par des tests d'interface dans `tests/gui` quand le câblage est couvert hors écran. |
+| R9 | mineur | `gui/structure_icons.py` (`load_icons`) | Icônes rechargées à chaque rafraîchissement. | Cache explicite et réinitialisable (le module se dit « sans état global » : à décider). |
+| R10 | corrigé | `gui/structure_preferences.py` | `PARAM_PATH` en double. | Importé de `features/library`. |
+| R11 | mineur | `tests/gui/verifications_structure.py` (704 lignes), `tests/unit/test_structure_actions.py` (572), `tests/integration/test_ensemble_souris_ecriture.py` (460) | Fichiers de test de plus de 400 lignes (`verifications_structure_selection.py` a été scindé en trois). | Scinder par thème. |
+| R12 | corrigé | `gui/display_layers.py` | `resume` non rappelé si l'enregistrement échoue. | `_already_shown` exige l'écriture faite : la demande suivante réécrit. |
+| R13 | corrigé | `gui/display_layers.py` | Retrait d'observateur depuis `slotDeletedObject`. | Retrait différé hors de la notification (`later`). |
+| R14 | corrigé | `gui/display_layers.py` | Clés filtrées par préfixe de chaîne. | Clés `(document, nom)`. |
+| R15 | corrigé | `core/structure_menu.py` | `verbatim_text` sans troncature. | `MAX_MENU_LABEL` = 80 caractères. |
