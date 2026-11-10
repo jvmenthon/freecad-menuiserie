@@ -83,13 +83,15 @@ ou ne sont pas montrés, au choix du lot 1.
   - `api.rename(obj, name)` : « Renommer » du panneau passe par l'api (contrôle
     `decide_rename`, `ValueError` traduite, brute d'une pièce usinée), comme toute écriture.
 - **Assemblage vers l'extérieur** (critère unique, `core/assembly_scope.keeps_assembly`, partagé
-  par `decide_drop`, `decide_create` et `check_assembled`) : l'assemblage est rangé sous le plus
-  proche ensemble qui contient ses deux pièces (`common_furniture`). Une pièce qui change
-  d'ensemble reste permise tant qu'elle garde un ensemble commun avec l'autre pièce (ranger P
-  dans un sous-ensemble S de A quand l'autre pièce Q est aussi dans A ne sépare pas
-  l'assemblage), ou si les deux sont hors de tout ensemble ; sinon le dépôt est refusé. Une
-  pièce libre assemblée à une pièce libre qui entrerait seule dans un ensemble est refusée par le
-  panneau, mais l'api la range avec elle (ADR 0038, avertissement).
+  par `decide_drop`, `decide_create` et `check_assembled`) : FreeCAD range toute la fermeture de
+  liens d'une pièce dans le Std Part d'arrivée (essai de l'ADR 0038, confirmé par la CI). Un
+  assemblage reste donc valide seulement si ses deux pièces se retrouvent dans le même ensemble
+  (ou toutes deux hors de tout ensemble). Ranger P dans un sous-ensemble S de A quand la pièce Q
+  qui lui est assemblée reste dans A est **refusé** : Q serait emportée dans le Std Part de S sans
+  en être membre. Il faut choisir les deux pièces, ou supprimer l'assemblage. La demande d'accepter
+  ce cas (« l'assemblage reste rangé sous A ») est donc impossible avec le Std Part par ensemble :
+  signalée à l'architecte. Une pièce assemblée à une pièce hors de tout ensemble est rangée avec
+  elle par l'api (avertissement) ; le panneau refuse le dépôt, mais permet la création d'un ensemble.
 - **État d'orphelin.** FreeCAD 1.1.3 ne rétablit pas, à Ctrl+Z, une propriété dynamique retirée
   puis recréée dans la même transaction. Changer d'ensemble, sortir et créer un sous-ensemble ne
   retirent donc plus les propriétés de membre : seuls le lien `Furniture` (remis à zéro) et les

@@ -125,44 +125,43 @@ def test_commande_retirer_garde_aussi_les_proprietes(document: Any) -> None:
 # --- Sous-ensemble et assemblage (M1) ----------------------------------------------------------
 
 
-def test_sous_ensemble_d_une_piece_assemblee_a_une_piece_du_parent(document: Any) -> None:
-    """Joue gauche (assemblée au voile, tous deux dans Bureau) forme un sous-ensemble : accepté,
-    l'assemblage reste rangé sous Bureau (``common_furniture``), le voile ne bouge pas."""
+def test_sous_ensemble_d_une_piece_assemblee_a_une_piece_du_parent_est_refuse(
+    document: Any,
+) -> None:
+    """Joue gauche est assemblée au voile (tous deux dans Bureau) : FreeCAD rangerait le voile
+    avec elle dans le Std Part du sous-ensemble (fermeture de liens, ADR 0038) ; refusé avant
+    toute modification. Avec le voile et les deux joues, le sous-ensemble se crée."""
     desk = build_desk(document)
-    joue, voile = desk.parts["JG"], desk.parts["V"]
     before = geometry(document)
-    sub, _ = transaction(
-        document, "Sous-ensemble", partial(api.make_furniture, [desk.shown("JG")], "Tiroir")
-    )
-    assert sub.Furniture == desk.furniture and api.furniture_of(joue) == sub
-    assert api.furniture_of(voile) == desk.furniture
-    assert holder(joue) == std_part(sub)
-    assert holder(voile) == std_part(desk.furniture)  # le voile n'a pas suivi
-    assert holder(std_part(sub)) == std_part(desk.furniture)
+    with pytest.raises(ValueError, match="assemblée"):
+        api.make_furniture([desk.shown("JG")], "Tiroir")
+    assert api.furniture_of(desk.parts["JG"]) == desk.furniture
+    assert holder(desk.parts["JG"]) == std_part(desk.furniture)
+    assert geometry(document) == before
+    chosen = [desk.shown(mark) for mark in ("JG", "JD", "V")]
+    sub, _ = transaction(document, "Sous-ensemble", partial(api.make_furniture, chosen, "Tiroir"))
+    assert sub.Furniture == desk.furniture and holder(desk.parts["V"]) == std_part(sub)
     assert geometry(document) == before
     assert stale_or_invalid(document) == []
     document.undo()
     document.recompute()
-    assert api.furniture_of(joue) == desk.furniture
-    assert holder(joue) == std_part(desk.furniture)
+    assert api.furniture_of(desk.parts["JG"]) == desk.furniture
+    assert holder(desk.parts["JG"]) == std_part(desk.furniture)
     assert geometry(document) == before
     assert stale_or_invalid(document) == []
 
 
-def test_ranger_dans_un_sous_ensemble_une_piece_assemblee_a_une_piece_du_parent(
+def test_ranger_dans_un_sous_ensemble_une_piece_assemblee_a_une_piece_du_parent_est_refuse(
     document: Any,
 ) -> None:
     desk = build_desk(document)
     sub, _ = api.make_furniture([desk.shown("P")], "Tiroir")
     before = geometry(document)
-    transaction(
-        document, "Ranger", partial(api.add_to_furniture, sub, [desk.parts["JG"]], move=True)
-    )
-    assert api.furniture_of(desk.parts["JG"]) == sub
-    assert holder(desk.parts["JG"]) == std_part(sub)
+    with pytest.raises(ValueError, match="assemblée"):
+        api.add_to_furniture(sub, [desk.parts["JG"]], move=True)
+    assert api.furniture_of(desk.parts["JG"]) == desk.furniture
     assert holder(desk.parts["V"]) == std_part(desk.furniture)
     assert geometry(document) == before
-    assert stale_or_invalid(document) == []
 
 
 def test_assemblage_vers_l_exterieur_refuse_sans_rien_changer(document: Any) -> None:
@@ -247,7 +246,7 @@ def check_no_std_part_row(document: Any) -> None:
 def test_std_part_et_origine_absents_du_panneau(document: Any) -> None:
     desk = build_desk(document)
     check_no_std_part_row(document)
-    api.make_furniture([desk.shown("JG")], "Tiroir")  # Std Part imbriqué
+    api.make_furniture([desk.shown(m) for m in ("JG", "JD", "V")], "Tiroir")  # imbriqué
     check_no_std_part_row(document)
     api.remove_from_furniture([desk.parts["P"]], keep_properties=True)
     check_no_std_part_row(document)
@@ -255,7 +254,7 @@ def test_std_part_et_origine_absents_du_panneau(document: Any) -> None:
 
 def test_les_ensembles_du_panneau_sont_ceux_de_l_atelier(document: Any) -> None:
     desk = build_desk(document)
-    sub, _ = api.make_furniture([desk.shown("JG")], "Tiroir")
+    sub, _ = api.make_furniture([desk.shown(m) for m in ("JG", "JD", "V")], "Tiroir")
     facts = structure_facts.facts_of(document)
     assert set(facts.furnitures) == {desk.furniture.Name, sub.Name}
     assert facts.parent[sub.Name] == desk.furniture.Name

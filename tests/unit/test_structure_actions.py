@@ -114,9 +114,12 @@ def test_un_assemblage_vers_une_piece_deja_dans_l_ensemble_d_arrivee_est_permis(
     assert decide_drop(facts, ["Etagere"], "Bureau").allowed
 
 
-def test_un_assemblage_vers_un_sous_ensemble_de_l_arrivee_est_permis() -> None:
+def test_un_assemblage_vers_un_sous_ensemble_de_l_arrivee_est_refuse() -> None:
+    """FreeCAD rangerait Fond (Tiroir) avec Etagere dans le Std Part de Bureau : refusé ; dans
+    Tiroir lui-même, où est Fond, l'assemblage reste dans un seul ensemble."""
     facts = make_facts(links={"Etagere": frozenset({"Fond"}), "Fond": frozenset({"Etagere"})})
-    assert decide_drop(facts, ["Etagere"], "Bureau").allowed
+    assert "« Etagere » est assemblée à « Fond »" in refused(facts, ["Etagere"], "Bureau")
+    assert decide_drop(facts, ["Etagere"], "Tiroir").allowed
 
 
 def test_une_piece_deja_en_place_est_ignoree_si_une_autre_bouge() -> None:
@@ -135,7 +138,7 @@ def test_un_element_choisi_avec_son_ensemble_suit_l_ensemble() -> None:
 def test_refus_assemblage_vers_l_exterieur_en_entrant() -> None:
     text = refused(make_facts(), ["Plateau"], "Armoire")
     assert "« Plateau » est assemblée à « Joue »" in text
-    assert "n'est pas dans « Armoire »" in text
+    assert "(« Armoire »)" in text
 
 
 def test_refus_assemblage_vers_une_piece_libre() -> None:
@@ -154,10 +157,12 @@ def test_refus_assemblage_d_un_sous_ensemble_vers_l_exterieur() -> None:
     assert "« JoueT » est assemblée à « Joue »" in text
 
 
-def test_ranger_dans_un_sous_ensemble_d_un_ensemble_qui_garde_l_autre_piece_est_permis() -> None:
-    """M1 : Plateau et Joue sont dans Bureau ; Plateau va dans Tiroir (sous-ensemble de Bureau),
-    l'assemblage reste rangé sous Bureau."""
-    assert decide_drop(make_facts(), ["Plateau"], "Tiroir").keys == ("Plateau",)
+def test_ranger_dans_un_sous_ensemble_une_piece_assemblee_a_une_piece_du_parent_est_refuse() -> (
+    None
+):
+    """Plateau et Joue sont dans Bureau : Plateau dans Tiroir (sous-ensemble de Bureau)
+    emporterait Joue dans le Std Part de Tiroir (ADR 0038). Le critère est celui de l'api."""
+    assert "« Plateau » est assemblée à « Joue »" in refused(make_facts(), ["Plateau"], "Tiroir")
 
 
 def test_sortir_d_un_sous_ensemble_vers_le_parent_garde_l_assemblage() -> None:
@@ -231,7 +236,7 @@ def test_creer_depuis_des_pieces_libres() -> None:
 
 
 def test_creer_un_sous_ensemble_depuis_des_membres_du_meme_ensemble() -> None:
-    decision = decide_create(make_facts(), ["Plateau", "Joue"])
+    decision = decide_create(make_facts(), ["Plateau", "Joue", "Tiroir"])
     assert (decision.allowed, creates_sub_furniture(make_facts(), decision.keys)) == (True, True)
 
 
@@ -240,26 +245,24 @@ def test_creer_refuse_un_melange() -> None:
     assert not decide_create(make_facts(), ["Plateau", "Etagere"]).allowed
 
 
-def test_creer_refuse_un_assemblage_vers_une_piece_hors_du_parent() -> None:
-    """Fond (Tiroir) assemblée à Etagere (Armoire) : un sous-ensemble de Tiroir séparerait
-    l'assemblage ; Plateau et Joue T restent assemblées à Joue, dans Bureau qui contient Tiroir."""
-    facts = make_facts(links={"Fond": frozenset({"Etagere"}), "Etagere": frozenset({"Fond"})})
-    text = decide_create(facts, ["Fond"]).message
-    assert "« Fond » est assemblée à « Etagere »" in text
-    assert decide_create(make_facts(), ["JoueT"]).allowed
-    assert decide_create(make_facts(), ["Plateau"]).allowed
-    assert not decide_create(make_facts(), ["Planche"]).allowed  # Planche2 reste hors ensemble
+def test_creer_refuse_une_piece_assemblee_a_une_piece_qui_reste_dans_le_parent() -> None:
+    """Le nouvel ensemble a son Std Part : Plateau seule emporterait Joue, restée dans Bureau."""
+    text = decide_create(make_facts(), ["Plateau"]).message
+    assert "« Plateau » est assemblée à « Joue »" in text
+    assert "ne serait pas dans le nouvel ensemble" in text
+
+
+def test_creer_permet_les_pieces_assemblees_choisies_ensemble_ou_hors_ensemble() -> None:
+    assert decide_create(make_facts(), ["Plateau", "Joue", "Tiroir"]).allowed  # Joue T y est
+    assert decide_create(make_facts(), ["Fond"]).allowed  # Fond n'est assemblée à rien
+    # Planche est assemblée à Planche2, libre : l'api la range avec elle, sans refus
+    assert decide_create(make_facts(), ["Planche"]).allowed
     assert decide_create(make_facts(), ["Planche", "Planche2"]).allowed
 
 
 def test_creer_refuse_sans_selection_et_panneau_ouvert() -> None:
     assert not decide_create(make_facts(), []).allowed
     assert decide_create(make_facts(busy=True), ["Planche"]).template == BUSY
-
-
-def test_creer_garde_les_assemblages_rangés_dans_le_parent() -> None:
-    """Un sous-ensemble reste dans l'ensemble parent : l'assemblage y reste rangé."""
-    assert decide_create(make_facts(), ["Plateau"]).allowed
 
 
 def test_supprimer_et_ouvrir() -> None:
@@ -386,7 +389,7 @@ def test_menu_sous_menu_des_ensembles_avec_refus_expliques() -> None:
     by_target = {child.target: child.decision for child in add.children}
     assert by_target["Bureau"].message == "« Plateau » est déjà dans « Bureau »."
     assert "assemblée à « Joue »" in by_target["Armoire"].message
-    assert by_target["Tiroir"].allowed  # Joue reste dans Bureau, qui contient Tiroir (M1)
+    assert "assemblée à « Joue »" in by_target["Tiroir"].message  # Joue reste dans Bureau
 
 
 def test_menu_sans_ensemble_dans_le_document() -> None:

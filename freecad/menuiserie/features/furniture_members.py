@@ -241,23 +241,22 @@ def build_furniture(
     transaction de l'appelant (annulation)."""
     parent = _common_parent(objects)
     if parent is None:
-        return _create(objects, label, None)
+        return _create(objects, label)
     _checked_label(label or translated(DEFAULT_LABEL))
+    check_assembled([member_object(obj) for obj in objects])  # avant de sortir quoi que ce soit
     detach_members(objects, keep_properties=True)
-    furniture, notices = _create(objects, label, parent)
+    furniture, notices = _create(objects, label)
     return furniture, [*notices, *add_members(parent, [furniture])]
 
 
-def _create(
-    objects: Sequence[DocumentObject], label: str, parent: DocumentObject | None
-) -> tuple[DocumentObject, list[Notice]]:
-    """Ensemble neuf autour de ``objects`` ; ``parent`` : ensemble qui le recevra ensuite."""
+def _create(objects: Sequence[DocumentObject], label: str) -> tuple[DocumentObject, list[Notice]]:
+    """Ensemble neuf autour de ``objects``, de plus haut niveau ou dans leur conteneur."""
     members = _candidates(objects, None)
     text = _checked_label(label or translated(DEFAULT_LABEL))
     box, origin = enclosing(members)
     for obj in members:
         member_of(obj, origin, entering=True)  # cote illisible : refus avant création
-    check_assembled(members, None, parent)
+    check_assembled(members)
     outer = placement_container(members[0])
     furniture = create_with_std_part(members[0].Document, box, origin, text, outer)
     return furniture, _enter(furniture, members)

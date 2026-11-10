@@ -7,11 +7,13 @@ traduisible et ses paramètres) et ne modifie rien. Les faits viennent d'un :cla
 dans le document par ``features/structure_facts.py`` ; les clés sont celles des lignes du panneau
 (nom de la pièce usinée à la place de sa brute, nom de l'ensemble).
 
-Règle de l'assemblage vers l'extérieur (ADR 0026) : une pièce qui change d'ensemble, seule ou avec
-le sous-ensemble qui la contient, ne doit porter d'assemblage qu'avec des pièces qui vont avec
-elle ou qui sont déjà dans l'ensemble d'arrivée (sous-ensembles compris, ou hors de tout ensemble
-si la pièce sort). Sinon l'assemblage ne serait plus rangé avec ses deux pièces : le dépôt est
-refusé et l'assemblage doit être supprimé d'abord.
+Règle de l'assemblage vers l'extérieur (ADR 0026, ADR 0038), critère ``core/assembly_scope`` : une
+pièce qui change d'ensemble, seule ou avec le sous-ensemble qui la contient, ne doit porter
+d'assemblage qu'avec des pièces qui vont avec elle ou qui se retrouveront dans le même ensemble
+qu'elle (hors de tout ensemble si elle sort). FreeCAD range en effet toute la fermeture de liens
+d'une pièce dans le Std Part d'arrivée : l'assemblage ne serait plus rangé avec ses deux pièces.
+Le dépôt est alors refusé et l'assemblage doit être supprimé d'abord. Même règle pour créer un
+ensemble (ADR 0037), sauf pour une pièce assemblée hors de tout ensemble, que l'api range avec elle.
 """
 
 from __future__ import annotations
@@ -92,9 +94,9 @@ _ALREADY_IN: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {item} » est déjà da
 _ALREADY_FREE: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {item} » n'est dans aucun ensemble.")
 _OUTWARD_INTO: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "« {piece} » est assemblée à « {other} », qui n'est pas dans « {target} » : le "
-    "déplacement séparerait l'assemblage de l'une de ses pièces. Déplacez les deux pièces "
-    "ensemble, ou supprimez d'abord l'assemblage.",
+    "« {piece} » est assemblée à « {other} », qui ne serait pas dans le même ensemble qu'elle "
+    "(« {target} ») : le déplacement séparerait l'assemblage de l'une de ses pièces. Déplacez les "
+    "deux pièces ensemble, ou supprimez d'abord l'assemblage.",
 )
 _OUTWARD_OUT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -104,9 +106,9 @@ _OUTWARD_OUT: Final = QT_TRANSLATE_NOOP(
 )
 _OUTWARD_NEW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "« {piece} » est assemblée à « {other} », qui ne serait pas dans le nouvel ensemble ni dans "
-    "l'ensemble qui le contient : l'assemblage serait séparé de l'une de ses pièces. Choisissez "
-    "aussi « {other} », ou supprimez d'abord l'assemblage.",
+    "« {piece} » est assemblée à « {other} », qui ne serait pas dans le nouvel ensemble : "
+    "l'assemblage serait séparé de l'une de ses pièces. Choisissez aussi « {other} », ou "
+    "supprimez d'abord l'assemblage.",
 )
 _NOT_SAME: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -197,13 +199,16 @@ def decide_selection(facts: MoveFacts, keys: Iterable[str]) -> Decision:
 
 
 def _split_assembly(
-    facts: MoveFacts, moving: Sequence[str], after: Sequence[str]
+    facts: MoveFacts, moving: Sequence[str], after: Sequence[str], *, free_ok: bool = False
 ) -> tuple[str, str] | None:
-    """Première (pièce déplacée, pièce assemblée qui reste) dont l'assemblage perd son ensemble
-    commun (:func:`keeps_assembly`) une fois la pièce dans les ensembles ``after``."""
+    """Première (pièce déplacée, pièce assemblée qui reste) dont l'assemblage sépare les deux
+    pièces (:func:`keeps_assembly`) une fois la pièce dans les ensembles ``after``. ``free_ok`` :
+    une pièce assemblée hors de tout ensemble ne compte pas (l'api la range avec la pièce)."""
     moved = set[str]().union(*(facts.pieces_under(key) for key in moving))
     for piece in sorted(moved):
         for other in sorted(facts.links.get(piece, frozenset()) - moved):
+            if free_ok and other not in facts.parent:
+                continue
             if not keeps_assembly(after, facts.chain(other)):
                 return piece, other
     return None
@@ -263,17 +268,15 @@ def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> De
 def decide_create(facts: MoveFacts, keys: Iterable[str]) -> Decision:
     """« Créer un (sous-)ensemble depuis la sélection » (ADR 0037) : permis si les éléments sont
     tous hors ensemble (nouvel ensemble) ou tous dans le même ensemble (sous-ensemble). Le nouvel
-    ensemble reste dans l'ensemble parent : un assemblage avec une pièce du parent y reste rangé
-    (même critère que le dépôt, :func:`keeps_assembly`) ; vers une pièce hors du parent, il est
-    séparé : refusé."""
+    ensemble a son propre Std Part : une pièce assemblée à une pièce qui reste dans l'ensemble
+    parent ne peut pas y entrer seule (:func:`keeps_assembly`), comme pour un dépôt ; une pièce
+    assemblée à une pièce hors ensemble est rangée avec elle (ADR 0038)."""
     chosen = top_level(facts, keys)
     if (refusal := _movable(facts, chosen)) is not None:
         return refusal
     if len({facts.parent.get(key) for key in chosen}) != 1:
         return refuse(_NOT_SAME)
-    parent = facts.parent.get(chosen[0])
-    after = ["", *([] if parent is None else [parent, *facts.chain(parent)])]
-    if (split := _split_assembly(facts, chosen, after)) is not None:
+    if (split := _split_assembly(facts, chosen, [""], free_ok=True)) is not None:
         return refuse(_OUTWARD_NEW, piece=facts.label(split[0]), other=facts.label(split[1]))
     return Decision(True, keys=tuple(chosen))
 

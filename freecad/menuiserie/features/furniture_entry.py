@@ -138,9 +138,9 @@ def _linked_members(
     pieces: Sequence[DocumentObject], allowed: set[str], after: Sequence[str]
 ) -> DocumentObject | None:
     """Membre d'un autre ensemble (ou ensemble) que FreeCAD rangerait avec ``pieces`` et dont
-    l'assemblage perdrait son ensemble commun (:func:`keeps_assembly`) une fois les pièces dans
-    les ensembles ``after`` (noms, du plus proche au plus éloigné) : un objet de leur fermeture
-    de liens qui n'est pas dans ``allowed``."""
+    l'assemblage serait séparé (:func:`keeps_assembly`) une fois les pièces dans les ensembles
+    ``after`` (noms, du plus proche au plus éloigné) : un objet de leur fermeture de liens qui
+    n'est pas dans ``allowed``."""
     for piece in pieces:
         for other in _closure(piece).values():
             owner = other if is_furniture(other) else furniture_of(other)
@@ -153,30 +153,23 @@ def _linked_members(
     return None
 
 
-def _destination(target: DocumentObject | None, parent: DocumentObject | None) -> tuple[str, ...]:
-    """Ensembles où se retrouvent des pièces qui entrent dans ``target``, ou dans un nouvel
-    ensemble (nom vide) rangé dans ``parent`` si ``target`` est ``None``."""
-    return _chain(target) if target is not None else ("", *_chain(parent))
-
-
 def check_assembled(
-    members: Sequence[DocumentObject],
-    target: DocumentObject | None = None,
-    parent: DocumentObject | None = None,
+    members: Sequence[DocumentObject], target: DocumentObject | None = None
 ) -> None:
     """Refuse (``ValueError`` traduite, rien n'est modifié) l'entrée de pièces assemblées à un
-    membre d'un autre ensemble quand l'assemblage perdrait son ensemble commun (critère
-    ``core.assembly_scope``, partagé avec le panneau « Structure » : ranger une pièce dans un
-    sous-ensemble de l'ensemble de l'autre ne le sépare pas). ``target`` : ensemble qui les reçoit,
-    ``None`` pour un nouvel ensemble, alors rangé dans ``parent`` (``None`` : de plus haut
-    niveau). Une pièce assemblée à une pièce libre est rangée avec elle, à la même position."""
+    membre d'un autre ensemble : FreeCAD les rangerait avec lui dans le Std Part d'arrivée
+    (critère ``core.assembly_scope``, partagé avec le panneau « Structure »). ``target`` :
+    ensemble qui les reçoit, ``None`` pour un nouvel ensemble (même rangé dans un ensemble : il
+    a son propre Std Part). Une pièce assemblée à une pièce libre est rangée avec elle, à la même
+    position."""
     pieces = [obj for obj in members if not is_furniture(obj)]
     allowed = {item.Name for obj in pieces for item in _bundle(obj)}
     for sub in (obj for obj in members if is_furniture(obj)):  # un sous-ensemble entre en entier
         part = std_part_of(sub)
         allowed.add(sub.Name)
         allowed |= {obj.Name for obj in _content(part)} if part is not None else set()
-    other = _linked_members(pieces, allowed, _destination(target, parent))
+    after = (target.Name,) if target is not None else ("",)  # "" : l'ensemble à créer
+    other = _linked_members(pieces, allowed, after)
     if other is not None:
         label = next(p.Label for p in pieces if other.Name in _closure(p))
         raise ValueError(translated(_ASSEMBLED, {"label": str(label), "other": str(other.Label)}))
