@@ -59,7 +59,9 @@ quoi faire des assemblages et du suivi du redimensionnement.
    la répétition passe d'**un seul axe à un seul autre axe**, les copies suivent sur le nouvel
    axe (comportement antérieur) au lieu d'être recréées.
 7. **Assemblages.** « Recopier les assemblages » est inchangé. Un assemblage entre deux sources
-   vise les copies de la **même cellule** ; une pièce fixe reçoit un assemblage par copie.
+   vise les copies de la **même cellule** ; une pièce fixe reçoit un assemblage par copie. Un
+   assemblage impossible pour une cellule (copie hors de l'hôte…) n'est pas recopié, jugé cellule
+   par cellule à chaque édition (ADR 0043, décision de jv du 2026-11-10).
 8. **Ensembles.** Un ensemble se répète en grille de la même façon (même position relative par
    cellule, Std Part par copie, ADR 0044).
 9. **Suivre le redimensionnement** s'applique **axe par axe** : chaque ligne devient

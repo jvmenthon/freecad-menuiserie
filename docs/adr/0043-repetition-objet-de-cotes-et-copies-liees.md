@@ -60,6 +60,13 @@ extensible au cercle et au trajet. Options :
   axes. Le glissement Ctrl (R-d) lit donc l'axe de la flèche dans `Placement` de la pièce, non dans
   son placement global, et n'a pas à refuser un conteneur tourné. Des sources réparties dans des
   conteneurs différents sont refusées (message traduit).
+- **Assemblage impossible** (jv, 2026-11-10, remplace « créé même infaisable ») : un assemblage
+  enfant n'est créé que s'il est réalisable entre la copie placée et sa pièce partenaire
+  (`features/joints/feasible.plan_error`, mêmes calculs que `plan_for` ; le cache de plans ne
+  mémorise jamais un échec). Chaque édition réévalue : l'enfant devenu impossible est supprimé,
+  le manquant devenu possible est créé, le dissocié ne revient pas. Le nombre d'assemblages non
+  recopiés est un avertissement (vue rapport et panneau). Limite : le recalcul seul ne crée ni ne
+  supprime rien (pas d'écriture de structure dans `execute`/recalcul).
 - **Ajouts après coup** : « Modifier la répétition » recopie les assemblages de la source sur
   **tous** les rangs (un assemblage ajouté à la source après la création va aussi aux copies
   existantes, sans doublon). Conséquence : un assemblage enfant supprimé à la main revient à la
