@@ -10,9 +10,10 @@ from typing import Final
 
 import FreeCAD as App
 
+from freecad.menuiserie.features.library import PARAM_PATH
+
 __all__ = ["closed_by_user", "remember_closed"]
 
-PARAM_PATH: Final = "User parameter:BaseApp/Preferences/Mod/Menuiserie"
 KEY: Final = "StructureClosedByUser"
 
 

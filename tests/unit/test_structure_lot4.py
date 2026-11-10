@@ -34,7 +34,7 @@ from freecad.menuiserie.core.structure_tree import (
 )
 from tests.unit.aides import ROOT
 from tests.unit.aides_debit_document import Doc, Obj, World, simulated_world
-from tests.unit.test_structure_arbre import FakeSource, title
+from tests.unit.test_structure_arbre import FakeSource
 
 PACKAGE = ROOT / "freecad" / "menuiserie"
 TIMES = "\u00d7"  # signe de multiplication des lignes de répétition
@@ -75,11 +75,11 @@ class LotSource(FakeSource):
 
 
 def tree(extras: object | None = FakeExtras()) -> tuple[StructureNode, ...]:
-    return build_structure(LotSource(), title, extras)  # type: ignore[arg-type]
+    return build_structure(LotSource(), extras)  # type: ignore[arg-type]
 
 
 def test_sans_extras_l_arbre_est_celui_des_lots_precedents() -> None:
-    assert tree(None) == build_structure(FakeSource(), title)
+    assert tree(None) == build_structure(FakeSource())
 
 
 def test_repetition_une_seule_ligne_dependable_en_ses_copies() -> None:
@@ -327,7 +327,7 @@ def test_document_repetition_par_le_point_d_extension(world: World) -> None:
     from freecad.menuiserie.core.structure_tree import build_structure as build
 
     source = DocumentStructure(doc, Reader())
-    roots = build(source, title, source)
+    roots = build(source, source)
     kinds = [(n.kind, n.label) for n in roots[0].children]
     assert kinds == [
         (NodeKind.PIECE, "Planche"),

@@ -9,8 +9,10 @@ from typing import Any
 import pytest
 
 from freecad.menuiserie import ICONS_DIR
+from freecad.menuiserie.core.display_layers import EDIT_TRANSPARENCY
 from freecad.menuiserie.core.geometry import squared_rotation
-from freecad.menuiserie.gui.task_panels.preview import PREVIEW_TRANSPARENCY, PartsPreview
+from freecad.menuiserie.gui.display_layers import DisplayLayers
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 from tests.unit.aides import ROOT
 
 UI_FILE = ROOT / "freecad/menuiserie/gui/task_panels/wood_part.ui"
@@ -35,8 +37,12 @@ class DeletedViewObject(FakeViewObject):
         super().__setattr__(name, value)
 
 
+def alive(_obj: Any) -> bool:
+    return True
+
+
 def preview_of(piece: FakePiece) -> PartsPreview:
-    return PartsPreview(lambda: [piece], lambda _obj: True)
+    return PartsPreview(lambda: [piece], alive, DisplayLayers(alive))
 
 
 def test_rotation_d_equerre_ramenee_a_la_permutation_exacte() -> None:
@@ -56,7 +62,7 @@ def test_rotation_oblique_inchangee() -> None:
 def test_apercu_pose_puis_retablit_la_transparence() -> None:
     vobj = FakeViewObject(25)
     preview = preview_of(FakePiece(vobj))
-    assert vobj.Transparency == PREVIEW_TRANSPARENCY == 60
+    assert vobj.Transparency == EDIT_TRANSPARENCY == 60
     preview.restore()
     assert vobj.Transparency == 25
     vobj.Transparency = 80

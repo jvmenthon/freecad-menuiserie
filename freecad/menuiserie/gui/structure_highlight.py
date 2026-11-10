@@ -39,21 +39,21 @@ class RowHighlight:
         """Les lignes sélectionnées viennent d'être choisies : leurs objets deviennent
         transparents, les autres sont rétablis."""
         self._chosen = self._rows()
-        self._layers.show(self, self._objects(), SELECTION_LOOK)
+        self._layers.show(self, self._objects(), SELECTION_LOOK, deferrable=True)
 
     def follow(self) -> None:
         """Arbre rempli ou sélection reprise de FreeCAD : le calque reste si les lignes choisies
         sont toujours les lignes sélectionnées (objets relus, une pièce usinée a pu apparaître),
         sinon il est retiré."""
         if self._chosen and self._rows() == self._chosen:
-            self._layers.show(self, self._objects(), SELECTION_LOOK)
+            self._layers.show(self, self._objects(), SELECTION_LOOK, deferrable=True)
         else:
             self.clear()
 
     def clear(self) -> None:
         """Calque retiré : l'affichage d'origine revient."""
         self._chosen = []
-        self._layers.release(self)
+        self._layers.show(self, [], SELECTION_LOOK, deferrable=True)
 
     def _rows(self) -> list[tuple[str, str]]:
         """Genre et clé de chaque ligne sélectionnée qui a un objet."""

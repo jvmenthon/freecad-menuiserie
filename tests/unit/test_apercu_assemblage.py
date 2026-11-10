@@ -7,7 +7,9 @@ from __future__ import annotations
 import ast
 from typing import Any
 
-from freecad.menuiserie.gui.task_panels.preview import PREVIEW_TRANSPARENCY, PartsPreview
+from freecad.menuiserie.core.display_layers import EDIT_TRANSPARENCY
+from freecad.menuiserie.gui.display_layers import DisplayLayers
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 from tests.unit.aides import ROOT
 
 PANELS = ROOT / "freecad/menuiserie/gui/task_panels"
@@ -43,14 +45,17 @@ class Scene:
         return list(self.shown)
 
     def preview(self) -> PartsPreview:
-        return PartsPreview(self._shown, lambda obj: obj not in self.dead)
+        def alive(obj: Any) -> bool:
+            return obj not in self.dead
+
+        return PartsPreview(self._shown, alive, DisplayLayers(alive))
 
 
 def test_pieces_transparentes_puis_transparence_d_origine_retablie() -> None:
     host, guest = FakeObject("Host", 0), FakeObject("Guest", 25)
     preview = Scene(host, guest).preview()
-    assert [host.transparency, guest.transparency] == [PREVIEW_TRANSPARENCY] * 2
-    assert PREVIEW_TRANSPARENCY == 60
+    assert [host.transparency, guest.transparency] == [EDIT_TRANSPARENCY] * 2
+    assert EDIT_TRANSPARENCY == 60
     preview.restore()
     assert [host.transparency, guest.transparency] == [0, 25]
 
@@ -174,7 +179,7 @@ def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture()
     assert "_apply_styles()" in methods["watch_document"]
     assert "PartsPreview(self.transparent_objects" in methods["_apply_styles"]
     assert "DISPLAY" in methods["_apply_styles"]
-    assert "outside_transaction" in methods["_apply_styles"]
+    assert "_without_transaction" in methods["_apply_styles"]
     assert "_restore_styles()" in methods["_finish"]
     assert "_restore_styles()" in methods["_clean_up_after_forced_close"]
 
@@ -190,6 +195,6 @@ def test_objet_supprime_pendant_la_fermeture_ne_leve_rien() -> None:
             raise TypeError("a string or integer is required")
         return True
 
-    preview = PartsPreview(lambda: [piece], alive)
+    preview = PartsPreview(lambda: [piece], alive, DisplayLayers(alive))
     deleted = True
     preview.restore()

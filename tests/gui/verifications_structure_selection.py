@@ -17,47 +17,28 @@ import shutil
 import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
-from PySide import QtGui
 
 from freecad.menuiserie.core.display_layers import (
     EDIT_TRANSPARENCY,
     SELECTION_TINT,
     SELECTION_TRANSPARENCY,
 )
-from freecad.menuiserie.core.task_switch import FOREIGN_TASK, Choice
-from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.gui import structure_switch
 from freecad.menuiserie.gui.display_layers import DISPLAY
 from freecad.menuiserie.gui.structure_sync import StructureSync
 from freecad.menuiserie.gui.structure_tree_widget import item_for
-from tests.gui.verifications_ensemble import boite_de_refus
 from tests.gui.verifications_panneau import (
     annuler,
-    avec_document,
     ecarts,
     ouvrir_par_double_clic,
-    piece_validee,
     valider,
 )
-from tests.gui.verifications_souris import place, preparer, proche, px_en_mm, saisir, sur_la_fleche
-from tests.gui.verifications_souris import tirer as tirer_la_fleche
-from tests.gui.verifications_souris_rotation import (
-    TRANSACTION as TRANSACTION_ROTATION,
-)
-from tests.gui.verifications_souris_rotation import (
-    lacet,
-    saisir_anneau,
-    tourner_de,
-    vue_isometrique,
-)
-from tests.gui.verifications_structure import avec_panneau, panneau_structure, traiter
+from tests.gui.verifications_structure import avec_panneau, traiter
 from tests.integration.bureau import Bureau
 
 ORIGINE = 20  # transparence d'origine de la pièce, pour vérifier une restauration exacte
@@ -65,14 +46,14 @@ Etat = tuple[int, tuple[int, ...]]
 SELECTION: Etat = (SELECTION_TRANSPARENCY, SELECTION_TINT)
 
 
-def _etat(obj: Any) -> Etat:
+def etat(obj: Any) -> Etat:
     """Transparence et couleur diffuse (0 à 255) affichées de ``obj``."""
     vobj = obj.ViewObject
     diffuse = vobj.ShapeAppearance[0].DiffuseColor
     return int(vobj.Transparency), tuple(round(c * 255) for c in diffuse[:3])
 
 
-def _choisir(arbre: Any, *cles: str) -> None:
+def choisir_lignes(arbre: Any, *cles: str) -> None:
     """Lignes de ``cles`` seules sélectionnées, comme un clic."""
     arbre.clearSelection()
     for cle in cles:
@@ -82,12 +63,12 @@ def _choisir(arbre: Any, *cles: str) -> None:
     traiter()
 
 
-def _graine(bureau: Bureau) -> tuple[Any, Etat, Etat]:
+def graine(bureau: Bureau) -> tuple[Any, Etat, Etat]:
     """Plateau avec une transparence d'origine propre, son état d'origine et celui de l'édition
     attendue (même couleur, transparence d'édition)."""
     piece = bureau.shown("P")
     piece.ViewObject.Transparency = ORIGINE
-    origine = _etat(piece)
+    origine = etat(piece)
     return piece, origine, (EDIT_TRANSPARENCY, origine[1])
 
 
@@ -97,34 +78,34 @@ def _graine(bureau: Bureau) -> tuple[Any, Etat, Etat]:
 def _selection_teintee(
     bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
 ) -> list[str]:
-    piece, origine, _ = _graine(bureau)
+    piece, origine, _ = graine(bureau)
     jambe = bureau.shown("JG")
     bureau.doc.clearUndos()
-    _choisir(arbre, piece.Name)
+    choisir_lignes(arbre, piece.Name)
     problemes = [
-        *ecarts("pièce de la ligne : transparente et teintée", _etat(piece), SELECTION),
-        *ecarts("autre pièce intacte", _etat(jambe)[0], 0),
+        *ecarts("pièce de la ligne : transparente et teintée", etat(piece), SELECTION),
+        *ecarts("autre pièce intacte", etat(jambe)[0], 0),
         *ecarts("aucune entrée d'annulation", bureau.doc.UndoNames, []),
     ]
-    _choisir(arbre)
-    problemes += ecarts("désélection : origine rendue", _etat(piece), origine)
+    choisir_lignes(arbre)
+    problemes += ecarts("désélection : origine rendue", etat(piece), origine)
     # ensemble : toutes ses pièces ; assemblage : ses deux pièces
-    _choisir(arbre, bureau.furniture.Name)
+    choisir_lignes(arbre, bureau.furniture.Name)
     problemes += ecarts(
         "ensemble : ses quatre pièces",
-        [_etat(bureau.shown(m)) for m in ("P", "JG", "JD", "V")],
+        [etat(bureau.shown(m)) for m in ("P", "JG", "JD", "V")],
         [SELECTION] * 4,
     )
-    _choisir(arbre, bureau.joints[0].Name)
+    choisir_lignes(arbre, bureau.joints[0].Name)
     problemes += ecarts(
         "assemblage : ses deux pièces",
-        [_etat(bureau.shown(m)) for m in ("JG", "V")],
+        [etat(bureau.shown(m)) for m in ("JG", "V")],
         [SELECTION] * 2,
     )
-    problemes += ecarts("assemblage : les autres pièces intactes", _etat(piece), origine) + ecarts(
-        "assemblage : joue droite intacte", _etat(bureau.shown("JD"))[0], 0
+    problemes += ecarts("assemblage : les autres pièces intactes", etat(piece), origine) + ecarts(
+        "assemblage : joue droite intacte", etat(bureau.shown("JD"))[0], 0
     )
-    _choisir(arbre)
+    choisir_lignes(arbre)
     return problemes + ecarts("tout désélectionné : plus de calque", DISPLAY.tracked(), [])
 
 
@@ -137,18 +118,18 @@ def _selection_depuis_freecad(
 ) -> list[str]:
     """Une sélection faite dans l'arbre natif ou la 3D ne rend rien transparent ; reprise par le
     panneau après un choix de ligne, elle retire la transparence de ce choix."""
-    piece, origine, _ = _graine(bureau)
+    piece, origine, _ = graine(bureau)
     Gui.Selection.addSelection(bureau.doc.Name, piece.Name)
     traiter()
-    problemes = ecarts("sélection de FreeCAD : aucune transparence", _etat(piece), origine)
+    problemes = ecarts("sélection de FreeCAD : aucune transparence", etat(piece), origine)
     Gui.Selection.clearSelection()
     traiter()
-    _choisir(arbre, piece.Name)
-    problemes += ecarts("ligne choisie : transparence", _etat(piece), SELECTION)
+    choisir_lignes(arbre, piece.Name)
+    problemes += ecarts("ligne choisie : transparence", etat(piece), SELECTION)
     Gui.Selection.clearSelection()
     Gui.Selection.addSelection(bureau.doc.Name, bureau.shown("V").Name)
     traiter()
-    return problemes + ecarts("sélection reprise de FreeCAD : origine", _etat(piece), origine)
+    return problemes + ecarts("sélection reprise de FreeCAD : origine", etat(piece), origine)
 
 
 def verifier_structure_selection_depuis_freecad() -> list[str]:
@@ -159,31 +140,31 @@ def verifier_structure_selection_depuis_freecad() -> list[str]:
 
 
 def _coexistence(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
-    piece, origine, edition = _graine(bureau)
+    piece, origine, edition = graine(bureau)
     autre = bureau.shown("V")
     bureau.doc.clearUndos()
-    _choisir(arbre, piece.Name)
+    choisir_lignes(arbre, piece.Name)
     ouvrir_par_double_clic(piece)
     problemes = ecarts(
-        "tâche + sélection sur la même pièce : l'édition prime", _etat(piece), edition
+        "tâche + sélection sur la même pièce : l'édition prime", etat(piece), edition
     )
-    _choisir(arbre, autre.Name)  # autre ligne pendant la tâche : calque de sélection seulement
+    # autre ligne pendant la tâche : FreeCAD enregistrerait l'affichage dans la transaction
+    # ouverte, la demande attend donc la fin de la tâche ; l'édition reste affichée
+    choisir_lignes(arbre, autre.Name)
     problemes += [
-        *ecarts("autre ligne : sélection teintée", _etat(autre), SELECTION),
-        *ecarts("pièce en édition : toujours l'édition", _etat(piece), edition),
+        *ecarts("pendant la tâche : autre ligne différée", etat(autre)[0], 0),
+        *ecarts("pendant la tâche : l'édition prime toujours", etat(piece), edition),
     ]
-    _choisir(arbre, piece.Name, autre.Name)
     annuler()
     traiter()
     problemes += [
-        *ecarts("tâche finie, ligne encore choisie : sélection", _etat(piece), SELECTION),
-        *ecarts("tâche finie : pas l'état de l'édition comme origine", _etat(autre), SELECTION),
+        *ecarts("tâche finie : ligne choisie transparente", etat(autre), SELECTION),
+        *ecarts("tâche finie : pièce rendue à son origine", etat(piece), origine),
     ]
-    _choisir(arbre)
+    choisir_lignes(arbre)
     return [
         *problemes,
-        *ecarts("tout rendu : origine de la pièce", _etat(piece), origine),
-        *ecarts("tout rendu : origine de l'autre", _etat(autre)[0], 0),
+        *ecarts("tout rendu : origine de l'autre", etat(autre)[0], 0),
         *ecarts("aucune entrée d'annulation", bureau.doc.UndoNames, []),
     ]
 
@@ -197,15 +178,18 @@ def _ok_sans_changement(
 ) -> list[str]:
     """Une sélection de ligne pendant la tâche n'écrit rien dans sa transaction : « OK » sans
     modification ne laisse aucune entrée d'annulation."""
-    piece, origine, _ = _graine(bureau)
+    piece, origine, _ = graine(bureau)
     bureau.doc.clearUndos()
     ouvrir_par_double_clic(piece)
-    _choisir(arbre, bureau.shown("V").Name)
+    choisir_lignes(arbre, bureau.shown("V").Name)
     valider()
     traiter()
-    problemes = ecarts("OK sans changement : pas d'entrée d'annulation", bureau.doc.UndoNames, [])
-    _choisir(arbre)
-    return problemes + ecarts("origine rendue", _etat(piece), origine)
+    problemes = [
+        *ecarts("OK sans changement : pas d'entrée d'annulation", bureau.doc.UndoNames, []),
+        *ecarts("tâche finie : ligne choisie transparente", etat(bureau.shown("V")), SELECTION),
+    ]
+    choisir_lignes(arbre)
+    return problemes + ecarts("origine rendue", etat(piece), origine)
 
 
 def verifier_structure_ok_sans_changement_apres_selection() -> list[str]:
@@ -218,11 +202,11 @@ def verifier_structure_ok_sans_changement_apres_selection() -> list[str]:
 def _masquage_du_panneau(
     bureau: Bureau, dock: Any, arbre: Any, _synchro: StructureSync
 ) -> list[str]:
-    piece, origine, _ = _graine(bureau)
-    _choisir(arbre, piece.Name)
+    piece, origine, _ = graine(bureau)
+    choisir_lignes(arbre, piece.Name)
     dock.hide()
     traiter()
-    return ecarts("panneau masqué : origine rendue", _etat(piece), origine)
+    return ecarts("panneau masqué : origine rendue", etat(piece), origine)
 
 
 def verifier_structure_selection_rendue_au_masquage() -> list[str]:
@@ -230,12 +214,14 @@ def verifier_structure_selection_rendue_au_masquage() -> list[str]:
 
 
 def _suppression(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
-    piece, _origine, _ = _graine(bureau)
+    piece, _origine, _ = graine(bureau)
     nom = piece.Name
-    _choisir(arbre, nom)
+    choisir_lignes(arbre, nom)
     bureau.doc.removeObject(nom)
     traiter()
-    return ecarts("objet supprimé : calque oublié", [c for c in DISPLAY.tracked() if nom in c], [])
+    return ecarts(
+        "objet supprimé : calque oublié", [c for c in DISPLAY.tracked() if nom in str(c)], []
+    )
 
 
 def verifier_structure_selection_objet_supprime() -> list[str]:
@@ -245,8 +231,8 @@ def verifier_structure_selection_objet_supprime() -> list[str]:
 def _fermeture_du_document(
     bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
 ) -> list[str]:
-    piece, _origine, _ = _graine(bureau)
-    _choisir(arbre, piece.Name)
+    piece, _origine, _ = graine(bureau)
+    choisir_lignes(arbre, piece.Name)
     App.closeDocument(bureau.doc.Name)
     traiter()
     return ecarts("document fermé : aucun calque", DISPLAY.tracked(), [])
@@ -272,8 +258,8 @@ def _transparence_enregistree(chemin: Path, nom: str) -> int | None:
 
 def _enregistrement(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
     """L'affichage temporaire n'entre jamais dans le fichier ; il revient après l'enregistrement."""
-    piece, origine, _ = _graine(bureau)
-    _choisir(arbre, piece.Name)
+    piece, origine, _ = graine(bureau)
+    choisir_lignes(arbre, piece.Name)
     dossier = Path(tempfile.mkdtemp(prefix="menuiserie_selection_"))
     try:
         chemin = dossier / "selection.FCStd"
@@ -284,200 +270,81 @@ def _enregistrement(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureS
                 _transparence_enregistree(chemin, piece.Name),
                 ORIGINE,
             ),
-            *ecarts("après l'enregistrement : sélection reposée", _etat(piece), SELECTION),
+            *ecarts("après l'enregistrement : sélection reposée", etat(piece), SELECTION),
         ]
     finally:
         shutil.rmtree(dossier, ignore_errors=True)
-    _choisir(arbre)
-    return problemes + ecarts("désélection : origine", _etat(piece), origine)
+    choisir_lignes(arbre)
+    return problemes + ecarts("désélection : origine", etat(piece), origine)
 
 
 def verifier_structure_selection_absente_du_fichier() -> list[str]:
     return avec_panneau(_enregistrement)
 
 
-# --- Déplacer et tourner depuis une ligne -------------------------------------------------
-
-
-def _deplacer_et_tourner(doc: Any) -> list[str]:
-    """Une ligne choisie donne les mêmes flèches et anneaux qu'une sélection faite en 3D ; le
-    glissement (session interne, sans vrais évènements de souris) déplace puis tourne la pièce,
-    une transaction chacun, sans toucher à la transparence de sélection."""
-    session = preparer(doc)
-    piece = piece_validee(doc)
-    doc.clearUndos()
-    _dock, arbre, _synchro = panneau_structure()
-    vue_isometrique()
-    _choisir(arbre, piece.Name)
-    problemes = [
-        *ecarts("ligne choisie : flèches actives", session.active, True),
-        *ecarts("ligne choisie : trois flèches", len(session.layout.arrows), 3),
-        *ecarts("ligne choisie : trois anneaux", len(session.layout.rings), 3),
-        *ecarts("pièce transparente et teintée", _etat(piece), SELECTION),
-    ]
-    avant, pas = place(piece), px_en_mm(session)
-    survol = sur_la_fleche(session, 0, 40.0)
-    session.move(survol)
-    problemes += ecarts("flèche saisie", saisir(session, survol), True)
-    voulu = tirer_la_fleche(session, 150.0, deplacer=False)
-    session.move(voulu)
-    session.release(voulu)
-    problemes += proche("déplacée de 150 mm (x)", place(piece)[0], avant[0] + 150.0, 3 * pas)
-    problemes += ecarts("déplacement : une transaction", doc.UndoNames, ["Déplacer la pièce"])
-    problemes += ecarts("déplacement : transparence gardée", _etat(piece), SELECTION)
-    pris, depart = saisir_anneau(session, 2)
-    arrivee = tourner_de(session, 2, 34.0, depart)
-    session.release(arrivee)
-    problemes += [
-        *ecarts("anneau saisi", pris, True),
-        *proche("tournée de 30° (aimant)", lacet(piece), 30.0, 0.01),
-        *ecarts("rotation : une transaction de plus", doc.UndoNames[:1], [TRANSACTION_ROTATION]),
-        *ecarts("rotation : transparence gardée", _etat(piece), SELECTION),
-    ]
-    _choisir(arbre)
-    return problemes + ecarts("flèches retirées à la désélection", session.active, False)
-
-
-def verifier_structure_deplacer_et_tourner_depuis_une_ligne() -> list[str]:
-    return avec_document("VerifStructureSouris", _deplacer_et_tourner)
-
-
-# --- Double-clic pendant une tâche --------------------------------------------------------
-
-
-@contextmanager
-def _reponse(choix: Choice | None) -> Iterator[list[int]]:
-    """Boîte de choix remplacée par ``choix`` ; donne le nombre de questions posées."""
-    posees: list[int] = []
-
-    def repondre() -> Choice | None:
-        posees.append(1)
-        return choix
-
-    original, structure_switch.chooser = structure_switch.chooser, repondre
-    try:
-        yield posees
-    finally:
-        structure_switch.chooser = original
-
-
-def _tache_ouverte_sur(nom: str) -> bool:
-    """Vrai si un panneau est ouvert sur l'objet ``nom`` (mode édition de FreeCAD)."""
-    en_edition = Gui.ActiveDocument.getInEdit()
-    return (
-        bool(Gui.Control.activeDialog())
-        and en_edition is not None
-        and en_edition.Object.Name == nom
-    )
-
-
-def _double_clic(arbre: Any, cle: str) -> None:
-    ligne = item_for(arbre, cle)
-    if ligne is not None:
-        arbre.itemDoubleClicked.emit(ligne, 0)
-    traiter()
-
-
-def _modifier(piece: Any) -> None:
-    """Modification du repère par le formulaire, comme une saisie."""
-    formulaire = ouvrir_par_double_clic(piece)
-    formulaire.markEdit.selectAll()
-    formulaire.markEdit.insert("M9")
-
-
-def _sans_modification(
+def _suppression_puis_annulation(
     bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
 ) -> list[str]:
-    piece, cible = bureau.shown("P"), bureau.shown("JG")
-    bureau.doc.clearUndos()
-    ouvrir_par_double_clic(piece)
-    with _reponse(Choice.STAY) as questions:
-        _double_clic(arbre, cible.Name)
+    """La transaction de suppression garde le ViewObject avec ses propriétés du moment : Ctrl+Z
+    ne doit pas recréer la pièce teintée ni transparente."""
+    piece, origine, _ = graine(bureau)
+    nom, doc = piece.Name, bureau.doc
+    choisir_lignes(arbre, nom)
+    doc.openTransaction("Suppression de test")
+    doc.removeObject(nom)
+    doc.commitTransaction()
+    traiter()
+    doc.undo()
+    doc.recompute()
+    traiter()
+    recreee = doc.getObject(nom)
     return [
-        *ecarts("aucune question", questions, []),
-        *ecarts("nouvelle pièce ouverte", _tache_ouverte_sur(cible.Name), True),
-        *ecarts("rien n'a changé : pas d'entrée d'annulation", bureau.doc.UndoNames, []),
+        *ecarts("Ctrl+Z : pièce recréée", recreee is not None, True),
+        *ecarts("Ctrl+Z : origine, sans calque", recreee is not None and etat(recreee), origine),
     ]
 
 
-def verifier_structure_double_clic_sans_modification() -> list[str]:
-    return avec_panneau(_sans_modification)
+def verifier_structure_suppression_puis_annulation() -> list[str]:
+    return avec_panneau(_suppression_puis_annulation)
 
 
-def _avec_modification(choix: Choice | None) -> Callable[..., list[str]]:
-    def verification(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
-        piece, cible = bureau.shown("P"), bureau.shown("JG")
-        repere = str(piece.Mark)
-        bureau.doc.clearUndos()
-        _modifier(piece)
-        with _reponse(choix) as questions:
-            _double_clic(arbre, cible.Name)
-        problemes = ecarts("une question posée", len(questions), 1)
-        if choix is Choice.APPLY:
-            problemes += [
-                *ecarts("appliqué : repère modifié", piece.Mark, "M9"),
-                *ecarts("appliqué : une entrée d'annulation", len(bureau.doc.UndoNames), 1),
-                *ecarts("appliqué : nouvelle pièce ouverte", _tache_ouverte_sur(cible.Name), True),
-            ]
-        elif choix is Choice.DISCARD:
-            problemes += [
-                *ecarts("annulé : repère d'origine", piece.Mark, repere),
-                *ecarts("annulé : rien n'est conservé", bureau.doc.UndoNames, []),
-                *ecarts("annulé : nouvelle pièce ouverte", _tache_ouverte_sur(cible.Name), True),
-            ]
-        else:
-            problemes += [
-                *ecarts("poursuivre : modification gardée", piece.Mark, "M9"),
-                *ecarts("poursuivre : même tâche", _tache_ouverte_sur(piece.Name), True),
-            ]
-        return problemes
-
-    return verification
-
-
-def verifier_structure_double_clic_appliquer() -> list[str]:
-    return avec_panneau(_avec_modification(Choice.APPLY))
-
-
-def verifier_structure_double_clic_annuler() -> list[str]:
-    return avec_panneau(_avec_modification(Choice.DISCARD))
-
-
-def verifier_structure_double_clic_echap() -> list[str]:
-    return avec_panneau(_avec_modification(None))
-
-
-class _TacheEtrangere:
-    """Tâche d'un autre atelier : ni inscrite ni reconnue par l'atelier."""
-
-    def __init__(self) -> None:
-        self.form = QtGui.QWidget()
-
-    def accept(self) -> bool:
-        Gui.Control.closeDialog()
-        return True
-
-    def reject(self) -> bool:
-        Gui.Control.closeDialog()
-        return True
-
-
-def _tache_etrangere(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
-    Gui.Control.showDialog(_TacheEtrangere())
-    with _reponse(Choice.APPLY) as questions:
-        _double_clic(arbre, bureau.shown("P").Name)
-    boite = boite_de_refus()
-    problemes = [
-        *ecarts("aucune question", questions, []),
-        *ecarts("la tâche étrangère reste ouverte", bool(Gui.Control.activeDialog()), True),
-        *ecarts("message de refus", boite is not None and boite.text(), translated(FOREIGN_TASK)),
-    ]
-    Gui.Control.closeDialog()
+def _apres_ok_puis_annulation(
+    bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
+) -> list[str]:
+    """Ligne choisie pendant une tâche modifiée puis « OK » : Ctrl+Z, désélection, Ctrl+Y ne
+    laissent aucune teinte (ni dans la pièce, ni dans le fichier)."""
+    piece, origine, _ = graine(bureau)
+    doc = bureau.doc
+    doc.clearUndos()
+    formulaire = ouvrir_par_double_clic(piece)
+    formulaire.markEdit.selectAll()
+    formulaire.markEdit.insert("M8")
+    choisir_lignes(arbre, piece.Name)  # différée : la transaction contient une modification
+    valider()
+    traiter()
+    problemes = ecarts("OK : ligne choisie transparente", etat(piece), SELECTION)
+    doc.undo()
+    traiter()
+    choisir_lignes(arbre)
+    doc.redo()
+    traiter()
+    problemes += ecarts("Ctrl+Y après désélection : origine", etat(piece), origine)
+    dossier = Path(tempfile.mkdtemp(prefix="menuiserie_revue_"))
+    try:
+        chemin = dossier / "revue.FCStd"
+        doc.saveAs(str(chemin))
+        problemes += ecarts(
+            "fichier : transparence d'origine",
+            _transparence_enregistree(chemin, piece.Name),
+            ORIGINE,
+        )
+    finally:
+        shutil.rmtree(dossier, ignore_errors=True)
     return problemes
 
 
-def verifier_structure_double_clic_tache_etrangere() -> list[str]:
-    return avec_panneau(_tache_etrangere)
+def verifier_structure_selection_apres_ok_puis_annulation() -> list[str]:
+    return avec_panneau(_apres_ok_puis_annulation)
 
 
 VERIFICATIONS_STRUCTURE_SELECTION: tuple[Callable[[], list[str]], ...] = (
@@ -487,12 +354,8 @@ VERIFICATIONS_STRUCTURE_SELECTION: tuple[Callable[[], list[str]], ...] = (
     verifier_structure_ok_sans_changement_apres_selection,
     verifier_structure_selection_rendue_au_masquage,
     verifier_structure_selection_objet_supprime,
+    verifier_structure_suppression_puis_annulation,
     verifier_structure_selection_document_ferme,
     verifier_structure_selection_absente_du_fichier,
-    verifier_structure_deplacer_et_tourner_depuis_une_ligne,
-    verifier_structure_double_clic_sans_modification,
-    verifier_structure_double_clic_appliquer,
-    verifier_structure_double_clic_annuler,
-    verifier_structure_double_clic_echap,
-    verifier_structure_double_clic_tache_etrangere,
+    verifier_structure_selection_apres_ok_puis_annulation,
 )

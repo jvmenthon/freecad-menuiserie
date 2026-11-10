@@ -180,15 +180,13 @@ class Titles:
 
 def build_structure(
     source: StructureSource,
-    joints_title: Callable[[int], str],
     extras: StructureExtras | None = None,
     titles: Titles | None = None,
 ) -> tuple[StructureNode, ...]:
     """Racines de l'arbre : les ensembles de plus haut niveau, les pièces hors ensemble, puis (avec
     ``extras``) les répétitions, les listes de débit et le nœud « Autres objets ».
-    ``joints_title(n)`` donne le texte traduit du nœud « Assemblages (n) » ; ``titles`` les autres
-    (son ``joints`` est alors ignoré)."""
-    used = titles if titles is not None else Titles(joints=joints_title)
+    ``titles`` donne les textes traduits des nœuds repliés (par défaut, les gabarits français)."""
+    used = titles if titles is not None else Titles()
     return _Builder(source, extras, used).roots()
 
 

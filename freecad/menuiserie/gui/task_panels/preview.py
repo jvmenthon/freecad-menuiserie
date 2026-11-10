@@ -12,14 +12,11 @@ n'enregistre ni entrée d'annulation ni modification.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
-from contextlib import contextmanager
-from typing import Any, Final
+from collections.abc import Callable, Iterable
+from typing import Any
 
-from freecad.menuiserie.core.display_layers import EDIT_LOOK, EDIT_TRANSPARENCY
+from freecad.menuiserie.core.display_layers import EDIT_LOOK
 from freecad.menuiserie.gui.display_layers import DisplayLayers
-
-PREVIEW_TRANSPARENCY: Final = EDIT_TRANSPARENCY  # pour cent
 
 
 class PartsPreview:
@@ -27,17 +24,17 @@ class PartsPreview:
     chaque appel), appliquée à l'ouverture et à chaque :meth:`sync`, rétablie par
     :meth:`restore`. ``alive(obj)`` dit si un objet existe encore dans son document : l'affichage
     n'est jamais rétabli sur un objet supprimé. ``layers`` : calques partagés avec les autres
-    mécanismes (``DISPLAY``) ; par défaut, des calques à soi seul."""
+    mécanismes (``DISPLAY``)."""
 
     def __init__(
         self,
         shown: Callable[[], Iterable[Any]],
         alive: Callable[[Any], bool],
-        layers: DisplayLayers | None = None,
+        layers: DisplayLayers,
     ) -> None:
         self._shown = shown
         self._alive = alive
-        self._layers = layers if layers is not None else DisplayLayers(alive, quiet=_no_quiet)
+        self._layers = layers
         self._released = False
         self.sync()
 
@@ -60,9 +57,3 @@ class PartsPreview:
             return [obj for obj in self._shown() if self._alive(obj)]
         except (ReferenceError, RuntimeError, TypeError):
             return []
-
-
-@contextmanager
-def _no_quiet() -> Iterator[None]:
-    """Calques propres à un aperçu isolé (tests) : aucune transaction à contourner."""
-    yield

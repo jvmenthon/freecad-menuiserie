@@ -32,7 +32,7 @@ from freecad.menuiserie.core.structure_tree import (
     build_structure,
 )
 from tests.unit.aides_debit_document import Doc, Obj, World, simulated_world
-from tests.unit.test_structure_arbre import FakeSource, joint_between, title
+from tests.unit.test_structure_arbre import FakeSource, joint_between
 
 
 class LooseSource(FakeSource):
@@ -85,7 +85,7 @@ EVERYTHING = ["Bureau", "Tiroir", "P1", "P2", "P3", "J1", "D1", "Loose", "Lap", 
 
 
 def roots_of(keys: Sequence[str]) -> tuple[StructureNode, ...]:
-    return build_structure(LooseSource(), title, AllObjects(keys))
+    return build_structure(LooseSource(), AllObjects(keys))
 
 
 def keys_of(roots: Sequence[StructureNode]) -> list[str]:
@@ -93,7 +93,7 @@ def keys_of(roots: Sequence[StructureNode]) -> list[str]:
 
 
 def test_assemblages_sans_ensemble_dans_un_noeud_a_la_racine() -> None:
-    roots = build_structure(LooseSource(), title)
+    roots = build_structure(LooseSource())
     assert [root.kind for root in roots] == [
         NodeKind.FURNITURE,
         NodeKind.PIECE,
@@ -108,7 +108,7 @@ def test_assemblages_sans_ensemble_dans_un_noeud_a_la_racine() -> None:
 
 
 def test_quincaillerie_libre_dans_son_noeud_a_la_racine() -> None:
-    group = build_structure(LooseSource(), title)[3]
+    group = build_structure(LooseSource())[3]
     assert (group.label, group.key, group.expanded) == (HARDWARE_TITLE.format(count=2), "", False)
     assert [(c.kind, c.key, c.label, c.subtype) for c in group.children] == [
         (NodeKind.HARDWARE_ITEM, "Foot", "Pieds", "Foot"),
@@ -121,13 +121,13 @@ def test_quincaillerie_sous_un_ensemble_apres_les_assemblages() -> None:
         def hardware(self, furniture: str) -> Sequence[str]:
             return ["Foot"] if furniture == "Bureau" else []
 
-    desk = build_structure(InDesk(), title)[0]
+    desk = build_structure(InDesk())[0]
     assert [c.kind for c in desk.children][-2:] == [NodeKind.JOINTS, NodeKind.HARDWARE]
     assert desk.children[-1].label == HARDWARE_TITLE.format(count=1)
 
 
 def test_pas_de_noeud_a_la_racine_sans_assemblage_libre() -> None:
-    assert all(root.kind is not NodeKind.JOINTS for root in build_structure(FakeSource(), title))
+    assert all(root.kind is not NodeKind.JOINTS for root in build_structure(FakeSource()))
 
 
 def test_tout_objet_de_l_atelier_est_dans_l_arbre_une_seule_fois() -> None:
@@ -148,7 +148,7 @@ def test_objet_invisible_sous_autres_objets_de_l_atelier() -> None:
 
 
 def test_sans_extras_pas_de_noeud_des_objets_invisibles() -> None:
-    roots = build_structure(LooseSource(), title)
+    roots = build_structure(LooseSource())
     assert all(root.kind is not NodeKind.LEFTOVERS for root in roots)
 
 

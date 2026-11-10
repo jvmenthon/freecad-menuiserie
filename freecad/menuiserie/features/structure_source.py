@@ -14,6 +14,7 @@ from collections.abc import Collection, Sequence
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.structure_hardware import is_hardware_kind
 from freecad.menuiserie.core.structure_icons import DISTANCE_SUBTYPE, SHAPED_SUBTYPE
+from freecad.menuiserie.core.structure_roots import with_cycle_entries
 from freecad.menuiserie.core.structure_tree import (
     HARDWARE_TITLE,
     JOINTS_TITLE,
@@ -43,7 +44,7 @@ __all__ = ["DocumentStructure", "renamed_object", "row_key_of", "structure_of"]
 def structure_of(doc: Document) -> tuple[StructureNode, ...]:
     """Arbre simplifié de ``doc`` (libellés traduits)."""
     source = DocumentStructure(doc)
-    return build_structure(source, _joints_title, source, _TITLES)
+    return build_structure(source, source, _TITLES)
 
 
 def _joints_title(count: int) -> str:
@@ -88,8 +89,11 @@ class DocumentStructure:
         self._children: dict[str, list[DocumentObject]] = {}
 
     def root_furnitures(self) -> Sequence[str]:
-        """Ensembles qui ne sont membres d'aucun autre, dans l'ordre du document."""
-        return [obj.Name for obj in self._doc.Objects if is_furniture(obj) and not is_member(obj)]
+        """Ensembles qui ne sont membres d'aucun autre, dans l'ordre du document ; un cycle de
+        sous-ensembles qu'aucune racine n'atteint (fichier abîmé) y entre par l'un d'eux."""
+        furnitures = [obj.Name for obj in self._doc.Objects if is_furniture(obj)]
+        roots = [obj.Name for obj in self._doc.Objects if is_furniture(obj) and not is_member(obj)]
+        return with_cycle_entries(roots, furnitures, self.sub_furnitures)
 
     def loose_pieces(self) -> Sequence[str]:
         """Pièces de bois hors ensemble, la pièce usinée à la place de sa brute."""

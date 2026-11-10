@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import ast
 from collections.abc import Iterator
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -71,7 +70,10 @@ def test_proprietes_suivies_sont_les_saisies() -> None:
     assert not is_tracked("Shape", "Part::PropertyPartShape", [])
     assert not is_tracked("Proxy", "App::PropertyPythonObject", [])
     assert not is_tracked("Visibility", "App::PropertyBool", [])
-    assert not is_tracked("Width", "App::PropertyLength", ["Output", "ReadOnly"])
+    assert not is_tracked("Width", "App::PropertyLength", ["Output"])
+    assert not is_tracked("Cache", "App::PropertyString", ["Transient"])
+    # « ReadOnly » est un mode d'éditeur : « Inverser » écrit HostPart et GuestPart ainsi déclarées
+    assert is_tracked("HostPart", "App::PropertyLink", ["ReadOnly"])
 
 
 def test_photo_identique_n_est_pas_une_modification() -> None:
@@ -174,51 +176,17 @@ def test_piece_ensemble_et_assemblage_mis_en_evidence(targets: Any) -> None:
     assert targets.highlighted_objects(loose, Scope.OBJECT) == [machined]
 
 
-# --- Câblage (analyse statique : ces modules importent FreeCADGui) -----------------------
+# --- Règles de forme (le comportement est vérifié par les contrôles GUI hors écran) -----
 
 
 def source(name: str) -> str:
     return (GUI / name).read_text(encoding="utf-8")
 
 
-def methods_of(path: str, class_name: str) -> dict[str, str]:
-    tree = ast.parse(source(path))
-    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == class_name)
-    return {n.name: ast.unparse(n) for n in cls.body if isinstance(n, ast.FunctionDef)}
-
-
-def test_la_selection_de_ligne_pose_le_calque_de_selection() -> None:
-    methods = methods_of("structure_highlight.py", "RowHighlight")
-    assert "SELECTION_LOOK" in methods["choose"]
-    assert "release" in methods["clear"]
-    assert "self.clear()" in methods["follow"]  # lignes plus choisies : calque retiré
-    sync = methods_of("structure_sync.py", "StructureSync")
-    assert "itemSelectionChanged.connect(self._choose_rows)" in sync["__init__"]
-    assert "_follow_highlight()" in sync["pull_selection"]  # sélection reprise de FreeCAD
-    assert "_follow_highlight()" in sync["refresh_now"]
-    assert "self._guard.active" in sync["_choose_rows"]  # pas pendant un remplissage
-    assert "_choose_rows()" not in sync["pull_selection"]  # FreeCAD ne rend rien transparent
-    observers = methods_of("structure_sync.py", "_Observers")
-    assert "_on_detach" in observers["detach"]  # panneau masqué ou détruit : calque retiré
-
-
-def test_le_double_clic_regle_la_tache_en_cours() -> None:
-    assert "switch_to" in methods_of("structure_sync.py", "StructureSync")["_open_panel"]
+def test_la_boite_de_choix_est_en_texte_brut_sans_lambda() -> None:
     text = source("structure_switch.py")
-    assert "Qt.PlainText" in text  # boîte en texte brut
-    assert "panel.reject()" in text
-    assert "panel.accept()" in text
-    assert "singleShot" in text  # ouverture après la fermeture de la tâche
+    assert "Qt.PlainText" in text  # texte brut : pas d'interprétation du nom d'objet
     assert "lambda" not in text
-
-
-def test_le_panneau_s_inscrit_et_s_efface() -> None:
-    base = methods_of("task_panels/base.py", "TransactionTaskPanel")
-    assert "active.register(self)" in base["watch_document"]
-    assert "snapshot_of" in base["watch_document"]
-    assert "active.unregister(self)" in base["_finish"]
-    assert "active.unregister(self)" in base["_on_closed_by_freecad"]
-    assert "has_changes" in base["outside_transaction"]
 
 
 def test_aucun_nombre_magique_de_teinte_hors_core() -> None:

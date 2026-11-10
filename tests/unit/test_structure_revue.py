@@ -21,7 +21,7 @@ from freecad.menuiserie.core.structure_actions import (
 from freecad.menuiserie.core.structure_menu import Action, menu_entries, verbatim_text
 from freecad.menuiserie.core.structure_sync import Coalescer, node_id
 from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode, build_structure
-from tests.unit.test_structure_arbre import FakeSource, title
+from tests.unit.test_structure_arbre import FakeSource
 
 NASTY = ["Bureau {0} {name}", "R&D", "a\nb", "‮RTL", "<b>gras</b>", "x" * 500, "« guillemets »"]
 
@@ -53,13 +53,13 @@ class Only(FakeSource):
 
 
 def test_ensemble_sans_piece_ni_assemblage_est_une_feuille() -> None:
-    (root,) = build_structure(Only("Vide"), title)
+    (root,) = build_structure(Only("Vide"))
     assert (root.kind, root.label, root.children) == (NodeKind.FURNITURE, "Vide", ())
 
 
 @pytest.mark.parametrize("label", NASTY, ids=range(len(NASTY)))
 def test_libelles_speciaux_gardes_tels_quels_dans_l_arbre(label: str) -> None:
-    (root,) = build_structure(Only(label, pieces=["P1"]), title)
+    (root,) = build_structure(Only(label, pieces=["P1"]))
     assert root.label == label
     assert [child.label for child in root.children] == [label]
 
@@ -120,6 +120,7 @@ def test_le_et_commercial_est_double_dans_un_menu_qt() -> None:
     assert verbatim_text("R&D") == "R&&D"
     assert verbatim_text("Cuisine") == "Cuisine"
     assert verbatim_text("") == ""
+    assert verbatim_text("x" * 500) == "x" * 79 + "…"  # libellé démesuré tronqué
 
 
 def test_les_entrees_d_ensemble_sont_citees_sans_interpretation() -> None:
