@@ -93,9 +93,29 @@ def verifier_suppression_sans_avertissement_interne() -> list[str]:
         ]
 
 
+def verifier_ensemble_dans_un_groupe_supprime() -> list[str]:
+    """Std Part supprimé avec son contenu : ``onDelete`` de l'ensemble (marqueur
+    ``group_recursive_deletion``) accepte sans rien supprimer ni déplacer lui-même."""
+    with bureau_regroupe("VerifRevueEnsembleGroupe") as bureau:
+        preparer(bureau.doc)
+        part = std_part_of(bureau.furniture)
+        avant = sorted(o.Name for o in ([] if part is None else part.Group))
+        ensemble = bureau.furniture
+        accepte = ensemble.ViewObject.Proxy.onDelete(
+            ensemble.ViewObject, ["group_recursive_deletion"]
+        )
+        apres = sorted(o.Name for o in ([] if part is None else part.Group))
+        return [
+            *ecarts("acceptée", accepte, True),
+            *ecarts("Std Part gardé", part is not None and part.isValid(), True),
+            *ecarts("contenu non déplacé", apres, avant),
+        ]
+
+
 VERIFICATIONS_ENSEMBLE_REVUE: tuple[Callable[[], list[str]], ...] = (
     verifier_std_part_selectionne_cible_son_ensemble,
     verifier_suppression_du_std_part_a_la_main,
     verifier_suppression_de_l_ensemble_et_de_son_std_part,
     verifier_suppression_sans_avertissement_interne,
+    verifier_ensemble_dans_un_groupe_supprime,
 )

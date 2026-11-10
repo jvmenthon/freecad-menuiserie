@@ -96,3 +96,10 @@ Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés d
 |----|--------|----|----------|---------------------|
 | Q10 | mineur | `features/joints/{feet,slides,shelf_pins,slots}.py` | Les `PropertySpec` « diamètre/profondeur des trous », « distance au bord », « nombre » se répètent (environ 10 lignes chacune). Une fabrique ne gagnerait presque rien : l'extraction des traductions exige `QT_TRANSLATE_NOOP("…", "texte")` littéral à l'endroit de la propriété, donc infobulle et libellé restent écrits à chaque appel. | Abandonné tant que l'extraction des traductions ne lit pas les paramètres de fabrique. |
 | Q11 | mineur | `core/joints/slides.py` | 316 lignes : à passer en paquet comme `shelf_pins` et `slots` (ADR 0040) avant d'approcher 400. | Même découpage `_params` / `_strategy`. |
+
+## Relecture « suppression d'un ensemble » (PR #204), 2026-11-10
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| S1 | mineur | `gui/view_providers/machined_part.py` (`onDelete`) | Groupe utilisateur (App::Group) supprimé avec son contenu alors qu'il ne contient qu'une des deux pièces d'un assemblage : la pièce usinée accepte sans question, l'assemblage resté dehors passe en erreur « Assemblage incomplet ». Cas rare (les assemblages exigent un même conteneur). | Dans la suppression de groupe, retirer de `Joints` (sans détruire d'objet) les assemblages dont l'autre pièce reste hors du groupe. |
+| S2 | mineur | `features/drag_joints.py` (`_all_inside`) | `set(deleted)` reconstruit à chaque assemblage. | Construire l'ensemble une fois. |
