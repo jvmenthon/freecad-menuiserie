@@ -67,9 +67,10 @@ class MenuEntry:
 
 
 def _destinations(facts: MoveFacts, keys: Sequence[str]) -> tuple[MenuEntry, ...]:
-    ordered = sorted(
-        facts.furnitures - facts.copies, key=lambda key: (facts.labels.get(key, key), key)
-    )
+    def sort_key(key: str) -> tuple[str, str]:
+        return (facts.labels.get(key, key), key)
+
+    ordered = sorted(facts.furnitures - facts.copies, key=sort_key)
     return tuple(
         MenuEntry(
             Action.MOVE_INTO,

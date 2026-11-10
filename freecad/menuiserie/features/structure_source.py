@@ -36,13 +36,23 @@ __all__ = ["DocumentStructure", "row_key_of", "structure_of"]
 
 def structure_of(doc: Document) -> tuple[StructureNode, ...]:
     """Arbre simplifié de ``doc`` (libellés traduits)."""
-    titles = Titles(
-        joints=lambda count: translated(JOINTS_TITLE, {"count": str(count)}),
-        others=lambda count: translated(OTHERS_TITLE, {"count": str(count)}),
-        repeat=lambda name, count: translated(REPEAT_LABEL, {"name": name, "count": str(count)}),
-    )
     source = DocumentStructure(doc)
-    return build_structure(source, titles.joints, source, titles)
+    return build_structure(source, _joints_title, source, _TITLES)
+
+
+def _joints_title(count: int) -> str:
+    return translated(JOINTS_TITLE, {"count": str(count)})
+
+
+def _others_title(count: int) -> str:
+    return translated(OTHERS_TITLE, {"count": str(count)})
+
+
+def _repeat_label(name: str, count: int) -> str:
+    return translated(REPEAT_LABEL, {"name": name, "count": str(count)})
+
+
+_TITLES = Titles(joints=_joints_title, others=_others_title, repeat=_repeat_label)
 
 
 class DocumentStructure:

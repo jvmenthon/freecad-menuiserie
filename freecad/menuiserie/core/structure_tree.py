@@ -105,16 +105,29 @@ class StructureExtras(Protocol):
         """Objets d'autres ateliers à montrer sous « Autres objets »."""
 
 
+def default_joints_title(count: int) -> str:
+    """Gabarit français (non traduit) du nœud « Assemblages (n) »."""
+    return JOINTS_TITLE.format(count=count)
+
+
+def default_others_title(count: int) -> str:
+    """Gabarit français (non traduit) du nœud « Autres objets (n) »."""
+    return OTHERS_TITLE.format(count=count)
+
+
+def default_repeat_label(name: str, count: int) -> str:
+    """Gabarit français (non traduit) de la ligne de répétition."""
+    return REPEAT_LABEL.format(name=name, count=count)
+
+
 @dataclass(frozen=True)
 class Titles:
     """Textes traduits de l'arbre : nœud « Assemblages (n) », nœud « Autres objets (n) » et ligne
     de répétition (nom, nombre de copies). Par défaut, les gabarits français sans traduction."""
 
-    joints: Callable[[int], str] = lambda count: JOINTS_TITLE.format(count=count)
-    others: Callable[[int], str] = lambda count: OTHERS_TITLE.format(count=count)
-    repeat: Callable[[str, int], str] = lambda name, count: REPEAT_LABEL.format(
-        name=name, count=count
-    )
+    joints: Callable[[int], str] = default_joints_title
+    others: Callable[[int], str] = default_others_title
+    repeat: Callable[[str, int], str] = default_repeat_label
 
 
 def build_structure(
