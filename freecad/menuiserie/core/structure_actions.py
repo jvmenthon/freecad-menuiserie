@@ -16,10 +16,12 @@ refusé et l'assemblage doit être supprimé d'abord.
 
 from __future__ import annotations
 
+import html
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
+from freecad.menuiserie.core._validation import has_forbidden_character
 from freecad.menuiserie.core.furniture import FurnitureError, label_reference
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.structure_tree import NodeKind
@@ -43,6 +45,7 @@ __all__ = [
     "decide_selection",
     "drop_blocked",
     "drop_target",
+    "plain_tooltip",
     "top_level",
 ]
 
@@ -109,6 +112,10 @@ _NOT_RENAMABLE: Final = QT_TRANSLATE_NOOP(
 )
 _ONE_ROW: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisissez une seule ligne.")
 _EMPTY_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "Le nom ne peut pas être vide.")
+_FORBIDDEN_NAME: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Le nom ne peut pas contenir de saut de ligne, de tabulation ni de caractère de contrôle.",
+)
 _NAME_TOO_LONG: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Le nom est trop long ({count} caractères, {maximum} au plus)."
 )
@@ -328,19 +335,29 @@ def decide_rename_target(facts: MoveFacts, keys: Sequence[str]) -> Decision:
     return Decision(True, keys=tuple(keys))
 
 
+def plain_tooltip(text: str) -> str:
+    """``text`` à afficher tel quel dans une infobulle : Qt prend pour du texte riche tout texte
+    qui commence par une balise, donc les chevrons sont échappés et le texte est enveloppé
+    dans une balise (sans quoi les entités s'afficheraient en toutes lettres)."""
+    return f"<span>{html.escape(text, quote=False)}</span>"
+
+
 def cleaned_name(text: str) -> str:
     """Nom saisi, sans les espaces autour."""
     return text.strip()
 
 
 def decide_rename(old: str, text: str, *, furniture: bool) -> Decision:
-    """« Renommer » en ``text`` : refusé s'il est vide, trop long, ou (ensemble) inutilisable dans
-    une expression (le libellé d'un ensemble y est cité) ; sans message s'il ne change pas."""
+    """« Renommer » en ``text`` : refusé s'il est vide, trop long, avec un caractère de contrôle,
+    ou (ensemble) inutilisable dans une expression (le libellé d'un ensemble y est cité) ; sans
+    message s'il ne change pas."""
     name = cleaned_name(text)
     if not name:
         return _refuse(_EMPTY_NAME)
     if len(name) > MAX_NAME_LENGTH:
         return _refuse(_NAME_TOO_LONG, count=str(len(name)), maximum=str(MAX_NAME_LENGTH))
+    if has_forbidden_character(name):
+        return _refuse(_FORBIDDEN_NAME)
     if furniture:
         try:
             label_reference(name)

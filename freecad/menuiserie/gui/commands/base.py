@@ -55,7 +55,7 @@ def report_refusal(message: str) -> None:
 def show_refusal_box(window: Any, message: str) -> Any:
     """Affiche ``message`` dans la boîte d'avertissement de l'atelier (une seule à la fois,
     remplacée au refus suivant) ; non modale, elle ne bloque ni FreeCAD ni les scripts."""
-    from PySide import QtGui
+    from PySide import QtCore, QtGui
 
     box = _REFUSAL_BOX.get("box")
     if box is None:
@@ -65,6 +65,7 @@ def show_refusal_box(window: Any, message: str) -> Any:
         box.setWindowTitle(translated(REFUSAL_TITLE))
         box.setModal(False)
         _REFUSAL_BOX["box"] = box
+    box.setTextFormat(QtCore.Qt.PlainText)
     box.setText(message)
     box.show()
     box.raise_()

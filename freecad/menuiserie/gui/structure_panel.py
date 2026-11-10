@@ -49,7 +49,11 @@ def _create_dock(window: QtGui.QMainWindow) -> QtGui.QDockWidget:
             sync.detach()
 
     dock.visibilityChanged.connect(visibility_changed)
-    dock.destroyed.connect(sync.detach)
+    # Le retrait passe par un objet Python ordinaire : le contrôleur (enfant du dock) peut être
+    # détruit avant que ``destroyed`` n'arrive.
+    observers = sync.observers
+    dock.destroyed.connect(observers.detach)
+    QtCore.QCoreApplication.instance().aboutToQuit.connect(observers.detach)
     window.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
     return dock
 

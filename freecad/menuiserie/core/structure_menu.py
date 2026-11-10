@@ -27,7 +27,7 @@ from freecad.menuiserie.core.structure_actions import (
     decide_selection,
 )
 
-__all__ = ["Action", "MenuEntry", "menu_entries"]
+__all__ = ["Action", "MenuEntry", "menu_entries", "verbatim_text"]
 
 
 class Action(Enum):
@@ -64,6 +64,12 @@ class MenuEntry:
     target: str | None = None
     children: tuple[MenuEntry, ...] = ()
     verbatim: bool = False
+
+
+def verbatim_text(label: str) -> str:
+    """Libellé d'un ensemble tel qu'il s'affiche dans un menu Qt : un « & » y marquerait un
+    raccourci (« R&D » s'afficherait « RD »), il est donc doublé."""
+    return label.replace("&", "&&")
 
 
 def _destinations(facts: MoveFacts, keys: Sequence[str]) -> tuple[MenuEntry, ...]:
