@@ -17,6 +17,7 @@ from enum import Enum
 from typing import Final
 
 from freecad.menuiserie.core.assembly_scope import (
+    CREATE_NOTHING,
     CREATE_STAYS,
     GOES_TO,
     STAYS_IN,
@@ -245,5 +246,5 @@ def split_creation(
         if parent is not None
     ]
     if not entering:
-        raise ValueError(translated(notices[0].template, notices[0].params))
+        raise ValueError(translated(CREATE_NOTHING, notices[0].params))
     return entering, notices
