@@ -105,10 +105,16 @@ def _bundle(obj: DocumentObject) -> list[DocumentObject]:
 
 
 def _is_membership(obj: DocumentObject, other: DocumentObject) -> bool:
-    """Vrai si le lien entre ``obj`` et ``other`` est l'appartenance d'un membre à son ensemble
-    (liaisons et propriété ``Furniture``) : ce lien se défait avant tout changement de Std Part
-    (:func:`detach_members`) et n'est pas une dépendance de la pièce."""
-    return bool(furniture_of(obj) == other or furniture_of(other) == obj)
+    """Vrai si le lien entre ``obj`` et ``other`` vient des liaisons de l'atelier : un membre et
+    son ensemble, ou deux membres du même ensemble (leurs expressions se citent). Ces liens se
+    défont avant tout changement de Std Part (:func:`detach_members`, ``relink_remaining``) et ne
+    sont pas des dépendances de la pièce ; un assemblage, lui, reste un lien."""
+    owner = furniture_of(obj)
+    return bool(
+        owner == other
+        or furniture_of(other) == obj
+        or (owner is not None and owner == furniture_of(other))
+    )
 
 
 def _closure(start: DocumentObject) -> dict[str, DocumentObject]:
