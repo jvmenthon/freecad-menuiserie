@@ -26,6 +26,7 @@ from icones_ensembles import (
     rotation_x,
     rotation_y,
     rotation_z,
+    structure,
 )
 from icones_svg import Icone, angles, document, etiquette, feuille
 
@@ -316,6 +317,8 @@ ICONES = {
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
     "Menuiserie_FurnitureRemove.svg": ensemble_retirer,
     "Menuiserie_FurnitureRebind.svg": ensemble_relier,
+    # Panneau « Structure » (ADR 0046)
+    "Menuiserie_Structure.svg": structure,
     # Distance entre deux pièces (DI-b)
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,
