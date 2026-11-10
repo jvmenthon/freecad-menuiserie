@@ -24,6 +24,7 @@ from freecad.menuiserie.features.furniture import (
     has_member_properties,
     is_furniture,
 )
+from freecad.menuiserie.features.furniture_container import carried_furniture
 from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import is_machined_part
@@ -49,9 +50,17 @@ def is_candidate(obj: DocumentObject) -> bool:
     return is_timber(obj) or is_furniture(obj) or (is_machined_part(obj) and is_timber(obj.Base))
 
 
+def _as_candidate(obj: DocumentObject) -> DocumentObject:
+    """Ensemble que porte le Std Part ``obj`` (ADR 0038 : chaque ensemble est rangé dans le sien,
+    qui est le nœud visible de l'arbre), sinon ``obj`` lui-même."""
+    carried = carried_furniture(obj)
+    return carried if carried is not None else obj
+
+
 def selected_candidates() -> list[DocumentObject] | None:
-    """Sélection, si elle n'est faite que de pièces et d'ensembles (``None`` sinon)."""
-    selection = Gui.Selection.getSelection()
+    """Sélection, si elle n'est faite que de pièces et d'ensembles (``None`` sinon) ; le Std Part
+    d'un ensemble compte pour son ensemble."""
+    selection = [_as_candidate(obj) for obj in Gui.Selection.getSelection()]
     if not selection or not all(is_candidate(obj) for obj in selection):
         return None
     return list(selection)
@@ -206,8 +215,9 @@ class RemoveFromFurnitureCommand(FurnitureCommand):
         return all(has_member_properties(member_object(obj)) for obj in selection)
 
     def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
-        """``remove_from_furniture`` sur la sélection."""
-        return api.remove_from_furniture(selection)
+        """``remove_from_furniture`` sur la sélection, comme le panneau « Structure » : les
+        propriétés de membre restent sur la pièce (orphelin, ADR 0046) ; un seul comportement."""
+        return api.remove_from_furniture(selection, keep_properties=True)
 
 
 class RebindFurnitureCommand(FurnitureCommand):

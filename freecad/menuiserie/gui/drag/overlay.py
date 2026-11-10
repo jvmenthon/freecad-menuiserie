@@ -82,7 +82,8 @@ def _label_node(label: Label) -> SoNode:
     place = coin.SoTranslation()
     place.translation.setValue(label.position.x, label.position.y, label.position.z)
     text = coin.SoText2()
-    text.string.setValue(label.text)
+    lines = label.text.split("\n")  # une ligne par chaîne (cote, puis message d'un refus)
+    text.string.setValues(0, len(lines), lines)
     for child in (color, font, place, text):
         node.addChild(child)
     return node

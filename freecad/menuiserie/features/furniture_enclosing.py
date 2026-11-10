@@ -12,7 +12,8 @@ from collections.abc import Sequence
 from freecad.menuiserie.core.furniture import FurnitureBox
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.furniture import is_furniture, origin_of
+from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.furniture_container import position_of
 from freecad.menuiserie.features.i18n import translated_errors
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -23,7 +24,7 @@ __all__ = ["corners_of", "enclosing"]
 def corners_of(obj: DocumentObject) -> list[Vec3]:
     """Sommets de la boîte d'un membre dans le repère de son conteneur."""
     if is_furniture(obj):
-        low = origin_of(obj)
+        low = position_of(obj)
         sizes = (obj.Width.Value, obj.Depth.Value, obj.Height.Value)
         return [low, Vec3(low.x + sizes[0], low.y + sizes[1], low.z + sizes[2])]
     with translated_errors():
