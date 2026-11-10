@@ -1,60 +1,44 @@
 # Sélection par ensemble dans la vue 3D (descente niveau par niveau)
 
-- Statut : **proposée**, à valider par jv (questions Q1 à Q5 ci-dessous)
+- Statut : **validée par jv** (2026-11-10) ; reste à écrire
 - ADR : [0047](../adr/0047-selection-par-ensemble-dans-la-vue-3d.md)
 - Demande de jv (2026-11-10) : « lors d'un clic dans la vue 3D, c'est l'ensemble qui se
   sélectionne ; je peux alors descendre (drill down) jusqu'à la pièce. »
 
-## Comportement voulu
+## Comportement voulu (réponses de jv du 2026-11-10)
 
-Un clic gauche sur une pièce membre d'un ensemble sélectionne l'**ensemble de plus haut niveau**
-(les poignées, flèches et anneaux de l'ADR 0038 s'affichent). Les clics suivants **descendent d'un
-niveau** vers la pièce cliquée : ensemble > sous-ensemble > pièce.
+- **Clic simple** sur une pièce membre d'un ensemble : sélectionne l'**ensemble de plus haut
+  niveau** (poignées, flèches et anneaux de l'ADR 0038). Si l'élément déjà sélectionné contient la
+  pièce cliquée (ensemble, sous-ensemble ou la pièce elle-même), la sélection ne change pas : on
+  peut donc cliquer dans un tiroir sélectionné sans remonter.
+- **Double-clic** sur une pièce : **descend d'un niveau** vers elle (ensemble > sous-ensemble >
+  pièce). Une fois la pièce sélectionnée, le double-clic ouvre son panneau, comme aujourd'hui
+  (ADR 0018). Une pièce libre (sans ensemble) garde le double-clic actuel.
+- **Double-clic dans le vide** : **remonte d'un niveau** (de la pièce à son ensemble, d'un
+  sous-ensemble à son parent). Au plus haut niveau, rien ne change.
+- **Ctrl+clic** (et Maj+clic) : comportement natif de FreeCAD, pièces seules (jv : « ok »). Les
+  commandes à plusieurs pièces (assemblage, ensemble) restent utilisables.
+- Une pièce déjà sélectionnée reste sélectionnée par un clic de plus (jv : Q3 « ok »).
 
-Soit `chaîne` la liste (de haut en bas) des ensembles qui contiennent la pièce cliquée, terminée par
-la pièce. Soit `S` la sélection actuelle (un seul objet).
-
-| Situation avant le clic                             | Sélection après le clic             |
-|-----------------------------------------------------|-------------------------------------|
-| `S` absent de la chaîne (rien, autre ensemble…)     | le premier élément (ensemble haut)  |
-| `S` est l'élément *i* de la chaîne                  | l'élément *i+1*                     |
-| `S` est la pièce elle-même                          | la pièce (reste)                    |
-| pièce sans ensemble                                 | la pièce (comportement actuel)      |
-| clic dans le vide                                   | rien (comportement actuel)          |
-
-Exemple : deux caissons dans un meuble, un tiroir (sous-ensemble) dans le caisson de gauche.
-Clic sur la façade du tiroir : meuble → clic : caisson → clic : tiroir → clic : façade.
-Cliquer ensuite sur une autre pièce du même tiroir passe directement à cette pièce (`S` = tiroir
-est dans sa chaîne, au rang juste avant elle).
+Exemple : meuble > caisson > tiroir > façade. Clic sur la façade : meuble. Double-clic : caisson.
+Double-clic : tiroir. Double-clic : façade. Double-clic : panneau de la façade. Double-clic dans le
+vide : retour au tiroir.
 
 ## Hors périmètre / inchangé
 
-- **Ctrl+clic et Maj+clic** gardent le comportement natif de FreeCAD (ajout à la sélection, pièces
-  seules) : les commandes à plusieurs pièces (assemblage, ensemble) restent utilisables.
-- Le **double-clic** (ADR 0018) ouvre toujours le panneau de la pièce sous le curseur.
-- Les clics dans l'arbre natif et dans le panneau « Structure » (PR #191) ne sont pas touchés : la
-  descente ne concerne que les clics dans la vue 3D. Le panneau suit la sélection comme aujourd'hui.
-- Un clic sur une flèche, poignée ou anneau (glissement, ADR 0021/0038) reste prioritaire.
+- Pas de descente tant qu'un panneau de tâche est ouvert : la sélection reste native.
+- Les clics dans l'arbre natif et dans le panneau « Structure » (PR #191) ne sont pas touchés ; le
+  panneau suit la sélection de FreeCAD comme aujourd'hui.
+- Un clic sur une flèche, poignée ou anneau (ADR 0021/0038) reste prioritaire.
+- Objets d'autres ateliers : sélection native.
 - Aucun objet, propriété ni observateur permanent dans le document (ADR 0007).
-
-## Questions pour jv (recommandation ★)
-
-- **Q1 — Remonter d'un niveau.** ★ Pas de geste dédié : cliquer dans le vide puis re-cliquer
-  repart du haut. Variante : **Alt+clic = remonter d'un niveau**.
-- **Q2 — Accès direct à la pièce.** ★ Ctrl+clic (natif). Variante : un réglage « sélectionner
-  directement la pièce » dans les préférences de l'atelier (désactive toute la fonction).
-- **Q3 — Après la pièce.** ★ Un clic de plus sur la même pièce la laisse sélectionnée. Variante :
-  il revient à l'ensemble de plus haut niveau (cycle).
-- **Q4 — Pièces d'un ensemble en cours de modification (panneau de pièce ouvert).** ★ La descente
-  est suspendue : un clic sélectionne directement la pièce, comme aujourd'hui.
-- **Q5 — Objets d'autres ateliers** dans la vue : ★ sélection native, inchangée.
 
 ## Découpage
 
 1 lot, trois couches :
-1. `core/` : fonction pure `next_in_chain(chain, current)` (table ci-dessus) + tests unitaires.
+1. `core/selection_chain.py` : fonctions pures (clic, double-clic, remontée) + tests unitaires.
 2. `features/` : `selection_chain(obj)` : ensembles de plus haut à plus bas niveau qui contiennent
    un objet (liens `Furniture`, sous-ensembles comme membres, ADR 0037/0038).
-3. `gui/` : le filtre d'application de la vue 3D note qu'un clic gauche (sans mouvement, sans
-   modificateur) vient d'avoir lieu ; l'observateur de sélection existant (`gui/drag/events.py`)
-   remplace alors la sélection native par l'élément choisi. Vérification GUI hors écran + capture.
+3. `gui/click_select.py` : un filtre d'application note le clic gauche simple (sans mouvement ni
+   modificateur) et remplace ensuite la sélection native ; le filtre du double-clic (ADR 0018)
+   appelle la descente ou la remontée avant d'ouvrir le panneau. Vérification GUI hors écran.

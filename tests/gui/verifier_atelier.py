@@ -62,6 +62,7 @@ from tests.gui.verifications_pieces_proches import VERIFICATIONS_PIECES_PROCHES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
+from tests.gui.verifications_selection_ensemble import VERIFICATIONS_SELECTION_ENSEMBLE
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
 from tests.gui.verifications_souris_ensemble import VERIFICATIONS_SOURIS_ENSEMBLE
@@ -1269,6 +1270,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
+    *VERIFICATIONS_SELECTION_ENSEMBLE,
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,
