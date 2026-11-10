@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Panneau de tâche de l'ensemble (J4c, critères P3 à P5), ouvert au double-clic.
 
-Trois cotes ; liste des membres (position, ce qu'ils font quand une cote change) ; pour le
-membre choisi, son mode, la case « Cotes fixes » et six lignes « distance au bord » avec une case
-« fixe » ; bouton
+Trois cotes ; trois champs d'angle (rotation de l'ensemble, :mod:`furniture_angles`) ; la case
+« Cotes fixes » de l'ensemble lui-même quand il est un sous-ensemble ; liste des membres
+(position, ce qu'ils font quand une cote change) ; pour le membre choisi, son mode, la case
+« Cotes fixes » et six lignes « distance au bord » avec une case « fixe » ; bouton
 « Relier les pièces ». Chaque saisie passe par ``features`` (mêmes règles que l'api), est
 écrite aussitôt dans la transaction du panneau puis prévisualisée : « OK » donne une seule
 entrée « Modifier l'ensemble », « Annuler » rétablit tout.
@@ -16,6 +17,10 @@ membre choisi le verrouille et relie tout l'ensemble, aperçu aussitôt. Les
 avertissements (formule de l'utilisateur, pas d'équerre, épaisseur gardée, pièce qui dépasse)
 s'affichent dans le panneau et dans la vue rapport. Transactions, fermeture et surveillance du
 document : :mod:`base`.
+
+Les flèches, les poignées de face et les anneaux de la vue 3D (``gui/drag``) sont sur l'ensemble
+tant que le panneau est ouvert : un geste écrit dans la transaction du panneau, qui relit ses
+cotes et ses angles (:meth:`FurnitureTaskPanel.after_drag`, EN-d, critère D2).
 """
 
 from __future__ import annotations
@@ -38,9 +43,11 @@ from freecad.menuiserie.features import (
     furniture_resize,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
+from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_view import MemberView, member_views, shown_object
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui.drag import events
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     EDIT_TITLE,
@@ -49,6 +56,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     Widget,
     connect,
 )
+from freecad.menuiserie.gui.task_panels.furniture_angles import FurnitureAngleRows
 from freecad.menuiserie.gui.task_panels.furniture_material import MaterialRow
 from freecad.menuiserie.gui.task_panels.furniture_widgets import (
     MODE_LABELS,
@@ -62,6 +70,7 @@ from freecad.menuiserie.gui.task_panels.furniture_widgets import (
     show_message,
 )
 from freecad.menuiserie.gui.task_panels.unlock_widgets import UnlockBox
+from freecad.menuiserie.gui.task_panels.wood_part_drag import PanelDrag
 from freecad.menuiserie.gui.view_providers.furniture import ICON
 
 FORM_NAME: Final = "FurnitureTaskPanel"
@@ -101,6 +110,9 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         grid = QtGui.QGridLayout()
         self._dimensions = dimension_fields(grid)
         layout.addLayout(grid)
+        self._angles = FurnitureAngleRows(layout, obj, self._angles_written)
+        self._own_locked = locked_check("furnitureLockedCheck")
+        layout.addWidget(self._own_locked)
         self._unlock = UnlockBox(layout, self._unlock_and_apply)
         self._tree = members_tree()
         layout.addWidget(self._tree)
@@ -110,7 +122,9 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         for name, field in self._dimensions.items():
             connect(field, "valueChanged(double)", partial(self._dimension_edited, name))
         connect(self._tree, "itemSelectionChanged()", self._member_chosen)
+        connect(self._own_locked, "toggled(bool)", self._own_locked_toggled)
         self._refresh()
+        self._drag = PanelDrag(self)  # flèches, poignées et anneaux dans la vue 3D (ADR 0038)
 
     # --- Construction ---------------------------------------------------------------------
 
@@ -229,6 +243,33 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         if member is not None and not self._guard.active:
             self._edit(lambda: furniture_members.set_options(member, None, None, bool(checked)))
 
+    def _own_locked_toggled(self, checked: bool) -> None:
+        """Case « Cotes fixes » de l'ensemble lui-même (sous-ensemble, Q7) : verrou écrit, tout
+        l'ensemble parent relié."""
+        if not self._guard.active:
+            self._edit(lambda: furniture_members.set_options(self.obj, None, None, bool(checked)))
+
+    def _angles_written(self) -> None:
+        """Ensemble tourné par un champ d'angle : aperçu (les pièces suivent le Std Part)."""
+        self.preview()
+
+    def after_drag(self) -> None:
+        """Geste dans la vue 3D (taille, déplacement, rotation) : cotes et angles relus ; le reste
+        du panneau (membres, avertissements) seulement une fois le geste fini."""
+        session = events.current_session()
+        if session is not None and session.dragging:
+            self._show_values()
+            return
+        self._refresh()
+
+    def _show_values(self) -> None:
+        """Cotes et angles relus dans les champs (signaux bloqués)."""
+        with self._guard:
+            for name, field in self._dimensions.items():
+                if not self._unlock.refused:
+                    field.setProperty("rawValue", getattr(self.obj, name).Value)
+        self._angles.show()
+
     def _fixed_toggled(self, row: EdgeRow, checked: bool) -> None:
         member = self._member()
         if member is not None and not (self._guard.active or row.updating):
@@ -286,11 +327,12 @@ class FurnitureTaskPanel(ObjectTaskPanel):
 
     def _refresh(self) -> None:
         """Cotes, refus, membres, pièce choisie et avertissements."""
+        self._show_values()
         with self._guard:
             for name, field in self._dimensions.items():
-                if not self._unlock.refused:
-                    field.setProperty("rawValue", getattr(self.obj, name).Value)
                 field.setEnabled(expression_of(self.obj, name) is None)
+            self._own_locked.setVisible(furniture_of(self.obj) is not None)
+            self._own_locked.setChecked(bool(getattr(self.obj, "Locked", False)))
         try:
             views, notices = member_views(self.obj)
         except ValueError as error:

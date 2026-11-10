@@ -7,10 +7,42 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Panneau « Structure » sur `main` (ADR 0046, ADR 0038) : le panneau repose sur le Std Part par ensemble. Ranger dans un ensemble, sortir de l'ensemble et créer un sous-ensemble passent par `adopt`, `leave` et `check_assembled` (les pièces changent de Std Part sans bouger, Ctrl+Z rétablit tout, y compris sous FreeCAD 1.1.3 : les propriétés de membre sont gardées, état d'« orphelin »). Critère unique de l'assemblage vers l'extérieur (`core/assembly_scope`) partagé par les décisions du panneau et le contrôle de l'api : les deux pièces assemblées doivent se retrouver dans le même ensemble (FreeCAD range la fermeture de liens dans le Std Part), donc ranger ou emporter dans un sous-ensemble une pièce assemblée à une pièce qui reste dans le parent est refusé avec explication. « Renommer » passe par la nouvelle `api.rename` (contrôle, refus traduit, brute d'une pièce usinée). La commande « Retirer de l'ensemble » garde les propriétés de membre comme « Sortir » du panneau. `gui/` n'importe plus `shiboken6` (signal `destroyed` de l'arbre, test d'interdiction).
 - Panneau « Structure » (ADR 0046, lot 4) : la liste de débit est une ligne (son tableur n'apparaît pas) ; les objets d'autres ateliers sont repliés sous « Autres objets (N) », en lecture seule (on peut les sélectionner, jamais les ouvrir, renommer, ranger ni supprimer d'ici ; un dépôt dessus est refusé) ; sont montrés les seuls objets de premier niveau (rien ne dépend d'eux) qui ne contiennent ni ne lisent aucun objet de l'atelier, hors Origines : Body, esquisses, Std Part et opérandes restent cachés. Une répétition s'affiche en une ligne « <nom> ×N » dépliable en ses copies, qui ne sont plus à plat, ne se glissent pas hors d'elle et ne reçoivent aucun dépôt ; l'objet Répétition (ADR 0043) n'étant pas dans cette branche, la lecture passe par un point d'extension (`features/structure_repetitions.py`, lecteur vide pour l'instant : aucune ligne « ×N » tant que le type n'existe pas). Aucune modification de l'arbre natif ni du document.
 - Panneau « Structure » (ADR 0046, lot 3) : menu contextuel (Ouvrir, Renommer, Ajouter à l'ensemble, Sortir de l'ensemble, Créer un ensemble ou un sous-ensemble depuis la sélection, Supprimer ; les entrées impossibles sont grisées, la raison en infobulle) et glisser-déposer d'une pièce ou d'un sous-ensemble sur un ensemble (le ranger), sur le vide ou une pièce hors ensemble (le sortir). Tout passe par l'api de l'atelier (`add_to_furniture`, `remove_from_furniture`, `make_furniture`, ADR 0037) en une seule transaction annulable d'un Ctrl+Z ; « Supprimer » lance la suppression de FreeCAD, donc les mêmes fenêtres que l'arbre natif (fenêtre « assemblage lié », `onDelete` de l'ensemble). Un dépôt refusé est expliqué et ne change rien : pièce assemblée à une pièce qui ne partirait pas avec elle (ADR 0026), cycle d'ensembles, élément absent du document actif, panneau de tâche ouvert. Décisions pures dans `core/structure_actions.py` et `core/structure_menu.py`, lecture du document dans `features/structure_facts.py`. L'arbre natif n'est pas modifié et le document ne reçoit aucun objet en dehors des effets de l'api. Api : `add_to_furniture(..., move=True)` (changer d'ensemble) et `remove_from_furniture(..., keep_properties=True)` (sortir) gardent les propriétés de membre au lieu de les retirer puis recréer, ce que FreeCAD 1.1 n'annule pas correctement ; la création d'un sous-ensemble depuis des membres (ADR 0037) fait de même, et `remove_from_furniture` sans option est inchangé.
 - Panneau « Structure » (ADR 0046, lot 2) : il se rafraîchit seul quand le document change (notifications regroupées, arbre inchangé non reconstruit, état déplié conservé), la sélection est synchronisée dans les deux sens avec FreeCAD (arbre natif et vue 3D ; la brute compte pour sa pièce usinée, pas de rétroaction) et le double-clic ouvre le même panneau de tâche que l'arbre natif. Les observateurs ne sont posés que tant que le panneau est visible. Logique pure dans `core/structure_sync.py`. Toujours en lecture seule du modèle (menu contextuel et glisser-déposer : lot 3).
 - Panneau ancré « Structure » en lecture seule (ADR 0046, lot 1) et commande « Structure » (thème « Vue ») : un nœud par ensemble (sous-ensembles en enfants), ses pièces (la brute et la pièce usinée forment une ligne), un nœud replié « Assemblages (N) » (assemblages, quincaillerie, Distances) et les pièces hors ensemble à la racine. L'arbre de FreeCAD n'est pas modifié et le document ne reçoit aucun objet. Modèle d'arbre pur dans `core/structure_tree.py`.
+- Ensemble à la souris, vue 3D et panneau (EN-c et EN-d, ADR 0038) : un ensemble sélectionné seul
+  dans l'arbre (ou dont le panneau est ouvert) est dessiné en transparence avec six doubles flèches
+  de face (taille, aimant de 10 px sur les voisines, cote et message de refus près de la souris,
+  aperçu des brutes à 10 Hz au plus), trois flèches de déplacement et trois anneaux de rotation
+  (15°, Maj libre, angle affiché), en transactions « Redimensionner l'ensemble », « Déplacer
+  l'ensemble » et « Tourner l'ensemble » (un Ctrl+Z, Échap, transaction du panneau s'il est
+  ouvert). La session de glissement passe par une abstraction `Target` (pièce, ensemble) sans
+  changer le comportement des pièces. Sans Std Part propre : ni flèches ni anneaux, faces avant,
+  gauche et basse refusées avec la raison. Le panneau de l'ensemble a trois champs d'angle
+  (-360 à 360, forme canonique en fin de saisie, grisés avec infobulle si l'ensemble est lié par
+  son parent ou sans Std Part propre), relit cotes et angles après un geste, et la case « Cotes
+  fixes » d'un sous-ensemble (Q7).
+- Ensemble à la souris, règles et écriture (EN-a et EN-b, ADR 0038) : `core/furniture` donne la
+  disposition d'une boîte d'ensemble (`furniture_layout` : six poignées de face, trois flèches
+  au centre, trois anneaux, réutilisant `core/magnet` et `core/rotation`) et `resized_box` (face
+  opposée fixe, cote minimale 0,1 mm). `features/furniture_drag` écrit le geste : `begin_furniture_drag`
+  (Memento), `resize_furniture_to` (cotes absolues par le chemin du panneau, brutes seules
+  recalculées, arrêt à la dernière valeur permise avec message en cas de refus), `move_furniture_by`,
+  `rotate_furniture_by` et `rotate_furniture_to` (`Placement` du Std Part, rotation autour du
+  centre de la boîte), `restore` (Échap) et `end_furniture_drag` (recalcul complet, avertissements,
+  liaison du parent pour un sous-ensemble). Sans Std Part propre, déplacement et rotation sont
+  refusés. Façade : `api.move_furniture` et `api.rotate_furniture`. « Cotes fixes » d'un
+  sous-ensemble : lecture par les liaisons vérifiée et testée (Q7).
+- Std Part d'ensemble (EN-e, ADR 0038) : chaque ensemble, gabarit Caisson compris, est rangé à sa
+  création dans un Std Part (`App::Part`, « {ensemble} (Std Part) ») avec ses pièces, pièces
+  usinées, assemblages et Distances, sans rien déplacer à l'écran ; une pièce ajoutée y entre, une
+  pièce retirée en sort à la même position (une pièce assemblée à un membre qui reste garde le
+  Std Part). Un sous-ensemble a son propre Std Part, rangé dans celui du parent : son `Origin`
+  vaut (0, 0, 0), le parent lie le `Placement.Base` de ce Std Part. Pas de reprise des anciens
+  documents. Essai sur FreeCAD 1.1 dans l'ADR 0038.
+
 - Panneau d'assemblage : le bouton « Inverser » reste visible mais grisé, avec une infobulle qui explique pourquoi, quand l'inversion n'a pas de sens (mi-bois, onglet, tourillons, faux tenons, biscuits) ou que les rôles échangés rendraient l'assemblage impossible (ex. tenon-mortaise en biais : l'infobulle donne la raison).
 - Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
 - Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; rangs du montant opposé aux mêmes hauteurs que ceux du côté (tablette de niveau même si les montants ne partent pas du même bas) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).
@@ -98,6 +130,28 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Ensemble d'ensembles : sélectionner les Std Parts de deux ensembles dans l'arbre active de
+  nouveau la commande « Ensemble » (le Std Part compte pour l'ensemble qu'il porte, ADR 0038) ; le
+  lien `Furniture` d'un membre devient `App::PropertyLinkGlobal` (un sous-ensemble cite son parent
+  rangé dans le Std Part du dessus : plus d'avertissement « lien hors de portée » à chaque
+  recalcul), recréé sans perte à la réouverture d'un document plus ancien.
+
+- Relecture de fin de jalon « Ensemble à la souris » (ADR 0038) : un ensemble déjà tourné puis rangé
+  dans un parent ne se décale plus au recalcul (l'`Origin` passe tournée dans la `Base` du Std
+  Part) ; `remove_from_furniture` renvoie les avertissements de sortie (« reste dans son Std Part »)
+  et la suppression de l'ensemble les écrit dans la vue rapport ; supprimer à la main le Std Part
+  d'un ensemble laisse les pièces en place (décalage reporté dans leurs `Placement` et l'`Origin`,
+  ou, Std Part tourné, liaisons retirées avec avertissement) ; supprimer l'ensemble supprime son Std
+  Part vide, ou le signale s'il contient encore des objets ; la source d'une pièce en bois (corps,
+  esquisse) rangée avec elle garde sa place globale à l'entrée et à la sortie d'un Std Part tourné
+  et ne rend plus le Std Part « impropre » (rotation refusée) ; seul le Std Part d'un
+  sous-ensemble membre est accepté dans le Std Part propre d'un ensemble (pas un `App::Part` de
+  l'utilisateur) ; une pièce libre liée à un membre (assemblage, Distance, formule) rangée avec lui
+  est signalée ; le Std Part sélectionné dans l'arbre cible l'ensemble qu'il porte ; son libellé
+  suit le renommage de l'ensemble. `furniture_entry` regroupe les entrées et sorties du Std Part.
+- Une pièce membre d'un ensemble est aimantée quand on la déplace ou la redimensionne à la souris
+  (flèche et poignée) : les guides étaient lus dans `Document.RootObjects`, qui exclut les objets
+  cités par une expression ; les Std Parts d'ensemble sont transparents pour l'aimant.
 - Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même
   ensemble se range sous l'ensemble le plus proche qui les contient (sous-ensembles compris) dans
   l'arbre, dès sa création.

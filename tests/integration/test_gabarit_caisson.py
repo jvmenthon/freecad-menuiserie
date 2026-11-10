@@ -135,7 +135,7 @@ def test_creation_du_caisson_de_reference(document: Any) -> None:
 def test_aucun_objet_gabarit_garde(document: Any) -> None:
     """ADR 0010 : seulement des pièces, des pièces usinées, des assemblages et l'ensemble."""
     caisson = make(document, shelf_count=2, joinery="None")
-    types = {o.Proxy.TYPE for o in document.Objects}
+    types = {o.Proxy.TYPE for o in document.Objects if hasattr(o, "Proxy")}  # hors Std Part
     assert types == {
         "Menuiserie::WoodPart",
         "Menuiserie::MachinedPart",
@@ -203,13 +203,16 @@ def test_caisson_sous_ensemble_du_bureau(bureau: Bureau) -> None:
     assert api.furniture_of(furniture) == bureau.furniture
     assert fixed(furniture) == set(EDGES)  # options par défaut (F3, Q7) vis-à-vis du bureau
     assert engine(furniture)["Depth"] == "<<Bureau>>.Depth - 200 mm"
-    assert dict(furniture.FurnitureBindings) == engine(furniture)
-    assert tuple(furniture.Origin) == pytest.approx((40, 0, 0))
+    std = furniture.getParentGeoFeatureGroup()  # Std Part du sous-ensemble, dans celui du bureau
+    assert std.getParentGeoFeatureGroup() == bureau.furniture.getParentGeoFeatureGroup()
+    assert dict(furniture.FurnitureBindings) == {**engine(furniture), **engine(std)}
+    assert tuple(furniture.Origin) == pytest.approx((0, 0, 0))
+    assert tuple(std.Placement.Base) == pytest.approx((40, 0, 0))
     assert stale_or_invalid(doc) == []
     api.resize_furniture(bureau.furniture, depth=800)
     assert furniture.Depth.Value == pytest.approx(600)
     caisson = Caisson(doc, furniture, notices)
-    assert caisson.bounds("left") == ((40, 58), (0, 600), (0, 300))
+    assert caisson.bounds("left") == ((0, 18), (0, 600), (0, 300))  # repère du Std Part (+40 mm)
     assert caisson.bounds("back")[1] == (592, 600)
     assert bureau.bounds("V")[1] == (641, 659)
     assert stale_or_invalid(doc) == []

@@ -6,7 +6,7 @@
   [0008 — Ensemble, objet de cotes](0008-ensemble-objet-de-cotes.md),
   [0038 — Ensemble à la souris](0038-ensemble-a-la-souris.md) (Std Part par ensemble),
   [0037 — Sous-ensemble depuis des membres](0037-sous-ensemble-depuis-des-membres.md),
-  [0043 — Répétition](0043-repetition-objet-de-cotes-et-copies-liees.md)
+  0043 — Répétition (à venir : PR #181 non fusionnée, pas encore de lien)
 
 ## Contexte
 
@@ -66,11 +66,49 @@ ou ne sont pas montrés, au choix du lot 1.
 
 ## Conséquences
 
-- Un composant d'interface à maintenir (rafraîchissement, sélection), mais isolé dans `gui/` : le
-  cœur et les `features/` ne changent pas.
+- Un composant d'interface à maintenir (rafraîchissement, sélection), dans `gui/`. **Le cœur et
+  `features/` ont changé aussi** (la première version de cet ADR disait le contraire) :
+  - `add_members(…, move=True)` : des objets déjà membres d'un autre ensemble en sortent
+    (`detach_members(…, keep_properties=True)` puis `leave`, ADR 0038) et entrent dans le nouvel
+    ensemble par `adopt` ; `build_furniture` fait de même pour un sous-ensemble créé depuis des
+    membres (ADR 0037) ;
+  - `detach_members(objects, keep_properties=False)` et `remove_members(…, keep_properties=…)` :
+    l'option garde les propriétés de membre (voir « État d'orphelin ») ;
+  - le contrôle de conteneur d'un membre qui change d'ensemble compare les conteneurs hors Std
+    Parts d'ensemble (`outer_container`) ;
+  - `check_assembled` suit le critère pur `core/assembly_scope` (voir ci-dessous) ;
+  - `features/furniture_resize.py` (contrôle puis écriture des cotes d'un ensemble) est celui de
+    l'ADR 0038 ; `furniture_children` (enfants d'un ensemble dans l'arbre) a quitté le
+    ViewProvider pour `features/furniture_view.py`, car le panneau et l'arbre natif le partagent ;
+  - `api.rename(obj, name)` : « Renommer » du panneau passe par l'api (contrôle
+    `decide_rename`, `ValueError` traduite, brute d'une pièce usinée), comme toute écriture.
+- **Assemblage vers l'extérieur** (critère unique, `core/assembly_scope.keeps_assembly`, partagé
+  par `decide_drop`, `decide_create` et `check_assembled`) : FreeCAD range toute la fermeture de
+  liens d'une pièce dans le Std Part d'arrivée (essai de l'ADR 0038, confirmé par la CI). Un
+  assemblage reste donc valide seulement si ses deux pièces se retrouvent dans le même ensemble
+  (ou toutes deux hors de tout ensemble). Ranger P dans un sous-ensemble S de A quand la pièce Q
+  qui lui est assemblée reste dans A est **refusé** : Q serait emportée dans le Std Part de S sans
+  en être membre. Il faut choisir les deux pièces, ou supprimer l'assemblage. La demande d'accepter
+  ce cas (« l'assemblage reste rangé sous A ») est donc impossible avec le Std Part par ensemble :
+  signalée à l'architecte. Une pièce assemblée à une pièce hors de tout ensemble est rangée avec
+  elle par l'api (avertissement) ; le panneau refuse le dépôt, mais permet la création d'un ensemble.
+- **État d'orphelin.** FreeCAD 1.1.3 ne rétablit pas, à Ctrl+Z, une propriété dynamique retirée
+  puis recréée dans la même transaction. Changer d'ensemble, sortir et créer un sous-ensemble ne
+  retirent donc plus les propriétés de membre : seuls le lien `Furniture` (remis à zéro) et les
+  liaisons sont retirés. Une pièce sortie par le panneau garde ses propriétés de membre
+  (`PositionMode`, `Fixed…`, `Locked`, `FurnitureBindings` vide) sans ensemble ; c'est l'état
+  qu'a déjà une pièce dont l'ensemble est supprimé. Il est inoffensif (`furniture_of` rend
+  `None`, la pièce est « hors ensemble » partout), `add_to_furniture` et `make_furniture`
+  réécrivent ces propriétés à l'entrée suivante, et le fichier s'enregistre et se rouvre à
+  l'identique. La commande native « Retirer de l'ensemble » est alignée sur le panneau
+  (`keep_properties=True`) : un seul comportement, sans nettoyage à la réouverture. Seule la
+  suppression d'un ensemble (`remove_members` sans option) retire encore les propriétés.
 - Les quatre défauts du prototype disparaissent : plus de masquage à réappliquer, la suppression
   d'un ensemble ne dépend plus de l'affichage, le glisser-déposer est du code de l'atelier.
-- Compatible avec ADR 0008 (l'Ensemble n'est toujours pas un conteneur) et ADR 0038.
+- Compatible avec ADR 0008 (l'Ensemble n'est toujours pas un conteneur) et ADR 0038 : le Std Part
+  et son Origine ne sont jamais des lignes du panneau, ni « Autres objets », ni ensemble.
+- Qt : `gui/` n'importe que `from PySide import …` (ADR 0023, Qt 5 compatible) ; l'existence de
+  l'arbre Qt se suit par son signal `destroyed`, pas par `shiboken` (un test l'interdit).
 - L'arbre natif reste complet : le débutant peut le voir à côté ; on peut proposer d'ouvrir le
   panneau en onglet de la vue combinée.
 

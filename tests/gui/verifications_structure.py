@@ -372,7 +372,7 @@ def _verifier_sous_ensemble(
 ) -> list[str]:
     doc, actions = bureau.doc, _actions(dock)
     _armoire(bureau)
-    cles = [bureau.shown("P").Name, bureau.shown("V").Name]
+    cles = [bureau.shown("P").Name]  # le voile est assemblé aux joues : il resterait seul (refus)
     avant = [o.Name for o in doc.Objects if is_furniture(o)]
     actions.run_action(Action.CREATE, cles)
     _traiter()

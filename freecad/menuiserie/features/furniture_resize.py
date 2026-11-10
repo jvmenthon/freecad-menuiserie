@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Redimensionnement d'un ensemble : contrôle des nouvelles cotes puis écriture (J4, N11).
+"""Cotes d'un ensemble : contrôle, puis écriture (panneau, API, poignées de la vue 3D).
 
-Aucune transaction ni recalcul : c'est à l'appelant (``api.py``, panneau de l'ensemble). Séparé de
-``furniture_members`` pour garder ce module court.
+Ni transaction ni recalcul : c'est à l'appelant de les faire.
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import DIMENSIONS, writing
 from freecad.menuiserie.features.furniture_bindings import read_members
-from freecad.menuiserie.features.furniture_members import checked_furniture, quoted_label
+from freecad.menuiserie.features.furniture_checks import checked_furniture, quoted_label
 from freecad.menuiserie.features.furniture_variants import resize_notices
 from freecad.menuiserie.features.i18n import translated, translated_errors
 

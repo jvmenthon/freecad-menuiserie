@@ -54,6 +54,21 @@ contournable), **mineur** (confort, docs, dette de test).
 | b2 | mineur | `core/furniture/_model.py`, `_edit.py` | `NoticeKind.NOT_SQUARE` et `Follow.NOT_SQUARE` ne sont plus produits depuis AB-d (toute pièce non d'équerre suit par translation). | Retirer les deux valeurs et leurs gabarits à la prochaine évolution du modèle d'ensemble. |
 | b3 | mineur | `tests/unit/test_assemblage_biais.py` | Chemins refusés sans test : `NO_WALL` en biais, invitée qui entre par un chant (`OVERLAPPING`), `TOO_SMALL` (polyèdre vide), rainure-languette en biais composé. | Ajouter les cas. |
 
+## Relecture de fin de jalon « Ensemble à la souris » (ADR 0038), 2026-11-07
+
+Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés dans la branche
+`fix/ensemble-souris-revue` ; restent les points suivants (e13 corrigé : spec § 2.2 et § 4.2, note
+« amendé par l'ADR 0038 » dans l'ADR 0008).
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| e10 | mineur | `gui/drag/furniture_target.py:117-127` | Ensemble ancien sans Std Part : les poignées avant, gauche et basse sont affichées mais toujours refusées. | Les masquer, ou retomber sur `Origin` pour ces trois faces. |
+| e11 | mineur | `features/furniture_container.py:135` (`guide_container`) | Un ancien ensemble rangé dans un `App::Part` de l'utilisateur rend ce conteneur transparent pour l'aimant. | Limiter la transparence aux Std Parts propres (`carried_furniture`). |
+| e12 | mineur | `features/states.py` (`_finish`), `features/furniture_drag.py:297` | `LockedPiecesError` au relâchement n'est traitée que dans la vue rapport : pas de « Déverrouiller et appliquer » dans la vue 3D, contrairement à ce que dit la docstring. | Corriger la docstring, ou ajouter la proposition dans la vue 3D. |
+| e14 | mineur | `tests/` | Tests manquants : Ctrl+Z / Ctrl+Y de `make_furniture` (Std Part), Ctrl+Y d'un geste, « Annuler » du panneau après un geste et une saisie d'angle, réouverture d'un document au sous-ensemble déplacé ou tourné, taille et rotation d'un sous-sous-ensemble. | Ajouter les vérifications (intégration et GUI hors écran). |
+| e15 | mineur | `gui/drag/furniture_target.py:137`, `core/geometry.py` (`_box_drawing`), `features/furniture_drag.py:131` et `:216` | Code dupliqué : les huit coins d'une boîte ; le décalage tourné suivi de `write_std_placement`. | Factoriser en `box_corners` et en `_shifted_placement`. |
+| e16 | mineur | `tests/gui/verifications_souris_ensemble.py` | Le fichier fait 661 lignes. | Le découper par thème (taille, déplacement, rotation, sous-ensemble, panneau). |
+
 ## Relecture « assemblages en biais, suite » (issue #78, ADR 0034), 2026-11-07
 
 | N° | Niveau | Où | Problème | Correction proposée |
@@ -88,6 +103,16 @@ contournable), **mineur** (confort, docs, dette de test).
 |----|--------|----|----------|---------------------|
 | S1 | mineur | `core/structure_tree.py` (`build_structure`), `features/structure_source.py` (`root_furnitures`) | Si un fichier abîmé contient un cycle de sous-ensembles (A dans B et B dans A, impossible par l'api), aucun des deux n'est une racine : ils disparaissent du panneau avec leurs pièces. Le cas du cycle atteignable depuis une racine est testé, pas celui-ci. | Après les racines, ajouter comme racines les ensembles jamais atteints (`seen`), et tester. |
 | S2 | mineur | `gui/structure_sync.py` (`_DocumentWatcher.slotChangedObject`) | Avec plusieurs documents ouverts, la modification d'un document non actif relance le calcul de l'arbre du document actif (aucune reconstruction : l'arbre est identique, mais le calcul est refait). | Ignorer les notifications dont l'objet n'est pas du document actif. |
-| S5 | mineur | `gui/structure_actions.py` (`_rename`, `renamed_object`) | Si la brute disparaît entre la saisie et l'écriture (pièce usinée sans brute), `blank_of` rend `None` et l'écriture du libellé lève `AttributeError` (rattrapée et écrite dans la vue rapport, rien n'est modifié). | Refuser avec un message traduit si `blank_of` rend `None`. |
+| S5 | corrigé | `gui/structure_actions.py` (`_rename`) | Corrigé par `api.rename` (refus traduit par `member_object`). Avant : si la brute disparaît entre la saisie et l'écriture (pièce usinée sans brute), `blank_of` rend `None` et l'écriture du libellé lève `AttributeError` (rattrapée et écrite dans la vue rapport, rien n'est modifié). | Refuser avec un message traduit si `blank_of` rend `None`. |
 | S6 | mineur | `gui/structure_actions.py` (`move_rows`), `tests/gui/verifications_structure.py` | Le garde « ensemble d'accueil supprimé entre-temps : ne rien faire » (ajouté à la revue) n'a pas de vérification hors écran : `move_rows` importe `FreeCADGui`. | Ajouter une vérification dans `verifications_structure.py` (supprimer l'ensemble puis appeler `move_rows` avec son ancien nom). |
 | S7 | mineur | `features/structure_source.py` (`DocumentStructure`) | Le lecteur est reconstruit à chaque rafraîchissement : `foreign_objects` lit `InList` et `OutList` de tous les objets, ce qui devient mesurable sur un très gros document (non mesuré). | Mesurer sur un document de 1 000 objets avant d'optimiser ; sinon, rien à faire. |
+
+## Reprise sur `main` du panneau « Structure » (branche `fix/structure-rebase-main`), 2026-11-10
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| m1 | corrigé | `gui/structure_sync.py`, `gui/structure_actions.py` | Chaînes dupliquées `_PANEL_BUSY` / `BUSY` et `_NO_DOCUMENT` / `NO_DOCUMENT`. | Une seule définition (`core.structure_actions.BUSY`, `structure_sync.NO_DOCUMENT`). |
+| m2 | corrigé | `features/structure_source.py` (`DocumentStructure.label`) | Dupliquait `renamed_object`. | `label` appelle `renamed_object` (désormais défini dans `structure_source`, réexporté par `structure_facts`). |
+| m3 | mineur | `core/structure_tree.py` (`build_structure`) | Le paramètre `joints_title` fait double emploi avec `Titles.joints` : il est ignoré dès que `titles` est donné. | Retirer `joints_title` (signature `build_structure(source, extras=None, titles=None)`) et adapter les 13 appels des tests. |
+| m4 | corrigé | `docs/adr/0046-…` ligne 9 | Lien mort vers l'ADR 0043 (PR #181 non fusionnée). | Marqué « à venir » sans lien ; à relier à la fusion de la PR #181. |
+| m5 | mineur | `features/structure_repetitions.py`, `core/structure_tree.py` (nœuds `REPEAT` et `COPY`) | Code de répétition (lecteur vide, lignes « ×N », règles de dépôt) inutilisé tant que l'objet Répétition (ADR 0043) n'existe pas ; seuls des tests à lecteur factice l'exercent. | À brancher au lecteur réel à la fusion de la PR #181 ; sinon à retirer. |

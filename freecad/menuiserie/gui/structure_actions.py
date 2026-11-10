@@ -31,7 +31,6 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.structure_actions import (
     Decision,
     MoveFacts,
-    cleaned_name,
     creates_sub_furniture,
     decide_drop,
     decide_rename,
@@ -42,11 +41,11 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.structure_facts import facts_of, renamed_object
+from freecad.menuiserie.features.structure_facts import facts_of
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.furniture import refresh_tree, show_notices
 from freecad.menuiserie.gui.structure_dnd import DropTree
-from freecad.menuiserie.gui.structure_sync import later, report_errors
+from freecad.menuiserie.gui.structure_sync import NO_DOCUMENT, later, report_errors
 from freecad.menuiserie.gui.structure_tree_widget import KEY_ROLE, item_for, selected_keys
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error, close_transaction
 
@@ -58,7 +57,6 @@ _CREATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Créer un ensemble")
 _CREATE_SUB: Final = QT_TRANSLATE_NOOP("Menuiserie", "Créer un sous-ensemble")
 _RENAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "Renommer")
 _RENAME_PROMPT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Nouveau nom :")
-_NO_DOCUMENT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun document ouvert.")
 
 Handler = Callable[[MenuEntry], None]
 
@@ -161,7 +159,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         """Raison pour laquelle le dépôt est refusé, vide s'il est permis (survol)."""
         facts = self._facts or current_facts()
         if facts is None:
-            return translated(_NO_DOCUMENT)
+            return translated(NO_DOCUMENT)
         return decision_text(decide_drop(facts, keys, target))
 
     def _dropped(self, keys: list[str], target: str | None) -> None:
@@ -287,8 +285,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         if not decision.allowed:
             report_refusal(decision_text(decision))
             return
-        target = renamed_object(doc.getObject(key))
-        run_in_transaction(doc, _RENAME, partial(_write_label, target, cleaned_name(text)))
+        run_in_transaction(doc, _RENAME, partial(_rename, doc.getObject(key), text))
 
     def _create(self, entry: MenuEntry) -> None:
         """Nouvel ensemble (ou sous-ensemble) autour de la sélection, comme la commande de l'ADR
@@ -326,6 +323,8 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         Gui.runCommand("Std_Delete")
 
 
-def _write_label(obj: DocumentObject, name: str) -> Sequence[str]:
-    obj.Label = name
+def _rename(obj: DocumentObject, text: str) -> Sequence[str]:
+    """Renomme par l'api (qui refait le contrôle de ``decide_rename`` : ``ValueError`` traduite
+    en cas de refus), jamais en écrivant le libellé ici."""
+    api.rename(obj, text)
     return ()

@@ -202,12 +202,19 @@ def test_sous_ensemble_qui_suit_le_bureau(document: Any) -> None:
     assert engine(sub)["Width"] == (
         "<<Bureau>>.Width - WoodPart001.Thickness - WoodPart002.Thickness - 756 mm"
     )
-    assert engine(sub)["Origin.x"] == "<<Bureau>>.Origin.x + WoodPart001.Thickness + 18 mm"
+    # La position du sous-ensemble est le Placement de son Std Part (E3) ; son Origin vaut 0.
+    std = sub.getParentGeoFeatureGroup()
+    assert std.getParentGeoFeatureGroup() == furniture.getParentGeoFeatureGroup()
+    assert tuple(sub.Origin) == pytest.approx((0, 0, 0))
+    assert tuple(std.Placement.Base) == pytest.approx((40, 0, 400))
+    assert engine(std)["Placement.Base.x"] == (
+        "<<Bureau>>.Origin.x + WoodPart001.Thickness + 18 mm"
+    )
+    assert dict(sub.FurnitureBindings)["Placement.Base.x"] == engine(std)["Placement.Base.x"]
     assert engine(sub)["Height"] == "<<Bureau>>.Height - WoodPart.Thickness - 420 mm"
-    # Membres d'un sous-ensemble (nested) : toutes leurs positions suivent son Origin.
+    # Membres du sous-ensemble : positions relatives à son Origin (0), dans son Std Part.
     assert engine(parts["CD"]) == {
         "Placement.Base.x": "<<Caisson>>.Origin.x + <<Caisson>>.Width - Thickness",
-        "Placement.Base.y": "<<Caisson>>.Origin.y",
         "Placement.Base.z": "<<Caisson>>.Origin.z + <<Caisson>>.Height",
         "Length": "<<Caisson>>.Height",
         "Width": "<<Caisson>>.Depth",
@@ -220,8 +227,8 @@ def test_sous_ensemble_qui_suit_le_bureau(document: Any) -> None:
     furniture.Width = 1400
     document.recompute()
     assert sub.Width.Value == pytest.approx(600)
-    assert sub.Origin.x == pytest.approx(40)
-    assert parts["CD"].Shape.BoundBox.XMax == pytest.approx(640)
+    assert std.Placement.Base.x == pytest.approx(40)
+    assert parts["CD"].Shape.BoundBox.XMax == pytest.approx(600)  # repère du Std Part
     assert parts["CB"].Length.Value == pytest.approx(564)
     assert stale_or_invalid(document) == []
 

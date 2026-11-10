@@ -7,11 +7,13 @@ traduisible et ses paramètres) et ne modifie rien. Les faits viennent d'un :cla
 dans le document par ``features/structure_facts.py`` ; les clés sont celles des lignes du panneau
 (nom de la pièce usinée à la place de sa brute, nom de l'ensemble).
 
-Règle de l'assemblage vers l'extérieur (ADR 0026) : une pièce qui change d'ensemble, seule ou avec
-le sous-ensemble qui la contient, ne doit porter d'assemblage qu'avec des pièces qui vont avec
-elle ou qui sont déjà dans l'ensemble d'arrivée (sous-ensembles compris, ou hors de tout ensemble
-si la pièce sort). Sinon l'assemblage ne serait plus rangé avec ses deux pièces : le dépôt est
-refusé et l'assemblage doit être supprimé d'abord.
+Règle de l'assemblage vers l'extérieur (ADR 0026, ADR 0038), critère ``core/assembly_scope`` : une
+pièce qui change d'ensemble, seule ou avec le sous-ensemble qui la contient, ne doit porter
+d'assemblage qu'avec des pièces qui vont avec elle ou qui se retrouveront dans le même ensemble
+qu'elle (hors de tout ensemble si elle sort). FreeCAD range en effet toute la fermeture de liens
+d'une pièce dans le Std Part d'arrivée : l'assemblage ne serait plus rangé avec ses deux pièces.
+Le dépôt est alors refusé et l'assemblage doit être supprimé d'abord. Même règle pour créer un
+ensemble (ADR 0037), sauf pour une pièce assemblée hors de tout ensemble, que l'api range avec elle.
 """
 
 from __future__ import annotations
@@ -21,9 +23,10 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
-from freecad.menuiserie.core._validation import has_forbidden_character
-from freecad.menuiserie.core.furniture import FurnitureError, label_reference
+from freecad.menuiserie.core.assembly_scope import keeps_assembly
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.structure_decision import Decision, refuse
+from freecad.menuiserie.core.structure_rename import MAX_NAME_LENGTH, cleaned_name, decide_rename
 from freecad.menuiserie.core.structure_tree import NodeKind
 from freecad.menuiserie.core.text import quoted_value
 
@@ -56,7 +59,6 @@ DRAGGABLE_KINDS: Final = frozenset({NodeKind.PIECE, NodeKind.FURNITURE})
 NO_DROP_KINDS: Final = frozenset(
     {NodeKind.REPEAT, NodeKind.COPY, NodeKind.CUTLIST, NodeKind.OTHERS, NodeKind.OTHER}
 )
-MAX_NAME_LENGTH: Final = 120  # nom d'une pièce ou d'un ensemble, en caractères
 
 BUSY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Terminez d'abord le panneau de tâche ouvert (OK ou Annuler)."
@@ -92,15 +94,21 @@ _ALREADY_IN: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {item} » est déjà da
 _ALREADY_FREE: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {item} » n'est dans aucun ensemble.")
 _OUTWARD_INTO: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "« {piece} » est assemblée à « {other} », qui n'est pas dans « {target} » : le "
-    "déplacement séparerait l'assemblage de l'une de ses pièces. Déplacez les deux pièces "
-    "ensemble, ou supprimez d'abord l'assemblage.",
+    "« {piece} » est assemblée à « {other} », qui ne serait pas dans le même ensemble qu'elle "
+    "(« {target} ») : le déplacement séparerait l'assemblage de l'une de ses pièces. Déplacez les "
+    "deux pièces ensemble, ou supprimez d'abord l'assemblage.",
 )
 _OUTWARD_OUT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {piece} » est assemblée à « {other} », qui reste dans « {furniture} » : la sortir de son "
     "ensemble séparerait l'assemblage de l'une de ses pièces. Sortez les deux pièces "
     "ensemble, ou supprimez d'abord l'assemblage.",
+)
+_OUTWARD_NEW: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {piece} » est assemblée à « {other} », qui ne serait pas dans le nouvel ensemble : "
+    "l'assemblage serait séparé de l'une de ses pièces. Choisissez aussi « {other} », ou "
+    "supprimez d'abord l'assemblage.",
 )
 _NOT_SAME: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -111,41 +119,6 @@ _NOT_RENAMABLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Seuls les pièces et les ensembles se renomment ici."
 )
 _ONE_ROW: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisissez une seule ligne.")
-_EMPTY_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "Le nom ne peut pas être vide.")
-_FORBIDDEN_NAME: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Le nom ne peut pas contenir de saut de ligne, de tabulation ni de caractère de contrôle.",
-)
-_NAME_TOO_LONG: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Le nom est trop long ({count} caractères, {maximum} au plus)."
-)
-
-
-@dataclass(frozen=True)
-class Decision:
-    """Réponse à « cette action est-elle permise ? ». Refusée, ``template`` est le gabarit
-    français (à traduire puis remplir avec ``params``) ; un refus au gabarit vide ne dit rien
-    (rien à faire, par exemple un nom inchangé). Autorisée, ``keys`` sont les lignes que
-    l'action touche (déjà ramenées aux plus hautes, sans celles qui sont en place)."""
-
-    allowed: bool
-    template: str = ""
-    params: Mapping[str, str] = field(default_factory=dict)
-    keys: tuple[str, ...] = ()
-
-    @property
-    def silent(self) -> bool:
-        """Vrai pour un refus sans message : l'interface ne fait rien et ne dit rien."""
-        return not self.allowed and not self.template
-
-    @property
-    def message(self) -> str:
-        """Gabarit rempli (non traduit), pour les journaux et les tests."""
-        return self.template.format_map(self.params)
-
-
-def _refuse(template: str, **params: str) -> Decision:
-    return Decision(False, template, params)
 
 
 @dataclass(frozen=True)
@@ -206,15 +179,15 @@ def top_level(facts: MoveFacts, keys: Iterable[str]) -> list[str]:
 def _movable(facts: MoveFacts, keys: Sequence[str]) -> Decision | None:
     """Refus commun à toute action sur une sélection de pièces et d'ensembles, ``None`` sinon."""
     if facts.busy:
-        return _refuse(BUSY)
+        return refuse(BUSY)
     if not keys:
-        return _refuse(_NOTHING)
+        return refuse(_NOTHING)
     if any(key in facts.foreign for key in keys):
-        return _refuse(_FOREIGN)
+        return refuse(_FOREIGN)
     if (copy := next((key for key in keys if key in facts.copies), None)) is not None:
-        return _refuse(_IS_COPY, item=facts.label(copy))
+        return refuse(_IS_COPY, item=facts.label(copy))
     if any(key not in facts.labels for key in keys):
-        return _refuse(_NOT_MOVABLE)
+        return refuse(_NOT_MOVABLE)
     return None
 
 
@@ -225,27 +198,39 @@ def decide_selection(facts: MoveFacts, keys: Iterable[str]) -> Decision:
     return _movable(facts, chosen) or Decision(True, keys=tuple(chosen))
 
 
-def _outward(facts: MoveFacts, moving: Sequence[str], target: str | None) -> Decision | None:
-    """Refus si une pièce déplacée est assemblée à une pièce qui ne sera pas avec elle."""
+def _split_assembly(
+    facts: MoveFacts, moving: Sequence[str], after: Sequence[str], *, free_ok: bool = False
+) -> tuple[str, str] | None:
+    """Première (pièce déplacée, pièce assemblée qui reste) dont l'assemblage sépare les deux
+    pièces (:func:`keeps_assembly`) une fois la pièce dans les ensembles ``after``. ``free_ok`` :
+    une pièce assemblée hors de tout ensemble ne compte pas (l'api la range avec la pièce)."""
     moved = set[str]().union(*(facts.pieces_under(key) for key in moving))
     for piece in sorted(moved):
         for other in sorted(facts.links.get(piece, frozenset()) - moved):
-            if target is None and other not in facts.parent:
+            if free_ok and other not in facts.parent:
                 continue
-            if target is not None and target in facts.chain(other):
-                continue
-            names = {"piece": facts.label(piece), "other": facts.label(other)}
-            if target is not None:
-                return _refuse(_OUTWARD_INTO, target=facts.label(target), **names)
-            return _refuse(_OUTWARD_OUT, furniture=facts.label(facts.parent[other]), **names)
+            if not keeps_assembly(after, facts.chain(other)):
+                return piece, other
     return None
+
+
+def _outward(facts: MoveFacts, moving: Sequence[str], target: str | None) -> Decision | None:
+    """Refus si une pièce déplacée est assemblée à une pièce qui ne sera pas avec elle."""
+    after = [] if target is None else [target, *facts.chain(target)]
+    split = _split_assembly(facts, moving, after)
+    if split is None:
+        return None
+    names = {"piece": facts.label(split[0]), "other": facts.label(split[1])}
+    if target is not None:
+        return refuse(_OUTWARD_INTO, target=facts.label(target), **names)
+    return refuse(_OUTWARD_OUT, furniture=facts.label(facts.parent[split[1]]), **names)
 
 
 def _in_place(facts: MoveFacts, movers: Sequence[str], target: str | None) -> Decision:
     first = movers[0]
     if target is None:
-        return _refuse(_ALREADY_FREE, item=facts.label(first))
-    return _refuse(_ALREADY_IN, item=facts.label(first), target=facts.label(target))
+        return refuse(_ALREADY_FREE, item=facts.label(first))
+    return refuse(_ALREADY_IN, item=facts.label(first), target=facts.label(target))
 
 
 def _bad_target(facts: MoveFacts, target: str | None) -> Decision | None:
@@ -254,8 +239,8 @@ def _bad_target(facts: MoveFacts, target: str | None) -> Decision | None:
     if target is None:
         return None
     if target in facts.copies:
-        return _refuse(_COPY_TARGET, item=facts.label(target))
-    return None if target in facts.furnitures else _refuse(_NOT_MOVABLE)
+        return refuse(_COPY_TARGET, item=facts.label(target))
+    return None if target in facts.furnitures else refuse(_NOT_MOVABLE)
 
 
 def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> Decision:
@@ -271,7 +256,7 @@ def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> De
         return refusal
     for key in movers:
         if target is not None and (key == target or key in facts.chain(target)):
-            return _refuse(_CYCLE, item=facts.label(key), target=facts.label(target))
+            return refuse(_CYCLE, item=facts.label(key), target=facts.label(target))
     moving = [key for key in movers if facts.parent.get(key) != target]
     if not moving:
         return _in_place(facts, movers, target)
@@ -282,13 +267,17 @@ def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> De
 
 def decide_create(facts: MoveFacts, keys: Iterable[str]) -> Decision:
     """« Créer un (sous-)ensemble depuis la sélection » (ADR 0037) : permis si les éléments sont
-    tous hors ensemble (nouvel ensemble) ou tous dans le même ensemble (sous-ensemble). Les
-    assemblages restent rangés dans l'ensemble parent : aucun contrôle d'assemblage ici."""
+    tous hors ensemble (nouvel ensemble) ou tous dans le même ensemble (sous-ensemble). Le nouvel
+    ensemble a son propre Std Part : une pièce assemblée à une pièce qui reste dans l'ensemble
+    parent ne peut pas y entrer seule (:func:`keeps_assembly`), comme pour un dépôt ; une pièce
+    assemblée à une pièce hors ensemble est rangée avec elle (ADR 0038)."""
     chosen = top_level(facts, keys)
     if (refusal := _movable(facts, chosen)) is not None:
         return refusal
     if len({facts.parent.get(key) for key in chosen}) != 1:
-        return _refuse(_NOT_SAME)
+        return refuse(_NOT_SAME)
+    if (split := _split_assembly(facts, chosen, [""], free_ok=True)) is not None:
+        return refuse(_OUTWARD_NEW, piece=facts.label(split[0]), other=facts.label(split[1]))
     return Decision(True, keys=tuple(chosen))
 
 
@@ -304,11 +293,11 @@ def decide_delete(keys: Sequence[str], *, busy: bool, foreign: Collection[str] =
     (comme les commandes de l'atelier). Les fenêtres d'avertissement sont celles de l'arbre
     natif. Un objet d'un autre atelier (``foreign``) n'est jamais supprimé d'ici."""
     if busy:
-        return _refuse(BUSY)
+        return refuse(BUSY)
     if not keys:
-        return _refuse(_NOTHING)
+        return refuse(_NOTHING)
     if any(key in foreign for key in keys):
-        return _refuse(_FOREIGN)
+        return refuse(_FOREIGN)
     return Decision(True, keys=tuple(dict.fromkeys(keys)))
 
 
@@ -316,22 +305,22 @@ def decide_open(keys: Sequence[str], *, busy: bool, foreign: Collection[str] = (
     """« Ouvrir » (équivaut au double-clic) : une seule ligne, aucun panneau de tâche ouvert ;
     jamais pour un objet d'un autre atelier (``foreign``) : l'éditer, c'est le modifier."""
     if len(keys) != 1:
-        return _refuse(_ONE_ROW if keys else _NOTHING)
+        return refuse(_ONE_ROW if keys else _NOTHING)
     if keys[0] in foreign:
-        return _refuse(_FOREIGN)
+        return refuse(_FOREIGN)
     if busy:
-        return _refuse(BUSY)
+        return refuse(BUSY)
     return Decision(True, keys=tuple(keys))
 
 
 def decide_rename_target(facts: MoveFacts, keys: Sequence[str]) -> Decision:
     """« Renommer » est proposé : une seule ligne, pièce ou ensemble du document."""
     if len(keys) != 1:
-        return _refuse(_ONE_ROW if keys else _NOTHING)
+        return refuse(_ONE_ROW if keys else _NOTHING)
     if keys[0] in facts.foreign:
-        return _refuse(_FOREIGN)
+        return refuse(_FOREIGN)
     if keys[0] not in facts.labels:
-        return _refuse(_NOT_RENAMABLE)
+        return refuse(_NOT_RENAMABLE)
     return Decision(True, keys=tuple(keys))
 
 
@@ -340,32 +329,6 @@ def plain_tooltip(text: str) -> str:
     qui commence par une balise, donc les chevrons sont échappés et le texte est enveloppé
     dans une balise (sans quoi les entités s'afficheraient en toutes lettres)."""
     return f"<span>{html.escape(text, quote=False)}</span>"
-
-
-def cleaned_name(text: str) -> str:
-    """Nom saisi, sans les espaces autour."""
-    return text.strip()
-
-
-def decide_rename(old: str, text: str, *, furniture: bool) -> Decision:
-    """« Renommer » en ``text`` : refusé s'il est vide, trop long, avec un caractère de contrôle,
-    ou (ensemble) inutilisable dans une expression (le libellé d'un ensemble y est cité) ; sans
-    message s'il ne change pas."""
-    name = cleaned_name(text)
-    if not name:
-        return _refuse(_EMPTY_NAME)
-    if len(name) > MAX_NAME_LENGTH:
-        return _refuse(_NAME_TOO_LONG, count=str(len(name)), maximum=str(MAX_NAME_LENGTH))
-    if has_forbidden_character(name):
-        return _refuse(_FORBIDDEN_NAME)
-    if furniture:
-        try:
-            label_reference(name)
-        except FurnitureError as error:
-            return Decision(False, error.template, dict(error.params))
-    if name == old:
-        return Decision(False)
-    return Decision(True)
 
 
 def drop_target(path: Iterable[tuple[NodeKind, str]]) -> str | None:

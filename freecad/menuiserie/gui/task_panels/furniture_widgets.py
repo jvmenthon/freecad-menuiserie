@@ -100,10 +100,10 @@ def quantity_field(name: str, minimum: float) -> Widget:
     return field
 
 
-def locked_check() -> Widget:
-    """Case « Cotes fixes » du membre choisi (ADR 0019)."""
+def locked_check(name: str = "lockedCheck") -> Widget:
+    """Case « Cotes fixes » du membre choisi (ADR 0019), ou de l'ensemble lui-même (``name``)."""
     check = QtGui.QCheckBox(translated(_LOCKED))
-    check.setObjectName("lockedCheck")
+    check.setObjectName(name)
     check.setToolTip(translated(_LOCKED_TIP))
     return check
 
