@@ -734,3 +734,16 @@ def test_aucun_cycle_de_dependance(document: Any) -> None:
         assert obj not in obj.OutListRecursive, obj.Name
     document.recompute()
     assert stale_or_invalid(document) == []
+
+
+def test_suivre_le_redimensionnement_avec_intervalle_avant_la_fin(document: Any) -> None:
+    """« Intervalle avant la fin » (jv, 2026-11-10) : la longueur suivie est partagée en autant
+    d'intervalles que d'éléments, sans déduire l'épaisseur."""
+    meuble = Meuble(document)
+    rep = meuble.repeat(follow_resize=True, end_gap=True)
+    assert rep.EndGap is True and engine(rep)["Step"] == "(Span - 0 mm) / 3"
+    assert (rep.Span.Value, rep.Step.Value) == (450.0, 150.0)  # rien ne bouge à l'écriture
+    api.resize_furniture(meuble.furniture, height=900)
+    assert rep.Step.Value == pytest.approx(210.0)
+    assert heights(rep) == above(meuble.shelf, 210, 420)
+    assert stale_or_invalid(document) == []

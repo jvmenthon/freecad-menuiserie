@@ -22,10 +22,11 @@ from freecad.menuiserie.features.freecad_types import READ_ONLY
 from freecad.menuiserie.features.repeat_props import GROUP, LINE_COUNT, line_name
 from freecad.menuiserie.features.schema import PropertySpec
 
-__all__ = ["DEDUCT_PROPERTY", "HOLDERS_PROPERTY", "STOP_PROPERTIES"]
+__all__ = ["DEDUCT_PROPERTY", "GAP_PROPERTY", "HOLDERS_PROPERTY", "STOP_PROPERTIES"]
 
 DEDUCT_PROPERTY: Final = "DeductThickness"
 HOLDERS_PROPERTY: Final = "StopHolders"
+GAP_PROPERTY: Final = "EndGap"
 
 
 def _line_specs(line: int) -> tuple[PropertySpec, PropertySpec]:
@@ -77,6 +78,18 @@ STOP_PROPERTIES: Final = (
             "copie arrive à fleur de la fin. Décochée, elle commence à la fin de la longueur.",
         ),
         default=True,
+        mode=READ_ONLY,
+    ),
+    PropertySpec(
+        GAP_PROPERTY,
+        "App::PropertyBool",
+        GROUP,
+        QT_TRANSLATE_NOOP(
+            "App::Property",
+            "Modes sur une longueur : les éléments partagent la longueur en autant d'intervalles "
+            "égaux ; la dernière pièce s'arrête un intervalle avant la fin.",
+        ),
+        default=False,
         mode=READ_ONLY,
     ),
 )

@@ -64,7 +64,11 @@ from freecad.menuiserie.features.repeat_props import (
     REPEAT_PROPERTIES,
     line_name,
 )
-from freecad.menuiserie.features.repeat_stop_props import DEDUCT_PROPERTY, STOP_PROPERTIES
+from freecad.menuiserie.features.repeat_stop_props import (
+    DEDUCT_PROPERTY,
+    GAP_PROPERTY,
+    STOP_PROPERTIES,
+)
 
 __all__ = [
     "COPY_PROPERTIES",
@@ -285,6 +289,7 @@ def stored_params(repeat: DocumentObject) -> RepeatParams:
         copy_joints=bool(repeat.CopyJoints),
         follow_resize=bool(repeat.FollowResize),
         deduct_thickness=bool(getattr(repeat, DEDUCT_PROPERTY, True)),
+        end_gap=bool(getattr(repeat, GAP_PROPERTY, False)),
     )
 
 
@@ -326,6 +331,7 @@ def write_params(repeat: DocumentObject, params: RepeatParams, grid: ResolvedGri
         "CopyJoints": params.copy_joints,
         "FollowResize": params.follow_resize,
         DEDUCT_PROPERTY: params.deduct_thickness,
+        GAP_PROPERTY: params.end_gap,
     }
     spans = {line.axis: line for line in params.lines}
     for index in range(LINE_COUNT):

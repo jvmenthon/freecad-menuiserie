@@ -45,7 +45,6 @@ from freecad.menuiserie.core.repeat._model import (
 )
 from freecad.menuiserie.core.repeat._stop import (
     StopKind,
-    farthest_axis,
     stop_kind,
     stop_reverse,
     stop_span,
@@ -70,7 +69,6 @@ __all__ = [
     "axis_index",
     "cell_offsets",
     "cells_of",
-    "farthest_axis",
     "grid_overlaps",
     "grid_text",
     "offsets",

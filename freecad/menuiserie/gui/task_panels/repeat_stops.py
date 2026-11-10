@@ -22,7 +22,6 @@ from freecad.menuiserie.features.repeat_stop import (
     Stop,
     Stops,
     start_axis,
-    stop_axis,
     stop_text,
 )
 from freecad.menuiserie.features.repeat_stop_raw import raw_stop
@@ -106,7 +105,6 @@ class StopControls:
     ) -> None:
         self.stops: dict[RepeatAxis, Stop] = {}
         self._sources = sources
-        self._auto = False  # choix à l'ouverture : l'axe est déduit de la butée
         self._rows = rows
         self._changed = changed
         self._picker = StopPicker(document, self._picked)
@@ -135,15 +133,8 @@ class StopControls:
             self._rows[axis].show_stop(None, picking=True)
             self._picker.start()
 
-    def pick_auto(self) -> None:
-        """Choix à l'ouverture du panneau de création, sans axe : le premier clic dans la vue 3D
-        donne la butée et l'axe (celui où elle est le plus loin des pièces), seul axe actif."""
-        self.pick(RepeatAxis.X)
-        self._auto = True
-
     def cancel(self) -> None:
         """Choix abandonné : l'observateur est retiré."""
-        self._auto = False
         self._picker.cancel()
         axis, self._picking = self._picking, None
         if axis is not None:
@@ -156,19 +147,14 @@ class StopControls:
 
     def _picked(self, stop: Stop) -> None:
         axis, self._picking = self._picking, None
-        auto, self._auto = self._auto, False
         if axis is None or self._closed:
             return
         start = self._start_of(stop)
-        if (
-            start is not None
-        ):  # face de la pièce répétée : point de départ, la butée reste à choisir
+        if start is not None:  # face de la pièce répétée : départ, la butée reste à choisir
             self._activate(start, axis)
             self.pick(start)
             self._changed()
             return
-        if auto:
-            axis = self._axis_of(stop, axis)
         self.stops[axis] = stop
         self.show(axis)
         self._changed()
@@ -185,22 +171,12 @@ class StopControls:
         l'épaisseur » passe dans l'autre état ; si le problème reste, elle revient à son état
         initial (le refus ou l'avertissement restent affichés)."""
         box, trouble = self._deduct, self._trouble()
-        if box is None or not any(trouble):
+        if box is None or not box.isEnabled() or not any(trouble):
             return
         before = box.isChecked()
         box.setChecked(not before)
         if self._trouble() >= trouble:  # pas mieux (un refus est pire qu'un chevauchement)
             box.setChecked(before)
-
-    def _axis_of(self, stop: Stop, default: RepeatAxis) -> RepeatAxis:
-        """Axe déduit de ``stop`` (``default`` si elle est refusée : le refus sera affiché), rendu
-        seul actif ; le nombre de l'axe abandonné est repris."""
-        try:
-            axis = stop_axis(stop, self._sources())
-        except ValueError:
-            return default
-        self._activate(axis, default)
-        return axis
 
     def _activate(self, axis: RepeatAxis, previous: RepeatAxis) -> None:
         """``axis`` devient le seul axe actif, avec le nombre de ``previous``."""

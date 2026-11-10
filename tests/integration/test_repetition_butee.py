@@ -323,3 +323,15 @@ def test_butee_hors_du_conteneur(document: Any) -> None:
     mur_zone.Placement = App.Placement(App.Vector(1300, 0, 0), App.Rotation())
     document.recompute()
     assert rep.Span.Value == 1300.0 and stale_or_invalid(document) == []
+
+
+def test_intervalle_avant_la_butee(document: Any, scene: Any) -> None:
+    """Demande de jv : 3 éléments jusqu'à la butée (X = 300) partagent 300 mm en 3 intervalles ;
+    la dernière copie s'arrête à 230, un intervalle avant la butée."""
+    barreau, butee = scene
+    rep = api.make_repeat([barreau], on_span(3, end_gap=True), stops={X: api.Stop(butee)})
+    assert rep.EndGap is True and rep.Step.Value == 100.0 and xs(rep) == [100.0, 200.0]
+    butee.Placement = App.Placement(App.Vector(450, 0, 0), App.Rotation())
+    document.recompute()
+    assert rep.Step.Value == 150.0 and xs(rep) == [150.0, 300.0]
+    assert stale_or_invalid(document) == []

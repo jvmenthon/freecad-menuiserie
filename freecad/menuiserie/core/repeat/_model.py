@@ -216,6 +216,11 @@ class RepeatParams:
     historique), la cote des sources sur l'axe est déduite de la longueur et la dernière copie
     s'arrête **à fleur** de la fin de la longueur ; faux, elle ne l'est pas et la dernière copie
     **commence** à la fin de la longueur.
+
+    ``end_gap`` (modes « sur une longueur », demande de jv) : faux (défaut), ``n`` éléments
+    partagent la longueur en ``n - 1`` intervalles ; vrai, en ``n`` intervalles égaux : la
+    dernière pièce ne touche pas la fin, l'écart est celui des autres (``deduct_thickness`` ne
+    sert plus).
     """
 
     mode: RepeatMode = RepeatMode.LINEAR
@@ -228,6 +233,7 @@ class RepeatParams:
     copy_joints: bool = True
     follow_resize: bool = False
     deduct_thickness: bool = True
+    end_gap: bool = False
     grid: tuple[AxisRepeat, ...] = ()
 
     def __post_init__(self) -> None:

@@ -28,7 +28,6 @@ from freecad.menuiserie.core.repeat import (
     RepeatAxis,
     RepeatParams,
     SpacingMode,
-    farthest_axis,
     resolve_line,
     stop_kind,
     stop_reverse,
@@ -60,7 +59,6 @@ __all__ = [
     "follow_stops",
     "kept_stops",
     "start_axis",
-    "stop_axis",
     "stop_bounds",
     "stop_text",
     "stored_stops",
@@ -197,17 +195,6 @@ def start_axis(stop: Stop, sources: Sequence[DocumentObject]) -> RepeatAxis | No
     return flat[0] if len(flat) == 1 else None
 
 
-def stop_axis(stop: Stop, sources: Sequence[DocumentObject]) -> RepeatAxis:
-    """Axe vers la butée (le plus grand écart aux sources), pour un choix sans axe donné ;
-    ``ValueError`` traduite si la butée est refusée."""
-    checked_stop(stop, sources, None)
-    container = common_container(sources)
-    return farthest_axis(
-        {axis: source_bounds(sources, axis) for axis in RepeatAxis},
-        {axis: stop_bounds(stop, container, axis) for axis in RepeatAxis},
-    )
-
-
 def bounded_params(
     sources: Sequence[DocumentObject],
     params: RepeatParams,
@@ -242,7 +229,7 @@ def bounded_params(
                     high if reverse else low,
                     line.axis,
                     reverse=reverse,
-                    deduct=params.deduct_thickness,
+                    deduct=params.deduct_thickness and not params.end_gap,
                 )
             line = replace(line, span=span, reverse=reverse)
         lines.append(line)
@@ -389,6 +376,7 @@ def _apply_spans(repeat: DocumentObject, before: RepeatParams, after: RepeatPara
                 line,
                 source_extent(sources, axes[index]),
                 deduct=after.deduct_thickness,
+                gap=after.end_gap,
             )
         if after.spacing is SpacingMode.COUNT_ON_SPAN:
             if not has_expression(repeat, line_name("Step", index)):

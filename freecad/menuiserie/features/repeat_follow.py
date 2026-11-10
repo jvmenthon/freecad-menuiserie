@@ -86,17 +86,22 @@ def follow_furniture(sources: Sequence[DocumentObject]) -> DocumentObject:
 
 
 def follow_grid_params(
-    params: RepeatParams, grid: ResolvedGrid, extents: Mapping[RepeatAxis, float]
+    params: RepeatParams,
+    grid: ResolvedGrid,
+    extents: Mapping[RepeatAxis, float],
+    *,
+    gap: bool = False,
 ) -> RepeatParams:
     """Réglage écrit dans la répétition qui suit le redimensionnement : « nombre sur une
     longueur », avec, pour chaque axe, la longueur que donnent le nombre et le pas effectifs
-    (``extents`` : cote des sources sur chaque axe)."""
+    (``extents`` : cote des sources sur chaque axe ; ``gap`` : un intervalle de plus, avant la
+    fin)."""
     lines = tuple(
         AxisRepeat(
             line.axis,
             line.cells,
             line.step,
-            extents[line.axis] + line.count * line.step,
+            extents[line.axis] + (line.count + gap) * line.step,
             line.reverse,
         )
         for line in grid.axes
@@ -129,18 +134,25 @@ def unbind_follow(repeat: DocumentObject) -> None:
 
 
 def bind_follow_line(
-    repeat: DocumentObject, furniture: DocumentObject, line: int, axis: ResolvedAxis, extent: float
+    repeat: DocumentObject,
+    furniture: DocumentObject,
+    line: int,
+    axis: ResolvedAxis,
+    extent: float,
+    *,
+    gap: bool = False,
 ) -> None:
     """Écrit ``Span`` et ``Step`` de la ligne ``line`` (``Span2`` et ``Step2`` pour la deuxième…) en
     expressions : retraits actuels figés, nombre de copies en constante (il ne change que par
     l'API, qui réécrit alors ces expressions)."""
     size = _SIZE_OF_AXIS[axis.axis]
     span_name, step_name = line_name("Span", line), line_name("Step", line)
-    span = extent + axis.count * axis.step
+    divisions = axis.count + 1 if gap else axis.count  # ``gap`` : intervalle avant la fin
+    span = extent + divisions * axis.step
     margins = float(getattr(furniture, size).Value) - span
     sign = "-" if margins >= 0 else "+"
     repeat.setExpression(span_name, f"{furniture.Name}.{size} {sign} {_mm(margins)}")
-    repeat.setExpression(step_name, f"({span_name} - {_mm(extent)}) / {axis.count}")
+    repeat.setExpression(step_name, f"({span_name} - {_mm(extent)}) / {divisions}")
 
 
 def bind_follow_grid(
@@ -148,11 +160,13 @@ def bind_follow_grid(
     furniture: DocumentObject,
     grid: ResolvedGrid,
     extents: Mapping[RepeatAxis, float],
+    *,
+    gap: bool = False,
 ) -> None:
     """Chaque ligne de la grille suit la cote de ``furniture`` sur son axe
     (:func:`bind_follow_line`)."""
     for line, axis in enumerate(grid.axes):
-        bind_follow_line(repeat, furniture, line, axis, extents[axis.axis])
+        bind_follow_line(repeat, furniture, line, axis, extents[axis.axis], gap=gap)
 
 
 def bind_follow(

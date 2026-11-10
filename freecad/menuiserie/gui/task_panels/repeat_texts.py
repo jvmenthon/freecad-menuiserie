@@ -55,6 +55,13 @@ DEDUCT_TIP: Final = QT_TRANSLATE_NOOP(
     "longueur, la dernière copie arrive à fleur de la fin. Décochée : elle commence à la fin de "
     "la longueur (contre une butée, elle est alors en collision avec elle).",
 )
+GAP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Intervalle avant la fin")
+GAP_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Modes sur une longueur. Cochée : les éléments partagent la longueur en autant d'intervalles "
+    "égaux (au lieu d'un de moins) ; la dernière pièce ne touche pas la fin ni la butée, l'écart "
+    "est celui des autres pièces. « Déduire l'épaisseur » ne sert alors plus.",
+)
 STOP_COLLISION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Attention : l'épaisseur n'est pas déduite, la dernière copie commence à la butée de l'axe "

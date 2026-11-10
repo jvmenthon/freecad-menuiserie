@@ -10,9 +10,9 @@ from freecad.menuiserie.core.repeat import (
     RepeatAxis,
     RepeatError,
     RepeatParams,
+    Resolved,
     SpacingMode,
     StopKind,
-    farthest_axis,
     resolve,
     resolve_grid,
     stop_kind,
@@ -120,11 +120,21 @@ def test_sans_deduction_aucune_copie_ne_tient() -> None:
         resolve(params, 30.0)
 
 
-def test_axe_deduit_de_la_butee() -> None:
-    sources = {X: (0.0, 30.0), RepeatAxis.Y: (0.0, 20.0), RepeatAxis.Z: (0.0, 10.0)}
-    mur = {X: (300.0, 330.0), RepeatAxis.Y: (0.0, 20.0), RepeatAxis.Z: (0.0, 10.0)}
-    assert farthest_axis(sources, mur) is X
-    dessous = {X: (0.0, 30.0), RepeatAxis.Y: (-50.0, 70.0), RepeatAxis.Z: (-400.0, -380.0)}
-    assert farthest_axis(sources, dessous) is RepeatAxis.Z  # côté négatif aussi
-    cube = dict.fromkeys(RepeatAxis, (0.0, 10.0))
-    assert farthest_axis(cube, dict.fromkeys(RepeatAxis, (20.0, 30.0))) is X  # à égalité : X
+def test_intervalle_avant_la_fin_nombre_sur_une_longueur() -> None:
+    """Demande de jv : 3 éléments sur 900 mm partagent la longueur en 3 intervalles (pas 300),
+    la dernière pièce s'arrête un intervalle avant la fin ; la déduction ne compte plus."""
+    for deduct in (True, False):
+        params = on_span(900.0, count=3, end_gap=True, deduct_thickness=deduct)
+        assert resolve(params, 30.0) == Resolved(2, 300.0)
+    assert resolve(on_span(900.0, count=3), 30.0) == Resolved(2, 435.0)  # sans : à fleur
+
+
+def test_intervalle_avant_la_fin_pas_sur_une_longueur() -> None:
+    line = AxisRepeat(X, 2, step=300.0, span=900.0)
+    params = RepeatParams(spacing=SpacingMode.STEP_ON_SPAN, grid=(line,), end_gap=True)
+    assert resolve(params, 30.0) == Resolved(2, 300.0)  # 3 éléments, le 4e serait à la fin
+    short = RepeatParams(
+        spacing=SpacingMode.STEP_ON_SPAN, grid=(AxisRepeat(X, 2, 300.0, 500.0),), end_gap=True
+    )
+    with pytest.raises(RepeatError):
+        resolve(short, 30.0)  # un seul élément tient

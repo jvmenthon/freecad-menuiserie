@@ -28,7 +28,6 @@ from freecad.menuiserie.core.repeat import (
     RepeatAxis,
     RepeatError,
     RepeatParams,
-    ResolvedGrid,
     SpacingMode,
 )
 from freecad.menuiserie.core.text import quoted_value
@@ -53,8 +52,8 @@ from freecad.menuiserie.gui.task_panels.furniture_widgets import message_label, 
 from freecad.menuiserie.gui.task_panels.repeat_messages import overlap_text, summary_text
 from freecad.menuiserie.gui.task_panels.repeat_rows import (
     COLUMN_CAPTIONS,
-    DEFAULT_CELLS,
     AxisRow,
+    show_resolved,
     uses,
 )
 from freecad.menuiserie.gui.task_panels.repeat_stops import StopControls, collision_text
@@ -66,6 +65,8 @@ from freecad.menuiserie.gui.task_panels.repeat_texts import (
     FOLLOW,
     FOLLOW_DISABLED_TIP,
     FOLLOW_TIP,
+    GAP,
+    GAP_TIP,
     SPACING,
     SPACING_TIP,
     SPACINGS,
@@ -120,7 +121,6 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._connect()
         if repeat is None:
             self._update()  # aperçu des valeurs par défaut
-            self._stops.pick_auto()  # le premier clic dans la vue 3D est la butée
 
     # --- Construction ---------------------------------------------------------------------
 
@@ -146,6 +146,8 @@ class RepeatTaskPanel(TransactionTaskPanel):
         layout.addRow(self._follow)
         self._deduct = checkbox("deductThickness", DEDUCT, DEDUCT_TIP, True)
         layout.addRow(self._deduct)
+        self._gap = checkbox("endGap", GAP, GAP_TIP, False)
+        layout.addRow(self._gap)
         self._summary = message_label("summaryLabel", hint=True)
         self._warning = message_label("warningLabel", hint=True)
         self._warning.setStyleSheet(_WARNING_STYLE)
@@ -200,6 +202,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._steps_edited = set(lines)
         self._copy_joints.setChecked(bool(repeat.CopyJoints))
         self._deduct.setChecked(bool(getattr(repeat, "DeductThickness", True)))
+        self._gap.setChecked(bool(getattr(repeat, "EndGap", False)))
         self._stops.stops = stored_stops(repeat)
         self._follow.setChecked(bool(repeat.FollowResize) and self._follow.isEnabled())
 
@@ -213,7 +216,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
             connect(row.reverse, "toggled(bool)", self._update)
             connect(row.stop, "clicked()", partial(self._stops.pick, axis))
             connect(row.stop_clear, "clicked()", partial(self._stops.clear, axis))
-        for box in (self._copy_joints, self._follow, self._deduct):
+        for box in (self._copy_joints, self._follow, self._deduct, self._gap):
             connect(box, "toggled(bool)", self._update)
 
     # --- Lecture des saisies --------------------------------------------------------------
@@ -244,6 +247,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
                 copy_joints=self._copy_joints.isChecked(),
                 follow_resize=self._follow.isChecked() and self._follow.isEnabled(),
                 deduct_thickness=self._deduct.isChecked(),
+                end_gap=self._gap.isChecked(),
             )
 
     def _default_step(self, axis: RepeatAxis) -> float:
@@ -264,7 +268,9 @@ class RepeatTaskPanel(TransactionTaskPanel):
         for axis, row in self._rows.items():
             row.show_for(spacing)
             self._stops.show(axis)
-        self._deduct.setVisible(spacing is not SpacingMode.COUNT_AND_STEP)
+        for box in (self._deduct, self._gap):
+            box.setVisible(spacing is not SpacingMode.COUNT_AND_STEP)
+        self._deduct.setEnabled(not self._gap.isChecked())  # sans effet avec l'intervalle
 
     def _step_changed(self, axis: RepeatAxis, *_value: object) -> None:
         if not self._guard.active:
@@ -296,7 +302,8 @@ class RepeatTaskPanel(TransactionTaskPanel):
             params = bounded_params(sources, params, stops, self._repeat())
             grid = resolve_for(sources, params)
             self._apply(sources, params, stops)
-            self._show_resolved(params, grid)
+            with self._guard:
+                show_resolved(self._rows, self._stops.stops, params, grid)
             summary = summary_text(grid)
             warning = overlap_text(grid, source_extents(sources, [a.axis for a in grid.axes]))
             self._overlapping = bool(warning)
@@ -322,21 +329,6 @@ class RepeatTaskPanel(TransactionTaskPanel):
         """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""
         repeat = self._repeat()
         return "" if repeat is None else not_copied_warning(repeat)
-
-    def _show_resolved(self, params: RepeatParams, grid: ResolvedGrid) -> None:
-        """Valeur calculée par le mode de saisie (pas ou nombre), gardée dans son champ masqué :
-        elle est reprise si l'on change de mode. Une longueur donnée par une butée est affichée
-        (lecture seule)."""
-        with self._guard:
-            for resolved in grid.axes:
-                row = self._rows[resolved.axis]
-                if params.spacing is SpacingMode.COUNT_ON_SPAN:
-                    row.step.setProperty("rawValue", resolved.step)
-                elif params.spacing is SpacingMode.STEP_ON_SPAN:
-                    row.count.setValue(max(DEFAULT_CELLS, resolved.cells))
-            for line in params.lines:
-                if line.axis in self._stops.stops:
-                    self._rows[line.axis].span.setProperty("rawValue", line.span)
 
     def _apply(self, sources: Sequence[DocumentObject], params: RepeatParams, stops: Stops) -> None:
         """Copies de l'aperçu : répétition créée à la première saisie acceptée, ajustée ensuite

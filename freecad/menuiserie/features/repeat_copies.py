@@ -262,12 +262,16 @@ def apply_repeat(
     plan = _plan(grid, _previous_dims(repeat, grid))
     unbind_follow(repeat)
     # Suivi : la longueur suivie comprend la cote des sources seulement si elle est déduite.
-    followed = extents if params.deduct_thickness else dict.fromkeys(extents, 0.0)
-    written = follow_grid_params(params, grid, followed) if params.follow_resize else params
+    deducted = params.deduct_thickness and not params.end_gap
+    followed = extents if deducted else dict.fromkeys(extents, 0.0)
+    gap = params.end_gap
+    written = (
+        follow_grid_params(params, grid, followed, gap=gap) if params.follow_resize else params
+    )
     write_params(repeat, written, grid)
     write_stops(repeat, [line.axis for line in grid.axes], stops or {})
     if params.follow_resize:
-        bind_follow_grid(repeat, follow_furniture(sources), grid, followed)
+        bind_follow_grid(repeat, follow_furniture(sources), grid, followed, gap=gap)
     for source in sources:
         _drop_outside(repeat, source, plan)
     _renumber(repeat, plan.ranks)

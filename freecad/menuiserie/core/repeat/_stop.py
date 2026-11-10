@@ -11,7 +11,6 @@ arrive à fleur de la butée, sans elle elle **commence** à la butée.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
 from enum import Enum
 from typing import Final
 
@@ -24,7 +23,6 @@ __all__ = [
     "NOT_A_FACE",
     "TOO_CLOSE",
     "StopKind",
-    "farthest_axis",
     "stop_kind",
     "stop_reverse",
     "stop_span",
@@ -68,21 +66,6 @@ def stop_kind(sub: str) -> StopKind:
         raise RepeatError(NOT_A_FACE, {"sub": sub})
     kinds = {"Face": StopKind.FACE, "Edge": StopKind.EDGE}
     return next((kind for prefix, kind in kinds.items() if sub.startswith(prefix)), StopKind.VERTEX)
-
-
-def farthest_axis(
-    bounds: Mapping[RepeatAxis, tuple[float, float]],
-    stop_bounds: Mapping[RepeatAxis, tuple[float, float]],
-) -> RepeatAxis:
-    """Axe de la répétition déduit de la butée : celui où l'écart entre la butée et les sources
-    (``bounds`` et ``stop_bounds`` : bas, haut par axe) est le plus grand, d'un côté ou de
-    l'autre. À égalité, l'ordre X, Y, Z l'emporte."""
-
-    def gap(axis: RepeatAxis) -> float:
-        (low, high), (stop_low, stop_high) = bounds[axis], stop_bounds[axis]
-        return max(stop_low - high, low - stop_high)
-
-    return max(RepeatAxis, key=gap)  # max garde le premier à égalité
 
 
 def stop_reverse(bounds: tuple[float, float], stop_bounds: tuple[float, float]) -> bool:

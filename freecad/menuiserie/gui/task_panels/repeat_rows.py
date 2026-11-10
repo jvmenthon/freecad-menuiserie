@@ -11,17 +11,25 @@ la grille.
 
 from __future__ import annotations
 
+from collections.abc import Collection, Mapping
 from typing import Final
 
 from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.repeat import MAX_COPIES, AxisRepeat, RepeatAxis, SpacingMode
+from freecad.menuiserie.core.repeat import (
+    MAX_COPIES,
+    AxisRepeat,
+    RepeatAxis,
+    RepeatParams,
+    ResolvedGrid,
+    SpacingMode,
+)
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.task_panels.base import Widget
 from freecad.menuiserie.gui.task_panels.furniture_widgets import quantity_field
 
-__all__ = ["COLUMN_CAPTIONS", "AxisRow", "uses"]
+__all__ = ["COLUMN_CAPTIONS", "AxisRow", "show_resolved", "uses"]
 
 DEFAULT_CELLS: Final = 2  # nombre proposé à l'activation d'un axe
 _ACTIVE_TIP: Final = QT_TRANSLATE_NOOP(
@@ -170,3 +178,23 @@ class AxisRow:
             widget.setVisible(name in used)
             widget.setEnabled(active and not (name == "span" and self.stopped))
         self.reverse.setEnabled(active and not self.stopped)
+
+
+def show_resolved(
+    rows: Mapping[RepeatAxis, AxisRow],
+    stopped: Collection[RepeatAxis],
+    params: RepeatParams,
+    grid: ResolvedGrid,
+) -> None:
+    """Valeur calculée par le mode de saisie (pas ou nombre), gardée dans son champ masqué : elle
+    est reprise si l'on change de mode. La longueur d'un axe à butée (``stopped``) est affichée
+    (lecture seule). Les signaux sont à bloquer par l'appelant (garde du panneau)."""
+    for resolved in grid.axes:
+        row = rows[resolved.axis]
+        if params.spacing is SpacingMode.COUNT_ON_SPAN:
+            row.step.setProperty("rawValue", resolved.step)
+        elif params.spacing is SpacingMode.STEP_ON_SPAN:
+            row.count.setValue(max(DEFAULT_CELLS, resolved.cells))
+    for line in params.lines:
+        if line.axis in stopped:
+            rows[line.axis].span.setProperty("rawValue", line.span)
