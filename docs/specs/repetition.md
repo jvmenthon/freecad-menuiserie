@@ -299,7 +299,8 @@ peut être **calculée jusqu'à une butée** au lieu d'être saisie.
 - **Sens** (jv, 2026-11-10) : déduit de la butée, la répétition va toujours vers elle ; la case
   « Inverser » est grisée tant qu'une butée est choisie. Une butée qui chevauche l'original est
   refusée.
-- **Ouverture de « Répéter »** (jv, 2026-11-10) : « nombre sur une longueur », 2 éléments ; aucune
+- **Ouverture de « Répéter »** (jv, 2026-11-10) : « nombre sur une longueur », 2 éléments, aucune
+  copie avant la première saisie (« OK » grisé jusque-là) ; aucune
   butée n'est choisie d'office (le choix automatique à l'ouverture a été retiré à la demande de jv).
 - **Case « Intervalle avant la fin »** (jv, 2026-11-10 ; propriété `EndGap`) : `n` éléments
   partagent la longueur en `n` intervalles égaux au lieu de `n - 1` ; la dernière pièce s'arrête

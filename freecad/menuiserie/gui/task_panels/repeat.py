@@ -118,9 +118,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._build()
         self._stops.settle_with(self._deduct, partial(attrgetter("_refused", "_overlapping"), self))
         self._fill(repeat)
-        self._connect()
-        if repeat is None:
-            self._update()  # aperçu des valeurs par défaut
+        self._connect()  # création : aucune copie avant la première saisie (demande de jv)
 
     # --- Construction ---------------------------------------------------------------------
 
@@ -353,9 +351,10 @@ class RepeatTaskPanel(TransactionTaskPanel):
             self._repeat_name = None
 
     def _refresh_ok(self) -> None:
-        """« OK » grisé tant que la saisie est refusée (sans effet panneau fermé ou pas affiché)."""
+        """« OK » grisé tant que la saisie est refusée ou qu'aucune copie n'existe (sans effet
+        panneau fermé ou pas affiché)."""
         if not self.closed:
-            set_ok_enabled(self.form, not self._refused)
+            set_ok_enabled(self.form, not self._refused and self._repeat() is not None)
 
     # --- Cycle de vie (FreeCAD) -----------------------------------------------------------
 

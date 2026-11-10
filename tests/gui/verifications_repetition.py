@@ -149,16 +149,19 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
     barreau = source(doc)
     lancer(REPETER, barreau)  # réglages d'ouverture vérifiés ici
     form = panneau()
-    rep = doc.getObject("Repeat")
-    if form is None or rep is None:
-        return ["panneau « Répéter » non ouvert ou aperçu absent"]
+    if form is None:
+        return ["panneau « Répéter » non ouvert"]
     problemes = [
         *ecarts("ouverture : mode", widget(form, "spacing").currentData(), "CountOnSpan"),
         *ecarts("ouverture : 2 éléments", widget(form, "countX").value(), 2),
         *ecarts("ouverture : aucun choix de butée", widget(form, "stopX").isDown(), False),
-        *ecarts("aperçu à l'ouverture", positions_x(rep), [300.0]),
+        *ecarts("ouverture : aucune copie", doc.getObject("Repeat"), None),
+        *ecarts("ouverture : « OK » grisé", bouton_ok().isEnabled(), False),
     ]
     retablir(form)
+    rep = doc.getObject("Repeat")
+    if rep is None:
+        return [*problemes, "aperçu absent après la première saisie"]
     problemes += [
         *ecarts("titre", form.windowTitle(), "Répéter « Barreau »"),
         *ecarts("aperçu rétabli", positions_x(rep), [300.0 * k for k in (1, 2, 3)]),
