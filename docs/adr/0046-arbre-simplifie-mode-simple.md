@@ -150,6 +150,56 @@ ou ne sont pas montrés, au choix du lot 1.
 - L'arbre natif reste complet : le débutant peut le voir à côté ; on peut proposer d'ouvrir le
   panneau en onglet de la vue combinée.
 
+## Sélection et tâche en cours
+
+Demande de jv : cliquer une ligne rend l'objet transparent « comme en cas de modification, mais
+d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règle d'abord la tâche.
+
+- **Deux calques d'affichage indépendants** (`core/display_layers`, `gui/display_layers`). La
+  transparence de la tâche en cours (« édition », 60 %, couleur d'origine, ADR 0011) et celle de la
+  ligne sélectionnée (« sélection », 50 %, teinte bleu clair `SELECTION_TINT`, le bois n'étant
+  jamais bleu) sont deux calques d'une même pile par objet. L'état d'origine (transparence et
+  couleur diffuse) est retenu **une fois**, au premier calque posé, et n'est rendu qu'au retrait du
+  dernier : aucun calque ne restaure ni n'écrase l'autre. Si l'objet porte les deux, l'édition
+  l'emporte visuellement (priorité). `PartsPreview` (édition) passe par le même gestionnaire
+  (`DISPLAY`, cache explicite et réinitialisable). Une propriété modifiée par un tiers pendant un
+  calque devient la nouvelle origine, jamais écrasée par l'ancienne valeur.
+- **Étendue** (`core/structure_highlight`, `features/highlight_targets`) : une pièce, ses
+  objets affichés (la pièce usinée à la place de sa brute) ; un ensemble, toutes ses pièces et
+  celles de ses sous-ensembles ; un assemblage ou une quincaillerie, ses deux pièces. Les nœuds
+  repliés, la liste de débit et les objets d'autres ateliers ne mettent rien en évidence.
+  Seul le choix d'une ligne par l'utilisateur rend transparent : une sélection faite dans l'arbre natif ou la 3D ne change aucun affichage, et reprise par le panneau elle retire la transparence du choix précédent.
+- **Sorties.** Les propriétés du ViewObject sont enregistrées dans le fichier et dans la transaction
+  ouverte : (1) l'écriture se fait hors transaction (`outside_transaction` du panneau : la
+  transaction d'une modification encore inchangée est refermée puis rouverte, « OK » sans
+  changement ne laisse donc aucune entrée d'annulation ; modifiée ou en création, l'écriture est
+  fusionnée dans la transaction) ; (2) l'origine est rendue avant tout enregistrement du document
+  (`slotStartSaveDocument`) et les calques reposés après ; (3) objet supprimé, document fermé :
+  calque oublié sans écriture ; (4) calque de sélection retiré à la désélection, au masquage ou à
+  la destruction du panneau ; calque d'édition retiré à toute fermeture de la tâche. L'observateur
+  de document n'existe que tant qu'un calque existe (ADR 0007).
+- **Déplacer et tourner à la souris** depuis une ligne : les flèches et anneaux (ADR 0038, #65,
+  #117) suivent `Gui.Selection` par un observateur ; le panneau écrit dans cette sélection, ils
+  s'activent donc déjà comme pour une sélection faite en 3D, avec les mêmes conditions (un seul
+  objet sélectionné, aucune tâche ouverte). Aucun branchement n'a été nécessaire ; le calque de
+  sélection est un affichage sans lien avec leurs nœuds Coin ni leurs transactions. Contrôlé par
+  `tests/gui/verifications_structure_selection.py`.
+- **Double-clic pendant une tâche** (`core/task_switch`, `gui/structure_switch`). Le panneau de
+  l'atelier ouvert s'inscrit dans `gui/task_panels/active` (FreeCAD ne rend pas le panneau Python) :
+  une tâche non inscrite est d'un autre atelier et le double-clic est refusé avec un message. Sinon :
+  sans modification, la tâche est fermée comme « Annuler » (rien n'est écrit) puis la pièce s'ouvre ;
+  avec des modifications, une boîte (texte brut) propose « Appliquer les modifications » (« OK » de la
+  tâche, puis la pièce), « Annuler les modifications » (« Annuler » de la tâche : rien n'est
+  conservé, aucune entrée d'annulation, puis la pièce) ou « Poursuivre la tâche en cours » (Échap et
+  fermeture de la boîte valent ce bouton : on reste sur la tâche). Une tâche de création est toujours
+  traitée comme modifiée (« Annuler » supprimerait l'objet). Si « OK » est refusé (erreur à
+  corriger), on reste sur la tâche.
+- **Détecter « modifié ».** FreeCAD n'indique pas si la transaction ouverte est vide. Le panneau
+  prend à son ouverture une photo des propriétés saisies de tous les objets (`features/document_snapshot`,
+  filtre pur `core/document_state` : ni `Output`, ni lecture seule, ni forme, ni proxy, ni visibilité)
+  et la compare à la demande : lecture seule, la transaction et Ctrl+Z ne sont pas touchés, un
+  recalcul n'est pas une modification.
+
 ## Lots proposés
 
 1. Panneau « Structure » en lecture seule (ensembles, pièces, « Assemblages (N) ») et commande

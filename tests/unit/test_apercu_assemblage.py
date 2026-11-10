@@ -58,9 +58,19 @@ def test_pieces_transparentes_puis_transparence_d_origine_retablie() -> None:
 def test_une_piece_deja_a_60_retrouve_sa_valeur() -> None:
     piece = FakeObject("Piece", 60)
     preview = Scene(piece).preview()
-    piece.ViewObject.Transparency = 80
+    assert piece.transparency == 60  # déjà à la valeur de l'aperçu : rien n'est écrit
     preview.restore()
     assert piece.transparency == 60
+
+
+def test_une_valeur_changee_par_un_tiers_pendant_l_apercu_est_gardee() -> None:
+    """Changement fait par l'utilisateur pendant le panneau : il devient l'origine, la
+    restauration ne l'écrase pas par l'ancienne valeur (``core/display_layers``)."""
+    piece = FakeObject("Piece", 25)
+    preview = Scene(piece).preview()
+    piece.ViewObject.Transparency = 80
+    preview.restore()
+    assert piece.transparency == 80
 
 
 def test_objet_affiche_qui_change_pendant_l_edition() -> None:
@@ -134,7 +144,7 @@ def test_le_panneau_d_assemblage_rend_les_pieces_transparentes() -> None:
         n for n in joint.body if isinstance(n, ast.ClassDef) and n.name == "JointTaskPanel"
     )
     methods = {n.name: ast.unparse(n) for n in panel.body if isinstance(n, ast.FunctionDef)}
-    assert "PartsPreview(self._shown_parts, object_alive)" in methods["__init__"]
+    assert "PartsPreview(self._shown_parts, object_alive, DISPLAY)" in methods["__init__"]
     assert "shown_object" in methods["_shown_parts"]
     assert "super().preview()" in methods["preview"]
     assert "_transparency.sync()" in methods["preview"]
@@ -163,6 +173,8 @@ def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture()
     methods = {n.name: ast.unparse(n) for n in cls.body if isinstance(n, ast.FunctionDef)}
     assert "_apply_styles()" in methods["watch_document"]
     assert "PartsPreview(self.transparent_objects" in methods["_apply_styles"]
+    assert "DISPLAY" in methods["_apply_styles"]
+    assert "outside_transaction" in methods["_apply_styles"]
     assert "_restore_styles()" in methods["_finish"]
     assert "_restore_styles()" in methods["_clean_up_after_forced_close"]
 

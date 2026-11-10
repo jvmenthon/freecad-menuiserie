@@ -37,7 +37,7 @@ from freecad.menuiserie.features.i18n import translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import machined_part_of
 
-__all__ = ["MemberView", "furniture_children", "member_views", "shown_object"]
+__all__ = ["MemberView", "furniture_children", "member_views", "pieces_below", "shown_object"]
 
 
 @dataclass(frozen=True)
@@ -101,11 +101,11 @@ def member_views(furniture: DocumentObject) -> tuple[tuple[MemberView, ...], tup
     return views, notice_messages([*notices, *formulas])
 
 
-def _pieces_below(furniture: DocumentObject) -> list[DocumentObject]:
+def pieces_below(furniture: DocumentObject) -> list[DocumentObject]:
     """Pièces de ``furniture`` et de ses sous-ensembles (sans les ensembles)."""
     found: list[DocumentObject] = []
     for member in members_of(furniture):
-        found.extend(_pieces_below(member) if is_furniture(member) else [member])
+        found.extend(pieces_below(member) if is_furniture(member) else [member])
     return found
 
 
@@ -116,7 +116,7 @@ def furniture_children(furniture: DocumentObject) -> list[DocumentObject]:
     members = members_of(furniture)
     joints = {
         parent.Name: parent
-        for piece in _pieces_below(furniture)
+        for piece in pieces_below(furniture)
         for parent in piece.InList
         if is_joint(parent)
         and parent.HostPart is not None
