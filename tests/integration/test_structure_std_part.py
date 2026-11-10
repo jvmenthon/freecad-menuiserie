@@ -125,22 +125,35 @@ def test_commande_retirer_garde_aussi_les_proprietes(document: Any) -> None:
 # --- Sous-ensemble et assemblage (M1) ----------------------------------------------------------
 
 
-def test_sous_ensemble_d_une_piece_assemblee_a_une_piece_du_parent_est_refuse(
-    document: Any,
-) -> None:
-    """Joue gauche est assemblée au voile (tous deux dans Bureau) : FreeCAD rangerait le voile
-    avec elle dans le Std Part du sous-ensemble (fermeture de liens, ADR 0038) ; refusé avant
-    toute modification. Avec le voile et les deux joues, le sous-ensemble se crée."""
+def joints_of(desk: Any) -> list[str]:
+    return [joint.Name for joint in desk.joints]
+
+
+def test_sous_ensemble_d_une_seule_piece_assemblee_ne_cree_rien(document: Any) -> None:
+    """Joue gauche est assemblée au voile (tous deux dans Bureau) : seule, elle reste dans Bureau
+    avec le voile (même Std Part) ; il ne reste rien à ranger dans le sous-ensemble, refusé avant
+    toute modification, avec la raison."""
     desk = build_desk(document)
     before = geometry(document)
-    with pytest.raises(ValueError, match="assemblée"):
+    count = len([o for o in document.Objects if o.TypeId == "App::Part"])
+    with pytest.raises(ValueError, match=r"Rien à créer.*reste dans « Bureau »"):
         api.make_furniture([desk.shown("JG")], "Tiroir")
     assert api.furniture_of(desk.parts["JG"]) == desk.furniture
     assert holder(desk.parts["JG"]) == std_part(desk.furniture)
+    assert len([o for o in document.Objects if o.TypeId == "App::Part"]) == count
     assert geometry(document) == before
+
+
+def test_sous_ensemble_des_pieces_assemblees_ensemble_s_annule_et_se_retablit(
+    document: Any,
+) -> None:
+    """Joue gauche, joue droite et voile (assemblés) forment un sous-ensemble."""
+    desk = build_desk(document)
+    before = geometry(document)
     chosen = [desk.shown(mark) for mark in ("JG", "JD", "V")]
     sub, _ = transaction(document, "Sous-ensemble", partial(api.make_furniture, chosen, "Tiroir"))
     assert sub.Furniture == desk.furniture and holder(desk.parts["V"]) == std_part(sub)
+    assert holder(desk.parts["P"]) == std_part(desk.furniture)
     assert geometry(document) == before
     assert stale_or_invalid(document) == []
     document.undo()
@@ -149,19 +162,78 @@ def test_sous_ensemble_d_une_piece_assemblee_a_une_piece_du_parent_est_refuse(
     assert holder(desk.parts["JG"]) == std_part(desk.furniture)
     assert geometry(document) == before
     assert stale_or_invalid(document) == []
+    document.redo()
+    document.recompute()
+    assert api.furniture_of(desk.parts["JG"]).Label == "Tiroir"
+    assert holder(desk.parts["JG"]).Label == "Tiroir (Std Part)"
+    assert stale_or_invalid(document) == []
 
 
-def test_ranger_dans_un_sous_ensemble_une_piece_assemblee_a_une_piece_du_parent_est_refuse(
+def test_sous_ensemble_laisse_dans_le_parent_la_piece_assemblee_a_une_piece_du_parent(
     document: Any,
 ) -> None:
+    """Plateau (libre de tout assemblage) et joue gauche (assemblée au voile, resté dans Bureau) :
+    le sous-ensemble ne reçoit que le plateau, la joue reste dans Bureau, avec un avertissement."""
+    desk = build_desk(document)
+    before = geometry(document)
+    sub, notices = transaction(
+        document,
+        "Sous-ensemble",
+        partial(api.make_furniture, [desk.shown("P"), desk.shown("JG")], "Tiroir"),
+    )
+    assert api.furniture_of(desk.parts["P"]) == sub and holder(desk.parts["P"]) == std_part(sub)
+    assert api.furniture_of(desk.parts["JG"]) == desk.furniture
+    assert holder(desk.parts["JG"]) == std_part(desk.furniture)
+    assert any("reste dans « Bureau »" in message for message in notices)
+    assert geometry(document) == before
+    document.undo()
+    document.recompute()
+    assert api.furniture_of(desk.parts["P"]) == desk.furniture
+    assert geometry(document) == before
+    assert stale_or_invalid(document) == []
+
+
+def test_deposer_sur_un_sous_ensemble_une_piece_assemblee_reste_dans_le_parent(
+    document: Any,
+) -> None:
+    """Joue gauche déposée sur Tiroir (sous-ensemble de Bureau), assemblée au voile (Bureau) :
+    elle reste dans Bureau, rien ne bouge, l'api le dit."""
     desk = build_desk(document)
     sub, _ = api.make_furniture([desk.shown("P")], "Tiroir")
     before = geometry(document)
-    with pytest.raises(ValueError, match="assemblée"):
-        api.add_to_furniture(sub, [desk.parts["JG"]], move=True)
+    notices = transaction(
+        document, "Ranger", partial(api.add_to_furniture, sub, [desk.parts["JG"]], move=True)
+    )
+    assert any("elle reste dans « Bureau »" in message for message in notices)
     assert api.furniture_of(desk.parts["JG"]) == desk.furniture
+    assert holder(desk.parts["JG"]) == std_part(desk.furniture)
     assert holder(desk.parts["V"]) == std_part(desk.furniture)
     assert geometry(document) == before
+    assert stale_or_invalid(document) == []
+
+
+def test_deposer_toutes_les_pieces_assemblees_sur_le_sous_ensemble(document: Any) -> None:
+    """Joues et voile (assemblés) déposés ensemble sur Tiroir : tous vont dans Tiroir ; Ctrl+Z
+    puis Ctrl+Y."""
+    desk = build_desk(document)
+    sub, _ = api.make_furniture([desk.shown("P")], "Tiroir")
+    before = geometry(document)
+    chosen = [desk.parts[mark] for mark in ("JG", "JD", "V")]
+    notices = transaction(document, "Ranger", partial(api.add_to_furniture, sub, chosen, move=True))
+    assert notices == ()
+    assert all(api.furniture_of(part) == sub for part in chosen)
+    assert all(holder(part) == std_part(sub) for part in chosen)
+    assert geometry(document) == before
+    assert stale_or_invalid(document) == []
+    document.undo()
+    document.recompute()
+    assert all(api.furniture_of(part) == desk.furniture for part in chosen)
+    assert all(holder(part) == std_part(desk.furniture) for part in chosen)
+    assert geometry(document) == before
+    document.redo()
+    document.recompute()
+    assert all(api.furniture_of(part) == sub for part in chosen)
+    assert stale_or_invalid(document) == []
 
 
 def test_assemblage_vers_l_exterieur_refuse_sans_rien_changer(document: Any) -> None:

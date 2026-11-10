@@ -19,16 +19,16 @@ ensemble (ADR 0037), sauf pour une pièce assemblée hors de tout ensemble, que 
 from __future__ import annotations
 
 import html
-from collections.abc import Collection, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Collection, Iterable, Sequence
 from typing import Final
 
-from freecad.menuiserie.core.assembly_scope import keeps_assembly
+from freecad.menuiserie.core.assembly_scope import CREATE_NOTHING, CREATE_STAYS, GOES_TO, STAYS_IN
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.structure_decision import Decision, refuse
+from freecad.menuiserie.core.structure_decision import Decision, Move, Note, refuse
+from freecad.menuiserie.core.structure_move_facts import MoveFacts, top_level
+from freecad.menuiserie.core.structure_plan import Part, plan_parts
 from freecad.menuiserie.core.structure_rename import MAX_NAME_LENGTH, cleaned_name, decide_rename
 from freecad.menuiserie.core.structure_tree import NodeKind
-from freecad.menuiserie.core.text import quoted_value
 
 __all__ = [
     "BUSY",
@@ -106,9 +106,19 @@ _OUTWARD_OUT: Final = QT_TRANSLATE_NOOP(
 )
 _OUTWARD_NEW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "« {piece} » est assemblée à « {other} », qui ne serait pas dans le nouvel ensemble : "
-    "l'assemblage serait séparé de l'une de ses pièces. Choisissez aussi « {other} », ou "
-    "supprimez d'abord l'assemblage.",
+    "« {piece} » est assemblée à « {other} », qui est dans un autre ensemble : aucun nouvel "
+    "ensemble cohérent ne peut les réunir. Choisissez aussi « {other} », ou supprimez d'abord "
+    "l'assemblage.",
+)
+_GOES_FREE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {piece} » est assemblée à « {other} », qui n'est dans aucun ensemble : elle reste hors "
+    "ensemble avec elle, et non dans « {target} ».",
+)
+_STAYS_FREE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {piece} » est assemblée à « {other} », qui n'est dans aucun ensemble : elle reste hors "
+    "ensemble avec elle. Rangez aussi « {other} » pour les déplacer ensemble.",
 )
 _NOT_SAME: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -119,61 +129,6 @@ _NOT_RENAMABLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Seuls les pièces et les ensembles se renomment ici."
 )
 _ONE_ROW: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisissez une seule ligne.")
-
-
-@dataclass(frozen=True)
-class MoveFacts:
-    """Ce que les décisions savent du document : libellés des pièces et des ensembles, ensembles,
-    ensemble de chaque membre (``parent``), pièces assemblées à chaque pièce (``links``) et
-    panneau de tâche ouvert (``busy``), copies de répétition (``copies``, qui ne se rangent pas
-    à part) et objets d'autres ateliers (``foreign``, qu'on ne touche pas)."""
-
-    labels: Mapping[str, str]
-    furnitures: frozenset[str]
-    parent: Mapping[str, str]
-    links: Mapping[str, frozenset[str]] = field(default_factory=dict)
-    busy: bool = False
-    copies: frozenset[str] = frozenset()
-    foreign: frozenset[str] = frozenset()
-
-    def label(self, key: str) -> str:
-        """Libellé cité dans un message."""
-        return quoted_value(self.labels.get(key, key))
-
-    def chain(self, key: str) -> list[str]:
-        """Ensembles qui contiennent ``key``, du plus proche au plus éloigné (cycle coupé)."""
-        found: list[str] = []
-        current = self.parent.get(key)
-        while current is not None and current not in found:
-            found.append(current)
-            current = self.parent.get(current)
-        return found
-
-    def pieces_under(self, key: str) -> set[str]:
-        """``key`` si c'est une pièce, sinon les pièces de l'ensemble et de ses sous-ensembles."""
-        if key not in self.furnitures:
-            return {key}
-        found: set[str] = set()
-        seen = {key}
-        pending = [key]
-        while pending:
-            current = pending.pop()
-            for child, owner in self.parent.items():
-                if owner != current or child in seen:
-                    continue
-                seen.add(child)
-                if child in self.furnitures:
-                    pending.append(child)
-                else:
-                    found.add(child)
-        return found
-
-
-def top_level(facts: MoveFacts, keys: Iterable[str]) -> list[str]:
-    """``keys`` sans doublon ni élément dont un ensemble ancêtre est aussi choisi (il se
-    déplace avec cet ensemble), dans l'ordre reçu."""
-    chosen = list(dict.fromkeys(keys))
-    return [key for key in chosen if not set(facts.chain(key)) & set(chosen)]
 
 
 def _movable(facts: MoveFacts, keys: Sequence[str]) -> Decision | None:
@@ -198,32 +153,23 @@ def decide_selection(facts: MoveFacts, keys: Iterable[str]) -> Decision:
     return _movable(facts, chosen) or Decision(True, keys=tuple(chosen))
 
 
-def _split_assembly(
-    facts: MoveFacts, moving: Sequence[str], after: Sequence[str], *, free_ok: bool = False
-) -> tuple[str, str] | None:
-    """Première (pièce déplacée, pièce assemblée qui reste) dont l'assemblage sépare les deux
-    pièces (:func:`keeps_assembly`) une fois la pièce dans les ensembles ``after``. ``free_ok`` :
-    une pièce assemblée hors de tout ensemble ne compte pas (l'api la range avec la pièce)."""
-    moved = set[str]().union(*(facts.pieces_under(key) for key in moving))
-    for piece in sorted(moved):
-        for other in sorted(facts.links.get(piece, frozenset()) - moved):
-            if free_ok and other not in facts.parent:
-                continue
-            if not keeps_assembly(after, facts.chain(other)):
-                return piece, other
-    return None
-
-
-def _outward(facts: MoveFacts, moving: Sequence[str], target: str | None) -> Decision | None:
-    """Refus si une pièce déplacée est assemblée à une pièce qui ne sera pas avec elle."""
-    after = [] if target is None else [target, *facts.chain(target)]
-    split = _split_assembly(facts, moving, after)
-    if split is None:
-        return None
-    names = {"piece": facts.label(split[0]), "other": facts.label(split[1])}
+def _outward(facts: MoveFacts, part: Part, target: str | None) -> Decision:
+    """Refus : aucun rangement cohérent pour la partie, une pièce assemblée à une pièce qui ne
+    sera pas avec elle."""
+    names = {"piece": facts.label(part.piece), "other": facts.label(part.other)}
     if target is not None:
         return refuse(_OUTWARD_INTO, target=facts.label(target), **names)
-    return refuse(_OUTWARD_OUT, furniture=facts.label(facts.parent[split[1]]), **names)
+    return refuse(_OUTWARD_OUT, furniture=facts.label(facts.parent[part.other]), **names)
+
+
+def _redirection(facts: MoveFacts, part: Part, target: str | None, *, stays: bool) -> Note:
+    """Où va la partie quand ce n'est pas l'endroit demandé (``stays`` : elle y est déjà)."""
+    names = {"piece": facts.label(part.piece), "other": facts.label(part.other)}
+    names["target"] = "" if target is None else facts.label(target)
+    if part.dest:
+        names["dest"] = facts.label(part.dest[0])
+        return Note(STAYS_IN if stays else GOES_TO, names)
+    return Note(_STAYS_FREE if stays else _GOES_FREE, names)
 
 
 def _in_place(facts: MoveFacts, movers: Sequence[str], target: str | None) -> Decision:
@@ -246,9 +192,10 @@ def _bad_target(facts: MoveFacts, target: str | None) -> Decision | None:
 def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> Decision:
     """Glisser-déposer (ou « Ajouter à l'ensemble » / « Sortir de l'ensemble ») : ranger les
     lignes ``keys`` dans l'ensemble ``target``, ou les sortir de leur ensemble si ``target`` est
-    ``None``. Autorisé : ``keys`` = ce qui change d'ensemble. Refusé, avec la raison : panneau de
-    tâche ouvert, rien ou un élément inconnu, cycle d'ensembles, déjà en place, assemblage vers
-    l'extérieur."""
+    ``None``. Une pièce assemblée à une pièce qui reste ailleurs est rangée à l'endroit cohérent le
+    plus proche (``moves``, ``notes``). Autorisé : ``keys`` = ce qui change d'ensemble. Refusé,
+    avec la raison : panneau de tâche ouvert, rien ou un élément inconnu, cycle d'ensembles, déjà
+    en place, aucun rangement cohérent pour un assemblage."""
     movers = top_level(facts, keys)
     if (refusal := _movable(facts, movers)) is not None:
         return refusal
@@ -260,25 +207,67 @@ def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> De
     moving = [key for key in movers if facts.parent.get(key) != target]
     if not moving:
         return _in_place(facts, movers, target)
-    if (refusal := _outward(facts, moving, target)) is not None:
-        return refusal
-    return Decision(True, keys=tuple(moving))
+    wanted = [] if target is None else [target, *facts.chain(target)]
+    parts = plan_parts(facts, moving, wanted)
+    if (broken := next((part for part in parts if part.dest is None), None)) is not None:
+        return _outward(facts, broken, target)
+    return _drop_of(facts, parts, tuple(wanted), target)
+
+
+def _drop_of(
+    facts: MoveFacts, parts: Sequence[Part], wanted: tuple[str, ...], target: str | None
+) -> Decision:
+    """Décision d'un dépôt dont toutes les parties ont un endroit : où va chacune, ce qui n'est
+    pas ce qui était demandé. Refusé si rien ne change ou si un endroit forme un cycle."""
+    moves: dict[str | None, list[str]] = {}
+    notes: list[Note] = []
+    for part in parts:
+        where = part.dest[0] if part.dest else None
+        if (cycle := next((k for k in part.keys if _inside(facts, k, where)), None)) is not None:
+            return refuse(_CYCLE, item=facts.label(cycle), target=facts.label(where or ""))
+        coming = [key for key in part.keys if facts.parent.get(key) != where]
+        moves.setdefault(where, []).extend(coming)
+        if part.dest != wanted:
+            note = _redirection(facts, part, target, stays=not coming)
+            notes.append(note)
+    if not any(moves.values()):
+        return refuse(notes[0].template, **notes[0].params)
+    placed = tuple(Move(where, tuple(found)) for where, found in moves.items() if found)
+    keys = tuple(key for move in placed for key in move.keys)
+    return Decision(True, keys=keys, moves=placed, notes=tuple(notes))
+
+
+def _inside(facts: MoveFacts, key: str, where: str | None) -> bool:
+    return where is not None and (key == where or key in facts.chain(where))
 
 
 def decide_create(facts: MoveFacts, keys: Iterable[str]) -> Decision:
     """« Créer un (sous-)ensemble depuis la sélection » (ADR 0037) : permis si les éléments sont
     tous hors ensemble (nouvel ensemble) ou tous dans le même ensemble (sous-ensemble). Le nouvel
     ensemble a son propre Std Part : une pièce assemblée à une pièce qui reste dans l'ensemble
-    parent ne peut pas y entrer seule (:func:`keeps_assembly`), comme pour un dépôt ; une pièce
-    assemblée à une pièce hors ensemble est rangée avec elle (ADR 0038)."""
+    parent reste dans ce parent (``notes``), hors du nouvel ensemble ; refusé s'il n'y a rien à
+    créer ou si le rangement n'est pas cohérent. Une pièce assemblée à une pièce hors ensemble est
+    rangée avec elle (ADR 0038)."""
     chosen = top_level(facts, keys)
     if (refusal := _movable(facts, chosen)) is not None:
         return refusal
     if len({facts.parent.get(key) for key in chosen}) != 1:
         return refuse(_NOT_SAME)
-    if (split := _split_assembly(facts, chosen, [""], free_ok=True)) is not None:
-        return refuse(_OUTWARD_NEW, piece=facts.label(split[0]), other=facts.label(split[1]))
-    return Decision(True, keys=tuple(chosen))
+    parent = facts.parent.get(chosen[0])
+    above = [] if parent is None else [parent, *facts.chain(parent)]
+    entering: list[str] = []
+    notes: list[Note] = []
+    for part in plan_parts(facts, chosen, ["", *above], ignore_free=True):
+        names = {"piece": facts.label(part.piece), "other": facts.label(part.other)}
+        if part.dest == ("", *above):
+            entering.extend(part.keys)
+        elif part.dest is not None and part.dest == tuple(above):
+            notes.append(Note(CREATE_STAYS, {**names, "dest": facts.label(parent or "")}))
+        else:
+            return refuse(_OUTWARD_NEW, **names)
+    if not entering:
+        return refuse(CREATE_NOTHING, **notes[0].params)
+    return Decision(True, keys=tuple(entering), notes=tuple(notes))
 
 
 def creates_sub_furniture(facts: MoveFacts, keys: Iterable[str]) -> bool:

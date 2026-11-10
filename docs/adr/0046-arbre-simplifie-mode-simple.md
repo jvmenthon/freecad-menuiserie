@@ -82,16 +82,29 @@ ou ne sont pas montrés, au choix du lot 1.
     ViewProvider pour `features/furniture_view.py`, car le panneau et l'arbre natif le partagent ;
   - `api.rename(obj, name)` : « Renommer » du panneau passe par l'api (contrôle
     `decide_rename`, `ValueError` traduite, brute d'une pièce usinée), comme toute écriture.
-- **Assemblage vers l'extérieur** (critère unique, `core/assembly_scope.keeps_assembly`, partagé
-  par `decide_drop`, `decide_create` et `check_assembled`) : FreeCAD range toute la fermeture de
-  liens d'une pièce dans le Std Part d'arrivée (essai de l'ADR 0038, confirmé par la CI). Un
-  assemblage reste donc valide seulement si ses deux pièces se retrouvent dans le même ensemble
-  (ou toutes deux hors de tout ensemble). Ranger P dans un sous-ensemble S de A quand la pièce Q
-  qui lui est assemblée reste dans A est **refusé** : Q serait emportée dans le Std Part de S sans
-  en être membre. Il faut choisir les deux pièces, ou supprimer l'assemblage. La demande d'accepter
-  ce cas (« l'assemblage reste rangé sous A ») est donc impossible avec le Std Part par ensemble :
-  signalée à l'architecte. Une pièce assemblée à une pièce hors de tout ensemble est rangée avec
-  elle par l'api (avertissement) ; le panneau refuse le dépôt, mais permet la création d'un ensemble.
+- **Assemblage vers l'extérieur et « parent le plus proche »** (décision de jv ; critère unique,
+  `core/assembly_scope`, partagé par `decide_drop`, `decide_create` et l'api `add_members` /
+  `build_furniture`). FreeCAD range toute la fermeture de liens d'une pièce dans le Std Part
+  d'arrivée (essai de l'ADR 0038, confirmé par la CI) : deux pièces assemblées doivent donc être
+  dans le même ensemble (ou toutes deux hors de tout ensemble). Au lieu de refuser, quand
+  l'endroit demandé séparerait un assemblage, la pièce P (avec les pièces qui lui sont assemblées
+  parmi celles qu'on déplace) va à l'endroit cohérent le plus proche, et le panneau dit où elle est
+  allée :
+  - P assemblée à Q, Q dans A, P déposée sur un sous-ensemble S de A : P **reste dans A**, avec Q ;
+    rien n'est rangé dans S et le message l'explique ;
+  - P et Q (et toutes les pièces liées entre elles) déposées ensemble sur S : elles vont toutes dans
+    S, sans message ;
+  - P déposée sur A alors que Q est dans un sous-ensemble S de A : P va dans **S**, comme Q ;
+  - P assemblée à Q hors de tout ensemble : P reste (ou passe) hors ensemble avec Q ;
+  - création d'un sous-ensemble avec P seule, assemblée à Q dans A : rien à créer, P reste dans A
+    (refus expliqué) ; avec d'autres pièces libres de tout assemblage, le sous-ensemble ne reçoit
+    qu'elles et P reste dans A (avertissement) ; P et Q choisies ensemble forment le sous-ensemble ;
+  - **refus** seulement s'il n'existe aucun rangement cohérent : l'autre pièce est dans une autre
+    branche (autre ensemble de plus haut niveau) ou deux exigences se contredisent.
+  Règle : l'endroit cohérent est l'ensemble de la pièce qui reste, s'il est dans la même branche
+  que l'endroit demandé (un ensemble commun existe). Une pièce assemblée à une pièce hors ensemble
+  est rangée avec elle par l'api (avertissement, ADR 0038) ; le panneau, lui, la laisse hors
+  ensemble.
 - **État d'orphelin.** FreeCAD 1.1.3 ne rétablit pas, à Ctrl+Z, une propriété dynamique retirée
   puis recréée dans la même transaction. Changer d'ensemble, sortir et créer un sous-ensemble ne
   retirent donc plus les propriétés de membre : seuls le lien `Furniture` (remis à zéro) et les

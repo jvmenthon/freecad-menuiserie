@@ -36,6 +36,7 @@ from freecad.menuiserie.core.structure_actions import (
     decide_rename,
     plain_tooltip,
 )
+from freecad.menuiserie.core.structure_decision import Note
 from freecad.menuiserie.core.structure_menu import Action, MenuEntry, menu_entries, verbatim_text
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
@@ -103,28 +104,37 @@ def _owners(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
     return list({f.Name: f for f in found if f is not None}.values())
 
 
-def move_rows(doc: Any, keys: Sequence[str], target: str | None) -> Sequence[str] | None:
-    """Range les lignes ``keys`` dans l'ensemble ``target`` (``None`` : les sort de leur
-    ensemble) en une transaction ; les propriétés de membre ne sont jamais retirées puis recréées
-    (FreeCAD 1.1 ne les rétablit pas au Ctrl+Z) : ``move=True`` et ``keep_properties=True`` ;
-    refus de l'api = rien ne change."""
-    objects = _objects(doc, keys)
-    destination = doc.getObject(target) if target is not None else None
-    if target is not None and destination is None:
+def _note_texts(notes: Sequence[Note]) -> list[str]:
+    """Explications d'une décision (où est allée une pièce assemblée), traduites."""
+    return [translated(note.template, note.params) for note in notes]
+
+
+def move_rows(doc: Any, decision: Decision) -> Sequence[str] | None:
+    """Range les lignes de ``decision.moves`` : chacune dans son ensemble d'accueil (``None`` : les
+    sort de leur ensemble), en une transaction ; les propriétés de membre ne sont jamais retirées
+    puis recréées (FreeCAD 1.1 ne les rétablit pas au Ctrl+Z) : ``move=True`` et
+    ``keep_properties=True`` ; refus de l'api = rien ne change. Les notes de la décision disent où
+    sont allées les pièces assemblées."""
+    stops = [(doc.getObject(m.target) if m.target is not None else None, m) for m in decision.moves]
+    if any(m.target is not None and home is None for home, m in stops):
         return None  # ensemble d'accueil supprimé entre-temps : ne jamais « sortir » à la place
 
     def action() -> Sequence[str]:
-        owners = _owners(objects)
-        leaving = [obj for obj in objects if furniture_of(member_object(obj)) is not None]
-        messages: list[str] = []
-        if destination is not None:
-            messages += api.add_to_furniture(destination, objects, move=True)
-        elif leaving:
-            messages += api.remove_from_furniture(leaving, keep_properties=True)
-        refresh_tree([*owners, *([destination] if destination is not None else [])])
+        owners: list[DocumentObject] = []
+        messages = _note_texts(decision.notes)
+        for home, move in stops:
+            objects = _objects(doc, move.keys)
+            owners += _owners(objects)
+            if home is not None:
+                messages += api.add_to_furniture(home, objects, move=True)
+            else:
+                leaving = [o for o in objects if furniture_of(member_object(o)) is not None]
+                messages += api.remove_from_furniture(leaving, keep_properties=True)
+        refresh_tree([*owners, *(home for home, _move in stops if home is not None)])
         return messages
 
-    return run_in_transaction(doc, _MOVE_OUT if target is None else _MOVE_IN, action)
+    leaves_only = all(m.target is None for m in decision.moves)
+    return run_in_transaction(doc, _MOVE_OUT if leaves_only else _MOVE_IN, action)
 
 
 class StructureActions(QtCore.QObject):  # type: ignore[misc]
@@ -173,7 +183,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
             return
         decision = decide_drop(facts, keys, target)
         if decision.allowed:
-            move_rows(App.ActiveDocument, decision.keys, target)
+            move_rows(App.ActiveDocument, decision)
         elif not decision.silent:
             report_refusal(decision_text(decision))
         self._redraw()
@@ -258,10 +268,10 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
             self._tree.itemDoubleClicked.emit(item, 0)
 
     def _move_into(self, entry: MenuEntry) -> None:
-        move_rows(App.ActiveDocument, entry.decision.keys, entry.target)
+        move_rows(App.ActiveDocument, entry.decision)
 
     def _leave(self, entry: MenuEntry) -> None:
-        move_rows(App.ActiveDocument, entry.decision.keys, None)
+        move_rows(App.ActiveDocument, entry.decision)
 
     def _rename(self, entry: MenuEntry) -> None:
         """Demande le nouveau nom puis le contrôle (``decide_rename``) avant de l'écrire."""
@@ -303,7 +313,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
             furniture, notices = api.make_furniture(objects)
             created.append(furniture.Name)
             refresh_tree([*owners, furniture])
-            return notices
+            return [*_note_texts(entry.decision.notes), *notices]
 
         if run_in_transaction(doc, name, action) is not None and created:
             Gui.Selection.clearSelection()
