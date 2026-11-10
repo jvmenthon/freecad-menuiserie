@@ -11,7 +11,11 @@ from __future__ import annotations
 
 from collections.abc import Collection, Sequence
 
+from freecad.menuiserie.core.joints import JointKind
+from freecad.menuiserie.core.structure_hardware import is_hardware_kind
+from freecad.menuiserie.core.structure_icons import DISTANCE_SUBTYPE, SHAPED_SUBTYPE
 from freecad.menuiserie.core.structure_tree import (
+    HARDWARE_TITLE,
     JOINTS_TITLE,
     LEFTOVERS_TITLE,
     OTHERS_TITLE,
@@ -28,7 +32,7 @@ from freecad.menuiserie.features.furniture_view import furniture_children, shown
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
-from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.shaped_sources import is_workshop_object
 from freecad.menuiserie.features.structure_foreign import foreign_objects
 from freecad.menuiserie.features.structure_repetitions import RepetitionReader, repetition_reader
@@ -50,6 +54,10 @@ def _others_title(count: int) -> str:
     return translated(OTHERS_TITLE, {"count": str(count)})
 
 
+def _hardware_title(count: int) -> str:
+    return translated(HARDWARE_TITLE, {"count": str(count)})
+
+
 def _leftovers_title(count: int) -> str:
     return translated(LEFTOVERS_TITLE, {"count": str(count)})
 
@@ -63,6 +71,7 @@ _TITLES = Titles(
     others=_others_title,
     repeat=_repeat_label,
     leftovers=_leftovers_title,
+    hardware=_hardware_title,
 )
 
 
@@ -99,20 +108,37 @@ class DocumentStructure:
         return [obj.Name for obj in self._children_of(furniture) if _is_piece(obj)]
 
     def joints(self, furniture: str) -> Sequence[str]:
-        """Assemblages, quincaillerie et Distances de ``furniture``."""
-        return [
-            obj.Name for obj in self._children_of(furniture) if is_joint(obj) or is_distance(obj)
-        ]
+        """Assemblages (hors quincaillerie) et Distances de ``furniture``."""
+        return [obj.Name for obj in self._children_of(furniture) if _is_plain_joint(obj)]
+
+    def hardware(self, furniture: str) -> Sequence[str]:
+        """Objets de quincaillerie de ``furniture`` (voir ``core/structure_hardware``)."""
+        return [obj.Name for obj in self._children_of(furniture) if _is_hardware(obj)]
 
     def loose_joints(self) -> Sequence[str]:
-        """Assemblages, quincaillerie et Distances qu'aucun ensemble ne range : pieds ou coulisses
-        d'une pièce hors ensemble, pièces d'ensembles sans ensemble commun, pièce supprimée…"""
+        """Assemblages et Distances qu'aucun ensemble ne range (pièces hors ensemble ou d'ensembles
+        sans ensemble commun, pièce supprimée…)."""
         ranged = {name for furniture in self.all_furnitures() for name in self.joints(furniture)}
         return [
-            obj.Name
-            for obj in self._doc.Objects
-            if (is_joint(obj) or is_distance(obj)) and obj.Name not in ranged
+            obj.Name for obj in self._doc.Objects if _is_plain_joint(obj) and obj.Name not in ranged
         ]
+
+    def loose_hardware(self) -> Sequence[str]:
+        """Quincaillerie qu'aucun ensemble ne range : pieds ou coulisses d'une pièce hors
+        ensemble…"""
+        ranged = {name for furniture in self.all_furnitures() for name in self.hardware(furniture)}
+        return [
+            obj.Name for obj in self._doc.Objects if _is_hardware(obj) and obj.Name not in ranged
+        ]
+
+    def subtype(self, key: str) -> str:
+        """Type précis de ``key`` pour l'icône : type d'assemblage, « distance » ou « shaped »."""
+        obj = self._by_name[key]
+        if (kind := _joint_kind(obj)) is not None:
+            return str(kind.value)
+        if is_distance(obj):
+            return DISTANCE_SUBTYPE
+        return SHAPED_SUBTYPE if is_shaped_part(renamed_object(obj)) else ""
 
     def all_furnitures(self) -> Sequence[str]:
         """Tous les ensembles du document, dans l'ordre du document."""
@@ -155,6 +181,23 @@ class DocumentStructure:
         if furniture not in self._children:
             self._children[furniture] = furniture_children(self._by_name[furniture])
         return self._children[furniture]
+
+
+def _is_hardware(obj: DocumentObject) -> bool:
+    """Vrai pour un assemblage dont le type est de la quincaillerie (ADR 0033)."""
+    kind = _joint_kind(obj)
+    return kind is not None and is_hardware_kind(kind)
+
+
+def _joint_kind(obj: DocumentObject) -> JointKind | None:
+    """Type d'assemblage de ``obj``, ``None`` si ce n'est pas un assemblage typé."""
+    kind = getattr(getattr(obj, "Proxy", None), "KIND", None)
+    return kind if isinstance(kind, JointKind) else None
+
+
+def _is_plain_joint(obj: DocumentObject) -> bool:
+    """Vrai pour un assemblage hors quincaillerie ou une Distance."""
+    return (is_joint(obj) and not _is_hardware(obj)) or is_distance(obj)
 
 
 def _is_piece(obj: DocumentObject) -> bool:

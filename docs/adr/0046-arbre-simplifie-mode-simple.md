@@ -38,7 +38,8 @@ Std Part complets, un objet « Répétition » à la racine, un tableur par list
    - un nœud par **Ensemble** (le Std Part de l'atelier et son Origine ne sont pas montrés ;
      un sous-ensemble est un nœud enfant) ;
    - sous chaque ensemble, ses **pièces** (la brute et la pièce usinée forment une seule ligne) ;
-   - un nœud replié **« Assemblages (N) »** qui regroupe assemblages, quincaillerie et Distances ;
+   - un nœud replié **« Assemblages (N) »** (assemblages taillés dans le bois et Distances) et un
+     nœud replié **« Quincaillerie (N) »** (objets du commerce : voir « Quincaillerie » ci-dessous) ;
    - une répétition est une seule ligne **« <nom> ×N »** dépliable en ses copies ;
    - la liste de débit est une ligne (son tableur n'apparaît pas) ; les sources des pièces en
      forme (Body, esquisse) ne sont pas montrées.
@@ -134,6 +135,18 @@ ou ne sont pas montrés, au choix du lot 1.
   « Assemblages (N) » à la racine (`StructureSource.loose_joints`) ; tout objet de l'atelier encore
   invisible va sous « Autres objets de l'atelier (N) » (`StructureExtras.workshop_objects`) plutôt
   que d'être perdu. Mêmes actions et icônes que sous un ensemble.
+- **Quincaillerie** (demande de jv, ADR 0033). Un type d'assemblage est de la quincaillerie quand
+  l'ADR 0033 le pose depuis une référence du catalogue : pieds, coulisses, taquets LR32,
+  tourillons, faux tenons, biscuits (`core/structure_hardware.HARDWARE_KINDS`, testée contre les
+  familles du catalogue). Tenon-mortaise, rainure-languette, feuillure, mi-bois, queue d'aronde et
+  onglet restent des « Assemblages », avec les Distances. Genres de ligne `HARDWARE` et
+  `HARDWARE_ITEM`, mêmes actions que `JOINT` ; sous un ensemble comme à la racine pour les objets
+  libres.
+- **Icônes par type.** `StructureNode.subtype` (valeur de `JointKind`, « distance », « shaped »)
+  choisit l'icône (`core/structure_icons.ICON_BY_SUBTYPE`) : chaque assemblage a l'icône de sa
+  commande, la Distance et la pièce en forme celles de leur objet. Seule « Quincaillerie »
+  (`Menuiserie_Hardware.svg`) a été ajoutée au générateur ; un type inconnu retombe sur l'icône du
+  genre, un fichier absent sur l'absence d'icône.
 - L'arbre natif reste complet : le débutant peut le voir à côté ; on peut proposer d'ouvrir le
   panneau en onglet de la vue combinée.
 

@@ -24,6 +24,7 @@ from freecad.menuiserie.core.structure_actions import (
 from freecad.menuiserie.core.structure_icons import icon_name
 from freecad.menuiserie.core.structure_sync import keys_to_select_in_freecad, rows_for_selection
 from freecad.menuiserie.core.structure_tree import (
+    HARDWARE_TITLE,
     JOINTS_TITLE,
     LEFTOVERS_TITLE,
     NodeKind,
@@ -41,11 +42,18 @@ class LooseSource(FakeSource):
         **FakeSource.LABELS,
         "Foot": "Pieds",
         "Slide": "Coulisse",
+        "Lap": "Mi-bois",
         "Ghost": "Fantôme",
     }
 
     def loose_joints(self) -> Sequence[str]:
+        return ["Lap"]
+
+    def loose_hardware(self) -> Sequence[str]:
         return ["Foot", "Slide"]
+
+    def subtype(self, key: str) -> str:
+        return {"Foot": "Foot", "Slide": "DrawerSlide", "Lap": "HalfLap"}.get(key, "")
 
 
 class AllObjects:
@@ -73,7 +81,7 @@ class AllObjects:
         return self._keys
 
 
-EVERYTHING = ["Bureau", "Tiroir", "P1", "P2", "P3", "J1", "D1", "Loose", "Foot", "Slide"]
+EVERYTHING = ["Bureau", "Tiroir", "P1", "P2", "P3", "J1", "D1", "Loose", "Lap", "Foot", "Slide"]
 
 
 def roots_of(keys: Sequence[str]) -> tuple[StructureNode, ...]:
@@ -86,13 +94,36 @@ def keys_of(roots: Sequence[StructureNode]) -> list[str]:
 
 def test_assemblages_sans_ensemble_dans_un_noeud_a_la_racine() -> None:
     roots = build_structure(LooseSource(), title)
-    assert [root.kind for root in roots] == [NodeKind.FURNITURE, NodeKind.PIECE, NodeKind.JOINTS]
-    group = roots[-1]
-    assert (group.label, group.key, group.expanded) == (JOINTS_TITLE.format(count=2), "", False)
-    assert [(c.kind, c.key, c.label) for c in group.children] == [
-        (NodeKind.JOINT, "Foot", "Pieds"),
-        (NodeKind.JOINT, "Slide", "Coulisse"),
+    assert [root.kind for root in roots] == [
+        NodeKind.FURNITURE,
+        NodeKind.PIECE,
+        NodeKind.JOINTS,
+        NodeKind.HARDWARE,
     ]
+    group = roots[2]
+    assert (group.label, group.key, group.expanded) == (JOINTS_TITLE.format(count=1), "", False)
+    assert [(c.kind, c.key, c.subtype) for c in group.children] == [
+        (NodeKind.JOINT, "Lap", "HalfLap")
+    ]
+
+
+def test_quincaillerie_libre_dans_son_noeud_a_la_racine() -> None:
+    group = build_structure(LooseSource(), title)[3]
+    assert (group.label, group.key, group.expanded) == (HARDWARE_TITLE.format(count=2), "", False)
+    assert [(c.kind, c.key, c.label, c.subtype) for c in group.children] == [
+        (NodeKind.HARDWARE_ITEM, "Foot", "Pieds", "Foot"),
+        (NodeKind.HARDWARE_ITEM, "Slide", "Coulisse", "DrawerSlide"),
+    ]
+
+
+def test_quincaillerie_sous_un_ensemble_apres_les_assemblages() -> None:
+    class InDesk(LooseSource):
+        def hardware(self, furniture: str) -> Sequence[str]:
+            return ["Foot"] if furniture == "Bureau" else []
+
+    desk = build_structure(InDesk(), title)[0]
+    assert [c.kind for c in desk.children][-2:] == [NodeKind.JOINTS, NodeKind.HARDWARE]
+    assert desk.children[-1].label == HARDWARE_TITLE.format(count=1)
 
 
 def test_pas_de_noeud_a_la_racine_sans_assemblage_libre() -> None:
@@ -137,7 +168,7 @@ def test_selection_synchronisee_avec_les_lignes_libres() -> None:
 
 
 def test_actions_sur_les_lignes_libres() -> None:
-    for kind in (NodeKind.JOINT, NodeKind.JOINTS):
+    for kind in (NodeKind.JOINT, NodeKind.JOINTS, NodeKind.HARDWARE, NodeKind.HARDWARE_ITEM):
         assert kind not in DRAGGABLE_KINDS
     for kind in (NodeKind.LEFTOVERS, NodeKind.LEFTOVER):
         assert kind in NO_DROP_KINDS and kind not in DRAGGABLE_KINDS
@@ -147,7 +178,15 @@ def test_actions_sur_les_lignes_libres() -> None:
 
 
 @pytest.mark.parametrize(
-    "kind", [NodeKind.JOINTS, NodeKind.JOINT, NodeKind.LEFTOVERS, NodeKind.LEFTOVER]
+    "kind",
+    [
+        NodeKind.JOINTS,
+        NodeKind.JOINT,
+        NodeKind.HARDWARE,
+        NodeKind.HARDWARE_ITEM,
+        NodeKind.LEFTOVERS,
+        NodeKind.LEFTOVER,
+    ],
 )
 def test_icone_de_chaque_genre(kind: NodeKind) -> None:
     assert icon_name(kind).endswith(".svg")
@@ -169,13 +208,40 @@ def read(*objects: Obj) -> tuple[StructureNode, ...]:
     return structure_of(doc)
 
 
-def test_document_pied_sur_une_piece_hors_ensemble_a_la_racine(world: World) -> None:
+def hardware_on(name: str, part: Obj) -> Obj:
+    """Pieds de l'atelier (type de quincaillerie) posés sous ``part``."""
+    from freecad.menuiserie.features.joints.feet import FootJoint
+
+    foot = Obj(name, "Part::FeaturePython", HostPart=part, GuestPart=part, Label=name)
+    foot.props["Proxy"] = FootJoint.__new__(FootJoint)
+    part.InList.append(foot)
+    return foot
+
+
+def test_document_pied_sur_une_piece_hors_ensemble_sous_quincaillerie(world: World) -> None:
     loose = world.part("Planche", Label="Plateau")
-    foot = joint_between(world, "Pieds", loose, loose)
-    foot.props["Label"] = "Pieds"
+    foot = hardware_on("Pieds", loose)
     roots = read(loose, foot)
-    assert [(n.kind, n.key) for n in roots] == [(NodeKind.PIECE, "Planche"), (NodeKind.JOINTS, "")]
-    assert [(c.kind, c.key) for c in roots[1].children] == [(NodeKind.JOINT, "Pieds")]
+    assert [(n.kind, n.key) for n in roots] == [
+        (NodeKind.PIECE, "Planche"),
+        (NodeKind.HARDWARE, ""),
+    ]
+    assert [(c.kind, c.key, c.subtype) for c in roots[1].children] == [
+        (NodeKind.HARDWARE_ITEM, "Pieds", "Foot")
+    ]
+
+
+def test_document_assemblage_et_quincaillerie_separes_sous_l_ensemble(world: World) -> None:
+    left, right = world.part("G", Label="G"), world.part("D", Label="D")
+    furniture = world.furniture("A", left, right)
+    furniture.props["Label"] = "A"
+    lap = joint_between(world, "J", left, right)
+    lap.props["Label"] = "Lien"
+    foot = hardware_on("Pieds", left)
+    (root,) = read(furniture, left, right, lap, foot)
+    groups = {n.kind: [c.key for c in n.children] for n in root.children if n.children}
+    assert groups[NodeKind.JOINTS] == ["J"]
+    assert groups[NodeKind.HARDWARE] == ["Pieds"]
 
 
 def test_document_assemblage_entre_ensembles_sans_ensemble_commun(world: World) -> None:

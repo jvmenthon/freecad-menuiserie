@@ -628,6 +628,13 @@ def _verifier_icones(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
                 problemes += ecarts(f"icône {genre.value}", ligne.icon(0).isNull(), attendu)
     vus = {genre for genre in NodeKind if _genres(arbre, genre)}
     problemes += ecarts("genres vus", NodeKind.FURNITURE in vus and NodeKind.PIECE in vus, True)
+    # Les tourillons du bureau sont de la quincaillerie, avec l'icône de leur commande.
+    problemes += ecarts("quincaillerie vue", NodeKind.HARDWARE_ITEM in vus, True)
+    attendu = QtGui.QIcon(icon_path("Menuiserie_Dowels.svg")).isNull()
+    for _g, _texte, cle in _genres(arbre, NodeKind.HARDWARE_ITEM):
+        ligne = item_for(arbre, cle)
+        if ligne is not None:
+            problemes += ecarts("icône tourillons", ligne.icon(0).isNull(), attendu)
     return problemes
 
 
