@@ -14,6 +14,7 @@ autre double-clic suit son cours habituel (autres ateliers, sélection, navigati
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Callable
 from typing import Any, Final
 
 import FreeCAD as App
@@ -23,6 +24,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
 __all__ = [
+    "Installation",
     "install",
     "installed",
     "is_viewport_3d",
@@ -85,17 +87,18 @@ class _DoubleClickFilter(QtCore.QObject):  # type: ignore[misc]
         return open_at(Gui.activeView(), point)
 
 
-class _Installation:
-    """Filtre unique, posé sur l'application pendant que l'atelier est actif."""
+class Installation:
+    """Filtre d'application unique, posé pendant que l'atelier est actif (``factory`` le crée)."""
 
-    def __init__(self) -> None:
-        self.filter: _DoubleClickFilter | None = None
+    def __init__(self, factory: Callable[[], QtCore.QObject]) -> None:
+        self._factory = factory
+        self.filter: QtCore.QObject | None = None
 
     def install(self) -> None:
         application = QtGui.QApplication.instance()
         if self.filter is not None or application is None:
             return
-        self.filter = _DoubleClickFilter()
+        self.filter = self._factory()
         application.installEventFilter(self.filter)
 
     def uninstall(self) -> None:
@@ -136,7 +139,7 @@ def viewports_3d(mdi_area: QtGui.QMdiArea, current_only: bool = False) -> list[Q
     return viewports
 
 
-_INSTALLATION: Final = _Installation()
+_INSTALLATION: Final = Installation(_DoubleClickFilter)
 
 
 def install() -> None:

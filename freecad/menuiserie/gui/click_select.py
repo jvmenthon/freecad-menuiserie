@@ -26,7 +26,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.core.selection_chain import click_target, double_click_target, up_target
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.selection_chain import chain_of, normalized
-from freecad.menuiserie.gui.double_click import is_viewport_3d, view_point
+from freecad.menuiserie.gui.double_click import Installation, is_viewport_3d, view_point
 from freecad.menuiserie.gui.drag.events import current_session
 
 __all__ = ["descend_at", "install", "installed", "uninstall"]
@@ -197,29 +197,7 @@ def _retarget_later(picked: DocumentObject, before: DocumentObject | None) -> No
         App.Console.PrintError(traceback.format_exc())
 
 
-class _Installation:
-    """Filtre unique, posé sur l'application pendant que l'atelier est actif."""
-
-    def __init__(self) -> None:
-        self.filter: _ClickFilter | None = None
-
-    def install(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is not None or application is None:
-            return
-        self.filter = _ClickFilter()
-        application.installEventFilter(self.filter)
-
-    def uninstall(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is None:
-            return
-        if application is not None:
-            application.removeEventFilter(self.filter)
-        self.filter = None
-
-
-_INSTALLATION: Final = _Installation()
+_INSTALLATION: Final = Installation(_ClickFilter)
 
 
 def install() -> None:
