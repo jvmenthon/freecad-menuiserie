@@ -1,74 +1,84 @@
-# ADR 0046 — Arbre de construction simplifié (mode simple / expert)
+# ADR 0046 — Panneau « Structure » : arbre simplifié pour les débutants
 
-- Statut : **proposé** (demande de jv, 2026-11-08 ; option 3 retenue par jv)
-- Date : 2026-11-09
+- Statut : **proposé** (demande de jv, 2026-11-08 ; panneau séparé retenu par jv le 2026-11-10)
+- Date : 2026-11-10
 - ADR liés : [0007 — Compatibilité avec les autres ateliers](0007-compatibilite-avec-les-autres-ateliers.md),
+  [0008 — Ensemble, objet de cotes](0008-ensemble-objet-de-cotes.md),
   [0038 — Ensemble à la souris](0038-ensemble-a-la-souris.md) (Std Part par ensemble),
-  [0043 — Répétition](0043-repetition-objet-de-cotes-et-copies-liees.md),
-  [0031 — Configuration de l'atelier](0031-configuration-de-l-atelier.md)
+  [0037 — Sous-ensemble depuis des membres](0037-sous-ensemble-depuis-des-membres.md),
+  [0043 — Répétition](0043-repetition-objet-de-cotes-et-copies-liees.md)
 
 ## Contexte
 
-L'arbre est trop chargé pour un débutant. Sur deux caissons répétés ×3, jv voit plus de
-100 lignes une fois tout déplié : Ensemble > Std Part > pièces usinées (brute en enfant), huit
+L'arbre de FreeCAD est trop chargé pour un débutant. Sur deux caissons répétés ×3, jv voit plus
+de 100 lignes une fois tout déplié : Ensemble > Std Part > pièces usinées (brute en enfant), huit
 assemblages à plat par caisson, une Origine par ensemble, des copies de répétition qui sont des
 Std Part complets, un objet « Répétition » à la racine, un tableur par liste de débit. Les noms
 (« (usinée) », « (Std Part) », « Caisson001 ») sont techniques.
 
+## Options étudiées
+
+1. **Masquer et regrouper dans l'arbre natif** (`ShowInTree`, `claimChildren`, dossier
+   « Assemblages »). Prototype sur FreeCAD 1.1.4 (2026-11-09) : faisable, mais l'Ensemble et le
+   Std Part ne se fusionnent à l'écran que si les **deux** réglages sont combinés, et il reste
+   quatre défauts : supprimer l'Ensemble laisse ses objets à la racine ; le Std Part masqué
+   réapparaît après un double-clic ou une copie ; le glisser-déposer est refusé par FreeCAD dans un
+   groupe réclamé ; les copies de répétition doivent être masquées à leur tour. Elle ajoute aussi
+   un objet-dossier au document. Rejetée.
+2. **Fusionner Ensemble et Std Part en un objet** : ramène la référence cyclique de l'ADR 0008
+   (un conteneur dépend de ses enfants, qui lisent ses cotes). Rejetée.
+3. **Panneau « Structure » séparé**, à côté de l'arbre natif. **Retenue.**
+
 ## Décision
 
-1. **Deux modes d'affichage**, réglés dans la configuration de l'atelier (ADR 0031) :
-   **simple** (par défaut) et **expert** (arbre actuel, inchangé). Le mode ne change *jamais* le
-   contenu du document, seulement l'affichage : un même fichier s'ouvre identique dans les deux.
-2. **Ensemble et Std Part sur un seul niveau.** L'Ensemble réclame directement les pièces du Std
-   Part (`claimChildren`) et le Std Part de l'atelier ainsi que son Origine sont `ShowInTree =
-   False`. Les deux réglages sont indissociables : seul, le premier montre les pièces deux fois,
-   le second fait disparaître l'ensemble (prototype FreeCAD 1.1.4). Le Std Part reste dans le
-   document (ADR 0038). Seuls les Std Part créés par l'atelier sont masqués.
-3. **Dossier « Assemblages (N) »** par ensemble, replié, réclamé par l'Ensemble ; il contient les
-   assemblages, la quincaillerie et les distances de l'ensemble. C'est un objet-dossier réel du
-   document (FreeCAD n'accepte que des objets du document dans `claimChildren`), sans forme ni
-   dépendance, nom suivi de son effectif.
-4. **Objets techniques masqués** en mode simple : brutes, Origines, sources de pièces en forme
-   (Body, esquisses), tableur de la liste de débit (rangé sous l'objet CutList).
-5. **Répétition** : « Répétition » et ses copies sont repliées sous une seule ligne
-   « <nom> ×N » ; les copies ne s'affichent pas à plat à la racine.
-6. **Glisser-déposer** (voulu par jv) : FreeCAD refuse le geste dans un groupe réclamé
-   (`cannot be dragged out of`). Le ViewProvider de l'Ensemble implémente `canDragObject`,
-   `dragObject`, `canDropObject` et `dropObject` : déposer une pièce sur un ensemble l'y range (même
-   chemin que la commande « ajouter au sous-ensemble », ADR 0037), la sortir d'un ensemble la
-   retire. Refus expliqué si la pièce porte un assemblage vers l'extérieur (ADR 0026).
-7. **Noms** : le vocabulaire (« usinée », « Std Part », numéros) sera revu dans un lot suivant,
-   hors de cet ADR.
-
-## Conditions imposées par le test (FreeCAD 1.1.4)
-
-- **Supprimer l'Ensemble** supprime aussi son Std Part, ses pièces et son dossier
-  « Assemblages » (transaction unique, annulable) ; rien ne retombe à la racine.
-- Le **masquage est réappliqué** à l'ouverture, après une copie et après une édition par
-  double-clic : le Std Part masqué est réapparu à la racine dans ces cas.
-- Le masquage s'applique aussi aux copies de la répétition (copie d'un Ensemble ou d'un Std Part).
-- Enregistrement, réouverture avec l'atelier chargé, double-clic (panneau de tâche), sélection
-  en 3D et Supprimer d'une pièce marchent déjà ; ils entrent dans la recette.
+1. Un **panneau ancré** (dock Qt) « Structure », ouvert par une commande de l'atelier, montre
+   l'arbre simplifié du document actif. L'arbre natif de FreeCAD n'est **ni modifié ni masqué** :
+   le mode « expert » est simplement l'arbre natif, toujours présent.
+2. **Contenu** (lecture seule du document, aucun objet créé) :
+   - un nœud par **Ensemble** (le Std Part de l'atelier et son Origine ne sont pas montrés ;
+     un sous-ensemble est un nœud enfant) ;
+   - sous chaque ensemble, ses **pièces** (la brute et la pièce usinée forment une seule ligne) ;
+   - un nœud replié **« Assemblages (N) »** qui regroupe assemblages, quincaillerie et Distances ;
+   - une répétition est une seule ligne **« <nom> ×N »** dépliable en ses copies ;
+   - la liste de débit est une ligne (son tableur n'apparaît pas) ; les sources des pièces en
+     forme (Body, esquisse) ne sont pas montrées.
+3. **Synchronisation** : le panneau se met à jour quand le document change (observateur de
+   document, regroupé pour ne pas recalculer à chaque propriété) ; sélectionner une ligne
+   sélectionne l'objet dans FreeCAD (et la 3D), et inversement (observateur de sélection).
+   Double-clic : même panneau de tâche que dans l'arbre natif.
+4. **Actions** : menu contextuel (supprimer avec la fenêtre « assemblage lié » existante,
+   renommer, ajouter au sous-ensemble) et **glisser-déposer** (voulu par jv) : déposer une pièce
+   sur un ensemble l'y range, comme la commande de l'ADR 0037 ; refus expliqué si la pièce porte
+   un assemblage vers l'extérieur (ADR 0026). Toute action passe par l'api de l'atelier, avec une
+   transaction.
+5. **Vocabulaire** : le panneau utilise les mots du débutant (« pièce », « assemblage », « ×3 »),
+   sans « (usinée) » ni « Std Part ». Les noms internes et les libellés de l'arbre natif ne
+   changent pas ici ; leur revue est un lot suivant (jv : « on changera les noms plus tard »).
+6. **Aucune donnée ajoutée au document** : le panneau ne crée ni objet, ni propriété, ni dossier.
+   Un fichier s'ouvre identique avec ou sans l'atelier.
 
 ## Compatibilité avec les autres addons
 
-Aucune propriété ni type d'objet de FreeCAD n'est modifié : `ShowInTree` et `claimChildren` sont les
-mécanismes natifs. Un document ouvert sans l'atelier garde son arbre FreeCAD normal (Std Part
-visibles). Les Std Part qui ne viennent pas de l'atelier ne sont jamais masqués.
+Aucun objet de FreeCAD n'est masqué, réclamé ou modifié : les Std Part, `App::Link`, Assembly,
+TechDraw et l'export STEP voient le document tel quel (ADR 0007). Le panneau ne montre que les
+objets de l'atelier ; les objets des autres ateliers apparaissent sous « Autres objets » (replié)
+ou ne sont pas montrés, au choix du lot 1.
 
 ## Conséquences
 
-- Un objet de plus par ensemble (dossier) ; le mode expert reste le recours pour tout voir.
-- Le dossier « Assemblages » doit rester synchronisé avec les assemblages de l'ensemble
-  (création, suppression, changement d'ensemble).
-- Cohérent avec l'ADR 0038 : l'Ensemble n'est toujours pas un conteneur.
+- Un composant d'interface à maintenir (rafraîchissement, sélection), mais isolé dans `gui/` : le
+  cœur et les `features/` ne changent pas.
+- Les quatre défauts du prototype disparaissent : plus de masquage à réappliquer, la suppression
+  d'un ensemble ne dépend plus de l'affichage, le glisser-déposer est du code de l'atelier.
+- Compatible avec ADR 0008 (l'Ensemble n'est toujours pas un conteneur) et ADR 0038.
+- L'arbre natif reste complet : le débutant peut le voir à côté ; on peut proposer d'ouvrir le
+  panneau en onglet de la vue combinée.
 
 ## Lots proposés
 
-1. Mode simple/expert + Ensemble/Std Part sur un niveau + masquage (avec suppression et
-   réapplication du masquage).
-2. Dossier « Assemblages (N) » (assemblages, quincaillerie, distances).
-3. Glisser-déposer dans l'arbre.
-4. Répétition repliée, liste de débit regroupée, objets de formes masqués.
-5. Noms d'affichage.
+1. Panneau « Structure » en lecture seule (ensembles, pièces, « Assemblages (N) ») et commande
+   d'ouverture.
+2. Rafraîchissement et sélection synchronisés avec FreeCAD (arbre natif, 3D), double-clic.
+3. Menu contextuel et glisser-déposer.
+4. Répétition (« ×N »), liste de débit, objets d'autres ateliers.
+5. Noms et vocabulaire (arbre natif compris), à décider avec jv.
