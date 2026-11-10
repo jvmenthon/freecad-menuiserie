@@ -43,7 +43,7 @@ source.
    - un ensemble copie dont l'`Origin` suit la source lie **toutes** les positions de ses membres
      (comme un sous-ensemble, ADR 0009, mise à jour du 2026-10-21).
    Les assemblages entre membres (cas A) et vers une pièce extérieure (cas B) sont recopiés selon
-   `CopyJoints` ; dissocier un ensemble copie dissocie l'ensemble et tous ses membres copiés.
+   `CopyJoints`, sauf ceux qui sont impossibles pour la copie (non recopiés, ADR 0043) ; dissocier un ensemble copie dissocie l'ensemble et tous ses membres copiés.
 4. **Pas de cycle** : une copie dépend de sa source, jamais l'inverse (les liaisons de la source
    citent l'épaisseur figée de ses copies, point 1) ; une copie de membre dépend de son original et
    de son ensemble copie, qui dépend de l'ensemble source. Sélection refusée si une pièce est

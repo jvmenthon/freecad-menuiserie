@@ -9,8 +9,15 @@ répétition est recréé pour chaque copie :
 - B : une seule pièce est une source → assemblage entre la copie et l'autre pièce, rôles
   conservés (la traverse reçoit un tenon par copie) ;
 - C : aucune pièce n'est une source → rien (l'assemblage n'est pas une origine) ;
-- D : l'assemblage enfant est créé même s'il est infaisable : la vérification existante le
-  signale au recalcul, la copie reste modifiable.
+- D : un assemblage **impossible** (copie hors de l'hôte, pièces qui ne se touchent pas…) n'est
+  pas recopié (décision de jv). Sa faisabilité est vérifiée avant la création avec les calculs du
+  recalcul (:func:`.joints.feasible.plan_error`), aux placements et cotes de la copie ; chaque
+  édition de la répétition réévalue tout : un enfant devenu impossible est supprimé, un
+  manquant devenu possible est créé, un enfant dissocié ne revient pas. Le nombre d'assemblages
+  non recopiés est signalé (:func:`skipped_message`). Limite : un simple recalcul (source déplacée
+  après coup) ne crée ni ne supprime rien (pas d'écriture de structure dans un recalcul) ; un
+  enfant devenu impossible l'est alors signalé par l'état de l'assemblage jusqu'à la prochaine
+  édition de la répétition.
 
 Un assemblage enfant porte ``RepeatJoint`` (lien vers l'assemblage d'origine, lecture seule) et
 **partage sa configuration** : chaque propriété de paramètre du type (``PARAMS``, noms de
@@ -24,9 +31,9 @@ persistance (ADR 0003) : le nom de la propriété ``RepeatJoint`` ne change jama
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import fields
-from typing import Final
+from typing import Final, NamedTuple
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import Cell
@@ -38,20 +45,26 @@ from freecad.menuiserie.features.freecad_types import (
     expressions_of,
     restoring_or_undoing,
 )
+from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint, property_name
 from freecad.menuiserie.features.joints.factories import create_joint
+from freecad.menuiserie.features.joints.feasible import plan_error
 from freecad.menuiserie.features.repeat import cell_of, copies_of
 from freecad.menuiserie.features.repeat_members import original_parts
 from freecad.menuiserie.features.schema import PropertySpec, set_editor_mode
 
 __all__ = [
     "PROPERTY",
+    "JointsUpdate",
     "children_of",
     "joint_removed",
     "joints_of_part",
+    "not_copied_warning",
     "origin_of",
     "param_paths",
     "restored",
+    "skipped_message",
     "unlink_joint",
     "unlink_part_joints",
     "update_joints",
@@ -67,6 +80,10 @@ _SPEC: Final = PropertySpec(
         "Assemblage d'origine dont celui-ci partage la configuration (répétition).",
     ),
     mode=READ_ONLY,
+)
+_SKIPPED_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "1 assemblage n'a pas été recopié : {reason}")
+_SKIPPED_MANY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{count} assemblages n'ont pas été recopiés : {reason}"
 )
 _DERIVED: Final = "joint_derived"  # champ fourni par le document, pas par une propriété
 
@@ -190,17 +207,22 @@ def _counterpart(
     return by_cell.get((part.Name, cell))
 
 
-def _create_child(
+def _existing(
     origin: DocumentObject, host: DocumentObject, guest: DocumentObject
 ) -> DocumentObject | None:
-    """Assemblage enfant de ``origin`` entre ``host`` et ``guest`` ; ``None`` s'il existe déjà un
-    assemblage du même type entre eux (enfant, ou enfant dissocié : il ne revient pas)."""
+    """Assemblage du type de ``origin`` entre ``host`` et ``guest`` (enfant, ou enfant dissocié :
+    il ne revient pas), ``None`` s'il n'y en a pas."""
     kind = type(origin.Proxy)
-    if any(
-        type(joint.Proxy) is kind and (joint.HostPart, joint.GuestPart) == (host, guest)
-        for joint in joints_of_part(host)
-    ):
-        return None
+    for joint in joints_of_part(host):
+        if type(joint.Proxy) is kind and (joint.HostPart, joint.GuestPart) == (host, guest):
+            return joint
+    return None
+
+
+def _create_child(
+    origin: DocumentObject, host: DocumentObject, guest: DocumentObject
+) -> DocumentObject:
+    """Assemblage enfant de ``origin`` entre ``host`` et ``guest``, lié à son origine."""
     child = create_joint(
         type(origin.Proxy),
         origin.Document,
@@ -213,26 +235,116 @@ def _create_child(
     return child
 
 
-def update_joints(
-    repeat: DocumentObject, *, enabled: bool, cells: Iterable[Cell]
-) -> list[DocumentObject]:
-    """Met les assemblages enfants de ``repeat`` au réglage ``CopyJoints`` = ``enabled`` : faux,
-    tous sont supprimés (avec leurs pièces usinées devenues sans assemblage) ; vrai, ils sont
-    créés pour les copies des cellules ``cells`` qui n'en ont pas encore (une copie dissociée ou
-    supprimée n'en reçoit pas ; un enfant supprimé à la main revient).
-    Renvoie les assemblages créés. Ni transaction ni recalcul."""
-    if not enabled:
-        remove_joints(_repeat_children(repeat))
-        return []
+def _is_child_of(joint: DocumentObject | None, origin: DocumentObject) -> bool:
+    """Vrai si ``joint`` est un enfant (non dissocié) de ``origin``."""
+    return joint is not None and origin_of(joint) == origin
+
+
+class JointsUpdate(NamedTuple):
+    """Résultat de :func:`update_joints` : assemblages créés, nombre d'assemblages impossibles
+    donc non recopiés (supprimés ou jamais créés) et motif du premier."""
+
+    created: list[DocumentObject]
+    skipped: int = 0
+    reason: str = ""
+
+
+def skipped_message(update: JointsUpdate) -> tuple[str, ...]:
+    """Avertissement traduit des assemblages non recopiés (vide s'il n'y en a aucun)."""
+    if not update.skipped:
+        return ()
+    template = _SKIPPED_ONE if update.skipped == 1 else _SKIPPED_MANY
+    return (translated(template, {"count": str(update.skipped), "reason": update.reason}),)
+
+
+def _refresh_placements(repeat: DocumentObject) -> None:
+    """Calcule le placement et les cotes des copies de pièces (expressions déjà réécrites) pour
+    juger les assemblages sur leur état définitif, avant le recalcul du document."""
+    for copy in copies_of(repeat):
+        if not is_furniture(copy):
+            copy.recompute()
+
+
+class _Decision(NamedTuple):
+    """Ce que la répétition doit faire d'un assemblage d'origine pour une cellule."""
+
+    origin: DocumentObject
+    host: DocumentObject
+    guest: DocumentObject
+    error: str | None
+    existing: DocumentObject | None
+
+
+def _decisions(repeat: DocumentObject, cells: Iterable[Cell]) -> list[_Decision]:
+    """Un jugement par assemblage d'origine et par cellule dont les deux pièces existent."""
     by_cell = {(copy.RepeatSource.Name, cell_of(copy)): copy for copy in copies_of(repeat)}
     sources = {source.Name for source in original_parts(repeat)}
     origins = _origins(repeat)
-    created: list[DocumentObject] = []
+    found: list[_Decision] = []
     for cell in cells:
         for origin in origins:
             host = _counterpart(origin.HostPart, cell, by_cell, sources)
             guest = _counterpart(origin.GuestPart, cell, by_cell, sources)
-            child = None if host is None or guest is None else _create_child(origin, host, guest)
-            if child is not None:
-                created.append(child)
-    return created
+            if host is not None and guest is not None:
+                found.append(
+                    _Decision(
+                        origin,
+                        host,
+                        guest,
+                        plan_error(origin, host, guest),
+                        _existing(origin, host, guest),
+                    )
+                )
+    return found
+
+
+def update_joints(repeat: DocumentObject, *, enabled: bool, cells: Iterable[Cell]) -> JointsUpdate:
+    """Met les assemblages enfants de ``repeat`` au réglage ``CopyJoints`` = ``enabled`` : faux,
+    tous sont supprimés (avec leurs pièces usinées devenues sans assemblage) ; vrai, ils sont
+    réévalués pour les copies des cellules ``cells`` : un assemblage impossible n'est pas créé,
+    un enfant devenu impossible est supprimé, un enfant manquant devenu possible est créé (une
+    copie dissociée ou supprimée n'en reçoit pas ; un enfant dissocié ne revient pas ; un enfant
+    supprimé à la main revient). Renvoie les assemblages créés et le nombre de non recopiés.
+    Ni transaction ni recalcul."""
+    if not enabled:
+        remove_joints(_repeat_children(repeat))
+        return JointsUpdate([])
+    _refresh_placements(repeat)
+    decisions = _decisions(repeat, cells)
+    skipped = _skipped(decisions)
+    remove_joints(
+        [
+            item.existing
+            for item in decisions
+            if item.error is not None and _is_child_of(item.existing, item.origin)
+        ]
+    )
+    created = [
+        _create_child(item.origin, item.host, item.guest)
+        for item in decisions
+        if item.error is None and item.existing is None
+    ]
+    return JointsUpdate(created, *skipped)
+
+
+def _skipped(decisions: Sequence[_Decision]) -> tuple[int, str]:
+    """Nombre d'assemblages impossibles non recopiés (supprimés ou jamais créés ; un assemblage
+    dissocié n'en fait pas partie) et motif du premier."""
+    missing = [
+        item
+        for item in decisions
+        if item.error is not None
+        and (item.existing is None or _is_child_of(item.existing, item.origin))
+    ]
+    return len(missing), (missing[0].error or "") if missing else ""
+
+
+def not_copied_warning(repeat: DocumentObject) -> str:
+    """Avertissement traduit des assemblages de ``repeat`` impossibles donc non recopiés, vide
+    s'il n'y en a aucun ou si ``CopyJoints`` est faux. Lecture seule, pour le panneau : à appeler
+    après le recalcul qui a suivi :func:`update_joints`."""
+    if not repeat.CopyJoints:
+        return ""
+    cells = {cell_of(copy) for copy in copies_of(repeat)}
+    messages = skipped_message(JointsUpdate([], *_skipped(_decisions(repeat, cells))))
+    return "".join(messages)

@@ -349,7 +349,8 @@ def _inverser_grise(doc: Any) -> list[str]:
     doc.recompute()
     api.make_mortise_tenon(mortaise, tenon)
     doc.recompute()
-    api.make_repeat([tenon], api.RepeatParams(count=1, step=100.0, axis=api.RepeatAxis.Z))
+    # la copie doit rester réalisable (sinon l'assemblage ne serait pas recopié) : 5 mm sur Y
+    api.make_repeat([tenon], api.RepeatParams(count=1, step=5.0, axis=api.RepeatAxis.Y))
     doc.clearUndos()
     enfant = next(j for j in doc.Objects if hasattr(j, "HostPart") and origin_of(j) is not None)
     origine = next(j for j in doc.Objects if hasattr(j, "HostPart") and origin_of(j) is None)

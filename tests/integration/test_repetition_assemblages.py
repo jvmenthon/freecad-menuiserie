@@ -2,9 +2,9 @@
 """Assemblages recopiés par une répétition (lot R-b2, ADR 0043, ``docs/specs/repetition.md`` § 3).
 
 R7 cinq barreaux tenonnés entre deux traverses, cas A (deux sources), B (une pièce fixe), C
-(ignoré), D (infaisable), E (paramètres partagés), F (copie ajoutée), G (copie retirée), « Recopier
-les assemblages » décoché, dissociation, suppression de l'origine, annulation en un bloc,
-réouverture, répétition d'une pièce usinée, temps de 20 copies.
+(ignoré), D (impossible : non recopié), E (paramètres partagés), F (copie ajoutée), G (copie
+retirée), « Recopier les assemblages » décoché, dissociation, suppression de l'origine,
+annulation en un bloc, réouverture, répétition d'une pièce usinée, temps de 20 copies.
 """
 
 from __future__ import annotations
@@ -197,16 +197,16 @@ def test_cas_c_assemblage_sans_source_ignore(scene: Scene) -> None:
 # --- Cas D : infaisable --------------------------------------------------------------------
 
 
-def test_cas_d_copie_hors_de_l_hote_assemblage_cree_et_signale(scene: Scene) -> None:
+def test_cas_d_copie_hors_de_l_hote_assemblage_non_recopie(scene: Scene) -> None:
     rep = scene.repeat(count=3, step=300.0)  # barreaux à 140, 440, 740 et 1040 mm : 2 hors hôte
     doc = scene.doc
-    assert len(all_children(rep)) == 6 and len(joints_of(doc)) == 8
-    invalid = [j for j in all_children(rep) if "Invalid" in j.State]
-    assert {j.GuestPart.RepeatIndex for j in invalid} == {2, 3}  # la vérification existante
-    assert all("Invalid" not in c.State for c in copies(rep))  # la copie reste modifiable
+    assert len(all_children(rep)) == 2 and len(joints_of(doc)) == 4  # seule la copie 1 touche
+    assert {j.GuestPart.RepeatIndex for j in all_children(rep)} == {1}
+    assert [j for j in joints_of(doc) if "Invalid" in j.State] == []
+    assert stale_or_invalid(doc) == []
     copies(rep)[1].Length = 300
     api.edit_repeat(rep, api.RepeatParams(count=3, step=100.0, axis="X"))
-    assert [j for j in joints_of(doc) if "Invalid" in j.State] == []
+    assert len(joints_of(doc)) == 8 and [j for j in joints_of(doc) if "Invalid" in j.State] == []
     assert stale_or_invalid(doc) == []
 
 

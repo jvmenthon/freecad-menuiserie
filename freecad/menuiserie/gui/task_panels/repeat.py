@@ -44,6 +44,7 @@ from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.repeat import sources_of, stored_lines
 from freecad.menuiserie.features.repeat_copies import resolve_for, source_extent, source_extents
+from freecad.menuiserie.features.repeat_joints import not_copied_warning
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     DeletionWatcher,
@@ -315,6 +316,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
             self._show_resolved(params.spacing, grid)
             summary = summary_text(grid)
             warning = overlap_text(grid, source_extents(sources, [a.axis for a in grid.axes]))
+            warning = "\n".join(filter(None, (warning, self._not_copied())))
         except (TypeError, ValueError, KeyError) as refusal:
             error = str(refusal.args[0] if isinstance(refusal, KeyError) else refusal)
         except Exception as failure:  # OCC, objet en erreur : aperçu abandonné, rien ne reste
@@ -325,6 +327,11 @@ class RepeatTaskPanel(TransactionTaskPanel):
         show_message(self._warning, warning)
         show_message(self._error, error)
         self._refresh_ok()
+
+    def _not_copied(self) -> str:
+        """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""
+        repeat = self._repeat()
+        return "" if repeat is None else not_copied_warning(repeat)
 
     def _show_resolved(self, spacing: SpacingMode, grid: ResolvedGrid) -> None:
         """Valeur calculée par le mode de saisie (pas ou nombre), gardée dans son champ masqué :

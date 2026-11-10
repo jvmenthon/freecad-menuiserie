@@ -64,7 +64,7 @@ from freecad.menuiserie.features.repeat_follow import (
     follow_grid_params,
     unbind_follow,
 )
-from freecad.menuiserie.features.repeat_joints import update_joints
+from freecad.menuiserie.features.repeat_joints import skipped_message, update_joints
 from freecad.menuiserie.features.repeat_links import link_copy, link_inner
 from freecad.menuiserie.features.repeat_new import (
     Place,
@@ -269,4 +269,5 @@ def apply_repeat(repeat: DocumentObject, params: RepeatParams) -> Created:
         created.extend(_sync_copies(repeat, source, plan))
     joints = update_joints(repeat, enabled=params.copy_joints, cells=plan.ranks)
     notices = _bind_furnitures(sources, created)
-    return Created(created, joints, notice_messages(notices))
+    messages = (*notice_messages(notices), *skipped_message(joints))
+    return Created(created, joints.created, messages)

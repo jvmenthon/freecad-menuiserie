@@ -108,7 +108,7 @@ Exemple : un barreau tenonné dans une traverse haute et une traverse basse, ré
 | A. Assemblage entre deux pièces **toutes deux sélectionnées** (ex. barreau + pied) | recréé pour chaque copie, entre les copies homologues, mêmes paramètres, **liés** à ceux de l'assemblage d'origine |
 | B. Assemblage entre une pièce sélectionnée et une **non sélectionnée** (barreau ↔ traverse) | recréé pour chaque copie, la pièce non sélectionnée gardant son rôle (hôte ou invitée) : la traverse reçoit 5 tenons |
 | C. Assemblage entre deux pièces non sélectionnées | ignoré |
-| D. Une copie sort de l'hôte (pas trop grand) | assemblage créé quand même ; la vérification J3 le signale sur la copie, la copie reste modifiable |
+| D. Une copie sort de l'hôte (pas trop grand), ou l'assemblage est impossible pour une autre raison | **assemblage non recopié** (décision de jv, 2026-11-10, qui remplace « créé quand même ») : sa faisabilité est vérifiée avant création avec les calculs du recalcul ; la copie reste une pièce simple et le nombre d'assemblages non recopiés est signalé (« 3 assemblages n'ont pas été recopiés : les pièces ne se touchent pas. »), dans la vue rapport et dans le panneau |
 | E. Changer un paramètre de l'assemblage d'origine (diamètre de tourillon) | suit sur les copies tant qu'elles sont liées ; dissocier la copie dissocie aussi ses assemblages |
 | F. Ajouter une copie après coup | ses assemblages sont créés comme pour A et B |
 | G. Supprimer une copie | ses assemblages sont supprimés avec elle (comportement J3 existant) |
@@ -118,6 +118,15 @@ Exemple : un barreau tenonné dans une traverse haute et une traverse basse, ré
 Cochée : les assemblages répétés **partagent la configuration** de l'assemblage d'origine ; un
 changement sur le premier assemblage modifie tous les assemblages enfants (cas E). La case est
 mémorisée dans `Repeat` (`CopyJoints`) et reprise par « Modifier la répétition ».
+
+**Assemblage impossible (jv, 2026-11-10).** « Si l'assemblage est impossible, il n'est pas
+recopié. » À chaque création et à chaque édition (`make_repeat`, `edit_repeat`, panneau), après
+placement des copies, chaque assemblage enfant est réévalué : un enfant devenu impossible est
+supprimé, un enfant manquant devenu possible est créé, un enfant dissocié par l'utilisateur ne
+revient pas. Les grilles (une évaluation par cellule) et les ensembles suivent la même règle.
+**Limite** : un simple recalcul (source déplacée après coup) ne crée ni ne supprime rien, car un
+recalcul n'écrit pas la structure du document ; un enfant devenu impossible est alors signalé par
+sa vérification habituelle jusqu'à la prochaine édition de la répétition.
 
 ## 4. Geste : Ctrl + déplacement (lot R-d, réponses de jv Q9 et Q10)
 
