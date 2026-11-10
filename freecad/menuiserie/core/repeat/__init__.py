@@ -6,7 +6,8 @@ sur une longueur : un seul mode de saisie, une ligne par axe) sans rien connaît
 paramètres validés (:class:`RepeatParams`, :class:`AxisRepeat`), nombre et pas effectifs
 (:func:`resolve` pour un axe, :func:`resolve_grid` pour la grille), cellules et décalages des copies
 (:func:`cell_offsets`, :func:`offsets`) et détection du chevauchement (:func:`overlaps`,
-:func:`overlapping_axes`, :func:`grid_overlaps`). Les modes cercle et trajet sont réservés dans
+:func:`overlapping_axes`, :func:`grid_overlaps`) ; longueur jusqu'à une butée (:func:`stop_span`,
+ADR 0047). Les modes cercle et trajet sont réservés dans
 le modèle (ADR 0043 et 0045).
 """
 
@@ -42,6 +43,7 @@ from freecad.menuiserie.core.repeat._model import (
     RepeatParams,
     SpacingMode,
 )
+from freecad.menuiserie.core.repeat._stop import StopKind, stop_kind, stop_span
 
 __all__ = [
     "MAX_COPIES",
@@ -58,6 +60,7 @@ __all__ = [
     "ResolvedAxis",
     "ResolvedGrid",
     "SpacingMode",
+    "StopKind",
     "axis_index",
     "cell_offsets",
     "cells_of",
@@ -70,4 +73,6 @@ __all__ = [
     "resolve",
     "resolve_grid",
     "resolve_line",
+    "stop_kind",
+    "stop_span",
 ]

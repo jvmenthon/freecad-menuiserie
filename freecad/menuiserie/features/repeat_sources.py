@@ -18,7 +18,7 @@ from freecad.menuiserie.core.repeat import RepeatAxis, RepeatParams, ResolvedGri
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
-from freecad.menuiserie.features.furniture_container import placement_container
+from freecad.menuiserie.features.furniture_container import placement_container, std_part_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.repeat import is_copy
@@ -30,6 +30,7 @@ __all__ = [
     "checked_sources",
     "common_container",
     "resolve_for",
+    "source_bounds",
     "source_extent",
     "source_extents",
 ]
@@ -159,16 +160,20 @@ def checked_sources(
     return sources
 
 
-def source_extent(sources: Sequence[DocumentObject], axis: RepeatAxis) -> float:
-    """Cote des ``sources`` le long de l'axe global (mm) : boîte englobante de leurs formes, ou
-    de ``Origin`` à ``Origin`` plus la cote pour un ensemble. ``ValueError`` traduite sans source
-    (la dernière a été supprimée : la répétition vidée ne se modifie plus)."""
+def source_bounds(sources: Sequence[DocumentObject], axis: RepeatAxis) -> tuple[float, float]:
+    """Bas et haut des ``sources`` le long de l'axe du conteneur (mm) : boîte englobante de leurs
+    formes, ou de ``Origin`` à ``Origin`` plus la cote pour un ensemble (plus la position de son
+    Std Part, s'il en a un). ``ValueError`` traduite sans source (la dernière a été supprimée : la
+    répétition vidée ne se modifie plus) ou sans forme."""
     if not sources:
         raise ValueError(translated(_NO_SOURCE))
     low, high = [], []
     for source in sources:
         if is_furniture(source):
             start = getattr(source.Origin, _AXES[axis].lower())
+            part = std_part_of(source)
+            if part is not None:
+                start += getattr(part.Placement.Base, _AXES[axis].lower())
             low.append(start)
             high.append(start + getattr(source, _SIZES[axis]).Value)
             continue
@@ -177,7 +182,14 @@ def source_extent(sources: Sequence[DocumentObject], axis: RepeatAxis) -> float:
         box = source.Shape.BoundBox
         low.append(getattr(box, f"{_AXES[axis]}Min"))
         high.append(getattr(box, f"{_AXES[axis]}Max"))
-    return float(max(high) - min(low))
+    return float(min(low)), float(max(high))
+
+
+def source_extent(sources: Sequence[DocumentObject], axis: RepeatAxis) -> float:
+    """Cote des ``sources`` le long de l'axe global (mm) : haut moins bas de
+    :func:`source_bounds`."""
+    low, high = source_bounds(sources, axis)
+    return high - low
 
 
 def source_extents(
