@@ -20,10 +20,10 @@ from typing import Any, Final
 
 import FreeCAD as App
 import FreeCADGui as Gui
-import shiboken6
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.structure_actions import BUSY
 from freecad.menuiserie.core.structure_sync import (
     Coalescer,
     ReentrancyGuard,
@@ -47,9 +47,6 @@ __all__ = ["StructureSync", "later", "open_object_panel", "report_errors"]
 
 NO_DOCUMENT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun document ouvert.")
 EMPTY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun ensemble ni aucune pièce.")
-_PANEL_BUSY: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Terminez d'abord le panneau de tâche ouvert (OK ou Annuler)."
-)
 _STATUS_MS: Final = 4000
 
 
@@ -70,6 +67,18 @@ def open_object_panel(obj: Any) -> bool:
     if Gui.Control.activeDialog():
         return False
     return bool(vobj.Document.setEdit(obj, 0))
+
+
+class _Lifetime:
+    """Vrai tant que l'arbre Qt existe : le signal ``destroyed`` de l'arbre le baisse. Remplace
+    le test de validité de shiboken (ADR 0023 : compatibilité Qt 5, PySide seul importé)."""
+
+    def __init__(self) -> None:
+        self.alive = True
+
+    def mark_destroyed(self, *_args: object) -> None:
+        """Slot de ``destroyed`` : l'objet C++ de l'arbre n'existe plus."""
+        self.alive = False
 
 
 class _DocumentWatcher:
@@ -156,6 +165,8 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
     def __init__(self, tree: QtGui.QTreeWidget, parent: QtCore.QObject) -> None:
         super().__init__(parent)
         self._tree = tree
+        self._lifetime = _Lifetime()
+        tree.destroyed.connect(self._lifetime.mark_destroyed)
         self._guard = ReentrancyGuard()
         self._refresh = Coalescer(later, self._guarded_refresh)
         self._select = Coalescer(later, self._guarded_pull_selection)
@@ -189,7 +200,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
 
     def _tree_alive(self) -> bool:
         """Faux (et observateurs retirés) si l'arbre Qt est déjà détruit."""
-        if shiboken6.isValid(self._tree):
+        if self._lifetime.alive:
             return True
         self._observers.detach()
         return False
@@ -280,7 +291,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
 
     def _open(self, obj: Any) -> None:
         if not open_object_panel(obj) and Gui.Control.activeDialog():
-            Gui.getMainWindow().statusBar().showMessage(translated(_PANEL_BUSY), _STATUS_MS)
+            Gui.getMainWindow().statusBar().showMessage(translated(BUSY), _STATUS_MS)
 
 
 def _try(action: Callable[[Any], object], observer: object) -> None:

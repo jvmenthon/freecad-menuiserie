@@ -13,19 +13,12 @@ from freecad.menuiserie.core.structure_actions import MoveFacts
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.joints.base import is_joint
-from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.structure_foreign import foreign_objects
 from freecad.menuiserie.features.structure_repetitions import repetition_reader
-from freecad.menuiserie.features.structure_source import row_key_of
+from freecad.menuiserie.features.structure_source import renamed_object, row_key_of
 
-__all__ = ["facts_of", "renamed_object"]
-
-
-def renamed_object(obj: DocumentObject) -> DocumentObject:
-    """Objet dont le libellé est celui de la ligne : la brute pour une pièce usinée (la ligne
-    porte le libellé de sa brute, ADR 0046), sinon l'objet lui-même."""
-    return blank_of(obj) if is_machined_part(obj) else obj
+__all__ = ["facts_of", "renamed_object"]  # renamed_object : réexporté
 
 
 def _parent_key(member: DocumentObject) -> str | None:

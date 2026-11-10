@@ -14,6 +14,7 @@ import FreeCAD as App
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.structure_rename import cleaned_name, decide_rename
 from freecad.menuiserie.core.templates.carcass import CarcassParams
 from freecad.menuiserie.features import (
     distance_move,
@@ -27,6 +28,7 @@ from freecad.menuiserie.features import (
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
+from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.picked import PickedElement
@@ -95,6 +97,26 @@ def remove_from_furniture(
     if objects:
         objects[0].Document.recompute()
     return messages
+
+
+def rename(obj: DocumentObject, name: str) -> str:
+    """Renomme une pièce de bois, une pièce en bois ou un ensemble ; pour une pièce usinée, c'est
+    le libellé de sa brute qui change (celui que montre le panneau « Structure »). ``name`` est
+    débarrassé des espaces qui l'entourent. ``TypeError`` ou ``ValueError`` traduite, avant toute
+    modification, pour un autre objet, un nom vide, trop long, avec un caractère de contrôle ou
+    (ensemble) inutilisable dans une expression. Un nom inchangé ne fait rien. Renvoie le
+    libellé de l'objet renommé. Aucune transaction n'est ouverte : c'est à l'appelant de le
+    faire pour pouvoir annuler."""
+    target = furniture_members.member_object(obj)
+    old = str(target.Label)
+    decision = decide_rename(old, name, furniture=is_furniture(target))
+    if not decision.allowed:
+        if decision.silent:
+            return old
+        raise ValueError(translated(decision.template, decision.params))
+    target.Label = cleaned_name(name)
+    target.Document.recompute()
+    return str(target.Label)
 
 
 def set_member_options(

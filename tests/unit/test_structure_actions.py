@@ -512,6 +512,16 @@ def test_chaque_ecriture_passe_par_l_api_dans_une_transaction() -> None:
     assert "move=True" in source
     assert "keep_properties=True" in source
     assert "Std_Delete" in source
+    assert "api.rename" in source  # M2 : « Renommer » aussi passe par l'api
+
+
+def test_le_panneau_n_ecrit_aucun_libelle_lui_meme() -> None:
+    """Règle S5 : toute écriture dans le document passe par l'api (ici ``api.rename``)."""
+    for path in sorted(GUI.glob("structure_*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            targets = node.targets if isinstance(node, ast.Assign) else []
+            for target in targets:
+                assert not (isinstance(target, ast.Attribute) and target.attr == "Label"), path
 
 
 def test_aucun_texte_visible_en_dur() -> None:

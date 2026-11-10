@@ -31,7 +31,7 @@ from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.structure_foreign import foreign_objects
 from freecad.menuiserie.features.structure_repetitions import RepetitionReader, repetition_reader
 
-__all__ = ["DocumentStructure", "row_key_of", "structure_of"]
+__all__ = ["DocumentStructure", "renamed_object", "row_key_of", "structure_of"]
 
 
 def structure_of(doc: Document) -> tuple[StructureNode, ...]:
@@ -120,9 +120,7 @@ class DocumentStructure:
     def label(self, key: str) -> str:
         """Libellé de l'objet ``key`` ; une pièce usinée porte celui de sa brute (sans
         « (usinée) »)."""
-        obj = self._by_name[key]
-        shown = blank_of(obj) if is_machined_part(obj) else obj
-        return str(shown.Label)
+        return str(renamed_object(self._by_name[key]).Label)
 
     def _children_of(self, furniture: str) -> list[DocumentObject]:
         if furniture not in self._children:
@@ -138,3 +136,9 @@ def row_key_of(obj: DocumentObject) -> str:
     """Clé de la ligne du panneau qui représente ``obj`` : la pièce usinée pour sa brute (une
     seule ligne pour les deux), sinon l'objet lui-même."""
     return str(shown_object(obj).Name)
+
+
+def renamed_object(obj: DocumentObject) -> DocumentObject:
+    """Objet dont le libellé est celui de la ligne : la brute pour une pièce usinée (la ligne
+    porte le libellé de sa brute, sans « (usinée) », ADR 0046), sinon l'objet lui-même."""
+    return blank_of(obj) if is_machined_part(obj) else obj
