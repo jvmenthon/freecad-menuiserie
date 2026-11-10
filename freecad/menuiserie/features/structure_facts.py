@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Faits du document pour les actions du panneau « Structure » (ADR 0046, lot 3).
+"""Faits du document pour les actions du panneau « Structure » (ADR 0046, lots 3 et 4).
 
 :func:`facts_of` lit un document FreeCAD et en tire le :class:`MoveFacts` de
-``core/structure_actions.py`` (libellés, ensemble de chaque pièce, pièces assemblées). Lecture
-seule : aucun objet, propriété ni transaction, et aucun import de l'interface. Les clés sont
-celles des lignes du panneau (``row_key_of``).
+``core/structure_actions.py`` (libellés, ensemble de chaque pièce, pièces assemblées, copies de
+répétition, objets d'autres ateliers). Lecture seule : aucun objet, propriété ni transaction, et
+aucun import de l'interface. Les clés sont celles des lignes du panneau (``row_key_of``).
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.structure_foreign import foreign_objects
+from freecad.menuiserie.features.structure_repetitions import repetition_reader
 from freecad.menuiserie.features.structure_source import row_key_of
 
 __all__ = ["facts_of", "renamed_object"]
@@ -62,4 +64,9 @@ def facts_of(doc: Document) -> MoveFacts:
         for key, others in _links(doc).items()
         if key in labels
     }
-    return MoveFacts(labels, frozenset(furnitures), parent, links)
+    reader = repetition_reader(doc)
+    copies = frozenset(
+        copy for rep in reader.all_repetitions() for copy in reader.copies_of(rep) if copy in labels
+    )
+    foreign = frozenset(str(obj.Name) for obj in foreign_objects(doc))
+    return MoveFacts(labels, frozenset(furnitures), parent, links, copies=copies, foreign=foreign)

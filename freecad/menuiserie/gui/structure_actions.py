@@ -213,7 +213,11 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
             return
         action = menu.addAction(text)
         self._explain(action, entry.decision)
-        action.triggered.connect(lambda _checked=False: self._trigger(entry))
+
+        def triggered(_checked: bool = False) -> None:
+            self._trigger(entry)
+
+        action.triggered.connect(triggered)
 
     @staticmethod
     def _explain(action: Any, decision: Decision) -> None:

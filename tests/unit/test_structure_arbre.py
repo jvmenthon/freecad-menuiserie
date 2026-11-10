@@ -199,6 +199,8 @@ def test_document_ne_montre_ni_std_part_ni_origine(world: World) -> None:
     blank = world.part("Planche", Label="Plateau")
     std_part = Obj("Part", "App::Part", Label="Part")
     origin = Obj("Origin", "App::Origin", Label="Origine")
+    std_part.props["OutList"] = [blank]  # le Std Part contient les pièces de l'ensemble
+    blank.InList.append(std_part)
     labels_found = [n.label for r in read(world, std_part, origin, blank) for n in r.walk()]
     assert labels_found == ["Plateau"]
 

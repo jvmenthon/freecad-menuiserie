@@ -41,7 +41,14 @@ def _create_dock(window: QtGui.QMainWindow) -> QtGui.QDockWidget:
     dock.setWidget(tree)
     sync = StructureSync(tree, dock)
     StructureActions(tree, partial(sync.refresh_now, force=True), dock)
-    dock.visibilityChanged.connect(lambda visible: sync.attach() if visible else sync.detach())
+
+    def visibility_changed(visible: bool) -> None:
+        if visible:
+            sync.attach()
+        else:
+            sync.detach()
+
+    dock.visibilityChanged.connect(visibility_changed)
     dock.destroyed.connect(sync.detach)
     window.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock)
     return dock

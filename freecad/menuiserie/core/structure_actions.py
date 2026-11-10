@@ -16,7 +16,7 @@ refusé et l'assemblage doit être supprimé d'abord.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -29,6 +29,7 @@ __all__ = [
     "BUSY",
     "DRAGGABLE_KINDS",
     "MAX_NAME_LENGTH",
+    "NO_DROP_KINDS",
     "Decision",
     "MoveFacts",
     "cleaned_name",
@@ -40,12 +41,18 @@ __all__ = [
     "decide_rename",
     "decide_rename_target",
     "decide_selection",
+    "drop_blocked",
     "drop_target",
     "top_level",
 ]
 
 # Lignes qu'on glisse : les pièces et les ensembles (pas les assemblages).
 DRAGGABLE_KINDS: Final = frozenset({NodeKind.PIECE, NodeKind.FURNITURE})
+# Lignes qui ne reçoivent jamais de dépôt (une répétition gère ses copies, les autres objets
+# ne se touchent pas) : y glisser une pièce est refusé, pas interprété comme « hors ensemble ».
+NO_DROP_KINDS: Final = frozenset(
+    {NodeKind.REPEAT, NodeKind.COPY, NodeKind.CUTLIST, NodeKind.OTHERS, NodeKind.OTHER}
+)
 MAX_NAME_LENGTH: Final = 120  # nom d'une pièce ou d'un ensemble, en caractères
 
 BUSY: Final = QT_TRANSLATE_NOOP(
@@ -56,6 +63,22 @@ _NOT_MOVABLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "La sélection contient un élément qui ne se range pas (assemblage, objet supprimé ou "
     "d'un autre document) : seuls les pièces et les ensembles du document actif se rangent.",
+)
+_IS_COPY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {item} » est une copie de répétition : elle suit sa répétition et ne se range pas à part.",
+)
+_COPY_TARGET: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "« {item} » est une copie de répétition : on n'y range pas de pièce."
+)
+_FOREIGN: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cet élément vient d'un autre atelier : l'atelier Menuiserie ne le modifie pas (il ne "
+    "l'ouvre, ne le renomme, ne le range ni ne le supprime).",
+)
+_NO_DROP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cette ligne ne reçoit pas de pièce : déposez-la sur un ensemble.",
 )
 _CYCLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -122,13 +145,16 @@ def _refuse(template: str, **params: str) -> Decision:
 class MoveFacts:
     """Ce que les décisions savent du document : libellés des pièces et des ensembles, ensembles,
     ensemble de chaque membre (``parent``), pièces assemblées à chaque pièce (``links``) et
-    panneau de tâche ouvert (``busy``)."""
+    panneau de tâche ouvert (``busy``), copies de répétition (``copies``, qui ne se rangent pas
+    à part) et objets d'autres ateliers (``foreign``, qu'on ne touche pas)."""
 
     labels: Mapping[str, str]
     furnitures: frozenset[str]
     parent: Mapping[str, str]
     links: Mapping[str, frozenset[str]] = field(default_factory=dict)
     busy: bool = False
+    copies: frozenset[str] = frozenset()
+    foreign: frozenset[str] = frozenset()
 
     def label(self, key: str) -> str:
         """Libellé cité dans un message."""
@@ -176,6 +202,10 @@ def _movable(facts: MoveFacts, keys: Sequence[str]) -> Decision | None:
         return _refuse(BUSY)
     if not keys:
         return _refuse(_NOTHING)
+    if any(key in facts.foreign for key in keys):
+        return _refuse(_FOREIGN)
+    if (copy := next((key for key in keys if key in facts.copies), None)) is not None:
+        return _refuse(_IS_COPY, item=facts.label(copy))
     if any(key not in facts.labels for key in keys):
         return _refuse(_NOT_MOVABLE)
     return None
@@ -211,6 +241,16 @@ def _in_place(facts: MoveFacts, movers: Sequence[str], target: str | None) -> De
     return _refuse(_ALREADY_IN, item=facts.label(first), target=facts.label(target))
 
 
+def _bad_target(facts: MoveFacts, target: str | None) -> Decision | None:
+    """Refus si ``target`` n'est pas un ensemble qui reçoit des pièces (copie de répétition,
+    objet inconnu), ``None`` sinon (y compris ``None`` : hors ensemble)."""
+    if target is None:
+        return None
+    if target in facts.copies:
+        return _refuse(_COPY_TARGET, item=facts.label(target))
+    return None if target in facts.furnitures else _refuse(_NOT_MOVABLE)
+
+
 def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> Decision:
     """Glisser-déposer (ou « Ajouter à l'ensemble » / « Sortir de l'ensemble ») : ranger les
     lignes ``keys`` dans l'ensemble ``target``, ou les sortir de leur ensemble si ``target`` est
@@ -220,8 +260,8 @@ def decide_drop(facts: MoveFacts, keys: Iterable[str], target: str | None) -> De
     movers = top_level(facts, keys)
     if (refusal := _movable(facts, movers)) is not None:
         return refusal
-    if target is not None and target not in facts.furnitures:
-        return _refuse(_NOT_MOVABLE)
+    if (refusal := _bad_target(facts, target)) is not None:
+        return refusal
     for key in movers:
         if target is not None and (key == target or key in facts.chain(target)):
             return _refuse(_CYCLE, item=facts.label(key), target=facts.label(target))
@@ -252,20 +292,26 @@ def creates_sub_furniture(facts: MoveFacts, keys: Iterable[str]) -> bool:
     return bool(chosen) and chosen[0] in facts.parent
 
 
-def decide_delete(keys: Sequence[str], *, busy: bool) -> Decision:
-    """« Supprimer » : au moins une ligne, aucun panneau de tâche ouvert (comme les commandes de
-    l'atelier). Les fenêtres d'avertissement sont celles de l'arbre natif."""
+def decide_delete(keys: Sequence[str], *, busy: bool, foreign: Collection[str] = ()) -> Decision:
+    """« Supprimer » : au moins une ligne d'un objet de l'atelier, aucun panneau de tâche ouvert
+    (comme les commandes de l'atelier). Les fenêtres d'avertissement sont celles de l'arbre
+    natif. Un objet d'un autre atelier (``foreign``) n'est jamais supprimé d'ici."""
     if busy:
         return _refuse(BUSY)
     if not keys:
         return _refuse(_NOTHING)
+    if any(key in foreign for key in keys):
+        return _refuse(_FOREIGN)
     return Decision(True, keys=tuple(dict.fromkeys(keys)))
 
 
-def decide_open(keys: Sequence[str], *, busy: bool) -> Decision:
-    """« Ouvrir » (équivaut au double-clic) : une seule ligne, aucun panneau de tâche ouvert."""
+def decide_open(keys: Sequence[str], *, busy: bool, foreign: Collection[str] = ()) -> Decision:
+    """« Ouvrir » (équivaut au double-clic) : une seule ligne, aucun panneau de tâche ouvert ;
+    jamais pour un objet d'un autre atelier (``foreign``) : l'éditer, c'est le modifier."""
     if len(keys) != 1:
         return _refuse(_ONE_ROW if keys else _NOTHING)
+    if keys[0] in foreign:
+        return _refuse(_FOREIGN)
     if busy:
         return _refuse(BUSY)
     return Decision(True, keys=tuple(keys))
@@ -275,6 +321,8 @@ def decide_rename_target(facts: MoveFacts, keys: Sequence[str]) -> Decision:
     """« Renommer » est proposé : une seule ligne, pièce ou ensemble du document."""
     if len(keys) != 1:
         return _refuse(_ONE_ROW if keys else _NOTHING)
+    if keys[0] in facts.foreign:
+        return _refuse(_FOREIGN)
     if keys[0] not in facts.labels:
         return _refuse(_NOT_RENAMABLE)
     return Decision(True, keys=tuple(keys))
@@ -309,3 +357,15 @@ def drop_target(path: Iterable[tuple[NodeKind, str]]) -> str | None:
     un. ``None`` (hors ensemble) si la ligne n'est dans aucun ensemble ou s'il n'y a pas de
     ligne."""
     return next((key for kind, key in path if kind is NodeKind.FURNITURE), None)
+
+
+def drop_blocked(path: Iterable[tuple[NodeKind, str]]) -> str:
+    """Gabarit du refus si un dépôt sur la ligne ``path`` (comme pour :func:`drop_target`) est
+    impossible parce qu'une répétition, une liste de débit ou un autre objet est rencontré avant
+    tout ensemble ; vide sinon."""
+    for kind, _key in path:
+        if kind is NodeKind.FURNITURE:
+            return ""
+        if kind in NO_DROP_KINDS:
+            return _NO_DROP
+    return ""

@@ -6,11 +6,16 @@ L'arbre est une valeur immuable bâtie par :func:`build_structure` d'après une
 (les sous-ensembles sont ses enfants), ses pièces (brute et pièce usinée : une seule ligne), puis
 un nœud « Assemblages (N) » qui regroupe assemblages, quincaillerie et Distances. Les pièces hors
 ensemble sont à la racine. Les clés des nœuds sont les noms des objets du document.
+
+Lot 4 : une répétition est une seule ligne « <nom> xN » dépliable en ses copies (qui ne sont plus
+montrées à plat), la liste de débit une ligne, et les objets des autres ateliers sont repliés sous
+« Autres objets (N) ». Ces lectures viennent d'une source **optionnelle**
+(:class:`StructureExtras`).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Final, Protocol
@@ -19,6 +24,10 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 
 # Gabarit du nœud replié des assemblages ; ``{count}`` est le nombre d'éléments qu'il contient.
 JOINTS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Assemblages ({count})")
+# Nœud replié des objets d'autres ateliers ; ``{count}`` est leur nombre.
+OTHERS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Autres objets ({count})")
+# Ligne d'une répétition ; ``{count}`` est le nombre de copies qu'elle déplie.
+REPEAT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{name} \u00d7{count}")
 
 
 class NodeKind(Enum):
@@ -28,6 +37,11 @@ class NodeKind(Enum):
     PIECE = "piece"
     JOINTS = "joints"  # nœud replié « Assemblages (N) »
     JOINT = "joint"  # assemblage, quincaillerie ou Distance
+    REPEAT = "repeat"  # « <nom> xN », dépliable en ses copies
+    COPY = "copy"  # copie d'une répétition (jamais glissable hors d'elle)
+    CUTLIST = "cutlist"  # liste de débit
+    OTHERS = "others"  # nœud replié « Autres objets (N) »
+    OTHER = "other"  # objet d'un autre atelier (lecture seule)
 
 
 @dataclass(frozen=True)
@@ -71,36 +85,138 @@ class StructureSource(Protocol):
         """Libellé affiché pour l'objet ``key`` (vocabulaire du débutant)."""
 
 
+class StructureExtras(Protocol):
+    """Lectures facultatives du lot 4, toutes par nom d'objet. Une source qui n'en fournit pas
+    donne le même arbre qu'aux lots 1 à 3."""
+
+    def repetitions(self, container: str | None) -> Sequence[str]:
+        """Répétitions rangées dans l'ensemble ``container`` (``None`` : hors ensemble)."""
+
+    def copies(self, repetition: str) -> Sequence[str]:
+        """Copies de ``repetition`` (clés de ligne), dans l'ordre d'affichage."""
+
+    def all_copies(self) -> Collection[str]:
+        """Copies de toutes les répétitions : elles ne sont montrées que sous leur répétition."""
+
+    def cut_lists(self) -> Sequence[str]:
+        """Listes de débit (le tableur n'en fait pas partie)."""
+
+    def other_objects(self) -> Sequence[str]:
+        """Objets d'autres ateliers à montrer sous « Autres objets »."""
+
+
+def default_joints_title(count: int) -> str:
+    """Gabarit français (non traduit) du nœud « Assemblages (n) »."""
+    return JOINTS_TITLE.format(count=count)
+
+
+def default_others_title(count: int) -> str:
+    """Gabarit français (non traduit) du nœud « Autres objets (n) »."""
+    return OTHERS_TITLE.format(count=count)
+
+
+def default_repeat_label(name: str, count: int) -> str:
+    """Gabarit français (non traduit) de la ligne de répétition."""
+    return REPEAT_LABEL.format(name=name, count=count)
+
+
+@dataclass(frozen=True)
+class Titles:
+    """Textes traduits de l'arbre : nœud « Assemblages (n) », nœud « Autres objets (n) » et ligne
+    de répétition (nom, nombre de copies). Par défaut, les gabarits français sans traduction."""
+
+    joints: Callable[[int], str] = default_joints_title
+    others: Callable[[int], str] = default_others_title
+    repeat: Callable[[str, int], str] = default_repeat_label
+
+
 def build_structure(
-    source: StructureSource, joints_title: Callable[[int], str]
+    source: StructureSource,
+    joints_title: Callable[[int], str],
+    extras: StructureExtras | None = None,
+    titles: Titles | None = None,
 ) -> tuple[StructureNode, ...]:
-    """Racines de l'arbre : les ensembles de plus haut niveau, puis les pièces hors ensemble.
-    ``joints_title(n)`` donne le texte traduit du nœud « Assemblages (n) »."""
-    seen: set[str] = set()
-    roots = [_furniture_node(source, key, joints_title, seen) for key in source.root_furnitures()]
-    roots.extend(_piece_node(source, key) for key in source.loose_pieces())
-    return tuple(roots)
+    """Racines de l'arbre : les ensembles de plus haut niveau, les pièces hors ensemble, puis (avec
+    ``extras``) les répétitions, les listes de débit et le nœud « Autres objets ».
+    ``joints_title(n)`` donne le texte traduit du nœud « Assemblages (n) » ; ``titles`` les autres
+    (son ``joints`` est alors ignoré)."""
+    used = titles if titles is not None else Titles(joints=joints_title)
+    return _Builder(source, extras, used).roots()
 
 
-def _piece_node(source: StructureSource, key: str) -> StructureNode:
-    return StructureNode(NodeKind.PIECE, source.label(key), key)
+class _Builder:
+    """Construit l'arbre d'une source ; ``seen`` coupe un cycle éventuel de sous-ensembles."""
 
+    def __init__(
+        self, source: StructureSource, extras: StructureExtras | None, titles: Titles
+    ) -> None:
+        self._source = source
+        self._extras = extras
+        self._titles = titles
+        self._hidden = frozenset(extras.all_copies()) if extras is not None else frozenset()
+        self._seen: set[str] = set()
 
-def _furniture_node(
-    source: StructureSource, key: str, joints_title: Callable[[int], str], seen: set[str]
-) -> StructureNode:
-    """Nœud de l'ensemble ``key`` : sous-ensembles, pièces, puis les assemblages repliés.
-    ``seen`` coupe un cycle éventuel de sous-ensembles."""
-    seen.add(key)
-    children = [
-        _furniture_node(source, sub, joints_title, seen)
-        for sub in source.sub_furnitures(key)
-        if sub not in seen
-    ]
-    children.extend(_piece_node(source, piece) for piece in source.pieces(key))
-    joints = source.joints(key)
-    if joints:
-        leaves = tuple(StructureNode(NodeKind.JOINT, source.label(j), j) for j in joints)
-        title = joints_title(len(leaves))
-        children.append(StructureNode(NodeKind.JOINTS, title, "", leaves, expanded=False))
-    return StructureNode(NodeKind.FURNITURE, source.label(key), key, tuple(children))
+    def roots(self) -> tuple[StructureNode, ...]:
+        roots = [self._furniture(key) for key in self._visible(self._source.root_furnitures())]
+        roots.extend(self._piece(key) for key in self._visible(self._source.loose_pieces()))
+        roots.extend(self._repetitions(None))
+        roots.extend(self._cut_lists())
+        roots.extend(self._others())
+        return tuple(roots)
+
+    def _visible(self, keys: Sequence[str]) -> list[str]:
+        """``keys`` sans les copies de répétition (montrées sous leur répétition)."""
+        return [key for key in keys if key not in self._hidden]
+
+    def _piece(self, key: str) -> StructureNode:
+        return StructureNode(NodeKind.PIECE, self._source.label(key), key)
+
+    def _furniture(self, key: str) -> StructureNode:
+        """Nœud de l'ensemble ``key`` : sous-ensembles, pièces, répétitions, puis les
+        assemblages repliés."""
+        source = self._source
+        self._seen.add(key)
+        children = [
+            self._furniture(sub)
+            for sub in self._visible(source.sub_furnitures(key))
+            if sub not in self._seen
+        ]
+        children.extend(self._piece(piece) for piece in self._visible(source.pieces(key)))
+        children.extend(self._repetitions(key))
+        joints = source.joints(key)
+        if joints:
+            leaves = tuple(StructureNode(NodeKind.JOINT, source.label(j), j) for j in joints)
+            title = self._titles.joints(len(leaves))
+            children.append(StructureNode(NodeKind.JOINTS, title, "", leaves, expanded=False))
+        return StructureNode(NodeKind.FURNITURE, source.label(key), key, tuple(children))
+
+    def _repetitions(self, container: str | None) -> list[StructureNode]:
+        """Une ligne « <nom> xN » par répétition, repliée sur ses copies."""
+        if self._extras is None:
+            return []
+        nodes = []
+        for key in self._extras.repetitions(container):
+            copies = tuple(
+                StructureNode(NodeKind.COPY, self._source.label(copy), copy)
+                for copy in self._extras.copies(key)
+            )
+            label = self._titles.repeat(self._source.label(key), len(copies))
+            nodes.append(StructureNode(NodeKind.REPEAT, label, key, copies, expanded=False))
+        return nodes
+
+    def _cut_lists(self) -> list[StructureNode]:
+        if self._extras is None:
+            return []
+        return [
+            StructureNode(NodeKind.CUTLIST, self._source.label(key), key)
+            for key in self._extras.cut_lists()
+        ]
+
+    def _others(self) -> list[StructureNode]:
+        """Nœud replié des objets d'autres ateliers, absent s'il n'y en a pas."""
+        keys = self._extras.other_objects() if self._extras is not None else ()
+        if not keys:
+            return []
+        leaves = tuple(StructureNode(NodeKind.OTHER, self._source.label(k), k) for k in keys)
+        title = self._titles.others(len(leaves))
+        return [StructureNode(NodeKind.OTHERS, title, "", leaves, expanded=False)]

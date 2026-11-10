@@ -14,7 +14,8 @@ from typing import Any
 
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.core.structure_actions import drop_target
+from freecad.menuiserie.core.structure_actions import drop_blocked, drop_target
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.structure_tree_widget import draggable_keys, row_path
 
 __all__ = ["DropTree"]
@@ -49,6 +50,12 @@ class DropTree(QtGui.QTreeWidget):  # type: ignore[misc]
         ``None`` (hors ensemble)."""
         return drop_target(row_path(self.itemAt(point)))
 
+    def blocked_reason(self, point: Any) -> str:
+        """Raison (traduite) pour laquelle la ligne en ``point`` ne reçoit rien : répétition et
+        ses copies, liste de débit, autres objets. Vide si le dépôt y est jugé par ``judge``."""
+        template = drop_blocked(row_path(self.itemAt(point)))
+        return translated(template) if template else ""
+
     def dragEnterEvent(self, event: Any) -> None:
         """Accepte seulement le glissement de lignes de ce panneau (jamais un fichier ni un
         objet d'un autre panneau) ; mémorise les lignes glissées."""
@@ -64,7 +71,7 @@ class DropTree(QtGui.QTreeWidget):  # type: ignore[misc]
         """Curseur permis ou interdit selon la décision ; la raison du refus s'affiche."""
         point = _point(event)
         super().dragMoveEvent(event)  # défilement automatique et repère de dépôt
-        reason = self._reason(self.target_at(point))
+        reason = self.blocked_reason(point) or self._reason(self.target_at(point))
         if reason:
             event.ignore()
             QtGui.QToolTip.showText(self.viewport().mapToGlobal(point), reason, self)
@@ -82,11 +89,12 @@ class DropTree(QtGui.QTreeWidget):  # type: ignore[misc]
         retire lui-même les lignes sources après un « déplacement » : l'arbre est redessiné
         par le rafraîchissement du panneau."""
         QtGui.QToolTip.hideText()
-        target = self.target_at(_point(event))
+        point = _point(event)
+        target = self.target_at(point)
         keys, self._dragged = self._dragged, []
         event.setDropAction(QtCore.Qt.CopyAction)
         event.accept()
-        if keys and self.on_drop is not None:
+        if keys and self.on_drop is not None and not self.blocked_reason(point):
             self.on_drop(keys, target)
 
     def _reason(self, target: str | None) -> str:

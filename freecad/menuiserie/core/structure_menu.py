@@ -67,7 +67,10 @@ class MenuEntry:
 
 
 def _destinations(facts: MoveFacts, keys: Sequence[str]) -> tuple[MenuEntry, ...]:
-    ordered = sorted(facts.furnitures, key=lambda key: (facts.labels.get(key, key), key))
+    def sort_key(key: str) -> tuple[str, str]:
+        return (facts.labels.get(key, key), key)
+
+    ordered = sorted(facts.furnitures - facts.copies, key=sort_key)
     return tuple(
         MenuEntry(
             Action.MOVE_INTO,
@@ -82,7 +85,7 @@ def _destinations(facts: MoveFacts, keys: Sequence[str]) -> tuple[MenuEntry, ...
 
 def _add_to(facts: MoveFacts, keys: Sequence[str]) -> MenuEntry:
     decision = decide_selection(facts, keys)
-    if decision.allowed and not facts.furnitures:
+    if decision.allowed and not facts.furnitures - facts.copies:
         decision = Decision(False, _NO_FURNITURE)
     children = _destinations(facts, keys) if decision.allowed else ()
     return MenuEntry(Action.ADD_TO, _ADD_TO, decision, children=children)
@@ -94,10 +97,12 @@ def menu_entries(facts: MoveFacts, keys: Sequence[str]) -> list[MenuEntry]:
     sélection, Supprimer. Les entrées impossibles sont là aussi, avec leur refus."""
     sub = creates_sub_furniture(facts, keys)
     return [
-        MenuEntry(Action.OPEN, _OPEN, decide_open(keys, busy=facts.busy)),
+        MenuEntry(Action.OPEN, _OPEN, decide_open(keys, busy=facts.busy, foreign=facts.foreign)),
         MenuEntry(Action.RENAME, _RENAME, decide_rename_target(facts, keys)),
         _add_to(facts, keys),
         MenuEntry(Action.LEAVE, _LEAVE, decide_drop(facts, keys, None)),
         MenuEntry(Action.CREATE, _CREATE_SUB if sub else _CREATE, decide_create(facts, keys)),
-        MenuEntry(Action.DELETE, _DELETE, decide_delete(keys, busy=facts.busy)),
+        MenuEntry(
+            Action.DELETE, _DELETE, decide_delete(keys, busy=facts.busy, foreign=facts.foreign)
+        ),
     ]

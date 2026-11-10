@@ -30,11 +30,12 @@ from freecad.menuiserie.core.structure_sync import (
     keys_to_select_in_freecad,
     rows_for_selection,
 )
-from freecad.menuiserie.core.structure_tree import StructureNode
+from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.structure_source import row_key_of, structure_of
 from freecad.menuiserie.gui.structure_tree_widget import (
     KEY_ROLE,
+    KIND_ROLE,
     expansion_of,
     fill_tree,
     select_keys,
@@ -228,7 +229,10 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
     # --- Double-clic ----------------------------------------------------------------------
 
     def _open_panel(self, item: QtGui.QTreeWidgetItem, _column: int) -> None:
-        """Même panneau de tâche que le double-clic de l'arbre natif."""
+        """Même panneau de tâche que le double-clic de l'arbre natif. Jamais pour un objet d'un
+        autre atelier : l'éditer, ce serait le modifier."""
+        if item.data(0, KIND_ROLE) == NodeKind.OTHER.value:
+            return
         key = item.data(0, KEY_ROLE)
         doc = App.ActiveDocument
         obj = doc.getObject(key) if key and doc is not None else None
