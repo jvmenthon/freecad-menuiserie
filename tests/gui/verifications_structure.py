@@ -28,6 +28,7 @@ from freecad.menuiserie.core.structure_menu import Action
 from freecad.menuiserie.core.structure_tree import NodeKind
 from freecad.menuiserie.features.cutlist_object import find_cut_list
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
+from freecad.menuiserie.gui.cutlist_preview import DIALOG_NAME
 from freecad.menuiserie.gui.structure_actions import StructureActions
 from freecad.menuiserie.gui.structure_panel import DOCK_NAME, TREE_NAME, show_panel
 from freecad.menuiserie.gui.structure_sync import StructureSync
@@ -516,9 +517,22 @@ def _verifier_liste_de_debit(
     problemes += ecarts("clic : liste sélectionnée", _noms_selectionnes(), [liste.Name])
     arbre.itemDoubleClicked.emit(ligne, 0)
     _traiter()
-    return problemes + ecarts(
-        "double-clic : panneau de la liste", bool(Gui.Control.activeDialog()), True
+    # Le double-clic de la liste ouvre l'aperçu (fenêtre non modale), pas un panneau de tâche.
+    apercus = [
+        d for d in Gui.getMainWindow().findChildren(QtGui.QDialog, DIALOG_NAME) if d.isVisible()
+    ]
+    actif = QtGui.QApplication.activeWindow()
+    diagnostic = (
+        f"fenêtres ouvertes {[(d.objectName(), d.windowTitle()) for d in apercus]}, "
+        f"panneau de tâche {bool(Gui.Control.activeDialog())}, "
+        f"fenêtre active {None if actif is None else actif.windowTitle()!r}"
     )
+    App.Console.PrintMessage(f"Menuiserie : diagnostic double-clic liste, {diagnostic}\n")
+    problemes += ecarts("double-clic : aperçu de la liste ouvert", len(apercus), 1)
+    for apercu in apercus:
+        apercu.close()
+    _traiter()
+    return problemes
 
 
 def _verifier_autres_objets(
