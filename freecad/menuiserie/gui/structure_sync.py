@@ -183,7 +183,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
         )
         self._shown: tuple[str, tuple[StructureNode, ...]] | None = None
         tree.itemSelectionChanged.connect(self._push_selection)
-        tree.itemSelectionChanged.connect(self._highlight_rows)
+        tree.itemSelectionChanged.connect(self._choose_rows)
         tree.itemDoubleClicked.connect(self._open_panel)
 
     # --- Observateurs ---------------------------------------------------------------------
@@ -233,7 +233,7 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
                 fill_tree(self._tree, nodes, message, expansion_of(self._tree))
             self._shown = (name, nodes)
         self.pull_selection()
-        self._highlight_rows()
+        self._follow_highlight()
 
     def _guarded_refresh(self) -> None:
         report_errors(self.refresh_now)
@@ -250,13 +250,19 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
             return
         with self._guard.applying():
             select_keys(self._tree, wanted)  # signaux bloqués : la transparence suit à part
-        self._highlight_rows()
+        self._follow_highlight()
 
-    def _highlight_rows(self) -> None:
-        """Transparence de sélection posée sur les objets des lignes sélectionnées (venues du
-        clic, de la sélection de FreeCAD ou d'un nouvel arbre), retirée à la désélection."""
+    def _choose_rows(self) -> None:
+        """Lignes choisies par l'utilisateur : transparence de sélection posée sur leurs objets
+        (ou retirée à la désélection). Pas pendant un remplissage de l'arbre."""
         if self._lifetime.alive and self._observers.attached and not self._guard.active:
-            report_errors(self._highlight.sync)
+            report_errors(self._highlight.choose)
+
+    def _follow_highlight(self) -> None:
+        """Arbre rempli ou sélection reprise de FreeCAD : la transparence reste tant que les lignes
+        sélectionnées sont celles que l'utilisateur a choisies, sinon elle est retirée."""
+        if self._lifetime.alive and self._observers.attached:
+            report_errors(self._highlight.follow)
 
     def _guarded_pull_selection(self) -> None:
         report_errors(self.pull_selection)

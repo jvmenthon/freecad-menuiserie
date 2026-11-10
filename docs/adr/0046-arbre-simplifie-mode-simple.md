@@ -168,7 +168,7 @@ d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règl
   objets affichés (la pièce usinée à la place de sa brute) ; un ensemble, toutes ses pièces et
   celles de ses sous-ensembles ; un assemblage ou une quincaillerie, ses deux pièces. Les nœuds
   repliés, la liste de débit et les objets d'autres ateliers ne mettent rien en évidence.
-  Une sélection venue de FreeCAD (arbre natif, 3D) suit la même ligne, donc la même transparence.
+  Seul le choix d'une ligne par l'utilisateur rend transparent : une sélection faite dans l'arbre natif ou la 3D ne change aucun affichage, et reprise par le panneau elle retire la transparence du choix précédent.
 - **Sorties.** Les propriétés du ViewObject sont enregistrées dans le fichier et dans la transaction
   ouverte : (1) l'écriture se fait hors transaction (`outside_transaction` du panneau : la
   transaction d'une modification encore inchangée est refermée puis rouverte, « OK » sans

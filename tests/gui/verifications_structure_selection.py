@@ -133,17 +133,22 @@ def verifier_structure_selection_transparente() -> list[str]:
 
 
 def _selection_depuis_freecad(
-    bureau: Bureau, _dock: Any, _arbre: Any, _synchro: StructureSync
+    bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
 ) -> list[str]:
-    """Une sélection faite dans l'arbre natif ou la 3D est suivie par la ligne puis la
-    transparence ; la vider rend l'origine."""
+    """Une sélection faite dans l'arbre natif ou la 3D ne rend rien transparent ; reprise par le
+    panneau après un choix de ligne, elle retire la transparence de ce choix."""
     piece, origine, _ = _graine(bureau)
     Gui.Selection.addSelection(bureau.doc.Name, piece.Name)
     traiter()
-    problemes = ecarts("sélection de FreeCAD : transparence", _etat(piece), SELECTION)
+    problemes = ecarts("sélection de FreeCAD : aucune transparence", _etat(piece), origine)
     Gui.Selection.clearSelection()
     traiter()
-    return problemes + ecarts("sélection vidée : origine", _etat(piece), origine)
+    _choisir(arbre, piece.Name)
+    problemes += ecarts("ligne choisie : transparence", _etat(piece), SELECTION)
+    Gui.Selection.clearSelection()
+    Gui.Selection.addSelection(bureau.doc.Name, bureau.shown("V").Name)
+    traiter()
+    return problemes + ecarts("sélection reprise de FreeCAD : origine", _etat(piece), origine)
 
 
 def verifier_structure_selection_depuis_freecad() -> list[str]:

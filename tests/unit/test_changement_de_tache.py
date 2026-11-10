@@ -189,13 +189,15 @@ def methods_of(path: str, class_name: str) -> dict[str, str]:
 
 def test_la_selection_de_ligne_pose_le_calque_de_selection() -> None:
     methods = methods_of("structure_highlight.py", "RowHighlight")
-    assert "SELECTION_LOOK" in methods["sync"]
+    assert "SELECTION_LOOK" in methods["choose"]
     assert "release" in methods["clear"]
+    assert "self.clear()" in methods["follow"]  # lignes plus choisies : calque retiré
     sync = methods_of("structure_sync.py", "StructureSync")
-    assert "itemSelectionChanged.connect(self._highlight_rows)" in sync["__init__"]
-    assert "_highlight_rows()" in sync["pull_selection"]  # sélection venue de FreeCAD
-    assert "_highlight_rows()" in sync["refresh_now"]
-    assert "self._guard.active" in sync["_highlight_rows"]  # pas pendant un remplissage
+    assert "itemSelectionChanged.connect(self._choose_rows)" in sync["__init__"]
+    assert "_follow_highlight()" in sync["pull_selection"]  # sélection reprise de FreeCAD
+    assert "_follow_highlight()" in sync["refresh_now"]
+    assert "self._guard.active" in sync["_choose_rows"]  # pas pendant un remplissage
+    assert "_choose_rows()" not in sync["pull_selection"]  # FreeCAD ne rend rien transparent
     observers = methods_of("structure_sync.py", "_Observers")
     assert "_on_detach" in observers["detach"]  # panneau masqué ou détruit : calque retiré
 
