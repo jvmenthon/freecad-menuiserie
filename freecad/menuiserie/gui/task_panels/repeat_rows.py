@@ -107,11 +107,11 @@ class AxisRow:
         self.stop_clear.setToolTip(translated(_CLEAR_TIP))
         for widget in (self.stop, self.stop_name, self.stop_clear):
             box.addWidget(widget)
-        self.stopped = False  # longueur calculée par une butée : lecture seule
-        self.show_stop(None)
         self.reverse = QtGui.QCheckBox(translated(_REVERSE))
         self.reverse.setObjectName(f"reverse{name}")
         self.reverse.setToolTip(translated(_REVERSE_TIP))
+        self.stopped = False  # longueur calculée par une butée : lecture seule
+        self.show_stop(None)
 
     def widgets(self) -> tuple[Widget, ...]:
         """Les six widgets de la ligne, dans l'ordre des colonnes."""
@@ -127,6 +127,7 @@ class AxisRow:
         self.stopped = text is not None
         self.span.setReadOnly(self.stopped)
         self.span.setEnabled(self.checked() and not self.stopped)
+        self.reverse.setEnabled(self.checked() and not self.stopped)  # sens déduit de la butée
         self.stop.setText(translated(_PICKING if picking else _STOP))
         self.stop.setDown(picking)
 
@@ -168,4 +169,4 @@ class AxisRow:
         for name, widget in shown:
             widget.setVisible(name in used)
             widget.setEnabled(active and not (name == "span" and self.stopped))
-        self.reverse.setEnabled(active)
+        self.reverse.setEnabled(active and not self.stopped)

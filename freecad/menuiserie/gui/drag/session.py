@@ -368,7 +368,7 @@ class DragSession:
         de sélection). Un refus (copie liée, pièce tournée, panneau ouvert) est affiché ; le clic
         et son relâchement sont alors consommés, sans quoi le Ctrl+clic désélectionnerait la
         pièce."""
-        local = parse_key(key)
+        local = None if ring_axis(key) is not None else parse_key(key)  # anneau : laissé à FreeCAD
         if not isinstance(local, int):
             return False
         target, port = self.target, self.port

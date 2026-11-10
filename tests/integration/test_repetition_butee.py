@@ -151,9 +151,11 @@ def test_butee_supprimee_longueur_saisie_et_avertissement(
 
 def test_refus_traduits(document: Any, scene: Any) -> None:
     barreau, butee = scene
-    arriere = piece(document, "Arriere", (-100, 0, 0))
+    large = api.make_wood_part(100, 20, 10, "chene", mark="Large", doc=document)
+    large.Placement = App.Placement(App.Vector(-50, 0, 0), App.Rotation())  # chevauche le barreau
+    document.recompute()
     for stop, message in (
-        (api.Stop(arriere), "derrière"),
+        (api.Stop(large), "chevauche"),
         (api.Stop(butee, "Edge1"), "ni une face ni un sommet"),
         (api.Stop(barreau), "pièce répétée"),
         (api.Stop(piece(document, "Proche", (20, 0, 0))), "trop proche"),
@@ -199,10 +201,21 @@ def test_grille_avec_deux_butees(document: Any) -> None:
 def test_sens_inverse_butee_a_gauche(document: Any) -> None:
     barreau = piece(document, where=(500, 0, 0))
     mur = piece(document, "Mur", (100, 0, 0))  # face la plus proche : X = 130
+    params = api.RepeatParams(spacing=ON_SPAN, grid=(api.AxisRepeat(X, 3, span=1.0),))
+    rep = api.make_repeat([barreau], params, stops={X: api.Stop(mur)})  # « Inverser » déduit
+    assert rep.Reverse is True and rep.Span.Value == 400.0 and rep.Step.Value == 185.0
+    assert xs(rep) == [315.0, 130.0] and copies(rep)[-1].Shape.BoundBox.XMin == 130.0
+
+
+def test_butee_passee_de_l_autre_cote_change_le_sens(document: Any) -> None:
+    barreau = piece(document, where=(500, 0, 0))
+    mur = piece(document, "Mur", (100, 0, 0))
     params = api.RepeatParams(spacing=ON_SPAN, grid=(api.AxisRepeat(X, 3, span=1.0, reverse=True),))
     rep = api.make_repeat([barreau], params, stops={X: api.Stop(mur)})
-    assert rep.Span.Value == 400.0 and rep.Step.Value == 185.0
-    assert xs(rep) == [315.0, 130.0] and copies(rep)[-1].Shape.BoundBox.XMin == 130.0
+    mur.Placement = App.Placement(App.Vector(900, 0, 0), App.Rotation())
+    document.recompute()
+    assert rep.Reverse is False and rep.Span.Value == 400.0
+    assert xs(rep) == [685.0, 870.0] and stale_or_invalid(document) == []
 
 
 def test_enregistrer_et_rouvrir(document: Any, scene: Any, rouvrir: Reopen) -> None:

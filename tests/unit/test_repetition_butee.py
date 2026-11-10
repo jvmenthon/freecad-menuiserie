@@ -15,6 +15,7 @@ from freecad.menuiserie.core.repeat import (
     resolve,
     resolve_grid,
     stop_kind,
+    stop_reverse,
     stop_span,
 )
 
@@ -36,9 +37,15 @@ def test_sens_inverse_part_du_haut_des_sources() -> None:
     assert stop_span((470.0, 500.0), 130.0, X, reverse=True) == 370.0
 
 
+def test_sens_deduit_de_la_butee() -> None:
+    assert stop_reverse(BOUNDS, (300.0, 330.0)) is False  # butée après : sens normal
+    assert stop_reverse(BOUNDS, (-130.0, -100.0)) is True  # butée avant : sens inverse
+    assert stop_reverse((470.0, 500.0), (100.0, 130.0)) is True
+
+
 @pytest.mark.parametrize("near", [0.0, -50.0])
 def test_butee_derriere_l_original_refusee(near: float) -> None:
-    with pytest.raises(RepeatError, match="derrière") as error:
+    with pytest.raises(RepeatError, match="chevauche") as error:
         stop_span(BOUNDS, near, X)
     assert error.value.params["axis"] == "X"
     with pytest.raises(RepeatError):

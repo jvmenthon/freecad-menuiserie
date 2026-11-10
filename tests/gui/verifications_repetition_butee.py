@@ -73,6 +73,7 @@ def _butee(doc: Any) -> list[str]:
         *ecarts("nom de la butée", "Mur" in widget(form, "stopNameX").text(), True),
         *ecarts("longueur calculée", round(rep.Span.Value, 3), MUR_X),
         *ecarts("longueur en lecture seule", widget(form, "spanX").isEnabled(), False),
+        *ecarts("« Inverser » grisé (sens déduit)", widget(form, "reverseX").isEnabled(), False),
         *ecarts("à fleur", _pas(rep), [333.33, 666.67, 1000.0]),
         *ecarts("dernière copie à X = 1300", round(copies_de(rep)[-1].Shape.BoundBox.XMax), 1300),
         *ecarts("pas de collision", widget(form, "warningLabel").isHidden(), True),
@@ -88,6 +89,7 @@ def _butee(doc: Any) -> list[str]:
     problemes += [
         *ecarts("butée enlevée", widget(form, "stopNameX").text(), ""),
         *ecarts("longueur de nouveau saisie", widget(form, "spanX").isEnabled(), True),
+        *ecarts("« Inverser » de nouveau actif", widget(form, "reverseX").isEnabled(), True),
         *ecarts("longueur gardée", round(rep.Span.Value, 3), MUR_X),
     ]
     widget(form, "stopX").click()

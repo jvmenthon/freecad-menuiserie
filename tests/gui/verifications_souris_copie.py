@@ -40,6 +40,7 @@ from tests.gui.verifications_souris import (
     sur_la_fleche,
     tirer,
 )
+from tests.gui.verifications_souris_rotation import DEPART, viser_projete, vue_isometrique
 
 COPIE = "Répéter"
 
@@ -246,10 +247,40 @@ def verifier_souris_copie_filtre() -> list[str]:
     return avec_document("VerifSourisCopieFiltre", _filtre)
 
 
+def _ctrl_sur_anneau(doc: Any) -> list[str]:
+    session = preparer(doc)
+    piece = piece_validee(doc)
+    vue_isometrique()
+    doc.clearUndos()
+    avant = place(piece)
+    selection_dessinee(piece)
+    pixel = viser_projete(session, 2, DEPART)
+    session.move(pixel)
+    problemes = ecarts("anneau survolé", session.state.key, "ring2")
+    try:
+        pris = session.press(pixel, False, True)
+    except ValueError as erreur:  # régression : « clé de flèche ou de poignée inconnue »
+        return [*problemes, f"Ctrl + clic sur un anneau : exception {erreur}"]
+    return [
+        *problemes,
+        *ecarts("Ctrl + clic sur un anneau laissé à FreeCAD", pris, False),
+        *ecarts("pas de glissement", session.dragging, False),
+        *ecarts("rien de créé", len(copies(doc)), 0),
+        *ecarts("historique inchangé", doc.UndoNames, []),
+        *ecarts("pièce en place", place(piece), avant),
+    ]
+
+
+def verifier_souris_copie_anneau() -> list[str]:
+    """Ctrl + clic sur un anneau de rotation : ni copie ni exception, le clic reste à FreeCAD."""
+    return avec_document("VerifSourisCopieAnneau", _ctrl_sur_anneau)
+
+
 VERIFICATIONS_SOURIS_COPIE: tuple[Callable[[], list[str]], ...] = (
     verifier_souris_copie,
     verifier_souris_copie_en_arriere,
     verifier_souris_copie_annulee,
     verifier_souris_copie_d_une_copie,
     verifier_souris_copie_filtre,
+    verifier_souris_copie_anneau,
 )

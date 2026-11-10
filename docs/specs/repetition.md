@@ -291,6 +291,9 @@ peut être **calculée jusqu'à une butée** au lieu d'être saisie.
 - **Butée** : une face, un sommet ou une pièce entière, choisis dans la vue 3D (bouton « Butée… »
   de la ligne de l'axe, puis clic dans la vue). Pour une pièce, on retient sa face la plus proche
   dans le sens de la répétition. Chaque axe d'une grille a sa butée.
+- **Sens** (jv, 2026-11-10) : déduit de la butée, la répétition va toujours vers elle ; la case
+  « Inverser » est grisée tant qu'une butée est choisie. Une butée qui chevauche l'original est
+  refusée.
 - **Longueur** = distance, sur l'axe et dans le sens de la répétition, de la face de départ de
   l'original à la butée ; affichée en lecture seule. On garde le choix de ce qui est fixé : le
   nombre (`CountOnSpan`, le pas se calcule) ou le pas (`StepOnSpan`, le nombre se calcule).

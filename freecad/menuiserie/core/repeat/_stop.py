@@ -18,7 +18,15 @@ from freecad.menuiserie.core._validation import decimal_text
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat._model import RepeatAxis, RepeatError
 
-__all__ = ["BEHIND", "NOT_A_FACE", "TOO_CLOSE", "StopKind", "stop_kind", "stop_span"]
+__all__ = [
+    "BEHIND",
+    "NOT_A_FACE",
+    "TOO_CLOSE",
+    "StopKind",
+    "stop_kind",
+    "stop_reverse",
+    "stop_span",
+]
 
 NOT_A_FACE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -27,8 +35,9 @@ NOT_A_FACE: Final = QT_TRANSLATE_NOOP(
 )
 BEHIND: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Répétition : la butée est derrière la pièce d'origine sur l'axe {axis} (distance de "
-    "{distance} mm dans le sens de la répétition) ; placez-la devant la pièce ou inversez le sens.",
+    "Répétition : la butée chevauche la pièce d'origine sur l'axe {axis} (distance de "
+    "{distance} mm dans le sens de la répétition) ; choisissez une butée d'un seul côté de la "
+    "pièce.",
 )
 TOO_CLOSE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -55,6 +64,13 @@ def stop_kind(sub: str) -> StopKind:
     if _ELEMENT.fullmatch(sub) is None:
         raise RepeatError(NOT_A_FACE, {"sub": sub})
     return StopKind.FACE if sub.startswith("Face") else StopKind.VERTEX
+
+
+def stop_reverse(bounds: tuple[float, float], stop_bounds: tuple[float, float]) -> bool:
+    """Sens de la répétition déduit de la butée : vrai (sens inverse) si le milieu de la butée
+    (``stop_bounds`` : bas, haut sur l'axe) est sous le milieu des sources (``bounds``). Avec une
+    butée, la case « Inverser » ne sert donc pas : la répétition va toujours vers la butée."""
+    return stop_bounds[0] + stop_bounds[1] < bounds[0] + bounds[1]
 
 
 def stop_span(

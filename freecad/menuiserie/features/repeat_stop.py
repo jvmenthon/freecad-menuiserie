@@ -30,6 +30,7 @@ from freecad.menuiserie.core.repeat import (
     SpacingMode,
     resolve_line,
     stop_kind,
+    stop_reverse,
     stop_span,
 )
 from freecad.menuiserie.core.text import quoted_value
@@ -57,7 +58,7 @@ __all__ = [
     "bounded_params",
     "follow_stops",
     "kept_stops",
-    "stop_near",
+    "stop_bounds",
     "stop_text",
     "stored_stops",
     "write_stops",
@@ -165,12 +166,11 @@ def _global_of(container: DocumentObject | None) -> App.Placement:
     return App.Placement() if container is None else container.getGlobalPlacement()
 
 
-def stop_near(
-    stop: Stop, container: DocumentObject | None, axis: RepeatAxis, *, reverse: bool = False
-) -> float:
-    """Coordonnée (mm) du bord de la butée le plus proche dans le sens de la répétition, dans le
-    repère de ``container`` (celui des sources) : son minimum sur ``axis``, ou son maximum si
-    ``reverse``. Une face oblique ou une pièce entière donne son point le plus proche."""
+def stop_bounds(
+    stop: Stop, container: DocumentObject | None, axis: RepeatAxis
+) -> tuple[float, float]:
+    """Étendue (bas, haut, en mm) de la butée sur ``axis``, dans le repère de ``container``
+    (celui des sources). Une face oblique ou une pièce entière donne son encombrement."""
     shape = _element(stop).copy()
     holder = stop.obj.getParentGeoFeatureGroup()
     if holder != container:
@@ -178,7 +178,8 @@ def stop_near(
             _global_of(container).inverse().multiply(_global_of(holder)).toMatrix()
         )
     box = shape.BoundBox
-    return round(float(getattr(box, f"{axis.value}{'Max' if reverse else 'Min'}")), 6)
+    low, high = (float(getattr(box, f"{axis.value}{end}")) for end in ("Min", "Max"))
+    return round(low, 6), round(high, 6)
 
 
 def bounded_params(
@@ -206,16 +207,18 @@ def bounded_params(
         stop = used.get(line.axis)
         if stop is not None:
             checked_stop(stop, sources, repeat)
-            near = stop_near(stop, container, line.axis, reverse=line.reverse)
+            bounds = source_bounds(sources, line.axis)
+            low, high = stop_bounds(stop, container, line.axis)
+            reverse = stop_reverse(bounds, (low, high))  # le sens va vers la butée
             with translated_errors():
                 span = stop_span(
-                    source_bounds(sources, line.axis),
-                    near,
+                    bounds,
+                    high if reverse else low,
                     line.axis,
-                    reverse=line.reverse,
+                    reverse=reverse,
                     deduct=params.deduct_thickness,
                 )
-            line = replace(line, span=span)
+            line = replace(line, span=span, reverse=reverse)
         lines.append(line)
     return replace(params, grid=tuple(lines))
 
@@ -349,7 +352,9 @@ def _apply_spans(repeat: DocumentObject, before: RepeatParams, after: RepeatPara
     sources = sources_of(repeat)
     axes = [axis for axis in _line_axes(repeat) if axis is not None]
     for index, (old, line) in enumerate(zip(before.lines, after.lines, strict=True)):
-        if abs(line.span - old.span) < _TOLERANCE:
+        if line.reverse != old.reverse:  # butée passée de l'autre côté de l'original
+            _write(repeat, line_name("Reverse", index), line.reverse)
+        if abs(line.span - old.span) < _TOLERANCE and line.reverse == old.reverse:
             continue
         _write(repeat, line_name("Span", index), line.span)
         with translated_errors():

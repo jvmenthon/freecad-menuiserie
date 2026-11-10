@@ -43,7 +43,7 @@ from freecad.menuiserie.core.repeat._model import (
     RepeatParams,
     SpacingMode,
 )
-from freecad.menuiserie.core.repeat._stop import StopKind, stop_kind, stop_span
+from freecad.menuiserie.core.repeat._stop import StopKind, stop_kind, stop_reverse, stop_span
 
 __all__ = [
     "MAX_COPIES",
@@ -74,5 +74,6 @@ __all__ = [
     "resolve_grid",
     "resolve_line",
     "stop_kind",
+    "stop_reverse",
     "stop_span",
 ]
