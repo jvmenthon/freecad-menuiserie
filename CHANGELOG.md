@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Répétition jusqu'à une butée (ADR 0047, accepté) : dans les modes « nombre sur une longueur » et « pas sur une longueur », la longueur de chaque axe peut être calculée jusqu'à une face, un sommet ou une pièce entière choisis dans la vue 3D (bouton « Butée… » par axe, une butée par axe en grille) ; la longueur suit la butée déplacée ou redimensionnée, une butée supprimée laisse la dernière longueur avec un avertissement. Nouvelle case « Déduire l'épaisseur de la pièce » pour tous les modes sur une longueur (cochée par défaut, comme avant : la dernière copie arrive à fleur ; décochée : elle commence à la fin de la longueur). API `Stop`, `stops=` et `deduct_thickness`.
 - Répétition en grille X × Y × Z (ADR 0045, proposé) : un seul mode de saisie, une ligne par axe (nombre, pas ou longueur, sens), 4 × 3 sur X et Y = 11 copies, 100 copies au plus au total ; chaque copie est repérée par sa cellule (`RepeatCell`), de sorte que changer le nombre ou le pas d'un axe garde les copies et leurs assemblages ; assemblages par cellule, ensembles en grille, « Suivre le redimensionnement » axe par axe, chevauchement par axe puis pour la grille, panneau à trois lignes X, Y, Z avec aperçu de toutes les copies ; la répétition à un axe reste valable.
 - Répétition d'un ensemble et Std Part (ADR 0044, fusion avec l'ADR 0038) : une copie d'ensemble a son
   propre Std Part, créé comme celui d'un ensemble neuf et rangé dans le conteneur de celui de la

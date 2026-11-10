@@ -126,7 +126,9 @@ def resolve_grid(params: RepeatParams, extents: Extents) -> ResolvedGrid:
     """
     axes = []
     for line in params.lines:
-        resolved = resolve_line(params.spacing, line, _extent(extents, line.axis))
+        resolved = resolve_line(
+            params.spacing, line, _extent(extents, line.axis), deduct=params.deduct_thickness
+        )
         axes.append(ResolvedAxis(line.axis, resolved.count + 1, resolved.step, line.reverse))
     grid = ResolvedGrid(tuple(axes))
     if grid.total > MAX_COPIES:

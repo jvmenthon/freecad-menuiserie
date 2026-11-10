@@ -117,7 +117,10 @@ def test_panneau_par_l_api_dans_la_transaction_du_panneau() -> None:
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in {"make_repeat", "edit_repeat"}
     }
-    assert calls == {"make_repeat": ["transaction"], "edit_repeat": ["transaction"]}
+    assert calls == {
+        "make_repeat": ["transaction", "stops"],
+        "edit_repeat": ["transaction", "stops"],
+    }
 
 
 @pytest.mark.parametrize("name", FIELDS)
@@ -147,4 +150,4 @@ def test_ok_grise_et_refus_sans_exception() -> None:
 def test_suivi_du_redimensionnement_grise_hors_ensemble() -> None:
     text = PANEL.read_text(encoding="utf-8")
     assert "furniture_of(" in text
-    assert "_FOLLOW_DISABLED_TIP" in text
+    assert "FOLLOW_DISABLED_TIP" in text

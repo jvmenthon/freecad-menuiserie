@@ -2,7 +2,8 @@
 
 - Issue [#180](https://github.com/jvmenthon/freecad-menuiserie/issues/180), demande de jv (2026-11-07).
 - Décision : [ADR 0043](../adr/0043-repetition-objet-de-cotes-et-copies-liees.md) (accepté) ;
-  grille X × Y × Z : [ADR 0045](../adr/0045-repetition-en-grille.md) (proposé).
+  grille X × Y × Z : [ADR 0045](../adr/0045-repetition-en-grille.md) (proposé) ;
+  jusqu'à une butée : [ADR 0047](../adr/0047-repetition-jusqu-a-une-butee.md) (accepté).
 - Statut : **validée par jv** (2026-11-08) : Q4 et Q5 modifiées (cases à cocher), toutes les
   autres questions selon les choix ★.
 - Révision 2 (même jour) : intègre les demandes de jv — copies modifiables après coup, liées à
@@ -281,3 +282,41 @@ son comportement : une copie sur un axe.
 | G7 | assemblages par cellule, pièce fixe, copie d'ensemble en grille | `test_repetition_grille_assemblages.py`, `test_repetition_grille_ensembles.py` |
 | G8 | suivre le redimensionnement sur deux axes | `test_repetition_grille_ensembles.py` |
 | G9 | panneau hors écran : aperçu, total, refus, modes, chevauchement, modification | `tests/gui/verifications_repetition_grille.py` |
+
+## 10. Jusqu'à une butée (demande de jv, 2026-11-10 ; ADR 0047, accepté)
+
+Dans les modes « nombre sur une longueur » et « pas sur une longueur », la longueur de chaque axe
+peut être **calculée jusqu'à une butée** au lieu d'être saisie.
+
+- **Butée** : une face, un sommet ou une pièce entière, choisis dans la vue 3D (bouton « Butée… »
+  de la ligne de l'axe, puis clic dans la vue). Pour une pièce, on retient sa face la plus proche
+  dans le sens de la répétition. Chaque axe d'une grille a sa butée.
+- **Longueur** = distance, sur l'axe et dans le sens de la répétition, de la face de départ de
+  l'original à la butée ; affichée en lecture seule. On garde le choix de ce qui est fixé : le
+  nombre (`CountOnSpan`, le pas se calcule) ou le pas (`StepOnSpan`, le nombre se calcule).
+- **Case « Déduire l'épaisseur de la pièce »** (modes sur une longueur, saisie ou butée ; cochée par
+  défaut, comme les documents existants) : cochée, longueur utile = longueur − épaisseur, la
+  dernière copie arrive **à fleur** de la butée ; décochée, elle **commence** à la butée et la
+  collision est signalée dans le panneau, sans bloquer.
+- **La longueur suit la butée** : déplacer ou redimensionner la butée recalcule `Span` et `Step`,
+  les copies suivent. Limite : un recalcul ne crée ni ne supprime de copie ; en « pas sur une
+  longueur » le nombre ne change qu'en rouvrant « Modifier la répétition » (avertissement).
+- **Butée supprimée** : la répétition garde la dernière longueur, repasse en saisie et le dit par un
+  avertissement ; aucune erreur.
+- **Refus traduits** : butée derrière l'original, plus proche que l'épaisseur (case cochée), butée
+  = original, une de ses copies ou un membre de l'ensemble répété, sous-élément ni face ni sommet,
+  butée avec « Nombre et pas » ou avec « Suivre le redimensionnement ».
+- **Persistance** : `Stop`, `Stop2`, `Stop3` (lien global + sous-élément), `StopLabel*`,
+  `StopHolders`, `DeductThickness`.
+
+### Critères
+
+| Réf. | Critère | Tests |
+|---|---|---|
+| B1 | longueur = distance à la butée, avec et sans déduction ; refus (derrière, trop proche, sous-élément) | `tests/unit/test_repetition_butee.py` |
+| B2 | butée = pièce, face, sommet ; dernière copie à fleur / en collision | `tests/integration/test_repetition_butee.py` |
+| B3 | butée déplacée : les copies suivent ; « pas sur une longueur » : nombre à l'édition | idem |
+| B4 | butée supprimée : longueur gardée, avertissement, aucune erreur | idem |
+| B5 | grille à deux butées, sens inverse, butée hors du conteneur | idem |
+| B6 | enregistrer / rouvrir, annuler / rétablir, document d'avant les butées (case cochée) | idem |
+| B7 | panneau hors écran : bouton Butée, sélection simulée, case d'épaisseur, retrait, prérempli | `tests/gui/verifications_repetition_butee.py` |

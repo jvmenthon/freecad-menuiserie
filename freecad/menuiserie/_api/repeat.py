@@ -16,7 +16,7 @@ from freecad.menuiserie._api.joints import show_joint
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import RepeatParams
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features import repeat, repeat_copies, repeat_links
+from freecad.menuiserie.features import repeat, repeat_copies, repeat_links, repeat_stop
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import report
@@ -67,7 +67,11 @@ def _show(created: repeat_copies.Created) -> None:
 
 
 def make_repeat(
-    objects: Sequence[DocumentObject], params: RepeatParams, *, transaction: bool = True
+    objects: Sequence[DocumentObject],
+    params: RepeatParams,
+    *,
+    transaction: bool = True,
+    stops: repeat_stop.Stops | None = None,
 ) -> DocumentObject:
     """Répète les pièces de bois et les ensembles ``objects`` selon ``params``
     (:class:`RepeatParams`, mm) et renvoie la répétition (objet de cotes sans forme, nom interne
@@ -92,19 +96,25 @@ def make_repeat(
     extérieure (cas B) recopiés selon ``copy_joints``. Une sélection peut mêler pièces et
     ensembles ; une pièce n'est pas répétée en même temps que son ensemble.
 
+    ``stops`` (ADR 0047) : butée (:class:`Stop`) de chaque axe ; dans les modes « sur une
+    longueur », la longueur de l'axe est alors la distance à la butée (``AxisRepeat.span`` ou
+    ``RepeatParams.span`` : une valeur positive de départ, remplacée), et elle **suit** la butée.
+
     Un seul bloc annulable, un seul recalcul. Refus traduits avant toute création : ``TypeError``
     (autre chose qu'une pièce de bois ou un ensemble de pièces de bois), ``ValueError`` (aucune
     pièce, copie déjà liée, pièce répétée avec son ensemble, longueur trop courte, trop de
     copies…), ``KeyError`` (matériau inconnu). ``transaction=False`` : l'appelant a ouvert la
     sienne (commande de l'interface) et la valide ; sinon elle est ouverte et validée ici."""
     sources = repeat_copies.checked_sources(objects, one_container=False)
+    stops = stops or {}
+    params = repeat_stop.bounded_params(sources, params, stops)
     repeat_copies.resolve_for(sources, params)
     container = repeat_copies.common_container(sources)
     doc = sources[0].Document
     with _undoable(doc, _MAKE_TRANSACTION, own=transaction):
         obj = repeat.create_repeat(doc, sources, container)
         _show_repeat(obj)
-        _show(repeat_copies.apply_repeat(obj, params))
+        _show(repeat_copies.apply_repeat(obj, params, stops))
     return obj
 
 
@@ -123,17 +133,28 @@ def _checked_repeat(obj: DocumentObject) -> DocumentObject:
     return found
 
 
-def edit_repeat(obj: DocumentObject, params: RepeatParams, *, transaction: bool = True) -> None:
+def edit_repeat(
+    obj: DocumentObject,
+    params: RepeatParams,
+    *,
+    transaction: bool = True,
+    stops: repeat_stop.Stops | None = None,
+) -> None:
     """Change le réglage de la répétition ``obj`` (ou d'une de ses copies) : ajoute les copies qui
     manquent (rangs à la suite de l'ancien nombre), supprime les dernières si le nombre baisse
     (avec leur pièce usinée et leurs assemblages), réécrit le pas et les expressions, bascule
     ``FollowResize`` (le pas devient, ou cesse d'être, une expression sur la cote de l'ensemble).
     Même transaction (``transaction``), même recalcul et mêmes refus que :func:`make_repeat` ;
-    rien n'est modifié si le réglage est refusé."""
+    rien n'est modifié si le réglage est refusé. ``stops`` : butées de chaque axe (voir
+    :func:`make_repeat`) ; ``None`` garde celles de la répétition (retirées si le mode n'a plus de
+    longueur), un dictionnaire vide les retire."""
     found = _checked_repeat(obj)
-    repeat_copies.resolve_for(repeat.sources_of(found), params)
+    sources = repeat.sources_of(found)
+    kept = repeat_stop.kept_stops(found, params, stops)
+    params = repeat_stop.bounded_params(sources, params, kept, found)
+    repeat_copies.resolve_for(sources, params)
     with _undoable(found.Document, _EDIT_TRANSACTION, own=transaction):
-        _show(repeat_copies.apply_repeat(found, params))
+        _show(repeat_copies.apply_repeat(found, params, kept))
 
 
 def dissociate(copy: DocumentObject, *, transaction: bool = True) -> None:

@@ -3,8 +3,10 @@
 
 Un seul mode de saisie pour tout le panneau (``SpacingMode``) ; chaque axe a sa ligne : case
 d'activation (le nom de l'axe), nombre d'éléments sur l'axe (original compris, au moins 2), pas,
-longueur et case « Inverser ». Seuls les champs que le mode utilise sont visibles ; une ligne
-décochée est grisée et ne compte pas dans la grille.
+longueur, butée (bouton « Butée… », nom de la butée choisie et bouton pour l'enlever ; avec une
+butée la longueur est calculée, en lecture seule, ADR 0047) et case « Inverser ». Seuls les
+champs que le mode utilise sont visibles ; une ligne décochée est grisée et ne compte pas dans
+la grille.
 """
 
 from __future__ import annotations
@@ -38,28 +40,41 @@ _STEP_TIP: Final = QT_TRANSLATE_NOOP(
 _SPAN_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Longueur à remplir sur l'axe, pièce d'origine comprise."
 )
+_STOP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Butée…")
+_STOP_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Choisissez dans la vue 3D une face, un sommet ou une pièce : la longueur est alors calculée "
+    "jusqu'à elle et suit la butée si elle bouge.",
+)
+_PICKING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cliquez dans la vue 3D…")
+_CLEAR: Final = QT_TRANSLATE_NOOP("Menuiserie", "Retirer")
+_CLEAR_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Enlève la butée : la longueur se saisit de nouveau."
+)
 _REVERSE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Inverser")
 _REVERSE_TIP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répète dans le sens négatif de l'axe.")
 COLUMN_CAPTIONS: Final = (
     ("count", QT_TRANSLATE_NOOP("Menuiserie", "Nombre")),
     ("step", QT_TRANSLATE_NOOP("Menuiserie", "Pas")),
     ("span", QT_TRANSLATE_NOOP("Menuiserie", "Longueur")),
+    ("stop", QT_TRANSLATE_NOOP("Menuiserie", "Butée")),
 )
 _USED: Final = {
     SpacingMode.COUNT_AND_STEP: ("count", "step"),
-    SpacingMode.COUNT_ON_SPAN: ("count", "span"),
-    SpacingMode.STEP_ON_SPAN: ("step", "span"),
+    SpacingMode.COUNT_ON_SPAN: ("count", "span", "stop"),
+    SpacingMode.STEP_ON_SPAN: ("step", "span", "stop"),
 }
 
 
 def uses(spacing: SpacingMode) -> tuple[str, ...]:
-    """Colonnes (``count``, ``step``, ``span``) que le mode de saisie ``spacing`` utilise."""
+    """Colonnes (``count``, ``step``, ``span``, ``stop``) que le mode ``spacing`` utilise."""
     return _USED[spacing]
 
 
 class AxisRow:
-    """Ligne de l'axe ``axis`` : ``active`` (case), ``count``, ``step``, ``span``, ``reverse``.
-    Noms d'objets Qt : ``axisX``, ``countX``, ``stepX``, ``spanX``, ``reverseX`` (Y, Z de même)."""
+    """Ligne de l'axe ``axis`` : ``active`` (case), ``count``, ``step``, ``span``, butée (``stop``,
+    ``stop_name``, ``stop_clear``), ``reverse``. Noms d'objets Qt : ``axisX``, ``countX``,
+    ``stepX``, ``spanX``, ``stopX``, ``stopNameX``, ``stopClearX``, ``reverseX`` (Y, Z de même)."""
 
     def __init__(self, axis: RepeatAxis) -> None:
         name = axis.value
@@ -78,13 +93,42 @@ class AxisRow:
         self.step.setToolTip(translated(_STEP_TIP))
         self.span = quantity_field(f"span{name}", 0.0)
         self.span.setToolTip(translated(_SPAN_TIP))
+        self.stop_box = QtGui.QWidget()
+        box = QtGui.QHBoxLayout(self.stop_box)
+        box.setContentsMargins(0, 0, 0, 0)
+        self.stop = QtGui.QPushButton(translated(_STOP))
+        self.stop.setObjectName(f"stop{name}")
+        self.stop.setToolTip(translated(_STOP_TIP))
+        self.stop_name = QtGui.QLabel("")
+        self.stop_name.setObjectName(f"stopName{name}")
+        self.stop_clear = QtGui.QToolButton()
+        self.stop_clear.setObjectName(f"stopClear{name}")
+        self.stop_clear.setText(translated(_CLEAR))
+        self.stop_clear.setToolTip(translated(_CLEAR_TIP))
+        for widget in (self.stop, self.stop_name, self.stop_clear):
+            box.addWidget(widget)
+        self.stopped = False  # longueur calculée par une butée : lecture seule
+        self.show_stop(None)
         self.reverse = QtGui.QCheckBox(translated(_REVERSE))
         self.reverse.setObjectName(f"reverse{name}")
         self.reverse.setToolTip(translated(_REVERSE_TIP))
 
     def widgets(self) -> tuple[Widget, ...]:
-        """Les cinq widgets de la ligne, dans l'ordre des colonnes."""
-        return (self.active, self.count, self.step, self.span, self.reverse)
+        """Les six widgets de la ligne, dans l'ordre des colonnes."""
+        return (self.active, self.count, self.step, self.span, self.stop_box, self.reverse)
+
+    def show_stop(self, text: str | None, *, picking: bool = False) -> None:
+        """Butée de la ligne : son nom (``None`` : aucune) et le bouton pour l'enlever ; la
+        longueur est en lecture seule (grisée) tant qu'il y en a une. ``picking`` : choix en
+        cours."""
+        self.stop_name.setText(translated(_PICKING) if picking else (text or ""))
+        self.stop_name.setToolTip(text or "")
+        self.stop_clear.setVisible(text is not None)
+        self.stopped = text is not None
+        self.span.setReadOnly(self.stopped)
+        self.span.setEnabled(self.checked() and not self.stopped)
+        self.stop.setText(translated(_PICKING if picking else _STOP))
+        self.stop.setDown(picking)
 
     def checked(self) -> bool:
         """Vrai si l'axe est actif."""
@@ -115,7 +159,13 @@ class AxisRow:
         """Seuls les champs du mode de saisie sont visibles ; une ligne décochée est grisée."""
         used = uses(spacing)
         active = self.checked()
-        for name, widget in (("count", self.count), ("step", self.step), ("span", self.span)):
+        shown = (
+            ("count", self.count),
+            ("step", self.step),
+            ("span", self.span),
+            ("stop", self.stop_box),
+        )
+        for name, widget in shown:
             widget.setVisible(name in used)
-            widget.setEnabled(active)
+            widget.setEnabled(active and not (name == "span" and self.stopped))
         self.reverse.setEnabled(active)
