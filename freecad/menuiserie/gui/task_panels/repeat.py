@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from functools import partial
+from operator import attrgetter
 from typing import Final
 
 import FreeCAD as App
@@ -103,8 +104,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._guard = UpdateGuard()
         self._repeat_name: str | None = None if repeat is None else repeat.Name
         self._sources = list(sources)
-        self._refused = False
-        self._overlapping = False  # copies qui se chevauchent (avertissement)
+        self._refused = self._overlapping = False  # saisie refusée, copies qui se chevauchent
         self._steps_edited: set[RepeatAxis] = set()  # pas saisis : ils ne suivent plus la cote
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
@@ -115,7 +115,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._stops = StopControls(doc.Name, self._rows, self._update, self._sources_now)
         self._captions: dict[str, Widget] = {}
         self._build()
-        self._stops.settle_with(self._deduct, lambda: (self._refused, self._overlapping))
+        self._stops.settle_with(self._deduct, partial(attrgetter("_refused", "_overlapping"), self))
         self._fill(repeat)
         self._connect()
         if repeat is None:

@@ -89,6 +89,10 @@ def collision_text(params: RepeatParams, stops: Stops) -> str:
     return "\n".join(translated(STOP_COLLISION, {"axis": axis.value}) for axis in stops)
 
 
+def _no_trouble() -> tuple[bool, bool]:
+    return False, False
+
+
 class StopControls:
     """Butées du panneau « Répéter » : une par axe (``stops``), les boutons des lignes
     (``rows``), le choix dans la vue 3D. ``changed`` est appelé quand une butée change."""
@@ -109,7 +113,7 @@ class StopControls:
         self._picking: RepeatAxis | None = None
         self._closed = False
         self._deduct: Widget = None
-        self._trouble: Callable[[], tuple[bool, bool]] = lambda: (False, False)
+        self._trouble: Callable[[], tuple[bool, bool]] = _no_trouble
 
     def settle_with(self, deduct: Widget, trouble: Callable[[], tuple[bool, bool]]) -> None:
         """Case « Déduire l'épaisseur » essayée dans l'autre état après un choix de butée
