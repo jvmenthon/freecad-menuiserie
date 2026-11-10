@@ -25,7 +25,7 @@ from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["DocumentStructure", "structure_of"]
+__all__ = ["DocumentStructure", "row_key_of", "structure_of"]
 
 
 def structure_of(doc: Document) -> tuple[StructureNode, ...]:
@@ -85,3 +85,9 @@ class DocumentStructure:
 
 def _is_piece(obj: DocumentObject) -> bool:
     return not (is_furniture(obj) or is_joint(obj) or is_distance(obj))
+
+
+def row_key_of(obj: DocumentObject) -> str:
+    """Clé de la ligne du panneau qui représente ``obj`` : la pièce usinée pour sa brute (une
+    seule ligne pour les deux), sinon l'objet lui-même."""
+    return str(shown_object(obj).Name)
