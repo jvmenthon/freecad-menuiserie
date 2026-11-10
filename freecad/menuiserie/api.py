@@ -46,6 +46,18 @@ d'un axe est celui de ses éléments, original compris (1 : axe inactif) ::
     )
     make_repeat([barreau], grille)  # 4 x 3 = 11 copies en plus de l'original
 
+Répétition jusqu'à une butée (ADR 0047) : en « nombre sur une longueur » ou « pas sur une
+longueur », la longueur de l'axe est la distance à une face (``Stop(piece, "Face3")``), un sommet
+(``"Vertex2"``) ou une pièce entière (``Stop(piece)``) ; elle suit la butée. ``deduct_thickness``
+faux : la dernière copie commence à la butée au lieu de s'y arrêter ::
+
+    from freecad.menuiserie.api import SpacingMode, Stop
+
+    params = RepeatParams(
+        spacing=SpacingMode.COUNT_ON_SPAN, grid=(AxisRepeat(RepeatAxis.X, 5, span=1.0),)
+    )
+    make_repeat([barreau], params, stops={RepeatAxis.X: Stop(montant, "Face3")})
+
 Liste de débit (J2) ::
 
     from freecad.menuiserie.api import export_cut_list_csv, make_cut_list
@@ -127,6 +139,7 @@ from freecad.menuiserie.features.machined_part import (
     remove_machined_part,
 )
 from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.features.repeat_stop import Stop
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 
 __all__ = [
@@ -141,6 +154,7 @@ __all__ = [
     "RepeatMode",
     "RepeatParams",
     "SpacingMode",
+    "Stop",
     "add_to_furniture",
     "blank_of",
     "close_gap",

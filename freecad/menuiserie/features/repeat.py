@@ -5,8 +5,9 @@ La répétition (``App::FeaturePython``, nom interne ``Repeat``) décrit comment
 pièces sources sont répétées : ``Source``, ``Mode``, ``Spacing``, une ligne par axe actif de la
 grille (``Axis``, ``Count`` en copies le long de l'axe, ``Step``, ``Span``, ``Reverse`` ; suffixe
 ``2`` et ``3`` pour les lignes suivantes, voir :mod:`.repeat_props`), ``CopyJoints``,
-``FollowResize``. Elle n'a pas de forme. Chaque copie est une vraie pièce de bois qui porte
-``Repeat`` (lien vers la répétition), ``RepeatSource`` (la source dont elle est la copie),
+``FollowResize``, ``DeductThickness`` et, par ligne, la butée (``Stop``, ``StopLabel`` :
+:mod:`.repeat_stop_props`). Elle n'a pas de forme. Chaque copie est une vraie pièce de bois qui
+porte ``Repeat`` (lien vers la répétition), ``RepeatSource`` (la source dont elle est la copie),
 ``RepeatIndex`` (rang linéaire, à partir de 1, pour l'ordre d'affichage) et ``RepeatCell`` (sa
 cellule ``(i, j, k)`` dans la grille, qui l'identifie), en lecture seule. Les expressions qui lient
 la copie à sa source sont écrites par :mod:`.repeat_links` et :mod:`.repeat_copies`, jamais ici ni
@@ -63,6 +64,7 @@ from freecad.menuiserie.features.repeat_props import (
     REPEAT_PROPERTIES,
     line_name,
 )
+from freecad.menuiserie.features.repeat_stop_props import DEDUCT_PROPERTY, STOP_PROPERTIES
 
 __all__ = [
     "COPY_PROPERTIES",
@@ -98,8 +100,8 @@ _LINE_FIELDS: Final = ("Axis", "Count", "Step", "Span", "Reverse")
 class Repeat(StatelessProxy):
     """Proxy de la répétition. Chemin de module figé (ADR 0043) ; sans état enregistré.
 
-    Sans forme : ``execute`` n'existe pas, les copies lisent ``Step`` et ``Reverse`` par leurs
-    expressions.
+    Sans forme : ``execute`` ne suit que les butées (ADR 0047) ; les copies lisent ``Step`` et
+    ``Reverse`` par leurs expressions.
     """
 
     TYPE: ClassVar[str] = "Menuiserie::Repeat"
@@ -108,15 +110,22 @@ class Repeat(StatelessProxy):
     def __init__(self, obj: DocumentObject) -> None:
         """Ajoute les propriétés de la répétition, à leurs valeurs par défaut."""
         obj.Proxy = self
-        for specs in (REPEAT_PROPERTIES, GRID_PROPERTIES):
+        for specs in (REPEAT_PROPERTIES, GRID_PROPERTIES, STOP_PROPERTIES):
             schema.add_missing_properties(obj, specs, choices=CHOICES)
             schema.apply_editor_modes(obj, specs)
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types contrôlés, propriétés manquantes recréées (ADR 0003)."""
         schema.restore_schema(obj, REPEAT_PROPERTIES, self.VERSION, NOUN, CHOICES)
-        # Lignes 2 et 3 : absentes d'un document d'avant la grille (même version du modèle).
+        # Lignes 2 et 3, butées : absentes d'un document plus ancien (même version du modèle).
         ensure_lines(obj)
+
+    def execute(self, obj: DocumentObject) -> None:
+        """Recalcul : la longueur d'une ligne qui a une butée suit la butée (ADR 0047) ; sans
+        forme, la répétition n'écrit que sa longueur et son pas calculés, ses propres sorties."""
+        from freecad.menuiserie.features.repeat_stop import follow_stops
+
+        follow_stops(obj)
 
     def unsetupObject(self, obj: DocumentObject) -> None:
         """Répétition supprimée (``removeObject``, interface comprise) : ses copies sont
@@ -236,9 +245,11 @@ def create_repeat(
 
 
 def ensure_lines(repeat: DocumentObject) -> None:
-    """Propriétés des lignes 2 et 3 de la grille, ajoutées si le document est d'avant la grille."""
-    schema.add_missing_properties(repeat, GRID_PROPERTIES, choices=CHOICES)
-    schema.apply_editor_modes(repeat, GRID_PROPERTIES)
+    """Propriétés des lignes 2 et 3 de la grille et des butées, ajoutées si le document est d'avant
+    la grille ou d'avant les butées."""
+    for specs in (GRID_PROPERTIES, STOP_PROPERTIES):
+        schema.add_missing_properties(repeat, specs, choices=CHOICES)
+        schema.apply_editor_modes(repeat, specs)
 
 
 def stored_lines(repeat: DocumentObject) -> tuple[AxisRepeat, ...]:
@@ -271,6 +282,7 @@ def stored_params(repeat: DocumentObject) -> RepeatParams:
         grid=stored_lines(repeat),
         copy_joints=bool(repeat.CopyJoints),
         follow_resize=bool(repeat.FollowResize),
+        deduct_thickness=bool(getattr(repeat, DEDUCT_PROPERTY, True)),
     )
 
 
@@ -311,6 +323,7 @@ def write_params(repeat: DocumentObject, params: RepeatParams, grid: ResolvedGri
         "Spacing": params.spacing.value,
         "CopyJoints": params.copy_joints,
         "FollowResize": params.follow_resize,
+        DEDUCT_PROPERTY: params.deduct_thickness,
     }
     spans = {line.axis: line for line in params.lines}
     for index in range(LINE_COUNT):

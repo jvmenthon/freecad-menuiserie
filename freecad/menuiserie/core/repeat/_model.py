@@ -211,6 +211,11 @@ class RepeatParams:
     ``CountAndStep`` et ``StepOnSpan`` ; ``span`` : longueur, utilisée par ``CountOnSpan`` et
     ``StepOnSpan``. Un champ que le mode de saisie n'utilise pas n'est pas contrôlé. Les modes
     ``Circular`` et ``Path`` sont refusés : pas encore disponibles.
+
+    ``deduct_thickness`` (modes « sur une longueur », saisie ou butée) : vrai (défaut, comportement
+    historique), la cote des sources sur l'axe est déduite de la longueur et la dernière copie
+    s'arrête **à fleur** de la fin de la longueur ; faux, elle ne l'est pas et la dernière copie
+    **commence** à la fin de la longueur.
     """
 
     mode: RepeatMode = RepeatMode.LINEAR
@@ -222,6 +227,7 @@ class RepeatParams:
     reverse: bool = False
     copy_joints: bool = True
     follow_resize: bool = False
+    deduct_thickness: bool = True
     grid: tuple[AxisRepeat, ...] = ()
 
     def __post_init__(self) -> None:

@@ -79,6 +79,7 @@ from freecad.menuiserie.features.repeat_sources import (
     source_extent,
     source_extents,
 )
+from freecad.menuiserie.features.repeat_stop import Stops, write_stops
 
 __all__ = [
     "Created",
@@ -243,7 +244,9 @@ def _bind_furnitures(
     return notices
 
 
-def apply_repeat(repeat: DocumentObject, params: RepeatParams) -> Created:
+def apply_repeat(
+    repeat: DocumentObject, params: RepeatParams, stops: Stops | None = None
+) -> Created:
     """Met la répétition au réglage ``params`` : écrit ses propriétés, supprime les copies dont la
     cellule sort de la grille, crée celles des cellules nouvelles (une copie dissociée ou supprimée
     à la main ne revient pas), réécrit les expressions de toutes, puis recopie les assemblages
@@ -251,16 +254,20 @@ def apply_repeat(repeat: DocumentObject, params: RepeatParams) -> Created:
     faux : les assemblages enfants sont supprimés) et relie les ensembles touchés. ``FollowResize``
     vrai : le pas de chaque axe devient une expression sur la cote de l'ensemble
     (:mod:`.repeat_follow`). Renvoie les copies, les assemblages créés et les avertissements.
-    Aucune transaction ni recalcul."""
+    ``stops`` : butée de chaque axe (ADR 0047) ; ``params`` porte déjà les longueurs qu'elles
+    donnent (:func:`.repeat_stop.bounded_params`). Aucune transaction ni recalcul."""
     sources = sources_of(repeat)
     grid = resolve_for(sources, params)
     extents = source_extents(sources, [line.axis for line in grid.axes])
     plan = _plan(grid, _previous_dims(repeat, grid))
     unbind_follow(repeat)
-    written = follow_grid_params(params, grid, extents) if params.follow_resize else params
+    # Suivi : la longueur suivie comprend la cote des sources seulement si elle est déduite.
+    followed = extents if params.deduct_thickness else dict.fromkeys(extents, 0.0)
+    written = follow_grid_params(params, grid, followed) if params.follow_resize else params
     write_params(repeat, written, grid)
+    write_stops(repeat, [line.axis for line in grid.axes], stops or {})
     if params.follow_resize:
-        bind_follow_grid(repeat, follow_furniture(sources), grid, extents)
+        bind_follow_grid(repeat, follow_furniture(sources), grid, followed)
     for source in sources:
         _drop_outside(repeat, source, plan)
     _renumber(repeat, plan.ranks)
