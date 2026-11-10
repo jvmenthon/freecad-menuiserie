@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from icones_ensembles import (
+    autre_objet,
     distance,
     distance_gardee,
     ensemble,
@@ -23,6 +24,7 @@ from icones_ensembles import (
     ensemble_retirer,
     piece_en_bois,
     piece_en_bois_objet,
+    repetition,
     rotation_x,
     rotation_y,
     rotation_z,
@@ -319,6 +321,8 @@ ICONES = {
     "Menuiserie_FurnitureRebind.svg": ensemble_relier,
     # Panneau « Structure » (ADR 0046)
     "Menuiserie_Structure.svg": structure,
+    "Menuiserie_Repeat.svg": repetition,
+    "Menuiserie_Other.svg": autre_objet,
     # Distance entre deux pièces (DI-b)
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,

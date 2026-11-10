@@ -23,14 +23,21 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie import api
+from freecad.menuiserie import api, icon_path
+from freecad.menuiserie.core.structure_icons import ICON_BY_KIND
 from freecad.menuiserie.core.structure_menu import Action
 from freecad.menuiserie.core.structure_tree import NodeKind
 from freecad.menuiserie.features.cutlist_object import find_cut_list
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.gui.cutlist_preview import DIALOG_NAME
 from freecad.menuiserie.gui.structure_actions import StructureActions
-from freecad.menuiserie.gui.structure_panel import DOCK_NAME, TREE_NAME, show_panel
+from freecad.menuiserie.gui.structure_panel import (
+    DOCK_NAME,
+    TREE_NAME,
+    open_by_default,
+    show_panel,
+)
+from freecad.menuiserie.gui.structure_preferences import closed_by_user, remember_closed
 from freecad.menuiserie.gui.structure_sync import StructureSync
 from freecad.menuiserie.gui.structure_tree_widget import (
     KEY_ROLE,
@@ -610,6 +617,65 @@ def verifier_structure_sans_repetition() -> list[str]:
     return _avec_panneau(_verifier_aucune_repetition)
 
 
+def _verifier_icones(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
+    """Chaque ligne a l'icône de son genre (aucune si Qt ne lit pas le SVG : sans erreur)."""
+    problemes: list[str] = []
+    for genre, nom in ICON_BY_KIND.items():
+        attendu = QtGui.QIcon(icon_path(nom)).isNull()
+        for _g, _texte, cle in _genres(arbre, genre):
+            ligne = item_for(arbre, cle)
+            if ligne is not None:
+                problemes += ecarts(f"icône {genre.value}", ligne.icon(0).isNull(), attendu)
+    vus = {genre for genre in NodeKind if _genres(arbre, genre)}
+    problemes += ecarts("genres vus", NodeKind.FURNITURE in vus and NodeKind.PIECE in vus, True)
+    return problemes
+
+
+def verifier_structure_icones() -> list[str]:
+    return _avec_panneau(_verifier_icones)
+
+
+def _docks() -> list[Any]:
+    return list(Gui.getMainWindow().findChildren(QtGui.QDockWidget, DOCK_NAME))
+
+
+def _retirer_docks() -> None:
+    for dock in _docks():
+        dock.setParent(None)
+        dock.deleteLater()
+    _traiter()
+
+
+def verifier_structure_ouverture_par_defaut() -> list[str]:
+    """Ouverture seule à l'activation, sans doublon, sauf si l'utilisateur l'a fermé (réglage
+    des préférences)."""
+    avant = closed_by_user()
+    try:
+        _retirer_docks()
+        remember_closed(True)
+        open_by_default()
+        _traiter()
+        problemes = ecarts("fermé par l'utilisateur : pas d'ouverture", len(_docks()), 0)
+        remember_closed(False)
+        open_by_default()
+        open_by_default()
+        _traiter()
+        problemes += ecarts("ouvert une seule fois", len(_docks()), 1)
+        problemes += ecarts("ouverture seule : réglage gardé", closed_by_user(), False)
+        _docks()[0].close()
+        _traiter()
+        problemes += ecarts("fermeture mémorisée", closed_by_user(), True)
+        open_by_default()
+        problemes += ecarts("fermé : pas de doublon", len(_docks()), 1)
+        show_panel()
+        _traiter()
+        problemes += ecarts("commande : réglage levé", closed_by_user(), False)
+        return problemes
+    finally:
+        _retirer_docks()
+        remember_closed(avant)
+
+
 VERIFICATIONS_STRUCTURE: tuple[Callable[[], list[str]], ...] = (
     verifier_structure_selection,
     verifier_structure_rafraichissement,
@@ -626,4 +692,6 @@ VERIFICATIONS_STRUCTURE: tuple[Callable[[], list[str]], ...] = (
     verifier_structure_liste_de_debit,
     verifier_structure_autres_objets,
     verifier_structure_sans_repetition,
+    verifier_structure_icones,
+    verifier_structure_ouverture_par_defaut,
 )

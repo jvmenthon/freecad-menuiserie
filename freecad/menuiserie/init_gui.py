@@ -123,6 +123,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
 
         double_click.install()
         events.install()
+        from freecad.menuiserie.gui.structure_panel import open_by_default_later
+
+        open_by_default_later()  # panneau « Structure » ouvert par défaut (ADR 0046)
 
     def Deactivated(self) -> None:
         """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""

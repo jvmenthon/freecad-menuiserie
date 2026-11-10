@@ -15,6 +15,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.core.structure_actions import DRAGGABLE_KINDS
 from freecad.menuiserie.core.structure_sync import expanded_after_refresh, node_id
 from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
+from freecad.menuiserie.gui.structure_icons import load_icons
 
 __all__ = [
     "ID_ROLE",
@@ -41,11 +42,14 @@ def _add_node(
     node: StructureNode,
     parent_id: str,
     previous: Mapping[str, bool],
+    icons: Mapping[NodeKind, QtGui.QIcon],
 ) -> None:
     """Ajoute ``node`` et ses descendants sous ``parent``."""
     item = QtGui.QTreeWidgetItem(parent)
     ident = node_id(parent_id, node)
     item.setText(0, node.label)
+    if node.kind in icons:
+        item.setIcon(0, icons[node.kind])
     item.setData(0, KEY_ROLE, node.key)
     item.setData(0, ID_ROLE, ident)
     item.setData(0, KIND_ROLE, node.kind.value)
@@ -54,7 +58,7 @@ def _add_node(
     flags = _DRAG_FLAGS if node.kind in DRAGGABLE_KINDS else _ROW_FLAGS
     item.setFlags(flags if node.key else QtCore.Qt.ItemIsEnabled)
     for child in node.children:
-        _add_node(item, child, ident, previous)
+        _add_node(item, child, ident, previous, icons)
     item.setExpanded(expanded_after_refresh(node.expanded, ident, previous))
 
 
@@ -67,8 +71,9 @@ def fill_tree(
     """Remplace le contenu de ``tree`` par ``nodes`` ; ``message`` s'affiche s'il n'y en a pas.
     ``previous`` (:func:`expansion_of`) rend aux lignes leur état déplié."""
     tree.clear()
+    icons = load_icons()
     for node in nodes:
-        _add_node(tree, node, "", previous or {})
+        _add_node(tree, node, "", previous or {}, icons)
     if not nodes:
         placeholder = QtGui.QTreeWidgetItem(tree)
         placeholder.setText(0, message)
