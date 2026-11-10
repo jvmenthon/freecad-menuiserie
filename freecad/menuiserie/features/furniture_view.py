@@ -24,14 +24,20 @@ from freecad.menuiserie.core.furniture import (
     follow_rules,
     follow_summary,
 )
-from freecad.menuiserie.features.distance import is_distance
+from freecad.menuiserie.features.distance import distances_of, is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
-from freecad.menuiserie.features.furniture_bindings import notice_messages, read_members
+from freecad.menuiserie.features.furniture_bindings import (
+    common_furniture,
+    members_of,
+    notice_messages,
+    read_members,
+)
 from freecad.menuiserie.features.i18n import translated_errors
+from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import machined_part_of
 
-__all__ = ["MemberView", "member_views", "shown_object"]
+__all__ = ["MemberView", "furniture_children", "member_views", "shown_object"]
 
 
 @dataclass(frozen=True)
@@ -93,3 +99,32 @@ def member_views(furniture: DocumentObject) -> tuple[tuple[MemberView, ...], tup
         for member in members.members
     )
     return views, notice_messages([*notices, *formulas])
+
+
+def _pieces_below(furniture: DocumentObject) -> list[DocumentObject]:
+    """Pièces de ``furniture`` et de ses sous-ensembles (sans les ensembles)."""
+    found: list[DocumentObject] = []
+    for member in members_of(furniture):
+        found.extend(_pieces_below(member) if is_furniture(member) else [member])
+    return found
+
+
+def furniture_children(furniture: DocumentObject) -> list[DocumentObject]:
+    """Enfants de l'ensemble dans l'arbre : membres visibles, assemblages dont l'ensemble est le
+    plus proche contenant leurs deux pièces (même au travers d'un sous-ensemble), puis
+    Distances gardées."""
+    members = members_of(furniture)
+    joints = {
+        parent.Name: parent
+        for piece in _pieces_below(furniture)
+        for parent in piece.InList
+        if is_joint(parent)
+        and parent.HostPart is not None
+        and parent.GuestPart is not None
+        and common_furniture(parent.HostPart, parent.GuestPart) == furniture
+    }
+    return [
+        *(shown_object(member) for member in members),
+        *(joints[n] for n in sorted(joints)),
+        *distances_of(furniture),
+    ]

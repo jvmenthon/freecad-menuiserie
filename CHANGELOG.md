@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Panneau ancré « Structure » en lecture seule (ADR 0046, lot 1) et commande « Structure » (thème « Vue ») : un nœud par ensemble (sous-ensembles en enfants), ses pièces (la brute et la pièce usinée forment une ligne), un nœud replié « Assemblages (N) » (assemblages, quincaillerie, Distances) et les pièces hors ensemble à la racine. L'arbre de FreeCAD n'est pas modifié et le document ne reçoit aucun objet. Modèle d'arbre pur dans `core/structure_tree.py`.
 - Panneau d'assemblage : le bouton « Inverser » reste visible mais grisé, avec une infobulle qui explique pourquoi, quand l'inversion n'a pas de sens (mi-bois, onglet, tourillons, faux tenons, biscuits) ou que les rôles échangés rendraient l'assemblage impossible (ex. tenon-mortaise en biais : l'infobulle donne la raison).
 - Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
 - Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; rangs du montant opposé aux mêmes hauteurs que ceux du côté (tablette de niveau même si les montants ne partent pas du même bas) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).

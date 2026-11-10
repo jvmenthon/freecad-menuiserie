@@ -66,6 +66,10 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
             ),
         ),
         (
+            QT_TRANSLATE_NOOP("Workbench", "Vue"),
+            ("Menuiserie_Structure",),  # panneau « Structure » (ADR 0046)
+        ),
+        (
             QT_TRANSLATE_NOOP("Workbench", "Liste de débit"),
             (
                 "Menuiserie_CutList",  # (J2d, J2g)
@@ -100,6 +104,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
+        from freecad.menuiserie.gui.commands import structure  # panneau « Structure » (ADR 0046)
+
+        structure.register()
         # Un menu, thèmes séparés : FreeCAD déforme les accents du titre d'un sous-menu.
         menu: list[str] = []
         for theme, names in self.themes:
