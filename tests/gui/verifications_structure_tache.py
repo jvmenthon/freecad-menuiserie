@@ -25,7 +25,7 @@ from freecad.menuiserie.gui.structure_tree_widget import item_for
 from tests.gui.verifications_assemblages import cadre, usinee_de
 from tests.gui.verifications_ensemble import boite_de_refus
 from tests.gui.verifications_panneau import annuler, ecarts, ouvrir_par_double_clic
-from tests.gui.verifications_panneau_assemblage import double_cliquer, panneau, tenon_valide, widget
+from tests.gui.verifications_panneau_assemblage import double_cliquer, tenon_valide
 from tests.gui.verifications_structure import avec_panneau, panneau_structure, traiter
 from tests.gui.verifications_structure_selection import choisir_lignes
 from tests.integration.bureau import Bureau
@@ -176,7 +176,7 @@ def _inversion_comptee_comme_modification() -> list[str]:
         try:
             avant = joint.HostPart.Name
             double_cliquer(joint)
-            widget(panneau(), "invertButton").click()
+            joint.Proxy.invert(joint)  # ce que fait « Inverser » (grisé pour un tenon)
             inversee = joint.HostPart.Name
             choisir_lignes(arbre, joint.Name)
             problemes = [

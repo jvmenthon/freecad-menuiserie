@@ -24,124 +24,23 @@ from __future__ import annotations
 
 import traceback
 from collections.abc import Callable, Hashable, Iterable
-from dataclasses import dataclass
-from typing import Any, Final, Protocol
+from functools import partial
+from typing import Any, Final
 
-from freecad.menuiserie.core.colors import Rgb, from_bytes, to_bytes
 from freecad.menuiserie.core.display_layers import LayerStack, Look
+from freecad.menuiserie.gui import display_io as io
+from freecad.menuiserie.gui.display_io import (
+    GONE,
+    AppObservers,
+    Key,
+    Observers,
+    Original,
+    PartObject,
+    ViewObject,
+    object_alive,
+)
 
 __all__ = ["DISPLAY", "DisplayLayers", "Observers", "object_alive"]
-
-ViewObject = Any
-PartObject = Any  # objet FreeCAD (ce module n'importe pas ``features`` : il reste léger)
-Key = tuple[str, str]  # (nom du document, nom de l'objet)
-_GONE: Final = (ReferenceError, RuntimeError, TypeError)  # objet supprimé ou document fermé
-
-
-@dataclass(frozen=True)
-class Original:
-    """Affichage d'origine d'un objet : transparence et couleur diffuse de chaque matériau."""
-
-    transparency: int
-    diffuse: tuple[Rgb, ...]
-
-
-class Observers(Protocol):
-    """Pose et retrait d'un observateur de document (``App.addDocumentObserver``)."""
-
-    def add(self, watcher: object) -> None:
-        """Pose ``watcher``."""
-
-    def remove(self, watcher: object) -> None:
-        """Retire ``watcher``."""
-
-
-class _AppObservers:
-    """Observateurs de l'application FreeCAD (importée à l'usage : ce module reste importable
-    hors de FreeCAD)."""
-
-    def add(self, watcher: object) -> None:
-        import FreeCAD as App
-
-        App.addDocumentObserver(watcher)
-
-    def remove(self, watcher: object) -> None:
-        import FreeCAD as App
-
-        App.removeDocumentObserver(watcher)
-
-
-def object_alive(obj: PartObject) -> bool:
-    """Vrai si ``obj`` existe encore dans un document ouvert (faux pour un objet supprimé ou
-    dont le document est fermé)."""
-    import FreeCAD as App
-
-    try:
-        doc = obj.Document
-        return bool(doc.Name in App.listDocuments() and doc.getObject(obj.Name) == obj)
-    except _GONE:
-        return False
-
-
-def _in_transaction() -> bool:
-    import FreeCAD as App
-
-    return App.getActiveTransaction() is not None
-
-
-def _later(callback: Callable[[], None]) -> None:
-    from PySide import QtCore
-
-    QtCore.QTimer.singleShot(0, callback)
-
-
-def _report(text: str) -> None:
-    import FreeCAD as App
-
-    App.Console.PrintError(text)
-
-
-def _never() -> bool:
-    return False
-
-
-def _now(callback: Callable[[], None]) -> None:
-    callback()
-
-
-def _key(obj: PartObject) -> Key:
-    """Clé ``(document, nom)`` de ``obj`` (document vide si l'objet n'en a pas)."""
-    return str(getattr(getattr(obj, "Document", None), "Name", "")), str(obj.Name)
-
-
-def _read(vobj: ViewObject) -> Original:
-    materials = getattr(vobj, "ShapeAppearance", ())
-    return Original(int(vobj.Transparency), tuple(to_bytes(m.DiffuseColor) for m in materials))
-
-
-def _target_diffuse(look: Look, original: Original) -> tuple[Rgb, ...]:
-    if look.tint is None:
-        return original.diffuse
-    return tuple(look.tint for _ in original.diffuse)
-
-
-def _write_diffuse(vobj: ViewObject, wanted: tuple[Rgb, ...]) -> None:
-    """Couleur diffuse de chaque matériau (transparence inchangée) ; rien d'écrit si égale."""
-    materials = list(getattr(vobj, "ShapeAppearance", ()))
-    if (
-        len(materials) != len(wanted)
-        or tuple(to_bytes(m.DiffuseColor) for m in materials) == wanted
-    ):
-        return
-    for material, rgb in zip(materials, wanted, strict=True):
-        material.DiffuseColor = from_bytes(rgb) + tuple(material.DiffuseColor)[3:]
-    vobj.ShapeAppearance = materials
-
-
-def _show(vobj: ViewObject, transparency: int, diffuse: tuple[Rgb, ...]) -> None:
-    _write_diffuse(vobj, diffuse)
-    if int(vobj.Transparency) != transparency:
-        vobj.Transparency = transparency
 
 
 class _Watcher:
@@ -164,6 +63,10 @@ class _Watcher:
     def slotDeletedDocument(self, doc: Any) -> None:
         self._layers.forget_document(doc.Name)
 
+    def slotUndoDocument(self, doc: Any) -> None:
+        """Après Ctrl+Z : un objet supprimé puis recréé retrouve son affichage d'origine."""
+        self._layers.undone(doc)
+
 
 class DisplayLayers:
     """Calques d'affichage des objets de tous les documents (voir ``core/display_layers``).
@@ -174,9 +77,9 @@ class DisplayLayers:
         self,
         alive: Callable[[PartObject], bool] = object_alive,
         observers: Observers | None = None,
-        in_transaction: Callable[[], bool] = _never,
-        later: Callable[[Callable[[], None]], None] = _now,
-        report: Callable[[str], None] = _report,
+        in_transaction: Callable[[], bool] = io.never,
+        later: Callable[[Callable[[], None]], None] = io.now,
+        report: Callable[[str], None] = io.report,
     ) -> None:
         self._alive = alive
         self._observers = observers
@@ -187,6 +90,7 @@ class DisplayLayers:
         self._objects: dict[Hashable, PartObject] = {}
         self._written: dict[Hashable, Look] = {}
         self._deferred: dict[Hashable, tuple[list[PartObject], Look]] = {}
+        self._undeleted: dict[Key, Original] = {}  # origine des objets supprimés avec un calque
         self._watcher: _Watcher | None = None
 
     def tracked(self) -> list[Hashable]:
@@ -199,7 +103,7 @@ class DisplayLayers:
 
     def look_of(self, obj: PartObject) -> Look | None:
         """Aspect affiché pour ``obj`` (``None`` : celui d'origine)."""
-        return self._stack.effective(_key(obj))
+        return self._stack.effective(io.key(obj))
 
     # --- Calques --------------------------------------------------------------------------
 
@@ -220,7 +124,7 @@ class DisplayLayers:
             self._deferred[owner] = (objs, look)
             return
         self._deferred.pop(owner, None)
-        wanted = {_key(obj): obj for obj in objs if self._alive(obj)}
+        wanted = {io.key(obj): obj for obj in objs if self._alive(obj)}
         if self._already_shown(owner, wanted, look):
             return  # rien à écrire
         for key in self._stack.keys_of(owner):
@@ -265,6 +169,7 @@ class DisplayLayers:
         self._objects.clear()
         self._written.clear()
         self._deferred.clear()
+        self._undeleted.clear()
         self._watch()
 
     # --- Observateur de document ----------------------------------------------------------
@@ -280,10 +185,29 @@ class DisplayLayers:
     def object_deleted(self, obj: PartObject) -> None:
         """Objet supprimé : son origine lui est rendue tant que son ViewObject existe (la
         transaction de suppression le garde ; Ctrl+Z le recréerait teinté), puis il est oublié."""
-        key = _key(obj)
+        key = io.key(obj)
         if key in self._stack:
+            self._undeleted[key] = self._stack.original(key)
             self._each([key], self._restore_deleted(obj))
         self.forget(key)
+
+    def undone(self, document: Any) -> None:
+        """Après Ctrl+Z : la transaction a recréé l'objet supprimé avec l'affichage qu'il avait
+        (teinté) ; l'origine lui est rendue hors transaction, une fois l'annulation terminée."""
+        self._later(partial(self._repair_undeleted, document))
+
+    def _repair_undeleted(self, document: Any) -> None:
+        for key in [k for k in self._undeleted if k[0] == document.Name]:
+            original = self._undeleted.pop(key)
+            obj = document.getObject(key[1])
+            vobj = getattr(obj, "ViewObject", None)
+            if vobj is not None:
+                self._each([key], partial(self._write_original, vobj, original))
+        self._watch()
+
+    @staticmethod
+    def _write_original(vobj: ViewObject, original: Original, _unused: Hashable) -> None:
+        io.show(vobj, original.transparency, original.diffuse)
 
     def _restore_deleted(self, obj: PartObject) -> Callable[[Hashable], None]:
         def restore(key: Hashable) -> None:
@@ -292,7 +216,7 @@ class DisplayLayers:
                 if vobj is not None:
                     self._adopt(key, vobj)
                     self._restore_with(key, vobj, self._stack.original(key))
-            except _GONE:
+            except GONE:
                 return  # ViewObject déjà détruit : rien à rendre
 
         return restore
@@ -306,8 +230,11 @@ class DisplayLayers:
 
     def forget_document(self, document: str) -> None:
         """Document fermé : rien à rétablir."""
+        for undeleted in [k for k in self._undeleted if k[0] == document]:
+            del self._undeleted[undeleted]
         for key in self._document_keys(document):
             self.forget(key)
+        self._watch()
 
     def _each(self, keys: list[Hashable], action: Callable[[Hashable], None]) -> None:
         """``action`` sur chaque clé ; une erreur est écrite dans le rapport sans interrompre les
@@ -325,10 +252,11 @@ class DisplayLayers:
         """Observateur posé tant qu'il reste un calque, retiré ensuite."""
         if self._observers is None:
             return
-        if len(self._stack) and self._watcher is None:
+        wanted = bool(len(self._stack) or self._undeleted)
+        if wanted and self._watcher is None:
             self._watcher = _Watcher(self)
             self._observers.add(self._watcher)
-        elif not len(self._stack) and self._watcher is not None:
+        elif not wanted and self._watcher is not None:
             watcher, self._watcher = self._watcher, None
             self._observers.remove(watcher)
 
@@ -348,11 +276,11 @@ class DisplayLayers:
             known = key in self._stack
             if known:
                 self._adopt(key, vobj)
-            original = self._stack.original(key) if known else _read(vobj)
+            original = self._stack.original(key) if known else io.read(vobj)
             self._objects[key] = obj
             self._stack.put(key, owner, look, original)
             self._apply(key)
-        except _GONE:
+        except GONE:
             self.forget(key)
 
     def _drop(self, key: Hashable, owner: Hashable) -> None:
@@ -369,7 +297,7 @@ class DisplayLayers:
                 self._written.pop(key, None)
             else:
                 self._apply(key)
-        except _GONE:
+        except GONE:
             self.forget(key)
 
     def _apply(self, key: Hashable) -> None:
@@ -378,7 +306,7 @@ class DisplayLayers:
         if vobj is None or look is None:
             return
         original = self._stack.original(key)
-        _show(vobj, look.transparency, _target_diffuse(look, original))
+        io.show(vobj, look.transparency, io.target_diffuse(look, original))
         self._written[key] = look
 
     def _restore(self, key: Hashable) -> None:
@@ -388,12 +316,12 @@ class DisplayLayers:
             if vobj is not None:
                 self._adopt(key, vobj)
                 self._restore_with(key, vobj, self._stack.original(key))
-        except _GONE:
+        except GONE:
             self.forget(key)
 
     def _restore_with(self, key: Hashable, vobj: ViewObject | None, original: Original) -> None:
         if vobj is not None:
-            _show(vobj, original.transparency, original.diffuse)
+            io.show(vobj, original.transparency, original.diffuse)
         self._written.pop(key, None)
 
     def _adopt(self, key: Hashable, vobj: ViewObject) -> None:
@@ -402,12 +330,12 @@ class DisplayLayers:
         look = self._written.get(key)
         if look is None:
             return
-        original, current = self._stack.original(key), _read(vobj)
+        original, current = self._stack.original(key), io.read(vobj)
         transparency = original.transparency
         if current.transparency != look.transparency:
             transparency = current.transparency
         diffuse = original.diffuse
-        if current.diffuse != _target_diffuse(look, original):
+        if current.diffuse != io.target_diffuse(look, original):
             diffuse = current.diffuse
         self._stack.rebase(key, Original(transparency, diffuse))
 
@@ -415,5 +343,5 @@ class DisplayLayers:
 # Cache explicite et réinitialisable (``release_all``) : les calques de l'édition et de la
 # sélection doivent partager le « avant » de chaque objet.
 DISPLAY: Final = DisplayLayers(
-    observers=_AppObservers(), in_transaction=_in_transaction, later=_later
+    observers=AppObservers(), in_transaction=io.in_transaction, later=io.later
 )

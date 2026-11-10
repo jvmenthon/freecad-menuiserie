@@ -352,6 +352,34 @@ def test_objet_supprime_avec_edition_et_selection_recoit_l_origine() -> None:
     assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)
 
 
+class FakeDocument:
+    """Document dont ``getObject`` rend les objets recréés par Ctrl+Z."""
+
+    Name = "D"
+
+    def __init__(self, *objects: Piece) -> None:
+        self.objects = {o.Name: o for o in objects}
+
+    def getObject(self, name: str) -> Piece | None:
+        return self.objects.get(name)
+
+
+def test_objet_recree_par_ctrl_z_retrouve_son_origine() -> None:
+    display, observers = layers()
+    piece = Piece("P", 10)
+    piece.Document = FakeDocument(piece)  # type: ignore[attr-defined]
+    display.show(SELECTION, [piece], SELECTION_LOOK)
+    (watcher,) = observers.posed
+    watcher.slotDeletedObject(piece)  # type: ignore[attr-defined]
+    recreated = Piece("P", SELECTION_TRANSPARENCY)  # la transaction rend l'aspect teinté
+    recreated.view.ShapeAppearance = [Material(SELECTION_TINT)]
+    document = FakeDocument(recreated)
+    assert observers.posed == [watcher]  # observateur gardé : Ctrl+Z viendra
+    watcher.slotUndoDocument(document)  # type: ignore[attr-defined]
+    assert (recreated.view.Transparency, recreated.view.rgb) == (10, WOOD)
+    assert observers.posed == []  # plus rien à surveiller
+
+
 class Fragile(FakeView):
     """ViewObject dont l'écriture échoue avec une erreur autre que « objet supprimé »."""
 
