@@ -122,6 +122,12 @@ ou ne sont pas montrés, au choix du lot 1.
   et son Origine ne sont jamais des lignes du panneau, ni « Autres objets », ni ensemble.
 - Qt : `gui/` n'importe que `from PySide import …` (ADR 0023, Qt 5 compatible) ; l'existence de
   l'arbre Qt se suit par son signal `destroyed`, pas par `shiboken` (un test l'interdit).
+- **Icônes et ouverture par défaut.** Chaque ligne porte l'icône de son genre
+  (`core/structure_icons`, icônes de l'atelier réutilisées ; « Répétition » et « Autre objet »
+  ajoutées au générateur) ; un fichier absent donne une ligne sans icône. Le panneau s'ouvre seul à
+  l'activation de l'atelier, en onglet avec la vue combinée et sans prendre le premier plan, tant
+  que l'utilisateur ne l'a pas fermé (réglage `StructureClosedByUser` des préférences de l'atelier,
+  pas dans le document) ; la commande et l'ouverture par défaut partagent `show_panel`.
 - L'arbre natif reste complet : le débutant peut le voir à côté ; on peut proposer d'ouvrir le
   panneau en onglet de la vue combinée.
 
