@@ -1,6 +1,6 @@
 # ADR 0046 — Panneau « Structure » : arbre simplifié pour les débutants
 
-- Statut : **proposé** (demande de jv, 2026-11-08 ; panneau séparé retenu par jv le 2026-11-10)
+- Statut : **accepté** (jv, 2026-11-10 : panneau séparé retenu, « go » pour le développement)
 - Date : 2026-11-10
 - ADR liés : [0007 — Compatibilité avec les autres ateliers](0007-compatibilite-avec-les-autres-ateliers.md),
   [0008 — Ensemble, objet de cotes](0008-ensemble-objet-de-cotes.md),
