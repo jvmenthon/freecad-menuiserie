@@ -48,10 +48,18 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_container import carried_furniture
 from freecad.menuiserie.features.part_drag import raw_part
+from freecad.menuiserie.gui.commands.base import report_refusal
+from freecad.menuiserie.gui.drag.copying import (
+    Copying,
+    check_copyable,
+    copy_axis,
+    passive_memento,
+)
 from freecad.menuiserie.gui.drag.furniture_target import FurnitureTarget
 from freecad.menuiserie.gui.drag.geometry import (
     ARROW_PX,
     MAGNET_PX,
+    Cues,
     Layout,
     build_drawing,
     parse_key,
@@ -63,6 +71,7 @@ from freecad.menuiserie.gui.drag.parts import (
     Grab,
     PanelContext,
     Turn,
+    frame_of,
     give_up,
     open_transaction,
 )
@@ -213,7 +222,12 @@ class DragSession:
         self.lit = tuple(guides)
         if self.overlay is not None and self.layout is not None:
             drawing = build_drawing(
-                self.layout, self.state.key, guides, guides_frame, self.state.sweep, self.state.note
+                self.layout,
+                self.state.key,
+                guides,
+                guides_frame,
+                self.state.sweep,
+                Cues(self.state.ghost, self.state.note),
             )
             self.overlay.draw(drawing)
 
@@ -258,9 +272,10 @@ class DragSession:
 
     # --- Évènements ---------------------------------------------------------------------
 
-    def press(self, point: Point, shift: bool = False) -> bool:
-        """Clic gauche enfoncé au pixel ``point`` ; vrai s'il saisit une flèche ou une poignée."""
-        return self.state.press(self, point, shift)
+    def press(self, point: Point, shift: bool = False, copy: bool = False) -> bool:
+        """Clic gauche enfoncé au pixel ``point`` (``copy`` : Ctrl enfoncé) ; vrai s'il saisit une
+        flèche ou une poignée."""
+        return self.state.press(self, point, shift, copy)
 
     def move(self, point: Point, shift: bool = False) -> bool:
         """Souris au pixel ``point`` ; vrai pendant un glissement."""
@@ -343,6 +358,43 @@ class DragSession:
             give_up(target.obj, own)
             return False
         state = kind(Grab(key, point, line, origin, memento, guides, tolerance, own, target))
+        state.shift = shift
+        self.enter(state)
+        return True
+
+    def begin_copy(self, key: str, point: Point, shift: bool) -> bool:
+        """Ctrl + clic sur la cible ``key`` : copie par glissement si c'est une flèche (voir
+        ``copying.py``). Une poignée ou un anneau n'est pas pris (le clic reste à FreeCAD, Ctrl+clic
+        de sélection). Un refus (copie liée, pièce tournée, panneau ouvert) est affiché ; le clic
+        et son relâchement sont alors consommés, sans quoi le Ctrl+clic désélectionnerait la
+        pièce."""
+        local = None if ring_axis(key) is not None else parse_key(key)  # anneau : laissé à FreeCAD
+        if not isinstance(local, int):
+            return False
+        target, port = self.target, self.port
+        if not isinstance(target, PartTarget) or port is None:  # un ensemble ne se copie pas ainsi
+            return False
+        part = target.obj
+        line = self.line(key)
+        origin = axis_param(port.ray(point), line)
+        if origin is None:
+            return False
+        try:
+            check_copyable(part)
+            # Repère du conteneur (celui de ``Placement``) : c'est l'axe X, Y ou Z de la répétition.
+            axis, sign = copy_axis(frame_of(part.Placement), local)
+            memento = passive_memento(part)
+            guides = target.guides()
+            tolerance = port.mm(target.frame().origin, MAGNET_PX)
+        except ValueError as refusal:
+            report_refusal(str(refusal))
+            self.swallow_release = True
+            return True
+        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+            return False
+        state = Copying(
+            Grab(key, point, line, origin, memento, guides, tolerance, False, target), axis, sign
+        )
         state.shift = shift
         self.enter(state)
         return True

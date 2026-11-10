@@ -96,3 +96,25 @@ Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés d
 |----|--------|----|----------|---------------------|
 | Q10 | mineur | `features/joints/{feet,slides,shelf_pins,slots}.py` | Les `PropertySpec` « diamètre/profondeur des trous », « distance au bord », « nombre » se répètent (environ 10 lignes chacune). Une fabrique ne gagnerait presque rien : l'extraction des traductions exige `QT_TRANSLATE_NOOP("…", "texte")` littéral à l'endroit de la propriété, donc infobulle et libellé restent écrits à chaque appel. | Abandonné tant que l'extraction des traductions ne lit pas les paramètres de fabrique. |
 | Q11 | mineur | `core/joints/slides.py` | 316 lignes : à passer en paquet comme `shelf_pins` et `slots` (ADR 0040) avant d'approcher 400. | Même découpage `_params` / `_strategy`. |
+
+## Relecture finale du jalon « Répétition » (issue #180, ADR 0043 et 0044), 2026-11-08
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| rp1 | mineur | `features/repeat.py` | `Step` et `Reverse` de la répétition sont modifiables dans l'éditeur de propriétés sans que l'ensemble soit relié (les copies de membres suivent, pas les liaisons de l'ensemble). | Les passer en lecture seule, ou relier l'ensemble à chaque changement. |
+| rp2 | mineur | `gui/task_panels/repeat.py` (docstring l. 13 et 362) | L'aperçu ne garde pas le dernier réglage accepté si `bind_furniture` lève après la création des copies. | Défaire les copies créées avant de rendre le refus, ou valider les liaisons avant de créer. |
+| rp3 | mineur | `features/repeat_copies.py`, `repeat_furniture_links.py`, `repeat_follow.py`, `repeat_joints.py`, `repeat_links.py`, `core/repeat/`, `gui/drag/copy_rules.py` | Duplications : `_SIZES` et la table axe → cote ; `_AXES`, `COMPONENTS` et `copy_rules._AXES` ; `_during_deletion` ≡ `restoring_or_undoing` ; calcul de la longueur répété dans `repeat_follow` ; `resolve_for` et `source_extent` recalculés trois fois par saisie ; littéral `"joint_derived"` répété. | Une table d'axes dans `core/repeat`, réemployer `restoring_or_undoing`, une fonction de longueur, un résultat mis en cache par saisie, une constante pour `joint_derived`. |
+| rp4 | mineur | `features/repeat.py` (`copies_of`) | `copies_of(repeat)` renvoie aussi les copies de membres d'un ensemble copie, ce que ne dit pas la docstring. | Préciser la docstring ou séparer `copies_of` et `inner_copies_of`. |
+| rp5 | mineur | `features/` (préexistant) | Supprimer directement un membre d'un ensemble copie par `doc.removeObject` laisse des assemblages invalides. | Retirer les assemblages du membre dans `unsetupObject`. |
+| rp6 | mineur | `tests/gui/` | Pas d'essai en interface réelle d'un Ctrl + glisser sur une pièce tournée hors multiple de 90° (refus), ni sur une pièce d'un conteneur tourné. | Ajouter une vérification hors écran avec un conteneur tourné. |
+
+
+## Répétition en grille (ADR 0045), 2026-11-08
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| rg1 | mineur | `core/repeat/_model.py` (`RepeatParams._set_grid`) | Pour une grille, `axis`, `count`, `step`, `span` et `reverse` reflètent la première ligne (compatibilité avec le code à un axe) : `replace(params, axis=...)` est sans effet sur une grille, qui l'emporte. | Retirer les champs reflets quand plus aucun appelant ne lit `params.axis` / `params.count`, et ne garder que `lines`. |
+| rg2 | mineur | `features/repeat_props.py` | Les propriétés `Step2`/`Reverse2`/`Step3`/`Reverse3` restent visibles et modifiables dans l'éditeur quand la ligne est inutilisée (`Axis2` = `None`) ; même réserve que rp1 (ensemble non relié). | Les masquer (mode d'édition) tant que la ligne n'est pas utilisée ; voir rp1. |
+| rg3 | mineur | `core/repeat/_grid.py` (`grid_overlaps`, `rank_of`) | Comparaison deux à deux de toutes les boîtes (101 au plus, environ 5 000 paires) à chaque saisie du panneau, et recherche linéaire du rang. Sans effet mesurable à 100 copies, mais inutilement quadratique ; `grid_overlaps` vaut d'ailleurs « un axe au moins se chevauche » (vérifié par tests). | Sortie anticipée ou test par axe seulement ; table cellule → rang calculée une fois par grille. |
+| rg4 | mineur | `features/repeat_copies.py` (`_renumber`) | Le rang et les libellés automatiques suivent la grille, mais un libellé de copie que l'utilisateur a tapé à la main et qui ressemble au libellé automatique d'un autre rang est pris pour automatique. | Mémoriser le libellé attribué (propriété cachée) plutôt que le déduire. |
+| rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |

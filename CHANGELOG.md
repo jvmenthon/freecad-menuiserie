@@ -7,6 +7,23 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Répétition jusqu'à une butée (ADR 0047, accepté) : dans les modes « nombre sur une longueur » et « pas sur une longueur », la longueur de chaque axe peut être calculée jusqu'à une face, un sommet ou une pièce entière choisis dans la vue 3D (bouton « Butée… » par axe, une butée par axe en grille) ; la longueur suit la butée déplacée ou redimensionnée, une butée supprimée laisse la dernière longueur avec un avertissement. Nouvelle case « Déduire l'épaisseur de la pièce » pour tous les modes sur une longueur (cochée par défaut, comme avant : la dernière copie arrive à fleur ; décochée : elle commence à la fin de la longueur). API `Stop`, `stops=` et `deduct_thickness`.
+- Répétition en grille X × Y × Z (ADR 0045, proposé) : un seul mode de saisie, une ligne par axe (nombre, pas ou longueur, sens), 4 × 3 sur X et Y = 11 copies, 100 copies au plus au total ; chaque copie est repérée par sa cellule (`RepeatCell`), de sorte que changer le nombre ou le pas d'un axe garde les copies et leurs assemblages ; assemblages par cellule, ensembles en grille, « Suivre le redimensionnement » axe par axe, chevauchement par axe puis pour la grille, panneau à trois lignes X, Y, Z avec aperçu de toutes les copies ; la répétition à un axe reste valable.
+- Répétition d'un ensemble et Std Part (ADR 0044, fusion avec l'ADR 0038) : une copie d'ensemble a son
+  propre Std Part, créé comme celui d'un ensemble neuf et rangé dans le conteneur de celui de la
+  source (dans celui de la copie du parent pour un sous-ensemble, règle `carried`) ; ses membres
+  copiés y entrent à la même place que dans la source, son `Placement` suit celui du Std Part de la
+  source (Base + pas, rotation) : déplacer ou tourner la source à la souris entraîne les copies.
+  Dissocier laisse à la copie son Std Part ; réduire le nombre, supprimer la copie ou la source
+  dans l'interface ne laisse pas de Std Part orphelin (`release_furniture`) ; `Source`, `Repeat`,
+  `RepeatSource` et `RepeatJoint` deviennent des liens globaux.
+- Répétition : la commande « Répéter » accepte aussi les ensembles ; une répétition créée par script reçoit son icône et son double-clic.
+- Répétition (lot R-d) : Ctrl + glisser une flèche copie la pièce (copie liée, un pas = la distance du glissement) et ouvre aussitôt « Modifier la répétition » ; Échap annule ; Maj coupe toujours l'aimantation.
+- Répétition : ensembles (lot R-b3, ADR 0044). Les copies d'une pièce membre entrent dans l'ensemble avec les mêmes options ; la case « Suivre le redimensionnement » répartit les copies sur la cote de l'ensemble ; un ensemble ou un caisson se répète avec tous ses membres et ses assemblages, et se dissocie en bloc.
+- Répétition de pièces (ADR 0043, lot R-c) : commandes « Répéter », « Modifier la répétition » et « Dissocier la copie », panneau avec aperçu en direct des copies dans la vue 3D, avertissement de chevauchement, refus affichés, icône et double-clic de l'objet Répétition, nouvelles icônes ; le bouton « OK » du panneau d'assemblage se grise enfin quand l'assemblage est en erreur.
+- Répétition (ADR 0043, lot R-b2) : assemblages recopiés quand `CopyJoints` est vrai (modifiable par `edit_repeat`) : entre les copies homologues si les deux pièces sont répétées, entre la copie et la pièce fixe sinon (une traverse reçoit un tenon par copie), ignorés si aucune pièce n'est répétée, non recopiés s'ils sont impossibles (voir « Corrigé ») ; paramètres de chaque assemblage enfant en expressions sur ceux de l'origine, lecture seule, lien `RepeatJoint` ; copie ajoutée ou retirée, dissociation de la copie ou suppression de l'origine suivent. Une pièce usinée choisie comme source répète sa pièce brute.
+- Répétition (ADR 0043, lot R-b1) : objet `Repeat` (sans forme) et copies liées de **pièces de bois** par expressions natives (cotes, matériau, sens du fil, surcotes, placement + k pas), API `make_repeat`, `edit_repeat` (ajoute ou retire les dernières copies), `dissociate` et `repeat_of`, chacune en un bloc annulable ; supprimer la répétition ou la source dissocie les copies. Pas encore d'assemblages, d'ensembles ni de commande (lots R-b2 et R-c).
+- Répétition (ADR 0043, lot R-a) : calcul pur de la répétition linéaire dans `core/repeat/` (nombre et pas, nombre sur une longueur, pas sur une longueur, inversion, bornes à 100 copies, chevauchement signalé) ; cercle et trajet réservés. Pas encore d'objet ni de commande.
 - Ensemble à la souris, vue 3D et panneau (EN-c et EN-d, ADR 0038) : un ensemble sélectionné seul
   dans l'arbre (ou dont le panneau est ouvert) est dessiné en transparence avec six doubles flèches
   de face (taille, aimant de 10 px sur les voisines, cote et message de refus près de la souris,
@@ -37,7 +54,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   Std Part). Un sous-ensemble a son propre Std Part, rangé dans celui du parent : son `Origin`
   vaut (0, 0, 0), le parent lie le `Placement.Base` de ce Std Part. Pas de reprise des anciens
   documents. Essai sur FreeCAD 1.1 dans l'ADR 0038.
-
 - Panneau d'assemblage : le bouton « Inverser » reste visible mais grisé, avec une infobulle qui explique pourquoi, quand l'inversion n'a pas de sens (mi-bois, onglet, tourillons, faux tenons, biscuits) ou que les rôles échangés rendraient l'assemblage impossible (ex. tenon-mortaise en biais : l'infobulle donne la raison).
 - Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
 - Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; rangs du montant opposé aux mêmes hauteurs que ceux du côté (tablette de niveau même si les montants ne partent pas du même bas) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).
@@ -121,10 +137,20 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
+- Performance de la répétition en grille (4 × 2 × 4 : 31 copies, 929 objets ; sans interface, création 8,1 s → 1,8 s, recalcul après changement de cote 3,8 s → 0,5 s) : cache borné des formes usinées et des plans d'assemblage (clé exacte, les copies ont les mêmes cotes et enlèvements dans leur repère que la source), forme d'un assemblage non réaffectée quand il a seulement été déplacé, libellés uniques interrogés au document (`getObjectsByLabel`) au lieu de relire tous les objets à chaque création. Aucun changement de résultat ni de conception.
 - Interne : `core/joints/shelf_pins` et `core/joints/slots` deviennent des paquets (`_params`, `_strategy`, même interface, ADR 0040) ; `MIN_WALL_MM` partagé, `timber_blanks_around` dans `machined_part`, valeurs de coulisse et de perçage typées au lieu de `type: ignore`.
 
 ### Corrigé
 
+- Répétition : un assemblage impossible n'est plus recopié (décision de jv). Une pièce assemblée à
+  une pièce B plus courte que la répétition recevait pour les copies hors de B un assemblage qui
+  échouait au recalcul (« Les pièces ne se touchent pas », trace `pyException`). La faisabilité est
+  vérifiée avant la création, avec les calculs du recalcul ; chaque édition de la répétition
+  supprime l'enfant devenu impossible et crée celui qui est redevenu possible (un enfant dissocié ne
+  revient pas) ; les grilles et les ensembles suivent la même règle ; le nombre d'assemblages non
+  recopiés est signalé dans la vue rapport et dans le panneau. Limite : un recalcul seul (source
+  déplacée après coup) ne crée ni ne supprime rien.
+- Répétition : double-clic sur une copie (pièce ou ensemble) et menu contextuel ouvrent « Modifier la répétition » ; un assemblage ou un membre ajouté à la source après coup est copié dans toutes les copies ; une répétition de pièces d'un conteneur `App::Part` est rangée dans ce conteneur (axe du conteneur) et les pièces de conteneurs différents sont refusées ; « Dissocier » accepte un ensemble copie et l'un de ses membres ; « Modifier » une répétition sans source est refusé avec un message ; « Inverser » est grisé sur un assemblage copié ; la copie par glissement se fait avec Ctrl.
 - Ensemble d'ensembles : sélectionner les Std Parts de deux ensembles dans l'arbre active de
   nouveau la commande « Ensemble » (le Std Part compte pour l'ensemble qu'il porte, ADR 0038) ; le
   lien `Furniture` d'un membre devient `App::PropertyLinkGlobal` (un sous-ensemble cite son parent

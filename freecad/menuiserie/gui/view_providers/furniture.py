@@ -17,8 +17,11 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import common_furniture, members_of
 from freecad.menuiserie.features.furniture_container import std_part_of
-from freecad.menuiserie.features.furniture_entry import dissolve
-from freecad.menuiserie.features.furniture_members import detach_members, remove_members
+from freecad.menuiserie.features.furniture_members import (
+    detach_members,
+    release_furniture,
+    release_repeat_links,
+)
 from freecad.menuiserie.features.furniture_view import shown_object
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.joints.base import is_joint
@@ -66,21 +69,21 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
         """Suppression dans l'interface : liaisons de l'atelier et propriétés de membre retirées
         de chaque membre, dans la transaction de la suppression ; aucune expression ne vise
         plus l'ensemble. Son Std Part est supprimé avec lui s'il est vide, conservé sinon (avec
-        un avertissement) ; les messages vont dans la vue rapport (ADR 0017).
+        un avertissement) ; les messages vont dans la vue rapport (ADR 0017). Ses copies de
+        répétition sont dissociées (:func:`.release_repeat_links`).
 
         Groupe supprimé avec son contenu (:mod:`.deletion`) : rien n'est supprimé ni déplacé ici
         (la boucle de FreeCAD s'en charge) ; seuls les membres rangés hors de ce groupe perdent
         leurs liaisons, pour qu'aucune expression ne vise plus l'ensemble supprimé."""
         furniture = vobj.Object
         if in_group_deletion(subelements):
+            release_repeat_links(furniture)
             group = furniture.getParentGroup()
             outside = [m for m in members_of(furniture) if not inside_group(m, group)]
             if outside:
                 detach_members(outside)
             return True
-        members = members_of(furniture)
-        messages = remove_members(members) if members else []
-        for message in [*messages, *dissolve(furniture)]:
+        for message in release_furniture(furniture):
             report_warning(message)
         return True
 

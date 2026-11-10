@@ -36,6 +36,10 @@ class FakeDocument:
         self.Objects: list[FakeObject] = []
         self.Transacting = False
 
+    def getObjectsByLabel(self, label: str) -> list[FakeObject]:  # pylint: disable=invalid-name
+        """Objets de ce libellé, comme ``App.Document.getObjectsByLabel``."""
+        return [obj for obj in self.Objects if obj.Label == label]
+
 
 class FakeObject:
     """Objet FreeCAD minimal : ``Label`` et ``Mark`` rejouent les rappels du proxy comme
