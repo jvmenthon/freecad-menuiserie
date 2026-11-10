@@ -43,8 +43,8 @@ _SPAN_TIP: Final = QT_TRANSLATE_NOOP(
 _STOP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Butée…")
 _STOP_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Choisissez dans la vue 3D une face, un sommet ou une pièce : la longueur est alors calculée "
-    "jusqu'à elle et suit la butée si elle bouge.",
+    "Choisissez dans la vue 3D une face, une arête, un sommet ou une pièce : la longueur est alors "
+    "calculée jusqu'à elle et suit la butée si elle bouge.",
 )
 _PICKING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cliquez dans la vue 3D…")
 _CLEAR: Final = QT_TRANSLATE_NOOP("Menuiserie", "Retirer")

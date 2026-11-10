@@ -3,21 +3,22 @@
 
 Le bouton « Butée… » d'une ligne passe en sélection : un observateur de sélection
 (``Gui.Selection``) n'est posé que le temps du choix, jamais laissé en place ensuite (ADR 0007).
-Le premier clic (face, sommet ou pièce) est la butée ; la suite est différée hors de la
+Le premier clic (face, arête, sommet ou pièce) est la butée ; la suite est différée hors de la
 notification de FreeCAD.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 
 import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore
 
 from freecad.menuiserie.core.repeat import RepeatAxis, RepeatParams, SpacingMode
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.repeat_stop import Stop, Stops, stop_text
+from freecad.menuiserie.features.repeat_stop import Stop, Stops, stop_axis, stop_text
 from freecad.menuiserie.gui.task_panels.repeat_rows import AxisRow
 from freecad.menuiserie.gui.task_panels.repeat_texts import STOP_COLLISION
 
@@ -89,8 +90,11 @@ class StopControls:
         document: str,
         rows: Mapping[RepeatAxis, AxisRow],
         changed: Callable[[], None],
+        sources: Callable[[], Sequence[DocumentObject]],
     ) -> None:
         self.stops: dict[RepeatAxis, Stop] = {}
+        self._sources = sources
+        self._auto = False  # choix à l'ouverture : l'axe est déduit de la butée
         self._rows = rows
         self._changed = changed
         self._picker = StopPicker(document, self._picked)
@@ -112,8 +116,15 @@ class StopControls:
             self._rows[axis].show_stop(None, picking=True)
             self._picker.start()
 
+    def pick_auto(self) -> None:
+        """Choix à l'ouverture du panneau de création, sans axe : le premier clic dans la vue 3D
+        donne la butée et l'axe (celui où elle est le plus loin des pièces), seul axe actif."""
+        self.pick(RepeatAxis.X)
+        self._auto = True
+
     def cancel(self) -> None:
         """Choix abandonné : l'observateur est retiré."""
+        self._auto = False
         self._picker.cancel()
         axis, self._picking = self._picking, None
         if axis is not None:
@@ -126,11 +137,28 @@ class StopControls:
 
     def _picked(self, stop: Stop) -> None:
         axis, self._picking = self._picking, None
+        auto, self._auto = self._auto, False
         if axis is None or self._closed:
             return
+        if auto:
+            axis = self._axis_of(stop, axis)
         self.stops[axis] = stop
         self.show(axis)
         self._changed()
+
+    def _axis_of(self, stop: Stop, default: RepeatAxis) -> RepeatAxis:
+        """Axe déduit de ``stop`` (``default`` si elle est refusée : le refus sera affiché), rendu
+        seul actif ; le nombre de l'axe abandonné est repris."""
+        try:
+            axis = stop_axis(stop, self._sources())
+        except ValueError:
+            return default
+        count = self._rows[default].count.value()
+        self.show(default)
+        for other, row in self._rows.items():
+            row.active.setChecked(other is axis)
+        self._rows[axis].count.setValue(count)
+        return axis
 
     def clear(self, axis: RepeatAxis) -> None:
         """Bouton pour enlever la butée de ``axis``."""

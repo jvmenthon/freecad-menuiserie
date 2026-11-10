@@ -1,15 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Panneau de tâche « Répéter » et « Modifier la répétition » (ADR 0043, 0045 et 0047).
 
-Réglage d'une répétition en grille : un mode de saisie, trois lignes X, Y, Z (:mod:`.repeat_rows`,
-avec une butée par axe : :mod:`.repeat_stops`), assemblages recopiés, suivi du redimensionnement,
-déduction de l'épaisseur. Chaque saisie validée (fin de frappe, flèches, case cochée) recalcule
-l'aperçu par l'api (``make_repeat`` puis ``edit_repeat``) dans la transaction ouverte par la
-commande ou par :func:`start_editing` : « OK » la valide, « Annuler » l'abandonne.
-
-Une saisie refusée s'affiche en rouge sous les champs : « OK » est grisé et l'aperçu garde le
-dernier réglage accepté. Un chevauchement n'est qu'un avertissement. Les champs suivent la norme
-« Entrées utilisateur » (``CONTRIBUTING.md``).
+Réglage d'une répétition en grille : un mode de saisie (« nombre sur une longueur » par défaut),
+trois lignes X, Y, Z (:mod:`.repeat_rows`, une butée par axe : :mod:`.repeat_stops`, choisie dès
+l'ouverture en création, l'axe s'en déduit), options. Chaque saisie validée recalcule l'aperçu par
+l'api dans la transaction du panneau : « OK » la valide, « Annuler » l'abandonne. Une saisie
+refusée s'affiche en rouge (« OK » grisé, aperçu gardé) ; un chevauchement n'est qu'un
+avertissement. Champs : norme « Entrées utilisateur » (``CONTRIBUTING.md``).
 """
 
 from __future__ import annotations
@@ -86,7 +83,7 @@ FORM_NAME: Final = "RepeatTaskPanel"
 ICON: Final = "Menuiserie_Repeat.svg"
 CREATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répéter")
 EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
-DEFAULT_COUNT: Final = 3  # copies proposées à l'ouverture (4 éléments sur X)
+DEFAULT_COUNT: Final = 1  # copies proposées à l'ouverture (2 éléments sur X)
 _TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répéter « {label} »")
 _PIECES: Final = QT_TRANSLATE_NOOP("Menuiserie", "{count} pièces")
 _WARNING_STYLE: Final = "color: #b35c00;"
@@ -118,13 +115,14 @@ class RepeatTaskPanel(TransactionTaskPanel):
         label = self._sources_label() if repeat is None else quoted_value(repeat.Label)
         self.form.setWindowTitle(base.panel_title(label, repeat is None, _TITLE))
         self._rows = {axis: AxisRow(axis) for axis in _AXES}
-        self._stops = StopControls(doc.Name, self._rows, self._update)
+        self._stops = StopControls(doc.Name, self._rows, self._update, self._sources_now)
         self._captions: dict[str, Widget] = {}
         self._build()
         self._fill(repeat)
         self._connect()
         if repeat is None:
             self._update()  # aperçu des valeurs par défaut
+            self._stops.pick_auto()  # le premier clic dans la vue 3D est la butée
 
     # --- Construction ---------------------------------------------------------------------
 
@@ -157,6 +155,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         for label in (self._summary, self._warning, self._error):
             layout.addRow(label)
             label.setVisible(False)
+        self.watch_widgets(self._summary, self._warning, self._error)
 
     def _build_grid(self) -> Widget:
         """Tableau des axes : une légende par colonne de saisie, puis une ligne par axe."""
@@ -185,7 +184,9 @@ class RepeatTaskPanel(TransactionTaskPanel):
             self._show_rows()
 
     def _defaults(self) -> None:
-        """X actif avec ``DEFAULT_COUNT`` copies, Y et Z inactifs ; pas = cote des pièces."""
+        """« Nombre sur une longueur », X actif avec ``DEFAULT_COUNT`` copies, Y et Z inactifs ;
+        pas = cote des pièces."""
+        self._spacing.setCurrentIndex(self._spacing.findData(SpacingMode.COUNT_ON_SPAN.value))
         for axis, row in self._rows.items():
             row.load(None, self._default_step(axis))
         step = self._default_step(RepeatAxis.X)

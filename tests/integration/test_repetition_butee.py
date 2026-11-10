@@ -107,6 +107,26 @@ def test_butee_face_et_sommet(document: Any, scene: Any) -> None:
     assert xs(rep) == [150.0, 300.0]  # le sommet est le plus lointain : la butée est à 330
 
 
+def edge_at(part: Any, x: float) -> str:
+    """Nom d'une arête de ``part`` entièrement à la coordonnée X ``x``."""
+    for index, edge in enumerate(part.Shape.Edges, start=1):
+        box = edge.BoundBox
+        if abs(box.XMin - x) < 1e-6 and abs(box.XMax - x) < 1e-6:
+            return f"Edge{index}"
+    raise AssertionError(x)
+
+
+def test_butee_arete(document: Any, scene: Any) -> None:
+    barreau, butee = scene
+    edge = edge_at(butee, 300.0)
+    rep = api.make_repeat([barreau], on_span(3), stops={X: api.Stop(butee, edge)})
+    assert rep.Span.Value == 300.0 and xs(rep) == [135.0, 270.0]
+    assert rep.Stop[1] == [edge] and rep.StopLabel.endswith(edge)
+    butee.Placement = App.Placement(App.Vector(400, 0, 0), App.Rotation())
+    document.recompute()
+    assert rep.Span.Value == 400.0 and stale_or_invalid(document) == []
+
+
 def test_la_longueur_suit_la_butee_deplacee(document: Any, scene: Any) -> None:
     barreau, butee = scene
     rep = api.make_repeat([barreau], on_span(4), stops={X: api.Stop(butee)})
@@ -156,7 +176,7 @@ def test_refus_traduits(document: Any, scene: Any) -> None:
     document.recompute()
     for stop, message in (
         (api.Stop(large), "chevauche"),
-        (api.Stop(butee, "Edge1"), "ni une face ni un sommet"),
+        (api.Stop(butee, "Wire1"), "ni une face, ni une arête, ni un sommet"),
         (api.Stop(barreau), "pièce répétée"),
         (api.Stop(piece(document, "Proche", (20, 0, 0))), "trop proche"),
     ):

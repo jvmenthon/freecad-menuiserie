@@ -23,7 +23,7 @@ from tests.gui.verifications_panneau import (
 )
 from tests.gui.verifications_panneau_assemblage import widget
 from tests.gui.verifications_panneau_ensemble import bouton_ok
-from tests.gui.verifications_repetition import MODIFIER, REPETER, panneau, source
+from tests.gui.verifications_repetition import MODIFIER, panneau, repeter, source
 
 X, Y = api.RepeatAxis.X, api.RepeatAxis.Y
 
@@ -45,7 +45,7 @@ def grille(nx: int, ny: int, pas_x: float, pas_y: float) -> list[tuple[float, fl
 
 def ouvrir(doc: Any) -> tuple[Any, Any]:
     """Panneau « Répéter » ouvert sur un barreau de 300 x 40 x 22 ; sa répétition d'aperçu."""
-    lancer(REPETER, source(doc))
+    repeter(source(doc))
     return panneau(), doc.getObject("Repeat")
 
 

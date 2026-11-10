@@ -3,9 +3,9 @@
 
 Dans les modes « sur une longueur » (nombre ou pas), la longueur d'un axe peut être **calculée** :
 c'est la distance, sur l'axe et dans le sens de la répétition, entre l'original et une butée (face,
-sommet ou pièce entière, d'un objet du document, éventuellement hors du conteneur). Le calcul pur
-est dans :mod:`freecad.menuiserie.core.repeat`; ce module lit la géométrie, garde la butée dans la
-répétition (``Stop``, ``Stop2``, ``Stop3`` : liens globaux avec sous-élément) et la suit.
+arête, sommet ou pièce entière, d'un objet du document, éventuellement hors du conteneur). Le calcul
+pur est dans :mod:`freecad.menuiserie.core.repeat`; ce module lit la géométrie, garde la butée dans
+la répétition (``Stop``, ``Stop2``, ``Stop3`` : liens globaux avec sous-élément) et la suit.
 
 Suivi (Q3) : la longueur **suit** la butée. ``Repeat.execute`` relit la butée à chaque recalcul,
 réécrit ``Span`` et, en « nombre sur une longueur », ``Step`` : les copies, liées à ``Step`` par
@@ -28,6 +28,7 @@ from freecad.menuiserie.core.repeat import (
     RepeatAxis,
     RepeatParams,
     SpacingMode,
+    farthest_axis,
     resolve_line,
     stop_kind,
     stop_reverse,
@@ -58,6 +59,7 @@ __all__ = [
     "bounded_params",
     "follow_stops",
     "kept_stops",
+    "stop_axis",
     "stop_bounds",
     "stop_text",
     "stored_stops",
@@ -102,7 +104,8 @@ _TOLERANCE: Final = 1e-9
 
 
 class Stop(NamedTuple):
-    """Butée choisie : l'objet et son sous-élément (``FaceN``, ``VertexN`` ; vide : pièce)."""
+    """Butée choisie : l'objet et son sous-élément (``FaceN``, ``EdgeN``, ``VertexN`` ; vide :
+    pièce)."""
 
     obj: DocumentObject
     sub: str = ""
@@ -150,7 +153,7 @@ def checked_stop(stop: Stop, sources: Sequence[DocumentObject], repeat: object =
 
 
 def _element(stop: Stop) -> App.Shape:
-    """Forme de la butée : l'objet entier, ou sa face ou son sommet."""
+    """Forme de la butée : l'objet entier, ou sa face, son arête ou son sommet."""
     shape = stop.obj.Shape
     if not stop.sub:
         return shape
@@ -180,6 +183,17 @@ def stop_bounds(
     box = shape.BoundBox
     low, high = (float(getattr(box, f"{axis.value}{end}")) for end in ("Min", "Max"))
     return round(low, 6), round(high, 6)
+
+
+def stop_axis(stop: Stop, sources: Sequence[DocumentObject]) -> RepeatAxis:
+    """Axe vers la butée (le plus grand écart aux sources), pour un choix sans axe donné ;
+    ``ValueError`` traduite si la butée est refusée."""
+    checked_stop(stop, sources, None)
+    container = common_container(sources)
+    return farthest_axis(
+        {axis: source_bounds(sources, axis) for axis in RepeatAxis},
+        {axis: stop_bounds(stop, container, axis) for axis in RepeatAxis},
+    )
 
 
 def bounded_params(

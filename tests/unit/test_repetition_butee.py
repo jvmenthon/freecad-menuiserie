@@ -12,6 +12,7 @@ from freecad.menuiserie.core.repeat import (
     RepeatParams,
     SpacingMode,
     StopKind,
+    farthest_axis,
     resolve,
     resolve_grid,
     stop_kind,
@@ -67,15 +68,22 @@ def test_butee_plus_proche_que_l_epaisseur() -> None:
 
 @pytest.mark.parametrize(
     ("sub", "kind"),
-    [("", StopKind.PART), ("Face3", StopKind.FACE), ("Vertex12", StopKind.VERTEX)],
+    [
+        ("", StopKind.PART),
+        ("Face3", StopKind.FACE),
+        ("Edge7", StopKind.EDGE),
+        ("Vertex12", StopKind.VERTEX),
+    ],
 )
 def test_nature_de_la_butee(sub: str, kind: StopKind) -> None:
     assert stop_kind(sub) is kind
 
 
-@pytest.mark.parametrize("sub", ["Edge1", "Face", "Face0", "Face3.", "face3", "Vertex-1", "Solid1"])
+@pytest.mark.parametrize(
+    "sub", ["Edge0", "Face", "Face0", "Face3.", "face3", "Vertex-1", "Solid1", "Wire1"]
+)
 def test_sous_element_ni_face_ni_sommet_refuse(sub: str) -> None:
-    with pytest.raises(RepeatError, match="ni une face ni un sommet"):
+    with pytest.raises(RepeatError, match="ni une face, ni une arête, ni un sommet"):
         stop_kind(sub)
 
 
@@ -110,3 +118,13 @@ def test_sans_deduction_aucune_copie_ne_tient() -> None:
     params = RepeatParams(spacing=SpacingMode.STEP_ON_SPAN, grid=(line,), deduct_thickness=False)
     with pytest.raises(RepeatError, match="épaisseur non déduite"):
         resolve(params, 30.0)
+
+
+def test_axe_deduit_de_la_butee() -> None:
+    sources = {X: (0.0, 30.0), RepeatAxis.Y: (0.0, 20.0), RepeatAxis.Z: (0.0, 10.0)}
+    mur = {X: (300.0, 330.0), RepeatAxis.Y: (0.0, 20.0), RepeatAxis.Z: (0.0, 10.0)}
+    assert farthest_axis(sources, mur) is X
+    dessous = {X: (0.0, 30.0), RepeatAxis.Y: (-50.0, 70.0), RepeatAxis.Z: (-400.0, -380.0)}
+    assert farthest_axis(sources, dessous) is RepeatAxis.Z  # côté négatif aussi
+    cube = dict.fromkeys(RepeatAxis, (0.0, 10.0))
+    assert farthest_axis(cube, dict.fromkeys(RepeatAxis, (20.0, 30.0))) is X  # à égalité : X

@@ -56,6 +56,7 @@ class TransactionTaskPanel:
         self.creating = creating
         self.form: Widget = None
         self._closed = False
+        self._widgets_gone = False  # formulaire en cours de destruction
         self._edited_name: str | None = None
         self._document_name: str = doc.Name
         self._transaction = App.getActiveTransaction()
@@ -100,8 +101,18 @@ class TransactionTaskPanel:
 
     @property
     def closed(self) -> bool:
-        """Vrai une fois le panneau fermé (« OK », « Annuler » ou fermeture par FreeCAD)."""
-        return self._closed
+        """Vrai une fois le panneau fermé (« OK », « Annuler » ou fermeture par FreeCAD), ou dès
+        qu'un widget suivi par :meth:`watch_widgets` est détruit."""
+        return self._closed or self._widgets_gone
+
+    def watch_widgets(self, *widgets: Widget) -> None:
+        """Le panneau se tient pour fermé dès que l'un de ``widgets`` est détruit : un signal émis
+        pendant la destruction du formulaire (champ qui perd le focus) ne touche plus à rien."""
+        for widget in widgets:
+            connect(widget, "destroyed()", self._widget_destroyed)
+
+    def _widget_destroyed(self) -> None:
+        self._widgets_gone = True
 
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation."""

@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Répétition jusqu'à une butée : longueur calculée, refus (ADR 0047).
 
-La butée est une face, un sommet ou une pièce entière. Seul le calcul de la longueur est ici :
-``longueur`` = distance, sur l'axe et dans le sens de la répétition, entre la face de départ des
-sources et la butée. Elle remplace la longueur saisie des modes « sur une longueur » (nombre ou
+La butée est une face, une arête, un sommet ou une pièce entière. Seul le calcul de la longueur est
+ici : ``longueur`` = distance, sur l'axe et dans le sens de la répétition, entre la face de départ
+des sources et la butée. Elle remplace la longueur saisie des modes « sur une longueur » (nombre ou
 pas) ; avec la déduction de l'épaisseur (:attr:`RepeatParams.deduct_thickness`), la dernière copie
 arrive à fleur de la butée, sans elle elle **commence** à la butée.
 """
@@ -11,6 +11,7 @@ arrive à fleur de la butée, sans elle elle **commence** à la butée.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from enum import Enum
 from typing import Final
 
@@ -23,6 +24,7 @@ __all__ = [
     "NOT_A_FACE",
     "TOO_CLOSE",
     "StopKind",
+    "farthest_axis",
     "stop_kind",
     "stop_reverse",
     "stop_span",
@@ -30,8 +32,8 @@ __all__ = [
 
 NOT_A_FACE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Répétition : la butée « {sub} » n'est ni une face ni un sommet ; choisissez une face, un "
-    "sommet ou une pièce entière.",
+    "Répétition : la butée « {sub} » n'est ni une face, ni une arête, ni un sommet ; choisissez "
+    "une face, une arête, un sommet ou une pièce entière.",
 )
 BEHIND: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -45,7 +47,7 @@ TOO_CLOSE: Final = QT_TRANSLATE_NOOP(
     "{extent} mm ; la distance doit dépasser l'épaisseur de la pièce (ou décochez « Déduire "
     "l'épaisseur de la pièce »).",
 )
-_ELEMENT: Final = re.compile(r"(Face|Vertex)[1-9]\d*")
+_ELEMENT: Final = re.compile(r"(Face|Edge|Vertex)[1-9]\d*")
 
 
 class StopKind(str, Enum):
@@ -53,17 +55,34 @@ class StopKind(str, Enum):
 
     PART = "part"
     FACE = "face"
+    EDGE = "edge"
     VERTEX = "vertex"
 
 
 def stop_kind(sub: str) -> StopKind:
     """Nature de la butée d'après son sous-élément : vide = pièce entière, ``FaceN`` ou
-    ``VertexN``. :class:`RepeatError` pour tout autre sous-élément (arête…)."""
+    ``EdgeN`` ou ``VertexN``. :class:`RepeatError` pour tout autre sous-élément."""
     if not sub:
         return StopKind.PART
     if _ELEMENT.fullmatch(sub) is None:
         raise RepeatError(NOT_A_FACE, {"sub": sub})
-    return StopKind.FACE if sub.startswith("Face") else StopKind.VERTEX
+    kinds = {"Face": StopKind.FACE, "Edge": StopKind.EDGE}
+    return next((kind for prefix, kind in kinds.items() if sub.startswith(prefix)), StopKind.VERTEX)
+
+
+def farthest_axis(
+    bounds: Mapping[RepeatAxis, tuple[float, float]],
+    stop_bounds: Mapping[RepeatAxis, tuple[float, float]],
+) -> RepeatAxis:
+    """Axe de la répétition déduit de la butée : celui où l'écart entre la butée et les sources
+    (``bounds`` et ``stop_bounds`` : bas, haut par axe) est le plus grand, d'un côté ou de
+    l'autre. À égalité, l'ordre X, Y, Z l'emporte."""
+
+    def gap(axis: RepeatAxis) -> float:
+        (low, high), (stop_low, stop_high) = bounds[axis], stop_bounds[axis]
+        return max(stop_low - high, low - stop_high)
+
+    return max(RepeatAxis, key=gap)  # max garde le premier à égalité
 
 
 def stop_reverse(bounds: tuple[float, float], stop_bounds: tuple[float, float]) -> bool:

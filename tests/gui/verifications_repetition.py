@@ -44,7 +44,7 @@ MODIFIER = "Menuiserie_RepeatEdit"
 DISSOCIER = "Menuiserie_RepeatDissociate"
 FORM = "RepeatTaskPanel"
 VP_REPETITION = "freecad.menuiserie.gui.view_providers.repeat.ViewProviderRepeat"
-PAR_DEFAUT = 3  # copies proposées à l'ouverture
+PAR_DEFAUT = 3  # copies des réglages rétablis par :func:`repeter` (4 éléments sur X)
 
 
 def source(doc: Any, mark: str = "Barreau") -> Any:
@@ -53,6 +53,22 @@ def source(doc: Any, mark: str = "Barreau") -> Any:
     doc.recompute()
     doc.clearUndos()
     return part
+
+
+def retablir(form: Any) -> None:
+    """Réglages sur lesquels portent ces vérifications, d'avant la butée choisie à l'ouverture :
+    choix de butée annulé, « nombre et pas », ``PAR_DEFAUT`` copies sur X."""
+    widget(form, "stopX").click()  # second clic sur « Butée… » : choix annulé
+    choisir(widget(form, "spacing"), "CountAndStep")
+    widget(form, "countX").setValue(PAR_DEFAUT + 1)
+
+
+def repeter(objet: Any) -> None:
+    """Ouvre « Répéter » sur ``objet`` puis :func:`retablir` (si le panneau est ouvert)."""
+    lancer(REPETER, objet)
+    form = panneau()
+    if form is not None:
+        retablir(form)
 
 
 def copies_de(rep: Any) -> list[Any]:
@@ -132,14 +148,21 @@ def _activation(doc: Any) -> list[str]:
 
 def _apercu_puis_ok(doc: Any) -> list[str]:
     barreau = source(doc)
-    lancer(REPETER, barreau)
+    lancer(REPETER, barreau)  # réglages d'ouverture vérifiés ici
     form = panneau()
     rep = doc.getObject("Repeat")
     if form is None or rep is None:
         return ["panneau « Répéter » non ouvert ou aperçu absent"]
     problemes = [
+        *ecarts("ouverture : mode", widget(form, "spacing").currentData(), "CountOnSpan"),
+        *ecarts("ouverture : 2 éléments", widget(form, "countX").value(), 2),
+        *ecarts("ouverture : choix de butée en cours", widget(form, "stopX").isDown(), True),
+        *ecarts("aperçu à l'ouverture", positions_x(rep), [300.0]),
+    ]
+    retablir(form)
+    problemes += [
         *ecarts("titre", form.windowTitle(), "Répéter « Barreau »"),
-        *ecarts("aperçu à l'ouverture", positions_x(rep), [300.0 * k for k in (1, 2, 3)]),
+        *ecarts("aperçu rétabli", positions_x(rep), [300.0 * k for k in (1, 2, 3)]),
         *ecarts("assemblages recopiés cochée", widget(form, "copyJoints").isChecked(), True),
         *ecarts("suivi décoché", widget(form, "followResize").isChecked(), False),
         *ecarts("erreur masquée", widget(form, "errorLabel").isHidden(), True),
@@ -182,7 +205,7 @@ def verifier_apercu_et_validation() -> list[str]:
 
 def _annule(doc: Any) -> list[str]:
     barreau = source(doc)
-    lancer(REPETER, barreau)
+    repeter(barreau)
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert"]
@@ -205,7 +228,7 @@ def verifier_annulation() -> list[str]:
 
 def _refus(doc: Any) -> list[str]:
     barreau = source(doc)
-    lancer(REPETER, barreau)
+    repeter(barreau)
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert"]
@@ -244,7 +267,7 @@ def verifier_refus_affiche() -> list[str]:
 
 def _chevauchement(doc: Any) -> list[str]:
     barreau = source(doc)
-    lancer(REPETER, barreau)
+    repeter(barreau)
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert"]
@@ -267,7 +290,7 @@ def verifier_chevauchement_signale() -> list[str]:
 
 def _axe_et_sens(doc: Any) -> list[str]:
     barreau = source(doc)
-    lancer(REPETER, barreau)
+    repeter(barreau)
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert"]
@@ -319,7 +342,7 @@ def _assemblages_recopies(doc: Any) -> list[str]:
     api.make_mortise_tenon(haute, barreau)
     doc.recompute()
     doc.clearUndos()
-    lancer(REPETER, api.machined_part_of(barreau))  # la pièce visible (usinée) est acceptée
+    repeter(api.machined_part_of(barreau))  # la pièce visible (usinée) est acceptée
     form = panneau()
     if form is None:
         return ["panneau « Répéter » non ouvert sur la pièce usinée"]
@@ -382,7 +405,7 @@ def verifier_suivi_grise_hors_ensemble() -> list[str]:
     n'est dans aucun ensemble ; active pour un membre d'ensemble."""
 
     def hors_ensemble(doc: Any) -> list[str]:
-        lancer(REPETER, source(doc))
+        repeter(source(doc))
         form = panneau()
         if form is None:
             return ["panneau « Répéter » non ouvert"]
@@ -397,7 +420,7 @@ def verifier_suivi_grise_hors_ensemble() -> list[str]:
         from tests.gui.verifications_ensemble import regrouper
 
         regrouper(bureau)
-        lancer(REPETER, bureau.doc.getObject(bureau.parts["V"].Name))
+        repeter(bureau.doc.getObject(bureau.parts["V"].Name))
         form = panneau()
         if form is None:
             return [*problemes, "panneau « Répéter » non ouvert (membre d'ensemble)"]
@@ -585,7 +608,7 @@ def verifier_document_ferme_panneau_ouvert() -> list[str]:
     """Document fermé, panneau ouvert : le panneau se ferme, la transaction est soldée."""
     doc = App.newDocument("VerifRepetitionFerme")
     doc.UndoMode = 1
-    lancer(REPETER, source(doc))
+    repeter(source(doc))
     App.closeDocument(doc.Name)
     QtGui.QApplication.processEvents()
     return [
