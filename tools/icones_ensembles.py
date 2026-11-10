@@ -258,10 +258,10 @@ def repetition() -> str:
 def autre_objet() -> str:
     """Objet d'un autre atelier : un volume gris en pointillés (lecture seule)."""
     trait = 'stroke="#555753" stroke-width="2" stroke-linejoin="round" stroke-dasharray="4 3"'
+    contour = "M10,22 L22,10 H58 L46,22 M46,22 V52 M46,52 L58,40 V10"
     lignes = [
         "  <!-- Autre objet : volume d'un autre atelier -->",
         f'  <rect x="10" y="22" width="36" height="30" rx="2" fill="#d3d7cf" {trait}/>',
-        '  <path d="M10,22 L22,10 H58 L46,22 M46,22 V52 M46,52 L58,40 V10" '
-        f'fill="#babdb6" {trait}/>',
+        f'  <path d="{contour}" fill="#babdb6" {trait}/>',
     ]
     return document(lignes)
