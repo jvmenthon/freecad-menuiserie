@@ -67,6 +67,10 @@ class _Watcher:
         """Après Ctrl+Z : un objet supprimé puis recréé retrouve son affichage d'origine."""
         self._layers.undone(doc)
 
+    def slotCreatedObject(self, obj: Any) -> None:
+        """Un objet recréé par l'annulation d'une suppression retrouve son affichage d'origine."""
+        self._layers.undone(obj.Document)
+
 
 class DisplayLayers:
     """Calques d'affichage des objets de tous les documents (voir ``core/display_layers``).
@@ -197,11 +201,14 @@ class DisplayLayers:
         self._later(partial(self._repair_undeleted, document))
 
     def _repair_undeleted(self, document: Any) -> None:
-        for key in [k for k in self._undeleted if k[0] == document.Name]:
-            original = self._undeleted.pop(key)
-            obj = document.getObject(key[1])
-            vobj = getattr(obj, "ViewObject", None)
-            if vobj is not None:
+        try:
+            name = document.Name
+        except GONE:
+            return  # document fermé entre-temps
+        for key in [k for k in self._undeleted if k[0] == name]:
+            vobj = getattr(document.getObject(key[1]), "ViewObject", None)
+            if vobj is not None:  # sinon l'objet n'est pas (encore) recréé : l'origine reste
+                original = self._undeleted.pop(key)
                 self._each([key], partial(self._write_original, vobj, original))
         self._watch()
 

@@ -380,6 +380,31 @@ def test_objet_recree_par_ctrl_z_retrouve_son_origine() -> None:
     assert observers.posed == []  # plus rien à surveiller
 
 
+def test_objet_recree_signale_par_l_observateur_retrouve_son_origine() -> None:
+    display, observers = layers()
+    piece = Piece("P", 10)
+    piece.Document = FakeDocument(piece)  # type: ignore[attr-defined]
+    display.show(SELECTION, [piece], SELECTION_LOOK)
+    (watcher,) = observers.posed
+    watcher.slotDeletedObject(piece)  # type: ignore[attr-defined]
+    recreated = Piece("P", SELECTION_TRANSPARENCY)
+    recreated.view.ShapeAppearance = [Material(SELECTION_TINT)]
+    recreated.Document = FakeDocument(recreated)  # type: ignore[attr-defined]
+    watcher.slotCreatedObject(recreated)  # type: ignore[attr-defined]
+    assert (recreated.view.Transparency, recreated.view.rgb) == (10, WOOD)
+
+
+def test_objet_pas_encore_recree_garde_son_origine() -> None:
+    display, observers = layers()
+    piece = Piece("P", 10)
+    piece.Document = FakeDocument(piece)  # type: ignore[attr-defined]
+    display.show(SELECTION, [piece], SELECTION_LOOK)
+    (watcher,) = observers.posed
+    watcher.slotDeletedObject(piece)  # type: ignore[attr-defined]
+    watcher.slotUndoDocument(FakeDocument())  # type: ignore[attr-defined]
+    assert observers.posed == [watcher]  # l'origine attend la recréation
+
+
 class Fragile(FakeView):
     """ViewObject dont l'écriture échoue avec une erreur autre que « objet supprimé »."""
 
