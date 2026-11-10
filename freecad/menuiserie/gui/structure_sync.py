@@ -81,20 +81,33 @@ class _Lifetime:
         self.alive = False
 
 
+def _in_active_document(obj: Any) -> bool:
+    """Vrai si ``obj`` est du document actif (le panneau n'en montre pas d'autre) ; faux pour un
+    objet dont le document a disparu."""
+    active = App.ActiveDocument
+    try:
+        return active is not None and obj.Document.Name == active.Name
+    except (ReferenceError, RuntimeError, TypeError):
+        return False
+
+
 class _DocumentWatcher:
-    """Observateur de documents : ne fait que demander un rafraîchissement différé."""
+    """Observateur de documents : ne fait que demander un rafraîchissement différé, et seulement
+    pour le document actif (la modification d'un autre ne change pas l'arbre affiché)."""
 
     def __init__(self, request: Callable[[], None]) -> None:
         self._request = request
 
-    def slotCreatedObject(self, _obj: Any) -> None:
-        self._request()
+    def slotCreatedObject(self, obj: Any) -> None:
+        if _in_active_document(obj):
+            self._request()
 
-    def slotDeletedObject(self, _obj: Any) -> None:
-        self._request()
+    def slotDeletedObject(self, obj: Any) -> None:
+        if _in_active_document(obj):
+            self._request()
 
-    def slotChangedObject(self, _obj: Any, prop: str) -> None:
-        if is_relevant_change(prop):
+    def slotChangedObject(self, obj: Any, prop: str) -> None:
+        if is_relevant_change(prop) and _in_active_document(obj):
             self._request()
 
     def slotDeletedDocument(self, _doc: Any) -> None:

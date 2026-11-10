@@ -97,42 +97,12 @@ Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés d
 | Q10 | mineur | `features/joints/{feet,slides,shelf_pins,slots}.py` | Les `PropertySpec` « diamètre/profondeur des trous », « distance au bord », « nombre » se répètent (environ 10 lignes chacune). Une fabrique ne gagnerait presque rien : l'extraction des traductions exige `QT_TRANSLATE_NOOP("…", "texte")` littéral à l'endroit de la propriété, donc infobulle et libellé restent écrits à chaque appel. | Abandonné tant que l'extraction des traductions ne lit pas les paramètres de fabrique. |
 | Q11 | mineur | `core/joints/slides.py` | 316 lignes : à passer en paquet comme `shelf_pins` et `slots` (ADR 0040) avant d'approcher 400. | Même découpage `_params` / `_strategy`. |
 
-## Relecture de fin de jalon « Panneau Structure » (ADR 0046, lots 1 à 4), 2026-11-10
+## Panneau « Structure » (ADR 0046) : points restants, 2026-11-11
+
+Tous les autres mineurs des relectures du panneau (lots 1 à 4, reprise sur `main`, revue finale) sont
+corrigés dans la branche `fix/structure-revue-finale`.
 
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
-| S1 | mineur | `core/structure_tree.py` (`build_structure`), `features/structure_source.py` (`root_furnitures`) | Si un fichier abîmé contient un cycle de sous-ensembles (A dans B et B dans A, impossible par l'api), aucun des deux n'est une racine : ils disparaissent du panneau avec leurs pièces. Le cas du cycle atteignable depuis une racine est testé, pas celui-ci. | Après les racines, ajouter comme racines les ensembles jamais atteints (`seen`), et tester. |
-| S2 | mineur | `gui/structure_sync.py` (`_DocumentWatcher.slotChangedObject`) | Avec plusieurs documents ouverts, la modification d'un document non actif relance le calcul de l'arbre du document actif (aucune reconstruction : l'arbre est identique, mais le calcul est refait). | Ignorer les notifications dont l'objet n'est pas du document actif. |
-| S5 | corrigé | `gui/structure_actions.py` (`_rename`) | Corrigé par `api.rename` (refus traduit par `member_object`). Avant : si la brute disparaît entre la saisie et l'écriture (pièce usinée sans brute), `blank_of` rend `None` et l'écriture du libellé lève `AttributeError` (rattrapée et écrite dans la vue rapport, rien n'est modifié). | Refuser avec un message traduit si `blank_of` rend `None`. |
-| S6 | mineur | `gui/structure_actions.py` (`move_rows`), `tests/gui/verifications_structure.py` | Le garde « ensemble d'accueil supprimé entre-temps : ne rien faire » (ajouté à la revue) n'a pas de vérification hors écran : `move_rows` importe `FreeCADGui`. | Ajouter une vérification dans `verifications_structure.py` (supprimer l'ensemble puis appeler `move_rows` avec son ancien nom). |
-| S7 | mineur | `features/structure_source.py` (`DocumentStructure`) | Le lecteur est reconstruit à chaque rafraîchissement : `foreign_objects` lit `InList` et `OutList` de tous les objets, ce qui devient mesurable sur un très gros document (non mesuré). | Mesurer sur un document de 1 000 objets avant d'optimiser ; sinon, rien à faire. |
-
-## Reprise sur `main` du panneau « Structure » (branche `fix/structure-rebase-main`), 2026-11-10
-
-| N° | Niveau | Où | Problème | Correction proposée |
-|----|--------|----|----------|---------------------|
-| m1 | corrigé | `gui/structure_sync.py`, `gui/structure_actions.py` | Chaînes dupliquées `_PANEL_BUSY` / `BUSY` et `_NO_DOCUMENT` / `NO_DOCUMENT`. | Une seule définition (`core.structure_actions.BUSY`, `structure_sync.NO_DOCUMENT`). |
-| m2 | corrigé | `features/structure_source.py` (`DocumentStructure.label`) | Dupliquait `renamed_object`. | `label` appelle `renamed_object` (désormais défini dans `structure_source`, réexporté par `structure_facts`). |
-| m3 | mineur | `core/structure_tree.py` (`build_structure`) | Le paramètre `joints_title` fait double emploi avec `Titles.joints` : il est ignoré dès que `titles` est donné. | Retirer `joints_title` (signature `build_structure(source, extras=None, titles=None)`) et adapter les 13 appels des tests. |
-| m4 | corrigé | `docs/adr/0046-…` ligne 9 | Lien mort vers l'ADR 0043 (PR #181 non fusionnée). | Marqué « à venir » sans lien ; à relier à la fusion de la PR #181. |
-| m5 | mineur | `features/structure_repetitions.py`, `core/structure_tree.py` (nœuds `REPEAT` et `COPY`) | Code de répétition (lecteur vide, lignes « ×N », règles de dépôt) inutilisé tant que l'objet Répétition (ADR 0043) n'existe pas ; seuls des tests à lecteur factice l'exercent. | À brancher au lecteur réel à la fusion de la PR #181 ; sinon à retirer. |
-
-## Revue finale du jalon « Panneau Structure » (branche `fix/structure-revue-finale`), 2026-11-11
-
-| N° | Niveau | Où | Problème | Correction proposée |
-|----|--------|----|----------|---------------------|
-| R1 | corrigé | `core/display_layers.py`, `core/colors.py`, `gui/part_appearance.py` | Couleurs en double (`_COLOR_SCALE`, conversions). | `core/colors` partagé ; `_write_diffuse` (par matériau) reste distinct de `show_diffuse` (même couleur partout). |
-| R2 | corrigé | `gui/view_providers/wood_part.py`, ADR 0046 | Docstring « seul à écrire la couleur diffuse » fausse. | Corrigée, exception notée dans l'ADR. |
-| R3 | corrigé (documenté) | ADR 0046 « Sorties » | Fichiers de récupération automatique sans `slotStartSaveDocument`. | Limite documentée. |
-| R4 | corrigé | `gui/task_panels/preview.py` | `_no_quiet`, `layers=None`, `PREVIEW_TRANSPARENCY` faits pour les tests. | Supprimés ; `layers` requis, tests mis à jour. |
-| R5 | corrigé | `gui/display_layers.py` (`release_all`) | Ne vidait pas `_written`. | Vidé avec `_objects` et `_deferred`. |
-| R6 | corrigé | `gui/structure_switch.py`, `gui/structure_sync.py` | `chooser` global mutable. | Paramètre `choose` de `switch_to`, attribut `StructureSync.choose`. |
-| R7 | corrigé | `gui/structure_sync.py` | `_try_call` / `_try` dupliquaient `report_errors`. | Fusionnés. |
-| R8 | mineur | `tests/unit/test_apercu_assemblage.py`, `test_changement_de_tache.py` | Tests qui lisent le source (analyse statique du câblage). | Remplacer par des tests d'interface dans `tests/gui` quand le câblage est couvert hors écran. |
-| R9 | mineur | `gui/structure_icons.py` (`load_icons`) | Icônes rechargées à chaque rafraîchissement. | Cache explicite et réinitialisable (le module se dit « sans état global » : à décider). |
-| R10 | corrigé | `gui/structure_preferences.py` | `PARAM_PATH` en double. | Importé de `features/library`. |
-| R11 | mineur | `tests/gui/verifications_structure.py` (704 lignes), `tests/unit/test_structure_actions.py` (572), `tests/integration/test_ensemble_souris_ecriture.py` (460) | Fichiers de test de plus de 400 lignes (`verifications_structure_selection.py` a été scindé en trois). | Scinder par thème. |
-| R12 | corrigé | `gui/display_layers.py` | `resume` non rappelé si l'enregistrement échoue. | `_already_shown` exige l'écriture faite : la demande suivante réécrit. |
-| R13 | corrigé | `gui/display_layers.py` | Retrait d'observateur depuis `slotDeletedObject`. | Retrait différé hors de la notification (`later`). |
-| R14 | corrigé | `gui/display_layers.py` | Clés filtrées par préfixe de chaîne. | Clés `(document, nom)`. |
-| R15 | corrigé | `core/structure_menu.py` | `verbatim_text` sans troncature. | `MAX_MENU_LABEL` = 80 caractères. |
+| S7 | mineur | `features/structure_source.py` (`DocumentStructure`) | Le lecteur est reconstruit à chaque rafraîchissement : `foreign_objects` lit `InList` et `OutList` de tous les objets, ce qui devient mesurable sur un très gros document (non mesuré). Impossible à trancher sans FreeCAD : il faut une mesure réelle. | Mesurer sur un document de 1 000 objets avant d'optimiser ; sinon, rien à faire. |
+| m5 | mineur | `features/structure_repetitions.py`, `core/structure_tree.py` (nœuds `REPEAT` et `COPY`) | Code de répétition (lecteur vide, lignes « ×N », règles de dépôt) inutilisé tant que l'objet Répétition (ADR 0043) n'existe pas. Hors périmètre : dépend de la PR #181. | À brancher au lecteur réel à la fusion de la PR #181 ; sinon à retirer. |

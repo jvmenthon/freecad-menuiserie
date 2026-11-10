@@ -96,31 +96,31 @@ def labels(nodes: Sequence[StructureNode]) -> list[str]:
 
 
 def test_racines_ensemble_puis_pieces_hors_ensemble() -> None:
-    roots = build_structure(FakeSource(), title)
+    roots = build_structure(FakeSource())
     assert labels(roots) == ["Bureau", "Planche"]
     assert [root.kind for root in roots] == [NodeKind.FURNITURE, NodeKind.PIECE]
 
 
 def test_ensemble_sous_ensembles_puis_pieces_puis_assemblages() -> None:
-    bureau = build_structure(FakeSource(), title)[0]
+    bureau = build_structure(FakeSource())[0]
     assert labels(bureau.children) == ["Tiroir", "Plateau", "Joue", "Assemblages (2)"]
     assert labels(bureau.children[0].children) == ["Fond"]
 
 
 def test_noeud_assemblages_replie_avec_ses_elements() -> None:
-    group = build_structure(FakeSource(), title)[0].children[-1]
+    group = build_structure(FakeSource())[0].children[-1]
     assert (group.kind, group.expanded, group.key) == (NodeKind.JOINTS, False, "")
     assert labels(group.children) == ["Tenon-mortaise", "Distance"]
     assert {child.kind for child in group.children} == {NodeKind.JOINT}
 
 
 def test_pas_de_noeud_assemblages_sans_assemblage() -> None:
-    tiroir = build_structure(FakeSource(), title)[0].children[0]
+    tiroir = build_structure(FakeSource())[0].children[0]
     assert all(child.kind is not NodeKind.JOINTS for child in tiroir.children)
 
 
 def test_les_cles_sont_les_noms_des_objets() -> None:
-    nodes = build_structure(FakeSource(), title)[0].walk()
+    nodes = build_structure(FakeSource())[0].walk()
     assert [n.key for n in nodes if n.kind is NodeKind.PIECE] == ["P3", "P1", "P2"]
 
 
@@ -129,7 +129,7 @@ def test_sous_ensemble_cyclique_coupe() -> None:
         def sub_furnitures(self, furniture: str) -> Sequence[str]:
             return ["Tiroir" if furniture == "Bureau" else "Bureau"]
 
-    bureau = build_structure(Cyclic(), title)[0]
+    bureau = build_structure(Cyclic())[0]
     assert labels(bureau.walk()).count("Bureau") == 1
 
 
@@ -141,7 +141,7 @@ def test_document_vide() -> None:
         def loose_pieces(self) -> Sequence[str]:
             return []
 
-    assert build_structure(Empty(), title) == ()
+    assert build_structure(Empty()) == ()
 
 
 # --- Lecture d'un document (FreeCAD simulé) -----------------------------------------------
