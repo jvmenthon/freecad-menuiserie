@@ -46,6 +46,8 @@ def drop_outside_joints(machined: DocumentObject) -> None:
     )
 
     group = machined.getParentGroup()
+    if group is None:  # hors de tout groupe : pas une suppression de contenu
+        return
     for joint in list(machined.Joints):
         if inside_group(joint, group):
             continue

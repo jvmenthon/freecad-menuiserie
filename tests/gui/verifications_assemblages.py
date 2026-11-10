@@ -483,6 +483,10 @@ def verifier_suppression_du_contenu_d_un_groupe() -> list[str]:
     with cadre("VerifSuppressionContenuGroupe") as (doc, pieces):
         joint = assembler(doc, pieces["M1"], pieces["T1"])
         usinee = usinee_de(pieces["M1"])
+        groupe = doc.addObject("App::DocumentObjectGroup", "GroupeComplet")
+        for objet in (joint, usinee, usinee_de(pieces["T1"]), pieces["M1"], pieces["T1"]):
+            groupe.addObject(objet)
+        nom = joint.Name
         with choix_de_suppression(False) as questions:
             accepte = usinee.ViewObject.Proxy.onDelete(
                 usinee.ViewObject, ["group_recursive_deletion"]
@@ -490,7 +494,7 @@ def verifier_suppression_du_contenu_d_un_groupe() -> list[str]:
         return [
             *ecarts("aucune question", questions, []),
             *ecarts("acceptée", accepte, True),
-            *ecarts("rien supprimé par l'atelier", doc.getObject(joint.Name) is not None, True),
+            *ecarts("rien supprimé par l'atelier", doc.getObject(nom) is not None, True),
         ]
 
 
