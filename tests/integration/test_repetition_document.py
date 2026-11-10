@@ -402,15 +402,24 @@ def test_edition_depuis_une_copie(document: Any) -> None:
 # --- Suppression ---------------------------------------------------------------------------
 
 
-def test_supprimer_la_repetition_dissocie_les_copies(undoable: Any) -> None:
+def test_supprimer_la_repetition_supprime_les_copies(undoable: Any) -> None:
+    """Demande de jv (2026-11-10) : les copies partent avec la répétition, une annulation les
+    rend ; une copie dissociée reste."""
     rep = api.make_repeat([source(undoable)], params(count=3))
-    kept = copies(rep)
+    names = [c.Name for c in copies(rep)]
+    free = copies(rep)[0]
+    api.dissociate(free)
+    undoable.openTransaction("sup")
     undoable.removeObject(rep.Name)
+    undoable.commitTransaction()
     assert undoable.getObject("Repeat") is None
-    for c in kept:
-        assert not repeat.is_copy(c) and c.ExpressionEngine == []
+    assert [n for n in names[1:] if undoable.getObject(n) is not None] == []
+    assert undoable.getObject(free.Name) is not None and not repeat.is_copy(free)
     undoable.recompute()
-    assert offsets_y_of(kept) == [100.0, 200.0, 300.0]
+    assert stale_or_invalid(undoable) == []
+    undoable.undo()
+    undoable.recompute()
+    assert all(undoable.getObject(n) is not None for n in names)
     assert stale_or_invalid(undoable) == []
 
 

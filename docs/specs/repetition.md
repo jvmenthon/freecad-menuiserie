@@ -49,6 +49,11 @@ Répéter une ou plusieurs pièces (avec leurs assemblages) N fois : tasseaux, l
 - **Dissocier** : commande « Dissocier la copie » : supprime les expressions de la copie (elle
   garde ses valeurs actuelles) et la sort de la répétition ; elle devient une pièce libre. La
   répétition garde son décompte (les index suivants ne bougent pas).
+- **Supprimer la répétition** (jv, 2026-11-10) : ses copies sont supprimées avec elle (assemblages
+  et Std Part compris), dans la même annulation ; une copie dissociée reste.
+- **Butée sur une pièce usinée** : la butée vise sa pièce brute (la pièce usinée dépend des
+  assemblages recopiés : cycle, « The graph must be a DAG »). Un document plus ancien est corrigé
+  à l'ouverture.
 
 À vérifier dans FreeCAD au premier lot (R-a, essai jetable) : expressions sur `Placement`
 composée, indexation d'une liste (`Rep.Offsets[2]`) pour les modes cercle et trajet, coût de

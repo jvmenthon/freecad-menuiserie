@@ -123,7 +123,8 @@ transpose ainsi.
   - Suppression de la source (ou de son Std Part à la main) : ses copies sont dissociées d'abord
     (`detach_copies`), sans quoi leurs expressions citeraient un objet absent et leurs pièces,
     liées à celles de la source, ne pourraient pas sortir du Std Part. Supprimer la répétition
-    dissocie ses copies, qui gardent leur Std Part.
+    supprime ses copies, avec leurs assemblages et leur Std Part (demande de jv, 2026-11-10 ;
+    auparavant elles étaient dissociées) ; une copie déjà dissociée reste.
   - FreeCAD garde dans `InList` l'objet qui vient de perdre une expression ; `_closure`
     (fermeture de liens des entrées et sorties du Std Part) vérifie donc que le lien existe
     encore. On ne dissocie jamais un objet juste avant de le supprimer (le lien resterait

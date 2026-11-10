@@ -605,12 +605,12 @@ def test_supprimer_la_source_ou_la_repetition(undoable: Any) -> None:
     source = caisson(undoable)
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
-    undoable.removeObject(rep.Name)
-    assert not repeat.is_copy(copy) and not [m for m in members(copy) if repeat.is_copy(m)]
-    assert engine(copy) == {}
+    inner = [m.Name for m in members(copy)]
+    copy_name = copy.Name
+    undoable.removeObject(rep.Name)  # la copie d'ensemble part avec ses membres
+    assert undoable.getObject(copy_name) is None
+    assert [n for n in inner if undoable.getObject(n) is not None] == []
     undoable.recompute()
-    assert stale_or_invalid(undoable) == []
-    api.resize_furniture(copy, width=700)
     assert stale_or_invalid(undoable) == []
     other = caisson(undoable, origin=Vec3(0, 2000, 0))
     rep2 = api.make_repeat([other], row(count=1))

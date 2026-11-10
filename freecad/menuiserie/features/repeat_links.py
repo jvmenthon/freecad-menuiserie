@@ -213,13 +213,15 @@ def _unlink_quietly(copy: DocumentObject) -> None:
 
 
 def repeat_removed(repeat: DocumentObject) -> None:
-    """Répétition supprimée (``unsetupObject``) : ses copies sont dissociées (celles des membres
-    d'une copie d'ensemble avec elle)."""
+    """Répétition supprimée (``unsetupObject``) : ses copies sont supprimées avec elle (demande de
+    jv, 2026-11-10), avec leurs assemblages et leur Std Part ; une copie d'ensemble emporte les
+    copies de ses membres. Une copie dissociée n'en est plus une : elle reste."""
+    from freecad.menuiserie.features.repeat_new import drop_copy  # repeat_new importe ce module
+
     if _during_deletion(repeat):
         return
-    for copy in copies_of(repeat):
-        if not is_inner_copy(copy):
-            _unlink_quietly(copy)
+    for copy in [c for c in copies_of(repeat) if not is_inner_copy(c)]:
+        drop_copy(copy)  # une copie d'ensemble emporte les copies de ses membres
 
 
 def detach_copies(source: DocumentObject) -> None:

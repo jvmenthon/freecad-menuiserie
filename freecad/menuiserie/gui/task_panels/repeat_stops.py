@@ -19,6 +19,7 @@ from freecad.menuiserie.core.repeat import RepeatAxis, RepeatParams, SpacingMode
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.repeat_stop import Stop, Stops, stop_axis, stop_text
+from freecad.menuiserie.features.repeat_stop_raw import raw_stop
 from freecad.menuiserie.gui.task_panels.repeat_rows import AxisRow
 from freecad.menuiserie.gui.task_panels.repeat_texts import STOP_COLLISION
 
@@ -37,7 +38,7 @@ def picked_stop(document: str, name: str, sub: str) -> Stop | None:
     if target is None:
         return None
     element = "" if not sub or sub.endswith(".") else sub.rsplit(".", 1)[-1]
-    return Stop(target, element)
+    return raw_stop(Stop(target, element))  # pièce usinée cliquée : sa brute (pas de cycle)
 
 
 class StopPicker:

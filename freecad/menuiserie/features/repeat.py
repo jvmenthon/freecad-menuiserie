@@ -119,6 +119,9 @@ class Repeat(StatelessProxy):
         schema.restore_schema(obj, REPEAT_PROPERTIES, self.VERSION, NOUN, CHOICES)
         # Lignes 2 et 3, butées : absentes d'un document plus ancien (même version du modèle).
         ensure_lines(obj)
+        from freecad.menuiserie.features.repeat_stop_raw import restore_raw_stops
+
+        restore_raw_stops(obj)  # butée sur une pièce usinée : cycle, elle vise la brute
 
     def execute(self, obj: DocumentObject) -> None:
         """Recalcul : la longueur d'une ligne qui a une butée suit la butée (ADR 0047) ; sans
@@ -129,8 +132,7 @@ class Repeat(StatelessProxy):
 
     def unsetupObject(self, obj: DocumentObject) -> None:
         """Répétition supprimée (``removeObject``, interface comprise) : ses copies sont
-        dissociées dans la même transaction, elles restent comme pièces libres et gardent leurs
-        valeurs ; aucune expression ne vise un objet absent."""
+        supprimées dans la même transaction (une seule annulation les fait revenir)."""
         from freecad.menuiserie.features.repeat_links import repeat_removed
 
         repeat_removed(obj)

@@ -21,6 +21,7 @@ from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.repeat_stop_raw import raw_stops
 
 __all__ = ["dissociate", "edit_repeat", "make_repeat", "repeat_of"]
 
@@ -106,7 +107,7 @@ def make_repeat(
     copies…), ``KeyError`` (matériau inconnu). ``transaction=False`` : l'appelant a ouvert la
     sienne (commande de l'interface) et la valide ; sinon elle est ouverte et validée ici."""
     sources = repeat_copies.checked_sources(objects, one_container=False)
-    stops = stops or {}
+    stops = raw_stops(stops) or {}  # jamais une pièce usinée : cycle avec les assemblages
     params = repeat_stop.bounded_params(sources, params, stops)
     repeat_copies.resolve_for(sources, params)
     container = repeat_copies.common_container(sources)
@@ -150,7 +151,7 @@ def edit_repeat(
     longueur), un dictionnaire vide les retire."""
     found = _checked_repeat(obj)
     sources = repeat.sources_of(found)
-    kept = repeat_stop.kept_stops(found, params, stops)
+    kept = repeat_stop.kept_stops(found, params, raw_stops(stops))
     params = repeat_stop.bounded_params(sources, params, kept, found)
     repeat_copies.resolve_for(sources, params)
     with _undoable(found.Document, _EDIT_TRANSACTION, own=transaction):

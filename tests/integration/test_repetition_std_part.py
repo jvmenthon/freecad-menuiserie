@@ -297,14 +297,13 @@ def test_piece_ajoutee_a_la_main_sort_du_std_part_d_une_copie_supprimee(undoable
     assert orphans(undoable) == [] and stale_or_invalid(undoable) == []
 
 
-def test_supprimer_la_repetition_dissocie_les_copies_et_garde_leur_std_part(document: Any) -> None:
+def test_supprimer_la_repetition_supprime_les_copies_et_leur_std_part(document: Any) -> None:
     source = caisson(document, shelf_count=0)
     rep = api.make_repeat([source], row())
-    first, second = copies(rep, source)
+    names = [n for c in copies(rep, source) for n in (c.Name, std_of(c).Name)]
     document.removeObject(rep.Name)
     document.recompute()
-    assert not repeat.is_copy(first) and engine(std_of(first)) == {}
-    assert engine(std_of(second)) == {} and corner(second) == (1400.0, 0.0, 0.0)
+    assert [n for n in names if document.getObject(n) is not None] == []
     assert stale_or_invalid(document) == [] and orphans(document) == []
 
 
