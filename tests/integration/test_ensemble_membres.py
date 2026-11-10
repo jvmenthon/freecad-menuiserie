@@ -325,3 +325,56 @@ def test_sous_ensemble_depuis_des_membres(document: Any) -> None:
     other = list(bureau.parts.values())[2]
     with pytest.raises(ValueError, match="déjà membre"):
         api.make_furniture([chosen[0], other])
+
+
+def test_changement_d_ensemble_vers_le_meme_ensemble_garde_les_options(document: Any) -> None:
+    """Revue ADR 0046 : ``move=True`` vers l'ensemble qui contient déjà la pièce est refusé, sans
+    réinitialiser ses options ; sortie, retour et rétablissement (Ctrl+Y) restent cohérents."""
+    bureau = build_parts(document)
+    document.UndoMode = 1
+    first, _ = api.make_furniture([bureau.parts["P"]], "Bureau")
+    second, _ = api.make_furniture([bureau.parts["V"]], "Armoire")
+    plateau = bureau.parts["P"]
+    plateau.FixedLeft = True
+    before = snapshot(bureau)
+    with pytest.raises(ValueError, match="déjà membre"):
+        api.add_to_furniture(first, [plateau], move=True)
+    assert snapshot(bureau) == before
+    assert plateau.FixedLeft is True
+    with pytest.raises(ValueError):  # cycle : un ensemble ne rentre pas dans son sous-ensemble
+        api.add_to_furniture(first, [first], move=True)
+    document.clearUndos()
+    document.openTransaction("Changer")
+    api.add_to_furniture(second, [plateau], move=True)
+    document.commitTransaction()
+    document.undo()
+    document.recompute()
+    assert api.furniture_of(plateau) == first
+    document.redo()
+    document.recompute()
+    assert api.furniture_of(plateau) == second
+
+
+def test_changement_d_ensemble_et_sortie_survivent_a_l_enregistrement(
+    document: Any, tmp_path: Any
+) -> None:
+    """Revue ADR 0046 : après ranger puis sortir, l'enregistrement et la réouverture rendent
+    les liens (et les propriétés de membre d'un orphelin) intacts."""
+    bureau = build_parts(document)
+    first, _ = api.make_furniture([bureau.parts["P"]], "Bureau")
+    second, _ = api.make_furniture([bureau.parts["V"]], "Armoire")
+    plateau = bureau.parts["P"]
+    api.add_to_furniture(second, [plateau], move=True)
+    api.remove_from_furniture([bureau.parts["V"]], keep_properties=True)
+    path = str(tmp_path / "structure.FCStd")
+    document.saveAs(path)
+    App.closeDocument(document.Name)
+    reopened = App.openDocument(path)
+    try:
+        again = {obj.Name: obj for obj in reopened.Objects}
+        assert api.furniture_of(again[plateau.Name]).Name == second.Name
+        assert api.furniture_of(again[bureau.parts["V"].Name]) is None
+        assert set(again[bureau.parts["V"].Name].PropertiesList) >= MEMBER_PROPERTIES
+        assert first.Name in again
+    finally:
+        App.closeDocument(reopened.Name)

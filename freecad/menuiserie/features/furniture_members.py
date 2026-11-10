@@ -150,7 +150,7 @@ def _checked(
     if member.Document != doc:
         raise ValueError(translated(_OTHER_DOCUMENT, quoted_label(member)))
     current = furniture_of(member)
-    if current is not None and not move:
+    if current is not None and (not move or current == furniture):  # déjà là : options gardées
         params = {**quoted_label(member), "furniture": quoted_value(current.Label)}
         raise ValueError(translated(_ALREADY_MEMBER, params))
     if member.getParentGeoFeatureGroup() != container:

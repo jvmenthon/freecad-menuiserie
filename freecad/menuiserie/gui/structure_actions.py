@@ -36,7 +36,7 @@ from freecad.menuiserie.core.structure_actions import (
     decide_drop,
     decide_rename,
 )
-from freecad.menuiserie.core.structure_menu import Action, MenuEntry, menu_entries
+from freecad.menuiserie.core.structure_menu import Action, MenuEntry, menu_entries, verbatim_text
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_members import member_object
@@ -111,6 +111,8 @@ def move_rows(doc: Any, keys: Sequence[str], target: str | None) -> Sequence[str
     refus de l'api = rien ne change."""
     objects = _objects(doc, keys)
     destination = doc.getObject(target) if target is not None else None
+    if target is not None and destination is None:
+        return None  # ensemble d'accueil supprimé entre-temps : ne jamais « sortir » à la place
 
     def action() -> Sequence[str]:
         owners = _owners(objects)
@@ -203,7 +205,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
 
     def _add_entry(self, menu: Any, entry: MenuEntry) -> None:
         """Entrée active, ou grisée avec la raison du refus en infobulle."""
-        text = entry.label if entry.verbatim else translated(entry.label)
+        text = verbatim_text(entry.label) if entry.verbatim else translated(entry.label)
         if entry.children:
             submenu = menu.addMenu(text)
             submenu.setToolTipsVisible(True)
