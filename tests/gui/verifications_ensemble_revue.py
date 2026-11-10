@@ -78,8 +78,24 @@ def verifier_suppression_de_l_ensemble_et_de_son_std_part() -> list[str]:
         ]
 
 
+def verifier_suppression_sans_avertissement_interne() -> list[str]:
+    """``canDelete`` : membres et Std Part de l'ensemble supprimés sans avertissement FreeCAD ;
+    un objet étranger (ici le document de l'utilisateur) garde l'avertissement habituel."""
+    with bureau_regroupe("VerifRevueEnsembleInterne") as bureau:
+        preparer(bureau.doc)
+        proxy = bureau.furniture.ViewObject.Proxy
+        part = std_part_of(bureau.furniture)
+        etranger = bureau.doc.addObject("App::FeaturePython", "Etranger")
+        return [
+            *ecarts("membres", [proxy.canDelete(p) for p in bureau.parts.values()], [True] * 4),
+            *ecarts("Std Part", proxy.canDelete(part), True),
+            *ecarts("objet étranger", proxy.canDelete(etranger), False),
+        ]
+
+
 VERIFICATIONS_ENSEMBLE_REVUE: tuple[Callable[[], list[str]], ...] = (
     verifier_std_part_selectionne_cible_son_ensemble,
     verifier_suppression_du_std_part_a_la_main,
     verifier_suppression_de_l_ensemble_et_de_son_std_part,
+    verifier_suppression_sans_avertissement_interne,
 )

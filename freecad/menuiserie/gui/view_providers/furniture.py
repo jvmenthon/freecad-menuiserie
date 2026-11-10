@@ -16,6 +16,7 @@ from freecad.menuiserie.features.distance import distances_of
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import common_furniture, members_of
+from freecad.menuiserie.features.furniture_container import std_part_of
 from freecad.menuiserie.features.furniture_entry import dissolve
 from freecad.menuiserie.features.furniture_members import remove_members
 from freecad.menuiserie.features.furniture_view import shown_object
@@ -45,6 +46,20 @@ class ViewProviderFurniture(NoGeometryView, PanelEditing):
         from freecad.menuiserie.gui.task_panels.furniture import start_editing
 
         return start_editing(vobj.Object)
+
+    def canDelete(self, obj: DocumentObject) -> bool:
+        """Vrai pour les objets qui dépendent de l'ensemble **de l'intérieur** : ses membres (et
+        sous-ensembles), ses Distances gardées et son Std Part. Leurs liens sont retirés par
+        :meth:`onDelete` : FreeCAD n'ouvre pas son avertissement « dépendances » pour eux. Autre
+        objet (liste de débit, expression ou lien de l'utilisateur) : avertissement habituel."""
+        furniture = getattr(getattr(self, "vobj", None), "Object", None)
+        if not is_furniture(furniture):
+            return False
+        return (
+            obj in members_of(furniture)
+            or obj in distances_of(furniture)
+            or obj == std_part_of(furniture)
+        )
 
     def onDelete(self, vobj: ViewObject, subelements: object) -> bool:
         """Suppression dans l'interface : liaisons de l'atelier et propriétés de membre retirées
