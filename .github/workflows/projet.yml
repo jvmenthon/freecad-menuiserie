@@ -1,0 +1,95 @@
+name: Projet GitHub
+
+# Lecture et modification manuelles du Project « Freecad - menuiserie ».
+# Déclenché à la main (Actions > Projet GitHub > Run workflow) ou par un outil
+# autorisé à lancer un workflow_dispatch. Nécessite le secret PROJECT_TOKEN
+# (jeton personnel avec le scope « project »).
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "lire = affiche l'état des cartes ; modifier = change une carte"
+        type: choice
+        options: [lire, modifier]
+        default: lire
+      issue:
+        description: "Numéro de l'issue (modifier)"
+        required: false
+        type: string
+      statut:
+        description: "Nouveau Status, ex. To merge (modifier, facultatif)"
+        required: false
+        type: string
+      priorite:
+        description: "Nouvelle Priority, ex. Medium (modifier, facultatif)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: projet-github
+  cancel-in-progress: false
+
+env:
+  OWNER: jvmenthon
+  PROJECT: "1"
+  GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+
+jobs:
+  projet:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifier le secret
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Secret PROJECT_TOKEN absent (jeton personnel, scope project)."
+            exit 1
+          fi
+
+      - name: Lire le Project
+        if: inputs.action == 'lire'
+        run: |
+          echo "## Champs" >> "$GITHUB_STEP_SUMMARY"
+          gh project field-list "$PROJECT" --owner "$OWNER" --format json \
+            --jq '.fields[] | select(.options) | "\(.name): \([.options[].name] | join(", "))"' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "## Cartes" | tee -a "$GITHUB_STEP_SUMMARY"
+          gh project item-list "$PROJECT" --owner "$OWNER" --limit 500 --format json \
+            --jq '.items[] | "#\(.content.number // "-")\t\(.status // "-")\t\(.priority // "-")\t\(.content.title // .title)"' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Modifier une carte
+        if: inputs.action == 'modifier'
+        env:
+          ISSUE: ${{ inputs.issue }}
+          STATUT: ${{ inputs.statut }}
+          PRIORITE: ${{ inputs.priorite }}
+        run: |
+          set -euo pipefail
+          case "$ISSUE" in ''|*[!0-9]*) echo "::error::issue doit être un nombre"; exit 1;; esac
+          project_id=$(gh project view "$PROJECT" --owner "$OWNER" --format json --jq .id)
+          fields=$(gh project field-list "$PROJECT" --owner "$OWNER" --format json)
+          item_id=$(gh project item-list "$PROJECT" --owner "$OWNER" --limit 500 --format json \
+            | jq -r --argjson n "$ISSUE" '.items[] | select(.content.number == $n) | .id' | head -n1)
+          if [ -z "$item_id" ]; then
+            echo "::error::Issue #$ISSUE absente du Project"; exit 1
+          fi
+          edit() { # $1 = nom du champ, $2 = valeur voulue
+            [ -n "$2" ] || return 0
+            read -r field_id option_id < <(jq -r --arg f "$1" --arg v "$2" '
+              .fields[] | select(.name == $f) | . as $fd
+              | .options[] | select(.name | ascii_downcase == ($v | ascii_downcase))
+              | "\($fd.id) \(.id)"' <<<"$fields" | head -n1)
+            if [ -z "${option_id:-}" ]; then
+              echo "::error::Valeur « $2 » inconnue pour le champ $1"; exit 1
+            fi
+            gh project item-edit --id "$item_id" --project-id "$project_id" \
+              --field-id "$field_id" --single-select-option-id "$option_id"
+            echo "#$ISSUE : $1 = $2" | tee -a "$GITHUB_STEP_SUMMARY"
+          }
+          edit Status "$STATUT"
+          edit Priority "$PRIORITE"
