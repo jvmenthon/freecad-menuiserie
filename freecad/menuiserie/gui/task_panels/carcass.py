@@ -131,6 +131,7 @@ class CarcassTaskPanel(TransactionTaskPanel):
         géométrique) ou un objet créé en erreur abandonne aussi l'aperçu : rien ne reste."""
         moved = self._placement() or self._last_placement
         self._last_placement = moved  # gardée même si cet aperçu est refusé
+        self._drag.follow(None)  # aucune référence à l'ancien caisson pendant la recréation
         self._restart()
         before = {obj.Name for obj in self.doc.Objects}
         self.furniture, message = None, ""
@@ -174,7 +175,7 @@ class CarcassTaskPanel(TransactionTaskPanel):
             return
         try:
             values = {n: getattr(furniture, n.capitalize()).Value for n in _GESTURE_FIELDS}
-        except (ReferenceError, RuntimeError):  # objet détruit pendant le geste
+        except (AttributeError, ReferenceError, RuntimeError):  # objet détruit pendant le geste
             return
         for name, value in values.items():
             field = self._lengths[name]
@@ -201,8 +202,14 @@ class CarcassTaskPanel(TransactionTaskPanel):
         accepted = super().accept()
         # Panneau refermé par FreeCAD après ce retour : rien ne reste sélectionné, donc ni flèches
         # ni poignées dans la vue 3D (ADR 0038 ; le panneau en fermant les retire de même).
-        QtCore.QTimer.singleShot(0, partial(Gui.Selection.clearSelection, self.doc.Name))
+        QtCore.QTimer.singleShot(0, partial(_clear_selection, self.doc.Name))
         return accepted
+
+
+def _clear_selection(document: str) -> None:
+    """Sélection du document vidée, s'il existe encore (fermé entre-temps : rien à faire)."""
+    if document in App.listDocuments():
+        Gui.Selection.clearSelection(document)
 
 
 def _length_field(

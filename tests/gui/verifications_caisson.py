@@ -147,9 +147,12 @@ def _annule(doc: Any) -> list[str]:
         return ["panneau du caisson non ouvert"]
     saisir(widget(form, "depth"), 500.0)
     problemes = ecarts("aperçu", compte(doc), REFERENCE)
+    session = events.current_session()
     annuler()
+    QtGui.QApplication.processEvents()
     return [
         *problemes,
+        *ecarts("poignées retirées", None if session is None else session.panel, None),
         *ecarts("aucun objet", doc.Objects, []),
         *ecarts("aucune entrée", doc.UndoNames, []),
         *ecarts("panneau fermé", formulaire() is None, True),
@@ -173,10 +176,21 @@ def _refus(doc: Any) -> list[str]:
         *ecarts("champ cité", "épaisseur des panneaux" in erreur.text(), True),
         *ecarts("rien créé", doc.Objects, []),
     ]
+    session = events.current_session()
+    problemes += ecarts(
+        "poignées retirées pendant le refus",
+        None if session is None else session.panel,
+        None,
+    )
     valider()  # sans effet : le panneau reste ouvert
     problemes += ecarts("panneau resté ouvert", formulaire() is not None, True)
     saisir(widget(form, "thickness"), 19.0)
     problemes += [
+        *ecarts(
+            "poignées rétablies après correction",
+            None if session is None or session.panel is None else session.panel.part.Name,
+            "Furniture",
+        ),
         *ecarts("refus effacé", erreur.isHidden(), True),
         *ecarts("caisson recréé", compte(doc), REFERENCE),
     ]
