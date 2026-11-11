@@ -196,14 +196,6 @@ def assert_enveloppe(furniture: Any) -> None:
     assert sizes(furniture) == pytest.approx(expected, abs=1e-3)
 
 
-def assert_englobe(furniture: Any) -> None:
-    """La boîte du parent contient ses membres (elle peut être plus grande : jamais rétrécie)."""
-    box, frame = envelope.member_envelope(furniture), envelope.frame_of(furniture)
-    for i in range(3):
-        assert frame.lo(i) <= box.lo(i) + 1e-3
-        assert frame.hi(i) >= box.hi(i) - 1e-3
-
-
 def caisson_names(parts: dict[str, Any]) -> set[str]:
     """Brutes et pièces usinées du caisson (celles qui bougent avec lui)."""
     found = {part.Name for part in parts.values()}
@@ -243,7 +235,7 @@ def test_sous_ensemble_tourne_le_parent_englobe_la_rotation(document: Any) -> No
     assert drag.rotate_furniture_by(memento, 2, 30.0)
     drag.end_furniture_drag(memento)
     document.recompute()
-    assert_englobe(furniture)
+    assert_enveloppe(furniture)
 
 
 def test_enveloppe_deja_juste_rien_n_est_ecrit(document: Any) -> None:
@@ -272,22 +264,23 @@ def test_creation_autour_d_un_ensemble_tourne_l_englobe(document: Any) -> None:
     assert_enveloppe(furniture)
 
 
-def test_le_parent_ne_retrecit_jamais(document: Any) -> None:
-    """« Agrandir les cotes du parent » (jv, 2026-11-11) : ramener le sous-ensemble garde la
-    boîte agrandie, une marge voulue n'est jamais perdue."""
+def test_le_parent_retrecit_quand_on_ramene_le_sous_ensemble(document: Any) -> None:
+    """jv, 2026-11-11 : « la boîte doit toujours être de la taille de l'ensemble », sans marge.
+    Ramener le sous-ensemble rend au parent ses cotes de départ."""
     furniture, sub, _, _ = meuble(document)
+    depart = sizes(furniture)
     assert api.move_furniture(sub, (900, 0, 0))
     document.recompute()
-    agrandie = sizes(furniture)
+    assert sizes(furniture) != depart
     assert api.move_furniture(sub, (-900, 0, 0))
     document.recompute()
-    assert sizes(furniture) == agrandie
-    assert_englobe(furniture)
+    assert sizes(furniture) == pytest.approx(depart, abs=1e-3)
+    assert_enveloppe(furniture)
 
 
 def test_repetition_qui_suit_le_parent_ne_bouge_pas(document: Any) -> None:
     """Revue B1 : une répétition « Suivre le redimensionnement » lit les cotes du parent ;
-    l'agrandir redistribuerait ses copies. Le parent n'est donc pas recalé : rien ne bouge."""
+    le recaler redistribuerait ses copies. Le parent n'est donc pas recalé : rien ne bouge."""
     bureau = build_parts(document)
     sub, parts = caisson(document)
     furniture, _ = api.make_furniture(
@@ -315,4 +308,4 @@ def test_copies_d_un_sous_ensemble_repete_englobees(document: Any) -> None:
     document.recompute()
     assert api.move_furniture(sub, (900, 0, 0))
     document.recompute()
-    assert_englobe(furniture)
+    assert_enveloppe(furniture)

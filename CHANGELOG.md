@@ -21,8 +21,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   sélection posés seulement pendant que l'atelier est actif.
 - Cotes du parent à l'enveloppe de ses membres (ADR 0049) : après un déplacement ou une rotation
   d'un sous-ensemble, et dès la création d'un ensemble autour d'un ensemble tourné, la boîte de
-  l'ensemble de plus haut niveau s'agrandit pour englober ses membres (rotation comprise, copies
-  d'une répétition comprises), sans rien déplacer ; elle ne rétrécit jamais. Un parent dont une
+  l'ensemble de plus haut niveau est exactement l'enveloppe de ses membres, sans marge (rotation
+  comprise, copies d'une répétition comprises), sans rien déplacer ; elle grandit ou rétrécit. Un parent dont une
   répétition « Suivre le redimensionnement » ou une formule lit les cotes n'est pas recalé.
 
 - Panneau « Structure » et répétitions (ADR 0046 lot 4 complet, ADR 0043 et 0044, solde m5) : le vrai lecteur (`features/structure_repetitions.py`) remplace le point d'extension vide. Une répétition est une ligne « <nom> ×N » dépliable en ses copies, à la racine ou dans l'ensemble de sa source ; les copies ne sont plus montrées comme pièces ordinaires (aucun doublon) ; une copie d'ensemble (ensemble complet avec Std Part) porte son contenu sous sa ligne, ses membres copiés y restent et son Std Part n'est jamais montré. Double-clic sur la répétition ou une copie : « Modifier la répétition » (aussi pour une copie d'ensemble). Menu : « Modifier la répétition », « Renommer » (la répétition aussi, `api.rename`), « Dissocier la copie » (une transaction), « Supprimer » ; une copie ou une répétition ne se glisse pas, ne se range pas et ne reçoit aucun dépôt. Sélectionner la répétition met toutes ses copies en transparence (une copie d'ensemble : toutes ses pièces). Tests unitaires (`test_structure_repetitions`), d'intégration avec de vraies répétitions de pièces et d'ensembles et de contrôle d'interface (`verifications_structure_repetition`).

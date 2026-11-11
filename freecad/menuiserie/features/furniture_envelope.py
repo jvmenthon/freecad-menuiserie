@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Cotes d'un ensemble agrandies jusqu'à l'enveloppe de ses membres (ADR 0049).
+"""Cotes d'un ensemble recalées sur l'enveloppe de ses membres (ADR 0049).
 
-Après un déplacement ou une rotation d'un sous-ensemble, la boîte de l'ensemble parent s'agrandit
-pour envelopper ses membres (pièces et sous-ensembles, rotation comprise) ; elle ne rétrécit
-jamais (choix de jv : « Agrandir les cotes du parent »), une marge voulue par l'utilisateur reste.
+Après un déplacement ou une rotation d'un sous-ensemble, la boîte de l'ensemble parent devient
+exactement la boîte qui enveloppe ses membres (pièces et sous-ensembles, rotation comprise), sans
+marge : elle grandit ou rétrécit (jv, 2026-11-11 : « la boîte doit toujours être de la taille de
+l'ensemble »).
 Rien ne bouge : seuls ``Origin`` et les cotes du parent sont écrits, puis ses liaisons sont
 recalculées d'après la géométrie actuelle (``furniture_drag._relink``).
 
@@ -11,7 +12,7 @@ Seul un ensemble de plus haut niveau est recalé : la position d'un sous-ensembl
 ``Placement`` de son Std Part avec un ``Origin`` nul (ADR 0038), qu'un recalage décalerait. Un
 parent n'est pas recalé non plus quand une formule autre qu'une liaison de l'atelier pilote son
 ``Origin`` ou une cote, ou les lit (répétition « Suivre le redimensionnement », formule de
-l'utilisateur sur un membre) : l'agrandir ferait bouger ce qui en dépend.
+l'utilisateur sur un membre) : le recaler ferait bouger ce qui en dépend.
 """
 
 from __future__ import annotations
@@ -84,24 +85,20 @@ def restore_frame(furniture: DocumentObject, frame: Box) -> None:
 
 
 def reframe(furniture: DocumentObject) -> bool:
-    """Agrandit ``Origin`` et les cotes de ``furniture`` jusqu'à l'enveloppe de ses membres, sans
+    """Recale ``Origin`` et les cotes de ``furniture`` sur l'enveloppe de ses membres, sans
     recalcul ni liaison (l'appelant relie ensuite les membres). Faux, sans rien écrire, pour un
-    sous-ensemble, un ensemble piloté ou lu par une formule, sans membre ou qui enveloppe déjà ses
-    membres."""
+    sous-ensemble, un ensemble piloté ou lu par une formule, sans membre ou déjà à l'enveloppe."""
     if furniture_of(furniture) is not None or _driven(furniture):
         return False
     envelope = member_envelope(furniture)
     if envelope is None:
         return False
     current = frame_of(furniture)
-    target = Box.from_ranges(
-        [(min(current.lo(i), envelope.lo(i)), max(current.hi(i), envelope.hi(i))) for i in range(3)]
-    )
     if all(
-        abs(current.lo(i) - target.lo(i)) <= TOLERANCE_MM
-        and abs(current.hi(i) - target.hi(i)) <= TOLERANCE_MM
+        abs(current.lo(i) - envelope.lo(i)) <= TOLERANCE_MM
+        and abs(current.hi(i) - envelope.hi(i)) <= TOLERANCE_MM
         for i in range(3)
     ):
         return False
-    restore_frame(furniture, target)
+    restore_frame(furniture, envelope)
     return True
