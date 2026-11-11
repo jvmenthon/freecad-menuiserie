@@ -21,6 +21,7 @@ from PySide import QtGui
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.features import repeat
 from freecad.menuiserie.features.repeat_joints import origin_of
+from freecad.menuiserie.gui.commands.base import would_run
 from tests.commandes_repetition import COMMANDES_REPETITION
 from tests.gui.verifications_ensemble import lancer, pieces_du_bureau
 from tests.gui.verifications_panneau import (
@@ -121,7 +122,7 @@ def verifier_commandes_de_repetition() -> list[str]:
 
 def _activation(doc: Any) -> list[str]:
     def actives() -> list[bool]:
-        return [Gui.Command.get(nom).isActive() for nom in COMMANDES_REPETITION]
+        return [would_run(nom) for nom in COMMANDES_REPETITION]
 
     barreau = source(doc)
     rep = api.make_repeat([barreau], api.RepeatParams(count=2, step=400.0))

@@ -13,13 +13,13 @@ from __future__ import annotations
 from typing import Final
 
 import FreeCAD as App
-import FreeCADGui as Gui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.distance_move import DistanceMove
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.picked import PickedElement
-from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
+from freecad.menuiserie.gui.commands import hints
+from freecad.menuiserie.gui.commands.base import TransactionCommand, add_command, report_refusal
 from freecad.menuiserie.gui.selection import picked_elements, view_direction
 from freecad.menuiserie.gui.task_panels.distance import open_panel
 
@@ -49,16 +49,11 @@ class SetDistanceCommand(TransactionCommand):
         "en déplaçant une pièce de l'atelier : par défaut la seconde sélectionnée.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Définir une distance")
+    SELECTION_HINT = hints.DISTANCE
 
-    def IsActive(self) -> bool:
-        """Active avec un document, aucun panneau ouvert et exactement deux éléments de deux
-        objets différents. Appelée à chaque rafraîchissement : la sélection est seulement
-        examinée."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_pair() is not None
-        )
+    def selection_ok(self) -> bool:
+        """Vrai avec exactement deux éléments de deux objets différents (lecture seule)."""
+        return selected_pair() is not None
 
     def Activated(self) -> None:
         """Lit les éléments, refuse ce qui ne se mesure pas (message dans la barre d'état et la
@@ -66,6 +61,7 @@ class SetDistanceCommand(TransactionCommand):
         « Annuler » abandonne."""
         pair = selected_pair()
         if pair is None:
+            self.explain_selection()
             return
         try:
             move = DistanceMove(*pair, toward_observer=view_direction())
@@ -80,4 +76,4 @@ class SetDistanceCommand(TransactionCommand):
 
 def register() -> None:
     """Enregistre la commande auprès de FreeCAD."""
-    Gui.addCommand(COMMAND_NAME, SetDistanceCommand())
+    add_command(COMMAND_NAME, SetDistanceCommand())

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import Final
 
-import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import api
@@ -24,8 +23,10 @@ from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.repeat_copies import checked_sources
 from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import (
     TransactionCommand,
+    add_command,
     refusable_transaction,
     report_refusal,
 )
@@ -83,20 +84,18 @@ class RepeatCommand(TransactionCommand):
         "ensuite par « Modifier la répétition ».",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Répéter")
+    SELECTION_HINT = hints.REPEAT
 
-    def IsActive(self) -> bool:
-        """Active avec un document, aucun panneau ouvert et des pièces à répéter sélectionnées."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_repeatable() is not None
-        )
+    def selection_ok(self) -> bool:
+        """Vrai si des pièces à répéter sont sélectionnées."""
+        return selected_repeatable() is not None
 
     def Activated(self) -> None:
         """Pièces contrôlées d'emblée (refus signalé, rien créé), puis panneau ouvert dans la
         transaction « Répéter » que « OK » valide et « Annuler » abandonne."""
         selection = selected_repeatable()
         if selection is None:
+            self.explain_selection()
             return
         try:
             sources = checked_sources(selection)
@@ -119,21 +118,18 @@ class EditRepeatCommand(TransactionCommand):
         "est sélectionnée) : nombre, pas, longueur, axe, assemblages.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
+    SELECTION_HINT = hints.REPEAT_EDIT
 
-    def IsActive(self) -> bool:
-        """Active avec un document, aucun panneau ouvert et une répétition ou une copie liée
-        sélectionnée."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_repeat() is not None
-        )
+    def selection_ok(self) -> bool:
+        """Vrai si une répétition ou une copie liée est sélectionnée."""
+        return selected_repeat() is not None
 
     def Activated(self) -> None:
         """Mode d'édition de la répétition : son ViewProvider ouvre le panneau prérempli, dans
         la transaction « Modifier la répétition »."""
         repeat = selected_repeat()
         if repeat is None:
+            self.explain_selection()
             return
         ensure_view_provider(repeat)
         Gui.getDocument(repeat.Document.Name).setEdit(repeat, 0)
@@ -150,21 +146,18 @@ class DissociateCommand(TransactionCommand):
         "devient une pièce libre, avec ses assemblages ; l'original ne la suit plus.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
+    SELECTION_HINT = hints.REPEAT_DISSOCIATE
 
-    def IsActive(self) -> bool:
-        """Active avec un document, aucun panneau ouvert et seulement des copies liées
-        sélectionnées."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_copies() is not None
-        )
+    def selection_ok(self) -> bool:
+        """Vrai si seules des copies liées sont sélectionnées."""
+        return selected_copies() is not None
 
     def Activated(self) -> None:
         """Copies dissociées dans une seule transaction, validée ou, sur un refus (signalé dans
         la barre d'état et la vue rapport), abandonnée."""
         copies = selected_copies()
         if copies is None:
+            self.explain_selection()
             return
         with refusable_transaction(copies[0].Document, self.TRANSACTION):
             for copy in copies:
@@ -174,6 +167,6 @@ class DissociateCommand(TransactionCommand):
 
 def register() -> None:
     """Enregistre les commandes auprès de FreeCAD."""
-    Gui.addCommand(REPEAT, RepeatCommand())
-    Gui.addCommand(REPEAT_EDIT, EditRepeatCommand())
-    Gui.addCommand(REPEAT_DISSOCIATE, DissociateCommand())
+    add_command(REPEAT, RepeatCommand())
+    add_command(REPEAT_EDIT, EditRepeatCommand())
+    add_command(REPEAT_DISSOCIATE, DissociateCommand())

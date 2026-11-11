@@ -36,7 +36,8 @@ from freecad.menuiserie.features.joints.feasible import feasible_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui import joint_choice, near_gap, slide_room
-from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
+from freecad.menuiserie.gui.commands import hints
+from freecad.menuiserie.gui.commands.base import TransactionCommand, add_command, report_refusal
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
 
@@ -63,15 +64,11 @@ class JointCommand(TransactionCommand):
     fabrique de l'api, ses textes et le nom de sa transaction."""
 
     FACTORY: ClassVar[Factory]  # fabrique de freecad.menuiserie.api, lue sur la classe
+    SELECTION_HINT = hints.PAIR
 
-    def IsActive(self) -> bool:
-        """Active si aucun panneau n'est ouvert et que deux pièces distinctes sont
-        sélectionnées."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_parts() is not None
-        )
+    def selection_ok(self) -> bool:
+        """Vrai si deux pièces distinctes sont sélectionnées."""
+        return selected_parts() is not None
 
     def Activated(self) -> None:
         """Assemblage créé dans la transaction « Créer un assemblage … », puis panneau de
@@ -80,6 +77,7 @@ class JointCommand(TransactionCommand):
         panneau."""
         parts = selected_parts()
         if parts is None:
+            self.explain_selection()
             return
         host, guest = ordered_roles(*parts)
         closing = near_gap.propose(host, guest)
@@ -244,12 +242,14 @@ class DrawerSlideCommand(JointCommand):
         "au pas de 32 mm.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser une coulisse de tiroir")
+    SELECTION_HINT = hints.SLIDE
 
     def Activated(self) -> None:
         """Coulisse posée dans sa transaction ; s'il manque du jeu, la fenêtre propose d'écarter
         les côtés (dans la même transaction), puis le panneau s'ouvre."""
         parts = selected_parts()
         if parts is None:
+            self.explain_selection()
             return
         host, guest = ordered_roles(*parts)
         App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
@@ -270,19 +270,18 @@ class DrawerSlideCommand(JointCommand):
 class SinglePartCommand(JointCommand):
     """Assemblage posé sur une seule pièce sélectionnée (pieds, perçage LR32)."""
 
-    def IsActive(self) -> bool:
-        """Active si aucun panneau n'est ouvert et qu'une seule pièce est sélectionnée."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_part() is not None
-        )
+    SELECTION_HINT = hints.SINGLE
+
+    def selection_ok(self) -> bool:
+        """Vrai si une seule pièce est sélectionnée."""
+        return selected_part() is not None
 
     def Activated(self) -> None:
         """Assemblage posé sur la pièce sélectionnée, dans sa transaction, puis panneau ; une
         pièce refusée ou un usinage impossible sont expliqués sans rien créer."""
         part = selected_part()
         if part is None:
+            self.explain_selection()
             return
         App.ActiveDocument.openTransaction(translated(self.TRANSACTION))
         try:
@@ -389,15 +388,15 @@ def _is_part(obj: DocumentObject) -> bool:
 
 def register() -> None:
     """Enregistre les commandes d'assemblage auprès de FreeCAD."""
-    Gui.addCommand(MORTISE_TENON, MortiseTenonCommand())
-    Gui.addCommand(TONGUE_GROOVE, TongueGrooveCommand())
-    Gui.addCommand(RABBET, RabbetCommand())
-    Gui.addCommand(DOWELS, DowelsCommand())
-    Gui.addCommand(HALF_LAP, HalfLapCommand())
-    Gui.addCommand(DOVETAIL, DovetailCommand())
-    Gui.addCommand(MITER, MiterCommand())
-    Gui.addCommand(LOOSE_TENON, LooseTenonCommand())
-    Gui.addCommand(BISCUIT, BiscuitCommand())
-    Gui.addCommand(FOOT, FootCommand())
-    Gui.addCommand(SHELF_PINS, ShelfPinsCommand())
-    Gui.addCommand(DRAWER_SLIDE, DrawerSlideCommand())
+    add_command(MORTISE_TENON, MortiseTenonCommand())
+    add_command(TONGUE_GROOVE, TongueGrooveCommand())
+    add_command(RABBET, RabbetCommand())
+    add_command(DOWELS, DowelsCommand())
+    add_command(HALF_LAP, HalfLapCommand())
+    add_command(DOVETAIL, DovetailCommand())
+    add_command(MITER, MiterCommand())
+    add_command(LOOSE_TENON, LooseTenonCommand())
+    add_command(BISCUIT, BiscuitCommand())
+    add_command(FOOT, FootCommand())
+    add_command(SHELF_PINS, ShelfPinsCommand())
+    add_command(DRAWER_SLIDE, DrawerSlideCommand())

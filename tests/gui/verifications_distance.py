@@ -16,6 +16,7 @@ import FreeCADGui as Gui
 from PySide import QtGui
 
 from freecad.menuiserie import api, icon_path
+from freecad.menuiserie.gui.commands.base import would_run
 from tests.elements_choisis import Point, element_name
 from tests.gui.verifications_ensemble import boite_de_refus
 from tests.gui.verifications_panneau import (
@@ -135,15 +136,11 @@ def verifier_activation_de_la_distance() -> list[str]:
         problemes = []
         for cas, choisis in elements.items():
             selectionner(*choisis)
-            problemes += ecarts(
-                cas, bool(Gui.Command.get(COMMANDE).isActive()), attendu.get(cas, False)
-            )
+            problemes += ecarts(cas, would_run(COMMANDE), attendu.get(cas, False))
         Gui.Selection.clearSelection()
         Gui.Selection.addSelection(plateau)
         Gui.Selection.addSelection(etagere)
-        problemes += ecarts(
-            "deux objets entiers", bool(Gui.Command.get(COMMANDE).isActive()), False
-        )
+        problemes += ecarts("deux objets entiers", would_run(COMMANDE), False)
         return problemes
 
     return avec_document("DistanceActivation", verification)

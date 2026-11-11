@@ -17,6 +17,7 @@ import FreeCADGui as Gui
 import Part
 
 from freecad.menuiserie import api
+from freecad.menuiserie.gui.commands.base import would_run
 from freecad.menuiserie.gui.task_panels.shaped_part import drawing_target
 from tests.gui.verifications_assemblages import assembler, selectionner
 from tests.gui.verifications_panneau import (
@@ -48,7 +49,6 @@ def esquisse_fermee(doc: Any) -> Any:
 def _activation(doc: Any) -> list[str]:
     corps = pied(doc)
     planche = api.make_wood_part(800, 200, 22, "chene", mark="M1", doc=doc)
-    commande = Gui.Command.get(COMMANDE)
     problemes = []
     for nom, objets, attendu in (
         ("sélection vide", (), False),
@@ -56,11 +56,11 @@ def _activation(doc: Any) -> list[str]:
         ("corps PartDesign", (corps,), True),
     ):
         selectionner(*objets)
-        problemes += ecarts(f"active : {nom}", commande.isActive(), attendu)
+        problemes += ecarts(f"active : {nom}", would_run(COMMANDE), attendu)
     convertir(doc, corps)
     valider()
     selectionner(corps)
-    return [*problemes, *ecarts("active : source déjà convertie", commande.isActive(), False)]
+    return [*problemes, *ecarts("active : source déjà convertie", would_run(COMMANDE), False)]
 
 
 def verifier_activation_selon_la_selection() -> list[str]:
@@ -156,9 +156,7 @@ def _assemblage(doc: Any) -> list[str]:
     if usinee is None:
         return problemes
     selectionner(usinee, traverse)  # la pièce usinée d'une pièce en bois se sélectionne aussi
-    problemes += ecarts(
-        "commande active sur la pièce usinée", Gui.Command.get("Menuiserie_Dowels").isActive(), True
-    )
+    problemes += ecarts("commande active sur la pièce usinée", would_run("Menuiserie_Dowels"), True)
     Gui.Selection.clearSelection()
     vobj = usinee.ViewObject
     ouvert = bool(vobj.Proxy.doubleClicked(vobj))
