@@ -85,7 +85,8 @@ def test_chaque_classe_de_commande_a_sa_phrase() -> None:
                 and any(getattr(t, "id", "") == "SELECTION_HINT" for t in item.targets)
                 for item in node.body
             )
-            bases = [classes[b.id] for b in node.bases if getattr(b, "id", "") in classes]
+            names = [base.id for base in node.bases if isinstance(base, ast.Name)]
+            bases = [classes[name] for name in names if name in classes]
             return own or any(has_hint(base) for base in bases)
 
         for name, node in classes.items():
