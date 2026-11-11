@@ -25,6 +25,7 @@ from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_container import guide_container
 from freecad.menuiserie.features.furniture_drag_state import FurnitureMemento
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.magnet_guides import collect_guides
 from freecad.menuiserie.features.part_drag import (
     SIZE_PROPS,
@@ -38,7 +39,7 @@ from freecad.menuiserie.features.part_drag import (
 )
 from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
 from freecad.menuiserie.gui.drag.geometry import Layout, build_layout
-from freecad.menuiserie.gui.drag.parts import box_of, frame_of, rings_of
+from freecad.menuiserie.gui.drag.parts import NO_RING_NOTE, box_of, frame_of, rings_of
 
 __all__ = [
     "MOVE_TRANSACTION",
@@ -167,7 +168,9 @@ class PartTarget(Target):
         resizable = limits.resizable_axes if panel_shown else frozenset()
         box = self.box()
         layout = build_layout(self.frame(), box, size_mm, limits.fixed_axes, resizable)
-        return replace(layout, rings=rings_of(self.obj, box))
+        rings = rings_of(self.obj, box)
+        note = None if rings else translated(NO_RING_NOTE)
+        return replace(layout, rings=rings, rings_note=note)
 
     def begin(self) -> Memento:
         return begin_drag(self.obj)

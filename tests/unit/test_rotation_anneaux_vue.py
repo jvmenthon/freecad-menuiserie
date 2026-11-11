@@ -372,3 +372,11 @@ def test_dessin_du_geste_angle_nul_sans_secteur() -> None:
     drawing = build_drawing(layout_with_rings(), ring_key(2), sweep=sweep_of(0.0))
     assert drawing.solids == ()
     assert [label.text for label in drawing.labels] == ["0°"]
+
+
+def test_note_quand_la_piece_n_a_pas_d_anneau() -> None:
+    """Pièce liée à l'ensemble : une note explique l'absence d'anneau, au centre de la boîte."""
+    layout = Layout(Frame(Vec3(0, 0, 0), Vec3(1, 0, 0), Vec3(0, 1, 0), Vec3(0, 0, 1)), BOX, (), ())
+    assert build_drawing(layout).labels == ()
+    noted = replace(layout, rings_note="liée")
+    assert [label.text for label in build_drawing(noted).labels] == ["liée"]

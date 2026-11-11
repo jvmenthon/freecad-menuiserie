@@ -10,11 +10,12 @@ from __future__ import annotations
 import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import Box, Vec3
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import Guide, Ray
 from freecad.menuiserie.core.rotation import Ring
 from freecad.menuiserie.core.snap import Frame
@@ -63,6 +64,11 @@ def rings_of(part: DocumentObject, box: Box) -> tuple[Ring, ...]:
         return ()
     container = part.getGlobalPlacement() * part.Placement.inverse()
     return build_rings(box, rigid_transform(part.Placement), rigid_transform(container))
+
+
+NO_RING_NOTE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Pièce liée à l'ensemble : pas d'anneau de rotation"
+)
 
 
 def box_of(part: DocumentObject) -> Box:

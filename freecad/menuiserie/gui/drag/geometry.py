@@ -119,6 +119,7 @@ class Layout:
     handles: tuple[tuple[Handle, Vec3], ...]
     handle_mm: float = 0.0
     rings: tuple[Ring, ...] = ()
+    rings_note: str | None = None
     double_handles: bool = False
     shows_box: bool = False
 
@@ -469,6 +470,10 @@ def build_drawing(
         strokes.append(ghost_lines)
         solids.append(ghost_faces)
     labels = rings.labels if cues.note is None else (*rings.labels, cues.note)
+    if layout.rings_note is not None and not layout.rings:
+        middle = Vec3.of([layout.box.center(i) for i in range(3)])
+        center = layout.frame.to_transform().apply(middle)
+        labels = (*labels, Label(HANDLE_COLOR, layout.rings_note, center))
     return Drawing((*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), labels)
 
 
