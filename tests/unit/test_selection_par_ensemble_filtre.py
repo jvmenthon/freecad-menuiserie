@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Filtre de clic de la sélection par ensemble (ADR 0047), FreeCAD et Qt simulés : cas limites de
+"""Filtre de clic de la sélection par ensemble (ADR 0048), FreeCAD et Qt simulés : cas limites de
 non-régression (pièce libre, Ctrl+clic, panneau ouvert, double-clic dans le vide, trois niveaux,
 objet supprimé, relâchement consommé une seule fois)."""
 

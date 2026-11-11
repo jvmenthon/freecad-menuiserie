@@ -1,4 +1,4 @@
-# ADR 0047 — Sélection par ensemble dans la vue 3D
+# ADR 0048 — Sélection par ensemble dans la vue 3D
 
 - Statut : **accepté** (jv, 2026-11-10 : clic simple = ensemble, double-clic = descendre, double-clic dans le vide = remonter, Ctrl+clic natif)
 - Date : 2026-11-10

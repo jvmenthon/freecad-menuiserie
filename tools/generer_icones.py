@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from icones_ensembles import (
+    autre_objet,
     distance,
     distance_gardee,
     ensemble,
@@ -26,7 +27,9 @@ from icones_ensembles import (
     rotation_x,
     rotation_y,
     rotation_z,
+    structure,
 )
+from icones_repetition import dissocier_la_copie, modifier_la_repetition, repeter, repetition
 from icones_svg import Icone, angles, document, etiquette, feuille
 
 ICONS_DIR = Path(__file__).resolve().parents[1] / "freecad" / "menuiserie" / "resources" / "icons"
@@ -216,6 +219,16 @@ def pieds() -> str:
     return ic.svg()
 
 
+def quincaillerie() -> str:
+    ic = Icone("Quincaillerie : vis, tourillon et pied d'acier posés ensemble")
+    ic.cylindre(14, 40, 0, 4, 8, "acier")  # embase du pied
+    ic.cylindre(14, 40, 4, 30, 4.5, "acier")  # tige du pied
+    ic.prisme(_plat(0, 34, 0, 10), "x", 34, 88, "hetre")  # tourillon couché
+    ic.cylindre(60, 10, 0, 6, 8, "acier")  # tête de vis
+    ic.cylindre(60, 10, 6, 40, 3.2, "acier")  # corps de vis
+    return ic.svg()
+
+
 def percage_lr32() -> str:
     ic = Icone("Perçage LR32 : côté debout percé de deux colonnes de trous, taquets dans un rang")
     ic.boite((0, 0, 0), (8, 46, 92), "chene")
@@ -316,6 +329,10 @@ ICONES = {
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
     "Menuiserie_FurnitureRemove.svg": ensemble_retirer,
     "Menuiserie_FurnitureRebind.svg": ensemble_relier,
+    # Panneau « Structure » (ADR 0046)
+    "Menuiserie_Hardware.svg": quincaillerie,
+    "Menuiserie_Structure.svg": structure,
+    "Menuiserie_Other.svg": autre_objet,
     # Distance entre deux pièces (DI-b)
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,
@@ -326,6 +343,11 @@ ICONES = {
     # Pièce en bois à forme libre (PD-d)
     "Menuiserie_ShapedPart.svg": piece_en_bois,
     "Menuiserie_ShapedPartObject.svg": piece_en_bois_objet,
+    # Répétition (R-c)
+    "Menuiserie_Repeat.svg": repeter,
+    "Menuiserie_RepeatEdit.svg": modifier_la_repetition,
+    "Menuiserie_RepeatDissociate.svg": dissocier_la_copie,
+    "Menuiserie_RepeatObject.svg": repetition,
 }
 
 

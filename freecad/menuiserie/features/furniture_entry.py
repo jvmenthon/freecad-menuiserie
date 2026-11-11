@@ -12,7 +12,6 @@ c'est à l'appelant de les faire.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from enum import Enum
 from typing import Final
 
 import FreeCAD as App
@@ -33,19 +32,23 @@ from freecad.menuiserie.features.furniture import (
 )
 from freecad.menuiserie.features.furniture_container import (
     is_std_part,
-    is_workshop,
     std_part_of,
+)
+from freecad.menuiserie.features.furniture_plan import (
+    EntryNoticeKind,
+    bundle,
+    closure,
+    staying,
 )
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint
-from freecad.menuiserie.features.machined_part import is_machined_part, machined_part_of
+from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.placement import local_placement
 from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = [
     "EntryNoticeKind",
     "adopt",
-    "check_assembled",
     "dissolve",
     "leave",
     "positioned",
@@ -54,33 +57,11 @@ __all__ = [
     "write_placement",
 ]
 
-_ASSEMBLED: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "« {label} » est assemblée à « {other} », qui n'entre pas avec elle dans l'ensemble.",
-)
 _STAYS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » est assemblée à une pièce qui reste dans l'ensemble : elle reste dans son Std "
     "Part (elle n'est plus membre de l'ensemble).",
 )
-
-
-_TAKEN_ALONG: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "« {label} » est liée à « {other} » (assemblage, Distance ou formule) : FreeCAD la range avec "
-    "elle dans le Std Part de l'ensemble, sans qu'elle en devienne membre.",
-)
-
-
-class EntryNoticeKind(Enum):
-    """Nature d'un avertissement à l'entrée de pièces dans le Std Part d'un ensemble."""
-
-    TAKEN_ALONG = "TakenAlong"
-
-    @property
-    def template(self) -> str:
-        """Gabarit français marqué pour la traduction."""
-        return _TAKEN_ALONG
 
 
 _KEPT: Final = QT_TRANSLATE_NOOP(
@@ -92,86 +73,19 @@ _KEPT: Final = QT_TRANSLATE_NOOP(
 # --- Déplacements entre conteneurs ------------------------------------------------------------
 
 
-def _bundle(obj: DocumentObject) -> list[DocumentObject]:
-    """Objets qui suivent un membre : sa brute, sa pièce usinée et ses assemblages ; le Std Part
-    d'un sous-ensemble (qui contient tout le reste)."""
-    if is_furniture(obj):
-        part = std_part_of(obj)
-        return [] if part is None else [part]
-    machined = machined_part_of(obj) if is_timber(obj) else None
-    joints = [parent for parent in obj.InList if is_joint(parent)]
-    return [obj, *([] if machined is None else [machined]), *joints]
-
-
-def _closure(start: DocumentObject) -> dict[str, DocumentObject]:
-    """Objets de l'atelier liés à ``start`` (dans les deux sens, de proche en proche), par nom :
-    ce que FreeCAD range avec lui."""
-    found: dict[str, DocumentObject] = {}
-    todo = [start]
-    while todo:
-        obj = todo.pop()
-        if obj.Name not in found and is_workshop(obj):
-            found[obj.Name] = obj
-            todo.extend([*obj.InList, *obj.OutList])
-    return found
-
-
-def _linked_members(
-    pieces: Sequence[DocumentObject], allowed: set[str], target: DocumentObject | None
-) -> DocumentObject | None:
-    """Membre d'un autre ensemble (ou ensemble) que FreeCAD rangerait avec ``pieces`` : un objet
-    de leur fermeture de liens qui n'est pas dans ``allowed`` et qui n'est pas ``target`` ou l'un
-    de ses membres."""
-    for piece in pieces:
-        for other in _closure(piece).values():
-            owner = other if is_furniture(other) else furniture_of(other)
-            if other.Name not in allowed and owner is not None and owner != target:
-                return other
-    return None
-
-
-def check_assembled(
-    members: Sequence[DocumentObject], target: DocumentObject | None = None
-) -> None:
-    """Refuse (``ValueError`` traduite, rien n'est modifié) l'entrée de pièces assemblées à un
-    membre d'un autre ensemble : FreeCAD les rangerait avec lui. ``target`` : ensemble qui les
-    reçoit (ses membres sont permis), ``None`` pour un nouvel ensemble. Une pièce assemblée à une
-    pièce libre est rangée avec elle, à la même position."""
-    pieces = [obj for obj in members if not is_furniture(obj)]
-    allowed = {item.Name for obj in pieces for item in _bundle(obj)}
-    for sub in (obj for obj in members if is_furniture(obj)):  # un sous-ensemble entre en entier
-        part = std_part_of(sub)
-        allowed.add(sub.Name)
-        allowed |= {obj.Name for obj in _content(part)} if part is not None else set()
-    other = _linked_members(pieces, allowed, target)
-    if other is not None:
-        label = next(p.Label for p in pieces if other.Name in _closure(p))
-        raise ValueError(translated(_ASSEMBLED, {"label": str(label), "other": str(other.Label)}))
-
-
 def taken_along(members: Sequence[DocumentObject]) -> list[Notice]:
     """Avertissements des pièces **libres** (membres d'aucun ensemble) liées à un des ``members``
     par un assemblage, une Distance ou une formule : FreeCAD les range avec lui dans le Std Part
     sans qu'elles deviennent membres (à appeler avant :func:`adopt`)."""
     pieces = [obj for obj in members if not is_furniture(obj)]
-    allowed = {item.Name for obj in pieces for item in _bundle(obj)}
+    allowed = {item.Name for obj in pieces for item in bundle(obj)}
     found: dict[str, Notice] = {}
     for piece in pieces:
-        for other in _closure(piece).values():
+        for other in closure(piece).values():
             if is_timber(other) and other.Name not in allowed and furniture_of(other) is None:
                 params = {"label": str(other.Label), "other": str(piece.Label)}
                 found.setdefault(other.Name, Notice(EntryNoticeKind.TAKEN_ALONG, params))
     return list(found.values())
-
-
-def _content(part: DocumentObject) -> list[DocumentObject]:
-    """Objets d'un Std Part, ceux de ses Std Parts compris."""
-    found: list[DocumentObject] = []
-    for obj in part.Group:
-        found.append(obj)
-        if is_std_part(obj):
-            found.extend(_content(obj))
-    return found
 
 
 def positioned(obj: DocumentObject) -> bool:
@@ -278,16 +192,16 @@ def adopt(furniture: DocumentObject, members: Sequence[DocumentObject]) -> None:
     pieces = [obj for obj in members if not is_furniture(obj)]
     for sub in (obj for obj in members if is_furniture(obj)):
         _nest(sub, part)
-    _relocate([item for obj in pieces for item in _bundle(obj)], part)
+    _relocate([item for obj in pieces for item in bundle(obj)], part)
 
 
 def stays(members: Sequence[DocumentObject]) -> set[str]:
     """Noms des pièces de ``members`` qui ne peuvent pas sortir de leur Std Part : leur fermeture
     de liens contient un membre de l'ensemble (ou l'ensemble) qui reste. Une pièce assemblée à une
     pièce libre sort avec elle."""
-    leaving = {item.Name for obj in members for item in _bundle(obj)}
+    leaving = {item.Name for obj in members for item in bundle(obj)}
     pieces = [obj for obj in members if not is_furniture(obj)]
-    return {obj.Name for obj in pieces if _linked_members([obj], leaving, None) is not None}
+    return {name for name, found in staying(pieces, leaving).items() if found}
 
 
 def _holder(obj: DocumentObject) -> DocumentObject | None:
@@ -309,9 +223,7 @@ def leave(members: Sequence[DocumentObject]) -> list[str]:
     moving = [obj for obj in inside if obj.Name not in kept]
     for holder in {h.Name: h for obj, h in holders if is_std_part(h)}.values():
         mine = [obj for obj in moving if _holder(obj) == holder]
-        _relocate(
-            [item for obj in mine for item in _bundle(obj)], holder.getParentGeoFeatureGroup()
-        )
+        _relocate([item for obj in mine for item in bundle(obj)], holder.getParentGeoFeatureGroup())
     return [translated(_STAYS, {"label": str(obj.Label)}) for obj in inside if obj.Name in kept]
 
 

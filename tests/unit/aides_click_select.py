@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """FreeCAD, Qt et chaîne d'ensembles simulés pour exercer ``gui/click_select.py`` sans écran
-(ADR 0047). Le module est chargé depuis son fichier, ses dépendances de ``gui/`` et de
+(ADR 0048). Le module est chargé depuis son fichier, ses dépendances de ``gui/`` et de
 ``features/`` sont remplacées : seule la logique du filtre est réelle."""
 
 from __future__ import annotations

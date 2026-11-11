@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Sélection par ensemble dans la vue 3D (ADR 0047).
+"""Sélection par ensemble dans la vue 3D (ADR 0048).
 
 - clic simple sur une pièce membre d'un ensemble : l'ensemble de plus haut niveau est sélectionné
   (la sélection ne change pas si l'élément déjà sélectionné contient la pièce) ;

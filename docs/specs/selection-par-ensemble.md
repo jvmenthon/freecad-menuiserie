@@ -1,7 +1,7 @@
 # Sélection par ensemble dans la vue 3D (descente niveau par niveau)
 
 - Statut : **validée par jv** (2026-11-10) ; reste à écrire
-- ADR : [0047](../adr/0047-selection-par-ensemble-dans-la-vue-3d.md)
+- ADR : [0048](../adr/0048-selection-par-ensemble-dans-la-vue-3d.md)
 - Demande de jv (2026-11-10) : « lors d'un clic dans la vue 3D, c'est l'ensemble qui se
   sélectionne ; je peux alors descendre (drill down) jusqu'à la pièce. »
 

@@ -49,6 +49,7 @@ REDIMENSIONNER = "Redimensionner l'ensemble"
 DEPLACER = "Déplacer l'ensemble"
 TOURNER = "Tourner l'ensemble"
 TOLERANCE = 5.0  # mm : écart toléré sur une cote obtenue par la souris (pixels entiers)
+PANEL_PRECISION = 0.01  # mm : le champ du panneau arrondit à deux décimales
 Point = tuple[int, int]
 FACES = ("-X", "+X", "-Y", "+Y", "-Z", "+Z")
 
@@ -541,7 +542,7 @@ def _panneau_ouvert(bureau: Bureau, session: Any) -> list[str]:
             "le panneau relit la largeur",
             float(largeur.property("rawValue")),
             cotes(ensemble)[0],
-            1e-3,
+            PANEL_PRECISION,  # le champ affiche deux décimales : 1260.036 mm s'y lit 1260.04
         ),
         *ecarts("relâchement consommé", session.release(arrivee), True),
         *ecarts("transaction du panneau", App.getActiveTransaction(), transaction),

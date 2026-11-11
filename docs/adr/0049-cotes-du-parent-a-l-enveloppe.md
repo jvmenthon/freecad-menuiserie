@@ -1,9 +1,9 @@
-# ADR 0048 — Cotes du parent recalées sur l'enveloppe de ses membres
+# ADR 0049 — Cotes du parent recalées sur l'enveloppe de ses membres
 
 - Statut : **accepté** (jv, 2026-11-11 : « Agrandir les cotes du parent »)
 - Date : 2026-11-11
 - ADR liés : [0008](0008-ensemble-objet-de-cotes.md), [0019](0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
-  [0038](0038-ensemble-a-la-souris.md), [0047](0047-selection-par-ensemble-dans-la-vue-3d.md)
+  [0038](0038-ensemble-a-la-souris.md), [0048](0048-selection-par-ensemble-dans-la-vue-3d.md)
 
 ## Contexte
 

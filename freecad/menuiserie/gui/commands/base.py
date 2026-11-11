@@ -9,13 +9,18 @@ liste de débit le signalent toutes de la même façon.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any, ClassVar, Final
 
+import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.freecad_types import Document
 from freecad.menuiserie.features.i18n import report_warning, translated
+from freecad.menuiserie.gui.task_panels.base import close_transaction
 
 REFUSAL_DISPLAY_MS: Final = 15_000  # durée d'affichage d'un refus dans la barre d'état
 REFUSAL_BOX_NAME: Final = "MenuiserieRefusal"
@@ -42,6 +47,26 @@ class TransactionCommand:
         }
 
 
+@contextmanager
+def refusable_transaction(doc: Document, title: str) -> Iterator[None]:
+    """Bloc exécuté dans une transaction de ``doc`` (``title``, gabarit traduisible) : validée
+    (une entrée d'annulation) à la sortie normale ; sur un refus de l'api (``TypeError`` ou
+    ``ValueError``), abandonnée et signalée par :func:`report_refusal`, le bloc étant alors
+    interrompu sans exception ; toute autre exception l'abandonne et se propage."""
+    doc.openTransaction(translated(title))
+    transaction = App.getActiveTransaction()
+    try:
+        yield
+    except (TypeError, ValueError) as error:
+        close_transaction(transaction, abort=True)
+        report_refusal(str(error))
+        return
+    except BaseException:
+        close_transaction(transaction, abort=True)
+        raise
+    close_transaction(transaction, abort=False)
+
+
 def report_refusal(message: str) -> None:
     """Refus de la fabrique : boîte d'avertissement (non modale, au premier plan), barre d'état
     de la fenêtre principale et vue rapport."""
@@ -55,7 +80,7 @@ def report_refusal(message: str) -> None:
 def show_refusal_box(window: Any, message: str) -> Any:
     """Affiche ``message`` dans la boîte d'avertissement de l'atelier (une seule à la fois,
     remplacée au refus suivant) ; non modale, elle ne bloque ni FreeCAD ni les scripts."""
-    from PySide import QtGui
+    from PySide import QtCore, QtGui
 
     box = _REFUSAL_BOX.get("box")
     if box is None:
@@ -65,6 +90,7 @@ def show_refusal_box(window: Any, message: str) -> Any:
         box.setWindowTitle(translated(REFUSAL_TITLE))
         box.setModal(False)
         _REFUSAL_BOX["box"] = box
+    box.setTextFormat(QtCore.Qt.PlainText)
     box.setText(message)
     box.show()
     box.raise_()

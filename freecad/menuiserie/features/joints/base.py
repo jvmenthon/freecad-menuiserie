@@ -21,6 +21,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
+from freecad.menuiserie.features.assigned_shape import AssignedShape
 from freecad.menuiserie.features.freecad_types import (
     READ_ONLY,
     DocumentObject,
@@ -29,6 +30,7 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joint_material import check_joint_material
+from freecad.menuiserie.features.joints.plan_cache import cached_plan
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
@@ -213,7 +215,10 @@ class JointFeature(StatelessProxy):
         _check_machined_parts(obj)
         check_joint_material(obj, plan)
         _warn_cross_grain(obj)
-        obj.Shape = inserts_shape(plan.inserts)
+        assigned: AssignedShape = self.__dict__.setdefault("_assigned", AssignedShape())
+        if not assigned.is_current(obj, plan.inserts):  # sinon l'assemblage a seulement bougé
+            obj.Shape = inserts_shape(plan.inserts)
+            assigned.remember(plan.inserts, obj.Shape)
         obj.Placement = obj.HostPart.Placement
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
@@ -224,6 +229,15 @@ class JointFeature(StatelessProxy):
                 current = getattr(obj, name)
                 setattr(obj, name, choices)
                 setattr(obj, name, current if current in choices else choices[0])
+        from freecad.menuiserie.features.repeat_joints import restored
+
+        restored(obj)  # assemblage enfant d'une répétition : paramètres en lecture seule (R-b2)
+
+    def unsetupObject(self, obj: DocumentObject) -> None:
+        """Assemblage supprimé (même transaction) : ses enfants de répétition sont dissociés."""
+        from freecad.menuiserie.features.repeat_joints import joint_removed
+
+        joint_removed(obj)
 
 
 def _warn_cross_grain(joint: DocumentObject) -> None:
@@ -310,7 +324,7 @@ def plan_for(joint: DocumentObject) -> JointPlan:
     """Plan d'usinage de l'assemblage ``joint`` (``ValueError`` traduite s'il est impossible)."""
     with translated_errors():
         strategy, host, guest, params = _inputs(joint)
-        plan: JointPlan = strategy.plan(host, guest, params)
+        plan = cached_plan(strategy, host, guest, params)
     return plan
 
 

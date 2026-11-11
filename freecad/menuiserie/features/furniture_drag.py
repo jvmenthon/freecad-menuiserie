@@ -277,7 +277,7 @@ def _full_notices(memento: FurnitureMemento) -> list[Notice]:
 
 def _relink(memento: FurnitureMemento) -> list[Notice]:
     """Relie l'ensemble parent d'un sous-ensemble d'après sa géométrie nouvelle, après avoir recalé
-    ses cotes sur l'enveloppe de ses membres (ADR 0048) ; en cas d'erreur, le parent et l'ensemble
+    ses cotes sur l'enveloppe de ses membres (ADR 0049) ; en cas d'erreur, le parent et l'ensemble
     reviennent (:func:`restore`) et l'erreur est relancée."""
     parent = furniture_of(memento.furniture)
     if parent is None:

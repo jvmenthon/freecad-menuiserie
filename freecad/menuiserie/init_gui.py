@@ -66,6 +66,18 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
             ),
         ),
         (
+            QT_TRANSLATE_NOOP("Workbench", "Vue"),
+            ("Menuiserie_Structure",),  # panneau « Structure » (ADR 0046)
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Répétition"),
+            (
+                "Menuiserie_Repeat",  # (R-c)
+                "Menuiserie_RepeatEdit",
+                "Menuiserie_RepeatDissociate",
+            ),
+        ),
+        (
             QT_TRANSLATE_NOOP("Workbench", "Liste de débit"),
             (
                 "Menuiserie_CutList",  # (J2d, J2g)
@@ -100,6 +112,12 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
+        from freecad.menuiserie.gui.commands import structure  # panneau « Structure » (ADR 0046)
+
+        structure.register()
+        from freecad.menuiserie.gui.commands import repeat  # répétition de pièces (R-c)
+
+        repeat.register()
         # Un menu, thèmes séparés : FreeCAD déforme les accents du titre d'un sous-menu.
         menu: list[str] = []
         for theme, names in self.themes:
@@ -119,6 +137,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
             click_select.install()  # après le double-clic : Qt appelle le dernier posé d'abord
         finally:
             events.install()
+        from freecad.menuiserie.gui.structure_panel import open_by_default_later
+
+        open_by_default_later()  # panneau « Structure » ouvert par défaut (ADR 0046)
 
     def Deactivated(self) -> None:
         """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""

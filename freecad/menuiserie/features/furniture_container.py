@@ -45,6 +45,7 @@ __all__ = [
     "is_std_part",
     "is_workshop",
     "member_expressions",
+    "outer_container",
     "own_std_part",
     "placement_container",
     "position_of",
@@ -145,13 +146,18 @@ def position_of(furniture: DocumentObject) -> Vec3:
     return Vec3(point.x, point.y, point.z)
 
 
+def outer_container(container: DocumentObject | None) -> DocumentObject | None:
+    """``container`` remonté au-delà des Std Parts d'ensemble (transparents) ; un Std Part de
+    l'utilisateur ou la racine (``None``) sont gardés."""
+    while carried_furniture(container) is not None:
+        container = container.getParentGeoFeatureGroup()  # type: ignore[union-attr]
+    return container
+
+
 def guide_container(part: DocumentObject) -> DocumentObject | None:
     """Conteneur dont les objets guident l'aimant de la pièce ``part`` : les Std Parts d'ensemble
     sont transparents, la pièce voit aussi ce qui entoure son ensemble (E6)."""
-    container = part.getParentGeoFeatureGroup()
-    while is_std_part(container) and any(is_furniture(obj) for obj in container.Group):
-        container = container.getParentGeoFeatureGroup()
-    return container
+    return outer_container(part.getParentGeoFeatureGroup())
 
 
 # --- Liaisons portées par le Std Part d'un sous-ensemble --------------------------------------

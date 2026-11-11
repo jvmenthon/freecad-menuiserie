@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Règles de sélection par ensemble dans la vue 3D (ADR 0047), sans FreeCAD.
+"""Règles de sélection par ensemble dans la vue 3D (ADR 0048), sans FreeCAD.
 
 Une *chaîne* est la liste des clés des éléments qui contiennent la pièce cliquée, de l'ensemble de
 plus haut niveau à la pièce elle-même (dernier élément). Une chaîne vide désigne un objet qui

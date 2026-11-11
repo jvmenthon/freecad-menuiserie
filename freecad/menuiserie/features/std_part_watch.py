@@ -31,6 +31,7 @@ from freecad.menuiserie.features.furniture_container import is_std_part
 from freecad.menuiserie.features.furniture_entry import positioned, write_placement
 from freecad.menuiserie.features.furniture_members import detach_members
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.repeat_links import detach_copies
 
 __all__ = ["std_part_deleted"]
 
@@ -61,6 +62,7 @@ def std_part_deleted(part: DocumentObject) -> list[str]:
     messages: list[str] = []
     turned = where.Rotation.Angle > _EPSILON
     for furniture in furnitures:
+        detach_copies(furniture)  # les copies citent ce Std Part (ADR 0044)
         if furniture_of(furniture) is not None:  # sous-ensemble : il quitte son parent
             detach_members([furniture])
         if turned:

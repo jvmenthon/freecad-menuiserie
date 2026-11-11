@@ -12,7 +12,7 @@ Chaque modification est visible aussitôt (:func:`recompute_preview`).
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import Any, Final, Protocol
 from weakref import WeakMethod
 
@@ -20,13 +20,19 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.core.display_layers import ORIGIN_LOOK
+from freecad.menuiserie.core.document_state import Snapshot, differs
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.document_snapshot import snapshot_of
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui.display_layers import DISPLAY, object_alive
+from freecad.menuiserie.gui.task_panels import active
 from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
+_TASK_VIEW: Final = "Gui::TaskView::TaskView"  # classe Qt de la vue des tâches (porte « OK »)
 EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 # Préfixe des types TechDraw : leurs pages ne sont pas recalculées par l'aperçu.
 _TECHDRAW: Final = "TechDraw::"
@@ -55,11 +61,24 @@ class TransactionTaskPanel:
         self.creating = creating
         self.form: Widget = None
         self._closed = False
+        self._widgets_gone = False  # formulaire en cours de destruction
         self._edited_name: str | None = None
         self._document_name: str = doc.Name
         self._transaction = App.getActiveTransaction()
         self._watcher = watcher
         self._edit_transparency: PartsPreview | None = None
+        self._tinted: PartsPreview | None = None
+        self._initial: Snapshot | None = None
+
+    def has_changes(self) -> bool:
+        """Vrai si le document a changé depuis l'ouverture du panneau (photo des propriétés
+        saisies comparée à l'état actuel : lecture seule, la transaction n'est pas touchée)."""
+        return self._initial is not None and differs(self._initial, snapshot_of(self.doc))
+
+    def _unchanged(self) -> bool:
+        """Vrai pour une modification que rien n'a changée : seul l'affichage retiré de la
+        transaction y est écrit, la valider laisserait une entrée d'annulation vide."""
+        return not self.creating and self._initial is not None and not self.has_changes()
 
     def transparent_objects(self) -> list[DocumentObject]:
         """Objets affichés en transparence tant que le panneau est ouvert (pièce en édition, ou
@@ -68,39 +87,79 @@ class TransactionTaskPanel:
         par FreeCAD)."""
         return []
 
-    def _apply_styles(self) -> None:
-        """Transparence posée sur :meth:`transparent_objects`. FreeCAD enregistre une propriété
-        du ViewObject modifiée dans la transaction ouverte : en modification, la transaction
-        encore vide est donc refermée (abandonnée) le temps de la pose, puis rouverte, afin que
-        « OK » sans changement ne laisse aucune entrée d'annulation. En création, la pose reste
-        dans la transaction de création."""
-        objects = self.transparent_objects()
+    def tinted_objects(self) -> list[DocumentObject]:
+        """Objets transparents et teints (``ORIGIN_LOOK``) tant que le panneau est ouvert, comme
+        :meth:`transparent_objects` ; aucun par défaut."""
+        return []
+
+    def sync_styles(self) -> None:
+        """Objets transparents ou teints relus après un aperçu (pièce apparue ou supprimée)."""
+        for preview in (self._edit_transparency, self._tinted):
+            if preview is not None:
+                preview.sync()
+
+    def reapply_styles(self) -> None:
+        """Transparence et teinte reposées après l'abandon de la transaction du panneau (qui les
+        rétablit quand elles ont été posées dans cette transaction)."""
+        for preview in (self._edit_transparency, self._tinted):
+            if preview is not None:
+                preview.reapply()
+
+    @contextmanager
+    def _without_transaction(self) -> Iterator[None]:
+        """Contexte où une propriété du ViewObject s'écrit sans entrée d'annulation : FreeCAD
+        l'enregistre dans la transaction ouverte, donc celle d'une modification, encore vide
+        puisque le panneau vient de s'ouvrir, est refermée (abandonnée) le temps de la pose puis
+        rouverte : « OK » sans changement ne laisse aucune entrée d'annulation. Seulement à
+        l'ouverture : plus tard, rien ne dit que la transaction est vide, et l'abandonner
+        défairait les modifications. En création, la pose reste dans la transaction de création."""
         transaction = self._transaction
         reopen = (
             not self.creating
-            and objects
             and transaction is not None
             and App.getActiveTransaction() == transaction
         )
         if reopen:
             App.closeActiveTransaction(True, transaction[1])
         try:
-            self._edit_transparency = PartsPreview(self.transparent_objects, object_alive)
+            yield
         finally:
             if reopen:
                 self.doc.openTransaction(transaction[0])
                 self._transaction = App.getActiveTransaction()
 
+    def _apply_styles(self) -> None:
+        """Transparence d'édition posée sur :meth:`transparent_objects` (calque « édition », partagé
+        avec la sélection de ligne) et teinte sur :meth:`tinted_objects` (calque « origine »),
+        hors transaction (:meth:`_without_transaction`)."""
+        objects = self.transparent_objects() + self.tinted_objects()
+        context = self._without_transaction() if objects else nullcontext()
+        with context:
+            self._edit_transparency = PartsPreview(self.transparent_objects, object_alive, DISPLAY)
+            self._tinted = PartsPreview(self.tinted_objects, object_alive, DISPLAY, ORIGIN_LOOK)
+
     def _restore_styles(self) -> None:
         """Transparence d'origine rétablie (idempotent, sans effet sur un objet supprimé)."""
-        transparency, self._edit_transparency = self._edit_transparency, None
-        if transparency is not None:
-            transparency.restore()
+        previews = (self._edit_transparency, self._tinted)
+        self._edit_transparency = self._tinted = None
+        for preview in previews:
+            if preview is not None:
+                preview.restore()
 
     @property
     def closed(self) -> bool:
-        """Vrai une fois le panneau fermé (« OK », « Annuler » ou fermeture par FreeCAD)."""
-        return self._closed
+        """Vrai une fois le panneau fermé (« OK », « Annuler » ou fermeture par FreeCAD), ou dès
+        qu'un widget suivi par :meth:`watch_widgets` est détruit."""
+        return self._closed or self._widgets_gone
+
+    def watch_widgets(self, *widgets: Widget) -> None:
+        """Le panneau se tient pour fermé dès que l'un de ``widgets`` est détruit : un signal émis
+        pendant la destruction du formulaire (champ qui perd le focus) ne touche plus à rien."""
+        for widget in widgets:
+            connect(widget, "destroyed()", self._widget_destroyed)
+
+    def _widget_destroyed(self) -> None:
+        self._widgets_gone = True
 
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation."""
@@ -140,6 +199,8 @@ class TransactionTaskPanel:
         connect(self.form, "destroyed()", self._on_closed_by_freecad)
         if self._watcher is not None:
             App.addDocumentObserver(self._watcher)
+        self._initial = snapshot_of(self.doc)
+        active.register(self)
         self._apply_styles()  # en dernier : le panneau est affiché, plus rien ne peut échouer
 
     # --- Fermeture ------------------------------------------------------------------------
@@ -147,14 +208,20 @@ class TransactionTaskPanel:
     def _finish(self, *, abort: bool) -> None:
         """Solde la transaction du panneau, sans entrée parasite, puis ferme le panneau."""
         self._closed = True
+        active.unregister(self)
         self._stop_watching()
         self._remove_watcher()
         if self.creating:
             self._restore_styles()  # dans la transaction de création : rien d'enregistré en plus
         self._release_display()
+        withdrawn = (
+            DISPLAY.withdraw()
+        )  # sélection de ligne retirée de la transaction avant son solde
+        abort = abort or (withdrawn and self._unchanged())
         close_transaction(self._transaction, abort=abort)
         self._restore_styles()  # modification : transaction close, aucune entrée d'annulation
-        _close(self.doc)
+        _close(self.doc)  # le recalcul peut rétablir la couleur des pièces usinées
+        DISPLAY.flush()  # transaction close : sélection de ligne reposée en dernier
 
     def _on_closed_by_freecad(self) -> None:
         """Formulaire détruit sans « OK » ni « Annuler » (document fermé, objet supprimé,
@@ -162,6 +229,7 @@ class TransactionTaskPanel:
         if self._closed:
             return
         self._closed = True
+        active.unregister(self)
         self._stop_watching()
         if self.creating:
             self._restore_styles()
@@ -177,8 +245,10 @@ class TransactionTaskPanel:
         alive = name in App.listDocuments()
         if alive and not self.creating:
             App.getDocument(name).recompute()
+        DISPLAY.withdraw()
         close_transaction(self._transaction, abort=self.creating)
         self._restore_styles()  # après la transaction : aucune entrée d'annulation
+        DISPLAY.flush()
         if not alive:
             return
         gui_doc = Gui.getDocument(name)
@@ -208,18 +278,22 @@ class ObjectTaskPanel(TransactionTaskPanel):
     def preview(self) -> None:
         """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""
         recompute_preview(self.obj)
-        if self._edit_transparency is not None:
-            self._edit_transparency.sync()  # une pièce usinée a pu apparaître au recalcul
+        self.sync_styles()  # une pièce usinée a pu apparaître au recalcul
 
 
-def object_alive(obj: DocumentObject) -> bool:
-    """Vrai si ``obj`` existe encore dans un document ouvert (faux pour un objet supprimé ou
-    dont le document est fermé)."""
-    try:
-        doc = obj.Document
-        return doc.Name in App.listDocuments() and doc.getObject(obj.Name) == obj
-    except (ReferenceError, RuntimeError, TypeError):
-        return False
+def set_ok_enabled(form: Widget, enabled: bool) -> None:
+    """Grise ou rétablit le bouton « OK » de la vue des tâches qui affiche ``form`` ; sans effet
+    hors affichage. La classe de la vue est comparée en entier : ``Gui::TaskView::TaskBox`` et
+    ``TaskPanel``, ancêtres du formulaire, portent aussi « TaskView » dans leur nom. Le bouton
+    n'est jamais rendu : son enveloppe Python ne survivrait pas à celle de sa boîte."""
+    view = form.parentWidget() if form is not None else None
+    while view is not None and view.metaObject().className() != _TASK_VIEW:
+        view = view.parentWidget()
+    for box in view.findChildren(QtGui.QDialogButtonBox) if view is not None else []:
+        button = box.button(QtGui.QDialogButtonBox.Ok)
+        if button is not None:
+            button.setEnabled(enabled)
+            return
 
 
 def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None) -> None:

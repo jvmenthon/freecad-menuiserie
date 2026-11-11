@@ -24,7 +24,7 @@ __all__ = ["corners_of", "enclosing"]
 def corners_of(obj: DocumentObject) -> list[Vec3]:
     """Sommets de la boîte d'un membre dans le repère de son conteneur."""
     if is_furniture(obj):
-        # Sous-ensemble : sa boîte tournée avec son Std Part (ADR 0048), pas seulement son coin.
+        # Sous-ensemble : sa boîte tournée avec son Std Part (ADR 0049), pas seulement son coin.
         low = origin_of(obj)
         high = low + Vec3(obj.Width.Value, obj.Depth.Value, obj.Height.Value)
         part = std_part_of(obj)

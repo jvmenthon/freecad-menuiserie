@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Cotes d'un ensemble recalées sur l'enveloppe de ses membres (ADR 0048).
+"""Cotes d'un ensemble recalées sur l'enveloppe de ses membres (ADR 0049).
 
 Après un déplacement ou une rotation d'un sous-ensemble, les cotes de l'ensemble parent
 deviennent la boîte qui enveloppe ses membres (pièces et sous-ensembles, rotation comprise). Rien

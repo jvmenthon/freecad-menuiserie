@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Chaîne d'ensembles qui contiennent un objet, pour la sélection dans la vue 3D (ADR 0047)."""
+"""Chaîne d'ensembles qui contiennent un objet, pour la sélection dans la vue 3D (ADR 0048)."""
 
 from __future__ import annotations
 

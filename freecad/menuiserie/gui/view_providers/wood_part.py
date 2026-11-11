@@ -5,8 +5,10 @@ double-clic. :class:`MaterialViewProvider` porte ce qui est commun avec la pièc
 
 Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe et la propriété
 de vue ``MaterialColor`` sont écrits dans les documents (``GuiDocument.xml``) ; ils ne changent
-jamais. Le ViewProvider est le seul à écrire la couleur diffuse de ``ShapeAppearance`` : le
-blanc de base quand la texture est affichée, sinon ``MaterialColor``. La texture n'est jamais
+jamais. Le ViewProvider écrit la couleur diffuse de ``ShapeAppearance`` : le blanc de base quand
+la texture est affichée, sinon ``MaterialColor`` ; seule exception, l'affichage temporaire du
+panneau « Structure » (``gui/display_layers``, teinte de sélection rendue avant tout
+enregistrement). La texture n'est jamais
 enregistrée : elle est recalculée depuis la bibliothèque locale. Le panneau de tâche est importé
 à l'édition seulement (il importe ce module).
 """
@@ -20,7 +22,10 @@ import FreeCADGui as Gui
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import HIDDEN, DocumentObject, StatelessProxy
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import get_library
+from freecad.menuiserie.features.machined_part import is_machined_part
+from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.gui.part_appearance import (
     FALLBACK_DIFFUSE,
     MATERIAL_COLOR,
@@ -35,6 +40,7 @@ Color = tuple[float, ...]
 ICON: Final = "Menuiserie_WoodPart.svg"
 # Propriétés de la pièce dont dépend l'apparence (la projection ne dépend pas des cotes).
 _APPEARANCE_PROPERTIES: Final = frozenset({"MaterialId", "GrainDirection"})
+_EDIT_REPEAT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
 _MATERIAL_COLOR_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property",
     "Couleur du matériau, enregistrée au choix du matériau ; affichée quand aucune texture ne "
@@ -48,8 +54,23 @@ class PanelEditing(StatelessProxy):
     :meth:`open_panel`. FreeCAD n'enregistre que le chemin de la classe concrète."""
 
     def setEdit(self, vobj: ViewObject, mode: int) -> bool | None:
-        """Mode 0 : panneau de tâche (:meth:`open_panel`) ; les autres modes restent à FreeCAD."""
-        return None if mode != 0 else self.open_panel(vobj)
+        """Mode 0 : panneau de tâche (:meth:`open_panel`), ou, pour une copie liée à une
+        répétition, panneau « Modifier la répétition » (spécification § 2) ; les autres modes
+        restent à FreeCAD."""
+        if mode != 0:
+            return None
+        repeat = _repeat_of_copy(vobj.Object)
+        if repeat is None:
+            return self.open_panel(vobj)
+        from freecad.menuiserie.gui.task_panels.repeat import start_editing
+
+        return start_editing(repeat, vobj.Object)
+
+    def setupContextMenu(self, vobj: ViewObject, menu: Any) -> None:
+        """Menu contextuel d'une copie liée : « Modifier la répétition » en plus."""
+        if _repeat_of_copy(vobj.Object) is not None:
+            action = menu.addAction(translated(_EDIT_REPEAT))
+            action.triggered.connect(lambda *_: Gui.runCommand("Menuiserie_RepeatEdit"))
 
     def unsetEdit(self, vobj: ViewObject, mode: int) -> bool | None:
         """Fin du mode 0 : le panneau est fermé."""
@@ -137,6 +158,13 @@ class ViewProviderWoodPart(MaterialViewProvider):
         from freecad.menuiserie.gui.task_panels.wood_part import start_editing
 
         return start_editing(vobj.Object)
+
+
+def _repeat_of_copy(obj: DocumentObject) -> DocumentObject | None:
+    """Répétition dont ``obj`` est une copie liée (ou dont la brute de la pièce usinée ``obj``
+    est une copie), ``None`` sinon."""
+    blank = obj.Base if is_machined_part(obj) else obj
+    return blank.Repeat if is_copy(blank) else None
 
 
 def end_panel_edit(mode: int) -> bool | None:

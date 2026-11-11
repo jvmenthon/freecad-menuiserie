@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Règles de sélection par ensemble dans la vue 3D (ADR 0047)."""
+"""Règles de sélection par ensemble dans la vue 3D (ADR 0048)."""
 
 from __future__ import annotations
 

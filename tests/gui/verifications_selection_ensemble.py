@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Vérifications d'interface de la sélection par ensemble dans la vue 3D (ADR 0047) : clic simple
+"""Vérifications d'interface de la sélection par ensemble dans la vue 3D (ADR 0048) : clic simple
 (ensemble de plus haut niveau), double-clic (descente jusqu'à la pièce) et double-clic dans le
 vide (remontée). Les évènements de souris ne sont pas envoyés (FreeCAD plante hors écran) : les
 fonctions du filtre sont appelées avec le point écran de la pièce. Module importé par

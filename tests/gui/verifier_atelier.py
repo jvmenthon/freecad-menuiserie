@@ -60,14 +60,27 @@ from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_E
 from tests.gui.verifications_piece_en_bois_limites import VERIFICATIONS_PIECE_EN_BOIS_LIMITES
 from tests.gui.verifications_pieces_proches import VERIFICATIONS_PIECES_PROCHES
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
+from tests.gui.verifications_repetition import VERIFICATIONS_REPETITION
+from tests.gui.verifications_repetition_butee import VERIFICATIONS_REPETITION_BUTEE
+from tests.gui.verifications_repetition_depart import VERIFICATIONS_REPETITION_DEPART
+from tests.gui.verifications_repetition_grille import VERIFICATIONS_REPETITION_GRILLE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
 from tests.gui.verifications_selection_ensemble import VERIFICATIONS_SELECTION_ENSEMBLE
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
+from tests.gui.verifications_souris_copie import VERIFICATIONS_SOURIS_COPIE
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
 from tests.gui.verifications_souris_ensemble import VERIFICATIONS_SOURIS_ENSEMBLE
 from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
 from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATION
+from tests.gui.verifications_structure import VERIFICATIONS_STRUCTURE
+from tests.gui.verifications_structure_deux_calques import VERIFICATIONS_STRUCTURE_DEUX_CALQUES
+from tests.gui.verifications_structure_lot3 import VERIFICATIONS_STRUCTURE_LOT3
+from tests.gui.verifications_structure_lot4 import VERIFICATIONS_STRUCTURE_LOT4
+from tests.gui.verifications_structure_repetition import VERIFICATIONS_STRUCTURE_REPETITION
+from tests.gui.verifications_structure_selection import VERIFICATIONS_STRUCTURE_SELECTION
+from tests.gui.verifications_structure_souris import VERIFICATIONS_STRUCTURE_SOURIS
+from tests.gui.verifications_structure_tache import VERIFICATIONS_STRUCTURE_TACHE
 from tests.gui.verifications_transparence_assemblage import VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE
 from tests.gui.verifications_usinage_deplacement import VERIFICATIONS_USINAGE_DEPLACEMENT
 
@@ -1271,6 +1284,15 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
     *VERIFICATIONS_SELECTION_ENSEMBLE,
+    # Panneau « Structure » (ADR 0046, lot 2)
+    *VERIFICATIONS_STRUCTURE,
+    *VERIFICATIONS_STRUCTURE_LOT3,
+    *VERIFICATIONS_STRUCTURE_LOT4,
+    *VERIFICATIONS_STRUCTURE_REPETITION,
+    *VERIFICATIONS_STRUCTURE_SELECTION,
+    *VERIFICATIONS_STRUCTURE_DEUX_CALQUES,
+    *VERIFICATIONS_STRUCTURE_TACHE,
+    *VERIFICATIONS_STRUCTURE_SOURIS,
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,
@@ -1291,6 +1313,14 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_SOURIS_PIECE_EN_BOIS,
     # Pièce en bois dans un ensemble (PD-f)
     *VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE,
+    # Répétition de pièces (R-c)
+    *VERIFICATIONS_REPETITION,
+    # Répétition en grille X x Y x Z (ADR 0045)
+    *VERIFICATIONS_REPETITION_GRILLE,
+    *VERIFICATIONS_REPETITION_BUTEE,
+    *VERIFICATIONS_REPETITION_DEPART,
+    # Copie par glissement (R-d)
+    *VERIFICATIONS_SOURIS_COPIE,
 )
 
 

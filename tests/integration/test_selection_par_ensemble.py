@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Chaîne d'ensembles d'une pièce pour la sélection dans la vue 3D (ADR 0047) : non-régression."""
+"""Chaîne d'ensembles d'une pièce pour la sélection dans la vue 3D (ADR 0048) : non-régression."""
 
 from __future__ import annotations
 
@@ -149,7 +149,7 @@ def test_chaine_sans_cycle_ni_doublon(document: Any) -> None:
     assert rules.up_target(names(chain.chain_of(furniture))) is None
 
 
-# --- ADR 0048 : cotes du parent recalées sur l'enveloppe de ses membres ------------------------
+# --- ADR 0049 : cotes du parent recalées sur l'enveloppe de ses membres ------------------------
 
 drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
 envelope = pytest.importorskip("freecad.menuiserie.features.furniture_envelope")
