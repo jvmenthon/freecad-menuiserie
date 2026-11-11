@@ -13,6 +13,7 @@ seul Ctrl+Z. Rien ne se fait si la décision est un refus. Le panneau se redessi
   fenêtres et avertissements que l'arbre natif (``onDelete`` de l'ensemble, fenêtre « assemblage
   lié » de la pièce usinée) et la transaction de FreeCAD ;
 - ouvrir : le signal de double-clic de l'arbre, donc le même chemin.
+- dissocier la copie : `api.dissociate`, comme la commande de la répétition.
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.structure_facts import facts_of
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.furniture import refresh_tree, show_notices
@@ -57,6 +59,7 @@ _MOVE_OUT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Sortir de l'ensemble")
 _CREATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Créer un ensemble")
 _CREATE_SUB: Final = QT_TRANSLATE_NOOP("Menuiserie", "Créer un sous-ensemble")
 _RENAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "Renommer")
+_DISSOCIATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
 _RENAME_PROMPT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Nouveau nom :")
 
 Handler = Callable[[MenuEntry], None]
@@ -151,6 +154,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
             Action.RENAME: self._rename,
             Action.MOVE_INTO: self._move_into,
             Action.LEAVE: self._leave,
+            Action.DISSOCIATE: self._dissociate,
             Action.CREATE: self._create,
             Action.DELETE: self._delete,
         }
@@ -279,7 +283,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         key = entry.decision.keys[0]
         if doc is None or facts is None or doc.getObject(key) is None:
             return
-        old = facts.labels[key]
+        old = facts.plain_label(key)
         text, accepted = QtGui.QInputDialog.getText(
             self._tree,
             translated(_RENAME),
@@ -296,6 +300,22 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
             report_refusal(decision_text(decision))
             return
         run_in_transaction(doc, _RENAME, partial(_rename, doc.getObject(key), text))
+
+    def _dissociate(self, entry: MenuEntry) -> None:
+        """Copies dissociées comme la commande « Dissocier la copie » : elles gardent leurs valeurs
+        et deviennent libres, en une seule transaction (refus de l'api : rien ne change)."""
+        doc = App.ActiveDocument
+        if doc is None:
+            return
+        copies = [obj for obj in _objects(doc, entry.decision.keys) if is_copy(obj)]
+
+        def action() -> Sequence[str]:
+            for copy in copies:
+                if is_copy(copy):  # un ensemble copie dissocié a déjà dissocié ses membres
+                    api.dissociate(copy, transaction=False)
+            return ()
+
+        run_in_transaction(doc, _DISSOCIATE, action)
 
     def _create(self, entry: MenuEntry) -> None:
         """Nouvel ensemble (ou sous-ensemble) autour de la sélection, comme la commande de l'ADR

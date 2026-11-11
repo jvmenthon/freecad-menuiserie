@@ -129,6 +129,9 @@ class StructureExtras(Protocol):
     def all_copies(self) -> Collection[str]:
         """Copies de toutes les répétitions : elles ne sont montrées que sous leur répétition."""
 
+    def furniture_copies(self) -> Collection[str]:
+        """Copies de répétition qui sont des ensembles : leur ligne montre leur contenu."""
+
     def cut_lists(self) -> Sequence[str]:
         """Listes de débit (le tableur n'en fait pas partie)."""
 
@@ -265,15 +268,21 @@ class _Builder:
             return []
         nodes = []
         for key in self._extras.repetitions(container):
-            copies = tuple(
-                StructureNode(NodeKind.COPY, self._source.label(copy), copy)
-                for copy in self._extras.copies(key)
-            )
+            copies = tuple(self._copy(copy) for copy in self._extras.copies(key))
             label = self._titles.repeat(self._source.label(key), len(copies))
             nodes.append(
                 StructureNode(NodeKind.REPEAT, label, key, children=copies, expanded=False)
             )
         return nodes
+
+    def _copy(self, key: str) -> StructureNode:
+        """Ligne d'une copie : une pièce, ou un ensemble copie dont la ligne porte le contenu
+        (sans son Std Part), replié."""
+        label = self._source.label(key)
+        if self._extras is None or key not in self._extras.furniture_copies():
+            return StructureNode(NodeKind.COPY, label, key)
+        content = self._furniture(key).children
+        return StructureNode(NodeKind.COPY, label, key, children=content, expanded=False)
 
     def _cut_lists(self) -> list[StructureNode]:
         if self._extras is None:

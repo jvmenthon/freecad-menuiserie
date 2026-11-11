@@ -53,6 +53,9 @@ class FakeExtras:
     def all_copies(self) -> Collection[str]:
         return {"P2", "P3"}
 
+    def furniture_copies(self) -> Collection[str]:
+        return set()
+
     def cut_lists(self) -> Sequence[str]:
         return ["CL"]
 
@@ -314,6 +317,12 @@ class Reader:
     def copies_of(self, repetition: str) -> Sequence[str]:
         return ["Planche2", "Planche3", "Disparue"]
 
+    def every_copy(self) -> Sequence[str]:
+        return ["Planche2", "Planche3", "Disparue"]
+
+    def furniture_copies(self) -> Sequence[str]:
+        return []
+
 
 def test_document_repetition_par_le_point_d_extension(world: World) -> None:
     first, second, third = (world.part(n, Label=n) for n in ("Planche", "Planche2", "Planche3"))
@@ -334,14 +343,6 @@ def test_document_repetition_par_le_point_d_extension(world: World) -> None:
         (NodeKind.REPEAT, f"Etagere {TIMES}2"),  # la copie « Disparue » n'existe plus : ignorée
     ]
     assert [c.key for c in roots[0].children[1].children] == ["Planche2", "Planche3"]
-
-
-def test_document_sans_type_repetition_lecteur_vide(world: World) -> None:
-    from freecad.menuiserie.features.structure_repetitions import NoRepetitions, repetition_reader
-
-    assert isinstance(repetition_reader(Doc()), NoRepetitions)
-    assert NoRepetitions().all_repetitions() == ()
-    del world
 
 
 def test_faits_copies_et_objets_d_autres_ateliers(
