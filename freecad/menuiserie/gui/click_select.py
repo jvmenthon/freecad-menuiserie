@@ -76,6 +76,17 @@ def _label(obj: DocumentObject | None) -> str:
     return "rien" if obj is None else f"{obj.Name} ({obj.Label})"
 
 
+def alive(obj: DocumentObject | None) -> DocumentObject | None:
+    """``obj`` s'il existe encore, ``None`` s'il a été supprimé (FreeCAD lève alors
+    ``ReferenceError`` ou ``RuntimeError`` au premier accès)."""
+    if obj is None:
+        return None
+    try:
+        return obj if obj.Name and obj.Document is not None else None
+    except (ReferenceError, RuntimeError):
+        return None
+
+
 def _names(chain: list[DocumentObject]) -> list[str]:
     return [item.Name for item in chain]
 
@@ -87,14 +98,16 @@ def _by_name(chain: list[DocumentObject], name: str | None) -> DocumentObject | 
 def retarget_click(picked: DocumentObject, before: DocumentObject | None) -> None:
     """Après le clic simple sur ``picked`` (``before`` : sélection d'avant le clic) : l'élément de
     la chaîne voulu remplace la sélection native, sauf si c'est la pièce, déjà sélectionnée."""
+    before = alive(before)
     chain = chain_of(picked)
     name = click_target(_names(chain), None if before is None else before.Name)
     target = _by_name(chain, name)
+    native = [getattr(alive(o), "Name", "?") for o in Gui.Selection.getSelection()]
     _trace(
         f"clic sur {_label(picked)}, avant {_label(before)}, chaîne {_names(chain)}, "
-        f"sélection native {[o.Name for o in Gui.Selection.getSelection()]}, choix {name}"
+        f"sélection native {native}, choix {name}"
     )
-    if target is not None and target is not chain[-1]:
+    if target is not None and target.Name != chain[-1].Name:
         select(target)
 
 
@@ -104,7 +117,7 @@ def descend_at(view: View, point: tuple[int, int], before: DocumentObject | None
     panneau s'ouvre ailleurs), si l'objet n'est pas membre d'un ensemble ou si rien ne change.
     ``before`` : sélection d'avant le premier clic, repli dans le vide (FreeCAD la vide)."""
     picked = picked_object(view, point)
-    current = selected_object() or before
+    current = selected_object() or alive(before)
     _trace(f"double-clic sur {_label(picked)}, sélection {_label(current)}")
     if picked is None:
         chain = [] if current is None else chain_of(current)
@@ -119,7 +132,7 @@ def descend_at(view: View, point: tuple[int, int], before: DocumentObject | None
     _trace(f"double-clic : chaîne {_names(chain)}, choix {name}")
     if target is None:
         return False
-    if target is chain[-1]:
+    if target.Name == chain[-1].Name:
         target = picked  # la pièce visible (usinée), comme la sélection native
     select(target)
     return True
@@ -216,7 +229,7 @@ def _retarget_later(picked: DocumentObject, before: DocumentObject | None) -> No
     """Après la sélection native du clic ; sans effet si un panneau s'est ouvert entre-temps ou
     si l'objet a été supprimé."""
     try:
-        if not Gui.Control.activeDialog() and picked.Document is not None:
+        if installed() and not Gui.Control.activeDialog() and alive(picked) is not None:
             retarget_click(picked, before)
     except Exception:  # pylint: disable=broad-exception-caught
         App.Console.PrintError(traceback.format_exc())

@@ -152,7 +152,10 @@ class World:
             callback()
 
     def filter(self) -> Any:
-        return self.module._ClickFilter()  # pylint: disable=protected-access
+        """Filtre neuf, tenu pour posé (atelier actif) comme après ``install``."""
+        created = self.module._ClickFilter()  # pylint: disable=protected-access
+        self.module._INSTALLATION.filter = created  # pylint: disable=protected-access
+        return created
 
     def view(self) -> Any:
         world = self
@@ -236,7 +239,9 @@ def simulated_click_select(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
     )
 
     def chain_of(obj: Obj) -> list[Obj]:
-        return [world.doc.objects[n] for n in world.chains.get(obj.Name, [])]
+        # Un membre supprimé quitte la chaîne, comme le lien « Furniture » remis à zéro.
+        names = world.chains.get(obj.Name, [])
+        return [world.doc.objects[n] for n in names if n in world.doc.objects]
 
     class Installation:
         def __init__(self, factory: Any) -> None:

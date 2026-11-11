@@ -114,9 +114,11 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui import click_select, double_click
         from freecad.menuiserie.gui.drag import events
 
-        double_click.install()
-        click_select.install()  # après le double-clic : Qt appelle le dernier posé d'abord
-        events.install()
+        try:
+            double_click.install()
+            click_select.install()  # après le double-clic : Qt appelle le dernier posé d'abord
+        finally:
+            events.install()
 
     def Deactivated(self) -> None:
         """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""

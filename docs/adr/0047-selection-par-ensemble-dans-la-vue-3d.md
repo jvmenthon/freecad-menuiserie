@@ -48,3 +48,9 @@ commun. Aucun fichier du panneau n'est modifié ; les fichiers touchés ici sont
 - La sélection faite par un clic 3D n'est plus toujours la pièce touchée : les commandes qui
   attendent des pièces (Assemblage…) se font au Ctrl+clic ou par l'arbre.
 - Une pièce libre (sans ensemble) se sélectionne comme avant.
+- Le clic simple sur une pièce d'un ensemble ne garde pas la face ou l'arête touchée : les
+  commandes qui en ont besoin (mesure, congé, accrochage sur une face) se font au Ctrl+clic, qui
+  reste natif.
+- Le relâchement du bouton qui suit un double-clic consommé est consommé aussi : sinon FreeCAD le
+  traite comme un clic sur la pièce déjà sélectionnée et sélectionne son Std Part (constaté par jv
+  le 2026-11-11, vérification GUI de non-régression).

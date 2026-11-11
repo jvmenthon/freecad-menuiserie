@@ -39,7 +39,7 @@ def chain_of(obj: DocumentObject) -> list[DocumentObject]:
         return []
     parents: list[DocumentObject] = []
     current = piece
-    while (parent := furniture_of(current)) is not None and parent not in parents:
+    while (parent := furniture_of(current)) is not None and parent not in [piece, *parents]:
         parents.append(parent)
         current = parent
     return [*reversed(parents), piece] if parents else []
