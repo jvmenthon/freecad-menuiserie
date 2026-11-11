@@ -185,24 +185,11 @@ class CarcassTaskPanel(TransactionTaskPanel):
         (paramètres refusés), le panneau reste ouvert."""
         if self.furniture is None:
             return False
-        furniture = self.furniture
         accepted = super().accept()
-        # Panneau refermé par FreeCAD après ce retour : l'ensemble est sélectionné ensuite, ce qui
-        # affiche ses flèches, anneaux et poignées dans la vue 3D (ADR 0038).
-        QtCore.QTimer.singleShot(0, partial(_select_created, self.doc.Name, furniture.Name))
+        # Panneau refermé par FreeCAD après ce retour : rien ne reste sélectionné, donc ni flèches
+        # ni poignées dans la vue 3D.
+        QtCore.QTimer.singleShot(0, Gui.Selection.clearSelection)
         return accepted
-
-
-def _select_created(document: str, name: str) -> None:
-    """Sélectionne l'ensemble créé (seul), s'il existe encore et si aucun panneau n'est ouvert."""
-    if document not in App.listDocuments() or Gui.Control.activeDialog():
-        return
-    doc = App.getDocument(document)
-    obj = doc.getObject(name)
-    if obj is None:
-        return
-    Gui.Selection.clearSelection()
-    Gui.Selection.addSelection(doc.Name, obj.Name)
 
 
 def _length_field(

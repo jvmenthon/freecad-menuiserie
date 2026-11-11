@@ -108,9 +108,9 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
     problemes += [
         *ecarts("panneau fermé", formulaire() is None, True),
         *ecarts(
-            "ensemble créé sélectionné (flèches, ADR 0038)",
+            "rien de sélectionné après « OK » (plus de poignées)",
             [o.Name for o in Gui.Selection.getSelection()],
-            ["Furniture"],
+            [],
         ),
         *ecarts("entrées", doc.UndoNames, ["Créer un caisson"]),
         *ecarts("gabarit", doc.getObject("Furniture").Template, "Carcass"),
