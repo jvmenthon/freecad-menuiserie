@@ -35,7 +35,11 @@ descendre niveau par niveau jusqu'à la pièce.
    puis remplace la sélection native une fois FreeCAD passé ; le double-clic reste dans le filtre
    de l'ADR 0018. Le double-clic dans le vide se souvient de la sélection d'avant le premier clic
    (FreeCAD la vide).
-4. Rien n'est écrit dans le document.
+4. Un observateur de sélection (posé avec le filtre) applique la même règle à une sélection native
+   faite dans la vue 3D (point cliqué non nul, sans Ctrl ni Maj) : il rattrape les clics que le
+   filtre ne voit pas, comme le premier clic après la création d'un ensemble (constaté par jv le
+   2026-11-11). Les sélections par l'arbre ou par script n'ont pas de point et sont ignorées.
+5. Rien n'est écrit dans le document.
 
 ## Coordination avec le panneau « Structure » (ADR 0046)
 

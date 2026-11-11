@@ -7,6 +7,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Sélection par ensemble dans la vue 3D (ADR 0047) : un clic sur une pièce d'un ensemble
+  sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
+  un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le
+  panneau), un double-clic dans le vide remonte d'un niveau ; Ctrl+clic, Maj+clic, l'arbre et un
+  panneau de tâche ouvert gardent la sélection native. Filtre d'évènements et observateur de
+  sélection posés seulement pendant que l'atelier est actif.
+- Cotes du parent à l'enveloppe de ses membres (ADR 0048) : après un déplacement ou une rotation
+  d'un sous-ensemble, et dès la création d'un ensemble autour d'un ensemble tourné, la boîte de
+  l'ensemble de plus haut niveau englobe ses membres (rotation comprise), sans rien déplacer.
+
 - Ensemble à la souris, vue 3D et panneau (EN-c et EN-d, ADR 0038) : un ensemble sélectionné seul
   dans l'arbre (ou dont le panneau est ouvert) est dessiné en transparence avec six doubles flèches
   de face (taille, aimant de 10 px sur les voisines, cote et message de refus près de la souris,

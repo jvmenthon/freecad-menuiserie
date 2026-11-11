@@ -68,15 +68,6 @@ def select(obj: DocumentObject) -> None:
     Gui.Selection.addSelection(obj.Document.Name, groups[0].Name, path)
 
 
-def _trace(message: str) -> None:
-    """Trace dans la vue rapport (messages « journal », à activer dans ses options)."""
-    App.Console.PrintLog(f"Menuiserie, sélection 3D : {message}\n")
-
-
-def _label(obj: DocumentObject | None) -> str:
-    return "rien" if obj is None else f"{obj.Name} ({obj.Label})"
-
-
 def alive(obj: DocumentObject | None) -> DocumentObject | None:
     """``obj`` s'il existe encore, ``None`` s'il a été supprimé (FreeCAD lève alors
     ``ReferenceError`` ou ``RuntimeError`` au premier accès)."""
@@ -103,11 +94,6 @@ def retarget_click(picked: DocumentObject, before: DocumentObject | None) -> Non
     chain = chain_of(picked)
     name = click_target(_names(chain), None if before is None else before.Name)
     target = _by_name(chain, name)
-    native = [getattr(alive(o), "Name", "?") for o in Gui.Selection.getSelection()]
-    _trace(
-        f"clic sur {_label(picked)}, avant {_label(before)}, chaîne {_names(chain)}, "
-        f"sélection native {native}, choix {name}"
-    )
     if target is not None and target.Name != chain[-1].Name:
         select(target)
 
@@ -119,7 +105,6 @@ def descend_at(view: View, point: tuple[int, int], before: DocumentObject | None
     ``before`` : sélection d'avant le premier clic, repli dans le vide (FreeCAD la vide)."""
     picked = picked_object(view, point)
     current = selected_object() or alive(before)
-    _trace(f"double-clic sur {_label(picked)}, sélection {_label(current)}")
     if picked is None:
         chain = [] if current is None else chain_of(current)
         parent = _by_name(chain, up_target(_names(chain)))
@@ -130,7 +115,6 @@ def descend_at(view: View, point: tuple[int, int], before: DocumentObject | None
     chain = chain_of(picked)
     name = double_click_target(_names(chain), None if current is None else current.Name)
     target = _by_name(chain, name)
-    _trace(f"double-clic : chaîne {_names(chain)}, choix {name}")
     if target is None:
         return False
     if target.Name == chain[-1].Name:
@@ -177,8 +161,6 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
             self.swallow_release = False
             return True
         if Gui.Control.activeDialog():  # panneau de tâche ouvert : sélection native
-            if kind == QtCore.QEvent.MouseButtonPress:
-                _trace("appui ignoré : un panneau de tâche est ouvert")
             return False
         position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6/5
         point = view_point(watched, position.x(), position.y())
@@ -207,7 +189,6 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
         self.pressed_ms = QtCore.QDateTime.currentMSecsSinceEpoch()
         picked = picked_object(Gui.activeView(), point)
         handle = self._on_handle(point)
-        _trace(f"appui sur {_label(picked)}, avant {_label(self.before)}, poignée {handle}")
         if picked is not None and not handle:
             self._press = (QtCore.QPointF(position), picked, self.before)
 
