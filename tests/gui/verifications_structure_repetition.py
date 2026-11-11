@@ -24,7 +24,8 @@ from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.repeat import copies_of
 from freecad.menuiserie.gui.structure_sync import StructureSync
 from freecad.menuiserie.gui.structure_tree_widget import KIND_ROLE, item_for
-from tests.gui.verifications_panneau import annuler, ecarts
+from freecad.menuiserie.gui.task_panels.repeat import FORM_NAME
+from tests.gui.verifications_panneau import annuler, ecarts, formulaire_nomme
 from tests.gui.verifications_structure import avec_panneau, noms_selectionnes, traiter
 from tests.gui.verifications_structure_lot3 import actions_de, menu_de
 from tests.gui.verifications_structure_lot4 import genres_de, lignes_de
@@ -32,7 +33,6 @@ from tests.gui.verifications_structure_selection import SELECTION, choisir_ligne
 from tests.integration.bureau import Bureau
 
 TIMES = chr(0x00D7)  # signe de multiplication des lignes de répétition
-PANNEAU = "RepeatTaskPanel"
 
 
 def _planche_repetee(bureau: Bureau, synchro: StructureSync) -> tuple[Any, Any]:
@@ -133,9 +133,9 @@ def _double_clic(bureau: Bureau, _dock: Any, arbre: Any, synchro: StructureSync)
             continue
         arbre.itemDoubleClicked.emit(ligne, 0)
         traiter()
-        panneau = Gui.Control.activeTaskDialog() if Gui.Control.activeDialog() else None
-        problemes += ecarts(f"double-clic {cle}", type(panneau).__name__, PANNEAU)
-        if panneau is not None:
+        ouvert = formulaire_nomme(FORM_NAME) is not None
+        problemes += ecarts(f"double-clic {cle} : « Modifier la répétition »", ouvert, True)
+        if Gui.Control.activeDialog():
             annuler()
         traiter()
     return problemes
@@ -229,9 +229,9 @@ def _ensemble_repete(bureau: Bureau, _dock: Any, arbre: Any, synchro: StructureS
     choisir_lignes(arbre)
     arbre.itemDoubleClicked.emit(ligne, 0)
     traiter()
-    panneau = Gui.Control.activeTaskDialog() if Gui.Control.activeDialog() else None
-    problemes += ecarts("double-clic sur la copie d'ensemble", type(panneau).__name__, PANNEAU)
-    if panneau is not None:
+    ouvert = formulaire_nomme(FORM_NAME) is not None
+    problemes += ecarts("double-clic sur la copie d'ensemble", ouvert, True)
+    if Gui.Control.activeDialog():
         annuler()
     traiter()
     return problemes + ecarts("document sain", App.ActiveDocument is not None, True)
