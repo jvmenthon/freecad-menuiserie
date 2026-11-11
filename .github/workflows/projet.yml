@@ -36,7 +36,6 @@ concurrency:
 env:
   OWNER: jvmenthon
   PROJECT: "1"
-  GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
 
 jobs:
   projet:
@@ -44,6 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Vérifier le secret
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             echo "::error::Secret PROJECT_TOKEN absent (jeton personnel, scope project)."
@@ -52,6 +53,8 @@ jobs:
 
       - name: Lire le Project
         if: inputs.action == 'lire'
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
           echo "## Champs" >> "$GITHUB_STEP_SUMMARY"
           gh project field-list "$PROJECT" --owner "$OWNER" --format json \
@@ -65,6 +68,7 @@ jobs:
       - name: Modifier une carte
         if: inputs.action == 'modifier'
         env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           ISSUE: ${{ inputs.issue }}
           STATUT: ${{ inputs.statut }}
           PRIORITE: ${{ inputs.priorite }}
