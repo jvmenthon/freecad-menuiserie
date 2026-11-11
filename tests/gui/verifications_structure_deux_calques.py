@@ -189,12 +189,14 @@ def _tache_etrangere(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
     doc.openTransaction("Tâche étrangère")
     Gui.Control.showDialog(TacheEtrangere())
     choisir_lignes(arbre, piece.Name)
-    problemes = ecarts("tâche étrangère : rien de posé", etat(piece), origine)
+    problemes = [
+        *ecarts("tâche étrangère : rien de posé", etat(piece), origine),
+        *ecarts("tâche étrangère : demande mémorisée", len(DISPLAY.pending()), 1),
+    ]
     Gui.Control.closeDialog()
     doc.commitTransaction()
     traiter()
-    DISPLAY.flush()
-    traiter()
+    choisir_lignes(arbre, piece.Name)  # l'arbre rafraîchi a pu perdre la sélection
     problemes += ecarts("tâche étrangère finie : ligne choisie", etat(piece), SELECTION)
     choisir_lignes(arbre)
     return problemes + ecarts("désélection : origine", etat(piece), origine)
