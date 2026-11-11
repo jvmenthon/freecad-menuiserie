@@ -6,7 +6,8 @@ Les lignes que l'utilisateur choisit rendent leurs objets affichés transparents
 change : le calque est retiré à la désélection, quand la sélection du panneau n'est plus ce que
 l'utilisateur a choisi (sélection reprise de FreeCAD), quand le panneau est masqué ou détruit, et
 rend alors l'affichage d'origine (jamais enregistré dans le document). Pendant une tâche de
-l'atelier le calque est écrit dans la transaction puis retiré avant sa fin (``DisplayLayers.withdraw``).
+l'atelier le calque est écrit dans la transaction puis retiré avant sa fin
+(``DisplayLayers.withdraw``).
 """
 
 from __future__ import annotations
