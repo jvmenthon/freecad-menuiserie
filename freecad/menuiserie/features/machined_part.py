@@ -29,6 +29,7 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
+from freecad.menuiserie.features.machined_cache import cached_machined_shape, machining_key
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
@@ -41,7 +42,6 @@ from freecad.menuiserie.features.part_names import (
 )
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.shaped_part import is_timber
-from freecad.menuiserie.features.solids import machined_shape
 
 __all__ = [
     "MachinedPart",
@@ -229,12 +229,13 @@ class MachinedPart(SyncingProxy):
             with self._executing():
                 obj.Placement = blank.Placement
             return
-        shape = machined_shape(base, additions, cuts, trims)
+        key = machining_key(blank, additions, cuts, trims)
+        shape = cached_machined_shape(base, key, additions, cuts, trims)
         # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
         # sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
             obj.Placement = blank.Placement
-            obj.Shape = shape
+            obj.Shape = shape  # toujours : la vue 3D en tire la texture (``updateData``)
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)

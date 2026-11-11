@@ -15,17 +15,23 @@ from freecad.menuiserie.features.furniture import (
     has_member_properties,
     writing,
 )
-from freecad.menuiserie.features.furniture_bindings import remove_bindings
+from freecad.menuiserie.features.furniture_bindings import members_of, remove_bindings
 from freecad.menuiserie.features.furniture_checks import (
     NOT_IN_FURNITURE,
     member_object,
     quoted_label,
 )
-from freecad.menuiserie.features.furniture_entry import leave
+from freecad.menuiserie.features.furniture_entry import dissolve, leave
 from freecad.menuiserie.features.furniture_relink import relink_remaining
 from freecad.menuiserie.features.i18n import translated
 
-__all__ = ["NOT_IN_FURNITURE", "detach_members", "remove_members"]
+__all__ = [
+    "NOT_IN_FURNITURE",
+    "detach_members",
+    "release_furniture",
+    "release_repeat_links",
+    "remove_members",
+]
 
 
 def detach_members(
@@ -69,3 +75,25 @@ def remove_members(
     (ensemble supprimé) est accepté. Les pièces qui restent sont reliées sans elles. Renvoie les
     avertissements traduits (pièce assemblée à une pièce qui reste : elle garde son Std Part)."""
     return leave(detach_members(objects, keep_properties=keep_properties))
+
+
+def release_furniture(furniture: DocumentObject) -> list[str]:
+    """Suppression de ``furniture`` par l'interface (avant ``removeObject``) : ses copies de
+    répétition sont dissociées (ADR 0044 : leurs expressions citent son Std Part et ses pièces,
+    qui sans cela ne sortiraient pas), ses membres sortent du Std Part, qui est supprimé s'il est
+    vide (:func:`.furniture_entry.dissolve`). Renvoie les avertissements traduits."""
+    release_repeat_links(furniture)
+    members = members_of(furniture)
+    return [*(remove_members(members) if members else []), *dissolve(furniture)]
+
+
+def release_repeat_links(furniture: DocumentObject) -> None:
+    """Copies de répétition de ``furniture`` dissociées, et ses membres copiés libérés si c'est
+    une copie supprimée à la main ; rien n'est supprimé (sûr pendant la suppression d'un
+    groupe avec son contenu)."""
+    from freecad.menuiserie.features.repeat import is_copy
+    from freecad.menuiserie.features.repeat_links import detach_copies, unlink_inner_copies
+
+    detach_copies(furniture)
+    if is_copy(furniture):  # copie supprimée à la main : ses membres copiés deviennent libres
+        unlink_inner_copies(furniture)

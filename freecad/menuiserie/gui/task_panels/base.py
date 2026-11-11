@@ -20,6 +20,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.core.display_layers import ORIGIN_LOOK
 from freecad.menuiserie.core.document_state import Snapshot, differs
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.document_snapshot import snapshot_of
@@ -31,6 +32,7 @@ from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
 Widget = Any  # widgets Qt créés par FreeCAD, sans annotations de type
 
+_TASK_VIEW: Final = "Gui::TaskView::TaskView"  # classe Qt de la vue des tâches (porte « OK »)
 EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 # Préfixe des types TechDraw : leurs pages ne sont pas recalculées par l'aperçu.
 _TECHDRAW: Final = "TechDraw::"
@@ -59,11 +61,13 @@ class TransactionTaskPanel:
         self.creating = creating
         self.form: Widget = None
         self._closed = False
+        self._widgets_gone = False  # formulaire en cours de destruction
         self._edited_name: str | None = None
         self._document_name: str = doc.Name
         self._transaction = App.getActiveTransaction()
         self._watcher = watcher
         self._edit_transparency: PartsPreview | None = None
+        self._tinted: PartsPreview | None = None
         self._initial: Snapshot | None = None
 
     def has_changes(self) -> bool:
@@ -77,6 +81,24 @@ class TransactionTaskPanel:
         transparence d'origine est rétablie à toute fermeture (« OK », « Annuler » ou fermeture
         par FreeCAD)."""
         return []
+
+    def tinted_objects(self) -> list[DocumentObject]:
+        """Objets transparents et teints (``ORIGIN_LOOK``) tant que le panneau est ouvert, comme
+        :meth:`transparent_objects` ; aucun par défaut."""
+        return []
+
+    def sync_styles(self) -> None:
+        """Objets transparents ou teints relus après un aperçu (pièce apparue ou supprimée)."""
+        for preview in (self._edit_transparency, self._tinted):
+            if preview is not None:
+                preview.sync()
+
+    def reapply_styles(self) -> None:
+        """Transparence et teinte reposées après l'abandon de la transaction du panneau (qui les
+        rétablit quand elles ont été posées dans cette transaction)."""
+        for preview in (self._edit_transparency, self._tinted):
+            if preview is not None:
+                preview.reapply()
 
     @contextmanager
     def _without_transaction(self) -> Iterator[None]:
@@ -103,22 +125,36 @@ class TransactionTaskPanel:
 
     def _apply_styles(self) -> None:
         """Transparence d'édition posée sur :meth:`transparent_objects` (calque « édition », partagé
-        avec la sélection de ligne), hors transaction (:meth:`_without_transaction`)."""
-        objects = self.transparent_objects()
+        avec la sélection de ligne) et teinte sur :meth:`tinted_objects` (calque « origine »),
+        hors transaction (:meth:`_without_transaction`)."""
+        objects = self.transparent_objects() + self.tinted_objects()
         context = self._without_transaction() if objects else nullcontext()
         with context:
             self._edit_transparency = PartsPreview(self.transparent_objects, object_alive, DISPLAY)
+            self._tinted = PartsPreview(self.tinted_objects, object_alive, DISPLAY, ORIGIN_LOOK)
 
     def _restore_styles(self) -> None:
         """Transparence d'origine rétablie (idempotent, sans effet sur un objet supprimé)."""
-        transparency, self._edit_transparency = self._edit_transparency, None
-        if transparency is not None:
-            transparency.restore()
+        previews = (self._edit_transparency, self._tinted)
+        self._edit_transparency = self._tinted = None
+        for preview in previews:
+            if preview is not None:
+                preview.restore()
 
     @property
     def closed(self) -> bool:
-        """Vrai une fois le panneau fermé (« OK », « Annuler » ou fermeture par FreeCAD)."""
-        return self._closed
+        """Vrai une fois le panneau fermé (« OK », « Annuler » ou fermeture par FreeCAD), ou dès
+        qu'un widget suivi par :meth:`watch_widgets` est détruit."""
+        return self._closed or self._widgets_gone
+
+    def watch_widgets(self, *widgets: Widget) -> None:
+        """Le panneau se tient pour fermé dès que l'un de ``widgets`` est détruit : un signal émis
+        pendant la destruction du formulaire (champ qui perd le focus) ne touche plus à rien."""
+        for widget in widgets:
+            connect(widget, "destroyed()", self._widget_destroyed)
+
+    def _widget_destroyed(self) -> None:
+        self._widgets_gone = True
 
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation."""
@@ -232,8 +268,22 @@ class ObjectTaskPanel(TransactionTaskPanel):
     def preview(self) -> None:
         """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""
         recompute_preview(self.obj)
-        if self._edit_transparency is not None:
-            self._edit_transparency.sync()  # une pièce usinée a pu apparaître au recalcul
+        self.sync_styles()  # une pièce usinée a pu apparaître au recalcul
+
+
+def set_ok_enabled(form: Widget, enabled: bool) -> None:
+    """Grise ou rétablit le bouton « OK » de la vue des tâches qui affiche ``form`` ; sans effet
+    hors affichage. La classe de la vue est comparée en entier : ``Gui::TaskView::TaskBox`` et
+    ``TaskPanel``, ancêtres du formulaire, portent aussi « TaskView » dans leur nom. Le bouton
+    n'est jamais rendu : son enveloppe Python ne survivrait pas à celle de sa boîte."""
+    view = form.parentWidget() if form is not None else None
+    while view is not None and view.metaObject().className() != _TASK_VIEW:
+        view = view.parentWidget()
+    for box in view.findChildren(QtGui.QDialogButtonBox) if view is not None else []:
+        button = box.button(QtGui.QDialogButtonBox.Ok)
+        if button is not None:
+            button.setEnabled(enabled)
+            return
 
 
 def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None) -> None:
