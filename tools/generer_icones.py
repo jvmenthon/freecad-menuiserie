@@ -24,12 +24,12 @@ from icones_ensembles import (
     ensemble_retirer,
     piece_en_bois,
     piece_en_bois_objet,
-    repetition,
     rotation_x,
     rotation_y,
     rotation_z,
     structure,
 )
+from icones_repetition import dissocier_la_copie, modifier_la_repetition, repeter, repetition
 from icones_svg import Icone, angles, document, etiquette, feuille
 
 ICONS_DIR = Path(__file__).resolve().parents[1] / "freecad" / "menuiserie" / "resources" / "icons"
@@ -332,7 +332,6 @@ ICONES = {
     # Panneau « Structure » (ADR 0046)
     "Menuiserie_Hardware.svg": quincaillerie,
     "Menuiserie_Structure.svg": structure,
-    "Menuiserie_Repeat.svg": repetition,
     "Menuiserie_Other.svg": autre_objet,
     # Distance entre deux pièces (DI-b)
     "Menuiserie_SetDistance.svg": distance,
@@ -344,6 +343,11 @@ ICONES = {
     # Pièce en bois à forme libre (PD-d)
     "Menuiserie_ShapedPart.svg": piece_en_bois,
     "Menuiserie_ShapedPartObject.svg": piece_en_bois_objet,
+    # Répétition (R-c)
+    "Menuiserie_Repeat.svg": repeter,
+    "Menuiserie_RepeatEdit.svg": modifier_la_repetition,
+    "Menuiserie_RepeatDissociate.svg": dissocier_la_copie,
+    "Menuiserie_RepeatObject.svg": repetition,
 }
 
 

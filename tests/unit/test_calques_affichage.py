@@ -382,6 +382,26 @@ def test_deselection_pendant_la_tache_rend_l_origine_dans_la_transaction() -> No
     assert display.pending() == []
 
 
+def test_ctrl_y_rejoue_une_valeur_corrigee_apres_la_tache() -> None:
+    """FreeCAD rejoue la valeur du moment d'une propriété écrite dans la transaction."""
+    task = Transaction()
+    display, _ = layers(task=task)
+    piece = Piece("P", 10)
+    doc = piece.Document = FakeDocument(piece)  # type: ignore[attr-defined]
+    task.open = True
+    display.show(SELECTION, [piece], SELECTION_LOOK, deferrable=True)
+    display.withdraw()
+    task.open = False
+    display.flush()  # tâche validée, ligne toujours choisie
+    piece.view.Transparency = 10  # Ctrl+Z rejoue l'origine
+    display.undone(doc)
+    assert piece.view.Transparency == SELECTION_TRANSPARENCY  # calque voulu réécrit
+    display.show(SELECTION, [], SELECTION_LOOK, deferrable=True)  # désélection
+    piece.view.Transparency = SELECTION_TRANSPARENCY  # Ctrl+Y rejoue la valeur du moment
+    display.undone(doc)
+    assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)
+
+
 def test_edition_prime_sur_la_selection_pendant_la_tache() -> None:
     task = Transaction()
     display, _ = layers(task=task)

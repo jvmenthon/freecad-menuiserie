@@ -190,7 +190,7 @@ d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règl
   ainsi ; un calque posé **avant** elle n'est pas écrit dans la transaction, donc son retrait
   (désélection pendant la tâche) attend la fin de celle-ci (jamais enregistré). Une modification
   que rien n'a changée (`has_changes` faux) dont la transaction a reçu un calque est abandonnée au
-  lieu d'être validée : « OK » ne laisse aucune entrée d'annulation vide. Dans une transaction que
+  lieu d'être validée : « OK » ne laisse aucune entrée d'annulation vide. **Rejeu par Ctrl+Z / Ctrl+Y** : FreeCAD rejoue, pour toute propriété touchée dans une transaction, la valeur du moment (mesuré en CI) ; les objets écrits dans la transaction sont donc mémorisés (`_tainted`) et, après chaque annulation ou rétablissement (`slotUndoDocument`, `slotRedoDocument`, observateur gardé tant qu'ils existent), le calque voulu (ou l'origine) est réécrit hors transaction. La pose finale du calque se fait après le recalcul de fermeture, qui peut rétablir la couleur d'une pièce usinée. Dans une transaction que
   l'atelier ne maîtrise pas (tâche d'un autre atelier, commande ; `gui/task_panels/active` ne
   désigne aucun panneau), la demande reste mémorisée et jouée à la fin (`deferrable`) ;
   (3) l'origine est rendue avant tout enregistrement du document (`slotStartSaveDocument`, chaque

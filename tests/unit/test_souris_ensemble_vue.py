@@ -16,6 +16,7 @@ from freecad.menuiserie.gui.drag.geometry import (
     BOX_TRANSPARENCY,
     HOVER_COLOR,
     REFUSAL_COLOR,
+    Cues,
     Label,
     Layout,
     Throttle,
@@ -101,7 +102,7 @@ def test_poignees_saisissables_a_chaque_face() -> None:
 
 def test_cote_et_message_pres_de_la_souris() -> None:
     note = Label(REFUSAL_COLOR, "1300.0 mm\nrefus", Vec3(1, 2, 3))
-    drawing = build_drawing(ensemble_layout(), note=note)
+    drawing = build_drawing(ensemble_layout(), cues=Cues(note=note))
     assert drawing.labels == (note,)
     assert build_drawing(ensemble_layout()).labels == ()
 

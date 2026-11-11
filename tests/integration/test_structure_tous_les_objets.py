@@ -140,3 +140,24 @@ def test_lignes_libres_selectionnables_par_leur_cle(document: Any) -> None:
         joint = objects[name]
         assert structure_source.row_key_of(joint) == joint.Name
         assert joint.Name in row_keys(roots_of(document))
+
+
+def test_repetitions_de_pieces_et_d_ensembles_dans_l_arbre_une_seule_fois(document: Any) -> None:
+    """Pièce libre répétée, ensemble répété (copies = ensembles complets avec Std Part) : l'objet
+    Répétition, les copies et leurs membres sont dans l'arbre, une seule fois, et le panneau ne
+    montre jamais un Std Part (le lecteur de répétitions viendra avec le lot m5)."""
+    objects = build_document(document)
+    panel = api.make_wood_part(600, 500, 19, "chene", mark="Étagère", doc=document)
+    document.recompute()
+    api.make_repeat([panel], api.RepeatParams(count=2, step=700.0, axis="X"))
+    api.make_repeat([objects["desk"].furniture], api.RepeatParams(count=2, step=1500.0, axis="Y"))
+    document.recompute()
+    shown = Counter(row_keys(roots_of(document)))
+    expected = {
+        structure_source.row_key_of(obj)
+        for obj in document.Objects
+        if shaped_sources.is_workshop_object(obj)
+    }
+    assert expected <= set(shown)
+    assert [key for key, count in shown.items() if count > 1] == []
+    assert not any(obj.Name in shown for obj in document.Objects if obj.TypeId == "App::Part")

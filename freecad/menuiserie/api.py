@@ -28,6 +28,36 @@ Ensemble (J4) ::
     bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
     avertissements = resize_furniture(bureau, depth=800)
 
+Répétition (R-b1) ::
+
+    from freecad.menuiserie.api import RepeatParams, dissociate, edit_repeat, make_repeat
+
+    lames = make_repeat([lame], RepeatParams(count=9, step=120, axis="Y"))
+    edit_repeat(lames, RepeatParams(count=12, step=100, axis="Y"))
+    dissociate(copie)  # la copie devient une pièce libre
+
+Répétition en grille X x Y x Z (ADR 0045) : un seul mode de saisie, une ligne par axe ; le nombre
+d'un axe est celui de ses éléments, original compris (1 : axe inactif) ::
+
+    from freecad.menuiserie.api import AxisRepeat, RepeatAxis, RepeatParams, make_repeat
+
+    grille = RepeatParams(
+        grid=(AxisRepeat(RepeatAxis.X, 4, 100.0), AxisRepeat(RepeatAxis.Y, 3, 150.0))
+    )
+    make_repeat([barreau], grille)  # 4 x 3 = 11 copies en plus de l'original
+
+Répétition jusqu'à une butée (ADR 0047) : en « nombre sur une longueur » ou « pas sur une
+longueur », la longueur de l'axe est la distance à une face (``Stop(piece, "Face3")``), un sommet
+(``"Vertex2"``) ou une pièce entière (``Stop(piece)``) ; elle suit la butée. ``deduct_thickness``
+faux : la dernière copie commence à la butée au lieu de s'y arrêter ::
+
+    from freecad.menuiserie.api import SpacingMode, Stop
+
+    params = RepeatParams(
+        spacing=SpacingMode.COUNT_ON_SPAN, grid=(AxisRepeat(RepeatAxis.X, 5, span=1.0),)
+    )
+    make_repeat([barreau], params, stops={RepeatAxis.X: Stop(montant, "Face3")})
+
 Liste de débit (J2) ::
 
     from freecad.menuiserie.api import export_cut_list_csv, make_cut_list
@@ -86,6 +116,7 @@ from freecad.menuiserie._api.joints import (
     make_tongue_groove,
     slide_shortfall,
 )
+from freecad.menuiserie._api.repeat import dissociate, edit_repeat, make_repeat, repeat_of
 from freecad.menuiserie._api.wood import (
     make_shaped_part,
     make_shaped_parts,
@@ -93,6 +124,13 @@ from freecad.menuiserie._api.wood import (
     reset_shaped_axes,
 )
 from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV
+from freecad.menuiserie.core.repeat import (
+    AxisRepeat,
+    RepeatAxis,
+    RepeatMode,
+    RepeatParams,
+    SpacingMode,
+)
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
 from freecad.menuiserie.features.furniture_bindings import LockedPiecesError
 from freecad.menuiserie.features.machined_part import (
@@ -102,21 +140,30 @@ from freecad.menuiserie.features.machined_part import (
     remove_machined_part,
 )
 from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.features.repeat_stop import Stop
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 
 __all__ = [
     "FRENCH_CSV",
     "INTERNATIONAL_CSV",
+    "AxisRepeat",
     "CarcassJoinery",
     "CarcassParams",
     "LockedPiecesError",
     "PickedElement",
+    "RepeatAxis",
+    "RepeatMode",
+    "RepeatParams",
+    "SpacingMode",
+    "Stop",
     "add_to_furniture",
     "blank_of",
     "close_gap",
     "closing_options",
     "cut_list_html",
     "cut_list_of",
+    "dissociate",
+    "edit_repeat",
     "export_cut_list_csv",
     "export_cut_list_pdf",
     "furniture_of",
@@ -137,6 +184,7 @@ __all__ = [
     "make_miter",
     "make_mortise_tenon",
     "make_rabbet",
+    "make_repeat",
     "make_room_for_slide",
     "make_shaped_part",
     "make_shaped_parts",
@@ -149,6 +197,7 @@ __all__ = [
     "remove_from_furniture",
     "remove_machined_part",
     "rename",
+    "repeat_of",
     "reset_shaped_axes",
     "resize_furniture",
     "rotate_furniture",

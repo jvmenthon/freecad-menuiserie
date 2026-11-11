@@ -22,6 +22,7 @@ __all__ = [
     "Original",
     "PartObject",
     "ViewObject",
+    "adopted",
     "in_controlled_transaction",
     "in_foreign_transaction",
     "key",
@@ -138,6 +139,17 @@ def target_diffuse(look: Look, original: Original) -> tuple[Rgb, ...]:
     if look.tint is None:
         return original.diffuse
     return tuple(look.tint for _ in original.diffuse)
+
+
+def adopted(original: Original, current: Original, look: Look) -> Original:
+    """Nouvelle origine : ce qu'un tiers a modifié depuis l'écriture de ``look`` (``current``
+    diffère de ce que ``look`` y a mis), le reste de ``original`` sinon."""
+    transparency = current.transparency if current.transparency != look.transparency else None
+    changed = current.diffuse != target_diffuse(look, original)
+    return Original(
+        original.transparency if transparency is None else transparency,
+        current.diffuse if changed else original.diffuse,
+    )
 
 
 def write_diffuse(vobj: ViewObject, wanted: tuple[Rgb, ...]) -> None:
