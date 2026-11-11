@@ -98,13 +98,26 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
         *ecarts("largeur", furniture.Width.Value if furniture else None, 800.0),
     ]
     session = events.current_session()
+    if session is None:
+        return [*problemes, "session de glissement absente"]
     problemes += ecarts(
         "poignées sur le caisson avant « OK » (ADR 0038)",
-        None if session is None or session.panel is None else session.panel.part.Name,
+        None if session.panel is None else session.panel.part.Name,
         "Furniture",
+    )
+    from freecad.menuiserie.features.furniture_container import own_std_part
+
+    part = own_std_part(doc.getObject("Furniture"))
+    part.Placement = App.Placement(App.Vector(100, 200, 0), App.Rotation())  # geste à la souris
+    saisir(widget(form, "depth"), 400.0)
+    problemes += ecarts(
+        "position gardée après un nouvel aperçu",
+        list(own_std_part(doc.getObject("Furniture")).Placement.Base),
+        [100.0, 200.0, 0.0],
     )
     valider()
     QtGui.QApplication.processEvents()
+    problemes += ecarts("poignées retirées après « OK »", session.panel, None)
     problemes += [
         *ecarts("panneau fermé", formulaire() is None, True),
         *ecarts(

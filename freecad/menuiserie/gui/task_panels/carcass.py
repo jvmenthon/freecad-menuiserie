@@ -5,9 +5,10 @@ Le panneau règle les paramètres du caisson (cotes, épaisseurs, étagères, ma
 des côtés) et montre aussitôt le caisson obtenu (aperçu). Chaque saisie abandonne la
 transaction « Créer un caisson » (le caisson précédent disparaît), la rouvre et recrée le
 caisson par :func:`freecad.menuiserie.api.make_carcass` : il n'y a jamais qu'un caisson et
-qu'une transaction. « OK » la valide (une entrée d'annulation), « Annuler » l'abandonne
-(aucun objet ne reste). Des paramètres refusés s'affichent dans le panneau ; « OK » reste
-alors sans effet.
+qu'une transaction. Les flèches, anneaux et poignées de la vue 3D (ADR 0038) suivent le caisson
+d'aperçu, dont la position donnée à la souris est gardée d'un aperçu à l'autre. « OK » la valide
+(une entrée d'annulation), « Annuler » l'abandonne (aucun objet ne reste). Des paramètres
+refusés s'affichent dans le panneau ; « OK » reste alors sans effet.
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     close_transaction,
     connect,
 )
-from freecad.menuiserie.gui.task_panels.carcass_drag import CarcassDrag
+from freecad.menuiserie.gui.task_panels.wood_part_drag import PanelDrag
 
 FORM_NAME: Final = "CarcassTaskPanel"
 ICON: Final = "Menuiserie_Carcass.svg"
@@ -64,6 +65,7 @@ _UNEXPECTED: Final = QT_TRANSLATE_NOOP(
     "Le caisson n'a pas pu être construit avec ces paramètres ({reason}). Modifiez une cote ou "
     "une épaisseur.",
 )
+_GESTURE_FIELDS: Final = ("width", "depth", "height")  # cotes changées à la souris
 _ERROR_STYLE: Final = "color: #c0392b;"
 
 
@@ -74,6 +76,7 @@ class CarcassTaskPanel(TransactionTaskPanel):
     def __init__(self, doc: Document) -> None:
         super().__init__(doc, creating=True)
         self.furniture: DocumentObject | None = None
+        self._last_placement: App.Placement | None = None
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -105,7 +108,9 @@ class CarcassTaskPanel(TransactionTaskPanel):
         self._error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self._error.setStyleSheet(_ERROR_STYLE)
         layout.addRow(self._error)
-        self._drag = CarcassDrag(self)  # flèches, anneaux et poignées dans la vue 3D (ADR 0038)
+        self._drag = PanelDrag(
+            self, follow=True
+        )  # flèches, anneaux et poignées dans la vue 3D (ADR 0038)
         self.rebuild()
 
     # --- Aperçu ---------------------------------------------------------------------------
@@ -124,7 +129,8 @@ class CarcassTaskPanel(TransactionTaskPanel):
         """Caisson précédent abandonné avec sa transaction, puis recréé dans une transaction
         rouverte ; un refus s'affiche sous les champs. Une erreur inattendue (noyau
         géométrique) ou un objet créé en erreur abandonne aussi l'aperçu : rien ne reste."""
-        moved = self._placement()  # position donnée à la souris, gardée d'un aperçu à l'autre
+        moved = self._placement() or self._last_placement
+        self._last_placement = moved  # gardée même si cet aperçu est refusé
         self._restart()
         before = {obj.Name for obj in self.doc.Objects}
         self.furniture, message = None, ""
@@ -166,11 +172,18 @@ class CarcassTaskPanel(TransactionTaskPanel):
         furniture = self.furniture
         if furniture is None:
             return
-        for name in ("width", "depth", "height"):
+        try:
+            values = {n: getattr(furniture, n.capitalize()).Value for n in _GESTURE_FIELDS}
+        except (ReferenceError, RuntimeError):  # objet détruit pendant le geste
+            return
+        for name, value in values.items():
             field = self._lengths[name]
             field.blockSignals(True)  # pas de nouvel aperçu : le caisson est déjà à cette cote
-            field.setProperty("rawValue", getattr(furniture, name.capitalize()).Value)
-            field.blockSignals(False)
+            try:
+                field.setProperty("rawValue", value)
+            finally:
+                field.blockSignals(False)
+        self._last_placement = self._placement() or self._last_placement
 
     def _restart(self) -> None:
         """Transaction abandonnée (l'aperçu disparaît) puis rouverte, vide."""
@@ -187,8 +200,8 @@ class CarcassTaskPanel(TransactionTaskPanel):
             return False
         accepted = super().accept()
         # Panneau refermé par FreeCAD après ce retour : rien ne reste sélectionné, donc ni flèches
-        # ni poignées dans la vue 3D.
-        QtCore.QTimer.singleShot(0, Gui.Selection.clearSelection)
+        # ni poignées dans la vue 3D (ADR 0038 ; le panneau en fermant les retire de même).
+        QtCore.QTimer.singleShot(0, partial(Gui.Selection.clearSelection, self.doc.Name))
         return accepted
 
 
