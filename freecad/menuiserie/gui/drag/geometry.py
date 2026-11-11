@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from itertools import combinations, product
 from typing import Final
 
 from freecad.menuiserie.core.geometry import Box, Vec3
@@ -35,6 +36,8 @@ from freecad.menuiserie.gui.drag.rings import (
 __all__ = [
     "ARROW_PX",
     "MAGNET_PX",
+    "REFUSAL_COLOR",
+    "Cues",
     "Dots",
     "Drawing",
     "Label",
@@ -63,7 +66,12 @@ AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  
 HANDLE_COLOR: Final = (1.0, 0.55, 0.0)
 HOVER_COLOR: Final = (1.0, 0.85, 0.1)
 GUIDE_COLOR: Final = (1.0, 0.1, 0.8)
+GHOST_COLOR: Final = (0.2, 0.75, 1.0)  # fantôme de la copie par glissement
+GHOST_TRANSPARENCY: Final = 0.7
 SECTOR_TRANSPARENCY: Final = 0.6  # secteur parcouru par un anneau tiré
+BOX_COLOR: Final = (0.3, 0.5, 0.9)  # boîte d'un ensemble sélectionné
+BOX_TRANSPARENCY: Final = 0.85
+REFUSAL_COLOR: Final = (0.9, 0.1, 0.1)  # cote et message d'un refus près de la souris
 Color = tuple[float, float, float]
 Project = Callable[[Vec3], tuple[float, float]]
 
@@ -100,7 +108,10 @@ class Layout:
     """Ce qui est dessiné et saisissable sur la pièce : repère global, boîte (repère de la pièce),
     flèches des axes libres, poignées (poignée, centre de sa face en coordonnées globales),
     longueur en mm de la tige (et zone de saisie) dessinée sur chaque poignée et anneaux de
-    rotation (aucun si une expression pilote le placement, D6)."""
+    rotation (aucun si une expression pilote le placement, D6).
+
+    Un ensemble (EN-c) dessine ses poignées en doubles flèches (``double_handles``) et sa boîte en
+    transparence (``shows_box``)."""
 
     frame: Frame
     box: Box
@@ -108,6 +119,8 @@ class Layout:
     handles: tuple[tuple[Handle, Vec3], ...]
     handle_mm: float = 0.0
     rings: tuple[Ring, ...] = ()
+    double_handles: bool = False
+    shows_box: bool = False
 
 
 def _face_center(box: Box, handle: Handle) -> Vec3:
@@ -263,6 +276,63 @@ def _handle_cube(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec
     return tuple(faces)
 
 
+def _arrow_head(
+    tip: Vec3, outward: Vec3, side: tuple[Vec3, Vec3], length: float
+) -> tuple[tuple[Vec3, ...], ...]:
+    """Quatre barbes d'une pointe en ``tip`` tournée vers ``outward`` (unitaire), le long des deux
+    autres axes ``side``, de la taille d'une pointe de flèche de ``length``."""
+    back = tip + outward.scaled(-HEAD_RATIO * length)
+    return tuple(
+        (tip, back + other.scaled(sign * HEAD_RATIO * length / 2))
+        for other in side
+        for sign in (1.0, -1.0)
+    )
+
+
+def _double_arrow(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
+    """Double flèche d'une face (poignée d'un ensemble) : tige de part et d'autre de ``point``,
+    pointe à chaque bout (l'une vers l'extérieur de la boîte, l'autre vers l'intérieur)."""
+    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
+    axis = axes[handle.axis]
+    side = tuple(axes[i] for i in range(3) if i != handle.axis)
+    outer = point + axis.scaled(layout.handle_mm)
+    inner = point + axis.scaled(-layout.handle_mm)
+    length = 2 * layout.handle_mm
+    heads = (
+        *_arrow_head(outer, axis, (side[0], side[1]), length),
+        *_arrow_head(inner, axis.scaled(-1.0), (side[0], side[1]), length),
+    )
+    return ((inner, outer), *heads)
+
+
+def _corner_key(bits: tuple[int, int], axis: int, side: int) -> tuple[int, ...]:
+    """Clé du coin : ``bits`` complétés par ``side`` à la place de l'axe ``axis``."""
+    key = list(bits)
+    key.insert(axis, side)
+    return tuple(key)
+
+
+def _box_drawing(layout: Layout) -> tuple[Stroke, Solid]:
+    """Boîte de l'ensemble : six faces en transparence et douze arêtes, en coordonnées globales."""
+    to_global = layout.frame.to_transform()
+    box = layout.box
+    corners = {
+        bits: to_global.apply(Vec3.of([(box.lo(i), box.hi(i))[bits[i]] for i in range(3)]))
+        for bits in product((0, 1), repeat=3)
+    }
+    edges = tuple(
+        (corners[a], corners[b])
+        for a, b in combinations(corners, 2)
+        if sum(x != y for x, y in zip(a, b, strict=True)) == 1
+    )
+    faces = tuple(
+        tuple(corners[_corner_key(bits, axis, side)] for bits in ((0, 0), (1, 0), (1, 1), (0, 1)))
+        for axis in range(3)
+        for side in (0, 1)
+    )
+    return Stroke(BOX_COLOR, 1.5, edges), Solid(BOX_COLOR, faces, BOX_TRANSPARENCY)
+
+
 def guide_outline(guide: Guide) -> tuple[Vec3, ...]:
     """Contour du guide dans le repère de la pièce : rectangle fermé (plan), segment (droite) ou
     un point (sommet)."""
@@ -301,12 +371,56 @@ def _ring_drawing(layout: Layout, hover: str | None, sweep: Sweep | None) -> Dra
     )
 
 
+def _ghost_drawing(layout: Layout, offset: Vec3) -> tuple[Stroke, Solid]:
+    """Boîte de la pièce décalée de ``offset`` (repère de la pièce) : contour et faces
+    translucides, portés dans le repère global."""
+    to_global = layout.frame.to_transform()
+    box = layout.box
+
+    def corner(index: int) -> Vec3:
+        values = [
+            (box.lo, box.hi)[(index >> axis) & 1](axis) + offset.component(axis)
+            for axis in range(3)
+        ]
+        return to_global.apply(Vec3.of(values))
+
+    corners = [corner(index) for index in range(8)]
+    edges = tuple(
+        (corners[a], corners[b])
+        for a in range(8)
+        for b in range(a + 1, 8)
+        if bin(a ^ b).count("1") == 1
+    )
+    faces = tuple(
+        tuple(corners[i] for i in ring)
+        for ring in (
+            (0, 1, 3, 2),
+            (4, 5, 7, 6),
+            (0, 1, 5, 4),
+            (2, 3, 7, 6),
+            (0, 2, 6, 4),
+            (1, 3, 7, 5),
+        )
+    )
+    return Stroke(GHOST_COLOR, 2.5, edges), Solid(GHOST_COLOR, faces, GHOST_TRANSPARENCY)
+
+
+@dataclass(frozen=True)
+class Cues:
+    """Indications d'un geste à dessiner en plus de la disposition : ``ghost``, décalage du
+    fantôme de la copie (repère de la pièce), et ``note``, texte près de la souris."""
+
+    ghost: Vec3 | None = None
+    note: Label | None = None
+
+
 def build_drawing(
     layout: Layout,
     hover: str | None = None,
     guides: Sequence[Guide] = (),
     guides_frame: Frame | None = None,
     sweep: Sweep | None = None,
+    cues: Cues | None = None,
 ) -> Drawing:
     """Dessin des flèches (couleur de leur axe), des poignées (tige dans l'axe de la cote, cube
     plein au bout et point de saisie au pied), des anneaux de rotation (et, pendant un geste, de
@@ -316,19 +430,30 @@ def build_drawing(
     Les guides sont lus dans le repère de la pièce **au début du glissement** : ``guides_frame``
     est ce repère de départ (celui de ``layout`` s'il est absent). La pièce bouge pendant le
     glissement, pas les guides : les porter dans le repère courant les décalerait de son
-    déplacement."""
+    déplacement. ``cues`` : le fantôme de la copie par glissement (``ghost``, décalage dans le
+    repère de la pièce, sa boîte translucide) et la ``note`` (cote et message de refus) écrite près
+    de la souris.
+
+    Pour un ensemble : boîte en transparence et poignées en doubles flèches."""
     strokes = []
+    solids = []
+    if layout.shows_box:
+        edges, faces = _box_drawing(layout)
+        strokes.append(edges)
+        solids.append(faces)
     for arrow in layout.arrows:
         hot = hover == arrow_key(arrow.axis)
         color = HOVER_COLOR if hot else AXIS_COLORS[arrow.axis]
         strokes.append(Stroke(color, 4.0 if hot else 2.0, _arrow_lines(arrow, layout.frame)))
     dots = []
-    solids = []
     for handle, point in layout.handles:
         hot = hover == handle_key(handle)
         color = HOVER_COLOR if hot else HANDLE_COLOR
-        strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_stem(layout, handle, point)))
-        solids.append(Solid(color, _handle_cube(layout, handle, point)))
+        if layout.double_handles:
+            strokes.append(Stroke(color, 4.0 if hot else 3.0, _double_arrow(layout, handle, point)))
+        else:
+            strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_stem(layout, handle, point)))
+            solids.append(Solid(color, _handle_cube(layout, handle, point)))
         dots.append(Dots(color, 7.0, (point,)))
     to_global = (guides_frame or layout.frame).to_transform()
     for guide in guides:
@@ -338,7 +463,13 @@ def build_drawing(
         else:
             strokes.append(Stroke(GUIDE_COLOR, 3.0, (outline,)))
     rings = _ring_drawing(layout, hover, sweep)
-    return Drawing((*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), rings.labels)
+    cues = cues or Cues()
+    if cues.ghost is not None:
+        ghost_lines, ghost_faces = _ghost_drawing(layout, cues.ghost)
+        strokes.append(ghost_lines)
+        solids.append(ghost_faces)
+    labels = rings.labels if cues.note is None else (*rings.labels, cues.note)
+    return Drawing((*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), labels)
 
 
 class Throttle:

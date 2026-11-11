@@ -95,13 +95,23 @@ def noop(value: ast.expr) -> tuple[str, str]:
     return context, text
 
 
-def init_gui_commands() -> tuple[str, ...]:
+def init_gui_themes() -> dict[str, tuple[str, ...]]:
+    """Commandes de l'atelier par thème (``themes`` de ``init_gui.py``), dans l'ordre."""
     for node in ast.walk(tree(PACKAGE / "init_gui.py")):
-        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "commands":
-            assert node.value is not None
-            value: tuple[str, ...] = ast.literal_eval(node.value)
-            return value
-    raise AssertionError("commands absent de init_gui.py")
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "themes":
+            assert isinstance(node.value, ast.Tuple)
+            themes: dict[str, tuple[str, ...]] = {}
+            for entry in node.value.elts:
+                assert isinstance(entry, ast.Tuple)
+                title, names = entry.elts
+                assert isinstance(title, ast.Call)
+                themes[ast.literal_eval(title.args[1])] = ast.literal_eval(names)
+            return themes
+    raise AssertionError("themes absent de init_gui.py")
+
+
+def init_gui_commands() -> tuple[str, ...]:
+    return tuple(name for names in init_gui_themes().values() for name in names)
 
 
 def api_functions() -> set[str]:
@@ -122,12 +132,15 @@ def test_noms_des_commandes_selon_les_types() -> None:
 
 
 def test_commandes_dans_la_barre_et_le_menu() -> None:
-    """Seule vérification du tuple complet des commandes de l'atelier (revue J3d, S6)."""
-    assert init_gui_commands() == (
-        "Menuiserie_WoodPart",
-        *COMMANDES_ASSEMBLAGE,
-        *COMMANDES_ENSEMBLE,
-    )
+    """Seule vérification de l'ensemble des commandes de l'atelier (revue J3d, S6) : chacune est
+    dans un thème et un seul ; assemblages et quincaillerie sont séparés."""
+    names = init_gui_commands()
+    assert len(names) == len(set(names))
+    assert {"Menuiserie_WoodPart", *COMMANDES_ASSEMBLAGE, *COMMANDES_ENSEMBLE} <= set(names)
+    themes = init_gui_themes()
+    assert set(COMMANDES_ASSEMBLAGE) <= set(themes["Assemblages"] + themes["Quincaillerie"])
+    assert set(COMMANDES_ENSEMBLE) <= set(themes["Ensembles"])
+    assert "Menuiserie_WoodPart" in themes["Pièces"]
 
 
 @pytest.mark.parametrize("name", list(COMMANDES_ASSEMBLAGE))

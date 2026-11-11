@@ -52,7 +52,8 @@ Options étudiées :
    vont toujours des membres vers l'ensemble.
 3. **Repère** : celui du conteneur commun de l'ensemble et de ses membres (document ou Std Part),
    avec X = largeur, Y = profondeur, Z = hauteur. Les membres d'un ensemble sont tous dans le même
-   conteneur que lui, comme les deux pièces d'un assemblage J3.
+   conteneur que lui, comme les deux pièces d'un assemblage J3. *(Amendé par l'ADR 0038 : un
+   sous-ensemble a son propre Std Part, rangé dans celui de son parent.)*
 4. **Déplacer, tourner, dupliquer un meuble** : par Std Part et `App::Link`, outils natifs.
    L'Ensemble ne les remplace pas et ne les modifie pas. Un Std Part qui contient un ensemble sert
    aussi de composant dans l'atelier Assembly.

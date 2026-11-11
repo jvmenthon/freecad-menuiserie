@@ -21,7 +21,7 @@ avertissement).
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from typing import Final
 
 import FreeCAD as App
@@ -119,7 +119,28 @@ def remove_joints(joints: Sequence[DocumentObject]) -> None:
             remove_machined_part(found)
 
 
-def delete_machined_part(machined: DocumentObject, choose: RemovalChoice) -> bool:
+def _all_inside(machined: DocumentObject, deleted: Collection[str]) -> bool:
+    """Vrai si ``machined`` porte des assemblages et que chacun, avec ses deux pièces (brutes ou
+    usinées), est dans ``deleted`` : rien ne les relie à l'extérieur de la suppression."""
+    joints = list(machined.Joints)
+    if not joints:
+        return False
+    deleted = set(deleted)
+    for joint in joints:
+        names = {joint.Name}
+        for part in (joint.HostPart, joint.GuestPart):
+            if part is None:
+                return False
+            found = machined_part_of(part)
+            names |= {part.Name} | ({found.Name} if found is not None else set())
+        if not names <= deleted:
+            return False
+    return True
+
+
+def delete_machined_part(
+    machined: DocumentObject, choose: RemovalChoice, deleted: Collection[str] = ()
+) -> bool:
     """Suppression, depuis l'interface, de la pièce usinée ``machined`` (``onDelete``).
 
     Sans assemblage : la brute est réaffichée et le résultat est vrai, FreeCAD supprime la pièce
@@ -128,7 +149,14 @@ def delete_machined_part(machined: DocumentObject, choose: RemovalChoice) -> boo
     disparaît : retrait de son ensemble si elle en est membre, :func:`remove_joints` (assemblages
     puis pièces usinées vides), puis la brute, dont la source est réaffichée si c'est une pièce
     en forme libre. Les objets sont alors déjà détruits : le résultat est faux, pour que FreeCAD
-    ne supprime pas un objet qui n'existe plus."""
+    ne supprime pas un objet qui n'existe plus.
+
+    ``deleted`` : noms des objets supprimés en même temps (Std Part de l'ensemble supprimé avec
+    son contenu). Si tous les assemblages de la pièce et leurs pièces en font partie, aucun lien
+    n'en sort : pas de question, FreeCAD supprime l'ensemble de ces objets."""
+    if _all_inside(machined, deleted):
+        show_blank(getattr(machined, "Base", None))
+        return True
     joints = list(machined.Joints)
     finishes = list(machined.Finishes)
     blank = getattr(machined, "Base", None)
@@ -140,7 +168,9 @@ def delete_machined_part(machined: DocumentObject, choose: RemovalChoice) -> boo
         return False
     document, name = machined.Document, machined.Name
     if blank is not None and has_member_properties(blank):
-        remove_members([blank])  # les voisines ne citent plus la pièce
+        # Les voisines ne citent plus la pièce. Le message « reste dans son Std Part » est omis :
+        # la pièce, assemblée par définition, disparaît juste après avec ses assemblages.
+        remove_members([blank])
     for finish in finishes:
         document.removeObject(finish.Name)
     remove_joints(joints)

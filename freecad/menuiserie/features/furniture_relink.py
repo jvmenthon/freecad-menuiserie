@@ -24,7 +24,13 @@ from freecad.menuiserie.features.furniture_bindings import (
 )
 from freecad.menuiserie.features.furniture_variants import with_thickness
 
-__all__ = ["distance_removed", "member_removed", "relink_remaining", "relink_thickness"]
+__all__ = [
+    "bind_furniture",
+    "distance_removed",
+    "member_removed",
+    "relink_remaining",
+    "relink_thickness",
+]
 
 
 def relink_thickness(
@@ -52,6 +58,14 @@ def relink_remaining(
     kept = tuple(m for m in members.members if m.key not in removed)
     objects = {name: obj for name, obj in members.objects.items() if name not in removed}
     return bind_members(replace(members, members=kept, objects=objects), objects)
+
+
+def bind_furniture(furniture: DocumentObject) -> list[Notice]:
+    """Relie les membres directs de ``furniture`` d'après la géométrie actuelle et leurs options
+    (une copie liée de répétition suit sa source : elle n'est pas reliée) ; les sous-ensembles
+    ne sont pas parcourus."""
+    members = read_members(furniture)
+    return bind_members(members, members.objects)
 
 
 def member_removed(obj: DocumentObject) -> None:

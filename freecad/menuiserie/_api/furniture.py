@@ -12,21 +12,27 @@ from typing import Any
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Notice
+from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.structure_rename import cleaned_name, decide_rename
 from freecad.menuiserie.core.templates.carcass import CarcassParams
 from freecad.menuiserie.features import (
     distance_move,
+    furniture_drag,
     furniture_edges,
     furniture_locks,
     furniture_material,
     furniture_members,
+    furniture_resize,
     templates,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
+from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.features.repeat import is_repeat
 
 # --- Ensembles (J4) -----------------------------------------------------------------------
 
@@ -64,23 +70,54 @@ def make_furniture(
     return furniture, _reported(notices, furniture.Document)
 
 
-def add_to_furniture(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> _Notices:
+def add_to_furniture(
+    furniture: DocumentObject, objects: Sequence[DocumentObject], *, move: bool = False
+) -> _Notices:
     """Fait entrer ``objects`` dans ``furniture`` (options par défaut, liaisons d'après la
     géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus et même
-    absence de transaction que :func:`make_furniture`."""
-    notices = furniture_members.add_members(furniture, objects)
+    absence de transaction que :func:`make_furniture`. Avec ``move``, des objets déjà membres
+    d'un autre ensemble en sortent pour entrer ici (leurs propriétés de membre sont gardées, ce
+    qui s'annule d'un Ctrl+Z)."""
+    notices = furniture_members.add_members(furniture, objects, move=move)
     return _reported(notices, furniture.Document)
 
 
-def remove_from_furniture(objects: Sequence[DocumentObject]) -> _Notices:
+def remove_from_furniture(
+    objects: Sequence[DocumentObject], *, keep_properties: bool = False
+) -> _Notices:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
     de membre sont supprimées, la géométrie ne change pas. ``ValueError`` traduite, avant toute
     modification, pour un objet qui n'est membre d'aucun ensemble. Renvoie les avertissements
-    traduits, comme toute fonction de l'ensemble (ADR 0017) : aucun aujourd'hui."""
-    furniture_members.remove_members(objects)
+    traduits, aussi écrits dans la vue rapport (ADR 0017) : une pièce assemblée à une pièce qui
+    reste dans l'ensemble reste dans son Std Part (elle n'est plus membre). Avec
+    ``keep_properties``, les propriétés de membre restent sur la pièce (état d'orphelin) : seuls
+    le lien et les liaisons sont retirés, ce qui s'annule d'un Ctrl+Z (FreeCAD 1.1 ne rétablit pas
+    une propriété dynamique retirée puis recréée dans la même transaction)."""
+    messages = tuple(furniture_members.remove_members(objects, keep_properties=keep_properties))
+    report(messages)
     if objects:
         objects[0].Document.recompute()
-    return ()
+    return messages
+
+
+def rename(obj: DocumentObject, name: str) -> str:
+    """Renomme une pièce de bois, une pièce en bois, un ensemble ou une répétition ; pour une pièce
+    usinée, c'est le libellé de sa brute qui change (celui que montre le panneau « Structure »).
+    ``name`` est débarrassé des espaces qui l'entourent. ``TypeError`` ou ``ValueError`` traduite,
+    avant toute modification, pour un autre objet, un nom vide, trop long, avec un caractère de
+    contrôle ou (ensemble) inutilisable dans une expression. Un nom inchangé ne fait rien.
+    Renvoie le libellé de l'objet renommé. Aucune transaction n'est ouverte : c'est à l'appelant
+    de le faire pour pouvoir annuler."""
+    target = obj if is_repeat(obj) else furniture_members.member_object(obj)
+    old = str(target.Label)
+    decision = decide_rename(old, name, furniture=is_furniture(target))
+    if not decision.allowed:
+        if decision.silent:
+            return old
+        raise ValueError(translated(decision.template, decision.params))
+    target.Label = cleaned_name(name)
+    target.Document.recompute()
+    return str(target.Label)
 
 
 def set_member_options(
@@ -140,8 +177,34 @@ def resize_furniture(
     :func:`unlock_and_resize` les déverrouille). Renvoie les avertissements traduits (aussi
     dans la vue rapport, ADR 0017)."""
     sizes = {"Width": width, "Depth": depth, "Height": height}
-    notices = furniture_members.resize(furniture, sizes)
+    notices = furniture_resize.resize(furniture, sizes)
     return _reported(notices, furniture.Document)
+
+
+def move_furniture(furniture: DocumentObject, delta: tuple[float, float, float]) -> bool:
+    """Déplace l'ensemble de ``delta`` (dx, dy, dz en mm, repère de son Std Part) en écrivant le
+    ``Placement`` de son Std Part, comme les flèches de la vue 3D, puis recalcule. Faux, sans
+    rien écrire, si l'ensemble n'a pas de Std Part propre (ancien document) ou si une expression
+    pilote ce ``Placement``. Un sous-ensemble est relié à son parent (ADR 0019). Aucune
+    transaction n'est ouverte."""
+    memento = furniture_drag.begin_furniture_drag(furniture)
+    if not furniture_drag.move_furniture_by(memento, Vec3(*delta)):
+        furniture_drag.restore(memento)
+        return False
+    report(furniture_drag.end_furniture_drag(memento))
+    return True
+
+
+def rotate_furniture(furniture: DocumentObject, angles: tuple[float, float, float]) -> bool:
+    """Donne à l'ensemble l'orientation ``angles`` (X, Y, Z du ``Placement`` de son Std Part,
+    degrés, de -360 à 360) autour du centre de sa boîte, pièces et liaisons comprises, puis
+    recalcule. Faux, sans rien écrire, si l'ensemble n'a pas de Std Part propre ou si une
+    expression pilote ce ``Placement`` (un sous-ensemble relié à son parent se tourne à la
+    souris). ``ValueError`` traduite si un angle est invalide. Aucune transaction."""
+    turned = furniture_drag.rotate_furniture_to(furniture, angles)
+    if turned:
+        furniture.Document.recompute()
+    return turned
 
 
 def unlock_and_resize(

@@ -12,12 +12,15 @@ Ce module est une façade : il ré-exporte l'API publique des sous-modules priv�
 
 from __future__ import annotations
 
+from freecad.menuiserie.core.materials._entry import JsonObject
 from freecad.menuiserie.core.materials._issues import (
     MAX_ISSUES,
     MAX_LISTED_KEYS,
     LibraryFormatError,
     LibraryIssue,
     Severity,
+    capped,
+    make_issue,
 )
 from freecad.menuiserie.core.materials._merge import load_library, merge_materials
 from freecad.menuiserie.core.materials._messages import BUILTIN_SOURCE
@@ -38,6 +41,7 @@ from freecad.menuiserie.core.materials._model import (
     Texture,
     UnknownMaterialError,
     is_inside_folder,
+    normalized_id,
     normalized_rough_thicknesses,
 )
 from freecad.menuiserie.core.materials._parser import (
@@ -45,7 +49,11 @@ from freecad.menuiserie.core.materials._parser import (
     MAX_MATERIALS,
     parse_materials,
 )
-from freecad.menuiserie.core.materials._reader import MAX_FILE_BYTES, read_materials_file
+from freecad.menuiserie.core.materials._reader import (
+    MAX_FILE_BYTES,
+    read_json_file,
+    read_materials_file,
+)
 
 __all__ = [
     "BUILTIN_SOURCE",
@@ -64,6 +72,7 @@ __all__ = [
     "MIN_DENSITY",
     "MIN_TEXTURE_SIZE_MM",
     "TEXTURE_EXTENSIONS",
+    "JsonObject",
     "LibraryFormatError",
     "LibraryIssue",
     "Material",
@@ -72,10 +81,14 @@ __all__ = [
     "Severity",
     "Texture",
     "UnknownMaterialError",
+    "capped",
     "is_inside_folder",
     "load_library",
+    "make_issue",
     "merge_materials",
+    "normalized_id",
     "normalized_rough_thicknesses",
     "parse_materials",
+    "read_json_file",
     "read_materials_file",
 ]

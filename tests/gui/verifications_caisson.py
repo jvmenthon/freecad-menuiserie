@@ -16,12 +16,15 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtGui
 
+from freecad.menuiserie.features.furniture_container import own_std_part
+from freecad.menuiserie.gui.drag import events
 from tests.gui.verifications_panneau import (
     annuler,
     avec_document,
     choisir,
     ecarts,
     emplacements,
+    emplacements_attendus,
     formulaire_nomme,
     saisir,
     valider,
@@ -63,7 +66,7 @@ def verifier_commande_du_caisson() -> list[str]:
         *ecarts(
             "emplacements",
             sorted(emplacements(CAISSON)),
-            [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+            emplacements_attendus(CAISSON),
         ),
     ]
 
@@ -95,9 +98,35 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
         *ecarts("un seul caisson", compte(doc), attendu),
         *ecarts("largeur", furniture.Width.Value if furniture else None, 800.0),
     ]
+    session = events.current_session()
+    if session is None:
+        return [*problemes, "session de glissement absente"]
+    problemes += ecarts(
+        "poignées sur le caisson avant « OK » (ADR 0038)",
+        None if session.panel is None else session.panel.part.Name,
+        "Furniture",
+    )
+    part = own_std_part(doc.getObject("Furniture"))
+    if part is None:
+        return [*problemes, "Std Part de l'ensemble absent"]
+    part.Placement = App.Placement(App.Vector(100, 200, 0), App.Rotation())  # geste à la souris
+    saisir(widget(form, "depth"), 400.0)
+    rebuilt = own_std_part(doc.getObject("Furniture"))
+    problemes += ecarts(
+        "position gardée après un nouvel aperçu",
+        None if rebuilt is None else list(rebuilt.Placement.Base),
+        [100.0, 200.0, 0.0],
+    )
     valider()
+    QtGui.QApplication.processEvents()
+    problemes += ecarts("poignées retirées après « OK »", session.panel, None)
     problemes += [
         *ecarts("panneau fermé", formulaire() is None, True),
+        *ecarts(
+            "rien de sélectionné après « OK » (plus de poignées)",
+            [o.Name for o in Gui.Selection.getSelection()],
+            [],
+        ),
         *ecarts("entrées", doc.UndoNames, ["Créer un caisson"]),
         *ecarts("gabarit", doc.getObject("Furniture").Template, "Carcass"),
         *ecarts("objets invalides", [o.Name for o in doc.Objects if not o.isValid()], []),
@@ -118,9 +147,12 @@ def _annule(doc: Any) -> list[str]:
         return ["panneau du caisson non ouvert"]
     saisir(widget(form, "depth"), 500.0)
     problemes = ecarts("aperçu", compte(doc), REFERENCE)
+    session = events.current_session()
     annuler()
+    QtGui.QApplication.processEvents()
     return [
         *problemes,
+        *ecarts("poignées retirées", None if session is None else session.panel, None),
         *ecarts("aucun objet", doc.Objects, []),
         *ecarts("aucune entrée", doc.UndoNames, []),
         *ecarts("panneau fermé", formulaire() is None, True),
@@ -144,10 +176,21 @@ def _refus(doc: Any) -> list[str]:
         *ecarts("champ cité", "épaisseur des panneaux" in erreur.text(), True),
         *ecarts("rien créé", doc.Objects, []),
     ]
+    session = events.current_session()
+    problemes += ecarts(
+        "poignées retirées pendant le refus",
+        None if session is None else session.panel,
+        None,
+    )
     valider()  # sans effet : le panneau reste ouvert
     problemes += ecarts("panneau resté ouvert", formulaire() is not None, True)
     saisir(widget(form, "thickness"), 19.0)
     problemes += [
+        *ecarts(
+            "poignées rétablies après correction",
+            None if session is None or session.panel is None else session.panel.part.Name,
+            "Furniture",
+        ),
         *ecarts("refus effacé", erreur.isHidden(), True),
         *ecarts("caisson recréé", compte(doc), REFERENCE),
     ]

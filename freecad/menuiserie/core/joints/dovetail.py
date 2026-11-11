@@ -36,7 +36,9 @@ from freecad.menuiserie.core.joints._base import (
     mm_text,
     validate_params,
 )
-from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame, contact_frame
+from freecad.menuiserie.core.joints._dovetail_oblique import oblique_dovetail_plan
+from freecad.menuiserie.core.joints._oblique_frame import Frame, ObliqueFrame, profile_frame
+from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame
 
 __all__ = [
     "DEFAULT_ANGLE_DEG",
@@ -55,6 +57,11 @@ NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
     "Queue d'aronde : la pièce à griffes doit arriver à fleur de la face extérieure de la "
     "pièce à queues.",
 )
+TILTED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Queue d'aronde en biais : les deux pièces doivent pivoter autour de leur épaisseur.",
+)
+_PARALLEL: Final = 1e-6
 TOO_NARROW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Queues trop étroites : {count} queues dans {width} mm avec des griffes de {pin} mm et une "
@@ -106,14 +113,17 @@ class DovetailStrategy:
         """Queues ajoutées à l'invitée, logements traversants enlevés à l'hôte."""
         through = _through_frame(host, guest)
         values = _values(through, params)
+        if isinstance(through.frame, ObliqueFrame):
+            spans = _pin_spans(through, values) if params.tails_on_host else None
+            return oblique_dovetail_plan(through.frame, through.outer_side, values, spans)
         if params.tails_on_host:
             return _host_tails_plan(through, values)
         tails = tuple(_tail(through, values, tail, 0.0) for tail in values.tails)
         sockets = tuple(
-            moved(_tail(through, values, tail, CUT_OVERRUN_MM), through.frame.to_host)
+            moved(_tail(through, values, tail, CUT_OVERRUN_MM), through.square.to_host)
             for tail in values.tails
         )
-        return through.frame.bridge.plan(JointPlan(host_cuts=sockets, guest_additions=tails))
+        return through.square.bridge.plan(JointPlan(host_cuts=sockets, guest_additions=tails))
 
 
 @dataclass(frozen=True)
@@ -121,7 +131,7 @@ class _Through:
     """Contact par le bout, vu de l'invitée, et côté de sa face extérieure (là où le bout de
     l'hôte arrive à fleur) : -1 = face basse (Z = 0), +1 = face haute (Z = e)."""
 
-    frame: ContactFrame
+    frame: Frame
     outer_side: int
 
     @property
@@ -139,13 +149,29 @@ class _Through:
         """``L`` : profondeur de l'hôte, longueur des queues."""
         return self.frame.contact.host_depth
 
+    @property
+    def square(self) -> ContactFrame:
+        """Cadre d'équerre (les fonctions qui ne savent pas le biais)."""
+        if not isinstance(self.frame, ContactFrame):
+            raise TypeError("cadre d'équerre attendu")
+        return self.frame
+
+    @property
+    def axis_depth(self) -> float:
+        """Profondeur de l'hôte mesurée sur l'axe de l'invitée (``L`` en équerre) : ce que les
+        flancs d'une queue en biais parcourent."""
+        frame = self.frame
+        return self.depth / frame.cosine if isinstance(frame, ObliqueFrame) else self.depth
+
 
 def _through_frame(host: PlacedBlock, guest: PlacedBlock) -> _Through:
     """Contact par le bout de l'invitée, bout de l'hôte à fleur de sa face extérieure ;
     :class:`JointError` sinon."""
-    frame = contact_frame(host, guest, end_only=True)
+    frame = profile_frame(host, guest, end_only=True)
     guest_low, guest_high = 0.0, frame.guest.dimensions.thickness
     host_low, host_high = frame.host_box.lo(THICKNESS_AXIS), frame.host_box.hi(THICKNESS_AXIS)
+    if isinstance(frame, ObliqueFrame):
+        host_low, host_high = _host_levels(frame)
     if (
         abs(host_low - guest_low) <= CONTACT_TOLERANCE_MM
         and host_high > guest_high + CONTACT_TOLERANCE_MM
@@ -159,6 +185,23 @@ def _through_frame(host: PlacedBlock, guest: PlacedBlock) -> _Through:
     raise JointError(NOT_FLUSH, {})
 
 
+def _host_levels(frame: ObliqueFrame) -> tuple[float, float]:
+    """Niveaux de l'hôte selon l'épaisseur de l'invitée ; :class:`JointError` si les pièces ne
+    pivotent pas autour de leur épaisseur."""
+    to_guest = frame.contact.transform.inverse()
+    thickness = frame.contact.transform.rotate(Vec3(0.0, 0.0, 1.0))  # épaisseur de l'invitée
+    if max(abs(thickness.component(i)) for i in range(3)) < 1.0 - _PARALLEL:
+        raise JointError(TILTED, {})
+    box = frame.host_box
+    levels = [
+        to_guest.apply(Vec3(x, y, z)).z
+        for x in (box.lo(0), box.hi(0))
+        for y in (box.lo(1), box.hi(1))
+        for z in (box.lo(2), box.hi(2))
+    ]
+    return min(levels), max(levels)
+
+
 def _values(through: _Through, params: DovetailParams) -> DovetailValues:
     width = through.width
     # Nombre et griffes automatiques d'après la plus mince des deux pièces : inverser l'assemblage
@@ -167,7 +210,7 @@ def _values(through: _Through, params: DovetailParams) -> DovetailValues:
     count = params.tail_count or max(1, math.floor(width / (3 * reference) + 0.5))
     # Les flancs se rétrécissent sur la profondeur des queues : celle de l'hôte, ou, quand les
     # queues sont sur l'hôte, l'épaisseur de l'invitée.
-    depth = through.thickness if params.tails_on_host else through.depth
+    depth = through.thickness if params.tails_on_host else through.axis_depth
     pin = params.pin_width or mm_round(reference / 3)
     angle = params.angle or DEFAULT_ANGLE_DEG
     tail_width = (width - (count + 1) * pin) / count
@@ -200,7 +243,7 @@ def _tail(
     Trapèze dans le plan (largeur, normale) : ``tail`` côté pointe (à ``L`` de l'épaulement),
     rétréci de ``L tan(angle)`` de chaque côté à l'épaulement ; flancs prolongés dans le
     dépassement. Extrudé sur l'épaisseur."""
-    frame = through.frame
+    frame = through.square
     depth = through.depth
     origin = frame.contact.rectangle.lo(frame.width_axis)
     low = 0.0 if through.outer_side > 0 else -overrun
@@ -237,10 +280,10 @@ def _host_tails_plan(through: _Through, values: DovetailValues) -> JointPlan:
     la face intérieure ; les griffes des bords sont droites du côté du bord."""
     pins = tuple(_pin(through, values, span, 0.0) for span in _pin_spans(through, values))
     sockets = tuple(
-        moved(_pin(through, values, span, CUT_OVERRUN_MM), through.frame.to_host)
+        moved(_pin(through, values, span, CUT_OVERRUN_MM), through.square.to_host)
         for span in _pin_spans(through, values)
     )
-    return through.frame.bridge.plan(JointPlan(host_cuts=sockets, guest_additions=pins))
+    return through.square.bridge.plan(JointPlan(host_cuts=sockets, guest_additions=pins))
 
 
 def _pin_spans(through: _Through, values: DovetailValues) -> tuple[tuple[float, float], ...]:
@@ -257,7 +300,7 @@ def _pin(
 ) -> Prism:
     """Griffe extrudée sur la profondeur de l'hôte (``overrun`` de part et d'autre pour un
     logement, et vers l'extérieur de la face extérieure), repère de l'invitée."""
-    frame = through.frame
+    frame = through.square
     origin = frame.contact.rectangle.lo(frame.width_axis)
     flank = math.tan(math.radians(values.angle))
     thickness = through.thickness

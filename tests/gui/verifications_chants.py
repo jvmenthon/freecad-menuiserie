@@ -80,7 +80,7 @@ def verifier_commande() -> list[str]:
         *ecarts(
             "emplacements",
             sorted(emplacements(COMMANDE)),
-            [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+            [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie : Pièces")],
         ),
     ]
 

@@ -67,7 +67,7 @@ def test_structure_en_trois_blocs() -> None:
     assert totals[-1][0] == "Total général"
     assert hardware == [
         ["Fournitures"],
-        ["Fourniture", "Diamètre (mm)", "Longueur (mm)", "Qté"],
+        ["Fourniture", "Diamètre ou épaisseur (mm)", "Longueur (mm)", "Qté"],
         ["Tourillon", "8", "35", "6"],
     ]
 

@@ -5,6 +5,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Corrigé
+
+- Panneau « Structure » : régression de #208, la transparence de sélection (50 %, bleu clair) n'apparaissait plus pendant une tâche. Elle est de nouveau posée dès le clic de ligne, en même temps que la transparence d'édition (60 %) de la pièce éditée, les deux indépendantes (l'édition prime sur le même objet). Elle est écrite dans la transaction du panneau puis retirée avant sa validation ou son abandon : aucune teinte dans l'historique d'annulation (Ctrl+Z/Ctrl+Y) ni dans le fichier, y compris enregistré pendant la tâche ; une tâche d'un autre atelier garde la pose différée (ADR 0046). Ctrl+Z / Ctrl+Y rejouent la valeur d'affichage du moment : elle est corrigée après coup (`slotRedoDocument`). Limite : un calque d'édition reposé par un enregistrement pendant la tâche est écrit dans la transaction (comportement antérieur inchangé).
+- Fusion de `main` (répétition de pièces et d'ensembles, ADR 0043 et 0044, ensemble à la souris) dans le jalon du panneau « Structure » : les deux comportements sont gardés. La teinte des pièces d'origine du panneau « Répéter » passe par les calques d'affichage (`ORIGIN_LOOK`, repose après une transaction abandonnée), `release_furniture` et `release_repeat_links` vivent dans `features/furniture_detach.py`, le panneau montre les copies comme des pièces et l'objet Répétition sous « Autres objets de l'atelier » en attendant le lecteur de répétitions (m5).
+- Panneau « Structure » : les pieds, coulisses, LR32, faux tenons, assemblages et Distances dont les pièces sont hors ensemble (ou dans des ensembles sans ensemble commun) n'apparaissaient nulle part, car ils n'étaient lus que sous un ensemble. Ils forment désormais un nœud replié « Assemblages (N) » à la racine (menu, suppression, renommage, double-clic, sélection et icônes comme sous un ensemble) ; tout autre objet de l'atelier encore invisible est montré sous « Autres objets de l'atelier (N) ». Invariant testé : tout objet de l'atelier est dans l'arbre, une seule fois (ADR 0046).
+
 ### Ajouté
 
 - Finition des chants, lot CH-a (#5, ADR 0029) : règles pures des profils d'arête (12 arêtes par
@@ -18,11 +24,127 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   douze arêtes en cases à cocher cochées d'après la face, l'arête ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
   aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
+- Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
+  sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
+  un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le
+  panneau), un double-clic dans le vide remonte d'un niveau ; Ctrl+clic, Maj+clic, l'arbre et un
+  panneau de tâche ouvert gardent la sélection native. Filtre d'évènements et observateur de
+  sélection posés seulement pendant que l'atelier est actif.
+- Cotes du parent à l'enveloppe de ses membres (ADR 0049) : après un déplacement ou une rotation
+  d'un sous-ensemble, et dès la création d'un ensemble autour d'un ensemble tourné, la boîte de
+  l'ensemble de plus haut niveau est exactement l'enveloppe de ses membres, sans marge (rotation
+  comprise, copies d'une répétition comprises), sans rien déplacer ; elle grandit ou rétrécit. Un parent dont une
+  répétition « Suivre le redimensionnement » ou une formule lit les cotes n'est pas recalé.
+
+- Panneau « Structure » et répétitions (ADR 0046 lot 4 complet, ADR 0043 et 0044, solde m5) : le vrai lecteur (`features/structure_repetitions.py`) remplace le point d'extension vide. Une répétition est une ligne « <nom> ×N » dépliable en ses copies, à la racine ou dans l'ensemble de sa source ; les copies ne sont plus montrées comme pièces ordinaires (aucun doublon) ; une copie d'ensemble (ensemble complet avec Std Part) porte son contenu sous sa ligne, ses membres copiés y restent et son Std Part n'est jamais montré. Double-clic sur la répétition ou une copie : « Modifier la répétition » (aussi pour une copie d'ensemble). Menu : « Modifier la répétition », « Renommer » (la répétition aussi, `api.rename`), « Dissocier la copie » (une transaction), « Supprimer » ; une copie ou une répétition ne se glisse pas, ne se range pas et ne reçoit aucun dépôt. Sélectionner la répétition met toutes ses copies en transparence (une copie d'ensemble : toutes ses pièces). Tests unitaires (`test_structure_repetitions`), d'intégration avec de vraies répétitions de pièces et d'ensembles et de contrôle d'interface (`verifications_structure_repetition`).
+- Panneau « Structure », revue finale (ADR 0046) : « Inverser » compte comme une modification de la tâche (le filtre ne tient plus « lecture seule » pour du calculé : un clic de ligne n'abandonne plus la transaction et le double-clic propose la boîte) ; la transaction n'est abandonnée qu'à l'ouverture du panneau. La transparence de sélection n'est ni posée ni retirée tant qu'une transaction est ouverte : elle est différée à la fermeture de la tâche (aucune teinte enregistrée dans l'historique d'annulation ni dans le fichier). Un objet supprimé reçoit son origine avant l'oubli (Ctrl+Z ne le recrée plus teinté) ; une erreur d'un objet à l'enregistrement n'interrompt plus la restauration des autres ; un enregistrement échoué est réparé à la demande suivante ; clés `(document, nom)`. Couleurs partagées dans `core/colors`, `verbatim_text` tronque les libellés démesurés, `choose` du panneau est un paramètre, `PartsPreview` exige ses calques. Limite documentée : fichiers de récupération automatique. Mineurs soldés : icônes mises en cache (`reset_icons`), ensembles d'un cycle de fichier abîmé gardés comme racines (`core/structure_roots`), notifications des documents non actifs ignorées, `build_structure(source, extras, titles)` sans `joints_title`, vérification du garde « ensemble d'accueil supprimé », tests de câblage lisant le source remplacés par les contrôles GUI, fichiers de test de plus de 400 lignes scindés. Reste dans `docs/corrections-mineures.md` : S7 (mesure sur 1 000 objets).
+- Panneau « Structure » : cliquer une ligne rend sa pièce (un ensemble : toutes ses pièces ; un assemblage ou une quincaillerie : ses deux pièces) transparente et teintée de bleu clair (50 %), d'une autre couleur que la transparence de la tâche en cours (60 %, couleur d'origine). Les deux coexistent sur des calques indépendants (`core/display_layers`, `gui/display_layers`) qui retiennent l'état d'origine une fois : l'édition l'emporte sur le même objet, aucun calque ne restaure ni n'écrase l'autre, et rien d'éphémère n'est enregistré (écriture hors transaction, origine rendue avant l'enregistrement du document, objet supprimé et document fermé oubliés, rendu à la désélection, au masquage du panneau et à la fermeture de la tâche). Les flèches de déplacement et anneaux de rotation s'activent avec une ligne choisie comme avec une sélection en 3D (contrôlé, aucun changement nécessaire). Double-clic sur une ligne pendant une tâche de l'atelier : sans modification elle est fermée puis la pièce s'ouvre ; avec des modifications, une boîte propose « Appliquer les modifications », « Annuler les modifications » ou de poursuivre (Échap) ; une tâche d'un autre atelier est refusée avec un message (`core/task_switch`, `core/document_state`, ADR 0046).
+- Panneau « Structure » : un nœud replié « Quincaillerie (N) » sépare des « Assemblages (N) » les objets du commerce de l'ADR 0033 (pieds, coulisses, LR32 ; tourillons, faux tenons et biscuits restent des assemblages), sous chaque ensemble et à la racine pour ceux sans ensemble ; tenon-mortaise, rainure-languette, feuillure, mi-bois, queue d'aronde, onglet, tourillons, faux tenons, biscuits et Distances restent des assemblages. Table pure `core/structure_hardware.py`. Chaque ligne a l'icône de son type précis (celle de la commande de l'assemblage, la Distance, la pièce en forme) ; nouvelle icône « Quincaillerie » générée par `tools/generer_icones.py`. Mêmes actions que les assemblages (sélection, double-clic, suppression, renommage, pas de glisser).
+- Panneau « Structure » : une icône sur chaque ligne selon son genre (ensemble, pièce, assemblage et groupe « Assemblages », répétition, liste de débit, autre objet), avec les icônes de l'atelier ; deux nouvelles icônes (Répétition, Autre objet) générées par `tools/generer_icones.py`. Le panneau s'ouvre par défaut à l'activation de l'atelier (en onglet avec la vue combinée, sans prendre le focus), sauf si l'utilisateur l'a fermé : le choix est mémorisé dans les préférences de l'atelier. Pas d'icône distincte pour la pièce en forme ni pour la Distance (le genre de ligne ne les distingue pas).
+- Panneau « Structure » : une pièce assemblée à une pièce qui reste ailleurs n'est plus refusée mais rangée à l'endroit cohérent le plus proche, et le panneau dit où elle est allée (ADR 0046, décision de jv). FreeCAD range toute la fermeture de liens dans le Std Part d'arrivée, donc deux pièces assemblées restent dans le même ensemble : déposer P (assemblée à Q, dans A) sur un sous-ensemble S de A la laisse dans A ; déposer P et Q ensemble les met dans S ; déposer P sur A alors que Q est dans S de A la met dans S ; créer un sous-ensemble avec P seule ne crée rien (P reste dans A, refus expliqué), avec d'autres pièces il ne reçoit qu'elles. Le refus ne reste que sans rangement cohérent (autre branche). Un seul critère pur (`core/assembly_scope.destination`), partagé par `decide_drop`, `decide_create` et l'api (`add_to_furniture`, `make_furniture`, qui renvoient l'avertissement).
+- Panneau « Structure » sur `main` (ADR 0046, ADR 0038) : le panneau repose sur le Std Part par ensemble. Ranger dans un ensemble, sortir de l'ensemble et créer un sous-ensemble passent par `adopt`, `leave` et `check_assembled` (les pièces changent de Std Part sans bouger, Ctrl+Z rétablit tout, y compris sous FreeCAD 1.1.3 : les propriétés de membre sont gardées, état d'« orphelin »). Critère unique de l'assemblage vers l'extérieur (`core/assembly_scope`) partagé par les décisions du panneau et le contrôle de l'api : les deux pièces assemblées doivent se retrouver dans le même ensemble (FreeCAD range la fermeture de liens dans le Std Part) ; voir l'entrée « parent le plus proche » ci-dessus. « Renommer » passe par la nouvelle `api.rename` (contrôle, refus traduit, brute d'une pièce usinée). La commande « Retirer de l'ensemble » garde les propriétés de membre comme « Sortir » du panneau. `gui/` n'importe plus `shiboken6` (signal `destroyed` de l'arbre, test d'interdiction).
+- Panneau « Structure » (ADR 0046, lot 4) : la liste de débit est une ligne (son tableur n'apparaît pas) ; les objets d'autres ateliers sont repliés sous « Autres objets (N) », en lecture seule (on peut les sélectionner, jamais les ouvrir, renommer, ranger ni supprimer d'ici ; un dépôt dessus est refusé) ; sont montrés les seuls objets de premier niveau (rien ne dépend d'eux) qui ne contiennent ni ne lisent aucun objet de l'atelier, hors Origines : Body, esquisses, Std Part et opérandes restent cachés. Une répétition s'affiche en une ligne « <nom> ×N » dépliable en ses copies, qui ne sont plus à plat, ne se glissent pas hors d'elle et ne reçoivent aucun dépôt ; l'objet Répétition (ADR 0043) n'étant pas dans cette branche, la lecture passe par un point d'extension (`features/structure_repetitions.py`, lecteur vide pour l'instant : aucune ligne « ×N » tant que le type n'existe pas). Aucune modification de l'arbre natif ni du document.
+- Panneau « Structure » (ADR 0046, lot 3) : menu contextuel (Ouvrir, Renommer, Ajouter à l'ensemble, Sortir de l'ensemble, Créer un ensemble ou un sous-ensemble depuis la sélection, Supprimer ; les entrées impossibles sont grisées, la raison en infobulle) et glisser-déposer d'une pièce ou d'un sous-ensemble sur un ensemble (le ranger), sur le vide ou une pièce hors ensemble (le sortir). Tout passe par l'api de l'atelier (`add_to_furniture`, `remove_from_furniture`, `make_furniture`, ADR 0037) en une seule transaction annulable d'un Ctrl+Z ; « Supprimer » lance la suppression de FreeCAD, donc les mêmes fenêtres que l'arbre natif (fenêtre « assemblage lié », `onDelete` de l'ensemble). Un dépôt refusé est expliqué et ne change rien : pièce assemblée à une pièce qui ne partirait pas avec elle (ADR 0026), cycle d'ensembles, élément absent du document actif, panneau de tâche ouvert. Décisions pures dans `core/structure_actions.py` et `core/structure_menu.py`, lecture du document dans `features/structure_facts.py`. L'arbre natif n'est pas modifié et le document ne reçoit aucun objet en dehors des effets de l'api. Api : `add_to_furniture(..., move=True)` (changer d'ensemble) et `remove_from_furniture(..., keep_properties=True)` (sortir) gardent les propriétés de membre au lieu de les retirer puis recréer, ce que FreeCAD 1.1 n'annule pas correctement ; la création d'un sous-ensemble depuis des membres (ADR 0037) fait de même, et `remove_from_furniture` sans option est inchangé.
+- Panneau « Structure » (ADR 0046, lot 2) : il se rafraîchit seul quand le document change (notifications regroupées, arbre inchangé non reconstruit, état déplié conservé), la sélection est synchronisée dans les deux sens avec FreeCAD (arbre natif et vue 3D ; la brute compte pour sa pièce usinée, pas de rétroaction) et le double-clic ouvre le même panneau de tâche que l'arbre natif. Les observateurs ne sont posés que tant que le panneau est visible. Logique pure dans `core/structure_sync.py`. Toujours en lecture seule du modèle (menu contextuel et glisser-déposer : lot 3).
+- Panneau ancré « Structure » en lecture seule (ADR 0046, lot 1) et commande « Structure » (thème « Vue ») : un nœud par ensemble (sous-ensembles en enfants), ses pièces (la brute et la pièce usinée forment une ligne), un nœud replié « Assemblages (N) » (assemblages, quincaillerie, Distances) et les pièces hors ensemble à la racine. L'arbre de FreeCAD n'est pas modifié et le document ne reçoit aucun objet. Modèle d'arbre pur dans `core/structure_tree.py`.
+- Répétition jusqu'à une butée (ADR 0047, accepté) : dans les modes « nombre sur une longueur » et « pas sur une longueur », la longueur de chaque axe peut être calculée jusqu'à une face, un sommet ou une pièce entière choisis dans la vue 3D (bouton « Butée… » par axe, une butée par axe en grille) ; la longueur suit la butée déplacée ou redimensionnée, une butée supprimée laisse la dernière longueur avec un avertissement. Nouvelle case « Déduire l'épaisseur de la pièce » pour tous les modes sur une longueur (cochée par défaut, comme avant : la dernière copie arrive à fleur ; décochée : elle commence à la fin de la longueur). API `Stop`, `stops=` et `deduct_thickness`.
+- Répétition en grille X × Y × Z (ADR 0045, proposé) : un seul mode de saisie, une ligne par axe (nombre, pas ou longueur, sens), 4 × 3 sur X et Y = 11 copies, 100 copies au plus au total ; chaque copie est repérée par sa cellule (`RepeatCell`), de sorte que changer le nombre ou le pas d'un axe garde les copies et leurs assemblages ; assemblages par cellule, ensembles en grille, « Suivre le redimensionnement » axe par axe, chevauchement par axe puis pour la grille, panneau à trois lignes X, Y, Z avec aperçu de toutes les copies ; la répétition à un axe reste valable.
+- Répétition d'un ensemble et Std Part (ADR 0044, fusion avec l'ADR 0038) : une copie d'ensemble a son
+  propre Std Part, créé comme celui d'un ensemble neuf et rangé dans le conteneur de celui de la
+  source (dans celui de la copie du parent pour un sous-ensemble, règle `carried`) ; ses membres
+  copiés y entrent à la même place que dans la source, son `Placement` suit celui du Std Part de la
+  source (Base + pas, rotation) : déplacer ou tourner la source à la souris entraîne les copies.
+  Dissocier laisse à la copie son Std Part ; réduire le nombre, supprimer la copie ou la source
+  dans l'interface ne laisse pas de Std Part orphelin (`release_furniture`) ; `Source`, `Repeat`,
+  `RepeatSource` et `RepeatJoint` deviennent des liens globaux.
+- Répétition : la commande « Répéter » accepte aussi les ensembles ; une répétition créée par script reçoit son icône et son double-clic.
+- Répétition (lot R-d) : Ctrl + glisser une flèche copie la pièce (copie liée, un pas = la distance du glissement) et ouvre aussitôt « Modifier la répétition » ; Échap annule ; Maj coupe toujours l'aimantation.
+- Répétition : ensembles (lot R-b3, ADR 0044). Les copies d'une pièce membre entrent dans l'ensemble avec les mêmes options ; la case « Suivre le redimensionnement » répartit les copies sur la cote de l'ensemble ; un ensemble ou un caisson se répète avec tous ses membres et ses assemblages, et se dissocie en bloc.
+- Répétition de pièces (ADR 0043, lot R-c) : commandes « Répéter », « Modifier la répétition » et « Dissocier la copie », panneau avec aperçu en direct des copies dans la vue 3D, avertissement de chevauchement, refus affichés, icône et double-clic de l'objet Répétition, nouvelles icônes ; le bouton « OK » du panneau d'assemblage se grise enfin quand l'assemblage est en erreur.
+- Répétition (ADR 0043, lot R-b2) : assemblages recopiés quand `CopyJoints` est vrai (modifiable par `edit_repeat`) : entre les copies homologues si les deux pièces sont répétées, entre la copie et la pièce fixe sinon (une traverse reçoit un tenon par copie), ignorés si aucune pièce n'est répétée, non recopiés s'ils sont impossibles (voir « Corrigé ») ; paramètres de chaque assemblage enfant en expressions sur ceux de l'origine, lecture seule, lien `RepeatJoint` ; copie ajoutée ou retirée, dissociation de la copie ou suppression de l'origine suivent. Une pièce usinée choisie comme source répète sa pièce brute.
+- Répétition (ADR 0043, lot R-b1) : objet `Repeat` (sans forme) et copies liées de **pièces de bois** par expressions natives (cotes, matériau, sens du fil, surcotes, placement + k pas), API `make_repeat`, `edit_repeat` (ajoute ou retire les dernières copies), `dissociate` et `repeat_of`, chacune en un bloc annulable ; supprimer la répétition ou la source dissocie les copies. Pas encore d'assemblages, d'ensembles ni de commande (lots R-b2 et R-c).
+- Répétition (ADR 0043, lot R-a) : calcul pur de la répétition linéaire dans `core/repeat/` (nombre et pas, nombre sur une longueur, pas sur une longueur, inversion, bornes à 100 copies, chevauchement signalé) ; cercle et trajet réservés. Pas encore d'objet ni de commande.
+- Ensemble à la souris, vue 3D et panneau (EN-c et EN-d, ADR 0038) : un ensemble sélectionné seul
+  dans l'arbre (ou dont le panneau est ouvert) est dessiné en transparence avec six doubles flèches
+  de face (taille, aimant de 10 px sur les voisines, cote et message de refus près de la souris,
+  aperçu des brutes à 10 Hz au plus), trois flèches de déplacement et trois anneaux de rotation
+  (15°, Maj libre, angle affiché), en transactions « Redimensionner l'ensemble », « Déplacer
+  l'ensemble » et « Tourner l'ensemble » (un Ctrl+Z, Échap, transaction du panneau s'il est
+  ouvert). La session de glissement passe par une abstraction `Target` (pièce, ensemble) sans
+  changer le comportement des pièces. Sans Std Part propre : ni flèches ni anneaux, faces avant,
+  gauche et basse refusées avec la raison. Le panneau de l'ensemble a trois champs d'angle
+  (-360 à 360, forme canonique en fin de saisie, grisés avec infobulle si l'ensemble est lié par
+  son parent ou sans Std Part propre), relit cotes et angles après un geste, et la case « Cotes
+  fixes » d'un sous-ensemble (Q7).
+- Ensemble à la souris, règles et écriture (EN-a et EN-b, ADR 0038) : `core/furniture` donne la
+  disposition d'une boîte d'ensemble (`furniture_layout` : six poignées de face, trois flèches
+  au centre, trois anneaux, réutilisant `core/magnet` et `core/rotation`) et `resized_box` (face
+  opposée fixe, cote minimale 0,1 mm). `features/furniture_drag` écrit le geste : `begin_furniture_drag`
+  (Memento), `resize_furniture_to` (cotes absolues par le chemin du panneau, brutes seules
+  recalculées, arrêt à la dernière valeur permise avec message en cas de refus), `move_furniture_by`,
+  `rotate_furniture_by` et `rotate_furniture_to` (`Placement` du Std Part, rotation autour du
+  centre de la boîte), `restore` (Échap) et `end_furniture_drag` (recalcul complet, avertissements,
+  liaison du parent pour un sous-ensemble). Sans Std Part propre, déplacement et rotation sont
+  refusés. Façade : `api.move_furniture` et `api.rotate_furniture`. « Cotes fixes » d'un
+  sous-ensemble : lecture par les liaisons vérifiée et testée (Q7).
+- Std Part d'ensemble (EN-e, ADR 0038) : chaque ensemble, gabarit Caisson compris, est rangé à sa
+  création dans un Std Part (`App::Part`, « {ensemble} (Std Part) ») avec ses pièces, pièces
+  usinées, assemblages et Distances, sans rien déplacer à l'écran ; une pièce ajoutée y entre, une
+  pièce retirée en sort à la même position (une pièce assemblée à un membre qui reste garde le
+  Std Part). Un sous-ensemble a son propre Std Part, rangé dans celui du parent : son `Origin`
+  vaut (0, 0, 0), le parent lie le `Placement.Base` de ce Std Part. Pas de reprise des anciens
+  documents. Essai sur FreeCAD 1.1 dans l'ADR 0038.
+- Panneau d'assemblage : le bouton « Inverser » reste visible mais grisé, avec une infobulle qui explique pourquoi, quand l'inversion n'a pas de sens (mi-bois, onglet, tourillons, faux tenons, biscuits) ou que les rôles échangés rendraient l'assemblage impossible (ex. tenon-mortaise en biais : l'infobulle donne la raison).
+- Perçage LR32 : un seul objet perce le côté et le montant opposé en miroir (`GuestPart`, case « Montant opposé aussi », cochée par défaut) : un réglage change les deux côtés ; la tablette ne s'aimante plus que sur le dessus des taquets (plus sur le haut du trou).
+- Perçage LR32 : taquets ronds (tige et saillie d'un tenant) ; rangs du montant opposé aux mêmes hauteurs que ceux du côté (tablette de niveau même si les montants ne partent pas du même bas) ; un assemblage ajouté ou retiré après le perçage sur le côté ou le montant opposé recalcule le perçage (et suit les pièces ajoutées depuis).
+- Double-clic dans la vue 3D : plus d'erreur « Internal C++ object already deleted » quand la zone d'affichage vient d'être détruite (clic ignoré).
+- Panneau d'assemblage : « OK » est grisé et refusé (message) tant que l'assemblage est en erreur ; « Annuler » reste possible.
+- Entrées utilisateur : le pas du perçage est refusé sous diamètre + 2 mm (saisir un pas à la main pouvait figer FreeCAD), tout plan d'usinage est plafonné à 1000 formes, et les champs des panneaux d'assemblage s'appliquent en fin de saisie. Nouvelle norme « Entrées utilisateur » dans `CONTRIBUTING.md`.
+- Perçage LR32 : en déplaçant une tablette, son dessous s'aimante sur le dessus de taquet de n'importe quel rang de trous (et plus seulement sur l'ancien taquet) ; le taquet suit la tablette.
+- Perçage LR32 : la commande perce la face et la zone (entre deux pièces assemblées au côté) où l'on a cliqué (propriété « Hauteur de la zone percée », 0 : la plus grande zone) ; le bouton « Inverser » du panneau perce l'autre face.
+- Faux tenons et biscuits en automatique : le premier et le dernier sont à 50 mm des bords (au milieu sur un contact plus court) et à 150 mm au plus l'un de l'autre, comme l'usage courant (avant : jusqu'au bord, une mortaise tous les 60 mm). La liste devient « Taille standard » (sans la marque) et l'entrée « Automatique » indique la taille choisie ; elle se masque avec la case « Taille personnalisée ».
+- Perçage LR32 : la face percée est la face intérieure (contre laquelle sont posées des pièces), les trous s'arrêtent aux pièces assemblées au côté (fond, dessus) avec 64 mm de marge, un taquet est posé sous chaque tablette libre, et le déplacement d'une tablette s'aimante entre son dessous et le dessus plat du taquet. Un réglage « Auto » à 0 ne refuse plus les pieds ni le perçage.
+- **Perçage LR32** (`make_shelf_pins`, commande « Perçage LR32 et taquets », une seule pièce : un côté de caisson debout) : deux colonnes de trous de 5 mm au pas de 32 mm, à 37 mm des bords et 64 mm du haut et du bas, autant de rangs que le côté en reçoit ; les **taquets de tablette** (acier) sont posés dans un rang au choix (rang du milieu par défaut) et comptés dans la liste de débit. Références génériques `taquet-tablette-5` et `taquet-tablette-8`.
+- Faux tenons et biscuits : les planches qui se touchent **face contre face** sont acceptées (le plus long côté du contact porte la longueur de la mortaise), en plus du bout et du chant.
+- Faux tenons et biscuits rangés avec les assemblages. **Faux tenons** : mortaise à bouts demi-ronds comme les Domino de Festool, taille choisie dans la liste Festool (4 x 20 à 10 x 50 mm, ou « Automatique », par défaut) ; la case « Taille personnalisée » masque la liste et montre les cotes à saisir. **Biscuits** : forme de lamelle Lamello, taille choisie dans la liste (n° 0, 10, 20 ou « Automatique »), sans taille personnalisée. Dans l'API, `size=` choisit la taille ; `reference=` en tire la taille ; des cotes données (`thickness`, `along`, `total_depth`) passent un faux tenon en taille personnalisée.
+- Barre d'outils et menu de l'atelier regroupés par thème : Pièces, Assemblages, Quincaillerie, Ensembles, Liste de débit (une barre d'outils chacun, séparés par un trait dans le menu). Icônes des faux tenons, des biscuits et des coulisses redessinées (la pièce seule, sans planches), et celle des pieds.
+- Quincaillerie, lots Q-e (pieds) et Q-f (coulisses) (#159, ADR 0033) : **pieds de caisson
+  réglables** (`make_foot`, une seule pièce : grille de pieds sous un panneau couché, logements de
+  tige percés, embase et tige rapportées) et **coulisses de tiroir à billes** (`make_drawer_slide`,
+  entre un côté de caisson et un côté de tiroir face à face avec un jeu : longueur du commerce de
+  250 à 600 mm, hauteur réglée, avant-trous au pas de 32 mm dans les deux côtés). Références
+  génériques au catalogue (`pied-caisson-m10-50`, `coulisse-billes-450`…), commandes, icônes et
+  décompte dans la liste de débit. Les pieds ont une matière, plastique (par défaut : vissé, sans tige ni perçage, vis non modélisées) ou bois (tige percée dans le panneau), qui colore le pied et figure dans la liste de débit. Charnières à cuvette et vis restent à faire. Une coulisse se pose même si les côtés se touchent ou se chevauchent ; une fenêtre propose alors de réduire le tiroir ou d'élargir le meuble du jeu qui manque (`api.slide_shortfall`, `api.make_room_for_slide`).
+- Quincaillerie, lots Q-c et Q-d (#159, ADR 0033) : deux nouveaux assemblages, **faux tenons**
+  (type Domino) et **biscuits**, avec une mortaise plate dans chaque pièce, taille du commerce
+  choisie automatiquement d'après le contact (au plus un tiers de l'épaisseur), nombre,
+  décalage et jeu de fond réglables, commandes, icônes et fabriques `make_loose_tenons` et
+  `make_biscuits`. Le paramètre `reference` des fabriques `make_dowels`, `make_loose_tenons` et
+  `make_biscuits` prend l'identifiant d'une référence du catalogue (ex. `domino-8x50`) et fixe
+  les cotes du commerce. La liste de débit compte les faux tenons et les biscuits (taille et
+  largeur) avec les tourillons ; l'en-tête « Diamètre (mm) » du CSV devient « Diamètre ou
+  épaisseur (mm) ».
+- Quincaillerie, lots Q-a et Q-b (#159, ADR 0033) : catalogue de références du commerce en JSON
+  strict (`quincaillerie.json`, format 1), lu avec les mêmes garde-fous que les matériaux,
+  entrées invalides ignorées une à une avec anomalie, sources fusionnées par identifiant (la plus
+  proche de l'utilisateur l'emporte), familles génériques et cotes bornées. Catalogue intégré
+  minimal saisi à la main : tourillons, faux tenons Domino, biscuits Lamello, vis à bois,
+  charnière à cuvette et coulisse génériques. Aucun accès réseau.
+- Pièces proches à l'assemblage (demande de jv, 2026-11-07, ADR 0039) : si les deux pièces
+  sélectionnées ne se touchent pas mais sont écartées de 20 mm au plus, une fenêtre propose de
+  déplacer une pièce jusqu'au contact, de l'agrandir jusqu'au contact ou d'annuler ; le
+  rapprochement et l'assemblage forment une seule entrée d'annulation (`api.closing_options`,
+  `api.close_gap`).
+- Taille initiale d'une nouvelle pièce limitée par les collisions (demande de jv, 2026-11-07) : à
+  l'ouverture du panneau « Nouvelle pièce de bois », longueur, largeur puis épaisseur sont ramenées
+  au jeu libre avant les autres pièces de bois ; ensuite la saisie n'est jamais limitée.
 - Assemblages entre pièces en biais (#114, ADR 0024) : tenon-mortaise et rainure-languette entre
   deux pièces dont l'angle n'est pas un multiple de 90° (70° au plus, angles composés compris),
   épaulement sur la face de l'hôte, référence du tenon au choix (pièce à tenon, pièce mortaisée,
   mi-angle), coupes en biais et long point dans la liste de débit, pièces en biais suivies par
   translation dans un ensemble. Les autres assemblages refusent encore le biais (#78).
+- Assemblages en biais, suite (#78, ADR 0034) : feuillure, mi-bois (pièces tournées autour de
+  l'épaisseur), onglet (cadre non rectangulaire), tourillons et queue d'aronde acceptent le biais.
 - Pièce créée contre une face (#136, demande de jv, 2026-11-01) : si une seule face d'une pièce de
   bois est sélectionnée au lancement de « Pièce de bois », la nouvelle pièce est perpendiculaire à
   la pièce qui porte la face, avec sa largeur et son épaisseur ; tout reste modifiable dans le
@@ -53,8 +175,44 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   (« OK », « Annuler », document fermé, pièce supprimée, Édition > Annuler). Une pièce qui a des
   assemblages devient transparente sous sa forme usinée, la seule visible.
 
+### Modifié
+
+- Performance de la répétition en grille (4 × 2 × 4 : 31 copies, 929 objets ; sans interface, création 8,1 s → 1,8 s, recalcul après changement de cote 3,8 s → 0,5 s) : cache borné des formes usinées et des plans d'assemblage (clé exacte, les copies ont les mêmes cotes et enlèvements dans leur repère que la source), forme d'un assemblage non réaffectée quand il a seulement été déplacé, libellés uniques interrogés au document (`getObjectsByLabel`) au lieu de relire tous les objets à chaque création. Aucun changement de résultat ni de conception.
+- Interne : `core/joints/shelf_pins` et `core/joints/slots` deviennent des paquets (`_params`, `_strategy`, même interface, ADR 0040) ; `MIN_WALL_MM` partagé, `timber_blanks_around` dans `machined_part`, valeurs de coulisse et de perçage typées au lieu de `type: ignore`.
+
 ### Corrigé
 
+- Répétition : un assemblage impossible n'est plus recopié (décision de jv). Une pièce assemblée à
+  une pièce B plus courte que la répétition recevait pour les copies hors de B un assemblage qui
+  échouait au recalcul (« Les pièces ne se touchent pas », trace `pyException`). La faisabilité est
+  vérifiée avant la création, avec les calculs du recalcul ; chaque édition de la répétition
+  supprime l'enfant devenu impossible et crée celui qui est redevenu possible (un enfant dissocié ne
+  revient pas) ; les grilles et les ensembles suivent la même règle ; le nombre d'assemblages non
+  recopiés est signalé dans la vue rapport et dans le panneau. Limite : un recalcul seul (source
+  déplacée après coup) ne crée ni ne supprime rien.
+- Répétition : double-clic sur une copie (pièce ou ensemble) et menu contextuel ouvrent « Modifier la répétition » ; un assemblage ou un membre ajouté à la source après coup est copié dans toutes les copies ; une répétition de pièces d'un conteneur `App::Part` est rangée dans ce conteneur (axe du conteneur) et les pièces de conteneurs différents sont refusées ; « Dissocier » accepte un ensemble copie et l'un de ses membres ; « Modifier » une répétition sans source est refusé avec un message ; « Inverser » est grisé sur un assemblage copié ; la copie par glissement se fait avec Ctrl.
+- Ensemble d'ensembles : sélectionner les Std Parts de deux ensembles dans l'arbre active de
+  nouveau la commande « Ensemble » (le Std Part compte pour l'ensemble qu'il porte, ADR 0038) ; le
+  lien `Furniture` d'un membre devient `App::PropertyLinkGlobal` (un sous-ensemble cite son parent
+  rangé dans le Std Part du dessus : plus d'avertissement « lien hors de portée » à chaque
+  recalcul), recréé sans perte à la réouverture d'un document plus ancien.
+
+- Relecture de fin de jalon « Ensemble à la souris » (ADR 0038) : un ensemble déjà tourné puis rangé
+  dans un parent ne se décale plus au recalcul (l'`Origin` passe tournée dans la `Base` du Std
+  Part) ; `remove_from_furniture` renvoie les avertissements de sortie (« reste dans son Std Part »)
+  et la suppression de l'ensemble les écrit dans la vue rapport ; supprimer à la main le Std Part
+  d'un ensemble laisse les pièces en place (décalage reporté dans leurs `Placement` et l'`Origin`,
+  ou, Std Part tourné, liaisons retirées avec avertissement) ; supprimer l'ensemble supprime son Std
+  Part vide, ou le signale s'il contient encore des objets ; la source d'une pièce en bois (corps,
+  esquisse) rangée avec elle garde sa place globale à l'entrée et à la sortie d'un Std Part tourné
+  et ne rend plus le Std Part « impropre » (rotation refusée) ; seul le Std Part d'un
+  sous-ensemble membre est accepté dans le Std Part propre d'un ensemble (pas un `App::Part` de
+  l'utilisateur) ; une pièce libre liée à un membre (assemblage, Distance, formule) rangée avec lui
+  est signalée ; le Std Part sélectionné dans l'arbre cible l'ensemble qu'il porte ; son libellé
+  suit le renommage de l'ensemble. `furniture_entry` regroupe les entrées et sorties du Std Part.
+- Une pièce membre d'un ensemble est aimantée quand on la déplace ou la redimensionne à la souris
+  (flèche et poignée) : les guides étaient lus dans `Document.RootObjects`, qui exclut les objets
+  cités par une expression ; les Std Parts d'ensemble sont transparents pour l'aimant.
 - Assemblage dans l'ensemble (demande de jv, 2026-11-01) : l'assemblage de deux pièces d'un même
   ensemble se range sous l'ensemble le plus proche qui les contient (sous-ensembles compris) dans
   l'arbre, dès sa création.

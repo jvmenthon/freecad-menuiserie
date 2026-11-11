@@ -22,37 +22,72 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     ToolTip = QT_TRANSLATE_NOOP("Workbench", "Pièces de bois, assemblages et liste de débit")
     Icon = icon_path("menuiserie.svg")
 
-    # Noms des commandes enregistrées par l'atelier ; complétés jalon après jalon.
-    commands: tuple[str, ...] = (
-        "Menuiserie_WoodPart",
-        "Menuiserie_MortiseTenon",
-        "Menuiserie_TongueGroove",
-        "Menuiserie_Rabbet",
-        "Menuiserie_Dowels",
-        "Menuiserie_HalfLap",
-        "Menuiserie_Dovetail",
-        "Menuiserie_Miter",
-        # Ensembles (J4c)
-        "Menuiserie_Furniture",
-        "Menuiserie_FurnitureAdd",
-        "Menuiserie_FurnitureRemove",
-        "Menuiserie_FurnitureRebind",
-    )
-    # Gabarits (J4d)
-    commands += ("Menuiserie_Carcass",)
-    # Pièce en bois à forme libre (PD-d)
-    commands += ("Menuiserie_ShapedPart",)
-    # Distance entre deux pièces (DI-b)
-    commands += ("Menuiserie_SetDistance",)
-    # Finition des chants (issue #5)
-    commands += ("Menuiserie_EdgeFinish",)
-    # Liste de débit (J2d, J2g)
-    commands += (
-        "Menuiserie_CutList",
-        "Menuiserie_CutListPreview",
-        "Menuiserie_CutListExport",
-        "Menuiserie_CutListPdf",
-        "Menuiserie_NumberMarks",
+    # Commandes enregistrées par l'atelier, regroupées par thème : une barre d'outils par
+    # thème, séparés par un trait dans le menu.
+    themes: tuple[tuple[str, tuple[str, ...]], ...] = (
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Pièces"),
+            (
+                "Menuiserie_WoodPart",  # pièce en bois
+                "Menuiserie_ShapedPart",  # pièce à forme libre (PD-d)
+                "Menuiserie_SetDistance",  # distance entre deux pièces (DI-b)
+                "Menuiserie_EdgeFinish",  # finition des chants (#5)
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Assemblages"),
+            (
+                "Menuiserie_MortiseTenon",
+                "Menuiserie_TongueGroove",
+                "Menuiserie_Rabbet",
+                "Menuiserie_Dowels",
+                "Menuiserie_LooseTenon",
+                "Menuiserie_Biscuit",
+                "Menuiserie_HalfLap",
+                "Menuiserie_Dovetail",
+                "Menuiserie_Miter",
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Quincaillerie"),
+            (
+                "Menuiserie_Foot",
+                "Menuiserie_ShelfPins",
+                "Menuiserie_DrawerSlide",
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Ensembles"),
+            (
+                "Menuiserie_Furniture",  # (J4c)
+                "Menuiserie_FurnitureAdd",
+                "Menuiserie_FurnitureRemove",
+                "Menuiserie_FurnitureRebind",
+                "Menuiserie_Carcass",  # gabarits (J4d)
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Vue"),
+            ("Menuiserie_Structure",),  # panneau « Structure » (ADR 0046)
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Répétition"),
+            (
+                "Menuiserie_Repeat",  # (R-c)
+                "Menuiserie_RepeatEdit",
+                "Menuiserie_RepeatDissociate",
+            ),
+        ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Liste de débit"),
+            (
+                "Menuiserie_CutList",  # (J2d, J2g)
+                "Menuiserie_CutListPreview",
+                "Menuiserie_CutListExport",
+                "Menuiserie_CutListPdf",
+                "Menuiserie_NumberMarks",
+            ),
+        ),
     )
 
     def Initialize(self) -> None:
@@ -78,30 +113,50 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
+        from freecad.menuiserie.gui.commands import structure  # panneau « Structure » (ADR 0046)
+
+        structure.register()
         from freecad.menuiserie.gui.commands import edge_finish  # finition des chants (#5)
 
         edge_finish.register()
-        self.appendToolbar(translate("Workbench", "Menuiserie"), list(self.commands))
-        self.appendMenu(translate("Workbench", "&Menuiserie"), list(self.commands))
+        from freecad.menuiserie.gui.commands import repeat  # répétition de pièces (R-c)
+
+        repeat.register()
+        # Un menu, thèmes séparés : FreeCAD déforme les accents du titre d'un sous-menu.
+        menu: list[str] = []
+        for theme, names in self.themes:
+            title = translate("Workbench", theme)
+            self.appendToolbar(f"{translate('Workbench', 'Menuiserie')} : {title}", list(names))
+            menu += [*names, "Separator"]
+        self.appendMenu(translate("Workbench", "&Menuiserie"), menu[:-1])
 
     def Activated(self) -> None:
         """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018) et flèches de
         déplacement de la pièce sélectionnée (ADR 0021)."""
-        from freecad.menuiserie.gui import double_click
-        from freecad.menuiserie.gui.drag import events
-
-        double_click.install()
-        events.install()
-
-    def Deactivated(self) -> None:
-        """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""
-        from freecad.menuiserie.gui import double_click
+        from freecad.menuiserie.gui import click_select, double_click
         from freecad.menuiserie.gui.drag import events
 
         try:
-            double_click.uninstall()
+            double_click.install()
+            click_select.install()  # après le double-clic : Qt appelle le dernier posé d'abord
         finally:
-            events.uninstall()
+            events.install()
+        from freecad.menuiserie.gui.structure_panel import open_by_default_later
+
+        open_by_default_later()  # panneau « Structure » ouvert par défaut (ADR 0046)
+
+    def Deactivated(self) -> None:
+        """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""
+        from freecad.menuiserie.gui import click_select, double_click
+        from freecad.menuiserie.gui.drag import events
+
+        try:
+            click_select.uninstall()
+        finally:
+            try:
+                double_click.uninstall()
+            finally:
+                events.uninstall()
 
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une

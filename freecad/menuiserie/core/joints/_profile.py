@@ -89,6 +89,7 @@ class ContactFrame:
     to_host: RigidTransform  # repère de l'invitée → repère de l'hôte
     host_box: Box  # boîte de l'hôte dans le repère de l'invitée
     bridge: Bridge  # invitée raccourcie, et retour au repère de l'invitée
+    thickness_axis: int = THICKNESS_AXIS  # épaisseur du profil (autre axe du plan en face à face)
 
     @property
     def guest(self) -> PlacedBlock:
@@ -160,22 +161,30 @@ class ContactFrame:
     @property
     def contact_thickness(self) -> float:
         """Étendue du contact selon l'épaisseur du profil."""
-        return self.contact.rectangle.size(THICKNESS_AXIS)
+        return self.contact.rectangle.size(self.thickness_axis)
 
 
-def contact_frame(host: PlacedBlock, guest: PlacedBlock, *, end_only: bool) -> ContactFrame:
+def contact_frame(
+    host: PlacedBlock, guest: PlacedBlock, *, end_only: bool, face_ok: bool = False
+) -> ContactFrame:
     """Contact par le bout (``±X``) ou, si permis, par le chant (``±Y``) de l'invitée ; une
-    invitée qui chevauche l'hôte est raccourcie jusqu'au contact (ADR 0016)."""
+    invitée qui chevauche l'hôte est raccourcie jusqu'au contact (ADR 0016). ``face_ok`` :
+    accepte aussi le contact face contre face (faux tenons, biscuits) ; la largeur du profil suit
+    alors le plus long côté du contact et son épaisseur l'autre."""
     bridge = trimmed(host, guest)
     guest = bridge.guest
     contact = require_contact(host, guest)
     normal = contact.guest_face.index
-    if normal == THICKNESS_AXIS:
+    if normal == THICKNESS_AXIS and not face_ok:
         raise JointError(FACE_CONTACT, {})
     if end_only and normal != 0:
         raise JointError(EDGE_CONTACT, {})
     to_host = relative_transform(host, guest)
     host_box = moved_box(host.local_box(), to_host.inverse())
+    if normal == THICKNESS_AXIS:  # face contre face : le plus long côté porte la largeur
+        sides = contact.rectangle
+        width = 0 if sides.size(0) >= sides.size(1) else 1
+        return ContactFrame(contact, width, to_host, host_box, bridge, 1 - width)
     return ContactFrame(contact, 1 - normal, to_host, host_box, bridge)
 
 

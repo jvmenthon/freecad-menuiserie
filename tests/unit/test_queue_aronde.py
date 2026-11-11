@@ -329,7 +329,7 @@ def test_queue_de_un_mm_a_l_epaulement_acceptee() -> None:
 
 def test_refus_pieces_pas_d_equerre() -> None:
     guest = placed((400.0, 150.0, 18.0), rotation_y(-60.0), (18.0, 0.0, 18.0))
-    refused((block((400.0, 150.0, 18.0)), guest), "d'équerre")
+    refused((block((400.0, 150.0, 18.0)), guest), "pivoter autour de leur épaisseur")
 
 
 # --- Queues sur la pièce hôte (issue #85) -------------------------------------------------------

@@ -21,6 +21,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
+from freecad.menuiserie.features.assigned_shape import AssignedShape
 from freecad.menuiserie.features.freecad_types import (
     READ_ONLY,
     DocumentObject,
@@ -29,6 +30,7 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joint_material import check_joint_material
+from freecad.menuiserie.features.joints.plan_cache import cached_plan
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
@@ -41,6 +43,7 @@ __all__ = [
     "OBLIQUE_SUMMARY",
     "OBLIQUE_SUMMARY_IF",
     "JointFeature",
+    "inverted_error",
     "is_joint",
     "params_from",
     "parts_mismatch",
@@ -151,9 +154,13 @@ class JointFeature(StatelessProxy):
     # Champs de ``resolve`` dont l'un au moins doit être non nul pour afficher ``SUMMARY``
     # (vide : toujours affiché) : le biais n'apparaît pas entre pièces d'équerre.
     SUMMARY_IF: ClassVar[tuple[str, ...]] = ()
-    # Faux quand les deux rôles sont symétriques (mi-bois, onglet) : pas de bouton
-    # « Inverser » dans le panneau (demande de jv).
+    # Faux quand l'inversion n'a pas de sens (rôles symétriques) : bouton « Inverser » grisé
+    # avec une infobulle qui explique pourquoi (demande de jv).
     INVERTIBLE: ClassVar[bool] = True
+    # Explication affichée en infobulle du bouton « Inverser » grisé quand ``INVERTIBLE`` est faux
+    # (vide : pas de bouton, ex. une seule pièce).
+    INVERT_DISABLED_TIP: ClassVar[str] = ""
+    INVERT_TIP: ClassVar[str] = ""  # infobulle du bouton « Inverser » (vide : échange des rôles)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Refuse dès l'import un type d'assemblage sans ``PARAMS`` (sinon : erreur au recalcul)."""
@@ -182,6 +189,19 @@ class JointFeature(StatelessProxy):
             if spec.choices
         }
 
+    def invert(self, obj: DocumentObject) -> None:
+        """« Inverser » du panneau : la pièce hôte devient l'invitée et inversement."""
+        obj.HostPart, obj.GuestPart = obj.GuestPart, obj.HostPart
+
+    def invert_error(self, obj: DocumentObject) -> str | None:
+        """Message traduit si les rôles échangés rendraient l'assemblage impossible, ``None``
+        sinon ; ne modifie rien (panneau : « Inverser » grisé avec cette explication)."""
+        return inverted_error(obj)
+
+    def part_joints_changed(self, obj: DocumentObject) -> None:
+        """Un assemblage a été ajouté à une de ses pièces ou retiré ; rien par défaut (le
+        perçage LR32, qui dépend des assemblages voisins, se fait recalculer)."""
+
     def params(self, obj: DocumentObject) -> Any:
         """Paramètres de ``core`` (objet valeur ``PARAMS`` du type) lus dans les propriétés."""
         return params_from(obj, self.PARAMS)
@@ -195,7 +215,10 @@ class JointFeature(StatelessProxy):
         _check_machined_parts(obj)
         check_joint_material(obj, plan)
         _warn_cross_grain(obj)
-        obj.Shape = inserts_shape(plan.inserts)
+        assigned: AssignedShape = self.__dict__.setdefault("_assigned", AssignedShape())
+        if not assigned.is_current(obj, plan.inserts):  # sinon l'assemblage a seulement bougé
+            obj.Shape = inserts_shape(plan.inserts)
+            assigned.remember(plan.inserts, obj.Shape)
         obj.Placement = obj.HostPart.Placement
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
@@ -206,6 +229,15 @@ class JointFeature(StatelessProxy):
                 current = getattr(obj, name)
                 setattr(obj, name, choices)
                 setattr(obj, name, current if current in choices else choices[0])
+        from freecad.menuiserie.features.repeat_joints import restored
+
+        restored(obj)  # assemblage enfant d'une répétition : paramètres en lecture seule (R-b2)
+
+    def unsetupObject(self, obj: DocumentObject) -> None:
+        """Assemblage supprimé (même transaction) : ses enfants de répétition sont dissociés."""
+        from freecad.menuiserie.features.repeat_joints import joint_removed
+
+        joint_removed(obj)
 
 
 def _warn_cross_grain(joint: DocumentObject) -> None:
@@ -249,7 +281,8 @@ def property_name(field_name: str) -> str:
 def write_params(obj: DocumentObject, params: object) -> None:
     """Écrit chaque paramètre de ``params`` (objet valeur de ``core``) dans sa propriété."""
     for item in fields(params):  # type: ignore[arg-type]
-        setattr(obj, property_name(item.name), getattr(params, item.name))
+        if not item.metadata.get("joint_derived"):  # champ dérivé : pas de propriété
+            setattr(obj, property_name(item.name), getattr(params, item.name))
 
 
 def params_from(obj: DocumentObject, params_type: Callable[..., P]) -> P:
@@ -257,6 +290,8 @@ def params_from(obj: DocumentObject, params_type: Callable[..., P]) -> P:
     une valeur refusée lève ``JointError`` qui cite le nom de la propriété."""
     values = {}
     for item in fields(params_type):  # type: ignore[arg-type]
+        if item.metadata.get("joint_derived"):  # fourni par l'assemblage (voisines du document)
+            continue
         value = getattr(obj, property_name(item.name))
         values[item.name] = getattr(value, "Value", value)
     try:
@@ -289,8 +324,19 @@ def plan_for(joint: DocumentObject) -> JointPlan:
     """Plan d'usinage de l'assemblage ``joint`` (``ValueError`` traduite s'il est impossible)."""
     with translated_errors():
         strategy, host, guest, params = _inputs(joint)
-        plan: JointPlan = strategy.plan(host, guest, params)
+        plan = cached_plan(strategy, host, guest, params)
     return plan
+
+
+def inverted_error(joint: DocumentObject) -> str | None:
+    """Message traduit si ``joint`` serait impossible rôles échangés, ``None`` sinon."""
+    try:
+        with translated_errors():
+            strategy, host, guest, params = _inputs(joint)
+            strategy.plan(guest, host, params)
+    except ValueError as error:
+        return str(error)
+    return None
 
 
 def resolved_for(joint: DocumentObject) -> object:

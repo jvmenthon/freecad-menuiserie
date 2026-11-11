@@ -20,6 +20,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.gui.app_filter import Installation
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
 __all__ = [
@@ -75,32 +76,14 @@ class _DoubleClickFilter(QtCore.QObject):  # type: ignore[misc]
         """Vrai (évènement consommé) seulement si le panneau d'un objet de l'atelier s'ouvre."""
         if event.type() != QtCore.QEvent.MouseButtonDblClick:
             return False
-        if event.button() != QtCore.Qt.LeftButton or not is_viewport_3d(watched):
+        try:
+            if event.button() != QtCore.Qt.LeftButton or not is_viewport_3d(watched):
+                return False
+            position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6/5
+            point = view_point(watched, position.x(), position.y())
+        except RuntimeError:  # widget Qt déjà détruit (vue fermée ou recréée) : clic ignoré
             return False
-        position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6, Qt 5
-        return open_at(Gui.activeView(), view_point(watched, position.x(), position.y()))
-
-
-class _Installation:
-    """Filtre unique, posé sur l'application pendant que l'atelier est actif."""
-
-    def __init__(self) -> None:
-        self.filter: _DoubleClickFilter | None = None
-
-    def install(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is not None or application is None:
-            return
-        self.filter = _DoubleClickFilter()
-        application.installEventFilter(self.filter)
-
-    def uninstall(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is None:
-            return
-        if application is not None:
-            application.removeEventFilter(self.filter)
-        self.filter = None
+        return open_at(Gui.activeView(), point)
 
 
 def is_viewport_3d(widget: QtCore.QObject) -> bool:
@@ -132,7 +115,7 @@ def viewports_3d(mdi_area: QtGui.QMdiArea, current_only: bool = False) -> list[Q
     return viewports
 
 
-_INSTALLATION: Final = _Installation()
+_INSTALLATION: Final = Installation(_DoubleClickFilter)
 
 
 def install() -> None:

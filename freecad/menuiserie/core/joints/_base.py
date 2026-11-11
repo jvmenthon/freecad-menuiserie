@@ -21,7 +21,15 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 
 MAX_COUNT: Final = 50
+MIN_WALL_MM: Final = 2.0  # matière laissée entre deux usinages voisins ou de chaque côté de l'un
 MAX_ANGLE_DEG: Final = 30.0  # angle d'un flanc de queue d'aronde, au plus
+# Garde-fou : au-delà, les opérations booléennes d'OCC peuvent figer FreeCAD (saisie aberrante).
+MAX_PLAN_SOLIDS: Final = 1000
+TOO_MANY_SOLIDS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "L'assemblage demanderait {count} formes d'usinage (au plus {max}) : vérifier les cotes "
+    "saisies (pas, nombre, longueurs).",
+)
 
 SEPARATED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Les pièces ne se touchent pas.")
 OVERLAPPING: Final = QT_TRANSLATE_NOOP(
@@ -42,6 +50,7 @@ NOT_OVERLAPPING: Final = QT_TRANSLATE_NOOP(
 
 _PARAM_KIND: Final = "joint_param"
 _CHOICES_KEY: Final = "joint_choices"
+_DERIVED: Final = "joint_derived"  # champ fourni par le document, pas par une propriété
 _INVALID: Final = object()
 
 
@@ -68,6 +77,11 @@ class JointKind(str, Enum):
     HALF_LAP = "HalfLap"
     DOVETAIL = "Dovetail"
     MITER = "Miter"
+    LOOSE_TENON = "LooseTenon"
+    BISCUIT = "Biscuit"
+    FOOT = "Foot"
+    SHELF_PINS = "ShelfPins"
+    DRAWER_SLIDE = "DrawerSlide"
 
 
 @dataclass(frozen=True)
@@ -102,6 +116,19 @@ class JointPlan:
     guest_trims: tuple[PlanSolid, ...] = ()  # retirés de l'invitée avant ses ajouts (ADR 0016)
     inserts: tuple[PlanSolid, ...] = ()  # pièces rapportées (tourillons), repère de l'hôte
     guest_bevels: tuple[Bevel, ...] = ()  # bouts coupés en biais (ADR 0024)
+
+    def __post_init__(self) -> None:
+        solids = (
+            self.host_cuts,
+            self.host_additions,
+            self.guest_cuts,
+            self.guest_additions,
+            self.guest_trims,
+            self.inserts,
+        )
+        count = sum(len(group) for group in solids)
+        if count > MAX_PLAN_SOLIDS:
+            raise JointError(TOO_MANY_SOLIDS, {"count": str(count), "max": str(MAX_PLAN_SOLIDS)})
 
 
 P = TypeVar("P", contravariant=True)
@@ -280,9 +307,16 @@ def choice_param(default: str, choices: tuple[str, ...]) -> Any:
     return field(default=default, metadata={_PARAM_KIND: ParamKind.CHOICE, _CHOICES_KEY: choices})
 
 
+def derived_param(default: Any) -> Any:
+    """Champ « dérivé » : fourni par le document (pièces voisines…), sans propriété ni contrôle."""
+    return field(default=default, metadata={_DERIVED: True})
+
+
 def validate_params(params: object) -> None:
     """Contrôle et normalise chaque champ d'un objet de paramètres (``ValueError`` sinon)."""
     for item in fields(params):  # type: ignore[arg-type]
+        if item.metadata.get(_DERIVED):
+            continue
         kind: ParamKind = item.metadata[_PARAM_KIND]
         value = getattr(params, item.name)
         checked = _CHECKS[kind](value)

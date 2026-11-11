@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import FreeCADGui as Gui
+
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.features.drag_joints import delete_machined_part
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -19,12 +21,26 @@ from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.part_appearance import PartAppearance, material_color_of
+from freecad.menuiserie.gui.view_providers.deletion import drop_outside_joints, in_group_deletion
 from freecad.menuiserie.gui.view_providers.wood_part import ICON, PanelEditing
 
 ViewObject = Any
 
 # Propriétés de la pièce usinée après lesquelles l'apparence de la brute est relue.
 _REFRESHING_PROPERTIES = frozenset({"Shape", "Base"})
+
+
+def selected_with_contents() -> set[str]:
+    """Noms des objets sélectionnés et de tout ce que contiennent leurs groupes (Std Part
+    d'ensemble supprimé avec son contenu) : ce que la suppression en cours emporte."""
+    names: set[str] = set()
+    pending = list(Gui.Selection.getSelection())
+    while pending:
+        obj = pending.pop()
+        if obj.Name not in names:
+            names.add(obj.Name)
+            pending.extend(getattr(obj, "Group", ()))
+    return names
 
 
 class ViewProviderMachinedPart(PanelEditing):
@@ -87,8 +103,12 @@ class ViewProviderMachinedPart(PanelEditing):
         (une seule transaction, celle de FreeCAD) ou d'annuler. Faux si la suppression est
         refusée, et aussi quand la pièce vient d'être supprimée avec ses assemblages : FreeCAD ne
         doit pas supprimer un objet déjà détruit."""
-        del subelements
-        return delete_machined_part(vobj.Object, joint_choice.choose_removal)
+        if in_group_deletion(subelements):
+            drop_outside_joints(vobj.Object)  # le reste du groupe part avec lui, sans question
+            return True
+        return delete_machined_part(
+            vobj.Object, joint_choice.choose_removal, selected_with_contents()
+        )
 
     def _refresh(self, vobj: ViewObject) -> None:
         """Texture et couleur de la brute ; sans effet sans brute ou avant l'attachement."""

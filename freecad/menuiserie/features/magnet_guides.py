@@ -10,16 +10,18 @@ rien n'est modifié) sont exprimés dans le repère de la pièce et rendus sous 
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any, Final
 
 import FreeCAD as App
 import Part
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
+from freecad.menuiserie.core.joints import JointError, JointKind
+from freecad.menuiserie.core.joints.shelf_pins import opposite_values, pin_rests
 from freecad.menuiserie.core.magnet import Guide, GuideKind
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.features.joints.base import is_joint, placed_blank, resolved_for
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.snap_geometry import ERRORS, is_straight, to_vec3
 
@@ -31,13 +33,31 @@ _PARALLEL: Final = 1e-6  # composante (relative) hors axe en deçà de laquelle 
 
 
 def _excluded(part: DocumentObject) -> set[str]:
-    """Noms des objets qui ne guident pas la pièce : elle-même, sa pièce usinée, ses assemblages."""
+    """Noms des objets qui ne guident pas la pièce : elle-même, sa pièce usinée, ses assemblages
+    (ceux qui la citent seulement comme voisine, tels les taquets sous une tablette, la guident)."""
     names = {part.Name}
     machined = machined_part_of(part)
     if machined is not None:
         names.add(machined.Name)
-    names.update(parent.Name for parent in part.InList if is_joint(parent))
+    names.update(
+        parent.Name
+        for parent in part.InList
+        if is_joint(parent) and part in (parent.HostPart, parent.GuestPart)
+    )
     return names
+
+
+def _roots(doc: Any) -> list[DocumentObject]:
+    """Objets du document qui ne sont dans aucun groupe ni Std Part, dans l'ordre du document.
+
+    Pas ``Document.RootObjects`` : ce sont les objets que **rien ne cite** (liste ``InList``
+    vide). Un membre d'ensemble cité par une expression d'un autre membre (épaisseur) ou par un
+    assemblage en serait absent, et n'aimanterait plus ses voisins (bogue EN-e, E6)."""
+    return [
+        obj
+        for obj in doc.Objects
+        if obj.getParentGroup() is None and obj.getParentGeoFeatureGroup() is None
+    ]
 
 
 def _leaves(objects: list[DocumentObject], seen: set[str]) -> Iterator[DocumentObject]:
@@ -153,25 +173,76 @@ def _guides_of(shape: Any, inverse: App.Placement) -> list[Guide]:
         return []
 
 
-def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tuple[Guide, ...]:
+def _pin_rests_shape(obj: DocumentObject) -> Any:
+    """Appuis de tablette d'un perçage LR32 (dessus de taquet à chaque rang, sur le côté et le
+    montant opposé), en coordonnées globales ; ``None`` pour un autre objet ou un perçage
+    impossible."""
+    if not is_joint(obj) or obj.Proxy.KIND is not JointKind.SHELF_PINS:
+        return None
+    try:
+        host = placed_blank(obj.HostPart)
+        values: Any = resolved_for(obj)
+        sides = [(obj.HostPart, pin_rests(host, values))]
+        guest = obj.GuestPart
+        if guest is not None and guest != obj.HostPart:
+            other = opposite_values(host, placed_blank(guest), obj.Proxy.params(obj))
+            if other is not None:
+                sides.append((guest, pin_rests(placed_blank(guest), other)))
+    except (*ERRORS, ValueError, JointError):
+        return None
+    shapes = []
+    for part, rests in sides:
+        if not rests:
+            continue
+        boxes = [
+            Part.makeBox(
+                *(rest.size(i) for i in range(3)), App.Vector(rest.min.x, rest.min.y, rest.min.z)
+            )
+            for rest in rests
+        ]
+        shape = Part.makeCompound(boxes)
+        shape.transformShape(part.getGlobalPlacement().toMatrix())  # repère du document
+        shapes.append(shape)
+    return Part.makeCompound(shapes) if shapes else None
+
+
+def collect_guides(
+    part: DocumentObject,
+    container: DocumentObject | None,
+    *,
+    origin: App.Placement | None = None,
+    skip: Iterable[str] = (),
+    reference: Any = None,
+) -> tuple[Guide, ...]:
     """Guides d'aimantation de la pièce brute ``part`` (B1), dans son repère.
 
     Objets du Std Part ``container`` (``None`` : racine du document) qui sont visibles, de
     tout atelier ; la pièce, sa pièce usinée et ses assemblages sont exclus. Plans : faces
     planes normales à un axe de la pièce ; droites : arêtes droites parallèles à un axe ;
     points : tous les sommets. Les objets les plus proches de la pièce viennent d'abord ;
-    au plus :data:`MAX_GUIDES` guides. Un objet illisible est ignoré."""
-    origin = part.getGlobalPlacement()
-    try:
-        own = _global_shape(part)
-        reference = own.BoundBox if own is not None else None
-    except ERRORS:
-        reference = None
-    roots = list(container.Group) if container is not None else list(part.Document.RootObjects)
-    skip = _excluded(part)
+    au plus :data:`MAX_GUIDES` guides. Un objet illisible est ignoré.
+
+    Un ensemble (sans forme) donne son repère par ``origin`` (placement global de son Std Part),
+    l'étendue de sa boîte par ``reference`` (``App.BoundBox``) et les noms de ses propres objets,
+    Std Part compris, par ``skip`` : ses pièces ne guident pas l'ensemble (EN-c)."""
+    placement = origin if origin is not None else part.getGlobalPlacement()
+    if reference is None:
+        try:
+            own = _global_shape(part)
+            reference = own.BoundBox if own is not None else None
+        except ERRORS:
+            reference = None
+    roots = list(container.Group) if container is not None else _roots(part.Document)
+    skipped = _excluded(part) | set(skip)
     found: list[tuple[float, int, Any]] = []
-    for index, obj in enumerate(_leaves(roots, set())):
-        if obj.Name in skip or not obj.Visibility:
+    for index, obj in enumerate(_leaves(roots, set(skipped))):
+        if obj.Name in skipped or not obj.Visibility:
+            continue
+        rests = _pin_rests_shape(obj)  # dessus de taquet de chaque rang de trous
+        if rests is not None:
+            # Seul le dessus du taquet attire la tablette : ni le dessous, ni les arêtes, ni
+            # la forme du perçage lui-même (haut du trou).
+            found.append((0.0, index, rests))
             continue
         shape = _global_shape(obj)
         if shape is None:
@@ -179,7 +250,7 @@ def collect_guides(part: DocumentObject, container: DocumentObject | None) -> tu
         distance = 0.0 if reference is None else _distance(reference, shape.BoundBox)
         found.append((distance, index, shape))
     guides: list[Guide] = []
-    inverse = origin.inverse()
+    inverse = placement.inverse()
     for _, _, shape in sorted(found, key=lambda item: item[:2]):
         guides.extend(_guides_of(shape, inverse))
         if len(guides) >= MAX_GUIDES:

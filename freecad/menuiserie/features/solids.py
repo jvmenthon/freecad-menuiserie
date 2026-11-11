@@ -16,7 +16,7 @@ import FreeCAD as App
 import Part
 
 from freecad.menuiserie.core._extrusion import Extrusion
-from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron
+from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron, SlantedCylinder
 from freecad.menuiserie.core.geometry import Box, Cylinder, Prism, RigidTransform
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
@@ -65,6 +65,13 @@ def solid_shape(solid: PlanSolid) -> Any:
         )
     if isinstance(solid, Prism):
         return _prism_shape(solid)
+    if isinstance(solid, SlantedCylinder):
+        return Part.makeCylinder(
+            solid.radius,
+            solid.height,
+            _vector(solid.base.x, solid.base.y, solid.base.z),
+            _vector(solid.direction.x, solid.direction.y, solid.direction.z),
+        )
     return _cylinder_shape(solid)
 
 
@@ -167,7 +174,10 @@ def machined_shape(
         shape = shape.removeSplitter()
     except Part.OCCError as error:
         raise ValueError(translated(_BOOLEAN_FAILED, {"reason": str(error)})) from error
+    oblique = any(isinstance(s, Polyhedron) for s in (*trims, *additions, *cuts))
     if shape.isNull() or not shape.Solids or not shape.isValid():
+        raise ValueError(translated(_INVALID_SHAPE))
+    if oblique and len(shape.Solids) != 1:  # un enlèvement en biais ne doit pas couper la pièce
         raise ValueError(translated(_INVALID_SHAPE))
     return shape
 

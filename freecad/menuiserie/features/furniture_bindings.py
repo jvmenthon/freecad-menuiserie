@@ -33,16 +33,20 @@ from freecad.menuiserie.core.furniture import (
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.distance import distances_of, kept_gap_of, remove_touching
-from freecad.menuiserie.features.freecad_types import (
-    DocumentObject,
-    expressions_of,
-)
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import (
+    ancestors,
     furniture_of,
     is_furniture,
     option_name,
     origin_of,
     writing,
+)
+from freecad.menuiserie.features.furniture_container import (
+    member_expressions,
+    position_of,
+    set_member_expression,
+    std_part_of,
 )
 from freecad.menuiserie.features.i18n import (
     report_warning,
@@ -52,6 +56,7 @@ from freecad.menuiserie.features.i18n import (
 )
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import machined_part_of
+from freecad.menuiserie.features.repeat import copy_thicknesses, is_copy, member_flags
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -139,16 +144,8 @@ def members_of(furniture: DocumentObject) -> list[DocumentObject]:
 def common_furniture(first: DocumentObject, second: DocumentObject) -> DocumentObject | None:
     """Ensemble le plus proche qui contient ``first`` et ``second`` (directement ou par ses
     sous-ensembles), ``None`` si aucun."""
-
-    def chain(obj: DocumentObject) -> list[DocumentObject]:
-        found: list[DocumentObject] = []
-        while (parent := furniture_of(obj)) is not None and parent not in found:
-            found.append(parent)
-            obj = parent
-        return found
-
-    above = chain(first)
-    return next((f for f in chain(second) if f in above), None)
+    above = ancestors(first)
+    return next((f for f in ancestors(second) if f in above), None)
 
 
 def _in_joint_group(obj: DocumentObject) -> bool:
@@ -175,7 +172,7 @@ def _recorded(obj: DocumentObject) -> dict[str, str]:
 
 def _driven(obj: DocumentObject, entering: bool) -> frozenset[str]:
     recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
-    driven = driven_properties(expressions_of(obj), recorded)
+    driven = driven_properties(member_expressions(obj), recorded)
     return driven | {"Placement"} if _assembly_constrained(obj) else driven
 
 
@@ -210,11 +207,14 @@ def member_of(obj: DocumentObject, origin: Vec3, *, entering: bool = False) -> M
         "driven": _driven(obj, entering),
         "locked": drawn or (not entering and bool(getattr(obj, "Locked", False))),
         "drawn": drawn,
+        **member_flags(obj),  # copie de répétition (ADR 0044)
     }
     with translated_errors():
         if is_furniture(obj):
             box = FurnitureBox(obj.Width.Value, obj.Depth.Value, obj.Height.Value)
-            return Member(box=box, origin=_relative(origin_of(obj), origin), **common)
+            carried = std_part_of(obj) is not None
+            position = _relative(position_of(obj), origin)
+            return Member(box=box, origin=position, carried=carried, **common)
         transform = rigid_transform(obj.Placement)
         placement = RigidTransform(transform.rotation, _relative(transform.translation, origin))
         return Member(block=PlacedBlock(dimensions_of(obj), placement), **common)
@@ -266,7 +266,8 @@ def _bindings(
     rangée de chaque membre tient compte de tous les autres."""
     chosen = set(keys)
     rules, rule_notices = follow_rules(members.box, members.members, chosen)
-    nested = furniture_of(members.furniture) is not None
+    furniture = members.furniture  # Origin mobile : sous-ensemble ou copie sans Std Part (E5)
+    nested = bool(furniture_of(furniture) or is_copy(furniture)) and std_part_of(furniture) is None
     with translated_errors():
         bindings, notices = bindings_for(
             str(members.furniture.Label),
@@ -274,18 +275,18 @@ def _bindings(
             rules,
             keys=chosen,
             nested=nested,
-            thicknesses=thicknesses,
+            thicknesses=copy_thicknesses(members.objects.values(), thicknesses),
         )
     return list(bindings), [*rule_notices, *notices]
 
 
 def remove_bindings(obj: DocumentObject) -> None:
     """Retire de ``obj`` les seules liaisons de l'atelier (texte = celui enregistré)."""
-    current = expressions_of(obj)
+    current = member_expressions(obj)
     recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
     for prop, text in recorded.items():
         if prop in current and same_binding(current[prop], text):
-            obj.setExpression(prop, None)
+            set_member_expression(obj, prop, None)
 
 
 def _write(obj: DocumentObject, bindings: Sequence[Binding]) -> None:
@@ -294,14 +295,14 @@ def _write(obj: DocumentObject, bindings: Sequence[Binding]) -> None:
         remove_bindings(obj)
         recorded: dict[str, str] = {}
         for binding in bindings:
-            obj.setExpression(binding.prop, binding.expression)
-            recorded[binding.prop] = expressions_of(obj)[binding.prop]
+            set_member_expression(obj, binding.prop, binding.expression)
+            recorded[binding.prop] = member_expressions(obj)[binding.prop]
         obj.FurnitureBindings = recorded
 
 
 def _workshop_bindings(obj: DocumentObject) -> list[Binding]:
     """Liaisons de l'atelier actuellement posées sur ``obj`` (texte = celui enregistré)."""
-    current = expressions_of(obj)
+    current = member_expressions(obj)
     recorded = _recorded(obj) if "FurnitureBindings" in obj.PropertiesList else {}
     return [
         Binding(obj.Name, prop, current[prop])
@@ -331,7 +332,7 @@ def bind_members(
     cyclique. Un cycle avec une formule de l'utilisateur (``RuntimeError`` de FreeCAD) rétablit
     les liaisons précédentes et devient une ``ValueError`` traduite. ``thicknesses`` : voir
     ``bindings_for``."""
-    chosen = sorted(set(keys))
+    chosen = sorted(set(keys) - {m.key for m in members.members if m.linked})  # ADR 0044
     bindings, notices = _bindings(members, chosen, thicknesses)
     objects = [members.objects[key] for key in chosen]
     before = {obj.Name: _workshop_bindings(obj) for obj in objects}

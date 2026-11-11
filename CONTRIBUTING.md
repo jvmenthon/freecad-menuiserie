@@ -68,6 +68,27 @@ composition plutôt qu'héritage ; dépendances dirigées `gui → features → 
 pas de pattern « pour le principe » : un pattern se justifie par au moins deux usages ou un
 point d'extension prévu par la feuille de route.
 
+## Entrées utilisateur
+
+Toute valeur saisie (panneau, propriété, script, fichier) peut être nulle, minuscule, énorme
+ou transitoire (« 3 » en tapant « 32 »). Elle ne doit jamais figer ni faire planter FreeCAD :
+
+1. **Bornes dans `core/`** : chaque paramètre a un genre borné (`length_param`,
+   `count_param`…, 0 = automatique) ; une valeur qui sert de diviseur, de pas ou de
+   multiplicateur de nombre est refusée par une `JointError` traduite en dessous d'un minimum
+   qui a un sens métier (exemple : pas du perçage ≥ diamètre + 2 mm), jamais acceptée « au
+   mieux ».
+2. **Pas de boucle sans plafond** : un nombre calculé depuis une saisie (rangs, trous, pièces
+   rapportées) est plafonné ; tout plan d'usinage au-delà de `MAX_PLAN_SOLIDS` formes est
+   refusé (`JointPlan`), avant toute opération booléenne d'OCC.
+3. **Saisie appliquée en fin de frappe** : un champ dont la modification recalcule le document
+   est en `setKeyboardTracking(False)` (Entrée, changement de champ ou flèches) ; le direct
+   à chaque touche est réservé aux aperçus bon marché.
+4. **Erreur expliquée, pas d'exception qui remonte** : un refus devient un message traduit
+   (état de l'objet, panneau, rapport), jamais une trace dans une boucle d'événements Qt.
+5. **Test** : chaque garde-fou a son test unitaire (valeur 0, valeur juste sous le minimum,
+   valeur au minimum).
+
 ## Règles FreeCAD
 
 1. **Séparation App / Gui** : un document doit s'ouvrir et se recalculer dans `freecadcmd`.

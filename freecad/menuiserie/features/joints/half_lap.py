@@ -30,6 +30,10 @@ class HalfLapJoint(JointFeature):
     LABEL: ClassVar[str] = QT_TRANSLATE_NOOP("Menuiserie", "Mi-bois")
     PARAMS: ClassVar[type[HalfLapParams]] = HalfLapParams
     INVERTIBLE: ClassVar[bool] = False
+    INVERT_DISABLED_TIP: ClassVar[str] = QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
+    )
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
             "Depth",
