@@ -5,6 +5,7 @@ bois brute et la pièce usinée. Les règles (suffixe « (n) », aller-retour) s
 
 from __future__ import annotations
 
+from collections.abc import Collection, Iterator
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -38,9 +39,33 @@ def default_label() -> str:
     return translated(DEFAULT_LABEL)
 
 
-def other_labels(obj: DocumentObject) -> set[str]:
-    """Libellés de tous les autres objets du document de ``obj``."""
-    return {str(other.Label) for other in obj.Document.Objects if other.Name != obj.Name}
+class _OtherLabels(Collection[str]):
+    """Libellés de tous les autres objets du document, interrogés sans les relire tous :
+    ``label in labels`` demande au document les objets de ce libellé (``getObjectsByLabel``,
+    en C++), au lieu de construire l'ensemble des libellés à chaque nouvel objet (O(n²) lors
+    d'une répétition de centaines d'objets)."""
+
+    def __init__(self, obj: DocumentObject) -> None:
+        self._document = obj.Document
+        self._name = obj.Name
+
+    def __contains__(self, label: object) -> bool:
+        found = self._document.getObjectsByLabel(str(label))
+        return any(other.Name != self._name for other in found)
+
+    def _all(self) -> set[str]:
+        return {str(o.Label) for o in self._document.Objects if o.Name != self._name}
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._all())
+
+    def __len__(self) -> int:
+        return len(self._all())
+
+
+def other_labels(obj: DocumentObject) -> Collection[str]:
+    """Libellés de tous les autres objets du document de ``obj`` (``in`` rapide)."""
+    return _OtherLabels(obj)
 
 
 def unique_label_after_copy(obj: DocumentObject) -> str | None:

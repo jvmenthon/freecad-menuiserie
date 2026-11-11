@@ -26,6 +26,7 @@ from tests.gui.verifications_panneau import (
     annuler,
     ecarts,
     emplacements,
+    emplacements_attendus,
     formulaire,
     nouveau_document,
     saisir,
@@ -153,7 +154,7 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
             *ecarts(
                 f"{nom} emplacements",
                 sorted(emplacements(nom)),
-                [("QMenu", "&Menuiserie"), ("QToolBar", "Menuiserie")],
+                emplacements_attendus(nom),
             ),
         ]
     return problemes
@@ -163,20 +164,25 @@ def actives() -> dict[str, bool]:
     return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
 
 
-def attendues(actives_si_fabrique: bool) -> dict[str, bool]:
-    """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois)."""
+PIEDS = ("Menuiserie_Foot", "Menuiserie_ShelfPins")  # commandes sur une seule pièce
+
+
+def attendues(actives_si_fabrique: bool, une_piece: bool = False) -> dict[str, bool]:
+    """Activation attendue : seulement si la fabrique existe dans l'api (J3c pour trois) ;
+    ``une_piece`` : la sélection est une seule pièce, que seuls les pieds acceptent."""
     return {
-        nom: actives_si_fabrique and hasattr(api, fabrique)
+        nom: (une_piece if nom in PIEDS else actives_si_fabrique) and hasattr(api, fabrique)
         for nom, (_libelle, fabrique) in COMMANDES_ASSEMBLAGE.items()
     }
 
 
 def verifier_activation_des_commandes_d_assemblage() -> list[str]:
-    """C1 : actives seulement pour deux pièces distinctes et sans panneau ouvert."""
+    """C1 : actives seulement pour deux pièces distinctes (les pieds : une pièce) et sans panneau
+    ouvert."""
     with cadre("VerifActivationAssemblage") as (doc, pieces):
         problemes = ecarts("aucune sélection", actives(), attendues(False))
         selectionner(pieces["M1"])
-        problemes += ecarts("une pièce", actives(), attendues(False))
+        problemes += ecarts("une pièce", actives(), attendues(False, une_piece=True))
         selectionner(pieces["M1"], pieces["T1"])
         problemes += ecarts("deux pièces", actives(), attendues(True))
         selectionner(pieces["M1"], pieces["T1"], pieces["T2"])
@@ -242,6 +248,35 @@ def verifier_assemblage_impossible_refuse() -> list[str]:
             *ecarts("entrées d'annulation", list(doc.UndoNames), entrees),
             *ecarts("message explicatif", "se chevaucher" in message, True),
         ]
+
+
+def verifier_ok_refuse_si_assemblage_en_erreur() -> list[str]:
+    """Demande de jv : « OK » du panneau d'assemblage refusé (et grisé) tant que l'assemblage
+    est en erreur ; « Annuler » reste possible."""
+    from PySide import QtGui
+
+    from freecad.menuiserie.gui.commands.base import REFUSAL_BOX_NAME
+
+    with cadre("VerifOkRefuse") as (doc, pieces):
+        joint = assembler(doc, pieces["T1"], pieces["M1"], ok=False)
+        if joint is None or not Gui.Control.activeDialog():
+            return ["aucun panneau d'assemblage ouvert"]
+        loin = App.Placement(App.Vector(5000, 5000, 5000), App.Rotation())
+        pieces["T1"].Placement = loin  # les pièces ne se touchent plus : impossible
+        doc.recompute()
+        valider()
+        boite = Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
+        message = boite.text() if boite is not None and boite.isVisible() else ""
+        if boite is not None:
+            boite.hide()
+        problemes = [
+            *ecarts("panneau toujours ouvert", bool(Gui.Control.activeDialog()), True),
+            *ecarts("message de refus", "non validé" in message, True),
+        ]
+        if Gui.Control.activeDialog():
+            annuler()
+        problemes += ecarts("annulé", bool(Gui.Control.activeDialog()), False)
+    return problemes
 
 
 # --- C3, C6 : affichage ------------------------------------------------------------------
@@ -422,6 +457,70 @@ def verifier_suppression_de_la_piece_usinee() -> list[str]:
         ]
 
 
+def verifier_suppression_groupee_sans_question() -> list[str]:
+    """Supprimer ensemble les deux pièces usinées et leur assemblage (cas d'un Std Part supprimé
+    avec son contenu) : aucun lien ne sort de la suppression, la fenêtre « assemblage lié » n'est
+    pas ouverte. Une pièce usinée supprimée seule garde sa question."""
+    with cadre("VerifSuppressionGroupee") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinees = [usinee_de(pieces[repere]) for repere in ("M1", "T1")]
+        noms = [joint.Name, *(u.Name for u in usinees)]
+        with choix_de_suppression(False) as questions:
+            selectionner(joint, *usinees)
+            Gui.runCommand("Std_Delete")
+            Gui.Selection.clearSelection()
+            doc.recompute()
+        return [
+            *ecarts("aucune question", questions, []),
+            *ecarts("supprimés", [doc.getObject(n) is None for n in noms], [True] * 3),
+        ]
+
+
+def verifier_suppression_du_contenu_d_un_groupe() -> list[str]:
+    """« Supprimer le contenu du groupe » (Std Part supprimé avec son contenu) : FreeCAD appelle
+    ``onDelete`` avec ``group_recursive_deletion`` ; la pièce usinée accepte sans question et ne
+    supprime rien elle-même (sinon pointeurs morts dans la boucle de FreeCAD)."""
+    with cadre("VerifSuppressionContenuGroupe") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinee = usinee_de(pieces["M1"])
+        groupe = doc.addObject("App::DocumentObjectGroup", "GroupeComplet")
+        for objet in (joint, usinee, usinee_de(pieces["T1"]), pieces["M1"], pieces["T1"]):
+            groupe.addObject(objet)
+        nom = joint.Name
+        with choix_de_suppression(False) as questions:
+            accepte = usinee.ViewObject.Proxy.onDelete(
+                usinee.ViewObject, ["group_recursive_deletion"]
+            )
+        return [
+            *ecarts("aucune question", questions, []),
+            *ecarts("acceptée", accepte, True),
+            *ecarts("rien supprimé par l'atelier", doc.getObject(nom) is not None, True),
+        ]
+
+
+def verifier_groupe_supprime_avec_une_seule_piece() -> list[str]:
+    """Groupe de l'utilisateur supprimé avec son contenu, qui ne contient qu'une des deux pièces :
+    l'assemblage resté dehors est supprimé (pas d'« Assemblage incomplet »), la pièce usinée de
+    l'autre pièce aussi, sa brute réaffichée."""
+    with cadre("VerifGroupeUnePiece") as (doc, pieces):
+        joint = assembler(doc, pieces["M1"], pieces["T1"])
+        usinee = usinee_de(pieces["M1"])
+        autre = usinee_de(pieces["T1"])
+        noms = [joint.Name, autre.Name]
+        groupe = doc.addObject("App::DocumentObjectGroup", "GroupeUtilisateur")
+        groupe.addObject(usinee)
+        groupe.addObject(pieces["M1"])
+        accepte = usinee.ViewObject.Proxy.onDelete(usinee.ViewObject, ["group_recursive_deletion"])
+        return [
+            *ecarts("acceptée", accepte, True),
+            *ecarts(
+                "assemblage et autre usinée supprimés", [doc.getObject(n) for n in noms], [None] * 2
+            ),
+            *ecarts("pièce usinée gardée pour FreeCAD", usinee.isValid(), True),
+            *ecarts("autre brute visible", pieces["T1"].Visibility, True),
+        ]
+
+
 def verifier_suppression_d_un_assemblage() -> list[str]:
     """Supprimer un assemblage : pas d'avertissement « objets référencés » pour ses pièces
     usinées (``canDelete``), qui sont recalculées sans sa coupe."""
@@ -484,12 +583,16 @@ VERIFICATIONS_ASSEMBLAGES: tuple[Callable[[], list[str]], ...] = (
     verifier_activation_des_commandes_d_assemblage,
     verifier_creation_d_un_assemblage,
     verifier_assemblage_impossible_refuse,
+    verifier_ok_refuse_si_assemblage_en_erreur,
     verifier_affichage_de_la_piece_usinee,
     verifier_affichage_de_l_assemblage,
     verifier_reouverture_des_assemblages,
     verifier_double_clic_sur_la_piece_usinee,
     verifier_deplacement_de_la_piece_usinee,
     verifier_suppression_de_la_piece_usinee,
+    verifier_suppression_groupee_sans_question,
+    verifier_suppression_du_contenu_d_un_groupe,
+    verifier_groupe_supprime_avec_une_seule_piece,
     verifier_suppression_d_un_assemblage,
     verifier_aucun_observateur_laisse,
 )

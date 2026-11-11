@@ -76,7 +76,11 @@ FURNITURE_SPECS = {
     "Template": ("App::PropertyString", ["ReadOnly"], "Gabarit qui a créé l'ensemble"),
 }
 MEMBER_SPECS = {
-    "Furniture": ("App::PropertyLink", ["ReadOnly"], "Ensemble dont la pièce suit les cotes."),
+    "Furniture": (
+        "App::PropertyLinkGlobal",
+        ["ReadOnly"],
+        "Ensemble dont la pièce suit les cotes.",
+    ),
     "PositionMode": ("App::PropertyEnumeration", [], "Faces dont la distance au bord n'est pas"),
     "FixedLeft": ("App::PropertyBool", [], "Distance fixe au bord gauche de l'ensemble"),
     "FixedRight": ("App::PropertyBool", [], "Distance fixe au bord droit"),

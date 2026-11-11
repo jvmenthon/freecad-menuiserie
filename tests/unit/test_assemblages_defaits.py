@@ -249,8 +249,9 @@ def source(path: Path) -> str:
 def test_le_glissement_et_le_panneau_de_distance_proposent_le_choix() -> None:
     states = source(GUI / "drag" / "states.py")
     assert "self.end(joint_choice.choose)" in states  # glissement : end_drag ; anneau : RO-d
-    assert "end_drag(self.memento, choose)" in states
-    assert "end_rotation(self.memento, choose)" in states
+    target = source(GUI / "drag" / "target.py")
+    assert "end_drag(_part(memento), choose)" in target
+    assert "end_rotation(_part(memento), choose)" in target
     assert "except DragCancelledError" in states
     panel = source(GUI / "task_panels" / "distance.py")
     assert "choose=joint_choice.choose" in panel
@@ -463,7 +464,7 @@ def test_la_fenetre_de_suppression_et_son_branchement() -> None:
     ):
         assert expected in text
     provider = source(GUI / "view_providers" / "machined_part.py")
-    assert "delete_machined_part(vobj.Object, joint_choice.choose_removal)" in provider
+    assert "vobj.Object, joint_choice.choose_removal, selected_with_contents()" in provider
 
 
 def test_fenetre_de_suppression_texte_singulier_et_pluriel(

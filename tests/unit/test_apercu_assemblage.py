@@ -7,7 +7,9 @@ from __future__ import annotations
 import ast
 from typing import Any
 
-from freecad.menuiserie.gui.task_panels.preview import PREVIEW_TRANSPARENCY, PartsPreview
+from freecad.menuiserie.core.display_layers import EDIT_TRANSPARENCY
+from freecad.menuiserie.gui.display_layers import DisplayLayers
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 from tests.unit.aides import ROOT
 
 PANELS = ROOT / "freecad/menuiserie/gui/task_panels"
@@ -43,14 +45,17 @@ class Scene:
         return list(self.shown)
 
     def preview(self) -> PartsPreview:
-        return PartsPreview(self._shown, lambda obj: obj not in self.dead)
+        def alive(obj: Any) -> bool:
+            return obj not in self.dead
+
+        return PartsPreview(self._shown, alive, DisplayLayers(alive))
 
 
 def test_pieces_transparentes_puis_transparence_d_origine_retablie() -> None:
     host, guest = FakeObject("Host", 0), FakeObject("Guest", 25)
     preview = Scene(host, guest).preview()
-    assert [host.transparency, guest.transparency] == [PREVIEW_TRANSPARENCY] * 2
-    assert PREVIEW_TRANSPARENCY == 60
+    assert [host.transparency, guest.transparency] == [EDIT_TRANSPARENCY] * 2
+    assert EDIT_TRANSPARENCY == 60
     preview.restore()
     assert [host.transparency, guest.transparency] == [0, 25]
 
@@ -58,9 +63,19 @@ def test_pieces_transparentes_puis_transparence_d_origine_retablie() -> None:
 def test_une_piece_deja_a_60_retrouve_sa_valeur() -> None:
     piece = FakeObject("Piece", 60)
     preview = Scene(piece).preview()
-    piece.ViewObject.Transparency = 80
+    assert piece.transparency == 60  # déjà à la valeur de l'aperçu : rien n'est écrit
     preview.restore()
     assert piece.transparency == 60
+
+
+def test_une_valeur_changee_par_un_tiers_pendant_l_apercu_est_gardee() -> None:
+    """Changement fait par l'utilisateur pendant le panneau : il devient l'origine, la
+    restauration ne l'écrase pas par l'ancienne valeur (``core/display_layers``)."""
+    piece = FakeObject("Piece", 25)
+    preview = Scene(piece).preview()
+    piece.ViewObject.Transparency = 80
+    preview.restore()
+    assert piece.transparency == 80
 
 
 def test_objet_affiche_qui_change_pendant_l_edition() -> None:
@@ -134,7 +149,7 @@ def test_le_panneau_d_assemblage_rend_les_pieces_transparentes() -> None:
         n for n in joint.body if isinstance(n, ast.ClassDef) and n.name == "JointTaskPanel"
     )
     methods = {n.name: ast.unparse(n) for n in panel.body if isinstance(n, ast.FunctionDef)}
-    assert "PartsPreview(self._shown_parts, object_alive)" in methods["__init__"]
+    assert "PartsPreview(self._shown_parts, object_alive, DISPLAY)" in methods["__init__"]
     assert "shown_object" in methods["_shown_parts"]
     assert "super().preview()" in methods["preview"]
     assert "_transparency.sync()" in methods["preview"]
@@ -163,6 +178,8 @@ def test_les_panneaux_de_piece_rendent_la_piece_transparente_a_toute_fermeture()
     methods = {n.name: ast.unparse(n) for n in cls.body if isinstance(n, ast.FunctionDef)}
     assert "_apply_styles()" in methods["watch_document"]
     assert "PartsPreview(self.transparent_objects" in methods["_apply_styles"]
+    assert "DISPLAY" in methods["_apply_styles"]
+    assert "_without_transaction" in methods["_apply_styles"]
     assert "_restore_styles()" in methods["_finish"]
     assert "_restore_styles()" in methods["_clean_up_after_forced_close"]
 
@@ -178,6 +195,6 @@ def test_objet_supprime_pendant_la_fermeture_ne_leve_rien() -> None:
             raise TypeError("a string or integer is required")
         return True
 
-    preview = PartsPreview(lambda: [piece], alive)
+    preview = PartsPreview(lambda: [piece], alive, DisplayLayers(alive))
     deleted = True
     preview.restore()

@@ -10,6 +10,7 @@ import de FreeCAD ni de Qt.
 from __future__ import annotations
 
 from freecad.menuiserie.core.snap._frames import tangent_frame, turned_in_place
+from freecad.menuiserie.core.snap._limit import DimensionsFree, limit_dimensions
 from freecad.menuiserie.core.snap._model import (
     EdgeTarget,
     FaceTarget,
@@ -34,6 +35,7 @@ from freecad.menuiserie.core.snap._solve import MAX_TARGETS, snap
 
 __all__ = [
     "MAX_TARGETS",
+    "DimensionsFree",
     "EdgeTarget",
     "FaceTarget",
     "Frame",
@@ -47,6 +49,7 @@ __all__ = [
     "VertexTarget",
     "all_orientations",
     "initial_orientation",
+    "limit_dimensions",
     "perpendicular_orientation",
     "snap",
     "source_orientation",

@@ -84,6 +84,7 @@ class Element:
     matiere: str = ""
     face: str = ""
     epaisseur: float = 1.2
+    opacite: float = 1.0  # face en transparence (< 1) : ce qui est derrière reste visible
 
 
 @dataclass
@@ -91,13 +92,21 @@ class Icone:
     commentaire: str
     elements: list[Element] = field(default_factory=list)
 
-    def face(self, pts: Sequence[Point3], matiere: str, face: str) -> None:
-        self.elements.append(Element("face", [iso(p) for p in pts], matiere=matiere, face=face))
+    def face(self, pts: Sequence[Point3], matiere: str, face: str, opacite: float = 1.0) -> None:
+        points = [iso(p) for p in pts]
+        self.elements.append(Element("face", points, matiere=matiere, face=face, opacite=opacite))
 
     def prisme(
-        self, profil: Sequence[Point2], axe: str, a0: float, a1: float, matiere: str
+        self,
+        profil: Sequence[Point2],
+        axe: str,
+        a0: float,
+        a1: float,
+        matiere: str,
+        opacite: float = 1.0,
     ) -> None:
-        """Extrude un profil 2D le long de l'axe ``x``, ``y`` ou ``z``, de a0 à a1."""
+        """Extrude un profil 2D le long de l'axe ``x``, ``y`` ou ``z``, de a0 à a1 ; ``opacite``
+        < 1 : volume en transparence."""
 
         def en_3d(u: float, v: float, a: float) -> Point3:
             return {"x": (a, u, v), "y": (u, a, v), "z": (u, v, a)}[axe]
@@ -117,16 +126,17 @@ class Icone:
                 faces.append((pts, normale))
         faces.append(([en_3d(u, v, a1) for u, v in profil], en_3d(0, 0, 1)))
         # Peintre : les faces les plus éloignées d'abord.
-        faces.sort(key=lambda f: sum(sum(p) for p in f[0]) / len(f[0]))
+        # Clé arrondie : ordre identique d'une version de Python à l'autre (ex æquo stables).
+        faces.sort(key=lambda f: round(sum(sum(p) for p in f[0]) / len(f[0]), 6))
         for pts, normale in faces:
             axe_dominant = max(range(3), key=lambda k: abs(normale[k]))
-            self.face(pts, matiere, "xyz"[axe_dominant])
+            self.face(pts, matiere, "xyz"[axe_dominant], opacite)
 
-    def boite(self, origine: Point3, taille: Point3, matiere: str) -> None:
+    def boite(self, origine: Point3, taille: Point3, matiere: str, opacite: float = 1.0) -> None:
         """Parallélépipède d'angle ``origine`` et de dimensions ``taille`` (x, y, z)."""
         (x, y, z), (dx, dy, dz) = origine, taille
         profil = [(y, z), (y + dy, z), (y + dy, z + dz), (y, z + dz)]
-        self.prisme(profil, "x", x, x + dx, matiere)
+        self.prisme(profil, "x", x, x + dx, matiere, opacite)
 
     def cylindre(self, cx: float, cy: float, z0: float, z1: float, r: float, matiere: str) -> None:
         bas = [iso((cx + r * math.cos(t), cy + r * math.sin(t), z0)) for t in angles()]
@@ -200,8 +210,9 @@ class Icone:
         for e in self.elements:
             pts = coords(e.points)
             if e.nature == "face":
+                transparence = f' fill-opacity="{e.opacite:g}"' if e.opacite < 1 else ""
                 lignes.append(
-                    f'  <polygon points="{pts}" fill="url(#{e.matiere}-{e.face})" '
+                    f'  <polygon points="{pts}" fill="url(#{e.matiere}-{e.face})"{transparence} '
                     f'stroke="{MATIERES[e.matiere][3]}" stroke-width="2" stroke-linejoin="round"/>'
                 )
             elif e.nature == "trou":

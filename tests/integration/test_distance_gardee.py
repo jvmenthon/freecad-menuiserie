@@ -39,7 +39,11 @@ def keep(bureau: Bureau, value: float = 320, *, keep_it: bool = True, container:
         name = element_name(part, "Face", near)
         if container is None:
             return api.PickedElement(part, name)
-        return api.PickedElement(container, f"{part.Name}.{name}")
+        path, node = [part.Name], part.getParentGeoFeatureGroup()
+        while node != container:  # le Std Part de l'ensemble est entre le conteneur et la pièce
+            path.insert(0, node.Name)
+            node = node.getParentGeoFeatureGroup()
+        return api.PickedElement(container, ".".join([*path, name]))
 
     api.set_distance(pick("JG", BAS_JOUE), pick("V", BAS_VOILE), value, keep=keep_it)
     found = [o for o in bureau.doc.Objects if distance_module.is_distance(o)]
@@ -79,13 +83,14 @@ def test_placee_dans_le_groupe_de_l_ensemble(document: Any) -> None:
     part = document.addObject("App::Part", "Meuble")
     bureau = build_desk(document, part)
     dist = keep(bureau)
-    assert dist.getParentGeoFeatureGroup() == part
-    assert bureau.furniture.getParentGeoFeatureGroup() == part
+    own = bureau.furniture.getParentGeoFeatureGroup()  # Std Part de l'ensemble, dans « Meuble »
+    assert dist.getParentGeoFeatureGroup() == own
+    assert own.getParentGeoFeatureGroup() == part
 
 
-def test_a_cote_de_l_ensemble_sans_groupe(bureau: Bureau) -> None:
+def test_dans_le_std_part_de_l_ensemble(bureau: Bureau) -> None:
     dist = keep(bureau)
-    assert dist.getParentGeoFeatureGroup() is None
+    assert dist.getParentGeoFeatureGroup() == bureau.furniture.getParentGeoFeatureGroup()
 
 
 def test_pas_de_distance_sans_la_case(bureau: Bureau) -> None:
@@ -212,7 +217,7 @@ def test_copie_suit_les_pieces_copiees(document: Any) -> None:
     copied = {o.Name for o in created}
     assert new.PieceA.Name in copied and new.PieceB.Name in copied
     assert new.PieceA != bureau.parts["JG"]
-    assert new.getParentGeoFeatureGroup() == copy
+    assert new.getParentGeoFeatureGroup().getParentGeoFeatureGroup() == copy
     [furniture] = [o for o in created if o.Name.startswith("Furniture")]
     furniture.Height = 800
     document.recompute()

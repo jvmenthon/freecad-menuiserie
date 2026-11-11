@@ -28,7 +28,8 @@ from freecad.menuiserie.core.templates.carcass import (
 )
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
-from freecad.menuiserie.features.furniture import create_furniture, writing
+from freecad.menuiserie.features.furniture import writing
+from freecad.menuiserie.features.furniture_container import create_with_std_part
 from freecad.menuiserie.features.furniture_members import (
     add_members,
     checked_furniture,
@@ -127,7 +128,7 @@ def build_layout(doc: Document, layout: Layout, parent: DocumentObject | None = 
         )
         for spec in layout.joints
     ]
-    furniture = create_furniture(
+    furniture = create_with_std_part(
         doc, layout.box, layout.origin, translated(layout.label), container
     )
     with writing(furniture):

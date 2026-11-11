@@ -29,6 +29,7 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
+from freecad.menuiserie.features.machined_cache import cached_machined_shape, machining_key
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
@@ -41,7 +42,6 @@ from freecad.menuiserie.features.part_names import (
 )
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.shaped_part import is_timber
-from freecad.menuiserie.features.solids import machined_shape
 
 __all__ = [
     "MachinedPart",
@@ -54,6 +54,7 @@ __all__ = [
     "remove_machined_part",
     "show_blank",
     "sync_machined_label",
+    "timber_blanks_around",
 ]
 
 OBJECT_NAME: Final = "MachinedPart"
@@ -167,6 +168,10 @@ class MachinedPart(SyncingProxy):
             self._adopt_typed_mark(obj)
         elif prop == "Placement":
             self._follow_placement(obj)
+        elif prop == "Joints":
+            for joint in obj.Joints:  # assemblage ajouté ou retiré : ceux qui en dépendent suivent
+                if is_joint(joint):
+                    joint.Proxy.part_joints_changed(joint)
 
     def allowDuplicateLabel(self, obj: DocumentObject) -> bool:  # pylint: disable=unused-argument
         """Vrai : le libellé est rendu unique par l'atelier (:meth:`onBeforeChangeLabel`)."""
@@ -224,12 +229,13 @@ class MachinedPart(SyncingProxy):
             with self._executing():
                 obj.Placement = blank.Placement
             return
-        shape = machined_shape(base, additions, cuts, trims)
+        key = machining_key(blank, additions, cuts, trims)
+        shape = cached_machined_shape(base, key, additions, cuts, trims)
         # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
         # sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
             obj.Placement = blank.Placement
-            obj.Shape = shape
+            obj.Shape = shape  # toujours : la vue 3D en tire la texture (``updateData``)
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)
@@ -326,6 +332,11 @@ def machined_part_of(blank: DocumentObject) -> DocumentObject | None:
         if is_machined_part(parent) and parent.Base == blank:
             return parent
     return None
+
+
+def timber_blanks_around(part: DocumentObject) -> list[DocumentObject]:
+    """Pièces de bois du document de ``part``, sauf elle-même (voisines possibles du côté)."""
+    return [obj for obj in part.Document.Objects if obj is not part and is_timber(obj)]
 
 
 def create_machined_part(blank: DocumentObject) -> DocumentObject:

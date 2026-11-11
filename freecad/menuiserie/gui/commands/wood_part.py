@@ -17,6 +17,7 @@ from freecad.menuiserie.features.perpendicular import perpendicular_start
 from freecad.menuiserie.features.placement import add_to_container
 from freecad.menuiserie.features.snap_targets import new_session, read_targets
 from freecad.menuiserie.features.wood_part import dimensions_of
+from freecad.menuiserie.gui.camera import frame_view
 from freecad.menuiserie.gui.selection import picked_elements, view_direction
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.wood_part import show_panel
@@ -66,16 +67,18 @@ class CreateWoodPartCommand:
             return
         doc = App.ActiveDocument
         reading = read_targets(picked_elements(), view_direction())
-        doc.openTransaction(translated(CREATE_TRANSACTION))
-        with aborted_on_error(App.getActiveTransaction()):
-            start = perpendicular_start(reading)  # #136 : contre une face de pièce de bois
-            if start is None:
-                obj = make_wood_part(doc=doc)
-            else:
-                obj = make_wood_part(width=start.width, thickness=start.thickness, doc=doc)
-            session = new_session(reading, dimensions_of(obj), start.orientation if start else None)
-            add_to_container(obj, session.container)
-        show_panel(obj, creating=True, session=session)
+        with frame_view():
+            doc.openTransaction(translated(CREATE_TRANSACTION))
+            with aborted_on_error(App.getActiveTransaction()):
+                start = perpendicular_start(reading)  # #136 : contre une face de pièce de bois
+                if start is None:
+                    obj = make_wood_part(doc=doc)
+                else:
+                    obj = make_wood_part(width=start.width, thickness=start.thickness, doc=doc)
+                orientation = start.orientation if start else None
+                session = new_session(reading, dimensions_of(obj), orientation)
+                add_to_container(obj, session.container)
+            show_panel(obj, creating=True, session=session)
 
 
 def register() -> None:

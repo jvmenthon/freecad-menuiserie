@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from icones_ensembles import (
+    autre_objet,
     distance,
     distance_gardee,
     ensemble,
@@ -26,7 +27,9 @@ from icones_ensembles import (
     rotation_x,
     rotation_y,
     rotation_z,
+    structure,
 )
+from icones_repetition import dissocier_la_copie, modifier_la_repetition, repeter, repetition
 from icones_svg import Icone, angles, document, etiquette, feuille
 
 ICONS_DIR = Path(__file__).resolve().parents[1] / "freecad" / "menuiserie" / "resources" / "icons"
@@ -179,6 +182,79 @@ def tourillons() -> str:
     return ic.svg()
 
 
+def _plat(x0: float, x1: float, y0: float, y1: float) -> list[tuple[float, float]]:
+    """Contour d'un plat aux deux bouts arrondis (faux tenon), vu de dessus."""
+    r = (y1 - y0) / 2
+    cy = y0 + r
+    pas = [math.pi * (i / 12 - 0.5) for i in range(13)]
+    droite = [(x1 - r + r * math.cos(t), cy + r * math.sin(t)) for t in pas]
+    gauche = [(x0 + r - r * math.cos(t), cy - r * math.sin(t)) for t in pas]
+    return droite + gauche
+
+
+def faux_tenons() -> str:
+    ic = Icone("Faux tenon : section en stade (bouts demi-ronds) étirée sur sa longueur")
+    ic.prisme(_plat(0, 34, 0, 10), "x", 0, 56, "chene")  # comme la forme générée
+    ic.veinage((4, 52), (17, 10), "chene", amplitude=0.8)
+    return ic.svg()
+
+
+def biscuits() -> str:
+    ic = Icone("Biscuit : lamelle ovale")
+    haut = [(40 + 40 * u, 20 + 18 * (1 - u * u) ** 0.5) for u in (i / 10 - 1 for i in range(1, 20))]
+    bas = [(40 + 40 * u, 20 - 18 * (1 - u * u) ** 0.5) for u in (1 - i / 10 for i in range(1, 20))]
+    lamelle = [(0, 20), *haut, (80, 20), *bas]
+    ic.prisme(lamelle, "z", 0, 4, "hetre")
+    ic.veinage((8, 72), (20, 4), "hetre", amplitude=0.8)
+    return ic.svg()
+
+
+def pieds() -> str:
+    ic = Icone("Pieds de caisson : quatre pieds réglables sous un panneau en transparence")
+    coins = sorted(((12, 12), (78, 12), (12, 52), (78, 52)), key=sum)  # du fond vers l'avant
+    for cx, cy in coins:
+        ic.cylindre(cx, cy, 0, 4, 8, "acier")  # embase réglable
+        ic.cylindre(cx, cy, 4, 32, 4.5, "acier")  # tige
+    ic.boite((0, 0, 32), (90, 64, 9), "chene", opacite=0.4)
+    return ic.svg()
+
+
+def quincaillerie() -> str:
+    ic = Icone("Quincaillerie : vis, tourillon et pied d'acier posés ensemble")
+    ic.cylindre(14, 40, 0, 4, 8, "acier")  # embase du pied
+    ic.cylindre(14, 40, 4, 30, 4.5, "acier")  # tige du pied
+    ic.prisme(_plat(0, 34, 0, 10), "x", 34, 88, "hetre")  # tourillon couché
+    ic.cylindre(60, 10, 0, 6, 8, "acier")  # tête de vis
+    ic.cylindre(60, 10, 6, 40, 3.2, "acier")  # corps de vis
+    return ic.svg()
+
+
+def percage_lr32() -> str:
+    ic = Icone("Perçage LR32 : côté debout percé de deux colonnes de trous, taquets dans un rang")
+    ic.boite((0, 0, 0), (8, 46, 92), "chene")
+    fil = [(8, 23 + 0.8 * math.sin(2 * math.pi * k / 10), 4 + 84 * k / 16) for k in range(17)]
+    ic.trait(fil, "#8a5524", 1.0)  # fil du bois, vertical
+    for cy in (10, 36):
+        for i in range(6):
+            cz = 12 + 14 * i
+            if i == 2:
+                continue
+            ic.trou([(8, cy + 2.6 * math.cos(t), cz + 2.6 * math.sin(t)) for t in angles()])
+    for cy in (10, 36):
+        rond = [(cy + 2.8 * math.cos(t), 40 + 2.8 * math.sin(t)) for t in angles(24)]
+        ic.prisme(rond, "x", 8, 20, "acier")  # taquet rond sorti de la face
+    return ic.svg()
+
+
+def coulisse() -> str:
+    ic = Icone("Coulisse de tiroir : deux rails d'acier emboîtés, vis de fixation")
+    ic.boite((0, 0, 0), (90, 4, 12), "acier")
+    ic.boite((12, 4, 2), (78, 3, 9), "acier")
+    for x in (12, 45, 78):
+        ic.trou([(x + 2.5 * math.cos(t), 0, 6 + 2.5 * math.sin(t)) for t in angles(12)])
+    return ic.svg()
+
+
 def mi_bois() -> str:
     ic = Icone("Entaille à mi-bois : deux pièces croisées, entaillées à mi-épaisseur")
     profil_bas = [(0, 0), (80, 0), (80, 12), (50, 12), (50, 6), (30, 6), (30, 12), (0, 12)]
@@ -242,12 +318,21 @@ ICONES = {
     "Menuiserie_HalfLap.svg": mi_bois,
     "Menuiserie_Dovetail.svg": queue_d_aronde,
     "Menuiserie_Miter.svg": onglet,
+    "Menuiserie_LooseTenon.svg": faux_tenons,
+    "Menuiserie_Biscuit.svg": biscuits,
+    "Menuiserie_Foot.svg": pieds,
+    "Menuiserie_ShelfPins.svg": percage_lr32,
+    "Menuiserie_DrawerSlide.svg": coulisse,
     "Menuiserie_Carcass.svg": caisson,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
     "Menuiserie_FurnitureRemove.svg": ensemble_retirer,
     "Menuiserie_FurnitureRebind.svg": ensemble_relier,
+    # Panneau « Structure » (ADR 0046)
+    "Menuiserie_Hardware.svg": quincaillerie,
+    "Menuiserie_Structure.svg": structure,
+    "Menuiserie_Other.svg": autre_objet,
     # Distance entre deux pièces (DI-b)
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,
@@ -258,6 +343,11 @@ ICONES = {
     # Pièce en bois à forme libre (PD-d)
     "Menuiserie_ShapedPart.svg": piece_en_bois,
     "Menuiserie_ShapedPartObject.svg": piece_en_bois_objet,
+    # Répétition (R-c)
+    "Menuiserie_Repeat.svg": repeter,
+    "Menuiserie_RepeatEdit.svg": modifier_la_repetition,
+    "Menuiserie_RepeatDissociate.svg": dissocier_la_copie,
+    "Menuiserie_RepeatObject.svg": repetition,
 }
 
 
