@@ -182,7 +182,7 @@ def verifier_structure_deux_transparences_suppression() -> list[str]:
 
 def _tache_etrangere(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync) -> list[str]:
     """Tâche d'un autre atelier dans une transaction ouverte : rien n'est posé (on ne maîtrise pas
-    la transaction), la ligne s'affiche à la fin."""
+    la transaction), la demande est mémorisée et rien n'est écrit dans la transaction."""
     piece, _origine, _ = graine(bureau)
     origine = etat(piece)
     doc = bureau.doc
@@ -196,10 +196,10 @@ def _tache_etrangere(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
     Gui.Control.closeDialog()
     doc.commitTransaction()
     traiter()
-    choisir_lignes(arbre, piece.Name)  # l'arbre rafraîchi a pu perdre la sélection
-    problemes += ecarts("tâche étrangère finie : ligne choisie", etat(piece), SELECTION)
+    DISPLAY.flush()
     choisir_lignes(arbre)
-    return problemes + ecarts("désélection : origine", etat(piece), origine)
+    problemes += ecarts("désélection : origine", etat(piece), origine)
+    return problemes + ecarts("aucun calque laissé", DISPLAY.tracked(), [])
 
 
 def verifier_structure_deux_transparences_tache_etrangere() -> list[str]:
