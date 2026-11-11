@@ -403,3 +403,16 @@ def test_elements_cliques_donnent_leurs_aretes() -> None:
     assert codes("Vertex", 0.0, 0.0, 20.0) == ["Y-X-", "Z+X-", "Z+Y-"]
     with pytest.raises(ValueError):
         edges_at(PIECE, "Solid", Vec3(0.0, 0.0, 0.0))
+
+
+def test_disposition_des_aretes_d_une_face() -> None:
+    from freecad.menuiserie.core.edges import SIDES, face_sides
+
+    for face in ("Z+", "Z-", "Y-", "Y+", "X-", "X+"):
+        sides = face_sides(face)
+        assert [side for side, _, _ in sides] == list(SIDES)
+        assert sorted(edge.code for _, _, edge in sides) == sorted(e.code for e in loop_edges(face))
+    dessus = {side: edge.code for side, _, edge in face_sides("Z+")}
+    assert dessus == {"top": "Z+Y+", "left": "Z+X-", "right": "Z+X+", "bottom": "Z+Y-"}
+    avant = {side: neighbour for side, neighbour, _ in face_sides("Y-")}
+    assert avant == {"top": "Z+", "left": "X-", "right": "X+", "bottom": "Z-"}

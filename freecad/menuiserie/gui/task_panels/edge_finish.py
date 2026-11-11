@@ -13,10 +13,10 @@ l'API (``set_edge_profile``…), jamais par des écritures directes.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from functools import partial
 from typing import Final
 
+import FreeCAD as App
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
@@ -24,23 +24,21 @@ from freecad.menuiserie.core.edges import (
     BROKEN_EDGE_MM,
     EdgeFamily,
     SecondSize,
-    all_edges,
     family_for,
-    loop_edges,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.gui.pick_edge import EdgePicker
+from freecad.menuiserie.gui.pick_edge import EdgePicker, Pick
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     TransactionTaskPanel,
     UpdateGuard,
-    Widget,
     connect,
     length_spinbox,
 )
+from freecad.menuiserie.gui.task_panels.edge_targets import EdgeTargets
 from freecad.menuiserie.gui.view_providers.edge_profile import ICON
 
 FORM_NAME: Final = "EdgeFinishTaskPanel"
@@ -50,20 +48,7 @@ _TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Finition des chants")
 _FAMILY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Profil")
 _SIZE_A: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote A (rayon, distance)")
 _SIZE_B: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote B")
-_LIST: Final = QT_TRANSLATE_NOOP("Menuiserie", "Arêtes concernées")
-_NONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucune arête")
-_CROSS: Final = QT_TRANSLATE_NOOP("Menuiserie", "✕")
-_REMOVE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Retirer cette arête")
 _DELETE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Supprimer ce profil")
-_GROUPS: Final = (
-    (QT_TRANSLATE_NOOP("Menuiserie", "Dessus"), "Z+"),
-    (QT_TRANSLATE_NOOP("Menuiserie", "Dessous"), "Z-"),
-    (QT_TRANSLATE_NOOP("Menuiserie", "Côtés"), ""),
-)
-_SHORTCUTS: Final = (
-    (QT_TRANSLATE_NOOP("Menuiserie", "Toutes"), "all"),
-    (QT_TRANSLATE_NOOP("Menuiserie", "Aucune"), "none"),
-)
 _REPLACE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Arêtes déjà profilées")
 _REPLACE_TEXT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -82,20 +67,19 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
     def __init__(
         self,
-        part: DocumentObject,
+        part: DocumentObject | None,
         profile: DocumentObject | None = None,
-        preselected: Sequence[str] = (),
+        preselected: Pick | None = None,
     ) -> None:
-        super().__init__(part.Document, creating=profile is None)
+        document = App.ActiveDocument if part is None else part.Document
+        super().__init__(document, creating=profile is None)
         self.part = part
         self.profile = profile
         self._failed = False
         self._asymmetric = False  # profil relu dont la cote B diffère de A : B reste visible
         self._guard = UpdateGuard()
-        self._others = {
-            code for other in api.edge_profiles_of(part) if other != profile for code in other.Edges
-        }
-        self._picker = EdgePicker(part, self.check_edges)
+        self._others: set[str] = set()
+        self._picker = EdgePicker(document, part, self.on_pick)
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -114,19 +98,24 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._label_b = QtGui.QLabel(translated(_SIZE_B))
         form.addRow(translated(_SIZE_A), self._size_a)
         form.addRow(self._label_b, self._size_b)
-        self._boxes = self._edge_boxes(layout)
-        self._add_shortcuts(layout)
-        self._add_feedback(layout)
+        self._targets = EdgeTargets(layout, self.rebuild)
+        self._error = QtGui.QLabel()
+        self._error.setObjectName("errorLabel")
+        self._error.setWordWrap(True)
+        self._error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+        self._error.setStyleSheet(_ERROR_STYLE)
+        layout.addWidget(self._error)
         if profile is not None:
             delete = QtGui.QPushButton(translated(_DELETE))
             delete.setObjectName("delete_profile")
             layout.addWidget(delete)
             connect(delete, "clicked()", self._delete)
+        self._bind(part)
         self._load(profile)
-        with self._guard:
-            for code in preselected:
-                if code in self._boxes:
-                    self._boxes[code].setChecked(True)
+        if preselected is not None:
+            for face in preselected.faces:
+                self._targets.add_face(face)
+            self._targets.set_silently(preselected.codes)
         self._show_size_b()
         connect(self._family, "currentIndexChanged(int)", self._family_changed)
         connect(self._size_a, "valueChanged(double)", self.rebuild)
@@ -135,48 +124,6 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self.rebuild()
 
     # --- Formulaire -----------------------------------------------------------------------
-
-    def _edge_boxes(self, layout: Widget) -> dict[str, Widget]:
-        """Les douze cases à cocher, groupées : dessus, dessous, quatre côtés."""
-        boxes: dict[str, Widget] = {}
-        for title, face in _GROUPS:
-            group = QtGui.QGroupBox(translated(title))
-            inner = QtGui.QGridLayout(group)
-            edges = (
-                loop_edges(face)
-                if face
-                else tuple(e for e in all_edges() if e.along == 2)  # arêtes verticales
-            )
-            for index, edge in enumerate(edges):
-                box = QtGui.QCheckBox(edge.name)
-                box.setObjectName(edge.code)
-                inner.addWidget(box, index // 2, index % 2)
-                connect(box, "toggled(bool)", self.rebuild)
-                boxes[edge.code] = box
-            layout.addWidget(group)
-        return boxes
-
-    def _add_feedback(self, layout: Widget) -> None:
-        """Liste des arêtes concernées et zone d'erreur."""
-        self._listed = QtGui.QGroupBox(translated(_LIST))
-        self._listed.setObjectName("edge_list")
-        self._rows = QtGui.QVBoxLayout(self._listed)
-        layout.addWidget(self._listed)
-        self._error = QtGui.QLabel()
-        self._error.setObjectName("errorLabel")
-        self._error.setWordWrap(True)
-        self._error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
-        self._error.setStyleSheet(_ERROR_STYLE)
-        layout.addWidget(self._error)
-
-    def _add_shortcuts(self, layout: Widget) -> None:
-        row = QtGui.QHBoxLayout()
-        for text, key in _SHORTCUTS:
-            button = QtGui.QPushButton(translated(text))
-            button.setObjectName(f"shortcut_{key}")
-            connect(button, "clicked()", partial(self._shortcut, key))
-            row.addWidget(button)
-        layout.addLayout(row)
 
     def _load(self, profile: DocumentObject | None) -> None:
         """Champs remplis d'après le profil à modifier (sans le réécrire)."""
@@ -187,9 +134,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             self._size_a.setProperty("rawValue", profile.SizeA.Value)
             self._size_b.setProperty("rawValue", profile.SizeB.Value)
             self._asymmetric = profile.SizeB.Value not in (0.0, profile.SizeA.Value)
-            for code in profile.Edges:
-                if code in self._boxes:
-                    self._boxes[code].setChecked(True)
+            self._targets.set_silently(profile.Edges)
 
     def _needs_size_b(self) -> bool:
         """Cote B demandée : bec-de-corbin et doucine ; un profil relu asymétrique la garde."""
@@ -209,53 +154,32 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
     def codes(self) -> list[str]:
         """Codes des arêtes cochées, dans l'ordre des douze arêtes."""
-        return [edge.code for edge in all_edges() if self._boxes[edge.code].isChecked()]
+        return self._targets.codes()
 
-    def _shortcut(self, key: str) -> None:
-        with self._guard:
-            for box in self._boxes.values():
-                box.setChecked(key == "all")
-        self.rebuild()
+    def _bind(self, part: DocumentObject | None) -> None:
+        """Pièce travaillée : sans elle, le panneau demande d'abord de la désigner."""
+        self.part = part
+        self._others = (
+            set()
+            if part is None
+            else {
+                code
+                for other in api.edge_profiles_of(part)
+                if other != self.profile
+                for code in other.Edges
+            }
+        )
+        self._targets.show_for(has_part=part is not None)
+        if part is not None:
+            self._picker.bind(part)
 
-    def _refresh_list(self, codes: Sequence[str]) -> None:
-        """Liste des arêtes concernées : une ligne par arête, avec une croix pour la retirer."""
-        while self._rows.count():
-            item = self._rows.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.hide()
-                widget.deleteLater()
-        for edge in all_edges():
-            if edge.code not in codes:
-                continue
-            row = QtGui.QWidget()
-            line = QtGui.QHBoxLayout(row)
-            line.setContentsMargins(0, 0, 0, 0)
-            line.addWidget(QtGui.QLabel(edge.name))
-            line.addStretch()
-            remove = QtGui.QToolButton()
-            remove.setObjectName(f"remove_{edge.code}")
-            remove.setText(translated(_CROSS))
-            remove.setToolTip(translated(_REMOVE))
-            connect(remove, "clicked()", partial(self.remove_edge, edge.code))
-            line.addWidget(remove)
-            self._rows.addWidget(row)
-        if not codes:
-            self._rows.addWidget(QtGui.QLabel(translated(_NONE)))
-
-    def remove_edge(self, code: str) -> None:
-        """Croix d'une ligne de la liste : case décochée (l'arête perd son profil)."""
-        box = self._boxes.get(code)
-        if box is not None:
-            box.setChecked(False)
-
-    def check_edges(self, codes: Sequence[str]) -> None:
-        """Arêtes désignées dans la vue 3D : cases cochées."""
-        with self._guard:
-            for code in codes:
-                if code in self._boxes:
-                    self._boxes[code].setChecked(True)
-        self.rebuild()
+    def on_pick(self, pick: Pick) -> None:
+        """Cibles désignées dans la vue 3D : pièce (la première fois), faces et arêtes cochées."""
+        if self.part is None:
+            self._bind(pick.part)
+        for face in pick.faces:
+            self._targets.add_face(face)
+        self._targets.check(pick.codes)
 
     # --- Aperçu ---------------------------------------------------------------------------
 
@@ -265,7 +189,8 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         if self._guard.active:
             return
         codes = self.codes()
-        self._refresh_list(codes)
+        if self.part is None:
+            return
         conflicts = sorted(set(codes) & self._others)
         message = ""
         self._failed = False
@@ -349,12 +274,12 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
 
 def show_panel(
-    part: DocumentObject,
+    part: DocumentObject | None,
     profile: DocumentObject | None = None,
-    preselected: Sequence[str] = (),
+    preselected: Pick | None = None,
 ) -> None:
-    """Ouvre le panneau dans la transaction déjà ouverte, avec les arêtes ``preselected``
-    cochées ; une exception l'abandonne."""
+    """Ouvre le panneau dans la transaction déjà ouverte, avec les cibles ``preselected`` (faces
+    et arêtes) cochées ; sans pièce, il demande de la désigner ; une exception l'abandonne."""
     base.show_panel(partial(EdgeFinishTaskPanel, part, profile, preselected))
 
 

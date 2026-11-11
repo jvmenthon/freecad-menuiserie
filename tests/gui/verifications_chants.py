@@ -66,7 +66,7 @@ def usinee(blank: Any) -> Any:
 
 
 def verifier_commande() -> list[str]:
-    """C1 : libellé, infobulle, icône, emplacements ; active seulement avec une pièce choisie."""
+    """C1 : libellé, infobulle, icône, emplacements ; active même sans sélection."""
     from freecad.menuiserie import icon_path
 
     commande = Gui.Command.get(COMMANDE)
@@ -90,7 +90,7 @@ def verifier_commande() -> list[str]:
         blank = piece(doc)
         Gui.Selection.addSelection(blank)
         return [
-            *ecarts("inactive sans sélection", sans, False),
+            *ecarts("active sans sélection", sans, True),
             *ecarts("active avec une pièce", commande.isActive(), True),
         ]
 
@@ -198,31 +198,68 @@ def verifier_cote_refusee() -> list[str]:
     return avec_document("VerifChantsRefus", _refus)
 
 
-def _preselection(doc: Any) -> list[str]:
-    blank = piece(doc)
+def face_du_dessus(blank: Any) -> str:
+    """Nom du sous-élément « FaceN » de la face du dessus de ``blank``."""
     index = next(
         i + 1
         for i, face in enumerate(blank.Shape.Faces)
         if face.normalAt(0, 0).z > 0.99 and face.CenterOfMass.z > 1
     )
+    return f"Face{index}"
+
+
+def _preselection(doc: Any) -> list[str]:
+    blank = piece(doc)
     Gui.Selection.clearSelection()
-    Gui.Selection.addSelection(blank, f"Face{index}")
+    Gui.Selection.addSelection(blank, face_du_dessus(blank))
     Gui.Command.get(COMMANDE).run()
     form = formulaire()
     if form is None:
         return ["panneau de finition non ouvert"]
-    problemes = ecarts(
-        "arêtes du dessus cochées",
-        sorted(form_codes(form)),
-        sorted(["Z+Y-", "Z+Y+", "Z+X-", "Z+X+"]),
-    )
+    dessus = sorted(["Z+Y-", "Z+Y+", "Z+X-", "Z+X+"])
+    selecteur = widget(form, "face_Z+")
+    problemes = [
+        *ecarts("arêtes du dessus cochées", sorted(form_codes(form)), dessus),
+        *ecarts("sélecteur de la face", selecteur is not None, True),
+        *ecarts("aperçu des 4 arêtes", usinee(blank) is not None, True),
+    ]
+    if selecteur is not None:
+        selecteur.toggle_side("top")  # côté du haut : arête arrière du dessus
+        problemes += ecarts(
+            "côté décoché", sorted(form_codes(form)), sorted(set(dessus) - {"Z+Y+"})
+        )
     annuler()
     return problemes
 
 
 def verifier_preselection() -> list[str]:
-    """Une face sélectionnée avant la commande coche ses 4 arêtes."""
+    """Une face sélectionnée avant la commande : ses 4 arêtes cochées, sélecteur visuel."""
     return avec_document("VerifChantsPresel", _preselection)
+
+
+def _sans_selection(doc: Any) -> list[str]:
+    from PySide import QtGui
+
+    blank = piece(doc)
+    Gui.Selection.clearSelection()
+    Gui.Command.get(COMMANDE).run()
+    form = formulaire()
+    if form is None:
+        return ["panneau de finition non ouvert sans sélection"]
+    problemes = [*ecarts("consigne affichée", widget(form, "hint").isHidden(), False)]
+    Gui.Selection.addSelection(blank, face_du_dessus(blank))
+    QtGui.QApplication.processEvents()  # l'observateur transmet hors du rappel
+    problemes += [
+        *ecarts("consigne masquée", widget(form, "hint").isHidden(), True),
+        *ecarts("arêtes du dessus cochées", len(form_codes(form)), 4),
+    ]
+    annuler()
+    return problemes
+
+
+def verifier_sans_selection() -> list[str]:
+    """Commande sans sélection : on désigne la pièce et la face dans la vue 3D."""
+    return avec_document("VerifChantsSansSelection", _sans_selection)
 
 
 def _modifier_et_supprimer(doc: Any) -> list[str]:
@@ -298,4 +335,5 @@ VERIFICATIONS_CHANTS: tuple[Callable[[], list[str]], ...] = (
     verifier_modification_et_suppression,
     verifier_arete_deja_profilee,
     verifier_preselection,
+    verifier_sans_selection,
 )

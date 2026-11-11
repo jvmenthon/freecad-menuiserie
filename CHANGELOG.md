@@ -24,6 +24,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   douze arêtes en cases à cocher cochées d'après la face, l'arête ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
   aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
+  La commande est active sans sélection (on désigne pièce, face ou arête dans la vue 3D) ; les
+  faces choisies s'affichent en sélecteurs visuels de chants.
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
   sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
   un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le

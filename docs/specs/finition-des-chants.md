@@ -96,9 +96,13 @@ seule pièce.
   (`Gui::QuantitySpinBox`), cote B **visible seulement si la famille la demande** (bec-de-corbin,
   doucine ; ou profil relu asymétrique), les 12 arêtes en cases à cocher groupées par face
   (dessus, dessous, quatre côtés), raccourcis « Toutes » et « Aucune ».
-- C3 Arêtes cochées d'après la **sélection** : avant la commande, une face coche ses 4 arêtes,
-  une arête cette arête, un sommet les 3 arêtes du coin ; panneau ouvert, un clic sur un de ces
-  éléments coche de même (le point cliqué est converti en code local, B7). Pas de bouton.
+- C3 Cibles désignées par la **sélection** (2026-11-11) : la commande est active même sans
+  sélection ; le panneau demande alors de désigner dans la vue 3D une pièce, une face ou une
+  arête. Avant la commande ou panneau ouvert : une face coche ses 4 arêtes, une arête cette
+  arête, un sommet les 3 arêtes du coin, une pièce seule n'en coche aucune (la pièce n'est
+  jamais profilée en entier). Les faces choisies s'affichent en **sélecteurs visuels** (la face
+  à plat, quatre côtés cliquables) à la place des 12 cases à cocher, qui servent sans face.
+  La liste « Arêtes concernées » permet d'en retirer une d'une croix.
 - C4 Règle de jv du 2026-10-22 : toute modification du panneau s'affiche en direct (aperçu
   recalculé, `valueChanged`), Annuler remet l'état d'avant, un Ctrl+Z défait l'ensemble.
 - C5 Éditer un profil existant : double-clic sur la pièce usinée → le panneau de la pièce propose
@@ -172,7 +176,8 @@ features/edge_profile.py   EdgeProfile + création
 features/edge_banding.py   EdgeBanding + création
 features/solids.py         + conversion d'Extrusion (solid_shape)
 features/machined_part.py  + Finishes, ordre des opérations
-gui/task_panels/edge_finish.py (+ .ui) ; gui/commands/edge_finish.py ; gui/pick_edge.py
+gui/task_panels/edge_finish.py, edge_targets.py, face_edge_selector.py ; gui/commands/edge_finish.py ;
+gui/pick_edge.py
 ```
 
 Familles (paramètres A, B en mm ; la section est contenue dans le carré A × B de l'angle) :

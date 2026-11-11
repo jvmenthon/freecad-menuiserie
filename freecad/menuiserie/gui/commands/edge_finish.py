@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Commande « Finition des chants » (issue #5, C1) : profil des arêtes de la pièce sélectionnée.
 
-Active quand une pièce de bois (brute ou usinée) ou un profil d'arête est sélectionné et qu'aucun
-panneau de tâche n'est ouvert. Une pièce en bois (forme dessinée) est refusée avec un message
+Active dès qu'un document est ouvert et qu'aucun panneau de tâche ne l'est. Sans sélection, le
+panneau demande de désigner dans la vue 3D une pièce, une face ou une arête ; avec une pièce
+(brute ou usinée), une face, une arête ou un sommet sélectionné, ils sont déjà choisis ; avec un
+profil d'arête, sa modification. Une pièce en bois (forme dessinée) est refusée avec un message
 clair.
 """
 
@@ -23,7 +25,7 @@ from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.shaped_part import is_shaped_part
 from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.commands.base import report_refusal
-from freecad.menuiserie.gui.pick_edge import selected_codes
+from freecad.menuiserie.gui.pick_edge import selected_pick
 from freecad.menuiserie.gui.task_panels.edge_finish import (
     CREATE_TRANSACTION,
     show_panel,
@@ -72,26 +74,23 @@ class EdgeFinishCommand:
         }
 
     def IsActive(self) -> bool:
-        """Active avec un document, une pièce ou un profil sélectionné et aucun panneau."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and selected_part() is not None
-        )
+        """Active avec un document et sans panneau ouvert : sans sélection, le panneau demande de
+        désigner la pièce, la face ou l'arête."""
+        return App.ActiveDocument is not None and not Gui.Control.activeDialog()
 
     def Activated(self) -> None:
-        """Pièce refusée si elle est dessinée ; profil sélectionné : sa modification."""
+        """Profil sélectionné : sa modification ; pièce dessinée : refusée ; sinon le panneau,
+        avec la pièce, les faces et les arêtes sélectionnées déjà choisies (ou aucune)."""
         target = selected_part()
-        if target is None:
-            return
-        if is_edge_profile(target):
+        if target is not None and is_edge_profile(target):
             start_editing(target)
             return
-        if is_shaped_part(target):
+        if target is not None and is_shaped_part(target):
             report_refusal(translated(_SHAPED, {"label": quoted_value(target.Label)}))
             return
+        pick = selected_pick(target)
         App.ActiveDocument.openTransaction(translated(CREATE_TRANSACTION))
-        show_panel(target, preselected=selected_codes(target))
+        show_panel(target if pick is None else pick.part, preselected=pick)
 
 
 def register() -> None:

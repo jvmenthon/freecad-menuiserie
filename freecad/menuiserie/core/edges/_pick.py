@@ -14,7 +14,7 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.vectors import dot, norm
 
-__all__ = ["edges_at", "nearest_edge"]
+__all__ = ["edges_at", "face_at", "nearest_edge"]
 
 
 def _ends(dimensions: Dimensions, edge: EdgeId) -> tuple[Vec3, Vec3]:
@@ -47,8 +47,8 @@ def _sizes(dimensions: Dimensions) -> tuple[float, float, float]:
     return (dimensions.length, dimensions.width, dimensions.thickness)
 
 
-def _nearest_face(dimensions: Dimensions, point: Vec3) -> str:
-    """Code de la face de la boîte la plus proche de ``point`` (``"Z+"``…)."""
+def face_at(dimensions: Dimensions, point: Vec3) -> str:
+    """Code de la face de la boîte la plus proche de ``point`` (repère local, mm) : ``"Z+"``…"""
     sizes = _sizes(dimensions)
     candidates = [
         (abs(point.component(index) - (sizes[index] if sign == "+" else 0.0)), f"{letter}{sign}")
@@ -70,7 +70,7 @@ def edges_at(dimensions: Dimensions, kind: str, point: Vec3) -> tuple[EdgeId, ..
     ``"Edge"`` (cette arête) ou ``"Vertex"`` (les 3 arêtes du coin) ; ``point`` est son centre
     dans le repère local (mm). Autre ``kind`` : ``ValueError``."""
     if kind == "Face":
-        return loop_edges(_nearest_face(dimensions, point))
+        return loop_edges(face_at(dimensions, point))
     if kind == "Edge":
         return (nearest_edge(dimensions, point),)
     if kind == "Vertex":
