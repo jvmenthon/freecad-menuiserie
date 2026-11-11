@@ -1,10 +1,10 @@
 # Gabarits de meubles : bibliothèque, table, cadre et porte, tiroir
 
 - Issue : #152 (gabarits de meubles courants) ; suite du gabarit « Caisson » de J4d.
-- Statut : **proposée** (en attente des réponses de jv aux questions Q1 à Q10 du § 9 ; les choix ★ s'appliquent en attendant).
+- Statut : **en attente**. Les meubles viennent **après** le socle et les gabarits personnels (choix de jv, 2026-11-11) ; jv tranchera Q1 à Q10 (§ 9) au début de ce lot.
 - Demande de jv (2026-11-05) : « avancer sur les specs des gabarits de meubles ».
 - ADR : [0032 — Gabarits composés dans une ouverture](../adr/0032-gabarits-composes-dans-une-ouverture.md) (proposé). ADR liés : 0006 (brute et usinée), 0007 (compatibilité), 0008 et 0019 (ensembles), 0010 (gabarits générateurs, inchangé), 0024 (assemblages en biais).
-- Intégration, interface et gabarits personnels : problématiques exposées dans [gabarits-integration.md](gabarits-integration.md), choix à faire avec jv.
+- Intégration, interface et gabarits personnels : voir la spécification [gabarits-socle-et-personnels.md](gabarits-socle-et-personnels.md) (décisions de jv du 2026-11-11). Chaque meuble deviendra un module de règles et une ligne du registre de gabarits ; le § 6 (une commande et un panneau par gabarit) est remplacé par ce registre.
 - Hors périmètre : quincaillerie (poignées, charnières, coulisses : issue #159), finition des chants (issue #5), plans TechDraw (issue #153), liste de débit (déjà livrée : les gabarits ne font que créer des pièces ordinaires).
 
 ## 1. Contexte

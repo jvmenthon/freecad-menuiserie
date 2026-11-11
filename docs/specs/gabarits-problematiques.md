@@ -1,4 +1,8 @@
-# Gabarits : les problématiques avant les choix
+# Gabarits : les problématiques avant les choix (archive de la réflexion)
+
+> Réflexion menée avec jv du 2026-11-05 au 2026-11-11. Les **décisions** qui en découlent sont
+> dans [gabarits-socle-et-personnels.md](gabarits-socle-et-personnels.md) ; ce document garde les
+> problématiques P1 à P31 auxquelles la spécification renvoie.
 
 - Statut : **exposé des problématiques**, aucun choix fait (demande de jv du 2026-11-05 : « exposez-moi
   les problématiques avant de faire des choix »).
