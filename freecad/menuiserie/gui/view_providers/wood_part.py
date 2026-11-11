@@ -5,8 +5,10 @@ double-clic. :class:`MaterialViewProvider` porte ce qui est commun avec la pièc
 
 Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe et la propriété
 de vue ``MaterialColor`` sont écrits dans les documents (``GuiDocument.xml``) ; ils ne changent
-jamais. Le ViewProvider est le seul à écrire la couleur diffuse de ``ShapeAppearance`` : le
-blanc de base quand la texture est affichée, sinon ``MaterialColor``. La texture n'est jamais
+jamais. Le ViewProvider écrit la couleur diffuse de ``ShapeAppearance`` : le blanc de base quand
+la texture est affichée, sinon ``MaterialColor`` ; seule exception, l'affichage temporaire du
+panneau « Structure » (``gui/display_layers``, teinte de sélection rendue avant tout
+enregistrement). La texture n'est jamais
 enregistrée : elle est recalculée depuis la bibliothèque locale. Le panneau de tâche est importé
 à l'édition seulement (il importe ce module).
 """

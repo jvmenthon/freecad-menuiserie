@@ -72,6 +72,14 @@ from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMEN
 from tests.gui.verifications_souris_ensemble import VERIFICATIONS_SOURIS_ENSEMBLE
 from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
 from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATION
+from tests.gui.verifications_structure import VERIFICATIONS_STRUCTURE
+from tests.gui.verifications_structure_deux_calques import VERIFICATIONS_STRUCTURE_DEUX_CALQUES
+from tests.gui.verifications_structure_lot3 import VERIFICATIONS_STRUCTURE_LOT3
+from tests.gui.verifications_structure_lot4 import VERIFICATIONS_STRUCTURE_LOT4
+from tests.gui.verifications_structure_repetition import VERIFICATIONS_STRUCTURE_REPETITION
+from tests.gui.verifications_structure_selection import VERIFICATIONS_STRUCTURE_SELECTION
+from tests.gui.verifications_structure_souris import VERIFICATIONS_STRUCTURE_SOURIS
+from tests.gui.verifications_structure_tache import VERIFICATIONS_STRUCTURE_TACHE
 from tests.gui.verifications_transparence_assemblage import VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE
 from tests.gui.verifications_usinage_deplacement import VERIFICATIONS_USINAGE_DEPLACEMENT
 
@@ -1274,6 +1282,15 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
+    # Panneau « Structure » (ADR 0046, lot 2)
+    *VERIFICATIONS_STRUCTURE,
+    *VERIFICATIONS_STRUCTURE_LOT3,
+    *VERIFICATIONS_STRUCTURE_LOT4,
+    *VERIFICATIONS_STRUCTURE_REPETITION,
+    *VERIFICATIONS_STRUCTURE_SELECTION,
+    *VERIFICATIONS_STRUCTURE_DEUX_CALQUES,
+    *VERIFICATIONS_STRUCTURE_TACHE,
+    *VERIFICATIONS_STRUCTURE_SOURIS,
     # Glisser une pièce à la souris (SM-c)
     *VERIFICATIONS_SOURIS,
     *VERIFICATIONS_SOURIS_DOCUMENT,

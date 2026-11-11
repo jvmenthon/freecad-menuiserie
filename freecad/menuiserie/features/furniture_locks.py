@@ -27,11 +27,10 @@ from freecad.menuiserie.features.furniture_members import (
     NOT_IN_FURNITURE,
     checked_furniture,
     member_object,
-    planned_resize,
     quoted_label,
-    write_box,
 )
 from freecad.menuiserie.features.furniture_relink import relink_thickness
+from freecad.menuiserie.features.furniture_resize import planned_resize, write_box
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.shaped_part import is_shaped_part
 

@@ -37,12 +37,12 @@ from freecad.menuiserie.features.joints.base import (
 )
 from freecad.menuiserie.features.repeat_joints import origin_of
 from freecad.menuiserie.gui.commands.base import report_refusal
+from freecad.menuiserie.gui.display_layers import DISPLAY, object_alive
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     ObjectTaskPanel,
     Widget,
     connect,
-    object_alive,
     panel_title,
     set_ok_enabled,
 )
@@ -94,7 +94,7 @@ class JointTaskPanel(ObjectTaskPanel):
         self._error = _error_label()
         layout.addWidget(self._error)
         self._refresh()
-        self._transparency = PartsPreview(self._shown_parts, object_alive)
+        self._transparency = PartsPreview(self._shown_parts, object_alive, DISPLAY)
         # « OK » grisé dès l'affichage si l'assemblage est déjà en erreur (bouton créé après).
         QtCore.QTimer.singleShot(0, self._refresh_ok)
 

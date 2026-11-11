@@ -205,8 +205,9 @@ class RemoveFromFurnitureCommand(FurnitureCommand):
         return all(has_member_properties(member_object(obj)) for obj in selection)
 
     def apply(self, selection: Sequence[DocumentObject]) -> Sequence[str]:
-        """``remove_from_furniture`` sur la sélection."""
-        return api.remove_from_furniture(selection)
+        """``remove_from_furniture`` sur la sélection, comme le panneau « Structure » : les
+        propriétés de membre restent sur la pièce (orphelin, ADR 0046) ; un seul comportement."""
+        return api.remove_from_furniture(selection, keep_properties=True)
 
 
 class RebindFurnitureCommand(FurnitureCommand):

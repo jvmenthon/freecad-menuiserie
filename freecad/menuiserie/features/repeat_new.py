@@ -45,7 +45,8 @@ from freecad.menuiserie.features.furniture_container import (
     placement_container,
     std_part_of,
 )
-from freecad.menuiserie.features.furniture_members import join_member, release_furniture
+from freecad.menuiserie.features.furniture_detach import release_furniture
+from freecad.menuiserie.features.furniture_members import join_member
 from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.machined_part import (
     machined_part_of,

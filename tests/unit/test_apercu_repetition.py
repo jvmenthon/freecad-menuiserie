@@ -6,10 +6,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from freecad.menuiserie.gui.task_panels.preview import PREVIEW_TRANSPARENCY, PartsPreview
+from freecad.menuiserie.core.display_layers import (
+    EDIT_TRANSPARENCY,
+    ORIGIN_LOOK,
+    ORIGIN_TINT,
+)
+from freecad.menuiserie.gui.display_layers import DisplayLayers
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
 BOIS = (0.6, 0.4, 0.2, 0.0)
-BLEU = (70, 140, 230)
+BLEU = ORIGIN_TINT
 
 
 class FakeMaterial:
@@ -42,13 +48,15 @@ class FakeObject:
 
 
 def _preview(*objects: Any) -> PartsPreview:
-    return PartsPreview(lambda: list(objects), lambda _obj: True, BLEU)
+    return PartsPreview(
+        lambda: list(objects), lambda _obj: True, DisplayLayers(lambda _obj: True), ORIGIN_LOOK
+    )
 
 
 def test_originale_teinte_puis_apparence_d_origine() -> None:
     piece = FakeObject("Barreau")
     preview = _preview(piece)
-    assert piece.ViewObject.Transparency == PREVIEW_TRANSPARENCY
+    assert piece.ViewObject.Transparency == EDIT_TRANSPARENCY
     assert piece.diffuse() == BLEU
     preview.restore()
     assert piece.ViewObject.Transparency == 0
@@ -60,7 +68,7 @@ def test_apercu_repose_apres_une_transaction_abandonnee() -> None:
     preview = _preview(piece)
     piece.ViewObject.Transparency = 0  # l'abandon de la transaction a tout rétabli
     piece.ViewObject.ShapeAppearance = [FakeMaterial(BOIS)]
-    preview.sync()
-    assert (piece.ViewObject.Transparency, piece.diffuse()) == (PREVIEW_TRANSPARENCY, BLEU)
+    preview.reapply()
+    assert (piece.ViewObject.Transparency, piece.diffuse()) == (EDIT_TRANSPARENCY, BLEU)
     preview.restore()
     assert piece.ViewObject.ShapeAppearance[0].DiffuseColor == BOIS

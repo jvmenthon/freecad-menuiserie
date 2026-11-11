@@ -28,7 +28,6 @@ from freecad.menuiserie.features.furniture import (
     MEMBER_PROPERTIES,
     MODES,
     furniture_of,
-    has_member_properties,
     is_furniture,
     option_name,
     writing,
@@ -37,31 +36,35 @@ from freecad.menuiserie.features.furniture_bindings import (
     MemberSet,
     bind_members,
     member_of,
-    members_of,
     read_members,
     rebind,
     remove_bindings,
 )
 from freecad.menuiserie.features.furniture_checks import (
+    NOT_IN_FURNITURE,
     checked_furniture,
     member_object,
     quoted_label,
 )
 from freecad.menuiserie.features.furniture_container import (
     create_with_std_part,
+    outer_container,
     placement_container,
     scopes,
     std_part_of,
 )
+from freecad.menuiserie.features.furniture_detach import detach_members, remove_members
 from freecad.menuiserie.features.furniture_enclosing import enclosing
-from freecad.menuiserie.features.furniture_entry import (
-    adopt,
+from freecad.menuiserie.features.furniture_entry import adopt, leave, taken_along
+from freecad.menuiserie.features.furniture_plan import (
+    EntryNoticeKind,
+    Placement,
+    chain_of,
     check_assembled,
-    dissolve,
-    leave,
-    taken_along,
+    plan_entry,
+    redirection_notice,
+    split_creation,
 )
-from freecad.menuiserie.features.furniture_relink import relink_remaining
 from freecad.menuiserie.features.furniture_resize import planned_resize, resize, write_box
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.shaped_part import is_shaped_part
@@ -79,8 +82,6 @@ __all__ = [
     "member_object",
     "planned_resize",
     "quoted_label",
-    "release_furniture",
-    "release_repeat_links",
     "relink",
     "remove_members",
     "resize",
@@ -93,9 +94,6 @@ _NO_OBJECT: Final = QT_TRANSLATE_NOOP(
 )
 _ALREADY_MEMBER: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » est déjà membre de l'ensemble « {furniture} »."
-)
-NOT_IN_FURNITURE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » n'est membre d'aucun ensemble."
 )
 _OTHER_DOCUMENT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » appartient à un autre document."
@@ -135,17 +133,30 @@ def _ancestry(furniture: DocumentObject) -> tuple[dict[str, str], dict[str, str]
     return parents, labels
 
 
+def _in_scope(
+    member: DocumentObject, allowed: Sequence[DocumentObject | None], *, relative: bool
+) -> bool:
+    """Le conteneur de ``member`` est l'un des ``allowed``. ``relative`` (un membre qui change
+    d'ensemble) : on compare les conteneurs hors Std Parts d'ensemble, car un membre de A n'est
+    pas dans le conteneur du Std Part de B mais dans celui de A."""
+    container = placement_container(member)
+    if not relative:
+        return container in allowed
+    return outer_container(container) in {outer_container(item) for item in allowed}
+
+
 def _checked(
     obj: DocumentObject,
     doc: object,
     allowed: Sequence[DocumentObject | None],
     furniture: DocumentObject | None,
+    move: bool = False,
 ) -> DocumentObject:
     member = member_object(obj)
     if member.Document != doc:
         raise ValueError(translated(_OTHER_DOCUMENT, quoted_label(member)))
     current = furniture_of(member)
-    if current is not None:
+    if current is not None and (not move or current == furniture):  # déjà là : options gardées
         params = {**quoted_label(member), "furniture": quoted_value(current.Label)}
         raise ValueError(translated(_ALREADY_MEMBER, params))
     if furniture is not None and is_furniture(member):
@@ -155,24 +166,24 @@ def _checked(
             check_membership(furniture.Name, member.Name, parents, labels)
         except FurnitureError as error:
             raise ValueError(templated_message(error)) from error
-    if placement_container(member) not in allowed:
+    if not _in_scope(member, allowed, relative=move and current is not None):
         raise ValueError(translated(_OTHER_CONTAINER, quoted_label(member)))
     return member
 
 
 def _candidates(
-    objects: Sequence[DocumentObject], furniture: DocumentObject | None
+    objects: Sequence[DocumentObject], furniture: DocumentObject | None, move: bool = False
 ) -> list[DocumentObject]:
     """Objets qui entrent dans l'ensemble (brutes ou ensembles, sans doublon), contrôlés :
     même document et même conteneur que le Std Part de l'ensemble (ou que le premier objet), aucun
-    membre d'un ensemble, aucun cycle d'ensembles."""
+    membre d'un ensemble (sauf avec ``move``, où ils changent d'ensemble), aucun cycle."""
     if not objects:
         raise ValueError(translated(_NO_OBJECT))
     reference = furniture if furniture is not None else member_object(objects[0])
     allowed = scopes(furniture) if furniture is not None else (placement_container(reference),)
     found: dict[str, DocumentObject] = {}
     for obj in objects:
-        member = _checked(obj, reference.Document, allowed, furniture)
+        member = _checked(obj, reference.Document, allowed, furniture, move)
         found.setdefault(member.Name, member)
     return list(found.values())
 
@@ -220,102 +231,97 @@ def _checked_label(label: str) -> str:
     return label
 
 
-def _build_inside(
-    objects: Sequence[DocumentObject], label: str
-) -> tuple[DocumentObject, list[Notice]] | None:
-    """Sous-ensemble de l'ensemble commun à ``objects`` (tous membres du même, ADR 0037) : les
-    pièces en sortent, entrent dans le nouvel ensemble, membre du parent. ``None`` sinon. Un
-    refus après la sortie relève de la transaction de l'appelant (annulation)."""
+def _common_parent(objects: Sequence[DocumentObject]) -> DocumentObject | None:
+    """Ensemble dont tous les ``objects`` sont membres (ADR 0037), ``None`` sinon."""
     parents = {furniture_of(member_object(obj)) for obj in objects}
     parent = next(iter(parents), None)
-    if parent is None or len(parents) != 1:
-        return None
-    _checked_label(label or translated(DEFAULT_LABEL))
-    remove_members(objects)
-    furniture, notices = build_furniture(objects, label)
-    return furniture, [*notices, *add_members(parent, [furniture])]
+    return parent if len(parents) == 1 else None
 
 
 def build_furniture(
     objects: Sequence[DocumentObject], label: str = ""
 ) -> tuple[DocumentObject, list[Notice]]:
     """Crée un ensemble autour de ``objects`` (boîte qui les contient) et les y fait entrer ;
-    tout est contrôlé avant la création."""
-    if (inside := _build_inside(objects, label)) is not None:
-        return inside
+    tout est contrôlé avant la création. Des objets tous membres d'un même ensemble en sortent
+    (propriétés gardées : Ctrl+Z les rétablit, FreeCAD 1.1) et le nouvel ensemble, membre de ce
+    parent, les reçoit (sous-ensemble, ADR 0037). Une pièce assemblée à une pièce qui reste dans
+    le parent y reste (avertissement) ; ``ValueError`` s'il ne reste rien à ranger ou si
+    l'assemblage mène à un autre ensemble. Un refus après la sortie relève de la transaction de
+    l'appelant (annulation)."""
+    parent = _common_parent(objects)
+    if parent is None:
+        members = _candidates(objects, None)
+    else:
+        members = list({m.Name: m for m in map(member_object, objects)}.values())
+    wanted = ("", *chain_of(parent))
+    entering, notices = split_creation(plan_entry(members, wanted), wanted, parent)
+    _checked_label(label or translated(DEFAULT_LABEL))
+    if parent is not None:
+        detach_members(entering, keep_properties=True)
+    furniture, more = _create(entering, label)
+    notices += more
+    return furniture, notices if parent is None else [*notices, *add_members(parent, [furniture])]
+
+
+def _create(objects: Sequence[DocumentObject], label: str) -> tuple[DocumentObject, list[Notice]]:
+    """Ensemble neuf autour de ``objects``, de plus haut niveau ou dans leur conteneur."""
     members = _candidates(objects, None)
     text = _checked_label(label or translated(DEFAULT_LABEL))
     box, origin = enclosing(members)
     for obj in members:
         member_of(obj, origin, entering=True)  # cote illisible : refus avant création
-    check_assembled(members)
     outer = placement_container(members[0])
     furniture = create_with_std_part(members[0].Document, box, origin, text, outer)
     return furniture, _enter(furniture, members)
 
 
-def add_members(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> list[Notice]:
+def add_members(
+    furniture: DocumentObject, objects: Sequence[DocumentObject], *, move: bool = False
+) -> list[Notice]:
     """Fait entrer ``objects`` dans ``furniture`` ; les membres présents gardent leurs options
-    et leurs liaisons."""
+    et leurs liaisons. Une pièce assemblée à une pièce qui reste dans un autre ensemble va dans
+    l'ensemble cohérent le plus proche (celui de cette pièce, s'il est dans la même branche) et
+    non dans ``furniture`` : avertissement ; ``ValueError`` s'il n'y a aucun rangement cohérent.
+    Avec ``move``, des objets déjà membres d'un autre ensemble en sortent
+    (:func:`detach_members`, propriétés gardées, puis :func:`leave`) et entrent ici avec les
+    options par défaut."""
     checked_furniture(furniture)
-    members = _candidates(objects, furniture)
+    members = _candidates(objects, furniture, move)
     _checked_label(str(furniture.Label))
     read_members(furniture, entering=members)  # cotes illisibles : refus avant modification
-    check_assembled(members, furniture)
-    return _enter(furniture, members)
+    wanted = chain_of(furniture)
+    homes: dict[str, list[DocumentObject]] = {}
+    redirected: list[tuple[Placement, DocumentObject]] = []
+    for placement in plan_entry(members, wanted):
+        home = furniture if placement.dest == wanted else _ensemble(furniture, placement.dest[0])
+        homes.setdefault(home.Name, []).append(placement.obj)
+        if placement.dest != wanted:
+            redirected.append((placement, home))
+    notices: list[Notice] = []
+    for name, group in homes.items():
+        home = furniture if name == furniture.Name else _ensemble(furniture, name)
+        notices += _enter_in(home, group)
+    for placement, home in redirected:
+        stays = placement.obj not in homes[home.Name] or furniture_of(placement.obj) == home
+        kind = EntryNoticeKind.STAYED if stays else EntryNoticeKind.REDIRECTED
+        notices.append(redirection_notice(placement, furniture, home, kind))
+    return notices
 
 
-def detach_members(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
-    """Première moitié de :func:`remove_members` : les liaisons de l'atelier et les propriétés de
-    membre de ``objects`` sont supprimées, les voisines reliées sans eux ; ils ne sortent pas de
-    leur Std Part. Renvoie ceux qui avaient un ensemble. ``ValueError`` traduite, avant toute
-    modification, pour un objet qui n'est membre d'aucun ensemble."""
-    targets = {member.Name: member for member in map(member_object, objects)}
-    for member in targets.values():
-        if not has_member_properties(member):
-            raise ValueError(translated(NOT_IN_FURNITURE, quoted_label(member)))
-    furnitures = {f.Name: f for f in (furniture_of(m) for m in targets.values()) if f is not None}
-    owned = [member for member in targets.values() if furniture_of(member) is not None]
-    for member in targets.values():
-        with writing(member):
-            remove_bindings(member)
-            for spec in MEMBER_PROPERTIES:
-                if spec.name in member.PropertiesList:
-                    member.removeProperty(spec.name)
-    for furniture in furnitures.values():  # les voisines ne citent plus les pièces retirées
-        relink_remaining(furniture, set(targets))
-    return owned
+def _ensemble(reference: DocumentObject, name: str) -> DocumentObject:
+    """Ensemble de nom ``name`` du document de ``reference``."""
+    found: DocumentObject = reference.Document.getObject(name)
+    return found
 
 
-def remove_members(objects: Sequence[DocumentObject]) -> list[str]:
-    """Retire ``objects`` de leur ensemble : les liaisons de l'atelier et les propriétés de membre
-    sont supprimées, puis ils sortent du Std Part de l'ensemble sans bouger (E2) ; la géométrie
-    ne change pas. Un orphelin (ensemble supprimé) est accepté. Les pièces qui restent sont
-    reliées sans elles. Renvoie les avertissements traduits (pièce assemblée à une pièce qui
-    reste : elle garde son Std Part)."""
-    return leave(detach_members(objects))
-
-
-def release_furniture(furniture: DocumentObject) -> list[str]:
-    """Suppression de ``furniture`` par l'interface (avant ``removeObject``) : ses copies de
-    répétition sont dissociées (ADR 0044 : leurs expressions citent son Std Part et ses pièces,
-    qui sans cela ne sortiraient pas), ses membres sortent du Std Part, qui est supprimé s'il est
-    vide (:func:`.furniture_entry.dissolve`). Renvoie les avertissements traduits."""
-    release_repeat_links(furniture)
-    members = members_of(furniture)
-    return [*(remove_members(members) if members else []), *dissolve(furniture)]
-
-
-def release_repeat_links(furniture: DocumentObject) -> None:
-    """Copies de répétition de ``furniture`` dissociées, et ses membres copiés libérés si c'est
-    une copie supprimée à la main ; rien n'est supprimé (sûr pendant la suppression d'un
-    groupe avec son contenu)."""
-    from freecad.menuiserie.features.repeat import is_copy
-    from freecad.menuiserie.features.repeat_links import detach_copies, unlink_inner_copies
-
-    detach_copies(furniture)
-    if is_copy(furniture):  # copie supprimée à la main : ses membres copiés deviennent libres
-        unlink_inner_copies(furniture)
+def _enter_in(home: DocumentObject, group: Sequence[DocumentObject]) -> list[Notice]:
+    """Fait entrer ``group`` dans ``home`` ; ceux qui y sont déjà ne bougent pas, ceux d'un autre
+    ensemble en sortent d'abord (propriétés gardées)."""
+    coming = [member for member in group if furniture_of(member) != home]
+    leaving = [member for member in coming if furniture_of(member) is not None]
+    if leaving:
+        leave(detach_members(leaving, keep_properties=True))
+    return _enter(home, coming) if coming else []
 
 
 def _checked_options(

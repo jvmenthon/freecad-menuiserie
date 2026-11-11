@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from itertools import pairwise
 
-from icones_svg import Icone, Point3
+from icones_svg import Icone, Point3, document
 
 # --- Ensembles (J4c) ------------------------------------------------------------------------
 
@@ -223,3 +223,33 @@ def piece_en_bois() -> str:
         'stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>'
     )
     return ic.svg(cadre=(38, 63, 26, 50), fond=_corps_bleu(), devant=fleche)
+
+
+# --- Panneau « Structure » (ADR 0046) -----------------------------------------------------
+
+
+def structure() -> str:
+    """Arbre simplifié : un ensemble, deux pièces et un groupe replié."""
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    lien = 'fill="none" stroke="#2e3436" stroke-width="2" stroke-linecap="round"'
+    lignes = [
+        "  <!-- Structure : un ensemble, ses pièces et un groupe replié -->",
+        f'  <path d="M12,20 V32 H22 M12,32 V50 H22" {lien}/>',
+        f'  <rect x="4" y="6" width="34" height="14" rx="2" fill="#729fcf" {trait}/>',
+        f'  <rect x="22" y="26" width="38" height="12" rx="2" fill="#c4884a" {trait}/>',
+        f'  <rect x="22" y="44" width="38" height="12" rx="2" fill="#eeeeec" {trait}/>',
+        f'  <path d="M28,50 H44" {lien}/>',
+    ]
+    return document(lignes)
+
+
+def autre_objet() -> str:
+    """Objet d'un autre atelier : un volume gris en pointillés (lecture seule)."""
+    trait = 'stroke="#555753" stroke-width="2" stroke-linejoin="round" stroke-dasharray="4 3"'
+    contour = "M10,22 L22,10 H58 L46,22 M46,22 V52 M46,52 L58,40 V10"
+    lignes = [
+        "  <!-- Autre objet : volume d'un autre atelier -->",
+        f'  <rect x="10" y="22" width="36" height="30" rx="2" fill="#d3d7cf" {trait}/>',
+        f'  <path d="{contour}" fill="#babdb6" {trait}/>',
+    ]
+    return document(lignes)

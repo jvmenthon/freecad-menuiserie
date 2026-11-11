@@ -13,12 +13,15 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["checked_furniture", "member_object", "quoted_label"]
+__all__ = ["NOT_IN_FURNITURE", "checked_furniture", "member_object", "quoted_label"]
 
 _NOT_A_MEMBER: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » n'est ni une pièce de bois, ni une pièce en bois, ni une pièce usinée, ni un "
     "ensemble.",
+)
+NOT_IN_FURNITURE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "« {label} » n'est membre d'aucun ensemble."
 )
 _NOT_FURNITURE: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas un ensemble.")
 

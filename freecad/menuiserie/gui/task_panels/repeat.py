@@ -359,6 +359,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._transaction = App.getActiveTransaction()
         if self.creating:
             self._repeat_name = None
+        self.reapply_styles()
 
     def _refresh_ok(self) -> None:
         """« OK » grisé tant que la saisie est refusée ou qu'aucune copie n'existe (sans effet

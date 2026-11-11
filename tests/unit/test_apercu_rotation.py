@@ -9,8 +9,10 @@ from typing import Any
 import pytest
 
 from freecad.menuiserie import ICONS_DIR
+from freecad.menuiserie.core.display_layers import EDIT_TRANSPARENCY
 from freecad.menuiserie.core.geometry import squared_rotation
-from freecad.menuiserie.gui.task_panels.preview import PREVIEW_TRANSPARENCY, PreviewStyle
+from freecad.menuiserie.gui.display_layers import DisplayLayers
+from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 from tests.unit.aides import ROOT
 
 UI_FILE = ROOT / "freecad/menuiserie/gui/task_panels/wood_part.ui"
@@ -22,11 +24,25 @@ class FakeViewObject:
         self.Transparency = transparency
 
 
+class FakePiece:
+    def __init__(self, vobj: Any) -> None:
+        self.Name = "Piece"
+        self.ViewObject = vobj
+
+
 class DeletedViewObject(FakeViewObject):
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "Transparency" and "Transparency" in self.__dict__ and value != 60:
             raise ReferenceError("Cannot access attribute of deleted object")
         super().__setattr__(name, value)
+
+
+def alive(_obj: Any) -> bool:
+    return True
+
+
+def preview_of(piece: FakePiece) -> PartsPreview:
+    return PartsPreview(lambda: [piece], alive, DisplayLayers(alive))
 
 
 def test_rotation_d_equerre_ramenee_a_la_permutation_exacte() -> None:
@@ -45,20 +61,20 @@ def test_rotation_oblique_inchangee() -> None:
 
 def test_apercu_pose_puis_retablit_la_transparence() -> None:
     vobj = FakeViewObject(25)
-    style = PreviewStyle(vobj)
-    assert vobj.Transparency == PREVIEW_TRANSPARENCY == 60
-    style.restore()
+    preview = preview_of(FakePiece(vobj))
+    assert vobj.Transparency == EDIT_TRANSPARENCY == 60
+    preview.restore()
     assert vobj.Transparency == 25
     vobj.Transparency = 80
-    style.restore()  # déjà rétabli : sans effet
+    preview.restore()  # déjà rétabli : sans effet
     assert vobj.Transparency == 80
 
 
 def test_apercu_sans_interface_ou_objet_disparu() -> None:
-    PreviewStyle(None).restore()
+    preview_of(FakePiece(None)).restore()
     vobj = DeletedViewObject(10)
-    style = PreviewStyle(vobj)
-    style.restore()  # l'objet a disparu : aucune exception
+    preview = preview_of(FakePiece(vobj))
+    preview.restore()  # l'objet a disparu : aucune exception
 
 
 def groups() -> list[str]:

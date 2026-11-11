@@ -38,7 +38,7 @@ container = pytest.importorskip("freecad.menuiserie.features.furniture_container
 entry = pytest.importorskip("freecad.menuiserie.features.furniture_entry")
 furniture_module = pytest.importorskip("freecad.menuiserie.features.furniture")
 release_furniture = pytest.importorskip(
-    "freecad.menuiserie.features.furniture_members"
+    "freecad.menuiserie.features.furniture_detach"
 ).release_furniture
 bindings = pytest.importorskip("freecad.menuiserie.features.furniture_bindings")
 watch = pytest.importorskip("freecad.menuiserie.features.std_part_watch")
