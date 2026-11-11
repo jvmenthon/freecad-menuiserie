@@ -67,6 +67,15 @@ def select(obj: DocumentObject) -> None:
     Gui.Selection.addSelection(obj.Document.Name, groups[0].Name, path)
 
 
+def _trace(message: str) -> None:
+    """Trace dans la vue rapport (messages « journal », à activer dans ses options)."""
+    App.Console.PrintLog(f"Menuiserie, sélection 3D : {message}\n")
+
+
+def _label(obj: DocumentObject | None) -> str:
+    return "rien" if obj is None else f"{obj.Name} ({obj.Label})"
+
+
 def _names(chain: list[DocumentObject]) -> list[str]:
     return [item.Name for item in chain]
 
@@ -81,6 +90,10 @@ def retarget_click(picked: DocumentObject, before: DocumentObject | None) -> Non
     chain = chain_of(picked)
     name = click_target(_names(chain), None if before is None else before.Name)
     target = _by_name(chain, name)
+    _trace(
+        f"clic sur {_label(picked)}, avant {_label(before)}, chaîne {_names(chain)}, "
+        f"sélection native {[o.Name for o in Gui.Selection.getSelection()]}, choix {name}"
+    )
     if target is not None and target is not chain[-1]:
         select(target)
 
@@ -92,6 +105,7 @@ def descend_at(view: View, point: tuple[int, int], before: DocumentObject | None
     ``before`` : sélection d'avant le premier clic, repli dans le vide (FreeCAD la vide)."""
     picked = picked_object(view, point)
     current = selected_object() or before
+    _trace(f"double-clic sur {_label(picked)}, sélection {_label(current)}")
     if picked is None:
         chain = [] if current is None else chain_of(current)
         parent = _by_name(chain, up_target(_names(chain)))
@@ -102,6 +116,7 @@ def descend_at(view: View, point: tuple[int, int], before: DocumentObject | None
     chain = chain_of(picked)
     name = double_click_target(_names(chain), None if current is None else current.Name)
     target = _by_name(chain, name)
+    _trace(f"double-clic : chaîne {_names(chain)}, choix {name}")
     if target is None:
         return False
     if target is chain[-1]:
@@ -167,7 +182,9 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
         self._before = selected_object()
         self._before_ms = QtCore.QDateTime.currentMSecsSinceEpoch()
         picked = picked_object(Gui.activeView(), point)
-        if picked is not None and not self._on_handle(point):
+        handle = self._on_handle(point)
+        _trace(f"appui sur {_label(picked)}, avant {_label(self._before)}, poignée {handle}")
+        if picked is not None and not handle:
             self._press = (QtCore.QPointF(position), picked, self._before)
 
     @staticmethod
