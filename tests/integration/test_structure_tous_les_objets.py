@@ -3,8 +3,8 @@
 
 Document mêlant pièces dans et hors ensemble, tourillons, LR32, pieds, coulisse, faux tenons,
 Distance et liste de débit : les assemblages et Distances sans ensemble de rattachement
-(pieds, coulisse, faux tenons entre pièces libres) vont dans le nœud « Quincaillerie (N) » de la
-racine, et rien n'est perdu ni répété.
+(pieds, coulisse entre pièces libres) vont dans le nœud « Quincaillerie (N) » de la racine, les
+faux tenons dans « Assemblages (N) », et rien n'est perdu ni répété.
 """
 
 from __future__ import annotations
@@ -91,13 +91,13 @@ def test_quincaillerie_libre_dans_un_noeud_a_la_racine(document: Any) -> None:
     assert {child.key for child in group.children} == {
         objects["feet"].Name,
         objects["slide"].Name,
-        objects["tenons"].Name,
     }
     assert {child.kind for child in group.children} == {NodeKind.HARDWARE_ITEM}
     subtypes = {child.key: child.subtype for child in group.children}
     assert subtypes[objects["feet"].Name] == "Foot"
     assert subtypes[objects["slide"].Name] == "DrawerSlide"
-    assert subtypes[objects["tenons"].Name] == "LooseTenon"
+    root_joints = [root for root in roots_of(document) if root.kind is NodeKind.JOINTS]
+    assert objects["tenons"].Name in {c.key for g in root_joints for c in g.children}
 
 
 def test_toute_quincaillerie_est_sous_un_noeud_quincaillerie(document: Any) -> None:
@@ -130,7 +130,7 @@ def test_assemblages_d_ensemble_restent_sous_leur_ensemble(document: Any) -> Non
     assert under[objects["distance"].Name] is NodeKind.JOINTS
     assert under[objects["pins"].Name] is NodeKind.HARDWARE  # LR32
     assert {under[joint.Name] for joint in objects["desk"].joints} == {
-        NodeKind.HARDWARE
+        NodeKind.JOINTS
     }  # tourillons
 
 

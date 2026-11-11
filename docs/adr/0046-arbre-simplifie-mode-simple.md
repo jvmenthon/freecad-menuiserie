@@ -141,13 +141,13 @@ ou ne sont pas montrés, au choix du lot 1.
   « Assemblages (N) » à la racine (`StructureSource.loose_joints`) ; tout objet de l'atelier encore
   invisible va sous « Autres objets de l'atelier (N) » (`StructureExtras.workshop_objects`) plutôt
   que d'être perdu. Mêmes actions et icônes que sous un ensemble.
-- **Quincaillerie** (demande de jv, ADR 0033). Un type d'assemblage est de la quincaillerie quand
-  l'ADR 0033 le pose depuis une référence du catalogue : pieds, coulisses, taquets LR32,
-  tourillons, faux tenons, biscuits (`core/structure_hardware.HARDWARE_KINDS`, testée contre les
-  familles du catalogue). Tenon-mortaise, rainure-languette, feuillure, mi-bois, queue d'aronde et
-  onglet restent des « Assemblages », avec les Distances. Genres de ligne `HARDWARE` et
-  `HARDWARE_ITEM`, mêmes actions que `JOINT` ; sous un ensemble comme à la racine pour les objets
-  libres.
+- **Quincaillerie** (demande de jv, ADR 0033). Sont de la quincaillerie les objets du commerce
+  posés entre les pièces : pieds, coulisses, taquets LR32 (`core/structure_hardware.HARDWARE_KINDS`).
+  Tourillons, faux tenons et biscuits, bien posés depuis le catalogue de l'ADR 0033, restent sous
+  « Assemblages » avec le tenon-mortaise, la rainure-languette, la feuillure, le mi-bois, la queue
+  d'aronde, l'onglet et les Distances (jv, 2026-11-11 : « je préfère dans assemblage »). Genres de
+  ligne `HARDWARE` et `HARDWARE_ITEM`, mêmes actions que `JOINT` ; sous un ensemble comme à la
+  racine pour les objets libres.
 - **Icônes par type.** `StructureNode.subtype` (valeur de `JointKind`, « distance », « shaped »)
   choisit l'icône (`core/structure_icons.ICON_BY_SUBTYPE`) : chaque assemblage a l'icône de sa
   commande, la Distance et la pièce en forme celles de leur objet. Seule « Quincaillerie »

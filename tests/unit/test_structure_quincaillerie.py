@@ -36,7 +36,10 @@ def test_la_table_suit_les_familles_du_catalogue_de_l_adr_0033() -> None:
         item = HardwareItem(id="x", family=family, label="x", params=FrozenMapping({}), source="t")
         if (kind := joint_kind_of(item)) is not None:
             posed.add(kind)
-    assert posed == HARDWARE_KINDS
+    # fixations posées depuis le catalogue mais rangées sous « Assemblages » (jv)
+    fixations = {JointKind.DOWELS, JointKind.LOOSE_TENON, JointKind.BISCUIT}
+    assert posed - fixations == HARDWARE_KINDS
+    assert fixations <= posed
 
 
 def test_chaque_type_est_assemblage_ou_quincaillerie_jamais_les_deux() -> None:
@@ -50,9 +53,6 @@ def test_chaque_type_est_assemblage_ou_quincaillerie_jamais_les_deux() -> None:
         JointKind.FOOT,
         JointKind.DRAWER_SLIDE,
         JointKind.SHELF_PINS,
-        JointKind.DOWELS,
-        JointKind.LOOSE_TENON,
-        JointKind.BISCUIT,
     ],
 )
 def test_quincaillerie(kind: JointKind) -> None:
@@ -68,6 +68,9 @@ def test_quincaillerie(kind: JointKind) -> None:
         JointKind.HALF_LAP,
         JointKind.DOVETAIL,
         JointKind.MITER,
+        JointKind.DOWELS,
+        JointKind.LOOSE_TENON,
+        JointKind.BISCUIT,
     ],
 )
 def test_assemblage_taille_dans_le_bois(kind: JointKind) -> None:
