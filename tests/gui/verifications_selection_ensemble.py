@@ -9,8 +9,10 @@ fonctions du filtre sont appelées avec le point écran de la pièce. Module imp
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import FreeCADGui as Gui
+from PySide import QtCore, QtGui
 
 from freecad.menuiserie.gui import click_select, double_click
 from tests.gui.verifications_debit import avec_bureau
@@ -75,6 +77,59 @@ def _selection_par_ensemble(bureau: Bureau) -> list[str]:
     return problemes
 
 
+def _souris(viewport: Any, kind: Any, x: int, y: int) -> Any:
+    """Évènement de souris gauche au point Qt ``(x, y)`` de la zone d'affichage (passé
+    directement au filtre : FreeCAD plante hors écran sur les clics qu'il traite lui-même)."""
+    buttons = (
+        QtCore.Qt.NoButton if kind == QtCore.QEvent.MouseButtonRelease else QtCore.Qt.LeftButton
+    )
+    return QtGui.QMouseEvent(
+        kind,
+        QtCore.QPointF(x, y),
+        QtCore.QPointF(viewport.mapToGlobal(QtCore.QPoint(x, y))),
+        QtCore.Qt.LeftButton,
+        buttons,
+        QtCore.Qt.NoModifier,
+    )
+
+
+def _releve_du_double_clic(bureau: Bureau) -> list[str]:
+    """Non-régression (jv, 2026-11-11) : le relâchement qui suit un double-clic consommé ne doit
+    pas revenir à FreeCAD, qui resélectionnait le Std Part de l'ensemble."""
+    Gui.activateWorkbench(ATELIER)
+    piece = bureau.shown("P")
+    viewport = vue_3d_active(bureau.doc)
+    view = Gui.activeView()
+    filtre = click_select.current_filter()
+    if viewport is None or filtre is None:
+        return ["vue 3D ou filtre de sélection absent"]
+    view.fitAll()
+    x, y = (int(v) for v in view.getPointOnScreen(piece.Shape.BoundBox.Center))
+    qy = viewport.height() - 1 - y
+    Gui.Selection.clearSelection()
+    click_select.retarget_click(piece, None)  # clic simple : l'ensemble
+    problemes = list(ecarts("clic simple : l'ensemble", _selection(), [bureau.furniture.Name]))
+    filtre.swallow_release = False
+    filtre.eventFilter(viewport, _souris(viewport, QtCore.QEvent.MouseButtonDblClick, x, qy))
+    problemes += ecarts("double-clic : la pièce", _selection(), [piece.Name])
+    problemes += ecarts("double-clic : relâchement à consommer", filtre.swallow_release, True)
+    if not filtre.swallow_release:
+        return problemes  # le relâchement irait à FreeCAD : plantage hors écran
+    consomme = filtre.eventFilter(
+        viewport, _souris(viewport, QtCore.QEvent.MouseButtonRelease, x, qy)
+    )
+    problemes += ecarts("relâchement consommé", consomme, True)
+    problemes += ecarts("relâchement : la pièce reste", _selection(), [piece.Name])
+    problemes += ecarts("relâchement suivant rendu", filtre.swallow_release, False)
+    Gui.Selection.clearSelection()
+    return problemes
+
+
+def verifier_releve_du_double_clic() -> list[str]:
+    """Le relâchement d'un double-clic de descente est consommé : la pièce reste sélectionnée."""
+    return avec_bureau("VerifSelectionEnsembleReleve", _releve_du_double_clic)
+
+
 def verifier_selection_par_ensemble() -> list[str]:
     """Clic simple, descente et remontée sur le bureau regroupé en ensemble."""
     return avec_bureau("VerifSelectionEnsemble", _selection_par_ensemble)
@@ -82,4 +137,5 @@ def verifier_selection_par_ensemble() -> list[str]:
 
 VERIFICATIONS_SELECTION_ENSEMBLE: tuple[Callable[[], list[str]], ...] = (
     verifier_selection_par_ensemble,
+    verifier_releve_du_double_clic,
 )

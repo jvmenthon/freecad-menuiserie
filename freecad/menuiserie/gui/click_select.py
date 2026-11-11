@@ -29,7 +29,7 @@ from freecad.menuiserie.features.selection_chain import chain_of, normalized
 from freecad.menuiserie.gui.double_click import Installation, is_viewport_3d, view_point
 from freecad.menuiserie.gui.drag.events import current_session
 
-__all__ = ["descend_at", "install", "installed", "uninstall"]
+__all__ = ["current_filter", "descend_at", "install", "installed", "uninstall"]
 
 View = Any
 CLICK_SLOP_PX: Final = 4  # au-delà, c'est un déplacement de la vue (rotation, panoramique)
@@ -136,6 +136,9 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
         )
         self._before: DocumentObject | None = None
         self._before_ms = 0
+        # Double-clic consommé : son relâchement l'est aussi, sinon FreeCAD le traite comme un clic
+        # sur une pièce déjà sélectionnée et sélectionne son Std Part (constaté par jv).
+        self.swallow_release = False
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         kind = event.type()
@@ -156,13 +159,18 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
     def _mouse(self, kind: QtCore.QEvent.Type, watched: QtCore.QObject, event: Any) -> bool:
         if event.button() != QtCore.Qt.LeftButton or not is_viewport_3d(watched):
             return False
+        if kind == QtCore.QEvent.MouseButtonRelease and self.swallow_release:
+            self.swallow_release = False
+            return True
         if Gui.Control.activeDialog():  # panneau de tâche ouvert : sélection native
             return False
         position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6/5
         point = view_point(watched, position.x(), position.y())
         if kind == QtCore.QEvent.MouseButtonDblClick:
-            return self._double_click(point, event)
+            self.swallow_release = self._double_click(point, event)
+            return self.swallow_release
         if kind == QtCore.QEvent.MouseButtonPress:
+            self.swallow_release = False
             self._pressed(point, event, position)
         else:
             self._released(position)
@@ -220,6 +228,11 @@ _INSTALLATION: Final = Installation(_ClickFilter)
 def install() -> None:
     """Pose le filtre (atelier activé, après celui du double-clic)."""
     _INSTALLATION.install()
+
+
+def current_filter() -> QtCore.QObject | None:
+    """Filtre posé (atelier actif), ``None`` sinon."""
+    return _INSTALLATION.filter
 
 
 def installed() -> bool:
