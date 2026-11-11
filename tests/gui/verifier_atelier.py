@@ -73,6 +73,7 @@ from tests.gui.verifications_souris_ensemble import VERIFICATIONS_SOURIS_ENSEMBL
 from tests.gui.verifications_souris_piece_en_bois import VERIFICATIONS_SOURIS_PIECE_EN_BOIS
 from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATION
 from tests.gui.verifications_structure import VERIFICATIONS_STRUCTURE
+from tests.gui.verifications_structure_deux_calques import VERIFICATIONS_STRUCTURE_DEUX_CALQUES
 from tests.gui.verifications_structure_lot3 import VERIFICATIONS_STRUCTURE_LOT3
 from tests.gui.verifications_structure_lot4 import VERIFICATIONS_STRUCTURE_LOT4
 from tests.gui.verifications_structure_repetition import VERIFICATIONS_STRUCTURE_REPETITION
@@ -1287,6 +1288,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_STRUCTURE_LOT4,
     *VERIFICATIONS_STRUCTURE_REPETITION,
     *VERIFICATIONS_STRUCTURE_SELECTION,
+    *VERIFICATIONS_STRUCTURE_DEUX_CALQUES,
     *VERIFICATIONS_STRUCTURE_TACHE,
     *VERIFICATIONS_STRUCTURE_SOURIS,
     # Glisser une pièce à la souris (SM-c)

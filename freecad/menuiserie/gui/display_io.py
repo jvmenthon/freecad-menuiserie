@@ -22,7 +22,9 @@ __all__ = [
     "Original",
     "PartObject",
     "ViewObject",
-    "in_transaction",
+    "adopted",
+    "in_controlled_transaction",
+    "in_foreign_transaction",
     "key",
     "later",
     "never",
@@ -85,10 +87,22 @@ def object_alive(obj: PartObject) -> bool:
         return False
 
 
-def in_transaction() -> bool:
+def in_controlled_transaction() -> bool:
+    """Vrai si la transaction ouverte est celle d'un panneau de tâche de l'atelier, qui retire
+    l'affichage temporaire avant de la solder."""
     import FreeCAD as App
 
-    return App.getActiveTransaction() is not None
+    from freecad.menuiserie.gui.task_panels import active
+
+    return App.getActiveTransaction() is not None and active.current() is not None
+
+
+def in_foreign_transaction() -> bool:
+    """Vrai si une transaction est ouverte sans que l'atelier la maîtrise (autre atelier,
+    commande) : rien d'éphémère n'y est écrit."""
+    import FreeCAD as App
+
+    return App.getActiveTransaction() is not None and not in_controlled_transaction()
 
 
 def later(callback: Callable[[], None]) -> None:
@@ -125,6 +139,17 @@ def target_diffuse(look: Look, original: Original) -> tuple[Rgb, ...]:
     if look.tint is None:
         return original.diffuse
     return tuple(look.tint for _ in original.diffuse)
+
+
+def adopted(original: Original, current: Original, look: Look) -> Original:
+    """Nouvelle origine : ce qu'un tiers a modifié depuis l'écriture de ``look`` (``current``
+    diffère de ce que ``look`` y a mis), le reste de ``original`` sinon."""
+    transparency = current.transparency if current.transparency != look.transparency else None
+    changed = current.diffuse != target_diffuse(look, original)
+    return Original(
+        original.transparency if transparency is None else transparency,
+        current.diffuse if changed else original.diffuse,
+    )
 
 
 def write_diffuse(vobj: ViewObject, wanted: tuple[Rgb, ...]) -> None:

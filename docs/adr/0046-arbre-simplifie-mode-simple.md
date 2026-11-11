@@ -181,11 +181,24 @@ d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règl
   (encore vide à cet instant seulement) étant refermée puis rouverte : « OK » sans changement ne
   laisse aucune entrée d'annulation ; la transaction n'est **jamais** abandonnée ailleurs (rien ne
   dit alors qu'elle est vide) ;
-  (2) le calque de **sélection** n'est ni posé ni retiré tant qu'une transaction est ouverte (tâche
-  en cours, commande) : la demande est mémorisée (`DisplayLayers.show(..., deferrable=True)`) et
-  jouée à la fermeture de la tâche (`flush`, après le solde de la transaction) ou à la demande
-  suivante. Une ligne choisie **avant** la tâche reste affichée pendant elle ; une ligne choisie
-  **pendant** la tâche s'affiche à sa fermeture ;
+  (2) le calque de **sélection** n'est **plus différé** pendant une tâche de l'atelier (régression
+  de la revue finale, #208 : la ligne choisie pendant une tâche n'apparaissait qu'à sa fermeture,
+  alors que la pièce éditée garde sa transparence d'édition **et** la ligne la sienne, les deux
+  simultanément). Il est écrit **tout de suite** dans la transaction du panneau (visible pendant la
+  tâche), puis **retiré avant que le panneau valide ou abandonne sa transaction**
+  (`DisplayLayers.withdraw`, appelé par `_finish` et par la fermeture forcée) : l'origine y est
+  restaurée, donc la valeur enregistrée dans la transaction est l'origine et ni Ctrl+Y ni le
+  fichier ne rejouent de teinte (défaut M1). La demande est alors rejouée par `flush`, transaction
+  close, si la ligne est toujours choisie. Choix par rapport à une surcharge de scène Coin : on
+  garde un seul chemin d'écriture testé (même mécanique que l'édition, mêmes garanties à
+  l'enregistrement, aucun nœud Coin à tenir à jour ni à détruire, source de SIGSEGV connus), au prix
+  de l'écriture transitoire dans la transaction. Seul le calque **écrit pendant la tâche** est retiré
+  ainsi ; un calque posé **avant** elle n'est pas écrit dans la transaction, donc son retrait
+  (désélection pendant la tâche) attend la fin de celle-ci (jamais enregistré). Une modification
+  que rien n'a changée (`has_changes` faux) dont la transaction a reçu un calque est abandonnée au
+  lieu d'être validée : « OK » ne laisse aucune entrée d'annulation vide. **Rejeu par Ctrl+Z / Ctrl+Y** : FreeCAD rejoue, pour toute propriété touchée dans une transaction, la valeur du moment (mesuré en CI) ; les objets écrits dans la transaction sont donc mémorisés (`_tainted`) et, après chaque annulation ou rétablissement (`slotUndoDocument`, `slotRedoDocument`, observateur gardé tant qu'ils existent), le calque voulu (ou l'origine) est réécrit hors transaction. La pose finale du calque se fait après le recalcul de fermeture, qui peut rétablir la couleur d'une pièce usinée. Dans une transaction que
+  l'atelier ne maîtrise pas (tâche d'un autre atelier, commande ; `gui/task_panels/active` ne
+  désigne aucun panneau), la demande reste mémorisée et jouée à la fin (`deferrable`) ;
   (3) l'origine est rendue avant tout enregistrement du document (`slotStartSaveDocument`, chaque
   objet isolément : une erreur est écrite dans le rapport sans interrompre les autres) et les
   calques reposés après (`slotFinishSaveDocument`) ; si l'enregistrement échoue, la demande

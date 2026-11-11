@@ -133,7 +133,7 @@ def verifier_structure_double_clic_echap() -> list[str]:
     return avec_panneau(_avec_modification(None))
 
 
-class _TacheEtrangere:
+class TacheEtrangere:
     """Tâche d'un autre atelier : ni inscrite ni reconnue par l'atelier."""
 
     def __init__(self) -> None:
@@ -149,7 +149,7 @@ class _TacheEtrangere:
 
 
 def _tache_etrangere(bureau: Bureau, _dock: Any, arbre: Any, synchro: StructureSync) -> list[str]:
-    Gui.Control.showDialog(_TacheEtrangere())
+    Gui.Control.showDialog(TacheEtrangere())
     with _reponse(synchro, Choice.APPLY) as questions:
         _double_clic(arbre, bureau.shown("P").Name)
     boite = boite_de_refus()

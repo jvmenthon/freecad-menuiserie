@@ -5,7 +5,9 @@ Les lignes que l'utilisateur choisit rendent leurs objets affichés transparents
 (calque « sélection » de ``display_layers``), d'une autre teinte que l'édition. Seul l'affichage
 change : le calque est retiré à la désélection, quand la sélection du panneau n'est plus ce que
 l'utilisateur a choisi (sélection reprise de FreeCAD), quand le panneau est masqué ou détruit, et
-rend alors l'affichage d'origine (jamais enregistré dans le document).
+rend alors l'affichage d'origine (jamais enregistré dans le document). Pendant une tâche de
+l'atelier le calque est écrit dans la transaction puis retiré avant sa fin
+(``DisplayLayers.withdraw``).
 """
 
 from __future__ import annotations
