@@ -17,13 +17,14 @@ class Scope(Enum):
 
     OBJECT = "object"  # l'objet affiché de la ligne ; pour un assemblage, ses pièces
     PIECES = "pieces"  # toutes les pièces de l'ensemble et de ses sous-ensembles
+    COPIES = "copies"  # toutes les copies d'une répétition (pièces des ensembles copiés)
 
 
 SCOPE_BY_KIND: Final = {
     NodeKind.FURNITURE: Scope.PIECES,
     NodeKind.PIECE: Scope.OBJECT,
     NodeKind.COPY: Scope.OBJECT,
-    NodeKind.REPEAT: Scope.OBJECT,
+    NodeKind.REPEAT: Scope.COPIES,
     NodeKind.JOINT: Scope.OBJECT,
     NodeKind.HARDWARE_ITEM: Scope.OBJECT,
     NodeKind.LEFTOVER: Scope.OBJECT,

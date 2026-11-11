@@ -144,8 +144,8 @@ def test_lignes_libres_selectionnables_par_leur_cle(document: Any) -> None:
 
 def test_repetitions_de_pieces_et_d_ensembles_dans_l_arbre_une_seule_fois(document: Any) -> None:
     """Pièce libre répétée, ensemble répété (copies = ensembles complets avec Std Part) : l'objet
-    Répétition, les copies et leurs membres sont dans l'arbre, une seule fois, et le panneau ne
-    montre jamais un Std Part (le lecteur de répétitions viendra avec le lot m5)."""
+    Répétition, les copies et leurs membres sont dans l'arbre, une seule fois (rien au filet
+    « Autres objets de l'atelier »), et le panneau ne montre jamais un Std Part."""
     objects = build_document(document)
     panel = api.make_wood_part(600, 500, 19, "chene", mark="Étagère", doc=document)
     document.recompute()
@@ -161,3 +161,4 @@ def test_repetitions_de_pieces_et_d_ensembles_dans_l_arbre_une_seule_fois(docume
     assert expected <= set(shown)
     assert [key for key, count in shown.items() if count > 1] == []
     assert not any(obj.Name in shown for obj in document.Objects if obj.TypeId == "App::Part")
+    assert all(root.kind is not NodeKind.LEFTOVERS for root in roots_of(document))

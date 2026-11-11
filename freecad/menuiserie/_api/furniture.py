@@ -32,6 +32,7 @@ from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.features.repeat import is_repeat
 
 # --- Ensembles (J4) -----------------------------------------------------------------------
 
@@ -100,14 +101,14 @@ def remove_from_furniture(
 
 
 def rename(obj: DocumentObject, name: str) -> str:
-    """Renomme une pièce de bois, une pièce en bois ou un ensemble ; pour une pièce usinée, c'est
-    le libellé de sa brute qui change (celui que montre le panneau « Structure »). ``name`` est
-    débarrassé des espaces qui l'entourent. ``TypeError`` ou ``ValueError`` traduite, avant toute
-    modification, pour un autre objet, un nom vide, trop long, avec un caractère de contrôle ou
-    (ensemble) inutilisable dans une expression. Un nom inchangé ne fait rien. Renvoie le
-    libellé de l'objet renommé. Aucune transaction n'est ouverte : c'est à l'appelant de le
-    faire pour pouvoir annuler."""
-    target = furniture_members.member_object(obj)
+    """Renomme une pièce de bois, une pièce en bois, un ensemble ou une répétition ; pour une pièce
+    usinée, c'est le libellé de sa brute qui change (celui que montre le panneau « Structure »).
+    ``name`` est débarrassé des espaces qui l'entourent. ``TypeError`` ou ``ValueError`` traduite,
+    avant toute modification, pour un autre objet, un nom vide, trop long, avec un caractère de
+    contrôle ou (ensemble) inutilisable dans une expression. Un nom inchangé ne fait rien.
+    Renvoie le libellé de l'objet renommé. Aucune transaction n'est ouverte : c'est à l'appelant
+    de le faire pour pouvoir annuler."""
+    target = obj if is_repeat(obj) else furniture_members.member_object(obj)
     old = str(target.Label)
     decision = decide_rename(old, name, furniture=is_furniture(target))
     if not decision.allowed:

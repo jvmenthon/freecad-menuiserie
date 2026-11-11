@@ -21,6 +21,7 @@ from freecad.menuiserie.core.structure_actions import (
     creates_sub_furniture,
     decide_create,
     decide_delete,
+    decide_dissociate,
     decide_drop,
     decide_open,
     decide_rename_target,
@@ -40,11 +41,14 @@ class Action(Enum):
     ADD_TO = "add_to"  # sous-menu des ensembles d'accueil
     MOVE_INTO = "move_into"  # un ensemble d'accueil du sous-menu
     LEAVE = "leave"
+    DISSOCIATE = "dissociate"
     CREATE = "create"
     DELETE = "delete"
 
 
 _OPEN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ouvrir")
+_EDIT_REPEAT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
+_DISSOCIATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
 _RENAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "Renommer…")
 _ADD_TO: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ajouter à l'ensemble")
 _LEAVE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Sortir de l'ensemble")
@@ -102,17 +106,36 @@ def _add_to(facts: MoveFacts, keys: Sequence[str]) -> MenuEntry:
     return MenuEntry(Action.ADD_TO, _ADD_TO, decision, children=children)
 
 
+def _repeat_entries(facts: MoveFacts, keys: Sequence[str]) -> list[MenuEntry]:
+    """« Dissocier la copie », seulement quand la sélection contient une copie de répétition."""
+    if not any(key in facts.copies for key in keys):
+        return []
+    return [MenuEntry(Action.DISSOCIATE, _DISSOCIATE, decide_dissociate(facts, keys))]
+
+
+def _open_label(facts: MoveFacts, keys: Sequence[str]) -> str:
+    """« Modifier la répétition » pour la ligne d'une répétition ou d'une copie, sinon « Ouvrir »
+    (le double-clic fait la même chose)."""
+    one = len(keys) == 1 and (keys[0] in facts.repeats or keys[0] in facts.copies)
+    return _EDIT_REPEAT if one else _OPEN
+
+
 def menu_entries(facts: MoveFacts, keys: Sequence[str]) -> list[MenuEntry]:
     """Entrées du menu pour les lignes choisies (``keys`` : clé de chacune) : Ouvrir, Renommer,
     Ajouter à l'ensemble (un sous-menu), Sortir de l'ensemble, Créer un (sous-)ensemble depuis la
     sélection, Supprimer. Les entrées impossibles sont là aussi, avec leur refus."""
     sub = creates_sub_furniture(facts, keys)
     return [
-        MenuEntry(Action.OPEN, _OPEN, decide_open(keys, busy=facts.busy, foreign=facts.foreign)),
+        MenuEntry(
+            Action.OPEN,
+            _open_label(facts, keys),
+            decide_open(keys, busy=facts.busy, foreign=facts.foreign),
+        ),
         MenuEntry(Action.RENAME, _RENAME, decide_rename_target(facts, keys)),
         _add_to(facts, keys),
         MenuEntry(Action.LEAVE, _LEAVE, decide_drop(facts, keys, None)),
         MenuEntry(Action.CREATE, _CREATE_SUB if sub else _CREATE, decide_create(facts, keys)),
+        *_repeat_entries(facts, keys),
         MenuEntry(
             Action.DELETE, _DELETE, decide_delete(keys, busy=facts.busy, foreign=facts.foreign)
         ),

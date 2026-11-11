@@ -58,8 +58,18 @@ def facts_of(doc: Document) -> MoveFacts:
         if key in labels
     }
     reader = repetition_reader(doc)
-    copies = frozenset(
-        copy for rep in reader.all_repetitions() for copy in reader.copies_of(rep) if copy in labels
-    )
+    copies = frozenset(copy for copy in reader.every_copy() if copy in labels)
+    by_name = {str(obj.Name): obj for obj in doc.Objects}
+    repeats = {
+        name: str(by_name[name].Label) for name in reader.all_repetitions() if name in by_name
+    }
     foreign = frozenset(str(obj.Name) for obj in foreign_objects(doc))
-    return MoveFacts(labels, frozenset(furnitures), parent, links, copies=copies, foreign=foreign)
+    return MoveFacts(
+        labels,
+        frozenset(furnitures),
+        parent,
+        links,
+        copies=copies,
+        foreign=foreign,
+        repeats=repeats,
+    )
