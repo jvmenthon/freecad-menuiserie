@@ -29,6 +29,7 @@ actions_module = pytest.importorskip("freecad.menuiserie.core.structure_actions"
 highlight_module = pytest.importorskip("freecad.menuiserie.core.structure_highlight")
 menu_module = pytest.importorskip("freecad.menuiserie.core.structure_menu")
 furniture_module = pytest.importorskip("freecad.menuiserie.features.furniture")
+repeat_module = pytest.importorskip("freecad.menuiserie.features.repeat")
 
 NodeKind = tree_module.NodeKind
 TIMES = chr(0x00D7)
@@ -54,7 +55,9 @@ def keys_of(roots: Any) -> list[str]:
 
 
 def copies_of(repeat: Any) -> list[Any]:
-    return sorted((o for o in repeat.InList if api.repeat_of(o) == repeat), key=lambda o: o.Name)
+    """Copies de ``repeat`` par rang (``InList`` répète un objet autant de fois qu'il la cite)."""
+    found: list[Any] = repeat_module.copies_of(repeat)
+    return sorted(found, key=lambda copy: (copy.RepeatSource.Name, copy.RepeatIndex))
 
 
 def assert_everything_once(document: Any) -> None:
@@ -82,7 +85,7 @@ def test_piece_libre_repetee_une_ligne_nom_x_n(document: Any) -> None:
     assert line.label == f"{repeat.Label} {TIMES}3"
     assert line.expanded is False
     assert [(c.kind, c.key) for c in line.children] == [
-        (NodeKind.COPY, c.Name) for c in sorted(copies_of(repeat), key=lambda c: c.RepeatIndex)
+        (NodeKind.COPY, c.Name) for c in copies_of(repeat)
     ]
     assert_everything_once(document)
 
@@ -96,9 +99,7 @@ def test_repetition_d_un_membre_rangee_dans_l_ensemble(document: Any) -> None:
     (root,) = [r for r in roots_of(document) if r.key == desk.furniture.Name]
     lines = [c for c in root.children if c.kind is NodeKind.REPEAT]
     assert [c.key for c in lines] == [repeat.Name]
-    assert [c.key for c in lines[0].children] == [
-        c.Name for c in sorted(copies_of(repeat), key=lambda c: c.RepeatIndex)
-    ]
+    assert [c.key for c in lines[0].children] == [c.Name for c in copies_of(repeat)]
     assert not [c for c in root.children if c.kind is NodeKind.PIECE and c.key in keys_of(lines)]
     assert_everything_once(document)
 
@@ -126,7 +127,9 @@ def test_faits_et_decisions_des_copies(document: Any) -> None:
     twin_repeat = api.make_repeat([desk.furniture], along("Y", 1, 1500.0))
     document.recompute()
     facts = structure_facts.facts_of(document)
-    all_copies = {o.Name for r in (repeat, twin_repeat) for o in copies_of(r)}
+    all_copies = {
+        structure_source.row_key_of(o) for r in (repeat, twin_repeat) for o in copies_of(r)
+    }
     assert all_copies <= set(facts.copies)  # les copies internes de l'ensemble copie aussi
     assert set(facts.repeats) == {repeat.Name, twin_repeat.Name}
     first = copies_of(repeat)[0]
@@ -172,7 +175,7 @@ def test_dissocier_une_copie_la_remet_a_plat(document: Any) -> None:
     source = board(document, "Planche", x=0, y=0, z=0)
     repeat = api.make_repeat([source], along("X", 2, 700.0))
     document.recompute()
-    first, second = sorted(copies_of(repeat), key=lambda c: c.RepeatIndex)
+    first, second = copies_of(repeat)
     api.dissociate(first)
     document.recompute()
     roots = roots_of(document)

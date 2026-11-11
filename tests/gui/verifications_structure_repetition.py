@@ -21,6 +21,7 @@ from freecad.menuiserie.core.structure_icons import ICON_BY_KIND
 from freecad.menuiserie.core.structure_menu import Action
 from freecad.menuiserie.core.structure_tree import NodeKind
 from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.repeat import copies_of
 from freecad.menuiserie.gui.structure_sync import StructureSync
 from freecad.menuiserie.gui.structure_tree_widget import KIND_ROLE, item_for
 from tests.gui.verifications_panneau import annuler, ecarts
@@ -55,7 +56,8 @@ def _parent(arbre: Any, cle: str) -> str | None:
 
 
 def _copies(repetition: Any) -> list[Any]:
-    return [obj for obj in repetition.InList if api.repeat_of(obj) == repetition]
+    copies: list[Any] = copies_of(repetition)  # par rang, sans doublon
+    return copies
 
 
 def _lignes_et_icones(bureau: Bureau, _dock: Any, arbre: Any, synchro: StructureSync) -> list[str]:
@@ -201,7 +203,7 @@ def _ensemble_repete(bureau: Bureau, _dock: Any, arbre: Any, synchro: StructureS
     bureau.doc.recompute()
     synchro.refresh_now(force=True)
     traiter()
-    (copie,) = [o for o in repetition.InList if api.repeat_of(o) == repetition and is_furniture(o)]
+    (copie,) = [o for o in _copies(repetition) if is_furniture(o)]
     lignes = lignes_de(arbre)
     cles = [cle for _g, _t, cle in lignes if cle]
     parts = [c for c in cles if bureau.doc.getObject(c).TypeId == "App::Part"]
