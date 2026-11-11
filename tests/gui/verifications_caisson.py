@@ -16,6 +16,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtGui
 
+from freecad.menuiserie.features.furniture_container import own_std_part
 from freecad.menuiserie.gui.drag import events
 from tests.gui.verifications_panneau import (
     annuler,
@@ -105,14 +106,15 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
         None if session.panel is None else session.panel.part.Name,
         "Furniture",
     )
-    from freecad.menuiserie.features.furniture_container import own_std_part
-
     part = own_std_part(doc.getObject("Furniture"))
+    if part is None:
+        return [*problemes, "Std Part de l'ensemble absent"]
     part.Placement = App.Placement(App.Vector(100, 200, 0), App.Rotation())  # geste à la souris
     saisir(widget(form, "depth"), 400.0)
+    rebuilt = own_std_part(doc.getObject("Furniture"))
     problemes += ecarts(
         "position gardée après un nouvel aperçu",
-        list(own_std_part(doc.getObject("Furniture")).Placement.Base),
+        None if rebuilt is None else list(rebuilt.Placement.Base),
         [100.0, 200.0, 0.0],
     )
     valider()
