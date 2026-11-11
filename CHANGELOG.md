@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Panneau « Structure » : régression de #208, la transparence de sélection (50 %, bleu clair) n'apparaissait plus pendant une tâche. Elle est de nouveau posée dès le clic de ligne, en même temps que la transparence d'édition (60 %) de la pièce éditée, les deux indépendantes (l'édition prime sur le même objet). Elle est écrite dans la transaction du panneau puis retirée avant sa validation ou son abandon : aucune teinte dans l'historique d'annulation (Ctrl+Z/Ctrl+Y) ni dans le fichier, y compris enregistré pendant la tâche ; une tâche d'un autre atelier garde la pose différée (ADR 0046). Limite : un calque d'édition rouvert par un enregistrement pendant la tâche est écrit dans la transaction (comportement antérieur inchangé).
 - Panneau « Structure » : les pieds, coulisses, LR32, faux tenons, assemblages et Distances dont les pièces sont hors ensemble (ou dans des ensembles sans ensemble commun) n'apparaissaient nulle part, car ils n'étaient lus que sous un ensemble. Ils forment désormais un nœud replié « Assemblages (N) » à la racine (menu, suppression, renommage, double-clic, sélection et icônes comme sous un ensemble) ; tout autre objet de l'atelier encore invisible est montré sous « Autres objets de l'atelier (N) ». Invariant testé : tout objet de l'atelier est dans l'arbre, une seule fois (ADR 0046).
 
 ### Ajouté

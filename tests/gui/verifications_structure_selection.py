@@ -148,11 +148,11 @@ def _coexistence(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
     problemes = ecarts(
         "tâche + sélection sur la même pièce : l'édition prime", etat(piece), edition
     )
-    # autre ligne pendant la tâche : FreeCAD enregistrerait l'affichage dans la transaction
-    # ouverte, la demande attend donc la fin de la tâche ; l'édition reste affichée
+    # autre ligne pendant la tâche : écrite aussitôt dans la transaction du panneau (retirée
+    # avant sa fermeture) ; l'édition reste affichée sur sa pièce
     choisir_lignes(arbre, autre.Name)
     problemes += [
-        *ecarts("pendant la tâche : autre ligne différée", etat(autre)[0], 0),
+        *ecarts("pendant la tâche : ligne choisie transparente", etat(autre), SELECTION),
         *ecarts("pendant la tâche : l'édition prime toujours", etat(piece), edition),
     ]
     annuler()
@@ -176,7 +176,7 @@ def verifier_structure_selection_et_edition_coexistent() -> list[str]:
 def _ok_sans_changement(
     bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
 ) -> list[str]:
-    """Une sélection de ligne pendant la tâche n'écrit rien dans sa transaction : « OK » sans
+    """La sélection de ligne est retirée de la transaction avant son solde : « OK » sans
     modification ne laisse aucune entrée d'annulation."""
     piece, origine, _ = graine(bureau)
     bureau.doc.clearUndos()
@@ -242,7 +242,7 @@ def verifier_structure_selection_document_ferme() -> list[str]:
     return avec_panneau(_fermeture_du_document)
 
 
-def _transparence_enregistree(chemin: Path, nom: str) -> int | None:
+def transparence_enregistree(chemin: Path, nom: str) -> int | None:
     """Transparence de l'objet ``nom`` écrite dans ``GuiDocument.xml`` du fichier ``chemin``."""
     with zipfile.ZipFile(chemin) as archive:
         racine = ET.fromstring(archive.read("GuiDocument.xml"))  # noqa: S314 (fichier produit ici)
@@ -267,7 +267,7 @@ def _enregistrement(bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureS
         problemes = [
             *ecarts(
                 "fichier : transparence d'origine",
-                _transparence_enregistree(chemin, piece.Name),
+                transparence_enregistree(chemin, piece.Name),
                 ORIGINE,
             ),
             *ecarts("après l'enregistrement : sélection reposée", etat(piece), SELECTION),
@@ -319,7 +319,7 @@ def _apres_ok_puis_annulation(
     formulaire = ouvrir_par_double_clic(piece)
     formulaire.markEdit.selectAll()
     formulaire.markEdit.insert("M8")
-    choisir_lignes(arbre, piece.Name)  # différée : la transaction contient une modification
+    choisir_lignes(arbre, piece.Name)  # écrite dans la transaction, retirée avant « OK »
     valider()
     traiter()
     problemes = ecarts("OK : ligne choisie transparente", etat(piece), SELECTION)
@@ -335,7 +335,7 @@ def _apres_ok_puis_annulation(
         doc.saveAs(str(chemin))
         problemes += ecarts(
             "fichier : transparence d'origine",
-            _transparence_enregistree(chemin, piece.Name),
+            transparence_enregistree(chemin, piece.Name),
             ORIGINE,
         )
     finally:

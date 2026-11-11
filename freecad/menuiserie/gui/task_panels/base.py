@@ -71,6 +71,11 @@ class TransactionTaskPanel:
         saisies comparée à l'état actuel : lecture seule, la transaction n'est pas touchée)."""
         return self._initial is not None and differs(self._initial, snapshot_of(self.doc))
 
+    def _unchanged(self) -> bool:
+        """Vrai pour une modification que rien n'a changée : seul l'affichage retiré de la
+        transaction y est écrit, la valider laisserait une entrée d'annulation vide."""
+        return not self.creating and self._initial is not None and not self.has_changes()
+
     def transparent_objects(self) -> list[DocumentObject]:
         """Objets affichés en transparence tant que le panneau est ouvert (pièce en édition, ou
         sa pièce usinée si elle a des assemblages), relus à chaque aperçu ; aucun par défaut. Leur
@@ -173,6 +178,10 @@ class TransactionTaskPanel:
         if self.creating:
             self._restore_styles()  # dans la transaction de création : rien d'enregistré en plus
         self._release_display()
+        withdrawn = (
+            DISPLAY.withdraw()
+        )  # sélection de ligne retirée de la transaction avant son solde
+        abort = abort or (withdrawn and self._unchanged())
         close_transaction(self._transaction, abort=abort)
         self._restore_styles()  # modification : transaction close, aucune entrée d'annulation
         DISPLAY.flush()  # transaction close : sélection de ligne demandée pendant la tâche
@@ -200,6 +209,7 @@ class TransactionTaskPanel:
         alive = name in App.listDocuments()
         if alive and not self.creating:
             App.getDocument(name).recompute()
+        DISPLAY.withdraw()
         close_transaction(self._transaction, abort=self.creating)
         self._restore_styles()  # après la transaction : aucune entrée d'annulation
         DISPLAY.flush()

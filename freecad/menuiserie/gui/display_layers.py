@@ -6,10 +6,14 @@ tout aspect temporaire doit être rendu à toutes les sorties. :class:`DisplayLa
 endroit qui les écrit pour cela ; il s'appuie sur ``core/display_layers`` (état d'origine retenu
 une fois, calque le plus prioritaire affiché).
 
-- FreeCAD enregistre une propriété du ViewObject modifiée dans la transaction ouverte : un calque
-  ``deferrable`` (la sélection de ligne) n'est donc ni posé ni retiré tant qu'une transaction est
-  ouverte ; la demande est mémorisée et jouée par :meth:`DisplayLayers.flush` à la fin de la
-  transaction (fermeture d'une tâche) ou à la demande suivante.
+- FreeCAD enregistre une propriété du ViewObject modifiée dans la transaction ouverte. Un calque
+  ``deferrable`` (la sélection de ligne) est écrit tout de suite dans la transaction d'un panneau
+  de l'atelier (``controlled``), visible pendant la tâche, puis retiré par :meth:`withdraw` avant
+  que le panneau la valide ou l'abandonne : la valeur enregistrée est l'origine, rien n'est rejoué
+  par Ctrl+Y ni écrit dans le fichier. Dans une transaction que l'atelier ne maîtrise pas
+  (``in_transaction`` : autre atelier, commande), la demande est mémorisée et jouée par
+  :meth:`flush` à la fin de la transaction ou à la demande suivante. Un calque écrit avant la
+  tâche n'est jamais retiré dans sa transaction (le retrait y serait enregistré) : à sa fin.
 - L'origine est rendue avant un enregistrement du document (chaque objet isolément : une erreur
   est écrite dans le rapport sans interrompre les autres) et les calques reposés après.
 - Un objet supprimé reçoit son origine avant d'être oublié (la transaction de suppression
@@ -82,18 +86,22 @@ class DisplayLayers:
         alive: Callable[[PartObject], bool] = object_alive,
         observers: Observers | None = None,
         in_transaction: Callable[[], bool] = io.never,
+        controlled: Callable[[], bool] = io.never,
         later: Callable[[Callable[[], None]], None] = io.now,
         report: Callable[[str], None] = io.report,
     ) -> None:
         self._alive = alive
         self._observers = observers
         self._in_transaction = in_transaction
+        self._controlled = controlled
         self._later = later
         self._report = report
         self._stack: LayerStack[Original] = LayerStack()
         self._objects: dict[Hashable, PartObject] = {}
         self._written: dict[Hashable, Look] = {}
         self._deferred: dict[Hashable, tuple[list[PartObject], Look]] = {}
+        self._requests: dict[Hashable, tuple[list[PartObject], Look]] = {}  # calques différables
+        self._in_tx: set[Hashable] = set()  # objets dont le calque est écrit dans la transaction
         self._undeleted: dict[Key, Original] = {}  # origine des objets supprimés avec un calque
         self._watcher: _Watcher | None = None
 
@@ -122,21 +130,51 @@ class DisplayLayers:
         """Le calque ``look`` de ``owner`` est posé sur ``objects``, retiré de tout autre objet.
         ``deferrable`` : tant qu'une transaction est ouverte, la demande est mémorisée (écrire une
         propriété du ViewObject la ferait enregistrer dans la transaction) et jouée par
-        :meth:`flush`."""
+        :meth:`flush` ; dans la transaction d'un panneau de l'atelier le calque est écrit
+        aussitôt (et retiré par :meth:`withdraw`)."""
         objs = list(objects)
         if deferrable and self._in_transaction():
             self._deferred[owner] = (objs, look)
             return
         self._deferred.pop(owner, None)
+        in_task = deferrable and self._controlled()
+        if deferrable:
+            self._requests[owner] = (objs, look)
         wanted = {io.key(obj): obj for obj in objs if self._alive(obj)}
         if self._already_shown(owner, wanted, look):
             return  # rien à écrire
+        fresh = {key for key in wanted if key not in self._stack}
+        kept = False
         for key in self._stack.keys_of(owner):
-            if key not in wanted:
+            if key in wanted:
+                continue
+            if in_task and key not in self._in_tx:
+                kept = True  # écrit avant la tâche : son retrait serait enregistré, il attend
+            else:
                 self._drop(key, owner)
         for key, obj in wanted.items():
             self._put(key, obj, owner, look)
+        if in_task:
+            self._in_tx |= fresh
+        if kept:
+            self._deferred[owner] = (objs, look)
         self._watch()
+
+    def withdraw(self) -> bool:
+        """Calques de sélection écrits dans la transaction du panneau retirés (l'origine revient,
+        toujours dans cette transaction) juste avant sa validation ou son abandon ; la demande est
+        rejouée par :meth:`flush` une fois la transaction close. Vrai si un calque a été retiré."""
+        withdrawn = False
+        for owner, request in list(self._requests.items()):
+            keys = [key for key in self._stack.keys_of(owner) if key in self._in_tx]
+            for key in keys:
+                self._drop(key, owner)
+            if keys:
+                self._deferred[owner] = request
+                withdrawn = True
+        self._in_tx.clear()
+        self._watch()
+        return withdrawn
 
     def flush(self) -> None:
         """Demandes différées jouées si plus aucune transaction n'est ouverte."""
@@ -161,6 +199,7 @@ class DisplayLayers:
         """Tous les calques de ``owner`` sont retirés ; l'origine revient sur les objets qui
         n'ont plus de calque. Sans effet sur un objet supprimé."""
         self._deferred.pop(owner, None)
+        self._requests.pop(owner, None)
         for key in self._stack.keys_of(owner):
             self._drop(key, owner)
         self._watch()
@@ -173,6 +212,8 @@ class DisplayLayers:
         self._objects.clear()
         self._written.clear()
         self._deferred.clear()
+        self._requests.clear()
+        self._in_tx.clear()
         self._undeleted.clear()
         self._watch()
 
@@ -233,6 +274,7 @@ class DisplayLayers:
         self._stack.forget(key)
         self._objects.pop(key, None)
         self._written.pop(key, None)
+        self._in_tx.discard(key)
         self._later(self._watch)
 
     def forget_document(self, document: str) -> None:
@@ -350,5 +392,8 @@ class DisplayLayers:
 # Cache explicite et réinitialisable (``release_all``) : les calques de l'édition et de la
 # sélection doivent partager le « avant » de chaque objet.
 DISPLAY: Final = DisplayLayers(
-    observers=AppObservers(), in_transaction=io.in_transaction, later=io.later
+    observers=AppObservers(),
+    in_transaction=io.in_foreign_transaction,
+    controlled=io.in_controlled_transaction,
+    later=io.later,
 )

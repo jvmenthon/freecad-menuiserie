@@ -80,6 +80,7 @@ def layers(
     dead: list[Any] | None = None,
     transaction: Transaction | None = None,
     errors: list[str] | None = None,
+    task: Transaction | None = None,
 ) -> tuple[DisplayLayers, Observers]:
     gone = dead if dead is not None else []
     observers = Observers()
@@ -88,6 +89,7 @@ def layers(
         lambda obj: obj not in gone,
         observers,
         in_transaction,
+        task if task is not None else Transaction(),
         report=(errors if errors is not None else []).append,
     )
     return display, observers
@@ -321,6 +323,77 @@ def test_retrait_differe_pendant_une_transaction() -> None:
     transaction.open = False
     display.flush()
     assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)
+
+
+def test_selection_visible_pendant_la_tache_puis_retiree_avant_la_validation() -> None:
+    task = Transaction()
+    display, _ = layers(task=task)
+    piece = Piece("P", 10)
+    task.open = True
+    display.show(SELECTION, [piece], SELECTION_LOOK, deferrable=True)
+    assert (piece.view.Transparency, piece.view.rgb) == (SELECTION_TRANSPARENCY, SELECTION_TINT)
+    assert display.pending() == []  # écrite tout de suite
+    assert display.withdraw() is True
+    assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)  # valeur enregistrée : origine
+    assert display.pending() == [SELECTION]
+    display.flush()  # transaction close : la ligne toujours choisie est reposée
+    assert (piece.view.Transparency, piece.view.rgb) == (SELECTION_TRANSPARENCY, SELECTION_TINT)
+    assert display.pending() == []
+
+
+def test_retrait_sans_calque_de_la_tache_ne_fait_rien() -> None:
+    task = Transaction()
+    display, _ = layers(task=task)
+    piece = Piece("P", 10)
+    display.show(SELECTION, [piece], SELECTION_LOOK, deferrable=True)  # avant la tâche
+    task.open = True
+    assert display.withdraw() is False
+    assert piece.view.Transparency == SELECTION_TRANSPARENCY
+    assert display.pending() == []
+
+
+def test_calque_pose_avant_la_tache_n_est_pas_retire_dans_sa_transaction() -> None:
+    task = Transaction()
+    display, _ = layers(task=task)
+    avant, apres = Piece("A", 10), Piece("B", 10)
+    display.show(SELECTION, [avant], SELECTION_LOOK, deferrable=True)
+    task.open = True
+    display.show(SELECTION, [apres], SELECTION_LOOK, deferrable=True)
+    assert avant.view.Transparency == SELECTION_TRANSPARENCY  # son retrait serait enregistré
+    assert apres.view.Transparency == SELECTION_TRANSPARENCY
+    assert display.pending() == [SELECTION]
+    assert display.withdraw() is True
+    assert apres.view.Transparency == 10
+    task.open = False
+    display.flush()
+    assert avant.view.Transparency == 10
+    assert apres.view.Transparency == SELECTION_TRANSPARENCY
+
+
+def test_deselection_pendant_la_tache_rend_l_origine_dans_la_transaction() -> None:
+    task = Transaction()
+    display, _ = layers(task=task)
+    piece = Piece("P", 10)
+    task.open = True
+    display.show(SELECTION, [piece], SELECTION_LOOK, deferrable=True)
+    display.show(SELECTION, [], SELECTION_LOOK, deferrable=True)
+    assert (piece.view.Transparency, piece.view.rgb) == (10, WOOD)
+    assert display.withdraw() is False
+    assert display.pending() == []
+
+
+def test_edition_prime_sur_la_selection_pendant_la_tache() -> None:
+    task = Transaction()
+    display, _ = layers(task=task)
+    piece = Piece("P", 10)
+    display.show(EDIT, [piece], EDIT_LOOK)
+    task.open = True
+    display.show(SELECTION, [piece], SELECTION_LOOK, deferrable=True)
+    assert (piece.view.Transparency, piece.view.rgb) == (EDIT_TRANSPARENCY, WOOD)
+    display.withdraw()
+    assert (piece.view.Transparency, piece.view.rgb) == (EDIT_TRANSPARENCY, WOOD)
+    display.release(EDIT)  # après la transaction : la sélection, écrite hors d'elle, reparaît
+    assert (piece.view.Transparency, piece.view.rgb) == (SELECTION_TRANSPARENCY, SELECTION_TINT)
 
 
 def test_calque_non_differable_s_ecrit_meme_en_transaction() -> None:
