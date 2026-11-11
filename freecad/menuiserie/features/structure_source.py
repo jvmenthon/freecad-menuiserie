@@ -80,7 +80,7 @@ class DocumentStructure:
     """Un document vu comme la source de l'arbre simplifié. Les enfants de chaque ensemble sont
     lus une fois (``furniture_children``) puis classés : sous-ensemble, pièce ou assemblage.
     Fournit aussi les lectures du lot 4 (``StructureExtras``) : répétitions (par un
-    ``RepetitionReader``, vide tant que le type n'existe pas), listes de débit, autres objets."""
+    ``RepetitionReader``), listes de débit, autres objets."""
 
     def __init__(self, doc: Document, repetitions: RepetitionReader | None = None) -> None:
         self._doc = doc
@@ -163,6 +163,11 @@ class DocumentStructure:
     def all_copies(self) -> Collection[str]:
         """Copies de toutes les répétitions."""
         return {key for rep in self._repetitions.all_repetitions() for key in self.copies(rep)}
+
+    def furniture_copies(self) -> Collection[str]:
+        """Copies de répétition qui sont des ensembles complets (leur contenu est sous leur
+        ligne, leur Std Part n'est jamais montré)."""
+        return set(self._repetitions.furniture_copies()) & set(self._by_name)
 
     def cut_lists(self) -> Sequence[str]:
         """Listes de débit (le tableur n'est pas montré)."""

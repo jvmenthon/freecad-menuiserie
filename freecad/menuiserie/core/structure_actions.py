@@ -41,6 +41,7 @@ __all__ = [
     "creates_sub_furniture",
     "decide_create",
     "decide_delete",
+    "decide_dissociate",
     "decide_drop",
     "decide_open",
     "decide_rename",
@@ -80,6 +81,13 @@ _NOT_MOVABLE: Final = QT_TRANSLATE_NOOP(
 _IS_COPY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {item} » est une copie de répétition : elle suit sa répétition et ne se range pas à part.",
+)
+_IS_REPEAT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {item} » est une répétition : elle gère ses copies et ne se range pas dans un ensemble.",
+)
+_NOT_A_COPY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "« {item} » n'est pas une copie de répétition : il n'y a rien à dissocier."
 )
 _COPY_TARGET: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {item} » est une copie de répétition : on n'y range pas de pièce."
@@ -139,6 +147,15 @@ _NOT_RENAMABLE: Final = QT_TRANSLATE_NOOP(
 _ONE_ROW: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisissez une seule ligne.")
 
 
+def _repeat_refusal(facts: MoveFacts, keys: Sequence[str]) -> Decision | None:
+    """Refus si une ligne est une copie ou une répétition (elles ne se rangent pas)."""
+    if (copy := next((key for key in keys if key in facts.copies), None)) is not None:
+        return refuse(_IS_COPY, item=facts.label(copy))
+    if (repeat := next((key for key in keys if key in facts.repeats), None)) is not None:
+        return refuse(_IS_REPEAT, item=facts.label(repeat))
+    return None
+
+
 def _movable(facts: MoveFacts, keys: Sequence[str]) -> Decision | None:
     """Refus commun à toute action sur une sélection de pièces et d'ensembles, ``None`` sinon."""
     if facts.busy:
@@ -147,8 +164,8 @@ def _movable(facts: MoveFacts, keys: Sequence[str]) -> Decision | None:
         return refuse(_NOTHING)
     if any(key in facts.foreign for key in keys):
         return refuse(_FOREIGN)
-    if (copy := next((key for key in keys if key in facts.copies), None)) is not None:
-        return refuse(_IS_COPY, item=facts.label(copy))
+    if (refusal := _repeat_refusal(facts, keys)) is not None:
+        return refusal
     if any(key not in facts.labels for key in keys):
         return refuse(_NOT_MOVABLE)
     return None
@@ -298,6 +315,18 @@ def decide_delete(keys: Sequence[str], *, busy: bool, foreign: Collection[str] =
     return Decision(True, keys=tuple(dict.fromkeys(keys)))
 
 
+def decide_dissociate(facts: MoveFacts, keys: Sequence[str]) -> Decision:
+    """« Dissocier la copie » : une ou plusieurs copies de répétition, aucun panneau de tâche
+    ouvert ; la copie devient une pièce (ou un ensemble) libre, avec ses valeurs actuelles."""
+    if facts.busy:
+        return refuse(BUSY)
+    if not keys:
+        return refuse(_NOTHING)
+    if (other := next((key for key in keys if key not in facts.copies), None)) is not None:
+        return refuse(_NOT_A_COPY, item=facts.label(other))
+    return Decision(True, keys=tuple(dict.fromkeys(keys)))
+
+
 def decide_open(keys: Sequence[str], *, busy: bool, foreign: Collection[str] = ()) -> Decision:
     """« Ouvrir » (équivaut au double-clic) : une seule ligne, aucun panneau de tâche ouvert ;
     jamais pour un objet d'un autre atelier (``foreign``) : l'éditer, c'est le modifier."""
@@ -316,7 +345,7 @@ def decide_rename_target(facts: MoveFacts, keys: Sequence[str]) -> Decision:
         return refuse(_ONE_ROW if keys else _NOTHING)
     if keys[0] in facts.foreign:
         return refuse(_FOREIGN)
-    if keys[0] not in facts.labels:
+    if keys[0] not in facts.labels and keys[0] not in facts.repeats:
         return refuse(_NOT_RENAMABLE)
     return Decision(True, keys=tuple(keys))
 

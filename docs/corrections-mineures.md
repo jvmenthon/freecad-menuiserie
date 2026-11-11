@@ -23,7 +23,6 @@ contournable), **mineur** (confort, docs, dette de test).
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
 | m1 | mineur | `freecad/menuiserie/gui/drag/geometry.py` | `mouse_ray`, le placement des poignées et `MAGNET_PX` sont dans `gui/` alors que l'ADR 0021 (point 2) les met dans `core/magnet` ; le nom `geometry.py` est trompeur (le module dessine). | Déplacer ces trois éléments vers `core/magnet` et renommer `geometry.py` en `drawing.py`. |
-| m5 | mineur | `freecad/menuiserie/gui/drag/events.py` (`_Installation.uninstall`) | Quatre `try/finally` imbriqués pour que chaque retrait soit tenté même si un autre échoue. | Utiliser `contextlib.ExitStack` (un `callback` par retrait). |
 | m8 | mineur | `.github/workflows/ci.yml` (étape « Chargement dans l'interface de FreeCAD ») | Le commentaire sur la zone de notifications coupée ne cite pas le ticket FreeCAD de l'interblocage des notifications hors écran. | Citer le ticket FreeCAD dans le commentaire. |
 
 ## Relecture de fin de jalon « Pièce en bois » (issue #73, ADR 0020), 2026-10-26
@@ -99,13 +98,12 @@ Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés d
 
 ## Panneau « Structure » (ADR 0046) : points restants, 2026-11-11
 
-Tous les autres mineurs des relectures du panneau (lots 1 à 4, reprise sur `main`, revue finale) sont
-corrigés dans la branche `fix/structure-revue-finale`.
+Tous les autres mineurs des relectures du panneau (lots 1 à 4, reprise sur `main`, revue finale, lecteur
+de répétitions m5) sont corrigés.
 
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
 | S7 | mineur | `features/structure_source.py` (`DocumentStructure`) | Le lecteur est reconstruit à chaque rafraîchissement : `foreign_objects` lit `InList` et `OutList` de tous les objets, ce qui devient mesurable sur un très gros document (non mesuré). Impossible à trancher sans FreeCAD : il faut une mesure réelle. | Mesurer sur un document de 1 000 objets avant d'optimiser ; sinon, rien à faire. |
-| m5 | mineur | `features/structure_repetitions.py`, `core/structure_tree.py` (nœuds `REPEAT` et `COPY`) | Code de répétition (lecteur vide, lignes « ×N », règles de dépôt) inutilisé tant que l'objet Répétition (ADR 0043) n'existe pas. La PR #181 est fusionnée dans `main` : en attendant le lecteur réel (lot m5, PR suivante), les copies s'affichent comme des pièces ordinaires et l'objet Répétition sous « Autres objets de l'atelier ». | Brancher le lecteur réel (`repetition_reader`) sur `features/repeat.py`. |
 
 ## Relecture finale du jalon « Répétition » (issue #180, ADR 0043 et 0044), 2026-11-08
 

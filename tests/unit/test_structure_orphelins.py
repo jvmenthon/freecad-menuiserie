@@ -71,6 +71,9 @@ class AllObjects:
     def all_copies(self) -> Collection[str]:
         return set()
 
+    def furniture_copies(self) -> Collection[str]:
+        return set()
+
     def cut_lists(self) -> Sequence[str]:
         return []
 

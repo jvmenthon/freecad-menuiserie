@@ -75,6 +75,7 @@ from tests.gui.verifications_souris_rotation import VERIFICATIONS_SOURIS_ROTATIO
 from tests.gui.verifications_structure import VERIFICATIONS_STRUCTURE
 from tests.gui.verifications_structure_lot3 import VERIFICATIONS_STRUCTURE_LOT3
 from tests.gui.verifications_structure_lot4 import VERIFICATIONS_STRUCTURE_LOT4
+from tests.gui.verifications_structure_repetition import VERIFICATIONS_STRUCTURE_REPETITION
 from tests.gui.verifications_structure_selection import VERIFICATIONS_STRUCTURE_SELECTION
 from tests.gui.verifications_structure_souris import VERIFICATIONS_STRUCTURE_SOURIS
 from tests.gui.verifications_structure_tache import VERIFICATIONS_STRUCTURE_TACHE
@@ -1284,6 +1285,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_STRUCTURE,
     *VERIFICATIONS_STRUCTURE_LOT3,
     *VERIFICATIONS_STRUCTURE_LOT4,
+    *VERIFICATIONS_STRUCTURE_REPETITION,
     *VERIFICATIONS_STRUCTURE_SELECTION,
     *VERIFICATIONS_STRUCTURE_TACHE,
     *VERIFICATIONS_STRUCTURE_SOURIS,

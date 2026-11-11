@@ -31,7 +31,9 @@ from freecad.menuiserie.core.structure_sync import (
     rows_for_selection,
 )
 from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
+from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.structure_source import row_key_of, structure_of
 from freecad.menuiserie.gui.structure_highlight import RowHighlight
 from freecad.menuiserie.gui.structure_switch import ask_user, switch_to
@@ -57,10 +59,16 @@ def later(callback: Callable[[], None]) -> None:
 def open_object_panel(obj: Any) -> bool:
     """Ouvre le panneau de tâche de ``obj`` comme le double-clic de l'arbre natif : le
     ``doubleClicked`` de son ViewProvider (``PanelEditing`` ou liste de débit), sinon le mode
-    d'édition 0. Refusé tant qu'un panneau de tâche est ouvert."""
+    d'édition 0. Un ensemble copie de répétition ouvre « Modifier la répétition », comme une pièce
+    copie (son ViewProvider d'ensemble n'ouvre que le panneau de l'ensemble). Refusé tant qu'un
+    panneau de tâche est ouvert."""
     vobj = getattr(obj, "ViewObject", None)
     if vobj is None:
         return False
+    if is_furniture(obj) and is_copy(obj):
+        from freecad.menuiserie.gui.task_panels.repeat import start_editing
+
+        return bool(start_editing(obj.Repeat, obj))
     double_click = getattr(getattr(vobj, "Proxy", None), "doubleClicked", None)
     if callable(double_click):
         return bool(double_click(vobj))

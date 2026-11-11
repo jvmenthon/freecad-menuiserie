@@ -6,7 +6,8 @@
   [0008 — Ensemble, objet de cotes](0008-ensemble-objet-de-cotes.md),
   [0038 — Ensemble à la souris](0038-ensemble-a-la-souris.md) (Std Part par ensemble),
   [0037 — Sous-ensemble depuis des membres](0037-sous-ensemble-depuis-des-membres.md),
-  0043 — Répétition (à venir : PR #181 non fusionnée, pas encore de lien)
+  [0043 — Répétition, objet de cotes et copies liées](0043-repetition-objet-de-cotes-et-copies-liees.md),
+  [0044 — Répétition d'ensembles et liaisons des copies](0044-repetition-d-ensembles-et-liaisons-des-copies.md)
 
 ## Contexte
 
@@ -40,7 +41,12 @@ Std Part complets, un objet « Répétition » à la racine, un tableur par list
    - sous chaque ensemble, ses **pièces** (la brute et la pièce usinée forment une seule ligne) ;
    - un nœud replié **« Assemblages (N) »** (assemblages taillés dans le bois et Distances) et un
      nœud replié **« Quincaillerie (N) »** (objets du commerce : voir « Quincaillerie » ci-dessous) ;
-   - une répétition est une seule ligne **« <nom> ×N »** dépliable en ses copies ;
+   - une répétition (objet `Repeat`, ADR 0043) est une seule ligne **« <nom> ×N »** dépliable en
+     ses copies de premier niveau, à la racine ou dans l'ensemble de sa source. Une copie de pièce
+     est une ligne ; une copie d'ensemble (ADR 0044 : ensemble complet avec son Std Part, jamais
+     montré) est une ligne qui porte son contenu (pièces, assemblages), dont les copies des
+     membres (copies « internes » de la même répétition) ; aucune copie n'est montrée une
+     seconde fois comme pièce ordinaire (`features/structure_repetitions.py`, lecteur réel) ;
    - la liste de débit est une ligne (son tableur n'apparaît pas) ; les sources des pièces en
      forme (Body, esquisse) ne sont pas montrées.
 3. **Synchronisation** : le panneau se met à jour quand le document change (observateur de
@@ -222,5 +228,11 @@ d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règl
    d'ouverture.
 2. Rafraîchissement et sélection synchronisés avec FreeCAD (arbre natif, 3D), double-clic.
 3. Menu contextuel et glisser-déposer.
-4. Répétition (« ×N »), liste de débit, objets d'autres ateliers.
+4. Répétition (« ×N »), liste de débit, objets d'autres ateliers. **Lot complet** : la ligne
+   « <nom> ×N » et ses copies lisent l'objet Répétition de l'ADR 0043 ; double-clic sur la
+   répétition ou une copie = « Modifier la répétition » (pièce ou ensemble copie) ; menu : Modifier
+   la répétition, Renommer (la répétition aussi), Dissocier la copie (`api.dissociate`, une
+   transaction), Supprimer ; une copie ou une répétition ne se glisse pas, ne se range pas et ne
+   reçoit aucun dépôt ; sélectionner la répétition met toutes ses copies en transparence (calque de
+   sélection ; une copie d'ensemble : toutes ses pièces) ; icône `Menuiserie_Repeat.svg`.
 5. Noms et vocabulaire (arbre natif compris), à décider avec jv.

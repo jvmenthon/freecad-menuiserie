@@ -40,7 +40,7 @@ from tests.integration.bureau import Bureau
 # --- Lot 4 : liste de débit, autres objets, répétition ------------------------------------
 
 
-def _lignes(arbre: Any) -> list[tuple[str, str, str]]:
+def lignes_de(arbre: Any) -> list[tuple[str, str, str]]:
     """(genre, texte, clé) de chaque ligne de l'arbre, en profondeur d'abord."""
     lignes: list[tuple[str, str, str]] = []
     iterateur = QtGui.QTreeWidgetItemIterator(arbre)
@@ -57,8 +57,8 @@ def _lignes(arbre: Any) -> list[tuple[str, str, str]]:
     return lignes
 
 
-def _genres(arbre: Any, genre: NodeKind) -> list[tuple[str, str, str]]:
-    return [ligne for ligne in _lignes(arbre) if ligne[0] == genre.value]
+def genres_de(arbre: Any, genre: NodeKind) -> list[tuple[str, str, str]]:
+    return [ligne for ligne in lignes_de(arbre) if ligne[0] == genre.value]
 
 
 def _verifier_bureau_sans_ligne_parasite(
@@ -69,7 +69,7 @@ def _verifier_bureau_sans_ligne_parasite(
     des lignes parasites est écrite ici."""
     parasites = [
         ligne
-        for ligne in _lignes(arbre)
+        for ligne in lignes_de(arbre)
         if ligne[0]
         in (NodeKind.OTHERS.value, NodeKind.OTHER.value, NodeKind.REPEAT.value, NodeKind.COPY.value)
     ]
@@ -86,7 +86,7 @@ def _verifier_liste_de_debit(
     liste = find_cut_list(bureau.doc)
     if liste is None:
         return ["objet liste de débit absent"]
-    lignes = _genres(arbre, NodeKind.CUTLIST)
+    lignes = genres_de(arbre, NodeKind.CUTLIST)
     problemes = ecarts("une seule ligne de liste", [cle for _g, _t, cle in lignes], [liste.Name])
     problemes += ecarts("tableur non montré", item_for(arbre, feuille.Name), None)
     ligne = item_for(arbre, liste.Name)
@@ -125,7 +125,7 @@ def _verifier_autres_objets(
     avant = (boite.Label, tuple(boite.Placement.Base), len(bureau.doc.Objects))
     synchro.refresh_now(force=True)
     traiter()
-    noeuds = _genres(arbre, NodeKind.OTHERS)
+    noeuds = genres_de(arbre, NodeKind.OTHERS)
     problemes = ecarts(
         "un nœud « Autres objets »", [t for _g, t, _c in noeuds], ["Autres objets (1)"]
     )
@@ -159,10 +159,11 @@ def _verifier_autres_objets(
 def _verifier_aucune_repetition(
     bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
 ) -> list[str]:
-    """Sans type Répétition dans la branche, le point d'extension est vide : aucune ligne « xN »
-    et toutes les pièces du bureau restent à plat, comme aux lots précédents."""
-    problemes = ecarts("aucune répétition", _genres(arbre, NodeKind.REPEAT), [])
-    problemes += ecarts("aucune copie", _genres(arbre, NodeKind.COPY), [])
+    """Un document sans répétition n'a aucune ligne « xN » ni copie, et toutes les pièces du
+    bureau restent à plat, comme aux lots précédents (les vraies répétitions : voir
+    ``verifications_structure_repetition``)."""
+    problemes = ecarts("aucune répétition", genres_de(arbre, NodeKind.REPEAT), [])
+    problemes += ecarts("aucune copie", genres_de(arbre, NodeKind.COPY), [])
     return problemes + ecarts(
         "pièce du bureau toujours montrée",
         item_for(arbre, bureau.shown("P").Name) is not None,
@@ -191,16 +192,16 @@ def _verifier_icones(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
     problemes: list[str] = []
     for genre, nom in ICON_BY_KIND.items():
         attendu = QtGui.QIcon(icon_path(nom)).isNull()
-        for _g, _texte, cle in _genres(arbre, genre):
+        for _g, _texte, cle in genres_de(arbre, genre):
             ligne = item_for(arbre, cle)
             if ligne is not None:
                 problemes += ecarts(f"icône {genre.value}", ligne.icon(0).isNull(), attendu)
-    vus = {genre for genre in NodeKind if _genres(arbre, genre)}
+    vus = {genre for genre in NodeKind if genres_de(arbre, genre)}
     problemes += ecarts("genres vus", NodeKind.FURNITURE in vus and NodeKind.PIECE in vus, True)
     # Les tourillons du bureau sont de la quincaillerie, avec l'icône de leur commande.
     problemes += ecarts("quincaillerie vue", NodeKind.HARDWARE_ITEM in vus, True)
     attendu = QtGui.QIcon(icon_path("Menuiserie_Dowels.svg")).isNull()
-    for _g, _texte, cle in _genres(arbre, NodeKind.HARDWARE_ITEM):
+    for _g, _texte, cle in genres_de(arbre, NodeKind.HARDWARE_ITEM):
         ligne = item_for(arbre, cle)
         if ligne is not None:
             problemes += ecarts("icône tourillons", ligne.icon(0).isNull(), attendu)
