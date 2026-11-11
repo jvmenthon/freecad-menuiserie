@@ -14,23 +14,38 @@ from __future__ import annotations
 import weakref
 from typing import Any
 
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.gui.drag import events
 from freecad.menuiserie.gui.drag.session import DragSession, PanelContext
 from freecad.menuiserie.gui.task_panels.base import connect
 
 
 class PanelDrag:
-    """Lien entre la session de glissement et un panneau de tâche ``panel`` (pièce ``panel.obj``,
-    propriété ``closed``, méthode ``after_drag`` qui relit les champs). Sans session (atelier
-    inactif), ne fait rien."""
+    """Lien entre la session de glissement et un panneau de tâche ``panel`` (propriété ``closed``,
+    méthode ``after_drag`` qui relit les champs). La pièce est ``panel.obj`` ; un panneau dont
+    l'objet est recréé à chaque aperçu (caisson) passe ``follow=True`` et appelle :meth:`follow`
+    à chaque aperçu. Sans session (atelier inactif), ne fait rien."""
 
-    def __init__(self, panel: Any) -> None:
+    def __init__(self, panel: Any, *, follow: bool = False) -> None:
         self._panel = weakref.ref(panel)
         self._session: DragSession | None = events.current_session()
-        self._context = PanelContext(panel.obj, self._refresh, self._is_open)
+        self._context: PanelContext | None = None
         if self._session is not None:
-            self._session.set_panel(self._context)
             connect(panel.form, "destroyed()", self._on_destroyed)
+            if not follow:
+                self.follow(panel.obj)
+
+    def follow(self, part: DocumentObject | None) -> None:
+        """Flèches et poignées sur ``part`` (aucune si ``None``)."""
+        session = self._session
+        if session is None:
+            return
+        previous, self._context = self._context, None
+        if part is not None:
+            self._context = PanelContext(part, self._refresh, self._is_open)
+            session.set_panel(self._context)
+        elif previous is not None:
+            session.clear_panel(previous)
 
     def _is_open(self) -> bool:
         panel = self._panel()
@@ -44,5 +59,6 @@ class PanelDrag:
     def _on_destroyed(self) -> None:
         """Formulaire détruit (panneau fermé) : poignées enlevées."""
         session, self._session = self._session, None
-        if session is not None:
-            session.clear_panel(self._context)
+        context, self._context = self._context, None
+        if session is not None and context is not None:
+            session.clear_panel(context)
