@@ -242,3 +242,17 @@ def test_enveloppe_deja_juste_rien_n_est_ecrit(document: Any) -> None:
 def test_sous_ensemble_n_est_jamais_recale(document: Any) -> None:
     _, sub, _, _ = meuble(document)
     assert envelope.reframe(sub) is False
+
+
+def test_creation_autour_d_un_ensemble_tourne_l_englobe(document: Any) -> None:
+    """Non-régression (jv, 2026-11-11) : un ensemble créé autour d'un ensemble tourné doit
+    englober sa rotation dès la création."""
+    bureau = build_parts(document)
+    sub, _ = caisson(document)
+    memento = drag.begin_furniture_drag(sub)
+    assert drag.rotate_furniture_by(memento, 2, 45.0)
+    drag.end_furniture_drag(memento)
+    document.recompute()
+    furniture, _ = api.make_furniture([bureau.parts["P"], sub], label="Meuble")
+    document.recompute()
+    assert_enveloppe(furniture)
