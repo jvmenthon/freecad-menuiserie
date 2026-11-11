@@ -65,6 +65,7 @@ from freecad.menuiserie.features.furniture_drag_state import (
     write_sizes,
     write_std_placement,
 )
+from freecad.menuiserie.features.furniture_envelope import frame_of, reframe, restore_frame
 from freecad.menuiserie.features.furniture_locks import refusal_of
 from freecad.menuiserie.features.furniture_resize import planned_resize, resize, write_box
 from freecad.menuiserie.features.i18n import translated
@@ -275,15 +276,19 @@ def _full_notices(memento: FurnitureMemento) -> list[Notice]:
 
 
 def _relink(memento: FurnitureMemento) -> list[Notice]:
-    """Relie l'ensemble parent d'un sous-ensemble d'après sa géométrie nouvelle ; en cas d'erreur,
-    l'ensemble revient (:func:`restore`) et l'erreur est relancée."""
+    """Relie l'ensemble parent d'un sous-ensemble d'après sa géométrie nouvelle, après avoir recalé
+    ses cotes sur l'enveloppe de ses membres (ADR 0048) ; en cas d'erreur, le parent et l'ensemble
+    reviennent (:func:`restore`) et l'erreur est relancée."""
     parent = furniture_of(memento.furniture)
     if parent is None:
         return []
+    frame = frame_of(parent)
     try:
+        reframe(parent)
         members = read_members(parent)
         return bind_members(members, members.objects)
     except ValueError:
+        restore_frame(parent, frame)
         restore(memento)
         raise
 

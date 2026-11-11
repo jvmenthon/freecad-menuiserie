@@ -147,3 +147,98 @@ def test_chaine_sans_cycle_ni_doublon(document: Any) -> None:
     assert chain.chain_of(furniture) == []
     assert rules.double_click_target(keys, furniture.Name) == sub.Name
     assert rules.up_target(names(chain.chain_of(furniture))) is None
+
+
+# --- ADR 0048 : cotes du parent recalées sur l'enveloppe de ses membres ------------------------
+
+drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
+envelope = pytest.importorskip("freecad.menuiserie.features.furniture_envelope")
+
+
+def global_boxes(document: Any, skip: set[str]) -> dict[str, tuple[float, ...]]:
+    """Boîtes globales arrondies des objets à forme, sauf ``skip``."""
+    found = {}
+    for obj in document.Objects:
+        if obj.Name in skip or obj.TypeId != "Part::FeaturePython" or obj.Shape.isNull():
+            continue
+        shape = obj.Shape.copy()
+        shape.Placement = obj.getGlobalPlacement()
+        b = shape.BoundBox
+        found[obj.Name] = tuple(
+            round(v, 3) for v in (b.XMin, b.YMin, b.ZMin, b.XMax, b.YMax, b.ZMax)
+        )
+    return found
+
+
+def sizes(furniture: Any) -> tuple[float, ...]:
+    origin = furniture.Origin
+    return tuple(
+        round(v, 3)
+        for v in (
+            origin.x,
+            origin.y,
+            origin.z,
+            furniture.Width.Value,
+            furniture.Depth.Value,
+            furniture.Height.Value,
+        )
+    )
+
+
+def assert_enveloppe(furniture: Any) -> None:
+    box = envelope.member_envelope(furniture)
+    expected = (*(box.lo(i) for i in range(3)), *(box.size(i) for i in range(3)))
+    assert sizes(furniture) == pytest.approx(expected, abs=1e-3)
+
+
+def caisson_names(parts: dict[str, Any]) -> set[str]:
+    """Brutes et pièces usinées du caisson (celles qui bougent avec lui)."""
+    found = {part.Name for part in parts.values()}
+    found |= {m.Name for part in parts.values() if (m := api.machined_part_of(part)) is not None}
+    return found
+
+
+def test_sous_ensemble_deplace_hors_du_parent_l_agrandit(document: Any) -> None:
+    furniture, sub, _, parts = meuble(document)
+    skip = caisson_names(parts)
+    others = global_boxes(document, skip)
+    width = furniture.Width.Value
+    assert api.move_furniture(sub, (900, 0, 0))
+    document.recompute()
+    assert furniture.Width.Value > width + 800  # le parent englobe le caisson sorti à droite
+    assert_enveloppe(furniture)
+    assert global_boxes(document, skip) == others  # les autres pièces ne bougent pas
+    assert names(chain.chain_of(parts["CB"]))[0] == furniture.Name
+
+
+def test_sous_ensemble_deplace_a_gauche_decale_l_origine(document: Any) -> None:
+    furniture, sub, _, parts = meuble(document)
+    skip = caisson_names(parts)
+    others = global_boxes(document, skip)
+    x0 = furniture.Origin.x
+    assert api.move_furniture(sub, (-700, 0, 0))
+    document.recompute()
+    assert furniture.Origin.x < x0 - 600
+    assert_enveloppe(furniture)
+    assert global_boxes(document, skip) == others
+
+
+def test_sous_ensemble_tourne_le_parent_englobe_la_rotation(document: Any) -> None:
+    furniture, sub, _, _ = meuble(document)
+    memento = drag.begin_furniture_drag(sub)
+    assert drag.rotate_furniture_by(memento, 2, 30.0)
+    drag.end_furniture_drag(memento)
+    document.recompute()
+    assert_enveloppe(furniture)
+
+
+def test_enveloppe_deja_juste_rien_n_est_ecrit(document: Any) -> None:
+    furniture, _, _, _ = meuble(document)
+    if envelope.reframe(furniture):  # première fois : recalage éventuel de la création
+        document.recompute()
+    assert envelope.reframe(furniture) is False
+
+
+def test_sous_ensemble_n_est_jamais_recale(document: Any) -> None:
+    _, sub, _, _ = meuble(document)
+    assert envelope.reframe(sub) is False
