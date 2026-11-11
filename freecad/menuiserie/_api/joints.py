@@ -275,10 +275,9 @@ def _make_joint(
     return _shown_and_recomputed(joint)
 
 
-def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
-    """Pose les ViewProviders de l'assemblage et des pièces usinées de ses deux brutes (si
-    l'interface est chargée), puis recalcule le document. Commun à toutes les fabriques
-    d'assemblage."""
+def show_joint(joint: DocumentObject) -> None:
+    """Pose les ViewProviders de l'assemblage et des pièces usinées de ses deux brutes, si
+    l'interface est chargée. Sans recalcul."""
     if App.GuiUp:
         from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
         from freecad.menuiserie.gui.view_providers.machined_part import (
@@ -292,6 +291,12 @@ def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
                 machined.ViewObject.Proxy, ViewProviderMachinedPart
             ):
                 ViewProviderMachinedPart(machined.ViewObject)
+
+
+def _shown_and_recomputed(joint: DocumentObject) -> DocumentObject:
+    """Pose les ViewProviders (:func:`show_joint`), puis recalcule le document. Commun à toutes
+    les fabriques d'assemblage."""
+    show_joint(joint)
     # L'assemblage de deux pièces d'un même ensemble se range sous lui dans l'arbre : l'ensemble
     # est marqué modifié pour que l'arbre relise ses enfants (``claimChildren``).
     ensemble = common_furniture(joint.HostPart, joint.GuestPart)

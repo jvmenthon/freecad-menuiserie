@@ -21,6 +21,8 @@ __all__ = [
     "EDIT_LOOK",
     "EDIT_PRIORITY",
     "EDIT_TRANSPARENCY",
+    "ORIGIN_LOOK",
+    "ORIGIN_TINT",
     "SELECTION_LOOK",
     "SELECTION_PRIORITY",
     "SELECTION_TINT",
@@ -35,6 +37,7 @@ T = TypeVar("T")
 EDIT_TRANSPARENCY: Final = 60  # pour cent : pièce en cours d'édition (ADR 0011)
 SELECTION_TRANSPARENCY: Final = 50  # pour cent : pièce de la ligne sélectionnée
 SELECTION_TINT: Final = (70, 160, 255)  # bleu clair, distinct du bois et de l'édition (sans teinte)
+ORIGIN_TINT: Final = (70, 140, 230)  # bleu des pièces d'origine teintes par un panneau (répétition)
 EDIT_PRIORITY: Final = 20  # l'édition prime visuellement sur la sélection
 SELECTION_PRIORITY: Final = 10
 
@@ -50,6 +53,7 @@ class Look:
 
 
 EDIT_LOOK: Final = Look(EDIT_TRANSPARENCY, None, EDIT_PRIORITY)
+ORIGIN_LOOK: Final = Look(EDIT_TRANSPARENCY, ORIGIN_TINT, EDIT_PRIORITY)
 SELECTION_LOOK: Final = Look(SELECTION_TRANSPARENCY, SELECTION_TINT, SELECTION_PRIORITY)
 
 

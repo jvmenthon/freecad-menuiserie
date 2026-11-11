@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from freecad.menuiserie.core.display_layers import EDIT_LOOK
+from freecad.menuiserie.core.display_layers import EDIT_LOOK, Look
 from freecad.menuiserie.gui.display_layers import DisplayLayers
 
 
@@ -24,17 +24,20 @@ class PartsPreview:
     chaque appel), appliquée à l'ouverture et à chaque :meth:`sync`, rétablie par
     :meth:`restore`. ``alive(obj)`` dit si un objet existe encore dans son document : l'affichage
     n'est jamais rétabli sur un objet supprimé. ``layers`` : calques partagés avec les autres
-    mécanismes (``DISPLAY``)."""
+    mécanismes (``DISPLAY``) ; ``look`` : aspect posé (transparence d'édition, ou teinte d'origine
+    d'une répétition)."""
 
     def __init__(
         self,
         shown: Callable[[], Iterable[Any]],
         alive: Callable[[Any], bool],
         layers: DisplayLayers,
+        look: Look = EDIT_LOOK,
     ) -> None:
         self._shown = shown
         self._alive = alive
         self._layers = layers
+        self._look = look
         self._released = False
         self.sync()
 
@@ -43,7 +46,14 @@ class PartsPreview:
         créée par un recalcul), rétablie sur ceux qui ne le sont plus. Sans effet une fois
         :meth:`restore` appelée."""
         if not self._released:
-            self._layers.show(self, self._current(), EDIT_LOOK)
+            self._layers.show(self, self._current(), self._look)
+
+    def reapply(self) -> None:
+        """Aspect reposé après une transaction abandonnée, qui a pu le rétablir ; sans effet une
+        fois :meth:`restore` appelée."""
+        if not self._released:
+            self._layers.reapply(self)
+            self.sync()
 
     def restore(self) -> None:
         """Affichage d'origine rétabli sur les objets qui existent encore ; idempotent, et

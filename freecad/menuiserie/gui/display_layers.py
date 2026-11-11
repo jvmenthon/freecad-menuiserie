@@ -157,6 +157,17 @@ class DisplayLayers:
             for key, obj in wanted.items()
         )
 
+    def reapply(self, owner: Hashable) -> None:
+        """Calques de ``owner`` réécrits sur leurs objets : une transaction abandonnée a pu
+        rétablir l'affichage d'origine (ce qu'un tiers a changé devient l'origine)."""
+        self._each(self._stack.keys_of(owner), self._reapply)
+
+    def _reapply(self, key: Hashable) -> None:
+        vobj = self._vobj(key)
+        if vobj is not None:
+            self._adopt(key, vobj)
+            self._apply(key)
+
     def release(self, owner: Hashable) -> None:
         """Tous les calques de ``owner`` sont retirés ; l'origine revient sur les objets qui
         n'ont plus de calque. Sans effet sur un objet supprimé."""

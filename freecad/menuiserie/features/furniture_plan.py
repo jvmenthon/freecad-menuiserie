@@ -126,7 +126,9 @@ def closure(start: DocumentObject) -> dict[str, DocumentObject]:
         obj = todo.pop()
         if obj.Name not in found and is_workshop(obj):
             found[obj.Name] = obj
-            todo.extend(o for o in [*obj.InList, *obj.OutList] if not is_membership(obj, o))
+            # ``InList`` garde un objet qui a perdu son expression (copie dissociée) : on vérifie
+            linked = [*(item for item in obj.InList if obj in item.OutList), *obj.OutList]
+            todo.extend(o for o in linked if not is_membership(obj, o))
     return found
 
 

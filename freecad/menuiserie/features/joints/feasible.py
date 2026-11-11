@@ -10,11 +10,29 @@ fabrique de l'api (mot-clé ``check``), qui l'appelle sans recalcul : le plan es
 
 from __future__ import annotations
 
+from freecad.menuiserie.core.joints import strategy_for
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.i18n import translated_errors
 from freecad.menuiserie.features.joint_names import joint_label
-from freecad.menuiserie.features.joints.base import plan_for
+from freecad.menuiserie.features.joints.base import JointFeature, placed_blank, plan_for
+from freecad.menuiserie.features.joints.plan_cache import cached_plan
 
-__all__ = ["feasible_joint"]
+__all__ = ["feasible_joint", "plan_error"]
+
+
+def plan_error(origin: DocumentObject, host: DocumentObject, guest: DocumentObject) -> str | None:
+    """Message traduit si un assemblage du type et des paramètres de ``origin`` entre ``host`` et
+    ``guest`` (aux placements et cotes actuels) serait impossible, ``None`` s'il est réalisable.
+    Mêmes calculs que le recalcul (:func:`.base.plan_for`), sans créer ni modifier aucun objet ;
+    un échec n'est jamais mémorisé par le cache de plans."""
+    proxy: JointFeature = origin.Proxy
+    try:
+        with translated_errors():
+            strategy = strategy_for(proxy.KIND)
+            cached_plan(strategy, placed_blank(host), placed_blank(guest), proxy.params(origin))
+    except ValueError as error:
+        return str(error)
+    return None
 
 
 def feasible_joint(joint: DocumentObject) -> DocumentObject:
