@@ -97,8 +97,14 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
         *ecarts("largeur", furniture.Width.Value if furniture else None, 800.0),
     ]
     valider()
+    QtGui.QApplication.processEvents()
     problemes += [
         *ecarts("panneau fermé", formulaire() is None, True),
+        *ecarts(
+            "ensemble créé sélectionné (flèches, ADR 0038)",
+            [o.Name for o in Gui.Selection.getSelection()],
+            ["Furniture"],
+        ),
         *ecarts("entrées", doc.UndoNames, ["Créer un caisson"]),
         *ecarts("gabarit", doc.getObject("Furniture").Template, "Carcass"),
         *ecarts("objets invalides", [o.Name for o in doc.Objects if not o.isValid()], []),
