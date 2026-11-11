@@ -25,8 +25,9 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.selection_chain import click_target, double_click_target, up_target
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.selection_chain import chain_of, normalized
-from freecad.menuiserie.gui.double_click import Installation, is_viewport_3d, view_point
+from freecad.menuiserie.features.selection_chain import normalized, selection_chain_of
+from freecad.menuiserie.gui.app_filter import Installation
+from freecad.menuiserie.gui.double_click import is_viewport_3d, view_point
 from freecad.menuiserie.gui.drag.events import current_session
 
 __all__ = ["current_filter", "descend_at", "install", "installed", "uninstall"]
@@ -91,7 +92,7 @@ def retarget_click(picked: DocumentObject, before: DocumentObject | None) -> Non
     """Après le clic simple sur ``picked`` (``before`` : sélection d'avant le clic) : l'élément de
     la chaîne voulu remplace la sélection native, sauf si c'est la pièce, déjà sélectionnée."""
     before = alive(before)
-    chain = chain_of(picked)
+    chain = selection_chain_of(picked)
     name = click_target(_names(chain), None if before is None else before.Name)
     target = _by_name(chain, name)
     if target is not None and target.Name != chain[-1].Name:
@@ -106,13 +107,13 @@ def descend_at(view: View, point: tuple[int, int], before: DocumentObject | None
     picked = picked_object(view, point)
     current = selected_object() or alive(before)
     if picked is None:
-        chain = [] if current is None else chain_of(current)
+        chain = [] if current is None else selection_chain_of(current)
         parent = _by_name(chain, up_target(_names(chain)))
         if parent is None:
             return False
         select(parent)
         return True
-    chain = chain_of(picked)
+    chain = selection_chain_of(picked)
     name = double_click_target(_names(chain), None if current is None else current.Name)
     target = _by_name(chain, name)
     if target is None:
@@ -134,6 +135,7 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
         )
         self.before: DocumentObject | None = None
         self.pressed_ms = 0
+        self.pending = False  # recalage du dernier clic planifié, pas encore fait
         # Double-clic consommé : son relâchement l'est aussi, sinon FreeCAD le traite comme un clic
         # sur une pièce déjà sélectionnée et sélectionne son Std Part (constaté par jv).
         self.swallow_release = False
@@ -206,7 +208,15 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
         moved = position - start
         if abs(moved.x()) > CLICK_SLOP_PX or abs(moved.y()) > CLICK_SLOP_PX:
             return
+        self.pending = True
         QtCore.QTimer.singleShot(0, lambda: _retarget_later(picked, before))
+
+    def handles_click(self) -> bool:
+        """Vrai si le clic en cours est pris en charge par le filtre (appui vu sur une pièce ou
+        recalage planifié) : l'observateur n'a rien à faire. Une sélection native qui arrive
+        après le recalage du filtre est encore rattrapée par l'observateur."""
+        recent = QtCore.QDateTime.currentMSecsSinceEpoch() - self.pressed_ms <= RECENT_PRESS_MS
+        return (self._press is not None and recent) or self.pending
 
 
 def _retarget_later(picked: DocumentObject, before: DocumentObject | None) -> None:
@@ -217,6 +227,10 @@ def _retarget_later(picked: DocumentObject, before: DocumentObject | None) -> No
             retarget_click(picked, before)
     except Exception:  # pylint: disable=broad-exception-caught
         App.Console.PrintError(traceback.format_exc())
+    finally:
+        filtre = _INSTALLATION.filter
+        if isinstance(filtre, _ClickFilter):
+            filtre.pending = False
 
 
 def _recent_before() -> DocumentObject | None:
@@ -231,7 +245,8 @@ def _recent_before() -> DocumentObject | None:
 
 def _retarget_selection() -> None:
     """Sélection native d'un clic 3D vue par l'observateur : même règle que le clic simple, avec
-    la sélection d'avant l'appui si le filtre l'a vu (sinon : ensemble de plus haut niveau)."""
+    la sélection d'avant l'appui si le filtre l'a vu (sinon : ensemble de plus haut niveau). Rien
+    à faire si le filtre prend déjà ce clic en charge (vu par :class:`_SelectionWatch`)."""
     try:
         selection = Gui.Selection.getSelection()
         if not installed() or Gui.Control.activeDialog() or len(selection) != 1:
@@ -245,7 +260,9 @@ class _SelectionWatch:
     """Observateur de sélection : une pièce sélectionnée **dans la vue 3D** (FreeCAD donne alors le
     point cliqué), sans Ctrl ni Maj, est remplacée par l'élément voulu de sa chaîne. Il rattrape
     les clics que le filtre ne voit pas (premier clic après la création d'un ensemble, constaté
-    par jv). Les sélections faites par l'arbre ou par script n'ont pas de point : ignorées."""
+    par jv). Les sélections faites par l'arbre ou par script n'ont pas de point : ignorées (un clic
+    tombé pile sur l'origine (0, 0, 0) l'est aussi : cas rare, le filtre le traite quand il a vu
+    l'appui)."""
 
     def addSelection(  # pylint: disable=invalid-name
         self, _doc: str, _obj: str, _sub: str, point: Any
@@ -256,6 +273,9 @@ class _SelectionWatch:
         except (TypeError, ValueError):
             return
         plain = QtGui.QApplication.keyboardModifiers() == QtCore.Qt.NoModifier
+        filtre = _INSTALLATION.filter
+        if isinstance(filtre, _ClickFilter) and filtre.handles_click():
+            return  # un seul recalage par clic : le filtre s'en charge
         if clicked and plain:
             QtCore.QTimer.singleShot(0, _retarget_selection)
 

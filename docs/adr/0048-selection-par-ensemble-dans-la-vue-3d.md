@@ -6,7 +6,7 @@
 - ADR liés : [0007](0007-compatibilite-avec-les-autres-ateliers.md),
   [0008](0008-ensemble-objet-de-cotes.md), [0018](0018-double-clic-dans-la-vue-3d.md),
   [0037](0037-sous-ensemble-depuis-des-membres.md), [0038](0038-ensemble-a-la-souris.md),
-  [0046](0046-arbre-simplifie-mode-simple.md) (panneau « Structure », PR #191)
+  [0046](0046-arbre-simplifie-mode-simple.md) (panneau « Structure »)
 
 ## Contexte
 
@@ -45,7 +45,8 @@ descendre niveau par niveau jusqu'à la pièce.
 
 Le panneau lit la sélection de FreeCAD (`Gui.Selection`) et suit donc le changement sans code
 commun. Aucun fichier du panneau n'est modifié ; les fichiers touchés ici sont `gui/double_click.py`,
-`init_gui.py` et des modules neufs. Risque de conflit faible avec la PR #191.
+`init_gui.py` et des modules neufs. Le panneau sélectionne sans point cliqué : l'observateur de
+sélection l'ignore.
 
 ## Conséquences
 

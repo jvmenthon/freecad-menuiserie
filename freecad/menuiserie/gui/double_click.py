@@ -14,17 +14,16 @@ autre double-clic suit son cours habituel (autres ateliers, sélection, navigati
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
 from typing import Any, Final
 
 import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.gui.app_filter import Installation
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
 __all__ = [
-    "Installation",
     "install",
     "installed",
     "is_viewport_3d",
@@ -85,29 +84,6 @@ class _DoubleClickFilter(QtCore.QObject):  # type: ignore[misc]
         except RuntimeError:  # widget Qt déjà détruit (vue fermée ou recréée) : clic ignoré
             return False
         return open_at(Gui.activeView(), point)
-
-
-class Installation:
-    """Filtre d'application unique, posé pendant que l'atelier est actif (``factory`` le crée)."""
-
-    def __init__(self, factory: Callable[[], QtCore.QObject]) -> None:
-        self._factory = factory
-        self.filter: QtCore.QObject | None = None
-
-    def install(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is not None or application is None:
-            return
-        self.filter = self._factory()
-        application.installEventFilter(self.filter)
-
-    def uninstall(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is None:
-            return
-        if application is not None:
-            application.removeEventFilter(self.filter)
-        self.filter = None
 
 
 def is_viewport_3d(widget: QtCore.QObject) -> bool:

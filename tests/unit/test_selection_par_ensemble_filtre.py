@@ -414,12 +414,58 @@ def test_observateur_ignore_ctrl_clic(world: World) -> None:
     assert world.selected() == ["facade"]
 
 
-def test_observateur_garde_le_niveau_de_l_appui(world: World) -> None:
-    """Appui vu par le filtre (tiroir sélectionné) : l'observateur garde le tiroir."""
+def test_observateur_laisse_le_clic_au_filtre(world: World) -> None:
+    """Appui vu par le filtre (tiroir sélectionné) : l'observateur ne recale pas, le filtre le
+    fait au relâchement et garde le tiroir (un seul recalage par clic, revue m6)."""
     hierarchie(world)
     filtre = world.filter()
     world.selection[:] = [world.doc.objects["tiroir"]]
     world.pick = "facade"
+    filtre.eventFilter(None, Event(PRESS))
+    selection_3d(world, "facade", (10.0, 20.0, 30.0))
+    assert world.selected() == ["facade"]  # sélection native : le filtre n'a pas encore agi
+    filtre.eventFilter(None, Event(RELEASE))
+    world.flush()
+    assert world.selected() == ["tiroir"]
+    assert not filtre.pending
+
+
+def test_observateur_rattrape_une_selection_native_tardive(world: World) -> None:
+    """Sélection native arrivée après le recalage du filtre : l'observateur la recale encore."""
+    hierarchie(world)
+    filtre = world.filter()
+    world.pick = "facade"
+    filtre.eventFilter(None, Event(PRESS))
+    filtre.eventFilter(None, Event(RELEASE))
+    world.flush()
+    assert world.selected() == ["meuble"]
+    world.now += 100
+    selection_3d(world, "facade", (10.0, 20.0, 30.0))
+    assert world.selected() == ["meuble"]
+
+
+def test_observateur_ne_planifie_rien_pendant_le_relachement(world: World) -> None:
+    """Relâchement vu par le filtre puis sélection native : un seul recalage planifié."""
+    hierarchie(world)
+    filtre = world.filter()
+    world.pick = "facade"
+    filtre.eventFilter(None, Event(PRESS))
+    filtre.eventFilter(None, Event(RELEASE))
+    world.selection[:] = [world.doc.objects["facade"]]
+    watch = world.module._SelectionWatch()  # pylint: disable=protected-access
+    watch.addSelection(world.doc.Name, "facade", "", (10.0, 20.0, 30.0))
+    assert len(world.timers) == 1
+    world.flush()
+    assert world.selected() == ["meuble"]
+
+
+def test_observateur_garde_le_niveau_de_l_appui(world: World) -> None:
+    """Appui vu par le filtre sans pièce sous le curseur (le filtre ne recale pas) : l'observateur
+    recale avec la sélection d'avant l'appui."""
+    hierarchie(world)
+    filtre = world.filter()
+    world.selection[:] = [world.doc.objects["tiroir"]]
+    world.pick = None
     filtre.eventFilter(None, Event(PRESS))
     selection_3d(world, "facade", (10.0, 20.0, 30.0))
     assert world.selected() == ["tiroir"]

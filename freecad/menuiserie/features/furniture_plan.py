@@ -27,7 +27,7 @@ from freecad.menuiserie.core.assembly_scope import (
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.furniture import furniture_of, is_furniture
+from freecad.menuiserie.features.furniture import ancestors, furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_container import is_std_part, is_workshop, std_part_of
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint
@@ -135,11 +135,9 @@ def closure(start: DocumentObject) -> dict[str, DocumentObject]:
 def chain_of(furniture: DocumentObject | None) -> tuple[str, ...]:
     """Noms de ``furniture`` et des ensembles qui le contiennent, du plus proche au plus éloigné
     (vide pour ``None``)."""
-    names: list[str] = []
-    while furniture is not None and furniture.Name not in names:
-        names.append(furniture.Name)
-        furniture = furniture_of(furniture)
-    return tuple(names)
+    if furniture is None:
+        return ()
+    return tuple(obj.Name for obj in [furniture, *ancestors(furniture)])
 
 
 def staying(

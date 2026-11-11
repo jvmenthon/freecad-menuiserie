@@ -35,6 +35,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.distance import distances_of, kept_gap_of, remove_touching
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import (
+    ancestors,
     furniture_of,
     is_furniture,
     option_name,
@@ -143,16 +144,8 @@ def members_of(furniture: DocumentObject) -> list[DocumentObject]:
 def common_furniture(first: DocumentObject, second: DocumentObject) -> DocumentObject | None:
     """Ensemble le plus proche qui contient ``first`` et ``second`` (directement ou par ses
     sous-ensembles), ``None`` si aucun."""
-
-    def chain(obj: DocumentObject) -> list[DocumentObject]:
-        found: list[DocumentObject] = []
-        while (parent := furniture_of(obj)) is not None and parent not in found:
-            found.append(parent)
-            obj = parent
-        return found
-
-    above = chain(first)
-    return next((f for f in chain(second) if f in above), None)
+    above = ancestors(first)
+    return next((f for f in ancestors(second) if f in above), None)
 
 
 def _in_joint_group(obj: DocumentObject) -> bool:

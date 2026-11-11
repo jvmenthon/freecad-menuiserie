@@ -138,7 +138,7 @@ class World:
     def link(self, *names: str) -> list[Obj]:
         """Déclare la chaîne ``names`` (ensemble de plus haut niveau d'abord, pièce en dernier)
         et la donne pour chacun de ses éléments (sauf le premier : la chaîne d'un ensemble de
-        plus haut niveau est vide, comme ``chain_of``)."""
+        plus haut niveau est vide, comme ``selection_chain_of``)."""
         objs = [self.doc.objects.get(n) or self.obj(n) for n in names]
         for i in range(1, len(names)):
             self.chains[names[i]] = list(names[: i + 1])
@@ -179,7 +179,7 @@ def _QPointF(x: float | Point = 0, y: float = 0) -> Point:  # pylint: disable=in
 
 
 class Installation:
-    """``double_click.Installation`` simulée : le filtre est créé à la pose, oublié au retrait."""
+    """``app_filter.Installation`` simulée : le filtre est créé à la pose, oublié au retrait."""
 
     def __init__(self, factory: Any) -> None:
         self.filter: Any = None
@@ -262,7 +262,7 @@ def simulated_click_select(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         Console=quit_(PrintLog=lambda _m: None, PrintError=world.errors.append),
     )
 
-    def chain_of(obj: Obj) -> list[Obj]:
+    def selection_chain_of(obj: Obj) -> list[Obj]:
         # Un membre supprimé quitte la chaîne, comme le lien « Furniture » remis à zéro.
         names = world.chains.get(obj.Name, [])
         return [world.doc.objects[n] for n in names if n in world.doc.objects]
@@ -273,11 +273,13 @@ def simulated_click_select(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         "PySide": pyside,
         "freecad.menuiserie.features.freecad_types": _module("freecad_types", DocumentObject=Obj),
         "freecad.menuiserie.features.selection_chain": _module(
-            "selection_chain", chain_of=chain_of, normalized=lambda obj: obj
+            "selection_chain",
+            selection_chain_of=selection_chain_of,
+            normalized=lambda obj: obj,
         ),
+        "freecad.menuiserie.gui.app_filter": _module("app_filter", Installation=Installation),
         "freecad.menuiserie.gui.double_click": _module(
             "double_click",
-            Installation=Installation,
             is_viewport_3d=lambda _w: True,
             view_point=lambda _w, x, y: (int(x), int(y)),
         ),

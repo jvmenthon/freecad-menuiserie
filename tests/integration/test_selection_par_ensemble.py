@@ -36,20 +36,20 @@ def meuble(document: Any) -> tuple[Any, Any, Any, dict[str, Any]]:
 def test_piece_libre_sans_chaine(document: Any) -> None:
     piece = api.make_wood_part(500, 300, 18, "chene", doc=document)
     document.recompute()
-    assert chain.chain_of(piece) == []
+    assert chain.selection_chain_of(piece) == []
 
 
 def test_chaine_d_une_piece_et_de_sa_piece_usinee(document: Any) -> None:
     furniture, sub, plateau, parts = meuble(document)
-    assert names(chain.chain_of(plateau)) == [furniture.Name, plateau.Name]
+    assert names(chain.selection_chain_of(plateau)) == [furniture.Name, plateau.Name]
     bottom = parts["CB"]
     expected = [furniture.Name, sub.Name, bottom.Name]
-    assert names(chain.chain_of(bottom)) == expected
+    assert names(chain.selection_chain_of(bottom)) == expected
     machined = api.machined_part_of(bottom)
     if machined is not None:  # la pièce visible est l'usinée : même chaîne (brute en dernier)
-        assert names(chain.chain_of(machined)) == expected
-    assert names(chain.chain_of(sub)) == [furniture.Name, sub.Name]
-    assert chain.chain_of(furniture) == []  # ensemble de plus haut niveau
+        assert names(chain.selection_chain_of(machined)) == expected
+    assert names(chain.selection_chain_of(sub)) == [furniture.Name, sub.Name]
+    assert chain.selection_chain_of(furniture) == []  # ensemble de plus haut niveau
 
 
 def test_normalise_std_part_et_piece_usinee(document: Any) -> None:
@@ -64,7 +64,7 @@ def test_normalise_std_part_et_piece_usinee(document: Any) -> None:
 def test_parcours_complet_descente_et_remontee(document: Any) -> None:
     """Clic, double-clics jusqu'à la pièce, double-clic de plus (panneau), remontée."""
     furniture, sub, _, parts = meuble(document)
-    keys = names(chain.chain_of(parts["CB"]))
+    keys = names(chain.selection_chain_of(parts["CB"]))
     current = rules.click_target(keys, None)
     assert current == furniture.Name
     current = rules.double_click_target(keys, current)
@@ -73,9 +73,9 @@ def test_parcours_complet_descente_et_remontee(document: Any) -> None:
     current = rules.double_click_target(keys, current)
     assert current == parts["CB"].Name
     assert rules.double_click_target(keys, current) is None  # panneau de la pièce
-    up = rules.up_target(names(chain.chain_of(parts["CB"])))
+    up = rules.up_target(names(chain.selection_chain_of(parts["CB"])))
     assert up == sub.Name
-    assert rules.up_target(names(chain.chain_of(sub))) == furniture.Name
+    assert rules.up_target(names(chain.selection_chain_of(sub))) == furniture.Name
 
 
 # --- Cas limites : lecture seule, enregistrement, annulation, suppression ---------------------
@@ -91,7 +91,7 @@ def test_la_chaine_n_ecrit_rien_dans_le_document(document: Any) -> None:
     avant = etat(document)
     undo_avant = document.UndoCount
     for obj in (furniture, sub, plateau, parts["CB"]):
-        chain.chain_of(obj)
+        chain.selection_chain_of(obj)
         chain.normalized(obj)
     assert etat(document) == avant
     assert document.UndoCount == undo_avant
@@ -99,54 +99,59 @@ def test_la_chaine_n_ecrit_rien_dans_le_document(document: Any) -> None:
 
 def test_chaine_apres_enregistrement_et_reouverture(document: Any, rouvrir: Any) -> None:
     furniture, sub, _, parts = meuble(document)
+    top = furniture.Name  # les objets Python du document fermé deviennent inaccessibles
     attendu = {
-        parts["CB"].Name: [furniture.Name, sub.Name, parts["CB"].Name],
-        sub.Name: [furniture.Name, sub.Name],
+        parts["CB"].Name: [top, sub.Name, parts["CB"].Name],
+        sub.Name: [top, sub.Name],
     }
     rouvert = rouvrir(document)
     for name, expected in attendu.items():
-        assert names(chain.chain_of(rouvert.getObject(name))) == expected
-    assert chain.chain_of(rouvert.getObject(furniture.Name)) == []
+        assert names(chain.selection_chain_of(rouvert.getObject(name))) == expected
+    assert chain.selection_chain_of(rouvert.getObject(top)) == []
 
 
 def test_chaine_apres_annulation_et_retablissement_du_regroupement(document: Any) -> None:
     bureau = build_parts(document)
     pieces = [bureau.parts[mark] for mark in ("P", "JG", "JD")]
+    document.UndoMode = 1  # annulation désactivée par défaut dans les documents de test
+    document.clearUndos()
     document.openTransaction("Regrouper")
     furniture, _ = api.make_furniture(pieces, label="Bureau")
     document.commitTransaction()
-    assert names(chain.chain_of(pieces[0])) == [furniture.Name, pieces[0].Name]
+    assert names(chain.selection_chain_of(pieces[0])) == [furniture.Name, pieces[0].Name]
     name, piece_name = furniture.Name, pieces[0].Name
     document.undo()
-    assert chain.chain_of(document.getObject(piece_name)) == []  # pièce redevenue libre
+    assert chain.selection_chain_of(document.getObject(piece_name)) == []  # pièce redevenue libre
     document.redo()
-    assert names(chain.chain_of(document.getObject(piece_name))) == [name, piece_name]
+    assert names(chain.selection_chain_of(document.getObject(piece_name))) == [name, piece_name]
 
 
 def test_chaine_apres_suppression_du_sous_ensemble_et_de_la_piece(document: Any) -> None:
     furniture, sub, _, parts = meuble(document)
-    bottom_name = parts["CB"].Name
+    document.UndoMode = 1
+    document.clearUndos()
+    bottom_name, removed = parts["CB"].Name, parts["CG"].Name  # lus avant la suppression
     document.openTransaction("Supprimer")
-    document.removeObject(parts["CG"].Name)
+    document.removeObject(removed)
     document.commitTransaction()
     # Les autres membres gardent leur chaîne.
-    assert names(chain.chain_of(document.getObject(bottom_name))) == [
+    assert names(chain.selection_chain_of(document.getObject(bottom_name))) == [
         furniture.Name,
         sub.Name,
         bottom_name,
     ]
     document.undo()
-    assert document.getObject(parts["CG"].Name) is not None
+    assert document.getObject(removed) is not None
 
 
 def test_chaine_sans_cycle_ni_doublon(document: Any) -> None:
     furniture, sub, _, parts = meuble(document)
-    keys = names(chain.chain_of(parts["CB"]))
+    keys = names(chain.selection_chain_of(parts["CB"]))
     assert len(keys) == len(set(keys))
     assert keys[0] == furniture.Name
-    assert chain.chain_of(furniture) == []
+    assert chain.selection_chain_of(furniture) == []
     assert rules.double_click_target(keys, furniture.Name) == sub.Name
-    assert rules.up_target(names(chain.chain_of(furniture))) is None
+    assert rules.up_target(names(chain.selection_chain_of(furniture))) is None
 
 
 # --- ADR 0049 : cotes du parent recalées sur l'enveloppe de ses membres ------------------------
@@ -191,6 +196,14 @@ def assert_enveloppe(furniture: Any) -> None:
     assert sizes(furniture) == pytest.approx(expected, abs=1e-3)
 
 
+def assert_englobe(furniture: Any) -> None:
+    """La boîte du parent contient ses membres (elle peut être plus grande : jamais rétrécie)."""
+    box, frame = envelope.member_envelope(furniture), envelope.frame_of(furniture)
+    for i in range(3):
+        assert frame.lo(i) <= box.lo(i) + 1e-3
+        assert frame.hi(i) >= box.hi(i) - 1e-3
+
+
 def caisson_names(parts: dict[str, Any]) -> set[str]:
     """Brutes et pièces usinées du caisson (celles qui bougent avec lui)."""
     found = {part.Name for part in parts.values()}
@@ -205,10 +218,11 @@ def test_sous_ensemble_deplace_hors_du_parent_l_agrandit(document: Any) -> None:
     width = furniture.Width.Value
     assert api.move_furniture(sub, (900, 0, 0))
     document.recompute()
-    assert furniture.Width.Value > width + 800  # le parent englobe le caisson sorti à droite
+    # Le plateau va de 0 à 1200, le caisson sorti à droite finit à 1340 : le parent s'agrandit.
+    assert furniture.Width.Value > width + 100
     assert_enveloppe(furniture)
     assert global_boxes(document, skip) == others  # les autres pièces ne bougent pas
-    assert names(chain.chain_of(parts["CB"]))[0] == furniture.Name
+    assert names(chain.selection_chain_of(parts["CB"]))[0] == furniture.Name
 
 
 def test_sous_ensemble_deplace_a_gauche_decale_l_origine(document: Any) -> None:
@@ -229,7 +243,7 @@ def test_sous_ensemble_tourne_le_parent_englobe_la_rotation(document: Any) -> No
     assert drag.rotate_furniture_by(memento, 2, 30.0)
     drag.end_furniture_drag(memento)
     document.recompute()
-    assert_enveloppe(furniture)
+    assert_englobe(furniture)
 
 
 def test_enveloppe_deja_juste_rien_n_est_ecrit(document: Any) -> None:
@@ -256,3 +270,49 @@ def test_creation_autour_d_un_ensemble_tourne_l_englobe(document: Any) -> None:
     furniture, _ = api.make_furniture([bureau.parts["P"], sub], label="Meuble")
     document.recompute()
     assert_enveloppe(furniture)
+
+
+def test_le_parent_ne_retrecit_jamais(document: Any) -> None:
+    """« Agrandir les cotes du parent » (jv, 2026-11-11) : ramener le sous-ensemble garde la
+    boîte agrandie, une marge voulue n'est jamais perdue."""
+    furniture, sub, _, _ = meuble(document)
+    assert api.move_furniture(sub, (900, 0, 0))
+    document.recompute()
+    agrandie = sizes(furniture)
+    assert api.move_furniture(sub, (-900, 0, 0))
+    document.recompute()
+    assert sizes(furniture) == agrandie
+    assert_englobe(furniture)
+
+
+def test_repetition_qui_suit_le_parent_ne_bouge_pas(document: Any) -> None:
+    """Revue B1 : une répétition « Suivre le redimensionnement » lit les cotes du parent ;
+    l'agrandir redistribuerait ses copies. Le parent n'est donc pas recalé : rien ne bouge."""
+    bureau = build_parts(document)
+    sub, parts = caisson(document)
+    furniture, _ = api.make_furniture(
+        [*(bureau.parts[mark] for mark in ("P", "JG", "JD")), sub], label="Bureau"
+    )
+    rep = api.make_repeat(
+        [bureau.parts["JG"]], api.RepeatParams(count=1, step=300.0, axis="X", follow_resize=True)
+    )
+    document.recompute()
+    skip = caisson_names(parts)
+    others = global_boxes(document, skip)
+    avant = sizes(furniture)
+    assert api.move_furniture(sub, (900, 0, 0))
+    document.recompute()
+    assert sizes(furniture) == avant
+    assert global_boxes(document, skip) == others  # copies de la répétition comprises
+    assert rep.Document is not None
+
+
+def test_copies_d_un_sous_ensemble_repete_englobees(document: Any) -> None:
+    """Revue M1 : les copies d'un sous-ensemble répété suivent leur source par expression ;
+    l'enveloppe est calculée après leur recalcul, pas à leur ancienne place."""
+    furniture, sub, _, _ = meuble(document)
+    api.make_repeat([sub], api.RepeatParams(count=1, step=500.0, axis="X"))
+    document.recompute()
+    assert api.move_furniture(sub, (900, 0, 0))
+    document.recompute()
+    assert_englobe(furniture)
