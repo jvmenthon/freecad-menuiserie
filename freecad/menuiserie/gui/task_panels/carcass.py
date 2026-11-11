@@ -25,6 +25,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.core.templates.carcass import MAX_SHELVES, CarcassJoinery, CarcassParams
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.furniture_container import own_std_part
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.gui.task_panels import base
@@ -34,6 +35,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     close_transaction,
     connect,
 )
+from freecad.menuiserie.gui.task_panels.carcass_drag import CarcassDrag
 
 FORM_NAME: Final = "CarcassTaskPanel"
 ICON: Final = "Menuiserie_Carcass.svg"
@@ -103,6 +105,7 @@ class CarcassTaskPanel(TransactionTaskPanel):
         self._error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self._error.setStyleSheet(_ERROR_STYLE)
         layout.addRow(self._error)
+        self._drag = CarcassDrag(self)  # flèches, anneaux et poignées dans la vue 3D (ADR 0038)
         self.rebuild()
 
     # --- Aperçu ---------------------------------------------------------------------------
@@ -121,6 +124,7 @@ class CarcassTaskPanel(TransactionTaskPanel):
         """Caisson précédent abandonné avec sa transaction, puis recréé dans une transaction
         rouverte ; un refus s'affiche sous les champs. Une erreur inattendue (noyau
         géométrique) ou un objet créé en erreur abandonne aussi l'aperçu : rien ne reste."""
+        moved = self._placement()  # position donnée à la souris, gardée d'un aperçu à l'autre
         self._restart()
         before = {obj.Name for obj in self.doc.Objects}
         self.furniture, message = None, ""
@@ -128,6 +132,9 @@ class CarcassTaskPanel(TransactionTaskPanel):
             with translated_errors():
                 params = CarcassParams(**self.values())
             self.furniture, notices = api.make_carcass(self.doc, params)
+            part = own_std_part(self.furniture)
+            if part is not None and moved is not None:
+                part.Placement = moved
             message = "\n".join(notices)
             failed = [
                 str(obj.Label)
@@ -144,6 +151,26 @@ class CarcassTaskPanel(TransactionTaskPanel):
             message = translated(_UNEXPECTED, {"reason": str(error) or type(error).__name__})
         self._error.setText(message)
         self._error.setVisible(bool(message))
+        self._drag.follow(self.furniture)
+
+    def _placement(self) -> App.Placement | None:
+        """Placement du Std Part du caisson d'aperçu (déplacé ou tourné à la souris)."""
+        try:
+            part = own_std_part(self.furniture) if self.furniture is not None else None
+            return None if part is None else App.Placement(part.Placement)
+        except (ReferenceError, RuntimeError):  # objet déjà détruit
+            return None
+
+    def after_drag(self) -> None:
+        """Geste dans la vue 3D : cotes relues par les champs (sans refaire l'aperçu)."""
+        furniture = self.furniture
+        if furniture is None:
+            return
+        for name in ("width", "depth", "height"):
+            field = self._lengths[name]
+            field.blockSignals(True)  # pas de nouvel aperçu : le caisson est déjà à cette cote
+            field.setProperty("rawValue", getattr(furniture, name.capitalize()).Value)
+            field.blockSignals(False)
 
     def _restart(self) -> None:
         """Transaction abandonnée (l'aperçu disparaît) puis rouverte, vide."""

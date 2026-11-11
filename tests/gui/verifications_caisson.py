@@ -16,6 +16,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtGui
 
+from freecad.menuiserie.gui.drag import events
 from tests.gui.verifications_panneau import (
     annuler,
     avec_document,
@@ -96,6 +97,12 @@ def _apercu_puis_ok(doc: Any) -> list[str]:
         *ecarts("un seul caisson", compte(doc), attendu),
         *ecarts("largeur", furniture.Width.Value if furniture else None, 800.0),
     ]
+    session = events.current_session()
+    problemes += ecarts(
+        "poignées sur le caisson avant « OK » (ADR 0038)",
+        None if session is None or session.panel is None else session.panel.part.Name,
+        "Furniture",
+    )
     valider()
     QtGui.QApplication.processEvents()
     problemes += [
