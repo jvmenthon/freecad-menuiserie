@@ -176,6 +176,8 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
             self.swallow_release = False
             return True
         if Gui.Control.activeDialog():  # panneau de tâche ouvert : sélection native
+            if kind == QtCore.QEvent.MouseButtonPress:
+                _trace("appui ignoré : un panneau de tâche est ouvert")
             return False
         position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6/5
         point = view_point(watched, position.x(), position.y())
