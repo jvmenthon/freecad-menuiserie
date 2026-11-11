@@ -139,13 +139,14 @@ def test_b3_le_geste_tourne_a_partir_de_l_orientation_courante(
     assert angles_of(start.part.Placement.rotation) == pytest.approx((90.0, 0.0, 90.0), abs=1e-9)
 
 
-def test_b3_geste_refuse_si_une_liaison_pilotait_le_placement(
+def test_b3_geste_permis_si_seule_une_liaison_de_l_atelier_pilotait_le_placement(
     rotate: ModuleType, writes: Writes
 ) -> None:
-    """``begin_drag`` met les liaisons de l'atelier de côté : le mémento s'en souvient."""
+    """``begin_drag`` met les liaisons de l'atelier de côté : un membre d'ensemble peut tourner
+    (POC) ; seule une formule de l'utilisateur encore posée refuse le geste."""
     start = memento(aside={"Placement.Base.x": "Cadre.Placement.Base.x"})
-    assert rotate.rotate_by(start, 0, 15.0) is False
-    assert writes.calls == []
+    assert rotate.rotate_by(start, 0, 15.0) is True
+    writes.calls.clear()
     assert rotate.rotate_by(memento(part=part("Placement")), 0, 15.0) is False
     assert writes.calls == []
 

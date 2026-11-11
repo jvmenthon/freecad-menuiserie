@@ -19,7 +19,8 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import Guide, Ray
 from freecad.menuiserie.core.rotation import Ring
 from freecad.menuiserie.core.snap import Frame
-from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
+from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
+from freecad.menuiserie.features.furniture_bindings import workshop_expressions
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.snap_geometry import to_vec3
 from freecad.menuiserie.features.solids import rigid_transform
@@ -57,10 +58,19 @@ def frame_of(placement: App.Placement) -> Frame:
     return Frame(to_vec3(placement.Base), *axes)
 
 
+def user_placement_expression(part: DocumentObject) -> bool:
+    """Vrai si une formule **de l'utilisateur** pilote le ``Placement`` de ``part`` : les liaisons
+    de l'atelier (membre d'ensemble) sont mises de côté par le geste et ne comptent pas."""
+    workshop = workshop_expressions(part)
+    return any(
+        path.split(".")[0] == "Placement" and path not in workshop for path in expressions_of(part)
+    )
+
+
 def rings_of(part: DocumentObject, box: Box) -> tuple[Ring, ...]:
     """Anneaux de rotation de la brute ``part`` ; aucun si une expression pilote son ``Placement``
     (membre d'ensemble, formule : D6). Ils suivent les axes de son conteneur (B5)."""
-    if placement_expression(part) is not None:
+    if user_placement_expression(part):
         return ()
     container = part.getGlobalPlacement() * part.Placement.inverse()
     return build_rings(box, rigid_transform(part.Placement), rigid_transform(container))

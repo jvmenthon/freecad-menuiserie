@@ -93,7 +93,7 @@ def rotate_by(memento: DragMemento, axis: int, angle: float) -> bool:
     raw = memento.part
     if not math.isfinite(angle):
         raise ValueError("rotate_by.angle : angle fini attendu")
-    if _driven(raw, memento.aside):
+    if placement_expression(raw) is not None:  # formule de l'utilisateur ; l'atelier est de côté
         return False
     turned = turned_about(rigid_transform(memento.placement), dimensions_of(raw), axis, angle)
     write_placement(raw, to_placement(turned))
