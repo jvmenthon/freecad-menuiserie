@@ -49,7 +49,7 @@ class NodeKind(Enum):
     JOINTS = "joints"  # nœud replié « Assemblages (N) »
     JOINT = "joint"  # assemblage taillé dans le bois ou Distance
     HARDWARE = "hardware"  # nœud replié « Quincaillerie (N) »
-    HARDWARE_ITEM = "hardware_item"  # pieds, coulisse, LR32, tourillons, faux tenons, biscuits
+    HARDWARE_ITEM = "hardware_item"  # pieds, coulisses, taquets LR32
     REPEAT = "repeat"  # « <nom> xN », dépliable en ses copies
     COPY = "copy"  # copie d'une répétition (jamais glissable hors d'elle)
     CUTLIST = "cutlist"  # liste de débit
@@ -99,7 +99,7 @@ class StructureSource(Protocol):
         """Assemblages (hors quincaillerie) et Distances de ``furniture``."""
 
     def hardware(self, furniture: str) -> Sequence[str]:
-        """Objets de quincaillerie de ``furniture`` (pieds, coulisses, LR32, tourillons…)."""
+        """Objets de quincaillerie de ``furniture`` (pieds, coulisses, LR32)."""
 
     def loose_joints(self) -> Sequence[str]:
         """Assemblages et Distances qu'aucun ensemble ne range (``joints`` ne les rend pour

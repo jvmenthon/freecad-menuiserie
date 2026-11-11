@@ -15,6 +15,7 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
+from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.structure_icons import ICON_BY_KIND
 from freecad.menuiserie.core.structure_menu import Action
 from freecad.menuiserie.core.structure_tree import NodeKind
@@ -198,11 +199,18 @@ def _verifier_icones(bureau: Bureau, _dock: Any, arbre: Any, _synchro: Structure
                 problemes += ecarts(f"icône {genre.value}", ligne.icon(0).isNull(), attendu)
     vus = {genre for genre in NodeKind if genres_de(arbre, genre)}
     problemes += ecarts("genres vus", NodeKind.FURNITURE in vus and NodeKind.PIECE in vus, True)
-    # Les tourillons du bureau sont de la quincaillerie, avec l'icône de leur commande.
-    problemes += ecarts("quincaillerie vue", NodeKind.HARDWARE_ITEM in vus, True)
+    # Les tourillons du bureau sont des assemblages, avec l'icône de leur commande.
+    problemes += ecarts("assemblage vu", NodeKind.JOINT in vus, True)
     attendu = QtGui.QIcon(icon_path("Menuiserie_Dowels.svg")).isNull()
-    for _g, _texte, cle in genres_de(arbre, NodeKind.HARDWARE_ITEM):
-        ligne = item_for(arbre, cle)
+    tourillons = [
+        objet.Name
+        for objet in bureau.doc.Objects
+        if getattr(getattr(objet, "Proxy", None), "KIND", None) is JointKind.DOWELS
+    ]
+    problemes += ecarts("tourillons présents", bool(tourillons), True)
+    for nom in tourillons:
+        ligne = item_for(arbre, nom)
+        problemes += ecarts("tourillons montrés", ligne is not None, True)
         if ligne is not None:
             problemes += ecarts("icône tourillons", ligne.icon(0).isNull(), attendu)
     return problemes
