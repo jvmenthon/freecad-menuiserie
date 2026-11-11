@@ -32,7 +32,8 @@ from freecad.menuiserie.gui.drag.events import current_session
 __all__ = ["current_filter", "descend_at", "install", "installed", "uninstall"]
 
 View = Any
-CLICK_SLOP_PX: Final = 4  # au-delà, c'est un déplacement de la vue (rotation, panoramique)
+CLICK_SLOP_PX: Final = 4
+RECENT_PRESS_MS: Final = 1000  # au-delà, c'est un déplacement de la vue (rotation, panoramique)
 
 
 def picked_object(view: View, point: tuple[int, int]) -> DocumentObject | None:
@@ -147,8 +148,8 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
         self._press: tuple[QtCore.QPointF, DocumentObject | None, DocumentObject | None] | None = (
             None
         )
-        self._before: DocumentObject | None = None
-        self._before_ms = 0
+        self.before: DocumentObject | None = None
+        self.pressed_ms = 0
         # Double-clic consommé : son relâchement l'est aussi, sinon FreeCAD le traite comme un clic
         # sur une pièce déjà sélectionnée et sélectionne son Std Part (constaté par jv).
         self.swallow_release = False
@@ -194,21 +195,21 @@ class _ClickFilter(QtCore.QObject):  # type: ignore[misc]
     def _double_click(self, point: tuple[int, int], event: Any) -> bool:
         if event.modifiers() != QtCore.Qt.NoModifier:
             return False
-        recent = QtCore.QDateTime.currentMSecsSinceEpoch() - self._before_ms
-        before = self._before if recent < 2 * QtGui.QApplication.doubleClickInterval() else None
+        recent = QtCore.QDateTime.currentMSecsSinceEpoch() - self.pressed_ms
+        before = self.before if recent < 2 * QtGui.QApplication.doubleClickInterval() else None
         return descend_at(Gui.activeView(), point, before)
 
     def _pressed(self, point: tuple[int, int], event: Any, position: QtCore.QPointF) -> None:
         self._press = None
         if event.modifiers() != QtCore.Qt.NoModifier:
             return
-        self._before = selected_object()
-        self._before_ms = QtCore.QDateTime.currentMSecsSinceEpoch()
+        self.before = selected_object()
+        self.pressed_ms = QtCore.QDateTime.currentMSecsSinceEpoch()
         picked = picked_object(Gui.activeView(), point)
         handle = self._on_handle(point)
-        _trace(f"appui sur {_label(picked)}, avant {_label(self._before)}, poignée {handle}")
+        _trace(f"appui sur {_label(picked)}, avant {_label(self.before)}, poignée {handle}")
         if picked is not None and not handle:
-            self._press = (QtCore.QPointF(position), picked, self._before)
+            self._press = (QtCore.QPointF(position), picked, self.before)
 
     @staticmethod
     def _on_handle(point: tuple[int, int]) -> bool:
@@ -237,11 +238,74 @@ def _retarget_later(picked: DocumentObject, before: DocumentObject | None) -> No
         App.Console.PrintError(traceback.format_exc())
 
 
-_INSTALLATION: Final = Installation(_ClickFilter)
+def _recent_before() -> DocumentObject | None:
+    """Sélection d'avant le dernier appui vu par le filtre, s'il date de moins d'une seconde."""
+    filtre = _INSTALLATION.filter
+    if not isinstance(filtre, _ClickFilter):
+        return None
+    if QtCore.QDateTime.currentMSecsSinceEpoch() - filtre.pressed_ms > RECENT_PRESS_MS:
+        return None
+    return alive(filtre.before)
+
+
+def _retarget_selection() -> None:
+    """Sélection native d'un clic 3D vue par l'observateur : même règle que le clic simple, avec
+    la sélection d'avant l'appui si le filtre l'a vu (sinon : ensemble de plus haut niveau)."""
+    try:
+        selection = Gui.Selection.getSelection()
+        if not installed() or Gui.Control.activeDialog() or len(selection) != 1:
+            return
+        retarget_click(selection[0], _recent_before())
+    except Exception:  # pylint: disable=broad-exception-caught
+        App.Console.PrintError(traceback.format_exc())
+
+
+class _SelectionWatch:
+    """Observateur de sélection : une pièce sélectionnée **dans la vue 3D** (FreeCAD donne alors le
+    point cliqué), sans Ctrl ni Maj, est remplacée par l'élément voulu de sa chaîne. Il rattrape
+    les clics que le filtre ne voit pas (premier clic après la création d'un ensemble, constaté
+    par jv). Les sélections faites par l'arbre ou par script n'ont pas de point : ignorées."""
+
+    def addSelection(  # pylint: disable=invalid-name
+        self, _doc: str, _obj: str, _sub: str, point: Any
+    ) -> None:
+        """Point non nul et aucune touche de modification : remplacement après FreeCAD."""
+        try:
+            clicked = any(abs(float(v)) > 0.0 for v in point)
+        except (TypeError, ValueError):
+            return
+        plain = QtGui.QApplication.keyboardModifiers() == QtCore.Qt.NoModifier
+        if clicked and plain:
+            QtCore.QTimer.singleShot(0, _retarget_selection)
+
+
+class _ClickInstallation(Installation):
+    """Filtre d'évènements et observateur de sélection, posés ensemble avec l'atelier."""
+
+    def __init__(self) -> None:
+        super().__init__(_ClickFilter)
+        self.watch: _SelectionWatch | None = None
+
+    def install(self) -> None:
+        super().install()
+        if self.filter is not None and self.watch is None:
+            self.watch = _SelectionWatch()
+            Gui.Selection.addObserver(self.watch)
+
+    def uninstall(self) -> None:
+        try:
+            if self.watch is not None:
+                Gui.Selection.removeObserver(self.watch)
+        finally:
+            self.watch = None
+            super().uninstall()
+
+
+_INSTALLATION: Final = _ClickInstallation()
 
 
 def install() -> None:
-    """Pose le filtre (atelier activé, après celui du double-clic)."""
+    """Pose le filtre et l'observateur (atelier activé, après le filtre du double-clic)."""
     _INSTALLATION.install()
 
 

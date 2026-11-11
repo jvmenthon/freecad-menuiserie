@@ -123,6 +123,8 @@ class World:
         self.dialog = False
         self.now = 1000
         self.timers: list[Any] = []
+        self.modifiers = NO_MODIFIER
+        self.observers: list[Any] = []
         self.errors: list[str] = []
         self.chains: dict[str, list[str]] = {}
         self.pick: str | None = None  # nom de l'objet sous le curseur
@@ -176,6 +178,21 @@ def _QPointF(x: float | Point = 0, y: float = 0) -> Point:  # pylint: disable=in
     return Point.copy(x) if isinstance(x, Point) else Point(x, y)
 
 
+class Installation:
+    """``double_click.Installation`` simulée : le filtre est créé à la pose, oublié au retrait."""
+
+    def __init__(self, factory: Any) -> None:
+        self.filter: Any = None
+        self.factory = factory
+
+    def install(self) -> None:
+        if self.filter is None:
+            self.filter = self.factory()
+
+    def uninstall(self) -> None:
+        self.filter = None
+
+
 def _module(name: str, **attrs: Any) -> types.ModuleType:
     module = types.ModuleType(name)
     module.__dict__.update(attrs)
@@ -213,7 +230,12 @@ def simulated_click_select(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         ),
         Qt=quit_(LeftButton=LEFT, NoModifier=NO_MODIFIER),
     )
-    qt_gui = _module("QtGui", QApplication=quit_(doubleClickInterval=lambda: 400))
+    qt_gui = _module(
+        "QtGui",
+        QApplication=quit_(
+            doubleClickInterval=lambda: 400, keyboardModifiers=lambda: world.modifiers
+        ),
+    )
     pyside = _module("PySide", QtCore=qt_core, QtGui=qt_gui)
 
     def get_selection() -> list[Obj]:
@@ -228,6 +250,8 @@ def simulated_click_select(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
             getSelection=get_selection,
             clearSelection=world.selection.clear,
             addSelection=add_selection,
+            addObserver=world.observers.append,
+            removeObserver=world.observers.remove,
         ),
         Control=quit_(activeDialog=lambda: world.dialog),
         activeView=world.view,
@@ -242,11 +266,6 @@ def simulated_click_select(monkeypatch: pytest.MonkeyPatch) -> Iterator[World]:
         # Un membre supprimé quitte la chaîne, comme le lien « Furniture » remis à zéro.
         names = world.chains.get(obj.Name, [])
         return [world.doc.objects[n] for n in names if n in world.doc.objects]
-
-    class Installation:
-        def __init__(self, factory: Any) -> None:
-            self.filter = None
-            self.factory = factory
 
     stubs = {
         "FreeCAD": app,

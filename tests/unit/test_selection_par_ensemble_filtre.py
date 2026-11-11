@@ -377,3 +377,63 @@ def test_avant_supprime_avant_la_minuterie_sans_erreur(world: World) -> None:
     tiroir.invalidate()
     world.flush()
     assert world.errors == []
+
+
+# --- Observateur de sélection (clic que le filtre ne voit pas, jv 2026-11-11) ------------------
+
+
+def selection_3d(world: World, nom: str, point: tuple[float, float, float]) -> None:
+    """Sélection native de FreeCAD sur ``nom`` avec le point cliqué ``point``, sans appui vu par
+    le filtre, puis minuteries exécutées."""
+    world.selection[:] = [world.doc.objects[nom]]
+    watch = world.module._SelectionWatch()  # pylint: disable=protected-access
+    watch.addSelection(world.doc.Name, nom, "", point)
+    world.flush()
+
+
+def test_observateur_rattrape_le_premier_clic(world: World) -> None:
+    hierarchie(world)
+    world.filter()
+    selection_3d(world, "facade", (10.0, 20.0, 30.0))
+    assert world.selected() == ["meuble"]
+    assert world.errors == []
+
+
+def test_observateur_ignore_l_arbre_et_les_scripts(world: World) -> None:
+    hierarchie(world)
+    world.filter()
+    selection_3d(world, "facade", (0.0, 0.0, 0.0))
+    assert world.selected() == ["facade"]
+
+
+def test_observateur_ignore_ctrl_clic(world: World) -> None:
+    hierarchie(world)
+    world.filter()
+    world.modifiers = CONTROL
+    selection_3d(world, "facade", (10.0, 20.0, 30.0))
+    assert world.selected() == ["facade"]
+
+
+def test_observateur_garde_le_niveau_de_l_appui(world: World) -> None:
+    """Appui vu par le filtre (tiroir sélectionné) : l'observateur garde le tiroir."""
+    hierarchie(world)
+    filtre = world.filter()
+    world.selection[:] = [world.doc.objects["tiroir"]]
+    world.pick = "facade"
+    filtre.eventFilter(None, Event(PRESS))
+    selection_3d(world, "facade", (10.0, 20.0, 30.0))
+    assert world.selected() == ["tiroir"]
+
+
+def test_observateur_rien_atelier_quitte(world: World) -> None:
+    hierarchie(world)
+    world.module.uninstall()
+    selection_3d(world, "facade", (10.0, 20.0, 30.0))
+    assert world.selected() == ["facade"]
+
+
+def test_observateur_pose_et_retire_avec_l_atelier(world: World) -> None:
+    world.module.install()
+    assert len(world.observers) == 1
+    world.module.uninstall()
+    assert world.observers == []
