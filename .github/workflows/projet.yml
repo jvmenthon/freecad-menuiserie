@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  OWNER: jvmenthon
+  OWNER: "@me" # propriétaire du jeton (jvmenthon) : évite « unknown owner type »
   PROJECT: "1"
 
 jobs:
@@ -56,6 +56,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
+          set -euo pipefail
           echo "## Champs" >> "$GITHUB_STEP_SUMMARY"
           gh project field-list "$PROJECT" --owner "$OWNER" --format json \
             --jq '.fields[] | select(.options) | "\(.name): \([.options[].name] | join(", "))"' \
