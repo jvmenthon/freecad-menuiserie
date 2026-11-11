@@ -46,6 +46,7 @@ __all__ = [
     "OBJECT_NAME",
     "OPTIONS",
     "Furniture",
+    "ancestors",
     "box_of",
     "create_furniture",
     "follows_user_changes",
@@ -335,6 +336,16 @@ def furniture_of(obj: DocumentObject) -> DocumentObject | None:
         return None
     link = obj.Furniture
     return link if is_furniture(link) else None
+
+
+def ancestors(obj: DocumentObject) -> list[DocumentObject]:
+    """Ensembles qui contiennent ``obj`` (directement ou par ses sous-ensembles), du plus proche
+    au plus éloigné ; s'arrête sur un cycle (document abîmé) sans boucler."""
+    start, found = obj, list[DocumentObject]()
+    while (parent := furniture_of(obj)) is not None and parent not in [start, *found]:
+        found.append(parent)
+        obj = parent
+    return found
 
 
 def box_of(obj: DocumentObject) -> FurnitureBox | None:

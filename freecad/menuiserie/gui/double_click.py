@@ -20,6 +20,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
+from freecad.menuiserie.gui.app_filter import Installation
 from freecad.menuiserie.gui.view_providers.wood_part import PanelEditing
 
 __all__ = [
@@ -85,28 +86,6 @@ class _DoubleClickFilter(QtCore.QObject):  # type: ignore[misc]
         return open_at(Gui.activeView(), point)
 
 
-class _Installation:
-    """Filtre unique, posé sur l'application pendant que l'atelier est actif."""
-
-    def __init__(self) -> None:
-        self.filter: _DoubleClickFilter | None = None
-
-    def install(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is not None or application is None:
-            return
-        self.filter = _DoubleClickFilter()
-        application.installEventFilter(self.filter)
-
-    def uninstall(self) -> None:
-        application = QtGui.QApplication.instance()
-        if self.filter is None:
-            return
-        if application is not None:
-            application.removeEventFilter(self.filter)
-        self.filter = None
-
-
 def is_viewport_3d(widget: QtCore.QObject) -> bool:
     """Vrai si ``widget`` est la zone d'affichage d'une vue 3D (``QGraphicsView`` dans une
     ``Gui::View3DInventor``)."""
@@ -136,7 +115,7 @@ def viewports_3d(mdi_area: QtGui.QMdiArea, current_only: bool = False) -> list[Q
     return viewports
 
 
-_INSTALLATION: Final = _Installation()
+_INSTALLATION: Final = Installation(_DoubleClickFilter)
 
 
 def install() -> None:
