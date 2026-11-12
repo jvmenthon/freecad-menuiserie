@@ -125,6 +125,7 @@ def _plan(lignes: list[str]) -> list[str]:
     trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
     meuble = 'fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"'
     cote = 'fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"'
+    cartouche = 'stroke="#2e3436" stroke-width="1"'
     return [
         *lignes,
         f'  <rect x="4" y="6" width="56" height="52" rx="2" fill="#ffffff" {trait}/>',
@@ -132,8 +133,7 @@ def _plan(lignes: list[str]) -> list[str]:
         f'  <rect x="12" y="44" width="26" height="8" {meuble}/>',
         f'  <rect x="44" y="20" width="10" height="18" {meuble}/>',
         f'  <path d="M12,13 H38 M12,10 V16 M38,10 V16" {cote}/>',
-        '  <rect x="40" y="46" width="16" height="8" fill="#d3d7cf" stroke="#2e3436" '
-        'stroke-width="1"/>',
+        f'  <rect x="40" y="46" width="16" height="8" fill="#d3d7cf" {cartouche}/>',
     ]
 
 
