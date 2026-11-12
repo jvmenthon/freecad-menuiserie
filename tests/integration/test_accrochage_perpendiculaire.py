@@ -14,6 +14,7 @@ from freecad.menuiserie.core.geometry import Vec3
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
+Part = pytest.importorskip("Part")
 api = pytest.importorskip("freecad.menuiserie.api")
 picked = pytest.importorskip("freecad.menuiserie.features.picked")
 perpendicular = pytest.importorskip("freecad.menuiserie.features.perpendicular")
@@ -108,7 +109,8 @@ def test_piece_convertie_extremite_perpendiculaire(document: Any) -> None:
     box = geometry.global_shape(part).BoundBox
     assert round(box.XMin, 6) == round(xmax, 6)
     assert round(box.XMax - box.XMin, 6) == 45  # son épaisseur part de la face
-    assert round(box.ZMax - box.ZMin, 6) == 720  # longueur selon l'épaisseur de la traverse
+    # longueur (par défaut) selon l'épaisseur de la traverse
+    assert round(box.ZMax - box.ZMin, 6) == round(part.Length.Value, 6)
 
 
 def test_piece_convertie_tournee_perpendiculaire(document: Any) -> None:
@@ -118,4 +120,23 @@ def test_piece_convertie_tournee_perpendiculaire(document: Any) -> None:
     part, _start = create_against(document, rail, face_at(rail, (0, 1, 0), ymax))
     box = geometry.global_shape(part).BoundBox
     assert round(box.YMin, 6) == round(ymax, 6)  # appuyée sur l'extrémité tournée
-    assert round(box.ZMax - box.ZMin, 6) == 720
+    assert round(box.ZMax - box.ZMin, 6) == round(part.Length.Value, 6)
+
+
+def test_piece_convertie_section_de_la_face_selectionnee(document: Any) -> None:
+    """Bout plus étroit que l'encombrement (pièce en L) : la nouvelle pièce prend la largeur de la
+    face sélectionnée, pas celle de la pièce, et reste sur la face."""
+    solid = Part.makeBox(400, 100, 50).cut(Part.makeBox(200, 60, 50, App.Vector(200, 40, 0)))
+    source = document.addObject("Part::Feature", "EnL")
+    source.Shape = solid
+    document.recompute()
+    angle = pieces_galbees.shaped(source)
+    assert round(angle.Width.Value, 6) == 100
+    xmax = geometry.global_shape(angle).BoundBox.XMax
+    part, start = create_against(document, angle, face_at(angle, (1, 0, 0), xmax))
+    assert (round(start.width, 6), round(start.thickness, 6)) == (40, 50)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.XMin, 6) == round(xmax, 6)
+    assert round(box.YMax - box.YMin, 6) == 40
+    face_box = geometry.global_shape(angle).BoundBox
+    assert round(box.YMin - face_box.YMin, 6) == 0  # alignée sur la face étroite (y de 0 à 40)

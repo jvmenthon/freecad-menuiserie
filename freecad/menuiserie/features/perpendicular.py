@@ -3,11 +3,11 @@
 
 Si une seule face est sélectionnée et qu'elle appartient à une pièce de bois, à une pièce en bois
 (corps converti) ou à leur pièce usinée, d'équerre avec elle, la nouvelle pièce part
-perpendiculaire à la face, avec la largeur et l'épaisseur de la pièce qui la porte. Tout reste
-modifiable dans le panneau. Dans tous les autres cas (plusieurs éléments, arête, sommet, face
-courbe ou oblique, objet d'un autre atelier, lien),
-rien ne change : :func:`perpendicular_start` renvoie ``None``. Aucune modification du document ni
-de la sélection ; aucun import de ``FreeCADGui``.
+perpendiculaire à la face, avec la largeur et l'épaisseur de la face sélectionnée (celles de la
+pièce qui la porte quand la cote est normale à la face). Tout reste modifiable dans le panneau.
+Dans tous les autres cas (plusieurs éléments, arête, sommet, face courbe ou oblique, objet d'un
+autre atelier, lien), rien ne change : :func:`perpendicular_start` renvoie ``None``. Aucune
+modification du document ni de la sélection ; aucun import de ``FreeCADGui``.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from freecad.menuiserie.core.snap import (
     FaceTarget,
     Orientation,
+    face_section,
     perpendicular_orientation,
     support_rotation,
 )
@@ -69,4 +70,7 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     if orientation is None:
         return None
     dimensions = dimensions_of(blank)
-    return PerpendicularStart(orientation, dimensions.width, dimensions.thickness)
+    width, thickness = face_section(
+        support, owner, target.extent, (dimensions.width, dimensions.thickness)
+    )
+    return PerpendicularStart(orientation, width, thickness)

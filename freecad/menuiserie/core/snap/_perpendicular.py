@@ -15,7 +15,7 @@ from freecad.menuiserie.core.geometry import Matrix3, Vec3, squared_rotation
 from freecad.menuiserie.core.snap._model import Orientation, product
 from freecad.menuiserie.core.vectors import cross
 
-__all__ = ["perpendicular_orientation"]
+__all__ = ["face_section", "perpendicular_orientation"]
 
 _LENGTH, _WIDTH, _THICKNESS = 0, 1, 2
 _NORMAL_ROW = 2  # ligne « normale sortante » du repère d'appui
@@ -56,3 +56,27 @@ def perpendicular_orientation(support: Matrix3, owner: Matrix3) -> Orientation |
     rows = [[axis.component(row) for axis in axes] for row in range(3)]
     x, y, z = (Vec3.of(row) for row in rows)
     return Orientation(((x.x, x.y, x.z), (y.x, y.y, y.z), (z.x, z.y, z.z)))
+
+
+def face_section(
+    support: Matrix3, owner: Matrix3, extent: tuple[float, float], section: tuple[float, float]
+) -> tuple[float, float]:
+    """Section (largeur, épaisseur) de la nouvelle pièce posée contre une face d'étendue ``extent``
+    (selon les deux premiers axes du repère d'appui ``support``), portée par une pièce de rotation
+    ``owner`` et de section ``section``.
+
+    Une cote dont l'axe est dans le plan de la face prend l'étendue de la face selon cet axe : sur
+    une pièce dessinée (corps converti), la face peut être plus petite que l'encombrement. Une cote
+    dont l'axe est la normale de la face garde celle de la pièce. ``section`` est rendue telle
+    quelle si la pièce n'est pas d'équerre avec la face."""
+    seen = squared_rotation(product(_transposed(support), owner))
+    if any(value not in (-1.0, 0.0, 1.0) for row in seen for value in row):
+        return section
+
+    def along(axis: int, fallback: float) -> float:
+        for row in (0, 1):
+            if seen[row][axis] != 0.0 and extent[row] > 0.0:
+                return extent[row]
+        return fallback
+
+    return along(_WIDTH, section[0]), along(_THICKNESS, section[1])

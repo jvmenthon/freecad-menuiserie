@@ -10,6 +10,7 @@ from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.snap import (
     FaceTarget,
     Frame,
+    face_section,
     perpendicular_orientation,
     snap,
     support_rotation,
@@ -84,3 +85,34 @@ def test_piece_tournee_d_un_quart_de_tour(quarter: Matrix3) -> None:
     target = face(Vec3(0, 800, 0), Z, X, Y)  # normale +Y = longueur de la pièce tournée
     low, high = occupied(target, quarter)
     assert (low.y, high.y) == (800, 830)
+
+
+def section_against(target: FaceTarget, owner: Matrix3 = IDENTITY) -> tuple[float, float]:
+    support = support_rotation([target])
+    assert support is not None
+    return face_section(support, owner, target.extent, (100.0, 30.0))
+
+
+def narrow(x: Vec3, y: Vec3, normal: Vec3, extent: tuple[float, float]) -> FaceTarget:
+    return FaceTarget("Face", Frame(Vec3(0, 0, 0), x, y, normal), extent, planar=True)
+
+
+def test_section_d_une_extremite_plus_etroite_que_la_piece() -> None:
+    # bout d'une pièce dessinée : 40 selon la largeur (Y), 30 selon l'épaisseur (Z)
+    assert section_against(narrow(Y, Z, X, (40.0, 30.0))) == (40.0, 30.0)
+    assert section_against(narrow(Z, Y, MINUS_X, (30.0, 40.0))) == (40.0, 30.0)
+
+
+def test_section_contre_une_grande_face_garde_l_epaisseur_de_la_piece() -> None:
+    # face de dessus réduite à 300 x 60 : largeur de la face, épaisseur de la pièce (normale)
+    assert section_against(narrow(X, Y, Z, (300.0, 60.0))) == (60.0, 30.0)
+
+
+def test_section_contre_un_chant_garde_la_largeur_de_la_piece() -> None:
+    assert section_against(narrow(Z, X, Y, (20.0, 300.0))) == (100.0, 20.0)
+
+
+def test_section_inchangee_si_la_piece_est_oblique() -> None:
+    half = 0.5**0.5
+    oblique: Matrix3 = ((half, -half, 0.0), (half, half, 0.0), (0.0, 0.0, 1.0))
+    assert section_against(narrow(Y, Z, X, (40.0, 30.0)), oblique) == (100.0, 30.0)
