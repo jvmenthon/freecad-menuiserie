@@ -21,6 +21,7 @@ placement_module = pytest.importorskip("freecad.menuiserie.features.placement")
 geometry = pytest.importorskip("freecad.menuiserie.features.snap_geometry")
 targets = pytest.importorskip("freecad.menuiserie.features.snap_targets")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
+pieces_galbees = pytest.importorskip("tests.integration.pieces_galbees")
 
 ABOVE = Vec3(0, 0, 1)
 
@@ -89,3 +90,32 @@ def test_aucun_depart_pour_un_objet_d_un_autre_atelier(document: Any) -> None:
     document.recompute()
     reading = targets.read_targets([picked.PickedElement(cube, "Face6", None)], ABOVE)
     assert perpendicular.perpendicular_start(reading) is None
+
+
+def converted_rail(document: Any, placement: Any) -> Any:
+    """Pièce en bois (corps converti) de la traverse galbée, posée au ``placement``."""
+    rail = pieces_galbees.shaped(pieces_galbees.curved_rail(document))
+    rail.Placement = placement
+    document.recompute()
+    return rail
+
+
+def test_piece_convertie_extremite_perpendiculaire(document: Any) -> None:
+    rail = converted_rail(document, App.Placement(App.Vector(100, 50, 0), App.Rotation()))
+    xmax = geometry.global_shape(rail).BoundBox.XMax
+    part, start = create_against(document, rail, face_at(rail, (1, 0, 0), xmax))
+    assert (round(start.width, 6), round(start.thickness, 6)) == (95, 45)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.XMin, 6) == round(xmax, 6)
+    assert round(box.XMax - box.XMin, 6) == 45  # son épaisseur part de la face
+    assert round(box.ZMax - box.ZMin, 6) == 720  # longueur selon l'épaisseur de la traverse
+
+
+def test_piece_convertie_tournee_perpendiculaire(document: Any) -> None:
+    turned = App.Placement(App.Vector(0, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    rail = converted_rail(document, turned)
+    ymax = geometry.global_shape(rail).BoundBox.YMax
+    part, _start = create_against(document, rail, face_at(rail, (0, 1, 0), ymax))
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.YMin, 6) == round(ymax, 6)  # appuyée sur l'extrémité tournée
+    assert round(box.ZMax - box.ZMin, 6) == 720
