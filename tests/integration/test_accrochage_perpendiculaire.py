@@ -48,13 +48,16 @@ def face_at(obj: Any, normal: tuple[float, float, float], coordinate: float) -> 
     raise AssertionError("face introuvable")
 
 
-def create_against(document: Any, root: Any, subname: str) -> tuple[Any, Any]:
-    """(pièce créée, départ perpendiculaire) comme le fait la commande."""
-    reading = targets.read_targets([picked.PickedElement(root, subname, None)], ABOVE)
+def create_against(
+    document: Any, root: Any, subname: str, click: Vec3 | None = None
+) -> tuple[Any, Any]:
+    """(pièce créée, départ perpendiculaire) comme le fait la commande ; ``click`` : point cliqué
+    (coordonnées globales)."""
+    reading = targets.read_targets([picked.PickedElement(root, subname, click)], ABOVE)
     start = perpendicular.perpendicular_start(reading)
     assert start is not None
     part = api.make_wood_part(width=start.width, thickness=start.thickness, doc=document)
-    session = targets.new_session(reading, wood_part.dimensions_of(part), start.orientation)
+    session = targets.new_session(start.reading, wood_part.dimensions_of(part), start.orientation)
     placement_module.snap_part(part, session)
     document.recompute()
     return part, start
@@ -140,3 +143,21 @@ def test_piece_convertie_section_de_la_face_selectionnee(document: Any) -> None:
     assert round(box.YMax - box.YMin, 6) == 40
     face_box = geometry.global_shape(angle).BoundBox
     assert round(box.YMin - face_box.YMin, 6) == 0  # alignée sur la face étroite (y de 0 à 40)
+
+
+def test_piece_convertie_largeur_a_l_endroit_du_clic(document: Any) -> None:
+    """Dessus d'une pièce en L : cliqué sur le bras étroit (y de 0 à 40), la nouvelle pièce prend
+    40 de large et s'y cale ; cliqué sur la partie large, elle prend 100."""
+    solid = Part.makeBox(400, 100, 50).cut(Part.makeBox(200, 60, 50, App.Vector(200, 40, 0)))
+    source = document.addObject("Part::Feature", "EnL")
+    source.Shape = solid
+    document.recompute()
+    angle = pieces_galbees.shaped(source)
+    top = geometry.global_shape(angle).BoundBox
+    face = face_at(angle, (0, 0, 1), top.ZMax)
+    narrow, _ = create_against(document, angle, face, Vec3(top.XMin + 350, top.YMin + 20, top.ZMax))
+    box = geometry.global_shape(narrow).BoundBox
+    assert round(box.YMax - box.YMin, 6) == 40
+    assert (round(box.YMin - top.YMin, 6), round(box.ZMin - top.ZMax, 6)) == (0, 0)
+    wide, _ = create_against(document, angle, face, Vec3(top.XMin + 100, top.YMin + 70, top.ZMax))
+    assert round(geometry.global_shape(wide).BoundBox.YMax - top.YMin, 6) == 100

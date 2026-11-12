@@ -59,24 +59,27 @@ def perpendicular_orientation(support: Matrix3, owner: Matrix3) -> Orientation |
 
 
 def face_section(
-    support: Matrix3, owner: Matrix3, extent: tuple[float, float], section: tuple[float, float]
+    support: Matrix3,
+    owner: Matrix3,
+    orientation: Orientation,
+    extent: tuple[float, float],
+    section: tuple[float, float],
 ) -> tuple[float, float]:
     """Section (largeur, épaisseur) de la nouvelle pièce posée contre une face d'étendue ``extent``
     (selon les deux premiers axes du repère d'appui ``support``), portée par une pièce de rotation
-    ``owner`` et de section ``section``.
+    ``owner`` et de section ``section``, la nouvelle pièce partant dans l'``orientation`` donnée.
 
-    Une cote dont l'axe est dans le plan de la face prend l'étendue de la face selon cet axe : sur
-    une pièce dessinée (corps converti), la face peut être plus petite que l'encombrement. Une cote
-    dont l'axe est la normale de la face garde celle de la pièce. ``section`` est rendue telle
-    quelle si la pièce n'est pas d'équerre avec la face."""
+    La pièce garde la section de celle qui porte la face, sauf la largeur quand elle reste
+    parallèle à celle de l'autre pièce et dans le plan de la face : elle prend alors l'étendue de la
+    face selon cet axe, à l'endroit du clic (sur une pièce dessinée, la face peut être plus petite
+    que l'encombrement)."""
     seen = squared_rotation(product(_transposed(support), owner))
     if any(value not in (-1.0, 0.0, 1.0) for row in seen for value in row):
         return section
-
-    def along(axis: int, fallback: float) -> float:
-        for row in (0, 1):
-            if seen[row][axis] != 0.0 and extent[row] > 0.0:
-                return extent[row]
-        return fallback
-
-    return along(_WIDTH, section[0]), along(_THICKNESS, section[1])
+    owner_width = _column(seen, _WIDTH)
+    new_width = _column(orientation.rotation(), _WIDTH)
+    for row in (0, 1):
+        parallel = abs(new_width.component(row)) == 1.0 and abs(owner_width.component(row)) == 1.0
+        if parallel and extent[row] > 0.0:
+            return extent[row], section[1]
+    return section

@@ -12,7 +12,7 @@ modification du document ni de la sélection ; aucun import de ``FreeCADGui``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from freecad.menuiserie.core.snap import (
     FaceTarget,
@@ -25,7 +25,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.picked import crosses_link
 from freecad.menuiserie.features.shaped_part import is_timber
-from freecad.menuiserie.features.snap_targets import TargetReading
+from freecad.menuiserie.features.snap_targets import TargetReading, local_face_target
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
@@ -34,11 +34,13 @@ __all__ = ["PerpendicularStart", "perpendicular_start"]
 
 @dataclass(frozen=True)
 class PerpendicularStart:
-    """Orientation de départ et section (largeur, épaisseur, mm) de la nouvelle pièce."""
+    """Orientation de départ, section (largeur, épaisseur, mm) de la nouvelle pièce et lecture à
+    utiliser pour l'accrochage (face limitée à la tranche cliquée)."""
 
     orientation: Orientation
     width: float
     thickness: float
+    reading: TargetReading
 
 
 def _wood_part_of(reading: TargetReading) -> DocumentObject | None:
@@ -59,11 +61,17 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     """Départ perpendiculaire à la face lue, ``None`` s'il ne s'applique pas."""
     if len(reading.targets) != 1 or not reading.elements:
         return None
-    target, support = reading.targets[0], support_rotation(reading.targets)
-    if not isinstance(target, FaceTarget) or not target.planar or support is None:
+    target = reading.targets[0]
+    if not isinstance(target, FaceTarget) or not target.planar:
         return None
     blank = _wood_part_of(reading)
     if blank is None:
+        return None
+    local = local_face_target(reading)  # la face à l'endroit du clic, pas toute la face
+    if local is not None:
+        reading, target = replace(reading, targets=(local,)), local
+    support = support_rotation(reading.targets)
+    if support is None:
         return None
     owner = rigid_transform(blank.getGlobalPlacement()).rotation
     orientation = perpendicular_orientation(support, owner)
@@ -71,6 +79,6 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
         return None
     dimensions = dimensions_of(blank)
     width, thickness = face_section(
-        support, owner, target.extent, (dimensions.width, dimensions.thickness)
+        support, owner, orientation, target.extent, (dimensions.width, dimensions.thickness)
     )
-    return PerpendicularStart(orientation, width, thickness)
+    return PerpendicularStart(orientation, width, thickness, reading)

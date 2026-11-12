@@ -75,6 +75,7 @@ class CreateWoodPartCommand:
                     obj = make_wood_part(doc=doc)
                 else:
                     obj = make_wood_part(width=start.width, thickness=start.thickness, doc=doc)
+                    reading = start.reading  # face limitée à la tranche cliquée
                 orientation = start.orientation if start else None
                 session = new_session(reading, dimensions_of(obj), orientation)
                 add_to_container(obj, session.container)
