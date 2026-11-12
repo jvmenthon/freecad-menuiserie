@@ -1,4 +1,4 @@
-# ADR 0053 — Quincaillerie : charnières à cuvette et vis
+# ADR 0055 — Quincaillerie : charnières à cuvette et vis
 
 - Statut : **proposé** (issue #156, à valider par jv ; aucun code avant son accord)
 - Date : 2026-11-12
