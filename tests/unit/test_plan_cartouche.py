@@ -24,7 +24,7 @@ FIELDS = TitleFields(
 def test_cases_connues_remplies() -> None:
     keys = ["drawing_title", "scale", "date", "author_name", "part_material", "sheet_number"]
     assert title_block_texts(keys, FIELDS) == {
-        "drawing_title": "Bureau",
+        "drawing_title": "Bureau - Mme Dupont",  # pas de case client
         "scale": "1 : 10",
         "date": "2026-11-12",
         "author_name": "jv",
