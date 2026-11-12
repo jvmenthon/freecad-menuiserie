@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import pytest
 
-from freecad.menuiserie.core.geometry import Box, Cylinder, Dimensions, JointError, PlacedBlock
+from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock
 from freecad.menuiserie.core.joints import JointKind, strategy_for
 from freecad.menuiserie.core.joints._footprint import margin
 from freecad.menuiserie.core.joints.feet import FootParams
 from freecad.menuiserie.core.joints.slides import SlideParams
+from freecad.menuiserie.core.part_model import Dimensions
 from tests.unit.aides_assemblages import block, placed, rotation_y
 
 FOOT = strategy_for(JointKind.FOOT)
