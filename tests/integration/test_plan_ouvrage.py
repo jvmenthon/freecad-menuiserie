@@ -159,7 +159,10 @@ def test_cartouche_rempli(bureau: Bureau) -> None:
     assert "1 : 10" in written and "D-2026-014" in written, texts
     # Case client, ou client écrit après le titre si le gabarit n'en a pas.
     assert "Mme Dupont" in written or "Bureau - Mme Dupont" in written, texts
-    assert any("Chêne" in value or "chêne" in value.lower() for value in written), texts
+    material = str(bureau.parts["P"].Material)
+    assert any(material in value for value in written), "\n".join(
+        f"{key} = {value!r}" for key, value in sorted(texts.items())
+    )
 
 
 def test_cartouche_garde_les_saisies_a_la_relance(bureau: Bureau) -> None:
