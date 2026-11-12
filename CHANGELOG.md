@@ -13,6 +13,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
   sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
   un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le
