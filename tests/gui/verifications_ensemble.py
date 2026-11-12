@@ -17,7 +17,6 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import api, icon_path
-from freecad.menuiserie.gui.commands.base import would_run
 from tests.commandes_ensembles import COMMANDES_ENSEMBLE
 from tests.gui.verifications_assemblages import observateurs_comptes, selectionner
 from tests.gui.verifications_panneau import (
@@ -105,6 +104,7 @@ def verifier_commandes_d_ensemble_presentes() -> list[str]:
         constats = {
             "libellé": (infos["menuText"], libelle),
             "infobulle": (bool(infos["toolTip"].strip()), True),
+            "prérequis dans l'infobulle": ("Prérequis : " in infos["toolTip"], True),
             "icône": (infos["pixmap"], icon_path(f"{nom}.svg")),
             "icône affichée": (commande.getAction()[0].icon().isNull(), False),
             "emplacements": (sorted(emplacements(nom)), emplacements_attendus(nom)),
@@ -115,7 +115,7 @@ def verifier_commandes_d_ensemble_presentes() -> list[str]:
 
 
 def actives() -> tuple[bool, ...]:
-    return tuple(would_run(nom) for nom in COMMANDES_ENSEMBLE)
+    return tuple(bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ENSEMBLE)
 
 
 def verifier_activation_des_commandes_d_ensemble() -> list[str]:

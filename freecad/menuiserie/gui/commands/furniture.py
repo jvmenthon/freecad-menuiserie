@@ -32,7 +32,6 @@ from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import (
     REFUSAL_DISPLAY_MS,
     TransactionCommand,
-    add_command,
     refusable_transaction,
 )
 
@@ -80,17 +79,21 @@ class FurnitureCommand(TransactionCommand):
     l'objet de sa transaction, :meth:`accepts` (la sélection convient-elle ?) et :meth:`apply`
     (l'action sur une sélection acceptée)."""
 
-    def selection_ok(self) -> bool:
-        """Vrai si la sélection convient : elle est seulement examinée, aucune action n'est
-        préparée."""
-        return self._accepted_selection() is not None
+    def IsActive(self) -> bool:
+        """Active s'il y a un document, aucun panneau ouvert et une sélection qui convient.
+        Appelée à chaque rafraîchissement de l'interface : la sélection est seulement
+        examinée, aucune action n'est préparée."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and self._accepted_selection() is not None
+        )
 
     def Activated(self) -> None:
         """Action dans la transaction de la commande, validée (une entrée d'annulation) ou
         abandonnée sur un refus, signalé dans la barre d'état et la vue rapport."""
         selection = self._accepted_selection()
         if selection is None:
-            self.explain_selection()
             return
         shown = concerned_furniture()
         messages: Sequence[str] | None = None
@@ -154,7 +157,7 @@ class CreateFurnitureCommand(FurnitureCommand):
         "distance est fixe. Double-cliquez l'ensemble pour régler ses cotes et ses pièces.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un ensemble")
-    SELECTION_HINT = hints.FURNITURE
+    PREREQUISITE = hints.FURNITURE
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Toute sélection de pièces et d'ensembles."""
@@ -176,7 +179,7 @@ class AddToFurnitureCommand(FurnitureCommand):
         "cotes, toutes leurs distances aux bords étant fixes par défaut.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Ajouter à l'ensemble")
-    SELECTION_HINT = hints.FURNITURE_ADD
+    PREREQUISITE = hints.FURNITURE_ADD
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Un ensemble et au moins un autre objet."""
@@ -199,7 +202,7 @@ class RemoveFromFurnitureCommand(FurnitureCommand):
         "place, mais ne suivent plus ses cotes.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Retirer de l'ensemble")
-    SELECTION_HINT = hints.FURNITURE_REMOVE
+    PREREQUISITE = hints.FURNITURE_REMOVE
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Sélection faite de membres seulement."""
@@ -223,7 +226,7 @@ class RebindFurnitureCommand(FurnitureCommand):
         "« fixe » sont gardées.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Relier les pièces")
-    SELECTION_HINT = hints.FURNITURE_REBIND
+    PREREQUISITE = hints.FURNITURE_REBIND
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Un seul ensemble sélectionné."""
@@ -236,7 +239,7 @@ class RebindFurnitureCommand(FurnitureCommand):
 
 def register() -> None:
     """Enregistre les commandes de l'ensemble auprès de FreeCAD."""
-    add_command(FURNITURE, CreateFurnitureCommand())
-    add_command(FURNITURE_ADD, AddToFurnitureCommand())
-    add_command(FURNITURE_REMOVE, RemoveFromFurnitureCommand())
-    add_command(FURNITURE_REBIND, RebindFurnitureCommand())
+    Gui.addCommand(FURNITURE, CreateFurnitureCommand())
+    Gui.addCommand(FURNITURE_ADD, AddToFurnitureCommand())
+    Gui.addCommand(FURNITURE_REMOVE, RemoveFromFurnitureCommand())
+    Gui.addCommand(FURNITURE_REBIND, RebindFurnitureCommand())

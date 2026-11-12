@@ -21,7 +21,6 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.gui import joint_choice
-from freecad.menuiserie.gui.commands.base import would_run
 from tests.commandes_assemblages import COMMANDES_ASSEMBLAGE
 from tests.gui.verifications_panneau import (
     annuler,
@@ -150,6 +149,12 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
         infos = commande.getInfo()
         problemes += [
             *ecarts(f"{nom} libellé", infos["menuText"], libelle),
+            *ecarts(f"{nom} prérequis", "Prérequis : " in infos["toolTip"], True),
+            *ecarts(
+                f"{nom} prérequis au survol du bouton",
+                "Prérequis : " in commande.getAction()[0].toolTip(),
+                True,
+            ),
             *ecarts(f"{nom} icône", infos["pixmap"], icon_path(f"{nom}.svg")),
             *ecarts(f"{nom} icône affichée", commande.getAction()[0].icon().isNull(), False),
             *ecarts(
@@ -162,7 +167,7 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
 
 
 def actives() -> dict[str, bool]:
-    return {nom: would_run(nom) for nom in COMMANDES_ASSEMBLAGE}
+    return {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
 
 
 PIEDS = ("Menuiserie_Foot", "Menuiserie_ShelfPins")  # commandes sur une seule pièce
@@ -177,45 +182,11 @@ def attendues(actives_si_fabrique: bool, une_piece: bool = False) -> dict[str, b
     }
 
 
-def verifier_selection_expliquee(doc: Any) -> list[str]:
-    """Issue #221 : sans sélection, chaque commande reste active ; lancée, elle dit quoi
-    sélectionner dans la boîte de l'atelier, sans objet créé ni entrée d'annulation."""
-    from PySide import QtGui
-
-    from freecad.menuiserie.gui.commands.base import REFUSAL_BOX_NAME
-
-    Gui.Selection.clearSelection()
-    doc.UndoMode = 1
-    avant, entrees = [o.Name for o in doc.Objects], list(doc.UndoNames)
-    restees_actives = {nom: bool(Gui.Command.get(nom).isActive()) for nom in COMMANDES_ASSEMBLAGE}
-    problemes = ecarts(
-        "actives sans sélection", restees_actives, dict.fromkeys(restees_actives, True)
-    )
-    for nom, attendu in (
-        ("Menuiserie_MortiseTenon", "deux pièces"),
-        ("Menuiserie_Foot", "une seule"),
-    ):
-        Gui.Command.get(nom).run()
-        boite = Gui.getMainWindow().findChild(QtGui.QMessageBox, REFUSAL_BOX_NAME)
-        message = boite.text() if boite is not None and boite.isVisible() else ""
-        if boite is not None:
-            boite.hide()
-        problemes += ecarts(f"{nom} : sélection expliquée", attendu in message, True)
-    return [
-        *problemes,
-        *ecarts("objets", [o.Name for o in doc.Objects], avant),
-        *ecarts("panneau ouvert", bool(Gui.Control.activeDialog()), False),
-        *ecarts("entrées d'annulation", list(doc.UndoNames), entrees),
-    ]
-
-
 def verifier_activation_des_commandes_d_assemblage() -> list[str]:
-    """C1 : n'agissent que pour deux pièces distinctes (les pieds : une pièce) et sans panneau
-    ouvert ; sans la bonne sélection elles restent actives et disent quoi sélectionner (issue
-    #221)."""
+    """C1 : actives seulement pour deux pièces distinctes (les pieds : une pièce) et sans panneau
+    ouvert."""
     with cadre("VerifActivationAssemblage") as (doc, pieces):
         problemes = ecarts("aucune sélection", actives(), attendues(False))
-        problemes += verifier_selection_expliquee(doc)
         selectionner(pieces["M1"])
         problemes += ecarts("une pièce", actives(), attendues(False, une_piece=True))
         selectionner(pieces["M1"], pieces["T1"])

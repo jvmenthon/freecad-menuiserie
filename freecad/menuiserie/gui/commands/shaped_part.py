@@ -16,6 +16,7 @@ from collections.abc import Iterable
 from typing import Final
 
 import FreeCAD as App
+import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.api import make_shaped_parts
@@ -31,19 +32,19 @@ from freecad.menuiserie.features.snap_targets import TargetReading, new_session,
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 from freecad.menuiserie.gui.camera import frame_view
 from freecad.menuiserie.gui.commands import hints
-from freecad.menuiserie.gui.commands.base import (
-    add_command,
-    command_ready,
-    explain_selection,
-    report_refusal,
-)
+from freecad.menuiserie.gui.commands.base import report_refusal, tool_tip
 from freecad.menuiserie.gui.selection import picked_elements, view_direction
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error, close_transaction
 from freecad.menuiserie.gui.task_panels.shaped_part import show_panel
 
 COMMAND_NAME: Final = "Menuiserie_ShapedPart"
 ICON: Final = "Menuiserie_ShapedPart.svg"
-MENU_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie_ShapedPart", "Convertir en pièce en bois")
+TOOL_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie_ShapedPart",
+    "Fait d'un corps PartDesign, d'une forme Part ou d'une esquisse fermée une pièce "
+    "en bois : matériau, sens du fil, repère et liste de débit. La forme d'origine "
+    "n'est pas modifiée ; la pièce suit ses changements.",
+)
 TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Convertir en pièce en bois")
 EMPTY_LIBRARY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -137,34 +138,24 @@ class ConvertToShapedPartCommand:
         """Icône, libellé et infobulle (traduits par FreeCAD, contexte = nom de la commande)."""
         return {
             "Pixmap": icon_path(ICON),
-            "MenuText": MENU_TEXT,
-            "ToolTip": QT_TRANSLATE_NOOP(
-                "Menuiserie_ShapedPart",
-                "Fait d'un corps PartDesign, d'une forme Part ou d'une esquisse fermée une pièce "
-                "en bois : matériau, sens du fil, repère et liste de débit. La forme d'origine "
-                "n'est pas modifiée ; la pièce suit ses changements.",
-            ),
+            "MenuText": QT_TRANSLATE_NOOP("Menuiserie_ShapedPart", "Convertir en pièce en bois"),
+            "ToolTip": tool_tip(COMMAND_NAME, TOOL_TIP, hints.SHAPED_PART),
         }
 
     def IsActive(self) -> bool:
-        """Active s'il y a un document, au moins un matériau et aucun panneau de tâche, quelle
-        que soit la sélection : sans source acceptable, le clic dit quoi sélectionner."""
-        return command_ready() and bool(len(get_library()))
-
-    def selection_ok(self) -> bool:
-        """Vrai si la sélection contient une source acceptable (contrôle léger)."""
+        """Active s'il y a un document, au moins un matériau, aucun panneau de tâche et une
+        source acceptable dans la sélection."""
+        if App.ActiveDocument is None or Gui.Control.activeDialog() or not len(get_library()):
+            return False
         sources, _targets = split_selection(picked_elements())
         return any(is_candidate(source) for source in sources)
 
     def Activated(self) -> None:
         """Sélection lue avant tout, puis une pièce par source dans la transaction « Convertir en
         pièce en bois » (un seul panneau pour une seule pièce créée). Une exception ne laisse ni
-        pièce ni transaction. Sans source acceptable : la sélection attendue est expliquée."""
+        pièce ni transaction."""
         if not len(get_library()):
             report_warning(translated(EMPTY_LIBRARY))
-            return
-        if not self.selection_ok():
-            explain_selection(COMMAND_NAME, MENU_TEXT, hints.SHAPED_PART)
             return
         sources, extras = split_selection(picked_elements())
         reading = read_targets(extras, view_direction())
@@ -184,4 +175,4 @@ class ConvertToShapedPartCommand:
 
 def register() -> None:
     """Enregistre la commande auprès de FreeCAD."""
-    add_command(COMMAND_NAME, ConvertToShapedPartCommand())
+    Gui.addCommand(COMMAND_NAME, ConvertToShapedPartCommand())

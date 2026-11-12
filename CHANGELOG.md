@@ -7,7 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
-- Les commandes qui attendent une sélection (assemblages, quincaillerie, ensembles, répétition, « Définir une distance », « Convertir en pièce en bois ») ne sont plus grisées sans explication : elles restent actives et, lancées sans la bonne sélection, disent quoi sélectionner dans la barre d'état et dans une boîte non bloquante, sans rien créer (issue #221, ADR 0052).
+- L'infobulle des commandes qui attendent une sélection (assemblages, quincaillerie, ensembles, répétition, « Définir une distance », « Convertir en pièce en bois ») se termine par une ligne « Prérequis : … » qui dit quoi sélectionner, que le bouton soit grisé ou non (issue #221, ADR 0052).
 
 ### Corrigé
 

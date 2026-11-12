@@ -77,8 +77,8 @@ def test_aucun_observateur_global(path: Path) -> None:
 
 
 def test_selection_examinee_sans_preparer_l_action() -> None:
-    """Issue #40 : l'examen de la sélection (``selection_ok``, issue #221) n'appelle que
-    ``accepts`` ; l'action (``apply``) n'est menée que par ``Activated``."""
+    """Issue #40 : ``IsActive`` (à chaque rafraîchissement) n'appelle que ``accepts`` ;
+    l'action (``apply``) n'est menée que par ``Activated``."""
     classes = {
         node.name: {item.name for item in node.body if isinstance(item, ast.FunctionDef)}
         for node in ast.parse(COMMANDS.read_text(encoding="utf-8")).body

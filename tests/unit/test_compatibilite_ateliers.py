@@ -36,34 +36,15 @@ def string_constants(tree: ast.Module) -> dict[str, str]:
     return dict(pair for pair in pairs if pair is not None)
 
 
-def _called(node: ast.AST) -> str:
-    """Nom appelé par ``node`` : ``Gui.addCommand`` ou ``add_command`` du socle (issue #221)."""
-    if not isinstance(node, ast.Call):
-        return ""
-    func = node.func
-    if isinstance(func, ast.Attribute):
-        return func.attr
-    return func.id if isinstance(func, ast.Name) else ""
-
-
 def command_names(path: Path) -> list[str]:
-    """Premiers arguments des appels ``addCommand`` et ``add_command`` (littéraux ou constantes
-    du module). L'appel de relais du socle (``add_command`` qui passe son paramètre à
-    ``Gui.addCommand``) n'est pas un nom de commande."""
+    """Premiers arguments des appels ``addCommand`` (littéraux ou constantes du module)."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     constants = string_constants(tree)
-    relayed = {
-        id(call)
-        for function in ast.walk(tree)
-        if isinstance(function, ast.FunctionDef) and function.name == "add_command"
-        for call in ast.walk(function)
-    }
     names = []
     for node in ast.walk(tree):
-        if _called(node) not in {"addCommand", "add_command"} or id(node) in relayed:
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
             continue
-        assert isinstance(node, ast.Call)
-        if not node.args:
+        if node.func.attr != "addCommand" or not node.args:
             continue
         first = node.args[0]
         if isinstance(first, ast.Constant):

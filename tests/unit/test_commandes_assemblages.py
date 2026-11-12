@@ -72,22 +72,16 @@ def commands_of(path: Path) -> dict[str, dict[str, ast.expr]]:
     return commands
 
 
-def _called_name(func: ast.expr) -> str:
-    """Nom appelé : attribut (``Gui.addCommand``) ou fonction (``add_command``)."""
-    if isinstance(func, ast.Attribute):
-        return func.attr
-    return func.id if isinstance(func, ast.Name) else ""
-
-
 def registered_commands(path: Path) -> list[str]:
-    """Noms des commandes passées à ``Gui.addCommand(NOM, …)`` ou à ``add_command(NOM, …)``
-    (socle des commandes, issue #221) dans le module ``path`` (``NOM`` constante du module)."""
+    """Noms des commandes passées à ``Gui.addCommand(NOM, …)`` dans le module ``path``
+    (``NOM`` constante du module)."""
     constants = module_constants(path)
     return sorted(
         str(constants[node.args[0].id])
         for node in ast.walk(tree(path))
         if isinstance(node, ast.Call)
-        and _called_name(node.func) in {"addCommand", "add_command"}
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "addCommand"
         and isinstance(node.args[0], ast.Name)
     )
 
