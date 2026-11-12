@@ -565,11 +565,12 @@ def boite_des_reperes_manquants(reponse: str) -> Iterator[list[int]]:
         appels.append(nombre)
         return reponse
 
-    commandes_debit.ask_missing_marks = double
+    module: Any = commandes_debit
+    module.ask_missing_marks = double
     try:
         yield appels
     finally:
-        commandes_debit.ask_missing_marks = origine
+        module.ask_missing_marks = origine
 
 
 def verifier_reperes_manquants_avant_la_liste() -> list[str]:
