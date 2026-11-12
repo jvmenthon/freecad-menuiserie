@@ -20,7 +20,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.part_names import mark_is_bound
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["number_marks"]
+__all__ = ["count_unmarked", "number_marks"]
 
 TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Numéroter les repères")
 _EMPTY_PREFIX: Final = QT_TRANSLATE_NOOP(
@@ -40,6 +40,12 @@ def _plan(doc: Document, objects: Sequence[DocumentObject] | None, prefix: str) 
     used = [str(obj.Mark) for obj in doc.Objects if is_timber(obj)]
     marks = assign_marks(entries, prefix, used)
     return {entry.source: marks[group_key(entry)] for entry in entries if not entry.record.mark}
+
+
+def count_unmarked(doc: Document, objects: Sequence[DocumentObject] | None = None) -> int:
+    """Nombre de pièces de ``doc`` (ou de ``objects``) que « Numéroter les repères » numéroterait :
+    sans repère et dont le repère n'est pas piloté par une expression. Ne modifie rien."""
+    return len(_plan(doc, objects, DEFAULT_MARK_PREFIX))
 
 
 def number_marks(
