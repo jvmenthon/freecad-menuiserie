@@ -181,7 +181,7 @@ Les logements usinés viennent d'un **plan d'usinage** de la quincaillerie, comm
 | Q-b | Catalogue local intégré minimal (§ 5 bis) : tourillons, faux tenons Domino, biscuits, quelques vis |
 | Q-c | Fonctionnalité : pose sur face / assemblage, plan d'usinage, aperçu en direct, panneau de choix |
 | Q-d | Liste de débit : section quincaillerie, export CSV |
-| Q-e | Pieds de caisson et charnières à cuvette (références réelles Blum, Salice, Grass, Hettich) |
+| Q-e | Pieds de caisson et charnières à cuvette (références réelles Blum, Salice, Grass, Hettich) ; charnières livrées (ADR 0055, génériques, références de marque à relire sur fiche) |
 | Q-f | Coulisses de tiroir |
 | Q-g | Import facultatif d'un STEP du fabricant (niveau 2) |
 | (SaaS) | Téléchargement de paquets de références : issues **Saas-feature**, hors jalon |

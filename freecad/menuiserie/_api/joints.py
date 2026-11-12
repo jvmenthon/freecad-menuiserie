@@ -7,6 +7,7 @@ Module privé : importer par :mod:`freecad.menuiserie.api`, la façade publique.
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Final
 
 import FreeCAD as App
 
@@ -27,6 +28,7 @@ from freecad.menuiserie.features.joints.factories import (
     create_drawer_slide,
     create_foot,
     create_half_lap,
+    create_hinges,
     create_loose_tenons,
     create_miter,
     create_mortise_tenon,
@@ -34,6 +36,7 @@ from freecad.menuiserie.features.joints.factories import (
     create_shelf_pins,
     create_tongue_groove,
 )
+from freecad.menuiserie.features.joints.hardware_reference import HARDWARE_REFERENCE_PROPERTY
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.near_gap import Closing
 from freecad.menuiserie.features.near_gap import close_gap as _close_gap
@@ -185,6 +188,18 @@ def make_drawer_slide(
     )
 
 
+def make_hinges(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
+    """Pose des charnières à cuvette entre le côté de caisson ``host`` (avant-trous de platine) et
+    la porte ``guest`` (cuvettes, posée devant le chant avant du côté ou insérée), et recalcule le
+    document. ``count`` : nombre de charnières (0 = automatique, 2 jusqu'à 900 mm de hauteur, 3
+    jusqu'à 1 600 mm, puis 4) ; les autres paramètres de ``HingeParams`` sont en mm ;
+    ``reference`` désigne une charnière du catalogue. Mêmes validations et même absence de
+    transaction que :func:`make_mortise_tenon`."""
+    return _make_joint(create_hinges, host, guest, _with_reference(JointKind.HINGE, params), check)
+
+
 def slide_shortfall(joint: DocumentObject) -> float:
     """Jeu qui manque (mm) entre les côtés d'une coulisse de tiroir pour la loger : 0 si les côtés
     sont assez écartés, l'épaisseur de la coulisse moins l'écart s'ils se touchent."""
@@ -249,8 +264,10 @@ def _with_reference(kind: JointKind, params: dict[str, object]) -> dict[str, obj
         raise ValueError(translated(_UNKNOWN_REFERENCE, {"id": quoted_value(reference)}))
     with translated_errors():
         fixed = joint_params(item, kind)
-    return {**fixed, **rest}
+    return {**fixed, **rest, _TAG: item.id}
 
+
+_TAG: Final = "_hardware_reference"  # identifiant retenu par ``_make_joint``, pas un paramètre
 
 _JointFactory = Callable[..., DocumentObject]
 _Check = Callable[[DocumentObject], DocumentObject]
@@ -269,7 +286,10 @@ def _make_joint(
     impossible ferait imprimer sa trace par FreeCAD ; il renvoie l'assemblage (rôles inversés au
     besoin) ou lève ``ValueError``, et c'est à l'appelant d'annuler sa transaction."""
     document = blank_of(host).Document
-    joint = factory(document, host, guest, **params)
+    reference = str(params.get(_TAG, ""))
+    joint = factory(document, host, guest, **{k: v for k, v in params.items() if k != _TAG})
+    if reference:
+        setattr(joint, HARDWARE_REFERENCE_PROPERTY, reference)
     if check is not None:
         joint = check(joint)
     return _shown_and_recomputed(joint)

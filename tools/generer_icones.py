@@ -255,6 +255,16 @@ def coulisse() -> str:
     return ic.svg()
 
 
+def charniere() -> str:
+    ic = Icone("Charnière à cuvette : porte percée d'une cuvette ronde, bras et platine d'acier")
+    ic.boite((0, 0, 0), (90, 60, 10), "chene")  # porte
+    ic.trou([(26 + 16 * math.cos(t), 30 + 16 * math.sin(t), 10) for t in angles(12)])
+    ic.cylindre(26, 30, 7, 10, 13, "acier")  # cuvette
+    ic.boite((26, 26, 10), (34, 8, 3), "acier")  # bras
+    ic.boite((60, 16, 10), (22, 28, 3), "acier")  # platine
+    return ic.svg()
+
+
 def mi_bois() -> str:
     ic = Icone("Entaille à mi-bois : deux pièces croisées, entaillées à mi-épaisseur")
     profil_bas = [(0, 0), (80, 0), (80, 12), (50, 12), (50, 6), (30, 6), (30, 12), (0, 12)]
@@ -323,6 +333,7 @@ ICONES = {
     "Menuiserie_Foot.svg": pieds,
     "Menuiserie_ShelfPins.svg": percage_lr32,
     "Menuiserie_DrawerSlide.svg": coulisse,
+    "Menuiserie_Hinge.svg": charniere,
     "Menuiserie_Carcass.svg": caisson,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,

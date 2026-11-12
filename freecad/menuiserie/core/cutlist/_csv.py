@@ -85,6 +85,8 @@ HARDWARE_HEADERS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "Diamètre ou épaisseur (mm)"),
     QT_TRANSLATE_NOOP("Menuiserie", "Longueur (mm)"),
     QT_TRANSLATE_NOOP("Menuiserie", "Qté"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Fabricant"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Référence"),
 )
 GRAIN_LABELS: Final[Mapping[GrainDirection, str]] = MappingProxyType(
     {
@@ -101,6 +103,7 @@ HARDWARE_LABELS: Final[Mapping[HardwareKind, str]] = MappingProxyType(
         HardwareKind.FOOT: QT_TRANSLATE_NOOP("Menuiserie", "Pied de caisson"),
         HardwareKind.SHELF_PIN: QT_TRANSLATE_NOOP("Menuiserie", "Taquet de tablette"),
         HardwareKind.DRAWER_SLIDE: QT_TRANSLATE_NOOP("Menuiserie", "Coulisse de tiroir"),
+        HardwareKind.HINGE: QT_TRANSLATE_NOOP("Menuiserie", "Charnière à cuvette"),
     }
 )
 HARDWARE_WIDTH: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (largeur {width} mm)")
@@ -221,6 +224,8 @@ def _hardware_row(item: Hardware, translate: Translate, dialect: CsvDialect) -> 
         format_number(item.diameter, DIMENSION_DECIMALS, dialect),
         format_number(item.length, DIMENSION_DECIMALS, dialect),
         str(item.quantity),
+        item.manufacturer,
+        item.reference,
     ]
 
 
@@ -256,7 +261,7 @@ def table_sections(
     if cut_list.hardware:
         rows = tuple(tuple(_hardware_row(item, translate, dialect)) for item in cut_list.hardware)
         header = _translated(HARDWARE_HEADERS, translate)
-        sections.append(TableSection(translate(HARDWARE_TITLE), header, rows, frozenset({0})))
+        sections.append(TableSection(translate(HARDWARE_TITLE), header, rows, frozenset({0, 4, 5})))
     return tuple(sections)
 
 

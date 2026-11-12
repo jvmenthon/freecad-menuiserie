@@ -19,6 +19,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Charnières à cuvette (issue #156, ADR 0055, lot 1) : nouvelle commande « Charnières à cuvette » (rubrique Quincaillerie), objet `Menuiserie::Hinge` et fonction `api.make_hinges(côté, porte, …)`. Le côté du caisson (première pièce sélectionnée) reçoit deux avant-trous de platine par charnière (entraxe 32 mm, à 37 mm du chant avant), la porte une cuvette Ø35 à `edge_distance` du chant ; porte de recouvrement devant le chant avant ou insérée. Nombre automatique selon la hauteur (2 jusqu'à 900 mm, 3 jusqu'à 1 600 mm, puis 4), positions à 100 mm des angles, tout réglable. Famille de catalogue `hinge-cup-35` : cotes facultatives `edge_distance` et `screw_pitch` (catalogues existants inchangés), trois charnières génériques ajoutées (recouvrement total, mi-recouvrement, porte insérée, cotes usuelles à confirmer sur fiche) ; la liste de débit compte « Charnière à cuvette » avec fabricant et référence. Les références de marque seront ajoutées après relecture des fiches.
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
   sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
   un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le

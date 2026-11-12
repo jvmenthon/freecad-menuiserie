@@ -12,6 +12,7 @@ from freecad.menuiserie.core.joints.dovetail import DovetailStrategy
 from freecad.menuiserie.core.joints.dowels import DowelStrategy
 from freecad.menuiserie.core.joints.feet import FootStrategy
 from freecad.menuiserie.core.joints.half_lap import HalfLapStrategy
+from freecad.menuiserie.core.joints.hinges import HingeStrategy
 from freecad.menuiserie.core.joints.miter import MiterStrategy
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonStrategy
 from freecad.menuiserie.core.joints.rabbet import RabbetStrategy
@@ -36,6 +37,7 @@ STRATEGIES: Final[Mapping[JointKind, JointStrategy[Any, Any]]] = MappingProxyTyp
             FootStrategy(),
             ShelfPinsStrategy(),
             SlideStrategy(),
+            HingeStrategy(),
         )
     }
 )

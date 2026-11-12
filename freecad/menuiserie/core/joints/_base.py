@@ -82,6 +82,7 @@ class JointKind(str, Enum):
     FOOT = "Foot"
     SHELF_PINS = "ShelfPins"
     DRAWER_SLIDE = "DrawerSlide"
+    HINGE = "Hinge"
 
 
 @dataclass(frozen=True)

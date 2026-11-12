@@ -22,6 +22,10 @@ SLIDE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "le côté du caisson puis le côté du tiroir sélectionnés (Ctrl+clic sur chacun).",
 )
+HINGE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "le côté du caisson puis la porte sélectionnés (Ctrl+clic sur chacun).",
+)
 FURNITURE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "les pièces ou les ensembles à regrouper sélectionnés (Ctrl+clic sur chacun).",

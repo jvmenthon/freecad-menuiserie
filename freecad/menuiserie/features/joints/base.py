@@ -32,6 +32,7 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joint_material import check_joint_material
+from freecad.menuiserie.features.joints.hardware_reference import hardware_reference_specs
 from freecad.menuiserie.features.joints.plan_cache import cached_plan
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.shaped_part import (
@@ -184,7 +185,7 @@ class JointFeature(StatelessProxy):
     @classmethod
     def specs(cls) -> tuple[PropertySpec, ...]:
         """Propriétés communes puis propres au type."""
-        return COMMON_PROPERTIES + cls.PROPERTIES
+        return COMMON_PROPERTIES + cls.PROPERTIES + hardware_reference_specs(cls.KIND)
 
     @classmethod
     def choices(cls) -> dict[str, list[str]]:

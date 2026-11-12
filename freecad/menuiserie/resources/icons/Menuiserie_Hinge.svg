@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Charnière à cuvette : porte percée d'une cuvette ronde, bras et platine d'acier -->
+  <defs>
+    <linearGradient id="acier-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eeeeec"/><stop offset="1" stop-color="#c8cbc5"/></linearGradient>
+    <linearGradient id="acier-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#babdb6"/><stop offset="1" stop-color="#a3a69f"/></linearGradient>
+    <linearGradient id="acier-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#888a85"/><stop offset="1" stop-color="#73766f"/></linearGradient>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="3.00,26.42 26.20,13.02 61.00,33.12 37.80,46.51" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,30.88 3.00,26.42 37.80,46.51 37.80,50.98" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,37.58 37.80,50.98 37.80,46.51 61.00,33.12" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="30.84,29.10 26.92,30.41 22.39,30.41 18.47,29.10 16.20,26.83 16.20,24.22 18.47,21.95 22.39,20.65 26.92,20.65 30.84,21.95 33.10,24.22 33.10,26.83" fill="#3b2410" stroke="#3b2410" stroke-width="1" stroke-linejoin="round"/>
+  <polygon points="17.54,25.53 17.63,24.88 17.89,24.26 18.32,23.66 18.90,23.11 19.63,22.62 20.47,22.21 21.43,21.87 22.46,21.62 23.54,21.47 24.65,21.42 25.77,21.47 26.85,21.62 27.88,21.87 28.83,22.21 29.68,22.62 30.40,23.11 30.99,23.66 31.41,24.26 31.67,24.88 31.76,25.53 31.76,26.87 31.67,27.51 31.41,28.13 30.99,28.73 30.40,29.28 29.68,29.77 28.83,30.19 27.88,30.52 26.85,30.77 25.77,30.92 24.65,30.97 23.54,30.92 22.46,30.77 21.43,30.52 20.47,30.19 19.63,29.77 18.90,29.28 18.32,28.73 17.89,28.13 17.63,27.51 17.54,26.87" fill="url(#acier-y)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="29.68,28.43 28.83,28.85 27.88,29.18 26.85,29.43 25.77,29.58 24.65,29.63 23.54,29.58 22.46,29.43 21.43,29.18 20.47,28.85 19.63,28.43 18.90,27.94 18.32,27.39 17.89,26.79 17.63,26.17 17.54,25.53 17.63,24.88 17.89,24.26 18.32,23.66 18.90,23.11 19.63,22.62 20.47,22.21 21.43,21.87 22.46,21.62 23.54,21.47 24.65,21.42 25.77,21.47 26.85,21.62 27.88,21.87 28.83,22.21 29.68,22.62 30.40,23.11 30.99,23.66 31.41,24.26 31.67,24.88 31.76,25.53 31.67,26.17 31.41,26.79 30.99,27.39 30.40,27.94" fill="url(#acier-z)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="23.11,25.08 26.20,23.29 39.35,30.88 36.25,32.67" fill="url(#acier-z)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="23.11,26.42 23.11,25.08 36.25,32.67 36.25,34.01" fill="url(#acier-y)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="39.35,32.22 36.25,34.01 36.25,32.67 39.35,30.88" fill="url(#acier-x)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32.39,34.90 43.21,28.65 51.72,33.56 40.89,39.81" fill="url(#acier-z)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="51.72,34.90 40.89,41.15 40.89,39.81 51.72,33.56" fill="url(#acier-x)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32.39,36.24 32.39,34.90 40.89,39.81 40.89,41.15" fill="url(#acier-y)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+</svg>

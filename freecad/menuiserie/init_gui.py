@@ -53,6 +53,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
                 "Menuiserie_Foot",
                 "Menuiserie_ShelfPins",
                 "Menuiserie_DrawerSlide",
+                "Menuiserie_Hinge",
             ),
         ),
         (

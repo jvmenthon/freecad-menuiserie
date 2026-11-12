@@ -8,7 +8,11 @@ l'emporte. Aucun accès réseau, aucun fichier de fabricant.
 
 from __future__ import annotations
 
-from freecad.menuiserie.core.hardware._apply import joint_kind_of, joint_params
+from freecad.menuiserie.core.hardware._apply import (
+    HARDWARE_JOINT_KINDS,
+    joint_kind_of,
+    joint_params,
+)
 from freecad.menuiserie.core.hardware._families import FAMILIES, Family, ParamSpec, family_of
 from freecad.menuiserie.core.hardware._loader import (
     CatalogSource,
@@ -22,6 +26,7 @@ from freecad.menuiserie.core.hardware._parser import FORMAT_VERSION, MAX_ITEMS, 
 __all__ = [
     "FAMILIES",
     "FORMAT_VERSION",
+    "HARDWARE_JOINT_KINDS",
     "MAX_ITEMS",
     "Catalog",
     "CatalogSource",
