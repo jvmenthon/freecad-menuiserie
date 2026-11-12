@@ -1,6 +1,7 @@
 # ADR 0053 — Plans cotés produits avec TechDraw
 
-- Statut : **proposé** (2026-11-12), en attente de la décision de jv
+- Statut : **accepté** (jv, 2026-11-12 : format réglable dans la configuration, vue client image
+  et filaire par défaut, client et numéro de devis facultatifs au cartouche, « go maintenant »)
 - Date : 2026-11-12
 - Issue : #153
 - Spécification : [docs/specs/plans-cotes.md](../specs/plans-cotes.md)
@@ -24,7 +25,7 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
 3. **Dessin maison** (SVG/PDF écrit par l'atelier, comme la liste de débit). Rejetée : refait
    projection, cotation et cartouche que TechDraw fait déjà, et ne s'ouvre pas dans TechDraw.
 4. **Vue client en vectoriel TechDraw seulement.** TechDraw n'ombre ni ne texture ; rendu peu
-   « client ». Gardée comme repli (Q3 de la spécification).
+   « client ». Gardée à côté de l'image (réponse de jv à la Q3).
 
 ## Décision
 
@@ -34,13 +35,14 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
    `MenuiserieDrawing`, et les reconstruit à la régénération ; une page modifiée à la main n'est
    jamais écrasée.
 3. Le **gabarit** est un gabarit ISO déjà fourni par TechDraw ; l'atelier n'en installe ni n'en
-   modifie, et ne touche à aucune préférence de TechDraw (ADR 0007).
+   modifie, et ne touche à aucune préférence de TechDraw (ADR 0007). Le format (A3 paysage par
+   défaut) est un réglage de la configuration de l'atelier (ADR 0031).
 4. Le calcul des cotes (hors tout à l'enveloppe, ADR 0049 ; usinages lus dans les enregistrements
    des assemblages) est **pur**, dans `core/drawing/` ; la création des objets TechDraw est dans
    `features/drawing_*.py`. L'import de `TechDraw` est paresseux : l'atelier se charge et reste
    utilisable si TechDraw est absent (la commande est alors grisée avec son prérequis, ADR 0052).
-5. La **vue client** est une capture de la vue 3D insérée comme image dans une page ; la vue filaire
-   TechDraw reste le repli vectoriel.
+5. La **vue client** réunit par défaut une capture de la vue 3D insérée comme image et une vue
+   filaire TechDraw vectorielle ; un réglage de la configuration garde l'une, l'autre ou les deux.
 6. Un **lot de preuve** (P-a) précède le reste : cotes TechDraw rattachées à la géométrie des vues
    et régénération stable. Si les références d'arêtes ne tiennent pas, les cotes seront posées sur
    des sommets de l'enveloppe et l'ADR sera amendé avant le code des lots suivants.
@@ -50,5 +52,5 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
 - Les plans s'ouvrent, s'impriment et s'exportent sans l'atelier.
 - Les pages ne se mettent pas à jour toutes seules : il faut relancer la commande (comme le fait la
   liste de débit avant l'ADR 0013) ; à revoir si jv le demande.
-- La vue client n'est pas vectorielle.
+- L'image de la vue client n'est pas vectorielle ; la vue filaire l'est.
 - Les tests d'intégration exigent FreeCAD avec TechDraw (déjà présent dans l'image de CI).

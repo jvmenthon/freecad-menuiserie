@@ -1,8 +1,8 @@
 # Plans cotés imprimables (atelier et client)
 
-- Statut : **proposée** (2026-11-12), en attente des réponses de jv (§ 6)
+- Statut : **validée par jv** (2026-11-12, réponses en § 6 ; « go maintenant »)
 - Issue : #153 (étude de marché du 2026-11-04, sous-issue de la revue UX #217)
-- ADR : [0053](../adr/0053-plans-cotes-avec-techdraw.md) (proposé)
+- ADR : [0053](../adr/0053-plans-cotes-avec-techdraw.md)
 - Demande : plan de l'ouvrage coté (vues, cotes principales) en PDF pour l'atelier ; vue 3D soignée
   pour le client et le devis ; plan par pièce avec ses usinages. Piste : TechDraw, sans modifier
   FreeCAD globalement (ADR 0007). Besoin à valider en entretiens : on vise donc un premier lot
@@ -34,7 +34,7 @@ document.
   liste de débit.
 - **Vue client** : TechDraw n'ombre pas ni ne texture les faces. La vue client est donc une capture
   de la vue 3D de FreeCAD (arrière-plan blanc, vue isométrique, textures de l'atelier), insérée dans
-  une page par `TechDraw::DrawViewImage`, avec cotes hors tout en vue filaire superposée (Q3).
+  une page par `TechDraw::DrawViewImage`, avec à côté d'une vue filaire TechDraw vectorielle (§ 6, réponse 3).
 
 ## 3. Cotes
 
@@ -68,17 +68,22 @@ document.
 Un seul jalon, une PR vers `master` à la fin, revue complète (testeur, sécurité, reviewer) sur
 cette PR.
 
-## 6. Questions à jv (★ = recommandé)
+## 6. Réponses de jv (2026-11-12)
 
-1. **Premier lot** : démarrer par le plan de l'ouvrage (atelier) ★, ou par la vue client ?
-2. **Gabarit** : A3 paysage par défaut ★ (A4 et portrait au choix dans le panneau).
-3. **Vue client** : capture ombrée de la vue 3D insérée comme image ★ (beau, mais non vectoriel),
-   ou vue TechDraw filaire seulement (vectoriel, moins « client »).
-4. **Plans de pièce** : une page par pièce ★, ou une page par groupe de pièces identiques (les
-   copies d'une répétition, ADR 0043) avec la quantité ★ — ces deux choix se combinent : une page
-   par pièce *distincte*, la quantité écrite au cartouche.
-5. **Page modifiée à la main** : ne jamais l'écraser, proposer une nouvelle page ★.
-6. **Cartouche** : champs fixes (ouvrage, matériau, échelle, date, auteur lu dans les préférences
-   de l'atelier). Autres champs à prévoir (client, numéro d'affaire) ?
-7. **Entretiens** : l'issue parle d'une hypothèse à valider. Faut-il attendre un entretien avant le
-   lot P-c (usinages), le plus coûteux ?
+1. **Premier lot** : pas de réponse ; recommandation appliquée, le plan de l'ouvrage d'abord.
+2. **Format de page** : A3 paysage par défaut, **réglable dans la configuration de l'atelier**
+   (ADR 0031 : réglages `DrawingPageFormat` et `DrawingPageOrientation`), et modifiable dans le
+   panneau pour un plan donné.
+3. **Vue client** : **les deux par défaut** (capture ombrée de la vue 3D en image *et* vue filaire
+   TechDraw vectorielle sur la même page), **réglable** dans la configuration (`DrawingClientView` :
+   les deux, image seule, filaire seule).
+4. **Plans de pièce** : pas de réponse ; recommandation appliquée, une page par pièce distincte,
+   quantité au cartouche.
+5. **Page modifiée à la main** : pas de réponse ; recommandation appliquée, jamais écrasée.
+6. **Cartouche** : ouvrage, matériau, échelle, date, auteur, plus **client** et **numéro de devis**,
+   tous deux **facultatifs** (laissés vides, ils n'apparaissent pas).
+7. **Entretiens** : « go maintenant », les usinages par pièce (P-c) se font dans la foulée.
+
+Les réglages de plan s'ajoutent au catalogue de la configuration de l'atelier (ADR 0031, issue
+#148). Tant que la page de préférences n'existe pas, ils sont lus dans les paramètres de l'atelier
+(`Mod/Menuiserie`) avec leurs valeurs par défaut.
