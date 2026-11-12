@@ -31,6 +31,7 @@ from freecad.menuiserie.core.joints._base import (
     mm_text,
     validate_params,
 )
+from freecad.menuiserie.core.joints._footprint import fit_centers
 from freecad.menuiserie.core.joints.dowels import positions
 
 __all__ = ["FOOT_MATERIALS", "FootParams", "FootStrategy", "FootValues"]
@@ -178,6 +179,17 @@ def _checked(host: PlacedBlock, given: FootParams) -> FootValues:
         }
         raise JointError(TOO_SMALL, text)
     centers = tuple((box.lo(0) + x, box.lo(1) + y) for x in xs for y in ys)
+    if host.footprint is not None:  # pièce non rectangulaire : les pieds restent dans le contour
+        fitted = fit_centers(centers, host.footprint, edge, params.base_diameter / 2)
+        if fitted is None or not fitted:
+            text = {
+                "columns": str(columns),
+                "rows": str(rows),
+                "base": mm_text(params.base_diameter),
+                "edge": mm_text(edge),
+            }
+            raise JointError(TOO_SMALL, text)
+        centers = fitted
     return FootValues(
         params.stem_diameter,
         params.base_diameter,
