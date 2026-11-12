@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from freecad.menuiserie.core.hardware import HARDWARE_JOINT_KINDS
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.types_assemblages import (
     BISCUIT,
@@ -109,7 +110,10 @@ def test_proprietes_par_type(document: Any, scenario: Scenario) -> None:
         assert joint.getEditorMode(name) == (["Hidden"] if hidden else []), name
         assert value_of(joint, name) == default, name
     joint_class = type(joint.Proxy)
-    assert {spec.name for spec in joint_class.specs()} == COMMON | {row[0] for row in rows}
+    reference = {"HardwareReference"} if joint_class.KIND in HARDWARE_JOINT_KINDS else set()
+    assert {spec.name for spec in joint_class.specs()} == COMMON | reference | {
+        row[0] for row in rows
+    }
     assert joint_class.TYPE.startswith("Menuiserie::")
 
 
