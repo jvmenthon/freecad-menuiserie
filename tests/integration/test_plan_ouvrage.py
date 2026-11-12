@@ -156,8 +156,8 @@ def test_cartouche_rempli(bureau: Bureau) -> None:
     texts = cartouche(page)
     written = set(texts.values())
     # Le message cite les cases du gabarit : utile si une version de FreeCAD les renomme.
-    assert {"Bureau", "1 : 10"} <= written, sorted(texts)
-    assert "Mme Dupont" in written and "D-2026-014" in written, sorted(texts)
+    assert {"Bureau", "1 : 10"} <= written, texts
+    assert "Mme Dupont" in written and "D-2026-014" in written, texts
     assert any("Chêne" in value or "chêne" in value.lower() for value in written), texts
 
 
@@ -168,7 +168,7 @@ def test_cartouche_garde_les_saisies_a_la_relance(bureau: Bureau) -> None:
     again = api.make_overall_drawing(doc, [bureau.furniture])
     assert again == page
     written = set(cartouche(again).values())
-    assert "Bureau de Léa" in written and "Mme Dupont" in written
+    assert "Bureau de Léa" in written and "Mme Dupont" in written, cartouche(again)
     cleared = api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(client=""))
     assert "Mme Dupont" not in set(cartouche(cleared).values())
 
@@ -192,7 +192,7 @@ def test_format_de_la_configuration(bureau: Bureau) -> None:
 def test_changement_de_format_a_la_relance(bureau: Bureau) -> None:
     doc = bureau.doc
     page = api.make_overall_drawing(doc, [bureau.furniture])
-    again = api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(page_format="A2"))
+    again = api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(page_format="A4"))
     assert again == page
-    assert "A2" in again.Template.Template
-    assert again.Scale == pytest.approx(0.2)
+    assert "A4" in again.Template.Template
+    assert again.Scale == pytest.approx(0.05)  # le 1 : 10 ne tient plus sur A4

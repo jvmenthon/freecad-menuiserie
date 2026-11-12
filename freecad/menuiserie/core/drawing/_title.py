@@ -19,13 +19,30 @@ MAX_FIELD_LENGTH: Final = 120
 _CONTROL: Final = re.compile("[\x00-\x1f\x7f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
 # Noms de cases (en minuscules) par champ, dans l'ordre de préférence.
 _ALIASES: Final[dict[str, tuple[str, ...]]] = {
-    "title": ("drawing_title", "title", "document_title", "drawing_name"),
-    "material": ("part_material", "material"),
-    "scale": ("scale", "drawing_scale"),
-    "date": ("date", "date_of_issue", "issue_date", "creation_date", "designed_by_date"),
-    "author": ("author_name", "author", "creator", "designed_by_name", "drawn_by"),
-    "client": ("client", "customer", "supplementary_title", "subtitle", "drawing_subtitle"),
-    "quote": ("quote", "drawing_number", "document_number", "identification_number", "part_number"),
+    "title": ("drawing_title", "title", "document_title", "drawing_name", "titel", "benennung"),
+    "material": ("part_material", "material", "werkstoff"),
+    "scale": ("scale", "drawing_scale", "fc-sc", "fc-scale", "massstab", "maßstab"),
+    "date": ("date", "fc-date", "date_of_issue", "issue_date", "creation_date", "datum"),
+    "author": ("author_name", "author", "creator", "designed_by_name", "drawn_by", "ersteller"),
+    "client": (
+        "client",
+        "customer",
+        "kunde",
+        "auftraggeber",
+        "supplementary_title",
+        "subtitle",
+        "drawing_subtitle",
+        "untertitel",
+    ),
+    "quote": (
+        "quote",
+        "drawing_number",
+        "document_number",
+        "identification_number",
+        "part_number",
+        "sachnummer",
+        "zeichnungsnummer",
+    ),
 }
 
 
