@@ -14,7 +14,6 @@ se charge sans lui.
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from itertools import islice
@@ -63,7 +62,6 @@ VIEW_TYPE: Final = "TechDraw::DrawViewPart"
 MAX_TEMPLATES: Final = 2000  # plafond du balayage du dossier de gabarits de TechDraw
 HORIZONTAL: Final = 0  # sens d'une cote d'étendue de TechDraw
 VERTICAL: Final = 1
-_TECHDRAW: Final = "TechDraw"  # importé à l'appel : l'atelier se charge sans ce module
 
 TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
 _MARKER_TOOLTIP: Final = QT_TRANSLATE_NOOP(
@@ -104,10 +102,17 @@ class DrawingOptions:
     orientation: Orientation = Orientation.LANDSCAPE
 
 
+def _techdraw() -> Any:
+    """Module TechDraw, importé à l'appel : l'atelier se charge sans lui."""
+    import TechDraw
+
+    return TechDraw
+
+
 def techdraw_available() -> bool:
     """Vrai si le module TechDraw de FreeCAD s'importe (il peut être désactivé ou absent)."""
     try:
-        importlib.import_module(_TECHDRAW)
+        _techdraw()
     except ImportError:
         return False
     return True
@@ -245,7 +250,7 @@ def _add_extent(page: DocumentObject, view: DocumentObject, direction: int) -> l
     previous = App.ActiveDocument
     App.setActiveDocument(doc.Name)
     try:
-        importlib.import_module(_TECHDRAW).makeExtentDim(view, [], direction)
+        _techdraw().makeExtentDim(view, [], direction)
     finally:
         if previous is not None and previous != doc:
             App.setActiveDocument(previous.Name)
