@@ -51,3 +51,10 @@ def test_texte_nettoye() -> None:
     assert clean_field("  Bureau\n de\tLéa ‮ ") == "Bureau de Léa"
     assert len(clean_field("x" * 500)) == MAX_FIELD_LENGTH
     assert title_block_texts(["title"], TitleFields(title="A\x00B\nC")) == {"title": "A B C"}
+
+
+def test_client_apres_le_titre_sans_case_client() -> None:
+    texts = title_block_texts(["drawing_title", "scale"], FIELDS)
+    assert texts["drawing_title"] == "Bureau - Mme Dupont"
+    alone = title_block_texts(["drawing_title"], TitleFields(title="Bureau"))
+    assert alone == {"drawing_title": "Bureau"}

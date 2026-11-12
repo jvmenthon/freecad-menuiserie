@@ -77,7 +77,8 @@ def verifier_panneau_et_page() -> list[str]:
             problemes += ecarts("panneau fermé", bool(Gui.Control.activeDialog()), False)
             if pages:
                 textes = set(dict(pages[0].Template.EditableTexts).values())
-                problemes += ecarts("client au cartouche", "Mme Dupont" in textes, True)
+                client = any("Mme Dupont" in texte for texte in textes)
+                problemes += ecarts("client au cartouche", client, True)
                 problemes += ecarts("feuille A2", "A2" in pages[0].Template.Template, True)
             problemes += ecarts("sélection intacte", noms_selectionnes(), avant)
             return problemes

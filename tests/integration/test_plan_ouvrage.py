@@ -156,8 +156,9 @@ def test_cartouche_rempli(bureau: Bureau) -> None:
     texts = cartouche(page)
     written = set(texts.values())
     # Le message cite les cases du gabarit : utile si une version de FreeCAD les renomme.
-    assert {"Bureau", "1 : 10"} <= written, texts
-    assert "Mme Dupont" in written and "D-2026-014" in written, texts
+    assert "1 : 10" in written and "D-2026-014" in written, texts
+    # Case client, ou client écrit après le titre si le gabarit n'en a pas.
+    assert "Mme Dupont" in written or "Bureau - Mme Dupont" in written, texts
     assert any("Chêne" in value or "chêne" in value.lower() for value in written), texts
 
 
@@ -168,9 +169,10 @@ def test_cartouche_garde_les_saisies_a_la_relance(bureau: Bureau) -> None:
     again = api.make_overall_drawing(doc, [bureau.furniture])
     assert again == page
     written = set(cartouche(again).values())
-    assert "Bureau de Léa" in written and "Mme Dupont" in written, cartouche(again)
+    assert any("Bureau de Léa" in value for value in written), cartouche(again)
+    assert any("Mme Dupont" in value for value in written), cartouche(again)
     cleared = api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(client=""))
-    assert "Mme Dupont" not in set(cartouche(cleared).values())
+    assert not any("Mme Dupont" in value for value in cartouche(cleared).values())
 
 
 def test_format_de_la_configuration(bureau: Bureau) -> None:

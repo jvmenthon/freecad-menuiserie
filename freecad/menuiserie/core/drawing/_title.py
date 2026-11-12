@@ -16,6 +16,7 @@ from typing import Final
 __all__ = ["MAX_FIELD_LENGTH", "TitleFields", "clean_field", "title_block_texts"]
 
 MAX_FIELD_LENGTH: Final = 120
+CLIENT_SEPARATOR: Final = "-"  # entre le titre et le client quand le gabarit n'a pas de case client
 _CONTROL: Final = re.compile("[\x00-\x1f\x7f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
 # Noms de cases (en minuscules) par champ, dans l'ordre de préférence.
 _ALIASES: Final[dict[str, tuple[str, ...]]] = {
@@ -69,9 +70,11 @@ def clean_field(text: str) -> str:
 def title_block_texts(keys: Iterable[str], values: TitleFields) -> dict[str, str]:
     """Cases à écrire (nom exact du gabarit → texte) pour ``values``, parmi les cases ``keys`` du
     gabarit. Chaque champ remplit la première de ses cases connues que le gabarit possède et
-    qu'un champ précédent n'a pas prise ; les autres cases ne sont pas citées."""
+    qu'un champ précédent n'a pas prise ; les autres cases ne sont pas citées. Sans case pour le
+    client, un client saisi est écrit après le titre (« Bureau - Mme Dupont »)."""
     by_lower = {key.lower(): key for key in keys}
     taken: set[str] = set()
+    placed: dict[str, str] = {}  # champ → case
     texts: dict[str, str] = {}
     for field in fields(values):
         key = next(
@@ -80,5 +83,11 @@ def title_block_texts(keys: Iterable[str], values: TitleFields) -> dict[str, str
         )
         if key is not None:
             taken.add(key)
+            placed[field.name] = by_lower[key]
             texts[by_lower[key]] = clean_field(getattr(values, field.name))
+    client = clean_field(values.client)
+    if client and "client" not in placed and "title" in placed:
+        # Gabarit sans case pour le client : il suit le titre de l'ouvrage.
+        title_key = placed["title"]
+        texts[title_key] = clean_field(f"{texts[title_key]} {CLIENT_SEPARATOR} {client}")
     return texts
