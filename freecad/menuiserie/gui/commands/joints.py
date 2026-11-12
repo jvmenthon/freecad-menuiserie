@@ -36,6 +36,7 @@ from freecad.menuiserie.features.joints.feasible import feasible_joint
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui import joint_choice, near_gap, slide_room
+from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error
 from freecad.menuiserie.gui.task_panels.joint import show_panel
@@ -63,6 +64,7 @@ class JointCommand(TransactionCommand):
     fabrique de l'api, ses textes et le nom de sa transaction."""
 
     FACTORY: ClassVar[Factory]  # fabrique de freecad.menuiserie.api, lue sur la classe
+    PREREQUISITE = hints.PAIR
 
     def IsActive(self) -> bool:
         """Active si aucun panneau n'est ouvert et que deux pièces distinctes sont
@@ -244,6 +246,7 @@ class DrawerSlideCommand(JointCommand):
         "au pas de 32 mm.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser une coulisse de tiroir")
+    PREREQUISITE = hints.SLIDE
 
     def Activated(self) -> None:
         """Coulisse posée dans sa transaction ; s'il manque du jeu, la fenêtre propose d'écarter
@@ -269,6 +272,8 @@ class DrawerSlideCommand(JointCommand):
 
 class SinglePartCommand(JointCommand):
     """Assemblage posé sur une seule pièce sélectionnée (pieds, perçage LR32)."""
+
+    PREREQUISITE = hints.SINGLE
 
     def IsActive(self) -> bool:
         """Active si aucun panneau n'est ouvert et qu'une seule pièce est sélectionnée."""

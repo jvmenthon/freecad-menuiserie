@@ -113,6 +113,10 @@ bouge (passez par l'ensemble). Recette : `docs/recette/souris-et-distances.md`.
 
 ## Assembler deux pièces
 
+Une commande qui attend une sélection est grisée tant que la sélection ne convient pas :
+laissez la souris sur son bouton, la dernière ligne de l'infobulle (« Prérequis : deux pièces
+sélectionnées… ») dit quoi sélectionner.
+
 Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,
 **Rainure-languette**, **Feuillure**, **Tourillons**, **Mi-bois**, **Queue d'aronde** ou
 **Onglet** (barre d'outils ou menu *Menuiserie*).

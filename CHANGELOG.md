@@ -5,6 +5,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Modifié
+
+- L'infobulle des commandes qui attendent une sélection (assemblages, quincaillerie, ensembles, répétition, « Définir une distance », « Convertir en pièce en bois ») se termine par une ligne « Prérequis : … » qui dit quoi sélectionner, que le bouton soit grisé ou non (issue #221, ADR 0052).
+
 ### Corrigé
 
 - Panneau « Structure » : régression de #208, la transparence de sélection (50 %, bleu clair) n'apparaissait plus pendant une tâche. Elle est de nouveau posée dès le clic de ligne, en même temps que la transparence d'édition (60 %) de la pièce éditée, les deux indépendantes (l'édition prime sur le même objet). Elle est écrite dans la transaction du panneau puis retirée avant sa validation ou son abandon : aucune teinte dans l'historique d'annulation (Ctrl+Z/Ctrl+Y) ni dans le fichier, y compris enregistré pendant la tâche ; une tâche d'un autre atelier garde la pose différée (ADR 0046). Ctrl+Z / Ctrl+Y rejouent la valeur d'affichage du moment : elle est corrigée après coup (`slotRedoDocument`). Limite : un calque d'édition reposé par un enregistrement pendant la tâche est écrit dans la transaction (comportement antérieur inchangé).

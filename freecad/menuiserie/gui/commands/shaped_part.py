@@ -31,13 +31,20 @@ from freecad.menuiserie.features.shaped_sources import is_workshop_object
 from freecad.menuiserie.features.snap_targets import TargetReading, new_session, read_targets
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 from freecad.menuiserie.gui.camera import frame_view
-from freecad.menuiserie.gui.commands.base import report_refusal
+from freecad.menuiserie.gui.commands import hints
+from freecad.menuiserie.gui.commands.base import report_refusal, tool_tip
 from freecad.menuiserie.gui.selection import picked_elements, view_direction
 from freecad.menuiserie.gui.task_panels.base import aborted_on_error, close_transaction
 from freecad.menuiserie.gui.task_panels.shaped_part import show_panel
 
 COMMAND_NAME: Final = "Menuiserie_ShapedPart"
 ICON: Final = "Menuiserie_ShapedPart.svg"
+TOOL_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie_ShapedPart",
+    "Fait d'un corps PartDesign, d'une forme Part ou d'une esquisse fermée une pièce "
+    "en bois : matériau, sens du fil, repère et liste de débit. La forme d'origine "
+    "n'est pas modifiée ; la pièce suit ses changements.",
+)
 TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Convertir en pièce en bois")
 EMPTY_LIBRARY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -132,12 +139,7 @@ class ConvertToShapedPartCommand:
         return {
             "Pixmap": icon_path(ICON),
             "MenuText": QT_TRANSLATE_NOOP("Menuiserie_ShapedPart", "Convertir en pièce en bois"),
-            "ToolTip": QT_TRANSLATE_NOOP(
-                "Menuiserie_ShapedPart",
-                "Fait d'un corps PartDesign, d'une forme Part ou d'une esquisse fermée une pièce "
-                "en bois : matériau, sens du fil, repère et liste de débit. La forme d'origine "
-                "n'est pas modifiée ; la pièce suit ses changements.",
-            ),
+            "ToolTip": tool_tip(COMMAND_NAME, TOOL_TIP, hints.SHAPED_PART),
         }
 
     def IsActive(self) -> bool:
