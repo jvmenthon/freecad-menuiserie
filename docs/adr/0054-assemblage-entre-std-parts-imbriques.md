@@ -3,8 +3,8 @@
 - Statut : **proposé**
 - Date : 2026-11-12
 - Issue : #209
-- ADR liés : [0003](0003-contrat-de-persistance.md), [0007](0007-compatibilite-avec-les-autres-ateliers.md),
-  [0008](0008-ensemble-objet-de-cotes.md), [0038](0038-ensemble-a-la-souris.md)
+- ADR liés : [0003](0003-modele-de-la-piece-de-bois.md), [0007](0007-compatibilite-avec-les-autres-ateliers.md),
+  [0008](0008-ensemble-objet-de-cotes.md), [0038](0038-taille-et-orientation-d-un-ensemble-a-la-souris.md)
 
 ## Contexte
 
