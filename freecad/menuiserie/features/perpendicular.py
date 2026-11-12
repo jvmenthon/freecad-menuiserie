@@ -13,7 +13,11 @@ modification du document ni de la sélection ; aucun import de ``FreeCADGui``.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from typing import Any
 
+import Part
+
+from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM
 from freecad.menuiserie.core.snap import (
     FaceTarget,
     Orientation,
@@ -25,6 +29,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.picked import crosses_link
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.snap_geometry import ERRORS, global_shape, to_vector
 from freecad.menuiserie.features.snap_targets import TargetReading, local_face_target
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -57,6 +62,32 @@ def _wood_part_of(reading: TargetReading) -> DocumentObject | None:
     return blank if is_timber(blank) else None
 
 
+def _blank_face(reading: TargetReading, blank: DocumentObject) -> Any:
+    """Face de la pièce brute ``blank`` dans le plan de la face lue et qui porte le point cliqué,
+    ``None`` s'il n'y en a pas (point sur une partie ajoutée par un assemblage, forme absente) :
+    les assemblages (mortaises, rainures, feuillures) découpent la face de la pièce usinée et
+    fausseraient la largeur mesurée au clic."""
+    target, point = reading.targets[0], reading.elements[0].point
+    if not isinstance(target, FaceTarget) or point is None:
+        return None
+    normal, origin = to_vector(target.frame.z), to_vector(target.frame.origin)
+    click = to_vector(point)
+    try:
+        for face in global_shape(blank).Faces:
+            _u, _v = face.Surface.parameter(face.CenterOfMass)
+            flat = abs(face.normalAt(_u, _v).cross(normal).Length) < 1e-6
+            same_plane = abs((face.CenterOfMass - origin).dot(normal)) < CONTACT_TOLERANCE_MM
+            if (
+                flat
+                and same_plane
+                and face.distToShape(Part.Vertex(click))[0] < CONTACT_TOLERANCE_MM
+            ):
+                return face
+    except ERRORS:
+        return None
+    return None
+
+
 def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     """Départ perpendiculaire à la face lue, ``None`` s'il ne s'applique pas."""
     if len(reading.targets) != 1 or not reading.elements:
@@ -67,7 +98,9 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     blank = _wood_part_of(reading)
     if blank is None:
         return None
-    local = local_face_target(reading)  # la face à l'endroit du clic, pas toute la face
+    local = local_face_target(
+        reading, _blank_face(reading, blank)
+    )  # la face à l'endroit du clic, pas toute la face
     if local is not None:
         reading, target = replace(reading, targets=(local,)), local
     support = support_rotation(reading.targets)

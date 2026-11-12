@@ -176,14 +176,16 @@ def _span_through(face: Any, point: Vector, axis: Vector) -> tuple[float, float]
     return min(marks), max(marks)
 
 
-def local_face_target(reading: TargetReading) -> FaceTarget | None:
+def local_face_target(reading: TargetReading, face: Any = None) -> FaceTarget | None:
     """Cible de l'unique face lue **à l'endroit du clic** : le rectangle est celui de la tranche de
     la face qui traverse le point cliqué (selon les axes de la cible d'origine), non celui de
     toute la face ; repère d'appui au coin le plus proche du clic. ``None`` sans point cliqué, sans
-    face plane ou si la tranche ne se calcule pas : l'appelant garde la cible d'origine."""
+    face plane ou si la tranche ne se calcule pas : l'appelant garde la cible d'origine. ``face`` :
+    forme à trancher à la place de la face lue (la face de la pièce brute, sans usinages)."""
     if len(reading.targets) != 1 or not reading.shapes or reading.elements[0].point is None:
         return None
-    target, face = reading.targets[0], reading.shapes[0]
+    target = reading.targets[0]
+    face = face if face is not None else reading.shapes[0]
     if not isinstance(target, FaceTarget) or not target.planar or face is None:
         return None
     normal = to_vector(target.frame.z)

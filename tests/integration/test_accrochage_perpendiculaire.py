@@ -23,6 +23,7 @@ geometry = pytest.importorskip("freecad.menuiserie.features.snap_geometry")
 targets = pytest.importorskip("freecad.menuiserie.features.snap_targets")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 pieces_galbees = pytest.importorskip("tests.integration.pieces_galbees")
+cadre = pytest.importorskip("tests.integration.cadre")
 
 ABOVE = Vec3(0, 0, 1)
 
@@ -161,3 +162,16 @@ def test_piece_convertie_largeur_a_l_endroit_du_clic(document: Any) -> None:
     assert (round(box.YMin - top.YMin, 6), round(box.ZMin - top.ZMax, 6)) == (0, 0)
     wide, _ = create_against(document, angle, face, Vec3(top.XMin + 100, top.YMin + 70, top.ZMax))
     assert round(geometry.global_shape(wide).BoundBox.YMax - top.YMin, 6) == 100
+
+
+def test_piece_usinee_largeur_mesuree_sur_la_brute(document: Any) -> None:
+    """Chant d'un montant mortaisé aux deux bouts : les mortaises coupent la face usinée, mais la
+    pièce se cale sur le rectangle de la brute (x de 0 à 600), pas entre les mortaises."""
+    frame = cadre.build_frame(document)
+    frame.assemble()
+    stile = frame.machined("M1")
+    chant = face_at(stile, (0, 1, 0), 60)
+    part, _start = create_against(document, stile, chant, Vec3(300, 60, 11))
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.YMin, 6) == 60  # sur le chant
+    assert round(box.XMin, 6) == 0  # calée au coin de la brute, pas au bord d'une mortaise
