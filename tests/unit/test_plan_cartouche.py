@@ -7,6 +7,7 @@ from freecad.menuiserie.core.drawing import (
     MAX_FIELD_LENGTH,
     TitleFields,
     clean_field,
+    placeholder_keys,
     title_block_texts,
 )
 
@@ -58,3 +59,24 @@ def test_client_apres_le_titre_sans_case_client() -> None:
     assert texts["drawing_title"] == "Bureau - Mme Dupont"
     alone = title_block_texts(["drawing_title"], TitleFields(title="Bureau"))
     assert alone == {"drawing_title": "Bureau"}
+
+
+def test_cases_du_gabarit_de_freecad_1_1() -> None:
+    """Gabarit ISO 7200 de TechDraw 1.1 : cases aux noms allemands, sans case matériau."""
+    keys = ["Genehmiger", "Sachnummer", "author_name", "document_type", "drawing_title"]
+    keys += ["fc-date", "fc-sc", "owner_1", "page_number", "projekt"]
+    values = TitleFields(
+        title="Bureau", material="Chêne", kind="Plan de l'ouvrage", scale="1 : 10", client="X"
+    )
+    texts = title_block_texts(keys, values)
+    assert texts["drawing_title"] == "Bureau"
+    assert texts["owner_1"] == "X"
+    assert texts["document_type"] == "Plan de l'ouvrage - Chêne"
+    assert texts["fc-sc"] == "1 : 10"
+    assert texts["Sachnummer"] == ""
+
+
+def test_exemples_du_gabarit_effaces() -> None:
+    current = {"Genehmiger": "Genehmiger", "projekt": "Projekt", "page_number": "1 / 1"}
+    current["fc-sc"] = "fc-sc"
+    assert placeholder_keys(current, ["fc-sc"]) == ["Genehmiger", "projekt"]

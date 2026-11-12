@@ -20,6 +20,7 @@ from freecad.menuiserie.core.drawing._title import (
     MAX_FIELD_LENGTH,
     TitleFields,
     clean_field,
+    placeholder_keys,
     title_block_texts,
 )
 
@@ -37,6 +38,7 @@ __all__ = [
     "overall_layout",
     "page_size",
     "pick_template",
+    "placeholder_keys",
     "scale_text",
     "title_block_texts",
 ]

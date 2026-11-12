@@ -158,7 +158,7 @@ def test_cartouche_rempli(bureau: Bureau) -> None:
     # Le message cite les cases du gabarit : utile si une version de FreeCAD les renomme.
     assert "1 : 10" in written and "D-2026-014" in written, texts
     # Case client, ou client écrit après le titre si le gabarit n'en a pas.
-    assert "Mme Dupont" in written or "Bureau - Mme Dupont" in written, texts
+    assert any("Mme Dupont" in value for value in written), texts
     material = str(bureau.parts["P"].Material)
     assert any(material in value for value in written), "\n".join(
         f"{key} = {value!r}" for key, value in sorted(texts.items())

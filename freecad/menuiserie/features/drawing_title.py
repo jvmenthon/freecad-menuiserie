@@ -13,7 +13,13 @@ from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import Final
 
-from freecad.menuiserie.core.drawing import TitleFields, clean_field, scale_text, title_block_texts
+from freecad.menuiserie.core.drawing import (
+    TitleFields,
+    clean_field,
+    placeholder_keys,
+    scale_text,
+    title_block_texts,
+)
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features import drawing_settings
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -33,6 +39,7 @@ STORED: Final = {
 MAX_MATERIALS: Final = 3  # au-delà, le cartouche écrit « divers »
 
 _VARIOUS: Final = QT_TRANSLATE_NOOP("Menuiserie", "divers")
+_KIND: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
 
 
 def _materials(objects: Sequence[DocumentObject], seen: set[str]) -> set[str]:
@@ -82,6 +89,7 @@ def fill_title_block(
     values = TitleFields(
         title=_stored(page, "title", inputs.get("title"), _default_title(doc, objects)),
         material=_material_text(objects),
+        kind=translated(_KIND),
         scale=scale_text(scale),
         date=date.today().isoformat(),
         author=drawing_settings.default_author(str(getattr(doc, "CreatedBy", ""))),
@@ -91,5 +99,7 @@ def fill_title_block(
     template = page.Template
     texts = dict(getattr(template, "EditableTexts", None) or {})
     if texts:
-        texts.update(title_block_texts(texts, values))
+        written = title_block_texts(texts, values)
+        texts.update({key: "" for key in placeholder_keys(texts, written)})
+        texts.update(written)
         template.EditableTexts = texts
