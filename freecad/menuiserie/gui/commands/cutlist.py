@@ -24,8 +24,10 @@ import FreeCADGui as Gui
 from PySide import QtGui
 
 from freecad.menuiserie import api
+from freecad.menuiserie.core.cutlist import CsvDialect
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import escaped_text
+from freecad.menuiserie.features import csv_format
 from freecad.menuiserie.features.cutlist_export import (
     CSV_SUFFIX,
     PDF_SUFFIX,
@@ -34,6 +36,7 @@ from freecad.menuiserie.features.cutlist_export import (
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.library import PARAM_PATH
 from freecad.menuiserie.gui import cutlist_preview
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 
@@ -46,6 +49,7 @@ NUMBER_MARKS: Final = "Menuiserie_NumberMarks"
 COMMANDS: Final = (CUT_LIST, CUT_LIST_PREVIEW, CUT_LIST_EXPORT, CUT_LIST_PDF, NUMBER_MARKS)
 CONFIRMATION_DISPLAY_MS: Final = 10_000  # durée d'affichage de la confirmation d'export
 TOUCHED: Final = "Touched"
+CSV_FORMAT_KEY: Final = "CutListCsvFormat"  # dernier format de CSV choisi (préférences)
 
 _DIALOG_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter la liste de débit")
 _DIALOG_FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers CSV (*.csv)")
@@ -165,15 +169,18 @@ class CutListPreviewCommand(CutListCommand):
 
 
 class CutListExportCommand(CutListCommand):
-    """Exporte la liste de débit en CSV (international : ``,``, point décimal, UTF-8 avec BOM)."""
+    """Exporte la liste de débit en CSV (format français ou international, au choix dans la boîte
+    d'enregistrement ; UTF-8 avec BOM)."""
 
     NAME = CUT_LIST_EXPORT
     MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_CutListExport", "Exporter la liste de débit (CSV)…")
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_CutListExport",
-        "Enregistre la liste de débit dans un fichier CSV au format international (virgule, "
-        "point décimal). Limitée aux objets sélectionnés, sinon à tout le document ; "
-        "le document n'est pas modifié.",
+        "Enregistre la liste de débit dans un fichier CSV. Le format se choisit dans la boîte "
+        "d'enregistrement : français (point-virgule, virgule décimale, ouvert directement par "
+        "Excel en français) ou international (virgule, point décimal) ; le dernier choix est "
+        "retenu. Limitée aux objets sélectionnés, sinon à tout le document ; le document "
+        "n'est pas modifié.",
     )
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
@@ -243,11 +250,12 @@ def export_csv(
 ) -> None:
     """Fichier CSV demandé (rien si l'on annule), document recalculé si besoin, CSV écrit par
     l'api ; confirmation dans la barre d'état."""
-    path = ask_path(doc, CSV_SUFFIX, parent)
-    if path is None:
+    asked = ask_csv_path(doc, parent)
+    if asked is None:
         return
+    path, dialect = asked
     recompute_if_touched(doc)
-    written = api.export_cut_list_csv(doc, path, objects)
+    written = api.export_cut_list_csv(doc, path, objects, dialect)
     show_status(translated(_EXPORTED, {"path": escaped_text(str(written))}))
 
 
@@ -314,6 +322,42 @@ def _actions(document_name: str, names: list[str] | None) -> cutlist_preview.Pre
         return export
 
     return cutlist_preview.PreviewActions(refresh, exporter(export_pdf), exporter(export_csv))
+
+
+def _language() -> str:
+    """Langue de l'interface de FreeCAD (vide si elle est inconnue)."""
+    try:
+        return str(Gui.getLocale())
+    except (AttributeError, RuntimeError):
+        return ""
+
+
+def ask_csv_path(
+    doc: Document, parent: QtGui.QWidget | None = None
+) -> tuple[Path, CsvDialect] | None:
+    """Boîte d'enregistrement du CSV, avec un filtre par format (français, international) :
+    l'utilisateur choisit le format en même temps que le fichier. Le format présélectionné est
+    le dernier choisi, sinon le français quand FreeCAD est en français. Le choix est retenu dans
+    les préférences de l'atelier. ``None`` si l'utilisateur annule."""
+    params = App.ParamGet(PARAM_PATH)
+    first = csv_format.initial_format(str(params.GetString(CSV_FORMAT_KEY, "")), _language())
+    order = [first, *(name for name in csv_format.FILTERS if name != first)]
+    texts = {name: translated(csv_format.FILTERS[name]) for name in order}
+    proposed = proposed_path(doc.Label, doc.FileName, suffix=CSV_SUFFIX)
+    answer: Any = QtGui.QFileDialog.getSaveFileName(
+        parent or Gui.getMainWindow(),
+        translated(_DIALOG_TITLE),
+        str(proposed),
+        ";;".join(texts.values()),
+        texts[first],
+    )
+    chosen = answer[0] if isinstance(answer, tuple) else answer
+    if not chosen:
+        return None
+    selected = answer[1] if isinstance(answer, tuple) else texts[first]
+    name = next((key for key, text in texts.items() if text == selected), first)
+    params.SetString(CSV_FORMAT_KEY, name)
+    return Path(with_suffix(chosen, CSV_SUFFIX)), csv_format.dialect_of(name)
 
 
 def ask_path(

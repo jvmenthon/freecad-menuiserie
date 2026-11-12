@@ -79,15 +79,21 @@ def onglets() -> int:
 
 
 @contextmanager
-def boite_d_enregistrement(reponse: str) -> Iterator[list[tuple[str, str, str]]]:
+def boite_d_enregistrement(
+    reponse: str, mot_du_filtre: str = ""
+) -> Iterator[list[tuple[str, str, str]]]:
     """Remplace la boîte d'enregistrement de Qt : elle répond ``reponse`` (« » = annulée) et
-    note (titre, nom proposé, filtre) de chaque appel ; rétablie en sortie."""
+    note (titre, nom proposé, filtre) de chaque appel ; rétablie en sortie. Avec ``mot_du_filtre``,
+    elle « choisit » le filtre qui contient ce mot (sinon celui présélectionné)."""
     appels: list[tuple[str, str, str]] = []
     origine = QtGui.QFileDialog.getSaveFileName
 
-    def double(_parent: Any, titre: str, proposition: str, filtre: str) -> tuple[str, str]:
+    def double(
+        _parent: Any, titre: str, proposition: str, filtre: str, choisi: str | None = None
+    ) -> tuple[str, str]:
         appels.append((titre, proposition, filtre))
-        return reponse, filtre
+        voulu = next((f for f in filtre.split(";;") if mot_du_filtre in f), "")
+        return reponse, voulu or (choisi if choisi is not None else filtre)
 
     QtGui.QFileDialog.getSaveFileName = double
     try:
@@ -379,6 +385,33 @@ def verifier_export_csv() -> list[str]:
     """G2, G3 : boîte d'enregistrement (nom proposé à côté du document, filtre CSV), fichier
     écrit, confirmation dans la barre d'état, document et sélection inchangés."""
     return avec_bureau("VerifDebitExport", _export)
+
+
+def _export_formats(bureau: Bureau) -> list[str]:
+    problemes: list[str] = []
+    with tempfile.TemporaryDirectory() as dossier:
+        for mot, attendu in (("français", ";"), ("international", ",")):
+            cible = Path(dossier) / f"{mot}.csv"
+            with boite_d_enregistrement(str(cible), mot) as appels:
+                Gui.Command.get(EXPORT).run()
+            texte = cible.read_text(encoding="utf-8-sig") if cible.exists() else ""
+            entete = texte.splitlines()[0] if texte else ""
+            problemes += [
+                *ecarts(f"{mot} : deux formats proposés", appels[0][2].count(";;"), 1),
+                *ecarts(f"{mot} : séparateur", attendu in entete, True),
+                *ecarts(
+                    f"{mot} : l'autre séparateur absent",
+                    ({";", ","} - {attendu}).pop() in entete,
+                    False,
+                ),
+            ]
+    return problemes
+
+
+def verifier_export_formats() -> list[str]:
+    """Issue #223 : la boîte propose le CSV français et l'international ; le format choisi est
+    celui du fichier écrit."""
+    return avec_bureau("VerifDebitFormats", _export_formats)
 
 
 def verifier_export_sans_extension() -> list[str]:
@@ -757,6 +790,7 @@ VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_liste_vivante,
     verifier_suppression_sans_avertissement,
     verifier_export_csv,
+    verifier_export_formats,
     verifier_export_sans_extension,
     verifier_export_annule_ou_refuse,
     verifier_export_recalcule_le_document,
