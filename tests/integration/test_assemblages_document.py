@@ -75,7 +75,7 @@ MACHINED_PROPERTIES = [
     ("Joints", "App::PropertyLinkList", "Pièce", ["ReadOnly"]),
     ("Version", "App::PropertyInteger", "Base", ["Hidden"]),
 ]
-JOINT_PROPERTIES = [
+JOINT_PROPERTIES: list[tuple[Any, ...]] = [
     ("HostPart", "App::PropertyLinkGlobal", "Assemblage", ["ReadOnly"], None),
     ("GuestPart", "App::PropertyLinkGlobal", "Assemblage", ["ReadOnly"], None),
     ("Frames", "App::PropertyLinkListGlobal", "Assemblage", ["Hidden"], []),
