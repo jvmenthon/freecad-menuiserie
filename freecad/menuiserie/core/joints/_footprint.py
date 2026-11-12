@@ -16,6 +16,7 @@ __all__ = ["fit_centers", "inside", "margin"]
 Point = tuple[float, float]
 Loops = Sequence[Sequence[Point]]
 _EPS: Final = 1e-6
+SPACING_FACTOR: Final = 2.0  # écart minimal entre deux pieds : 2 embases (centre à centre)
 
 
 def _segments(loops: Loops) -> list[tuple[Point, Point]]:
@@ -78,8 +79,9 @@ def fit_centers(
 ) -> tuple[Point, ...] | None:
     """Centres de pieds dans le contour : un centre voulu déjà à ``edge`` du bord reste en
     place, les autres sont ramenés au point le plus proche à ``edge`` du bord (``radius`` au
-    moins si la pièce est trop étroite pour ``edge``). Deux pieds ne se chevauchent pas : les
-    doublons sont fusionnés. ``None`` si un pied n'a aucune place."""
+    moins si la pièce est trop étroite pour ``edge``). Deux pieds ne sont jamais collés : à moins
+    de deux embases d'écart (centre à centre), le second est supprimé. ``None`` si un pied n'a
+    aucune place."""
     placed: list[Point] = []
     for point in wanted:
         chosen = None
@@ -93,6 +95,9 @@ def fit_centers(
                 break
         if chosen is None:
             return None
-        if all(math.hypot(chosen[0] - p[0], chosen[1] - p[1]) >= 2 * radius - _EPS for p in placed):
+        if all(
+            math.hypot(chosen[0] - p[0], chosen[1] - p[1]) >= SPACING_FACTOR * 2 * radius - _EPS
+            for p in placed
+        ):
             placed.append(chosen)
     return tuple(placed)

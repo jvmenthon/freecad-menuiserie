@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock
@@ -214,3 +216,10 @@ def test_contour_trop_etroit_refuse() -> None:
     )
     with pytest.raises(JointError):
         FOOT.resolve(thin, thin, FootParams())
+
+
+def test_pieds_jamais_colles_sur_une_piece_coudee() -> None:
+    panel = l_panel()
+    centers = FOOT.resolve(panel, panel, FootParams()).centers
+    gaps = [math.dist(a, b) for i, a in enumerate(centers) for b in centers[i + 1 :]]
+    assert min(gaps) >= 100.0 - 1e-6  # au moins une embase (Ø50) entre deux embases
