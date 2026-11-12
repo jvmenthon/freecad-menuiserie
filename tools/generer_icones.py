@@ -120,6 +120,32 @@ def export_liste_de_debit_pdf() -> str:
     return document(["  <!-- Export de la liste de débit (PDF) -->", feuille(6), pdf])
 
 
+def _plan(lignes: list[str]) -> list[str]:
+    """Feuille de plan : face et dessus d'un meuble, cote hors tout au-dessus."""
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    meuble = 'fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"'
+    cote = 'fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"'
+    return [
+        *lignes,
+        f'  <rect x="4" y="6" width="56" height="52" rx="2" fill="#ffffff" {trait}/>',
+        f'  <rect x="12" y="20" width="26" height="18" {meuble}/>',
+        f'  <rect x="12" y="44" width="26" height="8" {meuble}/>',
+        f'  <rect x="44" y="20" width="10" height="18" {meuble}/>',
+        f'  <path d="M12,13 H38 M12,10 V16 M38,10 V16" {cote}/>',
+        '  <rect x="40" y="46" width="16" height="8" fill="#d3d7cf" stroke="#2e3436" '
+        'stroke-width="1"/>',
+    ]
+
+
+def plan_de_l_ouvrage() -> str:
+    return document(_plan(["  <!-- Plan de l'ouvrage : face, dessus, côté et cote hors tout -->"]))
+
+
+def export_du_plan_pdf() -> str:
+    pdf = etiquette("PDF", "#cc0000", "#7a0000")
+    return document([*_plan(["  <!-- Export du plan (PDF) -->"]), pdf])
+
+
 def numeroter_les_reperes() -> str:
     trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
     chiffre = 'fill="none" stroke="#2e3436" stroke-width="2.5" stroke-linecap="round"'
@@ -311,6 +337,9 @@ ICONES = {
     "Menuiserie_CutListExport.svg": export_liste_de_debit,
     "Menuiserie_CutListPdf.svg": export_liste_de_debit_pdf,
     "Menuiserie_NumberMarks.svg": numeroter_les_reperes,
+    # Plans cotés (issue #153)
+    "Menuiserie_Drawing.svg": plan_de_l_ouvrage,
+    "Menuiserie_DrawingPdf.svg": export_du_plan_pdf,
     "Menuiserie_MortiseTenon.svg": tenon_mortaise,
     "Menuiserie_TongueGroove.svg": rainure_languette,
     "Menuiserie_Rabbet.svg": feuillure,

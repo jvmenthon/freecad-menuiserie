@@ -94,7 +94,8 @@ def test_page_modifiee_a_la_main_conservee(bureau: Bureau) -> None:
 
 
 def test_format_a4_portrait(bureau: Bureau) -> None:
-    page = api.make_overall_drawing(bureau.doc, [bureau.furniture], "A4", api.Orientation.PORTRAIT)
+    options = api.DrawingOptions(page_format="A4", orientation=api.Orientation.PORTRAIT)
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture], options)
     assert "A4" in page.Template.Template and "Portrait" in page.Template.Template
     assert page.Scale <= 0.05
 
@@ -114,7 +115,7 @@ def test_refus_sans_modifier_le_document(bureau: Bureau) -> None:
     with pytest.raises(ValueError, match="aucune pièce"):
         api.make_overall_drawing(doc, [])
     with pytest.raises(ValueError, match="Format de page inconnu"):
-        api.make_overall_drawing(doc, [bureau.furniture], "B5")
+        api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(page_format="B5"))
     other = App.newDocument("Autre")
     try:
         box = other.addObject("Part::Box", "Boite")
@@ -143,3 +144,55 @@ def test_solide_d_un_autre_atelier_dans_un_std_part_tourne(document: Any) -> Non
     document.recompute()
     page = api.make_overall_drawing(document, [box])
     assert values(page) == pytest.approx([200, 300, 100], abs=0.01)  # repère global
+
+
+def cartouche(page: Any) -> dict[str, str]:
+    return dict(page.Template.EditableTexts)
+
+
+def test_cartouche_rempli(bureau: Bureau) -> None:
+    options = api.DrawingOptions(client="Mme Dupont", quote="D-2026-014")
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture], options)
+    texts = cartouche(page)
+    written = set(texts.values())
+    # Le message cite les cases du gabarit : utile si une version de FreeCAD les renomme.
+    assert {"Bureau", "1 : 10"} <= written, sorted(texts)
+    assert "Mme Dupont" in written and "D-2026-014" in written, sorted(texts)
+    assert any("Chêne" in value or "chêne" in value.lower() for value in written), texts
+
+
+def test_cartouche_garde_les_saisies_a_la_relance(bureau: Bureau) -> None:
+    doc = bureau.doc
+    first = api.DrawingOptions(title="Bureau de Léa", client="Mme Dupont")
+    page = api.make_overall_drawing(doc, [bureau.furniture], first)
+    again = api.make_overall_drawing(doc, [bureau.furniture])
+    assert again == page
+    written = set(cartouche(again).values())
+    assert "Bureau de Léa" in written and "Mme Dupont" in written
+    cleared = api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(client=""))
+    assert "Mme Dupont" not in set(cartouche(cleared).values())
+
+
+def test_format_de_la_configuration(bureau: Bureau) -> None:
+    parameters = App.ParamGet("User parameter:BaseApp/Preferences/Mod/Menuiserie")
+    parameters.SetString("DrawingPageFormat", "a4")
+    parameters.SetString("DrawingPageOrientation", "Portrait")
+    try:
+        page = api.make_overall_drawing(bureau.doc, [bureau.furniture])
+        assert "A4" in page.Template.Template and "Portrait" in page.Template.Template
+        parameters.SetString("DrawingPageFormat", "Z9")  # valeur abîmée : format par défaut
+        parameters.SetString("DrawingPageOrientation", "")
+        other = api.make_overall_drawing(bureau.doc, [bureau.parts["P"]])
+        assert "A3" in other.Template.Template and "Landscape" in other.Template.Template
+    finally:
+        parameters.RemString("DrawingPageFormat")
+        parameters.RemString("DrawingPageOrientation")
+
+
+def test_changement_de_format_a_la_relance(bureau: Bureau) -> None:
+    doc = bureau.doc
+    page = api.make_overall_drawing(doc, [bureau.furniture])
+    again = api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(page_format="A2"))
+    assert again == page
+    assert "A2" in again.Template.Template
+    assert again.Scale == pytest.approx(0.2)

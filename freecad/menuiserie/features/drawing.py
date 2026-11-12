@@ -24,7 +24,6 @@ import FreeCAD as App
 import Part
 
 from freecad.menuiserie.core.drawing import (
-    DEFAULT_FORMAT,
     Orientation,
     OverallLayout,
     Spot,
@@ -33,8 +32,10 @@ from freecad.menuiserie.core.drawing import (
     pick_template,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features import drawing_settings
+from freecad.menuiserie.features.drawing_title import STORED, fill_title_block
 from freecad.menuiserie.features.freecad_types import HIDDEN, Document, DocumentObject
-from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.machined_part import machined_part_of
@@ -45,6 +46,7 @@ __all__ = [
     "PAGE_NAME",
     "TITLE",
     "DrawingOptions",
+    "document_scope",
     "drawing_sources",
     "find_overall_drawing",
     "is_workshop_drawing",
@@ -77,6 +79,9 @@ _NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan impossible : aucune piè
 _FOREIGN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan impossible : « {label} » appartient à un autre document."
 )
+_STORED_TOOLTIP: Final = QT_TRANSLATE_NOOP(
+    "App::Property", "Saisie du cartouche de ce plan (atelier Menuiserie)."
+)
 _VIEW_LABELS: Final = {
     "Front": QT_TRANSLATE_NOOP("Menuiserie", "Face"),
     "Top": QT_TRANSLATE_NOOP("Menuiserie", "Dessus"),
@@ -96,10 +101,23 @@ _OVERALL: Final = (("Front", HORIZONTAL), ("Top", VERTICAL), ("Front", VERTICAL)
 
 @dataclass(frozen=True)
 class DrawingOptions:
-    """Feuille du plan : format ISO (« A3 »…) et sens."""
+    """Feuille et cartouche du plan. ``None`` : le réglage de la configuration de l'atelier pour
+    le format et le sens ; pour le titre, le client et le numéro de devis, la valeur déjà
+    enregistrée sur la page que l'on refait, sinon le nom de l'ouvrage (titre) ou rien."""
 
-    page_format: str = DEFAULT_FORMAT
-    orientation: Orientation = Orientation.LANDSCAPE
+    page_format: str | None = None
+    orientation: Orientation | None = None
+    title: str | None = None
+    client: str | None = None
+    quote: str | None = None
+
+    def resolved_format(self) -> str:
+        """Format demandé, sinon celui de la configuration."""
+        return self.page_format or drawing_settings.default_format()
+
+    def resolved_orientation(self) -> Orientation:
+        """Sens demandé, sinon celui de la configuration."""
+        return self.orientation or drawing_settings.default_orientation()
 
 
 def _techdraw() -> Any:
@@ -142,6 +160,17 @@ def _expanded(obj: DocumentObject, seen: set[str]) -> Iterator[DocumentObject]:
         yield shown
 
 
+def document_scope(doc: Document) -> list[DocumentObject]:
+    """Ce que dessine le plan quand rien n'est sélectionné : les ensembles de plus haut niveau et
+    les pièces de bois hors ensemble du document, par nom."""
+    found = [
+        obj
+        for obj in doc.Objects
+        if (is_furniture(obj) or is_timber(obj)) and furniture_of(obj) is None
+    ]
+    return sorted(found, key=lambda obj: obj.Name)
+
+
 def drawing_sources(doc: Document, objects: Sequence[DocumentObject]) -> list[DocumentObject]:
     """Objets à projeter pour dessiner ``objects`` (ensembles, pièces, Std Part, solides d'autres
     ateliers), sans doublon et dans l'ordre donné. ``ValueError`` traduite pour un objet d'un autre
@@ -177,7 +206,7 @@ def _template_path(options: DrawingOptions) -> str | None:
     if not folder.is_dir():
         return None
     paths = sorted(str(path) for path in islice(folder.rglob("*.svg"), MAX_TEMPLATES))
-    return pick_template(paths, options.page_format, options.orientation)
+    return pick_template(paths, options.resolved_format(), options.resolved_orientation())
 
 
 def _owned(page: DocumentObject) -> list[str]:
@@ -210,20 +239,30 @@ def find_overall_drawing(doc: Document, sources: Sequence[DocumentObject]) -> Do
     return None
 
 
-def _create_page(doc: Document, options: DrawingOptions) -> DocumentObject:
+def _create_page(doc: Document) -> DocumentObject:
     page = doc.addObject(PAGE_TYPE, PAGE_NAME)
     page.addProperty("App::PropertyBool", MARKER, "Menuiserie", _MARKER_TOOLTIP)
     page.addProperty("App::PropertyString", OWNED, "Menuiserie", _OWNED_TOOLTIP)
+    for name in STORED.values():
+        page.addProperty("App::PropertyString", name, "Menuiserie", _STORED_TOOLTIP)
     setattr(page, MARKER, True)
-    for name in (MARKER, OWNED):
+    for name in (MARKER, OWNED, *STORED.values()):
         page.setEditorMode(name, HIDDEN)
     page.Label = translated(TITLE)
-    template = doc.addObject(TEMPLATE_TYPE, f"{PAGE_NAME}Gabarit")
-    path = _template_path(options)
-    if path is not None:
-        template.Template = path
-    page.Template = template
+    page.Template = doc.addObject(TEMPLATE_TYPE, f"{PAGE_NAME}Gabarit")
     return page
+
+
+def _title_inputs(options: DrawingOptions) -> dict[str, str | None]:
+    return {"title": options.title, "client": options.client, "quote": options.quote}
+
+
+def _apply_template(page: DocumentObject, options: DrawingOptions) -> None:
+    """Donne à ``page`` le gabarit de TechDraw voulu par ``options`` (inchangé s'il l'a déjà)."""
+    path = _template_path(options)
+    template = page.Template
+    if path is not None and template is not None and str(template.Template) != path:
+        template.Template = path
 
 
 def _add_view(
@@ -296,19 +335,17 @@ def make_overall_drawing(
     sources = drawing_sources(doc, objects)
     box = _global_box(sources)
     with translated_errors():
-        layout = overall_layout(
-            box.XLength,
-            box.YLength,
-            box.ZLength,
-            page_size(chosen.page_format, chosen.orientation),
-        )
+        size = page_size(chosen.resolved_format(), chosen.resolved_orientation())
+        layout = overall_layout(box.XLength, box.YLength, box.ZLength, size)
     doc.openTransaction(translated(TITLE))
     try:
         page = find_overall_drawing(doc, sources)
         if page is None:
-            page = _create_page(doc, chosen)
+            page = _create_page(doc)
         else:
             _clear(page)
+        _apply_template(page, chosen)
+        fill_title_block(page, list(objects), _title_inputs(chosen), layout.scale)
         _fill(page, sources, layout)
     except Exception:
         doc.abortTransaction()

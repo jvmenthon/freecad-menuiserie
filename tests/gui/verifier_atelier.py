@@ -59,6 +59,7 @@ from tests.gui.verifications_piece_en_bois import VERIFICATIONS_PIECE_EN_BOIS
 from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE
 from tests.gui.verifications_piece_en_bois_limites import VERIFICATIONS_PIECE_EN_BOIS_LIMITES
 from tests.gui.verifications_pieces_proches import VERIFICATIONS_PIECES_PROCHES
+from tests.gui.verifications_plan import VERIFICATIONS_PLAN
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_repetition import VERIFICATIONS_REPETITION
 from tests.gui.verifications_repetition_butee import VERIFICATIONS_REPETITION_BUTEE
@@ -1282,6 +1283,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_CAISSON,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
+    *VERIFICATIONS_PLAN,
     *VERIFICATIONS_DOUBLE_CLIC,
     *VERIFICATIONS_SELECTION_ENSEMBLE,
     # Panneau « Structure » (ADR 0046, lot 2)

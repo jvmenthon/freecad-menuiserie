@@ -16,17 +16,27 @@ from freecad.menuiserie.core.drawing._layout import (
     scale_text,
 )
 from freecad.menuiserie.core.drawing._template import pick_template
+from freecad.menuiserie.core.drawing._title import (
+    MAX_FIELD_LENGTH,
+    TitleFields,
+    clean_field,
+    title_block_texts,
+)
 
 __all__ = [
     "DEFAULT_FORMAT",
+    "MAX_FIELD_LENGTH",
     "PAGE_FORMATS",
     "SCALES",
     "Orientation",
     "OverallLayout",
     "PageSize",
     "Spot",
+    "TitleFields",
+    "clean_field",
     "overall_layout",
     "page_size",
     "pick_template",
     "scale_text",
+    "title_block_texts",
 ]

@@ -67,9 +67,10 @@ Liste de débit (J2) ::
 
 Plan de l'ouvrage (issue #153, ADR 0053) : page TechDraw standard, quatre vues et cotes hors tout ::
 
-    from freecad.menuiserie.api import make_overall_drawing
+    from freecad.menuiserie.api import DrawingOptions, make_overall_drawing
 
-    page = make_overall_drawing(doc, [bureau])  # A3 paysage ; page_format="A4" pour changer
+    page = make_overall_drawing(doc, [bureau])  # format de la configuration (A3 paysage)
+    make_overall_drawing(doc, [bureau], DrawingOptions(page_format="A4", client="Dupont"))
 
 Façade seule : le code est dans le paquet privé ``_api/`` (``wood``, ``joints``, ``furniture``,
 ``cutlist``, ``drawing``), les seuls modules hors de ``gui/`` autorisés à importer ``gui/``, et
@@ -87,7 +88,7 @@ from freecad.menuiserie._api.cutlist import (
     make_cut_list,
     number_marks,
 )
-from freecad.menuiserie._api.drawing import make_overall_drawing
+from freecad.menuiserie._api.drawing import DrawingOptions, make_overall_drawing
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
     furniture_of,
@@ -158,6 +159,7 @@ __all__ = [
     "AxisRepeat",
     "CarcassJoinery",
     "CarcassParams",
+    "DrawingOptions",
     "LockedPiecesError",
     "Orientation",
     "PickedElement",

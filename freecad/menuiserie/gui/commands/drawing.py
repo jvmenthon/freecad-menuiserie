@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+"""Commandes des plans cotés (issue #153, ADR 0053, lot P-b).
+
+« Plan de l'ouvrage » ouvre le panneau du plan de la sélection (ensembles, pièces, Std Part) ou,
+sans sélection, de tous les ensembles et pièces libres du document. « Exporter le plan (PDF)… »
+écrit la page TechDraw sélectionnée (de l'atelier ou non) dans un fichier PDF. Les deux sont
+grisées sans TechDraw ou pendant un panneau ouvert ; un refus est affiché comme les autres.
+"""
+
+from __future__ import annotations
+
+from typing import Final
+
+import FreeCAD as App
+import FreeCADGui as Gui
+
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import escaped_text
+from freecad.menuiserie.features.drawing import document_scope, techdraw_available
+from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui import drawing_pdf
+from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
+from freecad.menuiserie.gui.commands.cutlist import selected_objects, show_status
+
+DRAWING: Final = "Menuiserie_Drawing"
+DRAWING_PDF: Final = "Menuiserie_DrawingPdf"
+COMMANDS: Final = (DRAWING, DRAWING_PDF)
+PAGE_TYPE: Final = "TechDraw::DrawPage"
+
+_EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
+
+
+def export_with_dialog(page: DocumentObject) -> None:
+    """Fichier demandé (rien si l'on annule), PDF écrit ; confirmation ou refus affichés."""
+    path = drawing_pdf.ask_pdf_path(page)
+    if path is None:
+        return
+    try:
+        written = drawing_pdf.export_page_pdf(page, path)
+    except (OSError, ValueError) as error:
+        report_refusal(str(error))
+        return
+    show_status(translated(_EXPORTED, {"path": escaped_text(str(written))}))
+
+
+def selected_page() -> DocumentObject | None:
+    """Page TechDraw sélectionnée (la seule de la sélection), ``None`` sinon."""
+    pages = [obj for obj in Gui.Selection.getSelection() if obj.TypeId == PAGE_TYPE]
+    return pages[0] if len(pages) == 1 else None
+
+
+class DrawingCommand(TransactionCommand):
+    """Ouvre le panneau « Plan de l'ouvrage »."""
+
+    NAME = DRAWING
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Drawing", "Plan de l'ouvrage")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Drawing",
+        "Crée ou refait une page TechDraw cotée : face, dessus, côté et perspective à l'échelle, "
+        "cotes hors tout qui suivent le modèle, cartouche rempli. Dessine les objets "
+        "sélectionnés, sinon tous les ensembles et pièces du document.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
+
+    def IsActive(self) -> bool:
+        """Active s'il y a un document, TechDraw et aucun panneau ouvert."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and techdraw_available()
+        )
+
+    def Activated(self) -> None:
+        """Portée lue (sélection, sinon tout le document), puis panneau ouvert."""
+        from freecad.menuiserie.gui.task_panels.drawing import DrawingTaskPanel
+
+        doc = App.ActiveDocument
+        objects = [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+        try:
+            panel = DrawingTaskPanel(doc, objects or document_scope(doc))
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        Gui.Control.showDialog(panel)
+
+
+class DrawingPdfCommand(TransactionCommand):
+    """Exporte la page TechDraw sélectionnée en PDF."""
+
+    NAME = DRAWING_PDF
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_DrawingPdf", "Exporter le plan (PDF)…")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_DrawingPdf",
+        "Enregistre la page de plan sélectionnée dans un fichier PDF prêt à imprimer, au format "
+        "de sa feuille. Le document n'est pas modifié.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Exporter le plan")
+    PREREQUISITE = QT_TRANSLATE_NOOP(
+        "Menuiserie", "une page de plan sélectionnée (dans l'arbre ou le panneau « Structure »)"
+    )
+
+    def IsActive(self) -> bool:
+        """Active si une seule page TechDraw est sélectionnée et qu'aucun panneau n'est ouvert."""
+        return not Gui.Control.activeDialog() and selected_page() is not None
+
+    def Activated(self) -> None:
+        """Fichier demandé puis PDF écrit."""
+        page = selected_page()
+        if page is not None:
+            export_with_dialog(page)
+
+
+def register() -> None:
+    """Enregistre les commandes des plans auprès de FreeCAD."""
+    Gui.addCommand(DRAWING, DrawingCommand())
+    Gui.addCommand(DRAWING_PDF, DrawingPdfCommand())

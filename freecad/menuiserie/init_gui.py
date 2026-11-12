@@ -87,6 +87,13 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
                 "Menuiserie_NumberMarks",
             ),
         ),
+        (
+            QT_TRANSLATE_NOOP("Workbench", "Plans"),
+            (
+                "Menuiserie_Drawing",  # plans cotés (issue #153, ADR 0053)
+                "Menuiserie_DrawingPdf",
+            ),
+        ),
     )
 
     def Initialize(self) -> None:
@@ -106,6 +113,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import cutlist  # liste de débit (J2d)
 
         cutlist.register()
+        from freecad.menuiserie.gui.commands import drawing  # plans cotés (issue #153)
+
+        drawing.register()
         from freecad.menuiserie.gui.commands import distance  # distance entre deux pièces (DI-b)
 
         distance.register()

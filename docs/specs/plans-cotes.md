@@ -87,3 +87,15 @@ cette PR.
 Les réglages de plan s'ajoutent au catalogue de la configuration de l'atelier (ADR 0031, issue
 #148). Tant que la page de préférences n'existe pas, ils sont lus dans les paramètres de l'atelier
 (`Mod/Menuiserie`) avec leurs valeurs par défaut.
+
+## 7. Réalisation
+
+- **P-a** (fait) : `features/drawing.py`, `core/drawing/` ; tests `tests/integration/test_plan_ouvrage.py`.
+  Les cotes hors tout sont des `TechDraw::DrawViewDimExtent` (`TechDraw.makeExtentDim`) sur toute
+  la vue de face (largeur, hauteur) et de dessus (profondeur) : elles suivent le modèle sans
+  référence d'arête, ce qui lève le risque du § 3.
+- **P-b** (fait) : cartouche (`features/drawing_title.py`, `core/drawing/_title.py` : cases du
+  gabarit reconnues par leurs noms usuels, case inconnue jamais touchée), réglages
+  (`features/drawing_settings.py`), commandes `Menuiserie_Drawing` et `Menuiserie_DrawingPdf`,
+  panneau `gui/task_panels/drawing.py`, export PDF `gui/drawing_pdf.py`. Sans sélection, le plan
+  dessine les ensembles de plus haut niveau et les pièces libres du document.
