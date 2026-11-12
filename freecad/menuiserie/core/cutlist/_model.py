@@ -76,6 +76,8 @@ _FIELDS: Final[Mapping[str, str]] = MappingProxyType(
         "length": QT_TRANSLATE_NOOP("Menuiserie", "longueur"),
         "width": QT_TRANSLATE_NOOP("Menuiserie", "largeur"),
         "kind": QT_TRANSLATE_NOOP("Menuiserie", "nature"),
+        "manufacturer": QT_TRANSLATE_NOOP("Menuiserie", "fabricant"),
+        "reference": QT_TRANSLATE_NOOP("Menuiserie", "référence"),
         "rough_thicknesses": QT_TRANSLATE_NOOP("Menuiserie", "épaisseurs de brut"),
         "shape": QT_TRANSLATE_NOOP("Menuiserie", "empreinte de forme"),
         "bevels": QT_TRANSLATE_NOOP("Menuiserie", "coupes en biais"),
@@ -243,6 +245,8 @@ class Hardware:
     quantity: int
     width: float = 0.0
     material: str = ""  # "plastic" ou "wood" (pieds) ; vide : sans objet
+    manufacturer: str = ""  # fabricant de la référence du catalogue (vide : générique)
+    reference: str = ""  # référence du catalogue (liste d'achat) ; vide : cotes saisies à la main
 
     def __post_init__(self) -> None:
         if self.material not in HARDWARE_MATERIALS:
@@ -252,6 +256,9 @@ class Hardware:
         object.__setattr__(self, "diameter", _require_length(self.diameter, "diameter"))
         object.__setattr__(self, "length", _require_length(self.length, "length"))
         _require_count(self.quantity, "quantity")
+        for name in ("manufacturer", "reference"):
+            if not isinstance(getattr(self, name), str):
+                raise _refuse(_BAD_TYPE, name, getattr(self, name))
         if self.width:
             object.__setattr__(self, "width", _require_length(self.width, "width"))
 

@@ -10,7 +10,7 @@ import math
 import re
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Final
 
 from freecad.menuiserie.core._validation import decimal_text
@@ -150,15 +150,29 @@ def _grouped_hardware(items: Iterable[Hardware]) -> tuple[Hardware, ...]:
     quantities: dict[tuple[object, ...], int] = defaultdict(int)
     first: dict[tuple[object, ...], Hardware] = {}
     for item in items:
-        key = (item.kind, item.material, *_rounded(item.diameter, item.length, item.width))
+        key = (
+            item.kind,
+            item.material,
+            item.manufacturer,
+            item.reference,
+            *_rounded(item.diameter, item.length, item.width),
+        )
         first.setdefault(key, item)
         quantities[key] += item.quantity
-    grouped = (
-        Hardware(item.kind, item.diameter, item.length, quantities[key], item.width, item.material)
-        for key, item in first.items()
-    )
+    grouped = (replace(item, quantity=quantities[key]) for key, item in first.items())
     return tuple(
-        sorted(grouped, key=lambda h: (h.kind.value, h.material, h.diameter, h.width, h.length))
+        sorted(
+            grouped,
+            key=lambda h: (
+                h.kind.value,
+                h.material,
+                h.diameter,
+                h.width,
+                h.length,
+                h.manufacturer,
+                h.reference,
+            ),
+        )
     )
 
 

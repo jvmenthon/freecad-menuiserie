@@ -41,6 +41,11 @@ class HardwareItem:
         brand = " ".join(part for part in (self.manufacturer, self.reference) if part)
         return f"{brand} — {self.label}" if brand else self.label
 
+    @property
+    def purchase_reference(self) -> str:
+        """Référence à commander : celle du fabricant, ou l'identifiant du catalogue sans marque."""
+        return self.reference or self.id
+
     def matches(self, text: str) -> bool:
         """Vrai si chaque mot de ``text`` figure (sans casse) dans le titre, l'id ou la famille."""
         haystack = nfc(f"{self.title} {self.id} {self.family}").casefold()

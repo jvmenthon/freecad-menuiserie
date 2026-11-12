@@ -67,8 +67,15 @@ def test_structure_en_trois_blocs() -> None:
     assert totals[-1][0] == "Total général"
     assert hardware == [
         ["Fournitures"],
-        ["Fourniture", "Diamètre ou épaisseur (mm)", "Longueur (mm)", "Qté"],
-        ["Tourillon", "8", "35", "6"],
+        [
+            "Fourniture",
+            "Diamètre ou épaisseur (mm)",
+            "Longueur (mm)",
+            "Qté",
+            "Fabricant",
+            "Référence",
+        ],
+        ["Tourillon", "8", "35", "6", "", ""],
     ]
 
 
@@ -186,7 +193,7 @@ def test_blocs_du_tableau_lignes_totaux_fournitures() -> None:
     assert "." in lines.rows[0][11]
     assert lines.text_columns == {0, 8, 9, 10, 14}
     assert totals.rows[-1][0] == "Total général"
-    assert hardware.rows == (("Tourillon", "8", "35", "6"),)
+    assert hardware.rows == (("Tourillon", "8", "35", "6", "", ""),)
 
 
 def test_liste_vide_un_seul_bloc() -> None:

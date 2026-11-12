@@ -7,6 +7,7 @@ Module privé : importer par :mod:`freecad.menuiserie.api`, la façade publique.
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Final
 
 import FreeCAD as App
 
@@ -20,6 +21,7 @@ from freecad.menuiserie.features.furniture_bindings import common_furniture
 from freecad.menuiserie.features.hardware import get_catalog
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints import slide_room
+from freecad.menuiserie.features.joints.base import HARDWARE_REFERENCE_PROPERTY
 from freecad.menuiserie.features.joints.factories import (
     create_biscuits,
     create_dovetail,
@@ -249,8 +251,10 @@ def _with_reference(kind: JointKind, params: dict[str, object]) -> dict[str, obj
         raise ValueError(translated(_UNKNOWN_REFERENCE, {"id": quoted_value(reference)}))
     with translated_errors():
         fixed = joint_params(item, kind)
-    return {**fixed, **rest}
+    return {**fixed, **rest, _TAG: item.id}
 
+
+_TAG: Final = "_hardware_reference"  # identifiant retenu par ``_make_joint``, pas un paramètre
 
 _JointFactory = Callable[..., DocumentObject]
 _Check = Callable[[DocumentObject], DocumentObject]
@@ -269,7 +273,10 @@ def _make_joint(
     impossible ferait imprimer sa trace par FreeCAD ; il renvoie l'assemblage (rôles inversés au
     besoin) ou lève ``ValueError``, et c'est à l'appelant d'annuler sa transaction."""
     document = blank_of(host).Document
-    joint = factory(document, host, guest, **params)
+    reference = str(params.get(_TAG, ""))
+    joint = factory(document, host, guest, **{k: v for k, v in params.items() if k != _TAG})
+    if reference:
+        setattr(joint, HARDWARE_REFERENCE_PROPERTY, reference)
     if check is not None:
         joint = check(joint)
     return _shown_and_recomputed(joint)

@@ -20,6 +20,7 @@ from freecad.menuiserie.core.cutlist import (
     HardwareKind,
 )
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Box
+from freecad.menuiserie.core.hardware import HARDWARE_JOINT_KINDS
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.joints import Bevel, JointKind, JointPlan
 from freecad.menuiserie.core.notice import Notice
@@ -27,8 +28,14 @@ from freecad.menuiserie.core.part_model import Allowances, Dimensions, GrainDire
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.hardware import get_catalog
 from freecad.menuiserie.features.i18n import templated_message
-from freecad.menuiserie.features.joints.base import is_joint, plan_for, resolved_for
+from freecad.menuiserie.features.joints.base import (
+    HARDWARE_REFERENCE_PROPERTY,
+    is_joint,
+    plan_for,
+    resolved_for,
+)
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.shaped_part import is_shaped_part, signature_of
@@ -295,20 +302,11 @@ def additions_of(blank: DocumentObject, notices: list[Notice]) -> Allowances:
 
 # --- Fournitures : tourillons (D5), faux tenons, biscuits, pieds, coulisses (ADR 0033) ------
 
-_HARDWARE_KINDS: Final = (
-    JointKind.DOWELS,
-    JointKind.LOOSE_TENON,
-    JointKind.BISCUIT,
-    JointKind.FOOT,
-    JointKind.SHELF_PINS,
-    JointKind.DRAWER_SLIDE,
-)
-
 
 def is_hardware_joint(obj: DocumentObject) -> bool:
     """Vrai si ``obj`` est un assemblage à pièces rapportées (tourillons, faux tenons, biscuits,
     pieds, coulisses)."""
-    return is_joint(obj) and obj.Proxy.KIND in _HARDWARE_KINDS
+    return is_joint(obj) and obj.Proxy.KIND in HARDWARE_JOINT_KINDS
 
 
 def _hardware(joint: DocumentObject, values: Any, quantity: int) -> Hardware | None:
@@ -338,6 +336,18 @@ def _hardware(joint: DocumentObject, values: Any, quantity: int) -> Hardware | N
     return Hardware(kind, values.thickness, values.total_depth, quantity, values.along)
 
 
+def _with_reference(joint: DocumentObject, item: Hardware) -> Hardware:
+    """``item`` avec le fabricant et la référence de la référence du catalogue posée (liste
+    d'achat) ; une référence disparue du catalogue garde son identifiant, sans fabricant."""
+    reference_id = str(getattr(joint, HARDWARE_REFERENCE_PROPERTY, ""))
+    if not reference_id:
+        return item
+    found = get_catalog().find(reference_id)
+    if found is None:
+        return replace(item, reference=reference_id)
+    return replace(item, manufacturer=found.manufacturer, reference=found.purchase_reference)
+
+
 def hardware_of(joint: DocumentObject, times: int, notices: list[Notice]) -> Hardware | None:
     """Fourniture de l'assemblage ``joint``, répétée ``times`` fois : le nombre de pièces
     rapportées de leurs cotes effectives (valeurs automatiques résolues). ``None`` et un
@@ -345,7 +355,8 @@ def hardware_of(joint: DocumentObject, times: int, notices: list[Notice]) -> Har
     n'apporte aucune pièce (perçage sans taquets)."""
     try:
         values: Any = resolved_for(joint)
-        return _hardware(joint, values, values.count * times)
+        item = _hardware(joint, values, values.count * times)
+        return item if item is None else _with_reference(joint, item)
     except ValueError as error:
         notices.append(notice(CollectNoticeKind.UNREADABLE_DOWELS, joint, reason=_reason(error)))
         return None

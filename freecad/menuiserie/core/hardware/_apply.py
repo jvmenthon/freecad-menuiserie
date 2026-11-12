@@ -16,7 +16,7 @@ from freecad.menuiserie.core.hardware._model import HardwareItem
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.joints import JointKind
 
-__all__ = ["joint_kind_of", "joint_params"]
+__all__ = ["HARDWARE_JOINT_KINDS", "joint_kind_of", "joint_params"]
 
 WRONG_FAMILY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -39,6 +39,9 @@ _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
         "drawer-slide-ball": JointKind.DRAWER_SLIDE,
     }
 )
+
+
+HARDWARE_JOINT_KINDS: Final = frozenset(_KINDS.values())  # assemblages qui posent une référence
 
 
 def _dowel(item: HardwareItem) -> dict[str, float | str]:

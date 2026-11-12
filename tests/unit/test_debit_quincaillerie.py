@@ -86,3 +86,38 @@ def test_csv_matiere_des_pieds() -> None:
 def test_matiere_inconnue_refusee() -> None:
     with pytest.raises(ValueError):
         Hardware(HardwareKind.FOOT, 10.0, 15.0, 4, material="acier")
+
+
+def test_liste_d_achat_regroupe_par_reference() -> None:
+    cut_list = build_cut_list(
+        [],
+        [
+            Hardware(
+                HardwareKind.DRAWER_SLIDE, 12.7, 450.0, 2, manufacturer="Blum", reference="A1"
+            ),
+            Hardware(
+                HardwareKind.DRAWER_SLIDE, 12.7, 450.0, 2, manufacturer="Blum", reference="A1"
+            ),
+            Hardware(HardwareKind.DRAWER_SLIDE, 12.7, 450.0, 2, reference="coulisse-billes-450"),
+            Hardware(HardwareKind.DRAWER_SLIDE, 12.7, 450.0, 2),
+        ],
+    )
+    assert [(h.manufacturer, h.reference, h.quantity) for h in cut_list.hardware] == [
+        ("", "", 2),
+        ("", "coulisse-billes-450", 2),
+        ("Blum", "A1", 4),
+    ]
+
+
+def test_csv_fabricant_et_reference() -> None:
+    cut_list = build_cut_list(
+        [], [Hardware(HardwareKind.FOOT, 10.0, 15.0, 4, manufacturer="Häfele", reference="X-1")]
+    )
+    text = to_csv(cut_list, FRENCH_CSV)
+    assert "Fabricant;Référence" in text
+    assert "Pied de caisson;10;15;4;Häfele;X-1" in text
+
+
+def test_reference_de_fourniture_refusee_si_pas_du_texte() -> None:
+    with pytest.raises(ValueError):
+        Hardware(HardwareKind.FOOT, 10.0, 15.0, 4, reference=3)  # type: ignore[arg-type]

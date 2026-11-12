@@ -17,6 +17,7 @@ from dataclasses import fields
 from typing import Any, ClassVar, Final, TypeVar
 
 from freecad.menuiserie.core.geometry import PlacedBlock
+from freecad.menuiserie.core.hardware import HARDWARE_JOINT_KINDS
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
 from freecad.menuiserie.core.text import quoted_value
@@ -39,6 +40,7 @@ from freecad.menuiserie.features.wood_part_record import dimensions_of
 __all__ = [
     "COMMON_PROPERTIES",
     "GRAIN_WARNING_DEG",
+    "HARDWARE_REFERENCE_PROPERTY",
     "OBLIQUE_REFERENCE_SPEC",
     "OBLIQUE_SUMMARY",
     "OBLIQUE_SUMMARY_IF",
@@ -96,6 +98,18 @@ OBLIQUE_REFERENCE_SPEC: Final = PropertySpec(
         ("HalfAngle", QT_TRANSLATE_NOOP("Menuiserie", "Mi-angle")),
     ),
     visible_if="oblique",
+)
+HARDWARE_REFERENCE_PROPERTY: Final = "HardwareReference"
+HARDWARE_REFERENCE_SPEC: Final = PropertySpec(
+    "HardwareReference",
+    "App::PropertyString",
+    "Assemblage",
+    QT_TRANSLATE_NOOP(
+        "App::Property",
+        "Identifiant de la référence du catalogue de quincaillerie posée (liste d'achat). Vide : "
+        "cotes réglées à la main.",
+    ),
+    mode=READ_ONLY,
 )
 GRAIN_WARNING_DEG: Final = 20.0  # tenon qui s'écarte du fil au-delà : avertissement (E4)
 _CROSS_GRAIN: Final = QT_TRANSLATE_NOOP(
@@ -178,7 +192,8 @@ class JointFeature(StatelessProxy):
     @classmethod
     def specs(cls) -> tuple[PropertySpec, ...]:
         """Propriétés communes puis propres au type."""
-        return COMMON_PROPERTIES + cls.PROPERTIES
+        own = (HARDWARE_REFERENCE_SPEC,) if cls.KIND in HARDWARE_JOINT_KINDS else ()
+        return COMMON_PROPERTIES + cls.PROPERTIES + own
 
     @classmethod
     def choices(cls) -> dict[str, list[str]]:
