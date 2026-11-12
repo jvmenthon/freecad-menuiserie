@@ -65,9 +65,16 @@ Liste de débit (J2) ::
     feuille = make_cut_list(doc)  # feuille « Liste de débit », réécrite à chaque recalcul
     export_cut_list_csv(doc, "/chemin/debit.csv", objects=[caisson])
 
+Plan de l'ouvrage (issue #153, ADR 0053) : page TechDraw standard, quatre vues et cotes hors tout ::
+
+    from freecad.menuiserie.api import make_overall_drawing
+
+    page = make_overall_drawing(doc, [bureau])  # A3 paysage ; page_format="A4" pour changer
+
 Façade seule : le code est dans le paquet privé ``_api/`` (``wood``, ``joints``, ``furniture``,
-``cutlist``), les seuls modules hors de ``gui/`` autorisés à importer ``gui/``, et seulement quand
-l'interface est chargée (``App.GuiUp``) : ils fonctionnent aussi dans ``freecadcmd``.
+``cutlist``, ``drawing``), les seuls modules hors de ``gui/`` autorisés à importer ``gui/``, et
+seulement quand l'interface est chargée (``App.GuiUp``) : ils fonctionnent aussi dans
+``freecadcmd``.
 """
 
 from __future__ import annotations
@@ -80,6 +87,7 @@ from freecad.menuiserie._api.cutlist import (
     make_cut_list,
     number_marks,
 )
+from freecad.menuiserie._api.drawing import make_overall_drawing
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
     furniture_of,
@@ -124,6 +132,7 @@ from freecad.menuiserie._api.wood import (
     reset_shaped_axes,
 )
 from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV
+from freecad.menuiserie.core.drawing import Orientation
 from freecad.menuiserie.core.repeat import (
     AxisRepeat,
     RepeatAxis,
@@ -150,6 +159,7 @@ __all__ = [
     "CarcassJoinery",
     "CarcassParams",
     "LockedPiecesError",
+    "Orientation",
     "PickedElement",
     "RepeatAxis",
     "RepeatMode",
@@ -183,6 +193,7 @@ __all__ = [
     "make_loose_tenons",
     "make_miter",
     "make_mortise_tenon",
+    "make_overall_drawing",
     "make_rabbet",
     "make_repeat",
     "make_room_for_slide",

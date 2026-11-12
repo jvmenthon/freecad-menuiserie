@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+"""Plan de l'ouvrage dans une page TechDraw standard (issue #153, ADR 0053, lot P-a)."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+
+from tests.integration.bureau import Bureau, build_desk
+from tests.integration.cadre import stale_or_invalid
+
+pytestmark = pytest.mark.integration
+
+App = pytest.importorskip("FreeCAD")
+pytest.importorskip("TechDraw", reason="TechDraw non importable dans freecadcmd")
+api = pytest.importorskip("freecad.menuiserie.api")
+drawing = pytest.importorskip("freecad.menuiserie.features.drawing")
+
+VIEWS = ("MenuiseriePlanFront", "MenuiseriePlanTop", "MenuiseriePlanSide", "MenuiseriePlanIso")
+
+
+@pytest.fixture
+def bureau(document: Any) -> Bureau:
+    return build_desk(document)
+
+
+def values(page: Any) -> list[float]:
+    """Valeurs des cotes hors tout (largeur, profondeur, hauteur), en millimètres réels."""
+    return [float(dim.getRawValue()) for dim in drawing.overall_dimensions(page)]
+
+
+def test_page_standard_marquee(bureau: Bureau) -> None:
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture])
+    assert page.TypeId == "TechDraw::DrawPage"
+    assert page.MenuiserieDrawing is True
+    assert drawing.is_workshop_drawing(page)
+    assert not hasattr(page, "Proxy")  # page ordinaire, lisible sans l'atelier (ADR 0007)
+    assert page.Template.TypeId == "TechDraw::DrawSVGTemplate"
+    assert "A3" in page.Template.Template and "Landscape" in page.Template.Template
+    assert page.Scale == pytest.approx(0.1)
+    views = [bureau.doc.getObject(name) for name in VIEWS]
+    assert all(view is not None and view in page.Views for view in views)
+    assert all(view.isValid() and "Invalid" not in view.State for view in views)
+    assert stale_or_invalid(bureau.doc) == []
+
+
+def test_vues_des_pieces_usinees(bureau: Bureau) -> None:
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture])
+    front = bureau.doc.getObject(VIEWS[0])
+    assert len(front.Source) == 4  # plateau, deux joues, voile ; pas de brute sous une usinée
+    machined = [obj for obj in front.Source if api.is_machined_part(obj)]
+    assert len(machined) >= 2  # au moins les joues, hôtes des tourillons
+    assert all(api.blank_of(obj) not in front.Source for obj in machined)
+    assert page.Views
+
+
+def test_cotes_hors_tout(bureau: Bureau) -> None:
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture])
+    assert values(page) == pytest.approx([1200, 600, 750], abs=0.01)
+
+
+def test_cotes_suivent_le_modele(bureau: Bureau) -> None:
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture])
+    api.resize_furniture(bureau.furniture, depth=800, width=1400)
+    bureau.doc.recompute()
+    assert values(page) == pytest.approx([1400, 800, 750], abs=0.01)
+    assert stale_or_invalid(bureau.doc) == []
+
+
+def test_relance_refait_la_meme_page(bureau: Bureau) -> None:
+    doc = bureau.doc
+    page = api.make_overall_drawing(doc, [bureau.furniture])
+    count = len(doc.Objects)
+    api.resize_furniture(bureau.furniture, height=2400)
+    doc.recompute()
+    again = api.make_overall_drawing(doc, [bureau.furniture])
+    assert again == page
+    assert len(doc.Objects) == count
+    assert again.Scale == pytest.approx(0.05)  # 2,40 m de haut ne tient plus au 1 : 10 sur A3
+    assert values(again) == pytest.approx([1200, 600, 2400], abs=0.01)
+
+
+def test_page_modifiee_a_la_main_conservee(bureau: Bureau) -> None:
+    doc = bureau.doc
+    page = api.make_overall_drawing(doc, [bureau.furniture])
+    note = doc.addObject("TechDraw::DrawViewAnnotation", "Note")
+    page.addView(note)
+    doc.recompute()
+    other = api.make_overall_drawing(doc, [bureau.furniture])
+    assert other != page
+    assert note in page.Views and doc.getObject(VIEWS[0]) in page.Views
+    assert drawing.is_workshop_drawing(other)
+
+
+def test_format_a4_portrait(bureau: Bureau) -> None:
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture], "A4", api.Orientation.PORTRAIT)
+    assert "A4" in page.Template.Template and "Portrait" in page.Template.Template
+    assert page.Scale <= 0.05
+
+
+def test_annulation_en_une_fois(bureau: Bureau) -> None:
+    doc = bureau.doc
+    doc.UndoMode = 1
+    before = {obj.Name for obj in doc.Objects}
+    api.make_overall_drawing(doc, [bureau.furniture])
+    doc.undo()
+    assert {obj.Name for obj in doc.Objects} == before
+
+
+def test_refus_sans_modifier_le_document(bureau: Bureau) -> None:
+    doc = bureau.doc
+    count = len(doc.Objects)
+    with pytest.raises(ValueError, match="aucune pièce"):
+        api.make_overall_drawing(doc, [])
+    with pytest.raises(ValueError, match="Format de page inconnu"):
+        api.make_overall_drawing(doc, [bureau.furniture], "B5")
+    other = App.newDocument("Autre")
+    try:
+        box = other.addObject("Part::Box", "Boite")
+        with pytest.raises(ValueError, match="autre document"):
+            api.make_overall_drawing(doc, [box])
+    finally:
+        App.closeDocument(other.Name)
+    assert len(doc.Objects) == count
+
+
+def test_document_actif_remis(bureau: Bureau) -> None:
+    other = App.newDocument("Actif")
+    try:
+        api.make_overall_drawing(bureau.doc, [bureau.furniture])
+        assert App.ActiveDocument == other  # ADR 0007 : rien de global n'est laissé changé
+    finally:
+        App.closeDocument(other.Name)
+
+
+def test_solide_d_un_autre_atelier_dans_un_std_part_tourne(document: Any) -> None:
+    part = document.addObject("App::Part", "Conteneur")
+    box = document.addObject("Part::Box", "Boite")
+    box.Length, box.Width, box.Height = 300, 200, 100
+    part.addObject(box)
+    part.Placement = App.Placement(App.Vector(50, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    document.recompute()
+    page = api.make_overall_drawing(document, [box])
+    assert values(page) == pytest.approx([200, 300, 100], abs=0.01)  # repère global

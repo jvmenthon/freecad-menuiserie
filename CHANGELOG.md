@@ -17,6 +17,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Plan de l'ouvrage, premier lot (issue #153, ADR 0053) : `make_overall_drawing(doc, objets)` crée une page TechDraw standard (face, dessus, vue de gauche, perspective, à la plus grande échelle normalisée qui tient sur la feuille) avec les trois cotes hors tout, qui suivent le modèle. Gabarit ISO fourni par TechDraw (A3 paysage par défaut), aucune préférence de TechDraw modifiée. Relancer refait la mise en page ; une page modifiée à la main est conservée. Pas encore de commande dans l'interface.
+
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
   sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
   un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le
