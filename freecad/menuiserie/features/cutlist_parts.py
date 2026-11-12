@@ -30,12 +30,8 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.hardware import get_catalog
 from freecad.menuiserie.features.i18n import templated_message
-from freecad.menuiserie.features.joints.base import (
-    HARDWARE_REFERENCE_PROPERTY,
-    is_joint,
-    plan_for,
-    resolved_for,
-)
+from freecad.menuiserie.features.joints.base import is_joint, plan_for, resolved_for
+from freecad.menuiserie.features.joints.hardware_reference import HARDWARE_REFERENCE_PROPERTY
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.shaped_part import is_shaped_part, signature_of

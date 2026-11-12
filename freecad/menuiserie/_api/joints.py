@@ -21,7 +21,6 @@ from freecad.menuiserie.features.furniture_bindings import common_furniture
 from freecad.menuiserie.features.hardware import get_catalog
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints import slide_room
-from freecad.menuiserie.features.joints.base import HARDWARE_REFERENCE_PROPERTY
 from freecad.menuiserie.features.joints.factories import (
     create_biscuits,
     create_dovetail,
@@ -36,6 +35,7 @@ from freecad.menuiserie.features.joints.factories import (
     create_shelf_pins,
     create_tongue_groove,
 )
+from freecad.menuiserie.features.joints.hardware_reference import HARDWARE_REFERENCE_PROPERTY
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.near_gap import Closing
 from freecad.menuiserie.features.near_gap import close_gap as _close_gap
