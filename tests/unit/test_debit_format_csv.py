@@ -9,7 +9,7 @@ from types import ModuleType
 import pytest
 
 from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV
-from tests.unit.aides_debit_document import simulated_freecad
+from tests.unit.aides_freecad import simulated_freecad
 
 FRENCH = "french"
 INTERNATIONAL = "international"
