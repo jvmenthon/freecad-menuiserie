@@ -59,9 +59,9 @@ def make_room_for_slide(joint: DocumentObject, move: str) -> list[str]:
         return []
     direction = values.direction.unit()
     away = App.Vector(direction.x, direction.y, direction.z) * missing
-    world = joint.HostPart.Placement.Rotation.multVec(away)
+    world = joint.HostPart.getGlobalPlacement().Rotation.multVec(away)
     part, sign = (joint.GuestPart, 1.0) if move == DRAWER else (joint.HostPart, -1.0)
-    local = part.Placement.Rotation.inverted().multVec(world * sign)
+    local = part.getGlobalPlacement().Rotation.inverted().multVec(world * sign)
     memento = begin_drag(part)
     move_part(memento, Vec3(local.x, local.y, local.z))
     return end_drag(memento)

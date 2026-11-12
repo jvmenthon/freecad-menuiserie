@@ -29,7 +29,9 @@ def plan_error(origin: DocumentObject, host: DocumentObject, guest: DocumentObje
     try:
         with translated_errors():
             strategy = strategy_for(proxy.KIND)
-            cached_plan(strategy, placed_blank(host), placed_blank(guest), proxy.params(origin))
+            cached_plan(
+                strategy, placed_blank(host), placed_blank(guest, host), proxy.params(origin)
+            )
     except ValueError as error:
         return str(error)
     return None

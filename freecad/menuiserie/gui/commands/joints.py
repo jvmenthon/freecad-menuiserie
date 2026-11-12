@@ -380,7 +380,7 @@ def ordered_roles(
     ambigu ou si une cote est invalide."""
     try:
         host_index, guest_index = guess_roles(
-            placed_blank(blank_of(first)), placed_blank(blank_of(second))
+            placed_blank(blank_of(first)), placed_blank(blank_of(second), blank_of(first))
         )
     except ValueError:
         return first, second

@@ -23,6 +23,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.assigned_shape import AssignedShape
 from freecad.menuiserie.features.freecad_types import (
+    HIDDEN,
     READ_ONLY,
     DocumentObject,
     StatelessProxy,
@@ -30,6 +31,7 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joint_material import check_joint_material
+from freecad.menuiserie.features.joints.frames import frame_containers, placement_in_frame_of
 from freecad.menuiserie.features.joints.plan_cache import cached_plan
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
 from freecad.menuiserie.features.shaped_part import is_timber
@@ -43,6 +45,7 @@ __all__ = [
     "OBLIQUE_SUMMARY",
     "OBLIQUE_SUMMARY_IF",
     "JointFeature",
+    "follow_frames",
     "inverted_error",
     "is_joint",
     "params_from",
@@ -107,7 +110,7 @@ _CROSS_GRAIN: Final = QT_TRANSLATE_NOOP(
 COMMON_PROPERTIES: Final = (
     PropertySpec(
         "HostPart",
-        "App::PropertyLink",
+        "App::PropertyLinkGlobal",
         "Assemblage",
         QT_TRANSLATE_NOOP(
             "App::Property",
@@ -117,7 +120,7 @@ COMMON_PROPERTIES: Final = (
     ),
     PropertySpec(
         "GuestPart",
-        "App::PropertyLink",
+        "App::PropertyLinkGlobal",
         "Assemblage",
         QT_TRANSLATE_NOOP(
             "App::Property",
@@ -125,6 +128,17 @@ COMMON_PROPERTIES: Final = (
             "côté percé.",
         ),
         mode=READ_ONLY,
+    ),
+    PropertySpec(
+        "Frames",
+        "App::PropertyLinkListGlobal",
+        "Assemblage",
+        QT_TRANSLATE_NOOP(
+            "App::Property",
+            "Std Part des deux pièces quand elles sont dans des conteneurs différents : leur "
+            "déplacement recalcule l'assemblage.",
+        ),
+        mode=HIDDEN,
     ),
     version_spec(
         QT_TRANSLATE_NOOP(
@@ -213,6 +227,7 @@ class JointFeature(StatelessProxy):
         celles de ses pièces usinées (``HostPart`` ou ``GuestPart`` modifiée par un script)."""
         plan = plan_for(obj)
         _check_machined_parts(obj)
+        follow_frames(obj)
         check_joint_material(obj, plan)
         _warn_cross_grain(obj)
         assigned: AssignedShape = self.__dict__.setdefault("_assigned", AssignedShape())
@@ -223,6 +238,7 @@ class JointFeature(StatelessProxy):
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
+        _globalize_links(obj)
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN, self.choices())
         for name, choices in self.choices().items():
             if name in obj.PropertiesList and obj.getEnumerationsOfProperty(name) != choices:
@@ -238,6 +254,30 @@ class JointFeature(StatelessProxy):
         from freecad.menuiserie.features.repeat_joints import joint_removed
 
         joint_removed(obj)
+
+
+def _globalize_links(obj: DocumentObject) -> None:
+    """``HostPart`` et ``GuestPart`` d'un document d'avant l'ADR 0054 (``App::PropertyLink``)
+    recréées en ``App::PropertyLinkGlobal`` (liens entre Std Part), sans perdre leurs pièces."""
+    for spec in COMMON_PROPERTIES[:2]:
+        if obj.getTypeIdOfProperty(spec.name) != "App::PropertyLink":
+            continue
+        part = getattr(obj, spec.name)
+        obj.setPropertyStatus(spec.name, "-ReadOnly")
+        obj.removeProperty(spec.name)
+        schema.add_missing_properties(obj, [spec])
+        setattr(obj, spec.name, part)
+        schema.apply_editor_modes(obj, [spec])
+
+
+def follow_frames(joint: DocumentObject) -> None:
+    """Met ``Frames`` à jour d'après les conteneurs actuels des deux pièces (sans effet s'il est
+    déjà à jour)."""
+    if "Frames" not in joint.PropertiesList or joint.HostPart is None or joint.GuestPart is None:
+        return
+    frames = frame_containers(joint.HostPart, joint.GuestPart)
+    if list(joint.Frames) != frames:
+        joint.Frames = frames
 
 
 def _warn_cross_grain(joint: DocumentObject) -> None:
@@ -302,21 +342,23 @@ def params_from(obj: DocumentObject, params_type: Callable[..., P]) -> P:
         raise JointError(error.template, renamed) from error
 
 
-def placed_blank(obj: DocumentObject | None) -> PlacedBlock:
-    """Pièce brute vue par ``core`` (cotes et placement) ; ``ValueError`` traduite si elle
+def placed_blank(obj: DocumentObject | None, frame_of: DocumentObject | None = None) -> PlacedBlock:
+    """Pièce brute vue par ``core`` (cotes et placement, dans le repère du conteneur de
+    ``frame_of`` si elle est donnée : ADR 0054) ; ``ValueError`` traduite si elle
     manque ou n'est pas une pièce de bois, ``InvalidDimensionsError`` si une cote est invalide."""
     if obj is None:
         raise ValueError(translated(_MISSING_PART))
     if not is_timber(obj):
         raise ValueError(translated(_NOT_A_WOOD_PART, {"label": quoted_value(obj.Label)}))
-    return PlacedBlock(dimensions_of(obj), rigid_transform(obj.Placement))
+    placement = obj.Placement if frame_of is None else placement_in_frame_of(obj, frame_of)
+    return PlacedBlock(dimensions_of(obj), rigid_transform(placement))
 
 
 def _inputs(joint: DocumentObject) -> tuple[Any, PlacedBlock, PlacedBlock, Any]:
     """Stratégie, brutes (hôte, invitée) et paramètres de l'assemblage ``joint``."""
     proxy: JointFeature = joint.Proxy
     host = placed_blank(joint.HostPart)
-    guest = placed_blank(joint.GuestPart)
+    guest = placed_blank(joint.GuestPart, joint.HostPart)
     return strategy_for(proxy.KIND), host, guest, proxy.params(joint)
 
 

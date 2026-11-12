@@ -2,7 +2,7 @@
 """Fabriques des assemblages du document (``create_…``).
 
 Une fabrique valide tout avant de créer quoi que ce soit (deux pièces distinctes, pièces de
-bois ou pièces usinées, même document, même conteneur, paramètres), crée l'assemblage entre
+bois ou pièces usinées, même document, conteneurs apparentés, paramètres), crée l'assemblage entre
 les deux brutes, puis la pièce usinée de chaque brute si besoin (une seule par brute). Ni
 transaction ni recalcul : c'est à l'appelant de les faire.
 """
@@ -17,10 +17,11 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joint_names import joint_label
-from freecad.menuiserie.features.joints.base import JointFeature, write_params
+from freecad.menuiserie.features.joints.base import JointFeature, follow_frames, write_params
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
 from freecad.menuiserie.features.joints.feet import FootJoint
+from freecad.menuiserie.features.joints.frames import refusal as containers_refusal
 from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
@@ -65,9 +66,6 @@ _NEEDS_ONE_PART: Final = QT_TRANSLATE_NOOP(
 _OTHER_DOCUMENT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » appartient à un autre document."
 )
-_OTHER_CONTAINER: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Les deux pièces doivent être dans le même conteneur (pièce ou corps)."
-)
 
 
 def _checked_blanks(
@@ -81,8 +79,9 @@ def _checked_blanks(
     for blank in (host_blank, guest_blank):
         if blank.Document != doc:
             raise ValueError(translated(_OTHER_DOCUMENT, {"label": quoted_value(blank.Label)}))
-    if host_blank.getParentGeoFeatureGroup() != guest_blank.getParentGeoFeatureGroup():
-        raise ValueError(translated(_OTHER_CONTAINER))
+    message = containers_refusal(host_blank, guest_blank)
+    if message is not None:
+        raise ValueError(message)
     return host_blank, guest_blank
 
 
@@ -114,6 +113,7 @@ def create_joint(
         container.addObject(obj)
     obj.HostPart = host_blank
     obj.GuestPart = guest_blank
+    follow_frames(obj)
     obj.Label = joint_label(obj)
     write_params(obj, params)
     for blank in dict.fromkeys((host_blank, guest_blank)):
