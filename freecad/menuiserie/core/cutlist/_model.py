@@ -228,6 +228,7 @@ class HardwareKind(str, Enum):
     FOOT = "Foot"
     SHELF_PIN = "ShelfPin"
     DRAWER_SLIDE = "DrawerSlide"
+    HINGE = "Hinge"
 
 
 HARDWARE_MATERIALS: Final = ("", "plastic", "wood")

@@ -23,11 +23,13 @@ MIN_PARAM_MM: Final = 0.1
 
 @dataclass(frozen=True)
 class ParamSpec:
-    """Cote d'une famille : nom, borne basse et haute en mm."""
+    """Cote d'une famille : nom, borne basse et haute en mm ; une cote facultative peut manquer
+    (catalogues antérieurs à son ajout)."""
 
     name: str
     minimum: float = MIN_PARAM_MM
     maximum: float = MAX_PARAM_MM
+    optional: bool = False
 
 
 @dataclass(frozen=True)
@@ -76,7 +78,12 @@ _FAMILY_LIST: Final = (
     Family(
         "hinge-cup-35",
         QT_TRANSLATE_NOOP("Menuiserie", "Charnière à cuvette Ø35"),
-        (ParamSpec("cup_diameter", 10.0, 60.0), ParamSpec("cup_depth", 3.0, 30.0)),
+        (
+            ParamSpec("cup_diameter", 10.0, 60.0),
+            ParamSpec("cup_depth", 3.0, 30.0),
+            ParamSpec("edge_distance", 2.0, 20.0, optional=True),
+            ParamSpec("screw_pitch", 10.0, 64.0, optional=True),
+        ),
     ),
     Family(
         "cabinet-foot",

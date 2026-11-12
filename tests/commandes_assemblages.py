@@ -22,4 +22,5 @@ COMMANDES_ASSEMBLAGE: Final = {
     "Menuiserie_Foot": ("Pieds de caisson", "make_foot"),
     "Menuiserie_ShelfPins": ("Perçage LR32 et taquets", "make_shelf_pins"),
     "Menuiserie_DrawerSlide": ("Coulisse de tiroir", "make_drawer_slide"),
+    "Menuiserie_Hinge": ("Charnières à cuvette", "make_hinges"),
 }

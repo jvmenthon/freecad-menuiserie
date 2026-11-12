@@ -53,6 +53,7 @@ def test_chaque_type_est_assemblage_ou_quincaillerie_jamais_les_deux() -> None:
         JointKind.FOOT,
         JointKind.DRAWER_SLIDE,
         JointKind.SHELF_PINS,
+        JointKind.HINGE,
     ],
 )
 def test_quincaillerie(kind: JointKind) -> None:

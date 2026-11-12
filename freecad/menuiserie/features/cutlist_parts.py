@@ -296,12 +296,12 @@ def additions_of(blank: DocumentObject, notices: list[Notice]) -> Allowances:
     return machined_extent(blank, notices)[1]
 
 
-# --- Fournitures : tourillons (D5), faux tenons, biscuits, pieds, coulisses (ADR 0033) ------
+# --- Fournitures : tourillons (D5), faux tenons, biscuits, pieds, coulisses, charnières ------
 
 
 def is_hardware_joint(obj: DocumentObject) -> bool:
     """Vrai si ``obj`` est un assemblage à pièces rapportées (tourillons, faux tenons, biscuits,
-    pieds, coulisses)."""
+    pieds, coulisses, charnières)."""
     return is_joint(obj) and obj.Proxy.KIND in HARDWARE_JOINT_KINDS
 
 
@@ -324,6 +324,8 @@ def _hardware(joint: DocumentObject, values: Any, quantity: int) -> Hardware | N
         )
     if hasattr(values, "hole_positions"):  # coulisse : valeurs de SlideValues
         return Hardware(HardwareKind.DRAWER_SLIDE, values.thickness, values.length, quantity)
+    if hasattr(values, "cup_diameter"):  # charnières : valeurs de HingeValues
+        return Hardware(HardwareKind.HINGE, values.cup_diameter, values.cup_depth, quantity)
     kind = (
         HardwareKind.LOOSE_TENON
         if joint.Proxy.KIND is JointKind.LOOSE_TENON

@@ -202,3 +202,52 @@ def test_reference_vers_parametres_d_assemblage() -> None:
         joint_params(domino, JointKind.BISCUIT)
     with pytest.raises(TemplatedError, match="ne se pose pas"):
         joint_params(catalog.get("vis-bois-4x40"), JointKind.DOWELS)
+
+
+HINGE_ITEM = {
+    "id": "charniere-test",
+    "family": "hinge-cup-35",
+    "label": "Charnière de test",
+    "params": {"cup_diameter": 35, "cup_depth": 12},
+    "source": "test",
+}
+
+
+def test_charnieres_du_catalogue_integre() -> None:
+    from freecad.menuiserie.core.hardware import joint_params
+    from freecad.menuiserie.core.joints import JointKind
+
+    catalog, _ = load_catalog(DATA)
+    hinges = catalog.of_family("hinge-cup-35")
+    assert len(hinges) >= 4
+    for item in hinges:  # cotes fonctionnelles standard, jamais de référence de marque inventée
+        assert item.param("cup_diameter") == 35.0 and item.param("screw_pitch") == 32.0
+        assert 11.5 <= item.param("cup_depth") <= 13.0
+        assert 3.0 <= item.param("edge_distance") <= 6.0
+        assert item.source.startswith("cotes usuelles, à confirmer sur fiche")
+        assert not item.manufacturer and not item.reference
+    assert joint_params(catalog.get("charniere-cuvette-35"), JointKind.HINGE) == {
+        "cup_diameter": 35.0,
+        "cup_depth": 13.0,
+        "edge_distance": 5.0,
+        "screw_pitch": 32.0,
+    }
+
+
+def test_charniere_sans_cotes_facultatives_reste_valide() -> None:
+    from freecad.menuiserie.core.hardware import joint_params
+    from freecad.menuiserie.core.joints import JointKind
+
+    items, issues = _parse(HINGE_ITEM)  # catalogue antérieur : ni distance au chant ni entraxe
+    assert issues == [] and len(items) == 1
+    assert joint_params(items[0], JointKind.HINGE) == {"cup_diameter": 35.0, "cup_depth": 12.0}
+
+
+def test_charniere_cotes_facultatives_bornees() -> None:
+    full = {**HINGE_ITEM["params"], "edge_distance": 4, "screw_pitch": 32}  # type: ignore[dict-item]
+    assert len(_parse({**HINGE_ITEM, "params": full})[0]) == 1
+    for name, value in (("edge_distance", 0), ("edge_distance", 21), ("screw_pitch", 9)):
+        items, issues = _parse({**HINGE_ITEM, "params": {**full, name: value}})
+        assert items == [] and issues[0].severity is Severity.ERROR
+    missing = {"cup_diameter": 35}  # une cote obligatoire manque toujours
+    assert _parse({**HINGE_ITEM, "params": missing})[0] == []

@@ -2,8 +2,8 @@
 """Cotes d'une référence du catalogue, traduites en paramètres d'assemblage (ADR 0033).
 
 Choisir une référence fixe les cotes du commerce de l'assemblage (diamètre et longueur d'un
-tourillon, taille d'un faux tenon ou d'un biscuit, d'un pied ou d'une coulisse) ; les autres
-paramètres restent automatiques.
+tourillon, taille d'un faux tenon ou d'un biscuit, d'un pied, d'une coulisse ou d'une charnière) ;
+les autres paramètres restent automatiques.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ NOT_A_JOINT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "La référence « {id} » ({family}) ne se pose pas comme un assemblage."
 )
 
+_HINGE_OPTIONAL: Final = ("edge_distance", "screw_pitch")
 _Params = Callable[[HardwareItem], dict[str, float | str]]
 
 _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
@@ -37,6 +38,7 @@ _KINDS: Final[Mapping[str, JointKind]] = MappingProxyType(
         "cabinet-foot": JointKind.FOOT,
         "shelf-pin": JointKind.SHELF_PINS,
         "drawer-slide-ball": JointKind.DRAWER_SLIDE,
+        "hinge-cup-35": JointKind.HINGE,
     }
 )
 
@@ -75,6 +77,16 @@ def _drawer_slide(item: HardwareItem) -> dict[str, float | str]:
     return {"length": item.param("length"), "thickness": item.param("thickness")}
 
 
+def _hinge(item: HardwareItem) -> dict[str, float | str]:
+    # Distance au chant et entraxe de platine sont facultatifs dans le catalogue.
+    params: dict[str, float | str] = {
+        "cup_diameter": item.param("cup_diameter"),
+        "cup_depth": item.param("cup_depth"),
+    }
+    params.update({name: item.param(name) for name in _HINGE_OPTIONAL if name in item.params})
+    return params
+
+
 _PARAMS: Final[Mapping[JointKind, _Params]] = MappingProxyType(
     {
         JointKind.DOWELS: _dowel,
@@ -83,6 +95,7 @@ _PARAMS: Final[Mapping[JointKind, _Params]] = MappingProxyType(
         JointKind.FOOT: _foot,
         JointKind.SHELF_PINS: _shelf_pin,
         JointKind.DRAWER_SLIDE: _drawer_slide,
+        JointKind.HINGE: _hinge,
     }
 )
 

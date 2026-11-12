@@ -57,6 +57,7 @@ BISCUIT: Final = "Menuiserie_Biscuit"
 FOOT: Final = "Menuiserie_Foot"
 SHELF_PINS: Final = "Menuiserie_ShelfPins"
 DRAWER_SLIDE: Final = "Menuiserie_DrawerSlide"
+HINGE: Final = "Menuiserie_Hinge"
 
 
 class JointCommand(TransactionCommand):
@@ -65,6 +66,14 @@ class JointCommand(TransactionCommand):
 
     FACTORY: ClassVar[Factory]  # fabrique de freecad.menuiserie.api, lue sur la classe
     PREREQUISITE = hints.PAIR
+
+    @classmethod
+    def roles(
+        cls, first: DocumentObject, second: DocumentObject
+    ) -> tuple[DocumentObject, DocumentObject]:
+        """(hôte, invitée) d'après les deux pièces sélectionnées : devinés d'après leur position
+        par défaut."""
+        return ordered_roles(first, second)
 
     def IsActive(self) -> bool:
         """Active si aucun panneau n'est ouvert et que deux pièces distinctes sont
@@ -83,7 +92,7 @@ class JointCommand(TransactionCommand):
         parts = selected_parts()
         if parts is None:
             return
-        host, guest = ordered_roles(*parts)
+        host, guest = self.roles(*parts)
         closing = near_gap.propose(host, guest)
         if closing == near_gap.CANCEL:
             return
@@ -94,7 +103,7 @@ class JointCommand(TransactionCommand):
                 if closing != near_gap.KEEP:
                     for message in api.close_gap(host, guest, closing, joint_choice.choose):
                         App.Console.PrintWarning(f"{message}\n")
-                    host, guest = ordered_roles(host, guest)
+                    host, guest = self.roles(host, guest)
                 joint = type(self).FACTORY(host, guest, check=feasible_joint)
         except DragCancelledError:
             return  # rapprochement refusé (assemblage défait) : transaction abandonnée
@@ -270,6 +279,30 @@ class DrawerSlideCommand(JointCommand):
         show_panel(joint)
 
 
+class HingeCommand(JointCommand):
+    """Charnières à cuvette : côté de caisson (première pièce) et porte (seconde pièce)."""
+
+    NAME = HINGE
+    FACTORY = api.make_hinges
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Hinge", "Charnières à cuvette")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_Hinge",
+        "Pose des charnières à cuvette entre le côté de caisson (première pièce) et la porte "
+        "(seconde) : cuvette Ø35 dans la porte, deux avant-trous de platine au pas de 32 mm "
+        "dans le côté ; 2 charnières jusqu'à 900 mm de hauteur, 3 puis 4 au-delà.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Poser des charnières à cuvette")
+    PREREQUISITE = hints.HINGE
+
+    @classmethod
+    def roles(
+        cls, first: DocumentObject, second: DocumentObject
+    ) -> tuple[DocumentObject, DocumentObject]:
+        """Le côté du caisson est la première pièce sélectionnée, la porte la seconde : la porte
+        touche le côté par une face, ce qui ferait deviner les rôles à l'envers."""
+        return first, second
+
+
 class SinglePartCommand(JointCommand):
     """Assemblage posé sur une seule pièce sélectionnée (pieds, perçage LR32)."""
 
@@ -406,3 +439,4 @@ def register() -> None:
     Gui.addCommand(FOOT, FootCommand())
     Gui.addCommand(SHELF_PINS, ShelfPinsCommand())
     Gui.addCommand(DRAWER_SLIDE, DrawerSlideCommand())
+    Gui.addCommand(HINGE, HingeCommand())

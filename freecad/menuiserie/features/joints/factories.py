@@ -22,6 +22,7 @@ from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
 from freecad.menuiserie.features.joints.feet import FootJoint
 from freecad.menuiserie.features.joints.half_lap import HalfLapJoint
+from freecad.menuiserie.features.joints.hinges import HingeJoint
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.mortise_tenon import MortiseTenonJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
@@ -45,6 +46,7 @@ __all__ = [
     "create_drawer_slide",
     "create_foot",
     "create_half_lap",
+    "create_hinges",
     "create_joint",
     "create_loose_tenons",
     "create_miter",
@@ -240,3 +242,11 @@ def create_drawer_slide(
     """Crée une coulisse de tiroir entre le côté de caisson ``host`` et le côté de tiroir
     ``guest``, face à face avec un jeu. Paramètres de ``SlideParams`` en mm, 0 = automatique."""
     return _create(DrawerSlideJoint, doc, host, guest, params)
+
+
+def create_hinges(
+    doc: Document, host: DocumentObject, guest: DocumentObject, **params: object
+) -> DocumentObject:
+    """Crée des charnières à cuvette entre le côté de caisson ``host`` (avant-trous de platine) et
+    la porte ``guest`` (cuvettes). Paramètres de ``HingeParams`` en mm, 0 = automatique."""
+    return _create(HingeJoint, doc, host, guest, params)

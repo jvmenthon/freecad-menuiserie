@@ -28,6 +28,7 @@ from freecad.menuiserie.features.joints.factories import (
     create_drawer_slide,
     create_foot,
     create_half_lap,
+    create_hinges,
     create_loose_tenons,
     create_miter,
     create_mortise_tenon,
@@ -185,6 +186,18 @@ def make_drawer_slide(
     return _make_joint(
         create_drawer_slide, host, guest, _with_reference(JointKind.DRAWER_SLIDE, params), check
     )
+
+
+def make_hinges(
+    host: DocumentObject, guest: DocumentObject, *, check: _Check | None = None, **params: object
+) -> DocumentObject:
+    """Pose des charnières à cuvette entre le côté de caisson ``host`` (avant-trous de platine) et
+    la porte ``guest`` (cuvettes, posée devant le chant avant du côté ou insérée), et recalcule le
+    document. ``count`` : nombre de charnières (0 = automatique, 2 jusqu'à 900 mm de hauteur, 3
+    jusqu'à 1 600 mm, puis 4) ; les autres paramètres de ``HingeParams`` sont en mm ;
+    ``reference`` désigne une charnière du catalogue. Mêmes validations et même absence de
+    transaction que :func:`make_mortise_tenon`."""
+    return _make_joint(create_hinges, host, guest, _with_reference(JointKind.HINGE, params), check)
 
 
 def slide_shortfall(joint: DocumentObject) -> float:

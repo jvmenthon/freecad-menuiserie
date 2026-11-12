@@ -76,8 +76,9 @@ def _params(raw: object, family_key: str) -> FrozenMapping | tuple[str, str] | N
         if number is None:
             return (ENTRY_INVALID_PARAM, str(name))
         values[str(name)] = repr(number)
-    for name in specs.keys() - values.keys():
-        return (ENTRY_INVALID_PARAM, name)
+    for name, spec in specs.items():
+        if name not in values and not spec.optional:
+            return (ENTRY_INVALID_PARAM, name)
     return FrozenMapping(values)
 
 

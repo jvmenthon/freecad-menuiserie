@@ -254,9 +254,47 @@
       "label": "Charnière à cuvette Ø35 (générique)",
       "params": {
         "cup_diameter": 35,
-        "cup_depth": 13
+        "cup_depth": 13,
+        "edge_distance": 5,
+        "screw_pitch": 32
       },
-      "source": "Cotes usuelles des charnières à cuvette, générique sans marque, 2026-11"
+      "source": "cotes usuelles, à confirmer sur fiche (générique sans marque), 2026-11"
+    },
+    {
+      "id": "charniere-cuvette-35-recouvrement-total",
+      "family": "hinge-cup-35",
+      "label": "Charnière à cuvette Ø35, recouvrement total (générique)",
+      "params": {
+        "cup_diameter": 35,
+        "cup_depth": 13,
+        "edge_distance": 5,
+        "screw_pitch": 32
+      },
+      "source": "cotes usuelles, à confirmer sur fiche (générique sans marque), 2026-11"
+    },
+    {
+      "id": "charniere-cuvette-35-mi-recouvrement",
+      "family": "hinge-cup-35",
+      "label": "Charnière à cuvette Ø35, mi-recouvrement (générique)",
+      "params": {
+        "cup_diameter": 35,
+        "cup_depth": 13,
+        "edge_distance": 5,
+        "screw_pitch": 32
+      },
+      "source": "cotes usuelles, à confirmer sur fiche (générique sans marque), 2026-11"
+    },
+    {
+      "id": "charniere-cuvette-35-inseree",
+      "family": "hinge-cup-35",
+      "label": "Charnière à cuvette Ø35, porte insérée (générique)",
+      "params": {
+        "cup_diameter": 35,
+        "cup_depth": 13,
+        "edge_distance": 5,
+        "screw_pitch": 32
+      },
+      "source": "cotes usuelles, à confirmer sur fiche (générique sans marque), 2026-11"
     },
     {
       "id": "coulisse-billes-300",

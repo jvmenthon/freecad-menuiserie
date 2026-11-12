@@ -60,9 +60,11 @@ def test_csv_pieds_et_coulisses() -> None:
             Hardware(HardwareKind.FOOT, 10.0, 15.0, 4),
             Hardware(HardwareKind.DRAWER_SLIDE, 12.7, 450.0, 2),
             Hardware(HardwareKind.SHELF_PIN, 5.0, 19.0, 4),
+            Hardware(HardwareKind.HINGE, 35.0, 13.0, 2),
         ],
     )
     text = to_csv(cut_list, FRENCH_CSV)
+    assert "Charnière à cuvette;35;13;2" in text
     assert "Taquet de tablette;5;19;4" in text
     assert "Pied de caisson;10;15;4" in text
     assert "Coulisse de tiroir;12,7;450;2" in text
