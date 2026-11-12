@@ -202,7 +202,8 @@ Le **format se choisit dans la boîte d'enregistrement** : *français* (point-vi
 décimale, ouvert directement par Excel ou LibreOffice en français) ou *international* (virgule,
 point décimal). Le format français est proposé d'abord quand FreeCAD est en français ; ensuite
 le dernier choix est retenu. Depuis la console : `api.export_cut_list_csv(doc, "debit.csv",
-dialect=api.FRENCH_CSV)`. **Exporter la liste de débit (PDF)…** produit un PDF prêt à imprimer (A4 paysage, marges de
+dialect=api.FRENCH_CSV)`. Avant la liste, l'aperçu et les exports, si des pièces n'ont pas de repère, une boîte propose de **numéroter automatiquement**, de **continuer** sans repère ou d'**annuler**.
+**Exporter la liste de débit (PDF)…** produit un PDF prêt à imprimer (A4 paysage, marges de
 10 mm : titre, date, portée, tableau, totaux, fournitures et avertissements). **Numéroter les
 repères** donne un repère `M1`, `M2`… à chaque groupe de pièces identiques qui n'en a pas (les
 repères existants ne changent pas, le libellé de la pièce suit le repère) ; Annuler le retire en

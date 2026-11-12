@@ -7,6 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
+- Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).
 - « Exporter la liste de débit (CSV)… » : le format (français : « ; » et virgule décimale, ou international) se choisit dans la boîte d'enregistrement, par un filtre à chaque format. Le français est présélectionné quand FreeCAD est en français, puis le dernier choix est retenu dans les préférences (issue #223).
 - L'infobulle des commandes qui attendent une sélection (assemblages, quincaillerie, ensembles, répétition, « Définir une distance », « Convertir en pièce en bois ») se termine par une ligne « Prérequis : … » qui dit quoi sélectionner, que le bouton soit grisé ou non (issue #221, ADR 0052).
 

@@ -23,6 +23,7 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api
+from freecad.menuiserie.gui.commands import cutlist as commandes_debit
 from tests.commandes_debit import COMMANDES_DEBIT
 from tests.gui.verifications_assemblages import selectionner
 from tests.gui.verifications_ensemble import boite_de_refus, pieces_du_bureau, regrouper
@@ -553,6 +554,65 @@ def _repere(piece: Any) -> str:
     return str(piece.Mark)
 
 
+@contextmanager
+def boite_des_reperes_manquants(reponse: str) -> Iterator[list[int]]:
+    """Remplace la boîte « Repères manquants » : elle répond ``reponse`` et note le nombre de
+    pièces annoncé à chaque appel ; rétablie en sortie."""
+    appels: list[int] = []
+    origine = commandes_debit.ask_missing_marks
+
+    def double(nombre: int, _parent: Any = None) -> str:
+        appels.append(nombre)
+        return reponse
+
+    commandes_debit.ask_missing_marks = double
+    try:
+        yield appels
+    finally:
+        commandes_debit.ask_missing_marks = origine
+
+
+def verifier_reperes_manquants_avant_la_liste() -> list[str]:
+    """Avertissement avant la liste, l'aperçu et les exports quand des pièces n'ont pas de repère :
+    « Annuler » ne fait rien, « Continuer » poursuit sans repère, « Numéroter automatiquement »
+    numérote (une entrée d'annulation) puis poursuit ; rien ne s'affiche si tout est repéré."""
+    doc = nouveau_document("VerifDebitReperesManquants")
+    nom_du_document = doc.Name
+    try:
+        piece = api.make_wood_part(800.0, 100.0, 22.0, "chene", doc=doc)
+        doc.recompute()
+        doc.clearUndos()
+        Gui.Selection.clearSelection()
+        with boite_des_reperes_manquants(commandes_debit.CANCEL) as appels:
+            Gui.Command.get(LISTE).run()
+        problemes = [
+            *ecarts("annuler : boîte affichée une fois", appels, [1]),
+            *ecarts("annuler : aucune feuille", feuilles(doc), []),
+            *ecarts("annuler : repère inchangé", _repere(piece), ""),
+        ]
+        with boite_des_reperes_manquants(commandes_debit.CONTINUE) as appels:
+            Gui.Command.get(LISTE).run()
+        problemes += [
+            *ecarts("continuer : boîte affichée", appels, [1]),
+            *ecarts("continuer : feuille créée", len(feuilles(doc)), 1),
+            *ecarts("continuer : repère inchangé", _repere(piece), ""),
+        ]
+        with boite_des_reperes_manquants(commandes_debit.NUMBER) as appels:
+            Gui.Command.get(LISTE).run()
+        problemes += [
+            *ecarts("numéroter : boîte affichée", appels, [1]),
+            *ecarts("numéroter : repère donné", _repere(piece), "M1"),
+            *ecarts("numéroter : annulation", "Numéroter les repères" in doc.UndoNames, True),
+        ]
+        with boite_des_reperes_manquants(commandes_debit.CANCEL) as appels:
+            Gui.Command.get(LISTE).run()
+        return problemes + ecarts("tout repéré : pas de boîte", appels, [])
+    finally:
+        Gui.Selection.clearSelection()
+        if nom_du_document in App.listDocuments():
+            App.closeDocument(nom_du_document)
+
+
 def verifier_numerotation_des_reperes() -> list[str]:
     """N1 : sans sélection, les pièces sans repère reçoivent M1… sans trou (deux pièces
     identiques partagent leur repère), une seule entrée d'annulation, message dans la barre
@@ -791,6 +851,7 @@ VERIFICATIONS_DEBIT: tuple[Callable[[], list[str]], ...] = (
     verifier_suppression_sans_avertissement,
     verifier_export_csv,
     verifier_export_formats,
+    verifier_reperes_manquants_avant_la_liste,
     verifier_export_sans_extension,
     verifier_export_annule_ou_refuse,
     verifier_export_recalcule_le_document,

@@ -65,6 +65,18 @@ _PREVIEW_OBJECTS_GONE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Aperçu impossible à actualiser ou exporter : les objets choisis n'existent plus."
 )
 _EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Liste de débit exportée dans « {path} ».")
+_MISSING_MARKS_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Repères manquants")
+_MISSING_MARKS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{count} pièce(s) n'ont pas de repère : la liste de débit les regroupera sans repère.",
+)
+_NUMBER_BUTTON: Final = QT_TRANSLATE_NOOP("Menuiserie", "Numéroter automatiquement")
+_CONTINUE_BUTTON: Final = QT_TRANSLATE_NOOP("Menuiserie", "Continuer")
+_CANCEL_BUTTON: Final = QT_TRANSLATE_NOOP("Menuiserie", "Annuler")
+# Réponses de la boîte « Repères manquants ».
+NUMBER: Final = "number"
+CONTINUE: Final = "continue"
+CANCEL: Final = "cancel"
 
 
 def selected_objects() -> list[DocumentObject] | None:
@@ -75,6 +87,41 @@ def selected_objects() -> list[DocumentObject] | None:
     for obj in Gui.Selection.getSelection():
         found.setdefault(obj.Name, obj)
     return list(found.values()) or None
+
+
+def ask_missing_marks(count: int, parent: QtGui.QWidget | None = None) -> str:
+    """Boîte d'avertissement « Repères manquants » : ``NUMBER`` (numéroter automatiquement),
+    ``CONTINUE`` (continuer sans repère) ou ``CANCEL`` (annuler, aussi à la fermeture)."""
+    box = QtGui.QMessageBox(parent or Gui.getMainWindow())
+    box.setIcon(QtGui.QMessageBox.Warning)
+    box.setWindowTitle(translated(_MISSING_MARKS_TITLE))
+    box.setText(translated(_MISSING_MARKS, {"count": str(count)}))
+    number = box.addButton(translated(_NUMBER_BUTTON), QtGui.QMessageBox.AcceptRole)
+    keep = box.addButton(translated(_CONTINUE_BUTTON), QtGui.QMessageBox.ActionRole)
+    cancel = box.addButton(translated(_CANCEL_BUTTON), QtGui.QMessageBox.RejectRole)
+    box.setDefaultButton(number)
+    box.setEscapeButton(cancel)
+    box.exec_()
+    clicked = box.clickedButton()
+    if clicked is number:
+        return NUMBER
+    return CONTINUE if clicked is keep else CANCEL
+
+
+def marks_settled(
+    doc: Document, objects: Sequence[DocumentObject] | None, parent: QtGui.QWidget | None = None
+) -> bool:
+    """Vrai si la liste de débit peut être faite. Quand des pièces n'ont pas de repère, avertit et
+    propose de les numéroter automatiquement (une transaction, comme « Numéroter les repères »),
+    de continuer sans repère ou d'annuler (rien n'est alors fait, faux est renvoyé)."""
+    recompute_if_touched(doc)
+    count = api.count_unmarked_parts(doc, objects)
+    if count == 0:
+        return True
+    answer = ask_missing_marks(count, parent)
+    if answer == NUMBER:
+        api.number_marks(doc, objects)
+    return answer != CANCEL
 
 
 def recompute_if_touched(doc: Document) -> None:
@@ -145,8 +192,9 @@ class CutListSheetCommand(CutListCommand):
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
         """Feuille écrite par l'api (transaction « Liste de débit », avertissements dans la vue
-        rapport), puis ouverte."""
-        recompute_if_touched(doc)
+        rapport), puis ouverte ; repères manquants signalés avant."""
+        if not marks_settled(doc, objects):
+            return
         open_in_tab(api.make_cut_list(doc, objects))
 
 
@@ -164,7 +212,10 @@ class CutListPreviewCommand(CutListCommand):
     )
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
-        """Fenêtre d'aperçu non modale de ``doc`` limité à ``objects``."""
+        """Fenêtre d'aperçu non modale de ``doc`` limité à ``objects`` ; repères manquants
+        signalés avant."""
+        if not marks_settled(doc, objects):
+            return
         show_cut_list_preview(doc, objects)
 
 
@@ -185,8 +236,10 @@ class CutListExportCommand(CutListCommand):
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
         """Fichier demandé (rien ne se passe si l'on annule), document recalculé si besoin,
-        puis CSV écrit par l'api ; confirmation dans la barre d'état."""
-        export_csv(doc, objects)
+        puis CSV écrit par l'api ; confirmation dans la barre d'état. Repères manquants signalés
+        avant la boîte d'enregistrement."""
+        if marks_settled(doc, objects):
+            export_csv(doc, objects)
 
 
 class CutListPdfCommand(CutListCommand):
@@ -203,8 +256,10 @@ class CutListPdfCommand(CutListCommand):
 
     def run(self, doc: Document, objects: Sequence[DocumentObject] | None) -> None:
         """Fichier demandé (rien ne se passe si l'on annule), document recalculé si besoin,
-        puis PDF écrit par l'api ; confirmation dans la barre d'état."""
-        export_pdf(doc, objects)
+        puis PDF écrit par l'api ; confirmation dans la barre d'état. Repères manquants signalés
+        avant la boîte d'enregistrement."""
+        if marks_settled(doc, objects):
+            export_pdf(doc, objects)
 
 
 class NumberMarksCommand(CutListCommand):
