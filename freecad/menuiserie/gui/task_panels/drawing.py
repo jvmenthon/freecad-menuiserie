@@ -114,14 +114,16 @@ class DrawingTaskPanel:
         laisse le panneau ouvert."""
         from freecad.menuiserie.gui.commands.base import report_refusal
 
+        # Saisies lues avant la fermeture : elle détruit les champs du formulaire.
+        options, wants_pdf = self.options(), self.pdf.isChecked()
         try:
-            self.page = api.make_overall_drawing(self.doc, self.objects, self.options())
+            self.page = api.make_overall_drawing(self.doc, self.objects, options)
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return False
         Gui.Control.closeDialog()
         drawing_pdf.show_page(self.page)
-        if self.pdf.isChecked():
+        if wants_pdf:
             from freecad.menuiserie.gui.commands.drawing import export_with_dialog
 
             export_with_dialog(self.page)
