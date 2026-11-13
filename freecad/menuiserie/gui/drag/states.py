@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from PySide import QtCore
 
 from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import (
     DragResult,
     Guide,
@@ -25,9 +26,16 @@ from freecad.menuiserie.core.magnet import (
     magnet,
     resize,
 )
-from freecad.menuiserie.core.rotation import angles_of, plane_point, ring_angle, snapped_turn
+from freecad.menuiserie.core.rotation import (
+    align_offsets,
+    aligned_turn,
+    angles_of,
+    plane_point,
+    ring_angle,
+    snapped_turn,
+)
 from freecad.menuiserie.features.drag_joints import JointChoice
-from freecad.menuiserie.features.i18n import report_warning
+from freecad.menuiserie.features.i18n import report_warning, translate_text
 from freecad.menuiserie.features.part_drag import DragCancelledError
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
@@ -39,12 +47,14 @@ from freecad.menuiserie.gui.drag.geometry import (
     parse_key,
 )
 from freecad.menuiserie.gui.drag.parts import Grab, Turn
-from freecad.menuiserie.gui.drag.rings import Sweep, advance, ring_key, ring_ray
+from freecad.menuiserie.gui.drag.rings import Sweep, advance, ring_basis, ring_key, ring_ray
 from freecad.menuiserie.gui.drag.target import Memento, Step, Target
 from freecad.menuiserie.gui.drag.view import Point
 
 if TYPE_CHECKING:
     from freecad.menuiserie.gui.drag.session import DragSession
+
+_ALIGNED_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
 
 __all__ = ["Dragging", "Gesture", "Hover", "Idle", "Moving", "Resizing", "Rotating", "State"]
 
@@ -317,6 +327,11 @@ class Rotating(Gesture):
         # angle de la pièce autour de l'anneau au début : l'aimant vise l'angle obtenu
         self.base = angles_of(rigid_transform(grab.memento.placement).rotation)[self.ring.axis]
         self.frame = grab.target.frame()
+        u, v = ring_basis(self.ring.normal)
+        # rotations qui alignent une arête de la pièce sur celle d'une voisine (à 90° près)
+        self.offsets = align_offsets(
+            self.frame.to_transform().rotation, grab.target.neighbor_rotations(), u, v
+        )
 
     def _follow(self, session: DragSession) -> None:
         """Pièce tournée d'après le curseur ; rayon rasant le plan de l'anneau : elle reste."""
@@ -324,11 +339,18 @@ class Rotating(Gesture):
         raw = ring_angle(ray, self.ring, self.first)
         if raw is not None:
             self.total, self.last = advance(self.total, self.last, raw), raw
-        angle = snapped_turn(self.base, self.total, free=self.shift)
+        aligned = None if self.shift else aligned_turn(self.total, self.offsets)
+        angle = (
+            aligned if aligned is not None else snapped_turn(self.base, self.total, free=self.shift)
+        )
         if not self.target.rotate(self.memento, self.ring.axis, angle):
+            self.note = None
             return
         anchor = plane_point(ray, self.ring) or self.ring.center
         self.sweep = Sweep(self.ring, self.from_center, angle, anchor)
+        self.note = (
+            None if aligned is None else Label(HOVER_COLOR, translate_text(_ALIGNED_TEXT), anchor)
+        )
         session.written((), self.frame)
 
     def end(self, choose: JointChoice) -> list[str]:
