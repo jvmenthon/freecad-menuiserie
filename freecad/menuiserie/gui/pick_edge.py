@@ -16,6 +16,7 @@ from typing import Any, NamedTuple
 
 import FreeCAD as App
 import FreeCADGui as Gui
+import Part
 from PySide import QtCore
 
 from freecad.menuiserie.core.edges import edges_at, face_at
@@ -150,14 +151,23 @@ class EdgePicker:
         del pos
         if not self._active or doc != self._document_name:
             return
-        pick = pick_at(App.getDocument(self._document_name), obj, sub)
+        try:
+            pick = pick_at(App.getDocument(self._document_name), obj, sub)
+        except (RuntimeError, ValueError, Part.OCCError):  # élément périmé : clic ignoré
+            pick = None
         if pick is None or (self._part_name is not None and pick.part.Name != self._part_name):
-            if self._on_ignored is not None:  # clic sur autre chose qu'une pièce de bois
-                QtCore.QTimer.singleShot(0, self._on_ignored)
+            QtCore.QTimer.singleShot(0, self._ignored)
             return
         QtCore.QTimer.singleShot(0, lambda: self._deliver(pick))
 
+    def _ignored(self) -> None:
+        """Clic sur autre chose qu'une pièce de bois, transmis seulement si l'observateur est
+        encore posé (le panneau a pu se fermer entre-temps)."""
+        if self._active and self._on_ignored is not None:
+            self._on_ignored()
+
     def _deliver(self, pick: Pick) -> None:
+        if not self._active:  # panneau fermé entre-temps : la sélection n'est pas touchée
+            return
         Gui.Selection.clearSelection()
-        if self._active:
-            self._on_pick(pick)
+        self._on_pick(pick)

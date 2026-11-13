@@ -26,6 +26,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.edges import BROKEN_EDGE_MM, EdgeFamily, SecondSize, family_for
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -120,8 +121,14 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         connect(self._family, "currentIndexChanged(int)", self._family_changed)
         connect(self._size_a, "valueChanged(double)", self.rebuild)
         connect(self._size_b, "valueChanged(double)", self.rebuild)
-        self._picker.start()
-        self.rebuild()
+        try:
+            self._picker.start()
+            self.rebuild()
+        except BaseException:
+            # Le panneau n'est pas encore enregistré : rien d'autre ne retirerait l'observateur
+            # et la mise en valeur (revue sécurité).
+            self._release_display()
+            raise
         if refusals:
             self._show_message("\n".join(refusals))
 
@@ -148,7 +155,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         if profile is None or profile.Part is None:
             return
         with self._guard:
-            self._family.setCurrentIndex(self._family.findData(profile.Family))
+            index = self._family.findData(profile.Family)  # inconnue : quart de rond
+            self._family.setCurrentIndex(
+                index if index >= 0 else self._family.findData(EdgeFamily.ROUND.value)
+            )
             self._size_a.setProperty("rawValue", profile.SizeA.Value)
             self._size_b.setProperty("rawValue", profile.SizeB.Value)
             self._asymmetric = profile.SizeB.Value not in (0.0, profile.SizeA.Value)
@@ -239,7 +249,9 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
     @staticmethod
     def _piece_edges(part: DocumentObject, codes: Sequence[str]) -> str:
-        return translated(_PIECE_EDGES, {"piece": part.Label, "edges": ", ".join(codes)})
+        return translated(
+            _PIECE_EDGES, {"piece": quoted_value(part.Label), "edges": ", ".join(codes)}
+        )
 
     def _apply(self, part: DocumentObject, codes: list[str], *, replace: bool) -> tuple[str, ...]:
         """Profil de ``part`` créé, modifié ou retiré d'après les champs, pour ``codes`` ;
@@ -252,7 +264,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             if profile is None:
                 return ()
             if profile == self.profile:
-                raise ValueError(translated(_NO_EDGE, {"piece": part.Label}))
+                raise ValueError(translated(_NO_EDGE, {"piece": quoted_value(part.Label)}))
             api.remove_edge_profile(self._profiles.pop(part.Name))
             return ()
         if profile is None:
@@ -308,12 +320,13 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         return super().accept()
 
     def _confirmed(self, conflicts: str) -> bool:
-        reply = QtGui.QMessageBox.question(
-            self.form,
-            translated(_REPLACE_TITLE),
-            translated(_REPLACE_TEXT, {"edges": conflicts}),
-        )
-        return bool(reply == QtGui.QMessageBox.Yes)
+        box = QtGui.QMessageBox(self.form)
+        box.setIcon(QtGui.QMessageBox.Icon.Question)
+        box.setWindowTitle(translated(_REPLACE_TITLE))
+        box.setTextFormat(QtCore.Qt.TextFormat.PlainText)  # libellés venus du document
+        box.setText(translated(_REPLACE_TEXT, {"edges": conflicts}))
+        box.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+        return bool(box.exec() == QtGui.QMessageBox.Yes)
 
 
 def show_panel(picks: Sequence[Pick] = (), refusals: Sequence[str] = ()) -> None:

@@ -261,7 +261,9 @@ class PieceList:
         card = self.card_of(part)
         if card is not None:
             return card
-        color = PALETTE[len(self._cards) % len(PALETTE)]
+        used = {card.color for card in self._cards}  # une carte retirée libère sa couleur
+        free = [color for color in PALETTE if color not in used]
+        color = free[0] if free else PALETTE[len(self._cards) % len(PALETTE)]
         card = PieceCard(part, color, self._view, self._changed, self.remove if removable else None)
         self._cards.append(card)
         self._rows.addWidget(card)

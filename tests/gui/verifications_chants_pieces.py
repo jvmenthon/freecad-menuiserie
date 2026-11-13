@@ -191,9 +191,44 @@ def verifier_mise_en_valeur_3d() -> list[str]:
     return avec_document("VerifChantsValeur", _mise_en_valeur)
 
 
+def _couleurs_apres_retrait(doc: Any) -> list[str]:
+    """Une pièce ajoutée après le retrait d'une carte ne reprend pas la couleur d'une carte
+    restante (deux pièces de même couleur se confondent dans le dessin et la vue 3D)."""
+    from freecad.menuiserie import api
+
+    first, second = _deux_pieces(doc)
+    third = api.make_wood_part(400.0, 100.0, 18.0, "chene", doc=doc)
+    fourth = api.make_wood_part(300.0, 100.0, 18.0, "chene", doc=doc)
+    third.Placement.Base = App.Vector(0.0, 1000.0, 0.0)
+    fourth.Placement.Base = App.Vector(0.0, 1300.0, 0.0)
+    doc.recompute()
+    form = _ouvrir(
+        (first, face_du_dessus(first)),
+        (second, face_du_dessus(second)),
+        (third, face_du_dessus(third)),
+    )
+    if form is None:
+        return ["panneau de finition non ouvert"]
+    widget(carte(form, first), "remove_piece").click()
+    Gui.Selection.addSelection(fourth, face_du_dessus(fourth))
+    from PySide import QtGui
+
+    QtGui.QApplication.processEvents()
+    couleurs = [carte(form, piece).color for piece in (second, third, fourth)]
+    problemes = ecarts("couleurs distinctes après retrait", len(set(couleurs)), 3)
+    annuler()
+    return problemes
+
+
+def verifier_couleurs_apres_retrait() -> list[str]:
+    """Les couleurs des cartes restent distinctes après retrait puis ajout d'une pièce."""
+    return avec_document("VerifChantsCouleurs", _couleurs_apres_retrait)
+
+
 VERIFICATIONS_CHANTS_PIECES: tuple[Callable[[], list[str]], ...] = (
     verifier_plusieurs_pieces,
     verifier_retirer_une_piece,
     verifier_bascule_du_dessin,
     verifier_mise_en_valeur_3d,
+    verifier_couleurs_apres_retrait,
 )

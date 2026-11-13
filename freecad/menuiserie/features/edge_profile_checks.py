@@ -31,6 +31,7 @@ _TOUCHES: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Le profil « {profile} » touche l'assemblage « {joint} »."
 )
 _ERRORS: Final = (ValueError, Part.OCCError)
+MAX_CHECKED_JOINTS: Final = 20  # contrôle borné : il tourne à chaque saisie du panneau
 
 
 def _solids_on(joint: DocumentObject, blank: DocumentObject) -> list[PlanSolid]:
@@ -56,7 +57,7 @@ def touched_joints(profile: DocumentObject) -> list[DocumentObject]:
     except _ERRORS:
         return []
     touched = []
-    for joint in machined.Joints:
+    for joint in machined.Joints[:MAX_CHECKED_JOINTS]:
         try:
             shapes = [solid_shape(solid) for solid in _solids_on(joint, blank)]
             if any(z.common(s).Volume > _MIN_VOLUME_MM3 for z in zones for s in shapes):

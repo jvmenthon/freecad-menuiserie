@@ -182,6 +182,8 @@ def checked_codes(edges: object) -> list[str]:
     inconnue."""
     if isinstance(edges, str) or not isinstance(edges, list | tuple | set | frozenset):
         raise ValueError(translated(_NO_EDGE))
+    if len(edges) > len(all_edges()):  # refus avant de lire une liste démesurée
+        raise ValueError(translated(_BAD_EDGES))
     with translated_errors():
         ids = [item if isinstance(item, EdgeId) else parse_edge(item) for item in edges]
     if not ids:
