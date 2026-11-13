@@ -81,6 +81,7 @@ seulement quand l'interface est chargée (``App.GuiUp``) : ils fonctionnent auss
 from __future__ import annotations
 
 from freecad.menuiserie._api.cutlist import (
+    count_unmarked_parts,
     cut_list_html,
     cut_list_of,
     export_cut_list_csv,
@@ -172,6 +173,7 @@ __all__ = [
     "blank_of",
     "close_gap",
     "closing_options",
+    "count_unmarked_parts",
     "cut_list_html",
     "cut_list_of",
     "dissociate",

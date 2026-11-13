@@ -39,7 +39,8 @@ def test_chaque_axe(links: ModuleType, axis: str, component: str) -> None:
 
 def test_cotes_matiere_et_rotation_viennent_de_la_source(links: ModuleType) -> None:
     expressions = links.copy_expressions("S", "R", 2, RepeatAxis.X)
-    assert set(expressions) == set(links.BOUND_PATHS) - set(links.FURNITURE_PATHS) | {"Width"}
+    bound = set(links.BOUND_PATHS) - set(links.FURNITURE_PATHS) - set(links.SHAPED)
+    assert set(expressions) == bound | {"Width"}
     for path in ("Length", "Width", "Thickness", "Material", "GrainDirection", "LengthAllowance"):
         assert expressions[path] == f"S.{path}"
     assert expressions["Placement.Rotation"] == "S.Placement.Rotation"
