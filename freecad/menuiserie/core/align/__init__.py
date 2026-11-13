@@ -13,6 +13,16 @@ from freecad.menuiserie.core.align._align import (
     Alignment,
     AlignMode,
     align,
+    face_center,
+    plane_motion,
 )
 
-__all__ = ["NO_OFFSET", "AlignError", "AlignMode", "Alignment", "align"]
+__all__ = [
+    "NO_OFFSET",
+    "AlignError",
+    "AlignMode",
+    "Alignment",
+    "align",
+    "face_center",
+    "plane_motion",
+]

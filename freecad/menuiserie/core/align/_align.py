@@ -147,7 +147,51 @@ def _along_axis(
     return Alignment(_IDENTITY, pivot, axis.scaled(gap / slope), 0.0, chosen)
 
 
+def face_center(face: FaceTarget) -> Vec3:
+    """Centre du rectangle englobant de ``face`` : son repère part d'un coin, axes vers
+    l'intérieur, étendue le long de ces axes."""
+    frame = face.frame
+    return frame.origin + frame.x.scaled(face.extent[0] / 2) + frame.y.scaled(face.extent[1] / 2)
+
+
+def _turned_point(motion: Alignment, point: Vec3) -> Vec3:
+    return _turned(motion.rotation, point - motion.pivot) + motion.pivot + motion.shift
+
+
+def _centered(
+    motion: Alignment, fixed: FaceTarget, moving: FaceTarget, centered: tuple[Vec3, ...]
+) -> Alignment:
+    """``motion`` complété pour que, sur chaque axe de ``centered`` (vecteurs globaux unitaires,
+    deux à deux perpendiculaires), le centre de la face mobile vienne sur celui de la référence."""
+    if not centered:
+        return motion
+    delta = face_center(fixed) - _turned_point(motion, face_center(moving))
+    extra = NO_OFFSET
+    for axis in centered:
+        extra = extra + axis.scaled(dot(delta, axis))
+    return Alignment(motion.rotation, motion.pivot, motion.shift + extra, motion.angle, motion.mode)
+
+
 def align(
+    fixed: FaceTarget,
+    moving: FaceTarget,
+    mode: AlignMode = AlignMode.AUTO,
+    offset: Vec3 = NO_OFFSET,
+    axis: Vec3 | None = None,
+    centered: tuple[Vec3, ...] = (),
+) -> Alignment:
+    """:func:`plane_motion` puis, pour chaque axe de ``centered`` (axes X, Y, Z globaux du
+    conteneur, unitaires et perpendiculaires), le centre de la face mobile amené sur celui de la
+    référence le long de cet axe : avec les trois axes, les deux centres se confondent. Axe de
+    ``centered`` non fini ou nul : :class:`AlignError`."""
+    for item in centered:
+        if not is_finite(item) or norm(item) <= ANGLE_TOLERANCE:
+            raise AlignError(INVALID_AXIS, {})
+    motion = plane_motion(fixed, moving, mode, offset, axis)
+    return _centered(motion, fixed, moving, tuple(unit(item) for item in centered))
+
+
+def plane_motion(
     fixed: FaceTarget,
     moving: FaceTarget,
     mode: AlignMode = AlignMode.AUTO,

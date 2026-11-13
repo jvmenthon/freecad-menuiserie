@@ -288,10 +288,23 @@ def test_plan_transmet_l_axe_au_noyau(module: ModuleType, monkeypatch: pytest.Mo
 
     monkeypatch.setattr(module, "align", fake_align)
     assert aligned.plan(axis="Z") == "mouvement"
-    assert received[-1] == Vec3(0.0, 0.0, 1.0)
+    assert received[-2] == Vec3(0.0, 0.0, 1.0)
+    assert received[-1] == ()
     received.clear()
-    aligned.plan()
-    assert received[-1] is None
+    aligned.plan(centered="ZXZ")
+    assert received[-2] is None
+    assert received[-1] == (Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 0.0))  # sans doublon, dans l'ordre
+
+
+def test_plan_refuse_un_axe_de_centrage_inconnu(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aligned = _aligned(module, monkeypatch)
+    monkeypatch.setattr(module, "container_of", lambda _e: None)
+    with pytest.raises(ValueError, match="X, Y ou Z"):
+        aligned.plan(centered="XW")
+    with pytest.raises(ValueError, match="X, Y ou Z"):
+        aligned.plan(centered=3)  # type: ignore[arg-type]
 
 
 def test_plan_sur_un_axe_dans_le_plan_donne_une_valeur_error_traduite(

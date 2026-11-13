@@ -98,18 +98,24 @@ class FaceAlign:
         return part
 
     def plan(
-        self, mode: AlignMode = AlignMode.AUTO, offset: Vec3 = NO_OFFSET, axis: str | None = None
+        self,
+        mode: AlignMode = AlignMode.AUTO,
+        offset: Vec3 = NO_OFFSET,
+        axis: str | None = None,
+        centered: str = "",
     ) -> Alignment:
         """Le mouvement qui aligne (lecture seule). ``axis`` (``"X"``, ``"Y"``, ``"Z"`` du
         conteneur de la pièce déplacée) : translation sur cet axe seul, sans rotation.
         ``ValueError`` traduite si une face n'est pas plane, si l'axe est inconnu, si un décalage
         n'est pas fini, ou, sur un axe, si les faces ne sont pas parallèles, si l'axe est dans
-        leur plan ou presque, ou si le mode est d'équerre."""
+        leur plan ou presque, ou si le mode est d'équerre. ``centered`` (lettres parmi ``"XYZ"``,
+        axes du même conteneur) : le centre de la face déplacée vient sur celui de l'autre face
+        sur chacun de ces axes ; ``"XYZ"`` les confond d'un coup."""
         fixed, moving = self._faces[1 - self.moving_index], self._faces[self.moving_index]
         if not (isinstance(fixed, FaceTarget) and isinstance(moving, FaceTarget)):
             raise ValueError(translated(_NOT_FACES))
         with translated_errors():
-            return align(fixed, moving, mode, offset, self._axis(axis))
+            return align(fixed, moving, mode, offset, self._axis(axis), self._axes(centered))
 
     def _axis(self, axis: str | None) -> Vec3 | None:
         """Vecteur global de l'axe ``axis`` du conteneur (Std Part) de la pièce déplacée, ou du
@@ -123,6 +129,17 @@ class FaceAlign:
         if container is not None:
             unit = container.getGlobalPlacement().Rotation.multVec(unit)
         return to_vec3(unit)
+
+    def _axes(self, centered: str) -> tuple[Vec3, ...]:
+        """Vecteurs globaux des axes ``centered`` (``"XZ"``…), sans doublon."""
+        if not isinstance(centered, str):
+            raise ValueError(translated(_UNKNOWN_AXIS, {"axis": str(centered)}))
+        found: list[Vec3] = []
+        for letter in dict.fromkeys(centered):
+            vector = self._axis(letter)
+            if vector is not None:
+                found.append(vector)
+        return tuple(found)
 
     @property
     def can_swap(self) -> bool:
@@ -149,14 +166,18 @@ class FaceAlign:
         self._start = raw.getGlobalPlacement()
 
     def preview(
-        self, mode: AlignMode = AlignMode.AUTO, offset: Vec3 = NO_OFFSET, axis: str | None = None
+        self,
+        mode: AlignMode = AlignMode.AUTO,
+        offset: Vec3 = NO_OFFSET,
+        axis: str | None = None,
+        centered: str = "",
     ) -> Alignment:
         """Place la pièce d'après le début de la séance (écriture absolue, sans recalcul du
         document) et renvoie le mouvement. ``ValueError`` traduite si une face n'est pas plane."""
         memento, start = self._memento, self._start
         if memento is None or start is None:
             raise RuntimeError(_NOT_STARTED)
-        alignment = self.plan(mode, offset, axis)
+        alignment = self.plan(mode, offset, axis, centered)
         raw = memento.part
         container = start.multiply(memento.placement.inverse())
         placed = container.inverse().multiply(global_motion(alignment).multiply(start))
@@ -191,13 +212,16 @@ class FaceAlign:
         offset: Vec3 = NO_OFFSET,
         choose: JointChoice | None = None,
         axis: str | None = None,
+        centered: str = "",
     ) -> tuple[Alignment, list[str]]:
         """:meth:`begin`, :meth:`preview` puis :meth:`finish` d'un seul geste (script, ``api``) ;
         au moindre refus la pièce revient avant que l'erreur soit relancée."""
-        self.plan(mode, offset, axis)  # refus (face non plane) avant de toucher à la pièce
+        self.plan(
+            mode, offset, axis, centered
+        )  # refus (face non plane) avant de toucher à la pièce
         self.begin()
         try:
-            alignment = self.preview(mode, offset, axis)
+            alignment = self.preview(mode, offset, axis, centered)
             return alignment, self.finish(choose)
         except BaseException:
             self.cancel()
