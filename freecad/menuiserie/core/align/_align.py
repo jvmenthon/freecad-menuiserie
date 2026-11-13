@@ -86,7 +86,9 @@ def _turned(matrix: Matrix3, vector: Vec3) -> Vec3:
 def _mode_of(fixed_normal: Vec3, moving_normal: Vec3, mode: AlignMode) -> AlignMode:
     if mode is not AlignMode.AUTO:
         return mode
-    return AlignMode.FLUSH if dot(fixed_normal, moving_normal) >= 0 else AlignMode.FACING
+    # À 90° exacts : au ras, sans dépendre du signe du bruit numérique.
+    flush = dot(fixed_normal, moving_normal) >= -ANGLE_TOLERANCE
+    return AlignMode.FLUSH if flush else AlignMode.FACING
 
 
 def align(fixed: FaceTarget, moving: FaceTarget, mode: AlignMode = AlignMode.AUTO) -> Alignment:

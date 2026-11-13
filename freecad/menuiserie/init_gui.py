@@ -161,8 +161,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une
         distance » (au premier niveau, pas dans un sous-menu) quand la sélection compte deux
-        éléments de deux objets. Ce menu n'existe que
-        pendant que l'atelier est actif (ADR 0007)."""
+        éléments de deux objets, et « Aligner deux faces » si ce sont deux faces. Ce menu
+        n'existe que pendant que l'atelier est actif (ADR 0007)."""
         from freecad.menuiserie.gui.commands import distance
 
         if distance.selected_pair() is not None:

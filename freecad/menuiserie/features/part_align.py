@@ -11,6 +11,7 @@ rotation. Aucun import de ``FreeCADGui`` ; la transaction est l'affaire de l'app
 
 from __future__ import annotations
 
+import math
 from typing import Final
 
 import FreeCAD as App
@@ -113,7 +114,10 @@ class FaceAlign:
             start = raw.getGlobalPlacement()
             container = start.multiply(memento.placement.inverse())
             target = global_motion(alignment).multiply(start)
-            write_placement(raw, container.inverse().multiply(target))
+            placed = container.inverse().multiply(target)
+            if not all(math.isfinite(v) for v in (*placed.Base, *placed.Rotation.Q)):
+                raise ValueError(translated(_NOT_FACES))
+            write_placement(raw, placed)
             return alignment, end_drag(memento, choose)
         except BaseException:
             restore(memento)
