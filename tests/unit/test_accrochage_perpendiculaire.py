@@ -124,13 +124,10 @@ def test_section_piece_tournee_d_un_quart_de_tour() -> None:
 
 def test_section_piece_oblique_garde_la_section_de_la_piece() -> None:
     oblique: Matrix3 = ((0.9, -0.43, 0.0), (0.43, 0.9, 0.0), (0.0, 0.0, 1.0))
-    assert face_section(
-        IDENTITY,
-        oblique,
-        perpendicular_orientation(IDENTITY, IDENTITY),
-        (40.0, 60.0),
-        (100.0, 30.0),
-    ) == (100.0, 30.0)  # type: ignore[arg-type]
+    orientation = perpendicular_orientation(IDENTITY, IDENTITY)
+    assert orientation is not None
+    section = face_section(IDENTITY, oblique, orientation, (40.0, 60.0), (100.0, 30.0))
+    assert section == (100.0, 30.0)
 
 
 @pytest.mark.parametrize("extent", [(0.0, 0.0), (-5.0, -5.0), (0.0, 60.0)])
