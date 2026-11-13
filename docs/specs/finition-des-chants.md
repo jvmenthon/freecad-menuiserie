@@ -79,7 +79,9 @@ seule pièce.
   brute** ; à l'onglet, il s'arrête net (pas de retour d'onglet, § 8) ; un test le fixe.
 - B7 Les arêtes sont enregistrées par leur **code local** (`"Z+Y-"`), jamais par un numéro
   d'arête de la forme (nommage topologique) : une cote modifiée, une rotation, un assemblage
-  ajouté ne changent pas le choix.
+  ajouté ne changent pas le choix. (*Depuis FreeCAD 1.0 un numéro d'arête suit l'arête sur une
+  forme qui a une carte des éléments, ADR 0056 ; le code local reste retenu : il désigne l'arête
+  par son sens, sans forme, et se teste sans FreeCAD.*)
 - B8 `Version` de `MachinedPart` : 1 → 2 (propriété ajoutée, migration sans perte) ;
   `EdgeProfile` : `Version` = 1. Un ancien document s'ouvre sans changement.
 - B9 API publique (`_api/`) : `add_edge_profile(part, edges, family, a, b)`,
@@ -155,8 +157,8 @@ seule pièce.
 Un profil est une **section 2D** enlevée, balayée le long d'une arête. Le calcul est en `core/` ;
 `features/` le convertit en solide `Part` (face dessinée de segments et d'arcs puis extrusion) et
 le soustrait. On n'utilise ni `makeFillet` ni `makeChamfer` : ils agissent sur la forme finale,
-retrouvent les arêtes par numéro (nommage topologique instable après un assemblage) et ne se
-testent pas sans FreeCAD. Contrepartie : au croisement de deux arêtes profilées la forme est la
+retrouvent les arêtes par numéro (instable sur une forme sans carte des éléments, ADR 0056) et
+ne se testent pas sans FreeCAD. Contrepartie : au croisement de deux arêtes profilées la forme est la
 **coupe commune** des deux balayages (angle vif propre pour un chanfrein, pas de coin sphérique
 pour un quart de rond) ; un raffinement de coin est reporté (§ 8).
 
