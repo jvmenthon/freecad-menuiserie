@@ -1,7 +1,7 @@
 # ADR 0054 — Assemblage entre pièces de Std Part imbriqués
 
 - Statut : **proposé**
-- Date : 2026-11-12
+- Date : 2026-11-12 (amendé le 2026-11-13)
 - Issue : #209
 - ADR liés : [0003](0003-modele-de-la-piece-de-bois.md), [0007](0007-compatibilite-avec-les-autres-ateliers.md),
   [0008](0008-ensemble-objet-de-cotes.md), [0038](0038-ensemble-a-la-souris.md)

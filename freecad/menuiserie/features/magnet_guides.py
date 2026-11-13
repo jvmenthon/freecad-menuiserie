@@ -185,9 +185,9 @@ def _pin_rests_shape(obj: DocumentObject) -> Any:
         sides = [(obj.HostPart, pin_rests(host, values))]
         guest = obj.GuestPart
         if guest is not None and guest != obj.HostPart:
-            other = opposite_values(host, placed_blank(guest), obj.Proxy.params(obj))
+            other = opposite_values(host, placed_blank(guest, obj.HostPart), obj.Proxy.params(obj))
             if other is not None:
-                sides.append((guest, pin_rests(placed_blank(guest), other)))
+                sides.append((guest, pin_rests(placed_blank(guest, obj.HostPart), other)))
     except (*ERRORS, ValueError, JointError):
         return None
     shapes = []

@@ -240,6 +240,9 @@ class JointFeature(StatelessProxy):
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         _globalize_links(obj)
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN, self.choices())
+        if "Frames" not in obj.PropertiesList:  # document d'avant l'ADR 0054
+            schema.add_missing_properties(obj, self.specs(), choices=self.choices())
+            schema.apply_editor_modes(obj, self.specs())
         for name, choices in self.choices().items():
             if name in obj.PropertiesList and obj.getEnumerationsOfProperty(name) != choices:
                 current = getattr(obj, name)

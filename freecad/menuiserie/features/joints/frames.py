@@ -39,11 +39,16 @@ def _chain(obj: DocumentObject) -> list[DocumentObject] | None:
     return chain
 
 
+def _same(first: object, second: object) -> bool:
+    """Même conteneur (comparaison explicite des objets FreeCAD)."""
+    return bool(first == second)
+
+
 def related_containers(first: DocumentObject, second: DocumentObject) -> bool:
     """Vrai si ``first`` et ``second`` ont le même conteneur, ou si tous leurs conteneurs sont des
     Std Part (une pièce hors de tout Std Part est à la racine) : le repère global les relie. Faux
     si l'un est dans un autre type de conteneur (corps PartDesign…) et pas dans le même."""
-    if bool(first.getParentGeoFeatureGroup() == second.getParentGeoFeatureGroup()):
+    if _same(first.getParentGeoFeatureGroup(), second.getParentGeoFeatureGroup()):
         return True
     return _chain(first) is not None and _chain(second) is not None
 

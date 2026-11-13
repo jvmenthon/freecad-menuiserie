@@ -101,7 +101,7 @@ def _drilled_levels(part: DocumentObject) -> set[tuple[str, float]]:
             elif joint.GuestPart == part:
                 host = placed_blank(joint.HostPart)
                 params = joint.Proxy.params(joint)
-                values = opposite_values(host, placed_blank(part), params)
+                values = opposite_values(host, placed_blank(part, joint.HostPart), params)
                 levels |= _levels(values) if values is not None else set()
         except (JointError, ValueError, InvalidDimensionsError):
             continue

@@ -58,15 +58,15 @@ class Closing:
 
 def _gap_of(reference: DocumentObject, piece: DocumentObject) -> NearGap | None:
     """Écart de la brute ``piece`` à la brute ``reference`` (``None`` si pas proches)."""
-    return near_gap(placed_blank(reference), placed_blank(piece))
+    return near_gap(placed_blank(reference), placed_blank(piece, reference))
 
 
 def _move_delta(reference: DocumentObject, piece: DocumentObject, gap: NearGap) -> Vec3:
     """Déplacement (repère de ``piece``) qui amène ``piece`` au contact de ``reference``."""
     toward = [0.0, 0.0, 0.0]
     toward[gap.axis] = -gap.side * gap.distance
-    world = reference.Placement.Rotation.multVec(App.Vector(*toward))
-    local = piece.Placement.Rotation.inverted().multVec(world)
+    world = reference.getGlobalPlacement().Rotation.multVec(App.Vector(*toward))
+    local = piece.getGlobalPlacement().Rotation.inverted().multVec(world)
     return Vec3(local.x, local.y, local.z)
 
 

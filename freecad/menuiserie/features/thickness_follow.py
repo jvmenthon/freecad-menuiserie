@@ -83,7 +83,7 @@ def _partners(part: DocumentObject, before: PlacedBlock) -> list[tuple[DocumentO
         if other is None:
             continue
         try:
-            raised = touches_raised_face(before, placed_blank(other))
+            raised = touches_raised_face(before, placed_blank(other, part))
         except ValueError:  # pièce invalide : elle ne suit pas
             raised = False
         objects[other.Name] = other
