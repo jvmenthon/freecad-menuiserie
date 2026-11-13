@@ -9,8 +9,8 @@ modifiables portent les noms que le remplissage du cartouche vise en premier.
 
 from __future__ import annotations
 
+from html import escape
 from typing import Final
-from xml.sax.saxutils import escape, quoteattr
 
 from freecad.menuiserie.core.drawing._layout import PAGE_FORMATS, Orientation, page_size
 
@@ -48,12 +48,17 @@ TEMPLATE_FILES: Final = tuple(
 
 
 def _text(x: float, y: float, size: float, content: str, editable: str = "") -> str:
-    attribute = f" freecad:editable={quoteattr(editable)}" if editable else ""
+    attribute = f' freecad:editable="{escape(editable)}"' if editable else ""
     return (
-        f'<text x="{x:g}" y="{y:g}" font-size="{size:g}" font-family={quoteattr(_FONT)}'
+        f'<text x="{x:g}" y="{y:g}" font-size="{size:g}" font-family="{escape(_FONT)}"'
         ' fill="#000000" stroke="none"'
         f'{attribute}><tspan x="{x:g}" y="{y:g}">{escape(content)}</tspan></text>'
     )
+
+
+def _rect(x: float, y: float, width: float, height: float, stroke: float) -> str:
+    size = f'width="{width:g}" height="{height:g}"'
+    return f'<rect x="{x:g}" y="{y:g}" {size} stroke-width="{stroke:g}" />'
 
 
 def _block(right: float, bottom: float, fmt: str) -> list[str]:
@@ -61,10 +66,7 @@ def _block(right: float, bottom: float, fmt: str) -> list[str]:
     le bas)."""
     left = right - BLOCK_WIDTH_MM
     top = bottom - sum(BLOCK_ROWS_MM)
-    parts = [
-        f'<rect x="{left:g}" y="{top:g}" width="{BLOCK_WIDTH_MM:g}" '
-        f'height="{sum(BLOCK_ROWS_MM):g}" stroke-width="0.5" />'
-    ]
+    parts = [_rect(left, top, BLOCK_WIDTH_MM, sum(BLOCK_ROWS_MM), 0.5)]
     row_top = top
     for row, height in zip(_ROWS, BLOCK_ROWS_MM, strict=True):
         if row_top > top:
@@ -97,8 +99,7 @@ def template_svg(fmt: str, orientation: Orientation) -> str:
     width, height = page.width, page.height
     right, bottom = width - FRAME_MM, height - FRAME_MM
     body = [
-        f'<rect x="{FRAME_MM:g}" y="{FRAME_MM:g}" width="{right - FRAME_MM:g}" '
-        f'height="{bottom - FRAME_MM:g}" stroke-width="0.7" />',
+        _rect(FRAME_MM, FRAME_MM, right - FRAME_MM, bottom - FRAME_MM, 0.7),
         *_block(right, bottom, name),
     ]
     lines = "\n    ".join(body)
