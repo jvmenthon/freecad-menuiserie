@@ -8,6 +8,12 @@ import de FreeCAD, de Qt ni de pivy.
 
 from __future__ import annotations
 
+from freecad.menuiserie.core.rotation._align import (
+    ALIGN_TOLERANCE_DEGREES,
+    align_offsets,
+    aligned_turn,
+    edge_angles,
+)
 from freecad.menuiserie.core.rotation._angles import Angles, angles_of, matrix_of
 from freecad.menuiserie.core.rotation._ring import (
     EDGE_ON_DEGREES,
@@ -28,12 +34,16 @@ from freecad.menuiserie.core.rotation._turn import (
 )
 
 __all__ = [
+    "ALIGN_TOLERANCE_DEGREES",
     "EDGE_ON_DEGREES",
     "MAX_RING_RADIUS_MM",
     "MIN_RING_RADIUS_MM",
     "Angles",
     "Ring",
+    "align_offsets",
+    "aligned_turn",
     "angles_of",
+    "edge_angles",
     "matrix_of",
     "plane_point",
     "ring_angle",

@@ -17,7 +17,7 @@ from typing import Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.geometry import Box, Vec3
+from freecad.menuiserie.core.geometry import Box, Matrix3, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import Guide, Handle, ResizeResult
 from freecad.menuiserie.core.snap import Frame
@@ -25,7 +25,7 @@ from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_container import guide_container
 from freecad.menuiserie.features.furniture_drag_state import FurnitureMemento
-from freecad.menuiserie.features.magnet_guides import collect_guides
+from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.part_drag import (
     SIZE_PROPS,
     DragMemento,
@@ -114,6 +114,10 @@ class Target(ABC):
     def guides(self) -> tuple[Guide, ...]:
         """Guides d'aimantation des objets voisins, dans le repère de la boîte."""
 
+    def neighbor_rotations(self) -> tuple[Matrix3, ...]:
+        """Rotations globales des objets voisins, pour aimanter l'angle d'une rotation."""
+        return ()
+
     @abstractmethod
     def move(self, memento: Memento, delta: Vec3) -> None:
         """Déplace de ``delta`` mm (repère de la boîte au début) depuis la position du début."""
@@ -174,6 +178,9 @@ class PartTarget(Target):
 
     def guides(self) -> tuple[Guide, ...]:
         return collect_guides(self.obj, guide_container(self.obj))
+
+    def neighbor_rotations(self) -> tuple[Matrix3, ...]:
+        return neighbor_rotations(self.obj, guide_container(self.obj))
 
     def move(self, memento: Memento, delta: Vec3) -> None:
         move_part(_part(memento), delta)
