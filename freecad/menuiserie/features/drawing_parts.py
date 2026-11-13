@@ -206,7 +206,9 @@ def _draw_part(
     page.Scale = layout.scale
     rotation = blank.getGlobalPlacement().Rotation
     notes = _notes(found, sheet)
-    set_owned(page, add_part_views(page, shown, rotation, layout, notes))
+    set_owned(
+        page, add_part_views(page, shown, rotation, layout, notes, (length, width, thickness))
+    )
     return page
 
 

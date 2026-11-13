@@ -300,10 +300,11 @@ def set_owned(page: DocumentObject, names: Sequence[str]) -> None:
 
 
 def _fill(
-    page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout, center: Any
+    page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout, box: Any
 ) -> None:
     page.Scale = layout.scale
-    set_owned(page, add_overall_views(page, sources, layout, center))
+    sizes = (float(box.XLength), float(box.ZLength), float(box.YLength))
+    set_owned(page, add_overall_views(page, sources, layout, (box.Center, sizes)))
 
 
 def make_overall_drawing(
@@ -331,7 +332,7 @@ def make_overall_drawing(
             clear_page(page)
         apply_template(page, chosen)
         fill_title_block(page, list(objects), title_inputs(chosen), layout.scale)
-        _fill(page, sources, layout, box.Center)
+        _fill(page, sources, layout, box)
     except Exception:
         doc.abortTransaction()
         raise

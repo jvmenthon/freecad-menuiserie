@@ -149,11 +149,16 @@ def removal_rank(obj: DocumentObject) -> int:
 
 
 def add_overall_views(
-    page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout, center: Any
+    page: DocumentObject,
+    sources: Sequence[DocumentObject],
+    layout: OverallLayout,
+    frame: tuple[Any, tuple[float, float, float]],
 ) -> list[str]:
-    """Pose sur ``page`` la face, les coupes verticale et horizontale par ``center`` (milieu de
-    l'ouvrage), la perspective et les cotes hors tout ; renvoie les noms des objets posés."""
+    """Pose sur ``page`` la face, les coupes verticale et horizontale par le centre de
+    l'ouvrage, la perspective et les cotes hors tout ; ``frame`` : (centre, cotes largeur,
+    hauteur, profondeur en mm réels). Renvoie les noms des objets posés."""
     doc = page.Document
+    center, sizes = frame
     front = _add_view(page, "Front", sources, layout.front)
     views = {
         "Front": front,
@@ -164,25 +169,40 @@ def add_overall_views(
     doc.recompute()  # les cotes d'étendue lisent la géométrie des vues
     names = [view.Name for view in views.values()]
     for key, direction in _OVERALL:
-        names.extend(_add_extent(page, views[key], direction))
+        added = _add_extent(page, views[key], direction)
+        _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction)
+        names.extend(added)
     return names
 
 
 DIMENSION_CLEARANCE_MM: Final = 8.0  # du bord de la vue au texte d'une cote
+# Cotes (largeur, hauteur, profondeur) qui font la largeur et la hauteur de chaque vue.
+_VIEW_AXES: Final = {
+    "Front": (0, 1),
+    "CutH": (0, 2),
+    "Edge": (0, 2),
+    "CutV": (2, 1),
+    "End": (2, 1),
+}
 
 
-def _clear_of_view(doc: Any, names: Sequence[str], view: DocumentObject, direction: int) -> None:
-    """Écarte le texte des cotes ``names`` du bord de ``view`` : au-dessus pour une cote
-    horizontale, à gauche pour une verticale (position relative au centre de la vue, en mm de
-    la feuille), pour qu'il ne chevauche ni la vue ni l'autre cote sur une pièce mince."""
-    box = view.getBoundingBox() if hasattr(view, "getBoundingBox") else None
-    if box is None:
-        return
-    scale = float(view.getScale()) if hasattr(view, "getScale") else 1.0
-    half_width, half_height = box.XLength * scale / 2, box.YLength * scale / 2
+def _half_size(key: str, sizes: tuple[float, float, float], scale: float) -> tuple[float, float]:
+    """Demi-largeur et demi-hauteur de la vue ``key`` sur la feuille."""
+    across, up = _VIEW_AXES[key]
+    return sizes[across] * scale / 2, sizes[up] * scale / 2
+
+
+def _clear_of_view(
+    doc: Any, names: Sequence[str], half: tuple[float, float], direction: int
+) -> None:
+    """Écarte le texte des cotes ``names`` du bord de leur vue (demi-taille ``half`` sur la
+    feuille) : au-dessus pour une cote horizontale, à gauche pour une verticale (position
+    relative au centre de la vue, en mm de la feuille), pour qu'il ne chevauche ni la vue ni
+    l'autre cote."""
+    half_width, half_height = half
     for name in names:
         dim = doc.getObject(name)
-        if dim is None or not hasattr(dim, "X"):
+        if dim is None or "X" not in dim.PropertiesList:
             continue
         if direction == HORIZONTAL:
             dim.X, dim.Y = 0.0, half_height + DIMENSION_CLEARANCE_MM
@@ -208,21 +228,25 @@ def add_part_views(
     rotation: Any,
     layout: OverallLayout,
     notes: tuple[Sequence[str], Spot],
+    sizes: tuple[float, float, float],
 ) -> list[str]:
     """Pose sur ``page`` le plan de ``part`` tournée de ``rotation`` (celle de sa brute) : face,
-    chant dessous, bout à droite, longueur, largeur et épaisseur cotées, et le
-    tableau des usinages ``notes`` (lignes, place) ; renvoie les noms des objets posés."""
+    chant dessous, bout à droite, longueur, largeur et épaisseur cotées (``sizes``, en mm
+    réels), arêtes cachées en pointillés pour montrer les usinages, et le tableau des usinages
+    ``notes`` (lignes, place) ; renvoie les noms des objets posés."""
     doc = page.Document
     views = {
         "Front": _add_view(page, "Front", [part], layout.front, rotation),
         "Edge": _add_view(page, "Edge", [part], layout.top, rotation),
         "End": _add_view(page, "End", [part], layout.side, rotation),
     }
+    for view in views.values():
+        view.HardHidden = True  # mortaises, perçages et rainures cachés en pointillés
     doc.recompute()
     names = [view.Name for view in views.values()]
     for key, direction in _PART_DIMENSIONS:
         added = _add_extent(page, views[key], direction)
-        _clear_of_view(doc, added, views[key], direction)
+        _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction)
         names.extend(added)
     names.append(_add_notes(page, *notes).Name)
     return names

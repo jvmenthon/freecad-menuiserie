@@ -379,6 +379,22 @@ def rendre_la_page(page: Any, chemin: Path) -> None:
         image.save(str(chemin))
 
 
+ATTENTE_DES_VUES_MS = 3000  # calcul des lignes cachées (HLR) des vues, en tâche de fond
+
+
+def attendre_les_vues(doc: Any) -> None:
+    """Laisse TechDraw finir ses vues (calculées dans des fils à part dans l'interface), puis
+    recalcule le document pour que les cotes lisent la géométrie finie."""
+    from PySide import QtCore
+
+    for _ in range(2):
+        boucle = QtCore.QEventLoop()
+        QtCore.QTimer.singleShot(ATTENTE_DES_VUES_MS, boucle.quit)
+        boucle.exec()
+        doc.recompute()
+        Gui.updateGui()
+
+
 def capturer_les_plans(dossier: Path) -> None:
     """Plan de l'ouvrage de tout le document de la scène et ses premiers plans de pièce
     (``plan-ouvrage.png``, ``plan-piece-<n>.png``) : pour juger la lisibilité des pages."""
@@ -395,7 +411,7 @@ def capturer_les_plans(dossier: Path) -> None:
     pages += [(f"plan-piece-{rang}", page) for rang, page in enumerate(pieces, start=1)]
     for nom, page in pages:
         show_page(page)
-        Gui.updateGui()
+        attendre_les_vues(doc)
         rendre_la_page(page, dossier / f"{nom}.png")
 
 
