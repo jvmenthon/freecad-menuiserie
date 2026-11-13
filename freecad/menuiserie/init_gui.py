@@ -132,8 +132,10 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui import double_click
         from freecad.menuiserie.gui.drag import events
 
-        double_click.install()
-        events.install()
+        try:
+            double_click.install()
+        finally:
+            events.install()
         from freecad.menuiserie.gui.structure_panel import open_by_default_later
 
         open_by_default_later()  # panneau « Structure » ouvert par défaut (ADR 0046)
