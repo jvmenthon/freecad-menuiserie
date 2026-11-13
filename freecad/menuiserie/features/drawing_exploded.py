@@ -41,6 +41,10 @@ __all__ = ["EXPLODED_KIND", "make_exploded_drawing"]
 EXPLODED_KIND: Final = "exploded"
 PARTS: Final = "MenuiserieDrawingParts"  # pièces de la vue éclatée, par nom, séparées par « ; »
 SHAPE_NAME: Final = "MenuiserieEclate"
+SHAPE_MARKER: Final = "MenuiserieExplodedShape"  # marque l'objet porteur de la forme éclatée
+_SHAPE_TOOLTIP: Final = QT_TRANSLATE_NOOP(
+    "App::Property", "Forme de vue éclatée construite par l'atelier Menuiserie."
+)
 TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Vue éclatée")
 _SHAPE_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Forme de la vue éclatée")
 _PARTS_TOOLTIP: Final = QT_TRANSLATE_NOOP(
@@ -70,8 +74,12 @@ def _names(sources: Sequence[DocumentObject]) -> str:
     return ";".join(sorted(obj.Name for obj in sources))
 
 
+def _owned_names(page: DocumentObject) -> list[str]:
+    return [name for name in str(getattr(page, "MenuiserieDrawingViews", "")).split(";") if name]
+
+
 def _owned_views(page: DocumentObject) -> list[DocumentObject]:
-    names = [name for name in str(getattr(page, "MenuiserieDrawingViews", "")).split(";") if name]
+    names = set(_owned_names(page))
     return [view for view in page.Views if view.Name in names]
 
 
@@ -81,7 +89,8 @@ def _find(doc: Document, sources: Sequence[DocumentObject]) -> DocumentObject | 
     for obj in doc.Objects:
         if not is_workshop_drawing(obj) or str(getattr(obj, KIND, "")) != EXPLODED_KIND:
             continue
-        if str(getattr(obj, PARTS, "")) == wanted and len(_owned_views(obj)) == len(obj.Views):
+        untouched = sorted(view.Name for view in obj.Views) == sorted(_owned_names(obj))
+        if str(getattr(obj, PARTS, "")) == wanted and untouched:
             return obj
     return None
 
@@ -91,10 +100,13 @@ def _shape_object(doc: Document, page: DocumentObject | None) -> DocumentObject:
     if page is not None:
         for view in _owned_views(page):
             for source in getattr(view, "Source", []):
-                if source.TypeId == "Part::Feature" and source.Name.startswith(SHAPE_NAME):
+                if source.TypeId == "Part::Feature" and bool(getattr(source, SHAPE_MARKER, False)):
                     return source
     holder = doc.addObject("Part::Feature", SHAPE_NAME)
     holder.Label = translated(_SHAPE_LABEL)
+    holder.addProperty("App::PropertyBool", SHAPE_MARKER, "Menuiserie", _SHAPE_TOOLTIP)
+    holder.setEditorMode(SHAPE_MARKER, HIDDEN)
+    setattr(holder, SHAPE_MARKER, True)
     holder.Visibility = False
     return holder
 

@@ -140,6 +140,7 @@ jobs:
             for plan in "$RUNNER_TEMP"/captures/plan-*.png; do
               [ -e "$plan" ] || continue
               nom=$(basename "$plan" .png)
+              [[ $nom =~ ^plan-[a-z0-9-]+$ ]] || continue
               echo "![Page de plan $nom]($base/$nom.png?raw=true)"
               echo
             done

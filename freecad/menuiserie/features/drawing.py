@@ -45,7 +45,7 @@ from freecad.menuiserie.features.drawing_views import (
 from freecad.menuiserie.features.freecad_types import HIDDEN, Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
-from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.shaped_part import is_timber
 
@@ -70,6 +70,7 @@ __all__ = [
     "set_owned",
     "techdraw_available",
     "title_inputs",
+    "warn_if_unfitted",
 ]
 
 MARKER: Final = "MenuiserieDrawing"
@@ -204,10 +205,25 @@ def global_box(sources: Sequence[DocumentObject]) -> Any:
     return box
 
 
+_TOO_BIG: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Plan : le dessin dépasse de la feuille même à la plus petite échelle ; "
+    "choisissez un format plus grand.",
+)
+
+
+def warn_if_unfitted(fits: bool) -> None:
+    """Prévient dans la vue rapport quand les vues ne tiennent pas sur la feuille."""
+    if not fits:
+        report_warning(translated(_TOO_BIG))
+
+
 def _template_path(options: DrawingOptions) -> str | None:
     """Gabarit de page pour ``options`` : celui de l'atelier (cartouche en français), à défaut
     celui de TechDraw ; ``None`` si aucun ne convient."""
     fmt, orientation = options.resolved_format(), options.resolved_orientation()
+    with translated_errors():
+        page_size(fmt, orientation)  # format connu, quel que soit l'appelant
     own = TEMPLATES_DIR / template_file_name(fmt, orientation)
     if own.is_file():
         return str(own)
@@ -286,8 +302,10 @@ def apply_template(page: DocumentObject, options: DrawingOptions) -> None:
 def clear_page(page: DocumentObject) -> None:
     """Retire de ``page`` les vues et cotes posées par l'atelier (les cotes d'abord)."""
     doc = page.Document
-    owned = [doc.getObject(name) for name in _owned(page)]
-    for obj in sorted((obj for obj in owned if obj is not None), key=removal_rank):
+    names = set(_owned(page))
+    # Seules les vues de la page sont retirées, même si la liste enregistrée a été modifiée.
+    owned = [view for view in page.Views if view.Name in names]
+    for obj in sorted(owned, key=removal_rank):
         page.removeView(obj)
         doc.removeObject(obj.Name)
     setattr(page, OWNED, "")
@@ -303,6 +321,7 @@ def _fill(
     page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout, box: Any
 ) -> None:
     page.Scale = layout.scale
+    warn_if_unfitted(layout.fits)
     sizes = (float(box.XLength), float(box.ZLength), float(box.YLength))
     set_owned(page, add_overall_views(page, sources, layout, (box.Center, sizes)))
 

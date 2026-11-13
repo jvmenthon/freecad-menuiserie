@@ -170,12 +170,15 @@ def add_overall_views(
     names = [view.Name for view in views.values()]
     for key, direction in _OVERALL:
         added = _add_extent(page, views[key], direction)
-        _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction)
+        # La face porte les traits de coupe A-A et B-B : ses cotes passent au-delà.
+        clearance = SECTION_CLEARANCE_MM if key == "Front" else DIMENSION_CLEARANCE_MM
+        _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction, clearance)
         names.extend(added)
     return names
 
 
 DIMENSION_CLEARANCE_MM: Final = 8.0  # du bord de la vue au texte d'une cote
+SECTION_CLEARANCE_MM: Final = 18.0  # idem, au-delà des flèches et lettres d'un trait de coupe
 # Cotes (largeur, hauteur, profondeur) qui font la largeur et la hauteur de chaque vue.
 _VIEW_AXES: Final = {
     "Front": (0, 1),
@@ -193,7 +196,11 @@ def _half_size(key: str, sizes: tuple[float, float, float], scale: float) -> tup
 
 
 def _clear_of_view(
-    doc: Any, names: Sequence[str], half: tuple[float, float], direction: int
+    doc: Any,
+    names: Sequence[str],
+    half: tuple[float, float],
+    direction: int,
+    clearance: float = DIMENSION_CLEARANCE_MM,
 ) -> None:
     """Écarte le texte des cotes ``names`` du bord de leur vue (demi-taille ``half`` sur la
     feuille) : au-dessus pour une cote horizontale, à gauche pour une verticale (position
@@ -205,9 +212,9 @@ def _clear_of_view(
         if dim is None or "X" not in dim.PropertiesList:
             continue
         if direction == HORIZONTAL:
-            dim.X, dim.Y = 0.0, half_height + DIMENSION_CLEARANCE_MM
+            dim.X, dim.Y = 0.0, half_height + clearance
         else:
-            dim.X, dim.Y = -(half_width + DIMENSION_CLEARANCE_MM), 0.0
+            dim.X, dim.Y = -(half_width + clearance), 0.0
 
 
 def _add_notes(page: DocumentObject, lines: Sequence[str], spot: Spot) -> DocumentObject:
@@ -228,13 +235,15 @@ def add_part_views(
     rotation: Any,
     layout: OverallLayout,
     notes: tuple[Sequence[str], Spot],
-    sizes: tuple[float, float, float],
+    frame: tuple[tuple[float, float, float], tuple[float, Spot] | None],
 ) -> list[str]:
     """Pose sur ``page`` le plan de ``part`` tournée de ``rotation`` (celle de sa brute) : face,
-    chant dessous, bout à droite, longueur, largeur et épaisseur cotées (``sizes``, en mm
-    réels), arêtes cachées en pointillés pour montrer les usinages, et le tableau des usinages
-    ``notes`` (lignes, place) ; renvoie les noms des objets posés."""
+    chant dessous, bout à droite, arêtes cachées en pointillés pour montrer les usinages, le
+    tableau des usinages ``notes`` (lignes, place) et ses cotes. ``frame`` : (longueur, largeur
+    et épaisseur en mm réels ; perspective à sa propre échelle, (échelle, place) ou ``None`` s'il
+    n'y a pas la place). Renvoie les noms des objets posés."""
     doc = page.Document
+    sizes, iso = frame
     views = {
         "Front": _add_view(page, "Front", [part], layout.front, rotation),
         "Edge": _add_view(page, "Edge", [part], layout.top, rotation),
@@ -242,8 +251,15 @@ def add_part_views(
     }
     for view in views.values():
         view.HardHidden = True  # mortaises, perçages et rainures cachés en pointillés
+    if iso is not None:
+        iso_scale, iso_spot = iso
+        perspective = _add_view(page, "Iso", [part], iso_spot, rotation)
+        perspective.ScaleType = "Custom"
+        perspective.Scale = iso_scale
     doc.recompute()
     names = [view.Name for view in views.values()]
+    if iso is not None:
+        names.append(perspective.Name)
     for key, direction in _PART_DIMENSIONS:
         added = _add_extent(page, views[key], direction)
         _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction)

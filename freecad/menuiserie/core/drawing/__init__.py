@@ -11,6 +11,7 @@ from freecad.menuiserie.core.drawing._layout import (
     OverallLayout,
     PageSize,
     Spot,
+    corner_iso_layout,
     exploded_offset,
     notes_band,
     notes_layout,
@@ -20,6 +21,7 @@ from freecad.menuiserie.core.drawing._layout import (
     single_view_layout,
 )
 from freecad.menuiserie.core.drawing._machining import (
+    CONTINUATION,
     MAX_NOTE_LINES,
     Machining,
     MachiningKind,
@@ -42,6 +44,7 @@ from freecad.menuiserie.core.drawing._title import (
 )
 
 __all__ = [
+    "CONTINUATION",
     "DEFAULT_FORMAT",
     "MAX_FIELD_LENGTH",
     "MAX_NOTE_LINES",
@@ -57,6 +60,7 @@ __all__ = [
     "TitleFields",
     "capped",
     "clean_field",
+    "corner_iso_layout",
     "exploded_offset",
     "machining_lines",
     "machinings",

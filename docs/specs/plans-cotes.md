@@ -112,3 +112,10 @@ Les réglages de plan s'ajoutent au catalogue de la configuration de l'atelier (
   usinage dépendraient de la numérotation des arêtes projetées (risque du § 3) ; le tableau est
   refait à chaque relance. Le PDF multi-pages est reporté : chaque page s'exporte seule par
   « Exporter le plan (PDF)… ».
+- **Revue de la PR #247** (2026-11-13) : perspective de la pièce dans le coin libre à droite
+  du bout, à sa propre échelle (au plus celle des vues cotées, qui gardent leur grande échelle) ;
+  traits cachés montrés ; cotes de la face d'ensemble écartées au-delà des traits de coupe ;
+  usinage débouchant écrit sur sa face avec l'épaisseur traversée ; perçage (droit ou en biais)
+  placé au centre de son entrée, profondeur le long de son axe ; ajout détaché ignoré ; le
+  tableau tronqué garde les usinages entiers et compte les usinages omis ; avertissement dans
+  la vue rapport si le dessin ne tient pas même à la plus petite échelle.

@@ -107,3 +107,15 @@ def test_annulation_en_une_fois(bureau: Bureau) -> None:
 def test_rien_a_dessiner(document: Any) -> None:
     with pytest.raises(ValueError, match="aucune pièce"):
         api.make_part_drawings(document, [])
+
+
+def test_perspective_a_sa_propre_echelle(bureau: Bureau) -> None:
+    pages = api.make_part_drawings(bureau.doc, [bureau.furniture])
+    for page in pages:
+        isos = [v for v in page.Views if v.Name.startswith("MenuiseriePlanIso")]
+        assert len(isos) == 1, page.Label
+        assert isos[0].ScaleType == "Custom"
+        assert 0 < isos[0].Scale <= page.Scale
+        assert all(
+            view.HardHidden for view in page.Views if view.TypeId == "TechDraw::DrawViewPart"
+        )

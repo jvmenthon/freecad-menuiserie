@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
+from freecad.menuiserie.core.drawing._machining import CONTINUATION
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 
 # Formats ISO 216, grand côté puis petit côté.
@@ -237,7 +238,7 @@ def notes_layout(page: PageSize, lines: Sequence[str], size: float) -> tuple[lis
     wrapped = [
         piece
         for line in lines
-        for piece in (textwrap.wrap(line, columns, subsequent_indent="    ") or [""])
+        for piece in (textwrap.wrap(line, columns, subsequent_indent=CONTINUATION) or [""])
     ]
     block = max((len(line) for line in wrapped), default=0) * char
     left = spot.x - band_width / 2
@@ -270,3 +271,34 @@ def single_view_layout(
 
     scale = next((value for value in SCALES if fits(value)), SCALES[-1])
     return scale, Spot(page.width / 2, TITLE_BLOCK_MM[1] + free_height / 2)
+
+
+MIN_CORNER_MM: Final = 30.0  # perspective d'une pièce : place minimale, sinon pas de perspective
+
+
+def corner_iso_layout(
+    sizes: tuple[float, float, float],
+    layout: OverallLayout,
+    page: PageSize,
+    reserve: float = 0.0,
+) -> tuple[float, Spot] | None:
+    """Perspective d'une pièce de ``sizes`` (largeur, profondeur, hauteur, comme
+    :func:`overall_layout`) dans le coin libre à droite de sa vue de gauche, au-dessus du
+    cartouche et de ``reserve`` : échelle normalisée (au plus celle de ``layout``) et centre ;
+    ``None`` s'il n'y a pas la place. Les vues cotées gardent ainsi leur grande échelle."""
+    width, depth, height = sizes
+    left = layout.side.x + depth * layout.scale / 2 + GAP_MM
+    free_width = page.width - MARGIN_MM - left
+    bottom = TITLE_BLOCK_MM[1] + reserve + GAP_MM
+    free_height = page.height - MARGIN_MM - bottom
+    if min(free_width, free_height) < MIN_CORNER_MM:
+        return None
+
+    def fits(scale: float) -> bool:
+        iso_width, iso_height, _ = _iso(width * scale, height * scale, depth * scale, True)
+        return iso_width <= free_width and iso_height <= free_height
+
+    scale = next((value for value in SCALES if value <= layout.scale and fits(value)), None)
+    if scale is None:
+        return None
+    return scale, Spot(left + free_width / 2, bottom + free_height / 2)

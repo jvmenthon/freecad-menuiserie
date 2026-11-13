@@ -18,6 +18,7 @@ from freecad.menuiserie.core.drawing import (
     Machining,
     MachiningKind,
     capped,
+    corner_iso_layout,
     machining_lines,
     machinings,
     notes_band,
@@ -37,6 +38,7 @@ from freecad.menuiserie.features.drawing import (
     set_owned,
     techdraw_available,
     title_inputs,
+    warn_if_unfitted,
 )
 from freecad.menuiserie.features.drawing_title import fill_title_block
 from freecad.menuiserie.features.drawing_views import NOTE_SIZE_MM, add_part_views
@@ -60,7 +62,7 @@ _HEADER: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Usinages (x, y depuis le coin bas gauche de la face, en mm) :"
 )
 _NONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun usinage.")
-_MORE: Final = QT_TRANSLATE_NOOP("Menuiserie", "… et {count} autres lignes")
+_MORE: Final = QT_TRANSLATE_NOOP("Menuiserie", "… et {count} autres usinages")
 _NO_TECHDRAW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan impossible : l'atelier TechDraw de FreeCAD n'est pas disponible."
 )
@@ -199,16 +201,17 @@ def _draw_part(
         length, width, thickness = _size(blank)
         reserve = notes_band(sheet)[1]
         layout = overall_layout(length, thickness, width, sheet, reserve=reserve, iso=False)
+        corner = corner_iso_layout((length, thickness, width), layout, sheet, reserve)
     apply_template(page, options)
     inputs = {**title_inputs(options), "title": _title(blank)}
     kind = translated(_KIND, {"count": str(count)})
     fill_title_block(page, [blank], inputs, layout.scale, kind)
     page.Scale = layout.scale
+    warn_if_unfitted(layout.fits)
     rotation = blank.getGlobalPlacement().Rotation
     notes = _notes(found, sheet)
-    set_owned(
-        page, add_part_views(page, shown, rotation, layout, notes, (length, width, thickness))
-    )
+    sizes = (length, width, thickness)
+    set_owned(page, add_part_views(page, shown, rotation, layout, notes, (sizes, corner)))
     return page
 
 

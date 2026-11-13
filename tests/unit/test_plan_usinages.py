@@ -41,7 +41,7 @@ def test_percages_en_bout_regroupes() -> None:
     assert values["count"] == "2"
     assert values["diameter"] == "8" and values["depth"] == "30"
     assert values["face"] == "bout gauche"
-    assert values["positions"] == "x 15 y 20; x 15 y 60"
+    assert values["positions"] == "x 0 y 20; x 0 y 60"
 
 
 def test_rainure_traversante_et_feuillure() -> None:
