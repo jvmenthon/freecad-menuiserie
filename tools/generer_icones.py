@@ -17,6 +17,9 @@ from pathlib import Path
 from icones_ensembles import (
     aligner_faces,
     autre_objet,
+    centrer_x,
+    centrer_y,
+    centrer_z,
     distance,
     distance_gardee,
     ensemble,
@@ -338,6 +341,9 @@ ICONES = {
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,
     "Menuiserie_AlignFaces.svg": aligner_faces,
+    "Menuiserie_CenterX.svg": centrer_x,
+    "Menuiserie_CenterY.svg": centrer_y,
+    "Menuiserie_CenterZ.svg": centrer_z,
     # Rotations du panneau de la pièce de bois (J6c)
     "Menuiserie_RotateX.svg": rotation_x,
     "Menuiserie_RotateY.svg": rotation_y,

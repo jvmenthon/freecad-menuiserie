@@ -107,6 +107,66 @@ def aligner_faces() -> str:
     )
 
 
+# Centrer sur X, Y, Z du panneau « Aligner deux faces » (proposition B) : direction écran de
+# l'axe (X à droite, Y en profondeur, Z vers le haut) et sa couleur, celle des rotations.
+CENTRAGES = {
+    "X": ((1.0, 0.0), "#cc0000"),
+    "Y": ((0.6, -0.6), "#4e9a06"),
+    "Z": ((0.0, -1.0), "#3465a4"),
+}
+
+
+# Lettre de l'axe tracée au trait (pas de texte : les icônes ne dépendent d'aucune police).
+LETTRES = {
+    "X": "M49,47 L60,60 M60,47 L49,60",
+    "Y": "M49,47 L54.5,53.5 L60,47 M54.5,53.5 V60",
+    "Z": "M49,47 H60 L49,60 H60",
+}
+
+
+def _centrer(axe: str) -> str:
+    """Cible orange (le centre des faces) traversée par la flèche double de l'axe, et la lettre
+    de l'axe dans sa couleur."""
+    (dx, dy), couleur = CENTRAGES[axe]
+    longueur = math.hypot(dx, dy)
+    ux, uy = dx / longueur, dy / longueur
+    bouts = [(30 - ux * 26, 30 - uy * 26, -1.0), (30 + ux * 26, 30 + uy * 26, 1.0)]
+    trace = f"M{bouts[0][0]:.1f},{bouts[0][1]:.1f} L{bouts[1][0]:.1f},{bouts[1][1]:.1f}"
+    for x, y, sens in bouts:
+        ax, ay = x - sens * 6 * ux, y - sens * 6 * uy
+        trace += (
+            f" M{ax - 4 * uy:.1f},{ay + 4 * ux:.1f} L{x:.1f},{y:.1f}"
+            f" L{ax + 4 * uy:.1f},{ay - 4 * ux:.1f}"
+        )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">\n'
+        f"  <!-- Centrer sur l'axe {axe} : cible des centres et flèche de l'axe -->\n"
+        '  <circle cx="30" cy="30" r="17" fill="#fcd9a8" stroke="#f57900" stroke-width="2.5"/>\n'
+        '  <circle cx="30" cy="30" r="8" fill="none" stroke="#f57900" stroke-width="2"/>\n'
+        '  <circle cx="30" cy="30" r="2.6" fill="#204a87"/>\n'
+        f'  <path d="{trace}" fill="none" stroke="{couleur}" stroke-width="2.6" '
+        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+        f'  <path d="{LETTRES[axe]}" fill="none" stroke="#ffffff" stroke-width="5.5" '
+        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+        f'  <path d="{LETTRES[axe]}" fill="none" stroke="{couleur}" stroke-width="3" '
+        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+        "</svg>\n"
+    )
+
+
+def centrer_x() -> str:
+    return _centrer("X")
+
+
+def centrer_y() -> str:
+    return _centrer("Y")
+
+
+def centrer_z() -> str:
+    return _centrer("Z")
+
+
 def distance_gardee() -> str:
     ic = Icone("Distance gardée : plateau, étagère et cote verrouillée entre les deux")
     ic.boite((0, 0, 40), (70, 30, 6), "chene")  # plateau

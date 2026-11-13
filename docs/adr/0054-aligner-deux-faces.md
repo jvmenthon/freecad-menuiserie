@@ -35,14 +35,22 @@ est penchée.
    mode d'équerre est refusé (refus expliqués). Dans le panneau, choisir un axe grise la position
    et les deux décalages du plan (la position automatique est alors envoyée). Un décalage non fini
    est refusé dans tous les cas. Seul le décalage le long de la normale compte alors.
+   **Centrer sur X, Y, Z** (demande de jv du 2026-11-13, « aligner les trois axes d'un coup ») :
+   trois boutons à cocher, avec icône (cible et flèche de l'axe, couleurs des rotations). Après le
+   mouvement ci-dessus, sur chaque axe coché du même conteneur, le centre (du rectangle englobant)
+   de la face déplacée vient sur celui de l'autre face ; les trois cochés confondent les deux
+   centres. Une fois les faces dans le même plan, l'axe le long de la normale n'apporte rien ; un
+   axe oblique aux faces peut les sortir du plan commun, ce qui est le choix explicite de
+   l'utilisateur.
 6. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
    bouton **Inverser** (échange la pièce pilotée et la pilotante ; la première revient avant que
    la seconde bouge), **Annuler** remet tout en place. OK relie l'ensemble et propose les
    assemblages défaits avant tout recalcul (ADR 0026). Un `Placement` piloté par une formule
    refuse la commande.
 7. On écrit le `Placement` de la brute par `part_drag` (comme glissement et rotation).
-   `api.align_faces(first, second, moving=None, mode="auto", offset=(0, 0, 0), axis=None)` fait la même
-   chose d'un geste.
+   `api.align_faces(first, second, mode="auto", offset=(0, 0, 0), axis=None, centered="")` fait
+   la même chose d'un geste ; la pièce de `second` bouge (sinon celle de `first`) : pour déplacer
+   l'autre, inverser les deux arguments.
 
 ## Conséquences
 

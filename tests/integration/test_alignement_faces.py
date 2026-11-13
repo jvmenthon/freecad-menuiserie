@@ -97,3 +97,35 @@ def test_sur_un_axe_parallele_aux_faces_refuse() -> None:
             api.align_faces(_face(first, (100, 50, 20)), _face(second, (100, 50, 20)), axis="X")
     finally:
         App.closeDocument(doc.Name)
+
+
+def test_centres_confondus_sur_les_trois_axes() -> None:
+    doc = App.newDocument("AlignementCentres")
+    try:
+        reference = _part(doc, (0, 0, 0))
+        other = _part(doc, (500, 300, 100), tilt=30.0)
+        api.align_faces(
+            _face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), centered="XYZ"
+        )
+        doc.recompute()
+        box = other.Shape.BoundBox
+        assert box.Center.x == pytest.approx(100.0, abs=TOLERANCE)
+        assert box.Center.y == pytest.approx(50.0, abs=TOLERANCE)
+        assert box.ZMax == pytest.approx(20.0, abs=TOLERANCE)  # au ras, centres confondus
+    finally:
+        App.closeDocument(doc.Name)
+
+
+def test_axe_de_centrage_inconnu_refuse_sans_bouger() -> None:
+    doc = App.newDocument("AlignementCentreInconnu")
+    try:
+        reference = _part(doc, (0, 0, 0))
+        other = _part(doc, (500, 300, 100))
+        before = other.Placement.copy()
+        with pytest.raises(ValueError, match="X, Y ou Z"):
+            api.align_faces(
+                _face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), centered="XW"
+            )
+        assert other.Placement.isSame(before, 1e-9)
+    finally:
+        App.closeDocument(doc.Name)

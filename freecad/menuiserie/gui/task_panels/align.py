@@ -3,11 +3,13 @@
 
 Le panneau montre les deux faces, la pièce déplacée (la pilotée) avec un bouton « Inverser » qui
 échange la pilotée et la pilotante, le déplacement (libre, ou sur l'axe X, Y ou Z sans rotation),
-le mode (automatique, au ras, face contre face, d'équerre) et
-un décalage sur les trois axes de la face de référence (deux dans son plan, le 3e le long de sa
-normale). La pièce suit les saisies en direct (:class:`FaceAlign` écrit son ``Placement`` sans
-recalculer le document) ; « OK » relie l'ensemble éventuel et valide la transaction de la
-commande, « Annuler » l'abandonne : rien n'a changé.
+le mode (automatique, au ras, face contre face, d'équerre), trois boutons « Centrer sur X, Y,
+Z » (le centre de la face déplacée vient sur celui de l'autre face sur chaque axe coché ; les trois
+d'un coup confondent les centres) et un décalage sur les trois axes de la face de référence (deux
+dans son plan, le 3e le long de sa normale). La pièce suit les saisies en direct
+(:class:`FaceAlign` écrit son ``Placement`` sans recalculer le document) ; « OK » relie
+l'ensemble éventuel et valide la transaction de la commande, « Annuler » l'abandonne : rien n'a
+changé.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from functools import partial
 from typing import Final
 
 import FreeCADGui as Gui
-from PySide import QtGui
+from PySide import QtCore, QtGui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.align import AlignMode
@@ -83,6 +85,13 @@ _AXIS_TIP: Final = QT_TRANSLATE_NOOP(
 )
 _FREE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Libre")
 _AXES: Final = ("X", "Y", "Z")
+_CENTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Centrer sur")
+_CENTER_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Centrer sur l'axe {axis} (du Std Part de la pièce déplacée, ou du document) : le centre de "
+    "la face déplacée vient sur celui de l'autre face le long de cet axe. Cochez X, Y et Z pour "
+    "confondre les deux centres d'un coup.",
+)
 _OFFSET_ROWS: Final = (
     ("offsetX", QT_TRANSLATE_NOOP("Menuiserie", "Décalage 1er axe (dans le plan)")),
     ("offsetY", QT_TRANSLATE_NOOP("Menuiserie", "Décalage 2e axe (dans le plan)")),
@@ -133,6 +142,9 @@ class AlignTaskPanel(TransactionTaskPanel):
         self._mode = _combo_row(layout, "modeCombo", _MODE, _MODE_TIP)
         for mode, text in _MODES:
             self._mode.addItem(translated(text), mode.value)
+        self._centers = _center_buttons(layout)
+        for button in self._centers:
+            connect(button, "toggled(bool)", self._edited)
         self._offsets = []
         for name, text in _OFFSET_ROWS:
             line = QtGui.QHBoxLayout()
@@ -188,6 +200,9 @@ class AlignTaskPanel(TransactionTaskPanel):
             field.setEnabled(free)
         self._edited()
 
+    def _centered(self) -> str:
+        return "".join(axis for axis, b in zip(_AXES, self._centers, strict=True) if b.isChecked())
+
     def _offset(self) -> Vec3:
         x, y, z = (round(float(field.property("rawValue")), 6) for field in self._offsets)
         return Vec3(x, y, z)
@@ -197,7 +212,7 @@ class AlignTaskPanel(TransactionTaskPanel):
         try:
             axis = self._chosen_axis()
             mode = AlignMode.AUTO if axis is not None else self._chosen_mode()  # mode grisé
-            self._align.preview(mode, self._offset(), axis)
+            self._align.preview(mode, self._offset(), axis, self._centered())
         except (TypeError, ValueError, RuntimeError) as error:
             show_message(self._error, str(error))
             return False
@@ -246,6 +261,26 @@ def _combo_row(layout: Widget, name: str, label: str, tip: str) -> Widget:
     row.addWidget(combo, 1)
     layout.addLayout(row)
     return combo
+
+
+def _center_buttons(layout: Widget) -> list[Widget]:
+    """Trois boutons à cocher « Centrer sur X, Y, Z » avec leur icône, ajoutés à ``layout``."""
+    row = QtGui.QHBoxLayout()
+    row.addWidget(QtGui.QLabel(translated(_CENTER)))
+    buttons = []
+    for axis in _AXES:
+        button = QtGui.QToolButton()
+        button.setObjectName(f"center{axis}Button")
+        button.setCheckable(True)
+        button.setIcon(QtGui.QIcon(icon_path(f"Menuiserie_Center{axis}.svg")))
+        button.setIconSize(QtCore.QSize(32, 32))
+        button.setToolTip(translated(_CENTER_TIP, {"axis": axis}))
+        button.setAccessibleName(f"{translated(_CENTER)} {axis}")
+        row.addWidget(button)
+        buttons.append(button)
+    row.addStretch(1)
+    layout.addLayout(row)
+    return buttons
 
 
 def open_panel(align: FaceAlign) -> None:
