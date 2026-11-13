@@ -57,6 +57,9 @@ _REPLACE_TEXT: Final = QT_TRANSLATE_NOOP(
 _CONFLICT_NOTE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Déjà profilées ailleurs (remplacées à la validation) : {edges}."
 )
+_IGNORED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Cliquez sur une face, une arête ou un sommet de la pièce à profiler."
+)
 _NO_EDGE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cochez au moins une arête à profiler.")
 _ERROR_STYLE: Final = "color: #c0392b;"
 
@@ -79,7 +82,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._asymmetric = False  # profil relu dont la cote B diffère de A : B reste visible
         self._guard = UpdateGuard()
         self._others: set[str] = set()
-        self._picker = EdgePicker(document, part, self.on_pick)
+        self._picker = EdgePicker(document, part, self.on_pick, self._ignored)
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -172,6 +175,11 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._targets.show_for(has_part=part is not None)
         if part is not None:
             self._picker.bind(part)
+
+    def _ignored(self) -> None:
+        """Clic sur autre chose que la pièce travaillée : la consigne est rappelée."""
+        self._error.setText(translated(_IGNORED))
+        self._error.setVisible(True)
 
     def on_pick(self, pick: Pick) -> None:
         """Cibles désignées dans la vue 3D : pièce (la première fois), faces et arêtes cochées."""

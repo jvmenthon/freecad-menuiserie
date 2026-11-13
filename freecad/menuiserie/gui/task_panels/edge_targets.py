@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Choix des arêtes du panneau « Finition des chants » (issue #5) : consigne tant qu'aucune
-pièce n'est désignée, sélecteurs visuels des faces choisies (ou, sans face, douze cases à
-cocher groupées), raccourcis et liste des arêtes concernées avec une croix pour retirer chacune.
+pièce n'est désignée, sélecteurs visuels des faces (une face choisie dans la vue 3D, ou les
+faces qui portent les arêtes déjà profilées), raccourcis et liste des arêtes concernées avec
+une croix pour retirer chacune.
 
-Les cases à cocher restent la seule source de vérité : le sélecteur visuel et la liste les
-actionnent, ``changed`` est appelé à chaque changement.
+Douze cases à cocher invisibles restent la seule source de vérité (une par arête) : le sélecteur
+visuel et la liste les actionnent, ``changed`` est appelé à chaque changement.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from typing import Final
 
 from PySide import QtGui
 
-from freecad.menuiserie.core.edges import all_edges, loop_edges
+from freecad.menuiserie.core.edges import all_edges, faces_covering
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.task_panels.base import Widget, connect
@@ -30,10 +31,10 @@ _HINT: Final = QT_TRANSLATE_NOOP(
 _NONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucune arête")
 _CROSS: Final = QT_TRANSLATE_NOOP("Menuiserie", "✕")
 _REMOVE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Retirer cette arête")
-_GROUPS: Final = (
-    (QT_TRANSLATE_NOOP("Menuiserie", "Dessus"), "Z+"),
-    (QT_TRANSLATE_NOOP("Menuiserie", "Dessous"), "Z-"),
-    (QT_TRANSLATE_NOOP("Menuiserie", "Côtés"), ""),
+_EMPTY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cliquez sur une face, une arête ou un sommet de la pièce dans la vue 3D, ou choisissez "
+    "« Toutes ».",
 )
 _SHORTCUTS: Final = (
     (QT_TRANSLATE_NOOP("Menuiserie", "Toutes"), "all"),
@@ -57,11 +58,11 @@ class EdgeTargets:
         inner.setContentsMargins(0, 0, 0, 0)
         self._faces = QtGui.QVBoxLayout()
         inner.addLayout(self._faces)
-        self._manual = QtGui.QWidget()  # cases à cocher, remplacées par les faces choisies
-        manual = QtGui.QVBoxLayout(self._manual)
-        manual.setContentsMargins(0, 0, 0, 0)
-        self.boxes = self._edge_boxes(manual)
-        inner.addWidget(self._manual)
+        self._empty = QtGui.QLabel(translated(_EMPTY))
+        self._empty.setObjectName("empty_hint")
+        self._empty.setWordWrap(True)
+        inner.addWidget(self._empty)
+        self.boxes = self._edge_boxes()
         self._add_shortcuts(inner)
         self._listed = QtGui.QGroupBox(translated(_LIST))
         self._listed.setObjectName("edge_list")
@@ -69,25 +70,17 @@ class EdgeTargets:
         inner.addWidget(self._listed)
         layout.addWidget(self.widget)
         self.show_for(has_part=False)
+        self.refresh()
 
-    def _edge_boxes(self, layout: Widget) -> dict[str, Widget]:
-        """Les douze cases à cocher, groupées : dessus, dessous, quatre côtés."""
+    def _edge_boxes(self) -> dict[str, Widget]:
+        """Les douze cases à cocher, invisibles : l'état des arêtes choisies."""
         boxes: dict[str, Widget] = {}
-        for title, face in _GROUPS:
-            group = QtGui.QGroupBox(translated(title))
-            grid = QtGui.QGridLayout(group)
-            edges = (
-                loop_edges(face)
-                if face
-                else tuple(e for e in all_edges() if e.along == 2)  # arêtes verticales
-            )
-            for index, edge in enumerate(edges):
-                box = QtGui.QCheckBox(edge.name)
-                box.setObjectName(edge.code)
-                grid.addWidget(box, index // 2, index % 2)
-                connect(box, "toggled(bool)", self._box_toggled)
-                boxes[edge.code] = box
-            layout.addWidget(group)
+        for edge in all_edges():
+            box = QtGui.QCheckBox(edge.name, self.widget)
+            box.setObjectName(edge.code)
+            box.hide()
+            connect(box, "toggled(bool)", self._box_toggled)
+            boxes[edge.code] = box
         return boxes
 
     def _add_shortcuts(self, layout: Widget) -> None:
@@ -138,7 +131,7 @@ class EdgeTargets:
         selector = FaceEdgeSelector(face, self.toggle)
         self._selectors[face] = selector
         self._faces.addWidget(selector)
-        self._manual.setVisible(False)
+        self._empty.hide()
 
     def toggle(self, code: str) -> None:
         """Clic sur un côté d'un sélecteur de face : l'arête change d'état."""
@@ -147,8 +140,12 @@ class EdgeTargets:
             box.setChecked(not box.isChecked())
 
     def refresh(self) -> None:
-        """Sélecteurs et liste remis d'après les cases cochées."""
+        """Sélecteurs (ceux des faces qui portent des arêtes cochées s'ajoutent) et liste remis
+        d'après les cases cochées."""
         codes = self.codes()
+        shown = frozenset().union(*(selector.codes for selector in self._selectors.values()))
+        for face in faces_covering([code for code in codes if code not in shown]):
+            self.add_face(face)
         for selector in self._selectors.values():
             selector.show_checked(codes)
         self._refresh_list(codes)

@@ -8,11 +8,13 @@ la face voisine indiquée.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Final
 
-from freecad.menuiserie.core.edges._ids import EdgeId, parse_face
+from freecad.menuiserie.core.edges._ids import EdgeId, parse_edge, parse_face
+from freecad.menuiserie.core.geometry import Axis
 
-__all__ = ["SIDES", "face_sides"]
+__all__ = ["SIDES", "face_sides", "faces_covering"]
 
 SIDES: Final = ("top", "left", "right", "bottom")
 
@@ -37,3 +39,34 @@ def face_sides(face: str) -> tuple[tuple[str, str, EdgeId], ...]:
         (side, neighbour, EdgeId.between(axis, parse_face(neighbour)))
         for side, neighbour in zip(SIDES, _NEIGHBOURS[key], strict=True)
     )
+
+
+_FACE_ORDER: Final = ("Z+", "Z-", "Y-", "Y+", "X-", "X+")
+
+
+def faces_covering(codes: Collection[str]) -> tuple[str, ...]:
+    """Peu de faces dont les contours contiennent toutes les arêtes ``codes`` (choix glouton : la
+    face qui en porte le plus d'abord, à égalité dans l'ordre dessus, dessous, avant, arrière,
+    gauche, droite) : les sélecteurs à afficher pour des arêtes déjà profilées. Vide sans arête ;
+    ``EdgeError`` pour un code inconnu."""
+    remaining = {edge.code: edge for edge in map(parse_edge, codes)}
+    faces: list[str] = []
+    while remaining:
+        counts = {
+            code: sum(
+                code in (_face_code(e.first), _face_code(e.second)) for e in remaining.values()
+            )
+            for code in _FACE_ORDER
+        }
+        best = max(_FACE_ORDER, key=lambda code: counts[code])
+        faces.append(best)
+        remaining = {
+            key: edge
+            for key, edge in remaining.items()
+            if best not in (_face_code(edge.first), _face_code(edge.second))
+        }
+    return tuple(faces)
+
+
+def _face_code(axis: Axis) -> str:
+    return axis.value[1] + axis.value[0]

@@ -94,15 +94,15 @@ seule pièce.
 - C2 Panneau de tâche (simplifié le 2026-11-05 à la demande de jv) : famille (liste, « Quart de
   rond » 1 mm par défaut : c'est l'arête cassée, sans bouton dédié), cote A
   (`Gui::QuantitySpinBox`), cote B **visible seulement si la famille la demande** (bec-de-corbin,
-  doucine ; ou profil relu asymétrique), les 12 arêtes en cases à cocher groupées par face
-  (dessus, dessous, quatre côtés), raccourcis « Toutes » et « Aucune ».
+  doucine ; ou profil relu asymétrique), les arêtes en **sélecteurs visuels de faces** (plus
+  aucune case à cocher, 2026-11-13), raccourcis « Toutes » et « Aucune ».
 - C3 Cibles désignées par la **sélection** (2026-11-11) : la commande est active même sans
   sélection ; le panneau demande alors de désigner dans la vue 3D une pièce, une face ou une
   arête. Avant la commande ou panneau ouvert : une face coche ses 4 arêtes, une arête cette
   arête, un sommet les 3 arêtes du coin, une pièce seule n'en coche aucune (la pièce n'est
   jamais profilée en entier). Les faces choisies s'affichent en **sélecteurs visuels** (la face
-  à plat, quatre côtés cliquables) à la place des 12 cases à cocher, qui servent sans face.
-  La liste « Arêtes concernées » permet d'en retirer une d'une croix.
+  à plat, quatre côtés cliquables) ; en modification, ceux des faces qui portent les arêtes du
+  profil (`faces_covering`). La liste « Arêtes concernées » permet d'en retirer une d'une croix.
 - C4 Règle de jv du 2026-10-22 : toute modification du panneau s'affiche en direct (aperçu
   recalculé, `valueChanged`), Annuler remet l'état d'avant, un Ctrl+Z défait l'ensemble.
 - C5 Éditer un profil existant : double-clic sur la pièce usinée → le panneau de la pièce propose

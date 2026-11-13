@@ -52,6 +52,11 @@ class FaceEdgeSelector(QtGui.QWidget):  # type: ignore[misc]
         self.setSizePolicy(QtGui.QSizePolicy.Policy.Expanding, QtGui.QSizePolicy.Policy.Fixed)
         self.setToolTip(translated(_TIP))
 
+    @property
+    def codes(self) -> frozenset[str]:
+        """Codes des 4 arêtes de la face."""
+        return frozenset(code for _, code in self._sides.values())
+
     def code_of(self, side: str) -> str:
         """Code de l'arête du côté ``side``."""
         return self._sides[side][1]

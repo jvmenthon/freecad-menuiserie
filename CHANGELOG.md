@@ -21,7 +21,8 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
   `edge_profiles_of` de l'API.
 - Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
-  douze arêtes en cases à cocher cochées d'après la face, l'arête ou le sommet sélectionné, cote B
+  arêtes choisies par sélecteurs visuels de faces (plus de cases à cocher), d'après la face, l'arête
+  ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
   aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
   La commande est active sans sélection (on désigne pièce, face ou arête dans la vue 3D) ; les

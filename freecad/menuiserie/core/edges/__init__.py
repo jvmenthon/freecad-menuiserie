@@ -35,7 +35,7 @@ from freecad.menuiserie.core.edges._ids import (
     parse_edge,
     parse_face,
 )
-from freecad.menuiserie.core.edges._layout import SIDES, face_sides
+from freecad.menuiserie.core.edges._layout import SIDES, face_sides, faces_covering
 from freecad.menuiserie.core.edges._pick import edges_at, face_at, nearest_edge
 
 __all__ = [
@@ -59,6 +59,7 @@ __all__ = [
     "face_at",
     "face_edges",
     "face_sides",
+    "faces_covering",
     "family_for",
     "loop_edges",
     "nearest_edge",

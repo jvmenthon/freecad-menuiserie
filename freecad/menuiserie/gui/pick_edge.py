@@ -62,6 +62,29 @@ def _pick_of(target: DocumentObject, sub: str) -> Pick | None:
     return Pick(part, faces, tuple(e.code for e in edges_at(dimensions, kind, point)))
 
 
+def _resolve(top: DocumentObject, sub: str) -> tuple[DocumentObject, str] | None:
+    """Objet et élément désignés par ``top`` et ``sub`` : un clic dans la vue 3D donne l'objet de
+    plus haut niveau (l'ensemble, un Std Part) et un chemin de noms d'objets, par exemple
+    ``"Tablette.Face3"`` ou ``"Caisson.Tablette.Face3"``. ``None`` si un nom du chemin est
+    introuvable."""
+    *chain, element = sub.split(".")
+    leaf = top
+    for name in chain:
+        found = next((child for child in leaf.OutList if child.Name == name), None)
+        if found is None:
+            return None
+        leaf = found
+    return leaf, element
+
+
+def pick_at(document: App.Document, top_name: str, sub: str) -> Pick | None:
+    """Cibles de l'élément ``sub`` de l'objet ``top_name`` du document, la pièce pouvant être
+    rangée dans un ensemble (chemin de noms dans ``sub``) ; ``None`` pour tout autre élément."""
+    top = document.getObject(top_name)
+    resolved = None if top is None else _resolve(top, sub)
+    return None if resolved is None else _pick_of(*resolved)
+
+
 def selected_pick(part: DocumentObject | None = None) -> Pick | None:
     """Cibles de la sélection courante, fusionnées : la pièce est celle de ``part`` ou, sans elle,
     la première pièce de bois sélectionnée ; les éléments d'autres pièces sont ignorés."""
@@ -82,17 +105,20 @@ def selected_pick(part: DocumentObject | None = None) -> Pick | None:
 
 class EdgePicker:
     """Observateur de sélection qui transmet les cibles d'un élément cliqué : celles de ``part``
-    ou, tant qu'elle est ``None``, de la première pièce de bois cliquée du document."""
+    ou, tant qu'elle est ``None``, de la première pièce de bois cliquée du document ;
+    ``on_ignored`` est appelé pour un clic qui ne désigne pas une telle pièce."""
 
     def __init__(
         self,
         document: App.Document,
         part: DocumentObject | None,
         on_pick: Callable[[Pick], None],
+        on_ignored: Callable[[], None] | None = None,
     ) -> None:
         self._document_name: str = document.Name
         self._part_name: str | None = None if part is None else part.Name
         self._on_pick = on_pick
+        self._on_ignored = on_ignored
         self._active = False
 
     @property
@@ -123,11 +149,10 @@ class EdgePicker:
         del pos
         if not self._active or doc != self._document_name:
             return
-        target = App.getDocument(self._document_name).getObject(obj)
-        if target is None:
-            return
-        pick = _pick_of(target, sub)
+        pick = pick_at(App.getDocument(self._document_name), obj, sub)
         if pick is None or (self._part_name is not None and pick.part.Name != self._part_name):
+            if self._on_ignored is not None:  # clic sur autre chose qu'une pièce de bois
+                QtCore.QTimer.singleShot(0, self._on_ignored)
             return
         QtCore.QTimer.singleShot(0, lambda: self._deliver(pick))
 

@@ -416,3 +416,18 @@ def test_disposition_des_aretes_d_une_face() -> None:
     assert dessus == {"top": "Z+Y+", "left": "Z+X-", "right": "Z+X+", "bottom": "Z+Y-"}
     avant = {side: neighbour for side, neighbour, _ in face_sides("Y-")}
     assert avant == {"top": "Z+", "left": "X-", "right": "X+", "bottom": "Z-"}
+
+
+def test_faces_qui_portent_les_aretes() -> None:
+    from freecad.menuiserie.core.edges import faces_covering
+
+    assert faces_covering([]) == ()
+    assert faces_covering(["Z+Y-"]) == ("Z+",)
+    assert faces_covering(["Z+Y-", "Z+X+", "Z+Y+", "Z+X-"]) == ("Z+",)
+    assert faces_covering(["Y-X-"]) == ("Y-",)
+    toutes = faces_covering([e.code for e in loop_edges("Z+") + loop_edges("Z-")])
+    assert toutes == ("Z+", "Z-")
+    tout = faces_covering([e.code for e in all_edges()])
+    assert set(tout) >= {"Z+", "Z-"} and len(tout) == 4
+    covered = {c for f in tout for c in (e.code for e in loop_edges(f))}
+    assert covered == {e.code for e in all_edges()}

@@ -262,6 +262,34 @@ def verifier_sans_selection() -> list[str]:
     return avec_document("VerifChantsSansSelection", _sans_selection)
 
 
+def _dans_un_ensemble(doc: Any) -> list[str]:
+    from freecad.menuiserie.gui.pick_edge import pick_at
+
+    blank = piece(doc)
+    ensemble = doc.addObject("App::Part", "Ensemble")
+    ensemble.addObject(blank)
+    doc.recompute()
+    face = face_du_dessus(blank)
+    pick = pick_at(doc, ensemble.Name, f"{blank.Name}.{face}")
+    direct = pick_at(doc, blank.Name, face)
+    return [
+        *ecarts("pièce trouvée dans l'ensemble", pick is not None and pick.part == blank, True),
+        *ecarts("face du dessus", pick.faces if pick else None, ("Z+",)),
+        *ecarts(
+            "4 arêtes",
+            sorted(pick.codes) if pick else None,
+            sorted(["Z+Y-", "Z+Y+", "Z+X-", "Z+X+"]),
+        ),
+        *ecarts("sans ensemble", direct.faces if direct else None, ("Z+",)),
+        *ecarts("chemin inconnu", pick_at(doc, ensemble.Name, f"Inconnu.{face}"), None),
+    ]
+
+
+def verifier_selection_dans_un_ensemble() -> list[str]:
+    """Un clic sur une face d'une pièce rangée dans un ensemble désigne la pièce et ses arêtes."""
+    return avec_document("VerifChantsEnsemble", _dans_un_ensemble)
+
+
 def _modifier_et_supprimer(doc: Any) -> list[str]:
     from freecad.menuiserie import api
 
@@ -276,6 +304,8 @@ def _modifier_et_supprimer(doc: Any) -> list[str]:
     problemes = [
         *ecarts("arête reprise", widget(form, "Z+Y-").isChecked(), True),
         *ecarts("cote reprise", widget(form, "size_a").property("rawValue"), 5.0),
+        *ecarts("sélecteur de la face du profil", widget(form, "face_Z+") is not None, True),
+        *ecarts("plus de cases à cocher", widget(form, "Z+Y-").isVisible(), False),
     ]
     widget(form, "Z-Y-").setChecked(True)
     valider()
@@ -336,4 +366,5 @@ VERIFICATIONS_CHANTS: tuple[Callable[[], list[str]], ...] = (
     verifier_arete_deja_profilee,
     verifier_preselection,
     verifier_sans_selection,
+    verifier_selection_dans_un_ensemble,
 )
