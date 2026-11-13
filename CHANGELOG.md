@@ -27,13 +27,17 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
   `edge_profiles_of` de l'API.
 - Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
-  arêtes choisies par sélecteurs visuels de faces (plus de cases à cocher), d'après la face, l'arête
-  ou le sommet sélectionné, cote B
+  arêtes choisies d'après la face, l'arête ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
   aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
-  Une pièce en bois à forme dessinée est acceptée quand sa forme est une boîte.
-  La commande est active sans sélection (on désigne pièce, face ou arête dans la vue 3D) ; les
-  faces choisies s'affichent en sélecteurs visuels de chants.
+  Une pièce en bois à forme dessinée est acceptée quand sa forme est une boîte (jugée sur
+  l'encombrement exact : une copie ou un corps dessiné de biais n'est plus refusé).
+  La commande est active sans sélection (on désigne pièces, faces ou arêtes dans la vue 3D).
+  Liste « Pièces concernées » : une carte par pièce (couleur, nom, nombre d'arêtes, croix), un
+  profil par pièce dans une seule entrée d'annulation, arêtes choisies sur un patron déplié ou
+  une boîte en perspective (faces cachées hachurées « cachée »), bascule mémorisée ; arêtes
+  choisies mises en valeur dans la vue 3D à la couleur de chaque pièce (incrustation, rien dans
+  le document).
 - Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
   sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),

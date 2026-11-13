@@ -14,11 +14,11 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.vectors import dot, norm
 
-__all__ = ["edges_at", "face_at", "nearest_edge"]
+__all__ = ["edge_ends", "edges_at", "face_at", "nearest_edge"]
 
 
-def _ends(dimensions: Dimensions, edge: EdgeId) -> tuple[Vec3, Vec3]:
-    """Bouts de l'arête de la boîte, dans le repère local."""
+def edge_ends(dimensions: Dimensions, edge: EdgeId) -> tuple[Vec3, Vec3]:
+    """Bouts de l'arête ``edge`` de la boîte ``dimensions``, dans le repère local (mm)."""
     sizes = (dimensions.length, dimensions.width, dimensions.thickness)
     values = [0.0, 0.0, 0.0]
     for face in (edge.first, edge.second):
@@ -31,7 +31,7 @@ def _ends(dimensions: Dimensions, edge: EdgeId) -> tuple[Vec3, Vec3]:
 def _distance(dimensions: Dimensions, edge: EdgeId, point: Vec3) -> float:
     """Distance de ``point`` au segment de l'arête (pas à son milieu : un morceau d'arête coupé
     par un assemblage reste proche de son arête)."""
-    start, end = _ends(dimensions, edge)
+    start, end = edge_ends(dimensions, edge)
     along = end - start
     t = max(0.0, min(1.0, dot(point - start, along) / dot(along, along)))
     return norm(point - (start + along.scaled(t)))
@@ -60,7 +60,7 @@ def face_at(dimensions: Dimensions, point: Vec3) -> str:
 
 def _corner_edges(dimensions: Dimensions, point: Vec3) -> tuple[EdgeId, ...]:
     """Les trois arêtes qui se rejoignent au coin de la boîte le plus proche de ``point``."""
-    ends = [(edge, end) for edge in all_edges() for end in _ends(dimensions, edge)]
+    ends = [(edge, end) for edge in all_edges() for end in edge_ends(dimensions, edge)]
     corner = min((end for _, end in ends), key=lambda end: norm(point - end))
     return tuple(edge for edge, end in ends if norm(end - corner) < 1e-6)
 

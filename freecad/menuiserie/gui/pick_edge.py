@@ -25,7 +25,7 @@ from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
-__all__ = ["EdgePicker", "Pick", "selected_pick"]
+__all__ = ["EdgePicker", "Pick", "pick_at", "selected_picks"]
 
 _KINDS = ("Face", "Edge", "Vertex")
 
@@ -86,22 +86,22 @@ def pick_at(document: App.Document, top_name: str, sub: str) -> Pick | None:
     return None if resolved is None else _pick_of(*resolved)
 
 
-def selected_pick(part: DocumentObject | None = None) -> Pick | None:
-    """Cibles de la sélection courante, fusionnées : la pièce est celle de ``part`` ou, sans elle,
-    la première pièce de bois sélectionnée ; les éléments d'autres pièces sont ignorés."""
-    merged: Pick | None = None if part is None else Pick(part, (), ())
+def selected_picks() -> list[Pick]:
+    """Cibles de la sélection courante, une par pièce de bois, dans l'ordre de sélection : les
+    faces, arêtes et sommets d'une même pièce sont fusionnés."""
+    picks: dict[str, Pick] = {}
     for item in Gui.Selection.getSelectionEx():
         for sub in item.SubElementNames or [""]:
             pick = _pick_of(item.Object, sub)
-            if pick is None or (merged is not None and pick.part != merged.part):
+            if pick is None:
                 continue
-            base = merged or Pick(pick.part, (), ())
-            merged = Pick(
+            base = picks.get(pick.part.Name, Pick(pick.part, (), ()))
+            picks[pick.part.Name] = Pick(
                 base.part,
                 base.faces + tuple(f for f in pick.faces if f not in base.faces),
                 base.codes + tuple(c for c in pick.codes if c not in base.codes),
             )
-    return merged
+    return list(picks.values())
 
 
 class EdgePicker:

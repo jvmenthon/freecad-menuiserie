@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface de la « Finition des chants » (issue #5, critères C1 à C6).
 
-Commande dans la barre d'outils et le menu, panneau (famille, cotes, arêtes, raccourcis) avec
+Commande dans la barre d'outils et le menu, panneau (famille, cotes, cartes des pièces avec le
+dessin cliquable de leurs arêtes, raccourcis) avec
 aperçu en direct, « OK » = une entrée d'annulation, « Annuler » ne laisse rien, cote refusée
 affichée sans rien changer, modification et suppression d'un profil au double-clic. Module
 importé par ``verifier_atelier.py``.
@@ -36,11 +37,24 @@ def formulaire() -> Any:
     return formulaire_nomme(FORM)
 
 
-def form_codes(form: Any) -> list[str]:
-    """Codes des cases cochées du panneau ``form``."""
-    from freecad.menuiserie.core.edges import all_edges
+def carte(form: Any, blank: Any) -> Any:
+    """Carte de la pièce ``blank`` dans le panneau ``form``."""
+    return widget(form, f"piece_{blank.Name}")
 
-    return [e.code for e in all_edges() if widget(form, e.code).isChecked()]
+
+def form_codes(form: Any, blank: Any) -> list[str]:
+    """Arêtes choisies de la pièce ``blank`` dans le panneau ``form``."""
+    codes: list[str] = carte(form, blank).codes()
+    return codes
+
+
+def cocher(form: Any, blank: Any, code: str, on: bool = True) -> None:
+    """Clic sur l'arête ``code`` du dessin de la carte de ``blank`` si son état n'est pas
+    ``on``."""
+    from freecad.menuiserie.core.edges import Hit
+
+    if (code in form_codes(form, blank)) != on:
+        widget(carte(form, blank), "diagram").click(Hit("edge", code))
 
 
 def piece(doc: Any) -> Any:
@@ -114,7 +128,7 @@ def _creer(doc: Any) -> list[str]:
     ]
     choisir(widget(form, "family"), "Chamfer")
     saisir(widget(form, "size_a"), 5.0)
-    widget(form, "Z+Y-").setChecked(True)
+    cocher(form, blank, "Z+Y-")
     machined = usinee(blank)
     problemes += ecarts(
         "aperçu", round(machined.Shape.Volume) if machined else None, round(VOLUME - 12.5 * 800.0)
@@ -122,14 +136,14 @@ def _creer(doc: Any) -> list[str]:
     choisir(widget(form, "family"), "Beak")
     problemes += ecarts("cote B demandée", widget(form, "size_b").isHidden(), False)
     choisir(widget(form, "family"), "Chamfer")
-    widget(form, "Z+X-").setChecked(True)
-    widget(form, "remove_Z+X-").click()
-    problemes += ecarts("croix de la liste", widget(form, "Z+X-").isChecked(), False)
+    cocher(form, blank, "Z+X-")
+    cocher(form, blank, "Z+X-", on=False)
+    problemes += ecarts("second clic sur l'arête", "Z+X-" in form_codes(form, blank), False)
     widget(form, "shortcut_all").click()
-    problemes += ecarts("raccourci « toutes »", len(form_codes(form)), 12)
+    problemes += ecarts("raccourci « toutes »", len(form_codes(form, blank)), 12)
     widget(form, "shortcut_none").click()
-    problemes += ecarts("aucune arête cochée", usinee(blank) is None or bool(usinee(blank)), True)
-    widget(form, "Z+Y-").setChecked(True)
+    problemes += ecarts("aucune arête : pas de pièce usinée", usinee(blank), None)
+    cocher(form, blank, "Z+Y-")
     valider()
     machined = usinee(blank)
     return [
@@ -151,7 +165,7 @@ def _annuler(doc: Any) -> list[str]:
     form = lancer(blank)
     if form is None:
         return ["panneau de finition non ouvert"]
-    widget(form, "Z+Y-").setChecked(True)  # profil par défaut : arête cassée (quart de rond 1 mm)
+    cocher(form, blank, "Z+Y-")  # profil par défaut : arête cassée (quart de rond 1 mm)
     machined = usinee(blank)
     problemes = ecarts(
         "arête cassée",
@@ -178,7 +192,7 @@ def _refus(doc: Any) -> list[str]:
     if form is None:
         return ["panneau de finition non ouvert"]
     choisir(widget(form, "family"), "Chamfer")
-    widget(form, "Z+Y-").setChecked(True)
+    cocher(form, blank, "Z+Y-")
     saisir(widget(form, "size_a"), 30.0)
     erreur = widget(form, "errorLabel")
     problemes = [
@@ -216,18 +230,23 @@ def _preselection(doc: Any) -> list[str]:
     form = formulaire()
     if form is None:
         return ["panneau de finition non ouvert"]
+    from freecad.menuiserie.core.edges import Hit
+
     dessus = sorted(["Z+Y-", "Z+Y+", "Z+X-", "Z+X+"])
-    selecteur = widget(form, "face_Z+")
     problemes = [
-        *ecarts("arêtes du dessus cochées", sorted(form_codes(form)), dessus),
-        *ecarts("sélecteur de la face", selecteur is not None, True),
+        *ecarts("arêtes du dessus choisies", sorted(form_codes(form, blank)), dessus),
+        *ecarts("nom de la pièce", widget(carte(form, blank), "name").text(), blank.Label),
         *ecarts("aperçu des 4 arêtes", usinee(blank) is not None, True),
     ]
-    if selecteur is not None:
-        selecteur.toggle_side("top")  # côté du haut : arête arrière du dessus
-        problemes += ecarts(
-            "côté décoché", sorted(form_codes(form)), sorted(set(dessus) - {"Z+Y+"})
-        )
+    dessin = widget(carte(form, blank), "diagram")
+    cocher(form, blank, "Z+Y+", on=False)  # arête arrière du dessus
+    problemes += ecarts(
+        "arête retirée", sorted(form_codes(form, blank)), sorted(set(dessus) - {"Z+Y+"})
+    )
+    dessin.click(Hit("face", "Z+"))  # une arête manque : les quatre sont choisies
+    problemes += ecarts("clic dans la face", sorted(form_codes(form, blank)), dessus)
+    dessin.click(Hit("face", "Z+"))  # toutes choisies : les quatre sont retirées
+    problemes += ecarts("second clic dans la face", form_codes(form, blank), [])
     annuler()
     return problemes
 
@@ -251,7 +270,7 @@ def _sans_selection(doc: Any) -> list[str]:
     QtGui.QApplication.processEvents()  # l'observateur transmet hors du rappel
     problemes += [
         *ecarts("consigne masquée", widget(form, "hint").isHidden(), True),
-        *ecarts("arêtes du dessus cochées", len(form_codes(form)), 4),
+        *ecarts("arêtes du dessus choisies", len(form_codes(form, blank)), 4),
     ]
     annuler()
     return problemes
@@ -291,6 +310,8 @@ def verifier_selection_dans_un_ensemble() -> list[str]:
 
 
 def _modifier_et_supprimer(doc: Any) -> list[str]:
+    from PySide import QtGui
+
     from freecad.menuiserie import api
 
     blank = piece(doc)
@@ -301,13 +322,17 @@ def _modifier_et_supprimer(doc: Any) -> list[str]:
     form = formulaire()
     if not ouvert or form is None:
         return ["double-clic sur le profil : panneau non ouvert"]
-    problemes = [
-        *ecarts("arête reprise", widget(form, "Z+Y-").isChecked(), True),
-        *ecarts("cote reprise", widget(form, "size_a").property("rawValue"), 5.0),
-        *ecarts("sélecteur de la face du profil", widget(form, "face_Z+") is not None, True),
-        *ecarts("plus de cases à cocher", widget(form, "Z+Y-").isVisible(), False),
+    croix = [
+        w
+        for w in carte(form, blank).findChildren(QtGui.QWidget)
+        if w.objectName() == "remove_piece"
     ]
-    widget(form, "Z-Y-").setChecked(True)
+    problemes = [
+        *ecarts("arête reprise", form_codes(form, blank), ["Z+Y-"]),
+        *ecarts("cote reprise", widget(form, "size_a").property("rawValue"), 5.0),
+        *ecarts("pièce du profil sans croix", croix, []),
+    ]
+    cocher(form, blank, "Z-Y-")
     valider()
     problemes += ecarts("arêtes modifiées", profile.Edges, ["Z+Y-", "Z-Y-"])
     ouvert = vobj.Proxy.doubleClicked(vobj)
@@ -336,10 +361,10 @@ def _conflit(doc: Any) -> list[str]:
     form = lancer(blank)
     if form is None:
         return ["panneau de finition non ouvert"]
-    widget(form, "Z+Y-").setChecked(True)  # déjà profilée par un autre profil
-    widget(form, "Z-Y-").setChecked(True)
+    cocher(form, blank, "Z+Y-")  # déjà profilée par un autre profil
+    cocher(form, blank, "Z-Y-")
     problemes = ecarts("aperçu : premier profil intact", first.Edges, ["Z+Y-"])
-    widget(form, "Z+Y-").setChecked(False)
+    cocher(form, blank, "Z+Y-", on=False)
     valider()
     return [
         *problemes,

@@ -35,6 +35,7 @@ from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELA
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_chants import VERIFICATIONS_CHANTS
+from tests.gui.verifications_chants_pieces import VERIFICATIONS_CHANTS_PIECES
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
 from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
@@ -1282,6 +1283,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
     *VERIFICATIONS_CHANTS,
+    *VERIFICATIONS_CHANTS_PIECES,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,

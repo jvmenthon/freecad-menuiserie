@@ -96,15 +96,33 @@ seule pièce.
 - C2 Panneau de tâche (simplifié le 2026-11-05 à la demande de jv) : famille (liste, « Quart de
   rond » 1 mm par défaut : c'est l'arête cassée, sans bouton dédié), cote A
   (`Gui::QuantitySpinBox`), cote B **visible seulement si la famille la demande** (bec-de-corbin,
-  doucine ; ou profil relu asymétrique), les arêtes en **sélecteurs visuels de faces** (plus
-  aucune case à cocher, 2026-11-13), raccourcis « Toutes » et « Aucune ».
+  doucine ; ou profil relu asymétrique), et la liste **« Pièces concernées »** (2026-11-13) : une
+  carte par pièce (pastille et liseré de couleur, nom de la pièce, nombre d'arêtes, « Toutes »,
+  « Aucune », croix pour retirer la pièce) avec le **dessin cliquable** de ses arêtes. Deux
+  dessins, au choix de l'utilisateur (bascule mémorisée dans les préférences de l'atelier) :
+  **patron déplié** (les six faces à plat en croix, chaque côté de case est une arête) ou **boîte
+  en perspective** (vue de l'avant, de la droite et du dessus ; arêtes cachées en pointillés ;
+  faces cachées hachurées en gris, écartées de la boîte avec la mention « cachée »). Un clic sur
+  une arête la choisit ou la retire, un clic dans une face choisit ses quatre arêtes (ou les
+  retire si elles le sont toutes). Arêtes choisies et faces dont les quatre arêtes le sont
+  prennent la couleur de la pièce.
+- C2b Plusieurs pièces dans un même panneau (2026-11-13) : chaque pièce reçoit **son propre
+  profil** (même famille, mêmes cotes), tous créés dans la transaction de la commande (une seule
+  entrée d'annulation). Retirer une carte retire le profil que le panneau avait créé pour elle.
+  En modification (double-clic sur un profil), la pièce du profil ne peut pas quitter la liste
+  (« Supprimer ce profil » le fait) ; d'autres pièces peuvent s'y ajouter.
+- C2c Mise en valeur dans la vue 3D (2026-11-13) : pendant la tâche, les arêtes choisies de
+  chaque pièce sont tracées en trait épais de la couleur de sa carte, et les faces dont les
+  quatre arêtes sont choisies teintées. C'est une incrustation de la vue (comme les flèches de
+  déplacement) : rien n'est écrit dans le document ni dans l'historique d'annulation, les
+  couleurs des pièces ne changent jamais ; elle est retirée à toute fermeture.
 - C3 Cibles désignées par la **sélection** (2026-11-11) : la commande est active même sans
   sélection ; le panneau demande alors de désigner dans la vue 3D une pièce, une face ou une
   arête. Avant la commande ou panneau ouvert : une face coche ses 4 arêtes, une arête cette
   arête, un sommet les 3 arêtes du coin, une pièce seule n'en coche aucune (la pièce n'est
-  jamais profilée en entier). Les faces choisies s'affichent en **sélecteurs visuels** (la face
-  à plat, quatre côtés cliquables) ; en modification, ceux des faces qui portent les arêtes du
-  profil (`faces_covering`). La liste « Arêtes concernées » permet d'en retirer une d'une croix.
+  jamais profilée en entier). Plusieurs pièces sélectionnées donnent une carte chacune ; une
+  pièce cliquée panneau ouvert s'ajoute à la liste. Une pièce qui n'est pas une boîte est
+  refusée avec un message (dans le panneau s'il y a d'autres pièces).
 - C4 Règle de jv du 2026-10-22 : toute modification du panneau s'affiche en direct (aperçu
   recalculé, `valueChanged`), Annuler remet l'état d'avant, un Ctrl+Z défait l'ensemble.
 - C5 Éditer un profil existant : double-clic sur la pièce usinée → le panneau de la pièce propose
@@ -178,8 +196,9 @@ features/edge_profile.py   EdgeProfile + création
 features/edge_banding.py   EdgeBanding + création
 features/solids.py         + conversion d'Extrusion (solid_shape)
 features/machined_part.py  + Finishes, ordre des opérations
-gui/task_panels/edge_finish.py, edge_targets.py, face_edge_selector.py ; gui/commands/edge_finish.py ;
-gui/pick_edge.py
+core/edges/_diagram.py     patron déplié, boîte en perspective, ce qu'un clic y désigne
+gui/task_panels/edge_finish.py, edge_targets.py (cartes), edge_diagram.py (dessin cliquable) ;
+gui/commands/edge_finish.py ; gui/pick_edge.py ; gui/edge_highlight.py (mise en valeur 3D)
 ```
 
 Familles (paramètres A, B en mm ; la section est contenue dans le carré A × B de l'angle) :
