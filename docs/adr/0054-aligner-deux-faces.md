@@ -32,7 +32,9 @@ est penchée.
    puis translation) ou X, Y, Z du conteneur de la pièce déplacée : translation sur cet axe seul,
    sans rotation ; les faces doivent déjà être parallèles, l'axe ne doit pas être dans leur plan ni
    presque (pente sur la normale ≥ 0,05, soit environ 3°, sinon le trajet devient démesuré) et le
-   mode d'équerre est refusé (refus expliqués). Seul le décalage le long de la normale compte alors.
+   mode d'équerre est refusé (refus expliqués). Dans le panneau, choisir un axe grise la position
+   et les deux décalages du plan (la position automatique est alors envoyée). Un décalage non fini
+   est refusé dans tous les cas. Seul le décalage le long de la normale compte alors.
 6. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
    bouton **Inverser** (échange la pièce pilotée et la pilotante ; la première revient avant que
    la seconde bouge), **Annuler** remet tout en place. OK relie l'ensemble et propose les

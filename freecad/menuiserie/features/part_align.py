@@ -102,8 +102,9 @@ class FaceAlign:
     ) -> Alignment:
         """Le mouvement qui aligne (lecture seule). ``axis`` (``"X"``, ``"Y"``, ``"Z"`` du
         conteneur de la pièce déplacée) : translation sur cet axe seul, sans rotation.
-        ``ValueError`` traduite si une face n'est pas plane, si l'axe est inconnu, ou, sur un
-        axe, si les faces ne sont pas parallèles ou si l'axe est dans leur plan."""
+        ``ValueError`` traduite si une face n'est pas plane, si l'axe est inconnu, si un décalage
+        n'est pas fini, ou, sur un axe, si les faces ne sont pas parallèles, si l'axe est dans
+        leur plan ou presque, ou si le mode est d'équerre."""
         fixed, moving = self._faces[1 - self.moving_index], self._faces[self.moving_index]
         if not (isinstance(fixed, FaceTarget) and isinstance(moving, FaceTarget)):
             raise ValueError(translated(_NOT_FACES))

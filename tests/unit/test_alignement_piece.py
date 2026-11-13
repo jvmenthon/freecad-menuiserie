@@ -218,7 +218,7 @@ def test_mode_inconnu_de_l_api_refuse_avant_toute_lecture(monkeypatch: pytest.Mo
             api.align_faces(object(), object(), mode="FLUSH")  # type: ignore[arg-type]
 
 
-# --- Alignement sur un axe (commit 6fec39c) ---------------------------------------------------
+# --- Alignement sur un axe ---------------------------------------------------------------------
 
 
 class _Vector:

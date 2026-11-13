@@ -130,14 +130,12 @@ def _wanted_normal(reference: Vec3, own: Vec3, chosen: AlignMode, spare: Vec3) -
 
 
 def _along_axis(
-    fixed: FaceTarget, moving: FaceTarget, mode: AlignMode, gap_offset: float, axis: Vec3
+    fixed: FaceTarget, moving: FaceTarget, normals: tuple[Vec3, Vec3], gap_offset: float, axis: Vec3
 ) -> Alignment:
     """Translation seule, le long de ``axis`` (unitaire), qui amène la face mobile dans le plan
-    de la référence (plus ``gap_offset`` le long de sa normale)."""
-    if mode is AlignMode.PERPENDICULAR:
-        raise AlignError(PERPENDICULAR_ON_AXIS, {})
-    reference = unit(fixed.frame.z)
-    own = unit(moving.frame.z)
+    de la référence (plus ``gap_offset`` le long de sa normale). ``normals`` : normales unitaires
+    de la référence et de la face mobile."""
+    reference, own = normals
     if norm(cross(reference, own)) > ANGLE_TOLERANCE:
         raise AlignError(NOT_PARALLEL, {})
     slope = dot(axis, reference)
@@ -163,8 +161,8 @@ def align(
     son plan, z le long de sa normale : le « 3e axe »). ``axis`` (vecteur global) : alignement
     **sur un axe** seulement, sans rotation ; les faces doivent être parallèles, l'axe ne doit pas
     être dans leur plan (ni presque : :data:`MIN_AXIS_SLOPE`), le mode d'équerre est refusé, et
-    seul ``offset.z`` (écart le long de la normale) compte. Faces non
-    planes : :class:`AlignError`."""
+    seul ``offset.z`` (écart le long de la normale) compte. Refus (:class:`AlignError`) :
+    faces non planes, décalage ou axe non fini."""
     if not (fixed.planar and moving.planar):
         raise AlignError(NOT_PLANAR, {})
     if not is_finite(offset):
@@ -174,7 +172,9 @@ def align(
     if axis is not None:
         if not is_finite(axis) or norm(axis) <= ANGLE_TOLERANCE:
             raise AlignError(INVALID_AXIS, {})
-        return _along_axis(fixed, moving, mode, offset.z, unit(axis))
+        if mode is AlignMode.PERPENDICULAR:
+            raise AlignError(PERPENDICULAR_ON_AXIS, {})
+        return _along_axis(fixed, moving, (reference, own), offset.z, unit(axis))
     chosen = _mode_of(reference, own, mode)
     wanted = _wanted_normal(reference, own, chosen, unit(fixed.frame.x))
     rotation, angle = _rotation_between(own, wanted, unit(moving.frame.x))

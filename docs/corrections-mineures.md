@@ -129,3 +129,6 @@ de répétitions m5) sont corrigés.
 
 - `gui/task_panels/align.py` importe `report_refusal` de `gui/commands/base.py`, comme le panneau
   de distance : déplacer cette fonction dans un module neutre de `gui/` (revue de la PR #254).
+- `gui/task_panels/align.py` : aucun test GUI ne couvre le grisage de la position et des décalages
+  sur un axe ni l'envoi forcé de la position automatique ; `_combo_row` pourrait recevoir ses
+  éléments en paramètre (revue de l'alignement sur un axe, PR #254).

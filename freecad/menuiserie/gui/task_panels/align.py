@@ -76,8 +76,10 @@ _MODES: Final = (
 _AXIS: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacement")
 _AXIS_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Libre : la pièce tourne et glisse pour aligner les faces. X, Y ou Z : la pièce glisse "
-    "seulement sur cet axe, sans tourner (faces déjà parallèles) ; seul le 3e décalage compte.",
+    "Libre : la pièce tourne et glisse pour aligner les faces. X, Y ou Z (axes du Std Part de "
+    "la pièce déplacée, ou du document) : la pièce glisse seulement sur cet axe, sans tourner "
+    "(faces déjà parallèles) ; la position et les deux décalages dans le plan sont alors grisés, "
+    "seul le 3e décalage compte.",
 )
 _FREE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Libre")
 _AXES: Final = ("X", "Y", "Z")

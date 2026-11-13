@@ -124,7 +124,7 @@ def test_mouvement_idempotent() -> None:
     assert norm(again.shift) == pytest.approx(0.0, abs=1e-9)
 
 
-# --- Alignement sur un axe (commit 6fec39c) ---------------------------------------------------
+# --- Alignement sur un axe ---------------------------------------------------------------------
 
 
 def test_sur_un_axe_oblique_atteint_le_plan_sans_toucher_aux_autres_composantes() -> None:
@@ -189,7 +189,7 @@ def test_decalage_non_fini_refuse(bad: float, axis: Vec3 | None) -> None:
 def test_sur_un_axe_nul_refuse() -> None:
     """Un axe nul ne doit jamais produire de division par zéro non traduite."""
     moving = face(Vec3(0, 0, 40), Vec3(0, 0, 1))
-    with pytest.raises((AlignError, ValueError)):
+    with pytest.raises(AlignError):
         align(REFERENCE, moving, axis=Vec3(0, 0, 0))
 
 
