@@ -304,7 +304,7 @@ def test_plan_refuse_un_axe_de_centrage_inconnu(
     with pytest.raises(ValueError, match="X, Y ou Z"):
         aligned.plan(centered="XW")
     with pytest.raises(ValueError, match="X, Y ou Z"):
-        aligned.plan(centered=3)  # type: ignore[arg-type]
+        aligned.plan(centered=3)
 
 
 def test_plan_sur_un_axe_dans_le_plan_donne_une_valeur_error_traduite(
