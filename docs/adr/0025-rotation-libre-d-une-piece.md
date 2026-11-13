@@ -65,5 +65,10 @@ voisins que les guides de déplacement) : quand une arête de la pièce (ou de l
 parallèle à une arête d'un voisin, à 3° près, dans le plan de l'anneau, l'angle est calé dessus
 (à 90° près, les boîtes étant à angle droit). Cet aimant passe avant le pas de 15° ; Maj
 l'inhibe avec lui (rotation libre). Un repère « Alignée sur une pièce voisine » s'affiche près de la
-souris. Règles pures dans `core/rotation/_align.py`, lecture des voisins dans
+souris.
+
+Limites : seules comptent les arêtes à moins d'environ 25° du plan de l'anneau (projection d'au
+moins 0,9) ; pour une boîte inclinée, chacune de ses arêtes proches du plan donne sa propre
+rotation d'alignement. Les voisins sont les objets **à forme**, les plus proches d'abord, au plus
+16 orientations distinctes : au-delà, la rotation collerait à presque tous les angles. Règles pures dans `core/rotation/_align.py`, lecture des voisins dans
 `features/magnet_guides.neighbor_rotations`.

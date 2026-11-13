@@ -26,9 +26,10 @@ from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.snap_geometry import ERRORS, is_straight, to_vec3
 from freecad.menuiserie.features.solids import rigid_transform
 
-__all__ = ["MAX_GUIDES", "collect_guides", "neighbor_rotations"]
+__all__ = ["MAX_GUIDES", "MAX_ORIENTATIONS", "collect_guides", "neighbor_rotations"]
 
 MAX_GUIDES: Final = 5000  # borne de lecture d'un gros document (spec § 4.8)
+MAX_ORIENTATIONS: Final = 16  # orientations voisines au plus pour aimanter une rotation
 _GROUPS: Final = ("App::Part", "App::DocumentObjectGroup")
 _PARALLEL: Final = 1e-6  # composante (relative) hors axe en deçà de laquelle une arête est droite
 
@@ -260,24 +261,42 @@ def collect_guides(
 
 
 def neighbor_rotations(
-    part: DocumentObject, container: DocumentObject | None, skip: Iterable[str] = ()
+    part: DocumentObject,
+    container: DocumentObject | None,
+    *,
+    skip: Iterable[str] = (),
+    reference: Any = None,
 ) -> tuple[Matrix3, ...]:
-    """Rotations globales des objets voisins visibles de ``part`` (mêmes voisins que
-    :func:`collect_guides`), sans doublon : sert à aimanter l'angle d'une rotation."""
+    """Rotations globales des objets voisins de ``part`` qui ont une forme, sans doublon : sert à
+    aimanter l'angle d'une rotation (ADR 0025, complément).
+
+    Mêmes voisins que :func:`collect_guides` (visibles, même conteneur, mêmes exclusions, même
+    ``skip`` et ``reference`` pour un ensemble), les plus proches d'abord ; au plus
+    :data:`MAX_ORIENTATIONS` orientations, sinon la rotation colle à tous les angles. Un objet
+    sans forme (origine, esquisse vide, FeaturePython) ou sans placement global est ignoré."""
+    if reference is None:
+        own = _global_shape(part)
+        reference = own.BoundBox if own is not None else None
     roots = list(container.Group) if container is not None else _roots(part.Document)
     skipped = _excluded(part) | set(skip)
-    found: dict[tuple[float, ...], Matrix3] = {}
-    for obj in _leaves(roots, set(skipped)):
+    found: list[tuple[float, int, Matrix3]] = []
+    for index, obj in enumerate(_leaves(roots, set(skipped))):
         if obj.Name in skipped or not obj.Visibility:
             continue
-        if not hasattr(obj, "getGlobalPlacement"):  # objet sans placement (FeaturePython, etc.)
+        if not hasattr(obj, "getGlobalPlacement"):
+            continue
+        shape = _global_shape(obj)
+        if shape is None:
             continue
         try:
             rotation = rigid_transform(obj.getGlobalPlacement()).rotation
-        except (*ERRORS, AttributeError):
+        except ERRORS:
             continue
-        key = tuple(round(value, 4) for row in rotation for value in row)
-        found.setdefault(key, rotation)
-        if len(found) >= MAX_GUIDES:
+        distance = 0.0 if reference is None else _distance(reference, shape.BoundBox)
+        found.append((distance, index, rotation))
+    kept: dict[tuple[float, ...], Matrix3] = {}
+    for _, _, rotation in sorted(found, key=lambda item: item[:2]):
+        kept.setdefault(tuple(round(value, 4) for row in rotation for value in row), rotation)
+        if len(kept) >= MAX_ORIENTATIONS:
             break
-    return tuple(found.values())
+    return tuple(kept.values())

@@ -19,7 +19,9 @@ __all__ = ["ALIGN_TOLERANCE_DEGREES", "align_offsets", "aligned_turn", "edge_ang
 
 ALIGN_TOLERANCE_DEGREES: Final = 3.0  # écart d'angle en deçà duquel la pièce s'aligne
 _QUARTER: Final = 90.0
-_IN_PLANE: Final = 0.5  # longueur projetée minimale d'une arête pour compter
+# longueur projetée minimale d'une arête pour compter (arête à moins de ~25° du plan) : plus
+# inclinée, sa projection n'a plus de sens visuel et deux arêtes ne s'y projettent plus d'équerre
+_IN_PLANE: Final = 0.9
 _DUPLICATE: Final = 0.01
 
 
@@ -39,24 +41,33 @@ def align_offsets(
     own: Matrix3, neighbors: Iterable[Matrix3], u: Vec3, v: Vec3
 ) -> tuple[float, ...]:
     """Rotations (degrés, dans [0, 90[) qui rendent une arête de ``own`` parallèle à une arête
-    d'un voisin, dans le plan ``(u, v)``. Vide si ``own`` n'a pas d'arête dans le plan."""
+    d'un voisin, dans le plan ``(u, v)``, pour chaque arête de ``own`` proche du plan (deux
+    arêtes ne s'y projettent d'équerre que si l'axe est celui de la troisième). Vide si ``own``
+    n'a pas d'arête proche du plan."""
     mine = edge_angles(own, u, v)
-    if not mine:
-        return ()
     offsets: list[float] = []
     for rotation in neighbors:
         for angle in edge_angles(rotation, u, v):
-            offset = (angle - mine[0]) % _QUARTER
-            if all(abs(offset - known) > _DUPLICATE for known in offsets):
-                offsets.append(offset)
+            for own_angle in mine:
+                offset = (angle - own_angle) % _QUARTER
+                if all(_gap(offset, known) > _DUPLICATE for known in offsets):
+                    offsets.append(offset)
     return tuple(offsets)
+
+
+def _gap(a: float, b: float) -> float:
+    """Écart (degrés) entre deux angles lus à 90° près."""
+    d = abs(a - b) % _QUARTER
+    return min(d, _QUARTER - d)
 
 
 def aligned_turn(
     travelled: float, offsets: Iterable[float], tolerance: float = ALIGN_TOLERANCE_DEGREES
 ) -> float | None:
     """Rotation alignée la plus proche de ``travelled`` (``offset`` + multiple de 90°) à
-    ``tolerance`` degrés près ; ``None`` si aucune."""
+    ``tolerance`` degrés près ; ``None`` si aucune (ou si ``travelled`` n'est pas fini)."""
+    if not math.isfinite(travelled):
+        return None
     best: float | None = None
     for offset in offsets:
         candidate = offset + _QUARTER * round((travelled - offset) / _QUARTER)

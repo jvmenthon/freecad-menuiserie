@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from PySide import QtCore
 
@@ -53,6 +53,8 @@ from freecad.menuiserie.gui.drag.view import Point
 
 if TYPE_CHECKING:
     from freecad.menuiserie.gui.drag.session import DragSession
+
+_ALIGNED_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
 
 __all__ = ["Dragging", "Gesture", "Hover", "Idle", "Moving", "Resizing", "Rotating", "State"]
 
@@ -307,9 +309,6 @@ def _size_note(step: Step, anchor: Vec3) -> Label:
     return Label(REFUSAL_COLOR, f"{text}\n{step.message}", anchor)
 
 
-_ALIGNED_TEXT = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
-
-
 class Rotating(Gesture):
     """Anneau tiré : la pièce tourne autour de l'axe de l'anneau, par son centre, depuis son
     orientation du début (RO-b, ``rotate_by``). L'angle **obtenu** (et non le seul angle parcouru)
@@ -345,6 +344,7 @@ class Rotating(Gesture):
             aligned if aligned is not None else snapped_turn(self.base, self.total, free=self.shift)
         )
         if not self.target.rotate(self.memento, self.ring.axis, angle):
+            self.note = None
             return
         anchor = plane_point(ray, self.ring) or self.ring.center
         self.sweep = Sweep(self.ring, self.from_center, angle, anchor)
