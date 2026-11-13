@@ -39,6 +39,7 @@ from freecad.menuiserie.features.placement import SnapSession, to_placement
 from freecad.menuiserie.features.snap_geometry import (
     EPSILON,
     ERRORS,
+    OFFSET_MM,
     Request,
     Vector,
     element_shape,
@@ -55,6 +56,7 @@ from freecad.menuiserie.features.snap_geometry import (
 
 __all__ = [
     "TargetReading",
+    "face_under_click",
     "free_test",
     "local_face_target",
     "new_session",
@@ -176,7 +178,7 @@ def _span_through(face: Any, point: Vector, axis: Vector) -> tuple[float, float]
     return min(marks), max(marks)
 
 
-def local_face_target(reading: TargetReading, face: Any = None) -> FaceTarget | None:
+def local_face_target(reading: TargetReading, face: Any | None = None) -> FaceTarget | None:
     """Cible de l'unique face lue **à l'endroit du clic** : le rectangle est celui de la tranche de
     la face qui traverse le point cliqué (selon les axes de la cible d'origine), non celui de
     toute la face ; repère d'appui au coin le plus proche du clic. ``None`` sans point cliqué, sans
@@ -327,12 +329,34 @@ def target_of(element: PickedElement, toward_observer: Vec3) -> Target | None:
         return None
 
 
+def face_under_click(element: PickedElement) -> PickedElement:
+    """Face de l'objet entier sélectionné qui porte le point cliqué : l'élément ``FaceN`` le plus
+    proche du point (à ``OFFSET_MM`` près). ``element`` lui-même s'il est déjà un sous-élément,
+    sans point cliqué (sélection dans l'arbre, par script), sans forme ou si le point est loin
+    de toute face."""
+    if element.is_subelement() or element.point is None:
+        return element
+    shape = owner_shape(element)
+    if shape is None or not shape.Faces:
+        return element
+    try:
+        vertex = Part.Vertex(to_vector(element.point))
+        gaps = [face.distToShape(vertex)[0] for face in shape.Faces]
+    except ERRORS:
+        return element
+    best = min(range(len(gaps)), key=gaps.__getitem__)
+    if gaps[best] > OFFSET_MM:
+        return element
+    return PickedElement(element.root, f"{element.subname}Face{best + 1}", element.point)
+
+
 def read_targets(elements: Sequence[PickedElement], toward_observer: Vec3) -> TargetReading:
     """Cibles des ``elements`` dans l'ordre de sélection ; les éléments sans forme utilisable
     (objet entier, maillage, page TechDraw, forme nulle) sont ignorés avec un message traduit."""
     kept: list[tuple[PickedElement, Target]] = []
     ignored: list[str] = []
-    for element in elements:
+    for picked in elements:
+        element = face_under_click(picked)
         target = target_of(element, toward_observer)
         if target is not None:
             kept.append((element, target))

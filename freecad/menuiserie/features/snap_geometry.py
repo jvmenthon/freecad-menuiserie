@@ -24,6 +24,7 @@ __all__ = [
     "Request",
     "Vector",
     "element_shape",
+    "face_normal",
     "global_shape",
     "is_straight",
     "nearest_on",
@@ -110,6 +111,13 @@ def nearest_on(face: Any, point: Vector) -> tuple[Vector, Vector]:
     nearest = pairs[0][0]
     u, v = face.Surface.parameter(nearest)
     return nearest, face.normalAt(u, v)
+
+
+def face_normal(face: Any) -> Vector:
+    """Normale (orientée par la forme) de ``face`` en son centre de masse ; face plane : la même
+    partout."""
+    u, v = face.Surface.parameter(face.CenterOfMass)
+    return face.normalAt(u, v)
 
 
 def outward_normal(normal: Vector, point: Vector, owner: Any, toward_observer: Vector) -> Vector:

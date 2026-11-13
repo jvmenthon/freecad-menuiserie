@@ -218,6 +218,17 @@ def test_objet_entier_et_objet_sans_forme_sont_ignores(document: Any, block: Any
     assert obj.Placement.Base.isEqual(App.Vector(0, 0, 0), 1e-9)
 
 
+def test_objet_entier_clique_donne_la_face_sous_le_clic(document: Any, block: Any) -> None:
+    """Objet entier avec point cliqué (vue 3D) : la face la plus proche du point est retenue."""
+    top = picked.PickedElement(block, "", Vec3(300, 200, 52))
+    reading = targets.read_targets([top], ABOVE)
+    assert reading.ignored == ()
+    assert reading.elements[0].is_subelement()
+    assert abs(reading.targets[0].frame.z.z - 1.0) < 1e-9  # face de dessus
+    far = picked.PickedElement(block, "", Vec3(300, 200, 500))  # loin de toute face
+    assert targets.read_targets([far], ABOVE).targets == ()
+
+
 # --- T2 : côté extérieur ------------------------------------------------------------------------
 
 

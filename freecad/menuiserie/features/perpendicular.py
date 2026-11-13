@@ -13,7 +13,7 @@ modification du document ni de la sélection ; aucun import de ``FreeCADGui``.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Final
 
 import Part
 
@@ -29,12 +29,14 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.picked import crosses_link
 from freecad.menuiserie.features.shaped_part import is_timber
-from freecad.menuiserie.features.snap_geometry import ERRORS, global_shape, to_vector
+from freecad.menuiserie.features.snap_geometry import ERRORS, face_normal, global_shape, to_vector
 from freecad.menuiserie.features.snap_targets import TargetReading, local_face_target
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
 __all__ = ["PerpendicularStart", "perpendicular_start"]
+
+_PARALLEL: Final = 1e-6  # norme du produit vectoriel de deux normales unitaires parallèles
 
 
 @dataclass(frozen=True)
@@ -74,14 +76,12 @@ def _blank_face(reading: TargetReading, blank: DocumentObject) -> Any:
     click = to_vector(point)
     try:
         for face in global_shape(blank).Faces:
-            _u, _v = face.Surface.parameter(face.CenterOfMass)
-            flat = abs(face.normalAt(_u, _v).cross(normal).Length) < 1e-6
+            if not isinstance(face.Surface, Part.Plane):
+                continue
+            parallel = face_normal(face).cross(normal).Length < _PARALLEL
             same_plane = abs((face.CenterOfMass - origin).dot(normal)) < CONTACT_TOLERANCE_MM
-            if (
-                flat
-                and same_plane
-                and face.distToShape(Part.Vertex(click))[0] < CONTACT_TOLERANCE_MM
-            ):
+            holds_click = face.distToShape(Part.Vertex(click))[0] < CONTACT_TOLERANCE_MM
+            if parallel and same_plane and holds_click:
                 return face
     except ERRORS:
         return None
@@ -98,9 +98,8 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     blank = _wood_part_of(reading)
     if blank is None:
         return None
-    local = local_face_target(
-        reading, _blank_face(reading, blank)
-    )  # la face à l'endroit du clic, pas toute la face
+    # La face à l'endroit du clic, pas toute la face :
+    local = local_face_target(reading, _blank_face(reading, blank))
     if local is not None:
         reading, target = replace(reading, targets=(local,)), local
     support = support_rotation(reading.targets)
