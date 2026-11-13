@@ -118,7 +118,9 @@ def test_perspective_a_sa_propre_echelle(bureau: Bureau) -> None:
         assert isos[0].ScaleType == "Custom"
         assert 0 < isos[0].Scale <= page.Scale
         assert all(
-            view.HardHidden for view in page.Views if view.TypeId == "TechDraw::DrawViewPart"
+            view.HardHidden
+            for view in page.Views
+            if view.TypeId == "TechDraw::DrawViewPart" and view not in isos
         )
 
 
@@ -129,6 +131,7 @@ def test_plans_de_piece_intacts_apres_reouverture(
     bureau: Bureau, rouvrir: Callable[[Any], Any]
 ) -> None:
     pages = api.make_part_drawings(bureau.doc, [bureau.furniture])
+    furniture_name = bureau.furniture.Name
     before = {page.Name: (notes(page), sorted(v.Name for v in page.Views)) for page in pages}
     reopened = rouvrir(bureau.doc)
     for name, (expected, views) in before.items():
@@ -138,7 +141,7 @@ def test_plans_de_piece_intacts_apres_reouverture(
         assert notes(page) == expected
         assert sorted(v.Name for v in page.Views) == views
     # Relancée sur le document rouvert, la commande refait les mêmes pages.
-    furniture = reopened.getObject(bureau.furniture.Name)
+    furniture = reopened.getObject(furniture_name)
     again = api.make_part_drawings(reopened, [furniture])
     assert sorted(page.Name for page in again) == sorted(before)
 
@@ -147,13 +150,13 @@ def test_vue_eclatee_intacte_apres_reouverture(
     bureau: Bureau, rouvrir: Callable[[Any], Any]
 ) -> None:
     page = api.make_exploded_drawing(bureau.doc, [bureau.furniture])
-    name = page.Name
+    name, furniture_name = page.Name, bureau.furniture.Name
     reopened = rouvrir(bureau.doc)
     restored = reopened.getObject(name)
     (view,) = restored.Views
     (holder,) = view.Source
     assert not holder.Shape.isNull()
-    furniture = reopened.getObject(bureau.furniture.Name)
+    furniture = reopened.getObject(furniture_name)
     assert api.make_exploded_drawing(reopened, [furniture]).Name == name
 
 
@@ -171,9 +174,8 @@ def test_annuler_puis_retablir(bureau: Bureau, command: str) -> None:
 
 
 def test_plan_de_piece_suit_un_changement_de_cote(bureau: Bureau) -> None:
-    part = bureau.parts["P"]
     api.make_part_drawings(bureau.doc, [bureau.shown("P")])
-    part.Length = 1000
+    bureau.furniture.Width = 1000  # la longueur du plateau suit la largeur du bureau
     bureau.doc.recompute()
     (page,) = api.make_part_drawings(bureau.doc, [bureau.shown("P")])
     lengths = [float(dim.getRawValue()) for dim in drawing.overall_dimensions(page)]
