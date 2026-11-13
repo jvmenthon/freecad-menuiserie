@@ -10,7 +10,7 @@ fabrique de l'api (mot-clé ``check``), qui l'appelle sans recalcul : le plan es
 
 from __future__ import annotations
 
-from freecad.menuiserie.core.joints import strategy_for
+from freecad.menuiserie.core.joints import JointKind, strategy_for
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated_errors
 from freecad.menuiserie.features.joint_names import joint_label
@@ -29,7 +29,8 @@ def plan_error(origin: DocumentObject, host: DocumentObject, guest: DocumentObje
     try:
         with translated_errors():
             strategy = strategy_for(proxy.KIND)
-            cached_plan(strategy, placed_blank(host), placed_blank(guest), proxy.params(origin))
+            host_block = placed_blank(host, proxy.KIND is JointKind.FOOT)
+            cached_plan(strategy, host_block, placed_blank(guest), proxy.params(origin))
     except ValueError as error:
         return str(error)
     return None

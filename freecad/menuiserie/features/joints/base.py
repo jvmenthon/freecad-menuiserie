@@ -16,6 +16,8 @@ from collections.abc import Callable
 from dataclasses import fields
 from typing import Any, ClassVar, Final, TypeVar
 
+import FreeCAD as App
+
 from freecad.menuiserie.core.geometry import PlacedBlock
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
@@ -32,7 +34,11 @@ from freecad.menuiserie.features.i18n import report_warning, translated, transla
 from freecad.menuiserie.features.joint_material import check_joint_material
 from freecad.menuiserie.features.joints.plan_cache import cached_plan
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
-from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.shaped_part import (
+    base_shape_of,
+    is_shaped_part,
+    is_timber,
+)
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
@@ -302,20 +308,60 @@ def params_from(obj: DocumentObject, params_type: Callable[..., P]) -> P:
         raise JointError(error.template, renamed) from error
 
 
-def placed_blank(obj: DocumentObject | None) -> PlacedBlock:
-    """Pièce brute vue par ``core`` (cotes et placement) ; ``ValueError`` traduite si elle
-    manque ou n'est pas une pièce de bois, ``InvalidDimensionsError`` si une cote est invalide."""
+_OUTLINE_DEFLECTION_MM: Final = 0.5  # écart maximal du contour discrétisé à la courbe réelle
+_OUTLINE_FILL: Final = 0.999  # contour remplissant l'encombrement : pièce rectangulaire
+
+
+def footprint_of(obj: DocumentObject) -> tuple[tuple[tuple[float, float], ...], ...] | None:
+    """Contour réel de la pièce dans son plan XY local (boucles : extérieure puis trous), coupe à
+    mi-épaisseur de sa forme de base ; ``None`` pour une pièce rectangulaire ou si la coupe ne
+    donne rien d'exploitable (la pièce est alors vue comme son encombrement)."""
+    if not is_shaped_part(obj):
+        return None
+    try:
+        shape = base_shape_of(obj)
+        wires = shape.slice(App.Vector(0.0, 0.0, 1.0), obj.Thickness.Value / 2)
+        loops = tuple(
+            tuple(
+                (point.x, point.y)
+                for point in wire.discretize(Deflection=_OUTLINE_DEFLECTION_MM)[:-1]
+            )
+            for wire in wires
+        )
+    except (RuntimeError, ValueError, AttributeError):
+        return None
+    if not loops or any(len(loop) < 3 for loop in loops):
+        return None
+    loops = tuple(sorted(loops, key=lambda loop: -abs(_loop_area(loop))))
+    area = abs(_loop_area(loops[0])) - sum(abs(_loop_area(loop)) for loop in loops[1:])
+    if len(loops) == 1 and area >= _OUTLINE_FILL * obj.Length.Value * obj.Width.Value:
+        return None
+    return loops
+
+
+def _loop_area(loop: tuple[tuple[float, float], ...]) -> float:
+    """Aire algébrique d'une boucle (formule du lacet)."""
+    return (
+        sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(loop, loop[1:] + loop[:1], strict=True)) / 2
+    )
+
+
+def placed_blank(obj: DocumentObject | None, with_footprint: bool = False) -> PlacedBlock:
+    """Pièce brute vue par ``core`` (cotes et placement, et contour réel si ``with_footprint``) ;
+    ``ValueError`` traduite si elle manque ou n'est pas une pièce de bois,
+    ``InvalidDimensionsError`` si une cote est invalide."""
     if obj is None:
         raise ValueError(translated(_MISSING_PART))
     if not is_timber(obj):
         raise ValueError(translated(_NOT_A_WOOD_PART, {"label": quoted_value(obj.Label)}))
-    return PlacedBlock(dimensions_of(obj), rigid_transform(obj.Placement))
+    footprint = footprint_of(obj) if with_footprint else None
+    return PlacedBlock(dimensions_of(obj), rigid_transform(obj.Placement), footprint)
 
 
 def _inputs(joint: DocumentObject) -> tuple[Any, PlacedBlock, PlacedBlock, Any]:
     """Stratégie, brutes (hôte, invitée) et paramètres de l'assemblage ``joint``."""
     proxy: JointFeature = joint.Proxy
-    host = placed_blank(joint.HostPart)
+    host = placed_blank(joint.HostPart, proxy.KIND is JointKind.FOOT)
     guest = placed_blank(joint.GuestPart)
     return strategy_for(proxy.KIND), host, guest, proxy.params(joint)
 
