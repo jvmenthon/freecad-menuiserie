@@ -147,3 +147,34 @@ def test_decalage_sur_les_trois_axes_de_la_face_de_reference() -> None:
     delta = shifted - base
     expected = fixed.frame.x.scaled(2.0) + fixed.frame.y.scaled(3.0) + fixed.frame.z.scaled(5.0)
     assert (delta.x, delta.y, delta.z) == pytest.approx((expected.x, expected.y, expected.z))
+
+
+def test_sur_un_axe_translation_seule() -> None:
+    fixed = _face(Vec3(0, 0, 10), Vec3(0, 0, 1))
+    moving = _face(Vec3(5, 5, 40), Vec3(0, 0, 1))
+    motion = align(fixed, moving, axis=_unit(0, 1, 1))  # axe oblique : glisse en Y et en Z
+    assert motion.angle == 0.0
+    assert _apply(motion, moving.frame.origin).z == pytest.approx(10.0)
+    assert motion.shift.x == 0.0
+    assert motion.shift.y == pytest.approx(motion.shift.z)
+
+
+def test_sur_un_axe_avec_ecart_le_long_de_la_normale() -> None:
+    fixed = _face(Vec3(0, 0, 10), Vec3(0, 0, 1))
+    moving = _face(Vec3(0, 0, 40), Vec3(0, 0, -1))
+    motion = align(fixed, moving, offset=Vec3(7.0, 7.0, 3.0), axis=Vec3(0, 0, 1))
+    assert _apply(motion, moving.frame.origin) == Vec3(0.0, 0.0, 13.0)
+
+
+def test_sur_un_axe_refuse_des_faces_non_paralleles() -> None:
+    fixed = _face(Vec3(0, 0, 0), Vec3(0, 0, 1))
+    moving = _face(Vec3(0, 0, 5), _unit(1, 0, 1))
+    with pytest.raises(AlignError):
+        align(fixed, moving, axis=Vec3(0, 0, 1))
+
+
+def test_sur_un_axe_dans_le_plan_des_faces_refuse() -> None:
+    fixed = _face(Vec3(0, 0, 0), Vec3(0, 0, 1))
+    moving = _face(Vec3(0, 0, 5), Vec3(0, 0, 1))
+    with pytest.raises(AlignError):
+        align(fixed, moving, axis=Vec3(1, 0, 0))

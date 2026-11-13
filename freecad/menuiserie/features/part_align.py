@@ -32,7 +32,8 @@ from freecad.menuiserie.features.part_drag import (
     restore,
     write_placement,
 )
-from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.features.picked import PickedElement, container_of
+from freecad.menuiserie.features.snap_geometry import to_vec3
 
 __all__ = ["FaceAlign", "global_motion"]
 
@@ -45,6 +46,8 @@ _SAME_OBJECT: Final = QT_TRANSLATE_NOOP(
 _DRIVEN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » : sa position est pilotée par une formule, elle ne peut pas bouger."
 )
+_UNIT_AXES: Final = {"X": (1.0, 0.0, 0.0), "Y": (0.0, 1.0, 0.0), "Z": (0.0, 0.0, 1.0)}
+_UNKNOWN_AXIS: Final = QT_TRANSLATE_NOOP("Menuiserie", "L'axe doit être X, Y ou Z (reçu : {axis}).")
 _NOT_STARTED: Final = "begin() doit précéder preview() et finish()"
 _FROM_ABOVE: Final = Vec3(0.0, 0.0, 1.0)
 
@@ -94,14 +97,31 @@ class FaceAlign:
             raise ValueError(translated(_NOT_FACES))
         return part
 
-    def plan(self, mode: AlignMode = AlignMode.AUTO, offset: Vec3 = NO_OFFSET) -> Alignment:
-        """Le mouvement qui aligne (lecture seule). ``ValueError`` traduite si une face n'est pas
-        plane."""
+    def plan(
+        self, mode: AlignMode = AlignMode.AUTO, offset: Vec3 = NO_OFFSET, axis: str | None = None
+    ) -> Alignment:
+        """Le mouvement qui aligne (lecture seule). ``axis`` (``"X"``, ``"Y"``, ``"Z"`` du
+        conteneur de la pièce déplacée) : translation sur cet axe seul, sans rotation.
+        ``ValueError`` traduite si une face n'est pas plane, si l'axe est inconnu, ou, sur un
+        axe, si les faces ne sont pas parallèles ou si l'axe est dans leur plan."""
         fixed, moving = self._faces[1 - self.moving_index], self._faces[self.moving_index]
         if not (isinstance(fixed, FaceTarget) and isinstance(moving, FaceTarget)):
             raise ValueError(translated(_NOT_FACES))
         with translated_errors():
-            return align(fixed, moving, mode, offset)
+            return align(fixed, moving, mode, offset, self._axis(axis))
+
+    def _axis(self, axis: str | None) -> Vec3 | None:
+        """Vecteur global de l'axe ``axis`` du conteneur (Std Part) de la pièce déplacée, ou du
+        document sans conteneur ; ``None`` : alignement libre."""
+        if axis is None:
+            return None
+        if axis not in _UNIT_AXES:
+            raise ValueError(translated(_UNKNOWN_AXIS, {"axis": str(axis)}))
+        unit = App.Vector(*_UNIT_AXES[axis])
+        container = container_of(self.elements[self.moving_index])
+        if container is not None:
+            unit = container.getGlobalPlacement().Rotation.multVec(unit)
+        return to_vec3(unit)
 
     @property
     def can_swap(self) -> bool:
@@ -127,13 +147,15 @@ class FaceAlign:
         self._memento = begin_drag(raw)
         self._start = raw.getGlobalPlacement()
 
-    def preview(self, mode: AlignMode = AlignMode.AUTO, offset: Vec3 = NO_OFFSET) -> Alignment:
+    def preview(
+        self, mode: AlignMode = AlignMode.AUTO, offset: Vec3 = NO_OFFSET, axis: str | None = None
+    ) -> Alignment:
         """Place la pièce d'après le début de la séance (écriture absolue, sans recalcul du
         document) et renvoie le mouvement. ``ValueError`` traduite si une face n'est pas plane."""
         memento, start = self._memento, self._start
         if memento is None or start is None:
             raise RuntimeError(_NOT_STARTED)
-        alignment = self.plan(mode, offset)
+        alignment = self.plan(mode, offset, axis)
         raw = memento.part
         container = start.multiply(memento.placement.inverse())
         placed = container.inverse().multiply(global_motion(alignment).multiply(start))
@@ -167,13 +189,14 @@ class FaceAlign:
         mode: AlignMode = AlignMode.AUTO,
         offset: Vec3 = NO_OFFSET,
         choose: JointChoice | None = None,
+        axis: str | None = None,
     ) -> tuple[Alignment, list[str]]:
         """:meth:`begin`, :meth:`preview` puis :meth:`finish` d'un seul geste (script, ``api``) ;
         au moindre refus la pièce revient avant que l'erreur soit relancée."""
-        self.plan(mode, offset)  # refus (face non plane) avant de toucher à la pièce
+        self.plan(mode, offset, axis)  # refus (face non plane) avant de toucher à la pièce
         self.begin()
         try:
-            alignment = self.preview(mode, offset)
+            alignment = self.preview(mode, offset, axis)
             return alignment, self.finish(choose)
         except BaseException:
             self.cancel()

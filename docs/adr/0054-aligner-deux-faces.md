@@ -28,13 +28,17 @@ est penchée.
    sa normale (distance entre les faces, ou jeu). La rotation se fait autour de l'origine du repère
    de la face mobile ; la translation qui suit amène cette origine dans le plan de la référence,
    puis ajoute le décalage.
-5. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
+5. **Alignement sur un axe** (demande de jv du 2026-11-13) : « Déplacement » = Libre (rotation
+   puis translation) ou X, Y, Z du conteneur de la pièce déplacée : translation sur cet axe seul,
+   sans rotation ; les faces doivent déjà être parallèles et l'axe ne doit pas être dans leur plan
+   (refus expliqués). Seul le décalage le long de la normale compte alors.
+6. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
    bouton **Inverser** (échange la pièce pilotée et la pilotante ; la première revient avant que
    la seconde bouge), **Annuler** remet tout en place. OK relie l'ensemble et propose les
    assemblages défaits avant tout recalcul (ADR 0026). Un `Placement` piloté par une formule
    refuse la commande.
-6. On écrit le `Placement` de la brute par `part_drag` (comme glissement et rotation).
-   `api.align_faces(first, second, moving=None, mode="auto", offset=(0, 0, 0))` fait la même
+7. On écrit le `Placement` de la brute par `part_drag` (comme glissement et rotation).
+   `api.align_faces(first, second, moving=None, mode="auto", offset=(0, 0, 0), axis=None)` fait la même
    chose d'un geste.
 
 ## Conséquences

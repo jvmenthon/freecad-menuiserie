@@ -28,6 +28,16 @@ NOT_PLANAR: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les deux faces doivent être planes pour être alignées."
 )
 
+NOT_PARALLEL: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Sur un axe, la pièce ne tourne pas : les deux faces doivent déjà être parallèles "
+    "(choisissez « Libre »).",
+)
+AXIS_IN_PLANE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cet axe est parallèle aux faces : un déplacement sur cet axe ne les met pas dans le même "
+    "plan. Choisissez un autre axe.",
+)
 NO_OFFSET: Final = Vec3(0.0, 0.0, 0.0)
 _IDENTITY: Final[Matrix3] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
@@ -107,21 +117,45 @@ def _wanted_normal(reference: Vec3, own: Vec3, chosen: AlignMode, spare: Vec3) -
     return spare if norm(side) <= ANGLE_TOLERANCE else unit(side)
 
 
+def _along_axis(
+    fixed: FaceTarget, moving: FaceTarget, mode: AlignMode, gap_offset: float, axis: Vec3
+) -> Alignment:
+    """Translation seule, le long de ``axis`` (unitaire), qui amène la face mobile dans le plan
+    de la référence (plus ``gap_offset`` le long de sa normale)."""
+    reference = unit(fixed.frame.z)
+    own = unit(moving.frame.z)
+    if norm(cross(reference, own)) > ANGLE_TOLERANCE:
+        raise AlignError(NOT_PARALLEL, {})
+    slope = dot(axis, reference)
+    if abs(slope) <= ANGLE_TOLERANCE:
+        raise AlignError(AXIS_IN_PLANE, {})
+    pivot = moving.frame.origin
+    gap = dot(fixed.frame.origin - pivot, reference) + gap_offset
+    chosen = _mode_of(reference, own, AlignMode.AUTO if mode is AlignMode.PERPENDICULAR else mode)
+    return Alignment(_IDENTITY, pivot, axis.scaled(gap / slope), 0.0, chosen)
+
+
 def align(
     fixed: FaceTarget,
     moving: FaceTarget,
     mode: AlignMode = AlignMode.AUTO,
     offset: Vec3 = NO_OFFSET,
+    axis: Vec3 | None = None,
 ) -> Alignment:
     """Mouvement de la pièce de ``moving`` qui met sa face dans le plan de ``fixed``.
 
     Le pivot est l'origine du repère de la face mobile (un point du plan mobile : il reste dans le
     plan). ``offset`` (mm) : décalage de plus dans le repère de la face de référence (x, y dans
-    son plan, z le long de sa normale : le « 3e axe »). Faces non planes : :class:`AlignError`."""
+    son plan, z le long de sa normale : le « 3e axe »). ``axis`` (vecteur global) : alignement
+    **sur un axe** seulement, sans rotation ; les faces doivent être parallèles, l'axe ne doit pas
+    être dans leur plan, et seul ``offset.z`` (écart le long de la normale) compte. Faces non
+    planes : :class:`AlignError`."""
     if not (fixed.planar and moving.planar):
         raise AlignError(NOT_PLANAR, {})
     reference = unit(fixed.frame.z)
     own = unit(moving.frame.z)
+    if axis is not None:
+        return _along_axis(fixed, moving, mode, offset.z, unit(axis))
     chosen = _mode_of(reference, own, mode)
     wanted = _wanted_normal(reference, own, chosen, unit(fixed.frame.x))
     rotation, angle = _rotation_between(own, wanted, unit(moving.frame.x))

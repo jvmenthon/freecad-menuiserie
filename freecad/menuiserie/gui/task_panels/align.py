@@ -2,7 +2,8 @@
 """Panneau « Aligner deux faces » (AL-c, ADR 0054).
 
 Le panneau montre les deux faces, la pièce déplacée (la pilotée) avec un bouton « Inverser » qui
-échange la pilotée et la pilotante, le mode (automatique, au ras, face contre face, d'équerre) et
+échange la pilotée et la pilotante, le déplacement (libre, ou sur l'axe X, Y ou Z sans rotation),
+le mode (automatique, au ras, face contre face, d'équerre) et
 un décalage sur les trois axes de la face de référence (deux dans son plan, le 3e le long de sa
 normale). La pièce suit les saisies en direct (:class:`FaceAlign` écrit son ``Placement`` sans
 recalculer le document) ; « OK » relie l'ensemble éventuel et valide la transaction de la
@@ -72,6 +73,14 @@ _MODES: Final = (
     (AlignMode.FACING, QT_TRANSLATE_NOOP("Menuiserie", "Face contre face")),
     (AlignMode.PERPENDICULAR, QT_TRANSLATE_NOOP("Menuiserie", "D'équerre")),
 )
+_AXIS: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacement")
+_AXIS_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Libre : la pièce tourne et glisse pour aligner les faces. X, Y ou Z : la pièce glisse "
+    "seulement sur cet axe, sans tourner (faces déjà parallèles) ; seul le 3e décalage compte.",
+)
+_FREE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Libre")
+_AXES: Final = ("X", "Y", "Z")
 _OFFSET_ROWS: Final = (
     ("offsetX", QT_TRANSLATE_NOOP("Menuiserie", "Décalage 1er axe (dans le plan)")),
     ("offsetY", QT_TRANSLATE_NOOP("Menuiserie", "Décalage 2e axe (dans le plan)")),
@@ -115,15 +124,13 @@ class AlignTaskPanel(TransactionTaskPanel):
         self._swap.setObjectName("swapButton")
         self._swap.setToolTip(translated(_SWAP_TIP if self._align.can_swap else _SWAP_IMPOSSIBLE))
         layout.addWidget(self._swap)
-        row = QtGui.QHBoxLayout()
-        row.addWidget(QtGui.QLabel(translated(_MODE)))
-        self._mode = QtGui.QComboBox()
-        self._mode.setObjectName("modeCombo")
-        self._mode.setToolTip(translated(_MODE_TIP))
+        self._axis = _combo_row(layout, "axisCombo", _AXIS, _AXIS_TIP)
+        self._axis.addItem(translated(_FREE), "")
+        for axis in _AXES:
+            self._axis.addItem(axis, axis)
+        self._mode = _combo_row(layout, "modeCombo", _MODE, _MODE_TIP)
         for mode, text in _MODES:
             self._mode.addItem(translated(text), mode.value)
-        row.addWidget(self._mode, 1)
-        layout.addLayout(row)
         self._offsets = []
         for name, text in _OFFSET_ROWS:
             line = QtGui.QHBoxLayout()
@@ -139,6 +146,7 @@ class AlignTaskPanel(TransactionTaskPanel):
         layout.addStretch(1)
         connect(self._swap, "clicked()", self._swapped)
         connect(self._mode, "currentIndexChanged(int)", self._edited)
+        connect(self._axis, "currentIndexChanged(int)", self._axis_chosen)
 
     def _show_labels(self) -> None:
         first, second = self._align.elements
@@ -167,6 +175,17 @@ class AlignTaskPanel(TransactionTaskPanel):
     def _chosen_mode(self) -> AlignMode:
         return AlignMode(str(self._mode.currentData()))
 
+    def _chosen_axis(self) -> str | None:
+        return str(self._axis.currentData()) or None
+
+    def _axis_chosen(self, *_index: object) -> None:
+        """Sur un axe, la pièce ne tourne pas : position et décalages dans le plan sont grisés."""
+        free = self._chosen_axis() is None
+        self._mode.setEnabled(free)
+        for field in self._offsets[:2]:
+            field.setEnabled(free)
+        self._edited()
+
     def _offset(self) -> Vec3:
         x, y, z = (round(float(field.property("rawValue")), 6) for field in self._offsets)
         return Vec3(x, y, z)
@@ -174,7 +193,7 @@ class AlignTaskPanel(TransactionTaskPanel):
     def _preview(self) -> bool:
         """La pièce est placée d'après les champs ; un refus s'affiche en rouge."""
         try:
-            self._align.preview(self._chosen_mode(), self._offset())
+            self._align.preview(self._chosen_mode(), self._offset(), self._chosen_axis())
         except (TypeError, ValueError, RuntimeError) as error:
             show_message(self._error, str(error))
             return False
@@ -211,6 +230,18 @@ class AlignTaskPanel(TransactionTaskPanel):
         """« Annuler » : la pièce revient et la transaction est abandonnée."""
         self._align.cancel()
         return super().reject()
+
+
+def _combo_row(layout: Widget, name: str, label: str, tip: str) -> Widget:
+    """Liste déroulante ``name`` précédée de son libellé, ajoutée à ``layout``."""
+    row = QtGui.QHBoxLayout()
+    row.addWidget(QtGui.QLabel(translated(label)))
+    combo = QtGui.QComboBox()
+    combo.setObjectName(name)
+    combo.setToolTip(translated(tip))
+    row.addWidget(combo, 1)
+    layout.addLayout(row)
+    return combo
 
 
 def open_panel(align: FaceAlign) -> None:

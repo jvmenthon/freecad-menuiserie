@@ -73,3 +73,27 @@ def test_mode_inconnu_refuse() -> None:
             api.align_faces(_face(first, (100, 50, 20)), _face(second, (100, 50, 20)), mode="x")
     finally:
         App.closeDocument(doc.Name)
+
+
+def test_sur_l_axe_z_seulement_la_piece_ne_glisse_qu_en_hauteur() -> None:
+    doc = App.newDocument("AlignementAxe")
+    try:
+        reference = _part(doc, (0, 0, 0))
+        other = _part(doc, (300, 40, 150))
+        api.align_faces(_face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), axis="Z")
+        doc.recompute()
+        base = other.Placement.Base
+        assert (base.x, base.y) == pytest.approx((300.0, 40.0))  # rien en X ni en Y
+        assert other.Shape.BoundBox.ZMax == pytest.approx(20.0, abs=TOLERANCE)
+    finally:
+        App.closeDocument(doc.Name)
+
+
+def test_sur_un_axe_parallele_aux_faces_refuse() -> None:
+    doc = App.newDocument("AlignementAxePlan")
+    try:
+        first, second = _part(doc, (0, 0, 0)), _part(doc, (0, 0, 100))
+        with pytest.raises(ValueError):
+            api.align_faces(_face(first, (100, 50, 20)), _face(second, (100, 50, 20)), axis="X")
+    finally:
+        App.closeDocument(doc.Name)
