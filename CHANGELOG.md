@@ -5,6 +5,12 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Modifié
+
+- Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).
+- « Exporter la liste de débit (CSV)… » : le format (français : « ; » et virgule décimale, ou international) se choisit dans la boîte d'enregistrement, par un filtre à chaque format. Le français est présélectionné quand FreeCAD est en français, puis le dernier choix est retenu dans les préférences (issue #223).
+- L'infobulle des commandes qui attendent une sélection (assemblages, quincaillerie, ensembles, répétition, « Définir une distance », « Convertir en pièce en bois ») se termine par une ligne « Prérequis : … » qui dit quoi sélectionner, que le bouton soit grisé ou non (issue #221, ADR 0052).
+
 ### Corrigé
 
 - Panneau « Structure » : régression de #208, la transparence de sélection (50 %, bleu clair) n'apparaissait plus pendant une tâche. Elle est de nouveau posée dès le clic de ligne, en même temps que la transparence d'édition (60 %) de la pièce éditée, les deux indépendantes (l'édition prime sur le même objet). Elle est écrite dans la transaction du panneau puis retirée avant sa validation ou son abandon : aucune teinte dans l'historique d'annulation (Ctrl+Z/Ctrl+Y) ni dans le fichier, y compris enregistré pendant la tâche ; une tâche d'un autre atelier garde la pose différée (ADR 0046). Ctrl+Z / Ctrl+Y rejouent la valeur d'affichage du moment : elle est corrigée après coup (`slotRedoDocument`). Limite : un calque d'édition reposé par un enregistrement pendant la tâche est écrit dans la transaction (comportement antérieur inchangé).
@@ -28,6 +34,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   Une pièce en bois à forme dessinée est acceptée quand sa forme est une boîte.
   La commande est active sans sélection (on désigne pièce, face ou arête dans la vue 3D) ; les
   faces choisies s'affichent en sélecteurs visuels de chants.
+- Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
   sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
   un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le

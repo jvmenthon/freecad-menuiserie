@@ -102,6 +102,7 @@ def verifier_commande_de_distance_presente() -> list[str]:
     constats = {
         "libellé": (infos["menuText"], TRANSACTION),
         "infobulle": (bool(infos["toolTip"].strip()), True),
+        "prérequis dans l'infobulle": ("Prérequis : " in infos["toolTip"], True),
         "icône": (infos["pixmap"], icon_path(f"{COMMANDE}.svg")),
         "icône affichée": (commande.getAction()[0].icon().isNull(), False),
         "emplacements": (

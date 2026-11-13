@@ -2,7 +2,10 @@
 """Création et retrait des copies d'une pièce ou d'un ensemble (ADR 0043, lot R-b3).
 
 Une copie de pièce est une pièce de bois créée par :func:`.wood_part.create_wood_part`, au
-libellé « {libellé source} {k+1} », rangée dans le conteneur de la source. Une copie d'ensemble
+libellé « {libellé source} {k+1} », rangée dans le conteneur de la source. Une copie de pièce en
+bois (``ShapedPart``, ADR 0050) en est une aussi : elle lie le même ``Source`` (le corps n'est ni
+copié ni modifié) et reprend repère, solide désigné, matériau, fil et surcotes ; ses cotes
+d'encombrement sont des sorties de ``execute()``, jamais liées. Une copie d'ensemble
 est un ensemble neuf (sous-ensemble du même parent s'il y en a un) qui reçoit une copie de chaque
 membre de la source, récursivement.
 
@@ -48,14 +51,44 @@ from freecad.menuiserie.features.furniture_container import (
 from freecad.menuiserie.features.furniture_detach import release_furniture
 from freecad.menuiserie.features.furniture_members import join_member
 from freecad.menuiserie.features.i18n import report_warning
+from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
 )
+from freecad.menuiserie.features.part_names import label_of_mark
 from freecad.menuiserie.features.repeat import COPY_PROPERTIES, cell_of, is_copy, write_cell
+from freecad.menuiserie.features.shaped_part import (
+    OBJECT_NAME,
+    ShapedPart,
+    is_profile,
+    is_shaped_part,
+)
+from freecad.menuiserie.features.shaped_part_schema import apply_editor_modes
+from freecad.menuiserie.features.wood_material import shows_grain
 from freecad.menuiserie.features.wood_part import create_wood_part
 
-__all__ = ["Place", "add_missing_members", "drop_copy", "new_copies", "new_part_copy"]
+__all__ = [
+    "Place",
+    "add_missing_members",
+    "drop_copy",
+    "new_copies",
+    "new_part_copy",
+    "new_shaped_copy",
+]
+
+_ALLOWANCES = ("LengthAllowance", "WidthAllowance", "ThicknessAllowance")
+# Recopiés par valeur dans une copie de pièce en bois : repère, solide désigné, cotes de départ
+# (le recalcul les réécrit), jamais liés par expression.
+_SHAPED_VALUES = (
+    "SourceAxes",
+    "ProfileThickness",
+    "SolidIndex",
+    "SolidSignature",
+    "Length",
+    "Width",
+    "Thickness",
+)
 
 
 class Place(NamedTuple):
@@ -79,11 +112,33 @@ def _mark_copy(
     write_cell(copy, at.cell)
 
 
+def _finish_copy(
+    copy: DocumentObject,
+    source: DocumentObject,
+    repeat: DocumentObject,
+    at: Place,
+    container: DocumentObject | None,
+) -> DocumentObject:
+    """Range ``copy`` (pièce de bois ou pièce en bois) dans ``container`` (``None`` : racine), lui
+    donne le fil et les surcotes de ``source``, ses marques de copie et sa place ``at``."""
+    if container is not None:
+        container.addObject(copy)
+    copy.GrainDirection = source.GrainDirection
+    for name in _ALLOWANCES:
+        setattr(copy, name, getattr(source, name))
+    _mark_copy(copy, source, repeat, at)
+    placement = source.Placement
+    copy.Placement = App.Placement(placement.Base + at.shift, placement.Rotation)
+    return copy
+
+
 def new_part_copy(
     source: DocumentObject, repeat: DocumentObject, at: Place, container: DocumentObject | None
 ) -> DocumentObject:
-    """Copie de la pièce ``source`` à la place ``at`` (sans expressions), rangée dans ``container``
-    (``None`` : racine)."""
+    """Copie de la pièce ``source`` (pièce de bois ou pièce en bois) à la place ``at`` (sans
+    expressions), rangée dans ``container`` (``None`` : racine)."""
+    if is_shaped_part(source):
+        return new_shaped_copy(source, repeat, at, container)
     copy = create_wood_part(
         source.Document,
         length=source.Length.Value,
@@ -92,15 +147,30 @@ def new_part_copy(
         material_id=source.MaterialId,
         mark=f"{source.Label} {at.rank + 1}",
     )
-    if container is not None:
-        container.addObject(copy)
-    copy.GrainDirection = source.GrainDirection
-    for name in ("LengthAllowance", "WidthAllowance", "ThicknessAllowance"):
+    return _finish_copy(copy, source, repeat, at, container)
+
+
+def new_shaped_copy(
+    source: DocumentObject, repeat: DocumentObject, at: Place, container: DocumentObject | None
+) -> DocumentObject:
+    """Copie de la pièce en bois ``source`` (ADR 0050) : une ``ShapedPart`` qui lie le même
+    ``Source`` (le corps n'est ni copié ni modifié), sans passer par ``create_shaped_parts`` (qui
+    refuse un corps déjà converti). Les réglages sont recopiés par valeur ; les cotes
+    d'encombrement le sont aussi, pour mémoire seulement : le recalcul les réécrit depuis le
+    corps. Aucune expression ici."""
+    copy = source.Document.addObject("Part::FeaturePython", OBJECT_NAME)
+    proxy = ShapedPart(copy)
+    proxy.select_material(copy, get_library().get(source.MaterialId))
+    copy.Source = source.Source
+    for name in _SHAPED_VALUES:
         setattr(copy, name, getattr(source, name))
-    _mark_copy(copy, source, repeat, at)
-    placement = source.Placement
-    copy.Placement = App.Placement(placement.Base + at.shift, placement.Rotation)
-    return copy
+    with proxy.synchronizing():
+        copy.Mark = f"{source.Label} {at.rank + 1}"
+        copy.Label = label_of_mark(copy, copy.Mark)
+    apply_editor_modes(
+        copy, show_grain=shows_grain(copy, proxy.library()), profile=is_profile(copy)
+    )
+    return _finish_copy(copy, source, repeat, at, container)
 
 
 def _new_furniture_copy(

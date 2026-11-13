@@ -2,6 +2,9 @@
 """Socle commun des commandes de l'atelier : :class:`TransactionCommand` (ressources d'une
 commande qui porte une entrée d'annulation) et affichage d'un refus (:func:`report_refusal`).
 
+Une commande qui attend une sélection reste grisée tant que la sélection ne convient pas ; son
+infobulle se termine par la ligne « Prérequis : … » (:func:`tool_tip`, issue #221, ADR 0052).
+
 Un refus de l'api est expliqué dans une boîte d'avertissement non modale, la barre d'état et la
 vue rapport, sans rien créer (demande de jv) ; les commandes d'assemblage, d'ensemble et de
 liste de débit le signalent toutes de la même façon.
@@ -25,6 +28,7 @@ from freecad.menuiserie.gui.task_panels.base import close_transaction
 REFUSAL_DISPLAY_MS: Final = 15_000  # durée d'affichage d'un refus dans la barre d'état
 REFUSAL_BOX_NAME: Final = "MenuiserieRefusal"
 REFUSAL_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Menuiserie : action refusée")
+PREREQUISITE_LINE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Prérequis : {prerequisite}")
 _REFUSAL_BOX: dict[str, Any] = {}  # boîte réutilisée, gardée en vie entre deux refus
 
 
@@ -37,14 +41,26 @@ class TransactionCommand:
     MENU_TEXT: ClassVar[str]
     TOOL_TIP: ClassVar[str]
     TRANSACTION: ClassVar[str]
+    PREREQUISITE: ClassVar[str] = ""  # sélection attendue (hints), ajoutée à l'infobulle
 
     def GetResources(self) -> dict[str, str]:
-        """Icône, libellé et infobulle (traduits par FreeCAD, contexte = nom de la commande)."""
+        """Icône, libellé et infobulle (traduits par FreeCAD, contexte = nom de la commande) ;
+        l'infobulle d'une commande à sélection se termine par son prérequis."""
         return {
             "Pixmap": icon_path(f"{self.NAME}.svg"),
             "MenuText": self.MENU_TEXT,
-            "ToolTip": self.TOOL_TIP,
+            "ToolTip": tool_tip(self.NAME, self.TOOL_TIP, self.PREREQUISITE),
         }
+
+
+def tool_tip(name: str, tip: str, prerequisite: str) -> str:
+    """Infobulle de la commande ``name`` : ``tip`` tel quel sans prérequis (FreeCAD le traduit) ;
+    sinon ``tip`` traduit suivi de la ligne « Prérequis : … ». Le texte est le même que le bouton
+    soit grisé ou non : l'infobulle dit toujours ce qu'il faut sélectionner (issue #221)."""
+    if not prerequisite:
+        return tip
+    line = translated(PREREQUISITE_LINE, {"prerequisite": translated(prerequisite)})
+    return f"{App.Qt.translate(name, tip)}\n\n{line}"
 
 
 @contextmanager

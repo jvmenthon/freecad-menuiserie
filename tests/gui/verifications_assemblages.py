@@ -149,6 +149,12 @@ def verifier_commandes_d_assemblage_presentes() -> list[str]:
         infos = commande.getInfo()
         problemes += [
             *ecarts(f"{nom} libellé", infos["menuText"], libelle),
+            *ecarts(f"{nom} prérequis", "Prérequis : " in infos["toolTip"], True),
+            *ecarts(
+                f"{nom} prérequis au survol du bouton",
+                "Prérequis : " in commande.getAction()[0].toolTip(),
+                True,
+            ),
             *ecarts(f"{nom} icône", infos["pixmap"], icon_path(f"{nom}.svg")),
             *ecarts(f"{nom} icône affichée", commande.getAction()[0].icon().isNull(), False),
             *ecarts(

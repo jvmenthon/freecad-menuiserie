@@ -113,6 +113,10 @@ bouge (passez par l'ensemble). Recette : `docs/recette/souris-et-distances.md`.
 
 ## Assembler deux pièces
 
+Une commande qui attend une sélection est grisée tant que la sélection ne convient pas :
+laissez la souris sur son bouton, la dernière ligne de l'infobulle (« Prérequis : deux pièces
+sélectionnées… ») dit quoi sélectionner.
+
 Sélectionnez deux pièces (dans l'arbre ou la vue 3D), puis **Tenon-mortaise**,
 **Rainure-languette**, **Feuillure**, **Tourillons**, **Mi-bois**, **Queue d'aronde** ou
 **Onglet** (barre d'outils ou menu *Menuiserie*).
@@ -193,9 +197,12 @@ sont gardées, et la feuille reste une feuille FreeCAD ordinaire, lisible sans l
 **Aperçu de la liste de débit** ouvre, avant tout export, une fenêtre qui montre la liste telle
 qu'elle sera exportée, avec la **miniature** isométrique de la pièce à chaque ligne (tenons et
 queues d'aronde visibles) et les boutons « Exporter en PDF… », « Exporter en CSV… » ; le PDF
-contient les mêmes miniatures. **Exporter la liste de débit (CSV)…** enregistre la même liste dans un fichier CSV au format
-international (séparateur virgule, point décimal, UTF-8 avec BOM) ; le format français reste
-disponible depuis la console : `api.export_cut_list_csv(doc, "debit.csv", dialect=api.FRENCH_CSV)`.
+contient les mêmes miniatures. **Exporter la liste de débit (CSV)…** enregistre la même liste dans un fichier CSV (UTF-8 avec BOM).
+Le **format se choisit dans la boîte d'enregistrement** : *français* (point-virgule, virgule
+décimale, ouvert directement par Excel ou LibreOffice en français) ou *international* (virgule,
+point décimal). Le format français est proposé d'abord quand FreeCAD est en français ; ensuite
+le dernier choix est retenu. Depuis la console : `api.export_cut_list_csv(doc, "debit.csv",
+dialect=api.FRENCH_CSV)`. Avant la liste, l'aperçu et les exports, si des pièces n'ont pas de repère, une boîte propose de **numéroter automatiquement**, de **continuer** sans repère ou d'**annuler**.
 **Exporter la liste de débit (PDF)…** produit un PDF prêt à imprimer (A4 paysage, marges de
 10 mm : titre, date, portée, tableau, totaux, fournitures et avertissements). **Numéroter les
 repères** donne un repère `M1`, `M2`… à chaque groupe de pièces identiques qui n'en a pas (les
