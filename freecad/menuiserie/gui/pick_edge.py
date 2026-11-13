@@ -22,7 +22,7 @@ from freecad.menuiserie.core.edges import edges_at, face_at
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import is_machined_part
-from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
 __all__ = ["EdgePicker", "Pick", "selected_pick"]
@@ -40,10 +40,11 @@ class Pick(NamedTuple):
 
 
 def _part_of(target: DocumentObject) -> DocumentObject | None:
-    """Pièce de bois (brute) que ``target`` désigne : elle-même, ou la brute de sa pièce usinée."""
+    """Pièce de bois ou pièce en bois (brute) que ``target`` désigne : elle-même, ou la brute de
+    sa pièce usinée."""
     if is_machined_part(target):
         target = target.Base
-    return target if is_wood_part(target) else None
+    return target if is_timber(target) else None
 
 
 def _pick_of(target: DocumentObject, sub: str) -> Pick | None:

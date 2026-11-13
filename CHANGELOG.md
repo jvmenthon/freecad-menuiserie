@@ -25,6 +25,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
   aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
+  Une pièce en bois à forme dessinée est acceptée quand sa forme est une boîte.
   La commande est active sans sélection (on désigne pièce, face ou arête dans la vue 3D) ; les
   faces choisies s'affichent en sélecteurs visuels de chants.
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble

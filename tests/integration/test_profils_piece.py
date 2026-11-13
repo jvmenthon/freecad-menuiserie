@@ -131,11 +131,25 @@ def test_le_tenon_garde_ses_aretes_vives(cadre_assemble: Cadre) -> None:
 # --- B5, B7, B9 : refus et API ---------------------------------------------------------------
 
 
-def test_pieces_en_bois_refusees(document: Any) -> None:
+def test_piece_en_bois_boite_acceptee(document: Any) -> None:
+    """Une pièce en bois dont la forme est une boîte reçoit un profil comme une pièce de bois."""
     box = document.addObject("Part::Box", "Boite")
+    box.Length, box.Width, box.Height = 300.0, 100.0, 20.0
     document.recompute()
     shaped = api.make_shaped_part(box)
-    with pytest.raises(ValueError, match="pièce en bois"):
+    before = shaped.Shape.Volume
+    api.add_edge_profile(shaped, ["Z+Y-"], "Chamfer", 2.0)
+    document.recompute()
+    machined = machined_of(shaped)
+    assert machined.isValid() and len(machined.Shape.Solids) == 1
+    assert machined.Shape.Volume == pytest.approx(before - 2.0 * shaped.Length.Value, rel=1e-6)
+
+
+def test_piece_en_bois_non_boite_refusee(document: Any) -> None:
+    cylinder = document.addObject("Part::Cylinder", "Cylindre")
+    document.recompute()
+    shaped = api.make_shaped_part(cylinder)
+    with pytest.raises(ValueError, match="simple boîte"):
         api.add_edge_profile(shaped, ["Z+Y-"], "Chamfer", 1.0)
     assert not [o for o in document.Objects if o.Name.startswith("EdgeProfile")]
 

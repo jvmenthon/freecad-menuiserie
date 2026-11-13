@@ -55,7 +55,8 @@ Options étudiées :
    `freecad.menuiserie.features.edge_profile.EdgeProfile`, proxy sans état, `Version` = 1.
    `MachinedPart` passe en `Version` 2 (propriété `Finishes` vide à la migration).
 7. **Périmètre** : pièces de bois et pièces usinées. Une pièce en bois (`ShapedPart`, forme libre)
-   est refusée ; profils personnels (JSON) et arrondi de coin reportés.
+   n'est acceptée que si sa forme est une boîte (solide égal à son encombrement : même repère,
+   mêmes codes d'arête) ; toute autre forme est refusée ; profils personnels (JSON) et arrondi de coin reportés.
 
 ## Conséquences
 

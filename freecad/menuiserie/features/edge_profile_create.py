@@ -14,6 +14,7 @@ from typing import Final
 from freecad.menuiserie.core.edges import EdgeFamily
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.edge_profile import (
     OBJECT_NAME,
     EdgeProfile,
@@ -30,18 +31,12 @@ from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
 )
-from freecad.menuiserie.features.shaped_part import is_shaped_part
-from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
 __all__ = ["create_edge_profile", "edge_profiles_of", "remove_edge_profile", "update_edge_profile"]
 
 _PROFILE_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Profil d'arête")
-_SHAPED_PART: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "« {label} » est une pièce en bois (forme dessinée) : les profils d'arête ne s'appliquent "
-    "qu'aux pièces de bois (boîtes).",
-)
 _NOT_A_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est ni une pièce de bois ni sa pièce usinée."
 )
@@ -67,10 +62,11 @@ def _blank_of(part: DocumentObject) -> DocumentObject:
     """Pièce de bois (boîte) de ``part``, brute ou usinée ; ``ValueError`` traduite sinon."""
     blank = part.Base if is_machined_part(part) else part
     label = quoted_value(getattr(part, "Label", part))
-    if is_shaped_part(blank):
-        raise ValueError(translated(_SHAPED_PART, {"label": label}))
-    if not is_wood_part(blank):
+    if not is_timber(blank):
         raise TypeError(translated(_NOT_A_PART, {"label": label}))
+    refusal = box_part_refusal(blank)
+    if refusal is not None:
+        raise ValueError(refusal)
     return blank
 
 

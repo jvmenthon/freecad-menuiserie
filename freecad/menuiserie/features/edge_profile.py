@@ -27,6 +27,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
+from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.freecad_types import (
     READ_ONLY,
     DocumentObject,
@@ -35,8 +36,6 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec, version_spec
-from freecad.menuiserie.features.shaped_part import is_shaped_part
-from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
 __all__ = [
@@ -65,14 +64,6 @@ FAMILY_LABELS: Final = {
 
 _NO_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Profil d'arête sans pièce : la pièce de bois a été supprimée."
-)
-_SHAPED_PART: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "« {label} » est une pièce en bois (forme dessinée) : les profils d'arête ne s'appliquent "
-    "qu'aux pièces de bois (boîtes).",
-)
-_NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » n'est pas une pièce de bois : elle ne peut pas recevoir de profil."
 )
 _NO_EDGE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisissez au moins une arête à profiler.")
 _BAD_EDGES: Final = QT_TRANSLATE_NOOP(
@@ -222,11 +213,9 @@ def edge_cuts(profile: DocumentObject) -> list[Extrusion]:
     part = profile.Part
     if part is None:
         raise ValueError(translated(_NO_PART))
-    label = quoted_value(part.Label)
-    if is_shaped_part(part):
-        raise ValueError(translated(_SHAPED_PART, {"label": label}))
-    if not is_wood_part(part):
-        raise ValueError(translated(_NOT_A_WOOD_PART, {"label": label}))
+    refusal = box_part_refusal(part)
+    if refusal is not None:
+        raise ValueError(refusal)
     codes = checked_codes(list(profile.Edges))
     with translated_errors():
         dimensions = dimensions_of(part)

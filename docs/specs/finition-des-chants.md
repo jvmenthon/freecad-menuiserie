@@ -74,7 +74,9 @@ seule pièce.
   (« Le profil touche l'assemblage X »), jamais un refus.
 - B4 Créer un profil crée la pièce usinée si besoin (`ensure_machined_part`) ; supprimer le
   dernier profil et le dernier assemblage supprime la pièce usinée (comportement existant).
-- B5 Pièce en bois (`ShapedPart`) : profil refusé, message clair (§ 8). Pièce sans arête : refus.
+- B5 Pièce en bois (`ShapedPart`) : acceptée quand sa forme est une boîte (solide égal à son
+  encombrement, 2026-11-13, `features/box_parts.py`), refusée sinon avec un message clair (§ 8).
+  Pièce sans arête : refus.
 - B6 Pièce en biais ou pièce d'assemblage d'onglet : le profil suit les arêtes de la **boîte
   brute** ; à l'onglet, il s'arrête net (pas de retour d'onglet, § 8) ; un test le fixe.
 - B7 Les arêtes sont enregistrées par leur **code local** (`"Z+Y-"`), jamais par un numéro

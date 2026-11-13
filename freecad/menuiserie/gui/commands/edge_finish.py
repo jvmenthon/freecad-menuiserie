@@ -17,7 +17,7 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.edge_profile import is_edge_profile
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -34,11 +34,6 @@ from freecad.menuiserie.gui.task_panels.edge_finish import (
 from freecad.menuiserie.gui.view_providers.edge_profile import ICON
 
 COMMAND_NAME: Final = "Menuiserie_EdgeFinish"
-_SHAPED: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Les profils d'arête ne s'appliquent qu'aux pièces de bois (boîtes) : « {label} » est une "
-    "pièce en bois à forme dessinée.",
-)
 
 
 def selected_part() -> DocumentObject | None:
@@ -85,8 +80,9 @@ class EdgeFinishCommand:
         if target is not None and is_edge_profile(target):
             start_editing(target)
             return
-        if target is not None and is_shaped_part(target):
-            report_refusal(translated(_SHAPED, {"label": quoted_value(target.Label)}))
+        refusal = None if target is None else box_part_refusal(target)
+        if refusal is not None:
+            report_refusal(refusal)
             return
         pick = selected_pick(target)
         App.ActiveDocument.openTransaction(translated(CREATE_TRANSACTION))
