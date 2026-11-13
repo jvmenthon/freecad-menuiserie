@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Sources d'une répétition : contrôles, conteneur commun, cotes et grille effective (ADR 0043).
 
-Une source est une pièce de bois (ou la pièce usinée d'une pièce de bois : la répétition porte sur
-sa pièce brute, ADR 0006) ou un ensemble de pièces de bois. Les refus sont des ``ValueError`` ou
+Une source est une pièce de bois ou une pièce en bois à forme libre (ou la pièce usinée d'une pièce
+de bois : la répétition porte sur sa pièce brute, ADR 0006, ADR 0050) ou un ensemble de telles
+pièces. Les refus sont des ``ValueError`` ou
 ``TypeError`` traduites, levées avant toute création. La cote qui sert aux modes « sur une
 longueur » est celle de l'ensemble des sources le long de chaque axe de la grille (boîte
 englobante de leurs formes, ou cote d'un ensemble, lues à l'écriture).
@@ -24,7 +25,8 @@ from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.repeat_follow import follow_furniture
 from freecad.menuiserie.features.repeat_members import ancestors_of, descendants_of
-from freecad.menuiserie.features.wood_part import is_wood_part, validated_arguments
+from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.wood_part import validated_arguments
 
 __all__ = [
     "checked_sources",
@@ -38,13 +40,13 @@ __all__ = [
 _NO_SOURCE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répétition : aucune pièce à répéter.")
 _NOT_A_WOOD_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Répétition : « {label} » n'est pas une pièce de bois ; pour l'instant, seules les pièces "
-    "de bois (ou leur pièce usinée) et les ensembles se répètent (pas les pièces en bois).",
+    "Répétition : « {label} » n'est pas une pièce de bois ; seules les pièces de bois, les "
+    "pièces en bois (ou leur pièce usinée) et les ensembles se répètent.",
 )
 _FOREIGN_MEMBER: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Répétition : l'ensemble « {furniture} » contient « {label} », qui n'est pas une pièce de "
-    "bois ; pour l'instant, seuls les ensembles de pièces de bois se répètent.",
+    "bois ; seuls les ensembles de pièces de bois se répètent.",
 )
 _IS_A_COPY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -80,11 +82,11 @@ def _checked_part(obj: DocumentObject) -> None:
 
 def _checked_furniture(furniture: DocumentObject) -> None:
     """Un ensemble ne se répète que si tous ses membres, à tous les niveaux, sont des pièces de
-    bois ou des ensembles (``TypeError`` traduite sinon)."""
+    bois, pièces en bois ou ensembles (``TypeError`` traduite sinon)."""
     for member in descendants_of(furniture):
         if is_furniture(member):
             continue
-        if not is_wood_part(member):
+        if not is_timber(member):
             params = {
                 "furniture": quoted_value(furniture.Label),
                 "label": quoted_value(member.Label),
@@ -94,9 +96,10 @@ def _checked_furniture(furniture: DocumentObject) -> None:
 
 
 def _checked_source(obj: DocumentObject) -> None:
-    """Une source valide : pièce de bois ou ensemble, qui n'est pas déjà une copie liée."""
+    """Une source valide : pièce de bois, pièce en bois ou ensemble, qui n'est pas déjà une copie
+    liée."""
     params = {"label": quoted_value(getattr(obj, "Label", obj))}
-    if not (is_furniture(obj) or is_wood_part(obj)):
+    if not (is_furniture(obj) or is_timber(obj)):
         raise TypeError(translated(_NOT_A_WOOD_PART, params))
     if is_copy(obj):
         raise ValueError(translated(_IS_A_COPY, params))
