@@ -66,7 +66,6 @@ from tests.gui.verifications_repetition_depart import VERIFICATIONS_REPETITION_D
 from tests.gui.verifications_repetition_grille import VERIFICATIONS_REPETITION_GRILLE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
-from tests.gui.verifications_selection_ensemble import VERIFICATIONS_SELECTION_ENSEMBLE
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_copie import VERIFICATIONS_SOURIS_COPIE
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
@@ -1283,7 +1282,6 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
-    *VERIFICATIONS_SELECTION_ENSEMBLE,
     # Panneau « Structure » (ADR 0046, lot 2)
     *VERIFICATIONS_STRUCTURE,
     *VERIFICATIONS_STRUCTURE_LOT3,

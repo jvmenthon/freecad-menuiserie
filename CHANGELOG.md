@@ -17,15 +17,13 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 - Fusion de `main` (répétition de pièces et d'ensembles, ADR 0043 et 0044, ensemble à la souris) dans le jalon du panneau « Structure » : les deux comportements sont gardés. La teinte des pièces d'origine du panneau « Répéter » passe par les calques d'affichage (`ORIGIN_LOOK`, repose après une transaction abandonnée), `release_furniture` et `release_repeat_links` vivent dans `features/furniture_detach.py`, le panneau montre les copies comme des pièces et l'objet Répétition sous « Autres objets de l'atelier » en attendant le lecteur de répétitions (m5).
 - Panneau « Structure » : les pieds, coulisses, LR32, faux tenons, assemblages et Distances dont les pièces sont hors ensemble (ou dans des ensembles sans ensemble commun) n'apparaissaient nulle part, car ils n'étaient lus que sous un ensemble. Ils forment désormais un nœud replié « Assemblages (N) » à la racine (menu, suppression, renommage, double-clic, sélection et icônes comme sous un ensemble) ; tout autre objet de l'atelier encore invisible est montré sous « Autres objets de l'atelier (N) ». Invariant testé : tout objet de l'atelier est dans l'arbre, une seule fois (ADR 0046).
 
+### Retiré
+
+- Sélection par ensemble dans la vue 3D et « drill down » (ADR 0048, abandonné à la demande de jv le 2026-11-13) : un clic dans la vue 3D sélectionne de nouveau la pièce touchée, le double-clic ne descend ni ne remonte plus dans les ensembles (il ouvre toujours le panneau de la pièce, ADR 0018). Les cotes du parent à l'enveloppe (ADR 0049) sont conservées.
+
 ### Ajouté
 
 - Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).
-- Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
-  sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),
-  un double-clic descend d'un niveau jusqu'à la pièce (dont le double-clic ouvre ensuite le
-  panneau), un double-clic dans le vide remonte d'un niveau ; Ctrl+clic, Maj+clic, l'arbre et un
-  panneau de tâche ouvert gardent la sélection native. Filtre d'évènements et observateur de
-  sélection posés seulement pendant que l'atelier est actif.
 - Cotes du parent à l'enveloppe de ses membres (ADR 0049) : après un déplacement ou une rotation
   d'un sous-ensemble, et dès la création d'un ensemble autour d'un ensemble tourné, la boîte de
   l'ensemble de plus haut niveau est exactement l'enveloppe de ses membres, sans marge (rotation

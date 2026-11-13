@@ -5,7 +5,7 @@
 - Date : 2026-11-12
 - Issue : #221 (revue UX de novembre 2026, point A3)
 - ADR liés : [0007](0007-compatibilite-avec-les-autres-ateliers.md),
-  [0048](0048-selection-par-ensemble-dans-la-vue-3d.md)
+  [0048](0048-selection-par-ensemble-dans-la-vue-3d.md) (abandonné le 2026-11-13)
 
 ## Contexte
 
@@ -34,7 +34,7 @@ barre d'outils grise sans savoir quoi sélectionner.
   convient pas.
 - Chaque commande à sélection fixe `PREREQUISITE`, une phrase de `gui/commands/hints.py` qui
   décrit la sélection attendue (« deux pièces sélectionnées (Ctrl+clic sur chacune…) »). Les
-  phrases citent Ctrl+clic, qui garde la sélection native pièce par pièce (ADR 0048).
+  phrases citent Ctrl+clic pour ajouter une pièce à la sélection.
 - `tool_tip` (socle des commandes) compose l'infobulle : le texte de la commande, une ligne vide,
   puis « Prérequis : … ». Une commande sans prérequis garde son infobulle telle quelle.
 - La barre d'état, qui reprend l'infobulle au survol du menu *Menuiserie*, montre le même texte.
