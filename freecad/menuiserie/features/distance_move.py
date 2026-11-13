@@ -86,7 +86,7 @@ def _refuse_curved(element: PickedElement) -> None:
             raise ValueError(translated(_CURVED_EDGE, {"label": element.label()}))
 
 
-def _targets(
+def targets_of(
     elements: tuple[PickedElement, PickedElement], toward_observer: Vec3
 ) -> tuple[Target, Target]:
     """Cibles des deux éléments, dans l'ordre ; ``ValueError`` traduite si l'un n'a pas de forme
@@ -120,14 +120,6 @@ def _moving_index(
     raise ValueError(translated(_NO_PART))
 
 
-def targets_of(
-    elements: tuple[PickedElement, PickedElement], toward_observer: Vec3
-) -> tuple[Target, Target]:
-    """Cibles des deux éléments (voir :func:`_targets`), pour les commandes qui lisent la même
-    sélection que « Définir une distance »."""
-    return _targets(elements, toward_observer)
-
-
 def moving_index_of(
     elements: tuple[PickedElement, PickedElement], moving: PickedElement | None = None
 ) -> tuple[int, tuple[DocumentObject | None, DocumentObject | None]]:
@@ -157,7 +149,7 @@ class DistanceMove:
         owners = (first.owner(), second.owner())
         if owners[0] == owners[1] or (pieces[0] is not None and pieces[0] == pieces[1]):
             raise ValueError(translated(_SAME_OBJECT))
-        self._targets = _targets(self.elements, toward_observer)
+        self._targets = targets_of(self.elements, toward_observer)
         self._pieces = pieces
         self.moving_index = _moving_index(self.elements, pieces, moving)
         self._memento: DragMemento | None = None

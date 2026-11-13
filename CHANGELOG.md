@@ -5,10 +5,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
-### Ajouté
-
-- Commande « Aligner deux faces » (menu contextuel, deux faces de deux objets) : la seconde pièce pivote au besoin pour que les faces soient parallèles, puis vient dans le même plan (au ras ou face contre face, la plus petite rotation). Nouvelle fonction `api.align_faces` (ADR 0054).
-
 ### Modifié
 
 - Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).
@@ -23,6 +19,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Commande « Aligner deux faces » (clic droit sur deux faces de deux objets) : un panneau aligne la seconde pièce en direct, avec la position automatique (au ras ou face contre face, la plus petite rotation), au ras, face contre face ou d'équerre, un décalage sur les trois axes de la face de référence, un bouton « Inverser » (échange la pièce pilotée et la pilotante) et « Annuler » qui remet tout en place. Nouvelle fonction `api.align_faces(first, second, moving=None, mode="auto", offset=(0, 0, 0))` (ADR 0054).
 - Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).
 - Sélection par ensemble dans la vue 3D (ADR 0048) : un clic sur une pièce d'un ensemble
   sélectionne l'ensemble de plus haut niveau (inchangé si la sélection contient déjà la pièce),

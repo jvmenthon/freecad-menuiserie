@@ -99,7 +99,7 @@ class AlignTaskPanel(TransactionTaskPanel):
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
         self.form.setWindowTitle(translated(TITLE))
         self._build()
-        self._start()
+        self._restart()
 
     # --- Formulaire -----------------------------------------------------------------------
 
@@ -151,7 +151,8 @@ class AlignTaskPanel(TransactionTaskPanel):
         self._reference.setText(translated(_REFERENCE, {"label": quoted_value(other)}))
         self._swap.setEnabled(self._align.can_swap)
 
-    def _start(self) -> None:
+    def _restart(self) -> None:
+        """Textes d'après la pièce déplacée, nouveau début de séance, puis aperçu."""
         with self._guard:
             self._show_labels()
         try:
@@ -187,14 +188,7 @@ class AlignTaskPanel(TransactionTaskPanel):
     def _swapped(self) -> None:
         """Inverser : l'autre pièce est déplacée avec les mêmes réglages ; la première revient."""
         self._align.swap()
-        with self._guard:
-            self._show_labels()
-        try:
-            self._align.begin()
-        except ValueError as error:
-            show_message(self._error, str(error))
-            return
-        self._preview()
+        self._restart()
 
     # --- Fermeture ------------------------------------------------------------------------
 

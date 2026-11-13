@@ -39,8 +39,9 @@ class AlignFacesCommand(TransactionCommand):
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_AlignFaces",
         "Aligne deux faces planes sélectionnées (de deux objets) : la seconde pièce de l'atelier "
-        "pivote si besoin pour que les faces soient parallèles, puis vient dans le même plan. "
-        "La rotation la plus petite est choisie : faces au ras (même sens) ou face contre face.",
+        "pivote si besoin, puis vient dans le même plan. Le panneau choisit la position (au ras, "
+        "face contre face, d'équerre), règle un décalage sur trois axes et permet d'inverser la "
+        "pièce déplacée ou d'annuler.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Aligner deux faces")
     PREREQUISITE = hints.ALIGN_FACES

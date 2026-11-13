@@ -25,8 +25,9 @@ est penchée.
    opposées), `perpendicular` (d'équerre : la rotation s'arrête à 90°) et `auto` (défaut : au
    ras ou face contre face, selon la plus petite rotation ; à 90° exacts, au ras).
 4. **Décalage sur les trois axes** de la face de référence : deux dans son plan, le 3e le long de
-   sa normale (distance entre les faces, ou jeu). Le pivot de la rotation est un point de la face
-   mobile, ramené dans le plan de la référence avant décalage.
+   sa normale (distance entre les faces, ou jeu). La rotation se fait autour de l'origine du repère
+   de la face mobile ; la translation qui suit amène cette origine dans le plan de la référence,
+   puis ajoute le décalage.
 5. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
    bouton **Inverser** (échange la pièce pilotée et la pilotante ; la première revient avant que
    la seconde bouge), **Annuler** remet tout en place. OK relie l'ensemble et propose les

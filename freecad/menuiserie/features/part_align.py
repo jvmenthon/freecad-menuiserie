@@ -165,8 +165,8 @@ class FaceAlign:
     def apply(
         self,
         mode: AlignMode = AlignMode.AUTO,
-        choose: JointChoice | None = None,
         offset: Vec3 = NO_OFFSET,
+        choose: JointChoice | None = None,
     ) -> tuple[Alignment, list[str]]:
         """:meth:`begin`, :meth:`preview` puis :meth:`finish` d'un seul geste (script, ``api``) ;
         au moindre refus la pièce revient avant que l'erreur soit relancée."""
