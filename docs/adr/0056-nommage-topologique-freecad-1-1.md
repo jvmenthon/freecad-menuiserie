@@ -78,8 +78,11 @@ soient ses cotes : la pièce de bois brute n'est pas concernée.
 - Un document existant n'a rien à migrer : la carte est créée au premier recalcul de la pièce
   usinée. Un lien d'un autre atelier créé avant ce recalcul ne porte qu'un numéro : il prend le nom
   de l'élément qui porte ce numéro au recalcul qui crée la carte, puis le suit.
-- Le fichier `.FCStd` grossit un peu (carte enregistrée avec la forme) ; le calcul des booléennes
-  ajoute la tenue de la carte.
+- Le fichier `.FCStd` grossit (carte enregistrée avec la forme, noms qui s'allongent avec la
+  chaîne d'opérations) et le calcul des booléennes ajoute la tenue de la carte ; le coût reste
+  proportionnel au nombre d'usinages, comme avant. À mesurer sur un meuble réel avant d'aller
+  plus loin (par exemple une carte pour la pièce brute).
+- `machined_shape` n'écrit jamais dans la forme reçue : une base sans étiquette est copiée.
 - Tout nouvel usinage construit en Python passe par `machined_shape` ou étiquette lui aussi ses
   entrées ; un test d'intégration le vérifie pour la pièce usinée.
 - Profils d'arête sur une forme non boîte (fil de la finition des chants, PR #149) : une pièce en

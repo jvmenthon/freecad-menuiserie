@@ -46,7 +46,7 @@ _INVALID_SHAPE: Final = QT_TRANSLATE_NOOP(
 # donnent la même forme et les mêmes noms (cache des formes usinées) ; une plage par groupe
 # (parties retirées, ajouts, enlèvements), pour qu'un ajout ne renomme pas les enlèvements.
 _BASE_TAG: Final = 1 << 30
-_GROUP_TAGS: Final = 1 << 20
+_GROUP_TAGS: Final = 1 << 20  # au plus 2^20 - 1 solides par groupe : 2^30 + 3 * 2^20 < 2^31
 
 
 def rigid_transform(placement: Any) -> RigidTransform:
@@ -163,14 +163,14 @@ def machined_shape(
 ) -> Any:
     """Forme de base de la pièce (sa boîte pour une pièce de bois, sa forme dessinée pour une
     pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016),
-    plus ``additions``, moins ``cuts``, faces coplanaires fusionnées. ``base`` est étiquetée sur
-    place si elle ne l'est pas : le résultat a une carte des éléments (ADR 0056). ``ValueError``
-    traduite si OCC échoue ou si le résultat n'est pas un solide valide (jamais de forme
-    partielle)."""
+    plus ``additions``, moins ``cuts``, faces coplanaires fusionnées, avec une carte des éléments
+    (ADR 0056 ; ``base`` n'est pas modifiée). ``ValueError`` traduite si OCC échoue ou si le
+    résultat n'est pas un solide valide (jamais de forme partielle)."""
     shape = base
-    if not shape.Tag:  # boîte d'une pièce de bois ; une forme dessinée garde la sienne
-        shape.Tag = _BASE_TAG
     try:
+        if not shape.Tag:  # boîte d'une pièce de bois ; une forme dessinée garde la sienne
+            shape = base.copy()  # jamais d'écriture dans la forme reçue
+            shape.Tag = _BASE_TAG
         tools = _tagged_tools((trims, additions, cuts))
         if trims:
             shape = shape.cut(tools[0])
