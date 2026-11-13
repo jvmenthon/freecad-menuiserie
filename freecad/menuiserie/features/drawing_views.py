@@ -22,6 +22,7 @@ __all__ = [
     "VERTICAL",
     "VIEW_TYPE",
     "add_overall_views",
+    "add_part_views",
     "removal_rank",
     "techdraw",
 ]
@@ -36,6 +37,9 @@ _VIEW_LABELS: Final = {
     "CutH": QT_TRANSLATE_NOOP("Menuiserie", "Coupe horizontale"),
     "CutV": QT_TRANSLATE_NOOP("Menuiserie", "Coupe verticale"),
     "Iso": QT_TRANSLATE_NOOP("Menuiserie", "Perspective"),
+    "Edge": QT_TRANSLATE_NOOP("Menuiserie", "Chant"),
+    "End": QT_TRANSLATE_NOOP("Menuiserie", "Bout"),
+    "Notes": QT_TRANSLATE_NOOP("Menuiserie", "Usinages"),
 }
 # Direction de vue (vers l'observateur) et axe horizontal de la feuille, dans le repère global.
 # Une coupe retire la moitié du côté de sa direction : la coupe verticale (à droite de la face)
@@ -47,6 +51,18 @@ _DIRECTIONS: Final = {
     "CutV": ((-1.0, 0.0, 0.0), (0.0, -1.0, 0.0)),
     "Iso": ((1.0, -1.0, 1.0), (1.0, 1.0, 0.0)),
 }
+# Plan de pièce : mêmes vues dans le repère local de la pièce (X longueur, Y largeur, Z
+# épaisseur), face vue de dessus de son épaisseur ; tournées ensuite par le placement de la pièce.
+_PART_DIRECTIONS: Final = {
+    "Front": ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)),
+    "Edge": ((0.0, 1.0, 0.0), (1.0, 0.0, 0.0)),
+    "End": ((-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
+    "Iso": ((1.0, 1.0, 1.0), (1.0, 0.0, -1.0)),
+}
+# Cotes d'une pièce : longueur, largeur sur la face, épaisseur sur le chant.
+_PART_DIMENSIONS: Final = (("Front", HORIZONTAL), ("Front", VERTICAL), ("Edge", VERTICAL))
+ANNOTATION_TYPE: Final = "TechDraw::DrawViewAnnotation"
+NOTE_SIZE_MM: Final = 3.5
 _SECTIONS: Final = {"CutV": "A", "CutH": "B"}  # repère du trait de coupe sur la face
 # Cotes hors tout : (vue, sens) pour la largeur (X), la profondeur (Y) et la hauteur (Z). La
 # profondeur se lit sur la coupe verticale, qui garde le plateau qu'une coupe horizontale ôte.
@@ -61,12 +77,16 @@ def techdraw() -> Any:
 
 
 def _add_view(
-    page: DocumentObject, key: str, sources: Sequence[DocumentObject], spot: Spot
+    page: DocumentObject,
+    key: str,
+    sources: Sequence[DocumentObject],
+    spot: Spot,
+    rotation: Any = None,
 ) -> DocumentObject:
     view = page.Document.addObject(VIEW_TYPE, f"{PAGE_NAME}{key}")
     page.addView(view)
     view.Source = list(sources)
-    _place(view, key, spot)
+    _place(view, key, spot, rotation)
     return view
 
 
@@ -89,10 +109,16 @@ def _add_section(
     return section
 
 
-def _place(view: DocumentObject, key: str, spot: Spot) -> None:
-    direction, x_direction = _DIRECTIONS[key]
-    view.Direction = App.Vector(*direction)
-    view.XDirection = App.Vector(*x_direction)
+def _place(view: DocumentObject, key: str, spot: Spot, rotation: Any = None) -> None:
+    """Oriente et place ``view`` ; ``rotation`` : celle d'une pièce dont on fait le plan."""
+    if rotation is None:
+        direction, x_direction = _DIRECTIONS[key]
+        view.Direction = App.Vector(*direction)
+        view.XDirection = App.Vector(*x_direction)
+    else:
+        direction, x_direction = _PART_DIRECTIONS[key]
+        view.Direction = rotation.multVec(App.Vector(*direction))
+        view.XDirection = rotation.multVec(App.Vector(*x_direction))
     view.X = spot.x
     view.Y = spot.y
     view.Label = translated(_VIEW_LABELS[key])
@@ -136,4 +162,41 @@ def add_overall_views(
     names = [view.Name for view in views.values()]
     for key, direction in _OVERALL:
         names.extend(_add_extent(page, views[key], direction))
+    return names
+
+
+def _add_notes(page: DocumentObject, lines: Sequence[str], spot: Spot) -> DocumentObject:
+    """Tableau des usinages : texte TechDraw, une ligne par usinage."""
+    note = page.Document.addObject(ANNOTATION_TYPE, f"{PAGE_NAME}Notes")
+    page.addView(note)
+    note.Text = list(lines)
+    note.TextSize = NOTE_SIZE_MM
+    note.X = spot.x
+    note.Y = spot.y
+    note.Label = translated(_VIEW_LABELS["Notes"])
+    return note
+
+
+def add_part_views(
+    page: DocumentObject,
+    part: DocumentObject,
+    rotation: Any,
+    layout: OverallLayout,
+    notes: tuple[Sequence[str], Spot],
+) -> list[str]:
+    """Pose sur ``page`` le plan de ``part`` tournée de ``rotation`` (celle de sa brute) : face,
+    chant dessous, bout à droite, perspective, longueur, largeur et épaisseur cotées, et le
+    tableau des usinages ``notes`` (lignes, place) ; renvoie les noms des objets posés."""
+    doc = page.Document
+    views = {
+        "Front": _add_view(page, "Front", [part], layout.front, rotation),
+        "Edge": _add_view(page, "Edge", [part], layout.top, rotation),
+        "End": _add_view(page, "End", [part], layout.side, rotation),
+        "Iso": _add_view(page, "Iso", [part], layout.iso, rotation),
+    }
+    doc.recompute()
+    names = [view.Name for view in views.values()]
+    for key, direction in _PART_DIMENSIONS:
+        names.extend(_add_extent(page, views[key], direction))
+    names.append(_add_notes(page, *notes).Name)
     return names

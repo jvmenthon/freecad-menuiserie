@@ -105,3 +105,10 @@ Les réglages de plan s'ajoutent au catalogue de la configuration de l'atelier (
   `drawing_title`, `client`, `quote`, `material`, `document_type`, `scale`, `date`, `author`) ;
   jv choisit face, coupe verticale, coupe horizontale (au milieu du meuble) et perspective à la
   place des vues de dessus et de gauche.
+- **P-c** (2026-11-13) : `features/drawing_parts.py`, `core/drawing/_machining.py`, commande
+  `Menuiserie_PartDrawings`. Une page par pièce distincte (matériau, cotes et usinages aux mêmes
+  places), vues dans le repère de la pièce, trois cotes d'étendue. Les usinages sont un tableau
+  (`TechDraw::DrawViewAnnotation`) et non des cotes rattachées : des cotes sur les arêtes d'un
+  usinage dépendraient de la numérotation des arêtes projetées (risque du § 3) ; le tableau est
+  refait à chaque relance. Le PDF multi-pages est reporté : chaque page s'exporte seule par
+  « Exporter le plan (PDF)… ».

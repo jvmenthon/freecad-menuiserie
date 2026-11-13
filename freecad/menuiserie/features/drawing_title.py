@@ -81,15 +81,17 @@ def fill_title_block(
     objects: Sequence[DocumentObject],
     inputs: Mapping[str, str | None],
     scale: float,
+    kind: str | None = None,
 ) -> None:
     """Écrit le cartouche du gabarit de ``page`` (``inputs`` : saisies ``title``, ``client`` et
-    ``quote``, ``None`` pour garder celle de la page) ; les cases que l'atelier ne connaît pas (et
+    ``quote``, ``None`` pour garder celle de la page ; ``kind`` : genre du document, déjà traduit,
+    « Plan de l'ouvrage » par défaut) ; les cases que l'atelier ne connaît pas (et
     celles que le menuisier a remplies lui-même dans ces cases-là) ne sont pas touchées."""
     doc = page.Document
     values = TitleFields(
         title=_stored(page, "title", inputs.get("title"), _default_title(doc, objects)),
         material=_material_text(objects),
-        kind=translated(_KIND),
+        kind=kind if kind is not None else translated(_KIND),
         scale=scale_text(scale),
         date=date.today().isoformat(),
         author=drawing_settings.default_author(str(getattr(doc, "CreatedBy", ""))),

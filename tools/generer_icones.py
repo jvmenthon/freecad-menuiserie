@@ -141,6 +141,27 @@ def plan_de_l_ouvrage() -> str:
     return document(_plan(["  <!-- Plan de l'ouvrage : face, dessus, côté et cote hors tout -->"]))
 
 
+def plans_de_piece() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    piece = 'fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"'
+    usinage = 'fill="#ffffff" stroke="#4e2f12" stroke-width="1.2"'
+    cote = 'fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"'
+    cartouche = 'stroke="#2e3436" stroke-width="1"'
+    return document(
+        [
+            "  <!-- Plans de pièce : une planche, sa mortaise et ses perçages cotés -->",
+            f'  <rect x="10" y="2" width="50" height="46" rx="2" fill="#eeeeec" {trait}/>',
+            f'  <rect x="4" y="10" width="56" height="52" rx="2" fill="#ffffff" {trait}/>',
+            f'  <rect x="10" y="24" width="44" height="14" {piece}/>',
+            f'  <rect x="16" y="28" width="10" height="6" {usinage}/>',
+            f'  <circle cx="38" cy="31" r="2.5" {usinage}/>',
+            f'  <circle cx="46" cy="31" r="2.5" {usinage}/>',
+            f'  <path d="M10,18 H54 M10,15 V21 M54,15 V21" {cote}/>',
+            f'  <rect x="38" y="48" width="18" height="10" fill="#d3d7cf" {cartouche}/>',
+        ]
+    )
+
+
 def export_du_plan_pdf() -> str:
     pdf = etiquette("PDF", "#cc0000", "#7a0000")
     return document([*_plan(["  <!-- Export du plan (PDF) -->"]), pdf])
@@ -340,6 +361,7 @@ ICONES = {
     # Plans cotés (issue #153)
     "Menuiserie_Drawing.svg": plan_de_l_ouvrage,
     "Menuiserie_DrawingPdf.svg": export_du_plan_pdf,
+    "Menuiserie_PartDrawings.svg": plans_de_piece,
     "Menuiserie_MortiseTenon.svg": tenon_mortaise,
     "Menuiserie_TongueGroove.svg": rainure_languette,
     "Menuiserie_Rabbet.svg": feuillure,

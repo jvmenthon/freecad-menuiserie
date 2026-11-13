@@ -50,21 +50,31 @@ from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = [
+    "KIND",
     "MARKER",
     "PAGE_NAME",
+    "PART_KIND",
     "TITLE",
     "DrawingOptions",
+    "apply_template",
+    "clear_page",
+    "create_page",
     "document_scope",
     "drawing_sources",
     "find_overall_drawing",
     "is_workshop_drawing",
     "make_overall_drawing",
     "overall_dimensions",
+    "set_owned",
     "techdraw_available",
+    "title_inputs",
 ]
 
 MARKER: Final = "MenuiserieDrawing"
 OWNED: Final = "MenuiserieDrawingViews"  # noms des vues et cotes posées par l'atelier
+DIMENSION_TYPE: Final = "TechDraw::DrawViewDim"  # préfixe des types de cotes
+KIND: Final = "MenuiserieDrawingKind"  # « part » : plan de pièce ; absent ou vide : de l'ouvrage
+PART_KIND: Final = "part"
 PAGE_TYPE: Final = "TechDraw::DrawPage"
 TEMPLATE_TYPE: Final = "TechDraw::DrawSVGTemplate"
 MAX_TEMPLATES: Final = 2000  # plafond du balayage du dossier de gabarits de TechDraw
@@ -82,6 +92,9 @@ _NO_TECHDRAW: Final = QT_TRANSLATE_NOOP(
 _NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan impossible : aucune pièce à dessiner.")
 _FOREIGN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan impossible : « {label} » appartient à un autre document."
+)
+_KIND_TOOLTIP: Final = QT_TRANSLATE_NOOP(
+    "App::Property", "Genre du plan construit par l'atelier Menuiserie (vide : de l'ouvrage)."
 )
 _STORED_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property", "Saisie du cartouche de ce plan (atelier Menuiserie)."
@@ -213,12 +226,17 @@ def _front_view(page: DocumentObject) -> DocumentObject | None:
     )
 
 
-def find_overall_drawing(doc: Document, sources: Sequence[DocumentObject]) -> DocumentObject | None:
-    """Page de plan de l'atelier qui dessine exactement ``sources`` et que le menuisier n'a pas
-    modifiée ; ``None`` s'il n'y en a pas."""
+def find_overall_drawing(
+    doc: Document, sources: Sequence[DocumentObject], kind: str = ""
+) -> DocumentObject | None:
+    """Page de plan de l'atelier du genre ``kind`` (« » : de l'ouvrage, ``PART_KIND`` : de
+    pièce) qui dessine exactement ``sources`` et que le menuisier n'a pas modifiée ; ``None`` s'il
+    n'y en a pas."""
     wanted = sorted(obj.Name for obj in sources)
     for obj in doc.Objects:
         if not is_workshop_drawing(obj) or not _untouched(obj):
+            continue
+        if str(getattr(obj, KIND, "")) != kind:
             continue
         front = _front_view(obj)
         if front is not None and sorted(source.Name for source in front.Source) == wanted:
@@ -226,25 +244,29 @@ def find_overall_drawing(doc: Document, sources: Sequence[DocumentObject]) -> Do
     return None
 
 
-def _create_page(doc: Document) -> DocumentObject:
+def create_page(doc: Document, kind: str = "") -> DocumentObject:
+    """Nouvelle page de plan de l'atelier, du genre ``kind``, avec son gabarit (vide)."""
     page = doc.addObject(PAGE_TYPE, PAGE_NAME)
     page.addProperty("App::PropertyBool", MARKER, "Menuiserie", _MARKER_TOOLTIP)
     page.addProperty("App::PropertyString", OWNED, "Menuiserie", _OWNED_TOOLTIP)
+    page.addProperty("App::PropertyString", KIND, "Menuiserie", _KIND_TOOLTIP)
     for name in STORED.values():
         page.addProperty("App::PropertyString", name, "Menuiserie", _STORED_TOOLTIP)
     setattr(page, MARKER, True)
-    for name in (MARKER, OWNED, *STORED.values()):
+    setattr(page, KIND, kind)
+    for name in (MARKER, OWNED, KIND, *STORED.values()):
         page.setEditorMode(name, HIDDEN)
     page.Label = translated(TITLE)
     page.Template = doc.addObject(TEMPLATE_TYPE, f"{PAGE_NAME}Gabarit")
     return page
 
 
-def _title_inputs(options: DrawingOptions) -> dict[str, str | None]:
+def title_inputs(options: DrawingOptions) -> dict[str, str | None]:
+    """Saisies du cartouche venues de ``options``."""
     return {"title": options.title, "client": options.client, "quote": options.quote}
 
 
-def _apply_template(page: DocumentObject, options: DrawingOptions) -> None:
+def apply_template(page: DocumentObject, options: DrawingOptions) -> None:
     """Donne à ``page`` le gabarit de TechDraw voulu par ``options`` (inchangé s'il l'a déjà)."""
     path = _template_path(options)
     template = page.Template
@@ -252,7 +274,7 @@ def _apply_template(page: DocumentObject, options: DrawingOptions) -> None:
         template.Template = path
 
 
-def _clear(page: DocumentObject) -> None:
+def clear_page(page: DocumentObject) -> None:
     """Retire de ``page`` les vues et cotes posées par l'atelier (les cotes d'abord)."""
     doc = page.Document
     owned = [doc.getObject(name) for name in _owned(page)]
@@ -262,12 +284,17 @@ def _clear(page: DocumentObject) -> None:
     setattr(page, OWNED, "")
 
 
+def set_owned(page: DocumentObject, names: Sequence[str]) -> None:
+    """Enregistre sur ``page`` les vues et cotes posées par l'atelier, puis la recalcule."""
+    setattr(page, OWNED, ";".join(names))
+    page.Document.recompute()
+
+
 def _fill(
     page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout, center: Any
 ) -> None:
     page.Scale = layout.scale
-    setattr(page, OWNED, ";".join(add_overall_views(page, sources, layout, center)))
-    page.Document.recompute()
+    set_owned(page, add_overall_views(page, sources, layout, center))
 
 
 def make_overall_drawing(
@@ -290,11 +317,11 @@ def make_overall_drawing(
     try:
         page = find_overall_drawing(doc, sources)
         if page is None:
-            page = _create_page(doc)
+            page = create_page(doc)
         else:
-            _clear(page)
-        _apply_template(page, chosen)
-        fill_title_block(page, list(objects), _title_inputs(chosen), layout.scale)
+            clear_page(page)
+        apply_template(page, chosen)
+        fill_title_block(page, list(objects), title_inputs(chosen), layout.scale)
         _fill(page, sources, layout, box.Center)
     except Exception:
         doc.abortTransaction()
@@ -307,5 +334,7 @@ def overall_dimensions(page: DocumentObject) -> list[DocumentObject]:
     """Cotes hors tout de ``page`` posées par l'atelier, dans l'ordre largeur, profondeur,
     hauteur."""
     owned = _owned(page)
-    found = [obj for obj in page.Views if obj.Name in owned and removal_rank(obj) == 0]
+    found = [
+        obj for obj in page.Views if obj.Name in owned and obj.TypeId.startswith(DIMENSION_TYPE)
+    ]
     return sorted(found, key=lambda obj: owned.index(obj.Name))

@@ -25,10 +25,14 @@ from freecad.menuiserie.gui.commands.cutlist import selected_objects, show_statu
 
 DRAWING: Final = "Menuiserie_Drawing"
 DRAWING_PDF: Final = "Menuiserie_DrawingPdf"
-COMMANDS: Final = (DRAWING, DRAWING_PDF)
+PART_DRAWINGS: Final = "Menuiserie_PartDrawings"
+COMMANDS: Final = (DRAWING, PART_DRAWINGS, DRAWING_PDF)
 PAGE_TYPE: Final = "TechDraw::DrawPage"
 
 _EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
+_PARTS_DONE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{count} plan(s) de pièce faits ; chaque page s'exporte en PDF."
+)
 
 
 def export_with_dialog(page: DocumentObject) -> None:
@@ -57,9 +61,10 @@ class DrawingCommand(TransactionCommand):
     MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_Drawing", "Plan de l'ouvrage")
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_Drawing",
-        "Crée ou refait une page TechDraw cotée : face, dessus, côté et perspective à l'échelle, "
-        "cotes hors tout qui suivent le modèle, cartouche rempli. Dessine les objets "
-        "sélectionnés, sinon tous les ensembles et pièces du document.",
+        "Crée ou refait une page TechDraw cotée : face, coupes verticale et horizontale au "
+        "milieu du meuble et perspective à l'échelle, cotes hors tout qui suivent le modèle, "
+        "cartouche rempli. Dessine les objets sélectionnés, sinon tous les ensembles et pièces "
+        "du document.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
 
@@ -83,6 +88,44 @@ class DrawingCommand(TransactionCommand):
             report_refusal(str(error))
             return
         Gui.Control.showDialog(panel)
+
+
+class PartDrawingsCommand(TransactionCommand):
+    """Crée ou refait les plans de pièce de la sélection ou du document."""
+
+    NAME = PART_DRAWINGS
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_PartDrawings", "Plans de pièce")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_PartDrawings",
+        "Crée ou refait une page TechDraw par pièce distincte : face, chant, bout et "
+        "perspective cotés, tableau des usinages (perçages, logements, tenons) et quantité au "
+        "cartouche. Format de la configuration de l'atelier. Dessine les pièces sélectionnées "
+        "ou celles des ensembles sélectionnés, sinon toutes celles du document.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce")
+
+    def IsActive(self) -> bool:
+        """Active s'il y a un document, TechDraw et aucun panneau ouvert."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and techdraw_available()
+        )
+
+    def Activated(self) -> None:
+        """Pages faites, la première montrée ; refus affiché."""
+        from freecad.menuiserie.features.drawing_parts import make_part_drawings
+
+        doc = App.ActiveDocument
+        objects = [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+        try:
+            pages = make_part_drawings(doc, objects)
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        if pages:
+            drawing_pdf.show_page(pages[0])
+        show_status(translated(_PARTS_DONE, {"count": str(len(pages))}))
 
 
 class DrawingPdfCommand(TransactionCommand):
@@ -114,4 +157,5 @@ class DrawingPdfCommand(TransactionCommand):
 def register() -> None:
     """Enregistre les commandes des plans auprès de FreeCAD."""
     Gui.addCommand(DRAWING, DrawingCommand())
+    Gui.addCommand(PART_DRAWINGS, PartDrawingsCommand())
     Gui.addCommand(DRAWING_PDF, DrawingPdfCommand())

@@ -106,13 +106,16 @@ def _extent(sizes: tuple[float, float, float], scale: float) -> tuple[float, flo
     return width, height, depth, (width + depth) * _ISO_ACROSS
 
 
-def _fits(sizes: tuple[float, float, float], scale: float, page: PageSize) -> bool:
+def _fits(
+    sizes: tuple[float, float, float], scale: float, page: PageSize, reserve: float | None = None
+) -> bool:
     width, height, depth, iso_width = _extent(sizes, scale)
     iso_height = (width + depth) * _ISO_RISE + height * _ISO_UP
     used_width = 2 * MARGIN_MM + width + depth + iso_width + 2 * GAP_MM
     block_width, block_height = TITLE_BLOCK_MM
+    block_height += reserve or 0.0
     # Le dessus, sous la face, ne monte au-dessus du cartouche que s'il passe dessous en largeur.
-    under_block = MARGIN_MM + width > page.width - block_width
+    under_block = reserve is not None or MARGIN_MM + width > page.width - block_width
     bottom = block_height if under_block else MARGIN_MM
     used_height = MARGIN_MM + max(height + GAP_MM + depth, iso_height) + bottom
     # La vue de gauche et la perspective restent au-dessus du cartouche.
@@ -120,14 +123,24 @@ def _fits(sizes: tuple[float, float, float], scale: float, page: PageSize) -> bo
     return used_width <= page.width and max(used_height, right_height) <= page.height
 
 
-def overall_layout(width: float, depth: float, height: float, page: PageSize) -> OverallLayout:
+def overall_layout(
+    width: float,
+    depth: float,
+    height: float,
+    page: PageSize,
+    *,
+    reserve: float | None = None,
+) -> OverallLayout:
     """Mise en page du plan d'un ouvrage de ``width`` x ``depth`` x ``height`` (X, Y, Z) sur
     ``page`` : la plus grande échelle normalisée où les quatre vues et leurs cotes tiennent.
-    ``TemplatedError`` pour une cote nulle, négative, non finie ou démesurée."""
+    ``reserve`` (plan de pièce, voir :func:`notes_band`) : les vues restent toutes au-dessus du
+    cartouche et de ``reserve`` millimètres de plus, pour laisser libre la place du tableau des
+    usinages. ``TemplatedError`` pour une cote nulle,
+    négative, non finie ou démesurée."""
     sizes = (width, depth, height)
     if not all(math.isfinite(value) and 0.0 < value <= MAX_SIZE_MM for value in sizes):
         raise TemplatedError(_BAD_SIZE, {})
-    scale = next((value for value in SCALES if _fits(sizes, value, page)), None)
+    scale = next((value for value in SCALES if _fits(sizes, value, page, reserve)), None)
     fits = scale is not None
     scale = SCALES[-1] if scale is None else scale
     face_width, face_height, face_depth, iso_width = _extent(sizes, scale)
@@ -136,6 +149,7 @@ def overall_layout(width: float, depth: float, height: float, page: PageSize) ->
         (face_width + GAP_MM + face_depth + GAP_MM + iso_width, face_width),
         (max(face_height + GAP_MM + face_depth, iso_height), max(face_height, iso_height)),
         page,
+        reserve or 0.0,
     )
     front = Spot(left + face_width / 2, top_y - face_height / 2)
     top = Spot(front.x, top_y - face_height - GAP_MM - face_depth / 2)
@@ -146,7 +160,10 @@ def overall_layout(width: float, depth: float, height: float, page: PageSize) ->
 
 
 def _group_origin(
-    widths: tuple[float, float], heights: tuple[float, float], page: PageSize
+    widths: tuple[float, float],
+    heights: tuple[float, float],
+    page: PageSize,
+    reserve: float = 0.0,
 ) -> tuple[float, float]:
     """Coin haut gauche du groupe de vues, centré dans la place libre au-dessus du cartouche.
 
@@ -158,7 +175,7 @@ def _group_origin(
     group_height, row_height = heights
     block_width, block_height = TITLE_BLOCK_MM
     free_top = page.height - MARGIN_MM
-    free_height = free_top - block_height
+    free_height = free_top - block_height - reserve
     if group_height <= free_height:
         top_y = free_top - (free_height - group_height) / 2
         right_limit = page.width - MARGIN_MM
@@ -169,3 +186,18 @@ def _group_origin(
     if group_height > free_height:
         left = min(left, max(MARGIN_MM, right_limit - left_width))
     return left, top_y
+
+
+NOTES_MIN_WIDTH_MM: Final = 120.0  # bande à gauche du cartouche assez large pour le tableau
+NOTES_HEIGHT_MM: Final = 50.0  # tableau posé au-dessus du cartouche, faute de place à sa gauche
+
+
+def notes_band(page: PageSize) -> tuple[Spot, float]:
+    """Place du tableau des usinages d'un plan de pièce : (centre, réserve à passer à
+    :func:`overall_layout`). La bande à gauche du cartouche quand elle est assez large (réserve
+    nulle), sinon une bande de toute la largeur au-dessus du cartouche."""
+    block_width, block_height = TITLE_BLOCK_MM
+    left_width = page.width - block_width - MARGIN_MM
+    if left_width >= NOTES_MIN_WIDTH_MM:
+        return Spot((MARGIN_MM + page.width - block_width) / 2, (MARGIN_MM + block_height) / 2), 0.0
+    return Spot(page.width / 2, block_height + NOTES_HEIGHT_MM / 2), NOTES_HEIGHT_MM

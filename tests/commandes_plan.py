@@ -8,5 +8,6 @@ from typing import Final
 
 COMMANDES_PLAN: Final = {
     "Menuiserie_Drawing": "Plan de l'ouvrage",
+    "Menuiserie_PartDrawings": "Plans de pièce",
     "Menuiserie_DrawingPdf": "Exporter le plan (PDF)…",
 }

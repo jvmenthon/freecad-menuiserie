@@ -89,7 +89,11 @@ from freecad.menuiserie._api.cutlist import (
     make_cut_list,
     number_marks,
 )
-from freecad.menuiserie._api.drawing import DrawingOptions, make_overall_drawing
+from freecad.menuiserie._api.drawing import (
+    DrawingOptions,
+    make_overall_drawing,
+    make_part_drawings,
+)
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
     furniture_of,
@@ -198,6 +202,7 @@ __all__ = [
     "make_miter",
     "make_mortise_tenon",
     "make_overall_drawing",
+    "make_part_drawings",
     "make_rabbet",
     "make_repeat",
     "make_room_for_slide",

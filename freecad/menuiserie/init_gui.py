@@ -91,6 +91,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
             QT_TRANSLATE_NOOP("Workbench", "Plans"),
             (
                 "Menuiserie_Drawing",  # plans cotés (issue #153, ADR 0053)
+                "Menuiserie_PartDrawings",
                 "Menuiserie_DrawingPdf",
             ),
         ),
