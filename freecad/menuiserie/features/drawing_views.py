@@ -165,6 +165,28 @@ def add_overall_views(
     return names
 
 
+DIMENSION_CLEARANCE_MM: Final = 8.0  # du bord de la vue au texte d'une cote
+
+
+def _clear_of_view(doc: Any, names: Sequence[str], view: DocumentObject, direction: int) -> None:
+    """Écarte le texte des cotes ``names`` du bord de ``view`` : au-dessus pour une cote
+    horizontale, à gauche pour une verticale (position relative au centre de la vue, en mm de
+    la feuille), pour qu'il ne chevauche ni la vue ni l'autre cote sur une pièce mince."""
+    box = view.getBoundingBox() if hasattr(view, "getBoundingBox") else None
+    if box is None:
+        return
+    scale = float(view.getScale()) if hasattr(view, "getScale") else 1.0
+    half_width, half_height = box.XLength * scale / 2, box.YLength * scale / 2
+    for name in names:
+        dim = doc.getObject(name)
+        if dim is None or not hasattr(dim, "X"):
+            continue
+        if direction == HORIZONTAL:
+            dim.X, dim.Y = 0.0, half_height + DIMENSION_CLEARANCE_MM
+        else:
+            dim.X, dim.Y = -(half_width + DIMENSION_CLEARANCE_MM), 0.0
+
+
 def _add_notes(page: DocumentObject, lines: Sequence[str], spot: Spot) -> DocumentObject:
     """Tableau des usinages : texte TechDraw, une ligne par usinage."""
     note = page.Document.addObject(ANNOTATION_TYPE, f"{PAGE_NAME}Notes")
@@ -185,18 +207,19 @@ def add_part_views(
     notes: tuple[Sequence[str], Spot],
 ) -> list[str]:
     """Pose sur ``page`` le plan de ``part`` tournée de ``rotation`` (celle de sa brute) : face,
-    chant dessous, bout à droite, perspective, longueur, largeur et épaisseur cotées, et le
+    chant dessous, bout à droite, longueur, largeur et épaisseur cotées, et le
     tableau des usinages ``notes`` (lignes, place) ; renvoie les noms des objets posés."""
     doc = page.Document
     views = {
         "Front": _add_view(page, "Front", [part], layout.front, rotation),
         "Edge": _add_view(page, "Edge", [part], layout.top, rotation),
         "End": _add_view(page, "End", [part], layout.side, rotation),
-        "Iso": _add_view(page, "Iso", [part], layout.iso, rotation),
     }
     doc.recompute()
     names = [view.Name for view in views.values()]
     for key, direction in _PART_DIMENSIONS:
-        names.extend(_add_extent(page, views[key], direction))
+        added = _add_extent(page, views[key], direction)
+        _clear_of_view(doc, added, views[key], direction)
+        names.extend(added)
     names.append(_add_notes(page, *notes).Name)
     return names

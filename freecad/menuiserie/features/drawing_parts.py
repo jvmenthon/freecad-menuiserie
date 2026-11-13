@@ -21,6 +21,7 @@ from freecad.menuiserie.core.drawing import (
     machining_lines,
     machinings,
     notes_band,
+    notes_layout,
     overall_layout,
     page_size,
 )
@@ -38,7 +39,7 @@ from freecad.menuiserie.features.drawing import (
     title_inputs,
 )
 from freecad.menuiserie.features.drawing_title import fill_title_block
-from freecad.menuiserie.features.drawing_views import add_part_views
+from freecad.menuiserie.features.drawing_views import NOTE_SIZE_MM, add_part_views
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
@@ -159,15 +160,18 @@ def distinct_parts(
     return [(blank, count, found) for blank, count, found in groups.values()]
 
 
-def _notes(found: Sequence[Machining]) -> list[str]:
+def _notes(found: Sequence[Machining], sheet: Any) -> tuple[list[str], Any]:
+    """Lignes du tableau des usinages, coupées à la largeur de la bande, et leur place."""
     if not found:
-        return [translated(_NONE)]
-    lines = [
-        translated(template, {**values, "face": translated(values["face"])})
-        for template, values in machining_lines(found)
-    ]
+        lines = [translated(_NONE)]
+    else:
+        lines = [translated(_HEADER)] + [
+            translated(template, {**values, "face": translated(values["face"])})
+            for template, values in machining_lines(found)
+        ]
+    wrapped, spot = notes_layout(sheet, lines, NOTE_SIZE_MM)
     # « {count} » reste à remplir par capped : on le réécrit tel quel.
-    return capped([translated(_HEADER), *lines], translated(_MORE, {"count": "{count}"}))
+    return capped(wrapped, translated(_MORE, {"count": "{count}"})), spot
 
 
 def _title(blank: DocumentObject) -> str:
@@ -193,15 +197,15 @@ def _draw_part(
     with translated_errors():
         sheet = page_size(options.resolved_format(), options.resolved_orientation())
         length, width, thickness = _size(blank)
-        spot, reserve = notes_band(sheet)
-        layout = overall_layout(length, thickness, width, sheet, reserve=reserve)
+        reserve = notes_band(sheet)[1]
+        layout = overall_layout(length, thickness, width, sheet, reserve=reserve, iso=False)
     apply_template(page, options)
     inputs = {**title_inputs(options), "title": _title(blank)}
     kind = translated(_KIND, {"count": str(count)})
     fill_title_block(page, [blank], inputs, layout.scale, kind)
     page.Scale = layout.scale
     rotation = blank.getGlobalPlacement().Rotation
-    notes = (_notes(found), spot)
+    notes = _notes(found, sheet)
     set_owned(page, add_part_views(page, shown, rotation, layout, notes))
     return page
 

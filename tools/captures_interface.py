@@ -359,12 +359,7 @@ LARGEUR_PLAN_PX = 2000
 def rendre_la_page(page: Any, chemin: Path) -> None:
     """Page TechDraw exportée en SVG par TechDraw puis rendue en PNG par Qt, fond blanc."""
     import TechDrawGui
-    from PySide import QtGui
-
-    try:
-        from PySide import QtSvg
-    except ImportError:
-        from PySide6 import QtSvg
+    from PySide import QtGui, QtSvg
 
     with tempfile.TemporaryDirectory() as dossier:
         svg = os.path.join(dossier, "page.svg")

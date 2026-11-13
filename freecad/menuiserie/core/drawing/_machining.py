@@ -30,7 +30,7 @@ __all__ = [
 ]
 
 _TOLERANCE_MM: Final = 0.01
-MAX_POSITIONS: Final = 6  # positions écrites sur une ligne, au plus
+MAX_POSITIONS: Final = 4  # positions écrites sur une ligne, au plus
 MAX_NOTE_LINES: Final = 8  # lignes du tableau des usinages, titre compris (bande de 45 mm)
 _FACES: Final = {
     (2, 1): QT_TRANSLATE_NOOP("Menuiserie", "face"),

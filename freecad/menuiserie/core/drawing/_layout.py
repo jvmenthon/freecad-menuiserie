@@ -11,6 +11,8 @@ vue est celle de son centre, comme dans TechDraw.
 from __future__ import annotations
 
 import math
+import textwrap
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Final
@@ -100,18 +102,31 @@ def scale_text(scale: float) -> str:
     return f"1 : {1.0 / scale:g}"
 
 
-def _extent(sizes: tuple[float, float, float], scale: float) -> tuple[float, float, float, float]:
-    """Largeur et hauteur de la face, profondeur, largeur de la perspective, à l'échelle."""
+def _extent(sizes: tuple[float, float, float], scale: float) -> tuple[float, float, float]:
+    """Largeur et hauteur de la face, profondeur, à l'échelle."""
     width, depth, height = (value * scale for value in sizes)
-    return width, height, depth, (width + depth) * _ISO_ACROSS
+    return width, height, depth
+
+
+def _iso(width: float, height: float, depth: float, iso: bool) -> tuple[float, float, float]:
+    """Largeur et hauteur de la perspective et place qu'elle prend à droite (écart compris) ;
+    rien sans perspective."""
+    if not iso:
+        return 0.0, 0.0, 0.0
+    iso_width = (width + depth) * _ISO_ACROSS
+    return iso_width, (width + depth) * _ISO_RISE + height * _ISO_UP, GAP_MM + iso_width
 
 
 def _fits(
-    sizes: tuple[float, float, float], scale: float, page: PageSize, reserve: float | None = None
+    sizes: tuple[float, float, float],
+    scale: float,
+    page: PageSize,
+    reserve: float | None = None,
+    iso: bool = True,
 ) -> bool:
-    width, height, depth, iso_width = _extent(sizes, scale)
-    iso_height = (width + depth) * _ISO_RISE + height * _ISO_UP
-    used_width = 2 * MARGIN_MM + width + depth + iso_width + 2 * GAP_MM
+    width, height, depth = _extent(sizes, scale)
+    _, iso_height, iso_room = _iso(width, height, depth, iso)
+    used_width = 2 * MARGIN_MM + width + GAP_MM + depth + iso_room
     block_width, block_height = TITLE_BLOCK_MM
     block_height += reserve or 0.0
     # Le dessus, sous la face, ne monte au-dessus du cartouche que s'il passe dessous en largeur.
@@ -130,23 +145,25 @@ def overall_layout(
     page: PageSize,
     *,
     reserve: float | None = None,
+    iso: bool = True,
 ) -> OverallLayout:
     """Mise en page du plan d'un ouvrage de ``width`` x ``depth`` x ``height`` (X, Y, Z) sur
     ``page`` : la plus grande échelle normalisée où les quatre vues et leurs cotes tiennent.
     ``reserve`` (plan de pièce, voir :func:`notes_band`) : les vues restent toutes au-dessus du
     cartouche et de ``reserve`` millimètres de plus, pour laisser libre la place du tableau des
-    usinages. ``TemplatedError`` pour une cote nulle,
-    négative, non finie ou démesurée."""
+    usinages. ``iso`` faux : pas de perspective (sa place ``iso`` est alors à droite de la vue
+    de gauche, sans largeur). ``TemplatedError`` pour une cote nulle, négative, non finie ou
+    démesurée."""
     sizes = (width, depth, height)
     if not all(math.isfinite(value) and 0.0 < value <= MAX_SIZE_MM for value in sizes):
         raise TemplatedError(_BAD_SIZE, {})
-    scale = next((value for value in SCALES if _fits(sizes, value, page, reserve)), None)
+    scale = next((value for value in SCALES if _fits(sizes, value, page, reserve, iso)), None)
     fits = scale is not None
     scale = SCALES[-1] if scale is None else scale
-    face_width, face_height, face_depth, iso_width = _extent(sizes, scale)
-    iso_height = (face_width + face_depth) * _ISO_RISE + face_height * _ISO_UP
+    face_width, face_height, face_depth = _extent(sizes, scale)
+    iso_width, iso_height, iso_room = _iso(face_width, face_height, face_depth, iso)
     left, top_y = _group_origin(
-        (face_width + GAP_MM + face_depth + GAP_MM + iso_width, face_width),
+        (face_width + GAP_MM + face_depth + iso_room, face_width),
         (max(face_height + GAP_MM + face_depth, iso_height), max(face_height, iso_height)),
         page,
         reserve or 0.0,
@@ -155,8 +172,8 @@ def overall_layout(
     top = Spot(front.x, top_y - face_height - GAP_MM - face_depth / 2)
     side_x = left + face_width + GAP_MM + face_depth / 2
     side = Spot(side_x, front.y)
-    iso = Spot(side_x + face_depth / 2 + GAP_MM + iso_width / 2, top_y - iso_height / 2)
-    return OverallLayout(scale, front, top, side, iso, fits)
+    iso_spot = Spot(side_x + face_depth / 2 + GAP_MM + iso_width / 2, top_y - iso_height / 2)
+    return OverallLayout(scale, front, top, side, iso_spot, fits)
 
 
 def _group_origin(
@@ -201,3 +218,27 @@ def notes_band(page: PageSize) -> tuple[Spot, float]:
     if left_width >= NOTES_MIN_WIDTH_MM:
         return Spot((MARGIN_MM + page.width - block_width) / 2, (MARGIN_MM + block_height) / 2), 0.0
     return Spot(page.width / 2, block_height + NOTES_HEIGHT_MM / 2), NOTES_HEIGHT_MM
+
+
+CHAR_WIDTH_RATIO: Final = 0.6  # largeur moyenne d'un caractère rapportée à sa hauteur
+
+
+def notes_layout(page: PageSize, lines: Sequence[str], size: float) -> tuple[list[str], Spot]:
+    """Lignes du tableau des usinages coupées à la largeur de sa bande (suite en retrait) et
+    centre du bloc de texte, calé sur le bord gauche de la bande : TechDraw place un texte par
+    son centre. ``size`` : hauteur du texte en mm."""
+    spot, reserve = notes_band(page)
+    if reserve == 0:
+        band_width = page.width - TITLE_BLOCK_MM[0] - MARGIN_MM - GAP_MM / 3
+    else:
+        band_width = page.width - 2 * MARGIN_MM
+    char = CHAR_WIDTH_RATIO * size
+    columns = max(20, int(band_width / char))
+    wrapped = [
+        piece
+        for line in lines
+        for piece in (textwrap.wrap(line, columns, subsequent_indent="    ") or [""])
+    ]
+    block = max((len(line) for line in wrapped), default=0) * char
+    left = spot.x - band_width / 2
+    return wrapped, Spot(left + block / 2, spot.y)
