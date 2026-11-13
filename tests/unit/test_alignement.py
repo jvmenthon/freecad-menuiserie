@@ -110,3 +110,40 @@ def test_face_non_plane_refusee() -> None:
         align(fixed, curved)
     with pytest.raises(AlignError):
         align(curved, fixed)
+
+
+def test_perpendiculaire_depuis_un_plan_incline() -> None:
+    fixed = _face(Vec3(0, 0, 0), Vec3(0, 0, 1))
+    normal = _unit(1, 0, 1)  # 45° de la référence : il faut 45° de plus pour être d'équerre
+    moving = _face(Vec3(3, 2, 7), normal)
+    motion = align(fixed, moving, AlignMode.PERPENDICULAR)
+    assert motion.angle == pytest.approx(45.0)
+    turned = [
+        sum(r * c for r, c in zip(row, (normal.x, normal.y, normal.z), strict=True))
+        for row in motion.rotation
+    ]
+    assert turned == pytest.approx([1.0, 0.0, 0.0], abs=1e-9)
+    assert _apply(motion, moving.frame.origin).z == pytest.approx(0.0, abs=1e-9)
+
+
+def test_perpendiculaire_deja_d_equerre_ne_tourne_pas() -> None:
+    fixed = _face(Vec3(0, 0, 0), Vec3(0, 0, 1))
+    moving = _face(Vec3(0, 0, 5), Vec3(1, 0, 0))
+    assert align(fixed, moving, AlignMode.PERPENDICULAR).angle == pytest.approx(0.0)
+
+
+def test_perpendiculaire_depuis_des_faces_paralleles_fait_un_quart_de_tour() -> None:
+    fixed = _face(Vec3(0, 0, 0), Vec3(0, 0, 1))
+    moving = _face(Vec3(0, 0, 5), Vec3(0, 0, 1))
+    motion = align(fixed, moving, AlignMode.PERPENDICULAR)
+    assert motion.angle == pytest.approx(90.0)
+
+
+def test_decalage_sur_les_trois_axes_de_la_face_de_reference() -> None:
+    fixed = _face(Vec3(0, 0, 10), Vec3(0, 0, 1))
+    moving = _face(Vec3(0, 0, 40), Vec3(0, 0, 1))
+    base = _apply(align(fixed, moving), moving.frame.origin)
+    shifted = _apply(align(fixed, moving, offset=Vec3(2.0, 3.0, 5.0)), moving.frame.origin)
+    delta = shifted - base
+    expected = fixed.frame.x.scaled(2.0) + fixed.frame.y.scaled(3.0) + fixed.frame.z.scaled(5.0)
+    assert (delta.x, delta.y, delta.z) == pytest.approx((expected.x, expected.y, expected.z))

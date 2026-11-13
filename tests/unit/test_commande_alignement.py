@@ -72,15 +72,17 @@ def test_menu_contextuel_ajoute_l_entree_seulement_pour_deux_faces() -> None:
     assert "appendContextMenu('', [distance.COMMAND_NAME])" in source
 
 
-def test_annulation_et_refus_dans_la_commande() -> None:
-    """Une seule transaction ``refusable_transaction`` ; l'annulation du choix des assemblages
-    devient un refus ``ValueError`` traduit (ni exception brute, ni modification)."""
+def test_panneau_ouvert_dans_une_transaction() -> None:
+    """La commande refuse d'emblée (faces non planes), puis ouvre le panneau dans la transaction ;
+    le panneau porte « OK », « Annuler » et « Inverser »."""
     source = COMMAND.read_text(encoding="utf-8")
-    assert "with refusable_transaction(doc, self.TRANSACTION):" in source
-    assert "except DragCancelledError" in source
-    assert "raise ValueError(translated(_CANCELLED))" in source
-    assert "joint_choice.choose" in source
+    assert "doc.openTransaction(translated(self.TRANSACTION))" in source
+    assert "open_panel(aligned)" in source
+    assert "report_refusal(str(error))" in source
     assert "Gui.Control.activeDialog()" in source
+    panel = (PACKAGE / "gui" / "task_panels" / "align.py").read_text(encoding="utf-8")
+    for needle in ("def accept", "def reject", "def _swapped", "joint_choice.choose"):
+        assert needle in panel
 
 
 def test_pas_de_commande_orpheline_dans_l_api_publique() -> None:

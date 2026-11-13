@@ -40,7 +40,7 @@ def _turn(motion: Alignment, vector: Vec3) -> Vec3:
     )
 
 
-@pytest.mark.parametrize("mode", list(AlignMode))
+@pytest.mark.parametrize("mode", [AlignMode.AUTO, AlignMode.FLUSH, AlignMode.FACING])
 def test_faces_deja_alignees_ne_bougent_pas(mode: AlignMode) -> None:
     if mode is AlignMode.FACING:
         moving = face(Vec3(3, 4, 10), Vec3(0, 0, -1))

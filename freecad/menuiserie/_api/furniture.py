@@ -346,14 +346,17 @@ def align_faces(
     *,
     moving: PickedElement | None = None,
     mode: str = "auto",
+    offset: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> _Notices:
     """Aligne deux faces planes de deux objets : la pièce de l'atelier qui porte ``second`` (ou
     ``moving``, l'une des deux faces ; sinon la pièce de ``first``) pivote d'abord pour que les
     faces soient parallèles, puis glisse jusqu'au même plan (ADR 0054).
 
     ``mode`` : ``"auto"`` (la plus petite rotation), ``"flush"`` (au ras : les deux faces
-    regardent du même côté) ou ``"facing"`` (face contre face). Un objet d'un autre atelier ne
-    bouge jamais ; membre d'ensemble : l'ensemble est relié ensuite. Refus avant toute
+    regardent du même côté), ``"facing"`` (face contre face) ou ``"perpendicular"`` (faces
+    d'équerre). ``offset`` (mm) : décalage de plus dans le repère de la face de référence (deux
+    axes dans son plan, le 3e le long de sa normale). Un objet d'un autre atelier ne bouge jamais ;
+    membre d'ensemble : l'ensemble est relié ensuite. Refus avant toute
     modification (``ValueError`` traduite) : pas deux faces planes, même objet, aucune pièce de
     l'atelier, position pilotée par une formule, mode inconnu. Renvoie les avertissements
     traduits (aussi dans la vue rapport). Aucune transaction n'est ouverte."""
@@ -361,6 +364,8 @@ def align_faces(
         chosen = AlignMode(mode)
     except ValueError:
         raise ValueError(f"mode d'alignement inconnu : {mode!r}") from None
-    _alignment, messages = part_align.FaceAlign(first, second, moving).apply(chosen)
+    _alignment, messages = part_align.FaceAlign(first, second, moving).apply(
+        chosen, offset=Vec3(*offset)
+    )
     report(messages)
     return tuple(messages)

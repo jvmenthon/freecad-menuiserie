@@ -7,6 +7,12 @@ Façade : ré-exporte l'API publique de ``_align``. ``features/`` lit les faces 
 
 from __future__ import annotations
 
-from freecad.menuiserie.core.align._align import AlignError, Alignment, AlignMode, align
+from freecad.menuiserie.core.align._align import (
+    NO_OFFSET,
+    AlignError,
+    Alignment,
+    AlignMode,
+    align,
+)
 
-__all__ = ["AlignError", "AlignMode", "Alignment", "align"]
+__all__ = ["NO_OFFSET", "AlignError", "AlignMode", "Alignment", "align"]

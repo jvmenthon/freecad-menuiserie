@@ -159,7 +159,7 @@ def test_echec_pendant_l_ecriture_restaure_la_piece(
             ),
         ),
     )
-    memento = SimpleNamespace(placement=SimpleNamespace(inverse=lambda: None))
+    memento = SimpleNamespace(placement=SimpleNamespace(inverse=lambda: None), part=raw)
     restored: list[Any] = []
     monkeypatch.setattr(module, "raw_part", lambda _part: raw)
     monkeypatch.setattr(module, "placement_expression", lambda _raw: None)
@@ -190,7 +190,7 @@ def test_annulation_du_choix_des_assemblages_restaure_et_remonte(
         multiply=lambda _o: SimpleNamespace(inverse=lambda: SimpleNamespace(multiply=lambda x: x)),
     )
     raw = SimpleNamespace(Label="M", getGlobalPlacement=lambda: placement)
-    memento = SimpleNamespace(placement=SimpleNamespace(inverse=lambda: None))
+    memento = SimpleNamespace(placement=SimpleNamespace(inverse=lambda: None), part=raw)
     restored: list[Any] = []
     monkeypatch.setattr(module, "raw_part", lambda _part: raw)
     monkeypatch.setattr(module, "placement_expression", lambda _raw: None)

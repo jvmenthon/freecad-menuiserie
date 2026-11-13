@@ -2,8 +2,8 @@
 """Commande « Aligner deux faces » (AL-c, ADR 0054).
 
 Active quand la sélection compte exactement deux faces de deux objets différents. La commande
-tourne puis plaque la seconde pièce (ou la première si la seconde n'est pas de l'atelier) : une
-seule entrée d'annulation, les assemblages défaits sont proposés avant tout recalcul (ADR 0026).
+lit les faces puis ouvre le panneau dans la transaction « Aligner deux faces » : la seconde pièce
+(ou la première si la seconde n'est pas de l'atelier) tourne puis se plaque en direct.
 """
 
 from __future__ import annotations
@@ -13,20 +13,16 @@ from typing import Final
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from freecad.menuiserie.core.align import AlignMode
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.drag_joints import DragCancelledError
-from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.part_align import FaceAlign
-from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.commands import hints
-from freecad.menuiserie.gui.commands.base import TransactionCommand, refusable_transaction
+from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.commands.distance import selected_pair
 from freecad.menuiserie.gui.selection import view_direction
+from freecad.menuiserie.gui.task_panels.align import open_panel
 
 COMMAND_NAME: Final = "Menuiserie_AlignFaces"
-_CANCELLED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignement annulé : rien n'a bougé.")
 
 
 def selected_faces() -> bool:
@@ -56,18 +52,21 @@ class AlignFacesCommand(TransactionCommand):
         )
 
     def Activated(self) -> None:
-        """Aligne dans une transaction ; refus : message, rien n'est modifié."""
+        """Lit les faces, refuse ce qui ne s'aligne pas (message dans la barre d'état et la vue
+        rapport), puis ouvre le panneau dans une transaction que « OK » valide et « Annuler »
+        abandonne."""
         pair = selected_pair()
         doc = App.ActiveDocument
         if pair is None or doc is None:
             return
-        with refusable_transaction(doc, self.TRANSACTION):
-            try:
-                aligned = FaceAlign(*pair, toward_observer=view_direction())
-                _alignment, messages = aligned.apply(AlignMode.AUTO, joint_choice.choose)
-            except DragCancelledError:  # assemblages défaits, « Annuler le déplacement »
-                raise ValueError(translated(_CANCELLED)) from None
-            report(messages)
+        try:
+            aligned = FaceAlign(*pair, toward_observer=view_direction())
+            aligned.plan()  # faces planes ?
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        doc.openTransaction(translated(self.TRANSACTION))
+        open_panel(aligned)
 
 
 def register() -> None:

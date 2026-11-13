@@ -3,9 +3,11 @@
 
 Le mouvement est rigide et se fait en deux temps : une **rotation minimale** autour d'un point de
 la face mobile qui rend les deux faces parallèles, puis une **translation le long de la normale**
-de la référence qui les rend coplanaires. Deux modes : ``FLUSH`` (au ras : normales sortantes de
-même sens, les deux faces regardent du même côté) et ``FACING`` (face contre face : normales
-opposées, les pièces se touchent). ``AUTO`` prend celui qui demande la plus petite rotation.
+de la référence qui les rend coplanaires. Trois modes : ``FLUSH`` (au ras : normales sortantes de
+même sens), ``FACING`` (face contre face : normales opposées, les pièces se touchent) et
+``PERPENDICULAR`` (faces d'équerre : la rotation s'arrête à 90°). ``AUTO`` prend au ras ou face
+contre face, selon la plus petite rotation. Un décalage facultatif se règle sur les trois axes de
+la face de référence.
 Convention : ``align(fixed, moving)`` — le premier élément est la référence, le second celui de
 la pièce qui bouge. Aucun import de FreeCAD ni de Qt.
 """
@@ -26,6 +28,7 @@ NOT_PLANAR: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les deux faces doivent être planes pour être alignées."
 )
 
+NO_OFFSET: Final = Vec3(0.0, 0.0, 0.0)
 _IDENTITY: Final[Matrix3] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
 
@@ -34,11 +37,12 @@ class AlignError(TemplatedError):
 
 
 class AlignMode(Enum):
-    """Côté vers lequel regarde la face mobile une fois alignée."""
+    """Position de la face mobile une fois alignée : au ras, contre, ou d'équerre."""
 
     AUTO = "auto"  # la plus petite rotation
     FLUSH = "flush"  # au ras : même sens que la référence
     FACING = "facing"  # face contre face : sens opposé
+    PERPENDICULAR = "perpendicular"  # faces d'équerre : normales à 90°
 
 
 @dataclass(frozen=True)
@@ -91,18 +95,43 @@ def _mode_of(fixed_normal: Vec3, moving_normal: Vec3, mode: AlignMode) -> AlignM
     return AlignMode.FLUSH if flush else AlignMode.FACING
 
 
-def align(fixed: FaceTarget, moving: FaceTarget, mode: AlignMode = AlignMode.AUTO) -> Alignment:
+def _wanted_normal(reference: Vec3, own: Vec3, chosen: AlignMode, spare: Vec3) -> Vec3:
+    """Normale que la face mobile doit avoir : celle de la référence (au ras), son opposée (face
+    contre face) ou, d'équerre, la composante de ``own`` perpendiculaire à la référence (rotation
+    minimale ; normales parallèles : ``spare``, perpendiculaire à la référence)."""
+    if chosen is AlignMode.FLUSH:
+        return reference
+    if chosen is AlignMode.FACING:
+        return reference.scaled(-1.0)
+    side = own - reference.scaled(dot(own, reference))
+    return spare if norm(side) <= ANGLE_TOLERANCE else unit(side)
+
+
+def align(
+    fixed: FaceTarget,
+    moving: FaceTarget,
+    mode: AlignMode = AlignMode.AUTO,
+    offset: Vec3 = NO_OFFSET,
+) -> Alignment:
     """Mouvement de la pièce de ``moving`` qui met sa face dans le plan de ``fixed``.
 
     Le pivot est l'origine du repère de la face mobile (un point du plan mobile : il reste dans le
-    plan). Faces non planes : :class:`AlignError`."""
+    plan). ``offset`` (mm) : décalage de plus dans le repère de la face de référence (x, y dans
+    son plan, z le long de sa normale : le « 3e axe »). Faces non planes : :class:`AlignError`."""
     if not (fixed.planar and moving.planar):
         raise AlignError(NOT_PLANAR, {})
     reference = unit(fixed.frame.z)
     own = unit(moving.frame.z)
     chosen = _mode_of(reference, own, mode)
-    wanted = reference if chosen is AlignMode.FLUSH else reference.scaled(-1.0)
+    wanted = _wanted_normal(reference, own, chosen, unit(fixed.frame.x))
     rotation, angle = _rotation_between(own, wanted, unit(moving.frame.x))
     pivot = moving.frame.origin
-    offset = dot(fixed.frame.origin - pivot, reference)  # le pivot reste dans le plan mobile
-    return Alignment(rotation, pivot, reference.scaled(offset), angle, chosen)
+    gap = dot(fixed.frame.origin - pivot, reference)  # le pivot reste dans le plan de la référence
+    frame = fixed.frame
+    shift = (
+        reference.scaled(gap)
+        + frame.x.scaled(offset.x)
+        + frame.y.scaled(offset.y)
+        + reference.scaled(offset.z)
+    )
+    return Alignment(rotation, pivot, shift, angle, chosen)
