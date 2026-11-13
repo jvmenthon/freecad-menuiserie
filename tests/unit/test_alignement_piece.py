@@ -216,3 +216,88 @@ def test_mode_inconnu_de_l_api_refuse_avant_toute_lecture(monkeypatch: pytest.Mo
             api.align_faces(object(), object(), mode="oblique")  # type: ignore[arg-type]
         with pytest.raises(ValueError):
             api.align_faces(object(), object(), mode="FLUSH")  # type: ignore[arg-type]
+
+
+# --- Alignement sur un axe (commit 6fec39c) ---------------------------------------------------
+
+
+class _Vector:
+    def __init__(self, x: float = 0.0, y: float = 0.0, z: float = 0.0) -> None:
+        self.x, self.y, self.z = x, y, z
+
+
+def _aligned(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> Any:
+    _patch(monkeypatch, module, (PLANAR, PLANAR), ("brute A", "brute B"))
+    monkeypatch.setattr(module.App, "Vector", _Vector)
+    return module.FaceAlign(Element("A"), Element("B"))
+
+
+@pytest.mark.parametrize("axis", ["x", "W", "", "XY", "Z ", 0, 1.5, b"X", ["X"]])
+def test_axe_inconnu_refuse(module: ModuleType, monkeypatch: pytest.MonkeyPatch, axis: Any) -> None:
+    aligned = _aligned(module, monkeypatch)
+    with pytest.raises(ValueError, match="X, Y ou Z"):
+        aligned.plan(axis=axis)
+
+
+def test_axe_inconnu_refuse_sans_ecriture(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aligned = _aligned(module, monkeypatch)
+    touched: list[str] = []
+    monkeypatch.setattr(module, "raw_part", lambda _part: touched.append("raw"))
+    with pytest.raises(ValueError):
+        aligned.apply(axis="W")
+    assert touched == []
+
+
+def test_axe_sans_conteneur_est_celui_du_document(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aligned = _aligned(module, monkeypatch)
+    monkeypatch.setattr(module, "container_of", lambda _e: None)
+    assert aligned._axis("Y") == Vec3(0.0, 1.0, 0.0)  # pylint: disable=protected-access
+    assert aligned._axis(None) is None  # pylint: disable=protected-access
+
+
+def test_axe_dans_un_conteneur_tourne(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Std Part tourné de 90° autour de Z : son X est le Y global, son Y est -X global."""
+    aligned = _aligned(module, monkeypatch)
+    rotation = SimpleNamespace(multVec=lambda v: _Vector(-v.y, v.x, v.z))
+    container = SimpleNamespace(getGlobalPlacement=lambda: SimpleNamespace(Rotation=rotation))
+    seen: list[Any] = []
+
+    def fake_container(element: Any) -> Any:
+        seen.append(element)
+        return container
+
+    monkeypatch.setattr(module, "container_of", fake_container)
+    result = aligned._axis("X")  # pylint: disable=protected-access
+    assert result is not None
+    assert (result.x, result.y, result.z) == (0.0, 1.0, 0.0)
+    assert seen == [aligned.elements[aligned.moving_index]]  # conteneur de la pièce déplacée
+
+
+def test_plan_transmet_l_axe_au_noyau(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    aligned = _aligned(module, monkeypatch)
+    monkeypatch.setattr(module, "container_of", lambda _e: None)
+    received: list[Any] = []
+
+    def fake_align(*args: Any) -> str:
+        received.extend(args)
+        return "mouvement"
+
+    monkeypatch.setattr(module, "align", fake_align)
+    assert aligned.plan(axis="Z") == "mouvement"
+    assert received[-1] == Vec3(0.0, 0.0, 1.0)
+    received.clear()
+    aligned.plan()
+    assert received[-1] is None
+
+
+def test_plan_sur_un_axe_dans_le_plan_donne_une_valeur_error_traduite(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    aligned = _aligned(module, monkeypatch)
+    monkeypatch.setattr(module, "container_of", lambda _e: None)
+    with pytest.raises(ValueError, match="parallèle aux faces"):
+        aligned.plan(axis="X")  # faces de normale Z : X est dans leur plan

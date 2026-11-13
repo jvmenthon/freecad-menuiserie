@@ -30,8 +30,9 @@ est penchée.
    puis ajoute le décalage.
 5. **Alignement sur un axe** (demande de jv du 2026-11-13) : « Déplacement » = Libre (rotation
    puis translation) ou X, Y, Z du conteneur de la pièce déplacée : translation sur cet axe seul,
-   sans rotation ; les faces doivent déjà être parallèles et l'axe ne doit pas être dans leur plan
-   (refus expliqués). Seul le décalage le long de la normale compte alors.
+   sans rotation ; les faces doivent déjà être parallèles, l'axe ne doit pas être dans leur plan ni
+   presque (pente sur la normale ≥ 0,05, soit environ 3°, sinon le trajet devient démesuré) et le
+   mode d'équerre est refusé (refus expliqués). Seul le décalage le long de la normale compte alors.
 6. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
    bouton **Inverser** (échange la pièce pilotée et la pilotante ; la première revient avant que
    la seconde bouge), **Annuler** remet tout en place. OK relie l'ensemble et propose les

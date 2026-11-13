@@ -193,7 +193,9 @@ class AlignTaskPanel(TransactionTaskPanel):
     def _preview(self) -> bool:
         """La pièce est placée d'après les champs ; un refus s'affiche en rouge."""
         try:
-            self._align.preview(self._chosen_mode(), self._offset(), self._chosen_axis())
+            axis = self._chosen_axis()
+            mode = AlignMode.AUTO if axis is not None else self._chosen_mode()  # mode grisé
+            self._align.preview(mode, self._offset(), axis)
         except (TypeError, ValueError, RuntimeError) as error:
             show_message(self._error, str(error))
             return False

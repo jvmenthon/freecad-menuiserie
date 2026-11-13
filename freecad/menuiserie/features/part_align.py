@@ -115,7 +115,7 @@ class FaceAlign:
         document sans conteneur ; ``None`` : alignement libre."""
         if axis is None:
             return None
-        if axis not in _UNIT_AXES:
+        if not isinstance(axis, str) or axis not in _UNIT_AXES:
             raise ValueError(translated(_UNKNOWN_AXIS, {"axis": str(axis)}))
         unit = App.Vector(*_UNIT_AXES[axis])
         container = container_of(self.elements[self.moving_index])

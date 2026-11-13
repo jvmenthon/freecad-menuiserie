@@ -22,7 +22,7 @@ from typing import Final
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Matrix3, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.snap import FaceTarget
-from freecad.menuiserie.core.vectors import cross, dot, norm, unit
+from freecad.menuiserie.core.vectors import cross, dot, is_finite, norm, unit
 
 NOT_PLANAR: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les deux faces doivent être planes pour être alignées."
@@ -38,6 +38,18 @@ AXIS_IN_PLANE: Final = QT_TRANSLATE_NOOP(
     "Cet axe est parallèle aux faces : un déplacement sur cet axe ne les met pas dans le même "
     "plan. Choisissez un autre axe.",
 )
+PERPENDICULAR_ON_AXIS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Sur un axe, la pièce ne tourne pas : elle ne peut pas être mise d'équerre."
+)
+INVALID_AXIS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "L'axe de déplacement doit être un vecteur fini et non nul."
+)
+INVALID_OFFSET: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Les décalages doivent être des nombres finis."
+)
+# Pente minimale de l'axe sur la normale (sin ≈ 3°) : en deçà, le trajet (écart / pente) devient
+# démesuré pour un axe presque dans le plan des faces ; refusé comme un axe dans le plan.
+MIN_AXIS_SLOPE: Final = 0.05
 NO_OFFSET: Final = Vec3(0.0, 0.0, 0.0)
 _IDENTITY: Final[Matrix3] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
@@ -122,16 +134,18 @@ def _along_axis(
 ) -> Alignment:
     """Translation seule, le long de ``axis`` (unitaire), qui amène la face mobile dans le plan
     de la référence (plus ``gap_offset`` le long de sa normale)."""
+    if mode is AlignMode.PERPENDICULAR:
+        raise AlignError(PERPENDICULAR_ON_AXIS, {})
     reference = unit(fixed.frame.z)
     own = unit(moving.frame.z)
     if norm(cross(reference, own)) > ANGLE_TOLERANCE:
         raise AlignError(NOT_PARALLEL, {})
     slope = dot(axis, reference)
-    if abs(slope) <= ANGLE_TOLERANCE:
+    if not abs(slope) >= MIN_AXIS_SLOPE:  # NaN compris
         raise AlignError(AXIS_IN_PLANE, {})
     pivot = moving.frame.origin
     gap = dot(fixed.frame.origin - pivot, reference) + gap_offset
-    chosen = _mode_of(reference, own, AlignMode.AUTO if mode is AlignMode.PERPENDICULAR else mode)
+    chosen = _mode_of(reference, own, AlignMode.AUTO)  # sans rotation : le sens réel
     return Alignment(_IDENTITY, pivot, axis.scaled(gap / slope), 0.0, chosen)
 
 
@@ -148,13 +162,18 @@ def align(
     plan). ``offset`` (mm) : décalage de plus dans le repère de la face de référence (x, y dans
     son plan, z le long de sa normale : le « 3e axe »). ``axis`` (vecteur global) : alignement
     **sur un axe** seulement, sans rotation ; les faces doivent être parallèles, l'axe ne doit pas
-    être dans leur plan, et seul ``offset.z`` (écart le long de la normale) compte. Faces non
+    être dans leur plan (ni presque : :data:`MIN_AXIS_SLOPE`), le mode d'équerre est refusé, et
+    seul ``offset.z`` (écart le long de la normale) compte. Faces non
     planes : :class:`AlignError`."""
     if not (fixed.planar and moving.planar):
         raise AlignError(NOT_PLANAR, {})
+    if not is_finite(offset):
+        raise AlignError(INVALID_OFFSET, {})
     reference = unit(fixed.frame.z)
     own = unit(moving.frame.z)
     if axis is not None:
+        if not is_finite(axis) or norm(axis) <= ANGLE_TOLERANCE:
+            raise AlignError(INVALID_AXIS, {})
         return _along_axis(fixed, moving, mode, offset.z, unit(axis))
     chosen = _mode_of(reference, own, mode)
     wanted = _wanted_normal(reference, own, chosen, unit(fixed.frame.x))
