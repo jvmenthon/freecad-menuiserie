@@ -47,7 +47,7 @@ from freecad.menuiserie.features.picked import PickedElement, container_of
 from freecad.menuiserie.features.snap_geometry import element_shape, is_straight, to_vec3
 from freecad.menuiserie.features.snap_targets import read_targets
 
-__all__ = ["AXES", "DistanceMove"]
+__all__ = ["AXES", "DistanceMove", "moving_index_of", "piece_of", "targets_of"]
 
 AXES: Final = ("X", "Y", "Z")  # axes du conteneur proposés pour deux sommets (D4)
 _FROM_ABOVE: Final = Vec3(0.0, 0.0, 1.0)
@@ -118,6 +118,23 @@ def _moving_index(
     if pieces[0] is not None:
         return 0
     raise ValueError(translated(_NO_PART))
+
+
+def targets_of(
+    elements: tuple[PickedElement, PickedElement], toward_observer: Vec3
+) -> tuple[Target, Target]:
+    """Cibles des deux éléments (voir :func:`_targets`), pour les commandes qui lisent la même
+    sélection que « Définir une distance »."""
+    return _targets(elements, toward_observer)
+
+
+def moving_index_of(
+    elements: tuple[PickedElement, PickedElement], moving: PickedElement | None = None
+) -> tuple[int, tuple[DocumentObject | None, DocumentObject | None]]:
+    """Indice de l'élément de la pièce déplacée (:func:`_moving_index`) et les deux pièces de
+    l'atelier (``None`` pour un objet d'un autre atelier)."""
+    pieces = (piece_of(elements[0]), piece_of(elements[1]))
+    return _moving_index(elements, pieces, moving), pieces
 
 
 class DistanceMove:

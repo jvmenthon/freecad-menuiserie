@@ -11,6 +11,7 @@ from typing import Any
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.align import AlignMode
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -24,6 +25,7 @@ from freecad.menuiserie.features import (
     furniture_material,
     furniture_members,
     furniture_resize,
+    part_align,
     templates,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -336,3 +338,29 @@ def make_carcass(
             for obj in group:
                 provider(obj.ViewObject)
     return built.furniture, _reported(built.notices, document)
+
+
+def align_faces(
+    first: PickedElement,
+    second: PickedElement,
+    *,
+    moving: PickedElement | None = None,
+    mode: str = "auto",
+) -> _Notices:
+    """Aligne deux faces planes de deux objets : la pièce de l'atelier qui porte ``second`` (ou
+    ``moving``, l'une des deux faces ; sinon la pièce de ``first``) pivote d'abord pour que les
+    faces soient parallèles, puis glisse jusqu'au même plan (ADR 0054).
+
+    ``mode`` : ``"auto"`` (la plus petite rotation), ``"flush"`` (au ras : les deux faces
+    regardent du même côté) ou ``"facing"`` (face contre face). Un objet d'un autre atelier ne
+    bouge jamais ; membre d'ensemble : l'ensemble est relié ensuite. Refus avant toute
+    modification (``ValueError`` traduite) : pas deux faces planes, même objet, aucune pièce de
+    l'atelier, position pilotée par une formule, mode inconnu. Renvoie les avertissements
+    traduits (aussi dans la vue rapport). Aucune transaction n'est ouverte."""
+    try:
+        chosen = AlignMode(mode)
+    except ValueError:
+        raise ValueError(f"mode d'alignement inconnu : {mode!r}") from None
+    _alignment, messages = part_align.FaceAlign(first, second, moving).apply(chosen)
+    report(messages)
+    return tuple(messages)

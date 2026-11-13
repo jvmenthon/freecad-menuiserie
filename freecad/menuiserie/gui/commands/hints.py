@@ -50,6 +50,11 @@ DISTANCE: Final = QT_TRANSLATE_NOOP(
     "deux éléments (face, arête ou sommet) de deux objets différents sélectionnés (Ctrl+clic "
     "sur chacun dans la vue 3D).",
 )
+ALIGN_FACES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "deux faces planes de deux objets différents sélectionnées (Ctrl+clic sur chacune dans la "
+    "vue 3D).",
+)
 SHAPED_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "un corps PartDesign, une forme Part ou une esquisse fermée sélectionné, qui n'est pas déjà "

@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from icones_ensembles import (
+    aligner_faces,
     autre_objet,
     distance,
     distance_gardee,
@@ -336,6 +337,7 @@ ICONES = {
     # Distance entre deux pièces (DI-b)
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,
+    "Menuiserie_AlignFaces.svg": aligner_faces,
     # Rotations du panneau de la pièce de bois (J6c)
     "Menuiserie_RotateX.svg": rotation_x,
     "Menuiserie_RotateY.svg": rotation_y,

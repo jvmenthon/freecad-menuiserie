@@ -85,6 +85,19 @@ def distance() -> str:
     return ic.svg(cadre=(3, 50, 3, 61), devant=cote)
 
 
+def aligner_faces() -> str:
+    ic = Icone("Aligner deux faces : deux planches dont les faces sont dans le même plan")
+    ic.boite((0, 0, 0), (70, 30, 6), "chene")  # planche de référence
+    ic.boite((0, 0, 6), (30, 30, 6), "chene")  # planche alignée sur son bord
+    ic.veinage((4, 66), (10, 46), "chene", amplitude=0.7)
+    ic.veinage((4, 66), (22, 46), "chene", amplitude=0.7, phase=0.5)
+    plan = (
+        '  <path d="M6,12 H64" fill="none" stroke="#204a87" stroke-width="2" '
+        'stroke-dasharray="4 3" stroke-linecap="round"/>'
+    )
+    return ic.svg(cadre=(3, 50, 3, 61), devant=plan)
+
+
 def distance_gardee() -> str:
     ic = Icone("Distance gardée : plateau, étagère et cote verrouillée entre les deux")
     ic.boite((0, 0, 40), (70, 30, 6), "chene")  # plateau
