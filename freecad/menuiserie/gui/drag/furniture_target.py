@@ -20,7 +20,7 @@ from typing import Final
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import MIN_FURNITURE_MM, furniture_layout, resized_by
-from freecad.menuiserie.core.geometry import Box, Vec3
+from freecad.menuiserie.core.geometry import Box, Matrix3, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import Guide, Handle, ResizeResult
 from freecad.menuiserie.core.rotation import Ring
@@ -41,7 +41,7 @@ from freecad.menuiserie.features.furniture_drag import (
     restore,
     rotate_furniture_by,
 )
-from freecad.menuiserie.features.magnet_guides import collect_guides
+from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui.drag.geometry import HANDLE_RATIO, Layout
 from freecad.menuiserie.gui.drag.rings import build_rings
@@ -150,6 +150,13 @@ class FurnitureTarget(Target):
             skip=skip,
             reference=reference,
         )
+
+    def neighbor_rotations(self) -> tuple[Matrix3, ...]:
+        skip = {self.obj.Name}
+        part = self.obj.getParentGeoFeatureGroup()
+        if part is not None:
+            skip.add(part.Name)
+        return neighbor_rotations(self.obj, guide_container(self.obj), skip)
 
     def move(self, memento: Memento, delta: Vec3) -> None:
         move_furniture_by(_furniture(memento), delta)

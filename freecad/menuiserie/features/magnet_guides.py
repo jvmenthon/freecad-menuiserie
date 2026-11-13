@@ -16,7 +16,7 @@ from typing import Any, Final
 import FreeCAD as App
 import Part
 
-from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
+from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Matrix3, Vec3
 from freecad.menuiserie.core.joints import JointError, JointKind
 from freecad.menuiserie.core.joints.shelf_pins import opposite_values, pin_rests
 from freecad.menuiserie.core.magnet import Guide, GuideKind
@@ -24,8 +24,9 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import is_joint, placed_blank, resolved_for
 from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.snap_geometry import ERRORS, is_straight, to_vec3
+from freecad.menuiserie.features.solids import rigid_transform
 
-__all__ = ["MAX_GUIDES", "collect_guides"]
+__all__ = ["MAX_GUIDES", "collect_guides", "neighbor_rotations"]
 
 MAX_GUIDES: Final = 5000  # borne de lecture d'un gros document (spec § 4.8)
 _GROUPS: Final = ("App::Part", "App::DocumentObjectGroup")
@@ -256,3 +257,25 @@ def collect_guides(
         if len(guides) >= MAX_GUIDES:
             break
     return tuple(guides[:MAX_GUIDES])
+
+
+def neighbor_rotations(
+    part: DocumentObject, container: DocumentObject | None, skip: Iterable[str] = ()
+) -> tuple[Matrix3, ...]:
+    """Rotations globales des objets voisins visibles de ``part`` (mêmes voisins que
+    :func:`collect_guides`), sans doublon : sert à aimanter l'angle d'une rotation."""
+    roots = list(container.Group) if container is not None else _roots(part.Document)
+    skipped = _excluded(part) | set(skip)
+    found: dict[tuple[float, ...], Matrix3] = {}
+    for obj in _leaves(roots, set(skipped)):
+        if obj.Name in skipped or not obj.Visibility:
+            continue
+        try:
+            rotation = rigid_transform(obj.getGlobalPlacement()).rotation
+        except ERRORS:
+            continue
+        key = tuple(round(value, 4) for row in rotation for value in row)
+        found.setdefault(key, rotation)
+        if len(found) >= MAX_GUIDES:
+            break
+    return tuple(found.values())
