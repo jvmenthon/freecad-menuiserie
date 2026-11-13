@@ -306,7 +306,7 @@ def _remplacer_plusieurs(doc: Any) -> list[str]:
         cocher(form, part, "Z+Y-")
         cocher(form, part, "Z-Y-")
     confirmer = EdgeFinishTaskPanel._confirmed
-    EdgeFinishTaskPanel._confirmed = lambda _self, _conflicts: True  # type: ignore[method-assign]
+    EdgeFinishTaskPanel._confirmed = lambda _self, _conflicts: True  # type: ignore[method-assign,assignment]
     try:
         valider()
     finally:
