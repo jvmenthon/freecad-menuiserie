@@ -242,3 +242,31 @@ def notes_layout(page: PageSize, lines: Sequence[str], size: float) -> tuple[lis
     block = max((len(line) for line in wrapped), default=0) * char
     left = spot.x - band_width / 2
     return wrapped, Spot(left + block / 2, spot.y)
+
+
+EXPLODE_FACTOR: Final = 0.6  # écartement d'une pièce : part de sa distance au centre de l'ouvrage
+
+
+def exploded_offset(center: Sequence[float], part_center: Sequence[float]) -> tuple[float, ...]:
+    """Déplacement d'une pièce dans la vue éclatée : elle s'éloigne du centre de l'ouvrage de
+    ``EXPLODE_FACTOR`` fois sa distance à ce centre, sur chaque axe."""
+    return tuple(EXPLODE_FACTOR * (p - c) for p, c in zip(part_center, center, strict=True))
+
+
+def single_view_layout(
+    width: float, depth: float, height: float, page: PageSize
+) -> tuple[float, Spot]:
+    """Échelle normalisée et centre d'une seule perspective (vue éclatée) d'un volume de
+    ``width`` x ``depth`` x ``height``, la plus grande possible au-dessus du cartouche."""
+    sizes = (width, depth, height)
+    if not all(math.isfinite(value) and 0.0 < value <= MAX_SIZE_MM for value in sizes):
+        raise TemplatedError(_BAD_SIZE, {})
+    free_width = page.width - 2 * MARGIN_MM
+    free_height = page.height - MARGIN_MM - TITLE_BLOCK_MM[1]
+
+    def fits(scale: float) -> bool:
+        iso_width, iso_height, _ = _iso(width * scale, height * scale, depth * scale, True)
+        return iso_width <= free_width and iso_height <= free_height
+
+    scale = next((value for value in SCALES if fits(value)), SCALES[-1])
+    return scale, Spot(page.width / 2, TITLE_BLOCK_MM[1] + free_height / 2)

@@ -21,6 +21,7 @@ __all__ = [
     "SECTION_TYPE",
     "VERTICAL",
     "VIEW_TYPE",
+    "add_exploded_view",
     "add_overall_views",
     "add_part_views",
     "removal_rank",
@@ -40,6 +41,7 @@ _VIEW_LABELS: Final = {
     "Edge": QT_TRANSLATE_NOOP("Menuiserie", "Chant"),
     "End": QT_TRANSLATE_NOOP("Menuiserie", "Bout"),
     "Notes": QT_TRANSLATE_NOOP("Menuiserie", "Usinages"),
+    "Exploded": QT_TRANSLATE_NOOP("Menuiserie", "Vue éclatée"),
 }
 # Direction de vue (vers l'observateur) et axe horizontal de la feuille, dans le repère global.
 # Une coupe retire la moitié du côté de sa direction : la coupe verticale (à droite de la face)
@@ -50,6 +52,7 @@ _DIRECTIONS: Final = {
     "CutH": ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)),
     "CutV": ((-1.0, 0.0, 0.0), (0.0, -1.0, 0.0)),
     "Iso": ((1.0, -1.0, 1.0), (1.0, 1.0, 0.0)),
+    "Exploded": ((1.0, -1.0, 1.0), (1.0, 1.0, 0.0)),
 }
 # Plan de pièce : mêmes vues dans le repère local de la pièce (X longueur, Y largeur, Z
 # épaisseur), face vue de dessus de son épaisseur ; tournées ensuite par le placement de la pièce.
@@ -223,3 +226,11 @@ def add_part_views(
         names.extend(added)
     names.append(_add_notes(page, *notes).Name)
     return names
+
+
+def add_exploded_view(page: DocumentObject, exploded: DocumentObject, spot: Spot) -> list[str]:
+    """Pose sur ``page`` la perspective de ``exploded`` (la forme éclatée de l'ouvrage) ;
+    renvoie le nom de la vue."""
+    view = _add_view(page, "Exploded", [exploded], spot)
+    page.Document.recompute()
+    return [view.Name]

@@ -26,7 +26,8 @@ from freecad.menuiserie.gui.commands.cutlist import selected_objects, show_statu
 DRAWING: Final = "Menuiserie_Drawing"
 DRAWING_PDF: Final = "Menuiserie_DrawingPdf"
 PART_DRAWINGS: Final = "Menuiserie_PartDrawings"
-COMMANDS: Final = (DRAWING, PART_DRAWINGS, DRAWING_PDF)
+EXPLODED: Final = "Menuiserie_ExplodedDrawing"
+COMMANDS: Final = (DRAWING, PART_DRAWINGS, EXPLODED, DRAWING_PDF)
 PAGE_TYPE: Final = "TechDraw::DrawPage"
 
 _EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
@@ -128,6 +129,41 @@ class PartDrawingsCommand(TransactionCommand):
         show_status(translated(_PARTS_DONE, {"count": str(len(pages))}))
 
 
+class ExplodedDrawingCommand(TransactionCommand):
+    """Crée ou refait la vue éclatée de la sélection ou du document."""
+
+    NAME = EXPLODED
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_ExplodedDrawing", "Vue éclatée")
+    TOOL_TIP = QT_TRANSLATE_NOOP(
+        "Menuiserie_ExplodedDrawing",
+        "Crée ou refait une page TechDraw avec la perspective de l'ouvrage éclaté : chaque pièce "
+        "s'écarte du centre. Photographie du modèle : relancer la commande après une "
+        "modification. Dessine les objets sélectionnés, sinon tous les ensembles et pièces.",
+    )
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Vue éclatée")
+
+    def IsActive(self) -> bool:
+        """Active s'il y a un document, TechDraw et aucun panneau ouvert."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and techdraw_available()
+        )
+
+    def Activated(self) -> None:
+        """Page faite et montrée ; refus affiché."""
+        from freecad.menuiserie.features.drawing_exploded import make_exploded_drawing
+
+        doc = App.ActiveDocument
+        objects = [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+        try:
+            page = make_exploded_drawing(doc, objects or document_scope(doc))
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        drawing_pdf.show_page(page)
+
+
 class DrawingPdfCommand(TransactionCommand):
     """Exporte la page TechDraw sélectionnée en PDF."""
 
@@ -158,4 +194,5 @@ def register() -> None:
     """Enregistre les commandes des plans auprès de FreeCAD."""
     Gui.addCommand(DRAWING, DrawingCommand())
     Gui.addCommand(PART_DRAWINGS, PartDrawingsCommand())
+    Gui.addCommand(EXPLODED, ExplodedDrawingCommand())
     Gui.addCommand(DRAWING_PDF, DrawingPdfCommand())

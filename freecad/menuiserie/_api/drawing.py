@@ -8,11 +8,16 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from freecad.menuiserie.features import drawing, drawing_parts
+from freecad.menuiserie.features import drawing, drawing_exploded, drawing_parts
 from freecad.menuiserie.features.drawing import DrawingOptions
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 
-__all__ = ["DrawingOptions", "make_overall_drawing", "make_part_drawings"]
+__all__ = [
+    "DrawingOptions",
+    "make_exploded_drawing",
+    "make_overall_drawing",
+    "make_part_drawings",
+]
 
 
 def make_overall_drawing(
@@ -49,3 +54,14 @@ def make_part_drawings(
     modifiée à la main est laissée telle quelle. Une seule transaction « Plan de pièce ».
     ``ValueError`` traduite si TechDraw n'est pas disponible ou s'il n'y a aucune pièce."""
     return drawing_parts.make_part_drawings(doc, objects, options)
+
+
+def make_exploded_drawing(
+    doc: Document, objects: Sequence[DocumentObject], options: DrawingOptions | None = None
+) -> DocumentObject:
+    """Crée ou refait la **vue éclatée** de ``objects`` (ensembles, pièces) et renvoie sa page :
+    une perspective où chaque pièce s'écarte du centre de l'ouvrage, à la plus grande échelle
+    normalisée qui tient au-dessus du cartouche. La forme éclatée est un ``Part::Feature``
+    masqué, photographie du modèle refaite à chaque relance. Une seule transaction « Vue
+    éclatée ». ``ValueError`` traduite si TechDraw manque ou s'il n'y a rien à dessiner."""
+    return drawing_exploded.make_exploded_drawing(doc, objects, options)

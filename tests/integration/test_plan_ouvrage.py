@@ -65,7 +65,7 @@ def test_coupes_au_milieu_du_meuble(bureau: Bureau) -> None:
     assert (vertical.SectionSymbol, horizontal.SectionSymbol) == ("A", "B")
     assert vertical.SectionNormal.getAngle(App.Vector(-1, 0, 0)) < 1e-6
     assert horizontal.SectionNormal.getAngle(App.Vector(0, 0, 1)) < 1e-6
-    center, expected = vertical.SectionOrigin, drawing._global_box(front.Source).Center
+    center, expected = vertical.SectionOrigin, drawing.global_box(front.Source).Center
     assert (center.x, center.y, center.z) == pytest.approx((expected.x, expected.y, expected.z))
     assert horizontal.SectionOrigin == center
     # Disposition européenne : coupe verticale à droite de la face, horizontale dessous.

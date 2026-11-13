@@ -92,6 +92,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
             (
                 "Menuiserie_Drawing",  # plans cotés (issue #153, ADR 0053)
                 "Menuiserie_PartDrawings",
+                "Menuiserie_ExplodedDrawing",
                 "Menuiserie_DrawingPdf",
             ),
         ),

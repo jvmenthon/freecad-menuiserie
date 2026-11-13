@@ -62,6 +62,8 @@ __all__ = [
     "document_scope",
     "drawing_sources",
     "find_overall_drawing",
+    "global_box",
+    "global_shape",
     "is_workshop_drawing",
     "make_overall_drawing",
     "overall_dimensions",
@@ -180,15 +182,22 @@ def drawing_sources(doc: Document, objects: Sequence[DocumentObject]) -> list[Do
     return sources
 
 
-def _global_box(sources: Sequence[DocumentObject]) -> Any:
+def global_shape(obj: DocumentObject) -> Any:
+    """Forme de ``obj`` (copie) placée dans le repère global du document, conteneurs compris."""
+    shape = Part.getShape(obj)
+    if not shape.isNull():
+        outer = obj.getGlobalPlacement().multiply(obj.Placement.inverse())
+        shape.Placement = outer.multiply(shape.Placement)
+    return shape
+
+
+def global_box(sources: Sequence[DocumentObject]) -> Any:
     """Boîte englobante des ``sources`` dans le repère global du document."""
     box = App.BoundBox()
     for obj in sources:
-        shape = Part.getShape(obj)
+        shape = global_shape(obj)
         if shape.isNull():
             continue
-        outer = obj.getGlobalPlacement().multiply(obj.Placement.inverse())
-        shape.Placement = outer.multiply(shape.Placement)
         box.add(shape.BoundBox)
     if not box.isValid():
         raise ValueError(translated(_NOTHING))
@@ -309,7 +318,7 @@ def make_overall_drawing(
         raise ValueError(translated(_NO_TECHDRAW))
     chosen = options or DrawingOptions()
     sources = drawing_sources(doc, objects)
-    box = _global_box(sources)
+    box = global_box(sources)
     with translated_errors():
         size = page_size(chosen.resolved_format(), chosen.resolved_orientation())
         layout = overall_layout(box.XLength, box.YLength, box.ZLength, size)

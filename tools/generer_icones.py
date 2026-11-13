@@ -162,6 +162,23 @@ def plans_de_piece() -> str:
     )
 
 
+def vue_eclatee() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    piece = 'fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"'
+    fleche = 'fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"'
+    return document(
+        [
+            "  <!-- Vue éclatée : un caisson dont les pièces s'écartent du centre -->",
+            f'  <rect x="4" y="6" width="56" height="52" rx="2" fill="#ffffff" {trait}/>',
+            f'  <rect x="18" y="10" width="28" height="6" {piece}/>',
+            f'  <rect x="9" y="22" width="6" height="22" {piece}/>',
+            f'  <rect x="49" y="22" width="6" height="22" {piece}/>',
+            f'  <rect x="18" y="48" width="28" height="6" {piece}/>',
+            f'  <path d="M32,30 V20 M32,36 V44 M28,33 H19 M36,33 H45" {fleche}/>',
+        ]
+    )
+
+
 def export_du_plan_pdf() -> str:
     pdf = etiquette("PDF", "#cc0000", "#7a0000")
     return document([*_plan(["  <!-- Export du plan (PDF) -->"]), pdf])
@@ -362,6 +379,7 @@ ICONES = {
     "Menuiserie_Drawing.svg": plan_de_l_ouvrage,
     "Menuiserie_DrawingPdf.svg": export_du_plan_pdf,
     "Menuiserie_PartDrawings.svg": plans_de_piece,
+    "Menuiserie_ExplodedDrawing.svg": vue_eclatee,
     "Menuiserie_MortiseTenon.svg": tenon_mortaise,
     "Menuiserie_TongueGroove.svg": rainure_languette,
     "Menuiserie_Rabbet.svg": feuillure,

@@ -352,7 +352,7 @@ def capturer_la_feuille_de_debit(dossier: Path, fenetre) -> None:
     fenetre.grab().save(str(dossier / "feuille-de-debit.png"))
 
 
-MAX_PLANS = 6  # pages de plan capturées au plus (plan de l'ouvrage compris)
+MAX_PLANS = 4  # plans de pièce capturés au plus
 LARGEUR_PLAN_PX = 2000
 
 
@@ -387,8 +387,11 @@ def capturer_les_plans(dossier: Path) -> None:
     from freecad.menuiserie.gui.drawing_pdf import show_page
 
     doc = App.ActiveDocument
-    pages = [("plan-ouvrage", api.make_overall_drawing(doc, document_scope(doc)))]
-    pieces = api.make_part_drawings(doc, [])[: MAX_PLANS - 1]
+    pages = [
+        ("plan-ouvrage", api.make_overall_drawing(doc, document_scope(doc))),
+        ("plan-eclate", api.make_exploded_drawing(doc, document_scope(doc))),
+    ]
+    pieces = api.make_part_drawings(doc, [])[:MAX_PLANS]
     pages += [(f"plan-piece-{rang}", page) for rang, page in enumerate(pieces, start=1)]
     for nom, page in pages:
         show_page(page)

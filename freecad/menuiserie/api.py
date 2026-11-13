@@ -91,6 +91,7 @@ from freecad.menuiserie._api.cutlist import (
 )
 from freecad.menuiserie._api.drawing import (
     DrawingOptions,
+    make_exploded_drawing,
     make_overall_drawing,
     make_part_drawings,
 )
@@ -195,6 +196,7 @@ __all__ = [
     "make_dovetail",
     "make_dowels",
     "make_drawer_slide",
+    "make_exploded_drawing",
     "make_foot",
     "make_furniture",
     "make_half_lap",
