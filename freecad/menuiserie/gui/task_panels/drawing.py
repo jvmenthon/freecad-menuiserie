@@ -24,6 +24,7 @@ from freecad.menuiserie.features.drawing_title import STORED
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui import drawing_pdf
+from freecad.menuiserie.gui.task_panels.base import ok_cancel_buttons
 
 __all__ = ["FORM_NAME", "DrawingTaskPanel"]
 
@@ -134,4 +135,4 @@ class DrawingTaskPanel:
 
     def getStandardButtons(self) -> int:
         """Boutons « OK » et « Annuler »."""
-        return int(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        return ok_cancel_buttons()
