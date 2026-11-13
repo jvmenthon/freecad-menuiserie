@@ -18,7 +18,7 @@ pytest.importorskip("TechDraw", reason="TechDraw non importable dans freecadcmd"
 api = pytest.importorskip("freecad.menuiserie.api")
 drawing = pytest.importorskip("freecad.menuiserie.features.drawing")
 
-VIEWS = ("MenuiseriePlanFront", "MenuiseriePlanTop", "MenuiseriePlanSide", "MenuiseriePlanIso")
+VIEWS = ("MenuiseriePlanFront", "MenuiseriePlanCutV", "MenuiseriePlanCutH", "MenuiseriePlanIso")
 
 
 @pytest.fixture
@@ -54,6 +54,24 @@ def test_vues_des_pieces_usinees(bureau: Bureau) -> None:
     assert len(machined) >= 2  # au moins les joues, hôtes des tourillons
     assert all(api.blank_of(obj) not in front.Source for obj in machined)
     assert page.Views
+
+
+def test_coupes_au_milieu_du_meuble(bureau: Bureau) -> None:
+    api.make_overall_drawing(bureau.doc, [bureau.furniture])
+    front = bureau.doc.getObject(VIEWS[0])
+    vertical, horizontal = (bureau.doc.getObject(name) for name in VIEWS[1:3])
+    assert vertical.TypeId == horizontal.TypeId == "TechDraw::DrawViewSection"
+    assert vertical.BaseView == front and horizontal.BaseView == front
+    assert (vertical.SectionSymbol, horizontal.SectionSymbol) == ("A", "B")
+    assert vertical.SectionNormal.getAngle(App.Vector(-1, 0, 0)) < 1e-6
+    assert horizontal.SectionNormal.getAngle(App.Vector(0, 0, 1)) < 1e-6
+    center, expected = vertical.SectionOrigin, drawing._global_box(front.Source).Center
+    assert (center.x, center.y, center.z) == pytest.approx((expected.x, expected.y, expected.z))
+    assert horizontal.SectionOrigin == center
+    # Disposition européenne : coupe verticale à droite de la face, horizontale dessous.
+    x, y = float(front.X), float(front.Y)
+    assert float(vertical.X) > x and float(vertical.Y) == pytest.approx(y)
+    assert float(horizontal.Y) < y and float(horizontal.X) == pytest.approx(x)
 
 
 def test_cotes_hors_tout(bureau: Bureau) -> None:

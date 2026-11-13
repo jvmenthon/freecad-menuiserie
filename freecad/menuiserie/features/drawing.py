@@ -27,7 +27,6 @@ from freecad.menuiserie import TEMPLATES_DIR
 from freecad.menuiserie.core.drawing import (
     Orientation,
     OverallLayout,
-    Spot,
     overall_layout,
     page_size,
     pick_template,
@@ -36,6 +35,13 @@ from freecad.menuiserie.core.drawing import (
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features import drawing_settings
 from freecad.menuiserie.features.drawing_title import STORED, fill_title_block
+from freecad.menuiserie.features.drawing_views import (
+    PAGE_NAME,
+    VIEW_TYPE,
+    add_overall_views,
+    removal_rank,
+    techdraw,
+)
 from freecad.menuiserie.features.freecad_types import HIDDEN, Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
@@ -57,15 +63,11 @@ __all__ = [
     "techdraw_available",
 ]
 
-PAGE_NAME: Final = "MenuiseriePlan"
 MARKER: Final = "MenuiserieDrawing"
 OWNED: Final = "MenuiserieDrawingViews"  # noms des vues et cotes posées par l'atelier
 PAGE_TYPE: Final = "TechDraw::DrawPage"
 TEMPLATE_TYPE: Final = "TechDraw::DrawSVGTemplate"
-VIEW_TYPE: Final = "TechDraw::DrawViewPart"
 MAX_TEMPLATES: Final = 2000  # plafond du balayage du dossier de gabarits de TechDraw
-HORIZONTAL: Final = 0  # sens d'une cote d'étendue de TechDraw
-VERTICAL: Final = 1
 
 TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
 _MARKER_TOOLTIP: Final = QT_TRANSLATE_NOOP(
@@ -84,21 +86,6 @@ _FOREIGN: Final = QT_TRANSLATE_NOOP(
 _STORED_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property", "Saisie du cartouche de ce plan (atelier Menuiserie)."
 )
-_VIEW_LABELS: Final = {
-    "Front": QT_TRANSLATE_NOOP("Menuiserie", "Face"),
-    "Top": QT_TRANSLATE_NOOP("Menuiserie", "Dessus"),
-    "Side": QT_TRANSLATE_NOOP("Menuiserie", "Gauche"),
-    "Iso": QT_TRANSLATE_NOOP("Menuiserie", "Perspective"),
-}
-# Direction de vue (vers l'observateur) et axe horizontal de la feuille, dans le repère global.
-_DIRECTIONS: Final = {
-    "Front": ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0)),
-    "Top": ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)),
-    "Side": ((-1.0, 0.0, 0.0), (0.0, -1.0, 0.0)),
-    "Iso": ((1.0, -1.0, 1.0), (1.0, 1.0, 0.0)),
-}
-# Cotes hors tout : (vue, sens) pour la largeur (X), la profondeur (Y) et la hauteur (Z).
-_OVERALL: Final = (("Front", HORIZONTAL), ("Top", VERTICAL), ("Front", VERTICAL))
 
 
 @dataclass(frozen=True)
@@ -122,17 +109,10 @@ class DrawingOptions:
         return self.orientation or drawing_settings.default_orientation()
 
 
-def _techdraw() -> Any:
-    """Module TechDraw, importé à l'appel : l'atelier se charge sans lui."""
-    import TechDraw
-
-    return TechDraw
-
-
 def techdraw_available() -> bool:
     """Vrai si le module TechDraw de FreeCAD s'importe (il peut être désactivé ou absent)."""
     try:
-        _techdraw()
+        techdraw()
     except ImportError:
         return False
     return True
@@ -272,60 +252,22 @@ def _apply_template(page: DocumentObject, options: DrawingOptions) -> None:
         template.Template = path
 
 
-def _add_view(
-    page: DocumentObject, key: str, sources: Sequence[DocumentObject], spot: Spot
-) -> DocumentObject:
-    view = page.Document.addObject(VIEW_TYPE, f"{PAGE_NAME}{key}")
-    page.addView(view)
-    view.Source = list(sources)
-    direction, x_direction = _DIRECTIONS[key]
-    view.Direction = App.Vector(*direction)
-    view.XDirection = App.Vector(*x_direction)
-    view.X = spot.x
-    view.Y = spot.y
-    view.Label = translated(_VIEW_LABELS[key])
-    return view
-
-
-def _add_extent(page: DocumentObject, view: DocumentObject, direction: int) -> list[str]:
-    """Pose une cote d'étendue de toute la vue (elle suit la géométrie) ; renvoie les noms des
-    objets ajoutés à la page. ``makeExtentDim`` écrit dans le document actif de FreeCAD : celui de
-    la page est activé le temps de l'appel, puis le précédent est remis."""
-    doc = page.Document
-    before = {obj.Name for obj in page.Views}
-    previous = App.ActiveDocument
-    App.setActiveDocument(doc.Name)
-    try:
-        _techdraw().makeExtentDim(view, [], direction)
-    finally:
-        if previous is not None and previous != doc:
-            App.setActiveDocument(previous.Name)
-    return [obj.Name for obj in page.Views if obj.Name not in before]
-
-
 def _clear(page: DocumentObject) -> None:
     """Retire de ``page`` les vues et cotes posées par l'atelier (les cotes d'abord)."""
     doc = page.Document
     owned = [doc.getObject(name) for name in _owned(page)]
-    for obj in sorted(
-        (obj for obj in owned if obj is not None), key=lambda obj: obj.TypeId == VIEW_TYPE
-    ):
+    for obj in sorted((obj for obj in owned if obj is not None), key=removal_rank):
         page.removeView(obj)
         doc.removeObject(obj.Name)
     setattr(page, OWNED, "")
 
 
-def _fill(page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout) -> None:
-    doc = page.Document
+def _fill(
+    page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout, center: Any
+) -> None:
     page.Scale = layout.scale
-    spots = {"Front": layout.front, "Top": layout.top, "Side": layout.side, "Iso": layout.iso}
-    views = {key: _add_view(page, key, sources, spot) for key, spot in spots.items()}
-    doc.recompute()  # les cotes d'étendue lisent la géométrie des vues
-    names = [view.Name for view in views.values()]
-    for key, direction in _OVERALL:
-        names.extend(_add_extent(page, views[key], direction))
-    setattr(page, OWNED, ";".join(names))
-    doc.recompute()
+    setattr(page, OWNED, ";".join(add_overall_views(page, sources, layout, center)))
+    page.Document.recompute()
 
 
 def make_overall_drawing(
@@ -353,7 +295,7 @@ def make_overall_drawing(
             _clear(page)
         _apply_template(page, chosen)
         fill_title_block(page, list(objects), _title_inputs(chosen), layout.scale)
-        _fill(page, sources, layout)
+        _fill(page, sources, layout, box.Center)
     except Exception:
         doc.abortTransaction()
         raise
@@ -365,5 +307,5 @@ def overall_dimensions(page: DocumentObject) -> list[DocumentObject]:
     """Cotes hors tout de ``page`` posées par l'atelier, dans l'ordre largeur, profondeur,
     hauteur."""
     owned = _owned(page)
-    found = [obj for obj in page.Views if obj.Name in owned and obj.TypeId != VIEW_TYPE]
+    found = [obj for obj in page.Views if obj.Name in owned and removal_rank(obj) == 0]
     return sorted(found, key=lambda obj: owned.index(obj.Name))

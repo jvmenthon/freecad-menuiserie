@@ -69,8 +69,10 @@ class Spot:
 
 @dataclass(frozen=True)
 class OverallLayout:
-    """Échelle commune et place des quatre vues du plan de l'ouvrage. ``fits`` est faux quand
-    même la plus petite échelle déborde de la feuille."""
+    """Échelle commune et place des quatre vues du plan de l'ouvrage. ``top`` (sous la face) et
+    ``side`` (à droite) reçoivent la coupe horizontale et la coupe verticale, de même encombrement
+    que les vues de dessus et de gauche. ``fits`` est faux quand même la plus petite échelle
+    déborde de la feuille."""
 
     scale: float
     front: Spot
