@@ -202,7 +202,7 @@ def test_ensemble_avec_une_piece_convertie(document: Any) -> None:
     furniture, _ = api.make_furniture([planche, pied], "Table")
     document.recompute()
     rep = api.make_repeat([furniture], params(count=2, axis="X", step=900.0))
-    [first, _second] = copies(rep)
+    [first, _second] = [c for c in copies(rep) if not repeat.is_inner_copy(c)]
     members = [m for m in bindings.members_of(first) if api.is_shaped_part(m)]
     assert len(members) == 1 and members[0].Source == pied.Source
     assert not set(DIMENSIONS) & set(engine(members[0]))

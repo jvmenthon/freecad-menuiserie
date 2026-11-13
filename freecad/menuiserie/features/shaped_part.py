@@ -180,9 +180,13 @@ class ShapedPart(MaterialProxy):
             member_changed(obj, prop)  # membre d'ensemble (J4) : ses cotes restent fixes (F1)
 
     def unsetupObject(self, obj: DocumentObject) -> None:
-        """Pièce supprimée : ses voisines d'ensemble sont reliées sans elle (même transaction)."""
+        """Pièce supprimée (même transaction) : ses copies de répétition sont dissociées
+        (:func:`.repeat_links.source_removed`), puis ses voisines d'ensemble sont reliées sans
+        elle."""
         from freecad.menuiserie.features.furniture_relink import member_removed
+        from freecad.menuiserie.features.repeat_links import source_removed
 
+        source_removed(obj)
         member_removed(obj)
 
     def _refuse_dimension_expressions(self, obj: DocumentObject) -> None:
