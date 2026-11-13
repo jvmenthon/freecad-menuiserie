@@ -162,15 +162,15 @@ def _span_through(face: Any, point: Vector, axis: Vector) -> tuple[float, float]
     """Étendue (mini, maxi) de ``face`` le long de ``axis`` autour de ``point`` (sur la face) : le
     segment de la droite qui traverse la face au point, ``None`` si le calcul échoue ou si le
     segment est nul (point sur un sommet isolé)."""
-    reach = face.BoundBox.DiagonalLength + 1.0
+    marks: list[float] = []
     try:
+        reach = face.BoundBox.DiagonalLength + 1.0
         common = Part.makeLine(point - axis * reach, point + axis * reach).common(face)
+        for edge in common.Edges:
+            if edge.distToShape(Part.Vertex(point))[0] <= CONTACT_TOLERANCE_MM:
+                marks.extend((vertex.Point - point).dot(axis) for vertex in edge.Vertexes)
     except ERRORS:
         return None
-    marks: list[float] = []
-    for edge in common.Edges:
-        if edge.distToShape(Part.Vertex(point))[0] <= CONTACT_TOLERANCE_MM:
-            marks.extend((vertex.Point - point).dot(axis) for vertex in edge.Vertexes)
     if not marks or max(marks) - min(marks) <= EPSILON:
         return None
     return min(marks), max(marks)
@@ -182,14 +182,22 @@ def local_face_target(reading: TargetReading, face: Any = None) -> FaceTarget | 
     toute la face ; repère d'appui au coin le plus proche du clic. ``None`` sans point cliqué, sans
     face plane ou si la tranche ne se calcule pas : l'appelant garde la cible d'origine. ``face`` :
     forme à trancher à la place de la face lue (la face de la pièce brute, sans usinages)."""
-    if len(reading.targets) != 1 or not reading.shapes or reading.elements[0].point is None:
+    if len(reading.targets) != 1 or not reading.shapes or not reading.elements:
         return None
-    target = reading.targets[0]
+    target, point = reading.targets[0], reading.elements[0].point
     face = face if face is not None else reading.shapes[0]
-    if not isinstance(target, FaceTarget) or not target.planar or face is None:
+    if point is None or not isinstance(target, FaceTarget) or not target.planar or face is None:
         return None
+    try:
+        return _local_target(target, face, point)
+    except (ValueError, *ERRORS):  # repère nul ou calcul OCC en échec : cible d'origine
+        return None
+
+
+def _local_target(target: FaceTarget, face: Any, click: Vec3) -> FaceTarget | None:
+    """Corps de :func:`local_face_target` (cible d'origine ``target``, clic ``click``)."""
     normal = to_vector(target.frame.z)
-    clicked = to_vector(reading.elements[0].point)
+    clicked = to_vector(click)
     point = clicked - normal * (clicked - to_vector(target.frame.origin)).dot(normal)
     x, y = to_vector(target.frame.x), to_vector(target.frame.y)
     x_span, y_span = _span_through(face, point, x), _span_through(face, point, y)
