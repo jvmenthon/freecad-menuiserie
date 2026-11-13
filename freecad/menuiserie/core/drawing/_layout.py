@@ -276,6 +276,7 @@ def single_view_layout(
 
 
 MIN_CORNER_MM: Final = 30.0  # perspective d'une pièce : place minimale, sinon pas de perspective
+CORNER_GAP_MM: Final = 10.0  # écart de la perspective d'une pièce aux autres vues (sans cote)
 
 
 def corner_iso_layout(
@@ -285,22 +286,28 @@ def corner_iso_layout(
     reserve: float = 0.0,
 ) -> tuple[float, Spot] | None:
     """Perspective d'une pièce de ``sizes`` (largeur, profondeur, hauteur, comme
-    :func:`overall_layout`) dans le coin libre à droite de sa vue de gauche, au-dessus du
-    cartouche et de ``reserve`` : échelle normalisée (au plus celle de ``layout``) et centre ;
-    ``None`` s'il n'y a pas la place. Les vues cotées gardent ainsi leur grande échelle."""
+    :func:`overall_layout`) dans une place libre au-dessus du cartouche et de ``reserve`` : à
+    droite de sa vue de gauche, ou sous sa vue de dessus (pièce longue), là où elle est la plus
+    grande. Échelle normalisée (au plus celle de ``layout``) et centre ; ``None`` s'il n'y a pas
+    la place. Les vues cotées gardent ainsi leur grande échelle."""
     width, depth, height = sizes
-    left = layout.side.x + depth * layout.scale / 2 + GAP_MM
-    free_width = page.width - MARGIN_MM - left
-    bottom = TITLE_BLOCK_MM[1] + reserve + GAP_MM
-    free_height = page.height - MARGIN_MM - bottom
-    if min(free_width, free_height) < MIN_CORNER_MM:
-        return None
+    bottom = TITLE_BLOCK_MM[1] + reserve + CORNER_GAP_MM
+    right_left = layout.side.x + depth * layout.scale / 2 + CORNER_GAP_MM
+    below_top = layout.top.y - depth * layout.scale / 2 - CORNER_GAP_MM
+    areas = (  # (gauche, bas, largeur, hauteur)
+        (right_left, bottom, page.width - MARGIN_MM - right_left, page.height - MARGIN_MM - bottom),
+        (MARGIN_MM, bottom, page.width - 2 * MARGIN_MM, below_top - bottom),
+    )
+    best: tuple[float, Spot] | None = None
+    for left, low, free_width, free_height in areas:
+        if min(free_width, free_height) < MIN_CORNER_MM:
+            continue
 
-    def fits(scale: float) -> bool:
-        iso_width, iso_height, _ = _iso(width * scale, height * scale, depth * scale, True)
-        return iso_width <= free_width and iso_height <= free_height
+        def fits(scale: float, room: tuple[float, float] = (free_width, free_height)) -> bool:
+            iso_width, iso_height, _ = _iso(width * scale, height * scale, depth * scale, True)
+            return iso_width <= room[0] and iso_height <= room[1]
 
-    scale = next((value for value in SCALES if value <= layout.scale and fits(value)), None)
-    if scale is None:
-        return None
-    return scale, Spot(left + free_width / 2, bottom + free_height / 2)
+        scale = next((value for value in SCALES if value <= layout.scale and fits(value)), None)
+        if scale is not None and (best is None or scale > best[0]):
+            best = scale, Spot(left + free_width / 2, low + free_height / 2)
+    return best

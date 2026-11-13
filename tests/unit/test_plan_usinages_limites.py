@@ -239,8 +239,10 @@ def test_perspective_de_piece_dans_le_coin_libre(page: PageSize, length: float) 
         return  # pas la place : pas de perspective
     scale, spot = corner
     assert scale <= layout.scale
-    assert spot.x > layout.side.x + 22 * layout.scale / 2
-    assert spot.x < page.width - MARGIN_MM
+    right_of_side = spot.x > layout.side.x + 22 * layout.scale / 2
+    below_top = spot.y < layout.top.y - 22 * layout.scale / 2
+    assert right_of_side or below_top
+    assert MARGIN_MM < spot.x < page.width - MARGIN_MM
     assert spot.y > TITLE_BLOCK_MM[1] + reserve
 
 
@@ -252,3 +254,6 @@ def test_perspective_garde_l_echelle_des_vues_cotees() -> None:
     with_iso = overall_layout(2000, 22, 80, page, reserve=reserve, iso=True)
     assert without.scale >= with_iso.scale
     assert corner_iso_layout((2000, 22, 80), without, page, reserve) is not None
+    # Pièce de 600 x 60 x 22 (montant) : perspective sous la vue de dessus, faute de place à droite.
+    montant = overall_layout(600, 22, 60, page, reserve=reserve, iso=False)
+    assert corner_iso_layout((600, 22, 60), montant, page, reserve) is not None
