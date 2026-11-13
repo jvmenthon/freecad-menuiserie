@@ -18,11 +18,11 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie.core.edges import (
+    FACE_CODES,
     edge_ends,
     face_corners,
-    face_edges,
+    loop_edges,
     parse_edge,
-    parse_face,
 )
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -35,7 +35,6 @@ __all__ = ["NODE_NAME", "EdgeHighlight", "highlight_drawing", "rgb"]
 NODE_NAME: Final = "MenuiserieEdgeFinish"
 _LINE_PX: Final = 5.0
 _FACE_TRANSPARENCY: Final = 0.55
-_FACES: Final = ("Z+", "Z-", "Y-", "Y+", "X-", "X+")
 Color = tuple[float, float, float]
 
 
@@ -75,8 +74,8 @@ def highlight_drawing(entries: Sequence[tuple[DocumentObject, Sequence[str], str
         strokes.append(Stroke(shade, _LINE_PX, lines))
         faces = tuple(
             tuple(convert(corner) for corner in face_corners(dimensions, face))
-            for face in _FACES
-            if {edge.code for edge in face_edges(parse_face(face))} <= chosen
+            for face in FACE_CODES
+            if {edge.code for edge in loop_edges(face)} <= chosen
         )
         if faces:
             solids.append(Solid(shade, faces, _FACE_TRANSPARENCY))
@@ -99,10 +98,6 @@ class EdgeHighlight:
                 return
             self._overlay = Overlay(root, NODE_NAME)
         self._overlay.draw(highlight_drawing(entries))
-
-    def shows(self) -> bool:
-        """Vrai si une mise en valeur est posée et dessine quelque chose."""
-        return self._overlay is not None and bool(self._overlay.shows())
 
     def remove(self) -> None:
         """Retire l'incrustation (idempotent)."""

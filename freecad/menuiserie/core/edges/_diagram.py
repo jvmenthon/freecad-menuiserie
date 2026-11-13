@@ -17,9 +17,9 @@ import math
 from dataclasses import dataclass
 from typing import Final
 
-from freecad.menuiserie.core.edges._ids import EdgeId, all_edges, parse_face
+from freecad.menuiserie.core.edges._box import box_sizes, edge_ends, face_corners
+from freecad.menuiserie.core.edges._ids import EdgeId, all_edges, face_code, parse_face
 from freecad.menuiserie.core.edges._layout import face_sides
-from freecad.menuiserie.core.edges._pick import edge_ends
 from freecad.menuiserie.core.geometry import Axis, Vec3
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.vectors import dot
@@ -34,7 +34,6 @@ __all__ = [
     "Hit",
     "box_hit",
     "box_view",
-    "face_corners",
     "face_ring_codes",
     "net_cells",
     "net_hit",
@@ -115,21 +114,6 @@ def net_hit(cells: tuple[Cell, ...], x: float, y: float) -> Hit | None:
     return None
 
 
-def face_corners(dimensions: Dimensions, face: str) -> tuple[Vec3, Vec3, Vec3, Vec3]:
-    """Les quatre coins de la face ``face`` (``"Z+"``) de la boîte, dans l'ordre du contour
-    (repère local, mm)."""
-    axis = parse_face(face)
-    sizes = (dimensions.length, dimensions.width, dimensions.thickness)
-    fixed = sizes[axis.index] if axis.sign > 0 else 0.0
-    one, two = (index for index in range(3) if index != axis.index)
-    corners = []
-    for a, b in ((0.0, 0.0), (sizes[one], 0.0), (sizes[one], sizes[two]), (0.0, sizes[two])):
-        values = [0.0, 0.0, 0.0]
-        values[axis.index], values[one], values[two] = fixed, a, b
-        corners.append(Vec3.of(values))
-    return corners[0], corners[1], corners[2], corners[3]
-
-
 @dataclass(frozen=True)
 class DrawnEdge:
     """Arête de la boîte dessinée : code, deux bouts (pixels), cachée ou non."""
@@ -159,7 +143,7 @@ class BoxView:
 
 def _drawn_sizes(dimensions: Dimensions) -> Dimensions:
     """Cotes dessinées : une planche fine reste lisible (cote minimale relevée)."""
-    sizes = (dimensions.length, dimensions.width, dimensions.thickness)
+    sizes = box_sizes(dimensions)
     floor = max(sizes) * _MIN_RATIO
     return Dimensions(*(max(size, floor) for size in sizes))
 
@@ -202,7 +186,7 @@ def box_view(dimensions: Dimensions, width: float, height: float, margin: float 
 
 
 def _is_hidden(edge: EdgeId) -> bool:
-    return all(face.value[1] + face.value[0] in HIDDEN_FACES for face in (edge.first, edge.second))
+    return all(face_code(face) in HIDDEN_FACES for face in (edge.first, edge.second))
 
 
 def _segment_distance(point: Point, start: Point, end: Point) -> float:

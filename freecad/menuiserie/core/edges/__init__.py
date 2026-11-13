@@ -9,6 +9,7 @@ Extrusion`), que ``features/`` soustrait de la pièce.
 
 from __future__ import annotations
 
+from freecad.menuiserie.core.edges._box import box_sizes, edge_ends, face_corners
 from freecad.menuiserie.core.edges._cut import (
     MAX_SIZE_RATIO,
     MIN_SIZE_MM,
@@ -26,7 +27,6 @@ from freecad.menuiserie.core.edges._diagram import (
     Hit,
     box_hit,
     box_view,
-    face_corners,
     face_ring_codes,
     net_cells,
     net_hit,
@@ -40,21 +40,24 @@ from freecad.menuiserie.core.edges._families import (
     family_for,
 )
 from freecad.menuiserie.core.edges._ids import (
+    FACE_CODES,
     FACE_NAMES,
     EdgeError,
     EdgeId,
     all_edges,
     edge_code,
+    face_code,
     face_edges,
     loop_edges,
     parse_edge,
     parse_face,
 )
 from freecad.menuiserie.core.edges._layout import SIDES, face_sides, faces_covering
-from freecad.menuiserie.core.edges._pick import edge_ends, edges_at, face_at, nearest_edge
+from freecad.menuiserie.core.edges._pick import edges_at, face_at, nearest_edge
 
 __all__ = [
     "BROKEN_EDGE_MM",
+    "FACE_CODES",
     "FACE_NAMES",
     "FAMILIES",
     "HIDDEN_FACES",
@@ -75,6 +78,7 @@ __all__ = [
     "SecondSize",
     "all_edges",
     "box_hit",
+    "box_sizes",
     "box_view",
     "broken_edge_cut",
     "edge_code",
@@ -82,6 +86,7 @@ __all__ = [
     "edge_ends",
     "edges_at",
     "face_at",
+    "face_code",
     "face_corners",
     "face_edges",
     "face_ring_codes",

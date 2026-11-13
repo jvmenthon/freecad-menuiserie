@@ -11,8 +11,13 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Final
 
-from freecad.menuiserie.core.edges._ids import EdgeId, parse_edge, parse_face
-from freecad.menuiserie.core.geometry import Axis
+from freecad.menuiserie.core.edges._ids import (
+    FACE_CODES,
+    EdgeId,
+    face_code,
+    parse_edge,
+    parse_face,
+)
 
 __all__ = ["SIDES", "face_sides", "faces_covering"]
 
@@ -34,14 +39,11 @@ def face_sides(face: str) -> tuple[tuple[str, str, EdgeId], ...]:
     voisine, arête)`` dans l'ordre haut, gauche, droite, bas. ``EdgeError`` si la face est
     inconnue."""
     axis = parse_face(face)
-    key = axis.value[1] + axis.value[0]
+    key = face_code(axis)
     return tuple(
         (side, neighbour, EdgeId.between(axis, parse_face(neighbour)))
         for side, neighbour in zip(SIDES, _NEIGHBOURS[key], strict=True)
     )
-
-
-_FACE_ORDER: Final = ("Z+", "Z-", "Y-", "Y+", "X-", "X+")
 
 
 def faces_covering(codes: Collection[str]) -> tuple[str, ...]:
@@ -53,20 +55,14 @@ def faces_covering(codes: Collection[str]) -> tuple[str, ...]:
     faces: list[str] = []
     while remaining:
         counts = {
-            code: sum(
-                code in (_face_code(e.first), _face_code(e.second)) for e in remaining.values()
-            )
-            for code in _FACE_ORDER
+            code: sum(code in (face_code(e.first), face_code(e.second)) for e in remaining.values())
+            for code in FACE_CODES
         }
-        best = max(_FACE_ORDER, key=lambda code: counts[code])
+        best = max(FACE_CODES, key=lambda code: counts[code])
         faces.append(best)
         remaining = {
             key: edge
             for key, edge in remaining.items()
-            if best not in (_face_code(edge.first), _face_code(edge.second))
+            if best not in (face_code(edge.first), face_code(edge.second))
         }
     return tuple(faces)
-
-
-def _face_code(axis: Axis) -> str:
-    return axis.value[1] + axis.value[0]

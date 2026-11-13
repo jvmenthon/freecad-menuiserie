@@ -293,13 +293,16 @@ def _dans_un_ensemble(doc: Any) -> list[str]:
     direct = pick_at(doc, blank.Name, face)
     return [
         *ecarts("pièce trouvée dans l'ensemble", pick is not None and pick.part == blank, True),
-        *ecarts("face du dessus", pick.faces if pick else None, ("Z+",)),
         *ecarts(
             "4 arêtes",
             sorted(pick.codes) if pick else None,
             sorted(["Z+Y-", "Z+Y+", "Z+X-", "Z+X+"]),
         ),
-        *ecarts("sans ensemble", direct.faces if direct else None, ("Z+",)),
+        *ecarts(
+            "sans ensemble",
+            sorted(direct.codes) if direct else None,
+            sorted(["Z+Y-", "Z+Y+", "Z+X-", "Z+X+"]),
+        ),
         *ecarts("chemin inconnu", pick_at(doc, ensemble.Name, f"Inconnu.{face}"), None),
     ]
 

@@ -19,28 +19,27 @@ import FreeCADGui as Gui
 import Part
 from PySide import QtCore
 
-from freecad.menuiserie.core.edges import edges_at, face_at
+from freecad.menuiserie.core.edges import edges_at
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
-__all__ = ["EdgePicker", "Pick", "pick_at", "selected_picks"]
+__all__ = ["EdgePicker", "Pick", "part_of", "pick_at", "selected_picks"]
 
 _KINDS = ("Face", "Edge", "Vertex")
 
 
 class Pick(NamedTuple):
-    """Cibles désignées : la pièce de bois (brute), les faces choisies (codes ``"Z+"``) et les
-    codes d'arêtes qu'elles ou les arêtes et sommets choisis désignent."""
+    """Cibles désignées : la pièce de bois (brute) et les codes d'arêtes que les faces, arêtes
+    et sommets choisis désignent."""
 
     part: DocumentObject
-    faces: tuple[str, ...]
     codes: tuple[str, ...]
 
 
-def _part_of(target: DocumentObject) -> DocumentObject | None:
+def part_of(target: DocumentObject) -> DocumentObject | None:
     """Pièce de bois ou pièce en bois (brute) que ``target`` désigne : elle-même, ou la brute de
     sa pièce usinée."""
     if is_machined_part(target):
@@ -50,18 +49,19 @@ def _part_of(target: DocumentObject) -> DocumentObject | None:
 
 def _pick_of(target: DocumentObject, sub: str) -> Pick | None:
     """Cibles de l'élément ``sub`` (``"Face3"``, ``""`` pour la pièce entière) de ``target``."""
-    part = _part_of(target)
+    part = part_of(target)
     if part is None:
         return None
     kind = sub.rstrip("0123456789")
     if kind not in _KINDS:
-        return Pick(part, (), ()) if not sub else None
+        return Pick(part, ()) if not sub else None
     element = target.Shape.getElement(sub)
     center = element.Point if kind == "Vertex" else element.CenterOfMass
+    # ``target.Shape`` est dans le repère du conteneur de la pièce (Std Part non compris) : seul
+    # ``Placement`` est défait ici, pas ``getGlobalPlacement()`` (qui sert à la vue 3D).
     local = part.Placement.inverse().multVec(center)
     point, dimensions = Vec3(local.x, local.y, local.z), dimensions_of(part)
-    faces = (face_at(dimensions, point),) if kind == "Face" else ()
-    return Pick(part, faces, tuple(e.code for e in edges_at(dimensions, kind, point)))
+    return Pick(part, tuple(e.code for e in edges_at(dimensions, kind, point)))
 
 
 def _resolve(top: DocumentObject, sub: str) -> tuple[DocumentObject, str] | None:
@@ -96,41 +96,27 @@ def selected_picks() -> list[Pick]:
             pick = _pick_of(item.Object, sub)
             if pick is None:
                 continue
-            base = picks.get(pick.part.Name, Pick(pick.part, (), ()))
+            base = picks.get(pick.part.Name, Pick(pick.part, ()))
             picks[pick.part.Name] = Pick(
-                base.part,
-                base.faces + tuple(f for f in pick.faces if f not in base.faces),
-                base.codes + tuple(c for c in pick.codes if c not in base.codes),
+                base.part, base.codes + tuple(c for c in pick.codes if c not in base.codes)
             )
     return list(picks.values())
 
 
 class EdgePicker:
-    """Observateur de sélection qui transmet les cibles d'un élément cliqué : celles de ``part``
-    ou, tant qu'elle est ``None``, de la première pièce de bois cliquée du document ;
-    ``on_ignored`` est appelé pour un clic qui ne désigne pas une telle pièce."""
+    """Observateur de sélection qui transmet les cibles d'un élément cliqué d'une pièce de bois
+    du document ; ``on_ignored`` est appelé pour un clic qui ne désigne pas une telle pièce."""
 
     def __init__(
         self,
         document: App.Document,
-        part: DocumentObject | None,
         on_pick: Callable[[Pick], None],
         on_ignored: Callable[[], None] | None = None,
     ) -> None:
         self._document_name: str = document.Name
-        self._part_name: str | None = None if part is None else part.Name
         self._on_pick = on_pick
         self._on_ignored = on_ignored
         self._active = False
-
-    @property
-    def active(self) -> bool:
-        """Vrai tant que l'observateur est posé."""
-        return self._active
-
-    def bind(self, part: DocumentObject) -> None:
-        """Les clics suivants ne comptent que pour ``part``."""
-        self._part_name = part.Name
 
     def start(self) -> None:
         """Pose l'observateur (idempotent)."""
@@ -155,7 +141,7 @@ class EdgePicker:
             pick = pick_at(App.getDocument(self._document_name), obj, sub)
         except (RuntimeError, ValueError, Part.OCCError):  # élément périmé : clic ignoré
             pick = None
-        if pick is None or (self._part_name is not None and pick.part.Name != self._part_name):
+        if pick is None:
             QtCore.QTimer.singleShot(0, self._ignored)
             return
         QtCore.QTimer.singleShot(0, lambda: self._deliver(pick))

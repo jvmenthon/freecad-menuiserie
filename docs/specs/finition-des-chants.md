@@ -110,7 +110,11 @@ seule pièce.
   profil** (même famille, mêmes cotes), tous créés dans la transaction de la commande (une seule
   entrée d'annulation). Retirer une carte retire le profil que le panneau avait créé pour elle.
   En modification (double-clic sur un profil), la pièce du profil ne peut pas quitter la liste
-  (« Supprimer ce profil » le fait) ; d'autres pièces peuvent s'y ajouter.
+  (« Supprimer ce profil » le fait) ; d'autres pièces peuvent s'y ajouter, leurs profils sont
+  alors créés dans la même entrée d'annulation « Modifier un profil d'arête ». Une pièce
+  supprimée pendant la tâche quitte la liste ; le profil modifié supprimé ferme le panneau.
+  Chaque saisie ne réécrit que les pièces dont les réglages changent (un recalcul par pièce
+  modifiée).
 - C2c Mise en valeur dans la vue 3D (2026-11-13) : pendant la tâche, les arêtes choisies de
   chaque pièce sont tracées en trait épais de la couleur de sa carte, et les faces dont les
   quatre arêtes sont choisies teintées. C'est une incrustation de la vue (comme les flèches de

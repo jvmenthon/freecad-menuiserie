@@ -21,6 +21,7 @@ from functools import partial
 from typing import Final
 
 import FreeCAD as App
+import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
@@ -30,11 +31,12 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.gui.edge_highlight import EdgeHighlight
 from freecad.menuiserie.gui.pick_edge import EdgePicker, Pick
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
+    DeletionWatcher,
     TransactionTaskPanel,
     UpdateGuard,
     connect,
@@ -87,13 +89,18 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             if picks
             else App.ActiveDocument
         )
-        super().__init__(document, creating=profile is None)
+        # Profil modifié supprimé pendant la tâche (console, Édition > Supprimer) : fermeture.
+        watcher = None if profile is None else DeletionWatcher(profile, Gui.Control.closeDialog)
+        super().__init__(document, creating=profile is None, watcher=watcher)
         self.profile = profile  # profil modifié (double-clic), ``None`` en création
-        self._profiles: dict[str, DocumentObject] = {}  # nom de pièce → son profil du panneau
+        # Nom de pièce → nom de son profil du panneau ; les objets sont relus dans le document
+        # (un objet supprimé pendant la tâche n'y est plus).
+        self._profiles: dict[str, str] = {}
+        self._applied: dict[str, tuple[object, ...]] = {}  # derniers réglages écrits par pièce
         self._failed = False
         self._asymmetric = False  # profil relu dont la cote B diffère de A : B reste visible
         self._guard = UpdateGuard()
-        self._picker = EdgePicker(document, None, self.on_pick, self._ignored)
+        self._picker = EdgePicker(document, self.on_pick, self._ignored)
         self._highlight = EdgeHighlight(document)
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
@@ -164,7 +171,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             self._asymmetric = profile.SizeB.Value not in (0.0, profile.SizeA.Value)
             card = self.pieces.add(profile.Part, removable=False)
             card.set_codes(profile.Edges, silently=True)
-        self._profiles[profile.Part.Name] = profile
+        self._profiles[profile.Part.Name] = profile.Name
 
     def _needs_size_b(self) -> bool:
         """Cote B demandée : bec-de-corbin et doucine ; un profil relu asymétrique la garde."""
@@ -182,12 +189,6 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._show_size_b()
         self.rebuild()
 
-    def codes(self, part: DocumentObject | None = None) -> list[str]:
-        """Arêtes choisies de ``part`` (par défaut, la première pièce de la liste)."""
-        cards = self.pieces.cards()
-        card = cards[0] if part is None and cards else self.pieces.card_of(part)
-        return [] if card is None else card.codes()
-
     def _show_message(self, message: str) -> None:
         self._error.setText(message)
         self._error.setVisible(bool(message))
@@ -203,13 +204,32 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         if refusal is not None:
             self._show_message(refusal)
             return
-        self.pieces.add(pick.part).check(pick.codes)
+        try:
+            with translated_errors():  # cotes de la pièce illisibles
+                card = self.pieces.add(pick.part)
+        except ValueError as error:
+            self._show_message(str(error))
+            return
+        card.check(pick.codes)
 
     # --- Aperçu ---------------------------------------------------------------------------
 
+    def _profile_of(self, part_name: str) -> DocumentObject | None:
+        """Profil du panneau de la pièce ``part_name``, ``None`` s'il n'y en a pas (ou plus)."""
+        name = self._profiles.get(part_name)
+        return None if name is None else self.doc.getObject(name)
+
+    def _remove_profile(self, part_name: str) -> None:
+        """Profil du panneau de la pièce retiré (s'il existe encore)."""
+        profile = self._profile_of(part_name)
+        self._profiles.pop(part_name, None)
+        self._applied.pop(part_name, None)
+        if profile is not None:
+            api.remove_edge_profile(profile)
+
     def _others(self, part: DocumentObject) -> set[str]:
         """Arêtes de ``part`` profilées par un profil qui n'est pas celui du panneau."""
-        mine = self._profiles.get(part.Name)
+        mine = self._profile_of(part.Name)
         return {
             code for other in api.edge_profiles_of(part) if other != mine for code in other.Edges
         }
@@ -222,19 +242,19 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             return
         messages: list[str] = []
         self._failed = False
+        self.pieces.prune(self.doc)  # pièces supprimées pendant la tâche
         listed = {part.Name for part in self.pieces.parts()}
         for name in [name for name in self._profiles if name not in listed]:
-            api.remove_edge_profile(self._profiles.pop(name))
+            self._remove_profile(name)
         conflicts: list[str] = []
         for part, codes in self.pieces.entries():
             others = self._others(part)
             mine = sorted(set(codes) & others)
+            # Aperçu : les arêtes déjà profilées par un autre profil ne lui sont retirées
+            # qu'après confirmation, dans accept().
+            free = [code for code in codes if code not in others]
             try:
-                # Aperçu : les arêtes déjà profilées par un autre profil ne lui sont retirées
-                # qu'après confirmation, dans accept().
-                free = [code for code in codes if code not in others]
-                if free or not mine:
-                    messages.extend(self._apply(part, free, replace=False))
+                messages.extend(self._preview(part, free, bool(mine)))
             except (TypeError, ValueError) as error:
                 messages.append(str(error))
                 self._failed = True
@@ -246,6 +266,18 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._highlight.show(
             [(card.part, card.codes(), card.color) for card in self.pieces.cards()]
         )
+
+    def _preview(self, part: DocumentObject, free: list[str], conflicts: bool) -> tuple[str, ...]:
+        """Aperçu de ``part`` avec ses arêtes libres ``free``. Toutes ses arêtes choisies déjà
+        profilées ailleurs (``conflicts`` sans ``free``) : le profil du panneau est retiré, sauf
+        le profil modifié, gardé tel quel jusqu'à « OK » (note, pas refus)."""
+        if free or not conflicts:
+            return self._apply(part, free, replace=False)
+        profile = self._profile_of(part.Name)
+        if profile is not None and profile == self.profile:
+            return (translated(_NO_EDGE, {"piece": quoted_value(part.Label)}),)
+        self._remove_profile(part.Name)
+        return ()
 
     @staticmethod
     def _piece_edges(part: DocumentObject, codes: Sequence[str]) -> str:
@@ -259,21 +291,26 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         family = str(self._family.currentData())
         size_a = float(self._size_a.property("rawValue"))
         size_b = float(self._size_b.property("rawValue")) if self._needs_size_b() else 0.0
-        profile = self._profiles.get(part.Name)
+        profile = self._profile_of(part.Name)
         if not codes:
             if profile is None:
                 return ()
             if profile == self.profile:
                 raise ValueError(translated(_NO_EDGE, {"piece": quoted_value(part.Label)}))
-            api.remove_edge_profile(self._profiles.pop(part.Name))
+            self._remove_profile(part.Name)
             return ()
+        settings = (tuple(codes), family, size_a, size_b, replace)
+        if profile is not None and self._applied.get(part.Name) == settings:
+            return ()  # rien n'a changé pour cette pièce : pas de recalcul du document
         if profile is None:
-            created, notices = api.add_edge_profile(
+            profile, notices = api.add_edge_profile(
                 part, codes, family, size_a, size_b, replace=replace
             )
-            self._profiles[part.Name] = created
-            return tuple(notices)
-        return tuple(api.set_edge_profile(profile, codes, family, size_a, size_b, replace=replace))
+            self._profiles[part.Name] = profile.Name
+        else:
+            notices = api.set_edge_profile(profile, codes, family, size_a, size_b, replace=replace)
+        self._applied[part.Name] = settings
+        return tuple(notices)
 
     def _delete(self) -> None:
         """« Supprimer ce profil » : profil retiré (la pièce usinée disparaît si elle n'a plus
@@ -313,9 +350,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
                 for part, codes, _mine in conflicts:
                     self._apply(part, codes, replace=True)
             except (TypeError, ValueError) as error:
+                self.rebuild()  # état et messages réalignés sur le document
                 self._show_message(str(error))
                 return False
-        if not self._profiles:
+        if not any(self._profile_of(name) is not None for name in self._profiles):
             return self.reject()
         return super().accept()
 

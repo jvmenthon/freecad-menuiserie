@@ -9,23 +9,13 @@ coupé par un assemblage) se rapproche du plus proche. Seuls les codes sont cons
 
 from __future__ import annotations
 
+from freecad.menuiserie.core.edges._box import box_sizes, edge_ends
 from freecad.menuiserie.core.edges._ids import EdgeId, all_edges, loop_edges
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.vectors import dot, norm
 
-__all__ = ["edge_ends", "edges_at", "face_at", "nearest_edge"]
-
-
-def edge_ends(dimensions: Dimensions, edge: EdgeId) -> tuple[Vec3, Vec3]:
-    """Bouts de l'arête ``edge`` de la boîte ``dimensions``, dans le repère local (mm)."""
-    sizes = (dimensions.length, dimensions.width, dimensions.thickness)
-    values = [0.0, 0.0, 0.0]
-    for face in (edge.first, edge.second):
-        values[face.index] = sizes[face.index] if face.sign > 0 else 0.0
-    low, high = list(values), list(values)
-    high[edge.along] = sizes[edge.along]
-    return Vec3.of(low), Vec3.of(high)
+__all__ = ["edges_at", "face_at", "nearest_edge"]
 
 
 def _distance(dimensions: Dimensions, edge: EdgeId, point: Vec3) -> float:
@@ -43,13 +33,9 @@ def nearest_edge(dimensions: Dimensions, point: Vec3) -> EdgeId:
     return min(all_edges(), key=lambda edge: _distance(dimensions, edge, point))
 
 
-def _sizes(dimensions: Dimensions) -> tuple[float, float, float]:
-    return (dimensions.length, dimensions.width, dimensions.thickness)
-
-
 def face_at(dimensions: Dimensions, point: Vec3) -> str:
     """Code de la face de la boîte la plus proche de ``point`` (repère local, mm) : ``"Z+"``…"""
-    sizes = _sizes(dimensions)
+    sizes = box_sizes(dimensions)
     candidates = [
         (abs(point.component(index) - (sizes[index] if sign == "+" else 0.0)), f"{letter}{sign}")
         for index, letter in enumerate("XYZ")

@@ -26,9 +26,9 @@ from freecad.menuiserie.core.edges import (
     Hit,
     box_hit,
     box_view,
-    face_edges,
     face_ring_codes,
     face_sides,
+    loop_edges,
     net_cells,
     net_hit,
     parse_face,
@@ -42,7 +42,6 @@ __all__ = ["BOX", "NET", "VIEWS", "EdgeDiagram"]
 NET: Final = "net"
 BOX: Final = "box"
 VIEWS: Final = (NET, BOX)
-_FACE: Final = "#f6d7a3"
 _SHADES: Final = {"Z+": "#f6d7a3", "Y-": "#e0b377", "X+": "#c79657"}
 _LINE: Final = "#7a5a30"
 _OFF: Final = "#d3d7cf"
@@ -128,7 +127,7 @@ class EdgeDiagram(QtGui.QWidget):  # type: ignore[misc]
         return box_view(self._dimensions, self.width(), self.height())
 
     def _face_chosen(self, face: str) -> bool:
-        return all(edge.code in self._checked for edge in face_edges(parse_face(face)))
+        return all(edge.code in self._checked for edge in loop_edges(face))
 
     def _tint(self) -> QtGui.QColor:
         """Teinte d'une face choisie : la couleur de la pièce mêlée de blanc."""
@@ -157,7 +156,7 @@ class EdgeDiagram(QtGui.QWidget):  # type: ignore[misc]
         for cell in net_cells(self.width(), self.height()):
             rect = QtCore.QRectF(cell.x, cell.y, cell.size, cell.size)
             painter.setPen(QtGui.QPen(QtGui.QColor(_LINE), 1))
-            painter.setBrush(QtGui.QColor(_FACE))
+            painter.setBrush(QtGui.QColor(_SHADES["Z+"]))
             painter.drawRect(rect)
             if self._face_chosen(cell.face):
                 painter.setBrush(self._tint())

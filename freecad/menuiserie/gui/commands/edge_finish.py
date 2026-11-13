@@ -21,11 +21,8 @@ from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.edge_profile import is_edge_profile
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.machined_part import is_machined_part
-from freecad.menuiserie.features.shaped_part import is_shaped_part
-from freecad.menuiserie.features.wood_part import is_wood_part
 from freecad.menuiserie.gui.commands.base import report_refusal
-from freecad.menuiserie.gui.pick_edge import selected_picks
+from freecad.menuiserie.gui.pick_edge import part_of, selected_picks
 from freecad.menuiserie.gui.task_panels.edge_finish import (
     CREATE_TRANSACTION,
     show_panel,
@@ -48,8 +45,8 @@ def _selected_parts() -> list[DocumentObject]:
     """Pièces de bois (brutes) sélectionnées, une pièce usinée ramenée à sa brute."""
     parts: list[DocumentObject] = []
     for obj in Gui.Selection.getSelection():
-        part = obj.Base if is_machined_part(obj) else obj
-        if (is_wood_part(part) or is_shaped_part(part)) and part not in parts:
+        part = part_of(obj)
+        if part is not None and part not in parts:
             parts.append(part)
     return parts
 
@@ -85,10 +82,13 @@ class EdgeFinishCommand:
         if profile is not None:
             start_editing(profile)
             return
-        refusals = [
-            refusal for refusal in map(box_part_refusal, _selected_parts()) if refusal is not None
-        ]
-        picks = [pick for pick in selected_picks() if box_part_refusal(pick.part) is None]
+        refused = {
+            part.Name: refusal
+            for part in _selected_parts()
+            if (refusal := box_part_refusal(part)) is not None
+        }
+        picks = [pick for pick in selected_picks() if pick.part.Name not in refused]
+        refusals = list(refused.values())
         if refusals and not picks:
             report_refusal("\n".join(refusals))
             return

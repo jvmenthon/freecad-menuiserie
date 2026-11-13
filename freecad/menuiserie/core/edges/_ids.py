@@ -17,11 +17,13 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.text import quoted_value
 
 __all__ = [
+    "FACE_CODES",
     "FACE_NAMES",
     "EdgeError",
     "EdgeId",
     "all_edges",
     "edge_code",
+    "face_code",
     "face_edges",
     "loop_edges",
     "parse_edge",
@@ -42,13 +44,15 @@ FACE_NAMES: Final = {
 }
 _FACE_BY_NAME: Final = {name: face for face, name in FACE_NAMES.items()}
 _FACE_ORDER: Final = (2, 1, 0)  # indices d'axe dans l'ordre d'écriture : Z, Y, X
+# Les six faces : dessus, dessous, avant, arrière, gauche, droite.
+FACE_CODES: Final = ("Z+", "Z-", "Y-", "Y+", "X-", "X+")
 
 
 class EdgeError(TemplatedError):
     """Arête, face ou cote de profil refusée ; gabarit français traduisible rempli."""
 
 
-def _letter_code(face: Axis) -> str:
+def face_code(face: Axis) -> str:
     """Code d'une face : ``"Z+"``, ``"Y-"``."""
     return face.value[1] + face.value[0]
 
@@ -82,7 +86,7 @@ class EdgeId:
     @property
     def code(self) -> str:
         """Code stable, par exemple ``"Z+Y-"``."""
-        return _letter_code(self.first) + _letter_code(self.second)
+        return face_code(self.first) + face_code(self.second)
 
     @property
     def name(self) -> str:

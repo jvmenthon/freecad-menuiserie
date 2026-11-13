@@ -15,12 +15,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
-from typing import Final
+from typing import Any, Final
 
 import FreeCAD as App
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.core.edges import all_edges, face_edges, parse_face
+from freecad.menuiserie.core.edges import all_edges, loop_edges
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -88,6 +88,7 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
     ) -> None:
         super().__init__()
         self.part = part
+        self.part_name: str = part.Name  # relu sans toucher l'objet (il a pu être supprimé)
         self.color = color
         self._changed = changed
         self._codes: set[str] = set()
@@ -150,7 +151,7 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
     def toggle_face(self, face: str) -> None:
         """Les quatre arêtes de la face ``face`` : toutes choisies si l'une ne l'est pas, sinon
         toutes retirées."""
-        codes = {edge.code for edge in face_edges(parse_face(face))}
+        codes = {edge.code for edge in loop_edges(face)}
         self._codes = self._codes - codes if codes <= self._codes else self._codes | codes
         self._update()
 
@@ -233,11 +234,6 @@ class PieceList:
         self._view_widget = widget
         return widget
 
-    @property
-    def view(self) -> str:
-        """Dessin montré par les cartes."""
-        return self._view
-
     def set_view(self, view: str) -> None:
         """Toutes les cartes passent au dessin ``view`` ; le choix est mémorisé."""
         if view not in VIEWS:
@@ -279,6 +275,15 @@ class PieceList:
         card.deleteLater()
         self._refresh()
         self._changed()
+
+    def prune(self, document: Any) -> None:
+        """Cartes des pièces qui ne sont plus dans ``document`` retirées, sans ``changed``."""
+        gone = [card for card in self._cards if document.getObject(card.part_name) is None]
+        for card in gone:
+            self._cards.remove(card)
+            card.hide()
+            card.deleteLater()
+        self._refresh()
 
     def entries(self) -> list[tuple[DocumentObject, list[str]]]:
         """Pièces de la liste et leurs arêtes choisies."""
