@@ -14,18 +14,21 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Final
 
 from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron, SlantedCylinder
+from freecad.menuiserie.core.drawing._names import NAMES
 from freecad.menuiserie.core.geometry import Box, Cylinder, Prism, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 
 __all__ = [
     "CONTINUATION",
     "MAX_NOTE_LINES",
+    "NAMES",
     "Machining",
+    "MachiningItem",
     "MachiningKind",
     "capped",
     "machining_lines",
@@ -36,25 +39,26 @@ _TOLERANCE_MM: Final = 0.01
 MAX_POSITIONS: Final = 4  # positions écrites sur une ligne, au plus
 MAX_NOTE_LINES: Final = 8  # lignes du tableau des usinages, titre compris (bande de 45 mm)
 CONTINUATION: Final = "    "  # retrait des suites d'une ligne coupée à la largeur de la bande
+# Où se trouve l'usinage : (indice d'axe, signe) → texte à traduire, avec sa préposition.
 _FACES: Final = {
-    (2, 1): QT_TRANSLATE_NOOP("Menuiserie", "face"),
-    (2, -1): QT_TRANSLATE_NOOP("Menuiserie", "contre-face"),
-    (1, 1): QT_TRANSLATE_NOOP("Menuiserie", "chant haut"),
-    (1, -1): QT_TRANSLATE_NOOP("Menuiserie", "chant bas"),
-    (0, 1): QT_TRANSLATE_NOOP("Menuiserie", "bout droit"),
-    (0, -1): QT_TRANSLATE_NOOP("Menuiserie", "bout gauche"),
+    (2, 1): QT_TRANSLATE_NOOP("Menuiserie", "sur la face"),
+    (2, -1): QT_TRANSLATE_NOOP("Menuiserie", "sur la contre-face"),
+    (1, 1): QT_TRANSLATE_NOOP("Menuiserie", "sur le chant haut"),
+    (1, -1): QT_TRANSLATE_NOOP("Menuiserie", "sur le chant bas"),
+    (0, 1): QT_TRANSLATE_NOOP("Menuiserie", "au bout droit"),
+    (0, -1): QT_TRANSLATE_NOOP("Menuiserie", "au bout gauche"),
 }
 _INSIDE: Final = QT_TRANSLATE_NOOP("Menuiserie", "dans la masse")
 _HOLE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "{label} : {count} perçage(s) Ø {diameter}, prof. {depth}, {face}, à {positions}"
+    "Menuiserie", "{label} : {count} {name} Ø {diameter}, prof. {depth}, {face}, à {positions}"
 )
 _CUT: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "{label} : {count} enlèvement(s) {size}, prof. {depth}, {face}, à {positions}",
+    "Menuiserie", "{label} : {count} {name} {size}, prof. {depth}, {face}, à {positions}"
 )
 _ADDED: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "{label} : {count} ajout(s) {size}, {face}, à {positions}"
+    "Menuiserie", "{label} : {count} {name} {size}, longueur {depth}, {face}, à {positions}"
 )
+_DEFAULT_NAMES: Final = {"hole": "hole", "cut": "cut", "added": "added"}
 
 
 class MachiningKind(Enum):
@@ -71,7 +75,8 @@ class Machining:
     encombrement ; ``face`` : (indice d'axe, signe) de la face par où il s'ouvre, ``None`` s'il
     ne touche aucune face ; ``depth`` : son étendue le long de cet axe (ou son épaisseur la plus
     faible s'il est dans la masse) ; ``diameter`` : celui d'un perçage, 0 sinon ; ``entry`` :
-    centre de l'entrée d'un perçage (x, y), ``None`` sinon."""
+    centre de l'entrée d'un perçage (x, y), ``None`` sinon ; ``name`` : nom de l'usinage pour le
+    menuisier (clé de ``NAMES``)."""
 
     label: str
     kind: MachiningKind
@@ -81,6 +86,7 @@ class Machining:
     depth: float
     diameter: float = 0.0
     entry: tuple[float, float] | None = None
+    name: str = ""  # clé de ``NAMES`` (mortaise, queue…), vide : nom générique du genre
 
     @property
     def size(self) -> tuple[float, float, float]:
@@ -265,38 +271,67 @@ def _triple(values: Sequence[float]) -> tuple[float, float, float]:
     return float(values[0]), float(values[1]), float(values[2])
 
 
-def machinings(
-    items: Iterable[tuple[str, PlanSolid, MachiningKind]], size: Sequence[float]
-) -> list[Machining]:
+MachiningItem = tuple[str, PlanSolid, MachiningKind] | tuple[str, PlanSolid, MachiningKind, str]
+
+
+def machinings(items: Iterable[MachiningItem], size: Sequence[float]) -> list[Machining]:
     """Usinages de la pièce de cotes ``size`` (longueur, largeur, épaisseur) d'après les formes
-    ``items`` (libellé de l'assemblage, forme dans le repère local, enlèvement ou ajout). Les
-    formes qui n'entament pas la pièce sont ignorées."""
-    found = (_one(label, solid, kind, size) for label, solid, kind in items)
-    return [item for item in found if item is not None]
+    ``items`` (libellé de l'assemblage, forme dans le repère local, enlèvement ou ajout et,
+    facultatif, nom de l'usinage : clé de ``NAMES``). Les formes qui n'entament pas la pièce
+    sont ignorées."""
+    found: list[Machining] = []
+    for item in items:
+        label, solid, kind = item[0], item[1], item[2]
+        name = item[3] if len(item) > 3 else ""
+        one = _one(label, solid, kind, size)
+        if one is not None:
+            found.append(replace(one, name=_name(one, str(name))))
+    return found
+
+
+def _name(item: Machining, name: str) -> str:
+    """Nom donné, sinon nom générique du genre ; un perçage garde un nom de perçage."""
+    if item.kind is MachiningKind.HOLE and not name.endswith("hole"):
+        return "hole"
+    return name if name in NAMES else _DEFAULT_NAMES[item.kind.value]
 
 
 def _number(value: float) -> str:
+    """Cote au dixième, écrite à la française (« 58,5 »)."""
     rounded = round(value, 1)
-    return f"{0.0 if rounded == 0 else rounded:g}"
+    return f"{0.0 if rounded == 0 else rounded:g}".replace(".", ",")
 
 
 def _position(item: Machining) -> str:
-    """Coin bas gauche (ou centre d'un perçage) vu de face : « x 50 y 15 »."""
+    """Coin bas gauche (ou centre d'un perçage) vu de face : « x 50 y 15 ». Un tenon ou une
+    queue qui sort d'un bout (d'un chant) n'est repéré que le long de ce bout (de ce chant)."""
     if item.entry is not None:
         x, y = item.entry
     else:
         x, y = item.low[0], item.low[1]
+    if item.kind is MachiningKind.ADDED and item.face is not None and item.face[0] == 0:
+        return f"y {_number(y)}"
+    if item.kind is MachiningKind.ADDED and item.face is not None and item.face[0] == 1:
+        return f"x {_number(x)}"
     return f"x {_number(x)} y {_number(y)}"
 
 
 def _size_text(item: Machining) -> str:
-    return " \u00d7 ".join(_number(value) for value in item.size)
+    """Taille vue de la face d'entrée : les deux étendues autres que la profondeur (largeur sur
+    la longueur ou la largeur de la pièce, puis l'autre), les trois dans la masse."""
+    sizes = item.size
+    if item.face is None:
+        shown = list(sizes)
+    else:
+        shown = [value for index, value in enumerate(sizes) if index != item.face[0]]
+    return " \u00d7 ".join(_number(value) for value in shown)
 
 
 def _group_key(item: Machining) -> tuple[object, ...]:
     return (
         item.label,
         item.kind,
+        item.name,
         item.face,
         round(item.depth, 1),
         round(item.diameter, 1),
@@ -321,6 +356,8 @@ def machining_lines(items: Sequence[Machining]) -> list[tuple[str, dict[str, str
         values = {
             "label": first.label,
             "count": str(len(group)),
+            # Texte à traduire lui aussi, au singulier ou au pluriel.
+            "name": NAMES[first.name][0 if len(group) == 1 else 1],
             "depth": _number(first.depth),
             # Texte à traduire lui aussi : gabarit sans valeur.
             "face": _FACES[first.face] if first.face is not None else _INSIDE,

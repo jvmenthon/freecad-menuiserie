@@ -14,7 +14,7 @@ from tests.integration.cadre import stale_or_invalid
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
-pytest.importorskip("TechDraw", reason="TechDraw non importable dans freecadcmd")
+TechDraw = pytest.importorskip("TechDraw", reason="TechDraw non importable dans freecadcmd")
 api = pytest.importorskip("freecad.menuiserie.api")
 drawing = pytest.importorskip("freecad.menuiserie.features.drawing")
 
@@ -232,3 +232,22 @@ def test_changement_de_format_a_la_relance(bureau: Bureau) -> None:
     assert again == page
     assert "A4" in again.Template.Template
     assert again.Scale == pytest.approx(0.05)  # le 1 : 10 ne tient plus sur A4
+
+
+def test_cotes_de_detail_sur_la_face(bureau: Bureau) -> None:
+    """Retour de jv du 2026-11-13 : la face cote aussi où commence et finit chaque pièce
+    (épaisseur du plateau…), sous les cotes hors tout, qui restent au nombre de trois."""
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture])
+    owned = drawing.owned_names(page)
+    details = [
+        obj
+        for obj in page.Views
+        if obj.Name in owned and obj.TypeId == "TechDraw::DrawViewDimension"
+    ]
+    if not hasattr(TechDraw, "makeDistanceDim3d"):
+        pytest.skip("TechDraw ne sait pas coter entre deux points")
+    assert details, [obj.TypeId for obj in page.Views]
+    values = sorted(round(float(dim.getRawValue()), 1) for dim in details)
+    assert 30.0 in values  # épaisseur du plateau du bureau
+    assert len(drawing.overall_dimensions(page)) == 3
+    assert all(view.isValid() for view in page.Views)

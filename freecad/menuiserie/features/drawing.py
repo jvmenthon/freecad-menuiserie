@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any, Final
 
 import FreeCAD as App
-import Part
 
 from freecad.menuiserie import TEMPLATES_DIR
 from freecad.menuiserie.core.drawing import (
@@ -35,11 +34,13 @@ from freecad.menuiserie.core.drawing import (
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features import drawing_settings
+from freecad.menuiserie.features.drawing_details import front_details, global_shape
 from freecad.menuiserie.features.drawing_title import STORED, fill_title_block
 from freecad.menuiserie.features.drawing_views import (
     PAGE_NAME,
     VIEW_TYPE,
     add_overall_views,
+    overall_band_mm,
     removal_rank,
     techdraw,
 )
@@ -80,7 +81,7 @@ __all__ = [
 
 MARKER: Final = "MenuiserieDrawing"
 OWNED: Final = "MenuiserieDrawingViews"  # noms des vues et cotes posées par l'atelier
-DIMENSION_TYPE: Final = "TechDraw::DrawViewDim"  # préfixe des types de cotes
+EXTENT_TYPE: Final = "TechDraw::DrawViewDimExtent"  # cotes hors tout (d'étendue)
 KIND: Final = "MenuiserieDrawingKind"  # « part » : plan de pièce ; absent ou vide : de l'ouvrage
 PART_KIND: Final = "part"
 PAGE_TYPE: Final = "TechDraw::DrawPage"
@@ -186,15 +187,6 @@ def drawing_sources(doc: Document, objects: Sequence[DocumentObject]) -> list[Do
     if not sources:
         raise ValueError(translated(_NOTHING))
     return sources
-
-
-def global_shape(obj: DocumentObject) -> Any:
-    """Forme de ``obj`` (copie) placée dans le repère global du document, conteneurs compris."""
-    shape = Part.getShape(obj)
-    if not shape.isNull():
-        outer = obj.getGlobalPlacement().multiply(obj.Placement.inverse())
-        shape.Placement = outer.multiply(shape.Placement)
-    return shape
 
 
 def global_box(sources: Sequence[DocumentObject]) -> Any:
@@ -347,7 +339,8 @@ def _fill(
     page.Scale = layout.scale
     warn_if_unfitted(layout.fits)
     sizes = (float(box.XLength), float(box.ZLength), float(box.YLength))
-    set_owned(page, add_overall_views(page, sources, layout, (box.Center, sizes)))
+    frame = (box.Center, sizes, front_details(sources))
+    set_owned(page, add_overall_views(page, sources, layout, frame))
 
 
 def make_overall_drawing(
@@ -364,7 +357,9 @@ def make_overall_drawing(
     box = global_box(sources)
     with translated_errors():
         size = page_size(chosen.resolved_format(), chosen.resolved_orientation())
-        layout = overall_layout(box.XLength, box.YLength, box.ZLength, size)
+        layout = overall_layout(
+            (box.XLength, box.YLength, box.ZLength), size, band=overall_band_mm()
+        )
     with drawing_transaction(doc, translated(TITLE)):
         page = find_overall_drawing(doc, sources)
         if page is None:
@@ -383,6 +378,6 @@ def overall_dimensions(page: DocumentObject) -> list[DocumentObject]:
     hauteur."""
     owned = owned_names(page)
     found = [
-        obj for obj in page.Views if obj.Name in owned and obj.TypeId.startswith(DIMENSION_TYPE)
+        obj for obj in page.Views if obj.Name in owned and obj.TypeId == EXTENT_TYPE
     ]
     return sorted(found, key=lambda obj: owned.index(obj.Name))

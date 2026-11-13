@@ -124,14 +124,16 @@ def _fits(
     page: PageSize,
     reserve: float | None = None,
     iso: bool = True,
+    band: float = 0.0,
 ) -> bool:
     width, height, depth = _extent(sizes, scale)
-    _, iso_height, iso_room = _iso(width, height, depth, iso)
-    used_width = 2 * MARGIN_MM + width + GAP_MM + depth + iso_room
+    height += band  # cotes au-dessus de la face
+    _, iso_height, iso_room = _iso(width, height - band, depth, iso)
+    used_width = 2 * MARGIN_MM + band + width + GAP_MM + depth + iso_room
     block_width, block_height = TITLE_BLOCK_MM
     block_height += reserve or 0.0
     # Le dessus, sous la face, ne monte au-dessus du cartouche que s'il passe dessous en largeur.
-    under_block = reserve is not None or MARGIN_MM + width > page.width - block_width
+    under_block = reserve is not None or MARGIN_MM + band + width > page.width - block_width
     bottom = block_height if under_block else MARGIN_MM
     used_height = MARGIN_MM + max(height + GAP_MM + depth, iso_height) + bottom
     # La vue de gauche et la perspective restent au-dessus du cartouche.
@@ -140,35 +142,39 @@ def _fits(
 
 
 def overall_layout(
-    width: float,
-    depth: float,
-    height: float,
+    dimensions: tuple[float, float, float],
     page: PageSize,
     *,
     reserve: float | None = None,
     iso: bool = True,
+    band: float = 0.0,
 ) -> OverallLayout:
-    """Mise en page du plan d'un ouvrage de ``width`` x ``depth`` x ``height`` (X, Y, Z) sur
-    ``page`` : la plus grande échelle normalisée où les quatre vues et leurs cotes tiennent.
+    """Mise en page du plan d'un ouvrage de ``dimensions`` (largeur, profondeur, hauteur : X, Y,
+    Z) sur ``page`` : la plus grande échelle normalisée où les quatre vues et leurs cotes tiennent.
     ``reserve`` (plan de pièce, voir :func:`notes_band`) : les vues restent toutes au-dessus du
     cartouche et de ``reserve`` millimètres de plus, pour laisser libre la place du tableau des
     usinages. ``iso`` faux : pas de perspective (sa place ``iso`` est alors à droite de la vue
-    de gauche, sans largeur). ``TemplatedError`` pour une cote nulle, négative, non finie ou
+    de gauche, sans largeur). ``band`` : place laissée aux cotes au-dessus et à gauche de la
+    face (hors tout et de détail). ``TemplatedError`` pour une cote nulle, négative, non finie ou
     démesurée."""
-    sizes = (width, depth, height)
+    sizes = (float(dimensions[0]), float(dimensions[1]), float(dimensions[2]))
     if not all(math.isfinite(value) and 0.0 < value <= MAX_SIZE_MM for value in sizes):
         raise TemplatedError(_BAD_SIZE, {})
-    scale = next((value for value in SCALES if _fits(sizes, value, page, reserve, iso)), None)
+    scale = next((value for value in SCALES if _fits(sizes, value, page, reserve, iso, band)), None)
     fits = scale is not None
     scale = SCALES[-1] if scale is None else scale
     face_width, face_height, face_depth = _extent(sizes, scale)
     iso_width, iso_height, iso_room = _iso(face_width, face_height, face_depth, iso)
     left, top_y = _group_origin(
-        (face_width + GAP_MM + face_depth + iso_room, face_width),
-        (max(face_height + GAP_MM + face_depth, iso_height), max(face_height, iso_height)),
+        (band + face_width + GAP_MM + face_depth + iso_room, band + face_width),
+        (
+            band + max(face_height + GAP_MM + face_depth, iso_height),
+            band + max(face_height, iso_height),
+        ),
         page,
         reserve or 0.0,
     )
+    left, top_y = left + band, top_y - band
     front = Spot(left + face_width / 2, top_y - face_height / 2)
     top = Spot(front.x, top_y - face_height - GAP_MM - face_depth / 2)
     side_x = left + face_width + GAP_MM + face_depth / 2

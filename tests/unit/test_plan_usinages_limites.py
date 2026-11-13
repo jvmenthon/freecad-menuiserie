@@ -197,7 +197,7 @@ def test_tableau_tronque_tient_dans_sa_bande(page: PageSize) -> None:
 @pytest.mark.parametrize("page", PAGES, ids=lambda page: f"{page.width:g}x{page.height:g}")
 def test_piece_tres_longue_tient_au_dessus_du_tableau(page: PageSize, length: float) -> None:
     _, reserve = notes_band(page)
-    layout = overall_layout(length, 22, 80, page, reserve=reserve, iso=False)
+    layout = overall_layout((length, 22, 80), page, reserve=reserve, iso=False)
     assert layout.fits
     face_width = length * layout.scale
     assert layout.front.x - face_width / 2 >= MARGIN_MM - 1e-9
@@ -209,7 +209,7 @@ def test_piece_tres_longue_tient_au_dessus_du_tableau(page: PageSize, length: fl
 def test_piece_demesuree_signalee() -> None:
     page = page_size("A4", Orientation.PORTRAIT)
     _, reserve = notes_band(page)
-    assert not overall_layout(50_000, 22, 80, page, reserve=reserve, iso=False).fits
+    assert not overall_layout((50_000, 22, 80), page, reserve=reserve, iso=False).fits
 
 
 def test_tableau_tronque_garde_les_usinages_entiers() -> None:
@@ -233,7 +233,7 @@ def test_tableau_tronque_garde_les_usinages_entiers() -> None:
 def test_perspective_de_piece_dans_le_coin_libre(page: PageSize, length: float) -> None:
     _, reserve = notes_band(page)
     sizes = (length, 22.0, 80.0)
-    layout = overall_layout(*sizes, page, reserve=reserve, iso=False)
+    layout = overall_layout(sizes, page, reserve=reserve, iso=False)
     corner = corner_iso_layout(sizes, layout, page, reserve)
     if corner is None:
         return  # pas la place : pas de perspective
@@ -250,10 +250,10 @@ def test_perspective_garde_l_echelle_des_vues_cotees() -> None:
     """La perspective ne réduit pas l'échelle de la face d'une pièce longue."""
     page = page_size("A3")
     _, reserve = notes_band(page)
-    without = overall_layout(2000, 22, 80, page, reserve=reserve, iso=False)
-    with_iso = overall_layout(2000, 22, 80, page, reserve=reserve, iso=True)
+    without = overall_layout((2000, 22, 80), page, reserve=reserve, iso=False)
+    with_iso = overall_layout((2000, 22, 80), page, reserve=reserve, iso=True)
     assert without.scale >= with_iso.scale
     assert corner_iso_layout((2000, 22, 80), without, page, reserve) is not None
     # Pièce de 600 x 60 x 22 (montant) : perspective sous la vue de dessus, faute de place à droite.
-    montant = overall_layout(600, 22, 60, page, reserve=reserve, iso=False)
+    montant = overall_layout((600, 22, 60), page, reserve=reserve, iso=False)
     assert corner_iso_layout((600, 22, 60), montant, page, reserve) is not None

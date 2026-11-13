@@ -40,7 +40,7 @@ def test_percages_en_bout_regroupes() -> None:
     assert "Ø" in template
     assert values["count"] == "2"
     assert values["diameter"] == "8" and values["depth"] == "30"
-    assert values["face"] == "bout gauche"
+    assert values["face"] == "au bout gauche"
     assert values["positions"] == "x 0 y 20; x 0 y 60"
 
 
@@ -60,7 +60,10 @@ def test_tenon_ajoute_en_bout() -> None:
     assert item.face == (0, 1)
     assert item.depth == pytest.approx(30)
     ((template, values),) = machining_lines([item])
-    assert "ajout" in template and values["size"].split()[::2] == ["30", "40", "10"]
+    assert "longueur" in template and values["depth"] == "30"
+    assert values["size"].split()[::2] == ["40", "10"]  # vue du bout : largeur, épaisseur
+    assert values["name"] == "partie en saillie"  # sans nom d'assemblage
+    assert values["positions"] == "y 20"  # repérée le long du bout
 
 
 def test_forme_hors_de_la_piece_ignoree() -> None:
@@ -95,7 +98,7 @@ def test_tableau_tronque() -> None:
 def test_tableau_hors_des_vues() -> None:
     for page in (page_size("A3"), page_size("A4"), page_size("A4", Orientation.PORTRAIT)):
         spot, reserve = notes_band(page)
-        layout = overall_layout(1800, 22, 400, page, reserve=reserve)
+        layout = overall_layout((1800, 22, 400), page, reserve=reserve)
         assert layout.fits
         # Toutes les vues restent au-dessus du cartouche et du tableau.
         lowest = layout.top.y - 22 * layout.scale / 2

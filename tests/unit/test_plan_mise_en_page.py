@@ -36,7 +36,7 @@ def test_echelle_ecrite(scale: float, text: str) -> None:
 
 
 def test_bureau_sur_a3_au_dixieme() -> None:
-    layout = overall_layout(1200, 600, 750, A3)
+    layout = overall_layout((1200, 600, 750), A3)
     assert layout.fits
     assert layout.scale == 0.1
     # Dessus sous la face, vue de gauche à droite de la face, perspective à droite.
@@ -48,7 +48,7 @@ def test_bureau_sur_a3_au_dixieme() -> None:
 
 
 def test_bureau_centre_au_dessus_du_cartouche() -> None:
-    layout = overall_layout(1200, 600, 750, A3)
+    layout = overall_layout((1200, 600, 750), A3)
     iso_width = 180 / math.sqrt(2)
     left = layout.front.x - 60
     right = layout.iso.x + iso_width / 2
@@ -60,9 +60,9 @@ def test_bureau_centre_au_dessus_du_cartouche() -> None:
 
 
 def test_echelle_la_plus_grande_qui_tient() -> None:
-    small = overall_layout(40, 20, 30, A3)
+    small = overall_layout((40, 20, 30), A3)
     assert small.scale == 2.0  # agrandissement d'un petit ouvrage
-    tall = overall_layout(900, 400, 2200, A3)
+    tall = overall_layout((900, 400, 2200), A3)
     assert tall.fits
     larger = SCALES[SCALES.index(tall.scale) - 1]
     assert larger > tall.scale
@@ -72,7 +72,7 @@ def test_echelle_la_plus_grande_qui_tient() -> None:
 def test_vues_dans_la_feuille() -> None:
     for sizes in ((1200, 600, 750), (600, 600, 2000), (3000, 300, 200), (10, 10, 10)):
         for page in (A3, page_size("A4"), page_size("A4", Orientation.PORTRAIT)):
-            layout = overall_layout(*sizes, page)
+            layout = overall_layout(sizes, page)
             if not layout.fits:
                 continue
             width, depth, height = (value * layout.scale for value in sizes)
@@ -90,7 +90,7 @@ def test_vues_dans_la_feuille() -> None:
 
 
 def test_ouvrage_trop_grand_signale() -> None:
-    layout = overall_layout(900_000, 900_000, 900_000, page_size("A4"))
+    layout = overall_layout((900_000, 900_000, 900_000), page_size("A4"))
     assert not layout.fits
     assert layout.scale == SCALES[-1]
 
@@ -98,9 +98,9 @@ def test_ouvrage_trop_grand_signale() -> None:
 @pytest.mark.parametrize("bad", [0.0, -5.0, math.nan, math.inf, 1e9])
 def test_cote_refusee(bad: float) -> None:
     with pytest.raises(TemplatedError):
-        overall_layout(bad, 600, 750, A3)
+        overall_layout((bad, 600, 750), A3)
     with pytest.raises(TemplatedError):
-        overall_layout(1200, 600, bad, A3)
+        overall_layout((1200, 600, bad), A3)
 
 
 def test_gabarit_iso_prefere() -> None:
@@ -161,3 +161,44 @@ def test_perspective_seule_demesuree_signalee() -> None:
     scale, _, fits = single_view_layout(90_000, 90_000, 90_000, page_size("A4"))
     assert not fits
     assert scale == SCALES[-1]
+
+
+# --- Cotes de détail et angles de la face (retour de jv du 2026-11-13) --------------------------
+
+
+def test_chaine_de_cotes_fusionne_les_points_proches() -> None:
+    from freecad.menuiserie.core.drawing import chain_segments
+
+    # Plateau de 22 sur un pied : 0, 22 (dessous du plateau), 700, 722 (dessus).
+    segments = chain_segments([0, 722, 700, 0, 22, 722], min_gap=10)
+    assert segments == [(0, 22), (22, 700), (700, 722)]
+    # Points trop proches : fusionnés, l'extrémité gardée.
+    assert chain_segments([0, 3, 500, 1000], min_gap=10) == [(0, 500), (500, 1000)]
+
+
+def test_chaine_inutile_quand_elle_redit_la_cote_hors_tout() -> None:
+    from freecad.menuiserie.core.drawing import chain_segments
+
+    assert chain_segments([0, 1000, 0, 1000], min_gap=10) == []
+    assert chain_segments([], min_gap=10) == []
+
+
+def test_angle_des_pieces_en_biais() -> None:
+    from freecad.menuiserie.core.drawing import slant_angle
+
+    assert slant_angle(1, 0) is None  # horizontale
+    assert slant_angle(0, 1) is None  # verticale
+    assert slant_angle(0, 0) is None  # vue de bout
+    assert slant_angle(1, 1) == pytest.approx(45)
+    assert slant_angle(-1, math.tan(math.radians(35))) == pytest.approx(35)
+
+
+def test_place_des_cotes_au_dessus_et_a_gauche_de_la_face() -> None:
+    plain = overall_layout((1200, 600, 750), A3)
+    banded = overall_layout((1200, 600, 750), A3, band=35)
+    assert banded.scale <= plain.scale
+    half_width, half_height = 1200 * banded.scale / 2, 750 * banded.scale / 2
+    from freecad.menuiserie.core.drawing._layout import MARGIN_MM
+
+    assert banded.front.x - half_width - 35 >= MARGIN_MM - 1e-9
+    assert banded.front.y + half_height + 35 <= A3.height - MARGIN_MM + 1e-9

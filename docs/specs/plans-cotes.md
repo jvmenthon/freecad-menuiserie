@@ -124,3 +124,18 @@ Les réglages de plan s'ajoutent au catalogue de la configuration de l'atelier (
   placé au centre de son entrée, profondeur le long de son axe ; ajout détaché ignoré ; le
   tableau tronqué garde les usinages entiers et compte les usinages omis ; avertissement dans
   la vue rapport si le dessin ne tient pas même à la plus petite échelle.
+- **Retour de jv du 2026-11-13 soir** (cotes superposées, tableau peu parlant, angles) :
+  - tableau des usinages en mots de menuisier : mortaise, tenon, queues, logements de queue,
+    rainure, languette, feuillure, entaille à mi-bois, arasement, perçage de tourillon… (plus
+    de « ajout » ni d'« enlèvement »), taille vue de la face d'entrée, longueur d'un tenon ou
+    d'une queue, nombres à la française ;
+  - lignes propres à l'assemblage, lues dans ses valeurs effectives : angle et pente des queues
+    d'aronde, largeur des queues en pointe et à l'épaulement, griffes ; angle d'un onglet ;
+    tourillons (nombre, diamètre, longueur) ; bout coupé en biais (angle de coupe, lame) ;
+  - cotes écartées de leur vue selon la taille du texte des cotes réglée dans TechDraw (lue,
+    jamais changée) et selon la pièce réelle (queues et tenons qui dépassent) ; place réservée
+    aux cotes au-dessus et à gauche de la face dans la mise en page ;
+  - face du plan de l'ouvrage : chaîne de cotes de détail en largeur et en hauteur (début et fin
+    de chaque pièce, points trop proches fusionnés) et angle des pièces en biais. Ces cotes sont
+    posées entre deux points (`TechDraw.makeDistanceDim3d`) : elles ne suivent pas le modèle,
+    relancer la commande les refait (ADR 0053, amendement du 2026-11-13).

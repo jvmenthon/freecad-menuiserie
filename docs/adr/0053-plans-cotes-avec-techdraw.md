@@ -58,6 +58,13 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
    C'est une photographie du modèle : relancer la commande la refait (même page et même objet
    tant que la page n'a pas été modifiée à la main).
 
+8. **Cotes de détail** (amendement du 2026-11-13, retour de jv) : la face du plan de l'ouvrage
+   porte, sous les cotes hors tout (qui suivent le modèle), une chaîne de cotes posées entre
+   deux points calculés depuis l'encombrement de chaque pièce (`makeDistanceDim3d`), et
+   l'angle des pièces en biais en texte. Ces cotes ne dépendent pas de la numérotation des
+   arêtes projetées (risque de la décision 6) mais ne suivent pas le modèle : relancer la
+   commande les refait, comme la vue éclatée.
+
 ## Conséquences
 
 - Les plans s'ouvrent, s'impriment et s'exportent sans l'atelier.
