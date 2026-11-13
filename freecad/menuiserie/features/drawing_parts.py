@@ -166,7 +166,8 @@ def _notes(found: Sequence[Machining]) -> list[str]:
         translated(template, {**values, "face": translated(values["face"])})
         for template, values in machining_lines(found)
     ]
-    return capped([translated(_HEADER), *lines], translated(_MORE))
+    # « {count} » reste à remplir par capped : on le réécrit tel quel.
+    return capped([translated(_HEADER), *lines], translated(_MORE, {"count": "{count}"}))
 
 
 def _title(blank: DocumentObject) -> str:
