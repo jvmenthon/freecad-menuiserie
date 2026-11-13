@@ -65,7 +65,8 @@ def test_modes_forces_atteignent_la_bonne_orientation(mode: AlignMode) -> None:
 def test_a_90_degres_exacts_au_ras() -> None:
     moving = face(Vec3(0, 0, 0), Vec3(1, 0, 0))
     motion = align(REFERENCE, moving)
-    assert (motion.mode, motion.angle) == (AlignMode.FLUSH, pytest.approx(90.0))
+    assert motion.mode is AlignMode.FLUSH
+    assert motion.angle == pytest.approx(90.0)
 
 
 @pytest.mark.parametrize("degrees", [90.0, 270.0, -90.0])
