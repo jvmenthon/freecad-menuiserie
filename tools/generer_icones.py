@@ -302,10 +302,15 @@ def caisson() -> str:
 
 
 def finition_des_chants() -> str:
-    ic = Icone("Finition des chants : planche à l'arête chanfreinée")
-    ic.prisme([(0, 0), (70, 0), (70, 16), (56, 30), (0, 30)], "z", 0, 36, "chene")
-    for y, phase in ((6, 0.1), (13, 0.5), (21, 0.8)):
-        ic.veinage((4, 60), (y, 24), "chene", amplitude=0.6, phase=phase)
+    ic = Icone("Finition des chants : planche dont les chants (faces étroites) sont surlignés")
+    ic.boite((0, 0, 0), (90, 32, 12), "chene")
+    for y, phase in ((7, 0.0), (15, 0.35), (24, 0.7)):
+        ic.veinage((4, 86), (y, 12), "chene", phase=phase)
+    orange = "#f57900"
+    ic.bande([(0, 32, 0), (90, 32, 0), (90, 32, 12), (0, 32, 12)], orange)  # chant avant
+    ic.bande([(90, 0, 0), (90, 32, 0), (90, 32, 12), (90, 0, 12)], orange)  # bois de bout
+    ic.trait([(0, 32, 0), (90, 32, 0), (90, 0, 0)], "#4e2f12", 1.6)
+    ic.trait([(0, 32, 12), (90, 32, 12), (90, 0, 12)], "#4e2f12", 1.6)
     return ic.svg()
 
 
