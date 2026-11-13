@@ -114,3 +114,39 @@ def test_section_contre_une_grande_face_prend_la_largeur_de_la_face() -> None:
 def test_section_contre_un_chant_garde_la_largeur_de_la_piece() -> None:
     # chant : la largeur de la nouvelle pièce suit la longueur de l'autre, elle ne change pas
     assert section_against(narrow(Z, X, Y, (20.0, 300.0))) == (100.0, 30.0)
+
+
+def test_section_piece_tournee_d_un_quart_de_tour() -> None:
+    # pièce tournée de 90° autour de Z : la face +Y est son extrémité, largeur de la pièce selon -X
+    quarter: Matrix3 = ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    assert section_against(narrow(Z, X, Y, (40.0, 70.0)), quarter) == (70.0, 30.0)
+
+
+def test_section_piece_oblique_garde_la_section_de_la_piece() -> None:
+    oblique: Matrix3 = ((0.9, -0.43, 0.0), (0.43, 0.9, 0.0), (0.0, 0.0, 1.0))
+    assert face_section(
+        IDENTITY,
+        oblique,
+        perpendicular_orientation(IDENTITY, IDENTITY),
+        (40.0, 60.0),
+        (100.0, 30.0),
+    ) == (100.0, 30.0)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("extent", [(0.0, 0.0), (-5.0, -5.0), (0.0, 60.0)])
+def test_etendue_nulle_ou_negative_refusee_par_la_cible(extent: tuple[float, float]) -> None:
+    with pytest.raises(ValueError, match="étendue"):
+        narrow(X, Y, Z, extent)
+
+
+def test_section_face_non_rectangulaire_tranche_etroite() -> None:
+    # triangle : à l'endroit du clic la tranche ne fait que 0,05 mm, sous la cote minimale (0,1)
+    # DÉFAUT : face_section renvoie 0,05 et make_wood_part lève InvalidDimensionsError
+    width, _thickness = section_against(narrow(X, Y, Z, (300.0, 0.05)))
+    assert width >= 0.1
+
+
+def test_section_tres_grande_etendue_reste_dans_les_bornes() -> None:
+    # face de 1e6 mm : au-delà de MAX_DIMENSION_MM la largeur doit retomber sur celle de la pièce
+    width, _thickness = section_against(narrow(X, Y, Z, (300.0, 1.0e6)))
+    assert width <= 20000.0
