@@ -52,6 +52,12 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
    et régénération stable. Si les références d'arêtes ne tiennent pas, les cotes seront posées sur
    des sommets de l'enveloppe et l'ADR sera amendé avant le code des lots suivants.
 
+7. **Vue éclatée** (amendement du 2026-11-13, demande de jv) : une page TechDraw standard dont la
+   seule vue projette un `Part::Feature` masqué, marqué d'une propriété booléenne masquée
+   `MenuiserieExplodedShape`, qui réunit les formes des pièces écartées du centre de l'ouvrage.
+   C'est une photographie du modèle : relancer la commande la refait (même page et même objet
+   tant que la page n'a pas été modifiée à la main).
+
 ## Conséquences
 
 - Les plans s'ouvrent, s'impriment et s'exportent sans l'atelier.

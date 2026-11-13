@@ -2,9 +2,9 @@
 """Plan de l'ouvrage dans une page TechDraw standard (issue #153, ADR 0053, lot P-a).
 
 Une ``TechDraw::DrawPage`` ordinaire, sans proxy, marquée par la propriété booléenne masquée
-``MenuiserieDrawing`` : face, dessus, vue de gauche et perspective à la même échelle, plus trois
-cotes hors tout (``TechDraw::DrawViewDimExtent``, qui suivent la géométrie des vues). Un document
-ouvert sans l'atelier garde une page ordinaire.
+``MenuiserieDrawing`` : face, coupe verticale A-A à droite, coupe horizontale B-B dessous et
+perspective à la même échelle, plus trois cotes hors tout (``TechDraw::DrawViewDimExtent``, qui
+suivent la géométrie des vues). Un document ouvert sans l'atelier garde une page ordinaire.
 
 Les vues suivent le modèle toutes seules (ce sont des vues TechDraw). Relancer la fabrique refait
 l'échelle et la mise en page ; une page que le menuisier a modifiée (vue ajoutée ou retirée) n'est
@@ -15,6 +15,7 @@ se charge sans lui.
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
@@ -61,12 +62,16 @@ __all__ = [
     "create_page",
     "document_scope",
     "drawing_sources",
+    "drawing_transaction",
     "find_overall_drawing",
     "global_box",
     "global_shape",
+    "is_untouched",
     "is_workshop_drawing",
     "make_overall_drawing",
     "overall_dimensions",
+    "owned_names",
+    "require_techdraw",
     "set_owned",
     "techdraw_available",
     "title_inputs",
@@ -234,17 +239,36 @@ def _template_path(options: DrawingOptions) -> str | None:
     return pick_template(paths, fmt, orientation)
 
 
-def _owned(page: DocumentObject) -> list[str]:
-    return [name for name in getattr(page, OWNED, "").split(";") if name]
+def require_techdraw() -> None:
+    """``ValueError`` traduite si l'atelier TechDraw n'est pas disponible."""
+    if not techdraw_available():
+        raise ValueError(translated(_NO_TECHDRAW))
 
 
-def _untouched(page: DocumentObject) -> bool:
+@contextmanager
+def drawing_transaction(doc: Document, title: str) -> Iterator[None]:
+    """Une transaction ``title`` (déjà traduit) : validée à la fin, annulée sur une erreur."""
+    doc.openTransaction(title)
+    try:
+        yield
+    except Exception:
+        doc.abortTransaction()
+        raise
+    doc.commitTransaction()
+
+
+def owned_names(page: DocumentObject) -> list[str]:
+    """Noms des vues et cotes que l'atelier a posées sur ``page``."""
+    return [name for name in str(getattr(page, OWNED, "")).split(";") if name]
+
+
+def is_untouched(page: DocumentObject) -> bool:
     """Vrai si ``page`` ne contient que ce que l'atelier y a posé, au complet."""
-    return sorted(view.Name for view in page.Views) == sorted(_owned(page))
+    return sorted(view.Name for view in page.Views) == sorted(owned_names(page))
 
 
 def _front_view(page: DocumentObject) -> DocumentObject | None:
-    owned = set(_owned(page))
+    owned = set(owned_names(page))
     return next(
         (v for v in page.Views if v.Name in owned and v.TypeId == VIEW_TYPE),
         None,
@@ -259,7 +283,7 @@ def find_overall_drawing(
     n'y en a pas."""
     wanted = sorted(obj.Name for obj in sources)
     for obj in doc.Objects:
-        if not is_workshop_drawing(obj) or not _untouched(obj):
+        if not is_workshop_drawing(obj) or not is_untouched(obj):
             continue
         if str(getattr(obj, KIND, "")) != kind:
             continue
@@ -302,7 +326,7 @@ def apply_template(page: DocumentObject, options: DrawingOptions) -> None:
 def clear_page(page: DocumentObject) -> None:
     """Retire de ``page`` les vues et cotes posées par l'atelier (les cotes d'abord)."""
     doc = page.Document
-    names = set(_owned(page))
+    names = set(owned_names(page))
     # Seules les vues de la page sont retirées, même si la liste enregistrée a été modifiée.
     owned = [view for view in page.Views if view.Name in names]
     for obj in sorted(owned, key=removal_rank):
@@ -312,9 +336,9 @@ def clear_page(page: DocumentObject) -> None:
 
 
 def set_owned(page: DocumentObject, names: Sequence[str]) -> None:
-    """Enregistre sur ``page`` les vues et cotes posées par l'atelier, puis la recalcule."""
+    """Enregistre sur ``page`` les vues et cotes posées par l'atelier (l'appelant recalcule le
+    document une fois, à la fin)."""
     setattr(page, OWNED, ";".join(names))
-    page.Document.recompute()
 
 
 def _fill(
@@ -334,16 +358,14 @@ def make_overall_drawing(
     Une seule transaction « Plan de l'ouvrage ». ``ValueError`` traduite, avant toute
     modification, si TechDraw manque, s'il n'y a rien à dessiner, pour un objet d'un autre
     document ou un format de page inconnu."""
-    if not techdraw_available():
-        raise ValueError(translated(_NO_TECHDRAW))
+    require_techdraw()
     chosen = options or DrawingOptions()
     sources = drawing_sources(doc, objects)
     box = global_box(sources)
     with translated_errors():
         size = page_size(chosen.resolved_format(), chosen.resolved_orientation())
         layout = overall_layout(box.XLength, box.YLength, box.ZLength, size)
-    doc.openTransaction(translated(TITLE))
-    try:
+    with drawing_transaction(doc, translated(TITLE)):
         page = find_overall_drawing(doc, sources)
         if page is None:
             page = create_page(doc)
@@ -352,17 +374,14 @@ def make_overall_drawing(
         apply_template(page, chosen)
         fill_title_block(page, list(objects), title_inputs(chosen), layout.scale)
         _fill(page, sources, layout, box)
-    except Exception:
-        doc.abortTransaction()
-        raise
-    doc.commitTransaction()
+        doc.recompute()
     return page
 
 
 def overall_dimensions(page: DocumentObject) -> list[DocumentObject]:
     """Cotes hors tout de ``page`` posées par l'atelier, dans l'ordre largeur, profondeur,
     hauteur."""
-    owned = _owned(page)
+    owned = owned_names(page)
     found = [
         obj for obj in page.Views if obj.Name in owned and obj.TypeId.startswith(DIMENSION_TYPE)
     ]

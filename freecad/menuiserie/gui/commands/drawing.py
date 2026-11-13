@@ -14,8 +14,8 @@ from typing import Final
 import FreeCAD as App
 import FreeCADGui as Gui
 
+from freecad.menuiserie import api
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.text import escaped_text
 from freecad.menuiserie.features.drawing import document_scope, techdraw_available
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -30,23 +30,9 @@ EXPLODED: Final = "Menuiserie_ExplodedDrawing"
 COMMANDS: Final = (DRAWING, PART_DRAWINGS, EXPLODED, DRAWING_PDF)
 PAGE_TYPE: Final = "TechDraw::DrawPage"
 
-_EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
 _PARTS_DONE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{count} plan(s) de pièce faits ; chaque page s'exporte en PDF."
 )
-
-
-def export_with_dialog(page: DocumentObject) -> None:
-    """Fichier demandé (rien si l'on annule), PDF écrit ; confirmation ou refus affichés."""
-    path = drawing_pdf.ask_pdf_path(page)
-    if path is None:
-        return
-    try:
-        written = drawing_pdf.export_page_pdf(page, path)
-    except (OSError, ValueError) as error:
-        report_refusal(str(error))
-        return
-    show_status(translated(_EXPORTED, {"path": escaped_text(str(written))}))
 
 
 def selected_page() -> DocumentObject | None:
@@ -55,7 +41,25 @@ def selected_page() -> DocumentObject | None:
     return pages[0] if len(pages) == 1 else None
 
 
-class DrawingCommand(TransactionCommand):
+class _PlanCommand(TransactionCommand):
+    """Base des commandes qui font des pages : active s'il y a un document, TechDraw et aucun
+    panneau ouvert ; portée = sélection sans les pages."""
+
+    def IsActive(self) -> bool:
+        """Active s'il y a un document, TechDraw et aucun panneau ouvert."""
+        return (
+            App.ActiveDocument is not None
+            and not Gui.Control.activeDialog()
+            and techdraw_available()
+        )
+
+    @staticmethod
+    def selection() -> list[DocumentObject]:
+        """Objets sélectionnés, pages TechDraw exclues."""
+        return [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+
+
+class DrawingCommand(_PlanCommand):
     """Ouvre le panneau « Plan de l'ouvrage »."""
 
     NAME = DRAWING
@@ -69,20 +73,12 @@ class DrawingCommand(TransactionCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
 
-    def IsActive(self) -> bool:
-        """Active s'il y a un document, TechDraw et aucun panneau ouvert."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and techdraw_available()
-        )
-
     def Activated(self) -> None:
         """Portée lue (sélection, sinon tout le document), puis panneau ouvert."""
         from freecad.menuiserie.gui.task_panels.drawing import DrawingTaskPanel
 
         doc = App.ActiveDocument
-        objects = [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+        objects = self.selection()
         try:
             panel = DrawingTaskPanel(doc, objects or document_scope(doc))
         except (TypeError, ValueError) as error:
@@ -91,7 +87,7 @@ class DrawingCommand(TransactionCommand):
         Gui.Control.showDialog(panel)
 
 
-class PartDrawingsCommand(TransactionCommand):
+class PartDrawingsCommand(_PlanCommand):
     """Crée ou refait les plans de pièce de la sélection ou du document."""
 
     NAME = PART_DRAWINGS
@@ -105,22 +101,12 @@ class PartDrawingsCommand(TransactionCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce")
 
-    def IsActive(self) -> bool:
-        """Active s'il y a un document, TechDraw et aucun panneau ouvert."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and techdraw_available()
-        )
-
     def Activated(self) -> None:
         """Pages faites, la première montrée ; refus affiché."""
-        from freecad.menuiserie.features.drawing_parts import make_part_drawings
-
         doc = App.ActiveDocument
-        objects = [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+        objects = self.selection()
         try:
-            pages = make_part_drawings(doc, objects)
+            pages = api.make_part_drawings(doc, objects)
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
@@ -129,7 +115,7 @@ class PartDrawingsCommand(TransactionCommand):
         show_status(translated(_PARTS_DONE, {"count": str(len(pages))}))
 
 
-class ExplodedDrawingCommand(TransactionCommand):
+class ExplodedDrawingCommand(_PlanCommand):
     """Crée ou refait la vue éclatée de la sélection ou du document."""
 
     NAME = EXPLODED
@@ -142,22 +128,12 @@ class ExplodedDrawingCommand(TransactionCommand):
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Vue éclatée")
 
-    def IsActive(self) -> bool:
-        """Active s'il y a un document, TechDraw et aucun panneau ouvert."""
-        return (
-            App.ActiveDocument is not None
-            and not Gui.Control.activeDialog()
-            and techdraw_available()
-        )
-
     def Activated(self) -> None:
         """Page faite et montrée ; refus affiché."""
-        from freecad.menuiserie.features.drawing_exploded import make_exploded_drawing
-
         doc = App.ActiveDocument
-        objects = [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+        objects = self.selection()
         try:
-            page = make_exploded_drawing(doc, objects or document_scope(doc))
+            page = api.make_exploded_drawing(doc, objects or document_scope(doc))
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
@@ -187,7 +163,7 @@ class DrawingPdfCommand(TransactionCommand):
         """Fichier demandé puis PDF écrit."""
         page = selected_page()
         if page is not None:
-            export_with_dialog(page)
+            drawing_pdf.export_with_dialog(page)
 
 
 def register() -> None:

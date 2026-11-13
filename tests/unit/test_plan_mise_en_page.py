@@ -130,3 +130,34 @@ def test_gabarit_dans_un_sous_dossier_et_a_defaut() -> None:
     )
     assert pick_template([], "A3", Orientation.LANDSCAPE) is None
     assert pick_template(["/t/A3_Landscape.svg"], " ", Orientation.LANDSCAPE) is None
+
+
+# --- Vue éclatée : écart des pièces et perspective seule ---------------------------------------
+
+
+def test_ecart_de_la_vue_eclatee() -> None:
+    from freecad.menuiserie.core.drawing import exploded_offset
+
+    assert exploded_offset((0, 0, 0), (0, 0, 0)) == (0, 0, 0)
+    offset = exploded_offset((100, 50, 0), (200, 50, -100))
+    assert offset == pytest.approx((60, 0, -60))
+
+
+def test_perspective_seule_au_dessus_du_cartouche() -> None:
+    from freecad.menuiserie.core.drawing import single_view_layout
+    from freecad.menuiserie.core.drawing._layout import MARGIN_MM, TITLE_BLOCK_MM
+
+    page = page_size("A3")
+    scale, spot, fits = single_view_layout(1200, 600, 750, page)
+    assert fits
+    assert 0 < scale <= 1
+    assert spot.y > TITLE_BLOCK_MM[1]
+    assert MARGIN_MM < spot.x < page.width - MARGIN_MM
+
+
+def test_perspective_seule_demesuree_signalee() -> None:
+    from freecad.menuiserie.core.drawing import SCALES, single_view_layout
+
+    scale, _, fits = single_view_layout(90_000, 90_000, 90_000, page_size("A4"))
+    assert not fits
+    assert scale == SCALES[-1]

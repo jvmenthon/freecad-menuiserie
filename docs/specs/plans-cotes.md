@@ -12,9 +12,10 @@
 
 | Livrable | Public | Contenu |
 |---|---|---|
-| **Plan de l'ouvrage** | atelier | une page : face, dessus, côté, vue 3D filaire, cotes hors tout (L × l × H), cartouche (nom, matériau, échelle, date) |
+| **Plan de l'ouvrage** | atelier | une page : face, coupe verticale A-A, coupe horizontale B-B, perspective filaire, cotes hors tout (L × l × H), cartouche (nom, matériau, échelle, date) ; choix de jv du 2026-11-13 au lieu de « face, dessus, côté » |
 | **Vue client** | client, devis | une page : vue 3D ombrée avec textures, fond blanc, cotes hors tout, sans traits cachés |
 | **Plan de pièce** | atelier | une page par pièce : vues utiles, cotes de la pièce, cotes des usinages (tenons, mortaises, rainures, perçages), repère, matériau, quantité |
+| **Vue éclatée** | atelier, client | une page : perspective de l'ouvrage dont chaque pièce s'écarte du centre (demande de jv du 2026-11-13) |
 
 Les trois s'obtiennent depuis la sélection (un ensemble, ou des pièces) ; sans sélection, tout le
 document.
@@ -62,9 +63,13 @@ document.
 |---|---|---|
 | P-a | preuve de faisabilité : page + 3 vues + cotes hors tout sur un meuble de test, régénération, export PDF (tests d'intégration FreeCAD) | oui |
 | P-b | plan de l'ouvrage : commande, panneau (format, échelle, orientation des vues), cartouche | oui |
-| P-c | plan de pièce avec usinages ; PDF multi-pages | oui |
+| P-c | plan de pièce avec usinages ; vue éclatée (ajoutée le 2026-11-13) ; PDF multi-pages reporté | oui |
 | P-d | vue client (capture ombrée + page) | oui |
 | P-e | icônes, infobulle avec prérequis (ADR 0052), traductions, documentation | oui |
+
+**PR #247** : lots P-a, P-b et P-c avec la vue éclatée. P-d (vue client) et P-e (traductions,
+documentation) sont **reportés** à une PR suivante ; icônes et infobulles des commandes sont déjà
+faites.
 
 Un seul jalon, une PR vers `master` à la fin, revue complète (testeur, sécurité, reviewer) sur
 cette PR.

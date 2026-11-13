@@ -34,9 +34,10 @@ from freecad.menuiserie.features.drawing import (
     clear_page,
     create_page,
     document_scope,
+    drawing_transaction,
     find_overall_drawing,
+    require_techdraw,
     set_owned,
-    techdraw_available,
     title_inputs,
     warn_if_unfitted,
 )
@@ -63,9 +64,6 @@ _HEADER: Final = QT_TRANSLATE_NOOP(
 )
 _NONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucun usinage.")
 _MORE: Final = QT_TRANSLATE_NOOP("Menuiserie", "… et {count} autres usinages")
-_NO_TECHDRAW: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Plan impossible : l'atelier TechDraw de FreeCAD n'est pas disponible."
-)
 _NO_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan de pièce impossible : aucune pièce de bois dans la sélection."
 )
@@ -222,17 +220,12 @@ def make_part_drawings(
     vide) et renvoie les pages. Une seule transaction « Plan de pièce » ; ``ValueError``
     traduite, avant toute modification, si TechDraw manque ou s'il n'y a aucune pièce de bois.
     Le titre saisi dans ``options`` est ignoré : chaque page porte le nom de sa pièce."""
-    if not techdraw_available():
-        raise ValueError(translated(_NO_TECHDRAW))
+    require_techdraw()
     chosen = options or DrawingOptions()
     parts = distinct_parts(doc, objects)
     with translated_errors():
         page_size(chosen.resolved_format(), chosen.resolved_orientation())
-    doc.openTransaction(translated(PART_TITLE))
-    try:
+    with drawing_transaction(doc, translated(PART_TITLE)):
         pages = [_draw_part(doc, blank, count, found, chosen) for blank, count, found in parts]
-    except Exception:
-        doc.abortTransaction()
-        raise
-    doc.commitTransaction()
+        doc.recompute()
     return pages

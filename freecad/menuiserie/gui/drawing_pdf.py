@@ -16,6 +16,7 @@ import FreeCADGui as Gui
 from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import escaped_text
 from freecad.menuiserie.features.cutlist_export import (
     PDF_SUFFIX,
     replace_atomically,
@@ -24,11 +25,14 @@ from freecad.menuiserie.features.cutlist_export import (
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui.commands.base import report_refusal
+from freecad.menuiserie.gui.commands.cutlist import show_status
 
 __all__ = ["ask_pdf_path", "export_page_pdf", "proposed_pdf_path", "show_page"]
 
 _FORBIDDEN_IN_NAME: Final = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
 _FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{page} - plan")
+_EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
 _DIALOG_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter le plan")
 _PDF_FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers PDF (*.pdf)")
 _NOT_A_PAGE: Final = QT_TRANSLATE_NOOP(
@@ -90,3 +94,16 @@ def export_page_pdf(page: DocumentObject, path: str | Path) -> Path:
 
     replace_atomically(target, produce)
     return target
+
+
+def export_with_dialog(page: DocumentObject) -> None:
+    """Fichier demandé (rien si l'on annule), PDF écrit ; confirmation ou refus affichés."""
+    path = ask_pdf_path(page)
+    if path is None:
+        return
+    try:
+        written = export_page_pdf(page, path)
+    except (OSError, ValueError) as error:
+        report_refusal(str(error))
+        return
+    show_status(translated(_EXPORTED, {"path": escaped_text(str(written))}))

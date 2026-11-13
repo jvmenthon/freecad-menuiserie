@@ -24,12 +24,16 @@ from freecad.menuiserie.features.drawing import (
     clear_page,
     create_page,
     drawing_sources,
+    drawing_transaction,
     global_box,
     global_shape,
+    is_untouched,
     is_workshop_drawing,
+    owned_names,
+    require_techdraw,
     set_owned,
-    techdraw_available,
     title_inputs,
+    warn_if_unfitted,
 )
 from freecad.menuiserie.features.drawing_title import fill_title_block
 from freecad.menuiserie.features.drawing_views import add_exploded_view
@@ -49,9 +53,6 @@ TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Vue éclatée")
 _SHAPE_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Forme de la vue éclatée")
 _PARTS_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property", "Pièces dessinées par cette vue éclatée (atelier Menuiserie)."
-)
-_NO_TECHDRAW: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Plan impossible : l'atelier TechDraw de FreeCAD n'est pas disponible."
 )
 
 
@@ -74,13 +75,13 @@ def _names(sources: Sequence[DocumentObject]) -> str:
     return ";".join(sorted(obj.Name for obj in sources))
 
 
-def _owned_names(page: DocumentObject) -> list[str]:
-    return [name for name in str(getattr(page, "MenuiserieDrawingViews", "")).split(";") if name]
-
-
 def _owned_views(page: DocumentObject) -> list[DocumentObject]:
-    names = set(_owned_names(page))
+    names = set(owned_names(page))
     return [view for view in page.Views if view.Name in names]
+
+
+def _is_holder(obj: DocumentObject) -> bool:
+    return obj.TypeId == "Part::Feature" and bool(getattr(obj, SHAPE_MARKER, False))
 
 
 def _find(doc: Document, sources: Sequence[DocumentObject]) -> DocumentObject | None:
@@ -89,19 +90,22 @@ def _find(doc: Document, sources: Sequence[DocumentObject]) -> DocumentObject | 
     for obj in doc.Objects:
         if not is_workshop_drawing(obj) or str(getattr(obj, KIND, "")) != EXPLODED_KIND:
             continue
-        untouched = sorted(view.Name for view in obj.Views) == sorted(_owned_names(obj))
-        if str(getattr(obj, PARTS, "")) == wanted and untouched:
+        if str(getattr(obj, PARTS, "")) == wanted and is_untouched(obj):
             return obj
     return None
 
 
 def _shape_object(doc: Document, page: DocumentObject | None) -> DocumentObject:
-    """Objet porteur de la forme éclatée : celui de la page refaite, sinon un nouveau, masqué."""
+    """Objet porteur de la forme éclatée : celui de la page refaite, sinon un porteur que plus
+    aucune vue n'utilise (sa page a été supprimée), sinon un nouveau, masqué."""
     if page is not None:
         for view in _owned_views(page):
             for source in getattr(view, "Source", []):
-                if source.TypeId == "Part::Feature" and bool(getattr(source, SHAPE_MARKER, False)):
+                if _is_holder(source):
                     return source
+    for obj in doc.Objects:
+        if _is_holder(obj) and not obj.InList:
+            return obj
     holder = doc.addObject("Part::Feature", SHAPE_NAME)
     holder.Label = translated(_SHAPE_LABEL)
     holder.addProperty("App::PropertyBool", SHAPE_MARKER, "Menuiserie", _SHAPE_TOOLTIP)
@@ -117,17 +121,15 @@ def make_exploded_drawing(
     """Crée ou refait la vue éclatée de ``objects`` (ensembles, pièces) et renvoie sa page.
     Une seule transaction « Vue éclatée ». ``ValueError`` traduite, avant toute modification,
     si TechDraw manque, s'il n'y a rien à dessiner ou pour un format de page inconnu."""
-    if not techdraw_available():
-        raise ValueError(translated(_NO_TECHDRAW))
+    require_techdraw()
     chosen = options or DrawingOptions()
     sources = drawing_sources(doc, objects)
     exploded = _exploded_shape(sources)
     box = exploded.BoundBox
     with translated_errors():
         sheet = page_size(chosen.resolved_format(), chosen.resolved_orientation())
-        scale, spot = single_view_layout(box.XLength, box.YLength, box.ZLength, sheet)
-    doc.openTransaction(translated(TITLE))
-    try:
+        scale, spot, fits = single_view_layout(box.XLength, box.YLength, box.ZLength, sheet)
+    with drawing_transaction(doc, translated(TITLE)):
         page = _find(doc, sources)
         holder = _shape_object(doc, page)
         holder.Shape = exploded
@@ -142,9 +144,7 @@ def make_exploded_drawing(
         apply_template(page, chosen)
         fill_title_block(page, list(objects), title_inputs(chosen), scale, translated(TITLE))
         page.Scale = scale
+        warn_if_unfitted(fits)
         set_owned(page, add_exploded_view(page, holder, spot))
-    except Exception:
-        doc.abortTransaction()
-        raise
-    doc.commitTransaction()
+        doc.recompute()
     return page

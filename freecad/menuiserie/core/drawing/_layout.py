@@ -256,9 +256,10 @@ def exploded_offset(center: Sequence[float], part_center: Sequence[float]) -> tu
 
 def single_view_layout(
     width: float, depth: float, height: float, page: PageSize
-) -> tuple[float, Spot]:
+) -> tuple[float, Spot, bool]:
     """Échelle normalisée et centre d'une seule perspective (vue éclatée) d'un volume de
-    ``width`` x ``depth`` x ``height``, la plus grande possible au-dessus du cartouche."""
+    ``width`` x ``depth`` x ``height``, la plus grande possible au-dessus du cartouche, et si
+    elle tient (faux : la plus petite échelle, qui déborde encore)."""
     sizes = (width, depth, height)
     if not all(math.isfinite(value) and 0.0 < value <= MAX_SIZE_MM for value in sizes):
         raise TemplatedError(_BAD_SIZE, {})
@@ -269,8 +270,9 @@ def single_view_layout(
         iso_width, iso_height, _ = _iso(width * scale, height * scale, depth * scale, True)
         return iso_width <= free_width and iso_height <= free_height
 
-    scale = next((value for value in SCALES if fits(value)), SCALES[-1])
-    return scale, Spot(page.width / 2, TITLE_BLOCK_MM[1] + free_height / 2)
+    scale = next((value for value in SCALES if fits(value)), None)
+    spot = Spot(page.width / 2, TITLE_BLOCK_MM[1] + free_height / 2)
+    return (SCALES[-1], spot, False) if scale is None else (scale, spot, True)
 
 
 MIN_CORNER_MM: Final = 30.0  # perspective d'une pièce : place minimale, sinon pas de perspective

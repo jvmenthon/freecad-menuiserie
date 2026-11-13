@@ -64,6 +64,16 @@ _PART_DIRECTIONS: Final = {
 }
 # Cotes d'une pièce : longueur, largeur sur la face, épaisseur sur le chant.
 _PART_DIMENSIONS: Final = (("Front", HORIZONTAL), ("Front", VERTICAL), ("Edge", VERTICAL))
+DIMENSION_CLEARANCE_MM: Final = 8.0  # du bord de la vue au texte d'une cote
+SECTION_CLEARANCE_MM: Final = 18.0  # idem, au-delà des flèches et lettres d'un trait de coupe
+# Cotes (largeur, hauteur, profondeur) qui font la largeur et la hauteur de chaque vue.
+_VIEW_AXES: Final = {
+    "Front": (0, 1),
+    "CutH": (0, 2),
+    "Edge": (0, 2),
+    "CutV": (2, 1),
+    "End": (2, 1),
+}
 ANNOTATION_TYPE: Final = "TechDraw::DrawViewAnnotation"
 NOTE_SIZE_MM: Final = 3.5
 _SECTIONS: Final = {"CutV": "A", "CutH": "B"}  # repère du trait de coupe sur la face
@@ -177,18 +187,6 @@ def add_overall_views(
     return names
 
 
-DIMENSION_CLEARANCE_MM: Final = 8.0  # du bord de la vue au texte d'une cote
-SECTION_CLEARANCE_MM: Final = 18.0  # idem, au-delà des flèches et lettres d'un trait de coupe
-# Cotes (largeur, hauteur, profondeur) qui font la largeur et la hauteur de chaque vue.
-_VIEW_AXES: Final = {
-    "Front": (0, 1),
-    "CutH": (0, 2),
-    "Edge": (0, 2),
-    "CutV": (2, 1),
-    "End": (2, 1),
-}
-
-
 def _half_size(key: str, sizes: tuple[float, float, float], scale: float) -> tuple[float, float]:
     """Demi-largeur et demi-hauteur de la vue ``key`` sur la feuille."""
     across, up = _VIEW_AXES[key]
@@ -271,6 +269,4 @@ def add_part_views(
 def add_exploded_view(page: DocumentObject, exploded: DocumentObject, spot: Spot) -> list[str]:
     """Pose sur ``page`` la perspective de ``exploded`` (la forme éclatée de l'ouvrage) ;
     renvoie le nom de la vue."""
-    view = _add_view(page, "Exploded", [exploded], spot)
-    page.Document.recompute()
-    return [view.Name]
+    return [_add_view(page, "Exploded", [exploded], spot).Name]

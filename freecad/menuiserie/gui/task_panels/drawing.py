@@ -124,9 +124,7 @@ class DrawingTaskPanel:
         Gui.Control.closeDialog()
         drawing_pdf.show_page(self.page)
         if wants_pdf:
-            from freecad.menuiserie.gui.commands.drawing import export_with_dialog
-
-            export_with_dialog(self.page)
+            drawing_pdf.export_with_dialog(self.page)
         return True
 
     def reject(self) -> bool:
