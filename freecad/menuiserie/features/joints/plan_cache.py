@@ -41,6 +41,7 @@ def _key_of(strategy: Any, host: PlacedBlock, guest: PlacedBlock, params: Any) -
     key = (
         strategy.kind,
         host.dimensions,
+        host.footprint,
         guest.dimensions,
         host.placement.rotation,
         relative,

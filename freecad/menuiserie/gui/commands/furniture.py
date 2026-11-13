@@ -28,6 +28,7 @@ from freecad.menuiserie.features.furniture_container import carried_furniture
 from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import (
     REFUSAL_DISPLAY_MS,
     TransactionCommand,
@@ -156,6 +157,7 @@ class CreateFurnitureCommand(FurnitureCommand):
         "distance est fixe. Double-cliquez l'ensemble pour régler ses cotes et ses pièces.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Créer un ensemble")
+    PREREQUISITE = hints.FURNITURE
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Toute sélection de pièces et d'ensembles."""
@@ -177,6 +179,7 @@ class AddToFurnitureCommand(FurnitureCommand):
         "cotes, toutes leurs distances aux bords étant fixes par défaut.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Ajouter à l'ensemble")
+    PREREQUISITE = hints.FURNITURE_ADD
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Un ensemble et au moins un autre objet."""
@@ -199,6 +202,7 @@ class RemoveFromFurnitureCommand(FurnitureCommand):
         "place, mais ne suivent plus ses cotes.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Retirer de l'ensemble")
+    PREREQUISITE = hints.FURNITURE_REMOVE
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Sélection faite de membres seulement."""
@@ -222,6 +226,7 @@ class RebindFurnitureCommand(FurnitureCommand):
         "« fixe » sont gardées.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Relier les pièces")
+    PREREQUISITE = hints.FURNITURE_REBIND
 
     def accepts(self, selection: Sequence[DocumentObject]) -> bool:
         """Un seul ensemble sélectionné."""

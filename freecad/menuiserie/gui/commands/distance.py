@@ -19,6 +19,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.distance_move import DistanceMove
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.picked import PickedElement
+from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.selection import picked_elements, view_direction
 from freecad.menuiserie.gui.task_panels.distance import open_panel
@@ -49,6 +50,7 @@ class SetDistanceCommand(TransactionCommand):
         "en déplaçant une pièce de l'atelier : par défaut la seconde sélectionnée.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Définir une distance")
+    PREREQUISITE = hints.DISTANCE
 
     def IsActive(self) -> bool:
         """Active avec un document, aucun panneau ouvert et exactement deux éléments de deux

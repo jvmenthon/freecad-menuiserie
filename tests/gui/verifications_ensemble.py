@@ -104,6 +104,7 @@ def verifier_commandes_d_ensemble_presentes() -> list[str]:
         constats = {
             "libellé": (infos["menuText"], libelle),
             "infobulle": (bool(infos["toolTip"].strip()), True),
+            "prérequis dans l'infobulle": ("Prérequis : " in infos["toolTip"], True),
             "icône": (infos["pixmap"], icon_path(f"{nom}.svg")),
             "icône affichée": (commande.getAction()[0].icon().isNull(), False),
             "emplacements": (sorted(emplacements(nom)), emplacements_attendus(nom)),

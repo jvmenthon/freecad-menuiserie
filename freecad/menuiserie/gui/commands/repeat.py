@@ -24,6 +24,7 @@ from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.repeat_copies import checked_sources
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import (
     TransactionCommand,
     refusable_transaction,
@@ -83,6 +84,7 @@ class RepeatCommand(TransactionCommand):
         "ensuite par « Modifier la répétition ».",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Répéter")
+    PREREQUISITE = hints.REPEAT
 
     def IsActive(self) -> bool:
         """Active avec un document, aucun panneau ouvert et des pièces à répéter sélectionnées."""
@@ -119,6 +121,7 @@ class EditRepeatCommand(TransactionCommand):
         "est sélectionnée) : nombre, pas, longueur, axe, assemblages.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
+    PREREQUISITE = hints.REPEAT_EDIT
 
     def IsActive(self) -> bool:
         """Active avec un document, aucun panneau ouvert et une répétition ou une copie liée
@@ -150,6 +153,7 @@ class DissociateCommand(TransactionCommand):
         "devient une pièce libre, avec ses assemblages ; l'original ne la suit plus.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
+    PREREQUISITE = hints.REPEAT_DISSOCIATE
 
     def IsActive(self) -> bool:
         """Active avec un document, aucun panneau ouvert et seulement des copies liées

@@ -106,6 +106,7 @@ def verifier_commandes_de_repetition() -> list[str]:
         problemes += [
             *ecarts(f"{nom}, libellé", infos["menuText"], libelle),
             *ecarts(f"{nom}, infobulle", bool(infos["toolTip"].strip()), True),
+            *ecarts(f"{nom}, prérequis", "Prérequis : " in infos["toolTip"], True),
             *ecarts(f"{nom}, icône", infos["pixmap"], icon_path(f"{nom}.svg")),
             *ecarts(f"{nom}, icône affichée", commande.getAction()[0].icon().isNull(), False),
             # Sans doublon : les vérifications précédentes ont réactivé l'atelier, dont le menu a
