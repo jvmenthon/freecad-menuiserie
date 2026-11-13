@@ -233,3 +233,10 @@ def test_piece_en_bois_et_sa_piece_usinee_ont_une_carte(document: Any) -> None:
     shape = solids.machined_shape(base, [], [CORNER])
     assert base.Tag == tag != 0
     assert shape.isValid() and shape.ElementMapSize > 0
+
+
+def test_trop_d_outils_dans_un_groupe_est_refuse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deux outils n'ont jamais la même étiquette : un groupe qui dépasse sa plage est refusé."""
+    monkeypatch.setattr(solids, "_GROUP_TAGS", 2)
+    with pytest.raises(ValueError, match="trop d'usinages"):
+        solids.machined_shape(Part.makeBox(LENGTH, WIDTH, THICKNESS), [], [CORNER, CORNER])

@@ -1,6 +1,6 @@
 # ADR 0056 — Nommage topologique de FreeCAD 1.1 dans l'atelier
 
-- Statut : **proposé** (jv, 2026-11-13 : « FreeCAD renumérote les arêtes à chaque recalcul : ce
+- Statut : **proposé**, accepté à la fusion de la PR #255 par jv (jv, 2026-11-13 : « FreeCAD renumérote les arêtes à chaque recalcul : ce
   n'est plus le cas depuis la 1.0. Vérifie si des corrections peuvent être faites dans le code »)
 - Date : 2026-11-13
 - ADR liés : [0011](0011-apercu-accrochage-et-nom.md),
@@ -45,6 +45,7 @@ soient ses cotes : la pièce de bois brute n'est pas concernée.
 |---|---|---|---|
 | Pièce usinée (`features/solids.py`, `machined_shape`) : sans carte | oui : un lien d'un autre atelier (cote TechDraw, esquisse attachée, Assembly) vers une de ses faces pointe sur une autre face quand on ajoute ou retire un assemblage | majeur (ADR 0007, compatibilité avec les autres ateliers) | **corrigé** (décision 1) |
 | Butée de répétition (ADR 0047, `PropertyLinkSubGlobal`) | sur la brute (boîte : numérotation fixe), sur une pièce en bois ou un objet natif (carte : le lien suit) | mineur | limite de l'ADR 0047 réduite (décision 3) |
+| Butée choisie sur une pièce usinée (`repeat_stop_raw.py`, `_raw_element`) : ramenée à l'élément de la brute de même encombrement, à la création et à l'ouverture | non : le nom mémorisé est celui de la brute | aucune | rien |
 | Sélection à la création (accrochage, distance, alignement, `PickedElement`) | lu une fois, jamais mémorisé | aucune | rien |
 | Profils d'arête et bande de chant (ADR 0029, 0030) : code local `"Z+Y-"` | non | aucune | choix maintenu (décision 2) |
 | Pièce en bois paramétrique à plusieurs solides refusée (ADR 0020) | `SolidN` non cartographié | aucune | choix maintenu |
@@ -80,8 +81,8 @@ soient ses cotes : la pièce de bois brute n'est pas concernée.
   de l'élément qui porte ce numéro au recalcul qui crée la carte, puis le suit.
 - Le fichier `.FCStd` grossit (carte enregistrée avec la forme, noms qui s'allongent avec la
   chaîne d'opérations) et le calcul des booléennes ajoute la tenue de la carte ; le coût reste
-  proportionnel au nombre d'usinages, comme avant. À mesurer sur un meuble réel avant d'aller
-  plus loin (par exemple une carte pour la pièce brute).
+  proportionnel au nombre d'usinages, comme avant. À mesurer sur un meuble réel (suivi dans
+  `docs/corrections-mineures.md`, point nt1).
 - `machined_shape` n'écrit jamais dans la forme reçue : une base sans étiquette est copiée.
 - Tout nouvel usinage construit en Python passe par `machined_shape` ou étiquette lui aussi ses
   entrées ; un test d'intégration le vérifie pour la pièce usinée.
