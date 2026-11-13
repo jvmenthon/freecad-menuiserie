@@ -48,10 +48,16 @@ def test_assemblage_suit_le_std_part_deplace(cadre: Cadre) -> None:
     assert "Invalid" in joint.State  # les pièces ne se touchent plus : l'assemblage a été recalculé
 
 
-def test_refus_conteneurs_sans_parente(cadre: Cadre) -> None:
-    first = cadre.doc.addObject("App::Part", "Un")
-    second = cadre.doc.addObject("App::Part", "Deux")
-    first.addObject(cadre.parts["M1"])
-    second.addObject(cadre.parts["T1"])
-    with pytest.raises(ValueError, match="même conteneur"):
-        api.make_mortise_tenon(cadre.parts["M1"], cadre.parts["T1"])
+def test_piece_libre_et_piece_de_std_part(cadre: Cadre) -> None:
+    """Pièce à la racine face à une pièce d'un Std Part décalé (cas de jv : planche libre entre
+    deux caissons)."""
+    child = cadre.doc.addObject("App::Part", "Caisson")
+    child.Placement = App.Placement(App.Vector(SHIFT, 0, 0), App.Rotation())
+    t1 = cadre.parts["T1"]
+    t1_global = t1.Placement
+    child.addObject(t1)
+    t1.Placement = child.Placement.inverse() * t1_global
+    cadre.doc.recompute()
+    api.make_mortise_tenon(cadre.parts["M1"], t1)
+    cadre.doc.recompute()
+    assert cadre.volume("T1") == pytest.approx(RAIL_VOLUME - 40 * 40 * 7)

@@ -32,8 +32,8 @@ def test_parente(monkeypatch: pytest.MonkeyPatch, case: str) -> None:
             "same": (piece(root), piece(root), True),
             "nested": (piece(root), piece(child_a), True),
             "siblings": (piece(child_a), piece(child_b), True),
-            "roots": (piece(root), piece(other), False),
-            "free": (piece(), piece(root), False),
+            "roots": (piece(root), piece(other), True),
+            "free": (piece(), piece(root), True),
             "body": (piece(body), piece(root), False),
             "sub": (piece(child_a), piece(child_a), True),
         }

@@ -291,12 +291,6 @@ def test_refus_documents_differents(cadre: Cadre) -> None:
     assert len(other.Objects) == 1
 
 
-def test_refus_conteneurs_differents(cadre: Cadre) -> None:
-    container = cadre.doc.addObject("App::Part", "Conteneur")
-    container.addObject(cadre.parts["T1"])
-    count_and_raise(cadre.doc, ValueError, cadre.parts["M1"], cadre.parts["T1"])
-
-
 def test_meme_conteneur_accepte(cadre: Cadre) -> None:
     container = cadre.doc.addObject("App::Part", "Conteneur")
     container.addObjects([cadre.parts["M1"], cadre.parts["T1"]])

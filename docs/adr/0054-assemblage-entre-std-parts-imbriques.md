@@ -16,10 +16,12 @@ conteneur.
 
 ## Décision
 
-1. **Conteneurs acceptés** : les mêmes (comportement inchangé), ou deux Std Part (`App::Part`) de
-   la même arborescence (même Std Part racine : imbriqués ou frères). Refus traduit inchangé
-   sinon : corps PartDesign, pièce hors de tout Std Part face à une pièce rangée, arborescences
-   distinctes.
+1. **Conteneurs acceptés** : les mêmes (comportement inchangé), ou n'importe quelle combinaison
+   de Std Part (`App::Part`, imbriqués, frères ou de racines différentes) et de racine du document
+   (pièce libre) : le repère global les relie. Retenu après l'essai de jv (2026-11-13) : une pièce
+   libre face au côté d'un caisson était refusée par la première version (même Std Part racine
+   exigé). Refus traduit inchangé seulement si l'un des conteneurs est d'un autre type (corps
+   PartDesign…) et pas le même que l'autre.
 2. **Repère de calcul** : celui du conteneur de l'hôte. L'hôte y est lu par son `Placement` ;
    l'invitée, si son conteneur diffère, par `conteneur_hôte.getGlobalPlacement().inverse() *
    invitée.getGlobalPlacement()`. Le plan de `core` ne dépend que du placement relatif des deux

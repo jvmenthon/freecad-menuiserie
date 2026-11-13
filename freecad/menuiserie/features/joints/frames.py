@@ -22,8 +22,8 @@ __all__ = ["frame_containers", "placement_in_frame_of", "related_containers"]
 _STD_PART: Final = "App::Part"
 OTHER_CONTAINER: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Les deux pièces doivent être dans le même conteneur, ou dans des Std Part imbriqués "
-    "(pièce ou corps : même conteneur seulement).",
+    "Les deux pièces doivent être dans le même conteneur, ou chacune dans un Std Part ou à la "
+    "racine (corps : même conteneur seulement).",
 )
 
 
@@ -40,17 +40,12 @@ def _chain(obj: DocumentObject) -> list[DocumentObject] | None:
 
 
 def related_containers(first: DocumentObject, second: DocumentObject) -> bool:
-    """Vrai si les conteneurs de ``first`` et ``second`` sont les mêmes, ou des Std Part de la
-    même arborescence (même Std Part racine). Une pièce hors de tout Std Part n'est apparentée qu'à
-    celles de son propre conteneur."""
+    """Vrai si ``first`` et ``second`` ont le même conteneur, ou si tous leurs conteneurs sont des
+    Std Part (une pièce hors de tout Std Part est à la racine) : le repère global les relie. Faux
+    si l'un est dans un autre type de conteneur (corps PartDesign…) et pas dans le même."""
     if bool(first.getParentGeoFeatureGroup() == second.getParentGeoFeatureGroup()):
         return True
-    chains = (_chain(first), _chain(second))
-    if chains[0] is None or chains[1] is None:
-        return False
-    if not chains[0] or not chains[1]:
-        return False  # une pièce hors de tout Std Part n'a pas de parenté avec l'autre
-    return bool(chains[0][-1] == chains[1][-1])
+    return _chain(first) is not None and _chain(second) is not None
 
 
 def placement_in_frame_of(obj: DocumentObject, reference: DocumentObject) -> App.Placement:
