@@ -229,6 +229,22 @@ def test_objet_entier_clique_donne_la_face_sous_le_clic(document: Any, block: An
     assert targets.read_targets([far], ABOVE).targets == ()
 
 
+def test_piece_choisie_en_entier_pose_la_nouvelle_a_cote(document: Any, block: Any) -> None:
+    """Objet entier sans point cliqué (arbre) : la pièce se pose contre le côté +X de la pièce."""
+    beside = pytest.importorskip("freecad.menuiserie.features.beside")
+    reading = beside.beside_reading([pick(block, "")])
+    assert reading is not None
+    session = targets.new_session(reading, geometry_dimensions(document))
+    obj = new_part(document, session)
+    box = obj.Shape.copy()
+    box.Placement = obj.getGlobalPlacement()
+    edge = block.Shape.copy()
+    edge.Placement = block.getGlobalPlacement()
+    assert abs(box.BoundBox.XMin - edge.BoundBox.XMax) < 1e-6
+    assert abs(box.BoundBox.YMin - edge.BoundBox.YMin) < 1e-6
+    assert beside.beside_reading([pick(block, "", Vec3(1, 2, 3))]) is None
+
+
 # --- T2 : côté extérieur ------------------------------------------------------------------------
 
 

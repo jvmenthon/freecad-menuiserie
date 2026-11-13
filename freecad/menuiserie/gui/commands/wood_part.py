@@ -11,6 +11,7 @@ import FreeCADGui as Gui
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.api import make_wood_part
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.beside import beside_reading
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.perpendicular import perpendicular_start
@@ -36,7 +37,8 @@ class CreateWoodPartCommand:
     """Crée une pièce de bois aux valeurs par défaut, puis ouvre le panneau pour la régler. Les
     faces, arêtes et sommets sélectionnés avant le lancement sont lus d'abord : la pièce est
     posée contre eux, dans le Std Part du premier (J6d). Contre une seule face de pièce de bois, la
-    pièce est perpendiculaire à la face, de mêmes largeur et épaisseur (#136)."""
+    pièce est perpendiculaire à la face, de mêmes largeur et épaisseur (#136) ; contre une pièce
+    choisie en entier, elle est posée à côté d'elle."""
 
     def GetResources(self) -> dict[str, str]:
         """Icône, libellé et infobulle (traduits par FreeCAD, contexte = nom de la commande)."""
@@ -66,7 +68,10 @@ class CreateWoodPartCommand:
             report_warning(translated(EMPTY_LIBRARY))
             return
         doc = App.ActiveDocument
-        reading = read_targets(picked_elements(), view_direction())
+        elements = picked_elements()
+        reading = read_targets(elements, view_direction())
+        if not reading.targets:  # pièce choisie en entier (arbre) : à côté d'elle, pas à l'origine
+            reading = beside_reading(elements) or reading
         with frame_view():
             doc.openTransaction(translated(CREATE_TRANSACTION))
             with aborted_on_error(App.getActiveTransaction()):
