@@ -145,6 +145,38 @@ def test_piece_en_bois_boite_acceptee(document: Any) -> None:
     assert machined.Shape.Volume == pytest.approx(before - 2.0 * shaped.Length.Value, rel=1e-6)
 
 
+def test_piece_en_bois_boite_tournee_acceptee(document: Any) -> None:
+    """Un corps en boîte dessiné de biais (géométrie tournée, pas son placement) donne une
+    pièce en bois tournée dans son repère : l'encombrement lâche d'OCC ne la fait pas refuser."""
+    raw = Part.makeBox(300.0, 100.0, 20.0)
+    raw.rotate(App.Vector(), App.Vector(0, 0, 1), 30.0)
+    source = document.addObject("Part::Feature", "BoiteDeBiais")
+    source.Shape = raw
+    document.recompute()
+    shaped = api.make_shaped_part(source)
+    document.recompute()
+    api.add_edge_profile(shaped, ["Z+Y-"], "Chamfer", 2.0)
+    document.recompute()
+    assert machined_of(shaped).isValid()
+
+
+def test_copie_d_une_piece_en_bois_boite_acceptee(document: Any) -> None:
+    """La copie d'une répétition de pièce en bois (ADR 0050) reçoit un profil comme sa source."""
+    box = document.addObject("Part::Box", "Boite")
+    box.Length, box.Width, box.Height = 300.0, 100.0, 20.0
+    document.recompute()
+    shaped = api.make_shaped_part(box)
+    document.recompute()
+    repeat = api.make_repeat([shaped], api.RepeatParams(count=2, step=150.0, axis="Y"))
+    document.recompute()
+    from freecad.menuiserie.features.repeat import copies_of
+
+    [copy, *_] = [c for c in copies_of(repeat) if c is not shaped]
+    api.add_edge_profile(copy, ["Z+Y-"], "Chamfer", 2.0)
+    document.recompute()
+    assert machined_of(copy).isValid()
+
+
 def test_piece_en_bois_non_boite_refusee(document: Any) -> None:
     cylinder = document.addObject("Part::Cylinder", "Cylindre")
     document.recompute()

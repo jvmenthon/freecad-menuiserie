@@ -20,7 +20,7 @@ from freecad.menuiserie.features.wood_part import is_wood_part
 
 __all__ = ["box_part_refusal", "is_box_part"]
 
-_FILL: Final = 1e-6  # le volume du solide égale celui de son encombrement, à ce rapport près
+_FILL: Final = 1e-5  # le volume du solide égale celui de son encombrement, à ce rapport près
 _SHAPED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "« {label} » est une pièce en bois à forme dessinée qui n'est pas une simple boîte : les "
@@ -40,7 +40,10 @@ def is_box_part(obj: object) -> bool:
     shape = base_shape_of(obj)
     if shape.isNull() or len(shape.Solids) != 1:
         return False
-    box = shape.BoundBox
+    # Encombrement exact (comme ``shaped_frame.local_form``) : ``BoundBox`` est élargi par les
+    # tolérances et, sur une forme tournée (copie, corps dessiné de biais), assez pour refuser
+    # une vraie boîte.
+    box = shape.optimalBoundingBox(False, False)
     enclosing = box.XLength * box.YLength * box.ZLength
     return bool(enclosing > 0 and abs(shape.Volume - enclosing) <= _FILL * enclosing)
 
