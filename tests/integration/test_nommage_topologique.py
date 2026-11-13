@@ -135,8 +135,9 @@ def test_carte_et_lien_apres_reouverture(document: Any, rouvrir: Any) -> None:
     """La carte est enregistrée avec la forme : après réouverture et recalcul, le lien suit
     encore un nouvel assemblage."""
     machined, holder, mapped = _linked_frame(document)
+    names = (machined.Name, holder.Name)  # les objets meurent avec le document fermé
     reopened = rouvrir(document)
-    machined, holder = (reopened.getObject(o.Name) for o in (machined, holder))
+    machined, holder = (reopened.getObject(name) for name in names)
     assert machined.Shape.ElementMapSize > 0
     reopened.recompute()
     _assert_follows(machined, holder, mapped)
