@@ -21,7 +21,7 @@ une cellule rigide ou libre. Il faut choisir si la distance est gardée, et par 
 ## Options
 
 1. **Contrainte géométrique** (atelier Assembly de FreeCAD 1.0, solveur) : puissante, mais
-   impose un conteneur Assembly, un solveur et des références topologiques (`Face3`) fragiles ;
+   impose un conteneur Assembly, un solveur et des références topologiques (`Face3`) fragiles (*sur une forme sans carte des éléments, ADR 0056*) ;
    conflit avec les liaisons de l'ensemble (deux pilotes pour un même `Placement`). Rejetée.
 2. **Attachement natif** (`AttachExtension`, décalage) : une seule référence, noms topologiques,
    conflit avec les liaisons de l'ensemble (déjà rejeté par l'ADR 0011). Rejetée.

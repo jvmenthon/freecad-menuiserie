@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Nommage topologique de FreeCAD 1.1 : ce qui s'applique aux formes de l'atelier (ADR 0053).
+"""Nommage topologique de FreeCAD 1.1 : ce qui s'applique aux formes de l'atelier (ADR 0056).
 
 Ces tests fixent le comportement de FreeCAD sur lequel s'appuient les décisions de l'atelier :
 une forme construite en Python sans étiquette (``Tag``) n'a pas de carte des éléments, et un lien
 vers un de ses éléments (``Face3``) garde son numéro ; une forme qui a une carte voit ses liens
 suivre l'élément quand sa numérotation change. La pièce usinée étiquette ses entrées pour avoir
-une carte (ADR 0053).
+une carte (ADR 0056).
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ def _bottom_face(shape: Any) -> str:
 
 
 def test_piece_usinee_a_une_carte_et_le_lien_suit(document: Any) -> None:
-    """ADR 0053 : la pièce usinée a une carte des éléments ; un lien vers sa face de dessous la
+    """ADR 0056 : la pièce usinée a une carte des éléments ; un lien vers sa face de dessous la
     suit quand un second assemblage renumérote ses faces."""
     cadre = build_frame(document)
     cadre.assemble((("M1", "T1"),))

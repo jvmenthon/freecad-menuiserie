@@ -39,7 +39,7 @@ _SHARP_JOIN: Final = 2  # jonction « intersection » de ``makeOffsetShape`` : a
 _INVALID_SHAPE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Usinage impossible : la forme obtenue n'est pas un solide valide."
 )
-# Étiquettes (``Tag``) des formes d'entrée de l'usinage (ADR 0053) : FreeCAD 1.1 ne tient la carte
+# Étiquettes (``Tag``) des formes d'entrée de l'usinage (ADR 0056) : FreeCAD 1.1 ne tient la carte
 # des éléments d'une booléenne que si ses entrées sont étiquetées. Plage au-delà des identifiants
 # d'objets d'un document (jamais de collision avec l'historique d'une forme dessinée), sous 2³¹
 # (``long`` de 32 bits sous Windows). Étiquettes fixées par la position : deux usinages égaux
@@ -164,7 +164,7 @@ def machined_shape(
     """Forme de base de la pièce (sa boîte pour une pièce de bois, sa forme dessinée pour une
     pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016),
     plus ``additions``, moins ``cuts``, faces coplanaires fusionnées. ``base`` est étiquetée sur
-    place si elle ne l'est pas : le résultat a une carte des éléments (ADR 0053). ``ValueError``
+    place si elle ne l'est pas : le résultat a une carte des éléments (ADR 0056). ``ValueError``
     traduite si OCC échoue ou si le résultat n'est pas un solide valide (jamais de forme
     partielle)."""
     shape = base
@@ -191,7 +191,7 @@ def machined_shape(
 
 def _tagged_tools(groups: Sequence[Sequence[PlanSolid]]) -> list[list[Any]]:
     """Solides ``Part`` de chaque groupe, étiquetés selon leur groupe et leur rang, pour que la
-    pièce usinée ait une carte des éléments (ADR 0053)."""
+    pièce usinée ait une carte des éléments (ADR 0056)."""
     tagged: list[list[Any]] = []
     for number, group in enumerate(groups):
         shapes = []

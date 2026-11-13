@@ -30,7 +30,7 @@ Options étudiées pour les cotes :
 Options pour la forme :
 
 - (a) un seul solide, la bande en couleurs de faces : impossible à texturer proprement, faces
-  renumérotées à chaque recalcul ; (b) **bande en solide séparé**, avec son aspect. Retenue.
+  renumérotées à chaque recalcul (*sur une forme sans carte des éléments, ADR 0056*) ; (b) **bande en solide séparé**, avec son aspect. Retenue.
 
 ## Décision
 
