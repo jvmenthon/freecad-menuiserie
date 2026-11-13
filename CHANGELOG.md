@@ -5,6 +5,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté
+
+- Commande « Aligner deux faces » (menu contextuel, deux faces de deux objets) : la seconde pièce pivote au besoin pour que les faces soient parallèles, puis vient dans le même plan (au ras ou face contre face, la plus petite rotation). Nouvelle fonction `api.align_faces` (ADR 0054).
+
 ### Modifié
 
 - Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).

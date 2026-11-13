@@ -5,7 +5,7 @@
 - Date : 2026-11-13
 - ADR liés : [0007](0007-compatibilite-avec-les-autres-ateliers.md),
   [0022](0022-distance-entre-deux-pieces.md), [0025](0025-rotation-libre-d-une-piece.md),
-  [0026](0026-assemblages-defaits-par-un-deplacement.md)
+  [0026](0026-assemblage-defait-par-un-deplacement.md)
 
 ## Contexte
 
