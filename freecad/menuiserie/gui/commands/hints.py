@@ -4,8 +4,7 @@
 Une telle commande reste grisée tant que la sélection ne convient pas ; son infobulle se termine
 par « Prérequis : » suivi d'une de ces phrases (``tool_tip`` de
 :mod:`freecad.menuiserie.gui.commands.base`), la même que le bouton soit grisé ou non. Elles
-citent Ctrl+clic, qui garde la sélection native de FreeCAD pièce par pièce (ADR 0048 : un clic
-simple sur une pièce d'un ensemble sélectionne l'ensemble).
+citent Ctrl+clic, qui ajoute une pièce à la sélection native de FreeCAD.
 """
 
 from typing import Final

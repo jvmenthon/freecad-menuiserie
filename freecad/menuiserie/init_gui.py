@@ -129,12 +129,11 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     def Activated(self) -> None:
         """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018) et flèches de
         déplacement de la pièce sélectionnée (ADR 0021)."""
-        from freecad.menuiserie.gui import click_select, double_click
+        from freecad.menuiserie.gui import double_click
         from freecad.menuiserie.gui.drag import events
 
         try:
             double_click.install()
-            click_select.install()  # après le double-clic : Qt appelle le dernier posé d'abord
         finally:
             events.install()
         from freecad.menuiserie.gui.structure_panel import open_by_default_later
@@ -142,17 +141,14 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         open_by_default_later()  # panneau « Structure » ouvert par défaut (ADR 0046)
 
     def Deactivated(self) -> None:
-        """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""
-        from freecad.menuiserie.gui import click_select, double_click
+        """Atelier quitté : filtre du double-clic et flèches sont retirés."""
+        from freecad.menuiserie.gui import double_click
         from freecad.menuiserie.gui.drag import events
 
         try:
-            click_select.uninstall()
+            double_click.uninstall()
         finally:
-            try:
-                double_click.uninstall()
-            finally:
-                events.uninstall()
+            events.uninstall()
 
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une

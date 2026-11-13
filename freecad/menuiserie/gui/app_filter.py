@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Pose et retrait d'un filtre d'évènements Qt sur l'application, tant que l'atelier est actif
-(ADR 0007, § 3 : rien de permanent). Commun au double-clic (ADR 0018) et à la sélection par
-ensemble (ADR 0048)."""
+(ADR 0007, § 3 : rien de permanent), pour le double-clic (ADR 0018)."""
 
 from __future__ import annotations
 

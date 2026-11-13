@@ -4,13 +4,13 @@
   « la boîte doit toujours être de la taille de l'ensemble »)
 - Date : 2026-11-11
 - ADR liés : [0008](0008-ensemble-objet-de-cotes.md), [0019](0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
-  [0038](0038-ensemble-a-la-souris.md), [0048](0048-selection-par-ensemble-dans-la-vue-3d.md)
+  [0038](0038-ensemble-a-la-souris.md), [0048](0048-selection-par-ensemble-dans-la-vue-3d.md) (abandonné le 2026-11-13, sans effet sur cet ADR)
 
 ## Contexte
 
 La boîte bleue d'un ensemble, ce sont ses cotes (`Origin` + largeur, profondeur, hauteur). Quand
 jv déplace ou tourne un sous-ensemble hors de son parent, les cotes du parent ne changent pas : la
-boîte ne l'englobe plus (constaté le 2026-11-11, avec la sélection par ensemble).
+boîte ne l'englobe plus (constaté le 2026-11-11).
 
 ## Options
 
@@ -44,6 +44,6 @@ boîte ne l'englobe plus (constaté le 2026-11-11, avec la sélection par ensemb
 - Un sous-ensemble d'un sous-ensemble déplacé hors de son parent garde l'ancien comportement : à
   traiter plus tard si jv le demande (normaliser `Origin` en décalant le Std Part).
 - Un recalcul complet du document de plus à la fin d'un geste sur un sous-ensemble.
-- Tests d'intégration : `tests/integration/test_selection_par_ensemble.py` (déplacement à droite
+- Tests d'intégration : `tests/integration/test_enveloppe_du_parent.py` (déplacement à droite
   et à gauche, rotation, rétrécissement quand on ramène le sous-ensemble, répétition qui suit le parent, copies d'un
   sous-ensemble répété, création autour d'un ensemble tourné).
