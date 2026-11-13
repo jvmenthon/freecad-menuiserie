@@ -13,6 +13,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 RESOURCES_DIR = PACKAGE_DIR / "resources"
 ICONS_DIR = RESOURCES_DIR / "icons"
 TRANSLATIONS_DIR = RESOURCES_DIR / "translations"
+TEMPLATES_DIR = RESOURCES_DIR / "templates"
 DATA_DIR = PACKAGE_DIR / "data"
 
 

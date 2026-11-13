@@ -34,9 +34,14 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
 2. Une commande les crée **à la demande**, marque ses pages d'une propriété booléenne masquée
    `MenuiserieDrawing`, et les reconstruit à la régénération ; une page modifiée à la main n'est
    jamais écrasée.
-3. Le **gabarit** est un gabarit ISO déjà fourni par TechDraw ; l'atelier n'en installe ni n'en
-   modifie, et ne touche à aucune préférence de TechDraw (ADR 0007). Le format (A3 paysage par
-   défaut) est un réglage de la configuration de l'atelier (ADR 0031).
+3. Le **gabarit** est celui de l'atelier (amendement du 2026-11-13, retour de jv : le cartouche
+   des gabarits de TechDraw 1.1 est en allemand et n'a ni case client ni case matériau). Dix
+   gabarits SVG (A4 à A0, paysage et portrait) avec cadre et cartouche en français sont livrés
+   dans `resources/templates/` de l'atelier, produits par `tools/generer_gabarits.py` ; la page
+   TechDraw les lit depuis ce dossier. Rien n'est installé ni modifié dans FreeCAD, et aucune
+   préférence de TechDraw n'est touchée (ADR 0007). Un gabarit de TechDraw ne sert qu'à défaut
+   d'un fichier de l'atelier. Le format (A3 paysage par défaut) est un réglage de la
+   configuration de l'atelier (ADR 0031).
 4. Le calcul des cotes (hors tout à l'enveloppe, ADR 0049 ; usinages lus dans les enregistrements
    des assemblages) est **pur**, dans `core/drawing/` ; la création des objets TechDraw est dans
    `features/drawing_*.py`. L'import de `TechDraw` est paresseux : l'atelier se charge et reste

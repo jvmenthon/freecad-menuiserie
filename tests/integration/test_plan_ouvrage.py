@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -163,6 +164,18 @@ def test_cartouche_rempli(bureau: Bureau) -> None:
     assert any(material in value for value in written), "\n".join(
         f"{key} = {value!r}" for key, value in sorted(texts.items())
     )
+
+
+def test_gabarit_francais_de_l_atelier(bureau: Bureau) -> None:
+    options = api.DrawingOptions(client="Mme Dupont", quote="D-2026-014")
+    page = api.make_overall_drawing(bureau.doc, [bureau.furniture], options)
+    assert Path(page.Template.Template).name == "Menuiserie_A3_Landscape.svg"
+    texts = cartouche(page)
+    assert texts["client"] == "Mme Dupont", texts
+    assert texts["quote"] == "D-2026-014", texts
+    assert texts["scale"] == "1 : 10", texts
+    assert texts["document_type"] == "Plan de l'ouvrage", texts
+    assert str(bureau.parts["P"].Material) in texts["material"], texts
 
 
 def test_cartouche_garde_les_saisies_a_la_relance(bureau: Bureau) -> None:

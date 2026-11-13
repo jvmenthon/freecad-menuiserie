@@ -15,6 +15,11 @@ from freecad.menuiserie.core.drawing._layout import (
     page_size,
     scale_text,
 )
+from freecad.menuiserie.core.drawing._sheet import (
+    TEMPLATE_FILES,
+    template_file_name,
+    template_svg,
+)
 from freecad.menuiserie.core.drawing._template import pick_template
 from freecad.menuiserie.core.drawing._title import (
     MAX_FIELD_LENGTH,
@@ -29,6 +34,7 @@ __all__ = [
     "MAX_FIELD_LENGTH",
     "PAGE_FORMATS",
     "SCALES",
+    "TEMPLATE_FILES",
     "Orientation",
     "OverallLayout",
     "PageSize",
@@ -40,5 +46,7 @@ __all__ = [
     "pick_template",
     "placeholder_keys",
     "scale_text",
+    "template_file_name",
+    "template_svg",
     "title_block_texts",
 ]

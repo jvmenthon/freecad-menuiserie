@@ -23,6 +23,7 @@ from typing import Any, Final
 import FreeCAD as App
 import Part
 
+from freecad.menuiserie import TEMPLATES_DIR
 from freecad.menuiserie.core.drawing import (
     Orientation,
     OverallLayout,
@@ -30,6 +31,7 @@ from freecad.menuiserie.core.drawing import (
     overall_layout,
     page_size,
     pick_template,
+    template_file_name,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features import drawing_settings
@@ -201,12 +203,17 @@ def _global_box(sources: Sequence[DocumentObject]) -> Any:
 
 
 def _template_path(options: DrawingOptions) -> str | None:
-    """Gabarit de page fourni par TechDraw pour ``options``, ``None`` si le dossier manque."""
+    """Gabarit de page pour ``options`` : celui de l'atelier (cartouche en français), à défaut
+    celui de TechDraw ; ``None`` si aucun ne convient."""
+    fmt, orientation = options.resolved_format(), options.resolved_orientation()
+    own = TEMPLATES_DIR / template_file_name(fmt, orientation)
+    if own.is_file():
+        return str(own)
     folder = Path(App.getResourceDir()) / "Mod" / "TechDraw" / "Templates"
     if not folder.is_dir():
         return None
     paths = sorted(str(path) for path in islice(folder.rglob("*.svg"), MAX_TEMPLATES))
-    return pick_template(paths, options.resolved_format(), options.resolved_orientation())
+    return pick_template(paths, fmt, orientation)
 
 
 def _owned(page: DocumentObject) -> list[str]:

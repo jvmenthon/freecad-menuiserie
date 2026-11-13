@@ -39,14 +39,24 @@ def test_bureau_sur_a3_au_dixieme() -> None:
     layout = overall_layout(1200, 600, 750, A3)
     assert layout.fits
     assert layout.scale == 0.1
-    # Face en haut à gauche, dessus dessous, vue de gauche à droite, perspective à droite.
-    assert layout.front.x == pytest.approx(20 + 60)
-    assert layout.front.y == pytest.approx(297 - 20 - 37.5)
+    # Dessus sous la face, vue de gauche à droite de la face, perspective à droite.
     assert layout.top.x == layout.front.x
-    assert layout.top.y < layout.front.y - 37.5 - 30
+    assert layout.top.y == pytest.approx(layout.front.y - 37.5 - 30 - 30)
     assert layout.side.y == layout.front.y
-    assert layout.side.x > layout.front.x + 60 + 30
+    assert layout.side.x == pytest.approx(layout.front.x + 60 + 30 + 30)
     assert layout.iso.x > layout.side.x + 30
+
+
+def test_bureau_centre_au_dessus_du_cartouche() -> None:
+    layout = overall_layout(1200, 600, 750, A3)
+    iso_width = 180 / math.sqrt(2)
+    left = layout.front.x - 60
+    right = layout.iso.x + iso_width / 2
+    assert left - 20 == pytest.approx(A3.width - 20 - right)  # autant de place à gauche qu'à droite
+    top = layout.front.y + 37.5
+    bottom = layout.top.y - 30
+    assert A3.height - 20 - top == pytest.approx(bottom - 65)  # autant au-dessus qu'en dessous
+    assert left > 20 + 1  # plus calé dans le coin haut gauche
 
 
 def test_echelle_la_plus_grande_qui_tient() -> None:
@@ -70,6 +80,13 @@ def test_vues_dans_la_feuille() -> None:
             assert layout.front.y + height / 2 <= page.height - 20 + 1e-9
             assert layout.top.y - depth / 2 >= 20 - 1e-9
             assert layout.iso.x <= page.width - 20
+            # Rien ne déborde sur le cartouche, au coin bas droit.
+            for spot, half_width, half_height in (
+                (layout.top, width / 2, depth / 2),
+                (layout.side, depth / 2, height / 2),
+            ):
+                over_block = spot.x + half_width > page.width - 190 + 1e-9
+                assert not over_block or spot.y - half_height >= 65 - 1e-9
 
 
 def test_ouvrage_trop_grand_signale() -> None:

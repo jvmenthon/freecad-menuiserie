@@ -24,8 +24,9 @@ document.
 - **Pages TechDraw standard** (`TechDraw::DrawPage`, `DrawViewPart`, `DrawViewDimension`),
   construites par une commande, à la demande, à partir des formes de l'atelier (ADR 0007 : ce sont
   des `Part::Feature` ordinaires, TechDraw les lit sans l'atelier). Aucun nouveau type d'objet.
-- **Gabarit de page** : les gabarits ISO fournis par TechDraw (A4/A3, paysage), choisis dans le
-  dossier de l'installation de FreeCAD ; aucun gabarit n'est installé ni modifié.
+- **Gabarit de page** : les gabarits de l'atelier (A4 à A0, paysage et portrait, cartouche en
+  français) livrés dans son dossier `resources/templates/` ; à défaut, un gabarit ISO de TechDraw.
+  Rien n'est installé ni modifié dans FreeCAD (amendement du 2026-11-13).
 - **Régénération** : les pages produites portent une propriété masquée `MenuiserieDrawing` ; la
   commande les retrouve et les reconstruit (comme la liste de débit, ADR 0013). Une page modifiée à
   la main par jv n'est jamais écrasée sans le dire : la commande propose une nouvelle page.
@@ -99,3 +100,8 @@ Les réglages de plan s'ajoutent au catalogue de la configuration de l'atelier (
   (`features/drawing_settings.py`), commandes `Menuiserie_Drawing` et `Menuiserie_DrawingPdf`,
   panneau `gui/task_panels/drawing.py`, export PDF `gui/drawing_pdf.py`. Sans sélection, le plan
   dessine les ensembles de plus haut niveau et les pièces libres du document.
+- **Retours du 2026-11-13** : groupe de vues centré dans la place libre au-dessus du cartouche ;
+  gabarits français de l'atelier (`core/drawing/_sheet.py`, `tools/generer_gabarits.py`, cases
+  `drawing_title`, `client`, `quote`, `material`, `document_type`, `scale`, `date`, `author`) ;
+  jv choisit face, coupe verticale, coupe horizontale (au milieu du meuble) et perspective à la
+  place des vues de dessus et de gauche.

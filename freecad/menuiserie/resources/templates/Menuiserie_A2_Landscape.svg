@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Gabarit de l'atelier Menuiserie, produit par tools/generer_gabarits.py -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+  xmlns:freecad="http://www.freecad.org/wiki/index.php?title=Svg_Namespace"
+  width="594mm" height="420mm" viewBox="0 0 594 420">
+  <title>Menuiserie A2 Landscape</title>
+  <g fill="none" stroke="#000000" stroke-linecap="square">
+    <rect x="10" y="10" width="574" height="400" stroke-width="0.7" />
+    <rect x="404" y="355" width="180" height="55" stroke-width="0.5" />
+    <text x="405.5" y="358.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="405.5" y="358.5">Ouvrage</tspan></text>
+    <text x="407" y="370.5" font-size="6" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="drawing_title"><tspan x="407" y="370.5">drawing_title</tspan></text>
+    <path d="M 404,373 H 584" stroke-width="0.35" />
+    <text x="405.5" y="376.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="405.5" y="376.5">Client</tspan></text>
+    <text x="407" y="382.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="client"><tspan x="407" y="382.5">client</tspan></text>
+    <path d="M 494,373 V 385" stroke-width="0.35" />
+    <text x="495.5" y="376.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="495.5" y="376.5">N° de devis</tspan></text>
+    <text x="497" y="382.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="quote"><tspan x="497" y="382.5">quote</tspan></text>
+    <path d="M 404,385 H 584" stroke-width="0.35" />
+    <text x="405.5" y="388.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="405.5" y="388.5">Matériau</tspan></text>
+    <text x="407" y="394.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="material"><tspan x="407" y="394.5">material</tspan></text>
+    <path d="M 494,385 V 397" stroke-width="0.35" />
+    <text x="495.5" y="388.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="495.5" y="388.5">Document</tspan></text>
+    <text x="497" y="394.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="document_type"><tspan x="497" y="394.5">document_type</tspan></text>
+    <path d="M 404,397 H 584" stroke-width="0.35" />
+    <text x="405.5" y="400.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="405.5" y="400.5">Échelle</tspan></text>
+    <text x="407" y="407.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="scale"><tspan x="407" y="407.5">scale</tspan></text>
+    <path d="M 439,397 V 410" stroke-width="0.35" />
+    <text x="440.5" y="400.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="440.5" y="400.5">Date</tspan></text>
+    <text x="442" y="407.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="date"><tspan x="442" y="407.5">date</tspan></text>
+    <path d="M 479,397 V 410" stroke-width="0.35" />
+    <text x="480.5" y="400.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="480.5" y="400.5">Auteur</tspan></text>
+    <text x="482" y="407.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none" freecad:editable="author"><tspan x="482" y="407.5">author</tspan></text>
+    <path d="M 544,397 V 410" stroke-width="0.35" />
+    <text x="545.5" y="400.5" font-size="2.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="545.5" y="400.5">Format</tspan></text>
+    <text x="547" y="407.5" font-size="3.5" font-family="osifont, DejaVu Sans, sans-serif" fill="#000000" stroke="none"><tspan x="547" y="407.5">A2</tspan></text>
+  </g>
+</svg>

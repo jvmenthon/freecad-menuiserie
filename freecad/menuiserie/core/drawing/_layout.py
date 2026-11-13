@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Mise en page du plan de l'ouvrage : échelle normalisée et place des vues sur la feuille.
 
-Disposition européenne (premier dièdre) : face en haut à gauche, dessus sous la face, vue de gauche
-à droite de la face, perspective à droite. Le cartouche occupe le coin bas droit. Toutes les
+Disposition européenne (premier dièdre) : dessus sous la face, vue de gauche à droite de la face,
+perspective à droite. Le groupe de vues est centré dans la place libre au-dessus du cartouche, qui
+occupe le coin bas droit. Toutes les
 longueurs sont en millimètres ; l'origine de la feuille est son coin bas gauche et la place d'une
 vue est celle de son centre, comme dans TechDraw.
 """
@@ -128,11 +129,41 @@ def overall_layout(width: float, depth: float, height: float, page: PageSize) ->
     fits = scale is not None
     scale = SCALES[-1] if scale is None else scale
     face_width, face_height, face_depth, iso_width = _extent(sizes, scale)
-    top_y = page.height - MARGIN_MM
-    front = Spot(MARGIN_MM + face_width / 2, top_y - face_height / 2)
-    top = Spot(front.x, top_y - face_height - GAP_MM - face_depth / 2)
-    side_x = MARGIN_MM + face_width + GAP_MM + face_depth / 2
-    side = Spot(side_x, front.y)
     iso_height = (face_width + face_depth) * _ISO_RISE + face_height * _ISO_UP
+    left, top_y = _group_origin(
+        (face_width + GAP_MM + face_depth + GAP_MM + iso_width, face_width),
+        (max(face_height + GAP_MM + face_depth, iso_height), max(face_height, iso_height)),
+        page,
+    )
+    front = Spot(left + face_width / 2, top_y - face_height / 2)
+    top = Spot(front.x, top_y - face_height - GAP_MM - face_depth / 2)
+    side_x = left + face_width + GAP_MM + face_depth / 2
+    side = Spot(side_x, front.y)
     iso = Spot(side_x + face_depth / 2 + GAP_MM + iso_width / 2, top_y - iso_height / 2)
     return OverallLayout(scale, front, top, side, iso, fits)
+
+
+def _group_origin(
+    widths: tuple[float, float], heights: tuple[float, float], page: PageSize
+) -> tuple[float, float]:
+    """Coin haut gauche du groupe de vues, centré dans la place libre au-dessus du cartouche.
+
+    ``widths`` : largeur du groupe et de la colonne de gauche (face et dessus) ; ``heights`` :
+    hauteur du groupe et de la rangée du haut (face, vue de gauche, perspective). Quand le groupe
+    est trop haut pour passer au-dessus du cartouche, il reste calé en haut et la colonne de
+    gauche ne glisse pas sous le cartouche."""
+    group_width, left_width = widths
+    group_height, row_height = heights
+    block_width, block_height = TITLE_BLOCK_MM
+    free_top = page.height - MARGIN_MM
+    free_height = free_top - block_height
+    if group_height <= free_height:
+        top_y = free_top - (free_height - group_height) / 2
+        right_limit = page.width - MARGIN_MM
+    else:
+        top_y = free_top - max(0.0, (free_height - row_height) / 2)
+        right_limit = page.width - block_width
+    left = MARGIN_MM + max(0.0, (page.width - 2 * MARGIN_MM - group_width) / 2)
+    if group_height > free_height:
+        left = min(left, max(MARGIN_MM, right_limit - left_width))
+    return left, top_y
