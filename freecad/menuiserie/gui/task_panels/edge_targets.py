@@ -187,6 +187,14 @@ def all_codes() -> tuple[str, ...]:
     return tuple(edge.code for edge in all_edges())
 
 
+def _discard(card: PieceCard) -> None:
+    """Carte détachée du panneau tout de suite (plus trouvable parmi ses enfants), détruite
+    au retour dans la boucle Qt."""
+    card.hide()
+    card.setParent(None)
+    card.deleteLater()
+
+
 class PieceList:
     """Les pièces concernées et leurs arêtes ; ``changed()`` après chaque changement."""
 
@@ -271,8 +279,7 @@ class PieceList:
         if card not in self._cards:
             return
         self._cards.remove(card)
-        card.hide()
-        card.deleteLater()
+        _discard(card)
         self._refresh()
         self._changed()
 
@@ -281,8 +288,7 @@ class PieceList:
         gone = [card for card in self._cards if document.getObject(card.part_name) is None]
         for card in gone:
             self._cards.remove(card)
-            card.hide()
-            card.deleteLater()
+            _discard(card)
         self._refresh()
 
     def entries(self) -> list[tuple[DocumentObject, list[str]]]:
