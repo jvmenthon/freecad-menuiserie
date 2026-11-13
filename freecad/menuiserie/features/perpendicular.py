@@ -30,7 +30,8 @@ from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.picked import crosses_link
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.snap_geometry import ERRORS, face_normal, global_shape, to_vector
-from freecad.menuiserie.features.snap_targets import TargetReading, local_face_target
+from freecad.menuiserie.features.snap_local_face import local_face_target
+from freecad.menuiserie.features.snap_targets import TargetReading
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
