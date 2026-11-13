@@ -270,9 +270,11 @@ def neighbor_rotations(
     for obj in _leaves(roots, set(skipped)):
         if obj.Name in skipped or not obj.Visibility:
             continue
+        if not hasattr(obj, "getGlobalPlacement"):  # objet sans placement (FeaturePython, etc.)
+            continue
         try:
             rotation = rigid_transform(obj.getGlobalPlacement()).rotation
-        except ERRORS:
+        except (*ERRORS, AttributeError):
             continue
         key = tuple(round(value, 4) for row in rotation for value in row)
         found.setdefault(key, rotation)
