@@ -86,16 +86,25 @@ def distance() -> str:
 
 
 def aligner_faces() -> str:
-    ic = Icone("Aligner deux faces : deux planches dont les faces sont dans le même plan")
-    ic.boite((0, 0, 0), (70, 30, 6), "chene")  # planche de référence
-    ic.boite((0, 0, 6), (30, 30, 6), "chene")  # planche alignée sur son bord
-    ic.veinage((4, 66), (10, 46), "chene", amplitude=0.7)
-    ic.veinage((4, 66), (22, 46), "chene", amplitude=0.7, phase=0.5)
-    plan = (
-        '  <path d="M6,12 H64" fill="none" stroke="#204a87" stroke-width="2" '
-        'stroke-dasharray="4 3" stroke-linecap="round"/>'
+    """Aligner deux faces : une planche penchée revient dans le plan de la planche plate
+    (faces orange, plan commun en pointillé, flèche de rotation) ; dessin à plat, proposition B."""
+    bois = 'fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"'
+    face = 'stroke="#f57900" stroke-width="3.5" stroke-linecap="round"'
+    bleu = 'stroke="#204a87"'
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">\n'
+        "  <!-- Aligner deux faces : une planche penchée revient dans le plan de l'autre -->\n"
+        f'  <polygon points="4,48 60,48 60,58 4,58" {bois}/>\n'
+        f'  <polygon points="6,40 48,18 53,27 11,49" {bois}/>\n'
+        f'  <line x1="6" y1="40" x2="48" y2="18" {face}/>\n'
+        f'  <line x1="2" y1="48" x2="62" y2="48" {bleu} stroke-width="1.8" '
+        'stroke-dasharray="3 2.5"/>\n'
+        f'  <line x1="4" y1="48" x2="60" y2="48" {face}/>\n'
+        '  <path d="M52,10 A18,18 0 0 1 60,26 M56.5,26 L60,27 L61.5,22.5" fill="none" '
+        f'{bleu} stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>\n'
+        "</svg>\n"
     )
-    return ic.svg(cadre=(3, 50, 3, 61), devant=plan)
 
 
 def distance_gardee() -> str:
