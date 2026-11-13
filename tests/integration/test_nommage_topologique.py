@@ -4,7 +4,8 @@
 Ces tests fixent le comportement de FreeCAD sur lequel s'appuient les décisions de l'atelier :
 une forme construite en Python sans étiquette (``Tag``) n'a pas de carte des éléments, et un lien
 vers un de ses éléments (``Face3``) garde son numéro ; une forme qui a une carte voit ses liens
-suivre l'élément quand sa numérotation change.
+suivre l'élément quand sa numérotation change. La pièce usinée étiquette ses entrées pour avoir
+une carte (ADR 0053).
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+
+from tests.integration.cadre import build_frame
 
 pytestmark = pytest.mark.integration
 
@@ -81,18 +84,42 @@ def test_lien_vers_une_face_selon_la_carte(document: Any, tagged: bool) -> None:
     assert kept == (after if tagged else before), report
 
 
-def test_piece_usinee_sans_carte(document: Any) -> None:
-    """État actuel : la pièce usinée est construite sans étiquette (aucune carte)."""
-    api = pytest.importorskip("freecad.menuiserie.api")
-    host = api.make_wood_part(600, 300, 18, "chene", doc=document)
-    guest = api.make_wood_part(200, 400, 6, "chene", doc=document)
-    guest.Placement = App.Placement(App.Vector(100, 290, 0), App.Rotation())
+def _bottom_face(shape: Any) -> str:
+    """Nom (``FaceN``) de la face de dessous (normale -Z, z minimal) de ``shape``."""
+    low = shape.BoundBox.ZMin
+    for index, face in enumerate(shape.Faces, start=1):
+        normal = face.normalAt(*face.Surface.parameter(face.CenterOfMass))
+        if normal.z < -0.999 and abs(face.CenterOfMass.z - low) < 1e-6:
+            return f"Face{index}"
+    raise AssertionError("face de dessous introuvable")
+
+
+def test_piece_usinee_a_une_carte_et_le_lien_suit(document: Any) -> None:
+    """ADR 0053 : la pièce usinée a une carte des éléments ; un lien vers sa face de dessous la
+    suit quand un second assemblage renumérote ses faces."""
+    cadre = build_frame(document)
+    cadre.assemble((("M1", "T1"),))
     document.recompute()
-    api.make_rabbet(host, guest)
+    machined = cadre.machined("M1")
+    assert machined.Shape.ElementMapSize > 0
+    holder = _holder(document, machined, _bottom_face(machined.Shape))
+    faces_before = len(machined.Shape.Faces)
+    cadre.assemble((("M1", "T2"),))
     document.recompute()
-    machined = api.machined_part_of(host)
-    assert machined.Shape.ElementMapSize == 0, machined.Shape.ElementMapSize
-    assert host.Shape.ElementMapSize == 0, host.Shape.ElementMapSize
+    assert len(machined.Shape.Faces) > faces_before
+    assert holder.Lien[1][0] == _bottom_face(machined.Shape)
+
+
+def test_usinages_egaux_memes_noms(document: Any) -> None:
+    """Le cache rend une forme dont les noms ne dépendent que de l'usinage : deux traverses
+    usinées de la même façon ont les mêmes noms d'éléments."""
+    cadre = build_frame(document)
+    cadre.assemble()
+    document.recompute()
+    first, second = (cadre.machined(mark).Shape for mark in ("T1", "T2"))
+    assert first.ElementMapSize == second.ElementMapSize > 0
+    name = _bottom_face(first)
+    assert first.getElementMappedName(name) == second.getElementMappedName(name)
 
 
 def test_corps_partdesign_et_piece_en_bois(document: Any) -> None:
