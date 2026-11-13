@@ -128,6 +128,5 @@ de répétitions m5) sont corrigés.
 | rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |
 
 ## Revue #209 (ADR 0054) — reste à traiter
-- `placement_in_frame_of` sans test unitaire (placements simulés) ; test d'intégration « corps PartDesign refusé » à ajouter (le corps accepte mal les pièces de bois : à essayer en CI).
-- `repeat_joints` ne rappelle pas `follow_frames` à la copie (rattrapé au premier recalcul).
+- Test d'intégration « corps PartDesign refusé » à ajouter (le corps accepte mal les pièces de bois : à essayer en CI).
 - Déplacement/rotation/épaisseur d'une pièce assemblée entre conteneurs différents (`drag_joints`, `part_rotate`) : lecture locale, non couverte par un test.

@@ -17,7 +17,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joint_names import joint_label
-from freecad.menuiserie.features.joints.base import JointFeature, follow_frames, write_params
+from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
 from freecad.menuiserie.features.joints.feet import FootJoint
@@ -113,7 +113,6 @@ def create_joint(
         container.addObject(obj)
     obj.HostPart = host_blank
     obj.GuestPart = guest_blank
-    follow_frames(obj)
     obj.Label = joint_label(obj)
     write_params(obj, params)
     for blank in dict.fromkeys((host_blank, guest_blank)):

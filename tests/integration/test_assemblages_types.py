@@ -30,7 +30,7 @@ api = pytest.importorskip("freecad.menuiserie.api")
 LENGTH = "App::PropertyLength"
 DISTANCE = "App::PropertyDistance"
 BOOL = "App::PropertyBool"
-COMMON = {"HostPart", "GuestPart", "Frames", "Version"}
+COMMON = {"HostPart", "GuestPart", "Version"}
 Row = tuple[str, str, str, object]
 # Propriétés propres à chaque type : nom, type, groupe, défaut (§ 4.3.3 et 4.4.3).
 PROPERTIES: dict[str, list[Row]] = {

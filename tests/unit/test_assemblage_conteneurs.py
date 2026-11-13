@@ -43,3 +43,32 @@ def test_parente(monkeypatch: pytest.MonkeyPatch, case: str) -> None:
             assert frame_containers(first, second) == []
         if case == "siblings":
             assert len(frame_containers(first, second)) == 3
+
+
+class Shift:
+    """Placement simulé : une translation en x (assez pour ``inverse`` et ``*``)."""
+
+    def __init__(self, x: float) -> None:
+        self.x = x
+
+    def inverse(self) -> Shift:
+        return Shift(-self.x)
+
+    def __mul__(self, other: Shift) -> Shift:
+        return Shift(self.x + other.x)
+
+
+def test_placement_dans_le_repere_de_l_hote(monkeypatch: pytest.MonkeyPatch) -> None:
+    with simulated_freecad(monkeypatch):
+        from freecad.menuiserie.features.joints.frames import placement_in_frame_of
+
+        host_part = SimpleNamespace(getGlobalPlacement=lambda: Shift(100.0))
+        host = SimpleNamespace(Placement=Shift(5.0), getParentGeoFeatureGroup=lambda: host_part)
+        guest = SimpleNamespace(
+            Placement=Shift(1.0),
+            getParentGeoFeatureGroup=lambda: SimpleNamespace(),
+            getGlobalPlacement=lambda: Shift(130.0),
+        )
+        assert placement_in_frame_of(guest, host).x == 30.0  # global 130, conteneur de l'hôte 100
+        same = SimpleNamespace(Placement=Shift(7.0), getParentGeoFeatureGroup=lambda: host_part)
+        assert placement_in_frame_of(same, host).x == 7.0  # même conteneur : Placement local

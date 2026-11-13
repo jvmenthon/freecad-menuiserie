@@ -28,11 +28,17 @@ conteneur.
    brutes : les enlèvements restent exprimés dans le repère de chaque brute. L'assemblage et sa
    pièce usinée restent dans le conteneur de l'hôte (inchangé).
 3. **Suivi des déplacements** : déplacer un Std Part ne touche pas les pièces qu'il contient.
-   Une propriété cachée `Frames` (`App::PropertyLinkListGlobal`) garde les Std Part des deux pièces
-   quand leurs conteneurs diffèrent (vide sinon) ; leur modification recalcule l'assemblage.
-4. **Portée des liens** : `HostPart` et `GuestPart` passent de `App::PropertyLink` à
-   `App::PropertyLinkGlobal`, sinon FreeCAD refuse un lien vers un autre Std Part (comme `Furniture`,
-   ADR 0038). Les documents existants sont migrés à la réouverture (type recréé, pièce gardée) ;
+   Un lien de l'assemblage vers le Std Part est impossible : le Std Part contient l'assemblage, d'où
+   un cycle (« The graph must be a DAG », essai de jv du 2026-11-13). L'observateur de documents
+   de `gui/drag/events.py` (posé tant que l'atelier est actif, comme pour la suppression d'un Std
+   Part, ADR 0007) appelle `touch_framed_joints` quand le `Placement` d'un Std Part change : les
+   assemblages dont le repère passe par lui sont touchés. Limite : un Std Part déplacé par un script
+   ou quand l'atelier n'est pas actif ne recalcule l'assemblage qu'à son prochain recalcul.
+4. **Portée des liens** : `HostPart` et `GuestPart` des assemblages passent de `App::PropertyLink`
+   à `App::PropertyLinkGlobal`, et `Joints` des pièces usinées de `App::PropertyLinkList` à
+   `App::PropertyLinkListGlobal`, sinon FreeCAD refuse un lien vers un autre Std Part (« Link(s)
+   … go out of the allowed scope », comme `Furniture`, ADR 0038). Les documents existants sont
+   migrés à la réouverture (type recréé, liens gardés) ;
    sans effet sur les autres ateliers (le lien reste un lien).
 5. Hors périmètre : le perçage LR32 (`both_sides`, voisines) ne considère toujours que les pièces du
    même conteneur ; la coulisse utilise les rotations globales.

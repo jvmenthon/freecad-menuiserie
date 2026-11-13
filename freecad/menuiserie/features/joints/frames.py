@@ -17,7 +17,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 
-__all__ = ["frame_containers", "placement_in_frame_of", "related_containers"]
+__all__ = ["frame_containers", "placement_in_frame_of", "related_containers", "touch_framed_joints"]
 
 _STD_PART: Final = "App::Part"
 OTHER_CONTAINER: Final = QT_TRANSLATE_NOOP(
@@ -76,6 +76,25 @@ def frame_containers(*objects: DocumentObject) -> list[DocumentObject]:
             if holder not in found:
                 found.append(holder)
     return found
+
+
+def touch_framed_joints(part: DocumentObject) -> None:
+    """Touche les assemblages entre conteneurs différents dont le repère passe par le Std Part
+    ``part`` dont le ``Placement`` vient de changer ; ils se recalculent au prochain recalcul.
+
+    Un déplacement de Std Part ne touche pas les pièces qu'il contient, et un lien de
+    l'assemblage vers le Std Part ferait un cycle (le Std Part contient l'assemblage). L'appel
+    vient donc de l'observateur de ``gui/drag`` (ADR 0007 : pas d'observateur dans ``features``).
+    """
+    from freecad.menuiserie.features.joints.base import is_joint
+
+    if getattr(part, "TypeId", "") != _STD_PART:
+        return
+    for obj in part.Document.Objects:
+        if not is_joint(obj) or obj.HostPart is None or obj.GuestPart is None:
+            continue
+        if any(holder == part for holder in frame_containers(obj.HostPart, obj.GuestPart)):
+            obj.touch()
 
 
 def refusal(first: DocumentObject, second: DocumentObject) -> str | None:
