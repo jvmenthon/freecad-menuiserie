@@ -183,6 +183,6 @@ def test_largeur_mesuree_sur_la_face_exterieure_de_la_brute(document: Any) -> No
     la largeur est celle de la face extérieure de la brute (300), pas celle de la feuillure (10)."""
     montage = types_assemblages.build(document, types_assemblages.RABBET, App.Placement())
     host = api.machined_part_of(montage.host)
-    recessed = face_at(host, (0, 0, -1), 6)
+    recessed = face_at(host, (0, 0, -1), -6)
     _part, start = create_against(document, host, recessed, Vec3(300, 295, 6))
     assert round(start.width, 6) == 300
