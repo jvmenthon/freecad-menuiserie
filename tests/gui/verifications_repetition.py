@@ -614,15 +614,13 @@ def verifier_dissocier_selection_melangee() -> list[str]:
 def _fermeture_pendant_l_apercu(doc: Any) -> list[str]:
     """FreeCAD ferme le panneau pendant le calcul de l'aperçu (erreur de jv « QLabel already
     deleted ») : rien n'écrit plus dans le formulaire et aucune transaction n'est rouverte."""
-    from freecad.menuiserie.gui.task_panels import repeat as panneau_repetition
-
     _barreau, rep = _repetition_existante(doc)
     lancer(MODIFIER, rep)
     form = panneau()
     if form is None:
         return ["panneau « Modifier la répétition » non ouvert"]
     erreurs: list[str] = []
-    origine = panneau_repetition.api.edit_repeat
+    origine = api.edit_repeat  # le panneau lit api.edit_repeat à chaque aperçu
 
     def puis_fermer(*args: Any, **kwargs: Any) -> None:
         origine(*args, **kwargs)
@@ -630,12 +628,12 @@ def _fermeture_pendant_l_apercu(doc: Any) -> list[str]:
 
     capte = sys.excepthook
     sys.excepthook = lambda kind, value, trace: erreurs.append(f"{kind.__name__}: {value}")
-    panneau_repetition.api.edit_repeat = puis_fermer
+    api.edit_repeat = puis_fermer
     try:
         widget(form, "countX").setValue(3)
         QtGui.QApplication.processEvents()
     finally:
-        panneau_repetition.api.edit_repeat = origine
+        api.edit_repeat = origine
         sys.excepthook = capte
     return [
         *ecarts("exceptions", erreurs, []),
