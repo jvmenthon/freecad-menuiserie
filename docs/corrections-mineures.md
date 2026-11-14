@@ -126,3 +126,10 @@ de répétitions m5) sont corrigés.
 | rg3 | mineur | `core/repeat/_grid.py` (`grid_overlaps`, `rank_of`) | Comparaison deux à deux de toutes les boîtes (101 au plus, environ 5 000 paires) à chaque saisie du panneau, et recherche linéaire du rang. Sans effet mesurable à 100 copies, mais inutilement quadratique ; `grid_overlaps` vaut d'ailleurs « un axe au moins se chevauche » (vérifié par tests). | Sortie anticipée ou test par axe seulement ; table cellule → rang calculée une fois par grille. |
 | rg4 | mineur | `features/repeat_copies.py` (`_renumber`) | Le rang et les libellés automatiques suivent la grille, mais un libellé de copie que l'utilisateur a tapé à la main et qui ressemble au libellé automatique d'un autre rang est pris pour automatique. | Mémoriser le libellé attribué (propriété cachée) plutôt que le déduire. |
 | rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |
+
+## Audit FreeCAD 1.0 / 1.1, 2026-11-14
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| fc1 | mineur | `gui/task_panels/furniture_widgets.py`, `joint.py`, `carcass.py`, `repeat.py` (`_ERROR_STYLE`, `_HINT_STYLE`, `_WARNING_STYLE`) | Couleurs de texte fixes (`#c0392b`, `#6b6b6b`, `#b35c00`) : le thème sombre livré avec FreeCAD 1.0 les rend peu contrastées (environ 3 : 1). | Prendre la couleur dans la palette Qt (`palette(placeholder-text)` pour l'aide) et éclaircir le rouge et l'orange ; à valider par jv sur les deux thèmes. |
+| fc2 | mineur | `gui/cutlist_preview.py` (`setStyleSheet("... #ffffff")`) | Fond blanc forcé sans couleur de texte : en thème sombre, le texte hérité peut être clair sur blanc. | Fixer aussi `color` (noir) dans la même feuille de style. |
