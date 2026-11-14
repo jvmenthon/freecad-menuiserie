@@ -89,7 +89,8 @@ _CENTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Centrer sur")
 _CENTER_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Centrer sur l'axe {axis} (du Std Part de la pièce déplacée, ou du document) : le centre de "
-    "la face déplacée vient sur celui de l'autre face le long de cet axe. Cochez X, Y et Z pour "
+    "la face déplacée vient sur celui de l'autre face le long de cet axe, et la pièce tourne dans "
+    "le plan pour que ses arêtes soient parallèles à celles de l'autre. Cochez X, Y et Z pour "
     "confondre les deux centres d'un coup.",
 )
 _OFFSET_ROWS: Final = (

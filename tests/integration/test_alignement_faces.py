@@ -129,3 +129,25 @@ def test_axe_de_centrage_inconnu_refuse_sans_bouger() -> None:
         assert other.Placement.isSame(before, 1e-9)
     finally:
         App.closeDocument(doc.Name)
+
+
+def test_centrage_rend_parallele_une_planche_tournee_dans_le_plan() -> None:
+    doc = App.newDocument("AlignementParallele")
+    try:
+        reference = _part(doc, (0, 0, 0))
+        other = api.make_wood_part(200, 100, 20, "chene", doc=doc)
+        other.Placement = App.Placement(
+            App.Vector(300, 200, 0), App.Rotation(App.Vector(0, 0, 1), 30)
+        )
+        doc.recompute()
+        api.align_faces(
+            _face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), centered="XYZ"
+        )
+        doc.recompute()
+        box = other.Shape.BoundBox
+        assert box.XLength == pytest.approx(200.0, abs=TOLERANCE)  # arêtes parallèles
+        assert box.YLength == pytest.approx(100.0, abs=TOLERANCE)
+        assert box.Center.x == pytest.approx(100.0, abs=TOLERANCE)
+        assert box.Center.y == pytest.approx(50.0, abs=TOLERANCE)
+    finally:
+        App.closeDocument(doc.Name)

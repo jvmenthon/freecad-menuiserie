@@ -169,6 +169,36 @@ def _turned_point(motion: Alignment, point: Vec3) -> Vec3:
     return _turned(motion.rotation, point - motion.pivot) + motion.pivot + motion.shift
 
 
+def _squared(motion: Alignment, fixed: FaceTarget, moving: FaceTarget) -> Alignment:
+    """``motion`` complété d'un tour dans le plan de la référence (autour de sa normale, par le
+    pivot déplacé) qui rend les arêtes de la face mobile parallèles à celles de la référence :
+    le plus petit tour parmi les quatre quarts. D'équerre, c'est la normale de la face mobile
+    (couchée dans le plan) qui est mise parallèle à une arête de la référence."""
+    normal, edge_x, edge_y = unit(fixed.frame.z), unit(fixed.frame.x), unit(fixed.frame.y)
+    own = moving.frame.z if motion.mode is AlignMode.PERPENDICULAR else moving.frame.x
+    turned = _turned(motion.rotation, unit(own))
+    flat = turned - normal.scaled(dot(turned, normal))
+    if norm(flat) <= ANGLE_TOLERANCE:
+        return motion
+    flat = unit(flat)
+    current = math.atan2(dot(flat, edge_y), dot(flat, edge_x))
+    target = round(current / (math.pi / 2)) * (math.pi / 2)
+    wanted = edge_x.scaled(math.cos(target)) + edge_y.scaled(math.sin(target))
+    turn, _angle = _rotation_between(flat, unit(wanted), normal)
+    rotation = _product(turn, motion.rotation)
+    return Alignment(rotation, motion.pivot, motion.shift, motion.angle, motion.mode)
+
+
+def _product(left: Matrix3, right: Matrix3) -> Matrix3:
+    """Produit matriciel ``left · right``."""
+
+    def row(i: int) -> tuple[float, float, float]:
+        x, y, z = (sum(left[i][k] * right[k][j] for k in range(3)) for j in range(3))
+        return (x, y, z)
+
+    return (row(0), row(1), row(2))
+
+
 def _centering(
     motion: Alignment, fixed: FaceTarget, moving: FaceTarget, centered: tuple[Vec3, ...]
 ) -> Vec3:
@@ -237,7 +267,9 @@ def align(
     """:func:`plane_motion` puis, pour chaque axe de ``centered`` (axes X, Y, Z globaux du
     conteneur, unitaires et perpendiculaires), le centre de la face mobile amené sur celui de la
     référence le long de cet axe, **dans le plan de la référence** ; avec les trois axes, les
-    deux centres se confondent dans ce plan. Le décalage ``offset`` s'ajoute après le centrage.
+    deux centres se confondent dans ce plan. Dès qu'un axe est coché (et hors alignement sur un
+    axe), la pièce tourne aussi dans le plan pour que ses arêtes soient parallèles à celles de la
+    référence (:func:`_squared`). Le décalage ``offset`` s'ajoute après le centrage.
     Axe de ``centered`` non fini, nul, ou non perpendiculaire aux autres : :class:`AlignError`."""
     axes = tuple(_checked_axis(item) for item in centered)
     if any(abs(dot(a, b)) > ANGLE_TOLERANCE for i, a in enumerate(axes) for b in axes[i + 1 :]):
@@ -245,9 +277,12 @@ def align(
     motion = plane_motion(fixed, moving, mode, offset, axis)
     if not centered:
         return motion
+    if axis is None:  # sur un axe, la pièce ne tourne jamais
+        motion = _squared(motion, fixed, moving)
     # Centrage mesuré sans décalage (sur un axe, le décalage allonge le trajet le long de l'axe :
     # ce n'est pas une simple translation), puis ajouté au mouvement décalé.
     bare = plane_motion(fixed, moving, mode, NO_OFFSET, axis)
+    bare = Alignment(motion.rotation, bare.pivot, bare.shift, bare.angle, bare.mode)
     extra = _centering(bare, fixed, moving, axes)
     if not is_finite(extra):
         raise AlignError(INVALID_OFFSET, {})

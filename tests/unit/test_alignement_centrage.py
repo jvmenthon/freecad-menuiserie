@@ -123,3 +123,45 @@ def test_axes_de_centrage_non_perpendiculaires_refuses() -> None:
     fixed, moving = _top(Vec3(0, 0, 10), (100, 40)), _top(Vec3(300, 70, 50), (20, 20))
     with pytest.raises(AlignError, match="perpendiculaires entre eux"):
         align(fixed, moving, centered=(_X, Vec3(1, 1, 0)))
+
+
+def _turned_in_plane(origin: Vec3, degrees: float, size: tuple[float, float]) -> FaceTarget:
+    """Face du dessus tournée de ``degrees`` autour de Z."""
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    return FaceTarget("Face6", Frame(origin, Vec3(c, s, 0), Vec3(-s, c, 0), _Z), size, True)
+
+
+def _direction(motion: Alignment, vector: Vec3) -> Vec3:
+    return _moved(motion, vector) - _moved(motion, Vec3(0.0, 0.0, 0.0))
+
+
+@pytest.mark.parametrize("degrees", [30.0, -50.0, 100.0, 170.0])
+def test_centrage_rend_les_planches_paralleles(degrees: float) -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 20), degrees, (600, 100))
+    motion = align(fixed, moving, AlignMode.FLUSH, centered=(_X, _Y, _Z))
+    edge = _direction(motion, moving.frame.x)
+    assert abs(edge.x * edge.y) == pytest.approx(0.0, abs=1e-9)  # parallèle à X ou à Y
+    assert edge.z == pytest.approx(0.0, abs=1e-9)
+    assert _close(_moved(motion, face_center(moving)), face_center(fixed))
+
+
+def test_centrage_tourne_du_plus_petit_quart() -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 20), 30.0, (600, 100))
+    edge = _direction(align(fixed, moving, centered=(_X,)), moving.frame.x)
+    assert _close(edge, _X)  # 30° → 0°, pas 90°
+
+
+def test_sans_centrage_la_planche_garde_son_angle_dans_le_plan() -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 20), 30.0, (600, 100))
+    edge = _direction(align(fixed, moving), moving.frame.x)
+    assert _close(edge, moving.frame.x)
+
+
+def test_sur_un_axe_le_centrage_ne_tourne_pas() -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 50), 30.0, (600, 100))
+    motion = align(fixed, moving, axis=_Z, centered=(_X, _Y))
+    assert motion.rotation == ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
