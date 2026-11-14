@@ -208,7 +208,7 @@ def test_d_equerre_la_normale_mobile_devient_parallele_a_une_arete() -> None:
 
 
 def _short_x_face(origin: Vec3, degrees: float) -> FaceTarget:
-    """Planche de 600 sur 100 dont le repère a son axe ``x`` sur le petit côté (coin cliqué)."""
+    """Planche de 600 sur 100 dont l'axe ``x`` est sur le petit côté (le grand côté est ``y``)."""
     c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
     return FaceTarget("Face6", Frame(origin, Vec3(-s, c, 0), Vec3(-c, -s, 0), _Z), (100, 600), True)
 

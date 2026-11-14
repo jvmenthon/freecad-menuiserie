@@ -180,6 +180,13 @@ def _is_square(face: FaceTarget) -> bool:
     return abs(face.extent[0] - face.extent[1]) <= ANGLE_TOLERANCE * max(face.extent)
 
 
+def _turn_step(fixed: FaceTarget, moving: FaceTarget, perpendicular: bool) -> float:
+    """Pas du tour dans le plan : un demi-tour (grand côté sur grand côté), ou un quart de tour
+    si une face est carrée (d'équerre, seule la référence compte)."""
+    square = _is_square(fixed) or (not perpendicular and _is_square(moving))
+    return math.pi / 2 if square else math.pi
+
+
 def _squared(motion: Alignment, fixed: FaceTarget, moving: FaceTarget) -> Alignment:
     """``motion`` complété d'un tour dans le plan de la référence (autour de sa normale, par le
     pivot déplacé) qui rend la pièce parallèle à la référence : le grand côté de la face mobile
@@ -197,9 +204,7 @@ def _squared(motion: Alignment, fixed: FaceTarget, moving: FaceTarget) -> Alignm
         return motion
     flat = unit(flat)
     current = math.atan2(dot(flat, across), dot(flat, along))
-    step = (
-        math.pi / 2 if _is_square(fixed) or (_is_square(moving) and not perpendicular) else math.pi
-    )
+    step = _turn_step(fixed, moving, perpendicular)
     target = round(current / step) * step
     wanted = along.scaled(math.cos(target)) + across.scaled(math.sin(target))
     turn, _angle = _rotation_between(flat, unit(wanted), normal)
