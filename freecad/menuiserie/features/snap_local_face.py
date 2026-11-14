@@ -86,7 +86,10 @@ def _local_target(target: FaceTarget, face: Any, click: Vec3) -> FaceTarget | No
     clicked = to_vector(click)
     point = clicked - normal * (clicked - to_vector(target.frame.origin)).dot(normal)
     x, y = to_vector(target.frame.x), to_vector(target.frame.y)
-    x_span, y_span = _span_through(face, point, x), _span_through(face, point, y)
+    # La face tranchée peut être dans un autre plan que la face lue (face extérieure de la brute) :
+    # on tranche au point ramené dans son plan, le repère reste dans le plan de la face lue.
+    sliced = point + normal * (face.CenterOfMass - point).dot(normal)
+    x_span, y_span = _span_through(face, sliced, x), _span_through(face, sliced, y)
     if x_span is None or y_span is None:
         return None
     low_x, low_y = abs(x_span[0]) <= abs(x_span[1]), abs(y_span[0]) <= abs(y_span[1])

@@ -66,27 +66,32 @@ def _wood_part_of(reading: TargetReading) -> DocumentObject | None:
 
 
 def _blank_face(reading: TargetReading, blank: DocumentObject) -> Any:
-    """Face de la pièce brute ``blank`` dans le plan de la face lue et qui porte le point cliqué,
-    ``None`` s'il n'y en a pas (point sur une partie ajoutée par un assemblage, forme absente) :
-    les assemblages (mortaises, rainures, feuillures) découpent la face de la pièce usinée et
-    fausseraient la largeur mesurée au clic."""
+    """Face extérieure de la pièce brute ``blank`` au droit du point cliqué : parmi ses faces planes
+    tournées comme la face lue, celle qui porte le point (ramené dans son plan) et qui est la plus
+    en dehors dans le sens de la normale. ``None`` s'il n'y en a pas (forme absente, point hors de
+    la brute). Les assemblages (mortaises, rainures, feuillures) découpent ou décalent la face de
+    la pièce usinée : la largeur mesurée au clic doit l'être sur la face extérieure de la brute."""
     target, point = reading.targets[0], reading.elements[0].point
     if not isinstance(target, FaceTarget) or point is None:
         return None
-    normal, origin = to_vector(target.frame.z), to_vector(target.frame.origin)
-    click = to_vector(point)
+    normal, click = to_vector(target.frame.z), to_vector(point)
+    best: tuple[float, Any] | None = None
     try:
         for face in global_shape(blank).Faces:
             if not isinstance(face.Surface, Part.Plane):
                 continue
-            parallel = face_normal(face).cross(normal).Length < _PARALLEL
-            same_plane = abs((face.CenterOfMass - origin).dot(normal)) < CONTACT_TOLERANCE_MM
-            holds_click = face.distToShape(Part.Vertex(click))[0] < CONTACT_TOLERANCE_MM
-            if parallel and same_plane and holds_click:
-                return face
+            facing = face_normal(face)
+            if facing.cross(normal).Length >= _PARALLEL or facing.dot(normal) <= 0.0:
+                continue
+            height = face.CenterOfMass.dot(normal)  # position le long de la normale
+            above = click + normal * (height - click.dot(normal))  # clic ramené dans le plan
+            if face.distToShape(Part.Vertex(above))[0] >= CONTACT_TOLERANCE_MM:
+                continue
+            if best is None or height > best[0]:
+                best = (height, face)
     except ERRORS:
         return None
-    return None
+    return best[1] if best is not None else None
 
 
 def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
