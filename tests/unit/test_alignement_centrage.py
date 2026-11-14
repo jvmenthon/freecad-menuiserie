@@ -226,3 +226,40 @@ def test_grand_cote_suit_le_grand_cote_de_la_reference(degrees: float) -> None:
         edge = _direction(motion, long_side)
         assert abs(edge.x) == pytest.approx(1.0, abs=1e-9)  # le long de X, comme la référence
         assert _close(_moved(motion, face_center(moving)), face_center(fixed))
+
+
+@pytest.mark.parametrize("degrees", [10.0, 80.0, 100.0, -60.0, 170.0])
+def test_reference_dont_x_est_le_petit_cote_donne_le_meme_resultat(degrees: float) -> None:
+    """Le repère de la référence peut avoir ``x`` sur le petit côté : la pièce suit le grand."""
+    fixed = _short_x_face(Vec3(0, 0, 20), 0.0)  # grand côté de la référence le long de X
+    moving = _turned_in_plane(Vec3(200, -150, 20), degrees, (600, 100))
+    motion = align(fixed, moving, centered=(_X, _Y, _Z))
+    edge = _direction(motion, moving.frame.x)
+    assert abs(edge.x) == pytest.approx(1.0, abs=1e-9)
+    assert _close(_moved(motion, face_center(moving)), face_center(fixed))
+
+
+@pytest.mark.parametrize("degrees", [10.0, 50.0, 100.0, -60.0])
+def test_face_mobile_carree_tourne_d_un_quart_de_tour_au_plus(degrees: float) -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 20), degrees, (80, 80))
+    motion = align(fixed, moving, centered=(_X,))
+    edge = _direction(motion, moving.frame.x)
+    assert abs(edge.x * edge.y) == pytest.approx(0.0, abs=1e-9)
+    assert motion.angle <= 45.0 + 1e-6
+
+
+def test_d_equerre_la_normale_suit_le_grand_cote_d_une_reference_a_x_court() -> None:
+    fixed = _short_x_face(Vec3(0, 0, 20), 0.0)
+    side = FaceTarget("F", Frame(Vec3(200, -150, 30), _Y, _Z, _X), (40, 20), True)
+    motion = align(fixed, side, AlignMode.PERPENDICULAR, centered=(_X,))
+    normal = _direction(motion, side.frame.z)
+    assert abs(normal.x) == pytest.approx(1.0, abs=1e-9)
+
+
+@pytest.mark.parametrize("size", [(1e-12, 1e-12), (1e-9, 2e-9)])
+def test_etendues_minuscules_ne_plantent_pas(size: tuple[float, float]) -> None:
+    fixed = _top(Vec3(0, 0, 20), size)
+    moving = _turned_in_plane(Vec3(200, -150, 20), 30.0, size)
+    motion = align(fixed, moving, centered=(_X, _Y, _Z))
+    assert _close(_moved(motion, face_center(moving)), face_center(fixed))
