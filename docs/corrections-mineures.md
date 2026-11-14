@@ -136,3 +136,9 @@ de répétitions m5) sont corrigés.
   numérique, le choix du quart de tour peut basculer d'un sens à l'autre (inhérent à l'arrondi) ;
   `Alignment.angle` ne compte pas ce tour en plus (non affiché aujourd'hui) ; `_product` irait
   mieux dans `core/geometry.py` avec `Matrix3`.
+
+## Relecture « nommage topologique » (PR #255, ADR 0056), 2026-11-13
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| nt1 | mineur | `features/solids.py` (`machined_shape`), ADR 0056 | La carte des éléments de la pièce usinée est enregistrée dans le `.FCStd` et tenue à chaque booléenne : taille du fichier et temps de recalcul non mesurés sur un meuble réel (plusieurs dizaines d'assemblages). | Mesurer taille et temps avant/après sur un meuble de référence ; documenter le résultat dans l'ADR 0056. |

@@ -30,7 +30,8 @@ l'accrochage crée un lien durable, et qui détient le nom de la pièce.
 
 1. **Attachement natif** (`Part::AttachExtension`, mode « FlatFace » etc.) : la pièce suit la face
    si celle-ci bouge. Mais il dépend des noms topologiques (`Face3`), fragiles quand la pièce visée
-   change ; il entre en conflit avec les liaisons de `Placement` des ensembles (ADR 0009) ; il ne
+   change (*depuis FreeCAD 1.0, seulement sur une forme sans carte des éléments, ADR 0056*) ;
+   il entre en conflit avec les liaisons de `Placement` des ensembles (ADR 0009) ; il ne
    sait pas toucher deux éléments à la fois ni étirer une cote ; et il ajoute à notre objet des
    propriétés d'un autre mécanisme. Rejetée.
 2. **Placement calculé une fois** à la création, d'après les éléments sélectionnés, par des règles
