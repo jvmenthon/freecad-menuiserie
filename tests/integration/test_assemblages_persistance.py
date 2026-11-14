@@ -121,7 +121,7 @@ def test_propriete_d_un_type_inattendu(
     assert restored_joint.getTypeIdOfProperty("TenonThickness") == "App::PropertyLength"
     assert restored_joint.TenonThickness.Value == 0
     assert restored_machined.getTypeIdOfProperty("Version") == "App::PropertyInteger"
-    assert restored_machined.Version == 1
+    assert restored_machined.Version == 2
     warnings = " ".join(vue_rapport.de_niveau("Warning"))
     assert "propriété TenonThickness d'un type inattendu" in warnings
     assert "Pièce usinée « T" in warnings

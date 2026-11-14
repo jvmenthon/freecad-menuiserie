@@ -60,9 +60,10 @@ class ViewProviderMachinedPart(PanelEditing):
         return icon_path(ICON)
 
     def claimChildren(self) -> list[DocumentObject]:
-        """La brute apparaît sous sa pièce usinée dans l'arbre."""
-        blank = getattr(self.vobj.Object, "Base", None)
-        return [blank] if blank is not None else []
+        """La brute et les profils d'arête apparaissent sous leur pièce usinée dans l'arbre."""
+        machined = self.vobj.Object
+        blank = getattr(machined, "Base", None)
+        return [*([blank] if blank is not None else []), *getattr(machined, "Finishes", ())]
 
     def updateData(self, obj: DocumentObject, prop: str) -> None:
         """Forme recalculée ou brute changée (hors restauration) : apparence de la brute."""
@@ -94,7 +95,7 @@ class ViewProviderMachinedPart(PanelEditing):
         l'avertissement « objets référencés » de FreeCAD, la pièce usinée est recalculée sans
         sa coupe (FreeCAD retire le lien de ``Joints``). Autre objet : avertissement habituel."""
         machined = getattr(getattr(self, "vobj", None), "Object", None)
-        return obj in getattr(machined, "Joints", ())
+        return obj in (*getattr(machined, "Joints", ()), *getattr(machined, "Finishes", ()))
 
     def onDelete(self, vobj: ViewObject, subelements: object) -> bool:
         """Suppression d'une pièce usinée. Sans assemblage : normale (la brute est réaffichée).

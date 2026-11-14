@@ -19,6 +19,7 @@ PRIVATE_MODULES = (
     "freecad.menuiserie.core.joints._",
     "freecad.menuiserie.core.furniture._",
     "freecad.menuiserie.core.cutlist._",
+    "freecad.menuiserie.core.edges._",
     "freecad.menuiserie.core.snap._",
     "freecad.menuiserie.core.shaped._",
 )

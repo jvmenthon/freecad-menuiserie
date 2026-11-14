@@ -31,6 +31,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
                 "Menuiserie_WoodPart",  # pièce en bois
                 "Menuiserie_ShapedPart",  # pièce à forme libre (PD-d)
                 "Menuiserie_SetDistance",  # distance entre deux pièces (DI-b)
+                "Menuiserie_EdgeFinish",  # finition des chants (#5)
             ),
         ),
         (
@@ -115,6 +116,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import structure  # panneau « Structure » (ADR 0046)
 
         structure.register()
+        from freecad.menuiserie.gui.commands import edge_finish  # finition des chants (#5)
+
+        edge_finish.register()
         from freecad.menuiserie.gui.commands import repeat  # répétition de pièces (R-c)
 
         repeat.register()

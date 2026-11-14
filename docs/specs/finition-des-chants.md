@@ -74,7 +74,9 @@ seule pièce.
   (« Le profil touche l'assemblage X »), jamais un refus.
 - B4 Créer un profil crée la pièce usinée si besoin (`ensure_machined_part`) ; supprimer le
   dernier profil et le dernier assemblage supprime la pièce usinée (comportement existant).
-- B5 Pièce en bois (`ShapedPart`) : profil refusé, message clair (§ 8). Pièce sans arête : refus.
+- B5 Pièce en bois (`ShapedPart`) : acceptée quand sa forme est une boîte (solide égal à son
+  encombrement, 2026-11-13, `features/box_parts.py`), refusée sinon avec un message clair (§ 8).
+  Pièce sans arête : refus.
 - B6 Pièce en biais ou pièce d'assemblage d'onglet : le profil suit les arêtes de la **boîte
   brute** ; à l'onglet, il s'arrête net (pas de retour d'onglet, § 8) ; un test le fixe.
 - B7 Les arêtes sont enregistrées par leur **code local** (`"Z+Y-"`), jamais par un numéro
@@ -91,13 +93,40 @@ seule pièce.
 - C1 Commande « Finition des chants » (icône `Menuiserie_FinitionChants.svg`, générée par
   `tools/generer_icones.py`), active quand une pièce de l'atelier (brute ou usinée) est
   sélectionnée.
-- C2 Panneau de tâche : famille (liste), distances A et B (`Gui::QuantitySpinBox`), réglage
-  « Arête cassée 1 mm », les 12 arêtes en cases à cocher groupées par face (dessus, dessous,
-  quatre côtés), raccourcis « Toutes les arêtes du dessus », « Les 4 arêtes d'une face »,
-  « Toutes les arêtes », « Aucune ».
-- C3 Choix **dans la vue 3D** : bouton « Choisir dans la vue 3D » ; un clic sur une arête de la
-  pièce coche l'arête correspondante (le point cliqué est converti en code local, B7).
-  Les arêtes cochées sont surlignées dans la vue.
+- C2 Panneau de tâche (simplifié le 2026-11-05 à la demande de jv) : famille (liste, « Quart de
+  rond » 1 mm par défaut : c'est l'arête cassée, sans bouton dédié), cote A
+  (`Gui::QuantitySpinBox`), cote B **visible seulement si la famille la demande** (bec-de-corbin,
+  doucine ; ou profil relu asymétrique), et la liste **« Pièces concernées »** (2026-11-13) : une
+  carte par pièce (pastille et liseré de couleur, nom de la pièce, nombre d'arêtes, « Toutes »,
+  « Aucune », croix pour retirer la pièce) avec le **dessin cliquable** de ses arêtes. Deux
+  dessins, au choix de l'utilisateur (bascule mémorisée dans les préférences de l'atelier) :
+  **patron déplié** (les six faces à plat en croix, chaque côté de case est une arête) ou **boîte
+  en perspective** (vue de l'avant, de la droite et du dessus ; arêtes cachées en pointillés ;
+  faces cachées hachurées en gris, écartées de la boîte avec la mention « cachée »). Un clic sur
+  une arête la choisit ou la retire, un clic dans une face choisit ses quatre arêtes (ou les
+  retire si elles le sont toutes). Arêtes choisies et faces dont les quatre arêtes le sont
+  prennent la couleur de la pièce.
+- C2b Plusieurs pièces dans un même panneau (2026-11-13) : chaque pièce reçoit **son propre
+  profil** (même famille, mêmes cotes), tous créés dans la transaction de la commande (une seule
+  entrée d'annulation). Retirer une carte retire le profil que le panneau avait créé pour elle.
+  En modification (double-clic sur un profil), la pièce du profil ne peut pas quitter la liste
+  (« Supprimer ce profil » le fait) ; d'autres pièces peuvent s'y ajouter, leurs profils sont
+  alors créés dans la même entrée d'annulation « Modifier un profil d'arête ». Une pièce
+  supprimée pendant la tâche quitte la liste ; le profil modifié supprimé ferme le panneau.
+  Chaque saisie ne réécrit que les pièces dont les réglages changent (un recalcul par pièce
+  modifiée).
+- C2c Mise en valeur dans la vue 3D (2026-11-13) : pendant la tâche, les arêtes choisies de
+  chaque pièce sont tracées en trait épais de la couleur de sa carte, et les faces dont les
+  quatre arêtes sont choisies teintées. C'est une incrustation de la vue (comme les flèches de
+  déplacement) : rien n'est écrit dans le document ni dans l'historique d'annulation, les
+  couleurs des pièces ne changent jamais ; elle est retirée à toute fermeture.
+- C3 Cibles désignées par la **sélection** (2026-11-11) : la commande est active même sans
+  sélection ; le panneau demande alors de désigner dans la vue 3D une pièce, une face ou une
+  arête. Avant la commande ou panneau ouvert : une face coche ses 4 arêtes, une arête cette
+  arête, un sommet les 3 arêtes du coin, une pièce seule n'en coche aucune (la pièce n'est
+  jamais profilée en entier). Plusieurs pièces sélectionnées donnent une carte chacune ; une
+  pièce cliquée panneau ouvert s'ajoute à la liste. Une pièce qui n'est pas une boîte est
+  refusée avec un message (dans le panneau s'il y a d'autres pièces).
 - C4 Règle de jv du 2026-10-22 : toute modification du panneau s'affiche en direct (aperçu
   recalculé, `valueChanged`), Annuler remet l'état d'avant, un Ctrl+Z défait l'ensemble.
 - C5 Éditer un profil existant : double-clic sur la pièce usinée → le panneau de la pièce propose
@@ -171,7 +200,9 @@ features/edge_profile.py   EdgeProfile + création
 features/edge_banding.py   EdgeBanding + création
 features/solids.py         + conversion d'Extrusion (solid_shape)
 features/machined_part.py  + Finishes, ordre des opérations
-gui/task_panels/edge_finish.py (+ .ui) ; gui/commands/edge_finish.py ; gui/pick_edge.py
+core/edges/_diagram.py     patron déplié, boîte en perspective, ce qu'un clic y désigne
+gui/task_panels/edge_finish.py, edge_targets.py (cartes), edge_diagram.py (dessin cliquable) ;
+gui/commands/edge_finish.py ; gui/pick_edge.py ; gui/edge_highlight.py (mise en valeur 3D)
 ```
 
 Familles (paramètres A, B en mm ; la section est contenue dans le carré A × B de l'angle) :

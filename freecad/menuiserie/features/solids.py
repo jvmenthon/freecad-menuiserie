@@ -15,11 +15,13 @@ from typing import Any, Final
 import FreeCAD as App
 import Part
 
+from freecad.menuiserie.core._extrusion import Extrusion
 from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron, SlantedCylinder
 from freecad.menuiserie.core.geometry import Box, Cylinder, Prism, RigidTransform
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.vectors import norm
+from freecad.menuiserie.features.extrusion_shape import extrusion_shape
 from freecad.menuiserie.features.i18n import translated
 
 __all__ = [
@@ -152,15 +154,19 @@ def machined_shape(
     additions: Sequence[PlanSolid],
     cuts: Sequence[PlanSolid],
     trims: Sequence[PlanSolid] = (),
+    edge_cuts: Sequence[Extrusion] = (),
 ) -> Any:
     """Forme de base de la pièce (sa boîte pour une pièce de bois, sa forme dessinée pour une
-    pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016),
-    plus ``additions``, moins ``cuts``, faces coplanaires fusionnées. ``ValueError`` traduite si
+    pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016) et
+    moins les profils d'arête ``edge_cuts`` (ADR 0029), plus ``additions``, moins ``cuts``, faces
+    coplanaires fusionnées. ``ValueError`` traduite si
     OCC échoue ou si le résultat n'est pas un solide valide (jamais de forme partielle)."""
     shape = base
     try:
-        if trims:
-            shape = shape.cut([solid_shape(solid) for solid in trims])
+        removed = [solid_shape(solid) for solid in trims]
+        removed += [extrusion_shape(cut) for cut in edge_cuts]
+        if removed:
+            shape = shape.cut(removed)
         if additions:
             shape = shape.fuse([solid_shape(solid) for solid in additions])
         if cuts:

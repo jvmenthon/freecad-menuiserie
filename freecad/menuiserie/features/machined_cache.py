@@ -14,6 +14,7 @@ from collections import OrderedDict
 from collections.abc import Hashable, Sequence
 from typing import Any, Final
 
+from freecad.menuiserie.core._extrusion import Extrusion
 from freecad.menuiserie.core._polyhedron import PlanSolid
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.shaped_part import is_shaped_part
@@ -48,12 +49,13 @@ def machining_key(
     additions: Sequence[PlanSolid],
     cuts: Sequence[PlanSolid],
     trims: Sequence[PlanSolid],
+    profiles: Sequence[Extrusion] = (),
 ) -> _Key | None:
     """Clé exacte de l'usinage de la brute ``blank`` (cotes et solides), ``None`` pour une forme
     dessinée ou si un solide n'est pas hachable : pas de cache."""
     if is_shaped_part(blank):
         return None
-    key = (dimensions_of(blank), tuple(additions), tuple(cuts), tuple(trims))
+    key = (dimensions_of(blank), tuple(additions), tuple(cuts), tuple(trims), tuple(profiles))
     try:
         hash(key)
     except TypeError:
@@ -67,15 +69,16 @@ def cached_machined_shape(
     additions: Sequence[PlanSolid],
     cuts: Sequence[PlanSolid],
     trims: Sequence[PlanSolid] = (),
+    profiles: Sequence[Extrusion] = (),
 ) -> Any:
     """Comme :func:`machined_shape`, mémorisée sur ``key`` (:func:`machining_key`, ``None`` :
     calcul direct). Les échecs (``ValueError``) ne sont jamais mémorisés."""
     if key is None:
-        return machined_shape(base, additions, cuts, trims)
+        return machined_shape(base, additions, cuts, trims, profiles)
     if key in _CACHE:
         _CACHE.move_to_end(key)
         return _CACHE[key].copy()
-    shape = machined_shape(base, additions, cuts, trims)
+    shape = machined_shape(base, additions, cuts, trims, profiles)
     _CACHE[key] = shape.copy()
     if len(_CACHE) > MAX_ENTRIES:
         _CACHE.popitem(last=False)

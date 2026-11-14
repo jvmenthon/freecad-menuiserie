@@ -115,7 +115,7 @@ def remove_joints(joints: Sequence[DocumentObject]) -> None:
     for joint in joints:
         document.removeObject(joint.Name)
     for found in machined:
-        if not found.Joints:
+        if not found.Joints and not found.Finishes:
             remove_machined_part(found)
 
 
@@ -158,11 +158,12 @@ def delete_machined_part(
         show_blank(getattr(machined, "Base", None))
         return True
     joints = list(machined.Joints)
+    finishes = list(machined.Finishes)
     blank = getattr(machined, "Base", None)
-    if not joints:
+    if not joints and not finishes:
         show_blank(blank)
         return True
-    labels = [f"« {quoted_value(joint.Label)} »" for joint in joints]
+    labels = [f"« {quoted_value(item.Label)} »" for item in (*joints, *finishes)]
     if not choose(f"« {quoted_value(machined.Label)} »", labels):
         return False
     document, name = machined.Document, machined.Name
@@ -170,6 +171,8 @@ def delete_machined_part(
         # Les voisines ne citent plus la pièce. Le message « reste dans son Std Part » est omis :
         # la pièce, assemblée par définition, disparaît juste après avec ses assemblages.
         remove_members([blank])
+    for finish in finishes:
+        document.removeObject(finish.Name)
     remove_joints(joints)
     if document.getObject(name) is not None:  # pièce non retrouvée par ses assemblages
         remove_machined_part(machined)

@@ -23,6 +23,25 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Finition des chants, lot CH-a (#5, ADR 0029) : règles pures des profils d'arête (12 arêtes par
+  code local, chanfrein, quart de rond, arête cassée, gorge, demi-rond, bec-de-corbin, doucine) et
+  section balayée `Extrusion`.
+- Finition des chants, lot CH-b (#5, ADR 0029) : objet `EdgeProfile`, propriété `Finishes` de la pièce
+  usinée (modèle 2, migration sans perte), profils soustraits avant les assemblages, avertissement
+  « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
+  `edge_profiles_of` de l'API.
+- Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
+  arêtes choisies d'après la face, l'arête ou le sommet sélectionné, cote B
+  seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
+  aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
+  Une pièce en bois à forme dessinée est acceptée quand sa forme est une boîte (jugée sur
+  l'encombrement exact : une copie ou un corps dessiné de biais n'est plus refusé).
+  La commande est active sans sélection (on désigne pièces, faces ou arêtes dans la vue 3D).
+  Liste « Pièces concernées » : une carte par pièce (couleur, nom, nombre d'arêtes, croix), un
+  profil par pièce dans une seule entrée d'annulation, arêtes choisies sur un patron déplié ou
+  une boîte en perspective (faces cachées hachurées « cachée »), bascule mémorisée ; arêtes
+  choisies mises en valeur dans la vue 3D à la couleur de chaque pièce (incrustation, rien dans
+  le document).
 - Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).
 - Cotes du parent à l'enveloppe de ses membres (ADR 0049) : après un déplacement ou une rotation
   d'un sous-ensemble, et dès la création d'un ensemble autour d'un ensemble tourné, la boîte de

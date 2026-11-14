@@ -81,6 +81,12 @@ from freecad.menuiserie._api.cutlist import (
     make_cut_list,
     number_marks,
 )
+from freecad.menuiserie._api.edges import (
+    add_edge_profile,
+    edge_profiles_of,
+    remove_edge_profile,
+    set_edge_profile,
+)
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
     furniture_of,
@@ -157,6 +163,7 @@ __all__ = [
     "RepeatParams",
     "SpacingMode",
     "Stop",
+    "add_edge_profile",
     "add_to_furniture",
     "blank_of",
     "close_gap",
@@ -165,6 +172,7 @@ __all__ = [
     "cut_list_html",
     "cut_list_of",
     "dissociate",
+    "edge_profiles_of",
     "edit_repeat",
     "export_cut_list_csv",
     "export_cut_list_pdf",
@@ -196,6 +204,7 @@ __all__ = [
     "move_furniture",
     "number_marks",
     "rebind_furniture",
+    "remove_edge_profile",
     "remove_from_furniture",
     "remove_machined_part",
     "rename",
@@ -205,6 +214,7 @@ __all__ = [
     "rotate_furniture",
     "set_distance",
     "set_edge_distance",
+    "set_edge_profile",
     "set_furniture_material",
     "set_member_options",
     "slide_shortfall",
