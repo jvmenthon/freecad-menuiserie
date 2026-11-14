@@ -16,7 +16,13 @@ from freecad.menuiserie._api.joints import show_joint
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import RepeatParams
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features import repeat, repeat_copies, repeat_links, repeat_stop
+from freecad.menuiserie.features import (
+    repeat,
+    repeat_copies,
+    repeat_joints,
+    repeat_links,
+    repeat_stop,
+)
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import report
@@ -168,6 +174,8 @@ def edit_repeat(
     repeat_copies.resolve_for(sources, params)
     with _undoable(found.Document, _EDIT_TRANSACTION, own=transaction):
         _show(repeat_copies.apply_repeat(found, params, kept))
+    if transaction:  # le panneau, lui, l'affiche sous le réglage
+        report(filter(None, [repeat_joints.hand_joints_warning(found)]))  # après le recalcul
 
 
 def dissociate(copy: DocumentObject, *, transaction: bool = True) -> None:

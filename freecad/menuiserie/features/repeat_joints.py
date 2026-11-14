@@ -58,6 +58,7 @@ __all__ = [
     "PROPERTY",
     "JointsUpdate",
     "children_of",
+    "hand_joints_warning",
     "joint_removed",
     "joints_of_part",
     "not_copied_warning",
@@ -84,6 +85,18 @@ _SPEC: Final = PropertySpec(
 _SKIPPED_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "1 assemblage n'a pas été recopié : {reason}")
 _SKIPPED_MANY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{count} assemblages n'ont pas été recopiés : {reason}"
+)
+_HAND_ONE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "1 assemblage posé à la main sur une copie ne tient plus, la copie ayant bougé : {labels}. "
+    "Assemblez plutôt la pièce d'origine : « Recopier les assemblages » le recrée sur chaque "
+    "copie.",
+)
+_HAND_MANY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{count} assemblages posés à la main sur une copie ne tiennent plus, la copie ayant bougé : "
+    "{labels}. Assemblez plutôt la pièce d'origine : « Recopier les assemblages » les recrée sur "
+    "chaque copie.",
 )
 _DERIVED: Final = "joint_derived"  # champ fourni par le document, pas par une propriété
 
@@ -348,3 +361,22 @@ def not_copied_warning(repeat: DocumentObject) -> str:
     cells = {cell_of(copy) for copy in copies_of(repeat)}
     messages = skipped_message(JointsUpdate([], *_skipped(_decisions(repeat, cells))))
     return "".join(messages)
+
+
+def hand_joints_warning(repeat: DocumentObject) -> str:
+    """Avertissement traduit des assemblages posés **à la main** sur une copie de ``repeat`` (ni
+    enfants d'une répétition, ni dissociés d'un enfant) devenus impossibles, vide s'il n'y en a
+    aucun. Une copie qui change de rang ou de pas bouge, et ces assemblages ne la suivent pas :
+    ils restent en erreur (ils ne sont jamais supprimés : ils sont à l'utilisateur). Lecture
+    seule, à appeler après le recalcul."""
+    broken = _unique(
+        joint
+        for copy in copies_of(repeat)
+        for joint in joints_of_part(copy)
+        if origin_of(joint) is None and "Invalid" in joint.State
+    )
+    if not broken:
+        return ""
+    template = _HAND_ONE if len(broken) == 1 else _HAND_MANY
+    labels = ", ".join(f"« {joint.Label} »" for joint in broken)  # entiers : ils se ressemblent
+    return translated(template, {"count": str(len(broken)), "labels": labels})

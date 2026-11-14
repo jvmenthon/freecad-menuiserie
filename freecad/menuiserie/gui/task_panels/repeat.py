@@ -34,7 +34,7 @@ from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.repeat import sources_of, stored_lines
 from freecad.menuiserie.features.repeat_copies import resolve_for, source_extent, source_extents
-from freecad.menuiserie.features.repeat_joints import not_copied_warning
+from freecad.menuiserie.features.repeat_joints import hand_joints_warning, not_copied_warning
 from freecad.menuiserie.features.repeat_stop import Stops, bounded_params, stored_stops
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
@@ -336,7 +336,9 @@ class RepeatTaskPanel(TransactionTaskPanel):
     def _not_copied(self) -> str:
         """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""
         repeat = self._repeat()
-        return "" if repeat is None else not_copied_warning(repeat)
+        if repeat is None:
+            return ""
+        return "\n".join(filter(None, (not_copied_warning(repeat), hand_joints_warning(repeat))))
 
     def _apply(self, sources: Sequence[DocumentObject], params: RepeatParams, stops: Stops) -> None:
         """Copies de l'aperçu : répétition créée à la première saisie acceptée, ajustée ensuite
