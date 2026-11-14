@@ -314,6 +314,8 @@ class RepeatTaskPanel(TransactionTaskPanel):
         except Exception as failure:  # OCC, objet en erreur : aperçu abandonné, rien ne reste
             self._restart()
             error = translated(UNEXPECTED, {"reason": str(failure) or type(failure).__name__})
+        if self.closed:  # panneau fermé par FreeCAD pendant la mise à jour (transaction abandonnée)
+            return
         self._refused = bool(error)
         self.sync_styles()
         show_message(self._summary, summary)
