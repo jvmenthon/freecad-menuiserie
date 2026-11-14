@@ -36,12 +36,13 @@ est penchée.
    et les deux décalages du plan (la position automatique est alors envoyée). Un décalage non fini
    est refusé dans tous les cas. Seul le décalage le long de la normale compte alors.
    **Centrer sur X, Y, Z** (demande de jv du 2026-11-13, « aligner les trois axes d'un coup ») :
-   trois boutons à cocher, avec icône (cible et flèche de l'axe, couleurs des rotations). Après le
-   mouvement ci-dessus, sur chaque axe coché du même conteneur, le centre (du rectangle englobant)
-   de la face déplacée vient sur celui de l'autre face ; les trois cochés confondent les deux
-   centres. Une fois les faces dans le même plan, l'axe le long de la normale n'apporte rien ; un
-   axe oblique aux faces peut les sortir du plan commun, ce qui est le choix explicite de
-   l'utilisateur.
+   trois boutons à cocher, avec icône (proposition C choisie par jv : deux planches centrées sur
+   une ligne, couleurs des rotations). Après le mouvement ci-dessus, sur chaque axe coché du même
+   conteneur, le centre (du rectangle englobant) de la face déplacée vient sur celui de l'autre
+   face, **dans le plan de la face de référence** : la part du centrage le long de sa normale est
+   retirée, si bien qu'un axe oblique ne sort jamais la face du plan commun. Les trois cochés
+   confondent les deux centres dans ce plan. Les décalages s'ajoutent après le centrage (le 3e
+   reste le seul réglage le long de la normale). Axes non perpendiculaires entre eux refusés.
 6. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
    bouton **Inverser** (échange la pièce pilotée et la pilotante ; la première revient avant que
    la seconde bouge), **Annuler** remet tout en place. OK relie l'ensemble et propose les

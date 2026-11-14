@@ -44,6 +44,9 @@ PERPENDICULAR_ON_AXIS: Final = QT_TRANSLATE_NOOP(
 INVALID_AXIS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "L'axe de déplacement doit être un vecteur fini et non nul."
 )
+SKEWED_AXES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Les axes de centrage doivent être perpendiculaires entre eux."
+)
 INVALID_OFFSET: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les décalages doivent être des nombres finis."
 )
@@ -158,18 +161,19 @@ def _turned_point(motion: Alignment, point: Vec3) -> Vec3:
     return _turned(motion.rotation, point - motion.pivot) + motion.pivot + motion.shift
 
 
-def _centered(
+def _centering(
     motion: Alignment, fixed: FaceTarget, moving: FaceTarget, centered: tuple[Vec3, ...]
-) -> Alignment:
-    """``motion`` complété pour que, sur chaque axe de ``centered`` (vecteurs globaux unitaires,
-    deux à deux perpendiculaires), le centre de la face mobile vienne sur celui de la référence."""
-    if not centered:
-        return motion
+) -> Vec3:
+    """Translation de plus qui, sur chaque axe de ``centered`` (vecteurs globaux unitaires, deux
+    à deux perpendiculaires), amène le centre de la face mobile (placée par ``motion``, sans
+    décalage) sur celui de la référence, ramenée dans le plan de la référence : le centrage ne
+    sort jamais la face de ce plan (le 3e axe reste au décalage le long de la normale)."""
     delta = face_center(fixed) - _turned_point(motion, face_center(moving))
     extra = NO_OFFSET
     for axis in centered:
         extra = extra + axis.scaled(dot(delta, axis))
-    return Alignment(motion.rotation, motion.pivot, motion.shift + extra, motion.angle, motion.mode)
+    normal = unit(fixed.frame.z)
+    return extra - normal.scaled(dot(extra, normal))
 
 
 def align(
@@ -182,13 +186,23 @@ def align(
 ) -> Alignment:
     """:func:`plane_motion` puis, pour chaque axe de ``centered`` (axes X, Y, Z globaux du
     conteneur, unitaires et perpendiculaires), le centre de la face mobile amené sur celui de la
-    référence le long de cet axe : avec les trois axes, les deux centres se confondent. Axe de
-    ``centered`` non fini ou nul : :class:`AlignError`."""
+    référence le long de cet axe, **dans le plan de la référence** ; avec les trois axes, les
+    deux centres se confondent dans ce plan. Le décalage ``offset`` s'ajoute après le centrage.
+    Axe de ``centered`` non fini, nul, ou non perpendiculaire aux autres : :class:`AlignError`."""
     for item in centered:
         if not is_finite(item) or norm(item) <= ANGLE_TOLERANCE:
             raise AlignError(INVALID_AXIS, {})
+    axes = tuple(unit(item) for item in centered)
+    if any(abs(dot(a, b)) > ANGLE_TOLERANCE for i, a in enumerate(axes) for b in axes[i + 1 :]):
+        raise AlignError(SKEWED_AXES, {})
     motion = plane_motion(fixed, moving, mode, offset, axis)
-    return _centered(motion, fixed, moving, tuple(unit(item) for item in centered))
+    if not centered:
+        return motion
+    bare = plane_motion(fixed, moving, mode, NO_OFFSET, axis)
+    extra = _centering(bare, fixed, moving, axes)
+    if not is_finite(extra):
+        raise AlignError(INVALID_OFFSET, {})
+    return Alignment(motion.rotation, motion.pivot, motion.shift + extra, motion.angle, motion.mode)
 
 
 def plane_motion(

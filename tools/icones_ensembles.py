@@ -107,13 +107,10 @@ def aligner_faces() -> str:
     )
 
 
-# Centrer sur X, Y, Z du panneau « Aligner deux faces » (proposition B) : direction écran de
-# l'axe (X à droite, Y en profondeur, Z vers le haut) et sa couleur, celle des rotations.
-CENTRAGES = {
-    "X": ((1.0, 0.0), "#cc0000"),
-    "Y": ((0.6, -0.6), "#4e9a06"),
-    "Z": ((0.0, -1.0), "#3465a4"),
-}
+# Centrer sur X, Y, Z du panneau « Aligner deux faces » (proposition C, choisie par jv) :
+# angle de la ligne des centres à l'écran (perpendiculaire à l'axe : X à droite, Y en
+# profondeur, Z vers le haut) et couleur de l'axe, celle des rotations.
+CENTRAGES = {"X": (90.0, "#cc0000"), "Y": (-45.0, "#4e9a06"), "Z": (0.0, "#3465a4")}
 
 
 # Lettre de l'axe tracée au trait (pas de texte : les icônes ne dépendent d'aucune police).
@@ -125,28 +122,23 @@ LETTRES = {
 
 
 def _centrer(axe: str) -> str:
-    """Cible orange (le centre des faces) traversée par la flèche double de l'axe, et la lettre
-    de l'axe dans sa couleur."""
-    (dx, dy), couleur = CENTRAGES[axe]
-    longueur = math.hypot(dx, dy)
-    ux, uy = dx / longueur, dy / longueur
-    bouts = [(30 - ux * 26, 30 - uy * 26, -1.0), (30 + ux * 26, 30 + uy * 26, 1.0)]
-    trace = f"M{bouts[0][0]:.1f},{bouts[0][1]:.1f} L{bouts[1][0]:.1f},{bouts[1][1]:.1f}"
-    for x, y, sens in bouts:
-        ax, ay = x - sens * 6 * ux, y - sens * 6 * uy
-        trace += (
-            f" M{ax - 4 * uy:.1f},{ay + 4 * ux:.1f} L{x:.1f},{y:.1f}"
-            f" L{ax + 4 * uy:.1f},{ay - 4 * ux:.1f}"
-        )
+    """Deux planches de longueurs différentes (la seconde, orange, est celle qui bouge) centrées
+    sur une ligne en pointillé perpendiculaire à l'axe, et la lettre de l'axe dans sa couleur.
+    Dessin à plat tourné de l'angle de la ligne des centres."""
+    angle, couleur = CENTRAGES[axe]
+    bois = 'fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"'
+    face = 'fill="#fcd9a8" stroke="#f57900" stroke-width="2.5" stroke-linejoin="round"'
+    # Ligne des centres horizontale avant rotation, planches verticales de part et d'autre.
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">\n'
-        f"  <!-- Centrer sur l'axe {axe} : cible des centres et flèche de l'axe -->\n"
-        '  <circle cx="30" cy="30" r="17" fill="#fcd9a8" stroke="#f57900" stroke-width="2.5"/>\n'
-        '  <circle cx="30" cy="30" r="8" fill="none" stroke="#f57900" stroke-width="2"/>\n'
-        '  <circle cx="30" cy="30" r="2.6" fill="#204a87"/>\n'
-        f'  <path d="{trace}" fill="none" stroke="{couleur}" stroke-width="2.6" '
-        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+        f"  <!-- Centrer sur l'axe {axe} : deux planches centrées sur une ligne -->\n"
+        f'  <g transform="translate(-3 -3) rotate({-angle:g} 28 28)">\n'
+        f'    <line x1="4" y1="28" x2="52" y2="28" stroke="{couleur}" stroke-width="2.2" '
+        'stroke-dasharray="4 3"/>\n'
+        f'    <rect x="10" y="10" width="12" height="36" {bois}/>\n'
+        f'    <rect x="32" y="19" width="12" height="18" {face}/>\n'
+        "  </g>\n"
         f'  <path d="{LETTRES[axe]}" fill="none" stroke="#ffffff" stroke-width="5.5" '
         'stroke-linecap="round" stroke-linejoin="round"/>\n'
         f'  <path d="{LETTRES[axe]}" fill="none" stroke="{couleur}" stroke-width="3" '

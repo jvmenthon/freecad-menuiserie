@@ -83,3 +83,43 @@ def test_axe_de_centrage_invalide_refuse(axis: Vec3) -> None:
     fixed, moving = _top(Vec3(0, 0, 10), (100, 40)), _top(Vec3(300, 70, 50), (20, 20))
     with pytest.raises(AlignError, match="fini et non nul"):
         align(fixed, moving, centered=(axis,))
+
+
+def _signed_distance(plane: FaceTarget, point: Vec3) -> float:
+    rel = point - plane.frame.origin
+    n = plane.frame.z
+    return rel.x * n.x + rel.y * n.y + rel.z * n.z
+
+
+def test_decalage_normal_conserve_avec_centrage_sur_la_normale() -> None:
+    """Centrer sur Z garde le décalage le long de la normale."""
+    fixed, moving = _top(Vec3(0, 0, 10), (100, 40)), _top(Vec3(300, 70, 50), (20, 20))
+    motion = align(fixed, moving, offset=Vec3(0, 0, 5), centered=(_Z,))
+    assert _moved(motion, face_center(moving)).z == pytest.approx(15.0)
+
+
+def test_decalage_dans_le_plan_conserve_avec_centrage() -> None:
+    """Centrer sur X garde le décalage de 7 mm sur X."""
+    fixed, moving = _top(Vec3(0, 0, 10), (100, 40)), _top(Vec3(300, 70, 50), (20, 20))
+    motion = align(fixed, moving, offset=Vec3(7, 0, 0), centered=(_X,))
+    assert _moved(motion, face_center(moving)).x == pytest.approx(57.0)
+
+
+@pytest.mark.parametrize("axis", [_X, _Z], ids=["X", "Z"])
+def test_face_inclinee_reste_dans_son_plan_apres_centrage_partiel(axis: Vec3) -> None:
+    """Un centrage sur un axe oblique à la face ne la sort pas du plan de référence."""
+    s = math.sqrt(0.5)
+    fixed = FaceTarget(
+        "F", Frame(Vec3(0, 0, 0), _X, Vec3(0, s, s), Vec3(0, -s, s)), (100, 40), True
+    )
+    moving = _top(Vec3(300, 70, 50), (20, 20))
+    motion = align(fixed, moving, centered=(axis,))
+    assert _signed_distance(fixed, _moved(motion, face_center(moving))) == pytest.approx(
+        0.0, abs=1e-9
+    )
+
+
+def test_axes_de_centrage_non_perpendiculaires_refuses() -> None:
+    fixed, moving = _top(Vec3(0, 0, 10), (100, 40)), _top(Vec3(300, 70, 50), (20, 20))
+    with pytest.raises(AlignError, match="perpendiculaires entre eux"):
+        align(fixed, moving, centered=(_X, Vec3(1, 1, 0)))

@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- Centrer sur l'axe Z : cible des centres et flèche de l'axe -->
-  <circle cx="30" cy="30" r="17" fill="#fcd9a8" stroke="#f57900" stroke-width="2.5"/>
-  <circle cx="30" cy="30" r="8" fill="none" stroke="#f57900" stroke-width="2"/>
-  <circle cx="30" cy="30" r="2.6" fill="#204a87"/>
-  <path d="M30.0,56.0 L30.0,4.0 M34.0,50.0 L30.0,56.0 L26.0,50.0 M34.0,10.0 L30.0,4.0 L26.0,10.0" fill="none" stroke="#3465a4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Centrer sur l'axe Z : deux planches centrées sur une ligne -->
+  <g transform="translate(-3 -3) rotate(-0 28 28)">
+    <line x1="4" y1="28" x2="52" y2="28" stroke="#3465a4" stroke-width="2.2" stroke-dasharray="4 3"/>
+    <rect x="10" y="10" width="12" height="36" fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="32" y="19" width="12" height="18" fill="#fcd9a8" stroke="#f57900" stroke-width="2.5" stroke-linejoin="round"/>
+  </g>
   <path d="M49,47 H60 L49,60 H60" fill="none" stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M49,47 H60 L49,60 H60" fill="none" stroke="#3465a4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

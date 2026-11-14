@@ -133,7 +133,7 @@ class FaceAlign:
     def _axes(self, centered: str) -> tuple[Vec3, ...]:
         """Vecteurs globaux des axes ``centered`` (``"XZ"``…), sans doublon."""
         if not isinstance(centered, str):
-            raise ValueError(translated(_UNKNOWN_AXIS, {"axis": str(centered)}))
+            raise ValueError(translated(_UNKNOWN_AXIS, {"axis": type(centered).__name__}))
         found: list[Vec3] = []
         for letter in dict.fromkeys(centered):
             vector = self._axis(letter)
