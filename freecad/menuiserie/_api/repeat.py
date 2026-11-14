@@ -166,7 +166,9 @@ def edit_repeat(
     Même transaction (``transaction``), même recalcul et mêmes refus que :func:`make_repeat` ;
     rien n'est modifié si le réglage est refusé. ``stops`` : butées de chaque axe (voir
     :func:`make_repeat`) ; ``None`` garde celles de la répétition (retirées si le mode n'a plus de
-    longueur), un dictionnaire vide les retire."""
+    longueur), un dictionnaire vide les retire. ``transaction`` vrai : après le recalcul, les
+    assemblages posés à la main sur une copie devenus impossibles sont signalés dans la vue rapport
+    (le panneau, lui, les affiche sous le réglage)."""
     found = _checked_repeat(obj)
     sources = repeat.sources_of(found)
     kept = repeat_stop.kept_stops(found, params, raw_stops(stops))

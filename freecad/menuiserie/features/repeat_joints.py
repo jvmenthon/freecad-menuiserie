@@ -88,15 +88,15 @@ _SKIPPED_MANY: Final = QT_TRANSLATE_NOOP(
 )
 _HAND_ONE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "1 assemblage posé à la main sur une copie ne tient plus, la copie ayant bougé : {labels}. "
-    "Assemblez plutôt la pièce d'origine : « Recopier les assemblages » le recrée sur chaque "
-    "copie.",
+    "1 assemblage posé à la main sur une copie ne tient plus (la copie ne suit pas ou a bougé) : "
+    "{labels}. Assemblez plutôt la pièce d'origine : « Recopier les assemblages » le recrée "
+    "sur chaque copie.",
 )
 _HAND_MANY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "{count} assemblages posés à la main sur une copie ne tiennent plus, la copie ayant bougé : "
-    "{labels}. Assemblez plutôt la pièce d'origine : « Recopier les assemblages » les recrée sur "
-    "chaque copie.",
+    "{count} assemblages posés à la main sur une copie ne tiennent plus (la copie ne suit pas "
+    "ou a bougé) : {labels}. Assemblez plutôt la pièce d'origine : « Recopier les "
+    "assemblages » les recrée sur chaque copie.",
 )
 _DERIVED: Final = "joint_derived"  # champ fourni par le document, pas par une propriété
 
@@ -363,12 +363,23 @@ def not_copied_warning(repeat: DocumentObject) -> str:
     return "".join(messages)
 
 
+_MAX_NAMED: Final = 5  # assemblages nommés dans l'avertissement, au plus
+_MAX_LABEL: Final = 80  # caractères d'un libellé cité, au plus
+
+
+def _one_line(label: str) -> str:
+    """Libellé du document sur une ligne et borné (jamais une fausse ligne dans la vue rapport) ;
+    les libellés d'assemblage se ressemblent : la fin est gardée, pas tronquée tôt."""
+    text = " ".join(str(label).split())
+    return text if len(text) <= _MAX_LABEL else text[: _MAX_LABEL - 1] + "…"
+
+
 def hand_joints_warning(repeat: DocumentObject) -> str:
     """Avertissement traduit des assemblages posés **à la main** sur une copie de ``repeat`` (ni
-    enfants d'une répétition, ni dissociés d'un enfant) devenus impossibles, vide s'il n'y en a
-    aucun. Une copie qui change de rang ou de pas bouge, et ces assemblages ne la suivent pas :
-    ils restent en erreur (ils ne sont jamais supprimés : ils sont à l'utilisateur). Lecture
-    seule, à appeler après le recalcul."""
+    enfants d'une répétition ; un enfant dissocié n'en est plus un et compte ici) devenus
+    impossibles, vide s'il n'y en a aucun. Une copie qui change de rang ou de pas bouge, et ces
+    assemblages ne la suivent pas : ils restent en erreur (jamais supprimés : ils sont à
+    l'utilisateur). Lecture seule, à appeler après le recalcul."""
     broken = _unique(
         joint
         for copy in copies_of(repeat)
@@ -378,5 +389,6 @@ def hand_joints_warning(repeat: DocumentObject) -> str:
     if not broken:
         return ""
     template = _HAND_ONE if len(broken) == 1 else _HAND_MANY
-    labels = ", ".join(f"« {joint.Label} »" for joint in broken)  # entiers : ils se ressemblent
+    names = [f"« {_one_line(joint.Label)} »" for joint in broken[:_MAX_NAMED]]
+    labels = ", ".join(names) + ("…" if len(broken) > _MAX_NAMED else "")
     return translated(template, {"count": str(len(broken)), "labels": labels})

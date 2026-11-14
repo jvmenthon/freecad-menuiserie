@@ -307,7 +307,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
             warning = overlap_text(grid, source_extents(sources, [a.axis for a in grid.axes]))
             self._overlapping = bool(warning)
             warning = "\n".join(
-                filter(None, (warning, collision_text(params, stops), self._not_copied()))
+                filter(None, (warning, collision_text(params, stops), self._joint_warnings()))
             )
         except (TypeError, ValueError, KeyError) as refusal:
             error = str(refusal.args[0] if isinstance(refusal, KeyError) else refusal)
@@ -333,8 +333,9 @@ class RepeatTaskPanel(TransactionTaskPanel):
         """Fermeture : l'observateur de sélection n'est jamais laissé en place."""
         self._stops.close()
 
-    def _not_copied(self) -> str:
-        """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""
+    def _joint_warnings(self) -> str:
+        """Avertissements des assemblages : non recopiés (impossibles), et posés à la main sur une
+        copie devenus impossibles (vide sinon)."""
         repeat = self._repeat()
         if repeat is None:
             return ""
