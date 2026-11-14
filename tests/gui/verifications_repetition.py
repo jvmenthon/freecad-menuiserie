@@ -549,6 +549,36 @@ def verifier_dissocier_la_copie() -> list[str]:
     return avec_document("VerifRepetitionDissocie", _dissocier)
 
 
+def _dissocier_copie_usinee(doc: Any) -> list[str]:
+    """Bug de jv (2026-11-14) : une copie assemblée est affichée et choisie par sa pièce usinée ;
+    la commande doit la dissocier quand même."""
+    barreau, rep = _repetition_existante(doc)
+    copie = copies_de(rep)[0]
+    autre = api.make_wood_part(300, 40, 22, "chene", mark="Montant", doc=doc)
+    autre.Placement = App.Placement(App.Vector(740, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    doc.recompute()  # montant contre le bout de la copie (x de 400 à 700)
+    api.make_loose_tenons(autre, copie)
+    usinee = api.machined_part_of(copie)
+    doc.clearUndos()
+    actif = (
+        usinee is not None
+        and Gui.Command.get(DISSOCIER) is not None
+        and (lancer(DISSOCIER, usinee) is None)
+    )
+    return [
+        *ecarts("pièce usinée trouvée", usinee is not None, True),
+        *ecarts("commande lancée", actif, True),
+        *ecarts("copie libre", repeat.is_copy(copie), False),
+        *ecarts("source intacte", repeat.is_copy(barreau), False),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+    ]
+
+
+def verifier_dissocier_par_la_piece_usinee() -> list[str]:
+    """« Dissocier la copie » sur la pièce usinée d'une copie assemblée."""
+    return avec_document("VerifRepetitionDissocieUsinee", _dissocier_copie_usinee)
+
+
 def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
     gauche, droite = source(doc, "Gauche"), source(doc, "Droite")
     droite.Placement = App.Placement(App.Vector(0, 100, 0), App.Rotation())
@@ -650,6 +680,7 @@ VERIFICATIONS_REPETITION: tuple[Callable[[], list[str]], ...] = (
     verifier_modifier_le_nombre,
     verifier_modification_annulee,
     verifier_dissocier_la_copie,
+    verifier_dissocier_par_la_piece_usinee,
     verifier_dissocier_un_ensemble_et_son_membre,
     verifier_double_clic,
     verifier_document_ferme_panneau_ouvert,

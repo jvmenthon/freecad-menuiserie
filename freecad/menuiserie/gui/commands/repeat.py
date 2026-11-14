@@ -65,11 +65,14 @@ def selected_repeat() -> DocumentObject | None:
 
 
 def selected_copies() -> list[DocumentObject] | None:
-    """Sélection, si elle n'est faite que de copies liées (``None`` sinon)."""
+    """Sélection, si elle n'est faite que de copies liées (``None`` sinon) ; une pièce usinée
+    compte pour sa brute (une copie assemblée est affichée et choisie par sa pièce usinée),
+    chaque copie une seule fois."""
     selection = Gui.Selection.getSelection()
-    if not selection or not all(is_copy(obj) for obj in selection):
+    blanks = [obj.Base if is_machined_part(obj) else obj for obj in selection]
+    if not blanks or not all(is_copy(obj) for obj in blanks):
         return None
-    return list(selection)
+    return list({obj.Name: obj for obj in blanks}.values())
 
 
 class RepeatCommand(TransactionCommand):
