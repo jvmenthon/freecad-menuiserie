@@ -88,6 +88,15 @@ def taken_along(members: Sequence[DocumentObject]) -> list[Notice]:
     return list(found.values())
 
 
+def _is_origin_element(obj: DocumentObject) -> bool:
+    """Vrai pour un plan, un axe ou un point d'une origine. Depuis FreeCAD 1.1 ce sont des
+    ``App::Plane``, ``App::Line`` et ``App::Point`` (``App::OriginFeature`` n'existe plus), cités
+    par un ``App::Origin`` ; leur groupe est le Std Part de l'origine."""
+    return obj.isDerivedFrom("App::DatumElement") and any(
+        parent.TypeId == "App::Origin" for parent in obj.InList
+    )
+
+
 def positioned(obj: DocumentObject) -> bool:
     """Objet géométrique dont le ``Placement`` est à garder quand FreeCAD le change de conteneur :
     tout sauf l'ensemble, la pièce usinée, l'assemblage et la Distance (leur position suit leur
@@ -95,7 +104,7 @@ def positioned(obj: DocumentObject) -> bool:
     return (
         "Placement" in obj.PropertiesList
         and obj.isDerivedFrom("App::GeoFeature")
-        and not obj.isDerivedFrom("App::OriginFeature")
+        and not _is_origin_element(obj)
         and obj.TypeId != "App::Origin"
         and not (is_furniture(obj) or is_machined_part(obj) or is_joint(obj) or is_distance(obj))
     )
