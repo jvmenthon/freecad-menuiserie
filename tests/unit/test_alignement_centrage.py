@@ -165,3 +165,43 @@ def test_sur_un_axe_le_centrage_ne_tourne_pas() -> None:
     moving = _turned_in_plane(Vec3(200, -150, 50), 30.0, (600, 100))
     motion = align(fixed, moving, axis=_Z, centered=(_X, _Y))
     assert motion.rotation == ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+
+
+def test_centrage_tournant_garde_le_pivot_deplace_et_le_plan() -> None:
+    """Le tour dans le plan se fait autour du pivot déplacé : il reste dans le plan, décalé."""
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 50), 30.0, (600, 100))
+    plain = align(fixed, moving, AlignMode.FLUSH, offset=Vec3(0, 0, 5))
+    motion = align(fixed, moving, AlignMode.FLUSH, offset=Vec3(0, 0, 5), centered=(_X,))
+    assert motion.pivot == plain.pivot
+    assert _signed_distance(fixed, _moved(motion, moving.frame.origin)) == pytest.approx(5.0)
+    assert _moved(motion, face_center(moving)).z == pytest.approx(25.0)
+
+
+def test_decalage_dans_le_plan_ajoute_apres_le_tour() -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 20), 30.0, (600, 100))
+    base = _moved(align(fixed, moving, centered=(_X,)), face_center(moving))
+    shifted = _moved(
+        align(fixed, moving, offset=Vec3(7, 3, 0), centered=(_X,)), face_center(moving)
+    )
+    assert _close(shifted - base, Vec3(7, 3, 0))
+
+
+@pytest.mark.parametrize("degrees", [45.0, -45.0, 135.0, 225.0])
+def test_egalite_a_45_degres_est_deterministe_et_parallele(degrees: float) -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    moving = _turned_in_plane(Vec3(200, -150, 20), degrees, (600, 100))
+    first = align(fixed, moving, AlignMode.FLUSH, centered=(_X,))
+    assert first == align(fixed, moving, AlignMode.FLUSH, centered=(_X,))
+    edge = _direction(first, moving.frame.x)
+    assert abs(edge.x * edge.y) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_d_equerre_la_normale_mobile_devient_parallele_a_une_arete() -> None:
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    side = FaceTarget("F", Frame(Vec3(200, -150, 30), _Y, _Z, _X), (40, 20), True)
+    motion = align(fixed, side, AlignMode.PERPENDICULAR, centered=(_X,))
+    normal = _direction(motion, side.frame.z)
+    assert normal.z == pytest.approx(0.0, abs=1e-9)
+    assert abs(normal.x * normal.y) == pytest.approx(0.0, abs=1e-9)
