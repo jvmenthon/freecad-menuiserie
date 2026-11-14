@@ -132,3 +132,7 @@ de répétitions m5) sont corrigés.
 - `gui/task_panels/align.py` : aucun test GUI ne couvre l'envoi forcé de la position automatique
   sur un axe ; `_combo_row` pourrait recevoir ses éléments en paramètre (revue de l'alignement
   sur un axe, PR #254).
+- `core/align/_align.py` (`_squared`, revue de la mise en parallèle, PR #254) : à 45° ± bruit
+  numérique, le choix du quart de tour peut basculer d'un sens à l'autre (inhérent à l'arrondi) ;
+  `Alignment.angle` ne compte pas ce tour en plus (non affiché aujourd'hui) ; `_product` irait
+  mieux dans `core/geometry.py` avec `Matrix3`.

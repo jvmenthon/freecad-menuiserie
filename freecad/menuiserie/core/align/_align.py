@@ -15,7 +15,7 @@ la pièce qui bouge. Aucun import de FreeCAD ni de Qt.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Final
 
@@ -281,8 +281,7 @@ def align(
         motion = _squared(motion, fixed, moving)
     # Centrage mesuré sans décalage (sur un axe, le décalage allonge le trajet le long de l'axe :
     # ce n'est pas une simple translation), puis ajouté au mouvement décalé.
-    bare = plane_motion(fixed, moving, mode, NO_OFFSET, axis)
-    bare = Alignment(motion.rotation, bare.pivot, bare.shift, bare.angle, bare.mode)
+    bare = replace(plane_motion(fixed, moving, mode, NO_OFFSET, axis), rotation=motion.rotation)
     extra = _centering(bare, fixed, moving, axes)
     if not is_finite(extra):
         raise AlignError(INVALID_OFFSET, {})
