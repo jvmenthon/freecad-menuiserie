@@ -127,6 +127,16 @@ de répétitions m5) sont corrigés.
 | rg4 | mineur | `features/repeat_copies.py` (`_renumber`) | Le rang et les libellés automatiques suivent la grille, mais un libellé de copie que l'utilisateur a tapé à la main et qui ressemble au libellé automatique d'un autre rang est pris pour automatique. | Mémoriser le libellé attribué (propriété cachée) plutôt que le déduire. |
 | rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |
 
+- `gui/task_panels/align.py` importe `report_refusal` de `gui/commands/base.py`, comme le panneau
+  de distance : déplacer cette fonction dans un module neutre de `gui/` (revue de la PR #254).
+- `gui/task_panels/align.py` : aucun test GUI ne couvre l'envoi forcé de la position automatique
+  sur un axe ; `_combo_row` pourrait recevoir ses éléments en paramètre (revue de l'alignement
+  sur un axe, PR #254).
+- `core/align/_align.py` (`_squared`, revue de la mise en parallèle, PR #254) : à 45° ± bruit
+  numérique, le choix du quart de tour peut basculer d'un sens à l'autre (inhérent à l'arrondi) ;
+  `Alignment.angle` ne compte pas ce tour en plus (non affiché aujourd'hui) ; `_product` irait
+  mieux dans `core/geometry.py` avec `Matrix3`.
+
 ## Relecture « nommage topologique » (PR #255, ADR 0056), 2026-11-13
 
 | N° | Niveau | Où | Problème | Correction proposée |

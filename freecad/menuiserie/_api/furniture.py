@@ -11,6 +11,7 @@ from typing import Any
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.align import AlignMode
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -24,6 +25,7 @@ from freecad.menuiserie.features import (
     furniture_material,
     furniture_members,
     furniture_resize,
+    part_align,
     templates,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -336,3 +338,41 @@ def make_carcass(
             for obj in group:
                 provider(obj.ViewObject)
     return built.furniture, _reported(built.notices, document)
+
+
+def align_faces(
+    first: PickedElement,
+    second: PickedElement,
+    *,
+    mode: str = "auto",
+    offset: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    axis: str | None = None,
+    centered: str = "",
+) -> _Notices:
+    """Aligne deux faces planes de deux objets : la pièce de l'atelier qui porte ``second`` (sinon
+    celle de ``first`` ; pour déplacer l'autre, inverser les deux arguments) pivote d'abord pour
+    que les faces soient parallèles, puis glisse jusqu'au même plan (ADR 0054). Dans l'interface, la
+    commande « Aligner deux faces » ouvre un panneau (aperçu, Inverser, Annuler) qui appelle la
+    même logique.
+
+    ``mode`` : ``"auto"`` (la plus petite rotation), ``"flush"`` (au ras : les deux faces
+    regardent du même côté), ``"facing"`` (face contre face) ou ``"perpendicular"`` (faces
+    d'équerre). ``offset`` (mm) : décalage de plus dans le repère de la face de référence (deux
+    axes dans son plan, le 3e le long de sa normale). ``axis`` (``"X"``, ``"Y"`` ou ``"Z"`` du
+    conteneur) : alignement sur cet axe seul, sans rotation (faces déjà parallèles, seul le 3e
+    décalage compte). ``centered`` (``"X"``, ``"XY"``, ``"XYZ"``…) : sur chacun de ces axes du
+    conteneur, le centre de la face déplacée vient sur celui de l'autre face ; ``"XYZ"`` les
+    confond d'un coup. Un objet d'un autre atelier ne bouge jamais ; membre d'ensemble :
+    l'ensemble est relié ensuite. Refus avant toute modification (``ValueError`` traduite) : pas
+    deux faces planes, même objet, aucune pièce de l'atelier, position pilotée par une formule,
+    mode ou axe inconnu, décalage non fini, et sur un axe : faces non parallèles, axe dans leur
+    plan ou presque (pente < 0,05), mode d'équerre. Renvoie les avertissements traduits (aussi
+    dans la vue rapport). Aucune transaction n'est ouverte."""
+    try:
+        chosen = AlignMode(mode)
+    except ValueError:
+        raise ValueError(f"mode d'alignement inconnu : {mode!r}") from None
+    aligner = part_align.FaceAlign(first, second)
+    _alignment, messages = aligner.apply(chosen, Vec3(*offset), axis=axis, centered=centered)
+    report(messages)
+    return tuple(messages)

@@ -83,6 +83,7 @@ from freecad.menuiserie._api.cutlist import (
 )
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
+    align_faces,
     furniture_of,
     make_carcass,
     make_furniture,
@@ -158,6 +159,7 @@ __all__ = [
     "SpacingMode",
     "Stop",
     "add_to_furniture",
+    "align_faces",
     "blank_of",
     "close_gap",
     "closing_options",
