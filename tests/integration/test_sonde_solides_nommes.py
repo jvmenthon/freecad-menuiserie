@@ -261,9 +261,60 @@ def _python_feature(report: list[str], doc: Any) -> None:
     report.extend(_describe("forme importée (composé)", plain))
 
 
+class _Suiveur:
+    """Proxy qui recopie le premier solide de sa source et réécrit son propre lien de faces."""
+
+    def __init__(self, obj: Any) -> None:
+        obj.Proxy = self
+        obj.addProperty("App::PropertyLink", "Source")
+        obj.addProperty("App::PropertyLinkSub", "Faces")
+        obj.addProperty("App::PropertyString", "Empreinte")
+        obj.setPropertyStatus("Faces", "Output")
+        obj.setPropertyStatus("Empreinte", "Output")
+        self.runs = 0
+
+    def execute(self, obj: Any) -> None:
+        self.runs += 1
+        shape = obj.Source.Shape
+        obj.Shape = shape.Solids[0].copy()
+        kept = [sub for sub in obj.Faces[1] if not sub.startswith("?")] if obj.Faces else []
+        wanted = [f"Face{index}" for index in range(1, 4)]
+        if kept != wanted:
+            obj.Faces = (obj.Source, wanted)
+        obj.Empreinte = f"{shape.Solids[0].Volume:.3f}"
+
+    def dumps(self) -> None:
+        return None
+
+    def loads(self, _state: object) -> None:
+        return None
+
+
+def _self_writing(report: list[str], doc: Any) -> None:
+    board = _feature_box(doc, "PlancheS", 0, (300, 50, 20))
+    saw = _feature_box(doc, "ScieS", 100, (10, 80, 40))
+    cut = doc.addObject("Part::Cut", "CoupeS")
+    cut.Base, cut.Tool = board, saw
+    doc.recompute()
+    follower = doc.addObject("Part::FeaturePython", "Suiveur")
+    proxy = _Suiveur(follower)
+    follower.Source = cut
+    follower.Faces = (cut, ["Face1"])
+    for step, length in enumerate((300, 350, 400)):
+        board.Length = length
+        count = doc.recompute()
+        report.append(
+            f"  suiveur étape {step} : recalculés={count} exécutions={proxy.runs} "
+            f"état={follower.State} faces={follower.Faces[1]} empreinte={follower.Empreinte} "
+            f"à recalculer={[o.Name for o in doc.Objects if 'Touched' in o.State]}"
+        )
+    again = doc.recompute()
+    report.append(f"  suiveur, recalcul à vide : recalculés={again} exécutions={proxy.runs}")
+
+
 def test_sonde(document: Any) -> None:
     report: list[str] = [f"FreeCAD {'.'.join(App.Version()[:3])}"]
-    probes: list[Callable[[list[str], Any], None]] = [_body, _cut]
+    probes: list[Callable[[list[str], Any], None]] = [_self_writing]
     for probe in probes:
         try:
             probe(report, document)
