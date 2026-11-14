@@ -111,7 +111,9 @@ def length_field_widgets(path: Path) -> set[str]:
 # --- Imports Qt --------------------------------------------------------------------------
 
 QTEST_ENTRY = ROOT / "tests" / "qtest" / "qttest.py"
-QTEST_PREFIXES = ("PySide6.QtTest", "PySide2.QtTest")
+QTEST_MODULES = frozenset(
+    {"PySide6.QtTest", "PySide6.QtTest.QTest", "PySide2.QtTest", "PySide2.QtTest.QTest"}
+)
 
 
 @pytest.mark.parametrize(
@@ -121,7 +123,7 @@ def test_qt_par_la_couche_de_freecad(path: Path) -> None:
     modules = imported_modules(path)
     fautifs = sorted(m for m in modules if m.split(".")[0] in FORBIDDEN_QT)
     if path == QTEST_ENTRY:  # seule exception : QtTest, absent de la couche PySide de FreeCAD
-        fautifs = [m for m in fautifs if not m.startswith(QTEST_PREFIXES)]
+        fautifs = [m for m in fautifs if m not in QTEST_MODULES]
     assert fautifs == [], f"{path.relative_to(ROOT)} importe {fautifs}"
 
 

@@ -7,7 +7,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté (outillage)
 
-- Preuve de concept de tests d'interface avec QTest, joués dans le vrai FreeCAD par son mode test (`freecad -t tests.qtest.scenario_queue_aronde`, sous `xvfb-run` dans la CI) : deux pièces de 20 cm de large créées par la commande et son panneau (saisie au clavier), la seconde tournée de 90°, queue d'aronde à 10° avec 4 griffes de 30 mm, puis vérification des cotes, des placements, de la validité de l'assemblage, des volumes usinés et de l'historique d'annulation. `faulthandler` donne la pile Python en cas de plantage. Voir `docs/tests-gui-qtest.md`.
+- Preuve de concept de tests d'interface avec QTest (#263, ADR 0059) : un scénario complet (deux pièces, rotation, queue d'aronde) est joué au clavier et à la souris dans le vrai FreeCAD par son mode test, sous `xvfb-run` dans la CI. Voir `docs/tests-gui-qtest.md`.
 
 ### Modifié
 

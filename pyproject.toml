@@ -74,10 +74,8 @@ module = [
     "Part",
     "PySide",
     "PySide.*",
-    "PySide2",
-    "PySide2.*",
-    "PySide6",
-    "PySide6.*",
+    "PySide2.QtTest",  # tests/qtest/qttest.py seulement (ADR 0059)
+    "PySide6.QtTest",
     "pivy",
     "pivy.*",
 ]

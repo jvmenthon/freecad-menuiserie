@@ -104,7 +104,8 @@ ou transitoire (« 3 » en tapant « 32 »). Elle ne doit jamais figer ni faire 
 3. **Annuler / rétablir** : chaque commande encadrée par `openTransaction` / `commitTransaction`.
 4. **Chargement léger** : imports différés dans `Initialize()`.
 5. **Qt** : toujours `from PySide import QtCore, QtGui` (couche de compatibilité FreeCAD),
-   jamais `PySide2` ni `PySide6`.
+   jamais `PySide2` ni `PySide6`. Seule exception (ADR 0059) : `tests/qtest/qttest.py`, unique
+   point d'entrée de `QtTest`, que la couche `PySide` n'expose pas ; jamais dans `freecad/`.
 6. **Traductions** : toute chaîne visible passe par `translate()` ou `QT_TRANSLATE_NOOP`.
 7. **Unités** : mm en interne, propriétés `App::PropertyLength` pour les cotes.
 

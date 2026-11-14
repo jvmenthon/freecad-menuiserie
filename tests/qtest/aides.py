@@ -12,7 +12,6 @@ l'utilisateur. La vue 3D n'est jamais cliquée au pixel près : la sélection y 
 from __future__ import annotations
 
 import faulthandler
-import gc
 import os
 import sys
 from collections.abc import Callable
@@ -24,6 +23,7 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from tests.gui.verifications_double_clic import vue_3d_active
+from tests.gui.verifications_panneau import formulaire_nomme
 from tests.qtest.qttest import QTest
 
 ATELIER = "MenuiserieWorkbench"
@@ -34,22 +34,27 @@ PAS_MS = 50
 
 Widget = Any
 
-_journal_des_plantages: list[Any] = []
 
-
-def activer_faulthandler() -> None:
-    """Pile Python de tous les fils écrite si FreeCAD plante dans du code C++ (SIGSEGV…).
+def activer_faulthandler() -> Callable[[], None]:
+    """Pile Python de tous les fils écrite si FreeCAD plante dans du code C++ (SIGSEGV…) ; renvoie
+    la fonction qui l'arrête (à passer à ``unittest.addModuleCleanup``).
 
     La sortie standard de FreeCAD est une console Python sans descripteur de fichier : la pile
     va dans le fichier ``PILE_EN_CAS_DE_PLANTAGE`` s'il est défini (la CI l'affiche en cas
     d'échec), sinon dans la sortie d'erreur d'origine du processus."""
     chemin = os.environ.get(PILE_EN_CAS_DE_PLANTAGE)
-    if chemin:
-        fichier = Path(chemin).open("w", encoding="utf-8")  # noqa: SIM115 (ouvert jusqu'au bout)
-        _journal_des_plantages.append(fichier)
-        faulthandler.enable(file=fichier, all_threads=True)
-    elif sys.__stderr__ is not None:
-        faulthandler.enable(file=sys.__stderr__, all_threads=True)
+    if not chemin:
+        if sys.__stderr__ is not None:
+            faulthandler.enable(file=sys.__stderr__, all_threads=True)
+        return faulthandler.disable
+    fichier = Path(chemin).open("w", encoding="utf-8")  # noqa: SIM115 (fermé par ``arreter``)
+    faulthandler.enable(file=fichier, all_threads=True)
+
+    def arreter() -> None:
+        faulthandler.disable()
+        fichier.close()
+
+    return arreter
 
 
 def traiter_les_evenements() -> None:
@@ -57,13 +62,18 @@ def traiter_les_evenements() -> None:
 
 
 def preparer(nom: str) -> Any:
-    """Nouveau document avec annulation, atelier actif et vue 3D du document au premier plan."""
+    """Nouveau document avec annulation, atelier actif et vue 3D du document au premier plan ;
+    le document est refermé si la préparation échoue."""
     doc = App.newDocument(nom)
-    doc.UndoMode = 1
-    Gui.activateWorkbench(ATELIER)
-    traiter_les_evenements()
-    vue_3d_active(doc)
-    traiter_les_evenements()
+    try:
+        doc.UndoMode = 1
+        Gui.activateWorkbench(ATELIER)
+        traiter_les_evenements()
+        vue_3d_active(doc)
+        traiter_les_evenements()
+    except Exception:
+        App.closeDocument(doc.Name)
+        raise
     return doc
 
 
@@ -76,30 +86,21 @@ def fermer(doc: Any) -> None:
     traiter_les_evenements()
 
 
-def widgets_nommes(nom: str) -> list[Widget]:
-    """Widgets d'objectName ``nom`` (ramasse-miettes suspendu pendant le parcours, comme dans
-    ``tests/gui/verifications_panneau.formulaire_nomme``)."""
-    gc.collect()
-    gc.disable()
-    try:
-        return [w for w in QtGui.QApplication.allWidgets() if w.objectName() == nom]
-    finally:
-        gc.enable()
-
-
 def formulaire(nom: str) -> Widget:
     """Formulaire ``nom`` du panneau de tâche ouvert ; échec explicite s'il n'y en a pas."""
-    trouves = widgets_nommes(nom) if Gui.Control.activeDialog() else []
-    if not trouves:
+    form = formulaire_nomme(nom)
+    if form is None:
         raise LookupError(f"panneau {nom} non ouvert")
-    return trouves[0]
+    return form
 
 
 def enfant(form: Widget, nom: str) -> Widget:
-    """Widget ``nom`` du formulaire ``form``."""
+    """L'unique widget ``nom`` du formulaire ``form``."""
     trouves = [w for w in form.findChildren(QtGui.QWidget) if w.objectName() == nom]
-    if not trouves:
-        raise LookupError(f"widget {nom} absent du panneau {form.objectName()}")
+    if len(trouves) != 1:
+        raise LookupError(
+            f"{len(trouves)} widgets {nom} dans le panneau {form.objectName()} au lieu d'un"
+        )
     return trouves[0]
 
 
@@ -120,7 +121,10 @@ def cliquer(widget: Widget) -> None:
 
 
 def bouton_ok() -> Widget:
-    """Bouton « OK » du panneau de tâche ouvert, dans la vue des tâches de FreeCAD."""
+    """Bouton « OK » du panneau de tâche ouvert, dans la vue des tâches de FreeCAD.
+
+    Plus strict que ``tests/gui/verifications_panneau_ensemble.bouton_ok`` (premier trouvé, ou
+    ``None``) : le bouton va être cliqué, il doit être visible et le seul."""
     ok = QtGui.QDialogButtonBox.StandardButton.Ok
     boutons = [
         boite.button(ok)

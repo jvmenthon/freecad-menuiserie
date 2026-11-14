@@ -42,6 +42,8 @@ PIECE_EN_BOIS = "Menuiserie_WoodPart"
 QUEUE_D_ARONDE = "Menuiserie_Dovetail"
 PANNEAU_PIECE = "WoodPartTaskPanel"
 PANNEAU_ASSEMBLAGE = "JointTaskPanel"
+TYPE_QUEUE_D_ARONDE = "Menuiserie::Dovetail"
+DEPLACEMENT = "Déplacer une pièce"
 LONGUEUR, LARGEUR, EPAISSEUR = 500.0, 200.0, 22.0
 GRIFFES, LARGEUR_GRIFFE, ANGLE = 4, 30.0, 10.0
 QUEUES = GRIFFES - 1
@@ -57,7 +59,7 @@ TOLERANCE_MM3 = 1.0
 
 
 def setUpModule() -> None:
-    activer_faulthandler()
+    unittest.addModuleCleanup(activer_faulthandler())
 
 
 def creer_une_piece(doc: Any, angle_y: float | None = None) -> Any:
@@ -78,7 +80,7 @@ def creer_une_piece(doc: Any, angle_y: float | None = None) -> Any:
 
 def poser(doc: Any, piece: Any, base: App.Vector) -> None:
     """Remplace le glissement à la souris : position écrite, annulable comme un geste."""
-    doc.openTransaction("Déplacer une pièce")
+    doc.openTransaction(DEPLACEMENT)
     piece.Placement = App.Placement(base, piece.Placement.Rotation)
     doc.commitTransaction()
     doc.recompute()
@@ -88,6 +90,28 @@ def regler(form: Any, nom: str, texte: str) -> None:
     """Décoche la case « Auto » du paramètre ``nom`` puis tape sa valeur."""
     cliquer(enfant(form, f"{nom}Auto"))
     taper(enfant(form, nom), texte)
+
+
+def jouer(doc: Any) -> tuple[Any, Any, Any]:
+    """Le scénario : renvoie la pièce à griffes, la pièce à queues et l'assemblage."""
+    hote = creer_une_piece(doc)
+    invitee = creer_une_piece(doc, angle_y=90.0)
+    # Pièce 2 debout sur le bout de la pièce 1, sa face extérieure à fleur de ce bout.
+    poser(doc, invitee, App.Vector(LONGUEUR - EPAISSEUR, 0, EPAISSEUR + LONGUEUR))
+    avant = set(doc.Objects)
+    selectionner(invitee, hote)  # la première sélectionnée porte les queues
+    lancer(QUEUE_D_ARONDE)
+    form = formulaire(PANNEAU_ASSEMBLAGE)
+    regler(form, "TailCount", str(QUEUES))
+    regler(form, "PinWidth", f"{LARGEUR_GRIFFE:g} mm")
+    regler(form, "Angle", f"{ANGLE:g}")
+    cliquer(bouton_ok())
+    (assemblage,) = (
+        obj
+        for obj in doc.Objects
+        if obj not in avant and getattr(obj.Proxy, "TYPE", "") == TYPE_QUEUE_D_ARONDE
+    )
+    return hote, invitee, assemblage
 
 
 class QueueDAronde(unittest.TestCase):
@@ -102,21 +126,7 @@ class QueueDAronde(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.doc = preparer("ScenarioQueueDAronde")
         cls.addClassCleanup(fermer, cls.doc)
-        cls.hote = creer_une_piece(cls.doc)
-        cls.invitee = creer_une_piece(cls.doc, angle_y=90.0)
-        # Pièce 2 debout sur le bout de la pièce 1, sa face extérieure à fleur de ce bout.
-        poser(cls.doc, cls.invitee, App.Vector(LONGUEUR - EPAISSEUR, 0, EPAISSEUR + LONGUEUR))
-        avant = set(cls.doc.Objects)
-        selectionner(cls.invitee, cls.hote)  # la première sélectionnée porte les queues
-        lancer(QUEUE_D_ARONDE)
-        form = formulaire(PANNEAU_ASSEMBLAGE)
-        regler(form, "TailCount", str(QUEUES))
-        regler(form, "PinWidth", f"{LARGEUR_GRIFFE:g} mm")
-        regler(form, "Angle", f"{ANGLE:g}")
-        cliquer(bouton_ok())
-        (cls.assemblage,) = (
-            obj for obj in cls.doc.Objects if obj not in avant and hasattr(obj, "HostPart")
-        )
+        cls.hote, cls.invitee, cls.assemblage = jouer(cls.doc)
         selectionner()
         capturer("queue-aronde")
 
@@ -124,7 +134,7 @@ class QueueDAronde(unittest.TestCase):
         for piece in (self.hote, self.invitee):
             with self.subTest(piece=piece.Label):
                 self.assertAlmostEqual(piece.Length.Value, LONGUEUR, delta=TOLERANCE_MM)
-                self.assertAlmostEqual(piece.Width.Value, LARGEUR, delta=TOLERANCE_MM)
+                self.assertAlmostEqual(piece.Width.Value, 200.0, delta=TOLERANCE_MM)  # 20 cm
                 self.assertAlmostEqual(piece.Thickness.Value, EPAISSEUR, delta=TOLERANCE_MM)
 
     def test_placements(self) -> None:
@@ -140,11 +150,12 @@ class QueueDAronde(unittest.TestCase):
     def test_parametres_de_l_assemblage(self) -> None:
         joint = self.assemblage
         self.assertEqual(joint.TypeId, "Part::FeaturePython")
-        self.assertEqual(joint.Proxy.TYPE, "Menuiserie::Dovetail")
+        self.assertEqual(joint.Proxy.TYPE, TYPE_QUEUE_D_ARONDE)
         self.assertEqual((joint.HostPart, joint.GuestPart), (self.hote, self.invitee))
-        self.assertEqual(joint.TailCount, QUEUES)
-        self.assertAlmostEqual(joint.PinWidth.Value, LARGEUR_GRIFFE, delta=TOLERANCE_MM)
-        self.assertAlmostEqual(joint.Angle.Value, ANGLE, delta=TOLERANCE_MM)
+        # Valeurs de la demande écrites en clair : 4 griffes (donc 3 queues) de 30 mm, à 10°.
+        self.assertEqual(joint.TailCount, 3)
+        self.assertAlmostEqual(joint.PinWidth.Value, 30.0, delta=TOLERANCE_MM)
+        self.assertAlmostEqual(joint.Angle.Value, 10.0, delta=TOLERANCE_MM)
 
     def test_assemblage_valide(self) -> None:
         self.assertFalse(self.doc.RecomputesFrozen)
@@ -168,13 +179,39 @@ class QueueDAronde(unittest.TestCase):
         self.assertAlmostEqual(hote.Shape.common(invitee.Shape).Volume, 0.0, delta=TOLERANCE_MM3)
 
     def test_annulation(self) -> None:
-        """Une entrée d'annulation par geste de l'utilisateur."""
+        """Une entrée d'annulation par geste de l'utilisateur (libellés sources de l'atelier,
+        sauf « Déplacer une pièce », écrit par ce scénario)."""
         self.assertEqual(
             self.doc.UndoNames,
             [
                 "Créer un assemblage à queue d'aronde",
-                "Déplacer une pièce",
+                DEPLACEMENT,
                 "Créer une pièce de bois",
                 "Créer une pièce de bois",
             ],
         )
+
+
+class AnnulerPuisRetablir(unittest.TestCase):
+    """Ctrl+Z puis Ctrl+Y sur l'assemblage : il disparaît avec ses pièces usinées, puis revient
+    à l'identique. Joué après ``QueueDAronde`` (ordre alphabétique des classes), dans son propre
+    document."""
+
+    def test_annuler_puis_retablir(self) -> None:
+        doc = preparer("ScenarioAnnulerRetablir")
+        self.addCleanup(fermer, doc)
+        hote, invitee, assemblage = jouer(doc)
+        nom = assemblage.Name
+        volumes = [usinee_de(piece).Shape.Volume for piece in (hote, invitee)]
+        lancer("Std_Undo")
+        self.assertIsNone(doc.getObject(nom))
+        self.assertEqual(len(doc.Objects), 2)
+        self.assertAlmostEqual(hote.Shape.Volume, VOLUME_BRUT, delta=TOLERANCE_MM3)
+        lancer("Std_Redo")
+        doc.recompute()
+        self.assertIsNotNone(doc.getObject(nom))
+        for obj in doc.Objects:
+            with self.subTest(objet=obj.Label):
+                self.assertNotIn("Invalid", obj.State)
+        for piece, volume in zip((hote, invitee), volumes, strict=True):
+            self.assertAlmostEqual(usinee_de(piece).Shape.Volume, volume, delta=TOLERANCE_MM3)
