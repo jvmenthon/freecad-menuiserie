@@ -225,6 +225,8 @@ class JointFeature(StatelessProxy):
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         _globalize_links(obj)
+        if "Frames" in obj.PropertiesList:  # lien des essais de la PR #249 : cycle avec le Std Part
+            obj.removeProperty("Frames")
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN, self.choices())
         for name, choices in self.choices().items():
             if name in obj.PropertiesList and obj.getEnumerationsOfProperty(name) != choices:
