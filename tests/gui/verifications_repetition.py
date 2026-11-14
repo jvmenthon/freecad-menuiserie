@@ -11,6 +11,7 @@ ses problèmes.
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from typing import Any
 
@@ -549,6 +550,103 @@ def verifier_dissocier_la_copie() -> list[str]:
     return avec_document("VerifRepetitionDissocie", _dissocier)
 
 
+def _dissocier_copie_usinee(doc: Any) -> list[str]:
+    """Bug de jv (2026-11-14) : une copie assemblée est affichée et choisie par sa pièce usinée ;
+    la commande doit la dissocier quand même."""
+    barreau, copie, _montant, _usinee_montant = _copie_assemblee(doc)
+    usinee = api.machined_part_of(copie)
+    if usinee is None:
+        return ["copie sans pièce usinée"]
+    lancer(DISSOCIER, usinee)
+    return [
+        *ecarts("copie libre", repeat.is_copy(copie), False),
+        *ecarts("source intacte", repeat.is_copy(barreau), False),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+    ]
+
+
+def verifier_dissocier_par_la_piece_usinee() -> list[str]:
+    """« Dissocier la copie » sur la pièce usinée d'une copie assemblée."""
+    return avec_document("VerifRepetitionDissocieUsinee", _dissocier_copie_usinee)
+
+
+def _commande_active_sur(*objets: Any) -> bool:
+    from tests.gui.verifications_assemblages import selectionner
+
+    selectionner(*objets)
+    return bool(Gui.Command.get(DISSOCIER).isActive())
+
+
+def _copie_assemblee(doc: Any) -> tuple[Any, Any, Any, Any]:
+    """Barreau répété, sa première copie assemblée à un montant, et la pièce usinée du montant."""
+    barreau, rep = _repetition_existante(doc)
+    copie = copies_de(rep)[0]
+    montant = api.make_wood_part(300, 40, 22, "chene", mark="Montant", doc=doc)
+    montant.Placement = App.Placement(App.Vector(740, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    doc.recompute()
+    api.make_loose_tenons(montant, copie)
+    doc.clearUndos()
+    return barreau, copie, montant, api.machined_part_of(montant)
+
+
+def _dissocier_selection_melangee(doc: Any) -> list[str]:
+    barreau, copie, montant, usinee_montant = _copie_assemblee(doc)
+    usinee = api.machined_part_of(copie)
+    problemes = [
+        *ecarts("pièce usinée d'une pièce libre", _commande_active_sur(usinee_montant), False),
+        *ecarts("copie usinée + pièce libre", _commande_active_sur(usinee, montant), False),
+        *ecarts("copie usinée + source", _commande_active_sur(usinee, barreau), False),
+    ]
+    lancer(DISSOCIER, copie, usinee)  # la même copie deux fois : une seule dissociation
+    return [
+        *problemes,
+        *ecarts("copie libre", repeat.is_copy(copie), False),
+        *ecarts("une seule entrée", doc.UndoNames, ["Dissocier la copie"]),
+    ]
+
+
+def verifier_dissocier_selection_melangee() -> list[str]:
+    """Sélections mêlées : pièce usinée d'une pièce libre (inactive), copie avec une pièce libre
+    (inactive), copie et sa pièce usinée (une seule dissociation)."""
+    return avec_document("VerifRepetitionDissocieMelange", _dissocier_selection_melangee)
+
+
+def _fermeture_pendant_l_apercu(doc: Any) -> list[str]:
+    """FreeCAD ferme le panneau pendant le calcul de l'aperçu (erreur de jv « QLabel already
+    deleted ») : rien n'écrit plus dans le formulaire et aucune transaction n'est rouverte."""
+    _barreau, rep = _repetition_existante(doc)
+    lancer(MODIFIER, rep)
+    form = panneau()
+    if form is None:
+        return ["panneau « Modifier la répétition » non ouvert"]
+    erreurs: list[str] = []
+    origine = api.edit_repeat  # le panneau lit api.edit_repeat à chaque aperçu
+
+    def puis_fermer(*args: Any, **kwargs: Any) -> None:
+        origine(*args, **kwargs)
+        annuler()  # le formulaire est détruit pendant _apply
+
+    capte = sys.excepthook
+    sys.excepthook = lambda kind, value, trace: erreurs.append(f"{kind.__name__}: {value}")
+    api.edit_repeat = puis_fermer
+    try:
+        widget(form, "countX").setValue(3)
+        QtGui.QApplication.processEvents()
+    finally:
+        api.edit_repeat = origine
+        sys.excepthook = capte
+    return [
+        *ecarts("exceptions", erreurs, []),
+        *ecarts("panneau fermé", panneau() is None, True),
+        *ecarts("aucune transaction ouverte", App.getActiveTransaction(), None),
+    ]
+
+
+def verifier_fermeture_pendant_l_apercu() -> list[str]:
+    """Panneau fermé pendant l'aperçu : aucune écriture dans un widget détruit."""
+    return avec_document("VerifRepetitionFermeApercu", _fermeture_pendant_l_apercu)
+
+
 def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
     gauche, droite = source(doc, "Gauche"), source(doc, "Droite")
     droite.Placement = App.Placement(App.Vector(0, 100, 0), App.Rotation())
@@ -650,6 +748,9 @@ VERIFICATIONS_REPETITION: tuple[Callable[[], list[str]], ...] = (
     verifier_modifier_le_nombre,
     verifier_modification_annulee,
     verifier_dissocier_la_copie,
+    verifier_dissocier_par_la_piece_usinee,
+    verifier_dissocier_selection_melangee,
+    verifier_fermeture_pendant_l_apercu,
     verifier_dissocier_un_ensemble_et_son_membre,
     verifier_double_clic,
     verifier_document_ferme_panneau_ouvert,

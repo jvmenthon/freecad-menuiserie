@@ -20,7 +20,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.machined_part import is_machined_part
+from freecad.menuiserie.features.machined_part import blank_or_self
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.repeat_copies import checked_sources
 from freecad.menuiserie.features.shaped_part import is_timber
@@ -42,7 +42,7 @@ COMMANDS: Final = (REPEAT, REPEAT_EDIT, REPEAT_DISSOCIATE)
 def is_repeatable(obj: DocumentObject) -> bool:
     """Vrai pour une pièce de bois, une pièce en bois ou un ensemble qui n'est pas déjà une copie
     liée, ou pour la pièce usinée d'une pièce de bois (la répétition porte sur la pièce brute)."""
-    blank = obj.Base if is_machined_part(obj) else obj
+    blank = blank_or_self(obj)
     return (is_timber(blank) or is_furniture(blank)) and not is_copy(blank)
 
 
@@ -61,15 +61,18 @@ def selected_repeat() -> DocumentObject | None:
     if len(selection) != 1:
         return None
     chosen = selection[0]
-    return api.repeat_of(chosen.Base if is_machined_part(chosen) else chosen)
+    return api.repeat_of(blank_or_self(chosen))
 
 
 def selected_copies() -> list[DocumentObject] | None:
-    """Sélection, si elle n'est faite que de copies liées (``None`` sinon)."""
-    selection = Gui.Selection.getSelection()
-    if not selection or not all(is_copy(obj) for obj in selection):
+    """Copies liées sélectionnées, chacune une fois, ou ``None`` si la sélection contient autre
+    chose. Une pièce usinée compte pour sa brute : une copie assemblée est affichée et choisie
+    par sa pièce usinée."""
+    blanks = [blank_or_self(obj) for obj in Gui.Selection.getSelection()]
+    if not blanks or not all(is_copy(obj) for obj in blanks):
         return None
-    return list(selection)
+    unique = {obj.Name: obj for obj in blanks}  # copie et sa pièce usinée : une seule fois
+    return list(unique.values())
 
 
 class RepeatCommand(TransactionCommand):
