@@ -352,6 +352,69 @@ def capturer_la_feuille_de_debit(dossier: Path, fenetre) -> None:
     fenetre.grab().save(str(dossier / "feuille-de-debit.png"))
 
 
+MAX_PLANS = 4  # plans de pièce capturés au plus
+LARGEUR_PLAN_PX = 2000
+
+
+def rendre_la_page(page: Any, chemin: Path) -> None:
+    """Page TechDraw exportée en SVG par TechDraw puis rendue en PNG par Qt, fond blanc."""
+    import TechDrawGui
+    from PySide import QtGui, QtSvg
+
+    with tempfile.TemporaryDirectory() as dossier:
+        svg = os.path.join(dossier, "page.svg")
+        TechDrawGui.exportPageAsSvg(page, svg)
+        rendu = QtSvg.QSvgRenderer(svg)
+        taille = rendu.defaultSize()
+        echelle = LARGEUR_PLAN_PX / max(taille.width(), 1)
+        image = QtGui.QImage(
+            int(taille.width() * echelle),
+            int(taille.height() * echelle),
+            QtGui.QImage.Format_ARGB32,
+        )
+        image.fill(QtGui.QColor("white"))
+        peintre = QtGui.QPainter(image)
+        rendu.render(peintre)
+        peintre.end()
+        image.save(str(chemin))
+
+
+ATTENTE_DES_VUES_MS = 3000  # calcul des lignes cachées (HLR) des vues, en tâche de fond
+
+
+def attendre_les_vues(doc: Any) -> None:
+    """Laisse TechDraw finir ses vues (calculées dans des fils à part dans l'interface), puis
+    recalcule le document pour que les cotes lisent la géométrie finie."""
+    from PySide import QtCore
+
+    for _ in range(2):
+        boucle = QtCore.QEventLoop()
+        QtCore.QTimer.singleShot(ATTENTE_DES_VUES_MS, boucle.quit)
+        boucle.exec()
+        doc.recompute()
+        Gui.updateGui()
+
+
+def capturer_les_plans(dossier: Path) -> None:
+    """Plan de l'ouvrage de tout le document de la scène et ses premiers plans de pièce
+    (``plan-ouvrage.png``, ``plan-piece-<n>.png``) : pour juger la lisibilité des pages."""
+    from freecad.menuiserie import api
+    from freecad.menuiserie.features.drawing import document_scope
+    from freecad.menuiserie.gui.drawing_pdf import show_page
+
+    doc = App.ActiveDocument
+    pages = [
+        ("plan-ouvrage", api.make_overall_drawing(doc, document_scope(doc))),
+        ("plan-eclate", api.make_exploded_drawing(doc, document_scope(doc))),
+    ]
+    pieces = api.make_part_drawings(doc, [])[:MAX_PLANS]
+    pages += [(f"plan-piece-{rang}", page) for rang, page in enumerate(pieces, start=1)]
+    for nom, page in pages:
+        show_page(page)
+        attendre_les_vues(doc)
+        rendre_la_page(page, dossier / f"{nom}.png")
+
+
 def volet_des_taches(fenetre):
     """Volet « Tasks », une fois affiché. FreeCAD 1.1 le place dans un panneau superposé à la
     vue 3D, qui glisse depuis le bord de la fenêtre : on laisse l'animation se terminer."""
@@ -391,6 +454,10 @@ def main() -> None:
         with bibliotheque_de_captures():
             construire()
             capturer(dossier)
+            try:
+                capturer_les_plans(dossier)
+            except Exception:  # les captures de l'interface restent utiles sans les plans
+                (dossier / "ERREUR-PLANS").write_text(traceback.format_exc(), encoding="utf-8")
             construire_gros_plan()
             capturer_gros_plan(dossier)
         (dossier / "OK").write_text("OK\n", encoding="utf-8")

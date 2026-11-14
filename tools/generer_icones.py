@@ -120,6 +120,70 @@ def export_liste_de_debit_pdf() -> str:
     return document(["  <!-- Export de la liste de débit (PDF) -->", feuille(6), pdf])
 
 
+def _plan(lignes: list[str]) -> list[str]:
+    """Feuille de plan : face et dessus d'un meuble, cote hors tout au-dessus."""
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    meuble = 'fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"'
+    cote = 'fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"'
+    cartouche = 'stroke="#2e3436" stroke-width="1"'
+    return [
+        *lignes,
+        f'  <rect x="4" y="6" width="56" height="52" rx="2" fill="#ffffff" {trait}/>',
+        f'  <rect x="12" y="20" width="26" height="18" {meuble}/>',
+        f'  <rect x="12" y="44" width="26" height="8" {meuble}/>',
+        f'  <rect x="44" y="20" width="10" height="18" {meuble}/>',
+        f'  <path d="M12,13 H38 M12,10 V16 M38,10 V16" {cote}/>',
+        f'  <rect x="40" y="46" width="16" height="8" fill="#d3d7cf" {cartouche}/>',
+    ]
+
+
+def plan_de_l_ouvrage() -> str:
+    return document(_plan(["  <!-- Plan de l'ouvrage : face, dessus, côté et cote hors tout -->"]))
+
+
+def plans_de_piece() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    piece = 'fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"'
+    usinage = 'fill="#ffffff" stroke="#4e2f12" stroke-width="1.2"'
+    cote = 'fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"'
+    cartouche = 'stroke="#2e3436" stroke-width="1"'
+    return document(
+        [
+            "  <!-- Plans de pièce : une planche, sa mortaise et ses perçages cotés -->",
+            f'  <rect x="10" y="2" width="50" height="46" rx="2" fill="#eeeeec" {trait}/>',
+            f'  <rect x="4" y="10" width="56" height="52" rx="2" fill="#ffffff" {trait}/>',
+            f'  <rect x="10" y="24" width="44" height="14" {piece}/>',
+            f'  <rect x="16" y="28" width="10" height="6" {usinage}/>',
+            f'  <circle cx="38" cy="31" r="2.5" {usinage}/>',
+            f'  <circle cx="46" cy="31" r="2.5" {usinage}/>',
+            f'  <path d="M10,18 H54 M10,15 V21 M54,15 V21" {cote}/>',
+            f'  <rect x="38" y="48" width="18" height="10" fill="#d3d7cf" {cartouche}/>',
+        ]
+    )
+
+
+def vue_eclatee() -> str:
+    trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
+    piece = 'fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"'
+    fleche = 'fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"'
+    return document(
+        [
+            "  <!-- Vue éclatée : un caisson dont les pièces s'écartent du centre -->",
+            f'  <rect x="4" y="6" width="56" height="52" rx="2" fill="#ffffff" {trait}/>',
+            f'  <rect x="18" y="10" width="28" height="6" {piece}/>',
+            f'  <rect x="9" y="22" width="6" height="22" {piece}/>',
+            f'  <rect x="49" y="22" width="6" height="22" {piece}/>',
+            f'  <rect x="18" y="48" width="28" height="6" {piece}/>',
+            f'  <path d="M32,30 V20 M32,36 V44 M28,33 H19 M36,33 H45" {fleche}/>',
+        ]
+    )
+
+
+def export_du_plan_pdf() -> str:
+    pdf = etiquette("PDF", "#cc0000", "#7a0000")
+    return document([*_plan(["  <!-- Export du plan (PDF) -->"]), pdf])
+
+
 def numeroter_les_reperes() -> str:
     trait = 'stroke="#2e3436" stroke-width="2" stroke-linejoin="round"'
     chiffre = 'fill="none" stroke="#2e3436" stroke-width="2.5" stroke-linecap="round"'
@@ -311,6 +375,11 @@ ICONES = {
     "Menuiserie_CutListExport.svg": export_liste_de_debit,
     "Menuiserie_CutListPdf.svg": export_liste_de_debit_pdf,
     "Menuiserie_NumberMarks.svg": numeroter_les_reperes,
+    # Plans cotés (issue #153)
+    "Menuiserie_Drawing.svg": plan_de_l_ouvrage,
+    "Menuiserie_DrawingPdf.svg": export_du_plan_pdf,
+    "Menuiserie_PartDrawings.svg": plans_de_piece,
+    "Menuiserie_ExplodedDrawing.svg": vue_eclatee,
     "Menuiserie_MortiseTenon.svg": tenon_mortaise,
     "Menuiserie_TongueGroove.svg": rainure_languette,
     "Menuiserie_Rabbet.svg": feuillure,

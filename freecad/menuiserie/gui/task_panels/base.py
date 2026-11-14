@@ -38,6 +38,12 @@ EDIT_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier « {label} »")
 _TECHDRAW: Final = "TechDraw::"
 
 
+def ok_cancel_buttons() -> int:
+    """Boutons « OK » et « Annuler » d'un panneau de tâche, en entier pour FreeCAD."""
+    buttons = QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel
+    return int(getattr(buttons, "value", buttons))  # énumérations de PySide6 ou PySide2
+
+
 class Panel(Protocol):
     """Ce que FreeCAD et :func:`show_panel` attendent d'un panneau."""
 
@@ -182,8 +188,7 @@ class TransactionTaskPanel:
 
     def getStandardButtons(self) -> int:
         """Boutons « OK » et « Annuler »."""
-        buttons = QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel
-        return int(getattr(buttons, "value", buttons))  # énumérations de PySide6 ou PySide2
+        return ok_cancel_buttons()
 
     def watch_document(self, edited: DocumentObject | None = None) -> None:
         """Panneau affiché : FreeCAD le ferme si le document est fermé (sans quoi FreeCAD peut
