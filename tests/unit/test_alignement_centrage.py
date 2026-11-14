@@ -205,3 +205,24 @@ def test_d_equerre_la_normale_mobile_devient_parallele_a_une_arete() -> None:
     normal = _direction(motion, side.frame.z)
     assert normal.z == pytest.approx(0.0, abs=1e-9)
     assert abs(normal.x * normal.y) == pytest.approx(0.0, abs=1e-9)
+
+
+def _short_x_face(origin: Vec3, degrees: float) -> FaceTarget:
+    """Planche de 600 sur 100 dont le repère a son axe ``x`` sur le petit côté (coin cliqué)."""
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    return FaceTarget("Face6", Frame(origin, Vec3(-s, c, 0), Vec3(-c, -s, 0), _Z), (100, 600), True)
+
+
+@pytest.mark.parametrize("degrees", [10.0, 80.0, 100.0, -60.0, 170.0])
+def test_grand_cote_suit_le_grand_cote_de_la_reference(degrees: float) -> None:
+    """Essai de jv : deux planches croisées doivent finir parallèles, pas en T."""
+    fixed = _top(Vec3(0, 0, 20), (600, 100))
+    for moving in (
+        _turned_in_plane(Vec3(200, -150, 20), degrees, (600, 100)),
+        _short_x_face(Vec3(200, -150, 20), degrees),
+    ):
+        motion = align(fixed, moving, centered=(_X, _Y, _Z))
+        long_side = moving.frame.x if moving.extent[0] > moving.extent[1] else moving.frame.y
+        edge = _direction(motion, long_side)
+        assert abs(edge.x) == pytest.approx(1.0, abs=1e-9)  # le long de X, comme la référence
+        assert _close(_moved(motion, face_center(moving)), face_center(fixed))

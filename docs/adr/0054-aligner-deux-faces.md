@@ -43,10 +43,11 @@ est penchée.
    retirée, si bien qu'un axe oblique ne sort jamais la face du plan commun. Les trois cochés
    confondent les deux centres dans ce plan. Les décalages s'ajoutent après le centrage (le 3e
    reste le seul réglage le long de la normale). Axes non perpendiculaires entre eux refusés.
-   Dès qu'un axe est coché, la pièce tourne aussi dans le plan de référence (le plus petit des
-   quatre quarts de tour) pour que ses arêtes soient parallèles à celles de la face de référence
-   (essai de jv du 2026-11-14 : deux planches croisées doivent finir parallèles) ; d'équerre,
-   c'est sa normale qui est mise parallèle à une arête. Sur un axe, rien ne tourne.
+   Dès qu'un axe est coché, la pièce tourne aussi dans le plan de référence pour être parallèle
+   à la référence : le grand côté de la face déplacée suit le grand côté de la face de référence
+   (le plus petit des deux sens ; quart de tour le plus proche si une face est carrée). Essais de
+   jv du 2026-11-14 : deux planches croisées doivent finir parallèles, pas en T. D'équerre, c'est
+   la normale de la face déplacée qui suit le grand côté. Sur un axe, rien ne tourne.
 6. **Panneau de tâche** (transaction « Aligner deux faces ») : aperçu en direct, mode, décalages,
    bouton **Inverser** (échange la pièce pilotée et la pilotante ; la première revient avant que
    la seconde bouge), **Annuler** remet tout en place. OK relie l'ensemble et propose les

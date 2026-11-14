@@ -169,24 +169,42 @@ def _turned_point(motion: Alignment, point: Vec3) -> Vec3:
     return _turned(motion.rotation, point - motion.pivot) + motion.pivot + motion.shift
 
 
+def _long_side(face: FaceTarget) -> Vec3:
+    """Direction (unitaire) du grand côté du rectangle englobant de ``face`` ; l'axe ``x`` du
+    repère n'est pas toujours le grand côté (il dépend du coin le plus proche du clic)."""
+    frame = face.frame
+    return unit(frame.x if face.extent[0] >= face.extent[1] else frame.y)
+
+
+def _is_square(face: FaceTarget) -> bool:
+    return abs(face.extent[0] - face.extent[1]) <= ANGLE_TOLERANCE * max(face.extent)
+
+
 def _squared(motion: Alignment, fixed: FaceTarget, moving: FaceTarget) -> Alignment:
     """``motion`` complété d'un tour dans le plan de la référence (autour de sa normale, par le
-    pivot déplacé) qui rend les arêtes de la face mobile parallèles à celles de la référence :
-    le plus petit tour parmi les quatre quarts. D'équerre, c'est la normale de la face mobile
-    (couchée dans le plan) qui est mise parallèle à une arête de la référence."""
-    normal, edge_x, edge_y = unit(fixed.frame.z), unit(fixed.frame.x), unit(fixed.frame.y)
-    own = moving.frame.z if motion.mode is AlignMode.PERPENDICULAR else moving.frame.x
-    turned = _turned(motion.rotation, unit(own))
+    pivot déplacé) qui rend la pièce parallèle à la référence : le grand côté de la face mobile
+    suit le grand côté de la référence (le plus petit des deux sens) ; si l'une des deux faces
+    est carrée, le plus petit des quatre quarts de tour. D'équerre, c'est la normale de la face
+    mobile (couchée dans le plan) qui suit le grand côté de la référence."""
+    normal = unit(fixed.frame.z)
+    along = _long_side(fixed)
+    across = cross(normal, along)
+    perpendicular = motion.mode is AlignMode.PERPENDICULAR
+    own = unit(moving.frame.z) if perpendicular else _long_side(moving)
+    turned = _turned(motion.rotation, own)
     flat = turned - normal.scaled(dot(turned, normal))
     if norm(flat) <= ANGLE_TOLERANCE:
         return motion
     flat = unit(flat)
-    current = math.atan2(dot(flat, edge_y), dot(flat, edge_x))
-    target = round(current / (math.pi / 2)) * (math.pi / 2)
-    wanted = edge_x.scaled(math.cos(target)) + edge_y.scaled(math.sin(target))
+    current = math.atan2(dot(flat, across), dot(flat, along))
+    step = (
+        math.pi / 2 if _is_square(fixed) or (_is_square(moving) and not perpendicular) else math.pi
+    )
+    target = round(current / step) * step
+    wanted = along.scaled(math.cos(target)) + across.scaled(math.sin(target))
     turn, _angle = _rotation_between(flat, unit(wanted), normal)
     rotation = _product(turn, motion.rotation)
-    return Alignment(rotation, motion.pivot, motion.shift, motion.angle, motion.mode)
+    return replace(motion, rotation=rotation)
 
 
 def _product(left: Matrix3, right: Matrix3) -> Matrix3:
