@@ -66,5 +66,7 @@ déduire l'épaisseur** de la pièce répétée.
 - `Repeat` dépend de sa butée (lien) : supprimer la butée vide le lien sans casser le document.
 - Panneau : bouton « Butée… » par axe, sélection par un observateur `Gui.Selection` posé le temps
   du choix et retiré à la fermeture (ADR 0007), longueur calculée en lecture seule, case d'épaisseur.
-- Limites : un document dont la butée est une face qui change de numéro (topologie) la perd ; le
+- Limites : un document dont la butée est une face qui change de numéro (topologie) la perd
+  (*depuis FreeCAD 1.0, seulement un objet d'un autre atelier sans carte des éléments : la brute
+  est une boîte, la pièce en bois a la carte de son corps, ADR 0056*) ; le
   sommet et la face oblique ne donnent que leur bord le plus proche (boîte englobante).

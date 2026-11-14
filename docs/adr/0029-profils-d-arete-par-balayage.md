@@ -27,6 +27,8 @@ Options étudiées :
    retrouvent par numéro (instable après un assemblage : nommage topologique), échecs OCC fréquents
    sur formes coupées, impossible à tester sans FreeCAD, et uniquement chanfrein et congé (pas de
    gorge, de doucine ni de bec-de-corbin). Rejetée.
+   (*depuis FreeCAD 1.0, un numéro d'arête n'est instable que sur une forme sans carte des
+   éléments, comme l'était la pièce usinée ; les autres raisons du rejet tiennent, ADR 0056*)
 3. **Un objet par profil, qui retire de la matière dans la pièce usinée** (même mécanisme que les
    assemblages), la section étant calculée en `core/` et balayée le long de l'arête. Retenue.
 4. **Un objet `Part::Cut` par profil** (outils FreeCAD standard) : change la nature de l'objet
