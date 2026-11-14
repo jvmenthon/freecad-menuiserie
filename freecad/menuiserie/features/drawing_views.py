@@ -156,13 +156,14 @@ def _added_by(page: DocumentObject, make: Callable[[], object]) -> list[str]:
     précédent est remis."""
     doc = page.Document
     before = {obj.Name for obj in page.Views}
-    previous = App.ActiveDocument
+    active = App.ActiveDocument
+    previous = active.Name if active is not None else ""
     App.setActiveDocument(doc.Name)
     try:
         make()
     finally:
-        if previous is not None and previous != doc:
-            App.setActiveDocument(previous.Name)
+        if previous and previous != doc.Name and previous in App.listDocuments():
+            App.setActiveDocument(previous)
     return [obj.Name for obj in page.Views if obj.Name not in before]
 
 

@@ -377,7 +377,5 @@ def overall_dimensions(page: DocumentObject) -> list[DocumentObject]:
     """Cotes hors tout de ``page`` posées par l'atelier, dans l'ordre largeur, profondeur,
     hauteur."""
     owned = owned_names(page)
-    found = [
-        obj for obj in page.Views if obj.Name in owned and obj.TypeId == EXTENT_TYPE
-    ]
+    found = [obj for obj in page.Views if obj.Name in owned and obj.TypeId == EXTENT_TYPE]
     return sorted(found, key=lambda obj: owned.index(obj.Name))
