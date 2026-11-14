@@ -57,11 +57,10 @@ class CoplanarCues:
                 excluded = [*copies_of(repeat), *copies, *shown_parts(sources)]
                 self._planes = RepeatPlanes(sources, excluded)
             guides = self._planes.coplanar(copies, axes)
-            frame = frame_of(self._planes.origin)
+            strokes = guides_drawing(guides, frame_of(self._planes.origin))[0]
+            self._draw(repeat.Document.Name, strokes)
         except _FAILURES:
             self.clear()
-            return
-        self._draw(repeat.Document.Name, guides_drawing(guides, frame)[0])
 
     def _draw(self, doc_name: str, strokes: Sequence[Any]) -> None:
         if not strokes:

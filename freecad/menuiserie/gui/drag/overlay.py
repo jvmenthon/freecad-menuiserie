@@ -121,8 +121,11 @@ class Overlay:
     def remove(self) -> None:
         """Retire l'incrustation de la vue (sans effet si elle n'y est plus)."""
         root, self._root = self._root, None
-        if root is not None and root.findChild(self._node) >= 0:
-            root.removeChild(self._node)
+        try:
+            if root is not None and root.findChild(self._node) >= 0:
+                root.removeChild(self._node)
+        except RuntimeError:  # vue déjà détruite (document fermé) : plus rien à retirer
+            pass
 
     def shows(self) -> bool:
         """Vrai si l'incrustation est posée et porte un dessin."""
