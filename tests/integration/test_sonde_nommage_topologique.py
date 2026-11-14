@@ -22,7 +22,6 @@ Part = pytest.importorskip("Part")
 api = pytest.importorskip("freecad.menuiserie.api")
 
 L_SHAPE = ((0, 0), (400, 0), (400, 80), (150, 80), (150, 200), (0, 200))
-NOTCHED_LEFT = ((0, 200), (0, 120), (30, 120), (30, 60), (0, 60), (0, 0))
 
 
 def _report(text: str) -> None:
@@ -60,44 +59,62 @@ def _mapped(shape: Any, name: str) -> object:
         return f"erreur {error}"
 
 
-def _target(shape: Any) -> int:
-    """Indice (1..n) de la plus longue arête droite du dessus de ``shape``."""
-    top = shape.BoundBox.ZMax
-    candidates = [
-        (edge.Length, index)
-        for index, edge in enumerate(shape.Edges, start=1)
-        if all(abs(v.Point.z - top) < 1e-6 for v in edge.Vertexes)
-    ]
-    return max(candidates)[1]
+def _edge_keys(shape: Any) -> dict[tuple[tuple[float, ...], ...], str]:
+    """Arêtes de ``shape`` repérées par leurs bouts arrondis : clé → nom ``EdgeN``."""
+    keys: dict[tuple[tuple[float, ...], ...], str] = {}
+    for index, edge in enumerate(shape.Edges, start=1):
+        ends = sorted(
+            tuple(round(c, 3) for c in (v.Point.x, v.Point.y, v.Point.z)) for v in edge.Vertexes
+        )
+        keys[tuple(ends)] = f"Edge{index}"
+    return keys
 
 
-def test_sonde_arete_suivie_apres_changement_de_topologie(document: Any) -> None:
-    """Un lien vers l'arête la plus longue du dessus, puis une encoche ajoutée à l'esquisse
-    (nouvelles faces, arêtes renumérotées) : le lien désigne-t-il encore la même arête ?"""
+# Côté remplacé par une encoche : indice du segment dans L_SHAPE, nouveaux segments.
+NOTCHES = {
+    "gauche": (5, ((0, 200), (0, 120), (30, 120), (30, 60), (0, 60), (0, 0))),
+    "droite": (1, ((400, 0), (400, 20), (370, 20), (370, 60), (400, 60), (400, 80))),
+}
+
+
+@pytest.mark.parametrize("side", sorted(NOTCHES))
+def test_sonde_aretes_suivies_apres_changement_de_topologie(document: Any, side: str) -> None:
+    """Un lien vers chaque arête de la pièce, puis une encoche ajoutée à l'esquisse (nouvelles
+    faces) : chaque arête restée en place est-elle encore désignée, même renumérotée ?"""
     body, sketch = _body(document, L_SHAPE)
     shaped = api.make_shaped_part(body)
     document.recompute()
-    before = _target(shaped.Shape)
-    name = f"Edge{before}"
+    before = _edge_keys(shaped.Shape)
+    keys = list(before)
     holder = document.addObject("App::FeaturePython", "Sonde")
-    holder.addProperty("App::PropertyLinkSub", "Arete")
-    holder.Arete = (shaped, [name])
+    holder.addProperty("App::PropertyLinkSub", "Aretes")
+    holder.Aretes = (shaped, [before[key] for key in keys])
     document.recompute()
     _report(
-        f"cartes d'éléments : corps={_map_size(body.Shape)} "
-        f"pièce={_map_size(shaped.Shape)} ; nom mappé de {name} sur la pièce = "
-        f"{_mapped(shaped.Shape, name)!r} ; sur le corps = {_mapped(body.Shape, name)!r}"
+        f"[{side}] cartes d'éléments : corps={_map_size(body.Shape)} "
+        f"pièce={_map_size(shaped.Shape)} ; Edge4 pièce = {_mapped(shaped.Shape, 'Edge4')!r}"
     )
-    sketch.delGeometry(len(L_SHAPE) - 1)  # côté gauche x = 0, remplacé par une encoche
-    for start, end in pairwise(NOTCHED_LEFT):
+    index, notch = NOTCHES[side]
+    sketch.delGeometry(index)
+    for start, end in pairwise(notch):
         sketch.addGeometry(_segment(start, end), False)
     document.recompute()
-    after = _target(shaped.Shape)
-    linked = holder.Arete[1][0] if holder.Arete else None
+    after = _edge_keys(shaped.Shape)
+    linked = list(holder.Aretes[1]) if holder.Aretes else []
+    kept = [k for k in keys if k in after]
+    moved = [k for k in kept if after[k] != before[k]]
+    followed = [
+        k for k in kept if keys.index(k) < len(linked) and linked[keys.index(k)] == after[k]
+    ]
+    wrong = [
+        f"{before[k]}→{after[k]} lien {linked[keys.index(k)]}"
+        for k in moved
+        if keys.index(k) < len(linked) and linked[keys.index(k)] != after[k]
+    ]
     _report(
-        f"après encoche : faces {len(shaped.Shape.Faces)}, arête visée Edge{before} → "
-        f"Edge{after} (renumérotée : {before != after}) ; le lien désigne {linked} "
-        f"(suivi correct : {linked == f'Edge{after}'}) ; pièce valide : {shaped.isValid()}"
+        f"[{side}] pièce valide {shaped.isValid()}, faces {len(shaped.Shape.Faces)} ; arêtes "
+        f"restées en place {len(kept)}/{len(keys)}, renumérotées {len(moved)}, liens justes "
+        f"{len(followed)}/{len(kept)}, liens {len(linked)} ; erreurs : {wrong[:6]}"
     )
 
 
