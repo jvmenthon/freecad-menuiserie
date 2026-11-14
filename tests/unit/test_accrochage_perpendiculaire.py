@@ -10,6 +10,7 @@ from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.snap import (
     FaceTarget,
     Frame,
+    face_section,
     perpendicular_orientation,
     snap,
     support_rotation,
@@ -84,3 +85,65 @@ def test_piece_tournee_d_un_quart_de_tour(quarter: Matrix3) -> None:
     target = face(Vec3(0, 800, 0), Z, X, Y)  # normale +Y = longueur de la pièce tournée
     low, high = occupied(target, quarter)
     assert (low.y, high.y) == (800, 830)
+
+
+def section_against(target: FaceTarget, owner: Matrix3 = IDENTITY) -> tuple[float, float]:
+    """Section de la pièce posée contre ``target`` (pièce de 100 x 30 qui porte la face)."""
+    support = support_rotation([target])
+    assert support is not None
+    orientation = perpendicular_orientation(support, owner)
+    assert orientation is not None
+    return face_section(support, owner, orientation, target.extent, (100.0, 30.0))
+
+
+def narrow(x: Vec3, y: Vec3, normal: Vec3, extent: tuple[float, float]) -> FaceTarget:
+    return FaceTarget("Face", Frame(Vec3(0, 0, 0), x, y, normal), extent, planar=True)
+
+
+def test_section_d_une_extremite_plus_etroite_que_la_piece() -> None:
+    # bout d'une pièce dessinée : 40 selon la largeur (Y) ; l'épaisseur s'appuie sur la face
+    assert section_against(narrow(Y, Z, X, (40.0, 30.0))) == (40.0, 30.0)
+    assert section_against(narrow(Z, Y, MINUS_X, (30.0, 40.0))) == (40.0, 30.0)
+
+
+def test_section_contre_une_grande_face_prend_la_largeur_de_la_face() -> None:
+    # face de dessus réduite à 300 x 60 : largeur de la face, épaisseur de la pièce
+    assert section_against(narrow(X, Y, Z, (300.0, 60.0))) == (60.0, 30.0)
+
+
+def test_section_contre_un_chant_garde_la_largeur_de_la_piece() -> None:
+    # chant : la largeur de la nouvelle pièce suit la longueur de l'autre, elle ne change pas
+    assert section_against(narrow(Z, X, Y, (20.0, 300.0))) == (100.0, 30.0)
+
+
+def test_section_piece_tournee_d_un_quart_de_tour() -> None:
+    # pièce tournée de 90° autour de Z : la face +Y est son extrémité, largeur de la pièce selon -X
+    quarter: Matrix3 = ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    assert section_against(narrow(Z, X, Y, (40.0, 70.0)), quarter) == (70.0, 30.0)
+
+
+def test_section_piece_oblique_garde_la_section_de_la_piece() -> None:
+    oblique: Matrix3 = ((0.9, -0.43, 0.0), (0.43, 0.9, 0.0), (0.0, 0.0, 1.0))
+    orientation = perpendicular_orientation(IDENTITY, IDENTITY)
+    assert orientation is not None
+    section = face_section(IDENTITY, oblique, orientation, (40.0, 60.0), (100.0, 30.0))
+    assert section == (100.0, 30.0)
+
+
+@pytest.mark.parametrize("extent", [(0.0, 0.0), (-5.0, -5.0), (0.0, 60.0)])
+def test_etendue_nulle_ou_negative_refusee_par_la_cible(extent: tuple[float, float]) -> None:
+    with pytest.raises(ValueError, match="étendue"):
+        narrow(X, Y, Z, extent)
+
+
+def test_section_face_non_rectangulaire_tranche_etroite() -> None:
+    # triangle : à l'endroit du clic la tranche ne fait que 0,05 mm, sous la cote minimale (0,1)
+    # DÉFAUT : face_section renvoie 0,05 et make_wood_part lève InvalidDimensionsError
+    width, _thickness = section_against(narrow(X, Y, Z, (300.0, 0.05)))
+    assert width >= 0.1
+
+
+def test_section_tres_grande_etendue_reste_dans_les_bornes() -> None:
+    # face de 1e6 mm : au-delà de MAX_DIMENSION_MM la largeur doit retomber sur celle de la pièce
+    width, _thickness = section_against(narrow(X, Y, Z, (300.0, 1.0e6)))
+    assert width <= 20000.0

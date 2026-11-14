@@ -12,10 +12,11 @@ nouvelle pièce s'appuie sur la face.
 from __future__ import annotations
 
 from freecad.menuiserie.core.geometry import Matrix3, Vec3, squared_rotation
+from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_MM
 from freecad.menuiserie.core.snap._model import Orientation, product
 from freecad.menuiserie.core.vectors import cross
 
-__all__ = ["perpendicular_orientation"]
+__all__ = ["face_section", "perpendicular_orientation"]
 
 _LENGTH, _WIDTH, _THICKNESS = 0, 1, 2
 _NORMAL_ROW = 2  # ligne « normale sortante » du repère d'appui
@@ -56,3 +57,31 @@ def perpendicular_orientation(support: Matrix3, owner: Matrix3) -> Orientation |
     rows = [[axis.component(row) for axis in axes] for row in range(3)]
     x, y, z = (Vec3.of(row) for row in rows)
     return Orientation(((x.x, x.y, x.z), (y.x, y.y, y.z), (z.x, z.y, z.z)))
+
+
+def face_section(
+    support: Matrix3,
+    owner: Matrix3,
+    orientation: Orientation,
+    extent: tuple[float, float],
+    section: tuple[float, float],
+) -> tuple[float, float]:
+    """Section (largeur, épaisseur) de la nouvelle pièce posée contre une face d'étendue ``extent``
+    (selon les deux premiers axes du repère d'appui ``support``), portée par une pièce de rotation
+    ``owner`` et de section ``section``, la nouvelle pièce partant dans l'``orientation`` donnée.
+
+    La pièce garde la section de celle qui porte la face, sauf la largeur quand elle reste
+    parallèle à celle de l'autre pièce et dans le plan de la face : elle prend alors l'étendue de la
+    face selon cet axe, à l'endroit du clic (sur une pièce dessinée, la face peut être plus petite
+    que l'encombrement). Une étendue hors des bornes d'une cote (pointe d'une face triangulaire,
+    face démesurée) est ignorée : la largeur de la pièce est gardée."""
+    seen = squared_rotation(product(_transposed(support), owner))
+    if any(value not in (-1.0, 0.0, 1.0) for row in seen for value in row):
+        return section
+    owner_width = _column(seen, _WIDTH)
+    new_width = _column(orientation.rotation(), _WIDTH)
+    for row in (0, 1):
+        parallel = abs(new_width.component(row)) == 1.0 and abs(owner_width.component(row)) == 1.0
+        if parallel and MIN_DIMENSION_MM <= extent[row] <= MAX_DIMENSION_MM:
+            return extent[row], section[1]
+    return section
