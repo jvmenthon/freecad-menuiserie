@@ -91,11 +91,11 @@ def taken_along(members: Sequence[DocumentObject]) -> list[Notice]:
 def positioned(obj: DocumentObject) -> bool:
     """Objet géométrique dont le ``Placement`` est à garder quand FreeCAD le change de conteneur :
     tout sauf l'ensemble, la pièce usinée, l'assemblage et la Distance (leur position suit leur
-    brute) et les éléments d'une origine."""
+    brute) et l'origine : ses plans et axes (des ``App::Plane`` / ``App::Line`` depuis FreeCAD 1.1,
+    ``App::OriginFeature`` n'existe plus) ne sont jamais dans le groupe d'un Std Part."""
     return (
         "Placement" in obj.PropertiesList
         and obj.isDerivedFrom("App::GeoFeature")
-        and not obj.isDerivedFrom("App::OriginFeature")
         and obj.TypeId != "App::Origin"
         and not (is_furniture(obj) or is_machined_part(obj) or is_joint(obj) or is_distance(obj))
     )

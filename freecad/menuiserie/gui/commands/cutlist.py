@@ -101,7 +101,7 @@ def ask_missing_marks(count: int, parent: QtGui.QWidget | None = None) -> str:
     cancel = box.addButton(translated(_CANCEL_BUTTON), QtGui.QMessageBox.RejectRole)
     box.setDefaultButton(number)
     box.setEscapeButton(cancel)
-    box.exec_()
+    box.exec()
     clicked = box.clickedButton()
     if clicked is number:
         return NUMBER
