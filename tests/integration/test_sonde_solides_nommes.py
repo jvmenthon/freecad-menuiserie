@@ -58,6 +58,53 @@ def _names(shape: Any) -> list[tuple[str, set[str]]]:
     return result
 
 
+_HOLDERS: list[Any] = []
+
+
+def _link(doc: Any, obj: Any) -> None:
+    """Un porteur de lien par solide de ``obj``, vers toutes ses faces."""
+    _HOLDERS.clear()
+    faces = list(obj.Shape.Faces)
+    for rank, solid in enumerate(obj.Shape.Solids):
+        subs = [
+            f"Face{index}"
+            for face in solid.Faces
+            for index, other in enumerate(faces, start=1)
+            if face.isSame(other)
+        ]
+        holder = doc.addObject("App::FeaturePython", f"Porteur{rank}")
+        holder.addProperty("App::PropertyLinkSub", "Lien")
+        holder.Lien = (obj, subs)
+        _HOLDERS.append(holder)
+    doc.recompute()
+
+
+def _links(obj: Any) -> list[str]:
+    """Pour chaque porteur : ses sous-éléments, et le solide qui contient chacun."""
+    lines = []
+    shape = obj.Shape
+    for rank, holder in enumerate(_HOLDERS):
+        where = []
+        for sub in holder.Lien[1]:
+            try:
+                face = shape.getElement(sub)
+            except Exception:  # pylint: disable=broad-exception-caught
+                where.append(f"{sub}=absent")
+                continue
+            owners = [
+                str(index)
+                for index, solid in enumerate(shape.Solids)
+                if any(face.isSame(other) for other in solid.Faces)
+            ]
+            where.append(f"{sub}={'+'.join(owners) or 'aucun'}")
+        lines.append(f"  lien du solide {rank} état={holder.State} : {' '.join(where)}")
+    try:
+        lines.append(f"  historique Face1 : {str(shape.getElementHistory('Face1'))[:300]}")
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        lines.append(f"  historique : {type(error).__name__} {error}")
+    return lines
+
+
 def _describe(title: str, obj: Any, before: list[tuple[str, set[str]]] | None = None) -> list[str]:
     shape = obj.Shape
     lines = [
@@ -72,8 +119,7 @@ def _describe(title: str, obj: Any, before: list[tuple[str, set[str]]] | None = 
                 for old_rank, (_w, old) in enumerate(before)
             )
         lines.append(f"  solide {rank} {where} noms={len(names)} vides={'' in names}{kept}")
-        if before is None:
-            lines.extend(f"      {name[:150]}" for name in sorted(names)[:8])
+    lines.extend(_links(obj))
     return lines
 
 
@@ -94,6 +140,7 @@ def _body(report: list[str], doc: Any) -> None:  # noqa: PLR0915
         report.append(f"  Protrusion : {pad.State} {getattr(pad, 'getStatusString', str)()}")
         return
     start = _names(body.Shape)
+    _link(doc, body)
     sub = body.Shape.Solids[0]
     report.append(
         f"  sous-solide : carte={sub.ElementMapSize} Tag={sub.Tag} corps Tag={body.Shape.Tag}"
@@ -167,6 +214,7 @@ def _compound(report: list[str], doc: Any) -> None:
 
 
 def _cut(report: list[str], doc: Any) -> None:
+    _HOLDERS.clear()
     board = _feature_box(doc, "Planche", 0, (300, 50, 20))
     saw = _feature_box(doc, "Scie", 400, (10, 80, 40))
     saw.Placement.Base = App.Vector(400, -10, -10)
@@ -175,10 +223,12 @@ def _cut(report: list[str], doc: Any) -> None:
     doc.recompute()
     report.extend(_describe("coupe Part, scie à côté (1 solide)", cut))
     whole = _names(cut.Shape)
+    _link(doc, cut)
     saw.Placement.Base = App.Vector(100, -10, -10)
     doc.recompute()
     report.extend(_describe("coupe Part, scie à x=100 (2 solides)", cut, whole))
     halves = _names(cut.Shape)
+    _link(doc, cut)
     saw.Placement.Base = App.Vector(200, -10, -10)
     doc.recompute()
     report.extend(_describe("coupe Part, scie à x=200", cut, halves))
@@ -213,7 +263,7 @@ def _python_feature(report: list[str], doc: Any) -> None:
 
 def test_sonde(document: Any) -> None:
     report: list[str] = [f"FreeCAD {'.'.join(App.Version()[:3])}"]
-    probes: list[Callable[[list[str], Any], None]] = [_body, _python_feature, _compound, _cut]
+    probes: list[Callable[[list[str], Any], None]] = [_body, _cut]
     for probe in probes:
         try:
             probe(report, document)
