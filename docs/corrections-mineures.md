@@ -126,3 +126,9 @@ de répétitions m5) sont corrigés.
 | rg3 | mineur | `core/repeat/_grid.py` (`grid_overlaps`, `rank_of`) | Comparaison deux à deux de toutes les boîtes (101 au plus, environ 5 000 paires) à chaque saisie du panneau, et recherche linéaire du rang. Sans effet mesurable à 100 copies, mais inutilement quadratique ; `grid_overlaps` vaut d'ailleurs « un axe au moins se chevauche » (vérifié par tests). | Sortie anticipée ou test par axe seulement ; table cellule → rang calculée une fois par grille. |
 | rg4 | mineur | `features/repeat_copies.py` (`_renumber`) | Le rang et les libellés automatiques suivent la grille, mais un libellé de copie que l'utilisateur a tapé à la main et qui ressemble au libellé automatique d'un autre rang est pris pour automatique. | Mémoriser le libellé attribué (propriété cachée) plutôt que le déduire. |
 | rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |
+
+## Relecture « nommage topologique » (PR #255, ADR 0056), 2026-11-13
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| nt1 | mineur | `features/solids.py` (`machined_shape`), ADR 0056 | La carte des éléments de la pièce usinée est enregistrée dans le `.FCStd` et tenue à chaque booléenne : taille du fichier et temps de recalcul non mesurés sur un meuble réel (plusieurs dizaines d'assemblages). | Mesurer taille et temps avant/après sur un meuble de référence ; documenter le résultat dans l'ADR 0056. |
