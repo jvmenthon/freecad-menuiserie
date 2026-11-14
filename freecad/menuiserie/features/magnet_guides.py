@@ -26,7 +26,15 @@ from freecad.menuiserie.features.machined_part import machined_part_of
 from freecad.menuiserie.features.snap_geometry import ERRORS, is_straight, to_vec3
 from freecad.menuiserie.features.solids import rigid_transform
 
-__all__ = ["MAX_GUIDES", "MAX_ORIENTATIONS", "collect_guides", "neighbor_rotations"]
+__all__ = [
+    "MAX_GUIDES",
+    "MAX_ORIENTATIONS",
+    "collect_guides",
+    "neighbor_planes",
+    "neighbor_rotations",
+    "own_names",
+    "plane_guides",
+]
 
 MAX_GUIDES: Final = 5000  # borne de lecture d'un gros document (spec § 4.8)
 MAX_ORIENTATIONS: Final = 16  # orientations voisines au plus pour aimanter une rotation
@@ -208,6 +216,31 @@ def _pin_rests_shape(obj: DocumentObject) -> Any:
     return Part.makeCompound(shapes) if shapes else None
 
 
+def _neighbor_shapes(roots: list[DocumentObject], skipped: set[str], reference: Any) -> list[Any]:
+    """Formes globales des objets visibles de ``roots`` (groupes parcourus) hors ``skipped``, les
+    plus proches de ``reference`` (``App.BoundBox``, ``None`` : ordre du document) d'abord."""
+    found: list[tuple[float, int, Any]] = []
+    for index, obj in enumerate(_leaves(roots, set(skipped))):
+        if obj.Name in skipped or not obj.Visibility:
+            continue
+        rests = _pin_rests_shape(obj)  # dessus de taquet de chaque rang de trous
+        if rests is not None:
+            # Seul le dessus du taquet attire la tablette : ni le dessous, ni les arêtes, ni
+            # la forme du perçage lui-même (haut du trou).
+            found.append((0.0, index, rests))
+            continue
+        shape = _global_shape(obj)
+        if shape is None:
+            continue
+        distance = 0.0 if reference is None else _distance(reference, shape.BoundBox)
+        found.append((distance, index, shape))
+    return [shape for _, _, shape in sorted(found, key=lambda item: item[:2])]
+
+
+def _roots_of(container: DocumentObject | None, doc: Any) -> list[DocumentObject]:
+    return list(container.Group) if container is not None else _roots(doc)
+
+
 def collect_guides(
     part: DocumentObject,
     container: DocumentObject | None,
@@ -234,30 +267,51 @@ def collect_guides(
             reference = own.BoundBox if own is not None else None
         except ERRORS:
             reference = None
-    roots = list(container.Group) if container is not None else _roots(part.Document)
-    skipped = _excluded(part) | set(skip)
-    found: list[tuple[float, int, Any]] = []
-    for index, obj in enumerate(_leaves(roots, set(skipped))):
-        if obj.Name in skipped or not obj.Visibility:
-            continue
-        rests = _pin_rests_shape(obj)  # dessus de taquet de chaque rang de trous
-        if rests is not None:
-            # Seul le dessus du taquet attire la tablette : ni le dessous, ni les arêtes, ni
-            # la forme du perçage lui-même (haut du trou).
-            found.append((0.0, index, rests))
-            continue
-        shape = _global_shape(obj)
-        if shape is None:
-            continue
-        distance = 0.0 if reference is None else _distance(reference, shape.BoundBox)
-        found.append((distance, index, shape))
+    roots = _roots_of(container, part.Document)
     guides: list[Guide] = []
     inverse = placement.inverse()
-    for _, _, shape in sorted(found, key=lambda item: item[:2]):
+    for shape in _neighbor_shapes(roots, _excluded(part) | set(skip), reference):
         guides.extend(_guides_of(shape, inverse))
         if len(guides) >= MAX_GUIDES:
             break
     return tuple(guides[:MAX_GUIDES])
+
+
+def own_names(part: DocumentObject) -> set[str]:
+    """Noms des objets qui font corps avec ``part`` : elle-même, sa pièce usinée et ses
+    assemblages (ceux dont elle est l'hôte ou l'invitée)."""
+    return _excluded(part)
+
+
+def _planes(guides: Iterable[Guide]) -> list[Guide]:
+    return [guide for guide in guides if guide.kind is GuideKind.PLANE]
+
+
+def plane_guides(objects: Iterable[DocumentObject], origin: App.Placement) -> tuple[Guide, ...]:
+    """Faces planes des objets ``objects`` normales à un axe du repère ``origin`` (placement
+    global), dans ce repère ; un objet illisible est ignoré (ADR 0058)."""
+    inverse = origin.inverse()
+    found: list[Guide] = []
+    for obj in objects:
+        shape = _global_shape(obj)
+        if shape is not None:
+            found.extend(_planes(_guides_of(shape, inverse)))
+    return tuple(found)
+
+
+def neighbor_planes(
+    doc: Any, container: DocumentObject | None, origin: App.Placement, skip: Iterable[str]
+) -> tuple[Guide, ...]:
+    """Faces planes des objets visibles du Std Part ``container`` (``None`` : racine du document
+    ``doc``) hors ``skip``, normales à un axe du repère ``origin``, dans ce repère ; au plus
+    :data:`MAX_GUIDES` (ADR 0058, aperçu de la répétition)."""
+    inverse = origin.inverse()
+    found: list[Guide] = []
+    for shape in _neighbor_shapes(_roots_of(container, doc), set(skip), None):
+        found.extend(_planes(_guides_of(shape, inverse)))
+        if len(found) >= MAX_GUIDES:
+            break
+    return tuple(found[:MAX_GUIDES])
 
 
 def neighbor_rotations(
@@ -277,7 +331,7 @@ def neighbor_rotations(
     if reference is None:
         own = _global_shape(part)
         reference = own.BoundBox if own is not None else None
-    roots = list(container.Group) if container is not None else _roots(part.Document)
+    roots = _roots_of(container, part.Document)
     skipped = _excluded(part) | set(skip)
     found: list[tuple[float, int, Matrix3]] = []
     for index, obj in enumerate(_leaves(roots, set(skipped))):

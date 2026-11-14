@@ -34,6 +34,7 @@ from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.repeat import sources_of, stored_lines
 from freecad.menuiserie.features.repeat_copies import resolve_for, source_extent, source_extents
+from freecad.menuiserie.features.repeat_coplanar import axis_indices
 from freecad.menuiserie.features.repeat_joints import not_copied_warning
 from freecad.menuiserie.features.repeat_stop import Stops, bounded_params, stored_stops
 from freecad.menuiserie.gui.task_panels import base
@@ -47,6 +48,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     set_ok_enabled,
 )
 from freecad.menuiserie.gui.task_panels.furniture_widgets import message_label, show_message
+from freecad.menuiserie.gui.task_panels.repeat_coplanar import CoplanarCues
 from freecad.menuiserie.gui.task_panels.repeat_messages import overlap_text, summary_text
 from freecad.menuiserie.gui.task_panels.repeat_preview import copy_parts, shown_parts
 from freecad.menuiserie.gui.task_panels.repeat_rows import (
@@ -106,6 +108,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._sources = list(sources)
         self._refused = self._overlapping = False  # saisie refusée, copies qui se chevauchent
         self._steps_edited: set[RepeatAxis] = set()  # pas saisis : ils ne suivent plus la cote
+        self._coplanar = CoplanarCues()  # faces des copies au ras d'une voisine (ADR 0058)
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -301,6 +304,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
             params = bounded_params(sources, params, stops, self._repeat())
             grid = resolve_for(sources, params)
             self._apply(sources, params, stops)
+            self._coplanar.show(self._repeat(), sources, axis_indices(a.axis for a in grid.axes))
             with self._guard:
                 show_resolved(self._rows, self._stops.stops, params, grid)
             summary = summary_text(grid)
@@ -312,6 +316,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         except (TypeError, ValueError, KeyError) as refusal:
             error = str(refusal.args[0] if isinstance(refusal, KeyError) else refusal)
         except Exception as failure:  # OCC, objet en erreur : aperçu abandonné, rien ne reste
+            self._coplanar.clear()
             self._restart()
             error = translated(UNEXPECTED, {"reason": str(failure) or type(failure).__name__})
         self._refused = bool(error)
@@ -330,8 +335,10 @@ class RepeatTaskPanel(TransactionTaskPanel):
         return shown_parts(self._sources_now())
 
     def _release_display(self) -> None:
-        """Fermeture : l'observateur de sélection n'est jamais laissé en place."""
+        """Fermeture : l'observateur de sélection et les faces coplanaires ne sont jamais laissés
+        en place."""
         self._stops.close()
+        self._coplanar.close()
 
     def _not_copied(self) -> str:
         """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""

@@ -114,9 +114,10 @@ class Copying(Moving):
         return local if isinstance(local, int) else 0
 
     def apply(self, session: DragSession, delta: float) -> None:
-        result = self.solve(self._local_axis(), delta)
+        axis = self._local_axis()
+        result = self.solve(axis, delta)
         self.ghost = result.delta
-        session.written([self.guides[hit.guide] for hit in result.hits], self.frame)
+        session.written(self.moved_lit(axis, result), self.frame)
 
     def escape(self, session: DragSession) -> bool:
         """Échap : fantôme enlevé, rien n'a été écrit ; le relâchement du bouton est consommé."""

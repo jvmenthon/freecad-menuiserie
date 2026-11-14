@@ -10,20 +10,25 @@ souris), :class:`Moving` (flèche tirée), :class:`Resizing` (poignée tirée) e
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 from PySide import QtCore
 
-from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import (
+    MAX_COPLANAR,
     DragResult,
     Guide,
     Handle,
+    PlaneIndex,
     ResizeResult,
     axis_param,
+    box_faces,
     magnet,
+    overlaps,
     resize,
 )
 from freecad.menuiserie.core.rotation import (
@@ -217,6 +222,7 @@ class Dragging(Gesture):
         self.box = grab.target.box()
         # repère de la pièce au début : celui des guides, qui ne suivent pas la pièce
         self.frame = grab.target.frame()
+        self.planes = PlaneIndex(grab.guides)  # faces voisines, pour la coplanarité (ADR 0058)
 
     def _follow(self, session: DragSession) -> None:
         """Pièce placée d'après le curseur ; rayon parallèle à l'axe : elle reste."""
@@ -228,6 +234,29 @@ class Dragging(Gesture):
         """Écrit la pièce pour un déplacement ``delta`` mm du curseur le long de l'axe."""
         raise NotImplementedError
 
+    def lit(
+        self, hits: Iterable[Guide], box: Box, faces: Iterable[tuple[int, bool]]
+    ) -> list[Guide]:
+        """Guides à allumer : ceux de l'aimant (``hits``), puis les faces voisines coplanaires à une
+        face ``faces`` (axe, face de fin ?) de ``box`` (pièce ou fantôme, repère de départ), et
+        cette face si une de ces voisines est à l'écart (autre meuble : ADR 0058) ; au plus
+        :data:`MAX_COPLANAR` de plus."""
+        shown = dict.fromkeys(hits)
+        limit = len(shown) + MAX_COPLANAR
+        for face in box_faces(box, faces):
+            axis = face.axis if face.axis is not None else 0
+            found = self.planes.at(axis, face.position(axis))
+            if any(not overlaps(face, plane) for plane in found):
+                shown.setdefault(face)
+            shown.update(dict.fromkeys(found))
+        return list(shown)[:limit]
+
+    def moved_lit(self, axis: int, result: DragResult) -> list[Guide]:
+        """:meth:`lit` pour la boîte déplacée de ``result.delta`` sur ``axis`` (ses deux faces)."""
+        moved = Box(self.box.min + result.delta, self.box.max + result.delta)
+        hits = [self.guides[hit.guide] for hit in result.hits]
+        return self.lit(hits, moved, ((axis, False), (axis, True)))
+
 
 class Moving(Dragging):
     """Flèche tirée : la pièce suit la souris le long de l'axe, aimantée sauf Maj."""
@@ -237,7 +266,7 @@ class Moving(Dragging):
         wanted = Vec3(0.0, 0.0, 0.0).with_component(axis, delta)
         if self.shift:
             return DragResult(wanted)
-        return magnet(self.box, self.guides, wanted, self.tolerance, [axis])
+        return magnet(self.box, self.guides, wanted, self.tolerance, [axis], far=True)
 
     def apply(self, session: DragSession, delta: float) -> None:
         axis = parse_key(self.grabbed)
@@ -245,7 +274,7 @@ class Moving(Dragging):
             return
         result = self.solve(axis, delta)
         self.target.move(self.memento, result.delta)
-        session.written([self.guides[hit.guide] for hit in result.hits], self.frame)
+        session.written(self.moved_lit(axis, result), self.frame)
 
 
 @dataclass(frozen=True)
@@ -276,6 +305,9 @@ class Resizing(Dragging):
         guides = () if self.shift else self.guides
         result = resize(self.box, handle, delta, guides, self.tolerance, self.target.min_size)
         hit = [] if result.hit is None else [self.guides[result.hit.guide]]
+        low = self.box.lo(handle.axis) + result.origin_shift.component(handle.axis)
+        resized = self.box.with_range(handle.axis, low, low + result.size)
+        hit = self.lit(hit, resized, ((handle.axis, handle.at_end),))
         anchor = self.line.origin + self.line.direction.scaled(self.origin + delta)
         self.pending = _Pending(handle, result, hit, anchor)
         now = time.monotonic()
