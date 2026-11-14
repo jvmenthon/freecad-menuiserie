@@ -47,7 +47,7 @@ from freecad.menuiserie.features.picked import PickedElement, container_of
 from freecad.menuiserie.features.snap_geometry import element_shape, is_straight, to_vec3
 from freecad.menuiserie.features.snap_targets import read_targets
 
-__all__ = ["AXES", "DistanceMove"]
+__all__ = ["AXES", "DistanceMove", "moving_index_of", "piece_of", "targets_of"]
 
 AXES: Final = ("X", "Y", "Z")  # axes du conteneur proposés pour deux sommets (D4)
 _FROM_ABOVE: Final = Vec3(0.0, 0.0, 1.0)
@@ -86,7 +86,7 @@ def _refuse_curved(element: PickedElement) -> None:
             raise ValueError(translated(_CURVED_EDGE, {"label": element.label()}))
 
 
-def _targets(
+def targets_of(
     elements: tuple[PickedElement, PickedElement], toward_observer: Vec3
 ) -> tuple[Target, Target]:
     """Cibles des deux éléments, dans l'ordre ; ``ValueError`` traduite si l'un n'a pas de forme
@@ -120,6 +120,15 @@ def _moving_index(
     raise ValueError(translated(_NO_PART))
 
 
+def moving_index_of(
+    elements: tuple[PickedElement, PickedElement], moving: PickedElement | None = None
+) -> tuple[int, tuple[DocumentObject | None, DocumentObject | None]]:
+    """Indice de l'élément de la pièce déplacée (:func:`_moving_index`) et les deux pièces de
+    l'atelier (``None`` pour un objet d'un autre atelier)."""
+    pieces = (piece_of(elements[0]), piece_of(elements[1]))
+    return _moving_index(elements, pieces, moving), pieces
+
+
 class DistanceMove:
     """Distance à définir entre deux éléments ``first`` et ``second`` de deux objets différents.
 
@@ -140,7 +149,7 @@ class DistanceMove:
         owners = (first.owner(), second.owner())
         if owners[0] == owners[1] or (pieces[0] is not None and pieces[0] == pieces[1]):
             raise ValueError(translated(_SAME_OBJECT))
-        self._targets = _targets(self.elements, toward_observer)
+        self._targets = targets_of(self.elements, toward_observer)
         self._pieces = pieces
         self.moving_index = _moving_index(self.elements, pieces, moving)
         self._memento: DragMemento | None = None

@@ -85,6 +85,83 @@ def distance() -> str:
     return ic.svg(cadre=(3, 50, 3, 61), devant=cote)
 
 
+def aligner_faces() -> str:
+    """Aligner deux faces : une planche penchée revient dans le plan de la planche plate
+    (faces orange, plan commun en pointillé, flèche de rotation) ; dessin à plat, proposition B."""
+    bois = 'fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"'
+    face = 'stroke="#f57900" stroke-width="3.5" stroke-linecap="round"'
+    bleu = 'stroke="#204a87"'
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">\n'
+        "  <!-- Aligner deux faces : une planche penchée revient dans le plan de l'autre -->\n"
+        f'  <polygon points="4,48 60,48 60,58 4,58" {bois}/>\n'
+        f'  <polygon points="6,40 48,18 53,27 11,49" {bois}/>\n'
+        f'  <line x1="6" y1="40" x2="48" y2="18" {face}/>\n'
+        f'  <line x1="2" y1="48" x2="62" y2="48" {bleu} stroke-width="1.8" '
+        'stroke-dasharray="3 2.5"/>\n'
+        f'  <line x1="4" y1="48" x2="60" y2="48" {face}/>\n'
+        '  <path d="M52,10 A18,18 0 0 1 60,26 M56.5,26 L60,27 L61.5,22.5" fill="none" '
+        f'{bleu} stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>\n'
+        "</svg>\n"
+    )
+
+
+# Centrer sur X, Y, Z du panneau « Aligner deux faces » (proposition C, choisie par jv) :
+# angle de la ligne des centres à l'écran (perpendiculaire à l'axe : X à droite, Y en
+# profondeur, Z vers le haut) et couleur de l'axe, celle des rotations.
+CENTRAGES = {"X": (90.0, "#cc0000"), "Y": (-45.0, "#4e9a06"), "Z": (0.0, "#3465a4")}
+
+
+# Lettre de l'axe tracée au trait (pas de texte : les icônes ne dépendent d'aucune police).
+LETTRES = {
+    "X": "M49,47 L60,60 M60,47 L49,60",
+    "Y": "M49,47 L54.5,53.5 L60,47 M54.5,53.5 V60",
+    "Z": "M49,47 H60 L49,60 H60",
+}
+
+
+def _centrer(axe: str) -> str:
+    """Deux planches de longueurs différentes (la seconde, orange, est celle qui bouge) centrées
+    sur une ligne en pointillé perpendiculaire à l'axe, et la lettre de l'axe dans sa couleur.
+    Dessin à plat tourné de l'angle de la ligne des centres."""
+    angle, couleur = CENTRAGES[axe]
+    bois = 'fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"'
+    face = 'fill="#fcd9a8" stroke="#f57900" stroke-width="2.5" stroke-linejoin="round"'
+    # Ligne des centres horizontale avant rotation, planches verticales de part et d'autre.
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">\n'
+        f"  <!-- Centrer sur l'axe {axe} : deux planches centrées sur une ligne -->\n"
+        f'  <g transform="translate(-3 -3) rotate({-angle:g} 28 28)">\n'
+        f'    <line x1="4" y1="28" x2="52" y2="28" stroke="{couleur}" stroke-width="2.2" '
+        'stroke-dasharray="4 3"/>\n'
+        f'    <rect x="10" y="10" width="12" height="36" {bois}/>\n'
+        f'    <rect x="32" y="19" width="12" height="18" {face}/>\n'
+        "  </g>\n"
+        f'  <path d="{LETTRES[axe]}" fill="none" stroke="#ffffff" stroke-width="5.5" '
+        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+        f'  <path d="{LETTRES[axe]}" fill="none" stroke="{couleur}" stroke-width="3" '
+        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+        "</svg>\n"
+    )
+
+
+def centrer_x() -> str:
+    """Centrer sur l'axe X (panneau « Aligner deux faces »)."""
+    return _centrer("X")
+
+
+def centrer_y() -> str:
+    """Centrer sur l'axe Y (panneau « Aligner deux faces »)."""
+    return _centrer("Y")
+
+
+def centrer_z() -> str:
+    """Centrer sur l'axe Z (panneau « Aligner deux faces »)."""
+    return _centrer("Z")
+
+
 def distance_gardee() -> str:
     ic = Icone("Distance gardée : plateau, étagère et cote verrouillée entre les deux")
     ic.boite((0, 0, 40), (70, 30, 6), "chene")  # plateau

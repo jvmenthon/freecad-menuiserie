@@ -30,6 +30,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from tests.gui.aides_panneau import DEFAUTS_CONSTATES
+from tests.gui.verifications_alignement import VERIFICATIONS_ALIGNEMENT
 from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELACHEMENT
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
@@ -1305,6 +1306,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
     *VERIFICATIONS_DISTANCE_GARDEE,
+    *VERIFICATIONS_ALIGNEMENT,
     # Pièce en bois à forme libre (PD-d)
     *VERIFICATIONS_PIECE_EN_BOIS,
     *VERIFICATIONS_PIECE_EN_BOIS_LIMITES,

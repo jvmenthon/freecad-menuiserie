@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Aligner deux faces : une planche penchée revient dans le plan de l'autre -->
+  <polygon points="4,48 60,48 60,58 4,58" fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="6,40 48,18 53,27 11,49" fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"/>
+  <line x1="6" y1="40" x2="48" y2="18" stroke="#f57900" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="2" y1="48" x2="62" y2="48" stroke="#204a87" stroke-width="1.8" stroke-dasharray="3 2.5"/>
+  <line x1="4" y1="48" x2="60" y2="48" stroke="#f57900" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M52,10 A18,18 0 0 1 60,26 M56.5,26 L60,27 L61.5,22.5" fill="none" stroke="#204a87" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

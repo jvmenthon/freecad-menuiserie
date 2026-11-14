@@ -126,3 +126,9 @@ de répétitions m5) sont corrigés.
 | rg3 | mineur | `core/repeat/_grid.py` (`grid_overlaps`, `rank_of`) | Comparaison deux à deux de toutes les boîtes (101 au plus, environ 5 000 paires) à chaque saisie du panneau, et recherche linéaire du rang. Sans effet mesurable à 100 copies, mais inutilement quadratique ; `grid_overlaps` vaut d'ailleurs « un axe au moins se chevauche » (vérifié par tests). | Sortie anticipée ou test par axe seulement ; table cellule → rang calculée une fois par grille. |
 | rg4 | mineur | `features/repeat_copies.py` (`_renumber`) | Le rang et les libellés automatiques suivent la grille, mais un libellé de copie que l'utilisateur a tapé à la main et qui ressemble au libellé automatique d'un autre rang est pris pour automatique. | Mémoriser le libellé attribué (propriété cachée) plutôt que le déduire. |
 | rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |
+
+- `gui/task_panels/align.py` importe `report_refusal` de `gui/commands/base.py`, comme le panneau
+  de distance : déplacer cette fonction dans un module neutre de `gui/` (revue de la PR #254).
+- `gui/task_panels/align.py` : aucun test GUI ne couvre l'envoi forcé de la position automatique
+  sur un axe ; `_combo_row` pourrait recevoir ses éléments en paramètre (revue de l'alignement
+  sur un axe, PR #254).
