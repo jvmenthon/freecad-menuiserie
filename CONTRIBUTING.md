@@ -21,7 +21,9 @@ bandit -c pyproject.toml -r freecad
 Les tests d'intégration (`tests/integration`) nécessitent FreeCAD ; ils sont ignorés
 automatiquement s'il n'est pas importable et tournent dans la CI sur FreeCAD 1.1.
 La CI vérifie aussi que l'atelier se charge et s'active dans l'interface de FreeCAD
-(`tests/gui/verifier_atelier.py`, mode d'affichage `offscreen`).
+(`tests/gui/verifier_atelier.py`, mode d'affichage `offscreen`) et joue des scénarios
+d'utilisateur au clavier et à la souris avec QTest (`tests/qtest`, voir
+[docs/tests-gui-qtest.md](docs/tests-gui-qtest.md)).
 
 ## Organisation du code
 

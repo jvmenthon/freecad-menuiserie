@@ -103,3 +103,37 @@ jobs:
             tail -n 90 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
             false
           fi
+      - name: Serveur X virtuel
+        run: sudo apt-get install -y --no-install-recommends xvfb
+      - name: Scénarios QTest dans FreeCAD
+        # Mode test de FreeCAD (unittest) sur un vrai serveur X : claviers et clics de QTest sur
+        # les panneaux. softpipe : avec llvmpipe, la vue 3D hors écran sort blanche (captures).
+        # Une erreur d'import ouvrirait une boîte de dialogue : « timeout » y met fin.
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: softpipe
+        run: |
+          export FREECAD_USER_HOME="$RUNNER_TEMP/freecad-home"
+          export CAPTURES_QTEST="$RUNNER_TEMP/captures-qtest"
+          export PILE_EN_CAS_DE_PLANTAGE="$RUNNER_TEMP/pile-qtest.txt"
+          journal="$RUNNER_TEMP/freecad-qtest.log"
+          statut=0
+          for scenario in tests.qtest.scenario_queue_aronde; do
+            timeout 300 xvfb-run -a -s "-screen 0 1600x1000x24" \
+              freecad -t "$scenario" >> "$journal" 2>&1 || statut=$?
+          done
+          cat "$journal"
+          if [ "$statut" -ne 0 ]; then
+            echo "::error title=Scénarios QTest::échec (statut $statut)"
+            if [ -s "$PILE_EN_CAS_DE_PLANTAGE" ]; then
+              sed 's/^/::error title=Pile au plantage::/' "$PILE_EN_CAS_DE_PLANTAGE"
+            fi
+            tail -n 60 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
+            false
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: captures-qtest
+          path: ${{ runner.temp }}/captures-qtest/*.png
+          if-no-files-found: ignore

@@ -5,6 +5,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté (outillage)
+
+- Preuve de concept de tests d'interface avec QTest, joués dans le vrai FreeCAD par son mode test (`freecad -t tests.qtest.scenario_queue_aronde`, sous `xvfb-run` dans la CI) : deux pièces de 20 cm de large créées par la commande et son panneau (saisie au clavier), la seconde tournée de 90°, queue d'aronde à 10° avec 4 griffes de 30 mm, puis vérification des cotes, des placements, de la validité de l'assemblage, des volumes usinés et de l'historique d'annulation. `faulthandler` donne la pile Python en cas de plantage. Voir `docs/tests-gui-qtest.md`.
+
 ### Modifié
 
 - Pièce usinée : sa forme a désormais une carte des éléments (nommage topologique de FreeCAD 1.1, ADR 0056). Un lien d'un autre atelier vers une de ses faces ou arêtes (cote TechDraw, esquisse attachée, Assembly) suit l'élément quand on ajoute, modifie ou retire un assemblage, au lieu de garder un numéro qui peut viser un autre élément. Tests d'intégration `test_nommage_topologique`.
