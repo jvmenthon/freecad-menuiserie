@@ -34,7 +34,7 @@ from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.repeat import sources_of, stored_lines
 from freecad.menuiserie.features.repeat_copies import resolve_for, source_extent, source_extents
-from freecad.menuiserie.features.repeat_joints import not_copied_warning
+from freecad.menuiserie.features.repeat_joints import hand_joints_warning, not_copied_warning
 from freecad.menuiserie.features.repeat_stop import Stops, bounded_params, stored_stops
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
@@ -307,7 +307,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
             warning = overlap_text(grid, source_extents(sources, [a.axis for a in grid.axes]))
             self._overlapping = bool(warning)
             warning = "\n".join(
-                filter(None, (warning, collision_text(params, stops), self._not_copied()))
+                filter(None, (warning, collision_text(params, stops), self._joint_warnings()))
             )
         except (TypeError, ValueError, KeyError) as refusal:
             error = str(refusal.args[0] if isinstance(refusal, KeyError) else refusal)
@@ -333,10 +333,13 @@ class RepeatTaskPanel(TransactionTaskPanel):
         """Fermeture : l'observateur de sélection n'est jamais laissé en place."""
         self._stops.close()
 
-    def _not_copied(self) -> str:
-        """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""
+    def _joint_warnings(self) -> str:
+        """Avertissements des assemblages : non recopiés (impossibles), et posés à la main sur une
+        copie devenus impossibles (vide sinon)."""
         repeat = self._repeat()
-        return "" if repeat is None else not_copied_warning(repeat)
+        if repeat is None:
+            return ""
+        return "\n".join(filter(None, (not_copied_warning(repeat), hand_joints_warning(repeat))))
 
     def _apply(self, sources: Sequence[DocumentObject], params: RepeatParams, stops: Stops) -> None:
         """Copies de l'aperçu : répétition créée à la première saisie acceptée, ajustée ensuite
