@@ -46,6 +46,12 @@ def _names(shape: Any) -> list[tuple[str, set[str]]]:
                 if face.isSame(other):
                     found.add(str(shape.getElementMappedName(f"Face{index}")))
                     break
+        direct = {
+            str(solid.getElementMappedName(f"Face{rank}"))
+            for rank in range(1, len(solid.Faces) + 1)
+        }
+        if direct != found:
+            found.add("DIRECT-DIFFERENT")
         center = solid.CenterOfMass
         where = f"({center.x:.0f},{center.y:.0f},{center.z:.0f}) V={solid.Volume:.0f}"
         result.append((where, found))
@@ -95,10 +101,6 @@ def _body(report: list[str], doc: Any) -> None:  # noqa: PLR0915
     pad.Length = 30
     doc.recompute()
     report.extend(_describe("corps, protrusion 30", body, start))
-    sketch.movePoint(4, 1, App.Vector(220, 0, 0), 0)
-    doc.recompute()
-    report.extend(_describe("corps, sommet déplacé", body, start))
-
     hole = body.newObject("Sketcher::SketchObject", "Trou")
     _rectangle(hole, 220, 10, 20, 20)
     pocket = body.newObject("PartDesign::Pocket", "Poche")
@@ -195,6 +197,12 @@ def _python_feature(report: list[str], doc: Any) -> None:
     )
     doc.recompute()
     report.extend(_describe("FeaturePython d'un autre atelier (composé Python)", obj))
+    start = _names(obj.Shape)
+    obj.Shape = Part.makeCompound(
+        [Part.makeBox(5, 5, 5, App.Vector(50, 0, 0)), Part.makeBox(10, 10, 10)]
+    )
+    doc.recompute()
+    report.extend(_describe("FeaturePython, solides inversés par son script", obj, start))
     plain = doc.addObject("Part::Feature", "Importe")
     plain.Shape = Part.makeCompound(
         [Part.makeBox(10, 10, 10), Part.makeBox(5, 5, 5, App.Vector(50, 0, 0))]
@@ -205,7 +213,7 @@ def _python_feature(report: list[str], doc: Any) -> None:
 
 def test_sonde(document: Any) -> None:
     report: list[str] = [f"FreeCAD {'.'.join(App.Version()[:3])}"]
-    probes: list[Callable[[list[str], Any], None]] = [_body, _compound, _cut, _python_feature]
+    probes: list[Callable[[list[str], Any], None]] = [_body, _python_feature, _compound, _cut]
     for probe in probes:
         try:
             probe(report, document)
