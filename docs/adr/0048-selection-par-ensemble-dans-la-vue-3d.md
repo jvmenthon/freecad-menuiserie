@@ -1,8 +1,9 @@
 # ADR 0048 — Sélection par ensemble dans la vue 3D
 
-- Statut : **accepté** (jv, 2026-11-10 : clic simple = ensemble, double-clic = descendre, double-clic dans le vide = remonter, Ctrl+clic natif)
+- Statut : **abandonné** (jv, 2026-11-13 : « rollback de la fonction qui sélectionne l'ensemble et du drill down »). Retiré du code ; la sélection 3D redevient celle de FreeCAD. Accepté le 2026-11-10 (clic simple = ensemble, double-clic = descendre, double-clic dans le vide = remonter, Ctrl+clic natif), fusionné le 2026-11-11 (PR #206).
 - Date : 2026-11-10
-- Spécification : [docs/specs/selection-par-ensemble.md](../specs/selection-par-ensemble.md)
+- Note : la spécification `docs/specs/selection-par-ensemble.md` est supprimée avec le code (voir l'historique git, commit e26a082) ; l'ADR 0049 (cotes du parent à l'enveloppe) est conservé, il ne dépend pas de la sélection.
+- Spécification : supprimée (voir la note ci-dessus)
 - ADR liés : [0007](0007-compatibilite-avec-les-autres-ateliers.md),
   [0008](0008-ensemble-objet-de-cotes.md), [0018](0018-double-clic-dans-la-vue-3d.md),
   [0037](0037-sous-ensemble-depuis-des-membres.md), [0038](0038-ensemble-a-la-souris.md),

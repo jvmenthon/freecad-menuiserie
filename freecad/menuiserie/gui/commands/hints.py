@@ -4,8 +4,7 @@
 Une telle commande reste grisée tant que la sélection ne convient pas ; son infobulle se termine
 par « Prérequis : » suivi d'une de ces phrases (``tool_tip`` de
 :mod:`freecad.menuiserie.gui.commands.base`), la même que le bouton soit grisé ou non. Elles
-citent Ctrl+clic, qui garde la sélection native de FreeCAD pièce par pièce (ADR 0048 : un clic
-simple sur une pièce d'un ensemble sélectionne l'ensemble).
+citent Ctrl+clic, qui ajoute une pièce à la sélection native de FreeCAD.
 """
 
 from typing import Final
@@ -49,6 +48,11 @@ DISTANCE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "deux éléments (face, arête ou sommet) de deux objets différents sélectionnés (Ctrl+clic "
     "sur chacun dans la vue 3D).",
+)
+ALIGN_FACES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "deux faces planes de deux objets différents sélectionnées (Ctrl+clic sur chacune dans la "
+    "vue 3D).",
 )
 SHAPED_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
