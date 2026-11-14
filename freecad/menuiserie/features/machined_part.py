@@ -326,6 +326,13 @@ def blank_of(obj: DocumentObject) -> DocumentObject:
     raise TypeError(translated(_NOT_A_PART, {"label": quoted_value(getattr(obj, "Label", obj))}))
 
 
+def blank_or_self(obj: DocumentObject) -> DocumentObject:
+    """La ``Base`` de ``obj`` si c'est une pièce usinée qui en a une, sinon ``obj`` lui-même ;
+    jamais d'erreur (sélection de l'interface : tout objet)."""
+    base = getattr(obj, "Base", None) if is_machined_part(obj) else None
+    return obj if base is None else base
+
+
 def machined_part_of(blank: DocumentObject) -> DocumentObject | None:
     """Pièce usinée de la brute ``blank`` (d'après ``blank.InList``), ``None`` s'il n'y en a pas."""
     for parent in blank.InList:

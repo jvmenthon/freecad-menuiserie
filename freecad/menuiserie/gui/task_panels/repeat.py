@@ -301,6 +301,8 @@ class RepeatTaskPanel(TransactionTaskPanel):
             params = bounded_params(sources, params, stops, self._repeat())
             grid = resolve_for(sources, params)
             self._apply(sources, params, stops)
+            if self.closed:  # FreeCAD a fermé le panneau pendant l'aperçu : plus aucun widget
+                return
             with self._guard:
                 show_resolved(self._rows, self._stops.stops, params, grid)
             summary = summary_text(grid)
@@ -312,9 +314,11 @@ class RepeatTaskPanel(TransactionTaskPanel):
         except (TypeError, ValueError, KeyError) as refusal:
             error = str(refusal.args[0] if isinstance(refusal, KeyError) else refusal)
         except Exception as failure:  # OCC, objet en erreur : aperçu abandonné, rien ne reste
+            if self.closed:  # transaction déjà soldée par la fermeture : ne pas en rouvrir une
+                return
             self._restart()
             error = translated(UNEXPECTED, {"reason": str(failure) or type(failure).__name__})
-        if self.closed:  # panneau fermé par FreeCAD pendant la mise à jour (transaction abandonnée)
+        if self.closed:  # fermé pendant la mise à jour : plus rien à afficher
             return
         self._refused = bool(error)
         self.sync_styles()
@@ -357,7 +361,9 @@ class RepeatTaskPanel(TransactionTaskPanel):
 
     def _restart(self) -> None:
         """Transaction abandonnée (aperçu et répétition créée disparaissent, la répétition
-        modifiée retrouve son réglage) puis rouverte, vide."""
+        modifiée retrouve son réglage) puis rouverte, vide ; rien une fois le panneau fermé."""
+        if self.closed:
+            return
         close_transaction(self._transaction, abort=True)
         title = CREATE_TRANSACTION if self.creating else EDIT_TRANSACTION
         self.doc.openTransaction(translated(title))
