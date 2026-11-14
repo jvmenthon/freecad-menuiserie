@@ -148,14 +148,17 @@ def _centrer(axe: str) -> str:
 
 
 def centrer_x() -> str:
+    """Centrer sur l'axe X (panneau « Aligner deux faces »)."""
     return _centrer("X")
 
 
 def centrer_y() -> str:
+    """Centrer sur l'axe Y (panneau « Aligner deux faces »)."""
     return _centrer("Y")
 
 
 def centrer_z() -> str:
+    """Centrer sur l'axe Z (panneau « Aligner deux faces »)."""
     return _centrer("Z")
 
 

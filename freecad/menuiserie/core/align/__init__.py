@@ -14,7 +14,6 @@ from freecad.menuiserie.core.align._align import (
     AlignMode,
     align,
     face_center,
-    plane_motion,
 )
 
 __all__ = [
@@ -24,5 +23,4 @@ __all__ = [
     "Alignment",
     "align",
     "face_center",
-    "plane_motion",
 ]

@@ -363,12 +363,11 @@ def align_faces(
     décalage compte). ``centered`` (``"X"``, ``"XY"``, ``"XYZ"``…) : sur chacun de ces axes du
     conteneur, le centre de la face déplacée vient sur celui de l'autre face ; ``"XYZ"`` les
     confond d'un coup. Un objet d'un autre atelier ne bouge jamais ; membre d'ensemble :
-    l'ensemble est relié ensuite. Refus avant toute
-    modification (``ValueError`` traduite) : pas deux faces planes, même objet, aucune pièce de
-    l'atelier, position pilotée par une formule, mode ou axe inconnu, décalage non fini, et sur un
-    axe : faces non parallèles, axe dans leur plan ou presque (pente < 0,05), mode d'équerre.
-    Renvoie les avertissements
-    traduits (aussi dans la vue rapport). Aucune transaction n'est ouverte."""
+    l'ensemble est relié ensuite. Refus avant toute modification (``ValueError`` traduite) : pas
+    deux faces planes, même objet, aucune pièce de l'atelier, position pilotée par une formule,
+    mode ou axe inconnu, décalage non fini, et sur un axe : faces non parallèles, axe dans leur
+    plan ou presque (pente < 0,05), mode d'équerre. Renvoie les avertissements traduits (aussi
+    dans la vue rapport). Aucune transaction n'est ouverte."""
     try:
         chosen = AlignMode(mode)
     except ValueError:

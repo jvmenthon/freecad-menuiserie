@@ -84,6 +84,13 @@ class Alignment:
     mode: AlignMode
 
 
+def _checked_axis(axis: Vec3) -> Vec3:
+    """``axis`` rendu unitaire ; :class:`AlignError` s'il n'est pas fini ou s'il est nul."""
+    if not is_finite(axis) or norm(axis) <= ANGLE_TOLERANCE:
+        raise AlignError(INVALID_AXIS, {})
+    return unit(axis)
+
+
 def _rotation_between(source: Vec3, target: Vec3, spare: Vec3) -> tuple[Matrix3, float]:
     """Rotation minimale qui amène le vecteur unitaire ``source`` sur ``target`` (Rodrigues) et
     son angle en degrés. Vecteurs opposés : demi-tour autour de ``spare`` (unitaire, perpendiculaire
@@ -158,6 +165,7 @@ def face_center(face: FaceTarget) -> Vec3:
 
 
 def _turned_point(motion: Alignment, point: Vec3) -> Vec3:
+    """Image de ``point`` par le mouvement ``motion``."""
     return _turned(motion.rotation, point - motion.pivot) + motion.pivot + motion.shift
 
 
@@ -174,35 +182,6 @@ def _centering(
         extra = extra + axis.scaled(dot(delta, axis))
     normal = unit(fixed.frame.z)
     return extra - normal.scaled(dot(extra, normal))
-
-
-def align(
-    fixed: FaceTarget,
-    moving: FaceTarget,
-    mode: AlignMode = AlignMode.AUTO,
-    offset: Vec3 = NO_OFFSET,
-    axis: Vec3 | None = None,
-    centered: tuple[Vec3, ...] = (),
-) -> Alignment:
-    """:func:`plane_motion` puis, pour chaque axe de ``centered`` (axes X, Y, Z globaux du
-    conteneur, unitaires et perpendiculaires), le centre de la face mobile amené sur celui de la
-    référence le long de cet axe, **dans le plan de la référence** ; avec les trois axes, les
-    deux centres se confondent dans ce plan. Le décalage ``offset`` s'ajoute après le centrage.
-    Axe de ``centered`` non fini, nul, ou non perpendiculaire aux autres : :class:`AlignError`."""
-    for item in centered:
-        if not is_finite(item) or norm(item) <= ANGLE_TOLERANCE:
-            raise AlignError(INVALID_AXIS, {})
-    axes = tuple(unit(item) for item in centered)
-    if any(abs(dot(a, b)) > ANGLE_TOLERANCE for i, a in enumerate(axes) for b in axes[i + 1 :]):
-        raise AlignError(SKEWED_AXES, {})
-    motion = plane_motion(fixed, moving, mode, offset, axis)
-    if not centered:
-        return motion
-    bare = plane_motion(fixed, moving, mode, NO_OFFSET, axis)
-    extra = _centering(bare, fixed, moving, axes)
-    if not is_finite(extra):
-        raise AlignError(INVALID_OFFSET, {})
-    return Alignment(motion.rotation, motion.pivot, motion.shift + extra, motion.angle, motion.mode)
 
 
 def plane_motion(
@@ -228,11 +207,10 @@ def plane_motion(
     reference = unit(fixed.frame.z)
     own = unit(moving.frame.z)
     if axis is not None:
-        if not is_finite(axis) or norm(axis) <= ANGLE_TOLERANCE:
-            raise AlignError(INVALID_AXIS, {})
+        unit_axis = _checked_axis(axis)
         if mode is AlignMode.PERPENDICULAR:
             raise AlignError(PERPENDICULAR_ON_AXIS, {})
-        return _along_axis(fixed, moving, (reference, own), offset.z, unit(axis))
+        return _along_axis(fixed, moving, (reference, own), offset.z, unit_axis)
     chosen = _mode_of(reference, own, mode)
     wanted = _wanted_normal(reference, own, chosen, unit(fixed.frame.x))
     rotation, angle = _rotation_between(own, wanted, unit(moving.frame.x))
@@ -246,3 +224,31 @@ def plane_motion(
         + reference.scaled(offset.z)
     )
     return Alignment(rotation, pivot, shift, angle, chosen)
+
+
+def align(
+    fixed: FaceTarget,
+    moving: FaceTarget,
+    mode: AlignMode = AlignMode.AUTO,
+    offset: Vec3 = NO_OFFSET,
+    axis: Vec3 | None = None,
+    centered: tuple[Vec3, ...] = (),
+) -> Alignment:
+    """:func:`plane_motion` puis, pour chaque axe de ``centered`` (axes X, Y, Z globaux du
+    conteneur, unitaires et perpendiculaires), le centre de la face mobile amené sur celui de la
+    référence le long de cet axe, **dans le plan de la référence** ; avec les trois axes, les
+    deux centres se confondent dans ce plan. Le décalage ``offset`` s'ajoute après le centrage.
+    Axe de ``centered`` non fini, nul, ou non perpendiculaire aux autres : :class:`AlignError`."""
+    axes = tuple(_checked_axis(item) for item in centered)
+    if any(abs(dot(a, b)) > ANGLE_TOLERANCE for i, a in enumerate(axes) for b in axes[i + 1 :]):
+        raise AlignError(SKEWED_AXES, {})
+    motion = plane_motion(fixed, moving, mode, offset, axis)
+    if not centered:
+        return motion
+    # Centrage mesuré sans décalage (sur un axe, le décalage allonge le trajet le long de l'axe :
+    # ce n'est pas une simple translation), puis ajouté au mouvement décalé.
+    bare = plane_motion(fixed, moving, mode, NO_OFFSET, axis)
+    extra = _centering(bare, fixed, moving, axes)
+    if not is_finite(extra):
+        raise AlignError(INVALID_OFFSET, {})
+    return Alignment(motion.rotation, motion.pivot, motion.shift + extra, motion.angle, motion.mode)

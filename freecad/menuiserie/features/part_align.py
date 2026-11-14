@@ -120,10 +120,14 @@ class FaceAlign:
     def _axis(self, axis: str | None) -> Vec3 | None:
         """Vecteur global de l'axe ``axis`` du conteneur (Std Part) de la pièce déplacée, ou du
         document sans conteneur ; ``None`` : alignement libre."""
-        if axis is None:
-            return None
+        return None if axis is None else self._unit_axis(axis)
+
+    def _unit_axis(self, axis: str) -> Vec3:
+        """Vecteur global de l'axe ``axis`` (``"X"``, ``"Y"``, ``"Z"``) du conteneur de la pièce
+        déplacée ; ``ValueError`` traduite pour tout autre texte."""
         if not isinstance(axis, str) or axis not in _UNIT_AXES:
-            raise ValueError(translated(_UNKNOWN_AXIS, {"axis": str(axis)}))
+            shown = axis[:3] if isinstance(axis, str) else type(axis).__name__
+            raise ValueError(translated(_UNKNOWN_AXIS, {"axis": shown}))
         unit = App.Vector(*_UNIT_AXES[axis])
         container = container_of(self.elements[self.moving_index])
         if container is not None:
@@ -134,12 +138,7 @@ class FaceAlign:
         """Vecteurs globaux des axes ``centered`` (``"XZ"``…), sans doublon."""
         if not isinstance(centered, str):
             raise ValueError(translated(_UNKNOWN_AXIS, {"axis": type(centered).__name__}))
-        found: list[Vec3] = []
-        for letter in dict.fromkeys(centered):
-            vector = self._axis(letter)
-            if vector is not None:
-                found.append(vector)
-        return tuple(found)
+        return tuple(self._unit_axis(letter) for letter in dict.fromkeys(centered))
 
     @property
     def can_swap(self) -> bool:
@@ -216,9 +215,8 @@ class FaceAlign:
     ) -> tuple[Alignment, list[str]]:
         """:meth:`begin`, :meth:`preview` puis :meth:`finish` d'un seul geste (script, ``api``) ;
         au moindre refus la pièce revient avant que l'erreur soit relancée."""
-        self.plan(
-            mode, offset, axis, centered
-        )  # refus (face non plane) avant de toucher à la pièce
+        # Refus (face non plane, axe inconnu…) avant de toucher à la pièce.
+        self.plan(mode, offset, axis, centered)
         self.begin()
         try:
             alignment = self.preview(mode, offset, axis, centered)

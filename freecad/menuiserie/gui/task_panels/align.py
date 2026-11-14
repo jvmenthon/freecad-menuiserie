@@ -201,7 +201,9 @@ class AlignTaskPanel(TransactionTaskPanel):
         self._edited()
 
     def _centered(self) -> str:
-        return "".join(axis for axis, b in zip(_AXES, self._centers, strict=True) if b.isChecked())
+        """Lettres des axes cochés (« XZ »…)."""
+        pairs = zip(_AXES, self._centers, strict=True)
+        return "".join(axis for axis, button in pairs if button.isChecked())
 
     def _offset(self) -> Vec3:
         x, y, z = (round(float(field.property("rawValue")), 6) for field in self._offsets)
