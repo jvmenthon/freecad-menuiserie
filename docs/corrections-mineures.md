@@ -150,3 +150,10 @@ de répétitions m5) sont corrigés.
 | qt1 | mineur | `features/structure_source.py` (`renamed_object`), `features/machined_part.py` (`blank_of`) | La condition « pièce usinée dont la brute existe » est écrite deux fois. | Une fonction partagée (`has_blank`) utilisée par les deux. |
 | qt2 | mineur | `gui/double_click.py`, `gui/part_appearance.py`, `gui/structure_sync.py`, `gui/commands/cutlist.py`, `gui/view_providers/repeat.py` | Lectures `getattr(x, "ViewObject", None)` qui ne passent pas par `display_io.view_object_of` (non exposées à la fermeture d'un document à ce jour). | Les remplacer au fil de l'eau. |
 | qt3 | mineur | `tests/qtest/scenario_annulation_panneau.py`, `scenario_annuler_retablir.py`, `scenario_reouverture.py` | Deux fonctions `etat` proches ; `fermer_le_document_actif` refait `aides.fermer` ; `setUpModule` recopié dans chaque module. | Regrouper dans `aides.py` quand les scénarios de priorité 2 arrivent. |
+
+## Audit FreeCAD 1.0 / 1.1, 2026-11-14
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| fc1 | mineur | `gui/task_panels/furniture_widgets.py`, `joint.py`, `carcass.py`, `repeat.py` (`_ERROR_STYLE`, `_HINT_STYLE`, `_WARNING_STYLE`) | Couleurs de texte fixes (`#c0392b`, `#6b6b6b`, `#b35c00`) : le thème sombre livré avec FreeCAD 1.0 les rend peu contrastées (environ 3 : 1). | Prendre la couleur dans la palette Qt (`palette(placeholder-text)` pour l'aide) et éclaircir le rouge et l'orange ; à valider par jv sur les deux thèmes. |
+| fc2 | mineur | `gui/cutlist_preview.py` (`setStyleSheet("... #ffffff")`) | Fond blanc forcé sans couleur de texte : en thème sombre, le texte hérité peut être clair sur blanc. | Fixer aussi `color` (noir) dans la même feuille de style. |
