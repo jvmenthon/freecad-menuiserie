@@ -1,0 +1,60 @@
+# ADR 0060 — Épaisseur qui défait un assemblage : de quel côté l'ajouter
+
+- Statut : **proposé** (jv a choisi le 2026-11-15 la maquette C pour le panneau et la maquette
+  souris B pour les poignées ; le reste est à valider)
+- Date : 2026-11-15
+- Spécification : [docs/specs/epaisseur-d-une-piece-assemblee.md](../specs/epaisseur-d-une-piece-assemblee.md)
+- ADR liés : [0019](0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md),
+  [0021](0021-deplacement-a-la-souris-avec-aimantation.md),
+  [0026](0026-assemblage-defait-par-un-deplacement.md),
+  [0043](0043-repetition-objet-de-cotes-et-copies-liees.md)
+
+## Contexte
+
+Le repère d'une pièce de bois a son origine sur sa face basse : une épaisseur saisie déplace sa
+face haute. Les pièces **posées** sur cette face la suivent déjà (issue #133). Mais une pièce qui
+**traverse** et doit arriver **à fleur** de la face (queue d'aronde : la pièce à griffes à fleur
+de la face extérieure de la pièce à queues) n'y arrive plus : l'assemblage passe en erreur, sans
+message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario S4).
+
+## Décision
+
+1. **Panneau de la pièce** (maquette C, sans fenêtre) : quand l'épaisseur saisie d'une pièce
+   **isolée** défait un assemblage qui tenait, un encadré apparaît sous les cotes avec trois
+   choix :
+   - « Vers l'intérieur (reste à fleur) » : l'écart est ajouté du côté de la face basse ; la pièce
+     recule de l'écart, sa face haute ne bouge pas ; les pièces posées contre sa face basse la
+     suivent (même règle que #133, face opposée) ;
+   - « Vers l'extérieur et allonger « X » de N mm » : épaisseur telle que saisie, et chaque autre
+     pièce de l'assemblage défait, à fleur de la face haute, est prolongée de l'écart (sa cote
+     sur l'axe de l'épaisseur ; son origine recule si c'est son bout de début qui est à fleur) ;
+   - « Revenir à N mm ».
+   « Intérieur » / « extérieur » se lit par rapport à l'autre pièce ; pour une épaisseur réduite,
+   « Côté intérieur » / « raccourcir ». Le premier choix possible est coché et appliqué aussitôt
+   (aperçu en direct) ; « OK » valide l'état affiché, en une seule entrée d'annulation.
+2. **Choix possible** : essayé sans recalcul du document (plans d'usinage des assemblages, comme
+   ADR 0026) ; il l'est s'il ne défait aucun assemblage qui tenait. Sinon il est grisé, avec sa
+   raison : autre pièce **copie de répétition**, **membre d'un ensemble**, **pièce en bois**
+   (cotes du dessin), cote ou position **pilotée par une expression**, pièce pas à fleur, trop
+   courte, ou assemblage encore défait.
+3. **Saisies successives** : tant que l'encadré est affiché, chaque saisie d'épaisseur repart de
+   l'état d'avant la première (`ThicknessEdit`, Memento) : taper « 3 » puis « 30 » ne cumule rien.
+   Toute autre saisie (cote, rotation, glissement, matériau) fige l'état et masque l'encadré.
+4. **À la souris** (maquette souris B, sans fenêtre) : la poignée tirée dit le côté. Une pièce
+   assemblée à fleur de la face tirée, dont l'assemblage serait défait par cette face qui bouge
+   (essai à +5 mm au premier pas), est **prolongée en direct** ; son écart s'affiche près de la
+   souris (« « H » +12,00 mm ») et le relâchement l'écrit dans la vue rapport. Si elle ne peut
+   pas l'être (mêmes raisons qu'au point 2), la poignée **s'arrête** à l'épaisseur du début
+   (butée, message en rouge près de la souris) : il reste à tirer l'autre face. Échap rend tout.
+5. Un **membre d'ensemble** garde le comportement de l'ADR 0019 (l'ensemble relie ses membres) ;
+   l'éditeur de propriétés et les scripts gardent celui de #133 (face haute, sans question).
+
+## Conséquences
+
+- Code : `core/thickness_side.py` (pur : `flush_extension`, `grows_toward`, `other_side_shift`),
+  `core/thickness_follow.py` (`lowered`), `features/thickness_choice.py` (`ThicknessEdit`,
+  choix), `features/thickness_drag.py` (souris), `gui/task_panels/wood_part_conflict.py`
+  (encadré), `features/part_drag.resize_part` (renvoie la raison d'une butée).
+- Prolonger l'autre pièce modifie une pièce que l'utilisateur n'a pas touchée : c'est dit dans
+  l'encadré (panneau) ou près de la souris et dans la vue rapport (poignées).
+- Les scénarios QTest de ces comportements sont ajoutés par le fil QTest (ADR 0059).
