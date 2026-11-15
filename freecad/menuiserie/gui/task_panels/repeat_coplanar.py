@@ -16,7 +16,6 @@ import FreeCADGui as Gui
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.repeat import copies_of
 from freecad.menuiserie.features.repeat_coplanar import RepeatPlanes
-from freecad.menuiserie.features.snap_geometry import ERRORS
 from freecad.menuiserie.gui.drag.geometry import Drawing, guides_drawing
 from freecad.menuiserie.gui.drag.overlay import Overlay
 from freecad.menuiserie.gui.drag.parts import frame_of
@@ -25,7 +24,6 @@ from freecad.menuiserie.gui.task_panels.repeat_preview import copy_parts, shown_
 __all__ = ["NODE_NAME", "CoplanarCues"]
 
 NODE_NAME = "MenuiserieRepeatCoplanar"
-_FAILURES = (*ERRORS, AttributeError, KeyError, ReferenceError)
 
 
 def _scene_graph(doc_name: str) -> Any:
@@ -59,7 +57,7 @@ class CoplanarCues:
             guides = self._planes.coplanar(copies, axes)
             strokes = guides_drawing(guides, frame_of(self._planes.origin))[0]
             self._draw(repeat.Document.Name, strokes)
-        except _FAILURES:
+        except Exception:  # repère visuel seulement : il ne doit jamais casser l'aperçu
             self.clear()
 
     def _draw(self, doc_name: str, strokes: Sequence[Any]) -> None:

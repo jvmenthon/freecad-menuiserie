@@ -78,10 +78,11 @@ def test_voisine_cachee_ignoree(document: Any) -> None:
 
 
 def test_dans_un_std_part_tourne(document: Any) -> None:
-    """Axes de la répétition : ceux du Std Part de la source, même tourné."""
+    """Axes de la répétition : ceux du Std Part de la source, tourné autour de X (son Z est le
+    -Y du document)."""
     container = document.addObject("App::Part", "Meuble")
     container.Placement = App.Placement(
-        App.Vector(1000, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90)
+        App.Vector(1000, 0, 0), App.Rotation(App.Vector(1, 0, 0), 90)
     )
     part = shelf(document)
     container.addObject(part)

@@ -56,7 +56,6 @@ def test_far_sens_oppose_donne_un_contact() -> None:
 
 
 def test_far_ne_touche_que_les_axes_demandes() -> None:
-    loin = face(1, 960, [(0, 100), (960, 960), (0, 20)])
     loin = face(1, 55, FAR)
     assert magnet(BOX, [loin], Vec3(0, 0, 0), 15, (0,), far=True).hits == ()
     assert magnet(BOX, [loin], Vec3(0, 0, 0), 15, (1,), far=True).delta == Vec3(0, 5, 0)
@@ -101,7 +100,6 @@ def test_far_a_portee_au_dela_de_la_tolerance_cede_au_plan_lointain() -> None:
 def test_tolerance_exacte_incluse() -> None:
     index = PlaneIndex([face(2, 20 + CONTACT_TOLERANCE_MM, FAR)])
     assert len(index.at(2, 20)) == 1
-    assert index.at(2, 20 - 1e-6) != [] or True  # bord flottant : seul l'intérieur est garanti
     assert index.at(2, 20 - 2 * CONTACT_TOLERANCE_MM) == []
 
 

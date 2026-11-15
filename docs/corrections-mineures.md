@@ -142,3 +142,11 @@ de répétitions m5) sont corrigés.
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
 | nt1 | mineur | `features/solids.py` (`machined_shape`), ADR 0056 | La carte des éléments de la pièce usinée est enregistrée dans le `.FCStd` et tenue à chaque booléenne : taille du fichier et temps de recalcul non mesurés sur un meuble réel (plusieurs dizaines d'assemblages). | Mesurer taille et temps avant/après sur un meuble de référence ; documenter le résultat dans l'ADR 0056. |
+
+## Coplanarité (PR #262, ADR 0058), 2026-11-15
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| cp1 | mineur | `features/repeat_coplanar.py` (`RepeatPlanes`) | Seul le conteneur de la première source est lu : des sources de conteneurs différents ne voient pas les voisines des autres. | Lire les voisines de chaque conteneur distinct (même repère de répétition). |
+| cp2 | mineur | `features/magnet_guides.py` (`neighbor_planes`) | Voisines lues dans l'ordre du document (pas les plus proches d'abord) : au-delà de `MAX_GUIDES`, des voisines utiles peuvent manquer. | Passer l'enveloppe des sources en `reference`. |
+| cp3 | mineur | `gui/drag/states.py` (`Dragging.lit`) | Sous Maj, l'aimant est coupé mais la coplanarité exacte reste montrée (choix assumé, à confirmer par jv). | Rien si jv confirme. |
