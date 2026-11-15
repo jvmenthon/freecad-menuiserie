@@ -33,4 +33,5 @@ def main() -> int:
         return 0 if resultat.wasSuccessful() and resultat.testsRun else 1
 
 
+# Pas de garde ``__name__`` : FreeCAD exécute ce fichier, il n'est jamais importé.
 os._exit(main())

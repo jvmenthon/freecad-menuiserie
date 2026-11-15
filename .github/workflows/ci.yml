@@ -121,6 +121,7 @@ jobs:
           export RAPPORT_QTEST="$RUNNER_TEMP/rapport-qtest.txt"
           journal="$RUNNER_TEMP/freecad-qtest.log"
           piles="$RUNNER_TEMP/piles-qtest.txt"
+          rm -f "$journal" "$piles"
           statut=0
           for fichier in tests/qtest/scenario_*.py; do
             module="tests.qtest.$(basename "$fichier" .py)"
@@ -129,7 +130,8 @@ jobs:
             if [ "$module" = tests.qtest.scenario_queue_aronde ]; then
               export GALLIUM_DRIVER=softpipe CAPTURES_QTEST="$RUNNER_TEMP/captures-qtest"
             else
-              unset GALLIUM_DRIVER CAPTURES_QTEST
+              export GALLIUM_DRIVER=llvmpipe
+              unset CAPTURES_QTEST
             fi
             SCENARIO="$module" timeout --kill-after=10 600 \
               xvfb-run -a -s "-screen 0 1600x1000x24" freecad tests/qtest/lanceur.py \
