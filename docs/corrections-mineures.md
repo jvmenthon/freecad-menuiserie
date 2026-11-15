@@ -143,6 +143,14 @@ de répétitions m5) sont corrigés.
 |----|--------|----|----------|---------------------|
 | nt1 | mineur | `features/solids.py` (`machined_shape`), ADR 0056 | La carte des éléments de la pièce usinée est enregistrée dans le `.FCStd` et tenue à chaque booléenne : taille du fichier et temps de recalcul non mesurés sur un meuble réel (plusieurs dizaines d'assemblages). | Mesurer taille et temps avant/après sur un meuble de référence ; documenter le résultat dans l'ADR 0056. |
 
+## Relecture « scénarios QTest de priorité 1 » (PR #263, ADR 0059), 2026-11-15
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| qt1 | mineur | `features/structure_source.py` (`renamed_object`), `features/machined_part.py` (`blank_of`) | La condition « pièce usinée dont la brute existe » est écrite deux fois. | Une fonction partagée (`has_blank`) utilisée par les deux. |
+| qt2 | mineur | `gui/double_click.py`, `gui/part_appearance.py`, `gui/structure_sync.py`, `gui/commands/cutlist.py`, `gui/view_providers/repeat.py` | Lectures `getattr(x, "ViewObject", None)` qui ne passent pas par `display_io.view_object_of` (non exposées à la fermeture d'un document à ce jour). | Les remplacer au fil de l'eau. |
+| qt3 | mineur | `tests/qtest/scenario_annulation_panneau.py`, `scenario_annuler_retablir.py`, `scenario_reouverture.py` | Deux fonctions `etat` proches ; `fermer_le_document_actif` refait `aides.fermer` ; `setUpModule` recopié dans chaque module. | Regrouper dans `aides.py` quand les scénarios de priorité 2 arrivent. |
+
 ## Audit FreeCAD 1.0 / 1.1, 2026-11-14
 
 | N° | Niveau | Où | Problème | Correction proposée |

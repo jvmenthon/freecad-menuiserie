@@ -5,6 +5,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté (outillage)
+
+- Preuve de concept de tests d'interface avec QTest (#263, ADR 0059) : un scénario complet (deux pièces, rotation, queue d'aronde) est joué au clavier et à la souris dans le vrai FreeCAD par son mode test, sous `xvfb-run` dans la CI. Voir `docs/tests-gui-qtest.md`.
+- Scénarios QTest de priorité 1 (#263) : annuler et rétablir de bout en bout, enregistrer puis rouvrir, annulation de chaque panneau (bouton et Échap), modification d'une pièce déjà assemblée, saisies hostiles au clavier, document fermé avec un panneau ouvert, suppression (assemblage, pièce assemblée, ensemble avec son contenu). La CI joue chaque module `tests/qtest/scenario_*.py` dans son propre FreeCAD par `tests/qtest/lanceur.py`.
+
 ### Modifié
 
 - Pièce usinée : sa forme a désormais une carte des éléments (nommage topologique de FreeCAD 1.1, ADR 0056). Un lien d'un autre atelier vers une de ses faces ou arêtes (cote TechDraw, esquisse attachée, Assembly) suit l'élément quand on ajoute, modifie ou retire un assemblage, au lieu de garder un numéro qui peut viser un autre élément. Tests d'intégration `test_nommage_topologique`.
@@ -15,6 +20,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Panneaux de tâche : après une erreur de recalcul pendant la saisie (valeur en cours refusée par un assemblage, par exemple « 3 » avant « 300 »), le panneau suivant ne s'ouvrait parfois pas (double-clic sans effet, `TypeError` sur `kindCombo` dans la vue rapport, environ une fois sur dix). La trace de la dernière erreur gardait en vie le panneau fermé et les enveloppes PySide de ses widgets ; ses cadres sont vidés avant d'ouvrir un panneau (`gui/error_frames.py`). Trouvé par le scénario QTest `scenario_modifier_piece_assemblee` en CI.
+- Queue d'aronde : une largeur de griffe saisie sous 0,1 mm est refusée avec un message (« Griffes trop étroites »), au lieu d'être acceptée jusqu'à 0,001 mm.
+- Fermer un document pendant qu'un panneau de création (pièce en bois, assemblage) est ouvert n'écrit plus d'erreur « Unknown document » dans la vue rapport : l'affichage d'un document déjà fermé est ignoré (trouvé par le scénario QTest `scenario_document_ferme`).
+- Panneau « Structure » : supprimer la pièce brute d'une pièce déjà assemblée ne provoque plus d'erreur (`TypeError`) à chaque rafraîchissement du panneau ; la pièce usinée restante garde sa ligne (trouvé par le scénario QTest `scenario_suppression`, test d'intégration `test_brute_supprimee_la_piece_usinee_reste_dans_l_arbre`).
+- Queue d'aronde : faute dans le message « pièce trop étroite » (« une angle » devient « un angle »).
 - Compatibilité FreeCAD 1.1 : la boîte « repères manquants » de la liste de débit utilise `exec()` (`exec_()` est obsolète en PySide6).
 - Compatibilité FreeCAD 1.1 : `positioned` reconnaît les éléments d'origine (`App::Plane`, `App::Line`, `App::Point` cités par l'`App::Origin`) sans le type `App::OriginFeature`, supprimé en 1.1. Sans cela, ces éléments, rangés dans le groupe du Std Part, auraient été « remis en place » en écrivant leur `Placement` quand un Std Part est déplacé.
 - Panneau « Structure » : régression de #208, la transparence de sélection (50 %, bleu clair) n'apparaissait plus pendant une tâche. Elle est de nouveau posée dès le clic de ligne, en même temps que la transparence d'édition (60 %) de la pièce éditée, les deux indépendantes (l'édition prime sur le même objet). Elle est écrite dans la transaction du panneau puis retirée avant sa validation ou son abandon : aucune teinte dans l'historique d'annulation (Ctrl+Z/Ctrl+Y) ni dans le fichier, y compris enregistré pendant la tâche ; une tâche d'un autre atelier garde la pose différée (ADR 0046). Ctrl+Z / Ctrl+Y rejouent la valeur d'affichage du moment : elle est corrigée après coup (`slotRedoDocument`). Limite : un calque d'édition reposé par un enregistrement pendant la tâche est écrit dans la transaction (comportement antérieur inchangé).

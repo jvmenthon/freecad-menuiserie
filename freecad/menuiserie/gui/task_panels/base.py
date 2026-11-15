@@ -27,6 +27,7 @@ from freecad.menuiserie.features.document_snapshot import snapshot_of
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.display_layers import DISPLAY, object_alive
+from freecad.menuiserie.gui.error_frames import release_last_error_frames
 from freecad.menuiserie.gui.task_panels import active
 from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
@@ -300,6 +301,7 @@ def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None)
     """Construit le panneau par ``build`` puis l'affiche, dans la transaction déjà ouverte.
     Une exception abandonne cette transaction (objet en création compris) avant d'être
     propagée."""
+    release_last_error_frames()
     with aborted_on_error(App.getActiveTransaction()):
         panel = build()
         Gui.Control.showDialog(panel)
