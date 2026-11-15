@@ -20,9 +20,12 @@ import unittest
 
 
 def main() -> int:
-    with open(os.environ["RAPPORT_QTEST"], "w", encoding="utf-8", buffering=1) as rapport:
+    scenario, chemin = os.environ.get("SCENARIO"), os.environ.get("RAPPORT_QTEST")
+    if not scenario or not chemin:
+        return 2  # variables absentes : sortir plutôt que laisser FreeCAD ouvert
+    with open(chemin, "w", encoding="utf-8", buffering=1) as rapport:
         try:
-            suite = unittest.defaultTestLoader.loadTestsFromName(os.environ["SCENARIO"])
+            suite = unittest.defaultTestLoader.loadTestsFromName(scenario)
             resultat = unittest.TextTestRunner(stream=rapport, verbosity=2).run(suite)
         except Exception:
             rapport.write(traceback.format_exc())

@@ -13,10 +13,11 @@ import unittest
 from typing import Any, ClassVar
 
 from tests.gui.verifications_assemblages import usinee_de
-from tests.qtest.aides import activer_faulthandler, fermer, lancer, preparer
+from tests.qtest.aides import Etapes, activer_faulthandler, fermer, lancer, preparer
 from tests.qtest.angle_a_queues import (
     TOLERANCE_MM3,
     VOLUME_BRUT,
+    affichage,
     controler_le_document,
     jouer,
     volumes_usines,
@@ -40,13 +41,14 @@ def volume(obj: Any) -> float:
     return 0.0 if forme is None or forme.isNull() else float(round(forme.Volume))
 
 
-class AnnulerRetablir(unittest.TestCase):
+class AnnulerRetablir(Etapes):
     """Les étapes s'enchaînent sur le même document : méthodes numérotées, jouées dans l'ordre."""
 
     doc: ClassVar[Any]
     pieces: ClassVar[tuple[Any, Any]]
     nom_assemblage: ClassVar[str]
     etat_final: ClassVar[dict[str, tuple[str, float]]]
+    affichage_final: ClassVar[dict[str, tuple[object, ...]]]
     entrees: ClassVar[list[str]]
 
     @classmethod
@@ -57,6 +59,7 @@ class AnnulerRetablir(unittest.TestCase):
         cls.pieces = (hote, invitee)
         cls.nom_assemblage = assemblage.Name
         cls.etat_final = etat(cls.doc)
+        cls.affichage_final = affichage(cls.doc)
         cls.entrees = list(cls.doc.UndoNames)
 
     def test_1_annuler_l_assemblage(self) -> None:
@@ -68,6 +71,7 @@ class AnnulerRetablir(unittest.TestCase):
         for piece in self.pieces:
             self.assertAlmostEqual(piece.Shape.Volume, VOLUME_BRUT, delta=TOLERANCE_MM3)
             self.assertTrue(piece.ViewObject.Visibility, f"{piece.Label} restée masquée")
+            self.assertEqual(piece.ViewObject.Transparency, 0, f"{piece.Label} restée teintée")
         controler_le_document(self, self.doc)
 
     def test_2_annuler_jusqu_au_document_vide(self) -> None:
@@ -84,6 +88,8 @@ class AnnulerRetablir(unittest.TestCase):
         self.assertEqual(self.doc.UndoNames, self.entrees)
         self.assertEqual(self.doc.RedoNames, [])
         self.assertEqual(etat(self.doc), self.etat_final)
+        # Aucune teinte d'édition rejouée par l'historique (régression de #208).
+        self.assertEqual(affichage(self.doc), self.affichage_final)
         controler_le_document(self, self.doc)
 
     def test_4_pieces_usinees_retablies(self) -> None:

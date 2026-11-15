@@ -14,9 +14,10 @@ from __future__ import annotations
 import faulthandler
 import os
 import sys
+import unittest
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -216,14 +217,39 @@ def vider_la_vue_rapport() -> None:
             vue.clear()
 
 
+OUI = QtGui.QMessageBox.StandardButton.Yes
+NON = QtGui.QMessageBox.StandardButton.No
+
+
+class Etapes(unittest.TestCase):
+    """Scénario dont les tests sont des étapes numérotées jouées dans l'ordre sur le même
+    document : après une étape en échec, les suivantes sont sautées (elles partiraient d'un état
+    faux et échoueraient en cascade)."""
+
+    interrompu: ClassVar[bool] = False
+
+    def setUp(self) -> None:
+        if type(self).interrompu:
+            self.skipTest("étape précédente en échec")
+
+    def run(self, result: unittest.TestResult | None = None) -> unittest.TestResult | None:
+        avant = 0 if result is None else len(result.failures) + len(result.errors)
+        rendu = super().run(result)
+        if result is not None and len(result.failures) + len(result.errors) > avant:
+            type(self).interrompu = True
+        return rendu
+
+
 class ReponseAuxBoites:
     """Répond aux boîtes de message modales ouvertes pendant le bloc ``with``, comme
-    l'utilisateur : clic sur le bouton dont le texte commence par ``reponse`` (sans le « & » du
-    raccourci). ``vues`` garde le titre et le texte de chaque boîte. Une boîte modale bloque la
-    boucle d'événements : la réponse part d'une minuterie, armée avant le geste qui l'ouvre.
+    l'utilisateur. ``reponse`` est un bouton standard (``OUI``, ``NON`` : boîtes de FreeCAD,
+    dont le texte dépend de la langue) ou le début du texte d'un bouton de l'atelier (sans le
+    « & » du raccourci). ``vues`` garde le titre et le texte de chaque boîte. Une boîte modale
+    bloque la boucle d'événements : la réponse part d'une minuterie, armée avant le geste qui
+    l'ouvre.
     Une boîte sans ce bouton est refermée et le bloc échoue."""
 
-    def __init__(self, reponse: str) -> None:
+    def __init__(self, reponse: Any) -> None:
         self.reponse = reponse
         self.vues: list[tuple[str, str]] = []
         self._inattendues: list[str] = []
@@ -240,7 +266,12 @@ class ReponseAuxBoites:
             boite.close()
             return
         self.vues.append((str(boite.windowTitle()), str(boite.text())))
-        boutons = [b for b in boite.buttons() if b.text().replace("&", "").startswith(self.reponse)]
+        if isinstance(self.reponse, str):
+            boutons = [
+                b for b in boite.buttons() if b.text().replace("&", "").startswith(self.reponse)
+            ]
+        else:
+            boutons = [b for b in (boite.button(self.reponse),) if b is not None]
         if len(boutons) != 1:
             textes = [b.text() for b in boite.buttons()]
             self._inattendues.append(f"boîte « {boite.windowTitle()} » : boutons {textes}")
@@ -254,6 +285,9 @@ class ReponseAuxBoites:
 
     def __exit__(self, *_exc: object) -> None:
         QTest.qWait(4 * PAS_MS)  # une boîte ouverte en différé a encore sa réponse
+        fermees = attendre(lambda: QtGui.QApplication.activeModalWidget() is None)
         self._minuterie.stop()
+        if not fermees:
+            self._inattendues.append("boîte modale restée ouverte")
         if self._inattendues:
             raise AssertionError("; ".join(self._inattendues))

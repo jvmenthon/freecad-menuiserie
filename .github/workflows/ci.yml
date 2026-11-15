@@ -133,22 +133,18 @@ jobs:
             fi
             SCENARIO="$module" timeout --kill-after=10 600 \
               xvfb-run -a -s "-screen 0 1600x1000x24" freecad tests/qtest/lanceur.py \
-              >> "$journal" 2>&1 || { statut=$?; echo "ÉCHEC de $module (statut $statut)" >> "$journal"; }
+              >> "$journal" 2>&1 || { echo "ÉCHEC de $module (statut $?)" >> "$journal"; statut=1; }
             if [ -f "$RAPPORT_QTEST" ]; then cat "$RAPPORT_QTEST" >> "$journal"; fi
             if [ -s "$PILE_EN_CAS_DE_PLANTAGE" ]; then cat "$PILE_EN_CAS_DE_PLANTAGE" >> "$piles"; fi
           done
-          export PILE_EN_CAS_DE_PLANTAGE="$piles"
           # Journal affiché sans que ses lignes « ::… » soient prises pour des commandes du runner.
           jeton="$(openssl rand -hex 16)"
           echo "::stop-commands::$jeton"
           cat "$journal"
+          if [ -s "$piles" ]; then echo "=== Piles Python au plantage"; cat "$piles"; fi
           echo "::$jeton::"
           if [ "$statut" -ne 0 ]; then
-            echo "::error title=Scénarios QTest::échec (statut $statut)"
-            if [ -s "$PILE_EN_CAS_DE_PLANTAGE" ]; then
-              sed 's/^/::error title=Pile au plantage::/' "$PILE_EN_CAS_DE_PLANTAGE"
-            fi
-            tail -n 60 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
+            echo "::error title=Scénarios QTest::échec, voir « ÉCHEC de » dans le journal ci-dessus"
             false
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

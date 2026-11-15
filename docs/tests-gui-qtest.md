@@ -48,9 +48,8 @@ avec une classe `unittest.TestCase`, et les aides de `tests/qtest/aides.py` :
 | Valider le panneau | `cliquer(bouton_ok())` |
 | Annuler, rétablir | `lancer("Std_Undo")`, `lancer("Std_Redo")` |
 | Cliquer des pièces dans la vue 3D | `selectionner(a, b)` (`Gui.Selection`) |
-
 | Annuler le panneau | `cliquer(bouton_annuler())`, `appuyer_sur_echap(champ)` |
-| Répondre à une boîte de message | `with ReponseAuxBoites("Oui") as boites:` autour du geste qui l'ouvre |
+| Répondre à une boîte de message | `with ReponseAuxBoites(OUI) as boites:` autour du geste qui l'ouvre (bouton standard `OUI`, `NON` pour une boîte de FreeCAD, début du texte du bouton pour une boîte de l'atelier) |
 | Lire les erreurs affichées | `vue_rapport()` après `vider_la_vue_rapport()` |
 
 Les gestes du couple de pièces assemblé par une queue d'aronde (créer une pièce, la poser, régler
@@ -62,7 +61,8 @@ formes (`Shape.isValid()`, volumes), noms des entrées d'annulation.
 
 Les widgets sont trouvés par leur `objectName` (`WoodPartTaskPanel`, `lengthEdit`, `TailCount`,
 `TailCountAuto`…) : ces noms sont un contrat entre les panneaux et les scénarios. Un nom changé
-fait échouer le scénario avec un message explicite (« widget … absent du panneau … »).
+fait échouer le scénario avec un message explicite (« 0 widgets … dans le panneau … au lieu
+d'un »).
 
 Les libellés comparés (entrées d'annulation) sont les chaînes sources de l'atelier, en français :
 FreeCAD doit tourner sans traduction de l'atelier vers une autre langue, ce qui est le cas en CI.
@@ -73,18 +73,29 @@ FreeCAD doit tourner sans traduction de l'atelier vers une autre langue, ce qui 
 |---|---|
 | `scenario_queue_aronde` | Deux pièces de 20 cm, la seconde tournée de 90°, queue d'aronde à 10° avec 4 griffes de 30 mm ; capture de la vue 3D. |
 | `scenario_annuler_retablir` | Le même, puis Ctrl+Z jusqu'au document vide et Ctrl+Y jusqu'à la fin. |
-| `scenario_reouverture` | Enregistrer, fermer, rouvrir, puis modifier l'assemblage par double-clic. |
+| `scenario_reouverture` | Enregistrer, fermer, rouvrir (par l'API `saveAs`, `closeDocument`, `openDocument` : les boîtes de fichier ne sont pas jouées), puis modifier l'assemblage par double-clic. |
 | `scenario_annulation_panneau` | Chaque panneau ouvert, rempli, puis annulé (bouton Annuler et touche Échap), en création et en modification. |
 | `scenario_modifier_piece_assemblee` | Largeur et épaisseur d'une pièce déjà assemblée changées au clavier. |
 | `scenario_saisies_hostiles` | 0, négatif, valeur transitoire, texte, 99999 dans les champs du panneau d'assemblage. |
-| `scenario_document_ferme` | Document fermé avec un panneau ouvert (création et modification). |
+| `scenario_document_ferme` | Document fermé ou changé avec un panneau ouvert (création et modification), panneau annulé pendant une saisie en cours. |
 | `scenario_suppression` | Suppression d'un assemblage, d'une pièce assemblée, d'un ensemble avec son contenu (boîte de confirmation). |
 
 Chaque scénario finit par les contrôles communs : aucun objet « Invalid » ni « Touched », formes
 valides, aucune transaction ouverte, panneau fermé, vue rapport sans erreur quand le scénario la
 surveille. À chaque bug d'enchaînement corrigé, son geste exact s'ajoute à un scénario.
 
+Les scénarios dont les tests sont des étapes numérotées sur un même document héritent de
+`aides.Etapes` : après une étape en échec, les suivantes sont sautées.
+
 ## Limites connues
+
+- Seuls les panneaux « Pièce en bois » et « Queue d'aronde » sont joués pour l'instant
+  (annulation, saisies hostiles) ; les autres panneaux viennent avec les scénarios de priorité 2
+  (un par famille de fonctions).
+- `scenario_modifier_piece_assemblee` ne joue pas encore une épaisseur qui rompt l'assemblage :
+  le comportement attendu est à trancher (message dans le panneau ou non).
+- Les boîtes de message de FreeCAD sont répondues par leur bouton standard et comptées, pas
+  reconnues à leur titre (il dépend de la langue).
 
 - L'image capturée n'est pas contrôlée (elle sert à la relecture) ; seul `scenario_queue_aronde`
   en prend une, car le rendu `softpipe` qu'elle demande est dix fois plus lent.

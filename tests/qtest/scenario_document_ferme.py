@@ -3,6 +3,8 @@
 
 - Un autre document est créé pendant la création d'un assemblage : le panneau continue d'éditer
   son document, les commandes de l'atelier restent inactives, « OK » valide dans le bon document.
+- Le panneau est annulé au milieu d'une saisie (recalcul et rafraîchissement différés en
+  attente), ou après un aller-retour vers un autre document : aucune erreur différée.
 - Le document est fermé pendant la modification d'un assemblage, puis pendant la création d'une
   pièce : le panneau se ferme de lui-même, sans erreur Python dans la vue rapport.
 """
@@ -14,11 +16,13 @@ from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+from PySide import QtCore
 
 from tests.gui.verifications_double_clic import vue_3d_active
 from tests.qtest.aides import (
     activer_faulthandler,
     attendre,
+    bouton_annuler,
     bouton_ok,
     cliquer,
     enfant,
@@ -44,6 +48,7 @@ from tests.qtest.angle_a_queues import (
     jouer,
     regler,
 )
+from tests.qtest.qttest import QTest
 
 
 def setUpModule() -> None:
@@ -97,6 +102,45 @@ class DocumentFermeOuChange(unittest.TestCase):
         )
         self.assertAlmostEqual(assemblage.Angle.Value, 15.0)
         self.assertEqual(doc.UndoNames[0], "Créer un assemblage à queue d'aronde")
+        controler_le_document(self, doc)
+        self.assert_aucune_erreur_python()
+
+    def test_panneau_annule_au_milieu_d_une_saisie(self) -> None:
+        """Touches tapées sans quitter le champ puis clic immédiat sur « Annuler », sans laisser
+        tourner la boucle d'événements : les rafraîchissements différés du panneau arrivent
+        après sa fermeture (« QLabel already deleted », PR #260)."""
+        doc = preparer("ScenarioAnnulationPendantLaSaisie")
+        hote, invitee = deux_pieces(doc)
+        selectionner(invitee, hote)
+        lancer(QUEUE_D_ARONDE)
+        form = formulaire(PANNEAU_ASSEMBLAGE)
+        QTest.mouseClick(enfant(form, "AngleAuto"), QtCore.Qt.MouseButton.LeftButton)
+        QTest.keyClicks(enfant(form, "Angle"), "2")
+        QTest.mouseClick(bouton_annuler(), QtCore.Qt.MouseButton.LeftButton)
+        QTest.qWait(500)  # laisse arriver les rappels différés du panneau fermé
+        self.assertFalse(panneau_ouvert())
+        self.assertEqual(doc.Objects, [hote, invitee])
+        controler_le_document(self, doc)
+        self.assert_aucune_erreur_python()
+
+    def test_retour_au_premier_document_puis_annulation(self) -> None:
+        """Aller-retour vers un autre document pendant la modification, puis « Annuler » : la
+        valeur d'origine revient dans le bon document."""
+        doc = preparer("ScenarioAllerRetour")
+        _hote, _invitee, assemblage = jouer(doc)
+        double_cliquer(assemblage)
+        champ = enfant(formulaire(PANNEAU_ASSEMBLAGE), "Angle")
+        taper(champ, "12")
+        autre = App.newDocument("ScenarioAllerRetourAutre")
+        traiter_les_evenements()
+        App.setActiveDocument(doc.Name)
+        vue_3d_active(doc)
+        traiter_les_evenements()
+        self.assertTrue(panneau_ouvert(), "panneau fermé par l'aller-retour")
+        cliquer(bouton_annuler())
+        self.assertFalse(panneau_ouvert())
+        self.assertAlmostEqual(assemblage.Angle.Value, 10.0)
+        self.assertEqual(autre.Objects, [])
         controler_le_document(self, doc)
         self.assert_aucune_erreur_python()
 

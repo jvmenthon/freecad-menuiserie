@@ -198,3 +198,22 @@ def test_objet_supprime_pendant_la_fermeture_ne_leve_rien() -> None:
     preview = PartsPreview(lambda: [piece], alive, DisplayLayers(alive))
     deleted = True
     preview.restore()
+
+
+def test_view_object_d_un_document_ferme() -> None:
+    """FreeCAD lève ``NameError`` (« Unknown document ») à la lecture du ``ViewObject`` d'un objet
+    dont le document vient d'être fermé : lu comme « pas d'affichage », sans erreur."""
+    from freecad.menuiserie.gui import display_io
+
+    class Closed:
+        @property
+        def ViewObject(self) -> Any:
+            raise NameError("Unknown document 'Ferme'")
+
+    assert display_io.view_object_of(Closed()) is None
+    assert display_io.view_object_of(None) is None
+    assert display_io.view_object_of(FakeObject("sans interface", gui=False)) is None
+    shown = FakeObject("affichee")
+    assert display_io.view_object_of(shown) is shown.ViewObject
+    # Une faute de nom dans le code de l'atelier n'est pas avalée par ``except GONE``.
+    assert not issubclass(NameError, display_io.GONE)

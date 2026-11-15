@@ -14,6 +14,7 @@ from typing import Any
 
 from tests.gui.verifications_assemblages import usinee_de
 from tests.qtest.aides import (
+    OUI,
     ReponseAuxBoites,
     activer_faulthandler,
     fermer,
@@ -35,8 +36,6 @@ from tests.qtest.angle_a_queues import (
 SUPPRIMER, ANNULER = "Std_Delete", "Std_Undo"
 ENSEMBLE = "Menuiserie_Furniture"
 ASSEMBLAGE_LIE = "Menuiserie : assemblage lié"
-CONTENU_DU_GROUPE = "Delete group contents recursively?"  # boîte de FreeCAD, non traduite ici
-DEPENDANCES = "Object dependencies"
 INCOMPLET = "Assemblage incomplet"
 
 
@@ -44,9 +43,9 @@ def setUpModule() -> None:
     unittest.addModuleCleanup(activer_faulthandler())
 
 
-def supprimer(obj: Any, reponse: str) -> list[str]:
+def supprimer(obj: Any, reponse: Any) -> list[str]:
     """Sélectionne ``obj``, lance « Supprimer » et répond ``reponse`` ; renvoie les titres des
-    boîtes ouvertes."""
+    boîtes ouvertes. Les boîtes de FreeCAD (titre selon la langue) sont comptées, pas nommées."""
     selectionner(obj)
     with ReponseAuxBoites(reponse) as boites:
         lancer(SUPPRIMER)
@@ -117,21 +116,23 @@ class Suppression(unittest.TestCase):
         self.annuler_et_verifier(avant)
 
     def test_brute_supprimee_malgre_l_avertissement(self) -> None:
-        """Brute supprimée depuis l'arbre, « Yes » à l'avertissement de FreeCAD : l'assemblage
-        passe en erreur avec un message clair, l'interface ne lève rien d'autre ; Ctrl+Z
-        répare."""
+        """Brute supprimée depuis l'arbre, « Oui » à l'avertissement de FreeCAD (dépendances) :
+        l'assemblage passe en erreur avec un message clair, l'interface ne lève rien d'autre ;
+        Ctrl+Z répare."""
         avant = self.noms()
-        self.assertEqual(supprimer(self.hote, "Yes"), [DEPENDANCES])
+        self.assertEqual(len(supprimer(self.hote, OUI)), 1)
         self.doc.recompute()
         self.assertIn("Invalid", self.assemblage.State)
         rapport = vue_rapport()
         self.assertIn(INCOMPLET, rapport)
+        # Le panneau « Structure » se rafraîchit sans erreur : seule la trace de l'assemblage
+        # incomplet (``ValueError``) est admise.
         self.assertNotIn("TypeError", rapport)
-        self.assertNotIn("structure", rapport)  # le panneau « Structure » se rafraîchit sans erreur
+        self.assertNotIn("structure_", rapport)
         self.annuler_et_verifier(avant)
 
     def test_ensemble_supprime_avec_son_contenu(self) -> None:
-        """Ensemble créé autour des deux pièces, puis son Std Part supprimé avec « Yes » à
+        """Ensemble créé autour des deux pièces, puis son Std Part supprimé avec « Oui » à
         « supprimer le contenu » : une seule boîte, tout disparaît sans plantage, Ctrl+Z rend
         tout."""
         selectionner(usinee_de(self.hote), usinee_de(self.invitee))
@@ -140,7 +141,7 @@ class Suppression(unittest.TestCase):
         self.doc.clearUndos()
         avant = self.noms()
         (groupe,) = (obj for obj in self.doc.Objects if obj.TypeId == "App::Part")
-        self.assertEqual(supprimer(groupe, "Yes"), [CONTENU_DU_GROUPE])
+        self.assertEqual(len(supprimer(groupe, OUI)), 1)
         self.assertEqual(self.doc.Objects, [])
         self.assertNotIn("Traceback", vue_rapport())
         self.annuler_et_verifier(avant)

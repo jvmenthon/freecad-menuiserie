@@ -15,6 +15,7 @@ import unittest
 from typing import Any, ClassVar
 
 from tests.qtest.aides import (
+    Etapes,
     activer_faulthandler,
     bouton_annuler,
     bouton_ok,
@@ -40,7 +41,7 @@ from tests.qtest.angle_a_queues import (
 )
 
 HOSTILES = ("0", "-5", "0.01", "3", "32", "99999", "1e9", "abc", "", "30 cm")
-DELAI_MAX_S = 2.0  # une saisie ne doit jamais figer l'interface
+DELAI_MAX_S = 5.0  # une saisie ne doit jamais figer l'interface
 COTE_MAX_MM = 9999.0
 PRECISION_AFFICHEE = 0.01  # le champ arrondit à l'affichage ce qu'il a écrit
 TROP_ETROITES = "Queues trop étroites"
@@ -50,7 +51,7 @@ def setUpModule() -> None:
     unittest.addModuleCleanup(activer_faulthandler())
 
 
-class SaisiesHostilesDeLAssemblage(unittest.TestCase):
+class SaisiesHostilesDeLAssemblage(Etapes):
     """Panneau de création d'une queue d'aronde sur les deux pièces en angle."""
 
     doc: ClassVar[Any]

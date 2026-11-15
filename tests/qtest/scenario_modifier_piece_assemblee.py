@@ -12,6 +12,7 @@ import unittest
 from typing import Any, ClassVar
 
 from tests.qtest.aides import (
+    Etapes,
     activer_faulthandler,
     bouton_ok,
     cliquer,
@@ -53,7 +54,7 @@ def retaper(piece: Any, champ: str, texte: str) -> None:
     cliquer(bouton_ok())
 
 
-class ModifierUnePieceAssemblee(unittest.TestCase):
+class ModifierUnePieceAssemblee(Etapes):
     """Étapes numérotées, jouées dans l'ordre sur le même document."""
 
     doc: ClassVar[Any]

@@ -34,14 +34,13 @@ __all__ = [
     "report",
     "show",
     "target_diffuse",
+    "view_object_of",
 ]
 
 ViewObject = Any
 PartObject = Any  # objet FreeCAD (ce module n'importe pas ``features`` : il reste léger)
 Key = tuple[str, str]  # (nom du document, nom de l'objet)
-# Objet supprimé ou document fermé. ``NameError`` : « Unknown document » levé par FreeCAD quand on
-# lit le ``ViewObject`` d'un objet dont le document vient d'être fermé (panneau de création ouvert).
-GONE: Final = (ReferenceError, RuntimeError, TypeError, NameError)
+GONE: Final = (ReferenceError, RuntimeError, TypeError)  # objet supprimé ou document fermé
 
 
 @dataclass(frozen=True)
@@ -75,6 +74,16 @@ class AppObservers:
         import FreeCAD as App
 
         App.removeDocumentObserver(watcher)
+
+
+def view_object_of(obj: PartObject | None) -> ViewObject | None:
+    """``ViewObject`` de ``obj``, ou ``None`` : pas d'interface, ou document déjà fermé (FreeCAD
+    lève alors ``NameError`` « Unknown document », par exemple quand on ferme un document
+    pendant qu'un panneau de création est ouvert). ``NameError`` n'est attrapée qu'ici."""
+    try:
+        return getattr(obj, "ViewObject", None)
+    except NameError:
+        return None
 
 
 def object_alive(obj: PartObject) -> bool:

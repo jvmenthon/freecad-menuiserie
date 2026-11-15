@@ -127,6 +127,22 @@ def volumes_usines(hote: Any, invitee: Any) -> list[float]:
     return [usinee_de(piece).Shape.Volume for piece in (hote, invitee)]
 
 
+def affichage(doc: Any) -> dict[str, tuple[object, ...]]:
+    """Nom de chaque objet -> ce que l'utilisateur voit de lui (visibilité, transparence,
+    couleur, mode d'affichage) : une teinte d'édition restée dans l'historique d'annulation ou
+    après un panneau annulé change cet état."""
+    etat: dict[str, tuple[object, ...]] = {}
+    for obj in doc.Objects:
+        vue = obj.ViewObject
+        etat[obj.Name] = (
+            vue.Visibility,
+            getattr(vue, "Transparency", None),
+            getattr(vue, "ShapeColor", None),
+            getattr(vue, "DisplayMode", None),
+        )
+    return etat
+
+
 def controler_le_document(test: unittest.TestCase, doc: Any) -> None:
     """Contrôles communs de fin de scénario : aucun objet en erreur ni à recalculer, formes
     valides, aucune transaction restée ouverte, aucun panneau ouvert."""

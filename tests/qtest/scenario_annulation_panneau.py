@@ -32,6 +32,7 @@ from tests.qtest.angle_a_queues import (
     PANNEAU_PIECE,
     PIECE_EN_BOIS,
     QUEUE_D_ARONDE,
+    affichage,
     controler_le_document,
     deux_pieces,
     double_cliquer,
@@ -51,14 +52,22 @@ def etat(doc: Any) -> Etat:
     objets = {}
     for obj in doc.Objects:
         forme = getattr(obj, "Shape", None)
-        vue = obj.ViewObject
         objets[obj.Name] = (
             0 if forme is None or forme.isNull() else round(forme.Volume),
-            vue.Visibility,
-            getattr(vue, "Transparency", None),
             str(getattr(obj, "Placement", "")),
         )
-    return {"objets": objets, "annuler": list(doc.UndoNames), "retablir": list(doc.RedoNames)}
+    return {
+        "objets": objets,
+        "affichage": affichage(doc),
+        "annuler": list(doc.UndoNames),
+        "retablir": list(doc.RedoNames),
+    }
+
+
+def verifier_le_retour(test: unittest.TestCase, doc: Any, avant: Etat) -> None:
+    test.assertFalse(panneau_ouvert(), "panneau resté ouvert")
+    test.assertEqual(etat(doc), avant)
+    controler_le_document(test, doc)
 
 
 def annuler_par_le_bouton(_champ: Any) -> None:
@@ -83,11 +92,6 @@ class AnnulationDesPanneaux(unittest.TestCase):
         cls.addClassCleanup(fermer, cls.doc)
         cls.pieces = deux_pieces(cls.doc)
 
-    def verifier_le_retour(self, avant: Etat) -> None:
-        self.assertFalse(panneau_ouvert(), "panneau resté ouvert")
-        self.assertEqual(etat(self.doc), avant)
-        controler_le_document(self, self.doc)
-
     def test_creation_d_une_piece_annulee(self) -> None:
         for nom, fermeture in FERMETURES.items():
             with self.subTest(fermeture=nom):
@@ -98,7 +102,7 @@ class AnnulationDesPanneaux(unittest.TestCase):
                 taper(champ, "300 mm")
                 self.assertEqual(len(self.doc.Objects), 3, "pièce en cours de création absente")
                 fermeture(champ)
-                self.verifier_le_retour(avant)
+                verifier_le_retour(self, self.doc, avant)
 
     def test_creation_d_un_assemblage_annulee(self) -> None:
         hote, invitee = self.pieces
@@ -112,7 +116,7 @@ class AnnulationDesPanneaux(unittest.TestCase):
                 self.assertEqual(len(self.doc.Objects), 5, "aperçu de l'assemblage absent")
                 fermeture(enfant(form, "Angle"))
                 selectionner()
-                self.verifier_le_retour(avant)
+                verifier_le_retour(self, self.doc, avant)
 
 
 class AnnulationDesModifications(unittest.TestCase):
@@ -128,11 +132,6 @@ class AnnulationDesModifications(unittest.TestCase):
         cls.addClassCleanup(fermer, cls.doc)
         cls.hote, _invitee, cls.assemblage = jouer(cls.doc)
 
-    def verifier_le_retour(self, avant: Etat) -> None:
-        self.assertFalse(panneau_ouvert(), "panneau resté ouvert")
-        self.assertEqual(etat(self.doc), avant)
-        controler_le_document(self, self.doc)
-
     def test_modification_d_un_assemblage_annulee(self) -> None:
         for nom, fermeture in FERMETURES.items():
             with self.subTest(fermeture=nom):
@@ -143,7 +142,7 @@ class AnnulationDesModifications(unittest.TestCase):
                 self.assertAlmostEqual(self.assemblage.Angle.Value, 20.0)
                 fermeture(champ)
                 self.assertAlmostEqual(self.assemblage.Angle.Value, 10.0)
-                self.verifier_le_retour(avant)
+                verifier_le_retour(self, self.doc, avant)
 
     def test_modification_d_une_piece_assemblee_annulee(self) -> None:
         for nom, fermeture in FERMETURES.items():
@@ -155,4 +154,4 @@ class AnnulationDesModifications(unittest.TestCase):
                 self.assertAlmostEqual(self.hote.Width.Value, 300.0)
                 fermeture(champ)
                 self.assertAlmostEqual(self.hote.Width.Value, 200.0)
-                self.verifier_le_retour(avant)
+                verifier_le_retour(self, self.doc, avant)

@@ -22,7 +22,7 @@ from freecad.menuiserie.core.geometry import (
     moved,
 )
 from freecad.menuiserie.core.joints import JointKind, guess_roles, strategy_for
-from freecad.menuiserie.core.joints.dovetail import DovetailParams, DovetailValues
+from freecad.menuiserie.core.joints.dovetail import TOO_NARROW, DovetailParams, DovetailValues
 from freecad.menuiserie.core.part_model import Dimensions
 from tests.unit.aides_assemblages import (
     block,
@@ -316,6 +316,7 @@ def test_a_fleur_a_la_tolerance_pres() -> None:
 def test_refus_queues_trop_etroites(params: dict[str, object], count: str, pin: str) -> None:
     error = refused(dovetail_corner(), "Queues trop étroites", **params)
     assert error.params == {"count": count, "width": "150", "pin": pin, "angle": "10"}
+    assert TOO_NARROW.format(**error.params).endswith(f"griffes de {pin} mm et un angle de 10 °.")
 
 
 def test_queue_de_un_mm_a_l_epaulement_acceptee() -> None:

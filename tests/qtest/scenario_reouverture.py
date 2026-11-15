@@ -18,6 +18,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from tests.qtest.aides import (
+    Etapes,
     activer_faulthandler,
     bouton_ok,
     cliquer,
@@ -57,7 +58,7 @@ def fermer_le_document_actif() -> None:
     traiter_les_evenements()
 
 
-class Reouverture(unittest.TestCase):
+class Reouverture(Etapes):
     """Étapes numérotées, jouées dans l'ordre sur le document rouvert."""
 
     doc: ClassVar[Any]
