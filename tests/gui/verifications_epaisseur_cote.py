@@ -26,8 +26,14 @@ DEBOUT = App.Rotation(App.Vector(0, 1, 0), -90)
 
 def encadre(form: Any) -> dict[str, Any]:
     """Widgets de l'encadré, par nom court."""
-    noms = ("thicknessConflict", "conflictTitle", "conflict_other_side", "conflict_extend")
-    noms += ("conflict_revert", "conflictReason_extend")
+    noms = (
+        "thicknessConflict",
+        "conflictTitle",
+        "conflict_other_side",
+        "conflict_extend",
+        "conflict_revert",
+        "conflictReason_extend",
+    )
     return {nom: widget(form, nom) for nom in noms}
 
 
@@ -92,9 +98,8 @@ def verifier_copie_non_modifiable() -> list[str]:
     """Autre pièce = copie d'une répétition : « allonger » grisé, avec la raison."""
     with cadre("VerifEpaisseurCopie") as (doc, _pieces):
         hote, _ = planches(doc)
-        copie = copies_of(api.make_repeat([hote], api.RepeatParams(count=1, step=500.0, axis="Y")))[
-            0
-        ]
+        params = api.RepeatParams(count=1, step=500.0, axis=api.RepeatAxis.Y)
+        copie = copies_of(api.make_repeat([hote], params))[0]
         invitee = api.make_wood_part(400.0, 150.0, 18.0, "chene", mark="J", doc=doc)
         invitee.Placement = App.Placement(App.Vector(18, 500, 18), DEBOUT)
         doc.recompute()
