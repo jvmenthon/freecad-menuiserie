@@ -120,20 +120,40 @@ def cliquer(widget: Widget) -> None:
     traiter_les_evenements()
 
 
-def bouton_ok() -> Widget:
-    """Bouton « OK » du panneau de tâche ouvert, dans la vue des tâches de FreeCAD.
+def bouton_du_panneau(role: Any) -> Widget:
+    """L'unique bouton standard ``role`` visible dans la vue des tâches de FreeCAD.
 
     Plus strict que ``tests/gui/verifications_panneau_ensemble.bouton_ok`` (premier trouvé, ou
     ``None``) : le bouton va être cliqué, il doit être visible et le seul."""
-    ok = QtGui.QDialogButtonBox.StandardButton.Ok
     boutons = [
-        boite.button(ok)
+        boite.button(role)
         for boite in Gui.getMainWindow().findChildren(QtGui.QDialogButtonBox)
-        if boite.isVisible() and boite.button(ok) is not None
+        if boite.isVisible() and boite.button(role) is not None
     ]
     if len(boutons) != 1:
-        raise LookupError(f"{len(boutons)} boutons OK visibles au lieu d'un")
+        raise LookupError(f"{len(boutons)} boutons {role} visibles au lieu d'un")
     return boutons[0]
+
+
+def bouton_ok() -> Widget:
+    """Bouton « OK » du panneau de tâche ouvert."""
+    return bouton_du_panneau(QtGui.QDialogButtonBox.StandardButton.Ok)
+
+
+def bouton_annuler() -> Widget:
+    """Bouton « Annuler » du panneau de tâche ouvert."""
+    return bouton_du_panneau(QtGui.QDialogButtonBox.StandardButton.Cancel)
+
+
+def appuyer_sur_echap(widget: Widget) -> None:
+    """Touche Échap pressée dans ``widget`` (le champ qui a le focus)."""
+    widget.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
+    QTest.keyClick(widget, QtCore.Qt.Key.Key_Escape)
+    traiter_les_evenements()
+
+
+def panneau_ouvert() -> bool:
+    return bool(Gui.Control.activeDialog())
 
 
 def attendre(condition: Callable[[], bool], delai_ms: int = DELAI_MS) -> bool:
@@ -176,3 +196,64 @@ def capturer(nom: str) -> None:
     vue.fitAll()
     traiter_les_evenements()
     vue.saveImage(str(Path(dossier) / f"{nom}.png"), 1200, 800, "White")
+
+
+def vue_rapport() -> str:
+    """Texte de la vue rapport de FreeCAD : les erreurs Python d'un signal Qt y arrivent."""
+    vues = [
+        vue
+        for vue in Gui.getMainWindow().findChildren(QtGui.QTextEdit)
+        if vue.objectName() == "Report view"
+    ]
+    if len(vues) != 1:
+        raise LookupError(f"{len(vues)} vues rapport au lieu d'une")
+    return str(vues[0].toPlainText())
+
+
+def vider_la_vue_rapport() -> None:
+    for vue in Gui.getMainWindow().findChildren(QtGui.QTextEdit):
+        if vue.objectName() == "Report view":
+            vue.clear()
+
+
+class ReponseAuxBoites:
+    """Répond aux boîtes de message modales ouvertes pendant le bloc ``with``, comme
+    l'utilisateur : clic sur le bouton dont le texte commence par ``reponse`` (sans le « & » du
+    raccourci). ``vues`` garde le titre et le texte de chaque boîte. Une boîte modale bloque la
+    boucle d'événements : la réponse part d'une minuterie, armée avant le geste qui l'ouvre.
+    Une boîte sans ce bouton est refermée et le bloc échoue."""
+
+    def __init__(self, reponse: str) -> None:
+        self.reponse = reponse
+        self.vues: list[tuple[str, str]] = []
+        self._inattendues: list[str] = []
+        self._minuterie = QtCore.QTimer()
+        self._minuterie.setInterval(PAS_MS)
+        self._minuterie.timeout.connect(self._repondre)
+
+    def _repondre(self) -> None:
+        boite = QtGui.QApplication.activeModalWidget()
+        if boite is None:
+            return
+        if not isinstance(boite, QtGui.QMessageBox):
+            self._inattendues.append(f"fenêtre modale {type(boite).__name__}")
+            boite.close()
+            return
+        self.vues.append((str(boite.windowTitle()), str(boite.text())))
+        boutons = [b for b in boite.buttons() if b.text().replace("&", "").startswith(self.reponse)]
+        if len(boutons) != 1:
+            textes = [b.text() for b in boite.buttons()]
+            self._inattendues.append(f"boîte « {boite.windowTitle()} » : boutons {textes}")
+            boite.reject()
+            return
+        QTest.mouseClick(boutons[0], QtCore.Qt.MouseButton.LeftButton)
+
+    def __enter__(self) -> ReponseAuxBoites:
+        self._minuterie.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        QTest.qWait(4 * PAS_MS)  # une boîte ouverte en différé a encore sa réponse
+        self._minuterie.stop()
+        if self._inattendues:
+            raise AssertionError("; ".join(self._inattendues))

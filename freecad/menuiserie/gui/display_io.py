@@ -39,7 +39,9 @@ __all__ = [
 ViewObject = Any
 PartObject = Any  # objet FreeCAD (ce module n'importe pas ``features`` : il reste léger)
 Key = tuple[str, str]  # (nom du document, nom de l'objet)
-GONE: Final = (ReferenceError, RuntimeError, TypeError)  # objet supprimé ou document fermé
+# Objet supprimé ou document fermé. ``NameError`` : « Unknown document » levé par FreeCAD quand on
+# lit le ``ViewObject`` d'un objet dont le document vient d'être fermé (panneau de création ouvert).
+GONE: Final = (ReferenceError, RuntimeError, TypeError, NameError)
 
 
 @dataclass(frozen=True)

@@ -32,6 +32,14 @@ l'enchaînement des gestes (focus, fin de saisie, bouton par défaut, état des 
    reste stable en CI (pas d'échec intermittent sur les PR suivantes) et que jv valide la liste
    des scénarios suivants ; sinon l'étape de CI et `tests/qtest` sont retirés, sans effet sur
    l'atelier.
+6. Suite (2026-11-15, « go » de jv sur la liste des scénarios) : les scénarios de priorité 1
+   (annuler et rétablir, réouverture, annulation d'un panneau, modification d'une pièce
+   assemblée, saisies hostiles, document fermé panneau ouvert, suppression) s'ajoutent, un module
+   par sujet. En CI, chaque module est joué dans son propre FreeCAD par `tests/qtest/lanceur.py`
+   (`freecad tests/qtest/lanceur.py`), qui écrit le rapport `unittest` dans un fichier et quitte
+   par `os._exit` : l'arrêt normal de FreeCAD après `-t` plante par intermittence (SIGSEGV dans
+   `Shiboken::BindingManager`, enveloppes PySide détruites après leurs widgets C++), ce qui
+   faisait échouer des scénarios réussis. `freecad -t` reste le moyen de lancer à la main.
 
 ## Alternatives écartées
 
@@ -46,7 +54,9 @@ l'enchaînement des gestes (focus, fin de saisie, bouton par défaut, état des 
 ## Conséquences
 
 - Coût de CI : installation de `xvfb` et environ deux minutes pour le scénario avec capture (rendu
-  logiciel `softpipe`), quelques secondes sans.
+  logiciel `softpipe`), quelques secondes pour chacun des autres (sans capture, `llvmpipe`).
+- `os._exit` saute l'arrêt de FreeCAD : un plantage à la fermeture de l'application n'est pas vu
+  par ces scénarios (il ne l'était pas non plus de façon fiable, étant intermittent).
 - Les `objectName` des widgets des panneaux deviennent un contrat avec les scénarios.
 - Une erreur d'import d'un scénario ouvre une boîte de dialogue bloquante : lancement toujours
   sous `timeout`.

@@ -64,7 +64,7 @@ TILTED: Final = QT_TRANSLATE_NOOP(
 _PARALLEL: Final = 1e-6
 TOO_NARROW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Queues trop étroites : {count} queues dans {width} mm avec des griffes de {pin} mm et une "
+    "Queues trop étroites : {count} queues dans {width} mm avec des griffes de {pin} mm et un "
     "angle de {angle} °.",
 )
 

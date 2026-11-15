@@ -1,4 +1,4 @@
-# Tests d'interface avec QTest (preuve de concept)
+# Tests d'interface avec QTest
 
 Des scénarios complets joués dans le vrai FreeCAD, avec les gestes de l'utilisateur : touches du
 clavier et clics de souris envoyés par `QTest` aux widgets des panneaux de tâche. Ils complètent
@@ -11,14 +11,22 @@ des widgets sans passer par le clavier ni la souris).
 L'atelier doit être dans le dossier `Mod` de FreeCAD (ou de `FREECAD_USER_HOME`).
 
 ```sh
-# Linux (CI) : serveur X virtuel
+# À la main, Linux : serveur X virtuel
 xvfb-run -a freecad -t tests.qtest.scenario_queue_aronde
-# Windows (non vérifié en CI) : FreeCAD s'ouvre, joue le scénario et se ferme
+# À la main, Windows (non vérifié en CI) : FreeCAD s'ouvre, joue le scénario et se ferme
 FreeCAD.exe -t tests.qtest.scenario_queue_aronde
+# CI : par le lanceur, depuis la racine du dépôt
+SCENARIO=tests.qtest.scenario_queue_aronde RAPPORT_QTEST=rapport.txt \
+    xvfb-run -a freecad tests/qtest/lanceur.py
 ```
 
 `-t` est le mode test de FreeCAD : il charge le module avec `unittest`, affiche le rapport et
-sort avec le code 0 (succès) ou 1 (échec). Variables facultatives :
+sort avec le code 0 (succès) ou 1 (échec). Il suffit à la main. La CI passe par
+`tests/qtest/lanceur.py`, qui joue le module `SCENARIO`, écrit le rapport `unittest` dans le
+fichier `RAPPORT_QTEST` au fil de l'eau et quitte par `os._exit` : l'arrêt normal de FreeCAD
+plante parfois après un scénario réussi (voir « Limites connues ») et sa sortie standard,
+tamponnée, est alors perdue. La CI joue tous les modules `tests/qtest/scenario_*.py`, un
+FreeCAD par module. Variables facultatives :
 
 - `CAPTURES_QTEST` : dossier où le scénario enregistre une image de la vue 3D ;
 - `PILE_EN_CAS_DE_PLANTAGE` : fichier où `faulthandler` écrit la pile Python de tous les fils si
@@ -41,6 +49,14 @@ avec une classe `unittest.TestCase`, et les aides de `tests/qtest/aides.py` :
 | Annuler, rétablir | `lancer("Std_Undo")`, `lancer("Std_Redo")` |
 | Cliquer des pièces dans la vue 3D | `selectionner(a, b)` (`Gui.Selection`) |
 
+| Annuler le panneau | `cliquer(bouton_annuler())`, `appuyer_sur_echap(champ)` |
+| Répondre à une boîte de message | `with ReponseAuxBoites("Oui") as boites:` autour du geste qui l'ouvre |
+| Lire les erreurs affichées | `vue_rapport()` après `vider_la_vue_rapport()` |
+
+Les gestes du couple de pièces assemblé par une queue d'aronde (créer une pièce, la poser, régler
+un champ, double-cliquer un objet) et les contrôles communs (`controler_le_document`) sont dans
+`tests/qtest/angle_a_queues.py`, partagés par les scénarios.
+
 Puis on vérifie le document : cotes, `Placement`, état des objets (`"Invalid" in obj.State`),
 formes (`Shape.isValid()`, volumes), noms des entrées d'annulation.
 
@@ -51,16 +67,36 @@ fait échouer le scénario avec un message explicite (« widget … absent du pa
 Les libellés comparés (entrées d'annulation) sont les chaînes sources de l'atelier, en français :
 FreeCAD doit tourner sans traduction de l'atelier vers une autre langue, ce qui est le cas en CI.
 
+## Scénarios
+
+| Module | Ce qui est joué |
+|---|---|
+| `scenario_queue_aronde` | Deux pièces de 20 cm, la seconde tournée de 90°, queue d'aronde à 10° avec 4 griffes de 30 mm ; capture de la vue 3D. |
+| `scenario_annuler_retablir` | Le même, puis Ctrl+Z jusqu'au document vide et Ctrl+Y jusqu'à la fin. |
+| `scenario_reouverture` | Enregistrer, fermer, rouvrir, puis modifier l'assemblage par double-clic. |
+| `scenario_annulation_panneau` | Chaque panneau ouvert, rempli, puis annulé (bouton Annuler et touche Échap), en création et en modification. |
+| `scenario_modifier_piece_assemblee` | Largeur et épaisseur d'une pièce déjà assemblée changées au clavier. |
+| `scenario_saisies_hostiles` | 0, négatif, valeur transitoire, texte, 99999 dans les champs du panneau d'assemblage. |
+| `scenario_document_ferme` | Document fermé avec un panneau ouvert (création et modification). |
+| `scenario_suppression` | Suppression d'un assemblage, d'une pièce assemblée, d'un ensemble avec son contenu (boîte de confirmation). |
+
+Chaque scénario finit par les contrôles communs : aucun objet « Invalid » ni « Touched », formes
+valides, aucune transaction ouverte, panneau fermé, vue rapport sans erreur quand le scénario la
+surveille. À chaque bug d'enchaînement corrigé, son geste exact s'ajoute à un scénario.
+
 ## Limites connues
 
-- Preuve de concept (ADR 0059) : un seul scénario, avec annuler puis rétablir. Les saisies
-  invalides, l'enregistrement puis la réouverture et les autres commandes ne sont pas encore
-  joués ; l'image capturée n'est pas contrôlée (elle sert à la relecture).
-
+- L'image capturée n'est pas contrôlée (elle sert à la relecture) ; seul `scenario_queue_aronde`
+  en prend une, car le rendu `softpipe` qu'elle demande est dix fois plus lent.
+- À l'arrêt normal de FreeCAD (`-t`), les enveloppes PySide des widgets sont parfois détruites
+  après leurs objets C++ : SIGSEGV dans `Shiboken::BindingManager` après un scénario réussi.
+  Le lanceur l'évite (`os._exit`) ; à la main, relancer.
+- Une boîte de message modale bloque la boucle d'événements : y répondre par `ReponseAuxBoites`,
+  armée avant le geste.
 - La vue 3D n'est pas cliquée au pixel près : un clic sur une pièce passe par `Gui.Selection`, un
   glissement à la souris est remplacé par l'écriture du `Placement` dans une transaction.
 - Entrée dans un champ valide le panneau (bouton OK par défaut) : `taper` finit par Tab.
 - FreeCAD ne rafraîchit l'état de ses boutons que périodiquement : `lancer` attend.
-- Une erreur d'import du module ouvre une boîte de dialogue qui bloque : toujours lancer sous
-  `timeout` en CI.
+- Avec `-t`, une erreur d'import du module ouvre une boîte de dialogue qui bloque (le lanceur
+  en fait un rapport et le code 1) : toujours lancer sous `timeout` en CI.
 - `QtTest` vient de `PySide6` (absent de la couche `PySide` de FreeCAD) : réservé aux tests.
