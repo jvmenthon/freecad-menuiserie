@@ -22,7 +22,12 @@ from freecad.menuiserie.core.geometry import (
     moved,
 )
 from freecad.menuiserie.core.joints import JointKind, guess_roles, strategy_for
-from freecad.menuiserie.core.joints.dovetail import TOO_NARROW, DovetailParams, DovetailValues
+from freecad.menuiserie.core.joints.dovetail import (
+    PIN_TOO_NARROW,
+    TOO_NARROW,
+    DovetailParams,
+    DovetailValues,
+)
 from freecad.menuiserie.core.part_model import Dimensions
 from tests.unit.aides_assemblages import (
     block,
@@ -317,6 +322,18 @@ def test_refus_queues_trop_etroites(params: dict[str, object], count: str, pin: 
     error = refused(dovetail_corner(), "Queues trop étroites", **params)
     assert error.params == {"count": count, "width": "150", "pin": pin, "angle": "10"}
     assert TOO_NARROW.format(**error.params).endswith(f"griffes de {pin} mm et un angle de 10 °.")
+
+
+@pytest.mark.parametrize("pin", [0.001, 0.01, 0.0999])
+def test_refus_griffe_de_moins_d_un_dixieme(pin: float) -> None:
+    """Largeur de griffe saisie : au moins 0,1 mm (décision de jv, 2026-11-15)."""
+    error = refused(dovetail_corner(), "Griffes trop étroites", pin_width=pin)
+    assert error.params["minimum"] == "0,1"
+    assert "au moins 0,1 mm" in PIN_TOO_NARROW.format(**error.params)
+
+
+def test_griffe_d_un_dixieme_acceptee() -> None:
+    assert values(dovetail_corner(), DovetailParams(pin_width=0.1)).pin_width == pytest.approx(0.1)
 
 
 def test_queue_de_un_mm_a_l_epaulement_acceptee() -> None:

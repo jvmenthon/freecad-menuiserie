@@ -51,6 +51,7 @@ __all__ = [
 MAX_TAIL_COUNT: Final = MAX_COUNT  # nombre saisi de 0 (automatique) à 50
 DEFAULT_ANGLE_DEG: Final = 10.0  # ≈ pente 1:5,7 (feuillus 1:6 à 1:8, résineux 1:5)
 MIN_TAIL_BASE_MM: Final = 1.0  # largeur minimale d'une queue à l'épaulement
+MIN_PIN_WIDTH_MM: Final = 0.1  # largeur minimale d'une griffe saisie (0 = automatique)
 
 NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -62,6 +63,10 @@ TILTED: Final = QT_TRANSLATE_NOOP(
     "Queue d'aronde en biais : les deux pièces doivent pivoter autour de leur épaisseur.",
 )
 _PARALLEL: Final = 1e-6
+PIN_TOO_NARROW: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Griffes trop étroites : {pin} mm ; la largeur d'une griffe est d'au moins {minimum} mm.",
+)
 TOO_NARROW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Queues trop étroites : {count} queues dans {width} mm avec des griffes de {pin} mm et un "
@@ -212,6 +217,10 @@ def _values(through: _Through, params: DovetailParams) -> DovetailValues:
     # queues sont sur l'hôte, l'épaisseur de l'invitée.
     depth = through.thickness if params.tails_on_host else through.axis_depth
     pin = params.pin_width or mm_round(reference / 3)
+    if pin < MIN_PIN_WIDTH_MM - _PARALLEL:
+        raise JointError(
+            PIN_TOO_NARROW, {"pin": mm_text(pin), "minimum": mm_text(MIN_PIN_WIDTH_MM)}
+        )
     angle = params.angle or DEFAULT_ANGLE_DEG
     tail_width = (width - (count + 1) * pin) / count
     tail_base = tail_width - 2 * depth * math.tan(math.radians(angle))

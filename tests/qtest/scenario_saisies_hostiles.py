@@ -45,6 +45,7 @@ DELAI_MAX_S = 5.0  # une saisie ne doit jamais figer l'interface
 COTE_MAX_MM = 9999.0
 PRECISION_AFFICHEE = 0.01  # le champ arrondit à l'affichage ce qu'il a écrit
 TROP_ETROITES = "Queues trop étroites"
+GRIFFES_TROP_ETROITES = "Griffes trop étroites"
 
 
 def setUpModule() -> None:
@@ -107,6 +108,16 @@ class SaisiesHostilesDeLAssemblage(Etapes):
                         self.assertAlmostEqual(affiche, ecrit, delta=PRECISION_AFFICHEE)
                         self.assertGreater(ecrit, 0.0)
             self.saisir(nom, "0")  # retour à l'automatique avant le champ suivant
+
+    def test_2_griffe_de_moins_d_un_dixieme_refusee(self) -> None:
+        """0,05 mm : refus expliqué dans le panneau ; 0,1 mm : accepté."""
+        self.saisir("PinWidth", "0.05 mm")
+        self.assertTrue(self.refus_affiche())
+        self.assertIn(GRIFFES_TROP_ETROITES, enfant(self.form, "errorLabel").text())
+        self.saisir("PinWidth", "0.1 mm")
+        self.assertFalse(self.refus_affiche())
+        self.assertAlmostEqual(self.assemblage.PinWidth.Value, 0.1, delta=1e-6)
+        self.saisir("PinWidth", "0")
 
     def test_2_zero_remet_l_automatique(self) -> None:
         for nom, effectif in (("TailCount", 3.0), ("PinWidth", 7.0)):

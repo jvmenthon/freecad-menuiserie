@@ -22,6 +22,7 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.display_layers import ORIGIN_LOOK
 from freecad.menuiserie.core.document_state import Snapshot, differs
+from freecad.menuiserie.core.error_frames import release_last_error_frames
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.document_snapshot import snapshot_of
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -300,6 +301,7 @@ def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None)
     """Construit le panneau par ``build`` puis l'affiche, dans la transaction déjà ouverte.
     Une exception abandonne cette transaction (objet en création compris) avant d'être
     propagée."""
+    release_last_error_frames()
     with aborted_on_error(App.getActiveTransaction()):
         panel = build()
         Gui.Control.showDialog(panel)

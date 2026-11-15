@@ -93,7 +93,8 @@ Les scénarios dont les tests sont des étapes numérotées sur un même documen
   (annulation, saisies hostiles) ; les autres panneaux viennent avec les scénarios de priorité 2
   (un par famille de fonctions).
 - `scenario_modifier_piece_assemblee` ne joue pas encore une épaisseur qui rompt l'assemblage :
-  le comportement attendu est à trancher (message dans le panneau ou non).
+  une boîte de choix est prévue (épaissir vers l'intérieur, vers l'extérieur, agrandir l'autre
+  pièce, annuler), le scénario viendra avec elle.
 - Les boîtes de message de FreeCAD sont répondues par leur bouton standard et comptées, pas
   reconnues à leur titre (il dépend de la langue).
 
