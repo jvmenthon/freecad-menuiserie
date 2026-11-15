@@ -172,3 +172,61 @@ def test_piece_posee_sur_la_face_basse_suit(document: Any) -> None:
     assert shelf.Placement.Base.x == pytest.approx(30)
     assert holds(document, joint) and holds(document, dowels)
     assert host.Length.Value == 400
+
+
+# --- À la souris (maquette souris B) : la face tirée décide ----------------------------------
+
+drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
+thickness_drag = pytest.importorskip("freecad.menuiserie.features.thickness_drag")
+Vec3 = pytest.importorskip("freecad.menuiserie.core.geometry").Vec3
+
+
+def test_face_exterieure_tiree_l_autre_piece_s_allonge(document: Any) -> None:
+    host, guest, joint = corner(document)
+    memento = drag.begin_drag(guest)
+    assert drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, 0)) == ""
+    assert host.Length.Value == 407
+    assert drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0)) == ""  # repart du début
+    assert host.Length.Value == 412
+    assert tuple(host.Placement.Base) == pytest.approx((-12, 0, 0))
+    assert "« H » +12" in thickness_drag.thickness_note(memento.follows)
+    messages = drag.end_drag(memento)
+    assert any("allongée de 12" in m for m in messages)
+    assert holds(document, joint)
+
+
+def test_face_interieure_tiree_rien_ne_suit(document: Any) -> None:
+    host, guest, joint = corner(document)
+    memento = drag.begin_drag(guest)
+    assert drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, -12), lowered=True) == ""
+    assert host.Length.Value == 400
+    drag.end_drag(memento)
+    assert holds(document, joint)
+
+
+def test_echap_rend_l_autre_piece(document: Any) -> None:
+    host, guest, _joint = corner(document)
+    memento = drag.begin_drag(guest)
+    drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
+    drag.restore(memento)
+    assert (host.Length.Value, tuple(host.Placement.Base)) == (400, (0, 0, 0))
+    assert guest.Thickness.Value == 18
+
+
+def test_copie_non_modifiable_butee(document: Any) -> None:
+    host = api.make_wood_part(400, 150, 18, "chene", mark="H", doc=document)
+    rep = api.make_repeat([host], api.RepeatParams(count=1, step=500.0, axis="Y"))
+    copy = repeat.copies_of(rep)[0]
+    guest = api.make_wood_part(400, 150, 18, "chene", mark="I", doc=document)
+    guest.Placement = App.Placement(App.Vector(18, 500, 18), STANDING)
+    document.recompute()
+    joint = api.make_dovetail(copy, guest)
+    document.recompute()
+    memento = drag.begin_drag(guest)
+    stop = drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
+    assert stop.startswith("Butée") and "copie" in stop
+    assert guest.Thickness.Value == 18
+    assert tuple(guest.Placement.Base) == pytest.approx((18, 500, 18))
+    assert drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, -12), lowered=True) == ""
+    drag.end_drag(memento)
+    assert holds(document, joint)

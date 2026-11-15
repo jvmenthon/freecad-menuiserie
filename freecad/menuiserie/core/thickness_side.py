@@ -56,21 +56,28 @@ def _box_in(changed: PlacedBlock, other: PlacedBlock) -> tuple[Vec3, Vec3] | Non
     return box.min, box.max
 
 
-def flush_extension(changed: PlacedBlock, other: PlacedBlock) -> Extension | None:
+def flush_extension(
+    changed: PlacedBlock, other: PlacedBlock, *, lowered: bool = False
+) -> Extension | None:
     """Prolongement de ``other`` qui la garde à fleur de la face haute de ``changed`` (prise à
-    son épaisseur d'avant) quand cette face se déplace ; ``None`` si ``other`` n'y arrive pas à
-    fleur (elle s'arrête avant, la dépasse, repose dessus) ou si elle est oblique."""
+    son épaisseur d'avant) quand cette face se déplace ; ``lowered`` : de sa face basse (poignée
+    de début, ADR 0060). ``None`` si ``other`` n'y arrive pas à fleur (elle s'arrête avant, la
+    dépasse, repose dessus) ou si elle est oblique."""
     bounds = _box_in(changed, other)
     if bounds is None:
         return None
     low, high = bounds
     top = changed.dimensions.thickness
-    flush = abs(high.z - top) <= CONTACT_TOLERANCE_MM
-    if not flush or low.z >= top - CONTACT_TOLERANCE_MM:
+    if lowered:
+        flush = abs(low.z) <= CONTACT_TOLERANCE_MM and high.z > CONTACT_TOLERANCE_MM
+    else:
+        flush = abs(high.z - top) <= CONTACT_TOLERANCE_MM and low.z < top - CONTACT_TOLERANCE_MM
+    if not flush:
         return None
     rotation = relative_transform(changed, other).rotation
     axis = max(range(3), key=lambda column: abs(rotation[_THICKNESS_AXIS][column]))
-    return Extension(axis, rotation[_THICKNESS_AXIS][axis] > 0)
+    outward = rotation[_THICKNESS_AXIS][axis] > 0  # l'axe de other va vers la face haute
+    return Extension(axis, outward != lowered)
 
 
 def grows_toward(changed: PlacedBlock, other: PlacedBlock) -> bool:

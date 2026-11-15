@@ -37,6 +37,7 @@ from freecad.menuiserie.features.part_drag import (
     restore,
 )
 from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
+from freecad.menuiserie.features.thickness_drag import thickness_note
 from freecad.menuiserie.gui.drag.geometry import Layout, build_layout
 from freecad.menuiserie.gui.drag.parts import box_of, frame_of, rings_of
 
@@ -61,6 +62,7 @@ class Step:
 
     size: float
     message: str = ""
+    note: str = ""  # ligne de plus, couleur normale : pièces qui suivent (ADR 0060)
 
 
 class Target(ABC):
@@ -186,8 +188,12 @@ class PartTarget(Target):
         move_part(_part(memento), delta)
 
     def resize(self, memento: Memento, handle: Handle, result: ResizeResult) -> Step:
-        resize_part(_part(memento), SIZE_PROPS[handle.axis], result.size, result.origin_shift)
-        return Step(result.size)
+        part = _part(memento)
+        prop = SIZE_PROPS[handle.axis]
+        stop = resize_part(part, prop, result.size, result.origin_shift, lowered=not handle.at_end)
+        if stop:  # butée : l'épaisseur reste celle du début (ADR 0060)
+            return Step(part.thickness, stop)
+        return Step(result.size, note=thickness_note(part.follows))
 
     def rotate(self, memento: Memento, axis: int, angle: float) -> bool:
         return rotate_by(_part(memento), axis, angle)

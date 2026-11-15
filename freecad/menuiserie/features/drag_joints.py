@@ -48,6 +48,7 @@ __all__ = [
     "broken_joints",
     "delete_machined_part",
     "invalid_joints",
+    "new_joint_warnings",
     "remove_joints",
     "rotate_checked",
     "settle_joints",
@@ -229,3 +230,20 @@ def rotate_checked(
     for message in messages:
         report_warning(message)
     return True
+
+
+_NO_LONGER_TOUCHING: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "L'assemblage « {label} » ne touche plus ses pièces après le déplacement : {detail}",
+)
+
+
+def new_joint_warnings(raw: DocumentObject, already_invalid: Collection[str]) -> list[str]:
+    """Avertissement pour chaque assemblage de la brute ``raw`` devenu invalide (B7), hors ceux
+    qui l'étaient déjà : le glissement est gardé, on prévient seulement (règle Q4 de J4)."""
+    warnings = []
+    for joint in raw.InList:
+        if is_joint(joint) and "Invalid" in joint.State and joint.Name not in already_invalid:
+            params = {"label": quoted_value(joint.Label), "detail": joint.getStatusString()}
+            warnings.append(translated(_NO_LONGER_TOUCHING, params))
+    return warnings

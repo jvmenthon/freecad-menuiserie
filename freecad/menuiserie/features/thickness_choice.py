@@ -53,7 +53,16 @@ from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.thickness_follow import follow_thickness
 from freecad.menuiserie.features.wood_part import dimensions_of
 
-__all__ = ["Choice", "Conflict", "Option", "ThicknessEdit", "UnavailableError", "has_joints"]
+__all__ = [
+    "Choice",
+    "Conflict",
+    "Option",
+    "ThicknessEdit",
+    "UnavailableError",
+    "blocker",
+    "extend_part",
+    "has_joints",
+]
 
 SIZE_PROPS: Final = ("Length", "Width", "Thickness")
 
@@ -175,7 +184,7 @@ def _broken(parts: Sequence[DocumentObject]) -> dict[str, DocumentObject]:
     }
 
 
-def _blocker(part: DocumentObject, props: Sequence[str]) -> str | None:
+def blocker(part: DocumentObject, props: Sequence[str]) -> str | None:
     """Pourquoi ``part`` ne peut pas voir changer ses propriétés ``props`` (cotes,
     ``Placement``), ``None`` si elle le peut."""
     from freecad.menuiserie.features.repeat import is_copy  # import circulaire sinon
@@ -206,6 +215,17 @@ def _shift(part: DocumentObject, shift: App.Vector) -> None:
     moved = placement.Base + shift
     placement.Base = App.Vector(round(moved.x, 6), round(moved.y, 6), round(moved.z, 6))
     part.Placement = placement
+
+
+def extend_part(part: DocumentObject, extension: Extension, delta: float) -> None:
+    """Prolonge ``part`` de ``delta`` mm selon ``extension`` (cote et, bout de début, origine),
+    sans réaction de ``onChanged``."""
+    prop = SIZE_PROPS[extension.axis]
+    with writing(part):
+        setattr(part, prop, getattr(part, prop).Value + delta)
+    local = extension.origin_shift(delta)
+    if local.component(extension.axis) != 0.0:
+        _shift(part, part.Placement.Rotation.multVec(App.Vector(local.x, local.y, local.z)))
 
 
 class ThicknessEdit:
@@ -271,7 +291,7 @@ class ThicknessEdit:
     def _apply(self, new: float, choice: Choice) -> list[str]:
         delta = new - self.old
         if choice is Choice.OTHER_SIDE:
-            reason = _blocker(self.part, ("Placement",))
+            reason = blocker(self.part, ("Placement",))
             if reason is not None:
                 raise UnavailableError(reason)
             self._write_thickness(new)
@@ -306,7 +326,7 @@ class ThicknessEdit:
             props = [SIZE_PROPS[extension.axis]]
             if not extension.at_end:
                 props.append("Placement")
-            reason = _blocker(other, props)
+            reason = blocker(other, props)
             if reason is not None:
                 raise UnavailableError(reason)
             if state.sizes[extension.axis] + delta < MIN_DIMENSION_MM:
@@ -316,13 +336,7 @@ class ThicknessEdit:
 
     def _extend(self, delta: float) -> None:
         for other, extension in self._extensions(delta):
-            prop = SIZE_PROPS[extension.axis]
-            with writing(other):
-                setattr(other, prop, getattr(other, prop).Value + delta)
-            local = extension.origin_shift(delta)
-            if local.component(extension.axis) != 0.0:
-                shift = other.Placement.Rotation.multVec(App.Vector(local.x, local.y, local.z))
-                _shift(other, shift)
+            extend_part(other, extension, delta)
 
     def conflict(self, new: float) -> Conflict | None:
         """Essaie l'épaisseur ``new`` telle que saisie : ``None`` si elle ne défait aucun
