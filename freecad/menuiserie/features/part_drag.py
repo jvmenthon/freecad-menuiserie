@@ -33,7 +33,6 @@ import FreeCAD as App
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import THICKNESS_AXIS
-from freecad.menuiserie.features import thickness_drag
 from freecad.menuiserie.features.distance import AXES, distances_touching
 from freecad.menuiserie.features.drag_joints import (
     DragCancelledError,
@@ -58,6 +57,8 @@ from freecad.menuiserie.features.joints.base import is_joint, plan_for
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
+from freecad.menuiserie.features.thickness_common import SIZE_PROPS, restore_state
+from freecad.menuiserie.features.thickness_drag import FaceFollows
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
 __all__ = [
@@ -76,7 +77,6 @@ __all__ = [
     "write_placement",
 ]
 
-SIZE_PROPS: Final = ("Length", "Width", "Thickness")  # axes 0, 1 et 2 de la pièce
 _BASE: Final = ("Placement.Base.x", "Placement.Base.y", "Placement.Base.z")
 _TOUCHED: Final = (*_BASE, *SIZE_PROPS)
 _WHOLE_PLACEMENT: Final = ("Placement", "Placement.Base")
@@ -117,7 +117,7 @@ class DragMemento:
     invalid_joints: frozenset[str]
     distances: dict[str, float] = field(default_factory=dict)
     # Pièces qui suivent l'épaisseur tirée (ADR 0060), choisies au premier pas : clé = face basse
-    follows: thickness_drag.Follows = field(default_factory=dict)
+    follows: FaceFollows = field(default_factory=FaceFollows)
 
 
 def raw_part(obj: DocumentObject) -> DocumentObject:
@@ -273,6 +273,16 @@ def _write_size(memento: DragMemento, prop: str, value: float, shift: Vec3) -> N
     write_placement(memento.part, _shifted(memento, shift))
 
 
+def _resize_thickness(memento: DragMemento, value: float, shift: Vec3, lowered: bool) -> str:
+    """Épaisseur tirée : les pièces à fleur suivent ; butée (raison renvoyée) : état du début."""
+    memento.follows.prepare(memento.part, lowered)  # sur la pièce encore à son épaisseur
+    _write_size(memento, "Thickness", value, shift)
+    delta, follows = value - memento.thickness, memento.follows
+    if stop := follows.follow_dragged_face(memento.part, delta, lowered, recompute_blank):
+        _write_size(memento, "Thickness", memento.thickness, Vec3(0, 0, 0))
+    return stop
+
+
 def resize_part(
     memento: DragMemento, prop: str, value: float, origin_shift: Vec3, *, lowered: bool = False
 ) -> str:
@@ -285,16 +295,11 @@ def resize_part(
     if prop not in SIZE_PROPS or SIZE_PROPS.index(prop) not in allowed:
         raise ValueError(translated(_FIXED_SIZE, {"label": str(memento.part.Label)}))
     raw = memento.part
-    thick = prop == "Thickness"
-    if thick:  # suivi choisi sur la pièce encore à son épaisseur du début
-        thickness_drag.follow_for(memento.follows, raw, lowered)
-    _write_size(memento, prop, value, origin_shift)
     stop = ""
-    if thick:
-        delta, follows = value - memento.thickness, memento.follows
-        stop = thickness_drag.follow_thickness(follows, raw, delta, lowered, recompute_blank)
-    if stop:  # butée : épaisseur et placement du début
-        _write_size(memento, prop, memento.thickness, Vec3(0, 0, 0))
+    if prop == "Thickness":
+        stop = _resize_thickness(memento, value, origin_shift, lowered)
+    else:
+        _write_size(memento, prop, value, origin_shift)
     raw.recompute()
     _recompute_machined(raw)
     return stop
@@ -304,12 +309,8 @@ def restore(memento: DragMemento) -> None:
     """Échap : ramène la brute à son état du début (placement, cotes, liaisons mises de côté).
     Le document n'est pas recalculé ; la pièce usinée reprend le placement."""
     raw = memento.part
-    write_placement(memento.part, memento.placement)
+    restore_state(raw, (memento.length, memento.width, memento.thickness), memento.placement)
     with writing(raw):
-        sizes = (memento.length, memento.width, memento.thickness)
-        for prop, value in zip(SIZE_PROPS, sizes, strict=True):
-            if getattr(raw, prop).Value != value and prop not in expressions_of(raw):
-                setattr(raw, prop, value)
         for prop, text in memento.aside.items():
             raw.setExpression(prop, text)
         if "FurnitureBindings" in raw.PropertiesList:
@@ -322,7 +323,7 @@ def restore(memento: DragMemento) -> None:
         raw.recompute()
         _recompute_machined(raw)
     finally:  # pièces suivies rendues même si l'aperçu échoue (ADR 0060)
-        thickness_drag.restore_follows(memento.follows, recompute_blank)
+        memento.follows.restore(recompute_blank)
 
 
 def _relink_thickness(memento: DragMemento, furniture: DocumentObject) -> list[str]:
@@ -390,7 +391,7 @@ def end_drag(memento: DragMemento, choose: JointChoice | None = None) -> list[st
     messages = _relink(memento)
     removed += _settle(memento, choose)  # la liaison peut avoir changé la géométrie
     memento.part.Document.recompute()
-    followed = thickness_drag.follow_messages(memento.follows)
+    followed = memento.follows.messages()
     return [
         *removed,
         *messages,

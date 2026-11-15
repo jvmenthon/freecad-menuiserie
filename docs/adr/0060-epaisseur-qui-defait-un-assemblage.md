@@ -52,9 +52,12 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
 ## Conséquences
 
 - Code : `core/thickness_side.py` (pur : `flush_extension`, `grows_toward`, `other_side_shift`),
-  `core/thickness_follow.py` (`lowered`), `features/thickness_choice.py` (`ThicknessEdit`,
-  choix), `features/thickness_drag.py` (souris), `gui/task_panels/wood_part_conflict.py`
-  (encadré), `features/part_drag.resize_part` (renvoie la raison d'une butée).
+  `core/thickness_follow.py` (`lowered`), `features/thickness_common.py` (assemblages de proche
+  en proche, une seule raison « ne peut pas changer » partagée avec #133, écritures sans
+  réaction), `features/thickness_choice.py` (`ThicknessEdit`, choix), `features/thickness_texts.py`
+  (phrases complètes traduisibles de l'encadré), `features/thickness_drag.py` (souris,
+  `FaceFollows`), `gui/task_panels/wood_part_conflict.py` (encadré), `features/part_drag.resize_part`
+  (renvoie la raison d'une butée).
 - Prolonger l'autre pièce modifie une pièce que l'utilisateur n'a pas touchée : c'est dit dans
   l'encadré (panneau) ou près de la souris et dans la vue rapport (poignées).
 - Les scénarios QTest de ces comportements sont ajoutés par le fil QTest (ADR 0059).

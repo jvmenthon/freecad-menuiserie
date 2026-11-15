@@ -11,7 +11,7 @@ Exemple : angle à queue d'aronde, H à plat (griffes), I debout (queues), I de 
 
 | Geste | Comportement |
 | --- | --- |
-| Panneau de I, épaisseur 30 | Encadré sous les cotes : « Assemblée à « H » (queue d'aronde). Où ajouter les 12 mm ? » ; « Vers l'intérieur (reste à fleur) » coché et appliqué ; « Vers l'extérieur et allonger « H » de 12 mm » ; « Revenir à 18 mm » |
+| Panneau de I, épaisseur 30 | Encadré sous les cotes : « Queue d'aronde avec « H ». Où ajouter les 12 mm ? » ; « Vers l'intérieur (reste à fleur) » coché et appliqué ; « Vers l'extérieur et allonger « H » de 12 mm » ; « Revenir à 18 mm » |
 | Clic sur « allonger » | I reprend sa place, H passe à 412 mm (son bout à fleur recule de 12 mm) |
 | Clic sur « Revenir » | I revient à 18 mm, le champ aussi, l'encadré disparaît |
 | H copie d'une répétition | « allonger » grisé : « « H 2 » est une copie : elle suit sa répétition et ne peut pas être modifiée. » |

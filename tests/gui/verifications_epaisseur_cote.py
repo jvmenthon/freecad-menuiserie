@@ -51,7 +51,7 @@ def verifier_encadre_et_choix() -> list[str]:
         w = encadre(form)
         problemes = [
             *ecarts("encadré masqué", w["thicknessConflict"].isHidden(), False),
-            *ecarts("titre", w["conflictTitle"].text(), "Assemblée à « H » (queue d'aronde)."),
+            *ecarts("titre", w["conflictTitle"].text(), "Queue d'aronde avec « H »."),
             *ecarts("intérieur coché", w["conflict_other_side"].isChecked(), True),
             *ecarts("allonger actif", w["conflict_extend"].isEnabled(), True),
             *ecarts("placement intérieur", tuple(invitee.Placement.Base), (30.0, 0.0, 18.0)),

@@ -5,10 +5,11 @@ Changer l'épaisseur d'une pièce déplace sa face haute : les pièces posées d
 mortaise de cette face, par exemple) ne la touchaient plus et l'assemblage était défait. Elles
 suivent maintenant la face, du même écart, avec toutes les pièces qui leur sont assemblées (sans
 repasser par la pièce modifiée). Une pièce qui ne peut pas bouger est laissée où elle est et
-signalée : membre d'un ensemble (l'ensemble relie ses membres lui-même), ``Placement`` piloté par
-une expression, ou assemblée à la pièce modifiée par un autre contact que sa face haute. Les cotes
-des assemblages sont recalculées par FreeCAD ; une cote devenue impossible (tenon plus épais que la
-pièce) est signalée par l'assemblage lui-même. Aucun import de ``FreeCADGui``.
+signalée (:func:`~freecad.menuiserie.features.thickness_common.blocker`) : copie de répétition,
+membre d'un ensemble, ``Placement`` piloté par une expression, ou assemblée à la pièce modifiée
+par un autre contact que sa face haute. Les cotes des assemblages sont recalculées par FreeCAD ;
+une cote devenue impossible (tenon plus épais que la pièce) est signalée par l'assemblage
+lui-même. Aucun import de ``FreeCADGui``.
 """
 
 from __future__ import annotations
@@ -22,11 +23,21 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.core.thickness_follow import follow_shift, touches_raised_face
-from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
-from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import report_warning, translated
-from freecad.menuiserie.features.joints.base import is_joint, placed_blank
+from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.solids import rigid_transform
+from freecad.menuiserie.features.thickness_common import (
+    PLACEMENT,
+    attached,
+    blocker,
+    has_joints,
+    joints_of,
+    other_part,
+    quoted,
+    quoted_parts,
+    shift_part,
+)
 from freecad.menuiserie.features.wood_part import dimensions_of
 
 __all__ = ["follow_thickness"]
@@ -37,40 +48,12 @@ _FOLLOWED: str = QT_TRANSLATE_NOOP(
 )
 _KEPT: str = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "L'épaisseur de « {label} » a changé : {kept} ne peuvent pas suivre ({reason}) et "
-    "restent en place ; l'assemblage peut être défait.",
+    "L'épaisseur de « {label} » a changé : {kept} restent en place ; l'assemblage peut être "
+    "défait. {reason}",
 )
-_MEMBER: str = QT_TRANSLATE_NOOP("Menuiserie", "membre d'un ensemble")
-_BOUND: str = QT_TRANSLATE_NOOP("Menuiserie", "position pilotée par une expression")
-_OTHER_CONTACT: str = QT_TRANSLATE_NOOP("Menuiserie", "assemblées aussi par un autre contact")
-
-
-def _joints_of(part: DocumentObject) -> list[DocumentObject]:
-    return [joint for joint in part.InList if is_joint(joint)]
-
-
-def _other(joint: DocumentObject, part: DocumentObject) -> DocumentObject | None:
-    other = joint.GuestPart if joint.HostPart == part else joint.HostPart
-    return other if other != part else None
-
-
-def _attached(root: DocumentObject, excluded: DocumentObject) -> list[DocumentObject]:
-    """``root`` et les pièces qui lui sont assemblées de proche en proche, sans passer par
-    ``excluded``."""
-    found = [root]
-    pending = [root]
-    while pending:
-        part = pending.pop()
-        for joint in _joints_of(part):
-            other = _other(joint, part)
-            if other is not None and other != excluded and other not in found:
-                found.append(other)
-                pending.append(other)
-    return found
-
-
-def _labels(parts: Sequence[DocumentObject]) -> str:
-    return ", ".join(f"« {quoted_value(part.Label)} »" for part in parts)
+_OTHER_CONTACT: str = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{label} est assemblée aussi par un autre contact."
+)
 
 
 def _partners(
@@ -80,8 +63,8 @@ def _partners(
     (épaisseur d'avant, ``before``), ou sa face basse si ``lowered``."""
     raised_by_name: dict[str, bool] = {}
     objects: dict[str, DocumentObject] = {}  # par nom : les objets FreeCAD ne servent pas de clé
-    for joint in _joints_of(part):
-        other = _other(joint, part)
+    for joint in joints_of(part):
+        other = other_part(joint, part)
         if other is None:
             continue
         try:
@@ -96,20 +79,19 @@ def _partners(
 def _blocker(group: Sequence[DocumentObject], fixed: Sequence[DocumentObject]) -> str | None:
     """Raison pour laquelle ``group`` ne peut pas bouger, ``None`` s'il le peut. ``fixed`` :
     pièces assemblées à la pièce modifiée ailleurs que sur sa face haute."""
-    if any(furniture_of(part) is not None for part in group):
-        return translated(_MEMBER)
-    if any(placement_expression(part) is not None for part in group):
-        return translated(_BOUND)
-    if any(part in fixed for part in group):
-        return translated(_OTHER_CONTACT)
+    for part in group:
+        reason = blocker(part, (PLACEMENT,))
+        if reason is not None:
+            return reason
+    for part in group:
+        if part in fixed:
+            return translated(_OTHER_CONTACT, {"label": quoted(part)})
     return None
 
 
 def _move(parts: Sequence[DocumentObject], shift: Sequence[float]) -> None:
     for part in parts:
-        placement = App.Placement(part.Placement)
-        placement.Base = placement.Base + App.Vector(*shift)
-        part.Placement = placement
+        shift_part(part, App.Vector(*shift))
 
 
 def follow_thickness(
@@ -120,7 +102,7 @@ def follow_thickness(
     en place avec la raison. ``lowered`` : l'épaisseur est ajoutée du côté de la face basse
     (ADR 0060) ; ce sont les pièces posées contre elle qui la suivent, ``part`` étant encore à
     son placement d'avant. Sans effet si rien ne change ou si ``part`` n'a pas d'assemblage."""
-    if old == new or not _joints_of(part):
+    if old == new or not has_joints(part):
         return []
     size = dimensions_of(part)
     before = PlacedBlock(Dimensions(size.length, size.width, old), rigid_transform(part.Placement))
@@ -130,7 +112,7 @@ def follow_thickness(
     moved: list[DocumentObject] = []
     kept: dict[str, list[DocumentObject]] = {}
     for root in (other for other, raised in partners if raised):
-        group = _attached(root, part)
+        group = attached(root, part)
         reason = _blocker(group, fixed)
         if reason is not None:
             kept.setdefault(reason, []).append(root)
@@ -139,11 +121,12 @@ def follow_thickness(
             moved.extend(piece for piece in group if piece not in moved)
     label = quoted_value(part.Label)
     messages = [
-        translated(_KEPT, {"label": label, "kept": _labels(roots), "reason": reason})
+        translated(_KEPT, {"label": label, "kept": quoted_parts(roots), "reason": reason})
         for reason, roots in kept.items()
     ]
     if moved:
-        messages.insert(0, translated(_FOLLOWED, {"label": label, "followers": _labels(moved)}))
+        followers = quoted_parts(moved)
+        messages.insert(0, translated(_FOLLOWED, {"label": label, "followers": followers}))
     return messages
 
 

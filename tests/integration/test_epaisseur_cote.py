@@ -50,7 +50,7 @@ def holds(doc: Any, joint: Any) -> bool:
 def test_epaisseur_qui_ne_defait_rien_est_ecrite(document: Any) -> None:
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(host)
-    assert edit.conflict(30) is None  # H plus épaisse : I suit sa face haute (#133)
+    assert edit.probe(30) is None  # H plus épaisse : I suit sa face haute (#133)
     assert host.Thickness.Value == 30
     assert guest.Placement.Base.z == pytest.approx(30)
     assert holds(document, joint)
@@ -58,9 +58,9 @@ def test_epaisseur_qui_ne_defait_rien_est_ecrite(document: Any) -> None:
 
 def test_trois_choix_proposes(document: Any) -> None:
     _host, guest, _joint = corner(document)
-    conflict = choice.ThicknessEdit(guest).conflict(30)
+    conflict = choice.ThicknessEdit(guest).probe(30)
     assert conflict is not None
-    assert conflict.title == "Assemblée à « H » (queue d'aronde)."
+    assert conflict.title == "Queue d'aronde avec « H »."
     assert conflict.question.startswith("Où ajouter les 12")
     texts = [option.text for option in conflict.options]
     assert texts[0] == "Vers l'intérieur (reste à fleur)"
@@ -74,7 +74,7 @@ def test_trois_choix_proposes(document: Any) -> None:
 def test_vers_l_interieur(document: Any) -> None:
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.OTHER_SIDE)
     assert guest.Thickness.Value == 30
     assert tuple(guest.Placement.Base) == pytest.approx((30, 0, 18))  # face extérieure en x = 0
@@ -85,7 +85,7 @@ def test_vers_l_interieur(document: Any) -> None:
 def test_vers_l_exterieur_et_allonger(document: Any) -> None:
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.EXTEND)
     assert tuple(guest.Placement.Base) == pytest.approx((18, 0, 18))
     assert host.Length.Value == 412
@@ -96,7 +96,7 @@ def test_vers_l_exterieur_et_allonger(document: Any) -> None:
 def test_revenir_et_changer_d_avis(document: Any) -> None:
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.EXTEND)
     edit.apply(30, choice.Choice.OTHER_SIDE)  # repart de l'état de départ
     assert host.Length.Value == 400
@@ -110,7 +110,7 @@ def test_revenir_et_changer_d_avis(document: Any) -> None:
 def test_amincir_propose_de_raccourcir(document: Any) -> None:
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(guest)
-    conflict = edit.conflict(12)
+    conflict = edit.probe(12)
     assert conflict is not None
     assert conflict.question.startswith("Où retirer les 6")
     assert conflict.options[0].text == "Côté intérieur (reste à fleur)"
@@ -123,9 +123,9 @@ def test_amincir_propose_de_raccourcir(document: Any) -> None:
 def test_saisies_successives_repartent_du_depart(document: Any) -> None:
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(3)
+    edit.probe(3)
     edit.apply(3, choice.Choice.OTHER_SIDE)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.EXTEND)
     assert host.Length.Value == 412
     assert tuple(guest.Placement.Base) == pytest.approx((18, 0, 18))
@@ -144,7 +144,7 @@ def test_autre_piece_copie_d_une_repetition(document: Any) -> None:
     joint = api.make_dovetail(copy, guest)
     document.recompute()
     edit = choice.ThicknessEdit(guest)
-    conflict = edit.conflict(30)
+    conflict = edit.probe(30)
     assert conflict is not None
     reasons = {option.choice: option.reason for option in conflict.options}
     assert reasons[choice.Choice.OTHER_SIDE] is None
@@ -167,7 +167,7 @@ def test_piece_posee_sur_la_face_basse_suit(document: Any) -> None:
     dowels = api.make_dowels(guest, shelf)
     assert holds(document, dowels)
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.OTHER_SIDE)
     assert shelf.Placement.Base.x == pytest.approx(30)
     assert holds(document, joint) and holds(document, dowels)
@@ -189,7 +189,7 @@ def test_face_exterieure_tiree_l_autre_piece_s_allonge(document: Any) -> None:
     assert drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0)) == ""  # repart du début
     assert host.Length.Value == 412
     assert tuple(host.Placement.Base) == pytest.approx((-12, 0, 0))
-    assert "« H » +12" in thickness_drag.thickness_note(memento.follows)
+    assert "« H » +12" in memento.follows.note()
     messages = drag.end_drag(memento)
     assert any("allongée de 12" in m for m in messages)
     assert holds(document, joint)

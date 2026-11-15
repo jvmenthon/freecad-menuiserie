@@ -19,6 +19,7 @@ api = pytest.importorskip("freecad.menuiserie.api")
 choice = pytest.importorskip("freecad.menuiserie.features.thickness_choice")
 drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
 thickness_drag = pytest.importorskip("freecad.menuiserie.features.thickness_drag")
+common = pytest.importorskip("freecad.menuiserie.features.thickness_common")
 Vec3 = pytest.importorskip("freecad.menuiserie.core.geometry").Vec3
 
 
@@ -37,8 +38,8 @@ def two_hosts(doc: Any) -> tuple[Any, Any, Any, Any, Any]:
 def test_piece_sans_assemblage(document: Any) -> None:
     part = api.make_wood_part(400, 150, 18, "chene", mark="A", doc=document)
     document.recompute()
-    assert not choice.has_joints(part)
-    assert choice.ThicknessEdit(part).conflict(30) is None
+    assert not common.has_joints(part)
+    assert choice.ThicknessEdit(part).probe(30) is None
     assert part.Thickness.Value == 30
     assert thickness_drag.drag_follow(part, False) is None
     memento = drag.begin_drag(part)
@@ -56,7 +57,7 @@ def test_epaisseurs_invalides_ou_enormes_ne_cassent_pas_le_document(
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(guest)
     with contextlib.suppress(ValueError, App.Base.FreeCADError):
-        edit.conflict(value)
+        edit.probe(value)
     edit.restore()
     assert guest.Thickness.Value == 18
     assert host.Length.Value == 400
@@ -66,7 +67,7 @@ def test_epaisseurs_invalides_ou_enormes_ne_cassent_pas_le_document(
 def test_plusieurs_pieces_a_fleur_sont_toutes_allongees(document: Any) -> None:
     host, top, guest, joint, joint2 = two_hosts(document)
     edit = choice.ThicknessEdit(guest)
-    conflict = edit.conflict(30)
+    conflict = edit.probe(30)
     assert conflict is not None
     assert "« H »" in conflict.options[1].text or "« K »" in conflict.options[1].text
     edit.apply(30, choice.Choice.EXTEND)
@@ -81,7 +82,7 @@ def test_autre_piece_pilotee_par_une_expression(document: Any) -> None:
     host.setExpression("Length", "400 mm")
     document.recompute()
     edit = choice.ThicknessEdit(guest)
-    conflict = edit.conflict(30)
+    conflict = edit.probe(30)
     assert conflict is not None
     reasons = {o.choice: o.reason for o in conflict.options}
     assert reasons[choice.Choice.EXTEND] is not None
@@ -97,7 +98,7 @@ def test_placement_pilote_de_la_piece_grise_vers_l_interieur(document: Any) -> N
     _host, guest, _joint = corner(document)
     guest.setExpression("Placement.Base.x", "18 mm")
     document.recompute()
-    conflict = choice.ThicknessEdit(guest).conflict(30)
+    conflict = choice.ThicknessEdit(guest).probe(30)
     assert conflict is not None
     reasons = {o.choice: o.reason for o in conflict.options}
     assert reasons[choice.Choice.OTHER_SIDE] is not None
@@ -110,7 +111,7 @@ def test_cote_epaisseur_pilotee_ne_perd_pas_son_expression(document: Any) -> Non
     document.recompute()
     edit = choice.ThicknessEdit(guest)
     with contextlib.suppress(ValueError, App.Base.FreeCADError):
-        edit.conflict(30)
+        edit.probe(30)
     edit.restore()
     assert any(path == "Thickness" for path, _ in guest.ExpressionEngine)
     assert host.Length.Value == 400
@@ -121,7 +122,7 @@ def test_partenaire_membre_d_ensemble(document: Any) -> None:
     api.make_furniture([host], "Meuble")
     document.recompute()
     assert api.furniture_of(host) is not None
-    conflict = choice.ThicknessEdit(guest).conflict(30)
+    conflict = choice.ThicknessEdit(guest).probe(30)
     if conflict is None:
         pytest.skip("assemblage non défait : ensemble relié")
     reasons = {o.choice: o.reason for o in conflict.options}
@@ -196,7 +197,7 @@ def test_annuler_retablir_apres_allonger(document: Any) -> None:
     document.UndoMode = 1
     document.openTransaction("Modifier une pièce de bois")
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.EXTEND)
     document.commitTransaction()
     document.recompute()
@@ -214,7 +215,7 @@ def test_annuler_retablir_apres_allonger(document: Any) -> None:
 def test_enregistrer_rouvrir_apres_allonger(document: Any, rouvrir: Any) -> None:
     _host, guest, _joint = corner(document)
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.EXTEND)
     document.recompute()
     reopened = rouvrir(document)
@@ -229,9 +230,9 @@ def test_enregistrer_rouvrir_apres_allonger(document: Any, rouvrir: Any) -> None
 def test_epaisseur_revenue_a_l_origine_ne_laisse_rien(document: Any) -> None:
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(guest)
-    edit.conflict(30)
+    edit.probe(30)
     edit.apply(30, choice.Choice.EXTEND)
-    assert edit.conflict(18) is None  # saisie revenue à l'origine : plus de conflit
+    assert edit.probe(18) is None  # saisie revenue à l'origine : plus de conflit
     assert (host.Length.Value, guest.Thickness.Value) == (400, 18)
     assert tuple(host.Placement.Base) == pytest.approx((0, 0, 0))
     assert tuple(guest.Placement.Base) == pytest.approx((18, 0, 18))

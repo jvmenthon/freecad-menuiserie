@@ -22,8 +22,10 @@ from weakref import WeakMethod, ref
 
 from PySide import QtGui
 
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_bindings import report
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.thickness_choice import (
     Choice,
     Conflict,
@@ -33,10 +35,13 @@ from freecad.menuiserie.features.thickness_choice import (
 from freecad.menuiserie.gui.task_panels.base import Widget, connect
 from freecad.menuiserie.gui.task_panels.furniture_widgets import message_label, show_message
 
-_BOX_STYLE: Final = (
+_BOX_STYLE: Final = (  # fond clair : texte foncé imposé, lisible aussi avec un thème sombre
     "QFrame#thicknessConflict { background: #fdf6dc; border: 1px solid #e0a800; "
-    "border-radius: 2px; }"
+    "border-radius: 2px; } "
+    "QFrame#thicknessConflict QLabel, QFrame#thicknessConflict QRadioButton { color: #222; } "
+    "QFrame#thicknessConflict QRadioButton:disabled { color: #8a8a8a; }"
 )
+_ABANDONED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choix d'épaisseur abandonné : {error}")
 _CHOICES: Final = (Choice.OTHER_SIDE, Choice.EXTEND, Choice.REVERT)
 
 
@@ -92,7 +97,7 @@ class ConflictBox:
         try:
             action()
         except (ValueError, ReferenceError, RuntimeError) as error:
-            report([str(error)])
+            report([translated(_ABANDONED, {"error": str(error)})])
             self.forget()
 
     def _edit_now(self, value: float) -> None:
@@ -102,9 +107,9 @@ class ConflictBox:
         if self._edit is None:
             self._edit = ThicknessEdit(self._obj)
         self._value = value
-        conflict = self._edit.conflict(value)
+        conflict = self._edit.probe(value)
         if conflict is None:  # écrite telle quelle : point de départ de la saisie suivante
-            report(self._edit.apply(value, Choice.AS_TYPED))
+            report(self._edit.messages)
             self.forget()
             return
         self._show(conflict)

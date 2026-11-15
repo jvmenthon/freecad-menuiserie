@@ -26,27 +26,29 @@ from freecad.menuiserie.core.geometry import PlacedBlock
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind, strategy_for
 from freecad.menuiserie.core.part_model import MIN_DIMENSION_MM, Dimensions
-from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.core.thickness_side import Extension, flush_extension, other_side_shift
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.furniture import furniture_of, writing
-from freecad.menuiserie.features.furniture_entry import write_placement
+from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint, placed_blank
+from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.joints.plan_cache import cached_plan
 from freecad.menuiserie.features.solids import rigid_transform
-from freecad.menuiserie.features.thickness_choice import SIZE_PROPS, blocker, extend_part
+from freecad.menuiserie.features.thickness_common import (
+    PLACEMENT,
+    SIZE_PROPS,
+    TOO_SHORT,
+    blocker,
+    extend_part,
+    has_joints,
+    joints_of,
+    length_text,
+    other_part,
+    quoted,
+    restore_state,
+    size_state,
+)
 
-__all__ = [
-    "DragFollow",
-    "Follows",
-    "drag_follow",
-    "follow_for",
-    "follow_messages",
-    "follow_thickness",
-    "restore_follows",
-    "thickness_note",
-]
+__all__ = ["DragFollow", "FaceFollows", "drag_follow"]
 
 _PROBE_MM: Final = 5.0
 _FOLLOWED: Final = QT_TRANSLATE_NOOP(
@@ -54,8 +56,9 @@ _FOLLOWED: Final = QT_TRANSLATE_NOOP(
 )
 _LONGER: Final = QT_TRANSLATE_NOOP("Menuiserie", "allongée")
 _SHORTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "raccourcie")
-_TOO_SHORT: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} deviendrait trop courte.")
 _STOP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Butée : {reason}")
+
+Recompute = Callable[[DocumentObject], None]
 
 
 @dataclass(frozen=True)
@@ -65,10 +68,6 @@ class _Follower:
     placement: App.Placement
     sizes: tuple[float, float, float]
     reason: str | None  # pourquoi elle ne peut pas suivre, None si elle le peut
-
-
-def _quoted(part: DocumentObject) -> str:
-    return f"« {quoted_value(part.Label)} »"
 
 
 def _fails(joint: DocumentObject, blocks: dict[str, PlacedBlock]) -> bool:
@@ -113,9 +112,9 @@ class DragFollow:
     def _find(self) -> list[_Follower]:
         probe = self._probe()
         found: dict[str, _Follower] = {}
-        for joint in (obj for obj in self.part.InList if is_joint(obj)):
-            other = joint.GuestPart if joint.HostPart == self.part else joint.HostPart
-            if other is None or other == self.part or other.Name in found:
+        for joint in joints_of(self.part):
+            other = other_part(joint, self.part)
+            if other is None or other.Name in found:
                 continue
             try:
                 block = placed_blank(other)
@@ -129,13 +128,12 @@ class DragFollow:
                 continue  # une face qui bouge ne défait pas cet assemblage
             props = [SIZE_PROPS[extension.axis]]
             if not extension.at_end:
-                props.append("Placement")
-            sizes = (float(other.Length.Value), float(other.Width.Value))
+                props.append(PLACEMENT)
             found[other.Name] = _Follower(
                 other,
                 extension,
                 App.Placement(other.Placement),
-                (*sizes, float(other.Thickness.Value)),
+                size_state(other),
                 blocker(other, props),
             )
         return list(found.values())
@@ -143,13 +141,7 @@ class DragFollow:
     def restore(self) -> None:
         """Pièces suivies rendues à leur état du début."""
         for follower in self.followers:
-            part = follower.part
-            with writing(part):
-                for prop, value in zip(SIZE_PROPS, follower.sizes, strict=True):
-                    if getattr(part, prop).Value != value:
-                        setattr(part, prop, value)
-            if not part.Placement.isSame(follower.placement, 1e-9):
-                write_placement(part, follower.placement)
+            restore_state(follower.part, follower.sizes, follower.placement)
         self._delta = 0.0
 
     def follow(self, delta: float) -> str:
@@ -162,7 +154,7 @@ class DragFollow:
             reason = follower.reason
             size = follower.sizes[follower.extension.axis] + delta
             if reason is None and size < MIN_DIMENSION_MM:
-                reason = translated(_TOO_SHORT, {"label": _quoted(follower.part)})
+                reason = translated(TOO_SHORT, {"label": quoted(follower.part)})
             if reason is not None:
                 return translated(_STOP, {"reason": reason})
         for follower in self.followers:
@@ -174,22 +166,22 @@ class DragFollow:
         """Texte à montrer près de la souris : « « H » +12 mm »."""
         if self._delta == 0.0:
             return ""
-        text = App.Units.Quantity(self._delta, App.Units.Length).UserString
-        sign = "+" if self._delta > 0 else ""
-        return "\n".join(f"{_quoted(f.part)} {sign}{text}" for f in self.followers)
+        sign = "+" if self._delta > 0 else "-"
+        text = length_text(self._delta)
+        return "\n".join(f"{quoted(f.part)} {sign}{text}" for f in self.followers)
 
     def messages(self) -> list[str]:
         """Messages de la vue rapport au relâchement."""
         if self._delta == 0.0:
             return []
-        delta = App.Units.Quantity(abs(self._delta), App.Units.Length).UserString
+        delta = length_text(self._delta)
         change = translated(_LONGER if self._delta > 0 else _SHORTER)
         return [
             translated(
                 _FOLLOWED,
                 {
-                    "label": _quoted(f.part),
-                    "part": _quoted(self.part),
+                    "label": quoted(f.part),
+                    "part": quoted(self.part),
                     "change": change,
                     "delta": delta,
                 },
@@ -201,61 +193,59 @@ class DragFollow:
 def drag_follow(part: DocumentObject, lowered: bool) -> DragFollow | None:
     """Suivi pour une épaisseur tirée de ``part`` ; ``None`` pour un membre d'ensemble (l'ensemble
     relie ses membres) ou une pièce sans assemblage."""
-    if furniture_of(part) is not None or not any(is_joint(obj) for obj in part.InList):
+    if furniture_of(part) is not None or not has_joints(part):
         return None
     return DragFollow(part, lowered)
 
 
-Follows = dict[bool, DragFollow | None]
+class FaceFollows:
+    """Suivis d'un glissement (mémento), un par face tirée : choisis une fois, sur la pièce
+    encore à son épaisseur du début."""
 
+    def __init__(self) -> None:
+        self._by_face: dict[bool, DragFollow | None] = {}
 
-def follow_for(follows: Follows, part: DocumentObject, lowered: bool) -> DragFollow | None:
-    """Suivi de l'épaisseur tirée de ``part``, choisi une fois par glissement et par face, sur la
-    pièce encore à son épaisseur du début ; gardé dans ``follows`` (mémento du glissement)."""
-    if lowered not in follows:
-        follows[lowered] = drag_follow(part, lowered)
-    return follows[lowered]
+    def _all(self) -> list[DragFollow]:
+        return [follow for follow in self._by_face.values() if follow is not None]
 
+    def prepare(self, part: DocumentObject, lowered: bool) -> DragFollow | None:
+        """Suivi de la face tirée de ``part`` (``lowered`` : face basse), créé au premier appel :
+        à faire avant d'écrire l'épaisseur."""
+        if lowered not in self._by_face:
+            self._by_face[lowered] = drag_follow(part, lowered)
+        return self._by_face[lowered]
 
-def follow_thickness(
-    follows: Follows,
-    part: DocumentObject,
-    delta: float,
-    lowered: bool,
-    recompute: Callable[[DocumentObject], None],
-) -> str:
-    """Pièces à fleur de la face tirée prolongées de ``delta`` mm, aperçu par ``recompute`` ;
-    renvoie la raison traduite d'une butée (rien n'est alors prolongé)."""
-    for other in follows.values():  # autre face tirée plus tôt : rien ne la suit plus
-        if other is not None and other.lowered != lowered:
-            other.restore()
-    follow = follow_for(follows, part, lowered)
-    if follow is None:
-        return ""
-    try:
-        stop = follow.follow(delta)
-        for follower in follow.followers:
-            recompute(follower.part)
-    except Exception:  # jamais de pièce suivie à moitié prolongée
-        restore_follows(follows, recompute)
-        raise
-    return stop
+    def follow_dragged_face(
+        self, part: DocumentObject, delta: float, lowered: bool, recompute: Recompute
+    ) -> str:
+        """Pièces à fleur de la face tirée prolongées de ``delta`` mm, aperçu par ``recompute`` ;
+        renvoie la raison traduite d'une butée (rien n'est alors prolongé)."""
+        for other in self._all():  # autre face tirée plus tôt : rien ne la suit plus
+            if other.lowered != lowered:
+                other.restore()
+        follow = self.prepare(part, lowered)
+        if follow is None:
+            return ""
+        try:
+            stop = follow.follow(delta)
+            for follower in follow.followers:
+                recompute(follower.part)
+        except Exception:  # jamais de pièce suivie à moitié prolongée
+            self.restore(recompute)
+            raise
+        return stop
 
-
-def restore_follows(follows: Follows, recompute: Callable[[DocumentObject], None]) -> None:
-    """Échap : pièces suivies rendues à leur état du début, aperçu par ``recompute``."""
-    for follow in follows.values():
-        if follow is not None:
+    def restore(self, recompute: Recompute) -> None:
+        """Échap : pièces suivies rendues à leur état du début, aperçu par ``recompute``."""
+        for follow in self._all():
             follow.restore()
             for follower in follow.followers:
                 recompute(follower.part)
 
+    def messages(self) -> list[str]:
+        """Messages de la vue rapport au relâchement : pièces qui ont suivi."""
+        return [message for follow in self._all() for message in follow.messages()]
 
-def follow_messages(follows: Follows) -> list[str]:
-    """Messages de la vue rapport au relâchement : pièces qui ont suivi."""
-    return [message for f in follows.values() if f is not None for message in f.messages()]
-
-
-def thickness_note(follows: Follows) -> str:
-    """Pièces qui suivent l'épaisseur tirée et leur écart, à montrer près de la souris."""
-    return "\n".join(f.note() for f in follows.values() if f is not None and f.note())
+    def note(self) -> str:
+        """Pièces qui suivent l'épaisseur tirée et leur écart, à montrer près de la souris."""
+        return "\n".join(note for follow in self._all() if (note := follow.note()))

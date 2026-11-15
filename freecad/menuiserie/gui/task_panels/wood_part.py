@@ -38,7 +38,6 @@ from freecad.menuiserie.core.part_model import MIN_DIMENSION_MM
 from freecad.menuiserie.core.snap import Turn
 from freecad.menuiserie.features.drag_joints import rotate_checked
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
-from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_locks import (
     set_member_thickness,
@@ -50,7 +49,7 @@ from freecad.menuiserie.features.placement import (
     snap_part,
 )
 from freecad.menuiserie.features.size_limit import limit_initial_size
-from freecad.menuiserie.features.thickness_choice import has_joints
+from freecad.menuiserie.features.thickness_common import is_assembled_isolated
 from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
@@ -106,7 +105,9 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
         self._bindings = [bind_length_field(self.form, obj, field) for field in LENGTH_FIELDS[:3]]
         self._unlock = UnlockBox(self.form.unlockHost.layout(), self._unlock_and_apply)
-        self._conflict = ConflictBox(self.form.unlockHost.layout(), obj, self._show_thickness)
+        self._conflict = ConflictBox(
+            self.form.thicknessConflictHost.layout(), obj, self._show_thickness
+        )
         self._thickness_tools = ThicknessTools(self.form, obj)
         self._angles = AngleRows(
             self.form, obj, self._on_angle_edit, self._recompute, joint_choice.choose
@@ -192,7 +193,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         if self.obj.Thickness.Value == value and not self._conflict.shown:
             self._unlock.clear()  # retour à l'épaisseur écrite : plus de refus
             return
-        if furniture_of(self.obj) is None and has_joints(self.obj):
+        if is_assembled_isolated(self.obj):
             self._conflict.edit(value)
             self._recompute()
             return
