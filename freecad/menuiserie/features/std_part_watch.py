@@ -107,21 +107,26 @@ def remove_left_furnitures(doc: Document, names: Sequence[str]) -> list[str]:
     """Supprime les ensembles ``names`` de ``doc`` restés sans Std Part (contenu gardé), comme la
     suppression d'un ensemble par l'interface : ses membres perdent leurs liaisons et gardent leur
     place (:func:`release_furniture`). Une transaction « Supprimer l'ensemble » pour le tout,
-    abandonnée en cas d'erreur (relancée). Un ensemble absent (supprimé avec le contenu) ou de
+    abandonnée en cas d'erreur (relancée) ; si une transaction est encore ouverte (script,
+    macro), les suppressions s'y ajoutent. Un ensemble absent (supprimé avec le contenu) ou de
     nouveau rangé dans un Std Part est ignoré. Renvoie les avertissements traduits."""
     left = [doc.getObject(name) for name in names]
     furnitures = [obj for obj in left if is_furniture(obj) and std_part_of(obj) is None]
     if not furnitures:
         return []
     messages: list[str] = []
-    doc.openTransaction(translated(REMOVE_TRANSACTION))
+    own = not doc.HasPendingTransaction  # script ou macro encore dans sa transaction : on s'y joint
+    if own:
+        doc.openTransaction(translated(REMOVE_TRANSACTION))
     try:
         for furniture in furnitures:
             messages += release_furniture(furniture)
             doc.removeObject(furniture.Name)
     except Exception:
-        doc.abortTransaction()
+        if own:
+            doc.abortTransaction()
         raise
-    doc.commitTransaction()
+    if own:
+        doc.commitTransaction()
     doc.recompute()
     return messages

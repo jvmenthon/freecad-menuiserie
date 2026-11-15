@@ -27,7 +27,9 @@ des objets pendant la boucle de suppression de FreeCAD laisse des pointeurs mort
    dissociées), dans **sa propre transaction** « Supprimer l'ensemble », puis recalcule.
 3. Réponse « Oui » (contenu supprimé) : l'ensemble est déjà parti, rien n'est fait. Annulation,
    rétablissement, restauration : rien n'est noté (l'entrée « Supprimer l'ensemble » a sa propre
-   place dans l'historique). Document fermé entre-temps : rien n'est fait.
+   place dans l'historique). Document fermé entre-temps : rien n'est fait (il est retrouvé par
+   son nom ; un ensemble n'est supprimé que s'il est encore un ensemble sans Std Part). Une
+   transaction encore ouverte (script, macro) : les suppressions s'y ajoutent.
 4. Un sous-ensemble rangé dans le Std Part supprimé garde son propre Std Part et sort de son
    parent (ADR 0038, inchangé) ; seul l'ensemble dont le Std Part disparaît est supprimé.
 

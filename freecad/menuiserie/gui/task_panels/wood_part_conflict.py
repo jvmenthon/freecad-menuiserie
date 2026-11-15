@@ -43,7 +43,7 @@ _CHOICES: Final = (Choice.OTHER_SIDE, Choice.EXTEND, Choice.REVERT)
 class ConflictBox:
     """Encadré des choix d'épaisseur de la pièce ``obj``, ajouté à ``layout``. ``revert`` (méthode
     du panneau) remet l'ancienne épaisseur dans le champ ; elle est gardée par une référence
-    faible (pas de cycle panneau ↔ composant)."""
+    faible (pas de cycle panneau ↔ composant) : ce doit être une méthode liée."""
 
     def __init__(self, layout: Widget, obj: DocumentObject, revert: Callable[[float], None]):
         self._obj = obj
@@ -84,6 +84,18 @@ class ConflictBox:
         return not self.frame.isHidden()
 
     def edit(self, value: float) -> None:
+        """:meth:`_edit_now` ; une erreur (pièce supprimée ou annulée entre-temps, document
+        illisible) est écrite dans la vue rapport et l'encadré est oublié."""
+        self._safely(lambda: self._edit_now(value))
+
+    def _safely(self, action: Callable[[], None]) -> None:
+        try:
+            action()
+        except (ValueError, ReferenceError, RuntimeError) as error:
+            report([str(error)])
+            self.forget()
+
+    def _edit_now(self, value: float) -> None:
         """Épaisseur ``value`` saisie : écrite telle quelle si elle ne défait aucun assemblage,
         sinon l'encadré s'affiche et le premier choix possible est appliqué. Tant que l'encadré
         est affiché, chaque saisie repart de l'état d'avant la première (:class:`ThicknessEdit`)."""
@@ -123,7 +135,11 @@ class ConflictBox:
         self.frame.setVisible(True)
 
     def chosen(self, choice: Choice) -> None:
-        """Bouton ``choice`` cliqué : appliqué ; « Revenir » remet l'ancienne épaisseur."""
+        """Bouton ``choice`` cliqué : appliqué ; « Revenir » remet l'ancienne épaisseur. Une
+        erreur est écrite dans la vue rapport (:meth:`_safely`)."""
+        self._safely(lambda: self._choose(choice))
+
+    def _choose(self, choice: Choice) -> None:
         if self._edit is None:
             return
         if choice is Choice.REVERT:
@@ -141,7 +157,7 @@ class ConflictBox:
             return
         try:
             report(self._edit.apply(self._value, choice))
-        except UnavailableError as error:  # le document a changé depuis l'essai
+        except UnavailableError as error:  # le document a changé depuis l'essai (état rendu)
             show_message(self._reasons[choice], str(error))
             self._radios[choice].setEnabled(False)
 

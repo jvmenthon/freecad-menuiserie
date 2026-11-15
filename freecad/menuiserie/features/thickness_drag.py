@@ -30,6 +30,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.core.thickness_side import Extension, flush_extension, other_side_shift
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, writing
+from freecad.menuiserie.features.furniture_entry import write_placement
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, placed_blank
 from freecad.menuiserie.features.joints.plan_cache import cached_plan
@@ -148,7 +149,7 @@ class DragFollow:
                     if getattr(part, prop).Value != value:
                         setattr(part, prop, value)
             if not part.Placement.isSame(follower.placement, 1e-9):
-                part.Placement = follower.placement
+                write_placement(part, follower.placement)
         self._delta = 0.0
 
     def follow(self, delta: float) -> str:
@@ -231,9 +232,13 @@ def follow_thickness(
     follow = follow_for(follows, part, lowered)
     if follow is None:
         return ""
-    stop = follow.follow(delta)
-    for follower in follow.followers:
-        recompute(follower.part)
+    try:
+        stop = follow.follow(delta)
+        for follower in follow.followers:
+            recompute(follower.part)
+    except Exception:  # jamais de pièce suivie à moitié prolongée
+        restore_follows(follows, recompute)
+        raise
     return stop
 
 

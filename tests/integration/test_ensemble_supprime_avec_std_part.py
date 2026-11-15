@@ -108,3 +108,53 @@ def test_sous_ensemble_garde_le_sien(document: Any, observer: Observer) -> None:
     assert api.furniture_of(sub) is None and container.std_part_of(sub) is not None
     assert geometry(document) == before
     assert stale_or_invalid(document) == []
+
+
+def test_annuler_puis_retablir_deux_entrees(bureau: Any, observer: Observer) -> None:
+    furniture, doc = bureau.furniture, bureau.doc
+    doc.UndoMode = 1
+    before = geometry(doc)
+    name = furniture.Name
+    delete_std_part(doc, furniture)
+    observer.finish()
+    doc.undo()
+    doc.undo()
+    doc.recompute()
+    assert doc.getObject(name) is not None and geometry(doc) == before
+    doc.redo()
+    doc.redo()
+    doc.recompute()
+    assert doc.getObject(name) is None
+    assert geometry(doc) == before
+    assert stale_or_invalid(doc) == []
+    assert observer.left == []
+
+
+def test_enregistrer_rouvrir_apres_suppression(
+    bureau: Any, observer: Observer, rouvrir: Any
+) -> None:
+    furniture, doc = bureau.furniture, bureau.doc
+    before = geometry(doc)
+    delete_std_part(doc, furniture)
+    observer.finish()
+    reopened = rouvrir(doc)
+    reopened.recompute()
+    assert geometry(reopened) == before
+    assert stale_or_invalid(reopened) == []
+
+
+def test_deux_ensembles_dont_un_seul_supprime(document: Any, observer: Observer) -> None:
+    from tests.integration.bureau import build_parts
+
+    desk = build_parts(document)
+    first, _ = api.make_furniture([desk.parts["P"], desk.parts["JG"], desk.parts["JD"]], "A")
+    document.recompute()
+    other = api.make_wood_part(300, 100, 18, "chene", mark="Z", doc=document)
+    second, _ = api.make_furniture([other], "B")
+    document.recompute()
+    first_name = first.Name
+    delete_std_part(document, first)
+    observer.finish()
+    assert document.getObject(first_name) is None
+    assert document.getObject(second.Name) is not None
+    assert container.std_part_of(second) is not None

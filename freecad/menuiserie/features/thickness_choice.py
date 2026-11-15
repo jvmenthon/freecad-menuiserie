@@ -14,10 +14,8 @@ il essaie aussi :
   arrivait à fleur de la face haute est prolongée de l'écart ;
 - ``REVERT`` : l'ancienne épaisseur.
 
-Un choix est proposé s'il ne défait aucun assemblage qui tenait ; sinon il est grisé, avec sa
-raison (pièce qui ne peut pas être modifiée : copie de répétition, membre d'un ensemble, pièce en
-bois, cote ou position pilotée par une expression). Les écritures de l'atelier passent par
-:func:`writing` : aucune réaction de ``onChanged``. Aucun import de ``FreeCADGui``.
+Un choix est proposé s'il ne défait aucun assemblage qui tenait, sinon grisé avec sa raison
+(:func:`blocker`). Écritures sous :func:`writing` ; aucun import de ``FreeCADGui``.
 """
 
 from __future__ import annotations
@@ -45,6 +43,7 @@ from freecad.menuiserie.features.freecad_types import (
     placement_expression,
 )
 from freecad.menuiserie.features.furniture import furniture_of, writing
+from freecad.menuiserie.features.furniture_entry import write_placement
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.joints.feasible import plan_error
@@ -214,7 +213,7 @@ def _shift(part: DocumentObject, shift: App.Vector) -> None:
     placement = App.Placement(part.Placement)
     moved = placement.Base + shift
     placement.Base = App.Vector(round(moved.x, 6), round(moved.y, 6), round(moved.z, 6))
-    part.Placement = placement
+    write_placement(part, placement)
 
 
 def extend_part(part: DocumentObject, extension: Extension, delta: float) -> None:
@@ -266,7 +265,7 @@ class ThicknessEdit:
                     if getattr(obj, prop).Value != value and not has_expression(obj, prop):
                         setattr(obj, prop, value)
             if not obj.Placement.isSame(state.placement, 1e-9):
-                obj.Placement = state.placement
+                write_placement(obj, state.placement)
 
     def _new_breaks(self) -> list[DocumentObject]:
         return [j for n, j in _broken(self._parts).items() if n not in self._already_broken]
@@ -284,7 +283,7 @@ class ThicknessEdit:
             return []
         try:
             return self._apply(new, choice)
-        except UnavailableError:
+        except Exception:  # choix impossible ou erreur : jamais de document à moitié écrit
             self.restore()
             raise
 
@@ -347,12 +346,14 @@ class ThicknessEdit:
         if not broken:
             return None
         self._broken_as_typed = broken
-        options = (
-            self._option(new, Choice.OTHER_SIDE),
-            self._option(new, Choice.EXTEND),
-            Option(Choice.REVERT, translated(_REVERT, {"thickness": _length(self.old)})),
-        )
-        self.restore()
+        try:
+            options = (
+                self._option(new, Choice.OTHER_SIDE),
+                self._option(new, Choice.EXTEND),
+                Option(Choice.REVERT, translated(_REVERT, {"thickness": _length(self.old)})),
+            )
+        finally:
+            self.restore()
         return Conflict(self._title(broken), self._question(new), options)
 
     def _option(self, new: float, choice: Choice) -> Option:
