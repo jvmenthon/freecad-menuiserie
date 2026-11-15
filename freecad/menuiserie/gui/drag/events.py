@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import traceback
 from collections.abc import Callable
+from functools import partial
 from typing import Any, Final
 
 import FreeCAD as App
@@ -21,7 +22,11 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.features.i18n import report_warning
-from freecad.menuiserie.features.std_part_watch import std_part_deleted
+from freecad.menuiserie.features.std_part_watch import (
+    left_furnitures,
+    remove_left_furnitures,
+    std_part_deleted,
+)
 from freecad.menuiserie.gui.double_click import is_viewport_3d, view_point, viewports_3d
 from freecad.menuiserie.gui.drag.session import DragSession
 
@@ -164,16 +169,32 @@ class _DocumentObserver:
         self._session = session
 
     def slotDeletedObject(self, obj: Any) -> None:
-        """Std Part supprimé à la main : ses pièces gardent leur place (ADR 0038). Une erreur est
-        écrite dans la vue rapport, jamais relancée dans la suppression de FreeCAD."""
+        """Std Part supprimé à la main : ses pièces gardent leur place (ADR 0038) ; ses ensembles
+        sont supprimés une fois la suppression de FreeCAD finie (ADR 0061), jamais pendant. Une
+        erreur est écrite dans la vue rapport, jamais relancée dans la suppression de FreeCAD."""
         try:
+            left = left_furnitures(obj)
             for message in std_part_deleted(obj):
                 report_warning(message)
+            if left:
+                QtCore.QTimer.singleShot(0, partial(_remove_left, obj.Document.Name, left))
         except Exception:  # pylint: disable=broad-exception-caught
             App.Console.PrintError(traceback.format_exc())
 
     def slotDeletedDocument(self, doc: Any) -> None:
         _guarded(self._session, _forget, self._session, doc.Name)
+
+
+def _remove_left(document: str, names: tuple[str, ...]) -> None:
+    """Ensembles restés sans Std Part supprimés (:func:`remove_left_furnitures`), si le document
+    est encore ouvert ; une erreur est écrite dans la vue rapport."""
+    try:
+        doc = App.listDocuments().get(document)
+        if doc is not None:
+            for message in remove_left_furnitures(doc, names):
+                report_warning(message)
+    except Exception:  # pylint: disable=broad-exception-caught
+        App.Console.PrintError(traceback.format_exc())
 
 
 def _forget(session: DragSession, document: str) -> bool:

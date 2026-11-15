@@ -38,6 +38,7 @@ from freecad.menuiserie.core.part_model import MIN_DIMENSION_MM
 from freecad.menuiserie.core.snap import Turn
 from freecad.menuiserie.features.drag_joints import rotate_checked
 from freecad.menuiserie.features.freecad_types import DocumentObject, has_expression
+from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_locks import (
     set_member_thickness,
@@ -49,6 +50,7 @@ from freecad.menuiserie.features.placement import (
     snap_part,
 )
 from freecad.menuiserie.features.size_limit import limit_initial_size
+from freecad.menuiserie.features.thickness_choice import has_joints
 from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
@@ -68,6 +70,7 @@ from freecad.menuiserie.gui.task_panels.timber_rows import (
     setup_rotation_buttons,
 )
 from freecad.menuiserie.gui.task_panels.unlock_widgets import UnlockBox
+from freecad.menuiserie.gui.task_panels.wood_part_conflict import ConflictBox
 from freecad.menuiserie.gui.task_panels.wood_part_drag import PanelDrag
 from freecad.menuiserie.gui.task_panels.wood_part_snap import SnapRows
 from freecad.menuiserie.gui.task_panels.wood_part_thickness import ThicknessTools
@@ -103,6 +106,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
         self._bindings = [bind_length_field(self.form, obj, field) for field in LENGTH_FIELDS[:3]]
         self._unlock = UnlockBox(self.form.unlockHost.layout(), self._unlock_and_apply)
+        self._conflict = ConflictBox(self.form.unlockHost.layout(), obj, self._show_thickness)
         self._thickness_tools = ThicknessTools(self.form, obj)
         self._angles = AngleRows(
             self.form, obj, self._on_angle_edit, self._recompute, joint_choice.choose
@@ -151,6 +155,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
 
     def _on_material(self) -> None:
         """Nouveau matériau : le fil et les surcotes suivent, aperçu recalculé."""
+        self._conflict.forget()
         self._show_values()
         self._recompute()
 
@@ -175,15 +180,21 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         if prop == "Thickness":
             self._on_thickness_changed(value)
         elif getattr(self.obj, prop).Value != value:
+            self._conflict.forget()
             setattr(self.obj, prop, value)
             self._recompute()
 
     def _on_thickness_changed(self, value: float) -> None:
         """Épaisseur saisie : contrôlée puis écrite pour une pièce membre d'un ensemble (sous
         ``writing``, les avertissements sont rapportés ici et non par ``onChanged``) ; refusée,
-        elle n'est pas écrite et le refus s'affiche (G3)."""
-        if self.obj.Thickness.Value == value:
+        elle n'est pas écrite et le refus s'affiche (G3). Pièce isolée assemblée : l'encadré
+        « où ajouter l'épaisseur ? » s'affiche si elle défait un assemblage (ADR 0060)."""
+        if self.obj.Thickness.Value == value and not self._conflict.shown:
             self._unlock.clear()  # retour à l'épaisseur écrite : plus de refus
+            return
+        if furniture_of(self.obj) is None and has_joints(self.obj):
+            self._conflict.edit(value)
+            self._recompute()
             return
         try:
             notices = set_member_thickness(self.obj, value)
@@ -204,6 +215,12 @@ class WoodPartTaskPanel(ObjectTaskPanel):
             return
         self._thickness_written(notices)
 
+    def _show_thickness(self, value: float) -> None:
+        """« Revenir à … » de l'encadré : l'épaisseur rendue s'affiche dans le champ."""
+        with self._guard:
+            self.form.thicknessEdit.setProperty("rawValue", value)
+        self._recompute()
+
     def _thickness_written(self, notices: Sequence[Notice]) -> None:
         """Épaisseur écrite : avertissements dans la vue rapport, aperçu."""
         self._unlock.clear()
@@ -215,6 +232,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         tourne sur place en modification (aperçu recalculé) ; les champs d'angle relisent le
         placement."""
         self._angles.finish()  # saisie d'angle en cours : contrôlée avant le quart de tour
+        self._conflict.forget()
         if rotate_checked(self.obj, turn, self._session, joint_choice.choose):
             self._angles.show()
             self.preview()
@@ -224,6 +242,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Pièce déplacée ou étirée à la souris : cotes relues par les champs ; l'accrochage de la
         création ne la repose plus (il la ramènerait là où elle a été posée)."""
         self._session = None
+        self._conflict.forget()
         self._angles.finish()  # saisie d'angle en cours : contrôlée (ADR 0026), non abandonnée
         self._show_values()
 
@@ -231,6 +250,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Angle saisi : comme un glissement, la saisie arrête l'accrochage de la création (la
         pièce n'est plus reposée) ; les boutons de quart de tour le gardent (C5)."""
         self._session = None
+        self._conflict.forget()
 
     def _before_commit(self) -> None:
         """« OK » : pièce ajoutée à l'ensemble si la case est

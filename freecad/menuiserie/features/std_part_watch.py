@@ -15,25 +15,38 @@ sont encore rangés à ce moment-là) :
 
 Un sous-ensemble dont le Std Part disparaît sort de son ensemble parent (le parent ne le pilote
 plus par ce Std Part). Ni transaction ni recalcul : ceux de la suppression en cours.
+
+Contenu gardé (réponse « Non » de FreeCAD) : l'objet ensemble ne reste pas seul dans le document
+(ADR 0061, qui remplace sur ce point l'ADR 0038). Rien n'est supprimé pendant la suppression de
+FreeCAD (pointeurs morts, PR #204) : :func:`left_furnitures` note les ensembles rangés dans le
+Std Part, puis l'interface appelle :func:`remove_left_furnitures` une fois la suppression finie,
+dans sa propre transaction « Supprimer l'ensemble » (deux entrées d'annulation). Un ensemble déjà
+supprimé avec le contenu (réponse « Oui ») est ignoré.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Final
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import (
+    Document,
+    DocumentObject,
+    restoring_or_undoing,
+)
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture, writing
 from freecad.menuiserie.features.furniture_bindings import release_members
-from freecad.menuiserie.features.furniture_container import is_std_part
+from freecad.menuiserie.features.furniture_container import is_std_part, std_part_of
+from freecad.menuiserie.features.furniture_detach import release_furniture
 from freecad.menuiserie.features.furniture_entry import positioned, write_placement
 from freecad.menuiserie.features.furniture_members import detach_members
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.repeat_links import detach_copies
 
-__all__ = ["std_part_deleted"]
+__all__ = ["left_furnitures", "remove_left_furnitures", "std_part_deleted"]
 
 _TURNED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -41,6 +54,7 @@ _TURNED: Final = QT_TRANSLATE_NOOP(
     "gardent leur place (« Relier les pièces » les relie à nouveau).",
 )
 _EPSILON: Final = 1e-9
+REMOVE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Supprimer l'ensemble")
 
 
 def _shift(furniture: DocumentObject, shift: App.Vector) -> None:
@@ -76,4 +90,38 @@ def std_part_deleted(part: DocumentObject) -> list[str]:
         if not turned:
             moved = App.Placement(moved.Base + where.Base, moved.Rotation)
         write_placement(obj, moved)
+    return messages
+
+
+def left_furnitures(part: DocumentObject) -> tuple[str, ...]:
+    """Noms des ensembles rangés directement dans le Std Part ``part`` en cours de suppression,
+    à supprimer une fois la suppression finie (:func:`remove_left_furnitures`) ; vide si ``part``
+    n'est pas un Std Part, ou pendant une annulation, un rétablissement ou une restauration (la
+    suppression de l'ensemble a sa propre entrée d'annulation)."""
+    if not is_std_part(part) or restoring_or_undoing(part):
+        return ()
+    return tuple(obj.Name for obj in part.Group if is_furniture(obj))
+
+
+def remove_left_furnitures(doc: Document, names: Sequence[str]) -> list[str]:
+    """Supprime les ensembles ``names`` de ``doc`` restés sans Std Part (contenu gardé), comme la
+    suppression d'un ensemble par l'interface : ses membres perdent leurs liaisons et gardent leur
+    place (:func:`release_furniture`). Une transaction « Supprimer l'ensemble » pour le tout,
+    abandonnée en cas d'erreur (relancée). Un ensemble absent (supprimé avec le contenu) ou de
+    nouveau rangé dans un Std Part est ignoré. Renvoie les avertissements traduits."""
+    left = [doc.getObject(name) for name in names]
+    furnitures = [obj for obj in left if is_furniture(obj) and std_part_of(obj) is None]
+    if not furnitures:
+        return []
+    messages: list[str] = []
+    doc.openTransaction(translated(REMOVE_TRANSACTION))
+    try:
+        for furniture in furnitures:
+            messages += release_furniture(furniture)
+            doc.removeObject(furniture.Name)
+    except Exception:
+        doc.abortTransaction()
+        raise
+    doc.commitTransaction()
+    doc.recompute()
     return messages

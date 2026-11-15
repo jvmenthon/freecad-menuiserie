@@ -73,9 +73,11 @@ def _labels(parts: Sequence[DocumentObject]) -> str:
     return ", ".join(f"« {quoted_value(part.Label)} »" for part in parts)
 
 
-def _partners(part: DocumentObject, before: PlacedBlock) -> list[tuple[DocumentObject, bool]]:
+def _partners(
+    part: DocumentObject, before: PlacedBlock, lowered: bool
+) -> list[tuple[DocumentObject, bool]]:
     """Pièces assemblées à ``part`` : vrai si tous leurs contacts sont avec sa face haute
-    (épaisseur d'avant, ``before``)."""
+    (épaisseur d'avant, ``before``), ou sa face basse si ``lowered``."""
     raised_by_name: dict[str, bool] = {}
     objects: dict[str, DocumentObject] = {}  # par nom : les objets FreeCAD ne servent pas de clé
     for joint in _joints_of(part):
@@ -83,7 +85,7 @@ def _partners(part: DocumentObject, before: PlacedBlock) -> list[tuple[DocumentO
         if other is None:
             continue
         try:
-            raised = touches_raised_face(before, placed_blank(other))
+            raised = touches_raised_face(before, placed_blank(other), lowered=lowered)
         except ValueError:  # pièce invalide : elle ne suit pas
             raised = False
         objects[other.Name] = other
@@ -110,17 +112,21 @@ def _move(parts: Sequence[DocumentObject], shift: Sequence[float]) -> None:
         part.Placement = placement
 
 
-def follow_thickness(part: DocumentObject, old: float, new: float) -> list[str]:
+def follow_thickness(
+    part: DocumentObject, old: float, new: float, *, lowered: bool = False
+) -> list[str]:
     """Les pièces posées sur la face haute de ``part`` (épaisseur ``old`` avant, ``new`` après)
     suivent la face ; renvoie les messages (vue rapport) : pièces qui ont suivi, pièces laissées
-    en place avec la raison. Sans effet si rien ne change ou si ``part`` n'a pas d'assemblage."""
+    en place avec la raison. ``lowered`` : l'épaisseur est ajoutée du côté de la face basse
+    (ADR 0060) ; ce sont les pièces posées contre elle qui la suivent, ``part`` étant encore à
+    son placement d'avant. Sans effet si rien ne change ou si ``part`` n'a pas d'assemblage."""
     if old == new or not _joints_of(part):
         return []
     size = dimensions_of(part)
     before = PlacedBlock(Dimensions(size.length, size.width, old), rigid_transform(part.Placement))
-    partners = _partners(part, before)
+    partners = _partners(part, before, lowered)
     fixed = [other for other, raised in partners if not raised]
-    shift = follow_shift(before, new - old)
+    shift = follow_shift(before, old - new if lowered else new - old)
     moved: list[DocumentObject] = []
     kept: dict[str, list[DocumentObject]] = {}
     for root in (other for other, raised in partners if raised):
