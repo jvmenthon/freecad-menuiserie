@@ -40,7 +40,7 @@ le panneau « Répéter », rien ne dit qu'un pas met une copie au ras d'une pi�
 ## Conséquences
 
 - Une face peut se coller à une pièce lointaine à la même cote : c'est voulu (alignement entre
-  meubles) ; Maj le coupe.
+  meubles) ; Maj coupe l'aimant, mais une coplanarité exacte reste allumée (jv, 2026-11-15).
 - Les voisines du panneau ne sont pas relues pendant la tâche : un objet ajouté ou déplacé pendant
   qu'elle est ouverte n'est pas vu (aucune autre action n'est possible pendant le panneau).
 - Faces obliques (pièce tournée hors des axes du conteneur) : ignorées, comme les guides.
