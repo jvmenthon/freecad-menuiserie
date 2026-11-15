@@ -35,6 +35,7 @@ from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELACHEMENT
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
+from tests.gui.verifications_coplanarite import VERIFICATIONS_COPLANARITE
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
 from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
@@ -1321,6 +1322,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_REPETITION_DEPART,
     # Copie par glissement (R-d)
     *VERIFICATIONS_SOURIS_COPIE,
+    # Coplanarité pendant un glissement et dans le panneau « Répéter » (ADR 0058)
+    *VERIFICATIONS_COPLANARITE,
 )
 
 

@@ -157,3 +157,12 @@ de répétitions m5) sont corrigés.
 |----|--------|----|----------|---------------------|
 | fc1 | mineur | `gui/task_panels/furniture_widgets.py`, `joint.py`, `carcass.py`, `repeat.py` (`_ERROR_STYLE`, `_HINT_STYLE`, `_WARNING_STYLE`) | Couleurs de texte fixes (`#c0392b`, `#6b6b6b`, `#b35c00`) : le thème sombre livré avec FreeCAD 1.0 les rend peu contrastées (environ 3 : 1). | Prendre la couleur dans la palette Qt (`palette(placeholder-text)` pour l'aide) et éclaircir le rouge et l'orange ; à valider par jv sur les deux thèmes. |
 | fc2 | mineur | `gui/cutlist_preview.py` (`setStyleSheet("... #ffffff")`) | Fond blanc forcé sans couleur de texte : en thème sombre, le texte hérité peut être clair sur blanc. | Fixer aussi `color` (noir) dans la même feuille de style. |
+
+## Coplanarité (PR #262, ADR 0058), 2026-11-15
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| cp1 | mineur | `features/repeat_coplanar.py` (`RepeatPlanes`) | Seul le conteneur de la première source est lu : des sources de conteneurs différents ne voient pas les voisines des autres. | Lire les voisines de chaque conteneur distinct (même repère de répétition). |
+| cp2 | mineur | `features/magnet_guides.py` (`neighbor_planes`) | Voisines lues dans l'ordre du document (pas les plus proches d'abord) : au-delà de `MAX_GUIDES`, des voisines utiles peuvent manquer. | Passer l'enveloppe des sources en `reference`. |
+| cp4 | mineur | `gui/task_panels/repeat_coplanar.py` (`CoplanarCues.show`) | `except Exception` avale l'erreur sans trace (voulu : le repère ne doit pas casser l'aperçu). | Journaliser en debug (`App.Console.PrintLog`). |
+| cp5 | mineur | `gui/drag/states.py` (`Dragging.lit`), `core/magnet/_coplanar.py` (`PlaneIndex.coplanar`) | Même recherche « voisines d'une face » avec deux règles d'affichage. | Regrouper au 3e usage. |
