@@ -79,9 +79,17 @@ def face_section(
     if any(value not in (-1.0, 0.0, 1.0) for row in seen for value in row):
         return section
     owner_width = _column(seen, _WIDTH)
-    new_width = _column(orientation.rotation(), _WIDTH)
+    rotation = orientation.rotation()
+    new_width, new_thickness = _column(rotation, _WIDTH), _column(rotation, _THICKNESS)
+    width, thickness = section
     for row in (0, 1):
-        parallel = abs(new_width.component(row)) == 1.0 and abs(owner_width.component(row)) == 1.0
-        if parallel and MIN_DIMENSION_MM <= extent[row] <= MAX_DIMENSION_MM:
-            return extent[row], section[1]
-    return section
+        usable = MIN_DIMENSION_MM <= extent[row] <= MAX_DIMENSION_MM
+        if (
+            usable
+            and abs(new_width.component(row)) == 1.0
+            and abs(owner_width.component(row)) == 1.0
+        ):
+            width = extent[row]
+        elif usable and abs(new_thickness.component(row)) == 1.0:
+            thickness = min(thickness, extent[row])  # la place disponible jusqu'à l'arête
+    return width, thickness
