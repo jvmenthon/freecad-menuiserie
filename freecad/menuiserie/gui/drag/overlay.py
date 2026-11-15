@@ -9,6 +9,7 @@ retiré ; rien n'est écrit dans le document. Il est invisible pour la sélectio
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any, Final
 
 from pivy import coin
@@ -121,11 +122,9 @@ class Overlay:
     def remove(self) -> None:
         """Retire l'incrustation de la vue (sans effet si elle n'y est plus)."""
         root, self._root = self._root, None
-        try:
+        with contextlib.suppress(RuntimeError):  # vue déjà détruite (document fermé)
             if root is not None and root.findChild(self._node) >= 0:
                 root.removeChild(self._node)
-        except RuntimeError:  # vue déjà détruite (document fermé) : plus rien à retirer
-            pass
 
     def shows(self) -> bool:
         """Vrai si l'incrustation est posée et porte un dessin."""

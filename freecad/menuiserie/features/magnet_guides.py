@@ -238,6 +238,7 @@ def _neighbor_shapes(roots: list[DocumentObject], skipped: set[str], reference: 
 
 
 def _roots_of(container: DocumentObject | None, doc: Any) -> list[DocumentObject]:
+    """Objets du Std Part ``container``, ou de la racine du document ``doc`` sans conteneur."""
     return list(container.Group) if container is not None else _roots(doc)
 
 
@@ -284,6 +285,7 @@ def own_names(part: DocumentObject) -> set[str]:
 
 
 def _planes(guides: Iterable[Guide]) -> list[Guide]:
+    """Seuls les plans de ``guides``."""
     return [guide for guide in guides if guide.kind is GuideKind.PLANE]
 
 

@@ -244,8 +244,9 @@ class Dragging(Gesture):
         shown = dict.fromkeys(hits)
         limit = len(shown) + MAX_COPLANAR
         for face in box_faces(box, faces):
-            axis = face.axis if face.axis is not None else 0
-            found = self.planes.at(axis, face.position(axis))
+            if face.axis is None:  # impossible : une face de boîte a toujours un axe
+                continue
+            found = self.planes.at(face.axis, face.position(face.axis))
             if any(not overlaps(face, plane) for plane in found):
                 shown.setdefault(face)
             shown.update(dict.fromkeys(found))

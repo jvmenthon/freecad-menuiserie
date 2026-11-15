@@ -150,3 +150,5 @@ de répétitions m5) sont corrigés.
 | cp1 | mineur | `features/repeat_coplanar.py` (`RepeatPlanes`) | Seul le conteneur de la première source est lu : des sources de conteneurs différents ne voient pas les voisines des autres. | Lire les voisines de chaque conteneur distinct (même repère de répétition). |
 | cp2 | mineur | `features/magnet_guides.py` (`neighbor_planes`) | Voisines lues dans l'ordre du document (pas les plus proches d'abord) : au-delà de `MAX_GUIDES`, des voisines utiles peuvent manquer. | Passer l'enveloppe des sources en `reference`. |
 | cp3 | mineur | `gui/drag/states.py` (`Dragging.lit`) | Sous Maj, l'aimant est coupé mais la coplanarité exacte reste montrée (choix assumé, à confirmer par jv). | Rien si jv confirme. |
+| cp4 | mineur | `gui/task_panels/repeat_coplanar.py` (`CoplanarCues.show`) | `except Exception` avale l'erreur sans trace (voulu : le repère ne doit pas casser l'aperçu). | Journaliser en debug (`App.Console.PrintLog`). |
+| cp5 | mineur | `gui/drag/states.py` (`Dragging.lit`), `core/magnet/_coplanar.py` (`PlaneIndex.coplanar`) | Même recherche « voisines d'une face » avec deux règles d'affichage. | Regrouper au 3e usage. |
