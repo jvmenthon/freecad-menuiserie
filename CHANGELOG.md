@@ -7,6 +7,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
+- Épaisseur d'une pièce assemblée qui défait un assemblage (queue d'aronde plus à fleur, par exemple) : le panneau de la pièce affiche sous les cotes un encadré « Où ajouter les N mm ? » (vers l'intérieur, la pièce reste à fleur ; vers l'extérieur en allongeant l'autre pièce ; revenir à l'ancienne épaisseur). Un choix impossible (copie de répétition, membre d'un ensemble, pièce en bois, expression) est grisé avec sa raison. À la souris, la face tirée décide : l'autre pièce à fleur s'allonge en direct, ou la poignée s'arrête si elle ne peut pas (ADR 0060).
+- Std Part d'un ensemble supprimé en gardant son contenu (« Non ») : l'objet ensemble est supprimé aussi, juste après, dans sa propre entrée d'annulation ; les pièces gardent leur place (ADR 0061, remplace ce point de l'ADR 0038).
+
 - Pièce usinée : sa forme a désormais une carte des éléments (nommage topologique de FreeCAD 1.1, ADR 0056). Un lien d'un autre atelier vers une de ses faces ou arêtes (cote TechDraw, esquisse attachée, Assembly) suit l'élément quand on ajoute, modifie ou retire un assemblage, au lieu de garder un numéro qui peut viser un autre élément. Tests d'intégration `test_nommage_topologique`.
 
 - Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).
