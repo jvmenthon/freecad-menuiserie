@@ -324,7 +324,7 @@ def test_refus_queues_trop_etroites(params: dict[str, object], count: str, pin: 
     assert TOO_NARROW.format(**error.params).endswith(f"griffes de {pin} mm et un angle de 10 °.")
 
 
-@pytest.mark.parametrize("pin", [0.001, 0.01, 0.0999])
+@pytest.mark.parametrize("pin", [0.001, 0.01, 0.0999, 0.09999999])
 def test_refus_griffe_de_moins_d_un_dixieme(pin: float) -> None:
     """Largeur de griffe saisie : au moins 0,1 mm (décision de jv, 2026-11-15)."""
     error = refused(dovetail_corner(), "Griffes trop étroites", pin_width=pin)

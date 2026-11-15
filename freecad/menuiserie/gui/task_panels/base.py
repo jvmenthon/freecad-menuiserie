@@ -22,12 +22,12 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.display_layers import ORIGIN_LOOK
 from freecad.menuiserie.core.document_state import Snapshot, differs
-from freecad.menuiserie.core.error_frames import release_last_error_frames
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.document_snapshot import snapshot_of
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.display_layers import DISPLAY, object_alive
+from freecad.menuiserie.gui.error_frames import release_last_error_frames
 from freecad.menuiserie.gui.task_panels import active
 from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 

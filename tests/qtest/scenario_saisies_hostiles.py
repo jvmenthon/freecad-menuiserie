@@ -111,15 +111,15 @@ class SaisiesHostilesDeLAssemblage(Etapes):
 
     def test_2_griffe_de_moins_d_un_dixieme_refusee(self) -> None:
         """0,05 mm : refus expliqué dans le panneau ; 0,1 mm : accepté."""
+        self.addCleanup(self.saisir, "PinWidth", "0")  # retour à l'automatique, même en échec
         self.saisir("PinWidth", "0.05 mm")
         self.assertTrue(self.refus_affiche())
         self.assertIn(GRIFFES_TROP_ETROITES, enfant(self.form, "errorLabel").text())
         self.saisir("PinWidth", "0.1 mm")
         self.assertFalse(self.refus_affiche())
         self.assertAlmostEqual(self.assemblage.PinWidth.Value, 0.1, delta=1e-6)
-        self.saisir("PinWidth", "0")
 
-    def test_2_zero_remet_l_automatique(self) -> None:
+    def test_3_zero_remet_l_automatique(self) -> None:
         for nom, effectif in (("TailCount", 3.0), ("PinWidth", 7.0)):
             with self.subTest(champ=nom):
                 self.saisir(nom, "5")
@@ -130,7 +130,7 @@ class SaisiesHostilesDeLAssemblage(Etapes):
                 self.assertEqual((affiche, ecrit), (effectif, 0.0))
                 self.assertFalse(self.refus_affiche())
 
-    def test_3_combinaison_impossible_refusee_puis_corrigee(self) -> None:
+    def test_4_combinaison_impossible_refusee_puis_corrigee(self) -> None:
         """12 queues entre des griffes de 30 mm ne tiennent pas dans 200 mm : refus expliqué,
         OK sans effet ; 3 queues : accepté et validé."""
         self.saisir("PinWidth", "30")
