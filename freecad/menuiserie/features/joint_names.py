@@ -14,7 +14,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.part_names import other_labels
 
-__all__ = ["JOINT_LABEL", "joint_label", "sync_joint_labels"]
+__all__ = ["JOINT_LABEL", "SINGLE_PART_LABEL", "joint_label", "sync_joint_labels"]
 
 JOINT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{kind} : {host} {guest}")
 # Quincaillerie posée sur une seule pièce (pieds) : hôte et invitée sont la même.

@@ -80,11 +80,12 @@ def add_to_furniture(
     géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus et même
     absence de transaction que :func:`make_furniture`. Avec ``move``, des objets déjà membres
     d'un autre ensemble en sortent pour entrer ici (leurs propriétés de membre sont gardées, ce
-    qui s'annule d'un Ctrl+Z). Une pièce entrée hors de la boîte de l'ensemble l'agrandit : ses
-    cotes sont recalées sur l'enveloppe de ses membres (ADR 0049), qui sont reliés à nouveau,
-    sauf pour un sous-ensemble ou un ensemble piloté par une formule."""
+    qui s'annule d'un Ctrl+Z). Une pièce entrée alors qu'elle dépasse de la boîte de l'ensemble
+    l'agrandit jusqu'à la contenir (ADR 0049, jamais de réduction : une marge reste), et ses
+    membres sont reliés à nouveau, sauf pour un sous-ensemble ou un ensemble piloté par une
+    formule."""
     notices = furniture_members.add_members(furniture, objects, move=move)
-    if furniture_envelope.reframe(furniture):
+    if furniture_envelope.grow(furniture):
         notices += furniture_members.relink(furniture)
     return _reported(notices, furniture.Document)
 

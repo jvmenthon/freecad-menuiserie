@@ -25,7 +25,7 @@ from freecad.menuiserie.core.furniture import (
     follow_summary,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.core.text import escaped_text, quoted_value
 from freecad.menuiserie.features.distance import distances_of, is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
@@ -49,6 +49,7 @@ __all__ = [
     "undone_joints",
 ]
 
+_DETAIL_MAX = 300
 _UNDONE = QT_TRANSLATE_NOOP("Menuiserie", "{label} n'est plus réalisable : {detail}")
 
 
@@ -115,9 +116,17 @@ def member_views(furniture: DocumentObject) -> tuple[tuple[MemberView, ...], tup
 
 def pieces_below(furniture: DocumentObject) -> list[DocumentObject]:
     """Pièces de ``furniture`` et de ses sous-ensembles (sans les ensembles)."""
+    return _pieces_below(furniture, set())
+
+
+def _pieces_below(furniture: DocumentObject, seen: set[str]) -> list[DocumentObject]:
+    # ``seen`` : un document retouché à la main pourrait citer un ensemble dans lui-même.
+    if furniture.Name in seen:
+        return []
+    seen.add(furniture.Name)
     found: list[DocumentObject] = []
     for member in members_of(furniture):
-        found.extend(pieces_below(member) if is_furniture(member) else [member])
+        found.extend(_pieces_below(member, seen) if is_furniture(member) else [member])
     return found
 
 
@@ -132,15 +141,23 @@ def invalid_joints(furniture: DocumentObject) -> dict[str, DocumentObject]:
     }
 
 
+def _detail(joint: DocumentObject) -> str:
+    """Raison de l'erreur de ``joint`` : texte du document, donc échappé et borné avant d'être
+    affiché (la raison d'un assemblage de l'atelier tient largement dans la limite)."""
+    text = escaped_text(str(joint.getStatusString()))
+    return text if len(text) <= _DETAIL_MAX else text[: _DETAIL_MAX - 1] + "…"
+
+
 def undone_joints(furniture: DocumentObject, already: frozenset[str] = frozenset()) -> list[str]:
     """Message traduit pour chaque assemblage ou quincaillerie de ``furniture`` en erreur après
     un recalcul (cote de l'ensemble qui ne lui laisse plus la place), par nom ; ceux de
-    ``already`` (noms), en erreur avant, ne comptent pas."""
+    ``already`` (noms), en erreur avant, ne comptent pas : le panneau ne bloque pas « OK » pour
+    une erreur qu'il n'a pas causée, même si une cote l'aggrave."""
     found = invalid_joints(furniture)
     return [
         translated(
             _UNDONE,
-            {"label": quoted_value(joint.Label), "detail": str(joint.getStatusString())},
+            {"label": quoted_value(joint.Label), "detail": _detail(joint)},
         )
         for name, joint in sorted(found.items())
         if name not in already

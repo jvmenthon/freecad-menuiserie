@@ -76,6 +76,22 @@ def test_une_piece_ajoutee_hors_de_la_boite_l_agrandit(document: Any) -> None:
     assert not stale_or_invalid(document)
 
 
+def test_une_piece_ajoutee_dans_la_boite_garde_sa_marge(document: Any) -> None:
+    """La boîte grandit, jamais ne rétrécit : une marge voulue reste après un ajout."""
+    first = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second.Placement.Base = App.Vector(0.0, 100.0, 0.0)
+    document.recompute()
+    furniture, _ = api.make_furniture([first], "Cadre")
+    first.Locked = True  # la pièce garde ses cotes : la profondeur ajoute une marge
+    furniture.Depth = 1000.0
+    document.recompute()
+    assert first.Width.Value == 60.0
+    api.add_to_furniture(furniture, [second])
+    assert furniture.Depth.Value == 1000.0
+    assert not stale_or_invalid(document)
+
+
 def test_assemblage_devenu_impossible_signale_pour_le_panneau(document: Any) -> None:
     """``undone_joints`` : un message par assemblage en erreur après un recalcul, sauf ceux qui
     l'étaient déjà (noms passés)."""

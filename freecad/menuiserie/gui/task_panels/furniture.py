@@ -109,6 +109,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         self._views: dict[str, MemberView] = {}
         self._current: str | None = None
         self._invalid_at_start = frozenset(invalid_joints(obj))
+        self._undone_refused = False
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -205,8 +206,10 @@ class FurnitureTaskPanel(ObjectTaskPanel):
             return
         sizes = self._requested_sizes()
         if not any(value is not None for value in sizes.values()):
+            undone = self._undone_refused  # même cote retapée : ce refus-là tient encore
             self._unlock.clear()
-            self._refuse_undone_joints()
+            if undone:
+                self._refuse_undone_joints()
             self._refresh()
             return
         try:
@@ -268,6 +271,11 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         if session is not None and session.dragging:
             self._show_values()
             return
+        # Geste fini : un refus de cote ne tient plus (la taille a pu changer), et un assemblage
+        # ou une quincaillerie que le geste a mis en erreur se signale comme pour une cote tapée.
+        self._unlock.clear()
+        self._show_values()  # avant un nouveau refus, qui fige les champs
+        self._refuse_undone_joints()
         self._refresh()
 
     def _show_values(self) -> None:
@@ -335,6 +343,7 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         inactif jusqu'à une cote qui convient. Ce qui était déjà en erreur à l'ouverture du
         panneau ne compte pas."""
         undone = undone_joints(self.obj, self._invalid_at_start)
+        self._undone_refused = bool(undone)
         if undone:
             self._unlock.refuse(ValueError("\n".join(undone)))
 

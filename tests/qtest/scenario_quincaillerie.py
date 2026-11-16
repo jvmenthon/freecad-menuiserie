@@ -27,6 +27,7 @@ from tests.qtest.aides import (
     preparer,
     selectionner,
     taper,
+    traiter_les_evenements,
     vider_la_vue_rapport,
     vue_rapport,
 )
@@ -93,6 +94,19 @@ class Quincaillerie(Etapes):
         form = formulaire(PANNEAU_ENSEMBLE)
         taper(enfant(form, "Height"), f"{hauteur:g} mm")
         return form
+
+    def fin_de_geste(self, hauteur: float) -> None:
+        """Hauteur de l'ensemble écrite comme par une poignée de la vue 3D, puis panneau relu
+        par la séance de glissement."""
+        from freecad.menuiserie.gui.drag import events
+
+        (ensemble,) = du_type(self.doc, TYPE_ENSEMBLE)
+        ensemble.Height = hauteur
+        self.doc.recompute()
+        session = events.current_session()
+        assert session is not None and session.panel is not None, "panneau hors séance"
+        session.panel.refresh()
+        traiter_les_evenements()
 
     def test_1_caisson(self) -> None:
         selectionner()
@@ -199,6 +213,14 @@ class Quincaillerie(Etapes):
         self.assertTrue(percage.isValid(), percage.getStatusString())
         taper(enfant(form, "Height"), f"{TROP_BAS:g} mm")
         self.assertFalse(bouton_ok().isEnabled())
+        # Fin d'un geste à la souris sur l'ensemble (poignée non simulée : la cote est écrite
+        # dans la transaction du panneau, qui relit ses champs comme au relâchement).
+        for hauteur, refuse in ((BAS, False), (TROP_BAS, True)):
+            with self.subTest(geste=hauteur):
+                self.fin_de_geste(hauteur)
+                self.assertAlmostEqual(enfant(form, "Height").property("rawValue"), hauteur)
+                self.assertEqual(bool(enfant(form, "refusalLabel").text()), refuse)
+                self.assertEqual(bouton_ok().isEnabled(), not refuse)
         cliquer(bouton_annuler())
         self.assertFalse(panneau_ouvert())
         self.doc.recompute()

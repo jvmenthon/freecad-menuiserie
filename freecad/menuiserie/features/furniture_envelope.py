@@ -30,7 +30,7 @@ from freecad.menuiserie.features.furniture_container import carried_furniture
 from freecad.menuiserie.features.furniture_drag_state import furniture_box, write_sizes
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
 
-__all__ = ["frame_of", "member_envelope", "reframe", "restore_frame"]
+__all__ = ["frame_of", "grow", "member_envelope", "reframe", "restore_frame"]
 
 TOLERANCE_MM: Final = 1e-6
 _FRAME_PROPERTIES: Final = ("Origin", "Width", "Depth", "Height")
@@ -82,6 +82,29 @@ def restore_frame(furniture: DocumentObject, frame: Box) -> None:
     with writing(furniture):
         furniture.Origin = App.Vector(frame.min.x, frame.min.y, frame.min.z)
         write_sizes(furniture, frame)
+
+
+def grow(furniture: DocumentObject) -> bool:
+    """Agrandit la boîte de ``furniture`` jusqu'à contenir ses membres (pièce entrée alors
+    qu'elle en dépasse), sans jamais la réduire : une marge voulue par l'utilisateur reste. Sans
+    recalcul ni liaison, comme :func:`reframe`. Faux, sans rien écrire, pour un sous-ensemble, un
+    ensemble piloté ou lu par une formule, sans membre, ou dont rien ne dépasse."""
+    if furniture_of(furniture) is not None or _driven(furniture):
+        return False
+    envelope = member_envelope(furniture)
+    if envelope is None:
+        return False
+    current = frame_of(furniture)
+    ranges = [
+        (min(current.lo(i), envelope.lo(i)), max(current.hi(i), envelope.hi(i))) for i in range(3)
+    ]
+    if all(
+        current.lo(i) - low <= TOLERANCE_MM and high - current.hi(i) <= TOLERANCE_MM
+        for i, (low, high) in enumerate(ranges)
+    ):
+        return False
+    restore_frame(furniture, Box.from_ranges(ranges))
+    return True
 
 
 def reframe(furniture: DocumentObject) -> bool:
