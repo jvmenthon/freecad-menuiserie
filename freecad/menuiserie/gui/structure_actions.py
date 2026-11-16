@@ -163,6 +163,29 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         tree.judge = self._drop_refusal
         tree.on_drop = self._dropped
         tree.on_drag_start = self._read_facts
+        self._renaming = False  # boîte « Renommer » ouverte : un second F2 n'en ouvre pas d'autre
+        tree.installEventFilter(self)
+
+    # --- Clavier --------------------------------------------------------------------------
+
+    def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
+        """F2 renomme la ligne sélectionnée, comme dans l'arbre de FreeCAD : même entrée
+        « Renommer » que le menu (donc mêmes refus). ``ShortcutOverride`` est accepté pour que
+        la touche arrive à l'arbre plutôt qu'à un raccourci global ; F2 avec un modificateur
+        (Ctrl, Maj, Alt) est laissé aux raccourcis."""
+        if watched is not self._tree or getattr(event, "key", lambda: None)() != QtCore.Qt.Key_F2:
+            return False
+        if event.modifiers() != QtCore.Qt.NoModifier:
+            return False
+        if event.type() == QtCore.QEvent.ShortcutOverride:
+            event.accept()
+            return True
+        if event.type() == QtCore.QEvent.KeyPress:
+            if not event.isAutoRepeat() and not self._renaming:
+                keys = selected_keys(self._tree)
+                later(partial(report_errors, self.run_action, Action.RENAME, keys))
+            return True
+        return False
 
     # --- Glisser-déposer ------------------------------------------------------------------
 
@@ -283,14 +306,20 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         key = entry.decision.keys[0]
         if doc is None or facts is None or doc.getObject(key) is None:
             return
+        if self._renaming:
+            return
         old = facts.plain_label(key)
-        text, accepted = QtGui.QInputDialog.getText(
-            self._tree,
-            translated(_RENAME),
-            translated(_RENAME_PROMPT),
-            QtGui.QLineEdit.Normal,
-            old,
-        )
+        self._renaming = True
+        try:
+            text, accepted = QtGui.QInputDialog.getText(
+                self._tree,
+                translated(_RENAME),
+                translated(_RENAME_PROMPT),
+                QtGui.QLineEdit.Normal,
+                old,
+            )
+        finally:
+            self._renaming = False
         if not accepted:
             return
         decision = decide_rename(old, text, furniture=key in facts.furnitures)

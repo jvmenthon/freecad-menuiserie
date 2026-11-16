@@ -57,6 +57,66 @@ def test_ajout_sans_toucher_aux_membres_presents(document: Any) -> None:
     assert api.furniture_of(bureau.parts["V"]) == furniture
 
 
+def test_une_piece_ajoutee_hors_de_la_boite_l_agrandit(document: Any) -> None:
+    """ADR 0049 : la boîte suit l'enveloppe des membres ; ceux qui étaient là ne bougent pas."""
+    inside = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    outside = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    outside.Placement.Base = App.Vector(0.0, 500.0, 0.0)
+    document.recompute()
+    furniture, _ = api.make_furniture([inside], "Cadre")
+    assert (furniture.Width.Value, furniture.Depth.Value) == (600.0, 60.0)
+    place = inside.getGlobalPlacement()
+    api.add_to_furniture(furniture, [outside])
+    assert (furniture.Width.Value, furniture.Depth.Value) == (600.0, 560.0)
+    assert furniture.Height.Value == 22.0
+    assert inside.getGlobalPlacement().isSame(place, 1e-9)
+    assert not stale_or_invalid(document)
+    furniture.Depth = 660.0  # les deux membres restent reliés à la boîte agrandie
+    document.recompute()
+    assert not stale_or_invalid(document)
+
+
+def test_une_piece_ajoutee_dans_la_boite_garde_sa_marge(document: Any) -> None:
+    """La boîte grandit, jamais ne rétrécit : une marge voulue reste après un ajout."""
+    first = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second.Placement.Base = App.Vector(0.0, 100.0, 0.0)
+    document.recompute()
+    furniture, _ = api.make_furniture([first], "Cadre")
+    first.Locked = True  # la pièce garde ses cotes : la profondeur ajoute une marge
+    furniture.Depth = 1000.0
+    document.recompute()
+    assert first.Width.Value == 60.0
+    api.add_to_furniture(furniture, [second])
+    assert furniture.Depth.Value == 1000.0
+    assert not stale_or_invalid(document)
+
+
+def test_assemblage_devenu_impossible_signale_pour_le_panneau(document: Any) -> None:
+    """``undone_joints`` : un message par assemblage en erreur après un recalcul, sauf ceux qui
+    l'étaient déjà (noms passés)."""
+    from freecad.menuiserie.features.furniture_view import invalid_joints_below, undone_joints
+
+    montant = api.make_wood_part(600.0, 60.0, 22.0, "chene", mark="M", doc=document)
+    traverse = api.make_wood_part(280.0, 60.0, 22.0, "chene", mark="T", doc=document)
+    traverse.Placement = App.Placement(
+        App.Vector(60.0, 60.0, 0.0), App.Rotation(App.Vector(0, 0, 1), 90.0)
+    )
+    document.recompute()
+    joint = api.make_mortise_tenon(montant, traverse)
+    document.recompute()
+    furniture, _ = api.make_furniture([montant, traverse], "Cadre")
+    assert undone_joints(furniture) == []
+    api.remove_from_furniture([traverse])
+    traverse.Placement.Base = App.Vector(60.0, 200.0, 0.0)  # ne touche plus le montant
+    document.recompute()
+    api.add_to_furniture(furniture, [traverse])
+    assert set(invalid_joints_below(furniture)) == {joint.Name}
+    (message,) = undone_joints(furniture)
+    assert "n'est plus réalisable" in message and joint.getStatusString() in message
+    assert undone_joints(furniture, frozenset({joint.Name})) == []
+
+
 def test_retrait_des_seules_liaisons_de_l_atelier(document: Any) -> None:
     bureau = build_parts(document)
     names = set(bureau.parts["P"].PropertiesList)

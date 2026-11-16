@@ -9,6 +9,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 - Preuve de concept de tests d'interface avec QTest (#263, ADR 0059) : un scénario complet (deux pièces, rotation, queue d'aronde) est joué au clavier et à la souris dans le vrai FreeCAD par son mode test, sous `xvfb-run` dans la CI. Voir `docs/tests-gui-qtest.md`.
 - Scénarios QTest de priorité 1 (#263) : annuler et rétablir de bout en bout, enregistrer puis rouvrir, annulation de chaque panneau (bouton et Échap), modification d'une pièce déjà assemblée, saisies hostiles au clavier, document fermé avec un panneau ouvert, suppression (assemblage, pièce assemblée, ensemble avec son contenu). La CI joue chaque module `tests/qtest/scenario_*.py` dans son propre FreeCAD par `tests/qtest/lanceur.py`.
+- Scénarios QTest de priorité 2 et 3 (#265) : cadre et liste de débit (aperçu, export CSV), chaque type d'assemblage, assemblages en biais, ensemble, répétition, rotation au panneau, « Aligner deux faces » et distance gardée, quincaillerie d'un caisson, pièce en bois depuis un corps, panneau « Structure » (menu contextuel, glisser-déposer), passage par les ateliers Part et TechDraw, activation des commandes selon la sélection, deux documents en alternance. Les aides refusent désormais un geste sur un widget masqué, grisé ou en lecture seule.
 
 ### Modifié
 
@@ -16,10 +17,16 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 - Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).
 - « Exporter la liste de débit (CSV)… » : le format (français : « ; » et virgule décimale, ou international) se choisit dans la boîte d'enregistrement, par un filtre à chaque format. Le français est présélectionné quand FreeCAD est en français, puis le dernier choix est retenu dans les préférences (issue #223).
+- Ensemble : une cote que remplissent seules des pièces à plat (cadre à plat, planches empilées) change leur épaisseur, au prorata quand elles sont plusieurs (22 + 18 mm dans 40 mm deviennent 27,5 + 22,5 mm dans 50 mm) ; avant, la cote était refusée. Une pièce verrouillée, dessinée ou copie liée bloque toujours la rangée (#265, ADR 0062).
+- Panneau « Structure » : la touche F2 renomme la ligne choisie, comme dans l'arbre de FreeCAD ; c'est l'entrée « Renommer » du menu contextuel, avec les mêmes refus (#265).
 - L'infobulle des commandes qui attendent une sélection (assemblages, quincaillerie, ensembles, répétition, « Définir une distance », « Convertir en pièce en bois ») se termine par une ligne « Prérequis : … » qui dit quoi sélectionner, que le bouton soit grisé ou non (issue #221, ADR 0052).
 
 ### Corrigé
 
+- « Ajouter à l'ensemble » : une pièce ajoutée alors qu'elle dépasse de la boîte de l'ensemble l'agrandit jusqu'à la contenir (#265, ADR 0049 ; la boîte n'est jamais réduite) ; avant, la boîte gardait ses cotes sans rien signaler.
+- Panneau de l'ensemble : une cote qui ne laisse plus la place à un assemblage ou à une quincaillerie (perçage au pas de 32 mm sur un côté devenu trop petit) est refusée sous les cotes, avec l'explication, et « OK » reste inactif jusqu'à une cote qui convient ; avant, seule la vue rapport le disait (#265).
+- Libellé d'une quincaillerie posée sur une seule pièce : « Pieds : Dessous » au lieu de « Pieds : Dessous Dessous » (#265).
+- Perçage au pas de 32 mm : le refus d'un côté trop petit dit « un rang de trous » et non « 1 rangs » (#265).
 - Panneaux de tâche : après une erreur de recalcul pendant la saisie (valeur en cours refusée par un assemblage, par exemple « 3 » avant « 300 »), le panneau suivant ne s'ouvrait parfois pas (double-clic sans effet, `TypeError` sur `kindCombo` dans la vue rapport, environ une fois sur dix). La trace de la dernière erreur gardait en vie le panneau fermé et les enveloppes PySide de ses widgets ; ses cadres sont vidés avant d'ouvrir un panneau (`gui/error_frames.py`). Trouvé par le scénario QTest `scenario_modifier_piece_assemblee` en CI.
 - Queue d'aronde : une largeur de griffe saisie sous 0,1 mm est refusée avec un message (« Griffes trop étroites »), au lieu d'être acceptée jusqu'à 0,001 mm.
 - Fermer un document pendant qu'un panneau de création (pièce en bois, assemblage) est ouvert n'écrit plus d'erreur « Unknown document » dans la vue rapport : l'affichage d'un document déjà fermé est ignoré (trouvé par le scénario QTest `scenario_document_ferme`).

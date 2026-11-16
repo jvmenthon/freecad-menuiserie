@@ -22,6 +22,7 @@ from tests.qtest.angle_a_queues import (
     jouer,
     volumes_usines,
 )
+from tests.qtest.pieces import volume
 
 ANNULER, RETABLIR = "Std_Undo", "Std_Redo"
 
@@ -33,12 +34,6 @@ def setUpModule() -> None:
 def etat(doc: Any) -> dict[str, tuple[str, float]]:
     """Nom de chaque objet -> (type, volume arrondi au mm³) : ce que l'annulation doit rendre."""
     return {obj.Name: (obj.TypeId, volume(obj)) for obj in doc.Objects}
-
-
-def volume(obj: Any) -> float:
-    """Volume arrondi au mm³ ; 0 pour un objet sans forme (l'assemblage n'en a pas)."""
-    forme = getattr(obj, "Shape", None)
-    return 0.0 if forme is None or forme.isNull() else float(round(forme.Volume))
 
 
 class AnnulerRetablir(Etapes):
