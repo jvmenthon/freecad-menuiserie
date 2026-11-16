@@ -21,6 +21,7 @@ Axe = tuple[float, float, float]
 AXE_Y: Axe = (0.0, 1.0, 0.0)
 AXE_Z: Axe = (0.0, 0.0, 1.0)
 DEPLACEMENT = "Déplacer une pièce"
+ANGLE_NUL = 1e-6  # radians
 SECTION = (60.0, 22.0)  # largeur et épaisseur des pièces de cadre
 ERREURS_PYTHON = ("TypeError", "AttributeError", "RuntimeError", "NameError", "KeyError")
 
@@ -91,6 +92,27 @@ def cadre(doc: Any) -> dict[str, Any]:
     }
     doc.recompute()
     return pieces
+
+
+def face_vers(piece_visee: Any, direction: Axe) -> str:
+    """Nom (« FaceN ») de la face plane de la pièce dont la normale sortante, dans le repère du
+    conteneur de la pièce, est ``direction``."""
+    voulue = App.Vector(*direction)
+    for rang, face in enumerate(piece_visee.Shape.Faces, start=1):
+        if face.normalAt(0.5, 0.5).getAngle(voulue) < ANGLE_NUL:
+            return f"Face{rang}"
+    raise LookupError(f"aucune face de {piece_visee.Label} vers {direction}")
+
+
+def boite_globale(*pieces: Any) -> App.BoundBox:
+    """Boîte englobante de ``pieces`` dans le repère du document (les pièces d'un ensemble sont
+    dans son Std Part, que la rotation de l'ensemble déplace)."""
+    boite = App.BoundBox()
+    for membre in pieces:
+        forme = membre.Shape.copy()
+        forme.Placement = membre.getGlobalPlacement()
+        boite.add(forme.BoundBox)
+    return boite
 
 
 def assemblages(doc: Any) -> list[Any]:

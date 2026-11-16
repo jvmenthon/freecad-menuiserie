@@ -113,6 +113,8 @@ def _exiger_utilisable(widget: Widget) -> None:
         raise AssertionError(f"widget {widget.objectName()} masqué")
     if not widget.isEnabled():
         raise AssertionError(f"widget {widget.objectName()} grisé")
+    if widget.property("readOnly"):
+        raise AssertionError(f"widget {widget.objectName()} en lecture seule")
 
 
 def taper(champ: Widget, texte: str) -> None:
@@ -126,10 +128,27 @@ def taper(champ: Widget, texte: str) -> None:
     traiter_les_evenements()
 
 
-def cliquer(widget: Widget) -> None:
-    """Clic gauche au centre de ``widget`` (case à cocher, bouton)."""
-    _exiger_utilisable(widget)
-    QTest.mouseClick(widget, QtCore.Qt.MouseButton.LeftButton)
+def cliquer(widget: Widget, *, meme_grise: bool = False) -> None:
+    """Clic gauche sur ``widget`` : au centre d'un bouton, sur la case d'une case à cocher (Qt
+    ignore un clic à côté de la case et de son texte, or une case seule sur sa ligne est bien
+    plus large qu'eux). ``meme_grise`` : le clic est fait exprès sur un widget grisé, pour
+    vérifier qu'il ne fait rien."""
+    if not meme_grise:
+        _exiger_utilisable(widget)
+    if isinstance(widget, QtGui.QCheckBox):
+        option = QtGui.QStyleOptionButton()
+        option.initFrom(widget)
+        case = widget.style().subElementRect(
+            QtGui.QStyle.SubElement.SE_CheckBoxIndicator, option, widget
+        )
+        QTest.mouseClick(
+            widget,
+            QtCore.Qt.MouseButton.LeftButton,
+            QtCore.Qt.KeyboardModifier.NoModifier,
+            case.center(),
+        )
+    else:
+        QTest.mouseClick(widget, QtCore.Qt.MouseButton.LeftButton)
     traiter_les_evenements()
 
 
@@ -213,6 +232,14 @@ def selectionner(*objets: Any) -> None:
     Gui.Selection.clearSelection()
     for obj in objets:
         Gui.Selection.addSelection(obj)
+    traiter_les_evenements()
+
+
+def selectionner_des_faces(*faces: tuple[Any, str]) -> None:
+    """Clics successifs sur des faces dans la vue 3D : couples (objet, « FaceN »)."""
+    Gui.Selection.clearSelection()
+    for obj, nom in faces:
+        Gui.Selection.addSelection(obj, nom)
     traiter_les_evenements()
 
 

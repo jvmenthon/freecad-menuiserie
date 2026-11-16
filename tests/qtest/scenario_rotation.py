@@ -33,7 +33,14 @@ from tests.qtest.aides import (
     vue_rapport,
 )
 from tests.qtest.angle_a_queues import PANNEAU_PIECE, controler_le_document, double_cliquer
-from tests.qtest.pieces import assemblages, cadre, erreurs_python, montant_et_traverse, piece
+from tests.qtest.pieces import (
+    assemblages,
+    boite_globale,
+    cadre,
+    erreurs_python,
+    montant_et_traverse,
+    piece,
+)
 
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
 ENSEMBLE = "Menuiserie_Furniture"
@@ -49,15 +56,8 @@ def setUpModule() -> None:
     unittest.addModuleCleanup(activer_faulthandler())
 
 
-def boite(membre: Any) -> App.BoundBox:
-    """Boîte englobante de la pièce dans le repère du document."""
-    forme = membre.Shape.copy()
-    forme.Placement = membre.getGlobalPlacement()
-    return forme.BoundBox
-
-
 def etendues(membre: Any) -> tuple[float, float, float]:
-    englobante = boite(membre)
+    englobante = boite_globale(membre)
     return tuple(
         round(cote, 6) for cote in (englobante.XLength, englobante.YLength, englobante.ZLength)
     )
@@ -89,12 +89,12 @@ class PieceLibre(ScenarioDeRotation):
         cls.addClassCleanup(fermer, cls.doc)
         cls.libre = piece(cls.doc, COTES, repere="L")
         cls.doc.recompute()
-        cls.centre = boite(cls.libre).Center
+        cls.centre = boite_globale(cls.libre).Center
         cls.doc.clearUndos()
         vider_la_vue_rapport()
 
     def verifier_le_centre(self) -> None:
-        ecart = boite(self.libre).Center.distanceToPoint(self.centre)
+        ecart = boite_globale(self.libre).Center.distanceToPoint(self.centre)
         self.assertLess(ecart, TOLERANCE_MM, "la pièce ne tourne pas autour de son centre")
 
     def test_1_quart_de_tour_z(self) -> None:
@@ -229,14 +229,14 @@ class PieceDUnEnsemble(ScenarioDeRotation):
 
     def test_2_retiree_de_l_ensemble_elle_tourne(self) -> None:
         traverse = self.pieces["T1"]
-        avant, centre = etendues(traverse), boite(traverse).Center
+        avant, centre = etendues(traverse), boite_globale(traverse).Center
         selectionner(traverse)
         lancer(RETIRER)
         selectionner()
         double_cliquer(traverse)
         cliquer(enfant(formulaire(PANNEAU_PIECE), "rotateZButton"))
         self.assertEqual(etendues(traverse), (avant[1], avant[0], avant[2]))
-        self.assertLess(boite(traverse).Center.distanceToPoint(centre), TOLERANCE_MM)
+        self.assertLess(boite_globale(traverse).Center.distanceToPoint(centre), TOLERANCE_MM)
         cliquer(bouton_ok())
         self.assertFalse(panneau_ouvert())
         self.assertEqual(len(self.doc.UndoNames), 2, self.doc.UndoNames)
