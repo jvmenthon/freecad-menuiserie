@@ -106,9 +106,19 @@ def enfant(form: Widget, nom: str) -> Widget:
     return trouves[0]
 
 
+def _exiger_utilisable(widget: Widget) -> None:
+    """L'utilisateur ne peut agir que sur un widget affiché et actif : un geste sur un champ
+    masqué ou grisé passerait sans rien faire et le scénario ne vérifierait plus rien."""
+    if not attendre(widget.isVisible):
+        raise AssertionError(f"widget {widget.objectName()} masqué")
+    if not widget.isEnabled():
+        raise AssertionError(f"widget {widget.objectName()} grisé")
+
+
 def taper(champ: Widget, texte: str) -> None:
     """Saisie au clavier : tout sélectionner, taper ``texte``, puis Tab pour quitter le champ
     (fin de saisie : ``editingFinished``). Entrée validerait le panneau (bouton OK par défaut)."""
+    _exiger_utilisable(champ)
     champ.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
     QTest.keyClick(champ, QtCore.Qt.Key.Key_A, QtCore.Qt.KeyboardModifier.ControlModifier)
     QTest.keyClicks(champ, texte)
@@ -118,6 +128,7 @@ def taper(champ: Widget, texte: str) -> None:
 
 def cliquer(widget: Widget) -> None:
     """Clic gauche au centre de ``widget`` (case à cocher, bouton)."""
+    _exiger_utilisable(widget)
     QTest.mouseClick(widget, QtCore.Qt.MouseButton.LeftButton)
     traiter_les_evenements()
 
@@ -242,6 +253,7 @@ def refus_signale() -> str:
 
 def choisir(liste: Widget, rang: int) -> None:
     """Choix au clavier de la ligne ``rang`` d'une liste déroulante (flèches Haut ou Bas)."""
+    _exiger_utilisable(liste)
     liste.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
     ecart = rang - liste.currentIndex()
     touche = QtCore.Qt.Key.Key_Down if ecart > 0 else QtCore.Qt.Key.Key_Up
