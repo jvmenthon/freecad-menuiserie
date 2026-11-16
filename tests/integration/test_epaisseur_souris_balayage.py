@@ -194,22 +194,47 @@ def test_piece_posee_supprimee_pendant_le_glissement(document: Any) -> None:
     assert host.Thickness.Value in (12, 18)
 
 
-def test_apercu_assemblage_qui_ne_tient_plus_ne_recalcule_rien(
+def test_apercu_assemblage_qui_ne_tient_plus_change_quand_meme_la_taille(
     document: Any, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
+    """Assemblage qui ne tient plus pendant le glissement : la pièce usinée change de taille à
+    l'écran (jv, 2026-11-16 : elle se déplaçait sans grandir), sans trace ni recalcul de
+    l'assemblage."""
     blank_preview = pytest.importorskip("freecad.menuiserie.features.blank_preview")
-    host, guest, _joint = corner(document)
-    machined_host = machined.machined_part_of(host)
-    assert machined_host is not None
+    _host, guest, joint = corner(document)
+    machined_guest = machined.machined_part_of(guest)
+    assert machined_guest is not None
+    before = machined_guest.Shape.BoundBox
 
     def broken(_joint: Any) -> None:
         raise ValueError("ne tient plus")
 
     monkeypatch.setattr(blank_preview, "plan_for", broken)
+    monkeypatch.setattr(machined, "plan_for", broken)
+    recomputes: list[str] = []
+    monkeypatch.setattr(type(joint.Proxy), "execute", lambda _s, o: recomputes.append(o.Name))
     capfd.readouterr()
     memento = drag.begin_drag(guest)
-    drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
-    assert machined_host.Shape.BoundBox.XLength == pytest.approx(400)  # pas recalculée
+    drag.resize_part(memento, "Length", 300, Vec3(0, 0, 0))
+    after = machined_guest.Shape.BoundBox
+    assert max(before.XLength, before.YLength, before.ZLength) > 400  # queues comprises
+    assert max(after.XLength, after.YLength, after.ZLength) == pytest.approx(300)  # brute seule
+    assert recomputes == []
     out = capfd.readouterr()
     assert "Traceback" not in out.out + out.err
+    drag.restore(memento)
+
+
+@pytest.mark.parametrize("lowered", [False, True])
+def test_apercu_epaisseur_pas_a_fleur_grandit_a_l_ecran(document: Any, lowered: bool) -> None:
+    """Poignée d'épaisseur de H (aucune pièce à prolonger) : la pièce usinée de H prend
+    l'épaisseur tirée dans l'aperçu, sans seulement se déplacer."""
+    host, _guest, _joint = corner(document)
+    machined_host = machined.machined_part_of(host)
+    assert machined_host is not None
+    memento = drag.begin_drag(host)
+    for value in (25, 40, 10):
+        shift = Vec3(0, 0, 18 - value) if lowered else Vec3(0, 0, 0)
+        drag.resize_part(memento, "Thickness", value, shift, lowered=lowered)
+        assert machined_host.Shape.BoundBox.ZLength == pytest.approx(value, abs=1e-6)
     drag.restore(memento)

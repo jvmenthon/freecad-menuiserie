@@ -61,6 +61,8 @@ OBJECT_NAME: Final = "MachinedPart"
 MODEL_VERSION: Final = 1
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce usinée")
 
+_Machining = tuple[list[PlanSolid], list[PlanSolid], list[PlanSolid]]  # ajouts, coupes, retraits
+
 _MACHINED_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (usinée)")
 _NO_BLANK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Pièce usinée sans pièce de bois brute : sa pièce a été supprimée."
@@ -218,24 +220,32 @@ class MachinedPart(SyncingProxy):
         assemblages, au ``Placement`` de la brute. ``ValueError`` traduite si la brute ou un
         assemblage est invalide."""
         blank = _checked_blank(obj)
-        with translated_errors():
-            base = blank_shape(blank)
         try:
-            additions, cuts, trims = _machining_of(obj, blank)
+            machining = _machining_of(obj, blank)
         except _JointFailedError:
-            # Un assemblage impossible signale lui-même son erreur dans son propre recalcul : la
-            # pièce usinée ne la répète pas (une seule trace, ADR 0026). Sa forme reste celle
-            # d'avant (jamais de forme partielle) ; seul son placement suit la brute.
+            # Un assemblage impossible signale lui-même son erreur (une seule trace, ADR 0026) ;
+            # la forme reste celle d'avant (jamais partielle hors aperçu), le placement suit.
             with self._executing():
                 obj.Placement = blank.Placement
             return
-        key = machining_key(blank, additions, cuts, trims)
-        shape = cached_machined_shape(base, key, additions, cuts, trims)
-        # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
-        # sous le drapeau qui évite de le reporter sur la brute (Q4).
+        self._show(obj, blank, machining)
+
+    def preview(self, obj: DocumentObject) -> None:
+        """Aperçu d'un geste : brute à ses cotes du moment, usinée par ses seuls assemblages qui
+        tiennent (les autres, sans trace, sont repris au relâchement) ; ``ValueError`` traduite."""
+        blank = _checked_blank(obj)
+        self._show(obj, blank, _machining_of(obj, blank, holding_only=True))
+
+    def _show(self, obj: DocumentObject, blank: DocumentObject, machining: _Machining) -> None:
+        with translated_errors():
+            base = blank_shape(blank)
+        key = machining_key(blank, *machining)
+        shape = cached_machined_shape(base, key, *machining)
+        # Hors recalcul (aperçu), la forme affectée impose son placement : celui de la brute est
+        # donc posé après, sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
-            obj.Placement = blank.Placement
             obj.Shape = shape  # toujours : la vue 3D en tire la texture (``updateData``)
+            obj.Placement = blank.Placement
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)
@@ -284,14 +294,13 @@ class _JointFailedError(Exception):
 
 
 def _machining_of(
-    obj: DocumentObject, blank: DocumentObject
-) -> tuple[list[PlanSolid], list[PlanSolid], list[PlanSolid]]:
+    obj: DocumentObject, blank: DocumentObject, *, holding_only: bool = False
+) -> _Machining:
     """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
     assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
-    modifiée par un script), :class:`_JointFailedError` si l'un d'eux est impossible."""
-    additions: list[PlanSolid] = []
-    cuts: list[PlanSolid] = []
-    trims: list[PlanSolid] = []
+    modifiée par un script), :class:`_JointFailedError` si l'un d'eux est impossible (ignoré
+    si ``holding_only``)."""
+    additions, cuts, trims = [], [], []  # type: list[PlanSolid], list[PlanSolid], list[PlanSolid]
     for joint in obj.Joints:
         if not is_joint(joint):
             raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
@@ -300,6 +309,8 @@ def _machining_of(
         try:
             plan = plan_for(joint)
         except ValueError:
+            if holding_only:  # aperçu : l'assemblage est repris au relâchement
+                continue
             raise _JointFailedError from None  # l'assemblage signale lui-même son erreur
         if joint.HostPart == blank:
             additions.extend(plan.host_additions)

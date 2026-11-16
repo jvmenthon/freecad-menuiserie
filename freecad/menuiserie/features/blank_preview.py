@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Aperçu de brutes pendant un geste, sans recalcul du document (SM-b, RO-c, ADR 0060).
 
-Chaque brute est recalculée, puis les assemblages et la pièce usinée de chacune, sauf si l'un de
-ses assemblages ne tient plus (sa trace serait imprimée à chaque image) : le recalcul du document
-au relâchement le reprend et prévient. Un assemblage partagé par deux brutes n'est recalculé
-qu'une fois par aperçu. Aucun import de ``FreeCADGui``.
+Chaque brute est recalculée, puis ses assemblages qui tiennent et sa pièce usinée, montrée à ses
+cotes du moment avec les seuls usinages de ces assemblages : la pièce change de taille à l'écran
+même quand un assemblage ne tient plus. Celui-ci n'est pas recalculé (sa trace serait imprimée à
+chaque image) : le recalcul du document au relâchement le reprend et prévient. Un assemblage
+partagé par deux brutes n'est recalculé qu'une fois par aperçu. Aucun import de ``FreeCADGui``.
 """
 
 from __future__ import annotations
@@ -36,14 +37,14 @@ def preview_blanks(raws: Iterable[DocumentObject]) -> None:
         machined = machined_part_of(raw)
         if machined is None:
             continue
-        joints = list(getattr(machined, "Joints", ()))
-        if not all(_holds(joint) for joint in joints):
-            continue
-        for joint in joints:
-            if joint.Name not in done:
+        for joint in getattr(machined, "Joints", ()):
+            if joint.Name not in done and _holds(joint):
                 done.add(joint.Name)
                 joint.recompute()
-        machined.recompute()
+        try:
+            machined.Proxy.preview(machined)
+        except ValueError:  # brute invalide : le relâchement le dira
+            continue
 
 
 def recompute_blank(raw: DocumentObject) -> None:
