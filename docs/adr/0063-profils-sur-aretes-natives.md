@@ -1,4 +1,4 @@
-# ADR 0058 — Profils d'arête sur arêtes natives (nommage topologique de FreeCAD 1.x)
+# ADR 0063 — Profils d'arête sur arêtes natives (nommage topologique de FreeCAD 1.x)
 
 - Statut : **proposé** (jv a choisi l'option le 2026-11-14 ; ADR à accepter avec la spécification)
 - Date : 2026-11-14

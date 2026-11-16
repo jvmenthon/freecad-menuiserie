@@ -1,12 +1,13 @@
 # Profils d'arête sur toute pièce de bois dessinée
 
 - Issue : #5 (finition des chants), suite du jalon 1 « Profils d'arête » (PR #149)
-- Statut : **proposée** : en attente du choix de maquette et du « go » de jv (§ 9). Aucun code écrit.
+- Statut : **acceptée** : jv a choisi la maquette A le 2026-11-16, avec trois ajouts (C6 à C8). Q2 à
+  Q5 : recommandations ★ retenues par défaut tant que jv ne dit pas autre chose.
 - Demande de jv (2026-11-14, carte « Comment étendre les profils… ») : option **« Toute forme,
   arêtes FreeCAD natives »**. Le jalon 1 refuse (à raison) une pièce dessinée dans un corps
   PartDesign (9 faces, 31 % de sa boîte) parce que les arêtes y sont désignées par les 12 codes
   d'une boîte (« Z+Y- »).
-- ADR : **[0058 — Profils d'arête sur arêtes natives](../adr/0058-profils-sur-aretes-natives.md)**
+- ADR : **[0063 — Profils d'arête sur arêtes natives](../adr/0063-profils-sur-aretes-natives.md)**
   (proposé). ADR liés : 0029 (profils par balayage, complété), 0006, 0056 (cartes d'éléments de la
   pièce usinée), 0057 (solide retrouvé par ses faces), 0007 (compatibilité).
 - Dépendance : le code se fonde sur le jalon 1, donc sur la fusion de la PR #149. Cette
@@ -82,6 +83,11 @@ fonctions ajoutées) sans que jv ait à recommencer, ou avec un message clair qu
 - C3 Arête non profilable (courbe, rentrante, angle hors bornes) : affichée grisée avec la raison.
 - C4 Arêtes perdues : carte rouge, bouton « Choisir à nouveau ».
 - C5 Aucune case à cocher (règle de jv) ; peu d'options.
+- C6 (jv) Un clic sur une **face** ajoute **toutes ses arêtes** (contour extérieur et intérieurs) ;
+  un clic sur une arête l'ajoute avec sa chaîne tangente (Q4).
+- C7 (jv) Chaque ligne de la liste porte une **petite croix rouge** qui retire cette arête seule.
+- C8 (jv) Chaque arête a **sa propre couleur**, la même dans la liste (pastille) et dans la vue 3D
+  (incrustation), prise dans une palette fixe et distincte de la couleur de la carte de pièce.
 
 ### P-d — Finitions
 
@@ -91,7 +97,7 @@ fonctions ajoutées) sans que jv ait à recommencer, ou avec un message clair qu
 
 ## 4. Conception
 
-### 4.1 Principe (ADR 0058)
+### 4.1 Principe (ADR 0063)
 
 Un profil reste une **section 2D balayée** (ADR 0029). Ce qui change : le **repère** de la coupe
 n'est plus celui d'une boîte mais celui de l'arête, calculé à partir de la forme de la brute.
@@ -196,8 +202,8 @@ profil (version inconnue, message clair, ADR 0003). Aucun ancien document n'est 
 
 ★ = recommandation.
 
-- Q1 **Maquette du panneau.** 3 propositions en image (voir le fil) : A liste d'arêtes + clic 3D,
-  B sélection FreeCAD préalable, C faces et contours. ★ À trancher par jv avant tout code.
+- Q1 **Maquette du panneau.** **Tranché par jv le 2026-11-16 : A** (liste d'arêtes + clic 3D),
+  avec clic sur une face = toutes ses arêtes, croix rouge par ligne, une couleur par arête.
 - Q2 **Arêtes courbes** (table ronde, congé). ★ Plus tard, en lot séparé : chanfrein et quart de
   rond par les outils OCC, autres familles refusées. Sinon : inclus d'emblée (balayage le long
   de l'arête, plus risqué).
