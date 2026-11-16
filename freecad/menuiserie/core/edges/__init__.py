@@ -16,6 +16,7 @@ from freecad.menuiserie.core.edges._cut import (
     OVERSHOOT_MM,
     broken_edge_cut,
     edge_cut,
+    resolved_sizes,
 )
 from freecad.menuiserie.core.edges._diagram import (
     HIDDEN_FACES,
@@ -39,6 +40,15 @@ from freecad.menuiserie.core.edges._families import (
     SecondSize,
     family_for,
 )
+from freecad.menuiserie.core.edges._frame import (
+    ANGLED_FAMILIES,
+    MAX_ANGLE_DEG,
+    MIN_ANGLE_DEG,
+    EdgeFrame,
+    angled_section,
+    edge_cut_in_frame,
+    frame_refusal,
+)
 from freecad.menuiserie.core.edges._ids import (
     FACE_CODES,
     FACE_NAMES,
@@ -56,12 +66,15 @@ from freecad.menuiserie.core.edges._layout import SIDES, face_sides, faces_cover
 from freecad.menuiserie.core.edges._pick import edges_at, face_at, nearest_edge
 
 __all__ = [
+    "ANGLED_FAMILIES",
     "BROKEN_EDGE_MM",
     "FACE_CODES",
     "FACE_NAMES",
     "FAMILIES",
     "HIDDEN_FACES",
+    "MAX_ANGLE_DEG",
     "MAX_SIZE_RATIO",
+    "MIN_ANGLE_DEG",
     "MIN_SIZE_MM",
     "NET_CELLS",
     "OVERSHOOT_MM",
@@ -72,17 +85,20 @@ __all__ = [
     "DrawnFace",
     "EdgeError",
     "EdgeFamily",
+    "EdgeFrame",
     "EdgeId",
     "FamilyStrategy",
     "Hit",
     "SecondSize",
     "all_edges",
+    "angled_section",
     "box_hit",
     "box_sizes",
     "box_view",
     "broken_edge_cut",
     "edge_code",
     "edge_cut",
+    "edge_cut_in_frame",
     "edge_ends",
     "edges_at",
     "face_at",
@@ -93,10 +109,12 @@ __all__ = [
     "face_sides",
     "faces_covering",
     "family_for",
+    "frame_refusal",
     "loop_edges",
     "nearest_edge",
     "net_cells",
     "net_hit",
     "parse_edge",
     "parse_face",
+    "resolved_sizes",
 ]
