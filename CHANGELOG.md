@@ -21,7 +21,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
-- « Ajouter à l'ensemble » : une pièce ajoutée alors qu'elle dépasse de la boîte de l'ensemble l'agrandit (cotes recalées sur l'enveloppe des membres, ADR 0049) ; avant, la boîte gardait ses cotes sans rien signaler.
+- « Ajouter à l'ensemble » : une pièce ajoutée alors qu'elle dépasse de la boîte de l'ensemble l'agrandit jusqu'à la contenir (ADR 0049 ; la boîte n'est jamais réduite) ; avant, la boîte gardait ses cotes sans rien signaler.
 - Panneau de l'ensemble : une cote qui ne laisse plus la place à un assemblage ou à une quincaillerie (perçage au pas de 32 mm sur un côté devenu trop petit) est refusée sous les cotes, avec l'explication, et « OK » reste inactif jusqu'à une cote qui convient ; avant, seule la vue rapport le disait.
 - Libellé d'une quincaillerie posée sur une seule pièce : « Pieds : Dessous » au lieu de « Pieds : Dessous Dessous ».
 - Perçage au pas de 32 mm : le refus d'un côté trop petit dit « un rang de trous » et non « 1 rangs ».

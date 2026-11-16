@@ -51,8 +51,10 @@ boîte ne l'englobe plus (constaté le 2026-11-11).
 ## Complément du 2026-11-16 : pièce ajoutée hors de la boîte
 
 Demande de jv (doute D5 des scénarios QTest, PR #265) : une pièce ajoutée à un ensemble alors
-qu'elle dépasse de sa boîte l'agrandit. `api.add_to_furniture` recale donc l'ensemble sur
-l'enveloppe de ses membres (`reframe`) après l'entrée, puis relie tous ses membres
+qu'elle dépasse de sa boîte l'agrandit. `api.add_to_furniture` agrandit donc la boîte jusqu'à
+contenir ses membres (`furniture_envelope.grow`) après l'entrée, puis relie tous ses membres
 (`furniture_members.relink`) ; les mêmes exceptions s'appliquent (sous-ensemble, ensemble piloté
-par une formule). Les membres déjà là ne bougent pas. Test :
+par une formule). Les membres déjà là ne bougent pas. À la différence d'un déplacement de
+sous-ensemble (`reframe`), un ajout ne réduit jamais la boîte : une marge donnée à l'ensemble
+avant l'ajout reste. Test :
 `tests/integration/test_ensemble_membres.py`, scénario `tests/qtest/scenario_ensemble.py`.
