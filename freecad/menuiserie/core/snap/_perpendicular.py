@@ -90,6 +90,8 @@ def face_section(
             and abs(owner_width.component(row)) == 1.0
         ):
             width = extent[row]
+        elif usable and abs(new_width.component(row)) == 1.0:
+            width = min(width, extent[row])  # largeur dans le plan de la face : pas au delà du bord
         elif usable and abs(new_thickness.component(row)) == 1.0:
             thickness = min(thickness, extent[row])  # la place disponible jusqu'à l'arête
     return width, thickness

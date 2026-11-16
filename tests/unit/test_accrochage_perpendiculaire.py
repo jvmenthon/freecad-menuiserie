@@ -116,6 +116,11 @@ def test_section_contre_un_chant_garde_la_largeur_de_la_piece() -> None:
     assert section_against(narrow(Z, X, Y, (300.0, 300.0))) == (100.0, 30.0)
 
 
+def test_largeur_non_parallele_limitee_a_la_place_disponible() -> None:
+    # chant dont l'étendue selon la largeur de la nouvelle pièce n'est que de 60 : pas de débord
+    assert section_against(narrow(Z, X, Y, (300.0, 60.0))) == (60.0, 30.0)
+
+
 def test_epaisseur_limitee_a_la_place_disponible_sur_la_face() -> None:
     # chant de 20 seulement dans le sens de l'épaisseur : la pièce ne dépasse pas de l'arête
     assert section_against(narrow(Z, X, Y, (20.0, 300.0))) == (100.0, 20.0)
