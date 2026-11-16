@@ -294,7 +294,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         if self._guard.active:
             self._snap.note(field, value)
             return
-        target = self._snap.target(field, value, self._field_magnet(axis, kind))
+        target = self._snap.target(field, value, partial(self._field_snapped, axis, kind))
         if target != value:
             blocked = field.blockSignals(True)  # sans quoi la valeur brute serait oubliée
             field.setProperty("rawValue", target)
@@ -303,6 +303,12 @@ class RepeatTaskPanel(TransactionTaskPanel):
             self._step_changed(axis)
         else:
             self._update()
+
+    def _field_snapped(self, axis: RepeatAxis, kind: str, raw: float) -> float | None:
+        """Valeur aimantée de ``raw`` ; l'aimant n'est construit que pour un pas (pas pour une
+        saisie), et ses erreurs restent dans :meth:`FieldSnap.target`. En création, aucun aimant
+        avant la première copie."""
+        return self._field_magnet(axis, kind)(raw)
 
     def _field_magnet(self, axis: RepeatAxis, kind: str) -> Callable[[float], float | None]:
         """Aimant du champ ``kind`` (``step`` ou ``span``) de ``axis`` (:meth:`_field_changed`)."""

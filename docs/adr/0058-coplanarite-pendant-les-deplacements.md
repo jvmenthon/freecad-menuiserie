@@ -55,3 +55,5 @@ le panneau « Répéter », rien ne dit qu'un pas met une copie au ras d'une pi�
 - Faces obliques (pièce tournée hors des axes du conteneur) : ignorées, comme les guides.
 - Flèches des champs : seule une valeur franchie s'aimante, pour que la suite des pas reste celle
   que jv attend ; une valeur saisie puis suivie d'un pas repart de la saisie.
+  En création, les flèches n'aimantent qu'après la première copie (aucune copie avant la
+  première saisie) ; une valeur hors des bornes du champ n'est jamais proposée.

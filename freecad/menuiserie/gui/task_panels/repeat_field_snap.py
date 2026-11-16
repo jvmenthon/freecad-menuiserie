@@ -11,6 +11,7 @@ valeur « brute » (sans aimant) est gardée : le pas suivant repart d'elle (17,
 from __future__ import annotations
 
 import contextlib
+import math
 from collections.abc import Callable, Iterable
 from dataclasses import replace
 from functools import partial
@@ -36,11 +37,15 @@ _EPSILON: Final = 1e-9
 
 class StepWatch(QtCore.QObject):  # type: ignore[misc]  # PySide sans annotations
     """Filtre d'évènements des ``fields`` : dit si un champ change par ses flèches (clic tenu),
-    la molette ou les touches haut et bas, et non par une saisie au clavier."""
+    la molette ou les touches haut et bas, et non par une saisie au clavier. Les champs sont
+    reconnus par leur nom d'objet Qt : ``ValueError`` si un nom est vide ou en double."""
 
     def __init__(self, fields: Iterable[Widget]) -> None:
         super().__init__()
         self._fields = list(fields)
+        names = [str(field.objectName()) for field in self._fields]
+        if "" in names or len(set(names)) != len(names):
+            raise ValueError(f"StepWatch : noms de champs vides ou en double : {names}")
         self._active: set[str] = set()
         for field in self._fields:
             field.installEventFilter(self)
@@ -51,8 +56,8 @@ class StepWatch(QtCore.QObject):  # type: ignore[misc]  # PySide sans annotation
         name = str(watched.objectName())
         if kind == _QEvent.MouseButtonPress:
             self._active.add(name)  # les flèches sont dans le champ, le texte dans son enfant
-        elif kind == _QEvent.MouseButtonRelease:
-            self._active.discard(name)
+        elif kind in (_QEvent.MouseButtonRelease, _QEvent.FocusOut, _QEvent.Hide):
+            self._active.discard(name)  # relâchement perdu (champ grisé, caché) : pas fini
         elif kind == _QEvent.Wheel or (kind == _QEvent.KeyPress and event.key() in _STEP_KEYS):
             self._active.add(name)
             QtCore.QTimer.singleShot(0, partial(self._active.discard, name))
@@ -69,6 +74,15 @@ class StepWatch(QtCore.QObject):  # type: ignore[misc]  # PySide sans annotation
                 field.removeEventFilter(self)
         self._fields.clear()
         self._active.clear()
+
+
+def _bounds(field: Widget) -> tuple[float, float]:
+    """Bornes ``minimum`` et ``maximum`` du champ (sans borne si le champ n'en dit rien)."""
+    low, high = field.property("minimum"), field.property("maximum")
+    return (
+        -math.inf if low is None else float(low),
+        math.inf if high is None else float(high),
+    )
 
 
 def _crossed(previous: float, raw: float, snapped: float) -> bool:
@@ -104,12 +118,14 @@ class FieldSnap:
         if previous is None or not self._watch.stepping(field):
             self.note(field, value)
             return value
-        raw = self._raw.get(name, previous) + (value - previous)
+        low, high = _bounds(field)
+        raw = min(max(self._raw.get(name, previous) + (value - previous), low), high)
         try:
             snapped = snap(raw)
         except Exception:  # aimant facultatif : jamais d'exception dans la boucle Qt
             snapped = None
-        result = snapped if snapped is not None and _crossed(previous, raw, snapped) else raw
+        kept = snapped is not None and low <= snapped <= high and _crossed(previous, raw, snapped)
+        result = snapped if kept and snapped is not None else raw
         self._raw[name], self._shown[name] = raw, result
         return result
 

@@ -55,6 +55,7 @@ class CoplanarCues:
 
     def __init__(self) -> None:
         self._planes: RepeatPlanes | None = None
+        self._faces: dict[int, list[float]] = {}  # faces des sources par axe, lues une fois
         self._overlay: Overlay | None = None
 
     def show(
@@ -96,7 +97,9 @@ class CoplanarCues:
             return _never
         try:
             planes = self._read(repeat, sources)
-            faces = planes.faces(shown_parts(sources), axis)
+            if axis not in self._faces:
+                self._faces[axis] = planes.faces(shown_parts(sources), axis)
+            faces = self._faces[axis]
         except Exception:  # aimant facultatif : une lecture impossible le coupe, sans plus
             return _never
         return partial(_snapped, offsets, faces, planes.planes, axis)
@@ -119,6 +122,7 @@ class CoplanarCues:
             overlay.remove()
 
     def close(self) -> None:
-        """Fin du panneau : dessin retiré, voisines oubliées."""
+        """Fin du panneau : dessin retiré, voisines et faces des sources oubliées."""
         self.clear()
         self._planes = None
+        self._faces.clear()

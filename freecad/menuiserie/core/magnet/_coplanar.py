@@ -125,7 +125,7 @@ def snap_field(
     ``offsets(f)`` donne le décalage sur ``axis`` de chaque copie pour la valeur ``f`` du champ (pas
     ou longueur ; ``ValueError`` si elle est refusée) ; ``faces`` : positions sur ``axis`` des faces
     des sources normales à ``axis`` ; ``planes`` : les plans voisins. Le décalage est affine
-    autour de ``value`` ; la valeur trouvée est vérifiée (même nombre de copies)."""
+    autour de ``value`` ; la valeur trouvée est vérifiée (même nombre de copies, face au ras)."""
     try:
         slopes = _slopes(value, offsets)
     except ValueError:
@@ -144,7 +144,8 @@ def snap_field(
     if best is None:
         return None
     try:
-        same = len(offsets(best)) == len(slopes or ())
+        found_offsets = offsets(best)
     except ValueError:
         return None
-    return round(best, 6) if same else None
+    flush = any(planes.at(axis, face + offset) for offset in found_offsets for face in faces)
+    return round(best, 6) if flush and len(found_offsets) == len(slopes or ()) else None

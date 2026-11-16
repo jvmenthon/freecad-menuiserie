@@ -6,8 +6,6 @@ doublures le temps de l'import."""
 
 from __future__ import annotations
 
-import importlib
-import sys
 import types
 from collections.abc import Iterator
 from typing import Any
@@ -24,6 +22,7 @@ from freecad.menuiserie.core.magnet import (
     snap_field,
 )
 from freecad.menuiserie.core.repeat import AxisRepeat, RepeatAxis, RepeatParams
+from tests.unit.aides_freecad import imported_with_stubs
 
 SHELF = [0.0, 22.0]  # dessous et dessus de la tablette source, sur Z
 FAR = [(500.0, 600.0), (1000.0, 1100.0), (0.0, 0.0)]
@@ -83,6 +82,27 @@ def test_saisie_refusee_sans_aimant() -> None:
     assert snap_field(89.2, refused, SHELF, INDEX, 2) is None
 
 
+def test_axe_inverse_pente_negative() -> None:
+    """Copies vers le bas (axe inversé) : dessous de la 2e copie à -200 au pas 100."""
+    index = PlaneIndex([plane(-200.0)])
+    assert snap_field(100.4, lambda f: [-f, -2 * f], SHELF, index, 2) == pytest.approx(100.0)
+
+
+def test_une_seule_copie_ou_aucun_voisin() -> None:
+    assert snap_field(89.2, lambda _f: [], SHELF, INDEX, 2) is None
+    assert snap_field(89.2, two_copies, SHELF, PlaneIndex([]), 2) is None
+    assert snap_field(89.2, two_copies, [], INDEX, 2) is None
+
+
+def test_valeur_trouvee_pas_au_ras_refusee() -> None:
+    """Décalage non affine : à la valeur calculée, aucune face n'est au ras."""
+
+    def bent(value: float) -> list[float]:
+        return two_copies(value) if value > 89.1 else [value, 2 * value + 5]
+
+    assert snap_field(89.2, bent, SHELF, INDEX, 2) is None
+
+
 def test_copie_qui_ne_depend_pas_du_champ() -> None:
     assert snap_field(89.2, lambda _f: [178.0], SHELF, INDEX, 2) is None
 
@@ -107,8 +127,12 @@ def test_valeur_trouvee_verifiee() -> None:
 
 
 class _Field:
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, low: float | None = None, high: float | None = None) -> None:
         self._name = name
+        self._bounds = {"minimum": low, "maximum": high}
+
+    def property(self, name: str) -> float | None:  # nom de Qt
+        return self._bounds.get(name)
 
     def objectName(self) -> str:  # nom de Qt
         return self._name
@@ -135,20 +159,9 @@ def field_snap() -> Iterator[Any]:
         "FreeCAD": MagicMock(),
         "FreeCADGui": MagicMock(),
     }
-    before = set(sys.modules)
-    saved = {name: sys.modules.get(name) for name in stubs}
-    sys.modules.update(stubs)
-    try:
-        yield importlib.import_module("freecad.menuiserie.gui.task_panels.repeat_field_snap")
-    finally:
-        for name in set(sys.modules) - before:
-            if name.startswith("freecad.menuiserie"):
-                del sys.modules[name]
-        for name, module in saved.items():
-            if module is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = module
+    name = "freecad.menuiserie.gui.task_panels.repeat_field_snap"
+    with imported_with_stubs(name, stubs) as module:
+        yield module
 
 
 def snap_at_20(raw: float) -> float | None:
@@ -224,3 +237,65 @@ def test_champ_remplace_dans_la_ligne(field_snap: Any) -> None:
     span = field_snap.with_field(params, RepeatAxis.Z, "span", 500.0)
     assert [line.step for line in step.grid] == [100.0, 89.0]
     assert [line.span for line in span.grid] == [0.0, 500.0]
+
+
+def test_valeur_aimantee_hors_bornes_refusee(field_snap: Any) -> None:
+    field = _Field("stepZ", low=1.0, high=19.9)
+    snap = stepped(field_snap, field, stepping=True)
+    snap.note(field, 19.2)
+    assert snap.target(field, 19.9, snap_at_20) == pytest.approx(19.9)  # 20 > maximum
+
+
+def test_valeur_brute_bornee(field_snap: Any) -> None:
+    field = _Field("stepZ", low=1.0, high=100.0)
+    snap = stepped(field_snap, field, stepping=True)
+    snap.note(field, 1.5)
+    assert snap.target(field, 1.0, snap_at_20) == pytest.approx(1.0)  # 0,5 sous le minimum
+    assert snap.target(field, 2.0, snap_at_20) == pytest.approx(2.0)
+
+
+# --- StepWatch : pas reconnu par les évènements du champ ----------------------------------------
+
+
+def _event(module: Any, kind: str, key: object = None) -> Any:
+    qt_kind = getattr(module.QtCore.QEvent, kind)
+    return types.SimpleNamespace(type=lambda: qt_kind, key=lambda: key)
+
+
+def test_clic_tenu_sur_la_fleche(field_snap: Any) -> None:
+    field = _Field("stepZ")
+    watch = field_snap.StepWatch([field])
+    assert watch.eventFilter(field, _event(field_snap, "MouseButtonPress")) is False
+    assert watch.stepping(field)
+    watch.eventFilter(field, _event(field_snap, "MouseButtonRelease"))
+    assert not watch.stepping(field)
+
+
+@pytest.mark.parametrize("lost", ["FocusOut", "Hide"])
+def test_relachement_perdu(field_snap: Any, lost: str) -> None:
+    field = _Field("stepZ")
+    watch = field_snap.StepWatch([field])
+    watch.eventFilter(field, _event(field_snap, "MouseButtonPress"))
+    watch.eventFilter(field, _event(field_snap, lost))
+    assert not watch.stepping(field)
+
+
+def test_molette_et_touches(field_snap: Any) -> None:
+    field = _Field("stepZ")
+    watch = field_snap.StepWatch([field])
+    watch.eventFilter(field, _event(field_snap, "KeyPress", object()))  # chiffre tapé
+    assert not watch.stepping(field)
+    watch.eventFilter(field, _event(field_snap, "KeyPress", field_snap.QtCore.Qt.Key_PageUp))
+    assert watch.stepping(field)
+    watch.close()
+    assert not watch.stepping(field)
+    watch = field_snap.StepWatch([field])
+    watch.eventFilter(field, _event(field_snap, "Wheel"))
+    assert watch.stepping(field)
+
+
+def test_noms_de_champs_vides_ou_en_double(field_snap: Any) -> None:
+    with pytest.raises(ValueError):
+        field_snap.StepWatch([_Field("stepZ"), _Field("stepZ")])
+    with pytest.raises(ValueError):
+        field_snap.StepWatch([_Field("")])
