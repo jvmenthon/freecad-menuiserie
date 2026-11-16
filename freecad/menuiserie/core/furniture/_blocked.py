@@ -70,14 +70,17 @@ def layer_thicknesses(
 ) -> dict[str, float]:
     """Épaisseurs (clé de pièce → mm) qui suivent le passage de ``old`` à ``new`` : sur un axe
     dont la cote change, les pièces à plat qui remplissent seules la cote (``Row.layer``) se
-    partagent la différence au prorata de leur épaisseur ``current`` (ADR 0062). ``rules`` :
+    partagent la différence au prorata de leur épaisseur ``current`` (ADR 0062), au micron près
+    (pas de dérive d'une saisie à l'autre). ``rules`` :
     règles calculées pour ``old``."""
     found: dict[str, float] = {}
     for member_rules in rules.values():
         for rule in member_rules:
             before, after = old.size(rule.axis), new.size(rule.axis)
             if before != after and before > 0.0:
-                found.update({key: current[key] * after / before for key in rule.row.layer})
+                found.update(
+                    {key: round(current[key] * after / before, 6) for key in rule.row.layer}
+                )
     return found
 
 

@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Cotes d'un ensemble : contrôle, puis écriture (panneau, API, poignées de la vue 3D).
 
-Ni transaction ni recalcul : c'est à l'appelant de les faire.
+Ni transaction ni recalcul : c'est à l'appelant de les faire. Une écriture qui échoue en cours
+de route rend ce qu'elle avait déjà écrit (cotes, épaisseurs suiveuses de l'ADR 0062).
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Collection, Mapping
 from typing import Final
 
@@ -23,7 +25,7 @@ from freecad.menuiserie.features.furniture_checks import checked_furniture, quot
 from freecad.menuiserie.features.furniture_variants import resize_notices
 from freecad.menuiserie.features.i18n import translated, translated_errors
 
-__all__ = ["follow_layers", "planned_resize", "resize", "write_box"]
+__all__ = ["follow_layers", "layered_sizes", "planned_resize", "resize", "write_box"]
 
 _DRIVEN_DIMENSION: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -58,6 +60,17 @@ def resize(furniture: DocumentObject, sizes: Mapping[str, float | None]) -> list
     return [*write_box(furniture, new, sizes), *notices]
 
 
+def layered_sizes(furniture: DocumentObject, box: FurnitureBox) -> set[str]:
+    """Cotes (``Width``, ``Depth``, ``Height``) de ``furniture``, aux cotes ``box``, que
+    remplissent seules des pièces à plat (ADR 0062) ; vide si les membres sont illisibles."""
+    try:
+        members = read_members(furniture, box=box)
+        rules, _ = follow_rules(box, members.members)
+    except ValueError:  # FurnitureError comprise
+        return set()
+    return {rule.axis.value for found in rules.values() for rule in found if rule.row.layer}
+
+
 def follow_layers(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBox) -> list[Notice]:
     """Pièces à plat qui remplissent seules une cote de ``furniture`` (une couche ou plusieurs
     empilées, ADR 0062) : quand cette cote passe de ``old`` à ``new``, elles se partagent la
@@ -69,12 +82,24 @@ def follow_layers(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBo
     thicknesses = followed_thicknesses(old, new, members.members, rules)
     if not thicknesses:
         return []
+    if not all(math.isfinite(value) for value in thicknesses.values()):
+        raise ValueError(f"épaisseurs non finies : {thicknesses}")  # contrôlées avant (check)
+    pieces = {key: members.objects[key] for key in thicknesses}
+    before = {key: float(piece.Thickness.Value) for key, piece in pieces.items()}
     notices = bind_members(members, members.objects, thicknesses)
-    for key, value in thicknesses.items():
-        piece = members.objects[key]
-        with writing(piece):
-            piece.Thickness = value
+    try:
+        _write_thicknesses(pieces, thicknesses)
+    except Exception:
+        _write_thicknesses(pieces, before)  # rien d'écrit à moitié
+        bind_members(members, members.objects)
+        raise
     return notices
+
+
+def _write_thicknesses(pieces: Mapping[str, DocumentObject], values: Mapping[str, float]) -> None:
+    for key, piece in pieces.items():
+        with writing(piece):
+            piece.Thickness = values[key]
 
 
 def write_box(
@@ -96,9 +121,12 @@ def write_box(
         getattr(new, name.lower()) if sizes.get(name) is not None else getattr(old, name.lower())
         for name in DIMENSIONS
     ]
-    notices = follow_layers(furniture, old, FurnitureBox(*values))
-    _write_sizes(furniture, new, sizes)
-    return notices
+    _write_sizes(furniture, new, sizes)  # les cotes d'abord : un refus ensuite les rend
+    try:
+        return follow_layers(furniture, old, FurnitureBox(*values))
+    except Exception:
+        _write_sizes(furniture, old, sizes)
+        raise
 
 
 def _write_sizes(

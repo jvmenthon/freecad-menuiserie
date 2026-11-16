@@ -36,7 +36,7 @@ from freecad.menuiserie.features.furniture_bindings import (
 )
 from freecad.menuiserie.features.furniture_members import DRAWN_LOCKED, quoted_label
 from freecad.menuiserie.features.furniture_relink import relink_thickness
-from freecad.menuiserie.features.furniture_resize import follow_layers
+from freecad.menuiserie.features.furniture_resize import follow_layers, layered_sizes
 from freecad.menuiserie.features.furniture_variants import (
     resize_notices,
     with_locks,
@@ -55,18 +55,35 @@ __all__ = [
 ]
 
 
-def report_resize(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBox) -> None:
-    """Cote saisie dans l'éditeur de propriétés : elle est appliquée (Q4) ; avertissements
-    pour les formules de l'utilisateur, pour une pièce ou un assemblage cassé et pour une rangée
-    bloquée par des pièces verrouillées. Les pièces à plat qui remplissent seules la cote suivent
-    au prorata de leur épaisseur (ADR 0062)."""
+def report_resize(
+    furniture: DocumentObject, old: FurnitureBox, new: FurnitureBox | None, prop: str
+) -> None:
+    """Cote ``prop`` saisie dans l'éditeur de propriétés : elle est appliquée (Q4) ;
+    avertissements pour les formules de l'utilisateur, pour une pièce ou un assemblage cassé et
+    pour une rangée bloquée par des pièces verrouillées. Les pièces à plat qui remplissent seules
+    la cote suivent au prorata de leur épaisseur (ADR 0062) ; si elles ne le peuvent pas (cote
+    nulle ou épaisseur hors bornes), la cote revient à ``old`` : sinon elle ne serait plus
+    remplie et la saisie suivante serait refusée. ``new`` : ``None`` pour une cote invalide."""
+    layered = prop in layered_sizes(furniture, old)
+    if new is None:
+        if layered:
+            _give_back(furniture, old, prop)
+        return
     try:
         notices = resize_notices(furniture, old, new)
         report(notice_messages([*follow_layers(furniture, old, new), *notices]))
+        return
     except FurnitureError as error:
         report([templated_message(error)])
-    except ValueError as error:  # membre illisible, rangée bloquée : message déjà traduit
+    except (ValueError, RuntimeError) as error:  # membre illisible, rangée bloquée, FreeCAD
         report([str(error)])
+    if layered:
+        _give_back(furniture, old, prop)
+
+
+def _give_back(furniture: DocumentObject, old: FurnitureBox, prop: str) -> None:
+    with writing(furniture):
+        setattr(furniture, prop, getattr(old, prop.lower()))
 
 
 def thickness_notices(

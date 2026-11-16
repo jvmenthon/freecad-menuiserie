@@ -182,8 +182,9 @@ def resize_furniture(
     d'avance (``ValueError`` traduite, rien n'est modifié) si une pièce deviendrait trop petite
     ou trop grande ou si un assemblage perdrait sa position. Une rangée bloquée par des pièces
     verrouillées lève :class:`LockedPiecesError` (``members`` : ces pièces ;
-    :func:`unlock_and_resize` les déverrouille). Renvoie les avertissements traduits (aussi
-    dans la vue rapport, ADR 0017)."""
+    :func:`unlock_and_resize` les déverrouille). Des pièces à plat qui remplissent seules une
+    cote changent d'épaisseur au prorata (ADR 0062). Aucune transaction n'est ouverte : à
+    l'appelant. Renvoie les avertissements traduits (aussi dans la vue rapport, ADR 0017)."""
     sizes = {"Width": width, "Depth": depth, "Height": height}
     notices = furniture_resize.resize(furniture, sizes)
     return _reported(notices, furniture.Document)

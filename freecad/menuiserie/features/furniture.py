@@ -292,8 +292,8 @@ class Furniture(StatelessProxy):
             previous: FurnitureBox | None = getattr(self, "previous_box", None)
             self.previous_box = None
             current = box_of(obj)
-            if previous is not None and current is not None and previous != current:
-                furniture_edits.report_resize(obj, previous, current)
+            if previous is not None and previous != current:
+                furniture_edits.report_resize(obj, previous, current, prop)
         elif prop in MEMBER_OPTIONS:
             furniture_edits.member_option_changed(obj, prop)
 

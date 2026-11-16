@@ -143,8 +143,8 @@ class PanneauStructure(Etapes):
         self.assertEqual(len(self.doc.UndoNames), 1, self.doc.UndoNames)
 
     def test_3b_renommer_par_f2(self) -> None:
-        """F2 sur la ligne choisie ouvre la même boîte que le menu ; le renommage est une entrée
-        d'annulation, annulée ici pour la suite du scénario."""
+        """F2 sur la ligne choisie ouvre la même boîte que le menu (Ctrl+F2, rien) ; le
+        renommage est une entrée d'annulation, annulée ici pour la suite du scénario."""
         QTest.mouseClick(
             self.arbre().viewport(),
             QtCore.Qt.MouseButton.LeftButton,
@@ -152,6 +152,11 @@ class PanneauStructure(Etapes):
             self.point("Tasseau"),
         )
         traiter_les_evenements()
+        QTest.keyClick(
+            self.arbre(), QtCore.Qt.Key.Key_F2, QtCore.Qt.KeyboardModifier.ControlModifier
+        )
+        QTest.qWait(200)
+        self.assertIsNone(QtGui.QApplication.activeModalWidget(), "Ctrl+F2 a ouvert une boîte")
         with ReponseALaSaisie("Liteau") as saisie:
             QTest.keyClick(self.arbre(), QtCore.Qt.Key.Key_F2)
         self.assertEqual(saisie.proposes, ["Tasseau"])

@@ -38,7 +38,11 @@ empilées comprises.
    de tout l'ensemble sur la géométrie d'avant avec les nouvelles épaisseurs (même chemin qu'une
    épaisseur saisie, ADR 0019, point 6), dans la même transaction : un seul Ctrl+Z. Chemins
    couverts : panneau de l'ensemble, `api.resize_furniture`, « Déverrouiller et appliquer »,
-   éditeur de propriétés, poignées de la vue 3D.
+   éditeur de propriétés, poignées de la vue 3D. Une écriture qui échoue en route rend ce
+   qu'elle avait écrit (cotes, épaisseurs). Dans l'éditeur de propriétés, où une cote saisie est
+   d'habitude appliquée même refusée (Q4), une cote que les épaisseurs ne peuvent pas suivre
+   (nulle, épaisseur hors bornes) revient à sa valeur d'avant : sinon les pièces ne la
+   rempliraient plus et la saisie suivante serait refusée.
 5. **Poignées de la vue 3D** : pendant le geste, seule la boîte change ; les épaisseurs suivent
    au relâchement (le relâchement repasse par le chemin du panneau). Échap n'a donc rien à rendre
    aux pièces.
