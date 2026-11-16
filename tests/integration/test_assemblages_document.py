@@ -73,6 +73,7 @@ def test_forme_des_assemblages_vide(cadre_assemble: Cadre) -> None:
 MACHINED_PROPERTIES = [
     ("Base", "App::PropertyLink", "Pièce", ["ReadOnly"]),
     ("Joints", "App::PropertyLinkList", "Pièce", ["ReadOnly"]),
+    ("Finishes", "App::PropertyLinkList", "Pièce", ["ReadOnly"]),
     ("Version", "App::PropertyInteger", "Base", ["Hidden"]),
 ]
 JOINT_PROPERTIES = [
@@ -104,7 +105,7 @@ def test_proprietes_de_la_piece_usinee(
     assert obj.getGroupOfProperty(name) == group
     assert obj.getDocumentationOfProperty(name)
     assert obj.getEditorMode(name) == mode
-    assert obj.Version == 1
+    assert obj.Version == 2
 
 
 @pytest.mark.parametrize(("name", "type_id", "group", "mode", "default"), JOINT_PROPERTIES)

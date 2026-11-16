@@ -261,7 +261,10 @@ def stacked() -> tuple[list[Member], FurnitureBox]:
 
 
 def test_rangee_bloquee_sans_piece_verrouillee() -> None:
+    """Une copie liée de répétition ne change pas d'épaisseur : les planches empilées ne se
+    partagent plus la hauteur (ADR 0062) et la rangée reste bloquée."""
     members, box = stacked()
+    members[1] = replace(members[1], linked=True)
     rules, _ = follow_rules(box, members)
     with pytest.raises(BlockedRowError) as caught:
         check_resize(box, FurnitureBox(600, 400, 50), members, rules, [])

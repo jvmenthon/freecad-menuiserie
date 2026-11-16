@@ -47,3 +47,14 @@ boîte ne l'englobe plus (constaté le 2026-11-11).
 - Tests d'intégration : `tests/integration/test_enveloppe_du_parent.py` (déplacement à droite
   et à gauche, rotation, rétrécissement quand on ramène le sous-ensemble, répétition qui suit le parent, copies d'un
   sous-ensemble répété, création autour d'un ensemble tourné).
+
+## Complément du 2026-11-16 : pièce ajoutée hors de la boîte
+
+Demande de jv du 2026-11-16, après un scénario QTest (PR #265) qui montrait la boîte inchangée : une pièce ajoutée à un ensemble alors
+qu'elle dépasse de sa boîte l'agrandit. `api.add_to_furniture` agrandit donc la boîte jusqu'à
+contenir ses membres (`furniture_envelope.grow`) après l'entrée, puis relie tous ses membres
+(`furniture_members.relink`) ; les mêmes exceptions s'appliquent (sous-ensemble, ensemble piloté
+par une formule). Les membres déjà là ne bougent pas. À la différence d'un déplacement de
+sous-ensemble (`reframe`), un ajout ne réduit jamais la boîte : une marge donnée à l'ensemble
+avant l'ajout reste. Tests : `tests/integration/test_ensemble_membres.py` (la boîte grandit, une marge reste),
+scénario `tests/qtest/scenario_ensemble.py`.

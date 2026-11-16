@@ -15,7 +15,11 @@ import sys
 from pathlib import Path
 
 from icones_ensembles import (
+    aligner_faces,
     autre_objet,
+    centrer_x,
+    centrer_y,
+    centrer_z,
     distance,
     distance_gardee,
     ensemble,
@@ -301,6 +305,19 @@ def caisson() -> str:
     return ic.svg()
 
 
+def finition_des_chants() -> str:
+    ic = Icone("Finition des chants : planche dont les chants (faces étroites) sont surlignés")
+    ic.boite((0, 0, 0), (90, 32, 12), "chene")
+    for y, phase in ((7, 0.0), (15, 0.35), (24, 0.7)):
+        ic.veinage((4, 86), (y, 12), "chene", phase=phase)
+    orange = "#f57900"
+    ic.bande([(0, 32, 0), (90, 32, 0), (90, 32, 12), (0, 32, 12)], orange)  # chant avant
+    ic.bande([(90, 0, 0), (90, 32, 0), (90, 32, 12), (90, 0, 12)], orange)  # bois de bout
+    ic.trait([(0, 32, 0), (90, 32, 0), (90, 0, 0)], "#4e2f12", 1.6)
+    ic.trait([(0, 32, 12), (90, 32, 12), (90, 0, 12)], "#4e2f12", 1.6)
+    return ic.svg()
+
+
 ICONES = {
     "menuiserie.svg": atelier,
     "Menuiserie_WoodPart.svg": piece_de_bois,
@@ -324,6 +341,8 @@ ICONES = {
     "Menuiserie_ShelfPins.svg": percage_lr32,
     "Menuiserie_DrawerSlide.svg": coulisse,
     "Menuiserie_Carcass.svg": caisson,
+    # Finition des chants (issue #5)
+    "Menuiserie_FinitionChants.svg": finition_des_chants,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
@@ -336,6 +355,10 @@ ICONES = {
     # Distance entre deux pièces (DI-b)
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,
+    "Menuiserie_AlignFaces.svg": aligner_faces,
+    "Menuiserie_CenterX.svg": centrer_x,
+    "Menuiserie_CenterY.svg": centrer_y,
+    "Menuiserie_CenterZ.svg": centrer_z,
     # Rotations du panneau de la pièce de bois (J6c)
     "Menuiserie_RotateX.svg": rotation_x,
     "Menuiserie_RotateY.svg": rotation_y,

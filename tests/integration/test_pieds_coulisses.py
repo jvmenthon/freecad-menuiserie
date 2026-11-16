@@ -32,6 +32,7 @@ def test_pieds_sous_un_panneau(document: Any) -> None:
     document.recompute()
     joint = api.make_foot(panel, foot_material="wood")
     assert joint.HostPart == joint.GuestPart == panel
+    assert joint.Label == f"Pieds : {panel.Label}"  # une seule pièce : nommée une seule fois
     assert volume(panel) == pytest.approx(PANEL - 4 * math.pi * 5**2 * 12)
     assert joint.Shape.Volume > 0  # embases et tiges rapportées
     assert joint.Columns == 0 and joint.Rows == 0  # automatique

@@ -27,6 +27,8 @@ Options étudiées :
    retrouvent par numéro (instable après un assemblage : nommage topologique), échecs OCC fréquents
    sur formes coupées, impossible à tester sans FreeCAD, et uniquement chanfrein et congé (pas de
    gorge, de doucine ni de bec-de-corbin). Rejetée.
+   (*depuis FreeCAD 1.0, un numéro d'arête n'est instable que sur une forme sans carte des
+   éléments, comme l'était la pièce usinée ; les autres raisons du rejet tiennent, ADR 0056*)
 3. **Un objet par profil, qui retire de la matière dans la pièce usinée** (même mécanisme que les
    assemblages), la section étant calculée en `core/` et balayée le long de l'arête. Retenue.
 4. **Un objet `Part::Cut` par profil** (outils FreeCAD standard) : change la nature de l'objet
@@ -55,7 +57,11 @@ Options étudiées :
    `freecad.menuiserie.features.edge_profile.EdgeProfile`, proxy sans état, `Version` = 1.
    `MachinedPart` passe en `Version` 2 (propriété `Finishes` vide à la migration).
 7. **Périmètre** : pièces de bois et pièces usinées. Une pièce en bois (`ShapedPart`, forme libre)
-   est refusée ; profils personnels (JSON) et arrondi de coin reportés.
+   n'est acceptée que si sa forme est une boîte (solide égal à son encombrement exact,
+   `optimalBoundingBox` : même repère, mêmes codes d'arête) ; toute autre forme est refusée ;
+   profils personnels (JSON) et arrondi de coin reportés. Un profil appartient à une seule
+   pièce : le panneau qui traite plusieurs pièces à la fois (2026-11-13) crée un profil par
+   pièce, de mêmes réglages, dans une seule transaction ; le modèle ne change pas.
 
 ## Conséquences
 

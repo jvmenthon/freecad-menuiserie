@@ -31,6 +31,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
                 "Menuiserie_WoodPart",  # pièce en bois
                 "Menuiserie_ShapedPart",  # pièce à forme libre (PD-d)
                 "Menuiserie_SetDistance",  # distance entre deux pièces (DI-b)
+                "Menuiserie_EdgeFinish",  # finition des chants (#5)
+                "Menuiserie_AlignFaces",  # alignement de deux faces (AL-c)
             ),
         ),
         (
@@ -109,12 +111,18 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import distance  # distance entre deux pièces (DI-b)
 
         distance.register()
+        from freecad.menuiserie.gui.commands import align  # alignement de deux faces (AL-c)
+
+        align.register()
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
         from freecad.menuiserie.gui.commands import structure  # panneau « Structure » (ADR 0046)
 
         structure.register()
+        from freecad.menuiserie.gui.commands import edge_finish  # finition des chants (#5)
+
+        edge_finish.register()
         from freecad.menuiserie.gui.commands import repeat  # répétition de pièces (R-c)
 
         repeat.register()
@@ -153,12 +161,14 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une
         distance » (au premier niveau, pas dans un sous-menu) quand la sélection compte deux
-        éléments de deux objets. Ce menu n'existe que
-        pendant que l'atelier est actif (ADR 0007)."""
-        from freecad.menuiserie.gui.commands import distance
+        éléments de deux objets, et « Aligner deux faces » si ce sont deux faces. Ce menu
+        n'existe que pendant que l'atelier est actif (ADR 0007)."""
+        from freecad.menuiserie.gui.commands import align, distance
 
         if distance.selected_pair() is not None:
             self.appendContextMenu("", [distance.COMMAND_NAME])  # au premier niveau du menu
+            if align.selected_faces():
+                self.appendContextMenu("", [align.COMMAND_NAME])
 
     def GetClassName(self) -> str:
         """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""

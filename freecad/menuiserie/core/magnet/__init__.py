@@ -9,6 +9,12 @@ guides (:class:`Guide`) et écrit les propriétés. Aucun import de FreeCAD ni d
 from __future__ import annotations
 
 from freecad.menuiserie.core.magnet._axis import arrows, axis_param
+from freecad.menuiserie.core.magnet._coplanar import (
+    MAX_COPLANAR,
+    PlaneIndex,
+    box_faces,
+    overlaps,
+)
 from freecad.menuiserie.core.magnet._magnet import (
     HANDLE_RADIUS_PX,
     handle_at,
@@ -33,6 +39,7 @@ from freecad.menuiserie.core.magnet._model import (
 
 __all__ = [
     "HANDLE_RADIUS_PX",
+    "MAX_COPLANAR",
     "MIN_SIZE_MM",
     "THICKNESS_AXIS",
     "Arrow",
@@ -43,12 +50,15 @@ __all__ = [
     "MagnetHit",
     "MagnetKind",
     "PixelTarget",
+    "PlaneIndex",
     "Ray",
     "ResizeResult",
     "arrows",
     "axis_param",
+    "box_faces",
     "handle_at",
     "magnet",
     "mm_per_pixel",
+    "overlaps",
     "resize",
 ]
