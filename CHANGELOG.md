@@ -9,6 +9,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 - Preuve de concept de tests d'interface avec QTest (#263, ADR 0059) : un scénario complet (deux pièces, rotation, queue d'aronde) est joué au clavier et à la souris dans le vrai FreeCAD par son mode test, sous `xvfb-run` dans la CI. Voir `docs/tests-gui-qtest.md`.
 - Scénarios QTest de priorité 1 (#263) : annuler et rétablir de bout en bout, enregistrer puis rouvrir, annulation de chaque panneau (bouton et Échap), modification d'une pièce déjà assemblée, saisies hostiles au clavier, document fermé avec un panneau ouvert, suppression (assemblage, pièce assemblée, ensemble avec son contenu). La CI joue chaque module `tests/qtest/scenario_*.py` dans son propre FreeCAD par `tests/qtest/lanceur.py`.
+- Scénarios QTest de priorité 2 et 3 : cadre et liste de débit (aperçu, export CSV), chaque type d'assemblage, assemblages en biais, ensemble, répétition, rotation au panneau, « Aligner deux faces » et distance gardée, quincaillerie d'un caisson, pièce en bois depuis un corps, panneau « Structure » (menu contextuel, glisser-déposer), passage par les ateliers Part et TechDraw, activation des commandes selon la sélection, deux documents en alternance. Les aides refusent désormais un geste sur un widget masqué, grisé ou en lecture seule.
 
 ### Modifié
 
