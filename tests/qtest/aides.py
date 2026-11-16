@@ -219,6 +219,39 @@ def capturer(nom: str) -> None:
     vue.saveImage(str(Path(dossier) / f"{nom}.png"), 1200, 800, "White")
 
 
+def refus_signale() -> str:
+    """Texte de la boîte d'avertissement de l'atelier (refus d'une commande, non modale) si elle
+    est affichée, « » sinon ; la boîte est refermée par son bouton, comme le fait l'utilisateur."""
+    from freecad.menuiserie.gui.commands.base import REFUSAL_BOX_NAME
+
+    QTest.qWait(PAS_MS)
+    boites = [
+        boite
+        for boite in Gui.getMainWindow().findChildren(QtGui.QMessageBox, REFUSAL_BOX_NAME)
+        if boite.isVisible()
+    ]
+    if not boites:
+        return ""
+    (boite,) = boites
+    texte = str(boite.text())
+    cliquer(boite.buttons()[0])
+    if boite.isVisible():
+        raise AssertionError("boîte de refus restée ouverte")
+    return texte
+
+
+def choisir(liste: Widget, rang: int) -> None:
+    """Choix au clavier de la ligne ``rang`` d'une liste déroulante (flèches Haut ou Bas)."""
+    liste.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
+    ecart = rang - liste.currentIndex()
+    touche = QtCore.Qt.Key.Key_Down if ecart > 0 else QtCore.Qt.Key.Key_Up
+    for _ in range(abs(ecart)):
+        QTest.keyClick(liste, touche)
+    traiter_les_evenements()
+    if liste.currentIndex() != rang:
+        raise AssertionError(f"ligne {rang} non choisie ({liste.currentIndex()})")
+
+
 def vue_rapport() -> str:
     """Texte de la vue rapport de FreeCAD : les erreurs Python d'un signal Qt y arrivent."""
     vues = [

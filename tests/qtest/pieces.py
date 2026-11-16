@@ -15,10 +15,12 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import api
+from freecad.menuiserie.core.geometry import PlacedBlock
 
 Axe = tuple[float, float, float]
 AXE_Y: Axe = (0.0, 1.0, 0.0)
 AXE_Z: Axe = (0.0, 0.0, 1.0)
+DEPLACEMENT = "Déplacer une pièce"
 SECTION = (60.0, 22.0)  # largeur et épaisseur des pièces de cadre
 ERREURS_PYTHON = ("TypeError", "AttributeError", "RuntimeError", "NameError", "KeyError")
 
@@ -40,6 +42,27 @@ def piece(
     rotation = App.Rotation(App.Vector(*axe), angle) if axe else App.Rotation()
     creee.Placement = App.Placement(App.Vector(*base), rotation)
     return creee
+
+
+def placement_de(bloc: PlacedBlock) -> App.Placement:
+    """Placement FreeCAD d'un bloc posé du modèle ``core`` (aides des tests unitaires)."""
+    lignes, base = bloc.placement.rotation, bloc.placement.translation
+    matrice = App.Matrix(
+        lignes[0][0], lignes[0][1], lignes[0][2], base.x,
+        lignes[1][0], lignes[1][1], lignes[1][2], base.y,
+        lignes[2][0], lignes[2][1], lignes[2][2], base.z,
+        0, 0, 0, 1,
+    )  # fmt: skip
+    return App.Placement(matrice)
+
+
+def deplacer(doc: Any, piece_deplacee: Any, placement: App.Placement) -> None:
+    """Remplace un glissement ou une rotation à la souris : placement écrit dans une
+    transaction, annulable comme le geste."""
+    doc.openTransaction(DEPLACEMENT)
+    piece_deplacee.Placement = placement
+    doc.commitTransaction()
+    doc.recompute()
 
 
 def montant_et_traverse(doc: Any) -> tuple[Any, Any]:
