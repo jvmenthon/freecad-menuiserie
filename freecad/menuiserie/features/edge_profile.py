@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Profil d'arête : chanfrein, quart de rond, gorge, bec-de-corbin, doucine… (issue #5, ADR 0029).
 
-Un :class:`EdgeProfile` lie une pièce de bois brute à un ensemble d'arêtes (codes locaux
-``"Z+Y-"``) qui reçoivent le même profil. Sa forme est vide : il ne fait que décrire ses coupes,
+Un :class:`EdgeProfile` lie une pièce de bois brute à un ensemble d'arêtes qui reçoivent le même
+profil : codes locaux ``"Z+Y-"`` d'une boîte (``Edges``), ou arêtes natives de la forme désignées
+par un lien (``EdgeRefs``, nommage topologique de FreeCAD, ADR 0063), jamais les deux.
+Sa forme est vide : il ne fait que décrire ses coupes,
 que la pièce usinée (:mod:`freecad.menuiserie.features.machined_part`) soustrait de la brute.
 Contrat de persistance (ADR 0003) : le chemin de ce module, le nom de la classe et les noms des
 propriétés sont écrits dans les documents ; ils ne changent jamais, et les valeurs de ``Family``
@@ -28,13 +30,24 @@ from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.box_parts import box_part_refusal
+from freecad.menuiserie.features.edge_profile_native import (
+    LOST,
+    MIXED,
+    designated_edges,
+    is_native_designation,
+    lost_edges,
+    native_cuts,
+    native_names,
+    native_shape,
+    refs_of,
+)
 from freecad.menuiserie.features.freecad_types import (
     READ_ONLY,
     DocumentObject,
     StatelessProxy,
     proxy_is,
 )
-from freecad.menuiserie.features.i18n import translated, translated_errors
+from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec, version_spec
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
@@ -43,14 +56,20 @@ __all__ = [
     "MODEL_VERSION",
     "EdgeProfile",
     "checked_codes",
+    "designated_edges",
     "edge_cuts",
     "family_of",
     "is_edge_profile",
+    "is_native_designation",
+    "lost_edges",
+    "native_cuts",
+    "native_names",
+    "native_shape",
     "profile_cuts",
 ]
 
 OBJECT_NAME: Final = "EdgeProfile"
-MODEL_VERSION: Final = 1
+MODEL_VERSION: Final = 2  # 2 : arêtes natives (EdgeRefs, ADR 0063)
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Profil d'arête")
 
 FAMILY_LABELS: Final = {
@@ -88,6 +107,17 @@ PROPERTIES: Final = (
             "App::Property",
             'Arêtes profilées, par leurs deux faces dans le repère de la pièce ("Z+Y-" : '
             "dessus-avant). Modifiez-les par la commande « Finition des chants ».",
+        ),
+        mode=READ_ONLY,
+    ),
+    PropertySpec(
+        "EdgeRefs",
+        "App::PropertyLinkSub",
+        "Profil",
+        QT_TRANSLATE_NOOP(
+            "App::Property",
+            "Arêtes profilées d'une pièce dessinée, suivies par FreeCAD quand le corps change "
+            "(vide pour une pièce en boîte). Modifiez-les par la commande « Finition des chants ».",
         ),
         mode=READ_ONLY,
     ),
@@ -158,8 +188,23 @@ class EdgeProfile(StatelessProxy):
 
     def execute(self, obj: DocumentObject) -> None:
         """Forme vide ; contrôle seulement que les coupes sont possibles (``ValueError``
-        traduite sinon : cote trop grande, pièce en bois, arête inconnue)."""
-        edge_cuts(obj)
+        traduite sinon : cote trop grande, pièce en bois, arête inconnue).
+
+        Une arête native perdue après une modification de la pièce ne met pas le profil en
+        erreur : FreeCAD ne recalculerait plus la pièce usinée, qui ne suivrait plus son corps.
+        Elle est signalée dans la vue rapport et dans le panneau (ADR 0063, Q3)."""
+        edge_cuts(obj, skip_lost=True)
+        lost = lost_edges(obj)
+        if lost:
+            report_warning(
+                translated(
+                    _ON_PART,
+                    {
+                        "label": quoted_value(obj.Part.Label),
+                        "message": translated(LOST, {"edges": ", ".join(lost)}),
+                    },
+                )
+            )
         obj.Shape = Part.Shape()
 
 
@@ -208,13 +253,23 @@ def profile_cuts(
         ) from None
 
 
-def edge_cuts(profile: DocumentObject) -> list[Extrusion]:
+def edge_cuts(profile: DocumentObject, *, skip_lost: bool = False) -> list[Extrusion]:
     """Coupes du profil ``profile`` sur sa pièce, dans le repère local de celle-ci.
-    ``ValueError`` traduite si la pièce manque, n'est pas une pièce de bois (boîte), si les
-    arêtes sont invalides ou si une cote est refusée."""
+    ``ValueError`` traduite si la pièce manque, si les arêtes sont invalides ou perdues (sauf
+    ``skip_lost`` : une arête native perdue est alors ignorée) ou si une cote est refusée."""
     part = profile.Part
     if part is None:
         raise ValueError(translated(_NO_PART))
+    family = family_of(profile.Family)
+    refs = refs_of(profile)
+    if refs:
+        if list(profile.Edges):
+            raise ValueError(translated(MIXED))
+        if profile.EdgeRefs[0] != part:
+            raise ValueError(translated(_NO_PART))
+        return native_cuts(
+            part, refs, family, profile.SizeA.Value, profile.SizeB.Value, skip_lost=skip_lost
+        )
     refusal = box_part_refusal(part)
     if refusal is not None:
         raise ValueError(refusal)
@@ -225,7 +280,7 @@ def edge_cuts(profile: DocumentObject) -> list[Extrusion]:
         str(part.Label),
         dimensions,
         codes,
-        family_of(profile.Family),
+        family,
         profile.SizeA.Value,
         profile.SizeB.Value,
     )

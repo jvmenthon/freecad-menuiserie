@@ -299,7 +299,7 @@ def test_reouverture_a_l_identique(document: Any, board: Any, rouvrir: Reopen) -
         "Ogee",
         8.0,
     )
-    assert reopened.Version == 1
+    assert reopened.Version == 2  # 2 : arêtes natives (ADR 0063)
     assert reopened.Part == doc.getObject(names[0])
     machined = doc.getObject(names[2])
     assert machined.Finishes == [reopened]
@@ -380,3 +380,20 @@ def test_profil_sur_l_hote_d_un_onglet_reste_jointif(document: Any) -> None:
     assert host.isValid() and len(host.Solids) == 1
     assert host.common(guest).Volume == pytest.approx(0, abs=1e-6)
     assert host.Volume < before
+
+
+def test_profil_de_version_1_migre_sans_perte(document: Any, board: Any, rouvrir: Reopen) -> None:
+    """Un profil du jalon 1 (sans ``EdgeRefs``) se rouvre en version 2, ses codes intacts."""
+    blank = board(document)
+    profile, _ = api.add_edge_profile(blank, ["Z+Y-"], "Round", 2.0)
+    volume = machined_of(blank).Shape.Volume
+    name, blank_name = profile.Name, blank.Name
+    profile.removeProperty("EdgeRefs")
+    profile.Version = 1
+    doc = rouvrir(document)
+    restored = doc.getObject(name)
+    assert restored.Version == 2
+    assert not restored.EdgeRefs
+    assert list(restored.Edges) == ["Z+Y-"]
+    doc.recompute()
+    assert machined_of(doc.getObject(blank_name)).Shape.Volume == pytest.approx(volume, rel=1e-9)

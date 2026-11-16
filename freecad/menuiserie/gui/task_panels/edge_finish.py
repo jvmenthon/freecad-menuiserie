@@ -28,8 +28,8 @@ from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.edges import BROKEN_EDGE_MM, EdgeFamily, SecondSize, family_for
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.box_parts import box_part_refusal
-from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
+from freecad.menuiserie.features.box_parts import is_box_part
+from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges, native_shape
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.gui.edge_highlight import EdgeHighlight
@@ -42,7 +42,8 @@ from freecad.menuiserie.gui.task_panels.base import (
     connect,
     length_spinbox,
 )
-from freecad.menuiserie.gui.task_panels.edge_targets import PieceList
+from freecad.menuiserie.gui.task_panels.edge_rows import NativeCard
+from freecad.menuiserie.gui.task_panels.edge_targets import Card, PieceList
 from freecad.menuiserie.gui.view_providers.edge_profile import ICON
 
 FORM_NAME: Final = "EdgeFinishTaskPanel"
@@ -170,7 +171,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             self._size_b.setProperty("rawValue", profile.SizeB.Value)
             self._asymmetric = profile.SizeB.Value not in (0.0, profile.SizeA.Value)
             card = self.pieces.add(profile.Part, removable=False)
-            card.set_codes(profile.Edges, silently=True)
+            card.set_codes(designated_edges(profile), silently=True)
         self._profiles[profile.Part.Name] = profile.Name
 
     def _needs_size_b(self) -> bool:
@@ -200,7 +201,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
     def on_pick(self, pick: Pick) -> None:
         """Pièce, face, arête ou sommet cliqué dans la vue 3D : la pièce s'ajoute à la liste
         (une pièce qui n'est pas une boîte est refusée), ses arêtes désignées sont choisies."""
-        refusal = box_part_refusal(pick.part)
+        refusal = _pick_refusal(pick.part)
         if refusal is not None:
             self._show_message(refusal)
             return
@@ -231,7 +232,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         """Arêtes de ``part`` profilées par un profil qui n'est pas celui du panneau."""
         mine = self._profile_of(part.Name)
         return {
-            code for other in api.edge_profiles_of(part) if other != mine for code in other.Edges
+            code
+            for other in api.edge_profiles_of(part)
+            if other != mine
+            for code in designated_edges(other)
         }
 
     def rebuild(self, *_changed: object) -> None:
@@ -264,7 +268,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             messages.append(translated(_CONFLICT_NOTE, {"edges": " ; ".join(conflicts)}))
         self._show_message("\n".join(messages))
         self._highlight.show(
-            [(card.part, card.codes(), card.color) for card in self.pieces.cards()]
+            [
+                (card.part, card.codes(), card.color, _edge_colors(card))
+                for card in self.pieces.cards()
+            ]
         )
 
     def _preview(self, part: DocumentObject, free: list[str], conflicts: bool) -> tuple[str, ...]:
@@ -365,6 +372,23 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         box.setText(translated(_REPLACE_TEXT, {"edges": conflicts}))
         box.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
         return bool(box.exec() == QtGui.QMessageBox.Yes)
+
+
+def _pick_refusal(part: DocumentObject) -> str | None:
+    """Raison traduite pour laquelle ``part`` ne peut pas recevoir de profil : une boîte est
+    toujours acceptée ; une pièce dessinée l'est si ses arêtes peuvent être suivies (ADR 0063)."""
+    if is_box_part(part):
+        return None
+    try:
+        native_shape(part)
+    except ValueError as error:
+        return str(error)
+    return None
+
+
+def _edge_colors(card: Card) -> dict[str, str]:
+    """Couleur propre de chaque arête d'une pièce dessinée ; aucune pour une boîte."""
+    return card.edge_colors() if isinstance(card, NativeCard) else {}
 
 
 def show_panel(picks: Sequence[Pick] = (), refusals: Sequence[str] = ()) -> None:

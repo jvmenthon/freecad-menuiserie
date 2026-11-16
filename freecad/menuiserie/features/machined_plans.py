@@ -74,7 +74,8 @@ def machining_of(
 def finishes_of(obj: DocumentObject, blank: DocumentObject) -> list[Extrusion]:
     """Coupes des profils d'arête de ``blank`` ; ``ValueError`` traduite si une finition n'est
     pas un profil de la brute, :class:`JointFailedError` si l'un d'eux est impossible (il
-    signale lui-même son erreur)."""
+    signale lui-même son erreur). Une arête native perdue après une modification de la pièce
+    est ignorée : son profil la signale lui-même et le reste de la pièce suit (ADR 0063, Q3)."""
     profiles: list[Extrusion] = []
     if len(obj.Finishes) > MAX_FINISHES:
         raise ValueError(translated(_TOO_MANY_FINISHES, {"label": quoted_value(obj.Label)}))
@@ -84,7 +85,7 @@ def finishes_of(obj: DocumentObject, blank: DocumentObject) -> list[Extrusion]:
         if finish.Part != blank:
             raise ValueError(translated(_FINISH_MISMATCH, {"label": quoted_value(finish.Label)}))
         try:
-            profiles.extend(edge_cuts(finish))
+            profiles.extend(edge_cuts(finish, skip_lost=True))
         except ValueError:
             raise JointFailedError from None
     return profiles

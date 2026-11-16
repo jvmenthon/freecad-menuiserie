@@ -5,6 +5,9 @@ Une pièce (brute ou usinée), une face, une arête ou un sommet désigne la pi�
 l'élément, des arêtes : une face donne ses 4 arêtes, une arête elle-même, un sommet les 3 arêtes
 du coin ; une pièce seule ne désigne aucune arête. On rapproche le centre de l'élément de la
 boîte brute (:func:`~freecad.menuiserie.core.edges.edges_at`) ; seuls les codes sont transmis.
+Pour une pièce dessinée qui n'est pas une boîte (ADR 0063), l'élément cliqué est rapporté aux
+arêtes natives de sa brute (``"Edge7"``) : une face donne tout son contour, une arête elle-même
+et ses arêtes tangentes (Alt+clic : elle seule), un sommet les arêtes qui s'y rejoignent.
 Lecture de la sélection à l'ouverture du panneau, puis un observateur de sélection posé
 **seulement pendant que le panneau est ouvert** (ADR 0007, § 3 : rien de permanent).
 """
@@ -17,13 +20,20 @@ from typing import Any, NamedTuple
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
-from PySide import QtCore
+from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.edges import edges_at
 from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.features.box_parts import is_box_part
+from freecad.menuiserie.features.edge_frames import (
+    MAX_NATIVE_EDGES,
+    edge_name,
+    face_edge_names,
+    tangent_chain,
+)
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import is_machined_part
-from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.features.shaped_part import base_shape_of, is_timber
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
 __all__ = ["EdgePicker", "Pick", "part_of", "pick_at", "selected_picks"]
@@ -47,8 +57,9 @@ def part_of(target: DocumentObject) -> DocumentObject | None:
     return target if is_timber(target) else None
 
 
-def _pick_of(target: DocumentObject, sub: str) -> Pick | None:
-    """Cibles de l'élément ``sub`` (``"Face3"``, ``""`` pour la pièce entière) de ``target``."""
+def _pick_of(target: DocumentObject, sub: str, clicked: Any = None) -> Pick | None:
+    """Cibles de l'élément ``sub`` (``"Face3"``, ``""`` pour la pièce entière) de ``target`` ;
+    ``clicked`` : point cliqué, en coordonnées globales, s'il est connu."""
     part = part_of(target)
     if part is None:
         return None
@@ -56,12 +67,56 @@ def _pick_of(target: DocumentObject, sub: str) -> Pick | None:
     if kind not in _KINDS:
         return Pick(part, ()) if not sub else None
     element = target.Shape.getElement(sub)
+    if not is_box_part(part):
+        if clicked is not None:  # point cliqué : global, ramené au repère de la pièce
+            point = part.getGlobalPlacement().inverse().multVec(clicked)
+        else:  # centre de l'élément : repère du conteneur, comme ``target.Shape``
+            center = element.Point if kind == "Vertex" else element.CenterOfMass
+            if kind == "Edge":
+                center = element.valueAt((element.FirstParameter + element.LastParameter) / 2)
+            point = part.Placement.inverse().multVec(center)
+        return Pick(part, _native_names(target, part, kind, sub, point))
     center = element.Point if kind == "Vertex" else element.CenterOfMass
     # ``target.Shape`` est dans le repère du conteneur de la pièce (Std Part non compris) : seul
     # ``Placement`` est défait ici, pas ``getGlobalPlacement()`` (qui sert à la vue 3D).
     local = part.Placement.inverse().multVec(center)
     point, dimensions = Vec3(local.x, local.y, local.z), dimensions_of(part)
     return Pick(part, tuple(e.code for e in edges_at(dimensions, kind, point)))
+
+
+def _alt_pressed() -> bool:
+    modifiers = QtGui.QApplication.keyboardModifiers()
+    return bool(modifiers & QtCore.Qt.KeyboardModifier.AltModifier)
+
+
+def _nearest(candidates: list[Any], point: Any) -> int:
+    """Rang (1..n) du candidat le plus proche du point ``point`` (formes ``Part``)."""
+    probe = Part.Vertex(point)
+    distances = [probe.distToShape(candidate)[0] for candidate in candidates]
+    return distances.index(min(distances)) + 1
+
+
+def _native_names(
+    target: DocumentObject, part: DocumentObject, kind: str, sub: str, point: Any
+) -> tuple[str, ...]:
+    """Arêtes natives de la brute ``part`` désignées par l'élément ``sub`` de ``target`` (la
+    brute elle-même, ou sa pièce usinée, dont les éléments sont rapportés à la brute par
+    ``point``, dans le repère de la pièce : la pièce usinée est au placement de sa brute)."""
+    base = base_shape_of(part)
+    if kind == "Face":
+        face = sub if target == part else f"Face{_nearest(base.Faces, point)}"
+        return tuple(face_edge_names(base, face))
+    if kind == "Vertex":
+        index = _nearest(base.Vertexes, point)
+        vertex = base.Vertexes[index - 1]
+        return tuple(
+            edge_name(rank)
+            for rank, edge in enumerate(base.Edges, start=1)
+            if any(vertex.isSame(end) for end in edge.Vertexes)
+        )[:MAX_NATIVE_EDGES]
+    index = int(sub[len("Edge") :]) if target == part else _nearest(base.Edges, point)
+    chain = [index] if _alt_pressed() else tangent_chain(base, index)
+    return tuple(edge_name(rank) for rank in chain)
 
 
 def _resolve(top: DocumentObject, sub: str) -> tuple[DocumentObject, str] | None:
@@ -79,12 +134,12 @@ def _resolve(top: DocumentObject, sub: str) -> tuple[DocumentObject, str] | None
     return leaf, element
 
 
-def pick_at(document: App.Document, top_name: str, sub: str) -> Pick | None:
+def pick_at(document: App.Document, top_name: str, sub: str, clicked: Any = None) -> Pick | None:
     """Cibles de l'élément ``sub`` de l'objet ``top_name`` du document, la pièce pouvant être
     rangée dans un ensemble (chemin de noms dans ``sub``) ; ``None`` pour tout autre élément."""
     top = document.getObject(top_name)
     resolved = None if top is None else _resolve(top, sub)
-    return None if resolved is None else _pick_of(*resolved)
+    return None if resolved is None else _pick_of(*resolved, clicked)
 
 
 def selected_picks() -> list[Pick]:
@@ -92,8 +147,9 @@ def selected_picks() -> list[Pick]:
     faces, arêtes et sommets d'une même pièce sont fusionnés."""
     picks: dict[str, Pick] = {}
     for item in Gui.Selection.getSelectionEx():
-        for sub in item.SubElementNames or [""]:
-            pick = _pick_of(item.Object, sub)
+        points = list(item.PickedPoints)
+        for rank, sub in enumerate(item.SubElementNames or [""]):
+            pick = _pick_of(item.Object, sub, points[rank] if rank < len(points) else None)
             if pick is None:
                 continue
             base = picks.get(pick.part.Name, Pick(pick.part, ()))
@@ -134,11 +190,11 @@ class EdgePicker:
         """Rappel de FreeCAD : un élément a été sélectionné. Seul un élément d'une pièce de bois
         compte ; la sélection est alors vidée (la pièce n'est pas laissée en surbrillance) et les
         cibles transmises hors du rappel."""
-        del pos
         if not self._active or doc != self._document_name:
             return
         try:
-            pick = pick_at(App.getDocument(self._document_name), obj, sub)
+            clicked = App.Vector(*pos) if pos and len(pos) == 3 else None
+            pick = pick_at(App.getDocument(self._document_name), obj, sub, clicked)
         except (RuntimeError, ValueError, Part.OCCError):  # élément périmé : clic ignoré
             pick = None
         if pick is None:

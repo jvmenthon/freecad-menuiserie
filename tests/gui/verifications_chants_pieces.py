@@ -242,7 +242,7 @@ def _piece_refusee(doc: Any) -> list[str]:
     QtGui.QApplication.processEvents()
     erreur = widget(form, "errorLabel")
     problemes = [
-        *ecarts("refus affiché", "simple boîte" in erreur.text(), True),
+        *ecarts("refus affiché", "noms d'éléments stables" in erreur.text(), True),
         *ecarts("pas de carte pour la pièce refusée", _a_une_carte(form, forme), False),
     ]
     annuler()
@@ -258,7 +258,8 @@ def _a_une_carte(form: Any, part: Any) -> bool:
 
 
 def verifier_piece_refusee_pendant_la_tache() -> list[str]:
-    """Une pièce qui n'est pas une boîte, cliquée pendant la tâche : refus affiché, pas de carte."""
+    """Une pièce dessinée sans noms d'arêtes stables (primitive ``Part``), cliquée pendant la
+    tâche : refus affiché, pas de carte (ADR 0063)."""
     return avec_document("VerifChantsRefusee", _piece_refusee)
 
 
