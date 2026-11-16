@@ -15,6 +15,7 @@ lui-même. Aucun import de ``FreeCADGui``.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import FreeCAD as App
 
@@ -89,9 +90,65 @@ def _blocker(group: Sequence[DocumentObject], fixed: Sequence[DocumentObject]) -
     return None
 
 
-def _move(parts: Sequence[DocumentObject], shift: Sequence[float]) -> None:
-    for part in parts:
-        shift_part(part, App.Vector(*shift))
+@dataclass(frozen=True)
+class FollowPlan:
+    """Pièces qui suivent la face d'une pièce dont l'épaisseur change, choisies sur la pièce à son
+    épaisseur et son placement d'avant (``before``) : ``moved`` les pièces qui suivent (groupes
+    assemblés de proche en proche), ``kept`` les racines laissées en place, par raison."""
+
+    before: PlacedBlock
+    lowered: bool
+    moved: tuple[DocumentObject, ...]
+    kept: dict[str, list[DocumentObject]]
+
+    def shift(self, delta: float) -> App.Vector:
+        """Translation des pièces qui suivent pour un écart d'épaisseur ``delta`` mm."""
+        vector = follow_shift(self.before, -delta if self.lowered else delta)
+        return App.Vector(vector.x, vector.y, vector.z)
+
+    def apply(self, delta: float) -> None:
+        """Pièces qui suivent déplacées de l'écart ``delta``, depuis leur placement actuel."""
+        if delta == 0.0:
+            return
+        shift = self.shift(delta)
+        for piece in self.moved:
+            shift_part(piece, shift)
+
+    def messages(self, part: DocumentObject) -> list[str]:
+        """Messages de la vue rapport : pièces qui ont suivi, pièces laissées en place."""
+        label = quoted_value(part.Label)
+        messages = [
+            translated(_KEPT, {"label": label, "kept": quoted_parts(roots), "reason": reason})
+            for reason, roots in self.kept.items()
+        ]
+        if self.moved:
+            followers = quoted_parts(self.moved)
+            messages.insert(0, translated(_FOLLOWED, {"label": label, "followers": followers}))
+        return messages
+
+
+def follow_plan(
+    part: DocumentObject, thickness: float, *, lowered: bool = False
+) -> FollowPlan | None:
+    """Pièces posées sur la face haute de ``part`` (face basse si ``lowered``), prise à
+    l'épaisseur ``thickness`` et à son placement actuel ; ``None`` sans assemblage."""
+    if not has_joints(part):
+        return None
+    size = dimensions_of(part)
+    dimensions = Dimensions(size.length, size.width, thickness)
+    before = PlacedBlock(dimensions, rigid_transform(part.Placement))
+    partners = _partners(part, before, lowered)
+    fixed = [other for other, raised in partners if not raised]
+    moved: list[DocumentObject] = []
+    kept: dict[str, list[DocumentObject]] = {}
+    for root in (other for other, raised in partners if raised):
+        group = attached(root, part)
+        reason = _blocker(group, fixed)
+        if reason is not None:
+            kept.setdefault(reason, []).append(root)
+        else:
+            moved.extend(piece for piece in group if piece not in moved)
+    return FollowPlan(before, lowered, tuple(moved), kept)
 
 
 def follow_thickness(
@@ -102,32 +159,11 @@ def follow_thickness(
     en place avec la raison. ``lowered`` : l'épaisseur est ajoutée du côté de la face basse
     (ADR 0060) ; ce sont les pièces posées contre elle qui la suivent, ``part`` étant encore à
     son placement d'avant. Sans effet si rien ne change ou si ``part`` n'a pas d'assemblage."""
-    if old == new or not has_joints(part):
+    plan = follow_plan(part, old, lowered=lowered) if old != new else None
+    if plan is None:
         return []
-    size = dimensions_of(part)
-    before = PlacedBlock(Dimensions(size.length, size.width, old), rigid_transform(part.Placement))
-    partners = _partners(part, before, lowered)
-    fixed = [other for other, raised in partners if not raised]
-    shift = follow_shift(before, old - new if lowered else new - old)
-    moved: list[DocumentObject] = []
-    kept: dict[str, list[DocumentObject]] = {}
-    for root in (other for other, raised in partners if raised):
-        group = attached(root, part)
-        reason = _blocker(group, fixed)
-        if reason is not None:
-            kept.setdefault(reason, []).append(root)
-        elif root not in moved:
-            _move([piece for piece in group if piece not in moved], (shift.x, shift.y, shift.z))
-            moved.extend(piece for piece in group if piece not in moved)
-    label = quoted_value(part.Label)
-    messages = [
-        translated(_KEPT, {"label": label, "kept": quoted_parts(roots), "reason": reason})
-        for reason, roots in kept.items()
-    ]
-    if moved:
-        followers = quoted_parts(moved)
-        messages.insert(0, translated(_FOLLOWED, {"label": label, "followers": followers}))
-    return messages
+    plan.apply(new - old)
+    return plan.messages(part)
 
 
 def report_following(part: DocumentObject, old: float, new: float) -> None:

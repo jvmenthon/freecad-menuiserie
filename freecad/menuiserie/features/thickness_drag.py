@@ -29,6 +29,7 @@ from freecad.menuiserie.core.part_model import MIN_DIMENSION_MM, Dimensions
 from freecad.menuiserie.core.thickness_side import Extension, flush_extension, other_side_shift
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.furniture_entry import write_placement
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.joints.plan_cache import cached_plan
@@ -45,8 +46,10 @@ from freecad.menuiserie.features.thickness_common import (
     other_part,
     quoted,
     restore_state,
+    shift_part,
     size_state,
 )
+from freecad.menuiserie.features.thickness_follow import follow_plan
 
 __all__ = ["DragFollow", "FaceFollows", "drag_follow"]
 
@@ -96,6 +99,14 @@ class DragFollow:
         self._before = placed_blank(part)
         self._delta = 0.0
         self.followers = self._find()
+        names = {follower.part.Name for follower in self.followers}
+        plan = follow_plan(part, self.old, lowered=lowered)  # posées sur la face (#133)
+        self._plan = plan
+        self._resting = {  # placement du début des pièces qui suivent la face sans s'allonger
+            piece.Name: (piece, App.Placement(piece.Placement))
+            for piece in (plan.moved if plan is not None else ())
+            if piece.Name not in names
+        }
 
     def _probe(self) -> PlacedBlock:
         """``part`` épaissie de :data:`_PROBE_MM` du côté de la face tirée."""
@@ -142,13 +153,21 @@ class DragFollow:
         """Pièces suivies rendues à leur état du début."""
         for follower in self.followers:
             restore_state(follower.part, follower.sizes, follower.placement)
+        for piece, placement in self._resting.values():
+            if not piece.Placement.isSame(placement, 1e-9):
+                write_placement(piece, placement)
         self._delta = 0.0
+
+    @property
+    def parts(self) -> list[DocumentObject]:
+        """Pièces que le suivi écrit : prolongées ou déplacées (à recalculer pour l'aperçu)."""
+        return [f.part for f in self.followers] + [p for p, _ in self._resting.values()]
 
     def follow(self, delta: float) -> str:
         """Écart ``delta`` (mm) de l'épaisseur tirée : les pièces suivent ; renvoie la raison de
         la butée (traduite) si l'une ne le peut pas, rien n'étant alors prolongé."""
         self.restore()
-        if delta == 0.0 or not self.followers:
+        if delta == 0.0 or not self.parts:
             return ""
         for follower in self.followers:
             reason = follower.reason
@@ -159,6 +178,10 @@ class DragFollow:
                 return translated(_STOP, {"reason": reason})
         for follower in self.followers:
             extend_part(follower.part, follower.extension, delta)
+        if self._resting and self._plan is not None:  # posées sur la face : elles la suivent
+            shift = self._plan.shift(delta)
+            for piece, _ in self._resting.values():
+                shift_part(piece, shift)
         self._delta = delta
         return ""
 
@@ -176,7 +199,8 @@ class DragFollow:
             return []
         delta = length_text(self._delta)
         change = translated(_LONGER if self._delta > 0 else _SHORTER)
-        return [
+        resting = self._plan.messages(self.part) if self._plan is not None else []
+        return resting + [
             translated(
                 _FOLLOWED,
                 {
@@ -228,8 +252,8 @@ class FaceFollows:
             return ""
         try:
             stop = follow.follow(delta)
-            for follower in follow.followers:
-                recompute(follower.part)
+            for piece in follow.parts:
+                recompute(piece)
         except Exception:  # jamais de pièce suivie à moitié prolongée
             self.restore(recompute)
             raise
@@ -239,8 +263,12 @@ class FaceFollows:
         """Échap : pièces suivies rendues à leur état du début, aperçu par ``recompute``."""
         for follow in self._all():
             follow.restore()
-            for follower in follow.followers:
-                recompute(follower.part)
+            for piece in follow.parts:
+                recompute(piece)
+
+    def parts(self) -> list[DocumentObject]:
+        """Pièces que les suivis écrivent (aperçu)."""
+        return [piece for follow in self._all() for piece in follow.parts]
 
     def messages(self) -> list[str]:
         """Messages de la vue rapport au relâchement : pièces qui ont suivi."""

@@ -10,15 +10,12 @@ mises de côté au début ; au relâchement tout l'ensemble est relié (ADR 0019
 formule de l'utilisateur n'est jamais retirée : elle rend l'axe non glissable
 (:class:`DragLimits`). L'épaisseur ne se tire que sur le massif (Q4, amendée le 2026-10-26) ; pour
 un membre d'ensemble elle est traitée comme une épaisseur saisie dans le panneau
-(:func:`_relink_thickness`). Aucun import de ``FreeCADGui`` ; la transaction et la vue rapport
-sont l'affaire de ``gui/``.
+(:func:`_relink_thickness`). Aucun import de ``FreeCADGui`` (transaction, vue rapport : ``gui/``).
 
 Points d'extension :
 
-- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin (sorties), donc pas de
-  poignée (:func:`can_resize`, seul endroit qui décide des poignées d'une pièce) ; elle se
-  déplace comme une pièce de bois, par ``Placement`` ; la famille (massif ou panneau) ne décide
-  que de l'épaisseur (:func:`_solid`) ;
+- pièce en bois (``ShapedPart``, #87) : cotes du dessin, pas de poignée (:func:`can_resize`) ;
+  elle se déplace par ``Placement`` ; la famille ne décide que de l'épaisseur (:func:`_solid`) ;
 - Distance gardée (DI-c, B6) : au relâchement, la ``Value`` des Distances de la pièce prend la
   distance nouvelle (:func:`end_drag`, avant la liaison de l'ensemble) ; Échap la rétablit.
 """
@@ -222,18 +219,20 @@ def write_placement(raw: DocumentObject, placement: App.Placement) -> None:
 
 
 def _recompute_machined(raw: DocumentObject) -> None:
-    """Recalcule la pièce usinée de ``raw`` (affichage pendant le glissement), sauf si l'un de ses
-    assemblages ne tient plus : son ``execute()`` lèverait à chaque appel et FreeCAD imprimerait
-    sa trace à chaque image. Le recalcul du document au relâchement la reprend et prévient
-    (:func:`end_drag`, B7)."""
+    """Recalcule les assemblages et la pièce usinée de ``raw`` (aperçu du glissement), sauf si
+    l'un ne tient plus (sa trace serait imprimée à chaque image) : le recalcul du document au
+    relâchement le reprend et prévient (:func:`end_drag`, B7)."""
     machined = machined_part_of(raw)
     if machined is None:
         return
-    for joint in getattr(machined, "Joints", ()):
+    joints = list(getattr(machined, "Joints", ()))
+    for joint in joints:
         try:
             plan_for(joint)
         except ValueError:
             return
+    for joint in joints:
+        joint.recompute()
     machined.recompute()
 
 
@@ -295,13 +294,14 @@ def resize_part(
     if prop not in SIZE_PROPS or SIZE_PROPS.index(prop) not in allowed:
         raise ValueError(translated(_FIXED_SIZE, {"label": str(memento.part.Label)}))
     raw = memento.part
-    stop = ""
-    if prop == "Thickness":
-        stop = _resize_thickness(memento, value, origin_shift, lowered)
-    else:
+    thick = prop == "Thickness"
+    stop = _resize_thickness(memento, value, origin_shift, lowered) if thick else ""
+    if not thick:
         _write_size(memento, prop, value, origin_shift)
     raw.recompute()
     _recompute_machined(raw)
+    for piece in memento.follows.parts():  # pièces suivies : usinages à jour (ADR 0060)
+        _recompute_machined(piece)
     return stop
 
 
