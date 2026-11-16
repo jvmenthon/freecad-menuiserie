@@ -90,7 +90,7 @@ def verifier_assemblage_suit_le_caisson_deplace() -> list[str]:
         doc.recompute()
         if joint is None:
             return ["assemblage non créé"]
-        caisson.Placement = App.Placement(App.Vector(DECALAGE + 500, 0, 0), App.Rotation())
+        caisson.Placement = App.Placement(App.Vector(DECALAGE, 0, 500), App.Rotation())
         problemes = ecarts("assemblage touché par le déplacement", "Touched" in joint.State, True)
         doc.recompute()
         problemes += ecarts(

@@ -45,6 +45,11 @@ conteneur.
 
 ## Conséquences
 
+- Un assemblage reste dans le conteneur de son **hôte** : quand une pièce entre dans un ensemble
+  (Std Part), seuls les assemblages dont elle est l'hôte la suivent (`bundle`). Une pièce libre
+  assemblée à un membre n'est plus rangée avec lui dans le Std Part (ses liens sont globaux) et
+  n'est plus signalée à l'entrée (`taken_along` ne suit plus les assemblages).
+
 - Un assemblage entre tiroir et caisson donne la même forme qu'entre pièces d'un même conteneur.
 - Non testé dans FreeCAD pendant la rédaction (pas de FreeCAD dans la session) : tests
   d'intégration `test_assemblage_std_parts.py` en CI.

@@ -44,7 +44,7 @@ def test_assemblage_suit_le_std_part_deplace(cadre: Cadre) -> None:
     child = _nested(cadre)
     joint = api.make_mortise_tenon(cadre.parts["M1"], cadre.parts["T1"])
     cadre.doc.recompute()
-    child.Placement = App.Placement(App.Vector(SHIFT + 500, 0, 0), App.Rotation())
+    child.Placement = App.Placement(App.Vector(SHIFT, 0, 500), App.Rotation())
     touch_framed_joints(child)  # fait par l'observateur de gui/drag quand l'atelier est actif
     cadre.doc.recompute()
     assert "Invalid" in joint.State  # les pièces ne se touchent plus : l'assemblage a été recalculé

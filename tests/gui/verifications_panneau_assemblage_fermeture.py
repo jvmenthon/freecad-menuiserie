@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+import FreeCAD as App
 import FreeCADGui as Gui
 
 from tests.gui.aides_panneau import transaction_ouverte
@@ -86,11 +87,13 @@ def verifier_aucun_observateur_apres_le_panneau() -> list[str]:
 
 
 def verifier_refus_visible() -> list[str]:
-    """S3 : pièces refusées par la fabrique (deux conteneurs différents) : rien n'est créé,
-    le refus est affiché dans la barre d'état."""
+    """S3 : assemblage impossible (pièces éloignées qui ne se touchent pas) : rien n'est créé,
+    le refus est affiché dans la barre d'état. (Avant l'ADR 0054, le cas était deux conteneurs
+    différents, désormais acceptés.)"""
     with cadre("VerifRefusVisible") as (doc, pieces):
-        conteneur = doc.addObject("App::Part", "Conteneur")
-        conteneur.addObject(pieces["T1"])
+        place = pieces["T1"].Placement
+        pieces["T1"].Placement = App.Placement(place.Base + App.Vector(0, 0, 1000), place.Rotation)
+        doc.recompute()
         doc.clearUndos()
         selectionner(pieces["M1"], pieces["T1"])
         barre = Gui.getMainWindow().statusBar()
