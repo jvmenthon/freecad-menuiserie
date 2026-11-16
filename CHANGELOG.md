@@ -44,6 +44,25 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Finition des chants, lot CH-a (#5, ADR 0029) : règles pures des profils d'arête (12 arêtes par
+  code local, chanfrein, quart de rond, arête cassée, gorge, demi-rond, bec-de-corbin, doucine) et
+  section balayée `Extrusion`.
+- Finition des chants, lot CH-b (#5, ADR 0029) : objet `EdgeProfile`, propriété `Finishes` de la pièce
+  usinée (modèle 2, migration sans perte), profils soustraits avant les assemblages, avertissement
+  « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
+  `edge_profiles_of` de l'API.
+- Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
+  arêtes choisies d'après la face, l'arête ou le sommet sélectionné, cote B
+  seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
+  aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
+  Une pièce en bois à forme dessinée est acceptée quand sa forme est une boîte (jugée sur
+  l'encombrement exact : une copie ou un corps dessiné de biais n'est plus refusé).
+  La commande est active sans sélection (on désigne pièces, faces ou arêtes dans la vue 3D).
+  Liste « Pièces concernées » : une carte par pièce (couleur, nom, nombre d'arêtes, croix), un
+  profil par pièce dans une seule entrée d'annulation, arêtes choisies sur un patron déplié ou
+  une boîte en perspective (faces cachées hachurées « cachée »), bascule mémorisée ; arêtes
+  choisies mises en valeur dans la vue 3D à la couleur de chaque pièce (incrustation, rien dans
+  le document).
 - Coplanarité (ADR 0058, demande de jv) : pendant un glissement par une flèche (déplacement ou copie Ctrl), une face qui arrive au ras d'une face d'un autre meuble s'y aimante et les deux faces s'allument en magenta, comme l'aimantation ; une poignée montre aussi les faces au ras. Dans le panneau « Répéter », les faces des copies au ras d'une pièce voisine sont tracées à chaque saisie : on voit quand le pas est le bon. Maj coupe l'aimant comme avant.
 - Commande « Aligner deux faces » (clic droit sur deux faces de deux objets) : un panneau aligne la seconde pièce en direct, avec la position automatique (au ras ou face contre face, la plus petite rotation), au ras, face contre face ou d'équerre, un décalage sur les trois axes de la face de référence, un déplacement libre ou sur un seul axe (X, Y ou Z, sans rotation), trois boutons « Centrer sur X, Y, Z » (les trois d'un coup confondent les centres des deux faces ; la pièce est aussi rendue parallèle à l'autre), un bouton « Inverser » (échange la pièce pilotée et la pilotante) et « Annuler » qui remet tout en place. Nouvelle fonction `api.align_faces(first, second, mode="auto", offset=(0, 0, 0), axis=None, centered="")` (ADR 0054).
 - Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).

@@ -15,11 +15,13 @@ from typing import Any, Final
 import FreeCAD as App
 import Part
 
+from freecad.menuiserie.core._extrusion import Extrusion
 from freecad.menuiserie.core._polyhedron import PlanSolid, Polyhedron, SlantedCylinder
 from freecad.menuiserie.core.geometry import Box, Cylinder, Prism, RigidTransform
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.vectors import norm
+from freecad.menuiserie.features.extrusion_shape import extrusion_shape
 from freecad.menuiserie.features.i18n import translated
 
 __all__ = [
@@ -44,9 +46,10 @@ _INVALID_SHAPE: Final = QT_TRANSLATE_NOOP(
 # d'objets d'un document (jamais de collision avec l'historique d'une forme dessinée), sous 2³¹
 # (``long`` de 32 bits sous Windows). Étiquettes fixées par la position : deux usinages égaux
 # donnent la même forme et les mêmes noms (cache des formes usinées) ; une plage par groupe
-# (parties retirées, ajouts, enlèvements), pour qu'un ajout ne renomme pas les enlèvements.
+# (parties retirées, ajouts, enlèvements, profils d'arête), pour qu'un ajout ne renomme pas
+# les enlèvements.
 _BASE_TAG: Final = 1 << 30
-_GROUP_TAGS: Final = 1 << 20  # au plus 2^20 - 1 solides par groupe : 2^30 + 3 * 2^20 < 2^31
+_GROUP_TAGS: Final = 1 << 20  # au plus 2^20 - 1 solides par groupe : 2^30 + 4 * 2^20 < 2^31
 _TOO_MANY_TOOLS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Usinage impossible : trop d'usinages d'un même genre sur la pièce ({count})."
 )
@@ -163,20 +166,29 @@ def machined_shape(
     additions: Sequence[PlanSolid],
     cuts: Sequence[PlanSolid],
     trims: Sequence[PlanSolid] = (),
+    edge_cuts: Sequence[Extrusion] = (),
 ) -> Any:
     """Forme de base de la pièce (sa boîte pour une pièce de bois, sa forme dessinée pour une
-    pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016),
-    plus ``additions``, moins ``cuts``, faces coplanaires fusionnées, avec une carte des éléments
-    (ADR 0056 ; ``base`` n'est pas modifiée). ``ValueError`` traduite si OCC échoue ou si le
-    résultat n'est pas un solide valide (jamais de forme partielle)."""
+    pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016) et
+    moins les profils d'arête ``edge_cuts`` (ADR 0029), plus ``additions``, moins ``cuts``, faces
+    coplanaires fusionnées, avec une carte des éléments (ADR 0056 ; ``base`` n'est pas modifiée).
+    ``ValueError`` traduite si OCC échoue ou si le résultat n'est pas un solide valide (jamais de
+    forme partielle)."""
     shape = base
     try:
         if not shape.Tag:  # boîte, ou forme sans étiquette ; une étiquette existante est gardée
             shape = base.copy()  # jamais d'écriture dans la forme reçue
             shape.Tag = _BASE_TAG
-        trim_tools, addition_tools, cut_tools = _tagged_tools((trims, additions, cuts))
-        if trim_tools:
-            shape = shape.cut(trim_tools)
+        trim_tools, addition_tools, cut_tools, edge_tools = _tagged_tools(
+            (
+                [solid_shape(solid) for solid in trims],
+                [solid_shape(solid) for solid in additions],
+                [solid_shape(solid) for solid in cuts],
+                [extrusion_shape(cut) for cut in edge_cuts],
+            )
+        )
+        if trim_tools or edge_tools:
+            shape = shape.cut(trim_tools + edge_tools)
         if addition_tools:
             shape = shape.fuse(addition_tools)
         if cut_tools:
@@ -192,17 +204,16 @@ def machined_shape(
     return shape
 
 
-def _tagged_tools(groups: Sequence[Sequence[PlanSolid]]) -> list[list[Any]]:
-    """Solides ``Part`` de chaque groupe, étiquetés selon leur groupe et leur rang, pour que la
-    pièce usinée ait une carte des éléments (ADR 0056). ``ValueError`` traduite si un groupe
+def _tagged_tools(groups: Sequence[Sequence[Any]]) -> list[list[Any]]:
+    """Outils ``Part`` de chaque groupe (étiquetés sur place) selon leur groupe et leur rang, pour
+    que la pièce usinée ait une carte des éléments (ADR 0056). ``ValueError`` traduite si un groupe
     dépasse sa plage d'étiquettes (deux outils auraient la même)."""
     tagged: list[list[Any]] = []
     for number, group in enumerate(groups):
         if len(group) >= _GROUP_TAGS:
             raise ValueError(translated(_TOO_MANY_TOOLS, {"count": str(len(group))}))
         shapes = []
-        for rank, solid in enumerate(group, start=1):
-            shape = solid_shape(solid)
+        for rank, shape in enumerate(group, start=1):
             shape.Tag = _BASE_TAG + number * _GROUP_TAGS + rank
             shapes.append(shape)
         tagged.append(shapes)
