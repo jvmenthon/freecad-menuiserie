@@ -39,6 +39,7 @@ from tests.qtest.pieces import (
     cadre,
     erreurs_python,
     piece,
+    retablir_tout,
     tenon_mortaise,
 )
 
@@ -118,6 +119,8 @@ class PieceLibre(ScenarioDeRotation):
         self.verifier_les_angles((0.0, 0.0, 45.0))
         self.verifier_le_centre()
         taper(champ, "0")
+        self.verifier_les_angles((0.0, 0.0, 0.0))
+        self.assertEqual(etendues(self.libre), COTES)
 
     def test_3_quarts_de_tour_x_et_y(self) -> None:
         form = formulaire(PANNEAU_PIECE)
@@ -126,6 +129,11 @@ class PieceLibre(ScenarioDeRotation):
         self.verifier_les_angles((90.0, 0.0, 0.0))
         cliquer(enfant(form, "rotateYButton"))
         self.assertEqual(etendues(self.libre), (COTES[1], COTES[2], COTES[0]))
+        # Les étendues ne distinguent pas +90° de -90° : l'orientation entière est comparée.
+        attendue = App.Rotation(App.Vector(0, 1, 0), 90.0) * App.Rotation(App.Vector(1, 0, 0), 90.0)
+        self.assertTrue(
+            self.libre.Placement.Rotation.isSame(attendue, 1e-9), self.libre.Placement.Rotation
+        )
         self.verifier_le_centre()
         for _ in range(3):
             cliquer(enfant(form, "rotateYButton"))
@@ -137,10 +145,14 @@ class PieceLibre(ScenarioDeRotation):
         self.assertFalse(panneau_ouvert())
         self.assertEqual(len(self.doc.UndoNames), 1, self.doc.UndoNames)
         controler_le_document(self, self.doc)
+        tournee = self.libre.Placement
         lancer("Std_Undo")
         self.doc.recompute()
         self.assertEqual(etendues(self.libre), COTES)
         self.verifier_le_centre()
+        retablir_tout(self.doc)
+        self.assertTrue(self.libre.Placement.isSame(tournee, 1e-9), "rotation non rétablie")
+        controler_le_document(self, self.doc)
         self.assertEqual(erreurs_python(vue_rapport()), [])
 
 
@@ -186,6 +198,10 @@ class PieceAssemblee(ScenarioDeRotation):
         self.doc.recompute()
         (assemblage,) = assemblages(self.doc)
         self.assertTrue(assemblage.isValid(), assemblage.getStatusString())
+        controler_le_document(self, self.doc)
+        retablir_tout(self.doc)
+        self.assertEqual(assemblages(self.doc), [])
+        self.assertAlmostEqual(etendues(self.traverse)[2], self.traverse.Length.Value)
         controler_le_document(self, self.doc)
         self.assertEqual(erreurs_python(vue_rapport()), [])
 
@@ -236,5 +252,11 @@ class PieceDUnEnsemble(ScenarioDeRotation):
         cliquer(bouton_ok())
         self.assertFalse(panneau_ouvert())
         self.assertEqual(len(self.doc.UndoNames), 2, self.doc.UndoNames)
+        controler_le_document(self, self.doc)
+        lancer("Std_Undo")
+        self.doc.recompute()
+        self.assertEqual(etendues(traverse), avant)
+        retablir_tout(self.doc)
+        self.assertEqual(etendues(traverse), (avant[1], avant[0], avant[2]))
         controler_le_document(self, self.doc)
         self.assertEqual(erreurs_python(vue_rapport()), [])

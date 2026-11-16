@@ -35,11 +35,20 @@ from tests.qtest.aides import (
     vue_rapport,
 )
 from tests.qtest.angle_a_queues import controler_le_document, double_cliquer
-from tests.qtest.pieces import AXE_Z, boite_globale, du_type, erreurs_python, face_vers, piece
+from tests.qtest.pieces import (
+    AXE_Z,
+    boite_globale,
+    deplacer,
+    du_type,
+    erreurs_python,
+    face_vers,
+    piece,
+)
 
 ALIGNER = "Menuiserie_AlignFaces"
 DISTANCE = "Menuiserie_SetDistance"
 ENSEMBLE = "Menuiserie_Furniture"
+RELIER = "Menuiserie_FurnitureRebind"
 PANNEAU_ALIGNER = "AlignTaskPanel"
 PANNEAU_DISTANCE = "DistanceTaskPanel"
 PANNEAU_DISTANCE_GARDEE = "KeptDistancePanel"
@@ -115,7 +124,7 @@ class AlignerEtCentrer(Etapes):
         choisir(liste, 0)
         self.assertAlmostEqual(boite_globale(self.mobile).ZMin, EPAISSEUR, delta=TOLERANCE_MM)
 
-    def test_3_centrer_sur_x_puis_y(self) -> None:
+    def test_3_centrer_sur_x_y_puis_z(self) -> None:
         cible = boite_globale(self.fixe).Center
         cliquer(enfant(self.form(), "centerXButton"))
         centre = boite_globale(self.mobile).Center
@@ -126,6 +135,14 @@ class AlignerEtCentrer(Etapes):
         self.assertAlmostEqual(centre.x, cible.x, delta=TOLERANCE_MM)
         self.assertAlmostEqual(centre.y, cible.y, delta=TOLERANCE_MM)
         self.assertAlmostEqual(boite_globale(self.mobile).ZMin, EPAISSEUR, delta=TOLERANCE_MM)
+        # Z est ici la normale des deux faces : l'alignement y garde la main, « Centrer Z »
+        # coché ne déplace rien et ne signale rien.
+        bouton_z = enfant(self.form(), "centerZButton")
+        for coche in (True, False):
+            cliquer(bouton_z)
+            self.assertEqual(bouton_z.isChecked(), coche)
+            self.assertEqual(enfant(self.form(), "errorLabel").text(), "")
+            self.assertTrue(boite_globale(self.mobile).Center.isEqual(centre, TOLERANCE_MM))
 
     def test_4_decalage(self) -> None:
         avant = boite_globale(self.mobile).Center
@@ -154,6 +171,10 @@ class AlignerEtCentrer(Etapes):
         lancer("Std_Undo")
         self.doc.recompute()
         self.assertTrue(self.mobile.Placement.isSame(self.depart, TOLERANCE_MM))
+        lancer("Std_Redo")
+        self.doc.recompute()
+        self.assertFalse(self.mobile.Placement.isSame(self.depart, TOLERANCE_MM))
+        controler_le_document(self, self.doc)
         self.assertEqual(erreurs_python(vue_rapport()), [])
 
 
@@ -203,6 +224,30 @@ class DistanceGardee(Etapes):
         self.assertEqual(len(self.doc.UndoNames), 1, self.doc.UndoNames)
         controler_le_document(self, self.doc)
 
+    def test_1b_la_distance_tient_quand_la_reference_se_deplace(self) -> None:
+        """A retouchée à la main de 50 mm (placement écrit, comme un glissement), puis « Relier
+        les pièces » : C a suivi, l'écart est de nouveau de 100 mm. Deux Ctrl+Z ramènent les
+        deux pièces."""
+        depart = boite_globale(self.mobile).XMin
+        place = App.Placement(self.reference.Placement)
+        place.Base = place.Base + App.Vector(50.0, 0.0, 0.0)
+        deplacer(self.doc, self.reference, place)
+        selectionner(self.ensemble)
+        lancer(RELIER)
+        self.assertAlmostEqual(boite_globale(self.reference).XMin, 50.0, delta=TOLERANCE_MM)
+        self.assertAlmostEqual(self.ecart(), 100.0, delta=TOLERANCE_MM)
+        (distance,) = distances(self.doc)
+        self.assertAlmostEqual(distance.Value.Value, 100.0)
+        self.assertEqual(len(self.doc.UndoNames), 3, self.doc.UndoNames)
+        controler_le_document(self, self.doc)
+        lancer("Std_Undo")
+        lancer("Std_Undo")
+        self.doc.recompute()
+        self.assertAlmostEqual(boite_globale(self.reference).XMin, 0.0, delta=TOLERANCE_MM)
+        self.assertAlmostEqual(boite_globale(self.mobile).XMin, depart, delta=TOLERANCE_MM)
+        self.assertAlmostEqual(self.ecart(), 100.0, delta=TOLERANCE_MM)
+        controler_le_document(self, self.doc)
+
     def test_2_la_distance_tient_quand_l_ensemble_s_elargit(self) -> None:
         longueur = self.reference.Length.Value
         selectionner()
@@ -246,5 +291,10 @@ class DistanceGardee(Etapes):
         lancer("Std_Undo")
         self.doc.recompute()
         self.assertEqual(len(distances(self.doc)), 1)
+        controler_le_document(self, self.doc)
+        lancer("Std_Redo")
+        self.doc.recompute()
+        self.assertEqual(distances(self.doc), [])
+        self.assertAlmostEqual(self.ecart(), 150.0, delta=TOLERANCE_MM)
         controler_le_document(self, self.doc)
         self.assertEqual(erreurs_python(vue_rapport()), [])

@@ -3,7 +3,8 @@
 
 Un corps (une planche avec une encoche) converti par la commande « Convertir en pièce en bois »
 et son panneau, un tenon-mortaise posé dessus, puis le corps allongé : la pièce et l'assemblage
-suivent. Le corps à plusieurs solides (issue #257) viendra avec son lot.
+suivent ; enfin Ctrl+Z et Ctrl+Y sur l'assemblage. Le corps à plusieurs solides (issue #257,
+PR #258 pas encore dans ``main``) viendra avec son lot, comme sa cartographie des noms.
 
 Non simulé : le dessin du corps dans PartDesign (créé et modifié par le script).
 """
@@ -34,7 +35,14 @@ from tests.qtest.aides import (
     vue_rapport,
 )
 from tests.qtest.angle_a_queues import PANNEAU_ASSEMBLAGE, controler_le_document, double_cliquer
-from tests.qtest.pieces import AXE_Z, SECTION, assemblages, erreurs_python, piece
+from tests.qtest.pieces import (
+    AXE_Z,
+    SECTION,
+    assemblages,
+    erreurs_python,
+    piece,
+    retablir_tout,
+)
 
 CONVERTIR = "Menuiserie_ShapedPart"
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
@@ -147,5 +155,16 @@ class PieceDepuisUnCorps(Etapes):
         self.assertFalse(panneau_ouvert())
         self.assertEqual(self.piece_en_bois.Mark, "P1")
         self.assertEqual(self.doc.UndoNames, annulations)
+        controler_le_document(self, self.doc)
+
+    def test_5_annuler_puis_retablir_l_assemblage(self) -> None:
+        lancer("Std_Undo")
+        self.doc.recompute()
+        self.assertEqual(assemblages(self.doc), [])
+        controler_le_document(self, self.doc)
+        retablir_tout(self.doc)
+        (assemblage,) = assemblages(self.doc)
+        self.assertTrue(assemblage.isValid(), assemblage.getStatusString())
+        self.assertEqual(len(usinee_de(self.piece_en_bois).Shape.Solids), 1)
         controler_le_document(self, self.doc)
         self.assertEqual(erreurs_python(vue_rapport()), [])

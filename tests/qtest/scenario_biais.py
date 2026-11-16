@@ -42,7 +42,14 @@ from tests.qtest.angle_a_queues import (
     controler_le_document,
     double_cliquer,
 )
-from tests.qtest.pieces import assemblages, deplacer, erreurs_python, piece, placement_de
+from tests.qtest.pieces import (
+    assemblages,
+    deplacer,
+    erreurs_python,
+    piece,
+    placement_de,
+    retablir_tout,
+)
 from tests.unit.aides_biais import tilted_rail
 
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
@@ -160,8 +167,13 @@ class TenonEnBiais(Etapes):
             lancer("Std_Undo")
         self.assertEqual(self.doc.Objects, [self.montant, self.traverse])
         self.assertAlmostEqual(self.traverse.Width.Value, TRAVERSE[1])
+        depart = placement_de(tilted_rail(BIAIS, "hors tout"))
+        self.assertTrue(self.traverse.Placement.isSame(depart, 1e-9), "traverse pas revenue")
         self.doc.recompute()  # l'annulation de FreeCAD laisse la pièce « à recalculer »
         controler_le_document(self, self.doc)
+        retablir_tout(self.doc)
+        self.assertAlmostEqual(self.traverse.Width.Value, LARGEUR_RETOUCHEE)
+        self.controler_l_assemblage()
         self.assertEqual(erreurs_python(vue_rapport()), [])
 
 

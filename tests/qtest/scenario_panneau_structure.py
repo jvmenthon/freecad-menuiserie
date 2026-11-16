@@ -5,6 +5,7 @@ Commande « Structure », clic sur une ligne (la pièce est sélectionnée) et s
 (sa ligne l'est), puis le menu contextuel d'une ligne : « Renommer… » et sa boîte de saisie,
 « Sortir de l'ensemble », « Supprimer » ; et une pièce glissée à la souris sur la ligne de
 l'ensemble. Chaque action est une entrée d'annulation et l'arbre suit le document.
+La touche F2 n'est pas branchée dans ce panneau : le renommage ne passe que par le menu.
 
 Les lignes de l'arbre sont recréées à chaque rafraîchissement : le scénario ne garde aucune
 ligne, il la retrouve par son texte à chaque geste.
@@ -176,6 +177,11 @@ class PanneauStructure(Etapes):
         lancer("Std_Undo")
         self.assertIsNotNone(self.doc.getObject(nom))
         self.assertTrue(attendre(lambda: any("Tasseau" in ligne for ligne in self.lignes())))
+        self.doc.recompute()
+        controler_le_document(self, self.doc)
+        lancer("Std_Redo")
+        self.assertIsNone(self.doc.getObject(nom), "suppression non rétablie")
+        self.assertTrue(attendre(lambda: not any("Tasseau" in ligne for ligne in self.lignes())))
         self.doc.recompute()
         controler_le_document(self, self.doc)
         self.assertEqual(erreurs_python(vue_rapport()), [])

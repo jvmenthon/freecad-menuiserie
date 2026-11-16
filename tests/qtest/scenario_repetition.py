@@ -36,6 +36,7 @@ from tests.qtest.pieces import (
     commande_active,
     du_type,
     erreurs_python,
+    retablir_tout,
     tenon_mortaise,
 )
 
@@ -151,6 +152,7 @@ class Repetition(Etapes):
         cliquer(bouton_ok())
         self.assertAlmostEqual(self.dissociee.Placement.Base.x, place, delta=TOLERANCE_MM)
         liees = [x for x in self.abscisses() if abs(x - place) > TOLERANCE_MM]
+        self.assertEqual(len(liees), 3, self.abscisses())
         self.assertEqual(liees, [DEPART + 130.0 * rang for rang in range(1, len(liees) + 1)])
         for assemblage in assemblages(self.doc):
             self.assertTrue(assemblage.isValid(), assemblage.Label)
@@ -182,9 +184,14 @@ class Repetition(Etapes):
         self.controler_les_assemblages(3)
 
     def test_6_tout_annuler(self) -> None:
+        copies, abscisses = self.copies(), self.abscisses()
         for _ in self.doc.UndoNames:
             lancer("Std_Undo")
         self.doc.recompute()
         self.assertEqual(self.copies(), [])
         self.controler_les_assemblages(1)
+        retablir_tout(self.doc)
+        self.assertEqual(self.copies(), copies)
+        self.assertEqual(self.abscisses(), abscisses)
+        self.controler_les_assemblages(3)
         self.assertEqual(erreurs_python(vue_rapport()), [])

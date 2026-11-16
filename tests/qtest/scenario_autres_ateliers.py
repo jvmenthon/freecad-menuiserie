@@ -115,8 +115,7 @@ class AutresAteliers(Etapes):
     def test_3_vue_techdraw_de_la_piece_usinee(self) -> None:
         activer(TECHDRAW)
         gabarit = Path(App.getResourceDir()) / "Mod" / "TechDraw" / "Templates" / GABARIT
-        if not gabarit.is_file():
-            self.skipTest(f"gabarit TechDraw absent : {gabarit}")
+        self.assertTrue(gabarit.is_file(), f"gabarit TechDraw absent : {gabarit}")
         page = self.doc.addObject("TechDraw::DrawPage", "Page")
         modele = self.doc.addObject("TechDraw::DrawSVGTemplate", "Gabarit")
         modele.Template = str(gabarit)

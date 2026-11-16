@@ -31,6 +31,7 @@ from tests.qtest.aides import (
     panneau_ouvert,
     preparer,
     selectionner,
+    traiter_les_evenements,
     vider_la_vue_rapport,
     vue_rapport,
 )
@@ -64,6 +65,12 @@ def apercus() -> list[Any]:
     ]
 
 
+def fermer_les_apercus() -> None:
+    for fenetre in apercus():
+        fenetre.close()
+    traiter_les_evenements()
+
+
 class CadreEtDebit(Etapes):
     """Étapes jouées dans l'ordre sur le même document."""
 
@@ -75,6 +82,7 @@ class CadreEtDebit(Etapes):
     def setUpClass(cls) -> None:
         cls.doc = preparer("ScenarioCadreEtDebit")
         cls.addClassCleanup(fermer, cls.doc)
+        cls.addClassCleanup(fermer_les_apercus)  # avant le document, même après un échec
         temporaire = tempfile.TemporaryDirectory()
         cls.addClassCleanup(temporaire.cleanup)
         cls.dossier = Path(temporaire.name)
@@ -103,8 +111,12 @@ class CadreEtDebit(Etapes):
         lancer(APERCU)
         self.assertTrue(attendre(lambda: len(apercus()) == 1), "aperçu non ouvert")
         texte = apercus()[0].findChild(QtGui.QTextBrowser, TEXTE_APERCU).toPlainText()
-        for attendu in ("M1, M2", "T1, T2", "600", "280"):
-            self.assertIn(attendu, texte)
+        # Une ligne par repère, montants d'abord : chaque longueur est lue dans sa ligne.
+        montants, traverses = texte.find("M1, M2"), texte.find("T1, T2")
+        self.assertTrue(0 <= montants < traverses, texte)
+        self.assertIn("600", texte[montants:traverses])
+        self.assertNotIn("280", texte[montants:traverses])
+        self.assertIn("280", texte[traverses:])
         self.assertEqual(len(self.doc.UndoNames), len(COUPLES), "l'aperçu a modifié le document")
 
     def test_3_export_csv_depuis_l_apercu(self) -> None:
@@ -113,10 +125,14 @@ class CadreEtDebit(Etapes):
             cliquer(apercus()[0].findChild(QtGui.QPushButton, BOUTON_CSV))
         self.assertTrue(fichier.is_file(), "CSV non écrit")
         contenu = fichier.read_text(encoding="utf-8-sig")
-        lignes = list(csv.DictReader(contenu.splitlines(), dialect=csv.Sniffer().sniff(contenu)))
-        montants, traverses = lignes[0], lignes[1]
-        self.assertEqual((montants["Repère"], montants["Qté"]), ("M1, M2", "2"))
-        self.assertEqual((traverses["Repère"], traverses["Qté"]), ("T1, T2", "2"))
+        lignes = list(
+            csv.DictReader(contenu.splitlines(), dialect=csv.Sniffer().sniff(contenu, ";,\t"))
+        )
+        par_repere = {ligne["Repère"]: ligne for ligne in lignes}
+        self.assertLessEqual({"M1, M2", "T1, T2"}, set(par_repere))
+        self.assertEqual(len(par_repere), len(lignes), "repère en double dans le CSV")
+        montants, traverses = par_repere["M1, M2"], par_repere["T1, T2"]
+        self.assertEqual((montants["Qté"], traverses["Qté"]), ("2", "2"))
         self.assertEqual(float(montants["Longueur finie (mm)"]), 600.0)
         surcote = float(montants["Longueur de débit (mm)"]) - 600.0
         tenons = self.longueur_hors_tout() - 280.0
@@ -148,6 +164,7 @@ class CadreEtDebit(Etapes):
         lancer("Std_Undo")
         self.assertFalse(sans_repere.Mark)
         lancer("Std_Redo")
+        self.assertTrue(sans_repere.Mark, "numérotation non rétablie")
 
     def test_5_feuille_liste_de_debit(self) -> None:
         avant = set(self.doc.Objects)

@@ -4,8 +4,9 @@
 Pour 0, 1, 2 puis 3 pièces sélectionnées, et avec un panneau ouvert, l'état de chaque bouton de
 l'atelier (son action Qt, après le rafraîchissement périodique de FreeCAD) est comparé à ce que
 la commande exige. Une commande qui attend une sélection le dit dans son infobulle, par la ligne
-« Prérequis : … » (issue #221). Attrape un bouton actif à tort (puis une erreur au clic) ou
-grisé à tort.
+« Prérequis : … » (issue #221). Les commandes qui demandent des faces, un ensemble ou un membre
+sont jouées avec leur vraie sélection. Attrape un bouton actif à tort (puis une erreur au clic)
+ou grisé à tort.
 """
 
 from __future__ import annotations
@@ -25,8 +26,9 @@ from tests.qtest.aides import (
     panneau_ouvert,
     preparer,
     selectionner,
+    selectionner_des_faces,
 )
-from tests.qtest.pieces import cadre
+from tests.qtest.pieces import cadre, du_type, face_vers, piece
 
 ASSEMBLAGES = frozenset(
     f"Menuiserie_{nom}"
@@ -80,6 +82,7 @@ ATTENDU = {
     3: SANS_SELECTION | DES_PIECES,
 }
 PREREQUIS = "Prérequis"
+DROITE, GAUCHE = (1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)
 
 
 def setUpModule() -> None:
@@ -99,6 +102,10 @@ def actives(attendues: frozenset[str]) -> set[str]:
 
     attendre(lambda: etat() == attendues)
     return etat()
+
+
+def actives_parmi(commandes: frozenset[str]) -> frozenset[str]:
+    return frozenset(commande for commande in commandes if action(commande).isEnabled())
 
 
 class ActivationDesCommandes(unittest.TestCase):
@@ -150,3 +157,64 @@ class ActivationDesCommandes(unittest.TestCase):
                     self.assertIn(PREREQUIS, derniere_ligne, infobulle)
                 else:
                     self.assertNotIn(PREREQUIS, infobulle)
+
+
+class SelectionsParticulieres(unittest.TestCase):
+    """Les commandes qui demandent autre chose que des pièces entières, chacune avec sa vraie
+    sélection : deux pièces A et B rangées dans un ensemble, une pièce C libre. Les copies
+    (S12) et le corps à convertir (S17) sont joués par leurs scénarios."""
+
+    doc: ClassVar[Any]
+    membres: ClassVar[tuple[Any, Any]]
+    libre: ClassVar[Any]
+    ensemble: ClassVar[Any]
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.doc = preparer("ScenarioActivationParticuliere")
+        cls.addClassCleanup(fermer, cls.doc)
+        cls.membres = (
+            piece(cls.doc, (500.0, 200.0, 22.0), repere="A"),
+            piece(cls.doc, (300.0, 100.0, 22.0), (800.0, 0.0, 0.0), repere="B"),
+        )
+        cls.libre = piece(cls.doc, (300.0, 100.0, 22.0), (0.0, 600.0, 0.0), repere="C")
+        cls.doc.recompute()
+        selectionner(*cls.membres)
+        lancer("Menuiserie_Furniture")
+        (cls.ensemble,) = du_type(cls.doc, "Menuiserie::Furniture")
+        selectionner()
+
+    def verifier(self, attendues: set[str]) -> None:
+        """Parmi les commandes à sélection particulière, seules ``attendues`` sont actives."""
+        voulues = frozenset(attendues)
+        attendre(lambda: actives_parmi(AUTRE_SELECTION) == voulues)
+        self.assertEqual(actives_parmi(AUTRE_SELECTION), voulues)
+
+    def test_deux_faces(self) -> None:
+        a, b = self.membres
+        selectionner_des_faces((a, face_vers(a, DROITE)), (b, face_vers(b, GAUCHE)))
+        # Une face choisie vaut sa pièce : les deux membres peuvent aussi être retirés.
+        self.verifier(
+            {"Menuiserie_AlignFaces", "Menuiserie_SetDistance", "Menuiserie_FurnitureRemove"}
+        )
+
+    def test_une_seule_face(self) -> None:
+        a, _b = self.membres
+        selectionner_des_faces((a, face_vers(a, DROITE)))
+        self.verifier({"Menuiserie_FurnitureRemove"})
+
+    def test_l_ensemble(self) -> None:
+        selectionner(self.ensemble)
+        self.verifier({"Menuiserie_FurnitureRebind"})
+
+    def test_un_membre(self) -> None:
+        selectionner(self.membres[0])
+        self.verifier({"Menuiserie_FurnitureRemove"})
+
+    def test_une_piece_libre_et_l_ensemble(self) -> None:
+        selectionner(self.libre, self.ensemble)
+        self.verifier({"Menuiserie_FurnitureAdd"})
+
+    def test_une_piece_libre(self) -> None:
+        selectionner(self.libre)
+        self.verifier(set())

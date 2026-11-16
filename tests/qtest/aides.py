@@ -34,6 +34,7 @@ DELAI_MS = 5000
 PAS_MS = 50
 ATTENTE_BOITE_MS = 300
 PAS_DE_GLISSEMENT = 3  # mouvements d'approche avant le relâchement
+ESSAIS_MAX = 20  # réponses d'une minuterie à une fenêtre bloquante avant de la refermer
 
 Widget = Any
 
@@ -406,21 +407,29 @@ class ReponseAEnregistrer:
         self.chemin = chemin
         self.titres: list[str] = []
         self._vue: Any = None
+        self._essais = 0
+        self._inattendues: list[str] = []
         self._minuterie = QtCore.QTimer()
         self._minuterie.setInterval(ATTENTE_BOITE_MS)
         self._minuterie.timeout.connect(self._repondre)
 
     def _repondre(self) -> None:
         boite = QtGui.QApplication.activeModalWidget()
-        if not isinstance(boite, QtGui.QFileDialog):
+        if boite is None:
+            return
+        if not isinstance(boite, QtGui.QFileDialog):  # confirmation d'écrasement, erreur…
+            self._inattendues.append(f"fenêtre modale {type(boite).__name__}")
+            boite.reject()
             return
         if boite is not self._vue:  # premier passage : on la laisse s'installer
             self._vue = boite
             self.titres.append(str(boite.windowTitle()))
             return
+        self._essais += 1
         champ = boite.findChild(QtGui.QLineEdit, "fileNameEdit")
         boutons = boite.findChild(QtGui.QDialogButtonBox)
-        if champ is None or boutons is None:
+        if champ is None or boutons is None or self._essais > ESSAIS_MAX:
+            self._inattendues.append("boîte d'enregistrement sans champ, ou qui ne se ferme pas")
             boite.reject()
             return
         champ.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
@@ -436,14 +445,18 @@ class ReponseAEnregistrer:
         return self
 
     def __exit__(self, *_exc: object) -> None:
-        fermees = attendre(lambda: QtGui.QApplication.activeModalWidget() is None)
-        self._minuterie.stop()
+        try:
+            fermees = attendre(lambda: QtGui.QApplication.activeModalWidget() is None)
+        finally:
+            self._minuterie.stop()
         self._vue = None
         if not fermees:
             boite = QtGui.QApplication.activeModalWidget()
             if boite is not None:
-                boite.close()
+                boite.reject()
             raise AssertionError("boîte d'enregistrement restée ouverte")
+        if self._inattendues:
+            raise AssertionError("; ".join(self._inattendues))
         if not self.titres:
             raise AssertionError("aucune boîte d'enregistrement ouverte")
 
@@ -459,13 +472,20 @@ class ReponseAuMenu:
         self._reste = list(entrees)
         self.vues: dict[str, bool] = {}
         self._echec = ""
+        self._essais = 0
         self._minuterie = QtCore.QTimer()
         self._minuterie.setInterval(ATTENTE_BOITE_MS)
         self._minuterie.timeout.connect(self._repondre)
 
     def _repondre(self) -> None:
         menu = QtGui.QApplication.activePopupWidget()
-        if not isinstance(menu, QtGui.QMenu) or not self._reste:
+        if not isinstance(menu, QtGui.QMenu):
+            return
+        self._essais += 1
+        if not self._reste:
+            if self._essais > ESSAIS_MAX:  # menu resté ouvert après le dernier clic
+                self._echec = self._echec or "menu resté ouvert"
+                self._fermer_les_menus()
             return
         if not self.vues:
             self.vues = {a.text().replace("&", ""): a.isEnabled() for a in menu.actions()}
@@ -474,8 +494,7 @@ class ReponseAuMenu:
         if len(trouvees) != 1 or not trouvees[0].isEnabled():
             self._echec = f"entrée « {voulue} » absente ou grisée : {list(self.vues)}"
             self._reste.clear()
-            while isinstance(QtGui.QApplication.activePopupWidget(), QtGui.QMenu):
-                QtGui.QApplication.activePopupWidget().close()
+            self._fermer_les_menus()
             return
         QTest.mouseClick(
             menu,
@@ -484,13 +503,20 @@ class ReponseAuMenu:
             menu.actionGeometry(trouvees[0]).center(),
         )
 
+    @staticmethod
+    def _fermer_les_menus() -> None:
+        while isinstance(QtGui.QApplication.activePopupWidget(), QtGui.QMenu):
+            QtGui.QApplication.activePopupWidget().close()
+
     def __enter__(self) -> ReponseAuMenu:
         self._minuterie.start()
         return self
 
     def __exit__(self, *_exc: object) -> None:
-        attendre(lambda: QtGui.QApplication.activePopupWidget() is None)
-        self._minuterie.stop()
+        try:
+            attendre(lambda: QtGui.QApplication.activePopupWidget() is None)
+        finally:
+            self._minuterie.stop()
         QTest.qWait(4 * PAS_MS)  # l'action d'une entrée part après la fermeture du menu
         if self._echec:
             raise AssertionError(self._echec)
@@ -506,6 +532,7 @@ class ReponseALaSaisie:
     def __init__(self, texte: str) -> None:
         self.texte = texte
         self.proposes: list[str] = []
+        self._essais = 0
         self._minuterie = QtCore.QTimer()
         self._minuterie.setInterval(ATTENTE_BOITE_MS)
         self._minuterie.timeout.connect(self._repondre)
@@ -515,6 +542,10 @@ class ReponseALaSaisie:
         if not isinstance(boite, QtGui.QInputDialog):
             return
         champ = boite.findChild(QtGui.QLineEdit)
+        self._essais += 1
+        if champ is None or self._essais > ESSAIS_MAX:  # ``__exit__`` signale la saisie manquée
+            boite.reject()
+            return
         self.proposes.append(str(champ.text()))
         QTest.keyClick(champ, QtCore.Qt.Key.Key_A, QtCore.Qt.KeyboardModifier.ControlModifier)
         QTest.keyClicks(champ, self.texte)
@@ -525,13 +556,15 @@ class ReponseALaSaisie:
         return self
 
     def __exit__(self, *_exc: object) -> None:
-        QTest.qWait(2 * ATTENTE_BOITE_MS)  # la boîte s'ouvre après la fermeture du menu
-        fermees = attendre(lambda: QtGui.QApplication.activeModalWidget() is None)
-        self._minuterie.stop()
+        try:
+            QTest.qWait(2 * ATTENTE_BOITE_MS)  # la boîte s'ouvre après la fermeture du menu
+            fermees = attendre(lambda: QtGui.QApplication.activeModalWidget() is None)
+        finally:
+            self._minuterie.stop()
         if not fermees:
-            QtGui.QApplication.activeModalWidget().close()
+            QtGui.QApplication.activeModalWidget().reject()
             raise AssertionError("boîte de saisie restée ouverte")
-        if not self.proposes:
+        if not self.proposes or self._essais > ESSAIS_MAX:
             raise AssertionError("aucune boîte de saisie ouverte")
 
 
@@ -555,7 +588,14 @@ def glisser(zone: Widget, depart: Callable[[], Any], arrivee: Callable[[], Any])
 
     def suite() -> None:
         etapes["faites"] += 1
-        cible = arrivee()
+        try:
+            cible = arrivee()
+        except Exception:  # pylint: disable=broad-exception-caught
+            # Sans relâchement, le glissement bloquerait FreeCAD : on lâche sur place.
+            minuterie.stop()
+            etapes["faites"] = -1
+            QTest.mouseRelease(zone, QtCore.Qt.MouseButton.LeftButton)
+            return
         if etapes["faites"] <= PAS_DE_GLISSEMENT:
             QTest.mouseMove(zone, cible + QtCore.QPoint(etapes["faites"], 0))
             return
@@ -572,8 +612,10 @@ def glisser(zone: Widget, depart: Callable[[], Any], arrivee: Callable[[], Any])
     minuterie.start()
     for ecart in (15, 30):  # au-delà de la distance qui déclenche un glissement
         QTest.mouseMove(zone, origine + QtCore.QPoint(0, ecart))
-    termine = attendre(lambda: etapes["faites"] > PAS_DE_GLISSEMENT)
-    minuterie.stop()
+    try:
+        termine = attendre(lambda: not 0 <= etapes["faites"] <= PAS_DE_GLISSEMENT)
+    finally:
+        minuterie.stop()
     QTest.qWait(4 * PAS_MS)
-    if not termine:
+    if not termine or etapes["faites"] < 0:
         raise AssertionError("glisser-déposer non terminé")

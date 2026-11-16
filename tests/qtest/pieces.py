@@ -68,6 +68,14 @@ def deplacer(doc: Any, piece_deplacee: Any, placement: App.Placement) -> None:
     doc.recompute()
 
 
+def retablir_tout(doc: Any) -> None:
+    """Ctrl+Y jusqu'au bout de l'historique, puis recalcul (FreeCAD laisse les objets rétablis
+    « à recalculer »)."""
+    for _ in doc.RedoNames:
+        lancer("Std_Redo")
+    doc.recompute()
+
+
 def montant_et_traverse(doc: Any) -> tuple[Any, Any]:
     """« T » : la traverse arrive en bout contre le chant du montant."""
     montant = piece(doc, (600.0, *SECTION), repere="M")

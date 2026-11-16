@@ -5,7 +5,7 @@ Un cadre de quatre pièces regroupé par la commande « Ensemble », une cinqui�
 puis le panneau de l'ensemble : largeur retapée (les pièces suivent), une pièce mise en « cotes
 fixes » qui bloque la cote suivante, « Déverrouiller et appliquer », rotation de 90° autour de
 Z, « OK » et Ctrl+Z. Enfin un tenon-mortaise demandé entre une pièce d'un ensemble et une pièce
-hors de cet ensemble (issue #209) : accepté ou refusé avec une explication, jamais à moitié.
+d'un second ensemble (issue #209, ouverte) : refusé avec une explication, rien d'écrit.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from tests.qtest.aides import (
     vider_la_vue_rapport,
     vue_rapport,
 )
-from tests.qtest.angle_a_queues import PANNEAU_ASSEMBLAGE, controler_le_document, double_cliquer
+from tests.qtest.angle_a_queues import controler_le_document, double_cliquer
 from tests.qtest.pieces import (
     AXE_Z,
     SECTION,
@@ -53,6 +53,7 @@ PANNEAU_ENSEMBLE = "FurnitureTaskPanel"
 TYPE_ENSEMBLE = "Menuiserie::Furniture"
 LARGEUR, PROFONDEUR, HAUTEUR = 600.0, 400.0, 22.0
 ELARGI, ENCORE_ELARGI = 800.0, 900.0
+EPAISSI = 30.0
 TOLERANCE_MM = 1e-6
 
 
@@ -119,6 +120,23 @@ class Ensemble(Etapes):
         self.assertAlmostEqual(boite.XLength, ELARGI, delta=TOLERANCE_MM)
         self.assertAlmostEqual(boite.YLength, PROFONDEUR, delta=TOLERANCE_MM)
 
+    def test_3b_epaisseur_refusee(self) -> None:
+        """Les pièces à plat remplissent la hauteur de leurs épaisseurs, qu'un ensemble ne
+        change pas : la hauteur retapée est refusée avec une explication, rien ne bouge, et la
+        cote d'origine retapée lève le refus."""
+        champ = enfant(self.form(), "Height")
+        taper(champ, f"{EPAISSI:g} mm")
+        self.assertIn("hauteur", enfant(self.form(), "refusalLabel").text())
+        self.assertFalse(bouton_ok().isEnabled(), "OK actif malgré le refus")
+        for nom, membre in self.pieces.items():
+            self.assertAlmostEqual(membre.Thickness.Value, HAUTEUR, msg=nom)
+        boite = boite_globale(*self.pieces.values())
+        self.assertAlmostEqual(boite.ZLength, HAUTEUR, delta=TOLERANCE_MM)
+        taper(champ, f"{HAUTEUR:g} mm")
+        self.assertEqual(enfant(self.form(), "refusalLabel").text(), "")
+        self.assertTrue(bouton_ok().isEnabled())
+        self.assertAlmostEqual(self.ensemble.Height.Value, HAUTEUR)
+
     def test_4_cotes_fixes_puis_deverrouiller(self) -> None:
         """« Cotes fixes » sur M1 : la largeur suivante est refusée avec une explication et rien
         ne bouge ; « Déverrouiller et appliquer » l'applique."""
@@ -174,27 +192,27 @@ class Ensemble(Etapes):
         self.assertAlmostEqual(boite_globale(*self.pieces.values()).YLength, tourne.YLength)
         controler_le_document(self, self.doc)
 
-    def test_7_assembler_avec_une_piece_hors_de_l_ensemble(self) -> None:
-        """Issue #209 : montant libre posé contre le bout d'une traverse de l'ensemble."""
+    def test_7_assembler_deux_ensembles(self) -> None:
+        """Issue #209 : un montant d'un second ensemble posé contre le bout d'une traverse du
+        premier. Tant que l'issue est ouverte, l'assemblage entre deux conteneurs est refusé
+        avec une explication, sans panneau ni rien d'écrit. À retourner quand elle sera
+        corrigée."""
         traverse = self.pieces["T1"]
         bout = boite_globale(traverse)
-        libre = piece(self.doc, (300.0, *SECTION), (bout.XMin, bout.YMax, 0.0), repere="L")
+        voisin = piece(self.doc, (300.0, *SECTION), (bout.XMin, bout.YMax, 0.0), repere="L")
         self.doc.recompute()
+        selectionner(voisin)
+        lancer(ENSEMBLE)
+        self.assertEqual(len(du_type(self.doc, TYPE_ENSEMBLE)), 2)
+        self.assertIsNot(voisin.getParentGeoFeatureGroup(), traverse.getParentGeoFeatureGroup())
         self.doc.clearUndos()
-        selectionner(traverse, libre)
+        selectionner(traverse, voisin)
         lancer(TENON_MORTAISE)
         refus = refus_signale()
-        if panneau_ouvert():
-            self.assertEqual(refus, "")
-            self.assertTrue(enfant(formulaire(PANNEAU_ASSEMBLAGE), "errorLabel").isHidden())
-            cliquer(bouton_ok())
-            (assemblage,) = assemblages(self.doc)
-            self.assertTrue(assemblage.isValid(), assemblage.getStatusString())
-            self.assertEqual(len(self.doc.UndoNames), 1, self.doc.UndoNames)
-        else:
-            self.assertTrue(refus.strip(), "refus sans explication")
-            self.assertEqual(assemblages(self.doc), [])
-            self.assertEqual(self.doc.UndoNames, [])
+        self.assertFalse(panneau_ouvert(), "issue #209 corrigée ? scénario à retourner")
+        self.assertIn("conteneur", refus)
+        self.assertEqual(assemblages(self.doc), [])
+        self.assertEqual(self.doc.UndoNames, [])
         controler_le_document(self, self.doc)
 
     def test_8_rien_dans_la_vue_rapport(self) -> None:

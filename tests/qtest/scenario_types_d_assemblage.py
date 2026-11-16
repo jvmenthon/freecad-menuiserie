@@ -57,6 +57,9 @@ def setUpModule() -> None:
 class TypesDAssemblage(unittest.TestCase):
     """Un document neuf par type (``subTest``)."""
 
+    retouches = 0  # cases « Auto » décochées, tous types confondus
+    inversions = 0  # types dont le bouton « Inverser » a été joué
+
     def jouer(self, commande: str, disposition: Disposition) -> None:
         doc = preparer("ScenarioTypesDAssemblage")
         try:
@@ -132,6 +135,7 @@ class TypesDAssemblage(unittest.TestCase):
                     ecrit = float(getattr(assemblage, nom).Value)
                 self.assertAlmostEqual(ecrit, voulu, delta=0.01)
                 self.assertFalse(self.refus_affiche(assemblage), "retouche de 10 % refusée")
+                type(self).retouches += 1
 
     def inverser_deux_fois(self, assemblage: Any) -> None:
         """« Inverser » échange les rôles, un second clic les rend ; à chaque fois le panneau
@@ -147,17 +151,29 @@ class TypesDAssemblage(unittest.TestCase):
         cliquer(bouton)
         self.assertEqual((assemblage.HostPart, assemblage.GuestPart), roles)
         self.assertFalse(self.refus_affiche(assemblage), "refus après aller-retour")
+        type(self).inversions += 1
 
     def annuler_tout(self, doc: Any, hote: Any, invitee: Any) -> None:
-        """Deux Ctrl+Z : il ne reste que les deux brutes, entières et visibles."""
+        """Deux Ctrl+Z : il ne reste que les deux brutes, entières et visibles ; deux Ctrl+Y
+        rendent l'assemblage retouché, valide."""
         lancer("Std_Undo")
         lancer("Std_Undo")
         self.assertEqual(doc.Objects, [hote, invitee])
         for brute in (hote, invitee):
             self.assertTrue(brute.ViewObject.Visibility, f"{brute.Label} restée masquée")
         controler_le_document(self, doc)
+        lancer("Std_Redo")
+        lancer("Std_Redo")
+        doc.recompute()
+        self.assertEqual(len(assemblages(doc)), 1)
+        self.assertEqual(len(doc.UndoNames), 2, doc.UndoNames)
+        controler_le_document(self, doc)
 
     def test_chaque_type(self) -> None:
         for nom, (commande, disposition) in TYPES.items():
             with self.subTest(type=nom):
                 self.jouer(commande, disposition)
+        # Garde-fous : un panneau sans case « Auto » ou un bouton toujours grisé ne doivent
+        # pas faire passer le scénario à vide.
+        self.assertGreaterEqual(self.retouches, len(TYPES), "trop peu de valeurs retouchées")
+        self.assertGreaterEqual(self.inversions, 1, "« Inverser » jamais joué")

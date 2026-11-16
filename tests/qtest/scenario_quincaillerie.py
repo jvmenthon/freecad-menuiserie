@@ -31,7 +31,7 @@ from tests.qtest.aides import (
     vue_rapport,
 )
 from tests.qtest.angle_a_queues import PANNEAU_ASSEMBLAGE, controler_le_document, double_cliquer
-from tests.qtest.pieces import commande_active, du_type, erreurs_python
+from tests.qtest.pieces import commande_active, du_type, erreurs_python, retablir_tout
 
 CAISSON = "Menuiserie_Carcass"
 PIEDS = "Menuiserie_Foot"
@@ -136,6 +136,16 @@ class Quincaillerie(Etapes):
         self.assertEqual(enfant(form, "Rows").value(), automatique + 10)
         self.assertIn("trop petit", erreur.text())
         self.assertFalse(bouton_ok().isEnabled(), "OK actif malgré le refus")
+        # Plafond : le champ ne laisse pas taper au-delà de son maximum (les chiffres en trop
+        # sont ignorés), et le maximum lui-même est refusé sur ce côté.
+        rangs = enfant(form, "Rows")
+        taper(rangs, "99999")
+        self.assertLessEqual(rangs.value(), rangs.maximum())
+        self.assertLess(rangs.maximum(), 1000, "aucun plafond au nombre de rangs")
+        taper(rangs, str(rangs.maximum()))
+        self.assertEqual(rangs.value(), rangs.maximum())
+        self.assertIn("trop petit", erreur.text())
+        self.assertFalse(bouton_ok().isEnabled(), "OK actif malgré le refus")
         taper(enfant(form, "Rows"), str(automatique - 2))
         self.assertEqual(erreur.text(), "")
         self.assertTrue(bouton_ok().isEnabled())
@@ -187,6 +197,13 @@ class Quincaillerie(Etapes):
 
     def test_6_tout_annuler(self) -> None:
         self.assertEqual(erreurs_python(vue_rapport()), [])
+        noms = [objet.Name for objet in self.doc.Objects]
         for _ in self.doc.UndoNames:
             lancer("Std_Undo")
         self.assertEqual(self.doc.Objects, [])
+        retablir_tout(self.doc)
+        self.assertEqual([objet.Name for objet in self.doc.Objects], noms)
+        for quincaillerie in (TYPE_PIEDS, TYPE_PAS_DE_32):
+            (objet,) = du_type(self.doc, quincaillerie)
+            self.assertTrue(objet.isValid(), objet.getStatusString())
+        controler_le_document(self, self.doc)
