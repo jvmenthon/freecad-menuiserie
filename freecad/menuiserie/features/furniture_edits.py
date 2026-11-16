@@ -61,8 +61,9 @@ def report_resize(
     """Cote ``prop`` saisie dans l'éditeur de propriétés : elle est appliquée (Q4) ;
     avertissements pour les formules de l'utilisateur, pour une pièce ou un assemblage cassé et
     pour une rangée bloquée par des pièces verrouillées. Les pièces à plat qui remplissent seules
-    la cote suivent au prorata de leur épaisseur (ADR 0062) ; si elles ne le peuvent pas (cote
-    nulle ou épaisseur hors bornes), la cote revient à ``old`` : sinon elle ne serait plus
+    la cote suivent au prorata de leur épaisseur (ADR 0062) ; si elles ne le peuvent pas, pour
+    quelque raison que ce soit (cote nulle, épaisseur hors bornes, autre refus), la cote revient
+    à ``old`` : sinon elle ne serait plus
     remplie et la saisie suivante serait refusée. ``new`` : ``None`` pour une cote invalide."""
     layered = prop in layered_sizes(furniture, old)
     if new is None:

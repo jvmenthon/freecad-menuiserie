@@ -7,6 +7,7 @@ de route rend ce qu'elle avait déjà écrit (cotes, épaisseurs suiveuses de l'
 
 from __future__ import annotations
 
+import contextlib
 import math
 from collections.abc import Collection, Mapping
 from typing import Final
@@ -66,7 +67,7 @@ def layered_sizes(furniture: DocumentObject, box: FurnitureBox) -> set[str]:
     try:
         members = read_members(furniture, box=box)
         rules, _ = follow_rules(box, members.members)
-    except ValueError:  # FurnitureError comprise
+    except (ValueError, RuntimeError):  # FurnitureError comprise
         return set()
     return {rule.axis.value for found in rules.values() for rule in found if rule.row.layer}
 
@@ -91,7 +92,8 @@ def follow_layers(furniture: DocumentObject, old: FurnitureBox, new: FurnitureBo
         _write_thicknesses(pieces, thicknesses)
     except Exception:
         _write_thicknesses(pieces, before)  # rien d'écrit à moitié
-        bind_members(members, members.objects)
+        with contextlib.suppress(ValueError, RuntimeError):  # l'erreur d'origine compte
+            bind_members(members, members.objects)
         raise
     return notices
 

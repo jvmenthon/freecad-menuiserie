@@ -3,8 +3,9 @@
 - Statut : **proposé**, accepté à la fusion de la PR #265 par jv (jv, 2026-11-16 : « D11 on doit
   pouvoir modifier l'épaisseur », puis option « Empilées : au prorata »)
 - Date : 2026-11-16
-- ADR liés : [0019](0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (rangées, épaisseurs
-  fixes), [0020](0020-piece-en-bois-enveloppe-d-un-corps.md) (cotes dessinées),
+- ADR liés : [0009](0009-suivi-par-expressions-natives.md) (un objet n'écrit que dans lui-même),
+  [0019](0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (rangées, épaisseurs fixes),
+  [0020](0020-piece-en-bois-enveloppe-d-un-corps.md) (cotes dessinées),
   [0038](0038-ensemble-a-la-souris.md) (poignées),
   [0043](0043-repetition-objet-de-cotes-et-copies-liees.md) (copies liées)
 
@@ -34,15 +35,18 @@ empilées comprises.
    sous-ensemble qui suit son parent par expression (rien n'y écrirait les épaisseurs). Une épaisseur qui sortirait de 0,1 à 300 mm refuse la cote (« deviendrait trop
    grande / petite »). Des pièces qui ne remplissent pas la cote (un écart au-dessus ou entre
    elles) ne changent pas : l'écart absorbe, comme avant (ADR 0019).
-4. **Écriture** : les épaisseurs sont écrites avant les cotes de l'ensemble, après une liaison
-   de tout l'ensemble sur la géométrie d'avant avec les nouvelles épaisseurs (même chemin qu'une
+4. **Écriture** : les cotes de l'ensemble sont écrites d'abord, puis les épaisseurs, après une
+   liaison de tout l'ensemble sur la géométrie d'avant avec les nouvelles épaisseurs (même chemin qu'une
    épaisseur saisie, ADR 0019, point 6), dans la même transaction : un seul Ctrl+Z. Chemins
    couverts : panneau de l'ensemble, `api.resize_furniture`, « Déverrouiller et appliquer »,
    éditeur de propriétés, poignées de la vue 3D. Une écriture qui échoue en route rend ce
    qu'elle avait écrit (cotes, épaisseurs). Dans l'éditeur de propriétés, où une cote saisie est
-   d'habitude appliquée même refusée (Q4), une cote que les épaisseurs ne peuvent pas suivre
-   (nulle, épaisseur hors bornes) revient à sa valeur d'avant : sinon les pièces ne la
-   rempliraient plus et la saisie suivante serait refusée.
+   d'habitude appliquée même refusée (Q4), une cote que les épaisseurs ne peuvent pas suivre,
+   pour quelque raison que ce soit (nulle, épaisseur hors bornes, autre membre trop petit),
+   revient à sa valeur d'avant : sinon les pièces ne la
+   rempliraient plus et la saisie suivante serait refusée. L'ensemble écrit alors dans ses
+   pièces depuis son `onChanged` : même écart à « un objet n'écrit que dans lui-même »
+   (ADR 0009, point 2) que pour une épaisseur saisie (ADR 0019, point 6).
 5. **Poignées de la vue 3D** : pendant le geste, seule la boîte change ; les épaisseurs suivent
    au relâchement (le relâchement repasse par le chemin du panneau). Échap n'a donc rien à rendre
    aux pièces.
