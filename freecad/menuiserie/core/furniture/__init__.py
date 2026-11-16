@@ -25,6 +25,7 @@ from freecad.menuiserie.core.furniture._check import (
     check_membership,
     check_resize,
     check_thickness,
+    followed_thicknesses,
     predict,
 )
 from freecad.menuiserie.core.furniture._defaults import (
@@ -104,6 +105,7 @@ __all__ = [  # noqa: RUF022 (ordre de tri de Python, vérifié par un test de la
     "fixed_by_default",
     "follow_rules",
     "follow_summary",
+    "followed_thicknesses",
     "furniture_layout",
     "gap_term",
     "gap_values",

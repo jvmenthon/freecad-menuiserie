@@ -10,24 +10,37 @@ souris), :class:`Moving` (flèche tirée), :class:`Resizing` (poignée tirée) e
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from PySide import QtCore
 
-from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.core.geometry import Box, Vec3
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import (
+    MAX_COPLANAR,
     DragResult,
     Guide,
     Handle,
+    PlaneIndex,
     ResizeResult,
     axis_param,
+    box_faces,
     magnet,
+    overlaps,
     resize,
 )
-from freecad.menuiserie.core.rotation import angles_of, plane_point, ring_angle, snapped_turn
+from freecad.menuiserie.core.rotation import (
+    align_offsets,
+    aligned_turn,
+    angles_of,
+    plane_point,
+    ring_angle,
+    snapped_turn,
+)
 from freecad.menuiserie.features.drag_joints import JointChoice
-from freecad.menuiserie.features.i18n import report_warning
+from freecad.menuiserie.features.i18n import report_warning, translate_text
 from freecad.menuiserie.features.part_drag import DragCancelledError
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
@@ -39,12 +52,14 @@ from freecad.menuiserie.gui.drag.geometry import (
     parse_key,
 )
 from freecad.menuiserie.gui.drag.parts import Grab, Turn
-from freecad.menuiserie.gui.drag.rings import Sweep, advance, ring_key, ring_ray
+from freecad.menuiserie.gui.drag.rings import Sweep, advance, ring_basis, ring_key, ring_ray
 from freecad.menuiserie.gui.drag.target import Memento, Step, Target
 from freecad.menuiserie.gui.drag.view import Point
 
 if TYPE_CHECKING:
     from freecad.menuiserie.gui.drag.session import DragSession
+
+_ALIGNED_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
 
 __all__ = ["Dragging", "Gesture", "Hover", "Idle", "Moving", "Resizing", "Rotating", "State"]
 
@@ -207,6 +222,7 @@ class Dragging(Gesture):
         self.box = grab.target.box()
         # repère de la pièce au début : celui des guides, qui ne suivent pas la pièce
         self.frame = grab.target.frame()
+        self.planes = PlaneIndex(grab.guides)  # faces voisines, pour la coplanarité (ADR 0058)
 
     def _follow(self, session: DragSession) -> None:
         """Pièce placée d'après le curseur ; rayon parallèle à l'axe : elle reste."""
@@ -218,6 +234,30 @@ class Dragging(Gesture):
         """Écrit la pièce pour un déplacement ``delta`` mm du curseur le long de l'axe."""
         raise NotImplementedError
 
+    def lit(
+        self, hits: Iterable[Guide], box: Box, faces: Iterable[tuple[int, bool]]
+    ) -> list[Guide]:
+        """Guides à allumer : ceux de l'aimant (``hits``), puis les faces voisines coplanaires à une
+        face ``faces`` (axe, face de fin ?) de ``box`` (pièce ou fantôme, repère de départ), et
+        cette face si une de ces voisines est à l'écart (autre meuble : ADR 0058) ; au plus
+        :data:`MAX_COPLANAR` de plus."""
+        shown = dict.fromkeys(hits)
+        limit = len(shown) + MAX_COPLANAR
+        for face in box_faces(box, faces):
+            if face.axis is None:  # impossible : une face de boîte a toujours un axe
+                continue
+            found = self.planes.at(face.axis, face.position(face.axis))
+            if any(not overlaps(face, plane) for plane in found):
+                shown.setdefault(face)
+            shown.update(dict.fromkeys(found))
+        return list(shown)[:limit]
+
+    def moved_lit(self, axis: int, result: DragResult) -> list[Guide]:
+        """:meth:`lit` pour la boîte déplacée de ``result.delta`` sur ``axis`` (ses deux faces)."""
+        moved = Box(self.box.min + result.delta, self.box.max + result.delta)
+        hits = [self.guides[hit.guide] for hit in result.hits]
+        return self.lit(hits, moved, ((axis, False), (axis, True)))
+
 
 class Moving(Dragging):
     """Flèche tirée : la pièce suit la souris le long de l'axe, aimantée sauf Maj."""
@@ -227,7 +267,7 @@ class Moving(Dragging):
         wanted = Vec3(0.0, 0.0, 0.0).with_component(axis, delta)
         if self.shift:
             return DragResult(wanted)
-        return magnet(self.box, self.guides, wanted, self.tolerance, [axis])
+        return magnet(self.box, self.guides, wanted, self.tolerance, [axis], far=True)
 
     def apply(self, session: DragSession, delta: float) -> None:
         axis = parse_key(self.grabbed)
@@ -235,7 +275,7 @@ class Moving(Dragging):
             return
         result = self.solve(axis, delta)
         self.target.move(self.memento, result.delta)
-        session.written([self.guides[hit.guide] for hit in result.hits], self.frame)
+        session.written(self.moved_lit(axis, result), self.frame)
 
 
 @dataclass(frozen=True)
@@ -266,6 +306,9 @@ class Resizing(Dragging):
         guides = () if self.shift else self.guides
         result = resize(self.box, handle, delta, guides, self.tolerance, self.target.min_size)
         hit = [] if result.hit is None else [self.guides[result.hit.guide]]
+        low = self.box.lo(handle.axis) + result.origin_shift.component(handle.axis)
+        resized = self.box.with_range(handle.axis, low, low + result.size)
+        hit = self.lit(hit, resized, ((handle.axis, handle.at_end),))
         anchor = self.line.origin + self.line.direction.scaled(self.origin + delta)
         self.pending = _Pending(handle, result, hit, anchor)
         now = time.monotonic()
@@ -317,6 +360,11 @@ class Rotating(Gesture):
         # angle de la pièce autour de l'anneau au début : l'aimant vise l'angle obtenu
         self.base = angles_of(rigid_transform(grab.memento.placement).rotation)[self.ring.axis]
         self.frame = grab.target.frame()
+        u, v = ring_basis(self.ring.normal)
+        # rotations qui alignent une arête de la pièce sur celle d'une voisine (à 90° près)
+        self.offsets = align_offsets(
+            self.frame.to_transform().rotation, grab.target.neighbor_rotations(), u, v
+        )
 
     def _follow(self, session: DragSession) -> None:
         """Pièce tournée d'après le curseur ; rayon rasant le plan de l'anneau : elle reste."""
@@ -324,11 +372,18 @@ class Rotating(Gesture):
         raw = ring_angle(ray, self.ring, self.first)
         if raw is not None:
             self.total, self.last = advance(self.total, self.last, raw), raw
-        angle = snapped_turn(self.base, self.total, free=self.shift)
+        aligned = None if self.shift else aligned_turn(self.total, self.offsets)
+        angle = (
+            aligned if aligned is not None else snapped_turn(self.base, self.total, free=self.shift)
+        )
         if not self.target.rotate(self.memento, self.ring.axis, angle):
+            self.note = None
             return
         anchor = plane_point(ray, self.ring) or self.ring.center
         self.sweep = Sweep(self.ring, self.from_center, angle, anchor)
+        self.note = (
+            None if aligned is None else Label(HOVER_COLOR, translate_text(_ALIGNED_TEXT), anchor)
+        )
         session.written((), self.frame)
 
     def end(self, choose: JointChoice) -> list[str]:

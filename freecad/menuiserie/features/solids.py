@@ -41,6 +41,18 @@ _SHARP_JOIN: Final = 2  # jonction « intersection » de ``makeOffsetShape`` : a
 _INVALID_SHAPE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Usinage impossible : la forme obtenue n'est pas un solide valide."
 )
+# Étiquettes (``Tag``) des formes d'entrée de l'usinage (ADR 0056) : FreeCAD 1.1 ne tient la carte
+# des éléments d'une booléenne que si ses entrées sont étiquetées. Plage au-delà des identifiants
+# d'objets d'un document (jamais de collision avec l'historique d'une forme dessinée), sous 2³¹
+# (``long`` de 32 bits sous Windows). Étiquettes fixées par la position : deux usinages égaux
+# donnent la même forme et les mêmes noms (cache des formes usinées) ; une plage par groupe
+# (parties retirées, ajouts, enlèvements, profils d'arête), pour qu'un ajout ne renomme pas
+# les enlèvements.
+_BASE_TAG: Final = 1 << 30
+_GROUP_TAGS: Final = 1 << 20  # au plus 2^20 - 1 solides par groupe : 2^30 + 4 * 2^20 < 2^31
+_TOO_MANY_TOOLS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Usinage impossible : trop d'usinages d'un même genre sur la pièce ({count})."
+)
 
 
 def rigid_transform(placement: Any) -> RigidTransform:
@@ -159,18 +171,28 @@ def machined_shape(
     """Forme de base de la pièce (sa boîte pour une pièce de bois, sa forme dessinée pour une
     pièce en bois, dans son repère) moins ``trims`` (pièce raccourcie au contact, ADR 0016) et
     moins les profils d'arête ``edge_cuts`` (ADR 0029), plus ``additions``, moins ``cuts``, faces
-    coplanaires fusionnées. ``ValueError`` traduite si
-    OCC échoue ou si le résultat n'est pas un solide valide (jamais de forme partielle)."""
+    coplanaires fusionnées, avec une carte des éléments (ADR 0056 ; ``base`` n'est pas modifiée).
+    ``ValueError`` traduite si OCC échoue ou si le résultat n'est pas un solide valide (jamais de
+    forme partielle)."""
     shape = base
     try:
-        removed = [solid_shape(solid) for solid in trims]
-        removed += [extrusion_shape(cut) for cut in edge_cuts]
-        if removed:
-            shape = shape.cut(removed)
-        if additions:
-            shape = shape.fuse([solid_shape(solid) for solid in additions])
-        if cuts:
-            shape = shape.cut([solid_shape(solid) for solid in cuts])
+        if not shape.Tag:  # boîte, ou forme sans étiquette ; une étiquette existante est gardée
+            shape = base.copy()  # jamais d'écriture dans la forme reçue
+            shape.Tag = _BASE_TAG
+        trim_tools, addition_tools, cut_tools, edge_tools = _tagged_tools(
+            (
+                [solid_shape(solid) for solid in trims],
+                [solid_shape(solid) for solid in additions],
+                [solid_shape(solid) for solid in cuts],
+                [extrusion_shape(cut) for cut in edge_cuts],
+            )
+        )
+        if trim_tools or edge_tools:
+            shape = shape.cut(trim_tools + edge_tools)
+        if addition_tools:
+            shape = shape.fuse(addition_tools)
+        if cut_tools:
+            shape = shape.cut(cut_tools)
         shape = shape.removeSplitter()
     except Part.OCCError as error:
         raise ValueError(translated(_BOOLEAN_FAILED, {"reason": str(error)})) from error
@@ -180,6 +202,22 @@ def machined_shape(
     if oblique and len(shape.Solids) != 1:  # un enlèvement en biais ne doit pas couper la pièce
         raise ValueError(translated(_INVALID_SHAPE))
     return shape
+
+
+def _tagged_tools(groups: Sequence[Sequence[Any]]) -> list[list[Any]]:
+    """Outils ``Part`` de chaque groupe (étiquetés sur place) selon leur groupe et leur rang, pour
+    que la pièce usinée ait une carte des éléments (ADR 0056). ``ValueError`` traduite si un groupe
+    dépasse sa plage d'étiquettes (deux outils auraient la même)."""
+    tagged: list[list[Any]] = []
+    for number, group in enumerate(groups):
+        if len(group) >= _GROUP_TAGS:
+            raise ValueError(translated(_TOO_MANY_TOOLS, {"count": str(len(group))}))
+        shapes = []
+        for rank, shape in enumerate(group, start=1):
+            shape.Tag = _BASE_TAG + number * _GROUP_TAGS + rank
+            shapes.append(shape)
+        tagged.append(shapes)
+    return tagged
 
 
 def inserts_shape(inserts: Sequence[PlanSolid]) -> Any:

@@ -89,6 +89,7 @@ from freecad.menuiserie._api.edges import (
 )
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
+    align_faces,
     furniture_of,
     make_carcass,
     make_furniture,
@@ -165,6 +166,7 @@ __all__ = [
     "Stop",
     "add_edge_profile",
     "add_to_furniture",
+    "align_faces",
     "blank_of",
     "close_gap",
     "closing_options",

@@ -30,7 +30,7 @@ from freecad.menuiserie.features.furniture_container import carried_furniture
 from freecad.menuiserie.features.furniture_drag_state import furniture_box, write_sizes
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
 
-__all__ = ["frame_of", "member_envelope", "reframe", "restore_frame"]
+__all__ = ["frame_of", "grow", "member_envelope", "reframe", "restore_frame"]
 
 TOLERANCE_MM: Final = 1e-6
 _FRAME_PROPERTIES: Final = ("Origin", "Width", "Depth", "Height")
@@ -84,21 +84,48 @@ def restore_frame(furniture: DocumentObject, frame: Box) -> None:
         write_sizes(furniture, frame)
 
 
+def _frames(furniture: DocumentObject) -> tuple[Box, Box] | None:
+    """Boîte actuelle de ``furniture`` et enveloppe de ses membres ; ``None`` pour un ensemble
+    qu'on ne recale pas : sous-ensemble, piloté ou lu par une formule, sans membre."""
+    if furniture_of(furniture) is not None or _driven(furniture):
+        return None
+    envelope = member_envelope(furniture)
+    return None if envelope is None else (frame_of(furniture), envelope)
+
+
+def _same(first: Box, second: Box) -> bool:
+    return all(
+        abs(first.lo(i) - second.lo(i)) <= TOLERANCE_MM
+        and abs(first.hi(i) - second.hi(i)) <= TOLERANCE_MM
+        for i in range(3)
+    )
+
+
+def grow(furniture: DocumentObject) -> bool:
+    """Agrandit la boîte de ``furniture`` jusqu'à contenir ses membres (pièce entrée alors
+    qu'elle en dépasse), sans jamais la réduire : une marge voulue par l'utilisateur reste. Sans
+    recalcul ni liaison, comme :func:`reframe`. Faux, sans rien écrire, pour un ensemble qu'on
+    ne recale pas (:func:`_frames`) ou dont rien ne dépasse."""
+    frames = _frames(furniture)
+    if frames is None:
+        return False
+    current, envelope = frames
+    grown = Box.from_ranges(
+        [(min(current.lo(i), envelope.lo(i)), max(current.hi(i), envelope.hi(i))) for i in range(3)]
+    )
+    if _same(current, grown):
+        return False
+    restore_frame(furniture, grown)
+    return True
+
+
 def reframe(furniture: DocumentObject) -> bool:
     """Recale ``Origin`` et les cotes de ``furniture`` sur l'enveloppe de ses membres, sans
     recalcul ni liaison (l'appelant relie ensuite les membres). Faux, sans rien écrire, pour un
-    sous-ensemble, un ensemble piloté ou lu par une formule, sans membre ou déjà à l'enveloppe."""
-    if furniture_of(furniture) is not None or _driven(furniture):
+    ensemble qu'on ne recale pas (:func:`_frames`) ou déjà à l'enveloppe."""
+    frames = _frames(furniture)
+    if frames is None or _same(*frames):
         return False
-    envelope = member_envelope(furniture)
-    if envelope is None:
-        return False
-    current = frame_of(furniture)
-    if all(
-        abs(current.lo(i) - envelope.lo(i)) <= TOLERANCE_MM
-        and abs(current.hi(i) - envelope.hi(i)) <= TOLERANCE_MM
-        for i in range(3)
-    ):
-        return False
+    envelope = frames[1]
     restore_frame(furniture, envelope)
     return True

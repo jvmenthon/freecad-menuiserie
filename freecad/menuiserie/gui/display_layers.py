@@ -240,7 +240,7 @@ class DisplayLayers:
         except GONE:
             return  # document fermé entre-temps
         for key in [k for k in self._undeleted if k[0] == name]:
-            vobj = getattr(document.getObject(key[1]), "ViewObject", None)
+            vobj = io.view_object_of(document.getObject(key[1]))
             if vobj is not None:  # sinon l'objet n'est pas (encore) recréé : l'origine reste
                 original = self._undeleted.pop(key)
                 self._each([key], partial(self._write_original, vobj, original))
@@ -251,7 +251,7 @@ class DisplayLayers:
         """Ctrl+Z ou Ctrl+Y a rejoué les valeurs enregistrées dans la transaction : le calque
         voulu (ou l'origine, sans calque) est réécrit, hors transaction."""
         for key in [k for k in self._tainted if k[0] == name]:
-            vobj = getattr(document.getObject(key[1]), "ViewObject", None)
+            vobj = io.view_object_of(document.getObject(key[1]))
             if vobj is None:
                 continue
             if key in self._stack:
@@ -267,7 +267,7 @@ class DisplayLayers:
     def _restore_deleted(self, obj: PartObject) -> Callable[[Hashable], None]:
         def restore(key: Hashable) -> None:
             try:
-                vobj = getattr(obj, "ViewObject", None)
+                vobj = io.view_object_of(obj)
                 if vobj is not None:
                     self._adopt(key, vobj)
                     self._restore_with(key, vobj, self._stack.original(key))
@@ -323,10 +323,10 @@ class DisplayLayers:
         obj = self._objects.get(key)
         if obj is None or not self._alive(obj):
             return None
-        return getattr(obj, "ViewObject", None)
+        return io.view_object_of(obj)
 
     def _put(self, key: Key, obj: PartObject, owner: Hashable, look: Look) -> None:
-        vobj = getattr(obj, "ViewObject", None)
+        vobj = io.view_object_of(obj)
         if vobj is None or not hasattr(vobj, "Transparency"):
             return  # pas d'interface, ou objet sans transparence (Distance…) : rien à afficher
         try:

@@ -86,16 +86,21 @@ def resize_notices(
     old: FurnitureBox,
     new: FurnitureBox,
     unlocked: Collection[str] = (),
+    *,
+    nested: bool = False,
 ) -> list[Notice]:
     """Contrôle (``check_resize``) du passage de ``old`` à ``new``, puis, pour chaque
     sous-ensemble dont les cotes changeraient, de ses propres membres. ``unlocked`` : clés des
-    pièces à considérer comme déverrouillées. :class:`FurnitureError` si le redimensionnement
-    est refusé, :class:`LockedPiecesError` si une rangée est bloquée par des pièces
-    verrouillées."""
+    pièces à considérer comme déverrouillées ; ``nested`` : sous-ensemble qui suit son parent par
+    expression, dont les pièces à plat ne changent pas d'épaisseur (ADR 0062).
+    :class:`FurnitureError` si le redimensionnement est refusé, :class:`LockedPiecesError` si
+    une rangée est bloquée par des pièces verrouillées."""
     members = with_locks(read_members(furniture, box=old), unlocked, False)
     rules, followed = follow_rules(old, members.members)
     try:
-        notices = list(check_resize(old, new, members.members, rules, joined_pairs(members)))
+        notices = list(
+            check_resize(old, new, members.members, rules, joined_pairs(members), layers=not nested)
+        )
     except BlockedRowError as error:
         raise locked_error(error, members.named) from error
     if old != new:  # une cote dessinée ne suit pas : la pièce en bois est déplacée (PD-f)
@@ -106,5 +111,5 @@ def resize_notices(
         new_box = moved.box if moved is not None else None
         if member.box is not None and new_box is not None and new_box != member.box:
             inner = members.objects[member.key]
-            notices.extend(resize_notices(inner, member.box, new_box, unlocked))
+            notices.extend(resize_notices(inner, member.box, new_box, unlocked, nested=True))
     return notices
