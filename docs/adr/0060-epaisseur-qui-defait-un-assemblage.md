@@ -36,7 +36,10 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    ADR 0026) ; il l'est s'il ne défait aucun assemblage qui tenait. Sinon il est grisé, avec sa
    raison : autre pièce **copie de répétition**, **membre d'un ensemble**, **pièce en bois**
    (cotes du dessin), cote ou position **pilotée par une expression**, pièce pas à fleur, trop
-   courte, ou assemblage encore défait.
+   courte, ou assemblage encore défait. Si **aucun** choix ne tient (étape « 2 » d'une saisie
+   « 22 », épaisseur trop mince), rien n'est écrit, l'encadré le dit et « OK » est inactif :
+   jamais d'assemblage en erreur pendant la frappe. Chaque choix cliqué recalcule l'aperçu de
+   toutes les pièces qu'il écrit (l'autre pièce allongée comprise).
 3. **Saisies successives** : tant que l'encadré est affiché, chaque saisie d'épaisseur repart de
    l'état d'avant la première (`ThicknessEdit`, Memento) : taper « 3 » puis « 30 » ne cumule rien.
    Toute autre saisie (cote, rotation, glissement, matériau) fige l'état et masque l'encadré.

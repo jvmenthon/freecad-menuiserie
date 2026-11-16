@@ -12,7 +12,8 @@ Exemple : angle à queue d'aronde, H à plat (griffes), I debout (queues), I de 
 | Geste | Comportement |
 | --- | --- |
 | Panneau de I, épaisseur 30 | Encadré sous les cotes : « Queue d'aronde avec « H ». Où ajouter les 12 mm ? » ; « Vers l'intérieur (reste à fleur) » coché et appliqué ; « Vers l'extérieur et allonger « H » de 12 mm » ; « Revenir à 18 mm » |
-| Clic sur « allonger » | I reprend sa place, H passe à 412 mm (son bout à fleur recule de 12 mm) |
+| Clic sur « allonger » | I reprend sa place, H passe à 412 mm (son bout à fleur recule de 12 mm), visible tout de suite dans la vue 3D |
+| « 22 » tapé à la place de « 18 » (étape « 2 ») | Aucun choix ne tient à 2 mm : rien n'est écrit (aucun assemblage en erreur), « OK » inactif, « Aucun choix ne garde l'assemblage à cette épaisseur : elle n'est pas appliquée. » ; la touche suivante applique 22 mm |
 | Clic sur « Revenir » | I revient à 18 mm, le champ aussi, l'encadré disparaît |
 | H copie d'une répétition | « allonger » grisé : « « H 2 » est une copie : elle suit sa répétition et ne peut pas être modifiée. » |
 | « OK » | Une seule entrée d'annulation « Modifier une pièce de bois » |

@@ -349,14 +349,17 @@ def aborted_on_error(transaction: tuple[str, int] | None) -> Iterator[None]:
         raise
 
 
-def recompute_preview(obj: DocumentObject) -> None:
-    """Recalcule ``obj`` et ce qui en dépend dans son document (assemblages, pièces usinées),
-    sans les pages TechDraw ni les objets d'autres documents qui le citent."""
+def recompute_preview(obj: DocumentObject, *others: DocumentObject) -> None:
+    """Recalcule ``obj`` (et ``others``, du même document) et ce qui en dépend (assemblages,
+    pièces usinées), sans les pages TechDraw ni les objets d'autres documents qui les citent."""
     doc = obj.Document
-    dependents = [
-        o for o in obj.InListRecursive if o.Document is doc and not o.TypeId.startswith(_TECHDRAW)
-    ]
-    doc.recompute([obj, *dependents])
+    roots = [obj, *(o for o in others if o.Document is doc)]
+    found = {o.Name: o for o in roots}
+    for root in roots:
+        for o in root.InListRecursive:
+            if o.Document is doc and not o.TypeId.startswith(_TECHDRAW):
+                found.setdefault(o.Name, o)
+    doc.recompute(list(found.values()))
 
 
 class DeletionWatcher:

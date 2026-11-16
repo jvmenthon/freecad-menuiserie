@@ -147,6 +147,12 @@ class ThicknessEdit:
         self._broken_as_typed: list[DocumentObject] = []  # lu par EXTEND, écrit par probe
         self.messages: list[str] = []  # vue rapport : saisie écrite telle quelle par probe
 
+    @property
+    def parts(self) -> list[DocumentObject]:
+        """La pièce et les pièces qui lui sont assemblées de proche en proche (celles qu'un choix
+        peut écrire)."""
+        return list(self._parts)
+
     def _block(self, thickness: float) -> PlacedBlock:
         size = dimensions_of(self.part)
         dimensions = Dimensions(size.length, size.width, thickness)

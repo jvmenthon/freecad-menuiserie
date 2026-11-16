@@ -106,7 +106,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._bindings = [bind_length_field(self.form, obj, field) for field in LENGTH_FIELDS[:3]]
         self._unlock = UnlockBox(self.form.unlockHost.layout(), self._unlock_and_apply)
         self._conflict = ConflictBox(
-            self.form.thicknessConflictHost.layout(), obj, self._show_thickness
+            self.form.thicknessConflictHost.layout(), obj, self._show_thickness, self._recompute
         )
         self._thickness_tools = ThicknessTools(self.form, obj)
         self._angles = AngleRows(
@@ -164,14 +164,16 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Boutons du panneau, passés par FreeCAD à l'affichage : « OK » est inactif pendant le
         refus d'une épaisseur."""
         self._unlock.attach_buttons(box)
+        self._conflict.attach_buttons(box)
 
     def transparent_objects(self) -> list[DocumentObject]:
         """La pièce en édition, telle qu'elle s'affiche (usinée si elle a des assemblages)."""
         return [shown_object(self.obj)]
 
     def accept(self) -> bool:
-        """« OK » : refusé tant qu'une épaisseur saisie est refusée (le bouton est inactif)."""
-        if self._unlock.refused:
+        """« OK » : refusé tant qu'une épaisseur saisie est refusée ou ne garde aucun assemblage (le
+        bouton est inactif)."""
+        if self._unlock.refused or self._conflict.blocked:
             return False
         return super().accept()
 
@@ -220,7 +222,6 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """« Revenir à … » de l'encadré : l'épaisseur rendue s'affiche dans le champ."""
         with self._guard:
             self.form.thicknessEdit.setProperty("rawValue", value)
-        self._recompute()
 
     def _thickness_written(self, notices: Sequence[Notice]) -> None:
         """Épaisseur écrite : avertissements dans la vue rapport, aperçu."""
