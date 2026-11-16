@@ -33,7 +33,7 @@ from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_e
 from freecad.menuiserie.features.edge_profile_native import part_refusal
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.gui.edge_highlight import EdgeHighlight
+from freecad.menuiserie.gui.edge_highlight import EdgeHighlight, Entry
 from freecad.menuiserie.gui.pick_edge import EdgePicker, Pick
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
@@ -43,8 +43,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     connect,
     length_spinbox,
 )
-from freecad.menuiserie.gui.task_panels.edge_rows import NativeCard
-from freecad.menuiserie.gui.task_panels.edge_targets import Card, PieceList
+from freecad.menuiserie.gui.task_panels.edge_targets import PieceList
 from freecad.menuiserie.gui.view_providers.edge_profile import ICON
 
 FORM_NAME: Final = "EdgeFinishTaskPanel"
@@ -100,6 +99,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._profiles: dict[str, str] = {}
         self._applied: dict[str, tuple[object, ...]] = {}  # derniers réglages écrits par pièce
         self._failed = False
+        self._load_error = ""  # arêtes du profil modifié illisibles, rappelées à chaque aperçu
         self._asymmetric = False  # profil relu dont la cote B diffère de A : B reste visible
         self._guard = UpdateGuard()
         self._picker = EdgePicker(document, self.on_pick, self._ignored)
@@ -172,7 +172,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             self._size_b.setProperty("rawValue", profile.SizeB.Value)
             self._asymmetric = profile.SizeB.Value not in (0.0, profile.SizeA.Value)
             card = self.pieces.add(profile.Part, removable=False)
-            card.set_codes(designated_edges(profile), silently=True)
+            try:  # arêtes relues illisibles (fichier modifié à la main) : refus affiché
+                card.set_codes(designated_edges(profile), silently=True)
+            except (TypeError, ValueError) as error:
+                self._load_error = str(error)
         self._profiles[profile.Part.Name] = profile.Name
 
     def _needs_size_b(self) -> bool:
@@ -246,7 +249,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         profil du panneau."""
         if self._guard.active:
             return
-        messages: list[str] = []
+        messages: list[str] = [self._load_error] if self._load_error else []
         self._failed = False
         self.pieces.prune(self.doc)  # pièces supprimées pendant la tâche
         listed = {part.Name for part in self.pieces.parts()}
@@ -254,16 +257,17 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             self._remove_profile(name)
         conflicts: list[str] = []
         for part, codes in self.pieces.entries():
-            others = self._others(part)
-            mine = sorted(set(codes) & others)
-            # Aperçu : les arêtes déjà profilées par un autre profil ne lui sont retirées
-            # qu'après confirmation, dans accept().
-            free = [code for code in codes if code not in others]
-            try:
+            try:  # un autre profil aux arêtes illisibles refuse l'aperçu, sans trace
+                others = self._others(part)
+                mine = sorted(set(codes) & others)
+                # Aperçu : les arêtes déjà profilées par un autre profil ne lui sont retirées
+                # qu'après confirmation, dans accept().
+                free = [code for code in codes if code not in others]
                 messages.extend(self._preview(part, free, bool(mine)))
             except (TypeError, ValueError) as error:
                 messages.append(str(error))
                 self._failed = True
+                continue
             if mine:
                 conflicts.append(self._piece_edges(part, mine))
         if conflicts:
@@ -271,7 +275,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._show_message("\n".join(messages))
         self._highlight.show(
             [
-                (card.part, card.codes(), card.color, _edge_colors(card))
+                Entry(card.part, card.codes(), card.color, card.edge_colors())
                 for card in self.pieces.cards()
             ]
         )
@@ -375,11 +379,6 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         box.setText(translated(_REPLACE_TEXT, {"edges": conflicts}))
         box.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
         return bool(box.exec() == QtGui.QMessageBox.Yes)
-
-
-def _edge_colors(card: Card) -> dict[str, str]:
-    """Couleur propre de chaque arête d'une pièce dessinée ; aucune pour une boîte."""
-    return card.edge_colors() if isinstance(card, NativeCard) else {}
 
 
 def show_panel(picks: Sequence[Pick] = (), refusals: Sequence[str] = ()) -> None:

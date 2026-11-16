@@ -19,6 +19,7 @@ from freecad.menuiserie.features.box_parts import box_part_refusal, is_box_part
 from freecad.menuiserie.features.edge_frames import (
     MAX_NATIVE_EDGES,
     edge_index,
+    edge_name,
     has_element_map,
     native_edge,
 )
@@ -100,7 +101,7 @@ def native_names(edges: object) -> list[str]:
     unique = sorted({index for index in indexes if index is not None})
     if len(unique) != len(items):
         raise ValueError(translated(_BAD_NATIVE, {"maximum": str(MAX_NATIVE_EDGES)}))
-    return [f"Edge{index}" for index in unique]
+    return [edge_name(index) for index in unique]
 
 
 def refs_of(profile: DocumentObject) -> list[str]:

@@ -31,11 +31,13 @@ __all__ = [
     "has_element_map",
     "native_edge",
     "tangent_chain",
+    "vertex_edge_names",
 ]
 
 MAX_NATIVE_EDGES: Final = 64  # arêtes d'un même profil (spécification § 4.7)
 _NAME: Final = re.compile(r"Edge([1-9][0-9]{0,5})")
 _FACE_NAME: Final = re.compile(r"Face([1-9][0-9]{0,5})")
+_MAX_NAME_LEN: Final = 12  # « Edge999999 » : tout nom plus long est refusé sans être lu
 _PROBE_MM: Final = 0.05  # pas des points d'essai autour de l'arête
 _INSIDE_TOLERANCE: Final = 1e-4
 _TANGENT_COS: Final = 0.9999  # arêtes enchaînées « tangentes » à ce cosinus près (≈ 0,8°)
@@ -69,7 +71,7 @@ class NativeEdge:
 def edge_index(name: object) -> int | None:
     """Rang (1..n) de l'arête nommée ``"EdgeN"`` ; ``None`` pour tout autre texte (nom perdu
     ``"?Edge3"``, nom cartographié, face…). Le texte n'est jamais interprété autrement."""
-    if not isinstance(name, str) or len(name) > 12:
+    if not isinstance(name, str) or len(name) > _MAX_NAME_LEN:
         return None
     match = _NAME.fullmatch(name)
     return int(match.group(1)) if match else None
@@ -192,7 +194,7 @@ def face_edge_names(shape: Any, face_name: str) -> list[str]:
     """Noms des arêtes de la face ``face_name`` (``"Face3"``) de ``shape`` : tout son contour,
     extérieur et intérieurs (spécification C6), au plus :data:`MAX_NATIVE_EDGES`. Vide si le nom
     n'est pas une face de la forme."""
-    match = _FACE_NAME.fullmatch(face_name) if len(face_name) <= 12 else None
+    match = _FACE_NAME.fullmatch(face_name) if len(face_name) <= _MAX_NAME_LEN else None
     if match is None or int(match.group(1)) > len(shape.Faces):
         return []
     face = shape.Faces[int(match.group(1)) - 1]
@@ -204,6 +206,20 @@ def face_edge_names(shape: Any, face_name: str) -> list[str]:
             if len(names) == MAX_NATIVE_EDGES:
                 break
     return names
+
+
+def vertex_edge_names(shape: Any, index: int) -> list[str]:
+    """Noms des arêtes de ``shape`` qui partent du sommet de rang ``index`` (1..n), au plus
+    :data:`MAX_NATIVE_EDGES` : un clic sur un coin prend les arêtes qui s'y rejoignent."""
+    if not 1 <= index <= len(shape.Vertexes):
+        return []
+    vertex = shape.Vertexes[index - 1]
+    names = [
+        edge_name(rank)
+        for rank, edge in enumerate(shape.Edges, start=1)
+        if any(vertex.isSame(end) for end in edge.Vertexes)
+    ]
+    return names[:MAX_NATIVE_EDGES]
 
 
 def _ends(edge: Any) -> list[tuple[Vec3, Vec3]]:

@@ -52,6 +52,7 @@ class FamilyStrategy(Protocol):
 
     family: EdgeFamily
     second: SecondSize
+    any_angle: bool  # calculée à tout angle de faces (ADR 0063) ; sinon à angle droit seulement
 
     def section(self, a: float, b: float) -> Section:
         """Section enlevée pour les cotes ``a`` et ``b``."""
@@ -61,15 +62,43 @@ class FamilyStrategy(Protocol):
         """Encombrement ``(le long de la première face, le long de la seconde)`` en mm."""
         ...
 
+    def angled_section(self, a: float, b: float, angle: float) -> Section:
+        """Section enlevée sur une arête dont les faces forment ``angle`` radians
+        (``ValueError`` si la famille exige un angle droit)."""
+        ...
+
+    def angled_extent(self, a: float, b: float, angle: float) -> tuple[float, float]:
+        """Encombrement de :meth:`angled_section`."""
+        ...
+
+
+class _RightAngleOnly:
+    """Mélange des familles calculées à angle droit seulement (placé avant la classe mère)."""
+
+    any_angle = False
+
+    def angled_section(self, a: float, b: float, angle: float) -> Section:
+        raise ValueError(f"famille à angle droit seulement : {a}, {b}, {angle}")
+
+    def angled_extent(self, a: float, b: float, angle: float) -> tuple[float, float]:
+        raise ValueError(f"famille à angle droit seulement : {a}, {b}, {angle}")
+
 
 class _Chamfer:
     family = EdgeFamily.CHAMFER
     second = SecondSize.SAME_IF_ZERO
+    any_angle = True
 
     def section(self, a: float, b: float) -> Section:
         return sections.chamfer(a, b)
 
     def extent(self, a: float, b: float) -> tuple[float, float]:
+        return (a, b)
+
+    def angled_section(self, a: float, b: float, angle: float) -> Section:
+        return sections.angled_chamfer(a, b, angle)
+
+    def angled_extent(self, a: float, b: float, angle: float) -> tuple[float, float]:
         return (a, b)
 
 
@@ -79,6 +108,13 @@ class _Round(_Chamfer):
     def section(self, a: float, b: float) -> Section:
         return sections.round_corner(a, b)
 
+    def angled_section(self, a: float, b: float, angle: float) -> Section:
+        return sections.angled_round(a, angle)  # arc tangent : un seul rayon, B sans effet
+
+    def angled_extent(self, a: float, b: float, angle: float) -> tuple[float, float]:
+        tangent = sections.tangent_length(a, angle)
+        return (tangent, tangent)
+
 
 class _Cove(_Chamfer):
     family = EdgeFamily.COVE
@@ -87,15 +123,21 @@ class _Cove(_Chamfer):
     def section(self, a: float, b: float) -> Section:
         return sections.cove(a)
 
+    def angled_section(self, a: float, b: float, angle: float) -> Section:
+        return sections.angled_cove(a, angle)
 
-class _Bullnose(_Cove):
+    def angled_extent(self, a: float, b: float, angle: float) -> tuple[float, float]:
+        return (a, a)
+
+
+class _Bullnose(_RightAngleOnly, _Cove):
     family = EdgeFamily.BULLNOSE
 
     def section(self, a: float, b: float) -> Section:
         return sections.round_corner(a, a)
 
 
-class _Beak(_Chamfer):
+class _Beak(_RightAngleOnly, _Chamfer):
     family = EdgeFamily.BEAK
     second = SecondSize.REQUIRED
 
@@ -106,7 +148,7 @@ class _Beak(_Chamfer):
         return (a, a + b)
 
 
-class _Ogee(_Chamfer):
+class _Ogee(_RightAngleOnly, _Chamfer):
     family = EdgeFamily.OGEE
     second = SecondSize.REQUIRED
 

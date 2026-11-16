@@ -45,7 +45,6 @@ from freecad.menuiserie.core.edges._frame import (
     MAX_ANGLE_DEG,
     MIN_ANGLE_DEG,
     EdgeFrame,
-    angled_section,
     edge_cut_in_frame,
     frame_refusal,
 )
@@ -91,7 +90,6 @@ __all__ = [
     "Hit",
     "SecondSize",
     "all_edges",
-    "angled_section",
     "box_hit",
     "box_sizes",
     "box_view",

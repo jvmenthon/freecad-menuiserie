@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from functools import partial
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 from PySide import QtCore, QtGui
 
@@ -117,6 +117,8 @@ class NativeCard(QtGui.QFrame):  # type: ignore[misc]
     """Carte d'une pièce dessinée : arêtes natives choisies (état, dans l'ordre des clics),
     une ligne colorée par arête ; ``changed()`` après chaque changement, ``removed(card)`` à
     la croix de la pièce."""
+
+    has_view: ClassVar[bool] = False  # pas de dessin de boîte
 
     def __init__(
         self,

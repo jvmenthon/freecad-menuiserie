@@ -33,6 +33,7 @@ from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.edge_profile_native import (
     LOST,
     MIXED,
+    ON_PART,
     designated_edges,
     is_native_designation,
     lost_edges,
@@ -89,7 +90,9 @@ _BAD_EDGES: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les arêtes d'un profil doivent être différentes (douze au plus)."
 )
 _BAD_FAMILY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Famille de profil inconnue : {family}.")
-_ON_PART: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce « {label} » : {message}")
+_OTHER_PART: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Les arêtes du profil désignent une autre pièce que la sienne."
+)
 
 PROPERTIES: Final = (
     PropertySpec(
@@ -198,7 +201,7 @@ class EdgeProfile(StatelessProxy):
         if lost:
             report_warning(
                 translated(
-                    _ON_PART,
+                    ON_PART,
                     {
                         "label": quoted_value(obj.Part.Label),
                         "message": translated(LOST, {"edges": ", ".join(lost)}),
@@ -249,7 +252,7 @@ def profile_cuts(
             return [edge_cut(dimensions, parse_edge(code), family, a, b) for code in codes]
     except ValueError as error:
         raise ValueError(
-            translated(_ON_PART, {"label": quoted_value(label), "message": str(error)})
+            translated(ON_PART, {"label": quoted_value(label), "message": str(error)})
         ) from None
 
 
@@ -266,7 +269,7 @@ def edge_cuts(profile: DocumentObject, *, skip_lost: bool = False) -> list[Extru
         if list(profile.Edges):
             raise ValueError(translated(MIXED))
         if profile.EdgeRefs[0] != part:
-            raise ValueError(translated(_NO_PART))
+            raise ValueError(translated(_OTHER_PART))
         return native_cuts(
             part, refs, family, profile.SizeA.Value, profile.SizeB.Value, skip_lost=skip_lost
         )

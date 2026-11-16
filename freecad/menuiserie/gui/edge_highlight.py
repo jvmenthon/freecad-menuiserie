@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from itertools import pairwise
-from typing import Any, Final
+from types import MappingProxyType
+from typing import Any, Final, NamedTuple
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -35,17 +36,23 @@ from freecad.menuiserie.features.wood_part_record import dimensions_of
 from freecad.menuiserie.gui.drag.geometry import Drawing, Solid, Stroke
 from freecad.menuiserie.gui.drag.overlay import Overlay
 
-__all__ = ["NODE_NAME", "EdgeHighlight", "highlight_drawing", "rgb"]
+__all__ = ["NODE_NAME", "EdgeHighlight", "Entry", "highlight_drawing", "rgb"]
 
 NODE_NAME: Final = "MenuiserieEdgeFinish"
 _LINE_PX: Final = 5.0
 _FACE_TRANSPARENCY: Final = 0.55
 _CURVE_POINTS: Final = 24  # points d'une arête courbe dessinée
 Color = tuple[float, float, float]
-Entry = (
-    tuple[DocumentObject, Sequence[str], str]
-    | tuple[DocumentObject, Sequence[str], str, Mapping[str, str]]
-)
+
+
+class Entry(NamedTuple):
+    """Arêtes choisies d'une pièce : codes de boîte (``"Z+Y-"``), ou noms d'arêtes natives
+    (``"Edge7"``) quand ``edge_colors`` donne la couleur de chacune (pièce dessinée)."""
+
+    part: DocumentObject
+    codes: Sequence[str]
+    color: str  # "#rrggbb", couleur de la carte
+    edge_colors: Mapping[str, str] = MappingProxyType({})  # lecture seule
 
 
 def rgb(color: str) -> Color:
@@ -69,13 +76,12 @@ def _vector(point: Vec3) -> Any:
     return App.Vector(point.x, point.y, point.z)
 
 
-def _native_strokes(
-    part: DocumentObject, names: Sequence[str], color: str, colors: Mapping[str, str]
-) -> list[Stroke]:
+def _native_strokes(entry: Entry) -> list[Stroke]:
     """Un trait par arête native, à sa couleur propre (celle de la carte à défaut)."""
+    part, color, colors = entry.part, entry.color, entry.edge_colors
     shape, convert = base_shape_of(part), _to_global(part)
     strokes = []
-    for name in names:
+    for name in entry.codes:
         index = edge_index(name)
         if index is None or index > len(shape.Edges):
             continue
@@ -86,17 +92,17 @@ def _native_strokes(
 
 
 def highlight_drawing(entries: Sequence[Entry]) -> Drawing:
-    """Dessin des arêtes choisies ``(pièce, codes, couleur "#rrggbb"[, couleur par arête])``
-    dans le repère global : codes de boîte, ou noms d'arêtes natives (``"Edge7"``)."""
+    """Dessin des arêtes choisies dans le repère global : un trait par arête native à sa
+    couleur, ou les arêtes de boîte à la couleur de la carte et ses faces entièrement choisies
+    teintées."""
     strokes: list[Stroke] = []
     solids: list[Solid] = []
     for entry in entries:
-        part, codes, color = entry[0], entry[1], entry[2]
+        part, codes, color = entry.part, entry.codes, entry.color
         if not codes:
             continue
-        if any(edge_index(code) is not None for code in codes):
-            colors = entry[3] if len(entry) > 3 else {}
-            strokes += _native_strokes(part, codes, color, colors)
+        if entry.edge_colors:  # pièce dessinée : chaque arête a sa couleur
+            strokes += _native_strokes(entry)
             continue
         dimensions, convert, shade = dimensions_of(part), _to_global(part), rgb(color)
         chosen = set(codes)

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 import FreeCAD as App
 from PySide import QtGui
@@ -85,6 +85,8 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
     """Carte d'une pièce : arêtes choisies (état), dessin cliquable ; ``changed()`` après
     chaque changement, ``removed(card)`` à la croix."""
 
+    has_view: ClassVar[bool] = True  # dessin patron/boîte : la bascule de vue la concerne
+
     def __init__(
         self,
         part: DocumentObject,
@@ -151,6 +153,10 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
     def set_view(self, view: str) -> None:
         """Dessin : patron déplié ou boîte."""
         self.diagram.set_view(view)
+
+    def edge_colors(self) -> dict[str, str]:
+        """Aucune couleur propre : les arêtes d'une boîte ont la couleur de la carte."""
+        return {}
 
     def refresh(self) -> None:
         """Dessin et compte remis d'après les arêtes choisies."""
@@ -292,6 +298,6 @@ class PieceList:
         empty = not self._cards
         self.hint.setVisible(empty)
         self._group.setVisible(not empty)
-        self._view_widget.setVisible(any(isinstance(card, PieceCard) for card in self._cards))
+        self._view_widget.setVisible(any(card.has_view for card in self._cards))
         self._more.setVisible(not empty)
         self._group.setTitle(translated(_LIST, {"count": str(len(self._cards))}))

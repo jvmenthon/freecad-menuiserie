@@ -59,10 +59,6 @@ def resolved_sizes(family: EdgeFamily, a: float, b: float, name: str) -> tuple[f
     return float(a), float(b)
 
 
-def _resolved(family: EdgeFamily, edge: EdgeId, a: float, b: float) -> tuple[float, float]:
-    return resolved_sizes(family, a, b, edge.name)
-
-
 def edge_cut(
     dimensions: Dimensions, edge: EdgeId, family: EdgeFamily, a: float, b: float = 0.0
 ) -> Extrusion:
@@ -73,7 +69,7 @@ def edge_cut(
     chaque bout. ``EdgeError`` si une cote est trop petite ou si l'encombrement dépasse la
     moitié de la pièce dans l'un des deux sens.
     """
-    a, b = _resolved(family, edge, a, b)
+    a, b = resolved_sizes(family, a, b, edge.name)
     strategy = family_for(family)
     sizes = (dimensions.length, dimensions.width, dimensions.thickness)
     first, second = edge.first, edge.second

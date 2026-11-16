@@ -244,9 +244,40 @@ def verifier_clic_dans_un_std_part() -> list[str]:
     return avec_document("VerifChantsNatifsStdPart", _clic_dans_un_std_part)
 
 
+def _profil_illisible(doc: Any) -> list[str]:
+    from freecad.menuiserie import api
+    from freecad.menuiserie.features.edge_frames import MAX_NATIVE_EDGES, face_edge_names
+
+    part = piece_en_l(doc)
+    premiere = face_edge_names(part.Shape, face_du_dessus(part))[0]
+    profile, _ = api.add_edge_profile(part, [premiere], "Round", 2.0)
+    profile.EdgeRefs = (part, [f"Edge{rang}" for rang in range(1, MAX_NATIVE_EDGES + 2)])
+    doc.recompute()
+    vobj = profile.ViewObject
+    ouvert = vobj.Proxy.doubleClicked(vobj)
+    form = formulaire()
+    if not ouvert or form is None:
+        return ["double-clic sur un profil aux arêtes illisibles : panneau non ouvert"]
+    message = widget(form, "errorLabel").text()
+    reprises = carte(form, part).codes()
+    annuler()
+    return [
+        *ecarts("refus affiché", "au plus 64" in message, True),
+        *ecarts("aucune arête reprise", reprises, []),
+        *ecarts("profil gardé", api.edge_profiles_of(part), [profile]),
+    ]
+
+
+def verifier_profil_aux_aretes_illisibles() -> list[str]:
+    """Revue M1 : un profil dont les arêtes relues sont illisibles (fichier modifié à la main)
+    s'ouvre au double-clic, sans trace d'erreur, son refus affiché sous les champs."""
+    return avec_document("VerifChantsNatifsIllisible", _profil_illisible)
+
+
 VERIFICATIONS_CHANTS_NATIFS: tuple[Callable[[], list[str]], ...] = (
     verifier_contour_d_une_face,
     verifier_second_clic_retire_le_contour,
     verifier_angle_hors_bornes_grise,
     verifier_clic_dans_un_std_part,
+    verifier_profil_aux_aretes_illisibles,
 )

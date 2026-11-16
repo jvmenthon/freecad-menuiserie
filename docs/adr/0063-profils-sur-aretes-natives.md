@@ -1,6 +1,6 @@
 # ADR 0063 — Profils d'arête sur arêtes natives (nommage topologique de FreeCAD 1.x)
 
-- Statut : **proposé** (jv a choisi l'option le 2026-11-14 ; ADR à accepter avec la spécification)
+- Statut : **accepté** (jv a choisi l'option le 2026-11-14, la maquette A du panneau le 2026-11-16)
 - Date : 2026-11-14
 - Spécification : [docs/specs/profils-sur-toute-forme.md](../specs/profils-sur-toute-forme.md)
 - ADR liés : [0029 — Profils d'arête](0029-profils-d-arete-par-balayage.md) (complété : sa décision 3
@@ -63,5 +63,10 @@ Options :
   chaque nouvelle version majeure (tests d'intégration du lot P-0).
 - Un fichier enregistré avec des arêtes natives est refusé par une version plus ancienne de
   l'atelier (version inconnue).
+- Les coupes d'une arête native sont calculées deux fois à chaque recalcul : par le profil (qui
+  vérifie ses arêtes et signale celles qui sont perdues) puis par la pièce usinée (qui les
+  retranche). Lire le repère d'une arête interroge la forme (faces voisines, points d'essai) :
+  coût proportionnel au nombre d'arêtes du profil (64 au plus), négligeable devant le perçage
+  booléen ; à mettre en cache sur la forme si une pièce très détaillée le rend sensible.
 - Revenir sur cette décision (codes de position par arête) demanderait de retrouver les arêtes
   d'une forme quelconque par la géométrie, plus fragile.

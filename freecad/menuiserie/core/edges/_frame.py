@@ -16,10 +16,10 @@ import math
 from dataclasses import dataclass
 from typing import Final
 
-from freecad.menuiserie.core._extrusion import Arc, Extrusion, Section, Segment
+from freecad.menuiserie.core._extrusion import Extrusion
 from freecad.menuiserie.core._validation import decimal_text
-from freecad.menuiserie.core.edges._cut import OVERSHOOT_MM, resolved_sizes
-from freecad.menuiserie.core.edges._families import EdgeFamily, family_for
+from freecad.menuiserie.core.edges._cut import MAX_SIZE_RATIO, OVERSHOOT_MM, resolved_sizes
+from freecad.menuiserie.core.edges._families import FAMILIES, EdgeFamily, family_for
 from freecad.menuiserie.core.edges._ids import EdgeError
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -31,7 +31,6 @@ __all__ = [
     "MIN_ANGLE_DEG",
     "RIGHT_ANGLE_TOLERANCE_DEG",
     "EdgeFrame",
-    "angled_section",
     "edge_cut_in_frame",
     "frame_refusal",
 ]
@@ -39,11 +38,10 @@ __all__ = [
 MIN_ANGLE_DEG: Final = 30.0  # angle de matière le plus aigu accepté
 MAX_ANGLE_DEG: Final = 150.0  # le plus ouvert (au-delà, l'arête est presque plate)
 RIGHT_ANGLE_TOLERANCE_DEG: Final = 0.5  # angle « droit » à ce jeu près
-ROOM_RATIO: Final = 0.5  # encombrement au plus la moitié de la face voisine
 _ANGLE_SLACK_DEG: Final = 1e-6  # arrondis du calcul de l'angle aux bornes
 
-# Familles calculées à tout angle ; les autres exigent un angle droit (spécification A3).
-ANGLED_FAMILIES: Final = frozenset({EdgeFamily.CHAMFER, EdgeFamily.ROUND, EdgeFamily.COVE})
+# Familles calculées à tout angle (lu dans le registre) ; les autres exigent un angle droit.
+ANGLED_FAMILIES: Final = frozenset(family for family, s in FAMILIES.items() if s.any_angle)
 
 _CONCAVE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Arête {edge} rentrante : il n'y a pas de matière à enlever."
@@ -136,51 +134,9 @@ def frame_refusal(frame: EdgeFrame, family: EdgeFamily | str) -> EdgeError | Non
                 "maximum": _degrees(MAX_ANGLE_DEG),
             },
         )
-    if not frame.right_angled and EdgeFamily(family) not in ANGLED_FAMILIES:
+    if not frame.right_angled and not family_for(family).any_angle:
         return EdgeError(_RIGHT_ONLY, {"edge": frame.name, "angle": _degrees(angle)})
     return None
-
-
-def angled_section(family: EdgeFamily, a: float, b: float, angle_deg: float) -> Section:
-    """Section enlevée par ``family`` (chanfrein, quart de rond ou gorge) sur une arête dont les
-    faces forment ``angle_deg`` degrés ; cotes déjà résolues. Le quart de rond est l'arc de rayon
-    ``a`` tangent aux deux faces ; la gorge, le secteur de rayon ``a`` centré sur l'arête."""
-    alpha = math.radians(angle_deg)
-    towards_second = (math.cos(alpha), math.sin(alpha))
-    if family is EdgeFamily.CHAMFER:
-        far = (b * towards_second[0], b * towards_second[1])
-        return Section(
-            (Segment((0.0, 0.0), (a, 0.0)), Segment((a, 0.0), far), Segment(far, (0.0, 0.0)))
-        )
-    if family is EdgeFamily.ROUND:
-        tangent = a / math.tan(alpha / 2)
-        far = (tangent * towards_second[0], tangent * towards_second[1])
-        return Section(
-            (
-                Segment((0.0, 0.0), (tangent, 0.0)),
-                Arc((tangent, a), a, a, -math.pi / 2, alpha - 3 * math.pi / 2),
-                Segment(far, (0.0, 0.0)),
-            )
-        )
-    if family is EdgeFamily.COVE:
-        far = (a * towards_second[0], a * towards_second[1])
-        return Section(
-            (
-                Segment((0.0, 0.0), (a, 0.0)),
-                Arc((0.0, 0.0), a, a, 0.0, alpha),
-                Segment(far, (0.0, 0.0)),
-            )
-        )
-    raise ValueError(f"famille sans section à angle quelconque : {family.value}")
-
-
-def _angled_extent(family: EdgeFamily, a: float, b: float, angle_deg: float) -> tuple[float, float]:
-    if family is EdgeFamily.ROUND:
-        tangent = a / math.tan(math.radians(angle_deg) / 2)
-        return (tangent, tangent)
-    if family is EdgeFamily.COVE:
-        return (a, a)
-    return (a, b)
 
 
 def edge_cut_in_frame(
@@ -204,11 +160,10 @@ def edge_cut_in_frame(
         section = strategy.section(a, b)
         extent = strategy.extent(a, b)
     else:
-        angle = frame.angle
-        b = a if family is not EdgeFamily.CHAMFER else b
-        section = angled_section(family, a, b, angle)
-        extent = _angled_extent(family, a, b, angle)
-    room = (ROOM_RATIO * frame.room_first, ROOM_RATIO * frame.room_second)
+        angle = math.radians(frame.angle)
+        section = strategy.angled_section(a, b, angle)
+        extent = strategy.angled_extent(a, b, angle)
+    room = (MAX_SIZE_RATIO * frame.room_first, MAX_SIZE_RATIO * frame.room_second)
     if extent[0] > room[0] + 1e-9 or extent[1] > room[1] + 1e-9:
         raise EdgeError(
             _TOO_BIG,

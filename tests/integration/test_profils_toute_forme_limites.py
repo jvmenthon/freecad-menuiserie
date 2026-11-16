@@ -546,3 +546,58 @@ def test_modifier_un_profil_avec_arete_perdue_message_clair(document: Any) -> No
         api.set_edge_profile(profile, edge_profile.designated_edges(profile), "Chamfer", 3.0)
     assert "pas les deux" not in str(refus.value)
     assert "perdue" in str(refus.value)
+
+
+# --- Arêtes relues d'un fichier modifié à la main (revue, M2) --------------------------------
+
+
+def _profil_relu(doc: Any, noms: list[str]) -> tuple[Any, Any]:
+    """Profil créé normalement, puis ses arêtes réécrites comme dans un fichier modifié."""
+    corps, _esquisse = _corps(doc, _segments(EN_L))
+    piece = api.make_shaped_part(corps)
+    doc.recompute()
+    profil, _messages = api.add_edge_profile(piece, ["Edge1"], "Chamfer", 1.0)
+    profil.EdgeRefs = (piece, noms)
+    doc.recompute()
+    return piece, profil
+
+
+@pytest.mark.parametrize(
+    "noms",
+    [
+        [f"Edge{rang}" for rang in range(1, edge_frames.MAX_NATIVE_EDGES + 2)],  # 65 arêtes
+        ["Edge1", "?Edge1"],  # la même arête, suivie et perdue
+        ["Edge2", "Edge2"],
+    ],
+    ids=["trop-nombreuses", "suivie-et-perdue", "doublon"],
+)
+def test_aretes_relues_invalides_profil_en_erreur(document: Any, noms: list[str]) -> None:
+    _piece, profil = _profil_relu(document, noms)
+    assert "Invalid" in profil.State
+    with pytest.raises(ValueError, match="au plus 64") as refus:
+        edge_profile.edge_cuts(profil)
+    assert "?Edge" not in str(refus.value)
+
+
+def test_nom_illisible_signale_sans_etre_recopie(document: Any, vue_rapport: Any) -> None:
+    intrus = "<b>Texte‮injecté</b>"
+    _piece, profil = _profil_relu(document, ["Edge1", intrus])
+    # nom illisible traité comme une arête perdue : signalé, la pièce usinée suit
+    assert "Invalid" not in profil.State
+    avertissements = vue_rapport.de_niveau("Warning")
+    assert any("nom illisible" in texte for texte in avertissements)
+    assert all(intrus not in texte for texte in avertissements)
+    assert all(intrus not in nom for nom in edge_profile.lost_edges(profil))
+
+
+def test_aretes_d_une_autre_piece_refusees(document: Any) -> None:
+    piece, profil = _profil_relu(document, ["Edge1"])
+    autre_corps, _esquisse = _corps(document, _segments(EN_L))
+    autre = api.make_shaped_part(autre_corps)
+    document.recompute()
+    profil.EdgeRefs = (autre, ["Edge1"])
+    document.recompute()
+    assert profil.Part == piece
+    assert "Invalid" in profil.State
+    with pytest.raises(ValueError, match="autre pièce"):
+        edge_profile.edge_cuts(profil)

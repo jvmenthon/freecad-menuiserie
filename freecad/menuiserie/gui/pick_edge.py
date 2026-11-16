@@ -26,11 +26,11 @@ from freecad.menuiserie.core.edges import edges_at
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.features.box_parts import is_box_part
 from freecad.menuiserie.features.edge_frames import (
-    MAX_NATIVE_EDGES,
     edge_index,
     edge_name,
     face_edge_names,
     tangent_chain,
+    vertex_edge_names,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import is_machined_part
@@ -72,17 +72,24 @@ def _pick_of(target: DocumentObject, sub: str, clicked: Any = None) -> Pick | No
         if clicked is not None:  # point cliqué : global, ramené au repère de la pièce
             point = part.getGlobalPlacement().inverse().multVec(clicked)
         else:  # centre de l'élément : repère du conteneur, comme ``target.Shape``
-            center = element.Point if kind == "Vertex" else element.CenterOfMass
-            if kind == "Edge":
-                center = element.valueAt((element.FirstParameter + element.LastParameter) / 2)
-            point = part.Placement.inverse().multVec(center)
+            point = part.Placement.inverse().multVec(_element_center(element, kind))
         return Pick(part, _native_names(target, part, kind, sub, point))
-    center = element.Point if kind == "Vertex" else element.CenterOfMass
+    center = _element_center(element, kind)
     # ``target.Shape`` est dans le repère du conteneur de la pièce (Std Part non compris) : seul
     # ``Placement`` est défait ici, pas ``getGlobalPlacement()`` (qui sert à la vue 3D).
     local = part.Placement.inverse().multVec(center)
     point, dimensions = Vec3(local.x, local.y, local.z), dimensions_of(part)
     return Pick(part, tuple(e.code for e in edges_at(dimensions, kind, point)))
+
+
+def _element_center(element: Any, kind: str) -> Any:
+    """Point qui représente l'élément : le sommet lui-même, le milieu d'une arête (sur la
+    courbe), le centre d'une face."""
+    if kind == "Vertex":
+        return element.Point
+    if kind == "Edge":
+        return element.valueAt((element.FirstParameter + element.LastParameter) / 2)
+    return element.CenterOfMass
 
 
 def _alt_pressed() -> bool:
@@ -108,13 +115,7 @@ def _native_names(
         face = sub if target == part else f"Face{_nearest(base.Faces, point)}"
         return tuple(face_edge_names(base, face))
     if kind == "Vertex":
-        index = _nearest(base.Vertexes, point)
-        vertex = base.Vertexes[index - 1]
-        return tuple(
-            edge_name(rank)
-            for rank, edge in enumerate(base.Edges, start=1)
-            if any(vertex.isSame(end) for end in edge.Vertexes)
-        )[:MAX_NATIVE_EDGES]
+        return tuple(vertex_edge_names(base, _nearest(base.Vertexes, point)))
     named = edge_index(sub) if target == part else None
     index = named if named is not None else _nearest(base.Edges, point)
     chain = [index] if _alt_pressed() else tangent_chain(base, index)
