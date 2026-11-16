@@ -71,7 +71,7 @@ def _wedge(angle_deg: float, *, convex: bool = True, room: float = 100.0) -> Edg
     )
 
 
-def _ends(cut: Extrusion) -> set[tuple[float, ...]]:
+def _ends(cut: Extrusion) -> set[tuple[float, float, float]]:
     """Contour de la section aux deux bouts du balayage, en points 3D arrondis."""
     points = set()
     for u, v in cut.section.outline():

@@ -99,7 +99,7 @@ def test_le_profil_suit_son_arete_quand_l_esquisse_change(document: Any) -> None
     api.add_edge_profile(shaped, [name], "Chamfer", 2.0)
     _notch(document, sketch, 5, NOTCH_LEFT)
     profile = api.edge_profiles_of(shaped)[0]
-    followed = list(profile.EdgeRefs[1])[0]
+    followed = next(iter(profile.EdgeRefs[1]))
     assert followed == _edge(shaped.Shape, *FRONT_TOP)
     machined = api.machined_part_of(shaped)
     assert machined.Shape.isValid()

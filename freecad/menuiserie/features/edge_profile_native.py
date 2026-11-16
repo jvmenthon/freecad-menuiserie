@@ -15,6 +15,7 @@ from freecad.menuiserie.core._extrusion import Extrusion
 from freecad.menuiserie.core.edges import EdgeError, EdgeFamily, edge_cut_in_frame
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.box_parts import box_part_refusal, is_box_part
 from freecad.menuiserie.features.edge_frames import (
     MAX_NATIVE_EDGES,
     edge_index,
@@ -35,6 +36,7 @@ __all__ = [
     "native_cuts",
     "native_names",
     "native_shape",
+    "part_refusal",
     "refs_of",
 ]
 
@@ -133,6 +135,21 @@ def native_shape(part: DocumentObject) -> Any:
     if not has_element_map(part.Shape if source is None else source.Shape):
         raise ValueError(translated(_NO_ELEMENT_MAP, {"label": label}))
     return base_shape_of(part)
+
+
+def part_refusal(part: DocumentObject) -> str | None:
+    """Raison traduite pour laquelle ``part`` ne peut pas recevoir de profil, ``None`` si elle le
+    peut : une boîte toujours (codes de faces) ; une pièce dessinée si ses arêtes peuvent être
+    suivies ; aucune autre pièce."""
+    if is_box_part(part):
+        return None
+    if not is_shaped_part(part):
+        return box_part_refusal(part)
+    try:
+        native_shape(part)
+    except ValueError as error:
+        return str(error)
+    return None
 
 
 def native_cuts(

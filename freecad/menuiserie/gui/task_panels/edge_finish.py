@@ -28,8 +28,8 @@ from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.edges import BROKEN_EDGE_MM, EdgeFamily, SecondSize, family_for
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.box_parts import is_box_part
-from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges, native_shape
+from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges
+from freecad.menuiserie.features.edge_profile_native import part_refusal
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.gui.edge_highlight import EdgeHighlight
@@ -200,8 +200,9 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
     def on_pick(self, pick: Pick) -> None:
         """Pièce, face, arête ou sommet cliqué dans la vue 3D : la pièce s'ajoute à la liste
-        (une pièce qui n'est pas une boîte est refusée), ses arêtes désignées sont choisies."""
-        refusal = _pick_refusal(pick.part)
+        (une pièce dont les arêtes ne peuvent pas être suivies est refusée), ses arêtes
+        désignées sont choisies."""
+        refusal = part_refusal(pick.part)
         if refusal is not None:
             self._show_message(refusal)
             return
@@ -372,18 +373,6 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         box.setText(translated(_REPLACE_TEXT, {"edges": conflicts}))
         box.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
         return bool(box.exec() == QtGui.QMessageBox.Yes)
-
-
-def _pick_refusal(part: DocumentObject) -> str | None:
-    """Raison traduite pour laquelle ``part`` ne peut pas recevoir de profil : une boîte est
-    toujours acceptée ; une pièce dessinée l'est si ses arêtes peuvent être suivies (ADR 0063)."""
-    if is_box_part(part):
-        return None
-    try:
-        native_shape(part)
-    except ValueError as error:
-        return str(error)
-    return None
 
 
 def _edge_colors(card: Card) -> dict[str, str]:

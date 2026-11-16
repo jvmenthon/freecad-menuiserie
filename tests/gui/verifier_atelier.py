@@ -36,6 +36,7 @@ from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELA
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
 from tests.gui.verifications_chants import VERIFICATIONS_CHANTS
+from tests.gui.verifications_chants_natifs import VERIFICATIONS_CHANTS_NATIFS
 from tests.gui.verifications_chants_pieces import VERIFICATIONS_CHANTS_PIECES
 from tests.gui.verifications_coplanarite import VERIFICATIONS_COPLANARITE
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
@@ -1285,6 +1286,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_CAISSON,
     *VERIFICATIONS_CHANTS,
     *VERIFICATIONS_CHANTS_PIECES,
+    *VERIFICATIONS_CHANTS_NATIFS,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
