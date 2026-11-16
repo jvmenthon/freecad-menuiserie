@@ -30,7 +30,11 @@ from freecad.menuiserie.core.snap._orientation import (
     source_orientation,
     support_rotation,
 )
-from freecad.menuiserie.core.snap._perpendicular import face_section, perpendicular_orientation
+from freecad.menuiserie.core.snap._perpendicular import (
+    face_section,
+    footprint,
+    perpendicular_orientation,
+)
 from freecad.menuiserie.core.snap._solve import MAX_TARGETS, snap
 
 __all__ = [
@@ -49,6 +53,7 @@ __all__ = [
     "VertexTarget",
     "all_orientations",
     "face_section",
+    "footprint",
     "initial_orientation",
     "limit_dimensions",
     "perpendicular_orientation",

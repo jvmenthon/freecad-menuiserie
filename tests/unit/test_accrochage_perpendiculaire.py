@@ -11,6 +11,7 @@ from freecad.menuiserie.core.snap import (
     FaceTarget,
     Frame,
     face_section,
+    footprint,
     perpendicular_orientation,
     snap,
     support_rotation,
@@ -157,3 +158,13 @@ def test_section_tres_grande_etendue_reste_dans_les_bornes() -> None:
     # face de 1e6 mm : au-delà de MAX_DIMENSION_MM la largeur doit retomber sur celle de la pièce
     width, _thickness = section_against(narrow(X, Y, Z, (300.0, 1.0e6)))
     assert width <= 20000.0
+
+
+def test_emprise_de_la_piece_selon_les_axes_de_la_face() -> None:
+    # grande face (normale Z) : la largeur reste selon Y, l'épaisseur selon X
+    target = narrow(X, Y, Z, (300.0, 60.0))
+    support = support_rotation([target])
+    assert support is not None
+    orientation = perpendicular_orientation(support, IDENTITY)
+    assert orientation is not None
+    assert footprint(orientation, (60.0, 30.0)) == (30.0, 60.0)

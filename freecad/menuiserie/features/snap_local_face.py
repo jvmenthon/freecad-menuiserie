@@ -26,7 +26,7 @@ from freecad.menuiserie.features.snap_geometry import (
 if TYPE_CHECKING:
     from freecad.menuiserie.features.snap_targets import TargetReading
 
-__all__ = ["face_under_click", "inward_axes", "local_face_target"]
+__all__ = ["face_under_click", "fit_to_footprint", "inward_axes", "local_face_target"]
 
 
 def inward_axes(
@@ -125,6 +125,39 @@ def _local_target(
     axis_x, axis_y, extent = inward_axes(x, y, low_x, low_y, sizes)
     frame = Frame(to_vec3(corner), to_vec3(axis_x), to_vec3(axis_y), to_vec3(normal))
     return FaceTarget(target.name, frame, extent, planar=True)
+
+
+def fit_to_footprint(
+    target: FaceTarget, face: Any, sizes: tuple[float, float]
+) -> FaceTarget | None:
+    """``target`` resserré pour qu'une pièce d'emprise ``sizes`` (selon ses deux axes), posée dans
+    son coin, reste dans ``face`` : une arête oblique coupe la face avant la fin de la tranche
+    mesurée au clic. L'étendue est l'intersection des tranches prises sur toute l'épaisseur de
+    la pièce ; le coin glisse jusqu'au bord. ``None`` si rien ne change ou si le calcul échoue."""
+    frame = target.frame
+    origin, normal = to_vector(frame.origin), to_vector(frame.z)
+    axes, extent = (to_vector(frame.x), to_vector(frame.y)), list(target.extent)
+    try:
+        # d'abord l'axe où la pièce remplit l'étendue (le moins de marge) : celui que l'arête coupe
+        for row in sorted((0, 1), key=lambda r: extent[r] - sizes[r]):
+            along, across = axes[row], axes[1 - row]
+            depth, length = min(sizes[1 - row], extent[1 - row]), extent[row]
+            low, high = 0.0, length
+            for offset in (EPSILON, depth / 2.0, depth - EPSILON):
+                start = origin + across * max(offset, EPSILON) + along * (length / 2.0)
+                start += normal * (face.CenterOfMass - start).dot(normal)
+                span = _span_through(face, start, along)
+                if span is not None:
+                    low, high = max(low, length / 2.0 + span[0]), min(high, length / 2.0 + span[1])
+            if high - low <= EPSILON:
+                return None
+            origin, extent[row] = origin + along * low, high - low
+    except ERRORS:
+        return None
+    if all(abs(new - old) <= EPSILON for new, old in zip(extent, target.extent, strict=True)):
+        return None
+    moved = Frame(to_vec3(origin), frame.x, frame.y, frame.z)
+    return FaceTarget(target.name, moved, (extent[0], extent[1]), planar=True)
 
 
 def face_under_click(element: PickedElement) -> PickedElement:

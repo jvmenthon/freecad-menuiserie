@@ -16,7 +16,7 @@ from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_M
 from freecad.menuiserie.core.snap._model import Orientation, product
 from freecad.menuiserie.core.vectors import cross
 
-__all__ = ["face_section", "perpendicular_orientation"]
+__all__ = ["face_section", "footprint", "perpendicular_orientation"]
 
 _LENGTH, _WIDTH, _THICKNESS = 0, 1, 2
 _NORMAL_ROW = 2  # ligne « normale sortante » du repère d'appui
@@ -95,3 +95,20 @@ def face_section(
         elif usable and abs(new_thickness.component(row)) == 1.0:
             thickness = min(thickness, extent[row])  # la place disponible jusqu'à l'arête
     return width, thickness
+
+
+def footprint(orientation: Orientation, section: tuple[float, float]) -> tuple[float, float]:
+    """Emprise (selon les deux premiers axes du repère d'appui) de la nouvelle pièce de section
+    ``section`` (largeur, épaisseur) posée dans l'``orientation`` donnée : la taille de la pièce sur
+    chacun de ces axes (0 si la longueur de la pièce s'y trouve : jamais à angle droit)."""
+    rotation = orientation.rotation()
+    width, thickness = _column(rotation, _WIDTH), _column(rotation, _THICKNESS)
+    sizes = []
+    for row in (0, 1):
+        if abs(width.component(row)) == 1.0:
+            sizes.append(section[0])
+        elif abs(thickness.component(row)) == 1.0:
+            sizes.append(section[1])
+        else:
+            sizes.append(0.0)
+    return sizes[0], sizes[1]

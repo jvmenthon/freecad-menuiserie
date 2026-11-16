@@ -22,6 +22,7 @@ from freecad.menuiserie.core.snap import (
     FaceTarget,
     Orientation,
     face_section,
+    footprint,
     perpendicular_orientation,
     support_rotation,
 )
@@ -36,13 +37,14 @@ from freecad.menuiserie.features.snap_geometry import (
     owner_shape,
     to_vector,
 )
-from freecad.menuiserie.features.snap_local_face import local_face_target
+from freecad.menuiserie.features.snap_local_face import fit_to_footprint, local_face_target
 from freecad.menuiserie.features.snap_targets import TargetReading
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
 __all__ = ["PerpendicularStart", "perpendicular_start"]
 
+_FIT_PASSES: Final = 3  # reprises du calage de l'emprise dans la face
 _PARALLEL: Final = 1e-6  # norme du produit vectoriel de deux normales unitaires parallèles
 
 
@@ -111,9 +113,8 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     if blank is None:
         return None
     # La face à l'endroit du clic, pas toute la face :
-    local = local_face_target(
-        reading, _blank_face(reading, blank), owner_shape(reading.elements[0])
-    )
+    blank_face = _blank_face(reading, blank)
+    local = local_face_target(reading, blank_face, owner_shape(reading.elements[0]))
     if local is not None:
         reading, target = replace(reading, targets=(local,)), local
     support = support_rotation(reading.targets)
@@ -124,7 +125,16 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     if orientation is None:
         return None
     dimensions = dimensions_of(blank)
-    width, thickness = face_section(
-        support, owner, orientation, target.extent, (dimensions.width, dimensions.thickness)
-    )
+    section = (dimensions.width, dimensions.thickness)
+    width, thickness = face_section(support, owner, orientation, target.extent, section)
+    for _ in range(_FIT_PASSES):  # la pièce doit tenir dans la face (arête oblique)
+        fitted = None
+        if local is not None and blank_face is not None:
+            fitted = fit_to_footprint(
+                target, blank_face, footprint(orientation, (width, thickness))
+            )
+        if fitted is None:
+            break
+        reading, target = replace(reading, targets=(fitted,)), fitted
+        width, thickness = face_section(support, owner, orientation, target.extent, section)
     return PerpendicularStart(orientation, width, thickness, reading)
