@@ -118,6 +118,8 @@ def _fit_in_face(
     pièce porteuse, orientation de la nouvelle pièce."""
     support, owner, orientation = frames
     target = reading.targets[0]
+    if not isinstance(target, FaceTarget):
+        return None
     width, thickness = face_section(support, owner, orientation, target.extent, section)
     if blank_face is None:
         return reading, width, thickness
