@@ -32,6 +32,7 @@ PILE_EN_CAS_DE_PLANTAGE = "PILE_EN_CAS_DE_PLANTAGE"
 DOSSIER_DES_CAPTURES = "CAPTURES_QTEST"
 DELAI_MS = 5000
 PAS_MS = 50
+ATTENTE_BOITE_MS = 300
 
 Widget = Any
 
@@ -121,16 +122,35 @@ def cliquer(widget: Widget) -> None:
     traiter_les_evenements()
 
 
+def _dans_la_vue_des_taches(widget: Widget) -> bool:
+    """Vrai si ``widget`` est dans la vue des tâches (une bulle de notification de FreeCAD a
+    aussi ses boutons, hors de cette vue)."""
+    parent = widget.parentWidget()
+    while parent is not None:
+        if "TaskView" in parent.metaObject().className():
+            return True
+        parent = parent.parentWidget()
+    return False
+
+
 def bouton_du_panneau(role: Any) -> Widget:
     """L'unique bouton standard ``role`` visible dans la vue des tâches de FreeCAD.
 
     Plus strict que ``tests/gui/verifications_panneau_ensemble.bouton_ok`` (premier trouvé, ou
     ``None``) : le bouton va être cliqué, il doit être visible et le seul."""
-    boutons = [
-        boite.button(role)
-        for boite in Gui.getMainWindow().findChildren(QtGui.QDialogButtonBox)
-        if boite.isVisible() and boite.button(role) is not None
-    ]
+
+    def visibles() -> list[Widget]:
+        return [
+            boite.button(role)
+            for boite in Gui.getMainWindow().findChildren(QtGui.QDialogButtonBox)
+            if boite.isVisible()
+            and boite.button(role) is not None
+            and _dans_la_vue_des_taches(boite)
+        ]
+
+    # Au premier panneau d'une session, la vue des tâches n'est affichée qu'un instant après.
+    attendre(lambda: len(visibles()) == 1)
+    boutons = visibles()
     if len(boutons) != 1:
         raise LookupError(f"{len(boutons)} boutons {role} visibles au lieu d'un")
     return boutons[0]
@@ -291,3 +311,57 @@ class ReponseAuxBoites:
             self._inattendues.append("boîte modale restée ouverte")
         if self._inattendues:
             raise AssertionError("; ".join(self._inattendues))
+
+
+class ReponseAEnregistrer:
+    """Répond à la boîte d'enregistrement ouverte pendant le bloc ``with`` : tape ``chemin``
+    dans son champ « nom de fichier » puis clique sur « Enregistrer ». ``titres`` garde le titre
+    de chaque boîte. Dans FreeCAD, la boîte ignore un geste fait dès son ouverture : la réponse
+    attend ``ATTENTE_BOITE_MS``, et elle est rejouée tant que la boîte reste ouverte.
+    Vaut pour la boîte de Qt (celle de FreeCAD sous Xvfb, sans thème de bureau) ; une boîte
+    native du système n'est pas un widget Qt et ne se pilote pas ainsi."""
+
+    def __init__(self, chemin: str) -> None:
+        self.chemin = chemin
+        self.titres: list[str] = []
+        self._vue: Widget | None = None
+        self._minuterie = QtCore.QTimer()
+        self._minuterie.setInterval(ATTENTE_BOITE_MS)
+        self._minuterie.timeout.connect(self._repondre)
+
+    def _repondre(self) -> None:
+        boite = QtGui.QApplication.activeModalWidget()
+        if not isinstance(boite, QtGui.QFileDialog):
+            return
+        if boite is not self._vue:  # premier passage : on la laisse s'installer
+            self._vue = boite
+            self.titres.append(str(boite.windowTitle()))
+            return
+        champ = boite.findChild(QtGui.QLineEdit, "fileNameEdit")
+        boutons = boite.findChild(QtGui.QDialogButtonBox)
+        if champ is None or boutons is None:
+            boite.reject()
+            return
+        champ.setFocus(QtCore.Qt.FocusReason.OtherFocusReason)
+        QTest.keyClick(champ, QtCore.Qt.Key.Key_A, QtCore.Qt.KeyboardModifier.ControlModifier)
+        QTest.keyClicks(champ, self.chemin)
+        QTest.mouseClick(
+            boutons.button(QtGui.QDialogButtonBox.StandardButton.Save),
+            QtCore.Qt.MouseButton.LeftButton,
+        )
+
+    def __enter__(self) -> ReponseAEnregistrer:
+        self._minuterie.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        fermees = attendre(lambda: QtGui.QApplication.activeModalWidget() is None)
+        self._minuterie.stop()
+        self._vue = None
+        if not fermees:
+            boite = QtGui.QApplication.activeModalWidget()
+            if boite is not None:
+                boite.close()
+            raise AssertionError("boîte d'enregistrement restée ouverte")
+        if not self.titres:
+            raise AssertionError("aucune boîte d'enregistrement ouverte")
