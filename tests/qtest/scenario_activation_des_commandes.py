@@ -56,6 +56,7 @@ SANS_SELECTION = frozenset(
         "Menuiserie_CutListExport",
         "Menuiserie_CutListPdf",
         "Menuiserie_NumberMarks",
+        "Menuiserie_EdgeFinish",  # on désigne les pièces dans la vue 3D
     }
 )
 # Demandent autre chose que des pièces entières (faces, ensemble, copie, corps) : jamais
