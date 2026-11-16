@@ -35,7 +35,7 @@ from tests.qtest.aides import (
     vue_rapport,
 )
 from tests.qtest.angle_a_queues import controler_le_document, double_cliquer
-from tests.qtest.pieces import AXE_Z, boite_globale, erreurs_python, face_vers, piece
+from tests.qtest.pieces import AXE_Z, boite_globale, du_type, erreurs_python, face_vers, piece
 
 ALIGNER = "Menuiserie_AlignFaces"
 DISTANCE = "Menuiserie_SetDistance"
@@ -45,6 +45,7 @@ PANNEAU_DISTANCE = "DistanceTaskPanel"
 PANNEAU_DISTANCE_GARDEE = "KeptDistancePanel"
 PANNEAU_ENSEMBLE = "FurnitureTaskPanel"
 TYPE_DISTANCE = "Menuiserie::Distance"
+TYPE_ENSEMBLE = "Menuiserie::Furniture"
 EPAISSEUR = 22.0
 DESSUS, DESSOUS = (0.0, 0.0, 1.0), (0.0, 0.0, -1.0)
 DROITE, GAUCHE = (1.0, 0.0, 0.0), (-1.0, 0.0, 0.0)
@@ -57,11 +58,7 @@ def setUpModule() -> None:
 
 
 def distances(doc: Any) -> list[Any]:
-    return [
-        obj
-        for obj in doc.Objects
-        if getattr(getattr(obj, "Proxy", None), "TYPE", "") == TYPE_DISTANCE
-    ]
+    return du_type(doc, TYPE_DISTANCE)
 
 
 class AlignerEtCentrer(Etapes):
@@ -175,12 +172,9 @@ class DistanceGardee(Etapes):
         cls.reference = piece(cls.doc, (500.0, 200.0, EPAISSEUR), repere="A")
         cls.mobile = piece(cls.doc, (300.0, 100.0, EPAISSEUR), (800.0, 0.0, 0.0), repere="C")
         cls.doc.recompute()
-        avant = set(cls.doc.Objects)
         selectionner(cls.reference, cls.mobile)
         lancer(ENSEMBLE)
-        (cls.ensemble,) = (
-            obj for obj in cls.doc.Objects if obj not in avant and hasattr(obj, "Depth")
-        )
+        (cls.ensemble,) = du_type(cls.doc, TYPE_ENSEMBLE)
         cls.doc.clearUndos()
         vider_la_vue_rapport()
 

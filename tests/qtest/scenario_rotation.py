@@ -38,11 +38,10 @@ from tests.qtest.pieces import (
     boite_globale,
     cadre,
     erreurs_python,
-    montant_et_traverse,
     piece,
+    tenon_mortaise,
 )
 
-TENON_MORTAISE = "Menuiserie_MortiseTenon"
 ENSEMBLE = "Menuiserie_Furniture"
 RETIRER = "Menuiserie_FurnitureRemove"
 COTES = (500.0, 200.0, 22.0)
@@ -70,7 +69,8 @@ class ScenarioDeRotation(Etapes):
 
     def angles(self) -> tuple[float, float, float]:
         form = formulaire(PANNEAU_PIECE)
-        return tuple(float(enfant(form, f"angle{axe}Edit").property("rawValue")) for axe in "XYZ")
+        x, y, z = (float(enfant(form, f"angle{axe}Edit").property("rawValue")) for axe in "XYZ")
+        return x, y, z
 
     def verifier_les_angles(self, attendus: tuple[float, float, float]) -> None:
         for lu, attendu in zip(self.angles(), attendus, strict=True):
@@ -154,11 +154,7 @@ class PieceAssemblee(ScenarioDeRotation):
     def setUpClass(cls) -> None:
         cls.doc = preparer("ScenarioRotationAssemblee")
         cls.addClassCleanup(fermer, cls.doc)
-        cls.montant, cls.traverse = montant_et_traverse(cls.doc)
-        selectionner(cls.traverse, cls.montant)
-        lancer(TENON_MORTAISE)
-        cliquer(bouton_ok())
-        cls.doc.clearUndos()
+        cls.montant, cls.traverse = tenon_mortaise(cls.doc)
         vider_la_vue_rapport()
 
     def test_1_annuler_le_deplacement(self) -> None:

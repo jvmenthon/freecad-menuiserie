@@ -127,10 +127,14 @@ class ActivationDesCommandes(unittest.TestCase):
                 self.assertEqual(vues - attendues, set(), "actives à tort")
                 self.assertEqual(attendues - vues, set(), "grisées à tort")
 
+    def annuler_le_panneau(self) -> None:
+        if panneau_ouvert():
+            cliquer(bouton_annuler())
+
     def test_tout_est_grise_quand_un_panneau_est_ouvert(self) -> None:
         selectionner()
         lancer("Menuiserie_WoodPart")
-        self.addCleanup(lambda: panneau_ouvert() and cliquer(bouton_annuler()))
+        self.addCleanup(self.annuler_le_panneau)
         selectionner(*self.pieces[:2])
         self.assertEqual(actives(frozenset()), set(), "actives malgré le panneau ouvert")
         cliquer(bouton_annuler())

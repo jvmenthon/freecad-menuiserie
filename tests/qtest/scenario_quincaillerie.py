@@ -31,7 +31,7 @@ from tests.qtest.aides import (
     vue_rapport,
 )
 from tests.qtest.angle_a_queues import PANNEAU_ASSEMBLAGE, controler_le_document, double_cliquer
-from tests.qtest.pieces import commande_active, erreurs_python
+from tests.qtest.pieces import commande_active, du_type, erreurs_python
 
 CAISSON = "Menuiserie_Carcass"
 PIEDS = "Menuiserie_Foot"
@@ -49,10 +49,6 @@ TOLERANCE_MM = 1e-6
 
 def setUpModule() -> None:
     unittest.addModuleCleanup(activer_faulthandler())
-
-
-def du_type(doc: Any, nom: str) -> list[Any]:
-    return [obj for obj in doc.Objects if getattr(getattr(obj, "Proxy", None), "TYPE", "") == nom]
 
 
 class Quincaillerie(Etapes):

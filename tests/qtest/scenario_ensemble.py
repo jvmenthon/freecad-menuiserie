@@ -40,6 +40,7 @@ from tests.qtest.pieces import (
     assemblages,
     boite_globale,
     cadre,
+    du_type,
     erreurs_python,
     piece,
 )
@@ -83,11 +84,7 @@ class Ensemble(Etapes):
     def test_1_creer_l_ensemble(self) -> None:
         selectionner(*self.pieces.values())
         lancer(ENSEMBLE)
-        (ensemble,) = (
-            obj
-            for obj in self.doc.Objects
-            if getattr(getattr(obj, "Proxy", None), "TYPE", "") == TYPE_ENSEMBLE
-        )
+        (ensemble,) = du_type(self.doc, TYPE_ENSEMBLE)
         type(self).ensemble = ensemble
         self.assertEqual(self.cotes(), (LARGEUR, PROFONDEUR, HAUTEUR))
         for membre in self.pieces.values():

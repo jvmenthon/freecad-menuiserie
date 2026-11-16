@@ -33,6 +33,7 @@ DOSSIER_DES_CAPTURES = "CAPTURES_QTEST"
 DELAI_MS = 5000
 PAS_MS = 50
 ATTENTE_BOITE_MS = 300
+PAS_DE_GLISSEMENT = 3  # mouvements d'approche avant le relâchement
 
 Widget = Any
 
@@ -404,7 +405,7 @@ class ReponseAEnregistrer:
     def __init__(self, chemin: str) -> None:
         self.chemin = chemin
         self.titres: list[str] = []
-        self._vue: Widget | None = None
+        self._vue: Any = None
         self._minuterie = QtCore.QTimer()
         self._minuterie.setInterval(ATTENTE_BOITE_MS)
         self._minuterie.timeout.connect(self._repondre)
@@ -445,3 +446,134 @@ class ReponseAEnregistrer:
             raise AssertionError("boîte d'enregistrement restée ouverte")
         if not self.titres:
             raise AssertionError("aucune boîte d'enregistrement ouverte")
+
+
+class ReponseAuMenu:
+    """Clique sur l'entrée d'un menu contextuel ouvert pendant le bloc ``with`` : ``entrees`` est
+    le chemin des textes (début du texte, sans « & »), un par niveau de sous-menu. ``vues``
+    garde, pour le premier menu, le texte de chaque entrée et si elle est active. Un menu
+    bloque la boucle d'événements : la réponse part d'une minuterie, armée avant le clic droit.
+    Une entrée absente ou grisée referme le menu et le bloc échoue."""
+
+    def __init__(self, *entrees: str) -> None:
+        self._reste = list(entrees)
+        self.vues: dict[str, bool] = {}
+        self._echec = ""
+        self._minuterie = QtCore.QTimer()
+        self._minuterie.setInterval(ATTENTE_BOITE_MS)
+        self._minuterie.timeout.connect(self._repondre)
+
+    def _repondre(self) -> None:
+        menu = QtGui.QApplication.activePopupWidget()
+        if not isinstance(menu, QtGui.QMenu) or not self._reste:
+            return
+        if not self.vues:
+            self.vues = {a.text().replace("&", ""): a.isEnabled() for a in menu.actions()}
+        voulue = self._reste.pop(0)
+        trouvees = [a for a in menu.actions() if a.text().replace("&", "").startswith(voulue)]
+        if len(trouvees) != 1 or not trouvees[0].isEnabled():
+            self._echec = f"entrée « {voulue} » absente ou grisée : {list(self.vues)}"
+            self._reste.clear()
+            while isinstance(QtGui.QApplication.activePopupWidget(), QtGui.QMenu):
+                QtGui.QApplication.activePopupWidget().close()
+            return
+        QTest.mouseClick(
+            menu,
+            QtCore.Qt.MouseButton.LeftButton,
+            QtCore.Qt.KeyboardModifier.NoModifier,
+            menu.actionGeometry(trouvees[0]).center(),
+        )
+
+    def __enter__(self) -> ReponseAuMenu:
+        self._minuterie.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        attendre(lambda: QtGui.QApplication.activePopupWidget() is None)
+        self._minuterie.stop()
+        QTest.qWait(4 * PAS_MS)  # l'action d'une entrée part après la fermeture du menu
+        if self._echec:
+            raise AssertionError(self._echec)
+        if self._reste:
+            raise AssertionError(f"menu non ouvert, ou entrées non atteintes : {self._reste}")
+
+
+class ReponseALaSaisie:
+    """Répond à la boîte de saisie d'un texte (``QInputDialog``) ouverte pendant le bloc
+    ``with`` : remplace le texte proposé par ``texte`` puis Entrée. ``proposes`` garde le texte
+    proposé par chaque boîte."""
+
+    def __init__(self, texte: str) -> None:
+        self.texte = texte
+        self.proposes: list[str] = []
+        self._minuterie = QtCore.QTimer()
+        self._minuterie.setInterval(ATTENTE_BOITE_MS)
+        self._minuterie.timeout.connect(self._repondre)
+
+    def _repondre(self) -> None:
+        boite = QtGui.QApplication.activeModalWidget()
+        if not isinstance(boite, QtGui.QInputDialog):
+            return
+        champ = boite.findChild(QtGui.QLineEdit)
+        self.proposes.append(str(champ.text()))
+        QTest.keyClick(champ, QtCore.Qt.Key.Key_A, QtCore.Qt.KeyboardModifier.ControlModifier)
+        QTest.keyClicks(champ, self.texte)
+        QTest.keyClick(champ, QtCore.Qt.Key.Key_Return)
+
+    def __enter__(self) -> ReponseALaSaisie:
+        self._minuterie.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        QTest.qWait(2 * ATTENTE_BOITE_MS)  # la boîte s'ouvre après la fermeture du menu
+        fermees = attendre(lambda: QtGui.QApplication.activeModalWidget() is None)
+        self._minuterie.stop()
+        if not fermees:
+            QtGui.QApplication.activeModalWidget().close()
+            raise AssertionError("boîte de saisie restée ouverte")
+        if not self.proposes:
+            raise AssertionError("aucune boîte de saisie ouverte")
+
+
+def clic_droit(zone: Widget, point: Any) -> None:
+    """Clic droit en ``point`` de ``zone`` : demande de menu contextuel (Qt ne la déduit pas
+    d'un clic droit simulé). À faire dans un bloc ``ReponseAuMenu``, le menu étant bloquant."""
+    demande = QtGui.QContextMenuEvent(
+        QtGui.QContextMenuEvent.Reason.Mouse, point, zone.mapToGlobal(point)
+    )
+    QtGui.QApplication.sendEvent(zone, demande)
+    traiter_les_evenements()
+
+
+def glisser(zone: Widget, depart: Callable[[], Any], arrivee: Callable[[], Any]) -> None:
+    """Glisser-déposer à la souris dans ``zone``, de ``depart()`` à ``arrivee()`` (points lus au
+    moment du geste). Le glissement de Qt bloque la boucle d'événements dès qu'il commence : la
+    fin du geste (approche, puis relâchement) part d'une minuterie."""
+    etapes = {"faites": 0}
+    minuterie = QtCore.QTimer()
+    minuterie.setInterval(ATTENTE_BOITE_MS // 2)
+
+    def suite() -> None:
+        etapes["faites"] += 1
+        cible = arrivee()
+        if etapes["faites"] <= PAS_DE_GLISSEMENT:
+            QTest.mouseMove(zone, cible + QtCore.QPoint(etapes["faites"], 0))
+            return
+        minuterie.stop()
+        QTest.mouseRelease(
+            zone, QtCore.Qt.MouseButton.LeftButton, QtCore.Qt.KeyboardModifier.NoModifier, cible
+        )
+
+    minuterie.timeout.connect(suite)
+    origine = depart()
+    QTest.mousePress(
+        zone, QtCore.Qt.MouseButton.LeftButton, QtCore.Qt.KeyboardModifier.NoModifier, origine
+    )
+    minuterie.start()
+    for ecart in (15, 30):  # au-delà de la distance qui déclenche un glissement
+        QTest.mouseMove(zone, origine + QtCore.QPoint(0, ecart))
+    termine = attendre(lambda: etapes["faites"] > PAS_DE_GLISSEMENT)
+    minuterie.stop()
+    QTest.qWait(4 * PAS_MS)
+    if not termine:
+        raise AssertionError("glisser-déposer non terminé")

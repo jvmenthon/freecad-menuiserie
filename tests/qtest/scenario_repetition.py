@@ -34,8 +34,9 @@ from tests.qtest.angle_a_queues import controler_le_document
 from tests.qtest.pieces import (
     assemblages,
     commande_active,
+    du_type,
     erreurs_python,
-    montant_et_traverse,
+    tenon_mortaise,
 )
 
 TENON_MORTAISE = "Menuiserie_MortiseTenon"
@@ -66,20 +67,15 @@ class Repetition(Etapes):
     def setUpClass(cls) -> None:
         cls.doc = preparer("ScenarioRepetition")
         cls.addClassCleanup(fermer, cls.doc)
-        cls.montant, cls.traverse = montant_et_traverse(cls.doc)
-        selectionner(cls.traverse, cls.montant)
-        lancer(TENON_MORTAISE)
-        cliquer(bouton_ok())
-        cls.doc.clearUndos()
+        cls.montant, cls.traverse = tenon_mortaise(cls.doc)
         vider_la_vue_rapport()
 
     def copies(self) -> list[Any]:
         """Les traverses créées par la répétition, dans l'ordre de création."""
         return [
-            obj
-            for obj in self.doc.Objects
-            if getattr(getattr(obj, "Proxy", None), "TYPE", "") == TYPE_PIECE
-            and obj not in (self.montant, self.traverse)
+            brute
+            for brute in du_type(self.doc, TYPE_PIECE)
+            if brute not in (self.montant, self.traverse)
         ]
 
     def abscisses(self) -> list[float]:

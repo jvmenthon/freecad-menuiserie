@@ -16,11 +16,13 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.core.geometry import PlacedBlock
+from tests.qtest.aides import bouton_ok, cliquer, lancer, selectionner
 
 Axe = tuple[float, float, float]
 AXE_Y: Axe = (0.0, 1.0, 0.0)
 AXE_Z: Axe = (0.0, 0.0, 1.0)
 DEPLACEMENT = "Déplacer une pièce"
+TENON_MORTAISE = "Menuiserie_MortiseTenon"
 ANGLE_NUL = 1e-6  # radians
 SECTION = (60.0, 22.0)  # largeur et épaisseur des pièces de cadre
 ERREURS_PYTHON = ("TypeError", "AttributeError", "RuntimeError", "NameError", "KeyError")
@@ -74,6 +76,17 @@ def montant_et_traverse(doc: Any) -> tuple[Any, Any]:
     return montant, traverse
 
 
+def tenon_mortaise(doc: Any) -> tuple[Any, Any]:
+    """« T » assemblé : tenon-mortaise posé par la commande et son panneau, tout en
+    automatique ; l'historique d'annulation repart de là."""
+    montant, traverse = montant_et_traverse(doc)
+    selectionner(traverse, montant)
+    lancer(TENON_MORTAISE)
+    cliquer(bouton_ok())
+    doc.clearUndos()
+    return montant, traverse
+
+
 def angle_debout(doc: Any) -> tuple[Any, Any]:
     """Angle de caisse : la seconde pièce debout sur le bout de la première, à fleur."""
     a_plat = piece(doc, (500.0, 200.0, 22.0), repere="A")
@@ -113,6 +126,11 @@ def boite_globale(*pieces: Any) -> App.BoundBox:
         forme.Placement = membre.getGlobalPlacement()
         boite.add(forme.BoundBox)
     return boite
+
+
+def du_type(doc: Any, nom: str) -> list[Any]:
+    """Objets de l'atelier de type ``nom`` (« Menuiserie::… »), dans l'ordre de création."""
+    return [obj for obj in doc.Objects if getattr(getattr(obj, "Proxy", None), "TYPE", "") == nom]
 
 
 def assemblages(doc: Any) -> list[Any]:
