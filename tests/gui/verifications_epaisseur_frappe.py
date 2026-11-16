@@ -7,6 +7,7 @@
    refusé ; la touche suivante applique « 22 ».
 2. Passer de « vers l'intérieur » à « vers l'extérieur » change la vue 3D sans recalcul du
    document : l'autre pièce, allongée, est recalculée par le panneau.
+3. Une épaisseur qui ne défait rien propose aussi les choix, « Laisser en l'état » en tête.
 
 Les touches sont envoyées au champ par ``sendEvent`` (pas de clic de souris hors écran). Module
 importé par ``verifier_atelier.py``.
@@ -24,7 +25,7 @@ from freecad.menuiserie import api
 from freecad.menuiserie.features.machined_part import machined_part_of
 from tests.gui.verifications_assemblages import cadre
 from tests.gui.verifications_epaisseur_cote import encadre
-from tests.gui.verifications_panneau import annuler, ecarts, ouvrir_par_double_clic
+from tests.gui.verifications_panneau import annuler, ecarts, ouvrir_par_double_clic, valider
 from tests.gui.verifications_panneau_assemblage import widget
 from tests.gui.verifications_queue_aronde import planches
 
@@ -137,8 +138,45 @@ def verifier_choix_change_la_vue_3d() -> list[str]:
         return problemes
 
 
+def verifier_laisser_en_l_etat() -> list[str]:
+    """H épaissie : rien n'est défait (I suit sa face), l'encadré propose quand même les choix,
+    « Laisser en l'état » en tête et coché ; « vers l'intérieur » puis « Laisser » (jv)."""
+    with cadre("VerifEpaisseurLaisser") as (doc, _pieces):
+        hote, invitee = planches(doc)
+        api.make_dovetail(hote, invitee)
+        doc.recompute()
+        form = ouvrir_par_double_clic(hote)
+        if form is None:
+            return ["panneau de la pièce non ouvert"]
+        _taper(form.thicknessEdit, "30")
+        laisser = widget(form, "conflict_as_typed")
+        w = encadre(form)
+        problemes = [
+            *ecarts("encadré affiché", w["thicknessConflict"].isHidden(), False),
+            *ecarts("laisser visible", laisser.isHidden(), False),
+            *ecarts("laisser coché", laisser.isChecked(), True),
+            *ecarts("I suit la face", tuple(invitee.Placement.Base), (18.0, 0.0, 30.0)),
+            *ecarts("OK accepté", widget(form, "conflictNotApplied").isHidden(), True),
+        ]
+        w["conflict_other_side"].click()
+        problemes += [
+            *ecarts("intérieur : I en place", tuple(invitee.Placement.Base), (18.0, 0.0, 18.0)),
+            *ecarts("intérieur : H reculée", tuple(hote.Placement.Base), (0.0, 0.0, -12.0)),
+        ]
+        laisser.click()
+        problemes += [
+            *ecarts("laisser : H en place", tuple(hote.Placement.Base), (0.0, 0.0, 0.0)),
+            *ecarts("objets en erreur", _invalides(doc), []),
+        ]
+        valider()
+        doc.recompute()
+        problemes += ecarts("épaisseur gardée", hote.Thickness.Value, 30.0)
+        return problemes
+
+
 VERIFICATIONS_EPAISSEUR_FRAPPE: tuple[Callable[[], list[str]], ...] = (
     verifier_frappe_passe_par_deux,
     verifier_bloque_refuse_ok,
     verifier_choix_change_la_vue_3d,
+    verifier_laisser_en_l_etat,
 )

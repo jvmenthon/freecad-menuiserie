@@ -32,6 +32,10 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    « Intérieur » / « extérieur » se lit par rapport à l'autre pièce ; pour une épaisseur réduite,
    « Côté intérieur » / « raccourcir ». Le premier choix possible est coché et appliqué aussitôt
    (aperçu en direct) ; « OK » valide l'état affiché, en une seule entrée d'annulation.
+   **Assemblage qui tient** (jv, 2026-11-15) : si l'épaisseur saisie d'une pièce isolée assemblée
+   ne défait rien (tenon qui suit la face haute, #133), l'encadré apparaît aussi, avec en tête
+   « Laisser en l'état » (épaisseur telle que saisie, coché et appliqué), puis les mêmes choix,
+   portant sur tous les assemblages de la pièce. Rien n'apparaît pour l'épaisseur de départ.
 2. **Choix possible** : essayé sans recalcul du document (plans d'usinage des assemblages, comme
    ADR 0026) ; il l'est s'il ne défait aucun assemblage qui tenait. Sinon il est grisé, avec sa
    raison : autre pièce **copie de répétition**, **membre d'un ensemble**, **pièce en bois**

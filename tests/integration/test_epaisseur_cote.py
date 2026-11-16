@@ -47,13 +47,40 @@ def holds(doc: Any, joint: Any) -> bool:
     return "Invalid" not in joint.State and stale_or_invalid(doc) == []
 
 
-def test_epaisseur_qui_ne_defait_rien_est_ecrite(document: Any) -> None:
+def test_epaisseur_qui_ne_defait_rien_propose_laisser_en_l_etat(document: Any) -> None:
+    """H plus épaisse : I suit sa face haute (#133), rien n'est défait ; « Laisser en l'état »
+    est proposé en tête, avec les autres choix (jv, 2026-11-15)."""
     host, guest, joint = corner(document)
     edit = choice.ThicknessEdit(host)
-    assert edit.probe(30) is None  # H plus épaisse : I suit sa face haute (#133)
+    conflict = edit.probe(30)
+    assert conflict is not None
+    assert [o.choice for o in conflict.options] == [
+        choice.Choice.AS_TYPED,
+        choice.Choice.OTHER_SIDE,
+        choice.Choice.EXTEND,
+        choice.Choice.REVERT,
+    ]
+    assert conflict.options[0].text == "Laisser en l'état"
+    assert conflict.preferred() is choice.Choice.AS_TYPED
+    assert host.Thickness.Value == 18  # état de départ rendu : au panneau d'appliquer
+    edit.apply(30, choice.Choice.AS_TYPED)
     assert host.Thickness.Value == 30
     assert guest.Placement.Base.z == pytest.approx(30)
     assert holds(document, joint)
+
+
+def test_epaisseur_de_depart_rien_a_proposer(document: Any) -> None:
+    host, _guest, _joint = corner(document)
+    edit = choice.ThicknessEdit(host)
+    edit.probe(30)
+    assert edit.probe(18) is None
+
+
+def test_laisser_en_l_etat_absent_si_l_assemblage_est_defait(document: Any) -> None:
+    _host, guest, _joint = corner(document)
+    conflict = choice.ThicknessEdit(guest).probe(30)
+    assert conflict is not None
+    assert choice.Choice.AS_TYPED not in [o.choice for o in conflict.options]
 
 
 def test_trois_choix_proposes(document: Any) -> None:

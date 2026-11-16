@@ -57,6 +57,7 @@ from freecad.menuiserie.features.thickness_common import (
 from freecad.menuiserie.features.thickness_follow import follow_thickness
 from freecad.menuiserie.features.thickness_texts import (
     extend_text,
+    keep_text,
     not_flush_text,
     other_side_text,
     question_text,
@@ -99,8 +100,8 @@ class Option:
 
 @dataclass(frozen=True)
 class Conflict:
-    """Assemblage défait par l'épaisseur saisie, et choix proposés (``OTHER_SIDE``, ``EXTEND``,
-    ``REVERT`` dans cet ordre)."""
+    """Assemblages de la pièce dont l'épaisseur change, et choix proposés (``AS_TYPED`` si rien
+    n'est défait, puis ``OTHER_SIDE``, ``EXTEND``, ``REVERT`` dans cet ordre)."""
 
     title: str
     question: str
@@ -144,7 +145,7 @@ class ThicknessEdit:
         }
         self._before = self._block(self.old)
         self._already_broken = set(_broken(self._parts))
-        self._broken_as_typed: list[DocumentObject] = []  # lu par EXTEND, écrit par probe
+        self._concerned: list[DocumentObject] = []  # assemblages en cause, écrits par probe
         self.messages: list[str] = []  # vue rapport : saisie écrite telle quelle par probe
 
     @property
@@ -218,7 +219,7 @@ class ThicknessEdit:
         """Pièces à prolonger : les autres pièces des assemblages défaits par l'épaisseur
         telle que saisie, chacune à fleur de la face haute d'avant."""
         found = []
-        for other in self._partners(self._broken_as_typed):
+        for other in self._partners(self._concerned):
             state = self._states[other.Name]
             extension = flush_extension(self._before, self._start_block(other))
             if extension is None:
@@ -239,23 +240,29 @@ class ThicknessEdit:
             extend_part(other, extension, delta)
 
     def probe(self, new: float) -> Conflict | None:
-        """Essaie l'épaisseur ``new`` telle que saisie : ``None`` si elle ne défait aucun
-        assemblage (elle reste alors écrite, messages dans :attr:`messages`), sinon les choix
-        proposés (l'état de départ est alors rendu ; au panneau d'appliquer le choix retenu)."""
+        """Essaie l'épaisseur ``new`` telle que saisie et renvoie les choix proposés (l'état de
+        départ est alors rendu ; au panneau d'appliquer le choix retenu). Si elle ne défait aucun
+        assemblage, « Laisser en l'état » (``AS_TYPED``) vient en tête (jv, 2026-11-15) et les
+        autres choix portent sur tous les assemblages de la pièce. ``None`` (saisie écrite telle
+        quelle, messages dans :attr:`messages`) pour l'épaisseur de départ ou une pièce sans
+        assemblage."""
         self.messages = self.apply(new, Choice.AS_TYPED)
-        broken = self._new_breaks()
-        if not broken:
+        joints = joints_of(self.part)
+        if new == self.old or not joints:
             return None
-        self._broken_as_typed = broken
+        broken = self._new_breaks()
+        self._concerned = broken or joints
         try:
+            keep = () if broken else (Option(Choice.AS_TYPED, keep_text()),)
             options = (
+                *keep,
                 self._option(new, Choice.OTHER_SIDE),
                 self._option(new, Choice.EXTEND),
                 Option(Choice.REVERT, revert_text(self.old)),
             )
         finally:
             self.restore()
-        title = title_text(broken, self._partners(broken))
+        title = title_text(self._concerned, self._partners(self._concerned))
         return Conflict(title, question_text(self.old, new), options)
 
     def _option(self, new: float, choice: Choice) -> Option:
@@ -273,7 +280,7 @@ class ThicknessEdit:
         """Texte du choix ; « intérieur » : le côté de l'autre pièce du premier assemblage défait
         (face basse pour ``OTHER_SIDE``, face haute pour ``EXTEND``)."""
         adding = new > self.old
-        partners = self._partners(self._broken_as_typed)
+        partners = self._partners(self._concerned)
         lower_inward = grows_toward(self._before, self._start_block(partners[0]))
         if choice is Choice.OTHER_SIDE:
             return other_side_text(adding, lower_inward)

@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Encadré « où ajouter l'épaisseur ? » du panneau de la pièce de bois (ADR 0060, maquette C).
 
-Quand l'épaisseur saisie d'une pièce isolée défait un de ses assemblages (queue d'aronde plus à
-fleur, par exemple), l'encadré apparaît sous les cotes, sans fenêtre : vers l'intérieur (la pièce
-reste à fleur), vers l'extérieur en prolongeant l'autre pièce, ou revenir à l'ancienne épaisseur.
+Quand l'épaisseur saisie d'une pièce isolée assemblée change, l'encadré apparaît sous les cotes,
+sans fenêtre : vers l'intérieur (la pièce reste à fleur), vers l'extérieur en prolongeant l'autre
+pièce, ou revenir à l'ancienne épaisseur ; si aucun assemblage n'est défait (tenon qui suit la
+face, par exemple), « Laisser en l'état » vient en tête (jv, 2026-11-15).
 Le premier choix possible est coché et appliqué aussitôt (aperçu en direct) ; un choix impossible
 est grisé, avec sa raison en dessous. Si aucun choix ne tient (saisie transitoire comme « 2 »
 avant « 22 », ou trop mince pour l'assemblage), rien n'est écrit et « OK » est inactif. Le
@@ -48,7 +49,7 @@ _NOT_APPLIED: Final = QT_TRANSLATE_NOOP(
     "Aucun choix ne garde l'assemblage à cette épaisseur : elle n'est pas appliquée.",
 )
 _ABANDONED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choix d'épaisseur abandonné : {error}")
-_CHOICES: Final = (Choice.OTHER_SIDE, Choice.EXTEND, Choice.REVERT)
+_CHOICES: Final = (Choice.AS_TYPED, Choice.OTHER_SIDE, Choice.EXTEND, Choice.REVERT)
 
 
 class ConflictBox:
@@ -173,12 +174,15 @@ class ConflictBox:
         show_message(self._title, conflict.title)
         show_message(self._question, conflict.question)
         self._group.setExclusive(False)  # aucun bouton coché tant qu'aucun choix n'est fait
-        for option in conflict.options:
-            radio = self._radios[option.choice]
+        offered = {option.choice: option for option in conflict.options}
+        for choice, radio in self._radios.items():
+            option = offered.get(choice)
             radio.setChecked(False)
-            radio.setText(option.text)
-            radio.setEnabled(option.reason is None)
-            show_message(self._reasons[option.choice], option.reason or "")
+            radio.setVisible(option is not None)
+            if option is not None:
+                radio.setText(option.text)
+                radio.setEnabled(option.reason is None)
+            show_message(self._reasons[choice], (option.reason or "") if option else "")
         self._group.setExclusive(True)
         self.frame.setVisible(True)
 

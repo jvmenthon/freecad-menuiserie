@@ -18,6 +18,7 @@ from freecad.menuiserie.features.thickness_common import length_text, quoted, qu
 
 __all__ = [
     "extend_text",
+    "keep_text",
     "not_flush_text",
     "other_side_text",
     "question_text",
@@ -52,6 +53,7 @@ _EXTEND: Final = {
     ),
 }
 _REVERT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Revenir à {thickness}")
+_KEEP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Laisser en l'état")
 _NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{label} n'arrive pas à fleur de la face qui bouge."
 )
@@ -85,6 +87,11 @@ def extend_text(
     """Choix « prolonger l'autre pièce » : ``inward`` si la face haute est de son côté."""
     params = {"partners": quoted_parts(partners), "delta": length_text(delta)}
     return translated(_EXTEND[(adding, inward)], params)
+
+
+def keep_text() -> str:
+    """« Laisser en l'état » : l'épaisseur telle que saisie, face haute déplacée (issue #133)."""
+    return translated(_KEEP)
 
 
 def revert_text(thickness: float) -> str:
