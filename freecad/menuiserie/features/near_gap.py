@@ -58,7 +58,7 @@ class Closing:
 
 def _gap_of(reference: DocumentObject, piece: DocumentObject) -> NearGap | None:
     """Écart de la brute ``piece`` à la brute ``reference`` (``None`` si pas proches)."""
-    return near_gap(placed_blank(reference), placed_blank(piece, reference))
+    return near_gap(placed_blank(reference), placed_blank(piece, frame_of=reference))
 
 
 def _move_delta(reference: DocumentObject, piece: DocumentObject, gap: NearGap) -> Vec3:

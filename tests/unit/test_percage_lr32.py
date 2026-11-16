@@ -147,8 +147,13 @@ def test_refus() -> None:
     wall = side()
     with pytest.raises(JointError, match="trop petit"):
         SHELF_PINS.plan(wall, wall, ShelfPinsParams(rows=30))
+    with pytest.raises(JointError, match="trop petit pour 30 rangs de trous au pas de 32 mm"):
+        SHELF_PINS.plan(wall, wall, ShelfPinsParams(rows=30))
     with pytest.raises(JointError, match="trop petit"):
         SHELF_PINS.plan(wall, wall, ShelfPinsParams(edge_distance=250))
+    low = placed((100.0, 500.0, 19.0), rotation_y(90.0), (0.0, 0.0, 0.0))
+    with pytest.raises(JointError, match="trop petit pour un rang de trous, à"):  # pas « 1 rangs »
+        SHELF_PINS.plan(low, low, ShelfPinsParams())
     with pytest.raises(JointError, match="rang"):
         SHELF_PINS.plan(wall, wall, ShelfPinsParams(rows=5, pin_row=6))
     thin = placed((720.0, 500.0, 12.0), rotation_y(90.0), (0.0, 0.0, 0.0))

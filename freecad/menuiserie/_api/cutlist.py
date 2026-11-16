@@ -64,6 +64,13 @@ def _shown_cut_list(doc: Document) -> None:
             ViewProviderCutList(cut_list.ViewObject)
 
 
+def count_unmarked_parts(doc: Document, objects: Sequence[DocumentObject] | None = None) -> int:
+    """Nombre de pièces de ``doc`` (ou de ``objects``, ``None`` : tout le document) sans repère que
+    :func:`number_marks` numéroterait (une pièce au repère piloté par une expression n'en fait pas
+    partie). Lecture seule. ``ValueError`` traduite pour un objet d'un autre document."""
+    return cutlist_marks.count_unmarked(doc, objects)
+
+
 def number_marks(
     doc: Document,
     objects: Sequence[DocumentObject] | None = None,

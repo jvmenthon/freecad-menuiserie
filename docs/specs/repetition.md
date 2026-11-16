@@ -345,3 +345,23 @@ peut être **calculée jusqu'à une butée** au lieu d'être saisie.
 | B5 | grille à deux butées, sens inverse, butée hors du conteneur | idem |
 | B6 | enregistrer / rouvrir, annuler / rétablir, document d'avant les butées (case cochée) | idem |
 | B7 | panneau hors écran : bouton Butée, sélection simulée, case d'épaisseur, retrait, prérempli | `tests/gui/verifications_repetition_butee.py` |
+
+## 11. Pièces en bois (ShapedPart) répétables (demande de jv, 2026-11-12 ; ADR 0050, proposé)
+
+- **Besoin** : répéter une pièce « convertie » depuis un corps FreeCAD, seule ou dans un ensemble.
+- **Copie** : une `ShapedPart` liée au même `Source`, mêmes `SourceAxes`, `ProfileThickness`,
+  `SolidIndex`, `SolidSignature`, matériau, fil, surcotes ; `Placement` par expressions.
+- **Cotes** `Length`, `Width`, `Thickness` : sorties de `execute()`, sans expression.
+- **Dissociation, suppression, assemblages, ensembles, débit** : comme une pièce de bois.
+
+| Réf. | Critère | Tests |
+|---|---|---|
+| S1 | une `ShapedPart` est une source valide, seule ou dans un ensemble ; une autre est refusée | `tests/unit/test_repetition_sources.py` |
+| S2 | la copie lie le même `Source` et reprend les réglages ; aucune expression sur les cotes | `tests/integration/test_repetition_pieces_en_bois.py` |
+| S3 | `Placement` suit la source, le pas et le sens, en grille | idem |
+| S4 | changer matériau, fil ou `ProfileThickness` de la source : la copie suit | idem |
+| S5 | dissocier : expressions et propriétés `Repeat*` retirées, valeurs gardées, assemblages dissociés | idem |
+| S6 | supprimer la répétition emporte les copies ; supprimer la source dissocie | idem |
+| S7 | ensemble contenant une pièce convertie : répété, membres copiés, cotes figées | idem |
+| S8 | liste de débit : copies regroupées avec la source (même empreinte) | idem |
+| S9 | enregistrer / rouvrir, annuler / rétablir | idem |

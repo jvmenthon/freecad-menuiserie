@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from typing import Final
+from typing import Any, Final
 
 import FreeCAD as App
 
@@ -22,6 +22,7 @@ from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.repeat_stop_raw import raw_stops
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 
 __all__ = ["dissociate", "edit_repeat", "make_repeat", "repeat_of"]
 
@@ -57,10 +58,16 @@ def _show(created: repeat_copies.Created) -> None:
     """ViewProviders des copies et des assemblages créés, quand l'interface est chargée."""
     if App.GuiUp:
         from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
+        from freecad.menuiserie.gui.view_providers.shaped_part import ViewProviderShapedPart
         from freecad.menuiserie.gui.view_providers.wood_part import ViewProviderWoodPart
 
         for copy in created.copies:
-            provider = ViewProviderFurniture if is_furniture(copy) else ViewProviderWoodPart
+            if is_furniture(copy):
+                provider: Any = ViewProviderFurniture
+            elif is_shaped_part(copy):
+                provider = ViewProviderShapedPart
+            else:
+                provider = ViewProviderWoodPart
             provider(copy.ViewObject)
     for joint in created.joints:
         show_joint(joint)
@@ -74,7 +81,7 @@ def make_repeat(
     transaction: bool = True,
     stops: repeat_stop.Stops | None = None,
 ) -> DocumentObject:
-    """Répète les pièces de bois et les ensembles ``objects`` selon ``params``
+    """Répète les pièces de bois, les pièces en bois et les ensembles ``objects`` selon ``params``
     (:class:`RepeatParams`, mm) et renvoie la répétition (objet de cotes sans forme, nom interne
     ``Repeat``).
 
@@ -97,15 +104,20 @@ def make_repeat(
     extérieure (cas B) recopiés selon ``copy_joints``. Une sélection peut mêler pièces et
     ensembles ; une pièce n'est pas répétée en même temps que son ensemble.
 
+    Source = pièce en bois à forme libre (ADR 0050) : la copie est une pièce en bois qui lie le même
+    corps ; repère, épaisseur de profil, matériau, fil et surcotes suivent la source par expression,
+    les cotes d'encombrement sont recalculées depuis le corps (jamais liées).
+
     ``stops`` (ADR 0047) : butée (:class:`Stop`) de chaque axe ; dans les modes « sur une
     longueur », la longueur de l'axe est alors la distance à la butée (``AxisRepeat.span`` ou
     ``RepeatParams.span`` : une valeur positive de départ, remplacée), et elle **suit** la butée.
 
     Un seul bloc annulable, un seul recalcul. Refus traduits avant toute création : ``TypeError``
-    (autre chose qu'une pièce de bois ou un ensemble de pièces de bois), ``ValueError`` (aucune
-    pièce, copie déjà liée, pièce répétée avec son ensemble, longueur trop courte, trop de
-    copies…), ``KeyError`` (matériau inconnu). ``transaction=False`` : l'appelant a ouvert la
-    sienne (commande de l'interface) et la valide ; sinon elle est ouverte et validée ici."""
+    (autre chose qu'une pièce de bois, une pièce en bois ou un ensemble de telles pièces),
+    ``ValueError`` (aucune pièce, copie déjà liée, pièce répétée avec son ensemble, longueur trop
+    courte, trop de copies…), ``KeyError`` (matériau inconnu). ``transaction=False`` : l'appelant
+    a ouvert la sienne (commande de l'interface) et la valide ; sinon elle est ouverte et validée
+    ici."""
     sources = repeat_copies.checked_sources(objects, one_container=False)
     stops = raw_stops(stops) or {}  # jamais une pièce usinée : cycle avec les assemblages
     params = repeat_stop.bounded_params(sources, params, stops)

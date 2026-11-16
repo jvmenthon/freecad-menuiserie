@@ -34,6 +34,7 @@ __all__ = [
     "report",
     "show",
     "target_diffuse",
+    "view_object_of",
 ]
 
 ViewObject = Any
@@ -73,6 +74,17 @@ class AppObservers:
         import FreeCAD as App
 
         App.removeDocumentObserver(watcher)
+
+
+def view_object_of(obj: PartObject | None) -> ViewObject | None:
+    """``ViewObject`` de ``obj``, ou ``None`` : pas d'interface, ou document déjà fermé (FreeCAD
+    lève alors ``NameError`` « Unknown document », par exemple quand on ferme un document
+    pendant qu'un panneau de création est ouvert). ``NameError`` n'est attrapée qu'ici. Sert aux
+    calques d'affichage, seuls appelés pendant la fermeture d'un document."""
+    try:
+        return getattr(obj, "ViewObject", None)
+    except NameError:
+        return None
 
 
 def object_alive(obj: PartObject) -> bool:

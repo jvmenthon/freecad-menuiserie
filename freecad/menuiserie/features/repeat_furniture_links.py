@@ -40,6 +40,7 @@ from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import workshop_expressions
 from freecad.menuiserie.features.furniture_container import member_expressions, std_part_of
 from freecad.menuiserie.features.repeat_props import line_name
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 
 __all__ = [
     "COMPONENTS",
@@ -48,6 +49,7 @@ __all__ = [
     "FURNITURE_PATHS",
     "MATERIAL",
     "ROTATION",
+    "SHAPED",
     "furniture_cell_expressions",
     "furniture_expressions",
     "inner_expressions",
@@ -65,6 +67,9 @@ MATERIAL: Final = (
     "WidthAllowance",
     "ThicknessAllowance",
 )
+# Pièce en bois (ADR 0050) : repère et épaisseur de profil suivent la source ; les cotes
+# d'encombrement (``DIMENSIONS``) viennent du dessin et ne sont jamais liées.
+SHAPED: Final = ("SourceAxes", "ProfileThickness")
 COMPONENTS: Final = {RepeatAxis.X: "x", RepeatAxis.Y: "y", RepeatAxis.Z: "z"}
 ROTATION: Final = "Placement.Rotation"
 FURNITURE_PATHS: Final = (
@@ -135,10 +140,12 @@ def inner_expressions(copy: DocumentObject, original: DocumentObject) -> dict[st
     name = original.Name
     placed = std_part_of(furniture_of(copy) or copy) is not None  # le décalage est dans le Std Part
     furniture = is_furniture(original)
-    dimensions = FURNITURE_DIMENSIONS if furniture else DIMENSIONS
+    shaped = is_shaped_part(original)
+    dimensions = FURNITURE_DIMENSIONS if furniture else () if shaped else DIMENSIONS
     expressions = {dim: f"{name}.{dim}" for dim in dimensions if dim not in bound}
     if not furniture:
-        expressions.update({prop: f"{name}.{prop}" for prop in (*MATERIAL, ROTATION)})
+        linked = (*MATERIAL, ROTATION, *(SHAPED if shaped else ()))
+        expressions.update({prop: f"{name}.{prop}" for prop in linked})
     parent, parent_copy = furniture_of(original), furniture_of(copy)
     if parent is None or parent_copy is None:
         return expressions

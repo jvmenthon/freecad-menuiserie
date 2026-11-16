@@ -15,12 +15,12 @@ flèches et anneaux : le geste met ses liaisons de côté et le parent les repos
 from __future__ import annotations
 
 from itertools import product
-from typing import Final
+from typing import Any, Final
 
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import MIN_FURNITURE_MM, furniture_layout, resized_by
-from freecad.menuiserie.core.geometry import Box, Vec3
+from freecad.menuiserie.core.geometry import Box, Matrix3, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import Guide, Handle, ResizeResult
 from freecad.menuiserie.core.rotation import Ring
@@ -41,7 +41,7 @@ from freecad.menuiserie.features.furniture_drag import (
     restore,
     rotate_furniture_by,
 )
-from freecad.menuiserie.features.magnet_guides import collect_guides
+from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui.drag.geometry import HANDLE_RATIO, Layout
 from freecad.menuiserie.gui.drag.rings import build_rings
@@ -134,22 +134,39 @@ class FurnitureTarget(Target):
     def guides(self) -> tuple[Guide, ...]:
         """Objets voisins : tout ce qui n'est pas dans le Std Part de l'ensemble (ses pièces ne le
         guident pas)."""
+        return collect_guides(
+            self.obj,
+            guide_container(self.obj),
+            origin=furniture_placement(self.obj),
+            skip=self._neighbor_skip(),
+            reference=self._reference(),
+        )
+
+    def neighbor_rotations(self) -> tuple[Matrix3, ...]:
+        """Mêmes voisins que :meth:`guides`."""
+        return neighbor_rotations(
+            self.obj,
+            guide_container(self.obj),
+            skip=self._neighbor_skip(),
+            reference=self._reference(),
+        )
+
+    def _neighbor_skip(self) -> set[str]:
+        """L'ensemble et son Std Part : ses propres pièces ne le guident pas."""
+        skip = {self.obj.Name}
+        part = self.obj.getParentGeoFeatureGroup()
+        if part is not None:
+            skip.add(part.Name)
+        return skip
+
+    def _reference(self) -> Any:
+        """Boîte globale (``App.BoundBox``) de l'ensemble : les voisins les plus proches d'abord."""
         box, to_global = self.box(), self.frame().to_transform()
         reference = App.BoundBox()
         for bits in product((0, 1), repeat=3):
             point = to_global.apply(Vec3.of([(box.lo(i), box.hi(i))[bits[i]] for i in range(3)]))
             reference.add(App.Vector(point.x, point.y, point.z))
-        skip = {self.obj.Name}
-        part = self.obj.getParentGeoFeatureGroup()
-        if part is not None:
-            skip.add(part.Name)
-        return collect_guides(
-            self.obj,
-            guide_container(self.obj),
-            origin=furniture_placement(self.obj),
-            skip=skip,
-            reference=reference,
-        )
+        return reference
 
     def move(self, memento: Memento, delta: Vec3) -> None:
         move_furniture_by(_furniture(memento), delta)

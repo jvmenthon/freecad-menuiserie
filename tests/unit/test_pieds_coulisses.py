@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from freecad.menuiserie.core.geometry import Box, Cylinder, JointError, PlacedBlock
 from freecad.menuiserie.core.joints import JointKind, strategy_for
+from freecad.menuiserie.core.joints._footprint import margin
 from freecad.menuiserie.core.joints.feet import FootParams
 from freecad.menuiserie.core.joints.slides import SlideParams
+from freecad.menuiserie.core.part_model import Dimensions
 from tests.unit.aides_assemblages import block, placed, rotation_y
 
 FOOT = strategy_for(JointKind.FOOT)
@@ -169,3 +173,53 @@ def test_nombre_de_pieds_automatique() -> None:
     assert (values.columns, values.rows, values.count) == (4, 2, 8)
     fixed = FootParams(columns=3, rows=1, foot_material="wood")
     assert FOOT.resolve(long, long, fixed).count == 3
+
+
+L_SHAPE = (
+    (
+        (0.0, 0.0),
+        (1000.0, 0.0),
+        (1000.0, 100.0),
+        (100.0, 100.0),
+        (100.0, 600.0),
+        (0.0, 600.0),
+    ),
+)
+
+
+def l_panel() -> PlacedBlock:
+    """Panneau couché en L : branche de 1000 mm le long de X, branche de 600 mm le long de Y."""
+    return PlacedBlock(Dimensions(1000.0, 600.0, 19.0), bottom_panel().placement, L_SHAPE)
+
+
+def test_pieds_restent_dans_le_contour_d_une_piece_coudee() -> None:
+    panel = l_panel()
+    values = FOOT.resolve(panel, panel, FootParams())
+    assert values.count >= 2
+    for x, y in values.centers:
+        assert margin((x, y), L_SHAPE) >= 25.0 - 1e-6  # l'embase (Ø50) reste sur la matière
+    plan = FOOT.plan(panel, panel, WOOD)
+    assert len(cylinders(plan.host_cuts)) == values.count
+
+
+def test_piece_rectangulaire_sans_contour_inchangee() -> None:
+    panel = bottom_panel()
+    assert panel.footprint is None
+    assert FOOT.resolve(panel, panel, FootParams()).count == 4
+
+
+def test_contour_trop_etroit_refuse() -> None:
+    thin = PlacedBlock(
+        Dimensions(1000.0, 600.0, 19.0),
+        bottom_panel().placement,
+        (((0.0, 0.0), (1000.0, 0.0), (1000.0, 30.0), (0.0, 30.0)),),
+    )
+    with pytest.raises(JointError):
+        FOOT.resolve(thin, thin, FootParams())
+
+
+def test_pieds_jamais_colles_sur_une_piece_coudee() -> None:
+    panel = l_panel()
+    centers = FOOT.resolve(panel, panel, FootParams()).centers
+    gaps = [math.dist(a, b) for i, a in enumerate(centers) for b in centers[i + 1 :]]
+    assert min(gaps) >= 100.0 - 1e-6  # au moins une embase (Ø50) entre deux embases

@@ -23,7 +23,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.repeat_copies import checked_sources
-from freecad.menuiserie.features.wood_part import is_wood_part
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import (
     TransactionCommand,
@@ -40,10 +40,10 @@ COMMANDS: Final = (REPEAT, REPEAT_EDIT, REPEAT_DISSOCIATE)
 
 
 def is_repeatable(obj: DocumentObject) -> bool:
-    """Vrai pour une pièce de bois ou un ensemble qui n'est pas déjà une copie liée, ou pour la
-    pièce usinée d'une pièce de bois (la répétition porte sur la pièce brute)."""
+    """Vrai pour une pièce de bois, une pièce en bois ou un ensemble qui n'est pas déjà une copie
+    liée, ou pour la pièce usinée d'une pièce de bois (la répétition porte sur la pièce brute)."""
     blank = obj.Base if is_machined_part(obj) else obj
-    return (is_wood_part(blank) or is_furniture(blank)) and not is_copy(blank)
+    return (is_timber(blank) or is_furniture(blank)) and not is_copy(blank)
 
 
 def selected_repeatable() -> list[DocumentObject] | None:

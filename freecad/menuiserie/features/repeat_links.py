@@ -4,7 +4,9 @@
 Pour la copie de cellule ``(i, j, k)`` de la source ``S`` d'une répétition ``R`` (rang ``i`` sur X,
 ``j`` sur Y, ``k`` sur Z ; un seul est non nul pour une répétition sur un axe) :
 
-- ``Length``, ``Width``, ``Thickness`` = celles de ``S`` ;
+- ``Length``, ``Width``, ``Thickness`` = celles de ``S`` (sauf pour une pièce en bois, ADR 0050 :
+  ce sont des sorties de ``execute()``, sans expression ; ``SourceAxes`` et ``ProfileThickness``
+  sont liés à ``S`` à leur place, la copie recalcule ses cotes depuis le même corps) ;
 - ``Placement.Base.c`` = ``S.Placement.Base.c`` (+ ``n * (R.Reverse ? -1 : 1) * R.Step`` pour chaque
   composante ``c`` dont le rang ``n`` n'est pas nul ; ``Reverse2`` et ``Step2`` pour la deuxième
   ligne de la grille, ``Reverse3`` et ``Step3`` pour la troisième, ADR 0045) ;
@@ -57,6 +59,7 @@ from freecad.menuiserie.features.repeat_furniture_links import (
     FURNITURE_PATHS,
     MATERIAL,
     ROTATION,
+    SHAPED,
     furniture_cell_expressions,
     furniture_expressions,
     inner_expressions,
@@ -65,6 +68,7 @@ from freecad.menuiserie.features.repeat_furniture_links import (
 )
 from freecad.menuiserie.features.repeat_joints import unlink_part_joints
 from freecad.menuiserie.features.repeat_props import CELL_PROPERTY
+from freecad.menuiserie.features.shaped_part import is_shaped_part
 
 __all__ = [
     "BOUND_PATHS",
@@ -87,17 +91,22 @@ BOUND_PATHS: Final = tuple(
             *(f"Placement.Base.{c}" for c in COMPONENTS.values()),
             ROTATION,
             *MATERIAL,
+            *SHAPED,
             *FURNITURE_PATHS,
         )
     )
 )
 
 
-def cell_expressions(source: str, shifts: Mapping[RepeatAxis, str]) -> dict[str, str]:
+def cell_expressions(
+    source: str, shifts: Mapping[RepeatAxis, str], *, shaped: bool = False
+) -> dict[str, str]:
     """Expressions d'une copie de pièce : propriété → texte. ``source`` : nom (``Name``) de la
     source ; ``shifts`` : décalage sur chaque axe où la copie n'est pas à l'original
-    (:func:`.repeat_furniture_links.shift_terms`)."""
-    expressions = {name: f"{source}.{name}" for name in (*DIMENSIONS, *MATERIAL)}
+    (:func:`.repeat_furniture_links.shift_terms`) ; ``shaped`` : copie de pièce en bois, sans
+    expression sur les cotes (``SourceAxes`` et ``ProfileThickness`` à la place, ADR 0050)."""
+    linked = (*SHAPED, *MATERIAL) if shaped else (*DIMENSIONS, *MATERIAL)
+    expressions = {name: f"{source}.{name}" for name in linked}
     for component in COMPONENTS.values():
         expressions[f"Placement.Base.{component}"] = f"{source}.Placement.Base.{component}"
     expressions[ROTATION] = f"{source}.{ROTATION}"
@@ -120,7 +129,7 @@ def link_copy(copy: DocumentObject, source: DocumentObject, repeat: DocumentObje
         part = std_part_of(source) if std_part_of(copy) is not None else None
         made = furniture_cell_expressions(source.Name, shifts, None if part is None else part.Name)
     else:
-        made = cell_expressions(source.Name, shifts)
+        made = cell_expressions(source.Name, shifts, shaped=is_shaped_part(copy))
     for path, text in made.items():
         set_member_expression(copy, path, text)
 

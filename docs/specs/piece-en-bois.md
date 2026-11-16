@@ -355,5 +355,6 @@ usinées actuelles sont identiques (E2). Le champ `shape` de `CutEntry` a une va
   en bois par solide pour une forme importée** (STEP, copie simple : elle ne se recalcule
   jamais, l'index du solide est stable, B11) ; **refus pour une forme paramétrique** à plusieurs
   solides (un corps PartDesign peut renuméroter ses solides quand on le modifie : une pièce
-  prendrait la forme d'une autre sans prévenir). Rejeté : une seule pièce pour tous les solides
+  prendrait la forme d'une autre sans prévenir ; FreeCAD 1.1 ne nomme de façon stable que les
+  faces, arêtes et sommets, ADR 0056). Rejeté : une seule pièce pour tous les solides
   (encombrement faux).

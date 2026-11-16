@@ -45,7 +45,13 @@ from freecad.menuiserie.features import (
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
-from freecad.menuiserie.features.furniture_view import MemberView, member_views, shown_object
+from freecad.menuiserie.features.furniture_view import (
+    MemberView,
+    invalid_joints_below,
+    member_views,
+    shown_object,
+    undone_joints,
+)
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.drag import events
 from freecad.menuiserie.gui.task_panels import base
@@ -102,6 +108,8 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         self._resize_notices: tuple[str, ...] = ()
         self._views: dict[str, MemberView] = {}
         self._current: str | None = None
+        self._invalid_at_start = frozenset(invalid_joints_below(obj))
+        self._undone_refused = False
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
@@ -198,7 +206,10 @@ class FurnitureTaskPanel(ObjectTaskPanel):
             return
         sizes = self._requested_sizes()
         if not any(value is not None for value in sizes.values()):
+            undone = self._undone_refused  # même cote retapée : ce refus-là tient encore
             self._unlock.clear()
+            if undone:
+                self._refuse_undone_joints()
             self._refresh()
             return
         try:
@@ -260,7 +271,17 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         if session is not None and session.dragging:
             self._show_values()
             return
+        self._recheck_after_gesture()
         self._refresh()
+
+    def _recheck_after_gesture(self) -> None:
+        """Geste fini : le refus d'une cote tapée ne tient plus (la taille a pu changer) ; les
+        champs sont relus, puis un assemblage ou une quincaillerie que le geste a mis en erreur
+        est refusé comme pour une cote tapée. L'ordre compte : un refus affiché fige les champs
+        (:meth:`_show_values`), ils sont donc relus avant."""
+        self._unlock.clear()
+        self._show_values()
+        self._refuse_undone_joints()
 
     def _show_values(self) -> None:
         """Cotes et angles relus dans les champs (signaux bloqués)."""
@@ -317,7 +338,19 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         if resizing:
             self._resize_notices = messages
         self.preview()
+        if resizing:
+            self._refuse_undone_joints()
         self._refresh()
+
+    def _refuse_undone_joints(self) -> None:
+        """Une cote écrite qui ne laisse plus la place à un assemblage ou à une quincaillerie
+        (en erreur après le recalcul) : le refus s'affiche sous les cotes et « OK » reste
+        inactif jusqu'à une cote qui convient. Ce qui était déjà en erreur à l'ouverture du
+        panneau ne compte pas."""
+        undone = undone_joints(self.obj, self._invalid_at_start)
+        self._undone_refused = bool(undone)
+        if undone:
+            self._unlock.refuse(ValueError("\n".join(undone)))
 
     def _member(self) -> DocumentObject | None:
         view = self._views.get(self._current or "")

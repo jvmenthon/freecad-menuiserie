@@ -30,10 +30,14 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from tests.gui.aides_panneau import DEFAUTS_CONSTATES
+from tests.gui.verifications_alignement import VERIFICATIONS_ALIGNEMENT
 from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELACHEMENT
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
+from tests.gui.verifications_chants import VERIFICATIONS_CHANTS
+from tests.gui.verifications_chants_pieces import VERIFICATIONS_CHANTS_PIECES
+from tests.gui.verifications_coplanarite import VERIFICATIONS_COPLANARITE
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
 from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
@@ -66,7 +70,6 @@ from tests.gui.verifications_repetition_depart import VERIFICATIONS_REPETITION_D
 from tests.gui.verifications_repetition_grille import VERIFICATIONS_REPETITION_GRILLE
 from tests.gui.verifications_robustesse import VERIFICATIONS_ROBUSTESSE
 from tests.gui.verifications_selection import VERIFICATIONS_SELECTION
-from tests.gui.verifications_selection_ensemble import VERIFICATIONS_SELECTION_ENSEMBLE
 from tests.gui.verifications_souris import VERIFICATIONS_SOURIS
 from tests.gui.verifications_souris_copie import VERIFICATIONS_SOURIS_COPIE
 from tests.gui.verifications_souris_document import VERIFICATIONS_SOURIS_DOCUMENT
@@ -1280,10 +1283,11 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_PANNEAU_ROTATION,
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
+    *VERIFICATIONS_CHANTS,
+    *VERIFICATIONS_CHANTS_PIECES,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
-    *VERIFICATIONS_SELECTION_ENSEMBLE,
     # Panneau « Structure » (ADR 0046, lot 2)
     *VERIFICATIONS_STRUCTURE,
     *VERIFICATIONS_STRUCTURE_LOT3,
@@ -1307,6 +1311,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     # Distance entre deux pièces (DI-b)
     *VERIFICATIONS_DISTANCE,
     *VERIFICATIONS_DISTANCE_GARDEE,
+    *VERIFICATIONS_ALIGNEMENT,
     # Pièce en bois à forme libre (PD-d)
     *VERIFICATIONS_PIECE_EN_BOIS,
     *VERIFICATIONS_PIECE_EN_BOIS_LIMITES,
@@ -1321,6 +1326,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_REPETITION_DEPART,
     # Copie par glissement (R-d)
     *VERIFICATIONS_SOURIS_COPIE,
+    # Coplanarité pendant un glissement et dans le panneau « Répéter » (ADR 0058)
+    *VERIFICATIONS_COPLANARITE,
 )
 
 

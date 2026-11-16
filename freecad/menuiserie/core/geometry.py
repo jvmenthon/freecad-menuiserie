@@ -307,6 +307,9 @@ class PlacedBlock:
 
     dimensions: Dimensions
     placement: RigidTransform
+    # Contour réel de la pièce dans son plan XY local (pièce non rectangulaire) : boucles de
+    # sommets (la boucle extérieure puis les trous). ``None`` : la pièce est son encombrement.
+    footprint: tuple[tuple[tuple[float, float], ...], ...] | None = None
 
     def local_box(self) -> Box:
         """Boîte [0, L] x [0, l] x [0, e] dans le repère local."""

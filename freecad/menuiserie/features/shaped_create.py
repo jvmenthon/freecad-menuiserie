@@ -24,6 +24,7 @@ from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.part_names import label_of_mark
+from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.shaped_frame import (
     LocalForm,
     automatic_axes,
@@ -82,9 +83,11 @@ class _Plan:
 
 
 def converted_part_of(obj: DocumentObject) -> DocumentObject | None:
-    """Pièce en bois qui enveloppe déjà ``obj`` (``Source`` = ``obj``), ``None`` sinon."""
+    """Pièce en bois qui enveloppe déjà ``obj`` (``Source`` = ``obj``), ``None`` sinon. Les copies
+    liées d'une répétition (ADR 0050) ne comptent pas : elles partagent le ``Source`` de leur
+    pièce d'origine, qui reste la seule « conversion »."""
     for other in obj.InList:
-        if is_shaped_part(other) and other.Source == obj:
+        if is_shaped_part(other) and other.Source == obj and not is_copy(other):
             return other
     return None
 

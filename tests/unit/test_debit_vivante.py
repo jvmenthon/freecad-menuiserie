@@ -297,6 +297,19 @@ def test_repere_pilote_par_une_expression_laisse_de_cote(world: World) -> None:
     assert driven.Mark == ""
 
 
+def test_comptage_des_pieces_sans_repere_en_lecture_seule(world: World) -> None:
+    kept = part(world, "A", "M1")
+    first, second = part(world, "B", length=400), part(world, "C", length=300)
+    driven = world.part("D", "", (800, 200, 22), ExpressionEngine=[("Mark", "<<X>>")])
+    doc = SheetDoc(kept, first, second, driven)
+    count = world.features.cutlist_marks.count_unmarked
+    assert count(doc) == 2
+    assert count(doc, [second]) == 1
+    assert count(doc, [kept]) == 0
+    assert doc.log == []
+    assert first.Mark == second.Mark == ""
+
+
 @pytest.mark.parametrize("prefix", ["", "   "])
 def test_prefixe_vide_refuse(world: World, prefix: str) -> None:
     doc = SheetDoc(part(world, "A"))
