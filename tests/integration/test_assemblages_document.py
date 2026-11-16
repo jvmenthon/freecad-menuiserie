@@ -72,7 +72,7 @@ def test_forme_des_assemblages_vide(cadre_assemble: Cadre) -> None:
 
 MACHINED_PROPERTIES = [
     ("Base", "App::PropertyLink", "Pièce", ["ReadOnly"]),
-    ("Joints", "App::PropertyLinkList", "Pièce", ["ReadOnly"]),
+    ("Joints", "App::PropertyLinkListGlobal", "Pièce", ["ReadOnly"]),
     ("Finishes", "App::PropertyLinkList", "Pièce", ["ReadOnly"]),
     ("Version", "App::PropertyInteger", "Base", ["Hidden"]),
 ]
