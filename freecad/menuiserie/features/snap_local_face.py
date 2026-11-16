@@ -137,16 +137,38 @@ def _local_target(
 
 
 class NoRoomError(Exception):
-    """Pas assez de place dans la face (pointe aiguë) pour poser la pièce."""
+    """Pas assez de place dans la face (pointe aiguë) pour poser la pièce. Signal interne :
+    ``perpendicular_start`` l'attrape toujours, il ne remonte jamais à l'utilisateur."""
+
+
+def _shared_span(
+    face: Any, start: Vector, axes: tuple[Vector, Vector, Vector], depth: float
+) -> tuple[float, float]:
+    """Étendue (mini, maxi) le long de ``along`` autour de ``start``, commune aux trois tranches de
+    ``face`` prises à ``start``, à mi-épaisseur et au bout de l'épaisseur ``depth`` (selon
+    ``across``). ``axes`` : (``along``, ``across``, normale). Les sondes reculent de
+    ``_PROBE_INSET_MM`` des bords, au delà de la tolérance d'OCC. Infinie si aucune tranche ne
+    se calcule."""
+    along, across, normal = axes
+    low, high = -float("inf"), float("inf")
+    inset = min(_PROBE_INSET_MM, depth / 4.0)
+    for offset in (inset, depth / 2.0, depth - inset):
+        probe = start + across * offset
+        probe += normal * (face.CenterOfMass - probe).dot(normal)
+        span = _span_through(face, probe, along)
+        if span is not None:
+            low, high = max(low, span[0]), min(high, span[1])
+    return low, high
 
 
 def fit_to_footprint(
     target: FaceTarget, face: Any, sizes: tuple[float, float]
 ) -> FaceTarget | None:
-    """``target`` resserré pour qu'une pièce d'emprise ``sizes`` (selon ses deux axes), posée dans
-    son coin, reste dans ``face`` : une arête oblique coupe la face avant la fin de la tranche
-    mesurée au clic. L'étendue est l'intersection des tranches prises sur toute l'épaisseur de
-    la pièce ; le coin glisse jusqu'au bord. ``None`` si rien ne change ou si le calcul échoue ;
+    """``target`` resserré pour qu'une pièce d'emprise ``sizes`` reste dans ``face``.
+
+    Une arête oblique coupe la face avant la fin de la tranche mesurée au clic : l'étendue est
+    l'intersection des tranches prises sur toute l'épaisseur de la pièce, le coin glisse jusqu'au
+    bord. Résultat : le repère resserré ; ``None`` si rien ne change ou si le calcul échoue ;
     :class:`NoRoomError` s'il ne reste pas la place d'une pièce."""
     frame = target.frame
     extent = list(target.extent)
@@ -157,14 +179,11 @@ def fit_to_footprint(
         for row in sorted((0, 1), key=lambda r: extent[r] - sizes[r]):
             along, across = axes[row], axes[1 - row]
             depth, length = min(sizes[1 - row], extent[1 - row]), extent[row]
-            low, high = 0.0, length
-            inset = min(_PROBE_INSET_MM, depth / 4.0)  # sondes un peu à l'intérieur des bords
-            for offset in (inset, depth / 2.0, depth - inset):
-                start = origin + across * offset + along * (length / 2.0)
-                start += normal * (face.CenterOfMass - start).dot(normal)
-                span = _span_through(face, start, along)
-                if span is not None:
-                    low, high = max(low, length / 2.0 + span[0]), min(high, length / 2.0 + span[1])
+            middle = length / 2.0
+            first, last = _shared_span(
+                face, origin + along * middle, (along, across, normal), depth
+            )
+            low, high = max(0.0, middle + first), min(length, middle + last)
             if not high - low >= MIN_DIMENSION_MM:  # aussi vrai pour NaN
                 raise NoRoomError(f"{high - low:.3f} mm de place le long de l'arête")
             origin, extent[row] = origin + along * low, high - low

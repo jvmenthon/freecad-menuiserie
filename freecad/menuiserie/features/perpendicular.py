@@ -48,7 +48,7 @@ from freecad.menuiserie.features.wood_part import dimensions_of
 
 __all__ = ["PerpendicularStart", "perpendicular_start"]
 
-_FIT_PASSES: Final = 3  # reprises du calage de l'emprise dans la face
+_FIT_PASSES: Final = 3  # un resserrement par axe, puis un de contrôle : le calcul converge en deux
 _PARALLEL: Final = 1e-6  # norme du produit vectoriel de deux normales unitaires parallèles
 
 
@@ -119,7 +119,9 @@ def _fit_in_face(
     support, owner, orientation = frames
     target = reading.targets[0]
     width, thickness = face_section(support, owner, orientation, target.extent, section)
-    for _ in range(_FIT_PASSES if blank_face is not None else 0):
+    if blank_face is None:
+        return reading, width, thickness
+    for _ in range(_FIT_PASSES):
         try:
             fitted = fit_to_footprint(
                 target, blank_face, footprint(orientation, (width, thickness))

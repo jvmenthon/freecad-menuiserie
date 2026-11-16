@@ -200,7 +200,7 @@ def triangle(document: Any) -> Any:
 
 @pytest.mark.parametrize("click", [(100, 10), (200, 50), (5, 1), (395, 1)])
 def test_face_triangulaire_la_piece_reste_dans_la_face(
-    document: Any, click: tuple[int, int]
+    document: Any, click: tuple[float, float]
 ) -> None:
     """Face triangulaire (arêtes obliques) : la nouvelle pièce, calée au coin le plus proche du
     clic, ne déborde pas de la face."""
