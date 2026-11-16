@@ -28,6 +28,7 @@ from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.edges import BROKEN_EDGE_MM, EdgeFamily, SecondSize, family_for
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.edge_frames import edge_index, edge_label
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges
 from freecad.menuiserie.features.edge_profile_native import part_refusal
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -289,8 +290,9 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
     @staticmethod
     def _piece_edges(part: DocumentObject, codes: Sequence[str]) -> str:
+        shown = [edge_label(index) if (index := edge_index(c)) else c for c in codes]
         return translated(
-            _PIECE_EDGES, {"piece": quoted_value(part.Label), "edges": ", ".join(codes)}
+            _PIECE_EDGES, {"piece": quoted_value(part.Label), "edges": ", ".join(shown)}
         )
 
     def _apply(self, part: DocumentObject, codes: list[str], *, replace: bool) -> tuple[str, ...]:

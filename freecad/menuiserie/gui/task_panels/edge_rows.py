@@ -98,6 +98,7 @@ def card_title(part: DocumentObject, color: str) -> tuple[Widget, Widget]:
     row.addStretch()
     count = QtGui.QLabel()
     count.setObjectName("count")
+    count.setTextFormat(QtCore.Qt.TextFormat.PlainText)
     row.addWidget(count)
     return row, count
 
@@ -140,6 +141,7 @@ class NativeCard(QtGui.QFrame):  # type: ignore[misc]
         self._empty = QtGui.QLabel(translated(_EMPTY))
         self._empty.setObjectName("empty_hint")
         self._empty.setWordWrap(True)
+        self._empty.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         layout.addWidget(self._empty)
         self._rows = QtGui.QVBoxLayout()
         self._rows.setSpacing(0)
@@ -168,7 +170,13 @@ class NativeCard(QtGui.QFrame):  # type: ignore[misc]
 
     def _usable(self, name: str) -> bool:
         edge = self._read(name)
-        return edge is not None and edge.frame is not None and edge.frame.convex
+        # Arête lue, saillante et d'angle accepté (30° à 150°) : le chanfrein, qui va à tout
+        # angle, sert d'étalon ; une famille à angle droit est refusée à l'aperçu.
+        return (
+            edge is not None
+            and edge.frame is not None
+            and frame_refusal(edge.frame, EdgeFamily.CHAMFER) is None
+        )
 
     def edge_colors(self) -> dict[str, str]:
         """Couleur de chaque arête utilisable, la même dans la liste et dans la vue 3D."""
@@ -242,10 +250,12 @@ class NativeCard(QtGui.QFrame):  # type: ignore[misc]
         row.addWidget(dot)
         label = QtGui.QLabel(translated(_EDGE, {"edge": edge_label(index)}))
         label.setObjectName("edge_name")
+        label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         row.addWidget(label)
         row.addStretch()
         detail = QtGui.QLabel(self._detail(edge))
         detail.setObjectName("edge_detail")
+        detail.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         detail.setWordWrap(True)
         row.addWidget(detail)
         if edge is None:
@@ -269,9 +279,9 @@ class NativeCard(QtGui.QFrame):  # type: ignore[misc]
             return translated(_LOST)
         if edge.frame is None:
             return edge.refusal or ""
-        if not edge.frame.convex:
-            refusal = frame_refusal(edge.frame, EdgeFamily.CHAMFER)
-            return str(refusal) if refusal is not None else ""
+        refusal = frame_refusal(edge.frame, EdgeFamily.CHAMFER)
+        if refusal is not None:
+            return str(refusal)
         return translated(
             _SIZE, {"length": _number(edge.length), "angle": _number(edge.frame.angle)}
         )

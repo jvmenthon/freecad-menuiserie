@@ -40,6 +40,7 @@ MIN_ANGLE_DEG: Final = 30.0  # angle de matière le plus aigu accepté
 MAX_ANGLE_DEG: Final = 150.0  # le plus ouvert (au-delà, l'arête est presque plate)
 RIGHT_ANGLE_TOLERANCE_DEG: Final = 0.5  # angle « droit » à ce jeu près
 ROOM_RATIO: Final = 0.5  # encombrement au plus la moitié de la face voisine
+_ANGLE_SLACK_DEG: Final = 1e-6  # arrondis du calcul de l'angle aux bornes
 
 # Familles calculées à tout angle ; les autres exigent un angle droit (spécification A3).
 ANGLED_FAMILIES: Final = frozenset({EdgeFamily.CHAMFER, EdgeFamily.ROUND, EdgeFamily.COVE})
@@ -110,7 +111,7 @@ class EdgeFrame:
         return math.degrees(math.acos(cosine))
 
     @property
-    def is_right(self) -> bool:
+    def right_angled(self) -> bool:
         """Vrai si les deux faces sont d'équerre (au jeu près)."""
         return abs(self.angle - 90.0) <= RIGHT_ANGLE_TOLERANCE_DEG
 
@@ -125,7 +126,7 @@ def frame_refusal(frame: EdgeFrame, family: EdgeFamily | str) -> EdgeError | Non
     if not frame.convex:
         return EdgeError(_CONCAVE, {"edge": frame.name})
     angle = frame.angle
-    if not MIN_ANGLE_DEG <= angle <= MAX_ANGLE_DEG:
+    if not MIN_ANGLE_DEG - _ANGLE_SLACK_DEG <= angle <= MAX_ANGLE_DEG + _ANGLE_SLACK_DEG:
         return EdgeError(
             _BAD_ANGLE,
             {
@@ -135,7 +136,7 @@ def frame_refusal(frame: EdgeFrame, family: EdgeFamily | str) -> EdgeError | Non
                 "maximum": _degrees(MAX_ANGLE_DEG),
             },
         )
-    if not frame.is_right and EdgeFamily(family) not in ANGLED_FAMILIES:
+    if not frame.right_angled and EdgeFamily(family) not in ANGLED_FAMILIES:
         return EdgeError(_RIGHT_ONLY, {"edge": frame.name, "angle": _degrees(angle)})
     return None
 
@@ -199,7 +200,7 @@ def edge_cut_in_frame(
         raise refusal
     strategy = family_for(family)
     a, b = resolved_sizes(family, a, b, frame.name)
-    if frame.is_right:
+    if frame.right_angled:
         section = strategy.section(a, b)
         extent = strategy.extent(a, b)
     else:

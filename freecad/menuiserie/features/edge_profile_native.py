@@ -40,6 +40,7 @@ __all__ = [
     "refs_of",
 ]
 
+_UNREADABLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "(nom illisible)")
 _NO_EDGE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choisissez au moins une arête à profiler.")
 ON_PART: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce « {label} » : {message}")
 _NO_ELEMENT_MAP: Final = QT_TRANSLATE_NOOP(
@@ -84,6 +85,13 @@ def native_names(edges: object) -> list[str]:
         raise ValueError(translated(_NO_EDGE))
     if len(items) > MAX_NATIVE_EDGES:
         raise ValueError(translated(_BAD_NATIVE, {"maximum": str(MAX_NATIVE_EDGES)}))
+    lost = [
+        item[1:]
+        for item in items
+        if isinstance(item, str) and item.startswith("?") and edge_index(item[1:]) is not None
+    ]
+    if lost:  # arêtes que FreeCAD n'a pas pu suivre : à choisir à nouveau
+        raise ValueError(translated(LOST, {"edges": ", ".join(lost)}))
     indexes = [edge_index(item) for item in items]
     if any(index is None for index in indexes):
         if any(index is not None for index in indexes):
@@ -100,7 +108,21 @@ def refs_of(profile: DocumentObject) -> list[str]:
     refs = profile.EdgeRefs if "EdgeRefs" in profile.PropertiesList else None
     if not refs:
         return []
-    return [str(name) for name in refs[1]]
+    names = list(refs[1])
+    # Relu dans un document : borné et sans doublon, comme à la création (§ 4.7).
+    if len(names) > MAX_NATIVE_EDGES:
+        raise ValueError(translated(_BAD_NATIVE, {"maximum": str(MAX_NATIVE_EDGES)}))
+    texts = [str(name) for name in names]
+    stripped = [text.lstrip("?") for text in texts]
+    if len(set(stripped)) != len(stripped):
+        raise ValueError(translated(_BAD_NATIVE, {"maximum": str(MAX_NATIVE_EDGES)}))
+    return texts
+
+
+def _shown(name: str) -> str:
+    """Nom d'arête affichable : « EdgeN » reconnu, sinon un nom illisible (jamais recopié)."""
+    stripped = name.lstrip("?")
+    return stripped if edge_index(stripped) is not None else translated(_UNREADABLE)
 
 
 def designated_edges(profile: DocumentObject) -> list[str]:
@@ -113,12 +135,12 @@ def designated_edges(profile: DocumentObject) -> list[str]:
 def lost_edges(profile: DocumentObject) -> list[str]:
     """Noms des arêtes natives du profil que FreeCAD n'a pas pu suivre (vide pour une boîte)."""
     part = profile.Part
-    count = len(part.Shape.Edges) if part is not None else 0
+    count = len(base_shape_of(part).Edges) if part is not None else 0
     lost = []
     for name in refs_of(profile):
         index = edge_index(name)
         if index is None or index > count:
-            lost.append(name.lstrip("?"))
+            lost.append(_shown(name))
     return lost
 
 
@@ -172,7 +194,7 @@ def native_cuts(
         for name in names:
             index = edge_index(name)
             if index is None or index > len(shape.Edges):
-                lost.append(name.lstrip("?"))
+                lost.append(_shown(name))
                 continue
             edge = native_edge(shape, index)
             if edge.frame is None:

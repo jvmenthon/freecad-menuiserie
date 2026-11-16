@@ -47,8 +47,9 @@ Options :
    planes : refusée au premier lot, avec la raison.
 5. **Graphe** : inchangé, sans cycle (brute → profil → pièce usinée) ; le lien pointe la brute.
    Ordre des opérations de la pièce usinée inchangé (ADR 0029, décision 5).
-6. **Arête perdue** : le profil le signale seul ; la pièce usinée ignore alors ce profil avec un
-   avertissement visible (recommandation, à confirmer par jv, spécification Q3).
+6. **Arête perdue** : elle est ignorée et signalée (vue rapport, panneau) ; le profil garde ses
+   autres arêtes et n'est pas mis en erreur, car FreeCAD 1.1 ne recalcule plus un objet dont
+   une dépendance est en erreur et la pièce usinée ne suivrait plus son corps (spécification Q3).
 7. **Bouts** : dépassement de 0,01 mm seulement si le prolongement de l'arête sort du solide.
 8. **Persistance** : chemin et noms figés (règles de l'ADR 0003) ; valeurs de `Family` inchangées.
 

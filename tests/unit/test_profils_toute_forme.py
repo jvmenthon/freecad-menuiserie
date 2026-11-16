@@ -97,8 +97,8 @@ def test_angle_droit_meme_coupe_que_la_boite(family: EdgeFamily, edge: EdgeId) -
 def test_angle_du_repere() -> None:
     assert _wedge(90.0).angle == pytest.approx(90.0)
     assert _wedge(60.0).angle == pytest.approx(60.0)
-    assert _wedge(90.0).is_right
-    assert not _wedge(80.0).is_right
+    assert _wedge(90.0).right_angled
+    assert not _wedge(80.0).right_angled
 
 
 # --- A3 : angles autres que 90° --------------------------------------------------------------

@@ -27,6 +27,7 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.features.box_parts import is_box_part
 from freecad.menuiserie.features.edge_frames import (
     MAX_NATIVE_EDGES,
+    edge_index,
     edge_name,
     face_edge_names,
     tangent_chain,
@@ -114,7 +115,8 @@ def _native_names(
             for rank, edge in enumerate(base.Edges, start=1)
             if any(vertex.isSame(end) for end in edge.Vertexes)
         )[:MAX_NATIVE_EDGES]
-    index = int(sub[len("Edge") :]) if target == part else _nearest(base.Edges, point)
+    named = edge_index(sub) if target == part else None
+    index = named if named is not None else _nearest(base.Edges, point)
     chain = [index] if _alt_pressed() else tangent_chain(base, index)
     return tuple(edge_name(rank) for rank in chain)
 

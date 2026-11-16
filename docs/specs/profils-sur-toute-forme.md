@@ -50,7 +50,9 @@ fonctions ajoutées) sans que jv ait à recommencer, ou avec un message clair qu
   (« exigent une arête à angle droit »).
 - A4 Une arête **rentrante** (matière > 180°) est refusée (rien à enlever), message clair.
 - A5 Bornes : cotes ≥ 0,1 mm ; encombrement au plus la moitié de la largeur de chaque face voisine
-  mesurée perpendiculairement à l'arête.
+  mesurée perpendiculairement à l'arête (sa plus grande largeur : sur une face en L, la partie
+  étroite n'est pas mesurée à part ; une coupe plus large y sort dans le vide, sans forme
+  invalide).
 
 ### P-b — Objet et usinage (`features/edge_profile.py`, `features/machined_part.py`)
 
@@ -81,7 +83,8 @@ fonctions ajoutées) sans que jv ait à recommencer, ou avec un message clair qu
   dessin à bascule du jalon 1, une pièce dessinée affiche la liste de ses arêtes (longueur,
   angle) à la place.
 - C3 Arête non profilable (courbe, rentrante, angle hors bornes) : affichée grisée avec la raison.
-- C4 Arêtes perdues : carte rouge, bouton « Choisir à nouveau ».
+- C4 Arêtes perdues : ligne rouge « perdue : cliquez-la à nouveau dans la vue 3D », avec sa croix
+  rouge ; un nouveau clic sur l'arête la remet dans la liste (pas de bouton de plus, règle de jv).
 - C5 Aucune case à cocher (règle de jv) ; peu d'options.
 - C6 (jv) Un clic sur une **face** ajoute **toutes ses arêtes** (contour extérieur et intérieurs) ;
   un clic sur une arête l'ajoute avec sa chaîne tangente (Q4).
@@ -207,9 +210,11 @@ profil (version inconnue, message clair, ADR 0003). Aucun ancien document n'est 
 - Q2 **Arêtes courbes** (table ronde, congé). ★ Plus tard, en lot séparé : chanfrein et quart de
   rond par les outils OCC, autres familles refusées. Sinon : inclus d'emblée (balayage le long
   de l'arête, plus risqué).
-- Q3 **Arête perdue.** ★ Le profil passe en erreur **sur lui-même seulement** ; la pièce usinée
-  ignore ce profil avec un avertissement visible (le meuble reste utilisable). Sinon : erreur de
-  la pièce usinée (bloque tout l'ensemble).
+- Q3 **Arête perdue.** ★ L'arête perdue est ignorée et signalée (vue rapport, ligne rouge du
+  panneau) ; les autres arêtes du profil gardent leur coupe et la pièce usinée suit son corps (le
+  meuble reste utilisable). Le profil n'est **pas** mis en erreur : FreeCAD 1.1 ne recalcule plus
+  un objet dont une dépendance est en erreur, la pièce usinée garderait son ancienne forme
+  (mesuré en intégration). Sinon : erreur de la pièce usinée (bloque tout l'ensemble).
 - Q4 **Chaîne tangente.** ★ Un clic prend toute la chaîne tangente, Alt+clic une seule arête.
   Sinon : une arête par clic.
 - Q5 **Angles autres que 90°.** ★ Chanfrein, quart de rond et gorge seulement ; les autres

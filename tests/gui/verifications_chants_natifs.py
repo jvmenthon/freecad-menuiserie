@@ -136,7 +136,117 @@ def verifier_second_clic_retire_le_contour() -> list[str]:
     return avec_document("VerifChantsNatifsBis", _second_clic)
 
 
+def _piece_en_pointe(doc: Any) -> Any:
+    """Pièce dessinée triangulaire : angle de 20° au sommet (0, 0), hors des bornes."""
+    import math
+
+    from freecad.menuiserie import api
+
+    pointe = ((0.0, 0.0), (300.0, 0.0), (300.0, 300.0 * math.tan(math.radians(20.0))))
+    body = doc.addObject("PartDesign::Body", "Corps")
+    sketch = body.newObject("Sketcher::SketchObject", "Esquisse")
+    for index, start in enumerate(pointe):
+        end = pointe[(index + 1) % len(pointe)]
+        sketch.addGeometry(Part.LineSegment(App.Vector(*start, 0), App.Vector(*end, 0)), False)
+    pad = body.newObject("PartDesign::Pad", "Protrusion")
+    pad.Profile = sketch
+    pad.Length = 20.0
+    doc.recompute()
+    shaped = api.make_shaped_part(body)
+    doc.recompute()
+    return shaped
+
+
+def _hors_bornes(doc: Any) -> list[str]:
+    from PySide import QtGui
+
+    from freecad.menuiserie.gui.task_panels.edge_rows import GREY, NativeCard
+
+    part = _piece_en_pointe(doc)
+    pointe = next(
+        f"Edge{index}"
+        for index, edge in enumerate(part.Shape.Edges, start=1)
+        if all(abs(v.Point.x) < 1e-6 and abs(v.Point.y) < 1e-6 for v in edge.Vertexes)
+    )
+    card = NativeCard(part, "#3465a4", lambda: None, None)
+    card.set_codes([pointe])
+    details = [
+        label.text()
+        for label in card.findChildren(QtGui.QLabel)
+        if label.objectName() == "edge_detail"
+    ]
+    pastilles = [
+        label.styleSheet()
+        for label in card.findChildren(QtGui.QLabel)
+        if label.objectName() == "edge_color"
+    ]
+    card.deleteLater()
+    return [
+        *ecarts("arête à 20° non retenue", card.codes(), []),
+        *ecarts("raison affichée", any("entre 30" in text for text in details), True),
+        *ecarts("pastille grise", any(GREY in style for style in pastilles), True),
+    ]
+
+
+def verifier_angle_hors_bornes_grise() -> list[str]:
+    """C3 : une arête dont les faces forment un angle hors bornes (20°) est grisée avec sa
+    raison, comme une arête courbe ou rentrante."""
+    return avec_document("VerifChantsNatifsAngle", _hors_bornes)
+
+
+def _clic_dans_un_std_part(doc: Any) -> list[str]:
+    from freecad.menuiserie import api
+    from freecad.menuiserie.gui.pick_edge import pick_at
+
+    container = doc.addObject("App::Part", "Meuble")
+    container.Placement = App.Placement(App.Vector(500, 300, 100), App.Rotation(30, 0, 0))
+    body = doc.addObject("PartDesign::Body", "Corps")
+    container.addObject(body)
+    sketch = body.newObject("Sketcher::SketchObject", "Esquisse")
+    for index, start in enumerate(L_SHAPE):
+        end = L_SHAPE[(index + 1) % len(L_SHAPE)]
+        sketch.addGeometry(Part.LineSegment(App.Vector(*start, 0), App.Vector(*end, 0)), False)
+    pad = body.newObject("PartDesign::Pad", "Protrusion")
+    pad.Profile = sketch
+    pad.Length = 20.0
+    doc.recompute()
+    part = api.make_shaped_part(body)
+    doc.recompute()
+    avant = next(
+        f"Edge{index}"
+        for index, edge in enumerate(part.Shape.Edges, start=1)
+        if abs(edge.Length - 400.0) < 1e-6 and all(v.Point.z > 19.0 for v in edge.Vertexes)
+    )
+    milieu = part.Shape.getElement(avant).CenterOfMass  # repère du Std Part
+    clic = container.Placement.multVec(milieu)  # coordonnées globales du clic
+    brute = pick_at(doc, container.Name, f"{part.Name}.{avant}", clic)
+    api.add_edge_profile(part, [avant], "Chamfer", 2.0)
+    machined = api.machined_part_of(part)
+    if machined is None:
+        return ["pièce usinée absente après le profil"]
+    autre = next(
+        f"Edge{index}"
+        for index, edge in enumerate(machined.Shape.Edges, start=1)
+        if edge.distToShape(Part.Vertex(milieu))[0] < 2.5
+    )
+    usinee = pick_at(doc, container.Name, f"{machined.Name}.{autre}", clic)
+    sans_point = pick_at(doc, container.Name, f"{machined.Name}.{autre}")
+    return [
+        *ecarts("clic sur la brute", brute.codes if brute else None, (avant,)),
+        *ecarts("clic sur la pièce usinée", usinee.codes if usinee else None, (avant,)),
+        *ecarts("sélection sans point", sans_point.codes if sans_point else None, (avant,)),
+    ]
+
+
+def verifier_clic_dans_un_std_part() -> list[str]:
+    """C1 : un clic sur une arête d'une pièce dessinée rangée dans un Std Part déplacé et tourné
+    (brute ou pièce usinée) désigne la bonne arête native de la brute."""
+    return avec_document("VerifChantsNatifsStdPart", _clic_dans_un_std_part)
+
+
 VERIFICATIONS_CHANTS_NATIFS: tuple[Callable[[], list[str]], ...] = (
     verifier_contour_d_une_face,
     verifier_second_clic_retire_le_contour,
+    verifier_angle_hors_bornes_grise,
+    verifier_clic_dans_un_std_part,
 )

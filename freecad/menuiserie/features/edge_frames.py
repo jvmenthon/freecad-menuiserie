@@ -18,7 +18,7 @@ import Part
 from freecad.menuiserie.core.edges import EdgeFrame
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.vectors import cross, dot, norm, unit_or_none
+from freecad.menuiserie.core.vectors import cross, dot, unit_or_none
 from freecad.menuiserie.features.i18n import translated
 
 __all__ = [
@@ -190,17 +190,20 @@ def native_edge(shape: Any, index: int) -> NativeEdge:
 
 def face_edge_names(shape: Any, face_name: str) -> list[str]:
     """Noms des arêtes de la face ``face_name`` (``"Face3"``) de ``shape`` : tout son contour,
-    extérieur et intérieurs (spécification C6). Vide si le nom n'est pas une face de la forme."""
+    extérieur et intérieurs (spécification C6), au plus :data:`MAX_NATIVE_EDGES`. Vide si le nom
+    n'est pas une face de la forme."""
     match = _FACE_NAME.fullmatch(face_name) if len(face_name) <= 12 else None
     if match is None or int(match.group(1)) > len(shape.Faces):
         return []
     face = shape.Faces[int(match.group(1)) - 1]
+    wanted = face.Edges[: 2 * MAX_NATIVE_EDGES]  # une arête de couture peut y figurer deux fois
     names: list[str] = []
-    for edge in face.Edges:
-        for index, candidate in enumerate(shape.Edges, start=1):
-            if candidate.isSame(edge) and edge_name(index) not in names:
-                names.append(edge_name(index))
-    return names[:MAX_NATIVE_EDGES]
+    for index, candidate in enumerate(shape.Edges, start=1):
+        if any(candidate.isSame(edge) for edge in wanted):
+            names.append(edge_name(index))
+            if len(names) == MAX_NATIVE_EDGES:
+                break
+    return names
 
 
 def _ends(edge: Any) -> list[tuple[Vec3, Vec3]]:
@@ -214,22 +217,32 @@ def _ends(edge: Any) -> list[tuple[Vec3, Vec3]]:
     return out
 
 
+def _point_key(point: Vec3) -> tuple[float, float, float]:
+    return (round(point.x, 5), round(point.y, 5), round(point.z, 5))
+
+
 def tangent_chain(shape: Any, index: int) -> list[int]:
     """Rangs des arêtes enchaînées à l'arête ``index`` sans cassure (tangentes l'une à l'autre),
     elle comprise, dans l'ordre des rangs : un clic sur une arête prend ainsi le tour arrondi
-    d'un plateau (spécification Q4). Au plus :data:`MAX_NATIVE_EDGES` arêtes."""
+    d'un plateau (spécification Q4). Au plus :data:`MAX_NATIVE_EDGES` arêtes. Les bouts de
+    chaque arête sont lus une seule fois et rangés par point : coût proportionnel au nombre
+    d'arêtes de la forme."""
     edges = shape.Edges
+    ends = [_ends(edge) for edge in edges]
+    at_point: dict[tuple[float, float, float], list[tuple[int, Vec3]]] = {}
+    for rank, edge_ends in enumerate(ends, start=1):
+        for point, outward in edge_ends:
+            at_point.setdefault(_point_key(point), []).append((rank, outward))
     chain = {index}
     todo = [index]
     while todo and len(chain) < MAX_NATIVE_EDGES:
         current = todo.pop()
-        for point, outward in _ends(edges[current - 1]):
-            for other, candidate in enumerate(edges, start=1):
-                if other in chain:
+        for point, outward in ends[current - 1]:
+            for other, other_out in at_point.get(_point_key(point), []):
+                if other in chain or dot(outward, other_out) >= -_TANGENT_COS:
                     continue
-                for other_point, other_out in _ends(candidate):
-                    if norm(other_point - point) < 1e-6 and dot(outward, other_out) < -_TANGENT_COS:
-                        chain.add(other)
-                        todo.append(other)
-                        break
-    return sorted(chain)[:MAX_NATIVE_EDGES]
+                chain.add(other)
+                todo.append(other)
+                if len(chain) == MAX_NATIVE_EDGES:
+                    return sorted(chain)
+    return sorted(chain)

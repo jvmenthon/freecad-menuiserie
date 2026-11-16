@@ -62,8 +62,9 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   usinée. Panneau : un clic sur une face prend tout son contour, un clic sur une arête prend ses
   arêtes tangentes (Alt+clic : elle seule), second clic pour retirer ; une ligne par arête de sa
   propre couleur, la même dans la vue 3D, avec longueur et angle, et une croix rouge qui la retire
-  seule. Profil en modèle 2 (`EdgeRefs` vide à la migration) ; `api.add_edge_profile` accepte des
-  noms `"Edge7"`.
+  seule. Profil en modèle 2 (`EdgeRefs` vide à la migration ; une version plus ancienne de
+  l'atelier refuse un profil enregistré en modèle 2) ; `api.add_edge_profile` accepte des noms
+  `"Edge7"`. Noms relus dans un document bornés (64 arêtes, sans doublon).
 - Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
   arêtes choisies d'après la face, l'arête ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
