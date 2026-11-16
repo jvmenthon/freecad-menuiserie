@@ -9,7 +9,7 @@ n'est qu'un avertissement. Champs : norme « Entrées utilisateur » (``CONTRIBU
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import partial
 from operator import attrgetter
 from typing import Final
@@ -27,6 +27,7 @@ from freecad.menuiserie.core.repeat import (
     RepeatError,
     RepeatParams,
     SpacingMode,
+    axis_index,
 )
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -49,6 +50,7 @@ from freecad.menuiserie.gui.task_panels.base import (
 )
 from freecad.menuiserie.gui.task_panels.furniture_widgets import message_label, show_message
 from freecad.menuiserie.gui.task_panels.repeat_coplanar import CoplanarCues
+from freecad.menuiserie.gui.task_panels.repeat_field_snap import FieldSnap, with_field
 from freecad.menuiserie.gui.task_panels.repeat_messages import overlap_text, summary_text
 from freecad.menuiserie.gui.task_panels.repeat_preview import copy_parts, shown_parts
 from freecad.menuiserie.gui.task_panels.repeat_rows import (
@@ -119,8 +121,17 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._captions: dict[str, Widget] = {}
         self._build()
         self._stops.settle_with(self._deduct, partial(attrgetter("_refused", "_overlapping"), self))
+        self._snap = FieldSnap(
+            field for row in self._rows.values() for field in (row.step, row.span)
+        )  # aimant des flèches du pas et de la longueur (ADR 0058)
         self._fill(repeat)
+        for row in self._rows.values():
+            for field in (row.step, row.span):
+                self._snap.note(field, float(field.property("rawValue")))
         self._connect()  # création : aucune copie avant la première saisie (demande de jv)
+        if repeat is not None:  # modification : faces déjà au ras montrées dès l'ouverture
+            axes = axis_indices(line.axis for line in stored_lines(repeat))
+            self._coplanar.show(repeat, self._sources_now(), axes)
         if repeat is None:
             self._stops.pick_auto()  # le premier clic dans la vue 3D est la butée
 
@@ -213,8 +224,8 @@ class RepeatTaskPanel(TransactionTaskPanel):
         for axis, row in self._rows.items():
             connect(row.active, "toggled(bool)", partial(self._axis_toggled, axis))
             connect(row.count, "valueChanged(int)", self._update)
-            connect(row.step, "valueChanged(double)", partial(self._step_changed, axis))
-            connect(row.span, "valueChanged(double)", self._update)
+            connect(row.step, "valueChanged(double)", partial(self._field_changed, axis, "step"))
+            connect(row.span, "valueChanged(double)", partial(self._field_changed, axis, "span"))
             connect(row.reverse, "toggled(bool)", self._update)
             connect(row.stop, "clicked()", partial(self._stops.pick, axis))
             connect(row.stop_clear, "clicked()", partial(self._stops.clear, axis))
@@ -273,6 +284,38 @@ class RepeatTaskPanel(TransactionTaskPanel):
         for box in (self._deduct, self._gap):
             box.setVisible(spacing is not SpacingMode.COUNT_AND_STEP)
         self._deduct.setEnabled(not self._gap.isChecked())  # sans effet avec l'intervalle
+
+    def _field_changed(self, axis: RepeatAxis, kind: str, *_value: object) -> None:
+        """Pas ou longueur (``kind``) de ``axis`` changé : par les flèches, la valeur est aimantée
+        à moins de 1 mm d'une valeur qui met une copie au ras d'une voisine ; saisie au clavier,
+        elle est gardée telle quelle (jv, 2026-11-16)."""
+        field = getattr(self._rows[axis], kind)
+        value = float(field.property("rawValue"))
+        if self._guard.active:
+            self._snap.note(field, value)
+            return
+        target = self._snap.target(field, value, self._field_magnet(axis, kind))
+        if target != value:
+            blocked = field.blockSignals(True)  # sans quoi la valeur brute serait oubliée
+            field.setProperty("rawValue", target)
+            field.blockSignals(blocked)
+        if kind == "step":
+            self._step_changed(axis)
+        else:
+            self._update()
+
+    def _field_magnet(self, axis: RepeatAxis, kind: str) -> Callable[[float], float | None]:
+        """Aimant du champ ``kind`` (``step`` ou ``span``) de ``axis`` (:meth:`_field_changed`)."""
+        index = axis_index(axis)
+        sources = self._sources_now()
+
+        def offsets(value: float) -> list[float]:
+            changed = with_field(self.params(), axis, kind, value)
+            stops = self._stops.active(changed)
+            grid = resolve_for(sources, bounded_params(sources, changed, stops, self._repeat()))
+            return [grid.offset(cell).component(index) for cell in grid.cells()]
+
+        return self._coplanar.snap(self._repeat(), sources, index, offsets)
 
     def _step_changed(self, axis: RepeatAxis, *_value: object) -> None:
         if not self._guard.active:
@@ -339,6 +382,7 @@ class RepeatTaskPanel(TransactionTaskPanel):
         en place."""
         self._stops.close()
         self._coplanar.close()
+        self._snap.close()
 
     def _not_copied(self) -> str:
         """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""

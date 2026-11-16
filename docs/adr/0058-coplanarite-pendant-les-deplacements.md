@@ -36,6 +36,15 @@ le panneau « Répéter », rien ne dit qu'un pas met une copie au ras d'une pi�
    axes répétés qui sont au ras d'une voisine, et ces voisines, sont tracées dans une incrustation
    Coin (`MenuiserieRepeatCoplanar`) retirée à la fermeture du panneau. Rien n'est écrit dans le
    document.
+6. **Modification d'une répétition et flèches des champs** (complément, jv, 2026-11-16) : le cadre
+   est tracé dès l'ouverture du panneau sur une répétition existante. Un « Pas » ou une
+   « Longueur » changé par les flèches du champ, la molette ou les touches haut, bas, page
+   (filtre d'évènements `StepWatch`) s'aimante sur la valeur qui met une face de copie au ras
+   d'une voisine quand ce pas la franchit et qu'elle est à moins de 1 mm de la valeur atteinte
+   (`snap_field`, `SNAP_REACH_MM`). La valeur brute est gardée : le pas suivant repart d'elle
+   (voisine à 20 : 17,2 ; 18,2 ; 19,2 → 20 ; 21,2). Les décalages des copies sont affines autour
+   de la valeur du champ : la valeur cible se calcule directement, puis est vérifiée (même nombre
+   de copies, butées comprises). Une valeur saisie au clavier n'est jamais modifiée.
 
 ## Conséquences
 
@@ -44,3 +53,5 @@ le panneau « Répéter », rien ne dit qu'un pas met une copie au ras d'une pi�
 - Les voisines du panneau ne sont pas relues pendant la tâche : un objet ajouté ou déplacé pendant
   qu'elle est ouverte n'est pas vu (aucune autre action n'est possible pendant le panneau).
 - Faces obliques (pièce tournée hors des axes du conteneur) : ignorées, comme les guides.
+- Flèches des champs : seule une valeur franchie s'aimante, pour que la suite des pas reste celle
+  que jv attend ; une valeur saisie puis suivie d'un pas repart de la saisie.
