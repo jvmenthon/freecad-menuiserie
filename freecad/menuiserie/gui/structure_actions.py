@@ -163,6 +163,23 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         tree.judge = self._drop_refusal
         tree.on_drop = self._dropped
         tree.on_drag_start = self._read_facts
+        tree.installEventFilter(self)
+
+    # --- Clavier --------------------------------------------------------------------------
+
+    def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
+        """F2 renomme la ligne sélectionnée, comme dans l'arbre de FreeCAD : même entrée
+        « Renommer » que le menu (donc mêmes refus). ``ShortcutOverride`` est accepté pour que
+        la touche arrive à l'arbre plutôt qu'à un raccourci global."""
+        if watched is self._tree and getattr(event, "key", lambda: None)() == QtCore.Qt.Key_F2:
+            if event.type() == QtCore.QEvent.ShortcutOverride:
+                event.accept()
+                return True
+            if event.type() == QtCore.QEvent.KeyPress and not event.isAutoRepeat():
+                keys = selected_keys(self._tree)
+                later(partial(report_errors, self.run_action, Action.RENAME, keys))
+                return True
+        return False
 
     # --- Glisser-déposer ------------------------------------------------------------------
 

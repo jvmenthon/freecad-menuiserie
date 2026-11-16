@@ -3,9 +3,9 @@
 
 Commande « Structure », clic sur une ligne (la pièce est sélectionnée) et sélection d'une pièce
 (sa ligne l'est), puis le menu contextuel d'une ligne : « Renommer… » et sa boîte de saisie,
-« Sortir de l'ensemble », « Supprimer » ; et une pièce glissée à la souris sur la ligne de
-l'ensemble. Chaque action est une entrée d'annulation et l'arbre suit le document.
-La touche F2 n'est pas branchée dans ce panneau : le renommage ne passe que par le menu.
+« Sortir de l'ensemble », « Supprimer » ; la touche F2, qui renomme la ligne choisie comme
+dans l'arbre de FreeCAD ; et une pièce glissée à la souris sur la ligne de l'ensemble. Chaque
+action est une entrée d'annulation et l'arbre suit le document.
 
 Les lignes de l'arbre sont recréées à chaque rafraîchissement : le scénario ne garde aucune
 ligne, il la retrouve par son texte à chaque geste.
@@ -141,6 +141,30 @@ class PanneauStructure(Etapes):
             attendre(lambda: any(ligne.startswith("Tasseau") for ligne in self.lignes()))
         )
         self.assertEqual(len(self.doc.UndoNames), 1, self.doc.UndoNames)
+
+    def test_3b_renommer_par_f2(self) -> None:
+        """F2 sur la ligne choisie ouvre la même boîte que le menu ; le renommage est une entrée
+        d'annulation, annulée ici pour la suite du scénario."""
+        QTest.mouseClick(
+            self.arbre().viewport(),
+            QtCore.Qt.MouseButton.LeftButton,
+            QtCore.Qt.KeyboardModifier.NoModifier,
+            self.point("Tasseau"),
+        )
+        traiter_les_evenements()
+        with ReponseALaSaisie("Liteau") as saisie:
+            QTest.keyClick(self.arbre(), QtCore.Qt.Key.Key_F2)
+        self.assertEqual(saisie.proposes, ["Tasseau"])
+        self.assertTrue(attendre(lambda: self.tasseau.Label == "Liteau"), self.tasseau.Label)
+        self.assertTrue(attendre(lambda: any(nom.startswith("Liteau") for nom in self.lignes())))
+        self.assertEqual(len(self.doc.UndoNames), 2, self.doc.UndoNames)
+        self.doc.undo()
+        self.doc.recompute()
+        self.assertEqual(self.tasseau.Label, "Tasseau")
+        self.assertTrue(
+            attendre(lambda: any(ligne.startswith("Tasseau") for ligne in self.lignes())),
+            self.lignes(),
+        )
 
     def test_4_glisser_la_piece_dans_l_ensemble(self) -> None:
         glisser(

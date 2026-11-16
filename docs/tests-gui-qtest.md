@@ -102,7 +102,7 @@ FreeCAD doit tourner sans traduction de l'atelier vers une autre langue, ce qui 
 | `scenario_aligner_et_distance` | « Aligner deux faces » (chaque mode, centrer X, Y et Z, décalage, inverser), puis une distance gardée : définie, tenue quand la pièce de référence est déplacée puis l'ensemble relié, tenue quand l'ensemble s'élargit, réglée, abandonnée. |
 | `scenario_quincaillerie` | Caisson, pieds, perçage au pas de 32 mm (rangs retapés jusqu'au refus et jusqu'au plafond du champ), hauteur du caisson changée, côté devenu trop petit (refus dans le panneau, « OK » grisé). |
 | `scenario_piece_depuis_un_corps` | Corps PartDesign converti en pièce en bois, tenon-mortaise dessus, corps allongé. |
-| `scenario_panneau_structure` | Panneau « Structure » : clic sur une ligne, menu contextuel (renommer, sortir de l'ensemble, supprimer), pièce glissée dans un ensemble. |
+| `scenario_panneau_structure` | Panneau « Structure » : clic sur une ligne, menu contextuel (renommer, sortir de l'ensemble, supprimer), touche F2, pièce glissée dans un ensemble. |
 | `scenario_autres_ateliers` | Passage par l'atelier Part avec un panneau ouvert, commandes de Part, vue TechDraw de la pièce usinée, retour dans l'atelier. |
 | `scenario_activation_des_commandes` | Boutons actifs pour 0, 1, 2 et 3 pièces sélectionnées, avec un panneau ouvert, et pour des faces, un ensemble, un membre ; ligne « Prérequis » des infobulles. |
 | `scenario_deux_documents` | L'angle à queue d'aronde construit dans deux documents en alternance, puis comparés. |
@@ -126,8 +126,6 @@ Les scénarios dont les tests sont des étapes numérotées sur un même documen
 - `scenario_modifier_piece_assemblee` ne joue pas encore une épaisseur qui rompt l'assemblage :
   une boîte de choix est prévue (épaissir vers l'intérieur, vers l'extérieur, agrandir l'autre
   pièce, annuler), le scénario viendra avec elle.
-- Le panneau « Structure » ne renomme que par son menu contextuel : la touche F2 n'y est pas
-  branchée, le scénario ne la joue pas.
 - Le déplacement d'une pièce à la souris dans la vue 3D n'est pas joué (ADR 0059) : les scénarios
   écrivent le placement dans une transaction (`pieces.deplacer`), ce qui ne passe pas par la
   séance de glissement de l'atelier.
