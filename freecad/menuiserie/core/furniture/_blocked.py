@@ -65,6 +65,27 @@ def _thickness_axes(
     return found
 
 
+def layer_thicknesses(
+    old: FurnitureBox, new: FurnitureBox, rules: Rules, current: Mapping[str, float]
+) -> dict[str, float]:
+    """Épaisseurs (clé de pièce → mm) qui suivent le passage de ``old`` à ``new`` : sur un axe
+    dont la cote change, les pièces à plat qui remplissent seules la cote (``Row.layer``) se
+    partagent la différence au prorata de leur épaisseur ``current`` (ADR 0062). ``rules`` :
+    règles calculées pour ``old``."""
+    found: dict[str, float] = {}
+    for member_rules in rules.values():
+        for rule in member_rules:
+            before, after = old.size(rule.axis), new.size(rule.axis)
+            if before != after and before > 0.0:
+                found.update({key: current[key] * after / before for key in rule.row.layer})
+    return found
+
+
+def _absorbed(rule: FollowRule, changed: Mapping[str, float]) -> bool:
+    """Vrai si les pièces à plat de la rangée de ``rule`` prennent la nouvelle cote."""
+    return bool(rule.row.layer) and all(key in changed for key in rule.row.layer)
+
+
 def check_blocked(
     old: FurnitureBox,
     new: FurnitureBox,
@@ -80,7 +101,7 @@ def check_blocked(
     axes = _thickness_axes(members, changed)
     for member in members:
         for rule in rules.get(member.key, ()):
-            if not rule.row.blocked:
+            if not rule.row.blocked or _absorbed(rule, changed):
                 continue
             if old.size(rule.axis) != new.size(rule.axis):
                 field = BOX_FIELDS[rule.axis.name.lower()]

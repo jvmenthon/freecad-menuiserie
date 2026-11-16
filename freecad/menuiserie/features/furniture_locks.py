@@ -108,8 +108,8 @@ def unlock_and_resize(
     keys = _locked_keys(pieces)
     new, notices = planned_resize(furniture, sizes, keys)
     relinked = _unlock(furniture, pieces)
-    write_box(furniture, new, sizes)
-    return [*relinked, *notices]
+    followed = write_box(furniture, new, sizes)
+    return [*relinked, *followed, *notices]
 
 
 def _refuse_drawn(member: DocumentObject) -> None:

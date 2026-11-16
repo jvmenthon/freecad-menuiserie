@@ -4,8 +4,9 @@
 Un cadre de quatre pièces regroupé par la commande « Ensemble », une cinquième pièce ajoutée,
 puis le panneau de l'ensemble : largeur retapée (les pièces suivent), une pièce mise en « cotes
 fixes » qui bloque la cote suivante, « Déverrouiller et appliquer », rotation de 90° autour de
-Z, « OK » et Ctrl+Z. Enfin un tenon-mortaise demandé entre une pièce d'un ensemble et une pièce
-d'un second ensemble (issue #209, ouverte) : refusé avec une explication, rien d'écrit.
+Z, « OK » et Ctrl+Z. La hauteur retapée change l'épaisseur des pièces à plat (ADR 0062).
+Enfin un tenon-mortaise demandé entre une pièce d'un ensemble et une pièce d'un second
+ensemble (issue #209, ouverte) : refusé avec une explication, rien d'écrit.
 """
 
 from __future__ import annotations
@@ -145,22 +146,23 @@ class Ensemble(Etapes):
         self.assertAlmostEqual(boite.XLength, ELARGI, delta=TOLERANCE_MM)
         self.assertAlmostEqual(boite.YLength, PROFONDEUR, delta=TOLERANCE_MM)
 
-    def test_3b_epaisseur_refusee(self) -> None:
-        """Les pièces à plat remplissent la hauteur de leurs épaisseurs, qu'un ensemble ne
-        change pas : la hauteur retapée est refusée avec une explication, rien ne bouge, et la
-        cote d'origine retapée lève le refus."""
+    def test_3b_la_hauteur_change_l_epaisseur(self) -> None:
+        """Les pièces à plat remplissent seules la hauteur : la hauteur retapée devient leur
+        épaisseur (ADR 0062, une seule couche), les assemblages tiennent ; la cote d'origine
+        retapée les remet à leur épaisseur."""
         champ = enfant(self.form(), "Height")
-        taper(champ, f"{EPAISSI:g} mm")
-        self.assertIn("hauteur", enfant(self.form(), "refusalLabel").text())
-        self.assertFalse(bouton_ok().isEnabled(), "OK actif malgré le refus")
-        for nom, membre in self.pieces.items():
-            self.assertAlmostEqual(membre.Thickness.Value, HAUTEUR, msg=nom)
-        boite = boite_globale(*self.pieces.values())
-        self.assertAlmostEqual(boite.ZLength, HAUTEUR, delta=TOLERANCE_MM)
-        taper(champ, f"{HAUTEUR:g} mm")
-        self.assertEqual(enfant(self.form(), "refusalLabel").text(), "")
-        self.assertTrue(bouton_ok().isEnabled())
-        self.assertAlmostEqual(self.ensemble.Height.Value, HAUTEUR)
+        for hauteur in (EPAISSI, HAUTEUR):
+            taper(champ, f"{hauteur:g} mm")
+            self.assertEqual(enfant(self.form(), "refusalLabel").text(), "")
+            self.assertTrue(bouton_ok().isEnabled())
+            self.assertAlmostEqual(self.ensemble.Height.Value, hauteur)
+            for nom, membre in self.pieces.items():
+                self.assertAlmostEqual(membre.Thickness.Value, hauteur, msg=nom)
+            boite = boite_globale(*self.pieces.values())
+            self.assertAlmostEqual(boite.ZMin, 0.0, delta=TOLERANCE_MM)
+            self.assertAlmostEqual(boite.ZLength, hauteur, delta=TOLERANCE_MM)
+            for obj in self.doc.Objects:  # panneau ouvert : sa transaction l'est aussi
+                self.assertNotIn("Invalid", obj.State, obj.Label)
 
     def test_4_cotes_fixes_puis_deverrouiller(self) -> None:
         """« Cotes fixes » sur M1 : la largeur suivante est refusée avec une explication et rien
