@@ -62,12 +62,33 @@ def _span_through(face: Any, point: Vector, axis: Vector) -> tuple[float, float]
     return min(marks), max(marks)
 
 
-def local_face_target(reading: TargetReading, face: Any | None = None) -> FaceTarget | None:
+def _clipped(
+    span: tuple[float, float], solid: Any, point: Vector, plane: tuple[Vector, Vector], axis: Vector
+) -> tuple[float, float]:
+    """``span`` (autour de ``point``, le long de ``axis``) bornée à l'étendue réelle de ``solid`` :
+    sommets de la pièce usinée situés dans le plan de la face extérieure ``plane`` (un sommet de
+    cette couche, ``(point, normale)``). Sans sommet dans ce plan, ``span`` inchangée."""
+    origin, normal = plane
+    marks = [
+        (vertex.Point - point).dot(axis)
+        for vertex in solid.Vertexes
+        if abs((vertex.Point - origin).dot(normal)) <= CONTACT_TOLERANCE_MM
+    ]
+    if not marks:
+        return span
+    low, high = max(span[0], min(marks)), min(span[1], max(marks))
+    return (low, high) if high - low > EPSILON else span
+
+
+def local_face_target(
+    reading: TargetReading, face: Any | None = None, solid: Any | None = None
+) -> FaceTarget | None:
     """Cible de l'unique face lue **à l'endroit du clic** : le rectangle est celui de la tranche de
     la face qui traverse le point cliqué (selon les axes de la cible d'origine), non celui de
     toute la face ; repère d'appui au coin le plus proche du clic. ``None`` sans point cliqué, sans
     face plane ou si la tranche ne se calcule pas : l'appelant garde la cible d'origine. ``face`` :
-    forme à trancher à la place de la face lue (la face de la pièce brute, sans usinages)."""
+    forme à trancher à la place de la face lue (la face de la pièce brute, sans usinages) ;
+    ``solid`` : pièce usinée dont l'étendue réelle borne la tranche (arête plus courte)."""
     if len(reading.targets) != 1 or not reading.shapes or not reading.elements:
         return None
     target, point = reading.targets[0], reading.elements[0].point
@@ -75,12 +96,14 @@ def local_face_target(reading: TargetReading, face: Any | None = None) -> FaceTa
     if point is None or not isinstance(target, FaceTarget) or not target.planar or face is None:
         return None
     try:
-        return _local_target(target, face, point)
+        return _local_target(target, face, point, solid)
     except (ValueError, *ERRORS):  # repère nul ou calcul OCC en échec : cible d'origine
         return None
 
 
-def _local_target(target: FaceTarget, face: Any, click: Vec3) -> FaceTarget | None:
+def _local_target(
+    target: FaceTarget, face: Any, click: Vec3, solid: Any | None = None
+) -> FaceTarget | None:
     """Corps de :func:`local_face_target` (cible d'origine ``target``, clic ``click``)."""
     normal = to_vector(target.frame.z)
     clicked = to_vector(click)
@@ -92,6 +115,10 @@ def _local_target(target: FaceTarget, face: Any, click: Vec3) -> FaceTarget | No
     x_span, y_span = _span_through(face, sliced, x), _span_through(face, sliced, y)
     if x_span is None or y_span is None:
         return None
+    if solid is not None:
+        plane = (face.CenterOfMass, normal)
+        x_span = _clipped(x_span, solid, sliced, plane, x)
+        y_span = _clipped(y_span, solid, sliced, plane, y)
     low_x, low_y = abs(x_span[0]) <= abs(x_span[1]), abs(y_span[0]) <= abs(y_span[1])
     corner = point + x * x_span[0 if low_x else 1] + y * y_span[0 if low_y else 1]
     sizes = (x_span[1] - x_span[0], y_span[1] - y_span[0])

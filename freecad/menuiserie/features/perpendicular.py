@@ -29,7 +29,13 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.picked import crosses_link
 from freecad.menuiserie.features.shaped_part import is_timber
-from freecad.menuiserie.features.snap_geometry import ERRORS, face_normal, global_shape, to_vector
+from freecad.menuiserie.features.snap_geometry import (
+    ERRORS,
+    face_normal,
+    global_shape,
+    owner_shape,
+    to_vector,
+)
 from freecad.menuiserie.features.snap_local_face import local_face_target
 from freecad.menuiserie.features.snap_targets import TargetReading
 from freecad.menuiserie.features.solids import rigid_transform
@@ -105,7 +111,9 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     if blank is None:
         return None
     # La face à l'endroit du clic, pas toute la face :
-    local = local_face_target(reading, _blank_face(reading, blank))
+    local = local_face_target(
+        reading, _blank_face(reading, blank), owner_shape(reading.elements[0])
+    )
     if local is not None:
         reading, target = replace(reading, targets=(local,)), local
     support = support_rotation(reading.targets)
