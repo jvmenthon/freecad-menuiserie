@@ -181,13 +181,24 @@ class Quincaillerie(Etapes):
         self.assertLess(enleve[BAS], enleve[HAUTEUR] - 1.0)
 
     def test_5_cote_trop_petit_pour_le_percage(self) -> None:
-        """Le perçage devenu impossible est en erreur avec son explication (objet et vue
-        rapport) ; « Annuler » rend le caisson d'avant, perçage valide."""
-        self.changer_la_hauteur(TROP_BAS)
+        """Le perçage devenu impossible est refusé dans le panneau, « OK » grisé, avec son
+        explication (aussi sur l'objet et dans la vue rapport) ; une hauteur qui convient lève
+        le refus ; « Annuler » rend le caisson d'avant, perçage valide."""
+        form = self.changer_la_hauteur(TROP_BAS)
         (percage,) = du_type(self.doc, TYPE_PAS_DE_32)
         self.assertIn("Invalid", percage.State)
-        self.assertIn("trop petit", percage.getStatusString())
+        self.assertIn("trop petit pour un rang", percage.getStatusString())
         self.assertIn("trop petit", vue_rapport())
+        refus = enfant(form, "refusalLabel").text()
+        self.assertIn("Perçage LR32", refus)
+        self.assertIn("trop petit pour un rang", refus)
+        self.assertFalse(bouton_ok().isEnabled(), "OK actif malgré le perçage impossible")
+        taper(enfant(form, "Height"), f"{BAS:g} mm")
+        self.assertEqual(enfant(form, "refusalLabel").text(), "")
+        self.assertTrue(bouton_ok().isEnabled())
+        self.assertTrue(percage.isValid(), percage.getStatusString())
+        taper(enfant(form, "Height"), f"{TROP_BAS:g} mm")
+        self.assertFalse(bouton_ok().isEnabled())
         cliquer(bouton_annuler())
         self.assertFalse(panneau_ouvert())
         self.doc.recompute()

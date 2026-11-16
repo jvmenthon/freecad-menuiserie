@@ -96,11 +96,11 @@ FreeCAD doit tourner sans traduction de l'atelier vers une autre langue, ce qui 
 | `scenario_cadre_et_debit` | Cadre de quatre pièces, quatre tenons-mortaises, aperçu de la liste de débit, export CSV par la boîte d'enregistrement, pièce sans repère numérotée, feuille « Liste de débit ». |
 | `scenario_types_d_assemblage` | Chacun des neuf types d'assemblage : création en automatique, chaque case « Auto » décochée et sa valeur retapée, « Inverser » deux fois, deux Ctrl+Z. |
 | `scenario_biais` | Tenon-mortaise à 15° puis 45°, chaque référence du biais, traverse élargie ; mi-bois refusé sans chevauchement, accepté à cheval. |
-| `scenario_ensemble` | Ensemble créé, pièce ajoutée, largeur retapée, hauteur refusée (les épaisseurs ne suivent pas), « cotes fixes » puis « Déverrouiller et appliquer », rotation de 90°, assemblage entre deux ensembles refusé (issue #209, à retourner quand elle sera corrigée). |
+| `scenario_ensemble` | Ensemble créé, pièce ajoutée, pièce ajoutée hors de la boîte (elle grandit), largeur retapée, hauteur refusée (les épaisseurs ne suivent pas), « cotes fixes » puis « Déverrouiller et appliquer », rotation de 90°, assemblage entre deux ensembles refusé (issue #209, à retourner quand elle sera corrigée). |
 | `scenario_repetition` | Traverse assemblée répétée 4 fois, nombre puis pas changés, copie dissociée, assemblage posé à la main sur une copie. |
 | `scenario_rotation` | Quarts de tour et champs d'angle du panneau, sur une pièce libre, une pièce assemblée (fenêtre « Assemblage défait », les deux réponses) et une pièce d'un ensemble. |
 | `scenario_aligner_et_distance` | « Aligner deux faces » (chaque mode, centrer X, Y et Z, décalage, inverser), puis une distance gardée : définie, tenue quand la pièce de référence est déplacée puis l'ensemble relié, tenue quand l'ensemble s'élargit, réglée, abandonnée. |
-| `scenario_quincaillerie` | Caisson, pieds, perçage au pas de 32 mm (rangs retapés jusqu'au refus et jusqu'au plafond du champ), hauteur du caisson changée, côté devenu trop petit. |
+| `scenario_quincaillerie` | Caisson, pieds, perçage au pas de 32 mm (rangs retapés jusqu'au refus et jusqu'au plafond du champ), hauteur du caisson changée, côté devenu trop petit (refus dans le panneau, « OK » grisé). |
 | `scenario_piece_depuis_un_corps` | Corps PartDesign converti en pièce en bois, tenon-mortaise dessus, corps allongé. |
 | `scenario_panneau_structure` | Panneau « Structure » : clic sur une ligne, menu contextuel (renommer, sortir de l'ensemble, supprimer), pièce glissée dans un ensemble. |
 | `scenario_autres_ateliers` | Passage par l'atelier Part avec un panneau ouvert, commandes de Part, vue TechDraw de la pièce usinée, retour dans l'atelier. |

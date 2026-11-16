@@ -24,6 +24,8 @@ from freecad.menuiserie.core.furniture import (
     follow_rules,
     follow_summary,
 )
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.distance import distances_of, is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
@@ -33,11 +35,21 @@ from freecad.menuiserie.features.furniture_bindings import (
     notice_messages,
     read_members,
 )
-from freecad.menuiserie.features.i18n import translated_errors
+from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import machined_part_of
 
-__all__ = ["MemberView", "furniture_children", "member_views", "pieces_below", "shown_object"]
+__all__ = [
+    "MemberView",
+    "furniture_children",
+    "invalid_joints",
+    "member_views",
+    "pieces_below",
+    "shown_object",
+    "undone_joints",
+]
+
+_UNDONE = QT_TRANSLATE_NOOP("Menuiserie", "{label} n'est plus réalisable : {detail}")
 
 
 @dataclass(frozen=True)
@@ -107,6 +119,32 @@ def pieces_below(furniture: DocumentObject) -> list[DocumentObject]:
     for member in members_of(furniture):
         found.extend(pieces_below(member) if is_furniture(member) else [member])
     return found
+
+
+def invalid_joints(furniture: DocumentObject) -> dict[str, DocumentObject]:
+    """Assemblages et quincailleries en erreur des pièces de ``furniture`` et de ses
+    sous-ensembles, par nom."""
+    return {
+        joint.Name: joint
+        for piece in pieces_below(furniture)
+        for joint in piece.InList
+        if is_joint(joint) and "Invalid" in joint.State
+    }
+
+
+def undone_joints(furniture: DocumentObject, already: frozenset[str] = frozenset()) -> list[str]:
+    """Message traduit pour chaque assemblage ou quincaillerie de ``furniture`` en erreur après
+    un recalcul (cote de l'ensemble qui ne lui laisse plus la place), par nom ; ceux de
+    ``already`` (noms), en erreur avant, ne comptent pas."""
+    found = invalid_joints(furniture)
+    return [
+        translated(
+            _UNDONE,
+            {"label": quoted_value(joint.Label), "detail": str(joint.getStatusString())},
+        )
+        for name, joint in sorted(found.items())
+        if name not in already
+    ]
 
 
 def furniture_children(furniture: DocumentObject) -> list[DocumentObject]:

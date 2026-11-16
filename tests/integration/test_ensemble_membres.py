@@ -76,6 +76,31 @@ def test_une_piece_ajoutee_hors_de_la_boite_l_agrandit(document: Any) -> None:
     assert not stale_or_invalid(document)
 
 
+def test_assemblage_devenu_impossible_signale_pour_le_panneau(document: Any) -> None:
+    """``undone_joints`` : un message par assemblage en erreur après un recalcul, sauf ceux qui
+    l'étaient déjà (noms passés)."""
+    from freecad.menuiserie.features.furniture_view import invalid_joints, undone_joints
+
+    montant = api.make_wood_part(600.0, 60.0, 22.0, "chene", mark="M", doc=document)
+    traverse = api.make_wood_part(280.0, 60.0, 22.0, "chene", mark="T", doc=document)
+    traverse.Placement = App.Placement(
+        App.Vector(60.0, 60.0, 0.0), App.Rotation(App.Vector(0, 0, 1), 90.0)
+    )
+    document.recompute()
+    joint = api.make_mortise_tenon(montant, traverse)
+    document.recompute()
+    furniture, _ = api.make_furniture([montant, traverse], "Cadre")
+    assert undone_joints(furniture) == []
+    api.remove_from_furniture([traverse])
+    traverse.Placement.Base = App.Vector(60.0, 200.0, 0.0)  # ne touche plus le montant
+    document.recompute()
+    api.add_to_furniture(furniture, [traverse])
+    assert set(invalid_joints(furniture)) == {joint.Name}
+    (message,) = undone_joints(furniture)
+    assert "n'est plus réalisable" in message and joint.getStatusString() in message
+    assert undone_joints(furniture, frozenset({joint.Name})) == []
+
+
 def test_retrait_des_seules_liaisons_de_l_atelier(document: Any) -> None:
     bureau = build_parts(document)
     names = set(bureau.parts["P"].PropertiesList)

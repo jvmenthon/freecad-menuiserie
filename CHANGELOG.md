@@ -21,6 +21,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- « Ajouter à l'ensemble » : une pièce ajoutée alors qu'elle dépasse de la boîte de l'ensemble l'agrandit (cotes recalées sur l'enveloppe des membres, ADR 0049) ; avant, la boîte gardait ses cotes sans rien signaler.
+- Panneau de l'ensemble : une cote qui ne laisse plus la place à un assemblage ou à une quincaillerie (perçage au pas de 32 mm sur un côté devenu trop petit) est refusée sous les cotes, avec l'explication, et « OK » reste inactif jusqu'à une cote qui convient ; avant, seule la vue rapport le disait.
+- Libellé d'une quincaillerie posée sur une seule pièce : « Pieds : Dessous » au lieu de « Pieds : Dessous Dessous ».
+- Perçage au pas de 32 mm : le refus d'un côté trop petit dit « un rang de trous » et non « 1 rangs ».
+
 - Panneaux de tâche : après une erreur de recalcul pendant la saisie (valeur en cours refusée par un assemblage, par exemple « 3 » avant « 300 »), le panneau suivant ne s'ouvrait parfois pas (double-clic sans effet, `TypeError` sur `kindCombo` dans la vue rapport, environ une fois sur dix). La trace de la dernière erreur gardait en vie le panneau fermé et les enveloppes PySide de ses widgets ; ses cadres sont vidés avant d'ouvrir un panneau (`gui/error_frames.py`). Trouvé par le scénario QTest `scenario_modifier_piece_assemblee` en CI.
 - Queue d'aronde : une largeur de griffe saisie sous 0,1 mm est refusée avec un message (« Griffes trop étroites »), au lieu d'être acceptée jusqu'à 0,001 mm.
 - Fermer un document pendant qu'un panneau de création (pièce en bois, assemblage) est ouvert n'écrit plus d'erreur « Unknown document » dans la vue rapport : l'affichage d'un document déjà fermé est ignoré (trouvé par le scénario QTest `scenario_document_ferme`).
