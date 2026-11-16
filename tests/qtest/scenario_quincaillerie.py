@@ -118,6 +118,7 @@ class Quincaillerie(Etapes):
         self.assertFalse(panneau_ouvert())
         (pieds,) = du_type(self.doc, TYPE_PIEDS)
         self.assertTrue(pieds.isValid(), pieds.getStatusString())
+        self.assertEqual(pieds.Label, "Pieds : Dessous")  # la pièce n'est nommée qu'une fois
         self.controler_les_percages("Dessous")
         self.assertEqual(len(self.doc.UndoNames), 2, self.doc.UndoNames)
 

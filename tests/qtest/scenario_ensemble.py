@@ -106,6 +106,31 @@ class Ensemble(Etapes):
         self.assertEqual(len(self.doc.UndoNames), 1, self.doc.UndoNames)
         selectionner()
 
+    def test_2b_une_piece_hors_de_la_boite_l_agrandit(self) -> None:
+        """Pièce posée 100 mm derrière l'ensemble puis ajoutée : la boîte grandit jusqu'à
+        l'envelopper (ADR 0049), les membres ne bougent pas ; Ctrl+Z rend la boîte d'avant."""
+        dehors = piece(self.doc, (600.0, *SECTION), (0.0, PROFONDEUR + 100.0, 0.0), repere="H")
+        self.doc.recompute()
+        self.doc.clearUndos()
+        places = {nom: membre.Placement for nom, membre in self.pieces.items()}
+        selectionner(dehors, self.ensemble)
+        lancer(AJOUTER)
+        agrandie = PROFONDEUR + 100.0 + SECTION[0]
+        self.assertEqual(self.cotes(), (LARGEUR, agrandie, HAUTEUR))
+        self.assertIs(
+            dehors.getParentGeoFeatureGroup(), self.pieces["M1"].getParentGeoFeatureGroup()
+        )
+        for nom, membre in self.pieces.items():
+            self.assertTrue(membre.Placement.isSame(places[nom], TOLERANCE_MM), f"{nom} a bougé")
+        self.assertEqual(len(self.doc.UndoNames), 1, self.doc.UndoNames)
+        controler_le_document(self, self.doc)
+        lancer("Std_Undo")
+        self.doc.recompute()
+        self.assertEqual(self.cotes(), (LARGEUR, PROFONDEUR, HAUTEUR))
+        self.assertIsNone(dehors.getParentGeoFeatureGroup())
+        controler_le_document(self, self.doc)
+        selectionner()
+
     def test_3_elargir_au_panneau(self) -> None:
         double_cliquer(self.ensemble)
         liste = self.form().findChild(QtGui.QTreeWidget, "membersTree")
@@ -180,7 +205,7 @@ class Ensemble(Etapes):
     def test_6_valider_puis_annuler(self) -> None:
         cliquer(bouton_ok())
         self.assertFalse(panneau_ouvert())
-        self.assertEqual(len(self.doc.UndoNames), 2, self.doc.UndoNames)
+        self.assertEqual(self.doc.UndoNames, ["Modifier l'ensemble"])
         controler_le_document(self, self.doc)
         tourne = boite_globale(*self.pieces.values())
         lancer("Std_Undo")

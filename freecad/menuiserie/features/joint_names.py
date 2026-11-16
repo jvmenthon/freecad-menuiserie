@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Nom d'un assemblage : « {type} : {pièce hôte} {pièce invitée} » (J6, demande de jv), tenu à
+"""Nom d'un assemblage : « {type} : {pièce hôte} {pièce invitée} » (J6, demande de jv), ou
+« {type} : {pièce} » pour une quincaillerie posée sur une seule pièce, tenu à
 jour quand une des deux pièces est renommée. Le libellé reste unique dans le document (suffixe
 « (n) » de :mod:`freecad.menuiserie.core.naming`)."""
 
@@ -16,12 +17,15 @@ from freecad.menuiserie.features.part_names import other_labels
 __all__ = ["JOINT_LABEL", "joint_label", "sync_joint_labels"]
 
 JOINT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{kind} : {host} {guest}")
+# Quincaillerie posée sur une seule pièce (pieds) : hôte et invitée sont la même.
+SINGLE_PART_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{kind} : {host}")
 
 
 def joint_label(joint: DocumentObject) -> str:
-    """Libellé de l'assemblage ``joint`` d'après son type et les libellés de ses deux pièces."""
+    """Libellé de l'assemblage ``joint`` d'après son type et les libellés de ses deux pièces ;
+    une pièce qui tient les deux rôles n'est nommée qu'une fois."""
     text = translated(
-        JOINT_LABEL,
+        SINGLE_PART_LABEL if joint.HostPart == joint.GuestPart else JOINT_LABEL,
         {
             "kind": translated(joint.Proxy.LABEL),
             "host": str(joint.HostPart.Label),

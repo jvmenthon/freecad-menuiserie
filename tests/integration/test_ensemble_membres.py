@@ -57,6 +57,25 @@ def test_ajout_sans_toucher_aux_membres_presents(document: Any) -> None:
     assert api.furniture_of(bureau.parts["V"]) == furniture
 
 
+def test_une_piece_ajoutee_hors_de_la_boite_l_agrandit(document: Any) -> None:
+    """ADR 0049 : la boîte suit l'enveloppe des membres ; ceux qui étaient là ne bougent pas."""
+    inside = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    outside = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    outside.Placement.Base = App.Vector(0.0, 500.0, 0.0)
+    document.recompute()
+    furniture, _ = api.make_furniture([inside], "Cadre")
+    assert (furniture.Width.Value, furniture.Depth.Value) == (600.0, 60.0)
+    place = inside.getGlobalPlacement()
+    api.add_to_furniture(furniture, [outside])
+    assert (furniture.Width.Value, furniture.Depth.Value) == (600.0, 560.0)
+    assert furniture.Height.Value == 22.0
+    assert inside.getGlobalPlacement().isSame(place, 1e-9)
+    assert not stale_or_invalid(document)
+    furniture.Depth = 660.0  # les deux membres restent reliés à la boîte agrandie
+    document.recompute()
+    assert not stale_or_invalid(document)
+
+
 def test_retrait_des_seules_liaisons_de_l_atelier(document: Any) -> None:
     bureau = build_parts(document)
     names = set(bureau.parts["P"].PropertiesList)

@@ -34,7 +34,7 @@ from tests.qtest.aides import (
     vider_la_vue_rapport,
     vue_rapport,
 )
-from tests.qtest.angle_a_queues import controler_le_document, double_cliquer
+from tests.qtest.angle_a_queues import PANNEAU_PIECE, controler_le_document, double_cliquer
 from tests.qtest.pieces import (
     AXE_Z,
     boite_globale,
@@ -246,6 +246,18 @@ class DistanceGardee(Etapes):
         self.assertAlmostEqual(boite_globale(self.reference).XMin, 0.0, delta=TOLERANCE_MM)
         self.assertAlmostEqual(boite_globale(self.mobile).XMin, depart, delta=TOLERANCE_MM)
         self.assertAlmostEqual(self.ecart(), 100.0, delta=TOLERANCE_MM)
+        controler_le_document(self, self.doc)
+
+    def test_1c_panneau_d_une_piece_liee_valide_sans_rien_changer(self) -> None:
+        """La longueur de A dépend de la distance gardée : champ en lecture seule ; « OK » sans
+        rien changer n'ajoute aucune entrée d'annulation."""
+        annulations = list(self.doc.UndoNames)
+        selectionner()
+        double_cliquer(self.reference)
+        self.assertTrue(enfant(formulaire(PANNEAU_PIECE), "lengthEdit").isReadOnly())
+        cliquer(bouton_ok())
+        self.assertFalse(panneau_ouvert())
+        self.assertEqual(self.doc.UndoNames, annulations)
         controler_le_document(self, self.doc)
 
     def test_2_la_distance_tient_quand_l_ensemble_s_elargit(self) -> None:
