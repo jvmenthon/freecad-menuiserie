@@ -39,6 +39,7 @@ from tests.qtest.angle_a_queues import (
     jouer,
     regler,
 )
+from tests.qtest.pieces import volume
 
 Etat = dict[str, object]
 
@@ -51,11 +52,7 @@ def etat(doc: Any) -> Etat:
     """Tout ce qu'un panneau annulé doit laisser intact."""
     objets = {}
     for obj in doc.Objects:
-        forme = getattr(obj, "Shape", None)
-        objets[obj.Name] = (
-            0 if forme is None or forme.isNull() else round(forme.Volume),
-            str(getattr(obj, "Placement", "")),
-        )
+        objets[obj.Name] = (volume(obj), str(getattr(obj, "Placement", "")))
     return {
         "objets": objets,
         "affichage": affichage(doc),

@@ -112,6 +112,9 @@ valides, aucune transaction ouverte, panneau fermé, vue rapport sans erreur qua
 surveille. Un scénario qui annule finit par rétablir (`pieces.retablir_tout`) et recontrôle le
 document. À chaque bug d'enchaînement corrigé, son geste exact s'ajoute à un scénario.
 
+Chaque module garde son `setUpModule` (`activer_faulthandler`) : la pile d'un plantage doit
+pouvoir s'écrire même quand le module est lancé seul par `freecad -t`, sans le lanceur.
+
 Les scénarios dont les tests sont des étapes numérotées sur un même document héritent de
 `aides.Etapes` : après une étape en échec, les suivantes sont sautées.
 

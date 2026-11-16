@@ -25,7 +25,7 @@ from freecad.menuiserie.core.furniture import (
     follow_summary,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.text import escaped_text, quoted_value
+from freecad.menuiserie.core.text import bounded_text, quoted_value
 from freecad.menuiserie.features.distance import distances_of, is_distance
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
@@ -37,19 +37,19 @@ from freecad.menuiserie.features.furniture_bindings import (
 )
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.features.joints.feasible import joints_in_error
 from freecad.menuiserie.features.machined_part import machined_part_of
 
 __all__ = [
     "MemberView",
     "furniture_children",
-    "invalid_joints",
+    "invalid_joints_below",
     "member_views",
     "pieces_below",
     "shown_object",
     "undone_joints",
 ]
 
-_DETAIL_MAX = 300
 _UNDONE = QT_TRANSLATE_NOOP("Menuiserie", "{label} n'est plus réalisable : {detail}")
 
 
@@ -130,37 +130,32 @@ def _pieces_below(furniture: DocumentObject, seen: set[str]) -> list[DocumentObj
     return found
 
 
-def invalid_joints(furniture: DocumentObject) -> dict[str, DocumentObject]:
+def invalid_joints_below(furniture: DocumentObject) -> dict[str, DocumentObject]:
     """Assemblages et quincailleries en erreur des pièces de ``furniture`` et de ses
     sous-ensembles, par nom."""
-    return {
-        joint.Name: joint
-        for piece in pieces_below(furniture)
-        for joint in piece.InList
-        if is_joint(joint) and "Invalid" in joint.State
-    }
+    found: dict[str, DocumentObject] = {}
+    for piece in pieces_below(furniture):
+        found.update(joints_in_error(piece))
+    return found
 
 
-def _detail(joint: DocumentObject) -> str:
-    """Raison de l'erreur de ``joint`` : texte du document, donc échappé et borné avant d'être
-    affiché (la raison d'un assemblage de l'atelier tient largement dans la limite)."""
-    text = escaped_text(str(joint.getStatusString()))
-    return text if len(text) <= _DETAIL_MAX else text[: _DETAIL_MAX - 1] + "…"
-
-
-def undone_joints(furniture: DocumentObject, already: frozenset[str] = frozenset()) -> list[str]:
-    """Message traduit pour chaque assemblage ou quincaillerie de ``furniture`` en erreur après
-    un recalcul (cote de l'ensemble qui ne lui laisse plus la place), par nom ; ceux de
-    ``already`` (noms), en erreur avant, ne comptent pas : le panneau ne bloque pas « OK » pour
-    une erreur qu'il n'a pas causée, même si une cote l'aggrave."""
-    found = invalid_joints(furniture)
+def undone_joints(
+    furniture: DocumentObject, invalid_before: frozenset[str] = frozenset()
+) -> list[str]:
+    """Un message traduit par assemblage ou quincaillerie de ``furniture`` en erreur après un
+    recalcul (cote de l'ensemble qui ne lui laisse plus la place), triés par nom d'objet. Ceux
+    de ``invalid_before`` (noms), en erreur avant, ne comptent pas : le panneau ne bloque pas
+    « OK » pour une erreur qu'il n'a pas causée, même si une cote l'aggrave."""
     return [
         translated(
             _UNDONE,
-            {"label": quoted_value(joint.Label), "detail": _detail(joint)},
+            {
+                "label": quoted_value(joint.Label),
+                "detail": bounded_text(str(joint.getStatusString())),
+            },
         )
-        for name, joint in sorted(found.items())
-        if name not in already
+        for name, joint in sorted(invalid_joints_below(furniture).items())
+        if name not in invalid_before
     ]
 
 

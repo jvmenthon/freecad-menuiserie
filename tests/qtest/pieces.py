@@ -68,6 +68,12 @@ def deplacer(doc: Any, piece_deplacee: Any, placement: App.Placement) -> None:
     doc.recompute()
 
 
+def volume(obj: Any) -> float:
+    """Volume arrondi au mm³ ; 0 pour un objet sans forme (l'assemblage n'en a pas)."""
+    forme = getattr(obj, "Shape", None)
+    return 0.0 if forme is None or forme.isNull() else float(round(forme.Volume))
+
+
 def retablir_tout(doc: Any) -> None:
     """Ctrl+Y jusqu'au bout de l'historique, puis recalcul (FreeCAD laisse les objets rétablis
     « à recalculer »)."""

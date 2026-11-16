@@ -60,4 +60,22 @@ def test_escaped_text_sans_troncature(value: str, expected: str) -> None:
 
 
 def test_api_publique() -> None:
-    assert text.__all__ == ["MAX_QUOTED_LENGTH", "escaped_text", "quoted_value"]
+    assert text.__all__ == [
+        "MAX_DETAIL_LENGTH",
+        "MAX_QUOTED_LENGTH",
+        "bounded_text",
+        "escaped_text",
+        "quoted_value",
+    ]
+
+
+def test_bounded_text_garde_une_phrase_de_l_atelier_entiere() -> None:
+    phrase = "Le côté est trop petit pour un rang de trous, à 64 mm des bouts."
+    assert text.bounded_text(phrase) == phrase
+
+
+def test_bounded_text_echappe_et_coupe() -> None:
+    assert text.bounded_text("a‮b\nc") == "a\\u202eb\\nc"
+    coupe = text.bounded_text("x" * 500)
+    assert len(coupe) == text.MAX_DETAIL_LENGTH and coupe.endswith("…")
+    assert text.bounded_text("abcdef", 4) == "abc…"

@@ -34,6 +34,7 @@ from freecad.menuiserie.features.furniture import has_member_properties
 from freecad.menuiserie.features.furniture_members import remove_members
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.joints.base import is_joint, plan_for
+from freecad.menuiserie.features.joints.feasible import joints_in_error
 from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
@@ -77,9 +78,7 @@ class DragCancelledError(Exception):
 def invalid_joints(part: DocumentObject) -> frozenset[str]:
     """Noms des assemblages de la brute ``part`` déjà en erreur avant un changement de position :
     ils ne sont pas défaits par lui."""
-    return frozenset(
-        joint.Name for joint in part.InList if is_joint(joint) and "Invalid" in joint.State
-    )
+    return frozenset(joints_in_error(part))
 
 
 def broken_joints(
