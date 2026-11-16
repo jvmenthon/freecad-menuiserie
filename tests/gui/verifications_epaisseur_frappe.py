@@ -23,9 +23,17 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.features.machined_part import machined_part_of
+from freecad.menuiserie.gui.task_panels.unlock_widgets import OkGate
 from tests.gui.verifications_assemblages import cadre
 from tests.gui.verifications_epaisseur_cote import encadre
-from tests.gui.verifications_panneau import annuler, ecarts, ouvrir_par_double_clic, valider
+from tests.gui.verifications_panneau import (
+    annuler,
+    ecarts,
+    ouvrir_par_double_clic,
+    saisir,
+    valeur,
+    valider,
+)
 from tests.gui.verifications_panneau_assemblage import widget
 from tests.gui.verifications_queue_aronde import planches
 
@@ -90,7 +98,8 @@ def verifier_bloque_refuse_ok() -> list[str]:
         if form is None:
             return ["panneau de la pièce non ouvert"]
         _taper(form.thicknessEdit, "2")
-        refuse = not Gui.Control.activeTaskDialog().accept()
+        Gui.Control.activeTaskDialog().accept()
+        refuse = bool(Gui.Control.activeDialog())  # panneau resté ouvert
         encadre(form)["conflict_revert"].click()
         problemes = [
             *ecarts("OK refusé", refuse, True),
@@ -174,9 +183,129 @@ def verifier_laisser_en_l_etat() -> list[str]:
         return problemes
 
 
+def verifier_saisies_successives_laisser() -> list[str]:
+    """« 30 » puis « 24 » puis retour à « 18 » avec l'encadré affiché : chaque saisie repart du
+    départ ; Annuler du panneau rend tout, sans objet en erreur."""
+    with cadre("VerifEpaisseurSuccessives") as (doc, _pieces):
+        hote, invitee = planches(doc)
+        api.make_dovetail(hote, invitee)
+        doc.recompute()
+        form = ouvrir_par_double_clic(hote)
+        if form is None:
+            return ["panneau de la pièce non ouvert"]
+        w = encadre(form)
+        problemes: list[str] = []
+        for texte, valeur in (("30", 30.0), ("24", 24.0)):
+            _taper(form.thicknessEdit, texte)
+            problemes += [
+                *ecarts(f"{texte} : encadré affiché", w["thicknessConflict"].isHidden(), False),
+                *ecarts(
+                    f"{texte} : laisser coché", widget(form, "conflict_as_typed").isChecked(), True
+                ),
+                *ecarts(f"{texte} : I suit", invitee.Placement.Base.z, valeur),
+                *ecarts(f"{texte} : objets en erreur", _invalides(doc), []),
+            ]
+        _taper(form.thicknessEdit, "18")
+        problemes += [
+            *ecarts("18 : encadré masqué", w["thicknessConflict"].isHidden(), True),
+            *ecarts("18 : I en place", invitee.Placement.Base.z, 18.0),
+        ]
+        _taper(form.thicknessEdit, "30")
+        annuler()
+        problemes += [
+            *ecarts("Annuler : épaisseur", hote.Thickness.Value, 18.0),
+            *ecarts("Annuler : I en place", invitee.Placement.Base.z, 18.0),
+            *ecarts("Annuler : objets en erreur", _invalides(doc), []),
+        ]
+        return problemes
+
+
+def verifier_annuler_apres_exterieur() -> list[str]:
+    """Épaisseur de I, « vers l'extérieur » (H allongée), Annuler du panneau : tout est rendu."""
+    with cadre("VerifEpaisseurAnnuler") as (doc, _pieces):
+        hote, invitee = planches(doc)
+        api.make_dovetail(hote, invitee)
+        doc.recompute()
+        form = ouvrir_par_double_clic(invitee)
+        if form is None:
+            return ["panneau de la pièce non ouvert"]
+        _taper(form.thicknessEdit, "30")
+        encadre(form)["conflict_extend"].click()
+        annuler()
+        return [
+            *ecarts("épaisseur", invitee.Thickness.Value, 18.0),
+            *ecarts(
+                "H rendue",
+                (hote.Length.Value, tuple(hote.Placement.Base)),
+                (400.0, (0.0, 0.0, 0.0)),
+            ),
+            *ecarts("objets en erreur", _invalides(doc), []),
+        ]
+
+
+def verifier_piece_sans_assemblage() -> list[str]:
+    """Pièce sans assemblage : pas d'encadré, épaisseur écrite à chaque frappe, « OK » accepté."""
+    with cadre("VerifEpaisseurSeule") as (doc, _pieces):
+        piece = api.make_wood_part(400, 150, 18, "chene", mark="S", doc=doc)
+        doc.recompute()
+        form = ouvrir_par_double_clic(piece)
+        if form is None:
+            return ["panneau de la pièce non ouvert"]
+        _taper(form.thicknessEdit, "22")
+        problemes = [
+            *ecarts("encadré masqué", encadre(form)["thicknessConflict"].isHidden(), True),
+            *ecarts("épaisseur", piece.Thickness.Value, 22.0),
+            *ecarts("aucun message", widget(form, "conflictNotApplied").text(), ""),
+        ]
+        valider()
+        return problemes
+
+
+def verifier_autre_cote_pendant_blocage() -> list[str]:
+    """« 2 » non appliqué, puis longueur modifiée : le champ remontre 18 et « OK » est accepté
+    (jamais de « 2 » affiché pour une épaisseur restée à 18)."""
+    with cadre("VerifEpaisseurAutreCote") as (doc, _pieces):
+        hote, invitee = planches(doc)
+        api.make_dovetail(hote, invitee)
+        doc.recompute()
+        form = ouvrir_par_double_clic(invitee)
+        if form is None:
+            return ["panneau de la pièce non ouvert"]
+        _taper(form.thicknessEdit, "2")
+        saisir(form.lengthEdit, 390.0)
+        problemes = [
+            *ecarts("champ rendu", valeur(form.thicknessEdit), 18.0),
+            *ecarts("épaisseur", invitee.Thickness.Value, 18.0),
+        ]
+        valider()
+        return [*problemes, *ecarts("fermé par OK", bool(Gui.Control.activeDialog()), False)]
+
+
+def verifier_ok_partage() -> list[str]:
+    """« OK » bloqué par deux sources (refus, encadré) : il ne revient qu'une fois les deux
+    levées."""
+    boite = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+    ok = boite.button(QtGui.QDialogButtonBox.Ok)
+    gate = OkGate()
+    gate.attach(boite)
+    gate.update(True)
+    gate.update(True, "thicknessConflict")
+    etats = [ok.isEnabled()]
+    gate.update(False, "thicknessConflict")
+    etats.append(ok.isEnabled())
+    gate.update(False)
+    etats.append(ok.isEnabled())
+    return ecarts("OK", etats, [False, False, True])
+
+
 VERIFICATIONS_EPAISSEUR_FRAPPE: tuple[Callable[[], list[str]], ...] = (
     verifier_frappe_passe_par_deux,
     verifier_bloque_refuse_ok,
     verifier_choix_change_la_vue_3d,
     verifier_laisser_en_l_etat,
+    verifier_saisies_successives_laisser,
+    verifier_annuler_apres_exterieur,
+    verifier_piece_sans_assemblage,
+    verifier_autre_cote_pendant_blocage,
+    verifier_ok_partage,
 )

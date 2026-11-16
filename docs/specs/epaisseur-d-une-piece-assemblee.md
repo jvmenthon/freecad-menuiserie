@@ -23,10 +23,11 @@ Exemple : angle à queue d'aronde, H à plat (griffes), I debout (queues), I de 
 | Poignée de la face intérieure de I | I s'épaissit vers l'intérieur, rien d'autre ne bouge |
 | Échap pendant le glissement | Tout revient, H compris |
 
-Critères d'acceptation : E1 encadré et choix ci-dessus (aussi quand rien n'est défait, avec « Laisser en l'état ») ; E2 choix impossible grisé avec sa
-raison ; E3 saisies successives sans cumul ; E4 une entrée d'annulation ; E5 souris : l'autre
-pièce suit, butée si elle ne peut pas, Échap rend tout ; E6 membre d'ensemble et éditeur de
-propriétés inchangés.
+Critères d'acceptation : E1 encadré et choix ci-dessus (aussi quand rien n'est défait, avec
+« Laisser en l'état ») ; E2 choix impossible grisé avec sa raison, rien d'écrit si aucun ne tient ;
+E3 saisies successives sans cumul ; E4 une entrée d'annulation ; E5 souris : l'autre pièce suit,
+butée si elle ne peut pas, Échap rend tout ; E6 membre d'ensemble et éditeur de propriétés
+inchangés.
 
 ## 2. Std Part d'ensemble supprimé en gardant son contenu
 

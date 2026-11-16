@@ -249,3 +249,150 @@ def test_sous_ensemble_partenaire(document: Any) -> None:
     document.recompute()
     member = parts[0] if isinstance(parts, (list, tuple)) else next(iter(parts.values()))
     assert thickness_drag.drag_follow(member, False) is None
+
+
+JOINT_MAKERS = {
+    "tenon": api.make_mortise_tenon,
+    "tourillons": api.make_dowels,
+    "feuillure": api.make_rabbet,
+    "mi-bois": api.make_half_lap,
+}
+
+
+def _joined(doc: Any, maker: Any) -> tuple[Any, Any, Any]:
+    host, guest, _dovetail = corner(doc)
+    doc.removeObject(_dovetail.Name)
+    doc.recompute()
+    joint = maker(host, guest)
+    doc.recompute()
+    if not holds(doc, joint):
+        pytest.skip("assemblage non valide dans cette disposition d'angle")
+    return host, guest, joint
+
+
+@pytest.mark.parametrize("name", sorted(JOINT_MAKERS))
+@pytest.mark.parametrize("which", ["host", "guest"])
+def test_autres_assemblages_choix_et_retour(document: Any, name: str, which: str) -> None:
+    """Pour chaque type d'assemblage : « Laisser en l'état » en tête s'il ne défait rien, chaque
+    choix possible laisse un document sain, « Revenir » rend l'état de départ."""
+    host, guest, joint = _joined(document, JOINT_MAKERS[name])
+    part = host if which == "host" else guest
+    start = {o.Name: (*o.Placement.Base[:], o.Length.Value) for o in (host, guest)}
+    edit = choice.ThicknessEdit(part)
+    conflict = edit.probe(24)
+    assert stale_or_invalid(document) == [] or conflict is not None
+    if conflict is None:
+        assert part.Thickness.Value == 24
+        return
+    offered = [o.choice for o in conflict.options]
+    assert offered[-1] is choice.Choice.REVERT
+    assert part.Thickness.Value == 18  # état de départ rendu
+    for option in conflict.options:
+        if option.reason is not None:
+            continue
+        edit.apply(24, option.choice)
+        assert holds(document, joint), (name, which, option.choice)
+    edit.apply(24, choice.Choice.REVERT)
+    assert part.Thickness.Value == 18
+    for o in (host, guest):
+        assert (*o.Placement.Base[:], o.Length.Value) == pytest.approx(start[o.Name])
+    assert holds(document, joint)
+
+
+@pytest.mark.parametrize("value", [2.0, 0.5, 1e-3])
+def test_saisie_trop_mince_n_ecrit_rien_et_n_abime_rien(document: Any, value: float) -> None:
+    """Saisie transitoire (« 2 » avant « 22 ») : aucun choix ne tient ou le conflit est rendu
+    sans trace ; le document reste sain et la saisie suivante repart de l'état de départ."""
+    _host, guest, joint = corner(document)
+    edit = choice.ThicknessEdit(guest)
+    try:
+        conflict = edit.probe(value)
+    except ValueError:  # sous la cote minimale : refusée proprement, rien d'écrit
+        assert guest.Thickness.Value == 18
+        assert holds(document, joint)
+        return
+    assert conflict is not None
+    assert guest.Thickness.Value == 18
+    assert holds(document, joint)
+    again = edit.probe(22)
+    assert again is not None
+    edit.apply(22, again.preferred() or choice.Choice.REVERT)
+    assert holds(document, joint)
+
+
+def test_laisser_en_l_etat_amincie_et_retour_au_depart(document: Any) -> None:
+    host, guest, joint = corner(document)
+    edit = choice.ThicknessEdit(host)
+    conflict = edit.probe(12)
+    assert conflict is not None
+    assert conflict.options[0].choice is choice.Choice.AS_TYPED
+    edit.apply(12, choice.Choice.AS_TYPED)
+    assert holds(document, joint)
+    assert edit.probe(18) is None
+    assert (host.Thickness.Value, guest.Placement.Base.z) == (18, pytest.approx(18))
+    assert holds(document, joint)
+
+
+def test_saisies_successives_avec_laisser_affiche(document: Any) -> None:
+    """30 puis 24 puis 18 sur H (rien n'est défait) : chaque saisie repart du départ."""
+    host, guest, joint = corner(document)
+    edit = choice.ThicknessEdit(host)
+    for value in (30, 24):
+        conflict = edit.probe(value)
+        assert conflict is not None
+        assert conflict.options[0].choice is choice.Choice.AS_TYPED
+        edit.apply(value, choice.Choice.AS_TYPED)
+        assert guest.Placement.Base.z == pytest.approx(value)
+    assert edit.probe(18) is None
+    assert guest.Placement.Base.z == pytest.approx(18)
+    assert holds(document, joint)
+
+
+def test_deux_assemblages_laisser_et_parts(document: Any) -> None:
+    host, top, guest, joint, joint2 = two_hosts(document)
+    edit = choice.ThicknessEdit(guest)
+    conflict = edit.probe(30)
+    assert conflict is not None
+    assert {p.Name for p in edit.parts} >= {host.Name, top.Name, guest.Name}
+    edit2 = choice.ThicknessEdit(host)
+    conflict2 = edit2.probe(30)
+    assert conflict2 is not None
+    for pick in (choice.Choice.OTHER_SIDE, choice.Choice.EXTEND, choice.Choice.AS_TYPED):
+        try:
+            edit2.apply(30, pick)
+        except choice.UnavailableError:
+            continue
+        assert holds(document, joint) and holds(document, joint2), pick
+
+
+def test_annuler_apres_laisser_en_l_etat(document: Any) -> None:
+    host, guest, joint = corner(document)
+    document.UndoMode = 1
+    document.openTransaction("Modifier une pièce de bois")
+    edit = choice.ThicknessEdit(host)
+    edit.probe(30)
+    edit.apply(30, choice.Choice.AS_TYPED)
+    document.commitTransaction()
+    document.recompute()
+    document.undo()
+    document.recompute()
+    assert (host.Thickness.Value, guest.Placement.Base.z) == (18, pytest.approx(18))
+    document.redo()
+    document.recompute()
+    assert (host.Thickness.Value, guest.Placement.Base.z) == (30, pytest.approx(30))
+    assert holds(document, joint)
+
+
+def test_assemblage_orphelin_rien_a_proposer(document: Any) -> None:
+    """Autre pièce de l'assemblage disparue : rien à proposer, document jamais à moitié écrit
+    (revue sécurité, 2026-11-16)."""
+    host, guest, joint = corner(document)
+    joint.HostPart = None
+    edit = choice.ThicknessEdit(guest)
+    try:
+        conflict = edit.probe(30)
+    except choice.UnavailableError:
+        assert guest.Thickness.Value == 18
+    else:
+        assert conflict is None
+    assert host.Length.Value == 400

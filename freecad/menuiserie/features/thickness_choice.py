@@ -247,23 +247,37 @@ class ThicknessEdit:
         quelle, messages dans :attr:`messages`) pour l'épaisseur de départ ou une pièce sans
         assemblage."""
         self.messages = self.apply(new, Choice.AS_TYPED)
-        joints = joints_of(self.part)
+        try:
+            joints = joints_of(self.part)
+            broken = self._new_breaks() if joints and new != self.old else []
+        except Exception:  # jamais de saisie à moitié essayée laissée écrite
+            self.restore()
+            raise
         if new == self.old or not joints:
             return None
-        broken = self._new_breaks()
         self._concerned = broken or joints
+        if not self._partners(self._concerned):  # autre pièce disparue : rien à proposer
+            if broken:
+                self.restore()
+                raise UnavailableError(still_broken_text(broken))
+            return None
         try:
-            keep = () if broken else (Option(Choice.AS_TYPED, keep_text()),)
-            options = (
-                *keep,
-                self._option(new, Choice.OTHER_SIDE),
-                self._option(new, Choice.EXTEND),
-                Option(Choice.REVERT, revert_text(self.old)),
-            )
+            options = self._options(new, keep=not broken)
         finally:
             self.restore()
         title = title_text(self._concerned, self._partners(self._concerned))
         return Conflict(title, question_text(self.old, new), options)
+
+    def _options(self, new: float, *, keep: bool) -> tuple[Option, ...]:
+        """Choix proposés pour ``new`` (chacun essayé puis défait) ; « Laisser en l'état » en
+        tête si ``keep``."""
+        kept = (Option(Choice.AS_TYPED, keep_text()),) if keep else ()
+        return (
+            *kept,
+            self._option(new, Choice.OTHER_SIDE),
+            self._option(new, Choice.EXTEND),
+            Option(Choice.REVERT, revert_text(self.old)),
+        )
 
     def _option(self, new: float, choice: Choice) -> Option:
         text = self._text(new, choice)

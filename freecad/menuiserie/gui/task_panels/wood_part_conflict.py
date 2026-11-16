@@ -18,10 +18,12 @@ vérifications d'interface : ``thicknessConflict``, ``conflictTitle``, ``conflic
 
 from __future__ import annotations
 
+import traceback
 from collections.abc import Callable
 from typing import Final
 from weakref import WeakMethod, ref
 
+import FreeCAD as App
 from PySide import QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -48,6 +50,7 @@ _NOT_APPLIED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Aucun choix ne garde l'assemblage à cette épaisseur : elle n'est pas appliquée.",
 )
+_GATE_SOURCE: Final = "thicknessConflict"
 _ABANDONED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Choix d'épaisseur abandonné : {error}")
 _CHOICES: Final = (Choice.AS_TYPED, Choice.OTHER_SIDE, Choice.EXTEND, Choice.REVERT)
 
@@ -65,13 +68,14 @@ class ConflictBox:
         obj: DocumentObject,
         revert: Callable[[float], None],
         preview: Callable[[], None],
+        gate: OkGate,
     ):
         self._obj = obj
         self._revert = WeakMethod(revert)
         self._preview = WeakMethod(preview)
         self._edit: ThicknessEdit | None = None
         self._value = 0.0
-        self._gate = OkGate()
+        self._gate = gate  # « OK » partagé avec le refus d'épaisseur (UnlockBox)
         self._blocked = False
         self.frame = QtGui.QFrame()
         self.frame.setObjectName("thicknessConflict")
@@ -102,6 +106,7 @@ class ConflictBox:
         column.addWidget(self._not_applied)
         layout.addWidget(self.frame)
         self.frame.setVisible(False)
+        show_message(self._not_applied, "")
 
     @property
     def shown(self) -> bool:
@@ -114,38 +119,46 @@ class ConflictBox:
         inactif."""
         return self._blocked
 
-    def attach_buttons(self, box: Widget) -> None:
-        """Boutons du panneau de tâche (``modifyStandardButtons``)."""
-        self._gate.attach(box)
-
     def _block(self, blocked: bool) -> None:
         self._blocked = blocked
         show_message(self._not_applied, translated(_NOT_APPLIED) if blocked else "")
-        self._gate.update(blocked)
+        self._gate.update(blocked, _GATE_SOURCE)
 
     def edit(self, value: float) -> None:
         """:meth:`_edit_now` ; une erreur (pièce supprimée ou annulée entre-temps, document
         illisible) est écrite dans la vue rapport et l'encadré est oublié."""
         self._safely(lambda: self._edit_now(value))
 
-    def _safely(self, action: Callable[[], None]) -> None:
+    def _safely(self, action: Callable[[], None]) -> bool:
+        """``action`` ; toute erreur (rappel d'un signal Qt : rien ne doit en sortir), même une
+        erreur de programmation, est écrite dans la vue rapport (pile complète dans le journal),
+        le champ remontre l'épaisseur du document et l'encadré est oublié. Vrai si tout s'est
+        bien passé."""
         try:
             action()
-        except (ValueError, ReferenceError, RuntimeError) as error:
+        except Exception as error:  # pylint: disable=broad-exception-caught
             report([translated(_ABANDONED, {"error": str(error)})])
-            self.forget()
+            App.Console.PrintLog(traceback.format_exc())  # diagnostic d'une erreur imprévue
+            edit, self._edit = self._edit, None  # document rendu par ThicknessEdit (ou disparu)
+            revert = self._revert()
+            if edit is not None and revert is not None:
+                revert(edit.old)  # le champ remontre l'épaisseur du document
+            self.frame.setVisible(False)
+            self._block(False)
+            return False
+        return True
 
     def _edit_now(self, value: float) -> None:
-        """Épaisseur ``value`` saisie : écrite telle quelle si elle ne défait aucun assemblage,
-        sinon l'encadré s'affiche et le premier choix possible est appliqué. Tant que l'encadré
-        est affiché, chaque saisie repart de l'état d'avant la première (:class:`ThicknessEdit`)."""
+        """Épaisseur ``value`` saisie : écrite telle quelle pour l'épaisseur de départ ; sinon
+        l'encadré s'affiche (« Laisser en l'état » en tête si rien n'est défait) et le premier
+        choix possible est appliqué. Si aucun ne tient, rien n'est écrit et « OK » est bloqué.
+        Tant que l'encadré est affiché, chaque saisie repart de l'état d'avant la première
+        (:class:`ThicknessEdit`)."""
         if self._edit is None:
             self._edit = ThicknessEdit(self._obj)
         edit = self._edit
-        try:
-            self._probe(edit, value)
-        finally:
-            self.refresh(edit.parts)
+        self._probe(edit, value)
+        self.refresh(edit.parts)
 
     def _probe(self, edit: ThicknessEdit, value: float) -> None:
         self._value = value
@@ -165,7 +178,12 @@ class ConflictBox:
 
     def forget(self) -> None:
         """Autre saisie (cote, rotation, glissement, matériau) : l'état écrit devient le point de
-        départ des saisies d'épaisseur suivantes ; l'encadré disparaît."""
+        départ des saisies d'épaisseur suivantes ; l'encadré disparaît. Une épaisseur non appliquée
+        (aucun choix ne tenait) est retirée du champ : il remontre celle du document."""
+        if self._blocked and self._edit is not None:
+            revert = self._revert()
+            if revert is not None:
+                revert(self._edit.old)
         self._edit = None
         self.frame.setVisible(False)
         self._block(False)
@@ -190,19 +208,19 @@ class ConflictBox:
         """Bouton ``choice`` cliqué : appliqué ; « Revenir » remet l'ancienne épaisseur. Une
         erreur est écrite dans la vue rapport (:meth:`_safely`). L'aperçu 3D est recalculé."""
         parts = self._edit.parts if self._edit is not None else []
-        self._safely(lambda: self._choose(choice))
-        self.refresh(parts)
+        if self._safely(lambda: self._choose(choice)):
+            self.refresh(parts)
         preview = self._preview()
         if preview is not None:
-            preview()
+            self._safely(preview)
 
-    def refresh(self, parts: list[DocumentObject] | None = None) -> None:
-        """Aperçu des pièces assemblées que les choix écrivent (autres que la pièce du panneau,
-        recalculée par le panneau) : prolongées ou déplacées, elles suivent dans la vue 3D."""
-        if parts is None:
-            parts = self._edit.parts if self._edit is not None else []
-        others = [part for part in parts if part != self._obj]
-        if others:
+    def refresh(self, parts: list[DocumentObject]) -> None:
+        """Aperçu des pièces ``parts`` que les choix écrivent (autres que la pièce du panneau,
+        recalculée par le panneau) : prolongées ou déplacées, elles suivent dans la vue 3D.
+        ``parts`` est lu avant le choix, qui peut oublier l'encadré (« Revenir »)."""
+        name = self._obj.Name
+        others = [part for part in parts if part.Name != name]
+        if others:  # même document : pièces assemblées de proche en proche (``attached``)
             self._safely(lambda: recompute_preview(others[0], *others[1:]))
 
     def _choose(self, choice: Choice) -> None:
