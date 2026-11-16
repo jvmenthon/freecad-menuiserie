@@ -10,6 +10,7 @@ from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.snap import (
     FaceTarget,
     Frame,
+    Orientation,
     face_section,
     footprint,
     perpendicular_orientation,
@@ -168,3 +169,65 @@ def test_emprise_de_la_piece_selon_les_axes_de_la_face() -> None:
     orientation = perpendicular_orientation(support, IDENTITY)
     assert orientation is not None
     assert footprint(orientation, (60.0, 30.0)) == (30.0, 60.0)
+
+
+def orientation_against(
+    target: FaceTarget, owner: Matrix3 = IDENTITY
+) -> tuple[Matrix3, Orientation]:
+    support = support_rotation([target])
+    assert support is not None
+    orientation = perpendicular_orientation(support, owner)
+    assert orientation is not None
+    return support, orientation
+
+
+def test_emprise_contre_une_extremite_la_longueur_est_dans_la_face() -> None:
+    # bout (normale X) : largeur selon Y, longueur selon Z (dans la face : emprise nulle), épaisseur
+    # sur la normale
+    _support, orientation = orientation_against(narrow(Y, Z, X, (100.0, 30.0)))
+    assert footprint(orientation, (60.0, 20.0)) == (60.0, 0.0)
+
+
+def test_emprise_contre_un_chant() -> None:
+    # chant (normale Y) : l'épaisseur reste selon Z (ligne 0 du repère d'appui), la largeur selon X
+    _support, orientation = orientation_against(narrow(Z, X, Y, (30.0, 800.0)))
+    assert footprint(orientation, (60.0, 20.0)) == (20.0, 60.0)
+
+
+def test_emprise_ne_depend_pas_du_sens_de_la_normale() -> None:
+    plus = orientation_against(narrow(X, Y, Z, (300.0, 60.0)))[1]
+    minus = orientation_against(narrow(X, Vec3(0, -1, 0), Vec3(0, 0, -1), (300.0, 60.0)))[1]
+    assert footprint(plus, (60.0, 20.0)) == footprint(minus, (60.0, 20.0))
+
+
+def test_emprise_section_nulle() -> None:
+    _support, orientation = orientation_against(narrow(X, Y, Z, (300.0, 60.0)))
+    assert footprint(orientation, (0.0, 0.0)) == (0.0, 0.0)
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        narrow(X, Y, Z, (300.0, 60.0)),
+        narrow(Y, Z, X, (60.0, 30.0)),
+        narrow(Z, X, Y, (30.0, 300.0)),
+    ],
+)
+@pytest.mark.parametrize(
+    "quarter",
+    [
+        ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
+        ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
+        ((-1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, 1.0)),
+        ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0)),
+    ],
+)
+def test_section_calee_tient_dans_l_etendue_utilisable(
+    target: FaceTarget, quarter: Matrix3
+) -> None:
+    """Quelle que soit la face et la rotation de la pièce qui la porte, une fois la section limitée
+    à l'étendue de la face, l'emprise de la nouvelle pièce ne la dépasse sur aucun axe."""
+    support, orientation = orientation_against(target, quarter)
+    section = face_section(support, quarter, orientation, target.extent, (100.0, 30.0))
+    sizes = footprint(orientation, section)
+    assert all(size <= extent + 1e-9 for size, extent in zip(sizes, target.extent, strict=True))

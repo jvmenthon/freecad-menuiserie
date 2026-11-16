@@ -6,11 +6,12 @@ cliqué dans la vue 3D. Formes Part en coordonnées globales, jamais modifiées 
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import Part
 
 from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Vec3
+from freecad.menuiserie.core.part_model import MIN_DIMENSION_MM
 from freecad.menuiserie.core.snap import FaceTarget, Frame
 from freecad.menuiserie.features.picked import PickedElement
 from freecad.menuiserie.features.snap_geometry import (
@@ -26,7 +27,15 @@ from freecad.menuiserie.features.snap_geometry import (
 if TYPE_CHECKING:
     from freecad.menuiserie.features.snap_targets import TargetReading
 
-__all__ = ["face_under_click", "fit_to_footprint", "inward_axes", "local_face_target"]
+_PROBE_INSET_MM: Final = 1e-4  # recul des sondes de l'épaisseur, au delà de la tolérance d'OCC
+
+__all__ = [
+    "NoRoomError",
+    "face_under_click",
+    "fit_to_footprint",
+    "inward_axes",
+    "local_face_target",
+]
 
 
 def inward_axes(
@@ -127,30 +136,37 @@ def _local_target(
     return FaceTarget(target.name, frame, extent, planar=True)
 
 
+class NoRoomError(Exception):
+    """Pas assez de place dans la face (pointe aiguë) pour poser la pièce."""
+
+
 def fit_to_footprint(
     target: FaceTarget, face: Any, sizes: tuple[float, float]
 ) -> FaceTarget | None:
     """``target`` resserré pour qu'une pièce d'emprise ``sizes`` (selon ses deux axes), posée dans
     son coin, reste dans ``face`` : une arête oblique coupe la face avant la fin de la tranche
     mesurée au clic. L'étendue est l'intersection des tranches prises sur toute l'épaisseur de
-    la pièce ; le coin glisse jusqu'au bord. ``None`` si rien ne change ou si le calcul échoue."""
+    la pièce ; le coin glisse jusqu'au bord. ``None`` si rien ne change ou si le calcul échoue ;
+    :class:`NoRoomError` s'il ne reste pas la place d'une pièce."""
     frame = target.frame
-    origin, normal = to_vector(frame.origin), to_vector(frame.z)
-    axes, extent = (to_vector(frame.x), to_vector(frame.y)), list(target.extent)
+    extent = list(target.extent)
     try:
+        origin, normal = to_vector(frame.origin), to_vector(frame.z)
+        axes = (to_vector(frame.x), to_vector(frame.y))
         # d'abord l'axe où la pièce remplit l'étendue (le moins de marge) : celui que l'arête coupe
         for row in sorted((0, 1), key=lambda r: extent[r] - sizes[r]):
             along, across = axes[row], axes[1 - row]
             depth, length = min(sizes[1 - row], extent[1 - row]), extent[row]
             low, high = 0.0, length
-            for offset in (EPSILON, depth / 2.0, depth - EPSILON):
-                start = origin + across * max(offset, EPSILON) + along * (length / 2.0)
+            inset = min(_PROBE_INSET_MM, depth / 4.0)  # sondes un peu à l'intérieur des bords
+            for offset in (inset, depth / 2.0, depth - inset):
+                start = origin + across * offset + along * (length / 2.0)
                 start += normal * (face.CenterOfMass - start).dot(normal)
                 span = _span_through(face, start, along)
                 if span is not None:
                     low, high = max(low, length / 2.0 + span[0]), min(high, length / 2.0 + span[1])
-            if high - low <= EPSILON:
-                return None
+            if not high - low >= MIN_DIMENSION_MM:  # aussi vrai pour NaN
+                raise NoRoomError(f"{high - low:.3f} mm de place le long de l'arête")
             origin, extent[row] = origin + along * low, high - low
     except ERRORS:
         return None

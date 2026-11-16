@@ -187,3 +187,41 @@ def test_largeur_mesuree_sur_la_face_exterieure_de_la_brute(document: Any) -> No
     recessed = face_at(host, (0, 0, -1), -6)
     _part, start = create_against(document, host, recessed, Vec3(300, 295, 6))
     assert round(start.width, 6) == 290
+
+
+def triangle(document: Any) -> Any:
+    """Prisme triangulaire isocèle (base 400, hauteur 100, épaisseur 50), converti en pièce."""
+    points = [App.Vector(*xy, 0) for xy in ((0, 0), (400, 0), (200, 100), (0, 0))]
+    source = document.addObject("Part::Feature", "Triangle")
+    source.Shape = Part.Face(Part.makePolygon(points)).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    return pieces_galbees.shaped(source)
+
+
+@pytest.mark.parametrize("click", [(100, 10), (200, 50), (5, 1), (395, 1)])
+def test_face_triangulaire_la_piece_reste_dans_la_face(
+    document: Any, click: tuple[int, int]
+) -> None:
+    """Face triangulaire (arêtes obliques) : la nouvelle pièce, calée au coin le plus proche du
+    clic, ne déborde pas de la face."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    part, _start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
+    top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
+    box = geometry.global_shape(part).BoundBox
+    slab = Part.makeBox(box.XLength, box.YLength, 1, App.Vector(box.XMin, box.YMin, 49))
+    assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
+
+
+@pytest.mark.parametrize("click", [(200, 99.99), (399.9, 0.01), (0.05, 0.02)])
+def test_clic_pres_d_une_pointe_pas_de_depart_perpendiculaire(
+    document: Any, click: tuple[float, float]
+) -> None:
+    """À moins de 0,1 mm d'un sommet aigu il ne reste pas la place d'une pièce : pas de départ
+    perpendiculaire (l'accrochage habituel s'applique), la pièce ne déborde pas de la face."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    reading = targets.read_targets(
+        [picked.PickedElement(angle, face, Vec3(click[0], click[1], 50))], ABOVE
+    )
+    assert perpendicular.perpendicular_start(reading) is None

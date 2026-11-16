@@ -37,7 +37,11 @@ from freecad.menuiserie.features.snap_geometry import (
     owner_shape,
     to_vector,
 )
-from freecad.menuiserie.features.snap_local_face import fit_to_footprint, local_face_target
+from freecad.menuiserie.features.snap_local_face import (
+    NoRoomError,
+    fit_to_footprint,
+    local_face_target,
+)
 from freecad.menuiserie.features.snap_targets import TargetReading
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
@@ -102,6 +106,33 @@ def _blank_face(reading: TargetReading, blank: DocumentObject) -> Any:
     return best[1] if best is not None else None
 
 
+def _fit_in_face(
+    reading: TargetReading,
+    blank_face: Any | None,
+    frames: tuple[Any, Any, Orientation],
+    section: tuple[float, float],
+) -> tuple[TargetReading, float, float] | None:
+    """Lecture resserrée et section (largeur, épaisseur) pour que la pièce tienne dans la face
+    brute ``blank_face`` (une arête oblique la coupe parfois avant la fin de la tranche cliquée) ;
+    ``None`` s'il ne reste pas la place d'une pièce. ``frames`` : repère d'appui, rotation de la
+    pièce porteuse, orientation de la nouvelle pièce."""
+    support, owner, orientation = frames
+    target = reading.targets[0]
+    width, thickness = face_section(support, owner, orientation, target.extent, section)
+    for _ in range(_FIT_PASSES if blank_face is not None else 0):
+        try:
+            fitted = fit_to_footprint(
+                target, blank_face, footprint(orientation, (width, thickness))
+            )
+        except NoRoomError:
+            return None
+        if fitted is None:
+            break
+        reading, target = replace(reading, targets=(fitted,)), fitted
+        width, thickness = face_section(support, owner, orientation, target.extent, section)
+    return reading, width, thickness
+
+
 def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     """Départ perpendiculaire à la face lue, ``None`` s'il ne s'applique pas."""
     if len(reading.targets) != 1 or not reading.elements:
@@ -118,23 +149,16 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     if local is not None:
         reading, target = replace(reading, targets=(local,)), local
     support = support_rotation(reading.targets)
-    if support is None:
-        return None
     owner = rigid_transform(blank.getGlobalPlacement()).rotation
-    orientation = perpendicular_orientation(support, owner)
-    if orientation is None:
+    orientation = None if support is None else perpendicular_orientation(support, owner)
+    if support is None or orientation is None:
         return None
     dimensions = dimensions_of(blank)
     section = (dimensions.width, dimensions.thickness)
-    width, thickness = face_section(support, owner, orientation, target.extent, section)
-    for _ in range(_FIT_PASSES):  # la pièce doit tenir dans la face (arête oblique)
-        fitted = None
-        if local is not None and blank_face is not None:
-            fitted = fit_to_footprint(
-                target, blank_face, footprint(orientation, (width, thickness))
-            )
-        if fitted is None:
-            break
-        reading, target = replace(reading, targets=(fitted,)), fitted
-        width, thickness = face_section(support, owner, orientation, target.extent, section)
+    fitted = _fit_in_face(
+        reading, blank_face if local is not None else None, (support, owner, orientation), section
+    )
+    if fitted is None:  # pointe aiguë : pas de départ perpendiculaire, accrochage habituel
+        return None
+    reading, width, thickness = fitted
     return PerpendicularStart(orientation, width, thickness, reading)
