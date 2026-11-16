@@ -14,7 +14,7 @@ lui-même. Aucun import de ``FreeCADGui``.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 import FreeCAD as App
@@ -99,19 +99,20 @@ class FollowPlan:
     before: PlacedBlock
     lowered: bool
     moved: tuple[DocumentObject, ...]
-    kept: dict[str, list[DocumentObject]]
+    kept: Mapping[str, tuple[DocumentObject, ...]]
 
     def shift(self, delta: float) -> App.Vector:
         """Translation des pièces qui suivent pour un écart d'épaisseur ``delta`` mm."""
         vector = follow_shift(self.before, -delta if self.lowered else delta)
         return App.Vector(vector.x, vector.y, vector.z)
 
-    def apply(self, delta: float) -> None:
-        """Pièces qui suivent déplacées de l'écart ``delta``, depuis leur placement actuel."""
+    def apply(self, delta: float, pieces: Iterable[DocumentObject] | None = None) -> None:
+        """Pièces qui suivent (``pieces`` : certaines d'entre elles seulement) déplacées de
+        l'écart ``delta``, depuis leur placement actuel."""
         if delta == 0.0:
             return
         shift = self.shift(delta)
-        for piece in self.moved:
+        for piece in self.moved if pieces is None else pieces:
             shift_part(piece, shift)
 
     def messages(self, part: DocumentObject) -> list[str]:
@@ -148,7 +149,8 @@ def follow_plan(
             kept.setdefault(reason, []).append(root)
         else:
             moved.extend(piece for piece in group if piece not in moved)
-    return FollowPlan(before, lowered, tuple(moved), kept)
+    frozen = {reason: tuple(roots) for reason, roots in kept.items()}
+    return FollowPlan(before, lowered, tuple(moved), frozen)
 
 
 def follow_thickness(

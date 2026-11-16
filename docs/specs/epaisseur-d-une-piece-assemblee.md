@@ -21,6 +21,7 @@ Exemple : angle à queue d'aronde, H à plat (griffes), I debout (queues), I de 
 | Poignée de la face extérieure de I | H s'allonge en direct ; « « H » +12,00 mm » près de la souris ; message dans la vue rapport au relâchement |
 | Idem, H non modifiable | La poignée reste à 18 mm, « Butée : … » en rouge près de la souris |
 | Poignée de la face intérieure de I | I s'épaissit vers l'intérieur, rien d'autre ne bouge |
+| Poignée de la face haute, pièce posée dessus (tenon) | Elle monte avec la face, usinages à jour dans l'aperçu ; Échap la rend |
 | Échap pendant le glissement | Tout revient, H compris |
 
 Critères d'acceptation : E1 encadré et choix ci-dessus (aussi quand rien n'est défait, avec

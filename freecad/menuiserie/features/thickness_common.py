@@ -37,6 +37,7 @@ __all__ = [
     "blocker",
     "extend_part",
     "has_joints",
+    "is_alive",
     "is_assembled_isolated",
     "joints_of",
     "length_text",
@@ -64,6 +65,15 @@ _SHAPED: Final = QT_TRANSLATE_NOOP(
 _BOUND: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{label} : cote ou position pilotée par une expression."
 )
+
+
+def is_alive(obj: DocumentObject) -> bool:
+    """Vrai si ``obj`` existe encore dans son document (faux pour un objet supprimé, dont la
+    lecture lève ``ReferenceError``, ``RuntimeError`` ou ``TypeError``)."""
+    try:
+        return obj.Document.getObject(obj.Name) is not None
+    except (ReferenceError, RuntimeError, TypeError, AttributeError):
+        return False
 
 
 def joints_of(part: DocumentObject) -> list[DocumentObject]:

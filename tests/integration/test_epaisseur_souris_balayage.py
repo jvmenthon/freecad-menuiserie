@@ -76,3 +76,140 @@ def test_apercu_recalcule_les_pieces_usinees(document: Any) -> None:
     assert machined_guest.Shape.BoundBox.XLength == pytest.approx(30)
     drag.restore(memento)
     assert machined_host.Shape.BoundBox.XLength == pytest.approx(400)
+
+
+def _z(part: Any) -> float:
+    return float(part.Placement.Base.z)
+
+
+def test_piece_posee_bloquee_reste_en_place_pendant_le_glissement(document: Any) -> None:
+    """I posée mais pilotée par une expression : elle ne suit pas, rien n'est écrit de travers."""
+    host, guest, _joint = corner(document)
+    guest.setExpression("Placement.Base.z", "18 mm")
+    document.recompute()
+    memento = drag.begin_drag(host)
+    for value in (25, 12, 30):
+        drag.resize_part(memento, "Thickness", value, Vec3(0, 0, 0))
+        assert _z(guest) == pytest.approx(18)
+    messages = drag.end_drag(memento)
+    assert not any("suivent sa face" in m for m in messages)
+    assert guest.ExpressionEngine, "expression perdue"
+
+
+def test_piece_posee_membre_d_ensemble_reste_en_place(document: Any) -> None:
+    host, guest, _joint = corner(document)
+    api = pytest.importorskip("freecad.menuiserie.api")
+    api.make_furniture([guest], "Meuble")
+    document.recompute()
+    memento = drag.begin_drag(host)
+    drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, 0))
+    assert _z(guest) == pytest.approx(18)
+    drag.restore(memento)
+    assert _z(guest) == pytest.approx(18) and host.Thickness.Value == 18
+
+
+def test_chaine_de_pieces_posees_suit_toute_la_chaine(document: Any) -> None:
+    """K est assemblée à I, elle-même posée sur H : toutes montent avec la face de H."""
+    from tests.integration.test_epaisseur_cote_limites import two_hosts
+
+    host, top, guest, joint, joint2 = two_hosts(document)
+    z_top = _z(top)
+    memento = drag.begin_drag(host)
+    drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
+    assert _z(guest) == pytest.approx(30) and _z(top) == pytest.approx(z_top + 12)
+    drag.resize_part(memento, "Thickness", 10, Vec3(0, 0, 0))
+    assert _z(guest) == pytest.approx(10) and _z(top) == pytest.approx(z_top - 8)
+    drag.restore(memento)
+    assert _z(guest) == pytest.approx(18) and _z(top) == pytest.approx(z_top)
+    memento = drag.begin_drag(host)
+    drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, 0))
+    drag.end_drag(memento)
+    assert holds(document, joint) and holds(document, joint2)
+
+
+def test_face_basse_ne_deplace_pas_la_piece_posee_sur_la_face_haute(document: Any) -> None:
+    host, guest, joint = corner(document)
+    memento = drag.begin_drag(host)
+    drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, -12), lowered=True)
+    assert _z(guest) == pytest.approx(18)
+    drag.end_drag(memento)
+    assert holds(document, joint)
+
+
+def test_longueur_et_largeur_ne_deplacent_aucune_piece(document: Any) -> None:
+    host, guest, _joint = corner(document)
+    memento = drag.begin_drag(host)
+    drag.resize_part(memento, "Length", 450, Vec3(0, 0, 0))
+    drag.resize_part(memento, "Width", 160, Vec3(0, 0, 0))
+    assert memento.follows.parts() == []
+    assert _z(guest) == pytest.approx(18)
+    drag.restore(memento)
+
+
+def test_echap_apres_plusieurs_pas_rend_la_piece_posee_exactement(document: Any) -> None:
+    host, guest, joint = corner(document)
+    start = App.Placement(guest.Placement)
+    memento = drag.begin_drag(host)
+    for value, lowered in ((25, False), (30, True), (8, False), (40, True)):
+        shift = Vec3(0, 0, 18 - value) if lowered else Vec3(0, 0, 0)
+        drag.resize_part(memento, "Thickness", value, shift, lowered=lowered)
+    drag.restore(memento)
+    assert guest.Placement.isSame(start, 1e-9)
+    assert holds(document, joint)
+
+
+def test_exception_pendant_le_suivi_ne_laisse_rien_a_moitie_ecrit(
+    document: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from tests.integration.test_epaisseur_cote_limites import two_hosts
+
+    thickness_follow = pytest.importorskip("freecad.menuiserie.features.thickness_follow")
+    host, top, guest, _joint, _joint2 = two_hosts(document)
+    original = thickness_follow.shift_part
+    calls: list[str] = []
+
+    def failing(piece: Any, shift: Any) -> None:
+        calls.append(piece.Name)
+        if len(calls) == 2:
+            raise RuntimeError("panne simulée")
+        original(piece, shift)
+
+    memento = drag.begin_drag(host)
+    monkeypatch.setattr(thickness_follow, "shift_part", failing)
+    with pytest.raises(RuntimeError):
+        drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
+    assert len(calls) == 2
+    assert _z(guest) == pytest.approx(18) and _z(top) == pytest.approx(400)
+
+
+def test_piece_posee_supprimee_pendant_le_glissement(document: Any) -> None:
+    host, guest, _joint = corner(document)
+    memento = drag.begin_drag(host)
+    drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, 0))
+    document.removeObject(guest.Name)
+    try:
+        drag.resize_part(memento, "Thickness", 12, Vec3(0, 0, 0))
+    except (ReferenceError, ValueError, RuntimeError, App.Base.FreeCADError):
+        drag.restore(memento)
+    assert host.Thickness.Value in (12, 18)
+
+
+def test_apercu_assemblage_qui_ne_tient_plus_ne_recalcule_rien(
+    document: Any, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    blank_preview = pytest.importorskip("freecad.menuiserie.features.blank_preview")
+    host, guest, _joint = corner(document)
+    machined_host = machined.machined_part_of(host)
+    assert machined_host is not None
+
+    def broken(_joint: Any) -> None:
+        raise ValueError("ne tient plus")
+
+    monkeypatch.setattr(blank_preview, "plan_for", broken)
+    capfd.readouterr()
+    memento = drag.begin_drag(guest)
+    drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
+    assert machined_host.Shape.BoundBox.XLength == pytest.approx(400)  # pas recalculée
+    out = capfd.readouterr()
+    assert "Traceback" not in out.out + out.err
+    drag.restore(memento)

@@ -53,6 +53,12 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    souris (« « H » +12,00 mm ») et le relâchement l'écrit dans la vue rapport. Si elle ne peut
    pas l'être (mêmes raisons qu'au point 2), la poignée **s'arrête** à l'épaisseur du début
    (butée, message en rouge près de la souris) : il reste à tirer l'autre face. Échap rend tout.
+   Les pièces **posées** sur la face tirée (règle de #133, assemblages de proche en proche) la
+   **suivent aussi en direct**, sans être prolongées ; celles que #133 laisse en place (bloquées,
+   membres d'ensemble) restent en place. Échap les rend à leur placement du début ; une pièce
+   supprimée pendant le glissement est ignorée. L'aperçu recalcule les assemblages qui tiennent
+   (chacun une fois par pas), puis la pièce usinée, de la pièce tirée et de toutes les pièces
+   suivies. Au relâchement, la vue rapport donne le même message qu'en #133.
 5. Un **membre d'ensemble** garde le comportement de l'ADR 0019 (l'ensemble relie ses membres) ;
    l'éditeur de propriétés et les scripts gardent celui de #133 (face haute, sans question).
 
@@ -63,8 +69,10 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
   en proche, une seule raison « ne peut pas changer » partagée avec #133, écritures sans
   réaction), `features/thickness_choice.py` (`ThicknessEdit`, choix), `features/thickness_texts.py`
   (phrases complètes traduisibles de l'encadré), `features/thickness_drag.py` (souris,
-  `FaceFollows`), `gui/task_panels/wood_part_conflict.py` (encadré), `features/part_drag.resize_part`
-  (renvoie la raison d'une butée).
+  `FaceFollows`), `features/thickness_follow.py` (`FollowPlan`, `follow_plan` de #133, réutilisés
+  par `DragFollow`), `features/blank_preview.py` (aperçu des brutes pendant un geste),
+  `gui/task_panels/wood_part_conflict.py` (encadré), `features/part_drag.resize_part` (renvoie la
+  raison d'une butée).
 - Prolonger l'autre pièce modifie une pièce que l'utilisateur n'a pas touchée : c'est dit dans
   l'encadré (panneau) ou près de la souris et dans la vue rapport (poignées).
 - Les scénarios QTest de ces comportements sont ajoutés par le fil QTest (ADR 0059).

@@ -10,12 +10,15 @@ mises de côté au début ; au relâchement tout l'ensemble est relié (ADR 0019
 formule de l'utilisateur n'est jamais retirée : elle rend l'axe non glissable
 (:class:`DragLimits`). L'épaisseur ne se tire que sur le massif (Q4, amendée le 2026-10-26) ; pour
 un membre d'ensemble elle est traitée comme une épaisseur saisie dans le panneau
-(:func:`_relink_thickness`). Aucun import de ``FreeCADGui`` (transaction, vue rapport : ``gui/``).
+(:func:`_relink_thickness`). Aucun import de ``FreeCADGui`` ; la transaction et la vue rapport
+sont l'affaire de ``gui/``.
 
 Points d'extension :
 
-- pièce en bois (``ShapedPart``, #87) : cotes du dessin, pas de poignée (:func:`can_resize`) ;
-  elle se déplace par ``Placement`` ; la famille ne décide que de l'épaisseur (:func:`_solid`) ;
+- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin (sorties), donc pas de
+  poignée (:func:`can_resize`, seul endroit qui décide des poignées d'une pièce) ; elle se
+  déplace comme une pièce de bois, par ``Placement`` ; la famille (massif ou panneau) ne décide
+  que de l'épaisseur (:func:`_solid`) ;
 - Distance gardée (DI-c, B6) : au relâchement, la ``Value`` des Distances de la pièce prend la
   distance nouvelle (:func:`end_drag`, avant la liaison de l'ensemble) ; Échap la rétablit.
 """
@@ -30,6 +33,7 @@ import FreeCAD as App
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import THICKNESS_AXIS
+from freecad.menuiserie.features.blank_preview import preview_blanks, recompute_blank
 from freecad.menuiserie.features.distance import AXES, distances_touching
 from freecad.menuiserie.features.drag_joints import (
     DragCancelledError,
@@ -50,7 +54,7 @@ from freecad.menuiserie.features.furniture_edits import thickness_notices
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint, plan_for
+from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
@@ -218,31 +222,6 @@ def write_placement(raw: DocumentObject, placement: App.Placement) -> None:
         machined.Placement = placement
 
 
-def _recompute_machined(raw: DocumentObject) -> None:
-    """Recalcule les assemblages et la pièce usinée de ``raw`` (aperçu du glissement), sauf si
-    l'un ne tient plus (sa trace serait imprimée à chaque image) : le recalcul du document au
-    relâchement le reprend et prévient (:func:`end_drag`, B7)."""
-    machined = machined_part_of(raw)
-    if machined is None:
-        return
-    joints = list(getattr(machined, "Joints", ()))
-    for joint in joints:
-        try:
-            plan_for(joint)
-        except ValueError:
-            return
-    for joint in joints:
-        joint.recompute()
-    machined.recompute()
-
-
-def recompute_blank(raw: DocumentObject) -> None:
-    """Aperçu de la seule brute ``raw`` (et de sa pièce usinée) pendant un geste, sans recalcul du
-    document : ce que font la poignée de taille et le champ d'angle du panneau (RO-c)."""
-    raw.recompute()
-    _recompute_machined(raw)
-
-
 def _shifted(memento: DragMemento, shift: Vec3) -> App.Placement:
     """Placement du début décalé de ``shift`` (mm, repère de la pièce)."""
     start = memento.placement
@@ -293,15 +272,12 @@ def resize_part(
     allowed = drag_limits(memento.part).resizable_axes
     if prop not in SIZE_PROPS or SIZE_PROPS.index(prop) not in allowed:
         raise ValueError(translated(_FIXED_SIZE, {"label": str(memento.part.Label)}))
-    raw = memento.part
-    thick = prop == "Thickness"
-    stop = _resize_thickness(memento, value, origin_shift, lowered) if thick else ""
-    if not thick:
+    if prop == "Thickness":
+        stop = _resize_thickness(memento, value, origin_shift, lowered)
+    else:
+        stop = ""
         _write_size(memento, prop, value, origin_shift)
-    raw.recompute()
-    _recompute_machined(raw)
-    for piece in memento.follows.parts():  # pièces suivies : usinages à jour (ADR 0060)
-        _recompute_machined(piece)
+    preview_blanks((memento.part, *memento.follows.parts()))  # pièces suivies : ADR 0060
     return stop
 
 
@@ -320,8 +296,7 @@ def restore(memento: DragMemento) -> None:
         if distance is not None and distance.Value.Value != value:
             distance.Value = value
     try:
-        raw.recompute()
-        _recompute_machined(raw)
+        recompute_blank(raw)
     finally:  # pièces suivies rendues même si l'aperçu échoue (ADR 0060)
         memento.follows.restore(recompute_blank)
 

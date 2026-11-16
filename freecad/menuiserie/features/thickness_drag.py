@@ -41,15 +41,15 @@ from freecad.menuiserie.features.thickness_common import (
     blocker,
     extend_part,
     has_joints,
+    is_alive,
     joints_of,
     length_text,
     other_part,
     quoted,
     restore_state,
-    shift_part,
     size_state,
 )
-from freecad.menuiserie.features.thickness_follow import follow_plan
+from freecad.menuiserie.features.thickness_follow import FollowPlan, follow_plan
 
 __all__ = ["DragFollow", "FaceFollows", "drag_follow"]
 
@@ -99,12 +99,17 @@ class DragFollow:
         self._before = placed_blank(part)
         self._delta = 0.0
         self.followers = self._find()
+        self._plan = follow_plan(part, self.old, lowered=lowered)  # posées sur la face (#133)
+        self._resting = self._rest_of(self._plan)
+
+    def _rest_of(self, plan: FollowPlan | None) -> dict[str, tuple[DocumentObject, App.Placement]]:
+        """Placement du début, par nom, des pièces de ``plan`` qui suivent la face sans
+        s'allonger (celles qui ne sont pas prolongées)."""
         names = {follower.part.Name for follower in self.followers}
-        plan = follow_plan(part, self.old, lowered=lowered)  # posées sur la face (#133)
-        self._plan = plan
-        self._resting = {  # placement du début des pièces qui suivent la face sans s'allonger
+        moved = plan.moved if plan is not None else ()
+        return {
             piece.Name: (piece, App.Placement(piece.Placement))
-            for piece in (plan.moved if plan is not None else ())
+            for piece in moved
             if piece.Name not in names
         }
 
@@ -150,18 +155,21 @@ class DragFollow:
         return list(found.values())
 
     def restore(self) -> None:
-        """Pièces suivies rendues à leur état du début."""
+        """Pièces suivies rendues à leur état du début (une pièce supprimée entre-temps est
+        ignorée)."""
         for follower in self.followers:
-            restore_state(follower.part, follower.sizes, follower.placement)
+            if is_alive(follower.part):
+                restore_state(follower.part, follower.sizes, follower.placement)
         for piece, placement in self._resting.values():
-            if not piece.Placement.isSame(placement, 1e-9):
+            if is_alive(piece) and not piece.Placement.isSame(placement, 1e-9):
                 write_placement(piece, placement)
         self._delta = 0.0
 
     @property
     def parts(self) -> list[DocumentObject]:
         """Pièces que le suivi écrit : prolongées ou déplacées (à recalculer pour l'aperçu)."""
-        return [f.part for f in self.followers] + [p for p, _ in self._resting.values()]
+        pieces = [f.part for f in self.followers] + [p for p, _ in self._resting.values()]
+        return [piece for piece in pieces if is_alive(piece)]
 
     def follow(self, delta: float) -> str:
         """Écart ``delta`` (mm) de l'épaisseur tirée : les pièces suivent ; renvoie la raison de
@@ -178,10 +186,8 @@ class DragFollow:
                 return translated(_STOP, {"reason": reason})
         for follower in self.followers:
             extend_part(follower.part, follower.extension, delta)
-        if self._resting and self._plan is not None:  # posées sur la face : elles la suivent
-            shift = self._plan.shift(delta)
-            for piece, _ in self._resting.values():
-                shift_part(piece, shift)
+        if self._plan is not None:  # posées sur la face : elles la suivent
+            self._plan.apply(delta, [piece for piece, _ in self._resting.values()])
         self._delta = delta
         return ""
 
@@ -242,8 +248,9 @@ class FaceFollows:
     def follow_dragged_face(
         self, part: DocumentObject, delta: float, lowered: bool, recompute: Recompute
     ) -> str:
-        """Pièces à fleur de la face tirée prolongées de ``delta`` mm, aperçu par ``recompute`` ;
-        renvoie la raison traduite d'une butée (rien n'est alors prolongé)."""
+        """Pièces à fleur de la face tirée prolongées de ``delta`` mm ; renvoie la raison traduite
+        d'une butée (rien n'est alors prolongé). L'aperçu des pièces écrites (:meth:`parts`) est
+        à la charge de l'appelant ; ``recompute`` sert si le suivi échoue et rend tout."""
         for other in self._all():  # autre face tirée plus tôt : rien ne la suit plus
             if other.lowered != lowered:
                 other.restore()
@@ -252,8 +259,6 @@ class FaceFollows:
             return ""
         try:
             stop = follow.follow(delta)
-            for piece in follow.parts:
-                recompute(piece)
         except Exception:  # jamais de pièce suivie à moitié prolongée
             self.restore(recompute)
             raise
