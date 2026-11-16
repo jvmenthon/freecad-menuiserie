@@ -79,6 +79,14 @@ def preparer(nom: str) -> Any:
     return doc
 
 
+def passer_a(doc: Any) -> None:
+    """Clic sur l'onglet de la vue 3D de ``doc`` : il devient le document actif."""
+    vue_3d_active(doc)
+    traiter_les_evenements()
+    if App.ActiveDocument is None or App.ActiveDocument.Name != doc.Name:
+        raise AssertionError(f"document {doc.Name} non actif après le clic sur son onglet")
+
+
 def fermer(doc: Any) -> None:
     """Panneau éventuel annulé, sélection vidée, document fermé."""
     if Gui.Control.activeDialog():
