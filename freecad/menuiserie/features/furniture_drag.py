@@ -274,7 +274,7 @@ def _full_notices(memento: FurnitureMemento) -> list[Notice]:
 def _relink(memento: FurnitureMemento) -> list[Notice]:
     """Relie l'ensemble parent d'un sous-ensemble d'après sa géométrie nouvelle, après avoir
     recalé ses cotes sur l'enveloppe de ses membres, puis de même en remontant (ADR 0049, ADR
-    0063) ; en cas d'erreur, le parent et l'ensemble reviennent (:func:`restore`) et l'erreur est
+    0065) ; en cas d'erreur, le parent et l'ensemble reviennent (:func:`restore`) et l'erreur est
     relancée. Le document est recalculé avant l'enveloppe : les copies d'une répétition du
     sous-ensemble (membres du parent) suivent leur source par expression et seraient sinon lues à
     leur ancienne place."""

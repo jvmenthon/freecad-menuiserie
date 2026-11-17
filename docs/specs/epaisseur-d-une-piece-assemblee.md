@@ -32,8 +32,8 @@ Critères d'acceptation : E1 encadré et choix ci-dessus (aussi quand rien n'est
 « Laisser en l'état ») ; E2 choix impossible grisé avec sa raison, rien d'écrit si aucun ne tient ;
 E3 saisies successives sans cumul ; E4 une entrée d'annulation ; E5 souris : l'autre pièce suit,
 butée si elle ne peut pas, Échap rend tout ; E6 membre d'ensemble assemblé : mêmes choix, ensemble
-relié d'après le résultat, boîtes recalées jusqu'au plus haut parent (jv, 2026-11-17) ; membre sans assemblage, poignée d'un membre et
-éditeur de propriétés inchangés.
+relié d'après le résultat, boîtes recalées jusqu'au plus haut parent (jv, 2026-11-17) ; membre
+sans assemblage, poignée d'un membre et éditeur de propriétés inchangés.
 
 ## 2. Std Part d'ensemble supprimé en gardant son contenu
 

@@ -5,30 +5,20 @@
 Le temps de l'encadré, les liaisons de l'atelier des membres de l'ensemble sont mises de côté
 (:class:`MemberFreedom`) : les choix déplacent ou prolongent ses membres comme des pièces seules,
 sans qu'un recalcul ne les ramène. À la fin (« OK », autre saisie), la boîte de l'ensemble est
-recalée sur l'enveloppe de ses membres (ADR 0049) et tous ses membres sont reliés d'après la
-géométrie obtenue (:func:`~freecad.menuiserie.features.furniture_relink.bind_furniture`). Tout se
-passe dans la transaction du panneau : « Annuler » rend les liaisons. Aucun import de
-``FreeCADGui``.
+recalée sur l'enveloppe de ses membres et ses membres sont reliés d'après la géométrie obtenue,
+puis de même pour chaque parent (ADR 0065,
+:func:`~freecad.menuiserie.features.furniture_reframe.relink_framed`). Tout se passe dans la
+transaction du panneau : « Annuler » rend les liaisons. Aucun import de ``FreeCADGui``.
 """
 
 from __future__ import annotations
 
-from typing import Final
-
-from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_bindings import members_of, notice_messages
 from freecad.menuiserie.features.furniture_reframe import KeptBindings, relink_framed
-from freecad.menuiserie.features.i18n import translated
 
 __all__ = ["MemberFreedom"]
-
-_NOT_RELINKED: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "L'ensemble n'a pas pu être relié après le changement d'épaisseur : ses liaisons d'avant "
-    "sont rétablies et le recalcul replace ses pièces d'après elles. {error}",
-)
 
 
 class MemberFreedom:
@@ -59,14 +49,16 @@ class MemberFreedom:
     def finish(self) -> list[str]:
         """Boîte de l'ensemble recalée sur ses membres, membres reliés d'après la géométrie
         actuelle ; renvoie les avertissements. Si l'ensemble ne peut pas être relié (cycle avec
-        une formule de l'utilisateur, par exemple), sa boîte et ses liaisons d'avant sont rendues
-        et ``ValueError`` traduite le dit. Une seule fois : sans effet ensuite."""
+        une formule de l'utilisateur, par exemple), ses boîtes et ses liaisons d'avant sont
+        rendues et la ``ValueError`` traduite de
+        :func:`~freecad.menuiserie.features.furniture_reframe.relink_framed` est relancée. Une
+        seule fois : sans effet ensuite."""
         if self.furniture is None or not self._aside:
             return []
         try:
             messages = list(notice_messages(relink_framed(self.furniture)))
-        except Exception as error:  # pylint: disable=broad-exception-caught  # rendu, relevé
+        except Exception:  # pylint: disable=broad-exception-caught  # rendu puis relevé
             self._give_back()
-            raise ValueError(translated(_NOT_RELINKED, {"error": str(error)})) from error
+            raise  # ValueError traduite par relink_framed
         self._aside = []
         return messages

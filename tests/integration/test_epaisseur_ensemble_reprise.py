@@ -42,7 +42,7 @@ def test_ensemble_non_relie_retrouve_ses_liaisons(
         raise ValueError("cycle simulé")
 
     monkeypatch.setattr(reframe, "bind_furniture", cycle)
-    with pytest.raises(ValueError, match="liaisons d'avant"):
+    with pytest.raises(ValueError, match="cycle simulé"):
         edit.finish()
     assert _liaisons(bureau) == avant
     assert bureau.furniture.Width.Value == pytest.approx(1200)  # boîte rendue

@@ -39,7 +39,7 @@ from freecad.menuiserie.features.furniture_drag_state import (
     write_std_placement,
 )
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
-from freecad.menuiserie.features.part_drag import write_placement
+from freecad.menuiserie.features.raw_placement import write_placement
 
 __all__ = ["frame_of", "grow", "member_envelope", "reframe", "restore_frame"]
 
@@ -174,22 +174,20 @@ def _shift_contents(furniture: DocumentObject, offset: Vec3) -> None:
     """Std Part du sous-ensemble ``furniture`` avancé de ``offset`` (repère du Std Part) et ses
     membres reculés d'autant : rien ne bouge dans la vue."""
     part = std_part_of(furniture)
-    if part is None or offset == Vec3(0.0, 0.0, 0.0):
+    if part is None or max(abs(offset.x), abs(offset.y), abs(offset.z)) <= TOLERANCE_MM:
         return
     back = App.Vector(-offset.x, -offset.y, -offset.z)
     for member in members_of(furniture):
         if is_furniture(member):
             inner = std_part_of(member)
             if inner is not None:
-                moved = App.Placement(inner.Placement)
-                moved.Base = moved.Base + back
-                write_std_placement(inner, moved)
-            continue
-        if "Placement" not in member.PropertiesList:  # membre sans position : rien à décaler
-            continue
-        moved = App.Placement(member.Placement)
-        moved.Base = moved.Base + back
-        write_placement(member, moved)
+                write_std_placement(inner, _moved(inner.Placement, back))
+        elif "Placement" in member.PropertiesList:  # membre sans position : rien à décaler
+            write_placement(member, _moved(member.Placement, back))
     start = App.Placement(part.Placement)
     ahead = start.Rotation.multVec(App.Vector(offset.x, offset.y, offset.z))
     write_std_placement(part, App.Placement(start.Base + ahead, start.Rotation))
+
+
+def _moved(placement: App.Placement, shift: App.Vector) -> App.Placement:
+    return App.Placement(placement.Base + shift, placement.Rotation)

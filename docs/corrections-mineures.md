@@ -186,4 +186,4 @@ de répétitions m5) sont corrigés.
 
 | Id | Niveau | Où | Constat | Piste |
 |----|--------|----|---------|-------|
-| br1 | mineur | `features/furniture_drag.py` (`_free_to_turn`) | `api.rotate_furniture` refuse un sous-ensemble dont le Std Part porte la liaison de l'atelier `Placement.Base.x` : elle est prise pour une formule de l'utilisateur (comportement antérieur à l'ADR 0065). | Exclure les liaisons de l'atelier (`workshop_expressions`) du contrôle, avec un test. |
+| br1 | mineur | `features/furniture_drag.py` (`_free_to_turn`) | `api.rotate_furniture` refuse un sous-ensemble dont le Std Part porte la liaison de l'atelier `Placement.Base.x` : elle est prise pour une formule de l'utilisateur (comportement antérieur, ni causé ni aggravé par l'ADR 0065). | Exclure les liaisons de l'atelier (`workshop_expressions`) du contrôle, avec un test. |

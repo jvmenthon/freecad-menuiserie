@@ -32,7 +32,7 @@ from freecad.menuiserie.features.furniture_drag_state import write_std_placement
 from freecad.menuiserie.features.furniture_envelope import frame_of, reframe, restore_frame
 from freecad.menuiserie.features.furniture_relink import bind_furniture
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.part_drag import write_placement
+from freecad.menuiserie.features.raw_placement import write_placement
 from freecad.menuiserie.features.thickness_common import is_alive
 
 __all__ = ["KeptBindings", "relink_framed"]
@@ -46,7 +46,9 @@ _NOT_RELINKED: Final = QT_TRANSLATE_NOOP(
 
 class KeptBindings:
     """Liaisons de l'atelier d'un membre (expressions et enregistrement ``FurnitureBindings``),
-    gardées pour être rendues si l'ensemble ne peut pas être relié."""
+    gardées pour être rendues si l'ensemble ne peut pas être relié. Utilisée deux fois sur un
+    même membre pendant l'encadré d'épaisseur (mise de côté par ``MemberFreedom``, instantané de
+    :func:`relink_framed`) : rendre est idempotent, l'instantané rend l'état mis de côté."""
 
     def __init__(self, member: DocumentObject) -> None:
         self.member = member

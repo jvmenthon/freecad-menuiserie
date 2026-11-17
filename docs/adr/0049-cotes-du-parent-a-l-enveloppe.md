@@ -28,7 +28,9 @@ boîte ne l'englobe plus (constaté le 2026-11-11).
    recalculées d'après la géométrie actuelle (comme « Relier les pièces »). Les pièces liées aux
    cotes du parent ne suivront ces nouvelles cotes qu'au prochain changement de taille.
 3. *(Remplacé par l'[ADR 0065](0065-boites-toujours-recalees.md) le 2026-11-17 : les
-   sous-ensembles sont recalés aussi, en avançant leur Std Part.)* Seul un ensemble **de plus haut niveau** est recalé : la position d'un sous-ensemble est portée
+   sous-ensembles sont recalés aussi, en avançant leur Std Part.)*
+
+   Seul un ensemble **de plus haut niveau** est recalé : la position d'un sous-ensemble est portée
    par son Std Part avec un `Origin` nul (ADR 0038), qu'un recalage casserait. Un parent n'est pas
    recalé non plus quand une formule autre qu'une liaison de l'atelier pilote son `Origin` ou une
    cote, **ou les lit** : répétition « Suivre le redimensionnement » (ADR 0043), formule de

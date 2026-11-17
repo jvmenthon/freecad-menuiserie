@@ -49,11 +49,13 @@ from freecad.menuiserie.features.furniture_bindings import (
     workshop_expressions,
 )
 from freecad.menuiserie.features.furniture_edits import thickness_notices
+from freecad.menuiserie.features.furniture_reframe import relink_framed
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
-from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
+from freecad.menuiserie.features.machined_part import blank_of
+from freecad.menuiserie.features.raw_placement import write_placement
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
 from freecad.menuiserie.features.thickness_common import SIZE_PROPS, restore_state
@@ -209,17 +211,6 @@ def begin_drag(part: DocumentObject) -> DragMemento:
     )
 
 
-def write_placement(raw: DocumentObject, placement: App.Placement) -> None:
-    """Écrit ``placement`` dans la brute ``raw``, puis dans sa pièce usinée (affichage sans
-    recalcul). Commun au glissement et à la rotation (``part_rotate``)."""
-    with writing(raw):
-        if raw.Placement != placement:
-            raw.Placement = placement
-    machined = machined_part_of(raw)
-    if machined is not None and machined.Placement != placement:
-        machined.Placement = placement
-
-
 def _shifted(memento: DragMemento, shift: Vec3) -> App.Placement:
     """Placement du début décalé de ``shift`` (mm, repère de la pièce)."""
     start = memento.placement
@@ -327,11 +318,6 @@ def _relink(memento: DragMemento) -> list[str]:
         follow_distances(furniture, memento.distances.keys())
         if thicker:
             return _relink_thickness(memento, furniture)
-        # import différé : furniture_reframe → furniture_envelope → furniture_drag_state → ici
-        from freecad.menuiserie.features.furniture_reframe import (
-            relink_framed,
-        )
-
         return list(notice_messages(relink_framed(furniture)))  # boîtes recalées (ADR 0065)
     except ValueError:
         restore(memento)

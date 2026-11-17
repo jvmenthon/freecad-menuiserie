@@ -81,9 +81,9 @@ def add_to_furniture(
     absence de transaction que :func:`make_furniture`. Avec ``move``, des objets déjà membres
     d'un autre ensemble en sortent pour entrer ici (leurs propriétés de membre sont gardées, ce
     qui s'annule d'un Ctrl+Z). Une pièce entrée alors qu'elle dépasse de la boîte de l'ensemble
-    l'agrandit jusqu'à la contenir (ADR 0049, jamais de réduction : une marge reste), et ses
-    membres sont reliés à nouveau, sauf pour un sous-ensemble ou un ensemble piloté par une
-    formule."""
+    l'agrandit jusqu'à la contenir (ADR 0049 ; ADR 0065 point 5 : jamais de réduction, une
+    marge reste), et ses membres sont reliés à nouveau, sauf pour un sous-ensemble ou un
+    ensemble piloté par une formule."""
     notices = furniture_members.add_members(furniture, objects, move=move)
     if furniture_envelope.grow(furniture):
         notices += furniture_members.relink(furniture)
