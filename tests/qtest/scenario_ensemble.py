@@ -49,7 +49,7 @@ from tests.qtest.qttest import QTest
 
 ENSEMBLE = "Menuiserie_Furniture"
 AJOUTER = "Menuiserie_FurnitureAdd"
-TENON_MORTAISE = "Menuiserie_MortiseTenon"
+TOURILLONS = "Menuiserie_Dowels"
 PANNEAU_ENSEMBLE = "FurnitureTaskPanel"
 TYPE_ENSEMBLE = "Menuiserie::Furniture"
 LARGEUR, PROFONDEUR, HAUTEUR = 600.0, 400.0, 22.0
@@ -220,10 +220,9 @@ class Ensemble(Etapes):
         controler_le_document(self, self.doc)
 
     def test_7_assembler_deux_ensembles(self) -> None:
-        """Issue #209 : un montant d'un second ensemble posé contre le bout d'une traverse du
-        premier. Tant que l'issue est ouverte, l'assemblage entre deux conteneurs est refusé
-        avec une explication, sans panneau ni rien d'écrit. À retourner quand elle sera
-        corrigée."""
+        """Issue #209 corrigée (ADR 0054) : un montant d'un second ensemble posé contre le bout
+        d'une traverse du premier. Les deux pièces sont dans des Std Part différents ; les
+        tourillons sont créés entre elles, panneau validé, sans erreur."""
         traverse = self.pieces["T1"]
         bout = boite_globale(traverse)
         voisin = piece(self.doc, (300.0, *SECTION), (bout.XMin, bout.YMax, 0.0), repere="L")
@@ -232,14 +231,16 @@ class Ensemble(Etapes):
         lancer(ENSEMBLE)
         self.assertEqual(len(du_type(self.doc, TYPE_ENSEMBLE)), 2)
         self.assertIsNot(voisin.getParentGeoFeatureGroup(), traverse.getParentGeoFeatureGroup())
-        self.doc.clearUndos()
         selectionner(traverse, voisin)
-        lancer(TENON_MORTAISE)
-        refus = refus_signale()
-        self.assertFalse(panneau_ouvert(), "issue #209 corrigée ? scénario à retourner")
-        self.assertIn("conteneur", refus)
-        self.assertEqual(assemblages(self.doc), [])
-        self.assertEqual(self.doc.UndoNames, [])
+        lancer(TOURILLONS)
+        self.assertTrue(panneau_ouvert(), f"assemblage refusé : {refus_signale()}")
+        cliquer(bouton_ok())
+        traiter_les_evenements()
+        self.assertFalse(panneau_ouvert())
+        [joint] = assemblages(self.doc)
+        self.assertEqual({joint.HostPart, joint.GuestPart}, {traverse, voisin})
+        self.doc.recompute()
+        self.assertEqual([o.Name for o in self.doc.Objects if "Invalid" in o.State], [])
         controler_le_document(self, self.doc)
 
     def test_8_rien_dans_la_vue_rapport(self) -> None:
