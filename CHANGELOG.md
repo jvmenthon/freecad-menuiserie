@@ -61,6 +61,20 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   usinée (modèle 2, migration sans perte), profils soustraits avant les assemblages, avertissement
   « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
   `edge_profiles_of` de l'API.
+- Profils d'arête sur toute pièce dessinée (#5, ADR 0063, maquette A choisie par jv) : une pièce
+  en bois tirée d'un corps PartDesign, même en L, en biais ou percée, reçoit un profil sur ses
+  arêtes droites. Les arêtes sont désignées par leur nom FreeCAD (`EdgeRefs`, lien suivi par le
+  nommage topologique) : le profil suit son arête quand l'esquisse change. Chanfrein, quart de
+  rond et gorge à tout angle saillant de 30° à 150° ; demi-rond, bec-de-corbin et doucine à angle
+  droit. Arête rentrante, courbe ou entre faces courbes refusée avec sa raison ; pièce sans noms
+  d'éléments stables (primitive, forme importée) refusée. Une arête perdue (coupée en deux par une
+  modification du corps) est signalée dans la vue rapport et le panneau sans bloquer la pièce
+  usinée. Panneau : un clic sur une face prend tout son contour, un clic sur une arête prend ses
+  arêtes tangentes (Alt+clic : elle seule), second clic pour retirer ; une ligne par arête de sa
+  propre couleur, la même dans la vue 3D, avec longueur et angle, et une croix rouge qui la retire
+  seule. Profil en modèle 2 (`EdgeRefs` vide à la migration ; une version plus ancienne de
+  l'atelier refuse un profil enregistré en modèle 2) ; `api.add_edge_profile` accepte des noms
+  `"Edge7"`. Noms relus dans un document bornés (64 arêtes, sans doublon).
 - Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
   arêtes choisies d'après la face, l'arête ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),

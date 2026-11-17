@@ -19,8 +19,12 @@ from freecad.menuiserie.features.edge_profile import (
     OBJECT_NAME,
     EdgeProfile,
     checked_codes,
+    designated_edges,
     family_of,
     is_edge_profile,
+    is_native_designation,
+    native_cuts,
+    native_names,
     profile_cuts,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -58,16 +62,49 @@ def edge_profiles_of(part: DocumentObject) -> list[DocumentObject]:
     return [finish for finish in machined.Finishes if is_edge_profile(finish)]
 
 
-def _blank_of(part: DocumentObject) -> DocumentObject:
-    """Pièce de bois (boîte) de ``part``, brute ou usinée ; ``ValueError`` traduite sinon."""
+def _blank_of(part: DocumentObject, *, native: bool = False) -> DocumentObject:
+    """Pièce de bois de ``part``, brute ou usinée : une boîte, sauf pour des arêtes natives
+    (``native``, la forme est alors contrôlée par :func:`native_cuts`) ; ``ValueError`` traduite
+    sinon."""
     blank = part.Base if is_machined_part(part) else part
     label = quoted_value(getattr(part, "Label", part))
     if not is_timber(blank):
         raise TypeError(translated(_NOT_A_PART, {"label": label}))
-    refusal = box_part_refusal(blank)
+    refusal = None if native else box_part_refusal(blank)
     if refusal is not None:
         raise ValueError(refusal)
     return blank
+
+
+def _checked(
+    part: DocumentObject, edges: object, family: EdgeFamily | str, size_a: float, size_b: float
+) -> tuple[DocumentObject, list[str], EdgeFamily, bool]:
+    """Pièce brute, arêtes (codes ou noms natifs), famille, et vrai pour des arêtes natives ;
+    tout est validé (coupes calculées) avant la moindre écriture."""
+    native = is_native_designation(edges)
+    blank = _blank_of(part, native=native)
+    kind = family_of(family.value if isinstance(family, EdgeFamily) else family)
+    if native:
+        names = native_names(edges)
+        native_cuts(blank, names, kind, size_a, size_b)
+        return blank, names, kind, True
+    codes = checked_codes(edges)
+    with translated_errors():
+        dimensions = dimensions_of(blank)
+    profile_cuts(str(blank.Label), dimensions, codes, kind, size_a, size_b)
+    return blank, codes, kind, False
+
+
+def _designate(
+    profile: DocumentObject, blank: DocumentObject, edges: list[str], native: bool
+) -> None:
+    """Écrit les arêtes du profil : lien vers les arêtes natives, ou codes de boîte."""
+    if native:
+        profile.Edges = []
+        profile.EdgeRefs = (blank, edges)
+    else:
+        profile.EdgeRefs = None
+        profile.Edges = edges
 
 
 def _free_edges(
@@ -75,9 +112,11 @@ def _free_edges(
 ) -> list[DocumentObject]:
     """Profils existants qui partagent des arêtes avec ``codes`` : ``ValueError`` traduite
     sauf si ``replace``."""
-    shared = [profile for profile in existing if set(profile.Edges) & set(codes)]
+    shared = [profile for profile in existing if set(designated_edges(profile)) & set(codes)]
     if shared and not replace:
-        names = sorted({code for profile in shared for code in profile.Edges if code in codes})
+        names = sorted(
+            {code for profile in shared for code in designated_edges(profile) if code in codes}
+        )
         raise ValueError(translated(_ALREADY_PROFILED, {"edges": ", ".join(names)}))
     return shared
 
@@ -85,9 +124,11 @@ def _free_edges(
 def _strip(document: Document, shared: list[DocumentObject], codes: list[str]) -> None:
     """Retire ``codes`` des profils ``shared`` ; un profil sans arête est supprimé."""
     for old in shared:
-        remaining = [code for code in old.Edges if code not in codes]
-        if remaining:
+        remaining = [code for code in designated_edges(old) if code not in codes]
+        if remaining and list(old.Edges):
             old.Edges = remaining
+        elif remaining:
+            old.EdgeRefs = (old.Part, remaining)
         else:
             document.removeObject(old.Name)
 
@@ -102,20 +143,16 @@ def create_edge_profile(
     replace: bool = False,
 ) -> DocumentObject:
     """Crée un profil ``family`` de cotes ``size_a`` et ``size_b`` (mm) sur les arêtes ``edges``
-    (codes ``"Z+Y-"``, noms ``"dessus-avant"`` ou ``EdgeId``) de la pièce de bois ``part``
-    (brute ou usinée), puis sa pièce usinée si besoin.
+    (codes ``"Z+Y-"``, noms ``"dessus-avant"`` ou ``EdgeId`` pour une boîte ; noms natifs
+    ``"Edge7"`` pour une pièce dessinée, ADR 0063) de la pièce de bois ``part`` (brute ou
+    usinée), puis sa pièce usinée si besoin.
 
     ``TypeError`` ou ``ValueError`` traduites avant toute création si la pièce n'est pas une pièce
     de bois (boîte), si les arêtes, la famille ou les cotes sont refusées, ou si une arête a déjà
     un profil. Avec ``replace``, les arêtes déjà profilées sont reprises par le nouveau profil
     (l'ancien profil est supprimé s'il n'en garde aucune).
     """
-    blank = _blank_of(part)
-    codes = checked_codes(edges)
-    kind = family_of(family.value if isinstance(family, EdgeFamily) else family)
-    with translated_errors():
-        dimensions = dimensions_of(blank)
-    profile_cuts(str(blank.Label), dimensions, codes, kind, size_a, size_b)
+    blank, codes, kind, native = _checked(part, edges, family, size_a, size_b)
     document = blank.Document
     _strip(document, _free_edges(edge_profiles_of(blank), codes, replace), codes)
     obj = document.addObject("Part::FeaturePython", OBJECT_NAME)
@@ -124,7 +161,7 @@ def create_edge_profile(
     if container is not None:
         container.addObject(obj)
     obj.Part = blank
-    obj.Edges = codes
+    _designate(obj, blank, codes, native)
     obj.Family = kind.value
     obj.SizeA = size_a
     obj.SizeB = size_b
@@ -161,15 +198,10 @@ def update_edge_profile(
     ``TypeError`` traduite si ``profile`` n'est pas un profil d'arête."""
     if not is_edge_profile(profile):
         raise TypeError(translated(_NOT_A_PROFILE, {"label": quoted_value(profile.Label)}))
-    blank = _blank_of(profile.Part)
-    codes = checked_codes(edges)
-    kind = family_of(family.value if isinstance(family, EdgeFamily) else family)
-    with translated_errors():
-        dimensions = dimensions_of(blank)
-    profile_cuts(str(blank.Label), dimensions, codes, kind, size_a, size_b)
+    blank, codes, kind, native = _checked(profile.Part, edges, family, size_a, size_b)
     others = [other for other in edge_profiles_of(blank) if other != profile]
     _strip(blank.Document, _free_edges(others, codes, replace), codes)
-    profile.Edges = codes
+    _designate(profile, blank, codes, native)
     profile.Family = kind.value
     profile.SizeA = size_a
     profile.SizeB = size_b

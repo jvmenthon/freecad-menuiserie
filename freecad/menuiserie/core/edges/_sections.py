@@ -13,7 +13,17 @@ import math
 
 from freecad.menuiserie.core._extrusion import Arc, Section, Segment
 
-__all__ = ["beak", "chamfer", "cove", "ogee", "round_corner"]
+__all__ = [
+    "angled_chamfer",
+    "angled_cove",
+    "angled_round",
+    "beak",
+    "chamfer",
+    "cove",
+    "ogee",
+    "round_corner",
+    "tangent_length",
+]
 
 _RIGHT = math.pi / 2
 
@@ -77,5 +87,49 @@ def ogee(width: float, height: float) -> Section:
             Arc((half_w, 0.0), half_w, half_h, 0.0, _RIGHT),
             Arc((half_w, height), half_w, half_h, -_RIGHT, -2 * _RIGHT),
             Segment((0.0, height), (0.0, 0.0)),
+        )
+    )
+
+
+# --- Arête à angle quelconque (ADR 0063) : la seconde face part dans la direction
+# ``(cos t, sin t)``, ``t`` étant l'angle de la matière entre les deux faces, en radians.
+
+
+def _towards_second(distance: float, angle: float) -> tuple[float, float]:
+    return (distance * math.cos(angle), distance * math.sin(angle))
+
+
+def angled_chamfer(a: float, b: float, angle: float) -> Section:
+    """Chanfrein : ``a`` sur la première face, ``b`` sur la seconde, faces à ``angle``."""
+    far = _towards_second(b, angle)
+    return Section(
+        (Segment((0.0, 0.0), (a, 0.0)), Segment((a, 0.0), far), Segment(far, (0.0, 0.0)))
+    )
+
+
+def tangent_length(radius: float, angle: float) -> float:
+    """Distance de l'arête aux points où un arc de rayon ``radius`` touche les deux faces."""
+    return radius / math.tan(angle / 2)
+
+
+def angled_round(radius: float, angle: float) -> Section:
+    """Quart de rond : arc de rayon ``radius`` tangent aux deux faces, faces à ``angle``."""
+    tangent = tangent_length(radius, angle)
+    return Section(
+        (
+            Segment((0.0, 0.0), (tangent, 0.0)),
+            Arc((tangent, radius), radius, radius, -_RIGHT, angle - 3 * _RIGHT),
+            Segment(_towards_second(tangent, angle), (0.0, 0.0)),
+        )
+    )
+
+
+def angled_cove(radius: float, angle: float) -> Section:
+    """Gorge : secteur de rayon ``radius`` centré sur l'arête, faces à ``angle``."""
+    return Section(
+        (
+            Segment((0.0, 0.0), (radius, 0.0)),
+            Arc((0.0, 0.0), radius, radius, 0.0, angle),
+            Segment(_towards_second(radius, angle), (0.0, 0.0)),
         )
     )

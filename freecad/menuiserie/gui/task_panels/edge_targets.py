@@ -15,21 +15,28 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from functools import partial
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 import FreeCAD as App
-from PySide import QtCore, QtGui
+from PySide import QtGui
 
 from freecad.menuiserie.core.edges import all_edges, loop_edges
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.box_parts import is_box_part
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.library import PARAM_PATH
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 from freecad.menuiserie.gui.task_panels.base import Widget, connect
 from freecad.menuiserie.gui.task_panels.edge_diagram import BOX, NET, VIEWS, EdgeDiagram
+from freecad.menuiserie.gui.task_panels.edge_rows import (
+    NativeCard,
+    card_layout,
+    card_title,
+    remove_button,
+)
 
-__all__ = ["PALETTE", "VIEW_KEY", "PieceCard", "PieceList"]
+__all__ = ["PALETTE", "VIEW_KEY", "Card", "PieceCard", "PieceList"]
 
 PALETTE: Final = (
     "#3465a4",
@@ -78,6 +85,8 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
     """Carte d'une pièce : arêtes choisies (état), dessin cliquable ; ``changed()`` après
     chaque changement, ``removed(card)`` à la croix."""
 
+    has_view: ClassVar[bool] = True  # dessin patron/boîte : la bascule de vue la concerne
+
     def __init__(
         self,
         part: DocumentObject,
@@ -92,36 +101,14 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
         self.color = color
         self._changed = changed
         self._codes: set[str] = set()
-        self.setObjectName(f"piece_{part.Name}")
-        self.setFrameShape(QtGui.QFrame.Shape.StyledPanel)
-        self.setStyleSheet(
-            f"QFrame#piece_{part.Name} {{ border: 1px solid #c8c8c8; "
-            f"border-left: 6px solid {color}; border-radius: 4px; }}"
-        )
-        layout = QtGui.QVBoxLayout(self)
-        layout.setContentsMargins(8, 4, 4, 4)
+        layout = card_layout(self, part, color)
         layout.addLayout(self._header(removed))
         self.diagram = EdgeDiagram(dimensions_of(part), color, view, self.toggle, self.toggle_face)
         layout.addWidget(self.diagram)
         self.refresh()
 
     def _header(self, removed: Callable[[PieceCard], None] | None) -> Widget:
-        row = QtGui.QHBoxLayout()
-        dot = QtGui.QLabel()
-        dot.setFixedSize(12, 12)
-        dot.setStyleSheet(f"background: {self.color}; border-radius: 6px;")
-        row.addWidget(dot)
-        name = QtGui.QLabel(self.part.Label)
-        name.setObjectName("name")
-        name.setTextFormat(QtCore.Qt.TextFormat.PlainText)
-        font = name.font()
-        font.setBold(True)
-        name.setFont(font)
-        row.addWidget(name)
-        row.addStretch()
-        self._count = QtGui.QLabel()
-        self._count.setObjectName("count")
-        row.addWidget(self._count)
+        row, self._count = card_title(self.part, self.color)
         for text, key in ((_ALL, "all"), (_NONE, "none")):
             button = QtGui.QToolButton()
             button.setObjectName(f"shortcut_{key}")
@@ -131,12 +118,7 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
             )
             row.addWidget(button)
         if removed is not None:
-            cross = QtGui.QToolButton()
-            cross.setObjectName("remove_piece")
-            cross.setText(translated(_CROSS))
-            cross.setToolTip(translated(_REMOVE))
-            connect(cross, "clicked()", partial(removed, self))
-            row.addWidget(cross)
+            row.addWidget(remove_button(removed, self))
         return row
 
     def codes(self) -> list[str]:
@@ -172,6 +154,10 @@ class PieceCard(QtGui.QFrame):  # type: ignore[misc]
         """Dessin : patron déplié ou boîte."""
         self.diagram.set_view(view)
 
+    def edge_colors(self) -> dict[str, str]:
+        """Aucune couleur propre : les arêtes d'une boîte ont la couleur de la carte."""
+        return {}
+
     def refresh(self) -> None:
         """Dessin et compte remis d'après les arêtes choisies."""
         self.diagram.show_checked(self._codes)
@@ -195,12 +181,15 @@ def _discard(card: PieceCard) -> None:
     card.deleteLater()
 
 
+Card = PieceCard | NativeCard  # pièce en boîte (dessin) ou pièce dessinée (liste d'arêtes)
+
+
 class PieceList:
     """Les pièces concernées et leurs arêtes ; ``changed()`` après chaque changement."""
 
     def __init__(self, layout: Widget, changed: Callable[[], None]) -> None:
         self._changed = changed
-        self._cards: list[PieceCard] = []
+        self._cards: list[Card] = []
         self.hint = QtGui.QLabel(translated(_HINT))
         self.hint.setObjectName("hint")
         self.hint.setWordWrap(True)
@@ -252,29 +241,35 @@ class PieceList:
         for card in self._cards:
             card.set_view(view)
 
-    def cards(self) -> tuple[PieceCard, ...]:
+    def cards(self) -> tuple[Card, ...]:
         """Les cartes, dans l'ordre d'ajout."""
         return tuple(self._cards)
 
-    def card_of(self, part: DocumentObject) -> PieceCard | None:
+    def card_of(self, part: DocumentObject) -> Card | None:
         """Carte de la pièce ``part``, ``None`` si elle n'est pas dans la liste."""
         return next((card for card in self._cards if card.part == part), None)
 
-    def add(self, part: DocumentObject, *, removable: bool = True) -> PieceCard:
-        """Carte de ``part`` (créée à la fin de la liste si besoin, couleur suivante)."""
-        card = self.card_of(part)
-        if card is not None:
-            return card
+    def add(self, part: DocumentObject, *, removable: bool = True) -> Card:
+        """Carte de ``part`` (créée à la fin de la liste si besoin, couleur suivante) : dessin
+        d'une boîte, ou liste des arêtes d'une pièce dessinée (ADR 0063)."""
+        existing = self.card_of(part)
+        if existing is not None:
+            return existing
         used = {card.color for card in self._cards}  # une carte retirée libère sa couleur
         free = [color for color in PALETTE if color not in used]
         color = free[0] if free else PALETTE[len(self._cards) % len(PALETTE)]
-        card = PieceCard(part, color, self._view, self._changed, self.remove if removable else None)
+        remove = self.remove if removable else None
+        card: Card
+        if is_box_part(part):
+            card = PieceCard(part, color, self._view, self._changed, remove)
+        else:
+            card = NativeCard(part, color, self._changed, remove)
         self._cards.append(card)
         self._rows.addWidget(card)
         self._refresh()
         return card
 
-    def remove(self, card: PieceCard) -> None:
+    def remove(self, card: Card) -> None:
         """Croix d'une carte : la pièce quitte la liste (ses arêtes de ce panneau aussi)."""
         if card not in self._cards:
             return
@@ -303,6 +298,6 @@ class PieceList:
         empty = not self._cards
         self.hint.setVisible(empty)
         self._group.setVisible(not empty)
-        self._view_widget.setVisible(not empty)
+        self._view_widget.setVisible(any(card.has_view for card in self._cards))
         self._more.setVisible(not empty)
         self._group.setTitle(translated(_LIST, {"count": str(len(self._cards))}))
