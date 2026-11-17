@@ -21,7 +21,6 @@ from freecad.menuiserie.features import (
     distance_move,
     furniture_drag,
     furniture_edges,
-    furniture_envelope,
     furniture_locks,
     furniture_material,
     furniture_members,
@@ -33,6 +32,7 @@ from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of as _member_furniture
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
+from freecad.menuiserie.features.furniture_reframe import reframe_all
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.picked import PickedElement
 from freecad.menuiserie.features.repeat import is_repeat
@@ -77,35 +77,59 @@ def add_to_furniture(
     furniture: DocumentObject, objects: Sequence[DocumentObject], *, move: bool = False
 ) -> _Notices:
     """Fait entrer ``objects`` dans ``furniture`` (options par défaut, liaisons d'après la
-    géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus et même
-    absence de transaction que :func:`make_furniture`. Avec ``move``, des objets déjà membres
-    d'un autre ensemble en sortent pour entrer ici (leurs propriétés de membre sont gardées, ce
-    qui s'annule d'un Ctrl+Z). Une pièce entrée alors qu'elle dépasse de la boîte de l'ensemble
-    l'agrandit jusqu'à la contenir (ADR 0049, jamais de réduction : une marge reste), et ses
-    membres sont reliés à nouveau, sauf pour un sous-ensemble ou un ensemble piloté par une
-    formule."""
+    géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus, avant
+    toute modification, et même absence de transaction que :func:`make_furniture`. Avec
+    ``move``, des objets déjà membres d'un autre ensemble en sortent pour entrer ici (leurs
+    propriétés de membre sont gardées, ce qui s'annule d'un Ctrl+Z). Ensuite, les boîtes des
+    ensembles rejoints et quittés sont recalées exactement sur leurs membres, sans marge, puis
+    celles de leurs parents (ADR 0065 point 5, ``furniture_reframe.reframe_all``)."""
+    before = _left(objects) if move else []
     notices = furniture_members.add_members(furniture, objects, move=move)
-    if furniture_envelope.grow(furniture):
-        notices += furniture_members.relink(furniture)
-    return _reported(notices, furniture.Document)
+    framed, failures = reframe_all([furniture, *before, *_left(objects)])
+    return (*_reported([*notices, *framed], furniture.Document), *_failed(failures))
+
+
+def _left(objects: Sequence[DocumentObject]) -> list[DocumentObject | None]:
+    """Ensembles dont ``objects`` sont membres (``None`` pour un objet qui n'en est pas un ou
+    qui n'est pas accepté : le refus revient à l'appelant, dans son ordre)."""
+    found: list[DocumentObject | None] = []
+    for obj in objects:
+        try:
+            found.append(_member_furniture(furniture_members.member_object(obj)))
+        except (TypeError, ValueError):
+            found.append(None)
+    return found
+
+
+def _failed(failures: Sequence[str]) -> _Notices:
+    """Refus de recalage, écrits dans la vue rapport."""
+    messages = tuple(failures)
+    report(messages)
+    return messages
 
 
 def remove_from_furniture(
     objects: Sequence[DocumentObject], *, keep_properties: bool = False
 ) -> _Notices:
     """Retire ``objects`` de leur ensemble : seules les liaisons de l'atelier et les propriétés
-    de membre sont supprimées, la géométrie ne change pas. ``ValueError`` traduite, avant toute
-    modification, pour un objet qui n'est membre d'aucun ensemble. Renvoie les avertissements
-    traduits, aussi écrits dans la vue rapport (ADR 0017) : une pièce assemblée à une pièce qui
-    reste dans l'ensemble reste dans son Std Part (elle n'est plus membre). Avec
-    ``keep_properties``, les propriétés de membre restent sur la pièce (état d'orphelin) : seuls
-    le lien et les liaisons sont retirés, ce qui s'annule d'un Ctrl+Z (FreeCAD 1.1 ne rétablit pas
-    une propriété dynamique retirée puis recréée dans la même transaction)."""
-    messages = tuple(furniture_members.remove_members(objects, keep_properties=keep_properties))
+    de membre sont supprimées, la géométrie ne change pas ; la boîte de l'ensemble quitté se
+    recale sur les membres qui restent (ADR 0065 point 5, ``furniture_reframe.reframe_all``).
+    ``ValueError`` traduite, avant toute modification, pour un objet qui n'est membre d'aucun
+    ensemble.
+    Renvoie les avertissements traduits, aussi écrits dans la vue rapport (ADR 0017) : une pièce
+    assemblée à une pièce qui reste dans l'ensemble reste dans son Std Part (elle n'est plus
+    membre). Avec ``keep_properties``, les propriétés de membre restent sur la pièce (état
+    d'orphelin) : seuls le lien et les liaisons sont retirés, ce qui s'annule d'un Ctrl+Z
+    (FreeCAD 1.1 ne rétablit pas une propriété dynamique retirée puis recréée dans la même
+    transaction)."""
+    left = _left(objects)
+    messages = list(furniture_members.remove_members(objects, keep_properties=keep_properties))
+    framed, failures = reframe_all(left)
+    messages += [*notice_messages(framed), *failures]
     report(messages)
     if objects:
         objects[0].Document.recompute()
-    return messages
+    return tuple(messages)
 
 
 def rename(obj: DocumentObject, name: str) -> str:

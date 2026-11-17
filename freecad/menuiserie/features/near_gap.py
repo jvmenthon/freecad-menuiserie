@@ -26,13 +26,13 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.part_drag import (
-    SIZE_PROPS,
     begin_drag,
     drag_limits,
     end_drag,
     move_part,
     resize_part,
 )
+from freecad.menuiserie.features.thickness_common import SIZE_PROPS
 
 __all__ = ["GROW", "MOVE", "Closing", "close_gap", "closing_options"]
 

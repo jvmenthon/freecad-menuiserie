@@ -338,7 +338,7 @@ def _size_note(step: Step, anchor: Vec3) -> Label:
     """Cote écrite (puis, si le pas est arrêté, le message du refus) près de la souris."""
     text = f"{step.size:.1f} mm"
     if not step.message:
-        return Label(HOVER_COLOR, text, anchor)
+        return Label(HOVER_COLOR, f"{text}\n{step.note}" if step.note else text, anchor)
     return Label(REFUSAL_COLOR, f"{text}\n{step.message}", anchor)
 
 

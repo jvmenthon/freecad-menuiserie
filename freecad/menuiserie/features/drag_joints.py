@@ -28,7 +28,7 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.snap import Turn
-from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.core.text import bounded_text, quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import has_member_properties
 from freecad.menuiserie.features.furniture_members import remove_members
@@ -49,6 +49,7 @@ __all__ = [
     "broken_joints",
     "delete_machined_part",
     "invalid_joints",
+    "new_joint_warnings",
     "remove_joints",
     "rotate_checked",
     "settle_joints",
@@ -231,3 +232,21 @@ def rotate_checked(
     for message in messages:
         report_warning(message)
     return True
+
+
+_NO_LONGER_TOUCHING: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "L'assemblage « {label} » ne touche plus ses pièces après le déplacement : {detail}",
+)
+
+
+def new_joint_warnings(raw: DocumentObject, already_invalid: Collection[str]) -> list[str]:
+    """Avertissement pour chaque assemblage de la brute ``raw`` devenu invalide (B7), hors ceux
+    qui l'étaient déjà : le glissement est gardé, on prévient seulement (règle Q4 de J4)."""
+    warnings = []
+    for name, joint in joints_in_error(raw).items():
+        if name not in already_invalid:
+            detail = bounded_text(str(joint.getStatusString()))
+            params = {"label": quoted_value(joint.Label), "detail": detail}
+            warnings.append(translated(_NO_LONGER_TOUCHING, params))
+    return warnings

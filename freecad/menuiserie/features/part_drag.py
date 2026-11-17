@@ -33,31 +33,33 @@ import FreeCAD as App
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import THICKNESS_AXIS
-from freecad.menuiserie.core.text import bounded_text, quoted_value
+from freecad.menuiserie.features.blank_preview import preview_blanks, recompute_blank
 from freecad.menuiserie.features.distance import AXES, distances_touching
 from freecad.menuiserie.features.drag_joints import (
     DragCancelledError,
     JointChoice,
     invalid_joints,
+    new_joint_warnings,
     settle_joints,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import (
-    bind_members,
     notice_messages,
-    read_members,
     workshop_expressions,
 )
 from freecad.menuiserie.features.furniture_edits import thickness_notices
+from freecad.menuiserie.features.furniture_reframe import relink_framed
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint, plan_for
-from freecad.menuiserie.features.joints.feasible import joints_in_error
-from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
+from freecad.menuiserie.features.joints.base import is_joint
+from freecad.menuiserie.features.machined_part import blank_of
+from freecad.menuiserie.features.raw_placement import write_placement
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
+from freecad.menuiserie.features.thickness_common import SIZE_PROPS, restore_state
+from freecad.menuiserie.features.thickness_drag import FaceFollows
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
 __all__ = [
@@ -76,14 +78,9 @@ __all__ = [
     "write_placement",
 ]
 
-SIZE_PROPS: Final = ("Length", "Width", "Thickness")  # axes 0, 1 et 2 de la pièce
 _BASE: Final = ("Placement.Base.x", "Placement.Base.y", "Placement.Base.z")
 _TOUCHED: Final = (*_BASE, *SIZE_PROPS)
 _WHOLE_PLACEMENT: Final = ("Placement", "Placement.Base")
-_NO_LONGER_TOUCHING: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "L'assemblage « {label} » ne touche plus ses pièces après le déplacement : {detail}",
-)
 _FIXED_AXIS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » : l'axe {axis} est piloté par une formule, il ne peut pas bouger."
 )
@@ -120,6 +117,8 @@ class DragMemento:
     recorded: dict[str, str]
     invalid_joints: frozenset[str]
     distances: dict[str, float] = field(default_factory=dict)
+    # Pièces qui suivent l'épaisseur tirée (ADR 0060), choisies au premier pas : clé = face basse
+    follows: FaceFollows = field(default_factory=FaceFollows)
 
 
 def raw_part(obj: DocumentObject) -> DocumentObject:
@@ -212,40 +211,6 @@ def begin_drag(part: DocumentObject) -> DragMemento:
     )
 
 
-def write_placement(raw: DocumentObject, placement: App.Placement) -> None:
-    """Écrit ``placement`` dans la brute ``raw``, puis dans sa pièce usinée (affichage sans
-    recalcul). Commun au glissement et à la rotation (``part_rotate``)."""
-    with writing(raw):
-        if raw.Placement != placement:
-            raw.Placement = placement
-    machined = machined_part_of(raw)
-    if machined is not None and machined.Placement != placement:
-        machined.Placement = placement
-
-
-def _recompute_machined(raw: DocumentObject) -> None:
-    """Recalcule la pièce usinée de ``raw`` (affichage pendant le glissement), sauf si l'un de ses
-    assemblages ne tient plus : son ``execute()`` lèverait à chaque appel et FreeCAD imprimerait
-    sa trace à chaque image. Le recalcul du document au relâchement la reprend et prévient
-    (:func:`end_drag`, B7)."""
-    machined = machined_part_of(raw)
-    if machined is None:
-        return
-    for joint in getattr(machined, "Joints", ()):
-        try:
-            plan_for(joint)
-        except ValueError:
-            return
-    machined.recompute()
-
-
-def recompute_blank(raw: DocumentObject) -> None:
-    """Aperçu de la seule brute ``raw`` (et de sa pièce usinée) pendant un geste, sans recalcul du
-    document : ce que font la poignée de taille et le champ d'angle du panneau (RO-c)."""
-    raw.recompute()
-    _recompute_machined(raw)
-
-
 def _shifted(memento: DragMemento, shift: Vec3) -> App.Placement:
     """Placement du début décalé de ``shift`` (mm, repère de la pièce)."""
     start = memento.placement
@@ -269,32 +234,48 @@ def move_part(memento: DragMemento, delta: Vec3) -> None:
     write_placement(memento.part, _shifted(memento, delta))
 
 
-def resize_part(memento: DragMemento, prop: str, value: float, origin_shift: Vec3) -> None:
+def _write_size(memento: DragMemento, prop: str, value: float, shift: Vec3) -> None:
+    with writing(memento.part):
+        setattr(memento.part, prop, value)
+    write_placement(memento.part, _shifted(memento, shift))
+
+
+def _resize_thickness(memento: DragMemento, value: float, shift: Vec3, lowered: bool) -> str:
+    """Épaisseur tirée : les pièces à fleur suivent ; butée (raison renvoyée) : état du début."""
+    memento.follows.prepare(memento.part, lowered)  # sur la pièce encore à son épaisseur
+    _write_size(memento, "Thickness", value, shift)
+    delta, follows = value - memento.thickness, memento.follows
+    if stop := follows.follow_dragged_face(memento.part, delta, lowered, recompute_blank):
+        _write_size(memento, "Thickness", memento.thickness, Vec3(0, 0, 0))
+    return stop
+
+
+def resize_part(
+    memento: DragMemento, prop: str, value: float, origin_shift: Vec3, *, lowered: bool = False
+) -> str:
     """Fixe ``Length``, ``Width`` ou ``Thickness`` (``prop``) de la brute à ``value`` mm et décale
     son origine de ``origin_shift`` (repère de la pièce, d'après le début ; poignée de début) (B2).
     Seule la brute et sa pièce usinée sont recalculées, pas le document. ``ValueError`` traduite
-    si la cote ne peut pas être tirée (:func:`drag_limits`)."""
+    si la cote ne peut pas être tirée (:func:`drag_limits`). Épaisseur (``lowered`` : poignée de
+    début) : les pièces à fleur suivent ; sinon butée, raison traduite renvoyée (ADR 0060)."""
     allowed = drag_limits(memento.part).resizable_axes
     if prop not in SIZE_PROPS or SIZE_PROPS.index(prop) not in allowed:
         raise ValueError(translated(_FIXED_SIZE, {"label": str(memento.part.Label)}))
-    raw = memento.part
-    with writing(raw):
-        setattr(raw, prop, value)
-    write_placement(memento.part, _shifted(memento, origin_shift))
-    raw.recompute()
-    _recompute_machined(raw)
+    if prop == "Thickness":
+        stop = _resize_thickness(memento, value, origin_shift, lowered)
+    else:
+        stop = ""
+        _write_size(memento, prop, value, origin_shift)
+    preview_blanks((memento.part, *memento.follows.parts()))  # pièces suivies : ADR 0060
+    return stop
 
 
 def restore(memento: DragMemento) -> None:
     """Échap : ramène la brute à son état du début (placement, cotes, liaisons mises de côté).
     Le document n'est pas recalculé ; la pièce usinée reprend le placement."""
     raw = memento.part
-    write_placement(memento.part, memento.placement)
+    restore_state(raw, (memento.length, memento.width, memento.thickness), memento.placement)
     with writing(raw):
-        sizes = (memento.length, memento.width, memento.thickness)
-        for prop, value in zip(SIZE_PROPS, sizes, strict=True):
-            if getattr(raw, prop).Value != value and prop not in expressions_of(raw):
-                setattr(raw, prop, value)
         for prop, text in memento.aside.items():
             raw.setExpression(prop, text)
         if "FurnitureBindings" in raw.PropertiesList:
@@ -303,8 +284,10 @@ def restore(memento: DragMemento) -> None:
         distance = raw.Document.getObject(name)
         if distance is not None and distance.Value.Value != value:
             distance.Value = value
-    raw.recompute()
-    _recompute_machined(raw)
+    try:
+        recompute_blank(raw)
+    finally:  # pièces suivies rendues même si l'aperçu échoue (ADR 0060)
+        memento.follows.restore(recompute_blank)
 
 
 def _relink_thickness(memento: DragMemento, furniture: DocumentObject) -> list[str]:
@@ -335,31 +318,17 @@ def _relink(memento: DragMemento) -> list[str]:
         follow_distances(furniture, memento.distances.keys())
         if thicker:
             return _relink_thickness(memento, furniture)
-        members = read_members(furniture)
-        return list(notice_messages(bind_members(members, members.objects)))
+        return list(notice_messages(relink_framed(furniture)))  # boîtes recalées (ADR 0065)
     except ValueError:
         restore(memento)
         raise
-
-
-def _joint_warnings(memento: DragMemento) -> list[str]:
-    """Avertissement pour chaque assemblage de la brute devenu invalide (B7) : le glissement est
-    gardé, on prévient seulement (règle Q4 de J4)."""
-    raw = memento.part
-    warnings = []
-    for name, joint in joints_in_error(raw).items():
-        if name not in memento.invalid_joints:
-            detail = bounded_text(str(joint.getStatusString()))
-            params = {"label": quoted_value(joint.Label), "detail": detail}
-            warnings.append(translated(_NO_LONGER_TOUCHING, params))
-    return warnings
 
 
 def _settle(memento: DragMemento, choose: JointChoice | None) -> list[str]:
     """Assemblages défaits par le déplacement, essayés avant tout recalcul (ADR 0026) ; si le
     déplacement est annulé, la brute revient (:func:`restore`) et ``DragCancelledError`` passe.
     Une épaisseur tirée n'est pas un déplacement : les assemblages sont seulement recalculés (un
-    qui devient impossible est signalé par :func:`_joint_warnings`), jamais proposés à la
+    qui devient impossible est signalé par :func:`.new_joint_warnings`), jamais proposés à la
     suppression."""
     if memento.part.Thickness.Value != memento.thickness:
         return []
@@ -385,4 +354,10 @@ def end_drag(memento: DragMemento, choose: JointChoice | None = None) -> list[st
     messages = _relink(memento)
     removed += _settle(memento, choose)  # la liaison peut avoir changé la géométrie
     memento.part.Document.recompute()
-    return [*removed, *messages, *_joint_warnings(memento)]
+    followed = memento.follows.messages()
+    return [
+        *removed,
+        *messages,
+        *followed,
+        *new_joint_warnings(memento.part, memento.invalid_joints),
+    ]

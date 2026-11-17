@@ -53,20 +53,27 @@ class OkGate:
 
     def __init__(self) -> None:
         self._buttons: Widget = None
-        self._blocked = False
+        self._blocking: set[str] = set()
 
     def attach(self, box: Widget) -> None:
         """Boîte des boutons du panneau."""
         self._buttons = box
-        self.update(self._blocked)
+        self._apply()
 
-    def update(self, blocked: bool) -> None:
-        """« OK » actif sauf si ``blocked`` (boîte détruite par FreeCAD : oubliée)."""
-        self._blocked = blocked
+    def update(self, blocked: bool, source: str = "refusal") -> None:
+        """``source`` (refus, encadré d'épaisseur…) bloque ou non « OK » ; « OK » est actif
+        quand aucune source ne le bloque (boîte détruite par FreeCAD : oubliée)."""
+        if blocked:
+            self._blocking.add(source)
+        else:
+            self._blocking.discard(source)
+        self._apply()
+
+    def _apply(self) -> None:
         try:
             button = self._buttons.button(QtGui.QDialogButtonBox.Ok) if self._buttons else None
             if button is not None:
-                button.setEnabled(not blocked)
+                button.setEnabled(not self._blocking)
         except RuntimeError:
             self._buttons = None
 
@@ -103,6 +110,11 @@ class UnlockBox:
         self._column.addWidget(self._button)
         layout.addWidget(self._host)
         self._show("", ())
+
+    @property
+    def gate(self) -> OkGate:
+        """Bouton « OK » du panneau, partagé avec les autres composants qui peuvent le bloquer."""
+        return self._gate
 
     @property
     def refused(self) -> bool:

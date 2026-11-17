@@ -19,7 +19,9 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
 
-__all__ = ["MAX_FINISHES", "JointFailedError", "finishes_of", "machining_of"]
+__all__ = ["MAX_FINISHES", "JointFailedError", "Machining", "finishes_of", "machining_of"]
+
+Machining = tuple[list[PlanSolid], list[PlanSolid], list[PlanSolid]]  # ajouts, coupes, retraits
 
 MAX_FINISHES: Final = 12  # une arête, un profil : au plus douze profils par pièce
 _TOO_MANY_FINISHES: Final = QT_TRANSLATE_NOOP(
@@ -44,11 +46,12 @@ class JointFailedError(Exception):
 
 
 def machining_of(
-    obj: DocumentObject, blank: DocumentObject
-) -> tuple[list[PlanSolid], list[PlanSolid], list[PlanSolid]]:
+    obj: DocumentObject, blank: DocumentObject, *, holding_only: bool = False
+) -> Machining:
     """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
     assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
-    modifiée par un script), :class:`JointFailedError` si l'un d'eux est impossible."""
+    modifiée par un script), :class:`JointFailedError` si l'un d'eux est impossible (ignoré si
+    ``holding_only`` : aperçu d'un geste, ADR 0060)."""
     additions: list[PlanSolid] = []
     cuts: list[PlanSolid] = []
     trims: list[PlanSolid] = []
@@ -60,6 +63,8 @@ def machining_of(
         try:
             plan = plan_for(joint)
         except ValueError:
+            if holding_only:  # aperçu : l'assemblage est repris au relâchement
+                continue
             raise JointFailedError from None  # l'assemblage signale lui-même son erreur
         if joint.HostPart == blank:
             additions.extend(plan.host_additions)

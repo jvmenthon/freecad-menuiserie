@@ -49,6 +49,7 @@ from freecad.menuiserie.features.placement import (
     snap_part,
 )
 from freecad.menuiserie.features.size_limit import limit_initial_size
+from freecad.menuiserie.features.thickness_common import offers_thickness_choice
 from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
@@ -68,6 +69,7 @@ from freecad.menuiserie.gui.task_panels.timber_rows import (
     setup_rotation_buttons,
 )
 from freecad.menuiserie.gui.task_panels.unlock_widgets import UnlockBox
+from freecad.menuiserie.gui.task_panels.wood_part_conflict import ConflictBox
 from freecad.menuiserie.gui.task_panels.wood_part_drag import PanelDrag
 from freecad.menuiserie.gui.task_panels.wood_part_snap import SnapRows
 from freecad.menuiserie.gui.task_panels.wood_part_thickness import ThicknessTools
@@ -103,6 +105,13 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
         self._bindings = [bind_length_field(self.form, obj, field) for field in LENGTH_FIELDS[:3]]
         self._unlock = UnlockBox(self.form.unlockHost.layout(), self._unlock_and_apply)
+        self._conflict = ConflictBox(
+            self.form.thicknessConflictHost.layout(),
+            obj,
+            self._show_thickness,
+            self._recompute,
+            self._unlock.gate,
+        )
         self._thickness_tools = ThicknessTools(self.form, obj)
         self._angles = AngleRows(
             self.form, obj, self._on_angle_edit, self._recompute, joint_choice.choose
@@ -151,6 +160,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
 
     def _on_material(self) -> None:
         """Nouveau matériau : le fil et les surcotes suivent, aperçu recalculé."""
+        self._conflict.forget()
         self._show_values()
         self._recompute()
 
@@ -164,8 +174,9 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         return [shown_object(self.obj)]
 
     def accept(self) -> bool:
-        """« OK » : refusé tant qu'une épaisseur saisie est refusée (le bouton est inactif)."""
-        if self._unlock.refused:
+        """« OK » : refusé tant qu'une épaisseur saisie est refusée ou ne garde aucun assemblage (le
+        bouton est inactif)."""
+        if self._unlock.refused or self._conflict.blocked:
             return False
         return super().accept()
 
@@ -175,15 +186,21 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         if prop == "Thickness":
             self._on_thickness_changed(value)
         elif getattr(self.obj, prop).Value != value:
+            self._conflict.forget()
             setattr(self.obj, prop, value)
             self._recompute()
 
     def _on_thickness_changed(self, value: float) -> None:
         """Épaisseur saisie : contrôlée puis écrite pour une pièce membre d'un ensemble (sous
         ``writing``, les avertissements sont rapportés ici et non par ``onChanged``) ; refusée,
-        elle n'est pas écrite et le refus s'affiche (G3)."""
-        if self.obj.Thickness.Value == value:
+        elle n'est pas écrite et le refus s'affiche (G3). Pièce assemblée, même dans un ensemble
+        (jv, 2026-11-17) : l'encadré « où ajouter l'épaisseur ? » s'affiche (ADR 0060)."""
+        if self.obj.Thickness.Value == value and not self._conflict.shown:
             self._unlock.clear()  # retour à l'épaisseur écrite : plus de refus
+            return
+        if offers_thickness_choice(self.obj):
+            self._conflict.edit(value)
+            self._recompute()
             return
         try:
             notices = set_member_thickness(self.obj, value)
@@ -204,6 +221,11 @@ class WoodPartTaskPanel(ObjectTaskPanel):
             return
         self._thickness_written(notices)
 
+    def _show_thickness(self, value: float) -> None:
+        """« Revenir à … » de l'encadré : l'épaisseur rendue s'affiche dans le champ."""
+        with self._guard:
+            self.form.thicknessEdit.setProperty("rawValue", value)
+
     def _thickness_written(self, notices: Sequence[Notice]) -> None:
         """Épaisseur écrite : avertissements dans la vue rapport, aperçu."""
         self._unlock.clear()
@@ -215,6 +237,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         tourne sur place en modification (aperçu recalculé) ; les champs d'angle relisent le
         placement."""
         self._angles.finish()  # saisie d'angle en cours : contrôlée avant le quart de tour
+        self._conflict.forget()
         if rotate_checked(self.obj, turn, self._session, joint_choice.choose):
             self._angles.show()
             self.preview()
@@ -224,6 +247,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Pièce déplacée ou étirée à la souris : cotes relues par les champs ; l'accrochage de la
         création ne la repose plus (il la ramènerait là où elle a été posée)."""
         self._session = None
+        self._conflict.forget()
         self._angles.finish()  # saisie d'angle en cours : contrôlée (ADR 0026), non abandonnée
         self._show_values()
 
@@ -231,12 +255,15 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         """Angle saisi : comme un glissement, la saisie arrête l'accrochage de la création (la
         pièce n'est plus reposée) ; les boutons de quart de tour le gardent (C5)."""
         self._session = None
+        self._conflict.forget()
 
     def _before_commit(self) -> None:
-        """« OK » : pièce ajoutée à l'ensemble si la case est
-        cochée, le tout avant la validation de la transaction. Une saisie d'angle en cours est
-        d'abord contrôlée."""
+        """« OK », avant la validation de la transaction : une saisie d'angle en cours est
+        contrôlée, l'encadré d'épaisseur est fermé (pièce d'ensemble : son ensemble est relié
+        d'après l'état écrit, ADR 0060), puis la pièce est ajoutée à l'ensemble si la case est
+        cochée."""
         self._angles.finish()
+        self._conflict.forget()
         self._snap.join_furniture()
 
     def _release_display(self) -> None:

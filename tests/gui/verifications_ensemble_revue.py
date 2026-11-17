@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from PySide import QtGui
+
 from freecad.menuiserie import api
 from freecad.menuiserie.features.furniture_container import std_part_of
 from freecad.menuiserie.gui.drag.furniture_target import FurnitureTarget
@@ -54,9 +56,14 @@ def verifier_suppression_du_std_part_a_la_main() -> list[str]:
         bureau.doc.recompute()
         avant = _geometrie(bureau.doc)
         part = std_part_of(bureau.furniture)
+        nom = bureau.furniture.Name
         bureau.doc.removeObject("" if part is None else part.Name)
         bureau.doc.recompute()
-        return ecarts("pièces en place après la suppression", _geometrie(bureau.doc), avant)
+        QtGui.QApplication.processEvents()  # l'ensemble est supprimé après (ADR 0061)
+        return [
+            *ecarts("pièces en place après la suppression", _geometrie(bureau.doc), avant),
+            *ecarts("ensemble supprimé", bureau.doc.getObject(nom), None),
+        ]
 
 
 def verifier_suppression_de_l_ensemble_et_de_son_std_part() -> list[str]:

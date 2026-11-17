@@ -21,16 +21,20 @@ __all__ = ["follow_shift", "touches_raised_face"]
 _THICKNESS_AXIS = 2
 
 
-def touches_raised_face(changed: PlacedBlock, other: PlacedBlock) -> bool:
+def touches_raised_face(changed: PlacedBlock, other: PlacedBlock, *, lowered: bool = False) -> bool:
     """Vrai si ``other`` repose contre la face haute de ``changed`` (prise à son épaisseur
     d'avant) : sa face basse y est, au contact près, et les deux se recouvrent sur la face.
-    Faux pour une pièce oblique par rapport à ``changed``."""
+    ``lowered`` : contre la face basse de ``changed`` (sa face haute y est), pour une épaisseur
+    ajoutée de l'autre côté (ADR 0060). Faux pour une pièce oblique par rapport à ``changed``."""
     try:
         box = moved_box(other.local_box(), relative_transform(changed, other))
     except ValueError:
         return False
-    top = changed.dimensions.thickness
-    if abs(box.lo(_THICKNESS_AXIS) - top) > CONTACT_TOLERANCE_MM:
+    if lowered:
+        gap = box.hi(_THICKNESS_AXIS)
+    else:
+        gap = box.lo(_THICKNESS_AXIS) - changed.dimensions.thickness
+    if abs(gap) > CONTACT_TOLERANCE_MM:
         return False
     sizes = (changed.dimensions.length, changed.dimensions.width)
     return all(

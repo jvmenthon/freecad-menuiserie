@@ -1,6 +1,7 @@
 # ADR 0038 — Taille et orientation d'un ensemble à la souris
 
-- Statut : **accepté** (jv, 2026-11-07)
+- Statut : **accepté** (jv, 2026-11-07) ; objet ensemble gardé quand son Std Part est supprimé
+  à la main : **remplacé** par l'[ADR 0061](0061-ensemble-supprime-avec-son-std-part.md)
 - Date : 2026-11-07
 - Spécification : [docs/specs/ensemble-a-la-souris.md](../specs/ensemble-a-la-souris.md)
 - ADR liés : [0007](0007-compatibilite-avec-les-autres-ateliers.md),

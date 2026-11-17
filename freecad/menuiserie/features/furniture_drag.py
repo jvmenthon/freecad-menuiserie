@@ -41,11 +41,7 @@ from freecad.menuiserie.core.rotation import Angles, turned_about_point, turned_
 from freecad.menuiserie.core.vectors import is_finite
 from freecad.menuiserie.features.freecad_types import DocumentObject, placement_expression
 from freecad.menuiserie.features.furniture import furniture_of, writing
-from freecad.menuiserie.features.furniture_bindings import (
-    bind_members,
-    notice_messages,
-    read_members,
-)
+from freecad.menuiserie.features.furniture_bindings import notice_messages
 from freecad.menuiserie.features.furniture_checks import quoted_label
 from freecad.menuiserie.features.furniture_container import own_std_part
 from freecad.menuiserie.features.furniture_drag_state import (
@@ -65,8 +61,8 @@ from freecad.menuiserie.features.furniture_drag_state import (
     write_sizes,
     write_std_placement,
 )
-from freecad.menuiserie.features.furniture_envelope import frame_of, reframe, restore_frame
 from freecad.menuiserie.features.furniture_locks import refusal_of
+from freecad.menuiserie.features.furniture_reframe import relink_framed
 from freecad.menuiserie.features.furniture_resize import planned_resize, resize, write_box
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.part_rotate import checked_rotation
@@ -277,21 +273,18 @@ def _full_notices(memento: FurnitureMemento) -> list[Notice]:
 
 def _relink(memento: FurnitureMemento) -> list[Notice]:
     """Relie l'ensemble parent d'un sous-ensemble d'après sa géométrie nouvelle, après avoir
-    recalé ses cotes sur l'enveloppe de ses membres (ADR 0049) ; en cas d'erreur, le parent et
-    l'ensemble reviennent (:func:`restore`) et l'erreur est relancée. Le document est recalculé
-    avant l'enveloppe : les copies d'une répétition du sous-ensemble (membres du parent) suivent
-    leur source par expression et seraient sinon lues à leur ancienne place."""
+    recalé ses cotes sur l'enveloppe de ses membres, puis de même en remontant (ADR 0049, ADR
+    0065) ; en cas d'erreur, le parent et l'ensemble reviennent (:func:`restore`) et l'erreur est
+    relancée. Le document est recalculé avant l'enveloppe : les copies d'une répétition du
+    sous-ensemble (membres du parent) suivent leur source par expression et seraient sinon lues à
+    leur ancienne place."""
     parent = furniture_of(memento.furniture)
     if parent is None:
         return []
     parent.Document.recompute()
-    frame = frame_of(parent)
     try:
-        reframe(parent)
-        members = read_members(parent)
-        return bind_members(members, members.objects)
+        return relink_framed(parent)
     except ValueError:
-        restore_frame(parent, frame)
         restore(memento)
         raise
 
