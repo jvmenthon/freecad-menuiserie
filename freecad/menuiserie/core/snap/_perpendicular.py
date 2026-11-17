@@ -16,7 +16,7 @@ from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_M
 from freecad.menuiserie.core.snap._model import Orientation, product
 from freecad.menuiserie.core.vectors import cross
 
-__all__ = ["face_section", "footprint", "perpendicular_orientation"]
+__all__ = ["along_edge", "face_section", "footprint", "perpendicular_orientation"]
 
 _LENGTH, _WIDTH, _THICKNESS = 0, 1, 2
 _NORMAL_ROW = 2  # ligne « normale sortante » du repère d'appui
@@ -65,6 +65,7 @@ def face_section(
     orientation: Orientation,
     extent: tuple[float, float],
     section: tuple[float, float],
+    edge_row: int | None = None,
 ) -> tuple[float, float]:
     """Section (largeur, épaisseur) de la nouvelle pièce posée contre une face d'étendue ``extent``
     (selon les deux premiers axes du repère d'appui ``support``), portée par une pièce de rotation
@@ -74,7 +75,9 @@ def face_section(
     parallèle à celle de l'autre pièce et dans le plan de la face : elle prend alors l'étendue de la
     face selon cet axe, à l'endroit du clic (sur une pièce dessinée, la face peut être plus petite
     que l'encombrement). Une étendue hors des bornes d'une cote (pointe d'une face triangulaire,
-    face démesurée) est ignorée : la largeur de la pièce est gardée."""
+    face démesurée) est ignorée : la largeur de la pièce est gardée. ``edge_row`` : axe d'appui (0
+    ou 1) de l'arête la plus proche du clic ; une largeur qui le suit prend l'étendue de la face
+    selon lui (la longueur de l'arête)."""
     seen = squared_rotation(product(_transposed(support), owner))
     if any(value not in (-1.0, 0.0, 1.0) for row in seen for value in row):
         return section
@@ -84,13 +87,10 @@ def face_section(
     width, thickness = section
     for row in (0, 1):
         usable = MIN_DIMENSION_MM <= extent[row] <= MAX_DIMENSION_MM
-        if (
-            usable
-            and abs(new_width.component(row)) == 1.0
-            and abs(owner_width.component(row)) == 1.0
-        ):
+        along = abs(new_width.component(row)) == 1.0
+        if usable and along and (row == edge_row or abs(owner_width.component(row)) == 1.0):
             width = extent[row]
-        elif usable and abs(new_width.component(row)) == 1.0:
+        elif usable and along:
             width = min(width, extent[row])  # largeur dans le plan de la face : pas au delà du bord
         elif usable and abs(new_thickness.component(row)) == 1.0:
             thickness = min(thickness, extent[row])  # la place disponible jusqu'à l'arête
@@ -112,3 +112,23 @@ def footprint(orientation: Orientation, section: tuple[float, float]) -> tuple[f
         else:
             sizes.append(0.0)
     return sizes[0], sizes[1]
+
+
+_QUARTER_TURN: Matrix3 = (
+    (0.0, -1.0, 0.0),
+    (1.0, 0.0, 0.0),
+    (0.0, 0.0, 1.0),
+)  # autour de la normale
+
+
+def along_edge(orientation: Orientation, row: int) -> Orientation:
+    """``orientation`` tournée d'un quart de tour autour de la normale de la face pour que la
+    largeur de la pièce suive l'axe d'appui ``row`` (0 ou 1) : l'arête la plus proche du clic.
+    Inchangée si la largeur le suit déjà ou si la longueur de la pièce ne part pas de la face
+    (extrémité : la pièce y est couchée)."""
+    rotation = orientation.rotation()
+    if abs(_column(rotation, _LENGTH).component(_NORMAL_ROW)) != 1.0:
+        return orientation
+    if abs(_column(rotation, _WIDTH).component(row)) == 1.0:
+        return orientation
+    return Orientation(product(_QUARTER_TURN, rotation))

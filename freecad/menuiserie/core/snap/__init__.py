@@ -31,6 +31,7 @@ from freecad.menuiserie.core.snap._orientation import (
     support_rotation,
 )
 from freecad.menuiserie.core.snap._perpendicular import (
+    along_edge,
     face_section,
     footprint,
     perpendicular_orientation,
@@ -52,6 +53,7 @@ __all__ = [
     "Turn",
     "VertexTarget",
     "all_orientations",
+    "along_edge",
     "face_section",
     "footprint",
     "initial_orientation",

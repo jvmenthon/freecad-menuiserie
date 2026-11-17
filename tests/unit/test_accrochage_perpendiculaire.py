@@ -11,6 +11,7 @@ from freecad.menuiserie.core.snap import (
     FaceTarget,
     Frame,
     Orientation,
+    along_edge,
     face_section,
     footprint,
     perpendicular_orientation,
@@ -231,3 +232,30 @@ def test_section_calee_tient_dans_l_etendue_utilisable(
     section = face_section(support, quarter, orientation, target.extent, (100.0, 30.0))
     sizes = footprint(orientation, section)
     assert all(size <= extent + 1e-9 for size, extent in zip(sizes, target.extent, strict=True))
+
+
+def test_largeur_tournee_pour_suivre_l_arete_la_plus_proche() -> None:
+    # grande face : la largeur suit Y ; l'arête la plus proche suit X -> quart de tour autour de Z
+    target = narrow(X, Y, Z, (300.0, 60.0))
+    support = support_rotation([target])
+    assert support is not None
+    orientation = perpendicular_orientation(support, IDENTITY)
+    assert orientation is not None
+    turned = along_edge(orientation, 0)
+    width = Vec3(*(row[1] for row in turned.rotation()))
+    length = Vec3(*(row[0] for row in turned.rotation()))
+    assert abs(width.x) == 1.0
+    assert length == Z
+    assert along_edge(orientation, 1) == orientation
+    assert face_section(support, IDENTITY, turned, (300.0, 60.0), (100.0, 30.0), 0) == (300.0, 30.0)
+
+
+def test_extremite_jamais_tournee() -> None:
+    # contre une extrémité, la pièce est couchée : pas de quart de tour pour suivre une arête
+    target = narrow(Y, Z, X, (100.0, 30.0))
+    support = support_rotation([target])
+    assert support is not None
+    orientation = perpendicular_orientation(support, IDENTITY)
+    assert orientation is not None
+    assert along_edge(orientation, 0) == orientation
+    assert along_edge(orientation, 1) == orientation

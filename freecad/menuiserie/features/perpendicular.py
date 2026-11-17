@@ -17,10 +17,11 @@ from typing import Any, Final
 
 import Part
 
-from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM
+from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM, Matrix3, Vec3
 from freecad.menuiserie.core.snap import (
     FaceTarget,
     Orientation,
+    along_edge,
     face_section,
     footprint,
     perpendicular_orientation,
@@ -106,34 +107,63 @@ def _blank_face(reading: TargetReading, blank: DocumentObject) -> Any:
     return best[1] if best is not None else None
 
 
+@dataclass(frozen=True)
+class _Frames:
+    """Repère d'appui, rotation de la pièce porteuse, orientation de la nouvelle pièce et axe
+    d'appui (0 ou 1) de l'arête la plus proche du clic (``None`` : inconnu)."""
+
+    support: Matrix3
+    owner: Matrix3
+    orientation: Orientation
+    edge_row: int | None
+
+    def section(
+        self, extent: tuple[float, float], section: tuple[float, float]
+    ) -> tuple[float, float]:
+        """Section (largeur, épaisseur) de la pièce contre une face d'étendue ``extent``."""
+        return face_section(
+            self.support, self.owner, self.orientation, extent, section, self.edge_row
+        )
+
+
+def _nearest_edge_row(target: FaceTarget, click: Vec3 | None) -> int | None:
+    """Axe d'appui (0 ou 1) que suit l'arête de ``target`` la plus proche de ``click`` : le coin du
+    repère est au plus près du clic, l'arête la plus proche est donc l'un des deux côtés qui en
+    partent. ``None`` sans clic."""
+    if click is None:
+        return None
+    offset = to_vector(click) - to_vector(target.frame.origin)
+    to_x_side = abs(offset.dot(to_vector(target.frame.x)))  # distance au côté qui suit y
+    to_y_side = abs(offset.dot(to_vector(target.frame.y)))  # distance au côté qui suit x
+    return 1 if to_x_side <= to_y_side else 0
+
+
 def _fit_in_face(
     reading: TargetReading,
     blank_face: Any | None,
-    frames: tuple[Any, Any, Orientation],
+    frames: _Frames,
     section: tuple[float, float],
 ) -> tuple[TargetReading, float, float] | None:
     """Lecture resserrée et section (largeur, épaisseur) pour que la pièce tienne dans la face
     brute ``blank_face`` (une arête oblique la coupe parfois avant la fin de la tranche cliquée) ;
-    ``None`` s'il ne reste pas la place d'une pièce. ``frames`` : repère d'appui, rotation de la
-    pièce porteuse, orientation de la nouvelle pièce."""
-    support, owner, orientation = frames
+    ``None`` s'il ne reste pas la place d'une pièce."""
     target = reading.targets[0]
     if not isinstance(target, FaceTarget):
         return None
-    width, thickness = face_section(support, owner, orientation, target.extent, section)
+    width, thickness = frames.section(target.extent, section)
     if blank_face is None:
         return reading, width, thickness
     for _ in range(_FIT_PASSES):
         try:
             fitted = fit_to_footprint(
-                target, blank_face, footprint(orientation, (width, thickness))
+                target, blank_face, footprint(frames.orientation, (width, thickness))
             )
         except NoRoomError:
             return None
         if fitted is None:
             break
         reading, target = replace(reading, targets=(fitted,)), fitted
-        width, thickness = face_section(support, owner, orientation, target.extent, section)
+        width, thickness = frames.section(target.extent, section)
     return reading, width, thickness
 
 
@@ -157,11 +187,14 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     orientation = None if support is None else perpendicular_orientation(support, owner)
     if support is None or orientation is None:
         return None
+    edge_row = None
+    if local is not None:  # la pièce suit l'arête la plus proche du clic
+        edge_row = _nearest_edge_row(local, reading.elements[0].point)
+        orientation = orientation if edge_row is None else along_edge(orientation, edge_row)
     dimensions = dimensions_of(blank)
     section = (dimensions.width, dimensions.thickness)
-    fitted = _fit_in_face(
-        reading, blank_face if local is not None else None, (support, owner, orientation), section
-    )
+    frames = _Frames(support, owner, orientation, edge_row)
+    fitted = _fit_in_face(reading, blank_face if local is not None else None, frames, section)
     if fitted is None:  # pointe aiguë : pas de départ perpendiculaire, accrochage habituel
         return None
     reading, width, thickness = fitted
