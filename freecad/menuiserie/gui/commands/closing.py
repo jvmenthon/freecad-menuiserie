@@ -96,9 +96,12 @@ class CloseCarcassCommand(TransactionCommand):
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
-        with frame_view():
-            doc.openTransaction(translated(CLOSE_TRANSACTION))
-            show_panel(doc, anchor, role, turns)
+        try:
+            with frame_view():
+                doc.openTransaction(translated(CLOSE_TRANSACTION))
+                show_panel(doc, anchor, role, turns)  # abandonne la transaction s'il échoue
+        except (TypeError, ValueError) as error:  # cotes de l'ancre sans valeurs par défaut
+            report_refusal(str(error))
 
 
 def register() -> None:

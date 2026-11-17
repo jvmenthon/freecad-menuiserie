@@ -100,7 +100,9 @@ def _block(spans: Spans, axes: Axes, origin: Vec3) -> PlacedBlock:
     """Pièce occupant ``spans`` (repère du caisson) avec les axes locaux ``axes``, relative à
     ``origin``. La base est le coin de la pièce d'où partent ses axes (début ou fin d'une étendue
     selon le sens de l'axe)."""
-    size = [spans[axis][1] - spans[axis][0] for axis, _sign in axes]
+    size = [
+        round(spans[axis][1] - spans[axis][0], 6) for axis, _sign in axes
+    ]  # sans bruit flottant
     rows = [[0.0, 0.0, 0.0, 0.0] for _ in range(3)]
     for column, (axis, sign) in enumerate(axes):
         rows[axis][column] = float(sign)

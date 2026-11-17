@@ -15,7 +15,7 @@ from typing import Final, TypeVar
 
 from freecad.menuiserie.core._validation import decimal_text, to_finite_float
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
-from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, Dimensions
+from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_MM, Dimensions
 
 __all__ = [
     "BACK_RABBET_MM",
@@ -110,12 +110,12 @@ HEIGHT_RANGE: Final = QT_TRANSLATE_NOOP(
 )
 THICKNESS_RANGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Fermer le caisson : {field} = {value} mm ; il faut plus de 0 mm et moins de la moitié de "
-    "la plus petite cote du caisson ({max} mm).",
+    "Fermer le caisson : {field} = {value} mm ; il faut au moins {min} mm et moins de la moitié "
+    "de la plus petite cote du caisson ({max} mm).",
 )
 OTHER_THICKNESS_RANGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Fermer le caisson : {field} = {value} mm ; il faut plus de 0 mm et au plus {max} mm.",
+    "Fermer le caisson : {field} = {value} mm ; il faut au moins {min} mm et au plus {max} mm.",
 )
 TURNS_RANGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Fermer le caisson : {field} = {value} ; il faut un entier de 0 à {max}."
@@ -270,12 +270,19 @@ class ClosingParams:
     def _set(
         self, name: str, default: float, limit: float, template: str, *, strict: bool = False
     ) -> float:
-        """Champ ``name`` résolu (``default`` si ``None``), entre 0 (exclu) et ``limit`` (exclu si
-        ``strict``) ; refus citant le champ."""
+        """Champ ``name`` résolu (``default`` si ``None``), entre ``MIN_DIMENSION_MM`` (la plus
+        petite cote d'une pièce) et ``limit`` (exclu si ``strict``) ; refus citant le champ."""
         raw = getattr(self, name)
         value = to_finite_float(default if raw is None else raw)
-        if value is None or value <= 0 or (value >= limit if strict else value > limit):
-            raise _error(template, name, default if raw is None else raw, max=decimal_text(limit))
+        if (
+            value is None
+            or value < MIN_DIMENSION_MM
+            or (value >= limit if strict else value > limit)
+        ):
+            shown = default if raw is None else raw
+            raise _error(
+                template, name, shown, min=decimal_text(MIN_DIMENSION_MM), max=decimal_text(limit)
+            )
         object.__setattr__(self, name, value)
         return value
 
