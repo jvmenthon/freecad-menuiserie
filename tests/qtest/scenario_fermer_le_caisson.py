@@ -139,6 +139,17 @@ class AncreSupprimee(Etapes):
         selectionner(self.ancre)
         lancer(COMMANDE)
 
+    def test_ancre_supprimee_par_la_console(self) -> None:
+        """Suppression par l'API : pas de plantage, panneau fermé, aucun objet d'aperçu."""
+        form = formulaire(PANNEAU)
+        self.assertEqual(enfant(form, "errorLabel").text(), "")
+        self.assertGreater(len(self.pieces()), 1, "aucun aperçu")
+        self.doc.removeObject(self.ancre.Name)
+        self.assertTrue(attendre(lambda: not panneau_ouvert()), "panneau resté ouvert")
+        traiter_les_evenements()
+        self.assertEqual(self.doc.Objects, [], "objets d'aperçu restants")
+        self.assertEqual(erreurs_python(vue_rapport()), [])
+
     def test_ancre_supprimee_par_la_commande(self) -> None:
         """« Édition > Supprimer » : FreeCAD ferme le panneau (changement de transaction) ; la
         fermeture est propre, sans erreur Python."""

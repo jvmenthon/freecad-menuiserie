@@ -40,6 +40,7 @@ TYPE_PIECE = "Menuiserie::WoodPart"
 TYPE_ENSEMBLE = "Menuiserie::Furniture"
 HOSTILES = ("0", "-5", "0.01", "36", "36.99", "99999", "1e9", "abc", "", "720")
 DELAI_MAX_S = 5.0
+PLAFOND_MM = 20_000.0  # plafond des champs de cote (MAX_DIMENSION_MM)
 ELEMENTS = ("left", "right", "back", "front", "opposite")
 
 
@@ -91,8 +92,12 @@ class SaisiesLimites(Etapes):
             with self.subTest(saisie=texte):
                 self.saisir("height", texte)
                 refuse = self.controler_coherence()
-                if texte in ("0", "-5", "36", "99999", "1e9"):
+                if texte in ("0", "-5", "36"):
                     self.assertTrue(refuse, f"« {texte} » aurait dû être refusé")
+                champ = enfant(self.form, "height")
+                # Au-delà du plafond du champ, Qt ignore les chiffres en trop (selon la version
+                # de FreeCAD, la saisie est alors acceptée tronquée) : jamais plus que le plafond.
+                self.assertLessEqual(float(champ.property("rawValue")), PLAFOND_MM)
         self.assertFalse(self.controler_coherence())  # dernière saisie : 720, valable
 
     def test_2_hauteur_minimale_37(self) -> None:

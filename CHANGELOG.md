@@ -7,7 +7,11 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
-- Commande « Fermer le caisson » (#267, ADR 0064) : à partir d'une pièce rectangulaire sélectionnée (le dessous ou le dessus), crée les côtés, la pièce opposée, le fond et, au choix, l'avant, avec un seul assemblage pour les coins (aucun, tourillons, queues d'aronde, onglet, feuillure) et un pour le fond mince (feuillure, rainure, aucun). La pièce de départ n'est ni recréée, ni déplacée, ni redimensionnée. Panneau avec schéma isométrique cliquable pour activer ou non chaque élément, bouton « Tourner l'avant », aperçu en direct, choix impossibles grisés avec leur raison en infobulle ; une seule entrée d'annulation « Fermer le caisson » ; résultat dans un ensemble « Caisson » (sous-ensemble de l'ensemble de la pièce de départ s'il y en a un). Barre d'outils, menu contextuel d'une pièce, icône `Menuiserie_CloseCarcass`, API `make_closed_carcass` et `closing_params`. Le gabarit « Caisson » ne change pas.
+- Commande « Fermer le caisson » (#267, ADR 0064) : à partir d'une pièce rectangulaire sélectionnée (le dessous ou le dessus), crée les côtés, la pièce opposée, le fond et, au choix, l'avant, avec un seul assemblage pour les coins (aucun, tourillons, queues d'aronde, onglet, feuillure) et un pour le fond mince (feuillure, rainure, aucun). La pièce de départ n'est ni recréée, ni déplacée, ni redimensionnée. Panneau avec schéma isométrique cliquable pour activer ou non chaque élément, bouton « Tourner l'avant », aperçu en direct, choix impossibles grisés avec leur raison en infobulle ; une seule entrée d'annulation « Fermer le caisson » ; résultat dans un ensemble « Caisson » (sous-ensemble de l'ensemble de la pièce de départ s'il y en a un). Si l'ancre est supprimée pendant le panneau, l'aperçu est retiré et la transaction validée (jamais abandonnée : l'abandon plante FreeCAD 26.3). Barre d'outils, menu contextuel d'une pièce, icône `Menuiserie_CloseCarcass`, API `make_closed_carcass` et `closing_params`.
+
+### Corrigé
+
+- Gabarit « Caisson » (commande « Caisson » et API) : l'épaisseur des panneaux et celle du fond sont refusées sous 0,1 mm, le minimum de toute pièce, avec un message qui cite ce minimum. Avant, 0,01 mm était accepté par le gabarit puis refusé à la création des pièces. Le reste du comportement ne change pas (#267, revue).
 
 ### Ajouté (outillage)
 
@@ -17,7 +21,6 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
-- Gabarit « Caisson » : l'épaisseur des panneaux et celle du fond doivent être d'au moins 0,1 mm (le minimum de toute pièce) ; 0,01 mm était accepté puis refusé à la création des pièces (#267, revue).
 - Coplanarité dans le panneau « Répéter » (ADR 0058, demande de jv) : le cadre des faces au ras est tracé dès l'ouverture d'une répétition existante ; les flèches des champs « Pas » et « Longueur » (et la molette, les touches haut et bas) s'arrêtent sur la valeur qui met une copie au ras d'une voisine quand elle est franchie à moins de 1 mm (voisine à 20 : 17,2 ; 18,2 ; 19,2 → 20 ; 21,2). Une valeur saisie au clavier n'est jamais modifiée.
 
 - Pièce usinée : sa forme a désormais une carte des éléments (nommage topologique de FreeCAD 1.1, ADR 0056). Un lien d'un autre atelier vers une de ses faces ou arêtes (cote TechDraw, esquisse attachée, Assembly) suit l'élément quand on ajoute, modifie ou retire un assemblage, au lieu de garder un numéro qui peut viser un autre élément. Tests d'intégration `test_nommage_topologique`.

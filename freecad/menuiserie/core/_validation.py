@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import math
 import unicodedata
-from collections.abc import Iterator, Mapping
-from typing import Final
+from collections.abc import Callable, Iterator, Mapping
+from enum import Enum
+from typing import Final, TypeVar
 
 MIN_DIMENSION_MM: Final = 0.1
 MAX_DIMENSION_MM: Final = 20_000.0
@@ -70,6 +71,41 @@ def bounded_float(value: object, minimum: float, maximum: float) -> float | None
 def decimal_text(number: float) -> str:
     """Nombre écrit à la française pour un message : « 0,1 », « 300 »."""
     return f"{number:g}".replace(".", ",")
+
+
+_E = TypeVar("_E", bound=Exception)
+_C = TypeVar("_C", bound=Enum)
+
+
+def field_error(
+    kind: Callable[[str, Mapping[str, str]], _E],
+    template: str,
+    label: str,
+    value: object,
+    **params: str,
+) -> _E:
+    """Erreur ``kind`` (``TemplatedError`` d'un gabarit) citant le champ ``label`` et sa valeur
+    refusée (nombre écrit à la française, sinon texte tel quel) ; ``params`` complète le gabarit."""
+    number = to_finite_float(value)
+    shown = decimal_text(number) if number is not None else str(value)
+    return kind(template, {"field": label, "value": shown, **params})
+
+
+def enum_choice(kind: type[_C], value: object, refuse: Callable[[], Exception]) -> _C:
+    """``value`` converti en ``kind`` ; l'erreur construite par ``refuse`` sinon."""
+    try:
+        return kind(value)
+    except ValueError:
+        raise refuse() from None
+
+
+def in_bounds(value: object, low: float, high: float, *, strict_high: bool = False) -> float | None:
+    """Nombre fini ``value`` d'au moins ``low`` et au plus ``high`` (strictement sous ``high`` si
+    ``strict_high``), converti en flottant ; ``None`` s'il est refusé."""
+    number = to_finite_float(value)
+    if number is None or number < low:
+        return None
+    return None if (number >= high if strict_high else number > high) else number
 
 
 def has_forbidden_character(text: str) -> bool:

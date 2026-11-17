@@ -91,9 +91,8 @@ _CORNERS: Final[dict[ClosingJoinery, tuple[JointKind, Maker]]] = {
 
 def _thickness(params: ClosingParams, key: str) -> float:
     """Épaisseur de la pièce de clé ``key``."""
-    if key == ANCHOR:
-        return params.anchor.thickness
-    return params.opposite_t if key == OPPOSITE else params.side_t
+    known = {ANCHOR: params.anchor.thickness, OPPOSITE: params.opposite_t}
+    return known.get(key, params.side_t)
 
 
 def _panels(params: ClosingParams) -> list[str]:

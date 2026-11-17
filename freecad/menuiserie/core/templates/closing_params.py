@@ -11,10 +11,17 @@ from __future__ import annotations
 from collections.abc import Collection
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final, TypeVar
+from typing import Final, TypeVar, cast
 
-from freecad.menuiserie.core._validation import decimal_text, to_finite_float
+from freecad.menuiserie.core._validation import (
+    decimal_text,
+    enum_choice,
+    field_error,
+    in_bounds,
+    to_finite_float,
+)
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
+from freecad.menuiserie.core.joints.dowels import MIN_DOWELLED_THICKNESS_MM
 from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_MM, Dimensions
 
 __all__ = [
@@ -23,7 +30,6 @@ __all__ = [
     "DEFAULT_HEIGHT_MM",
     "GROOVE_SETBACK_MM",
     "MAX_FRONT_TURNS",
-    "MIN_DOWELLED_THICKNESS_MM",
     "MIN_INNER_MM",
     "THIN_BACK_MM",
     "BackJoinery",
@@ -41,7 +47,6 @@ THIN_BACK_MM: Final = 8.0  # épaisseur par défaut du fond mince (au plus celle
 BACK_RABBET_MM: Final = 10.0  # profondeur de la feuillure du fond (réduite aux pièces minces)
 GROOVE_SETBACK_MM: Final = 10.0  # recul du fond dans une rainure, depuis l'arrière
 MIN_INNER_MM: Final = 1.0  # hauteur intérieure minimale entre l'ancre et la pièce opposée
-MIN_DOWELLED_THICKNESS_MM: Final = 12.0  # tourillons de 6 mm au moins, 3 mm de fond de perçage
 
 
 class Element(str, Enum):
@@ -134,9 +139,7 @@ class ClosingError(TemplatedError):
 
 
 def _error(template: str, name: str, value: object, **params: str) -> ClosingError:
-    number = to_finite_float(value)
-    shown = decimal_text(number) if number is not None else str(value)
-    return ClosingError(template, {"field": FIELDS[name], "value": shown, **params})
+    return field_error(ClosingError, template, FIELDS[name], value, **params)
 
 
 _C = TypeVar("_C", bound=Enum)
@@ -144,10 +147,13 @@ _C = TypeVar("_C", bound=Enum)
 
 def _choice(kind: type[_C], name: str, value: object) -> _C:
     """``value`` converti en ``kind`` ; refus citant le champ ``name`` sinon."""
-    try:
-        return kind(value)
-    except ValueError:
-        raise _error(UNKNOWN_VALUE, name, value) from None
+    return enum_choice(kind, value, lambda: _error(UNKNOWN_VALUE, name, value))
+
+
+def _resolved(value: float | None) -> float:
+    """Épaisseur résolue par ``__post_init__`` (qui remplace ``None`` par la valeur par défaut :
+    elle n'est jamais ``None`` sur un objet construit)."""
+    return cast(float, value)
 
 
 @dataclass(frozen=True)
@@ -207,17 +213,17 @@ class ClosingParams:
     @property
     def side_t(self) -> float:
         """Épaisseur des côtés, de l'avant et du fond épais (résolue)."""
-        return float(self.thickness or 0.0)
+        return _resolved(self.thickness)
 
     @property
     def opposite_t(self) -> float:
         """Épaisseur de la pièce opposée (résolue)."""
-        return float(self.opposite_thickness or 0.0)
+        return _resolved(self.opposite_thickness)
 
     @property
     def back_t(self) -> float:
         """Épaisseur du fond : celle des côtés pour un fond épais, la sienne sinon."""
-        return self.side_t if self.thick_back else float(self.back_thickness or 0.0)
+        return self.side_t if self.thick_back else _resolved(self.back_thickness)
 
     @property
     def rabbet_depth(self) -> float:
@@ -273,13 +279,9 @@ class ClosingParams:
         """Champ ``name`` résolu (``default`` si ``None``), entre ``MIN_DIMENSION_MM`` (la plus
         petite cote d'une pièce) et ``limit`` (exclu si ``strict``) ; refus citant le champ."""
         raw = getattr(self, name)
-        value = to_finite_float(default if raw is None else raw)
-        if (
-            value is None
-            or value < MIN_DIMENSION_MM
-            or (value >= limit if strict else value > limit)
-        ):
-            shown = default if raw is None else raw
+        shown = default if raw is None else raw
+        value = in_bounds(shown, MIN_DIMENSION_MM, limit, strict_high=strict)
+        if value is None:
             raise _error(
                 template, name, shown, min=decimal_text(MIN_DIMENSION_MM), max=decimal_text(limit)
             )

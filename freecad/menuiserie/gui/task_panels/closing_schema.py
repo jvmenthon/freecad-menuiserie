@@ -18,6 +18,8 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates import Layout
+from freecad.menuiserie.core.templates.closing import LABELS
+from freecad.menuiserie.core.templates.closing_params import Element
 from freecad.menuiserie.core.templates.closing_schema import (
     Face,
     centroid,
@@ -38,13 +40,7 @@ COLORS: Final = {
     "opposite": "#4e9a06",
     "front": "#bdbdbd",
 }
-NAMES: Final = {
-    "left": QT_TRANSLATE_NOOP("Menuiserie", "Côté gauche"),
-    "right": QT_TRANSLATE_NOOP("Menuiserie", "Côté droit"),
-    "back": QT_TRANSLATE_NOOP("Menuiserie", "Fond"),
-    "front": QT_TRANSLATE_NOOP("Menuiserie", "Avant"),
-    "opposite": QT_TRANSLATE_NOOP("Menuiserie", "Pièce opposée"),
-}
+NAMES: Final = {element.value: LABELS[element.value] for element in Element}  # légende
 _SHADE: Final = {"top": 130, "front": 100, "right": 115}  # ``lighter`` : 100 = teinte pure
 _ALPHA: Final = 120
 _MARGIN: Final = 14.0

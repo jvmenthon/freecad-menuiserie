@@ -24,17 +24,17 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
-from freecad.menuiserie.core.templates.closing import (
-    back_availability,
-    closing_layout,
-    joinery_availability,
-)
 from freecad.menuiserie.core.templates.closing_params import (
     BackJoinery,
     ClosingJoinery,
     ClosingParams,
     ClosingRole,
     Element,
+)
+from freecad.menuiserie.features.closing import (
+    back_availability,
+    closing_layout,
+    joinery_availability,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
@@ -125,15 +125,13 @@ def _set_availability(box: Any, reasons: dict[Any, TemplatedError | None]) -> No
     for index in range(box.count()):
         reason = reasons.get(box.itemData(index))
         model.item(index).setEnabled(reason is None)
-        tip = "" if reason is None else translated(_UNAVAILABLE, {"reason": _reason(reason)})
+        tip = (
+            ""
+            if reason is None
+            else translated(_UNAVAILABLE, {"reason": templated_message(reason)})
+        )
         tip = html.escape(tip)  # une infobulle est du texte riche : un « <…> » ne doit pas s'y lire
         box.setItemData(index, tip, QtCore.Qt.ItemDataRole.ToolTipRole)
-
-
-def _close_later() -> None:
-    """Panneau fermé hors de la suppression en cours : abandonner la transaction (donc détruire
-    l'aperçu) pendant que FreeCAD retire l'ancre ferait planter le noyau."""
-    QtCore.QTimer.singleShot(0, Gui.Control.closeDialog)
 
 
 def _material_name(material_id: str) -> str:
@@ -143,10 +141,6 @@ def _material_name(material_id: str) -> str:
     return material_id if material is None else str(material.name(display_language()))
 
 
-def _reason(error: TemplatedError) -> str:
-    return templated_message(error)
-
-
 class ClosingTaskPanel(TransactionTaskPanel):
     """Paramètres de la fermeture et aperçu, dans la transaction ouverte par la commande ;
     transaction, fermeture et surveillance du document : :mod:`base`."""
@@ -154,8 +148,9 @@ class ClosingTaskPanel(TransactionTaskPanel):
     def __init__(
         self, doc: Document, anchor: DocumentObject, role: ClosingRole, front_turns: int
     ) -> None:
-        super().__init__(doc, creating=True, watcher=DeletionWatcher(anchor, _close_later))
+        super().__init__(doc, creating=True, watcher=DeletionWatcher(anchor, self._anchor_deleted))
         self.anchor = anchor
+        self._initial_names = {obj.Name for obj in doc.Objects}  # avant tout aperçu
         self._pending = False  # un aperçu est déjà demandé (anti-rebond des rafales de clics)
         self.furniture: DocumentObject | None = None
         self._front = front_turns
@@ -202,6 +197,30 @@ class ClosingTaskPanel(TransactionTaskPanel):
         self._ready = True
         self._choose_default_joinery()
         self._rebuild_now()
+
+    # --- Ancre supprimée ------------------------------------------------------------------
+
+    def _anchor_deleted(self) -> None:
+        """Ancre supprimée pendant le panneau : la suite est différée hors de la suppression en
+        cours (l'abandonner à ce moment-là fait planter le noyau de FreeCAD)."""
+        self._ready = False  # plus d'aperçu : l'ancre n'est plus là
+        QtCore.QTimer.singleShot(0, self._drop_preview_and_close)
+
+    def _drop_preview_and_close(self) -> None:
+        """Objets d'aperçu retirés un à un, transaction validée (jamais abandonnée : défaire la
+        suppression de l'ancre plante FreeCAD), puis panneau fermé."""
+        if self.closed:
+            return
+        for name in self._preview_names():
+            if self.doc.getObject(name) is not None:
+                self.doc.removeObject(name)
+        self.furniture = None
+        close_transaction(self._transaction, abort=False)
+        Gui.Control.closeDialog()
+
+    def _preview_names(self) -> list[str]:
+        """Noms des objets créés depuis l'ouverture du panneau, les derniers créés d'abord."""
+        return [o.Name for o in reversed(self.doc.Objects) if o.Name not in self._initial_names]
 
     # --- Construction du formulaire -------------------------------------------------------
 

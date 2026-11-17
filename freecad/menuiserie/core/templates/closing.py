@@ -61,6 +61,7 @@ LABELS: Final = {
     "top": QT_TRANSLATE_NOOP("Menuiserie", "Dessus"),
     "back": QT_TRANSLATE_NOOP("Menuiserie", "Fond"),
     "front": QT_TRANSLATE_NOOP("Menuiserie", "Avant"),
+    "opposite": QT_TRANSLATE_NOOP("Menuiserie", "Pièce opposée"),  # dessus ou dessous : légende
 }
 
 _C = TypeVar("_C", bound=Enum)

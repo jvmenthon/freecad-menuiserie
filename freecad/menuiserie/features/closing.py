@@ -19,8 +19,10 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.closing import (
     ANCHOR_KEY,
+    back_availability,
     check_feasible,
     closing_layout,
+    joinery_availability,
     nearest_front,
 )
 from freecad.menuiserie.core.templates.closing_params import (
@@ -39,10 +41,13 @@ from freecad.menuiserie.features.wood_part import dimensions_of, is_wood_part
 
 __all__ = [
     "anchor_blank",
+    "back_availability",
     "build_closing",
+    "closing_layout",
     "closing_params",
     "default_front_turns",
     "default_role",
+    "joinery_availability",
 ]
 
 _VERTICAL: Final = 0.9  # composante verticale à partir de laquelle l'épaisseur est « verticale »
