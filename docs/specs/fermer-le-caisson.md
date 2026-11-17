@@ -1,12 +1,12 @@
 # Fermer le caisson à partir du dessous ou du dessus
 
 - Issue [#267](https://github.com/jvmenthon/freecad-menuiserie/issues/267), demande de jv (2026-11-17).
-- Décision : [ADR 0064](../adr/0064-fermer-un-caisson-autour-d-une-piece-existante.md) (proposé).
+- Décision : [ADR 0064](../adr/0064-fermer-un-caisson-autour-d-une-piece-existante.md) (accepté).
 - Réponses de jv (2026-11-17) : Q1 (le dessus est posé au-dessus des côtés, pas entre),
-  Q2, Q3, Q4 selon ★ ; Q8 : épaisseur et matériau de l'ancre par défaut, modifiables, **une
-  seule épaisseur pour tous les côtés**. Restent Q5, Q6, Q7, Q9.
-- Statut : **proposée**, en attente des réponses de jv aux questions restantes (§ 7, choix
-  recommandés marqués ★) et du choix de la maquette du panneau et de l'icône.
+  Q2, Q3, Q4, Q6, Q7 selon ★ ; Q5 : **un même assemblage pour tous les côtés** ; Q8 : épaisseur
+  et matériau de l'ancre par défaut, modifiables, **une seule épaisseur pour tous les côtés** ;
+  Q9 : panneau **B** (schéma cliquable) et icône **A**.
+- Statut : **validée par jv** (2026-11-17).
 
 ## 1. Besoin
 
@@ -29,8 +29,8 @@ tiroirs, socle et plinthe, régénération après coup (ADR 0010).
 - **Pièce opposée** : le dessus quand l'ancre est le dessous, et inversement.
 - **Éléments** : côté gauche, côté droit, arrière, avant, pièce opposée. Chacun peut être
   désactivé.
-- **Jonctions** : côtés ↔ ancre et pièce opposée ; côtés ↔ avant et arrière (quand l'arrière ou
-  l'avant est un panneau épais) ; fond ↔ son pourtour (quand l'arrière est un fond mince).
+- **Jonctions** : les angles des côtés (côtés ↔ ancre, pièce opposée, avant et arrière épais),
+  qui ont **tous le même assemblage** (Q5), et le fond mince ↔ son pourtour.
 
 ## 3. Comportement
 
@@ -44,13 +44,13 @@ tiroirs, socle et plinthe, régénération après coup (ADR 0010).
    permet d'inverser (« La pièce sélectionnée est : le dessous / le dessus »).
 3. **Avant du caisson** (Q6) : par défaut le grand chant de l'ancre le plus proche de la caméra au
    lancement ; un bouton « Tourner l'avant » le fait passer au chant suivant (90°).
-4. Un **panneau de tâche** s'ouvre (maquette au choix, § 6). Toute saisie met à jour l'**aperçu
+4. Un **panneau de tâche** s'ouvre (maquette B, § 6). Toute saisie met à jour l'**aperçu
    dans la vue 3D** aussitôt (règle de jv, `valueChanged`), dans une seule transaction
    « Fermer le caisson », comme le panneau du gabarit Caisson (J4d, K6).
 5. **OK** crée les pièces, les assemblages et l'ensemble (une seule entrée d'annulation).
    **Annuler** ne laisse rien, l'ancre est intacte.
 
-## 4. Géométrie (choix ★ des questions du § 7)
+## 4. Géométrie (choix de jv, § 7)
 
 Repère du caisson = repère de l'ancre : X le long de sa longueur (largeur du caisson), Y le long
 de sa largeur (profondeur, avant en 0), Z vers l'intérieur du caisson. L'ancre occupe
@@ -74,12 +74,11 @@ panneaux créés, `f` épaisseur du fond, `r` profondeur de la feuillure du fond
 - Ensemble : options « fixe » explicites (ADR 0010) ; côtés, pièce opposée et fond suivent
   `Height`, `Width` et `Depth` de l'ensemble.
 
-## 5. Assemblages proposés (Q5)
+## 5. Assemblages (Q5)
 
-| Jonction | Choix proposés | Défaut ★ |
+| Liste | Choix | Défaut |
 | --- | --- | --- |
-| Côtés ↔ dessous et dessus | Aucun (vissé, collé), Tourillons, Queues d'aronde, Onglet, Feuillure | Tourillons |
-| Côtés ↔ avant et arrière épais | Aucun, Tourillons, Queues d'aronde, Onglet, Feuillure | Tourillons |
+| Angles des côtés (une seule liste pour tous, jv) | Aucun (vissé, collé), Tourillons, Queues d'aronde, Onglet, Feuillure | Tourillons |
 | Fond mince | Feuillure, Rainure, Aucun (vissé derrière) | Feuillure |
 
 Ne sont proposés que les assemblages déjà présents dans l'atelier (J3, biais). Un choix
@@ -87,21 +86,22 @@ impossible avec les cotes saisies (tourillons dans moins de 12 mm, queues d'aron
 est grisé avec la raison en infobulle. Les lamelles et faux tenons (quincaillerie, issue #159)
 viendront quand ils seront dans `main`.
 
-## 6. Panneau : trois maquettes (règle « nouvelle interface »)
+## 6. Panneau : maquette B retenue (jv, 2026-11-17)
 
 Maquettes dans [`fermer-le-caisson/`](fermer-le-caisson/) (images) :
 
 - **A — Formulaire** : champs (hauteur, épaisseur, matériau), cases à cocher des éléments, trois
   listes d'assemblages. Le plus proche des panneaux actuels, le plus simple à coder.
-- **B — Schéma cliquable ★** : un dessin du caisson en perspective, chaque élément d'une couleur ;
-  un clic sur un élément l'active ou le désactive (grisé, croix rouge), les jonctions portent
-  leur liste d'assemblage. Même langage que la maquette A retenue pour les profils d'arête.
+- **B — Schéma cliquable, retenue** : un dessin du caisson en perspective, chaque élément d'une
+  couleur ; un clic sur un élément l'active ou le désactive (grisé, croix rouge). Avec Q5, une
+  pastille ① sur les angles porte la liste unique « Assemblage des côtés » et une pastille ② la
+  liste du fond. Même langage que la maquette A retenue pour les profils d'arête.
 - **C — Tableau par élément** : une ligne par élément (case, épaisseur, matériau, assemblage) ;
   le plus de réglages, le plus dense.
 
-Trois propositions d'icône dans le même dossier.
+Trois propositions d'icône dans le même dossier : **A retenue** (côtés en transparence et flèche).
 
-## 7. Questions pour jv (★ = recommandation)
+## 7. Questions pour jv (★ = recommandation, ✔ = tranchée)
 
 | N° | Question | Choix ★ | Autres choix |
 | --- | --- | --- | --- |
@@ -109,11 +109,11 @@ Trois propositions d'icône dans le même dossier.
 | Q2 ✔ | Éléments cochés par défaut | Côtés, fond, pièce opposée ; avant décoché | Tout coché |
 | Q3 ✔ | Arrière | Fond mince en feuillure (comme le gabarit Caisson), panneau épais au choix | Toujours un panneau épais |
 | Q4 ✔ | Hauteur saisie | Hors tout, ancre comprise | Intérieure ; au choix |
-| Q5 | Assemblages | Une liste par jonction (§ 5), tourillons et feuillure par défaut | Une seule liste pour tout le caisson |
-| Q6 | Avant du caisson | Grand chant de l'ancre le plus proche de la caméra, bouton « Tourner l'avant » | Toujours le chant −Y de l'ancre |
-| Q7 | Ensemble | Nouvel ensemble « Caisson » avec l'ancre ; sous-ensemble si l'ancre était dans un ensemble (ADR 0037) | Ajouter les pièces à l'ensemble de l'ancre ; pas d'ensemble |
+| Q5 ✔ | Assemblages | Une liste par jonction | **jv : la même pour tous les côtés** (une liste pour les angles, une pour le fond) |
+| Q6 ✔ | Avant du caisson | Grand chant de l'ancre le plus proche de la caméra, bouton « Tourner l'avant » | Toujours le chant −Y de l'ancre |
+| Q7 ✔ | Ensemble | Nouvel ensemble « Caisson » avec l'ancre ; sous-ensemble si l'ancre était dans un ensemble (ADR 0037) | Ajouter les pièces à l'ensemble de l'ancre ; pas d'ensemble |
 | Q8 ✔ | Épaisseur et matériau des pièces créées | **jv : ceux de l'ancre par défaut, modifiables ; les côtés ont la même épaisseur** | Ceux du gabarit Caisson (18 mm, contreplaqué bouleau) |
-| Q9 | Maquette du panneau et icône | Panneau B, icône A (côtés en transparence et flèche : lisible en 16 px, distincte de « Caisson ») | Panneau A ou C ; icône B ou C |
+| Q9 ✔ | Maquette du panneau et icône | **jv : panneau B, icône A** (côtés en transparence et flèche : lisible en 16 px, distincte de « Caisson ») | Panneau A ou C ; icône B ou C |
 
 ## 8. Critères d'acceptation
 

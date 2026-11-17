@@ -1,6 +1,6 @@
 # ADR 0064 — Fermer un caisson autour d'une pièce existante
 
-- Statut : **proposé** (Q1 à Q4 et Q8 tranchées par jv le 2026-11-17 ; restent Q5 à Q7 et Q9)
+- Statut : **accepté** (jv, 2026-11-17 : Q1 à Q9 tranchées)
 - Date : 2026-11-17
 - Spécification : [docs/specs/fermer-le-caisson.md](../specs/fermer-le-caisson.md)
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),
@@ -43,7 +43,8 @@ Options étudiées :
    Toute rotation de l'ancre est donc admise (ADR 0025) : l'ensemble créé porte la même
    rotation dans son Std Part (ADR 0038).
 3. **Fonction pure.** `core/templates/closing.py` : `ClosingParams` (rôle de l'ancre, hauteur,
-   éléments actifs, épaisseurs, matériaux, assemblages par jonction) + cotes de l'ancre →
+   éléments actifs, une épaisseur pour tous les côtés, matériaux, un assemblage pour les angles
+   des côtés et un pour le fond) + cotes de l'ancre →
    `Layout`. Le `Layout` gagne un champ `anchor` (clé de la pièce existante) : son `PieceSpec`
    décrit l'ancre telle qu'elle est (mode et options « fixe » dans l'ensemble), mais le
    constructeur ne la crée pas.
