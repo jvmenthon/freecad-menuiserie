@@ -426,6 +426,7 @@ def test_recalage_impossible_rend_la_boite_et_garde_l_entree(
     second.Placement.Base = App.Vector(0.0, 500.0, 0.0)
     document.recompute()
     furniture, _ = api.make_furniture([first], "Cadre")
+    depart = envelope.frame_of(furniture)
 
     def refuse(_furniture: Any) -> Any:
         raise ValueError("cycle simulé")
@@ -434,6 +435,7 @@ def test_recalage_impossible_rend_la_boite_et_garde_l_entree(
     messages = api.add_to_furniture(furniture, [second])
     assert any("cycle simulé" in message for message in messages)
     assert api.furniture_of(second) == furniture
+    assert envelope.frame_of(furniture) == depart  # boîte rendue par le retour arrière
     assert not stale_or_invalid(document)
 
 
