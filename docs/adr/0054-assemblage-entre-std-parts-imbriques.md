@@ -40,7 +40,11 @@ conteneur.
    … go out of the allowed scope », comme `Furniture`, ADR 0038). Les documents existants sont
    migrés à la réouverture (type recréé, liens gardés) ;
    sans effet sur les autres ateliers (le lien reste un lien).
-5. Hors périmètre : le perçage LR32 (`both_sides`, voisines) ne considère toujours que les pièces du
+5. **Gestes sur une pièce assemblée** : le contrôle au relâchement d'un glissement ou d'une
+   rotation passe par le plan de l'assemblage (point 2). Quand l'épaisseur d'une pièce change,
+   le décalage des pièces posées sur sa face haute est calculé dans le repère de son conteneur
+   puis ramené dans celui de chaque pièce qui suit (`direction_in_frame_of`), même tourné.
+6. Hors périmètre : le perçage LR32 (`both_sides`, voisines) ne considère toujours que les pièces du
    même conteneur ; la coulisse utilise les rotations globales.
 
 ## Conséquences

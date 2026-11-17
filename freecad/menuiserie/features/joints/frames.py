@@ -17,7 +17,13 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 
-__all__ = ["frame_containers", "placement_in_frame_of", "related_containers", "touch_framed_joints"]
+__all__ = [
+    "direction_in_frame_of",
+    "frame_containers",
+    "placement_in_frame_of",
+    "related_containers",
+    "touch_framed_joints",
+]
 
 _STD_PART: Final = "App::Part"
 OTHER_CONTAINER: Final = QT_TRANSLATE_NOOP(
@@ -61,6 +67,22 @@ def placement_in_frame_of(obj: DocumentObject, reference: DocumentObject) -> App
         return obj.Placement
     base = holder.getGlobalPlacement() if holder is not None else App.Placement()
     return base.inverse() * obj.getGlobalPlacement()
+
+
+def _rotation(holder: DocumentObject | None) -> App.Rotation:
+    return holder.getGlobalPlacement().Rotation if holder is not None else App.Rotation()
+
+
+def direction_in_frame_of(
+    vector: App.Vector, reference: DocumentObject, obj: DocumentObject
+) -> App.Vector:
+    """Direction ``vector``, lue dans le repère du conteneur de ``reference``, exprimée dans celui
+    du conteneur de ``obj`` : le décalage à ajouter au ``Placement`` de ``obj`` pour le déplacer
+    de ``vector`` dans le repère de ``reference``. Même conteneur : ``vector`` inchangé."""
+    source, target = reference.getParentGeoFeatureGroup(), obj.getParentGeoFeatureGroup()
+    if _same(source, target):
+        return App.Vector(vector)
+    return _rotation(target).inverted().multVec(_rotation(source).multVec(vector))
 
 
 def frame_containers(*objects: DocumentObject) -> list[DocumentObject]:

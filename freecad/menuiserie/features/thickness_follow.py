@@ -26,6 +26,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject, placement_
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.joints.base import is_joint, placed_blank
+from freecad.menuiserie.features.joints.frames import direction_in_frame_of
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.wood_part import dimensions_of
 
@@ -103,10 +104,13 @@ def _blocker(group: Sequence[DocumentObject], fixed: Sequence[DocumentObject]) -
     return None
 
 
-def _move(parts: Sequence[DocumentObject], shift: Sequence[float]) -> None:
+def _move(parts: Sequence[DocumentObject], shift: Sequence[float], frame: DocumentObject) -> None:
+    """Décale ``parts`` de ``shift`` (repère du conteneur de ``frame``), chacune dans le repère de
+    son propre conteneur (ADR 0054)."""
     for part in parts:
         placement = App.Placement(part.Placement)
-        placement.Base = placement.Base + App.Vector(*shift)
+        offset = direction_in_frame_of(App.Vector(*shift), frame, part)
+        placement.Base = placement.Base + offset
         part.Placement = placement
 
 
@@ -129,7 +133,11 @@ def follow_thickness(part: DocumentObject, old: float, new: float) -> list[str]:
         if reason is not None:
             kept.setdefault(reason, []).append(root)
         elif root not in moved:
-            _move([piece for piece in group if piece not in moved], (shift.x, shift.y, shift.z))
+            _move(
+                [piece for piece in group if piece not in moved],
+                (shift.x, shift.y, shift.z),
+                part,
+            )
             moved.extend(piece for piece in group if piece not in moved)
     label = quoted_value(part.Label)
     messages = [

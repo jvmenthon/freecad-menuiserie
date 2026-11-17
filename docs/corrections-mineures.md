@@ -181,7 +181,3 @@ de répétitions m5) sont corrigés.
 | cp7 | mineur | `gui/task_panels/repeat.py` (`__init__`) | Le panneau note lui-même chaque champ dans `FieldSnap` après `_fill`. | Méthode `FieldSnap.sync()` qui lit `rawValue` de chaque champ. |
 | cp8 | mineur | `gui/task_panels/repeat_coplanar.py` (`_never`, `_snapped`) | Deux petits helpers de module là où une `partial` suffirait. | Simplifier au prochain passage. |
 | cp9 | mineur | `core/magnet/_coplanar.py` (`snap_field`) | `slopes or ()` répété alors que `slopes` peut valoir `None`. | `slopes = _slopes(...) or []` dès le départ. |
-
-## Revue #209 (ADR 0054) — reste à traiter
-- Test d'intégration « corps PartDesign refusé » à ajouter (le corps accepte mal les pièces de bois : à essayer en CI).
-- Déplacement/rotation/épaisseur d'une pièce assemblée entre conteneurs différents (`drag_joints`, `part_rotate`) : lecture locale, non couverte par un test.
