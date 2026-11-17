@@ -318,3 +318,16 @@ def test_objets_valeur_du_layout_valides() -> None:
         Layout("", "Caisson", layout.box, layout.origin, layout.pieces)
     with pytest.raises(KeyError):
         layout.piece("absente")
+
+
+@pytest.mark.parametrize("field", ["thickness", "back_thickness"])
+def test_epaisseur_sous_le_minimum_des_pieces_refusee(field: str) -> None:
+    """Une épaisseur de 0,01 mm (sous ``MIN_DIMENSION_MM``) est refusée par le gabarit, avec le
+    minimum cité, au lieu de produire une pièce que le bois refuserait."""
+    with pytest.raises(CarcassError) as error:
+        replace(REFERENCE, **{field: 0.01})  # type: ignore[arg-type]
+    assert error.value.params["min"] == "0,1"
+    valid = CarcassParams(
+        thickness=0.2, back_thickness=0.1, rabbet_depth=0.1, joinery=CarcassJoinery.NONE
+    )
+    assert (valid.thickness, valid.back_thickness) == (0.2, 0.1)

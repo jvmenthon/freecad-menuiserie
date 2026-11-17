@@ -93,14 +93,19 @@ class CloseCarcassCommand(TransactionCommand):
             picked, face = _selected_face()
             role = default_role(anchor, face, picked)
             turns = default_front_turns(anchor, _viewer(anchor))
-        except (TypeError, ValueError) as error:
-            report_refusal(str(error))
+        except (TypeError, ValueError, ReferenceError, RuntimeError) as error:
+            report_refusal(str(error))  # sélection refusée ou objet détruit entre-temps
             return
         try:
             with frame_view():
                 doc.openTransaction(translated(CLOSE_TRANSACTION))
                 show_panel(doc, anchor, role, turns)  # abandonne la transaction s'il échoue
-        except (TypeError, ValueError) as error:  # cotes de l'ancre sans valeurs par défaut
+        except (
+            TypeError,
+            ValueError,
+            ReferenceError,
+            RuntimeError,
+        ) as error:  # cotes de l'ancre sans valeurs par défaut
             report_refusal(str(error))
 
 

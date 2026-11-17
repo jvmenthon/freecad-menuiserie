@@ -44,6 +44,7 @@ __all__ = [
     "ANCHOR_KEY",
     "CLOSING_TEMPLATE",
     "back_availability",
+    "check_feasible",
     "closing_layout",
     "joinery_availability",
     "nearest_front",

@@ -15,8 +15,11 @@ from typing import Any, ClassVar
 
 from freecad.menuiserie import api
 from tests.qtest.aides import (
+    OUI,
     Etapes,
+    ReponseAuxBoites,
     activer_faulthandler,
+    attendre,
     bouton_annuler,
     bouton_ok,
     choisir,
@@ -30,9 +33,12 @@ from tests.qtest.aides import (
     preparer,
     selectionner,
     taper,
+    traiter_les_evenements,
+    vider_la_vue_rapport,
+    vue_rapport,
 )
 from tests.qtest.angle_a_queues import controler_le_document
-from tests.qtest.pieces import commande_active, du_type
+from tests.qtest.pieces import commande_active, du_type, erreurs_python
 
 COMMANDE = "Menuiserie_CloseCarcass"
 PANNEAU = "ClosingTaskPanel"
@@ -116,6 +122,59 @@ class FermerLeCaisson(Etapes):
         self.doc.undo()
         self.assertEqual(empreinte(self.doc), self.avant)
         self.doc.redo()
+
+
+class AncreSupprimee(Etapes):
+    """Ancre supprimée pendant que le panneau est ouvert, et rafale de clics."""
+
+    doc: Any
+    ancre: Any
+
+    def setUp(self) -> None:
+        self.doc = preparer("ScenarioFermerSupprimee")
+        self.addCleanup(fermer, self.doc)
+        self.ancre = api.make_wood_part(600.0, 400.0, 18.0, doc=self.doc)
+        self.doc.clearUndos()
+        vider_la_vue_rapport()
+        selectionner(self.ancre)
+        lancer(COMMANDE)
+
+    def test_ancre_supprimee_par_la_commande(self) -> None:
+        """« Édition > Supprimer » : FreeCAD ferme le panneau (changement de transaction) ; la
+        fermeture est propre, sans erreur Python."""
+        enfant(formulaire(PANNEAU), "errorLabel")
+        with ReponseAuxBoites(OUI):
+            selectionner(self.ancre)
+            lancer("Std_Delete")
+        self.assertTrue(attendre(lambda: not panneau_ouvert()), "panneau resté ouvert")
+        traiter_les_evenements()
+        self.assertEqual(erreurs_python(vue_rapport()), [])
+
+    def test_rafale_de_clics_un_apercu_a_jour(self) -> None:
+        """Plusieurs gestes sans rendre la main à Qt : l'aperçu final correspond aux cases."""
+        form = formulaire(PANNEAU)
+        for nom in ("element_front", "element_back", "element_back", "element_left"):
+            enfant(form, nom).click()  # sans traiter les événements entre deux clics
+        enfant(form, "turnFront").click()
+        traiter_les_evenements()
+        attendues = 1 + sum(
+            enfant(form, nom).isChecked()
+            for nom in (
+                "element_left",
+                "element_right",
+                "element_back",
+                "element_front",
+                "element_opposite",
+            )
+        )
+        self.assertTrue(attendre(lambda: len(self.pieces()) == attendues), "aperçu en retard")
+        self.assertEqual(enfant(form, "errorLabel").text(), "")
+        cliquer(bouton_ok())  # « OK » valide l'aperçu à jour
+        self.assertEqual(self.doc.UndoNames, [TRANSACTION])
+        self.assertEqual(len(self.pieces()), attendues)
+
+    def pieces(self) -> list[Any]:
+        return du_type(self.doc, TYPE_PIECE)
 
 
 if __name__ == "__main__":

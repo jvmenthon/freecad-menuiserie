@@ -12,12 +12,14 @@ avec les cotes saisies est grisé, sa raison en infobulle.
 
 from __future__ import annotations
 
+import html
 from collections.abc import Sequence
 from dataclasses import replace
 from functools import partial
 from typing import Any, Final
 
 import FreeCAD as App
+import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
@@ -37,8 +39,10 @@ from freecad.menuiserie.core.templates.closing_params import (
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import templated_message, translated, translated_errors
 from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.gui.display_layers import object_alive
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
+    DeletionWatcher,
     TransactionTaskPanel,
     close_transaction,
     connect,
@@ -107,7 +111,10 @@ _UNEXPECTED: Final = QT_TRANSLATE_NOOP(
     "Le caisson n'a pas pu être construit avec ces paramètres ({reason}). Modifiez une cote ou "
     "un choix.",
 )
-_UNAVAILABLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Impossible avec ces cotes : {reason}")
+_UNAVAILABLE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Impossible avec ces cotes : {reason} Choisissez un autre assemblage ou modifiez les cotes.",
+)
 _ERROR_STYLE: Final = "color: #c0392b;"
 _PREFERRED: Final = (ClosingJoinery.DOWELS, ClosingJoinery.NONE)
 
@@ -119,7 +126,21 @@ def _set_availability(box: Any, reasons: dict[Any, TemplatedError | None]) -> No
         reason = reasons.get(box.itemData(index))
         model.item(index).setEnabled(reason is None)
         tip = "" if reason is None else translated(_UNAVAILABLE, {"reason": _reason(reason)})
+        tip = html.escape(tip)  # une infobulle est du texte riche : un « <…> » ne doit pas s'y lire
         box.setItemData(index, tip, QtCore.Qt.ItemDataRole.ToolTipRole)
+
+
+def _close_later() -> None:
+    """Panneau fermé hors de la suppression en cours : abandonner la transaction (donc détruire
+    l'aperçu) pendant que FreeCAD retire l'ancre ferait planter le noyau."""
+    QtCore.QTimer.singleShot(0, Gui.Control.closeDialog)
+
+
+def _material_name(material_id: str) -> str:
+    """Nom du matériau dans la langue de FreeCAD ; l'identifiant brut s'il n'est plus dans la
+    bibliothèque."""
+    material = get_library().find(material_id)
+    return material_id if material is None else str(material.name(display_language()))
 
 
 def _reason(error: TemplatedError) -> str:
@@ -133,8 +154,9 @@ class ClosingTaskPanel(TransactionTaskPanel):
     def __init__(
         self, doc: Document, anchor: DocumentObject, role: ClosingRole, front_turns: int
     ) -> None:
-        super().__init__(doc, creating=True)
+        super().__init__(doc, creating=True, watcher=DeletionWatcher(anchor, _close_later))
         self.anchor = anchor
+        self._pending = False  # un aperçu est déjà demandé (anti-rebond des rafales de clics)
         self.furniture: DocumentObject | None = None
         self._front = front_turns
         self._ready = False  # aperçu seulement une fois tous les champs construits
@@ -179,14 +201,14 @@ class ClosingTaskPanel(TransactionTaskPanel):
         layout.addRow(self._error)
         self._ready = True
         self._choose_default_joinery()
-        self.rebuild()
+        self._rebuild_now()
 
     # --- Construction du formulaire -------------------------------------------------------
 
     def _banner(self, defaults: ClosingParams) -> Any:
         """Bandeau « Pièce sélectionnée » : libellé, cotes et matériau de l'ancre."""
         size = defaults.anchor
-        material = get_library().get(defaults.anchor_material_id).name(display_language())
+        material = _material_name(defaults.anchor_material_id)
         text = translated(
             _BANNER,
             {
@@ -291,7 +313,7 @@ class ClosingTaskPanel(TransactionTaskPanel):
         try:
             with translated_errors():
                 return api.closing_params(self.anchor, **values)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, ReferenceError, RuntimeError):  # ancre détruite
             return None
 
     # --- Aperçu ---------------------------------------------------------------------------
@@ -318,10 +340,19 @@ class ClosingTaskPanel(TransactionTaskPanel):
         self._schema.show_layout(closing_layout(everything), enabled)
 
     def rebuild(self, *_changed: object) -> None:
+        """Aperçu demandé : une rafale de saisies ou de clics n'en fait qu'un, refait dès le
+        retour à la boucle d'événements (l'aperçu reste à jour)."""
+        if not self._ready or self.closed or self._pending:
+            return
+        self._pending = True
+        QtCore.QTimer.singleShot(0, self._rebuild_now)
+
+    def _rebuild_now(self) -> None:
         """Caisson précédent abandonné avec sa transaction, puis recréé dans une transaction
         rouverte ; un refus s'affiche sous les champs. Une erreur inattendue (noyau
         géométrique) ou un objet créé en erreur abandonne aussi l'aperçu : rien ne reste."""
-        if not self._ready or self.closed:
+        self._pending = False
+        if not self._ready or self.closed or not object_alive(self.anchor):
             return
         self._restart()
         self._refresh_choices()
@@ -346,6 +377,8 @@ class ClosingTaskPanel(TransactionTaskPanel):
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation ; sans caisson
         (paramètres refusés), le panneau reste ouvert."""
+        if self._pending:
+            self._rebuild_now()  # saisie pas encore reportée dans l'aperçu
         if self.furniture is None:
             return False
         accepted = super().accept()

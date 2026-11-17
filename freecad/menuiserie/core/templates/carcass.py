@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
-from freecad.menuiserie.core._validation import decimal_text, to_finite_float
+from freecad.menuiserie.core._validation import MIN_DIMENSION_MM, decimal_text, to_finite_float
 from freecad.menuiserie.core.furniture import Edge, FurnitureBox
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
@@ -61,12 +61,12 @@ FIELDS: Final = {
 }
 THICKNESS_RANGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Caisson : {field} = {value} mm ; il faut plus de 0 mm et moins de la moitié de la plus "
-    "petite cote ({max} mm).",
+    "Caisson : {field} = {value} mm ; il faut au moins {min} mm et moins de la moitié de la "
+    "plus petite cote ({max} mm).",
 )
 BACK_RANGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Caisson : {field} = {value} mm ; il faut plus de 0 mm et moins que l'épaisseur des "
+    "Caisson : {field} = {value} mm ; il faut au moins {min} mm et moins que l'épaisseur des "
     "panneaux ({max} mm).",
 )
 RABBET_RANGE: Final = QT_TRANSLATE_NOOP(
@@ -186,10 +186,17 @@ class CarcassParams:
 
 
 def _positive_below(params: CarcassParams, name: str, limit: float, template: str) -> float:
-    """Valeur du champ ``name``, strictement entre 0 et ``limit`` ; refus sinon."""
+    """Valeur du champ ``name``, d'au moins ``MIN_DIMENSION_MM`` (comme toute pièce) et
+    strictement sous ``limit`` ; refus sinon."""
     value = to_finite_float(getattr(params, name))
-    if value is None or not 0 < value < limit:
-        raise _error(template, name, getattr(params, name), max=decimal_text(limit))
+    if value is None or not MIN_DIMENSION_MM <= value < limit:
+        raise _error(
+            template,
+            name,
+            getattr(params, name),
+            min=decimal_text(MIN_DIMENSION_MM),
+            max=decimal_text(limit),
+        )
     object.__setattr__(params, name, value)
     return value
 
