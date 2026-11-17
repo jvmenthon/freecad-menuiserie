@@ -23,10 +23,12 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.core.display_layers import ORIGIN_LOOK
 from freecad.menuiserie.core.document_state import Snapshot, differs
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM
 from freecad.menuiserie.features.document_snapshot import snapshot_of
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.display_layers import DISPLAY, object_alive
+from freecad.menuiserie.gui.error_frames import release_last_error_frames
 from freecad.menuiserie.gui.task_panels import active
 from freecad.menuiserie.gui.task_panels.preview import PartsPreview
 
@@ -305,6 +307,7 @@ def show_panel(build: Callable[[], Panel], edited: DocumentObject | None = None)
     """Construit le panneau par ``build`` puis l'affiche, dans la transaction déjà ouverte.
     Une exception abandonne cette transaction (objet en création compris) avant d'être
     propagée."""
+    release_last_error_frames()
     with aborted_on_error(App.getActiveTransaction()):
         panel = build()
         Gui.Control.showDialog(panel)
@@ -402,6 +405,18 @@ class UpdateGuard:
 
     def __exit__(self, *_exc_info: object) -> None:
         self._depth -= 1
+
+
+def length_spinbox(name: str, value: float) -> Widget:
+    """Champ de cote en mm (``Gui::QuantitySpinBox``) de 0 à ``MAX_DIMENSION_MM``, à ``value``."""
+    field = Gui.UiLoader().createWidget("Gui::QuantitySpinBox")
+    field.setKeyboardTracking(False)  # aperçu à la fin de la saisie, pas à chaque touche
+    field.setObjectName(name)
+    field.setProperty("unit", "mm")
+    field.setProperty("minimum", 0.0)
+    field.setProperty("maximum", MAX_DIMENSION_MM)
+    field.setProperty("rawValue", value)
+    return field
 
 
 def connect(sender: Widget, signature: str, slot: Callable[..., None]) -> None:

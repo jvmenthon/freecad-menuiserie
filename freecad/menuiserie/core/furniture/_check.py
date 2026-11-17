@@ -11,7 +11,11 @@ from dataclasses import replace
 from freecad.menuiserie.core._validation import MAX_DIMENSION_MM, MIN_DIMENSION_MM
 from freecad.menuiserie.core.contact import Relation, relation
 from freecad.menuiserie.core.furniture._bindings import is_driven, position_property
-from freecad.menuiserie.core.furniture._blocked import check_blocked, size_text
+from freecad.menuiserie.core.furniture._blocked import (
+    check_blocked,
+    layer_thicknesses,
+    size_text,
+)
 from freecad.menuiserie.core.furniture._follow import FollowRule, Rules, follow_rules
 from freecad.menuiserie.core.furniture._gaps import gap_values
 from freecad.menuiserie.core.furniture._messages import (
@@ -44,12 +48,15 @@ from freecad.menuiserie.core.geometry import (
     RigidTransform,
     Vec3,
 )
+from freecad.menuiserie.core.materials import MAX_THICKNESS_MM
 from freecad.menuiserie.core.notice import Notice
 from freecad.menuiserie.core.part_model import Dimensions
 
 
-def _checked_size(member: Member, prop: str, value: float) -> float:
-    if MIN_DIMENSION_MM <= value <= MAX_DIMENSION_MM:
+def _checked_size(
+    member: Member, prop: str, value: float, maximum: float = MAX_DIMENSION_MM
+) -> float:
+    if MIN_DIMENSION_MM <= value <= maximum:
         return value
     template = TOO_SMALL if value < MIN_DIMENSION_MM else TOO_LARGE
     params = {"member": member.name, "property": prop, "value": size_text(value)}
@@ -233,6 +240,8 @@ def check_resize(
     members: Sequence[Member],
     rules: Rules,
     joined: Sequence[tuple[str, str]],
+    *,
+    layers: bool = True,
 ) -> tuple[Notice, ...]:
     """Contrôle d'un redimensionnement, avant toute écriture (``rules`` : règles calculées
     pour ``old``).
@@ -242,9 +251,25 @@ def check_resize(
     bornes ; paire d'assemblage ``joined`` (clés hôte, invitée) dont la position relative
     changerait de classe (``Contact``, ``Overlap``, ``Separated``). Avertissements :
     ``UserFormula`` pour une propriété pilotée sur un axe qui change, ``OutsideBox`` pour un
-    membre qui dépasserait.
+    membre qui dépasserait. Les pièces à plat qui remplissent seules une cote se la partagent
+    au prorata de leur épaisseur (:func:`followed_thicknesses`, ADR 0062) au lieu de bloquer
+    leur rangée ; ``layers`` faux (sous-ensemble suivant son parent par expression, que rien ne
+    fait changer d'épaisseur) : elles la bloquent.
     """
-    return _check(old, new, members, rules, joined, {})
+    followers = followed_thicknesses(old, new, members, rules) if layers else {}
+    for member in members:
+        if member.key in followers:
+            _checked_size(member, THICKNESS, followers[member.key], MAX_THICKNESS_MM)
+    return _check(old, new, members, rules, joined, followers)
+
+
+def followed_thicknesses(
+    old: FurnitureBox, new: FurnitureBox, members: Sequence[Member], rules: Rules
+) -> dict[str, float]:
+    """Nouvelle épaisseur (clé → mm) de chaque pièce à plat qui remplit seule, avec ses
+    voisines empilées, une cote de l'ensemble qui passe de ``old`` à ``new`` : au prorata de
+    son épaisseur (ADR 0062). ``rules`` : règles calculées pour ``old``."""
+    return layer_thicknesses(old, new, rules, _thicknesses(members))
 
 
 def check_thickness(

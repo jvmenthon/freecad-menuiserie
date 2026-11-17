@@ -31,6 +31,8 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
                 "Menuiserie_WoodPart",  # pièce en bois
                 "Menuiserie_ShapedPart",  # pièce à forme libre (PD-d)
                 "Menuiserie_SetDistance",  # distance entre deux pièces (DI-b)
+                "Menuiserie_EdgeFinish",  # finition des chants (#5)
+                "Menuiserie_AlignFaces",  # alignement de deux faces (AL-c)
             ),
         ),
         (
@@ -121,12 +123,18 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import distance  # distance entre deux pièces (DI-b)
 
         distance.register()
+        from freecad.menuiserie.gui.commands import align  # alignement de deux faces (AL-c)
+
+        align.register()
         from freecad.menuiserie.gui.commands import shaped_part  # pièce en bois (PD-d)
 
         shaped_part.register()
         from freecad.menuiserie.gui.commands import structure  # panneau « Structure » (ADR 0046)
 
         structure.register()
+        from freecad.menuiserie.gui.commands import edge_finish  # finition des chants (#5)
+
+        edge_finish.register()
         from freecad.menuiserie.gui.commands import repeat  # répétition de pièces (R-c)
 
         repeat.register()
@@ -141,12 +149,11 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     def Activated(self) -> None:
         """Atelier actif : double-clic dans la vue 3D sur ses objets (ADR 0018) et flèches de
         déplacement de la pièce sélectionnée (ADR 0021)."""
-        from freecad.menuiserie.gui import click_select, double_click
+        from freecad.menuiserie.gui import double_click
         from freecad.menuiserie.gui.drag import events
 
         try:
             double_click.install()
-            click_select.install()  # après le double-clic : Qt appelle le dernier posé d'abord
         finally:
             events.install()
         from freecad.menuiserie.gui.structure_panel import open_by_default_later
@@ -154,27 +161,26 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         open_by_default_later()  # panneau « Structure » ouvert par défaut (ADR 0046)
 
     def Deactivated(self) -> None:
-        """Atelier quitté : filtres, observateur de sélection et flèches sont retirés."""
-        from freecad.menuiserie.gui import click_select, double_click
+        """Atelier quitté : filtre du double-clic et flèches sont retirés."""
+        from freecad.menuiserie.gui import double_click
         from freecad.menuiserie.gui.drag import events
 
         try:
-            click_select.uninstall()
+            double_click.uninstall()
         finally:
-            try:
-                double_click.uninstall()
-            finally:
-                events.uninstall()
+            events.uninstall()
 
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une
         distance » (au premier niveau, pas dans un sous-menu) quand la sélection compte deux
-        éléments de deux objets. Ce menu n'existe que
-        pendant que l'atelier est actif (ADR 0007)."""
-        from freecad.menuiserie.gui.commands import distance
+        éléments de deux objets, et « Aligner deux faces » si ce sont deux faces. Ce menu
+        n'existe que pendant que l'atelier est actif (ADR 0007)."""
+        from freecad.menuiserie.gui.commands import align, distance
 
         if distance.selected_pair() is not None:
             self.appendContextMenu("", [distance.COMMAND_NAME])  # au premier niveau du menu
+            if align.selected_faces():
+                self.appendContextMenu("", [align.COMMAND_NAME])
 
     def GetClassName(self) -> str:
         """Type C++ de l'atelier attendu par FreeCAD pour un atelier écrit en Python."""

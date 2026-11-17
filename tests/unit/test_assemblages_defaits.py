@@ -67,8 +67,8 @@ def module(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
 
 def scene(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     """Une pièce ``V`` (pièce usinée ``MV``), deux assemblages vers deux pièces voisines."""
-    machined = SimpleNamespace(Name="MV", Joints=[])
-    other = SimpleNamespace(Name="MJ", Joints=[])
+    machined = SimpleNamespace(Name="MV", Joints=[], Finishes=[])
+    other = SimpleNamespace(Name="MJ", Joints=[], Finishes=[])
     document = Document([machined, other])
     part = SimpleNamespace(Name="V", InList=[])
     neighbour = SimpleNamespace(Name="J")

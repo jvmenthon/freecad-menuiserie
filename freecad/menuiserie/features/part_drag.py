@@ -33,7 +33,7 @@ import FreeCAD as App
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.magnet import THICKNESS_AXIS
-from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.core.text import bounded_text, quoted_value
 from freecad.menuiserie.features.distance import AXES, distances_touching
 from freecad.menuiserie.features.drag_joints import (
     DragCancelledError,
@@ -54,6 +54,7 @@ from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, plan_for
+from freecad.menuiserie.features.joints.feasible import joints_in_error
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
@@ -346,13 +347,10 @@ def _joint_warnings(memento: DragMemento) -> list[str]:
     gardé, on prévient seulement (règle Q4 de J4)."""
     raw = memento.part
     warnings = []
-    for joint in raw.InList:
-        if (
-            is_joint(joint)
-            and "Invalid" in joint.State
-            and joint.Name not in memento.invalid_joints
-        ):
-            params = {"label": quoted_value(joint.Label), "detail": joint.getStatusString()}
+    for name, joint in joints_in_error(raw).items():
+        if name not in memento.invalid_joints:
+            detail = bounded_text(str(joint.getStatusString()))
+            params = {"label": quoted_value(joint.Label), "detail": detail}
             warnings.append(translated(_NO_LONGER_TOUCHING, params))
     return warnings
 

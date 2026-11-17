@@ -11,6 +11,7 @@ from freecad.menuiserie.core.magnet._model import (
     MIN_SIZE_MM,
     DragResult,
     Guide,
+    GuideKind,
     Handle,
     MagnetHit,
     MagnetKind,
@@ -41,13 +42,28 @@ def _kind(guide: Guide, at_end: bool) -> MagnetKind:
     return MagnetKind.FLUSH if guide.sign == face_sign else MagnetKind.CONTACT
 
 
+def _usable(box: Box, guide: Guide, axis: int, tolerance: float, far: bool) -> bool:
+    """Guide qui aimante ``axis`` : à portée de la boîte, ou (``far``) plan hors de portée, pour
+    mettre une face au ras d'une voisine éloignée (ADR 0058)."""
+    if axis not in guide.magnetic_axes():
+        return False
+    reach = _in_reach(box, guide, axis, tolerance)
+    return (not reach and guide.kind is GuideKind.PLANE) if far else reach
+
+
 def _candidates(
-    box: Box, guides: Sequence[Guide], axis: int, faces: Sequence[Face], tolerance: float
+    box: Box,
+    guides: Sequence[Guide],
+    axis: int,
+    faces: Sequence[Face],
+    tolerance: float,
+    far: bool = False,
 ) -> list[tuple[tuple[float, float, int], MagnetHit, float]]:
-    """Aimantations possibles sur ``axis`` : (clé de tri, résultat, correction à ajouter)."""
+    """Aimantations possibles sur ``axis`` : (clé de tri, résultat, correction à ajouter) ; avec
+    ``far``, seulement les plans hors de portée."""
     found = []
     for index, guide in enumerate(guides):
-        if axis not in guide.magnetic_axes() or not _in_reach(box, guide, axis, tolerance):
+        if not _usable(box, guide, axis, tolerance, far):
             continue
         position = guide.position(axis)
         for at_end, face in faces:
@@ -61,11 +77,19 @@ def _candidates(
 
 
 def _snap_axis(
-    box: Box, guides: Sequence[Guide], axis: int, faces: Sequence[Face], tolerance: float
+    box: Box,
+    guides: Sequence[Guide],
+    axis: int,
+    faces: Sequence[Face],
+    tolerance: float,
+    far: bool = False,
 ) -> tuple[MagnetHit, float] | None:
     """Meilleure aimantation sur ``axis`` : la face la plus proche d'un guide ; à égalité, le guide
-    le plus proche du centre de la boîte (que le curseur tient), puis le premier."""
+    le plus proche du centre de la boîte (que le curseur tient), puis le premier. Avec ``far``,
+    faute de guide à portée, un plan hors de portée aimante aussi (coplanarité, ADR 0058)."""
     found = _candidates(box, guides, axis, faces, tolerance)
+    if not found and far:
+        found = _candidates(box, guides, axis, faces, tolerance, far=True)
     if not found:
         return None
     _, hit, gap = min(found, key=lambda item: item[0])
@@ -83,13 +107,20 @@ def _shifted(box: Box, delta: Vec3) -> Box:
 
 
 def magnet(
-    box: Box, guides: Sequence[Guide], delta: Vec3, tolerance: float, axes: Sequence[int]
+    box: Box,
+    guides: Sequence[Guide],
+    delta: Vec3,
+    tolerance: float,
+    axes: Sequence[int],
+    far: bool = False,
 ) -> DragResult:
     """Déplacement ``delta`` de ``box`` corrigé pour coller une face à un guide (A3 à A5).
 
     Chaque axe de ``axes`` est traité seul : la face de début ou de fin de la boîte déplacée la
     plus proche d'un guide à moins de ``tolerance`` s'y colle. Un guide hors de portée de la boîte
-    sur les autres axes est ignoré ; sans guide à portée, ``delta`` est inchangé.
+    sur les autres axes est ignoré ; sans guide à portée, ``delta`` est inchangé. Avec ``far``,
+    faute de guide à portée, la face se met au ras d'un plan hors de portée (une face d'un autre
+    meuble, ADR 0058) ; les guides à portée gardent la priorité.
     """
     _check_tolerance(tolerance)
     if not set(axes) <= {0, 1, 2}:
@@ -99,7 +130,7 @@ def magnet(
     hits = []
     for axis in dict.fromkeys(axes):
         faces = ((False, moved.lo(axis)), (True, moved.hi(axis)))
-        best = _snap_axis(moved, guides, axis, faces, tolerance)
+        best = _snap_axis(moved, guides, axis, faces, tolerance, far)
         if best is not None:
             values[axis] += best[1]
             hits.append(best[0])

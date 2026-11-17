@@ -137,7 +137,7 @@ def test_paquet_sans_freecad_ni_qt() -> None:
     """``core/rotation/`` reste du Python pur (règle FreeCAD n° 1, critère A5)."""
     forbidden = ("FreeCAD", "FreeCADGui", "Part", "PySide", "PySide2", "PySide6", "pivy")
     files = sorted(PACKAGE.glob("*.py"))
-    assert len(files) == 4
+    assert len(files) == 5
     for path in files:
         modules = imported_modules(path, ROOT)
         assert not [m for m in modules if m.split(".")[0] in forbidden], path.name
