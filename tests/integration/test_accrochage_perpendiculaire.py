@@ -27,6 +27,7 @@ cadre = pytest.importorskip("tests.integration.cadre")
 types_assemblages = pytest.importorskip("tests.integration.types_assemblages")
 
 ABOVE = Vec3(0, 0, 1)
+_GRAIN = 1e-3  # mm : les sondes du calage reculent d'1e-4 des bords
 
 
 @pytest.fixture
@@ -191,6 +192,14 @@ def test_largeur_mesuree_sur_la_face_exterieure_de_la_brute(document: Any) -> No
     assert (round(box.XLength, 6), round(box.YMax, 6)) == (600, 290)
 
 
+def footprint_slab(part: Any) -> Any:
+    """Empreinte de la pièce posée sur le dessus du triangle (z = 50), épaissie d'1 mm vers le bas :
+    sa face du dessous réelle (pas sa boîte englobante, plus grande pour une pièce de biais)."""
+    shape = geometry.global_shape(part)
+    bottom = min(shape.Faces, key=lambda face: face.CenterOfMass.z)
+    return bottom.extrude(App.Vector(0, 0, -1))
+
+
 def triangle(document: Any) -> Any:
     """Prisme triangulaire isocèle (base 400, hauteur 100, épaisseur 50), converti en pièce."""
     points = [App.Vector(*xy, 0) for xy in ((0, 0), (400, 0), (200, 100), (0, 0))]
@@ -210,23 +219,24 @@ def test_face_triangulaire_la_piece_reste_dans_la_face(
     face = face_at(angle, (0, 0, 1), 50)
     part, _start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
     top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
-    box = geometry.global_shape(part).BoundBox
-    slab = Part.makeBox(box.XLength, box.YLength, 1, App.Vector(box.XMin, box.YMin, 49))
+    slab = footprint_slab(part)
     assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
 
 
 @pytest.mark.parametrize("click", [(200, 99.99), (399.9, 0.01), (0.05, 0.02)])
-def test_clic_pres_d_une_pointe_pas_de_depart_perpendiculaire(
-    document: Any, click: tuple[float, float]
-) -> None:
-    """À moins de 0,1 mm d'un sommet aigu il ne reste pas la place d'une pièce : pas de départ
-    perpendiculaire (l'accrochage habituel s'applique), la pièce ne déborde pas de la face."""
+def test_clic_pres_d_une_pointe_pas_de_debord(document: Any, click: tuple[float, float]) -> None:
+    """Près d'un sommet aigu : soit il ne reste pas la place d'une pièce (pas de départ
+    perpendiculaire, accrochage habituel), soit la pièce suit l'arête et ne déborde pas."""
     angle = triangle(document)
     face = face_at(angle, (0, 0, 1), 50)
     reading = targets.read_targets(
         [picked.PickedElement(angle, face, Vec3(click[0], click[1], 50))], ABOVE
     )
-    assert perpendicular.perpendicular_start(reading) is None
+    if perpendicular.perpendicular_start(reading) is None:
+        return  # pas la place d'une pièce : accrochage habituel
+    part, _start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
+    top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
+    assert footprint_slab(part).cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
 
 
 def inside(part: Any, owner: Any, normal: tuple[float, float, float], coordinate: float) -> bool:
@@ -348,8 +358,8 @@ def test_face_triangulaire_largeur_dans_la_face(document: Any, click: tuple[floa
     part, start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
     assert 0.1 <= start.width <= 400
     box = geometry.global_shape(part).BoundBox
-    assert box.XMin >= -1e-6 and box.XMax <= 400 + 1e-6
-    assert box.YMin >= -1e-6 and box.YMax <= 100 + 1e-6
+    assert box.XMin >= -_GRAIN and box.XMax <= 400 + _GRAIN
+    assert box.YMin >= -_GRAIN and box.YMax <= 100 + _GRAIN
 
 
 def test_clic_pres_de_l_arete_oblique_largeur_ne_depasse_pas_la_face(document: Any) -> None:
@@ -358,6 +368,5 @@ def test_clic_pres_de_l_arete_oblique_largeur_ne_depasse_pas_la_face(document: A
     face = face_at(angle, (0, 0, 1), 50)
     top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
     part, _start = create_against(document, angle, face, Vec3(100, 48, 50))
-    box = geometry.global_shape(part).BoundBox
-    slab = Part.makeBox(box.XLength, box.YLength, 1, App.Vector(box.XMin, box.YMin, 49))
+    slab = footprint_slab(part)
     assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2

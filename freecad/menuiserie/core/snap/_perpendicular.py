@@ -77,11 +77,13 @@ def face_section(
     que l'encombrement). Une étendue hors des bornes d'une cote (pointe d'une face triangulaire,
     face démesurée) est ignorée : la largeur de la pièce est gardée. ``edge_row`` : axe d'appui (0
     ou 1) de l'arête la plus proche du clic ; une largeur qui le suit prend l'étendue de la face
-    selon lui (la longueur de l'arête)."""
+    selon lui (la longueur de l'arête), même sur un repère d'appui oblique (arête oblique)."""
     seen = squared_rotation(product(_transposed(support), owner))
-    if any(value not in (-1.0, 0.0, 1.0) for row in seen for value in row):
+    squared = all(value in (-1.0, 0.0, 1.0) for row in seen for value in row)
+    if not squared and edge_row is None:
         return section
-    owner_width = _column(seen, _WIDTH)
+    # repère d'appui oblique (arête oblique suivie) : la largeur de l'autre pièce n'y compte pas
+    owner_width = _column(seen, _WIDTH) if squared else Vec3(0.0, 0.0, 0.0)
     rotation = orientation.rotation()
     new_width, new_thickness = _column(rotation, _WIDTH), _column(rotation, _THICKNESS)
     width, thickness = section

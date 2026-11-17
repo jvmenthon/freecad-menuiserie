@@ -43,6 +43,7 @@ from freecad.menuiserie.features.snap_local_face import (
     NoRoomError,
     fit_to_footprint,
     local_face_target,
+    oblique_edge_target,
 )
 from freecad.menuiserie.features.snap_targets import TargetReading
 from freecad.menuiserie.features.solids import rigid_transform
@@ -142,6 +143,14 @@ def _nearest_edge_row(target: FaceTarget, click: Vec3 | None) -> int | None:
     return 1 if to_x_side <= to_y_side else 0
 
 
+def _oblique(local: FaceTarget, blank_face: Any | None, click: Vec3 | None) -> FaceTarget | None:
+    """Cible le long de l'arête oblique la plus proche du clic, ``None`` si l'arête la plus
+    proche est un côté droit (ou sans face brute, sans clic)."""
+    if blank_face is None or click is None:
+        return None
+    return oblique_edge_target(local, blank_face, click)
+
+
 def _fit_in_face(
     reading: TargetReading,
     blank_face: Any | None,
@@ -194,6 +203,10 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     edge_row = None
     if local is not None:  # la pièce suit l'arête la plus proche du clic
         edge_row = _nearest_edge_row(local, reading.elements[0].point)
+        oblique = _oblique(local, blank_face, reading.elements[0].point)
+        if oblique is not None:  # arête oblique : repère d'appui tourné le long de l'arête
+            reading, edge_row = replace(reading, targets=(oblique,)), 0
+            support = support_rotation(reading.targets) or support
         orientation = orientation if edge_row is None else along_edge(orientation, edge_row)
     dimensions = dimensions_of(blank)
     section = (dimensions.width, dimensions.thickness)

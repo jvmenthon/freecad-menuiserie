@@ -299,3 +299,20 @@ def test_section_arete_hors_bornes_garde_la_largeur() -> None:
     support, orientation = orientation_against(target)
     turned = along_edge(orientation, 0)
     assert face_section(support, IDENTITY, turned, target.extent, (100.0, 30.0), 0)[0] == 100.0
+
+
+def test_section_le_long_d_une_arete_oblique() -> None:
+    # repère d'appui tourné de 45° autour de Z (arête oblique) : la largeur suit l'arête suivie
+    half = 2.0**-0.5
+    oblique = narrow(Vec3(half, -half, 0), Vec3(half, half, 0), Z, (1343.4, 274.0))
+    square = narrow(X, Y, Z, (1343.4, 274.0))
+    support, straight = support_rotation([oblique]), support_rotation([square])
+    assert support is not None and straight is not None
+    orientation = perpendicular_orientation(straight, IDENTITY)
+    assert orientation is not None
+    turned = along_edge(orientation, 0)
+    assert face_section(support, IDENTITY, turned, (1343.4, 274.0), (100.0, 30.0), 0) == (
+        1343.4,
+        30.0,
+    )
+    assert face_section(support, IDENTITY, turned, (1343.4, 274.0), (100.0, 30.0)) == (100.0, 30.0)

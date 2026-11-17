@@ -27,6 +27,7 @@ from freecad.menuiserie.features.snap_geometry import (
 if TYPE_CHECKING:
     from freecad.menuiserie.features.snap_targets import TargetReading
 
+_STRAIGHT: Final = 1e-6  # écart au parallélisme en deçà duquel une arête suit un axe
 _PROBE_INSET_MM: Final = 1e-4  # recul des sondes de l'épaisseur, au delà de la tolérance d'OCC
 
 __all__ = [
@@ -35,6 +36,7 @@ __all__ = [
     "fit_to_footprint",
     "inward_axes",
     "local_face_target",
+    "oblique_edge_target",
 ]
 
 
@@ -193,6 +195,58 @@ def fit_to_footprint(
         return None
     moved = Frame(to_vec3(origin), frame.x, frame.y, frame.z)
     return FaceTarget(target.name, moved, (extent[0], extent[1]), planar=True)
+
+
+def oblique_edge_target(target: FaceTarget, face: Any, click: Vec3) -> FaceTarget | None:
+    """Cible le long de l'arête **oblique** de ``face`` la plus proche de ``click`` : repère dont
+    l'axe x suit l'arête et l'axe y part vers l'intérieur de la face, origine au bout de l'arête
+    (dans le plan de ``target``), étendue (longueur de l'arête, profondeur de la face au droit du
+    clic). ``None`` si l'arête la plus proche est parallèle à un axe de ``target`` (règle des
+    côtés droits) ou si le calcul échoue."""
+    try:
+        return _oblique_target(target, face, to_vector(click))
+    except (ValueError, *ERRORS):
+        return None
+
+
+def _nearest_line(face: Any, point: Vector) -> Any:
+    """Arête droite de ``face`` la plus proche de ``point`` (``None`` sans arête droite)."""
+    vertex, best = Part.Vertex(point), None
+    for edge in face.Edges:
+        if isinstance(edge.Curve, (Part.Line, Part.LineSegment)) and len(edge.Vertexes) == 2:
+            gap = edge.distToShape(vertex)[0]
+            if best is None or gap < best[0]:
+                best = (gap, edge)
+    return None if best is None else best[1]
+
+
+def _oblique_target(target: FaceTarget, face: Any, clicked: Vector) -> FaceTarget | None:
+    """Corps de :func:`oblique_edge_target`."""
+    normal = to_vector(target.frame.z)
+    x, y = to_vector(target.frame.x), to_vector(target.frame.y)
+    point = clicked + normal * (face.CenterOfMass - clicked).dot(normal)
+    edge = _nearest_line(face, point)
+    if edge is None:
+        return None
+    start, end = edge.Vertexes[0].Point, edge.Vertexes[1].Point
+    length = (end - start).Length
+    if length <= EPSILON:
+        return None
+    along = (end - start) * (1.0 / length)
+    if max(abs(along.dot(x)), abs(along.dot(y))) >= 1.0 - _STRAIGHT:
+        return None
+    inward = normal.cross(along)
+    if (
+        inward.dot(point - start) < 0.0
+    ):  # repère direct, y vers l'intérieur : partir de l'autre bout
+        start, along, inward = end, along * -1.0, inward * -1.0
+    foot = start + along * (point - start).dot(along)
+    depth = _span_through(face, foot + inward * _PROBE_INSET_MM, inward)
+    if depth is None:
+        return None
+    origin = start - normal * (start - to_vector(target.frame.origin)).dot(normal)
+    frame = Frame(to_vec3(origin), to_vec3(along), to_vec3(inward), to_vec3(normal))
+    return FaceTarget(target.name, frame, (length, depth[1] + _PROBE_INSET_MM), planar=True)
 
 
 def face_under_click(element: PickedElement) -> PickedElement:
