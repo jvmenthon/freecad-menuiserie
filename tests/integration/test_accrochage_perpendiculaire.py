@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -372,7 +373,7 @@ def test_clic_pres_de_l_arete_oblique_largeur_ne_depasse_pas_la_face(document: A
     assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
 
 
-def prism(document: Any, outline: list[tuple[float, float]], placement: Any = None) -> Any:
+def prism(document: Any, outline: Sequence[tuple[float, float]], placement: Any = None) -> Any:
     """Prisme (épaisseur 50) du contour ``outline`` (z de 0 à 50), converti en pièce."""
     points = [App.Vector(x, y, 0) for x, y in (*outline, outline[0])]
     source = document.addObject("Part::Feature", "Prisme")
