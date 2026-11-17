@@ -304,13 +304,14 @@ def test_plan_transmet_l_axe_au_noyau(module: ModuleType, monkeypatch: pytest.Mo
     ("layout", "match"),
     [
         ({"parallel": "W"}, "X, Y ou Z"),
-        ({"W": "center"}, "W=center"),
-        ({"X": "milieu"}, "X=milieu"),
-        ({"X": ["start"]}, "X="),
+        ({"W": "center"}, "'W'='center'"),
+        ({"X": "milieu"}, "'X'='milieu'"),
+        ({"X": ["start"]}, "'X'=list"),
+        ({"X": "a\nb" * 100}, r"'X'='a\\nba\\nba\\nba\\nb'"),
         ({3: "start"}, "int"),
         ("XY", "str"),
     ],
-    ids=["parallele", "axe", "ancrage", "liste", "cle", "texte"],
+    ids=["parallele", "axe", "ancrage", "liste", "long", "cle", "texte"],
 )
 def test_plan_refuse_une_disposition_inconnue(
     module: ModuleType, monkeypatch: pytest.MonkeyPatch, layout: Any, match: str

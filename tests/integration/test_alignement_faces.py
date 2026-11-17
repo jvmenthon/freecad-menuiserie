@@ -124,7 +124,7 @@ def test_disposition_inconnue_refusee_sans_bouger() -> None:
         reference = _part(doc, (0, 0, 0))
         other = _part(doc, (500, 300, 100))
         before = other.Placement.copy()
-        with pytest.raises(ValueError, match="W=center"):
+        with pytest.raises(ValueError, match="'W'='center'"):
             api.align_faces(
                 _face(reference, (100, 50, 20)),
                 _face(other, (100, 50, 20)),

@@ -29,13 +29,17 @@ celui de la référence, puis son centre venait sur celui de l'autre face. Les e
      côtés de la face de référence ne comptent plus : l'utilisateur choisit l'axe.
    - `anchors` : pour chaque axe, **début**, **centre** ou **fin** : le rectangle englobant de la
      face déplacée vient au même bord « moins », au même centre, ou au même bord « plus » que
-     celui de la face de référence le long de cet axe. Comme le centrage d'avant, la translation
-     reste dans le plan de la référence ; centres sur les deux axes du plan : centres confondus.
+     celui de la face de référence le long de cet axe. La translation reste dans le plan de la
+     référence et tombe **exactement** au bord ou au centre demandé le long de chaque axe, même
+     oblique au plan (système de deux équations dans le plan, et non projection de la somme) ;
+     centres sur les deux axes du plan : centres confondus.
 2. **Plus de rotation implicite** : aligner sans « // » ne fait pas tourner la pièce.
 3. Un axe qui **suit la normale** des faces (sa part dans le plan est plus courte que 0,05, la
    pente minimale de l'ADR 0054) est refusé avec un message ; la distance entre les faces se
    règle avec « Position » et le 3e décalage. « // » est refusé quand le déplacement se fait sur
-   un axe (la pièce ne tourne pas). Axes d'ancrage non perpendiculaires entre eux : refusés.
+   un axe (la pièce ne tourne pas). Axes d'ancrage non perpendiculaires entre eux, plus de deux
+   (la face ne glisse que dans son plan, cas d'une face oblique aux trois axes), ou confondus
+   dans le plan des faces : refusés avec un message.
 4. **Panneau** (maquette 2) : une grille « Parallèle et aligner sur », une ligne par axe X, Y, Z
    du conteneur de la pièce déplacée : un bouton « // » (logo F : la pièce penchée se couche sur
    la planche du dessous, flèche arrondie dans la couleur de l'axe ; un seul axe à la fois) puis

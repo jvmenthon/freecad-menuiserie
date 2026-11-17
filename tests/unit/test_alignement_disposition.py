@@ -335,3 +335,32 @@ def test_etendues_minuscules_ne_plantent_pas(size: tuple[float, float]) -> None:
     layout = Layout(_X, ((_X, Anchor.CENTER), (_Y, Anchor.CENTER)))
     motion = align(fixed, moving, layout=layout)
     assert _close(_moved(motion, face_center(moving)), face_center(fixed))
+
+
+def test_trois_axes_d_alignement_refuses() -> None:
+    """Face de normale (1, 1, 1) : aucun axe ne la traverse, mais la pièce ne glisse que dans
+    son plan, donc deux axes au plus."""
+    k = 1 / math.sqrt(3)
+    u = Vec3(k * math.sqrt(1.5), -k * math.sqrt(1.5), 0.0)
+    normal = Vec3(k, k, k)
+    fixed = FaceTarget("F", Frame(Vec3(0, 0, 0), u, _cross(normal, u), normal), (100, 40), True)
+    moving = _top(Vec3(300, 70, 50), (20, 20))
+    layout = _anchors((_X, Anchor.START), (_Y, Anchor.START), (_Z, Anchor.START))
+    with pytest.raises(AlignError, match="deux axes au plus"):
+        align(fixed, moving, layout=layout)
+
+
+def _cross(a: Vec3, b: Vec3) -> Vec3:
+    return Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+
+
+def test_un_axe_oblique_au_plan_est_exact() -> None:
+    """Face inclinée à 45° autour de X : un début sur Y tombe exactement au début, pas au début
+    réduit par la projection."""
+    s = math.sqrt(0.5)
+    fixed = FaceTarget(
+        "F", Frame(Vec3(0, 0, 0), _X, Vec3(0, s, s), Vec3(0, -s, s)), (100, 40), True
+    )
+    moving = _top(Vec3(300, 70, 50), (20, 20))
+    motion = align(fixed, moving, layout=_anchors((_Y, Anchor.START)))
+    assert _span(motion, moving, _Y)[0] == pytest.approx(0.0, abs=1e-9)

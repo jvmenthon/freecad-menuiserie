@@ -47,6 +47,14 @@ AXIS_ACROSS: Final = QT_TRANSLATE_NOOP(
     "parallèle ni alignée. La distance entre les faces se règle avec « Position » et le 3e "
     "décalage.",
 )
+AXES_OVERLAP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Ces axes d'alignement se confondent dans le plan des faces : gardez-en un seul.",
+)
+TOO_MANY_ANCHORS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "La pièce ne glisse que dans le plan des faces : alignez-la sur deux axes au plus.",
+)
 PARALLEL_ON_AXIS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Sur un axe, la pièce ne tourne pas : elle ne peut pas être rendue parallèle à un axe "
@@ -139,34 +147,61 @@ def _anchored(span: tuple[float, float], other: tuple[float, float], anchor: Anc
     return (span[0] + span[1] - other[0] - other[1]) / 2
 
 
+def _plane_basis(normal: Vec3) -> tuple[Vec3, Vec3]:
+    """Deux vecteurs unitaires perpendiculaires du plan de normale ``normal`` (unitaire)."""
+    spare = Vec3(1.0, 0.0, 0.0) if abs(normal.x) < 0.9 else Vec3(0.0, 1.0, 0.0)
+    first = unit(spare - normal.scaled(dot(spare, normal)))
+    return first, cross(normal, first)
+
+
+def _solved(normal: Vec3, rows: list[tuple[Vec3, float]]) -> Vec3:
+    """Translation ``t`` dans le plan de normale ``normal`` telle que ``t·axe = écart`` pour
+    chaque ligne de ``rows`` (une ou deux) : exacte même pour un axe oblique au plan. Une ligne :
+    la plus courte ; deux : système de deux équations, refusé si les deux axes se confondent
+    dans le plan."""
+    u, v = _plane_basis(normal)
+    coefficients = [(dot(axis, u), dot(axis, v), delta) for axis, delta in rows]
+    if len(coefficients) == 1:
+        a, b, delta = coefficients[0]
+        scale = delta / (a * a + b * b)
+        return u.scaled(a * scale) + v.scaled(b * scale)
+    (a1, b1, d1), (a2, b2, d2) = coefficients
+    determinant = a1 * b2 - a2 * b1
+    lengths = math.hypot(a1, b1) * math.hypot(a2, b2)
+    if not abs(determinant) >= MIN_AXIS_SLOPE * lengths:  # NaN compris
+        raise AlignError(AXES_OVERLAP, {})
+    alpha = (d1 * b2 - d2 * b1) / determinant
+    beta = (a1 * d2 - a2 * d1) / determinant
+    return u.scaled(alpha) + v.scaled(beta)
+
+
 def _placing(
     motion: Alignment,
     fixed: FaceTarget,
     moving: FaceTarget,
     anchors: tuple[tuple[Vec3, Anchor], ...],
 ) -> Vec3:
-    """Translation de plus qui, sur chaque axe de ``anchors`` (vecteurs globaux unitaires, deux à
-    deux perpendiculaires), place le rectangle de la face mobile (placée par ``motion``, sans
-    décalage) au début, au centre ou à la fin de celui de la référence, ramenée dans le plan de
-    la référence : elle ne sort jamais la face de ce plan (le 3e axe reste au décalage)."""
+    """Translation de plus, dans le plan de la référence (elle ne sort jamais la face de ce plan,
+    le 3e axe reste au décalage), qui, sur chaque axe de ``anchors`` (vecteurs globaux unitaires,
+    un ou deux), place le rectangle de la face mobile (placée par ``motion``, sans décalage) au
+    début, au centre ou à la fin de celui de la référence, exactement le long de cet axe."""
     placed = tuple(turned_point(motion, corner) for corner in _corners(moving))
     reference = _corners(fixed)
-    extra = NO_OFFSET
+    rows = []
     for axis, anchor in anchors:
         span = [dot(point, axis) for point in reference]
         other = [dot(point, axis) for point in placed]
-        delta = _anchored((min(span), max(span)), (min(other), max(other)), anchor)
-        extra = extra + axis.scaled(delta)
-    normal = unit(fixed.frame.z)
-    return extra - normal.scaled(dot(extra, normal))
+        rows.append((axis, _anchored((min(span), max(span)), (min(other), max(other)), anchor)))
+    return _solved(unit(fixed.frame.z), rows)
 
 
 def _checked_layout(
     layout: Layout, normal: Vec3
 ) -> tuple[Vec3 | None, tuple[tuple[Vec3, Anchor], ...]]:
     """Axes de ``layout`` rendus unitaires ; :class:`AlignError` si un axe n'est pas fini, est
-    nul, suit la normale ``normal`` des faces, ou si les axes d'ancrage ne sont pas
-    perpendiculaires entre eux."""
+    nul, suit la normale ``normal`` des faces, si les axes d'ancrage ne sont pas
+    perpendiculaires entre eux ou s'ils sont plus de deux (les axes confondus dans le plan sont
+    refusés par :func:`_solved`)."""
     anchors = tuple((checked_axis(axis), anchor) for axis, anchor in layout.anchors)
     axes = [axis for axis, _anchor in anchors]
     if any(abs(dot(a, b)) > ANGLE_TOLERANCE for i, a in enumerate(axes) for b in axes[i + 1 :]):
@@ -175,6 +210,8 @@ def _checked_layout(
     checked = axes if parallel is None else [*axes, parallel]
     if any(_in_plane(axis, normal) is None for axis in checked):
         raise AlignError(AXIS_ACROSS, {})
+    if len(anchors) > 2:  # trois axes obliques : la face ne glisse que dans son plan
+        raise AlignError(TOO_MANY_ANCHORS, {})
     return parallel, anchors
 
 

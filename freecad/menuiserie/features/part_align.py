@@ -165,9 +165,8 @@ class FaceAlign:
             if key == _PARALLEL:
                 parallel = self._unit_axis(value)
                 continue
-            if key not in _UNIT_AXES or value not in _ANCHORS:
-                shown = f"{key}={value}"[:24] if isinstance(key, str) else type(key).__name__
-                raise ValueError(translated(_UNKNOWN_ANCHOR, {"key": shown}))
+            if key not in _UNIT_AXES or not isinstance(value, str) or value not in _ANCHORS:
+                raise ValueError(translated(_UNKNOWN_ANCHOR, {"key": _shown(key, value)}))
             anchors.append((self._unit_axis(key), Anchor(value)))
         return Layout(parallel, tuple(anchors))
 
@@ -263,3 +262,13 @@ class FaceAlign:
         except BaseException:
             self.cancel()
             raise
+
+
+def _shown(key: object, value: object) -> str:
+    """Clé et valeur d'une disposition refusée, courtes et sans caractère de contrôle (le texte
+    d'une valeur hostile n'est jamais formaté en entier)."""
+
+    def short(item: object) -> str:
+        return repr(item[:12]) if isinstance(item, str) else type(item).__name__
+
+    return f"{short(key)}={short(value)}"
