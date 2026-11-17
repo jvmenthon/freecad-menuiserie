@@ -315,7 +315,7 @@ def _widths(low: float, high: float) -> float:
 def test_cotes_etroites_aux_bouts_ecrites_dehors() -> None:
     """Joues de 2 mm (sur la feuille) aux deux bouts : leur texte sort de la chaîne."""
     labels = chain_labels([(0.0, 2.0), (2.0, 58.0), (58.0, 60.0)], _widths)
-    assert [round(middle, 1) for _, _, middle in labels] == [-4.0, 30.0, 64.0]
+    assert [round(middle, 1) for _, _, middle in labels] == [-4.5, 30.0, 64.5]
 
 
 def test_textes_jamais_superposes() -> None:
@@ -333,12 +333,12 @@ def test_textes_jamais_superposes() -> None:
 def test_cotes_etroites_regroupees() -> None:
     # Trois segments étroits : le point du milieu est retiré, un texte de chaque côté.
     assert chain_labels([(0.0, 1.0), (1.0, 2.0), (2.0, 3.0)], _widths) == [
-        (0.0, 1.0, -4.0),
-        (1.0, 3.0, 7.0),
+        (0.0, 1.0, -4.5),
+        (1.0, 3.0, 7.5),
     ]
     assert chain_labels([(0.0, 50.0)], _widths) == []
     # Deux segments étroits : un texte avant la chaîne, l'autre après.
-    assert [m for _, _, m in chain_labels([(0.0, 1.0), (1.0, 2.0)], _widths)] == [-4.0, 6.0]
+    assert [m for _, _, m in chain_labels([(0.0, 1.0), (1.0, 2.0)], _widths)] == [-4.5, 6.5]
 
 
 def test_largeur_du_texte_de_tech_draw() -> None:
