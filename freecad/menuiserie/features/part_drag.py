@@ -45,9 +45,7 @@ from freecad.menuiserie.features.drag_joints import (
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_bindings import (
-    bind_members,
     notice_messages,
-    read_members,
     workshop_expressions,
 )
 from freecad.menuiserie.features.furniture_edits import thickness_notices
@@ -329,8 +327,12 @@ def _relink(memento: DragMemento) -> list[str]:
         follow_distances(furniture, memento.distances.keys())
         if thicker:
             return _relink_thickness(memento, furniture)
-        members = read_members(furniture)
-        return list(notice_messages(bind_members(members, members.objects)))
+        # import différé : furniture_reframe → furniture_envelope → furniture_drag_state → ici
+        from freecad.menuiserie.features.furniture_reframe import (
+            relink_framed,
+        )
+
+        return list(notice_messages(relink_framed(furniture)))  # boîtes recalées (ADR 0065)
     except ValueError:
         restore(memento)
         raise

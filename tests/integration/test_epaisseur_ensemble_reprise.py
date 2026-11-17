@@ -10,7 +10,7 @@ import pytest
 
 App = pytest.importorskip("FreeCAD")
 choice = pytest.importorskip("freecad.menuiserie.features.thickness_choice")
-member = pytest.importorskip("freecad.menuiserie.features.thickness_member")
+reframe = pytest.importorskip("freecad.menuiserie.features.furniture_reframe")
 bindings = pytest.importorskip("freecad.menuiserie.features.furniture_bindings")
 
 pytestmark = pytest.mark.integration
@@ -41,7 +41,7 @@ def test_ensemble_non_relie_retrouve_ses_liaisons(
     def cycle(_furniture: Any) -> None:
         raise ValueError("cycle simulé")
 
-    monkeypatch.setattr(member, "bind_furniture", cycle)
+    monkeypatch.setattr(reframe, "bind_furniture", cycle)
     with pytest.raises(ValueError, match="liaisons d'avant"):
         edit.finish()
     assert _liaisons(bureau) == avant
@@ -51,7 +51,7 @@ def test_ensemble_non_relie_retrouve_ses_liaisons(
 
 def test_mise_de_cote_qui_echoue_rend_tout(bureau: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     avant = _liaisons(bureau)
-    original = member.remove_bindings
+    original = reframe.remove_bindings
     appels: list[str] = []
 
     def panne(obj: Any) -> None:
@@ -60,8 +60,8 @@ def test_mise_de_cote_qui_echoue_rend_tout(bureau: Any, monkeypatch: pytest.Monk
             raise RuntimeError("panne simulée")
         original(obj)
 
-    monkeypatch.setattr(member, "remove_bindings", panne)
+    monkeypatch.setattr(reframe, "remove_bindings", panne)
     with pytest.raises(RuntimeError):
         choice.ThicknessEdit(bureau.parts["JG"])
-    monkeypatch.setattr(member, "remove_bindings", original)
+    monkeypatch.setattr(reframe, "remove_bindings", original)
     assert _liaisons(bureau) == avant

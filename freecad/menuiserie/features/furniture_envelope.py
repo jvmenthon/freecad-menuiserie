@@ -1,18 +1,20 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Cotes d'un ensemble recalées sur l'enveloppe de ses membres (ADR 0049).
+"""Cotes d'un ensemble recalées sur l'enveloppe de ses membres (ADR 0049, ADR 0065).
 
-Après un déplacement ou une rotation d'un sous-ensemble, la boîte de l'ensemble parent devient
-exactement la boîte qui enveloppe ses membres (pièces et sous-ensembles, rotation comprise), sans
-marge : elle grandit ou rétrécit (jv, 2026-11-11 : « la boîte doit toujours être de la taille de
-l'ensemble »).
-Rien ne bouge : seuls ``Origin`` et les cotes du parent sont écrits, puis ses liaisons sont
-recalculées d'après la géométrie actuelle (``furniture_drag._relink``).
+La boîte d'un ensemble devient exactement la boîte qui enveloppe ses membres (pièces et
+sous-ensembles, rotation comprise), sans marge : elle grandit ou rétrécit (jv, 2026-11-11 : « la
+boîte doit toujours être de la taille de l'ensemble » ; 2026-11-17 : « les boîtes doivent toujours
+être recalculées », sous-ensembles compris). Rien ne bouge dans le document : l'appelant relie
+ensuite les membres d'après la géométrie actuelle
+(:func:`~freecad.menuiserie.features.furniture_reframe.relink_framed`).
 
-Seul un ensemble de plus haut niveau est recalé : la position d'un sous-ensemble est portée par le
-``Placement`` de son Std Part avec un ``Origin`` nul (ADR 0038), qu'un recalage décalerait. Un
-parent n'est pas recalé non plus quand une formule autre qu'une liaison de l'atelier pilote son
-``Origin`` ou une cote, ou les lit (répétition « Suivre le redimensionnement », formule de
-l'utilisateur sur un membre) : le recaler ferait bouger ce qui en dépend.
+Ensemble de plus haut niveau : ``Origin`` et cotes sont écrits. Sous-ensemble (ADR 0065) : son
+``Origin`` reste nul (sa position est portée par le ``Placement`` de son Std Part, ADR 0038) ; le
+Std Part avance du coin bas de l'enveloppe et ses membres reculent d'autant dans son repère, donc
+rien ne bouge dans la vue. Un ensemble n'est pas recalé quand une formule autre qu'une liaison de
+l'atelier pilote son ``Origin`` ou une cote, ou les lit (répétition « Suivre le
+redimensionnement », formule de l'utilisateur sur un membre), ni un sous-ensemble dont un membre
+est placé par une telle formule : le recaler ferait bouger ce qui en dépend.
 """
 
 from __future__ import annotations
@@ -22,13 +24,22 @@ from typing import Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.geometry import Box
+from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
-from freecad.menuiserie.features.furniture import furniture_of, writing
+from freecad.menuiserie.features.furniture import furniture_of, is_furniture, writing
 from freecad.menuiserie.features.furniture_bindings import members_of, workshop_expressions
-from freecad.menuiserie.features.furniture_container import carried_furniture
-from freecad.menuiserie.features.furniture_drag_state import furniture_box, write_sizes
+from freecad.menuiserie.features.furniture_container import (
+    carried_furniture,
+    member_expressions,
+    std_part_of,
+)
+from freecad.menuiserie.features.furniture_drag_state import (
+    furniture_box,
+    write_sizes,
+    write_std_placement,
+)
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
+from freecad.menuiserie.features.part_drag import write_placement
 
 __all__ = ["frame_of", "grow", "member_envelope", "reframe", "restore_frame"]
 
@@ -84,10 +95,30 @@ def restore_frame(furniture: DocumentObject, frame: Box) -> None:
         write_sizes(furniture, frame)
 
 
+def _placed_by_formula(member: DocumentObject) -> bool:
+    """Vrai si une formule autre qu'une liaison de l'atelier place ``member`` (copie d'une
+    répétition, formule de l'utilisateur)."""
+    workshop = workshop_expressions(member)
+    return any(
+        path.split(".")[0] == "Placement" and path not in workshop
+        for path in member_expressions(member)
+    )
+
+
+def _movable(furniture: DocumentObject) -> bool:
+    """Vrai si le contenu du sous-ensemble ``furniture`` peut être décalé dans son Std Part."""
+    if std_part_of(furniture) is None:
+        return False
+    return not any(_placed_by_formula(member) for member in members_of(furniture))
+
+
 def _frames(furniture: DocumentObject) -> tuple[Box, Box] | None:
     """Boîte actuelle de ``furniture`` et enveloppe de ses membres ; ``None`` pour un ensemble
-    qu'on ne recale pas : sous-ensemble, piloté ou lu par une formule, sans membre."""
-    if furniture_of(furniture) is not None or _driven(furniture):
+    qu'on ne recale pas : piloté ou lu par une formule, sans membre, sous-ensemble dont le
+    contenu ne peut pas être décalé."""
+    if _driven(furniture):
+        return None
+    if furniture_of(furniture) is not None and not _movable(furniture):
         return None
     envelope = member_envelope(furniture)
     return None if envelope is None else (frame_of(furniture), envelope)
@@ -127,5 +158,31 @@ def reframe(furniture: DocumentObject) -> bool:
     if frames is None or _same(*frames):
         return False
     envelope = frames[1]
+    if furniture_of(furniture) is not None:  # sous-ensemble : Origin nul, le Std Part avance
+        _shift_contents(furniture, envelope.min)
+        envelope = Box(Vec3(0.0, 0.0, 0.0), envelope.max - envelope.min)
     restore_frame(furniture, envelope)
     return True
+
+
+def _shift_contents(furniture: DocumentObject, offset: Vec3) -> None:
+    """Std Part du sous-ensemble ``furniture`` avancé de ``offset`` (repère du Std Part) et ses
+    membres reculés d'autant : rien ne bouge dans la vue."""
+    part = std_part_of(furniture)
+    if part is None or offset == Vec3(0.0, 0.0, 0.0):
+        return
+    back = App.Vector(-offset.x, -offset.y, -offset.z)
+    for member in members_of(furniture):
+        if is_furniture(member):
+            inner = std_part_of(member)
+            if inner is not None:
+                moved = App.Placement(inner.Placement)
+                moved.Base = moved.Base + back
+                write_std_placement(inner, moved)
+            continue
+        moved = App.Placement(member.Placement)
+        moved.Base = moved.Base + back
+        write_placement(member, moved)
+    start = App.Placement(part.Placement)
+    ahead = start.Rotation.multVec(App.Vector(offset.x, offset.y, offset.z))
+    write_std_placement(part, App.Placement(start.Base + ahead, start.Rotation))

@@ -282,7 +282,7 @@ def test_exception_pendant_finish_ne_perd_pas_les_liaisons(
 ) -> None:
     """``bind_furniture`` échoue : les membres ne doivent pas rester sans aucune liaison ; la
     fin des saisies se rejoue (ou les liaisons de départ sont rendues)."""
-    member = pytest.importorskip("freecad.menuiserie.features.thickness_member")
+    member = pytest.importorskip("freecad.menuiserie.features.furniture_reframe")
     edit = choice.ThicknessEdit(bureau.parts["JG"])
     edit.probe(30)
     edit.apply(30, Choice.OTHER_SIDE)
@@ -377,10 +377,10 @@ def test_distance_gardee_de_l_ensemble_reste_valide(bureau: Any, document: Any) 
         assert bindings.workshop_expressions(bureau.parts["V"])
 
 
-def test_sous_ensemble_est_relie_sans_recaler_sa_boite(document: Any) -> None:
-    """Côté du caisson, assemblé au dessous, épaissi vers l'extérieur : le caisson est relié
-    d'après le résultat, sa boîte n'est pas recalée (ADR 0049 : un sous-ensemble ne l'est
-    jamais, sa position est portée par son Std Part) ; rien ne bouge au recalcul."""
+def test_sous_ensemble_est_relie_et_sa_boite_recalee(document: Any) -> None:
+    """Côté du caisson, assemblé au dessous, épaissi vers l'extérieur : la boîte du caisson est
+    recalée sur ses membres (ADR 0065 : une boîte l'est toujours, sous-ensembles compris), son
+    Std Part avance d'autant que ses membres reculent ; rien ne bouge à l'écran ni au recalcul."""
     from freecad.menuiserie.features.furniture_envelope import frame_of, member_envelope
     from tests.integration.bureau import build_parts
     from tests.integration.test_ensemble_membres import caisson
@@ -395,10 +395,10 @@ def test_sous_ensemble_est_relie_sans_recaler_sa_boite(document: Any) -> None:
     edit = choice.ThicknessEdit(parts["CG"])
     assert edit.probe(30) is not None
     edit.apply(30, Choice.OTHER_SIDE)
-    placed = {name: App.Placement(p.Placement) for name, p in parts.items()}
+    placed = {name: App.Placement(p.getGlobalPlacement()) for name, p in parts.items()}
     edit.finish()
     document.recompute()
-    assert frame_of(sub) == before
-    assert member_envelope(sub) != before  # le côté sort de la boîte : limite connue
-    assert all(p.Placement.isSame(placed[name], 1e-6) for name, p in parts.items())
+    assert frame_of(sub) != before
+    assert frame_of(sub) == member_envelope(sub)
+    assert all(p.getGlobalPlacement().isSame(placed[name], 1e-6) for name, p in parts.items())
     assert _all_hold(document)

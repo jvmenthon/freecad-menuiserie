@@ -17,18 +17,10 @@ from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.furniture import furniture_of, writing
-from freecad.menuiserie.features.furniture_bindings import (
-    members_of,
-    notice_messages,
-    remove_bindings,
-    workshop_expressions,
-)
-from freecad.menuiserie.features.furniture_container import set_member_expression
-from freecad.menuiserie.features.furniture_envelope import frame_of, reframe, restore_frame
-from freecad.menuiserie.features.furniture_relink import bind_furniture
+from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.furniture_bindings import members_of, notice_messages
+from freecad.menuiserie.features.furniture_reframe import KeptBindings, relink_framed
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.thickness_common import is_alive
 
 __all__ = ["MemberFreedom"]
 
@@ -39,31 +31,6 @@ _NOT_RELINKED: Final = QT_TRANSLATE_NOOP(
 )
 
 
-class _Aside:
-    """Liaisons de l'atelier d'un membre (expressions et enregistrement ``FurnitureBindings``),
-    gardées pour être rendues si l'ensemble ne peut pas être relié."""
-
-    def __init__(self, member: DocumentObject) -> None:
-        self.member = member
-        self.texts = dict(workshop_expressions(member))
-        recorded = "FurnitureBindings" in member.PropertiesList
-        self.recorded = dict(member.FurnitureBindings) if recorded else None
-
-    def remove(self) -> None:
-        with writing(self.member):
-            remove_bindings(self.member)
-
-    def give_back(self) -> None:
-        if not is_alive(self.member):  # supprimé entre-temps : rien à rendre
-            return
-        with writing(self.member):
-            remove_bindings(self.member)
-            for prop, text in self.texts.items():
-                set_member_expression(self.member, prop, text)
-            if self.recorded is not None:
-                self.member.FurnitureBindings = self.recorded
-
-
 class MemberFreedom:
     """Liaisons de l'ensemble de ``part`` mises de côté jusqu'à :meth:`finish` ; sans effet pour
     une pièce hors ensemble (:attr:`furniture` vaut alors ``None``). L'enregistrement
@@ -72,12 +39,12 @@ class MemberFreedom:
 
     def __init__(self, part: DocumentObject) -> None:
         self.furniture = furniture_of(part)
-        self._aside: list[_Aside] = []
+        self._aside: list[KeptBindings] = []
         if self.furniture is None:
             return
         try:
             for member in members_of(self.furniture):
-                aside = _Aside(member)
+                aside = KeptBindings(member)
                 self._aside.append(aside)
                 aside.remove()
         except Exception:  # pylint: disable=broad-exception-caught  # rendu puis relevé
@@ -96,12 +63,9 @@ class MemberFreedom:
         et ``ValueError`` traduite le dit. Une seule fois : sans effet ensuite."""
         if self.furniture is None or not self._aside:
             return []
-        frame = frame_of(self.furniture)
         try:
-            reframe(self.furniture)
-            messages = list(notice_messages(bind_furniture(self.furniture)))
+            messages = list(notice_messages(relink_framed(self.furniture)))
         except Exception as error:  # pylint: disable=broad-exception-caught  # rendu, relevé
-            restore_frame(self.furniture, frame)
             self._give_back()
             raise ValueError(translated(_NOT_RELINKED, {"error": str(error)})) from error
         self._aside = []

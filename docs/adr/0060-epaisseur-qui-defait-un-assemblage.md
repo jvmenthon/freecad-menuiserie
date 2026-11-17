@@ -64,9 +64,8 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    l'encadré, les liaisons de l'atelier des membres de l'ensemble sont mises de côté : les choix
    déplacent ou prolongent ses membres comme des pièces seules (un membre d'un **autre** ensemble,
    ou à cotes fixes pour une cote, reste bloqué). À la fin (« OK », ou autre saisie qui fige
-   l'état), la boîte de l'ensemble est recalée sur l'enveloppe de ses membres (ADR 0049 ; pas celle
-   d'un sous-ensemble, dont la position est portée par son Std Part : limite connue, un membre peut
-   alors en sortir) et tous ses membres sont reliés d'après la géométrie obtenue ; « Annuler » rend
+   l'état), la boîte de l'ensemble est recalée sur l'enveloppe de ses membres, celle d'un
+   sous-ensemble comprise, puis celles de ses parents (ADR 0049, ADR 0065) et tous ses membres sont reliés d'après la géométrie obtenue ; « Annuler » rend
    tout, liaisons comprises (transaction du panneau). Exemple : joue gauche du bureau de 22 à 30 mm
    « vers l'intérieur » : la voile et la joue droite sont poussées de 8 mm, l'ensemble passe à 1208
    mm. Un membre sans assemblage, ou lui-même à cotes fixes, garde le comportement de l'ADR 0019

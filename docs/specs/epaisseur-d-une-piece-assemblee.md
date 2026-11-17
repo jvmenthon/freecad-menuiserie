@@ -2,7 +2,8 @@
 
 - Statut : **proposée** (demandes de jv du 2026-11-15, doutes D1 et D4 du fil QTest)
 - ADR : [0060](../adr/0060-epaisseur-qui-defait-un-assemblage.md),
-  [0061](../adr/0061-ensemble-supprime-avec-son-std-part.md)
+  [0061](../adr/0061-ensemble-supprime-avec-son-std-part.md),
+  [0065](../adr/0065-boites-toujours-recalees.md)
 - Maquettes : panneau C (choisie), souris B (choisie)
 
 ## 1. Épaisseur qui défait un assemblage
@@ -25,12 +26,13 @@ Exemple : angle à queue d'aronde, H à plat (griffes), I debout (queues), I de 
 | Échap pendant le glissement | Tout revient, H compris |
 | Bureau assemblé et regroupé, joue gauche 22 → 30 mm dans son panneau | Encadré avec les mêmes choix ; « vers l'intérieur » pousse la voile et la joue droite de 8 mm ; « OK » : ensemble de 1208 mm, membres reliés, aucun objet en erreur |
 | Idem, « Annuler » | Cotes, placements et liaisons de l'ensemble rendus |
+| Côté d'un caisson (sous-ensemble du bureau) épaissi vers l'extérieur, « OK » | Boîtes du caisson et du bureau recalées sur leurs membres, rien ne bouge à l'écran (ADR 0065) |
 
 Critères d'acceptation : E1 encadré et choix ci-dessus (aussi quand rien n'est défait, avec
 « Laisser en l'état ») ; E2 choix impossible grisé avec sa raison, rien d'écrit si aucun ne tient ;
 E3 saisies successives sans cumul ; E4 une entrée d'annulation ; E5 souris : l'autre pièce suit,
 butée si elle ne peut pas, Échap rend tout ; E6 membre d'ensemble assemblé : mêmes choix, ensemble
-relié d'après le résultat (jv, 2026-11-17) ; membre sans assemblage, poignée d'un membre et
+relié d'après le résultat, boîtes recalées jusqu'au plus haut parent (jv, 2026-11-17) ; membre sans assemblage, poignée d'un membre et
 éditeur de propriétés inchangés.
 
 ## 2. Std Part d'ensemble supprimé en gardant son contenu
