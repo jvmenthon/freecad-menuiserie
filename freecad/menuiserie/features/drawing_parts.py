@@ -15,6 +15,7 @@ from collections.abc import Iterator, Sequence
 from typing import Any, Final
 
 from freecad.menuiserie.core.drawing import (
+    TRANSLATED_VALUES,
     Machining,
     MachiningItem,
     MachiningKind,
@@ -62,7 +63,7 @@ from freecad.menuiserie.features.machined_part import (
 )
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["distinct_parts", "make_part_drawings", "part_details", "part_machinings"]
+__all__ = ["distinct_parts", "make_part_drawings", "part_details"]
 
 PART_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce")
 _KIND: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce, {count} ex.")
@@ -76,14 +77,14 @@ _NO_PART: Final = QT_TRANSLATE_NOOP(
 )
 _KEY_DECIMALS: Final = 1
 _WITH: Final = QT_TRANSLATE_NOOP("Menuiserie", "{kind} avec « {other} »")
-_WORDS: Final = (
-    "name",
-    "face",
-    "end",
-    "tails",
-    "dowels",
-)  # valeurs qui sont elles-mêmes des textes à traduire
 Details = tuple[list[Machining], list[NoteLine]]  # usinages, lignes propres aux assemblages
+_KINDS: Final = {
+    "host_cuts": MachiningKind.CUT,
+    "host_additions": MachiningKind.ADDED,
+    "guest_cuts": MachiningKind.CUT,
+    "guest_trims": MachiningKind.CUT,
+    "guest_additions": MachiningKind.ADDED,
+}
 
 
 def _blanks(objects: Sequence[DocumentObject], seen: set[str]) -> Iterator[DocumentObject]:
@@ -126,15 +127,6 @@ def _groups(plan: Any, joint: DocumentObject, blank: DocumentObject) -> list[tup
     return [(name, getattr(plan, name)) for name in names]
 
 
-_KINDS: Final = {
-    "host_cuts": MachiningKind.CUT,
-    "host_additions": MachiningKind.ADDED,
-    "guest_cuts": MachiningKind.CUT,
-    "guest_trims": MachiningKind.CUT,
-    "guest_additions": MachiningKind.ADDED,
-}
-
-
 def part_details(blank: DocumentObject) -> tuple[list[Machining], list[NoteLine]]:
     """Usinages de la pièce de bois ``blank`` d'après les plans de ses assemblages, et les
     lignes propres à chaque assemblage (angle des queues d'aronde, onglet, tourillons, bouts
@@ -167,11 +159,6 @@ def part_details(blank: DocumentObject) -> tuple[list[Machining], list[NoteLine]
     return machinings(items, _size(blank)), notes
 
 
-def part_machinings(blank: DocumentObject) -> list[Machining]:
-    """Usinages de la pièce de bois ``blank`` (voir :func:`part_details`)."""
-    return part_details(blank)[0]
-
-
 def _key(
     blank: DocumentObject, found: Sequence[Machining], notes: Sequence[NoteLine]
 ) -> tuple[object, ...]:
@@ -186,7 +173,14 @@ def _key(
         )
     )
     size = tuple(round(value, _KEY_DECIMALS) for value in _size(blank))
-    texts = tuple(sorted(str(sorted(values.items())) for _, values in notes))
+    # Réglages des assemblages sans leur libellé : deux pieds identiques assemblés à deux
+    # traverses de noms différents restent une seule pièce distincte.
+    texts = tuple(
+        sorted(
+            template + str(sorted((k, v) for k, v in values.items() if k != "label"))
+            for template, values in notes
+        )
+    )
     return str(getattr(blank, "Material", "")), size, shape, texts
 
 
@@ -214,7 +208,9 @@ def distinct_parts(
 
 def _line(template: str, values: dict[str, str]) -> str:
     """Ligne traduite ; ses valeurs « name », « face » et « end » sont des textes à traduire."""
-    words: dict[str, str] = {key: translated(values[key]) for key in _WORDS if key in values}
+    words: dict[str, str] = {
+        key: translated(values[key]) for key in TRANSLATED_VALUES if key in values
+    }
     return translated(template, {**values, **words})
 
 
@@ -283,7 +279,9 @@ def _draw_part(
     rotation = blank.getGlobalPlacement().Rotation
     notes = _notes(details, sheet)
     sizes = (length, width, thickness)
-    set_owned(page, add_part_views(page, shown, rotation, layout, notes, (sizes, corner)))
+    set_owned(
+        page, add_part_views(page, shown, rotation, layout, notes, (sizes, corner, options.settle))
+    )
     return page
 
 

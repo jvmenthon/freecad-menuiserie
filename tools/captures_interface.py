@@ -404,14 +404,16 @@ def capturer_les_plans(dossier: Path) -> None:
     (``plan-ouvrage.png``, ``plan-piece-<n>.png``) : pour juger la lisibilité des pages."""
     from freecad.menuiserie import api
     from freecad.menuiserie.features.drawing import document_scope
+    from freecad.menuiserie.gui.drawing_hlr import HlrWait
     from freecad.menuiserie.gui.drawing_pdf import show_page
 
     doc = App.ActiveDocument
+    attente = api.DrawingOptions(settle=HlrWait(60.0))  # comme les commandes de l'atelier
     pages = [
-        ("plan-ouvrage", api.make_overall_drawing(doc, document_scope(doc))),
+        ("plan-ouvrage", api.make_overall_drawing(doc, document_scope(doc), attente)),
         ("plan-eclate", api.make_exploded_drawing(doc, document_scope(doc))),
     ]
-    pieces = api.make_part_drawings(doc, [])[:MAX_PLANS]
+    pieces = api.make_part_drawings(doc, [], attente)[:MAX_PLANS]
     pages += [(f"plan-piece-{rang}", page) for rang, page in enumerate(pieces, start=1)]
     for nom, page in pages:
         show_page(page)

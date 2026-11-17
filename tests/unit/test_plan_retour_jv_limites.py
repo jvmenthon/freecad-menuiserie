@@ -17,9 +17,9 @@ from freecad.menuiserie.core.drawing import (
     PageSize,
     bevel_line,
     capped,
+    chain_labels,
     chain_segments,
     joint_note_lines,
-    label_along,
     machining_lines,
     machining_name,
     machinings,
@@ -27,6 +27,7 @@ from freecad.menuiserie.core.drawing import (
     overall_layout,
     page_size,
     slant_angle,
+    text_width_mm,
 )
 from freecad.menuiserie.core.drawing._layout import MARGIN_MM
 from freecad.menuiserie.core.geometry import Axis, Box, Cylinder, Vec3
@@ -307,11 +308,43 @@ def test_bande_des_cotes_dans_la_feuille(
     assert layout.scale <= plain.scale
 
 
-def test_texte_d_une_cote_etroite_sort_du_cote_du_bout_le_plus_proche() -> None:
-    chain = (-60.0, 60.0)
-    assert label_along((-57.8, 57.8), chain, 15.0) == pytest.approx(0.0)
-    assert label_along((-60.0, -57.8), chain, 15.0) == pytest.approx(-67.5)
-    assert label_along((57.8, 60.0), chain, 15.0) == pytest.approx(67.5)
+def _widths(low: float, high: float) -> float:
+    return 6.0  # texte de 6 mm, quelle que soit la cote
+
+
+def test_cotes_etroites_aux_bouts_ecrites_dehors() -> None:
+    """Joues de 2 mm (sur la feuille) aux deux bouts : leur texte sort de la chaîne."""
+    labels = chain_labels([(0.0, 2.0), (2.0, 58.0), (58.0, 60.0)], _widths)
+    assert [round(middle, 1) for _, _, middle in labels] == [-4.0, 30.0, 64.0]
+
+
+def test_textes_jamais_superposes() -> None:
+    """Beaucoup de points serrés : les textes gardés ne se chevauchent pas, la chaîne reste
+    continue de bout en bout, des points sont retirés."""
+    points = [0.0, 1.0, 3.0, 4.5, 6.0, 9.0, 30.0, 31.0, 33.0, 60.0]
+    segments = list(itertools.pairwise(points))
+    labels = chain_labels(segments, _widths)
+    assert labels[0][0] == 0.0 and labels[-1][1] == 60.0
+    assert all(a[1] == b[0] for a, b in itertools.pairwise(labels))
+    assert len(labels) < len(segments)
+    assert all(b[2] - a[2] >= 6.0 for a, b in itertools.pairwise(labels))
+
+
+def test_cotes_etroites_regroupees() -> None:
+    # Trois segments étroits : le point du milieu est retiré, un texte de chaque côté.
+    assert chain_labels([(0.0, 1.0), (1.0, 2.0), (2.0, 3.0)], _widths) == [
+        (0.0, 1.0, -4.0),
+        (1.0, 3.0, 7.0),
+    ]
+    assert chain_labels([(0.0, 50.0)], _widths) == []
+    # Deux segments étroits : un texte avant la chaîne, l'autre après.
+    assert [m for _, _, m in chain_labels([(0.0, 1.0), (1.0, 2.0)], _widths)] == [-4.0, 6.0]
+
+
+def test_largeur_du_texte_de_tech_draw() -> None:
+    assert text_width_mm(22.0, 3.5) == pytest.approx(2 * 0.6 * 3.5)
+    assert text_width_mm(1677.65, 3.5) == pytest.approx(7 * 0.6 * 3.5)
+    assert text_width_mm(30.10, 3.5) == pytest.approx(4 * 0.6 * 3.5)
 
 
 def test_perspective_reduite_plutot_que_l_echelle() -> None:

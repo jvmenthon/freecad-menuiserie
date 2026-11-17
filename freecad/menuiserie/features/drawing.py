@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
 from typing import Any, Final
@@ -25,7 +25,6 @@ import FreeCAD as App
 
 from freecad.menuiserie import TEMPLATES_DIR
 from freecad.menuiserie.core.drawing import (
-    Orientation,
     OverallLayout,
     PageSize,
     overall_layout,
@@ -34,9 +33,9 @@ from freecad.menuiserie.core.drawing import (
     template_file_name,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features import drawing_settings
 from freecad.menuiserie.features.drawing_details import front_details, global_shape
 from freecad.menuiserie.features.drawing_dims import overall_band_mm
+from freecad.menuiserie.features.drawing_settings import DrawingOptions
 from freecad.menuiserie.features.drawing_title import STORED, fill_title_block
 from freecad.menuiserie.features.drawing_views import (
     PAGE_NAME,
@@ -109,27 +108,6 @@ _KIND_TOOLTIP: Final = QT_TRANSLATE_NOOP(
 _STORED_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property", "Saisie du cartouche de ce plan (atelier Menuiserie)."
 )
-
-
-@dataclass(frozen=True)
-class DrawingOptions:
-    """Feuille et cartouche du plan. ``None`` : le réglage de la configuration de l'atelier pour
-    le format et le sens ; pour le titre, le client et le numéro de devis, la valeur déjà
-    enregistrée sur la page que l'on refait, sinon le nom de l'ouvrage (titre) ou rien."""
-
-    page_format: str | None = None
-    orientation: Orientation | None = None
-    title: str | None = None
-    client: str | None = None
-    quote: str | None = None
-
-    def resolved_format(self) -> str:
-        """Format demandé, sinon celui de la configuration."""
-        return self.page_format or drawing_settings.default_format()
-
-    def resolved_orientation(self) -> Orientation:
-        """Sens demandé, sinon celui de la configuration."""
-        return self.orientation or drawing_settings.default_orientation()
 
 
 def techdraw_available() -> bool:
@@ -334,32 +312,36 @@ def set_owned(page: DocumentObject, names: Sequence[str]) -> None:
     setattr(page, OWNED, ";".join(names))
 
 
-def _layout(box: Any, size: PageSize) -> tuple[OverallLayout, bool]:
-    """Mise en page du plan de l'ouvrage et présence des chaînes de cotes de détail : elles
-    sont omises quand leur place ferait passer les vues cotées à une échelle plus petite."""
+@dataclass(frozen=True)
+class _Placed:
+    """Mise en page du plan de l'ouvrage, et ses chaînes de cotes de détail ou non."""
+
+    layout: OverallLayout
+    chains: bool
+
+
+def _placed(box: Any, size: PageSize) -> _Placed:
+    """Les chaînes de cotes de détail sont omises quand leur place ferait passer les vues
+    cotées à une échelle plus petite."""
     dimensions = (box.XLength, box.YLength, box.ZLength)
     full = overall_layout(dimensions, size, band=overall_band_mm())
     plain = overall_layout(dimensions, size, band=overall_band_mm(chains=False))
-    if plain.scale > full.scale:
-        return plain, False
-    return full, True
+    return _Placed(plain, False) if plain.scale > full.scale else _Placed(full, True)
 
 
 def _fill(
-    page: DocumentObject,
-    sources: Sequence[DocumentObject],
-    placed: tuple[OverallLayout, bool],
-    box: Any,
+    page: DocumentObject, sources: Sequence[DocumentObject], placed: _Placed, frame: tuple[Any, Any]
 ) -> None:
-    layout, chains = placed
-    page.Scale = layout.scale
-    warn_if_unfitted(layout.fits)
+    """Pose les vues et les cotes ; ``frame`` : (encombrement des objets, attente des vues)."""
+    box, settle = frame
+    page.Scale = placed.layout.scale
+    warn_if_unfitted(placed.layout.fits)
     sizes = (float(box.XLength), float(box.ZLength), float(box.YLength))
     details = front_details(sources)
-    if not chains:
-        details = replace(details, xs=(), zs=())
-    frame = (box.Center, sizes, details)
-    set_owned(page, add_overall_views(page, sources, layout, frame))
+    if not placed.chains:
+        details = details.without_chains()
+    views = (box.Center, sizes, details)
+    set_owned(page, add_overall_views(page, sources, placed.layout, views, settle))
 
 
 def make_overall_drawing(
@@ -376,8 +358,7 @@ def make_overall_drawing(
     box = global_box(sources)
     with translated_errors():
         size = page_size(chosen.resolved_format(), chosen.resolved_orientation())
-        placed = _layout(box, size)
-        layout = placed[0]
+        placed = _placed(box, size)
     with drawing_transaction(doc, translated(TITLE)):
         page = find_overall_drawing(doc, sources)
         if page is None:
@@ -385,8 +366,8 @@ def make_overall_drawing(
         else:
             clear_page(page)
         apply_template(page, chosen)
-        fill_title_block(page, list(objects), title_inputs(chosen), layout.scale)
-        _fill(page, sources, placed, box)
+        fill_title_block(page, list(objects), title_inputs(chosen), placed.layout.scale)
+        _fill(page, sources, placed, (box, chosen.settle))
         doc.recompute()
     return page
 

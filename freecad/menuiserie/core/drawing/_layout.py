@@ -139,9 +139,9 @@ def _fits(
 ) -> bool:
     """Les vues tiennent-elles sur ``page`` à ``scale`` ; ``iso`` : réduction de la perspective
     (0 : pas de perspective)."""
-    width, height, depth = _extent(sizes, scale)
-    height += band  # cotes au-dessus de la face
-    _, iso_height, iso_room = _iso_at(width, height - band, depth, iso)
+    width, face_height, depth = _extent(sizes, scale)
+    height = face_height + band  # cotes au-dessus de la face
+    _, iso_height, iso_room = _iso_at(width, face_height, depth, iso)
     used_width = 2 * MARGIN_MM + band + width + GAP_MM + depth + iso_room
     block_width, block_height = TITLE_BLOCK_MM
     block_height += reserve or 0.0

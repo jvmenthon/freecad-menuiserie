@@ -3,8 +3,15 @@
 
 from __future__ import annotations
 
-from freecad.menuiserie.core.drawing._details import chain_segments, label_along, slant_angle
+from freecad.menuiserie.core.drawing._details import (
+    ChainLabel,
+    chain_labels,
+    chain_segments,
+    slant_angle,
+    text_width_mm,
+)
 from freecad.menuiserie.core.drawing._joint_notes import (
+    TRANSLATED_VALUES,
     NoteLine,
     bevel_line,
     joint_note_lines,
@@ -63,6 +70,8 @@ __all__ = [
     "PAGE_FORMATS",
     "SCALES",
     "TEMPLATE_FILES",
+    "TRANSLATED_VALUES",
+    "ChainLabel",
     "Machining",
     "MachiningItem",
     "MachiningKind",
@@ -74,12 +83,12 @@ __all__ = [
     "TitleFields",
     "bevel_line",
     "capped",
+    "chain_labels",
     "chain_segments",
     "clean_field",
     "corner_iso_layout",
     "exploded_offset",
     "joint_note_lines",
-    "label_along",
     "machining_lines",
     "machining_name",
     "machinings",
@@ -94,5 +103,6 @@ __all__ = [
     "slant_angle",
     "template_file_name",
     "template_svg",
+    "text_width_mm",
     "title_block_texts",
 ]

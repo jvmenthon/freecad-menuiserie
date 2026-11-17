@@ -34,6 +34,10 @@ class FrontDetails:
     zs: tuple[float, ...]
     angles: tuple[tuple[float, Any], ...]
 
+    def without_chains(self) -> FrontDetails:
+        """Mêmes angles, sans chaînes de cotes."""
+        return FrontDetails((), (), self.angles)
+
 
 def global_shape(obj: DocumentObject) -> Any:
     """Forme de ``obj`` (copie) placée dans le repère global du document, conteneurs compris."""
@@ -52,7 +56,10 @@ def _timber(obj: DocumentObject) -> DocumentObject | None:
 
 
 def _angle(blank: DocumentObject) -> float | None:
-    """Angle avec l'horizontale de la face de l'axe de ``blank`` qui s'y voit le mieux."""
+    """Angle avec l'horizontale de la face (de 0 à 90°, comme le menuisier règle sa fausse
+    équerre sur le chant) de la longueur ou de la largeur de ``blank``, celle qui s'y voit le
+    mieux ; l'épaisseur n'est jamais retenue. Une pièce qui bascule hors du plan de la face
+    porte l'angle de sa projection."""
     rotation = blank.getGlobalPlacement().Rotation
     axes = [rotation.multVec(App.Vector(1, 0, 0)), rotation.multVec(App.Vector(0, 1, 0))]
     best = max(axes, key=lambda axis: axis.x**2 + axis.z**2)

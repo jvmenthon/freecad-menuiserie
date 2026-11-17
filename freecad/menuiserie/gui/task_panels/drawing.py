@@ -24,6 +24,7 @@ from freecad.menuiserie.features.drawing_title import STORED
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui import drawing_pdf
+from freecad.menuiserie.gui.drawing_hlr import HlrWait
 from freecad.menuiserie.gui.task_panels.base import ok_cancel_buttons
 
 __all__ = ["FORM_NAME", "DrawingTaskPanel"]
@@ -108,6 +109,7 @@ class DrawingTaskPanel:
             title=title or None,
             client=self.client.text(),
             quote=self.quote.text(),
+            settle=HlrWait(),
         )
 
     def accept(self) -> bool:

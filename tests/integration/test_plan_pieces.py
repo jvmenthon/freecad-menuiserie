@@ -180,3 +180,17 @@ def test_plan_de_piece_suit_un_changement_de_cote(bureau: Bureau) -> None:
     (page,) = api.make_part_drawings(bureau.doc, [bureau.shown("P")])
     lengths = [float(dim.getRawValue()) for dim in drawing.overall_dimensions(page)]
     assert lengths[0] == pytest.approx(1000, abs=0.01)
+
+
+def test_libelle_d_assemblage_hors_du_regroupement(bureau: Bureau) -> None:
+    """Revue : deux pièces identiques assemblées à deux pièces de noms différents restent une
+    seule pièce distincte (le libellé « … avec « Traverse 1 » » n'entre pas dans la clé)."""
+    parts = pytest.importorskip("freecad.menuiserie.features.drawing_parts")
+    blank = bureau.parts["JG"]
+
+    def line(other: str) -> tuple[str, dict[str, str]]:
+        return ("{label} : {count}", {"label": f"Tourillons avec « {other} »", "count": "3"})
+
+    key = parts._key  # pylint: disable=protected-access
+    assert key(blank, [], [line("Traverse 1")]) == key(blank, [], [line("Traverse 2")])
+    assert key(blank, [], [line("A")]) != key(blank, [], [("{label} : {count}", {"count": "4"})])

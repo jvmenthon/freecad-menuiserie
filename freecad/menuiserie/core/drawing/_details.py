@@ -3,7 +3,7 @@
 
 Sous les cotes hors tout, une chaîne de cotes donne les positions où commence ou finit chaque
 pièce, en largeur et en hauteur : épaisseur d'un plateau, débord d'une pièce, étendue d'une
-pièce en biais. Les points trop proches pour que leur cote se lise sont fusionnés. Une pièce en
+pièce en biais. Un point dont la cote ne trouve pas de place lisible est retiré. Une pièce en
 biais sur la face porte son angle avec l'horizontale.
 """
 
@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from typing import Final
 
-__all__ = ["chain_segments", "label_along", "slant_angle"]
+from freecad.menuiserie.core.drawing._layout import CHAR_WIDTH_RATIO
+
+__all__ = ["ChainLabel", "chain_labels", "chain_segments", "slant_angle", "text_width_mm"]
 
 MIN_SLANT_DEG: Final = 0.5  # en deçà (ou au-delà de 90 - ce seuil), la pièce est d'équerre
 _SAME_MM: Final = 0.05
@@ -38,17 +40,58 @@ def chain_segments(points: Iterable[float], min_gap: float) -> list[tuple[float,
     return segments if len(segments) > 1 else []
 
 
-def label_along(segment: tuple[float, float], chain: tuple[float, float], text: float) -> float:
-    """Milieu du texte d'une cote de la chaîne, le long de la chaîne (mm de la feuille) : au
-    milieu de ``segment`` quand le texte (``text`` de large, flèches comprises) y tient, sinon
-    juste dehors, du côté du bout le plus proche de ``chain`` : une épaisseur de plateau ne
-    cache pas la cote voisine."""
+ChainLabel = tuple[float, float, float]  # début, fin, milieu du texte (mm de la feuille)
+_LABEL_GAP_MM: Final = 1.0  # entre deux textes de cote voisins
+
+
+def text_width_mm(value: float, font: float) -> float:
+    """Largeur sur la feuille du texte d'une cote de ``value`` mm écrite par TechDraw (deux
+    décimales au plus, zéros de fin retirés) en caractères de ``font`` mm."""
+    chars = len(f"{value:.2f}".rstrip("0").rstrip("."))
+    return chars * CHAR_WIDTH_RATIO * font
+
+
+def chain_labels(
+    segments: Sequence[tuple[float, float]], width: Callable[[float, float], float]
+) -> list[ChainLabel]:
+    """Cotes lisibles d'une chaîne de ``segments`` (mm de la feuille, bout à bout) : chaque
+    texte (``width(début, fin)`` de large) se place dans son segment, sinon juste avant (juste
+    après pour la dernière cote, au bout de la chaîne), sans chevaucher le précédent. Un point
+    dont la cote ne trouve pas de place est retiré (les deux segments voisins n'en font qu'un).
+    Vide s'il ne reste qu'une cote : la cote hors tout la donne déjà."""
+    if len(segments) < 2:
+        return []
+    first, last = segments[0][0], segments[-1][1]
+    labels: list[ChainLabel] = []
+    for _, end in segments:
+        while True:
+            start = labels[-1][1] if labels else first
+            right = labels[-1][2] + width(*labels[-1][:2]) / 2 if labels else -math.inf
+            spot = _label_spot((start, end), width(start, end), right, end == last)
+            if spot is not None or end != last or not labels:
+                break
+            labels.pop()  # la dernière cote ne tient pas : le point précédent est retiré
+        if spot is None and end == last:
+            spot = end + _LABEL_GAP_MM + width(start, end) / 2
+        if spot is not None:
+            labels.append((start, end, spot))
+    return labels if len(labels) > 1 else []
+
+
+def _label_spot(
+    segment: tuple[float, float], text: float, right: float, at_end: bool
+) -> float | None:
+    """Milieu du texte d'une cote sur ``segment`` qui ne déborde pas sur ``right`` (fin du
+    texte précédent) : dans le segment, sinon juste avant ou juste après (après d'abord au bout
+    de la chaîne) ; ``None`` s'il n'y a pas de place."""
     low, high = segment
-    if high - low >= text:
-        return (low + high) / 2
-    if low - chain[0] < chain[1] - high:
-        return low - text / 2
-    return high + text / 2
+    before = low - _LABEL_GAP_MM - text / 2
+    after = high + _LABEL_GAP_MM + text / 2
+    inside = (low + high) / 2 if high - low >= text + _LABEL_GAP_MM else None
+    for middle in (inside, *((after, before) if at_end else (before, after))):
+        if middle is not None and middle - text / 2 >= right + _LABEL_GAP_MM:
+            return middle
+    return None
 
 
 def slant_angle(horizontal: float, vertical: float) -> float | None:

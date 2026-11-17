@@ -9,18 +9,21 @@ from typing import Final
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.i18n import report_warning, translated
 
 __all__ = [
     "DIMENSION_CLEARANCE_MM",
     "SECTION_CLEARANCE_MM",
+    "Settle",
     "added_by",
     "dimension_font_mm",
     "dimension_row_mm",
     "has_geometry",
     "overall_band_mm",
     "part_band_mm",
-    "set_geometry_waiter",
+    "text_height_mm",
     "wait_for_geometry",
 ]
 
@@ -33,7 +36,8 @@ _DIMENSION_PARAMS: Final = "User parameter:BaseApp/Preferences/Mod/TechDraw/Dime
 def added_by(page: DocumentObject, make: Callable[[], object]) -> list[str]:
     """Noms des objets que ``make`` ajoute à la page. Les fabriques de cotes de TechDraw écrivent
     dans le document actif de FreeCAD : celui de la page est activé le temps de l'appel, puis le
-    précédent est remis."""
+    précédent est remis (sauf s'il a été fermé entre-temps ; sans document actif au départ,
+    celui de la page le reste)."""
     doc = page.Document
     before = {obj.Name for obj in page.Views}
     active = App.ActiveDocument
@@ -54,9 +58,14 @@ def dimension_font_mm() -> float:
     return size if 1.0 <= size <= 20.0 else DIMENSION_FONT_MM
 
 
+def text_height_mm() -> float:
+    """Place d'un texte de cote, de sa ligne et de ses flèches, perpendiculairement à la cote."""
+    return 1.5 * dimension_font_mm()
+
+
 def dimension_row_mm() -> float:
     """Écart entre deux rangées de cotes parallèles."""
-    return 1.5 * dimension_font_mm() + DIMENSION_CLEARANCE_MM
+    return text_height_mm() + DIMENSION_CLEARANCE_MM
 
 
 def overall_band_mm(chains: bool = True) -> float:
@@ -70,14 +79,12 @@ def part_band_mm() -> float:
     return dimension_row_mm() + dimension_font_mm()
 
 
-# Attente de la géométrie des vues, branchée par l'interface (gui/drawing_hlr.py) : sans
-# interface, TechDraw calcule les vues pendant le recalcul et rien n'est à attendre.
-_WAITER: list[Callable[[Sequence[DocumentObject]], None]] = []
-
-
-def set_geometry_waiter(waiter: Callable[[Sequence[DocumentObject]], None] | None) -> None:
-    """Fonction qui attend que des vues aient leur géométrie (``None`` : aucune)."""
-    _WAITER[:] = [] if waiter is None else [waiter]
+Settle = Callable[[Sequence[DocumentObject]], None]  # attente de la géométrie (interface)
+_NOT_READY: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Plan : TechDraw n'a pas fini de calculer les vues, certaines cotes sont omises. "
+    "Relancez la commande pour les poser.",
+)
 
 
 def has_geometry(view: DocumentObject) -> bool:
@@ -88,9 +95,13 @@ def has_geometry(view: DocumentObject) -> bool:
         return False
 
 
-def wait_for_geometry(views: Sequence[DocumentObject]) -> bool:
-    """Attend, si l'interface sait le faire, que ``views`` aient leur géométrie ; vrai si elles
-    l'ont toutes."""
-    if _WAITER:
-        _WAITER[0](views)
-    return all(has_geometry(view) for view in views)
+def wait_for_geometry(views: Sequence[DocumentObject], settle: Settle | None) -> bool:
+    """Attend avec ``settle`` (l'interface, où TechDraw calcule les vues en tâche de fond ;
+    sans interface, elles le sont pendant le recalcul) que ``views`` aient leur géométrie ;
+    vrai si elles l'ont toutes, sinon l'utilisateur est averti que des cotes manquent."""
+    if settle is not None:
+        settle(views)
+    ready = all(has_geometry(view) for view in views)
+    if not ready:
+        report_warning(translated(_NOT_READY))
+    return ready

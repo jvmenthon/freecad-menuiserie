@@ -60,10 +60,19 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
 
 8. **Cotes de détail** (amendement du 2026-11-13, retour de jv) : la face du plan de l'ouvrage
    porte, sous les cotes hors tout (qui suivent le modèle), une chaîne de cotes posées entre
-   deux points calculés depuis l'encombrement de chaque pièce (`makeDistanceDim3d`), et
+   deux points calculés depuis l'encombrement de chaque pièce (`makeDistanceDim`, points en mm
+   de la feuille : `makeDistanceDim3d` renvoie la longueur divisée par l'échelle), et
    l'angle des pièces en biais en texte. Ces cotes ne dépendent pas de la numérotation des
    arêtes projetées (risque de la décision 6) mais ne suivent pas le modèle : relancer la
-   commande les refait, comme la vue éclatée.
+   commande les refait, comme la vue éclatée. Le texte d'une cote étroite sort de son segment ;
+   un point dont la cote ne trouve pas de place lisible est retiré de la chaîne.
+9. **Échelle et attente des vues** (amendement du 2026-11-17, revue) : la perspective, non
+   cotée, peut passer à l'échelle moitié (indiquée sous la vue) pour garder les vues cotées à la
+   plus grande échelle ; les chaînes de détail sont omises si leur place faisait baisser cette
+   échelle. Avec l'interface, TechDraw calcule les vues en tâche de fond et une cote posée avant
+   fait planter FreeCAD : la commande passe une attente (`DrawingOptions.settle`,
+   `gui/drawing_hlr.py`, boucle d'événements sans saisies, échéance commune de 20 s) ; sans
+   géométrie, les cotes sont omises et l'utilisateur averti. `features/` reste sans Qt.
 
 ## Conséquences
 

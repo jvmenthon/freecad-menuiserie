@@ -22,6 +22,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui import drawing_pdf
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 from freecad.menuiserie.gui.commands.cutlist import selected_objects, show_status
+from freecad.menuiserie.gui.drawing_hlr import HlrWait
 
 DRAWING: Final = "Menuiserie_Drawing"
 DRAWING_PDF: Final = "Menuiserie_DrawingPdf"
@@ -106,7 +107,7 @@ class PartDrawingsCommand(_PlanCommand):
         doc = App.ActiveDocument
         objects = self.selection()
         try:
-            pages = api.make_part_drawings(doc, objects)
+            pages = api.make_part_drawings(doc, objects, api.DrawingOptions(settle=HlrWait()))
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return
@@ -168,9 +169,6 @@ class DrawingPdfCommand(TransactionCommand):
 
 def register() -> None:
     """Enregistre les commandes des plans auprès de FreeCAD."""
-    from freecad.menuiserie.gui import drawing_hlr
-
-    drawing_hlr.install()
     Gui.addCommand(DRAWING, DrawingCommand())
     Gui.addCommand(PART_DRAWINGS, PartDrawingsCommand())
     Gui.addCommand(EXPLODED, ExplodedDrawingCommand())

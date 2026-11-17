@@ -10,18 +10,21 @@ tourillons. Ces lignes viennent des valeurs effectives de l'assemblage (celles d
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
-from typing import Final
+from collections.abc import Callable, Sequence
+from typing import Any, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints._base import JointKind
+from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.dovetail import DovetailValues
 from freecad.menuiserie.core.joints.dowels import DowelValues
 from freecad.menuiserie.core.joints.miter import MiterValues
 
-__all__ = ["NoteLine", "bevel_line", "joint_note_lines", "machining_name"]
+__all__ = ["TRANSLATED_VALUES", "NoteLine", "bevel_line", "joint_note_lines", "machining_name"]
 
 NoteLine = tuple[str, dict[str, str]]  # (gabarit à traduire, valeurs)
+# Valeurs d'une ligne du tableau qui sont elles-mêmes des textes à traduire (noms d'usinage,
+# faces, bouts, mots au singulier ou au pluriel), ici et dans ``_machining``.
+TRANSLATED_VALUES: Final = ("name", "face", "end", "tails", "dowels")
 
 _DOVETAIL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -43,6 +46,7 @@ _MITER: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} : onglet coupé à {ang
 _BEVEL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{label} : {end} coupé en biais, angle de coupe {cut}°, lame inclinée {tilt}°"
 )
+_END: Final = QT_TRANSLATE_NOOP("Menuiserie", "bout")  # face inattendue
 _ENDS: Final = {
     (0, 1): QT_TRANSLATE_NOOP("Menuiserie", "bout droit"),
     (0, -1): QT_TRANSLATE_NOOP("Menuiserie", "bout gauche"),
@@ -95,57 +99,78 @@ def machining_name(kind: JointKind, group: str, tails_on_host: bool = False) -> 
     return _NAMES.get(kind, {}).get(group, "")
 
 
+def _dovetail_lines(label: str, values: DovetailValues, _is_host: bool) -> list[NoteLine]:
+    """Angle et pente des flancs, largeur des queues et des griffes."""
+    if values.angle <= _MIN_ANGLE_DEG:
+        return []
+    ratio = 1.0 / math.tan(math.radians(values.angle))
+    return [
+        (
+            _DOVETAIL,
+            {
+                "label": label,
+                "angle": _number(values.angle),
+                "ratio": _number(ratio),
+                "count": str(values.tail_count),
+                "tails": _TAILS[values.tail_count > 1],
+                "tail": _number(values.tail_width),
+                "base": _number(values.tail_base),
+                "pin": _number(values.pin_width),
+            },
+        )
+    ]
+
+
+def _dowel_lines(label: str, values: DowelValues, _is_host: bool) -> list[NoteLine]:
+    """Nombre, diamètre et longueur des tourillons."""
+    return [
+        (
+            _DOWELS,
+            {
+                "label": label,
+                "count": str(values.count),
+                "dowels": _DOWEL_WORDS[values.count > 1],
+                "diameter": _number(values.diameter),
+                "length": _number(values.dowel_length),
+            },
+        )
+    ]
+
+
+def _miter_lines(label: str, values: MiterValues, is_host: bool) -> list[NoteLine]:
+    """Angle de la coupe d'onglet de la pièce dessinée."""
+    angle = values.host_angle if is_host else values.guest_angle
+    return [(_MITER, {"label": label, "angle": _number(angle)})]
+
+
+# Registre (type des valeurs effectives d'un assemblage → ses lignes) : un nouvel assemblage
+# qui demande un réglage particulier ajoute ici sa fonction, sans toucher à la recherche.
+_NOTE_LINES: Final[dict[type, Callable[[str, Any, bool], list[NoteLine]]]] = {
+    DovetailValues: _dovetail_lines,
+    DowelValues: _dowel_lines,
+    MiterValues: _miter_lines,
+}
+
+
 def joint_note_lines(label: str, values: object, is_host: bool) -> list[NoteLine]:
     """Lignes propres à l'assemblage ``label`` d'après ses valeurs effectives ``values`` ; la
     pièce dessinée est l'hôte de l'assemblage si ``is_host``. Vide pour un type sans réglage
     particulier (tenon, rainure, feuillure… dont l'encombrement suffit)."""
-    if isinstance(values, DovetailValues) and values.angle > _MIN_ANGLE_DEG:
-        ratio = 1.0 / math.tan(math.radians(values.angle))
-        return [
-            (
-                _DOVETAIL,
-                {
-                    "label": label,
-                    "angle": _number(values.angle),
-                    "ratio": _number(ratio),
-                    "count": str(values.tail_count),
-                    "tails": _TAILS[values.tail_count != 1],
-                    "tail": _number(values.tail_width),
-                    "base": _number(values.tail_base),
-                    "pin": _number(values.pin_width),
-                },
-            )
-        ]
-    if isinstance(values, DowelValues):
-        return [
-            (
-                _DOWELS,
-                {
-                    "label": label,
-                    "count": str(values.count),
-                    "dowels": _DOWEL_WORDS[values.count != 1],
-                    "diameter": _number(values.diameter),
-                    "length": _number(values.dowel_length),
-                },
-            )
-        ]
-    if isinstance(values, MiterValues):
-        angle = values.host_angle if is_host else values.guest_angle
-        return [(_MITER, {"label": label, "angle": _number(angle)})]
-    return []
+    lines = _NOTE_LINES.get(type(values))
+    return lines(label, values, is_host) if lines is not None else []
 
 
 def bevel_line(label: str, face: tuple[int, int], saw: Sequence[float]) -> NoteLine | None:
     """Ligne d'un bout coupé en biais (``face`` : indice d'axe et signe, ``saw`` : angle de coupe
     et inclinaison de lame en degrés) ; ``None`` pour une coupe d'équerre."""
     cut, tilt = float(saw[0]), float(saw[1])
-    if max(cut, tilt) <= _MIN_ANGLE_DEG:
+    if max(abs(cut), abs(tilt)) <= _MIN_ANGLE_DEG:
         return None
     return (
         _BEVEL,
         {
             "label": label,
-            "end": _ENDS.get(face, _ENDS[(0, 1)]),
+            "end": _ENDS.get(face, _END),
             "cut": _number(cut),
             "tilt": _number(tilt),
         },
