@@ -73,7 +73,7 @@ def test_cotes_dans_le_repere_de_la_piece(bureau: Bureau) -> None:
 def test_tableau_des_usinages(bureau: Bureau) -> None:
     pages = api.make_part_drawings(bureau.doc, [bureau.furniture])
     voile = notes(page_of(pages, bureau.parts["V"]))
-    holes = [line for line in voile if "Ø" in line]
+    holes = [line for line in voile if "Ø" in line and "perçage" in line]
     assert holes, voile
     assert all("bout" in line for line in holes), voile  # tourillons en bout de voile
     joue = notes(page_of(pages, bureau.parts["JG"]))

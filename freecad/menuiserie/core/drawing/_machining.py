@@ -302,13 +302,17 @@ def _number(value: float) -> str:
     return f"{0.0 if rounded == 0 else rounded:g}".replace(".", ",")
 
 
+def _spot(item: Machining) -> tuple[float, float]:
+    """Coin bas gauche (ou centre d'un perçage) vu de face, ordre des positions écrites."""
+    if item.entry is not None:
+        return item.entry
+    return item.low[0], item.low[1]
+
+
 def _position(item: Machining) -> str:
     """Coin bas gauche (ou centre d'un perçage) vu de face : « x 50 y 15 ». Un tenon ou une
     queue qui sort d'un bout (d'un chant) n'est repéré que le long de ce bout (de ce chant)."""
-    if item.entry is not None:
-        x, y = item.entry
-    else:
-        x, y = item.low[0], item.low[1]
+    x, y = _spot(item)
     if item.kind is MachiningKind.ADDED and item.face is not None and item.face[0] == 0:
         return f"y {_number(y)}"
     if item.kind is MachiningKind.ADDED and item.face is not None and item.face[0] == 1:
@@ -349,7 +353,7 @@ def machining_lines(items: Sequence[Machining]) -> list[tuple[str, dict[str, str
     lines: list[tuple[str, dict[str, str]]] = []
     for group in groups.values():
         first = group[0]
-        positions = sorted(_position(item) for item in group)
+        positions = [_position(item) for item in sorted(group, key=_spot)]
         shown = "; ".join(positions[:MAX_POSITIONS])
         if len(positions) > MAX_POSITIONS:
             shown += "; …"

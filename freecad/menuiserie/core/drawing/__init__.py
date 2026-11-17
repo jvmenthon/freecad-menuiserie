@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from freecad.menuiserie.core.drawing._details import chain_segments, slant_angle
+from freecad.menuiserie.core.drawing._details import chain_segments, label_along, slant_angle
 from freecad.menuiserie.core.drawing._joint_notes import (
     NoteLine,
     bevel_line,
@@ -79,6 +79,7 @@ __all__ = [
     "corner_iso_layout",
     "exploded_offset",
     "joint_note_lines",
+    "label_along",
     "machining_lines",
     "machining_name",
     "machinings",

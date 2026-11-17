@@ -60,6 +60,14 @@ NAMES: Final = {
         QT_TRANSLATE_NOOP("Menuiserie", "logement de queue"),
         QT_TRANSLATE_NOOP("Menuiserie", "logements de queue"),
     ),
+    "pin": (
+        QT_TRANSLATE_NOOP("Menuiserie", "griffe"),
+        QT_TRANSLATE_NOOP("Menuiserie", "griffes"),
+    ),
+    "pin_socket": (
+        QT_TRANSLATE_NOOP("Menuiserie", "logement de griffe"),
+        QT_TRANSLATE_NOOP("Menuiserie", "logements de griffe"),
+    ),
     "miter": (
         QT_TRANSLATE_NOOP("Menuiserie", "coupe d'onglet"),
         QT_TRANSLATE_NOOP("Menuiserie", "coupes d'onglet"),

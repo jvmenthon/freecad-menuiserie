@@ -47,8 +47,9 @@ from freecad.menuiserie.features.drawing import (
     title_inputs,
     warn_if_unfitted,
 )
+from freecad.menuiserie.features.drawing_dims import part_band_mm
 from freecad.menuiserie.features.drawing_title import fill_title_block
-from freecad.menuiserie.features.drawing_views import NOTE_SIZE_MM, add_part_views, part_band_mm
+from freecad.menuiserie.features.drawing_views import NOTE_SIZE_MM, add_part_views
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
@@ -75,7 +76,13 @@ _NO_PART: Final = QT_TRANSLATE_NOOP(
 )
 _KEY_DECIMALS: Final = 1
 _WITH: Final = QT_TRANSLATE_NOOP("Menuiserie", "{kind} avec « {other} »")
-_WORDS: Final = ("name", "face", "end")  # valeurs qui sont elles-mêmes des textes à traduire
+_WORDS: Final = (
+    "name",
+    "face",
+    "end",
+    "tails",
+    "dowels",
+)  # valeurs qui sont elles-mêmes des textes à traduire
 Details = tuple[list[Machining], list[NoteLine]]  # usinages, lignes propres aux assemblages
 
 
@@ -148,7 +155,7 @@ def part_details(blank: DocumentObject) -> tuple[list[Machining], list[NoteLine]
         label = _joint_label(joint, blank)
         kind = joint.Proxy.KIND
         for group, solids in _groups(plan, joint, blank):
-            name = machining_name(kind, group)
+            name = machining_name(kind, group, bool(getattr(joint, "TailsOnHost", False)))
             items.extend((label, solid, _KINDS[group], name) for solid in solids)
         notes.extend(joint_note_lines(label, values, joint.HostPart == blank))
         if joint.GuestPart == blank:
@@ -212,13 +219,14 @@ def _line(template: str, values: dict[str, str]) -> str:
 
 
 def _notes(details: Details, sheet: Any) -> tuple[list[str], Any]:
-    """Lignes du tableau des usinages (usinages, puis lignes propres aux assemblages), coupées à
-    la largeur de la bande, et leur place."""
+    """Lignes du tableau des usinages (lignes propres aux assemblages, réglages des outils que
+    la limite du tableau ne doit pas couper, puis usinages), coupées à la largeur de la bande,
+    et leur place."""
     found, extra = details
     if not found and not extra:
         lines = [translated(_NONE)]
     else:
-        rows = [*machining_lines(found), *extra]
+        rows = [*extra, *machining_lines(found)]
         lines = [translated(_HEADER)] + [_line(template, values) for template, values in rows]
     wrapped, spot = notes_layout(sheet, lines, NOTE_SIZE_MM)
     # « {count} » reste à remplir par capped : on le réécrit tel quel.

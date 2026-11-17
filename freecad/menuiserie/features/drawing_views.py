@@ -5,7 +5,7 @@ meuble en coupe, la vue de dessus et la vue de gauche cèdent la place à deux c
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from functools import partial
 from typing import Any, Final, NamedTuple
 
@@ -16,9 +16,17 @@ from freecad.menuiserie.core.drawing import (
     OverallLayout,
     Spot,
     chain_segments,
+    label_along,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.drawing_details import FrontDetails
+from freecad.menuiserie.features.drawing_dims import (
+    DIMENSION_CLEARANCE_MM,
+    SECTION_CLEARANCE_MM,
+    added_by,
+    dimension_font_mm,
+    dimension_row_mm,
+)
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 
@@ -31,8 +39,6 @@ __all__ = [
     "add_exploded_view",
     "add_overall_views",
     "add_part_views",
-    "overall_band_mm",
-    "part_band_mm",
     "removal_rank",
     "techdraw",
 ]
@@ -74,11 +80,8 @@ _PART_DIRECTIONS: Final = {
 }
 # Cotes d'une pièce : longueur, largeur sur la face, épaisseur sur le chant.
 _PART_DIMENSIONS: Final = (("Front", HORIZONTAL), ("Front", VERTICAL), ("Edge", VERTICAL))
-DIMENSION_CLEARANCE_MM: Final = 4.0  # du bord de la vue au texte d'une cote, plus le texte
-SECTION_CLEARANCE_MM: Final = 14.0  # idem, au-delà des flèches et lettres d'un trait de coupe
+ARROWS_MM: Final = 2.5  # segment de chaîne le plus court qu'on cote (ses deux flèches)
 CHAIN_TEXT_CHARS: Final = 7  # largeur d'une cote de détail (« 1349,92 »), en caractères
-DIMENSION_FONT_MM: Final = 3.5  # taille du texte des cotes si TechDraw n'en donne pas
-_DIMENSION_PARAMS: Final = "User parameter:BaseApp/Preferences/Mod/TechDraw/Dimensions"
 # Cotes (largeur, hauteur, profondeur) qui font la largeur et la hauteur de chaque vue.
 _VIEW_AXES: Final = {
     "Front": (0, 1),
@@ -150,27 +153,10 @@ def _place(view: DocumentObject, key: str, spot: Spot, rotation: Any = None) -> 
     view.Label = translated(_VIEW_LABELS[key])
 
 
-def _added_by(page: DocumentObject, make: Callable[[], object]) -> list[str]:
-    """Noms des objets que ``make`` ajoute à la page. Les fabriques de cotes de TechDraw écrivent
-    dans le document actif de FreeCAD : celui de la page est activé le temps de l'appel, puis le
-    précédent est remis."""
-    doc = page.Document
-    before = {obj.Name for obj in page.Views}
-    active = App.ActiveDocument
-    previous = active.Name if active is not None else ""
-    App.setActiveDocument(doc.Name)
-    try:
-        make()
-    finally:
-        if previous and previous != doc.Name and previous in App.listDocuments():
-            App.setActiveDocument(previous)
-    return [obj.Name for obj in page.Views if obj.Name not in before]
-
-
 def _add_extent(page: DocumentObject, view: DocumentObject, direction: int) -> list[str]:
     """Pose une cote d'étendue de toute la vue (elle suit la géométrie) ; renvoie les noms des
     objets ajoutés à la page."""
-    return _added_by(page, lambda: techdraw().makeExtentDim(view, [], direction))
+    return added_by(page, lambda: techdraw().makeExtentDim(view, [], direction))
 
 
 def removal_rank(obj: DocumentObject) -> int:
@@ -197,6 +183,9 @@ def add_overall_views(
         "CutH": _add_section(page, "CutH", front, center, layout.top),
         "Iso": _add_view(page, "Iso", sources, layout.iso),
     }
+    if layout.iso_scale and layout.iso_scale != layout.scale:  # perspective réduite
+        views["Iso"].ScaleType = "Custom"
+        views["Iso"].Scale = layout.iso_scale
     doc.recompute()  # les cotes d'étendue lisent la géométrie des vues
     names = [view.Name for view in views.values()]
     half = _half_size("Front", sizes, layout.scale)
@@ -220,29 +209,6 @@ def _half_size(key: str, sizes: tuple[float, float, float], scale: float) -> tup
     return sizes[across] * scale / 2, sizes[up] * scale / 2
 
 
-def dimension_font_mm() -> float:
-    """Taille du texte des cotes réglée dans les préférences de TechDraw (lue, jamais changée) :
-    l'écart des cotes à leur vue en dépend."""
-    size = App.ParamGet(_DIMENSION_PARAMS).GetFloat("FontSize", DIMENSION_FONT_MM)
-    return size if 1.0 <= size <= 20.0 else DIMENSION_FONT_MM
-
-
-def dimension_row_mm() -> float:
-    """Écart entre deux rangées de cotes parallèles."""
-    return 1.5 * dimension_font_mm() + DIMENSION_CLEARANCE_MM
-
-
-def overall_band_mm() -> float:
-    """Place des cotes au-dessus et à gauche de la face du plan de l'ouvrage : traits de coupe,
-    cotes de détail, cotes hors tout."""
-    return SECTION_CLEARANCE_MM + 2 * dimension_row_mm()
-
-
-def part_band_mm() -> float:
-    """Place des cotes au-dessus et à gauche de la face d'un plan de pièce."""
-    return dimension_row_mm() + dimension_font_mm()
-
-
 class Chained(NamedTuple):
     """Objets posés par :func:`add_front_details` et rangées de cotes de détail ajoutées, par
     sens (horizontal, vertical)."""
@@ -261,7 +227,7 @@ def add_front_details(
     hors des traits de coupe) et l'angle des pièces en biais ; ``frame`` : (centre de
     l'ouvrage, demi-taille de la face sur la feuille, échelle). Rien si TechDraw ne sait pas
     coter entre deux points."""
-    make = getattr(techdraw(), "makeDistanceDim3d", None)
+    make = getattr(techdraw(), "makeDistanceDim", None)
     center, (half_width, half_height), scale = frame
     names = [
         _add_angle(page, front, angle, middle, (center, scale)) for angle, middle in details.angles
@@ -269,20 +235,29 @@ def add_front_details(
     if make is None:
         return Chained(names, (0, 0))
     font = dimension_font_mm()
-    min_gap = CHAIN_TEXT_CHARS * CHAR_WIDTH_RATIO * font / scale  # une cote lisible
+    text = CHAIN_TEXT_CHARS * CHAR_WIDTH_RATIO * font  # une cote et ses flèches, sur la feuille
     offset = SECTION_CLEARANCE_MM + 1.5 * font
     rows = []
-    for direction, points in ((HORIZONTAL, details.xs), (VERTICAL, details.zs)):
-        segments = chain_segments(points, min_gap)
+    for direction, points, middle in (
+        (HORIZONTAL, details.xs, center.x),
+        (VERTICAL, details.zs, center.z),
+    ):
+        # Points en mm de la feuille depuis le centre de la face (TechDraw les remet à l'échelle).
+        segments = [
+            ((low - middle) * scale, (high - middle) * scale)
+            for low, high in chain_segments(points, ARROWS_MM / scale)
+        ]
+        ends = (segments[0][0], segments[-1][1]) if segments else (0.0, 0.0)
         for low, high in segments:
+            along = label_along((low, high), ends, text)
             if direction == HORIZONTAL:
-                ends = (App.Vector(low, center.y, center.z), App.Vector(high, center.y, center.z))
-                spot = (((low + high) / 2 - center.x) * scale, half_height + offset)
+                corners = (App.Vector(low, half_height, 0), App.Vector(high, half_height, 0))
+                spot = (along, half_height + offset)
             else:
-                ends = (App.Vector(center.x, center.y, low), App.Vector(center.x, center.y, high))
-                spot = (-(half_width + offset), ((low + high) / 2 - center.z) * scale)
+                corners = (App.Vector(-half_width, low, 0), App.Vector(-half_width, high, 0))
+                spot = (-(half_width + offset), along)
             kind = "DistanceX" if direction == HORIZONTAL else "DistanceY"
-            added = _added_by(page, partial(make, front, kind, *ends))
+            added = added_by(page, partial(make, front, kind, *corners))
             for name in added:
                 dim = page.Document.getObject(name)
                 if dim is not None and "X" in dim.PropertiesList:

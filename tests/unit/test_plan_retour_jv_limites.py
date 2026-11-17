@@ -19,6 +19,7 @@ from freecad.menuiserie.core.drawing import (
     capped,
     chain_segments,
     joint_note_lines,
+    label_along,
     machining_lines,
     machining_name,
     machinings,
@@ -123,21 +124,19 @@ def test_piece_sans_assemblage() -> None:
 
 
 def test_queues_sur_l_hote_l_invitee_porte_des_griffes() -> None:
-    """DÉFAUT (majeur) : avec « queues sur l'hôte », le plan ajoute des griffes à l'invitée et
-    taille leurs logements dans l'hôte. Le tableau ne doit pas les appeler « queues » ni
-    « logements de queue » : le menuisier couperait les queues sur la mauvaise pièce."""
+    """Avec « queues sur l'hôte », le plan ajoute des griffes à l'invitée et taille leurs
+    logements dans l'hôte : le tableau ne les appelle ni « queues » ni « logements de queue »
+    (le menuisier couperait les queues sur la mauvaise pièce)."""
     host, guest = dovetail_corner()
     plan = strategy_for(JointKind.DOVETAIL).plan(host, guest, DovetailParams(tails_on_host=True))
     assert plan.guest_additions  # des griffes, ajoutées à l'invitée
-    guest_name = machining_name(JointKind.DOVETAIL, "guest_additions")
-    host_name = machining_name(JointKind.DOVETAIL, "host_cuts")
-    assert guest_name != "tail", "les griffes de l'invitée sont appelées « queues »"
-    assert host_name != "socket", "les logements de griffe sont appelés « logements de queue »"
+    assert machining_name(JointKind.DOVETAIL, "guest_additions", tails_on_host=True) == "pin"
+    assert machining_name(JointKind.DOVETAIL, "host_cuts", tails_on_host=True) == "pin_socket"
+    assert machining_name(JointKind.DOVETAIL, "guest_additions") == "tail"
 
 
 def test_positions_dans_l_ordre_des_cotes() -> None:
-    """DÉFAUT (mineur, déjà présent avant la PR, plus visible depuis le repérage le long du
-    bout) : les positions sont triées comme des textes, « y 102; y 54; y 6 »."""
+    """Positions dans l'ordre des cotes, pas des textes (« y 102; y 54; y 6 »)."""
     tails = [Box(Vec3(450, y, 0), Vec3(465, y + 42, 15)) for y in (6.0, 54.0, 102.0)]
     items = machinings(
         [("Q", tail, MachiningKind.ADDED, "tail") for tail in tails], (450.0, 150.0, 15.0)
@@ -166,13 +165,13 @@ def test_ligne_de_la_queue_identique_pour_l_hote_et_l_invitee() -> None:
 
 
 def test_une_seule_queue_au_singulier() -> None:
-    """DÉFAUT (mineur) : « 1 queues de 42 en pointe »."""
+    """« 1 queue », pas « 1 queues »."""
     ((template, line),) = joint_note_lines("Q", _dovetail(count=1), is_host=False)
     assert "1 queues" not in _text(template, line)
 
 
 def test_un_seul_tourillon_au_singulier() -> None:
-    """DÉFAUT (mineur) : « 1 tourillons Ø 8 »."""
+    """« 1 tourillon », pas « 1 tourillons »."""
     values = DowelValues(8.0, 35.0, 20.0, 1, 40.0, 11.0, 1.0, (40.0,))
     ((template, line),) = joint_note_lines("T", values, is_host=True)
     assert "1 tourillons" not in _text(template, line)
@@ -189,10 +188,9 @@ def test_bout_presque_d_equerre_sans_ligne() -> None:
 
 
 def test_lignes_d_angle_gardees_dans_le_tableau_d_un_cote_de_tiroir() -> None:
-    """DÉFAUT (majeur) : côté de tiroir à queues aux deux bouts et rainure de fond. Les lignes
-    propres aux assemblages viennent après les usinages et sont les premières coupées par la
-    limite du tableau : l'angle des queues, demandé par jv, disparaît (A3 : une des deux lignes,
-    A4 portrait : les deux), remplacé par « … et 1 autres usinages »."""
+    """Côté de tiroir à queues aux deux bouts et rainure de fond : les lignes propres aux
+    assemblages (angle des queues, demandé par jv) passent avant les usinages, comme dans
+    ``features/drawing_parts._notes``, et la limite du tableau ne les coupe pas."""
     size = (450.0, 150.0, 15.0)
     items = []
     for label, low, high in (("Q avec « Façade »", -15.0, 0.0), ("Q avec « Dos »", 450.0, 465.0)):
@@ -205,7 +203,7 @@ def test_lignes_d_angle_gardees_dans_le_tableau_d_un_cote_de_tiroir() -> None:
         *joint_note_lines("Q avec « Façade »", _dovetail(), is_host=False),
         *joint_note_lines("Q avec « Dos »", _dovetail(), is_host=False),
     ]
-    rows = [*machining_lines(machinings(items, size)), *notes]
+    rows = [*notes, *machining_lines(machinings(items, size))]
     lines = ["Usinages :"] + [_text(template, values) for template, values in rows]
     for page in PAGES:
         wrapped, _ = notes_layout(page, lines, NOTE_SIZE)
@@ -218,8 +216,8 @@ def test_lignes_d_angle_gardees_dans_le_tableau_d_un_cote_de_tiroir() -> None:
 
 
 def test_chaine_points_confondus() -> None:
-    """DÉFAUT (mineur) : un segment de moins de 0,05 mm retiré en tête de chaîne la fait
-    commencer à 0,02 au lieu de 0 (écart minimal nul ou très petit)."""
+    """Des points à moins de 0,05 mm sont confondus, même avec un écart minimal nul : la
+    chaîne commence à 0, pas à 0,02."""
     assert chain_segments([0, 0, 0.0001, 1000, 1000.0004], min_gap=10) == []
     assert chain_segments([5, 5, 5], min_gap=10) == []
     assert chain_segments([0, 0.02, 500, 1000], min_gap=0) == [(0, 500), (500, 1000)]
@@ -253,8 +251,7 @@ def test_chaine_beaucoup_de_pieces() -> None:
 
 @pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf])
 def test_chaine_ignore_les_points_non_finis(bad: float) -> None:
-    """DÉFAUT (mineur) : une valeur infinie (boîte englobante vide ou abîmée) donne une cote
-    infinie au lieu d'être ignorée."""
+    """Une valeur non finie (boîte englobante vide ou abîmée) est ignorée."""
     assert chain_segments([0, 22, bad, 700, 722], min_gap=10) == [
         (0, 22),
         (22, 700),
@@ -308,3 +305,24 @@ def test_bande_des_cotes_dans_la_feuille(
     assert layout.top.y - depth / 2 >= MARGIN_MM - 1e-9
     plain = overall_layout(sizes, page)
     assert layout.scale <= plain.scale
+
+
+def test_texte_d_une_cote_etroite_sort_du_cote_du_bout_le_plus_proche() -> None:
+    chain = (-60.0, 60.0)
+    assert label_along((-57.8, 57.8), chain, 15.0) == pytest.approx(0.0)
+    assert label_along((-60.0, -57.8), chain, 15.0) == pytest.approx(-67.5)
+    assert label_along((57.8, 60.0), chain, 15.0) == pytest.approx(67.5)
+
+
+def test_perspective_reduite_plutot_que_l_echelle() -> None:
+    """Bureau sur A3 avec la place des cotes de détail : les vues cotées restent au 1:10, la
+    perspective (non cotée) passe au 1:20."""
+    layout = overall_layout((1200, 600, 750), page_size("A3"), band=32.5)
+    assert (layout.scale, layout.iso_scale) == (0.1, 0.05)
+    plain = overall_layout((1200, 600, 750), page_size("A3"))
+    assert plain.iso_scale == plain.scale
+
+
+def test_sans_perspective_pas_de_place_pour_elle() -> None:
+    layout = overall_layout((1200, 600, 750), page_size("A3"), iso=False, band=32.5)
+    assert layout.iso_scale == layout.scale

@@ -25,11 +25,19 @@ NoteLine = tuple[str, dict[str, str]]  # (gabarit à traduire, valeurs)
 
 _DOVETAIL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "{label} : flancs des queues à {angle}° (pente 1:{ratio}), {count} queues de {tail} en "
+    "{label} : flancs des queues à {angle}° (pente 1:{ratio}), {count} {tails} de {tail} en "
     "pointe et {base} à l'épaulement, griffes de {pin}",
 )
 _DOWELS: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "{label} : {count} tourillons Ø {diameter}, longueur {length}"
+    "Menuiserie", "{label} : {count} {dowels} Ø {diameter}, longueur {length}"
+)
+_TAILS: Final = (
+    QT_TRANSLATE_NOOP("Menuiserie", "queue"),
+    QT_TRANSLATE_NOOP("Menuiserie", "queues"),
+)
+_DOWEL_WORDS: Final = (
+    QT_TRANSLATE_NOOP("Menuiserie", "tourillon"),
+    QT_TRANSLATE_NOOP("Menuiserie", "tourillons"),
 )
 _MITER: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} : onglet coupé à {angle}°")
 _BEVEL: Final = QT_TRANSLATE_NOOP(
@@ -64,6 +72,8 @@ _NAMES: Final = {
     JointKind.SHELF_PINS: {"host_cuts": "pin_hole", "guest_cuts": "pin_hole"},
     JointKind.DRAWER_SLIDE: {"host_cuts": "screw_hole", "guest_cuts": "screw_hole"},
 }
+# Queues taillées dans l'hôte (« queues sur l'hôte ») : l'invitée porte les griffes.
+_PIN_NAMES: Final = {"guest_additions": "pin", "host_cuts": "pin_socket"}
 _MIN_ANGLE_DEG: Final = 0.05  # en deçà, l'angle est nul pour le menuisier
 
 
@@ -73,11 +83,15 @@ def _number(value: float) -> str:
     return f"{0.0 if rounded == 0 else rounded:g}".replace(".", ",")
 
 
-def machining_name(kind: JointKind, group: str) -> str:
+def machining_name(kind: JointKind, group: str, tails_on_host: bool = False) -> str:
     """Nom (clé de ``NAMES``) des formes du groupe ``group`` (« host_cuts »…) d'un assemblage
-    ``kind`` ; « shoulder » pour les arasements de l'invitée, vide si rien ne convient."""
+    ``kind`` ; « shoulder » pour les arasements de l'invitée, vide si rien ne convient. Une
+    queue d'aronde aux queues sur l'hôte donne des griffes à l'invitée et leurs logements à
+    l'hôte."""
     if group == "guest_trims":
         return "shoulder"
+    if kind is JointKind.DOVETAIL and tails_on_host and group in _PIN_NAMES:
+        return _PIN_NAMES[group]
     return _NAMES.get(kind, {}).get(group, "")
 
 
@@ -95,6 +109,7 @@ def joint_note_lines(label: str, values: object, is_host: bool) -> list[NoteLine
                     "angle": _number(values.angle),
                     "ratio": _number(ratio),
                     "count": str(values.tail_count),
+                    "tails": _TAILS[values.tail_count != 1],
                     "tail": _number(values.tail_width),
                     "base": _number(values.tail_base),
                     "pin": _number(values.pin_width),
@@ -108,6 +123,7 @@ def joint_note_lines(label: str, values: object, is_host: bool) -> list[NoteLine
                 {
                     "label": label,
                     "count": str(values.count),
+                    "dowels": _DOWEL_WORDS[values.count != 1],
                     "diameter": _number(values.diameter),
                     "length": _number(values.dowel_length),
                 },

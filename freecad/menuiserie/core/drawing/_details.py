@@ -14,7 +14,7 @@ import math
 from collections.abc import Iterable
 from typing import Final
 
-__all__ = ["chain_segments", "slant_angle"]
+__all__ = ["chain_segments", "label_along", "slant_angle"]
 
 MIN_SLANT_DEG: Final = 0.5  # en deçà (ou au-delà de 90 - ce seuil), la pièce est d'équerre
 _SAME_MM: Final = 0.05
@@ -23,17 +23,32 @@ _SAME_MM: Final = 0.05
 def chain_segments(points: Iterable[float], min_gap: float) -> list[tuple[float, float]]:
     """Segments successifs d'une chaîne de cotes passant par ``points`` (mm réels) : points triés,
     ceux à moins de ``min_gap`` du précédent gardé fusionnés (le dernier point, l'extrémité, est
-    toujours gardé). Vide s'il n'y a qu'un segment : la cote hors tout le donne déjà."""
-    ordered = sorted({round(value, 3) for value in points})
+    toujours gardé), valeurs non finies ignorées. Vide s'il n'y a qu'un segment : la cote hors
+    tout le donne déjà."""
+    ordered = sorted({round(value, 3) for value in points if math.isfinite(value)})
     if len(ordered) < 2:
         return []
+    gap = max(min_gap, _SAME_MM)  # deux points plus proches que _SAME_MM sont confondus
     kept = [ordered[0]]
     for value in ordered[1:-1]:
-        if value - kept[-1] >= min_gap and ordered[-1] - value >= min_gap:
+        if value - kept[-1] >= gap and ordered[-1] - value >= gap:
             kept.append(value)
     kept.append(ordered[-1])
     segments = [(a, b) for a, b in itertools.pairwise(kept) if b - a > _SAME_MM]
     return segments if len(segments) > 1 else []
+
+
+def label_along(segment: tuple[float, float], chain: tuple[float, float], text: float) -> float:
+    """Milieu du texte d'une cote de la chaîne, le long de la chaîne (mm de la feuille) : au
+    milieu de ``segment`` quand le texte (``text`` de large, flèches comprises) y tient, sinon
+    juste dehors, du côté du bout le plus proche de ``chain`` : une épaisseur de plateau ne
+    cache pas la cote voisine."""
+    low, high = segment
+    if high - low >= text:
+        return (low + high) / 2
+    if low - chain[0] < chain[1] - high:
+        return low - text / 2
+    return high + text / 2
 
 
 def slant_angle(horizontal: float, vertical: float) -> float | None:

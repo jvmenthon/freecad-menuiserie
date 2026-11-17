@@ -75,7 +75,8 @@ class OverallLayout:
     """Échelle commune et place des quatre vues du plan de l'ouvrage. ``top`` (sous la face) et
     ``side`` (à droite) reçoivent la coupe horizontale et la coupe verticale, de même encombrement
     que les vues de dessus et de gauche. ``fits`` est faux quand même la plus petite échelle
-    déborde de la feuille."""
+    déborde de la feuille. La perspective, qui n'est pas cotée, peut être dessinée deux fois
+    plus petite (``iso_scale``) pour garder les vues cotées à la plus grande échelle."""
 
     scale: float
     front: Spot
@@ -83,6 +84,7 @@ class OverallLayout:
     side: Spot
     iso: Spot
     fits: bool
+    iso_scale: float = 0.0  # échelle de la perspective (0 : celle des autres vues)
 
 
 def page_size(fmt: str, orientation: Orientation = Orientation.LANDSCAPE) -> PageSize:
@@ -118,17 +120,28 @@ def _iso(width: float, height: float, depth: float, iso: bool) -> tuple[float, f
     return iso_width, (width + depth) * _ISO_RISE + height * _ISO_UP, GAP_MM + iso_width
 
 
+def _iso_at(width: float, height: float, depth: float, factor: float) -> tuple[float, float, float]:
+    """:func:`_iso` pour une perspective réduite de ``factor`` (écart inchangé), aucune pour
+    un facteur nul."""
+    return _iso(width * factor, height * factor, depth * factor, factor > 0.0)
+
+
+_ISO_FACTORS: Final = (1.0, 0.5)  # perspective à l'échelle des vues, sinon deux fois plus petite
+
+
 def _fits(
     sizes: tuple[float, float, float],
     scale: float,
     page: PageSize,
     reserve: float | None = None,
-    iso: bool = True,
+    iso: float = 1.0,
     band: float = 0.0,
 ) -> bool:
+    """Les vues tiennent-elles sur ``page`` à ``scale`` ; ``iso`` : réduction de la perspective
+    (0 : pas de perspective)."""
     width, height, depth = _extent(sizes, scale)
     height += band  # cotes au-dessus de la face
-    _, iso_height, iso_room = _iso(width, height - band, depth, iso)
+    _, iso_height, iso_room = _iso_at(width, height - band, depth, iso)
     used_width = 2 * MARGIN_MM + band + width + GAP_MM + depth + iso_room
     block_width, block_height = TITLE_BLOCK_MM
     block_height += reserve or 0.0
@@ -160,11 +173,19 @@ def overall_layout(
     sizes = (float(dimensions[0]), float(dimensions[1]), float(dimensions[2]))
     if not all(math.isfinite(value) and 0.0 < value <= MAX_SIZE_MM for value in sizes):
         raise TemplatedError(_BAD_SIZE, {})
-    scale = next((value for value in SCALES if _fits(sizes, value, page, reserve, iso, band)), None)
+    scale, factor = next(
+        (
+            (value, factor)
+            for value in SCALES
+            for factor in (_ISO_FACTORS if iso else (0.0,))
+            if _fits(sizes, value, page, reserve, factor, band)
+        ),
+        (None, 1.0 if iso else 0.0),
+    )
     fits = scale is not None
     scale = SCALES[-1] if scale is None else scale
     face_width, face_height, face_depth = _extent(sizes, scale)
-    iso_width, iso_height, iso_room = _iso(face_width, face_height, face_depth, iso)
+    iso_width, iso_height, iso_room = _iso_at(face_width, face_height, face_depth, factor)
     left, top_y = _group_origin(
         (band + face_width + GAP_MM + face_depth + iso_room, band + face_width),
         (
@@ -180,7 +201,7 @@ def overall_layout(
     side_x = left + face_width + GAP_MM + face_depth / 2
     side = Spot(side_x, front.y)
     iso_spot = Spot(side_x + face_depth / 2 + GAP_MM + iso_width / 2, top_y - iso_height / 2)
-    return OverallLayout(scale, front, top, side, iso_spot, fits)
+    return OverallLayout(scale, front, top, side, iso_spot, fits, scale * (factor or 1.0))
 
 
 def _group_origin(
@@ -205,6 +226,7 @@ def _group_origin(
         right_limit = page.width - MARGIN_MM
     else:
         top_y = free_top - max(0.0, (free_height - row_height) / 2)
+        top_y = min(free_top, max(top_y, MARGIN_MM + group_height))  # le bas reste sur la feuille
         right_limit = page.width - block_width
     left = MARGIN_MM + max(0.0, (page.width - 2 * MARGIN_MM - group_width) / 2)
     if group_height > free_height:

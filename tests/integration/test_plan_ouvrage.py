@@ -244,10 +244,10 @@ def test_cotes_de_detail_sur_la_face(bureau: Bureau) -> None:
         for obj in page.Views
         if obj.Name in owned and obj.TypeId == "TechDraw::DrawViewDimension"
     ]
-    if not hasattr(TechDraw, "makeDistanceDim3d"):
+    if not hasattr(TechDraw, "makeDistanceDim"):
         pytest.skip("TechDraw ne sait pas coter entre deux points")
     assert details, [obj.TypeId for obj in page.Views]
     values = sorted(round(float(dim.getRawValue()), 1) for dim in details)
-    assert 30.0 in values  # épaisseur du plateau du bureau
+    assert 30.0 in values and 22.0 in values, values  # plateau, joues (mm réels)
     assert len(drawing.overall_dimensions(page)) == 3
     assert all(view.isValid() for view in page.Views)

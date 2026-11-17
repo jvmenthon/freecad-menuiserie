@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import islice
 from pathlib import Path
 from typing import Any, Final
@@ -27,6 +27,7 @@ from freecad.menuiserie import TEMPLATES_DIR
 from freecad.menuiserie.core.drawing import (
     Orientation,
     OverallLayout,
+    PageSize,
     overall_layout,
     page_size,
     pick_template,
@@ -35,12 +36,12 @@ from freecad.menuiserie.core.drawing import (
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features import drawing_settings
 from freecad.menuiserie.features.drawing_details import front_details, global_shape
+from freecad.menuiserie.features.drawing_dims import overall_band_mm
 from freecad.menuiserie.features.drawing_title import STORED, fill_title_block
 from freecad.menuiserie.features.drawing_views import (
     PAGE_NAME,
     VIEW_TYPE,
     add_overall_views,
-    overall_band_mm,
     removal_rank,
     techdraw,
 )
@@ -333,13 +334,31 @@ def set_owned(page: DocumentObject, names: Sequence[str]) -> None:
     setattr(page, OWNED, ";".join(names))
 
 
+def _layout(box: Any, size: PageSize) -> tuple[OverallLayout, bool]:
+    """Mise en page du plan de l'ouvrage et présence des chaînes de cotes de détail : elles
+    sont omises quand leur place ferait passer les vues cotées à une échelle plus petite."""
+    dimensions = (box.XLength, box.YLength, box.ZLength)
+    full = overall_layout(dimensions, size, band=overall_band_mm())
+    plain = overall_layout(dimensions, size, band=overall_band_mm(chains=False))
+    if plain.scale > full.scale:
+        return plain, False
+    return full, True
+
+
 def _fill(
-    page: DocumentObject, sources: Sequence[DocumentObject], layout: OverallLayout, box: Any
+    page: DocumentObject,
+    sources: Sequence[DocumentObject],
+    placed: tuple[OverallLayout, bool],
+    box: Any,
 ) -> None:
+    layout, chains = placed
     page.Scale = layout.scale
     warn_if_unfitted(layout.fits)
     sizes = (float(box.XLength), float(box.ZLength), float(box.YLength))
-    frame = (box.Center, sizes, front_details(sources))
+    details = front_details(sources)
+    if not chains:
+        details = replace(details, xs=(), zs=())
+    frame = (box.Center, sizes, details)
     set_owned(page, add_overall_views(page, sources, layout, frame))
 
 
@@ -357,9 +376,8 @@ def make_overall_drawing(
     box = global_box(sources)
     with translated_errors():
         size = page_size(chosen.resolved_format(), chosen.resolved_orientation())
-        layout = overall_layout(
-            (box.XLength, box.YLength, box.ZLength), size, band=overall_band_mm()
-        )
+        placed = _layout(box, size)
+        layout = placed[0]
     with drawing_transaction(doc, translated(TITLE)):
         page = find_overall_drawing(doc, sources)
         if page is None:
@@ -368,7 +386,7 @@ def make_overall_drawing(
             clear_page(page)
         apply_template(page, chosen)
         fill_title_block(page, list(objects), title_inputs(chosen), layout.scale)
-        _fill(page, sources, layout, box)
+        _fill(page, sources, placed, box)
         doc.recompute()
     return page
 
