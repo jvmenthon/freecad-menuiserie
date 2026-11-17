@@ -49,9 +49,7 @@ def test_ensemble_non_relie_retrouve_ses_liaisons(
     assert edit.finish() == []  # plus rien à rendre
 
 
-def test_mise_de_cote_qui_echoue_rend_tout(
-    bureau: Any, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_mise_de_cote_qui_echoue_rend_tout(bureau: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     avant = _liaisons(bureau)
     original = member.remove_bindings
     appels: list[str] = []

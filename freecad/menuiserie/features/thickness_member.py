@@ -28,6 +28,7 @@ from freecad.menuiserie.features.furniture_container import set_member_expressio
 from freecad.menuiserie.features.furniture_envelope import frame_of, reframe, restore_frame
 from freecad.menuiserie.features.furniture_relink import bind_furniture
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.thickness_common import is_alive
 
 __all__ = ["MemberFreedom"]
 
@@ -53,6 +54,8 @@ class _Aside:
             remove_bindings(self.member)
 
     def give_back(self) -> None:
+        if not is_alive(self.member):  # supprimé entre-temps : rien à rendre
+            return
         with writing(self.member):
             remove_bindings(self.member)
             for prop, text in self.texts.items():

@@ -251,3 +251,108 @@ def test_echap_rend_la_forme_usinee_complete(document: Any) -> None:
     drag.resize_part(memento, "Length", 300, Vec3(0, 0, 0))
     drag.restore(memento)
     assert machined_guest.Shape.Volume == pytest.approx(volume)
+
+
+def _broken_joint(monkeypatch: pytest.MonkeyPatch) -> None:
+    blank_preview = pytest.importorskip("freecad.menuiserie.features.blank_preview")
+
+    def broken(_joint: Any) -> None:
+        raise ValueError("ne tient plus")
+
+    monkeypatch.setattr(blank_preview, "plan_for", broken)
+    monkeypatch.setattr(machined, "plan_for", broken)
+
+
+@pytest.mark.parametrize(("prop", "value"), [("Length", 300), ("Width", 100), ("Thickness", 40)])
+def test_apercu_assemblage_qui_ne_tient_plus_taille_juste_et_echap_rend_la_forme(
+    document: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    capfd: pytest.CaptureFixture[str],
+    prop: str,
+    value: float,
+) -> None:
+    """Pièce debout I (queues) : brute à la cote tirée dans l'aperçu, sans trace ; Échap puis
+    recalcul rendent la forme usinée d'avant, au volume près."""
+    _host, guest, joint = corner(document)
+    machined_guest = machined.machined_part_of(guest)
+    assert machined_guest is not None
+    volume, box = machined_guest.Shape.Volume, machined_guest.Shape.BoundBox
+    placement = App.Placement(machined_guest.Placement)
+    with monkeypatch.context() as patch:
+        _broken_joint(patch)
+        capfd.readouterr()
+        memento = drag.begin_drag(guest)
+        drag.resize_part(memento, prop, value, Vec3(0, 0, 0))
+        shown = machined_guest.Shape
+        sizes = sorted((shown.BoundBox.XLength, shown.BoundBox.YLength, shown.BoundBox.ZLength))
+        expected = sorted(
+            float(getattr(guest, name).Value) for name in ("Length", "Width", "Thickness")
+        )
+        assert guest.Shape.isValid() and shown.isValid()
+        assert sizes == pytest.approx(expected, abs=1e-6)  # brute seule, aucune queue
+        assert shown.Volume == pytest.approx(expected[0] * expected[1] * expected[2], rel=1e-6)
+        drag.restore(memento)
+        out = capfd.readouterr()
+        assert "Traceback" not in out.out + out.err
+    assert getattr(guest, prop).Value != value
+    assert holds(document, joint)
+    assert machined_guest.Shape.Volume == pytest.approx(volume, rel=1e-9)
+    assert machined_guest.Shape.BoundBox.isValid()
+    assert (machined_guest.Shape.BoundBox.XLength, machined_guest.Shape.BoundBox.ZLength) == (
+        pytest.approx(box.XLength),
+        pytest.approx(box.ZLength),
+    )
+    assert machined_guest.Placement.isSame(placement, 1e-9)
+
+
+def test_apercu_assemblage_qui_tient_garde_ses_usinages(document: Any) -> None:
+    """Un assemblage qui tient pendant le glissement reste usiné dans l'aperçu (volume de la
+    pièce usinée différent de celui de la brute seule)."""
+    _host, guest, _joint = corner(document)
+    machined_guest = machined.machined_part_of(guest)
+    assert machined_guest is not None
+    memento = drag.begin_drag(guest)
+    drag.resize_part(memento, "Width", 120, Vec3(0, 0, 0))
+    blank_volume = guest.Length.Value * guest.Width.Value * guest.Thickness.Value
+    assert machined_guest.Shape.Volume != pytest.approx(blank_volume, rel=1e-6)
+    drag.restore(memento)
+
+
+def test_apercu_puis_assemblage_qui_tient_de_nouveau_reprend_les_usinages(
+    document: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pas de forme restée en cache d'un aperçu sans usinage : un pas où l'assemblage tient
+    redonne la pièce usinée."""
+    _host, guest, _joint = corner(document)
+    machined_guest = machined.machined_part_of(guest)
+    assert machined_guest is not None
+    full = machined_guest.Shape.Volume
+    memento = drag.begin_drag(guest)
+    with monkeypatch.context() as patch:
+        _broken_joint(patch)
+        drag.resize_part(memento, "Width", 100, Vec3(0, 0, 0))
+        assert machined_guest.Shape.Volume == pytest.approx(
+            guest.Length.Value * guest.Width.Value * guest.Thickness.Value, rel=1e-6
+        )
+    drag.resize_part(memento, "Width", 150, Vec3(0, 0, 0))  # l'assemblage tient de nouveau
+    assert machined_guest.Shape.Volume == pytest.approx(full, rel=1e-6)
+    drag.restore(memento)
+
+
+def test_relachement_avec_assemblage_qui_ne_tient_plus_previent_sans_planter(
+    document: Any,
+) -> None:
+    """Épaisseur trop mince pour les queues : l'aperçu montre la brute, le relâchement ne lève
+    rien et le recalcul signale l'assemblage (il n'est pas perdu en silence)."""
+    _host, guest, joint = corner(document)
+    memento = drag.begin_drag(guest)
+    drag.resize_part(memento, "Thickness", 2, Vec3(0, 0, 0))
+    machined_guest = machined.machined_part_of(guest)
+    assert machined_guest is not None
+    assert machined_guest.Shape.isValid()
+    box = machined_guest.Shape.BoundBox
+    assert min(box.XLength, box.YLength, box.ZLength) == pytest.approx(2, abs=1e-6)
+    drag.end_drag(memento)
+    document.recompute()
+    assert guest.Thickness.Value == 2
+    assert not holds(document, joint)
