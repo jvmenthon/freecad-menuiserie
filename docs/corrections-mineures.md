@@ -143,12 +143,13 @@ de répétitions m5) sont corrigés.
 
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
-| pf1 | mineur | `features/perpendicular.py` (`_fit_in_face`) | Le paramètre `frames: tuple[Any, Any, Orientation]` regroupe repère d'appui, rotation de la pièce porteuse et orientation pour tenir la limite de 6 arguments ; `Any` au lieu de `Matrix3`. | Une dataclass gelée à trois champs typés. |
 | pf2 | mineur | `core/snap/_perpendicular.py` (`footprint`, `face_section`) | Les colonnes largeur / épaisseur de l'orientation sont lues de la même façon dans les deux fonctions (motif proche). | Un petit helper commun « axe de la pièce selon l'axe d'appui ». |
 | pf3 | mineur | `features/snap_local_face.py` (`fit_to_footprint`) | Jusqu'à 18 appels `common` OCC à chaque départ perpendiculaire (3 reprises × 2 axes × 3 sondes). | Mesurer ; sortir tôt quand l'étendue ne change pas à la première reprise. |
 | pf4 | mineur | `tests/integration/test_accrochage_perpendiculaire.py` | Seuil de volume résiduel `1e-2` littéral ; pas de test isolé de `fit_to_footprint` (cas « rien ne change »). | Nommer la constante ; test avec fausse face. |
 | pf5 | mineur | `features/perpendicular.py` (`_nearest_edge_row`) | Seuls les deux côtés du repère d'appui (parallèles aux axes de la pièce porteuse) sont regardés : près d'une arête oblique, la pièce suit l'axe le plus proche sans tourner vers l'oblique (elle ne déborde pas). | Si jv le demande : orienter la pièce selon une arête oblique (rotation hors des 24 orientations). |
-| pf6 | mineur | `features/perpendicular.py` (`perpendicular_start`) | Second test `edge_row is None` sans effet en pratique (le repère local n'existe qu'avec un clic). | Simplifier. |
+| pf6 | mineur | `features/perpendicular.py` (`perpendicular_start`) | Second test `edge_row is None` sans effet en pratique (le repère local n'existe qu'avec un clic) ; fonction longue, six sorties (limite). | `along_edge(orientation, row: int \| None)` ; extraire `_edge_aware_orientation`. |
+| pf7 | mineur | `core/snap/_perpendicular.py` (`face_section`, `along_edge`) | Condition dense dans `face_section` ; `abs(x.component(row)) == 1.0` répété ; entiers nus `(0, 1)` pour les axes du plan. | Helper `_follows(vector, row)`, booléen nommé, constante `_FACE_AXES`. |
+| pf8 | mineur | `features/perpendicular.py` (`_nearest_edge_row`) | Commentaires « côté qui suit y » peu intuitifs (distance = produit scalaire avec l'autre axe). | Une phrase d'explication. |
 
 - `gui/task_panels/align.py` importe `report_refusal` de `gui/commands/base.py`, comme le panneau
   de distance : déplacer cette fonction dans un module neutre de `gui/` (revue de la PR #254).
