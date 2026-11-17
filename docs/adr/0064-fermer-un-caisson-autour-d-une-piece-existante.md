@@ -1,6 +1,6 @@
 # ADR 0064 — Fermer un caisson autour d'une pièce existante
 
-- Statut : **proposé** (en attente des réponses de jv aux questions Q1 à Q8 de la spécification)
+- Statut : **proposé** (Q1 à Q4 et Q8 tranchées par jv le 2026-11-17 ; restent Q5 à Q7 et Q9)
 - Date : 2026-11-17
 - Spécification : [docs/specs/fermer-le-caisson.md](../specs/fermer-le-caisson.md)
 - ADR liés : [0006 — Pièce brute et pièce usinée](0006-piece-brute-et-piece-usinee.md),

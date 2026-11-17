@@ -2,7 +2,10 @@
 
 - Issue [#267](https://github.com/jvmenthon/freecad-menuiserie/issues/267), demande de jv (2026-11-17).
 - Décision : [ADR 0064](../adr/0064-fermer-un-caisson-autour-d-une-piece-existante.md) (proposé).
-- Statut : **proposée**, en attente des réponses de jv aux questions Q1 à Q9 (§ 7, choix
+- Réponses de jv (2026-11-17) : Q1 (le dessus est posé au-dessus des côtés, pas entre),
+  Q2, Q3, Q4 selon ★ ; Q8 : épaisseur et matériau de l'ancre par défaut, modifiables, **une
+  seule épaisseur pour tous les côtés**. Restent Q5, Q6, Q7, Q9.
+- Statut : **proposée**, en attente des réponses de jv aux questions restantes (§ 7, choix
   recommandés marqués ★) et du choix de la maquette du panneau et de l'icône.
 
 ## 1. Besoin
@@ -65,7 +68,9 @@ panneaux créés, `f` épaisseur du fond, `r` profondeur de la feuillure du fond
 - **Onglet** choisi aux angles : le côté passe à la hauteur hors tout et chevauche le bout de
   l'ancre et de la pièce opposée ; l'onglet coupe les deux à 45° (règle de chevauchement de J3,
   spec J3 § A2). L'ancre garde ses cotes : seule sa pièce usinée change.
-- Pièces créées : épaisseur et matériau de l'ancre par défaut (Q8), modifiables.
+- Pièces créées : épaisseur et matériau de l'ancre par défaut (Q8, jv), modifiables. Les côtés
+  (gauche, droit, avant, arrière épais) partagent **une seule épaisseur** ; la pièce opposée et
+  le fond mince ont chacun la leur.
 - Ensemble : options « fixe » explicites (ADR 0010) ; côtés, pièce opposée et fond suivent
   `Height`, `Width` et `Depth` de l'ensemble.
 
@@ -100,14 +105,14 @@ Trois propositions d'icône dans le même dossier.
 
 | N° | Question | Choix ★ | Autres choix |
 | --- | --- | --- | --- |
-| Q1 | Place du dessous et du dessus par rapport aux côtés | Filants : sous et sur les côtés, l'emprise reste celle de la pièce sélectionnée | Entre les côtés (le caisson s'élargit de deux épaisseurs) ; au choix dans le panneau |
-| Q2 | Éléments cochés par défaut | Côtés, fond, pièce opposée ; avant décoché | Tout coché |
-| Q3 | Arrière | Fond mince en feuillure (comme le gabarit Caisson), panneau épais au choix | Toujours un panneau épais |
-| Q4 | Hauteur saisie | Hors tout, ancre comprise | Intérieure ; au choix |
+| Q1 ✔ | Place du dessous et du dessus par rapport aux côtés | **jv : le dessus est au-dessus des côtés, pas entre.** Filants : sous et sur les côtés, l'emprise reste celle de la pièce sélectionnée | Entre les côtés (le caisson s'élargit de deux épaisseurs) ; au choix dans le panneau |
+| Q2 ✔ | Éléments cochés par défaut | Côtés, fond, pièce opposée ; avant décoché | Tout coché |
+| Q3 ✔ | Arrière | Fond mince en feuillure (comme le gabarit Caisson), panneau épais au choix | Toujours un panneau épais |
+| Q4 ✔ | Hauteur saisie | Hors tout, ancre comprise | Intérieure ; au choix |
 | Q5 | Assemblages | Une liste par jonction (§ 5), tourillons et feuillure par défaut | Une seule liste pour tout le caisson |
 | Q6 | Avant du caisson | Grand chant de l'ancre le plus proche de la caméra, bouton « Tourner l'avant » | Toujours le chant −Y de l'ancre |
 | Q7 | Ensemble | Nouvel ensemble « Caisson » avec l'ancre ; sous-ensemble si l'ancre était dans un ensemble (ADR 0037) | Ajouter les pièces à l'ensemble de l'ancre ; pas d'ensemble |
-| Q8 | Épaisseur et matériau des pièces créées | Ceux de l'ancre, modifiables (panneaux, fond) | Ceux du gabarit Caisson (18 mm, contreplaqué bouleau) |
+| Q8 ✔ | Épaisseur et matériau des pièces créées | **jv : ceux de l'ancre par défaut, modifiables ; les côtés ont la même épaisseur** | Ceux du gabarit Caisson (18 mm, contreplaqué bouleau) |
 | Q9 | Maquette du panneau et icône | Panneau B, icône A (côtés en transparence et flèche : lisible en 16 px, distincte de « Caisson ») | Panneau A ou C ; icône B ou C |
 
 ## 8. Critères d'acceptation
