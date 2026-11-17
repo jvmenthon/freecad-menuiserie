@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+import FreeCAD as App
+
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import plan_for
 from freecad.menuiserie.features.machined_part import machined_part_of
@@ -43,8 +45,8 @@ def preview_blanks(raws: Iterable[DocumentObject]) -> None:
                 joint.recompute()
         try:
             machined.Proxy.preview(machined)
-        except (ValueError, RuntimeError):  # brute invalide, forme OCC : le relâchement le dira
-            continue
+        except (ValueError, RuntimeError) as error:  # brute ou forme OCC : dit au relâchement
+            App.Console.PrintLog(f"Aperçu de « {raw.Label} » : {error}\n")
 
 
 def recompute_blank(raw: DocumentObject) -> None:

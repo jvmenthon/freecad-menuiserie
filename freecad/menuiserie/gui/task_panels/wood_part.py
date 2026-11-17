@@ -258,11 +258,12 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._conflict.forget()
 
     def _before_commit(self) -> None:
-        """« OK » : pièce ajoutée à l'ensemble si la case est
-        cochée, le tout avant la validation de la transaction. Une saisie d'angle en cours est
-        d'abord contrôlée."""
+        """« OK », avant la validation de la transaction : une saisie d'angle en cours est
+        contrôlée, l'encadré d'épaisseur est fermé (pièce d'ensemble : son ensemble est relié
+        d'après l'état écrit, ADR 0060), puis la pièce est ajoutée à l'ensemble si la case est
+        cochée."""
         self._angles.finish()
-        self._conflict.forget()  # pièce d'ensemble : ensemble relié d'après l'état écrit
+        self._conflict.forget()
         self._snap.join_furniture()
 
     def _release_display(self) -> None:

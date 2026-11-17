@@ -64,26 +64,25 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    l'encadré, les liaisons de l'atelier des membres de l'ensemble sont mises de côté : les choix
    déplacent ou prolongent ses membres comme des pièces seules (un membre d'un **autre** ensemble,
    ou à cotes fixes pour une cote, reste bloqué). À la fin (« OK », ou autre saisie qui fige
-   l'état), la boîte de l'ensemble est recalée sur l'enveloppe de ses membres (ADR 0049 ; pas
-   celle d'un sous-ensemble, dont la position est portée par son Std Part : limite connue, un
-   membre peut alors en sortir) et tous ses membres sont reliés d'après la géométrie obtenue ; « Annuler » rend tout, liaisons
-   comprises (transaction du panneau). Exemple : joue gauche du bureau de 22 à 30 mm « vers
-   l'intérieur » : la voile et la joue droite sont poussées de 8 mm, l'ensemble passe à 1208 mm.
-   Un membre sans assemblage, ou lui-même à cotes fixes, garde le comportement de l'ADR 0019
-   (l'ensemble garde ses cotes, les voisines s'adaptent) ; la poignée d'épaisseur d'un membre
-   aussi. L'éditeur de propriétés et les scripts gardent celui de #133 (face haute, sans
-   question).
+   l'état), la boîte de l'ensemble est recalée sur l'enveloppe de ses membres (ADR 0049 ; pas celle
+   d'un sous-ensemble, dont la position est portée par son Std Part : limite connue, un membre peut
+   alors en sortir) et tous ses membres sont reliés d'après la géométrie obtenue ; « Annuler » rend
+   tout, liaisons comprises (transaction du panneau). Exemple : joue gauche du bureau de 22 à 30 mm
+   « vers l'intérieur » : la voile et la joue droite sont poussées de 8 mm, l'ensemble passe à 1208
+   mm. Un membre sans assemblage, ou lui-même à cotes fixes, garde le comportement de l'ADR 0019
+   (l'ensemble garde ses cotes, les voisines s'adaptent) ; la poignée d'épaisseur d'un membre aussi.
+   L'éditeur de propriétés et les scripts gardent celui de #133 (face haute, sans question).
 
 ## Conséquences
 
 - Code : `core/thickness_side.py` (pur : `flush_extension`, `grows_toward`, `other_side_shift`),
-  `core/thickness_follow.py` (`lowered`), `features/thickness_common.py` (assemblages de proche
-  en proche, une seule raison « ne peut pas changer » partagée avec #133, écritures sans
-  réaction), `features/thickness_choice.py` (`ThicknessEdit`, choix), `features/thickness_texts.py`
-  (phrases complètes traduisibles de l'encadré), `features/thickness_drag.py` (souris,
-  `FaceFollows`), `features/thickness_member.py` (`MemberFreedom` : liaisons de l'ensemble mises
-  de côté puis refaites), `features/thickness_follow.py` (`FollowPlan`, `follow_plan` de #133, réutilisés
-  par `DragFollow`), `features/blank_preview.py` (aperçu des brutes pendant un geste),
+  `core/thickness_follow.py` (`lowered`), `features/thickness_common.py` (assemblages de proche en
+  proche, une seule raison « ne peut pas changer » partagée avec #133, écritures sans réaction),
+  `features/thickness_choice.py` (`ThicknessEdit`, choix), `features/thickness_texts.py` (phrases
+  complètes traduisibles de l'encadré), `features/thickness_drag.py` (souris, `FaceFollows`),
+  `features/thickness_member.py` (`MemberFreedom` : liaisons de l'ensemble mises de côté puis
+  refaites), `features/thickness_follow.py` (`FollowPlan`, `follow_plan` de #133, réutilisés par
+  `DragFollow`), `features/blank_preview.py` (aperçu des brutes pendant un geste),
   `gui/task_panels/wood_part_conflict.py` (encadré), `features/part_drag.resize_part` (renvoie la
   raison d'une butée).
 - Prolonger l'autre pièce modifie une pièce que l'utilisateur n'a pas touchée : c'est dit dans

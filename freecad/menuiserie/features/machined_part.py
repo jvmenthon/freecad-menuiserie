@@ -13,7 +13,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import ClassVar, Final
 
-from freecad.menuiserie.core._polyhedron import PlanSolid
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.core.text import quoted_value
@@ -28,8 +27,9 @@ from freecad.menuiserie.features.freecad_types import (
     restoring_or_undoing,
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
-from freecad.menuiserie.features.joints.base import is_joint, parts_mismatch, plan_for
+from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_cache import cached_machined_shape, machining_key
+from freecad.menuiserie.features.machining_plan import JointFailedError, Machining, machining_of
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
@@ -61,14 +61,9 @@ OBJECT_NAME: Final = "MachinedPart"
 MODEL_VERSION: Final = 1
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce usinée")
 
-_Machining = tuple[list[PlanSolid], list[PlanSolid], list[PlanSolid]]  # ajouts, coupes, retraits
-
 _MACHINED_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (usinée)")
 _NO_BLANK: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Pièce usinée sans pièce de bois brute : sa pièce a été supprimée."
-)
-_NOT_A_JOINT: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "« {label} » n'est pas un assemblage de l'atelier Menuiserie."
 )
 _NOT_A_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -221,8 +216,8 @@ class MachinedPart(SyncingProxy):
         assemblage est invalide."""
         blank = _checked_blank(obj)
         try:
-            machining = _machining_of(obj, blank)
-        except _JointFailedError:
+            machining = machining_of(obj, blank)
+        except JointFailedError:
             # Un assemblage impossible signale lui-même son erreur (une seule trace, ADR 0026) ;
             # la forme reste celle d'avant (jamais partielle hors aperçu), le placement suit.
             with self._executing():
@@ -234,9 +229,9 @@ class MachinedPart(SyncingProxy):
         """Aperçu d'un geste : brute à ses cotes du moment, usinée par ses seuls assemblages qui
         tiennent (les autres, sans trace, sont repris au relâchement) ; ``ValueError`` traduite."""
         blank = _checked_blank(obj)
-        self._show(obj, blank, _machining_of(obj, blank, holding_only=True))
+        self._show(obj, blank, machining_of(obj, blank, holding_only=True))
 
-    def _show(self, obj: DocumentObject, blank: DocumentObject, machining: _Machining) -> None:
+    def _show(self, obj: DocumentObject, blank: DocumentObject, machining: Machining) -> None:
         with translated_errors():
             base = blank_shape(blank)
         key = machining_key(blank, *machining)
@@ -287,39 +282,6 @@ def _checked_blank(obj: DocumentObject) -> DocumentObject:
     if not is_timber(blank):
         raise ValueError(translated(_NOT_A_PART, {"label": quoted_value(blank.Label)}))
     return blank
-
-
-class _JointFailedError(Exception):
-    """Un assemblage de la pièce usinée est impossible : il le signale lui-même."""
-
-
-def _machining_of(
-    obj: DocumentObject, blank: DocumentObject, *, holding_only: bool = False
-) -> _Machining:
-    """Ajouts, enlèvements et parties retirées de ``blank`` d'après les plans de chacun de ses
-    assemblages ; ``ValueError`` traduite si un assemblage ne relie plus ``blank`` (pièce
-    modifiée par un script), :class:`_JointFailedError` si l'un d'eux est impossible (ignoré
-    si ``holding_only``)."""
-    additions, cuts, trims = [], [], []  # type: list[PlanSolid], list[PlanSolid], list[PlanSolid]
-    for joint in obj.Joints:
-        if not is_joint(joint):
-            raise ValueError(translated(_NOT_A_JOINT, {"label": quoted_value(joint.Label)}))
-        if blank not in (joint.HostPart, joint.GuestPart):
-            raise parts_mismatch(joint)
-        try:
-            plan = plan_for(joint)
-        except ValueError:
-            if holding_only:  # aperçu : l'assemblage est repris au relâchement
-                continue
-            raise _JointFailedError from None  # l'assemblage signale lui-même son erreur
-        if joint.HostPart == blank:
-            additions.extend(plan.host_additions)
-            cuts.extend(plan.host_cuts)
-        if joint.GuestPart == blank:
-            additions.extend(plan.guest_additions)
-            cuts.extend(plan.guest_cuts)
-            trims.extend(plan.guest_trims)
-    return additions, cuts, trims
 
 
 def is_machined_part(obj: object) -> bool:
