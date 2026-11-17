@@ -441,13 +441,12 @@ def test_recalage_impossible_rend_la_boite_et_garde_l_entree(
 
 def test_ensemble_pilote_par_une_formule_garde_sa_boite(document: Any) -> None:
     """ADR 0065 point 3 : une cote pilotée par une formule de l'utilisateur n'est pas recalée."""
-    first = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
-    second = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
-    second.Placement.Base = App.Vector(0.0, 100.0, 0.0)
+    pieces = [api.make_wood_part(500.0, 80.0, 18.0, "chene", doc=document) for _ in range(2)]
+    pieces[1].Placement.Base = App.Vector(0.0, 200.0, 0.0)
     document.recompute()
-    furniture, _ = api.make_furniture([first], "Cadre")
-    first.Locked = True
-    furniture.setExpression("Depth", "1000 mm")
+    pilote, _ = api.make_furniture(pieces[:1], "Pilote")
+    pieces[0].Locked = True
+    pilote.setExpression("Depth", "900 mm")
     document.recompute()
-    api.add_to_furniture(furniture, [second])
-    assert furniture.Depth.Value == 1000.0
+    api.add_to_furniture(pilote, pieces[1:])
+    assert pilote.Depth.Value == 900.0
