@@ -572,3 +572,17 @@ def test_pointe_aigue_pas_de_lamelle(document: Any, name: str, click: tuple[floa
     start = check_no_overflow(document, owner, click)
     if start is not None:
         assert start.width >= 5 and start.thickness >= 5
+
+
+@pytest.mark.parametrize(
+    ("name", "click"), [("trapeze_rect", (399, 1)), ("losange", (398, 50)), ("trapeze", (1, 1))]
+)
+def test_pointe_aigue_la_piece_suit_l_arete_sur_sa_longueur(
+    document: Any, name: str, click: tuple[float, float]
+) -> None:
+    """Clic tout près d'un sommet aigu : la profondeur se mesure au milieu de l'arête la plus
+    proche, pas au clic, donc la pièce suit l'arête avec une vraie section, sans débord."""
+    owner = prism(document, SHAPES[name])
+    start = check_no_overflow(document, owner, click)
+    assert start is not None
+    assert start.width >= 50 and start.thickness >= 5

@@ -52,6 +52,9 @@ from freecad.menuiserie.features.wood_part import dimensions_of
 __all__ = ["PerpendicularStart", "perpendicular_start"]
 
 _FIT_PASSES: Final = 3  # un resserrement par axe, puis un de contrôle : le calcul converge en deux
+# en dessous, une pièce resserrée au clic près d'une pointe aiguë n'est qu'une lamelle inutile
+# (moins que le plus fin chanfrein d'un usage réel) : accrochage habituel à la place
+_SLIVER_MM: Final = 5.0
 _PARALLEL: Final = 1e-6  # norme du produit vectoriel de deux normales unitaires parallèles
 
 
@@ -159,7 +162,7 @@ def _fit_in_face(
 ) -> tuple[TargetReading, float, float] | None:
     """Lecture resserrée et section (largeur, épaisseur) pour que la pièce tienne dans la face
     brute ``blank_face`` (une arête oblique la coupe parfois avant la fin de la tranche cliquée) ;
-    ``None`` s'il ne reste pas la place d'une pièce."""
+    ``None`` s'il ne reste pas la place d'une pièce (ou que celle d'une lamelle)."""
     target = reading.targets[0]
     if not isinstance(target, FaceTarget):
         return None
@@ -177,7 +180,42 @@ def _fit_in_face(
             break
         reading, target = replace(reading, targets=(fitted,)), fitted
         width, thickness = frames.section(target.extent, section)
+    if width < min(section[0], _SLIVER_MM) or thickness < min(section[1], _SLIVER_MM):
+        return None
     return reading, width, thickness
+
+
+@dataclass(frozen=True)
+class _Plan:
+    """Données communes aux essais de départ perpendiculaire : lecture, repère d'appui, rotation
+    de la pièce porteuse et section (largeur, épaisseur) de la pièce."""
+
+    reading: TargetReading
+    support: Matrix3
+    owner: Matrix3
+    section: tuple[float, float]
+
+    def start(
+        self,
+        orientation: Orientation,
+        edge_row: int | None,
+        edge_target: FaceTarget | None,
+        blank_face: Any | None,
+    ) -> PerpendicularStart | None:
+        """Départ le long de l'axe ``edge_row`` (ou du repère ``edge_target`` d'une arête, axe 0),
+        resserré dans ``blank_face`` ; ``None`` s'il ne reste pas la place d'une pièce."""
+        reading, support = self.reading, self.support
+        if edge_target is not None:  # repère d'appui tourné le long de l'arête
+            reading, edge_row = replace(reading, targets=(edge_target,)), 0
+            support = support_rotation(reading.targets) or support
+        if edge_row is not None:
+            orientation = along_edge(orientation, edge_row)
+        frames = _Frames(support, self.owner, orientation, edge_row)
+        fitted = _fit_in_face(reading, blank_face, frames, self.section)
+        if fitted is None:  # pointe aiguë : pas de départ perpendiculaire, accrochage habituel
+            return None
+        reading, width, thickness = fitted
+        return PerpendicularStart(orientation, width, thickness, reading)
 
 
 def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
@@ -200,19 +238,17 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     orientation = None if support is None else perpendicular_orientation(support, owner)
     if support is None or orientation is None:
         return None
-    edge_row = None
-    if local is not None:  # la pièce suit l'arête la plus proche du clic
-        edge_row = _nearest_edge_row(local, reading.elements[0].point)
-        oblique = _oblique(local, blank_face, reading.elements[0].point)
-        if oblique is not None:  # arête oblique : repère d'appui tourné le long de l'arête
-            reading, edge_row = replace(reading, targets=(oblique,)), 0
-            support = support_rotation(reading.targets) or support
-        orientation = orientation if edge_row is None else along_edge(orientation, edge_row)
     dimensions = dimensions_of(blank)
-    section = (dimensions.width, dimensions.thickness)
-    frames = _Frames(support, owner, orientation, edge_row)
-    fitted = _fit_in_face(reading, blank_face if local is not None else None, frames, section)
-    if fitted is None:  # pointe aiguë : pas de départ perpendiculaire, accrochage habituel
-        return None
-    reading, width, thickness = fitted
-    return PerpendicularStart(orientation, width, thickness, reading)
+    plan = _Plan(reading, support, owner, (dimensions.width, dimensions.thickness))
+    if local is None:
+        return plan.start(orientation, None, None, None)
+    click = reading.elements[0].point
+    edge_row = _nearest_edge_row(local, click)
+    oblique = _oblique(local, blank_face, click)
+    start = plan.start(orientation, edge_row, oblique, blank_face)
+    if start is None and oblique is None and blank_face is not None and click is not None:
+        # côté droit mesuré au clic près d'une pointe aiguë (lamelle) : la pièce suit l'arête,
+        # profondeur prise au milieu de l'arête
+        along = oblique_edge_target(local, blank_face, click, any_edge=True)
+        start = None if along is None else plan.start(orientation, 0, along, blank_face)
+    return start
