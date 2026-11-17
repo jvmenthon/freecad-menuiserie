@@ -107,10 +107,9 @@ def aligner_faces() -> str:
     )
 
 
-# Centrer sur X, Y, Z du panneau « Aligner deux faces » (proposition C, choisie par jv) :
-# angle de la ligne des centres à l'écran (perpendiculaire à l'axe : X à droite, Y en
-# profondeur, Z vers le haut) et couleur de l'axe, celle des rotations.
-CENTRAGES = {"X": (90.0, "#cc0000"), "Y": (-45.0, "#4e9a06"), "Z": (0.0, "#3465a4")}
+# Grille « Parallèle et aligner sur » du panneau « Aligner deux faces » : couleur de chaque axe,
+# celle des rotations.
+COULEURS_AXES = {"X": "#cc0000", "Y": "#4e9a06", "Z": "#3465a4"}
 
 
 # Lettre de l'axe tracée au trait (pas de texte : les icônes ne dépendent d'aucune police).
@@ -119,47 +118,91 @@ LETTRES = {
     "Y": "M49,47 L54.5,53.5 L60,47 M54.5,53.5 V60",
     "Z": "M49,47 H60 L49,60 H60",
 }
+_BOIS = 'fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"'
+_PIECE = 'fill="#fcd9a8" stroke="#f57900" stroke-width="2.5" stroke-linejoin="round"'
+_ENTETE = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">\n'
+)
 
 
-def _centrer(axe: str) -> str:
-    """Deux planches de longueurs différentes (la seconde, orange, est celle qui bouge) centrées
-    sur une ligne en pointillé perpendiculaire à l'axe, et la lettre de l'axe dans sa couleur.
-    Dessin à plat tourné de l'angle de la ligne des centres."""
-    angle, couleur = CENTRAGES[axe]
-    bois = 'fill="#e5b26e" stroke="#99622b" stroke-width="2" stroke-linejoin="round"'
-    face = 'fill="#fcd9a8" stroke="#f57900" stroke-width="2.5" stroke-linejoin="round"'
-    # Ligne des centres horizontale avant rotation, planches verticales de part et d'autre.
+def _lettre(axe: str, decalage: tuple[float, float]) -> str:
+    """Lettre de l'axe dans sa couleur, détourée de blanc, déplacée de ``decalage``."""
+    dx, dy = decalage
+    trace = 'fill="none" stroke-linecap="round" stroke-linejoin="round"'
     return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">\n'
-        f"  <!-- Centrer sur l'axe {axe} : deux planches centrées sur une ligne -->\n"
-        f'  <g transform="translate(-3 -3) rotate({-angle:g} 28 28)">\n'
-        f'    <line x1="4" y1="28" x2="52" y2="28" stroke="{couleur}" stroke-width="2.2" '
-        'stroke-dasharray="4 3"/>\n'
-        f'    <rect x="10" y="10" width="12" height="36" {bois}/>\n'
-        f'    <rect x="32" y="19" width="12" height="18" {face}/>\n'
+        f'  <g transform="translate({dx:g} {dy:g})">\n'
+        f'    <path d="{LETTRES[axe]}" {trace} stroke="#ffffff" stroke-width="5.5"/>\n'
+        f'    <path d="{LETTRES[axe]}" {trace} stroke="{COULEURS_AXES[axe]}" stroke-width="3"/>\n'
         "  </g>\n"
-        f'  <path d="{LETTRES[axe]}" fill="none" stroke="#ffffff" stroke-width="5.5" '
-        'stroke-linecap="round" stroke-linejoin="round"/>\n'
-        f'  <path d="{LETTRES[axe]}" fill="none" stroke="{couleur}" stroke-width="3" '
-        'stroke-linecap="round" stroke-linejoin="round"/>\n'
+    )
+
+
+def _parallele(axe: str) -> str:
+    """Rendre parallèle à l'axe (logo F choisi par jv le 2026-11-17) : la pièce penchée (en
+    pointillé) se couche parallèle à la planche du dessous, flèche arrondie dans la couleur de
+    l'axe, lettre de l'axe en haut à gauche."""
+    couleur = COULEURS_AXES[axe]
+    fleche = f'stroke="{couleur}" stroke-width="3" stroke-linecap="round"'
+    return (
+        _ENTETE + f"  <!-- Rendre parallèle à l'axe {axe} : la pièce se couche sur l'autre -->\n"
+        f'  <rect x="4" y="44" width="56" height="12" {_BOIS}/>\n'
+        '  <rect x="10" y="24" width="40" height="10" fill="none" stroke="#f57900" '
+        'stroke-width="1.8" stroke-dasharray="3 2" transform="rotate(-40 30 29)"/>\n'
+        f'  <rect x="10" y="26" width="40" height="10" {_PIECE}/>\n'
+        f'  <path d="M44,6 A26,26 0 0 1 58,22" fill="none" {fleche}/>\n'
+        f'  <path d="M52,21 L60,25 L61,16 Z" fill="{couleur}"/>\n'
+        + _lettre(axe, (-45.0, -43.0))
+        + "</svg>\n"
+    )
+
+
+def parallele_x() -> str:
+    """Rendre parallèle à l'axe X (panneau « Aligner deux faces »)."""
+    return _parallele("X")
+
+
+def parallele_y() -> str:
+    """Rendre parallèle à l'axe Y (panneau « Aligner deux faces »)."""
+    return _parallele("Y")
+
+
+def parallele_z() -> str:
+    """Rendre parallèle à l'axe Z (panneau « Aligner deux faces »)."""
+    return _parallele("Z")
+
+
+# Abscisse du bord gauche de la pièce et de la ligne repère, pour début, centre et fin.
+_ANCRAGES = {"debut": (8.0, 8.0), "centre": (21.0, 32.0), "fin": (34.0, 56.0)}
+
+
+def _aligner(ancrage: str) -> str:
+    """Planche de référence et pièce (orange) plus courte au début, au centre ou à la fin, sur
+    une ligne repère en pointillé (sans couleur d'axe : la ligne de la grille la donne)."""
+    piece, ligne = _ANCRAGES[ancrage]
+    return (
+        _ENTETE + f"  <!-- Aligner : {ancrage} de la face de référence -->\n"
+        f'  <rect x="8" y="34" width="48" height="12" {_BOIS}/>\n'
+        f'  <rect x="{piece:g}" y="16" width="22" height="12" {_PIECE}/>\n'
+        f'  <line x1="{ligne:g}" y1="6" x2="{ligne:g}" y2="56" stroke="#555753" '
+        'stroke-width="2.2" stroke-dasharray="4 3"/>\n'
         "</svg>\n"
     )
 
 
-def centrer_x() -> str:
-    """Centrer sur l'axe X (panneau « Aligner deux faces »)."""
-    return _centrer("X")
+def aligner_debut() -> str:
+    """Aligner au début de la face de référence (panneau « Aligner deux faces »)."""
+    return _aligner("debut")
 
 
-def centrer_y() -> str:
-    """Centrer sur l'axe Y (panneau « Aligner deux faces »)."""
-    return _centrer("Y")
+def aligner_centre() -> str:
+    """Aligner au centre de la face de référence (panneau « Aligner deux faces »)."""
+    return _aligner("centre")
 
 
-def centrer_z() -> str:
-    """Centrer sur l'axe Z (panneau « Aligner deux faces »)."""
-    return _centrer("Z")
+def aligner_fin() -> str:
+    """Aligner à la fin de la face de référence (panneau « Aligner deux faces »)."""
+    return _aligner("fin")
 
 
 def distance_gardee() -> str:

@@ -12,6 +12,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
+- « Aligner deux faces » : les boutons « Centrer sur X, Y, Z » sont remplacés par une grille « Parallèle et aligner sur » (ADR 0066). Sur chaque axe X, Y, Z : un bouton « // » rend le grand côté de la pièce parallèle à cet axe (un seul axe à la fois), puis début, centre ou fin la place au même bord ou au même centre que l'autre face le long de cet axe. Aligner ne fait plus tourner la pièce sans « // ». La ligne de l'axe qui traverse les faces est grisée, avec une infobulle (au lieu d'un bouton sans effet). `api.align_faces` prend `layout={"parallel": "X", "X": "start", "Y": "center"}` à la place de `centered="XYZ"`.
 - Pièce usinée : sa forme a désormais une carte des éléments (nommage topologique de FreeCAD 1.1, ADR 0056). Un lien d'un autre atelier vers une de ses faces ou arêtes (cote TechDraw, esquisse attachée, Assembly) suit l'élément quand on ajoute, modifie ou retire un assemblage, au lieu de garder un numéro qui peut viser un autre élément. Tests d'intégration `test_nommage_topologique`.
 
 - Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).

@@ -347,7 +347,7 @@ def align_faces(
     mode: str = "auto",
     offset: tuple[float, float, float] = (0.0, 0.0, 0.0),
     axis: str | None = None,
-    centered: str = "",
+    layout: Mapping[str, str] | None = None,
 ) -> _Notices:
     """Aligne deux faces planes de deux objets : la pièce de l'atelier qui porte ``second`` (sinon
     celle de ``first`` ; pour déplacer l'autre, inverser les deux arguments) pivote d'abord pour
@@ -355,24 +355,26 @@ def align_faces(
     commande « Aligner deux faces » ouvre un panneau (aperçu, Inverser, Annuler) qui appelle la
     même logique.
 
-    ``mode`` : ``"auto"`` (la plus petite rotation), ``"flush"`` (au ras : les deux faces
-    regardent du même côté), ``"facing"`` (face contre face) ou ``"perpendicular"`` (faces
-    d'équerre). ``offset`` (mm) : décalage de plus dans le repère de la face de référence (deux
-    axes dans son plan, le 3e le long de sa normale). ``axis`` (``"X"``, ``"Y"`` ou ``"Z"`` du
-    conteneur) : alignement sur cet axe seul, sans rotation (faces déjà parallèles, seul le 3e
-    décalage compte). ``centered`` (``"X"``, ``"XY"``, ``"XYZ"``…) : sur chacun de ces axes du
-    conteneur, le centre de la face déplacée vient sur celui de l'autre face ; ``"XYZ"`` les
-    confond d'un coup. Un objet d'un autre atelier ne bouge jamais ; membre d'ensemble :
+    ``mode`` : ``"auto"`` (la plus petite rotation), ``"flush"`` (au ras : les deux faces regardent
+    du même côté), ``"facing"`` (face contre face) ou ``"perpendicular"`` (faces d'équerre).
+    ``offset`` (mm) : décalage de plus dans le repère de la face de référence (deux axes dans son
+    plan, le 3e le long de sa normale). ``axis`` (``"X"``, ``"Y"`` ou ``"Z"`` du conteneur) :
+    alignement sur cet axe seul, sans rotation (faces déjà parallèles, seul le 3e décalage compte).
+    ``layout`` (axes X, Y, Z du conteneur) : ``{"parallel": "X"}`` fait tourner la pièce dans le
+    plan pour que son grand côté soit parallèle à X (pas sur un axe) ; ``{"X": "start", "Y":
+    "center"}`` place la face déplacée au début de l'autre face sur X et au centre sur Y (``"end"``
+    : à la fin) ; centrée sur les deux axes du plan, les centres se confondent. Un axe qui suit la
+    normale des faces est refusé. Un objet d'un autre atelier ne bouge jamais ; membre d'ensemble :
     l'ensemble est relié ensuite. Refus avant toute modification (``ValueError`` traduite) : pas
-    deux faces planes, même objet, aucune pièce de l'atelier, position pilotée par une formule,
-    mode ou axe inconnu, décalage non fini, et sur un axe : faces non parallèles, axe dans leur
-    plan ou presque (pente < 0,05), mode d'équerre. Renvoie les avertissements traduits (aussi
-    dans la vue rapport). Aucune transaction n'est ouverte."""
+    deux faces planes, même objet, aucune pièce de l'atelier, position pilotée par une formule, mode
+    ou axe inconnu, décalage non fini, et sur un axe : faces non parallèles, axe dans leur plan ou
+    presque (pente < 0,05), mode d'équerre. Renvoie les avertissements traduits (aussi dans la vue
+    rapport). Aucune transaction n'est ouverte."""
     try:
         chosen = AlignMode(mode)
     except ValueError:
         raise ValueError(f"mode d'alignement inconnu : {mode!r}") from None
     aligner = part_align.FaceAlign(first, second)
-    _alignment, messages = aligner.apply(chosen, Vec3(*offset), axis=axis, centered=centered)
+    _alignment, messages = aligner.apply(chosen, Vec3(*offset), axis=axis, layout=layout)
     report(messages)
     return tuple(messages)
