@@ -166,3 +166,12 @@ de répétitions m5) sont corrigés.
 | cp2 | mineur | `features/magnet_guides.py` (`neighbor_planes`) | Voisines lues dans l'ordre du document (pas les plus proches d'abord) : au-delà de `MAX_GUIDES`, des voisines utiles peuvent manquer. | Passer l'enveloppe des sources en `reference`. |
 | cp4 | mineur | `gui/task_panels/repeat_coplanar.py` (`CoplanarCues.show`) | `except Exception` avale l'erreur sans trace (voulu : le repère ne doit pas casser l'aperçu). | Journaliser en debug (`App.Console.PrintLog`). |
 | cp5 | mineur | `gui/drag/states.py` (`Dragging.lit`), `core/magnet/_coplanar.py` (`PlaneIndex.coplanar`) | Même recherche « voisines d'une face » avec deux règles d'affichage. | Regrouper au 3e usage. |
+
+## Grille « Parallèle et aligner sur » (PR #269, ADR 0066), 2026-11-17
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| al1 | mineur | `core/align/_align.py` (`face_center`) | Plus utilisée en production (seulement par les tests), mais toujours exportée par la façade ; `_layout._corners` fait presque le même calcul. | La déplacer dans les tests ou la calculer depuis `_corners`. |
+| al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
+| al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
+| al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |

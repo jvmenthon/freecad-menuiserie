@@ -24,7 +24,7 @@ from freecad.menuiserie.gui.task_panels.base import Widget, connect
 __all__ = ["AXES", "LayoutGrid"]
 
 AXES: Final = ("X", "Y", "Z")
-# Couleurs des axes, celles des rotations et des icônes.
+# Couleurs des axes, les mêmes que dans les icônes (tools/icones_ensembles.py, COULEURS_AXES).
 _COLORS: Final = {"X": "#cc0000", "Y": "#4e9a06", "Z": "#3465a4"}
 _TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Parallèle et aligner sur")
 _PARALLEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "//")
