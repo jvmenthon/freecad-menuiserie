@@ -181,3 +181,9 @@ de répétitions m5) sont corrigés.
 | cp7 | mineur | `gui/task_panels/repeat.py` (`__init__`) | Le panneau note lui-même chaque champ dans `FieldSnap` après `_fill`. | Méthode `FieldSnap.sync()` qui lit `rawValue` de chaque champ. |
 | cp8 | mineur | `gui/task_panels/repeat_coplanar.py` (`_never`, `_snapped`) | Deux petits helpers de module là où une `partial` suffirait. | Simplifier au prochain passage. |
 | cp9 | mineur | `core/magnet/_coplanar.py` (`snap_field`) | `slopes or ()` répété alors que `slopes` peut valoir `None`. | `slopes = _slopes(...) or []` dès le départ. |
+
+## Relecture « boîtes toujours recalées » (PR #264, ADR 0065), 2026-11-17
+
+| Id | Niveau | Où | Constat | Piste |
+|----|--------|----|---------|-------|
+| br1 | mineur | `features/furniture_drag.py` (`_free_to_turn`) | `api.rotate_furniture` refuse un sous-ensemble dont le Std Part porte la liaison de l'atelier `Placement.Base.x` : elle est prise pour une formule de l'utilisateur (comportement antérieur à l'ADR 0065). | Exclure les liaisons de l'atelier (`workshop_expressions`) du contrôle, avec un test. |

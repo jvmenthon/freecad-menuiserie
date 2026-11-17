@@ -11,10 +11,15 @@ import de ``FreeCADGui``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import partial
+from typing import Final
+
 import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Box
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture, writing
 from freecad.menuiserie.features.furniture_bindings import (
@@ -26,10 +31,17 @@ from freecad.menuiserie.features.furniture_container import set_member_expressio
 from freecad.menuiserie.features.furniture_drag_state import write_std_placement
 from freecad.menuiserie.features.furniture_envelope import frame_of, reframe, restore_frame
 from freecad.menuiserie.features.furniture_relink import bind_furniture
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.part_drag import write_placement
 from freecad.menuiserie.features.thickness_common import is_alive
 
 __all__ = ["KeptBindings", "relink_framed"]
+
+_NOT_RELINKED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "L'ensemble n'a pas pu être relié : ses boîtes, ses pièces et leurs liaisons sont rendues. "
+    "{error}",
+)
 
 
 class KeptBindings:
@@ -73,7 +85,7 @@ class _Snapshot:
                 self.bindings.append(KeptBindings(member))
                 if is_furniture(member):
                     self._keep_part(member)
-                else:
+                elif "Placement" in member.PropertiesList:  # pas une cote ou un repère
                     self.raws.append((member, App.Placement(member.Placement)))
 
     def _keep_part(self, furniture: DocumentObject) -> None:
@@ -82,15 +94,28 @@ class _Snapshot:
             self.parts.append((part, App.Placement(part.Placement)))
 
     def restore(self) -> None:
-        for furniture, frame in self.frames:
-            restore_frame(furniture, frame)
-        for part, placement in self.parts:
-            write_std_placement(part, placement)
-        for raw, placement in self.raws:
-            if is_alive(raw) and not raw.Placement.isSame(placement, 1e-9):
-                write_placement(raw, placement)
-        for kept in self.bindings:
-            kept.give_back()
+        """Tout rendre, liaisons posées entre-temps retirées d'abord (elles ne ramènent rien au
+        recalcul). Une étape qui échoue (objet abîmé) est écrite dans la vue rapport et n'arrête
+        pas les autres : l'erreur d'origine reste celle relancée. Le recalcul revient à
+        l'appelant (transaction annulée ou recalcul du document)."""
+        steps: list[tuple[DocumentObject, Callable[[], None]]] = []
+        steps += [(kept.member, kept.remove) for kept in self.bindings]
+        steps += [(f, partial(restore_frame, f, frame)) for f, frame in self.frames]
+        steps += [(p, partial(write_std_placement, p, place)) for p, place in self.parts]
+        steps += [(raw, partial(_put_back, raw, place)) for raw, place in self.raws]
+        steps += [(kept.member, kept.give_back) for kept in self.bindings]
+        for obj, step in steps:
+            if not is_alive(obj):
+                continue
+            try:
+                step()
+            except Exception as error:  # pylint: disable=broad-exception-caught  # dit, suite
+                App.Console.PrintError(f"Menuiserie : retour arrière de {obj.Name} : {error}\n")
+
+
+def _put_back(raw: DocumentObject, placement: App.Placement) -> None:
+    if not raw.Placement.isSame(placement, 1e-9):
+        write_placement(raw, placement)
 
 
 def _chain(furniture: DocumentObject) -> list[DocumentObject]:
@@ -106,10 +131,10 @@ def _chain(furniture: DocumentObject) -> list[DocumentObject]:
 def relink_framed(furniture: DocumentObject) -> list[Notice]:
     """Boîte de ``furniture`` recalée sur ses membres et membres reliés d'après la géométrie
     actuelle, puis de même pour chaque parent ; renvoie les avertissements. ``ValueError``
-    traduite (liaison impossible) : boîtes, positions et liaisons sont rendues, l'erreur est
-    relancée. Les liaisons que chaque parent pose sur un sous-ensemble de la chaîne (cotes,
-    position de son Std Part) sont retirées d'abord : elles ramèneraient sa boîte au recalcul ;
-    le parent les repose ensuite d'après la boîte recalée."""
+    traduite (liaison impossible, ou toute autre erreur traduite ainsi) : boîtes, positions et
+    liaisons sont rendues, l'erreur est relancée. Les liaisons que chaque parent pose sur un
+    sous-ensemble de la chaîne (cotes, position de son Std Part) sont retirées d'abord : elles
+    ramèneraient sa boîte au recalcul ; le parent les repose ensuite d'après la boîte recalée."""
     chain = _chain(furniture)
     snapshot = _Snapshot(chain)
     notices: list[Notice] = []
@@ -120,7 +145,10 @@ def relink_framed(furniture: DocumentObject) -> list[Notice]:
         for level in chain:
             reframe(level)
             notices.extend(bind_furniture(level))
-    except Exception:
+    except ValueError:
         snapshot.restore()
         raise
+    except Exception as error:  # pylint: disable=broad-exception-caught  # rendu, traduit
+        snapshot.restore()
+        raise ValueError(translated(_NOT_RELINKED, {"error": str(error)})) from error
     return notices

@@ -44,6 +44,14 @@ def _ajustee(furniture: Any) -> None:
         assert envelope.frame_of(furniture).min == geometry.Vec3(0.0, 0.0, 0.0)
 
 
+def _ajustee_pres(furniture: Any) -> None:
+    """Comme :func:`_ajustee`, à 1e-6 mm près (rotation du Std Part)."""
+    frame, wanted = envelope.frame_of(furniture), envelope.member_envelope(furniture)
+    for i in range(3):
+        assert frame.lo(i) == pytest.approx(wanted.lo(i), abs=1e-5)
+        assert frame.hi(i) == pytest.approx(wanted.hi(i), abs=1e-5)
+
+
 def _globaux(parts: dict[str, Any]) -> dict[str, Any]:
     return {mark: App.Placement(part.getGlobalPlacement()) for mark, part in parts.items()}
 
@@ -120,3 +128,247 @@ def test_liaison_impossible_rend_boites_positions_et_liaisons(
         for level, placement in zip(chain, std, strict=True)
     )
     part_drag.restore(memento)
+
+
+# --- Cas limites du testeur (revue de 9d315ba) ---------------------------------------------
+
+
+def _sortir(document: Any, parts: dict[str, Any], dz: float = -100.0) -> None:
+    """Fond du caisson descendu de ``dz`` à la souris (geste complet, recalcul compris)."""
+    memento = part_drag.begin_drag(parts["CB"])
+    part_drag.move_part(memento, geometry.Vec3(0.0, 0.0, dz))
+    part_drag.end_drag(memento)
+    document.recompute()
+
+
+def _tourner(document: Any, furniture: Any) -> None:
+    """Std Part du sous-ensemble tourné de 90 degrés autour de Z (écrit directement : la liaison
+    de position de l'atelier ne porte que sur ``Placement.Base.x``)."""
+    part = container.std_part_of(furniture)
+    turned = App.Placement(part.Placement)
+    turned.Rotation = App.Rotation(App.Vector(0, 0, 1), 90)
+    part.Placement = turned
+    document.recompute()
+
+
+def _etat(document: Any, parts: dict[str, Any], chain: tuple[Any, ...]) -> Any:
+    return (
+        [envelope.frame_of(level) for level in chain],
+        [App.Placement(container.std_part_of(level).Placement) for level in chain],
+        {mark: App.Placement(part.Placement) for mark, part in parts.items()},
+        [dict(bindings.workshop_expressions(o)) for o in (*parts.values(), *chain)],
+    )
+
+
+def _meme_etat(first: Any, second: Any) -> bool:
+    return (
+        first[0] == second[0]
+        and all(a.isSame(b, 1e-9) for a, b in zip(first[1], second[1], strict=True))
+        and all(first[2][m].isSame(second[2][m], 1e-9) for m in first[2])
+        and first[3] == second[3]
+    )
+
+
+def test_sous_ensemble_tourne_le_decalage_passe_par_la_rotation(document: Any) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    _tourner(document, sub)
+    avant = _globaux(parts)
+    boite = envelope.frame_of(sub)
+    _sortir(document, parts)
+    apres = _globaux(parts)
+    # les pièces qui n'ont pas bougé à la souris restent en place à l'écran
+    for mark in ("CG", "CD"):
+        assert apres[mark].isSame(avant[mark], 1e-6)
+    assert apres["CB"].Base.z == pytest.approx(avant["CB"].Base.z - 100.0)
+    assert sub.Height.Value == pytest.approx(boite.max.z - boite.min.z + 100.0)
+    for level in (inner, sub, bureau):
+        _ajustee(level)
+    assert container.std_part_of(sub).Placement.Rotation.isSame(
+        App.Placement(App.Vector(), App.Rotation(App.Vector(0, 0, 1), 90)).Rotation, 1e-9
+    )
+    document.recompute()
+    assert _memes(apres, _globaux(parts))
+
+
+def test_sous_ensemble_tourne_deplace_en_largeur(document: Any) -> None:
+    """Décalage non nul en X/Y dans le repère d'un Std Part tourné."""
+    bureau, sub, inner, parts = _meuble(document)
+    _tourner(document, sub)
+    avant = _globaux(parts)
+    memento = part_drag.begin_drag(parts["CD"])
+    part_drag.move_part(memento, geometry.Vec3(-60.0, 0.0, 0.0))
+    part_drag.end_drag(memento)
+    document.recompute()
+    apres = _globaux(parts)
+    for mark in ("CG", "CB"):
+        assert apres[mark].isSame(avant[mark], 1e-6)
+    for level in (inner, sub, bureau):
+        _ajustee_pres(level)
+
+
+def test_membre_copie_de_repetition_sous_ensemble_non_recale_remontee_continue(
+    document: Any,
+) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    api.make_repeat([parts["CB"]], api.RepeatParams(count=2, step=100.0, axis="Z"))
+    document.recompute()  # les copies rejoignent « Fond », placées par formule
+    assert not envelope._movable(inner)  # pylint: disable=protected-access
+    boite = envelope.frame_of(inner)
+    std = App.Placement(container.std_part_of(inner).Placement)
+    _sortir(document, parts)
+    # « Fond » n'est pas décalé ; ses parents, eux, sont recalés sur leurs membres
+    assert envelope.frame_of(inner) == boite
+    assert container.std_part_of(inner).Placement.isSame(std, 1e-9)
+    assert envelope.frame_of(sub) == envelope.member_envelope(sub)
+    assert envelope.frame_of(bureau) == envelope.member_envelope(bureau)
+    document.recompute()
+    from tests.integration.cadre import stale_or_invalid
+
+    assert stale_or_invalid(document) == []
+
+
+def test_parent_pilote_par_formule_n_est_pas_recale_mais_le_sous_ensemble_si(
+    document: Any,
+) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    largeur = bureau.Width.Value
+    bureau.setExpression("Height", "1000 mm")
+    document.recompute()
+    boite = envelope.frame_of(bureau)
+    _sortir(document, parts)
+    assert envelope.frame_of(bureau) == boite  # piloté : intact
+    assert bureau.Width.Value == pytest.approx(largeur)
+    for level in (inner, sub):
+        _ajustee(level)
+    assert bureau.ExpressionEngine  # la formule est toujours là
+    assert bureau.Height.Value == pytest.approx(1000.0)
+
+
+def test_ensemble_du_milieu_non_recalable_la_remontee_continue(document: Any) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    sub.setExpression("Width", "400 mm")  # formule d'utilisateur : le caisson n'est pas recalé
+    document.recompute()
+    boite = envelope.frame_of(sub)
+    _sortir(document, parts)
+    assert envelope.frame_of(sub) == boite
+    _ajustee(inner)
+    enveloppe = envelope.member_envelope(bureau)
+    assert envelope.frame_of(bureau) == enveloppe  # le bureau a été recalé malgré tout
+
+
+def test_assemblages_toujours_valides_apres_decalage(document: Any) -> None:
+    from tests.integration.bureau import build_parts
+    from tests.integration.cadre import stale_or_invalid
+    from tests.integration.test_ensemble_membres import caisson
+
+    desk = build_parts(document)
+    sub, parts = caisson(document)
+    document.recompute()
+    bureau, _ = api.make_furniture(
+        [*(desk.parts[mark] for mark in ("P", "JG", "JD")), sub], label="Bureau"
+    )
+    document.recompute()
+    api.make_mortise_tenon(parts["CG"], parts["CB"])
+    document.recompute()
+    assert stale_or_invalid(document) == []
+    usinee = api.machined_part_of(parts["CB"])
+    volume = usinee.Shape.Volume
+    memento = part_drag.begin_drag(parts["CD"])  # côté droit élargi vers l'extérieur
+    part_drag.move_part(memento, geometry.Vec3(0.0, 0.0, 0.0))
+    part_drag.end_drag(memento)
+    document.recompute()
+    assert api.move_furniture(sub, (30, 0, 0))  # décalage non nul du sous-ensemble en X
+    document.recompute()
+    assert stale_or_invalid(document) == []
+    assert usinee.Shape.Volume == pytest.approx(volume)
+    for level in (sub, bureau):
+        _ajustee(level)
+
+
+def test_annulation_rend_tout(document: Any) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    chain = (inner, sub, bureau)
+    document.UndoMode = 1
+    avant = _etat(document, parts, chain)
+    globaux = _globaux(parts)
+    document.openTransaction("Déplacer la pièce")
+    _sortir(document, parts)
+    document.commitTransaction()
+    assert not _meme_etat(avant, _etat(document, parts, chain))
+    apres = _etat(document, parts, chain)
+    document.undo()
+    document.recompute()
+    assert _meme_etat(avant, _etat(document, parts, chain))
+    assert _memes(globaux, _globaux(parts))
+    document.redo()
+    document.recompute()
+    assert _meme_etat(apres, _etat(document, parts, chain))
+
+
+def test_annulation_du_deplacement_d_un_sous_ensemble(document: Any) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    chain = (inner, sub, bureau)
+    document.UndoMode = 1
+    avant = _etat(document, parts, chain)
+    document.openTransaction("Déplacer")
+    assert api.move_furniture(inner, (0, 0, -100))
+    document.commitTransaction()
+    document.undo()
+    document.recompute()
+    assert _meme_etat(avant, _etat(document, parts, chain))
+
+
+def test_enregistrement_et_reouverture_apres_recalage(document: Any, tmp_path: Any) -> None:
+    from tests.integration.cadre import stale_or_invalid
+
+    _, sub, _, parts = _meuble(document)
+    _sortir(document, parts)
+    hauteur = sub.Height.Value
+    globaux = {mark: App.Placement(p.getGlobalPlacement()) for mark, p in parts.items()}
+    chemin = tmp_path / "boites.FCStd"
+    document.saveAs(str(chemin))
+    App.closeDocument(document.Name)
+    ouvert = App.openDocument(str(chemin))
+    try:
+        ouvert.recompute()
+        assert stale_or_invalid(ouvert) == []
+        rb = ouvert.getObjectsByLabel("Bureau")[0]
+        rs = ouvert.getObjectsByLabel("Caisson")[0]
+        ri = ouvert.getObjectsByLabel("Fond")[0]
+        assert rs.Height.Value == pytest.approx(hauteur)
+        for level in (ri, rs, rb):
+            _ajustee(level)
+        for mark, placement in globaux.items():
+            rouvert = ouvert.getObjectsByLabel(mark)[0].getGlobalPlacement()
+            assert rouvert.isSame(placement, 1e-6)
+        # et la suite fonctionne : ramener la pièce rétrécit le caisson
+        pieces = {m: ouvert.getObjectsByLabel(m)[0] for m in parts}
+        memento = part_drag.begin_drag(pieces["CB"])
+        part_drag.move_part(memento, geometry.Vec3(0.0, 0.0, 100.0))
+        part_drag.end_drag(memento)
+        ouvert.recompute()
+        assert rs.Height.Value == pytest.approx(hauteur - 100.0)
+        assert stale_or_invalid(ouvert) == []
+    finally:
+        App.closeDocument(ouvert.Name)
+
+
+@pytest.mark.parametrize("dz", [0.0, 1e-9, -0.05, -5000.0])
+def test_deplacements_limites(document: Any, dz: float) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    _sortir(document, parts, dz=dz)
+    for level in (inner, sub, bureau):
+        _ajustee_pres(level)
+
+
+@pytest.mark.parametrize("dz", [-1e5, 1e6])
+def test_deplacement_demesure_refuse_et_tout_revient(document: Any, dz: float) -> None:
+    bureau, sub, inner, parts = _meuble(document)
+    chain = (inner, sub, bureau)
+    avant = _etat(document, parts, chain)
+    memento = part_drag.begin_drag(parts["CB"])
+    part_drag.move_part(memento, geometry.Vec3(0.0, 0.0, dz))
+    with pytest.raises(ValueError):
+        part_drag.end_drag(memento)
+    document.recompute()
+    assert _meme_etat(avant, _etat(document, parts, chain))

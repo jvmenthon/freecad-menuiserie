@@ -106,10 +106,12 @@ def _placed_by_formula(member: DocumentObject) -> bool:
 
 
 def _movable(furniture: DocumentObject) -> bool:
-    """Vrai si le contenu du sous-ensemble ``furniture`` peut être décalé dans son Std Part."""
+    """Vrai si le contenu du sous-ensemble ``furniture`` peut être décalé dans son Std Part : ni
+    son Std Part ni un de ses membres n'est placé par une formule autre qu'une liaison de
+    l'atelier (le recalcul défairait le décalage)."""
     if std_part_of(furniture) is None:
         return False
-    return not any(_placed_by_formula(member) for member in members_of(furniture))
+    return not any(_placed_by_formula(obj) for obj in (furniture, *members_of(furniture)))
 
 
 def _frames(furniture: DocumentObject) -> tuple[Box, Box] | None:
@@ -135,8 +137,11 @@ def _same(first: Box, second: Box) -> bool:
 def grow(furniture: DocumentObject) -> bool:
     """Agrandit la boîte de ``furniture`` jusqu'à contenir ses membres (pièce entrée alors
     qu'elle en dépasse), sans jamais la réduire : une marge voulue par l'utilisateur reste. Sans
-    recalcul ni liaison, comme :func:`reframe`. Faux, sans rien écrire, pour un ensemble qu'on
-    ne recale pas (:func:`_frames`) ou dont rien ne dépasse."""
+    recalcul ni liaison, comme :func:`reframe`. Faux, sans rien écrire, pour un sous-ensemble
+    (ADR 0065 point 5 : l'entrée d'une pièce garde le comportement de l'ADR 0049), pour un
+    ensemble qu'on ne recale pas (:func:`_frames`) ou dont rien ne dépasse."""
+    if furniture_of(furniture) is not None:
+        return False
     frames = _frames(furniture)
     if frames is None:
         return False
@@ -179,6 +184,8 @@ def _shift_contents(furniture: DocumentObject, offset: Vec3) -> None:
                 moved = App.Placement(inner.Placement)
                 moved.Base = moved.Base + back
                 write_std_placement(inner, moved)
+            continue
+        if "Placement" not in member.PropertiesList:  # membre sans position : rien à décaler
             continue
         moved = App.Placement(member.Placement)
         moved.Base = moved.Base + back
