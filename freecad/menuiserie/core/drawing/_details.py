@@ -14,8 +14,6 @@ import math
 from collections.abc import Callable, Iterable, Sequence
 from typing import Final
 
-from freecad.menuiserie.core.drawing._layout import CHAR_WIDTH_RATIO
-
 __all__ = ["ChainLabel", "chain_labels", "chain_segments", "slant_angle", "text_width_mm"]
 
 MIN_SLANT_DEG: Final = 0.5  # en deçà (ou au-delà de 90 - ce seuil), la pièce est d'équerre
@@ -41,14 +39,17 @@ def chain_segments(points: Iterable[float], min_gap: float) -> list[tuple[float,
 
 
 ChainLabel = tuple[float, float, float]  # début, fin, milieu du texte (mm de la feuille)
-_LABEL_GAP_MM: Final = 1.0  # entre deux textes de cote voisins
+_LABEL_GAP_MM: Final = 1.5
+# Largeur d'un chiffre des cotes de TechDraw (police osifont) rapportée à sa hauteur, mesurée
+# sur les captures : plus large que le texte courant (CHAR_WIDTH_RATIO).
+DIMENSION_CHAR_RATIO: Final = 0.85  # entre deux textes de cote voisins
 
 
 def text_width_mm(value: float, font: float) -> float:
     """Largeur sur la feuille du texte d'une cote de ``value`` mm écrite par TechDraw (deux
     décimales au plus, zéros de fin retirés) en caractères de ``font`` mm."""
     chars = len(f"{value:.2f}".rstrip("0").rstrip("."))
-    return chars * CHAR_WIDTH_RATIO * font
+    return chars * DIMENSION_CHAR_RATIO * font
 
 
 def chain_labels(

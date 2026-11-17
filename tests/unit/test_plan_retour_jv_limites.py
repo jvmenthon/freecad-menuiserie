@@ -342,9 +342,9 @@ def test_cotes_etroites_regroupees() -> None:
 
 
 def test_largeur_du_texte_de_tech_draw() -> None:
-    assert text_width_mm(22.0, 3.5) == pytest.approx(2 * 0.6 * 3.5)
-    assert text_width_mm(1677.65, 3.5) == pytest.approx(7 * 0.6 * 3.5)
-    assert text_width_mm(30.10, 3.5) == pytest.approx(4 * 0.6 * 3.5)
+    assert text_width_mm(22.0, 3.5) == pytest.approx(2 * 0.85 * 3.5)
+    assert text_width_mm(1677.65, 3.5) == pytest.approx(7 * 0.85 * 3.5)
+    assert text_width_mm(30.10, 3.5) == pytest.approx(4 * 0.85 * 3.5)
 
 
 def test_perspective_reduite_plutot_que_l_echelle() -> None:
