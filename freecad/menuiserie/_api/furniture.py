@@ -17,7 +17,9 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.structure_rename import cleaned_name, decide_rename
 from freecad.menuiserie.core.templates.carcass import CarcassParams
+from freecad.menuiserie.core.templates.closing_params import ClosingParams
 from freecad.menuiserie.features import (
+    closing,
     distance_move,
     furniture_drag,
     furniture_edges,
@@ -329,8 +331,13 @@ def make_carcass(
     with translated_errors():
         chosen = params if params is not None else CarcassParams(**values)
     document = doc if doc is not None else App.ActiveDocument or App.newDocument()
-    built = templates.build_carcass(document, chosen, furniture)
-    if App.GuiUp:  # ViewProviders des pièces, des pièces usinées, des assemblages, de l'ensemble
+    return _finished(templates.build_carcass(document, chosen, furniture), document)
+
+
+def _finished(built: templates.Built, document: Document) -> tuple[DocumentObject, _Notices]:
+    """ViewProviders des objets créés par un gabarit (pièces, pièces usinées, assemblages,
+    ensemble) en interface, document recalculé, avertissements traduits."""
+    if App.GuiUp:
         from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
         from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
         from freecad.menuiserie.gui.view_providers.machined_part import ViewProviderMachinedPart
@@ -345,6 +352,36 @@ def make_carcass(
             for obj in group:
                 provider(obj.ViewObject)
     return built.furniture, _reported(built.notices, document)
+
+
+_CLOSING_ARGUMENTS = QT_TRANSLATE_NOOP(
+    "Menuiserie", "make_closed_carcass : params ou champs en mots-clés, pas les deux"
+)
+
+
+def make_closed_carcass(
+    anchor: DocumentObject,
+    params: ClosingParams | None = None,
+    **values: Any,
+) -> tuple[DocumentObject, _Notices]:
+    """Ferme un caisson autour de ``anchor`` (« Fermer le caisson », ADR 0064) et recalcule le
+    document une fois : côtés, dessus (ou dessous), fond, avant et assemblages au choix, réunis
+    avec l'ancre dans un ensemble « Caisson » (``Template`` = ``ClosedCarcass``). L'ancre (pièce
+    de bois rectangulaire ou sa pièce usinée) n'est ni recréée, ni déplacée, ni redimensionnée ;
+    si elle est membre d'un ensemble, elle en sort et le nouvel ensemble devient un
+    sous-ensemble de celui-ci.
+
+    Paramètres : ``params`` (:class:`ClosingParams`) ou ses champs en mots-clés (``height=720``,
+    ``role=ClosingRole.TOP``, ``elements=…``, ``joinery=ClosingJoinery.MITER``…, mm) ; par défaut
+    le dessous monte à 720 mm, épaisseurs et matériau de l'ancre, tourillons, fond en feuillure.
+    Renvoie l'ensemble et les avertissements traduits. Refus avant toute création (``TypeError``
+    ou ``ValueError`` traduites). Aucune transaction n'est ouverte : c'est à l'appelant de le
+    faire pour pouvoir annuler.
+    """
+    if params is not None and values:
+        raise TypeError(translated(_CLOSING_ARGUMENTS))
+    chosen = params if params is not None else closing.closing_params(anchor, **values)
+    return _finished(closing.build_closing(anchor.Document, anchor, chosen), anchor.Document)
 
 
 def align_faces(

@@ -18,6 +18,7 @@ le caisson descend.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Iterable
 from dataclasses import replace
 from enum import Enum
@@ -45,6 +46,7 @@ __all__ = [
     "back_availability",
     "closing_layout",
     "joinery_availability",
+    "nearest_front",
     "wanted_extents",
 ]
 
@@ -324,3 +326,22 @@ def wanted_extents(layout: Layout, key: str) -> tuple[Span, Span, Span]:
         return (round(min(values), 6), round(max(values), 6))
 
     return (extent(0), extent(1), extent(2))
+
+
+# --- Avant du caisson ---------------------------------------------------------------------
+
+
+def nearest_front(anchor: Dimensions, viewer: Vec3) -> int:
+    """Quarts de tour de l'avant (0 à 3) pour un observateur en ``viewer`` (repère local de
+    l'ancre) : le grand chant de l'ancre le plus proche de lui. Les grands chants sont ceux de
+    la longueur (``Y = 0`` et ``Y = largeur``) si la longueur est au moins la largeur, ceux de la
+    largeur sinon ; à distance égale, le premier (``Y = 0`` ou ``X = longueur``)."""
+    length, width = anchor.length, anchor.width
+    middles = {  # quarts de tour → milieu du chant
+        0: (length / 2, 0.0),
+        1: (length, width / 2),
+        2: (length / 2, width),
+        3: (0.0, width / 2),
+    }
+    long_edges = (0, 2) if length >= width else (1, 3)
+    return min(long_edges, key=lambda turns: math.dist(middles[turns], (viewer.x, viewer.y)))
