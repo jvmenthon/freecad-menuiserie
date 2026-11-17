@@ -44,6 +44,7 @@ COMMANDE = "Menuiserie_CloseCarcass"
 PANNEAU = "ClosingTaskPanel"
 TYPE_PIECE = "Menuiserie::WoodPart"
 HAUTEUR = 300.0
+LARGEUR_MAX_PX = 400  # largeur usuelle du volet des tâches de FreeCAD (~380 px)
 TRANSACTION = "Fermer le caisson"
 
 
@@ -84,6 +85,9 @@ class FermerLeCaisson(Etapes):
         lancer(COMMANDE)
         form = formulaire(PANNEAU)
         self.assertEqual(enfant(form, "errorLabel").text(), "")
+        self.assertLessEqual(
+            form.minimumSizeHint().width(), LARGEUR_MAX_PX, "panneau plus large que le volet"
+        )
         apercu = len(self.pieces())
         self.assertGreater(apercu, 1, "aucun aperçu")
         taper(enfant(form, "height"), f"{HAUTEUR:g} mm")

@@ -161,6 +161,8 @@ class ClosingTaskPanel(TransactionTaskPanel):
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
         self.form.setWindowTitle(translated(_TITLE))
         layout = QtGui.QFormLayout(self.form)
+        # Largeur usuelle du volet des tâches (~380 px) : libellé long au-dessus de son champ.
+        layout.setRowWrapPolicy(QtGui.QFormLayout.RowWrapPolicy.WrapLongRows)
         layout.addRow(self._banner(defaults))
         self._roles = self._role_buttons(layout, role)
         self._height = length_field(layout, "height", _HEIGHT, defaults.height, self.rebuild)
@@ -248,6 +250,7 @@ class ClosingTaskPanel(TransactionTaskPanel):
     def _role_buttons(self, layout: Any, role: ClosingRole) -> dict[ClosingRole, Any]:
         """Bascule « Cette pièce est : le dessous / le dessus »."""
         row = QtGui.QHBoxLayout()
+        row.addWidget(QtGui.QLabel(translated(_ROLE)))
         group = QtGui.QButtonGroup(self.form)
         buttons = {}
         for kind, text in _ROLES.items():
@@ -258,7 +261,8 @@ class ClosingTaskPanel(TransactionTaskPanel):
             row.addWidget(button)
             buttons[kind] = button
         connect(buttons[ClosingRole.BOTTOM], "toggled(bool)", self.rebuild)  # une fois par bascule
-        layout.addRow(translated(_ROLE), row)
+        row.addStretch()
+        layout.addRow(row)
         return buttons
 
     def _legend(self, layout: Any, defaults: ClosingParams) -> dict[str, Any]:
@@ -267,7 +271,7 @@ class ClosingTaskPanel(TransactionTaskPanel):
         anchor = QtGui.QLabel(translated(_LEGEND_ANCHOR[self.role()]))
         anchor.setObjectName("legendAnchor")
         anchor.setStyleSheet(f"color: {COLORS['anchor']}; font-weight: bold;")
-        grid.addWidget(anchor, 0, 0)
+        grid.addWidget(anchor, 0, 0, 1, 2)  # sur toute la largeur : deux colonnes de cases
         boxes = {}
         for index, (key, text) in enumerate(NAMES.items(), start=1):
             box = QtGui.QCheckBox(translated(text))
@@ -275,7 +279,7 @@ class ClosingTaskPanel(TransactionTaskPanel):
             box.setChecked(Element(key) in defaults.elements)
             box.setStyleSheet(f"QCheckBox {{ color: {COLORS[key]}; font-weight: bold; }}")
             connect(box, "toggled(bool)", self.rebuild)
-            grid.addWidget(box, index // 3, index % 3)
+            grid.addWidget(box, 1 + (index - 1) // 2, (index - 1) % 2)
             boxes[key] = box
         layout.addRow(grid)
         return boxes

@@ -61,7 +61,7 @@ class ClosingSchema(QtGui.QWidget):  # type: ignore[misc]
         self._on_toggle = on_toggle
         self._faces: tuple[Face, ...] = ()
         self._enabled: frozenset[str] = frozenset()
-        self.setMinimumSize(280, 230)
+        self.setMinimumSize(200, 200)
         self.setSizePolicy(QtGui.QSizePolicy.Policy.Expanding, QtGui.QSizePolicy.Policy.Minimum)
         self.setToolTip(translated(_TIP))
 

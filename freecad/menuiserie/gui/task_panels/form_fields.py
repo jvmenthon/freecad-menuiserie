@@ -40,6 +40,9 @@ def combo(layout: Widget, name: str, label: str, items: dict[str, str]) -> Widge
     """Liste déroulante (identifiant → texte affiché) ajoutée au formulaire."""
     box = QtGui.QComboBox()
     box.setObjectName(name)
+    # Largeur minimale indépendante du plus long texte : le volet des tâches est étroit.
+    box.setSizeAdjustPolicy(QtGui.QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+    box.setMinimumContentsLength(8)
     for key, text in items.items():
         box.addItem(text, key)
     layout.addRow(translated(label), box)
