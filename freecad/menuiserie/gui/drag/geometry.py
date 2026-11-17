@@ -49,6 +49,7 @@ __all__ = [
     "build_drawing",
     "build_layout",
     "guide_outline",
+    "guides_drawing",
     "handle_key",
     "mouse_ray",
     "parse_key",
@@ -405,6 +406,23 @@ def _ghost_drawing(layout: Layout, offset: Vec3) -> tuple[Stroke, Solid]:
     return Stroke(GHOST_COLOR, 2.5, edges), Solid(GHOST_COLOR, faces, GHOST_TRANSPARENCY)
 
 
+def guides_drawing(
+    guides: Sequence[Guide], frame: Frame
+) -> tuple[tuple[Stroke, ...], tuple[Dots, ...]]:
+    """Contours des ``guides`` (lus dans ``frame``) portés dans le repère global, en magenta :
+    gros points pour un sommet, trait pour une droite ou un plan (aimant et coplanarité)."""
+    to_global = frame.to_transform()
+    strokes = []
+    dots = []
+    for guide in guides:
+        outline = tuple(to_global.apply(p) for p in guide_outline(guide))
+        if guide.kind is GuideKind.POINT:
+            dots.append(Dots(GUIDE_COLOR, 12.0, outline))
+        else:
+            strokes.append(Stroke(GUIDE_COLOR, 3.0, (outline,)))
+    return tuple(strokes), tuple(dots)
+
+
 @dataclass(frozen=True)
 class Cues:
     """Indications d'un geste à dessiner en plus de la disposition : ``ghost``, décalage du
@@ -455,13 +473,9 @@ def build_drawing(
             strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_stem(layout, handle, point)))
             solids.append(Solid(color, _handle_cube(layout, handle, point)))
         dots.append(Dots(color, 7.0, (point,)))
-    to_global = (guides_frame or layout.frame).to_transform()
-    for guide in guides:
-        outline = tuple(to_global.apply(p) for p in guide_outline(guide))
-        if guide.kind is GuideKind.POINT:
-            dots.append(Dots(GUIDE_COLOR, 12.0, outline))
-        else:
-            strokes.append(Stroke(GUIDE_COLOR, 3.0, (outline,)))
+    guide_strokes, guide_dots = guides_drawing(guides, guides_frame or layout.frame)
+    strokes.extend(guide_strokes)
+    dots.extend(guide_dots)
     rings = _ring_drawing(layout, hover, sweep)
     cues = cues or Cues()
     if cues.ghost is not None:

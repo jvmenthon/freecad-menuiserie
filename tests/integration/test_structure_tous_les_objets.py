@@ -162,3 +162,16 @@ def test_repetitions_de_pieces_et_d_ensembles_dans_l_arbre_une_seule_fois(docume
     assert [key for key, count in shown.items() if count > 1] == []
     assert not any(obj.Name in shown for obj in document.Objects if obj.TypeId == "App::Part")
     assert all(root.kind is not NodeKind.LEFTOVERS for root in roots_of(document))
+
+
+def test_brute_supprimee_la_piece_usinee_reste_dans_l_arbre(document: Any) -> None:
+    """Brute d'une pièce assemblée supprimée (« Oui » à la boîte de dépendances de FreeCAD) : la
+    pièce usinée orpheline garde une ligne, sous son propre libellé, sans exception."""
+    host, guest = blanks(document, LOOSE_TENON)
+    api.make_loose_tenons(host, guest)
+    document.recompute()
+    machined = api.machined_part_of(host)
+    document.removeObject(host.Name)
+    document.recompute()
+    assert structure_source.renamed_object(machined) == machined
+    assert machined.Name in row_keys(roots_of(document))

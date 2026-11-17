@@ -53,6 +53,17 @@ contournable), **mineur** (confort, docs, dette de test).
 | b2 | mineur | `core/furniture/_model.py`, `_edit.py` | `NoticeKind.NOT_SQUARE` et `Follow.NOT_SQUARE` ne sont plus produits depuis AB-d (toute pièce non d'équerre suit par translation). | Retirer les deux valeurs et leurs gabarits à la prochaine évolution du modèle d'ensemble. |
 | b3 | mineur | `tests/unit/test_assemblage_biais.py` | Chemins refusés sans test : `NO_WALL` en biais, invitée qui entre par un chant (`OVERLAPPING`), `TOO_SMALL` (polyèdre vide), rainure-languette en biais composé. | Ajouter les cas. |
 
+## Relecture de fin de jalon « Profils d'arête » (issue #5, ADR 0029), 2026-11-01
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| c1 | mineur | `tests/integration/test_profils_piece.py` | L'avertissement d'un profil qui touche un assemblage (B3) n'a pas de test d'intégration. | Ajouter le cas (profil sur l'arête d'un tenon ou d'une rainure, avertissement cité). |
+| c2 | mineur | `gui/task_panels/edge_finish.py` | Le panneau ne se ferme pas si la pièce ou le profil est supprimé pendant l'édition (pas de surveillance de suppression). | Fermer le panneau à la suppression de l'objet, comme les autres panneaux. |
+| c3 | mineur | `features/edge_profile.py` | Une famille inconnue relue d'un fichier devient silencieusement un chanfrein. | Avertir dans le rapport de l'objet. |
+| c4 | mineur | `core/edges/_families.py` | « Demi-rond » donne la même section que « Congé » (b = a) ; seule la cote B ignorée les distingue. | Documenter, ou ajouter automatiquement l'arête opposée. |
+| c5 | mineur | `core/edges/_ids.py`, messages | Noms et codes d'arêtes cités dans les messages non traduisibles. | Passer les noms par `QT_TRANSLATE_NOOP`. |
+| c6 | mineur | `gui/task_panels/edge_finish.py` | Aperçu lourd : recalcul complet du document et rapport bavard à chaque saisie. | Utiliser `recompute_preview`, regrouper les rapports. |
+| c7 | mineur | `docs/specs/finition-des-chants.md`, `CONTRIBUTING.md` | Écarts spec/docs : A3 `profile_section` n'existe pas, « carré a×b » faux pour le bec, liste d'objets de CONTRIBUTING.md non mise à jour, `getattr(..., "Finishes", ())` à harmoniser. | Aligner la spec et la liste. |
 ## Relecture de fin de jalon « Ensemble à la souris » (ADR 0038), 2026-11-07
 
 Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés dans la branche
@@ -136,3 +147,47 @@ de répétitions m5) sont corrigés.
 | pf2 | mineur | `core/snap/_perpendicular.py` (`footprint`, `face_section`) | Les colonnes largeur / épaisseur de l'orientation sont lues de la même façon dans les deux fonctions (motif proche). | Un petit helper commun « axe de la pièce selon l'axe d'appui ». |
 | pf3 | mineur | `features/snap_local_face.py` (`fit_to_footprint`) | Jusqu'à 18 appels `common` OCC à chaque départ perpendiculaire (3 reprises × 2 axes × 3 sondes). | Mesurer ; sortir tôt quand l'étendue ne change pas à la première reprise. |
 | pf4 | mineur | `tests/integration/test_accrochage_perpendiculaire.py` | Seuil de volume résiduel `1e-2` littéral ; pas de test isolé de `fit_to_footprint` (cas « rien ne change »). | Nommer la constante ; test avec fausse face. |
+
+- `gui/task_panels/align.py` importe `report_refusal` de `gui/commands/base.py`, comme le panneau
+  de distance : déplacer cette fonction dans un module neutre de `gui/` (revue de la PR #254).
+- `gui/task_panels/align.py` : aucun test GUI ne couvre l'envoi forcé de la position automatique
+  sur un axe ; `_combo_row` pourrait recevoir ses éléments en paramètre (revue de l'alignement
+  sur un axe, PR #254).
+- `core/align/_align.py` (`_squared`, revue de la mise en parallèle, PR #254) : à 45° ± bruit
+  numérique, le choix du quart de tour peut basculer d'un sens à l'autre (inhérent à l'arrondi) ;
+  `Alignment.angle` ne compte pas ce tour en plus (non affiché aujourd'hui) ; `_product` irait
+  mieux dans `core/geometry.py` avec `Matrix3`.
+
+## Relecture « nommage topologique » (PR #255, ADR 0056), 2026-11-13
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| nt1 | mineur | `features/solids.py` (`machined_shape`), ADR 0056 | La carte des éléments de la pièce usinée est enregistrée dans le `.FCStd` et tenue à chaque booléenne : taille du fichier et temps de recalcul non mesurés sur un meuble réel (plusieurs dizaines d'assemblages). | Mesurer taille et temps avant/après sur un meuble de référence ; documenter le résultat dans l'ADR 0056. |
+
+## Relecture « scénarios QTest de priorité 1 » (PR #263, ADR 0059), 2026-11-15
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| qt1 | mineur | `features/structure_source.py` (`renamed_object`), `features/machined_part.py` (`blank_of`) | La condition « pièce usinée dont la brute existe » est écrite deux fois. | Une fonction partagée (`has_blank`) utilisée par les deux. |
+| qt2 | mineur | `gui/double_click.py`, `gui/part_appearance.py`, `gui/structure_sync.py`, `gui/commands/cutlist.py`, `gui/view_providers/repeat.py` | Lectures `getattr(x, "ViewObject", None)` qui ne passent pas par `display_io.view_object_of` (non exposées à la fermeture d'un document à ce jour). | Les remplacer au fil de l'eau. |
+| qt3 | mineur | `tests/qtest/scenario_annulation_panneau.py`, `scenario_annuler_retablir.py`, `scenario_reouverture.py` | Deux fonctions `etat` proches ; `fermer_le_document_actif` refait `aides.fermer` ; `setUpModule` recopié dans chaque module. | Regrouper dans `aides.py` quand les scénarios de priorité 2 arrivent. |
+
+## Audit FreeCAD 1.0 / 1.1, 2026-11-14
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| fc1 | mineur | `gui/task_panels/furniture_widgets.py`, `joint.py`, `carcass.py`, `repeat.py` (`_ERROR_STYLE`, `_HINT_STYLE`, `_WARNING_STYLE`) | Couleurs de texte fixes (`#c0392b`, `#6b6b6b`, `#b35c00`) : le thème sombre livré avec FreeCAD 1.0 les rend peu contrastées (environ 3 : 1). | Prendre la couleur dans la palette Qt (`palette(placeholder-text)` pour l'aide) et éclaircir le rouge et l'orange ; à valider par jv sur les deux thèmes. |
+| fc2 | mineur | `gui/cutlist_preview.py` (`setStyleSheet("... #ffffff")`) | Fond blanc forcé sans couleur de texte : en thème sombre, le texte hérité peut être clair sur blanc. | Fixer aussi `color` (noir) dans la même feuille de style. |
+
+## Coplanarité (PR #262, ADR 0058), 2026-11-15
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| cp1 | mineur | `features/repeat_coplanar.py` (`RepeatPlanes`) | Seul le conteneur de la première source est lu : des sources de conteneurs différents ne voient pas les voisines des autres. | Lire les voisines de chaque conteneur distinct (même repère de répétition). |
+| cp2 | mineur | `features/magnet_guides.py` (`neighbor_planes`) | Voisines lues dans l'ordre du document (pas les plus proches d'abord) : au-delà de `MAX_GUIDES`, des voisines utiles peuvent manquer. | Passer l'enveloppe des sources en `reference`. |
+| cp4 | mineur | `gui/task_panels/repeat_coplanar.py` (`CoplanarCues.show`) | `except Exception` avale l'erreur sans trace (voulu : le repère ne doit pas casser l'aperçu). | Journaliser en debug (`App.Console.PrintLog`). |
+| cp5 | mineur | `gui/drag/states.py` (`Dragging.lit`), `core/magnet/_coplanar.py` (`PlaneIndex.coplanar`) | Même recherche « voisines d'une face » avec deux règles d'affichage. | Regrouper au 3e usage. |
+| cp6 | mineur | `gui/task_panels/repeat.py` (`_field_changed`), `repeat_field_snap.py` (`with_field`) | `kind` est une chaîne « step » / « span » ; tout autre texte est pris pour `span`. | `Literal["step", "span"]` ou petit `Enum`, `ValueError` sinon. |
+| cp7 | mineur | `gui/task_panels/repeat.py` (`__init__`) | Le panneau note lui-même chaque champ dans `FieldSnap` après `_fill`. | Méthode `FieldSnap.sync()` qui lit `rawValue` de chaque champ. |
+| cp8 | mineur | `gui/task_panels/repeat_coplanar.py` (`_never`, `_snapped`) | Deux petits helpers de module là où une `partial` suffirait. | Simplifier au prochain passage. |
+| cp9 | mineur | `core/magnet/_coplanar.py` (`snap_field`) | `slopes or ()` répété alors que `slopes` peut valoir `None`. | `slopes = _slopes(...) or []` dès le départ. |

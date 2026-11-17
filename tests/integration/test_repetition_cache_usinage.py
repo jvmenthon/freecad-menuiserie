@@ -59,8 +59,10 @@ def test_copies_identiques_au_calcul_sans_cache(
     assert len(cached) > machined_cache.machined_cache_size() > 0  # des copies ont été reprises
     assert plan_cache.plan_cache_size() > 0
 
-    def direct(base: Any, _key: Any, additions: Any, cuts: Any, trims: Any = ()) -> Any:
-        return solids.machined_shape(base, additions, cuts, trims)
+    def direct(
+        base: Any, _key: Any, additions: Any, cuts: Any, trims: Any = (), profiles: Any = ()
+    ) -> Any:
+        return solids.machined_shape(base, additions, cuts, trims, profiles)
 
     monkeypatch.setattr(machined_part, "cached_machined_shape", direct)
     other = App.newDocument("SansCache")
