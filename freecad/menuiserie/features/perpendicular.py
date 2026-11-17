@@ -205,10 +205,13 @@ class _Plan:
         """Départ le long de ``edge`` : axe d'appui (0 ou 1) de la cible lue, repère d'une arête
         (son axe 0) ou ``None`` (inconnu) ; resserré dans ``blank_face``. ``None`` s'il ne reste
         pas la place d'une pièce."""
-        reading, support, edge_row = self.reading, self.support, edge
+        reading, support = self.reading, self.support
+        edge_row: int | None
         if isinstance(edge, FaceTarget):  # repère d'appui tourné le long de l'arête
             reading, edge_row = replace(reading, targets=(edge,)), 0
             support = support_rotation(reading.targets) or support
+        else:
+            edge_row = edge
         if edge_row is not None:
             orientation = along_edge(orientation, edge_row)
         frames = _Frames(support, self.owner, orientation, edge_row)
