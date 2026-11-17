@@ -30,8 +30,10 @@ forment l'ensemble « Meuble » (J4) : l'arbre les range sous lui, et son pannea
 cotes, ce que fait chaque pièce quand une cote change et les distances aux bords du côté gauche.
 """
 
+import faulthandler
 import json
 import os
+import sys
 import tempfile
 import traceback
 from collections.abc import Iterator
@@ -41,6 +43,8 @@ from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+
+faulthandler.enable(sys.__stderr__ or sys.stderr)  # trace Python d'un plantage de FreeCAD
 
 QUADRILLE = "chene-quadrille"
 # (longueur, largeur, épaisseur, matériau, repère, position en mm) : un petit caisson.
