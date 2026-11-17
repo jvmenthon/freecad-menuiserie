@@ -78,3 +78,17 @@ class RepeatPlanes:
         except ERRORS:
             return ()
         return self._index.coplanar(faces, axes)
+
+    @property
+    def planes(self) -> PlaneIndex:
+        """Faces planes des voisines, dans le repère :attr:`origin`."""
+        return self._index
+
+    def faces(self, objects: Iterable[DocumentObject], axis: int) -> list[float]:
+        """Positions sur ``axis`` (0, 1, 2) des faces des ``objects`` (affichés) normales à
+        ``axis``, dans le repère :attr:`origin` ; aucune si un objet est illisible."""
+        try:
+            found = plane_guides(objects, self.origin)
+        except ERRORS:
+            return []
+        return sorted({g.position(axis) for g in found if g.axis == axis})
