@@ -43,6 +43,7 @@ from tests.gui.verifications_ensemble import VERIFICATIONS_ENSEMBLE
 from tests.gui.verifications_ensemble_revue import VERIFICATIONS_ENSEMBLE_REVUE
 from tests.gui.verifications_epaisseur_cote import VERIFICATIONS_EPAISSEUR_COTE
 from tests.gui.verifications_epaisseur_cote_limites import VERIFICATIONS_EPAISSEUR_COTE_LIMITES
+from tests.gui.verifications_epaisseur_ensemble import VERIFICATIONS_EPAISSEUR_ENSEMBLE
 from tests.gui.verifications_epaisseur_frappe import VERIFICATIONS_EPAISSEUR_FRAPPE
 from tests.gui.verifications_fil import VERIFICATIONS_FIL
 from tests.gui.verifications_onglet import VERIFICATIONS_ONGLET
@@ -1279,6 +1280,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_EPAISSEUR_COTE,
     *VERIFICATIONS_EPAISSEUR_COTE_LIMITES,
     *VERIFICATIONS_EPAISSEUR_FRAPPE,
+    *VERIFICATIONS_EPAISSEUR_ENSEMBLE,
     *VERIFICATIONS_ONGLET,
     *VERIFICATIONS_ENSEMBLE,
     *VERIFICATIONS_PANNEAU_ENSEMBLE,

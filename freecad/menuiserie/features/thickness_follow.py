@@ -77,11 +77,16 @@ def _partners(
     return [(objects[name], raised) for name, raised in raised_by_name.items()]
 
 
-def _blocker(group: Sequence[DocumentObject], fixed: Sequence[DocumentObject]) -> str | None:
+def _blocker(
+    group: Sequence[DocumentObject],
+    fixed: Sequence[DocumentObject],
+    free: DocumentObject | None,
+) -> str | None:
     """Raison pour laquelle ``group`` ne peut pas bouger, ``None`` s'il le peut. ``fixed`` :
-    pièces assemblées à la pièce modifiée ailleurs que sur sa face haute."""
+    pièces assemblées à la pièce modifiée ailleurs que sur sa face haute ; ``free`` : voir
+    :func:`~freecad.menuiserie.features.thickness_common.blocker`."""
     for part in group:
-        reason = blocker(part, (PLACEMENT,))
+        reason = blocker(part, (PLACEMENT,), free)
         if reason is not None:
             return reason
     for part in group:
@@ -129,10 +134,15 @@ class FollowPlan:
 
 
 def follow_plan(
-    part: DocumentObject, thickness: float, *, lowered: bool = False
+    part: DocumentObject,
+    thickness: float,
+    *,
+    lowered: bool = False,
+    free: DocumentObject | None = None,
 ) -> FollowPlan | None:
     """Pièces posées sur la face haute de ``part`` (face basse si ``lowered``), prise à
-    l'épaisseur ``thickness`` et à son placement actuel ; ``None`` sans assemblage."""
+    l'épaisseur ``thickness`` et à son placement actuel ; ``None`` sans assemblage. ``free`` :
+    ensemble dont les membres peuvent suivre (liaisons mises de côté)."""
     if not has_joints(part):
         return None
     size = dimensions_of(part)
@@ -144,7 +154,7 @@ def follow_plan(
     kept: dict[str, list[DocumentObject]] = {}
     for root in (other for other, raised in partners if raised):
         group = attached(root, part)
-        reason = _blocker(group, fixed)
+        reason = _blocker(group, fixed, free)
         if reason is not None:
             kept.setdefault(reason, []).append(root)
         else:
@@ -154,14 +164,20 @@ def follow_plan(
 
 
 def follow_thickness(
-    part: DocumentObject, old: float, new: float, *, lowered: bool = False
+    part: DocumentObject,
+    old: float,
+    new: float,
+    *,
+    lowered: bool = False,
+    free: DocumentObject | None = None,
 ) -> list[str]:
     """Les pièces posées sur la face haute de ``part`` (épaisseur ``old`` avant, ``new`` après)
     suivent la face ; renvoie les messages (vue rapport) : pièces qui ont suivi, pièces laissées
     en place avec la raison. ``lowered`` : l'épaisseur est ajoutée du côté de la face basse
     (ADR 0060) ; ce sont les pièces posées contre elle qui la suivent, ``part`` étant encore à
-    son placement d'avant. Sans effet si rien ne change ou si ``part`` n'a pas d'assemblage."""
-    plan = follow_plan(part, old, lowered=lowered) if old != new else None
+    son placement d'avant. Sans effet si rien ne change ou si ``part`` n'a pas d'assemblage.
+    ``free`` : voir :func:`follow_plan`."""
+    plan = follow_plan(part, old, lowered=lowered, free=free) if old != new else None
     if plan is None:
         return []
     plan.apply(new - old)

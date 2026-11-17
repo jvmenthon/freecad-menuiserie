@@ -38,9 +38,9 @@ __all__ = [
     "extend_part",
     "has_joints",
     "is_alive",
-    "is_assembled_isolated",
     "joints_of",
     "length_text",
+    "offers_thickness_choice",
     "other_part",
     "quoted",
     "quoted_parts",
@@ -62,6 +62,7 @@ _MEMBER: Final = QT_TRANSLATE_NOOP(
 _SHAPED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{label} est une pièce en bois : ses cotes sont celles du dessin."
 )
+_LOCKED: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} a des cotes fixes dans son ensemble.")
 _BOUND: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{label} : cote ou position pilotée par une expression."
 )
@@ -86,10 +87,13 @@ def has_joints(part: DocumentObject) -> bool:
     return bool(joints_of(part))
 
 
-def is_assembled_isolated(part: DocumentObject) -> bool:
-    """Vrai pour une pièce assemblée hors de tout ensemble : son épaisseur peut défaire un
-    assemblage et le panneau propose où l'ajouter (ADR 0060)."""
-    return furniture_of(part) is None and has_joints(part)
+def offers_thickness_choice(part: DocumentObject) -> bool:
+    """Vrai pour une pièce assemblée dont le panneau propose où ajouter l'épaisseur (ADR 0060) :
+    hors ensemble, ou membre d'ensemble sans cotes fixes (jv, 2026-11-17 ; l'ensemble est relié
+    d'après le résultat)."""
+    if not has_joints(part):
+        return False
+    return furniture_of(part) is None or not bool(getattr(part, "Locked", False))
 
 
 def other_part(joint: DocumentObject, part: DocumentObject) -> DocumentObject | None:
@@ -136,15 +140,22 @@ def _is_copy(part: DocumentObject) -> bool:
     return is_copy(part)
 
 
-def blocker(part: DocumentObject, props: Sequence[str]) -> str | None:
+def blocker(
+    part: DocumentObject, props: Sequence[str], free: DocumentObject | None = None
+) -> str | None:
     """Pourquoi ``part`` ne peut pas voir changer ses propriétés ``props`` (cotes de
-    :data:`SIZE_PROPS`, ``Placement``), ``None`` si elle le peut. Message traduit."""
+    :data:`SIZE_PROPS`, ``Placement``), ``None`` si elle le peut. Message traduit. ``free`` :
+    ensemble dont les liaisons sont mises de côté (ses membres changent comme des pièces seules,
+    sauf ceux à cotes fixes)."""
     label = {"label": quoted(part)}
     sizes = [prop for prop in props if prop != PLACEMENT]
     if _is_copy(part):
         return translated(_COPY, label)
-    if furniture_of(part) is not None:
+    furniture = furniture_of(part)
+    if furniture is not None and (free is None or furniture != free):
         return translated(_MEMBER, label)
+    if furniture is not None and sizes and bool(getattr(part, "Locked", False)):
+        return translated(_LOCKED, label)
     if sizes and is_shaped_part(part):
         return translated(_SHAPED, label)
     bound = any(has_expression(part, prop) for prop in sizes)

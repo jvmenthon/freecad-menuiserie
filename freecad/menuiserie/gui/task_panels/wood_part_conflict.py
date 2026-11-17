@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Encadré « où ajouter l'épaisseur ? » du panneau de la pièce de bois (ADR 0060, maquette C).
 
-Quand l'épaisseur saisie d'une pièce isolée assemblée change, l'encadré apparaît sous les cotes,
+Quand l'épaisseur saisie d'une pièce assemblée change (pièce d'ensemble comprise, jv
+2026-11-17 : l'ensemble est relié d'après le résultat à la fin), l'encadré apparaît sous les cotes,
 sans fenêtre : vers l'intérieur (la pièce reste à fleur), vers l'extérieur en prolongeant l'autre
 pièce, ou revenir à l'ancienne épaisseur ; si aucun assemblage n'est défait (tenon qui suit la
 face, par exemple), « Laisser en l'état » vient en tête (jv, 2026-11-15).
@@ -140,6 +141,7 @@ class ConflictBox:
             report([translated(_ABANDONED, {"error": str(error)})])
             App.Console.PrintLog(traceback.format_exc())  # diagnostic d'une erreur imprévue
             edit, self._edit = self._edit, None  # document rendu par ThicknessEdit (ou disparu)
+            _finish(edit)
             revert = self._revert()
             if edit is not None and revert is not None:
                 revert(edit.old)  # le champ remontre l'épaisseur du document
@@ -184,7 +186,8 @@ class ConflictBox:
             revert = self._revert()
             if revert is not None:
                 revert(self._edit.old)
-        self._edit = None
+        edit, self._edit = self._edit, None
+        _finish(edit)  # pièce d'ensemble : ensemble relié d'après l'état écrit
         self.frame.setVisible(False)
         self._block(False)
 
@@ -248,6 +251,18 @@ class ConflictBox:
             self._block(True)
             return
         self._block(False)
+
+
+def _finish(edit: ThicknessEdit | None) -> None:
+    """Fin des saisies de ``edit`` (pièce d'ensemble : ensemble relié), avertissements dans la vue
+    rapport ; une erreur y est écrite aussi (rappel d'un signal Qt : rien ne doit en sortir)."""
+    if edit is None:
+        return
+    try:
+        report(edit.finish())
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        report([translated(_ABANDONED, {"error": str(error)})])
+        App.Console.PrintLog(traceback.format_exc())
 
 
 def _weak_choice(box: ConflictBox, choice: Choice) -> Callable[[], None]:

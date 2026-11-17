@@ -59,8 +59,19 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    supprimée pendant le glissement est ignorée. L'aperçu recalcule les assemblages qui tiennent
    (chacun une fois par pas), puis la pièce usinée, de la pièce tirée et de toutes les pièces
    suivies. Au relâchement, la vue rapport donne le même message qu'en #133.
-5. Un **membre d'ensemble** garde le comportement de l'ADR 0019 (l'ensemble relie ses membres) ;
-   l'éditeur de propriétés et les scripts gardent celui de #133 (face haute, sans question).
+5. **Membre d'ensemble assemblé** (jv, 2026-11-17, amende la première version qui gardait l'ADR
+   0019) : dans le panneau, l'encadré propose **les mêmes choix qu'une pièce seule**. Le temps de
+   l'encadré, les liaisons de l'atelier des membres de l'ensemble sont mises de côté : les choix
+   déplacent ou prolongent ses membres comme des pièces seules (un membre d'un **autre** ensemble,
+   ou à cotes fixes pour une cote, reste bloqué). À la fin (« OK », ou autre saisie qui fige
+   l'état), la boîte de l'ensemble est recalée sur l'enveloppe de ses membres (ADR 0049) et tous
+   ses membres sont reliés d'après la géométrie obtenue ; « Annuler » rend tout, liaisons
+   comprises (transaction du panneau). Exemple : joue gauche du bureau de 22 à 30 mm « vers
+   l'intérieur » : la voile et la joue droite sont poussées de 8 mm, l'ensemble passe à 1208 mm.
+   Un membre sans assemblage, ou lui-même à cotes fixes, garde le comportement de l'ADR 0019
+   (l'ensemble garde ses cotes, les voisines s'adaptent) ; la poignée d'épaisseur d'un membre
+   aussi. L'éditeur de propriétés et les scripts gardent celui de #133 (face haute, sans
+   question).
 
 ## Conséquences
 
@@ -69,7 +80,8 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
   en proche, une seule raison « ne peut pas changer » partagée avec #133, écritures sans
   réaction), `features/thickness_choice.py` (`ThicknessEdit`, choix), `features/thickness_texts.py`
   (phrases complètes traduisibles de l'encadré), `features/thickness_drag.py` (souris,
-  `FaceFollows`), `features/thickness_follow.py` (`FollowPlan`, `follow_plan` de #133, réutilisés
+  `FaceFollows`), `features/thickness_member.py` (`MemberFreedom` : liaisons de l'ensemble mises
+  de côté puis refaites), `features/thickness_follow.py` (`FollowPlan`, `follow_plan` de #133, réutilisés
   par `DragFollow`), `features/blank_preview.py` (aperçu des brutes pendant un geste),
   `gui/task_panels/wood_part_conflict.py` (encadré), `features/part_drag.resize_part` (renvoie la
   raison d'une butée).

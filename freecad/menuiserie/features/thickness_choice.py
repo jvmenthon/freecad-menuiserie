@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Épaisseur d'une pièce isolée qui défait un de ses assemblages : où ajouter l'écart (ADR 0060).
+"""Épaisseur d'une pièce assemblée : où ajouter l'écart (ADR 0060).
 
 Le panneau de la pièce ouvre une :class:`ThicknessEdit` à la première épaisseur saisie : elle
 garde l'état de départ (placements et cotes des pièces assemblées de proche en proche) et chaque
@@ -15,8 +15,10 @@ il essaie aussi :
 - ``REVERT`` : l'ancienne épaisseur.
 
 Un choix est proposé s'il ne défait aucun assemblage qui tenait, sinon grisé avec sa raison
-(:func:`~freecad.menuiserie.features.thickness_common.blocker`). Écritures sous :func:`writing` ;
-aucun import de ``FreeCADGui``.
+(:func:`~freecad.menuiserie.features.thickness_common.blocker`). Pièce d'un ensemble : mêmes
+choix (jv, 2026-11-17), liaisons de l'ensemble mises de côté puis refaites d'après le résultat
+(:meth:`ThicknessEdit.finish`, :mod:`~freecad.menuiserie.features.thickness_member`). Écritures
+sous :func:`writing` ; aucun import de ``FreeCADGui``.
 """
 
 from __future__ import annotations
@@ -55,6 +57,7 @@ from freecad.menuiserie.features.thickness_common import (
     size_state,
 )
 from freecad.menuiserie.features.thickness_follow import follow_thickness
+from freecad.menuiserie.features.thickness_member import MemberFreedom
 from freecad.menuiserie.features.thickness_texts import (
     extend_text,
     keep_text,
@@ -132,12 +135,14 @@ def _broken(parts: Sequence[DocumentObject]) -> dict[str, DocumentObject]:
 
 
 class ThicknessEdit:
-    """Suite de saisies d'épaisseur de la pièce isolée ``part`` dans un panneau : état de départ
-    gardé, chaque saisie repart de lui."""
+    """Suite de saisies d'épaisseur de la pièce assemblée ``part`` dans un panneau : état de
+    départ gardé, chaque saisie repart de lui ; :meth:`finish` à la fin (pièce d'ensemble)."""
 
     def __init__(self, part: DocumentObject) -> None:
         self.part = part
         self.old = float(part.Thickness.Value)
+        self._freedom = MemberFreedom(part)  # avant de lire l'état : liaisons mises de côté
+        self._free = self._freedom.furniture
         self._parts = attached(part)
         self._states = {
             obj.Name: _PartState(App.Placement(obj.Placement), size_state(obj))
@@ -170,6 +175,11 @@ class ThicknessEdit:
             state = self._states[obj.Name]
             restore_state(obj, state.sizes, state.placement)
 
+    def finish(self) -> list[str]:
+        """Fin des saisies : pièce d'ensemble, ensemble recalé et relié d'après l'état écrit ;
+        renvoie les avertissements (vue rapport). Sans effet hors ensemble ou déjà fait."""
+        return self._freedom.finish()
+
     def _new_breaks(self) -> list[DocumentObject]:
         return [j for n, j in _broken(self._parts).items() if n not in self._already_broken]
 
@@ -193,16 +203,16 @@ class ThicknessEdit:
     def _apply(self, new: float, choice: Choice) -> list[str]:
         delta = new - self.old
         if choice is Choice.OTHER_SIDE:
-            reason = blocker(self.part, (PLACEMENT,))
+            reason = blocker(self.part, (PLACEMENT,), self._free)
             if reason is not None:
                 raise UnavailableError(reason)
             self._write_thickness(new)
-            messages = follow_thickness(self.part, self.old, new, lowered=True)
+            messages = follow_thickness(self.part, self.old, new, lowered=True, free=self._free)
             shift = other_side_shift(self._before, delta)
             shift_part(self.part, App.Vector(shift.x, shift.y, shift.z))
             return messages
         self._write_thickness(new)
-        messages = follow_thickness(self.part, self.old, new)
+        messages = follow_thickness(self.part, self.old, new, free=self._free)
         if choice is Choice.EXTEND:
             self._extend(delta)
         return messages
@@ -227,7 +237,7 @@ class ThicknessEdit:
             props = [SIZE_PROPS[extension.axis]]
             if not extension.at_end:
                 props.append(PLACEMENT)
-            reason = blocker(other, props)
+            reason = blocker(other, props, self._free)
             if reason is not None:
                 raise UnavailableError(reason)
             if state.sizes[extension.axis] + delta < MIN_DIMENSION_MM:

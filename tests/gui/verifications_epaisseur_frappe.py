@@ -45,7 +45,7 @@ def _touche(champ: Any, code: int, texte: str = "") -> None:
     QtGui.QApplication.processEvents()
 
 
-def _taper(champ: Any, texte: str) -> None:
+def taper(champ: Any, texte: str) -> None:
     """``texte`` tapé à la place du contenu du champ, touche par touche."""
     editeur = champ.lineEdit() if hasattr(champ, "lineEdit") else champ
     editeur.setFocus()
@@ -54,7 +54,7 @@ def _taper(champ: Any, texte: str) -> None:
         _touche(editeur, ord(caractere.upper()), caractere)
 
 
-def _invalides(doc: Any) -> list[str]:
+def invalides(doc: Any) -> list[str]:
     return [o.Label for o in doc.Objects if "Invalid" in o.State]
 
 
@@ -68,7 +68,7 @@ def verifier_frappe_passe_par_deux() -> list[str]:
         if form is None:
             return ["panneau de la pièce non ouvert"]
         problemes: list[str] = []
-        _taper(form.thicknessEdit, "2")
+        taper(form.thicknessEdit, "2")
         non_appliquee = widget(form, "conflictNotApplied")
         problemes += [
             *ecarts("« 2 » : épaisseur non écrite", invitee.Thickness.Value, 18.0),
@@ -76,13 +76,13 @@ def verifier_frappe_passe_par_deux() -> list[str]:
                 "« 2 » : encadré affiché", encadre(form)["thicknessConflict"].isHidden(), False
             ),
             *ecarts("« 2 » : non appliquée dite", non_appliquee.isHidden(), False),
-            *ecarts("« 2 » : objets en erreur", _invalides(doc), []),
+            *ecarts("« 2 » : objets en erreur", invalides(doc), []),
         ]
         _touche(form.thicknessEdit.lineEdit(), QtCore.Qt.Key_2, "2")
         problemes += [
             *ecarts("« 22 » : épaisseur", invitee.Thickness.Value, 22.0),
             *ecarts("« 22 » : message masqué", non_appliquee.isHidden(), True),
-            *ecarts("« 22 » : objets en erreur", _invalides(doc), []),
+            *ecarts("« 22 » : objets en erreur", invalides(doc), []),
         ]
         annuler()
         return problemes
@@ -97,7 +97,7 @@ def verifier_bloque_refuse_ok() -> list[str]:
         form = ouvrir_par_double_clic(invitee)
         if form is None:
             return ["panneau de la pièce non ouvert"]
-        _taper(form.thicknessEdit, "2")
+        taper(form.thicknessEdit, "2")
         Gui.Control.activeTaskDialog().accept()
         refuse = bool(Gui.Control.activeDialog())  # panneau resté ouvert
         encadre(form)["conflict_revert"].click()
@@ -124,7 +124,7 @@ def verifier_choix_change_la_vue_3d() -> list[str]:
         form = ouvrir_par_double_clic(invitee)
         if form is None:
             return ["panneau de la pièce non ouvert"]
-        _taper(form.thicknessEdit, "30")
+        taper(form.thicknessEdit, "30")
         usinee = machined_part_of(hote)
 
         def longueurs() -> tuple[float, float]:
@@ -141,7 +141,7 @@ def verifier_choix_change_la_vue_3d() -> list[str]:
             *ecarts("intérieur", avant, (400.0, 400.0)),
             *ecarts("extérieur : H allongée en 3D", allongee, (412.0, 412.0)),
             *ecarts("retour intérieur", rendue, (400.0, 400.0)),
-            *ecarts("objets en erreur", _invalides(doc), []),
+            *ecarts("objets en erreur", invalides(doc), []),
         ]
         annuler()
         return problemes
@@ -157,7 +157,7 @@ def verifier_laisser_en_l_etat() -> list[str]:
         form = ouvrir_par_double_clic(hote)
         if form is None:
             return ["panneau de la pièce non ouvert"]
-        _taper(form.thicknessEdit, "30")
+        taper(form.thicknessEdit, "30")
         laisser = widget(form, "conflict_as_typed")
         w = encadre(form)
         problemes = [
@@ -175,7 +175,7 @@ def verifier_laisser_en_l_etat() -> list[str]:
         laisser.click()
         problemes += [
             *ecarts("laisser : H en place", tuple(hote.Placement.Base), (0.0, 0.0, 0.0)),
-            *ecarts("objets en erreur", _invalides(doc), []),
+            *ecarts("objets en erreur", invalides(doc), []),
         ]
         valider()
         doc.recompute()
@@ -196,26 +196,26 @@ def verifier_saisies_successives_laisser() -> list[str]:
         w = encadre(form)
         problemes: list[str] = []
         for texte, valeur in (("30", 30.0), ("24", 24.0)):
-            _taper(form.thicknessEdit, texte)
+            taper(form.thicknessEdit, texte)
             problemes += [
                 *ecarts(f"{texte} : encadré affiché", w["thicknessConflict"].isHidden(), False),
                 *ecarts(
                     f"{texte} : laisser coché", widget(form, "conflict_as_typed").isChecked(), True
                 ),
                 *ecarts(f"{texte} : I suit", invitee.Placement.Base.z, valeur),
-                *ecarts(f"{texte} : objets en erreur", _invalides(doc), []),
+                *ecarts(f"{texte} : objets en erreur", invalides(doc), []),
             ]
-        _taper(form.thicknessEdit, "18")
+        taper(form.thicknessEdit, "18")
         problemes += [
             *ecarts("18 : encadré masqué", w["thicknessConflict"].isHidden(), True),
             *ecarts("18 : I en place", invitee.Placement.Base.z, 18.0),
         ]
-        _taper(form.thicknessEdit, "30")
+        taper(form.thicknessEdit, "30")
         annuler()
         problemes += [
             *ecarts("Annuler : épaisseur", hote.Thickness.Value, 18.0),
             *ecarts("Annuler : I en place", invitee.Placement.Base.z, 18.0),
-            *ecarts("Annuler : objets en erreur", _invalides(doc), []),
+            *ecarts("Annuler : objets en erreur", invalides(doc), []),
         ]
         return problemes
 
@@ -229,7 +229,7 @@ def verifier_annuler_apres_exterieur() -> list[str]:
         form = ouvrir_par_double_clic(invitee)
         if form is None:
             return ["panneau de la pièce non ouvert"]
-        _taper(form.thicknessEdit, "30")
+        taper(form.thicknessEdit, "30")
         encadre(form)["conflict_extend"].click()
         annuler()
         return [
@@ -239,7 +239,7 @@ def verifier_annuler_apres_exterieur() -> list[str]:
                 (hote.Length.Value, tuple(hote.Placement.Base)),
                 (400.0, (0.0, 0.0, 0.0)),
             ),
-            *ecarts("objets en erreur", _invalides(doc), []),
+            *ecarts("objets en erreur", invalides(doc), []),
         ]
 
 
@@ -251,7 +251,7 @@ def verifier_piece_sans_assemblage() -> list[str]:
         form = ouvrir_par_double_clic(piece)
         if form is None:
             return ["panneau de la pièce non ouvert"]
-        _taper(form.thicknessEdit, "22")
+        taper(form.thicknessEdit, "22")
         problemes = [
             *ecarts("encadré masqué", encadre(form)["thicknessConflict"].isHidden(), True),
             *ecarts("épaisseur", piece.Thickness.Value, 22.0),
@@ -271,7 +271,7 @@ def verifier_autre_cote_pendant_blocage() -> list[str]:
         form = ouvrir_par_double_clic(invitee)
         if form is None:
             return ["panneau de la pièce non ouvert"]
-        _taper(form.thicknessEdit, "2")
+        taper(form.thicknessEdit, "2")
         saisir(form.lengthEdit, 390.0)
         problemes = [
             *ecarts("champ rendu", valeur(form.thicknessEdit), 18.0),

@@ -49,7 +49,7 @@ from freecad.menuiserie.features.placement import (
     snap_part,
 )
 from freecad.menuiserie.features.size_limit import limit_initial_size
-from freecad.menuiserie.features.thickness_common import is_assembled_isolated
+from freecad.menuiserie.features.thickness_common import offers_thickness_choice
 from freecad.menuiserie.features.wood_part_schema import is_from_newer_version
 from freecad.menuiserie.gui import joint_choice
 from freecad.menuiserie.gui.task_panels import base
@@ -193,12 +193,12 @@ class WoodPartTaskPanel(ObjectTaskPanel):
     def _on_thickness_changed(self, value: float) -> None:
         """Épaisseur saisie : contrôlée puis écrite pour une pièce membre d'un ensemble (sous
         ``writing``, les avertissements sont rapportés ici et non par ``onChanged``) ; refusée,
-        elle n'est pas écrite et le refus s'affiche (G3). Pièce isolée assemblée : l'encadré
-        « où ajouter l'épaisseur ? » s'affiche si elle défait un assemblage (ADR 0060)."""
+        elle n'est pas écrite et le refus s'affiche (G3). Pièce assemblée, même dans un ensemble
+        (jv, 2026-11-17) : l'encadré « où ajouter l'épaisseur ? » s'affiche (ADR 0060)."""
         if self.obj.Thickness.Value == value and not self._conflict.shown:
             self._unlock.clear()  # retour à l'épaisseur écrite : plus de refus
             return
-        if is_assembled_isolated(self.obj):
+        if offers_thickness_choice(self.obj):
             self._conflict.edit(value)
             self._recompute()
             return
@@ -262,6 +262,7 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         cochée, le tout avant la validation de la transaction. Une saisie d'angle en cours est
         d'abord contrôlée."""
         self._angles.finish()
+        self._conflict.forget()  # pièce d'ensemble : ensemble relié d'après l'état écrit
         self._snap.join_furniture()
 
     def _release_display(self) -> None:
