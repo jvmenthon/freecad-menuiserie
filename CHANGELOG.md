@@ -5,20 +5,39 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté (outillage)
+
+- Preuve de concept de tests d'interface avec QTest (#263, ADR 0059) : un scénario complet (deux pièces, rotation, queue d'aronde) est joué au clavier et à la souris dans le vrai FreeCAD par son mode test, sous `xvfb-run` dans la CI. Voir `docs/tests-gui-qtest.md`.
+- Scénarios QTest de priorité 1 (#263) : annuler et rétablir de bout en bout, enregistrer puis rouvrir, annulation de chaque panneau (bouton et Échap), modification d'une pièce déjà assemblée, saisies hostiles au clavier, document fermé avec un panneau ouvert, suppression (assemblage, pièce assemblée, ensemble avec son contenu). La CI joue chaque module `tests/qtest/scenario_*.py` dans son propre FreeCAD par `tests/qtest/lanceur.py`.
+- Scénarios QTest de priorité 2 et 3 (#265) : cadre et liste de débit (aperçu, export CSV), chaque type d'assemblage, assemblages en biais, ensemble, répétition, rotation au panneau, « Aligner deux faces » et distance gardée, quincaillerie d'un caisson, pièce en bois depuis un corps, panneau « Structure » (menu contextuel, glisser-déposer), passage par les ateliers Part et TechDraw, activation des commandes selon la sélection, deux documents en alternance. Les aides refusent désormais un geste sur un widget masqué, grisé ou en lecture seule.
+
 ### Modifié
 
 - Épaisseur d'une pièce assemblée qui défait un assemblage (queue d'aronde plus à fleur, par exemple) : le panneau de la pièce affiche sous les cotes un encadré « Où ajouter les N mm ? » (vers l'intérieur, la pièce reste à fleur ; vers l'extérieur en allongeant l'autre pièce ; revenir à l'ancienne épaisseur). Un choix impossible (copie de répétition, membre d'un autre ensemble, pièce en bois, expression) est grisé avec sa raison ; si aucun ne tient (frappe en cours, épaisseur trop mince), rien n'est écrit et « OK » est inactif. Quand l'épaisseur ne défait aucun assemblage, l'encadré propose aussi « Laisser en l'état », en tête. Une pièce d'ensemble assemblée a les mêmes choix : l'ensemble est relié d'après le résultat (boîte recalée sur ses membres). À la souris, la face tirée décide : l'autre pièce à fleur s'allonge en direct, ou la poignée s'arrête si elle ne peut pas (ADR 0060).
 
 - Std Part d'un ensemble supprimé en gardant son contenu (« Non ») : l'objet ensemble est supprimé aussi, juste après, dans sa propre entrée d'annulation ; les pièces gardent leur place (ADR 0061, remplace ce point de l'ADR 0038).
 
+- Coplanarité dans le panneau « Répéter » (ADR 0058, demande de jv) : le cadre des faces au ras est tracé dès l'ouverture d'une répétition existante ; les flèches des champs « Pas » et « Longueur » (et la molette, les touches haut et bas) s'arrêtent sur la valeur qui met une copie au ras d'une voisine quand elle est franchie à moins de 1 mm (voisine à 20 : 17,2 ; 18,2 ; 19,2 → 20 ; 21,2). Une valeur saisie au clavier n'est jamais modifiée.
+
 - Pièce usinée : sa forme a désormais une carte des éléments (nommage topologique de FreeCAD 1.1, ADR 0056). Un lien d'un autre atelier vers une de ses faces ou arêtes (cote TechDraw, esquisse attachée, Assembly) suit l'élément quand on ajoute, modifie ou retire un assemblage, au lieu de garder un numéro qui peut viser un autre élément. Tests d'intégration `test_nommage_topologique`.
 
 - Liste de débit, aperçu et exports CSV et PDF : quand des pièces n'ont pas de repère, une boîte d'avertissement propose de les numéroter automatiquement, de continuer sans repère ou d'annuler. Nouvelle fonction `api.count_unmarked_parts` (lecture seule).
 - « Exporter la liste de débit (CSV)… » : le format (français : « ; » et virgule décimale, ou international) se choisit dans la boîte d'enregistrement, par un filtre à chaque format. Le français est présélectionné quand FreeCAD est en français, puis le dernier choix est retenu dans les préférences (issue #223).
+- Ensemble : une cote que remplissent seules des pièces à plat (cadre à plat, planches empilées) change leur épaisseur, au prorata quand elles sont plusieurs (22 + 18 mm dans 40 mm deviennent 27,5 + 22,5 mm dans 50 mm) ; avant, la cote était refusée. Une pièce verrouillée, dessinée ou copie liée bloque toujours la rangée (#265, ADR 0062).
+- Panneau « Structure » : la touche F2 renomme la ligne choisie, comme dans l'arbre de FreeCAD ; c'est l'entrée « Renommer » du menu contextuel, avec les mêmes refus (#265).
 - L'infobulle des commandes qui attendent une sélection (assemblages, quincaillerie, ensembles, répétition, « Définir une distance », « Convertir en pièce en bois ») se termine par une ligne « Prérequis : … » qui dit quoi sélectionner, que le bouton soit grisé ou non (issue #221, ADR 0052).
 
 ### Corrigé
 
+- « Ajouter à l'ensemble » : une pièce ajoutée alors qu'elle dépasse de la boîte de l'ensemble l'agrandit jusqu'à la contenir (#265, ADR 0049 ; la boîte n'est jamais réduite) ; avant, la boîte gardait ses cotes sans rien signaler.
+- Panneau de l'ensemble : une cote qui ne laisse plus la place à un assemblage ou à une quincaillerie (perçage au pas de 32 mm sur un côté devenu trop petit) est refusée sous les cotes, avec l'explication, et « OK » reste inactif jusqu'à une cote qui convient ; avant, seule la vue rapport le disait (#265).
+- Libellé d'une quincaillerie posée sur une seule pièce : « Pieds : Dessous » au lieu de « Pieds : Dessous Dessous » (#265).
+- Perçage au pas de 32 mm : le refus d'un côté trop petit dit « un rang de trous » et non « 1 rangs » (#265).
+- Panneaux de tâche : après une erreur de recalcul pendant la saisie (valeur en cours refusée par un assemblage, par exemple « 3 » avant « 300 »), le panneau suivant ne s'ouvrait parfois pas (double-clic sans effet, `TypeError` sur `kindCombo` dans la vue rapport, environ une fois sur dix). La trace de la dernière erreur gardait en vie le panneau fermé et les enveloppes PySide de ses widgets ; ses cadres sont vidés avant d'ouvrir un panneau (`gui/error_frames.py`). Trouvé par le scénario QTest `scenario_modifier_piece_assemblee` en CI.
+- Queue d'aronde : une largeur de griffe saisie sous 0,1 mm est refusée avec un message (« Griffes trop étroites »), au lieu d'être acceptée jusqu'à 0,001 mm.
+- Fermer un document pendant qu'un panneau de création (pièce en bois, assemblage) est ouvert n'écrit plus d'erreur « Unknown document » dans la vue rapport : l'affichage d'un document déjà fermé est ignoré (trouvé par le scénario QTest `scenario_document_ferme`).
+- Panneau « Structure » : supprimer la pièce brute d'une pièce déjà assemblée ne provoque plus d'erreur (`TypeError`) à chaque rafraîchissement du panneau ; la pièce usinée restante garde sa ligne (trouvé par le scénario QTest `scenario_suppression`, test d'intégration `test_brute_supprimee_la_piece_usinee_reste_dans_l_arbre`).
+- Queue d'aronde : faute dans le message « pièce trop étroite » (« une angle » devient « un angle »).
 - Compatibilité FreeCAD 1.1 : la boîte « repères manquants » de la liste de débit utilise `exec()` (`exec_()` est obsolète en PySide6).
 - Compatibilité FreeCAD 1.1 : `positioned` reconnaît les éléments d'origine (`App::Plane`, `App::Line`, `App::Point` cités par l'`App::Origin`) sans le type `App::OriginFeature`, supprimé en 1.1. Sans cela, ces éléments, rangés dans le groupe du Std Part, auraient été « remis en place » en écrivant leur `Placement` quand un Std Part est déplacé.
 - Panneau « Structure » : régression de #208, la transparence de sélection (50 %, bleu clair) n'apparaissait plus pendant une tâche. Elle est de nouveau posée dès le clic de ligne, en même temps que la transparence d'édition (60 %) de la pièce éditée, les deux indépendantes (l'édition prime sur le même objet). Elle est écrite dans la transaction du panneau puis retirée avant sa validation ou son abandon : aucune teinte dans l'historique d'annulation (Ctrl+Z/Ctrl+Y) ni dans le fichier, y compris enregistré pendant la tâche ; une tâche d'un autre atelier garde la pose différée (ADR 0046). Ctrl+Z / Ctrl+Y rejouent la valeur d'affichage du moment : elle est corrigée après coup (`slotRedoDocument`). Limite : un calque d'édition reposé par un enregistrement pendant la tâche est écrit dans la transaction (comportement antérieur inchangé).
@@ -31,6 +50,26 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Ajouté
 
+- Finition des chants, lot CH-a (#5, ADR 0029) : règles pures des profils d'arête (12 arêtes par
+  code local, chanfrein, quart de rond, arête cassée, gorge, demi-rond, bec-de-corbin, doucine) et
+  section balayée `Extrusion`.
+- Finition des chants, lot CH-b (#5, ADR 0029) : objet `EdgeProfile`, propriété `Finishes` de la pièce
+  usinée (modèle 2, migration sans perte), profils soustraits avant les assemblages, avertissement
+  « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
+  `edge_profiles_of` de l'API.
+- Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
+  arêtes choisies d'après la face, l'arête ou le sommet sélectionné, cote B
+  seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),
+  aperçu en direct, modification au double-clic sur le profil, `set_edge_profile` dans l'API.
+  Une pièce en bois à forme dessinée est acceptée quand sa forme est une boîte (jugée sur
+  l'encombrement exact : une copie ou un corps dessiné de biais n'est plus refusé).
+  La commande est active sans sélection (on désigne pièces, faces ou arêtes dans la vue 3D).
+  Liste « Pièces concernées » : une carte par pièce (couleur, nom, nombre d'arêtes, croix), un
+  profil par pièce dans une seule entrée d'annulation, arêtes choisies sur un patron déplié ou
+  une boîte en perspective (faces cachées hachurées « cachée »), bascule mémorisée ; arêtes
+  choisies mises en valeur dans la vue 3D à la couleur de chaque pièce (incrustation, rien dans
+  le document).
+- Coplanarité (ADR 0058, demande de jv) : pendant un glissement par une flèche (déplacement ou copie Ctrl), une face qui arrive au ras d'une face d'un autre meuble s'y aimante et les deux faces s'allument en magenta, comme l'aimantation ; une poignée montre aussi les faces au ras. Dans le panneau « Répéter », les faces des copies au ras d'une pièce voisine sont tracées à chaque saisie : on voit quand le pas est le bon. Maj coupe l'aimant comme avant.
 - Commande « Aligner deux faces » (clic droit sur deux faces de deux objets) : un panneau aligne la seconde pièce en direct, avec la position automatique (au ras ou face contre face, la plus petite rotation), au ras, face contre face ou d'équerre, un décalage sur les trois axes de la face de référence, un déplacement libre ou sur un seul axe (X, Y ou Z, sans rotation), trois boutons « Centrer sur X, Y, Z » (les trois d'un coup confondent les centres des deux faces ; la pièce est aussi rendue parallèle à l'autre), un bouton « Inverser » (échange la pièce pilotée et la pilotante) et « Annuler » qui remet tout en place. Nouvelle fonction `api.align_faces(first, second, mode="auto", offset=(0, 0, 0), axis=None, centered="")` (ADR 0054).
 - Répétition des pièces en bois à forme libre (ADR 0050) : une pièce convertie depuis un corps FreeCAD (`ShapedPart`) se répète seule ou dans un ensemble. La copie est une `ShapedPart` qui lie le même corps (jamais copié ni modifié) ; `SourceAxes`, `ProfileThickness`, matériau, fil, surcotes et `Placement` suivent la source par expression, `SolidIndex` et `SolidSignature` sont copiés par valeur, `Length`, `Width` et `Thickness` restent des sorties du recalcul, sans expression. Dissociation, suppression, assemblages, ensembles et liste de débit comme pour une pièce de bois ; la commande « Convertir » ignore les copies liées (`converted_part_of`). Tests unitaires et d'intégration (`test_repetition_pieces_en_bois`).
 - Cotes du parent à l'enveloppe de ses membres (ADR 0049) : après un déplacement ou une rotation

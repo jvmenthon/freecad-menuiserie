@@ -33,12 +33,16 @@ from freecad.menuiserie.core.geometry import CONTACT_TOLERANCE_MM
 class Row:
     """Rangée d'un membre sur un axe : clés de ses membres (lui compris, dans l'ordre des
     membres), clés des membres verrouillés, et vrai si la rangée est bloquée (aucune cellule
-    ne peut absorber un changement)."""
+    ne peut absorber un changement). ``layer`` : dans une rangée bloquée, clés des pièces à plat
+    dont les épaisseurs remplissent seules la cote de l'ensemble (une couche ou plusieurs
+    empilées, ADR 0062) : elles se partagent un changement de cote au prorata de leur
+    épaisseur ; vide dès qu'une pièce de la rangée est verrouillée, dessinée ou copie liée."""
 
     axis: FurnitureAxis
     keys: tuple[str, ...]
     locked: tuple[str, ...]
     blocked: bool = False
+    layer: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -286,6 +290,21 @@ def _distribute(inside: Sequence[_Cell]) -> tuple[bool, bool]:
     return False, converted
 
 
+def _layers(entries: Sequence[_Entry], inside: range, locked: Sequence[str]) -> tuple[str, ...]:
+    """Clés des pièces à plat qui remplissent seules la cote, en une ou plusieurs couches
+    (ADR 0062) : chaque cellule de l'ensemble est exactement l'épaisseur d'une pièce, et chaque
+    pièce de la rangée est à plat sur une seule de ces cellules. Vide dès qu'une pièce est
+    verrouillée, dessinée ou copie liée, ou qu'une Distance gardée est sur l'axe."""
+    fixed = any(e.member.locked or e.member.drawn or e.member.linked for e in entries)
+    if not entries or fixed or locked or not all(entry.thin for entry in entries):
+        return ()
+    if any(entry.hi != entry.lo + 1 or entry.lo not in inside for entry in entries):
+        return ()
+    if {entry.lo for entry in entries} != set(inside):
+        return ()
+    return tuple(entry.member.key for entry in entries)
+
+
 def _coordinates(cells: Sequence[_Cell], points: Sequence[float], zero: int) -> list[Linear]:
     """Somme des cellules qui précèdent chaque point depuis 0 ; constante avant 0."""
     result = [Linear.of(0.0, point) for point in points[:zero]]
@@ -329,8 +348,9 @@ def solve_row(
     locked = tuple(found for found in keys if members[found].locked)
     locked += tuple(gap.key for gap in active)  # une Distance compte comme une pièce verrouillée
     kept = converted and len(entries) == 1 and entries[0].thin
+    layer = _layers(entries, range(zero, end), locked) if blocked else ()
     return SolvedRow(
-        Row(axis, tuple(keys), locked, blocked),
+        Row(axis, tuple(keys), locked, blocked, layer),
         tuple(points),
         tuple(_coordinates(cells, points, zero)),
         kept,

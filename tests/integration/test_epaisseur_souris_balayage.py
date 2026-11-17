@@ -19,7 +19,7 @@ App = pytest.importorskip("FreeCAD")
 drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
 Vec3 = pytest.importorskip("freecad.menuiserie.core.geometry").Vec3
 machined = pytest.importorskip("freecad.menuiserie.features.machined_part")
-machining_plan = pytest.importorskip("freecad.menuiserie.features.machining_plan")
+machined_plans = pytest.importorskip("freecad.menuiserie.features.machined_plans")
 
 pytestmark = pytest.mark.integration
 
@@ -211,7 +211,7 @@ def test_apercu_assemblage_qui_ne_tient_plus_change_quand_meme_la_taille(
         raise ValueError("ne tient plus")
 
     monkeypatch.setattr(blank_preview, "plan_for", broken)
-    monkeypatch.setattr(machining_plan, "plan_for", broken)
+    monkeypatch.setattr(machined_plans, "plan_for", broken)
     recomputes: list[str] = []
     monkeypatch.setattr(type(joint.Proxy), "execute", lambda _s, o: recomputes.append(o.Name))
     capfd.readouterr()
@@ -261,7 +261,7 @@ def _broken_joint(monkeypatch: pytest.MonkeyPatch) -> None:
         raise ValueError("ne tient plus")
 
     monkeypatch.setattr(blank_preview, "plan_for", broken)
-    monkeypatch.setattr(machining_plan, "plan_for", broken)
+    monkeypatch.setattr(machined_plans, "plan_for", broken)
 
 
 @pytest.mark.parametrize(("prop", "value"), [("Length", 300), ("Width", 100), ("Thickness", 40)])

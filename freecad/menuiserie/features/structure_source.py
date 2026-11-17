@@ -221,5 +221,8 @@ def row_key_of(obj: DocumentObject) -> str:
 
 def renamed_object(obj: DocumentObject) -> DocumentObject:
     """Objet dont le libellé est celui de la ligne : la brute pour une pièce usinée (la ligne
-    porte le libellé de sa brute, sans « (usinée) », ADR 0046), sinon l'objet lui-même."""
-    return blank_of(obj) if is_machined_part(obj) else obj
+    porte le libellé de sa brute, sans « (usinée) », ADR 0046), sinon l'objet lui-même. Une pièce
+    usinée dont la brute a été supprimée garde son propre libellé (ligne toujours affichée)."""
+    if is_machined_part(obj) and is_timber(obj.Base):
+        return blank_of(obj)
+    return obj

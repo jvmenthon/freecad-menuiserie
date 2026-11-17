@@ -28,12 +28,13 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.snap import Turn
-from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.core.text import bounded_text, quoted_value
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import has_member_properties
 from freecad.menuiserie.features.furniture_members import remove_members
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.joints.base import is_joint, plan_for
+from freecad.menuiserie.features.joints.feasible import joints_in_error
 from freecad.menuiserie.features.machined_part import (
     machined_part_of,
     remove_machined_part,
@@ -78,9 +79,7 @@ class DragCancelledError(Exception):
 def invalid_joints(part: DocumentObject) -> frozenset[str]:
     """Noms des assemblages de la brute ``part`` déjà en erreur avant un changement de position :
     ils ne sont pas défaits par lui."""
-    return frozenset(
-        joint.Name for joint in part.InList if is_joint(joint) and "Invalid" in joint.State
-    )
+    return frozenset(joints_in_error(part))
 
 
 def broken_joints(
@@ -116,7 +115,7 @@ def remove_joints(joints: Sequence[DocumentObject]) -> None:
     for joint in joints:
         document.removeObject(joint.Name)
     for found in machined:
-        if not found.Joints:
+        if not found.Joints and not found.Finishes:
             remove_machined_part(found)
 
 
@@ -159,11 +158,12 @@ def delete_machined_part(
         show_blank(getattr(machined, "Base", None))
         return True
     joints = list(machined.Joints)
+    finishes = list(machined.Finishes)
     blank = getattr(machined, "Base", None)
-    if not joints:
+    if not joints and not finishes:
         show_blank(blank)
         return True
-    labels = [f"« {quoted_value(joint.Label)} »" for joint in joints]
+    labels = [f"« {quoted_value(item.Label)} »" for item in (*joints, *finishes)]
     if not choose(f"« {quoted_value(machined.Label)} »", labels):
         return False
     document, name = machined.Document, machined.Name
@@ -171,6 +171,8 @@ def delete_machined_part(
         # Les voisines ne citent plus la pièce. Le message « reste dans son Std Part » est omis :
         # la pièce, assemblée par définition, disparaît juste après avec ses assemblages.
         remove_members([blank])
+    for finish in finishes:
+        document.removeObject(finish.Name)
     remove_joints(joints)
     if document.getObject(name) is not None:  # pièce non retrouvée par ses assemblages
         remove_machined_part(machined)
@@ -242,8 +244,9 @@ def new_joint_warnings(raw: DocumentObject, already_invalid: Collection[str]) ->
     """Avertissement pour chaque assemblage de la brute ``raw`` devenu invalide (B7), hors ceux
     qui l'étaient déjà : le glissement est gardé, on prévient seulement (règle Q4 de J4)."""
     warnings = []
-    for joint in raw.InList:
-        if is_joint(joint) and "Invalid" in joint.State and joint.Name not in already_invalid:
-            params = {"label": quoted_value(joint.Label), "detail": joint.getStatusString()}
+    for name, joint in joints_in_error(raw).items():
+        if name not in already_invalid:
+            detail = bounded_text(str(joint.getStatusString()))
+            params = {"label": quoted_value(joint.Label), "detail": detail}
             warnings.append(translated(_NO_LONGER_TOUCHING, params))
     return warnings

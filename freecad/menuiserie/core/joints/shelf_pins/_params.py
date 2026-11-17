@@ -51,6 +51,10 @@ TOO_SHORT: Final = QT_TRANSLATE_NOOP(
     "Le côté est trop petit pour {rows} rangs de trous au pas de {pitch} mm, à {margin} mm des "
     "bouts et {edge} mm des bords.",
 )
+TOO_SHORT_FOR_ONE_ROW: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Le côté est trop petit pour un rang de trous, à {margin} mm des bouts et {edge} mm des bords.",
+)
 PITCH_TOO_SMALL: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Pas de {pitch} mm trop petit pour des trous de {diameter} mm : il faut au moins {minimum} mm.",

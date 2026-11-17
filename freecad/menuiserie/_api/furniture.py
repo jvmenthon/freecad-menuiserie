@@ -21,6 +21,7 @@ from freecad.menuiserie.features import (
     distance_move,
     furniture_drag,
     furniture_edges,
+    furniture_envelope,
     furniture_locks,
     furniture_material,
     furniture_members,
@@ -79,8 +80,13 @@ def add_to_furniture(
     géométrie actuelle) sans toucher aux membres présents, puis recalcule. Mêmes refus et même
     absence de transaction que :func:`make_furniture`. Avec ``move``, des objets déjà membres
     d'un autre ensemble en sortent pour entrer ici (leurs propriétés de membre sont gardées, ce
-    qui s'annule d'un Ctrl+Z)."""
+    qui s'annule d'un Ctrl+Z). Une pièce entrée alors qu'elle dépasse de la boîte de l'ensemble
+    l'agrandit jusqu'à la contenir (ADR 0049, jamais de réduction : une marge reste), et ses
+    membres sont reliés à nouveau, sauf pour un sous-ensemble ou un ensemble piloté par une
+    formule."""
     notices = furniture_members.add_members(furniture, objects, move=move)
+    if furniture_envelope.grow(furniture):
+        notices += furniture_members.relink(furniture)
     return _reported(notices, furniture.Document)
 
 
@@ -176,8 +182,9 @@ def resize_furniture(
     d'avance (``ValueError`` traduite, rien n'est modifié) si une pièce deviendrait trop petite
     ou trop grande ou si un assemblage perdrait sa position. Une rangée bloquée par des pièces
     verrouillées lève :class:`LockedPiecesError` (``members`` : ces pièces ;
-    :func:`unlock_and_resize` les déverrouille). Renvoie les avertissements traduits (aussi
-    dans la vue rapport, ADR 0017)."""
+    :func:`unlock_and_resize` les déverrouille). Des pièces à plat qui remplissent seules une
+    cote changent d'épaisseur au prorata (ADR 0062). Aucune transaction n'est ouverte : à
+    l'appelant. Renvoie les avertissements traduits (aussi dans la vue rapport, ADR 0017)."""
     sizes = {"Width": width, "Depth": depth, "Height": height}
     notices = furniture_resize.resize(furniture, sizes)
     return _reported(notices, furniture.Document)

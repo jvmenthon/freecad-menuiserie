@@ -9,10 +9,11 @@ et les noms des propriétés sont écrits dans les documents ; ils ne changent j
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from typing import ClassVar, Final
 
+from freecad.menuiserie.core._extrusion import Extrusion
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.core.text import quoted_value
@@ -29,7 +30,12 @@ from freecad.menuiserie.features.freecad_types import (
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_cache import cached_machined_shape, machining_key
-from freecad.menuiserie.features.machining_plan import JointFailedError, Machining, machining_of
+from freecad.menuiserie.features.machined_plans import (
+    JointFailedError,
+    Machining,
+    finishes_of,
+    machining_of,
+)
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
@@ -58,7 +64,7 @@ __all__ = [
 ]
 
 OBJECT_NAME: Final = "MachinedPart"
-MODEL_VERSION: Final = 1
+MODEL_VERSION: Final = 2  # 2 : ajout de Finishes (profils d'arête, ADR 0029)
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièce usinée")
 
 _MACHINED_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (usinée)")
@@ -76,7 +82,8 @@ _PLACEMENT_BOUND: Final = QT_TRANSLATE_NOOP(
 )
 _STILL_JOINED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "La pièce usinée « {label} » porte encore des assemblages : supprimez-les d'abord.",
+    "La pièce usinée « {label} » porte encore des assemblages ou des finitions : supprimez-les "
+    "d'abord.",
 )
 
 PROPERTIES: Final = (
@@ -97,6 +104,16 @@ PROPERTIES: Final = (
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Assemblages qui usinent cette pièce (tenons, mortaises, rainures, perçages).",
+        ),
+        mode=READ_ONLY,
+    ),
+    PropertySpec(
+        "Finishes",
+        "App::PropertyLinkList",
+        "Pièce",
+        QT_TRANSLATE_NOOP(
+            "App::Property",
+            "Finitions qui usinent cette pièce (profils d'arête).",
         ),
         mode=READ_ONLY,
     ),
@@ -211,31 +228,42 @@ class MachinedPart(SyncingProxy):
         blank.Placement = obj.Placement
 
     def execute(self, obj: DocumentObject) -> None:
-        """Forme = brute moins parties retirées, plus ajouts, moins enlèvements de ses
-        assemblages, au ``Placement`` de la brute. ``ValueError`` traduite si la brute ou un
-        assemblage est invalide."""
+        """Forme = brute moins parties retirées et profils d'arête, plus ajouts, moins
+        enlèvements de ses assemblages, au ``Placement`` de la brute. ``ValueError`` traduite si
+        la brute ou un assemblage est invalide."""
         blank = _checked_blank(obj)
         try:
             machining = machining_of(obj, blank)
+            profiles = finishes_of(obj, blank)
         except JointFailedError:
             # Un assemblage impossible signale lui-même son erreur (une seule trace, ADR 0026) ;
             # la forme reste celle d'avant (jamais partielle hors aperçu), le placement suit.
             with self._executing():
                 obj.Placement = blank.Placement
             return
-        self._show(obj, blank, machining)
+        self._show(obj, blank, machining, profiles)
 
     def preview(self, obj: DocumentObject) -> None:
         """Aperçu d'un geste : brute à ses cotes du moment, usinée par ses seuls assemblages qui
         tiennent (les autres, sans trace, sont repris au relâchement) ; ``ValueError`` traduite."""
         blank = _checked_blank(obj)
-        self._show(obj, blank, machining_of(obj, blank, holding_only=True))
+        try:
+            profiles = finishes_of(obj, blank)
+        except JointFailedError:  # profil impossible à ces cotes : repris au relâchement
+            profiles = []
+        self._show(obj, blank, machining_of(obj, blank, holding_only=True), profiles)
 
-    def _show(self, obj: DocumentObject, blank: DocumentObject, machining: Machining) -> None:
+    def _show(
+        self,
+        obj: DocumentObject,
+        blank: DocumentObject,
+        machining: Machining,
+        profiles: Sequence[Extrusion],
+    ) -> None:
         with translated_errors():
             base = blank_shape(blank)
-        key = machining_key(blank, *machining)
-        shape = cached_machined_shape(base, key, *machining)
+        key = machining_key(blank, *machining, profiles)
+        shape = cached_machined_shape(base, key, *machining, profiles)
         # Hors recalcul (aperçu), la forme affectée impose son placement : celui de la brute est
         # donc posé après, sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
@@ -357,6 +385,6 @@ def show_blank(blank: DocumentObject | None) -> None:
 def removal_refusal(machined: DocumentObject) -> str | None:
     """Message traduit si la pièce usinée ``machined`` porte encore des assemblages (sa
     suppression est alors refusée), ``None`` sinon."""
-    if not machined.Joints:
+    if not machined.Joints and not machined.Finishes:
         return None
     return translated(_STILL_JOINED, {"label": quoted_value(machined.Label)})

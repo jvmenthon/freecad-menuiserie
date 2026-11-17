@@ -214,7 +214,7 @@ def test_assemblage_conserve_apres_reouverture(document: Any, rouvrir: Any) -> N
     by_label = {obj.Label: obj for obj in parts}
     assert machined_volume(by_label["G"]) == pytest.approx(volumes[0], rel=1e-6)
     assert machined_volume(by_label["T"]) == pytest.approx(volumes[1], rel=1e-6)
-    assert api.machined_part_of(by_label["G"]).Version == 1
+    assert api.machined_part_of(by_label["G"]).Version == 2
     assert stale_or_invalid(reopened) == []
 
 
