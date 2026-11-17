@@ -5,8 +5,6 @@ limites de l'aimant « au ras » (``far``), faces allumées par ``Dragging.lit``
 
 from __future__ import annotations
 
-import importlib
-import sys
 from collections.abc import Iterator, Sequence
 from typing import Any
 from unittest.mock import MagicMock
@@ -24,6 +22,7 @@ from freecad.menuiserie.core.magnet import (
     PlaneIndex,
     magnet,
 )
+from tests.unit.aides_freecad import imported_with_stubs
 
 BOX = Box.from_ranges([(0, 100), (0, 50), (0, 20)])
 FAR: list[tuple[float, float]] = [(0, 100), (900, 950), (0, 20)]
@@ -126,21 +125,9 @@ def test_plafond_atteint_exactement_par_les_premieres_faces() -> None:
 def states() -> Iterator[Any]:
     """Module ``gui.drag.states`` importé avec FreeCAD et PySide remplacés par des doublures ;
     les modules importés sont retirés ensuite pour ne pas fausser les autres tests."""
-    before = set(sys.modules)
-    saved = {name: sys.modules.get(name) for name in _STUBS}
-    for name in _STUBS:
-        sys.modules[name] = MagicMock()
-    try:
-        yield importlib.import_module("freecad.menuiserie.gui.drag.states")
-    finally:
-        for name in set(sys.modules) - before:
-            if name.startswith("freecad.menuiserie"):
-                del sys.modules[name]
-        for name, module in saved.items():
-            if module is None:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = module
+    stubs = {name: MagicMock() for name in _STUBS}
+    with imported_with_stubs("freecad.menuiserie.gui.drag.states", stubs) as module:
+        yield module
 
 
 def gesture(states: Any, guides: Sequence[Guide], box: Box = BOX) -> Any:

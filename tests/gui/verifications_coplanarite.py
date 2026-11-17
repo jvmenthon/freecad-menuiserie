@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface de la coplanarité (jv, 2026-11-14, ADR 0058) : pendant un glissement,
 la face au ras d'une face d'un autre meuble s'y aimante et les deux sont allumées ; dans le
-panneau « Répéter », les faces des copies au ras d'une voisine sont tracées dans la vue 3D.
+panneau « Répéter », les faces des copies au ras d'une voisine sont tracées dans la vue 3D, dès
+l'ouverture d'une répétition existante, et les flèches du pas s'aimantent à 1 mm (jv, 2026-11-16).
 
 Module importé par ``verifier_atelier.py`` (lancé par FreeCAD hors écran) : comme
 ``verifications_souris``, il appelle la session directement, jamais ``sendEvent``.
@@ -14,10 +15,13 @@ from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+from PySide import QtCore, QtGui
 
 from freecad.menuiserie.api import make_wood_part
+from freecad.menuiserie.features.repeat import is_repeat
 from freecad.menuiserie.gui.task_panels import repeat_coplanar
-from tests.gui.verifications_panneau import avec_document, ecarts, piece_validee, saisir
+from freecad.menuiserie.gui.task_panels.repeat import start_editing
+from tests.gui.verifications_panneau import avec_document, ecarts, piece_validee, saisir, valeur
 from tests.gui.verifications_panneau_assemblage import widget
 from tests.gui.verifications_repetition import panneau, repeter, source
 from tests.gui.verifications_souris import (
@@ -111,7 +115,53 @@ def verifier_coplanarite_repetition() -> list[str]:
     return avec_document("VerifCoplanariteRepetition", _repetition_au_ras)
 
 
+def _fleche_haut(champ: Any) -> None:
+    """Touche « flèche haut » envoyée au champ : un pas, comme un clic sur sa flèche."""
+    touche = QtGui.QKeyEvent(QtCore.QEvent.KeyPress, QtCore.Qt.Key_Up, QtCore.Qt.NoModifier)
+    QtGui.QApplication.sendEvent(champ, touche)
+    QtGui.QApplication.processEvents()  # fin du pas (minuterie du filtre)
+
+
+def _modification_au_ras(doc: Any) -> list[str]:
+    barreau = source(doc)
+    voisin = doc.addObject("Part::Box", "Voisin")
+    voisin.Length = voisin.Width = voisin.Height = 100
+    voisin.Placement = App.Placement(App.Vector(1000, 500, 0), App.Rotation())  # x 1000 à 1100
+    doc.recompute()
+    preparer(doc)
+    repeter(barreau)
+    form = panneau()
+    if form is None:
+        return ["panneau « Répéter » non ouvert"]
+    saisir(widget(form, "stepX"), 400.0)  # 2e copie au ras du voisin
+    Gui.Control.activeTaskDialog().accept()
+    repetitions = [obj for obj in doc.Objects if is_repeat(obj)]
+    if len(repetitions) != 1 or not start_editing(repetitions[0]):
+        return [f"répétition non rouverte : {len(repetitions)} répétition(s)"]
+    form = panneau()
+    if form is None:
+        return ["panneau de modification non ouvert"]
+    problemes = ecarts("ouverture en modification : faces au ras tracées", noeuds_coplanaires(), 1)
+    champ = widget(form, "stepX")
+    pas = float(champ.property("singleStep") or 1.0)
+    depart = round(350.0 - 0.8 * pas, 6)  # un pas plus loin : 350 franchi, à moins de 1 mm
+    saisir(champ, depart)
+    problemes += ecarts("saisie au clavier inchangée", round(valeur(champ), 6), depart)
+    _fleche_haut(champ)
+    problemes += ecarts("flèche : pas aimanté au ras (350)", round(valeur(champ), 6), 350.0)
+    problemes += ecarts("flèche : faces au ras tracées", noeuds_coplanaires(), 1)
+    Gui.Control.activeTaskDialog().reject()
+    return [*problemes, *ecarts("panneau fermé : dessin retiré", noeuds_coplanaires(), 0)]
+
+
+def verifier_coplanarite_modification() -> list[str]:
+    """Modification d'une répétition : le cadre est tracé dès l'ouverture ; une saisie reste telle
+    quelle ; la flèche qui franchit un pas au ras, à moins de 1 mm, s'y arrête."""
+    return avec_document("VerifCoplanariteModification", _modification_au_ras)
+
+
 VERIFICATIONS_COPLANARITE: tuple[Callable[[], list[str]], ...] = (
     verifier_coplanarite_glissement,
     verifier_coplanarite_repetition,
+    verifier_coplanarite_modification,
 )
