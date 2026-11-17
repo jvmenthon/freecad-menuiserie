@@ -11,7 +11,7 @@ import de ``FreeCADGui``.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 from typing import Final
 
@@ -21,7 +21,7 @@ from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Box
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.furniture import furniture_of, is_furniture, writing
+from freecad.menuiserie.features.furniture import ancestors, furniture_of, is_furniture, writing
 from freecad.menuiserie.features.furniture_bindings import (
     members_of,
     remove_bindings,
@@ -35,7 +35,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.raw_placement import write_placement
 from freecad.menuiserie.features.thickness_common import is_alive
 
-__all__ = ["KeptBindings", "relink_framed"]
+__all__ = ["KeptBindings", "reframe_all", "relink_framed"]
 
 _NOT_RELINKED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -154,3 +154,26 @@ def relink_framed(furniture: DocumentObject) -> list[Notice]:
         snapshot.restore()
         raise ValueError(translated(_NOT_RELINKED, {"error": str(error)})) from error
     return notices
+
+
+def reframe_all(furnitures: Sequence[DocumentObject | None]) -> tuple[list[Notice], list[str]]:
+    """Boîtes de ``furnitures`` et de leurs parents recalées sur leurs membres, membres reliés
+    (ADR 0065) : avertissements et refus traduits. Un ensemble supprimé ou vide est passé, ainsi
+    qu'un ensemble piloté par une formule (sa boîte reste telle quelle, ADR 0065 point 3) ; un
+    parent d'un autre ensemble de la liste aussi (la remontée le recale). Un ensemble qui ne
+    peut pas être relié revient à son état d'avant (:func:`relink_framed`) : son refus est
+    rendu comme un avertissement, l'entrée ou la sortie déjà faite reste."""
+    alive = {f.Name: f for f in furnitures if f is not None and is_alive(f)}
+    above = {a.Name for f in alive.values() for a in ancestors(f)}
+    lowest = [f for name, f in alive.items() if name not in above and members_of(f)]
+    if not lowest:
+        return [], []
+    lowest[0].Document.recompute()  # copies de répétition à leur place avant l'enveloppe
+    notices: list[Notice] = []
+    failures: list[str] = []
+    for furniture in lowest:
+        try:
+            notices += relink_framed(furniture)
+        except ValueError as error:  # rendu par relink_framed, dit à l'utilisateur
+            failures.append(str(error))
+    return notices, failures

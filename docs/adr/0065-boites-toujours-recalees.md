@@ -44,7 +44,11 @@ déplacée à la souris hors de son ensemble ne l'agrandissait pas non plus.
 5. **Pièce ajoutée ou retirée** (jv, 2026-11-17 : « la boîte doit également rétrécir si besoin,
    elle doit toujours englober ses composants mais sans marges »). Remplace le complément du
    2026-11-16 de l'ADR 0049 : la boîte n'est plus seulement agrandie à l'entrée d'une pièce,
-   elle est recalée exactement ; une marge donnée à la main disparaît au geste suivant.
+   elle est recalée exactement ; une marge donnée à la main disparaît au geste suivant. Restent
+   tels quels : un ensemble piloté par une formule (point 3) et un ensemble devenu vide. Un
+   ensemble qui ne peut pas être relié après une entrée ou une sortie revient à son état d'avant
+   le recalage ; l'entrée ou la sortie reste faite (elle n'est refusée qu'avant toute
+   modification) et la raison est écrite dans la vue rapport.
 6. Hors de ce périmètre pour l'instant : copies d'une répétition, « Relier les pièces », poignée
    d'épaisseur d'un membre (ADR 0019), cotes saisies dans l'éditeur de propriétés. Ils gardent
    leur comportement.

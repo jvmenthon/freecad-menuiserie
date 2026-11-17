@@ -372,3 +372,80 @@ def test_deplacement_demesure_refuse_et_tout_revient(document: Any, dz: float) -
         part_drag.end_drag(memento)
     document.recompute()
     assert _meme_etat(avant, _etat(document, parts, chain))
+
+
+# --- ADR 0065 point 5 : entrée et sortie ----------------------------------------------------
+
+
+def _bureau_et_caisson(document: Any) -> tuple[Any, Any, dict[str, Any]]:
+    from tests.integration.bureau import build_parts
+    from tests.integration.test_ensemble_membres import caisson
+
+    desk = build_parts(document)
+    sub, parts = caisson(document)
+    bureau, _ = api.make_furniture([desk.parts[m] for m in ("P", "JG", "JD")], label="Bureau")
+    document.recompute()
+    return bureau, sub, parts
+
+
+def test_sous_ensemble_entre_puis_sort_le_parent_suit(document: Any) -> None:
+    from tests.integration.cadre import stale_or_invalid
+
+    bureau, sub, parts = _bureau_et_caisson(document)
+    depart = envelope.frame_of(bureau)
+    vus = _globaux(parts)
+    api.add_to_furniture(bureau, [sub])
+    _ajustee(bureau)
+    _ajustee(sub)
+    assert _memes(vus, _globaux(parts))
+    api.remove_from_furniture([sub])
+    assert envelope.frame_of(bureau) == depart
+    assert _memes(vus, _globaux(parts))
+    assert not stale_or_invalid(document)
+
+
+def test_dernier_membre_retire_sans_erreur(document: Any) -> None:
+    from tests.integration.cadre import stale_or_invalid
+
+    piece = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    document.recompute()
+    api.make_furniture([piece], "Seul")
+    assert api.remove_from_furniture([piece]) == ()
+    assert not stale_or_invalid(document)
+
+
+def test_recalage_impossible_rend_la_boite_et_garde_l_entree(
+    document: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un ensemble qui ne peut pas être relié après l'entrée revient à son état d'avant le
+    recalage ; l'entrée reste (refusée seulement avant toute modification) et le refus est dit."""
+    from tests.integration.cadre import stale_or_invalid
+
+    first = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second.Placement.Base = App.Vector(0.0, 500.0, 0.0)
+    document.recompute()
+    furniture, _ = api.make_furniture([first], "Cadre")
+
+    def refuse(_furniture: Any) -> Any:
+        raise ValueError("cycle simulé")
+
+    monkeypatch.setattr(reframe, "bind_furniture", refuse)
+    messages = api.add_to_furniture(furniture, [second])
+    assert any("cycle simulé" in message for message in messages)
+    assert api.furniture_of(second) == furniture
+    assert not stale_or_invalid(document)
+
+
+def test_ensemble_pilote_par_une_formule_garde_sa_boite(document: Any) -> None:
+    """ADR 0065 point 3 : une cote pilotée par une formule de l'utilisateur n'est pas recalée."""
+    first = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second.Placement.Base = App.Vector(0.0, 100.0, 0.0)
+    document.recompute()
+    furniture, _ = api.make_furniture([first], "Cadre")
+    first.Locked = True
+    furniture.setExpression("Depth", "1000 mm")
+    document.recompute()
+    api.add_to_furniture(furniture, [second])
+    assert furniture.Depth.Value == 1000.0
