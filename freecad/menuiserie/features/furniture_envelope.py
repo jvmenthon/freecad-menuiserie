@@ -41,7 +41,7 @@ from freecad.menuiserie.features.furniture_drag_state import (
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
 from freecad.menuiserie.features.raw_placement import write_placement
 
-__all__ = ["frame_of", "grow", "member_envelope", "reframe", "restore_frame"]
+__all__ = ["frame_of", "member_envelope", "reframe", "restore_frame"]
 
 TOLERANCE_MM: Final = 1e-6
 _FRAME_PROPERTIES: Final = ("Origin", "Width", "Depth", "Height")
@@ -132,27 +132,6 @@ def _same(first: Box, second: Box) -> bool:
         and abs(first.hi(i) - second.hi(i)) <= TOLERANCE_MM
         for i in range(3)
     )
-
-
-def grow(furniture: DocumentObject) -> bool:
-    """Agrandit la boîte de ``furniture`` jusqu'à contenir ses membres (pièce entrée alors
-    qu'elle en dépasse), sans jamais la réduire : une marge voulue par l'utilisateur reste. Sans
-    recalcul ni liaison, comme :func:`reframe`. Faux, sans rien écrire, pour un sous-ensemble
-    (ADR 0065 point 5 : l'entrée d'une pièce garde le comportement de l'ADR 0049), pour un
-    ensemble qu'on ne recale pas (:func:`_frames`) ou dont rien ne dépasse."""
-    if furniture_of(furniture) is not None:
-        return False
-    frames = _frames(furniture)
-    if frames is None:
-        return False
-    current, envelope = frames
-    grown = Box.from_ranges(
-        [(min(current.lo(i), envelope.lo(i)), max(current.hi(i), envelope.hi(i))) for i in range(3)]
-    )
-    if _same(current, grown):
-        return False
-    restore_frame(furniture, grown)
-    return True
 
 
 def reframe(furniture: DocumentObject) -> bool:

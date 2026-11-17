@@ -23,7 +23,10 @@ déplacée à la souris hors de son ensemble ne l'agrandissait pas non plus.
    recalée et il est relié, jusqu'à l'ensemble de plus haut niveau.
    - épaisseur d'un membre choisie dans l'encadré du panneau (ADR 0060 point 5) ;
    - sous-ensemble déplacé ou tourné (souris, `api.move_furniture`) : on part de son parent ;
-   - pièce déplacée à la souris dans un ensemble (hors poignée d'épaisseur, qui garde l'ADR 0019).
+   - pièce déplacée à la souris dans un ensemble (hors poignée d'épaisseur, qui garde l'ADR 0019) ;
+   - pièce ou sous-ensemble qui entre dans un ensemble, qui en sort ou qui change d'ensemble
+     (`api.add_to_furniture`, `api.remove_from_furniture`, panneau « Structure ») : l'ensemble
+     rejoint et l'ensemble quitté sont recalés.
 2. **Sous-ensemble.** Son `Origin` reste nul. Le Std Part avance du coin bas de l'enveloppe (dans
    son repère) et ses membres reculent d'autant : pièces par leur `Placement`, sous-ensembles par
    celui de leur Std Part. **Rien ne bouge à l'écran.** Ses cotes deviennent la taille de
@@ -38,19 +41,24 @@ déplacée à la souris hors de son ensemble ne l'agrandissait pas non plus.
 4. **Retour arrière.** Si un niveau ne peut pas être relié (cycle avec une formule de
    l'utilisateur), boîtes, `Placement` des Std Parts et des pièces, et liaisons de toute la chaîne
    sont rendus avant de relancer l'erreur.
-5. **Pièce ajoutée** (complément du 2026-11-16 de l'ADR 0049) : inchangé, la boîte grandit sans
-   jamais rétrécir (`grow`), pour garder une marge voulue.
+5. **Pièce ajoutée ou retirée** (jv, 2026-11-17 : « la boîte doit également rétrécir si besoin,
+   elle doit toujours englober ses composants mais sans marges »). Remplace le complément du
+   2026-11-16 de l'ADR 0049 : la boîte n'est plus seulement agrandie à l'entrée d'une pièce,
+   elle est recalée exactement ; une marge donnée à la main disparaît au geste suivant.
 6. Hors de ce périmètre pour l'instant : copies d'une répétition, « Relier les pièces », poignée
-   d'épaisseur d'un membre (ADR 0019), éditeur de propriétés et scripts. Ils gardent leur
-   comportement.
+   d'épaisseur d'un membre (ADR 0019), cotes saisies dans l'éditeur de propriétés. Ils gardent
+   leur comportement.
 
 ## Conséquences
 
 - Code : `features/furniture_envelope.py` (`reframe` d'un sous-ensemble, `_movable`),
   `features/furniture_reframe.py` (`relink_framed`, remontée et retour arrière), appelés par
-  `thickness_member.MemberFreedom.finish`, `furniture_drag._relink` et `part_drag._relink`.
+  `thickness_member.MemberFreedom.finish`, `furniture_drag._relink`, `part_drag._relink`,
+  `api.add_to_furniture` et `api.remove_from_furniture`. `furniture_envelope.grow` est retiré.
 - L'ADR 0049 point 3 (« seul un ensemble de plus haut niveau est recalé ») est remplacé ; la
   limite connue de l'ADR 0060 point 5 disparaît.
 - Tests d'intégration : `tests/integration/test_boites_recalees.py` (pièce sortie d'un
   sous-ensemble imbriqué, sous-ensemble imbriqué déplacé puis ramené, retour arrière),
-  `tests/integration/test_epaisseur_ensemble.py` (côté d'un caisson épaissi vers l'extérieur).
+  `tests/integration/test_epaisseur_ensemble.py` (côté d'un caisson épaissi vers l'extérieur),
+  `tests/integration/test_ensemble_membres.py` (marge retirée à l'ajout, boîte qui rétrécit à
+  la sortie, pièce qui change d'ensemble).

@@ -76,8 +76,9 @@ def test_une_piece_ajoutee_hors_de_la_boite_l_agrandit(document: Any) -> None:
     assert not stale_or_invalid(document)
 
 
-def test_une_piece_ajoutee_dans_la_boite_garde_sa_marge(document: Any) -> None:
-    """La boîte grandit, jamais ne rétrécit : une marge voulue reste après un ajout."""
+def test_une_piece_ajoutee_recale_la_boite_sans_marge(document: Any) -> None:
+    """ADR 0065 point 5 (jv, 2026-11-17 : « elle doit toujours englober ses composants mais sans
+    marges ») : une marge donnée à la boîte disparaît à l'ajout, elle rétrécit."""
     first = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
     second = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
     second.Placement.Base = App.Vector(0.0, 100.0, 0.0)
@@ -88,7 +89,39 @@ def test_une_piece_ajoutee_dans_la_boite_garde_sa_marge(document: Any) -> None:
     document.recompute()
     assert first.Width.Value == 60.0
     api.add_to_furniture(furniture, [second])
-    assert furniture.Depth.Value == 1000.0
+    assert furniture.Depth.Value == 160.0
+    assert not stale_or_invalid(document)
+
+
+def test_une_piece_retiree_fait_retrecir_la_boite(document: Any) -> None:
+    """ADR 0065 point 5 : la boîte de l'ensemble quitté se recale sur les membres qui restent ;
+    ceux-ci ne bougent pas."""
+    first = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    second.Placement.Base = App.Vector(0.0, 500.0, 0.0)
+    document.recompute()
+    furniture, _ = api.make_furniture([first, second], "Cadre")
+    assert furniture.Depth.Value == 560.0
+    place = first.getGlobalPlacement()
+    api.remove_from_furniture([second])
+    assert furniture.Depth.Value == 60.0
+    assert first.getGlobalPlacement().isSame(place, 1e-9)
+    assert not stale_or_invalid(document)
+
+
+def test_piece_changee_d_ensemble_recale_les_deux_boites(document: Any) -> None:
+    """ADR 0065 point 5 : l'ensemble quitté rétrécit, celui rejoint grandit."""
+    a = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    b = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    c = api.make_wood_part(600.0, 60.0, 22.0, "chene", doc=document)
+    b.Placement.Base = App.Vector(0.0, 500.0, 0.0)
+    c.Placement.Base = App.Vector(0.0, 0.0, 300.0)
+    document.recompute()
+    source, _ = api.make_furniture([a, b], "Source")
+    target, _ = api.make_furniture([c], "Cible")
+    api.add_to_furniture(target, [b], move=True)
+    assert source.Depth.Value == 60.0
+    assert (target.Depth.Value, target.Height.Value) == (560.0, 322.0)
     assert not stale_or_invalid(document)
 
 

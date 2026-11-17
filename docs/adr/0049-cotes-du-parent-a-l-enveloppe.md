@@ -53,6 +53,9 @@ boîte ne l'englobe plus (constaté le 2026-11-11).
 
 ## Complément du 2026-11-16 : pièce ajoutée hors de la boîte
 
+*(Remplacé par l'[ADR 0065](0065-boites-toujours-recalees.md) point 5 le 2026-11-17 : la boîte
+est recalée exactement à l'entrée et à la sortie d'une pièce, elle peut rétrécir.)*
+
 Demande de jv du 2026-11-16, après un scénario QTest (PR #265) qui montrait la boîte inchangée : une pièce ajoutée à un ensemble alors
 qu'elle dépasse de sa boîte l'agrandit. `api.add_to_furniture` agrandit donc la boîte jusqu'à
 contenir ses membres (`furniture_envelope.grow`) après l'entrée, puis relie tous ses membres
