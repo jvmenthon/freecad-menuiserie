@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 import FreeCAD as App
 
@@ -89,7 +89,7 @@ class Built:
     notices: tuple[Notice, ...]
 
 
-def _placement(origin: Vec3, transform: RigidTransform) -> object:
+def _placement(origin: Vec3, transform: RigidTransform) -> Any:
     """``Placement`` FreeCAD de ``transform`` décalé de ``origin``."""
     rows = transform.rotation
     base = transform.translation
