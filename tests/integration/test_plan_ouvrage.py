@@ -90,12 +90,13 @@ def test_cotes_suivent_le_modele(bureau: Bureau) -> None:
 def test_relance_refait_la_meme_page(bureau: Bureau) -> None:
     doc = bureau.doc
     page = api.make_overall_drawing(doc, [bureau.furniture])
-    count = len(doc.Objects)
+    count = len(doc.Objects) - len(drawing.owned_names(page))
     api.resize_furniture(bureau.furniture, height=2400)
     doc.recompute()
     again = api.make_overall_drawing(doc, [bureau.furniture])
     assert again == page
-    assert len(doc.Objects) == count
+    # Rien d'orphelin : seules les cotes de détail changent de nombre avec les pièces.
+    assert len(doc.Objects) - len(drawing.owned_names(again)) == count
     assert again.Scale == pytest.approx(0.05)  # 2,40 m de haut ne tient plus au 1 : 10 sur A3
     assert values(again) == pytest.approx([1200, 600, 2400], abs=0.01)
 

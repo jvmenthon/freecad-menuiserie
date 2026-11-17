@@ -81,7 +81,7 @@ _PART_DIRECTIONS: Final = {
 }
 # Cotes d'une pièce : longueur, largeur sur la face, épaisseur sur le chant.
 _PART_DIMENSIONS: Final = (("Front", HORIZONTAL), ("Front", VERTICAL), ("Edge", VERTICAL))
-ARROWS_MM: Final = 2.5  # segment de chaîne le plus court qu'on cote (ses deux flèches)
+ARROWS_MM: Final = 1.0  # segment de chaîne le plus court qu'on cote, sur la feuille
 CHAIN_TEXT_CHARS: Final = 7  # largeur d'une cote de détail (« 1349,92 »), en caractères
 # Cotes (largeur, hauteur, profondeur) qui font la largeur et la hauteur de chaque vue.
 _VIEW_AXES: Final = {
