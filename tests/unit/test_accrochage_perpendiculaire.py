@@ -259,3 +259,43 @@ def test_extremite_jamais_tournee() -> None:
     assert orientation is not None
     assert along_edge(orientation, 0) == orientation
     assert along_edge(orientation, 1) == orientation
+
+
+def test_along_edge_idempotent_et_quart_de_tour_sur_les_deux_lignes() -> None:
+    target = narrow(X, Y, Z, (300.0, 60.0))
+    _support, orientation = orientation_against(target)
+    turned = along_edge(orientation, 0)
+    assert turned != orientation
+    assert along_edge(turned, 0) == turned  # déjà le long de l'arête 0
+    back = along_edge(turned, 1)  # second quart de tour : la largeur suit de nouveau Y
+    assert abs(Vec3(*(r[1] for r in back.rotation())).y) == 1.0
+    assert along_edge(orientation, 1) == orientation
+
+
+@pytest.mark.parametrize("row", [0, 1])
+def test_along_edge_sur_chant_la_largeur_suit_l_arete_demandee(row: int) -> None:
+    # chant (normale Y), repère (Z, X) : la largeur suit toujours l'axe d'appui demandé
+    _support, orientation = orientation_against(narrow(Z, X, Y, (30.0, 800.0)))
+    width = Vec3(*(r[1] for r in along_edge(orientation, row).rotation()))
+    assert abs(width.component(row)) == 1.0  # l'orientation est exprimée dans le repère d'appui
+
+
+def test_section_largeur_suivant_l_arete_prend_toute_la_longueur_de_l_arete() -> None:
+    # pièce porteuse tournée de 90° : la largeur suit l'arête demandée, la longueur de l'arête
+    quarter: Matrix3 = ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0))
+    target = narrow(X, Y, Z, (300.0, 60.0))
+    support, orientation = orientation_against(target, quarter)
+    for row, expected in ((0, 300.0), (1, 60.0)):
+        turned = along_edge(orientation, row)
+        assert face_section(support, quarter, turned, target.extent, (100.0, 30.0), row) == (
+            expected,
+            30.0,
+        )
+
+
+def test_section_arete_hors_bornes_garde_la_largeur() -> None:
+    # arête de 0,05 mm (pointe) : ignorée, la largeur de la pièce est gardée
+    target = narrow(X, Y, Z, (0.05, 60.0))
+    support, orientation = orientation_against(target)
+    turned = along_edge(orientation, 0)
+    assert face_section(support, IDENTITY, turned, target.extent, (100.0, 30.0), 0)[0] == 100.0

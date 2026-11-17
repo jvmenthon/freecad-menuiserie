@@ -125,9 +125,9 @@ def along_edge(orientation: Orientation, row: int) -> Orientation:
     """``orientation`` tournée d'un quart de tour autour de la normale de la face pour que la
     largeur de la pièce suive l'axe d'appui ``row`` (0 ou 1) : l'arête la plus proche du clic.
     Inchangée si la largeur le suit déjà ou si la longueur de la pièce ne part pas de la face
-    (extrémité : la pièce y est couchée)."""
+    (extrémité : la pièce y est couchée) ou si ``row`` n'est pas un axe du plan de la face."""
     rotation = orientation.rotation()
-    if abs(_column(rotation, _LENGTH).component(_NORMAL_ROW)) != 1.0:
+    if row not in (0, 1) or abs(_column(rotation, _LENGTH).component(_NORMAL_ROW)) != 1.0:
         return orientation
     if abs(_column(rotation, _WIDTH).component(row)) == 1.0:
         return orientation

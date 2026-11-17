@@ -227,3 +227,137 @@ def test_clic_pres_d_une_pointe_pas_de_depart_perpendiculaire(
         [picked.PickedElement(angle, face, Vec3(click[0], click[1], 50))], ABOVE
     )
     assert perpendicular.perpendicular_start(reading) is None
+
+
+def inside(part: Any, owner: Any, normal: tuple[float, float, float], coordinate: float) -> bool:
+    """La pièce posée ne déborde pas de la face ``normal`` = ``coordinate`` de ``owner``."""
+    face = next(
+        f
+        for f in geometry.global_shape(owner).Faces
+        if abs(f.normalAt(*f.Surface.parameter(f.CenterOfMass)).dot(App.Vector(*normal))) > 0.999
+        and abs(f.CenterOfMass.dot(App.Vector(*normal)) - coordinate) < 1e-6
+    )
+    box = geometry.global_shape(part).BoundBox
+    bound = face.BoundBox
+    return (
+        box.XMin >= bound.XMin - 1e-6
+        and box.XMax <= bound.XMax + 1e-6
+        and box.YMin >= bound.YMin - 1e-6
+        and box.YMax <= bound.YMax + 1e-6
+    )
+
+
+@pytest.mark.parametrize(
+    ("click", "width"),
+    [
+        ((400, 5, 30), 800),  # arête longue la plus proche : la largeur la longe
+        ((400, 95, 30), 800),
+        ((5, 50, 30), 100),  # arête courte (bout) la plus proche
+        ((795, 50, 30), 100),
+        ((5, 5, 30), 100),  # coin : 5 de chaque côté, égalité
+        ((795, 95, 30), 100),
+        ((400, 50, 30), 800),  # milieu : l'arête longue (50) est bien plus proche du bout (400)
+        ((50, 50, 30), 100),  # égalité stricte (50 du bord, 50 du bout) : le bout l'emporte
+    ],
+)
+def test_grande_face_largeur_selon_l_arete_la_plus_proche(
+    document: Any, board: Any, click: tuple[float, float, float], width: float
+) -> None:
+    part, start = create_against(document, board, face_at(board, (0, 0, 1), 30), Vec3(*click))
+    assert round(start.width, 6) == width
+    assert round(start.thickness, 6) == 30
+    assert inside(part, board, (0, 0, 1), 30)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.ZMin, 6) == 30
+
+
+def test_grande_face_clic_proche_du_bout_meme_distance_que_l_arete_longue(
+    document: Any, board: Any
+) -> None:
+    """Égalité stricte (10 du bout et 10 du bord) : le résultat est stable d'un appel à l'autre."""
+    face = face_at(board, (0, 0, 1), 30)
+    first, a = create_against(document, board, face, Vec3(10, 10, 30))
+    second, b = create_against(document, board, face, Vec3(10, 10, 30))
+    assert (a.width, a.thickness) == (b.width, b.thickness)
+    assert (
+        geometry.global_shape(first).BoundBox.XLength
+        == geometry.global_shape(second).BoundBox.XLength
+    )
+
+
+@pytest.mark.parametrize("click", [(400, 0.2, 30), (0.2, 50, 30), (400, 99.8, 30)])
+def test_clic_tres_pres_du_bord(
+    document: Any, board: Any, click: tuple[float, float, float]
+) -> None:
+    part, _start = create_against(document, board, face_at(board, (0, 0, 1), 30), Vec3(*click))
+    assert inside(part, board, (0, 0, 1), 30)
+
+
+def test_chant_etroit_la_piece_reste_sur_le_chant(document: Any, board: Any) -> None:
+    """Chant (y = 100, 800 x 30) : clic près du bout ou près du bord, jamais de débord."""
+    chant = face_at(board, (0, 1, 0), 100)
+    for click in ((400, 100, 3), (400, 100, 27), (3, 100, 15), (797, 100, 15)):
+        part, start = create_against(document, board, chant, Vec3(*click))
+        box = geometry.global_shape(part).BoundBox
+        assert round(box.YMin, 6) == 100
+        assert box.XMin >= -1e-6 and box.XMax <= 800 + 1e-6
+        assert box.ZMin >= -1e-6 and box.ZMax <= 30 + 1e-6
+        assert start.thickness <= 100 + 1e-6
+
+
+@pytest.mark.parametrize("click", [(100, 5, 15), (100, 95, 15), (100, 50, 3)])
+def test_extremite_la_piece_reste_couchee_et_dans_la_face(
+    document: Any, board: Any, click: tuple[float, float, float]
+) -> None:
+    """Extrémité (x = 800, 100 x 30) : pas de quart de tour, quelle que soit l'arête proche."""
+    part, start = create_against(
+        document, board, face_at(board, (1, 0, 0), 800), Vec3(800, click[1], click[2])
+    )
+    assert (round(start.width, 6), round(start.thickness, 6)) == (100, 30)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.XMin, 6) == 800
+    assert box.YMin >= -1e-6 and box.YMax <= 100 + 1e-6
+
+
+@pytest.mark.parametrize("click", [(400, 5, 30), (5, 50, 30), (5, 5, 30)])
+def test_piece_porteuse_tournee_de_90_degres(
+    document: Any, click: tuple[float, float, float]
+) -> None:
+    """Pièce porteuse tournée de 90° autour de Z : la règle vaut dans le repère global."""
+    turned = api.make_wood_part(800, 100, 30, doc=document)
+    turned.Placement = App.Placement(App.Vector(0, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    document.recompute()
+    box = geometry.global_shape(turned).BoundBox  # x de -100 à 0, y de 0 à 800
+    top = face_at(turned, (0, 0, 1), 30)
+    point = Vec3(box.XMin + click[1], box.YMin + click[0], 30)
+    part, start = create_against(document, turned, top, point)
+    # arête la plus proche : longue (selon Y global) ou courte (selon X global)
+    near_long = min(click[1], 100 - click[1]) < min(click[0], 800 - click[0])
+    expected = 800 if near_long else 100
+    assert round(start.width, 6) == expected
+    new_box = geometry.global_shape(part).BoundBox
+    assert new_box.XMin >= box.XMin - 1e-6 and new_box.XMax <= box.XMax + 1e-6
+    assert new_box.YMin >= box.YMin - 1e-6 and new_box.YMax <= box.YMax + 1e-6
+
+
+@pytest.mark.parametrize("click", [(100, 10), (200, 50), (300, 10), (10, 3), (390, 3)])
+def test_face_triangulaire_largeur_dans_la_face(document: Any, click: tuple[float, float]) -> None:
+    """Arêtes obliques : la largeur reste dans les bornes et la pièce ne dépasse pas le triangle."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    part, start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
+    assert 0.1 <= start.width <= 400
+    box = geometry.global_shape(part).BoundBox
+    assert box.XMin >= -1e-6 and box.XMax <= 400 + 1e-6
+    assert box.YMin >= -1e-6 and box.YMax <= 100 + 1e-6
+
+
+def test_clic_pres_de_l_arete_oblique_largeur_ne_depasse_pas_la_face(document: Any) -> None:
+    """Clic à 2 mm de l'hypoténuse (arête oblique), loin des deux axes : pas de débord."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
+    part, _start = create_against(document, angle, face, Vec3(100, 48, 50))
+    box = geometry.global_shape(part).BoundBox
+    slab = Part.makeBox(box.XLength, box.YLength, 1, App.Vector(box.XMin, box.YMin, 49))
+    assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2

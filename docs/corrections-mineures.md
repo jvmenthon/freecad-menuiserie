@@ -147,6 +147,8 @@ de répétitions m5) sont corrigés.
 | pf2 | mineur | `core/snap/_perpendicular.py` (`footprint`, `face_section`) | Les colonnes largeur / épaisseur de l'orientation sont lues de la même façon dans les deux fonctions (motif proche). | Un petit helper commun « axe de la pièce selon l'axe d'appui ». |
 | pf3 | mineur | `features/snap_local_face.py` (`fit_to_footprint`) | Jusqu'à 18 appels `common` OCC à chaque départ perpendiculaire (3 reprises × 2 axes × 3 sondes). | Mesurer ; sortir tôt quand l'étendue ne change pas à la première reprise. |
 | pf4 | mineur | `tests/integration/test_accrochage_perpendiculaire.py` | Seuil de volume résiduel `1e-2` littéral ; pas de test isolé de `fit_to_footprint` (cas « rien ne change »). | Nommer la constante ; test avec fausse face. |
+| pf5 | mineur | `features/perpendicular.py` (`_nearest_edge_row`) | Seuls les deux côtés du repère d'appui (parallèles aux axes de la pièce porteuse) sont regardés : près d'une arête oblique, la pièce suit l'axe le plus proche sans tourner vers l'oblique (elle ne déborde pas). | Si jv le demande : orienter la pièce selon une arête oblique (rotation hors des 24 orientations). |
+| pf6 | mineur | `features/perpendicular.py` (`perpendicular_start`) | Second test `edge_row is None` sans effet en pratique (le repère local n'existe qu'avec un clic). | Simplifier. |
 
 - `gui/task_panels/align.py` importe `report_refusal` de `gui/commands/base.py`, comme le panneau
   de distance : déplacer cette fonction dans un module neutre de `gui/` (revue de la PR #254).

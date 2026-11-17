@@ -12,6 +12,7 @@ modification du document ni de la sélection ; aucun import de ``FreeCADGui``.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, replace
 from typing import Any, Final
 
@@ -129,12 +130,15 @@ class _Frames:
 def _nearest_edge_row(target: FaceTarget, click: Vec3 | None) -> int | None:
     """Axe d'appui (0 ou 1) que suit l'arête de ``target`` la plus proche de ``click`` : le coin du
     repère est au plus près du clic, l'arête la plus proche est donc l'un des deux côtés qui en
-    partent. ``None`` sans clic."""
+    partent. À égale distance, le côté qui suit l'axe 1. ``None`` sans clic ou sans distance
+    calculable (point non fini)."""
     if click is None:
         return None
     offset = to_vector(click) - to_vector(target.frame.origin)
     to_x_side = abs(offset.dot(to_vector(target.frame.x)))  # distance au côté qui suit y
     to_y_side = abs(offset.dot(to_vector(target.frame.y)))  # distance au côté qui suit x
+    if not (math.isfinite(to_x_side) and math.isfinite(to_y_side)):
+        return None
     return 1 if to_x_side <= to_y_side else 0
 
 
