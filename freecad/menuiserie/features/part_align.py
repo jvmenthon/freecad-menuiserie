@@ -12,11 +12,21 @@ rotation. Aucun import de ``FreeCADGui`` ; la transaction est l'affaire de l'app
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from typing import Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.align import NO_OFFSET, Alignment, AlignMode, align
+from freecad.menuiserie.core.align import (
+    NO_LAYOUT,
+    NO_OFFSET,
+    Alignment,
+    AlignMode,
+    Anchor,
+    Layout,
+    align,
+    crosses_faces,
+)
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.snap import FaceTarget
@@ -48,6 +58,13 @@ _DRIVEN: Final = QT_TRANSLATE_NOOP(
 )
 _UNIT_AXES: Final = {"X": (1.0, 0.0, 0.0), "Y": (0.0, 1.0, 0.0), "Z": (0.0, 0.0, 1.0)}
 _UNKNOWN_AXIS: Final = QT_TRANSLATE_NOOP("Menuiserie", "L'axe doit être X, Y ou Z (reçu : {axis}).")
+_UNKNOWN_ANCHOR: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "La disposition attend « parallel » et les axes X, Y, Z, placés à « start », « center » "
+    "ou « end » (reçu : {key}).",
+)
+_PARALLEL: Final = "parallel"
+_ANCHORS: Final = tuple(anchor.value for anchor in Anchor)
 _NOT_STARTED: Final = "begin() doit précéder preview() et finish()"
 _FROM_ABOVE: Final = Vec3(0.0, 0.0, 1.0)
 
@@ -102,20 +119,21 @@ class FaceAlign:
         mode: AlignMode = AlignMode.AUTO,
         offset: Vec3 = NO_OFFSET,
         axis: str | None = None,
-        centered: str = "",
+        layout: Mapping[str, str] | None = None,
     ) -> Alignment:
         """Le mouvement qui aligne (lecture seule). ``axis`` (``"X"``, ``"Y"``, ``"Z"`` du
         conteneur de la pièce déplacée) : translation sur cet axe seul, sans rotation.
         ``ValueError`` traduite si une face n'est pas plane, si l'axe est inconnu, si un décalage
         n'est pas fini, ou, sur un axe, si les faces ne sont pas parallèles, si l'axe est dans
-        leur plan ou presque, ou si le mode est d'équerre. ``centered`` (lettres parmi ``"XYZ"``,
-        axes du même conteneur) : le centre de la face déplacée vient sur celui de l'autre face
-        sur chacun de ces axes ; ``"XYZ"`` les confond d'un coup."""
+        leur plan ou presque, ou si le mode est d'équerre. ``layout`` (axes du même conteneur) :
+        ``{"parallel": "X"}`` rend le grand côté de la face déplacée parallèle à X ;
+        ``{"X": "start", "Y": "center"}`` la place au début de l'autre face sur X et au centre
+        sur Y (``"end"`` : à la fin). Refus aussi pour un axe qui suit la normale des faces."""
         fixed, moving = self._faces[1 - self.moving_index], self._faces[self.moving_index]
         if not (isinstance(fixed, FaceTarget) and isinstance(moving, FaceTarget)):
             raise ValueError(translated(_NOT_FACES))
         with translated_errors():
-            return align(fixed, moving, mode, offset, self._axis(axis), self._axes(centered))
+            return align(fixed, moving, mode, offset, self._axis(axis), self._layout(layout))
 
     def _axis(self, axis: str | None) -> Vec3 | None:
         """Vecteur global de l'axe ``axis`` du conteneur (Std Part) de la pièce déplacée, ou du
@@ -134,11 +152,31 @@ class FaceAlign:
             unit = container.getGlobalPlacement().Rotation.multVec(unit)
         return to_vec3(unit)
 
-    def _axes(self, centered: str) -> tuple[Vec3, ...]:
-        """Vecteurs globaux des axes ``centered`` (``"XZ"``…), sans doublon."""
-        if not isinstance(centered, str):
-            raise ValueError(translated(_UNKNOWN_AXIS, {"axis": type(centered).__name__}))
-        return tuple(self._unit_axis(letter) for letter in dict.fromkeys(centered))
+    def _layout(self, layout: Mapping[str, str] | None) -> Layout:
+        """Disposition en vecteurs globaux du conteneur ; ``ValueError`` traduite pour une clé
+        ou une valeur inconnue."""
+        if layout is None:
+            return NO_LAYOUT
+        if not isinstance(layout, Mapping):
+            raise ValueError(translated(_UNKNOWN_ANCHOR, {"key": type(layout).__name__}))
+        parallel = None
+        anchors = []
+        for key, value in layout.items():
+            if key == _PARALLEL:
+                parallel = self._unit_axis(value)
+                continue
+            if key not in _UNIT_AXES or not isinstance(value, str) or value not in _ANCHORS:
+                raise ValueError(translated(_UNKNOWN_ANCHOR, {"key": _shown(key, value)}))
+            anchors.append((self._unit_axis(key), Anchor(value)))
+        return Layout(parallel, tuple(anchors))
+
+    def across_axes(self) -> str:
+        """Lettres des axes X, Y, Z du conteneur qui suivent la normale de la face de référence
+        (la pièce ne peut pas y être rendue parallèle ni alignée : lignes grisées du panneau)."""
+        fixed = self._faces[1 - self.moving_index]
+        if not isinstance(fixed, FaceTarget):
+            return ""
+        return "".join(axis for axis in _UNIT_AXES if crosses_faces(self._unit_axis(axis), fixed))
 
     @property
     def can_swap(self) -> bool:
@@ -169,14 +207,14 @@ class FaceAlign:
         mode: AlignMode = AlignMode.AUTO,
         offset: Vec3 = NO_OFFSET,
         axis: str | None = None,
-        centered: str = "",
+        layout: Mapping[str, str] | None = None,
     ) -> Alignment:
         """Place la pièce d'après le début de la séance (écriture absolue, sans recalcul du
         document) et renvoie le mouvement. ``ValueError`` traduite si une face n'est pas plane."""
         memento, start = self._memento, self._start
         if memento is None or start is None:
             raise RuntimeError(_NOT_STARTED)
-        alignment = self.plan(mode, offset, axis, centered)
+        alignment = self.plan(mode, offset, axis, layout)
         raw = memento.part
         container = start.multiply(memento.placement.inverse())
         placed = container.inverse().multiply(global_motion(alignment).multiply(start))
@@ -211,16 +249,26 @@ class FaceAlign:
         offset: Vec3 = NO_OFFSET,
         choose: JointChoice | None = None,
         axis: str | None = None,
-        centered: str = "",
+        layout: Mapping[str, str] | None = None,
     ) -> tuple[Alignment, list[str]]:
         """:meth:`begin`, :meth:`preview` puis :meth:`finish` d'un seul geste (script, ``api``) ;
         au moindre refus la pièce revient avant que l'erreur soit relancée."""
         # Refus (face non plane, axe inconnu…) avant de toucher à la pièce.
-        self.plan(mode, offset, axis, centered)
+        self.plan(mode, offset, axis, layout)
         self.begin()
         try:
-            alignment = self.preview(mode, offset, axis, centered)
+            alignment = self.preview(mode, offset, axis, layout)
             return alignment, self.finish(choose)
         except BaseException:
             self.cancel()
             raise
+
+
+def _shown(key: object, value: object) -> str:
+    """Clé et valeur d'une disposition refusée, courtes et sans caractère de contrôle (le texte
+    d'une valeur hostile n'est jamais formaté en entier)."""
+
+    def short(item: object) -> str:
+        return repr(item[:12]) if isinstance(item, str) else type(item).__name__
+
+    return f"{short(key)}={short(value)}"

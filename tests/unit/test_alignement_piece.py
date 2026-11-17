@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from freecad.menuiserie.core.align import Anchor, Layout
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.snap import FaceTarget, Frame
 from tests.unit.aides_freecad import simulated_freecad
@@ -289,22 +290,44 @@ def test_plan_transmet_l_axe_au_noyau(module: ModuleType, monkeypatch: pytest.Mo
     monkeypatch.setattr(module, "align", fake_align)
     assert aligned.plan(axis="Z") == "mouvement"
     assert received[-2] == Vec3(0.0, 0.0, 1.0)
-    assert received[-1] == ()
+    assert received[-1] == Layout()
     received.clear()
-    aligned.plan(centered="ZXZ")
+    aligned.plan(layout={"parallel": "Y", "Z": "end", "X": "start"})
     assert received[-2] is None
-    assert received[-1] == (Vec3(0.0, 0.0, 1.0), Vec3(1.0, 0.0, 0.0))  # sans doublon, dans l'ordre
+    assert received[-1] == Layout(
+        Vec3(0.0, 1.0, 0.0),
+        ((Vec3(0.0, 0.0, 1.0), Anchor.END), (Vec3(1.0, 0.0, 0.0), Anchor.START)),
+    )
 
 
-def test_plan_refuse_un_axe_de_centrage_inconnu(
+@pytest.mark.parametrize(
+    ("layout", "match"),
+    [
+        ({"parallel": "W"}, "X, Y ou Z"),
+        ({"W": "center"}, "'W'='center'"),
+        ({"X": "milieu"}, "'X'='milieu'"),
+        ({"X": ["start"]}, "'X'=list"),
+        ({"X": "a\nb" * 100}, r"'X'='a\\nba\\nba\\nba\\nb'"),
+        ({3: "start"}, "int"),
+        ("XY", "str"),
+    ],
+    ids=["parallele", "axe", "ancrage", "liste", "long", "cle", "texte"],
+)
+def test_plan_refuse_une_disposition_inconnue(
+    module: ModuleType, monkeypatch: pytest.MonkeyPatch, layout: Any, match: str
+) -> None:
+    aligned = _aligned(module, monkeypatch)
+    monkeypatch.setattr(module, "container_of", lambda _e: None)
+    with pytest.raises(ValueError, match=match):
+        aligned.plan(layout=layout)
+
+
+def test_axes_qui_traversent_la_face_de_reference(
     module: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     aligned = _aligned(module, monkeypatch)
     monkeypatch.setattr(module, "container_of", lambda _e: None)
-    with pytest.raises(ValueError, match="X, Y ou Z"):
-        aligned.plan(centered="XW")
-    with pytest.raises(ValueError, match="X, Y ou Z"):
-        aligned.plan(centered=3)
+    assert aligned.across_axes() == "Z"
 
 
 def test_plan_sur_un_axe_dans_le_plan_donne_une_valeur_error_traduite(

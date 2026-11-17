@@ -194,3 +194,12 @@ de répétitions m5) sont corrigés.
 | cp7 | mineur | `gui/task_panels/repeat.py` (`__init__`) | Le panneau note lui-même chaque champ dans `FieldSnap` après `_fill`. | Méthode `FieldSnap.sync()` qui lit `rawValue` de chaque champ. |
 | cp8 | mineur | `gui/task_panels/repeat_coplanar.py` (`_never`, `_snapped`) | Deux petits helpers de module là où une `partial` suffirait. | Simplifier au prochain passage. |
 | cp9 | mineur | `core/magnet/_coplanar.py` (`snap_field`) | `slopes or ()` répété alors que `slopes` peut valoir `None`. | `slopes = _slopes(...) or []` dès le départ. |
+
+## Grille « Parallèle et aligner sur » (PR #269, ADR 0066), 2026-11-17
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| al1 | mineur | `core/align/_align.py` (`face_center`) | Plus utilisée en production (seulement par les tests), mais toujours exportée par la façade ; `_layout._corners` fait presque le même calcul. | La déplacer dans les tests ou la calculer depuis `_corners`. |
+| al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
+| al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
+| al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |

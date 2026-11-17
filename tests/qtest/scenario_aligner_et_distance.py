@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Scénario QTest S14 : « Aligner deux faces », « Centrer », puis une distance gardée.
+"""Scénario QTest S14 : « Aligner deux faces », sa grille « Parallèle et aligner sur », puis une
+distance gardée.
 
 Deux pièces libres, la seconde tournée de 30° : commande « Aligner deux faces » et son panneau
-(chaque mode, boutons « Centrer sur X, Y », décalage, « Inverser »). Puis deux pièces d'un
-ensemble : « Définir une distance » gardée, qui doit tenir quand l'ensemble s'élargit, se régler
-par son propre panneau et disparaître quand on décoche « Garder cette distance ».
+(chaque mode, centre sur X et Y, « // X », ligne Z grisée, décalage, « Inverser »).
+Puis deux pièces d'un ensemble : « Définir une distance » gardée, qui doit tenir quand
+l'ensemble s'élargit, se régler par son propre panneau
+et disparaître quand on décoche « Garder cette distance ».
 
 Non simulés : les clics sur les faces dans la vue 3D (``Gui.Selection``).
 """
@@ -124,7 +126,10 @@ class AlignerEtCentrer(Etapes):
         choisir(liste, 0)
         self.assertAlmostEqual(boite_globale(self.mobile).ZMin, EPAISSEUR, delta=TOLERANCE_MM)
 
-    def test_3_centrer_sur_x_y_puis_z(self) -> None:
+    def test_3_centre_sur_x_y_puis_parallele(self) -> None:
+        """Centre sur X puis Y : les centres se confondent, B garde son angle (aligner ne fait
+        plus tourner). « // X » couche son grand côté le long de X. La ligne Z, normale des
+        faces, est grisée avec une infobulle (doute D9, ADR 0066)."""
         cible = boite_globale(self.fixe).Center
         cliquer(enfant(self.form(), "centerXButton"))
         centre = boite_globale(self.mobile).Center
@@ -135,14 +140,16 @@ class AlignerEtCentrer(Etapes):
         self.assertAlmostEqual(centre.x, cible.x, delta=TOLERANCE_MM)
         self.assertAlmostEqual(centre.y, cible.y, delta=TOLERANCE_MM)
         self.assertAlmostEqual(boite_globale(self.mobile).ZMin, EPAISSEUR, delta=TOLERANCE_MM)
-        # Z est ici la normale des deux faces : l'alignement y garde la main, « Centrer Z »
-        # coché ne déplace rien et ne signale rien.
-        bouton_z = enfant(self.form(), "centerZButton")
-        for coche in (True, False):
-            cliquer(bouton_z)
-            self.assertEqual(bouton_z.isChecked(), coche)
-            self.assertEqual(enfant(self.form(), "errorLabel").text(), "")
-            self.assertTrue(boite_globale(self.mobile).Center.isEqual(centre, TOLERANCE_MM))
+        self.assertAlmostEqual(self.mobile.Placement.Rotation.toEuler()[0], 30.0, places=6)
+        cliquer(enfant(self.form(), "parallelXButton"))
+        self.assertEqual(enfant(self.form(), "errorLabel").text(), "")
+        englobante = boite_globale(self.mobile)
+        self.assertAlmostEqual(englobante.XLength, 300.0, delta=TOLERANCE_MM)
+        self.assertAlmostEqual(englobante.YLength, 100.0, delta=TOLERANCE_MM)
+        self.assertTrue(englobante.Center.isEqual(centre, TOLERANCE_MM))
+        for nom in ("parallelZButton", "startZButton", "centerZButton", "endZButton"):
+            self.assertFalse(enfant(self.form(), nom).isEnabled(), nom)
+        self.assertIn("normale", enfant(self.form(), "layoutAxisZ").toolTip())
 
     def test_4_decalage(self) -> None:
         avant = boite_globale(self.mobile).Center

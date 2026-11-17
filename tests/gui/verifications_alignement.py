@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Vérifications d'interface de « Aligner deux faces » (ADR 0054) : grisage sur un axe et
-boutons « Centrer sur X, Y, Z ».
+"""Vérifications d'interface de « Aligner deux faces » (ADR 0054, 0066) : grisage sur un axe et
+grille « Parallèle et aligner sur ».
 
 Module importé par ``verifier_atelier.py`` (lancé par FreeCAD hors écran) : chaque
 vérification renvoie la liste de ses problèmes. Les faces sont sélectionnées par script, aucun
@@ -63,33 +63,54 @@ def verifier_grisage_sur_un_axe() -> list[str]:
     return avec_document("AlignementGrisage", verification)
 
 
-def verifier_centrer_sur_les_axes() -> list[str]:
-    """Trois boutons à cocher avec icône ; X puis Y cochés : le centre de la cale vient sous
-    celui du plateau, face contre face ; « OK » garde la position."""
+def _boutons(form: Any, prefixe: str) -> list[Any]:
+    return [form.findChild(QtGui.QToolButton, f"{prefixe}{a}Button") for a in "XYZ"]
+
+
+def verifier_grille_parallele_et_aligner() -> list[str]:
+    """Grille « // , début, centre, fin » : boutons à cocher avec icône, ligne Z (normale des
+    faces) grisée ; X fin, puis X centre (exclusifs), Y centre : la cale se place sous le
+    plateau face contre face ; « OK » garde la position. « // » est grisé sur un axe."""
 
     def verification(doc: Any) -> list[str]:
         cale, form = ouvrir(doc)
         if form is None:
             return ["panneau absent"]
-        boutons = [form.findChild(QtGui.QToolButton, f"center{a}Button") for a in "XYZ"]
-        if None in boutons:
-            return ["boutons Centrer sur X, Y, Z absents"]
-        problemes = ecarts("à cocher", [b.isCheckable() for b in boutons], [True] * 3)
-        problemes += ecarts("icônes", [b.icon().isNull() for b in boutons], [False] * 3)
-        problemes += ecarts("sans centrage", base(cale), (300.0, 40.0, 678.0))
-        boutons[0].setChecked(True)
-        problemes += ecarts("centrée sur X", base(cale), (350.0, 40.0, 678.0))
-        boutons[1].setChecked(True)
-        boutons[2].setChecked(True)  # Z : les faces sont déjà dans le même plan
-        problemes += ecarts("centrée sur X, Y, Z", base(cale), (350.0, 50.0, 678.0))
+        grille = {nom: _boutons(form, nom) for nom in ("parallel", "start", "center", "end")}
+        tous = [b for ligne in grille.values() for b in ligne]
+        if None in tous:
+            return ["grille Parallèle et aligner sur incomplète"]
+        problemes = ecarts("à cocher", all(b.isCheckable() for b in tous), True)
+        problemes += ecarts("icônes", any(b.icon().isNull() for b in tous), False)
+        problemes += ecarts(
+            "ligne Z grisée", [ligne[2].isEnabled() for ligne in grille.values()], [False] * 4
+        )
+        problemes += ecarts("ligne X active", grille["center"][0].isEnabled(), True)
+        problemes += ecarts("sans disposition", base(cale), (300.0, 40.0, 678.0))
+        grille["end"][0].setChecked(True)
+        problemes += ecarts("fin sur X", base(cale), (700.0, 40.0, 678.0))
+        grille["center"][0].setChecked(True)
+        problemes += ecarts("fin décochée", grille["end"][0].isChecked(), False)
+        problemes += ecarts("centre sur X", base(cale), (350.0, 40.0, 678.0))
+        grille["center"][1].setChecked(True)
+        problemes += ecarts("centre sur X et Y", base(cale), (350.0, 50.0, 678.0))
+        grille["parallel"][0].setChecked(True)
+        grille["parallel"][1].setChecked(True)
+        problemes += ecarts("un seul //", grille["parallel"][0].isChecked(), False)
+        grille["parallel"][1].setChecked(False)
+        axe = form.findChild(QtGui.QComboBox, "axisCombo")
+        axe.setCurrentIndex(axe.findData("Z"))
+        problemes += ecarts("// grisé sur Z", grille["parallel"][0].isEnabled(), False)
+        axe.setCurrentIndex(axe.findData(""))
+        problemes += ecarts("// rendu en Libre", grille["parallel"][0].isEnabled(), True)
         valider()
         problemes += ecarts("après OK", base(cale), (350.0, 50.0, 678.0))
         return problemes
 
-    return avec_document("AlignementCentrage", verification)
+    return avec_document("AlignementGrille", verification)
 
 
 VERIFICATIONS_ALIGNEMENT: tuple[Callable[[], list[str]], ...] = (
     verifier_grisage_sur_un_axe,
-    verifier_centrer_sur_les_axes,
+    verifier_grille_parallele_et_aligner,
 )
