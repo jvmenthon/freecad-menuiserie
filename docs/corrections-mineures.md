@@ -53,6 +53,17 @@ contournable), **mineur** (confort, docs, dette de test).
 | b2 | mineur | `core/furniture/_model.py`, `_edit.py` | `NoticeKind.NOT_SQUARE` et `Follow.NOT_SQUARE` ne sont plus produits depuis AB-d (toute pièce non d'équerre suit par translation). | Retirer les deux valeurs et leurs gabarits à la prochaine évolution du modèle d'ensemble. |
 | b3 | mineur | `tests/unit/test_assemblage_biais.py` | Chemins refusés sans test : `NO_WALL` en biais, invitée qui entre par un chant (`OVERLAPPING`), `TOO_SMALL` (polyèdre vide), rainure-languette en biais composé. | Ajouter les cas. |
 
+## Relecture de fin de jalon « Profils d'arête » (issue #5, ADR 0029), 2026-11-01
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| c1 | mineur | `tests/integration/test_profils_piece.py` | L'avertissement d'un profil qui touche un assemblage (B3) n'a pas de test d'intégration. | Ajouter le cas (profil sur l'arête d'un tenon ou d'une rainure, avertissement cité). |
+| c2 | mineur | `gui/task_panels/edge_finish.py` | Le panneau ne se ferme pas si la pièce ou le profil est supprimé pendant l'édition (pas de surveillance de suppression). | Fermer le panneau à la suppression de l'objet, comme les autres panneaux. |
+| c3 | mineur | `features/edge_profile.py` | Une famille inconnue relue d'un fichier devient silencieusement un chanfrein. | Avertir dans le rapport de l'objet. |
+| c4 | mineur | `core/edges/_families.py` | « Demi-rond » donne la même section que « Congé » (b = a) ; seule la cote B ignorée les distingue. | Documenter, ou ajouter automatiquement l'arête opposée. |
+| c5 | mineur | `core/edges/_ids.py`, messages | Noms et codes d'arêtes cités dans les messages non traduisibles. | Passer les noms par `QT_TRANSLATE_NOOP`. |
+| c6 | mineur | `gui/task_panels/edge_finish.py` | Aperçu lourd : recalcul complet du document et rapport bavard à chaque saisie. | Utiliser `recompute_preview`, regrouper les rapports. |
+| c7 | mineur | `docs/specs/finition-des-chants.md`, `CONTRIBUTING.md` | Écarts spec/docs : A3 `profile_section` n'existe pas, « carré a×b » faux pour le bec, liste d'objets de CONTRIBUTING.md non mise à jour, `getattr(..., "Finishes", ())` à harmoniser. | Aligner la spec et la liste. |
 ## Relecture de fin de jalon « Ensemble à la souris » (ADR 0038), 2026-11-07
 
 Les points majeurs et les mineurs 8, 9 et 13 de cette relecture sont corrigés dans la branche
@@ -166,6 +177,10 @@ de répétitions m5) sont corrigés.
 | cp2 | mineur | `features/magnet_guides.py` (`neighbor_planes`) | Voisines lues dans l'ordre du document (pas les plus proches d'abord) : au-delà de `MAX_GUIDES`, des voisines utiles peuvent manquer. | Passer l'enveloppe des sources en `reference`. |
 | cp4 | mineur | `gui/task_panels/repeat_coplanar.py` (`CoplanarCues.show`) | `except Exception` avale l'erreur sans trace (voulu : le repère ne doit pas casser l'aperçu). | Journaliser en debug (`App.Console.PrintLog`). |
 | cp5 | mineur | `gui/drag/states.py` (`Dragging.lit`), `core/magnet/_coplanar.py` (`PlaneIndex.coplanar`) | Même recherche « voisines d'une face » avec deux règles d'affichage. | Regrouper au 3e usage. |
+| cp6 | mineur | `gui/task_panels/repeat.py` (`_field_changed`), `repeat_field_snap.py` (`with_field`) | `kind` est une chaîne « step » / « span » ; tout autre texte est pris pour `span`. | `Literal["step", "span"]` ou petit `Enum`, `ValueError` sinon. |
+| cp7 | mineur | `gui/task_panels/repeat.py` (`__init__`) | Le panneau note lui-même chaque champ dans `FieldSnap` après `_fill`. | Méthode `FieldSnap.sync()` qui lit `rawValue` de chaque champ. |
+| cp8 | mineur | `gui/task_panels/repeat_coplanar.py` (`_never`, `_snapped`) | Deux petits helpers de module là où une `partial` suffirait. | Simplifier au prochain passage. |
+| cp9 | mineur | `core/magnet/_coplanar.py` (`snap_field`) | `slopes or ()` répété alors que `slopes` peut valoir `None`. | `slopes = _slopes(...) or []` dès le départ. |
 
 ## Grille « Parallèle et aligner sur » (PR #269, ADR 0066), 2026-11-17
 

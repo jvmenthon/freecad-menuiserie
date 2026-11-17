@@ -137,7 +137,7 @@ class SaisiesHostilesDeLAssemblage(Etapes):
         self.saisir("TailCount", "12")
         self.assertTrue(self.refus_affiche())
         self.assertIn(TROP_ETROITES, enfant(self.form, "errorLabel").text())
-        cliquer(bouton_ok())
+        cliquer(bouton_ok(), meme_grise=True)
         self.assertTrue(panneau_ouvert(), "panneau validé malgré le refus")
         self.saisir("TailCount", "3")
         self.assertFalse(self.refus_affiche())

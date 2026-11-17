@@ -11,9 +11,11 @@ from __future__ import annotations
 from freecad.menuiserie.core.magnet._axis import arrows, axis_param
 from freecad.menuiserie.core.magnet._coplanar import (
     MAX_COPLANAR,
+    SNAP_REACH_MM,
     PlaneIndex,
     box_faces,
     overlaps,
+    snap_field,
 )
 from freecad.menuiserie.core.magnet._magnet import (
     HANDLE_RADIUS_PX,
@@ -41,6 +43,7 @@ __all__ = [
     "HANDLE_RADIUS_PX",
     "MAX_COPLANAR",
     "MIN_SIZE_MM",
+    "SNAP_REACH_MM",
     "THICKNESS_AXIS",
     "Arrow",
     "DragResult",
@@ -61,4 +64,5 @@ __all__ = [
     "mm_per_pixel",
     "overlaps",
     "resize",
+    "snap_field",
 ]
