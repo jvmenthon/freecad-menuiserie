@@ -53,7 +53,8 @@ __all__ = ["PerpendicularStart", "perpendicular_start"]
 
 _FIT_PASSES: Final = 3  # un resserrement par axe, puis un de contrôle : le calcul converge en deux
 # en dessous, une pièce resserrée au clic près d'une pointe aiguë n'est qu'une lamelle inutile
-# (moins que le plus fin chanfrein d'un usage réel) : accrochage habituel à la place
+# (moins que le plus fin chanfrein d'un usage réel) : autre essai ou accrochage habituel. Plus
+# exigeant que MIN_DIMENSION_MM (cote minimale d'une pièce saisie), qui reste la borne absolue
 _SLIVER_MM: Final = 5.0
 _PARALLEL: Final = 1e-6  # norme du produit vectoriel de deux normales unitaires parallèles
 
@@ -198,15 +199,15 @@ class _Plan:
     def start(
         self,
         orientation: Orientation,
-        edge_row: int | None,
-        edge_target: FaceTarget | None,
+        edge: int | FaceTarget | None,
         blank_face: Any | None,
     ) -> PerpendicularStart | None:
-        """Départ le long de l'axe ``edge_row`` (ou du repère ``edge_target`` d'une arête, axe 0),
-        resserré dans ``blank_face`` ; ``None`` s'il ne reste pas la place d'une pièce."""
-        reading, support = self.reading, self.support
-        if edge_target is not None:  # repère d'appui tourné le long de l'arête
-            reading, edge_row = replace(reading, targets=(edge_target,)), 0
+        """Départ le long de ``edge`` : axe d'appui (0 ou 1) de la cible lue, repère d'une arête
+        (son axe 0) ou ``None`` (inconnu) ; resserré dans ``blank_face``. ``None`` s'il ne reste
+        pas la place d'une pièce."""
+        reading, support, edge_row = self.reading, self.support, edge
+        if isinstance(edge, FaceTarget):  # repère d'appui tourné le long de l'arête
+            reading, edge_row = replace(reading, targets=(edge,)), 0
             support = support_rotation(reading.targets) or support
         if edge_row is not None:
             orientation = along_edge(orientation, edge_row)
@@ -216,6 +217,25 @@ class _Plan:
             return None
         reading, width, thickness = fitted
         return PerpendicularStart(orientation, width, thickness, reading)
+
+    def along_nearest_edge(
+        self,
+        orientation: Orientation,
+        local: FaceTarget,
+        blank_face: Any | None,
+        click: Vec3 | None,
+    ) -> PerpendicularStart | None:
+        """Départ le long de l'arête la plus proche de ``click`` : arête oblique (repère tourné),
+        sinon côté droit de ``local`` ; si ce côté, mesuré au clic près d'une pointe aiguë, ne
+        laisse qu'une lamelle, repère de l'arête (profondeur au milieu de l'arête)."""
+        oblique = _oblique(local, blank_face, click)
+        if oblique is not None:
+            return self.start(orientation, oblique, blank_face)
+        start = self.start(orientation, _nearest_edge_row(local, click), blank_face)
+        if start is not None or blank_face is None or click is None:
+            return start
+        edge = oblique_edge_target(local, blank_face, click, any_edge=True)
+        return None if edge is None else self.start(orientation, edge, blank_face)
 
 
 def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
@@ -241,14 +261,5 @@ def perpendicular_start(reading: TargetReading) -> PerpendicularStart | None:
     dimensions = dimensions_of(blank)
     plan = _Plan(reading, support, owner, (dimensions.width, dimensions.thickness))
     if local is None:
-        return plan.start(orientation, None, None, None)
-    click = reading.elements[0].point
-    edge_row = _nearest_edge_row(local, click)
-    oblique = _oblique(local, blank_face, click)
-    start = plan.start(orientation, edge_row, oblique, blank_face)
-    if start is None and oblique is None and blank_face is not None and click is not None:
-        # côté droit mesuré au clic près d'une pointe aiguë (lamelle) : la pièce suit l'arête,
-        # profondeur prise au milieu de l'arête
-        along = oblique_edge_target(local, blank_face, click, any_edge=True)
-        start = None if along is None else plan.start(orientation, 0, along, blank_face)
-    return start
+        return plan.start(orientation, None, None)
+    return plan.along_nearest_edge(orientation, local, blank_face, reading.elements[0].point)

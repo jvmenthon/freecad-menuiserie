@@ -204,16 +204,42 @@ def oblique_edge_target(
     l'axe x suit l'arête et l'axe y part vers l'intérieur de la face, origine au bout de l'arête
     (dans le plan de ``target``), étendue (longueur de l'arête, profondeur de la face au milieu de
     l'arête). ``None`` si l'arête la plus proche est parallèle à un axe de ``target`` (règle des
-    côtés droits, sauf ``any_edge``) ou si le calcul échoue."""
+    côtés droits, sauf ``any_edge``) ou si un calcul OCC échoue. Seuls les appels OCC sont
+    protégés : une erreur de programmation remonte."""
+    normal = to_vector(target.frame.z)
     try:
-        return _oblique_target(target, face, to_vector(click), any_edge)
-    except (ValueError, AttributeError, *ERRORS):
+        clicked = to_vector(click)
+        edge = _nearest_line(face, clicked + normal * (face.CenterOfMass - clicked).dot(normal))
+    except ERRORS:
+        edge = None
+    if edge is None:
         return None
+    start, end = edge.Vertexes[0].Point, edge.Vertexes[1].Point
+    length, along = (end - start).Length, _in_plane(end - start, normal)
+    if along is None:
+        return None
+    x, y = to_vector(target.frame.x), to_vector(target.frame.y)
+    if not any_edge and min(along.cross(x).Length, along.cross(y).Length) <= _STRAIGHT:
+        return None  # côté droit : règle habituelle
+    try:
+        inner = _inward_side(face, (start, end), along, normal)
+    except ERRORS:
+        inner = None
+    if inner is None:
+        return None
+    start, along, inward, depth = inner
+    origin = start - normal * (start - to_vector(target.frame.origin)).dot(normal)
+    frame = Frame(to_vec3(origin), to_vec3(along), to_vec3(inward), to_vec3(normal))
+    return FaceTarget(target.name, frame, (length, depth), planar=True)
 
 
 def _nearest_line(face: Any, point: Vector) -> Any:
     """Arête de ``face`` la plus proche de ``point`` si c'est une droite à deux sommets, ``None``
-    sinon (arc, courbe : pas d'arête à suivre). Une arête illisible est ignorée."""
+    sinon (arc, courbe : pas d'arête à suivre). Une arête illisible est ignorée.
+
+    Le rectangle local de :func:`local_face_target` donne aussi un « côté le plus proche »
+    (``perpendicular._nearest_edge_row``) : sur une face rectangulaire les deux s'accordent ; sur
+    une autre face, c'est cette arête-ci, la vraie, qui décide d'une arête oblique."""
     vertex, best = Part.Vertex(point), None
     for edge in face.Edges:
         try:
@@ -229,41 +255,32 @@ def _nearest_line(face: Any, point: Vector) -> Any:
     return edge if straight else None
 
 
-def _oblique_target(
-    target: FaceTarget, face: Any, clicked: Vector, any_edge: bool
-) -> FaceTarget | None:
-    """Corps de :func:`oblique_edge_target`."""
-    normal = to_vector(target.frame.z)
-    x, y = to_vector(target.frame.x), to_vector(target.frame.y)
-    point = clicked + normal * (face.CenterOfMass - clicked).dot(normal)
-    edge = _nearest_line(face, point)
-    if edge is None:
-        return None
-    start, end = edge.Vertexes[0].Point, edge.Vertexes[1].Point
-    length = (end - start).Length
-    if length <= EPSILON:
-        return None
-    along = end - start
-    along -= normal * along.dot(normal)  # ramenée dans le plan de la face
+def _in_plane(direction: Vector, normal: Vector) -> Vector | None:
+    """``direction`` ramenée dans le plan de normale ``normal`` et normée, ``None`` si nulle."""
+    along = direction - normal * direction.dot(normal)
     if along.Length <= EPSILON:
         return None
     along.normalize()
-    if not any_edge and min(along.cross(x).Length, along.cross(y).Length) <= _STRAIGHT:
-        return None  # côté droit : règle habituelle
+    return along
+
+
+def _inward_side(
+    face: Any, ends: tuple[Vector, Vector], along: Vector, normal: Vector
+) -> tuple[Vector, Vector, Vector, float] | None:
+    """(départ, direction, direction vers l'intérieur, profondeur) de l'arête ``ends`` de
+    ``face`` : repère direct, y vers l'intérieur. Profondeur au milieu de l'arête, pas au clic :
+    la pièce court sur toute l'arête, et un clic près d'un sommet aigu ne mesurerait qu'une
+    lamelle ; le côté intérieur se sonde au même endroit (un clic sur l'arête ou près d'un sommet
+    ne dit pas de quel côté est la face). ``None`` si la profondeur est nulle."""
+    start, end = ends
     inward = normal.cross(along)
-    # profondeur au milieu de l'arête, pas au clic : la pièce court sur toute l'arête, et un clic
-    # près d'un sommet aigu ne mesurerait qu'une lamelle ; le côté intérieur se sonde au même
-    # endroit (un clic sur l'arête ou près d'un sommet ne dit pas de quel côté est la face)
     foot = start + along * (along.dot(end - start) / 2.0)
     if not face.isInside(foot + inward * _PROBE_INSET_MM, _PROBE_INSET_MM / 10.0, True):
-        # repère direct, y vers l'intérieur : partir de l'autre bout
-        start, along, inward = end, along * -1.0, inward * -1.0
+        start, along, inward = end, along * -1.0, inward * -1.0  # partir de l'autre bout
     depth = _span_through(face, foot + inward * _PROBE_INSET_MM, inward)
     if depth is None:
         return None
-    origin = start - normal * (start - to_vector(target.frame.origin)).dot(normal)
-    frame = Frame(to_vec3(origin), to_vec3(along), to_vec3(inward), to_vec3(normal))
-    return FaceTarget(target.name, frame, (length, depth[1] + _PROBE_INSET_MM), planar=True)
+    return start, along, inward, depth[1] + _PROBE_INSET_MM
 
 
 def face_under_click(element: PickedElement) -> PickedElement:

@@ -21,6 +21,7 @@ picked = pytest.importorskip("freecad.menuiserie.features.picked")
 perpendicular = pytest.importorskip("freecad.menuiserie.features.perpendicular")
 placement_module = pytest.importorskip("freecad.menuiserie.features.placement")
 geometry = pytest.importorskip("freecad.menuiserie.features.snap_geometry")
+local_face = pytest.importorskip("freecad.menuiserie.features.snap_local_face")
 targets = pytest.importorskip("freecad.menuiserie.features.snap_targets")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 pieces_galbees = pytest.importorskip("tests.integration.pieces_galbees")
@@ -586,3 +587,19 @@ def test_pointe_aigue_la_piece_suit_l_arete_sur_sa_longueur(
     start = check_no_overflow(document, owner, click)
     assert start is not None
     assert start.width >= 50 and start.thickness >= 5
+
+
+def test_erreur_de_programmation_pas_avalee(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Seuls les appels OCC sont protégés : une erreur de programmation dans le calcul du repère
+    d'une arête remonte au lieu de rendre ``None`` en silence."""
+    points = [App.Vector(x, y, 0) for x, y in (*SHAPES["trapeze"], SHAPES["trapeze"][0])]
+    face = Part.Face(Part.makePolygon(points))
+    frame = local_face.Frame(Vec3(0, 0, 0), Vec3(1, 0, 0), Vec3(0, 1, 0), Vec3(0, 0, 1))
+    target = local_face.FaceTarget("Face", frame, (400.0, 100.0), planar=True)
+
+    def broken(*_args: Any) -> None:
+        raise TypeError("appel erroné")
+
+    monkeypatch.setattr(local_face, "_in_plane", broken)
+    with pytest.raises(TypeError):
+        local_face.oblique_edge_target(target, face, Vec3(50, 50, 0))
