@@ -26,6 +26,7 @@ from freecad.menuiserie.features.drawing_dims import (
     added_by,
     dimension_font_mm,
     dimension_row_mm,
+    wait_for_geometry,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
@@ -187,6 +188,8 @@ def add_overall_views(
         views["Iso"].ScaleType = "Custom"
         views["Iso"].Scale = layout.iso_scale
     doc.recompute()  # les cotes d'étendue lisent la géométrie des vues
+    if not wait_for_geometry([front, views["CutV"]]):
+        details = FrontDetails((), (), details.angles)  # rien où poser une cote de détail
     names = [view.Name for view in views.values()]
     half = _half_size("Front", sizes, layout.scale)
     chained = add_front_details(page, front, details, (center, half, layout.scale))
@@ -349,6 +352,7 @@ def add_part_views(
         perspective.ScaleType = "Custom"
         perspective.Scale = iso_scale
     doc.recompute()
+    wait_for_geometry(list(views.values()))  # les cotes d'étendue lisent leur géométrie
     names = [view.Name for view in views.values()]
     if iso is not None:
         names.append(perspective.Name)

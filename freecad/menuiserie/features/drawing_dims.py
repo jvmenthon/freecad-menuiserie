@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Final
 
 import FreeCAD as App
@@ -17,8 +17,11 @@ __all__ = [
     "added_by",
     "dimension_font_mm",
     "dimension_row_mm",
+    "has_geometry",
     "overall_band_mm",
     "part_band_mm",
+    "set_geometry_waiter",
+    "wait_for_geometry",
 ]
 
 DIMENSION_CLEARANCE_MM: Final = 4.0  # du bord de la vue au texte d'une cote, plus le texte
@@ -65,3 +68,29 @@ def overall_band_mm(chains: bool = True) -> float:
 def part_band_mm() -> float:
     """Place des cotes au-dessus et à gauche de la face d'un plan de pièce."""
     return dimension_row_mm() + dimension_font_mm()
+
+
+# Attente de la géométrie des vues, branchée par l'interface (gui/drawing_hlr.py) : sans
+# interface, TechDraw calcule les vues pendant le recalcul et rien n'est à attendre.
+_WAITER: list[Callable[[Sequence[DocumentObject]], None]] = []
+
+
+def set_geometry_waiter(waiter: Callable[[Sequence[DocumentObject]], None] | None) -> None:
+    """Fonction qui attend que des vues aient leur géométrie (``None`` : aucune)."""
+    _WAITER[:] = [] if waiter is None else [waiter]
+
+
+def has_geometry(view: DocumentObject) -> bool:
+    """La vue ``view`` a-t-elle sa géométrie (arêtes visibles) : une cote peut s'y poser."""
+    try:
+        return bool(view.getVisibleEdges())
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def wait_for_geometry(views: Sequence[DocumentObject]) -> bool:
+    """Attend, si l'interface sait le faire, que ``views`` aient leur géométrie ; vrai si elles
+    l'ont toutes."""
+    if _WAITER:
+        _WAITER[0](views)
+    return all(has_geometry(view) for view in views)

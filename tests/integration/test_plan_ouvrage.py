@@ -251,3 +251,20 @@ def test_cotes_de_detail_sur_la_face(bureau: Bureau) -> None:
     assert 30.0 in values and 22.0 in values, values  # plateau, joues (mm réels)
     assert len(drawing.overall_dimensions(page)) == 3
     assert all(view.isValid() for view in page.Views)
+
+
+def test_attente_de_la_geometrie_des_vues(bureau: Bureau) -> None:
+    """Avec l'interface, les plans attendent la géométrie des vues (calcul en tâche de fond)
+    avant d'y poser une cote ; sans géométrie, les cotes de détail sont omises (plus de
+    plantage de FreeCAD)."""
+    from freecad.menuiserie.features import drawing_dims
+
+    seen: list[str] = []
+    drawing_dims.set_geometry_waiter(lambda views: seen.extend(view.Name for view in views))
+    try:
+        page = api.make_overall_drawing(bureau.doc, [bureau.furniture])
+    finally:
+        drawing_dims.set_geometry_waiter(None)
+    assert seen and all(bureau.doc.getObject(name) in page.Views for name in seen)
+    assert drawing_dims.has_geometry(bureau.doc.getObject(seen[0]))
+    assert not drawing_dims.has_geometry(page)  # une page n'a pas d'arêtes

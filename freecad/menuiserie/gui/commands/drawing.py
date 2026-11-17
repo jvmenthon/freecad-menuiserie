@@ -168,6 +168,9 @@ class DrawingPdfCommand(TransactionCommand):
 
 def register() -> None:
     """Enregistre les commandes des plans auprès de FreeCAD."""
+    from freecad.menuiserie.gui import drawing_hlr
+
+    drawing_hlr.install()
     Gui.addCommand(DRAWING, DrawingCommand())
     Gui.addCommand(PART_DRAWINGS, PartDrawingsCommand())
     Gui.addCommand(EXPLODED, ExplodedDrawingCommand())
