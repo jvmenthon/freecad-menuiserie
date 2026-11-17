@@ -27,7 +27,7 @@ from freecad.menuiserie.features.snap_geometry import (
 if TYPE_CHECKING:
     from freecad.menuiserie.features.snap_targets import TargetReading
 
-_STRAIGHT: Final = 1e-6  # écart au parallélisme en deçà duquel une arête suit un axe
+_STRAIGHT: Final = 1e-6  # sinus de l'angle en deçà duquel une arête suit un axe (droite)
 _PROBE_INSET_MM: Final = 1e-4  # recul des sondes de l'épaisseur, au delà de la tolérance d'OCC
 
 __all__ = [
@@ -205,19 +205,26 @@ def oblique_edge_target(target: FaceTarget, face: Any, click: Vec3) -> FaceTarge
     côtés droits) ou si le calcul échoue."""
     try:
         return _oblique_target(target, face, to_vector(click))
-    except (ValueError, *ERRORS):
+    except (ValueError, AttributeError, *ERRORS):
         return None
 
 
 def _nearest_line(face: Any, point: Vector) -> Any:
-    """Arête droite de ``face`` la plus proche de ``point`` (``None`` sans arête droite)."""
+    """Arête de ``face`` la plus proche de ``point`` si c'est une droite à deux sommets, ``None``
+    sinon (arc, courbe : pas d'arête à suivre). Une arête illisible est ignorée."""
     vertex, best = Part.Vertex(point), None
     for edge in face.Edges:
-        if isinstance(edge.Curve, (Part.Line, Part.LineSegment)) and len(edge.Vertexes) == 2:
+        try:
             gap = edge.distToShape(vertex)[0]
-            if best is None or gap < best[0]:
-                best = (gap, edge)
-    return None if best is None else best[1]
+        except ERRORS:
+            continue
+        if best is None or gap < best[0]:
+            best = (gap, edge)
+    if best is None:
+        return None
+    edge = best[1]
+    straight = isinstance(edge.Curve, (Part.Line, Part.LineSegment)) and len(edge.Vertexes) == 2
+    return edge if straight else None
 
 
 def _oblique_target(target: FaceTarget, face: Any, clicked: Vector) -> FaceTarget | None:
@@ -232,9 +239,13 @@ def _oblique_target(target: FaceTarget, face: Any, clicked: Vector) -> FaceTarge
     length = (end - start).Length
     if length <= EPSILON:
         return None
-    along = (end - start) * (1.0 / length)
-    if max(abs(along.dot(x)), abs(along.dot(y))) >= 1.0 - _STRAIGHT:
+    along = end - start
+    along -= normal * along.dot(normal)  # ramenée dans le plan de la face
+    if along.Length <= EPSILON:
         return None
+    along.normalize()
+    if min(abs(along.cross(x).Length), abs(along.cross(y).Length)) <= _STRAIGHT:
+        return None  # côté droit : règle habituelle
     inward = normal.cross(along)
     if (
         inward.dot(point - start) < 0.0

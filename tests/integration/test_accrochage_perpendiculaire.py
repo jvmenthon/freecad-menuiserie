@@ -370,3 +370,204 @@ def test_clic_pres_de_l_arete_oblique_largeur_ne_depasse_pas_la_face(document: A
     part, _start = create_against(document, angle, face, Vec3(100, 48, 50))
     slab = footprint_slab(part)
     assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
+
+
+def prism(document: Any, outline: list[tuple[float, float]], placement: Any = None) -> Any:
+    """Prisme (épaisseur 50) du contour ``outline`` (z de 0 à 50), converti en pièce."""
+    points = [App.Vector(x, y, 0) for x, y in (*outline, outline[0])]
+    source = document.addObject("Part::Feature", "Prisme")
+    source.Shape = Part.Face(Part.makePolygon(points)).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    obj = pieces_galbees.shaped(source)
+    if placement is not None:
+        obj.Placement = placement
+        document.recompute()
+    return obj
+
+
+def top_face(owner: Any) -> Any:
+    shape = geometry.global_shape(owner)
+    return max(shape.Faces, key=lambda face: face.CenterOfMass.z)
+
+
+def overflow(part: Any, owner: Any) -> float:
+    """Volume de l'empreinte réelle de ``part`` hors de la face du dessus de ``owner``."""
+    top = top_face(owner)
+    z = top.CenterOfMass.z
+    shape = geometry.global_shape(part)
+    bottom = min(shape.Faces, key=lambda face: face.CenterOfMass.z)
+    slab = bottom.extrude(App.Vector(0, 0, -1))
+    slab.translate(App.Vector(0, 0, z - bottom.CenterOfMass.z))
+    return float(slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume)
+
+
+def start_or_none(owner: Any, click: tuple[float, float]) -> Any:
+    z = top_face(owner).CenterOfMass.z
+    face = face_at(owner, (0, 0, 1), z)
+    reading = targets.read_targets(
+        [picked.PickedElement(owner, face, Vec3(click[0], click[1], z))], ABOVE
+    )
+    return perpendicular.perpendicular_start(reading)
+
+
+def check_no_overflow(document: Any, owner: Any, click: tuple[float, float]) -> Any:
+    """Pose la pièce au clic (si un départ existe) et vérifie l'absence de débord. Renvoie le
+    départ, ``None`` si accrochage habituel."""
+    if start_or_none(owner, click) is None:
+        return None
+    z = top_face(owner).CenterOfMass.z
+    face = face_at(owner, (0, 0, 1), z)
+    part, start = create_against(document, owner, face, Vec3(click[0], click[1], z))
+    assert overflow(part, owner) < 1e-2, f"débord au clic {click}"
+    return start
+
+
+def grid(xs: Any, ys: Any) -> list[tuple[float, float]]:
+    return [(x, y) for x in xs for y in ys]
+
+
+SHAPES = {
+    "losange": [(0, 50), (200, 0), (400, 50), (200, 100)],
+    "trapeze": [(0, 0), (400, 0), (300, 100), (100, 100)],
+    "trapeze_rect": [(0, 0), (400, 0), (300, 100), (0, 100)],  # un côté droit, un oblique
+    "parallelogramme": [(0, 0), (300, 0), (400, 100), (100, 100)],
+    "pente_courte": [(0, 0), (400, 0), (400, 90), (395, 100), (0, 100)],  # chanfrein de 11 mm
+    "pente_minuscule": [(0, 0), (400, 0), (400, 99), (399, 100), (0, 100)],  # chanfrein de 1,4 mm
+}
+
+
+@pytest.mark.parametrize("name", sorted(SHAPES))
+def test_formes_polygonales_balayage_sans_debord(document: Any, name: str) -> None:
+    """Balayage de clics sur chaque forme : jamais de débord de l'empreinte réelle."""
+    owner = prism(document, SHAPES[name])
+    for click in grid((1, 20, 100, 200, 300, 380, 399), (1, 10, 50, 90, 99)):
+        top = top_face(owner)
+        if top.distToShape(Part.Vertex(App.Vector(click[0], click[1], 50)))[0] > 1e-6:
+            continue
+        check_no_overflow(document, owner, click)
+
+
+@pytest.mark.parametrize("name", sorted(SHAPES))
+def test_formes_polygonales_tournees_sans_debord(document: Any, name: str) -> None:
+    """Même balayage avec la pièce porteuse tournée de 37° autour de Z."""
+    turn = App.Placement(App.Vector(10, 20, 0), App.Rotation(App.Vector(0, 0, 1), 37))
+    owner = prism(document, SHAPES[name], turn)
+    for click in grid((1, 20, 100, 200, 300, 380, 399), (1, 10, 50, 90, 99)):
+        point = turn.multVec(App.Vector(click[0], click[1], 50))
+        top = top_face(owner)
+        if top.distToShape(Part.Vertex(point))[0] > 1e-6:
+            continue
+        check_no_overflow(document, owner, (point.x, point.y))
+
+
+def test_losange_largeur_suit_l_arete_oblique(document: Any) -> None:
+    """Losange : clic près d'un côté, la largeur est la longueur de ce côté (206,16)."""
+    owner = prism(document, SHAPES["losange"])
+    start = check_no_overflow(document, owner, (100, 25 + 3))
+    assert start is not None
+    assert 0.1 <= start.width <= 206.155 + 1e-3  # jamais plus long que le côté suivi
+
+
+def test_trapeze_arete_droite_proche_reste_droite(document: Any) -> None:
+    """Trapèze : clic à 2 mm de la base (droite) bien que l'oblique soit à 40 mm : base suivie,
+    resserrée à 300 (largeur de la face à 50 mm de profondeur, entre les deux obliques)."""
+    owner = prism(document, SHAPES["trapeze"])
+    start = check_no_overflow(document, owner, (200, 2))
+    assert start is not None
+    assert round(start.width, 3) == 300
+
+
+def test_trapeze_arete_oblique_proche_suivie(document: Any) -> None:
+    owner = prism(document, SHAPES["trapeze"])
+    start = check_no_overflow(document, owner, (50, 50))  # sur l'oblique x = 100 * y / 100
+    assert start is not None
+    assert round(start.width, 3) <= 141.43
+
+
+def test_egalite_arete_droite_et_oblique_stable(document: Any) -> None:
+    """Clic sur la bissectrice d'un sommet (égale distance base / oblique) : résultat stable,
+    sans débord."""
+    owner = prism(document, SHAPES["trapeze_rect"])
+    # bissectrice du sommet (400, 0), angle entre la base et l'oblique (300,100)-(400,0)
+    first = check_no_overflow(document, owner, (385.0, 5.0))
+    second = check_no_overflow(document, owner, (385.0, 5.0))
+    assert first is not None and second is not None
+    assert (round(first.width, 6), round(first.thickness, 6)) == (
+        round(second.width, 6),
+        round(second.thickness, 6),
+    )
+
+
+def test_arete_oblique_tres_courte_pas_de_debord(document: Any) -> None:
+    """Chanfrein de 1,4 mm : clic dessus ou tout près, la pièce ne déborde pas."""
+    owner = prism(document, SHAPES["pente_minuscule"])
+    for click in ((399.5, 99.5), (399.0, 99.0), (398.0, 98.0), (399.9, 99.0), (399.0, 99.9)):
+        check_no_overflow(document, owner, click)
+
+
+def test_arete_oblique_courte_largeur_bornee(document: Any) -> None:
+    """Chanfrein de 11 mm : la largeur reste dans les bornes valides, jamais NaN."""
+    owner = prism(document, SHAPES["pente_courte"])
+    start = check_no_overflow(document, owner, (397.5, 95))
+    if start is not None:
+        assert 0.1 <= start.width <= 400
+        assert start.width == start.width
+
+
+def test_face_arete_courbe_pas_de_debord(document: Any) -> None:
+    """Face dont un côté est un arc (demi-disque) : l'arête courbe n'est jamais suivie comme une
+    droite, pas de débord."""
+    wire = Part.Wire(
+        [
+            Part.makeLine(App.Vector(0, 0, 0), App.Vector(200, 0, 0)),
+            Part.Arc(
+                App.Vector(200, 0, 0), App.Vector(300, 100, 0), App.Vector(200, 200, 0)
+            ).toShape(),
+            Part.makeLine(App.Vector(200, 200, 0), App.Vector(0, 200, 0)),
+            Part.makeLine(App.Vector(0, 200, 0), App.Vector(0, 0, 0)),
+        ]
+    )
+    source = document.addObject("Part::Feature", "Arrondi")
+    source.Shape = Part.Face(wire).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    owner = pieces_galbees.shaped(source)
+    for click in grid((5, 100, 195, 250, 290, 299), (5, 50, 100, 150, 195)):
+        top = top_face(owner)
+        if top.distToShape(Part.Vertex(App.Vector(click[0], click[1], 50)))[0] > 1e-6:
+            continue
+        check_no_overflow(document, owner, click)
+
+
+def test_arete_courbe_plus_proche_que_la_droite_oblique(document: Any) -> None:
+    """Clic collé à l'arc, loin de la seule oblique : la largeur ne doit pas suivre l'oblique."""
+    outline = Part.Wire(
+        [
+            Part.makeLine(App.Vector(0, 0, 0), App.Vector(300, 0, 0)),
+            Part.Arc(
+                App.Vector(300, 0, 0), App.Vector(380, 100, 0), App.Vector(300, 200, 0)
+            ).toShape(),
+            Part.makeLine(App.Vector(300, 200, 0), App.Vector(0, 100, 0)),
+            Part.makeLine(App.Vector(0, 100, 0), App.Vector(0, 0, 0)),
+        ]
+    )
+    source = document.addObject("Part::Feature", "ArcOblique")
+    source.Shape = Part.Face(outline).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    owner = pieces_galbees.shaped(source)
+    start = check_no_overflow(document, owner, (375, 100))
+    if start is not None:
+        # l'arête oblique (300,200)-(0,100) mesure 316 : elle ne doit pas être suivie
+        assert abs(start.width - 316.228) > 1.0
+
+
+@pytest.mark.parametrize(
+    ("name", "click"),
+    [("trapeze_rect", (399, 1)), ("losange", (2, 50)), ("losange", (398, 50)), ("trapeze", (1, 1))],
+)
+def test_pointe_aigue_pas_de_lamelle(document: Any, name: str, click: tuple[float, float]) -> None:
+    """Clic près d'un sommet aigu : pas de pièce dont l'épaisseur ou la largeur soit une lamelle
+    (sous 5 mm, moins que le chanfrein le plus fin d'un usage réel) ; sinon accrochage habituel."""
+    owner = prism(document, SHAPES[name])
+    start = check_no_overflow(document, owner, click)
+    if start is not None:
+        assert start.width >= 5 and start.thickness >= 5
