@@ -239,7 +239,7 @@ def inside(part: Any, owner: Any, normal: tuple[float, float, float], coordinate
     )
     box = geometry.global_shape(part).BoundBox
     bound = face.BoundBox
-    return (
+    return bool(
         box.XMin >= bound.XMin - 1e-6
         and box.XMax <= bound.XMax + 1e-6
         and box.YMin >= bound.YMin - 1e-6
