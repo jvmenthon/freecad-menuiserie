@@ -305,6 +305,20 @@ def caisson() -> str:
     return ic.svg()
 
 
+def fermer_le_caisson() -> str:
+    ic = Icone("Fermer le caisson : dessous plein, côtés et dessus en transparence, flèche")
+    vert, orange = "#4e9a06", "#f57900"
+    ic.boite((4, 0, 4), (42, 3, 52), "contreplaque", 0.35)  # dos, en transparence
+    ic.boite((0, 0, 4), (4, 40, 52), "contreplaque", 0.35)  # côté gauche
+    ic.boite((0, 0, 56), (50, 40, 4), "contreplaque", 0.35)  # dessus
+    ic.boite((0, 0, 0), (50, 40, 4), "contreplaque")  # dessous : la pièce choisie
+    ic.bande([(0, 40, 0), (50, 40, 0), (50, 40, 4), (0, 40, 4)], orange)  # son chant arrière
+    ic.boite((46, 0, 4), (4, 40, 52), "contreplaque", 0.35)  # côté droit
+    ic.trait([(25, 22, 8), (25, 22, 40)], vert, 3.2)  # flèche : le caisson monte
+    ic.bande([(20, 22, 38), (30, 22, 38), (25, 22, 46)], vert)
+    return ic.svg()
+
+
 def finition_des_chants() -> str:
     ic = Icone("Finition des chants : planche dont les chants (faces étroites) sont surlignés")
     ic.boite((0, 0, 0), (90, 32, 12), "chene")
@@ -341,6 +355,7 @@ ICONES = {
     "Menuiserie_ShelfPins.svg": percage_lr32,
     "Menuiserie_DrawerSlide.svg": coulisse,
     "Menuiserie_Carcass.svg": caisson,
+    "Menuiserie_CloseCarcass.svg": fermer_le_caisson,
     # Finition des chants (issue #5)
     "Menuiserie_FinitionChants.svg": finition_des_chants,
     # Ensembles (J4c)

@@ -15,12 +15,23 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
-from freecad.menuiserie.core._validation import decimal_text, to_finite_float
+from freecad.menuiserie.core._validation import (
+    MIN_DIMENSION_MM,
+    decimal_text,
+    enum_choice,
+    field_error,
+    in_bounds,
+    to_finite_float,
+)
 from freecad.menuiserie.core.furniture import Edge, FurnitureBox
 from freecad.menuiserie.core.geometry import PlacedBlock, RigidTransform, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.joints import JointKind, mm_round
-from freecad.menuiserie.core.joints.dowels import DowelParams, auto_diameter
+from freecad.menuiserie.core.joints.dowels import (
+    MIN_DOWELLED_THICKNESS_MM,
+    DowelParams,
+    auto_diameter,
+)
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.templates import JointSpec, Layout, PieceSpec
@@ -38,7 +49,6 @@ __all__ = [
 CARCASS_TEMPLATE: Final = "Carcass"  # valeur de ``Template`` (enregistrée, figée)
 MAX_SHELVES: Final = 10
 SHELF_GAP_MM: Final = 1.0  # jeu de l'étagère aux côtés et devant le fond
-MIN_JOINED_THICKNESS_MM: Final = 12.0  # tourillons de 6 mm au moins, 3 mm de fond de perçage
 
 CARCASS_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Caisson")
 LABELS: Final = {
@@ -61,12 +71,12 @@ FIELDS: Final = {
 }
 THICKNESS_RANGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Caisson : {field} = {value} mm ; il faut plus de 0 mm et moins de la moitié de la plus "
-    "petite cote ({max} mm).",
+    "Caisson : {field} = {value} mm ; il faut au moins {min} mm et moins de la moitié de la "
+    "plus petite cote ({max} mm).",
 )
 BACK_RANGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "Caisson : {field} = {value} mm ; il faut plus de 0 mm et moins que l'épaisseur des "
+    "Caisson : {field} = {value} mm ; il faut au moins {min} mm et moins que l'épaisseur des "
     "panneaux ({max} mm).",
 )
 RABBET_RANGE: Final = QT_TRANSLATE_NOOP(
@@ -110,9 +120,7 @@ class CarcassJoinery(str, Enum):
 
 
 def _error(template: str, name: str, value: object, **params: str) -> CarcassError:
-    number = to_finite_float(value)
-    shown = decimal_text(number) if number is not None else str(value)
-    return CarcassError(template, {"field": FIELDS[name], "value": shown, **params})
+    return field_error(CarcassError, template, FIELDS[name], value, **params)
 
 
 @dataclass(frozen=True)
@@ -171,12 +179,12 @@ class CarcassParams:
             value = getattr(self, name)
             if not isinstance(value, str) or not value:
                 raise _error(UNKNOWN_VALUE, name, value)
-        try:
-            object.__setattr__(self, "joinery", CarcassJoinery(self.joinery))
-        except ValueError:
-            raise _error(UNKNOWN_VALUE, "joinery", self.joinery) from None
-        if self.joinery is CarcassJoinery.DOWELS and self.thickness < MIN_JOINED_THICKNESS_MM:
-            limit = decimal_text(MIN_JOINED_THICKNESS_MM)
+        joinery = enum_choice(
+            CarcassJoinery, self.joinery, lambda: _error(UNKNOWN_VALUE, "joinery", self.joinery)
+        )
+        object.__setattr__(self, "joinery", joinery)
+        if self.joinery is CarcassJoinery.DOWELS and self.thickness < MIN_DOWELLED_THICKNESS_MM:
+            limit = decimal_text(MIN_DOWELLED_THICKNESS_MM)
             raise _error(TOO_THIN, "thickness", self.thickness, min=limit)
         origin = self.origin
         values = [getattr(origin, axis, None) for axis in "xyz"]
@@ -186,10 +194,17 @@ class CarcassParams:
 
 
 def _positive_below(params: CarcassParams, name: str, limit: float, template: str) -> float:
-    """Valeur du champ ``name``, strictement entre 0 et ``limit`` ; refus sinon."""
-    value = to_finite_float(getattr(params, name))
-    if value is None or not 0 < value < limit:
-        raise _error(template, name, getattr(params, name), max=decimal_text(limit))
+    """Valeur du champ ``name``, d'au moins ``MIN_DIMENSION_MM`` (comme toute pièce) et
+    strictement sous ``limit`` ; refus sinon."""
+    value = in_bounds(getattr(params, name), MIN_DIMENSION_MM, limit, strict_high=True)
+    if value is None:
+        raise _error(
+            template,
+            name,
+            getattr(params, name),
+            min=decimal_text(MIN_DIMENSION_MM),
+            max=decimal_text(limit),
+        )
     object.__setattr__(params, name, value)
     return value
 

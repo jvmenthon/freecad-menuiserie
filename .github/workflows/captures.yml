@@ -134,6 +134,10 @@ jobs:
             echo
             echo "![Panneau de tâche d'un ensemble]($base/panneau-ensemble.png?raw=true)"
             echo
+            echo "![Panneau « Fermer le caisson »]($base/panneau-fermer-le-caisson.png?raw=true)"
+            echo
+            echo "![Aperçu de « Fermer le caisson »]($base/vue-fermer-le-caisson.png?raw=true)"
+            echo
             echo "_Scène produite par \`tools/captures_interface.py\`, mise à jour à chaque push._"
           } > "$corps"
           existant=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
