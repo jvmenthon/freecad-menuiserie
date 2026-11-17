@@ -86,12 +86,16 @@ def _local_up(blank: DocumentObject) -> float:
     return float(placement.Rotation.multVec(App.Vector(0, 0, 1)).z)
 
 
-def _face_side(blank: DocumentObject, face: str) -> float | None:
-    """Sens, sur l'épaisseur de ``blank``, de la normale de la face ``face`` (``Face3``) : positif
-    sur la face +épaisseur, négatif sur la face opposée, ``None`` pour un chant ou une face
-    illisible."""
+def _face_side(blank: DocumentObject, picked: DocumentObject, face: str) -> float | None:
+    """Sens, sur l'épaisseur de ``blank``, de la normale de la face ``face`` (``Face3``) de l'objet
+    ``picked`` (la brute ou sa pièce usinée) : positif sur la face +épaisseur, négatif sur la face
+    opposée, ``None`` pour un chant ou une face illisible."""
     try:
-        normal = blank.Shape.getElement(face).normalAt(0.0, 0.0)
+        normal = picked.Shape.getElement(face).normalAt(0.0, 0.0)
+        container = App.Placement(picked.getGlobalPlacement()).multiply(
+            App.Placement(picked.Placement).inverse()
+        )  # la forme porte le Placement local : il reste le repère du conteneur
+        normal = container.Rotation.multVec(normal)
     except (AttributeError, RuntimeError, ValueError, TypeError):
         return None
     placement = App.Placement(blank.getGlobalPlacement())
@@ -99,11 +103,14 @@ def _face_side(blank: DocumentObject, face: str) -> float | None:
     return local_z if abs(local_z) > _VERTICAL else None
 
 
-def default_role(blank: DocumentObject, face: str | None = None) -> ClosingRole:
-    """Sens du caisson : avec une face choisie, il part de cette face (dessous si sa normale est
-    celle de l'épaisseur, dessus sinon) ; sans face, une épaisseur verticale donne un dessous qui
-    monte (+Z du document), sinon le caisson part du côté +épaisseur."""
-    side = _face_side(blank, face) if face else None
+def default_role(
+    blank: DocumentObject, face: str | None = None, picked: DocumentObject | None = None
+) -> ClosingRole:
+    """Sens du caisson : avec une face ``face`` de ``picked`` (``blank`` par défaut) choisie, il
+    part de cette face (dessous si sa normale est celle de l'épaisseur, dessus sinon) ; sans face,
+    une épaisseur verticale donne un dessous qui monte (+Z du document), sinon le caisson part du
+    côté +épaisseur."""
+    side = _face_side(blank, blank if picked is None else picked, face) if face else None
     if side is None:
         up = _local_up(blank)
         side = up if abs(up) > _VERTICAL else 1.0

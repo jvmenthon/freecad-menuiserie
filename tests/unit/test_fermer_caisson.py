@@ -16,6 +16,7 @@ from freecad.menuiserie.core.templates.closing import (
     ANCHOR_KEY,
     CLOSING_TEMPLATE,
     closing_layout,
+    nearest_front,
 )
 from freecad.menuiserie.core.templates.closing_params import (
     ClosingError,
@@ -436,3 +437,28 @@ def test_layout_refuse_une_ancre_inconnue() -> None:
     result = layout()
     with pytest.raises(ValueError, match="anchor"):
         Layout(result.template, result.label, result.box, result.origin, result.pieces, anchor="x")
+
+
+# --- Avant le plus proche de l'observateur ------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("viewer", "turns"),
+    [
+        ((300, -5000, 400), 0),  # devant : bord Y = 0
+        ((300, 5000, 400), 2),  # derrière : bord Y = largeur
+        ((5000, 100, 400), 0),  # sur le côté : toujours un grand chant, le plus proche
+        ((5000, 300, 400), 2),
+        ((300, 200, 400), 0),  # au-dessus du milieu : égalité, le premier
+    ],
+)
+def test_avant_sur_le_grand_chant_le_plus_proche(
+    viewer: tuple[float, float, float], turns: int
+) -> None:
+    assert nearest_front(ANCHOR, Vec3(*viewer)) == turns
+
+
+def test_avant_sur_les_chants_de_la_largeur_pour_une_ancre_plus_large_que_longue() -> None:
+    wide = ANCHOR.__class__(400.0, 600.0, 18.0)  # grands chants : X = 0 et X = longueur
+    assert nearest_front(wide, Vec3(5000, 300, 0)) == 1
+    assert nearest_front(wide, Vec3(-5000, 300, 0)) == 3

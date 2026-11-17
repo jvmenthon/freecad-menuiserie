@@ -17,6 +17,11 @@ PAIR: Final = QT_TRANSLATE_NOOP(
     "« Structure »).",
 )
 SINGLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "une seule pièce sélectionnée.")
+CLOSE_CARCASS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "une seule pièce de bois rectangulaire sélectionnée (le dessous ou le dessus du caisson, "
+    "brute ou usinée ; une face choisie donne le sens du caisson).",
+)
 SLIDE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "le côté du caisson puis le côté du tiroir sélectionnés (Ctrl+clic sur chacun).",

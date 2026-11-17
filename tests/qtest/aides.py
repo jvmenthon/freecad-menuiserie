@@ -162,6 +162,18 @@ def cliquer(widget: Widget, *, meme_grise: bool = False) -> None:
     traiter_les_evenements()
 
 
+def cliquer_en(zone: Widget, x: int, y: int) -> None:
+    """Clic gauche au point (``x``, ``y``) de ``zone`` (un dessin cliquable, sans bouton)."""
+    _exiger_utilisable(zone)
+    QTest.mouseClick(
+        zone,
+        QtCore.Qt.MouseButton.LeftButton,
+        QtCore.Qt.KeyboardModifier.NoModifier,
+        QtCore.QPoint(x, y),
+    )
+    traiter_les_evenements()
+
+
 def _dans_la_vue_des_taches(widget: Widget) -> bool:
     """Vrai si ``widget`` est dans la vue des tâches (une bulle de notification de FreeCAD a
     aussi ses boutons, hors de cette vue)."""

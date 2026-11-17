@@ -361,3 +361,36 @@ def test_ancre_donnee_par_sa_piece_usinee(document: Any) -> None:
     )  # la voisine libre suit dans le Std Part sans devenir membre
     assert len(notices) == 1  # avertissement : liée à l'ancre, elle est rangée avec elle
     assert stale_or_invalid(document) == []
+
+
+# --- Sens et avant par défaut -------------------------------------------------------------------
+
+
+def test_sens_par_defaut_selon_la_face_ou_l_epaisseur(document: Any) -> None:
+    from freecad.menuiserie.features.closing import default_front_turns, default_role
+
+    anchor = anchor_part(document)
+    assert default_role(anchor) is api.ClosingRole.BOTTOM  # épaisseur verticale vers le haut
+    assert default_role(anchor, "Face6") is api.ClosingRole.BOTTOM  # face du dessus (z = 18)
+    assert default_role(anchor, "Face5") is api.ClosingRole.TOP  # face du dessous (z = 0)
+    assert default_role(anchor, "Face1") is api.ClosingRole.BOTTOM  # chant : règle par défaut
+    anchor.Placement = App.Placement(App.Vector(0, 0, 0), App.Rotation(X_AXIS, 180))
+    document.recompute()
+    assert default_role(anchor) is api.ClosingRole.TOP  # épaisseur vers le bas : le dessus
+    assert (
+        default_role(anchor, "Face6") is api.ClosingRole.BOTTOM
+    )  # sa face z = 18 regarde vers le bas
+    # Observateur côté +Y (anchor retourné autour de X : son Y local regarde vers -Y)
+    turns = default_front_turns(anchor, (300.0, 100000.0, 50.0))
+    assert turns in (0, 2)  # un grand chant (longueur de 600), jamais un petit
+
+
+def test_avant_le_plus_proche_de_la_camera(document: Any) -> None:
+    from freecad.menuiserie.features.closing import default_front_turns
+
+    anchor = anchor_part(document)
+    assert default_front_turns(anchor, (300, -100000, 500)) == 0  # caméra devant (Y < 0)
+    assert default_front_turns(anchor, (300, 100000, 500)) == 2
+    assert (
+        default_front_turns(anchor, (100000, 200, 500)) == 0
+    )  # petit chant : grand chant le plus proche

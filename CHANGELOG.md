@@ -5,6 +5,10 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté
+
+- Commande « Fermer le caisson » (#267, ADR 0064) : à partir d'une pièce rectangulaire sélectionnée (le dessous ou le dessus), crée les côtés, la pièce opposée, le fond et, au choix, l'avant, avec un seul assemblage pour les coins (aucun, tourillons, queues d'aronde, onglet, feuillure) et un pour le fond mince (feuillure, rainure, aucun). La pièce de départ n'est ni recréée, ni déplacée, ni redimensionnée. Panneau avec schéma isométrique cliquable pour activer ou non chaque élément, bouton « Tourner l'avant », aperçu en direct, choix impossibles grisés avec leur raison en infobulle ; une seule entrée d'annulation « Fermer le caisson » ; résultat dans un ensemble « Caisson » (sous-ensemble de l'ensemble de la pièce de départ s'il y en a un). Barre d'outils, menu contextuel d'une pièce, icône `Menuiserie_CloseCarcass`, API `make_closed_carcass` et `closing_params`. Le gabarit « Caisson » ne change pas.
+
 ### Ajouté (outillage)
 
 - Preuve de concept de tests d'interface avec QTest (#263, ADR 0059) : un scénario complet (deux pièces, rotation, queue d'aronde) est joué au clavier et à la souris dans le vrai FreeCAD par son mode test, sous `xvfb-run` dans la CI. Voir `docs/tests-gui-qtest.md`.
