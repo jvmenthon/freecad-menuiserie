@@ -133,7 +133,7 @@ def test_gorge_oblique_secteur_centre_sur_l_arete(angle: float) -> None:
 
 
 @pytest.mark.parametrize(
-    "family", sorted(set(EdgeFamily) - ANGLED_FAMILIES, key=lambda family: family.value)
+    "family", [family for family in EdgeFamily if family not in ANGLED_FAMILIES]
 )
 def test_familles_a_angle_droit_seulement(family: EdgeFamily) -> None:
     a, b = SIZES[family]

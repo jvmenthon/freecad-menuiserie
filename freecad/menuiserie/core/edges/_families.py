@@ -72,18 +72,6 @@ class FamilyStrategy(Protocol):
         ...
 
 
-class _RightAngleOnly:
-    """Mélange des familles calculées à angle droit seulement (placé avant la classe mère)."""
-
-    any_angle = False
-
-    def angled_section(self, a: float, b: float, angle: float) -> Section:
-        raise ValueError(f"famille à angle droit seulement : {a}, {b}, {angle}")
-
-    def angled_extent(self, a: float, b: float, angle: float) -> tuple[float, float]:
-        raise ValueError(f"famille à angle droit seulement : {a}, {b}, {angle}")
-
-
 class _Chamfer:
     family = EdgeFamily.CHAMFER
     second = SecondSize.SAME_IF_ZERO
@@ -130,14 +118,27 @@ class _Cove(_Chamfer):
         return (a, a)
 
 
-class _Bullnose(_RightAngleOnly, _Cove):
+class _RightAngleOnly(_Chamfer):
+    """Base des familles calculées à angle droit seulement : sections obliques refusées."""
+
+    any_angle = False
+
+    def angled_section(self, a: float, b: float, angle: float) -> Section:
+        raise ValueError(f"famille à angle droit seulement : {a}, {b}, {angle}")
+
+    def angled_extent(self, a: float, b: float, angle: float) -> tuple[float, float]:
+        raise ValueError(f"famille à angle droit seulement : {a}, {b}, {angle}")
+
+
+class _Bullnose(_RightAngleOnly):
     family = EdgeFamily.BULLNOSE
+    second = SecondSize.IGNORED
 
     def section(self, a: float, b: float) -> Section:
         return sections.round_corner(a, a)
 
 
-class _Beak(_RightAngleOnly, _Chamfer):
+class _Beak(_RightAngleOnly):
     family = EdgeFamily.BEAK
     second = SecondSize.REQUIRED
 
@@ -148,7 +149,7 @@ class _Beak(_RightAngleOnly, _Chamfer):
         return (a, a + b)
 
 
-class _Ogee(_RightAngleOnly, _Chamfer):
+class _Ogee(_RightAngleOnly):
     family = EdgeFamily.OGEE
     second = SecondSize.REQUIRED
 

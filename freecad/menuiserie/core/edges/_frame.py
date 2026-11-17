@@ -41,7 +41,9 @@ RIGHT_ANGLE_TOLERANCE_DEG: Final = 0.5  # angle « droit » à ce jeu près
 _ANGLE_SLACK_DEG: Final = 1e-6  # arrondis du calcul de l'angle aux bornes
 
 # Familles calculées à tout angle (lu dans le registre) ; les autres exigent un angle droit.
-ANGLED_FAMILIES: Final = frozenset(family for family, s in FAMILIES.items() if s.any_angle)
+ANGLED_FAMILIES: Final[frozenset[EdgeFamily]] = frozenset(
+    family for family, s in FAMILIES.items() if s.any_angle
+)
 
 _CONCAVE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Arête {edge} rentrante : il n'y a pas de matière à enlever."
