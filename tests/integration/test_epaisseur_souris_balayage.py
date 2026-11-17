@@ -238,3 +238,16 @@ def test_apercu_epaisseur_pas_a_fleur_grandit_a_l_ecran(document: Any, lowered: 
         drag.resize_part(memento, "Thickness", value, shift, lowered=lowered)
         assert machined_host.Shape.BoundBox.ZLength == pytest.approx(value, abs=1e-6)
     drag.restore(memento)
+
+
+def test_echap_rend_la_forme_usinee_complete(document: Any) -> None:
+    """Après un aperçu où l'assemblage ne tenait plus, Échap rend la pièce usinée avec tous ses
+    usinages (pas de forme partielle laissée)."""
+    _host, guest, _joint = corner(document)
+    machined_guest = machined.machined_part_of(guest)
+    assert machined_guest is not None
+    volume = machined_guest.Shape.Volume
+    memento = drag.begin_drag(guest)
+    drag.resize_part(memento, "Length", 300, Vec3(0, 0, 0))
+    drag.restore(memento)
+    assert machined_guest.Shape.Volume == pytest.approx(volume)

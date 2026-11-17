@@ -140,8 +140,8 @@ class ConflictBox:
         except Exception as error:  # pylint: disable=broad-exception-caught
             report([translated(_ABANDONED, {"error": str(error)})])
             App.Console.PrintLog(traceback.format_exc())  # diagnostic d'une erreur imprévue
-            edit, self._edit = self._edit, None  # document rendu par ThicknessEdit (ou disparu)
-            _finish(edit)
+            edit, self._edit = self._edit, None
+            _finish(edit, restore=True)  # état de départ rendu, puis ensemble relié
             revert = self._revert()
             if edit is not None and revert is not None:
                 revert(edit.old)  # le champ remontre l'épaisseur du document
@@ -253,13 +253,20 @@ class ConflictBox:
         self._block(False)
 
 
-def _finish(edit: ThicknessEdit | None) -> None:
+def _finish(edit: ThicknessEdit | None, *, restore: bool = False) -> None:
     """Fin des saisies de ``edit`` (pièce d'ensemble : ensemble relié), avertissements dans la vue
-    rapport ; une erreur y est écrite aussi (rappel d'un signal Qt : rien ne doit en sortir)."""
+    rapport. ``restore`` : après une erreur, l'état de départ est d'abord rendu (jamais d'ensemble
+    relié sur un choix à moitié écrit). L'ensemble qui ne peut pas être relié retrouve ses liaisons
+    d'avant et le message le dit ; toute autre erreur est écrite aussi (rappel d'un signal Qt :
+    rien ne doit en sortir)."""
     if edit is None:
         return
     try:
+        if restore:
+            edit.restore()
         report(edit.finish())
+    except ValueError as error:  # ensemble non relié : liaisons d'avant rendues, message traduit
+        report([str(error)])
     except Exception as error:  # pylint: disable=broad-exception-caught
         report([translated(_ABANDONED, {"error": str(error)})])
         App.Console.PrintLog(traceback.format_exc())

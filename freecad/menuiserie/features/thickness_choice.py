@@ -141,8 +141,6 @@ class ThicknessEdit:
     def __init__(self, part: DocumentObject) -> None:
         self.part = part
         self.old = float(part.Thickness.Value)
-        self._freedom = MemberFreedom(part)  # avant de lire l'état : liaisons mises de côté
-        self._free = self._freedom.furniture
         self._parts = attached(part)
         self._states = {
             obj.Name: _PartState(App.Placement(obj.Placement), size_state(obj))
@@ -152,6 +150,9 @@ class ThicknessEdit:
         self._already_broken = set(_broken(self._parts))
         self._concerned: list[DocumentObject] = []  # assemblages en cause, écrits par probe
         self.messages: list[str] = []  # vue rapport : saisie écrite telle quelle par probe
+        # en dernier : rien ne peut plus échouer une fois les liaisons de l'ensemble mises de côté
+        self._freedom = MemberFreedom(part)
+        self._free = self._freedom.furniture
 
     @property
     def parts(self) -> list[DocumentObject]:

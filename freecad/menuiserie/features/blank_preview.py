@@ -43,7 +43,7 @@ def preview_blanks(raws: Iterable[DocumentObject]) -> None:
                 joint.recompute()
         try:
             machined.Proxy.preview(machined)
-        except ValueError:  # brute invalide : le relâchement le dira
+        except (ValueError, RuntimeError):  # brute invalide, forme OCC : le relâchement le dira
             continue
 
 
