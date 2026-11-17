@@ -114,11 +114,13 @@ class SaisiesLimites(Etapes):
         self.assertFalse(self.controler_coherence())
 
     def test_2b_valeurs_transitoires_depuis_une_valeur_valide(self) -> None:
-        """Taper « 0.01 » après « 18 » (cote qui passe par 0,1 mm) : message, pas d'exception."""
+        """Taper « 0.01 » après « 18 » (cote qui passe par 0,1 mm) : message, pas d'exception.
+        Les valeurs valides sont retapées avec leur unité : FreeCAD 1.1 réaffiche 0,01 mm en
+        « 10 µm », et « 18 » seul y vaudrait 18 µm (comportement du champ, pas du panneau)."""
         for nom, valable in (
-            ("thickness", "18"),
-            ("oppositeThickness", "18"),
-            ("backThickness", "8"),
+            ("thickness", "18 mm"),
+            ("oppositeThickness", "18 mm"),
+            ("backThickness", "8 mm"),
         ):
             for transitoire in ("0.01", "0.05", "0.099"):
                 with self.subTest(champ=nom, saisie=transitoire):
@@ -135,7 +137,7 @@ class SaisiesLimites(Etapes):
                 with self.subTest(champ=nom, saisie=texte):
                     self.saisir(nom, texte)
                     self.controler_coherence()
-            self.saisir(nom, "18" if nom != "backThickness" else "8")
+            self.saisir(nom, "18 mm" if nom != "backThickness" else "8 mm")
             self.assertFalse(self.controler_coherence(), nom)
 
     def test_4_assemblage_impossible_grise_avec_sa_raison(self) -> None:
