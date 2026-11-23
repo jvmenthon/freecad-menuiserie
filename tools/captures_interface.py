@@ -491,11 +491,11 @@ def main() -> None:
         with bibliotheque_de_captures():
             construire()
             capturer(dossier)
-            capturer_fermer_le_caisson(dossier)
-            try:
+            try:  # avant « Fermer le caisson », qui ouvre son propre document
                 capturer_les_plans(dossier)
             except Exception:  # les captures de l'interface restent utiles sans les plans
                 (dossier / "ERREUR-PLANS").write_text(traceback.format_exc(), encoding="utf-8")
+            capturer_fermer_le_caisson(dossier)
             construire_gros_plan()
             capturer_gros_plan(dossier)
         (dossier / "OK").write_text("OK\n", encoding="utf-8")
