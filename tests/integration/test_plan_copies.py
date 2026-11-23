@@ -80,3 +80,15 @@ def test_copie_par_repeter_dessinee_et_comptee(bureau: Bureau) -> None:
     page = api.make_overall_drawing(bureau.doc, scope)
     assert _width(page) == pytest.approx(1500.0 + WIDTH, abs=0.01)
     assert _quantities(api.make_part_drawings(bureau.doc, [])) == 8
+
+
+def test_arbre_du_choix_des_pieces(bureau: Bureau) -> None:
+    """Panneau « Plans de pièce » sans sélection : le bureau et ses 4 pièces, la copie par
+    lien comme une ligne à cocher."""
+    choice = pytest.importorskip("freecad.menuiserie.features.drawing_choice")
+    link = _link_copy(bureau, 2000.0)
+    groups, loose = choice.part_choices(bureau.doc)
+    assert loose == []
+    by_name = {row.obj.Name: row for row in groups}
+    assert by_name[bureau.furniture.Name].parts == 4
+    assert by_name[link.Name].children == ()

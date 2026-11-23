@@ -98,7 +98,8 @@ class PartDrawingsCommand(_PlanCommand):
         "Crée ou refait une page TechDraw par pièce distincte : face, chant, bout et "
         "perspective cotés, tableau des usinages (perçages, logements, tenons) et quantité au "
         "cartouche. Format de la configuration de l'atelier. Dessine les pièces sélectionnées "
-        "ou celles des ensembles sélectionnés, sinon toutes celles du document.",
+        "ou celles des ensembles sélectionnés ; sans sélection, ouvre la liste des pièces "
+        "par ensemble pour cocher celles à dessiner.",
     )
     TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce")
 
@@ -106,6 +107,11 @@ class PartDrawingsCommand(_PlanCommand):
         """Pages faites, la première montrée ; refus affiché."""
         doc = App.ActiveDocument
         objects = self.selection()
+        if not objects:  # rien de sélectionné : choix des pièces dans un panneau (maquette A)
+            from freecad.menuiserie.gui.task_panels.part_drawings import PartDrawingsTaskPanel
+
+            Gui.Control.showDialog(PartDrawingsTaskPanel(doc))
+            return
         try:
             pages = api.make_part_drawings(doc, objects, api.DrawingOptions(settle=HlrWait()))
         except (TypeError, ValueError) as error:

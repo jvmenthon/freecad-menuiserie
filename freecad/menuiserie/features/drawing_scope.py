@@ -26,6 +26,7 @@ __all__ = [
     "drawing_sources",
     "link_occurrences",
     "link_target",
+    "links_in",
     "workshop_inside",
 ]
 
@@ -82,7 +83,7 @@ def _drawn_link(obj: DocumentObject) -> bool:
     return target is not None and bool(workshop_inside(target))
 
 
-def _links_in(furniture: DocumentObject) -> list[DocumentObject]:
+def links_in(furniture: DocumentObject) -> list[DocumentObject]:
     """Liens rangés dans le Std Part de ``furniture`` (copies posées dans le meuble)."""
     container = std_part_of(furniture)
     group = container.Group if container is not None else []
@@ -97,7 +98,7 @@ def _expanded(obj: DocumentObject, seen: set[str]) -> Iterator[DocumentObject]:
         return
     seen.add(obj.Name)
     if is_furniture(obj):
-        for member in [*members_of(obj), *_links_in(obj)]:
+        for member in [*members_of(obj), *links_in(obj)]:
             yield from _expanded(member, seen)
         return
     if link_target(obj) is not None:
