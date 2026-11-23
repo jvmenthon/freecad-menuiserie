@@ -232,7 +232,8 @@ def test_changement_de_format_a_la_relance(bureau: Bureau) -> None:
     again = api.make_overall_drawing(doc, [bureau.furniture], api.DrawingOptions(page_format="A4"))
     assert again == page
     assert "A4" in again.Template.Template
-    assert again.Scale == pytest.approx(0.05)  # le 1 : 10 ne tient plus sur A4
+    # Le 1 : 10 ne tient plus sur A4, ni le 1 : 20 avec les cotes à la taille de TechDraw (5 mm).
+    assert again.Scale == pytest.approx(0.02)
 
 
 def test_cotes_de_detail_sur_la_face(bureau: Bureau) -> None:

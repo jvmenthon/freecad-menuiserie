@@ -42,9 +42,14 @@ class FrontDetails:
 def global_shape(obj: DocumentObject) -> Any:
     """Forme de ``obj`` (copie) placée dans le repère global du document, conteneurs compris."""
     shape = Part.getShape(obj)
-    if not shape.isNull():
+    if shape.isNull():
+        return shape
+    if hasattr(obj, "getGlobalPlacement"):
         outer = obj.getGlobalPlacement().multiply(obj.Placement.inverse())
-        shape.Placement = outer.multiply(shape.Placement)
+    else:  # lien (App::Link) : sa forme porte déjà son placement, reste son conteneur
+        parent = obj.getParentGeoFeatureGroup()
+        outer = parent.getGlobalPlacement() if parent is not None else App.Placement()
+    shape.Placement = outer.multiply(shape.Placement)
     return shape
 
 
