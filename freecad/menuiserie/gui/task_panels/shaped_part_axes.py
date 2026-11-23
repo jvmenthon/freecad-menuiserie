@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Repère de la pièce en bois dans la vue 3D pendant l'édition (D3) : le dessin de
-:mod:`.shaped_part_drawing` (trièdre L / l / e et flèche du fil) posé dans la vue 3D de FreeCAD,
-sous un nœud ``SoTransform`` qui suit le ``Placement`` global de la pièce.
+:mod:`.shaped_part_drawing` (trièdre L / l / e et marque du fil sur le bois) posé dans la vue 3D
+de FreeCAD, sous un nœud ``SoTransform`` qui suit le ``Placement`` global de la pièce.
 
 Le nœud est propre au panneau (nommé :data:`NODE_NAME`), invisible pour la sélection, et
 :meth:`AxesView.remove` le retire à la fermeture du panneau ; rien n'est écrit dans le document.
@@ -15,6 +15,7 @@ import FreeCADGui as Gui
 from pivy import coin
 
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.joints.footprint import footprint_of
 from freecad.menuiserie.gui.drag.overlay import Overlay
 from freecad.menuiserie.gui.task_panels.shaped_part_drawing import axes_drawing, grain_axis
 
@@ -50,8 +51,9 @@ class AxesView:
         return self._overlay is not None
 
     def refresh(self) -> None:
-        """Place le repère sur la pièce (``Placement`` global) et le redessine d'après ses cotes
-        et son sens du fil ; sans effet une fois retiré ou si la pièce a disparu."""
+        """Place le repère sur la pièce (``Placement`` global) et le redessine d'après ses cotes,
+        son sens du fil et son contour réel (la marque du fil reste sur le bois) ; sans effet une
+        fois retiré ou si la pièce a disparu."""
         overlay = self._overlay
         if overlay is None:
             return
@@ -60,12 +62,13 @@ class AxesView:
             placement = part.getGlobalPlacement()
             extents = (part.Length.Value, part.Width.Value, part.Thickness.Value)
             grain = grain_axis(str(part.GrainDirection))
+            outline = footprint_of(part) if grain is not None else None
         except (ReferenceError, RuntimeError, AttributeError):  # pièce supprimée du document
             return
         base, quaternion = placement.Base, placement.Rotation.Q
         self._transform.translation.setValue(base.x, base.y, base.z)
         self._transform.rotation.setValue(coin.SbRotation(*quaternion))
-        overlay.draw(axes_drawing(extents, grain))
+        overlay.draw(axes_drawing(extents, grain, outline))
 
     def remove(self) -> None:
         """Retire le repère de la vue (sans effet s'il n'y est plus)."""
