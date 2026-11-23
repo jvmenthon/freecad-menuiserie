@@ -3,7 +3,9 @@
 (issue #5).
 
 Chaque pièce garde la couleur de sa carte : arêtes choisies en trait épais, faces dont les
-quatre arêtes sont choisies teintées. Le dessin est une incrustation Coin (:class:`~freecad.
+quatre arêtes sont choisies teintées. Sur une pièce dessinée (arêtes natives, ADR 0063), chaque
+arête a sa propre couleur, celle de sa ligne dans le panneau.
+Le dessin est une incrustation Coin (:class:`~freecad.
 menuiserie.gui.drag.overlay.Overlay`) posée sur la vue pendant que le panneau est ouvert puis
 retirée : rien n'est écrit dans le document ni dans son historique d'annulation, les couleurs des
 pièces ne sont jamais modifiées.
@@ -11,8 +13,10 @@ pièces ne sont jamais modifiées.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any, Final
+from collections.abc import Mapping, Sequence
+from itertools import pairwise
+from types import MappingProxyType
+from typing import Any, Final, NamedTuple
 
 import FreeCAD as App
 import FreeCADGui as Gui
@@ -25,17 +29,30 @@ from freecad.menuiserie.core.edges import (
     parse_edge,
 )
 from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.features.edge_frames import edge_index
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.shaped_part import base_shape_of
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 from freecad.menuiserie.gui.drag.geometry import Drawing, Solid, Stroke
 from freecad.menuiserie.gui.drag.overlay import Overlay
 
-__all__ = ["NODE_NAME", "EdgeHighlight", "highlight_drawing", "rgb"]
+__all__ = ["NODE_NAME", "EdgeHighlight", "Entry", "highlight_drawing", "rgb"]
 
 NODE_NAME: Final = "MenuiserieEdgeFinish"
 _LINE_PX: Final = 5.0
 _FACE_TRANSPARENCY: Final = 0.55
+_CURVE_POINTS: Final = 24  # points d'une arête courbe dessinée
 Color = tuple[float, float, float]
+
+
+class Entry(NamedTuple):
+    """Arêtes choisies d'une pièce : codes de boîte (``"Z+Y-"``), ou noms d'arêtes natives
+    (``"Edge7"``) quand ``edge_colors`` donne la couleur de chacune (pièce dessinée)."""
+
+    part: DocumentObject
+    codes: Sequence[str]
+    color: str  # "#rrggbb", couleur de la carte
+    edge_colors: Mapping[str, str] = MappingProxyType({})  # lecture seule
 
 
 def rgb(color: str) -> Color:
@@ -59,12 +76,33 @@ def _vector(point: Vec3) -> Any:
     return App.Vector(point.x, point.y, point.z)
 
 
-def highlight_drawing(entries: Sequence[tuple[DocumentObject, Sequence[str], str]]) -> Drawing:
-    """Dessin des arêtes choisies ``(pièce, codes, couleur "#rrggbb")`` dans le repère global."""
+def _native_strokes(entry: Entry) -> list[Stroke]:
+    """Un trait par arête native, à sa couleur propre (celle de la carte à défaut)."""
+    part, color, colors = entry.part, entry.color, entry.edge_colors
+    shape, convert = base_shape_of(part), _to_global(part)
+    strokes = []
+    for name in entry.codes:
+        index = edge_index(name)
+        if index is None or index > len(shape.Edges):
+            continue
+        points = [Vec3(p.x, p.y, p.z) for p in shape.Edges[index - 1].discretize(_CURVE_POINTS)]
+        lines = tuple((convert(a), convert(b)) for a, b in pairwise(points))
+        strokes.append(Stroke(rgb(colors.get(name, color)), _LINE_PX, lines))
+    return strokes
+
+
+def highlight_drawing(entries: Sequence[Entry]) -> Drawing:
+    """Dessin des arêtes choisies dans le repère global : un trait par arête native à sa
+    couleur, ou les arêtes de boîte à la couleur de la carte et ses faces entièrement choisies
+    teintées."""
     strokes: list[Stroke] = []
     solids: list[Solid] = []
-    for part, codes, color in entries:
+    for entry in entries:
+        part, codes, color = entry.part, entry.codes, entry.color
         if not codes:
+            continue
+        if entry.edge_colors:  # pièce dessinée : chaque arête a sa couleur
+            strokes += _native_strokes(entry)
             continue
         dimensions, convert, shade = dimensions_of(part), _to_global(part), rgb(color)
         chosen = set(codes)
@@ -90,7 +128,7 @@ class EdgeHighlight:
         self._document_name: str = document.Name
         self._overlay: Any = None
 
-    def show(self, entries: Sequence[tuple[DocumentObject, Sequence[str], str]]) -> None:
+    def show(self, entries: Sequence[Entry]) -> None:
         """Remplace la mise en valeur par celle de ``entries`` (sans vue 3D : rien)."""
         if self._overlay is None:
             root = _scene_graph(self._document_name)

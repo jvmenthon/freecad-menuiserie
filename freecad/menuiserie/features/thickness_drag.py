@@ -82,7 +82,9 @@ def _fails(joint: DocumentObject, blocks: dict[str, PlacedBlock]) -> bool:
             host = blocks.get(joint.HostPart.Name)
             if host is None:
                 host = placed_blank(joint.HostPart, proxy.KIND is JointKind.FOOT)
-            guest = blocks.get(joint.GuestPart.Name) or placed_blank(joint.GuestPart)
+            guest = blocks.get(joint.GuestPart.Name) or placed_blank(
+                joint.GuestPart, frame_of=joint.HostPart
+            )
             cached_plan(strategy, host, guest, proxy.params(joint))
     except ValueError:
         return True
@@ -134,7 +136,7 @@ class DragFollow:
             if other is None or other.Name in found:
                 continue
             try:
-                block = placed_blank(other)
+                block = placed_blank(other, frame_of=self.part)
             except ValueError:
                 continue
             extension = flush_extension(self._before, block, lowered=self.lowered)

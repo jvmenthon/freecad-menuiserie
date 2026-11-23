@@ -28,11 +28,12 @@ from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.edges import BROKEN_EDGE_MM, EdgeFamily, SecondSize, family_for
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.box_parts import box_part_refusal
-from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
+from freecad.menuiserie.features.edge_frames import edge_index, edge_label
+from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges
+from freecad.menuiserie.features.edge_profile_native import part_refusal
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.gui.edge_highlight import EdgeHighlight
+from freecad.menuiserie.gui.edge_highlight import EdgeHighlight, Entry
 from freecad.menuiserie.gui.pick_edge import EdgePicker, Pick
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
@@ -98,6 +99,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._profiles: dict[str, str] = {}
         self._applied: dict[str, tuple[object, ...]] = {}  # derniers réglages écrits par pièce
         self._failed = False
+        self._load_error = ""  # arêtes du profil modifié illisibles, rappelées à chaque aperçu
         self._asymmetric = False  # profil relu dont la cote B diffère de A : B reste visible
         self._guard = UpdateGuard()
         self._picker = EdgePicker(document, self.on_pick, self._ignored)
@@ -170,7 +172,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             self._size_b.setProperty("rawValue", profile.SizeB.Value)
             self._asymmetric = profile.SizeB.Value not in (0.0, profile.SizeA.Value)
             card = self.pieces.add(profile.Part, removable=False)
-            card.set_codes(profile.Edges, silently=True)
+            try:  # arêtes relues illisibles (fichier modifié à la main) : refus affiché
+                card.set_codes(designated_edges(profile), silently=True)
+            except (TypeError, ValueError) as error:
+                self._load_error = str(error)
         self._profiles[profile.Part.Name] = profile.Name
 
     def _needs_size_b(self) -> bool:
@@ -199,8 +204,9 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
     def on_pick(self, pick: Pick) -> None:
         """Pièce, face, arête ou sommet cliqué dans la vue 3D : la pièce s'ajoute à la liste
-        (une pièce qui n'est pas une boîte est refusée), ses arêtes désignées sont choisies."""
-        refusal = box_part_refusal(pick.part)
+        (une pièce dont les arêtes ne peuvent pas être suivies est refusée), ses arêtes
+        désignées sont choisies."""
+        refusal = part_refusal(pick.part)
         if refusal is not None:
             self._show_message(refusal)
             return
@@ -231,7 +237,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         """Arêtes de ``part`` profilées par un profil qui n'est pas celui du panneau."""
         mine = self._profile_of(part.Name)
         return {
-            code for other in api.edge_profiles_of(part) if other != mine for code in other.Edges
+            code
+            for other in api.edge_profiles_of(part)
+            if other != mine
+            for code in designated_edges(other)
         }
 
     def rebuild(self, *_changed: object) -> None:
@@ -240,7 +249,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         profil du panneau."""
         if self._guard.active:
             return
-        messages: list[str] = []
+        messages: list[str] = [self._load_error] if self._load_error else []
         self._failed = False
         self.pieces.prune(self.doc)  # pièces supprimées pendant la tâche
         listed = {part.Name for part in self.pieces.parts()}
@@ -248,23 +257,27 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             self._remove_profile(name)
         conflicts: list[str] = []
         for part, codes in self.pieces.entries():
-            others = self._others(part)
-            mine = sorted(set(codes) & others)
-            # Aperçu : les arêtes déjà profilées par un autre profil ne lui sont retirées
-            # qu'après confirmation, dans accept().
-            free = [code for code in codes if code not in others]
-            try:
+            try:  # un autre profil aux arêtes illisibles refuse l'aperçu, sans trace
+                others = self._others(part)
+                mine = sorted(set(codes) & others)
+                # Aperçu : les arêtes déjà profilées par un autre profil ne lui sont retirées
+                # qu'après confirmation, dans accept().
+                free = [code for code in codes if code not in others]
                 messages.extend(self._preview(part, free, bool(mine)))
             except (TypeError, ValueError) as error:
                 messages.append(str(error))
                 self._failed = True
+                continue
             if mine:
                 conflicts.append(self._piece_edges(part, mine))
         if conflicts:
             messages.append(translated(_CONFLICT_NOTE, {"edges": " ; ".join(conflicts)}))
         self._show_message("\n".join(messages))
         self._highlight.show(
-            [(card.part, card.codes(), card.color) for card in self.pieces.cards()]
+            [
+                Entry(card.part, card.codes(), card.color, card.edge_colors())
+                for card in self.pieces.cards()
+            ]
         )
 
     def _preview(self, part: DocumentObject, free: list[str], conflicts: bool) -> tuple[str, ...]:
@@ -281,8 +294,9 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
 
     @staticmethod
     def _piece_edges(part: DocumentObject, codes: Sequence[str]) -> str:
+        shown = [edge_label(index) if (index := edge_index(c)) else c for c in codes]
         return translated(
-            _PIECE_EDGES, {"piece": quoted_value(part.Label), "edges": ", ".join(codes)}
+            _PIECE_EDGES, {"piece": quoted_value(part.Label), "edges": ", ".join(shown)}
         )
 
     def _apply(self, part: DocumentObject, codes: list[str], *, replace: bool) -> tuple[str, ...]:

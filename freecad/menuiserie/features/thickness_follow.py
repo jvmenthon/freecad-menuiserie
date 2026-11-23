@@ -27,6 +27,7 @@ from freecad.menuiserie.core.thickness_follow import follow_shift, touches_raise
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.joints.base import placed_blank
+from freecad.menuiserie.features.joints.frames import direction_in_frame_of
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.features.thickness_common import (
     PLACEMENT,
@@ -69,7 +70,9 @@ def _partners(
         if other is None:
             continue
         try:
-            raised = touches_raised_face(before, placed_blank(other), lowered=lowered)
+            raised = touches_raised_face(
+                before, placed_blank(other, frame_of=part), lowered=lowered
+            )
         except ValueError:  # pièce invalide : elle ne suit pas
             raised = False
         objects[other.Name] = other
@@ -101,6 +104,7 @@ class FollowPlan:
     épaisseur et son placement d'avant (``before``) : ``moved`` les pièces qui suivent (groupes
     assemblés de proche en proche), ``kept`` les racines laissées en place, par raison."""
 
+    part: DocumentObject
     before: PlacedBlock
     lowered: bool
     moved: tuple[DocumentObject, ...]
@@ -117,8 +121,8 @@ class FollowPlan:
         if delta == 0.0:
             return
         shift = self.shift(delta)
-        for piece in self.moved if pieces is None else pieces:
-            shift_part(piece, shift)
+        for piece in self.moved if pieces is None else pieces:  # repère de son conteneur (0054)
+            shift_part(piece, direction_in_frame_of(shift, self.part, piece))
 
     def messages(self, part: DocumentObject) -> list[str]:
         """Messages de la vue rapport : pièces qui ont suivi, pièces laissées en place."""
@@ -160,7 +164,7 @@ def follow_plan(
         else:
             moved.extend(piece for piece in group if piece not in moved)
     frozen = {reason: tuple(roots) for reason, roots in kept.items()}
-    return FollowPlan(before, lowered, tuple(moved), frozen)
+    return FollowPlan(part, before, lowered, tuple(moved), frozen)
 
 
 def follow_thickness(

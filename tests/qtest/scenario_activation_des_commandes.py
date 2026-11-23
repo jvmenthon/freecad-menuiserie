@@ -45,7 +45,7 @@ ASSEMBLAGES = frozenset(
         "DrawerSlide",
     )
 )
-UNE_PIECE = frozenset({"Menuiserie_Foot", "Menuiserie_ShelfPins"})
+UNE_PIECE = frozenset({"Menuiserie_Foot", "Menuiserie_ShelfPins", "Menuiserie_CloseCarcass"})
 DES_PIECES = frozenset({"Menuiserie_Furniture", "Menuiserie_Repeat"})
 SANS_SELECTION = frozenset(
     {

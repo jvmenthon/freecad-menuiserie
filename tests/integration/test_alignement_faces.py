@@ -99,13 +99,15 @@ def test_sur_un_axe_parallele_aux_faces_refuse() -> None:
         App.closeDocument(doc.Name)
 
 
-def test_centres_confondus_sur_les_trois_axes() -> None:
+def test_centres_confondus_sur_les_deux_axes_du_plan() -> None:
     doc = App.newDocument("AlignementCentres")
     try:
         reference = _part(doc, (0, 0, 0))
         other = _part(doc, (500, 300, 100), tilt=30.0)
         api.align_faces(
-            _face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), centered="XYZ"
+            _face(reference, (100, 50, 20)),
+            _face(other, (100, 50, 20)),
+            layout={"X": "center", "Y": "center"},
         )
         doc.recompute()
         box = other.Shape.BoundBox
@@ -116,22 +118,24 @@ def test_centres_confondus_sur_les_trois_axes() -> None:
         App.closeDocument(doc.Name)
 
 
-def test_axe_de_centrage_inconnu_refuse_sans_bouger() -> None:
+def test_disposition_inconnue_refusee_sans_bouger() -> None:
     doc = App.newDocument("AlignementCentreInconnu")
     try:
         reference = _part(doc, (0, 0, 0))
         other = _part(doc, (500, 300, 100))
         before = other.Placement.copy()
-        with pytest.raises(ValueError, match="X, Y ou Z"):
+        with pytest.raises(ValueError, match="'W'='center'"):
             api.align_faces(
-                _face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), centered="XW"
+                _face(reference, (100, 50, 20)),
+                _face(other, (100, 50, 20)),
+                layout={"X": "center", "W": "center"},
             )
         assert other.Placement.isSame(before, 1e-9)
     finally:
         App.closeDocument(doc.Name)
 
 
-def test_centrage_rend_parallele_une_planche_tournee_dans_le_plan() -> None:
+def test_parallele_a_x_puis_centree() -> None:
     doc = App.newDocument("AlignementParallele")
     try:
         reference = _part(doc, (0, 0, 0))
@@ -141,7 +145,9 @@ def test_centrage_rend_parallele_une_planche_tournee_dans_le_plan() -> None:
         )
         doc.recompute()
         api.align_faces(
-            _face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), centered="XYZ"
+            _face(reference, (100, 50, 20)),
+            _face(other, (100, 50, 20)),
+            layout={"parallel": "X", "X": "center", "Y": "center"},
         )
         doc.recompute()
         box = other.Shape.BoundBox
@@ -149,5 +155,40 @@ def test_centrage_rend_parallele_une_planche_tournee_dans_le_plan() -> None:
         assert box.YLength == pytest.approx(100.0, abs=TOLERANCE)
         assert box.Center.x == pytest.approx(100.0, abs=TOLERANCE)
         assert box.Center.y == pytest.approx(50.0, abs=TOLERANCE)
+    finally:
+        App.closeDocument(doc.Name)
+
+
+def test_debut_et_fin_bord_a_bord() -> None:
+    """Une traverse au ras du bout d'un montant : début sur X, fin sur Y."""
+    doc = App.newDocument("AlignementBords")
+    try:
+        reference = _part(doc, (0, 0, 0))
+        other = _part(doc, (500, 300, 100))
+        api.align_faces(
+            _face(reference, (100, 50, 20)),
+            _face(other, (100, 50, 20)),
+            layout={"X": "start", "Y": "end"},
+        )
+        doc.recompute()
+        box = other.Shape.BoundBox
+        assert box.XMin == pytest.approx(0.0, abs=TOLERANCE)
+        assert box.YMax == pytest.approx(100.0, abs=TOLERANCE)
+    finally:
+        App.closeDocument(doc.Name)
+
+
+def test_axe_de_la_normale_refuse_sans_bouger() -> None:
+    """Doute D9 : Z suit la normale des faces du dessus ; il est refusé avec un message."""
+    doc = App.newDocument("AlignementNormale")
+    try:
+        reference = _part(doc, (0, 0, 0))
+        other = _part(doc, (500, 300, 100))
+        before = other.Placement.copy()
+        with pytest.raises(ValueError, match="traverse les faces"):
+            api.align_faces(
+                _face(reference, (100, 50, 20)), _face(other, (100, 50, 20)), layout={"Z": "end"}
+            )
+        assert other.Placement.isSame(before, 1e-9)
     finally:
         App.closeDocument(doc.Name)

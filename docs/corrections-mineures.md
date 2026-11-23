@@ -138,6 +138,19 @@ de répétitions m5) sont corrigés.
 | rg4 | mineur | `features/repeat_copies.py` (`_renumber`) | Le rang et les libellés automatiques suivent la grille, mais un libellé de copie que l'utilisateur a tapé à la main et qui ressemble au libellé automatique d'un autre rang est pris pour automatique. | Mémoriser le libellé attribué (propriété cachée) plutôt que le déduire. |
 | rg5 | mineur | `gui/task_panels/repeat.py` | En « pas sur une longueur », le nombre calculé d'un axe est écrit dans son champ masqué : si l'on revient en « nombre et pas », le nombre repart de cette valeur et pas de celle que l'on avait saisie. Même comportement qu'avant la grille. | Garder la saisie et la valeur calculée dans deux champs distincts. |
 
+
+## Pièce créée contre une face (PR #252), 2026-11-16
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| pf2 | mineur | `core/snap/_perpendicular.py` (`footprint`, `face_section`) | Les colonnes largeur / épaisseur de l'orientation sont lues de la même façon dans les deux fonctions (motif proche). | Un petit helper commun « axe de la pièce selon l'axe d'appui ». |
+| pf3 | mineur | `features/snap_local_face.py` (`fit_to_footprint`) | Jusqu'à 18 appels `common` OCC à chaque départ perpendiculaire (3 reprises × 2 axes × 3 sondes). | Mesurer ; sortir tôt quand l'étendue ne change pas à la première reprise. |
+| pf4 | mineur | `tests/integration/test_accrochage_perpendiculaire.py` | Seuil de volume résiduel `1e-2` littéral ; pas de test isolé de `fit_to_footprint` (cas « rien ne change »). | Nommer la constante ; test avec fausse face. |
+| pf5 | mineur | `features/perpendicular.py` (`_nearest_edge_row`) | Seuls les deux côtés du repère d'appui (parallèles aux axes de la pièce porteuse) sont regardés : près d'une arête oblique, la pièce suit l'axe le plus proche sans tourner vers l'oblique (elle ne déborde pas). | Si jv le demande : orienter la pièce selon une arête oblique (rotation hors des 24 orientations). |
+| pf6 | mineur | `features/perpendicular.py` (`perpendicular_start`) | Second test `edge_row is None` sans effet en pratique (le repère local n'existe qu'avec un clic) ; fonction longue, six sorties (limite). | `along_edge(orientation, row: int \| None)` ; extraire `_edge_aware_orientation`. |
+| pf7 | mineur | `core/snap/_perpendicular.py` (`face_section`, `along_edge`) | Condition dense dans `face_section` ; `abs(x.component(row)) == 1.0` répété ; entiers nus `(0, 1)` pour les axes du plan. | Helper `_follows(vector, row)`, booléen nommé, constante `_FACE_AXES`. |
+| pf8 | mineur | `features/perpendicular.py` (`_nearest_edge_row`) | Commentaires « côté qui suit y » peu intuitifs (distance = produit scalaire avec l'autre axe). | Une phrase d'explication. |
+
 - `gui/task_panels/align.py` importe `report_refusal` de `gui/commands/base.py`, comme le panneau
   de distance : déplacer cette fonction dans un module neutre de `gui/` (revue de la PR #254).
 - `gui/task_panels/align.py` : aucun test GUI ne couvre l'envoi forcé de la position automatique
@@ -187,3 +200,12 @@ de répétitions m5) sont corrigés.
 | Id | Niveau | Où | Constat | Piste |
 |----|--------|----|---------|-------|
 | br1 | mineur | `features/furniture_drag.py` (`_free_to_turn`) | `api.rotate_furniture` refuse un sous-ensemble dont le Std Part porte la liaison de l'atelier `Placement.Base.x` : elle est prise pour une formule de l'utilisateur (comportement antérieur, ni causé ni aggravé par l'ADR 0065). | Exclure les liaisons de l'atelier (`workshop_expressions`) du contrôle, avec un test. |
+
+## Grille « Parallèle et aligner sur » (PR #269, ADR 0066), 2026-11-17
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| al1 | mineur | `core/align/_align.py` (`face_center`) | Plus utilisée en production (seulement par les tests), mais toujours exportée par la façade ; `_layout._corners` fait presque le même calcul. | La déplacer dans les tests ou la calculer depuis `_corners`. |
+| al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
+| al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
+| al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |

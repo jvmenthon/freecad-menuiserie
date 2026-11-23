@@ -22,6 +22,7 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.features.i18n import report_warning
+from freecad.menuiserie.features.joints.frames import touch_framed_joints
 from freecad.menuiserie.features.std_part_watch import (
     left_furnitures,
     remove_left_furnitures,
@@ -178,6 +179,16 @@ class _DocumentObserver:
                 report_warning(message)
             if left:
                 QtCore.QTimer.singleShot(0, partial(_remove_left, obj.Document.Name, left))
+        except Exception:  # pylint: disable=broad-exception-caught
+            App.Console.PrintError(traceback.format_exc())
+
+    def slotChangedObject(self, obj: Any, prop: str) -> None:
+        """``Placement`` de Std Part changé : les assemblages entre conteneurs différents qui en
+        dépendent sont touchés (ADR 0054)."""
+        if prop != "Placement":
+            return
+        try:
+            touch_framed_joints(obj)
         except Exception:  # pylint: disable=broad-exception-caught
             App.Console.PrintError(traceback.format_exc())
 

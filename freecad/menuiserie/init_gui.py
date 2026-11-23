@@ -65,6 +65,7 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
                 "Menuiserie_FurnitureRemove",
                 "Menuiserie_FurnitureRebind",
                 "Menuiserie_Carcass",  # gabarits (J4d)
+                "Menuiserie_CloseCarcass",  # fermer le caisson (ADR 0064)
             ),
         ),
         (
@@ -105,6 +106,9 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         from freecad.menuiserie.gui.commands import carcass  # gabarits (J4d)
 
         carcass.register()
+        from freecad.menuiserie.gui.commands import closing  # fermer le caisson (ADR 0064)
+
+        closing.register()
         from freecad.menuiserie.gui.commands import cutlist  # liste de débit (J2d)
 
         cutlist.register()
@@ -161,10 +165,13 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
     def ContextMenu(self, recipient: str) -> None:
         """Menu contextuel de la vue 3D (« View ») et de l'arborescence (« Tree ») : « Définir une
         distance » (au premier niveau, pas dans un sous-menu) quand la sélection compte deux
-        éléments de deux objets, et « Aligner deux faces » si ce sont deux faces. Ce menu
+        éléments de deux objets, et « Aligner deux faces » si ce sont deux faces ; « Fermer le
+        caisson » quand elle est une seule pièce de bois rectangulaire. Ce menu
         n'existe que pendant que l'atelier est actif (ADR 0007)."""
-        from freecad.menuiserie.gui.commands import align, distance
+        from freecad.menuiserie.gui.commands import align, closing, distance
 
+        if closing.selected_anchor() is not None:
+            self.appendContextMenu("", [closing.COMMAND_NAME])  # « Fermer le caisson »
         if distance.selected_pair() is not None:
             self.appendContextMenu("", [distance.COMMAND_NAME])  # au premier niveau du menu
             if align.selected_faces():

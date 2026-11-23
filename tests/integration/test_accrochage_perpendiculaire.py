@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -14,15 +15,21 @@ from freecad.menuiserie.core.geometry import Vec3
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
+Part = pytest.importorskip("Part")
 api = pytest.importorskip("freecad.menuiserie.api")
 picked = pytest.importorskip("freecad.menuiserie.features.picked")
 perpendicular = pytest.importorskip("freecad.menuiserie.features.perpendicular")
 placement_module = pytest.importorskip("freecad.menuiserie.features.placement")
 geometry = pytest.importorskip("freecad.menuiserie.features.snap_geometry")
+local_face = pytest.importorskip("freecad.menuiserie.features.snap_local_face")
 targets = pytest.importorskip("freecad.menuiserie.features.snap_targets")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
+pieces_galbees = pytest.importorskip("tests.integration.pieces_galbees")
+cadre = pytest.importorskip("tests.integration.cadre")
+types_assemblages = pytest.importorskip("tests.integration.types_assemblages")
 
 ABOVE = Vec3(0, 0, 1)
+_GRAIN = 1e-3  # mm : les sondes du calage reculent d'1e-4 des bords
 
 
 @pytest.fixture
@@ -46,13 +53,16 @@ def face_at(obj: Any, normal: tuple[float, float, float], coordinate: float) -> 
     raise AssertionError("face introuvable")
 
 
-def create_against(document: Any, root: Any, subname: str) -> tuple[Any, Any]:
-    """(pièce créée, départ perpendiculaire) comme le fait la commande."""
-    reading = targets.read_targets([picked.PickedElement(root, subname, None)], ABOVE)
+def create_against(
+    document: Any, root: Any, subname: str, click: Vec3 | None = None
+) -> tuple[Any, Any]:
+    """(pièce créée, départ perpendiculaire) comme le fait la commande ; ``click`` : point cliqué
+    (coordonnées globales)."""
+    reading = targets.read_targets([picked.PickedElement(root, subname, click)], ABOVE)
     start = perpendicular.perpendicular_start(reading)
     assert start is not None
     part = api.make_wood_part(width=start.width, thickness=start.thickness, doc=document)
-    session = targets.new_session(reading, wood_part.dimensions_of(part), start.orientation)
+    session = targets.new_session(start.reading, wood_part.dimensions_of(part), start.orientation)
     placement_module.snap_part(part, session)
     document.recompute()
     return part, start
@@ -89,3 +99,507 @@ def test_aucun_depart_pour_un_objet_d_un_autre_atelier(document: Any) -> None:
     document.recompute()
     reading = targets.read_targets([picked.PickedElement(cube, "Face6", None)], ABOVE)
     assert perpendicular.perpendicular_start(reading) is None
+
+
+def converted_rail(document: Any, placement: Any) -> Any:
+    """Pièce en bois (corps converti) de la traverse galbée, posée au ``placement``."""
+    rail = pieces_galbees.shaped(pieces_galbees.curved_rail(document))
+    rail.Placement = placement
+    document.recompute()
+    return rail
+
+
+def test_piece_convertie_extremite_perpendiculaire(document: Any) -> None:
+    rail = converted_rail(document, App.Placement(App.Vector(100, 50, 0), App.Rotation()))
+    xmax = geometry.global_shape(rail).BoundBox.XMax
+    part, start = create_against(document, rail, face_at(rail, (1, 0, 0), xmax))
+    assert (round(start.width, 6), round(start.thickness, 6)) == (95, 45)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.XMin, 6) == round(xmax, 6)
+    assert round(box.XMax - box.XMin, 6) == 45  # son épaisseur part de la face
+    # longueur (par défaut) selon l'épaisseur de la traverse
+    assert round(box.ZMax - box.ZMin, 6) == round(part.Length.Value, 6)
+
+
+def test_piece_convertie_tournee_perpendiculaire(document: Any) -> None:
+    turned = App.Placement(App.Vector(0, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    rail = converted_rail(document, turned)
+    ymax = geometry.global_shape(rail).BoundBox.YMax
+    part, _start = create_against(document, rail, face_at(rail, (0, 1, 0), ymax))
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.YMin, 6) == round(ymax, 6)  # appuyée sur l'extrémité tournée
+    assert round(box.ZMax - box.ZMin, 6) == round(part.Length.Value, 6)
+
+
+def test_piece_convertie_section_de_la_face_selectionnee(document: Any) -> None:
+    """Bout plus étroit que l'encombrement (pièce en L) : la nouvelle pièce prend la largeur de la
+    face sélectionnée, pas celle de la pièce, et reste sur la face."""
+    solid = Part.makeBox(400, 100, 50).cut(Part.makeBox(200, 60, 50, App.Vector(200, 40, 0)))
+    source = document.addObject("Part::Feature", "EnL")
+    source.Shape = solid
+    document.recompute()
+    angle = pieces_galbees.shaped(source)
+    assert round(angle.Width.Value, 6) == 100
+    xmax = geometry.global_shape(angle).BoundBox.XMax
+    part, start = create_against(document, angle, face_at(angle, (1, 0, 0), xmax))
+    assert (round(start.width, 6), round(start.thickness, 6)) == (40, 50)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.XMin, 6) == round(xmax, 6)
+    assert round(box.YMax - box.YMin, 6) == 40
+    face_box = geometry.global_shape(angle).BoundBox
+    assert round(box.YMin - face_box.YMin, 6) == 0  # alignée sur la face étroite (y de 0 à 40)
+
+
+def test_piece_convertie_largeur_a_l_endroit_du_clic(document: Any) -> None:
+    """Dessus d'une pièce en L : cliqué sur le bras étroit (y de 0 à 40), la nouvelle pièce prend
+    40 de large et s'y cale ; cliqué sur la partie large, elle prend 100."""
+    solid = Part.makeBox(400, 100, 50).cut(Part.makeBox(200, 60, 50, App.Vector(200, 40, 0)))
+    source = document.addObject("Part::Feature", "EnL")
+    source.Shape = solid
+    document.recompute()
+    angle = pieces_galbees.shaped(source)
+    top = geometry.global_shape(angle).BoundBox
+    face = face_at(angle, (0, 0, 1), top.ZMax)
+    narrow, _ = create_against(document, angle, face, Vec3(top.XMin + 350, top.YMin + 20, top.ZMax))
+    box = geometry.global_shape(narrow).BoundBox
+    assert round(box.YMax - box.YMin, 6) == 40
+    assert (round(box.YMin - top.YMin, 6), round(box.ZMin - top.ZMax, 6)) == (0, 0)
+    wide, _ = create_against(document, angle, face, Vec3(top.XMin + 100, top.YMin + 70, top.ZMax))
+    assert round(geometry.global_shape(wide).BoundBox.YMax - top.YMin, 6) == 100
+
+
+def test_piece_usinee_largeur_mesuree_sur_la_brute(document: Any) -> None:
+    """Chant d'un montant mortaisé aux deux bouts : les mortaises coupent la face usinée, mais la
+    pièce se cale sur le rectangle de la brute (x de 0 à 600), pas entre les mortaises."""
+    frame = cadre.build_frame(document)
+    frame.assemble()
+    stile = frame.machined("M1")
+    chant = face_at(stile, (0, 1, 0), 60)
+    part, _start = create_against(document, stile, chant, Vec3(300, 60, 11))
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.YMin, 6) == 60  # sur le chant
+    assert round(box.XMin, 6) == 0  # calée au coin de la brute, pas au bord d'une mortaise
+
+
+def test_largeur_mesuree_sur_la_face_exterieure_de_la_brute(document: Any) -> None:
+    """Feuillure au bord du dessous (y de 290 à 300, 6 mm de profondeur) : cliqué dans la feuillure,
+    à 5 mm de l'arête du bord (y = 300), la pièce suit cette arête : sa largeur est la longueur de
+    l'arête (600), pas la largeur de la feuillure (10), calée sur la face extérieure (y = 290)."""
+    montage = types_assemblages.build(document, types_assemblages.RABBET, App.Placement())
+    host = api.machined_part_of(montage.host)
+    recessed = face_at(host, (0, 0, -1), -6)
+    part, start = create_against(document, host, recessed, Vec3(300, 295, 6))
+    assert round(start.width, 6) == 600
+    box = geometry.global_shape(part).BoundBox
+    assert (round(box.XLength, 6), round(box.YMax, 6)) == (600, 290)
+
+
+def footprint_slab(part: Any) -> Any:
+    """Empreinte de la pièce posée sur le dessus du triangle (z = 50), épaissie d'1 mm vers le bas :
+    sa face du dessous réelle (pas sa boîte englobante, plus grande pour une pièce de biais)."""
+    shape = geometry.global_shape(part)
+    bottom = min(shape.Faces, key=lambda face: face.CenterOfMass.z)
+    return bottom.extrude(App.Vector(0, 0, -1))
+
+
+def triangle(document: Any) -> Any:
+    """Prisme triangulaire isocèle (base 400, hauteur 100, épaisseur 50), converti en pièce."""
+    points = [App.Vector(*xy, 0) for xy in ((0, 0), (400, 0), (200, 100), (0, 0))]
+    source = document.addObject("Part::Feature", "Triangle")
+    source.Shape = Part.Face(Part.makePolygon(points)).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    return pieces_galbees.shaped(source)
+
+
+@pytest.mark.parametrize("click", [(100, 10), (200, 50), (5, 1), (395, 1)])
+def test_face_triangulaire_la_piece_reste_dans_la_face(
+    document: Any, click: tuple[float, float]
+) -> None:
+    """Face triangulaire (arêtes obliques) : la nouvelle pièce, calée au coin le plus proche du
+    clic, ne déborde pas de la face."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    part, _start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
+    top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
+    slab = footprint_slab(part)
+    assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
+
+
+@pytest.mark.parametrize("click", [(200, 99.99), (399.9, 0.01), (0.05, 0.02)])
+def test_clic_pres_d_une_pointe_pas_de_debord(document: Any, click: tuple[float, float]) -> None:
+    """Près d'un sommet aigu : soit il ne reste pas la place d'une pièce (pas de départ
+    perpendiculaire, accrochage habituel), soit la pièce suit l'arête et ne déborde pas."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    reading = targets.read_targets(
+        [picked.PickedElement(angle, face, Vec3(click[0], click[1], 50))], ABOVE
+    )
+    if perpendicular.perpendicular_start(reading) is None:
+        return  # pas la place d'une pièce : accrochage habituel
+    part, _start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
+    top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
+    assert footprint_slab(part).cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
+
+
+def inside(part: Any, owner: Any, normal: tuple[float, float, float], coordinate: float) -> bool:
+    """La pièce posée ne déborde pas de la face ``normal`` = ``coordinate`` de ``owner``."""
+    face = next(
+        f
+        for f in geometry.global_shape(owner).Faces
+        if abs(f.normalAt(*f.Surface.parameter(f.CenterOfMass)).dot(App.Vector(*normal))) > 0.999
+        and abs(f.CenterOfMass.dot(App.Vector(*normal)) - coordinate) < 1e-6
+    )
+    box = geometry.global_shape(part).BoundBox
+    bound = face.BoundBox
+    return bool(
+        box.XMin >= bound.XMin - 1e-6
+        and box.XMax <= bound.XMax + 1e-6
+        and box.YMin >= bound.YMin - 1e-6
+        and box.YMax <= bound.YMax + 1e-6
+    )
+
+
+@pytest.mark.parametrize(
+    ("click", "width"),
+    [
+        ((400, 5, 30), 800),  # arête longue la plus proche : la largeur la longe
+        ((400, 95, 30), 800),
+        ((5, 50, 30), 100),  # arête courte (bout) la plus proche
+        ((795, 50, 30), 100),
+        ((5, 5, 30), 100),  # coin : 5 de chaque côté, égalité
+        ((795, 95, 30), 100),
+        ((400, 50, 30), 800),  # milieu : l'arête longue (50) est bien plus proche du bout (400)
+        ((50, 50, 30), 100),  # égalité stricte (50 du bord, 50 du bout) : le bout l'emporte
+    ],
+)
+def test_grande_face_largeur_selon_l_arete_la_plus_proche(
+    document: Any, board: Any, click: tuple[float, float, float], width: float
+) -> None:
+    part, start = create_against(document, board, face_at(board, (0, 0, 1), 30), Vec3(*click))
+    assert round(start.width, 6) == width
+    assert round(start.thickness, 6) == 30
+    assert inside(part, board, (0, 0, 1), 30)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.ZMin, 6) == 30
+
+
+def test_grande_face_clic_proche_du_bout_meme_distance_que_l_arete_longue(
+    document: Any, board: Any
+) -> None:
+    """Égalité stricte (10 du bout et 10 du bord) : le résultat est stable d'un appel à l'autre."""
+    face = face_at(board, (0, 0, 1), 30)
+    first, a = create_against(document, board, face, Vec3(10, 10, 30))
+    second, b = create_against(document, board, face, Vec3(10, 10, 30))
+    assert (a.width, a.thickness) == (b.width, b.thickness)
+    assert (
+        geometry.global_shape(first).BoundBox.XLength
+        == geometry.global_shape(second).BoundBox.XLength
+    )
+
+
+@pytest.mark.parametrize("click", [(400, 0.2, 30), (0.2, 50, 30), (400, 99.8, 30)])
+def test_clic_tres_pres_du_bord(
+    document: Any, board: Any, click: tuple[float, float, float]
+) -> None:
+    part, _start = create_against(document, board, face_at(board, (0, 0, 1), 30), Vec3(*click))
+    assert inside(part, board, (0, 0, 1), 30)
+
+
+def test_chant_etroit_la_piece_reste_sur_le_chant(document: Any, board: Any) -> None:
+    """Chant (y = 100, 800 x 30) : clic près du bout ou près du bord, jamais de débord."""
+    chant = face_at(board, (0, 1, 0), 100)
+    for click in ((400, 100, 3), (400, 100, 27), (3, 100, 15), (797, 100, 15)):
+        part, start = create_against(document, board, chant, Vec3(*click))
+        box = geometry.global_shape(part).BoundBox
+        assert round(box.YMin, 6) == 100
+        assert box.XMin >= -1e-6 and box.XMax <= 800 + 1e-6
+        assert box.ZMin >= -1e-6 and box.ZMax <= 30 + 1e-6
+        assert start.thickness <= 100 + 1e-6
+
+
+@pytest.mark.parametrize("click", [(100, 5, 15), (100, 95, 15), (100, 50, 3)])
+def test_extremite_la_piece_reste_couchee_et_dans_la_face(
+    document: Any, board: Any, click: tuple[float, float, float]
+) -> None:
+    """Extrémité (x = 800, 100 x 30) : pas de quart de tour, quelle que soit l'arête proche."""
+    part, start = create_against(
+        document, board, face_at(board, (1, 0, 0), 800), Vec3(800, click[1], click[2])
+    )
+    assert (round(start.width, 6), round(start.thickness, 6)) == (100, 30)
+    box = geometry.global_shape(part).BoundBox
+    assert round(box.XMin, 6) == 800
+    assert box.YMin >= -1e-6 and box.YMax <= 100 + 1e-6
+
+
+@pytest.mark.parametrize("click", [(400, 5, 30), (5, 50, 30), (5, 5, 30)])
+def test_piece_porteuse_tournee_de_90_degres(
+    document: Any, click: tuple[float, float, float]
+) -> None:
+    """Pièce porteuse tournée de 90° autour de Z : la règle vaut dans le repère global."""
+    turned = api.make_wood_part(800, 100, 30, doc=document)
+    turned.Placement = App.Placement(App.Vector(0, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    document.recompute()
+    box = geometry.global_shape(turned).BoundBox  # x de -100 à 0, y de 0 à 800
+    top = face_at(turned, (0, 0, 1), 30)
+    point = Vec3(box.XMin + click[1], box.YMin + click[0], 30)
+    part, start = create_against(document, turned, top, point)
+    # arête la plus proche : longue (selon Y global) ou courte (selon X global)
+    near_long = min(click[1], 100 - click[1]) < min(click[0], 800 - click[0])
+    expected = 800 if near_long else 100
+    assert round(start.width, 6) == expected
+    new_box = geometry.global_shape(part).BoundBox
+    assert new_box.XMin >= box.XMin - 1e-6 and new_box.XMax <= box.XMax + 1e-6
+    assert new_box.YMin >= box.YMin - 1e-6 and new_box.YMax <= box.YMax + 1e-6
+
+
+@pytest.mark.parametrize("click", [(100, 10), (200, 50), (300, 10), (10, 3), (390, 3)])
+def test_face_triangulaire_largeur_dans_la_face(document: Any, click: tuple[float, float]) -> None:
+    """Arêtes obliques : la largeur reste dans les bornes et la pièce ne dépasse pas le triangle."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    part, start = create_against(document, angle, face, Vec3(click[0], click[1], 50))
+    assert 0.1 <= start.width <= 400
+    box = geometry.global_shape(part).BoundBox
+    assert box.XMin >= -_GRAIN and box.XMax <= 400 + _GRAIN
+    assert box.YMin >= -_GRAIN and box.YMax <= 100 + _GRAIN
+
+
+def test_clic_pres_de_l_arete_oblique_largeur_ne_depasse_pas_la_face(document: Any) -> None:
+    """Clic à 2 mm de l'hypoténuse (arête oblique), loin des deux axes : pas de débord."""
+    angle = triangle(document)
+    face = face_at(angle, (0, 0, 1), 50)
+    top = next(f for f in geometry.global_shape(angle).Faces if abs(f.CenterOfMass.z - 50) < 1e-6)
+    part, _start = create_against(document, angle, face, Vec3(100, 48, 50))
+    slab = footprint_slab(part)
+    assert slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume < 1e-2
+
+
+def prism(document: Any, outline: Sequence[tuple[float, float]], placement: Any = None) -> Any:
+    """Prisme (épaisseur 50) du contour ``outline`` (z de 0 à 50), converti en pièce."""
+    points = [App.Vector(x, y, 0) for x, y in (*outline, outline[0])]
+    source = document.addObject("Part::Feature", "Prisme")
+    source.Shape = Part.Face(Part.makePolygon(points)).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    obj = pieces_galbees.shaped(source)
+    if placement is not None:
+        obj.Placement = placement
+        document.recompute()
+    return obj
+
+
+def top_face(owner: Any) -> Any:
+    shape = geometry.global_shape(owner)
+    return max(shape.Faces, key=lambda face: face.CenterOfMass.z)
+
+
+def overflow(part: Any, owner: Any) -> float:
+    """Volume de l'empreinte réelle de ``part`` hors de la face du dessus de ``owner``."""
+    top = top_face(owner)
+    z = top.CenterOfMass.z
+    shape = geometry.global_shape(part)
+    bottom = min(shape.Faces, key=lambda face: face.CenterOfMass.z)
+    slab = bottom.extrude(App.Vector(0, 0, -1))
+    slab.translate(App.Vector(0, 0, z - bottom.CenterOfMass.z))
+    return float(slab.cut(top.extrude(App.Vector(0, 0, -1))).Volume)
+
+
+def start_or_none(owner: Any, click: tuple[float, float]) -> Any:
+    z = top_face(owner).CenterOfMass.z
+    face = face_at(owner, (0, 0, 1), z)
+    reading = targets.read_targets(
+        [picked.PickedElement(owner, face, Vec3(click[0], click[1], z))], ABOVE
+    )
+    return perpendicular.perpendicular_start(reading)
+
+
+def check_no_overflow(document: Any, owner: Any, click: tuple[float, float]) -> Any:
+    """Pose la pièce au clic (si un départ existe) et vérifie l'absence de débord. Renvoie le
+    départ, ``None`` si accrochage habituel."""
+    if start_or_none(owner, click) is None:
+        return None
+    z = top_face(owner).CenterOfMass.z
+    face = face_at(owner, (0, 0, 1), z)
+    part, start = create_against(document, owner, face, Vec3(click[0], click[1], z))
+    assert overflow(part, owner) < 1e-2, f"débord au clic {click}"
+    return start
+
+
+def grid(xs: Any, ys: Any) -> list[tuple[float, float]]:
+    return [(x, y) for x in xs for y in ys]
+
+
+SHAPES = {
+    "losange": [(0, 50), (200, 0), (400, 50), (200, 100)],
+    "trapeze": [(0, 0), (400, 0), (300, 100), (100, 100)],
+    "trapeze_rect": [(0, 0), (400, 0), (300, 100), (0, 100)],  # un côté droit, un oblique
+    "parallelogramme": [(0, 0), (300, 0), (400, 100), (100, 100)],
+    "pente_courte": [(0, 0), (400, 0), (400, 90), (395, 100), (0, 100)],  # chanfrein de 11 mm
+    "pente_minuscule": [(0, 0), (400, 0), (400, 99), (399, 100), (0, 100)],  # chanfrein de 1,4 mm
+}
+
+
+@pytest.mark.parametrize("name", sorted(SHAPES))
+def test_formes_polygonales_balayage_sans_debord(document: Any, name: str) -> None:
+    """Balayage de clics sur chaque forme : jamais de débord de l'empreinte réelle."""
+    owner = prism(document, SHAPES[name])
+    for click in grid((1, 20, 100, 200, 300, 380, 399), (1, 10, 50, 90, 99)):
+        top = top_face(owner)
+        if top.distToShape(Part.Vertex(App.Vector(click[0], click[1], 50)))[0] > 1e-6:
+            continue
+        check_no_overflow(document, owner, click)
+
+
+@pytest.mark.parametrize("name", sorted(SHAPES))
+def test_formes_polygonales_tournees_sans_debord(document: Any, name: str) -> None:
+    """Même balayage avec la pièce porteuse tournée de 37° autour de Z."""
+    turn = App.Placement(App.Vector(10, 20, 0), App.Rotation(App.Vector(0, 0, 1), 37))
+    owner = prism(document, SHAPES[name], turn)
+    for click in grid((1, 20, 100, 200, 300, 380, 399), (1, 10, 50, 90, 99)):
+        point = turn.multVec(App.Vector(click[0], click[1], 50))
+        top = top_face(owner)
+        if top.distToShape(Part.Vertex(point))[0] > 1e-6:
+            continue
+        check_no_overflow(document, owner, (point.x, point.y))
+
+
+def test_losange_largeur_suit_l_arete_oblique(document: Any) -> None:
+    """Losange : clic près d'un côté, la largeur est la longueur de ce côté (206,16)."""
+    owner = prism(document, SHAPES["losange"])
+    start = check_no_overflow(document, owner, (100, 25 + 3))
+    assert start is not None
+    assert 0.1 <= start.width <= 206.155 + 1e-3  # jamais plus long que le côté suivi
+
+
+def test_trapeze_arete_droite_proche_reste_droite(document: Any) -> None:
+    """Trapèze : clic à 2 mm de la base (droite) bien que l'oblique soit à 40 mm : base suivie,
+    resserrée à 300 (largeur de la face à 50 mm de profondeur, entre les deux obliques)."""
+    owner = prism(document, SHAPES["trapeze"])
+    start = check_no_overflow(document, owner, (200, 2))
+    assert start is not None
+    assert round(start.width, 3) == 300
+
+
+def test_trapeze_arete_oblique_proche_suivie(document: Any) -> None:
+    owner = prism(document, SHAPES["trapeze"])
+    start = check_no_overflow(document, owner, (50, 50))  # sur l'oblique x = 100 * y / 100
+    assert start is not None
+    assert round(start.width, 3) <= 141.43
+
+
+def test_egalite_arete_droite_et_oblique_stable(document: Any) -> None:
+    """Clic sur la bissectrice d'un sommet (égale distance base / oblique) : résultat stable,
+    sans débord."""
+    owner = prism(document, SHAPES["trapeze_rect"])
+    # bissectrice du sommet (400, 0), angle entre la base et l'oblique (300,100)-(400,0)
+    first = check_no_overflow(document, owner, (385.0, 5.0))
+    second = check_no_overflow(document, owner, (385.0, 5.0))
+    assert first is not None and second is not None
+    assert (round(first.width, 6), round(first.thickness, 6)) == (
+        round(second.width, 6),
+        round(second.thickness, 6),
+    )
+
+
+def test_arete_oblique_tres_courte_pas_de_debord(document: Any) -> None:
+    """Chanfrein de 1,4 mm : clic dessus ou tout près, la pièce ne déborde pas."""
+    owner = prism(document, SHAPES["pente_minuscule"])
+    for click in ((399.5, 99.5), (399.0, 99.0), (398.0, 98.0), (399.9, 99.0), (399.0, 99.9)):
+        check_no_overflow(document, owner, click)
+
+
+def test_arete_oblique_courte_largeur_bornee(document: Any) -> None:
+    """Chanfrein de 11 mm : la largeur reste dans les bornes valides, jamais NaN."""
+    owner = prism(document, SHAPES["pente_courte"])
+    start = check_no_overflow(document, owner, (397.5, 95))
+    if start is not None:
+        assert 0.1 <= start.width <= 400
+        assert start.width == start.width
+
+
+def test_face_arete_courbe_pas_de_debord(document: Any) -> None:
+    """Face dont un côté est un arc (demi-disque) : l'arête courbe n'est jamais suivie comme une
+    droite, pas de débord."""
+    wire = Part.Wire(
+        [
+            Part.makeLine(App.Vector(0, 0, 0), App.Vector(200, 0, 0)),
+            Part.Arc(
+                App.Vector(200, 0, 0), App.Vector(300, 100, 0), App.Vector(200, 200, 0)
+            ).toShape(),
+            Part.makeLine(App.Vector(200, 200, 0), App.Vector(0, 200, 0)),
+            Part.makeLine(App.Vector(0, 200, 0), App.Vector(0, 0, 0)),
+        ]
+    )
+    source = document.addObject("Part::Feature", "Arrondi")
+    source.Shape = Part.Face(wire).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    owner = pieces_galbees.shaped(source)
+    for click in grid((5, 100, 195, 250, 290, 299), (5, 50, 100, 150, 195)):
+        top = top_face(owner)
+        if top.distToShape(Part.Vertex(App.Vector(click[0], click[1], 50)))[0] > 1e-6:
+            continue
+        check_no_overflow(document, owner, click)
+
+
+def test_arete_courbe_plus_proche_que_la_droite_oblique(document: Any) -> None:
+    """Clic collé à l'arc, loin de la seule oblique : la largeur ne doit pas suivre l'oblique."""
+    outline = Part.Wire(
+        [
+            Part.makeLine(App.Vector(0, 0, 0), App.Vector(300, 0, 0)),
+            Part.Arc(
+                App.Vector(300, 0, 0), App.Vector(380, 100, 0), App.Vector(300, 200, 0)
+            ).toShape(),
+            Part.makeLine(App.Vector(300, 200, 0), App.Vector(0, 100, 0)),
+            Part.makeLine(App.Vector(0, 100, 0), App.Vector(0, 0, 0)),
+        ]
+    )
+    source = document.addObject("Part::Feature", "ArcOblique")
+    source.Shape = Part.Face(outline).extrude(App.Vector(0, 0, 50))
+    document.recompute()
+    owner = pieces_galbees.shaped(source)
+    start = check_no_overflow(document, owner, (375, 100))
+    if start is not None:
+        # l'arête oblique (300,200)-(0,100) mesure 316 : elle ne doit pas être suivie
+        assert abs(start.width - 316.228) > 1.0
+
+
+@pytest.mark.parametrize(
+    ("name", "click"),
+    [("trapeze_rect", (399, 1)), ("losange", (2, 50)), ("losange", (398, 50)), ("trapeze", (1, 1))],
+)
+def test_pointe_aigue_pas_de_lamelle(document: Any, name: str, click: tuple[float, float]) -> None:
+    """Clic près d'un sommet aigu : pas de pièce dont l'épaisseur ou la largeur soit une lamelle
+    (sous 5 mm, moins que le chanfrein le plus fin d'un usage réel) ; sinon accrochage habituel."""
+    owner = prism(document, SHAPES[name])
+    start = check_no_overflow(document, owner, click)
+    if start is not None:
+        assert start.width >= 5 and start.thickness >= 5
+
+
+@pytest.mark.parametrize(
+    ("name", "click"), [("trapeze_rect", (399, 1)), ("losange", (398, 50)), ("trapeze", (1, 1))]
+)
+def test_pointe_aigue_la_piece_suit_l_arete_sur_sa_longueur(
+    document: Any, name: str, click: tuple[float, float]
+) -> None:
+    """Clic tout près d'un sommet aigu : la profondeur se mesure au milieu de l'arête la plus
+    proche, pas au clic, donc la pièce suit l'arête avec une vraie section, sans débord."""
+    owner = prism(document, SHAPES[name])
+    start = check_no_overflow(document, owner, click)
+    assert start is not None
+    assert start.width >= 50 and start.thickness >= 5
+
+
+def test_erreur_de_programmation_pas_avalee(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Seuls les appels OCC sont protégés : une erreur de programmation dans le calcul du repère
+    d'une arête remonte au lieu de rendre ``None`` en silence."""
+    points = [App.Vector(x, y, 0) for x, y in (*SHAPES["trapeze"], SHAPES["trapeze"][0])]
+    face = Part.Face(Part.makePolygon(points))
+    frame = local_face.Frame(Vec3(0, 0, 0), Vec3(1, 0, 0), Vec3(0, 1, 0), Vec3(0, 0, 1))
+    target = local_face.FaceTarget("Face", frame, (400.0, 100.0), planar=True)
+
+    def broken(*_args: Any) -> None:
+        raise TypeError("appel erroné")
+
+    monkeypatch.setattr(local_face, "_in_plane", broken)
+    with pytest.raises(TypeError):
+        local_face.oblique_edge_target(target, face, Vec3(50, 50, 0))

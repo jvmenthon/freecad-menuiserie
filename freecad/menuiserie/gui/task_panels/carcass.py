@@ -13,12 +13,11 @@ refusés s'affichent dans le panneau ; « OK » reste alors sans effet.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Sequence
 from functools import partial
 from typing import Any, Final
 
 import FreeCAD as App
-import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
@@ -26,15 +25,19 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.templates.carcass import MAX_SHELVES, CarcassJoinery, CarcassParams
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture_container import own_std_part
-from freecad.menuiserie.features.i18n import translated, translated_errors
-from freecad.menuiserie.features.library import display_language, get_library
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     TransactionTaskPanel,
-    Widget,
     close_transaction,
     connect,
-    length_spinbox,
+)
+from freecad.menuiserie.gui.task_panels.form_fields import (
+    build_preview,
+    clear_selection_later,
+    combo,
+    length_field,
+    material_box,
 )
 from freecad.menuiserie.gui.task_panels.wood_part_drag import PanelDrag
 
@@ -84,7 +87,7 @@ class CarcassTaskPanel(TransactionTaskPanel):
         layout = QtGui.QFormLayout(self.form)
         defaults = CarcassParams()
         self._lengths = {
-            name: _length_field(layout, name, label, getattr(defaults, name), self.rebuild)
+            name: length_field(layout, name, label, getattr(defaults, name), self.rebuild)
             for name, label in _LENGTHS.items()
         }
         self._shelves = QtGui.QSpinBox()
@@ -95,10 +98,10 @@ class CarcassTaskPanel(TransactionTaskPanel):
         connect(self._shelves, "valueChanged(int)", self.rebuild)
         layout.addRow(translated(_SHELVES), self._shelves)
         self._choices = {
-            name: _material_box(layout, name, label, getattr(defaults, name), self.rebuild)
+            name: material_box(layout, name, label, getattr(defaults, name), self.rebuild)
             for name, label in _MATERIALS.items()
         }
-        self._choices["joinery"] = _combo(
+        self._choices["joinery"] = combo(
             layout, "joinery", _JOINERY, {k.value: translated(v) for k, v in _JOINERIES.items()}
         )
         connect(self._choices["joinery"], "currentIndexChanged(int)", self.rebuild)
@@ -133,32 +136,21 @@ class CarcassTaskPanel(TransactionTaskPanel):
         self._last_placement = moved  # gardée même si cet aperçu est refusé
         self._drag.follow(None)  # aucune référence à l'ancien caisson pendant la recréation
         self._restart()
-        before = {obj.Name for obj in self.doc.Objects}
-        self.furniture, message = None, ""
-        try:
-            with translated_errors():
-                params = CarcassParams(**self.values())
-            self.furniture, notices = api.make_carcass(self.doc, params)
-            part = own_std_part(self.furniture)
-            if part is not None and moved is not None:
-                part.Placement = moved
-            message = "\n".join(notices)
-            failed = [
-                str(obj.Label)
-                for obj in self.doc.Objects
-                if obj.Name not in before and not obj.isValid()
-            ]
-            if failed:
-                raise RuntimeError(", ".join(failed))
-        except (TypeError, ValueError) as error:
-            message = str(error)
-        except Exception as error:  # OCC, objet en erreur : aperçu abandonné
-            self._restart()
-            self.furniture = None
-            message = translated(_UNEXPECTED, {"reason": str(error) or type(error).__name__})
+        self.furniture, message = build_preview(
+            self.doc, partial(self._build, moved), self._restart, _UNEXPECTED
+        )
         self._error.setText(message)
         self._error.setVisible(bool(message))
         self._drag.follow(self.furniture)
+
+    def _build(self, moved: App.Placement | None) -> tuple[Any, Sequence[str]]:
+        """Caisson d'aperçu, remis à la position donnée à la souris."""
+        params = CarcassParams(**self.values())
+        furniture, notices = api.make_carcass(self.doc, params)
+        part = own_std_part(furniture)
+        if part is not None and moved is not None:
+            part.Placement = moved
+        return furniture, notices
 
     def _placement(self) -> App.Placement | None:
         """Placement du Std Part du caisson d'aperçu (déplacé ou tourné à la souris)."""
@@ -200,50 +192,8 @@ class CarcassTaskPanel(TransactionTaskPanel):
         if self.furniture is None:
             return False
         accepted = super().accept()
-        # Panneau refermé par FreeCAD après ce retour : rien ne reste sélectionné, donc ni flèches
-        # ni poignées dans la vue 3D (ADR 0038 ; le panneau en fermant les retire de même).
-        QtCore.QTimer.singleShot(0, partial(_clear_selection, self.doc.Name))
+        clear_selection_later(self.doc.Name)
         return accepted
-
-
-def _clear_selection(document: str) -> None:
-    """Sélection du document vidée, s'il existe encore (fermé entre-temps : rien à faire)."""
-    if document in App.listDocuments():
-        Gui.Selection.clearSelection(document)
-
-
-def _length_field(
-    layout: Widget, name: str, label: str, value: float, slot: Callable[..., None]
-) -> Widget:
-    """Champ de cote en mm (``Gui::QuantitySpinBox``) ajouté au formulaire."""
-    field = length_spinbox(name, value)
-    connect(field, "valueChanged(double)", slot)
-    layout.addRow(translated(label), field)
-    return field
-
-
-def _combo(layout: Widget, name: str, label: str, items: dict[str, str]) -> Widget:
-    """Liste déroulante (identifiant → texte affiché) ajoutée au formulaire."""
-    box = QtGui.QComboBox()
-    box.setObjectName(name)
-    for key, text in items.items():
-        box.addItem(text, key)
-    layout.addRow(translated(label), box)
-    return box
-
-
-def _material_box(
-    layout: Widget, name: str, label: str, wanted: str, slot: Callable[..., None]
-) -> Widget:
-    """Matériaux de la bibliothèque ; ``wanted`` choisi s'il existe, sinon le matériau par
-    défaut."""
-    library = get_library()
-    names = {material.id: material.name(display_language()) for material in library}
-    box = _combo(layout, name, label, names)
-    chosen = wanted if wanted in names else library.default_material().id
-    box.setCurrentIndex(box.findData(chosen))
-    connect(box, "currentIndexChanged(int)", slot)
-    return box
 
 
 def show_panel(doc: Document) -> None:

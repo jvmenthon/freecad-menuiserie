@@ -30,6 +30,7 @@ from freecad.menuiserie.features.freecad_types import (
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_cache import cached_machined_shape, machining_key
+from freecad.menuiserie.features.machined_links import globalize_joints
 from freecad.menuiserie.features.machined_plans import (
     JointFailedError,
     Machining,
@@ -99,7 +100,7 @@ PROPERTIES: Final = (
     ),
     PropertySpec(
         "Joints",
-        "App::PropertyLinkList",
+        "App::PropertyLinkListGlobal",
         "Pièce",
         QT_TRANSLATE_NOOP(
             "App::Property",
@@ -151,6 +152,7 @@ class MachinedPart(SyncingProxy):
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
+        globalize_joints(obj, PROPERTIES)
         schema.restore_schema(obj, PROPERTIES, self.VERSION, NOUN)
         self._make_label_unique(obj)  # copie, duplication, fusion (J6, L5 bis)
 
