@@ -12,6 +12,7 @@ crée les pages par l'api (sa propre transaction) et ouvre la première ; « Ann
 from __future__ import annotations
 
 from collections.abc import Iterator
+from functools import partial
 from typing import Any, Final
 
 import FreeCADGui as Gui
@@ -100,12 +101,12 @@ class PartDrawingsTaskPanel:
         row = QtGui.QHBoxLayout()
         for text, state in ((_ALL, "Checked"), (_NONE, "Unchecked")):
             button = QtGui.QPushButton(translated(text))
-            button.clicked.connect(lambda _=False, s=state: self._check_all(_state(s)))
+            button.clicked.connect(partial(self._check_all, _state(state)))
             row.addWidget(button)
         row.addStretch()
         layout.addLayout(row)
         self._fill()
-        self.tree.itemChanged.connect(lambda *_: self._changed())
+        self.tree.itemChanged.connect(self._item_changed)
         self._watcher = _SelectionWatcher(self)
         Gui.Selection.addObserver(self._watcher)
         self._changed()
@@ -144,7 +145,10 @@ class PartDrawingsTaskPanel:
             yield item
             found.extend(item.child(i) for i in range(item.childCount()))
 
-    def _check_all(self, state: Any) -> None:
+    def _item_changed(self, *_args: object) -> None:
+        self._changed()
+
+    def _check_all(self, state: Any, *_args: object) -> None:
         for i in range(self.tree.topLevelItemCount()):
             self.tree.topLevelItem(i).setCheckState(0, state)
 
