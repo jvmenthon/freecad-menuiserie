@@ -356,8 +356,8 @@ def test_ancre_donnee_par_sa_piece_usinee(document: Any) -> None:
     assert chosen.anchor.length == 600  # les cotes sont celles de la brute
     furniture, notices = api.make_closed_carcass(machined, chosen)
     assert api.furniture_of(anchor) == furniture
-    # ADR 0054 : un assemblage ne range plus la voisine libre avec l'ancre (liens globaux) ;
-    # elle reste hors de l'ensemble et de son Std Part, sans avertissement.
+    # Voisine libre assemblée à l'ancre : liens globaux (ADR 0054), elle n'entre ni dans
+    # l'ensemble ni dans son Std Part, et n'est plus signalée.
     assert api.furniture_of(other) is None
     assert other.getParentGeoFeatureGroup() is None
     assert notices == ()
