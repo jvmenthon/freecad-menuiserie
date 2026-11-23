@@ -49,7 +49,7 @@ from freecad.menuiserie.features.furniture_bindings import (
     workshop_expressions,
 )
 from freecad.menuiserie.features.furniture_edits import thickness_notices
-from freecad.menuiserie.features.furniture_envelope import overflows
+from freecad.menuiserie.features.furniture_envelope import would_reframe
 from freecad.menuiserie.features.furniture_reframe import relink_framed
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
@@ -65,6 +65,7 @@ from freecad.menuiserie.features.thickness_common import (
     restore_state,
 )
 from freecad.menuiserie.features.thickness_drag import FaceFollows
+from freecad.menuiserie.features.thickness_member import MemberFreedom
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
 __all__ = [
@@ -124,6 +125,9 @@ class DragMemento:
     distances: dict[str, float] = field(default_factory=dict)
     # Pièces qui suivent l'épaisseur tirée (ADR 0060), choisies au premier pas : clé = face basse
     follows: FaceFollows = field(default_factory=FaceFollows)
+    # Membre assemblé : liaisons de son ensemble mises de côté à la première épaisseur tirée
+    # (une au plus ; liste car le mémento est figé)
+    freedom: list[MemberFreedom] = field(default_factory=list)
 
 
 def raw_part(obj: DocumentObject) -> DocumentObject:
@@ -245,10 +249,27 @@ def _write_size(memento: DragMemento, prop: str, value: float, shift: Vec3) -> N
     write_placement(memento.part, _shifted(memento, shift))
 
 
+def _assembled_member(memento: DragMemento) -> DocumentObject | None:
+    """Ensemble d'un membre assemblé tiré (ses liaisons mises de côté une fois, comme dans le
+    panneau, ADR 0060 point 5) ; ``None`` hors ensemble ou pour un membre à cotes fixes."""
+    furniture = furniture_of(memento.part)
+    if furniture is None or not offers_thickness_choice(memento.part):
+        return None
+    if not memento.freedom:
+        memento.freedom.append(MemberFreedom(memento.part))
+    return furniture
+
+
 def _resize_thickness(memento: DragMemento, value: float, shift: Vec3, lowered: bool) -> str:
-    """Épaisseur tirée : les pièces à fleur suivent ; butée (raison renvoyée) : état du début."""
+    """Épaisseur tirée : les pièces à fleur suivent ; butée (raison renvoyée) : état du début.
+    Membre assemblé dont la boîte ne changerait pas (face intérieure) : rien ne suit, la rangée
+    absorbe au relâchement (ADR 0019) ; sinon la face tirée décide (ADR 0060 point 6)."""
+    member = _assembled_member(memento)
     memento.follows.prepare(memento.part, lowered)  # sur la pièce encore à son épaisseur
     _write_size(memento, "Thickness", value, shift)
+    if member is not None and not would_reframe(member):
+        memento.follows.restore(recompute_blank)
+        return ""
     delta, follows = value - memento.thickness, memento.follows
     if stop := follows.follow_dragged_face(memento.part, delta, lowered, recompute_blank):
         _write_size(memento, "Thickness", memento.thickness, Vec3(0, 0, 0))
@@ -279,6 +300,8 @@ def restore(memento: DragMemento) -> None:
     """Échap : ramène la brute à son état du début (placement, cotes, liaisons mises de côté).
     Le document n'est pas recalculé ; la pièce usinée reprend le placement."""
     raw = memento.part
+    for freedom in memento.freedom:  # liaisons de l'ensemble d'abord, celles de la brute ensuite
+        freedom.cancel()
     restore_state(raw, (memento.length, memento.width, memento.thickness), memento.placement)
     with writing(raw):
         for prop, text in memento.aside.items():
@@ -310,21 +333,22 @@ def _relink_thickness(memento: DragMemento, furniture: DocumentObject) -> list[s
 
 def _relink(memento: DragMemento) -> list[str]:
     """Relie tout l'ensemble de la brute d'après sa position nouvelle ; en cas d'erreur, la brute
-    revient (:func:`restore`) et l'erreur est relancée. Si l'épaisseur a été tirée, la brute
-    reprend d'abord son placement du début : les liaisons sont calculées sur la géométrie
-    d'avant (:func:`_relink_thickness` : la face intérieure avance, la rangée absorbe). Membre
-    assemblé tiré vers l'extérieur (il dépasse de la boîte) : la face tirée décide, comme pour
-    une pièce seule, et l'ensemble est relié d'après le résultat, boîtes recalées (jv,
-    2026-11-23 ; ADR 0060, ADR 0065)."""
+    revient (:func:`restore`) et l'erreur est relancée. Épaisseur tirée par la face intérieure :
+    la brute reprend son placement du début et la rangée absorbe (:func:`_relink_thickness`,
+    ADR 0019). Membre assemblé dont la boîte change (face extérieure) : la face tirée décide,
+    l'ensemble est relié d'après le résultat, boîtes recalées (ADR 0060 point 6, ADR 0065)."""
     furniture = furniture_of(memento.part)
     if furniture is None:
         return []
     thicker = memento.part.Thickness.Value != memento.thickness
-    if thicker and offers_thickness_choice(memento.part) and overflows(furniture):
-        thicker = False  # vers l'extérieur : géométrie gardée, l'ensemble suit
-    elif thicker:
-        memento.follows.restore(recompute_blank)  # vers l'intérieur : la rangée absorbe
+    freedom = memento.freedom[0] if memento.freedom else None
     try:
+        if freedom is not None and thicker and would_reframe(furniture):
+            follow_distances(furniture, memento.distances.keys())
+            return freedom.finish()
+        if freedom is not None:  # rien à recaler : liaisons rendues, chemin habituel
+            freedom.cancel()
+            memento.follows.restore(recompute_blank)
         if thicker:
             write_placement(memento.part, memento.placement)
         follow_distances(furniture, memento.distances.keys())

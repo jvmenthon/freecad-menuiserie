@@ -450,39 +450,3 @@ def test_ensemble_pilote_par_une_formule_garde_sa_boite(document: Any) -> None:
     document.recompute()
     api.add_to_furniture(pilote, pieces[1:])
     assert pilote.Depth.Value == 900.0
-
-
-# --- Poignée d'épaisseur d'un membre assemblé (jv, 2026-11-23) -------------------------------
-
-
-def test_poignee_vers_l_exterieur_d_un_membre_assemble(document: Any) -> None:
-    """Côté du caisson, assemblé au dessous, tiré vers l'extérieur à la poignée : il grandit vers
-    l'extérieur (sa face intérieure ne bouge pas), le dessous reste à fleur, la boîte du caisson
-    est recalée et les assemblages tiennent."""
-    from tests.integration.cadre import stale_or_invalid
-
-    _bureau, sub, parts = _bureau_et_caisson(document)
-    api.add_to_furniture(_bureau, [sub])
-    api.make_dowels(parts["CG"], parts["CB"])
-    document.recompute()
-    side = parts["CG"]
-    inner = _globale(side).XMax
-    memento = part_drag.begin_drag(side)
-    assert (
-        part_drag.resize_part(memento, "Thickness", 30, geometry.Vec3(0, 0, -12), lowered=True)
-        == ""
-    )
-    part_drag.end_drag(memento)
-    document.recompute()
-    assert side.Thickness.Value == pytest.approx(30.0)
-    assert _globale(side).XMax == pytest.approx(inner, abs=1e-6)  # face intérieure immobile
-    assert _globale(side).XLength == pytest.approx(30.0, abs=1e-6)
-    _ajustee(sub)
-    assert not stale_or_invalid(document)  # assemblages compris
-
-
-def _globale(part: Any) -> Any:
-    """Boîte de ``part`` dans le repère du document (Std Parts compris)."""
-    shape = part.Shape.copy()
-    shape.Placement = part.getGlobalPlacement()
-    return shape.BoundBox

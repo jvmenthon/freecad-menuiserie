@@ -41,6 +41,10 @@ class MemberFreedom:
             self._give_back()
             raise
 
+    def cancel(self) -> None:
+        """Liaisons mises de côté rendues telles quelles (abandon) ; sans effet ensuite."""
+        self._give_back()
+
     def _give_back(self) -> None:
         for aside in self._aside:
             aside.give_back()

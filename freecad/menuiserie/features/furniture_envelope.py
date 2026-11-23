@@ -41,7 +41,7 @@ from freecad.menuiserie.features.furniture_drag_state import (
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
 from freecad.menuiserie.features.raw_placement import write_placement
 
-__all__ = ["frame_of", "member_envelope", "overflows", "reframe", "restore_frame"]
+__all__ = ["frame_of", "member_envelope", "reframe", "restore_frame", "would_reframe"]
 
 TOLERANCE_MM: Final = 1e-6
 _FRAME_PROPERTIES: Final = ("Origin", "Width", "Depth", "Height")
@@ -172,14 +172,8 @@ def _moved(placement: App.Placement, shift: App.Vector) -> App.Placement:
     return App.Placement(placement.Base + shift, placement.Rotation)
 
 
-def overflows(furniture: DocumentObject) -> bool:
-    """Vrai si un membre de ``furniture`` dépasse de sa boîte actuelle (au-delà de
-    :data:`TOLERANCE_MM`)."""
-    envelope = member_envelope(furniture)
-    if envelope is None:
-        return False
-    frame = frame_of(furniture)
-    return any(
-        envelope.lo(i) < frame.lo(i) - TOLERANCE_MM or envelope.hi(i) > frame.hi(i) + TOLERANCE_MM
-        for i in range(3)
-    )
+def would_reframe(furniture: DocumentObject) -> bool:
+    """Vrai si :func:`reframe` changerait la boîte de ``furniture`` (ensemble recalable dont les
+    membres ne sont plus exactement à l'enveloppe)."""
+    frames = _frames(furniture)
+    return frames is not None and not _same(*frames)
