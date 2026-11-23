@@ -4,16 +4,15 @@
 Le contour réel (boucles : extérieure puis trous, polygones) est coupé par des droites parallèles
 au fil. Entre deux cotes de sommets consécutives (une « tranche »), les mêmes arêtes sont coupées
 et les bouts des segments de bois varient linéairement : il suffit donc de lire chaque droite de
-sommet, juste au-dessus et juste au-dessous, pour connaître le bois commun à toute une bande
-(chaque bord compte la droite de sommet juste au-delà : prudent). La bande retenue est celle où
-la marque est la plus grande : longueur de ce bois commun, fois la demi-largeur de la marque
-(bornée par sa longueur). Rien ne passe au-dessus d'un trou ni d'un bord, même fin. Pur : ni
-FreeCAD, ni Qt.
+sommet, juste au-dessus et juste au-dessous, et les deux bords d'une bande pour connaître
+exactement le bois commun à toute la bande. La bande retenue est celle où la marque est la plus
+grande : longueur de ce bois commun, fois la demi-largeur de la marque (bornée par sa longueur).
+Rien ne passe au-dessus d'un trou ni d'un bord, même fin. Pur : ni FreeCAD, ni Qt.
 """
 
 from __future__ import annotations
 
-from bisect import bisect_left, bisect_right
+from bisect import bisect_right
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from typing import Final
@@ -72,6 +71,7 @@ class _Slices:
     """Coupes du contour aux droites de sommets, juste au-dessous et juste au-dessus, triées."""
 
     def __init__(self, loops: Sequence[Loop], axis: int) -> None:
+        self.loops, self.axis = loops, axis
         self.levels = sorted({point[1 - axis] for loop in loops for point in loop})
         self.low, self.high = self.levels[0], self.levels[-1]
         self.epsilon = _EPSILON * max(self.high - self.low, 1.0)
@@ -81,23 +81,27 @@ class _Slices:
     def widening(self, center: float, point: float, halves: Sequence[float]) -> Iterator[Band]:
         """Pour chaque demi-largeur de ``halves`` (croissantes), le bois commun autour de
         l'abscisse ``point`` à toutes les droites de la bande ``center`` ± demi-largeur, jusqu'à
-        la première qui sort du bois. Prudent : chaque bord compte la droite de sommet juste
-        au-delà de lui (les bouts des segments varient linéairement entre deux droites)."""
-        below = bisect_right(self.positions, center) - 1
-        above = below + 1
-        if below < 0 or above >= len(self.rows):
-            return
-        common: Segment | None = (float("-inf"), float("inf"))
-        common = _narrowed(_narrowed(common, self.rows[below], point), self.rows[above], point)
+        la première qui sort du bois. Exact : coupes aux deux bords de la bande et aux droites de
+        sommets entre eux (les bouts des segments varient linéairement entre deux droites)."""
+        below = bisect_right(self.positions, center)  # premières coupes hors de la bande
+        above = below - 1
+        inner: Segment | None = (float("-inf"), float("inf"))
         for half in halves:
-            low = max(bisect_right(self.positions, center - half) - 1, 0)
-            high = min(bisect_left(self.positions, center + half), len(self.rows) - 1)
-            while common is not None and below > low:
+            low, high = center - half, center + half
+            if low < self.low or high > self.high:
+                return
+            while inner is not None and below > 0 and self.positions[below - 1] > low:
                 below -= 1
-                common = _narrowed(common, self.rows[below], point)
-            while common is not None and above < high:
+                inner = _narrowed(inner, self.rows[below], point)
+            while (
+                inner is not None
+                and above + 1 < len(self.rows)
+                and (self.positions[above + 1] < high)
+            ):
                 above += 1
-                common = _narrowed(common, self.rows[above], point)
+                inner = _narrowed(inner, self.rows[above], point)
+            edges = (_segments(self.loops, self.axis, low), _segments(self.loops, self.axis, high))
+            common = _narrowed(_narrowed(inner, edges[0], point), edges[1], point)
             if common is None:
                 return
             yield half, common

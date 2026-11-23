@@ -105,6 +105,8 @@ THIN_HOLE = (
     ((200.0, 98.0), (400.0, 98.0), (400.0, 99.0), (200.0, 99.0)),
 )
 TRAPEZE = (((0.0, 0.0), (600.0, 0.0), (550.0, 95.0), (50.0, 95.0)),)
+TRIANGLE = (((0.0, 0.0), (600.0, 0.0), (300.0, 200.0)),)
+PARALLELOGRAM = (((0.0, 0.0), (100.0, 0.0), (600.0, 200.0), (500.0, 200.0)),)
 ELLIPSE = (
     tuple(
         (300.0 + 300.0 * math.cos(math.tau * k / 400), 100.0 + 100.0 * math.sin(math.tau * k / 400))
@@ -113,7 +115,7 @@ ELLIPSE = (
 )
 
 
-@pytest.mark.parametrize("loops", [THIN_L, THIN_HOLE, TRAPEZE, ELLIPSE])
+@pytest.mark.parametrize("loops", [THIN_L, THIN_HOLE, TRAPEZE, TRIANGLE, PARALLELOGRAM, ELLIPSE])
 @pytest.mark.parametrize("axis", [0, 1])
 def test_bande_toujours_dans_le_bois(loops: Any, axis: int) -> None:
     _band_in_wood(loops, axis)
@@ -122,6 +124,13 @@ def test_bande_toujours_dans_le_bois(loops: Any, axis: int) -> None:
 def test_branche_fine_gardee_dans_le_sens_du_fil() -> None:
     band = _band_in_wood(THIN_L, 0)
     assert (band.start, band.end) == (0.0, 560.0)
+
+
+def test_contours_obliques_marque_exploitable() -> None:
+    triangle = _band_in_wood(TRIANGLE, 0)
+    assert triangle.length > 300.0 and triangle.width > 50.0  # 400 x 20 tient autour de Y = 50
+    slanted = _band_in_wood(PARALLELOGRAM, 0)  # 100 mm de bois par droite au plus
+    assert slanted.length > 50.0 and slanted.width > 5.0
 
 
 def test_trou_fin_jamais_traverse() -> None:
