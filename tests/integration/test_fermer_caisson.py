@@ -356,10 +356,11 @@ def test_ancre_donnee_par_sa_piece_usinee(document: Any) -> None:
     assert chosen.anchor.length == 600  # les cotes sont celles de la brute
     furniture, notices = api.make_closed_carcass(machined, chosen)
     assert api.furniture_of(anchor) == furniture
-    assert (
-        api.furniture_of(other) is None
-    )  # la voisine libre suit dans le Std Part sans devenir membre
-    assert len(notices) == 1  # avertissement : liée à l'ancre, elle est rangée avec elle
+    # ADR 0054 : un assemblage ne range plus la voisine libre avec l'ancre (liens globaux) ;
+    # elle reste hors de l'ensemble et de son Std Part, sans avertissement.
+    assert api.furniture_of(other) is None
+    assert other.getParentGeoFeatureGroup() is None
+    assert notices == ()
     assert stale_or_invalid(document) == []
 
 

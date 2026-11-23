@@ -5,9 +5,13 @@ enregistrement de la commande, icônes, ViewProvider (analyse statique)."""
 from __future__ import annotations
 
 import ast
+import math
+from typing import Any
+
+import pytest
 
 from freecad.menuiserie import ICONS_DIR
-from freecad.menuiserie.core.grain_band import grain_band, rectangle
+from freecad.menuiserie.core.grain_band import GrainBand, grain_band, rectangle
 from freecad.menuiserie.gui.task_panels.shaped_part_drawing import (
     GRAIN_COLOR,
     GRAIN_OUTLINE_COLOR,
@@ -67,17 +71,64 @@ def test_piece_convertie_en_l_fleche_sur_le_bois() -> None:
 def test_bande_de_bois() -> None:
     band = grain_band(rectangle(720.0, 95.0), 0)
     assert band is not None
-    assert (band.start, band.end, band.across, band.width) == (0.0, 720.0, 47.5, 95.0)
-    holed = (
-        *rectangle(600.0, 200.0),
-        ((200.0, 80.0), (400.0, 80.0), (400.0, 120.0), (200.0, 120.0)),
-    )
-    band = grain_band(holed, 0)
-    assert band is not None
-    assert band.length == 600.0
-    assert band.across + band.width / 2 <= 80.0 or band.across - band.width / 2 >= 120.0
+    assert (band.start, band.end, band.across) == (0.0, 720.0, 47.5)
+    assert band.width == pytest.approx(95.0)
     assert grain_band((), 0) is None
-    assert grain_band((((0.0, 0.0), (10.0, 0.0)),), 0) is None
+    assert grain_band((((0.0, 0.0), (10.0, 0.0), (5.0, 0.0)),), 0) is None
+
+
+def _inside(loops: tuple[tuple[tuple[float, float], ...], ...], x: float, y: float) -> bool:
+    """Point dans le contour (pair-impair, rayon vers +X)."""
+    crossings = 0
+    for loop in loops:
+        for a, b in zip(loop, (*loop[1:], loop[0]), strict=True):
+            if (a[1] <= y < b[1]) or (b[1] <= y < a[1]):
+                crossings += a[0] + (y - a[1]) / (b[1] - a[1]) * (b[0] - a[0]) > x
+    return crossings % 2 == 1
+
+
+def _band_in_wood(loops: tuple[tuple[tuple[float, float], ...], ...], axis: int) -> GrainBand:
+    band = grain_band(loops, axis)
+    assert band is not None
+    for k in range(41):
+        along = band.start + (band.end - band.start) * (0.001 + 0.998 * k / 40)
+        for j in range(41):
+            across = band.across + band.width * (j / 40 - 0.5) * 0.999
+            x, y = (along, across) if axis == 0 else (across, along)
+            assert _inside(loops, x, y), (x, y)
+    return band
+
+
+THIN_L = (((0.0, 0.0), (560.0, 0.0), (560.0, 5.0), (100.0, 5.0), (100.0, 330.0), (0.0, 330.0)),)
+THIN_HOLE = (
+    *rectangle(600.0, 200.0),
+    ((200.0, 98.0), (400.0, 98.0), (400.0, 99.0), (200.0, 99.0)),
+)
+TRAPEZE = (((0.0, 0.0), (600.0, 0.0), (550.0, 95.0), (50.0, 95.0)),)
+ELLIPSE = (
+    tuple(
+        (300.0 + 300.0 * math.cos(math.tau * k / 400), 100.0 + 100.0 * math.sin(math.tau * k / 400))
+        for k in range(400)
+    ),
+)
+
+
+@pytest.mark.parametrize("loops", [THIN_L, THIN_HOLE, TRAPEZE, ELLIPSE])
+@pytest.mark.parametrize("axis", [0, 1])
+def test_bande_toujours_dans_le_bois(loops: Any, axis: int) -> None:
+    _band_in_wood(loops, axis)
+
+
+def test_branche_fine_gardee_dans_le_sens_du_fil() -> None:
+    band = _band_in_wood(THIN_L, 0)
+    assert (band.start, band.end) == (0.0, 560.0)
+
+
+def test_trou_fin_jamais_traverse() -> None:
+    band = _band_in_wood(THIN_HOLE, 0)
+    assert band.length == 600.0
+    low, high = band.across - band.width / 2, band.across + band.width / 2
+    assert high <= 98.0 or low >= 99.0
 
 
 def test_sans_fil_pas_de_marque() -> None:

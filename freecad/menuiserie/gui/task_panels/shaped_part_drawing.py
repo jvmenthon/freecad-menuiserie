@@ -13,7 +13,14 @@ from collections.abc import Sequence
 from typing import Final
 
 from freecad.menuiserie.core.geometry import Vec3
-from freecad.menuiserie.core.grain_band import GrainBand, Loop, grain_band, rectangle
+from freecad.menuiserie.core.grain_band import (
+    MARK_LENGTH_RATIO,
+    MARK_WIDTH_RATIO,
+    GrainBand,
+    Loop,
+    grain_band,
+    rectangle,
+)
 from freecad.menuiserie.gui.drag.geometry import AXIS_COLORS, HEAD_RATIO, Drawing, Solid, Stroke
 
 __all__ = ["GRAIN_COLOR", "GRAIN_OUTLINE_COLOR", "axes_drawing", "grain_axis", "grain_marking"]
@@ -25,8 +32,9 @@ AXIS_LENGTH_RATIO: Final = 0.3  # part de la plus grande cote
 MIN_AXIS_MM: Final = 40.0
 MAX_AXIS_MM: Final = 400.0
 GRAIN_MARGIN: Final = 0.1  # marge à chaque bout de la bande de bois, part de sa longueur
-HEAD_WIDTH_RATIO: Final = 0.34  # demi-largeur d'une pointe, part de la largeur de bois
-HEAD_LENGTH_RATIO: Final = 0.18  # longueur maximale d'une pointe, part de la flèche
+HEAD_LENGTH_RATIO: Final = (
+    2 * MARK_LENGTH_RATIO
+)  # longueur maximale d'une pointe, part de la flèche
 SHAFT_RATIO: Final = 0.3  # demi-largeur de la tige, part de celle d'une pointe
 DASH_RATIO: Final = 0.55  # part de tiret dans chaque période de la tige
 DASH_GAP: Final = 0.05  # écart entre une pointe et les tirets, part de la flèche
@@ -70,7 +78,7 @@ def grain_marking(band: GrainBand, axis: int, height: float) -> tuple[Solid, Str
     margin = GRAIN_MARGIN * band.length
     start, end = band.start + margin, band.end - margin
     length = end - start
-    head = min(HEAD_WIDTH_RATIO * band.width, HEAD_LENGTH_RATIO * length / 2)
+    head = min(MARK_WIDTH_RATIO * band.width, MARK_LENGTH_RATIO * length)
     head_length = min(HEAD_LENGTH_RATIO * length, 2.0 * head)
     shaft = SHAFT_RATIO * head
     mid = band.across
