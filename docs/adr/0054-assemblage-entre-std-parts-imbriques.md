@@ -1,0 +1,59 @@
+# ADR 0054 — Assemblage entre pièces de Std Part imbriqués
+
+- Statut : **proposé**
+- Date : 2026-11-12 (amendé le 2026-11-13)
+- Issue : #209
+- ADR liés : [0003](0003-modele-de-la-piece-de-bois.md), [0007](0007-compatibilite-avec-les-autres-ateliers.md),
+  [0008](0008-ensemble-objet-de-cotes.md), [0038](0038-ensemble-a-la-souris.md)
+
+## Contexte
+
+Depuis l'ADR 0038, chaque ensemble et chaque sous-ensemble a son Std Part. Deux pièces d'un même
+ensemble (une pièce de tiroir et une pièce du caisson) peuvent donc avoir des conteneurs
+différents. `_checked_blanks` exigeait le même conteneur : « Les deux pièces doivent être dans le
+même conteneur ». Or la géométrie d'un assemblage lit le `Placement` des brutes, local à leur
+conteneur.
+
+## Décision
+
+1. **Conteneurs acceptés** : les mêmes (comportement inchangé), ou n'importe quelle combinaison
+   de Std Part (`App::Part`, imbriqués, frères ou de racines différentes) et de racine du document
+   (pièce libre) : le repère global les relie. Retenu après l'essai de jv (2026-11-13) : une pièce
+   libre face au côté d'un caisson était refusée par la première version (même Std Part racine
+   exigé). Refus traduit inchangé seulement si l'un des conteneurs est d'un autre type (corps
+   PartDesign…) et pas le même que l'autre.
+2. **Repère de calcul** : celui du conteneur de l'hôte. L'hôte y est lu par son `Placement` ;
+   l'invitée, si son conteneur diffère, par `conteneur_hôte.getGlobalPlacement().inverse() *
+   invitée.getGlobalPlacement()`. Le plan de `core` ne dépend que du placement relatif des deux
+   brutes : les enlèvements restent exprimés dans le repère de chaque brute. L'assemblage et sa
+   pièce usinée restent dans le conteneur de l'hôte (inchangé).
+3. **Suivi des déplacements** : déplacer un Std Part ne touche pas les pièces qu'il contient.
+   Un lien de l'assemblage vers le Std Part est impossible : le Std Part contient l'assemblage, d'où
+   un cycle (« The graph must be a DAG », essai de jv du 2026-11-13). L'observateur de documents
+   de `gui/drag/events.py` (posé tant que l'atelier est actif, comme pour la suppression d'un Std
+   Part, ADR 0007) appelle `touch_framed_joints` quand le `Placement` d'un Std Part change : les
+   assemblages dont le repère passe par lui sont touchés. Limite : un Std Part déplacé par un script
+   ou quand l'atelier n'est pas actif ne recalcule l'assemblage qu'à son prochain recalcul.
+4. **Portée des liens** : `HostPart` et `GuestPart` des assemblages passent de `App::PropertyLink`
+   à `App::PropertyLinkGlobal`, et `Joints` des pièces usinées de `App::PropertyLinkList` à
+   `App::PropertyLinkListGlobal`, sinon FreeCAD refuse un lien vers un autre Std Part (« Link(s)
+   … go out of the allowed scope », comme `Furniture`, ADR 0038). Les documents existants sont
+   migrés à la réouverture (type recréé, liens gardés) ;
+   sans effet sur les autres ateliers (le lien reste un lien).
+5. **Gestes sur une pièce assemblée** : le contrôle au relâchement d'un glissement ou d'une
+   rotation passe par le plan de l'assemblage (point 2). Quand l'épaisseur d'une pièce change,
+   le décalage des pièces posées sur sa face haute est calculé dans le repère de son conteneur
+   puis ramené dans celui de chaque pièce qui suit (`direction_in_frame_of`), même tourné.
+6. Hors périmètre : le perçage LR32 (`both_sides`, voisines) ne considère toujours que les pièces du
+   même conteneur ; la coulisse utilise les rotations globales.
+
+## Conséquences
+
+- Un assemblage reste dans le conteneur de son **hôte** : quand une pièce entre dans un ensemble
+  (Std Part), seuls les assemblages dont elle est l'hôte la suivent (`bundle`). Une pièce libre
+  assemblée à un membre n'est plus rangée avec lui dans le Std Part (ses liens sont globaux) et
+  n'est plus signalée à l'entrée (`taken_along` ne suit plus les assemblages).
+
+- Un assemblage entre tiroir et caisson donne la même forme qu'entre pièces d'un même conteneur.
+- Non testé dans FreeCAD pendant la rédaction (pas de FreeCAD dans la session) : tests
+  d'intégration `test_assemblage_std_parts.py` en CI.

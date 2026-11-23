@@ -8,15 +8,24 @@ from __future__ import annotations
 
 from typing import Final
 
-__all__ = ["MAX_QUOTED_LENGTH", "escaped_text", "quoted_value"]
+__all__ = ["MAX_DETAIL_LENGTH", "MAX_QUOTED_LENGTH", "bounded_text", "escaped_text", "quoted_value"]
 
 MAX_QUOTED_LENGTH: Final = 32
+MAX_DETAIL_LENGTH: Final = 300
 
 
 def escaped_text(text: str) -> str:
     """Texte entier, caractères non imprimables échappés (``\\n``, ``\\u202e``…), sans
     troncature : pour citer un chemin, qui doit rester reconnaissable en entier."""
     return repr(text)[1:-1]
+
+
+def bounded_text(text: str, limit: int = MAX_DETAIL_LENGTH) -> str:
+    """Phrase lue dans un document (raison d'une erreur…), caractères non imprimables échappés,
+    coupée à ``limit`` caractères (« … » compris) : affichable entière dans un panneau quand
+    elle vient de l'atelier, sans le déformer si le document a été retouché à la main."""
+    text = escaped_text(text)
+    return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
 def quoted_value(value: object) -> str:

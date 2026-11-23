@@ -5,7 +5,9 @@ panneau de tâche de la pièce de bois, panneau d'une pièce tournée de 15 degr
 panneau de l'ensemble (``panneau-ensemble.png``), l'ensemble sélectionné seul dans la vue 3D
 (``ensemble-selectionne.png`` : boîte en transparence, doubles flèches de face, flèches de
 déplacement et anneaux de rotation), puis la feuille « Liste de débit » du
-document (``feuille-de-debit.png``, commande « Liste de débit » lancée sans sélection).
+document (``feuille-de-debit.png``, commande « Liste de débit » lancée sans sélection), enfin le
+panneau « Fermer le caisson » ouvert sur une planche de 600 x 400 x 18 mm, aperçu visible
+(``panneau-fermer-le-caisson.png`` et ``vue-fermer-le-caisson.png``).
 
 Exécuté par FreeCAD lui-même, avec un serveur X virtuel (le rendu 3D a besoin d'OpenGL),
 l'atelier étant installé dans le dossier ``Mod`` de ``FREECAD_USER_HOME`` :
@@ -222,6 +224,35 @@ def afficher_la_vue_du_document(nom_document: str) -> None:
     Gui.updateGui()
 
 
+def capturer_fermer_le_caisson(dossier: Path) -> None:
+    """Document « Fermer le caisson » : une planche de 600 x 400 x 18 mm sélectionnée, la commande
+    lancée, le panneau ouvert avec son aperçu ; fenêtre complète (``panneau-fermer-le-caisson.png``)
+    puis vue 3D seule (``vue-fermer-le-caisson.png``). Le panneau est refermé par « Annuler »."""
+    from freecad.menuiserie import api
+
+    doc = App.newDocument("FermerLeCaisson")
+    planche = api.make_wood_part(600.0, 400.0, 18.0, "chene", mark="Dessous", doc=doc)
+    planche.Label = "Dessous"
+    doc.recompute()
+    afficher_la_vue_du_document(doc.Name)
+    fenetre, vue = Gui.getMainWindow(), Gui.ActiveDocument.ActiveView
+    vue.setCameraType("Orthographic")
+    vue.viewIsometric()
+    Gui.Selection.clearSelection()
+    Gui.Selection.addSelection(planche)
+    Gui.updateGui()
+    Gui.Command.get("Menuiserie_CloseCarcass").run()
+    Gui.updateGui()
+    vue.fitAll()
+    volet = volet_des_taches(fenetre)
+    fenetre_complete(fenetre, vue, devant=volet).save(
+        str(dossier / "panneau-fermer-le-caisson.png")
+    )
+    vue.saveImage(str(dossier / "vue-fermer-le-caisson.png"), TAILLE[0], TAILLE[1], "White")
+    Gui.Control.activeTaskDialog().reject()
+    Gui.Selection.clearSelection()
+
+
 def construire_gros_plan() -> None:
     """Document « Texture » : deux planches quadrillées, fil en long puis en travers."""
     from freecad.menuiserie import api
@@ -391,6 +422,7 @@ def main() -> None:
         with bibliotheque_de_captures():
             construire()
             capturer(dossier)
+            capturer_fermer_le_caisson(dossier)
             construire_gros_plan()
             capturer_gros_plan(dossier)
         (dossier / "OK").write_text("OK\n", encoding="utf-8")

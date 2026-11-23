@@ -7,7 +7,8 @@ de la référence qui les rend coplanaires. Trois modes : ``FLUSH`` (au ras : no
 même sens), ``FACING`` (face contre face : normales opposées, les pièces se touchent) et
 ``PERPENDICULAR`` (faces d'équerre : la rotation s'arrête à 90°). ``AUTO`` prend au ras ou face
 contre face, selon la plus petite rotation. Un décalage facultatif se règle sur les trois axes de
-la face de référence.
+la face de référence. La disposition dans le plan (parallèle, début, centre, fin) est dans
+``_layout``.
 Convention : ``align(fixed, moving)`` — le premier élément est la référence, le second celui de
 la pièce qui bouge. Aucun import de FreeCAD ni de Qt.
 """
@@ -15,7 +16,7 @@ la pièce qui bouge. Aucun import de FreeCAD ni de Qt.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import Enum
 from typing import Final
 
@@ -43,9 +44,6 @@ PERPENDICULAR_ON_AXIS: Final = QT_TRANSLATE_NOOP(
 )
 INVALID_AXIS: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "L'axe de déplacement doit être un vecteur fini et non nul."
-)
-SKEWED_AXES: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Les axes de centrage doivent être perpendiculaires entre eux."
 )
 INVALID_OFFSET: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Les décalages doivent être des nombres finis."
@@ -84,14 +82,14 @@ class Alignment:
     mode: AlignMode
 
 
-def _checked_axis(axis: Vec3) -> Vec3:
+def checked_axis(axis: Vec3) -> Vec3:
     """``axis`` rendu unitaire ; :class:`AlignError` s'il n'est pas fini ou s'il est nul."""
     if not is_finite(axis) or norm(axis) <= ANGLE_TOLERANCE:
         raise AlignError(INVALID_AXIS, {})
     return unit(axis)
 
 
-def _rotation_between(source: Vec3, target: Vec3, spare: Vec3) -> tuple[Matrix3, float]:
+def rotation_between(source: Vec3, target: Vec3, spare: Vec3) -> tuple[Matrix3, float]:
     """Rotation minimale qui amène le vecteur unitaire ``source`` sur ``target`` (Rodrigues) et
     son angle en degrés. Vecteurs opposés : demi-tour autour de ``spare`` (unitaire, perpendiculaire
     à ``source``)."""
@@ -115,7 +113,7 @@ def _rotation_between(source: Vec3, target: Vec3, spare: Vec3) -> tuple[Matrix3,
     return rows, math.degrees(angle)
 
 
-def _turned(matrix: Matrix3, vector: Vec3) -> Vec3:
+def rotated(matrix: Matrix3, vector: Vec3) -> Vec3:
     return Vec3.of([sum(r * vector.component(j) for j, r in enumerate(row)) for row in matrix])
 
 
@@ -164,55 +162,23 @@ def face_center(face: FaceTarget) -> Vec3:
     return frame.origin + frame.x.scaled(face.extent[0] / 2) + frame.y.scaled(face.extent[1] / 2)
 
 
-def _turned_point(motion: Alignment, point: Vec3) -> Vec3:
+def turned_point(motion: Alignment, point: Vec3) -> Vec3:
     """Image de ``point`` par le mouvement ``motion``."""
-    return _turned(motion.rotation, point - motion.pivot) + motion.pivot + motion.shift
+    return rotated(motion.rotation, point - motion.pivot) + motion.pivot + motion.shift
 
 
-def _long_side(face: FaceTarget) -> Vec3:
+def long_side(face: FaceTarget) -> Vec3:
     """Direction (unitaire) du grand côté du rectangle englobant de ``face`` ; l'axe ``x`` du
     repère n'est pas toujours le grand côté (il dépend du coin le plus proche du clic)."""
     frame = face.frame
     return unit(frame.x if face.extent[0] >= face.extent[1] else frame.y)
 
 
-def _is_square(face: FaceTarget) -> bool:
+def is_square(face: FaceTarget) -> bool:
     return abs(face.extent[0] - face.extent[1]) <= ANGLE_TOLERANCE * max(face.extent)
 
 
-def _turn_step(fixed: FaceTarget, moving: FaceTarget, perpendicular: bool) -> float:
-    """Pas du tour dans le plan : un demi-tour (grand côté sur grand côté), ou un quart de tour
-    si une face est carrée (d'équerre, seule la référence compte)."""
-    square = _is_square(fixed) or (not perpendicular and _is_square(moving))
-    return math.pi / 2 if square else math.pi
-
-
-def _squared(motion: Alignment, fixed: FaceTarget, moving: FaceTarget) -> Alignment:
-    """``motion`` complété d'un tour dans le plan de la référence (autour de sa normale, par le
-    pivot déplacé) qui rend la pièce parallèle à la référence : le grand côté de la face mobile
-    suit le grand côté de la référence (le plus petit des deux sens) ; si l'une des deux faces
-    est carrée, le plus petit des quatre quarts de tour. D'équerre, c'est la normale de la face
-    mobile (couchée dans le plan) qui suit le grand côté de la référence."""
-    normal = unit(fixed.frame.z)
-    along = _long_side(fixed)
-    across = cross(normal, along)
-    perpendicular = motion.mode is AlignMode.PERPENDICULAR
-    own = unit(moving.frame.z) if perpendicular else _long_side(moving)
-    turned = _turned(motion.rotation, own)
-    flat = turned - normal.scaled(dot(turned, normal))
-    if norm(flat) <= ANGLE_TOLERANCE:
-        return motion
-    flat = unit(flat)
-    current = math.atan2(dot(flat, across), dot(flat, along))
-    step = _turn_step(fixed, moving, perpendicular)
-    target = round(current / step) * step
-    wanted = along.scaled(math.cos(target)) + across.scaled(math.sin(target))
-    turn, _angle = _rotation_between(flat, unit(wanted), normal)
-    rotation = _product(turn, motion.rotation)
-    return replace(motion, rotation=rotation)
-
-
-def _product(left: Matrix3, right: Matrix3) -> Matrix3:
+def product(left: Matrix3, right: Matrix3) -> Matrix3:
     """Produit matriciel ``left · right``."""
 
     def row(i: int) -> tuple[float, float, float]:
@@ -220,21 +186,6 @@ def _product(left: Matrix3, right: Matrix3) -> Matrix3:
         return (x, y, z)
 
     return (row(0), row(1), row(2))
-
-
-def _centering(
-    motion: Alignment, fixed: FaceTarget, moving: FaceTarget, centered: tuple[Vec3, ...]
-) -> Vec3:
-    """Translation de plus qui, sur chaque axe de ``centered`` (vecteurs globaux unitaires, deux
-    à deux perpendiculaires), amène le centre de la face mobile (placée par ``motion``, sans
-    décalage) sur celui de la référence, ramenée dans le plan de la référence : le centrage ne
-    sort jamais la face de ce plan (le 3e axe reste au décalage le long de la normale)."""
-    delta = face_center(fixed) - _turned_point(motion, face_center(moving))
-    extra = NO_OFFSET
-    for axis in centered:
-        extra = extra + axis.scaled(dot(delta, axis))
-    normal = unit(fixed.frame.z)
-    return extra - normal.scaled(dot(extra, normal))
 
 
 def plane_motion(
@@ -260,13 +211,13 @@ def plane_motion(
     reference = unit(fixed.frame.z)
     own = unit(moving.frame.z)
     if axis is not None:
-        unit_axis = _checked_axis(axis)
+        unit_axis = checked_axis(axis)
         if mode is AlignMode.PERPENDICULAR:
             raise AlignError(PERPENDICULAR_ON_AXIS, {})
         return _along_axis(fixed, moving, (reference, own), offset.z, unit_axis)
     chosen = _mode_of(reference, own, mode)
     wanted = _wanted_normal(reference, own, chosen, unit(fixed.frame.x))
-    rotation, angle = _rotation_between(own, wanted, unit(moving.frame.x))
+    rotation, angle = rotation_between(own, wanted, unit(moving.frame.x))
     pivot = moving.frame.origin
     gap = dot(fixed.frame.origin - pivot, reference)  # le pivot reste dans le plan de la référence
     frame = fixed.frame
@@ -277,35 +228,3 @@ def plane_motion(
         + reference.scaled(offset.z)
     )
     return Alignment(rotation, pivot, shift, angle, chosen)
-
-
-def align(
-    fixed: FaceTarget,
-    moving: FaceTarget,
-    mode: AlignMode = AlignMode.AUTO,
-    offset: Vec3 = NO_OFFSET,
-    axis: Vec3 | None = None,
-    centered: tuple[Vec3, ...] = (),
-) -> Alignment:
-    """:func:`plane_motion` puis, pour chaque axe de ``centered`` (axes X, Y, Z globaux du
-    conteneur, unitaires et perpendiculaires), le centre de la face mobile amené sur celui de la
-    référence le long de cet axe, **dans le plan de la référence** ; avec les trois axes, les
-    deux centres se confondent dans ce plan. Dès qu'un axe est coché (et hors alignement sur un
-    axe), la pièce tourne aussi dans le plan pour que ses arêtes soient parallèles à celles de la
-    référence (:func:`_squared`). Le décalage ``offset`` s'ajoute après le centrage.
-    Axe de ``centered`` non fini, nul, ou non perpendiculaire aux autres : :class:`AlignError`."""
-    axes = tuple(_checked_axis(item) for item in centered)
-    if any(abs(dot(a, b)) > ANGLE_TOLERANCE for i, a in enumerate(axes) for b in axes[i + 1 :]):
-        raise AlignError(SKEWED_AXES, {})
-    motion = plane_motion(fixed, moving, mode, offset, axis)
-    if not centered:
-        return motion
-    if axis is None:  # sur un axe, la pièce ne tourne jamais
-        motion = _squared(motion, fixed, moving)
-    # Centrage mesuré sans décalage (sur un axe, le décalage allonge le trajet le long de l'axe :
-    # ce n'est pas une simple translation), puis ajouté au mouvement décalé.
-    bare = replace(plane_motion(fixed, moving, mode, NO_OFFSET, axis), rotation=motion.rotation)
-    extra = _centering(bare, fixed, moving, axes)
-    if not is_finite(extra):
-        raise AlignError(INVALID_OFFSET, {})
-    return Alignment(motion.rotation, motion.pivot, motion.shift + extra, motion.angle, motion.mode)

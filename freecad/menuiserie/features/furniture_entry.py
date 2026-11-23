@@ -75,17 +75,27 @@ _KEPT: Final = QT_TRANSLATE_NOOP(
 
 def taken_along(members: Sequence[DocumentObject]) -> list[Notice]:
     """Avertissements des pièces **libres** (membres d'aucun ensemble) liées à un des ``members``
-    par un assemblage, une Distance ou une formule : FreeCAD les range avec lui dans le Std Part
-    sans qu'elles deviennent membres (à appeler avant :func:`adopt`)."""
+    par une Distance ou une formule : FreeCAD les range avec lui dans le Std Part sans qu'elles
+    deviennent membres (à appeler avant :func:`adopt`). Un assemblage n'en range plus : ses liens
+    sont globaux (ADR 0054)."""
     pieces = [obj for obj in members if not is_furniture(obj)]
     allowed = {item.Name for obj in pieces for item in bundle(obj)}
     found: dict[str, Notice] = {}
     for piece in pieces:
-        for other in closure(piece).values():
+        for other in closure(piece, through_joints=False).values():
             if is_timber(other) and other.Name not in allowed and furniture_of(other) is None:
                 params = {"label": str(other.Label), "other": str(piece.Label)}
                 found.setdefault(other.Name, Notice(EntryNoticeKind.TAKEN_ALONG, params))
     return list(found.values())
+
+
+def _is_origin_element(obj: DocumentObject) -> bool:
+    """Vrai pour un plan, un axe ou un point d'une origine. Depuis FreeCAD 1.1 ce sont des
+    ``App::Plane``, ``App::Line`` et ``App::Point`` (``App::OriginFeature`` n'existe plus), cités
+    par un ``App::Origin`` ; leur groupe est le Std Part de l'origine."""
+    return obj.isDerivedFrom("App::DatumElement") and any(
+        parent.TypeId == "App::Origin" for parent in obj.InList
+    )
 
 
 def positioned(obj: DocumentObject) -> bool:
@@ -95,7 +105,7 @@ def positioned(obj: DocumentObject) -> bool:
     return (
         "Placement" in obj.PropertiesList
         and obj.isDerivedFrom("App::GeoFeature")
-        and not obj.isDerivedFrom("App::OriginFeature")
+        and not _is_origin_element(obj)
         and obj.TypeId != "App::Origin"
         and not (is_furniture(obj) or is_machined_part(obj) or is_joint(obj) or is_distance(obj))
     )

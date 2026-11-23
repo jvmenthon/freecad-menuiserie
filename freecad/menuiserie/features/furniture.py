@@ -277,7 +277,8 @@ class Furniture(StatelessProxy):
     def onChanged(self, obj: DocumentObject, prop: str) -> None:
         """Saisie de l'utilisateur : cote → avertissements (formules, pièce cassée : la cote
         est appliquée, Q4) ; option d'un sous-ensemble → ses liaisons ; libellé → celui de son Std
-        Part. N'écrit que dans lui-même (et le libellé de son Std Part) ; rien pendant une
+        Part. N'écrit que dans lui-même (et le libellé de son Std Part), sauf une cote que
+        remplissent des pièces à plat : leur épaisseur suit (ADR 0062) ; rien pendant une
         restauration, une annulation ou un recalcul."""
         if not follows_user_changes(obj):
             return
@@ -291,8 +292,8 @@ class Furniture(StatelessProxy):
             previous: FurnitureBox | None = getattr(self, "previous_box", None)
             self.previous_box = None
             current = box_of(obj)
-            if previous is not None and current is not None and previous != current:
-                furniture_edits.report_resize(obj, previous, current)
+            if previous is not None and previous != current:
+                furniture_edits.report_resize(obj, previous, current, prop)
         elif prop in MEMBER_OPTIONS:
             furniture_edits.member_option_changed(obj, prop)
 

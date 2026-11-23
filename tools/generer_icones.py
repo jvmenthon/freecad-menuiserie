@@ -15,17 +15,20 @@ import sys
 from pathlib import Path
 
 from icones_ensembles import (
+    aligner_centre,
+    aligner_debut,
     aligner_faces,
+    aligner_fin,
     autre_objet,
-    centrer_x,
-    centrer_y,
-    centrer_z,
     distance,
     distance_gardee,
     ensemble,
     ensemble_ajouter,
     ensemble_relier,
     ensemble_retirer,
+    parallele_x,
+    parallele_y,
+    parallele_z,
     piece_en_bois,
     piece_en_bois_objet,
     rotation_x,
@@ -305,6 +308,33 @@ def caisson() -> str:
     return ic.svg()
 
 
+def fermer_le_caisson() -> str:
+    ic = Icone("Fermer le caisson : dessous plein, côtés et dessus en transparence, flèche")
+    vert, orange = "#4e9a06", "#f57900"
+    ic.boite((4, 0, 4), (42, 3, 52), "contreplaque", 0.35)  # dos, en transparence
+    ic.boite((0, 0, 4), (4, 40, 52), "contreplaque", 0.35)  # côté gauche
+    ic.boite((0, 0, 56), (50, 40, 4), "contreplaque", 0.35)  # dessus
+    ic.boite((0, 0, 0), (50, 40, 4), "contreplaque")  # dessous : la pièce choisie
+    ic.bande([(0, 40, 0), (50, 40, 0), (50, 40, 4), (0, 40, 4)], orange)  # son chant arrière
+    ic.boite((46, 0, 4), (4, 40, 52), "contreplaque", 0.35)  # côté droit
+    ic.trait([(25, 22, 8), (25, 22, 40)], vert, 3.2)  # flèche : le caisson monte
+    ic.bande([(20, 22, 38), (30, 22, 38), (25, 22, 46)], vert)
+    return ic.svg()
+
+
+def finition_des_chants() -> str:
+    ic = Icone("Finition des chants : planche dont les chants (faces étroites) sont surlignés")
+    ic.boite((0, 0, 0), (90, 32, 12), "chene")
+    for y, phase in ((7, 0.0), (15, 0.35), (24, 0.7)):
+        ic.veinage((4, 86), (y, 12), "chene", phase=phase)
+    orange = "#f57900"
+    ic.bande([(0, 32, 0), (90, 32, 0), (90, 32, 12), (0, 32, 12)], orange)  # chant avant
+    ic.bande([(90, 0, 0), (90, 32, 0), (90, 32, 12), (90, 0, 12)], orange)  # bois de bout
+    ic.trait([(0, 32, 0), (90, 32, 0), (90, 0, 0)], "#4e2f12", 1.6)
+    ic.trait([(0, 32, 12), (90, 32, 12), (90, 0, 12)], "#4e2f12", 1.6)
+    return ic.svg()
+
+
 ICONES = {
     "menuiserie.svg": atelier,
     "Menuiserie_WoodPart.svg": piece_de_bois,
@@ -328,6 +358,9 @@ ICONES = {
     "Menuiserie_ShelfPins.svg": percage_lr32,
     "Menuiserie_DrawerSlide.svg": coulisse,
     "Menuiserie_Carcass.svg": caisson,
+    "Menuiserie_CloseCarcass.svg": fermer_le_caisson,
+    # Finition des chants (issue #5)
+    "Menuiserie_FinitionChants.svg": finition_des_chants,
     # Ensembles (J4c)
     "Menuiserie_Furniture.svg": ensemble,
     "Menuiserie_FurnitureAdd.svg": ensemble_ajouter,
@@ -341,9 +374,12 @@ ICONES = {
     "Menuiserie_SetDistance.svg": distance,
     "Menuiserie_Distance.svg": distance_gardee,
     "Menuiserie_AlignFaces.svg": aligner_faces,
-    "Menuiserie_CenterX.svg": centrer_x,
-    "Menuiserie_CenterY.svg": centrer_y,
-    "Menuiserie_CenterZ.svg": centrer_z,
+    "Menuiserie_ParallelX.svg": parallele_x,
+    "Menuiserie_ParallelY.svg": parallele_y,
+    "Menuiserie_ParallelZ.svg": parallele_z,
+    "Menuiserie_AlignStart.svg": aligner_debut,
+    "Menuiserie_AlignCenter.svg": aligner_centre,
+    "Menuiserie_AlignEnd.svg": aligner_fin,
     # Rotations du panneau de la pièce de bois (J6c)
     "Menuiserie_RotateX.svg": rotation_x,
     "Menuiserie_RotateY.svg": rotation_y,

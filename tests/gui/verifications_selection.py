@@ -186,7 +186,8 @@ def verifier_boutons_autour_des_axes_du_document() -> list[str]:
 
 
 def verifier_elements_ignores() -> list[str]:
-    """T1 : un objet entier est ignoré avec un message ; sans cible, la pièce est à l'origine."""
+    """T1 : un objet entier choisi (arbre, sans point cliqué) n'est pas une cible : la pièce se pose
+    contre le côté +X de son encombrement, au lieu de l'origine du document."""
 
     def verification(doc: Any) -> list[str]:
         bloc = cube(doc, (600, 300, 100), (50, 50, 50))
@@ -195,15 +196,21 @@ def verifier_elements_ignores() -> list[str]:
         piece = creer_par_la_commande(doc)
         form = formulaire()
         problemes = [
-            *ecarts("message affiché", "Bloc" in form.snapNotices.text(), True),
-            *ecarts("notice visible", form.snapNotices.isHidden(), False),
-            *ecarts("ligne Contre masquée", form.snapLabel.isHidden(), True),
-            *ecarts("à l'origine", piece.Placement.Base.isEqual(App.Vector(0, 0, 0), 1e-9), True),
+            *ecarts("aucun message d'élément ignoré", "Bloc" in form.snapNotices.text(), False),
+            *ecarts("ligne Contre visible", form.snapLabel.isHidden(), False),
+            *ecarts("à côté du bloc", cote(piece, bloc), True),
         ]
         annuler()
         return problemes
 
     return avec_document("VerifAccrochageIgnore", verification)
+
+
+def cote(piece: Any, bloc: Any) -> bool:
+    """Vrai si ``piece`` touche le côté +X de ``bloc`` et part de son bas et de son bord Y."""
+    boite, autre = piece.Shape.BoundBox, bloc.Shape.BoundBox
+    ecarts_mm = (boite.XMin - autre.XMax, boite.YMin - autre.YMin, boite.ZMin - autre.ZMin)
+    return all(abs(valeur) <= TOLERANCE for valeur in ecarts_mm)
 
 
 def verifier_std_part_tourne() -> list[str]:

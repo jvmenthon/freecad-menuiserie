@@ -90,7 +90,8 @@ def bundle(obj: DocumentObject) -> list[DocumentObject]:
         part = std_part_of(obj)
         return [] if part is None else [part]
     machined = machined_part_of(obj) if is_timber(obj) else None
-    joints = [parent for parent in obj.InList if is_joint(parent)]
+    # l'assemblage reste dans le conteneur de son hôte (ADR 0054) : il suit l'hôte seulement
+    joints = [parent for parent in obj.InList if is_joint(parent) and parent.HostPart == obj]
     return [obj, *([] if machined is None else [machined]), *joints]
 
 
@@ -117,9 +118,11 @@ def is_membership(obj: DocumentObject, other: DocumentObject) -> bool:
     )
 
 
-def closure(start: DocumentObject) -> dict[str, DocumentObject]:
+def closure(start: DocumentObject, through_joints: bool = True) -> dict[str, DocumentObject]:
     """Objets de l'atelier liés à ``start`` (dans les deux sens, de proche en proche), par nom :
-    ce que FreeCAD range avec lui, une fois les liaisons à son ensemble défaites."""
+    ce que FreeCAD range avec lui, une fois les liaisons à son ensemble défaites. Sans
+    ``through_joints``, les assemblages ne sont pas suivis : leurs liens sont globaux (ADR 0054),
+    FreeCAD ne range pas l'autre pièce avec celle-ci."""
     found: dict[str, DocumentObject] = {}
     todo = [start]
     while todo:
@@ -128,7 +131,11 @@ def closure(start: DocumentObject) -> dict[str, DocumentObject]:
             found[obj.Name] = obj
             # ``InList`` garde un objet qui a perdu son expression (copie dissociée) : on vérifie
             linked = [*(item for item in obj.InList if obj in item.OutList), *obj.OutList]
-            todo.extend(o for o in linked if not is_membership(obj, o))
+            todo.extend(
+                o
+                for o in linked
+                if not is_membership(obj, o) and (through_joints or not is_joint(o))
+            )
     return found
 
 

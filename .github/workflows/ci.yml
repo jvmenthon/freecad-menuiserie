@@ -103,3 +103,56 @@ jobs:
             tail -n 90 "$journal" | sed 's/^/::warning title=Journal FreeCAD::/'
             false
           fi
+      - name: Serveur X virtuel
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb
+      - name: Scénarios QTest dans FreeCAD
+        # Chaque module tests/qtest/scenario_*.py dans un vrai FreeCAD, sur un vrai serveur X :
+        # claviers et clics de QTest sur les panneaux. Lancés par tests/qtest/lanceur.py (rapport
+        # dans un fichier, sortie par os._exit). « timeout » met fin à un FreeCAD bloqué.
+        # softpipe seulement pour le scénario qui prend une capture : avec llvmpipe la vue 3D
+        # hors écran sort blanche, mais softpipe est dix fois plus lent.
+        # Même dossier utilisateur que l'étape précédente, qui y a lié l'atelier (Mod/Menuiserie)
+        # et coupé la zone de notifications.
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          export FREECAD_USER_HOME="$RUNNER_TEMP/freecad-home"
+          export PILE_EN_CAS_DE_PLANTAGE="$RUNNER_TEMP/pile-qtest.txt"
+          export RAPPORT_QTEST="$RUNNER_TEMP/rapport-qtest.txt"
+          journal="$RUNNER_TEMP/freecad-qtest.log"
+          piles="$RUNNER_TEMP/piles-qtest.txt"
+          rm -f "$journal" "$piles"
+          statut=0
+          for fichier in tests/qtest/scenario_*.py; do
+            module="tests.qtest.$(basename "$fichier" .py)"
+            echo "=== $module" >> "$journal"
+            rm -f "$RAPPORT_QTEST" "$PILE_EN_CAS_DE_PLANTAGE"
+            if [ "$module" = tests.qtest.scenario_queue_aronde ]; then
+              export GALLIUM_DRIVER=softpipe CAPTURES_QTEST="$RUNNER_TEMP/captures-qtest"
+            else
+              export GALLIUM_DRIVER=llvmpipe
+              unset CAPTURES_QTEST
+            fi
+            SCENARIO="$module" timeout --kill-after=10 600 \
+              xvfb-run -a -s "-screen 0 1600x1000x24" freecad tests/qtest/lanceur.py \
+              >> "$journal" 2>&1 || { echo "ÉCHEC de $module (statut $?)" >> "$journal"; statut=1; }
+            if [ -f "$RAPPORT_QTEST" ]; then cat "$RAPPORT_QTEST" >> "$journal"; fi
+            if [ -s "$PILE_EN_CAS_DE_PLANTAGE" ]; then cat "$PILE_EN_CAS_DE_PLANTAGE" >> "$piles"; fi
+          done
+          # Journal affiché sans que ses lignes « ::… » soient prises pour des commandes du runner.
+          jeton="$(openssl rand -hex 16)"
+          echo "::stop-commands::$jeton"
+          cat "$journal"
+          if [ -s "$piles" ]; then echo "=== Piles Python au plantage"; cat "$piles"; fi
+          echo "::$jeton::"
+          if [ "$statut" -ne 0 ]; then
+            echo "::error title=Scénarios QTest::échec, voir « ÉCHEC de » dans le journal ci-dessus"
+            false
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: captures-qtest
+          path: ${{ runner.temp }}/captures-qtest/*.png
+          if-no-files-found: ignore
+          retention-days: 14

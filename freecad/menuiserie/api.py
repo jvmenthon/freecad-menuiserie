@@ -28,6 +28,12 @@ Ensemble (J4) ::
     bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
     avertissements = resize_furniture(bureau, depth=800)
 
+Fermer le caisson autour d'une pièce existante, le dessous ou le dessus (ADR 0064) ::
+
+    from freecad.menuiserie.api import ClosingJoinery, make_closed_carcass
+
+    caisson, avertissements = make_closed_carcass(dessous, height=720, joinery=ClosingJoinery.MITER)
+
 Répétition (R-b1) ::
 
     from freecad.menuiserie.api import RepeatParams, dissociate, edit_repeat, make_repeat
@@ -81,11 +87,18 @@ from freecad.menuiserie._api.cutlist import (
     make_cut_list,
     number_marks,
 )
+from freecad.menuiserie._api.edges import (
+    add_edge_profile,
+    edge_profiles_of,
+    remove_edge_profile,
+    set_edge_profile,
+)
 from freecad.menuiserie._api.furniture import (
     add_to_furniture,
     align_faces,
     furniture_of,
     make_carcass,
+    make_closed_carcass,
     make_furniture,
     move_furniture,
     rebind_furniture,
@@ -134,6 +147,14 @@ from freecad.menuiserie.core.repeat import (
     SpacingMode,
 )
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
+from freecad.menuiserie.core.templates.closing_params import (
+    BackJoinery,
+    ClosingJoinery,
+    ClosingParams,
+    ClosingRole,
+)
+from freecad.menuiserie.core.templates.closing_params import Element as ClosingElement
+from freecad.menuiserie.features.closing import closing_params
 from freecad.menuiserie.features.furniture_bindings import LockedPiecesError
 from freecad.menuiserie.features.machined_part import (
     blank_of,
@@ -149,8 +170,13 @@ __all__ = [
     "FRENCH_CSV",
     "INTERNATIONAL_CSV",
     "AxisRepeat",
+    "BackJoinery",
     "CarcassJoinery",
     "CarcassParams",
+    "ClosingElement",
+    "ClosingJoinery",
+    "ClosingParams",
+    "ClosingRole",
     "LockedPiecesError",
     "PickedElement",
     "RepeatAxis",
@@ -158,15 +184,18 @@ __all__ = [
     "RepeatParams",
     "SpacingMode",
     "Stop",
+    "add_edge_profile",
     "add_to_furniture",
     "align_faces",
     "blank_of",
     "close_gap",
     "closing_options",
+    "closing_params",
     "count_unmarked_parts",
     "cut_list_html",
     "cut_list_of",
     "dissociate",
+    "edge_profiles_of",
     "edit_repeat",
     "export_cut_list_csv",
     "export_cut_list_pdf",
@@ -177,6 +206,7 @@ __all__ = [
     "machined_part_of",
     "make_biscuits",
     "make_carcass",
+    "make_closed_carcass",
     "make_cut_list",
     "make_dovetail",
     "make_dowels",
@@ -198,6 +228,7 @@ __all__ = [
     "move_furniture",
     "number_marks",
     "rebind_furniture",
+    "remove_edge_profile",
     "remove_from_furniture",
     "remove_machined_part",
     "rename",
@@ -207,6 +238,7 @@ __all__ = [
     "rotate_furniture",
     "set_distance",
     "set_edge_distance",
+    "set_edge_profile",
     "set_furniture_material",
     "set_member_options",
     "slide_shortfall",

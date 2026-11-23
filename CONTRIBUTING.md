@@ -21,7 +21,9 @@ bandit -c pyproject.toml -r freecad
 Les tests d'intégration (`tests/integration`) nécessitent FreeCAD ; ils sont ignorés
 automatiquement s'il n'est pas importable et tournent dans la CI sur FreeCAD 1.1.
 La CI vérifie aussi que l'atelier se charge et s'active dans l'interface de FreeCAD
-(`tests/gui/verifier_atelier.py`, mode d'affichage `offscreen`).
+(`tests/gui/verifier_atelier.py`, mode d'affichage `offscreen`) et joue des scénarios
+d'utilisateur au clavier et à la souris avec QTest (`tests/qtest`, voir
+[docs/tests-gui-qtest.md](docs/tests-gui-qtest.md)).
 
 ## Organisation du code
 
@@ -102,7 +104,8 @@ ou transitoire (« 3 » en tapant « 32 »). Elle ne doit jamais figer ni faire 
 3. **Annuler / rétablir** : chaque commande encadrée par `openTransaction` / `commitTransaction`.
 4. **Chargement léger** : imports différés dans `Initialize()`.
 5. **Qt** : toujours `from PySide import QtCore, QtGui` (couche de compatibilité FreeCAD),
-   jamais `PySide2` ni `PySide6`.
+   jamais `PySide2` ni `PySide6`. Seule exception (ADR 0059) : `tests/qtest/qttest.py`, unique
+   point d'entrée de `QtTest`, que la couche `PySide` n'expose pas ; jamais dans `freecad/`.
 6. **Traductions** : toute chaîne visible passe par `translate()` ou `QT_TRANSLATE_NOOP`.
 7. **Unités** : mm en interne, propriétés `App::PropertyLength` pour les cotes.
 
@@ -152,5 +155,13 @@ Le développement est organisé en cinq rôles (architecte, dev, testeur, sécur
 définis dans [.claude/agents](.claude/agents). Enchaînement d'un lot :
 
 ```
-Architecte (issue + spec, ADR)  →  Dev (branche + PR)  →  Testeur ∥ Sécurité  →  Reviewer  →  merge humain
+Architecte (issue + spec, ADR)  →  Dev (branche + PR)  →  Revue Copilot  →  corrections + CI verte  →  merge humain
 ```
+
+Depuis le 2026-11-23, la revue des PR est faite par GitHub Copilot (revue automatique sur
+`main`), à la place des rôles testeur, sécurité et reviewer. Ses critères sont dans
+[.github/copilot-instructions.md](.github/copilot-instructions.md) et
+[.github/instructions/](.github/instructions). Chaque point est classé bloquant, majeur ou
+mineur et corrigé ; quand il ne reste que des mineurs, ils peuvent être reportés dans
+[docs/corrections-mineures.md](docs/corrections-mineures.md). Une PR n'est prête qu'une fois
+la revue corrigée et la CI verte.

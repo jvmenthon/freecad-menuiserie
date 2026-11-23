@@ -33,8 +33,13 @@ from tests.gui.aides_panneau import DEFAUTS_CONSTATES
 from tests.gui.verifications_alignement import VERIFICATIONS_ALIGNEMENT
 from tests.gui.verifications_apercu import VERIFICATIONS_APERCU
 from tests.gui.verifications_aronde_relachement import VERIFICATIONS_ARONDE_RELACHEMENT
+from tests.gui.verifications_assemblage_conteneurs import VERIFICATIONS_ASSEMBLAGE_CONTENEURS
 from tests.gui.verifications_assemblages import VERIFICATIONS_ASSEMBLAGES
 from tests.gui.verifications_caisson import VERIFICATIONS_CAISSON
+from tests.gui.verifications_chants import VERIFICATIONS_CHANTS
+from tests.gui.verifications_chants_natifs import VERIFICATIONS_CHANTS_NATIFS
+from tests.gui.verifications_chants_pieces import VERIFICATIONS_CHANTS_PIECES
+from tests.gui.verifications_coplanarite import VERIFICATIONS_COPLANARITE
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
 from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
@@ -1270,6 +1275,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_PANNEAU_ASSEMBLAGE_FERMETURE,
     *VERIFICATIONS_TRANSPARENCE_ASSEMBLAGE,
     *VERIFICATIONS_USINAGE_DEPLACEMENT,
+    *VERIFICATIONS_ASSEMBLAGE_CONTENEURS,
     *VERIFICATIONS_PIECES_PROCHES,
     *VERIFICATIONS_QUEUE_ARONDE,
     *VERIFICATIONS_ONGLET,
@@ -1280,6 +1286,9 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_PANNEAU_ROTATION,
     # Gabarits (J4d)
     *VERIFICATIONS_CAISSON,
+    *VERIFICATIONS_CHANTS,
+    *VERIFICATIONS_CHANTS_PIECES,
+    *VERIFICATIONS_CHANTS_NATIFS,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
     *VERIFICATIONS_DOUBLE_CLIC,
@@ -1321,6 +1330,8 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_REPETITION_DEPART,
     # Copie par glissement (R-d)
     *VERIFICATIONS_SOURIS_COPIE,
+    # Coplanarité pendant un glissement et dans le panneau « Répéter » (ADR 0058)
+    *VERIFICATIONS_COPLANARITE,
 )
 
 

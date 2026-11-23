@@ -46,6 +46,7 @@ from freecad.menuiserie.core.joints.shelf_pins._params import (
     PITCH_TOO_SMALL,
     TOLERANCE_MM,
     TOO_SHORT,
+    TOO_SHORT_FOR_ONE_ROW,
     ShelfPinsParams,
     ShelfPinsValues,
 )
@@ -232,13 +233,10 @@ def _checked(host: PlacedBlock, params: ShelfPinsParams) -> tuple[ShelfPinsValue
     rows = params.rows or (int(span // params.pitch + EPSILON) + 1 if span >= 0 else 0)
     wide = box.size(1 - vertical) - 2 * edge - diameter
     if rows < 1 or span < (rows - 1) * params.pitch - 1e-6 or wide < 0:
-        text = {
-            "rows": str(max(rows, 1)),
-            "pitch": mm_text(params.pitch),
-            "margin": mm_text(margin),
-            "edge": mm_text(edge),
-        }
-        raise JointError(TOO_SHORT, text)
+        text = {"margin": mm_text(margin), "edge": mm_text(edge)}
+        if rows <= 1:  # « un rang », sans accord au pluriel ni pas à citer
+            raise JointError(TOO_SHORT_FOR_ONE_ROW, text)
+        raise JointError(TOO_SHORT, {**text, "rows": str(rows), "pitch": mm_text(params.pitch)})
     heights = tuple(first + index * params.pitch for index in range(rows))
     if not params.with_pins:
         chosen: tuple[int, ...] = ()

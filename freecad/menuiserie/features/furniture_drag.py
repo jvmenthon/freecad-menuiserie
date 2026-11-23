@@ -139,7 +139,7 @@ def _write(memento: FurnitureMemento, box: Box) -> list[Notice]:
     sizes = changed_sizes(memento.furniture, box)
     _check_position(memento, box)
     new, notices = planned_resize(memento.furniture, sizes)
-    write_box(memento.furniture, new, sizes)
+    write_box(memento.furniture, new, sizes, follow=False)  # épaisseurs : au relâchement
     _write_position(memento, box)
     recompute_blanks(memento.furniture)
     memento.applied = box

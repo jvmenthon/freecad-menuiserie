@@ -218,6 +218,33 @@ def test_objet_entier_et_objet_sans_forme_sont_ignores(document: Any, block: Any
     assert obj.Placement.Base.isEqual(App.Vector(0, 0, 0), 1e-9)
 
 
+def test_objet_entier_clique_donne_la_face_sous_le_clic(document: Any, block: Any) -> None:
+    """Objet entier avec point cliqué (vue 3D) : la face la plus proche du point est retenue."""
+    top = picked.PickedElement(block, "", Vec3(300, 200, 52))
+    reading = targets.read_targets([top], ABOVE)
+    assert reading.ignored == ()
+    assert reading.elements[0].is_subelement()
+    assert abs(reading.targets[0].frame.z.z - 1.0) < 1e-9  # face de dessus
+    far = picked.PickedElement(block, "", Vec3(300, 200, 500))  # loin de toute face
+    assert targets.read_targets([far], ABOVE).targets == ()
+
+
+def test_piece_choisie_en_entier_pose_la_nouvelle_a_cote(document: Any, block: Any) -> None:
+    """Objet entier sans point cliqué (arbre) : la pièce se pose contre le côté +X de la pièce."""
+    beside = pytest.importorskip("freecad.menuiserie.features.beside")
+    reading = beside.beside_reading([pick(block, "")])
+    assert reading is not None
+    session = targets.new_session(reading, geometry_dimensions(document))
+    obj = new_part(document, session)
+    box = obj.Shape.copy()
+    box.Placement = obj.getGlobalPlacement()
+    edge = block.Shape.copy()
+    edge.Placement = block.getGlobalPlacement()
+    assert abs(box.BoundBox.XMin - edge.BoundBox.XMax) < 1e-6
+    assert abs(box.BoundBox.YMin - edge.BoundBox.YMin) < 1e-6
+    assert beside.beside_reading([pick(block, "", Vec3(1, 2, 3))]) is None
+
+
 # --- T2 : côté extérieur ------------------------------------------------------------------------
 
 
