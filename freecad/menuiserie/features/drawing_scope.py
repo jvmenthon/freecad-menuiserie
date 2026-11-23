@@ -40,12 +40,15 @@ _FOREIGN: Final = QT_TRANSLATE_NOOP(
 
 
 def link_target(obj: DocumentObject) -> DocumentObject | None:
-    """Objet que vise le lien ``obj`` (au bout des liens de liens), ``None`` si ce n'est pas un
-    lien ou s'il ne vise rien."""
+    """Objet que vise le lien ``obj`` (au bout des liens de liens, dans ce document ou un
+    autre), ``None`` si ce n'est pas un lien, s'il ne vise rien ou se vise lui-même."""
     if getattr(obj, "TypeId", None) != LINK_TYPE or getattr(obj, "LinkedObject", None) is None:
         return None
     target = obj.getLinkedObject(True)
-    return None if target is None or target.Name == obj.Name else target
+    if target is None:
+        return None
+    itself = target.Document == obj.Document and target.Name == obj.Name
+    return None if itself else target
 
 
 def link_occurrences(obj: DocumentObject) -> int:
@@ -55,32 +58,45 @@ def link_occurrences(obj: DocumentObject) -> int:
 
 
 def workshop_inside(target: DocumentObject, depth: int = 0) -> list[DocumentObject]:
-    """Ensembles et pièces de l'atelier que montre un lien vers ``target`` : ``target`` lui-même
-    s'il en est un, sinon ceux de plus haut niveau rangés dans le Std Part ``target`` (ceux de
-    ses Std Part et liens imbriqués compris)."""
+    """Ce que montre un lien vers ``target`` : ``target`` lui-même si c'est un ensemble ou une
+    pièce de l'atelier, sinon ceux du Std Part ``target`` dont l'ensemble n'y est pas aussi
+    (un sous-ensemble lié seul est gardé), ceux de ses Std Part imbriqués et ses liens
+    imbriqués tels quels (chacun apporte son nombre de copies)."""
     if is_furniture(target) or is_timber(target) or is_machined_part(target):
         return [target]
-    if depth >= MAX_LINK_DEPTH:
+    if depth >= MAX_LINK_DEPTH or not is_std_part(target):
         return []
-    inner = link_target(target)
-    if inner is not None:
-        return workshop_inside(inner, depth + 1)
-    if not is_std_part(target):
-        return []
+    present: set[str] = set()
+    _collect_names(target, present, depth)
+    return _inside(target, present, depth)
+
+
+def _collect_names(container: DocumentObject, names: set[str], depth: int) -> None:
+    """Noms des objets rangés dans ``container`` et ses Std Part imbriqués."""
+    for obj in container.Group:
+        names.add(obj.Name)
+        if is_std_part(obj) and depth < MAX_LINK_DEPTH:
+            _collect_names(obj, names, depth + 1)
+
+
+def _inside(container: DocumentObject, present: set[str], depth: int) -> list[DocumentObject]:
     found: list[DocumentObject] = []
-    for obj in target.Group:
+    for obj in container.Group:
         if is_furniture(obj) or is_timber(obj):
-            if furniture_of(obj) is None:
+            parent = furniture_of(obj)
+            if parent is None or parent.Name not in present:
                 found.append(obj)
-        elif is_std_part(obj) or link_target(obj) is not None:
-            found.extend(workshop_inside(obj, depth + 1))
+        elif is_std_part(obj) and depth < MAX_LINK_DEPTH:
+            found.extend(_inside(obj, present, depth + 1))
+        elif _drawn_link(obj, depth + 1):
+            found.append(obj)
     return found
 
 
-def _drawn_link(obj: DocumentObject) -> bool:
+def _drawn_link(obj: DocumentObject, depth: int = 0) -> bool:
     """Vrai si ``obj`` est un lien qui montre des ensembles ou des pièces de l'atelier."""
     target = link_target(obj)
-    return target is not None and bool(workshop_inside(target))
+    return target is not None and bool(workshop_inside(target, depth))
 
 
 def links_in(furniture: DocumentObject) -> list[DocumentObject]:

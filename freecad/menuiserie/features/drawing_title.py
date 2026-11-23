@@ -16,16 +16,20 @@ from typing import Final
 from freecad.menuiserie.core.drawing import (
     TitleFields,
     clean_field,
+    fit_to_cell,
     placeholder_keys,
     scale_text,
     title_block_texts,
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features import drawing_settings
+from freecad.menuiserie.features.drawing_scope import link_target, workshop_inside
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
+from freecad.menuiserie.features.furniture_container import is_std_part
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = ["STORED", "fill_title_block"]
@@ -43,14 +47,20 @@ _KIND: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
 
 
 def _materials(objects: Sequence[DocumentObject], seen: set[str]) -> set[str]:
-    """Matériaux des pièces de bois de ``objects``, membres des ensembles compris."""
+    """Matériaux des pièces de bois de ``objects`` : membres des ensembles, brute d'une pièce
+    usinée, pièces d'un Std Part ou d'une copie par lien compris."""
     found: set[str] = set()
     for obj in objects:
         if obj.Name in seen:
             continue
         seen.add(obj.Name)
-        if is_furniture(obj):
+        target = link_target(obj)
+        if target is not None or is_std_part(obj):  # copie par lien, Std Part d'un meuble
+            found |= _materials(workshop_inside(target or obj), seen)
+        elif is_furniture(obj):
             found |= _materials(members_of(obj), seen)
+        elif is_machined_part(obj):
+            found |= _materials([blank_of(obj)], seen)
         elif is_timber(obj):
             found.add(clean_field(str(getattr(obj, "Material", ""))))
     return found - {""}
@@ -70,9 +80,9 @@ def _stored(page: DocumentObject, key: str, given: str | None, default: str = ""
     """Saisie ``key`` du cartouche : ``given`` si elle est fournie, sinon celle de la page, sinon
     ``default`` ; la valeur fournie est enregistrée sur la page."""
     name = STORED[key]
-    if given is not None:
+    if given is not None:  # une saisie vidée rend la valeur par défaut
         setattr(page, name, clean_field(given))
-        return str(getattr(page, name))
+        return str(getattr(page, name)) or clean_field(default)
     return str(getattr(page, name, "")) or clean_field(default)
 
 
@@ -101,7 +111,9 @@ def fill_title_block(
     template = page.Template
     texts = dict(getattr(template, "EditableTexts", None) or {})
     if texts:
-        written = title_block_texts(texts, values)
+        written = {
+            key: fit_to_cell(key, text) for key, text in title_block_texts(texts, values).items()
+        }
         texts.update({key: "" for key in placeholder_keys(texts, written)})
         texts.update(written)
         template.EditableTexts = texts

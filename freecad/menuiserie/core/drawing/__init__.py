@@ -49,6 +49,7 @@ from freecad.menuiserie.core.drawing._machining import (
 )
 from freecad.menuiserie.core.drawing._sheet import (
     TEMPLATE_FILES,
+    fit_to_cell,
     template_file_name,
     template_svg,
 )
@@ -90,6 +91,7 @@ __all__ = [
     "clean_field",
     "corner_iso_layout",
     "exploded_offset",
+    "fit_to_cell",
     "joint_note_lines",
     "machining_lines",
     "machining_name",

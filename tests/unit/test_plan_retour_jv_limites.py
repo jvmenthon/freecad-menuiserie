@@ -382,3 +382,15 @@ def test_derniere_cote_reste_dans_la_place_libre() -> None:
 def test_sans_place_la_chaine_est_omise() -> None:
     """Aucun texte ne tient dans la place libre : pas de chaîne (la cote hors tout suffit)."""
     assert chain_labels([(0.0, 5.0), (5.0, 10.0)], _jv_widths, (-1.0, 11.0)) == []
+
+
+def test_texte_du_cartouche_tient_dans_sa_case() -> None:
+    """Revue Copilot : un titre ou un client long est raccourci à la largeur de sa case."""
+    from freecad.menuiserie.core.drawing import fit_to_cell
+
+    long_title = "Bibliothèque " * 20
+    fitted = fit_to_cell("drawing_title", long_title)
+    assert fitted.endswith("…") and len(fitted) * 0.6 * 6.0 <= 180.0 - 4.5
+    assert len(fit_to_cell("client", "x" * 120)) * 0.6 * 3.5 <= 90.0 - 4.5
+    assert fit_to_cell("client", "Mme Dupont") == "Mme Dupont"
+    assert fit_to_cell("autre_case", "y" * 120) == "y" * 120

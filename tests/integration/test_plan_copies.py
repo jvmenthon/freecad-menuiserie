@@ -92,3 +92,32 @@ def test_arbre_du_choix_des_pieces(bureau: Bureau) -> None:
     by_name = {row.obj.Name: row for row in groups}
     assert by_name[bureau.furniture.Name].parts == 4
     assert by_name[link.Name].children == ()
+
+
+def test_tableau_de_liens_compte_chaque_copie(bureau: Bureau) -> None:
+    """Revue : un tableau de liens compte autant de fois qu'il a d'éléments."""
+    link = _link_copy(bureau, 2000.0)
+    link.ElementCount = 3
+    bureau.doc.recompute()
+    assert _quantities(api.make_part_drawings(bureau.doc, [])) == 4 * (1 + 3)
+
+
+def test_vue_eclatee_d_une_copie_par_lien(bureau: Bureau) -> None:
+    """Revue : une copie par lien seule s'éclate pièce par pièce."""
+    link = _link_copy(bureau, 2000.0)
+    assembled = drawing.global_box(drawing.drawing_sources(bureau.doc, [link]))
+    api.make_exploded_drawing(bureau.doc, [link])
+    holder = next(obj for obj in bureau.doc.Objects if obj.Name.startswith("MenuiserieEclate"))
+    assert holder.Shape.BoundBox.XLength > assembled.XLength + 1.0
+
+
+def test_cartouche_d_une_copie_et_titre_vide(bureau: Bureau) -> None:
+    """Revue : le matériau d'une copie par lien est écrit ; un titre vidé reprend le nom."""
+    link = _link_copy(bureau, 2000.0)
+    options = api.DrawingOptions(title="Mon titre")
+    page = api.make_overall_drawing(bureau.doc, [link], options)
+    texts = dict(page.Template.EditableTexts)
+    assert texts["material"].strip() != ""
+    assert texts["drawing_title"] == "Mon titre"
+    page = api.make_overall_drawing(bureau.doc, [link], api.DrawingOptions(title=""))
+    assert dict(page.Template.EditableTexts)["drawing_title"] == str(link.Label)

@@ -101,12 +101,12 @@ class DrawingTaskPanel:
         return field
 
     def options(self) -> api.DrawingOptions:
-        """Choix du panneau ; un titre laissé vide reprend le nom de l'ouvrage."""
-        title = self.title.text().strip()
+        """Choix du panneau ; un titre laissé vide (même vidé après coup) reprend le nom de
+        l'ouvrage."""
         return api.DrawingOptions(
             page_format=self.page_format.currentText(),
             orientation=Orientation(self.orientation.currentData()),
-            title=title or None,
+            title=self.title.text().strip(),
             client=self.client.text(),
             quote=self.quote.text(),
             settle=HlrWait(),

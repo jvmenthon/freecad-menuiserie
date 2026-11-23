@@ -14,7 +14,7 @@ from typing import Final
 
 from freecad.menuiserie.core.drawing._layout import PAGE_FORMATS, Orientation, page_size
 
-__all__ = ["TEMPLATE_FILES", "template_file_name", "template_svg"]
+__all__ = ["TEMPLATE_FILES", "fit_to_cell", "template_file_name", "template_svg"]
 
 FRAME_MM: Final = 10.0  # du bord de la feuille au cadre
 BLOCK_WIDTH_MM: Final = 180.0
@@ -35,6 +35,32 @@ _ROWS: Final = (
         (40.0, "Format", ""),
     ),
 )
+
+
+_CHAR_RATIO: Final = 0.6  # largeur moyenne d'un caractère, en tailles de texte
+_ELLIPSIS: Final = "…"
+
+
+def _capacity(width: float, size: float) -> int:
+    """Caractères qui tiennent dans une case de ``width`` mm, à la taille ``size``."""
+    return max(1, int((width - 4.5) / (_CHAR_RATIO * size)))
+
+
+_CAPACITY: Final = {
+    name: _capacity(width, _TITLE_MM if name == "drawing_title" else _VALUE_MM)
+    for row in _ROWS
+    for width, _, name in row
+    if name
+}
+
+
+def fit_to_cell(name: str, text: str) -> str:
+    """``text`` raccourci (« … » au bout) pour tenir dans la case ``name`` du cartouche de
+    l'atelier ; inchangé pour une case d'un autre gabarit ou un texte assez court."""
+    capacity = _CAPACITY.get(name)
+    if capacity is None or len(text) <= capacity:
+        return text
+    return text[: capacity - 1].rstrip() + _ELLIPSIS
 
 
 def template_file_name(fmt: str, orientation: Orientation) -> str:

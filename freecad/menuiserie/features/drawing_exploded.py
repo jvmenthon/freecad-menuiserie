@@ -35,6 +35,7 @@ from freecad.menuiserie.features.drawing import (
     title_inputs,
     warn_if_unfitted,
 )
+from freecad.menuiserie.features.drawing_scope import link_target
 from freecad.menuiserie.features.drawing_title import fill_title_block
 from freecad.menuiserie.features.drawing_views import add_exploded_view
 from freecad.menuiserie.features.freecad_types import HIDDEN, Document, DocumentObject
@@ -57,17 +58,22 @@ _PARTS_TOOLTIP: Final = QT_TRANSLATE_NOOP(
 
 
 def _exploded_shape(sources: Sequence[DocumentObject]) -> Any:
-    """Formes globales des ``sources`` écartées du centre de l'ouvrage, en un composé."""
+    """Formes globales des ``sources`` écartées du centre de l'ouvrage, en un composé. Un lien
+    (copie d'un meuble, Std Part) ou un Std Part donne une forme par pièce : chacun de ses
+    solides s'écarte à part."""
     center = global_box(sources).Center
     shapes = []
     for obj in sources:
         shape = global_shape(obj)
         if shape.isNull():
             continue
-        middle = shape.BoundBox.Center
-        offset = exploded_offset((center.x, center.y, center.z), (middle.x, middle.y, middle.z))
-        shape.translate(App.Vector(*offset))
-        shapes.append(shape)
+        grouped = link_target(obj) is not None or obj.TypeId == "App::Part"
+        for piece in (shape.Solids or [shape]) if grouped else [shape]:
+            middle = piece.BoundBox.Center
+            start, end = (center.x, center.y, center.z), (middle.x, middle.y, middle.z)
+            moved = piece.copy()
+            moved.translate(App.Vector(*exploded_offset(start, end)))
+            shapes.append(moved)
     return Part.makeCompound(shapes)
 
 
