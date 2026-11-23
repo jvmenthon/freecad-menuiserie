@@ -38,7 +38,13 @@ from freecad.menuiserie.core.joints._dowels_oblique import oblique_dowel_plan, o
 from freecad.menuiserie.core.joints._oblique_frame import Frame, ObliqueFrame, profile_frame
 from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame
 
-__all__ = ["MAX_DOWEL_COUNT", "DowelParams", "DowelStrategy", "DowelValues"]
+__all__ = [
+    "MAX_DOWEL_COUNT",
+    "MIN_DOWELLED_THICKNESS_MM",
+    "DowelParams",
+    "DowelStrategy",
+    "DowelValues",
+]
 
 # Tourillons du commerce : diamètre → longueur (mm).
 STANDARD_DOWELS: Final[Mapping[float, float]] = MappingProxyType(
@@ -46,6 +52,7 @@ STANDARD_DOWELS: Final[Mapping[float, float]] = MappingProxyType(
 )
 MAX_DOWEL_COUNT: Final = MAX_COUNT  # nombre saisi de 0 (automatique) à 50
 MAX_SPACING_MM: Final = 128.0  # entraxe maximal des tourillons automatiques
+MIN_DOWELLED_THICKNESS_MM: Final = 12.0  # tourillons de 6 mm au moins, 3 mm de fond de perçage
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond de chaque perçage
 _MARGIN: Final = 1e-9
 

@@ -3,6 +3,7 @@
 - Statut : **proposé** (jv a choisi « tourner puis plaquer » le 2026-11-13 et demandé le même jour
   l'inversion annulable, le mode d'équerre et l'action sur le 3e axe ; le reste est à valider)
 - Date : 2026-11-13
+- Remplacé en partie : le centrage sur X, Y, Z (point 5) par l'[ADR 0066](0066-rendre-parallele-et-aligner-debut-centre-fin.md)
 - ADR liés : [0007](0007-compatibilite-avec-les-autres-ateliers.md),
   [0022](0022-distance-entre-deux-pieces.md), [0025](0025-rotation-libre-d-une-piece.md),
   [0026](0026-assemblage-defait-par-un-deplacement.md)
@@ -35,6 +36,8 @@ est penchée.
    mode d'équerre est refusé (refus expliqués). Dans le panneau, choisir un axe grise la position
    et les deux décalages du plan (la position automatique est alors envoyée). Un décalage non fini
    est refusé dans tous les cas. Seul le décalage le long de la normale compte alors.
+   *Remplacé le 2026-11-17 par l'[ADR 0066](0066-rendre-parallele-et-aligner-debut-centre-fin.md)
+   (grille « // , début, centre, fin ») ; texte d'origine gardé ci-dessous.*
    **Centrer sur X, Y, Z** (demande de jv du 2026-11-13, « aligner les trois axes d'un coup ») :
    trois boutons à cocher, avec icône (proposition C choisie par jv : deux planches centrées sur
    une ligne, couleurs des rotations). Après le mouvement ci-dessus, sur chaque axe coché du même

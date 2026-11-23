@@ -79,7 +79,12 @@ class JointSpec:
 @dataclass(frozen=True)
 class Layout:
     """Résultat d'un gabarit : l'ensemble (cotes, ``Origin``, libellé traduisible, nom du
-    gabarit enregistré dans ``Template``), ses pièces et ses assemblages."""
+    gabarit enregistré dans ``Template``), ses pièces et ses assemblages.
+
+    ``anchor`` (ADR 0064) : clé de la pièce **déjà dans le document** que le gabarit entoure ;
+    son ``PieceSpec`` la décrit telle qu'elle est (cotes, position relative à ``Origin``, mode
+    et options « fixe » dans l'ensemble) et le constructeur ne la crée pas. ``None`` : toutes les
+    pièces sont à créer (gabarit « Caisson »)."""
 
     template: str
     label: str
@@ -87,6 +92,7 @@ class Layout:
     origin: Vec3
     pieces: tuple[PieceSpec, ...]
     joints: tuple[JointSpec, ...] = ()
+    anchor: str | None = None
 
     def __post_init__(self) -> None:
         _require(_is_text(self.template) and _is_text(self.label), "Layout : textes non vides")
@@ -101,6 +107,7 @@ class Layout:
             all({joint.host, joint.guest} <= known for joint in self.joints),
             "Layout.joints : pièces du gabarit attendues",
         )
+        _require(self.anchor is None or self.anchor in known, "Layout.anchor : clé d'une pièce")
 
     def piece(self, key: str) -> PieceSpec:
         """Pièce de clé ``key`` (``KeyError`` si elle n'existe pas)."""

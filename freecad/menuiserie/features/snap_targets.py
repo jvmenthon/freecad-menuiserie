@@ -52,6 +52,7 @@ from freecad.menuiserie.features.snap_geometry import (
     unit,
     without,
 )
+from freecad.menuiserie.features.snap_local_face import face_under_click, inward_axes
 
 __all__ = [
     "TargetReading",
@@ -137,24 +138,9 @@ def _plane_target(name: str, face: Any, nearest: Vector, normal: Vector) -> Face
     low_y = abs(box.y_range[0]) <= abs(box.y_range[1])
     corner = nearest + x * box.x_range[0 if low_x else 1] + y * box.y_range[0 if low_y else 1]
     width, height = box.x_range[1] - box.x_range[0], box.y_range[1] - box.y_range[0]
-    axis_x, axis_y, extent = _inward_axes(x, y, low_x, low_y, (width, height))
+    axis_x, axis_y, extent = inward_axes(x, y, low_x, low_y, (width, height))
     frame = Frame(to_vec3(corner), to_vec3(axis_x), to_vec3(axis_y), to_vec3(normal))
     return FaceTarget(name, frame, extent, planar=width > EPSILON and height > EPSILON)
-
-
-def _inward_axes(
-    x: Vector, y: Vector, low_x: bool, low_y: bool, sizes: tuple[float, float]
-) -> tuple[Vector, Vector, tuple[float, float]]:
-    """Axes (x, y) du repère d'appui d'après le coin choisi : rotation de 0, 90, 180 ou 270°
-    autour de la normale pour que la pièce parte vers l'intérieur de la face."""
-    width, height = sizes
-    if low_x and low_y:
-        return x, y, (width, height)
-    if not low_x and low_y:
-        return y, x * -1.0, (height, width)
-    if not low_x and not low_y:
-        return x * -1.0, y * -1.0, (width, height)
-    return y * -1.0, x, (height, width)
 
 
 def _face_target(name: str, face: Any, owner: Any, request: Request) -> FaceTarget:
@@ -278,7 +264,8 @@ def read_targets(elements: Sequence[PickedElement], toward_observer: Vec3) -> Ta
     (objet entier, maillage, page TechDraw, forme nulle) sont ignorés avec un message traduit."""
     kept: list[tuple[PickedElement, Target]] = []
     ignored: list[str] = []
-    for element in elements:
+    for picked in elements:
+        element = face_under_click(picked)
         target = target_of(element, toward_observer)
         if target is not None:
             kept.append((element, target))

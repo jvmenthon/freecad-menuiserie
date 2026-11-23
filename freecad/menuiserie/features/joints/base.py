@@ -16,8 +16,6 @@ from collections.abc import Callable
 from dataclasses import fields
 from typing import Any, ClassVar, Final, TypeVar
 
-import FreeCAD as App
-
 from freecad.menuiserie.core.geometry import PlacedBlock
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointError, JointKind, JointPlan, strategy_for
@@ -32,13 +30,12 @@ from freecad.menuiserie.features.freecad_types import (
 )
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
 from freecad.menuiserie.features.joint_material import check_joint_material
+from freecad.menuiserie.features.joints.footprint import footprint_of
+from freecad.menuiserie.features.joints.frames import placement_in_frame_of
+from freecad.menuiserie.features.joints.link_migration import migrate_links
 from freecad.menuiserie.features.joints.plan_cache import cached_plan
 from freecad.menuiserie.features.schema import PropertySpec, version_spec
-from freecad.menuiserie.features.shaped_part import (
-    base_shape_of,
-    is_shaped_part,
-    is_timber,
-)
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.solids import inserts_shape, rigid_transform
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 
@@ -113,7 +110,7 @@ _CROSS_GRAIN: Final = QT_TRANSLATE_NOOP(
 COMMON_PROPERTIES: Final = (
     PropertySpec(
         "HostPart",
-        "App::PropertyLink",
+        "App::PropertyLinkGlobal",
         "Assemblage",
         QT_TRANSLATE_NOOP(
             "App::Property",
@@ -123,7 +120,7 @@ COMMON_PROPERTIES: Final = (
     ),
     PropertySpec(
         "GuestPart",
-        "App::PropertyLink",
+        "App::PropertyLinkGlobal",
         "Assemblage",
         QT_TRANSLATE_NOOP(
             "App::Property",
@@ -229,6 +226,7 @@ class JointFeature(StatelessProxy):
 
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
+        migrate_links(obj, COMMON_PROPERTIES[:2])  # ADR 0054
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN, self.choices())
         for name, choices in self.choices().items():
             if name in obj.PropertiesList and obj.getEnumerationsOfProperty(name) != choices:
@@ -308,46 +306,14 @@ def params_from(obj: DocumentObject, params_type: Callable[..., P]) -> P:
         raise JointError(error.template, renamed) from error
 
 
-_OUTLINE_DEFLECTION_MM: Final = 0.5  # écart maximal du contour discrétisé à la courbe réelle
-_OUTLINE_FILL: Final = 0.999  # contour remplissant l'encombrement : pièce rectangulaire
-
-
-def footprint_of(obj: DocumentObject) -> tuple[tuple[tuple[float, float], ...], ...] | None:
-    """Contour réel de la pièce dans son plan XY local (boucles : extérieure puis trous), coupe à
-    mi-épaisseur de sa forme de base ; ``None`` pour une pièce rectangulaire ou si la coupe ne
-    donne rien d'exploitable (la pièce est alors vue comme son encombrement)."""
-    if not is_shaped_part(obj):
-        return None
-    try:
-        shape = base_shape_of(obj)
-        wires = shape.slice(App.Vector(0.0, 0.0, 1.0), obj.Thickness.Value / 2)
-        loops = tuple(
-            tuple(
-                (point.x, point.y)
-                for point in wire.discretize(Deflection=_OUTLINE_DEFLECTION_MM)[:-1]
-            )
-            for wire in wires
-        )
-    except (RuntimeError, ValueError, AttributeError):
-        return None
-    if not loops or any(len(loop) < 3 for loop in loops):
-        return None
-    loops = tuple(sorted(loops, key=lambda loop: -abs(_loop_area(loop))))
-    area = abs(_loop_area(loops[0])) - sum(abs(_loop_area(loop)) for loop in loops[1:])
-    if len(loops) == 1 and area >= _OUTLINE_FILL * obj.Length.Value * obj.Width.Value:
-        return None
-    return loops
-
-
-def _loop_area(loop: tuple[tuple[float, float], ...]) -> float:
-    """Aire algébrique d'une boucle (formule du lacet)."""
-    return (
-        sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(loop, loop[1:] + loop[:1], strict=True)) / 2
-    )
-
-
-def placed_blank(obj: DocumentObject | None, with_footprint: bool = False) -> PlacedBlock:
+def placed_blank(
+    obj: DocumentObject | None,
+    with_footprint: bool = False,
+    *,
+    frame_of: DocumentObject | None = None,
+) -> PlacedBlock:
     """Pièce brute vue par ``core`` (cotes et placement, et contour réel si ``with_footprint``) ;
+    placement dans le repère du conteneur de ``frame_of`` si elle est donnée (ADR 0054) ;
     ``ValueError`` traduite si elle manque ou n'est pas une pièce de bois,
     ``InvalidDimensionsError`` si une cote est invalide."""
     if obj is None:
@@ -355,14 +321,15 @@ def placed_blank(obj: DocumentObject | None, with_footprint: bool = False) -> Pl
     if not is_timber(obj):
         raise ValueError(translated(_NOT_A_WOOD_PART, {"label": quoted_value(obj.Label)}))
     footprint = footprint_of(obj) if with_footprint else None
-    return PlacedBlock(dimensions_of(obj), rigid_transform(obj.Placement), footprint)
+    placement = obj.Placement if frame_of is None else placement_in_frame_of(obj, frame_of)
+    return PlacedBlock(dimensions_of(obj), rigid_transform(placement), footprint)
 
 
 def _inputs(joint: DocumentObject) -> tuple[Any, PlacedBlock, PlacedBlock, Any]:
     """Stratégie, brutes (hôte, invitée) et paramètres de l'assemblage ``joint``."""
     proxy: JointFeature = joint.Proxy
     host = placed_blank(joint.HostPart, proxy.KIND is JointKind.FOOT)
-    guest = placed_blank(joint.GuestPart)
+    guest = placed_blank(joint.GuestPart, frame_of=joint.HostPart)
     return strategy_for(proxy.KIND), host, guest, proxy.params(joint)
 
 

@@ -36,7 +36,8 @@ def plan_error(origin: DocumentObject, host: DocumentObject, guest: DocumentObje
         with translated_errors():
             strategy = strategy_for(proxy.KIND)
             host_block = placed_blank(host, proxy.KIND is JointKind.FOOT)
-            cached_plan(strategy, host_block, placed_blank(guest), proxy.params(origin))
+            guest_block = placed_blank(guest, frame_of=host)
+            cached_plan(strategy, host_block, guest_block, proxy.params(origin))
     except ValueError as error:
         return str(error)
     return None

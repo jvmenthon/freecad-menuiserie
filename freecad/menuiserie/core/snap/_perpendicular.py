@@ -12,10 +12,11 @@ nouvelle pièce s'appuie sur la face.
 from __future__ import annotations
 
 from freecad.menuiserie.core.geometry import Matrix3, Vec3, squared_rotation
+from freecad.menuiserie.core.part_model import MAX_DIMENSION_MM, MIN_DIMENSION_MM
 from freecad.menuiserie.core.snap._model import Orientation, product
 from freecad.menuiserie.core.vectors import cross
 
-__all__ = ["perpendicular_orientation"]
+__all__ = ["along_edge", "face_section", "footprint", "perpendicular_orientation"]
 
 _LENGTH, _WIDTH, _THICKNESS = 0, 1, 2
 _NORMAL_ROW = 2  # ligne « normale sortante » du repère d'appui
@@ -56,3 +57,80 @@ def perpendicular_orientation(support: Matrix3, owner: Matrix3) -> Orientation |
     rows = [[axis.component(row) for axis in axes] for row in range(3)]
     x, y, z = (Vec3.of(row) for row in rows)
     return Orientation(((x.x, x.y, x.z), (y.x, y.y, y.z), (z.x, z.y, z.z)))
+
+
+def face_section(
+    support: Matrix3,
+    owner: Matrix3,
+    orientation: Orientation,
+    extent: tuple[float, float],
+    section: tuple[float, float],
+    edge_row: int | None = None,
+) -> tuple[float, float]:
+    """Section (largeur, épaisseur) de la nouvelle pièce posée contre une face d'étendue ``extent``
+    (selon les deux premiers axes du repère d'appui ``support``), portée par une pièce de rotation
+    ``owner`` et de section ``section``, la nouvelle pièce partant dans l'``orientation`` donnée.
+
+    La pièce garde la section de celle qui porte la face, sauf la largeur quand elle reste
+    parallèle à celle de l'autre pièce et dans le plan de la face : elle prend alors l'étendue de la
+    face selon cet axe, à l'endroit du clic (sur une pièce dessinée, la face peut être plus petite
+    que l'encombrement). Une étendue hors des bornes d'une cote (pointe d'une face triangulaire,
+    face démesurée) est ignorée : la largeur de la pièce est gardée. ``edge_row`` : axe d'appui (0
+    ou 1) de l'arête la plus proche du clic ; une largeur qui le suit prend l'étendue de la face
+    selon lui (la longueur de l'arête), même sur un repère d'appui oblique (arête oblique)."""
+    seen = squared_rotation(product(_transposed(support), owner))
+    squared = all(value in (-1.0, 0.0, 1.0) for row in seen for value in row)
+    if not squared and edge_row is None:
+        return section
+    # repère d'appui oblique (arête oblique suivie) : la largeur de l'autre pièce n'y compte pas
+    owner_width = _column(seen, _WIDTH) if squared else Vec3(0.0, 0.0, 0.0)
+    rotation = orientation.rotation()
+    new_width, new_thickness = _column(rotation, _WIDTH), _column(rotation, _THICKNESS)
+    width, thickness = section
+    for row in (0, 1):
+        usable = MIN_DIMENSION_MM <= extent[row] <= MAX_DIMENSION_MM
+        along = abs(new_width.component(row)) == 1.0
+        if usable and along and (row == edge_row or abs(owner_width.component(row)) == 1.0):
+            width = extent[row]
+        elif usable and along:
+            width = min(width, extent[row])  # largeur dans le plan de la face : pas au delà du bord
+        elif usable and abs(new_thickness.component(row)) == 1.0:
+            thickness = min(thickness, extent[row])  # la place disponible jusqu'à l'arête
+    return width, thickness
+
+
+def footprint(orientation: Orientation, section: tuple[float, float]) -> tuple[float, float]:
+    """Emprise (selon les deux premiers axes du repère d'appui) de la nouvelle pièce de section
+    ``section`` (largeur, épaisseur) posée dans l'``orientation`` donnée : la taille de la pièce sur
+    chacun de ces axes (0 si la longueur de la pièce s'y trouve : jamais à angle droit)."""
+    rotation = orientation.rotation()
+    width, thickness = _column(rotation, _WIDTH), _column(rotation, _THICKNESS)
+    sizes = []
+    for row in (0, 1):
+        if abs(width.component(row)) == 1.0:
+            sizes.append(section[0])
+        elif abs(thickness.component(row)) == 1.0:
+            sizes.append(section[1])
+        else:
+            sizes.append(0.0)
+    return sizes[0], sizes[1]
+
+
+_QUARTER_TURN: Matrix3 = (
+    (0.0, -1.0, 0.0),
+    (1.0, 0.0, 0.0),
+    (0.0, 0.0, 1.0),
+)  # autour de la normale
+
+
+def along_edge(orientation: Orientation, row: int) -> Orientation:
+    """``orientation`` tournée d'un quart de tour autour de la normale de la face pour que la
+    largeur de la pièce suive l'axe d'appui ``row`` (0 ou 1) : l'arête la plus proche du clic.
+    Inchangée si la largeur le suit déjà ou si la longueur de la pièce ne part pas de la face
+    (extrémité : la pièce y est couchée) ou si ``row`` n'est pas un axe du plan de la face."""
+    rotation = orientation.rotation()
+    if row not in (0, 1) or abs(_column(rotation, _LENGTH).component(_NORMAL_ROW)) != 1.0:
+        return orientation
+    if abs(_column(rotation, _WIDTH).component(row)) == 1.0:
+        return orientation
+    return Orientation(product(_QUARTER_TURN, rotation))

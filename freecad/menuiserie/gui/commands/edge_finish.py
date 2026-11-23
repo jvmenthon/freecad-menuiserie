@@ -17,8 +17,8 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import icon_path
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.box_parts import box_part_refusal
 from freecad.menuiserie.features.edge_profile import is_edge_profile
+from freecad.menuiserie.features.edge_profile_native import part_refusal
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.commands.base import report_refusal
@@ -62,10 +62,10 @@ class EdgeFinishCommand:
             "MenuText": QT_TRANSLATE_NOOP("Menuiserie_EdgeFinish", "Finition des chants"),
             "ToolTip": QT_TRANSLATE_NOOP(
                 "Menuiserie_EdgeFinish",
-                "Donne un profil aux arêtes d'une pièce de bois : quart de rond (arête cassée), "
-                "chanfrein, gorge, demi-rond, bec-de-corbin ou doucine. Sélectionnez avant une "
-                "face, une arête ou un sommet pour cocher ses arêtes. Les cotes finies ne "
-                "changent pas.",
+                "Donne un profil aux arêtes d'une pièce de bois, en boîte ou dessinée : quart "
+                "de rond (arête cassée), chanfrein, gorge, demi-rond, bec-de-corbin ou doucine. "
+                "Sélectionnez avant une face, une arête ou un sommet pour choisir ses arêtes. "
+                "Les cotes finies ne changent pas.",
             ),
         }
 
@@ -76,8 +76,9 @@ class EdgeFinishCommand:
 
     def Activated(self) -> None:
         """Profil sélectionné : sa modification ; sinon le panneau, avec les pièces, faces et
-        arêtes sélectionnées déjà choisies (ou aucune). Une pièce sélectionnée qui n'est pas une
-        boîte est refusée avec un message (dans le panneau s'il y a d'autres pièces)."""
+        arêtes sélectionnées déjà choisies (ou aucune). Une pièce sélectionnée dont les arêtes ne
+        peuvent pas être suivies (forme importée) est refusée avec un message (dans le panneau
+        s'il y a d'autres pièces)."""
         profile = selected_profile()
         if profile is not None:
             start_editing(profile)
@@ -85,7 +86,7 @@ class EdgeFinishCommand:
         refused = {
             part.Name: refusal
             for part in _selected_parts()
-            if (refusal := box_part_refusal(part)) is not None
+            if (refusal := part_refusal(part)) is not None
         }
         picks = [pick for pick in selected_picks() if pick.part.Name not in refused]
         refusals = list(refused.values())

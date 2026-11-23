@@ -5,13 +5,24 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ## [Non publié]
 
+### Ajouté
+
+- Commande « Fermer le caisson » (#267, ADR 0064) : à partir d'une pièce rectangulaire sélectionnée (le dessous ou le dessus), crée les côtés, la pièce opposée, le fond et, au choix, l'avant, avec un seul assemblage pour les coins (aucun, tourillons, queues d'aronde, onglet, feuillure) et un pour le fond mince (feuillure, rainure, aucun). La pièce de départ n'est ni recréée, ni déplacée, ni redimensionnée. Panneau avec schéma isométrique cliquable pour activer ou non chaque élément, bouton « Tourner l'avant », aperçu en direct, choix impossibles grisés avec leur raison en infobulle ; une seule entrée d'annulation « Fermer le caisson » ; résultat dans un ensemble « Caisson » (sous-ensemble de l'ensemble de la pièce de départ s'il y en a un). Si l'ancre est supprimée pendant le panneau, l'aperçu est retiré et la transaction validée (jamais abandonnée : l'abandon plante FreeCAD 26.3). Barre d'outils, menu contextuel d'une pièce, icône `Menuiserie_CloseCarcass`, API `make_closed_carcass` et `closing_params`.
+
+### Corrigé
+
+- Gabarit « Caisson » (commande « Caisson » et API) : l'épaisseur des panneaux et celle du fond sont refusées sous 0,1 mm, le minimum de toute pièce, avec un message qui cite ce minimum. Avant, 0,01 mm était accepté par le gabarit puis refusé à la création des pièces. Le reste du comportement ne change pas (#267, revue).
+
 ### Ajouté (outillage)
 
+- Revue des PR par GitHub Copilot : consignes de revue dans `.github/copilot-instructions.md` (contexte du projet, classement bloquant / majeur / mineur, tests, sécurité, compatibilité) et `.github/instructions/freecad-python.instructions.md` (règles et pièges FreeCAD pour le code Python). Le modèle de PR et `CONTRIBUTING.md` renvoient à cette revue.
 - Preuve de concept de tests d'interface avec QTest (#263, ADR 0059) : un scénario complet (deux pièces, rotation, queue d'aronde) est joué au clavier et à la souris dans le vrai FreeCAD par son mode test, sous `xvfb-run` dans la CI. Voir `docs/tests-gui-qtest.md`.
 - Scénarios QTest de priorité 1 (#263) : annuler et rétablir de bout en bout, enregistrer puis rouvrir, annulation de chaque panneau (bouton et Échap), modification d'une pièce déjà assemblée, saisies hostiles au clavier, document fermé avec un panneau ouvert, suppression (assemblage, pièce assemblée, ensemble avec son contenu). La CI joue chaque module `tests/qtest/scenario_*.py` dans son propre FreeCAD par `tests/qtest/lanceur.py`.
 - Scénarios QTest de priorité 2 et 3 (#265) : cadre et liste de débit (aperçu, export CSV), chaque type d'assemblage, assemblages en biais, ensemble, répétition, rotation au panneau, « Aligner deux faces » et distance gardée, quincaillerie d'un caisson, pièce en bois depuis un corps, panneau « Structure » (menu contextuel, glisser-déposer), passage par les ateliers Part et TechDraw, activation des commandes selon la sélection, deux documents en alternance. Les aides refusent désormais un geste sur un widget masqué, grisé ou en lecture seule.
 
 ### Modifié
+
+- « Aligner deux faces » : les boutons « Centrer sur X, Y, Z » sont remplacés par une grille « Parallèle et aligner sur » (ADR 0066). Sur chaque axe X, Y, Z : un bouton « // » rend le grand côté de la pièce parallèle à cet axe (un seul axe à la fois), puis début, centre ou fin la place au même bord ou au même centre que l'autre face le long de cet axe. Aligner ne fait plus tourner la pièce sans « // ». La ligne de l'axe qui traverse les faces est grisée, avec une infobulle (au lieu d'un bouton sans effet). `api.align_faces` prend `layout={"parallel": "X", "X": "start", "Y": "center"}` à la place de `centered="XYZ"`.
 
 - Coplanarité dans le panneau « Répéter » (ADR 0058, demande de jv) : le cadre des faces au ras est tracé dès l'ouverture d'une répétition existante ; les flèches des champs « Pas » et « Longueur » (et la molette, les touches haut et bas) s'arrêtent sur la valeur qui met une copie au ras d'une voisine quand elle est franchie à moins de 1 mm (voisine à 20 : 17,2 ; 18,2 ; 19,2 → 20 ; 21,2). Une valeur saisie au clavier n'est jamais modifiée.
 
@@ -54,6 +65,20 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
   usinée (modèle 2, migration sans perte), profils soustraits avant les assemblages, avertissement
   « le profil touche l'assemblage X », fonctions `add_edge_profile`, `remove_edge_profile` et
   `edge_profiles_of` de l'API.
+- Profils d'arête sur toute pièce dessinée (#5, ADR 0063, maquette A choisie par jv) : une pièce
+  en bois tirée d'un corps PartDesign, même en L, en biais ou percée, reçoit un profil sur ses
+  arêtes droites. Les arêtes sont désignées par leur nom FreeCAD (`EdgeRefs`, lien suivi par le
+  nommage topologique) : le profil suit son arête quand l'esquisse change. Chanfrein, quart de
+  rond et gorge à tout angle saillant de 30° à 150° ; demi-rond, bec-de-corbin et doucine à angle
+  droit. Arête rentrante, courbe ou entre faces courbes refusée avec sa raison ; pièce sans noms
+  d'éléments stables (primitive, forme importée) refusée. Une arête perdue (coupée en deux par une
+  modification du corps) est signalée dans la vue rapport et le panneau sans bloquer la pièce
+  usinée. Panneau : un clic sur une face prend tout son contour, un clic sur une arête prend ses
+  arêtes tangentes (Alt+clic : elle seule), second clic pour retirer ; une ligne par arête de sa
+  propre couleur, la même dans la vue 3D, avec longueur et angle, et une croix rouge qui la retire
+  seule. Profil en modèle 2 (`EdgeRefs` vide à la migration ; une version plus ancienne de
+  l'atelier refuse un profil enregistré en modèle 2) ; `api.add_edge_profile` accepte des noms
+  `"Edge7"`. Noms relus dans un document bornés (64 arêtes, sans doublon).
 - Finition des chants, lot CH-c (#5) : commande « Finition des chants » et panneau (famille, cote A,
   arêtes choisies d'après la face, l'arête ou le sommet sélectionné, cote B
   seulement si la famille la demande, arête cassée = quart de rond 1 mm par défaut),

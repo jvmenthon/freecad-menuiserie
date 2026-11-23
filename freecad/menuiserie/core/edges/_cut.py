@@ -19,7 +19,14 @@ from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.part_model import Dimensions
 
-__all__ = ["MAX_SIZE_RATIO", "MIN_SIZE_MM", "OVERSHOOT_MM", "broken_edge_cut", "edge_cut"]
+__all__ = [
+    "MAX_SIZE_RATIO",
+    "MIN_SIZE_MM",
+    "OVERSHOOT_MM",
+    "broken_edge_cut",
+    "edge_cut",
+    "resolved_sizes",
+]
 
 MIN_SIZE_MM: Final = 0.1  # cote minimale d'un profil
 MAX_SIZE_RATIO: Final = 0.5  # encombrement au plus la moitié de la pièce, dans chaque sens
@@ -36,18 +43,19 @@ TOO_BIG: Final = QT_TRANSLATE_NOOP(
 )
 
 
-def _resolved(family: EdgeFamily, edge: EdgeId, a: float, b: float) -> tuple[float, float]:
-    """Cotes ``(a, b)`` utilisables, ``b`` ramenée à ``a`` quand la famille l'impose."""
+def resolved_sizes(family: EdgeFamily, a: float, b: float, name: str) -> tuple[float, float]:
+    """Cotes ``(a, b)`` utilisables, ``b`` ramenée à ``a`` quand la famille l'impose ;
+    ``EdgeError`` qui nomme l'arête ``name`` si une cote n'est pas un nombre assez grand."""
     strategy = family_for(family)
     numbers = (a, b)
     if not all(isinstance(n, int | float) and math.isfinite(n) for n in numbers):
-        raise EdgeError(BAD_SIZE, {"edge": edge.name, "minimum": decimal_text(MIN_SIZE_MM)})
+        raise EdgeError(BAD_SIZE, {"edge": name, "minimum": decimal_text(MIN_SIZE_MM)})
     if strategy.second is SecondSize.IGNORED or (
         strategy.second is SecondSize.SAME_IF_ZERO and b == 0
     ):
         b = a
     if a < MIN_SIZE_MM or b < MIN_SIZE_MM:
-        raise EdgeError(BAD_SIZE, {"edge": edge.name, "minimum": decimal_text(MIN_SIZE_MM)})
+        raise EdgeError(BAD_SIZE, {"edge": name, "minimum": decimal_text(MIN_SIZE_MM)})
     return float(a), float(b)
 
 
@@ -61,7 +69,7 @@ def edge_cut(
     chaque bout. ``EdgeError`` si une cote est trop petite ou si l'encombrement dépasse la
     moitié de la pièce dans l'un des deux sens.
     """
-    a, b = _resolved(family, edge, a, b)
+    a, b = resolved_sizes(family, a, b, edge.name)
     strategy = family_for(family)
     sizes = (dimensions.length, dimensions.width, dimensions.thickness)
     first, second = edge.first, edge.second

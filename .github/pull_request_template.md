@@ -16,8 +16,8 @@ Closes #
 - [ ] Fichiers créés avant cette version toujours lisibles (migration si besoin)
 - [ ] `CHANGELOG.md` mis à jour
 
-## Rapports des agents
+## Revue
 
-- Testeur :
-- Sécurité :
-- Reviewer :
+- [ ] Revue GitHub Copilot faite (consignes : `.github/copilot-instructions.md`)
+- [ ] Chaque point corrigé selon sa sévérité (mineurs restants seuls : `docs/corrections-mineures.md`)
+- [ ] CI relancée et verte après les corrections

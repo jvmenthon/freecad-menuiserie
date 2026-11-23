@@ -72,13 +72,13 @@ def test_forme_des_assemblages_vide(cadre_assemble: Cadre) -> None:
 
 MACHINED_PROPERTIES = [
     ("Base", "App::PropertyLink", "Pièce", ["ReadOnly"]),
-    ("Joints", "App::PropertyLinkList", "Pièce", ["ReadOnly"]),
+    ("Joints", "App::PropertyLinkListGlobal", "Pièce", ["ReadOnly"]),
     ("Finishes", "App::PropertyLinkList", "Pièce", ["ReadOnly"]),
     ("Version", "App::PropertyInteger", "Base", ["Hidden"]),
 ]
-JOINT_PROPERTIES = [
-    ("HostPart", "App::PropertyLink", "Assemblage", ["ReadOnly"], None),
-    ("GuestPart", "App::PropertyLink", "Assemblage", ["ReadOnly"], None),
+JOINT_PROPERTIES: list[tuple[Any, ...]] = [
+    ("HostPart", "App::PropertyLinkGlobal", "Assemblage", ["ReadOnly"], None),
+    ("GuestPart", "App::PropertyLinkGlobal", "Assemblage", ["ReadOnly"], None),
     ("Version", "App::PropertyInteger", "Base", ["Hidden"], 2),
     ("TenonThickness", LENGTH, "Tenon", [], 0.0),
     ("TenonWidth", LENGTH, "Tenon", [], 0.0),
@@ -289,12 +289,6 @@ def test_refus_documents_differents(cadre: Cadre) -> None:
     foreign = api.make_wood_part(doc=other)
     count_and_raise(cadre.doc, ValueError, cadre.parts["M1"], foreign)
     assert len(other.Objects) == 1
-
-
-def test_refus_conteneurs_differents(cadre: Cadre) -> None:
-    container = cadre.doc.addObject("App::Part", "Conteneur")
-    container.addObject(cadre.parts["T1"])
-    count_and_raise(cadre.doc, ValueError, cadre.parts["M1"], cadre.parts["T1"])
 
 
 def test_meme_conteneur_accepte(cadre: Cadre) -> None:

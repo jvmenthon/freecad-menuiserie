@@ -232,17 +232,20 @@ def test_std_part_d_un_sous_ensemble_membre_reste_propre(document: Any) -> None:
 # --- 7 : pièce libre rangée avec un membre -------------------------------------------------------
 
 
-def test_piece_libre_liee_a_un_membre_est_signalee_a_l_entree(document: Any) -> None:
+def test_piece_libre_assemblee_a_un_membre_reste_libre(document: Any) -> None:
+    """ADR 0054 : un assemblage peut relier deux conteneurs ; la pièce libre assemblée à un
+    membre reste à sa place (avant : rangée avec lui dans le Std Part, avec un avertissement)."""
     desk = build_parts(document)
-    api.make_dowels(desk.parts["JG"], desk.parts["V"])  # le voile (libre) est lié à la joue
+    joint = api.make_dowels(desk.parts["JG"], desk.parts["V"])  # le voile (libre) lié à la joue
     furniture, notices = api.make_furniture([desk.parts["P"], desk.parts["JG"]], "Bureau")
     std = container.std_part_of(furniture)
-    assert desk.parts["V"].getParentGeoFeatureGroup() == std  # rangé avec la joue
+    host = joint.HostPart
+    assert joint.getParentGeoFeatureGroup() == host.getParentGeoFeatureGroup()
+    assert desk.parts["V"].getParentGeoFeatureGroup() != std or host == desk.parts["V"]
     assert api.furniture_of(desk.parts["V"]) is None  # sans être membre
-    assert len(notices) == 1
-    assert "Voile" in notices[0] and "Joue gauche" in notices[0] and "Std Part" in notices[0]
-    _, none = api.make_furniture([desk.parts["JD"]], "Seul")
-    assert none == ()  # rien à signaler sans pièce liée
+    assert notices == ()
+    document.recompute()
+    assert [o.Name for o in document.Objects if "Invalid" in o.State] == []
 
 
 # --- 9 : le libellé du Std Part suit le renommage de l'ensemble ---------------------------------

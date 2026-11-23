@@ -28,6 +28,12 @@ Ensemble (J4) ::
     bureau, avertissements = make_furniture([plateau, joue_g, joue_d, voile], label="Bureau")
     avertissements = resize_furniture(bureau, depth=800)
 
+Fermer le caisson autour d'une pièce existante, le dessous ou le dessus (ADR 0064) ::
+
+    from freecad.menuiserie.api import ClosingJoinery, make_closed_carcass
+
+    caisson, avertissements = make_closed_carcass(dessous, height=720, joinery=ClosingJoinery.MITER)
+
 Répétition (R-b1) ::
 
     from freecad.menuiserie.api import RepeatParams, dissociate, edit_repeat, make_repeat
@@ -106,6 +112,7 @@ from freecad.menuiserie._api.furniture import (
     align_faces,
     furniture_of,
     make_carcass,
+    make_closed_carcass,
     make_furniture,
     move_furniture,
     rebind_furniture,
@@ -155,6 +162,14 @@ from freecad.menuiserie.core.repeat import (
     SpacingMode,
 )
 from freecad.menuiserie.core.templates.carcass import CarcassJoinery, CarcassParams
+from freecad.menuiserie.core.templates.closing_params import (
+    BackJoinery,
+    ClosingJoinery,
+    ClosingParams,
+    ClosingRole,
+)
+from freecad.menuiserie.core.templates.closing_params import Element as ClosingElement
+from freecad.menuiserie.features.closing import closing_params
 from freecad.menuiserie.features.furniture_bindings import LockedPiecesError
 from freecad.menuiserie.features.machined_part import (
     blank_of,
@@ -170,8 +185,13 @@ __all__ = [
     "FRENCH_CSV",
     "INTERNATIONAL_CSV",
     "AxisRepeat",
+    "BackJoinery",
     "CarcassJoinery",
     "CarcassParams",
+    "ClosingElement",
+    "ClosingJoinery",
+    "ClosingParams",
+    "ClosingRole",
     "DrawingOptions",
     "LockedPiecesError",
     "Orientation",
@@ -187,6 +207,7 @@ __all__ = [
     "blank_of",
     "close_gap",
     "closing_options",
+    "closing_params",
     "count_unmarked_parts",
     "cut_list_html",
     "cut_list_of",
@@ -202,6 +223,7 @@ __all__ = [
     "machined_part_of",
     "make_biscuits",
     "make_carcass",
+    "make_closed_carcass",
     "make_cut_list",
     "make_dovetail",
     "make_dowels",

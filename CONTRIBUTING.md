@@ -155,5 +155,13 @@ Le développement est organisé en cinq rôles (architecte, dev, testeur, sécur
 définis dans [.claude/agents](.claude/agents). Enchaînement d'un lot :
 
 ```
-Architecte (issue + spec, ADR)  →  Dev (branche + PR)  →  Testeur ∥ Sécurité  →  Reviewer  →  merge humain
+Architecte (issue + spec, ADR)  →  Dev (branche + PR)  →  Revue Copilot  →  corrections + CI verte  →  merge humain
 ```
+
+Depuis le 2026-11-23, la revue des PR est faite par GitHub Copilot (revue automatique sur
+`main`), à la place des rôles testeur, sécurité et reviewer. Ses critères sont dans
+[.github/copilot-instructions.md](.github/copilot-instructions.md) et
+[.github/instructions/](.github/instructions). Chaque point est classé bloquant, majeur ou
+mineur et corrigé ; quand il ne reste que des mineurs, ils peuvent être reportés dans
+[docs/corrections-mineures.md](docs/corrections-mineures.md). Une PR n'est prête qu'une fois
+la revue corrigée et la CI verte.
