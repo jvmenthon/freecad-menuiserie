@@ -49,6 +49,7 @@ from freecad.menuiserie.features.furniture_bindings import (
     workshop_expressions,
 )
 from freecad.menuiserie.features.furniture_edits import thickness_notices
+from freecad.menuiserie.features.furniture_envelope import overflows
 from freecad.menuiserie.features.furniture_reframe import relink_framed
 from freecad.menuiserie.features.furniture_relink import relink_thickness
 from freecad.menuiserie.features.furniture_variants import follow_distances
@@ -58,7 +59,11 @@ from freecad.menuiserie.features.machined_part import blank_of
 from freecad.menuiserie.features.raw_placement import write_placement
 from freecad.menuiserie.features.shaped_part import is_shaped_part, is_timber
 from freecad.menuiserie.features.snap_geometry import to_vec3
-from freecad.menuiserie.features.thickness_common import SIZE_PROPS, restore_state
+from freecad.menuiserie.features.thickness_common import (
+    SIZE_PROPS,
+    offers_thickness_choice,
+    restore_state,
+)
 from freecad.menuiserie.features.thickness_drag import FaceFollows
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
@@ -307,11 +312,18 @@ def _relink(memento: DragMemento) -> list[str]:
     """Relie tout l'ensemble de la brute d'après sa position nouvelle ; en cas d'erreur, la brute
     revient (:func:`restore`) et l'erreur est relancée. Si l'épaisseur a été tirée, la brute
     reprend d'abord son placement du début : les liaisons sont calculées sur la géométrie
-    d'avant (:func:`_relink_thickness`)."""
+    d'avant (:func:`_relink_thickness` : la face intérieure avance, la rangée absorbe). Membre
+    assemblé tiré vers l'extérieur (il dépasse de la boîte) : la face tirée décide, comme pour
+    une pièce seule, et l'ensemble est relié d'après le résultat, boîtes recalées (jv,
+    2026-11-23 ; ADR 0060, ADR 0065)."""
     furniture = furniture_of(memento.part)
     if furniture is None:
         return []
     thicker = memento.part.Thickness.Value != memento.thickness
+    if thicker and offers_thickness_choice(memento.part) and overflows(furniture):
+        thicker = False  # vers l'extérieur : géométrie gardée, l'ensemble suit
+    elif thicker:
+        memento.follows.restore(recompute_blank)  # vers l'intérieur : la rangée absorbe
     try:
         if thicker:
             write_placement(memento.part, memento.placement)

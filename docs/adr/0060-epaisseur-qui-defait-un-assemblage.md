@@ -66,10 +66,16 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    ou à cotes fixes pour une cote, reste bloqué). À la fin (« OK », ou autre saisie qui fige
    l'état), la boîte de l'ensemble est recalée sur l'enveloppe de ses membres, celle d'un
    sous-ensemble comprise, puis celles de ses parents (ADR 0049, ADR 0065) et tous ses membres
-   sont reliés d'après la géométrie obtenue ; « Annuler » rend tout, liaisons comprises (transaction du panneau). Exemple : joue gauche du bureau de 22 à 30 mm
-   « vers l'intérieur » : la voile et la joue droite sont poussées de 8 mm, l'ensemble passe à 1208
+   sont reliés d'après la géométrie obtenue ; « Annuler » rend tout, liaisons comprises
+   (transaction du panneau). Exemple : joue gauche du bureau de 22 à 30 mm « vers l'intérieur » : la voile et la joue droite sont poussées de 8 mm, l'ensemble passe à 1208
    mm. Un membre sans assemblage, ou lui-même à cotes fixes, garde le comportement de l'ADR 0019
-   (l'ensemble garde ses cotes, les voisines s'adaptent) ; la poignée d'épaisseur d'un membre aussi.
+   (l'ensemble garde ses cotes, les voisines s'adaptent).
+6. **Poignée d'épaisseur d'un membre assemblé** (jv, 2026-11-23 : tiré vers l'extérieur, le côté
+   d'un caisson grandissait vers l'intérieur). La face tirée décide, comme pour une pièce seule
+   (point 4) : les voisines à fleur, membres du même ensemble, se prolongent en direct. Au
+   relâchement, si la pièce dépasse de la boîte (face tirée vers l'extérieur), la géométrie est
+   gardée et l'ensemble est relié d'après elle, boîtes recalées (ADR 0065). Face tirée vers
+   l'intérieur : la face extérieure ne bouge pas et la rangée absorbe (ADR 0019), comme avant.
    L'éditeur de propriétés et les scripts gardent celui de #133 (face haute, sans question).
 
 ## Conséquences

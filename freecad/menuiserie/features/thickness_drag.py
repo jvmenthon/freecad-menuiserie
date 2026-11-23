@@ -40,10 +40,10 @@ from freecad.menuiserie.features.thickness_common import (
     TOO_SHORT,
     blocker,
     extend_part,
-    has_joints,
     is_alive,
     joints_of,
     length_text,
+    offers_thickness_choice,
     other_part,
     quoted,
     restore_state,
@@ -98,8 +98,9 @@ class DragFollow:
         self.old = float(part.Thickness.Value)
         self._before = placed_blank(part)
         self._delta = 0.0
+        self._free = furniture_of(part)  # ses membres suivent comme des pièces seules (ADR 0060)
         self.followers = self._find()
-        self._plan = follow_plan(part, self.old, lowered=lowered)  # posées sur la face (#133)
+        self._plan = follow_plan(part, self.old, lowered=lowered, free=self._free)  # #133
         self._resting = self._rest_of(self._plan)
 
     def _rest_of(self, plan: FollowPlan | None) -> dict[str, tuple[DocumentObject, App.Placement]]:
@@ -150,7 +151,7 @@ class DragFollow:
                 extension,
                 App.Placement(other.Placement),
                 size_state(other),
-                blocker(other, props),
+                blocker(other, props, self._free),
             )
         return list(found.values())
 
@@ -221,9 +222,11 @@ class DragFollow:
 
 
 def drag_follow(part: DocumentObject, lowered: bool) -> DragFollow | None:
-    """Suivi pour une épaisseur tirée de ``part`` ; ``None`` pour un membre d'ensemble (l'ensemble
-    relie ses membres) ou une pièce sans assemblage."""
-    if furniture_of(part) is not None or not has_joints(part):
+    """Suivi pour une épaisseur tirée de ``part`` ; ``None`` pour une pièce sans assemblage ou un
+    membre à cotes fixes (ADR 0019). Un membre d'ensemble assemblé est suivi comme une pièce
+    seule : la face tirée décide, ses voisines de l'ensemble se prolongent (jv, 2026-11-23),
+    puis l'ensemble est relié au relâchement (:func:`.part_drag.end_drag`)."""
+    if not offers_thickness_choice(part):
         return None
     return DragFollow(part, lowered)
 

@@ -23,7 +23,8 @@ déplacée à la souris hors de son ensemble ne l'agrandissait pas non plus.
    recalée et il est relié, jusqu'à l'ensemble de plus haut niveau.
    - épaisseur d'un membre choisie dans l'encadré du panneau (ADR 0060 point 5) ;
    - sous-ensemble déplacé ou tourné (souris, `api.move_furniture`) : on part de son parent ;
-   - pièce déplacée à la souris dans un ensemble (hors poignée d'épaisseur, qui garde l'ADR 0019) ;
+   - pièce déplacée à la souris dans un ensemble, ou membre assemblé épaissi vers l'extérieur à
+     la poignée (ADR 0060 point 6) ;
    - pièce ou sous-ensemble qui entre dans un ensemble, qui en sort ou qui change d'ensemble
      (`api.add_to_furniture`, `api.remove_from_furniture`, panneau « Structure ») : l'ensemble
      rejoint et l'ensemble quitté sont recalés.
@@ -50,7 +51,8 @@ déplacée à la souris hors de son ensemble ne l'agrandissait pas non plus.
    le recalage ; l'entrée ou la sortie reste faite (elle n'est refusée qu'avant toute
    modification) et la raison est écrite dans la vue rapport.
 6. Hors de ce périmètre pour l'instant : copies d'une répétition, « Relier les pièces », poignée
-   d'épaisseur d'un membre (ADR 0019), cotes saisies dans l'éditeur de propriétés. Ils gardent
+   d'épaisseur tirée vers l'intérieur ou d'un membre sans assemblage (ADR 0019), cotes saisies
+   dans l'éditeur de propriétés. Ils gardent
    leur comportement.
 
 ## Conséquences

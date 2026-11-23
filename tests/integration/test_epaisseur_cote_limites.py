@@ -135,10 +135,14 @@ def test_partenaire_membre_d_ensemble(document: Any) -> None:
     assert holds(document, joint)
 
 
-def test_piece_membre_d_ensemble_pas_de_suivi(document: Any) -> None:
+def test_piece_membre_d_ensemble_suivie_sauf_a_cotes_fixes(document: Any) -> None:
+    """jv, 2026-11-23 : un membre assemblé est suivi comme une pièce seule ; à cotes fixes, il
+    garde l'ADR 0019 (pas de suivi)."""
     host, guest, _joint = corner(document)
     api.make_furniture([guest], "Meuble")
     document.recompute()
+    assert thickness_drag.drag_follow(guest, False) is not None
+    api.set_member_options(guest, locked=True)
     assert thickness_drag.drag_follow(guest, False) is None
     assert host.Length.Value == 400
 

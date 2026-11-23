@@ -302,10 +302,10 @@ def dragged_thickness(mark: str, value: float, shift: Any) -> Any:
     return change
 
 
-@pytest.mark.parametrize("shift", [Vec3(0, 0, 0), Vec3(0, 0, -3)], ids=["fin", "debut"])
-def test_epaisseur_tiree_comme_saisie_dans_le_panneau(shift: Any) -> None:
-    """Membre d'ensemble en massif : l'épaisseur tirée est gardée et la rangée recalculée, comme
-    pour ``set_member_thickness`` (la saisie du panneau), quelle que soit la face tirée."""
+def test_epaisseur_tiree_vers_l_interieur_comme_saisie_dans_le_panneau() -> None:
+    """Membre d'ensemble en massif, face intérieure tirée : l'épaisseur tirée est gardée et la
+    rangée recalculée, comme pour ``set_member_thickness`` (la saisie du panneau)."""
+    shift = Vec3(0, 0, -3)  # la joue gauche a son axe d'épaisseur vers -X : face intérieure
     from freecad.menuiserie.features.furniture_locks import set_member_thickness
 
     _, typed = thickness_after(
@@ -316,6 +316,21 @@ def test_epaisseur_tiree_comme_saisie_dans_le_panneau(shift: Any) -> None:
     assert dragged.parts["JG"].Thickness.Value == 25
     assert dragged.sizes("V")[0] == 1153  # le voile absorbe les 3 mm
     assert "Thickness" not in dragged.expressions("JG")
+    assert stale_or_invalid(dragged.doc) == []
+
+
+def test_epaisseur_tiree_vers_l_exterieur_la_face_tiree_decide() -> None:
+    """jv, 2026-11-23 : membre assemblé tiré vers l'extérieur, il grandit vers l'extérieur (sa
+    face intérieure ne bouge pas) ; la boîte de l'ensemble est recalée (ADR 0065)."""
+    from freecad.menuiserie.features.furniture_envelope import frame_of, member_envelope
+
+    dragged, _ = thickness_after(
+        "TestPieceDeBoisDehors", dragged_thickness("JG", 25.0, Vec3(0, 0, 0))
+    )
+    assert dragged.bounds("JG")[0] == pytest.approx((-3, 22))
+    assert dragged.sizes("V")[0] == 1156  # le voile ne bouge pas
+    assert frame_of(dragged.furniture) == member_envelope(dragged.furniture)
+    assert dragged.furniture.Width.Value == pytest.approx(1203)
     assert stale_or_invalid(dragged.doc) == []
 
 
@@ -336,7 +351,7 @@ def test_epaisseur_tiree_refusee_par_la_rangee_bloquee(bureau: Bureau) -> None:
     api.set_member_options(bureau.parts["V"], locked=True)
     before = {mark: bureau.sizes(mark) for mark in LAYOUT}
     memento = drag.begin_drag(bureau.parts["JG"])
-    drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, 0))
+    drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, -3))  # face intérieure
     with pytest.raises(api.LockedPiecesError):
         drag.end_drag(memento)
     bureau.doc.recompute()
