@@ -53,13 +53,16 @@ def text_width_mm(value: float, font: float) -> float:
 
 
 def chain_labels(
-    segments: Sequence[tuple[float, float]], width: Callable[[float, float], float]
+    segments: Sequence[tuple[float, float]],
+    width: Callable[[float, float], float],
+    bounds: tuple[float, float] = (-math.inf, math.inf),
 ) -> list[ChainLabel]:
     """Cotes lisibles d'une chaîne de ``segments`` (mm de la feuille, bout à bout) : chaque
     texte (``width(début, fin)`` de large) se place dans son segment, sinon juste avant (juste
-    après pour la dernière cote, au bout de la chaîne), sans chevaucher le précédent. Un point
-    dont la cote ne trouve pas de place est retiré (les deux segments voisins n'en font qu'un).
-    Vide s'il ne reste qu'une cote : la cote hors tout la donne déjà."""
+    après pour la dernière cote, au bout de la chaîne), sans chevaucher le précédent ni sortir
+    de ``bounds`` (place libre autour de la vue). Un point dont la cote ne trouve pas de place
+    est retiré (les deux segments voisins n'en font qu'un). Vide s'il ne reste qu'une cote : la
+    cote hors tout la donne déjà."""
     if len(segments) < 2:
         return []
     first, last = segments[0][0], segments[-1][1]
@@ -67,30 +70,55 @@ def chain_labels(
     for _, end in segments:
         while True:
             start = labels[-1][1] if labels else first
-            right = labels[-1][2] + width(*labels[-1][:2]) / 2 if labels else -math.inf
-            spot = _label_spot((start, end), width(start, end), right, end == last)
+            right = labels[-1][2] + width(*labels[-1][:2]) / 2 if labels else bounds[0]
+            spot = _label_spot((start, end), width(start, end), (right, bounds[1]), end == last)
+            if spot is None and labels:
+                spot = _slid_before(labels, (start, end), width, bounds[0])
             if spot is not None or end != last or not labels:
                 break
             labels.pop()  # la dernière cote ne tient pas : le point précédent est retiré
-        if spot is None and end == last:
-            spot = end + _LABEL_GAP_MM + width(start, end) / 2
         if spot is not None:
             labels.append((start, end, spot))
     return labels if len(labels) > 1 else []
 
 
-def _label_spot(
-    segment: tuple[float, float], text: float, right: float, at_end: bool
+def _slid_before(
+    labels: list[ChainLabel],
+    segment: tuple[float, float],
+    width: Callable[[float, float], float],
+    left_bound: float,
 ) -> float | None:
-    """Milieu du texte d'une cote sur ``segment`` qui ne déborde pas sur ``right`` (fin du
-    texte précédent) : dans le segment, sinon juste avant ou juste après (après d'abord au bout
-    de la chaîne) ; ``None`` s'il n'y a pas de place."""
+    """Texte de la cote ``segment`` juste avant son début, en poussant vers la gauche le texte
+    précédent (sans le sortir de son segment ni le faire chevaucher le sien) ; ``labels`` est mis
+    à jour. ``None`` s'il n'y a pas la place."""
+    low, high, _ = labels[-1]
+    text, previous = width(*segment), width(low, high)
+    spot = segment[0] - _LABEL_GAP_MM - text / 2
+    moved = spot - text / 2 - _LABEL_GAP_MM - previous / 2
+    left = labels[-2][2] + width(*labels[-2][:2]) / 2 if len(labels) > 1 else left_bound
+    if moved - previous / 2 < max(low, left + _LABEL_GAP_MM):
+        return None
+    labels[-1] = (low, high, moved)
+    return spot
+
+
+def _label_spot(
+    segment: tuple[float, float], text: float, room: tuple[float, float], at_end: bool
+) -> float | None:
+    """Milieu du texte d'une cote sur ``segment`` qui tient entre ``room`` (fin du texte
+    précédent, limite de la place libre) : dans le segment, sinon juste avant ou juste après
+    (après d'abord au bout de la chaîne) ; ``None`` s'il n'y a pas de place."""
     low, high = segment
+    left, limit = room
     before = low - _LABEL_GAP_MM - text / 2
     after = high + _LABEL_GAP_MM + text / 2
     inside = (low + high) / 2 if high - low >= text + _LABEL_GAP_MM else None
     for middle in (inside, *((after, before) if at_end else (before, after))):
-        if middle is not None and middle - text / 2 >= right + _LABEL_GAP_MM:
+        if (
+            middle is not None
+            and middle - text / 2 >= left + _LABEL_GAP_MM
+            and middle + text / 2 <= limit
+        ):
             return middle
     return None
 

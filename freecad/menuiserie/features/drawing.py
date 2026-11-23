@@ -35,6 +35,7 @@ from freecad.menuiserie.core.drawing import (
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.drawing_details import front_details, global_shape
 from freecad.menuiserie.features.drawing_dims import overall_band_mm
+from freecad.menuiserie.features.drawing_scope import NOTHING, document_scope, drawing_sources
 from freecad.menuiserie.features.drawing_settings import DrawingOptions
 from freecad.menuiserie.features.drawing_title import STORED, fill_title_block
 from freecad.menuiserie.features.drawing_views import (
@@ -45,11 +46,7 @@ from freecad.menuiserie.features.drawing_views import (
     techdraw,
 )
 from freecad.menuiserie.features.freecad_types import HIDDEN, Document, DocumentObject
-from freecad.menuiserie.features.furniture import furniture_of, is_furniture
-from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.i18n import report_warning, translated, translated_errors
-from freecad.menuiserie.features.machined_part import machined_part_of
-from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = [
     "KIND",
@@ -98,10 +95,6 @@ _OWNED_TOOLTIP: Final = QT_TRANSLATE_NOOP(
 _NO_TECHDRAW: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan impossible : l'atelier TechDraw de FreeCAD n'est pas disponible."
 )
-_NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan impossible : aucune pièce à dessiner.")
-_FOREIGN: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Plan impossible : « {label} » appartient à un autre document."
-)
 _KIND_TOOLTIP: Final = QT_TRANSLATE_NOOP(
     "App::Property", "Genre du plan construit par l'atelier Menuiserie (vide : de l'ouvrage)."
 )
@@ -124,50 +117,6 @@ def is_workshop_drawing(obj: object) -> bool:
     return getattr(obj, "TypeId", None) == PAGE_TYPE and getattr(obj, MARKER, False) is True
 
 
-def _expanded(obj: DocumentObject, seen: set[str]) -> Iterator[DocumentObject]:
-    """Objets à projeter pour ``obj`` : les membres d'un ensemble (sous-ensembles compris), la
-    pièce usinée d'une pièce de bois assemblée, sinon l'objet lui-même s'il a une forme."""
-    if obj.Name in seen:
-        return
-    seen.add(obj.Name)
-    if is_furniture(obj):
-        for member in members_of(obj):
-            yield from _expanded(member, seen)
-        return
-    shown = (machined_part_of(obj) or obj) if is_timber(obj) else obj
-    shape = getattr(shown, "Shape", None)
-    if shown.Name != obj.Name and shown.Name in seen:
-        return
-    seen.add(shown.Name)
-    if obj.TypeId == "App::Part" or (shape is not None and not shape.isNull()):
-        yield shown
-
-
-def document_scope(doc: Document) -> list[DocumentObject]:
-    """Ce que dessine le plan quand rien n'est sélectionné : les ensembles de plus haut niveau et
-    les pièces de bois hors ensemble du document, par nom."""
-    found = [
-        obj
-        for obj in doc.Objects
-        if (is_furniture(obj) or is_timber(obj)) and furniture_of(obj) is None
-    ]
-    return sorted(found, key=lambda obj: obj.Name)
-
-
-def drawing_sources(doc: Document, objects: Sequence[DocumentObject]) -> list[DocumentObject]:
-    """Objets à projeter pour dessiner ``objects`` (ensembles, pièces, Std Part, solides d'autres
-    ateliers), sans doublon et dans l'ordre donné. ``ValueError`` traduite pour un objet d'un autre
-    document ou s'il n'y a rien à dessiner."""
-    for obj in objects:
-        if getattr(obj, "Document", None) != doc:
-            raise ValueError(translated(_FOREIGN, {"label": str(getattr(obj, "Label", obj))}))
-    seen: set[str] = set()
-    sources = [shown for obj in objects for shown in _expanded(obj, seen)]
-    if not sources:
-        raise ValueError(translated(_NOTHING))
-    return sources
-
-
 def global_box(sources: Sequence[DocumentObject]) -> Any:
     """Boîte englobante des ``sources`` dans le repère global du document."""
     box = App.BoundBox()
@@ -177,7 +126,7 @@ def global_box(sources: Sequence[DocumentObject]) -> Any:
             continue
         box.add(shape.BoundBox)
     if not box.isValid():
-        raise ValueError(translated(_NOTHING))
+        raise ValueError(translated(NOTHING))
     return box
 
 

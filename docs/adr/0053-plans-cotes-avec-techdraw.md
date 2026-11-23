@@ -73,6 +73,14 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
    fait planter FreeCAD : la commande passe une attente (`DrawingOptions.settle`,
    `gui/drawing_hlr.py`, boucle d'événements sans saisies, échéance commune de 20 s) ; sans
    géométrie, les cotes sont omises et l'utilisateur averti. `features/` reste sans Qt.
+10. **Retour de jv du 23/11.** La place des cotes se calcule avec la taille de texte par défaut
+   de TechDraw (5 mm, et non 3,5 mm) quand la préférence n'est pas écrite ; l'écart aux traits
+   de coupe en dépend (TechDraw prolonge le trait de deux tailles de texte et y pose la lettre).
+   Les textes d'une chaîne de cotes ne sortent pas de la place libre autour de la face. Les
+   copies par lien (`App::Link` d'un Std Part d'ensemble ou d'une pièce, tableaux compris) sont
+   dessinées par TechDraw à leur place et comptées dans la quantité des plans de pièce
+   (`features/drawing_scope.py`). La page s'ouvre sans basculer dans l'atelier TechDraw
+   (affichage de la page, pas son double-clic).
 
 ## Conséquences
 

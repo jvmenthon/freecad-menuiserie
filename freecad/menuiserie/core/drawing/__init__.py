@@ -20,6 +20,7 @@ from freecad.menuiserie.core.drawing._joint_notes import (
 from freecad.menuiserie.core.drawing._layout import (
     CHAR_WIDTH_RATIO,
     DEFAULT_FORMAT,
+    GAP_MM,
     PAGE_FORMATS,
     SCALES,
     Orientation,
@@ -64,6 +65,7 @@ __all__ = [
     "CHAR_WIDTH_RATIO",
     "CONTINUATION",
     "DEFAULT_FORMAT",
+    "GAP_MM",
     "MAX_FIELD_LENGTH",
     "MAX_NOTE_LINES",
     "NAMES",

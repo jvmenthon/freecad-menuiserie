@@ -65,14 +65,15 @@ def ask_pdf_path(page: DocumentObject, parent: Any = None) -> Path | None:
 
 
 def show_page(page: DocumentObject) -> None:
-    """Ouvre ``page`` dans son onglet, comme un double-clic dans l'arbre."""
+    """Ouvre ``page`` dans son onglet sans changer d'atelier : le double-clic de TechDraw
+    bascule dans l'atelier TechDraw (préférence « SwitchToWB »), l'affichage de la page non."""
     view_object = getattr(page, "ViewObject", None)
     if view_object is None:
         return
     try:
-        view_object.doubleClicked()
+        view_object.show()
     except (AttributeError, RuntimeError):
-        Gui.ActiveDocument.setEdit(page.Name)
+        return
 
 
 def export_page_pdf(page: DocumentObject, path: str | Path) -> Path:

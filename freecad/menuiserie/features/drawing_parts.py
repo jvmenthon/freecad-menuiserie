@@ -49,6 +49,12 @@ from freecad.menuiserie.features.drawing import (
     warn_if_unfitted,
 )
 from freecad.menuiserie.features.drawing_dims import part_band_mm
+from freecad.menuiserie.features.drawing_scope import (
+    MAX_LINK_DEPTH,
+    link_occurrences,
+    link_target,
+    workshop_inside,
+)
 from freecad.menuiserie.features.drawing_title import fill_title_block
 from freecad.menuiserie.features.drawing_views import NOTE_SIZE_MM, add_part_views
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -65,6 +71,7 @@ from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = ["distinct_parts", "make_part_drawings", "part_details"]
 
+MAX_QUANTITY: Final = 1_000_000  # exemplaires d'une pièce au plus (tableaux de liens imbriqués)
 PART_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce")
 _KIND: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce, {count} ex.")
 _HEADER: Final = QT_TRANSLATE_NOOP(
@@ -87,19 +94,28 @@ _KINDS: Final = {
 }
 
 
-def _blanks(objects: Sequence[DocumentObject], seen: set[str]) -> Iterator[DocumentObject]:
-    """Pièces de bois (brutes) de ``objects`` : membres des ensembles, brute d'une pièce
-    usinée, sans doublon."""
+def _blanks(
+    objects: Sequence[DocumentObject], seen: set[str], depth: int = 0
+) -> Iterator[tuple[DocumentObject, int]]:
+    """Pièces de bois (brutes) de ``objects`` et leur nombre : membres des ensembles, brute
+    d'une pièce usinée, sans doublon ; un lien (copie d'un meuble ou d'une pièce) redonne les
+    pièces qu'il montre, autant de fois qu'il a de copies."""
     for obj in objects:
         if obj.Name in seen:
             continue
         seen.add(obj.Name)
-        if is_furniture(obj):
-            yield from _blanks(members_of(obj), seen)
+        target = link_target(obj)
+        if target is not None:
+            if depth < MAX_LINK_DEPTH:
+                times = link_occurrences(obj)
+                for blank, count in _blanks(workshop_inside(target), set(), depth + 1):
+                    yield blank, min(count * times, MAX_QUANTITY)
+        elif is_furniture(obj):
+            yield from _blanks(members_of(obj), seen, depth)
         elif is_machined_part(obj):
-            yield from _blanks([blank_of(obj)], seen)
+            yield from _blanks([blank_of(obj)], seen, depth)
         elif is_timber(obj):
-            yield obj
+            yield obj, 1
 
 
 def _size(blank: DocumentObject) -> tuple[float, float, float]:
@@ -194,13 +210,13 @@ def distinct_parts(
     bois."""
     scope = list(objects) or document_scope(doc)
     blanks = sorted(
-        _blanks(scope, set()), key=lambda obj: (str(getattr(obj, "Mark", "")), obj.Name)
+        _blanks(scope, set()), key=lambda item: (str(getattr(item[0], "Mark", "")), item[0].Name)
     )
     groups: dict[tuple[object, ...], list[Any]] = {}
-    for blank in blanks:
+    for blank, times in blanks:
         found, notes = part_details(blank)
         entry = groups.setdefault(_key(blank, found, notes), [blank, 0, found, notes])
-        entry[1] += 1
+        entry[1] = min(entry[1] + times, MAX_QUANTITY)
     if not groups:
         raise ValueError(translated(_NO_PART))
     return [(blank, count, (found, notes)) for blank, count, found, notes in groups.values()]

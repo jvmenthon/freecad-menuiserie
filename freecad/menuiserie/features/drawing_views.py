@@ -12,6 +12,7 @@ from typing import Any, Final, NamedTuple
 import FreeCAD as App
 
 from freecad.menuiserie.core.drawing import (
+    GAP_MM,
     ChainLabel,
     OverallLayout,
     Spot,
@@ -24,11 +25,11 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.drawing_details import FrontDetails
 from freecad.menuiserie.features.drawing_dims import (
     DIMENSION_CLEARANCE_MM,
-    SECTION_CLEARANCE_MM,
     Settle,
     added_by,
     dimension_font_mm,
     dimension_row_mm,
+    section_clearance_mm,
     text_height_mm,
     wait_for_geometry,
 )
@@ -98,8 +99,7 @@ ANNOTATION_TYPE: Final = "TechDraw::DrawViewAnnotation"
 NOTE_SIZE_MM: Final = 3.5
 _ISO_CAPTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Perspective {scale}")
 _SECTIONS: Final = {"CutV": "A", "CutH": "B"}  # repère du trait de coupe sur la face
-# Cotes hors tout : (vue, sens) pour la largeur (X), la profondeur (Y) et la hauteur (Z). La
-# profondeur se lit sur la coupe verticale, qui garde le plateau qu'une coupe horizontale ôte.
+# Cotes hors tout (vue, sens) : largeur, profondeur (sur la coupe A-A, plateau gardé), hauteur.
 _OVERALL: Final = (("Front", HORIZONTAL), ("CutV", HORIZONTAL), ("Front", VERTICAL))
 
 
@@ -206,7 +206,7 @@ def add_overall_views(
         # hors tout passent au-delà.
         clearance = DIMENSION_CLEARANCE_MM
         if key == "Front":
-            clearance = SECTION_CLEARANCE_MM + chained.rows[direction] * dimension_row_mm()
+            clearance = section_clearance_mm() + chained.rows[direction] * dimension_row_mm()
         _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction, clearance)
         names.extend(added)
     return names
@@ -247,16 +247,17 @@ def add_front_details(
         return text_width_mm((high - low) / scale, font)
 
     rows = []
-    for direction, points, middle in (
-        (HORIZONTAL, details.xs, center.x),
-        (VERTICAL, details.zs, center.z),
+    for direction, points, middle, room in (
+        # Textes : au plus un demi-écart hors de la face (coupe A-A à droite, B-B dessous).
+        (HORIZONTAL, details.xs, center.x, half[0] + GAP_MM / 2),
+        (VERTICAL, details.zs, center.z, half[1] + DIMENSION_CLEARANCE_MM),
     ):
         # Points en mm de la feuille depuis le centre de la face (TechDraw les remet à l'échelle).
         segments = [
             ((low - middle) * scale, (high - middle) * scale)
             for low, high in chain_segments(points, ARROWS_MM / scale)
         ]
-        labels = chain_labels(segments, width)
+        labels = chain_labels(segments, width, (-room, room))
         for label in labels:
             names.extend(_chain_dim(page, partial(make, front), direction, label, half))
         rows.append(1 if labels else 0)
@@ -274,7 +275,7 @@ def _chain_dim(
     bord de la face de demi-taille ``half``, son texte au-delà des traits de coupe."""
     low, high, along = label
     half_width, half_height = half
-    offset = SECTION_CLEARANCE_MM + text_height_mm()
+    offset = section_clearance_mm() + text_height_mm()
     if direction == HORIZONTAL:
         corners = (App.Vector(low, half_height, 0), App.Vector(high, half_height, 0))
         spot = (along, half_height + offset)

@@ -359,3 +359,26 @@ def test_perspective_reduite_plutot_que_l_echelle() -> None:
 def test_sans_perspective_pas_de_place_pour_elle() -> None:
     layout = overall_layout((1200, 600, 750), page_size("A3"), iso=False, band=32.5)
     assert layout.iso_scale == layout.scale
+
+
+def _jv_widths(low: float, high: float) -> float:
+    return 7 * 0.85 * 5.0  # « 4562,26 » en texte de 5 mm
+
+
+def test_derniere_cote_reste_dans_la_place_libre() -> None:
+    """Retour de jv du 23/11 : le dernier texte de la chaîne ne déborde plus sur la vue voisine
+    (cotes de la coupe A-A) ; il passe avant son segment, le texte précédent glissant à
+    gauche."""
+    segments = [(0.0, 91.2), (91.2, 114.6)]
+    labels = chain_labels(segments, _jv_widths, (-15.0, 114.6 + 15.0))
+    text = _jv_widths(0.0, 0.0)
+    assert [label[:2] for label in labels] == segments
+    assert all(middle + text / 2 <= 129.6 + 1e-9 for _, _, middle in labels)
+    assert labels[1][2] + text / 2 <= 91.2
+    assert labels[1][2] - labels[0][2] >= text
+    assert labels[0][2] - text / 2 >= 0.0
+
+
+def test_sans_place_la_chaine_est_omise() -> None:
+    """Aucun texte ne tient dans la place libre : pas de chaîne (la cote hors tout suffit)."""
+    assert chain_labels([(0.0, 5.0), (5.0, 10.0)], _jv_widths, (-1.0, 11.0)) == []

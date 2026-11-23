@@ -15,7 +15,6 @@ from freecad.menuiserie.features.i18n import report_warning, translated
 
 __all__ = [
     "DIMENSION_CLEARANCE_MM",
-    "SECTION_CLEARANCE_MM",
     "Settle",
     "added_by",
     "dimension_font_mm",
@@ -23,13 +22,16 @@ __all__ = [
     "has_geometry",
     "overall_band_mm",
     "part_band_mm",
+    "section_clearance_mm",
     "text_height_mm",
     "wait_for_geometry",
 ]
 
 DIMENSION_CLEARANCE_MM: Final = 4.0  # du bord de la vue au texte d'une cote, plus le texte
-SECTION_CLEARANCE_MM: Final = 14.0  # idem, au-delà des flèches et lettres d'un trait de coupe
-DIMENSION_FONT_MM: Final = 3.5  # taille du texte des cotes si TechDraw n'en donne pas
+# Taille du texte des cotes quand la préférence n'est pas écrite : celle de TechDraw
+# (``Preferences::DefaultFontSizeInMM``), qui sert aussi aux lettres des traits de coupe.
+DIMENSION_FONT_MM: Final = 5.0
+_MIN_SECTION_CLEARANCE_MM: Final = 14.0
 _DIMENSION_PARAMS: Final = "User parameter:BaseApp/Preferences/Mod/TechDraw/Dimensions"
 
 
@@ -63,6 +65,13 @@ def text_height_mm() -> float:
     return 1.5 * dimension_font_mm()
 
 
+def section_clearance_mm() -> float:
+    """Écart du bord de la face au texte d'une cote qui doit passer au-delà des traits de coupe :
+    TechDraw prolonge le trait de deux tailles de texte hors de la vue et y pose la lettre (une
+    taille de plus), à la taille du texte des cotes."""
+    return max(_MIN_SECTION_CLEARANCE_MM, 3.2 * dimension_font_mm() + 2.0)
+
+
 def dimension_row_mm() -> float:
     """Écart entre deux rangées de cotes parallèles."""
     return text_height_mm() + DIMENSION_CLEARANCE_MM
@@ -71,7 +80,7 @@ def dimension_row_mm() -> float:
 def overall_band_mm(chains: bool = True) -> float:
     """Place des cotes au-dessus et à gauche de la face du plan de l'ouvrage : traits de coupe,
     cotes de détail (si ``chains``), cotes hors tout."""
-    return SECTION_CLEARANCE_MM + (2 if chains else 1) * dimension_row_mm()
+    return section_clearance_mm() + (2 if chains else 1) * dimension_row_mm()
 
 
 def part_band_mm() -> float:
