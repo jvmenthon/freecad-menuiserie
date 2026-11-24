@@ -88,8 +88,9 @@ def broken_joints(
     (``ValueError`` traduite de ``plan_for``), sans recalcul ; ceux de ``already_invalid`` (noms),
     déjà défaits avant le déplacement, ne comptent pas."""
     broken: list[DocumentObject] = []
-    for joint in part.InList:  # un objet y figure une fois par lien : doublons possibles
-        if not is_joint(joint) or joint.Name in already_invalid or joint in broken:
+    # ``InList`` cite un objet une fois par lien : doublons retirés, ordre gardé.
+    for joint in {obj.Name: obj for obj in part.InList}.values():
+        if not is_joint(joint) or joint.Name in already_invalid:
             continue
         try:
             plan_for(joint)

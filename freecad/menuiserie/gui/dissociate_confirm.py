@@ -45,13 +45,21 @@ _DISSOCIATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier")
 Confirmer = Callable[[Sequence[str], int], bool]
 
 
+def _template(repeats: int, copies: int) -> str:
+    """Gabarit du texte : plusieurs répétitions, une seule copie, ou plusieurs copies."""
+    if repeats > 1:
+        return _TEXT_MANY
+    if copies == 1:
+        return _TEXT_ONE
+    return _TEXT
+
+
 def message_for(labels: Sequence[str], copies: int) -> str:
     """Texte de la fenêtre : les répétitions (``labels``, entre guillemets) et leur nombre total
     de copies, au singulier ou au pluriel, puis comment revenir en arrière."""
-    template = _TEXT_ONE if copies == 1 else _TEXT
-    if len(labels) > 1:
-        template = _TEXT_MANY
-    head = translated(template, {"labels": ", ".join(labels), "count": str(copies)})
+    head = translated(
+        _template(len(labels), copies), {"labels": ", ".join(labels), "count": str(copies)}
+    )
     return f"{head}\n\n{translated(_ADVICE)}"
 
 
@@ -76,6 +84,9 @@ confirmer: Confirmer = ask
 
 
 def confirmed(repeats: Sequence[DocumentObject]) -> bool:
-    """Demande à ``confirmer`` (lu à l'appel) s'il faut dissocier ``repeats``."""
+    """Demande à ``confirmer`` (lu à l'appel) s'il faut dissocier ``repeats`` ; rien à
+    dissocier : faux, sans fenêtre."""
+    if not repeats:
+        return False
     labels = [f"« {quoted_value(rep.Label)} »" for rep in repeats]
     return bool(confirmer(labels, sum(len(copies_of(rep)) for rep in repeats)))
