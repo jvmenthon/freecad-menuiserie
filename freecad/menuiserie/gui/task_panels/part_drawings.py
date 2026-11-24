@@ -199,10 +199,9 @@ class PartDrawingsTaskPanel:
         except RuntimeError:  # arbre détruit
             self._watcher.detach()
             return
-        for item in items:
+        for item in items:  # un même objet peut avoir plusieurs lignes
             if item.data(0, _NAME_ROLE) == name:
                 item.setCheckState(0, _state("Checked"))
-                return
 
     def chosen(self) -> list[DocumentObject]:
         """Pièces et liens cochés, dans l'ordre de l'arbre."""

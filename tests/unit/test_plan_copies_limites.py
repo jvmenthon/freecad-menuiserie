@@ -210,3 +210,92 @@ def test_tableau_vise_sa_cible_et_non_lui_meme(scope: ModuleType) -> None:
     array = _link("A", target, ElementCount=3)
     array.target = array  # ce que FreeCAD rend pour un tableau
     assert scope.link_target(array) is target
+
+
+def _part(name: str, group: list[Any]) -> Obj:
+    return Obj(name, TypeId="App::Part", Group=group)
+
+
+def test_deux_liens_qui_se_visent_ne_bouclent_pas(scope: ModuleType) -> None:
+    """Revue testeur : A vise B qui vise A (document piégé) : rien n'est montré, sans erreur."""
+    first = _link("A", None)
+    second = _link("B", first)
+    first.LinkedObject = second
+    walk = scope.LinkWalk()
+    assert scope.workshop_inside(first, walk) == []
+    assert scope.workshop_inside(second, walk) == []
+
+
+def test_lien_vers_sous_element_vise_son_objet(scope: ModuleType) -> None:
+    target = _part("T", [])
+    assert scope.link_target(_link("L", (target, "Sub."))) is target
+    assert scope.link_target(_link("L", ())) is None
+
+
+def test_cible_commune_lue_une_seule_fois(scope: ModuleType) -> None:
+    shared = _part("S", [])
+    holder = _part("H", [_link(f"L{i}", shared) for i in range(50)])
+    walk = scope.LinkWalk()
+    assert scope.workshop_inside(holder, walk) == []
+    assert walk.visits == 2  # le conteneur et la cible commune
+
+
+def test_trop_de_cibles_lues_refuse(scope: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scope, "MAX_LINK_VISITS", 3)
+    holder = _part("H", [_link(f"L{i}", _part(f"S{i}", [])) for i in range(10)])
+    with pytest.raises(ValueError, match="liens imbriqués"):
+        scope.workshop_inside(holder, scope.LinkWalk())
+
+
+def test_plafond_d_elements_exactement_atteint(scope: ModuleType) -> None:
+    link = _link("L", None, ElementCount=scope.MAX_LINK_ELEMENTS)
+    assert scope.link_occurrences(link) == scope.MAX_LINK_ELEMENTS
+
+
+def test_cle_d_objet_distingue_les_documents(scope: ModuleType) -> None:
+    here, there = Obj("P"), Obj("P")
+    there.Document = SimpleNamespace(Name="autre")
+    here.Document = SimpleNamespace(Name="ici")
+    assert scope.object_key(here) != scope.object_key(there)
+    assert scope.object_key(here) == ("ici", "P")
+
+
+@pytest.fixture
+def parts(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
+    with simulated_freecad(monkeypatch):
+        from freecad.menuiserie.features import drawing_parts
+
+        yield parts_module(drawing_parts, monkeypatch)
+
+
+def parts_module(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    """``drawing_parts`` où seules les pièces nommées « B… » sont des pièces de bois."""
+    monkeypatch.setattr(module, "is_timber", lambda obj: obj.Name.startswith("B"))
+    monkeypatch.setattr(module, "is_furniture", lambda _obj: False)
+    monkeypatch.setattr(module, "is_machined_part", lambda _obj: False)
+    monkeypatch.setattr(
+        module, "workshop_inside", lambda target, _walk=None: list(getattr(target, "Group", []))
+    )
+    return module
+
+
+def test_tableau_de_liens_multiplie_les_pieces(parts: ModuleType, scope: ModuleType) -> None:
+    box = Obj("B1", TypeId="Part::Box")
+    array = _link("L", _part("S", [box]), ElementCount=4)
+    found = list(parts._blanks([array], set(), scope.LinkWalk()))
+    assert [(blank.Name, count) for blank, count in found] == [("B1", 4)]
+
+
+def test_liens_de_liens_multiplient_et_plafonnent(parts: ModuleType, scope: ModuleType) -> None:
+    box = Obj("B1", TypeId="Part::Box")
+    inner = _link("I", _part("S", [box]), ElementCount=3)
+    outer = _link("O", _part("T", [inner]), ElementCount=5)
+    found = list(parts._blanks([outer], set(), scope.LinkWalk()))
+    assert [count for _, count in found] == [15]
+    huge = _link("H", _part("U", [box]), ElementCount=scope.MAX_LINK_ELEMENTS)
+    capped = list(parts._blanks([huge, _link("H2", huge)], set(), scope.LinkWalk()))
+    assert all(count <= parts.MAX_QUANTITY for _, count in capped)
+
+
+def test_lien_vide_ne_donne_aucune_piece(parts: ModuleType, scope: ModuleType) -> None:
+    assert list(parts._blanks([_link("L", _part("S", []))], set(), scope.LinkWalk())) == []

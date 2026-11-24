@@ -203,3 +203,10 @@ de répétitions m5) sont corrigés.
 | al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
 | al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
 | al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |
+
+## Plans cotés, retour du 23/11 (PR #247), 2026-11-24
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| pc1 | mineur | `features/drawing_parts.py` (`_linked_blanks`) | Dans une boucle de liens (document piégé), la mémoire partielle posée pendant le parcours fait compter trop peu de pièces aux liens visités en cours de boucle. | Ne mémoriser qu'en fin de parcours, ou refuser la boucle par un message. |
+| pc2 | mineur | `gui/task_panels/part_drawings.py` (`PartDrawingsTaskPanel`) | Aucun test QTest du panneau : sélection synchronisée, ordre des `later`, retrait de l'observateur à la fermeture du document. | Ajouter un test QTest (ADR 0059) quand la PR sera fusionnée. |
