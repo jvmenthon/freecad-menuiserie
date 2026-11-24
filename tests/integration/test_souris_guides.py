@@ -436,8 +436,10 @@ def test_ordre_des_raisons_d_une_poignee_grisee() -> None:
     from freecad.menuiserie.features.drag_blockers import SizeBlock, blocked_sizes, size_blocker
 
     tout = {"locked": True, "shaped": True, "formula": True, "position": True, "panel": True}
-    assert size_blocker(2, **tout) is SizeBlock.LOCKED
-    assert size_blocker(2, **{**tout, "locked": False}) is SizeBlock.SHAPED
+    # Pièce en bois d'abord : membre d'un ensemble, elle est toujours « Cotes fixes » (on ne
+    # peut pas la décocher), la vraie raison est son dessin.
+    assert size_blocker(2, **tout) is SizeBlock.SHAPED
+    assert size_blocker(2, **{**tout, "shaped": False}) is SizeBlock.LOCKED
     sans = {**tout, "locked": False, "shaped": False}
     assert size_blocker(2, **sans) is SizeBlock.FORMULA
     assert size_blocker(2, **{**sans, "formula": False}) is SizeBlock.POSITION
@@ -453,7 +455,7 @@ def test_ordre_des_raisons_d_une_poignee_grisee() -> None:
         panel=True,
         thickness=float("nan"),
     )
-    assert [(axe, raison[0]) for axe, raison in bloquees] == [
+    assert [(axe, raison.title) for axe, raison in bloquees] == [
         (1, "Largeur pilotée par une formule"),
         (2, "Épaisseur non modifiable"),
     ]

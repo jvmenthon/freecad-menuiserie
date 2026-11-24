@@ -4,8 +4,10 @@
 Une poignée impossible n'est plus cachée : elle est dessinée grisée, avec un cadenas, et son
 infobulle dit pourquoi (titre, explication, piste « → … »). :func:`size_blocker` choisit la raison
 d'un axe de la pièce, :func:`blocker_text` la traduit. Les raisons sont rangées de la plus
-générale à la plus précise : une pièce verrouillée l'est sur ses trois axes, quelle que soit la
-famille de son bois. Aucun import de ``FreeCADGui``.
+générale à la plus précise : une pièce en bois (cotes de son dessin) puis une pièce verrouillée
+le sont sur leurs trois axes. Une pièce en bois membre d'un ensemble est toujours verrouillée :
+« décocher Cotes fixes » ne l'aiderait pas, sa raison passe donc en premier.
+Aucun import de ``FreeCADGui``.
 """
 
 from __future__ import annotations
@@ -25,8 +27,8 @@ __all__ = ["SizeBlock", "blocked_sizes", "blocker_text", "size_blocker"]
 class SizeBlock(Enum):
     """Pourquoi une cote ne se tire pas."""
 
+    SHAPED = "shaped"  # pièce en bois : cotes du dessin (#87), toujours « Cotes fixes » en ensemble
     LOCKED = "locked"  # « Cotes fixes » (ADR 0019)
-    SHAPED = "shaped"  # pièce en bois : cotes du dessin (#87)
     FORMULA = "formula"  # formule de l'utilisateur sur la cote
     POSITION = "position"  # formule de l'utilisateur sur la position de l'axe
     PANEL = "panel"  # épaisseur d'un panneau : celle de la bibliothèque (Q4)
@@ -87,8 +89,8 @@ def size_blocker(
     l'ordre de :class:`SizeBlock` ; ``None`` si la cote se tire. ``panel`` ne compte que pour
     l'épaisseur (:data:`THICKNESS_AXIS`)."""
     reasons = (
-        (locked, SizeBlock.LOCKED),
         (shaped, SizeBlock.SHAPED),
+        (locked, SizeBlock.LOCKED),
         (formula, SizeBlock.FORMULA),
         (position, SizeBlock.POSITION),
         (panel and axis == THICKNESS_AXIS, SizeBlock.PANEL),

@@ -32,7 +32,8 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    commun à l'étiquette et à l'infobulle d'épaisseur.
 3. **Poignées impossibles** : `DragLimits.locked_sizes` donne, pour chaque axe qui ne se tire
    pas, sa raison traduite (`core.magnet.Blocker` : titre, explication, piste « → … »), choisie par
-   `features/drag_blockers.py` dans cet ordre : « Cotes fixes », pièce en bois (cotes du dessin),
+   `features/drag_blockers.py` dans cet ordre : pièce en bois (cotes du dessin ; membre d'un ensemble, elle est toujours
+   « Cotes fixes »), « Cotes fixes »,
    formule sur la cote, formule sur la position de l'axe, épaisseur d'un panneau. La disposition
    (`Layout.locked`) les dessine grisées ; leur clé (`locked…`) est survolable mais jamais saisie
    (`parse_key` la refuse). Un clic dessus est consommé sans rien faire (la pièce reste
