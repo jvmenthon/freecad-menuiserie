@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.cadre import placement, stale_or_invalid
 
 pytestmark = pytest.mark.integration
@@ -274,7 +275,7 @@ def test_dissocier_la_copie_dissocie_ses_assemblages(document: Any) -> None:
     rep = scene.repeat()
     target = copies(rep)[1]
     mine = repeat_joints.joints_of_part(target)
-    api.dissociate(target)
+    detach_one_copy(target)
     assert len(mine) == 2 and not repeat_joints.origin_of(mine[0])
     for joint in mine:
         assert not hasattr(joint, "RepeatJoint") and engine(joint) == {}
@@ -359,7 +360,7 @@ def test_reouverture_conserve_liens_expressions_et_lecture_seule(
     origin.TenonThickness = 10
     doc.recompute()
     assert {k.TenonThickness.Value for k in children(origin)} == {10.0}
-    api.dissociate(copies(rep)[0])
+    detach_one_copy(copies(rep)[0])
     api.edit_repeat(rep, api.RepeatParams(count=4, step=90.0, axis="X"))
     assert stale_or_invalid(doc) == []
 
@@ -387,3 +388,18 @@ def test_vingt_copies_avec_deux_assemblages_chacune(document: Any) -> None:
     edited = time.perf_counter() - started
     print(f"\n20 copies x 2 assemblages : création {created:.2f} s, recalcul {edited:.2f} s")
     assert created < 120 and edited < 60
+
+
+def test_dissocier_la_repetition_libere_tous_les_assemblages_enfants(document: Any) -> None:
+    """Demande de jv (2026-11-23) : les assemblages recopiés de toutes les copies restent, sans
+    lien avec l'assemblage d'origine, et gardent leurs valeurs."""
+    scene = Scene(document, tenon_thickness=8)
+    origin = scene.joints[0]
+    rep = scene.repeat()
+    kids = children(origin)
+    api.dissociate(rep)
+    assert kids and all(not hasattr(k, "RepeatJoint") and engine(k) == {} for k in kids)
+    origin.TenonThickness = 11
+    scene.doc.recompute()
+    assert [k.TenonThickness.Value for k in kids] == [8.0] * len(kids)
+    assert len(joints_of(scene.doc)) == 10 and stale_or_invalid(scene.doc) == []

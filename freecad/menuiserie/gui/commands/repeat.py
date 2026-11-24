@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Commandes de la répétition (R-c, ADR 0043) : « Répéter » (pièces sélectionnées), « Modifier la
-répétition » (une répétition ou une de ses copies) et « Dissocier la copie » (copies liées).
+répétition » (une répétition ou une de ses copies) et « Dissocier la répétition » (toutes les
+copies d'une répétition deviennent libres, la répétition est supprimée).
 
 « Répéter » et « Modifier la répétition » ouvrent le panneau de tâche, qui montre les copies en
-direct et appelle l'api ; « Dissocier la copie » appelle l'api dans sa propre transaction (une
+direct et appelle l'api ; « Dissocier la répétition » appelle l'api dans sa propre transaction (une
 entrée d'annulation). Un refus de l'api n'en laisse aucune et s'affiche dans la barre d'état et
 la vue rapport. ``IsActive`` n'examine que la sélection.
 """
@@ -64,14 +65,14 @@ def selected_repeat() -> DocumentObject | None:
     return api.repeat_of(blank_or_self(chosen))
 
 
-def selected_copies() -> list[DocumentObject] | None:
-    """Copies liées sélectionnées, chacune une fois, ou ``None`` si la sélection contient autre
-    chose. Une pièce usinée compte pour sa brute : une copie assemblée est affichée et choisie
-    par sa pièce usinée."""
-    blanks = [blank_or_self(obj) for obj in Gui.Selection.getSelection()]
-    if not blanks or not all(is_copy(obj) for obj in blanks):
+def selected_repeats() -> list[DocumentObject] | None:
+    """Répétitions des objets sélectionnés (une répétition ou ses copies liées), chacune une
+    fois, ou ``None`` si la sélection contient autre chose. Une pièce usinée compte pour sa
+    brute : une copie assemblée est affichée et choisie par sa pièce usinée."""
+    found = [api.repeat_of(blank_or_self(obj)) for obj in Gui.Selection.getSelection()]
+    if not found or any(rep is None for rep in found):
         return None
-    unique = {obj.Name: obj for obj in blanks}  # copie et sa pièce usinée : une seule fois
+    unique = {rep.Name: rep for rep in found if rep is not None}  # copies d'une même répétition
     return list(unique.values())
 
 
@@ -146,37 +147,39 @@ class EditRepeatCommand(TransactionCommand):
 
 
 class DissociateCommand(TransactionCommand):
-    """Dissocie les copies sélectionnées : elles deviennent des pièces libres."""
+    """Dissocie les répétitions sélectionnées (par elles-mêmes ou par l'une de leurs copies) :
+    toutes leurs copies deviennent des pièces libres et les répétitions sont supprimées."""
 
     NAME = REPEAT_DISSOCIATE
-    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_RepeatDissociate", "Dissocier la copie")
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_RepeatDissociate", "Dissocier la répétition")
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_RepeatDissociate",
-        "Détache la copie sélectionnée de sa répétition : elle garde ses valeurs actuelles et "
-        "devient une pièce libre, avec ses assemblages ; l'original ne la suit plus.",
+        "Détache toutes les copies de la répétition sélectionnée (ou de la répétition dont la "
+        "copie est sélectionnée) : elles gardent leurs valeurs actuelles et deviennent des "
+        "pièces libres, avec leurs assemblages ; l'original ne les pilote plus et la "
+        "répétition est supprimée.",
     )
-    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la répétition")
     PREREQUISITE = hints.REPEAT_DISSOCIATE
 
     def IsActive(self) -> bool:
-        """Active avec un document, aucun panneau ouvert et seulement des copies liées
-        sélectionnées."""
+        """Active avec un document, aucun panneau ouvert et seulement des répétitions ou des
+        copies liées sélectionnées."""
         return (
             App.ActiveDocument is not None
             and not Gui.Control.activeDialog()
-            and selected_copies() is not None
+            and selected_repeats() is not None
         )
 
     def Activated(self) -> None:
-        """Copies dissociées dans une seule transaction, validée ou, sur un refus (signalé dans
-        la barre d'état et la vue rapport), abandonnée."""
-        copies = selected_copies()
-        if copies is None:
+        """Répétitions dissociées dans une seule transaction, validée ou, sur un refus (signalé
+        dans la barre d'état et la vue rapport), abandonnée."""
+        repeats = selected_repeats()
+        if repeats is None:
             return
-        with refusable_transaction(copies[0].Document, self.TRANSACTION):
-            for copy in copies:
-                if is_copy(copy):  # un ensemble copie dissocié a déjà dissocié ses membres
-                    api.dissociate(copy, transaction=False)
+        with refusable_transaction(repeats[0].Document, self.TRANSACTION):
+            for rep in repeats:
+                api.dissociate(rep, transaction=False)
 
 
 def register() -> None:

@@ -34,11 +34,10 @@ __all__ = ["dissociate", "edit_repeat", "make_repeat", "repeat_of"]
 
 _MAKE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répéter")
 _EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
-_DISSOCIATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
+_DISSOCIATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la répétition")
 _NOT_A_REPEAT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est ni une répétition ni une copie liée à une répétition."
 )
-_NOT_A_COPY: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas une copie liée.")
 
 
 @contextmanager
@@ -180,18 +179,24 @@ def edit_repeat(
         report(filter(None, [repeat_joints.hand_joints_warning(found)]))  # après le recalcul
 
 
-def dissociate(copy: DocumentObject, *, transaction: bool = True) -> None:
-    """Dissocie la copie ``copy`` : ses expressions et ses propriétés ``Repeat``, ``RepeatSource``
-    et ``RepeatIndex`` sont retirées, la pièce garde ses valeurs actuelles et devient libre,
-    reliée à son ensemble par les liaisons normales. Une copie d'ensemble est dissociée avec tous
-    ses membres copiés. La répétition garde les autres copies et son nombre (les rangs ne bougent
-    pas). ``TypeError`` traduite si ``copy`` n'est pas une copie liée. Un bloc annulable, un
-    recalcul (``transaction`` : voir :func:`make_repeat`)."""
-    if not repeat.is_copy(copy):
-        raise TypeError(translated(_NOT_A_COPY, {"label": quoted_value(copy.Label)}))
-    with _undoable(copy.Document, _DISSOCIATE_TRANSACTION, own=transaction):
-        copy.Document.recompute()  # les valeurs gardées sont celles de la source à jour
-        repeat_links.unlink_copy(copy)
+def dissociate(obj: DocumentObject, *, transaction: bool = True) -> None:
+    """Dissocie la répétition de ``obj`` (la répétition elle-même ou l'une de ses copies liées,
+    demande de jv du 2026-11-23) : toutes ses copies perdent leurs expressions et leurs
+    propriétés ``Repeat``, ``RepeatSource`` et ``RepeatIndex``, gardent leurs valeurs actuelles
+    et deviennent des pièces (ou des ensembles) libres, reliées à leur ensemble par les liaisons
+    normales, avec leurs assemblages ; puis la répétition est supprimée. Les pièces d'origine ne
+    changent pas. ``TypeError`` traduite si ``obj`` n'est ni une répétition ni une copie liée.
+    Un bloc annulable, un recalcul (``transaction`` : voir :func:`make_repeat`)."""
+    found = repeat.repeat_of(obj)
+    if found is None:
+        raise TypeError(translated(_NOT_A_REPEAT, {"label": quoted_value(obj.Label)}))
+    doc = found.Document
+    with _undoable(doc, _DISSOCIATE_TRANSACTION, own=transaction):
+        doc.recompute()  # les valeurs gardées sont celles des sources à jour
+        for copy in repeat.copies_of(found):
+            if repeat.is_copy(copy) and not repeat.is_inner_copy(copy):
+                repeat_links.unlink_copy(copy)  # une copie d'ensemble emporte ses membres
+        doc.removeObject(found.Name)  # plus aucune copie liée : rien n'est supprimé avec elle
 
 
 def repeat_of(obj: DocumentObject) -> DocumentObject | None:

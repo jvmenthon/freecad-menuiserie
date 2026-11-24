@@ -43,6 +43,8 @@ from freecad.menuiserie.core.repeat import (
     ResolvedGrid,
     axis_index,
     cells_of,
+    copy_name,
+    is_copy_name,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
@@ -176,24 +178,34 @@ def _drop_outside(repeat: DocumentObject, source: DocumentObject, plan: _Plan) -
 
 def _renumber(repeat: DocumentObject, ranks: dict[Cell, int]) -> None:
     """Rang linéaire (``RepeatIndex``) de chaque copie, d'après sa cellule : ordre d'affichage.
-    Un libellé automatique (« {source} {rang + 1} ») suit le nouveau rang ; un libellé que
+    Un libellé automatique (« {source} ({rang + 1}) », ou l'ancienne forme sans parenthèses)
+    suit le nouveau rang ; un libellé que
     l'utilisateur a changé reste. Les libellés sont libérés d'abord, pour que deux copies ne se
     les disputent pas."""
     changes = []
     for copy in copies_of(repeat):
         rank = ranks.get(cell_of(copy))
         if rank is not None and copy.RepeatIndex != rank:
-            label = f"{copy.RepeatSource.Label} {copy.RepeatIndex + 1}"
-            changes.append(
-                (copy, rank, f"{copy.RepeatSource.Label} {rank + 1}", copy.Label == label)
-            )
+            source = copy.RepeatSource.Label
+            automatic = is_copy_name(copy.Label, source, copy.RepeatIndex)
+            changes.append((copy, rank, copy_name(source, rank), automatic))
     for copy, _rank, _label, automatic in changes:
         if automatic:
-            copy.Label = copy.Name
+            _rename(copy, copy.Name)
     for copy, rank, label, automatic in changes:
         copy.RepeatIndex = rank
         if automatic:
-            copy.Label = label
+            _rename(copy, label)
+
+
+def _rename(copy: DocumentObject, name: str) -> None:
+    """Nom automatique ``name`` de la copie : une pièce le reçoit comme repère, que son libellé
+    suit (un libellé « Barreau (3) » saisi serait lu comme le doublon du repère « Barreau ») ;
+    un ensemble, qui n'a pas de repère, comme libellé."""
+    if "Mark" in copy.PropertiesList:
+        copy.Mark = name
+    else:
+        copy.Label = name
 
 
 def _previous_dims(repeat: DocumentObject, grid: ResolvedGrid) -> Cell:

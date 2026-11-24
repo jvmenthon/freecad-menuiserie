@@ -46,9 +46,10 @@ Répéter une ou plusieurs pièces (avec leurs assemblages) N fois : tasseaux, l
 - **Conteneur** : la répétition est créée dans le conteneur `App::Part` de ses sources (qui doivent
   être dans le même), comme leurs copies. L'axe X, Y ou Z est celui du **repère du conteneur**, pas
   celui du document ; la copie par glissement lit l'axe de la flèche dans ce même repère.
-- **Dissocier** : commande « Dissocier la copie » : supprime les expressions de la copie (elle
-  garde ses valeurs actuelles) et la sort de la répétition ; elle devient une pièce libre. La
-  répétition garde son décompte (les index suivants ne bougent pas).
+- **Dissocier** (ADR 0067, jv 2026-11-23) : commande « Dissocier la répétition », depuis la
+  répétition ou l'une de ses copies : toutes les copies perdent leurs expressions (elles gardent
+  leurs valeurs actuelles) et deviennent des pièces libres, puis la répétition est supprimée, en
+  une seule annulation. Une copie seule n'est plus détachée que par la suppression de sa source.
 - **Supprimer la répétition** (jv, 2026-11-10) : ses copies sont supprimées avec elle (assemblages
   et Std Part compris), dans la même annulation ; une copie dissociée reste.
 - **Butée sur une pièce usinée** : la butée vise sa pièce brute (la pièce usinée dépend des
@@ -79,8 +80,8 @@ Copier un ensemble crée un **ensemble copie**, sous-ensemble du même parent s'
   (nombre réduit, ou dans l'interface) supprime son Std Part vide, sans en laisser d'orphelin ;
 - les assemblages entre un membre de l'ensemble et une pièce extérieure (cas B du § 3) sont
   recréés pour chaque copie, comme pour une pièce ;
-- « Dissocier » une copie d'ensemble coupe les expressions de l'ensemble et de tous ses membres ;
-  elle devient un ensemble libre ;
+- « Dissocier » coupe les expressions de chaque ensemble copie et de tous ses membres ; chacun
+  devient un ensemble libre (depuis un membre copié aussi) ;
 - sélection mixte (pièces et ensembles) : acceptée, chaque élément est répété avec le même pas ;
   une pièce membre d'un ensemble ne peut pas être répétée seule en même temps que son ensemble.
 
@@ -191,7 +192,8 @@ FreeCAD ; seul le trajet appelle Draft, dans `features/`.
 - **Q11 — Ensembles.** ★ Copie d'ensemble = sous-ensemble copie complet, lié aux cotes de l'ensemble
   source (§ 2 bis). Alternative : copier seulement les pièces, sans ensemble.
 - **Q7 — Maximum.** ★ 100 copies.
-- **Q8 — Nom.** ★ « Barreau 2 », « Barreau 3 »…
+- **Q8 — Nom.** ★ « Barreau 2 », « Barreau 3 »… Remplacé le 2026-11-23 (ADR 0067) : « Barreau (2) »,
+  « Barreau (3) »…
 - **Q9 — Maj.** Maj coupe déjà l'aimantation. ★ **Ctrl** pour copier (convention FreeCAD et
   la plupart des logiciels), Maj reste « sans aimantation » ; ou Maj = copier et **Alt** =
   « sans aimantation ».

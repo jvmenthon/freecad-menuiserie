@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.bureau import build_desk
 
 pytestmark = pytest.mark.integration
@@ -176,7 +177,7 @@ def test_dissocier_une_copie_la_remet_a_plat(document: Any) -> None:
     repeat = api.make_repeat([source], along("X", 2, 700.0))
     document.recompute()
     first, second = copies_of(repeat)
-    api.dissociate(first)
+    detach_one_copy(first)
     document.recompute()
     roots = roots_of(document)
     line = next(r for r in roots if r.kind is NodeKind.REPEAT)

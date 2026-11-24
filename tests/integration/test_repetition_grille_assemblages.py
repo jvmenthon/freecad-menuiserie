@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.aides_grille import Line, Reopen, X, Z, grid
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.test_repetition_assemblages import Scene, all_children, joints_of
@@ -114,7 +115,7 @@ def test_recopier_les_assemblages_coche_puis_decoche(scene: Scene) -> None:
 def test_une_copie_dissociee_garde_ses_assemblages_et_ne_revient_pas(scene: Scene) -> None:
     rep = api.make_repeat([scene.bar], x_by_z())
     freed = next(c for c in copies(rep) if cell(c) == (1, 0, 1))
-    api.dissociate(freed)
+    detach_one_copy(freed)
     assert all(repeat_joints.origin_of(j) is None for j in repeat_joints.joints_of_part(freed))
     api.edit_repeat(rep, x_by_z(3, 3))
     assert freed not in copies(rep) and len(joints_of(scene.doc)) == 2 + 2 * len(copies(rep)) + 2

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <!-- Dissocier la copie : la dernière copie s'écarte, pastille de lien rompu -->
+  <!-- Dissocier la répétition : la dernière copie s'écarte, pastille de lien rompu -->
   <defs>
     <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
     <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>

@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.cadre import placement
 from tests.integration.conftest import VueRapport
 from tests.integration.test_repetition_assemblages import copies, part
@@ -112,7 +113,7 @@ def test_copie_dissociee_son_assemblage_n_est_plus_signale(document: Any) -> Non
     long, _bar, rep = _hand_scene(document, count=2)
     target, other = copies(rep)
     by_hand = api.make_loose_tenons(long, target)
-    api.dissociate(target)
+    detach_one_copy(target)
     target.Placement = placement(2000, 60, 90)  # la copie libre part : l'assemblage casse
     document.recompute()
     assert by_hand.Name in [obj.Name for obj in invalid(document)]  # jamais supprimé

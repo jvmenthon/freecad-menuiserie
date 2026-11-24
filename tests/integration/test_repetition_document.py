@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.cadre import placement, stale_or_invalid
 
 pytestmark = pytest.mark.integration
@@ -70,7 +71,7 @@ def test_cinq_copies_aux_bonnes_positions(document: Any) -> None:
     rep = api.make_repeat([barreau], params())
     assert repeat.is_repeat(rep) and rep.Name == "Repeat"
     assert (rep.Count, rep.Step.Value, rep.Axis, rep.Mode) == (5, 100.0, "Y", "Linear")
-    assert [c.Label for c in copies(rep)] == [f"Barreau {k}" for k in range(2, 7)]
+    assert [c.Label for c in copies(rep)] == [f"Barreau ({k})" for k in range(2, 7)]
     assert [c.RepeatIndex for c in copies(rep)] == [1, 2, 3, 4, 5]
     assert offsets_y(rep) == [120.0, 220.0, 320.0, 420.0, 520.0]
     for c in copies(rep):
@@ -138,8 +139,8 @@ def test_plusieurs_sources_chacune_ses_copies_au_meme_pas(document: Any) -> None
     b.Placement = placement(0, 500)
     document.recompute()
     rep = api.make_repeat([a, b], params(count=3))
-    assert [c.Label for c in copies(rep, a)] == ["A 2", "A 3", "A 4"]
-    assert [c.Label for c in copies(rep, b)] == ["B 2", "B 3", "B 4"]
+    assert [c.Label for c in copies(rep, a)] == ["A (2)", "A (3)", "A (4)"]
+    assert [c.Label for c in copies(rep, b)] == ["B (2)", "B (3)", "B (4)"]
     assert offsets_y(rep, a) == [100.0, 200.0, 300.0]
     assert offsets_y(rep, b) == [600.0, 700.0, 800.0]
     assert copies(rep, b)[0].Length.Value == 200.0
@@ -295,7 +296,7 @@ def test_dissocier_une_copie(undoable: Any) -> None:
     barreau = source(undoable)
     rep = api.make_repeat([barreau], params(count=3))
     second = copies(rep)[1]
-    api.dissociate(second)
+    detach_one_copy(second)
     assert not repeat.is_copy(second) and api.repeat_of(second) is None
     assert second.ExpressionEngine == []
     assert [p for p in COPY_PROPERTIES if p in second.PropertiesList] == []
@@ -310,12 +311,42 @@ def test_dissocier_une_copie(undoable: Any) -> None:
     assert stale_or_invalid(undoable) == []
 
 
+def test_dissocier_la_repetition_libere_toutes_les_copies(undoable: Any) -> None:
+    """Demande de jv (2026-11-23) : « Dissocier » s'applique à toutes les copies et supprime la
+    répétition ; la pièce d'origine ne change pas ; un seul bloc annulable."""
+    barreau = source(undoable)
+    rep = api.make_repeat([barreau], params(count=3))
+    name, freed = rep.Name, copies(rep)
+    api.dissociate(freed[1])  # depuis une copie
+    assert undoable.UndoNames[0] == "Dissocier la répétition"
+    assert undoable.getObject(name) is None
+    assert not any(repeat.is_copy(c) for c in freed)
+    assert all(c.ExpressionEngine == [] for c in freed)
+    assert [p for c in freed for p in COPY_PROPERTIES if p in c.PropertiesList] == []
+    assert [c.Placement.Base.y for c in freed] == [100.0, 200.0, 300.0]
+    assert [c.Label for c in freed] == ["Barreau (2)", "Barreau (3)", "Barreau (4)"]
+    assert barreau.Placement.Base.y == 0.0 and barreau.ExpressionEngine == []
+    barreau.Length = 450
+    undoable.recompute()
+    assert [c.Length.Value for c in freed] == [300.0, 300.0, 300.0]  # plus rien ne suit
+    assert stale_or_invalid(undoable) == []
+
+
+def test_dissocier_depuis_la_repetition(document: Any) -> None:
+    rep = api.make_repeat([source(document)], params(count=2))
+    name, freed = rep.Name, copies(rep)
+    api.dissociate(rep)
+    assert document.getObject(name) is None
+    assert not any(repeat.is_copy(c) for c in freed) and stale_or_invalid(document) == []
+
+
 def test_dissocier_annulable(undoable: Any) -> None:
     rep = api.make_repeat([source(undoable)], params(count=2))
-    second = copies(rep)[1]
+    name, (first, second) = rep.Name, copies(rep)
     api.dissociate(second)
     undoable.undo()
-    assert repeat.is_copy(second) and second.RepeatIndex == 2
+    assert undoable.getObject(name) is not None
+    assert repeat.is_copy(first) and repeat.is_copy(second) and second.RepeatIndex == 2
     assert "Placement.Base.y" in engine(second)
 
 
@@ -324,13 +355,13 @@ def test_dissocier_ne_touche_pas_une_formule_de_l_utilisateur(document: Any) -> 
     only = copies(rep)[0]
     only.addProperty("App::PropertyLength", "Jeu", "Perso")
     only.setExpression("Mark", "Jeu.Value + 0")  # formule sans lien avec la répétition
-    api.dissociate(only)
+    detach_one_copy(only)
     assert "Mark" in engine(only)
 
 
 def test_dissocier_refuse_ce_qui_n_est_pas_une_copie(document: Any) -> None:
     barreau = source(document)
-    with pytest.raises(TypeError, match="pas une copie liée"):
+    with pytest.raises(TypeError, match="ni une répétition ni une copie liée"):
         api.dissociate(barreau)
 
 
@@ -349,7 +380,7 @@ def test_ajouter_des_copies(undoable: Any) -> None:
     first = copies(rep)[0].Name
     api.edit_repeat(rep, params(count=5))
     assert rep.Count == 5
-    assert [c.Label for c in copies(rep)] == [f"Barreau {k}" for k in range(2, 7)]
+    assert [c.Label for c in copies(rep)] == [f"Barreau ({k})" for k in range(2, 7)]
     assert offsets_y(rep) == [100.0, 200.0, 300.0, 400.0, 500.0]
     assert copies(rep)[0].Name == first  # les copies existantes ne sont pas refaites
     undoable.undo()
@@ -386,7 +417,7 @@ def test_plusieurs_sources_changer_le_nombre(document: Any) -> None:
 
 def test_copie_dissociee_ne_revient_pas(document: Any) -> None:
     rep = api.make_repeat([source(document)], params(count=3))
-    api.dissociate(copies(rep)[0])  # rang 1
+    detach_one_copy(copies(rep)[0])  # rang 1
     api.edit_repeat(rep, params(count=5))
     assert [c.RepeatIndex for c in copies(rep)] == [2, 3, 4, 5]
     api.edit_repeat(rep, params(count=2))
@@ -408,7 +439,7 @@ def test_supprimer_la_repetition_supprime_les_copies(undoable: Any) -> None:
     rep = api.make_repeat([source(undoable)], params(count=3))
     names = [c.Name for c in copies(rep)]
     free = copies(rep)[0]
-    api.dissociate(free)
+    detach_one_copy(free)
     undoable.openTransaction("sup")
     undoable.removeObject(rep.Name)
     undoable.commitTransaction()
@@ -502,7 +533,7 @@ def test_reouverture_conserve_expressions_et_proprietes(document: Any, rouvrir: 
     assert offsets_y(rep) == [-80.0, -160.0, -240.0]
     api.edit_repeat(rep, params(count=4, reverse=True, step=80))
     assert len(copies(rep)) == 4 and stale_or_invalid(doc) == []
-    api.dissociate(copies(rep)[0])
+    detach_one_copy(copies(rep)[0])
     assert stale_or_invalid(doc) == []
 
 
@@ -516,7 +547,7 @@ def test_liste_de_debit_n_plus_un_pieces(document: Any) -> None:
     assert line.quantity == 5 and cut_list.warnings == ()
     assert set(line.marks) == {"Barreau", *(c.Mark for c in copies(rep))}
     freed = copies(rep)[0]
-    api.dissociate(freed)
+    detach_one_copy(freed)
     freed.Width = 50  # libre : elle peut différer, et la ligne se scinde
     document.recompute()
     assert sorted(line.quantity for line in api.cut_list_of(document).lines) == [1, 4]

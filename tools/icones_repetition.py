@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Dessins des icônes de la répétition (ADR 0043) : commandes « Répéter », « Modifier la
-répétition », « Dissocier la copie » et objet Répétition de l'arbre. Reliés à leur fichier par
+répétition », « Dissocier la répétition » et objet Répétition de l'arbre. Reliés à leur fichier par
 :data:`ICONES` dans ``tools/generer_icones.py`` (même moteur ``tools/icones_svg.py``)."""
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def modifier_la_repetition() -> str:
 
 
 def dissocier_la_copie() -> str:
-    ic = Icone("Dissocier la copie : la dernière copie s'écarte, pastille de lien rompu")
+    ic = Icone("Dissocier la répétition : la dernière copie s'écarte, pastille de lien rompu")
     _tasseaux(ic, ecart=8.0)
     rompu = pastille("#ef2929", "#a40000", "M43,43 L55,55 M55,43 L43,55")
     return ic.svg(cadre=CADRE, devant=rompu)

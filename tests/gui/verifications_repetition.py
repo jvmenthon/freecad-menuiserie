@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface de la répétition (lot R-c de ``docs/specs/repetition.md``) : commandes
-« Répéter », « Modifier la répétition » et « Dissocier la copie », panneau avec aperçu en direct,
-refus affichés, ViewProvider de la répétition.
+« Répéter », « Modifier la répétition » et « Dissocier la répétition », panneau avec aperçu en
+direct, refus affichés, ViewProvider de la répétition.
 
 R14 : l'aperçu montre les copies que « OK » crée ; R15 : un refus s'affiche en rouge et grise
 « OK » ; R16 : changer le nombre par le panneau d'une répétition existante. Module importé par
@@ -134,7 +134,7 @@ def _activation(doc: Any) -> list[str]:
         ("rien", (), [False, False, False]),
         ("pièce", (barreau,), [True, False, False]),
         ("copie", (copie,), [False, True, True]),
-        ("répétition", (rep,), [False, True, False]),
+        ("répétition", (rep,), [False, True, True]),  # dissocier : depuis elle aussi
         ("pièce et copie", (barreau, copie), [False, False, False]),
     ):
         Gui.Selection.clearSelection()
@@ -534,19 +534,20 @@ def verifier_modification_annulee() -> list[str]:
 
 def _dissocier(doc: Any) -> list[str]:
     _barreau, rep = _repetition_existante(doc)
-    copie = copies_de(rep)[1]
+    nom, toutes = rep.Name, copies_de(rep)
+    copie = toutes[1]
     lancer(DISSOCIER, copie)
     return [
-        *ecarts("copie libre", repeat.is_copy(copie), False),
-        *ecarts("autres copies liées", len(copies_de(rep)), 3),
-        *ecarts("nombre gardé", rep.Count, 4),
-        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+        *ecarts("copies libres", [repeat.is_copy(c) for c in toutes], [False] * len(toutes)),
+        *ecarts("répétition supprimée", doc.getObject(nom), None),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
         *ecarts("valeurs gardées", round(copie.Placement.Base.x, 3), 800.0),
     ]
 
 
 def verifier_dissocier_la_copie() -> list[str]:
-    """« Dissocier la copie » : la copie devient libre en une entrée d'annulation."""
+    """« Dissocier la répétition » depuis une copie (demande de jv, 2026-11-23) : toutes les
+    copies deviennent libres et la répétition est supprimée, en une entrée d'annulation."""
     return avec_document("VerifRepetitionDissocie", _dissocier)
 
 
@@ -561,12 +562,12 @@ def _dissocier_copie_usinee(doc: Any) -> list[str]:
     return [
         *ecarts("copie libre", repeat.is_copy(copie), False),
         *ecarts("source intacte", repeat.is_copy(barreau), False),
-        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
     ]
 
 
 def verifier_dissocier_par_la_piece_usinee() -> list[str]:
-    """« Dissocier la copie » sur la pièce usinée d'une copie assemblée."""
+    """« Dissocier la répétition » sur la pièce usinée d'une copie assemblée."""
     return avec_document("VerifRepetitionDissocieUsinee", _dissocier_copie_usinee)
 
 
@@ -594,14 +595,15 @@ def _dissocier_selection_melangee(doc: Any) -> list[str]:
     usinee = api.machined_part_of(copie)
     problemes = [
         *ecarts("pièce usinée d'une pièce libre", _commande_active_sur(usinee_montant), False),
+        *ecarts("répétition seule", _commande_active_sur(api.repeat_of(copie)), True),
         *ecarts("copie usinée + pièce libre", _commande_active_sur(usinee, montant), False),
         *ecarts("copie usinée + source", _commande_active_sur(usinee, barreau), False),
     ]
-    lancer(DISSOCIER, copie, usinee)  # la même copie deux fois : une seule dissociation
+    lancer(DISSOCIER, copie, usinee)  # la même répétition deux fois : une seule dissociation
     return [
         *problemes,
         *ecarts("copie libre", repeat.is_copy(copie), False),
-        *ecarts("une seule entrée", doc.UndoNames, ["Dissocier la copie"]),
+        *ecarts("une seule entrée", doc.UndoNames, ["Dissocier la répétition"]),
     ]
 
 
@@ -659,7 +661,7 @@ def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
     lancer(DISSOCIER, ensemble, membre)  # le membre est déjà dissocié avec son ensemble
     return [
         *ecarts("plus aucune copie liée", len(copies_de(rep)), 0),
-        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
     ]
 
 

@@ -148,8 +148,9 @@ def verifier_structure_repetition_double_clic() -> list[str]:
 def _menu_et_dissociation(
     bureau: Bureau, dock: Any, arbre: Any, synchro: StructureSync
 ) -> list[str]:
-    """Menu d'une copie (Modifier la répétition, Dissocier la copie), pas de dépôt sur une copie,
-    copie non glissable, puis dissociation : la ligne devient une pièce ordinaire."""
+    """Menu d'une copie (Modifier la répétition, Dissocier la répétition), pas de dépôt sur une
+    copie, copie non glissable, puis dissociation de toute la répétition (demande de jv,
+    2026-11-23) : les copies deviennent des pièces ordinaires, la ligne de la répétition part."""
     _planche, repetition = _planche_repetee(bureau, synchro)
     premiere, seconde = _copies(repetition)
     ligne = item_for(arbre, premiere.Name)
@@ -158,13 +159,13 @@ def _menu_et_dissociation(
     entrees = menu_de(arbre, premiere.Name)
     textes = [texte for texte, _actif, _tip in entrees]
     problemes = ecarts("menu : modifier la répétition", "Modifier la répétition" in textes, True)
-    problemes += ecarts("menu : dissocier la copie", "Dissocier la copie" in textes, True)
+    problemes += ecarts("menu : dissocier", "Dissocier la répétition" in textes, True)
     problemes += ecarts(
         "copie non glissable", bool(ligne.flags() & QtCore.Qt.ItemIsDragEnabled), False
     )
     point = arbre.visualItemRect(ligne).center()
     problemes += ecarts("dépôt refusé sur une copie", bool(arbre.blocked_reason(point)), True)
-    avant = len(bureau.doc.Objects)
+    avant, repetition_nom = len(bureau.doc.Objects), repetition.Name
     actions = actions_de(dock)
     problemes += ecarts(
         "dissocier : fait", actions.run_action(Action.DISSOCIATE, [premiere.Name]), True
@@ -173,14 +174,9 @@ def _menu_et_dissociation(
     synchro.refresh_now(force=True)
     traiter()
     problemes += ecarts("copie dissociée : plus de répétition", api.repeat_of(premiere), None)
-    problemes += ecarts("autre copie : toujours liée", api.repeat_of(seconde), repetition)
-    problemes += ecarts("aucun objet créé ni perdu", len(bureau.doc.Objects), avant)
-    ligne = item_for(arbre, repetition.Name)
-    problemes += ecarts(
-        "ligne mise à jour",
-        None if ligne is None else ligne.text(0),
-        f"{repetition.Label} {TIMES}1",
-    )
+    problemes += ecarts("autre copie : dissociée aussi", api.repeat_of(seconde), None)
+    problemes += ecarts("répétition supprimée", len(bureau.doc.Objects), avant - 1)
+    problemes += ecarts("ligne de la répétition retirée", item_for(arbre, repetition_nom), None)
     nouvelle = item_for(arbre, premiere.Name)
     problemes += ecarts(
         "dissociée : pièce ordinaire à la racine",
