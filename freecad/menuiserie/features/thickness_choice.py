@@ -59,6 +59,7 @@ from freecad.menuiserie.features.thickness_common import (
 from freecad.menuiserie.features.thickness_follow import follow_thickness
 from freecad.menuiserie.features.thickness_member import MemberFreedom
 from freecad.menuiserie.features.thickness_texts import (
+    as_typed_text,
     extend_text,
     keep_text,
     not_flush_text,
@@ -253,8 +254,8 @@ class ThicknessEdit:
     def probe(self, new: float) -> Conflict | None:
         """Essaie l'épaisseur ``new`` telle que saisie et renvoie les choix proposés (l'état de
         départ est alors rendu ; au panneau d'appliquer le choix retenu). Si elle ne défait aucun
-        assemblage, ``AS_TYPED`` vient en tête (jv, 2026-11-15) et les
-        autres choix portent sur tous les assemblages de la pièce. ``None`` (saisie écrite telle
+        assemblage, ``AS_TYPED`` vient en tête (jv, 2026-11-15) et les autres choix portent sur
+        tous les assemblages de la pièce. ``None`` (saisie écrite telle
         quelle, messages dans :attr:`messages`) pour l'épaisseur de départ ou une pièce sans
         assemblage."""
         self.messages = self.apply(new, Choice.AS_TYPED)
@@ -306,9 +307,11 @@ class ThicknessEdit:
         (face basse pour ``OTHER_SIDE``, face haute pour ``EXTEND``)."""
         adding = new > self.old
         partners = self._partners(self._concerned)
-        lower_inward = grows_toward(self._before, self._start_block(partners[0]))
+        sides = [grows_toward(self._before, self._start_block(other)) for other in partners]
+        lower_inward = sides[0]
         if choice is Choice.OTHER_SIDE:
             return other_side_text(adding, lower_inward)
         if choice is Choice.AS_TYPED:  # face haute : « Vers l'extérieur » (jv, 2026-11-24)
-            return keep_text(adding, not lower_inward)
+            same = all(side == lower_inward for side in sides)  # pièces des deux côtés : neutre
+            return keep_text(adding, not lower_inward) if same else as_typed_text()
         return extend_text(adding, not lower_inward, partners, new - self.old)

@@ -297,3 +297,99 @@ def test_cote_de_caisson_le_premier_choix_dit_vers_l_exterieur(document: Any) ->
     shape.Placement = side.getGlobalPlacement()
     assert (shape.BoundBox.XMin, shape.BoundBox.XMax) == pytest.approx((-12, 18))  # dehors
     assert caisson.Width.Value == pytest.approx(612)
+
+
+def near_face(part: Any, partner: Any) -> float:
+    """Position de la face de ``part`` du côté de ``partner``, comptée vers ``partner``, sur
+    l'axe de l'épaisseur de ``part`` (le plus petit côté de sa boîte)."""
+
+    def box(obj: Any) -> Any:
+        shape = obj.Shape.copy()
+        shape.Placement = obj.getGlobalPlacement()
+        return shape.BoundBox
+
+    mine, other = box(part), box(partner)
+    sizes = (mine.XLength, mine.YLength, mine.ZLength)
+    axis = sizes.index(min(sizes))
+    toward = 1 if other.Center[axis] > mine.Center[axis] else -1
+    return float(
+        toward
+        * ((mine.XMin, mine.YMin, mine.ZMin), (mine.XMax, mine.YMax, mine.ZMax))[toward > 0][axis]
+    )
+
+
+def says_inward(text: str) -> bool:
+    return text.startswith(("Vers l'intérieur", "Côté intérieur"))
+
+
+def carcass_pieces(doc: Any) -> dict[str, Any]:
+    """Pièces du caisson par défaut, côtés et dessous assemblés en queue d'aronde."""
+    from freecad.menuiserie.features.furniture_bindings import members_of
+
+    caisson, _ = api.make_carcass(doc)
+    doc.recompute()
+    pieces = {str(m.Label): m for m in members_of(caisson)}
+    for side in ("Côté gauche", "Côté droit"):
+        api.make_dovetail(pieces[side], pieces["Dessous"])
+    doc.recompute()
+    return pieces
+
+
+@pytest.mark.parametrize("new", [30, 10])
+@pytest.mark.parametrize(
+    ("mover", "partner"),
+    [
+        ("H", "I"),  # pièce posée sur la face haute (corner)
+        ("I", "H"),
+        ("Côté gauche", "Dessous"),
+        ("Côté droit", "Dessous"),
+        ("Dessous", "Côté gauche"),
+    ],
+)
+def test_le_libelle_dit_le_cote_ou_va_l_epaisseur(
+    document: Any, mover: str, partner: str, new: float
+) -> None:
+    """Chaque choix proposé, une fois appliqué, déplace la face du côté qu'il annonce ; le
+    premier choix n'est jamais d'accord avec « de l'autre côté » et l'est avec « allonger »."""
+    host, guest, _joint = corner(document)
+    pieces = {"H": host, "I": guest, **carcass_pieces(document)}
+    part, other = pieces[mover], pieces[partner]
+    edit = choice.ThicknessEdit(part)
+    conflict = edit.probe(new)
+    assert conflict is not None
+    texts = {o.choice: o.text for o in conflict.options}
+    adding = new > 18
+    wording = texts.get(choice.Choice.AS_TYPED)
+    if wording is not None:
+        assert wording.startswith("Vers l'" if adding else "Côté ")
+        assert says_inward(wording) is not says_inward(texts[choice.Choice.OTHER_SIDE])
+        assert says_inward(wording) is says_inward(texts[choice.Choice.EXTEND])
+    near = near_face(part, other)
+    for chosen, text in texts.items():
+        if chosen is choice.Choice.REVERT or any(
+            o.choice is chosen and o.reason for o in conflict.options
+        ):
+            continue
+        edit.apply(new, chosen)
+        document.recompute()
+        moved = near_face(part, other) - near
+        assert says_inward(text) is (moved > 0 if adding else moved < 0), (mover, chosen, text)
+        edit.restore()
+        document.recompute()
+
+
+def test_pieces_des_deux_cotes_libelle_neutre(document: Any) -> None:
+    """Revue de sécurité (2026-11-24) : H assemblée à une pièce dessus et à une pièce dessous ;
+    aucun côté à nommer, le premier choix dit « Telle que saisie »."""
+    host, _guest, _joint = corner(document)
+    below = api.make_wood_part(300, 150, 18, "chene", mark="J", doc=document)
+    below.Placement = App.Placement(App.Vector(200, 0, -300), STANDING)
+    document.recompute()
+    api.make_mortise_tenon(host, below)
+    document.recompute()
+    edit = choice.ThicknessEdit(host)
+    conflict = edit.probe(30)
+    assert conflict is not None
+    first = conflict.options[0]
+    assert first.choice is choice.Choice.AS_TYPED
+    assert first.text == "Telle que saisie"

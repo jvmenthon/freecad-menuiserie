@@ -17,6 +17,7 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.thickness_common import length_text, quoted, quoted_parts
 
 __all__ = [
+    "as_typed_text",
     "extend_text",
     "keep_text",
     "not_flush_text",
@@ -61,6 +62,7 @@ _KEEP: Final = {
     (False, True): QT_TRANSLATE_NOOP("Menuiserie", "Côté intérieur"),
     (False, False): QT_TRANSLATE_NOOP("Menuiserie", "Côté extérieur"),
 }
+_AS_TYPED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Telle que saisie")
 _NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{label} n'arrive pas à fleur de la face qui bouge."
 )
@@ -94,6 +96,11 @@ def extend_text(
     """Choix « prolonger l'autre pièce » : ``inward`` si la face haute est de son côté."""
     params = {"partners": quoted_parts(partners), "delta": length_text(delta)}
     return translated(_EXTEND[(adding, inward)], params)
+
+
+def as_typed_text() -> str:
+    """« Telle que saisie » : autres pièces des deux côtés, aucun côté à nommer."""
+    return translated(_AS_TYPED)
 
 
 def keep_text(adding: bool, inward: bool) -> str:
