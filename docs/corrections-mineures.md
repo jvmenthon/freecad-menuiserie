@@ -200,6 +200,9 @@ de répétitions m5) sont corrigés.
 | Id | Niveau | Où | Constat | Piste |
 |----|--------|----|---------|-------|
 | br1 | mineur | `features/furniture_drag.py` (`_free_to_turn`) | `api.rotate_furniture` refuse un sous-ensemble dont le Std Part porte la liaison de l'atelier `Placement.Base.x` : elle est prise pour une formule de l'utilisateur (comportement antérieur, ni causé ni aggravé par l'ADR 0065). | Exclure les liaisons de l'atelier (`workshop_expressions`) du contrôle, avec un test. |
+| br2 | mineur | `features/part_drag.py` (`_assembled_member`) | Le nom laisse croire à une lecture, mais la fonction ajoute un `MemberFreedom` au mémento. | Renommer `_free_member` ou créer le `MemberFreedom` dans `_resize_thickness`. |
+| br3 | mineur | `features/joints/frames.py` (`touch_framed_joints`) | Parcours de `Document.Objects` à chaque changement de `Placement` d'un Std Part (venu de main, ADR 0054). | Index des assemblages entre conteneurs si de gros documents ralentissent. |
+| br4 | mineur | `features/machined_part.py` | 392 lignes, proche de la limite de 400. | Extraire une partie au prochain ajout. |
 
 ## Grille « Parallèle et aligner sur » (PR #269, ADR 0066), 2026-11-17
 
