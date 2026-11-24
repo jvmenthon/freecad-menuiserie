@@ -51,8 +51,10 @@ from freecad.menuiserie.features.drawing import (
 from freecad.menuiserie.features.drawing_dims import part_band_mm
 from freecad.menuiserie.features.drawing_scope import (
     MAX_LINK_DEPTH,
+    LinkWalk,
     link_occurrences,
     link_target,
+    object_key,
     workshop_inside,
 )
 from freecad.menuiserie.features.drawing_title import fill_title_block
@@ -95,27 +97,43 @@ _KINDS: Final = {
 
 
 def _blanks(
-    objects: Sequence[DocumentObject], seen: set[str], depth: int = 0
+    objects: Sequence[DocumentObject], seen: set[str], walk: LinkWalk, depth: int = 0
 ) -> Iterator[tuple[DocumentObject, int]]:
     """Pièces de bois (brutes) de ``objects`` et leur nombre : membres des ensembles, brute
     d'une pièce usinée, sans doublon ; un lien (copie d'un meuble ou d'une pièce) redonne les
-    pièces qu'il montre, autant de fois qu'il a de copies."""
+    pièces qu'il montre, autant de fois qu'il a de copies (pièces d'une cible calculées une
+    fois par parcours)."""
     for obj in objects:
         if obj.Name in seen:
             continue
         seen.add(obj.Name)
         target = link_target(obj)
         if target is not None:
-            if depth < MAX_LINK_DEPTH:
-                times = link_occurrences(obj)
-                for blank, count in _blanks(workshop_inside(target), set(), depth + 1):
-                    yield blank, min(count * times, MAX_QUANTITY)
+            times = link_occurrences(obj)
+            for blank, count in _linked_blanks(target, walk, depth):
+                yield blank, min(count * times, MAX_QUANTITY)
         elif is_furniture(obj):
-            yield from _blanks(members_of(obj), seen, depth)
+            yield from _blanks(members_of(obj), seen, walk, depth)
         elif is_machined_part(obj):
-            yield from _blanks([blank_of(obj)], seen, depth)
+            yield from _blanks([blank_of(obj)], seen, walk, depth)
         elif is_timber(obj):
             yield obj, 1
+
+
+def _linked_blanks(
+    target: DocumentObject, walk: LinkWalk, depth: int
+) -> list[tuple[DocumentObject, int]]:
+    """Pièces (et nombre) que montre une copie de ``target``, mémorisées dans ``walk``."""
+    key = ("blanks", *object_key(target))
+    cached = walk.memo.get(key)
+    if isinstance(cached, list):
+        return cached
+    if depth >= MAX_LINK_DEPTH:
+        return []
+    walk.memo[key] = []  # en cours : une boucle n'ajoute rien
+    found = list(_blanks(workshop_inside(target, walk), set(), walk, depth + 1))
+    walk.memo[key] = found
+    return found
 
 
 def _size(blank: DocumentObject) -> tuple[float, float, float]:
@@ -210,7 +228,8 @@ def distinct_parts(
     bois."""
     scope = list(objects) or document_scope(doc)
     blanks = sorted(
-        _blanks(scope, set()), key=lambda item: (str(getattr(item[0], "Mark", "")), item[0].Name)
+        _blanks(scope, set(), LinkWalk()),
+        key=lambda item: (str(getattr(item[0], "Mark", "")), item[0].Name),
     )
     groups: dict[tuple[object, ...], list[Any]] = {}
     for blank, times in blanks:

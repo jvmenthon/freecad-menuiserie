@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
+from freecad.menuiserie.core.drawing import clean_field
 from freecad.menuiserie.features.drawing_scope import document_scope, link_target, links_in
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
@@ -39,8 +40,8 @@ class Choice:
 
 def part_label(obj: DocumentObject) -> str:
     """Repère puis libellé de la pièce (le libellé seul s'il contient déjà le repère)."""
-    mark = str(getattr(obj, "Mark", "")).strip()
-    label = str(obj.Label)
+    mark = clean_field(str(getattr(obj, "Mark", "")))
+    label = clean_field(str(obj.Label))
     return f"{mark} {label}" if mark and mark not in label else label
 
 

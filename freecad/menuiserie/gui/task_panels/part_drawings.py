@@ -11,6 +11,7 @@ crée les pages par l'api (sa propre transaction) et ouvre la première ; « Ann
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Iterator
 from functools import partial
 from typing import Any, Final
@@ -67,15 +68,34 @@ def _state(name: str) -> Any:
 
 class _SelectionWatcher:
     """Observateur de la sélection de FreeCAD : une pièce ou un ensemble sélectionné est coché
-    (hors du rappel : FreeCAD interdit de toucher la sélection pendant)."""
+    (hors du rappel : FreeCAD interdit de toucher la sélection pendant). Il se retire de
+    lui-même dès que le panneau ou son document n'existe plus."""
 
     def __init__(self, panel: PartDrawingsTaskPanel) -> None:
         self._panel = panel
+        self.attached = False
+
+    def attach(self) -> None:
+        """Pose l'observateur."""
+        Gui.Selection.addObserver(self)
+        self.attached = True
+
+    def detach(self, *_args: object) -> None:
+        """Retire l'observateur (sans effet s'il l'est déjà)."""
+        if self.attached:
+            self.attached = False
+            with contextlib.suppress(RuntimeError, ReferenceError):
+                Gui.Selection.removeObserver(self)
 
     def addSelection(self, doc: str, obj: str, _sub: str, _pos: object) -> None:
         """Rappel de FreeCAD : ``obj`` du document ``doc`` a été sélectionné."""
-        if doc == self._panel.doc.Name:
-            later(lambda: self._panel.check(obj))
+        try:
+            mine = doc == self._panel.doc.Name
+        except (ReferenceError, RuntimeError, AttributeError):  # document fermé
+            self.detach()
+            return
+        if mine:
+            later(partial(self._panel.check, obj))
 
 
 class PartDrawingsTaskPanel:
@@ -105,11 +125,17 @@ class PartDrawingsTaskPanel:
             row.addWidget(button)
         row.addStretch()
         layout.addLayout(row)
+        self._pending = False
         self._fill()
         self.tree.itemChanged.connect(self._item_changed)
         self._watcher = _SelectionWatcher(self)
-        Gui.Selection.addObserver(self._watcher)
-        self._changed()
+        self.form.destroyed.connect(self._watcher.detach)
+        self._watcher.attach()
+        try:
+            self._changed()
+        except Exception:
+            self._watcher.detach()
+            raise
 
     def _fill(self) -> None:
         groups, loose = part_choices(self.doc)
@@ -123,7 +149,7 @@ class PartDrawingsTaskPanel:
 
     def _item(self, choice: Choice) -> Any:
         if choice.children:
-            text = translated(_GROUP, {"label": str(choice.obj.Label), "count": str(choice.parts)})
+            text = translated(_GROUP, {"label": part_label(choice.obj), "count": str(choice.parts)})
         else:
             text = part_label(choice.obj)
         item = self._new_item(text, choice.obj.Name)
@@ -146,7 +172,18 @@ class PartDrawingsTaskPanel:
             found.extend(item.child(i) for i in range(item.childCount()))
 
     def _item_changed(self, *_args: object) -> None:
-        self._changed()
+        """Une case a changé : le recalcul est fait une fois, après la rafale de changements
+        qu'un ensemble ou « Tout » déclenche."""
+        if not self._pending:
+            self._pending = True
+            later(self._run_changed)
+
+    def _run_changed(self) -> None:
+        self._pending = False
+        try:
+            self._changed()
+        except RuntimeError:  # panneau fermé entre-temps
+            self._watcher.detach()
 
     def _check_all(self, state: Any, *_args: object) -> None:
         for i in range(self.tree.topLevelItemCount()):
@@ -157,7 +194,12 @@ class PartDrawingsTaskPanel:
         une et que le panneau ne pousse pas lui-même la sélection."""
         if self._pushing:
             return
-        for item in self._items():
+        try:
+            items = list(self._items())
+        except RuntimeError:  # arbre détruit
+            self._watcher.detach()
+            return
+        for item in items:
             if item.data(0, _NAME_ROLE) == name:
                 item.setCheckState(0, _state("Checked"))
                 return
@@ -193,7 +235,7 @@ class PartDrawingsTaskPanel:
         self._pushing = False
 
     def _detach(self) -> None:
-        Gui.Selection.removeObserver(self._watcher)
+        self._watcher.detach()
 
     def accept(self) -> bool:
         """Crée ou refait les plans des pièces cochées et ouvre le premier ; un refus de l'api

@@ -185,3 +185,28 @@ def test_ligne_sans_enfant_compte_une_piece(choice: ModuleType, monkeypatch: Any
     assert group.parts == 2
     nested = choice.Choice(Obj("F"), (group, choice.Choice(Obj("R"))))
     assert nested.parts == 3
+
+
+def test_std_part_qui_se_lie_lui_meme_ne_boucle_pas(scope: ModuleType) -> None:
+    """Revue sécurité : un Std Part qui contient dix liens vers lui-même (document piégé) est
+    lu une fois, sans boucle ni explosion, et ne montre rien."""
+    trap = Obj("S", TypeId="App::Part", Group=[])
+    trap.Group = [_link(f"L{i}", trap) for i in range(10)]
+    walk = scope.LinkWalk()
+    assert scope.workshop_inside(trap, walk) == []
+    assert walk.visits == 1
+
+
+def test_tableau_de_liens_demesure_refuse(scope: ModuleType) -> None:
+    with pytest.raises(ValueError):
+        scope.link_occurrences(_link("L", None, ElementCount=scope.MAX_LINK_ELEMENTS + 1))
+    assert scope.link_occurrences(_link("L", None, ElementCount=3)) == 3
+
+
+def test_tableau_vise_sa_cible_et_non_lui_meme(scope: ModuleType) -> None:
+    """Un tableau de liens rend lui-même par ``getLinkedObject`` : sa cible est lue sur
+    ``LinkedObject``."""
+    target = Obj("T", TypeId="App::Part", Group=[])
+    array = _link("A", target, ElementCount=3)
+    array.target = array  # ce que FreeCAD rend pour un tableau
+    assert scope.link_target(array) is target
