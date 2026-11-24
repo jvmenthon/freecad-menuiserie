@@ -35,7 +35,7 @@ from typing import NamedTuple
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.furniture import Notice, NoticeKind
+from freecad.menuiserie.core.furniture import Notice
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.repeat import (
     Cell,
@@ -245,17 +245,14 @@ def _bind_furnitures(
     sources: Sequence[DocumentObject], created: Sequence[DocumentObject]
 ) -> list[Notice]:
     """Liaisons des ensembles touchés : chaque ensemble copie créé (membres et sous-ensembles
-    compris), puis l'ensemble de chaque source, dont les copies comptent désormais comme membres.
-    L'avertissement « cote dessinée » d'une pièce en bois n'est pas rendu : il annonce ce que
-    ferait un redimensionnement, et une copie ne redimensionne rien (bruit signalé par jv le
-    2026-11-24)."""
+    compris), puis l'ensemble de chaque source, dont les copies comptent désormais comme membres."""
     notices: list[Notice] = []
     for copy in _top_copies(created):
         notices.extend(rebind(copy))
     parents = {parent.Name: parent for parent in map(furniture_of, sources) if parent is not None}
     for parent in parents.values():
         notices.extend(bind_furniture(parent))
-    return [notice for notice in notices if notice.kind is not NoticeKind.DRAWN_SIZE]
+    return notices
 
 
 def apply_repeat(

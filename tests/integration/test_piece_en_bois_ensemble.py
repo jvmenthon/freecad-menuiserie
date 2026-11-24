@@ -288,6 +288,18 @@ def test_deplacement_par_fleches_puis_suivi_de_l_ensemble(table: Table) -> None:
     assert table.expressions(leg.Source) == set()
 
 
+def test_deplacer_ou_relier_n_avertit_pas_de_cote_dessinee(table: Table, vue_rapport: Any) -> None:
+    """Déplacer un membre ou relier l'ensemble ne redimensionne rien : pas de « cote dessinée »
+    (bruit signalé par jv le 2026-11-24, après une copie déplacée à la souris)."""
+    drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
+    memento = drag.begin_drag(table.top)
+    drag.move_part(memento, Vec3(0.0, 20.0, 0.0))
+    messages = drag.end_drag(memento)
+    messages = [*messages, *api.rebind_furniture(table.furniture)]
+    assert not any(DRAWN in text for text in messages)
+    assert _drawn(vue_rapport) == []
+
+
 # --- F4 : pièce en bois assemblée, membre d'un ensemble ---------------------------------------
 
 
