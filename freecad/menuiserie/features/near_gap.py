@@ -142,5 +142,5 @@ def close_gap(
         return end_drag(memento, choose)
     prop = SIZE_PROPS[gap.b_axis]
     shift = Vec3.of([-gap.distance if gap.b_low and i == gap.b_axis else 0.0 for i in range(3)])
-    resize_part(memento, prop, getattr(piece, prop).Value + gap.distance, shift)
+    resize_part(memento, prop, getattr(piece, prop).Value + gap.distance, shift, lowered=gap.b_low)
     return end_drag(memento, choose)

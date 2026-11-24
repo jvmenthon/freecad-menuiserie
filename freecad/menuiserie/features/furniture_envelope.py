@@ -39,9 +39,16 @@ from freecad.menuiserie.features.furniture_drag_state import (
     write_std_placement,
 )
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
-from freecad.menuiserie.features.raw_placement import write_placement
+from freecad.menuiserie.features.raw_placement import carried_along, place, write_placement
 
-__all__ = ["frame_of", "member_envelope", "reframe", "restore_frame", "would_reframe"]
+__all__ = [
+    "frame_of",
+    "kept_inside",
+    "member_envelope",
+    "reframe",
+    "restore_frame",
+    "would_reframe",
+]
 
 TOLERANCE_MM: Final = 1e-6
 _FRAME_PROPERTIES: Final = ("Origin", "Width", "Depth", "Height")
@@ -105,13 +112,36 @@ def _placed_by_formula(member: DocumentObject) -> bool:
     )
 
 
+def kept_inside(furniture: DocumentObject) -> list[DocumentObject]:
+    """Objets placés du Std Part de ``furniture`` qui n'en sont pas membres et que rien d'autre
+    ne place : pièce sortie mais restée assemblée à un membre (``furniture_entry.leave``), objet
+    de l'utilisateur. Le recalage d'un sous-ensemble les décale avec ses membres."""
+    part = std_part_of(furniture)
+    if part is None:
+        return []
+    members = members_of(furniture)
+    own = {furniture.Name, *(obj.Name for obj in members)}
+    own.update(inner.Name for m in members if (inner := _inner_part(m)) is not None)
+    return [
+        obj
+        for obj in part.Group
+        if obj.Name not in own and "Placement" in obj.PropertiesList and not carried_along(obj)
+    ]
+
+
+def _inner_part(member: DocumentObject) -> DocumentObject | None:
+    return std_part_of(member) if is_furniture(member) else None
+
+
 def _movable(furniture: DocumentObject) -> bool:
     """Vrai si le contenu du sous-ensemble ``furniture`` peut être décalé dans son Std Part : ni
-    son Std Part ni un de ses membres n'est placé par une formule autre qu'une liaison de
-    l'atelier (le recalcul défairait le décalage)."""
+    son Std Part, ni un de ses membres, ni un objet gardé dedans (:func:`kept_inside`) n'est
+    placé par une formule autre qu'une liaison de l'atelier (le recalcul défairait le
+    décalage)."""
     if std_part_of(furniture) is None:
         return False
-    return not any(_placed_by_formula(obj) for obj in (furniture, *members_of(furniture)))
+    contents = (furniture, *members_of(furniture), *kept_inside(furniture))
+    return not any(_placed_by_formula(obj) for obj in contents)
 
 
 def _frames(furniture: DocumentObject) -> tuple[Box, Box] | None:
@@ -151,7 +181,8 @@ def reframe(furniture: DocumentObject) -> bool:
 
 def _shift_contents(furniture: DocumentObject, offset: Vec3) -> None:
     """Std Part du sous-ensemble ``furniture`` avancé de ``offset`` (repère du Std Part) et ses
-    membres reculés d'autant : rien ne bouge dans la vue."""
+    membres, avec ce qu'il garde d'autre (:func:`kept_inside`), reculés d'autant : rien ne bouge
+    dans la vue."""
     part = std_part_of(furniture)
     if part is None or max(abs(offset.x), abs(offset.y), abs(offset.z)) <= TOLERANCE_MM:
         return
@@ -163,6 +194,8 @@ def _shift_contents(furniture: DocumentObject, offset: Vec3) -> None:
                 write_std_placement(inner, _moved(inner.Placement, back))
         elif "Placement" in member.PropertiesList:  # membre sans position : rien à décaler
             write_placement(member, _moved(member.Placement, back))
+    for obj in kept_inside(furniture):  # pièce restée assemblée, objet de l'utilisateur
+        place(obj, _moved(obj.Placement, back))
     start = App.Placement(part.Placement)
     ahead = start.Rotation.multVec(App.Vector(offset.x, offset.y, offset.z))
     write_std_placement(part, App.Placement(start.Base + ahead, start.Rotation))

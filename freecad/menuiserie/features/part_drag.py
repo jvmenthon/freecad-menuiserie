@@ -312,10 +312,10 @@ def restore(memento: DragMemento) -> None:
         distance = raw.Document.getObject(name)
         if distance is not None and distance.Value.Value != value:
             distance.Value = value
-    try:
-        recompute_blank(raw)
-    finally:  # pièces suivies rendues même si l'aperçu échoue (ADR 0060)
+    try:  # pièces suivies d'abord : l'aperçu de la brute retrouve leurs assemblages (ADR 0060)
         memento.follows.restore(recompute_blank)
+    finally:
+        recompute_blank(raw)
 
 
 def _relink_thickness(memento: DragMemento, furniture: DocumentObject) -> list[str]:

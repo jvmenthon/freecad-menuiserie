@@ -30,7 +30,9 @@ déplacée à la souris hors de son ensemble ne l'agrandissait pas non plus.
      rejoint et l'ensemble quitté sont recalés.
 2. **Sous-ensemble.** Son `Origin` reste nul. Le Std Part avance du coin bas de l'enveloppe (dans
    son repère) et ses membres reculent d'autant : pièces par leur `Placement`, sous-ensembles par
-   celui de leur Std Part. **Rien ne bouge à l'écran.** Ses cotes deviennent la taille de
+   celui de leur Std Part. Ce que le Std Part garde d'autre recule aussi (pièce sortie mais restée
+   assemblée à un membre, ADR 0061 ; objet de l'utilisateur), avec les mêmes contrôles de formule
+   et le même retour arrière. **Rien ne bouge à l'écran.** Ses cotes deviennent la taille de
    l'enveloppe. Les liaisons que son parent pose sur lui (cotes, position du Std Part) sont
    retirées avant le recalage, puis reposées par le parent d'après la boîte recalée : sinon le
    recalcul ramènerait l'ancienne boîte.

@@ -450,3 +450,55 @@ def test_ensemble_pilote_par_une_formule_garde_sa_boite(document: Any) -> None:
     document.recompute()
     api.add_to_furniture(pilote, pieces[1:])
     assert pilote.Depth.Value == 900.0
+
+
+def test_piece_restee_dans_le_std_part_et_objet_de_l_utilisateur_ne_bougent_pas(
+    document: Any,
+) -> None:
+    """Revue Copilot de la PR #264 : une pièce sortie du caisson mais restée assemblée à un
+    membre reste dans son Std Part ; le recalage du caisson la décale avec ses membres, comme un
+    objet de l'utilisateur rangé dans ce Std Part."""
+    from tests.integration.cadre import stale_or_invalid
+
+    bureau, sub, parts = _bureau_et_caisson(document)
+    api.add_to_furniture(bureau, [sub])
+    api.make_mortise_tenon(parts["CG"], parts["CB"])
+    boite = document.addObject("Part::Box", "BoiteUtilisateur")
+    std = container.std_part_of(sub)
+    std.addObject(boite)
+    document.recompute()
+    vus = {**_globaux(parts), "boite": App.Placement(boite.getGlobalPlacement())}
+    std_avant = App.Placement(std.Placement)
+    api.remove_from_furniture([parts["CG"]])
+    document.recompute()
+    assert parts["CG"].getParentGeoFeatureGroup() == std  # restée : assemblée au fond
+    assert parts["CG"] not in bindings.members_of(sub)
+    assert not std.Placement.isSame(std_avant, 1e-6)  # le caisson a bien été recalé
+    assert _memes(vus, {**_globaux(parts), "boite": App.Placement(boite.getGlobalPlacement())})
+    _ajustee(sub)
+    _ajustee(bureau)
+    assert not stale_or_invalid(document)
+
+
+def test_retour_arriere_rend_la_piece_restee(
+    document: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bureau, sub, parts = _bureau_et_caisson(document)
+    api.add_to_furniture(bureau, [sub])
+    api.make_mortise_tenon(parts["CG"], parts["CB"])
+    document.recompute()
+    api.remove_from_furniture([parts["CG"]])
+    document.recompute()
+    vus = _globaux(parts)
+
+    def refuse(_furniture: Any) -> list[Any]:
+        raise ValueError("refus")
+
+    monkeypatch.setattr(reframe, "bind_furniture", refuse)
+    memento = part_drag.begin_drag(parts["CD"])
+    part_drag.move_part(memento, geometry.Vec3(0.0, 0.0, -50.0))
+    with pytest.raises(ValueError, match="refus"):
+        reframe.relink_framed(sub)
+    part_drag.restore(memento)
+    document.recompute()
+    assert _memes(vus, _globaux(parts))

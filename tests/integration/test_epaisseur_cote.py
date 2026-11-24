@@ -257,3 +257,15 @@ def test_copie_non_modifiable_butee(document: Any) -> None:
     assert drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, -12), lowered=True) == ""
     drag.end_drag(memento)
     assert holds(document, joint)
+
+
+def test_echap_rend_la_piece_usinee_avec_ses_queues(document: Any) -> None:
+    """Revue Copilot de la PR #264 : Échap rend H avant de recalculer l'aperçu de I, qui
+    retrouve ses queues sans recalcul du document."""
+    _host, guest, _joint = corner(document)
+    usinee = api.machined_part_of(guest)
+    volume = usinee.Shape.Volume
+    memento = drag.begin_drag(guest)
+    drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
+    drag.restore(memento)
+    assert usinee.Shape.Volume == pytest.approx(volume)

@@ -29,10 +29,15 @@ from freecad.menuiserie.features.furniture_bindings import (
 )
 from freecad.menuiserie.features.furniture_container import set_member_expression, std_part_of
 from freecad.menuiserie.features.furniture_drag_state import write_std_placement
-from freecad.menuiserie.features.furniture_envelope import frame_of, reframe, restore_frame
+from freecad.menuiserie.features.furniture_envelope import (
+    frame_of,
+    kept_inside,
+    reframe,
+    restore_frame,
+)
 from freecad.menuiserie.features.furniture_relink import bind_furniture
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.raw_placement import write_placement
+from freecad.menuiserie.features.raw_placement import place
 from freecad.menuiserie.features.thickness_common import is_alive
 
 __all__ = ["KeptBindings", "reframe_all", "relink_framed"]
@@ -89,6 +94,8 @@ class _Snapshot:
                     self._keep_part(member)
                 elif "Placement" in member.PropertiesList:  # pas une cote ou un repère
                     self.raws.append((member, App.Placement(member.Placement)))
+            if furniture_of(furniture) is not None:  # sous-ensemble : ce qu'il garde est décalé
+                self.raws += [(obj, App.Placement(obj.Placement)) for obj in kept_inside(furniture)]
 
     def _keep_part(self, furniture: DocumentObject) -> None:
         part = std_part_of(furniture)
@@ -115,9 +122,9 @@ class _Snapshot:
                 App.Console.PrintError(f"Menuiserie : retour arrière de {obj.Name} : {error}\n")
 
 
-def _put_back(raw: DocumentObject, placement: App.Placement) -> None:
-    if not raw.Placement.isSame(placement, 1e-9):
-        write_placement(raw, placement)
+def _put_back(obj: DocumentObject, placement: App.Placement) -> None:
+    if not obj.Placement.isSame(placement, 1e-9):
+        place(obj, placement)
 
 
 def _chain(furniture: DocumentObject) -> list[DocumentObject]:

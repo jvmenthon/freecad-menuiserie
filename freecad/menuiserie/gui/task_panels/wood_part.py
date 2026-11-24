@@ -243,6 +243,11 @@ class WoodPartTaskPanel(ObjectTaskPanel):
             self.preview()
             self._snap.show()  # notices en direct : la pièce touche ou non ses cibles
 
+    def before_drag(self) -> None:
+        """Geste à la souris qui commence : l'encadré d'épaisseur est fermé avant le mémento du
+        geste (pièce d'ensemble : ensemble relié d'après l'état écrit, ADR 0060)."""
+        self._conflict.forget()
+
     def after_drag(self) -> None:
         """Pièce déplacée ou étirée à la souris : cotes relues par les champs ; l'accrochage de la
         création ne la repose plus (il la ramènerait là où elle a été posée)."""

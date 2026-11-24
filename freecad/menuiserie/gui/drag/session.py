@@ -347,6 +347,7 @@ class DragSession:
         if origin is None:
             return False
         kind = Moving if isinstance(parse_key(key), int) else Resizing
+        self._settle_panel()
         own = open_transaction(
             target.obj, target.transaction("move" if kind is Moving else "resize")
         )
@@ -413,6 +414,7 @@ class DragSession:
         from_center = hit - ring.center
         if from_center == Vec3(0.0, 0.0, 0.0):
             return False
+        self._settle_panel()
         own = open_transaction(target.obj, target.transaction("rotate"))
         try:
             memento = target.begin()
@@ -423,6 +425,13 @@ class DragSession:
         state.shift = shift
         self.enter(state)
         return True
+
+    def _settle_panel(self) -> None:
+        """Geste qui commence : le panneau fige ses saisies en cours avant le mémento du geste
+        (ensemble relié avant, jamais pendant le glissement, ADR 0060)."""
+        panel = self.panel
+        if panel is not None and panel.settle is not None and self._panel_open():
+            panel.settle()
 
     def written(self, guides: Sequence[Guide], guides_frame: Frame) -> None:
         """La pièce a été écrite : flèches redessinées avec les ``guides`` aimantés (dans le repère

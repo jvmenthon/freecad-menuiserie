@@ -12,12 +12,12 @@ import pytest
 from tests.integration.cadre import stale_or_invalid
 
 App = pytest.importorskip("FreeCAD")
-api = pytest.importorskip("freecad.menuiserie.api")
-envelope = pytest.importorskip("freecad.menuiserie.features.furniture_envelope")
-part_drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
-reframe = pytest.importorskip("freecad.menuiserie.features.furniture_reframe")
-bindings = pytest.importorskip("freecad.menuiserie.features.furniture_bindings")
 geometry = pytest.importorskip("freecad.menuiserie.core.geometry")
+api = pytest.importorskip("freecad.menuiserie.api")
+bindings = pytest.importorskip("freecad.menuiserie.features.furniture_bindings")
+envelope = pytest.importorskip("freecad.menuiserie.features.furniture_envelope")
+reframe = pytest.importorskip("freecad.menuiserie.features.furniture_reframe")
+part_drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
 
 pytestmark = pytest.mark.integration
 

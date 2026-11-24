@@ -154,3 +154,21 @@ def test_option_deplacer_signale_les_assemblages_portes(document: Any) -> None:
     closing = api.closing_options(near, rail)
     assert closing is not None
     assert closing.move_has_joints is True
+
+
+def test_agrandir_par_la_face_basse_la_piece_posee_dessus_ne_bouge_pas(document: Any) -> None:
+    """Revue Copilot de la PR #264 : l'épaisseur grandit par la face basse (``lowered``) ; la
+    pièce assemblée sur la face haute, immobile, reste en place."""
+    lower, upper = stack(document)
+    post = api.make_wood_part(200, 60, 22, "chene", mark="C", doc=document)
+    top = 2 * THICKNESS + GAP
+    post.Placement = App.Placement(App.Vector(200, 0, top), App.Rotation(App.Vector(0, 1, 0), -90))
+    document.recompute()
+    api.make_mortise_tenon(upper, post)
+    document.recompute()
+    assert not stale_or_invalid(document)
+    api.close_gap(lower, upper, "grow")
+    document.recompute()
+    assert upper.Thickness.Value == pytest.approx(THICKNESS + GAP)
+    assert post.Placement.Base.z == pytest.approx(top)
+    assert not stale_or_invalid(document)
