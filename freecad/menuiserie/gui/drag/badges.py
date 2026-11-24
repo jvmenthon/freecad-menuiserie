@@ -15,7 +15,7 @@ from typing import Final
 
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.gui.drag.geometry import BADGE_H_PX, BADGE_W_PX, BadgeState
+from freecad.menuiserie.gui.drag.drawing import BADGE_H_PX, BADGE_W_PX, BadgeState
 
 __all__ = ["badge_pixels"]
 

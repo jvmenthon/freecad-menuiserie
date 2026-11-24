@@ -14,9 +14,8 @@ from typing import Any
 import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import Vec3
-from freecad.menuiserie.core.magnet import Ray, mm_per_pixel
+from freecad.menuiserie.core.magnet import Ray, mm_per_pixel, mouse_ray
 from freecad.menuiserie.features.snap_geometry import to_vec3
-from freecad.menuiserie.gui.drag.geometry import mouse_ray
 
 __all__ = ["ViewPort"]
 

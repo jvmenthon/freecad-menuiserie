@@ -44,7 +44,7 @@ from freecad.menuiserie.features.i18n import report_warning, translate_text
 from freecad.menuiserie.features.part_drag import DragCancelledError
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
-from freecad.menuiserie.gui.drag.geometry import (
+from freecad.menuiserie.gui.drag.drawing import (
     HOVER_COLOR,
     REFUSAL_COLOR,
     Label,

@@ -38,6 +38,7 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.magnet import (
+    MAGNET_PX,
     Guide,
     Ray,
     axis_param,
@@ -56,10 +57,8 @@ from freecad.menuiserie.gui.drag.copying import (
     copy_axis,
     passive_memento,
 )
-from freecad.menuiserie.gui.drag.furniture_target import FurnitureTarget
-from freecad.menuiserie.gui.drag.geometry import (
+from freecad.menuiserie.gui.drag.drawing import (
     ARROW_PX,
-    MAGNET_PX,
     Cues,
     Layout,
     badge_angles,
@@ -70,6 +69,7 @@ from freecad.menuiserie.gui.drag.geometry import (
     target_line,
     tooltip_html,
 )
+from freecad.menuiserie.gui.drag.furniture_target import FurnitureTarget
 from freecad.menuiserie.gui.drag.overlay import Overlay
 from freecad.menuiserie.gui.drag.parts import (
     Grab,

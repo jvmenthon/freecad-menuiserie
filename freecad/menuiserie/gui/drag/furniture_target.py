@@ -43,7 +43,7 @@ from freecad.menuiserie.features.furniture_drag import (
 )
 from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.solids import rigid_transform
-from freecad.menuiserie.gui.drag.geometry import HANDLE_RATIO, Layout
+from freecad.menuiserie.gui.drag.drawing import HANDLE_RATIO, Layout
 from freecad.menuiserie.gui.drag.rings import build_rings
 from freecad.menuiserie.gui.drag.target import Memento, Step, Target
 

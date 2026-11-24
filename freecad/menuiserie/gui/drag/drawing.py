@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Géométrie pure du glissement dans la vue 3D (SM-c) : flèches et poignées saisissables, rayon de
-la souris, dessin à poser (traits, points, étiquettes), cadence de recalcul. Aucun import de
-FreeCAD, de Qt ni de pivy : ``view.py`` fournit les projections, ``overlay.py`` pose le dessin.
+"""Dessin pur du glissement dans la vue 3D (SM-c) : disposition des flèches et des poignées, cibles
+en pixels, dessin à poser (traits, points, étiquettes), cadence de recalcul. Le rayon de la
+souris, la tolérance de l'aimant et le point des poignées sont dans ``core/magnet`` (ADR 0021,
+point 2). Aucun import de FreeCAD, de Qt ni de pivy : ``view.py`` fournit les projections,
+``overlay.py`` pose le dessin.
 
 Une poignée est une **étiquette de cote** (ADR 0068) : pastille ↔ et valeur de la cote qu'elle
 change, reliée au milieu de sa face par un trait. Une poignée impossible est dessinée grisée, avec
@@ -19,7 +21,6 @@ from typing import Final
 
 from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.magnet import (
-    THICKNESS_AXIS,
     Arrow,
     Guide,
     GuideKind,
@@ -27,6 +28,7 @@ from freecad.menuiserie.core.magnet import (
     PixelTarget,
     Ray,
     arrows,
+    handle_point,
 )
 from freecad.menuiserie.core.rotation import Ring
 from freecad.menuiserie.core.snap import Frame
@@ -41,7 +43,6 @@ from freecad.menuiserie.gui.drag.rings import (
 
 __all__ = [
     "ARROW_PX",
-    "MAGNET_PX",
     "REFUSAL_COLOR",
     "Badge",
     "BadgeState",
@@ -64,7 +65,6 @@ __all__ = [
     "is_locked_key",
     "locked_blocker",
     "locked_key",
-    "mouse_ray",
     "parse_key",
     "pixel_targets",
     "size_text",
@@ -79,7 +79,6 @@ BADGE_REACH: Final = 1.9  # centre de l'étiquette : distance à la face, en uni
 BADGE_W_PX: Final = 66.0  # étiquette d'une poignée : largeur et hauteur à l'écran (pixels logiques)
 BADGE_H_PX: Final = 24.0
 ANGLE_STEP: Final = 5.0  # pas des angles des étiquettes (degrés) : images gardées, moins de dessins
-MAGNET_PX: Final = 10.0  # tolérance de l'aimant à l'écran
 MAX_RATE: Final = 30  # recalculs de la brute par seconde (poignée)
 AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  # X, Y, Z
 HANDLE_COLOR: Final = (1.0, 0.55, 0.0)
@@ -136,14 +135,6 @@ def parse_key(key: str) -> int | Handle:
     raise ValueError(f"clé de flèche ou de poignée inconnue : {key!r}")
 
 
-def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
-    """Rayon de la souris : ``focal`` est le point du plan focal sous le curseur ; caméra
-    orthogonale (``camera`` absent) : direction de vue ; perspective : caméra vers ``focal``."""
-    if camera is None:
-        return Ray(focal, direction)
-    return Ray(camera, focal - camera)
-
-
 @dataclass(frozen=True)
 class Layout:
     """Ce qui est dessiné et saisissable sur la pièce : repère global, boîte (repère de la pièce),
@@ -169,17 +160,6 @@ class Layout:
     badge_angles: tuple[float, ...] = ()
 
 
-def _face_center(box: Box, handle: Handle) -> Vec3:
-    """Point de la poignée : milieu de sa face ; les poignées d'épaisseur, que le départ des
-    flèches cacherait, sont décalées d'un quart de longueur, l'une vers chaque bout."""
-    values = [box.center(i) for i in range(3)]
-    values[handle.axis] = box.hi(handle.axis) if handle.at_end else box.lo(handle.axis)
-    if handle.axis == THICKNESS_AXIS:
-        quarter = (box.hi(0) - box.lo(0)) / 4
-        values[0] += -quarter if handle.at_end else quarter
-    return Vec3.of(values)
-
-
 def build_layout(
     frame: Frame,
     box: Box,
@@ -194,12 +174,12 @@ def build_layout(
     free = tuple(a for a in arrows(frame, box, size_mm) if a.axis not in fixed_axes)
     to_global = frame.to_transform()
     handles = tuple(
-        (handle, to_global.apply(_face_center(box, handle)))
+        (handle, to_global.apply(handle_point(box, handle)))
         for axis in sorted(resizable_axes)
         for handle in (Handle(axis, False), Handle(axis, True))
     )
     locked = tuple(
-        (handle, to_global.apply(_face_center(box, handle)), blocker)
+        (handle, to_global.apply(handle_point(box, handle)), blocker)
         for axis, blocker in sorted(locked_sizes)
         if axis not in resizable_axes
         for handle in (Handle(axis, False), Handle(axis, True))

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Copie par glissement, partie pure (lot R-d, ``gui/drag/copy_rules.py`` et fantôme de
-``gui/drag/geometry.py``) : axe global de la flèche, paramètres de la répétition d'une copie,
+``gui/drag/drawing.py``) : axe global de la flèche, paramètres de la répétition d'une copie,
 dessin du fantôme, garde-fous de structure."""
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from freecad.menuiserie.core.i18n import TemplatedError
 from freecad.menuiserie.core.repeat import RepeatAxis, SpacingMode
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.gui.drag.copy_rules import MIN_MOVE, copy_params, global_axis
-from freecad.menuiserie.gui.drag.geometry import GHOST_COLOR, Cues, build_drawing, build_layout
+from freecad.menuiserie.gui.drag.drawing import GHOST_COLOR, Cues, build_drawing, build_layout
 from tests.unit.aides import ROOT, imported_modules
 
 PACKAGE = ROOT / "freecad" / "menuiserie"

@@ -15,7 +15,7 @@ from typing import Any, Final
 from pivy import coin
 
 from freecad.menuiserie.gui.drag.badges import badge_pixels
-from freecad.menuiserie.gui.drag.geometry import Badge, Dots, Drawing, Label, Solid, Stroke
+from freecad.menuiserie.gui.drag.drawing import Badge, Dots, Drawing, Label, Solid, Stroke
 
 __all__ = ["NODE_NAME", "Overlay"]
 

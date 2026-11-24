@@ -33,7 +33,7 @@ from freecad.menuiserie.features.edge_frames import edge_index
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.shaped_part import base_shape_of
 from freecad.menuiserie.features.wood_part_record import dimensions_of
-from freecad.menuiserie.gui.drag.geometry import Drawing, Solid, Stroke
+from freecad.menuiserie.gui.drag.drawing import Drawing, Solid, Stroke
 from freecad.menuiserie.gui.drag.overlay import Overlay
 
 __all__ = ["NODE_NAME", "EdgeHighlight", "Entry", "highlight_drawing", "rgb"]

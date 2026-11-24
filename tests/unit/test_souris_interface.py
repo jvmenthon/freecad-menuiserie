@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Glisser à la souris, partie pure de l'interface (SM-c, ``gui/drag/geometry.py``) : clés des
+"""Glisser à la souris, partie pure de l'interface (SM-c, ``gui/drag/drawing.py``) : clés des
 flèches et poignées, rayon, disposition, dessin, cadence ; et garde-fous de structure (pivy dans
 un seul module, filtre posé et retiré avec l'atelier)."""
 
@@ -11,9 +11,9 @@ from dataclasses import replace
 import pytest
 
 from freecad.menuiserie.core.geometry import Box, Vec3
-from freecad.menuiserie.core.magnet import Guide, GuideKind, Handle, handle_at
+from freecad.menuiserie.core.magnet import Guide, GuideKind, Handle, handle_at, mouse_ray
 from freecad.menuiserie.core.snap import Frame
-from freecad.menuiserie.gui.drag.geometry import (
+from freecad.menuiserie.gui.drag.drawing import (
     GUIDE_COLOR,
     HANDLE_COLOR,
     HOVER_COLOR,
@@ -29,7 +29,6 @@ from freecad.menuiserie.gui.drag.geometry import (
     is_locked_key,
     locked_blocker,
     locked_key,
-    mouse_ray,
     parse_key,
     pixel_targets,
     size_text,
@@ -324,7 +323,7 @@ def test_pivy_dans_un_seul_module_du_glissement() -> None:
 
 
 def test_geometrie_du_glissement_sans_freecad_ni_qt() -> None:
-    modules = imported_modules(PACKAGE / "gui" / "drag" / "geometry.py")
+    modules = imported_modules(PACKAGE / "gui" / "drag" / "drawing.py")
     forbidden = {"FreeCAD", "FreeCADGui", "PySide", "pivy", "pivy.coin", "Part"}
     assert forbidden.isdisjoint(modules)
 

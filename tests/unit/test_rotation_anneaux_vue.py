@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Anneaux de rotation dans la vue 3D, partie pure (RO-d, ADR 0025, ``gui/drag/rings.py`` et
-``gui/drag/geometry.py``) : clés, anneaux d'une pièce (conteneur compris), cercle, anneau sous la
+``gui/drag/drawing.py``) : clés, anneaux d'une pièce (conteneur compris), cercle, anneau sous la
 souris (caméra orthogonale et perspective, anneau vu par la tranche), angle cumulé sur plusieurs
 tours, texte de l'angle, secteur parcouru et dessin."""
 
@@ -16,7 +16,7 @@ from freecad.menuiserie.core.geometry import Box, RigidTransform, Vec3
 from freecad.menuiserie.core.magnet import Ray
 from freecad.menuiserie.core.rotation import Ring, matrix_of, ring_angle
 from freecad.menuiserie.core.snap import Frame
-from freecad.menuiserie.gui.drag.geometry import (
+from freecad.menuiserie.gui.drag.drawing import (
     AXIS_COLORS,
     HOVER_COLOR,
     SECTOR_TRANSPARENCY,

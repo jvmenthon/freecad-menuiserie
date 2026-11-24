@@ -46,7 +46,7 @@ from freecad.menuiserie.features.part_drag import DragMemento
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.drag.copy_rules import copy_params, global_axis
-from freecad.menuiserie.gui.drag.geometry import parse_key
+from freecad.menuiserie.gui.drag.drawing import parse_key
 from freecad.menuiserie.gui.drag.parts import Grab
 from freecad.menuiserie.gui.drag.states import Moving
 from freecad.menuiserie.gui.task_panels.repeat import start_editing

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Taille et orientation d'un ensemble à la souris, partie pure du dessin (EN-c, ADR 0038,
-``gui/drag/geometry.py``) : boîte en transparence, étiquettes de face (ADR 0068), message près de
+``gui/drag/drawing.py``) : boîte en transparence, étiquettes de face (ADR 0068), message près de
 la souris, cadence de 10 Hz ; et garde-fous de structure (``Target`` sans pivy)."""
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from freecad.menuiserie.core.furniture import furniture_layout
 from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.magnet import Handle
 from freecad.menuiserie.core.snap import Frame
-from freecad.menuiserie.gui.drag.geometry import (
+from freecad.menuiserie.gui.drag.drawing import (
     BOX_COLOR,
     BOX_TRANSPARENCY,
     HOVER_COLOR,

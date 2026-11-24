@@ -22,7 +22,6 @@ contournable), **mineur** (confort, docs, dette de test).
 
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
-| m1 | mineur | `freecad/menuiserie/gui/drag/geometry.py` | `mouse_ray`, le placement des poignées et `MAGNET_PX` sont dans `gui/` alors que l'ADR 0021 (point 2) les met dans `core/magnet` ; le nom `geometry.py` est trompeur (le module dessine). | Déplacer ces trois éléments vers `core/magnet` et renommer `geometry.py` en `drawing.py`. |
 | m8 | mineur | `.github/workflows/ci.yml` (étape « Chargement dans l'interface de FreeCAD ») | Le commentaire sur la zone de notifications coupée ne cite pas le ticket FreeCAD de l'interblocage des notifications hors écran. | Citer le ticket FreeCAD dans le commentaire. |
 
 ## Relecture de fin de jalon « Pièce en bois » (issue #73, ADR 0020), 2026-10-26

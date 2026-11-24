@@ -37,7 +37,7 @@ from freecad.menuiserie.features.part_drag import (
     restore,
 )
 from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
-from freecad.menuiserie.gui.drag.geometry import Layout, build_layout
+from freecad.menuiserie.gui.drag.drawing import Layout, build_layout
 from freecad.menuiserie.gui.drag.parts import box_of, frame_of, rings_of
 
 __all__ = [
