@@ -35,11 +35,19 @@ def modifier_la_repetition() -> str:
     return ic.svg(cadre=CADRE, devant=crayon)
 
 
-def dissocier_la_copie() -> str:
-    ic = Icone("Dissocier la répétition : la dernière copie s'écarte, pastille de lien rompu")
-    _tasseaux(ic, ecart=8.0)
-    rompu = pastille("#ef2929", "#a40000", "M43,43 L55,55 M55,43 L43,55")
-    return ic.svg(cadre=CADRE, devant=rompu)
+def dissocier_la_repetition() -> str:
+    """Maquette 1 choisie par jv (2026-11-24) : mêmes tasseaux que « Répéter », pastille rouge
+    avec un maillon ouvert au milieu (ADR 0067 : toutes les copies deviennent libres)."""
+    ic = Icone("Dissocier la répétition : un tasseau, ses copies et un maillon coupé")
+    _tasseaux(ic)
+    trait = 'fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round"'
+    maillon = (
+        '  <circle cx="49" cy="49" r="13" fill="#ef2929" stroke="#a40000" stroke-width="2"/>\n'
+        f'  <path d="M46,45 h-3 a4,4 0 0 0 0,8 h3 M52,45 h3 a4,4 0 0 1 0,8 h-3" {trait} '
+        'stroke-width="3"/>\n'
+        f'  <path d="M49,40.5 v2.5 M49,55 v2.5" {trait} stroke-width="2"/>'
+    )
+    return ic.svg(cadre=CADRE, devant=maillon)
 
 
 def repetition() -> str:
