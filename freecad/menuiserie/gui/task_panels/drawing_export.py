@@ -5,7 +5,8 @@ Même arbre à cocher que « Plans de pièce » (ensembles, pièces, copies par 
 plans de l'ouvrage (existants, ou à créer) et des autres pages. Une seconde colonne dit pour
 chaque pièce si son plan existe ou s'il sera créé. Ce qui était sélectionné avant le clic est
 déjà coché. « OK » crée les plans qui manquent puis écrit toutes les pages cochées dans un seul
-PDF ; « Annuler » ne laisse rien.
+PDF ; « Annuler » ne laisse rien. Le fichier est vérifié avant de créer les plans ; si l'écriture
+échoue ensuite, les plans créés restent (annulables) et le panneau reste ouvert.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import escaped_text
-from freecad.menuiserie.features.cutlist_export import PDF_SUFFIX, with_suffix
+from freecad.menuiserie.features.cutlist_export import PDF_SUFFIX, validated_path, with_suffix
 from freecad.menuiserie.features.drawing import TITLE as OVERALL_TITLE
 from freecad.menuiserie.features.drawing import DrawingOptions
 from freecad.menuiserie.features.drawing_exploded import TITLE as EXPLODED_TITLE
@@ -188,10 +189,11 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         pages = [obj for obj in chosen if is_page(obj)]
         parts = [obj for obj in chosen if not is_page(obj)]
         try:
+            validated_path(with_suffix(path, PDF_SUFFIX), PDF_SUFFIX)  # avant toute création
             options = DrawingOptions(settle=HlrWait())
             found = pages_to_export(self.doc, pages, parts, kinds, options)
             self.written = export_pages_pdf(found, with_suffix(path, PDF_SUFFIX))
-        except (TypeError, ValueError, OSError) as error:
+        except (TypeError, ValueError, OSError, RuntimeError) as error:
             report_refusal(str(error))
             return False
         self._watcher.detach()

@@ -5,6 +5,8 @@ TechDraw n'écrit qu'une page par PDF. Chaque page est donc exportée en SVG par
 (``TechDrawGui.exportPageAsSvg`` : rendu d'export, sans cadres ni sélection), puis dessinée en
 vectoriel par Qt (``QSvgRenderer``) sur une page de ``QPdfWriter`` à la taille de sa feuille.
 Rien n'est installé ; le fichier est mis en place d'un coup (écriture atomique) une fois écrit.
+Comme pour l'export de TechDraw, une image que le gabarit SVG d'une page référence est reprise
+dans le PDF.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from freecad.menuiserie.features.cutlist_export import (
     replace_atomically,
     validated_path,
 )
+from freecad.menuiserie.features.drawing_export import MAX_EXPORT_PAGES, TOO_MANY_PAGES
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.drawing_pdf import is_page, show_page
@@ -32,6 +35,8 @@ __all__ = ["export_pages_pdf", "proposed_plans_path", "sheet_mm"]
 
 PDF_MAGIC: Final = b"%PDF"
 RESOLUTION_DPI: Final = 600
+MIN_SHEET_MM: Final = 50.0
+MAX_SHEET_MM: Final = 3000.0  # bien au-delà de l'A0 (1189 mm)
 DEFAULT_SHEET_MM: Final = (420.0, 297.0)  # A3 paysage, si la page ne donne pas sa taille
 _FORBIDDEN_IN_NAME: Final = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
 _FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{document} - plans")
@@ -54,7 +59,7 @@ def proposed_plans_path(doc: Document, home: Path | None = None) -> Path:
 
 def _length(value: object) -> float:
     number = float(getattr(value, "Value", value))  # type: ignore[arg-type]
-    if not 1.0 <= number <= 10_000.0:
+    if not MIN_SHEET_MM <= number <= MAX_SHEET_MM:  # NaN et infini compris
         raise ValueError(number)
     return number
 
@@ -65,7 +70,7 @@ def sheet_mm(page: DocumentObject) -> tuple[float, float]:
     template = getattr(page, "Template", None)
     try:
         return _length(template.Width), _length(template.Height)  # type: ignore[union-attr]
-    except (AttributeError, TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError, OverflowError):
         return DEFAULT_SHEET_MM
 
 
@@ -125,6 +130,8 @@ def export_pages_pdf(pages: Sequence[DocumentObject], path: str | Path) -> Path:
     remplacé qu'en cas de succès."""
     if not pages:
         raise ValueError(translated(_NOTHING))
+    if len(pages) > MAX_EXPORT_PAGES:
+        raise ValueError(translated(TOO_MANY_PAGES, {"limit": str(MAX_EXPORT_PAGES)}))
     for page in pages:
         if not is_page(page):
             raise ValueError(translated(_NOT_A_PAGE, {"label": str(getattr(page, "Label", page))}))

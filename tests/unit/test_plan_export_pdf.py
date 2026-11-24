@@ -136,3 +136,125 @@ def test_rien_a_creer_ne_touche_pas_au_document(
     monkeypatch.setattr(export, "make_part_drawings", interdit)
     monkeypatch.setattr(export, "make_overall_drawing", interdit)
     assert export.pages_to_export(_doc(a, existing), [], [a]) == [existing]
+
+
+def test_piece_usinee_et_sa_brute_partagent_la_meme_ligne(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le plan dessine la pièce usinée : la brute (et sa jumelle) l'ont pour plan."""
+    brute, jumelle, usinee = _obj("Brute"), _obj("Jumelle"), _obj("Usinee")
+    page = _page("PlanUsinee", "part", (usinee,))
+    _groups(export, monkeypatch, [[brute, jumelle]])
+    monkeypatch.setattr(export, "machined_part_of", lambda obj: usinee if obj is brute else None)
+    state = export.export_state(_doc(brute, jumelle, usinee, page))
+    assert state.page_of == {"Brute": page, "Jumelle": page}
+    assert state.missing([brute, jumelle]) == []
+    assert state.other_pages == []
+
+
+def test_deux_pages_pour_un_meme_groupe_la_seconde_reste_a_part(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a, b = _obj("A"), _obj("B")
+    first, second = _page("Plan1", "part", (a,)), _page("Plan2", "part", (b,))
+    _groups(export, monkeypatch, [[a, b]])
+    state = export.export_state(_doc(a, b, first, second))
+    assert state.page_of == {"A": first, "B": first}
+    assert state.other_pages == [second]
+
+
+def test_page_sans_vues_ni_gabarit_ne_plante_pas(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bare = SimpleNamespace(Name="Nue", Label="Nue", TypeId=PAGE)
+    marked = SimpleNamespace(
+        Name="Marquee",
+        Label="Marquee",
+        TypeId=PAGE,
+        MenuiserieDrawing=True,
+        MenuiserieDrawingKind="part",
+        MenuiserieDrawingViews="Absente",
+    )
+    _groups(export, monkeypatch, [])
+    state = export.export_state(_doc(bare, marked))
+    assert state.other_pages == [bare, marked]
+
+
+def test_objets_qui_ne_sont_pas_des_pages_sont_ignores(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _groups(export, monkeypatch, [])
+    state = export.export_state(_doc(_obj("A"), SimpleNamespace(Name="Sans", Label="Sans")))
+    assert state.other_pages == []
+    assert state.kinds == set()
+
+
+def test_rien_de_coche_ne_donne_aucune_page_et_ne_cree_rien(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def interdit(*_args: Any) -> None:
+        raise AssertionError("rien ne doit être créé")
+
+    monkeypatch.setattr(export, "make_part_drawings", interdit)
+    monkeypatch.setattr(export, "make_overall_drawing", interdit)
+    monkeypatch.setattr(export, "make_exploded_drawing", interdit)
+    monkeypatch.setattr(export, "blanks_of", list)
+    assert export.pages_to_export(_doc(), [], []) == []
+
+
+def test_page_cochee_et_ses_pieces_ne_font_qu_une_feuille(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a, b = _obj("A"), _obj("B")
+    page = _page("Plan", "part", (a,))
+    _groups(export, monkeypatch, [[a, b]])
+    monkeypatch.setattr(export, "blanks_of", list)
+    assert export.pages_to_export(_doc(a, b, page), [page], [a, b]) == [page]
+
+
+def test_pieces_identiques_manquantes_sont_toutes_confiees_a_la_creation(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Le regroupement en un plan par groupe est fait par ``make_part_drawings`` : les deux
+    pièces lui sont données, et le plan créé sert aux deux."""
+    a, b = _obj("A"), _obj("B")
+    doc = _doc(a, b)
+    _groups(export, monkeypatch, [[a, b]])
+    monkeypatch.setattr(export, "blanks_of", list)
+    received: list[list[Any]] = []
+
+    def make_parts(document: Any, blanks: list[Any], _options: Any) -> list[Any]:
+        received.append(list(blanks))
+        document.Objects.append(_page("Plan", "part", (a,)))
+        return []
+
+    monkeypatch.setattr(export, "make_part_drawings", make_parts)
+    found = export.pages_to_export(doc, [], [a, b])
+    assert received == [[a, b]]
+    assert [page.Name for page in found] == ["Plan"]
+
+
+def test_plans_de_l_ouvrage_demandes_sans_piece(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(export, "document_scope", lambda _doc: [])
+    monkeypatch.setattr(export, "blanks_of", list)
+    monkeypatch.setattr(export, "make_overall_drawing", lambda *_a: _page("Ouvrage", ""))
+    monkeypatch.setattr(export, "make_exploded_drawing", lambda *_a: _page("Eclate", "exploded"))
+    found = export.pages_to_export(_doc(), [], [], [export.EXPLODED, export.OVERALL])
+    assert [page.Name for page in found] == ["Ouvrage", "Eclate"]
+
+
+def test_un_plan_impossible_a_creer_remonte_l_erreur(
+    export: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a = _obj("A")
+    _groups(export, monkeypatch, [[a]])
+    monkeypatch.setattr(export, "blanks_of", list)
+
+    def refuse(*_args: Any) -> None:
+        raise ValueError("TechDraw manque")
+
+    monkeypatch.setattr(export, "make_part_drawings", refuse)
+    with pytest.raises(ValueError, match="TechDraw"):
+        export.pages_to_export(_doc(a), [], [a])

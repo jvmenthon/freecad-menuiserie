@@ -123,6 +123,10 @@ def _export(bureau: Any) -> list[str]:
         panneau.path.setText(str(cible))
         panneau.check(piece.Name)
         avant = len(_pages(bureau.doc))
+        panneau.path.setText(str(Path(dossier) / "absent" / "plans.pdf"))
+        refuse = not panneau.accept()
+        sans_creation = len(_pages(bureau.doc)) == avant
+        panneau.path.setText(str(cible))
         accepte = panneau.accept()
         octets = cible.read_bytes() if cible.exists() else b""
         restes = [p.name for p in Path(dossier).iterdir() if p.suffix == ".tmp"]
@@ -130,6 +134,8 @@ def _export(bureau: Any) -> list[str]:
     return [
         *ecarts("panneau ouvert", ouvert, True),
         *ecarts("page précochée", page.Name in coches, True),
+        *ecarts("chemin invalide refusé", refuse, True),
+        *ecarts("chemin invalide : aucun plan créé", sans_creation, True),
         *ecarts("export accepté", accepte, True),
         *ecarts("plan de pièce créé", len(_pages(bureau.doc)), avant + 1),
         *ecarts("le PDF commence par %PDF", octets[:4], b"%PDF"),
