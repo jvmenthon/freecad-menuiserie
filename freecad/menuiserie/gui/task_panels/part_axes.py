@@ -21,7 +21,7 @@ from freecad.menuiserie.gui.task_panels.part_axes_drawing import axes_drawing, g
 
 __all__ = ["NODE_NAME", "AxesView"]
 
-NODE_NAME: Final = "MenuiserieShapedAxes"
+NODE_NAME: Final = "MenuiseriePartAxes"
 
 
 class AxesView:

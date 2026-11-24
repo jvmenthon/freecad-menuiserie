@@ -46,16 +46,11 @@ def test_dashes_dans_l_intervalle_et_reguliers(start: float, end: float) -> None
     assert all(math.isclose(y - x, period) for x, y in pairwise(starts))
 
 
-def test_dashes_intervalle_vide_ou_inverse_ne_plante_pas() -> None:
-    assert len(_dashes(5.0, 5.0, 1.0)) == MIN_DASHES  # longueur nulle : tirets nuls
-    assert all(a == b == 5.0 for a, b in _dashes(5.0, 5.0, 1.0))
-    assert len(_dashes(10.0, 0.0, 1.0)) == MIN_DASHES  # intervalle inversé
-
-
-def test_dashes_tige_nulle_ne_divise_pas_par_zero() -> None:
-    # Une tige nulle n'est pas atteignable (_drawable l'écarte) : documente le comportement.
-    with pytest.raises(ZeroDivisionError):
-        _dashes(0.0, 10.0, 0.0)
+def test_dashes_sans_place_ou_sans_tige_aucun_tiret() -> None:
+    assert not _dashes(5.0, 5.0, 1.0)  # longueur nulle
+    assert not _dashes(10.0, 0.0, 1.0)  # intervalle inversé
+    assert not _dashes(0.0, 10.0, 0.0)  # tige nulle
+    assert not _dashes(0.0, math.nan, 1.0)
 
 
 def test_fleche_seule_meme_marque_qu_avec_triedre() -> None:

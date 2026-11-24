@@ -78,7 +78,10 @@ def _on_top(axis: int, along: float, across: float, height: float) -> Vec3:
 
 def _dashes(start: float, end: float, shaft: float) -> tuple[tuple[float, float], ...]:
     """Tirets de la tige entre ``start`` et ``end`` (le long du fil), de ``MIN_DASHES`` à
-    ``MAX_DASHES`` selon la place, chacun ``DASH_RATIO`` de sa période."""
+    ``MAX_DASHES`` selon la place, chacun ``DASH_RATIO`` de sa période ; aucun tiret sans place
+    ou sans tige."""
+    if not (end > start and shaft > 0):  # aussi faux pour NaN
+        return ()
     count = min(max(int((end - start) / (DASH_SPACING * shaft)), MIN_DASHES), MAX_DASHES)
     period = (end - start) / count
     return tuple((start + k * period, start + (k + DASH_RATIO) * period) for k in range(count))
