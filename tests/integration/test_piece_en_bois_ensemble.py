@@ -19,6 +19,8 @@ from freecad.menuiserie.core.geometry import Vec3
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
+core_furniture = pytest.importorskip("freecad.menuiserie.core.furniture")
+Handle = pytest.importorskip("freecad.menuiserie.core.magnet").Handle
 api = pytest.importorskip("freecad.menuiserie.api")
 
 DRAWN = "cote dessinée : modifiez le dessin"
@@ -298,6 +300,75 @@ def test_deplacer_ou_relier_n_avertit_pas_de_cote_dessinee(table: Table, vue_rap
     messages = [*messages, *api.rebind_furniture(table.furniture)]
     assert not any(DRAWN in text for text in messages)
     assert _drawn(vue_rapport) == []
+
+
+def _no_drawn(vue_rapport: Any, *messages: Any) -> None:
+    flat = [m for part in messages for m in (part if isinstance(part, list | tuple) else [part])]
+    assert not any(DRAWN in str(m) for m in flat)
+    assert _drawn(vue_rapport) == []
+
+
+def _messages(notices: Any) -> list[str]:
+    return [str(n) for n in notices]
+
+
+def test_options_d_un_membre_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    result = api.set_member_options(table.top, fixed={"Front": False})
+    _no_drawn(vue_rapport, _messages(result or []))
+
+
+def test_epaisseur_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    divider = api.make_wood_part(400, 600, 20, "chene", mark="Cloison", doc=table.doc)
+    divider.Placement = App.Placement(
+        App.Vector(500, 0, 100), App.Rotation(App.Vector(0, 1, 0), 90)
+    )
+    table.doc.recompute()
+    api.add_to_furniture(table.furniture, [divider])
+    vue_rapport.messages.clear()
+    result = api.unlock_and_set_thickness(divider, 25, [])
+    _no_drawn(vue_rapport, _messages(result))
+    assert divider.Thickness.Value == 25.0
+
+
+def test_deplacement_d_un_ensemble_a_la_souris_sans_avertissement(
+    table: Table, vue_rapport: Any
+) -> None:
+    drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
+    x0 = table.legs["A"].getGlobalPlacement().Base.x
+    memento = drag.begin_furniture_drag(table.furniture)
+    assert drag.move_furniture_by(memento, Vec3(300.0, 0.0, 0.0))
+    messages = drag.end_furniture_drag(memento)
+    _no_drawn(vue_rapport, messages)
+    table.doc.recompute()
+    assert table.legs["A"].getGlobalPlacement().Base.x == pytest.approx(x0 + 300.0, abs=1e-3)
+
+
+def test_deplacement_d_un_sous_ensemble_a_la_souris_sans_avertissement(
+    document: Any, vue_rapport: Any
+) -> None:
+    drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
+    top = api.make_wood_part(1200, 600, 30, "chene", mark="Plateau", doc=document)
+    top.Placement = App.Placement(App.Vector(0, 0, 720), App.Rotation())
+    leg = leg_at(document, 0, "PiedA", "SourceA")
+    document.recompute()
+    sub, _ = api.make_furniture([top, leg], label="Sous")
+    other = leg_at(document, 1155, "PiedB", "SourceB")  # pièce en bois membre du parent
+    document.recompute()
+    _furniture, _ = api.make_furniture([sub, other], label="Parent")
+    vue_rapport.messages.clear()
+    memento = drag.begin_furniture_drag(sub)
+    assert drag.move_furniture_by(memento, Vec3(100.0, 0.0, 0.0))
+    messages = drag.end_furniture_drag(memento)
+    _no_drawn(vue_rapport, messages)
+
+
+def test_redimensionnement_d_un_ensemble_a_la_souris_avertit(table: Table) -> None:
+    drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
+    memento = drag.begin_furniture_drag(table.furniture)
+    box = core_furniture.resized_box(memento.box, Handle(1, True), 100.0)
+    assert drag.resize_furniture_to(memento, box).reached
+    messages = drag.end_furniture_drag(memento)
+    assert any(DRAWN in message for message in messages)
 
 
 # --- F4 : pièce en bois assemblée, membre d'un ensemble ---------------------------------------
