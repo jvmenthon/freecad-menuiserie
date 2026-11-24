@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Fermer le caisson : dessous plein, côtés et dessus en transparence, flèche -->
+  <defs>
+    <linearGradient id="contreplaque-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbecc9"/><stop offset="1" stop-color="#f1d8a2"/></linearGradient>
+    <linearGradient id="contreplaque-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9cd94"/><stop offset="1" stop-color="#dcbb7c"/></linearGradient>
+    <linearGradient id="contreplaque-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfa96a"/><stop offset="1" stop-color="#bb9455"/></linearGradient>
+  </defs>
+  <polygon points="30.09,35.87 30.09,7.14 50.18,18.74 50.18,47.47" fill="url(#contreplaque-y)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="51.61,46.64 50.18,47.47 50.18,18.74 51.61,17.91" fill="url(#contreplaque-x)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="30.09,7.14 31.52,6.31 51.61,17.91 50.18,18.74" fill="url(#contreplaque-z)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="31.52,35.04 12.39,46.09 12.39,17.36 31.52,6.31" fill="url(#contreplaque-x)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="10.47,44.98 10.47,16.26 12.39,17.36 12.39,46.09" fill="url(#contreplaque-y)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="10.47,16.26 29.61,5.21 31.52,6.31 12.39,17.36" fill="url(#contreplaque-z)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="10.47,14.05 29.61,3.00 53.53,16.81 34.39,27.86" fill="url(#contreplaque-z)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="10.47,16.26 10.47,14.05 34.39,27.86 34.39,30.07" fill="url(#contreplaque-y)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="53.53,19.02 34.39,30.07 34.39,27.86 53.53,16.81" fill="url(#contreplaque-x)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="10.47,44.98 29.61,33.93 53.53,47.74 34.39,58.79" fill="url(#contreplaque-z)" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="10.47,47.19 10.47,44.98 34.39,58.79 34.39,61.00" fill="url(#contreplaque-y)" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="53.53,49.95 34.39,61.00 34.39,58.79 53.53,47.74" fill="url(#contreplaque-x)" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="10.47,47.19 34.39,61.00 34.39,58.79 10.47,44.98" fill="#f57900" fill-opacity="0.9"/>
+  <polygon points="53.53,47.74 34.39,58.79 34.39,30.07 53.53,19.02" fill="url(#contreplaque-x)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32.48,57.69 32.48,28.96 34.39,30.07 34.39,58.79" fill="url(#contreplaque-y)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="32.48,28.96 51.61,17.91 53.53,19.02 34.39,30.07" fill="url(#contreplaque-z)" fill-opacity="0.35" stroke="#5c4220" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="31.04,44.70 31.04,27.03" fill="none" stroke="#4e9a06" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="28.65,26.75 33.44,29.51 31.04,23.71" fill="#4e9a06" fill-opacity="0.9"/>
+</svg>

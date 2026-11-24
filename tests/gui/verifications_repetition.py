@@ -545,7 +545,7 @@ def _dissocier(doc: Any) -> list[str]:
     ]
 
 
-def verifier_dissocier_la_copie() -> list[str]:
+def verifier_dissocier_depuis_une_copie() -> list[str]:
     """« Dissocier la répétition » depuis une copie (demande de jv, 2026-11-23) : toutes les
     copies deviennent libres et la répétition est supprimée, en une entrée d'annulation."""
     return avec_document("VerifRepetitionDissocie", _dissocier)
@@ -749,7 +749,7 @@ VERIFICATIONS_REPETITION: tuple[Callable[[], list[str]], ...] = (
     verifier_suivi_grise_hors_ensemble,
     verifier_modifier_le_nombre,
     verifier_modification_annulee,
-    verifier_dissocier_la_copie,
+    verifier_dissocier_depuis_une_copie,
     verifier_dissocier_par_la_piece_usinee,
     verifier_dissocier_selection_melangee,
     verifier_fermeture_pendant_l_apercu,

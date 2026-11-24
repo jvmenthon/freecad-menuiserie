@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Feuillure : planche entaillée sur une arête -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="9.88,16.39 19.71,10.72 61.00,34.55 51.17,40.23" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="9.88,20.93 9.88,16.39 51.17,40.23 51.17,44.77" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,24.91 9.88,20.93 51.17,44.77 44.29,48.74" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,29.45 3.00,24.91 44.29,48.74 44.29,53.28" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,43.64 44.29,53.28 44.29,48.74 51.17,44.77 51.17,40.23 61.00,34.55" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="18.73,13.55 20.85,15.03 23.02,16.47 25.29,17.85 27.67,19.17 30.16,20.44 32.70,21.66 35.26,22.88 37.76,24.13 40.18,25.43 42.48,26.80 44.68,28.22 46.81,29.69 48.93,31.17 51.08,32.62 53.32,34.02 55.66,35.36" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="14.80,15.82 17.35,17.05 19.84,18.30 22.24,19.61 24.53,20.99 26.72,22.42 28.84,23.89 30.95,25.37 33.12,26.81 35.37,28.21 37.74,29.54 40.20,30.81 42.74,32.04 45.30,33.26 47.82,34.50 50.25,35.79 52.57,37.15" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="7.99,24.30 10.31,25.65 12.74,26.94 15.26,28.19 17.81,29.41 20.35,30.64 22.82,31.91 25.19,33.24 27.44,34.63 29.60,36.08 31.72,37.55 33.84,39.02 36.03,40.46 38.32,41.83 40.72,43.14 43.21,44.40 45.76,45.62" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

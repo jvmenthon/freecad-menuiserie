@@ -269,7 +269,7 @@ def test_copy_joints_modifiable_par_edit_repeat(scene: Scene) -> None:
 # --- Dissocier, supprimer l'origine --------------------------------------------------------
 
 
-def test_dissocier_la_copie_dissocie_ses_assemblages(document: Any) -> None:
+def test_detacher_une_copie_dissocie_ses_assemblages(document: Any) -> None:
     scene = Scene(document, tenon_thickness=8)
     origin = scene.joints[0]
     rep = scene.repeat()
