@@ -203,6 +203,7 @@ de répétitions m5) sont corrigés.
 | br2 | mineur | `features/part_drag.py` (`_assembled_member`) | Le nom laisse croire à une lecture, mais la fonction ajoute un `MemberFreedom` au mémento. | Renommer `_free_member` ou créer le `MemberFreedom` dans `_resize_thickness`. |
 | br3 | mineur | `features/joints/frames.py` (`touch_framed_joints`) | Parcours de `Document.Objects` à chaque changement de `Placement` d'un Std Part (venu de main, ADR 0054). | Index des assemblages entre conteneurs si de gros documents ralentissent. |
 | br4 | mineur | `features/machined_part.py` | 392 lignes, proche de la limite de 400. | Extraire une partie au prochain ajout. |
+| br5 | mineur | `features/thickness_choice.py` (`_text`), `features/thickness_texts.py` (`keep_text`, `_KEEP`) | `grows_toward` calculé pour tous les partenaires même pour `OTHER_SIDE` et `EXTEND` ; docstring de `_text` muette sur `AS_TYPED` ; paramètre `inward` de `keep_text` à renommer `upper_inward` ; commentaire de `_KEEP` qui cite encore « Laisser en l'état ». | Calculer les côtés dans la branche `AS_TYPED` seulement, compléter la docstring, renommer, reformuler le commentaire. |
 
 ## Grille « Parallèle et aligner sur » (PR #269, ADR 0066), 2026-11-17
 
