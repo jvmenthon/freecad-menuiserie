@@ -134,9 +134,7 @@ def axes_drawing(
     size = min(max(AXIS_LENGTH_RATIO * max(extents), MIN_AXIS_MM), MAX_AXIS_MM)
     origin = Vec3(0.0, 0.0, 0.0)
     strokes = [Stroke(AXIS_COLORS[axis], 3.0, _arrow(origin, axis, size)) for axis in range(3)]
-    if (
-        grain is None or grain not in (0, 1) or not min(extents) > 0
-    ):  # NaN : faux
+    if grain is None or grain not in (0, 1) or not min(extents) > 0:  # NaN : faux
         return Drawing(tuple(strokes))
     band = grain_band(outline or rectangle(extents[0], extents[1]), grain)
     if band is None or not _drawable(band, extents[2]):
