@@ -117,7 +117,7 @@ class _SelectionWatcher:
             self.detach()
             return
         if mine:
-            later(partial(self._panel.check, obj))
+            self._panel.selected(obj)
 
 
 class PartDrawingsTaskPanel:
@@ -227,10 +227,8 @@ class PartDrawingsTaskPanel:
 
     def check(self, name: str) -> None:
         """Coche la ligne de l'objet ``name`` (une pièce, un ensemble ou un lien), s'il y en a
-        une et que le panneau ne pousse pas lui-même la sélection. Une pièce usinée et sa brute
-        désignent la même ligne (la vue 3D sélectionne la pièce usinée)."""
-        if self._pushing:
-            return
+        une. Une pièce usinée et sa brute désignent la même ligne (la vue 3D sélectionne la
+        pièce usinée)."""
         try:
             items = list(self.items())
             names = self._same_part(name)
@@ -240,6 +238,12 @@ class PartDrawingsTaskPanel:
         for item in items:  # un même objet peut avoir plusieurs lignes
             if item.data(0, NAME_ROLE) in names:
                 item.setCheckState(0, check_state("Checked"))
+
+    def selected(self, name: str) -> None:
+        """``name`` vient d'être sélectionné dans FreeCAD : sa ligne est cochée hors du rappel,
+        sauf si le panneau pousse lui-même la sélection (une case cochée à la main reste)."""
+        if not self._pushing:
+            later(partial(self.check, name))
 
     def _same_part(self, name: str) -> set[str]:
         """``name`` et, pour une pièce, le nom de sa brute ou de sa pièce usinée."""
