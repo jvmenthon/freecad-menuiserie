@@ -45,6 +45,8 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
 5. **Saisie** : une poignée se saisit par le milieu de sa face, par son trait et par toute son
    étiquette (segment horizontal, tolérance de sa demi-hauteur : `PixelTarget.radius`). À distance
    égale, une flèche l'emporte sur une étiquette qui la chevauche (ordre de `pixel_targets`).
+   Une poignée grisée ne se cherche qu'après les flèches, les poignées et les anneaux (`key_at`) :
+   elle ne cache jamais ce qui se tire.
 6. Les poignées grisées n'apparaissent que là où les poignées apparaissent (panneau de la pièce
    ouvert) ; hors panneau, rien ne change.
 

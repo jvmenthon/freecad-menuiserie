@@ -29,6 +29,7 @@ from freecad.menuiserie.gui.drag.drawing import (
     guide_outline,
     handle_key,
     is_locked_key,
+    key_at,
     locked_blocker,
     locked_key,
     on_screen,
@@ -255,6 +256,12 @@ def test_etiquette_ne_cache_pas_une_fleche() -> None:
     assert handle_at(targets, (150, 120)) == arrow_key(0)  # trait et flèche confondus
     assert handle_at(targets, (168, 120)) == arrow_key(0)  # étiquette et pointe confondues
     assert handle_at(targets, (187, 120)) == locked_key(Handle(0, True))
+    # Recherche de la vue (key_at) : une poignée grisée ne cache jamais la flèche, même plus
+    # proche qu'elle ; seule, elle reste survolable (infobulle).
+    assert handle_at(targets, (176, 120)) == locked_key(Handle(0, True))  # sur l'étiquette
+    assert key_at(layout, project, (176, 120), locked=False) == arrow_key(0)  # pointe à 6 px
+    assert key_at(layout, project, (187, 120), locked=False) is None
+    assert key_at(layout, project, (187, 120), locked=True) == locked_key(Handle(0, True))
 
 
 def test_axe_tirable_jamais_grise() -> None:

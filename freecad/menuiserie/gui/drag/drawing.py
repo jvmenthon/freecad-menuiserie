@@ -30,6 +30,7 @@ from freecad.menuiserie.core.magnet import (
     PixelTarget,
     Ray,
     arrows,
+    handle_at,
     handle_point,
 )
 from freecad.menuiserie.core.rotation import Ring
@@ -65,6 +66,7 @@ __all__ = [
     "guides_drawing",
     "handle_key",
     "is_locked_key",
+    "key_at",
     "locked_blocker",
     "locked_key",
     "on_screen",
@@ -251,6 +253,17 @@ def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
         targets.append(PixelTarget(key, (x - half_w, y), (x + half_w, y), half_h))
         targets.append(PixelTarget(key, project(point), (x, y)))
     return targets
+
+
+def key_at(
+    layout: Layout, project: Project, point: tuple[float, float], *, locked: bool
+) -> str | None:
+    """Clé de la flèche ou de la poignée sous le pixel ``point`` parmi les cibles possibles
+    (``locked`` faux) ou parmi les poignées impossibles seules (``locked`` vrai). Une poignée
+    impossible ne se tire pas : elle ne prend jamais la place d'une flèche, d'une poignée ou d'un
+    anneau qu'elle chevauche, on ne la cherche qu'après eux."""
+    targets = [t for t in pixel_targets(layout, project) if is_locked_key(t.key) == locked]
+    return handle_at(targets, point)
 
 
 def target_line(layout: Layout, key: str) -> Ray:

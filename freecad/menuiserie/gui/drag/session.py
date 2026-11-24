@@ -41,7 +41,6 @@ from freecad.menuiserie.core.magnet import (
     Guide,
     Ray,
     axis_param,
-    handle_at,
 )
 from freecad.menuiserie.core.rotation import plane_point
 from freecad.menuiserie.core.snap import Frame
@@ -61,10 +60,10 @@ from freecad.menuiserie.gui.drag.drawing import (
     Cues,
     Layout,
     build_drawing,
+    key_at,
     locked_blocker,
     on_screen,
     parse_key,
-    pixel_targets,
     target_line,
     tooltip_html,
 )
@@ -326,12 +325,14 @@ class DragSession:
 
     def target_at(self, point: Point) -> str | None:
         """Flèche ou poignée sous le pixel ``point`` (à 8 pixels près), sinon l'anneau touché par
-        le rayon de la souris (les flèches ont la priorité), sinon ``None``."""
-        if self.layout is None or self.port is None:
+        le rayon de la souris (les flèches ont la priorité), sinon une poignée impossible (ADR
+        0068 : elle ne cache rien de ce qui se tire), sinon ``None``."""
+        layout, port = self.layout, self.port
+        if layout is None or port is None:
             return None
         try:
-            key = handle_at(pixel_targets(self.layout, self.port.project), point)
-            return key if key is not None else self._ring_at(point)
+            key = key_at(layout, port.project, point, locked=False) or self._ring_at(point)
+            return key if key is not None else key_at(layout, port.project, point, locked=True)
         except _RESIZE_ERRORS:
             return None
 
