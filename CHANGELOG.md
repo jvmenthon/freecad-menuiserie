@@ -11,7 +11,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
-- Copier, répéter, déplacer une pièce d'un ensemble qui contient des pièces en bois, ou relier ses pièces, n'affiche plus l'avertissement « cote dessinée : modifiez le dessin » : rien n'est redimensionné. L'avertissement reste à l'entrée dans l'ensemble et au redimensionnement.
+- Copier, répéter, déplacer une pièce d'un ensemble qui contient des pièces en bois, changer une épaisseur ou relier ses pièces, n'affiche plus l'avertissement « cote dessinée : modifiez le dessin » : rien n'est redimensionné. L'avertissement reste à l'entrée dans l'ensemble et au redimensionnement.
 - Gabarit « Caisson » (commande « Caisson » et API) : l'épaisseur des panneaux et celle du fond sont refusées sous 0,1 mm, le minimum de toute pièce, avec un message qui cite ce minimum. Avant, 0,01 mm était accepté par le gabarit puis refusé à la création des pièces. Le reste du comportement ne change pas (#267, revue).
 
 ### Ajouté (outillage)

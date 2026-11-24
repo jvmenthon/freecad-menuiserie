@@ -9,6 +9,7 @@ dans le dessin. F4 (pièce en bois assemblée, avec sa pièce usinée) dépend d
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -145,6 +146,12 @@ def test_le_redimensionnement_avertit(table: Table) -> None:
 
 def _drawn(vue_rapport: Any) -> list[str]:
     return [text for _level, text in vue_rapport.messages if DRAWN in text]
+
+
+def _no_drawn(vue_rapport: Any, messages: Sequence[str]) -> None:
+    """Ni les messages renvoyés (textes traduits) ni la vue rapport ne parlent de cote dessinée."""
+    assert not any(DRAWN in message for message in messages)
+    assert _drawn(vue_rapport) == []
 
 
 @pytest.mark.parametrize(("member", "axis"), [("A", "X"), ("top", "Z")])
@@ -302,19 +309,9 @@ def test_deplacer_ou_relier_n_avertit_pas_de_cote_dessinee(table: Table, vue_rap
     assert _drawn(vue_rapport) == []
 
 
-def _no_drawn(vue_rapport: Any, *messages: Any) -> None:
-    flat = [m for part in messages for m in (part if isinstance(part, list | tuple) else [part])]
-    assert not any(DRAWN in str(m) for m in flat)
-    assert _drawn(vue_rapport) == []
-
-
-def _messages(notices: Any) -> list[str]:
-    return [str(n) for n in notices]
-
-
 def test_options_d_un_membre_sans_avertissement(table: Table, vue_rapport: Any) -> None:
     result = api.set_member_options(table.top, fixed={"Front": False})
-    _no_drawn(vue_rapport, _messages(result or []))
+    _no_drawn(vue_rapport, result)
 
 
 def test_epaisseur_sans_avertissement(table: Table, vue_rapport: Any) -> None:
@@ -326,7 +323,7 @@ def test_epaisseur_sans_avertissement(table: Table, vue_rapport: Any) -> None:
     api.add_to_furniture(table.furniture, [divider])
     vue_rapport.messages.clear()
     result = api.unlock_and_set_thickness(divider, 25, [])
-    _no_drawn(vue_rapport, _messages(result))
+    _no_drawn(vue_rapport, result)
     assert divider.Thickness.Value == 25.0
 
 
