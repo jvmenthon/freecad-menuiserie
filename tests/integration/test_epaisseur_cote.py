@@ -289,7 +289,9 @@ def test_cote_de_caisson_le_premier_choix_dit_vers_l_exterieur(document: Any) ->
     texts = {o.choice: (o.text, o.reason) for o in conflict.options}
     assert texts[choice.Choice.AS_TYPED] == ("Vers l'extérieur", None)
     assert texts[choice.Choice.OTHER_SIDE][0] == "Vers l'intérieur (reste à fleur)"
-    assert texts[choice.Choice.EXTEND][1] is not None
+    assert texts[choice.Choice.EXTEND][1] == (
+        "« Dessous » s'arrête avant la face qui bouge : il n'y a rien à allonger."
+    )
     edit.apply(30, choice.Choice.AS_TYPED)
     edit.finish()
     document.recompute()

@@ -64,7 +64,7 @@ _KEEP: Final = {
 }
 _AS_TYPED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Telle que saisie")
 _NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "{label} n'arrive pas à fleur de la face qui bouge."
+    "Menuiserie", "{label} s'arrête avant la face qui bouge : il n'y a rien à allonger."
 )
 _STILL_BROKEN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Défait encore : {joints}.")
 
