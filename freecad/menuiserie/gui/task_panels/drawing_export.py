@@ -21,12 +21,11 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import escaped_text
 from freecad.menuiserie.features.cutlist_export import PDF_SUFFIX, validated_path, with_suffix
 from freecad.menuiserie.features.drawing import TITLE as OVERALL_TITLE
-from freecad.menuiserie.features.drawing import DrawingOptions
+from freecad.menuiserie.features.drawing import DrawingOptions, is_page
 from freecad.menuiserie.features.drawing_exploded import TITLE as EXPLODED_TITLE
 from freecad.menuiserie.features.drawing_export import (
-    EXPLODED,
-    OVERALL,
     ExportState,
+    PlanKind,
     export_state,
     pages_to_export,
 )
@@ -36,13 +35,13 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.cutlist import show_status
 from freecad.menuiserie.gui.drawing_hlr import HlrWait
-from freecad.menuiserie.gui.drawing_pdf import is_page
+from freecad.menuiserie.gui.drawing_pdf import ask_save_path
 from freecad.menuiserie.gui.drawing_pdf_pages import export_pages_pdf, proposed_plans_path
 from freecad.menuiserie.gui.task_panels.part_drawings import (
     NAME_ROLE,
     PartDrawingsTaskPanel,
+    check_state,
     counted,
-    state,
 )
 
 __all__ = ["FORM_NAME", "ExportPdfTaskPanel"]
@@ -85,7 +84,7 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
     HINT = _HINT
 
     def __init__(self, doc: Document, selected: list[DocumentObject] | None = None) -> None:
-        self.state: ExportState = export_state(doc)
+        self.plans: ExportState = export_state(doc)
         self._selected = list(selected or [])
         self.written: Path | None = None
         super().__init__(doc)
@@ -108,13 +107,13 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
     def _fill(self) -> None:
         """Plans de l'ouvrage (à créer s'il n'y en a pas), autres pages, puis l'arbre des
         ensembles avec l'état du plan de chaque pièce ; la sélection d'avant est cochée."""
-        for kind, title in ((OVERALL, OVERALL_TITLE), (EXPLODED, EXPLODED_TITLE)):
-            if kind not in self.state.kinds:
+        for kind, title in ((PlanKind.OVERALL, OVERALL_TITLE), (PlanKind.EXPLODED, EXPLODED_TITLE)):
+            if kind not in self.plans.kinds:
                 item = self.new_item(translated(title), "")
-                item.setData(0, KIND_ROLE, kind)
+                item.setData(0, KIND_ROLE, kind.value)
                 item.setText(1, translated(_TO_CREATE))
                 self.tree.addTopLevelItem(item)
-        for page in self.state.other_pages:
+        for page in self.plans.other_pages:
             item = self.new_item(str(page.Label), page.Name)
             item.setText(1, translated(_EXISTS))
             self.tree.addTopLevelItem(item)
@@ -122,7 +121,7 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         for item in self.items():
             obj = self._object(item)
             if obj is not None and not is_page(obj) and item.childCount() == 0:
-                missing = self.state.missing(self._blanks(obj))
+                missing = self.plans.missing(self._blanks(obj))
                 item.setText(1, translated(_TO_CREATE if missing else _EXISTS))
         for obj in self._selected:
             self.check(obj.Name)
@@ -141,17 +140,17 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
     def check(self, name: str) -> None:
         """Coche la ligne de ``name`` ; une page de plan de pièce coche ses pièces."""
         page = self.doc.getObject(name)
-        mapped = [key for key, found in self.state.page_of.items() if found is page]
-        if page is None or not is_page(page) or not mapped:
+        mapped = self.plans.parts_of(page) if page is not None and is_page(page) else []
+        if not mapped:
             super().check(name)
             return
         for key in mapped:
             super().check(key)
 
-    def _kinds(self) -> list[str]:
-        checked = state("Checked")
+    def _kinds(self) -> list[PlanKind]:
+        checked = check_state("Checked")
         return [
-            str(item.data(0, KIND_ROLE))
+            PlanKind(item.data(0, KIND_ROLE))
             for item in self.items()
             if item.data(0, KIND_ROLE) is not None and item.checkState(0) == checked
         ]
@@ -162,18 +161,15 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
             blanks = blanks_of([obj for obj in chosen if not is_page(obj)])
         except ValueError:
             blanks = []
-        new = self.state.plans_to_create(blanks) + len(self._kinds())
-        count = len(pages) + len(self.state.blank_pages(blanks)) + new
+        new = self.plans.plans_to_create(blanks) + len(self._kinds())
+        count = len(pages) + len(self.plans.blank_pages(blanks)) + new
         values = {"new": str(new)}
         return counted(count, _COUNT_ONE, _COUNT, values)
 
     def _browse(self, *_args: object) -> None:
-        answer: Any = QtGui.QFileDialog.getSaveFileName(
-            Gui.getMainWindow(), translated(_DIALOG), self.path.text(), translated(_FILTER)
-        )
-        chosen = answer[0] if isinstance(answer, tuple) else answer
-        if chosen:
-            self.path.setText(with_suffix(chosen, PDF_SUFFIX))
+        chosen = ask_save_path(Path(self.path.text()), title=_DIALOG)
+        if chosen is not None:
+            self.path.setText(str(chosen))
 
     def accept(self) -> bool:
         """Crée les plans qui manquent, écrit le PDF et ferme ; un refus (rien de coché, pas de
@@ -189,14 +185,14 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         pages = [obj for obj in chosen if is_page(obj)]
         parts = [obj for obj in chosen if not is_page(obj)]
         try:
-            validated_path(with_suffix(path, PDF_SUFFIX), PDF_SUFFIX)  # avant toute création
+            target = validated_path(with_suffix(path, PDF_SUFFIX), PDF_SUFFIX)  # avant création
             options = DrawingOptions(settle=HlrWait())
             found = pages_to_export(self.doc, pages, parts, kinds, options)
-            self.written = export_pages_pdf(found, with_suffix(path, PDF_SUFFIX))
+            self.written = export_pages_pdf(found, target)
         except (TypeError, ValueError, OSError, RuntimeError) as error:
             report_refusal(str(error))
             return False
-        self._watcher.detach()
+        self.detach()
         Gui.Control.closeDialog()
         values = {"path": escaped_text(str(self.written))}
         show_status(counted(len(found), _DONE_ONE, _DONE, values))

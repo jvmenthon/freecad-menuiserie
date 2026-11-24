@@ -70,7 +70,7 @@ def test_plans_de_l_ouvrage_et_pages_etrangeres_a_part(
     orphan = _page("PlanOrphelin", "part", (_obj("Disparue"),))
     _groups(export, monkeypatch, [])
     state = export.export_state(_doc(overall, exploded, foreign, orphan))
-    assert state.kinds == {"", "exploded"}
+    assert state.kinds == {export.PlanKind.OVERALL, export.PlanKind.EXPLODED}
     assert state.other_pages == [overall, exploded, foreign, orphan]
 
 
@@ -117,7 +117,7 @@ def test_pages_a_exporter_dans_l_ordre_et_plans_crees(
         return [page]
 
     monkeypatch.setattr(export, "make_part_drawings", make_parts)
-    found = export.pages_to_export(doc, [existing], [a, b], [export.OVERALL])
+    found = export.pages_to_export(doc, [existing], [a, b], [export.PlanKind.OVERALL])
     assert [page.Name for page in found] == ["Ouvrage", "PlanA", "PlanB"]
     assert made == [b]
 
@@ -241,7 +241,8 @@ def test_plans_de_l_ouvrage_demandes_sans_piece(
     monkeypatch.setattr(export, "blanks_of", list)
     monkeypatch.setattr(export, "make_overall_drawing", lambda *_a: _page("Ouvrage", ""))
     monkeypatch.setattr(export, "make_exploded_drawing", lambda *_a: _page("Eclate", "exploded"))
-    found = export.pages_to_export(_doc(), [], [], [export.EXPLODED, export.OVERALL])
+    kinds = [export.PlanKind.EXPLODED, export.PlanKind.OVERALL]
+    found = export.pages_to_export(_doc(), [], [], kinds)
     assert [page.Name for page in found] == ["Ouvrage", "Eclate"]
 
 

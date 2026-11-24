@@ -11,15 +11,16 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.drawing import (
     KIND,
-    PAGE_TYPE,
     PART_KIND,
     DrawingOptions,
     document_scope,
+    is_page,
     is_workshop_drawing,
     make_overall_drawing,
     owned_names,
@@ -35,17 +36,23 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import machined_part_of
 
 __all__ = [
-    "EXPLODED",
     "MAX_EXPORT_PAGES",
-    "OVERALL",
     "TOO_MANY_PAGES",
     "ExportState",
+    "PlanKind",
     "export_state",
     "pages_to_export",
 ]
 
-OVERALL: Final = ""  # genre du plan de l'ouvrage (comme ``drawing.KIND`` vide)
-EXPLODED: Final = EXPLODED_KIND
+
+class PlanKind(str, Enum):
+    """Plan de l'ouvrage que l'export peut créer."""
+
+    OVERALL = "overall"
+    EXPLODED = "exploded"
+
+
+_KIND_OF_PAGE: Final = {"": PlanKind.OVERALL, EXPLODED_KIND: PlanKind.EXPLODED}  # ``drawing.KIND``
 _NOT_DRAWN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Export impossible : le plan de « {label} » n'a pas pu être créé."
 )
@@ -55,31 +62,37 @@ TOO_MANY_PAGES: Final = QT_TRANSLATE_NOOP(
 )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExportState:
     """État des plans du document : page de chaque pièce (par nom de brute, la même pour des
     pièces identiques), groupe de pièces identiques de chaque brute, pages qui ne sont pas des
-    plans de pièce rattachés (ouvrage, vue éclatée, pages d'autres origines) et genres de plans
-    de l'ouvrage déjà faits."""
+    plans de pièce rattachés (ouvrage, vue éclatée, pages d'autres origines) et plans de
+    l'ouvrage déjà faits."""
 
     page_of: dict[str, DocumentObject] = field(default_factory=dict)
     group_of: dict[str, int] = field(default_factory=dict)
     other_pages: list[DocumentObject] = field(default_factory=list)
-    kinds: set[str] = field(default_factory=set)
+    kinds: frozenset[PlanKind] = frozenset()
 
     def blank_pages(self, blanks: Sequence[DocumentObject]) -> list[DocumentObject]:
         """Pages existantes des pièces ``blanks``, sans doublon, dans leur ordre."""
-        found = {id(page): page for blank in blanks if (page := self.page_of.get(blank.Name))}
+        found = {page.Name: page for blank in blanks if (page := self.page_of.get(blank.Name))}
         return list(found.values())
+
+    def parts_of(self, page: DocumentObject) -> list[str]:
+        """Noms des pièces (brutes) dont ``page`` est le plan."""
+        return [name for name, found in self.page_of.items() if found.Name == page.Name]
 
     def missing(self, blanks: Sequence[DocumentObject]) -> list[DocumentObject]:
         """Pièces de ``blanks`` sans plan."""
         return [blank for blank in blanks if blank.Name not in self.page_of]
 
     def plans_to_create(self, blanks: Sequence[DocumentObject]) -> int:
-        """Plans de pièce à créer pour ``blanks`` (un par groupe de pièces identiques)."""
+        """Plans de pièce à créer pour ``blanks`` : un par groupe de pièces identiques, un par
+        pièce hors groupe."""
         missing = self.missing(blanks)
-        return len({self.group_of.get(blank.Name, -1 - i) for i, blank in enumerate(missing)})
+        groups = {self.group_of[blank.Name] for blank in missing if blank.Name in self.group_of}
+        return len(groups) + sum(blank.Name not in self.group_of for blank in missing)
 
 
 def _front_sources(page: DocumentObject) -> list[str]:
@@ -94,40 +107,43 @@ def _front_sources(page: DocumentObject) -> list[str]:
 def export_state(doc: Document) -> ExportState:
     """Lit les pages et les pièces de ``doc``. Une pièce a un plan si une page de plan de pièce
     de l'atelier dessine elle, sa pièce usinée ou une pièce identique."""
-    state = ExportState()
-    pages = [obj for obj in doc.Objects if getattr(obj, "TypeId", None) == PAGE_TYPE]
+    pages = [obj for obj in doc.Objects if is_page(obj)]
     drawn: dict[str, DocumentObject] = {}
+    kinds: set[PlanKind] = set()
     for page in pages:
-        if is_workshop_drawing(page) and str(getattr(page, KIND, "")) == PART_KIND:
+        kind = str(getattr(page, KIND, "")) if is_workshop_drawing(page) else None
+        if kind == PART_KIND:
             drawn.update(dict.fromkeys(_front_sources(page), page))
-        elif is_workshop_drawing(page):
-            state.kinds.add(str(getattr(page, KIND, "")))
+        elif kind in _KIND_OF_PAGE:
+            kinds.add(_KIND_OF_PAGE[kind])
     try:
         groups = part_groups(doc, [])
     except ValueError:  # document démesuré : aucun plan de pièce rattaché
         groups = []
+    page_of: dict[str, DocumentObject] = {}
+    group_of: dict[str, int] = {}
     for index, members in enumerate(groups):
         shown = [(machined_part_of(blank) or blank).Name for blank in members]
         page = next((drawn[name] for name in shown if name in drawn), None)
         for blank in members:
-            state.group_of[blank.Name] = index
+            group_of[blank.Name] = index
             if page is not None:
-                state.page_of[blank.Name] = page
-    used = {id(page) for page in state.page_of.values()}
-    state.other_pages = [page for page in pages if id(page) not in used]
-    return state
+                page_of[blank.Name] = page
+    used = {page.Name for page in page_of.values()}
+    others = [page for page in pages if page.Name not in used]
+    return ExportState(page_of, group_of, others, frozenset(kinds))
 
 
 def pages_to_export(
     doc: Document,
     pages: Sequence[DocumentObject],
     parts: Sequence[DocumentObject],
-    kinds: Sequence[str] = (),
+    kinds: Sequence[PlanKind] = (),
     options: DrawingOptions | None = None,
 ) -> list[DocumentObject]:
-    """Pages à exporter, dans l'ordre : plans de l'ouvrage à créer (``kinds`` : ``OVERALL``,
-    ``EXPLODED``), ``pages`` existantes, puis les plans des pièces que montrent ``parts``
-    (ensembles, pièces, copies par lien), créés d'abord s'ils manquent. ``ValueError`` traduite
+    """Pages à exporter, dans l'ordre : plans de l'ouvrage à créer (``kinds``), ``pages``
+    existantes, puis les plans des pièces que montrent ``parts`` (ensembles, pièces, copies par
+    lien), créés d'abord s'ils manquent. ``ValueError`` traduite
     si un plan ne peut pas être fait ou s'il y aurait plus de ``MAX_EXPORT_PAGES`` pages."""
     blanks = blanks_of(parts)
     state = export_state(doc) if blanks else ExportState()
@@ -135,9 +151,9 @@ def pages_to_export(
     if total > MAX_EXPORT_PAGES:  # refus avant toute création (document piégé)
         raise ValueError(translated(TOO_MANY_PAGES, {"limit": str(MAX_EXPORT_PAGES)}))
     found: list[DocumentObject] = []
-    if OVERALL in kinds:
+    if PlanKind.OVERALL in kinds:
         found.append(make_overall_drawing(doc, document_scope(doc), options))
-    if EXPLODED in kinds:
+    if PlanKind.EXPLODED in kinds:
         found.append(make_exploded_drawing(doc, document_scope(doc), options))
     found += pages
     if blanks:
@@ -148,5 +164,5 @@ def pages_to_export(
             label = str(state.missing(blanks)[0].Label)
             raise ValueError(translated(_NOT_DRAWN, {"label": label}))
         found += state.blank_pages(blanks)
-    unique = {id(page): page for page in found}
+    unique = {page.Name: page for page in found}
     return list(unique.values())

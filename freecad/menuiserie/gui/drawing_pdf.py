@@ -23,23 +23,31 @@ from freecad.menuiserie.features.cutlist_export import (
     validated_path,
     with_suffix,
 )
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.drawing import is_page
+from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.cutlist import show_status
 
-__all__ = ["ask_pdf_path", "export_page_pdf", "proposed_pdf_path", "show_page"]
+__all__ = [
+    "NOT_A_PAGE",
+    "ask_pdf_path",
+    "ask_save_path",
+    "export_page_pdf",
+    "proposed_path",
+    "proposed_pdf_path",
+    "show_page",
+]
 
-PAGE_TYPE: Final = "TechDraw::DrawPage"
 _FORBIDDEN_IN_NAME: Final = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
-_FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{page} - plan")
+_FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{document} - plan")
 _EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
 _DIALOG_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter le plan")
 _PDF_FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers PDF (*.pdf)")
 _NOT_SHOWN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan « {label} » fait mais pas ouvert ({error}) : double-cliquez sur la page."
 )
-_NOT_A_PAGE: Final = QT_TRANSLATE_NOOP(
+NOT_A_PAGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Export impossible : « {label} » n'est pas une page TechDraw."
 )
 _NOT_WRITTEN: Final = QT_TRANSLATE_NOOP(
@@ -47,30 +55,33 @@ _NOT_WRITTEN: Final = QT_TRANSLATE_NOOP(
 )
 
 
-def proposed_pdf_path(page: DocumentObject, home: Path | None = None) -> Path:
-    """« <document> - plan.pdf » à côté du fichier du document, sinon dans le dossier personnel.
-    Les caractères interdits dans un nom de fichier sont remplacés par « _ »."""
-    doc = page.Document
+def proposed_path(doc: Document, template: str = _FILE_NAME, home: Path | None = None) -> Path:
+    """Fichier PDF proposé pour ``doc`` : nom ``template`` (« {document} » : libellé du
+    document) à côté du fichier du document, sinon dans le dossier personnel. Les caractères
+    interdits dans un nom de fichier sont remplacés par « _ »."""
     folder = Path(doc.FileName).parent if doc.FileName else (home or Path.home())
     cleaned = _FORBIDDEN_IN_NAME.sub("_", str(doc.Label)).strip().rstrip(".").strip()
-    return folder / (translated(_FILE_NAME, {"page": cleaned or "Document"}) + PDF_SUFFIX)
+    return folder / (translated(template, {"document": cleaned or "Document"}) + PDF_SUFFIX)
 
 
-def ask_pdf_path(page: DocumentObject, parent: Any = None) -> Path | None:
-    """Boîte d'enregistrement (filtre ``*.pdf``) ; ``None`` si l'utilisateur annule."""
+def proposed_pdf_path(page: DocumentObject, home: Path | None = None) -> Path:
+    """« <document> - plan.pdf » pour une page (voir :func:`proposed_path`)."""
+    return proposed_path(page.Document, _FILE_NAME, home)
+
+
+def ask_save_path(start: Path | str, parent: Any = None, title: str = _DIALOG_TITLE) -> Path | None:
+    """Boîte d'enregistrement d'un PDF (filtre ``*.pdf``) ouverte sur ``start`` ; ``None`` si
+    l'utilisateur annule."""
     answer: Any = QtGui.QFileDialog.getSaveFileName(
-        parent or Gui.getMainWindow(),
-        translated(_DIALOG_TITLE),
-        str(proposed_pdf_path(page)),
-        translated(_PDF_FILTER),
+        parent or Gui.getMainWindow(), translated(title), str(start), translated(_PDF_FILTER)
     )
     chosen = answer[0] if isinstance(answer, tuple) else answer
     return Path(with_suffix(chosen, PDF_SUFFIX)) if chosen else None
 
 
-def is_page(obj: object) -> bool:
-    """Vrai si ``obj`` est une page TechDraw (un plan)."""
-    return getattr(obj, "TypeId", None) == PAGE_TYPE
+def ask_pdf_path(page: DocumentObject, parent: Any = None) -> Path | None:
+    """Boîte d'enregistrement du PDF d'une page ; ``None`` si l'utilisateur annule."""
+    return ask_save_path(proposed_pdf_path(page), parent)
 
 
 def show_page(page: DocumentObject) -> None:
@@ -90,7 +101,7 @@ def export_page_pdf(page: DocumentObject, path: str | Path) -> Path:
     ``ValueError`` traduite pour un chemin refusé, un objet qui n'est pas une page ou un fichier
     que TechDraw n'a pas écrit ; un fichier déjà là n'est remplacé qu'en cas de succès."""
     if not is_page(page):
-        raise ValueError(translated(_NOT_A_PAGE, {"label": str(getattr(page, "Label", page))}))
+        raise ValueError(translated(NOT_A_PAGE, {"label": str(getattr(page, "Label", page))}))
     target = validated_path(path, PDF_SUFFIX)
     import TechDrawGui
 

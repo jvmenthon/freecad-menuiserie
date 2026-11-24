@@ -12,7 +12,6 @@ dans le PDF.
 from __future__ import annotations
 
 import os
-import re
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -26,10 +25,11 @@ from freecad.menuiserie.features.cutlist_export import (
     replace_atomically,
     validated_path,
 )
+from freecad.menuiserie.features.drawing import is_page
 from freecad.menuiserie.features.drawing_export import MAX_EXPORT_PAGES, TOO_MANY_PAGES
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.gui.drawing_pdf import is_page, show_page
+from freecad.menuiserie.gui.drawing_pdf import NOT_A_PAGE, proposed_path, show_page
 
 __all__ = ["export_pages_pdf", "proposed_plans_path", "sheet_mm"]
 
@@ -38,23 +38,16 @@ RESOLUTION_DPI: Final = 600
 MIN_SHEET_MM: Final = 50.0
 MAX_SHEET_MM: Final = 3000.0  # bien au-delà de l'A0 (1189 mm)
 DEFAULT_SHEET_MM: Final = (420.0, 297.0)  # A3 paysage, si la page ne donne pas sa taille
-_FORBIDDEN_IN_NAME: Final = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
 _FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{document} - plans")
 _NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Export impossible : aucun plan à exporter.")
-_NOT_A_PAGE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Export impossible : « {label} » n'est pas une page TechDraw."
-)
 _NOT_WRITTEN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Export impossible : le fichier « {path} » n'a pas pu être écrit."
 )
 
 
 def proposed_plans_path(doc: Document, home: Path | None = None) -> Path:
-    """« <document> - plans.pdf » à côté du fichier du document, sinon dans le dossier
-    personnel ; les caractères interdits dans un nom de fichier sont remplacés par « _ »."""
-    folder = Path(doc.FileName).parent if doc.FileName else (home or Path.home())
-    cleaned = _FORBIDDEN_IN_NAME.sub("_", str(doc.Label)).strip().rstrip(".").strip()
-    return folder / (translated(_FILE_NAME, {"document": cleaned or "Document"}) + PDF_SUFFIX)
+    """« <document> - plans.pdf » (voir :func:`drawing_pdf.proposed_path`)."""
+    return proposed_path(doc, _FILE_NAME, home)
 
 
 def _length(value: object) -> float:
@@ -76,7 +69,8 @@ def sheet_mm(page: DocumentObject) -> tuple[float, float]:
 
 def _enum(owner: Any, group: str, name: str) -> Any:
     """Valeur d'énumération Qt, nommée à l'ancienne (PySide2) ou rangée (PySide6)."""
-    return getattr(owner, name, None) or getattr(getattr(owner, group), name)
+    value = getattr(owner, name, None)  # 0 est une valeur valable (Portrait, Millimeter)
+    return value if value is not None else getattr(getattr(owner, group), name)
 
 
 def _layout(qt_core: Any, qt_gui: Any, size: tuple[float, float]) -> Any:
@@ -87,10 +81,23 @@ def _layout(qt_core: Any, qt_gui: Any, size: tuple[float, float]) -> Any:
     return qt_gui.QPageLayout(page_size, portrait, qt_core.QMarginsF(0, 0, 0, 0))
 
 
-def _draw(pages: Sequence[DocumentObject], temporary: Path, folder: Path) -> None:
-    """Écrit ``pages`` dans le PDF ``temporary`` (SVG intermédiaires dans ``folder``) ;
-    ``OSError`` si une page ou le fichier n'a pas été produit."""
+def _render_page(page: DocumentObject, svg: Path, qt_svg: Any) -> Any:
+    """Page exportée en SVG par TechDraw (depuis sa vue, ouverte ici) et relue par Qt ;
+    ``OSError`` si le SVG n'est pas lisible."""
     import TechDrawGui
+
+    show_page(page)
+    Gui.updateGui()
+    TechDrawGui.exportPageAsSvg(page, str(svg))
+    renderer = qt_svg.QSvgRenderer(str(svg))
+    if not renderer.isValid():
+        raise OSError(str(svg))
+    return renderer
+
+
+def _paint(pages: Sequence[DocumentObject], temporary: Path, folder: Path) -> None:
+    """Peint ``pages`` dans le PDF ``temporary``, une feuille par page à sa taille ; le peintre
+    et le fichier sont fermés au retour (y compris sur erreur)."""
     from PySide import QtCore, QtGui, QtSvg
 
     writer = QtGui.QPdfWriter(str(temporary))
@@ -99,13 +106,7 @@ def _draw(pages: Sequence[DocumentObject], temporary: Path, folder: Path) -> Non
     painter = None
     try:
         for index, page in enumerate(pages):
-            show_page(page)  # TechDraw exporte une page depuis sa vue
-            Gui.updateGui()
-            svg = folder / f"page-{index}.svg"
-            TechDrawGui.exportPageAsSvg(page, str(svg))
-            renderer = QtSvg.QSvgRenderer(str(svg))
-            if not renderer.isValid():
-                raise OSError(str(svg))
+            renderer = _render_page(page, folder / f"page-{index}.svg", QtSvg)
             writer.setPageLayout(_layout(QtCore, QtGui, sheet_mm(page)))
             if painter is None:  # la première page prend sa taille avant le peintre
                 painter = QtGui.QPainter(writer)
@@ -116,7 +117,10 @@ def _draw(pages: Sequence[DocumentObject], temporary: Path, folder: Path) -> Non
     finally:
         if painter is not None:
             painter.end()
-    del painter, writer  # fermeture du fichier avant relecture
+
+
+def _check_written(temporary: Path) -> None:
+    """``OSError`` si ``temporary`` n'est pas un PDF ; sinon mis sur disque."""
     with temporary.open("r+b") as written:  # écriture permise : fsync l'exige sous Windows
         if written.read(len(PDF_MAGIC)) != PDF_MAGIC:
             raise OSError(str(temporary))
@@ -130,16 +134,17 @@ def export_pages_pdf(pages: Sequence[DocumentObject], path: str | Path) -> Path:
     remplacé qu'en cas de succès."""
     if not pages:
         raise ValueError(translated(_NOTHING))
-    if len(pages) > MAX_EXPORT_PAGES:
+    if len(pages) > MAX_EXPORT_PAGES:  # aussi vérifié avant de créer les plans
         raise ValueError(translated(TOO_MANY_PAGES, {"limit": str(MAX_EXPORT_PAGES)}))
     for page in pages:
         if not is_page(page):
-            raise ValueError(translated(_NOT_A_PAGE, {"label": str(getattr(page, "Label", page))}))
+            raise ValueError(translated(NOT_A_PAGE, {"label": str(getattr(page, "Label", page))}))
     target = validated_path(path, PDF_SUFFIX)
 
     def produce(temporary: Path) -> None:
         with tempfile.TemporaryDirectory() as folder:
-            _draw(pages, temporary, Path(folder))
+            _paint(pages, temporary, Path(folder))  # QPdfWriter fermé en sortant
+        _check_written(temporary)
 
     try:
         replace_atomically(target, produce)

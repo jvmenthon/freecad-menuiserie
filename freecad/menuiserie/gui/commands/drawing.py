@@ -16,7 +16,7 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.drawing import document_scope, techdraw_available
+from freecad.menuiserie.features.drawing import document_scope, is_page, techdraw_available
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui import drawing_pdf
@@ -29,7 +29,6 @@ DRAWING_PDF: Final = "Menuiserie_DrawingPdf"
 PART_DRAWINGS: Final = "Menuiserie_PartDrawings"
 EXPLODED: Final = "Menuiserie_ExplodedDrawing"
 COMMANDS: Final = (DRAWING, PART_DRAWINGS, EXPLODED, DRAWING_PDF)
-PAGE_TYPE: Final = "TechDraw::DrawPage"
 
 _PARTS_DONE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{count} plan(s) de pièce faits ; chaque page s'exporte en PDF."
@@ -51,7 +50,7 @@ class _PlanCommand(TransactionCommand):
     @staticmethod
     def selection() -> list[DocumentObject]:
         """Objets sélectionnés, pages TechDraw exclues."""
-        return [obj for obj in selected_objects() or [] if obj.TypeId != PAGE_TYPE]
+        return [obj for obj in selected_objects() or [] if not is_page(obj)]
 
 
 class DrawingCommand(_PlanCommand):

@@ -31,11 +31,12 @@ from freecad.menuiserie.core.structure_sync import (
     rows_for_selection,
 )
 from freecad.menuiserie.core.structure_tree import NodeKind, StructureNode
+from freecad.menuiserie.features.drawing import is_page
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.structure_source import row_key_of, structure_of
-from freecad.menuiserie.gui.drawing_pdf import is_page, show_page
+from freecad.menuiserie.gui.drawing_pdf import show_page
 from freecad.menuiserie.gui.structure_highlight import RowHighlight
 from freecad.menuiserie.gui.structure_switch import ask_user, switch_to
 from freecad.menuiserie.gui.structure_tree_widget import (

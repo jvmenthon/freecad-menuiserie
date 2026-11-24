@@ -52,6 +52,7 @@ __all__ = [
     "KIND",
     "MARKER",
     "PAGE_NAME",
+    "PAGE_TYPE",
     "PART_KIND",
     "TITLE",
     "DrawingOptions",
@@ -64,6 +65,7 @@ __all__ = [
     "find_overall_drawing",
     "global_box",
     "global_shape",
+    "is_page",
     "is_untouched",
     "is_workshop_drawing",
     "make_overall_drawing",
@@ -112,9 +114,14 @@ def techdraw_available() -> bool:
     return True
 
 
+def is_page(obj: object) -> bool:
+    """Vrai si ``obj`` est une page TechDraw (un plan, de l'atelier ou non)."""
+    return getattr(obj, "TypeId", None) == PAGE_TYPE
+
+
 def is_workshop_drawing(obj: object) -> bool:
     """Vrai si ``obj`` est une page de plan construite par l'atelier (même renommée)."""
-    return getattr(obj, "TypeId", None) == PAGE_TYPE and getattr(obj, MARKER, False) is True
+    return is_page(obj) and getattr(obj, MARKER, False) is True
 
 
 def global_box(sources: Sequence[DocumentObject]) -> Any:

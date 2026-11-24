@@ -21,6 +21,7 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.drawing import is_page
 from freecad.menuiserie.features.drawing_choice import Choice, part_choices, part_label
 from freecad.menuiserie.features.drawing_parts import distinct_parts
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -38,7 +39,7 @@ from freecad.menuiserie.gui.display_io import later
 from freecad.menuiserie.gui.drawing_hlr import HlrWait
 from freecad.menuiserie.gui.task_panels.base import ok_cancel_buttons
 
-__all__ = ["FORM_NAME", "NAME_ROLE", "PartDrawingsTaskPanel", "counted", "flag", "state"]
+__all__ = ["FORM_NAME", "NAME_ROLE", "PartDrawingsTaskPanel", "check_state", "counted", "item_flag"]
 
 FORM_NAME: Final = "MenuiseriePartDrawingsPanel"
 NAME_ROLE: Final = QtCore.Qt.UserRole
@@ -75,13 +76,14 @@ def counted(count: int, one: str, many: str, values: dict[str, str] | None = Non
     return translated(one if count <= 1 else many, {**(values or {}), "count": str(count)})
 
 
-def flag(name: str) -> Any:
+def item_flag(name: str) -> Any:
     """Drapeau d'élément de Qt (énumérations de PySide2 ou PySide6)."""
     flags = getattr(QtCore.Qt, "ItemFlag", QtCore.Qt)
     return getattr(flags, name)
 
 
-def state(name: str) -> Any:
+def check_state(name: str) -> Any:
+    """État de case à cocher de Qt (énumérations de PySide2 ou PySide6)."""
     states = getattr(QtCore.Qt, "CheckState", QtCore.Qt)
     return getattr(states, name)
 
@@ -147,7 +149,7 @@ class PartDrawingsTaskPanel:
         row = QtGui.QHBoxLayout()
         for text, wanted in ((_ALL, "Checked"), (_NONE, "Unchecked")):
             button = QtGui.QPushButton(translated(text))
-            button.clicked.connect(partial(self._check_all, state(wanted)))
+            button.clicked.connect(partial(self._check_all, check_state(wanted)))
             row.addWidget(button)
         row.addStretch()
         layout.addLayout(row)
@@ -160,7 +162,7 @@ class PartDrawingsTaskPanel:
         try:
             self._changed()
         except Exception:
-            self._watcher.detach()
+            self.detach()
             raise
 
     def _add_options(self, layout: Any) -> None:
@@ -192,8 +194,9 @@ class PartDrawingsTaskPanel:
         """Ligne à cocher de texte ``text`` pour l'objet ``name`` (vide : ligne sans objet)."""
         item = QtGui.QTreeWidgetItem([text])
         item.setData(0, NAME_ROLE, name)
-        item.setFlags(item.flags() | flag("ItemIsUserCheckable") | flag("ItemIsAutoTristate"))
-        item.setCheckState(0, state("Unchecked"))
+        checkable = item_flag("ItemIsUserCheckable") | item_flag("ItemIsAutoTristate")
+        item.setFlags(item.flags() | checkable)
+        item.setCheckState(0, check_state("Unchecked"))
         return item
 
     def items(self) -> Iterator[Any]:
@@ -216,7 +219,7 @@ class PartDrawingsTaskPanel:
         try:
             self._changed()
         except RuntimeError:  # panneau fermé entre-temps
-            self._watcher.detach()
+            self.detach()
 
     def _check_all(self, state: Any, *_args: object) -> None:
         for i in range(self.tree.topLevelItemCount()):
@@ -232,11 +235,11 @@ class PartDrawingsTaskPanel:
             items = list(self.items())
             names = self._same_part(name)
         except RuntimeError:  # arbre ou document détruit
-            self._watcher.detach()
+            self.detach()
             return
         for item in items:  # un même objet peut avoir plusieurs lignes
             if item.data(0, NAME_ROLE) in names:
-                item.setCheckState(0, state("Checked"))
+                item.setCheckState(0, check_state("Checked"))
 
     def _same_part(self, name: str) -> set[str]:
         """``name`` et, pour une pièce, le nom de sa brute ou de sa pièce usinée."""
@@ -251,7 +254,7 @@ class PartDrawingsTaskPanel:
 
     def chosen(self) -> list[DocumentObject]:
         """Pièces et liens cochés, dans l'ordre de l'arbre."""
-        checked = state("Checked")
+        checked = check_state("Checked")
         names = [
             item.data(0, NAME_ROLE)
             for item in self.items()
@@ -276,10 +279,19 @@ class PartDrawingsTaskPanel:
         try:
             Gui.Selection.clearSelection()
             for obj in chosen:
-                if obj.TypeId != drawing_pdf.PAGE_TYPE:  # une page ne se surligne pas en 3D
+                if self._selectable(obj):
                     Gui.Selection.addSelection(obj)
         finally:
             later(self._done_pushing)
+
+    @staticmethod
+    def _selectable(obj: DocumentObject) -> bool:
+        """``obj`` coché se surligne dans la vue 3D (une page, non)."""
+        return not is_page(obj)
+
+    def detach(self, *_args: object) -> None:
+        """Retire l'observateur de la sélection (avant de fermer le panneau)."""
+        self._watcher.detach()
 
     def _done_pushing(self) -> None:
         self._pushing = False
@@ -298,7 +310,7 @@ class PartDrawingsTaskPanel:
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return False
-        self._watcher.detach()
+        self.detach()
         Gui.Control.closeDialog()
         if self.pages:
             drawing_pdf.show_page(self.pages[0])
@@ -307,7 +319,7 @@ class PartDrawingsTaskPanel:
 
     def reject(self) -> bool:
         """Ferme sans rien créer."""
-        self._watcher.detach()
+        self.detach()
         Gui.Control.closeDialog()
         return True
 

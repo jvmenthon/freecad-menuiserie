@@ -250,20 +250,30 @@ def _key(
     return str(getattr(blank, "Material", "")), size, shape, texts
 
 
-def _grouped(doc: Document, objects: Sequence[DocumentObject]) -> list[list[Any]]:
-    """[première pièce, nombre, usinages, lignes, pièces du groupe] par pièce distincte de
-    ``objects`` (tout le document s'il est vide), dans l'ordre des repères puis des noms."""
+@dataclass
+class _PartGroup:
+    """Pièce distincte : première pièce, nombre, usinages, lignes et pièces du groupe."""
+
+    blank: DocumentObject
+    found: list[Machining]
+    notes: list[NoteLine]
+    count: int = 0
+    members: list[DocumentObject] = field(default_factory=list)
+
+
+def _grouped(doc: Document, objects: Sequence[DocumentObject]) -> list[_PartGroup]:
+    """Pièces distinctes de ``objects`` (tout le document s'il est vide), par repère et nom."""
     scope = list(objects) or document_scope(doc)
     blanks = sorted(
         _blanks(scope, set(), _BlankWalk()),
         key=lambda item: (str(getattr(item[0], "Mark", "")), item[0].Name),
     )
-    groups: dict[tuple[object, ...], list[Any]] = {}
+    groups: dict[tuple[object, ...], _PartGroup] = {}
     for blank, times in blanks:
         found, notes = part_details(blank)
-        entry = groups.setdefault(_key(blank, found, notes), [blank, 0, found, notes, []])
-        entry[1] = _quantity(entry[1] + times)
-        entry[4].append(blank)
+        group = groups.setdefault(_key(blank, found, notes), _PartGroup(blank, found, notes))
+        group.count = _quantity(group.count + times)
+        group.members.append(blank)
     return list(groups.values())
 
 
@@ -278,19 +288,17 @@ def distinct_parts(
     groups = _grouped(doc, objects)
     if not groups:
         raise ValueError(translated(_NO_PART))
-    return [(blank, count, (found, notes)) for blank, count, found, notes, _ in groups]
+    return [(group.blank, group.count, (group.found, group.notes)) for group in groups]
 
 
 def part_groups(doc: Document, objects: Sequence[DocumentObject]) -> list[list[DocumentObject]]:
-    """Pièces de bois (brutes) de ``objects`` (tout le document s'il est vide), regroupées par
-    pièce distincte : les pièces d'un groupe partagent un plan de pièce. Vide s'il n'y en a
-    pas."""
-    return [list(members) for *_, members in _grouped(doc, objects)]
+    """Pièces de bois (brutes) de ``objects`` (tout le document s'il est vide), par pièce
+    distincte : les pièces d'un groupe partagent un plan de pièce. Vide s'il n'y en a pas."""
+    return [list(group.members) for group in _grouped(doc, objects)]
 
 
 def blanks_of(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
-    """Pièces de bois (brutes) que montrent ``objects`` (ensembles, pièces, copies par lien),
-    sans doublon."""
+    """Pièces de bois (brutes) que montrent ``objects`` (ensembles, pièces, copies), uniques."""
     found = {blank.Name: blank for blank, _ in _blanks(objects, set(), _BlankWalk())}
     return list(found.values())
 
