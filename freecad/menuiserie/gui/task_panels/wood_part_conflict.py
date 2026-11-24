@@ -185,7 +185,10 @@ class ConflictBox:
         if self._blocked and self._edit is not None:
             revert = self._revert()
             if revert is not None:
-                revert(self._edit.old)
+                try:  # champ déjà détruit (panneau qui se ferme) : l'ensemble est relié quand même
+                    revert(self._edit.old)
+                except RuntimeError:
+                    App.Console.PrintLog(traceback.format_exc())
         edit, self._edit = self._edit, None
         _finish(edit)  # pièce d'ensemble : ensemble relié d'après l'état écrit
         self.frame.setVisible(False)

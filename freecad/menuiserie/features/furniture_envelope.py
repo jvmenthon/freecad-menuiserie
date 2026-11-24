@@ -40,6 +40,7 @@ from freecad.menuiserie.features.furniture_drag_state import (
 )
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
 from freecad.menuiserie.features.raw_placement import carried_along, place, write_placement
+from freecad.menuiserie.features.thickness_common import is_alive
 
 __all__ = [
     "frame_of",
@@ -125,8 +126,19 @@ def kept_inside(furniture: DocumentObject) -> list[DocumentObject]:
     return [
         obj
         for obj in part.Group
-        if obj.Name not in own and "Placement" in obj.PropertiesList and not carried_along(obj)
+        if is_alive(obj)
+        and obj.Name not in own
+        and "Placement" in obj.PropertiesList
+        and not carried_along(obj)
     ]
+
+
+def _fixed_in_place(obj: DocumentObject) -> bool:
+    """Vrai si le ``Placement`` de ``obj`` ne se décale pas tel quel : objet attaché (le
+    recalcul le replacerait), propriété en lecture seule."""
+    attached = any(getattr(obj, name, None) for name in ("AttachmentSupport", "Support"))
+    status = obj.getPropertyStatus("Placement")
+    return attached or "ReadOnly" in status or "Immutable" in status
 
 
 def _inner_part(member: DocumentObject) -> DocumentObject | None:
@@ -137,11 +149,14 @@ def _movable(furniture: DocumentObject) -> bool:
     """Vrai si le contenu du sous-ensemble ``furniture`` peut être décalé dans son Std Part : ni
     son Std Part, ni un de ses membres, ni un objet gardé dedans (:func:`kept_inside`) n'est
     placé par une formule autre qu'une liaison de l'atelier (le recalcul défairait le
-    décalage)."""
+    décalage), et aucun objet gardé n'est attaché ou figé (:func:`_fixed_in_place`)."""
     if std_part_of(furniture) is None:
         return False
-    contents = (furniture, *members_of(furniture), *kept_inside(furniture))
-    return not any(_placed_by_formula(obj) for obj in contents)
+    kept = kept_inside(furniture)
+    contents = (furniture, *members_of(furniture), *kept)
+    return not any(_placed_by_formula(obj) for obj in contents) and not any(
+        _fixed_in_place(obj) for obj in kept
+    )
 
 
 def _frames(furniture: DocumentObject) -> tuple[Box, Box] | None:

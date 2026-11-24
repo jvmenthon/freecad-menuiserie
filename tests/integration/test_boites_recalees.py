@@ -502,3 +502,70 @@ def test_retour_arriere_rend_la_piece_restee(
     part_drag.restore(memento)
     document.recompute()
     assert _memes(vus, _globaux(parts))
+
+
+def _caisson_avec_boite_utilisateur(document: Any, formule: bool = False) -> tuple[Any, Any, Any]:
+    """Bureau ⊃ Caisson, une boîte de l'utilisateur rangée dans le Std Part du caisson (placée
+    par une formule si ``formule``)."""
+    bureau, sub, parts = _bureau_et_caisson(document)
+    api.add_to_furniture(bureau, [sub])
+    boite = document.addObject("Part::Box", "BoiteUtilisateur")
+    container.std_part_of(sub).addObject(boite)
+    if formule:
+        boite.setExpression("Placement.Base.x", "5 mm")
+    document.recompute()
+    return sub, parts, boite
+
+
+def test_objet_place_par_une_formule_empeche_le_recalage_du_sous_ensemble(document: Any) -> None:
+    """Le recalcul défairait le décalage de l'objet gardé : le sous-ensemble garde sa boîte, rien
+    ne bouge (contrôle de formule étendu à ce que garde le Std Part)."""
+    sub, parts, boite = _caisson_avec_boite_utilisateur(document, formule=True)
+    boite_avant, vus = envelope.frame_of(sub), _globaux(parts)
+    std_avant = App.Placement(container.std_part_of(sub).Placement)
+    api.remove_from_furniture([parts["CD"]])
+    document.recompute()
+    assert container.std_part_of(sub).Placement.isSame(std_avant, 1e-9)
+    assert envelope.frame_of(sub) == boite_avant
+    assert _memes(
+        {k: v for k, v in vus.items() if k != "CD"},
+        {k: v for k, v in _globaux(parts).items() if k != "CD"},
+    )
+    assert boite.Placement.Base.x == pytest.approx(5.0)
+
+
+def test_annulation_du_recalage_rend_l_objet_garde(document: Any) -> None:
+    sub, parts, boite = _caisson_avec_boite_utilisateur(document)
+    std = container.std_part_of(sub)
+    document.UndoMode = 1
+    avant = (App.Placement(boite.Placement), App.Placement(std.Placement), envelope.frame_of(sub))
+    document.openTransaction("Sortir")
+    api.remove_from_furniture([parts["CG"]])
+    document.commitTransaction()
+    document.recompute()
+    assert not std.Placement.isSame(avant[1], 1e-6)  # le sous-ensemble a bien été recalé
+    apres = App.Placement(boite.getGlobalPlacement())
+    document.undo()
+    document.recompute()
+    assert boite.Placement.isSame(avant[0], 1e-9)
+    assert std.Placement.isSame(avant[1], 1e-9)
+    assert envelope.frame_of(sub) == avant[2]
+    document.redo()
+    document.recompute()
+    assert boite.getGlobalPlacement().isSame(apres, 1e-6)
+
+
+def test_objet_garde_survit_a_l_enregistrement(document: Any, tmp_path: Any) -> None:
+    _sub, parts, boite = _caisson_avec_boite_utilisateur(document)
+    api.remove_from_furniture([parts["CG"]])
+    document.recompute()
+    attendu, nom = App.Placement(boite.getGlobalPlacement()), boite.Name
+    chemin = str(tmp_path / "gardes.FCStd")
+    document.saveAs(chemin)
+    App.closeDocument(document.Name)
+    rouvert = App.openDocument(chemin)
+    try:
+        rouvert.recompute()
+        assert rouvert.getObject(nom).getGlobalPlacement().isSame(attendu, 1e-6)
+    finally:
+        App.closeDocument(rouvert.Name)

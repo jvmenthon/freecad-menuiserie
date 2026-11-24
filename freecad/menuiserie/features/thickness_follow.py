@@ -34,6 +34,7 @@ from freecad.menuiserie.features.thickness_common import (
     attached,
     blocker,
     has_joints,
+    is_alive,
     joints_of,
     other_part,
     quoted,
@@ -118,7 +119,7 @@ class FollowPlan:
     def apply(self, delta: float, pieces: Iterable[DocumentObject] | None = None) -> None:
         """Pièces qui suivent (``pieces`` : certaines d'entre elles seulement) déplacées de
         l'écart ``delta``, depuis leur placement actuel."""
-        if delta == 0.0:
+        if delta == 0.0 or not is_alive(self.part):
             return
         shift = self.shift(delta)
         for piece in self.moved if pieces is None else pieces:  # repère de son conteneur (0054)

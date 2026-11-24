@@ -40,7 +40,7 @@ from freecad.menuiserie.core.rotation import (
     snapped_turn,
 )
 from freecad.menuiserie.features.drag_joints import JointChoice
-from freecad.menuiserie.features.i18n import report_warning, translate_text
+from freecad.menuiserie.features.i18n import report_warning, translate_text, translated
 from freecad.menuiserie.features.part_drag import DragCancelledError
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
@@ -60,6 +60,9 @@ if TYPE_CHECKING:
     from freecad.menuiserie.gui.drag.session import DragSession
 
 _ALIGNED_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
+_ABORTED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Glissement annulé, la pièce est rendue : erreur inattendue ({error})."
+)
 
 __all__ = ["Dragging", "Gesture", "Hover", "Idle", "Moving", "Resizing", "Rotating", "State"]
 
@@ -181,6 +184,10 @@ class Gesture(State):
             return
         except ValueError as error:
             report_warning(str(error))
+            self._close(session, commit=False)
+            return
+        except Exception as error:  # pylint: disable=broad-exception-caught  # rappel Qt
+            report_warning(translated(_ABORTED, {"error": str(error)}))  # pièce déjà rendue
             self._close(session, commit=False)
             return
         for warning in warnings:

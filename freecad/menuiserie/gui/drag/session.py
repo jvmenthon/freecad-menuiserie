@@ -430,8 +430,12 @@ class DragSession:
         """Geste qui commence : le panneau fige ses saisies en cours avant le mémento du geste
         (ensemble relié avant, jamais pendant le glissement, ADR 0060)."""
         panel = self.panel
-        if panel is not None and panel.settle is not None and self._panel_open():
+        if panel is None or panel.settle is None or not self._panel_open():
+            return
+        try:
             panel.settle()
+        except _RESIZE_ERRORS as error:  # rappel de la souris : rien ne doit en sortir
+            App.Console.PrintError(f"Menuiserie : panneau non figé avant le geste : {error}\n")
 
     def written(self, guides: Sequence[Guide], guides_frame: Frame) -> None:
         """La pièce a été écrite : flèches redessinées avec les ``guides`` aimantés (dans le repère

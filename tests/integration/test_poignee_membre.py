@@ -148,3 +148,84 @@ def test_vers_l_interieur_la_rangee_absorbe(document: Any) -> None:
     assert _globale(side).XMin == pytest.approx(outer, abs=1e-6)
     assert envelope.frame_of(sub) == boite
     assert not stale_or_invalid(document)
+
+
+def test_echap_vers_l_interieur_rend_tout(document: Any) -> None:
+    """Face intérieure tirée puis Échap : la boîte ne changeait pas, rien ne reste écrit."""
+    _bureau, sub, parts = _caisson_a_queues(document)
+    api.make_dovetail(parts["CG"], parts["CB"])
+    document.recompute()
+    avant = _liaisons(parts)
+    places = {m: App.Placement(p.Placement) for m, p in parts.items()}
+    boite = envelope.frame_of(sub)
+    memento = part_drag.begin_drag(parts["CG"])
+    part_drag.resize_part(memento, "Thickness", 30, geometry.Vec3(0, 0, 0))
+    part_drag.restore(memento)
+    document.recompute()
+    assert _liaisons(parts) == avant
+    assert all(p.Placement.isSame(places[m], 1e-9) for m, p in parts.items())
+    assert parts["CG"].Thickness.Value == pytest.approx(18.0)
+    assert envelope.frame_of(sub) == boite
+    assert not stale_or_invalid(document)
+
+
+def test_vers_l_exterieur_en_amincissant_recale_la_boite(document: Any) -> None:
+    """Épaisseur réduite par la face extérieure : la boîte recule aussi, rien ne bouge dans la
+    vue sauf la face tirée."""
+    _bureau, sub, parts = _caisson_a_queues(document)
+    api.make_dovetail(parts["CG"], parts["CB"])
+    document.recompute()
+    side, inner = parts["CG"], _globale(parts["CG"]).XMax
+    memento = part_drag.begin_drag(side)
+    assert (
+        part_drag.resize_part(memento, "Thickness", 10, geometry.Vec3(0, 0, 8), lowered=True) == ""
+    )
+    part_drag.end_drag(memento)
+    document.recompute()
+    assert side.Thickness.Value == pytest.approx(10.0)
+    assert _globale(side).XMax == pytest.approx(inner, abs=1e-6)
+    assert envelope.frame_of(sub) == envelope.member_envelope(sub)
+    assert not stale_or_invalid(document)
+
+
+def test_annuler_puis_retablir_apres_le_geste(document: Any) -> None:
+    _bureau, sub, parts = _caisson_a_queues(document)
+    api.make_dovetail(parts["CG"], parts["CB"])
+    document.recompute()
+    document.UndoMode = 1
+    avant = (_liaisons(parts), envelope.frame_of(sub), parts["CG"].Thickness.Value)
+    document.openTransaction("Épaisseur")
+    memento = part_drag.begin_drag(parts["CG"])
+    part_drag.resize_part(memento, "Thickness", 30, OUTWARD, lowered=True)
+    part_drag.end_drag(memento)
+    document.commitTransaction()
+    document.recompute()
+    apres = (_liaisons(parts), envelope.frame_of(sub), parts["CG"].Thickness.Value)
+    assert apres != avant
+    document.undo()
+    document.recompute()
+    assert (_liaisons(parts), envelope.frame_of(sub), parts["CG"].Thickness.Value) == avant
+    document.redo()
+    document.recompute()
+    assert (_liaisons(parts), envelope.frame_of(sub), parts["CG"].Thickness.Value) == apres
+    assert not stale_or_invalid(document)
+
+
+@pytest.mark.parametrize("value", [0.0, -5.0, 1e7])
+def test_epaisseur_invalide_ou_demesuree_ne_laisse_rien(document: Any, value: float) -> None:
+    """Cote nulle, négative ou énorme : le geste est refusé ou ramené, l'état du début revient
+    (jamais d'ensemble à moitié relié)."""
+    _bureau, sub, parts = _caisson_a_queues(document)
+    api.make_dovetail(parts["CG"], parts["CB"])
+    document.recompute()
+    avant = _liaisons(parts)
+    boite = envelope.frame_of(sub)
+    memento = part_drag.begin_drag(parts["CG"])
+    with pytest.raises(ValueError, match="Cote invalide"):
+        part_drag.resize_part(memento, "Thickness", value, OUTWARD, lowered=True)
+    part_drag.restore(memento)
+    document.recompute()
+    assert parts["CG"].Thickness.Value == pytest.approx(18.0)
+    assert _liaisons(parts) == avant
+    assert envelope.frame_of(sub) == boite
+    assert not stale_or_invalid(document)
