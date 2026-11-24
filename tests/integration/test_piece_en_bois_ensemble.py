@@ -141,6 +141,10 @@ def test_le_redimensionnement_avertit(table: Table) -> None:
     assert any(DRAWN in message for message in messages)
 
 
+def _drawn(vue_rapport: Any) -> list[str]:
+    return [text for _level, text in vue_rapport.messages if DRAWN in text]
+
+
 @pytest.mark.parametrize(("member", "axis"), [("A", "X"), ("top", "Z")])
 def test_une_copie_n_avertit_pas_de_cote_dessinee(
     table: Table, vue_rapport: Any, member: str, axis: str
@@ -150,18 +154,15 @@ def test_une_copie_n_avertit_pas_de_cote_dessinee(
     before = {name: table.bounds(leg) for name, leg in table.legs.items()}
     source = table.top if member == "top" else table.legs[member]
     api.make_repeat([source], api.RepeatParams(count=1, step=100.0, axis=axis))
-    assert not any(DRAWN in text for _level, text in vue_rapport.messages)
+    assert _drawn(vue_rapport) == []
     assert {name: table.bounds(leg) for name, leg in table.legs.items()} == before
 
 
-def _drawn(vue_rapport: Any) -> list[str]:
-    return [text for _level, text in vue_rapport.messages if DRAWN in text]
-
-
 def test_copie_d_un_ensemble_entier_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    before = table.bounds(table.legs["A"])
     api.make_repeat([table.furniture], api.RepeatParams(count=1, step=2000.0, axis="X"))
     assert _drawn(vue_rapport) == []
-    assert table.bounds(table.legs["A"])[0] == (0.0, 45.0)
+    assert table.bounds(table.legs["A"]) == before
 
 
 def test_copie_suivant_le_redimensionnement_sans_avertissement(
@@ -188,11 +189,12 @@ def test_copie_annulable_et_retablissable(table: Table) -> None:
     table.doc.UndoMode = 1
     before = len(table.doc.Objects)
     api.make_repeat([table.legs["A"]], api.RepeatParams(count=1, step=100.0, axis="X"))
-    assert len(table.doc.Objects) > before
+    after = len(table.doc.Objects)
+    assert after > before
     table.doc.undo()
     assert len(table.doc.Objects) == before
     table.doc.redo()
-    assert len(table.doc.Objects) > before
+    assert len(table.doc.Objects) == after
 
 
 # --- Rangée bloquée par une pièce en bois ---------------------------------------------------
