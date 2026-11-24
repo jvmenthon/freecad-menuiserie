@@ -24,7 +24,7 @@ from freecad.menuiserie.features import (
     repeat_stop,
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
-from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import report
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.repeat_stop_raw import raw_stops
@@ -35,6 +35,12 @@ __all__ = ["dissociate", "edit_repeat", "make_repeat", "repeat_of"]
 _MAKE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répéter")
 _EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
 _DISSOCIATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la répétition")
+_STILL_CITED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » est dissociée et supprimée, mais d'autres objets la citaient (formule, lien) : "
+    "{others}. Ces liens sont rompus ; corrigez-les ou annulez (Ctrl+Z).",
+)
+_MAX_NAMED: Final = 5
 _NOT_A_REPEAT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est ni une répétition ni une copie liée à une répétition."
 )
@@ -193,10 +199,29 @@ def dissociate(obj: DocumentObject, *, transaction: bool = True) -> None:
     doc = found.Document
     with _undoable(doc, _DISSOCIATE_TRANSACTION, own=transaction):
         doc.recompute()  # les valeurs gardées sont celles des sources à jour
-        for copy in repeat.copies_of(found):
-            if repeat.is_copy(copy) and not repeat.is_inner_copy(copy):
-                repeat_links.unlink_copy(copy)  # une copie d'ensemble emporte ses membres
+        freed = [c for c in repeat.copies_of(found) if not repeat.is_inner_copy(c)]
+        parents = {}
+        for copy in freed:  # toutes d'abord : relier au fil de l'eau citerait une copie libre
+            parents[copy.Name] = furniture_of(copy)  # depuis une copie encore liée (cycle)
+            repeat_links.unlink_copy(copy, relink=False)  # un ensemble emporte ses membres
+        for copy in freed:
+            repeat_links.relink_free(copy, parents[copy.Name])
+        _warn_still_cited(found)
         doc.removeObject(found.Name)  # plus aucune copie liée : rien n'est supprimé avec elle
+
+
+def _warn_still_cited(rep: DocumentObject) -> None:
+    """Avertit si d'autres objets que le conteneur de ``rep`` la citent encore (formule d'un
+    tableur, lien d'un autre atelier) : sa suppression romprait leurs liens sans le dire. Ces
+    objets ne sont jamais modifiés."""
+    others = {obj.Name: obj for obj in rep.InList if rep not in (getattr(obj, "Group", None) or ())}
+    if not others:
+        return
+    labels = [f"« {quoted_value(obj.Label)} »" for obj in others.values()]
+    shown = labels[:_MAX_NAMED] + (["…"] if len(labels) > _MAX_NAMED else [])
+    report(
+        [translated(_STILL_CITED, {"label": quoted_value(rep.Label), "others": ", ".join(shown)})]
+    )
 
 
 def repeat_of(obj: DocumentObject) -> DocumentObject | None:

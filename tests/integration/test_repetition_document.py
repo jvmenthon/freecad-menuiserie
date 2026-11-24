@@ -551,3 +551,21 @@ def test_liste_de_debit_n_plus_un_pieces(document: Any) -> None:
     freed.Width = 50  # libre : elle peut différer, et la ligne se scinde
     document.recompute()
     assert sorted(line.quantity for line in api.cut_list_of(document).lines) == [1, 4]
+
+
+def test_dissocier_signale_un_objet_qui_citait_la_repetition(document: Any) -> None:
+    """Revue sécurité : une formule de l'utilisateur sur la répétition est signalée, jamais
+    modifiée ; la répétition est quand même dissociée."""
+    rep = api.make_repeat([source(document)], params(count=2))
+    sheet = document.addObject("Spreadsheet::Sheet", "Tableur")
+    sheet.set("A1", f"={rep.Name}.Count")
+    document.recompute()
+    messages: list[str] = []
+    original = App.Console.PrintWarning
+    App.Console.PrintWarning = messages.append
+    try:
+        api.dissociate(rep)
+    finally:
+        App.Console.PrintWarning = original
+    assert [m for m in messages if "Tableur" in m and "citaient" in m]
+    assert document.getObject("Tableur") is not None

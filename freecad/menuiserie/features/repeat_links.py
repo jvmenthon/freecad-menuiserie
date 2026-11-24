@@ -151,6 +151,8 @@ def _unlink_own(copy: DocumentObject) -> None:
             set_member_expression(copy, path, None)
     for name in (*COPY_PROPERTY_NAMES, CELL_PROPERTY):
         if name in copy.PropertiesList:
+            if copy.getTypeIdOfProperty(name).startswith("App::PropertyLink"):
+                setattr(copy, name, None)  # sinon FreeCAD garde le lien retour (faux cycle)
             copy.removeProperty(name)
 
 

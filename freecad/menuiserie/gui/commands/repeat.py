@@ -177,6 +177,7 @@ class DissociateCommand(TransactionCommand):
         repeats = selected_repeats()
         if repeats is None:
             return
+        Gui.Selection.clearSelection()  # la répétition choisie va disparaître
         with refusable_transaction(repeats[0].Document, self.TRANSACTION):
             for rep in repeats:
                 api.dissociate(rep, transaction=False)
