@@ -22,6 +22,7 @@ from freecad.menuiserie.core.structure_menu import Action
 from freecad.menuiserie.core.structure_tree import NodeKind
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.repeat import copies_of
+from freecad.menuiserie.gui import dissociate_confirm
 from freecad.menuiserie.gui.structure_sync import StructureSync
 from freecad.menuiserie.gui.structure_tree_widget import KIND_ROLE, item_for
 from freecad.menuiserie.gui.task_panels.repeat import FORM_NAME
@@ -167,9 +168,19 @@ def _menu_et_dissociation(
     problemes += ecarts("dépôt refusé sur une copie", bool(arbre.blocked_reason(point)), True)
     avant, repetition_nom = len(bureau.doc.Objects), repetition.Name
     actions = actions_de(dock)
-    problemes += ecarts(
-        "dissocier : fait", actions.run_action(Action.DISSOCIATE, [premiere.Name]), True
-    )
+    demandes: list[int] = []
+
+    def confirmer(_libelles: Any, copies: int) -> bool:
+        demandes.append(copies)
+        return True
+
+    original, dissociate_confirm.confirmer = dissociate_confirm.confirmer, confirmer
+    try:
+        fait = actions.run_action(Action.DISSOCIATE, [premiere.Name])
+    finally:
+        dissociate_confirm.confirmer = original
+    problemes += ecarts("dissocier : fait", fait, True)
+    problemes += ecarts("dissocier : confirmation demandée", len(demandes), 1)
     traiter()
     synchro.refresh_now(force=True)
     traiter()

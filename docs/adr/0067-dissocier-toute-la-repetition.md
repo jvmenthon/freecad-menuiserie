@@ -33,6 +33,9 @@ copie soit **entre parenthèses**.
    `Menuiserie_RepeatDissociate`, même icône) ; elle est active sur une sélection faite de
    répétitions et de copies liées (une pièce usinée compte pour sa brute) et dissocie chaque
    répétition une fois. L'entrée du menu du panneau « Structure » fait de même.
+   Elle demande d'abord confirmation (jv, 2026-11-24) : fenêtre « Annuler » (par défaut,
+   Échap) ou « Dissocier », avec les répétitions et leur nombre de copies
+   (`gui/dissociate_confirm.py`) ; « Annuler » ne change rien et n'ouvre aucune transaction.
 3. Une copie seule ne se dissocie plus par l'interface. Le détachement d'une copie reste en
    interne : supprimer une pièce d'origine d'une répétition à plusieurs sources détache ses
    seules copies (`detach_copies`), la répétition garde les autres.

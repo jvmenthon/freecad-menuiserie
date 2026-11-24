@@ -15,6 +15,7 @@ from typing import Any, ClassVar
 from tests.gui.verifications_assemblages import usinee_de
 from tests.qtest.aides import (
     Etapes,
+    ReponseAuxBoites,
     activer_faulthandler,
     bouton_ok,
     choisir,
@@ -156,13 +157,21 @@ class Repetition(Etapes):
         self.controler_les_assemblages(2)
 
     def test_4_dissocier_la_repetition(self) -> None:
-        """Depuis la dernière copie, toute la répétition est dissociée (demande de jv,
-        2026-11-23) : les copies restent en place, libres, et la répétition disparaît."""
+        """Depuis la dernière copie, après confirmation (« Annuler » ne change rien), toute la
+        répétition est dissociée (demande de jv, 2026-11-23) : les copies restent en place,
+        libres, et la répétition disparaît."""
         derniere, abscisses = self.copies()[-1], self.abscisses()
         entrees = len(self.doc.UndoNames)
         selectionner(derniere)
         self.assertTrue(commande_active(DISSOCIER))
-        lancer(DISSOCIER)
+        with ReponseAuxBoites("Annuler") as refus:  # confirmation (jv, 2026-11-24)
+            lancer(DISSOCIER)
+        self.assertEqual(len(refus.vues), 1)
+        self.assertIn("deviennent des pièces libres", refus.vues[0][1])
+        self.assertEqual(len(self.doc.UndoNames), entrees, self.doc.UndoNames)
+        self.assertEqual(len(du_type(self.doc, TYPE_REPETITION)), 1)
+        with ReponseAuxBoites("Dissocier"):
+            lancer(DISSOCIER)
         self.assertEqual(len(self.doc.UndoNames), entrees + 1, self.doc.UndoNames)
         self.assertEqual(du_type(self.doc, TYPE_REPETITION), [])
         self.assertEqual(self.abscisses(), abscisses)

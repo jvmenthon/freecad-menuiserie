@@ -22,6 +22,7 @@ from PySide import QtGui
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.features import repeat
 from freecad.menuiserie.features.repeat_joints import origin_of
+from freecad.menuiserie.gui import dissociate_confirm
 from tests.commandes_repetition import COMMANDES_REPETITION
 from tests.gui.verifications_ensemble import lancer, pieces_du_bureau
 from tests.gui.verifications_panneau import (
@@ -46,6 +47,23 @@ DISSOCIER = "Menuiserie_RepeatDissociate"
 FORM = "RepeatTaskPanel"
 VP_REPETITION = "freecad.menuiserie.gui.view_providers.repeat.ViewProviderRepeat"
 PAR_DEFAUT = 3  # copies des réglages rétablis par :func:`repeter` (4 éléments sur X)
+
+
+def dissocier(*objets: Any, reponse: bool = True) -> list[tuple[list[str], int]]:
+    """Lance « Dissocier la répétition » sur ``objets`` en répondant ``reponse`` à la
+    confirmation (hors écran, la fenêtre ne se clique pas) ; renvoie les demandes reçues."""
+    demandes: list[tuple[list[str], int]] = []
+
+    def repondre(libelles: Any, copies: int) -> bool:
+        demandes.append((list(libelles), copies))
+        return reponse
+
+    original, dissociate_confirm.confirmer = dissociate_confirm.confirmer, repondre
+    try:
+        lancer(DISSOCIER, *objets)
+    finally:
+        dissociate_confirm.confirmer = original
+    return demandes
 
 
 def source(doc: Any, mark: str = "Barreau") -> Any:
@@ -534,10 +552,11 @@ def verifier_modification_annulee() -> list[str]:
 
 def _dissocier(doc: Any) -> list[str]:
     _barreau, rep = _repetition_existante(doc)
-    nom, toutes = rep.Name, copies_de(rep)
+    nom, toutes, libelle = rep.Name, copies_de(rep), rep.Label
     copie = toutes[1]
-    lancer(DISSOCIER, copie)
+    demandes = dissocier(copie)
     return [
+        *ecarts("confirmation demandée", demandes, [([f"« {libelle} »"], len(toutes))]),
         *ecarts("copies libres", [repeat.is_copy(c) for c in toutes], [False] * len(toutes)),
         *ecarts("répétition supprimée", doc.getObject(nom), None),
         *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
@@ -551,6 +570,23 @@ def verifier_dissocier_depuis_une_copie() -> list[str]:
     return avec_document("VerifRepetitionDissocie", _dissocier)
 
 
+def _dissocier_refuse(doc: Any) -> list[str]:
+    _barreau, rep = _repetition_existante(doc)
+    nom, toutes = rep.Name, copies_de(rep)
+    demandes = dissocier(toutes[0], reponse=False)
+    return [
+        *ecarts("confirmation demandée", len(demandes), 1),
+        *ecarts("copies toujours liées", [repeat.is_copy(c) for c in toutes], [True] * len(toutes)),
+        *ecarts("répétition gardée", doc.getObject(nom) is not None, True),
+        *ecarts("aucune entrée", doc.UndoNames, []),
+    ]
+
+
+def verifier_dissocier_annule_a_la_confirmation() -> list[str]:
+    """« Annuler » dans la confirmation (demande de jv, 2026-11-24) : rien ne change."""
+    return avec_document("VerifRepetitionDissocieRefuse", _dissocier_refuse)
+
+
 def _dissocier_copie_usinee(doc: Any) -> list[str]:
     """Bug de jv (2026-11-14) : une copie assemblée est affichée et choisie par sa pièce usinée ;
     la commande doit la dissocier quand même."""
@@ -558,7 +594,7 @@ def _dissocier_copie_usinee(doc: Any) -> list[str]:
     usinee = api.machined_part_of(copie)
     if usinee is None:
         return ["copie sans pièce usinée"]
-    lancer(DISSOCIER, usinee)
+    dissocier(usinee)
     return [
         *ecarts("copie libre", repeat.is_copy(copie), False),
         *ecarts("source intacte", repeat.is_copy(barreau), False),
@@ -599,7 +635,7 @@ def _dissocier_selection_melangee(doc: Any) -> list[str]:
         *ecarts("copie usinée + pièce libre", _commande_active_sur(usinee, montant), False),
         *ecarts("copie usinée + source", _commande_active_sur(usinee, barreau), False),
     ]
-    lancer(DISSOCIER, copie, usinee)  # la même répétition deux fois : une seule dissociation
+    dissocier(copie, usinee)  # la même répétition deux fois : une seule dissociation
     return [
         *problemes,
         *ecarts("copie libre", repeat.is_copy(copie), False),
@@ -658,7 +694,7 @@ def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
     doc.clearUndos()
     ensemble = next(c for c in copies_de(rep) if c.RepeatSource == meuble)
     membre = next(c for c in copies_de(rep) if c.RepeatSource == gauche)
-    lancer(DISSOCIER, ensemble, membre)  # le membre est déjà dissocié avec son ensemble
+    dissocier(ensemble, membre)  # le membre est déjà dissocié avec son ensemble
     return [
         *ecarts("plus aucune copie liée", len(copies_de(rep)), 0),
         *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
@@ -750,6 +786,7 @@ VERIFICATIONS_REPETITION: tuple[Callable[[], list[str]], ...] = (
     verifier_modifier_le_nombre,
     verifier_modification_annulee,
     verifier_dissocier_depuis_une_copie,
+    verifier_dissocier_annule_a_la_confirmation,
     verifier_dissocier_par_la_piece_usinee,
     verifier_dissocier_selection_melangee,
     verifier_fermeture_pendant_l_apercu,

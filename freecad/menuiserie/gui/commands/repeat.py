@@ -25,6 +25,7 @@ from freecad.menuiserie.features.machined_part import blank_or_self
 from freecad.menuiserie.features.repeat import is_copy, repeats_of
 from freecad.menuiserie.features.repeat_copies import checked_sources
 from freecad.menuiserie.features.shaped_part import is_timber
+from freecad.menuiserie.gui import dissociate_confirm
 from freecad.menuiserie.gui.commands import hints
 from freecad.menuiserie.gui.commands.base import (
     TransactionCommand,
@@ -171,10 +172,11 @@ class DissociateCommand(TransactionCommand):
         )
 
     def Activated(self) -> None:
-        """Répétitions dissociées dans une seule transaction, validée ou, sur un refus (signalé
+        """Après confirmation (:mod:`..dissociate_confirm`), répétitions dissociées dans une
+        seule transaction, validée ou, sur un refus (signalé
         dans la barre d'état et la vue rapport), abandonnée."""
         repeats = selected_repeats()
-        if repeats is None:
+        if repeats is None or not dissociate_confirm.confirmed(repeats):
             return
         with refusable_transaction(repeats[0].Document, self.TRANSACTION):
             for rep in repeats:

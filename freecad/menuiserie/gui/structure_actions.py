@@ -46,6 +46,7 @@ from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.repeat import repeats_of
 from freecad.menuiserie.features.structure_facts import facts_of
+from freecad.menuiserie.gui import dissociate_confirm
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.furniture import refresh_tree, show_notices
 from freecad.menuiserie.gui.structure_dnd import DropTree
@@ -339,6 +340,8 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         if doc is None:
             return
         repeats = repeats_of(_objects(doc, entry.decision.keys))
+        if not dissociate_confirm.confirmed(repeats):
+            return
 
         def action() -> Sequence[str]:
             for rep in repeats:

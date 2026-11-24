@@ -11,6 +11,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Corrigé
 
+- Déplacer une pièce dont un assemblage la cite par deux liens (par exemple une copie dissociée), puis accepter de supprimer les assemblages défaits, ne lève plus « TypeError: argument 1 must be str, not None » : chaque assemblage n'est proposé et supprimé qu'une fois.
 - Copier, répéter, déplacer une pièce d'un ensemble qui contient des pièces en bois, changer une épaisseur ou relier ses pièces, n'affiche plus l'avertissement « cote dessinée : modifiez le dessin » : rien n'est redimensionné. L'avertissement reste à l'entrée dans l'ensemble et au redimensionnement.
 - Gabarit « Caisson » (commande « Caisson » et API) : l'épaisseur des panneaux et celle du fond sont refusées sous 0,1 mm, le minimum de toute pièce, avec un message qui cite ce minimum. Avant, 0,01 mm était accepté par le gabarit puis refusé à la création des pièces. Le reste du comportement ne change pas (#267, revue).
 
@@ -23,6 +24,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
+- Répétition (ADR 0067, demande de jv) : « Dissocier la répétition » demande d'abord confirmation (« Annuler » par défaut, ou « Dissocier »), depuis la barre d'outils, le menu ou le panneau « Structure ».
 - Répétition (ADR 0067, demande de jv) : « Dissocier la copie » devient « Dissocier la répétition ». Depuis la répétition ou n'importe laquelle de ses copies (y compris la pièce usinée d'une copie assemblée ou un membre d'un ensemble copie), toutes les copies gardent leurs valeurs et deviennent des pièces libres, avec leurs assemblages, puis la répétition est supprimée, en une seule annulation. Avant, seule la copie choisie était détachée, sans rien de visible à l'écran. Nouvelle icône (maquette 1 choisie par jv) : les tasseaux de « Répéter » et une pastille rouge au maillon coupé.
 - Répétition : les copies sont nommées « Barreau (2) », « Barreau (3) »… au lieu de « Barreau 2 » (ADR 0067). Une copie d'un document plus ancien prend le nouveau nom quand son rang change ; un nom changé à la main est gardé.
 - Pièce en bois : la marque du sens du fil, montrée avec le repère tant que le panneau est ouvert, est redessinée en double flèche évidée orange à tige en tirets (le signe ↔ des plans de débit : le fil n'a pas de sens). Elle est posée sur la face du dessus, le long de la plus longue bande de bois dans le sens du fil, centrée dans cette bande, avec une marge de 10 % à chaque bout et une taille qui suit la largeur de la bande. Avant, elle suivait l'encombrement et pouvait flotter hors du bois sur une pièce convertie qui n'est pas une boîte (en L, en biais, percée). La même flèche s'affiche aussi dans le panneau d'une pièce en bois ordinaire (sans le trièdre, que ce panneau montre déjà) : un seul code de repère, `part_axes`, sert aux deux panneaux.

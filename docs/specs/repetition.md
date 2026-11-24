@@ -49,7 +49,8 @@ Répéter une ou plusieurs pièces (avec leurs assemblages) N fois : tasseaux, l
 - **Dissocier** (ADR 0067, jv 2026-11-23) : commande « Dissocier la répétition », depuis la
   répétition ou l'une de ses copies : toutes les copies perdent leurs expressions (elles gardent
   leurs valeurs actuelles) et deviennent des pièces libres, puis la répétition est supprimée, en
-  une seule annulation. Une copie seule n'est plus détachée que par la suppression de sa source.
+  une seule annulation, après confirmation (jv, 2026-11-24). Une copie seule n'est plus
+  détachée que par la suppression de sa source.
 - **Supprimer la répétition** (jv, 2026-11-10) : ses copies sont supprimées avec elle (assemblages
   et Std Part compris), dans la même annulation ; une copie dissociée reste.
 - **Butée sur une pièce usinée** : la butée vise sa pièce brute (la pièce usinée dépend des

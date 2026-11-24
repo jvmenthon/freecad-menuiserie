@@ -87,9 +87,9 @@ def broken_joints(
     """Assemblages liés à la brute ``part`` dont le plan d'usinage est impossible maintenant
     (``ValueError`` traduite de ``plan_for``), sans recalcul ; ceux de ``already_invalid`` (noms),
     déjà défaits avant le déplacement, ne comptent pas."""
-    broken = []
-    for joint in part.InList:
-        if not is_joint(joint) or joint.Name in already_invalid:
+    broken: list[DocumentObject] = []
+    for joint in part.InList:  # un objet y figure une fois par lien : doublons possibles
+        if not is_joint(joint) or joint.Name in already_invalid or joint in broken:
             continue
         try:
             plan_for(joint)
@@ -111,8 +111,9 @@ def remove_joints(joints: Sequence[DocumentObject]) -> None:
             found = None if part is None else machined_part_of(part)
             if found is not None and found not in machined:
                 machined.append(found)
-    for joint in joints:
-        document.removeObject(joint.Name)
+    for name in dict.fromkeys(joint.Name for joint in joints):  # une seule fois chacun
+        if document.getObject(name) is not None:
+            document.removeObject(name)
     for found in machined:
         if not found.Joints and not found.Finishes:
             remove_machined_part(found)
