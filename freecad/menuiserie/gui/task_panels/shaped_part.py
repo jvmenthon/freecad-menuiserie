@@ -8,7 +8,7 @@ dans l'ordre Identification, Matériau, Repère de la pièce (:mod:`.shaped_part
 l'objet puis la pièce est recalculée (aperçu en direct) ; « OK » valide la transaction ouverte par
 la commande ou par :func:`start_editing`, « Annuler » l'abandonne (la conversion disparaît, ou les
 valeurs reviennent à l'état d'avant). Pendant le panneau, le repère de la pièce (trièdre L / l / e
-et fil) est dessiné dans la vue 3D (:mod:`.shaped_part_axes`), retiré à la fermeture ; ses flèches
+et fil) est dessiné dans la vue 3D (:mod:`.part_axes`), retiré à la fermeture ; ses flèches
 de glissement à la souris restent actives (:class:`.PanelDrag`, ADR 0021), sans poignée : les cotes
 viennent du dessin.
 """
@@ -42,7 +42,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     panel_title,
 )
 from freecad.menuiserie.gui.task_panels.furniture_widgets import quantity_field
-from freecad.menuiserie.gui.task_panels.shaped_part_axes import AxesView
+from freecad.menuiserie.gui.task_panels.part_axes import AxesView
 from freecad.menuiserie.gui.task_panels.shaped_part_frame import FrameRows
 from freecad.menuiserie.gui.task_panels.timber_rows import (
     AllowanceRows,

@@ -5,10 +5,17 @@ enregistrement de la commande, icônes, ViewProvider (analyse statique)."""
 from __future__ import annotations
 
 import ast
+import math
+import time
+from typing import Any
+
+import pytest
 
 from freecad.menuiserie import ICONS_DIR
-from freecad.menuiserie.gui.task_panels.shaped_part_drawing import (
+from freecad.menuiserie.core.grain_band import GrainBand, grain_band, rectangle
+from freecad.menuiserie.gui.task_panels.part_axes_drawing import (
     GRAIN_COLOR,
+    GRAIN_OUTLINE_COLOR,
     axes_drawing,
     grain_axis,
 )
@@ -30,12 +37,149 @@ def test_trois_axes_et_pas_de_fil_sans_fil() -> None:
 
 def test_fleche_du_fil_sur_la_face_du_dessus() -> None:
     drawing = axes_drawing((720.0, 95.0, 45.0), grain=0)
-    grain = drawing.strokes[-1]
-    assert grain.color == GRAIN_COLOR
-    start, end = grain.lines[0]
-    assert (start.z, end.z) == (45.0, 45.0)
-    assert (start.y, end.y) == (47.5, 47.5)
-    assert end.x > start.x
+    (fill,) = drawing.solids
+    contour, dashes = drawing.strokes[3:]
+    assert fill.color == GRAIN_COLOR
+    assert contour.color == dashes.color == GRAIN_OUTLINE_COLOR
+    points = [p for face in fill.faces for p in face] + list(contour.lines[0])
+    assert {p.z for p in points} == {45.0}
+    xs, ys = [p.x for p in points], [p.y for p in points]
+    assert (min(xs), max(xs)) == (72.0, 648.0)  # marge de 10 % à chaque bout
+    assert 0.0 < min(ys) < 47.5 < max(ys) < 95.0
+    assert contour.lines[0][0] == contour.lines[0][-1]  # contour fermé
+    assert len(dashes.lines) >= 3
+
+
+def test_double_fleche_symetrique() -> None:
+    contour = axes_drawing((720.0, 95.0, 45.0), grain=0).strokes[3].lines[0]
+    tips = [p for p in contour if p.y == 47.5]
+    assert sorted(p.x for p in tips) == [72.0, 72.0, 648.0]  # deux pointes (départ répété)
+
+
+def test_fil_en_largeur() -> None:
+    (fill,) = axes_drawing((720.0, 95.0, 45.0), grain=1).solids
+    points = [p for face in fill.faces for p in face]
+    assert {p.x for p in points if p.y in (9.5, 85.5)} == {360.0}
+
+
+def test_piece_convertie_en_l_fleche_sur_le_bois() -> None:
+    ell = (((0.0, 0.0), (560.0, 0.0), (560.0, 90.0), (100.0, 90.0), (100.0, 330.0), (0.0, 330.0)),)
+    (fill,) = axes_drawing((560.0, 330.0, 22.0), grain=0, outline=ell).solids
+    points = [p for face in fill.faces for p in face]
+    assert all(0.0 < p.y < 90.0 and 0.0 < p.x < 560.0 for p in points)
+
+
+def test_bande_de_bois() -> None:
+    band = grain_band(rectangle(720.0, 95.0), 0)
+    assert band is not None
+    assert (band.start, band.end, band.across) == (0.0, 720.0, 47.5)
+    assert band.width == pytest.approx(95.0)
+    assert grain_band((), 0) is None
+    assert grain_band((((0.0, 0.0), (10.0, 0.0), (5.0, 0.0)),), 0) is None
+
+
+def _inside(loops: tuple[tuple[tuple[float, float], ...], ...], x: float, y: float) -> bool:
+    """Point dans le contour (pair-impair, rayon vers +X)."""
+    crossings = 0
+    for loop in loops:
+        for a, b in zip(loop, (*loop[1:], loop[0]), strict=True):
+            if (a[1] <= y < b[1]) or (b[1] <= y < a[1]):
+                crossings += a[0] + (y - a[1]) / (b[1] - a[1]) * (b[0] - a[0]) > x
+    return crossings % 2 == 1
+
+
+def _band_in_wood(loops: tuple[tuple[tuple[float, float], ...], ...], axis: int) -> GrainBand:
+    band = grain_band(loops, axis)
+    assert band is not None
+    for k in range(41):
+        along = band.start + (band.end - band.start) * (0.001 + 0.998 * k / 40)
+        for j in range(41):
+            across = band.across + band.width * (j / 40 - 0.5) * 0.999
+            x, y = (along, across) if axis == 0 else (across, along)
+            assert _inside(loops, x, y), (x, y)
+    return band
+
+
+THIN_L = (((0.0, 0.0), (560.0, 0.0), (560.0, 5.0), (100.0, 5.0), (100.0, 330.0), (0.0, 330.0)),)
+THIN_HOLE = (
+    *rectangle(600.0, 200.0),
+    ((200.0, 98.0), (400.0, 98.0), (400.0, 99.0), (200.0, 99.0)),
+)
+TRAPEZE = (((0.0, 0.0), (600.0, 0.0), (550.0, 95.0), (50.0, 95.0)),)
+TRIANGLE = (((0.0, 0.0), (600.0, 0.0), (300.0, 200.0)),)
+PARALLELOGRAM = (((0.0, 0.0), (100.0, 0.0), (600.0, 200.0), (500.0, 200.0)),)
+ELLIPSE = (
+    tuple(
+        (300.0 + 300.0 * math.cos(math.tau * k / 400), 100.0 + 100.0 * math.sin(math.tau * k / 400))
+        for k in range(400)
+    ),
+)
+
+
+@pytest.mark.parametrize("loops", [THIN_L, THIN_HOLE, TRAPEZE, TRIANGLE, PARALLELOGRAM, ELLIPSE])
+@pytest.mark.parametrize("axis", [0, 1])
+def test_bande_toujours_dans_le_bois(loops: Any, axis: int) -> None:
+    _band_in_wood(loops, axis)
+
+
+def test_branche_fine_gardee_dans_le_sens_du_fil() -> None:
+    band = _band_in_wood(THIN_L, 0)
+    assert (band.start, band.end) == (0.0, 560.0)
+
+
+def test_contours_obliques_marque_exploitable() -> None:
+    triangle = _band_in_wood(TRIANGLE, 0)
+    assert triangle.length > 300.0 and triangle.width > 50.0  # 400 x 20 tient autour de Y = 50
+    slanted = _band_in_wood(PARALLELOGRAM, 0)  # 100 mm de bois par droite au plus
+    assert slanted.length > 50.0 and slanted.width > 5.0
+
+
+def test_trou_fin_jamais_traverse() -> None:
+    band = _band_in_wood(THIN_HOLE, 0)
+    assert band.length == 600.0
+    low, high = band.across - band.width / 2, band.across + band.width / 2
+    assert high <= 98.0 or low >= 99.0
+
+
+def test_bande_minuscule_ou_axe_invalide() -> None:
+    tiny = (((0.0, 0.0), (1e-9, 0.0), (1e-9, 1e-9), (0.0, 1e-9)),)
+    assert not axes_drawing((1e-9, 1e-9, 1e-9), grain=0, outline=tiny).solids
+    nan = (((0.0, 0.0), (math.nan, 0.0), (10.0, math.nan)),)
+    assert not axes_drawing((10.0, 10.0, 1.0), grain=0, outline=nan).solids
+    assert grain_band(((), *rectangle(10.0, 5.0)), 0) is not None  # boucle vide ignorée
+    with pytest.raises(ValueError):
+        grain_band(rectangle(10.0, 5.0), 2)
+    assert not axes_drawing((-5.0, 10.0, 18.0), grain=0).solids  # cote négative : trièdre seul
+
+
+def test_contour_tres_discretise_rapide() -> None:
+    count = 5000
+    circle = (
+        tuple(
+            (300.0 + 300.0 * math.cos(math.tau * k / count), 300.0 * math.sin(math.tau * k / count))
+            for k in range(count)
+        ),
+    )
+    started = time.perf_counter()
+    band = grain_band(circle, 0)
+    assert time.perf_counter() - started < 1.0  # 0,1 s en local : un rafraîchissement en direct
+    assert band is not None and band.length > 400.0
+    # recherche sur le contour allégé, puis bande recoupée sur le contour complet
+    for along in (band.start + 1e-6, band.end - 1e-6):
+        for across in (band.across - band.width / 2 + 1e-6, band.across + band.width / 2 - 1e-6):
+            assert (along - 300.0) ** 2 + across**2 < 300.0**2
+
+
+def test_fleche_seule_sans_triedre() -> None:
+    drawing = axes_drawing((720.0, 95.0, 45.0), grain=0, axes=False)
+    assert len(drawing.strokes) == 2  # contour et tirets de la double flèche
+    assert {stroke.color for stroke in drawing.strokes} == {GRAIN_OUTLINE_COLOR}
+    assert len(drawing.solids) == 1
+    assert not axes_drawing((720.0, 95.0, 45.0), grain=None, axes=False).strokes
+
+
+def test_sans_fil_pas_de_marque() -> None:
+    assert not axes_drawing((720.0, 95.0, 45.0), grain=None).solids
 
 
 def test_axe_du_fil() -> None:
