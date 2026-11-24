@@ -18,13 +18,17 @@ import Part
 from pivy import coin
 from PySide import QtGui
 
-from freecad.menuiserie.gui.task_panels.shaped_part_axes import NODE_NAME
+from freecad.menuiserie.features.joints.footprint import footprint_of
+from freecad.menuiserie.gui.task_panels.part_axes import NODE_NAME
+from freecad.menuiserie.gui.task_panels.part_axes_drawing import axes_drawing, grain_axis
 from tests.gui.verifications_double_clic import ATELIER, vue_3d_active
 from tests.gui.verifications_panneau import (
     annuler,
     avec_document,
     ecarts,
     formulaire_nomme,
+    ouvrir_par_double_clic,
+    piece_validee,
     saisir,
     valider,
 )
@@ -224,10 +228,71 @@ def verifier_refus_listes() -> list[str]:
     return avec_document("VerifPieceEnBoisRefus", _refus)
 
 
+def _fil_sur_le_bois(doc: Any) -> list[str]:
+    equerre = doc.addObject("Part::Feature", "Equerre")
+    branche = Part.makeBox(560, 90, 22)
+    montant = Part.makeBox(100, 330, 22)
+    equerre.Shape = branche.fuse(montant).removeSplitter()
+    doc.recompute()
+    pieces = convertir(doc, equerre)
+    if len(pieces) != 1:
+        return ["pièce en L non convertie"]
+    piece = pieces[0]
+    epaisseur = piece.Thickness.Value
+    contour = footprint_of(piece)
+    problemes = ecarts("contour réel lu", contour is not None, True)
+    for sens in ("Length", "Width"):
+        piece.GrainDirection = sens
+        extents = (piece.Length.Value, piece.Width.Value, epaisseur)
+        dessin = axes_drawing(extents, grain_axis(sens), contour)
+        points = [p for face in dessin.solids[0].faces for p in face] if dessin.solids else []
+        dans_le_bois = all(
+            piece.Shape.isInside(
+                piece.Placement.multVec(App.Vector(p.x, p.y, p.z - epaisseur / 2)), 1e-6, True
+            )
+            for p in points
+        )
+        problemes += [
+            *ecarts(f"marque du fil ({sens})", bool(points), True),
+            *ecarts(f"marque du fil sur le bois ({sens})", dans_le_bois, True),
+            *ecarts(f"marque sur le dessus ({sens})", {p.z for p in points}, {epaisseur}),
+        ]
+    annuler()
+    return problemes
+
+
+def verifier_fil_sur_le_bois() -> list[str]:
+    """D3 : la double flèche du fil d'une pièce convertie en L reste sur le bois, au dessus."""
+    return avec_document("VerifPieceEnBoisFil", _fil_sur_le_bois)
+
+
+def _fil_piece_normale(doc: Any) -> list[str]:
+    piece = piece_validee(doc)
+    if piece is None:
+        return ["pièce de bois non créée"]
+    piece.GrainDirection = "Length"
+    doc.recompute()
+    form = ouvrir_par_double_clic(piece)
+    problemes = [
+        *ecarts("panneau ouvert", form is not None, True),
+        *ecarts("flèche du fil dans la vue", noeuds_nommes(NODE_NAME) >= 1, True),
+    ]
+    del form
+    annuler()
+    return [*problemes, *ecarts("flèche retirée à la fermeture", noeuds_nommes(NODE_NAME), 0)]
+
+
+def verifier_fil_piece_normale() -> list[str]:
+    """Le panneau d'une pièce de bois montre la flèche du fil, retirée à sa fermeture."""
+    return avec_document("VerifPieceNormaleFil", _fil_piece_normale)
+
+
 VERIFICATIONS_PIECE_EN_BOIS: tuple[Callable[[], list[str]], ...] = (
     verifier_conversion_et_annulation,
     verifier_saisies_en_direct,
     verifier_double_clic_pieces_en_bois,
     verifier_suppression_reaffiche_la_source,
     verifier_refus_listes,
+    verifier_fil_sur_le_bois,
+    verifier_fil_piece_normale,
 )
