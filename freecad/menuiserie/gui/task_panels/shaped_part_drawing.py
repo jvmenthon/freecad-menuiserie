@@ -9,6 +9,7 @@ de Qt ni de pivy : :mod:`.shaped_part_axes` le pose dans la vue.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Final
 
@@ -116,6 +117,13 @@ def grain_marking(band: GrainBand, axis: int, height: float) -> tuple[Solid, Str
     )
 
 
+def _drawable(band: GrainBand, height: float) -> bool:
+    """Vrai si la double flèche se dessine : cotes finies, longueur et largeur assez grandes pour
+    une tige non nulle (une bande minuscule ou un contour hostile donnent le trièdre seul)."""
+    values = (band.start, band.end, band.across, band.width, height)
+    return all(math.isfinite(value) for value in values) and min(band.length, band.width) > 1e-6
+
+
 def axes_drawing(
     extents: Extents, grain: int | None = None, outline: Sequence[Loop] | None = None
 ) -> Drawing:
@@ -129,7 +137,7 @@ def axes_drawing(
     if grain is None or grain not in (0, 1):
         return Drawing(tuple(strokes))
     band = grain_band(outline or rectangle(extents[0], extents[1]), grain)
-    if band is None:
+    if band is None or not _drawable(band, extents[2]):
         return Drawing(tuple(strokes))
     fill, contour, dashes = grain_marking(band, grain, extents[2])
     return Drawing((*strokes, contour, dashes), solids=(fill,))

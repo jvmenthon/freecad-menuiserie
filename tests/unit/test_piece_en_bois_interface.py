@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ast
 import math
+import time
 from typing import Any
 
 import pytest
@@ -138,6 +139,29 @@ def test_trou_fin_jamais_traverse() -> None:
     assert band.length == 600.0
     low, high = band.across - band.width / 2, band.across + band.width / 2
     assert high <= 98.0 or low >= 99.0
+
+
+def test_bande_minuscule_ou_axe_invalide() -> None:
+    tiny = (((0.0, 0.0), (1e-9, 0.0), (1e-9, 1e-9), (0.0, 1e-9)),)
+    assert not axes_drawing((1e-9, 1e-9, 1e-9), grain=0, outline=tiny).solids
+    nan = (((0.0, 0.0), (math.nan, 0.0), (10.0, math.nan)),)
+    assert not axes_drawing((10.0, 10.0, 1.0), grain=0, outline=nan).solids
+    assert grain_band(((), *rectangle(10.0, 5.0)), 0) is not None  # boucle vide ignorée
+    with pytest.raises(ValueError):
+        grain_band(rectangle(10.0, 5.0), 2)
+
+
+def test_contour_tres_discretise_rapide() -> None:
+    count = 5000
+    circle = (
+        tuple(
+            (300.0 + 300.0 * math.cos(math.tau * k / count), 300.0 * math.sin(math.tau * k / count))
+            for k in range(count)
+        ),
+    )
+    started = time.perf_counter()
+    assert grain_band(circle, 0) is not None
+    assert time.perf_counter() - started < 3.0  # 0,4 s en local : un rafraîchissement en direct
 
 
 def test_sans_fil_pas_de_marque() -> None:
