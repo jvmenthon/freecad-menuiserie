@@ -141,6 +141,19 @@ def test_le_redimensionnement_avertit(table: Table) -> None:
     assert any(DRAWN in message for message in messages)
 
 
+@pytest.mark.parametrize(("member", "axis"), [("A", "X"), ("top", "Z")])
+def test_une_copie_n_avertit_pas_de_cote_dessinee(
+    table: Table, vue_rapport: Any, member: str, axis: str
+) -> None:
+    """Copier une pièce d'un ensemble qui contient des pièces en bois ne redimensionne rien :
+    pas d'avertissement « cote dessinée » (bruit signalé par jv le 2026-11-24)."""
+    before = {name: table.bounds(leg) for name, leg in table.legs.items()}
+    source = table.top if member == "top" else table.legs[member]
+    api.make_repeat([source], api.RepeatParams(count=1, step=100.0, axis=axis))
+    assert not any(DRAWN in text for _level, text in vue_rapport.messages)
+    assert {name: table.bounds(leg) for name, leg in table.legs.items()} == before
+
+
 # --- Rangée bloquée par une pièce en bois ---------------------------------------------------
 
 
