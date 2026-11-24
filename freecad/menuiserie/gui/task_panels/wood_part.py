@@ -102,8 +102,9 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self.form = Gui.PySideUic.loadUi(str(UI_FILE))
         self.form.setWindowIcon(QtGui.QIcon(icon_path(ICON)))
         self.form.setWindowTitle(panel_title(str(obj.Label), creating, _CREATE_TITLE))
-        self._grain = AxesView(obj, axes=False)  # flèche du fil sur la pièce, panneau ouvert
-        connect(self.form, "destroyed()", self._grain.remove)
+        self._axes = AxesView(obj, axes=False)  # flèche du fil sur la pièce, panneau ouvert
+        # retrait à la destruction du formulaire : le socle commun garde seul _finish (OK, Annuler)
+        connect(self.form, "destroyed()", self._axes.remove)
         self._bindings = [bind_length_field(self.form, obj, field) for field in LENGTH_FIELDS[:3]]
         self._unlock = UnlockBox(self.form.unlockHost.layout(), self._unlock_and_apply)
         self._thickness_tools = ThicknessTools(self.form, obj)
@@ -230,13 +231,13 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._session = None
         self._angles.finish()  # saisie d'angle en cours : contrôlée (ADR 0026), non abandonnée
         self._show_values()
-        self._grain.refresh()
+        self._axes.refresh()
 
     def preview(self) -> None:
         """Aperçu, puis flèche du fil redessinée (cotes, sens du fil, matériau ou place
         changés)."""
         super().preview()
-        self._grain.refresh()
+        self._axes.refresh()
 
     def _on_angle_edit(self) -> None:
         """Angle saisi : comme un glissement, la saisie arrête l'accrochage de la création (la

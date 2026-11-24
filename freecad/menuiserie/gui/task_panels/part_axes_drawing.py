@@ -24,7 +24,14 @@ from freecad.menuiserie.core.grain_band import (
 )
 from freecad.menuiserie.gui.drag.geometry import AXIS_COLORS, HEAD_RATIO, Drawing, Solid, Stroke
 
-__all__ = ["GRAIN_COLOR", "GRAIN_OUTLINE_COLOR", "axes_drawing", "grain_axis", "grain_marking"]
+__all__ = [
+    "GRAIN_COLOR",
+    "GRAIN_OUTLINE_COLOR",
+    "axes_drawing",
+    "dash_spans",
+    "grain_axis",
+    "grain_marking",
+]
 
 GRAIN_COLOR: Final = (1.0, 0.55, 0.0)  # fond de la double flèche
 GRAIN_OUTLINE_COLOR: Final = (0.77, 0.37, 0.0)  # contour et tirets
@@ -76,7 +83,7 @@ def _on_top(axis: int, along: float, across: float, height: float) -> Vec3:
     return point.with_component(1 - axis, across)
 
 
-def _dashes(start: float, end: float, shaft: float) -> tuple[tuple[float, float], ...]:
+def dash_spans(start: float, end: float, shaft: float) -> tuple[tuple[float, float], ...]:
     """Tirets de la tige entre ``start`` et ``end`` (le long du fil), de ``MIN_DASHES`` à
     ``MAX_DASHES`` selon la place, chacun ``DASH_RATIO`` de sa période ; aucun tiret sans place
     ou sans tige."""
@@ -119,7 +126,7 @@ def grain_marking(band: GrainBand, axis: int, height: float) -> tuple[Solid, Str
         at(right, head), at(right, shaft), at(left, shaft), at(left, head), tip_a,
     )  # fmt: skip
     gap = DASH_GAP * length
-    dashes = tuple((at(a, 0.0), at(b, 0.0)) for a, b in _dashes(left + gap, right - gap, shaft))
+    dashes = tuple((at(a, 0.0), at(b, 0.0)) for a, b in dash_spans(left + gap, right - gap, shaft))
     return (
         fill,
         Stroke(GRAIN_OUTLINE_COLOR, OUTLINE_WIDTH, (contour,)),
