@@ -30,6 +30,7 @@ from freecad.menuiserie.gui.commands.cutlist import show_status
 
 __all__ = ["ask_pdf_path", "export_page_pdf", "proposed_pdf_path", "show_page"]
 
+PAGE_TYPE: Final = "TechDraw::DrawPage"
 _FORBIDDEN_IN_NAME: Final = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
 _FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{page} - plan")
 _EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
@@ -67,6 +68,11 @@ def ask_pdf_path(page: DocumentObject, parent: Any = None) -> Path | None:
     return Path(with_suffix(chosen, PDF_SUFFIX)) if chosen else None
 
 
+def is_page(obj: object) -> bool:
+    """Vrai si ``obj`` est une page TechDraw (un plan)."""
+    return getattr(obj, "TypeId", None) == PAGE_TYPE
+
+
 def show_page(page: DocumentObject) -> None:
     """Ouvre ``page`` dans son onglet sans changer d'atelier : le double-clic de TechDraw
     bascule dans l'atelier TechDraw (préférence « SwitchToWB »), l'affichage de la page non."""
@@ -83,7 +89,7 @@ def export_page_pdf(page: DocumentObject, path: str | Path) -> Path:
     """Écrit ``page`` (une ``TechDraw::DrawPage``) en PDF dans ``path`` et renvoie le chemin.
     ``ValueError`` traduite pour un chemin refusé, un objet qui n'est pas une page ou un fichier
     que TechDraw n'a pas écrit ; un fichier déjà là n'est remplacé qu'en cas de succès."""
-    if getattr(page, "TypeId", None) != "TechDraw::DrawPage":
+    if not is_page(page):
         raise ValueError(translated(_NOT_A_PAGE, {"label": str(getattr(page, "Label", page))}))
     target = validated_path(path, PDF_SUFFIX)
     import TechDrawGui

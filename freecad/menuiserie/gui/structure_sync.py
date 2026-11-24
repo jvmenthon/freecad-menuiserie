@@ -35,6 +35,7 @@ from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.repeat import is_copy
 from freecad.menuiserie.features.structure_source import row_key_of, structure_of
+from freecad.menuiserie.gui.drawing_pdf import is_page, show_page
 from freecad.menuiserie.gui.structure_highlight import RowHighlight
 from freecad.menuiserie.gui.structure_switch import ask_user, switch_to
 from freecad.menuiserie.gui.structure_tree_widget import (
@@ -327,13 +328,17 @@ class StructureSync(QtCore.QObject):  # type: ignore[misc]
 
     def _open_panel(self, item: QtGui.QTreeWidgetItem, _column: int) -> None:
         """Même panneau de tâche que le double-clic de l'arbre natif. Jamais pour un objet d'un
-        autre atelier : l'éditer, ce serait le modifier. Une tâche en cours est d'abord réglée
-        (``structure_switch`` : fermée si inchangée, sinon l'utilisateur choisit)."""
-        if item.data(0, KIND_ROLE) == NodeKind.OTHER.value:
-            return
+        autre atelier : l'éditer, ce serait le modifier ; seule une page de plan s'ouvre dans son
+        onglet (la lire ne la modifie pas), sans changer d'atelier. Une tâche en cours est
+        d'abord réglée (``structure_switch`` : fermée si inchangée, sinon l'utilisateur
+        choisit)."""
         key = item.data(0, KEY_ROLE)
         doc = App.ActiveDocument
         obj = doc.getObject(key) if key and doc is not None else None
+        if item.data(0, KIND_ROLE) == NodeKind.OTHER.value:
+            if is_page(obj):
+                report_errors(show_page, obj)
+            return
         if obj is not None:
             report_errors(switch_to, obj, open_object_panel, self.choose)
 
