@@ -450,6 +450,19 @@ def capturer_les_plans(dossier: Path) -> None:
         show_page(page)
         attendre_les_vues(doc)
         rendre_la_page(page, dossier / f"{nom}.png")
+    capturer_l_export_pdf(dossier, pages[0][1])
+
+
+def capturer_l_export_pdf(dossier: Path, page: Any) -> None:
+    """Panneau « Exporter en PDF » (maquette B), le plan de l'ouvrage sélectionné avant le clic
+    donc précoché (``panneau-export-pdf.png``)."""
+    from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
+
+    panneau = ExportPdfTaskPanel(App.ActiveDocument, [page])
+    Gui.Control.showDialog(panneau)
+    volet = volet_des_taches(Gui.getMainWindow())
+    volet.grab().save(str(dossier / "panneau-export-pdf.png"))
+    panneau.reject()
 
 
 def volet_des_taches(fenetre):

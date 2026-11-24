@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface des plans cotés (issue #153, ADR 0053, lot P-b) : commandes,
-panneau (format de la configuration, cartouche), page ouverte, export PDF par TechDraw (boîte
-d'enregistrement remplacée par un double). Module importé par ``verifier_atelier.py``."""
+panneau (format de la configuration, cartouche), page ouverte, export PDF de plusieurs
+plans dans un seul fichier (maquette B du 24/11). Module importé par ``verifier_atelier.py``."""
 
 from __future__ import annotations
 
+import re
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -15,7 +16,7 @@ import FreeCADGui as Gui
 
 from tests.commandes_plan import COMMANDES_PLAN
 from tests.gui.verifications_assemblages import selectionner
-from tests.gui.verifications_debit import boite_d_enregistrement, noms_selectionnes
+from tests.gui.verifications_debit import noms_selectionnes
 from tests.gui.verifications_ensemble import pieces_du_bureau, regrouper
 from tests.gui.verifications_panneau import ecarts
 
@@ -98,34 +99,51 @@ def verifier_annuler_ne_cree_rien() -> list[str]:
         return problemes + ecarts("rien créé", [obj.Name for obj in bureau.doc.Objects], avant)
 
 
+def _pages_du_pdf(octets: bytes) -> int:
+    return len(re.findall(rb"/Type\s*/Page(?![a-zA-Z])", octets))
+
+
 def _export(bureau: Any) -> list[str]:
+    """Retour de jv du 24/11 (maquette B) : la page sélectionnée est précochée ; une pièce sans
+    plan cochée reçoit son plan ; les deux pages partent dans un seul PDF."""
     from freecad.menuiserie import api
+    from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
 
     page = api.make_overall_drawing(bureau.doc, [regrouper(bureau)])
+    selectionner(page)
+    Gui.Command.get(PDF).run()
+    ouvert = bool(Gui.Control.activeDialog())
+    Gui.Control.closeDialog()
+    panneau = ExportPdfTaskPanel(bureau.doc, [page])
+    Gui.Control.showDialog(panneau)
+    coches = [obj.Name for obj in panneau.chosen()]
+    piece = next(iter(bureau.parts.values()))
     with tempfile.TemporaryDirectory() as dossier:
-        cible = Path(dossier) / "plan.pdf"
-        selectionner(page)
-        actif = Gui.Command.get(PDF).isActive()
-        with boite_d_enregistrement(str(cible)) as appels:
-            Gui.Command.get(PDF).run()
+        cible = Path(dossier) / "plans.pdf"
+        panneau.path.setText(str(cible))
+        panneau.check(piece.Name)
+        avant = len(_pages(bureau.doc))
+        accepte = panneau.accept()
         octets = cible.read_bytes() if cible.exists() else b""
         restes = [p.name for p in Path(dossier).iterdir() if p.suffix == ".tmp"]
-        message = Gui.getMainWindow().statusBar().currentMessage()
-        return [
-            *ecarts("export actif sur une page", actif, True),
-            *ecarts("une boîte d'enregistrement", len(appels), 1),
-            *ecarts("filtre", "*.pdf" in appels[0][2] if appels else None, True),
-            *ecarts("le PDF commence par %PDF", octets[:4], b"%PDF"),
-            *ecarts("aucun temporaire", restes, []),
-            *ecarts("confirmation", str(cible) in message, True),
-        ]
+    message = Gui.getMainWindow().statusBar().currentMessage()
+    return [
+        *ecarts("panneau ouvert", ouvert, True),
+        *ecarts("page précochée", page.Name in coches, True),
+        *ecarts("export accepté", accepte, True),
+        *ecarts("plan de pièce créé", len(_pages(bureau.doc)), avant + 1),
+        *ecarts("le PDF commence par %PDF", octets[:4], b"%PDF"),
+        *ecarts("deux pages dans un seul PDF", _pages_du_pdf(octets), 2),
+        *ecarts("aucun temporaire", restes, []),
+        *ecarts("confirmation", "plans.pdf" in message, True),
+    ]
 
 
 def verifier_export_pdf() -> list[str]:
     with pieces_du_bureau("VerifPlanPdf", assemble=True) as bureau:
         Gui.Selection.clearSelection()
-        inactif = Gui.Command.get(PDF).isActive()
-        return [*ecarts("export grisé sans page", inactif, False), *_export(bureau)]
+        actif = Gui.Command.get(PDF).isActive()
+        return [*ecarts("export actif sans sélection", actif, True), *_export(bureau)]
 
 
 VERIFICATIONS_PLAN: tuple[Callable[[], list[str]], ...] = (

@@ -81,6 +81,14 @@ plan par pièce avec ses usinages. FreeCAD fournit TechDraw. Les formes de l'ate
    dessinées par TechDraw à leur place et comptées dans la quantité des plans de pièce
    (`features/drawing_scope.py`). La page s'ouvre sans basculer dans l'atelier TechDraw
    (affichage de la page, pas son double-clic).
+11. **Export PDF de plusieurs plans** (amendement du 2026-11-24, retour de jv, maquette B) : le
+   bouton est toujours actif et ouvre un panneau, le même arbre que « Plans de pièce », précédé
+   des plans de l'ouvrage et des autres pages. Chaque pièce y dit si son plan existe. La
+   sélection d'avant le clic est précochée. Les plans qui manquent sont créés, puis toutes les
+   pages vont dans **un seul PDF** : TechDraw n'écrivant qu'une page par fichier, chaque page
+   est exportée en SVG par TechDraw puis dessinée en vectoriel par Qt (`QSvgRenderer` sur
+   `QPdfWriter`, une feuille par page à sa taille). Rien n'est installé. Dans le panneau
+   « Structure », un double-clic sur un plan l'ouvre.
 
 ## Conséquences
 

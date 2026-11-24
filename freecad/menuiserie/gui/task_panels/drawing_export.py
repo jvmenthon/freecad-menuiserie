@@ -1,0 +1,201 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+"""Panneau « Exporter en PDF » (issue #153, retour de jv du 24/11, maquette B choisie).
+
+Même arbre à cocher que « Plans de pièce » (ensembles, pièces, copies par lien), précédé des
+plans de l'ouvrage (existants, ou à créer) et des autres pages. Une seconde colonne dit pour
+chaque pièce si son plan existe ou s'il sera créé. Ce qui était sélectionné avant le clic est
+déjà coché. « OK » crée les plans qui manquent puis écrit toutes les pages cochées dans un seul
+PDF ; « Annuler » ne laisse rien.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Final
+
+import FreeCADGui as Gui
+from PySide import QtCore, QtGui
+
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.text import escaped_text
+from freecad.menuiserie.features.cutlist_export import PDF_SUFFIX, with_suffix
+from freecad.menuiserie.features.drawing import TITLE as OVERALL_TITLE
+from freecad.menuiserie.features.drawing import DrawingOptions
+from freecad.menuiserie.features.drawing_exploded import TITLE as EXPLODED_TITLE
+from freecad.menuiserie.features.drawing_export import (
+    EXPLODED,
+    OVERALL,
+    ExportState,
+    export_state,
+    pages_to_export,
+)
+from freecad.menuiserie.features.drawing_parts import blanks_of
+from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.gui.commands.base import report_refusal
+from freecad.menuiserie.gui.commands.cutlist import show_status
+from freecad.menuiserie.gui.drawing_hlr import HlrWait
+from freecad.menuiserie.gui.drawing_pdf import is_page
+from freecad.menuiserie.gui.drawing_pdf_pages import export_pages_pdf, proposed_plans_path
+from freecad.menuiserie.gui.task_panels.part_drawings import (
+    NAME_ROLE,
+    PartDrawingsTaskPanel,
+    counted,
+    state,
+)
+
+__all__ = ["FORM_NAME", "ExportPdfTaskPanel"]
+
+FORM_NAME: Final = "MenuiserieExportPdfPanel"
+KIND_ROLE: Final = QtCore.Qt.UserRole + 1  # genre du plan de l'ouvrage à créer
+_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter en PDF")
+_HINT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Cochez les plans à exporter, ou des pièces : leur plan est créé s'il manque. Tout part dans "
+    "un seul PDF, une page par plan.",
+)
+_EXISTS: Final = QT_TRANSLATE_NOOP("Menuiserie", "plan existant")
+_TO_CREATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "à créer")
+_FILE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichier :")
+_BROWSE: Final = QT_TRANSLATE_NOOP("Menuiserie", "…")
+_DIALOG: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter les plans")
+_FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers PDF (*.pdf)")
+_COUNT: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "{count} pages dans un seul PDF, dont {new} à créer."
+)
+_COUNT_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "{count} page dans le PDF, dont {new} à créer.")
+_NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Export PDF : cochez au moins un plan.")
+_NO_FILE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Export PDF : choisissez le fichier.")
+_DONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "{count} plans exportés dans « {path} ».")
+_DONE_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "1 plan exporté dans « {path} ».")
+
+
+def _resize_mode(name: str) -> Any:
+    modes = getattr(QtGui.QHeaderView, "ResizeMode", QtGui.QHeaderView)
+    return getattr(QtGui.QHeaderView, name, None) or getattr(modes, name)
+
+
+class ExportPdfTaskPanel(PartDrawingsTaskPanel):
+    """Panneau du choix des plans à exporter dans un seul PDF, dans ``doc`` ; ``selected`` (la
+    sélection d'avant le clic : pages, pièces, ensembles) est précochée."""
+
+    FORM_NAME = FORM_NAME
+    TITLE = _TITLE
+    HINT = _HINT
+
+    def __init__(self, doc: Document, selected: list[DocumentObject] | None = None) -> None:
+        self.state: ExportState = export_state(doc)
+        self._selected = list(selected or [])
+        self.written: Path | None = None
+        super().__init__(doc)
+
+    def _add_options(self, layout: Any) -> None:
+        self.tree.setColumnCount(2)
+        header = self.tree.header()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, _resize_mode("Stretch"))
+        header.setSectionResizeMode(1, _resize_mode("ResizeToContents"))
+        row = QtGui.QHBoxLayout()
+        row.addWidget(QtGui.QLabel(translated(_FILE)))
+        self.path = QtGui.QLineEdit(str(proposed_plans_path(self.doc)))
+        row.addWidget(self.path, 1)
+        browse = QtGui.QPushButton(translated(_BROWSE))
+        browse.clicked.connect(self._browse)
+        row.addWidget(browse)
+        layout.addLayout(row)
+
+    def _fill(self) -> None:
+        """Plans de l'ouvrage (à créer s'il n'y en a pas), autres pages, puis l'arbre des
+        ensembles avec l'état du plan de chaque pièce ; la sélection d'avant est cochée."""
+        for kind, title in ((OVERALL, OVERALL_TITLE), (EXPLODED, EXPLODED_TITLE)):
+            if kind not in self.state.kinds:
+                item = self.new_item(translated(title), "")
+                item.setData(0, KIND_ROLE, kind)
+                item.setText(1, translated(_TO_CREATE))
+                self.tree.addTopLevelItem(item)
+        for page in self.state.other_pages:
+            item = self.new_item(str(page.Label), page.Name)
+            item.setText(1, translated(_EXISTS))
+            self.tree.addTopLevelItem(item)
+        super()._fill()
+        for item in self.items():
+            obj = self._object(item)
+            if obj is not None and not is_page(obj) and item.childCount() == 0:
+                missing = self.state.missing(self._blanks(obj))
+                item.setText(1, translated(_TO_CREATE if missing else _EXISTS))
+        for obj in self._selected:
+            self.check(obj.Name)
+
+    def _object(self, item: Any) -> DocumentObject | None:
+        name = item.data(0, NAME_ROLE)
+        return self.doc.getObject(name) if name else None
+
+    @staticmethod
+    def _blanks(obj: DocumentObject) -> list[DocumentObject]:
+        try:
+            return blanks_of([obj])
+        except ValueError:  # document démesuré : la ligne reste « à créer »
+            return []
+
+    def check(self, name: str) -> None:
+        """Coche la ligne de ``name`` ; une page de plan de pièce coche ses pièces."""
+        page = self.doc.getObject(name)
+        mapped = [key for key, found in self.state.page_of.items() if found is page]
+        if page is None or not is_page(page) or not mapped:
+            super().check(name)
+            return
+        for key in mapped:
+            super().check(key)
+
+    def _kinds(self) -> list[str]:
+        checked = state("Checked")
+        return [
+            str(item.data(0, KIND_ROLE))
+            for item in self.items()
+            if item.data(0, KIND_ROLE) is not None and item.checkState(0) == checked
+        ]
+
+    def _count_text(self, chosen: list[DocumentObject]) -> str:
+        pages = [obj for obj in chosen if is_page(obj)]
+        try:
+            blanks = blanks_of([obj for obj in chosen if not is_page(obj)])
+        except ValueError:
+            blanks = []
+        new = self.state.plans_to_create(blanks) + len(self._kinds())
+        count = len(pages) + len(self.state.blank_pages(blanks)) + new
+        values = {"new": str(new)}
+        return counted(count, _COUNT_ONE, _COUNT, values)
+
+    def _browse(self, *_args: object) -> None:
+        answer: Any = QtGui.QFileDialog.getSaveFileName(
+            Gui.getMainWindow(), translated(_DIALOG), self.path.text(), translated(_FILTER)
+        )
+        chosen = answer[0] if isinstance(answer, tuple) else answer
+        if chosen:
+            self.path.setText(with_suffix(chosen, PDF_SUFFIX))
+
+    def accept(self) -> bool:
+        """Crée les plans qui manquent, écrit le PDF et ferme ; un refus (rien de coché, pas de
+        fichier, plan ou fichier impossible) laisse le panneau ouvert."""
+        chosen, kinds = self.chosen(), self._kinds()  # lus avant la fermeture
+        path = self.path.text().strip()
+        if not chosen and not kinds:
+            report_refusal(translated(_NOTHING))
+            return False
+        if not path:
+            report_refusal(translated(_NO_FILE))
+            return False
+        pages = [obj for obj in chosen if is_page(obj)]
+        parts = [obj for obj in chosen if not is_page(obj)]
+        try:
+            options = DrawingOptions(settle=HlrWait())
+            found = pages_to_export(self.doc, pages, parts, kinds, options)
+            self.written = export_pages_pdf(found, with_suffix(path, PDF_SUFFIX))
+        except (TypeError, ValueError, OSError) as error:
+            report_refusal(str(error))
+            return False
+        self._watcher.detach()
+        Gui.Control.closeDialog()
+        values = {"path": escaped_text(str(self.written))}
+        show_status(counted(len(found), _DONE_ONE, _DONE, values))
+        return True

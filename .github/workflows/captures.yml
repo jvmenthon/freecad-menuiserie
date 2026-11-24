@@ -144,6 +144,10 @@ jobs:
               echo "![Page de plan $nom]($base/$nom.png?raw=true)"
               echo
             done
+            if [ -f "$RUNNER_TEMP/captures/panneau-export-pdf.png" ]; then
+              echo "![Panneau « Exporter en PDF »]($base/panneau-export-pdf.png?raw=true)"
+              echo
+            fi
             echo "![Panneau « Fermer le caisson »]($base/panneau-fermer-le-caisson.png?raw=true)"
             echo
             echo "![Aperçu de « Fermer le caisson »]($base/vue-fermer-le-caisson.png?raw=true)"

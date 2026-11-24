@@ -73,7 +73,14 @@ from freecad.menuiserie.features.machined_part import (
 )
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["distinct_parts", "make_part_drawings", "part_count", "part_details"]
+__all__ = [
+    "blanks_of",
+    "distinct_parts",
+    "make_part_drawings",
+    "part_count",
+    "part_details",
+    "part_groups",
+]
 
 MAX_QUANTITY: Final = 1_000_000  # exemplaires d'une pièce au plus (tableaux de liens imbriqués)
 PART_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce")
@@ -243,14 +250,9 @@ def _key(
     return str(getattr(blank, "Material", "")), size, shape, texts
 
 
-def distinct_parts(
-    doc: Document, objects: Sequence[DocumentObject]
-) -> list[tuple[DocumentObject, int, Details]]:
-    """Pièces distinctes de ``objects`` (tout le document s'il est vide) : (première pièce,
-    nombre, (usinages, lignes propres aux assemblages)), dans l'ordre des repères puis des
-    noms. Deux pièces sont les mêmes si elles ont même matériau, mêmes cotes, mêmes usinages
-    aux mêmes places et mêmes réglages. ``ValueError`` traduite s'il n'y a aucune pièce de
-    bois."""
+def _grouped(doc: Document, objects: Sequence[DocumentObject]) -> list[list[Any]]:
+    """[première pièce, nombre, usinages, lignes, pièces du groupe] par pièce distincte de
+    ``objects`` (tout le document s'il est vide), dans l'ordre des repères puis des noms."""
     scope = list(objects) or document_scope(doc)
     blanks = sorted(
         _blanks(scope, set(), _BlankWalk()),
@@ -259,11 +261,38 @@ def distinct_parts(
     groups: dict[tuple[object, ...], list[Any]] = {}
     for blank, times in blanks:
         found, notes = part_details(blank)
-        entry = groups.setdefault(_key(blank, found, notes), [blank, 0, found, notes])
+        entry = groups.setdefault(_key(blank, found, notes), [blank, 0, found, notes, []])
         entry[1] = _quantity(entry[1] + times)
+        entry[4].append(blank)
+    return list(groups.values())
+
+
+def distinct_parts(
+    doc: Document, objects: Sequence[DocumentObject]
+) -> list[tuple[DocumentObject, int, Details]]:
+    """Pièces distinctes de ``objects`` (tout le document s'il est vide) : (première pièce,
+    nombre, (usinages, lignes propres aux assemblages)), dans l'ordre des repères puis des
+    noms. Deux pièces sont les mêmes si elles ont même matériau, mêmes cotes, mêmes usinages
+    aux mêmes places et mêmes réglages. ``ValueError`` traduite s'il n'y a aucune pièce de
+    bois."""
+    groups = _grouped(doc, objects)
     if not groups:
         raise ValueError(translated(_NO_PART))
-    return [(blank, count, (found, notes)) for blank, count, found, notes in groups.values()]
+    return [(blank, count, (found, notes)) for blank, count, found, notes, _ in groups]
+
+
+def part_groups(doc: Document, objects: Sequence[DocumentObject]) -> list[list[DocumentObject]]:
+    """Pièces de bois (brutes) de ``objects`` (tout le document s'il est vide), regroupées par
+    pièce distincte : les pièces d'un groupe partagent un plan de pièce. Vide s'il n'y en a
+    pas."""
+    return [list(members) for *_, members in _grouped(doc, objects)]
+
+
+def blanks_of(objects: Sequence[DocumentObject]) -> list[DocumentObject]:
+    """Pièces de bois (brutes) que montrent ``objects`` (ensembles, pièces, copies par lien),
+    sans doublon."""
+    found = {blank.Name: blank for blank, _ in _blanks(objects, set(), _BlankWalk())}
+    return list(found.values())
 
 
 def _line(template: str, values: dict[str, str]) -> str:

@@ -32,10 +32,10 @@ from freecad.menuiserie.gui.display_io import later
 from freecad.menuiserie.gui.drawing_hlr import HlrWait
 from freecad.menuiserie.gui.task_panels.base import ok_cancel_buttons
 
-__all__ = ["FORM_NAME", "PartDrawingsTaskPanel"]
+__all__ = ["FORM_NAME", "NAME_ROLE", "PartDrawingsTaskPanel", "counted", "flag", "state"]
 
 FORM_NAME: Final = "MenuiseriePartDrawingsPanel"
-_NAME_ROLE: Final = QtCore.Qt.UserRole
+NAME_ROLE: Final = QtCore.Qt.UserRole
 _TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plans de pièce")
 _HINT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -64,18 +64,18 @@ _DONE_ONE: Final = QT_TRANSLATE_NOOP(
 )
 
 
-def _counted(count: int, one: str, many: str, values: dict[str, str] | None = None) -> str:
+def counted(count: int, one: str, many: str, values: dict[str, str] | None = None) -> str:
     """Texte traduit au singulier (0 ou 1, comme en français) ou au pluriel."""
     return translated(one if count <= 1 else many, {**(values or {}), "count": str(count)})
 
 
-def _flag(name: str) -> Any:
+def flag(name: str) -> Any:
     """Drapeau d'élément de Qt (énumérations de PySide2 ou PySide6)."""
     flags = getattr(QtCore.Qt, "ItemFlag", QtCore.Qt)
     return getattr(flags, name)
 
 
-def _state(name: str) -> Any:
+def state(name: str) -> Any:
     states = getattr(QtCore.Qt, "CheckState", QtCore.Qt)
     return getattr(states, name)
 
@@ -113,7 +113,12 @@ class _SelectionWatcher:
 
 
 class PartDrawingsTaskPanel:
-    """Panneau du choix des pièces dont faire les plans, dans ``doc``."""
+    """Panneau du choix des pièces dont faire les plans, dans ``doc``. Base du panneau
+    « Exporter en PDF » (même arbre, mêmes cases, même sélection synchronisée)."""
+
+    FORM_NAME = FORM_NAME
+    TITLE = _TITLE
+    HINT = _HINT
 
     def __init__(self, doc: Document) -> None:
         self.doc = doc
@@ -121,10 +126,10 @@ class PartDrawingsTaskPanel:
         self._pushing = False  # le panneau pousse lui-même la sélection
         self._pending = False  # recalcul déjà demandé
         self.form = QtGui.QWidget()
-        self.form.setObjectName(FORM_NAME)
-        self.form.setWindowTitle(translated(_TITLE))
+        self.form.setObjectName(self.FORM_NAME)
+        self.form.setWindowTitle(translated(self.TITLE))
         layout = QtGui.QVBoxLayout(self.form)
-        hint = QtGui.QLabel(translated(_HINT))
+        hint = QtGui.QLabel(translated(self.HINT))
         hint.setWordWrap(True)
         layout.addWidget(hint)
         self.tree = QtGui.QTreeWidget()
@@ -134,12 +139,13 @@ class PartDrawingsTaskPanel:
         self.count.setWordWrap(True)
         layout.addWidget(self.count)
         row = QtGui.QHBoxLayout()
-        for text, state in ((_ALL, "Checked"), (_NONE, "Unchecked")):
+        for text, wanted in ((_ALL, "Checked"), (_NONE, "Unchecked")):
             button = QtGui.QPushButton(translated(text))
-            button.clicked.connect(partial(self._check_all, _state(state)))
+            button.clicked.connect(partial(self._check_all, state(wanted)))
             row.addWidget(button)
         row.addStretch()
         layout.addLayout(row)
+        self._add_options(layout)
         self._fill()
         self.tree.itemChanged.connect(self._item_changed)
         self._watcher = _SelectionWatcher(self)
@@ -151,12 +157,16 @@ class PartDrawingsTaskPanel:
             self._watcher.detach()
             raise
 
+    def _add_options(self, layout: Any) -> None:
+        """Réglages sous les cases (aucun ici ; le fichier PDF pour l'export)."""
+
     def _fill(self) -> None:
+        """Lignes de l'arbre : les ensembles avec leurs pièces, puis les pièces hors ensemble."""
         groups, loose = part_choices(self.doc)
         for choice in groups:
             self.tree.addTopLevelItem(self._item(choice))
         if loose:
-            top = self._new_item(translated(_LOOSE), "")
+            top = self.new_item(translated(_LOOSE), "")
             top.addChildren([self._item(choice) for choice in loose])
             self.tree.addTopLevelItem(top)
         self.tree.expandAll()
@@ -164,22 +174,24 @@ class PartDrawingsTaskPanel:
     def _item(self, choice: Choice) -> Any:
         if choice.children:
             label = {"label": part_label(choice.obj)}
-            text = _counted(choice.parts, _GROUP_ONE, _GROUP, label)
+            text = counted(choice.parts, _GROUP_ONE, _GROUP, label)
         else:
             text = part_label(choice.obj)
-        item = self._new_item(text, choice.obj.Name)
+        item = self.new_item(text, choice.obj.Name)
         item.addChildren([self._item(child) for child in choice.children])
         return item
 
     @staticmethod
-    def _new_item(text: str, name: str) -> Any:
+    def new_item(text: str, name: str) -> Any:
+        """Ligne à cocher de texte ``text`` pour l'objet ``name`` (vide : ligne sans objet)."""
         item = QtGui.QTreeWidgetItem([text])
-        item.setData(0, _NAME_ROLE, name)
-        item.setFlags(item.flags() | _flag("ItemIsUserCheckable") | _flag("ItemIsAutoTristate"))
-        item.setCheckState(0, _state("Unchecked"))
+        item.setData(0, NAME_ROLE, name)
+        item.setFlags(item.flags() | flag("ItemIsUserCheckable") | flag("ItemIsAutoTristate"))
+        item.setCheckState(0, state("Unchecked"))
         return item
 
-    def _items(self) -> Iterator[Any]:
+    def items(self) -> Iterator[Any]:
+        """Toutes les lignes de l'arbre, de haut en bas et niveau par niveau."""
         found = [self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())]
         while found:
             item = found.pop(0)
@@ -210,38 +222,43 @@ class PartDrawingsTaskPanel:
         if self._pushing:
             return
         try:
-            items = list(self._items())
+            items = list(self.items())
         except RuntimeError:  # arbre détruit
             self._watcher.detach()
             return
         for item in items:  # un même objet peut avoir plusieurs lignes
-            if item.data(0, _NAME_ROLE) == name:
-                item.setCheckState(0, _state("Checked"))
+            if item.data(0, NAME_ROLE) == name:
+                item.setCheckState(0, state("Checked"))
 
     def chosen(self) -> list[DocumentObject]:
         """Pièces et liens cochés, dans l'ordre de l'arbre."""
-        checked = _state("Checked")
+        checked = state("Checked")
         names = [
-            item.data(0, _NAME_ROLE)
-            for item in self._items()
+            item.data(0, NAME_ROLE)
+            for item in self.items()
             if item.childCount() == 0 and item.checkState(0) == checked
         ]
         found = (self.doc.getObject(name) for name in names if name)
         return [obj for obj in found if obj is not None]
 
-    def _changed(self) -> None:
-        """Nombre de plans recalculé et pièces cochées mises en surbrillance."""
-        chosen = self.chosen()
+    def _count_text(self, chosen: list[DocumentObject]) -> str:
+        """Texte du nombre de plans pour les objets cochés ``chosen``."""
         try:
             count = len(distinct_parts(self.doc, chosen)) if chosen else 0
         except ValueError:
             count = 0
-        self.count.setText(_counted(count, _COUNT_ONE, _COUNT))
+        return counted(count, _COUNT_ONE, _COUNT)
+
+    def _changed(self) -> None:
+        """Nombre de plans recalculé et pièces cochées mises en surbrillance."""
+        chosen = self.chosen()
+        self.count.setText(self._count_text(chosen))
         self._pushing = True
         try:
             Gui.Selection.clearSelection()
             for obj in chosen:
-                Gui.Selection.addSelection(obj)
+                if obj.TypeId != drawing_pdf.PAGE_TYPE:  # une page ne se surligne pas en 3D
+                    Gui.Selection.addSelection(obj)
         finally:
             later(self._done_pushing)
 
@@ -266,7 +283,7 @@ class PartDrawingsTaskPanel:
         Gui.Control.closeDialog()
         if self.pages:
             drawing_pdf.show_page(self.pages[0])
-        show_status(_counted(len(self.pages), _DONE_ONE, _DONE))
+        show_status(counted(len(self.pages), _DONE_ONE, _DONE))
         return True
 
     def reject(self) -> bool:

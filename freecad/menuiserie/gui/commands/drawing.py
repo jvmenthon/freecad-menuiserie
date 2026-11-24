@@ -36,12 +36,6 @@ _PARTS_DONE: Final = QT_TRANSLATE_NOOP(
 )
 
 
-def selected_page() -> DocumentObject | None:
-    """Page TechDraw sélectionnée (la seule de la sélection), ``None`` sinon."""
-    pages = [obj for obj in Gui.Selection.getSelection() if obj.TypeId == PAGE_TYPE]
-    return pages[0] if len(pages) == 1 else None
-
-
 class _PlanCommand(TransactionCommand):
     """Base des commandes qui font des pages : active s'il y a un document, TechDraw et aucun
     panneau ouvert ; portée = sélection sans les pages."""
@@ -147,30 +141,29 @@ class ExplodedDrawingCommand(_PlanCommand):
         drawing_pdf.show_page(page)
 
 
-class DrawingPdfCommand(TransactionCommand):
-    """Exporte la page TechDraw sélectionnée en PDF."""
+class DrawingPdfCommand(_PlanCommand):
+    """Exporte des plans en un seul PDF : panneau du choix des plans (maquette B)."""
 
     NAME = DRAWING_PDF
-    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_DrawingPdf", "Exporter le plan (PDF)…")
+    MENU_TEXT = QT_TRANSLATE_NOOP("Menuiserie_DrawingPdf", "Exporter les plans (PDF)…")
     TOOL_TIP = QT_TRANSLATE_NOOP(
         "Menuiserie_DrawingPdf",
-        "Enregistre la page de plan sélectionnée dans un fichier PDF prêt à imprimer, au format "
-        "de sa feuille. Le document n'est pas modifié.",
+        "Choisit les plans à mettre dans un seul PDF prêt à imprimer, une page par plan : plans "
+        "existants, ou pièces dont le plan est alors créé. La sélection est déjà cochée.",
     )
-    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Exporter le plan")
-    PREREQUISITE = QT_TRANSLATE_NOOP(
-        "Menuiserie", "une page de plan sélectionnée (dans l'arbre ou le panneau « Structure »)"
-    )
-
-    def IsActive(self) -> bool:
-        """Active si une seule page TechDraw est sélectionnée et qu'aucun panneau n'est ouvert."""
-        return not Gui.Control.activeDialog() and selected_page() is not None
+    TRANSACTION = QT_TRANSLATE_NOOP("Menuiserie", "Exporter les plans")
 
     def Activated(self) -> None:
-        """Fichier demandé puis PDF écrit."""
-        page = selected_page()
-        if page is not None:
-            drawing_pdf.export_with_dialog(page)
+        """Panneau ouvert, la sélection (pages comprises) précochée."""
+        from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
+
+        doc = App.ActiveDocument
+        try:
+            panel = ExportPdfTaskPanel(doc, selected_objects() or [])
+        except (TypeError, ValueError) as error:
+            report_refusal(str(error))
+            return
+        Gui.Control.showDialog(panel)
 
 
 def register() -> None:

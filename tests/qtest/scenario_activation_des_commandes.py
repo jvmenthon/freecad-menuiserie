@@ -60,6 +60,7 @@ SANS_SELECTION = frozenset(
         "Menuiserie_Drawing",  # plans : tout le document sans sélection
         "Menuiserie_PartDrawings",
         "Menuiserie_ExplodedDrawing",
+        "Menuiserie_DrawingPdf",  # export : panneau du choix des plans
     }
 )
 # Demandent autre chose que des pièces entières (faces, ensemble, copie, corps) : jamais
@@ -74,7 +75,6 @@ AUTRE_SELECTION = frozenset(
         "Menuiserie_RepeatEdit",
         "Menuiserie_RepeatDissociate",
         "Menuiserie_ShapedPart",
-        "Menuiserie_DrawingPdf",  # une page de plan
     }
 )
 AVEC_PREREQUIS = ASSEMBLAGES | UNE_PIECE | DES_PIECES | AUTRE_SELECTION

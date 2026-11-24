@@ -10,5 +10,5 @@ COMMANDES_PLAN: Final = {
     "Menuiserie_Drawing": "Plan de l'ouvrage",
     "Menuiserie_PartDrawings": "Plans de pièce",
     "Menuiserie_ExplodedDrawing": "Vue éclatée",
-    "Menuiserie_DrawingPdf": "Exporter le plan (PDF)…",
+    "Menuiserie_DrawingPdf": "Exporter les plans (PDF)…",
 }
