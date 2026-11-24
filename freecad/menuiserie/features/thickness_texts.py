@@ -53,7 +53,14 @@ _EXTEND: Final = {
     ),
 }
 _REVERT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Revenir à {thickness}")
-_KEEP: Final = QT_TRANSLATE_NOOP("Menuiserie", "Laisser en l'état")
+# (épaisseur ajoutée, face haute du côté de l'autre pièce) → modèle (jv, 2026-11-24 : le choix
+# « Laisser en l'état » dit le côté où va l'épaisseur)
+_KEEP: Final = {
+    (True, True): QT_TRANSLATE_NOOP("Menuiserie", "Vers l'intérieur"),
+    (True, False): QT_TRANSLATE_NOOP("Menuiserie", "Vers l'extérieur"),
+    (False, True): QT_TRANSLATE_NOOP("Menuiserie", "Côté intérieur"),
+    (False, False): QT_TRANSLATE_NOOP("Menuiserie", "Côté extérieur"),
+}
 _NOT_FLUSH: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "{label} n'arrive pas à fleur de la face qui bouge."
 )
@@ -89,9 +96,10 @@ def extend_text(
     return translated(_EXTEND[(adding, inward)], params)
 
 
-def keep_text() -> str:
-    """« Laisser en l'état » : l'épaisseur telle que saisie, face haute déplacée (issue #133)."""
-    return translated(_KEEP)
+def keep_text(adding: bool, inward: bool) -> str:
+    """Choix « telle que saisie » (face haute déplacée, issue #133), nommé par son côté :
+    « Vers l'extérieur » ; ``inward`` si la face haute est du côté de l'autre pièce."""
+    return translated(_KEEP[(adding, inward)])
 
 
 def revert_text(thickness: float) -> str:

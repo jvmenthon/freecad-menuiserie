@@ -34,8 +34,10 @@ message dans le panneau et avec « OK » actif (doute D1 du fil QTest, scénario
    (aperçu en direct) ; « OK » valide l'état affiché, en une seule entrée d'annulation.
    **Assemblage qui tient** (jv, 2026-11-15) : si l'épaisseur saisie d'une pièce isolée assemblée
    ne défait rien (tenon qui suit la face haute, #133), l'encadré apparaît aussi, avec en tête
-   « Laisser en l'état » (épaisseur telle que saisie, coché et appliqué), puis les mêmes choix,
-   portant sur tous les assemblages de la pièce. Rien n'apparaît pour l'épaisseur de départ.
+   l'épaisseur telle que saisie (cochée et appliquée), puis les mêmes choix, portant sur tous les
+   assemblages de la pièce. Ce premier choix dit le côté où va l'épaisseur, « Vers l'extérieur »
+   ou « Vers l'intérieur » (« Côté … » pour une épaisseur réduite), au lieu de « Laisser en
+   l'état » (jv, 2026-11-24 : vers l'extérieur n'était pas trouvé sur le côté d'un caisson). Rien n'apparaît pour l'épaisseur de départ.
 2. **Choix possible** : essayé sans recalcul du document (plans d'usinage des assemblages, comme
    ADR 0026) ; il l'est s'il ne défait aucun assemblage qui tenait. Sinon il est grisé, avec sa
    raison : autre pièce **copie de répétition**, **membre d'un ensemble**, **pièce en bois**

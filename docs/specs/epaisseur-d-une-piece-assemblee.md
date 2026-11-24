@@ -16,7 +16,7 @@ Exemple : angle à queue d'aronde, H à plat (griffes), I debout (queues), I de 
 | Clic sur « allonger » | I reprend sa place, H passe à 412 mm (son bout à fleur recule de 12 mm), visible tout de suite dans la vue 3D |
 | « 22 » tapé à la place de « 18 » (étape « 2 ») | Aucun choix ne tient à 2 mm : rien n'est écrit (aucun assemblage en erreur), « OK » inactif, « Aucun choix ne garde l'assemblage à cette épaisseur : elle n'est pas appliquée. » ; la touche suivante applique 22 mm |
 | Clic sur « Revenir » | I revient à 18 mm, le champ aussi, l'encadré disparaît |
-| Panneau de H, épaisseur 30 (rien n'est défait : I suit sa face haute) | Encadré aussi : « Laisser en l'état » en tête, coché et appliqué ; puis « Vers l'intérieur (reste à fleur) », « allonger » (grisé si l'autre pièce n'arrive pas à fleur), « Revenir à 18 mm » |
+| Panneau de H, épaisseur 30 (rien n'est défait : I suit sa face haute) | Encadré aussi : « Vers l'intérieur » (telle que saisie, face haute du côté de I ; « Vers l'extérieur » sur le côté d'un caisson) en tête, coché et appliqué ; puis « Vers l'intérieur (reste à fleur) », « allonger » (grisé si l'autre pièce n'arrive pas à fleur), « Revenir à 18 mm » |
 | H copie d'une répétition | « allonger » grisé : « « H 2 » est une copie : elle suit sa répétition et ne peut pas être modifiée. » |
 | « OK » | Une seule entrée d'annulation « Modifier une pièce de bois » |
 | Poignée de la face extérieure de I | H s'allonge en direct ; « « H » +12,00 mm » près de la souris ; message dans la vue rapport au relâchement |
@@ -29,7 +29,8 @@ Exemple : angle à queue d'aronde, H à plat (griffes), I debout (queues), I de 
 | Côté d'un caisson (sous-ensemble du bureau) épaissi vers l'extérieur, « OK » | Boîtes du caisson et du bureau recalées sur leurs membres, rien ne bouge à l'écran (ADR 0065) |
 
 Critères d'acceptation : E1 encadré et choix ci-dessus (aussi quand rien n'est défait, avec
-« Laisser en l'état ») ; E2 choix impossible grisé avec sa raison, rien d'écrit si aucun ne tient ;
+le choix « telle que saisie » nommé par son côté, jv 2026-11-24) ; E2 choix impossible grisé
+avec sa raison, rien d'écrit si aucun ne tient ;
 E3 saisies successives sans cumul ; E4 une entrée d'annulation ; E5 souris : l'autre pièce suit,
 butée si elle ne peut pas, Échap rend tout ; E6 membre d'ensemble assemblé : mêmes choix, ensemble
 relié d'après le résultat, boîtes recalées jusqu'au plus haut parent (jv, 2026-11-17) ; membre

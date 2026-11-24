@@ -253,7 +253,7 @@ class ThicknessEdit:
     def probe(self, new: float) -> Conflict | None:
         """Essaie l'épaisseur ``new`` telle que saisie et renvoie les choix proposés (l'état de
         départ est alors rendu ; au panneau d'appliquer le choix retenu). Si elle ne défait aucun
-        assemblage, « Laisser en l'état » (``AS_TYPED``) vient en tête (jv, 2026-11-15) et les
+        assemblage, ``AS_TYPED`` vient en tête (jv, 2026-11-15) et les
         autres choix portent sur tous les assemblages de la pièce. ``None`` (saisie écrite telle
         quelle, messages dans :attr:`messages`) pour l'épaisseur de départ ou une pièce sans
         assemblage."""
@@ -280,9 +280,9 @@ class ThicknessEdit:
         return Conflict(title, question_text(self.old, new), options)
 
     def _options(self, new: float, *, keep: bool) -> tuple[Option, ...]:
-        """Choix proposés pour ``new`` (chacun essayé puis défait) ; « Laisser en l'état » en
+        """Choix proposés pour ``new`` (chacun essayé puis défait) ; « telle que saisie » en
         tête si ``keep``."""
-        kept = (Option(Choice.AS_TYPED, keep_text()),) if keep else ()
+        kept = (Option(Choice.AS_TYPED, self._text(new, Choice.AS_TYPED)),) if keep else ()
         return (
             *kept,
             self._option(new, Choice.OTHER_SIDE),
@@ -309,4 +309,6 @@ class ThicknessEdit:
         lower_inward = grows_toward(self._before, self._start_block(partners[0]))
         if choice is Choice.OTHER_SIDE:
             return other_side_text(adding, lower_inward)
+        if choice is Choice.AS_TYPED:  # face haute : « Vers l'extérieur » (jv, 2026-11-24)
+            return keep_text(adding, not lower_inward)
         return extend_text(adding, not lower_inward, partners, new - self.old)

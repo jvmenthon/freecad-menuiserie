@@ -5,7 +5,8 @@ Quand l'épaisseur saisie d'une pièce assemblée change (pièce d'ensemble comp
 2026-11-17 : l'ensemble est relié d'après le résultat à la fin), l'encadré apparaît sous les cotes,
 sans fenêtre : vers l'intérieur (la pièce reste à fleur), vers l'extérieur en prolongeant l'autre
 pièce, ou revenir à l'ancienne épaisseur ; si aucun assemblage n'est défait (tenon qui suit la
-face, par exemple), « Laisser en l'état » vient en tête (jv, 2026-11-15).
+face, par exemple), l'épaisseur telle que saisie vient en tête, nommée par son côté
+(jv, 2026-11-15 et 2026-11-24).
 Le premier choix possible est coché et appliqué aussitôt (aperçu en direct) ; un choix impossible
 est grisé, avec sa raison en dessous. Si aucun choix ne tient (saisie transitoire comme « 2 »
 avant « 22 », ou trop mince pour l'assemblage), rien n'est écrit et « OK » est inactif. Le
@@ -152,7 +153,7 @@ class ConflictBox:
 
     def _edit_now(self, value: float) -> None:
         """Épaisseur ``value`` saisie : écrite telle quelle pour l'épaisseur de départ ; sinon
-        l'encadré s'affiche (« Laisser en l'état » en tête si rien n'est défait) et le premier
+        l'encadré s'affiche (« telle que saisie » en tête si rien n'est défait) et le premier
         choix possible est appliqué. Si aucun ne tient, rien n'est écrit et « OK » est bloqué.
         Tant que l'encadré est affiché, chaque saisie repart de l'état d'avant la première
         (:class:`ThicknessEdit`)."""

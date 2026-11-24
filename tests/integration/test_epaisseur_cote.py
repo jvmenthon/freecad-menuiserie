@@ -60,7 +60,7 @@ def test_epaisseur_qui_ne_defait_rien_propose_laisser_en_l_etat(document: Any) -
         choice.Choice.EXTEND,
         choice.Choice.REVERT,
     ]
-    assert conflict.options[0].text == "Laisser en l'état"
+    assert conflict.options[0].text == "Vers l'intérieur"  # face haute, du côté de I
     assert conflict.preferred() is choice.Choice.AS_TYPED
     assert host.Thickness.Value == 18  # état de départ rendu : au panneau d'appliquer
     edit.apply(30, choice.Choice.AS_TYPED)
@@ -269,3 +269,31 @@ def test_echap_rend_la_piece_usinee_avec_ses_queues(document: Any) -> None:
     drag.resize_part(memento, "Thickness", 30, Vec3(0, 0, 0))
     drag.restore(memento)
     assert usinee.Shape.Volume == pytest.approx(volume)
+
+
+def test_cote_de_caisson_le_premier_choix_dit_vers_l_exterieur(document: Any) -> None:
+    """Cas de jv (2026-11-24) : caisson par défaut, queue d'aronde côté gauche et dessous. Le
+    choix « telle que saisie » épaissit le côté vers l'extérieur et le dit ; « allonger » est
+    grisé, le dessous s'arrête à la face intérieure du côté."""
+    from freecad.menuiserie.features.furniture_bindings import members_of
+
+    caisson, _ = api.make_carcass(document)
+    document.recompute()
+    pieces = {str(m.Label): m for m in members_of(caisson)}
+    side = pieces["Côté gauche"]
+    api.make_dovetail(side, pieces["Dessous"])
+    document.recompute()
+    edit = choice.ThicknessEdit(side)
+    conflict = edit.probe(30)
+    assert conflict is not None
+    texts = {o.choice: (o.text, o.reason) for o in conflict.options}
+    assert texts[choice.Choice.AS_TYPED] == ("Vers l'extérieur", None)
+    assert texts[choice.Choice.OTHER_SIDE][0] == "Vers l'intérieur (reste à fleur)"
+    assert texts[choice.Choice.EXTEND][1] is not None
+    edit.apply(30, choice.Choice.AS_TYPED)
+    edit.finish()
+    document.recompute()
+    shape = side.Shape.copy()
+    shape.Placement = side.getGlobalPlacement()
+    assert (shape.BoundBox.XMin, shape.BoundBox.XMax) == pytest.approx((-12, 18))  # dehors
+    assert caisson.Width.Value == pytest.approx(612)
