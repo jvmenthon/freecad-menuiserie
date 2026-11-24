@@ -169,9 +169,10 @@ class _SelectionObserver:
     """Observateur de sélection : ne fait que dessiner ou enlever les flèches. Les rafales
     (une notification par élément) sont fondues en un seul rafraîchissement."""
 
-    def __init__(self, session: DragSession) -> None:
+    def __init__(self, session: DragSession, changed: Callable[[], None] = lambda: None) -> None:
         self._session = session
         self._pending = False
+        self._on_change = changed  # infobulle d'une poignée grisée retirée
 
     def _changed(self, *_args: object) -> None:
         if not self._pending:
@@ -180,6 +181,7 @@ class _SelectionObserver:
 
     def _refresh(self) -> None:
         self._pending = False
+        self._on_change()
         _guarded(self._session, _refresh, self._session)
 
     addSelection = removeSelection = setSelection = clearSelection = _changed
@@ -240,7 +242,7 @@ class _Installation:
             return
         self.session = DragSession()
         self.filter = _DragFilter(self.session)
-        self.observer = _SelectionObserver(self.session)
+        self.observer = _SelectionObserver(self.session, self.filter.hide_tooltip)
         application.installEventFilter(self.filter)
         self.documents = _DocumentObserver(self.session)
         Gui.Selection.addObserver(self.observer)

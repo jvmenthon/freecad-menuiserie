@@ -192,6 +192,8 @@ def _badge_center(layout: Layout, handle: Handle, point: Vec3) -> Vec3:
     """Centre de l'étiquette de la poignée ``handle`` : devant sa face (``point``), vers
     l'extérieur de la boîte, à distance constante à l'écran."""
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
+    # ``handle_mm`` vient d'une longueur en pixels physiques (ARROW_PX) ; l'image de l'étiquette
+    # est agrandie du rapport de l'écran, sa distance aussi.
     reach = BADGE_REACH * layout.handle_mm * layout.badge_scale
     return point + axes[handle.axis].scaled(reach if handle.at_end else -reach)
 
@@ -225,19 +227,24 @@ def size_text(box: Box, axis: int) -> str:
 
 
 def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
-    """Cibles saisissables en pixels : poignées d'abord (elles l'emportent à égalité), possibles
-    puis impossibles, chacune par le milieu de sa face, par son étiquette (un segment horizontal,
-    tolérance de la demi-hauteur) et par le trait qui les relie ; puis flèches."""
+    """Cibles saisissables en pixels, dans l'ordre qui départage une égalité : milieu de la face
+    de chaque poignée (possibles puis impossibles), flèches, puis étiquette de chaque poignée (un
+    segment horizontal, tolérance de sa demi-hauteur) et trait qui la relie à sa face. Une
+    étiquette qui chevauche une flèche ne la cache donc pas : la plus proche l'emporte, la flèche
+    à égalité.
+
+    Les pixels sont ceux de FreeCAD (physiques : rapport de l'écran appliqué) ; l'étiquette y
+    mesure ``BADGE_W_PX`` sur ``BADGE_H_PX`` fois ``layout.badge_scale``, comme son image."""
     handles = _all_handles(layout)
     targets = [PixelTarget(key, project(p)) for key, _, p in handles]
+    for arrow in layout.arrows:
+        targets.append(PixelTarget(arrow_key(arrow.axis), project(arrow.start), project(arrow.end)))
     half_h = BADGE_H_PX / 2 * layout.badge_scale
     half_w = BADGE_W_PX / 2 * layout.badge_scale - half_h
     for key, handle, point in handles:
         x, y = project(_badge_center(layout, handle, point))
         targets.append(PixelTarget(key, (x - half_w, y), (x + half_w, y), half_h))
         targets.append(PixelTarget(key, project(point), (x, y)))
-    for arrow in layout.arrows:
-        targets.append(PixelTarget(arrow_key(arrow.axis), project(arrow.start), project(arrow.end)))
     return targets
 
 

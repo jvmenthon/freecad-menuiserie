@@ -240,6 +240,18 @@ def test_poignee_impossible_survolable_mais_jamais_saisie() -> None:
         target_line(layout, key)
 
 
+def test_etiquette_ne_cache_pas_une_fleche() -> None:
+    """Pièce courte : la flèche X (de 70 à 170) passe sous le trait et l'étiquette de la poignée
+    grisée de fin X (face à 130, étiquette centrée à 187). À égalité de distance, la flèche
+    l'emporte ; au centre de l'étiquette, l'étiquette."""
+    box = Box.from_ranges([(0, 120), (0, 200), (0, 22)])
+    layout = build_layout(FRAME, box, 100.0, frozenset(), frozenset(), [(0, BLOCKER)])
+    targets = pixel_targets(layout, project)
+    assert handle_at(targets, (150, 120)) == arrow_key(0)  # trait et flèche confondus
+    assert handle_at(targets, (168, 120)) == arrow_key(0)  # étiquette et pointe confondues
+    assert handle_at(targets, (187, 120)) == locked_key(Handle(0, True))
+
+
 def test_axe_tirable_jamais_grise() -> None:
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0}), [(0, BLOCKER)])
     assert layout.locked == ()

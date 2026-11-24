@@ -190,7 +190,7 @@ def drag_limits(part: DocumentObject) -> DragLimits:
         formulas=tuple(prop in user for prop in SIZE_PROPS),
         fixed=fixed,
         panel=not (locked or shaped) and not _solid(part),
-        thickness=float(part.Thickness.Value),
+        thickness=float(getattr(getattr(part, "Thickness", None), "Value", 0.0)),
     )
     resizable = frozenset(range(3)) - {axis for axis, _ in blocked}
     return DragLimits(fixed, resizable, blocked)

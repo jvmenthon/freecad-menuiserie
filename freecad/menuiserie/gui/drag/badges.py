@@ -22,7 +22,7 @@ __all__ = ["badge_pixels"]
 MARGIN_PX: Final = 6.0  # marge autour de la pastille : ombre et halo
 ICON_X_PX: Final = 14.0  # centre de l'icône depuis le bord gauche de la pastille
 TEXT_PX: Final = 13  # taille du texte de la cote
-_CACHE: Final = 512
+_CACHE: Final = 128
 MAX_SIDE_PX: Final = 2048  # côté d'une étiquette au plus (SbVec2s : 16 bits)
 
 # État : fond, bord, texte et icône, halo (None : aucun).

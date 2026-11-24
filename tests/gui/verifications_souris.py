@@ -267,6 +267,20 @@ def images_incrustees() -> int:
     return int(recherche.getPaths().getLength())
 
 
+def _images_posees() -> bool:
+    """Vrai si chaque ``SoImage`` de la vue a reçu son image (``setValue`` de pivy accepte les
+    octets peints par Qt) : champ modifié, image non vide."""
+    from pivy import coin
+
+    recherche = coin.SoSearchAction()
+    recherche.setType(coin.SoImage.getClassTypeId())
+    recherche.setInterest(coin.SoSearchAction.ALL)
+    recherche.apply(Gui.activeView().getSceneGraph())
+    chemins = recherche.getPaths()
+    noeuds = [chemins.get(i).getTail() for i in range(chemins.getLength())]
+    return bool(noeuds) and all(not noeud.image.isDefault() for noeud in noeuds)
+
+
 def _poignees_grisees(session: Any, piece: Any) -> list[str]:
     """ADR 0068 : panneau de MDF, les deux poignées d'épaisseur sont grisées ; survolées, elles
     donnent leur raison ; cliquées, rien ne bouge et le clic est consommé."""
@@ -274,6 +288,7 @@ def _poignees_grisees(session: Any, piece: Any) -> list[str]:
     problemes = [
         *ecarts("MDF : poignées d'épaisseur grisées", sorted(grisees), [(2, False), (2, True)]),
         *ecarts("six étiquettes dessinées", images_incrustees(), 6),
+        *ecarts("image des étiquettes posée", _images_posees(), True),
     ]
     point = next(p for h, p, _ in session.layout.locked if h.at_end)
     pixel_grise = pixel(session, *_xyz(point))

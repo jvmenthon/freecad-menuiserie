@@ -427,3 +427,34 @@ def test_poignee_sur_une_piece_dont_l_assemblage_ne_tient_plus(document: Any) ->
     drag.resize_part(memento, "Length", voile.Length.Value - 10, Vec3(0, 0, 0))
     assert "Invalid" not in machined.State
     drag.end_drag(memento)  # un recalcul du document, sans exception
+
+
+# --- ADR 0068 : raison d'une poignée grisée ---------------------------------------------------
+
+
+def test_ordre_des_raisons_d_une_poignee_grisee() -> None:
+    from freecad.menuiserie.features.drag_blockers import SizeBlock, blocked_sizes, size_blocker
+
+    tout = {"locked": True, "shaped": True, "formula": True, "position": True, "panel": True}
+    assert size_blocker(2, **tout) is SizeBlock.LOCKED
+    assert size_blocker(2, **{**tout, "locked": False}) is SizeBlock.SHAPED
+    sans = {**tout, "locked": False, "shaped": False}
+    assert size_blocker(2, **sans) is SizeBlock.FORMULA
+    assert size_blocker(2, **{**sans, "formula": False}) is SizeBlock.POSITION
+    assert size_blocker(2, **{**sans, "formula": False, "position": False}) is SizeBlock.PANEL
+    seul_panneau = {k: k == "panel" for k in tout}
+    assert size_blocker(0, **seul_panneau) is None  # le panneau ne bloque que l'épaisseur
+    assert size_blocker(2, **{k: False for k in tout}) is None
+    bloquees = blocked_sizes(
+        locked=False,
+        shaped=False,
+        formulas=(False, True, False),
+        fixed=frozenset(),
+        panel=True,
+        thickness=float("nan"),
+    )
+    assert [(axe, raison[0]) for axe, raison in bloquees] == [
+        (1, "Largeur pilotée par une formule"),
+        (2, "Épaisseur non modifiable"),
+    ]
+    assert bloquees[1][1][1].endswith(" : ? mm.")  # épaisseur non finie : jamais d'erreur
