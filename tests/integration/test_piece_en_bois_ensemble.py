@@ -154,6 +154,47 @@ def test_une_copie_n_avertit_pas_de_cote_dessinee(
     assert {name: table.bounds(leg) for name, leg in table.legs.items()} == before
 
 
+def _drawn(vue_rapport: Any) -> list[str]:
+    return [text for _level, text in vue_rapport.messages if DRAWN in text]
+
+
+def test_copie_d_un_ensemble_entier_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    api.make_repeat([table.furniture], api.RepeatParams(count=1, step=2000.0, axis="X"))
+    assert _drawn(vue_rapport) == []
+    assert table.bounds(table.legs["A"])[0] == (0.0, 45.0)
+
+
+def test_copie_suivant_le_redimensionnement_sans_avertissement(
+    table: Table, vue_rapport: Any
+) -> None:
+    params = api.RepeatParams(count=1, step=100.0, axis="X", follow_resize=True)
+    api.make_repeat([table.legs["A"]], params)
+    assert _drawn(vue_rapport) == []
+
+
+def test_edition_de_la_repetition_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    repeat = api.make_repeat([table.legs["A"]], api.RepeatParams(count=1, step=100.0, axis="X"))
+    api.edit_repeat(repeat, api.RepeatParams(count=3, step=120.0, axis="X"))
+    assert _drawn(vue_rapport) == []
+
+
+def test_le_redimensionnement_avertit_apres_une_copie(table: Table) -> None:
+    api.make_repeat([table.legs["A"]], api.RepeatParams(count=1, step=100.0, axis="X"))
+    messages = api.resize_furniture(table.furniture, depth=800)
+    assert any(DRAWN in message for message in messages)
+
+
+def test_copie_annulable_et_retablissable(table: Table) -> None:
+    table.doc.UndoMode = 1
+    before = len(table.doc.Objects)
+    api.make_repeat([table.legs["A"]], api.RepeatParams(count=1, step=100.0, axis="X"))
+    assert len(table.doc.Objects) > before
+    table.doc.undo()
+    assert len(table.doc.Objects) == before
+    table.doc.redo()
+    assert len(table.doc.Objects) > before
+
+
 # --- Rangée bloquée par une pièce en bois ---------------------------------------------------
 
 
