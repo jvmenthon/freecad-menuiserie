@@ -24,6 +24,7 @@ from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.joints.frames import touch_framed_joints
 from freecad.menuiserie.features.std_part_watch import std_part_deleted
 from freecad.menuiserie.gui.double_click import is_viewport_3d, view_point, viewports_3d
+from freecad.menuiserie.gui.drag.badges import clear_badge_cache
 from freecad.menuiserie.gui.drag.session import DragSession
 
 __all__ = ["current_session", "install", "installed", "uninstall"]
@@ -48,6 +49,13 @@ def _guarded(session: DragSession, action: Callable[..., bool], *args: Any) -> b
         App.Console.PrintError(traceback.format_exc())
         session.abort()
         return False
+
+
+def _global_point(event: Any) -> QtCore.QPoint:
+    """Position de la souris sur l'écran pour l'évènement ``event`` (Qt 6, puis Qt 5)."""
+    if hasattr(event, "globalPosition"):
+        return event.globalPosition().toPoint()
+    return event.globalPos()
 
 
 class _DragFilter(QtCore.QObject):  # type: ignore[misc]
@@ -117,13 +125,11 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
     def _tooltip(self, viewport: QtGui.QWidget, event: Any) -> None:
         """Infobulle d'une poignée grisée sous la souris : pourquoi la cote ne se tire pas
         (ADR 0068) ; retirée dès que la souris la quitte. Une erreur est écrite dans la vue
-        rapport sans toucher au glissement."""
+        rapport sans toucher au glissement (pas :func:`_guarded`, qui l'annulerait)."""
         try:
             text = self._session.tooltip()
             if text is not None:
-                modern = hasattr(event, "globalPosition")  # Qt 6 ; Qt 5 : globalPos
-                where = event.globalPosition().toPoint() if modern else event.globalPos()
-                QtGui.QToolTip.showText(where, text, viewport)
+                QtGui.QToolTip.showText(_global_point(event), text, viewport)
                 self._tip = True
             else:
                 self.hide_tooltip()
@@ -268,8 +274,11 @@ class _Installation:
                 finally:
                     session = self.session
                     self.session = self.filter = self.observer = self.documents = None
-                    if session is not None:
-                        session.shutdown()
+                    try:
+                        if session is not None:
+                            session.shutdown()
+                    finally:
+                        clear_badge_cache()  # police ou thème peuvent changer d'ici la reprise
 
 
 _INSTALLATION: Final = _Installation()

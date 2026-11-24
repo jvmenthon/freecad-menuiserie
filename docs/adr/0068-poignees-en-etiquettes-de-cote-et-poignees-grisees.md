@@ -2,7 +2,7 @@
 
 - Statut : **proposé** (jv a demandé les poignées grisées et un nouveau design le 2026-11-24, puis a
   choisi la maquette I « étiquette de cote » parmi trois séries de trois propositions)
-- Date : 2026-11-24
+- Date : 2026-11-24 (numéro 0067 pris par une autre branche en cours)
 - ADR liés : [0021](0021-deplacement-a-la-souris-avec-aimantation.md) (flèches et poignées), [0038](0038-ensemble-a-la-souris.md)
   (poignées d'un ensemble), [0019](0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (« Cotes fixes »)
 
@@ -27,9 +27,11 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    l'ensemble (fin des doubles flèches et des cubes).
 2. L'étiquette est une image peinte par Qt (lissage, ombre, halo : `gui/drag/badges.py`) et posée
    par un `SoImage` (taille fixe à l'écran, multipliée par le rapport de pixels de l'écran) ;
-   les images sont gardées en cache. `overlay.py` reste le seul module qui importe pivy.
+   les images sont gardées en cache (vidé au retrait du glissement : `clear_badge_cache`).
+   `overlay.py` reste le seul module qui importe pivy. La cote est écrite par `core.text.mm_text`,
+   commun à l'étiquette et à l'infobulle d'épaisseur.
 3. **Poignées impossibles** : `DragLimits.locked_sizes` donne, pour chaque axe qui ne se tire
-   pas, sa raison traduite (titre, explication, piste « → … »), choisie par
+   pas, sa raison traduite (`core.magnet.Blocker` : titre, explication, piste « → … »), choisie par
    `features/drag_blockers.py` dans cet ordre : « Cotes fixes », pièce en bois (cotes du dessin),
    formule sur la cote, formule sur la position de l'axe, épaisseur d'un panneau. La disposition
    (`Layout.locked`) les dessine grisées ; leur clé (`locked…`) est survolable mais jamais saisie
@@ -37,9 +39,11 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    sélectionnée).
 4. **Infobulle** : au survol d'une poignée grisée, le filtre d'évènements montre un `QToolTip`
    (titre en gras, explication, piste en italique, texte échappé) et le retire quand la souris
-   la quitte.
+   la quitte, quand la souris sort de la vue et quand la sélection change. Une traduction fautive
+   (champ `{…}` inconnu ou mal formé) retombe sur le texte français (`features.i18n.translated`).
 5. **Saisie** : une poignée se saisit par le milieu de sa face, par son trait et par toute son
-   étiquette (segment horizontal, tolérance de sa demi-hauteur : `PixelTarget.radius`).
+   étiquette (segment horizontal, tolérance de sa demi-hauteur : `PixelTarget.radius`). À distance
+   égale, une flèche l'emporte sur une étiquette qui la chevauche (ordre de `pixel_targets`).
 6. Les poignées grisées n'apparaissent que là où les poignées apparaissent (panneau de la pièce
    ouvert) ; hors panneau, rien ne change.
 

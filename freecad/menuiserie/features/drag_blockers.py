@@ -10,18 +10,16 @@ famille de son bois. Aucun import de ``FreeCADGui``.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 from enum import Enum
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.magnet import THICKNESS_AXIS
+from freecad.menuiserie.core.magnet import THICKNESS_AXIS, Blocker
+from freecad.menuiserie.core.text import mm_text
 from freecad.menuiserie.features.i18n import translated
 
-__all__ = ["Blocker", "SizeBlock", "blocked_sizes", "blocker_text", "size_blocker"]
-
-Blocker = tuple[str, str, str]  # titre, explication, piste (traduits)
+__all__ = ["SizeBlock", "blocked_sizes", "blocker_text", "size_blocker"]
 
 
 class SizeBlock(Enum):
@@ -98,24 +96,15 @@ def size_blocker(
     return next((block for blocked, block in reasons if blocked), None)
 
 
-def _number(value: float) -> str:
-    """Épaisseur citée : au millimètre, au dixième sinon ; « ? » si le document la donne non
-    finie (retouché à la main)."""
-    if not math.isfinite(value):
-        return "?"
-    rounded = round(value, 1)
-    return f"{rounded:.0f}" if rounded == int(rounded) else f"{rounded:.1f}"
-
-
 def blocker_text(block: SizeBlock, axis: int, thickness: float) -> Blocker:
     """Titre, explication et piste traduits de ``block`` pour l'axe ``axis`` ; ``thickness``
     (mm) est l'épaisseur du panneau citée par :attr:`SizeBlock.PANEL`."""
     params = {
         "size": translated(_SIZE_NAMES[axis]),
-        "thickness": _number(thickness),
+        "thickness": mm_text(thickness),
     }
     title, detail, hint = _TEXTS[block]
-    return translated(title, params), translated(detail, params), translated(hint, params)
+    return Blocker(translated(title, params), translated(detail, params), translated(hint, params))
 
 
 def blocked_sizes(

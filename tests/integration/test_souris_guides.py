@@ -197,7 +197,7 @@ def test_formule_de_l_utilisateur_fixe_l_axe(document: Any) -> None:
     assert limits.fixed_axes == frozenset({0})
     assert limits.resizable_axes == frozenset({2})  # X fixé, largeur pilotée : reste l'épaisseur
     # ADR 0068 : les deux autres poignées sont grisées, chacune avec sa raison.
-    titles = {axis: blocker[0] for axis, blocker in limits.locked_sizes}
+    titles = {axis: blocker.title for axis, blocker in limits.locked_sizes}
     assert titles == {0: "Position pilotée par une formule", 1: "Largeur pilotée par une formule"}
     memento = drag.begin_drag(blank)
     with pytest.raises(ValueError, match="piloté par une formule"):
@@ -222,19 +222,19 @@ def test_piece_verrouillee_sans_poignees(bureau: Bureau) -> None:
     api.set_member_options(voile, locked=True)
     limits = drag.drag_limits(voile)
     assert (limits.fixed_axes, limits.resizable_axes) == (frozenset(), frozenset())
-    assert [(axis, blocker[0]) for axis, blocker in limits.locked_sizes] == [
+    assert [(axis, blocker.title) for axis, blocker in limits.locked_sizes] == [
         (0, "Cotes fixes"),
         (1, "Cotes fixes"),
         (2, "Cotes fixes"),
     ]
-    assert "Cotes fixes" in limits.locked_sizes[0][1][2]  # la piste : décocher la case
+    assert "Cotes fixes" in limits.locked_sizes[0][1].hint  # la piste : décocher la case
     memento = drag.begin_drag(voile)
     with pytest.raises(ValueError, match="ne peut pas être tirée"):
         drag.resize_part(memento, "Length", 1000, Vec3(0, 0, 0))
     drag.move_part(memento, Vec3(0, 0, -100))  # le glissement reste permis
     assert drag.end_drag(memento) == []
     assert bureau.bounds("V")[1] == (541, 559)
-    # Pièce en bois (#87, ShapedPart) : poignées refusées aussi, dans ``can_resize``.
+    # Pièce en bois (#87, ShapedPart) : poignées grisées aussi (test_piece_en_bois_ensemble).
 
 
 # --- B5 bis : épaisseur du massif (Q4 amendée le 2026-10-26) ---------------------------------
@@ -267,7 +267,7 @@ def test_epaisseur_sans_poignee_si_formule_ou_verrou(document: Any) -> None:
     driven.setExpression("Thickness", "25 mm")
     assert drag.drag_limits(driven).resizable_axes == frozenset({0, 1})
     ((axis, blocker),) = drag.drag_limits(driven).locked_sizes
-    assert (axis, blocker[0]) == (2, "Épaisseur pilotée par une formule")
+    assert (axis, blocker.title) == (2, "Épaisseur pilotée par une formule")
     raised = api.make_wood_part(400, 100, 22, "chene", doc=document)
     raised.setExpression("Placement.Base.z", "10 mm")
     limits = drag.drag_limits(raised)
@@ -457,4 +457,4 @@ def test_ordre_des_raisons_d_une_poignee_grisee() -> None:
         (1, "Largeur pilotée par une formule"),
         (2, "Épaisseur non modifiable"),
     ]
-    assert bloquees[1][1][1].endswith(" : ? mm.")  # épaisseur non finie : jamais d'erreur
+    assert bloquees[1][1].detail.endswith(" : ? mm.")  # épaisseur non finie : jamais d'erreur

@@ -6,13 +6,15 @@ un seul module, filtre posé et retiré avec l'atelier)."""
 from __future__ import annotations
 
 import ast
+import math
 from dataclasses import replace
 
 import pytest
 
 from freecad.menuiserie.core.geometry import Box, Vec3
-from freecad.menuiserie.core.magnet import Guide, GuideKind, Handle, handle_at, mouse_ray
+from freecad.menuiserie.core.magnet import Blocker, Guide, GuideKind, Handle, handle_at, mouse_ray
 from freecad.menuiserie.core.snap import Frame
+from freecad.menuiserie.core.text import mm_text
 from freecad.menuiserie.gui.drag.drawing import (
     GUIDE_COLOR,
     HANDLE_COLOR,
@@ -29,6 +31,7 @@ from freecad.menuiserie.gui.drag.drawing import (
     is_locked_key,
     locked_blocker,
     locked_key,
+    on_screen,
     parse_key,
     pixel_targets,
     size_text,
@@ -208,7 +211,9 @@ def test_zone_de_saisie_des_poignees() -> None:
 
 # --- Poignées impossibles (ADR 0068) -----------------------------------------------------
 
-BLOCKER = ("Épaisseur non modifiable", "Un panneau garde son épaisseur : 19 mm.", "→ Changer")
+BLOCKER = Blocker(
+    "Épaisseur non modifiable", "Un panneau garde son épaisseur : 19 mm.", "→ Changer"
+)
 
 
 def test_poignees_impossibles_grisees() -> None:
@@ -258,7 +263,7 @@ def test_axe_tirable_jamais_grise() -> None:
 
 
 def test_infobulle_echappee() -> None:
-    text = tooltip_html(("<b>Titre</b>", "a & b", "→ piste"))
+    text = tooltip_html(Blocker("<b>Titre</b>", "a & b", "→ piste"))
     assert text == "<b>&lt;b&gt;Titre&lt;/b&gt;</b><br>a &amp; b<br><i>→ piste</i>"
 
 
@@ -267,9 +272,14 @@ def test_direction_des_etiquettes_a_l_ecran() -> None:
     angles = badge_angles(layout, project)
     # X : début vers la gauche (180°), fin vers la droite (0°) ; Y : 270° puis 90° ;
     # Z vu de bout (vue de dessus) : 0°.
-    assert angles == (180.0, 0.0, 270.0, 90.0, 0.0, 0.0)
-    tilted = badge_angles(layout, lambda p: (p.x + 0.6 * p.y, p.y))
-    assert tilted[3] == 60.0  # 59° arrondi au pas de 5°
+    assert tuple(angle for _, angle in angles) == (180.0, 0.0, 270.0, 90.0, 0.0, 0.0)
+    assert [key for key, _ in angles][:2] == ["handle0s", "handle0e"]  # par clé de poignée
+    tilted = dict(badge_angles(layout, lambda p: (p.x + 0.6 * p.y, p.y)))
+    assert tilted["handle1e"] == 60.0  # 59° arrondi au pas de 5°
+    placed = on_screen(layout, 2.0, project)
+    assert placed.badge_scale == 2.0 and placed.badge_angles == badge_angles(placed, project)
+    drawing = build_drawing(placed)
+    assert [b.angle for b in drawing.badges] == [180.0, 0.0, 270.0, 90.0, 0.0, 0.0]
 
 
 def test_guides_aimantes_en_surbrillance() -> None:
@@ -378,3 +388,16 @@ def test_panneau_de_chaque_piece_branche_la_session_du_glissement(panel: str, na
     path = f"gui/task_panels/{panel}.py"
     assert "PanelDrag" in _calls(path, "__init__", name)
     assert _calls(path, "after_drag", name) is not None
+
+
+@pytest.mark.parametrize(
+    ("value", "text"),
+    [(19.0, "19"), (19.04, "19"), (380.46, "380.5"), (0.05, "0.1"), (math.inf, "?")],
+)
+def test_cote_en_millimetres(value: float, text: str) -> None:
+    """Formatage commun à l'étiquette et à l'infobulle d'épaisseur (ADR 0068)."""
+    assert mm_text(value) == text
+
+
+def test_etat_d_une_etiquette_grisee() -> None:
+    assert [s.locked for s in BadgeState] == [False, False, True, True]

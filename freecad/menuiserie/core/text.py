@@ -1,14 +1,23 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Citation sûre, dans un message, d'un texte venu d'un fichier (bibliothèque, document).
+"""Citation sûre, dans un message, d'un texte venu d'un fichier (bibliothèque, document), et
+cote en millimètres écrite pour l'interface.
 
 Module public : ``core/`` l'utilise pour ses anomalies, ``features/`` pour la vue rapport.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Final
 
-__all__ = ["MAX_DETAIL_LENGTH", "MAX_QUOTED_LENGTH", "bounded_text", "escaped_text", "quoted_value"]
+__all__ = [
+    "MAX_DETAIL_LENGTH",
+    "MAX_QUOTED_LENGTH",
+    "bounded_text",
+    "escaped_text",
+    "mm_text",
+    "quoted_value",
+]
 
 MAX_QUOTED_LENGTH: Final = 32
 MAX_DETAIL_LENGTH: Final = 300
@@ -46,3 +55,12 @@ def quoted_value(value: object) -> str:
             return "?"
     escaped = escaped_text(text[:MAX_QUOTED_LENGTH])
     return escaped + "…" if len(text) > MAX_QUOTED_LENGTH else escaped
+
+
+def mm_text(value: float) -> str:
+    """Cote en millimètres écrite pour l'interface : au millimètre si elle tombe juste, au
+    dixième sinon ; « ? » si elle n'est pas finie (document retouché à la main)."""
+    if not math.isfinite(value):
+        return "?"
+    rounded = round(value, 1)
+    return f"{rounded:.0f}" if rounded == int(rounded) else f"{rounded:.1f}"

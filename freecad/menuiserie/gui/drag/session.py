@@ -30,7 +30,6 @@ l'ensemble » et « Tourner l'ensemble ». Une pièce membre sélectionnée gard
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import replace
 from typing import Final
 
 import FreeCAD as App
@@ -61,9 +60,9 @@ from freecad.menuiserie.gui.drag.drawing import (
     ARROW_PX,
     Cues,
     Layout,
-    badge_angles,
     build_drawing,
     locked_blocker,
+    on_screen,
     parse_key,
     pixel_targets,
     target_line,
@@ -212,9 +211,9 @@ class DragSession:
             return
         try:
             self._size_mm = port.mm(target.center(), ARROW_PX)
-            layout = target.layout(self._size_mm, self._panel_shown)
-            layout = replace(layout, badge_scale=port.scale())
-            layout = replace(layout, badge_angles=badge_angles(layout, port.project))
+            layout = on_screen(
+                target.layout(self._size_mm, self._panel_shown), port.scale(), port.project
+            )
         except _RESIZE_ERRORS:
             self.clear()
             return

@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final
+from typing import Final, NamedTuple
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
 from freecad.menuiserie.core.vectors import is_finite, norm
@@ -166,6 +166,15 @@ class ResizeResult:
     size: float
     origin_shift: Vec3
     hit: MagnetHit | None = None
+
+
+class Blocker(NamedTuple):
+    """Raison traduite pour laquelle une poignée ne se tire pas (ADR 0068) : titre, explication
+    et piste « → … » de son infobulle."""
+
+    title: str
+    detail: str
+    hint: str
 
 
 @dataclass(frozen=True)

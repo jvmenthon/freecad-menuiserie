@@ -15,13 +15,15 @@ from __future__ import annotations
 import html
 import math
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from enum import Enum
 from itertools import combinations, product
 from typing import Final
 
 from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.magnet import (
     Arrow,
+    Blocker,
     Guide,
     GuideKind,
     Handle,
@@ -32,6 +34,7 @@ from freecad.menuiserie.core.magnet import (
 )
 from freecad.menuiserie.core.rotation import Ring
 from freecad.menuiserie.core.snap import Frame
+from freecad.menuiserie.core.text import mm_text
 from freecad.menuiserie.gui.drag.rings import (
     RING_SEGMENTS,
     Sweep,
@@ -46,7 +49,6 @@ __all__ = [
     "REFUSAL_COLOR",
     "Badge",
     "BadgeState",
-    "Blocker",
     "Cues",
     "Dots",
     "Drawing",
@@ -65,6 +67,7 @@ __all__ = [
     "is_locked_key",
     "locked_blocker",
     "locked_key",
+    "on_screen",
     "parse_key",
     "pixel_targets",
     "size_text",
@@ -94,16 +97,20 @@ BOX_TRANSPARENCY: Final = 0.85
 REFUSAL_COLOR: Final = (0.9, 0.1, 0.1)  # cote et message d'un refus près de la souris
 Color = tuple[float, float, float]
 Project = Callable[[Vec3], tuple[float, float]]
-Blocker = tuple[str, str, str]  # raison d'une poignée impossible : titre, explication, piste
 
 
-class BadgeState:
+class BadgeState(Enum):
     """État d'une étiquette de poignée."""
 
-    NORMAL: Final = "normal"
-    HOVER: Final = "hover"
-    LOCKED: Final = "locked"
-    LOCKED_HOVER: Final = "locked-hover"
+    NORMAL = "normal"
+    HOVER = "hover"
+    LOCKED = "locked"
+    LOCKED_HOVER = "locked-hover"
+
+    @property
+    def locked(self) -> bool:
+        """Vrai pour une poignée impossible (cadenas à la place de la double flèche)."""
+        return self in (BadgeState.LOCKED, BadgeState.LOCKED_HOVER)
 
 
 def arrow_key(axis: int) -> str:
@@ -145,8 +152,9 @@ class Layout:
 
     ``locked`` : poignées impossibles (poignée, centre de sa face, raison) ; ``badge_scale`` :
     rapport de pixels de l'écran (étiquettes à la même taille sur un écran haute définition) ;
-    ``badge_angles`` : direction à l'écran de chaque poignée (:func:`badge_angles`, 0° si
-    absente), qui oriente la double flèche de son étiquette. Un ensemble (EN-c) dessine sa boîte
+    ``badge_angles`` : direction à l'écran de chaque poignée, par clé (:func:`badge_angles`),
+    qui oriente la double flèche de son étiquette. Ces deux champs dépendent de la vue :
+    :func:`on_screen` les remplit ensemble. Un ensemble (EN-c) dessine sa boîte
     en transparence (``shows_box``)."""
 
     frame: Frame
@@ -158,7 +166,7 @@ class Layout:
     shows_box: bool = False
     locked: tuple[tuple[Handle, Vec3, Blocker], ...] = ()
     badge_scale: float = 1.0
-    badge_angles: tuple[float, ...] = ()
+    badge_angles: tuple[tuple[str, float], ...] = ()
 
 
 def build_layout(
@@ -219,10 +227,7 @@ def tooltip_html(blocker: Blocker) -> str:
 def size_text(box: Box, axis: int) -> str:
     """Cote de ``box`` sur ``axis``, écrite sur l'étiquette : au millimètre, au dixième sinon ;
     « ? » si elle n'est pas finie ou trop longue à écrire (document retouché)."""
-    value = round(box.hi(axis) - box.lo(axis), 1)
-    if not math.isfinite(value):
-        return "?"
-    text = f"{value:.0f}" if value == int(value) else f"{value:.1f}"
+    text = mm_text(box.hi(axis) - box.lo(axis))
     return text if len(text) <= MAX_SIZE_CHARS else "?"
 
 
@@ -308,7 +313,7 @@ class Badge:
 
     position: Vec3
     text: str
-    state: str
+    state: BadgeState
     angle: float = 0.0
     scale: float = 1.0
 
@@ -513,7 +518,7 @@ def build_drawing(
     )
 
 
-def _badge_state(locked: bool, hot: bool) -> str:
+def _badge_state(locked: bool, hot: bool) -> BadgeState:
     if locked:
         return BadgeState.LOCKED_HOVER if hot else BadgeState.LOCKED
     return BadgeState.HOVER if hot else BadgeState.NORMAL
@@ -528,32 +533,38 @@ def _badges(
     """Étiquettes des poignées ; leur trait et le point du milieu de leur face sont ajoutés à
     ``strokes`` et ``dots``."""
     badges = []
-    for index, (key, handle, point) in enumerate(_all_handles(layout)):
+    angles = dict(layout.badge_angles)  # vide hors de la vue (tests) : 0°
+    for key, handle, point in _all_handles(layout):
         locked, hot = is_locked_key(key), hover == key
         color = LOCKED_COLOR if locked else (HOVER_COLOR if hot else HANDLE_COLOR)
         center = _badge_center(layout, handle, point)
         strokes.append(Stroke(color, 2.0, ((point, center),)))
         dots.append(Dots(color, 6.0, (point,)))
-        angles = layout.badge_angles
-        angle = angles[index] if index < len(angles) else 0.0
         state = _badge_state(locked, hot)
         text = size_text(layout.box, handle.axis)
-        badges.append(Badge(center, text, state, angle, layout.badge_scale))
+        badges.append(Badge(center, text, state, angles.get(key, 0.0), layout.badge_scale))
     return tuple(badges)
 
 
-def badge_angles(layout: Layout, project: Project) -> tuple[float, ...]:
-    """Direction à l'écran (degrés, sens direct, arrondie à :data:`ANGLE_STEP`) de l'axe de
-    chaque poignée, dans l'ordre des étiquettes ; un axe vu de bout donne 0°."""
+def badge_angles(layout: Layout, project: Project) -> tuple[tuple[str, float], ...]:
+    """Clé et direction à l'écran (degrés, sens direct, arrondie à :data:`ANGLE_STEP`) de l'axe
+    de chaque poignée ; un axe vu de bout donne 0°."""
     angles = []
-    for _, handle, point in _all_handles(layout):
+    for key, handle, point in _all_handles(layout):
         (x0, y0), (x1, y1) = project(point), project(_badge_center(layout, handle, point))
         if math.hypot(x1 - x0, y1 - y0) < 1.0:
-            angles.append(0.0)
+            angles.append((key, 0.0))
             continue
         angle = math.degrees(math.atan2(y1 - y0, x1 - x0))  # pixels de FreeCAD : y vers le haut
-        angles.append((round(angle / ANGLE_STEP) * ANGLE_STEP) % 360.0)
+        angles.append((key, (round(angle / ANGLE_STEP) * ANGLE_STEP) % 360.0))
     return tuple(angles)
+
+
+def on_screen(layout: Layout, scale: float, project: Project) -> Layout:
+    """``layout`` posée dans la vue : rapport de pixels ``scale`` de l'écran, puis direction des
+    étiquettes (elle dépend de leur distance à la face, donc de ``scale``)."""
+    scaled = replace(layout, badge_scale=scale)
+    return replace(scaled, badge_angles=badge_angles(scaled, project))
 
 
 class Throttle:

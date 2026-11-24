@@ -206,10 +206,9 @@ def test_suppression_de_la_piece_relie_les_voisines(table: Table) -> None:
 def test_aucune_poignee_de_cote_sur_une_piece_en_bois(table: Table) -> None:
     drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
     for leg in table.legs.values():
-        assert not drag.can_resize(leg)
         limits = drag.drag_limits(leg)
         assert limits.resizable_axes == frozenset()
-        assert {blocker[0] for _, blocker in limits.locked_sizes} == {"Cotes du dessin"}
+        assert {blocker.title for _, blocker in limits.locked_sizes} == {"Cotes du dessin"}
         assert len(limits.locked_sizes) == 3  # ADR 0068 : trois poignées grisées
     memento = drag.begin_drag(table.legs["A"])
     with pytest.raises(ValueError, match="ne peut pas être tirée"):

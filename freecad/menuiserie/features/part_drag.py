@@ -32,9 +32,10 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.magnet import Blocker
 from freecad.menuiserie.core.text import bounded_text, quoted_value
 from freecad.menuiserie.features.distance import AXES, distances_touching
-from freecad.menuiserie.features.drag_blockers import Blocker, blocked_sizes
+from freecad.menuiserie.features.drag_blockers import blocked_sizes
 from freecad.menuiserie.features.drag_joints import (
     DragCancelledError,
     JointChoice,
@@ -65,7 +66,6 @@ __all__ = [
     "DragLimits",
     "DragMemento",
     "begin_drag",
-    "can_resize",
     "drag_limits",
     "end_drag",
     "move_part",
@@ -99,7 +99,7 @@ class DragLimits:
     ``fixed_axes`` : axes de la pièce (0 = X, 1 = Y, 2 = Z) dont une formule **de
     l'utilisateur** pilote la position (aucune flèche) ; ``resizable_axes`` : axes dont une
     poignée est permise (l'axe 2, l'épaisseur, seulement pour le massif), vide si la pièce est
-    verrouillée ou si ses cotes ne se tirent pas (:func:`can_resize`) ; ``locked_sizes`` : les
+    verrouillée (``Locked``, ADR 0019) ou en bois (cotes du dessin, #87) ; ``locked_sizes`` : les
     autres axes, chacun avec la raison traduite (titre, explication, piste) de sa poignée grisée
     (ADR 0068)."""
 
@@ -133,19 +133,17 @@ def raw_part(obj: DocumentObject) -> DocumentObject:
     return blank_of(obj)
 
 
-def can_resize(part: DocumentObject) -> bool:
-    """Vrai si des poignées sont permises sur la brute ``part`` : pas si elle est verrouillée
-    (``Locked``, ADR 0019, B5), ni si c'est une pièce en bois : ses cotes sont celles du dessin
-    (#87)."""
-    return not (bool(getattr(part, "Locked", False)) or is_shaped_part(part))
-
-
 def _solid(part: DocumentObject) -> bool:
     """Vrai si la brute ``part`` est du massif : seule son épaisseur se tire (Q4). Un panneau
     (contreplaqué, MDF, mélaminé) garde l'épaisseur de la bibliothèque."""
     # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode non appelée.
     # nosemgrep: python.lang.maintainability.is-function-without-parentheses
     return not part_kind(part, None).is_panel
+
+
+def _thickness_mm(part: DocumentObject) -> float:
+    """Épaisseur de la brute ``part`` en mm (0 si elle n'en a pas), citée par l'infobulle."""
+    return float(getattr(getattr(part, "Thickness", None), "Value", 0.0))
 
 
 def _user_expressions(part: DocumentObject) -> set[str]:
@@ -183,14 +181,13 @@ def drag_limits(part: DocumentObject) -> DragLimits:
     coordinates = _fixed_coordinates(user) | _driven_gap_coordinates(part)
     rotation = part.Placement.Rotation
     fixed = frozenset(i for i in range(3) if _coordinates(i, rotation) & coordinates)
-    locked, shaped = bool(getattr(part, "Locked", False)), is_shaped_part(part)
     blocked = blocked_sizes(
-        locked=locked,
-        shaped=shaped,
+        locked=bool(getattr(part, "Locked", False)),
+        shaped=is_shaped_part(part),
         formulas=tuple(prop in user for prop in SIZE_PROPS),
         fixed=fixed,
-        panel=not (locked or shaped) and not _solid(part),
-        thickness=float(getattr(getattr(part, "Thickness", None), "Value", 0.0)),
+        panel=not _solid(part),
+        thickness=_thickness_mm(part),
     )
     resizable = frozenset(range(3)) - {axis for axis, _ in blocked}
     return DragLimits(fixed, resizable, blocked)
