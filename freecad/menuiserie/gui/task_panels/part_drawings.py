@@ -25,6 +25,12 @@ from freecad.menuiserie.features.drawing_choice import Choice, part_choices, par
 from freecad.menuiserie.features.drawing_parts import distinct_parts
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.machined_part import (
+    blank_of,
+    is_machined_part,
+    machined_part_of,
+)
+from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui import drawing_pdf
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.cutlist import show_status
@@ -218,17 +224,30 @@ class PartDrawingsTaskPanel:
 
     def check(self, name: str) -> None:
         """Coche la ligne de l'objet ``name`` (une pièce, un ensemble ou un lien), s'il y en a
-        une et que le panneau ne pousse pas lui-même la sélection."""
+        une et que le panneau ne pousse pas lui-même la sélection. Une pièce usinée et sa brute
+        désignent la même ligne (la vue 3D sélectionne la pièce usinée)."""
         if self._pushing:
             return
         try:
             items = list(self.items())
-        except RuntimeError:  # arbre détruit
+            names = self._same_part(name)
+        except RuntimeError:  # arbre ou document détruit
             self._watcher.detach()
             return
         for item in items:  # un même objet peut avoir plusieurs lignes
-            if item.data(0, NAME_ROLE) == name:
+            if item.data(0, NAME_ROLE) in names:
                 item.setCheckState(0, state("Checked"))
+
+    def _same_part(self, name: str) -> set[str]:
+        """``name`` et, pour une pièce, le nom de sa brute ou de sa pièce usinée."""
+        obj = self.doc.getObject(name)
+        if obj is None:
+            return {name}
+        if is_machined_part(obj):
+            other = blank_of(obj)
+        else:
+            other = machined_part_of(obj) if is_timber(obj) else None
+        return {name} | ({other.Name} if other is not None else set())
 
     def chosen(self) -> list[DocumentObject]:
         """Pièces et liens cochés, dans l'ordre de l'arbre."""

@@ -16,6 +16,7 @@ from freecad.menuiserie.features.drawing_parts import part_count
 from freecad.menuiserie.features.drawing_scope import children_of, document_scope, link_target
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
+from freecad.menuiserie.features.machined_part import is_machined_part
 from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = ["MAX_DEPTH", "Choice", "part_choices", "part_label"]
@@ -49,7 +50,7 @@ def part_label(obj: DocumentObject) -> str:
 
 
 def _choice(obj: DocumentObject, depth: int) -> Choice | None:
-    if is_timber(obj) or link_target(obj) is not None:
+    if is_timber(obj) or is_machined_part(obj) or link_target(obj) is not None:
         return Choice(obj)
     if not is_furniture(obj) or depth >= MAX_DEPTH:
         return None
