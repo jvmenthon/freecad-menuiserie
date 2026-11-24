@@ -17,7 +17,15 @@ from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-__all__ = ["MARK_LENGTH_RATIO", "MARK_WIDTH_RATIO", "GrainBand", "grain_band", "rectangle"]
+__all__ = [
+    "MARK_LENGTH_RATIO",
+    "MARK_WIDTH_RATIO",
+    "GrainBand",
+    "Loop",
+    "grain_band",
+    "mark_half_width",
+    "rectangle",
+]
 
 Point2 = tuple[float, float]
 Loop = Sequence[Point2]
@@ -77,11 +85,6 @@ def _cut(edges: Iterable[Edge], across: float) -> list[Segment]:
         x0 + (across - y0) / (y1 - y0) * (x1 - x0) for y0, x0, y1, x1 in edges if y0 <= across < y1
     )
     return [(found[i], found[i + 1]) for i in range(0, len(found) - 1, 2)]
-
-
-def _segments(loops: Sequence[Loop], axis: int, across: float) -> list[Segment]:
-    """Segments de bois de la droite de cote ``across`` parallèle à l'axe ``axis``."""
-    return _cut(_edges(loops, axis), across)
 
 
 class _Slices:
@@ -175,10 +178,16 @@ def _narrowed(common: Segment | None, segments: list[Segment], point: float) -> 
     return (max(common[0], hit[0]), min(common[1], hit[1]))
 
 
+def mark_half_width(length: float, band_width: float) -> float:
+    """Demi-largeur d'une pointe de la marque du fil de longueur ``length`` posée dans une bande
+    de largeur ``band_width`` : la même pour choisir la bande et pour la dessiner."""
+    return min(MARK_WIDTH_RATIO * band_width, MARK_LENGTH_RATIO * length)
+
+
 def _score(segment: Segment, half: float) -> float:
     """Taille de la marque posée sur ``segment`` dans une bande de demi-largeur ``half``."""
     length = segment[1] - segment[0]
-    return length * min(MARK_WIDTH_RATIO * 2 * half, MARK_LENGTH_RATIO * length)
+    return length * mark_half_width(length, 2 * half)
 
 
 def _decimated(loops: Sequence[Loop]) -> list[Loop] | None:

@@ -16,10 +16,10 @@ from typing import Final
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.grain_band import (
     MARK_LENGTH_RATIO,
-    MARK_WIDTH_RATIO,
     GrainBand,
     Loop,
     grain_band,
+    mark_half_width,
     rectangle,
 )
 from freecad.menuiserie.gui.drag.geometry import AXIS_COLORS, HEAD_RATIO, Drawing, Solid, Stroke
@@ -33,13 +33,13 @@ AXIS_LENGTH_RATIO: Final = 0.3  # part de la plus grande cote
 MIN_AXIS_MM: Final = 40.0
 MAX_AXIS_MM: Final = 400.0
 GRAIN_MARGIN: Final = 0.1  # marge à chaque bout de la bande de bois, part de sa longueur
-HEAD_LENGTH_RATIO: Final = (
-    2 * MARK_LENGTH_RATIO
-)  # longueur maximale d'une pointe, part de la flèche
+# longueur maximale d'une pointe, part de la flèche
+HEAD_LENGTH_RATIO: Final = 2 * MARK_LENGTH_RATIO
 SHAFT_RATIO: Final = 0.3  # demi-largeur de la tige, part de celle d'une pointe
 DASH_RATIO: Final = 0.55  # part de tiret dans chaque période de la tige
 DASH_GAP: Final = 0.05  # écart entre une pointe et les tirets, part de la flèche
-MIN_DASHES, MAX_DASHES = 3, 12
+MIN_DASHES: Final = 3  # tirets de la tige, au moins
+MAX_DASHES: Final = 12  # tirets de la tige, au plus
 _GRAIN_AXES: Final = {"Length": 0, "Width": 1}  # sens du fil -> axe de la pièce
 Extents = tuple[float, float, float]
 
@@ -79,7 +79,7 @@ def grain_marking(band: GrainBand, axis: int, height: float) -> tuple[Solid, Str
     margin = GRAIN_MARGIN * band.length
     start, end = band.start + margin, band.end - margin
     length = end - start
-    head = min(MARK_WIDTH_RATIO * band.width, MARK_LENGTH_RATIO * length)
+    head = mark_half_width(length, band.width)
     head_length = min(HEAD_LENGTH_RATIO * length, 2.0 * head)
     shaft = SHAFT_RATIO * head
     mid = band.across
@@ -130,11 +130,13 @@ def axes_drawing(
     """Trièdre L / l / e à l'origine de la pièce (repère de la pièce), de la taille de ses cotes
     ``extents`` (bornée), et double flèche du fil le long de l'axe ``grain`` (0 ou 1), posée sur
     la face du dessus dans la plus longue bande de bois du contour ``outline`` (plan XY local,
-    boucles : extérieure puis trous ; ``None`` : l'encombrement, pièce rectangulaire)."""
+    boucles : extérieure puis trous ; ``None`` ou vide : l'encombrement, pièce rectangulaire)."""
     size = min(max(AXIS_LENGTH_RATIO * max(extents), MIN_AXIS_MM), MAX_AXIS_MM)
     origin = Vec3(0.0, 0.0, 0.0)
     strokes = [Stroke(AXIS_COLORS[axis], 3.0, _arrow(origin, axis, size)) for axis in range(3)]
-    if grain is None or grain not in (0, 1) or not min(extents) > 0:  # aussi faux pour NaN
+    if (
+        grain is None or grain not in (0, 1) or not min(extents) > 0
+    ):  # NaN : faux
         return Drawing(tuple(strokes))
     band = grain_band(outline or rectangle(extents[0], extents[1]), grain)
     if band is None or not _drawable(band, extents[2]):
