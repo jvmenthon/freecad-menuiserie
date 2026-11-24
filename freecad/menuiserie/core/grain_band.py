@@ -13,7 +13,7 @@ Rien ne passe au-dessus d'un trou ni d'un bord, même fin. Pur : ni FreeCAD, ni 
 from __future__ import annotations
 
 from bisect import bisect_right
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -53,30 +53,64 @@ def rectangle(length: float, width: float) -> tuple[tuple[Point2, ...], ...]:
     return (((0.0, 0.0), (length, 0.0), (length, width), (0.0, width)),)
 
 
-def _segments(loops: Sequence[Loop], axis: int, across: float) -> list[Segment]:
-    """Segments de bois (pair-impair : les trous sont exclus) de la droite de cote ``across``
-    parallèle à l'axe ``axis``."""
+Edge = tuple[float, float, float, float]  # cote et abscisse de chaque bout (cote croissante)
+
+
+def _edges(loops: Sequence[Loop], axis: int) -> list[Edge]:
+    """Arêtes non parallèles au fil des boucles d'au moins trois points, triées par cote basse."""
     other = 1 - axis
-    found: list[float] = []
-    for loop in loops:
+    found: list[Edge] = []
+    for loop in (loop for loop in loops if len(loop) >= 3):
         for a, b in zip(loop, [*loop[1:], loop[0]], strict=True):
-            if (a[other] <= across < b[other]) or (b[other] <= across < a[other]):
-                ratio = (across - a[other]) / (b[other] - a[other])
-                found.append(a[axis] + ratio * (b[axis] - a[axis]))
-    found.sort()
+            if a[other] != b[other]:
+                low, high = (a, b) if a[other] < b[other] else (b, a)
+                found.append((low[other], low[axis], high[other], high[axis]))
+    return sorted(found)
+
+
+def _cut(edges: Iterable[Edge], across: float) -> list[Segment]:
+    """Segments de bois (pair-impair : les trous sont exclus) de la droite de cote ``across``,
+    d'après les arêtes ``edges`` qui peuvent la couper."""
+    found = sorted(
+        x0 + (across - y0) / (y1 - y0) * (x1 - x0) for y0, x0, y1, x1 in edges if y0 <= across < y1
+    )
     return [(found[i], found[i + 1]) for i in range(0, len(found) - 1, 2)]
 
 
+def _segments(loops: Sequence[Loop], axis: int, across: float) -> list[Segment]:
+    """Segments de bois de la droite de cote ``across`` parallèle à l'axe ``axis``."""
+    return _cut(_edges(loops, axis), across)
+
+
 class _Slices:
-    """Coupes du contour aux droites de sommets, juste au-dessous et juste au-dessus, triées."""
+    """Coupes du contour aux droites de sommets, juste au-dessous et juste au-dessus, triées.
+    Chaque tranche garde les seules arêtes qui la traversent (balayage) : une coupe ne lit
+    qu'elles, ce qui reste rapide sur un contour courbe très discrétisé."""
 
     def __init__(self, loops: Sequence[Loop], axis: int) -> None:
-        self.loops, self.axis = loops, axis
-        self.levels = sorted({point[1 - axis] for loop in loops for point in loop})
+        edges = _edges(loops, axis)
+        self.levels = sorted({edge[0] for edge in edges} | {edge[2] for edge in edges})
         self.low, self.high = self.levels[0], self.levels[-1]
         self.epsilon = _EPSILON * max(self.high - self.low, 1.0)
+        self.slab_edges: list[list[Edge]] = []
+        active: list[Edge] = []
+        waiting = iter(edges)
+        pending = next(waiting, None)
+        for low, high in zip(self.levels, self.levels[1:], strict=False):
+            while pending is not None and pending[0] <= low:
+                active.append(pending)
+                pending = next(waiting, None)
+            active = [edge for edge in active if edge[2] >= high]
+            self.slab_edges.append(active)
         self.positions = [level + side * self.epsilon for level in self.levels for side in (-1, 1)]
-        self.rows = [_segments(loops, axis, position) for position in self.positions]
+        self.rows = [self.cut(position) for position in self.positions]
+
+    def cut(self, across: float) -> list[Segment]:
+        """Segments de bois de la droite de cote ``across`` (vide hors du contour)."""
+        slab = bisect_right(self.levels, across) - 1
+        if slab < 0 or slab >= len(self.slab_edges):
+            return []
+        return _cut(self.slab_edges[slab], across)
 
     def widening(self, center: float, point: float, halves: Sequence[float]) -> Iterator[Band]:
         """Pour chaque demi-largeur de ``halves`` (croissantes), le bois commun autour de
@@ -100,7 +134,7 @@ class _Slices:
             ):
                 above += 1
                 inner = _narrowed(inner, self.rows[above], point)
-            edges = (_segments(self.loops, self.axis, low), _segments(self.loops, self.axis, high))
+            edges = (self.cut(low), self.cut(high))
             common = _narrowed(_narrowed(inner, edges[0], point), edges[1], point)
             if common is None:
                 return
@@ -149,14 +183,16 @@ def grain_band(loops: Sequence[Loop], axis: int) -> GrainBand | None:
     """Bande de bois le long de l'axe ``axis`` (0 = X, 1 = Y) du contour ``loops`` où la marque
     du fil est la plus grande (à égalité, la plus proche du milieu) ; le segment rendu est le bois
     commun à toute la bande. ``None`` si le contour est vide ou plat."""
-    if sum(len(loop) for loop in loops) < 3:
+    if axis not in (0, 1):
+        raise ValueError(f"axe du fil inconnu : {axis!r}")
+    if not _edges(loops, axis):
         return None
     slices = _Slices(loops, axis)
-    if slices.high - slices.low <= 4 * slices.epsilon:
+    if not slices.high - slices.low > 4 * slices.epsilon:  # aussi faux pour NaN
         return None
     best: tuple[float, GrainBand] | None = None
     for center in slices.centers():
-        for segment in _segments(loops, axis, center):
+        for segment in slices.cut(center):
             point = (segment[0] + segment[1]) / 2
             for half, common in slices.widening(center, point, slices.halves(center)):
                 score = _score(common, half)
