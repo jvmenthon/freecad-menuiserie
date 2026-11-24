@@ -22,7 +22,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import blank_or_self
-from freecad.menuiserie.features.repeat import is_copy
+from freecad.menuiserie.features.repeat import is_copy, repeats_of
 from freecad.menuiserie.features.repeat_copies import checked_sources
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.gui.commands import hints
@@ -69,11 +69,10 @@ def selected_repeats() -> list[DocumentObject] | None:
     """Répétitions des objets sélectionnés (une répétition ou ses copies liées), chacune une
     fois, ou ``None`` si la sélection contient autre chose. Une pièce usinée compte pour sa
     brute : une copie assemblée est affichée et choisie par sa pièce usinée."""
-    found = [api.repeat_of(blank_or_self(obj)) for obj in Gui.Selection.getSelection()]
-    if not found or any(rep is None for rep in found):
+    blanks = [blank_or_self(obj) for obj in Gui.Selection.getSelection()]
+    if not blanks or any(api.repeat_of(obj) is None for obj in blanks):
         return None
-    unique = {rep.Name: rep for rep in found if rep is not None}  # copies d'une même répétition
-    return list(unique.values())
+    return repeats_of(blanks)  # copies d'une même répétition : une fois
 
 
 class RepeatCommand(TransactionCommand):
@@ -177,10 +176,10 @@ class DissociateCommand(TransactionCommand):
         repeats = selected_repeats()
         if repeats is None:
             return
-        Gui.Selection.clearSelection()  # la répétition choisie va disparaître
         with refusable_transaction(repeats[0].Document, self.TRANSACTION):
             for rep in repeats:
                 api.dissociate(rep, transaction=False)
+            Gui.Selection.clearSelection()  # réussi : la répétition choisie a disparu
 
 
 def register() -> None:

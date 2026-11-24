@@ -18,11 +18,17 @@ copie soit **entre parenthèses**.
 
 1. `api.dissociate(obj)` accepte la répétition ou l'une de ses copies liées (pièce, pièce en
    bois, ensemble, membre copié d'un ensemble). Dans un seul bloc annulable « Dissocier la
-   répétition » : un recalcul (valeurs à jour), puis chaque copie (hors membres d'un ensemble
-   copie, emportés par leur ensemble) est dissociée comme avant (`repeat_links.unlink_copy` :
-   expressions et propriétés `Repeat*` retirées, assemblages enfants libérés, ensemble relié par
-   ses liaisons normales), puis l'objet répétition est supprimé. Plus aucune copie n'étant liée,
-   sa suppression n'emporte rien. Les pièces d'origine ne changent pas.
+   répétition » : un recalcul (valeurs à jour), puis `repeat_links.unlink_repeat` détache
+   **toutes** les copies (hors membres d'un ensemble copie, emportés par leur ensemble :
+   expressions et propriétés `Repeat*` retirées, assemblages enfants libérés) **avant** de relier
+   leurs ensembles par les liaisons normales. Relier au fil de l'eau citerait une copie libre
+   depuis une copie encore liée et ferait un faux cycle (étagère répétée dans un caisson). Les
+   liens `Repeat` et `RepeatSource` sont vidés avant d'être retirés : sinon FreeCAD 1.1 garde le
+   lien retour et voit un cycle. Enfin l'objet répétition est supprimé ; plus aucune copie
+   n'étant liée, sa suppression n'emporte rien. Les pièces d'origine ne changent pas. Un objet
+   qui la citait encore (formule d'un tableur, lien d'un autre atelier) n'est jamais modifié :
+   ses liens sont rompus et il est nommé dans un avertissement de la vue rapport (Ctrl+Z rend
+   tout).
 2. La commande devient « Dissocier la répétition » (même nom interne
    `Menuiserie_RepeatDissociate`, même icône) ; elle est active sur une sélection faite de
    répétitions et de copies liées (une pièce usinée compte pour sa brute) et dissocie chaque

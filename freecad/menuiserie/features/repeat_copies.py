@@ -179,9 +179,8 @@ def _drop_outside(repeat: DocumentObject, source: DocumentObject, plan: _Plan) -
 def _renumber(repeat: DocumentObject, ranks: dict[Cell, int]) -> None:
     """Rang linéaire (``RepeatIndex``) de chaque copie, d'après sa cellule : ordre d'affichage.
     Un libellé automatique (« {source} ({rang + 1}) », ou l'ancienne forme sans parenthèses)
-    suit le nouveau rang ; un libellé que
-    l'utilisateur a changé reste. Les libellés sont libérés d'abord, pour que deux copies ne se
-    les disputent pas."""
+    suit le nouveau rang ; un libellé que l'utilisateur a changé reste. Les libellés sont libérés
+    d'abord, pour que deux copies ne se les disputent pas."""
     changes = []
     for copy in copies_of(repeat):
         rank = ranks.get(cell_of(copy))

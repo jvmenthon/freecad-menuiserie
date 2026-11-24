@@ -44,7 +44,7 @@ from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of
 from freecad.menuiserie.features.furniture_members import member_object
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.repeat import repeat_of
+from freecad.menuiserie.features.repeat import repeats_of
 from freecad.menuiserie.features.structure_facts import facts_of
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.furniture import refresh_tree, show_notices
@@ -338,8 +338,7 @@ class StructureActions(QtCore.QObject):  # type: ignore[misc]
         doc = App.ActiveDocument
         if doc is None:
             return
-        found = [repeat_of(obj) for obj in _objects(doc, entry.decision.keys)]
-        repeats = list({rep.Name: rep for rep in found if rep is not None}.values())
+        repeats = repeats_of(_objects(doc, entry.decision.keys))
 
         def action() -> Sequence[str]:
             for rep in repeats:

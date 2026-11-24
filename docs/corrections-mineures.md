@@ -203,3 +203,12 @@ de répétitions m5) sont corrigés.
 | al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
 | al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
 | al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |
+
+## Dissocier la répétition (PR #260, ADR 0067), 2026-11-24
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| dr1 | mineur | `core/repeat/_model.py` (`copy_name`) | Une source déjà nommée « Montant (2) » donne des copies « Montant (2) (2) ». | Retirer le suffixe « (n) » de la source avant de numéroter, si jv le souhaite. |
+| dr2 | mineur | `core/repeat/_model.py` (`is_copy_name`) | Un nom « Barreau 3 » saisi à la main sur la copie de rang 2 est pris pour l'ancien nom automatique et renommé « Barreau (n) » quand le rang change. | Accepté (ancien format) ; à revoir si un document le montre. |
+| dr3 | mineur | `gui/commands/repeat.py`, `gui/structure_actions.py` | Après Ctrl+Z, les copies restent « Touched » jusqu'au recalcul suivant (comportement de FreeCAD). | Recalculer après l'annulation si cela gêne. |
+| dr4 | mineur | `resources/icons/Menuiserie_RepeatDissociate.svg` | Le dessin montre une seule copie qui s'écarte, alors que toutes les copies sont libérées. | Nouvelle icône après 3 maquettes soumises à jv. |
