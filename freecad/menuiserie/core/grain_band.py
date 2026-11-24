@@ -26,6 +26,8 @@ Band = tuple[float, Segment]  # demi-largeur, bois commun
 MARK_WIDTH_RATIO: Final = 0.34  # demi-largeur de la marque, part de la largeur de la bande
 MARK_LENGTH_RATIO: Final = 0.09  # demi-largeur maximale de la marque, part de sa longueur
 MAX_SLICES: Final = 32  # tranches (les plus larges) où un milieu de bande est essayé
+SEARCH_VERTICES: Final = 400  # sommets du contour allégé pour la recherche, environ
+SHRINK_STEPS: Final = (0.25, 0.5, 0.7, 0.85, 1.0)  # demi-largeurs recoupées, part de la trouvée
 GRID: Final = 16  # milieux de bande essayés en plus, répartis sur l'étendue
 MAX_HALVES: Final = 24  # demi-largeurs essayées jusqu'aux droites de sommets, au plus
 WIDTH_STEPS: Final = (0.05, 0.1, 0.2, 0.3, 0.4, 0.5)  # demi-largeurs essayées, part de l'étendue
@@ -179,18 +181,23 @@ def _score(segment: Segment, half: float) -> float:
     return length * min(MARK_WIDTH_RATIO * 2 * half, MARK_LENGTH_RATIO * length)
 
 
-def grain_band(loops: Sequence[Loop], axis: int) -> GrainBand | None:
-    """Bande de bois le long de l'axe ``axis`` (0 = X, 1 = Y) du contour ``loops`` où la marque
-    du fil est la plus grande (à égalité, la plus proche du milieu) ; le segment rendu est le bois
-    commun à toute la bande. ``None`` si le contour est vide ou plat."""
-    if axis not in (0, 1):
-        raise ValueError(f"axe du fil inconnu : {axis!r}")
-    if not _edges(loops, axis):
+def _decimated(loops: Sequence[Loop]) -> list[Loop] | None:
+    """Contour allégé pour la recherche (au plus :data:`SEARCH_VERTICES` sommets environ) : un
+    sommet sur ``k`` de chaque boucle assez longue, les petites boucles restent entières ;
+    ``None`` si le contour est déjà assez léger."""
+    total = sum(len(loop) for loop in loops)
+    step = -(-total // SEARCH_VERTICES)
+    if step <= 1:
         return None
-    slices = _Slices(loops, axis)
-    if not slices.high - slices.low > 4 * slices.epsilon:  # aussi faux pour NaN
-        return None
-    best: tuple[float, GrainBand] | None = None
+    return [loop[::step] if len(loop) >= 3 * step else loop for loop in loops]
+
+
+_Found = tuple[float, float, float, float]  # score, milieu de bande, abscisse, demi-largeur
+
+
+def _search(slices: _Slices) -> _Found | None:
+    """Bande où la marque est la plus grande (à égalité, la plus proche du milieu)."""
+    best: _Found | None = None
     for center in slices.centers():
         for segment in slices.cut(center):
             point = (segment[0] + segment[1]) / 2
@@ -199,5 +206,31 @@ def grain_band(loops: Sequence[Loop], axis: int) -> GrainBand | None:
                 if common[1] - common[0] > slices.epsilon and (
                     best is None or score > best[0] * (1 + 1e-9)
                 ):
-                    best = (score, GrainBand(common[0], common[1], center, 2 * half))
-    return best[1] if best is not None else None
+                    best = (score, center, (common[0] + common[1]) / 2, half)
+    return best
+
+
+def grain_band(loops: Sequence[Loop], axis: int) -> GrainBand | None:
+    """Bande de bois le long de l'axe ``axis`` (0 = X, 1 = Y) du contour ``loops`` où la marque
+    du fil est la plus grande (à égalité, la plus proche du milieu) ; le segment rendu est le bois
+    commun à toute la bande, lu sur le contour complet. La recherche se fait sur un contour
+    allégé quand il est très discrétisé (rafraîchissement en direct), puis la bande trouvée est
+    recoupée sur le contour complet (rétrécie si besoin). ``None`` si le contour est vide ou
+    plat."""
+    if axis not in (0, 1):
+        raise ValueError(f"axe du fil inconnu : {axis!r}")
+    if not _edges(loops, axis):
+        return None
+    slices = _Slices(loops, axis)
+    if not slices.high - slices.low > 4 * slices.epsilon:  # aussi faux pour NaN
+        return None
+    coarse = _decimated(loops)
+    found = _search(slices if coarse is None else _Slices(coarse, axis))
+    if found is None:
+        return None
+    _, center, point, half = found
+    exact = list(slices.widening(center, point, [half * ratio for ratio in SHRINK_STEPS]))
+    if not exact or exact[-1][1][1] - exact[-1][1][0] <= slices.epsilon:
+        return None
+    half, common = exact[-1]
+    return GrainBand(common[0], common[1], center, 2 * half)

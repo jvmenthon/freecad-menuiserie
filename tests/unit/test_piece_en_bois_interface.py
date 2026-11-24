@@ -149,6 +149,7 @@ def test_bande_minuscule_ou_axe_invalide() -> None:
     assert grain_band(((), *rectangle(10.0, 5.0)), 0) is not None  # boucle vide ignorée
     with pytest.raises(ValueError):
         grain_band(rectangle(10.0, 5.0), 2)
+    assert not axes_drawing((-5.0, 10.0, 18.0), grain=0).solids  # cote négative : trièdre seul
 
 
 def test_contour_tres_discretise_rapide() -> None:
@@ -160,8 +161,13 @@ def test_contour_tres_discretise_rapide() -> None:
         ),
     )
     started = time.perf_counter()
-    assert grain_band(circle, 0) is not None
-    assert time.perf_counter() - started < 3.0  # 0,4 s en local : un rafraîchissement en direct
+    band = grain_band(circle, 0)
+    assert time.perf_counter() - started < 1.0  # 0,1 s en local : un rafraîchissement en direct
+    assert band is not None and band.length > 400.0
+    # recherche sur le contour allégé, puis bande recoupée sur le contour complet
+    for along in (band.start + 1e-6, band.end - 1e-6):
+        for across in (band.across - band.width / 2 + 1e-6, band.across + band.width / 2 - 1e-6):
+            assert (along - 300.0) ** 2 + across**2 < 300.0**2
 
 
 def test_sans_fil_pas_de_marque() -> None:
