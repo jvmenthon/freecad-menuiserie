@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import itertools
 import math
+import random
 from collections.abc import Iterator
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -177,14 +178,20 @@ def test_part_label_repere_et_libelle(choice: ModuleType) -> None:
     assert choice.part_label(Obj("A", Label="Montant")) == "Montant"
 
 
-def test_ligne_sans_enfant_compte_une_piece(choice: ModuleType, monkeypatch: Any) -> None:
-    monkeypatch.setattr(choice, "is_furniture", lambda obj: obj.Name == "E")
+def test_ligne_compte_les_exemplaires_de_ses_pieces(choice: ModuleType, monkeypatch: Any) -> None:
+    """Revue : le compte d'une ligne vient du compte des plans (copies par lien comprises) ;
+    un document démesuré compte 0 au lieu de casser le panneau."""
+    counts = {"E": 12, "P": 1}
+
+    def fake(objects: list[Any]) -> int:
+        if objects[0].Name == "X":
+            raise ValueError("démesuré")
+        return counts[objects[0].Name]
+
+    monkeypatch.setattr(choice, "part_count", fake)
     assert choice.Choice(Obj("P")).parts == 1
-    assert choice.Choice(Obj("E")).parts == 0  # ensemble vide
-    group = choice.Choice(Obj("E"), (choice.Choice(Obj("P")), choice.Choice(Obj("Q"))))
-    assert group.parts == 2
-    nested = choice.Choice(Obj("F"), (group, choice.Choice(Obj("R"))))
-    assert nested.parts == 3
+    assert choice.Choice(Obj("E"), (choice.Choice(Obj("P")),)).parts == 12
+    assert choice.Choice(Obj("X")).parts == 0
 
 
 def test_std_part_qui_se_lie_lui_meme_ne_boucle_pas(scope: ModuleType) -> None:
@@ -243,7 +250,7 @@ def test_cible_commune_lue_une_seule_fois(scope: ModuleType) -> None:
 def test_trop_de_cibles_lues_refuse(scope: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(scope, "MAX_LINK_VISITS", 3)
     holder = _part("H", [_link(f"L{i}", _part(f"S{i}", [])) for i in range(10)])
-    with pytest.raises(ValueError, match="liens imbriqués"):
+    with pytest.raises(ValueError, match="cibles de liens"):
         scope.workshop_inside(holder, scope.LinkWalk())
 
 
@@ -282,20 +289,53 @@ def parts_module(module: ModuleType, monkeypatch: pytest.MonkeyPatch) -> ModuleT
 def test_tableau_de_liens_multiplie_les_pieces(parts: ModuleType, scope: ModuleType) -> None:
     box = Obj("B1", TypeId="Part::Box")
     array = _link("L", _part("S", [box]), ElementCount=4)
-    found = list(parts._blanks([array], set(), scope.LinkWalk()))
+    found = list(parts._blanks([array], set(), parts._BlankWalk()))
     assert [(blank.Name, count) for blank, count in found] == [("B1", 4)]
 
 
-def test_liens_de_liens_multiplient_et_plafonnent(parts: ModuleType, scope: ModuleType) -> None:
+def test_liens_de_liens_multiplient_et_refusent_l_exces(
+    parts: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Revue : une quantité au-delà du plafond est refusée par un message, pas tronquée."""
     box = Obj("B1", TypeId="Part::Box")
     inner = _link("I", _part("S", [box]), ElementCount=3)
     outer = _link("O", _part("T", [inner]), ElementCount=5)
-    found = list(parts._blanks([outer], set(), scope.LinkWalk()))
+    found = list(parts._blanks([outer], set(), parts._BlankWalk()))
     assert [count for _, count in found] == [15]
-    huge = _link("H", _part("U", [box]), ElementCount=scope.MAX_LINK_ELEMENTS)
-    capped = list(parts._blanks([huge, _link("H2", huge)], set(), scope.LinkWalk()))
-    assert all(count <= parts.MAX_QUANTITY for _, count in capped)
+    monkeypatch.setattr(parts, "MAX_QUANTITY", 10)
+    with pytest.raises(ValueError, match="exemplaires"):
+        list(parts._blanks([outer], set(), parts._BlankWalk()))
+
+
+def test_liens_trop_imbriques_refuses(parts: ModuleType) -> None:
+    """Revue : au-delà de ``MAX_LINK_DEPTH`` liens imbriqués, refus par un message (plus de
+    pièces oubliées sans rien dire)."""
+    current: Any = Obj("B1", TypeId="Part::Box")
+    for i in range(parts.MAX_LINK_DEPTH + 1):
+        current = _link(f"L{i}", _part(f"S{i}", [current]))
+    with pytest.raises(ValueError, match="imbriqués"):
+        list(parts._blanks([current], set(), parts._BlankWalk()))
+    shallow: Any = Obj("B2", TypeId="Part::Box")
+    for i in range(parts.MAX_LINK_DEPTH):
+        shallow = _link(f"M{i}", _part(f"T{i}", [shallow]))
+    assert [count for _, count in parts._blanks([shallow], set(), parts._BlankWalk())] == [1]
 
 
 def test_lien_vide_ne_donne_aucune_piece(parts: ModuleType, scope: ModuleType) -> None:
-    assert list(parts._blanks([_link("L", _part("S", []))], set(), scope.LinkWalk())) == []
+    assert list(parts._blanks([_link("L", _part("S", []))], set(), parts._BlankWalk())) == []
+
+
+@pytest.mark.parametrize("seed", range(40))
+def test_chaine_aleatoire_sans_chevauchement_ni_debord(seed: int) -> None:
+    """Revue : quels que soient les segments, les textes gardés ne se chevauchent pas, restent
+    dans la place libre et suivent l'ordre des segments (dernière cote retirée si elle ne
+    tient pas, texte décalé avant son segment compris)."""
+    rng = random.Random(seed)  # noqa: S311 (tirage de test reproductible)
+    points = sorted({0.0, 100.0, *(round(rng.uniform(0.0, 100.0), 1) for _ in range(6))})
+    segments = list(itertools.pairwise(points))
+    bounds = (-rng.uniform(0.0, 20.0), 100.0 + rng.uniform(0.0, 20.0))
+    labels = chain_labels(segments, _width, bounds)
+    edges = [(spot - 5.0, spot + 5.0) for _, _, spot in labels]
+    assert all(left >= bounds[0] and right <= bounds[1] for left, right in edges)
+    assert all(a[1] < b[0] for a, b in itertools.pairwise(edges))
+    assert [start for start, _, _ in labels] == sorted(start for start, _, _ in labels)

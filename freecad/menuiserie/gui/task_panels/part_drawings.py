@@ -26,6 +26,8 @@ from freecad.menuiserie.features.drawing_parts import distinct_parts
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.gui import drawing_pdf
+from freecad.menuiserie.gui.commands.base import report_refusal
+from freecad.menuiserie.gui.commands.cutlist import show_status
 from freecad.menuiserie.gui.display_io import later
 from freecad.menuiserie.gui.drawing_hlr import HlrWait
 from freecad.menuiserie.gui.task_panels.base import ok_cancel_buttons
@@ -41,18 +43,30 @@ _HINT: Final = QT_TRANSLATE_NOOP(
     "vue 3D coche aussi.",
 )
 _GROUP: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} ({count} pièces)")
+_GROUP_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "{label} (1 pièce)")
 _LOOSE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièces hors ensemble")
 _COUNT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
-    "{count} plan(s) seront créés dans ce document (pièces identiques : un plan, avec la "
-    "quantité).",
+    "{count} plans seront créés dans ce document (pièces identiques : un plan, avec la quantité).",
+)
+_COUNT_ONE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "{count} plan sera créé dans ce document (pièces identiques : un plan, avec la quantité).",
 )
 _NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plans de pièce : cochez au moins une pièce.")
 _ALL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Tout")
 _NONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Aucune")
 _DONE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "{count} plan(s) de pièce faits ; chaque page s'exporte en PDF."
+    "Menuiserie", "{count} plans de pièce faits ; chaque page s'exporte en PDF."
 )
+_DONE_ONE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "1 plan de pièce fait ; la page s'exporte en PDF."
+)
+
+
+def _counted(count: int, one: str, many: str, values: dict[str, str] | None = None) -> str:
+    """Texte traduit au singulier (0 ou 1, comme en français) ou au pluriel."""
+    return translated(one if count <= 1 else many, {**(values or {}), "count": str(count)})
 
 
 def _flag(name: str) -> Any:
@@ -104,7 +118,8 @@ class PartDrawingsTaskPanel:
     def __init__(self, doc: Document) -> None:
         self.doc = doc
         self.pages: list[DocumentObject] = []
-        self._pushing = False
+        self._pushing = False  # le panneau pousse lui-même la sélection
+        self._pending = False  # recalcul déjà demandé
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
         self.form.setWindowTitle(translated(_TITLE))
@@ -125,7 +140,6 @@ class PartDrawingsTaskPanel:
             row.addWidget(button)
         row.addStretch()
         layout.addLayout(row)
-        self._pending = False
         self._fill()
         self.tree.itemChanged.connect(self._item_changed)
         self._watcher = _SelectionWatcher(self)
@@ -149,7 +163,8 @@ class PartDrawingsTaskPanel:
 
     def _item(self, choice: Choice) -> Any:
         if choice.children:
-            text = translated(_GROUP, {"label": part_label(choice.obj), "count": str(choice.parts)})
+            label = {"label": part_label(choice.obj)}
+            text = _counted(choice.parts, _GROUP_ONE, _GROUP, label)
         else:
             text = part_label(choice.obj)
         item = self._new_item(text, choice.obj.Name)
@@ -221,7 +236,7 @@ class PartDrawingsTaskPanel:
             count = len(distinct_parts(self.doc, chosen)) if chosen else 0
         except ValueError:
             count = 0
-        self.count.setText(translated(_COUNT, {"count": str(count)}))
+        self.count.setText(_counted(count, _COUNT_ONE, _COUNT))
         self._pushing = True
         try:
             Gui.Selection.clearSelection()
@@ -233,15 +248,9 @@ class PartDrawingsTaskPanel:
     def _done_pushing(self) -> None:
         self._pushing = False
 
-    def _detach(self) -> None:
-        self._watcher.detach()
-
     def accept(self) -> bool:
         """Crée ou refait les plans des pièces cochées et ouvre le premier ; un refus de l'api
         (rien de coché) laisse le panneau ouvert."""
-        from freecad.menuiserie.gui.commands.base import report_refusal
-        from freecad.menuiserie.gui.commands.cutlist import show_status
-
         chosen = self.chosen()  # lu avant la fermeture, qui détruit l'arbre
         if not chosen:
             report_refusal(translated(_NOTHING))
@@ -253,16 +262,16 @@ class PartDrawingsTaskPanel:
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return False
-        self._detach()
+        self._watcher.detach()
         Gui.Control.closeDialog()
         if self.pages:
             drawing_pdf.show_page(self.pages[0])
-        show_status(translated(_DONE, {"count": str(len(self.pages))}))
+        show_status(_counted(len(self.pages), _DONE_ONE, _DONE))
         return True
 
     def reject(self) -> bool:
         """Ferme sans rien créer."""
-        self._detach()
+        self._watcher.detach()
         Gui.Control.closeDialog()
         return True
 

@@ -12,6 +12,7 @@ usinages partagent une page ; leur nombre est écrit au cartouche.
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass, field
 from typing import Any, Final
 
 from freecad.menuiserie.core.drawing import (
@@ -51,7 +52,9 @@ from freecad.menuiserie.features.drawing import (
 from freecad.menuiserie.features.drawing_dims import part_band_mm
 from freecad.menuiserie.features.drawing_scope import (
     MAX_LINK_DEPTH,
+    TOO_NESTED,
     LinkWalk,
+    children_of,
     link_occurrences,
     link_target,
     object_key,
@@ -61,7 +64,6 @@ from freecad.menuiserie.features.drawing_title import fill_title_block
 from freecad.menuiserie.features.drawing_views import NOTE_SIZE_MM, add_part_views
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
-from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import is_joint, plan_for, resolved_for
 from freecad.menuiserie.features.machined_part import (
@@ -71,7 +73,7 @@ from freecad.menuiserie.features.machined_part import (
 )
 from freecad.menuiserie.features.shaped_part import is_timber
 
-__all__ = ["distinct_parts", "make_part_drawings", "part_details"]
+__all__ = ["distinct_parts", "make_part_drawings", "part_count", "part_details"]
 
 MAX_QUANTITY: Final = 1_000_000  # exemplaires d'une pièce au plus (tableaux de liens imbriqués)
 PART_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de pièce")
@@ -84,7 +86,11 @@ _MORE: Final = QT_TRANSLATE_NOOP("Menuiserie", "… et {count} autres usinages")
 _NO_PART: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan de pièce impossible : aucune pièce de bois dans la sélection."
 )
+_TOO_MANY_COPIES: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Plan de pièce impossible : plus de {limit} exemplaires d'une même pièce."
+)
 _KEY_DECIMALS: Final = 1
+Blanks = list[tuple[DocumentObject, int]]  # pièces (brutes) et leur nombre
 _WITH: Final = QT_TRANSLATE_NOOP("Menuiserie", "{kind} avec « {other} »")
 Details = tuple[list[Machining], list[NoteLine]]  # usinages, lignes propres aux assemblages
 _KINDS: Final = {
@@ -96,13 +102,27 @@ _KINDS: Final = {
 }
 
 
+@dataclass
+class _BlankWalk(LinkWalk):
+    """Parcours des liens qui garde aussi les pièces que montre chaque cible (par clé)."""
+
+    blanks: dict[tuple[str, str], Blanks] = field(default_factory=dict)
+
+
+def _quantity(count: int) -> int:
+    """``count`` exemplaires, ``ValueError`` traduite au-delà de ``MAX_QUANTITY``."""
+    if count > MAX_QUANTITY:
+        raise ValueError(translated(_TOO_MANY_COPIES, {"limit": str(MAX_QUANTITY)}))
+    return count
+
+
 def _blanks(
-    objects: Sequence[DocumentObject], seen: set[str], walk: LinkWalk, depth: int = 0
+    objects: Sequence[DocumentObject], seen: set[str], walk: _BlankWalk, depth: int = 0
 ) -> Iterator[tuple[DocumentObject, int]]:
-    """Pièces de bois (brutes) de ``objects`` et leur nombre : membres des ensembles, brute
-    d'une pièce usinée, sans doublon ; un lien (copie d'un meuble ou d'une pièce) redonne les
-    pièces qu'il montre, autant de fois qu'il a de copies (pièces d'une cible calculées une
-    fois par parcours)."""
+    """Pièces de bois (brutes) de ``objects`` et leur nombre : membres des ensembles et copies
+    par lien de leur Std Part, brute d'une pièce usinée, sans doublon ; un lien (copie d'un
+    meuble ou d'une pièce) redonne les pièces qu'il montre, autant de fois qu'il a de copies
+    (pièces d'une cible calculées une fois par parcours)."""
     for obj in objects:
         if obj.Name in seen:
             continue
@@ -111,29 +131,34 @@ def _blanks(
         if target is not None:
             times = link_occurrences(obj)
             for blank, count in _linked_blanks(target, walk, depth):
-                yield blank, min(count * times, MAX_QUANTITY)
+                yield blank, _quantity(count * times)
         elif is_furniture(obj):
-            yield from _blanks(members_of(obj), seen, walk, depth)
+            yield from _blanks(children_of(obj, walk), seen, walk, depth)
         elif is_machined_part(obj):
             yield from _blanks([blank_of(obj)], seen, walk, depth)
         elif is_timber(obj):
             yield obj, 1
 
 
-def _linked_blanks(
-    target: DocumentObject, walk: LinkWalk, depth: int
-) -> list[tuple[DocumentObject, int]]:
-    """Pièces (et nombre) que montre une copie de ``target``, mémorisées dans ``walk``."""
-    key = ("blanks", *object_key(target))
-    cached = walk.memo.get(key)
-    if isinstance(cached, list):
-        return cached
+def _linked_blanks(target: DocumentObject, walk: _BlankWalk, depth: int) -> Blanks:
+    """Pièces (et nombre) que montre une copie de ``target``, mémorisées dans ``walk`` ;
+    ``ValueError`` traduite au-delà de ``MAX_LINK_DEPTH`` liens imbriqués. Une boucle de liens
+    (document piégé) n'ajoute rien : correction mineure pc1."""
+    key = object_key(target)
+    if key in walk.blanks:
+        return walk.blanks[key]
     if depth >= MAX_LINK_DEPTH:
-        return []
-    walk.memo[key] = []  # en cours : une boucle n'ajoute rien
+        raise ValueError(translated(TOO_NESTED, {"limit": str(MAX_LINK_DEPTH)}))
+    walk.blanks[key] = []  # en cours : une boucle n'ajoute rien
     found = list(_blanks(workshop_inside(target, walk), set(), walk, depth + 1))
-    walk.memo[key] = found
+    walk.blanks[key] = found
     return found
+
+
+def part_count(objects: Sequence[DocumentObject]) -> int:
+    """Nombre d'exemplaires des pièces de bois de ``objects`` (copies par lien comprises) ;
+    ``ValueError`` traduite pour un document démesuré."""
+    return sum(count for _, count in _blanks(objects, set(), _BlankWalk()))
 
 
 def _size(blank: DocumentObject) -> tuple[float, float, float]:
@@ -228,14 +253,14 @@ def distinct_parts(
     bois."""
     scope = list(objects) or document_scope(doc)
     blanks = sorted(
-        _blanks(scope, set(), LinkWalk()),
+        _blanks(scope, set(), _BlankWalk()),
         key=lambda item: (str(getattr(item[0], "Mark", "")), item[0].Name),
     )
     groups: dict[tuple[object, ...], list[Any]] = {}
     for blank, times in blanks:
         found, notes = part_details(blank)
         entry = groups.setdefault(_key(blank, found, notes), [blank, 0, found, notes])
-        entry[1] = min(entry[1] + times, MAX_QUANTITY)
+        entry[1] = _quantity(entry[1] + times)
     if not groups:
         raise ValueError(translated(_NO_PART))
     return [(blank, count, (found, notes)) for blank, count, found, notes in groups.values()]

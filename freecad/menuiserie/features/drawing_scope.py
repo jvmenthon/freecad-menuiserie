@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.freecad_types import Document, DocumentObject
+from freecad.menuiserie.features.freecad_types import LINK_TYPE, Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.furniture_container import is_std_part, std_part_of
@@ -24,7 +24,10 @@ __all__ = [
     "MAX_LINK_DEPTH",
     "MAX_LINK_ELEMENTS",
     "NOTHING",
+    "TOO_NESTED",
     "LinkWalk",
+    "check_link_size",
+    "children_of",
     "document_scope",
     "drawing_sources",
     "link_occurrences",
@@ -34,8 +37,8 @@ __all__ = [
     "workshop_inside",
 ]
 
-LINK_TYPE: Final = "App::Link"
-MAX_LINK_DEPTH: Final = 8  # liens de liens dépliés au plus pour compter les pièces
+MAX_LINK_DEPTH: Final = 8  # liens de liens dépliés au plus pour compter les pièces (au-delà :
+# refus) ; l'arbre du panneau, qui ne déplie pas les liens, a sa propre borne d'ensembles
 MAX_LINK_VISITS: Final = 10_000  # cibles de liens lues au plus par parcours (document piégé)
 MAX_LINK_ELEMENTS: Final = 10_000  # copies d'un tableau de liens au plus
 
@@ -43,8 +46,11 @@ NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan impossible : aucune pièc
 _TOO_MANY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan impossible : « {label} » montre plus de {limit} copies."
 )
-_TOO_DEEP: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Plan impossible : plus de {limit} liens imbriqués à lire."
+_TOO_MANY_LINKS: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Plan impossible : plus de {limit} cibles de liens à lire."
+)
+TOO_NESTED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Plan impossible : plus de {limit} liens imbriqués les uns dans les autres."
 )
 _FOREIGN: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Plan impossible : « {label} » appartient à un autre document."
@@ -60,7 +66,6 @@ class LinkWalk:
     shown: dict[tuple[str, str], list[DocumentObject]] = field(default_factory=dict)
     running: set[tuple[str, str]] = field(default_factory=set)
     visits: int = 0
-    memo: dict[tuple[str, ...], object] = field(default_factory=dict)  # pour les appelants
 
 
 def object_key(obj: DocumentObject) -> tuple[str, str]:
@@ -95,6 +100,11 @@ def link_occurrences(obj: DocumentObject) -> int:
     return count
 
 
+def check_link_size(obj: DocumentObject) -> None:
+    """Refuse (``ValueError`` traduite) un tableau de liens démesuré, avant toute forme."""
+    link_occurrences(obj)
+
+
 def workshop_inside(target: DocumentObject, walk: LinkWalk | None = None) -> list[DocumentObject]:
     """Ce que montre un lien vers ``target`` : ``target`` lui-même si c'est un ensemble, une
     pièce de l'atelier ou un lien qui en montre, sinon ceux du Std Part ``target`` dont
@@ -110,7 +120,7 @@ def workshop_inside(target: DocumentObject, walk: LinkWalk | None = None) -> lis
         return []  # boucle : la cible se montre elle-même
     walk.visits += 1
     if walk.visits > MAX_LINK_VISITS:
-        raise ValueError(translated(_TOO_DEEP, {"limit": str(MAX_LINK_VISITS)}))
+        raise ValueError(translated(_TOO_MANY_LINKS, {"limit": str(MAX_LINK_VISITS)}))
     walk.running.add(key)
     try:
         if link_target(target) is not None:
@@ -162,6 +172,13 @@ def links_in(furniture: DocumentObject, walk: LinkWalk | None = None) -> list[Do
     return [obj for obj in group if _drawn_link(obj, walk)]
 
 
+def children_of(furniture: DocumentObject, walk: LinkWalk | None = None) -> list[DocumentObject]:
+    """Lignes d'un ensemble pour les plans : ses membres (sous-ensembles compris) puis les
+    copies par lien rangées dans son Std Part. Règle commune au dessin, au compte des pièces,
+    aux matériaux du cartouche et à l'arbre du panneau."""
+    return [*members_of(furniture), *links_in(furniture, walk)]
+
+
 def _expanded(obj: DocumentObject, seen: set[str], walk: LinkWalk) -> Iterator[DocumentObject]:
     """Objets à projeter pour ``obj`` : les membres d'un ensemble (sous-ensembles et liens de
     son Std Part compris), la pièce usinée d'une pièce de bois assemblée, un lien tel quel,
@@ -170,11 +187,11 @@ def _expanded(obj: DocumentObject, seen: set[str], walk: LinkWalk) -> Iterator[D
         return
     seen.add(obj.Name)
     if is_furniture(obj):
-        for member in [*members_of(obj), *links_in(obj, walk)]:
+        for member in children_of(obj, walk):
             yield from _expanded(member, seen, walk)
         return
     if link_target(obj) is not None:
-        link_occurrences(obj)  # refus d'un tableau démesuré avant toute forme
+        check_link_size(obj)
         yield obj
         return
     shown = (machined_part_of(obj) or obj) if is_timber(obj) else obj
@@ -194,7 +211,8 @@ def _top_level(obj: DocumentObject) -> bool:
 def document_scope(doc: Document) -> list[DocumentObject]:
     """Ce que dessine le plan quand rien n'est sélectionné : les ensembles de plus haut niveau,
     les pièces de bois hors ensemble et les liens hors de tout conteneur qui en montrent
-    (copies d'un meuble), par nom."""
+    (copies d'un meuble), par nom. Un lien rangé dans un Std Part qui n'est pas celui d'un
+    ensemble n'est pas pris : il faut alors le sélectionner, ou ce Std Part."""
     walk = LinkWalk()
     found = [
         obj

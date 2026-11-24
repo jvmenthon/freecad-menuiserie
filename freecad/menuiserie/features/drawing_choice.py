@@ -12,15 +12,16 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from freecad.menuiserie.core.drawing import clean_field
-from freecad.menuiserie.features.drawing_scope import document_scope, link_target, links_in
+from freecad.menuiserie.features.drawing_parts import part_count
+from freecad.menuiserie.features.drawing_scope import children_of, document_scope, link_target
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
-from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.shaped_part import is_timber
 
 __all__ = ["MAX_DEPTH", "Choice", "part_choices", "part_label"]
 
-MAX_DEPTH: Final = 16  # sous-ensembles imbriqués montrés au plus, contre les boucles
+MAX_DEPTH: Final = 16  # sous-ensembles imbriqués montrés au plus, contre les boucles (les
+# liens ne sont pas dépliés dans l'arbre : ``MAX_LINK_DEPTH`` borne leur compte des pièces)
 
 
 @dataclass(frozen=True)
@@ -32,10 +33,12 @@ class Choice:
 
     @property
     def parts(self) -> int:
-        """Pièces sous la ligne (elle-même si c'est une pièce ou un lien)."""
-        if not self.children:
-            return 0 if is_furniture(self.obj) else 1
-        return sum(child.parts for child in self.children)
+        """Exemplaires des pièces sous la ligne, copies par lien comprises (0 pour un document
+        démesuré, que les plans refuseront avec leur message)."""
+        try:
+            return part_count([self.obj])
+        except ValueError:
+            return 0
 
 
 def part_label(obj: DocumentObject) -> str:
@@ -50,7 +53,7 @@ def _choice(obj: DocumentObject, depth: int) -> Choice | None:
         return Choice(obj)
     if not is_furniture(obj) or depth >= MAX_DEPTH:
         return None
-    rows = [_choice(member, depth + 1) for member in [*members_of(obj), *links_in(obj)]]
+    rows = [_choice(member, depth + 1) for member in children_of(obj)]
     found = tuple(row for row in rows if row is not None)
     return Choice(obj, found) if found else None
 

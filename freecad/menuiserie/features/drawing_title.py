@@ -23,10 +23,14 @@ from freecad.menuiserie.core.drawing import (
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features import drawing_settings
-from freecad.menuiserie.features.drawing_scope import link_target, workshop_inside
+from freecad.menuiserie.features.drawing_scope import (
+    LinkWalk,
+    children_of,
+    link_target,
+    workshop_inside,
+)
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
-from freecad.menuiserie.features.furniture_bindings import members_of
 from freecad.menuiserie.features.furniture_container import is_std_part
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.machined_part import blank_of, is_machined_part
@@ -46,7 +50,7 @@ _VARIOUS: Final = QT_TRANSLATE_NOOP("Menuiserie", "divers")
 _KIND: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan de l'ouvrage")
 
 
-def _materials(objects: Sequence[DocumentObject], seen: set[str]) -> set[str]:
+def _materials(objects: Sequence[DocumentObject], seen: set[str], walk: LinkWalk) -> set[str]:
     """Matériaux des pièces de bois de ``objects`` : membres des ensembles, brute d'une pièce
     usinée, pièces d'un Std Part ou d'une copie par lien compris."""
     found: set[str] = set()
@@ -56,18 +60,18 @@ def _materials(objects: Sequence[DocumentObject], seen: set[str]) -> set[str]:
         seen.add(obj.Name)
         target = link_target(obj)
         if target is not None or is_std_part(obj):  # copie par lien, Std Part d'un meuble
-            found |= _materials(workshop_inside(target or obj), seen)
+            found |= _materials(workshop_inside(target or obj, walk), seen, walk)
         elif is_furniture(obj):
-            found |= _materials(members_of(obj), seen)
+            found |= _materials(children_of(obj, walk), seen, walk)
         elif is_machined_part(obj):
-            found |= _materials([blank_of(obj)], seen)
+            found |= _materials([blank_of(obj)], seen, walk)
         elif is_timber(obj):
             found.add(clean_field(str(getattr(obj, "Material", ""))))
     return found - {""}
 
 
 def _material_text(objects: Sequence[DocumentObject]) -> str:
-    names = sorted(_materials(objects, set()))
+    names = sorted(_materials(objects, set(), LinkWalk()))
     return ", ".join(names) if len(names) <= MAX_MATERIALS else translated(_VARIOUS)
 
 

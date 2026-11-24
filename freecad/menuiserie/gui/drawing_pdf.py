@@ -24,7 +24,7 @@ from freecad.menuiserie.features.cutlist_export import (
     with_suffix,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.cutlist import show_status
 
@@ -35,6 +35,9 @@ _FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{page} - plan")
 _EXPORTED: Final = QT_TRANSLATE_NOOP("Menuiserie", "Plan exporté dans « {path} ».")
 _DIALOG_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter le plan")
 _PDF_FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers PDF (*.pdf)")
+_NOT_SHOWN: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Plan « {label} » fait mais pas ouvert ({error}) : double-cliquez sur la page."
+)
 _NOT_A_PAGE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Export impossible : « {label} » n'est pas une page TechDraw."
 )
@@ -72,8 +75,8 @@ def show_page(page: DocumentObject) -> None:
         return
     try:
         view_object.show()
-    except (AttributeError, RuntimeError):
-        return
+    except (AttributeError, RuntimeError) as error:
+        report_warning(translated(_NOT_SHOWN, {"label": str(page.Label), "error": str(error)}))
 
 
 def export_page_pdf(page: DocumentObject, path: str | Path) -> Path:
