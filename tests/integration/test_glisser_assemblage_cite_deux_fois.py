@@ -62,3 +62,56 @@ def test_supprimer_deux_fois_le_meme_assemblage(document: Any) -> None:
     name = joint.Name
     drag_joints.remove_joints([joint, joint])
     assert document.getObject(name) is None
+
+
+# --- Autres chemins qui parcourent InList : rotation, suppression de la pièce usinée ------------
+
+
+def doubly_linked_desk(document: Any) -> tuple[Any, Any]:
+    """Voile du bureau assemblé à une joue, l'assemblage citant le voile par un second lien."""
+    from tests.integration.bureau import build_parts
+
+    bureau = build_parts(document)
+    voile = bureau.parts["V"]
+    joint = api.make_dowels(bureau.parts["JG"], voile)
+    document.recompute()
+    joint.addProperty("App::PropertyLink", "SecondLink")
+    joint.SecondLink = voile
+    assert [obj.Name for obj in voile.InList].count(joint.Name) >= 2
+    document.UndoMode = 1
+    document.clearUndos()
+    return voile, joint
+
+
+def test_rotation_supprime_l_assemblage_cite_deux_fois_une_fois(document: Any) -> None:
+    from freecad.menuiserie.core import snap
+
+    voile, joint = doubly_linked_desk(document)
+    name = joint.Name
+    asked: list[list[str]] = []
+
+    def choose(labels: Any) -> bool:
+        asked.append(list(labels))
+        return True
+
+    assert drag_joints.rotate_checked(voile, snap.Turn.Z, None, choose) is True
+    assert [len(labels) for labels in asked] == [1]
+    assert document.getObject(name) is None
+
+
+def test_supprimer_la_piece_usinee_avec_assemblage_cite_deux_fois(document: Any) -> None:
+    from freecad.menuiserie.features import machined_part
+
+    voile, joint = doubly_linked_desk(document)
+    usinee = machined_part.machined_part_of(voile)
+    assert usinee is not None
+    names = [joint.Name, usinee.Name, voile.Name]
+    asked: list[list[str]] = []
+
+    def choose(_part: str, labels: Any) -> bool:
+        asked.append(list(labels))
+        return True
+
+    assert drag_joints.delete_machined_part(usinee, choose) is False
+    assert [len(labels) for labels in asked] == [1]
+    assert all(document.getObject(name) is None for name in names)

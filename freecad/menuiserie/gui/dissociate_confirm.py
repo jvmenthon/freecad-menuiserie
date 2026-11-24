@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence
 from typing import Final
 
 import FreeCADGui as Gui
-from PySide import QtGui
+from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
@@ -26,6 +26,11 @@ _TEXT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Dissocier {labels} ? Ses {count} copies deviennent des pièces libres, avec leurs valeurs "
     "actuelles : l'original ne les pilote plus et la répétition est supprimée.",
+)
+_TEXT_ONE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Dissocier {labels} ? Sa copie devient une pièce libre, avec ses valeurs actuelles : "
+    "l'original ne la pilote plus et la répétition est supprimée.",
 )
 _TEXT_MANY: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
@@ -43,7 +48,9 @@ Confirmer = Callable[[Sequence[str], int], bool]
 def message_for(labels: Sequence[str], copies: int) -> str:
     """Texte de la fenêtre : les répétitions (``labels``, entre guillemets) et leur nombre total
     de copies, au singulier ou au pluriel, puis comment revenir en arrière."""
-    template = _TEXT if len(labels) == 1 else _TEXT_MANY
+    template = _TEXT_ONE if copies == 1 else _TEXT
+    if len(labels) > 1:
+        template = _TEXT_MANY
     head = translated(template, {"labels": ", ".join(labels), "count": str(copies)})
     return f"{head}\n\n{translated(_ADVICE)}"
 
@@ -54,6 +61,7 @@ def ask(labels: Sequence[str], copies: int) -> bool:
     box = QtGui.QMessageBox(Gui.getMainWindow())
     box.setIcon(QtGui.QMessageBox.Question)
     box.setWindowTitle(translated(_TITLE))
+    box.setTextFormat(QtCore.Qt.PlainText)  # libellés du document : jamais lus comme HTML
     box.setText(message_for(labels, copies))
     cancel = box.addButton(translated(_CANCEL), QtGui.QMessageBox.RejectRole)
     dissociate = box.addButton(translated(_DISSOCIATE), QtGui.QMessageBox.AcceptRole)
