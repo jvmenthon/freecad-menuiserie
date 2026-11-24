@@ -4,7 +4,7 @@
 sur la face du dessus : double flèche évidée, tige en tirets (le signe ↔ des plans de débit, le fil
 n'a pas de sens). La marque suit le contour réel de la pièce (:mod:`.core.grain_band`), pour
 qu'elle reste sur le bois d'une pièce convertie qui n'est pas une boîte. Aucun import de FreeCAD,
-de Qt ni de pivy : :mod:`.shaped_part_axes` le pose dans la vue.
+de Qt ni de pivy : :mod:`.part_axes` le pose dans la vue.
 """
 
 from __future__ import annotations
@@ -40,6 +40,10 @@ DASH_RATIO: Final = 0.55  # part de tiret dans chaque période de la tige
 DASH_GAP: Final = 0.05  # écart entre une pointe et les tirets, part de la flèche
 MIN_DASHES: Final = 3  # tirets de la tige, au moins
 MAX_DASHES: Final = 12  # tirets de la tige, au plus
+DASH_SPACING: Final = 6.0  # période minimale des tirets, en demi-largeurs de tige
+AXIS_WIDTH: Final = 3.0  # épaisseur des traits du trièdre (pixels)
+OUTLINE_WIDTH: Final = 3.0  # épaisseur du contour de la double flèche (pixels)
+DASH_WIDTH: Final = 2.0  # épaisseur des tirets de la tige (pixels)
 _GRAIN_AXES: Final = {"Length": 0, "Width": 1}  # sens du fil -> axe de la pièce
 Extents = tuple[float, float, float]
 
@@ -72,6 +76,14 @@ def _on_top(axis: int, along: float, across: float, height: float) -> Vec3:
     return point.with_component(1 - axis, across)
 
 
+def _dashes(start: float, end: float, shaft: float) -> tuple[tuple[float, float], ...]:
+    """Tirets de la tige entre ``start`` et ``end`` (le long du fil), de ``MIN_DASHES`` à
+    ``MAX_DASHES`` selon la place, chacun ``DASH_RATIO`` de sa période."""
+    count = min(max(int((end - start) / (DASH_SPACING * shaft)), MIN_DASHES), MAX_DASHES)
+    period = (end - start) / count
+    return tuple((start + k * period, start + (k + DASH_RATIO) * period) for k in range(count))
+
+
 def grain_marking(band: GrainBand, axis: int, height: float) -> tuple[Solid, Stroke, Stroke]:
     """Double flèche du fil sur la bande de bois ``band`` (axe du fil ``axis``), à la hauteur
     ``height`` : fond orange translucide (deux pointes et la tige, polygones convexes), contour
@@ -85,6 +97,7 @@ def grain_marking(band: GrainBand, axis: int, height: float) -> tuple[Solid, Str
     mid = band.across
 
     def at(along: float, offset: float) -> Vec3:
+        """Point du dessus à ``along`` sur le fil, décalé de ``offset`` du milieu de la bande."""
         return _on_top(axis, along, mid + offset, height)
 
     left, right = start + head_length, end - head_length
@@ -103,17 +116,11 @@ def grain_marking(band: GrainBand, axis: int, height: float) -> tuple[Solid, Str
         at(right, head), at(right, shaft), at(left, shaft), at(left, head), tip_a,
     )  # fmt: skip
     gap = DASH_GAP * length
-    inner_start, inner_end = left + gap, right - gap
-    count = min(max(int((inner_end - inner_start) / (6.0 * shaft)), MIN_DASHES), MAX_DASHES)
-    period = (inner_end - inner_start) / count
-    dashes = tuple(
-        (at(inner_start + k * period, 0.0), at(inner_start + (k + DASH_RATIO) * period, 0.0))
-        for k in range(count)
-    )
+    dashes = tuple((at(a, 0.0), at(b, 0.0)) for a, b in _dashes(left + gap, right - gap, shaft))
     return (
         fill,
-        Stroke(GRAIN_OUTLINE_COLOR, 3.0, (contour,)),
-        Stroke(GRAIN_OUTLINE_COLOR, 2.0, dashes),
+        Stroke(GRAIN_OUTLINE_COLOR, OUTLINE_WIDTH, (contour,)),
+        Stroke(GRAIN_OUTLINE_COLOR, DASH_WIDTH, dashes),
     )
 
 
@@ -125,15 +132,21 @@ def _drawable(band: GrainBand, height: float) -> bool:
 
 
 def axes_drawing(
-    extents: Extents, grain: int | None = None, outline: Sequence[Loop] | None = None
+    extents: Extents,
+    grain: int | None = None,
+    outline: Sequence[Loop] | None = None,
+    *,
+    axes: bool = True,
 ) -> Drawing:
     """Trièdre L / l / e à l'origine de la pièce (repère de la pièce), de la taille de ses cotes
     ``extents`` (bornée), et double flèche du fil le long de l'axe ``grain`` (0 ou 1), posée sur
     la face du dessus dans la plus longue bande de bois du contour ``outline`` (plan XY local,
-    boucles : extérieure puis trous ; ``None`` ou vide : l'encombrement, pièce rectangulaire)."""
+    boucles : extérieure puis trous ; ``None`` ou vide : l'encombrement, pièce rectangulaire).
+    ``axes`` faux : la flèche seule (pièce de bois, dont le panneau montre déjà ses axes)."""
     size = min(max(AXIS_LENGTH_RATIO * max(extents), MIN_AXIS_MM), MAX_AXIS_MM)
     origin = Vec3(0.0, 0.0, 0.0)
-    strokes = [Stroke(AXIS_COLORS[axis], 3.0, _arrow(origin, axis, size)) for axis in range(3)]
+    shown = range(3) if axes else range(0)
+    strokes = [Stroke(AXIS_COLORS[a], AXIS_WIDTH, _arrow(origin, a, size)) for a in shown]
     if grain is None or grain not in (0, 1) or not min(extents) > 0:  # NaN : faux
         return Drawing(tuple(strokes))
     band = grain_band(outline or rectangle(extents[0], extents[1]), grain)

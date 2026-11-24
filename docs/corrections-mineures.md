@@ -203,12 +203,3 @@ de répétitions m5) sont corrigés.
 | al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
 | al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
 | al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |
-
-## Revue reviewer « marque du sens du fil » (PR #278), 2026-11-24
-
-| N° | Niveau | Où | Problème | Correction proposée |
-|----|--------|----|----------|---------------------|
-| F1 | mineur | `gui/task_panels/shaped_part_drawing.py` (`grain_marking`, `axes_drawing`) | Épaisseurs de trait `3.0` et `2.0` en dur ; `grain_marking` mêle pointes, contour et tirets, et sa fonction interne `at` n'a pas de docstring. | Nommer les épaisseurs ; extraire `_dashes(...)`. |
-| F2 | mineur | `core/grain_band.py` | Alias de type (`Edge`, `_Found`) définis loin des autres ; `Band` ambigu à côté de `GrainBand` ; « tranche » nommée `_Slices` mais `slab` dans le code. | Regrouper les alias en tête ; renommer `Band` en `Widening` ; un seul mot (`slab`). |
-| F3 | mineur | `core/grain_band.py` (`centers`, `grain_band`, `_search`) | Constantes en dur `0.25/0.5/0.75`, `4 * epsilon`, `1e-9` ; tri `lambda s: s[0] - s[1]` peu lisible. | `CENTER_RATIOS`, `_MIN_SPAN_EPSILONS`, `_SCORE_TIE` ; trier par `-(hi - lo)`. |
-| F4 | mineur | `core/grain_band.py` (`_Slices.widening`) | Fonction dense (deux `while` dans un `for`). | Extraire les deux lectures vers le bas et vers le haut si on la retouche. |

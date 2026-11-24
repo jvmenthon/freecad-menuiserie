@@ -19,14 +19,16 @@ from pivy import coin
 from PySide import QtGui
 
 from freecad.menuiserie.features.joints.footprint import footprint_of
-from freecad.menuiserie.gui.task_panels.shaped_part_axes import NODE_NAME
-from freecad.menuiserie.gui.task_panels.shaped_part_drawing import axes_drawing, grain_axis
+from freecad.menuiserie.gui.task_panels.part_axes import NODE_NAME
+from freecad.menuiserie.gui.task_panels.part_axes_drawing import axes_drawing, grain_axis
 from tests.gui.verifications_double_clic import ATELIER, vue_3d_active
 from tests.gui.verifications_panneau import (
     annuler,
     avec_document,
     ecarts,
     formulaire_nomme,
+    ouvrir_par_double_clic,
+    piece_validee,
     saisir,
     valider,
 )
@@ -264,6 +266,27 @@ def verifier_fil_sur_le_bois() -> list[str]:
     return avec_document("VerifPieceEnBoisFil", _fil_sur_le_bois)
 
 
+def _fil_piece_normale(doc: Any) -> list[str]:
+    piece = piece_validee(doc)
+    if piece is None:
+        return ["pièce de bois non créée"]
+    piece.GrainDirection = "Length"
+    doc.recompute()
+    form = ouvrir_par_double_clic(piece)
+    problemes = [
+        *ecarts("panneau ouvert", form is not None, True),
+        *ecarts("flèche du fil dans la vue", noeuds_nommes(NODE_NAME) >= 1, True),
+    ]
+    del form
+    annuler()
+    return [*problemes, *ecarts("flèche retirée à la fermeture", noeuds_nommes(NODE_NAME), 0)]
+
+
+def verifier_fil_piece_normale() -> list[str]:
+    """Le panneau d'une pièce de bois montre la flèche du fil, retirée à sa fermeture."""
+    return avec_document("VerifPieceNormaleFil", _fil_piece_normale)
+
+
 VERIFICATIONS_PIECE_EN_BOIS: tuple[Callable[[], list[str]], ...] = (
     verifier_conversion_et_annulation,
     verifier_saisies_en_direct,
@@ -271,4 +294,5 @@ VERIFICATIONS_PIECE_EN_BOIS: tuple[Callable[[], list[str]], ...] = (
     verifier_suppression_reaffiche_la_source,
     verifier_refus_listes,
     verifier_fil_sur_le_bois,
+    verifier_fil_piece_normale,
 )

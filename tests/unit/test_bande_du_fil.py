@@ -9,7 +9,7 @@ import random
 import pytest
 
 from freecad.menuiserie.core.grain_band import grain_band
-from freecad.menuiserie.gui.task_panels.shaped_part_drawing import axes_drawing
+from freecad.menuiserie.gui.task_panels.part_axes_drawing import axes_drawing
 
 Loops = tuple[list[tuple[float, float]], ...]
 

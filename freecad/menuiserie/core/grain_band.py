@@ -30,15 +30,20 @@ __all__ = [
 Point2 = tuple[float, float]
 Loop = Sequence[Point2]
 Segment = tuple[float, float]
-Band = tuple[float, Segment]  # demi-largeur, bois commun
+Widening = tuple[float, Segment]  # demi-largeur, bois commun
+Edge = tuple[float, float, float, float]  # cote et abscisse de chaque bout (cote croissante)
+_Found = tuple[float, float, float, float]  # score, milieu de bande, abscisse, demi-largeur
 MARK_WIDTH_RATIO: Final = 0.34  # demi-largeur de la marque, part de la largeur de la bande
 MARK_LENGTH_RATIO: Final = 0.09  # demi-largeur maximale de la marque, part de sa longueur
-MAX_SLICES: Final = 32  # tranches (les plus larges) où un milieu de bande est essayé
+MAX_SLABS: Final = 32  # tranches (les plus larges) où un milieu de bande est essayé
 SEARCH_VERTICES: Final = 400  # sommets du contour allégé pour la recherche, environ
 SHRINK_STEPS: Final = (0.25, 0.5, 0.7, 0.85, 1.0)  # demi-largeurs recoupées, part de la trouvée
 GRID: Final = 16  # milieux de bande essayés en plus, répartis sur l'étendue
 MAX_HALVES: Final = 24  # demi-largeurs essayées jusqu'aux droites de sommets, au plus
 WIDTH_STEPS: Final = (0.05, 0.1, 0.2, 0.3, 0.4, 0.5)  # demi-largeurs essayées, part de l'étendue
+CENTER_RATIOS: Final = (0.25, 0.5, 0.75)  # milieux de bande essayés dans une tranche
+_MIN_SPAN_EPSILONS: Final = 4  # étendue minimale d'une tranche ou du contour, en epsilons
+_SCORE_TIE: Final = 1e-9  # écart relatif sous lequel deux bandes sont à égalité
 _EPSILON: Final = 1e-7  # écart relatif à une droite de sommet pour lire la tranche voisine
 
 
@@ -63,9 +68,6 @@ def rectangle(length: float, width: float) -> tuple[tuple[Point2, ...], ...]:
     return (((0.0, 0.0), (length, 0.0), (length, width), (0.0, width)),)
 
 
-Edge = tuple[float, float, float, float]  # cote et abscisse de chaque bout (cote croissante)
-
-
 def _edges(loops: Sequence[Loop], axis: int) -> list[Edge]:
     """Arêtes non parallèles au fil des boucles d'au moins trois points, triées par cote basse."""
     other = 1 - axis
@@ -87,10 +89,11 @@ def _cut(edges: Iterable[Edge], across: float) -> list[Segment]:
     return [(found[i], found[i + 1]) for i in range(0, len(found) - 1, 2)]
 
 
-class _Slices:
-    """Coupes du contour aux droites de sommets, juste au-dessous et juste au-dessus, triées.
-    Chaque tranche garde les seules arêtes qui la traversent (balayage) : une coupe ne lit
-    qu'elles, ce qui reste rapide sur un contour courbe très discrétisé."""
+class _Slabs:
+    """Tranches du contour entre deux cotes de sommets, et coupes triées aux droites de sommets,
+    juste au-dessous et juste au-dessus. Chaque tranche garde les seules arêtes qui la traversent
+    (balayage) : une coupe ne lit qu'elles, ce qui reste rapide sur un contour courbe très
+    discrétisé."""
 
     def __init__(self, loops: Sequence[Loop], axis: int) -> None:
         edges = _edges(loops, axis)
@@ -117,7 +120,7 @@ class _Slices:
             return []
         return _cut(self.slab_edges[slab], across)
 
-    def widening(self, center: float, point: float, halves: Sequence[float]) -> Iterator[Band]:
+    def widening(self, center: float, point: float, halves: Sequence[float]) -> Iterator[Widening]:
         """Pour chaque demi-largeur de ``halves`` (croissantes), le bois commun autour de
         l'abscisse ``point`` à toutes les droites de la bande ``center`` ± demi-largeur, jusqu'à
         la première qui sort du bois. Exact : coupes aux deux bords de la bande et aux droites de
@@ -129,32 +132,45 @@ class _Slices:
             low, high = center - half, center + half
             if low < self.low or high > self.high:
                 return
-            while inner is not None and below > 0 and self.positions[below - 1] > low:
-                below -= 1
-                inner = _narrowed(inner, self.rows[below], point)
-            while (
-                inner is not None
-                and above + 1 < len(self.rows)
-                and (self.positions[above + 1] < high)
-            ):
-                above += 1
-                inner = _narrowed(inner, self.rows[above], point)
-            edges = (self.cut(low), self.cut(high))
-            common = _narrowed(_narrowed(inner, edges[0], point), edges[1], point)
+            below, inner = self._read_down(below, low, inner, point)
+            above, inner = self._read_up(above, high, inner, point)
+            common = _narrowed(_narrowed(inner, self.cut(low), point), self.cut(high), point)
             if common is None:
                 return
             yield half, common
 
+    def _read_down(
+        self, index: int, low: float, inner: Segment | None, point: float
+    ) -> tuple[int, Segment | None]:
+        """Coupes aux droites de sommets au-dessus de ``low``, de ``index`` vers le bas, lues
+        dans ``inner`` ; rend le nouvel indice et le bois commun."""
+        while inner is not None and index > 0 and self.positions[index - 1] > low:
+            index -= 1
+            inner = _narrowed(inner, self.rows[index], point)
+        return index, inner
+
+    def _read_up(
+        self, index: int, high: float, inner: Segment | None, point: float
+    ) -> tuple[int, Segment | None]:
+        """Coupes aux droites de sommets au-dessous de ``high``, de ``index`` vers le haut, lues
+        dans ``inner`` ; rend le nouvel indice et le bois commun."""
+        while inner is not None and index + 1 < len(self.rows) and self.positions[index + 1] < high:
+            index += 1
+            inner = _narrowed(inner, self.rows[index], point)
+        return index, inner
+
     def centers(self) -> list[float]:
         """Milieux de bande essayés (quart, milieu et trois quarts des tranches les plus larges,
         et une grille), du plus proche au plus éloigné du milieu du contour."""
-        slices = sorted(zip(self.levels, self.levels[1:], strict=False), key=lambda s: s[0] - s[1])
+        slabs = sorted(
+            zip(self.levels, self.levels[1:], strict=False), key=lambda slab: -(slab[1] - slab[0])
+        )
         extent = self.high - self.low
         found = [
             lo + ratio * (hi - lo)
-            for lo, hi in slices[:MAX_SLICES]
-            if hi - lo > 4 * self.epsilon
-            for ratio in (0.25, 0.5, 0.75)
+            for lo, hi in slabs[:MAX_SLABS]
+            if hi - lo > _MIN_SPAN_EPSILONS * self.epsilon
+            for ratio in CENTER_RATIOS
         ]
         found += [self.low + extent * (k + 0.5) / GRID for k in range(GRID)]
         middle = (self.low + self.high) / 2
@@ -201,19 +217,16 @@ def _decimated(loops: Sequence[Loop]) -> list[Loop] | None:
     return [loop[::step] if len(loop) >= 3 * step else loop for loop in loops]
 
 
-_Found = tuple[float, float, float, float]  # score, milieu de bande, abscisse, demi-largeur
-
-
-def _search(slices: _Slices) -> _Found | None:
+def _search(slabs: _Slabs) -> _Found | None:
     """Bande où la marque est la plus grande (à égalité, la plus proche du milieu)."""
     best: _Found | None = None
-    for center in slices.centers():
-        for segment in slices.cut(center):
+    for center in slabs.centers():
+        for segment in slabs.cut(center):
             point = (segment[0] + segment[1]) / 2
-            for half, common in slices.widening(center, point, slices.halves(center)):
+            for half, common in slabs.widening(center, point, slabs.halves(center)):
                 score = _score(common, half)
-                if common[1] - common[0] > slices.epsilon and (
-                    best is None or score > best[0] * (1 + 1e-9)
+                if common[1] - common[0] > slabs.epsilon and (
+                    best is None or score > best[0] * (1 + _SCORE_TIE)
                 ):
                     best = (score, center, (common[0] + common[1]) / 2, half)
     return best
@@ -230,16 +243,16 @@ def grain_band(loops: Sequence[Loop], axis: int) -> GrainBand | None:
         raise ValueError(f"axe du fil inconnu : {axis!r}")
     if not _edges(loops, axis):
         return None
-    slices = _Slices(loops, axis)
-    if not slices.high - slices.low > 4 * slices.epsilon:  # aussi faux pour NaN
+    slabs = _Slabs(loops, axis)
+    if not slabs.high - slabs.low > _MIN_SPAN_EPSILONS * slabs.epsilon:  # aussi faux pour NaN
         return None
     coarse = _decimated(loops)
-    found = _search(slices if coarse is None else _Slices(coarse, axis))
+    found = _search(slabs if coarse is None else _Slabs(coarse, axis))
     if found is None:
         return None
     _, center, point, half = found
-    exact = list(slices.widening(center, point, [half * ratio for ratio in SHRINK_STEPS]))
-    if not exact or exact[-1][1][1] - exact[-1][1][0] <= slices.epsilon:
+    exact = list(slabs.widening(center, point, [half * ratio for ratio in SHRINK_STEPS]))
+    if not exact or exact[-1][1][1] - exact[-1][1][0] <= slabs.epsilon:
         return None
     half, common = exact[-1]
     return GrainBand(common[0], common[1], center, 2 * half)

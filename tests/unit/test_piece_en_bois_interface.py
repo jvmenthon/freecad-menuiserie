@@ -13,7 +13,7 @@ import pytest
 
 from freecad.menuiserie import ICONS_DIR
 from freecad.menuiserie.core.grain_band import GrainBand, grain_band, rectangle
-from freecad.menuiserie.gui.task_panels.shaped_part_drawing import (
+from freecad.menuiserie.gui.task_panels.part_axes_drawing import (
     GRAIN_COLOR,
     GRAIN_OUTLINE_COLOR,
     axes_drawing,
@@ -168,6 +168,14 @@ def test_contour_tres_discretise_rapide() -> None:
     for along in (band.start + 1e-6, band.end - 1e-6):
         for across in (band.across - band.width / 2 + 1e-6, band.across + band.width / 2 - 1e-6):
             assert (along - 300.0) ** 2 + across**2 < 300.0**2
+
+
+def test_fleche_seule_sans_triedre() -> None:
+    drawing = axes_drawing((720.0, 95.0, 45.0), grain=0, axes=False)
+    assert len(drawing.strokes) == 2  # contour et tirets de la double flèche
+    assert {stroke.color for stroke in drawing.strokes} == {GRAIN_OUTLINE_COLOR}
+    assert len(drawing.solids) == 1
+    assert not axes_drawing((720.0, 95.0, 45.0), grain=None, axes=False).strokes
 
 
 def test_sans_fil_pas_de_marque() -> None:

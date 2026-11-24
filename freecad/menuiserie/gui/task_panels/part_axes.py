@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Repère de la pièce en bois dans la vue 3D pendant l'édition (D3) : le dessin de
-:mod:`.shaped_part_drawing` (trièdre L / l / e et marque du fil sur le bois) posé dans la vue 3D
+:mod:`.part_axes_drawing` (trièdre L / l / e et marque du fil sur le bois) posé dans la vue 3D
 de FreeCAD, sous un nœud ``SoTransform`` qui suit le ``Placement`` global de la pièce.
 
 Le nœud est propre au panneau (nommé :data:`NODE_NAME`), invisible pour la sélection, et
@@ -17,7 +17,7 @@ from pivy import coin
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.footprint import footprint_of
 from freecad.menuiserie.gui.drag.overlay import Overlay
-from freecad.menuiserie.gui.task_panels.shaped_part_drawing import axes_drawing, grain_axis
+from freecad.menuiserie.gui.task_panels.part_axes_drawing import axes_drawing, grain_axis
 
 __all__ = ["NODE_NAME", "AxesView"]
 
@@ -26,10 +26,12 @@ NODE_NAME: Final = "MenuiserieShapedAxes"
 
 class AxesView:
     """Repère d'une pièce en bois posé dans la vue 3D du document de la pièce ; inactif (sans
-    effet) sans vue 3D. :meth:`refresh` le remet à la place et à la taille de la pièce."""
+    effet) sans vue 3D. ``axes`` faux : la flèche du fil seule (panneau d'une pièce de bois).
+    :meth:`refresh` le remet à la place et à la taille de la pièce."""
 
-    def __init__(self, part: DocumentObject) -> None:
+    def __init__(self, part: DocumentObject, *, axes: bool = True) -> None:
         self._part = part
+        self._axes = axes
         self._root: Any = None
         self._group: Any = None
         self._transform: Any = None
@@ -68,7 +70,7 @@ class AxesView:
         base, quaternion = placement.Base, placement.Rotation.Q
         self._transform.translation.setValue(base.x, base.y, base.z)
         self._transform.rotation.setValue(coin.SbRotation(*quaternion))
-        overlay.draw(axes_drawing(extents, grain, outline))
+        overlay.draw(axes_drawing(extents, grain, outline, axes=self._axes))
 
     def remove(self) -> None:
         """Retire le repère de la vue (sans effet s'il n'y est plus)."""
