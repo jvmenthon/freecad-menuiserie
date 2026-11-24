@@ -2,7 +2,7 @@
 """Ensemble comme cible d'un glissement (EN-c, ADR 0038, critères C1 à C3).
 
 :class:`FurnitureTarget` habille l'ensemble sélectionné seul (ou dont le panneau est ouvert) de sa
-boîte en transparence, de six doubles flèches de face (taille), de trois flèches de déplacement
+boîte en transparence, de six étiquettes de face (taille, ADR 0068), de trois flèches de déplacement
 et de trois anneaux de rotation. Les écritures viennent de ``features/furniture_drag`` : la
 taille par ``resize_furniture_to`` (brutes seules, cote refusée = arrêt à la dernière valeur
 permise), le déplacement et la rotation par le ``Placement`` du Std Part propre à l'ensemble.
@@ -124,7 +124,6 @@ class FurnitureTarget(Target):
             tuple((handle.handle, handle.point) for handle in found.handles),
             HANDLE_RATIO * size_mm,
             self._rings(box) if free else (),
-            double_handles=True,
             shows_box=True,
         )
 

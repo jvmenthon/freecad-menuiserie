@@ -169,8 +169,9 @@ class PartTarget(Target):
     def layout(self, size_mm: float, panel_shown: bool) -> Layout:
         limits = drag_limits(self.obj)
         resizable = limits.resizable_axes if panel_shown else frozenset()
+        locked = limits.locked_sizes if panel_shown else ()
         box = self.box()
-        layout = build_layout(self.frame(), box, size_mm, limits.fixed_axes, resizable)
+        layout = build_layout(self.frame(), box, size_mm, limits.fixed_axes, resizable, locked)
         return replace(layout, rings=rings_of(self.obj, box))
 
     def begin(self) -> Memento:

@@ -62,6 +62,15 @@ class ViewPort:
         on_screen = math.hypot(x1 - x0, y1 - y0)
         return mm_per_pixel(at, end, pixels / on_screen) if on_screen > 0 else PROBE_MM
 
+    def scale(self) -> float:
+        """Rapport de pixels de l'écran de la vue (1 sur un écran ordinaire) : les étiquettes des
+        poignées gardent leur taille sur un écran haute définition."""
+        try:
+            ratio = float(self.view.graphicsView().devicePixelRatioF())
+        except (AttributeError, RuntimeError, TypeError):
+            return 1.0
+        return ratio if ratio > 0 else 1.0
+
     def scene_graph(self) -> Any:
         """Racine Coin de la vue."""
         return self.view.getSceneGraph()

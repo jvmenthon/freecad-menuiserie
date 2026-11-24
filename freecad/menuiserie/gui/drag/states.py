@@ -49,6 +49,7 @@ from freecad.menuiserie.gui.drag.geometry import (
     REFUSAL_COLOR,
     Label,
     Throttle,
+    is_locked_key,
     parse_key,
 )
 from freecad.menuiserie.gui.drag.parts import Grab, Turn
@@ -106,6 +107,9 @@ class Idle(State):
         key = session.target_at(point)
         if key is None:
             return False
+        if is_locked_key(key):  # poignée grisée : rien ne bouge, la pièce reste sélectionnée
+            session.swallow_release = True
+            return True
         return session.begin_copy(key, point, shift) if copy else session.begin(key, point, shift)
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:

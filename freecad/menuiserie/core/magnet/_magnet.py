@@ -194,7 +194,8 @@ def handle_at(
     handles_px: Sequence[PixelTarget], cursor_px: Point2, radius: float = HANDLE_RADIUS_PX
 ) -> str | None:
     """Clé de la flèche (segment projeté) ou de la poignée la plus proche du curseur, à moins de
-    ``radius`` pixels, sinon ``None`` (A7). À égalité, la poignée l'emporte, puis la première.
+    ``radius`` pixels (ou de la tolérance propre à la cible, ``PixelTarget.radius``), sinon
+    ``None`` (A7). À égalité, la poignée l'emporte, puis la première.
 
     Une flèche vue de bout (segment réduit à un point) n'est pas saisissable. Un curseur ou un
     rayon non fini est refusé (``ValueError``).
@@ -204,7 +205,8 @@ def handle_at(
     best: tuple[tuple[float, bool, int], str] | None = None
     for index, target in enumerate(handles_px):
         distance = _pixel_distance(target, cursor_px)
-        if distance is None or distance > radius:
+        reach = radius if target.radius is None else target.radius
+        if distance is None or distance > reach:
             continue
         key = (round(distance, _TIE), target.end is not None, index)
         if best is None or key < best[0]:

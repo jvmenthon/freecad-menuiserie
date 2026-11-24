@@ -170,11 +170,15 @@ class ResizeResult:
 
 @dataclass(frozen=True)
 class PixelTarget:
-    """Cible saisissable à l'écran, en pixels : poignée (``end`` absent) ou flèche (segment)."""
+    """Cible saisissable à l'écran, en pixels : poignée (``end`` absent) ou flèche (segment).
+
+    ``radius`` : tolérance propre à la cible (pixels), par exemple la demi-hauteur de l'étiquette
+    d'une poignée ; absente, celle de :func:`handle_at`."""
 
     key: str
     start: tuple[float, float]
     end: tuple[float, float] | None = None
+    radius: float | None = None
 
     def __post_init__(self) -> None:
         if not self.key:
@@ -182,6 +186,8 @@ class PixelTarget:
         points = (self.start,) if self.end is None else (self.start, self.end)
         if not all(math.isfinite(v) for point in points for v in point):
             raise ValueError("PixelTarget : coordonnées non finies")
+        if self.radius is not None and not (math.isfinite(self.radius) and self.radius > 0):
+            raise ValueError("PixelTarget.radius : tolérance finie et positive attendue")
 
     @property
     def is_handle(self) -> bool:

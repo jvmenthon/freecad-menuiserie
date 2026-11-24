@@ -1,11 +1,17 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Géométrie pure du glissement dans la vue 3D (SM-c) : flèches et poignées saisissables, rayon de
-la souris, dessin à poser (traits et points), cadence de recalcul. Aucun import de FreeCAD, de Qt
-ni de pivy : ``view.py`` fournit les projections, ``overlay.py`` pose le dessin.
+la souris, dessin à poser (traits, points, étiquettes), cadence de recalcul. Aucun import de
+FreeCAD, de Qt ni de pivy : ``view.py`` fournit les projections, ``overlay.py`` pose le dessin.
+
+Une poignée est une **étiquette de cote** (ADR 0068) : pastille ↔ et valeur de la cote qu'elle
+change, reliée au milieu de sa face par un trait. Une poignée impossible est dessinée grisée, avec
+un cadenas ; elle se survole (infobulle : :func:`tooltip_html`) mais ne se tire pas.
 """
 
 from __future__ import annotations
 
+import html
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from itertools import combinations, product
@@ -37,6 +43,9 @@ __all__ = [
     "ARROW_PX",
     "MAGNET_PX",
     "REFUSAL_COLOR",
+    "Badge",
+    "BadgeState",
+    "Blocker",
     "Cues",
     "Dots",
     "Drawing",
@@ -46,25 +55,35 @@ __all__ = [
     "Stroke",
     "Throttle",
     "arrow_key",
+    "badge_angles",
     "build_drawing",
     "build_layout",
     "guide_outline",
     "guides_drawing",
     "handle_key",
+    "is_locked_key",
+    "locked_blocker",
+    "locked_key",
     "mouse_ray",
     "parse_key",
     "pixel_targets",
+    "size_text",
     "target_line",
+    "tooltip_html",
 ]
 
 ARROW_PX: Final = 80.0  # longueur des flèches à l'écran
 HEAD_RATIO: Final = 0.15  # barbes de la pointe, part de la longueur
-HANDLE_RATIO: Final = 0.3  # longueur de la tige d'une poignée (zone de saisie), part des flèches
-CUBE_RATIO: Final = 0.25  # demi-côté du cube au bout de la tige, part de la longueur de la tige
+HANDLE_RATIO: Final = 0.3  # unité de longueur des poignées, part des flèches
+BADGE_REACH: Final = 1.9  # centre de l'étiquette : distance à la face, en unités de poignée
+BADGE_W_PX: Final = 66.0  # étiquette d'une poignée : largeur et hauteur à l'écran (pixels logiques)
+BADGE_H_PX: Final = 24.0
+ANGLE_STEP: Final = 5.0  # pas des angles des étiquettes (degrés) : images gardées, moins de dessins
 MAGNET_PX: Final = 10.0  # tolérance de l'aimant à l'écran
 MAX_RATE: Final = 30  # recalculs de la brute par seconde (poignée)
 AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  # X, Y, Z
 HANDLE_COLOR: Final = (1.0, 0.55, 0.0)
+LOCKED_COLOR: Final = (0.6, 0.64, 0.68)  # trait d'une poignée impossible
 HOVER_COLOR: Final = (1.0, 0.85, 0.1)
 GUIDE_COLOR: Final = (1.0, 0.1, 0.8)
 GHOST_COLOR: Final = (0.2, 0.75, 1.0)  # fantôme de la copie par glissement
@@ -75,6 +94,16 @@ BOX_TRANSPARENCY: Final = 0.85
 REFUSAL_COLOR: Final = (0.9, 0.1, 0.1)  # cote et message d'un refus près de la souris
 Color = tuple[float, float, float]
 Project = Callable[[Vec3], tuple[float, float]]
+Blocker = tuple[str, str, str]  # raison d'une poignée impossible : titre, explication, piste
+
+
+class BadgeState:
+    """État d'une étiquette de poignée."""
+
+    NORMAL: Final = "normal"
+    HOVER: Final = "hover"
+    LOCKED: Final = "locked"
+    LOCKED_HOVER: Final = "locked-hover"
 
 
 def arrow_key(axis: int) -> str:
@@ -85,6 +114,17 @@ def arrow_key(axis: int) -> str:
 def handle_key(handle: Handle) -> str:
     """Clé de la poignée ``handle``."""
     return f"handle{handle.axis}{'e' if handle.at_end else 's'}"
+
+
+def locked_key(handle: Handle) -> str:
+    """Clé de la poignée impossible ``handle`` : survolable, jamais saisie (:func:`parse_key`
+    la refuse)."""
+    return f"locked{handle.axis}{'e' if handle.at_end else 's'}"
+
+
+def is_locked_key(key: str) -> bool:
+    """Vrai pour la clé d'une poignée impossible (:func:`locked_key`)."""
+    return key.startswith("locked")
 
 
 def parse_key(key: str) -> int | Handle:
@@ -111,8 +151,11 @@ class Layout:
     longueur en mm de la tige (et zone de saisie) dessinée sur chaque poignée et anneaux de
     rotation (aucun si une expression pilote le placement, D6).
 
-    Un ensemble (EN-c) dessine ses poignées en doubles flèches (``double_handles``) et sa boîte en
-    transparence (``shows_box``)."""
+    ``locked`` : poignées impossibles (poignée, centre de sa face, raison) ; ``badge_scale`` :
+    rapport de pixels de l'écran (étiquettes à la même taille sur un écran haute définition) ;
+    ``badge_angles`` : direction à l'écran de chaque poignée (:func:`badge_angles`, 0° si
+    absente), qui oriente la double flèche de son étiquette. Un ensemble (EN-c) dessine sa boîte
+    en transparence (``shows_box``)."""
 
     frame: Frame
     box: Box
@@ -120,8 +163,10 @@ class Layout:
     handles: tuple[tuple[Handle, Vec3], ...]
     handle_mm: float = 0.0
     rings: tuple[Ring, ...] = ()
-    double_handles: bool = False
     shows_box: bool = False
+    locked: tuple[tuple[Handle, Vec3, Blocker], ...] = ()
+    badge_scale: float = 1.0
+    badge_angles: tuple[float, ...] = ()
 
 
 def _face_center(box: Box, handle: Handle) -> Vec3:
@@ -141,9 +186,11 @@ def build_layout(
     size_mm: float,
     fixed_axes: frozenset[int],
     resizable_axes: frozenset[int],
+    locked_sizes: Sequence[tuple[int, Blocker]] = (),
 ) -> Layout:
-    """Flèches (hors axes pilotés par une formule) et poignées (axes redimensionnables : les
-    deux faces de bout) d'une pièce de repère ``frame`` et de boîte ``box``."""
+    """Flèches (hors axes pilotés par une formule), poignées (axes redimensionnables : les deux
+    faces de bout) et poignées impossibles (``locked_sizes`` : axe et raison) d'une pièce de
+    repère ``frame`` et de boîte ``box``."""
     free = tuple(a for a in arrows(frame, box, size_mm) if a.axis not in fixed_axes)
     to_global = frame.to_transform()
     handles = tuple(
@@ -151,18 +198,59 @@ def build_layout(
         for axis in sorted(resizable_axes)
         for handle in (Handle(axis, False), Handle(axis, True))
     )
-    return Layout(frame, box, free, handles, HANDLE_RATIO * size_mm)
+    locked = tuple(
+        (handle, to_global.apply(_face_center(box, handle)), blocker)
+        for axis, blocker in sorted(locked_sizes)
+        if axis not in resizable_axes
+        for handle in (Handle(axis, False), Handle(axis, True))
+    )
+    return Layout(frame, box, free, handles, HANDLE_RATIO * size_mm, locked=locked)
+
+
+def _badge_center(layout: Layout, handle: Handle, point: Vec3) -> Vec3:
+    """Centre de l'étiquette de la poignée ``handle`` : devant sa face (``point``), vers
+    l'extérieur de la boîte, à distance constante à l'écran."""
+    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
+    reach = BADGE_REACH * layout.handle_mm * layout.badge_scale
+    return point + axes[handle.axis].scaled(reach if handle.at_end else -reach)
+
+
+def _all_handles(layout: Layout) -> list[tuple[str, Handle, Vec3]]:
+    """Clé, poignée et point de chaque poignée, possibles puis impossibles."""
+    active = [(handle_key(h), h, p) for h, p in layout.handles]
+    return [*active, *((locked_key(h), h, p) for h, p, _ in layout.locked)]
+
+
+def locked_blocker(layout: Layout, key: str | None) -> Blocker | None:
+    """Raison de la poignée impossible ``key``, ``None`` si ``key`` n'en est pas une."""
+    return next((b for h, _, b in layout.locked if locked_key(h) == key), None)
+
+
+def tooltip_html(blocker: Blocker) -> str:
+    """Infobulle d'une poignée impossible : titre en gras, explication, piste en italique (texte
+    échappé : il peut venir d'une traduction)."""
+    title, detail, hint = (html.escape(part) for part in blocker)
+    return f"<b>{title}</b><br>{detail}<br><i>{hint}</i>"
+
+
+def size_text(box: Box, axis: int) -> str:
+    """Cote de ``box`` sur ``axis``, écrite sur l'étiquette : au millimètre, au dixième sinon."""
+    value = round(box.hi(axis) - box.lo(axis), 1)
+    return f"{value:.0f}" if value == int(value) else f"{value:.1f}"
 
 
 def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
-    """Cibles saisissables en pixels : poignées d'abord (elles l'emportent à égalité), chacune
-    par son centre et par sa tige, puis flèches."""
-    targets = [PixelTarget(handle_key(h), project(p)) for h, p in layout.handles]
-    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    for handle, point in layout.handles:
-        start = project(point + axes[handle.axis].scaled(-layout.handle_mm))
-        end = project(point + axes[handle.axis].scaled(layout.handle_mm))
-        targets.append(PixelTarget(handle_key(handle), start, end))
+    """Cibles saisissables en pixels : poignées d'abord (elles l'emportent à égalité), possibles
+    puis impossibles, chacune par le milieu de sa face, par son étiquette (un segment horizontal,
+    tolérance de la demi-hauteur) et par le trait qui les relie ; puis flèches."""
+    handles = _all_handles(layout)
+    targets = [PixelTarget(key, project(p)) for key, _, p in handles]
+    half_h = BADGE_H_PX / 2 * layout.badge_scale
+    half_w = BADGE_W_PX / 2 * layout.badge_scale - half_h
+    for key, handle, point in handles:
+        x, y = project(_badge_center(layout, handle, point))
+        targets.append(PixelTarget(key, (x - half_w, y), (x + half_w, y), half_h))
+        targets.append(PixelTarget(key, project(point), (x, y)))
     for arrow in layout.arrows:
         targets.append(PixelTarget(arrow_key(arrow.axis), project(arrow.start), project(arrow.end)))
     return targets
@@ -221,6 +309,19 @@ class Label:
 
 
 @dataclass(frozen=True)
+class Badge:
+    """Étiquette d'une poignée centrée sur ``position`` (taille fixe à l'écran) : ``text`` (la
+    cote), ``state`` (:class:`BadgeState`) et ``angle`` de l'axe à l'écran (degrés, sens direct,
+    0 = vers la droite), qui oriente la double flèche."""
+
+    position: Vec3
+    text: str
+    state: str
+    angle: float = 0.0
+    scale: float = 1.0
+
+
+@dataclass(frozen=True)
 class Drawing:
     """Tout ce que l'incrustation affiche."""
 
@@ -228,6 +329,7 @@ class Drawing:
     dots: tuple[Dots, ...] = ()
     solids: tuple[Solid, ...] = ()
     labels: tuple[Label, ...] = ()
+    badges: tuple[Badge, ...] = ()
 
 
 def _arrow_lines(arrow: Arrow, frame: Frame) -> tuple[tuple[Vec3, ...], ...]:
@@ -243,67 +345,6 @@ def _arrow_lines(arrow: Arrow, frame: Frame) -> tuple[tuple[Vec3, ...], ...]:
         for sign in (1.0, -1.0)
     ]
     return ((arrow.start, arrow.end), *barbs)
-
-
-def _handle_tip(layout: Layout, handle: Handle, point: Vec3) -> Vec3:
-    """Bout de la tige de la poignée : à la longueur de la tige, vers l'extérieur de la pièce."""
-    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    reach = layout.handle_mm if handle.at_end else -layout.handle_mm
-    return point + axes[handle.axis].scaled(reach)
-
-
-def _handle_stem(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
-    """Tige de la poignée : de ``point`` (milieu de la face) au centre du cube."""
-    return ((point, _handle_tip(layout, handle, point)),)
-
-
-def _handle_cube(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
-    """Six faces du cube plein au bout de la tige, alignées sur les axes de la pièce ; son côté
-    est proportionnel à la tige, donc constant à l'écran comme les flèches."""
-    center = _handle_tip(layout, handle, point)
-    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    half = CUBE_RATIO * layout.handle_mm
-    faces = []
-    for axis in range(3):
-        first, second = (axes[i] for i in range(3) if i != axis)
-        for sign in (1.0, -1.0):
-            middle = center + axes[axis].scaled(sign * half)
-            faces.append(
-                tuple(
-                    middle + first.scaled(a * half) + second.scaled(b * half)
-                    for a, b in ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))
-                )
-            )
-    return tuple(faces)
-
-
-def _arrow_head(
-    tip: Vec3, outward: Vec3, side: tuple[Vec3, Vec3], length: float
-) -> tuple[tuple[Vec3, ...], ...]:
-    """Quatre barbes d'une pointe en ``tip`` tournée vers ``outward`` (unitaire), le long des deux
-    autres axes ``side``, de la taille d'une pointe de flèche de ``length``."""
-    back = tip + outward.scaled(-HEAD_RATIO * length)
-    return tuple(
-        (tip, back + other.scaled(sign * HEAD_RATIO * length / 2))
-        for other in side
-        for sign in (1.0, -1.0)
-    )
-
-
-def _double_arrow(layout: Layout, handle: Handle, point: Vec3) -> tuple[tuple[Vec3, ...], ...]:
-    """Double flèche d'une face (poignée d'un ensemble) : tige de part et d'autre de ``point``,
-    pointe à chaque bout (l'une vers l'extérieur de la boîte, l'autre vers l'intérieur)."""
-    axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    axis = axes[handle.axis]
-    side = tuple(axes[i] for i in range(3) if i != handle.axis)
-    outer = point + axis.scaled(layout.handle_mm)
-    inner = point + axis.scaled(-layout.handle_mm)
-    length = 2 * layout.handle_mm
-    heads = (
-        *_arrow_head(outer, axis, (side[0], side[1]), length),
-        *_arrow_head(inner, axis.scaled(-1.0), (side[0], side[1]), length),
-    )
-    return ((inner, outer), *heads)
 
 
 def _corner_key(bits: tuple[int, int], axis: int, side: int) -> tuple[int, ...]:
@@ -440,10 +481,10 @@ def build_drawing(
     sweep: Sweep | None = None,
     cues: Cues | None = None,
 ) -> Drawing:
-    """Dessin des flèches (couleur de leur axe), des poignées (tige dans l'axe de la cote, cube
-    plein au bout et point de saisie au pied), des anneaux de rotation (et, pendant un geste, de
-    ``sweep``), de la cible survolée en surbrillance et des ``guides`` aimantés, portés dans le
-    repère global.
+    """Dessin des flèches (couleur de leur axe), des poignées (étiquette de cote reliée au milieu
+    de sa face ; grisée avec un cadenas si la cote ne se tire pas), des anneaux de rotation (et,
+    pendant un geste, de ``sweep``), de la cible survolée en surbrillance et des ``guides``
+    aimantés, portés dans le repère global.
 
     Les guides sont lus dans le repère de la pièce **au début du glissement** : ``guides_frame``
     est ce repère de départ (celui de ``layout`` s'il est absent). La pièce bouge pendant le
@@ -452,7 +493,7 @@ def build_drawing(
     repère de la pièce, sa boîte translucide) et la ``note`` (cote et message de refus) écrite près
     de la souris.
 
-    Pour un ensemble : boîte en transparence et poignées en doubles flèches."""
+    Pour un ensemble : boîte en transparence."""
     strokes = []
     solids = []
     if layout.shows_box:
@@ -463,16 +504,8 @@ def build_drawing(
         hot = hover == arrow_key(arrow.axis)
         color = HOVER_COLOR if hot else AXIS_COLORS[arrow.axis]
         strokes.append(Stroke(color, 4.0 if hot else 2.0, _arrow_lines(arrow, layout.frame)))
-    dots = []
-    for handle, point in layout.handles:
-        hot = hover == handle_key(handle)
-        color = HOVER_COLOR if hot else HANDLE_COLOR
-        if layout.double_handles:
-            strokes.append(Stroke(color, 4.0 if hot else 3.0, _double_arrow(layout, handle, point)))
-        else:
-            strokes.append(Stroke(color, 4.0 if hot else 3.0, _handle_stem(layout, handle, point)))
-            solids.append(Solid(color, _handle_cube(layout, handle, point)))
-        dots.append(Dots(color, 7.0, (point,)))
+    dots: list[Dots] = []
+    badges = _badges(layout, hover, strokes, dots)
     guide_strokes, guide_dots = guides_drawing(guides, guides_frame or layout.frame)
     strokes.extend(guide_strokes)
     dots.extend(guide_dots)
@@ -483,7 +516,52 @@ def build_drawing(
         strokes.append(ghost_lines)
         solids.append(ghost_faces)
     labels = rings.labels if cues.note is None else (*rings.labels, cues.note)
-    return Drawing((*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), labels)
+    return Drawing(
+        (*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), labels, badges
+    )
+
+
+def _badge_state(locked: bool, hot: bool) -> str:
+    if locked:
+        return BadgeState.LOCKED_HOVER if hot else BadgeState.LOCKED
+    return BadgeState.HOVER if hot else BadgeState.NORMAL
+
+
+def _badges(
+    layout: Layout,
+    hover: str | None,
+    strokes: list[Stroke],
+    dots: list[Dots],
+) -> tuple[Badge, ...]:
+    """Étiquettes des poignées ; leur trait et le point du milieu de leur face sont ajoutés à
+    ``strokes`` et ``dots``."""
+    badges = []
+    for index, (key, handle, point) in enumerate(_all_handles(layout)):
+        locked, hot = is_locked_key(key), hover == key
+        color = LOCKED_COLOR if locked else (HOVER_COLOR if hot else HANDLE_COLOR)
+        center = _badge_center(layout, handle, point)
+        strokes.append(Stroke(color, 2.0, ((point, center),)))
+        dots.append(Dots(color, 6.0, (point,)))
+        angles = layout.badge_angles
+        angle = angles[index] if index < len(angles) else 0.0
+        state = _badge_state(locked, hot)
+        text = size_text(layout.box, handle.axis)
+        badges.append(Badge(center, text, state, angle, layout.badge_scale))
+    return tuple(badges)
+
+
+def badge_angles(layout: Layout, project: Project) -> tuple[float, ...]:
+    """Direction à l'écran (degrés, sens direct, arrondie à :data:`ANGLE_STEP`) de l'axe de
+    chaque poignée, dans l'ordre des étiquettes ; un axe vu de bout donne 0°."""
+    angles = []
+    for _, handle, point in _all_handles(layout):
+        (x0, y0), (x1, y1) = project(point), project(_badge_center(layout, handle, point))
+        if math.hypot(x1 - x0, y1 - y0) < 1.0:
+            angles.append(0.0)
+            continue
+        angle = math.degrees(math.atan2(y1 - y0, x1 - x0))  # pixels de FreeCAD : y vers le haut
+        angles.append((round(angle / ANGLE_STEP) * ANGLE_STEP) % 360.0)
+    return tuple(angles)
 
 
 class Throttle:

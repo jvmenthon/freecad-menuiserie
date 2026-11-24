@@ -6,6 +6,7 @@ un seul module, filtre posé et retiré avec l'atelier)."""
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 
 import pytest
 
@@ -16,16 +17,24 @@ from freecad.menuiserie.gui.drag.geometry import (
     GUIDE_COLOR,
     HANDLE_COLOR,
     HOVER_COLOR,
+    LOCKED_COLOR,
+    BadgeState,
     Throttle,
     arrow_key,
+    badge_angles,
     build_drawing,
     build_layout,
     guide_outline,
     handle_key,
+    is_locked_key,
+    locked_blocker,
+    locked_key,
     mouse_ray,
     parse_key,
     pixel_targets,
+    size_text,
     target_line,
+    tooltip_html,
 )
 from tests.unit.aides import ROOT, imported_modules
 
@@ -141,45 +150,113 @@ def test_surbrillance_de_la_cible_survolee() -> None:
     drawing = build_drawing(layout, hover=handle_key(Handle(0, True)))
     assert [d.color == HOVER_COLOR for d in drawing.dots] == [False, True]
     assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False] * 4 + [True]
-    assert [c.color == HOVER_COLOR for c in drawing.solids] == [False, True]
+    assert [b.state for b in drawing.badges] == [BadgeState.NORMAL, BadgeState.HOVER]
+    assert drawing.solids == ()
 
 
-def test_poignee_dessinee_en_cube_plein_au_bout_d_une_tige() -> None:
+def test_poignee_dessinee_en_etiquette_de_cote() -> None:
+    """ADR 0068 : une étiquette par poignée, devant sa face, reliée par un trait au milieu de la
+    face ; elle porte la cote de son axe."""
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({1}))
     drawing = build_drawing(layout)
-    stems = [s for s in drawing.strokes if s.color == HANDLE_COLOR]
-    assert len(stems) == 2 and all(len(s.lines) == 1 for s in stems)  # une tige, sans pointe
-    (start, end) = stems[1].lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
+    leaders = [s for s in drawing.strokes if s.color == HANDLE_COLOR]
+    assert len(leaders) == 2 and all(len(s.lines) == 1 for s in leaders)
+    (start, end) = leaders[1].lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
     assert (start.x, end.x, start.z, end.z) == (410, 410, 41, 41)
-    assert (start.y, end.y) == (220, 220 + 30)  # tige de 30 % des 100 mm, vers l'extérieur
-    first = stems[0].lines[0]
-    assert (first[0].y, first[1].y) == (20, 20 - 30)  # poignée de début : vers l'autre bout
-    cubes = [c for c in drawing.solids if c.color == HANDLE_COLOR]
-    assert len(cubes) == 2 and all(len(c.faces) == 6 for c in cubes)
-    assert all(len(face) == 4 for c in cubes for face in c.faces)
-    points = [p for face in cubes[1].faces for p in face]
-    assert (min(p.y for p in points), max(p.y for p in points)) == (250 - 7.5, 250 + 7.5)
-    assert (min(p.x for p in points), max(p.x for p in points)) == (410 - 7.5, 410 + 7.5)
-    assert (min(p.z for p in points), max(p.z for p in points)) == (41 - 7.5, 41 + 7.5)
+    assert (start.y, end.y) == pytest.approx((220, 220 + 57))  # 1,9 fois 30 % des 100 mm
+    first = leaders[0].lines[0]
+    assert (first[0].y, first[1].y) == pytest.approx((20, 20 - 57))  # début : vers l'extérieur
+    assert [b.position for b in drawing.badges] == [first[1], end]
+    assert [b.text for b in drawing.badges] == ["200", "200"]
     assert [d.points for d in drawing.dots] == [(p,) for _, p in layout.handles]
+    assert drawing.solids == ()
 
 
-def test_cube_de_poignee_constant_a_l_ecran() -> None:
-    def side(size_mm: float) -> float:
+def test_etiquette_a_distance_constante_a_l_ecran() -> None:
+    def reach(size_mm: float, scale: float = 1.0) -> float:
         layout = build_layout(FRAME, BOX, size_mm, frozenset(), frozenset({0}))
-        face = build_drawing(layout).solids[0].faces[0]
-        return max(abs(a.x - b.x) + abs(a.y - b.y) + abs(a.z - b.z) for a in face for b in face)
+        layout = replace(layout, badge_scale=scale)
+        badge = build_drawing(layout).badges[1]
+        return badge.position.x - 810
 
-    assert side(200.0) == pytest.approx(2 * side(100.0))  # suit l'échelle des flèches
+    assert reach(200.0) == pytest.approx(2 * reach(100.0))  # suit l'échelle des flèches
+    assert reach(100.0, 2.0) == pytest.approx(2 * reach(100.0))  # écran haute définition
 
 
-def test_zone_de_saisie_des_poignees_inchangee() -> None:
+def test_cote_ecrite_sur_l_etiquette() -> None:
+    assert size_text(Box.from_ranges([(0, 680), (0, 0.25), (0, 19.04)]), 0) == "680"
+    assert size_text(Box.from_ranges([(0, 680), (0, 380.46), (0, 19)]), 1) == "380.5"
+    assert size_text(Box.from_ranges([(0, 680), (0, 380), (0, 19.04)]), 2) == "19"
+
+
+def test_zone_de_saisie_des_poignees() -> None:
+    """Milieu de la face, étiquette (segment horizontal, tolérance de sa demi-hauteur) et trait
+    qui les relie."""
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0}))
     targets = pixel_targets(layout, project)
-    assert [(t.start, t.end) for t in targets if t.key == handle_key(Handle(0, True))] == [
-        (project(Vec3(810, 120, 41)), None),
-        (project(Vec3(780, 120, 41)), project(Vec3(840, 120, 41))),
+    mine = [t for t in targets if t.key == handle_key(Handle(0, True))]
+    assert [(t.start, t.end, t.radius) for t in mine] == [
+        ((810, 120), None, None),
+        ((867 - 21, 120), (867 + 21, 120), 12.0),  # 66 sur 24 pixels : 33 - 12 de chaque côté
+        ((810, 120), (867, 120), None),
     ]
+    key = handle_key(Handle(0, True))
+    assert handle_at(targets, (867 + 28, 120 + 8)) == key  # bord droit de l'étiquette
+    assert handle_at(targets, (867, 120 + 13)) is None  # au-dessus de l'étiquette
+
+
+# --- Poignées impossibles (ADR 0068) -----------------------------------------------------
+
+BLOCKER = ("Épaisseur non modifiable", "Un panneau garde son épaisseur : 19 mm.", "→ Changer")
+
+
+def test_poignees_impossibles_grisees() -> None:
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1}), [(2, BLOCKER)])
+    assert [(h.axis, h.at_end) for h, _, _ in layout.locked] == [(2, False), (2, True)]
+    assert {b for _, _, b in layout.locked} == {BLOCKER}
+    drawing = build_drawing(layout)
+    states = [b.state for b in drawing.badges]
+    assert states == [BadgeState.NORMAL] * 4 + [BadgeState.LOCKED] * 2
+    assert [b.text for b in drawing.badges][-2:] == ["22", "22"]
+    assert [s.color for s in drawing.strokes][-2:] == [LOCKED_COLOR, LOCKED_COLOR]
+    key = locked_key(Handle(2, True))
+    hovered = build_drawing(layout, hover=key)
+    assert hovered.badges[-1].state == BadgeState.LOCKED_HOVER
+    assert locked_blocker(layout, key) == BLOCKER
+    assert locked_blocker(layout, handle_key(Handle(0, True))) is None
+    assert locked_blocker(layout, None) is None
+
+
+def test_poignee_impossible_survolable_mais_jamais_saisie() -> None:
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset(), [(0, BLOCKER)])
+    targets = pixel_targets(layout, project)
+    key = locked_key(Handle(0, True))
+    assert handle_at(targets, (867, 120)) == key
+    assert is_locked_key(key) and not is_locked_key(handle_key(Handle(0, True)))
+    with pytest.raises(ValueError, match="inconnue"):
+        parse_key(key)
+    with pytest.raises(ValueError, match="inconnue"):
+        target_line(layout, key)
+
+
+def test_axe_tirable_jamais_grise() -> None:
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0}), [(0, BLOCKER)])
+    assert layout.locked == ()
+
+
+def test_infobulle_echappee() -> None:
+    text = tooltip_html(("<b>Titre</b>", "a & b", "→ piste"))
+    assert text == "<b>&lt;b&gt;Titre&lt;/b&gt;</b><br>a &amp; b<br><i>→ piste</i>"
+
+
+def test_direction_des_etiquettes_a_l_ecran() -> None:
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1, 2}))
+    angles = badge_angles(layout, project)
+    # X : début vers la gauche (180°), fin vers la droite (0°) ; Y : 270° puis 90° ;
+    # Z vu de bout (vue de dessus) : 0°.
+    assert angles == (180.0, 0.0, 270.0, 90.0, 0.0, 0.0)
+    tilted = badge_angles(layout, lambda p: (p.x + 0.6 * p.y, p.y))
+    assert tilted[3] == 60.0  # 59° arrondi au pas de 5°
 
 
 def test_guides_aimantes_en_surbrillance() -> None:

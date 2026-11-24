@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Incrustation Coin des flèches, poignées, anneaux de rotation et guides aimantés (SM-c, ADR 0021,
-RO-d, ADR 0025).
+"""Incrustation Coin des flèches, poignées (étiquettes de cote, ADR 0068), anneaux de rotation et
+guides aimantés (SM-c, ADR 0021, RO-d, ADR 0025).
 
 Un seul nœud (``SoAnnotation`` nommé :data:`NODE_NAME`) est posé sur la racine de la vue puis
 retiré ; rien n'est écrit dans le document. Il est invisible pour la sélection de FreeCAD
@@ -14,7 +14,8 @@ from typing import Any, Final
 
 from pivy import coin
 
-from freecad.menuiserie.gui.drag.geometry import Dots, Drawing, Label, Solid, Stroke
+from freecad.menuiserie.gui.drag.badges import badge_pixels
+from freecad.menuiserie.gui.drag.geometry import Badge, Dots, Drawing, Label, Solid, Stroke
 
 __all__ = ["NODE_NAME", "Overlay"]
 
@@ -90,6 +91,22 @@ def _label_node(label: Label) -> SoNode:
     return node
 
 
+def _badge_node(badge: Badge) -> SoNode:
+    """Étiquette d'une poignée : image peinte par Qt, centrée sur sa position, à taille fixe à
+    l'écran (ADR 0068)."""
+    node = coin.SoSeparator()
+    place = coin.SoTranslation()
+    place.translation.setValue(badge.position.x, badge.position.y, badge.position.z)
+    width, height, pixels = badge_pixels(badge.text, badge.state, badge.angle, badge.scale)
+    image = coin.SoImage()
+    image.vertAlignment = coin.SoImage.HALF
+    image.horAlignment = coin.SoImage.CENTER
+    image.image.setValue(coin.SbVec2s(width, height), 4, pixels)
+    for child in (place, image):
+        node.addChild(child)
+    return node
+
+
 class Overlay:
     """Incrustation posée sur la racine ``root`` d'une vue 3D (ou sur un nœud qui la place, comme
     le repère de la pièce en bois) ; son nœud porte le nom ``name`` ; :meth:`remove` la retire."""
@@ -118,6 +135,8 @@ class Overlay:
             self._node.addChild(_solid_node(solid))
         for label in drawing.labels:
             self._node.addChild(_label_node(label))
+        for badge in drawing.badges:  # en dernier : par-dessus les traits
+            self._node.addChild(_badge_node(badge))
 
     def remove(self) -> None:
         """Retire l'incrustation de la vue (sans effet si elle n'y est plus)."""

@@ -15,10 +15,10 @@ sont l'affaire de ``gui/``.
 
 Points d'extension :
 
-- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin (sorties), donc pas de
-  poignée (:func:`can_resize`, seul endroit qui décide des poignées d'une pièce) ; elle se
-  déplace comme une pièce de bois, par ``Placement`` ; la famille (massif ou panneau) ne décide
-  que de l'épaisseur (:func:`_solid`) ;
+- pièce en bois (``ShapedPart``, #87) : ses cotes sont celles du dessin (sorties), donc ses
+  poignées sont grisées (:func:`drag_limits`, seul endroit qui décide des poignées d'une pièce ;
+  ``drag_blockers`` donne la raison) ; elle se déplace comme une pièce de bois, par
+  ``Placement`` ; la famille (massif ou panneau) ne décide que de l'épaisseur (:func:`_solid`) ;
 - Distance gardée (DI-c, B6) : au relâchement, la ``Value`` des Distances de la pièce prend la
   distance nouvelle (:func:`end_drag`, avant la liaison de l'ensemble) ; Échap la rétablit.
 """
@@ -32,9 +32,9 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.magnet import THICKNESS_AXIS
 from freecad.menuiserie.core.text import bounded_text, quoted_value
 from freecad.menuiserie.features.distance import AXES, distances_touching
+from freecad.menuiserie.features.drag_blockers import Blocker, blocked_sizes
 from freecad.menuiserie.features.drag_joints import (
     DragCancelledError,
     JointChoice,
@@ -99,10 +99,13 @@ class DragLimits:
     ``fixed_axes`` : axes de la pièce (0 = X, 1 = Y, 2 = Z) dont une formule **de
     l'utilisateur** pilote la position (aucune flèche) ; ``resizable_axes`` : axes dont une
     poignée est permise (l'axe 2, l'épaisseur, seulement pour le massif), vide si la pièce est
-    verrouillée ou si ses cotes ne se tirent pas (:func:`can_resize`)."""
+    verrouillée ou si ses cotes ne se tirent pas (:func:`can_resize`) ; ``locked_sizes`` : les
+    autres axes, chacun avec la raison traduite (titre, explication, piste) de sa poignée grisée
+    (ADR 0068)."""
 
     fixed_axes: frozenset[int] = frozenset()
     resizable_axes: frozenset[int] = frozenset()
+    locked_sizes: tuple[tuple[int, Blocker], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -180,12 +183,17 @@ def drag_limits(part: DocumentObject) -> DragLimits:
     coordinates = _fixed_coordinates(user) | _driven_gap_coordinates(part)
     rotation = part.Placement.Rotation
     fixed = frozenset(i for i in range(3) if _coordinates(i, rotation) & coordinates)
-    if not can_resize(part):
-        return DragLimits(fixed, frozenset())
-    sizes = frozenset(i for i, prop in enumerate(SIZE_PROPS) if prop not in user)
-    if not _solid(part):
-        sizes -= {THICKNESS_AXIS}
-    return DragLimits(fixed, sizes - fixed)
+    locked, shaped = bool(getattr(part, "Locked", False)), is_shaped_part(part)
+    blocked = blocked_sizes(
+        locked=locked,
+        shaped=shaped,
+        formulas=tuple(prop in user for prop in SIZE_PROPS),
+        fixed=fixed,
+        panel=not (locked or shaped) and not _solid(part),
+        thickness=float(part.Thickness.Value),
+    )
+    resizable = frozenset(range(3)) - {axis for axis, _ in blocked}
+    return DragLimits(fixed, resizable, blocked)
 
 
 def begin_drag(part: DocumentObject) -> DragMemento:

@@ -59,6 +59,7 @@ def _glisser_depuis(doc: Any, fabrique: Callable[[Any], Any]) -> list[str]:
     problemes += [
         *ecarts("panneau : trois flèches", len(session.layout.arrows), 3),
         *ecarts("pièce en bois : aucune poignée", len(session.layout.handles), 0),
+        *ecarts("pièce en bois : six poignées grisées", len(session.layout.locked), 6),
     ]
     avant, pas = place(piece), px_en_mm(session)
     problemes += ecarts("flèche saisie", saisir(session, sur_la_fleche(session, 0, 40.0)), True)

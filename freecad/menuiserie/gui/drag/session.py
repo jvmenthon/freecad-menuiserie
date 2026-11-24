@@ -22,7 +22,7 @@ Une pièce dont une expression pilote le ``Placement`` (membre d'ensemble, formu
 d'anneau (D6).
 
 Un ensemble sélectionné seul dans l'arbre (ou dont le panneau est ouvert) porte sa boîte en
-transparence, six doubles flèches de face (taille), trois flèches de déplacement et trois anneaux
+transparence, six étiquettes de face (taille), trois flèches de déplacement et trois anneaux
 (``furniture_target.py``) ; ses transactions sont « Redimensionner l'ensemble », « Déplacer
 l'ensemble » et « Tourner l'ensemble ». Une pièce membre sélectionnée garde ses propres poignées.
 """
@@ -30,6 +30,7 @@ l'ensemble » et « Tourner l'ensemble ». Une pièce membre sélectionnée gard
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Final
 
 import FreeCAD as App
@@ -61,10 +62,13 @@ from freecad.menuiserie.gui.drag.geometry import (
     MAGNET_PX,
     Cues,
     Layout,
+    badge_angles,
     build_drawing,
+    locked_blocker,
     parse_key,
     pixel_targets,
     target_line,
+    tooltip_html,
 )
 from freecad.menuiserie.gui.drag.overlay import Overlay
 from freecad.menuiserie.gui.drag.parts import (
@@ -209,6 +213,8 @@ class DragSession:
         try:
             self._size_mm = port.mm(target.center(), ARROW_PX)
             layout = target.layout(self._size_mm, self._panel_shown)
+            layout = replace(layout, badge_scale=port.scale())
+            layout = replace(layout, badge_angles=badge_angles(layout, port.project))
         except _RESIZE_ERRORS:
             self.clear()
             return
@@ -239,6 +245,13 @@ class DragSession:
             self.refresh()
             return
         self._build()
+
+    def tooltip(self) -> str | None:
+        """Infobulle (texte riche) de la poignée impossible sous la souris, sinon ``None``."""
+        if self.layout is None or self.dragging:
+            return None
+        blocker = locked_blocker(self.layout, self.state.key)
+        return None if blocker is None else tooltip_html(blocker)
 
     def clear(self) -> None:
         """Plus de flèches."""

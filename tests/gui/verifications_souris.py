@@ -241,6 +241,7 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
             [h for h, _ in session.layout.handles if h.axis == 2],
             [],
         ),
+        *_poignees_grisees(session, piece),
     ]
     choisir(form.materialCombo, "hetre")
     session.sync()
@@ -252,6 +253,41 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
         session.layout is None or not session.layout.handles,
         True,
     )
+    return problemes
+
+
+def images_incrustees() -> int:
+    """Nombre d'étiquettes de poignée (``SoImage``) dans l'incrustation du glissement."""
+    from pivy import coin
+
+    recherche = coin.SoSearchAction()
+    recherche.setType(coin.SoImage.getClassTypeId())
+    recherche.setInterest(coin.SoSearchAction.ALL)
+    recherche.apply(Gui.activeView().getSceneGraph())
+    return int(recherche.getPaths().getLength())
+
+
+def _poignees_grisees(session: Any, piece: Any) -> list[str]:
+    """ADR 0068 : panneau de MDF, les deux poignées d'épaisseur sont grisées ; survolées, elles
+    donnent leur raison ; cliquées, rien ne bouge et le clic est consommé."""
+    grisees = [(h.axis, h.at_end) for h, _, _ in session.layout.locked]
+    problemes = [
+        *ecarts("MDF : poignées d'épaisseur grisées", sorted(grisees), [(2, False), (2, True)]),
+        *ecarts("six étiquettes dessinées", images_incrustees(), 6),
+    ]
+    point = next(p for h, p, _ in session.layout.locked if h.at_end)
+    pixel_grise = pixel(session, *_xyz(point))
+    session.move(pixel_grise)
+    infobulle = session.tooltip() or ""
+    raison = "Épaisseur non modifiable" in infobulle
+    problemes += ecarts("infobulle de la poignée grisée", raison, True)
+    epaisseur = piece.Thickness.Value
+    problemes += ecarts("clic sur la poignée grisée consommé", session.press(pixel_grise), True)
+    problemes += ecarts("rien n'est tiré", session.dragging, False)
+    session.release(pixel_grise)
+    problemes += ecarts("épaisseur intacte", piece.Thickness.Value, epaisseur)
+    session.move((0, 0))
+    problemes += ecarts("infobulle retirée hors de la poignée", session.tooltip(), None)
     return problemes
 
 

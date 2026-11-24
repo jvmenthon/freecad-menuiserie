@@ -60,6 +60,7 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
         self._mdi: QtGui.QMdiArea | None = (
             None  # zone MDI gardée : un évènement de souris par pixel
         )
+        self._tip = False  # infobulle d'une poignée grisée affichée
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         """Vrai (consommé) seulement pour la saisie d'une flèche ou d'une poignée et pour le
@@ -110,6 +111,18 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
         mdi = self._mdi_area()
         return mdi is not None and any(v == viewport for v in viewports_3d(mdi, current_only=True))
 
+    def _tooltip(self, viewport: QtGui.QWidget, event: Any) -> None:
+        """Infobulle d'une poignée grisée sous la souris : pourquoi la cote ne se tire pas
+        (ADR 0068) ; retirée dès que la souris la quitte."""
+        text = self._session.tooltip()
+        if text is not None:
+            where = event.globalPosition().toPoint() if hasattr(event, "globalPosition") else None
+            QtGui.QToolTip.showText(where or event.globalPos(), text, viewport)
+            self._tip = True
+        elif self._tip:
+            QtGui.QToolTip.hideText()
+            self._tip = False
+
     def _mouse(self, kind: QtCore.QEvent.Type, viewport: QtGui.QWidget, event: Any) -> bool:
         session = self._session
         position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6, Qt 5
@@ -126,7 +139,9 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
             moving = event.buttons() == QtCore.Qt.NoButton
             if not moving and not session.dragging and not session.swallow_release:
                 return False  # navigation en cours : rien à voir
-            return _guarded(session, session.move, point, shift)
+            consumed = _guarded(session, session.move, point, shift)
+            self._tooltip(viewport, event)
+            return consumed
         if event.button() != QtCore.Qt.LeftButton:
             return False
         return _guarded(session, session.release, point)
