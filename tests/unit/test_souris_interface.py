@@ -186,6 +186,8 @@ def test_cote_ecrite_sur_l_etiquette() -> None:
     assert size_text(Box.from_ranges([(0, 680), (0, 0.25), (0, 19.04)]), 0) == "680"
     assert size_text(Box.from_ranges([(0, 680), (0, 380.46), (0, 19)]), 1) == "380.5"
     assert size_text(Box.from_ranges([(0, 680), (0, 380), (0, 19.04)]), 2) == "19"
+    # Document retouché : cote démesurée (une boîte est toujours finie), pas d'étiquette géante.
+    assert size_text(Box.from_ranges([(0, 1e12), (0, 1), (0, 1)]), 0) == "?"
 
 
 def test_zone_de_saisie_des_poignees() -> None:

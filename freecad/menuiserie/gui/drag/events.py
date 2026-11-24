@@ -76,6 +76,9 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
         kind = event.type()
         if kind in _KEYS:
             return self._key(kind, event)
+        if kind == _QEvent.Leave and self._tip and is_viewport_3d(watched):
+            self.hide_tooltip()  # la souris quitte la vue : plus de poignée sous elle
+            return False
         if kind not in _MOUSE or not self._session.active or not is_viewport_3d(watched):
             return False
         if not self._in_current_view(watched):
@@ -113,15 +116,25 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
 
     def _tooltip(self, viewport: QtGui.QWidget, event: Any) -> None:
         """Infobulle d'une poignée grisée sous la souris : pourquoi la cote ne se tire pas
-        (ADR 0068) ; retirée dès que la souris la quitte."""
-        text = self._session.tooltip()
-        if text is not None:
-            where = event.globalPosition().toPoint() if hasattr(event, "globalPosition") else None
-            QtGui.QToolTip.showText(where or event.globalPos(), text, viewport)
-            self._tip = True
-        elif self._tip:
-            QtGui.QToolTip.hideText()
+        (ADR 0068) ; retirée dès que la souris la quitte. Une erreur est écrite dans la vue
+        rapport sans toucher au glissement."""
+        try:
+            text = self._session.tooltip()
+            if text is not None:
+                modern = hasattr(event, "globalPosition")  # Qt 6 ; Qt 5 : globalPos
+                where = event.globalPosition().toPoint() if modern else event.globalPos()
+                QtGui.QToolTip.showText(where, text, viewport)
+                self._tip = True
+            else:
+                self.hide_tooltip()
+        except Exception:  # pylint: disable=broad-exception-caught
+            App.Console.PrintError(traceback.format_exc())
+
+    def hide_tooltip(self) -> None:
+        """Retire l'infobulle d'une poignée grisée si elle est affichée."""
+        if self._tip:
             self._tip = False
+            QtGui.QToolTip.hideText()
 
     def _mouse(self, kind: QtCore.QEvent.Type, viewport: QtGui.QWidget, event: Any) -> bool:
         session = self._session
@@ -240,6 +253,7 @@ class _Installation:
             return
         application = QtGui.QApplication.instance()
         try:
+            self.filter.hide_tooltip()
             if application is not None:
                 application.removeEventFilter(self.filter)
         finally:

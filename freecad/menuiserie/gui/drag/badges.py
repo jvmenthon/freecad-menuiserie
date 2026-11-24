@@ -23,6 +23,7 @@ MARGIN_PX: Final = 6.0  # marge autour de la pastille : ombre et halo
 ICON_X_PX: Final = 14.0  # centre de l'icône depuis le bord gauche de la pastille
 TEXT_PX: Final = 13  # taille du texte de la cote
 _CACHE: Final = 512
+MAX_SIDE_PX: Final = 2048  # côté d'une étiquette au plus (SbVec2s : 16 bits)
 
 # État : fond, bord, texte et icône, halo (None : aucun).
 _LOOKS: Final = {
@@ -146,4 +147,9 @@ def badge_pixels(text: str, state: str, angle: float, scale: float) -> tuple[int
     image = flip(QtCore.Qt.Vertical) if flip is not None else image.mirrored(False, True)
     width, height = image.width(), image.height()
     data = bytes(image.constBits())[: width * height * 4]
+    if (
+        not (0 < width <= MAX_SIDE_PX and 0 < height <= MAX_SIDE_PX)
+        or len(data) != 4 * width * height
+    ):
+        return 1, 1, bytes(4)  # image ratée : un pixel transparent, jamais un tampon trop court
     return width, height, data

@@ -20,6 +20,7 @@ from freecad.menuiserie.features.snap_geometry import to_vec3
 __all__ = ["ViewPort"]
 
 Point = tuple[float, float]
+MAX_SCALE = 8.0  # rapport de pixels plausible au plus (au-delà : 1)
 PROBE_MM = 100.0  # segment de référence de la mesure de l'échelle
 
 
@@ -68,7 +69,7 @@ class ViewPort:
             ratio = float(self.view.graphicsView().devicePixelRatioF())
         except (AttributeError, RuntimeError, TypeError):
             return 1.0
-        return ratio if ratio > 0 else 1.0
+        return ratio if math.isfinite(ratio) and 0 < ratio <= MAX_SCALE else 1.0
 
     def scene_graph(self) -> Any:
         """Racine Coin de la vue."""

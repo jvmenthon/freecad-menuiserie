@@ -10,6 +10,7 @@ famille de son bois. Aucun import de ``FreeCADGui``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from enum import Enum
 from typing import Final
@@ -98,6 +99,10 @@ def size_blocker(
 
 
 def _number(value: float) -> str:
+    """Épaisseur citée : au millimètre, au dixième sinon ; « ? » si le document la donne non
+    finie (retouché à la main)."""
+    if not math.isfinite(value):
+        return "?"
     rounded = round(value, 1)
     return f"{rounded:.0f}" if rounded == int(rounded) else f"{rounded:.1f}"
 

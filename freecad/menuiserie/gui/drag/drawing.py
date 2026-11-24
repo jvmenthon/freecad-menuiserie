@@ -78,6 +78,7 @@ HANDLE_RATIO: Final = 0.3  # unité de longueur des poignées, part des flèches
 BADGE_REACH: Final = 1.9  # centre de l'étiquette : distance à la face, en unités de poignée
 BADGE_W_PX: Final = 66.0  # étiquette d'une poignée : largeur et hauteur à l'écran (pixels logiques)
 BADGE_H_PX: Final = 24.0
+MAX_SIZE_CHARS: Final = 9  # cote écrite sur une étiquette : au plus 9 caractères
 ANGLE_STEP: Final = 5.0  # pas des angles des étiquettes (degrés) : images gardées, moins de dessins
 MAX_RATE: Final = 30  # recalculs de la brute par seconde (poignée)
 AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  # X, Y, Z
@@ -214,9 +215,13 @@ def tooltip_html(blocker: Blocker) -> str:
 
 
 def size_text(box: Box, axis: int) -> str:
-    """Cote de ``box`` sur ``axis``, écrite sur l'étiquette : au millimètre, au dixième sinon."""
+    """Cote de ``box`` sur ``axis``, écrite sur l'étiquette : au millimètre, au dixième sinon ;
+    « ? » si elle n'est pas finie ou trop longue à écrire (document retouché)."""
     value = round(box.hi(axis) - box.lo(axis), 1)
-    return f"{value:.0f}" if value == int(value) else f"{value:.1f}"
+    if not math.isfinite(value):
+        return "?"
+    text = f"{value:.0f}" if value == int(value) else f"{value:.1f}"
+    return text if len(text) <= MAX_SIZE_CHARS else "?"
 
 
 def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
