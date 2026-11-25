@@ -95,6 +95,7 @@ from freecad.menuiserie.gui.drag.view import Point, ViewPort
 __all__ = ["DragSession", "PanelContext"]
 
 _RESIZE_ERRORS: Final = (RuntimeError, ValueError, TypeError, AttributeError, ReferenceError)
+_VIEW_ERRORS: Final = (*_RESIZE_ERRORS, App.Base.FreeCADError)  # erreurs levées par FreeCAD
 
 
 class DragSession:
@@ -216,7 +217,7 @@ class DragSession:
                 port.project,
                 port.direction(),
             )
-        except (*_RESIZE_ERRORS, OverflowError, ZeroDivisionError, App.Base.FreeCADError):
+        except (*_VIEW_ERRORS, OverflowError, ZeroDivisionError):
             self.clear()  # vue en cours de fermeture ou caméra dégénérée : rien à dessiner
             return
         changed, self.layout = layout != self.layout, layout
@@ -370,7 +371,7 @@ class DragSession:
             memento = target.begin()
             guides = target.guides()
             tolerance = port.mm(target.frame().origin, MAGNET_PX)
-        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+        except _VIEW_ERRORS:
             give_up(target.obj, own)
             return False
         state = kind(Grab(key, point, line, origin, memento, guides, tolerance, own, target))
@@ -406,7 +407,7 @@ class DragSession:
             report_refusal(str(refusal))
             self.swallow_release = True
             return True
-        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+        except _VIEW_ERRORS:
             return False
         state = Copying(
             Grab(key, point, line, origin, memento, guides, tolerance, False, target), axis, sign
@@ -432,7 +433,7 @@ class DragSession:
         own = open_transaction(target.obj, target.transaction("rotate"))
         try:
             memento = target.begin()
-        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+        except _VIEW_ERRORS:
             give_up(target.obj, own)
             return False
         state = Rotating(Turn(ring, first, from_center, point, memento, own, target))

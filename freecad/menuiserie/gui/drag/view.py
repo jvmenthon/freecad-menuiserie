@@ -45,7 +45,7 @@ class ViewPort:
     def ray(self, point: Point) -> Ray:
         """Rayon de la souris au pixel ``point``."""
         focal = to_vec3(self.view.getPoint(int(point[0]), int(point[1])))
-        return mouse_ray(focal, to_vec3(self.view.getViewDirection()), self._camera())
+        return mouse_ray(focal, self.direction(), self._camera())
 
     def project(self, position: Vec3) -> Point:
         """Pixel où ``position`` (mm, global) s'affiche."""
@@ -56,7 +56,7 @@ class ViewPort:
         """Longueur en mm de ``pixels`` pixels à la profondeur du point ``at`` (jamais nulle) :
         mesurée sur la projection d'un segment de 100 mm parallèle à l'écran, donc exacte pour
         la caméra orthogonale comme en perspective."""
-        view = to_vec3(self.view.getViewDirection())
+        view = self.direction()
         side = Vec3(view.y, -view.x, 0.0)  # perpendiculaire à la vue et au haut du document
         if math.hypot(side.x, side.y) < 1e-6:
             side = Vec3(1.0, 0.0, 0.0)

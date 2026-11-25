@@ -29,6 +29,7 @@ __all__ = [
 BADGE_REACH: Final = 1.9  # centre de l'étiquette : distance à la face, en unités de poignée
 REACH_STEP: Final = 0.8  # recul d'une étiquette qui en touche une autre, en unités de poignée
 MAX_PUSHES: Final = 6
+MIN_VIEW: Final = 1e-12  # direction de vue plus courte : caméra dégénérée
 EDGE_ON: Final = 1e-6  # face vue par la tranche (bruit flottant compris) : comptée visible
 GAP_PX: Final = 4.0  # écart minimal entre deux étiquettes (pixels logiques)
 BADGE_H_PX: Final = 24.0
@@ -51,7 +52,7 @@ def facing_ends(axes: Sequence[Vec3], view: Vec3) -> frozenset[int]:
     """Axes dont la face de fin (côté positif) regarde la caméra ; ``view`` est la direction de
     la vue (de la caméra vers la scène). Une face vue par la tranche compte comme visible ; une
     direction nulle ou non finie (caméra dégénérée) donne les trois faces de fin."""
-    if not is_finite(view) or norm(view) < 1e-12:
+    if not is_finite(view) or norm(view) < MIN_VIEW:
         return frozenset({0, 1, 2})
     scale = norm(view)
     return frozenset(i for i, axis in enumerate(axes) if dot(axis, view) <= EDGE_ON * scale)

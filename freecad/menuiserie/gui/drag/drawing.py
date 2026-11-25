@@ -88,6 +88,10 @@ ARROW_PX: Final = 80.0  # longueur des flèches à l'écran
 HEAD_RATIO: Final = 0.15  # barbes de la pointe, part de la longueur
 HANDLE_RATIO: Final = 0.3  # unité de longueur des poignées, part des flèches
 MAX_SIZE_CHARS: Final = 9  # cote écrite sur une étiquette : au plus 9 caractères
+DOT_PX: Final = 8.0  # rond du milieu d'une face de poignée (pixels), survolé ensuite
+DOT_HOT_PX: Final = 11.0
+LINK_PX: Final = 2.0  # trait de l'étiquette à sa face (pixels), survolé ensuite
+LINK_HOT_PX: Final = 3.0
 FACE_TRANSPARENCY: Final = 0.7  # face survolée d'une poignée, à la couleur de son axe
 MAX_RATE: Final = 30  # recalculs de la brute par seconde (poignée)
 AXIS_COLORS: Final = ((0.86, 0.15, 0.15), (0.15, 0.65, 0.15), (0.2, 0.3, 0.9))  # X, Y, Z
@@ -585,11 +589,11 @@ def _badges(
     for key, handle, point in _all_handles(layout):
         locked, hot = is_locked_key(key), hover == key
         color = _handle_color(handle, locked)
-        dots.append(Dots(color, 11.0 if hot else 8.0, (point,)))
+        dots.append(Dots(color, DOT_HOT_PX if hot else DOT_PX, (point,)))
         if not _labelled(layout, handle):
             continue
         center = _badge_center(layout, key, handle, point)
-        strokes.append(Stroke(color, 3.0 if hot else 2.0, ((point, center),)))
+        strokes.append(Stroke(color, LINK_HOT_PX if hot else LINK_PX, ((point, center),)))
         name, text = layout.axis_names[handle.axis], size_text(layout.box, handle.axis)
         state = _badge_state(locked, hot)
         badges.append(Badge(center, name, text, state, handle.axis, layout.badge_scale))

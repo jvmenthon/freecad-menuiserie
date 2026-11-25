@@ -220,3 +220,9 @@ de répétitions m5) sont corrigés.
 | dr2 | mineur | `core/repeat/_model.py` (`is_copy_name`) | Un nom « Barreau 3 » saisi à la main sur la copie de rang 2 est pris pour l'ancien nom automatique et renommé « Barreau (n) » quand le rang change. | Accepté (ancien format) ; à revoir si un document le montre. |
 | dr3 | mineur | `gui/commands/repeat.py`, `gui/structure_actions.py` | Après Ctrl+Z, les copies restent « Touched » jusqu'au recalcul suivant (comportement de FreeCAD). | Recalculer après l'annulation si cela gêne. |
 | dr4 | mineur | `features/repeat_copies.py` (`_bind_furnitures`), `features/furniture_variants.py` | Le choix des notices montrées selon l'opération (copie : sans DRAWN_SIZE ; redimensionnement) est écrit à deux endroits. | Un prédicat ou une constante nommée dans `core/furniture`, partagé par les deux appelants. |
+
+## Relecture « une étiquette par cote » (PR #279, ADR 0068 maquette K), 2026-11-25
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| ek1 | mineur | `freecad/menuiserie/gui/drag/drawing.py` (`_hover_face`, `_box_drawing`) | Les coins d'une face de boîte sont reconstruits à la main dans deux fonctions ; `drawing.py` dépasse 650 lignes. | Extraire `box_face(box, axis, at_end)` dans `core/` et l'utiliser aux deux endroits. |
