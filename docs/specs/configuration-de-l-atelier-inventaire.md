@@ -117,7 +117,7 @@ pour l'instant.
 
 | Point | Valeur actuelle | Où | Avis |
 |---|---|---|---|
-| Tolérance de l'aimant | 10 px | `gui/drag/geometry.py` | R |
+| Tolérance de l'aimant | 10 px | `gui/drag/geometry.py` | E (jv) |
 | Tolérance de saisie des anneaux | 8 px | `gui/drag/rings.py` | E |
 | Pas de rotation aimanté | 15° | `core/rotation/_turn.py` | R |
 | Aimant des flèches des champs (coplanarité) | 1 mm | `core/magnet/_coplanar.py` | E |
