@@ -41,6 +41,7 @@ from tests.gui.verifications_chants_natifs import VERIFICATIONS_CHANTS_NATIFS
 from tests.gui.verifications_chants_pieces import VERIFICATIONS_CHANTS_PIECES
 from tests.gui.verifications_coplanarite import VERIFICATIONS_COPLANARITE
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
+from tests.gui.verifications_dissocier_confirmation import VERIFICATIONS_DISSOCIER_CONFIRMATION
 from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
 from tests.gui.verifications_double_clic import VERIFICATIONS_DOUBLE_CLIC
@@ -1299,6 +1300,7 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_STRUCTURE_LOT3,
     *VERIFICATIONS_STRUCTURE_LOT4,
     *VERIFICATIONS_STRUCTURE_REPETITION,
+    *VERIFICATIONS_DISSOCIER_CONFIRMATION,
     *VERIFICATIONS_STRUCTURE_SELECTION,
     *VERIFICATIONS_STRUCTURE_DEUX_CALQUES,
     *VERIFICATIONS_STRUCTURE_TACHE,

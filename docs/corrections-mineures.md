@@ -212,3 +212,12 @@ de répétitions m5) sont corrigés.
 | pc2 | mineur | `gui/task_panels/part_drawings.py` (`PartDrawingsTaskPanel`) | Aucun test QTest du panneau : sélection synchronisée, ordre des `later`, retrait de l'observateur à la fermeture du document. | Ajouter un test QTest (ADR 0059) quand la PR sera fusionnée. |
 | pc3 | mineur | `gui/task_panels/part_drawings.py` (`_changed`) | Le nombre de plans relit les usinages des pièces cochées sur le fil de l'interface (une fois par rafale de cases grâce à l'anti-rebond) ; un très gros ouvrage peut ralentir le panneau. | Compter d'abord les pièces sans usinages, ou différer le calcul si un ralentissement est constaté. |
 | pc4 | mineur | `gui/task_panels/drawing_export.py` (`accept`) | Les plans créés avant l'export (ouvrage, vue éclatée, pièces) ont chacun leur transaction : si l'export échoue ensuite, ils restent et s'annulent en plusieurs Ctrl+Z. | Une transaction englobante quand l'api acceptera une transaction déjà ouverte. |
+
+## Dissocier la répétition (PR #260, ADR 0067), 2026-11-24
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| dr1 | mineur | `core/repeat/_model.py` (`copy_name`) | Une source déjà nommée « Montant (2) » donne des copies « Montant (2) (2) ». | Retirer le suffixe « (n) » de la source avant de numéroter, si jv le souhaite. |
+| dr2 | mineur | `core/repeat/_model.py` (`is_copy_name`) | Un nom « Barreau 3 » saisi à la main sur la copie de rang 2 est pris pour l'ancien nom automatique et renommé « Barreau (n) » quand le rang change. | Accepté (ancien format) ; à revoir si un document le montre. |
+| dr3 | mineur | `gui/commands/repeat.py`, `gui/structure_actions.py` | Après Ctrl+Z, les copies restent « Touched » jusqu'au recalcul suivant (comportement de FreeCAD). | Recalculer après l'annulation si cela gêne. |
+| dr4 | mineur | `features/repeat_copies.py` (`_bind_furnitures`), `features/furniture_variants.py` | Le choix des notices montrées selon l'opération (copie : sans DRAWN_SIZE ; redimensionnement) est écrit à deux endroits. | Un prédicat ou une constante nommée dans `core/furniture`, partagé par les deux appelants. |

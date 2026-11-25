@@ -24,6 +24,7 @@ from freecad.menuiserie.core.furniture import (
     KeptGap,
     Member,
     Notice,
+    NoticeKind,
     bindings_for,
     driven_properties,
     follow_rules,
@@ -324,14 +325,19 @@ def _clear(objects: Iterable[DocumentObject]) -> None:
 
 
 def bind_members(
-    members: MemberSet, keys: Iterable[str], thicknesses: Mapping[str, float] | None = None
+    members: MemberSet,
+    keys: Iterable[str],
+    thicknesses: Mapping[str, float] | None = None,
+    *,
+    drawn: bool = False,
 ) -> list[Notice]:
     """Calcule et écrit les liaisons des membres ``keys`` d'après la géométrie actuelle et
     leurs options ; renvoie les avertissements. Les liaisons de **tous** les membres visés sont
     retirées d'abord : le graphe mélangeant anciennes et nouvelles liaisons pourrait être
     cyclique. Un cycle avec une formule de l'utilisateur (``RuntimeError`` de FreeCAD) rétablit
     les liaisons précédentes et devient une ``ValueError`` traduite. ``thicknesses`` : voir
-    ``bindings_for``."""
+    ``bindings_for``. « Cote dessinée » seulement avec ``drawn`` (à l'entrée) : déplacer,
+    copier ou relier ne redimensionne rien (jv, 2026-11-24 ; voir :mod:`.furniture_variants`)."""
     chosen = sorted(set(keys) - {m.key for m in members.members if m.linked})  # ADR 0044
     bindings, notices = _bindings(members, chosen, thicknesses)
     objects = [members.objects[key] for key in chosen]
@@ -345,7 +351,7 @@ def bind_members(
         for obj in objects:
             _write(obj, before[obj.Name])
         raise ValueError(translated(_CYCLE, {"detail": str(error)})) from error
-    return notices
+    return notices if drawn else [n for n in notices if n.kind is not NoticeKind.DRAWN_SIZE]
 
 
 def rebind(

@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.cadre import placement, stale_or_invalid
 
 pytestmark = pytest.mark.integration
@@ -47,7 +48,7 @@ def test_rangs_apres_dissociation_du_dernier_puis_ajout(document: Any) -> None:
     src = bar(document)
     rep = api.make_repeat([src], api.RepeatParams(count=3, step=100.0, axis="X"))
     last = copies(rep)[-1]
-    api.dissociate(last)
+    detach_one_copy(last)
     api.edit_repeat(rep, api.RepeatParams(count=3, step=100.0, axis="X"))
     document.recompute()
     live = copies(rep)
@@ -61,7 +62,7 @@ def test_rangs_apres_dissociation_du_dernier_puis_ajout(document: Any) -> None:
 def test_rangs_apres_dissociation_au_milieu_puis_baisse(document: Any) -> None:
     src = bar(document)
     rep = api.make_repeat([src], api.RepeatParams(count=4, step=100.0, axis="X"))
-    api.dissociate(copies(rep)[1])
+    detach_one_copy(copies(rep)[1])
     api.edit_repeat(rep, api.RepeatParams(count=2, step=100.0, axis="X"))
     document.recompute()
     assert stale_or_invalid(document) == []
@@ -72,7 +73,7 @@ def test_dissocier_puis_modifier_source_et_pas(document: Any) -> None:
     src = bar(document)
     rep = api.make_repeat([src], api.RepeatParams(count=2, step=100.0, axis="X"))
     first, second = copies(rep)
-    api.dissociate(first)
+    detach_one_copy(first)
     kept = (first.Length.Value, first.Placement.Base.x)
     src.Length = 500
     rep.Step = 150
@@ -82,26 +83,20 @@ def test_dissocier_puis_modifier_source_et_pas(document: Any) -> None:
     assert stale_or_invalid(document) == []
 
 
-def test_undo_redo_dissocier_et_suppression_de_la_repetition(document: Any) -> None:
+def test_undo_redo_dissocier_la_repetition(document: Any) -> None:
     document.UndoMode = 1
     src = bar(document)
     rep = api.make_repeat([src], api.RepeatParams(count=2, step=100.0, axis="X"))
-    first = copies(rep)[0]
+    name, (first, second) = rep.Name, copies(rep)
     api.dissociate(first)
+    assert document.getObject(name) is None
     document.undo()
     document.recompute()
-    assert repeat.is_copy(first) and stale_or_invalid(document) == []
+    assert repeat.is_copy(first) and repeat.is_copy(second) and stale_or_invalid(document) == []
     document.redo()
     document.recompute()
-    assert not repeat.is_copy(first)
-    document.openTransaction("sup")
-    document.removeObject(rep.Name)
-    document.commitTransaction()
-    document.recompute()
-    assert stale_or_invalid(document) == []
-    document.undo()
-    document.recompute()
-    assert stale_or_invalid(document) == [] and len(copies(rep)) == 1
+    assert not repeat.is_copy(first) and not repeat.is_copy(second)
+    assert document.getObject(name) is None and stale_or_invalid(document) == []
 
 
 def test_cent_copies_assemblees_temps_et_validite(document: Any) -> None:
@@ -200,7 +195,7 @@ def test_dissocier_ensemble_puis_supprimer_la_source_puis_rouvrir(
     first, second = [c for c in copies(rep) if repeat.is_copy(c) and c.Label.startswith("Caisson")][
         :2
     ]
-    api.dissociate(first)
+    detach_one_copy(first)
     document.removeObject(source.Name)
     document.recompute()
     names = (first.Name, second.Name, rep.Name)

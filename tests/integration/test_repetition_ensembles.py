@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from freecad.menuiserie.core.geometry import Vec3
+from tests.integration.aides import detach_one_copy
 from tests.integration.cadre import stale_or_invalid
 
 pytestmark = pytest.mark.integration
@@ -287,7 +288,7 @@ def test_repeter_un_caisson_cree_des_ensembles_copies(document: Any) -> None:
     source = caisson(document)
     rep = api.make_repeat([source], row())
     first, second = copies(rep, source)
-    assert [c.Label for c in (first, second)] == ["Caisson 2", "Caisson 3"]
+    assert [c.Label for c in (first, second)] == ["Caisson (2)", "Caisson (3)"]
     assert (first.RepeatIndex, second.RepeatIndex) == (1, 2)
     assert all(repeat.is_copy(c) and api.repeat_of(c) == rep for c in (first, second))
     for index, copy in enumerate((first, second), start=1):
@@ -313,7 +314,7 @@ def test_repeter_un_caisson_cree_des_ensembles_copies(document: Any) -> None:
             std
         }  # membres rangés dedans
         assert sorted(m.Label for m in members(copy)) == sorted(
-            f"{n} {index + 1}" for n in MEMBER_LABELS
+            f"{n} ({index + 1})" for n in MEMBER_LABELS
         )
         assert all(repeat.is_copy(m) and m.Repeat == rep for m in members(copy))
         assert copy.getEditorMode("RepeatIndex") == ["ReadOnly"]
@@ -327,12 +328,12 @@ def test_les_membres_sont_copies_avec_leurs_options(document: Any) -> None:
     api.set_member_options(shelf, mode="Proportional", fixed={"Top": True}, locked=True)
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
-    twin = member(copy, "Étagère 2")
+    twin = member(copy, "Étagère (2)")
     for name in OPTIONS:
         assert getattr(twin, name) == getattr(shelf, name), name
     assert twin.RepeatSource == shelf and api.furniture_of(twin) == copy
     assert twin.Material == shelf.Material and twin.Thickness == shelf.Thickness
-    left, left_twin = member(source, "Côté gauche"), member(copy, "Côté gauche 2")
+    left, left_twin = member(source, "Côté gauche"), member(copy, "Côté gauche (2)")
     assert {n: getattr(left_twin, n) for n in OPTIONS} == {n: getattr(left, n) for n in OPTIONS}
     assert stale_or_invalid(document) == []
 
@@ -341,7 +342,7 @@ def test_les_cotes_pilotees_viennent_de_l_ensemble_copie(document: Any) -> None:
     source = caisson(document)
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
-    right, original = member(copy, "Côté droit 2"), member(source, "Côté droit")
+    right, original = member(copy, "Côté droit (2)"), member(source, "Côté droit")
     assert engine(right)["Length"] == f"<<{copy.Label}>>.Height"  # cote liée par l'ensemble copie
     assert engine(original)["Length"] == f"<<{source.Label}>>.Height"
     assert engine(right)["Thickness"] == f"{original.Name}.Thickness"  # non pilotée : la source
@@ -358,7 +359,7 @@ def test_redimensionner_le_caisson_source_redimensionne_la_copie(document: Any) 
         assert (copy.Width.Value, copy.Depth.Value, copy.Height.Value) == (800, 500, 900)
         assert corner(copy) == (700.0 * index, 0.0, 0.0)  # le pas est fixe
         x0 = 700.0 * index
-        assert bounds(member(copy, f"Côté droit {index + 1}")) == (
+        assert bounds(member(copy, f"Côté droit ({index + 1})")) == (
             x0 + 782,
             x0 + 800,
             0,
@@ -366,9 +367,16 @@ def test_redimensionner_le_caisson_source_redimensionne_la_copie(document: Any) 
             0,
             900,
         )
-        assert bounds(member(copy, f"Dessus {index + 1}")) == (x0 + 18, x0 + 782, 0, 500, 882, 900)
-        assert bounds(member(copy, f"Fond {index + 1}"))[:2] == (x0 + 8, x0 + 792)
-    twin = member(copies(rep, source)[0], "Étagère 2")
+        assert bounds(member(copy, f"Dessus ({index + 1})")) == (
+            x0 + 18,
+            x0 + 782,
+            0,
+            500,
+            882,
+            900,
+        )
+        assert bounds(member(copy, f"Fond ({index + 1})"))[:2] == (x0 + 8, x0 + 792)
+    twin = member(copies(rep, source)[0], "Étagère (2)")
     assert bounds(twin)[2:] == bounds(member(source, "Étagère"))[2:]
     api.resize_furniture(source, height=700)
     assert [c.Height.Value for c in copies(rep, source)] == [700.0, 700.0]
@@ -383,7 +391,7 @@ def test_l_epaisseur_de_la_source_est_suivie(document: Any) -> None:
     shelf.Thickness = 25
     document.recompute()
     assert stale_or_invalid(document) == []
-    twin = member(copy, "Étagère 2")
+    twin = member(copy, "Étagère (2)")
     assert twin.Thickness.Value == 25.0
     assert twin.Placement.Base.z == pytest.approx(shelf.Placement.Base.z)
 
@@ -423,7 +431,7 @@ def test_changer_le_nombre_de_caissons(undoable: Any) -> None:
     rep = api.make_repeat([source], row(count=1))
     base = len(undoable.Objects)
     api.edit_repeat(rep, row(count=3))
-    assert [c.Label for c in copies(rep, source)] == ["Caisson 2", "Caisson 3", "Caisson 4"]
+    assert [c.Label for c in copies(rep, source)] == ["Caisson (2)", "Caisson (3)", "Caisson (4)"]
     assert len(joints(undoable)) == 8 * 4 and stale_or_invalid(undoable) == []
     assert corner(copies(rep, source)[2]) == (2100.0, 0.0, 0.0)
     api.edit_repeat(rep, row(count=1))
@@ -463,7 +471,7 @@ def test_copie_d_un_sous_ensemble_dans_le_meme_parent(bureau: Any) -> None:
     api.resize_furniture(bureau.furniture, depth=800)
     assert stale_or_invalid(doc) == []
     assert [c.Depth.Value for c in (source, first, second)] == [600.0, 600.0, 600.0]
-    twin = member(first, "Côté gauche 2")
+    twin = member(first, "Côté gauche (2)")
     assert bounds(twin) == (360.0, 378.0, 0.0, 600.0, 0.0, 300.0)
     # les copies comptent comme membres de la rangée : les trois caissons se partagent les 100 mm
     api.resize_furniture(bureau.furniture, width=1300)
@@ -489,7 +497,7 @@ def test_ensemble_dans_un_ensemble_copie_recursivement(document: Any) -> None:
     assert copy.Width.Value == 800
     assert corner(inner_copy)[2] == pytest.approx(corner(inner)[2])
     assert corner(inner_copy)[0] == pytest.approx(corner(inner)[0] + 700)
-    api.dissociate(copy)
+    detach_one_copy(copy)
     assert not repeat.is_copy(inner_copy) and all(not repeat.is_copy(m) for m in members(copy))
     api.resize_furniture(copy, width=1000)
     assert stale_or_invalid(document) == []
@@ -504,7 +512,7 @@ def test_formule_de_l_utilisateur_sur_un_membre_suivie_par_la_copie(document: An
     document.recompute()
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
-    twin = member(copy, "Côté gauche 2")
+    twin = member(copy, "Côté gauche (2)")
     # le décalage de la copie (700 mm) est dans son Std Part : la formule cite seulement la source
     assert engine(twin)["Placement.Base.x"] == f"{left.Name}.Placement.Base.x"
     assert twin.getGlobalPlacement().Base.x == pytest.approx(730.0)
@@ -519,8 +527,8 @@ def test_selection_mixte_pieces_et_ensembles(document: Any) -> None:
     plank = board(document, "Tasseau", (400, 40, 22), (0, 1000, 0))
     document.recompute()
     rep = api.make_repeat([source, plank], row(count=2, step=500.0))
-    assert [c.Label for c in copies(rep, source)] == ["Caisson 2", "Caisson 3"]
-    assert [c.Label for c in copies(rep, plank)] == ["Tasseau 2", "Tasseau 3"]
+    assert [c.Label for c in copies(rep, source)] == ["Caisson (2)", "Caisson (3)"]
+    assert [c.Label for c in copies(rep, plank)] == ["Tasseau (2)", "Tasseau (3)"]
     assert [c.Placement.Base.x for c in copies(rep, plank)] == [500.0, 1000.0]
     assert [corner(c)[0] for c in copies(rep, source)] == [500.0, 1000.0]
     assert stale_or_invalid(document) == []
@@ -558,7 +566,7 @@ def test_dissocier_un_ensemble_copie(undoable: Any) -> None:
     rep = api.make_repeat([source], row())
     first, second = copies(rep, source)
     pieces = members(first)
-    api.dissociate(first)
+    detach_one_copy(first)
     assert not repeat.is_copy(first) and api.repeat_of(first) is None
     assert engine(first) == {} and first.Width.Value == 600.0
     assert engine(container.std_part_of(first)) == {}  # le Std Part ne cite plus la source
@@ -579,8 +587,8 @@ def test_dissocier_un_ensemble_copie(undoable: Any) -> None:
     assert (first.Width.Value, second.Width.Value) == (600.0, 900.0)
     api.resize_furniture(first, width=650, height=800)  # il se redimensionne comme tout ensemble
     assert stale_or_invalid(undoable) == []
-    assert bounds(member(first, "Côté droit 2"))[:2] == (700 + 632, 700 + 650)
-    assert bounds(member(first, "Dessus 2"))[4:] == (782.0, 800.0)
+    assert bounds(member(first, "Côté droit (2)"))[:2] == (700 + 632, 700 + 650)
+    assert bounds(member(first, "Dessus (2)"))[4:] == (782.0, 800.0)
     api.edit_repeat(rep, row(count=3))  # la copie dissociée ne revient pas
     assert [c.RepeatIndex for c in copies(rep, source)] == [2, 3]
     undoable.undo()
@@ -591,8 +599,8 @@ def test_dissocier_un_membre_copie_le_relie_a_son_ensemble(document: Any) -> Non
     source = caisson(document)
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
-    shelf = member(copy, "Étagère 2")
-    api.dissociate(shelf)
+    shelf = member(copy, "Étagère (2)")
+    detach_one_copy(shelf)
     assert not repeat.is_copy(shelf) and repeat.is_copy(copy)
     assert api.furniture_of(shelf) == copy and "Length" in dict(shelf.FurnitureBindings)
     api.resize_furniture(source, width=800)  # la copie suit la source, l'étagère libre l'ensemble
@@ -678,7 +686,7 @@ def test_enregistrer_et_rouvrir(document: Any, rouvrir: Reopen) -> None:
     assert (first.Width.Value, second.Width.Value) == (750.0, 750.0)
     api.edit_repeat(rep, row(count=3))
     assert len(copies(rep, source)) == 3 and stale_or_invalid(doc) == []
-    api.dissociate(second)
+    detach_one_copy(second)
     assert stale_or_invalid(doc) == []
     api.resize_furniture(second, width=800)
     assert stale_or_invalid(doc) == []
@@ -748,3 +756,25 @@ def test_suivre_le_redimensionnement_avec_intervalle_avant_la_fin(document: Any)
     assert rep.Step.Value == pytest.approx(210.0)
     assert heights(rep) == above(meuble.shelf, 210, 420)
     assert stale_or_invalid(document) == []
+
+
+def test_dissocier_la_repetition_depuis_un_membre_libere_tous_les_ensembles(
+    undoable: Any,
+) -> None:
+    """Demande de jv (2026-11-23) : dissocier depuis un membre copié dissocie toute la
+    répétition ; chaque ensemble copie garde son Std Part et sa place."""
+    source = caisson(undoable)
+    rep = api.make_repeat([source], row())
+    name, (first, second) = rep.Name, copies(rep, source)
+    api.dissociate(members(second)[0])
+    assert undoable.getObject(name) is None
+    for copy in (first, second):
+        assert not repeat.is_copy(copy) and engine(copy) == {}
+        assert not any(repeat.is_copy(m) for m in members(copy))
+        assert engine(container.std_part_of(copy)) == {}
+    assert (corner(first), corner(second)) == ((700.0, 0.0, 0.0), (1400.0, 0.0, 0.0))
+    assert stale_or_invalid(undoable) == []
+    undoable.undo()
+    undoable.recompute()
+    assert undoable.getObject(name) is not None and repeat.is_copy(first)
+    assert stale_or_invalid(undoable) == []

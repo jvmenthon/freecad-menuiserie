@@ -152,9 +152,10 @@ def test_un_corps_modifie_change_les_cotes_des_copies(document: Any) -> None:
 def test_dissocier_garde_les_valeurs(undoable: Any) -> None:
     pied = shaped_source(undoable)
     rep = api.make_repeat([pied], params())
-    second = copies(rep)[1]
-    api.dissociate(second)
-    assert not repeat.is_copy(second) and second.ExpressionEngine == []
+    first, second = copies(rep)[:2]
+    api.dissociate(second)  # toute la répétition (demande de jv, 2026-11-23)
+    assert not repeat.is_copy(first) and not repeat.is_copy(second)
+    assert second.ExpressionEngine == []
     assert [
         p for p in ("Repeat", "RepeatSource", "RepeatIndex") if p in second.PropertiesList
     ] == []
@@ -163,7 +164,8 @@ def test_dissocier_garde_les_valeurs(undoable: Any) -> None:
     undoable.recompute()
     assert stale_or_invalid(undoable) == []
     undoable.undo()
-    assert repeat.is_copy(second) and "Placement.Base.y" in engine(second)
+    assert repeat.is_copy(first) and repeat.is_copy(second)
+    assert "Placement.Base.y" in engine(second)
 
 
 # --- S6 : suppressions ---------------------------------------------------------------------

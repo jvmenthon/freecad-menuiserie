@@ -48,7 +48,7 @@ class Action(Enum):
 
 _OPEN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ouvrir")
 _EDIT_REPEAT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
-_DISSOCIATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
+_DISSOCIATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la répétition")
 _RENAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "Renommer…")
 _ADD_TO: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ajouter à l'ensemble")
 _LEAVE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Sortir de l'ensemble")
@@ -107,7 +107,7 @@ def _add_to(facts: MoveFacts, keys: Sequence[str]) -> MenuEntry:
 
 
 def _repeat_entries(facts: MoveFacts, keys: Sequence[str]) -> list[MenuEntry]:
-    """« Dissocier la copie », seulement quand la sélection contient une copie de répétition."""
+    """« Dissocier la répétition », seulement quand la sélection contient une copie."""
     if not any(key in facts.copies for key in keys):
         return []
     return [MenuEntry(Action.DISSOCIATE, _DISSOCIATE, decide_dissociate(facts, keys))]
