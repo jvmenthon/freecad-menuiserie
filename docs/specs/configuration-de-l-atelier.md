@@ -1,10 +1,11 @@
 # Configuration de l'atelier : spécification
 
-- Statut : **brouillon**, questions Q1 à Q8 posées à jv (§ 8). Aucun code.
+- Statut : **validée** (« go » de jv le 2026-11-25 sur les choix ★ de Q1 à Q8, après sa revue de
+  l'inventaire en annexe). Prochaine étape : 3 maquettes de la page, puis le lot CA-a.
 - Demande : issue #148 (jv, 2026-11-01), reprise par jv le 2026-11-25.
 - ADR : [0031 — Configuration de l'atelier](../adr/0031-configuration-de-l-atelier.md) (fusionné,
-  statut « proposé », à passer en « accepté » au premier lot). Les compléments du § 4 demandent un
-  nouvel ADR, écrit quand jv dit « go ». ADR liés : 0002 (matériaux), 0007 (compatibilité),
+  statut « proposé », à passer en « accepté » au premier lot). Les compléments (§ 4, § 6, option « dernier
+  utilisé ») sont dans l'[ADR 0069](../adr/0069-configuration-de-l-atelier-modules-et-dossier.md). ADR liés : 0002 (matériaux), 0007 (compatibilité),
   0028 (dimensions personnelles), 0029 et 0063 (profils d'arête), 0033 (quincaillerie).
 - Liens : gabarits de meubles (PR #162, dossier `gabarits/` et palette des rôles), assistant
   « Nouveau projet » (`/mnt/project-files/specs/nouveau-projet.md`, dossier des projets), mineur Q2
@@ -42,6 +43,7 @@ Valeurs actuelles relevées dans le code (`main`, 2026-11-25). ★ = proposé po
 | Groupe | Réglage | Défaut actuel | Où dans le code |
 |---|---|---|---|
 | Pièces neuves | ★ Arête cassée sur les pièces neuves (oui / non) | non | nouveau |
+| | ★ Profil proposé à l'ouverture du panneau des chants | quart de rond, 1 mm | `features/edge_profile.py` |
 | | ★ Taille de l'arête cassée | 1 mm | nouveau |
 | | ★ Dimensions par défaut | 800 × 200 × 22 mm | `features/wood_part_schema.py` |
 | | ★ Matériau par défaut, sens du fil | premier de la bibliothèque | `features/wood_part_schema.py` |
@@ -52,7 +54,6 @@ Valeurs actuelles relevées dans le code (`main`, 2026-11-25). ★ = proposé po
 | | Mortaise et feuillure débouchantes | non | `core/joints/` |
 | | ★ Faux tenons : liste de tailles ou taille libre (mineur Q2) | liste | `features/joints/slots.py` |
 | | Écart « pièces proches » proposé à l'assemblage | 20 mm | `core/near_gap.py` |
-| | Jeu des étagères du caisson | 1 mm | `core/templates/carcass.py` |
 | Interface | Tolérance de l'aimant, des anneaux | 10 px, 8 px | `gui/drag/` |
 | | Pas de rotation aimanté | 15° | `core/rotation/_turn.py` |
 | | Aimant des champs à flèches | 1 mm | `core/magnet/_coplanar.py` |
@@ -61,7 +62,10 @@ Valeurs actuelles relevées dans le code (`main`, 2026-11-25). ★ = proposé po
 | | Style par défaut, dossier d'export | — | `gui/commands/cutlist.py` |
 | Stockage | ★ Dossier de l'atelier | `<données FreeCAD>/Menuiserie/` | `features/library.py` |
 | | Dossier des projets (assistant « Nouveau projet ») | — | à venir |
-| Gabarits | Palette des rôles : esthétique, daltonien, personnalisée | esthétique | à venir (PR #162) |
+
+Revue de jv (2026-11-25, détail dans l'annexe) : les réglages des chants (trois premiers) et tous
+les réglages R des assemblages proposent « Valeur fixe / Dernier utilisé » ; ensembles, gabarits,
+pieds et coulisses sont laissés de côté ; tolérance de l'aimant et affichage passent en « Avancé ».
 
 Règle : un réglage ne sert que de valeur par défaut à la **création** (ADR 0031 point 5) ; une
 pièce ou un assemblage existant garde ses valeurs. Seuls les réglages d'interface agissent en direct.
@@ -140,7 +144,7 @@ assemblage). Les règles :
 
 ## 8. Questions pour jv
 
-★ = choix recommandé.
+★ = choix recommandé. **Tranché par jv le 2026-11-25 : « go » sur tous les choix ★.**
 
 - **Q1 Lot 1.** ★ Les lignes ★ du tableau (arête cassée, dimensions, matériau, surcotes, jeux,
   languette, aronde, faux tenons, dossier de l'atelier). Sinon : tout d'un coup.
