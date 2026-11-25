@@ -226,6 +226,5 @@ de répétitions m5) sont corrigés.
 
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
-| ca1 | mineur | `kit/config/store.py` (`_STORAGE`) | Tuple à 3 éléments lu par index, lambdas répétées pour `TEXT`, `CHOICE`, `PATH`. | Petite dataclass figée (`type_name`, `setter`, `remover`). |
 | ca2 | mineur | `tests/unit/test_config_kit.py` | Plus de 400 lignes. | Scinder par module testé (catalogue, stockage, dossier) au lot CA-b. |
 | ca3 | mineur | `kit/config/store.py` (`Settings.setting`), `kit/config/catalog.py` (`Value`, `Kind`, `Reason`, `Catalog`) | `setting()` double `catalog.get()` ; `Value` sans `TypeAlias` ; `(str, Enum)` au lieu de `StrEnum` ; nom `Catalog` partagé avec `core.hardware.Catalog`. | Retirer `setting()` s'il reste sans appelant, annoter, `StrEnum`, renommer en `SettingsCatalog`. |

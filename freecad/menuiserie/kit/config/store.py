@@ -8,22 +8,65 @@ fonction ``App.ParamGet`` de l'atelier, :class:`MemoryStore` sert aux tests et a
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
 from .catalog import REMEMBER_SUFFIX, Catalog, Kind, Setting, SettingError, Value, coerce
 
 __all__ = ["REMEMBER_SUFFIX", "FreeCADStore", "MemoryStore", "ParamStore", "Settings"]
 
-# Nature de réglage → (nature des paramètres FreeCAD, écriture, effacement), table explicite.
-_STORAGE: Final[
-    dict[Kind, tuple[str, Callable[[Any, str, Value], None], Callable[[Any, str], None]]]
-] = {
-    Kind.BOOL: ("Boolean", lambda g, k, v: g.SetBool(k, v), lambda g, k: g.RemBool(k)),
-    Kind.INT: ("Integer", lambda g, k, v: g.SetInt(k, v), lambda g, k: g.RemInt(k)),
-    Kind.FLOAT: ("Float", lambda g, k, v: g.SetFloat(k, v), lambda g, k: g.RemFloat(k)),
-    Kind.TEXT: ("String", lambda g, k, v: g.SetString(k, v), lambda g, k: g.RemString(k)),
-    Kind.CHOICE: ("String", lambda g, k, v: g.SetString(k, v), lambda g, k: g.RemString(k)),
-    Kind.PATH: ("String", lambda g, k, v: g.SetString(k, v), lambda g, k: g.RemString(k)),
+
+@dataclass(frozen=True)
+class _Backend:
+    """Nature des paramètres FreeCAD d'un type de réglage et méthodes d'écriture et d'effacement."""
+
+    type_name: str
+    write: Callable[[Any, str, Value], None]
+    remove: Callable[[Any, str], None]
+
+
+def _set_bool(group: Any, key: str, value: Value) -> None:
+    group.SetBool(key, value)
+
+
+def _set_int(group: Any, key: str, value: Value) -> None:
+    group.SetInt(key, value)
+
+
+def _set_float(group: Any, key: str, value: Value) -> None:
+    group.SetFloat(key, value)
+
+
+def _set_string(group: Any, key: str, value: Value) -> None:
+    group.SetString(key, value)
+
+
+def _rem_bool(group: Any, key: str) -> None:
+    group.RemBool(key)
+
+
+def _rem_int(group: Any, key: str) -> None:
+    group.RemInt(key)
+
+
+def _rem_float(group: Any, key: str) -> None:
+    group.RemFloat(key)
+
+
+def _rem_string(group: Any, key: str) -> None:
+    group.RemString(key)
+
+
+_TEXT_BACKEND: Final = _Backend("String", _set_string, _rem_string)
+
+# Type de réglage → stockage FreeCAD (table explicite, sans appel dynamique).
+_STORAGE: Final[dict[Kind, _Backend]] = {
+    Kind.BOOL: _Backend("Boolean", _set_bool, _rem_bool),
+    Kind.INT: _Backend("Integer", _set_int, _rem_int),
+    Kind.FLOAT: _Backend("Float", _set_float, _rem_float),
+    Kind.TEXT: _TEXT_BACKEND,
+    Kind.CHOICE: _TEXT_BACKEND,
+    Kind.PATH: _TEXT_BACKEND,
 }
 
 
@@ -47,13 +90,13 @@ class MemoryStore:
         self.values: dict[tuple[str, str], Value] = {}
 
     def read(self, key: str, kind: Kind) -> Value | None:
-        return self.values.get((_STORAGE[kind][0], key))
+        return self.values.get((_STORAGE[kind].type_name, key))
 
     def write(self, key: str, kind: Kind, value: Value) -> None:
-        self.values[(_STORAGE[kind][0], key)] = value
+        self.values[(_STORAGE[kind].type_name, key)] = value
 
     def remove(self, key: str, kind: Kind) -> None:
-        self.values.pop((_STORAGE[kind][0], key), None)
+        self.values.pop((_STORAGE[kind].type_name, key), None)
 
 
 class FreeCADStore:
@@ -70,7 +113,7 @@ class FreeCADStore:
         return self._param_get(self._path)
 
     def read(self, key: str, kind: Kind) -> Value | None:
-        storage = _STORAGE[kind][0]
+        storage = _STORAGE[kind].type_name
         for entry in self._group().GetContents() or ():
             if entry[0] == storage and entry[1] == key:
                 value: Value = entry[2]
@@ -78,10 +121,10 @@ class FreeCADStore:
         return None
 
     def write(self, key: str, kind: Kind, value: Value) -> None:
-        _STORAGE[kind][1](self._group(), key, value)
+        _STORAGE[kind].write(self._group(), key, value)
 
     def remove(self, key: str, kind: Kind) -> None:
-        _STORAGE[kind][2](self._group(), key)
+        _STORAGE[kind].remove(self._group(), key)
 
 
 class Settings:
