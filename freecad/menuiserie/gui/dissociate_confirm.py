@@ -38,7 +38,6 @@ _TEXT_MANY: Final = QT_TRANSLATE_NOOP(
     "avec leurs valeurs actuelles : les originaux ne les pilotent plus et les répétitions "
     "sont supprimées.",
 )
-_ADVICE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Édition > Annuler (Ctrl+Z) revient en arrière.")
 _CANCEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Annuler")
 _DISSOCIATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier")
 
@@ -56,11 +55,10 @@ def _template(repeats: int, copies: int) -> str:
 
 def message_for(labels: Sequence[str], copies: int) -> str:
     """Texte de la fenêtre : les répétitions (``labels``, entre guillemets) et leur nombre total
-    de copies, au singulier ou au pluriel, puis comment revenir en arrière."""
-    head = translated(
+    de copies, au singulier ou au pluriel."""
+    return translated(
         _template(len(labels), copies), {"labels": ", ".join(labels), "count": str(copies)}
     )
-    return f"{head}\n\n{translated(_ADVICE)}"
 
 
 def ask(labels: Sequence[str], copies: int) -> bool:
