@@ -216,6 +216,13 @@ def repeat_of(obj: DocumentObject) -> DocumentObject | None:
     return obj.Repeat if is_copy(obj) else None
 
 
+def repeats_of(objects: Iterable[DocumentObject]) -> list[DocumentObject]:
+    """Répétitions de ``objects`` (:func:`repeat_of`), chacune une fois, dans l'ordre ; les
+    objets qui n'en ont pas sont ignorés."""
+    found = (repeat_of(obj) for obj in objects)
+    return list({rep.Name: rep for rep in found if rep is not None}.values())
+
+
 def sources_of(repeat: DocumentObject) -> list[DocumentObject]:
     """Pièces sources de la répétition, dans l'ordre de ``Source``."""
     return list(repeat.Source)

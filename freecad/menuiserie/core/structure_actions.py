@@ -316,8 +316,9 @@ def decide_delete(keys: Sequence[str], *, busy: bool, foreign: Collection[str] =
 
 
 def decide_dissociate(facts: MoveFacts, keys: Sequence[str]) -> Decision:
-    """« Dissocier la copie » : une ou plusieurs copies de répétition, aucun panneau de tâche
-    ouvert ; la copie devient une pièce (ou un ensemble) libre, avec ses valeurs actuelles."""
+    """« Dissocier la répétition » : une ou plusieurs copies de répétition, aucun panneau de
+    tâche ouvert ; toutes les copies de leurs répétitions deviennent des pièces (ou des ensembles)
+    libres, avec leurs valeurs actuelles, et les répétitions sont supprimées."""
     if facts.busy:
         return refuse(BUSY)
     if not keys:

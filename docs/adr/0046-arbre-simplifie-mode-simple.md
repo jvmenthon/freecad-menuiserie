@@ -245,7 +245,7 @@ d'une autre couleur » ; double-cliquer une autre ligne pendant une tâche règl
    « <nom> ×N » et ses copies lisent l'objet Répétition de l'ADR 0043 ; double-clic sur la
    répétition ou une copie = « Modifier la répétition » (pièce ou ensemble copie) ; menu : Modifier
    la répétition, Renommer (la répétition aussi), Dissocier la copie (`api.dissociate`, une
-   transaction), Supprimer ; une copie ou une répétition ne se glisse pas, ne se range pas et ne
+   transaction ; « Dissocier la répétition » depuis l'ADR 0067), Supprimer ; une copie ou une répétition ne se glisse pas, ne se range pas et ne
    reçoit aucun dépôt ; sélectionner la répétition met toutes ses copies en transparence (calque de
    sélection ; une copie d'ensemble : toutes ses pièces) ; icône `Menuiserie_Repeat.svg`.
 5. Noms et vocabulaire (arbre natif compris), à décider avec jv.

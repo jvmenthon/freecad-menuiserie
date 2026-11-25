@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Queue d'aronde : queues taillées au bout d'une planche -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="49.67,32.96 44.33,36.04 44.33,23.72 49.67,20.65" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="40.33,38.35 32.33,42.97 32.33,30.65 40.33,26.03" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="23.00,48.36 3.00,36.81 3.00,24.49 23.00,36.04" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="50.33,47.97 40.33,38.35 40.33,26.03 50.33,35.66" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="29.67,9.10 49.67,20.65 44.33,23.72 61.00,29.50 50.33,35.66 40.33,26.03 32.33,30.65 49.00,36.43 38.33,42.58 28.33,32.96 23.00,36.04 3.00,24.49" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,41.81 50.33,47.97 50.33,35.66 61.00,29.50" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="28.33,45.28 23.00,48.36 23.00,36.04 28.33,32.96" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="38.33,54.90 28.33,45.28 28.33,32.96 38.33,42.58" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="49.00,48.74 38.33,54.90 38.33,42.58 49.00,36.43" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="25.00,14.10 25.77,14.81 26.60,15.49 27.53,16.10 28.58,16.65 29.74,17.14 30.96,17.59 32.20,18.03 33.38,18.50 34.46,19.03 35.43,19.63 36.29,20.29 37.07,20.99 37.84,21.70 38.65,22.39 39.54,23.03 40.56,23.60" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="18.06,18.11 19.28,18.56 20.51,19.00 21.70,19.47 22.79,19.99 23.77,20.59 24.64,21.24 25.42,21.94 26.19,22.65 26.99,23.35 27.88,23.99 28.88,24.56 30.00,25.07 31.21,25.53 32.44,25.97 33.65,26.43 34.78,26.93" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="12.11,21.54 12.98,22.19 13.78,22.89 14.54,23.61 15.34,24.30 16.22,24.95 17.21,25.53 18.32,26.04 19.52,26.50 20.76,26.94 21.97,27.40 23.10,27.90 24.13,28.46 25.03,29.09 25.85,29.78 26.61,30.49 27.39,31.20" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

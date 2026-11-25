@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Rainure et languette : deux planches vues en bout -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="26.63,27.66 26.63,24.56 48.11,36.96 48.11,40.06" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="26.63,17.74 39.52,10.30 61.00,22.70 48.11,30.14" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="26.63,20.84 26.63,17.74 48.11,30.14 48.11,33.24" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="22.33,23.32 26.63,20.84 48.11,33.24 43.81,35.72" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="22.33,27.04 22.33,23.32 43.81,35.72 43.81,39.44" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,32.62 48.11,40.06 48.11,36.96 43.81,39.44 43.81,35.72 48.11,33.24 48.11,30.14 61.00,22.70" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="37.37,13.40 38.33,14.16 39.33,14.90 40.42,15.59 41.60,16.23 42.87,16.81 44.19,17.37 45.52,17.92 46.80,18.49 48.01,19.11 49.13,19.78 50.16,20.51 51.12,21.27 52.08,22.04 53.06,22.79 54.12,23.49 55.27,24.14" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="32.00,16.50 33.32,17.05 34.60,17.63 35.80,18.26 36.90,18.94 37.91,19.67 38.88,20.43 39.83,21.20 40.83,21.94 41.90,22.64 43.06,23.29 44.32,23.88 45.64,24.44 46.97,24.99 48.26,25.56 49.49,26.17 50.62,26.83" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="11.59,33.24 15.89,30.76 37.37,43.16 33.07,45.64" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,31.38 15.89,23.94 37.37,36.34 24.48,43.78" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,41.30 3.00,31.38 24.48,43.78 24.48,53.70" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="37.37,46.26 24.48,53.70 24.48,43.78 37.37,36.34 37.37,39.44 33.07,41.92 33.07,45.64 37.37,43.16" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="13.38,27.25 14.63,27.85 15.94,28.41 17.27,28.96 18.57,29.52 19.81,30.12 20.95,30.78 22.01,31.49 22.99,32.24 23.94,33.01 24.91,33.77 25.94,34.49 27.06,35.16 28.28,35.77 29.57,36.35 30.90,36.90 32.22,37.45" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="8.73,29.93 9.77,30.65 10.74,31.41 11.69,32.18 12.67,32.93 13.71,33.64 14.85,34.30 16.08,34.91 17.38,35.48 18.71,36.03 20.03,36.59 21.28,37.18 22.44,37.83 23.50,38.53 24.49,39.28 25.44,40.05 26.41,40.81" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -141,6 +141,9 @@ def link_inner(copy: DocumentObject) -> None:
         set_member_expression(copy, path, text)
 
 
+_SINGLE_LINKS: Final = frozenset({"App::PropertyLink", "App::PropertyLinkGlobal"})
+
+
 def _unlink_own(copy: DocumentObject) -> None:
     """Retire de ``copy`` ses expressions de liaison et ses propriétés de copie."""
     if not is_furniture(copy):
@@ -151,6 +154,8 @@ def _unlink_own(copy: DocumentObject) -> None:
             set_member_expression(copy, path, None)
     for name in (*COPY_PROPERTY_NAMES, CELL_PROPERTY):
         if name in copy.PropertiesList:
+            if copy.getTypeIdOfProperty(name) in _SINGLE_LINKS:
+                setattr(copy, name, None)  # sinon FreeCAD garde le lien retour (faux cycle)
             copy.removeProperty(name)
 
 
@@ -195,6 +200,20 @@ def unlink_copy(copy: DocumentObject, *, relink: bool = True) -> None:
     _unlink_own(copy)
     if relink:
         relink_free(copy, parent)
+
+
+def unlink_repeat(repeat: DocumentObject) -> None:
+    """Dissocie toutes les copies de ``repeat`` (« Dissocier la répétition », ADR 0067), sans
+    supprimer la répétition. Toutes sont détachées d'abord, puis leurs ensembles reliés : relier
+    au fil de l'eau citerait une copie libre depuis une copie encore liée (faux cycle). Une copie
+    d'ensemble emporte les copies de ses membres. ``ValueError`` traduite si les liaisons forment
+    un cycle avec une formule de l'utilisateur."""
+    freed = [copy for copy in copies_of(repeat) if not is_inner_copy(copy)]
+    parents = {copy.Name: furniture_of(copy) for copy in freed}  # lus tant qu'elles sont liées
+    for copy in freed:
+        unlink_copy(copy, relink=False)
+    for copy in freed:
+        relink_free(copy, parents[copy.Name])
 
 
 def relink_free(copy: DocumentObject, parent: DocumentObject | None) -> None:
