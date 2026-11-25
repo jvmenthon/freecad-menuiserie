@@ -63,7 +63,7 @@ automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 | Rainure débouchante par défaut | oui | `core/joints/tongue_groove.py` | R |
 | Feuillure débouchante par défaut | oui | `core/joints/rabbet.py` | R |
 | Jeu de fond des tourillons | 1 mm | `core/joints/dowels.py` | R |
-| Entraxe maximal des tourillons automatiques | 128 mm | `core/joints/dowels.py` | E |
+| Entraxe maximal des tourillons automatiques | 128 mm | `core/joints/dowels.py` | R (jv) |
 | Angle de queue d'aronde | 10° | `core/joints/dovetail.py` | R |
 | Queues sur la pièce hôte par défaut | non | `core/joints/dovetail.py` | E |
 | Faux tenons : liste de tailles ou taille libre (mineur Q2) | liste | `features/joints/slots.py` | R |
