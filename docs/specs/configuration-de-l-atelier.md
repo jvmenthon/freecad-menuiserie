@@ -1,6 +1,6 @@
 # Configuration de l'atelier : spécification
 
-- Statut : **brouillon**, questions Q1 à Q7 posées à jv (§ 7). Aucun code.
+- Statut : **brouillon**, questions Q1 à Q8 posées à jv (§ 8). Aucun code.
 - Demande : issue #148 (jv, 2026-11-01), reprise par jv le 2026-11-25.
 - ADR : [0031 — Configuration de l'atelier](../adr/0031-configuration-de-l-atelier.md) (fusionné,
   statut « proposé », à passer en « accepté » au premier lot). Les compléments du § 4 demandent un
@@ -99,16 +99,42 @@ pièce ou un assemblage existant garde ses valeurs. Seuls les réglages d'interf
 - Les documents restent autonomes : rien de la configuration n'est nécessaire pour rouvrir un
   fichier `.FCStd` sur une autre machine.
 
-## 6. Découpage
 
-- **CA-a** : `features/settings.py` (catalogue, lecture bornée, faux jeu de paramètres pour les
-  tests) ; les constantes du lot 1 passent par lui, sans changement de comportement.
-- **CA-b** : page de préférences du lot 1, après le choix de jv parmi **3 maquettes** (règle du
+## 6. Modules réutilisables (consigne de jv, 2026-11-25)
+
+jv veut des fonctionnalités découpées au maximum, réutilisables dans un autre atelier FreeCAD.
+La mécanique de configuration est donc séparée de son contenu « menuiserie » :
+
+| Module générique (aucun import de `freecad.menuiserie`) | Rôle |
+|---|---|
+| `catalog` | Description d'un réglage (`Setting` : clé, type, bornes, défaut, unité, libellé, infobulle, groupe) et validation bornée, en Python pur. |
+| `store` | Lecture / écriture d'un jeu de paramètres derrière une petite interface (`ParamStore`) ; une implémentation FreeCAD (`App.ParamGet` sous un chemin donné) et une en mémoire pour les tests. |
+| `folder` | Résolution d'un dossier de l'atelier (réglage, repli, ancien chemin) et écriture atomique d'un fichier. |
+| `exchange` | Export / import JSON versionné, lecture stricte (taille, JSON strict, bornes), calcul de l'aperçu des changements. |
+| `page` | Page de préférences Qt construite à partir d'un catalogue (groupes, unités, infobulles, « Rétablir »), sans texte propre à la menuiserie. |
+
+Côté menuiserie, il ne reste que le catalogue des réglages de l'atelier, le nom du chemin de
+paramètres, les traductions et les points où un réglage est lu (création d'une pièce, d'un
+assemblage). Les règles :
+
+- dépendances dans un seul sens : menuiserie → modules génériques, jamais l'inverse ; un test
+  unitaire le vérifie (aucun `import freecad.menuiserie` dans le paquet générique) ;
+- `catalog` et `exchange` ne dépendent ni de FreeCAD ni de Qt ; `store` et `folder` dépendent de
+  FreeCAD seul ; seul `page` dépend de Qt ;
+- chaque module a une interface publique courte (`__all__`), documentée et testée seule ;
+- l'emplacement (sous-paquet du dépôt ou paquet séparé) est la question Q8 ; il sera fixé par l'ADR.
+
+## 7. Découpage
+
+- **CA-a** : modules génériques `catalog`, `store`, `folder` (§ 6), puis catalogue de la
+  menuiserie dans `features/settings.py` ; les constantes du lot 1 passent par lui, sans changement
+  de comportement.
+- **CA-b** : module générique `page`, puis page de préférences du lot 1, après le choix de jv parmi **3 maquettes** (règle du
   projet) ; arête cassée à la création.
-- **CA-c** : export / import de `atelier.json`.
+- **CA-c** : module générique `exchange`, puis export / import de `atelier.json`.
 - **CA-d** : reste des réglages, édition de `dimensions.json`, dossier des projets.
 
-## 7. Questions pour jv
+## 8. Questions pour jv
 
 ★ = choix recommandé.
 
@@ -128,3 +154,7 @@ pièce ou un assemblage existant garde ses valeurs. Seuls les réglages d'interf
   « Configuration de l'atelier » dans la barre de l'atelier qui ouvre la même page.
 - **Q7 Palette des gabarits.** ★ Réglage ajouté avec le lot des gabarits (il n'a pas de sens
   avant). Sinon : prévu dès le lot 1.
+- **Q8 Où ranger les modules génériques ?** ★ Un sous-paquet `freecad/menuiserie/kit/config/` du
+  même dépôt, sans dépendance vers le reste de l'atelier (un autre atelier le copie ou l'extrait
+  plus tard, sans changer le code). Sinon : un paquet séparé dès maintenant (`freecad/atelier_kit`,
+  son propre dépôt et sa propre publication), plus lourd à maintenir.
