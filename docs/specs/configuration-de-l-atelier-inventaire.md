@@ -129,10 +129,10 @@ pour l'instant.
 
 | Point | Valeur actuelle | Où | Avis |
 |---|---|---|---|
-| Pièce en transparence pendant l'édition | oui, 60 % | `core/display_layers.py` | R (oui / non) ; E (taux) |
-| Transparence et teinte de la sélection | 50 %, bleu clair | `core/display_layers.py` | E |
-| Double flèche du sens du fil : couleur, transparence | orange, 70 % | `gui/task_panels/part_axes_drawing.py` | E |
-| Textures des matériaux affichées | toujours | `gui/textures.py` | R (oui / non, pour les grosses scènes) |
+| Pièce en transparence pendant l'édition | oui, 60 % | `core/display_layers.py` | E (jv) |
+| Transparence et teinte de la sélection | 50 %, bleu clair | `core/display_layers.py` | E (jv) |
+| Double flèche du sens du fil : couleur, transparence | orange, 70 % | `gui/task_panels/part_axes_drawing.py` | E (jv) |
+| Textures des matériaux affichées | toujours | `gui/textures.py` | E (jv) |
 | Couleur des tourillons, pieds, taquets | hêtre, plastique, acier | `gui/view_providers/joint.py` | — |
 
 ## 10. Panneau « Structure »
