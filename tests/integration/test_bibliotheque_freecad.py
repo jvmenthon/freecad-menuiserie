@@ -12,6 +12,7 @@ pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
 library = pytest.importorskip("freecad.menuiserie.features.library")
+settings = pytest.importorskip("freecad.menuiserie.features.settings")
 wood_part = pytest.importorskip("freecad.menuiserie.features.wood_part")
 
 MAPLE = {
@@ -66,7 +67,7 @@ def test_rechargement_de_la_bibliotheque(bibliotheque_temporaire: Any) -> None:
 def test_chemins_de_la_bibliotheque(bibliotheque_temporaire: Any) -> None:
     assert library.builtin_library_path().is_file()
     assert library.user_library_path() == bibliotheque_temporaire.path
-    App.ParamGet(library.PARAM_PATH).RemString(library.USER_LIBRARY_PARAM)
+    App.ParamGet(settings.PARAM_PATH).RemString(settings.USER_LIBRARY_PARAM)
     expected = Path(App.getUserAppDataDir()) / "Menuiserie" / "materiaux.json"
     assert library.user_library_path() == expected
     assert library.display_language() == "fr"

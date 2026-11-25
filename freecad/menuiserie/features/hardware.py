@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Accès au catalogue de quincaillerie depuis FreeCAD : chemins, cache de session, journal.
 
-Le catalogue (intégré + fichier personnel ``quincaillerie.json`` du dossier de l'atelier) est lu
-une fois par session (:func:`get_catalog`) ; :func:`reload_catalog` le relit. Les anomalies sont
-écrites, traduites, dans la vue rapport à chaque lecture. Aucun accès réseau (ADR 0033).
+Le catalogue (intégré + fichier personnel ``quincaillerie.json`` du dossier de l'atelier,
+ADR 0069) est lu une fois par session (:func:`get_catalog`) ; :func:`reload_catalog` le relit.
+Les anomalies sont écrites, traduites, dans la vue rapport à chaque lecture. Aucun accès réseau
+(ADR 0033).
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ from typing import Final
 
 from freecad.menuiserie import DATA_DIR
 from freecad.menuiserie.core.hardware import Catalog, CatalogSource, load_catalog
-from freecad.menuiserie.features.library import report_issues, user_library_path
+from freecad.menuiserie.features.library import report_issues
+from freecad.menuiserie.features.settings import workshop_folder
 
 __all__ = ["builtin_catalog_path", "get_catalog", "reload_catalog", "user_catalog_path"]
 
@@ -27,8 +29,8 @@ def builtin_catalog_path() -> Path:
 
 
 def user_catalog_path() -> Path:
-    """Catalogue personnel : à côté du fichier de matériaux de l'utilisateur (même dossier)."""
-    return user_library_path().with_name(CATALOG_FILE_NAME)
+    """Catalogue personnel : ``quincaillerie.json`` du dossier de l'atelier (ADR 0069)."""
+    return workshop_folder() / CATALOG_FILE_NAME
 
 
 @cache

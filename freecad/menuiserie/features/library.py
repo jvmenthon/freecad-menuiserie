@@ -24,10 +24,12 @@ from freecad.menuiserie.core.materials import (
     load_library,
 )
 from freecad.menuiserie.features.i18n import console_text, translated
+from freecad.menuiserie.features.settings import (
+    PARAM_PATH,
+    USER_LIBRARY_PARAM,
+    workshop_folder,
+)
 
-PARAM_PATH: Final = "User parameter:BaseApp/Preferences/Mod/Menuiserie"
-USER_LIBRARY_PARAM: Final = "UserLibraryPath"
-USER_LIBRARY_FOLDER: Final = "Menuiserie"
 LIBRARY_FILE_NAME: Final = "materiaux.json"
 _DISPLAY_LANGUAGE: Final = "fr"
 
@@ -38,12 +40,12 @@ def builtin_library_path() -> Path:
 
 
 def user_library_path() -> Path:
-    """Fichier de l'utilisateur : paramètre ``UserLibraryPath`` s'il est renseigné, sinon
-    ``<dossier de données utilisateur>/Menuiserie/materiaux.json``."""
+    """Fichier de l'utilisateur : ancien paramètre ``UserLibraryPath`` s'il est renseigné
+    (compatibilité, ADR 0069), sinon ``materiaux.json`` du dossier de l'atelier."""
     custom = App.ParamGet(PARAM_PATH).GetString(USER_LIBRARY_PARAM, "").strip()
     if custom:
         return Path(custom).expanduser()
-    return Path(App.getUserAppDataDir()) / USER_LIBRARY_FOLDER / LIBRARY_FILE_NAME
+    return workshop_folder() / LIBRARY_FILE_NAME
 
 
 def display_language() -> str:

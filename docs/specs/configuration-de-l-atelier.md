@@ -136,10 +136,12 @@ assemblage). Les règles :
 
 ## 7. Découpage
 
-- **CA-a** : modules génériques `catalog`, `store`, `folder` (§ 6), puis catalogue de la
-  menuiserie dans `features/settings.py` ; les constantes du lot 1 passent par lui, sans changement
-  de comportement.
-- **CA-b** : module générique `page`, puis page de préférences du lot 1, après le choix de jv parmi **3 maquettes** (règle du
+- **CA-a** (fait) : modules génériques `kit/config/` (`catalog`, `store`, `folder`), catalogue de
+  la menuiserie dans `features/settings.py` (lot 1, valeurs par défaut reprises du code), dossier
+  de l'atelier utilisé par `materiaux.json`, `dimensions.json` et `quincaillerie.json` (sans
+  changement tant que le réglage est vide). Aucune création ne lit encore les réglages.
+- **CA-b** : module générique `page`, page de préférences du lot 1 (maquette B), lecture des
+  réglages à la création des pièces et des assemblages, « Dernier utilisé » retenu à la création, après le choix de jv parmi **3 maquettes** (règle du
   projet) ; arête cassée à la création.
 - **CA-c** : module générique `exchange`, puis export / import de `atelier.json`.
 - **CA-d** : reste des réglages, édition de `dimensions.json`, dossier des projets.

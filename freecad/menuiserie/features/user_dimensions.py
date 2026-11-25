@@ -1,16 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Fichier des épaisseurs et formats de panneaux personnels, dans le dossier utilisateur (ADR 0028).
 
-Le fichier ``dimensions.json`` est à côté de la bibliothèque personnelle de matériaux, donc
-partagé entre tous les projets. Lecture bornée en taille, écriture atomique (fichier temporaire
+Le fichier ``dimensions.json`` est dans le dossier de l'atelier (ADR 0069), donc partagé entre
+tous les projets. Lecture bornée en taille, écriture atomique (fichier temporaire
 puis remplacement). Un fichier illisible ou invalide est ignoré avec un avertissement : l'atelier
 fonctionne sans.
 """
 
 from __future__ import annotations
 
-import os
-import tempfile
 from pathlib import Path
 from typing import Final
 
@@ -26,7 +24,8 @@ from freecad.menuiserie.core.user_dimensions import (
     with_thickness,
 )
 from freecad.menuiserie.features.i18n import console_text, translated, translated_errors
-from freecad.menuiserie.features.library import user_library_path
+from freecad.menuiserie.features.settings import workshop_folder
+from freecad.menuiserie.kit.config.folder import write_text_atomic
 
 __all__ = ["add_sheet", "add_thickness", "dimensions_path", "read_dimensions"]
 
@@ -38,8 +37,8 @@ _NOT_WRITTEN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Impossible d'enregistrer 
 
 
 def dimensions_path() -> Path:
-    """Fichier des dimensions personnelles, dans le dossier de la bibliothèque personnelle."""
-    return user_library_path().parent / FILE_NAME
+    """Fichier des dimensions personnelles, dans le dossier de l'atelier."""
+    return workshop_folder() / FILE_NAME
 
 
 def read_dimensions() -> UserDimensions:
@@ -63,14 +62,7 @@ def _write(dimensions: UserDimensions) -> None:
     """Écrit le fichier de façon atomique ; ``ValueError`` traduite si l'écriture échoue."""
     path = dimensions_path()
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".dimensions-")
-        try:
-            with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-                handle.write(dimensions_to_text(dimensions))
-            os.replace(temporary, path)
-        finally:
-            Path(temporary).unlink(missing_ok=True)
+        write_text_atomic(path, dimensions_to_text(dimensions), prefix=".dimensions-")
     except OSError as error:
         raise ValueError(
             translated(_NOT_WRITTEN, {"path": str(path), "error": str(error)})

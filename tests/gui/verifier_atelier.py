@@ -278,11 +278,8 @@ def bibliotheque(*materiaux: dict[str, object], nom_du_dossier: str = "") -> Ite
     """Bibliothèque utilisateur temporaire (``UserLibraryPath``), dans le sous-dossier
     ``nom_du_dossier`` d'un dossier temporaire s'il est donné ; renvoie son fichier, dont le
     dossier accueille les images. Paramètre et bibliothèque sont restaurés à la fin."""
-    from freecad.menuiserie.features.library import (
-        PARAM_PATH,
-        USER_LIBRARY_PARAM,
-        reload_library,
-    )
+    from freecad.menuiserie.features.library import reload_library
+    from freecad.menuiserie.features.settings import PARAM_PATH, USER_LIBRARY_PARAM
 
     parametres = App.ParamGet(PARAM_PATH)
     precedent = parametres.GetString(USER_LIBRARY_PARAM, "")
@@ -993,11 +990,8 @@ def verifier_texture_confinement() -> list[str]:
     avertissement) ; un lien interne et une bibliothèque lue par un lien vers son dossier sont
     acceptés."""
     from freecad.menuiserie.api import make_wood_part
-    from freecad.menuiserie.features.library import (
-        PARAM_PATH,
-        USER_LIBRARY_PARAM,
-        reload_library,
-    )
+    from freecad.menuiserie.features.library import reload_library
+    from freecad.menuiserie.features.settings import PARAM_PATH, USER_LIBRARY_PARAM
 
     avertissements = avertissements_de_test()
     materiaux = (
