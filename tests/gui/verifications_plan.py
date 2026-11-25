@@ -104,8 +104,9 @@ def _pages_du_pdf(octets: bytes) -> int:
 
 
 def _export(bureau: Any) -> list[str]:
-    """Retour de jv du 24/11 (maquette B) : la page sélectionnée est précochée ; une pièce sans
-    plan cochée reçoit son plan ; les deux pages partent dans un seul PDF."""
+    """Retours de jv du 24 et 25/11 : la page sélectionnée et « Ouvrir le PDF » sont
+    précochées ; une pièce sans plan cochée reçoit son plan ; les deux pages partent dans un
+    seul PDF."""
     from freecad.menuiserie import api
     from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
 
@@ -117,6 +118,8 @@ def _export(bureau: Any) -> list[str]:
     panneau = ExportPdfTaskPanel(bureau.doc, [page])
     Gui.Control.showDialog(panneau)
     coches = [obj.Name for obj in panneau.chosen()]
+    ouvrir_precoche = panneau.open_pdf.isChecked()
+    panneau.open_pdf.setChecked(False)  # pas de lecteur de PDF en CI
     piece = next(iter(bureau.parts.values()))
     with tempfile.TemporaryDirectory() as dossier:
         cible = Path(dossier) / "plans.pdf"
@@ -134,6 +137,7 @@ def _export(bureau: Any) -> list[str]:
     return [
         *ecarts("panneau ouvert", ouvert, True),
         *ecarts("page précochée", page.Name in coches, True),
+        *ecarts("« Ouvrir le PDF » précochée", ouvrir_precoche, True),
         *ecarts("chemin invalide refusé", refuse, True),
         *ecarts("chemin invalide : aucun plan créé", sans_creation, True),
         *ecarts("export accepté", accepte, True),

@@ -5,8 +5,9 @@ Même arbre à cocher que « Plans de pièce » (ensembles, pièces, copies par 
 plans de l'ouvrage (existants, ou à créer) et des autres pages. Une seconde colonne dit pour
 chaque pièce si son plan existe ou s'il sera créé. Ce qui était sélectionné avant le clic est
 déjà coché. « OK » crée les plans qui manquent puis écrit toutes les pages cochées dans un seul
-PDF ; « Annuler » ne laisse rien. Le fichier est vérifié avant de créer les plans ; si l'écriture
-échoue ensuite, les plans créés restent (annulables) et le panneau reste ouvert.
+PDF, ouvert ensuite si la case « Ouvrir le PDF » (précochée) le demande ; « Annuler » ne laisse
+rien. Le fichier est vérifié avant de créer les plans ; si l'écriture échoue ensuite, les plans
+créés restent (annulables) et le panneau reste ouvert.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from freecad.menuiserie.features.drawing_export import (
 )
 from freecad.menuiserie.features.drawing_parts import blanks_of
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
-from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.cutlist import show_status
 from freecad.menuiserie.gui.drawing_hlr import HlrWait
@@ -57,6 +58,10 @@ _HINT: Final = QT_TRANSLATE_NOOP(
 _EXISTS: Final = QT_TRANSLATE_NOOP("Menuiserie", "plan existant")
 _TO_CREATE: Final = QT_TRANSLATE_NOOP("Menuiserie", "à créer")
 _FILE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichier :")
+_OPEN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Ouvrir le PDF après l'export")
+_NOT_OPENED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Le PDF est écrit mais n'a pas pu être ouvert : « {path} »."
+)
 _BROWSE: Final = QT_TRANSLATE_NOOP("Menuiserie", "…")
 _DIALOG: Final = QT_TRANSLATE_NOOP("Menuiserie", "Exporter les plans")
 _FILTER: Final = QT_TRANSLATE_NOOP("Menuiserie", "Fichiers PDF (*.pdf)")
@@ -68,6 +73,12 @@ _NOTHING: Final = QT_TRANSLATE_NOOP("Menuiserie", "Export PDF : cochez au moins 
 _NO_FILE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Export PDF : choisissez le fichier.")
 _DONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "{count} plans exportés dans « {path} ».")
 _DONE_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "1 plan exporté dans « {path} ».")
+
+
+def _open(path: Path) -> None:
+    """Ouvre ``path`` dans le lecteur de PDF du système ; un avertissement s'il n'y en a pas."""
+    if not QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(path))):
+        report_warning(translated(_NOT_OPENED, {"path": str(path)}))
 
 
 def _resize_mode(name: str) -> Any:
@@ -103,6 +114,9 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         browse.clicked.connect(self._browse)
         row.addWidget(browse)
         layout.addLayout(row)
+        self.open_pdf = QtGui.QCheckBox(translated(_OPEN))
+        self.open_pdf.setChecked(True)  # précochée (jv, 25/11)
+        layout.addWidget(self.open_pdf)
 
     def _fill(self) -> None:
         """Plans de l'ouvrage (à créer s'il n'y en a pas), autres pages, puis l'arbre des
@@ -175,6 +189,7 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         """Crée les plans qui manquent, écrit le PDF et ferme ; un refus (rien de coché, pas de
         fichier, plan ou fichier impossible) laisse le panneau ouvert."""
         chosen, kinds = self.chosen(), self._kinds()  # lus avant la fermeture
+        wants_open = self.open_pdf.isChecked()
         path = self.path.text().strip()
         if not chosen and not kinds:
             report_refusal(translated(_NOTHING))
@@ -196,4 +211,6 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         Gui.Control.closeDialog()
         values = {"path": escaped_text(str(self.written))}
         show_status(counted(len(found), _DONE_ONE, _DONE, values))
+        if wants_open:
+            _open(self.written)
         return True
