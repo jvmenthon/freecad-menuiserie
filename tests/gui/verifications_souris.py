@@ -287,7 +287,7 @@ def _poignees_grisees(session: Any, piece: Any) -> list[str]:
     grisees = [(h.axis, h.at_end) for h, _, _ in session.layout.locked]
     problemes = [
         *ecarts("MDF : poignées d'épaisseur grisées", sorted(grisees), [(2, False), (2, True)]),
-        *ecarts("six étiquettes dessinées", images_incrustees(), 6),
+        *ecarts("une étiquette par cote (maquette K)", images_incrustees(), 3),
         *ecarts("image des étiquettes posée", _images_posees(), True),
     ]
     point = next(p for h, p, _ in session.layout.locked if h.at_end)

@@ -97,7 +97,9 @@ def _badge_node(badge: Badge) -> SoNode:
     node = coin.SoSeparator()
     place = coin.SoTranslation()
     place.translation.setValue(badge.position.x, badge.position.y, badge.position.z)
-    width, height, pixels = badge_pixels(badge.text, badge.state, badge.angle, badge.scale)
+    width, height, pixels = badge_pixels(
+        badge.name, badge.text, badge.state, badge.axis, badge.scale
+    )
     image = coin.SoImage()
     image.vertAlignment = coin.SoImage.HALF
     image.horAlignment = coin.SoImage.CENTER

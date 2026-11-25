@@ -1,92 +1,54 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Image des étiquettes de poignée (ADR 0068, maquette I « étiquette de cote »).
+"""Image des étiquettes de cote (ADR 0068, maquette K « une étiquette par cote »).
 
-Une étiquette est une pastille arrondie : double flèche dans l'axe de la cote (cadenas pour une
-poignée impossible) puis la valeur de la cote. Elle est peinte par Qt avec lissage, ombre et halo
-de survol, puis posée telle quelle dans la vue (``overlay.py``, ``SoImage`` : taille fixe à
-l'écran). Les images sont gardées (mêmes texte, état, angle et échelle : même image) ;
-:func:`clear_badge_cache` les oublie.
+Une étiquette est une pastille arrondie blanche bordée de la couleur de l'axe : à gauche le nom
+court de la cote (« Long. », « Larg. », « Ép. »…) en blanc sur la couleur de l'axe, à droite sa
+valeur ; une cote figée est grise, avec un cadenas. Elle est peinte par Qt avec lissage, ombre et
+halo de survol, puis posée telle quelle dans la vue (``overlay.py``, ``SoImage`` : taille fixe à
+l'écran). Ses largeurs viennent de :func:`badge_width_px`, la mesure de la saisie. Les images sont
+gardées (mêmes nom, valeur, état, axe et échelle : même image) ; :func:`clear_badge_cache` les
+oublie.
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 from functools import lru_cache
 from typing import Final
 
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.gui.drag.drawing import BADGE_H_PX, BADGE_W_PX, BadgeState
+from freecad.menuiserie.gui.drag.badge_place import BADGE_H_PX, LOCK_PX, badge_width_px
+from freecad.menuiserie.gui.drag.drawing import AXIS_COLORS, LOCKED_COLOR, BadgeState, Color
 
 __all__ = ["badge_pixels", "clear_badge_cache"]
 
 MARGIN_PX: Final = 6.0  # marge autour de la pastille : ombre et halo
-ICON_X_PX: Final = 14.0  # centre de l'icône depuis le bord gauche de la pastille
-TEXT_GAP_PX: Final = 10.0  # du centre de l'icône au début de la zone du texte
-TEXT_RIGHT_PX: Final = 6.0  # retrait du texte avant le bord droit
-MIN_TEXT_PAD_PX: Final = 21.0  # place laissée à droite de l'icône en plus du texte
-TEXT_PX: Final = 13  # taille du texte de la cote
-EDGE_PX: Final = 1.2  # bord de la pastille
+NAME_PX: Final = 11.5  # taille du nom
+VALUE_PX: Final = 13.0  # taille de la valeur
+EDGE_PX: Final = 1.4  # bord de la pastille
+HOT_EDGE_PX: Final = 2.2  # bord d'une pastille survolée
 SHADOW_ALPHA: Final = 55  # ombre portée, décalée vers le bas
 SHADOW_DROP_PX: Final = 1.5
 HALO_RINGS: Final = ((3, 40), (2, 70), (1, 110))  # halo de survol : couronne et opacité
 HALO_STEP_PX: Final = 1.6  # largeur d'une couronne du halo
-ARROW_SCALE: Final = 0.85  # icônes dessinées sur une grille d'environ 20 pixels
-ARROW_PEN: Final = 2.4
 LOCK_SCALE: Final = 0.75
 LOCK_PEN: Final = 2.2
+VALUE_INK: Final = "#1d2733"
+LOCKED_INK: Final = "#4a5563"
 _CACHE: Final = 128
 MAX_SIDE_PX: Final = 2048  # côté d'une étiquette au plus (SbVec2s : 16 bits)
 
 
-@dataclass(frozen=True)
-class _Look:
-    """Couleurs d'un état : fond, bord, texte et icône, halo (``None`` : aucun)."""
-
-    fill: str
-    edge: str
-    ink: str
-    glow: str | None = None
-
-
-_LOOKS: Final = {
-    BadgeState.NORMAL: _Look("#ff8a00", "#b04a00", "#ffffff"),
-    BadgeState.HOVER: _Look("#ffc400", "#b88600", "#3d2a00", "#ffc400"),
-    BadgeState.LOCKED: _Look("#f3f5f7", "#9aa2ab", "#6d7680"),
-    BadgeState.LOCKED_HOVER: _Look("#ffffff", "#6d7680", "#4a5563", "#9aa2ab"),
-}
-
-
-def _font(scale: float) -> QtGui.QFont:
+def _font(size: float, scale: float) -> QtGui.QFont:
     font = QtGui.QFont()
-    font.setPixelSize(max(1, round(TEXT_PX * scale)))
+    font.setPixelSize(max(1, round(size * scale)))
     font.setBold(True)
     return font
 
 
-def _arrow(painter: QtGui.QPainter, color: QtGui.QColor, angle: float, scale: float) -> None:
-    """Double flèche ↔ centrée sur l'origine du peintre, tournée de ``angle`` degrés (sens
-    direct à l'écran ; l'image a son y vers le bas)."""
-    painter.save()
-    painter.rotate(-angle)
-    painter.scale(scale * ARROW_SCALE, scale * ARROW_SCALE)
-    pen = QtGui.QPen(color, ARROW_PEN)
-    pen.setCapStyle(QtCore.Qt.RoundCap)
-    painter.setPen(pen)
-    painter.drawLine(QtCore.QPointF(-5.0, 0.0), QtCore.QPointF(5.0, 0.0))
-    painter.setPen(QtCore.Qt.NoPen)
-    painter.setBrush(color)
-    for sign in (1.0, -1.0):
-        head = QtGui.QPolygonF(
-            [
-                QtCore.QPointF(sign * 3.0, -5.0),
-                QtCore.QPointF(sign * 9.5, 0.0),
-                QtCore.QPointF(sign * 3.0, 5.0),
-            ]
-        )
-        painter.drawPolygon(head)
-    painter.restore()
+def _color(rgb: Color) -> QtGui.QColor:
+    return QtGui.QColor.fromRgbF(*rgb)
 
 
 def _lock(painter: QtGui.QPainter, color: QtGui.QColor, scale: float) -> None:
@@ -110,7 +72,7 @@ def _lock(painter: QtGui.QPainter, color: QtGui.QColor, scale: float) -> None:
     painter.restore()
 
 
-def _halo(painter: QtGui.QPainter, body: QtCore.QRectF, glow: str, scale: float) -> None:
+def _halo(painter: QtGui.QPainter, body: QtCore.QRectF, glow: QtGui.QColor, scale: float) -> None:
     """Halo de survol : couronnes de plus en plus claires autour de la pastille ``body``."""
     radius = body.height() / 2
     for step, alpha in HALO_RINGS:
@@ -122,47 +84,63 @@ def _halo(painter: QtGui.QPainter, body: QtCore.QRectF, glow: str, scale: float)
         painter.drawRoundedRect(halo, radius + grow, radius + grow)
 
 
-def _body(painter: QtGui.QPainter, body: QtCore.QRectF, look: _Look, scale: float) -> None:
-    """Ombre portée puis pastille ``body`` (fond et bord de ``look``)."""
+def _body(
+    painter: QtGui.QPainter, body: QtCore.QRectF, name_w: float, color: QtGui.QColor, hot: bool
+) -> None:
+    """Ombre portée, pastille blanche bordée de ``color``, puis partie du nom (largeur
+    ``name_w``) remplie de ``color``."""
     radius = body.height() / 2
+    scale = body.height() / BADGE_H_PX
+    painter.setPen(QtCore.Qt.NoPen)
     painter.setBrush(QtGui.QColor(0, 0, 0, SHADOW_ALPHA))
     painter.drawRoundedRect(body.translated(0.0, SHADOW_DROP_PX * scale), radius, radius)
-    painter.setBrush(QtGui.QColor(look.fill))
-    painter.setPen(QtGui.QPen(QtGui.QColor(look.edge), EDGE_PX * scale))
+    painter.setBrush(QtGui.QColor("#ffffff"))
+    painter.drawRoundedRect(body, radius, radius)
+    name = QtGui.QPainterPath()
+    name.addRoundedRect(body, radius, radius)
+    clip = QtGui.QPainterPath()
+    clip.addRect(QtCore.QRectF(body.left(), body.top(), name_w, body.height()))
+    painter.setBrush(color)
+    painter.drawPath(name.intersected(clip))
+    painter.setBrush(QtCore.Qt.NoBrush)
+    painter.setPen(QtGui.QPen(color, (HOT_EDGE_PX if hot else EDGE_PX) * scale))
     painter.drawRoundedRect(body, radius, radius)
 
 
-def _content(  # pylint: disable=too-many-arguments
+def _texts(  # pylint: disable=too-many-arguments
     painter: QtGui.QPainter,
     body: QtCore.QRectF,
+    name_w: float,
+    name: str,
     text: str,
-    state: BadgeState,
-    angle: float,
-    scale: float,
+    locked: bool,
 ) -> None:
-    """Icône (cadenas ou double flèche tournée de ``angle``) puis texte de la cote."""
-    ink = QtGui.QColor(_LOOKS[state].ink)
-    painter.save()
-    painter.translate(body.left() + ICON_X_PX * scale, body.center().y())
-    if state.locked:
-        _lock(painter, ink, scale)
-    else:
-        _arrow(painter, ink, angle, scale)
-    painter.restore()
-    painter.setFont(_font(scale))
+    """Nom en blanc sur la partie colorée, valeur à droite, cadenas au bout si la cote est
+    figée."""
+    scale = body.height() / BADGE_H_PX
+    painter.setFont(_font(NAME_PX, scale))
+    painter.setPen(QtGui.QColor("#ffffff"))
+    name_area = QtCore.QRectF(body.left(), body.top(), name_w, body.height())
+    painter.drawText(name_area, QtCore.Qt.AlignCenter, name)
+    ink = QtGui.QColor(LOCKED_INK if locked else VALUE_INK)
+    lock_w = LOCK_PX * scale if locked else 0.0
+    painter.setFont(_font(VALUE_PX, scale))
     painter.setPen(ink)
-    left = body.left() + (ICON_X_PX + TEXT_GAP_PX) * scale
-    area = QtCore.QRectF(
-        left, body.top(), body.right() - left - TEXT_RIGHT_PX * scale, body.height()
-    )
-    painter.drawText(area, QtCore.Qt.AlignCenter, text)
+    left = body.left() + name_w
+    value_area = QtCore.QRectF(left, body.top(), body.right() - left - lock_w, body.height())
+    painter.drawText(value_area, QtCore.Qt.AlignCenter, text)
+    if locked:
+        painter.save()
+        painter.translate(body.right() - lock_w * 0.75, body.center().y() - 1.0 * scale)
+        _lock(painter, ink, scale)
+        painter.restore()
 
 
-def _paint(text: str, state: BadgeState, angle: float, scale: float) -> QtGui.QImage:
-    look = _LOOKS[state]
-    text_w = QtGui.QFontMetricsF(_font(scale)).horizontalAdvance(text)
+def _paint(name: str, text: str, state: BadgeState, axis: int, scale: float) -> QtGui.QImage:
+    locked = state.locked
+    hot = state in (BadgeState.HOVER, BadgeState.LOCKED_HOVER)
+    name_w, width = (w * scale for w in badge_width_px(name, text, locked))
     height = BADGE_H_PX * scale
-    width = max(BADGE_W_PX * scale, (ICON_X_PX + MIN_TEXT_PAD_PX) * scale + text_w)
     margin = MARGIN_PX * scale
     image = QtGui.QImage(
         math.ceil(width + 2 * margin),
@@ -170,16 +148,17 @@ def _paint(text: str, state: BadgeState, angle: float, scale: float) -> QtGui.QI
         QtGui.QImage.Format_ARGB32_Premultiplied,
     )
     image.fill(QtCore.Qt.transparent)
+    color = _color(LOCKED_COLOR if locked else AXIS_COLORS[axis % 3])
     painter = QtGui.QPainter(image)
     try:
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         painter.setRenderHint(QtGui.QPainter.TextAntialiasing)
         body = QtCore.QRectF(margin, margin, width, height)
         painter.setPen(QtCore.Qt.NoPen)
-        if look.glow is not None:
-            _halo(painter, body, look.glow, scale)
-        _body(painter, body, look, scale)
-        _content(painter, body, text, state, angle, scale)
+        if hot:
+            _halo(painter, body, color, scale)
+        _body(painter, body, name_w, color, hot)
+        _texts(painter, body, name_w, name, text, locked)
     finally:
         painter.end()
     return image
@@ -192,12 +171,13 @@ def clear_badge_cache() -> None:
 
 @lru_cache(maxsize=_CACHE)
 def badge_pixels(
-    text: str, state: BadgeState, angle: float, scale: float
+    name: str, text: str, state: BadgeState, axis: int, scale: float
 ) -> tuple[int, int, bytes]:
     """Largeur, hauteur et pixels RVBA (lignes du bas vers le haut, l'ordre de Coin) de
-    l'étiquette ``text`` dans l'état ``state`` (:class:`BadgeState`), double flèche tournée de
-    ``angle`` degrés, à l'échelle ``scale`` (rapport de pixels de l'écran)."""
-    image = _paint(text, state, angle, scale).convertToFormat(QtGui.QImage.Format_RGBA8888)
+    l'étiquette de la cote ``name`` de valeur ``text``, dans l'état ``state``
+    (:class:`BadgeState`), à la couleur de l'axe ``axis``, à l'échelle ``scale`` (rapport de
+    pixels de l'écran)."""
+    image = _paint(name, text, state, axis, scale).convertToFormat(QtGui.QImage.Format_RGBA8888)
     flip = getattr(image, "flipped", None)  # Qt ≥ 6.9 ; ``mirrored`` avant
     image = flip(QtCore.Qt.Vertical) if flip is not None else image.mirrored(False, True)
     width, height = image.width(), image.height()

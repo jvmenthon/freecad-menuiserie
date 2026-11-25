@@ -25,6 +25,7 @@ from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_container import guide_container
 from freecad.menuiserie.features.furniture_drag_state import FurnitureMemento
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.part_drag import (
     SIZE_PROPS,
@@ -47,11 +48,23 @@ __all__ = [
     "PartTarget",
     "Step",
     "Target",
+    "axis_names",
 ]
 
 MOVE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacer la pièce")
 ROTATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Tourner la pièce")
+PART_AXIS_NAMES: Final = (  # étiquettes de cote d'une pièce (ADR 0068) : X, Y, Z
+    QT_TRANSLATE_NOOP("Menuiserie", "Long."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Larg."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Ép."),
+)
 Memento = DragMemento | FurnitureMemento
+
+
+def axis_names(names: tuple[str, str, str]) -> tuple[str, str, str]:
+    """Noms courts traduits des trois cotes, écrits sur leurs étiquettes."""
+    first, second, third = (translated(name) for name in names)
+    return first, second, third
 
 
 @dataclass(frozen=True)
@@ -172,7 +185,9 @@ class PartTarget(Target):
         locked = limits.locked_sizes if panel_shown else ()
         box = self.box()
         layout = build_layout(self.frame(), box, size_mm, limits.fixed_axes, resizable, locked)
-        return replace(layout, rings=rings_of(self.obj, box))
+        return replace(
+            layout, rings=rings_of(self.obj, box), axis_names=axis_names(PART_AXIS_NAMES)
+        )
 
     def begin(self) -> Memento:
         return begin_drag(self.obj)

@@ -38,6 +38,10 @@ class ViewPort:
         x, y, z = self.view.getCameraNode().position.getValue().getValue()
         return Vec3(float(x), float(y), float(z))
 
+    def direction(self) -> Vec3:
+        """Direction de la vue, de la caméra vers la scène."""
+        return to_vec3(self.view.getViewDirection())
+
     def ray(self, point: Point) -> Ray:
         """Rayon de la souris au pixel ``point``."""
         focal = to_vec3(self.view.getPoint(int(point[0]), int(point[1])))

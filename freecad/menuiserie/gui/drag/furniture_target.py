@@ -45,7 +45,7 @@ from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_r
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui.drag.drawing import HANDLE_RATIO, Layout
 from freecad.menuiserie.gui.drag.rings import build_rings
-from freecad.menuiserie.gui.drag.target import Memento, Step, Target
+from freecad.menuiserie.gui.drag.target import Memento, Step, Target, axis_names
 
 __all__ = [
     "MOVE_TRANSACTION",
@@ -62,6 +62,11 @@ _NAMES: Final = {
     "resize": RESIZE_TRANSACTION,
     "rotate": ROTATE_TRANSACTION,
 }
+FURNITURE_AXIS_NAMES: Final = (  # étiquettes de cote d'un ensemble (ADR 0068) : X, Y, Z
+    QT_TRANSLATE_NOOP("Menuiserie", "Larg."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Prof."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Haut."),
+)
 _NO_VOLUME: Final = "FurnitureTarget : ensemble sans volume, rien à dessiner"
 
 
@@ -125,6 +130,7 @@ class FurnitureTarget(Target):
             HANDLE_RATIO * size_mm,
             self._rings(box) if free else (),
             shows_box=True,
+            axis_names=axis_names(FURNITURE_AXIS_NAMES),
         )
 
     def begin(self) -> Memento:

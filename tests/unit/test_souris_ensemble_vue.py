@@ -12,9 +12,9 @@ from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.magnet import Handle
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.gui.drag.drawing import (
+    AXIS_COLORS,
     BOX_COLOR,
     BOX_TRANSPARENCY,
-    HOVER_COLOR,
     REFUSAL_COLOR,
     BadgeState,
     Cues,
@@ -67,11 +67,13 @@ def test_pas_de_boite_pour_une_piece() -> None:
 
 
 def test_etiquettes_de_face() -> None:
-    """Six étiquettes de cote (largeur, profondeur, hauteur de l'ensemble), comme une pièce ;
-    seule la boîte est pleine."""
+    """Une étiquette par cote (largeur, profondeur, hauteur de l'ensemble), comme une pièce, et
+    un rond sur chacune des six faces ; seule la boîte est pleine."""
     drawing = build_drawing(ensemble_layout())
-    assert [b.text for b in drawing.badges] == ["1200", "1200", "600", "600", "750", "750"]
+    assert [b.text for b in drawing.badges] == ["1200", "600", "750"]
+    assert [b.axis for b in drawing.badges] == [0, 1, 2]
     assert {b.state for b in drawing.badges} == {BadgeState.NORMAL}
+    assert sum(len(d.points) for d in drawing.dots) == 6
     assert [s.color for s in drawing.solids] == [BOX_COLOR]
 
 
@@ -79,15 +81,16 @@ def test_etiquette_devant_sa_face() -> None:
     layout = ensemble_layout()
     handle = Handle(0, True)
     point = dict(layout.handles)[handle]
-    badge = build_drawing(layout).badges[1]
+    badge = build_drawing(layout).badges[0]  # hors de la vue : étiquette sur la face de fin
     assert badge.position.x - point.x == pytest.approx(1.9 * 24.0)
     assert (badge.position.y, badge.position.z) == (point.y, point.z)
 
 
 def test_survol_d_une_poignee_en_surbrillance() -> None:
-    drawing = build_drawing(ensemble_layout(), handle_key(Handle(1, False)))
-    assert len([s for s in drawing.strokes if s.color == HOVER_COLOR]) == 1
+    drawing = build_drawing(ensemble_layout(), handle_key(Handle(1, True)))
     assert [b.state for b in drawing.badges].count(BadgeState.HOVER) == 1
+    lit = [s for s in drawing.solids if s.color == AXIS_COLORS[1]]  # face qui bouge allumée
+    assert len(lit) == 1 and {p.y for p in lit[0].faces[0]} == {620.0}
 
 
 def test_poignees_saisissables_a_chaque_face() -> None:

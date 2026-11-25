@@ -15,15 +15,17 @@ from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.magnet import Blocker, Guide, GuideKind, Handle, handle_at, mouse_ray
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.core.text import mm_text
+from freecad.menuiserie.gui.drag.badge_place import Slot, badge_width_px, facing_ends, spread
 from freecad.menuiserie.gui.drag.drawing import (
+    AXIS_COLORS,
+    FACE_TRANSPARENCY,
     GUIDE_COLOR,
-    HANDLE_COLOR,
     HOVER_COLOR,
     LOCKED_COLOR,
     BadgeState,
+    Layout,
     Throttle,
     arrow_key,
-    badge_angles,
     build_drawing,
     build_layout,
     guide_outline,
@@ -146,40 +148,75 @@ def test_dessin_des_fleches_aux_couleurs_des_axes() -> None:
     assert drawing.dots == ()
 
 
+NAMES = ("Long.", "Larg.", "Ép.")
+
+
+def named(layout: Layout) -> Layout:
+    """Disposition avec les noms courts des cotes, comme ``PartTarget.layout`` la donne."""
+    return replace(layout, axis_names=NAMES)
+
+
 def test_surbrillance_de_la_cible_survolee() -> None:
-    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0}))
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0})))
     drawing = build_drawing(layout, hover=arrow_key(1))
-    assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False, True, False, False, False]
-    drawing = build_drawing(layout, hover=handle_key(Handle(0, True)))
-    assert [d.color == HOVER_COLOR for d in drawing.dots] == [False, True]
-    assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False] * 4 + [True]
-    assert [b.state for b in drawing.badges] == [BadgeState.NORMAL, BadgeState.HOVER]
+    assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False, True, False, False]
     assert drawing.solids == ()
+    drawing = build_drawing(layout, hover=handle_key(Handle(0, True)))
+    assert [d.size for d in drawing.dots] == [8.0, 11.0]  # rond de la face survolée grossi
+    assert [b.state for b in drawing.badges] == [BadgeState.HOVER]
+    (face,) = drawing.solids  # face qui bouge, à la couleur de son axe
+    assert face.color == AXIS_COLORS[0] and face.transparency == FACE_TRANSPARENCY
+    assert {p.x for p in face.faces[0]} == {810.0}
+    start = build_drawing(layout, hover=handle_key(Handle(0, False)))
+    assert {p.x for p in start.solids[0].faces[0]} == {10.0}  # face d'en face : son rond
 
 
-def test_poignee_dessinee_en_etiquette_de_cote() -> None:
-    """ADR 0068 : une étiquette par poignée, devant sa face, reliée par un trait au milieu de la
-    face ; elle porte la cote de son axe."""
-    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({1}))
+def test_une_etiquette_par_cote() -> None:
+    """ADR 0068 (maquette K) : une étiquette par cote, nommée, à la couleur de son axe, sur la
+    face tournée vers la caméra (hors vue : face de fin) ; la face d'en face n'a qu'un rond."""
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({1})))
     drawing = build_drawing(layout)
-    leaders = [s for s in drawing.strokes if s.color == HANDLE_COLOR]
-    assert len(leaders) == 2 and all(len(s.lines) == 1 for s in leaders)
-    (start, end) = leaders[1].lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
+    (badge,) = drawing.badges
+    assert (badge.name, badge.text, badge.axis) == ("Larg.", "200", 1)
+    (leader,) = [s for s in drawing.strokes if s.color == AXIS_COLORS[1] and len(s.lines) == 1]
+    (start, end) = leader.lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
     assert (start.x, end.x, start.z, end.z) == (410, 410, 41, 41)
     assert (start.y, end.y) == pytest.approx((220, 220 + 57))  # 1,9 fois 30 % des 100 mm
-    first = leaders[0].lines[0]
-    assert (first[0].y, first[1].y) == pytest.approx((20, 20 - 57))  # début : vers l'extérieur
-    assert [b.position for b in drawing.badges] == [first[1], end]
-    assert [b.text for b in drawing.badges] == ["200", "200"]
+    assert badge.position == end
     assert [d.points for d in drawing.dots] == [(p,) for _, p in layout.handles]
-    assert drawing.solids == ()
+    assert {d.color for d in drawing.dots} == {AXIS_COLORS[1]}
+    back = build_drawing(replace(layout, badge_ends=frozenset()))  # face de début vers la vue
+    assert back.badges[0].position.y == pytest.approx(20 - 57)
+
+
+def test_etiquette_sur_la_face_vue() -> None:
+    """La face de fin de l'axe porte l'étiquette si elle regarde la caméra."""
+    axes = (FRAME.x, FRAME.y, FRAME.z)
+    assert facing_ends(axes, Vec3(0, 0, -1)) == frozenset({0, 1, 2})  # vue de dessus
+    assert facing_ends(axes, Vec3(-1, 1, -1)) == frozenset({0, 2})  # Y fin cachée
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1, 2})))
+    placed = on_screen(layout, 2.0, project, Vec3(-1, 1, -1))
+    assert placed.badge_scale == 2.0 and placed.badge_ends == frozenset({0, 2})
+    assert [b.axis for b in build_drawing(placed).badges] == [0, 1, 2]
+
+
+def test_etiquettes_ecartees_si_elles_se_touchent() -> None:
+    """Deux étiquettes au même endroit à l'écran : la seconde recule le long de son axe."""
+    one = Slot("a", (0.0, 0.0), (24.0, 0.0), 60.0, 24.0)  # une unité de poignée : 24 pixels
+    two = Slot("b", (0.0, 5.0), (24.0, 0.0), 60.0, 24.0)
+    far = Slot("c", (500.0, 500.0), (24.0, 0.0), 60.0, 24.0)
+    reaches = dict(spread([one, two, far]))
+    assert reaches["a"] == pytest.approx(1.9) and reaches["c"] == pytest.approx(1.9)
+    assert reaches["b"] >= 1.9 + 64 / 24  # 64 pixels plus loin au moins : plus de contact
+    stuck = Slot("d", (0.0, 0.0), (0.0, 0.0), 60.0, 24.0)  # vue de bout : ne s'écarte pas
+    assert dict(spread([one, stuck]))["d"] == pytest.approx(1.9 + 6 * 0.8)
 
 
 def test_etiquette_a_distance_constante_a_l_ecran() -> None:
     def reach(size_mm: float, scale: float = 1.0) -> float:
         layout = build_layout(FRAME, BOX, size_mm, frozenset(), frozenset({0}))
         layout = replace(layout, badge_scale=scale)
-        badge = build_drawing(layout).badges[1]
+        badge = build_drawing(layout).badges[0]
         return badge.position.x - 810
 
     assert reach(200.0) == pytest.approx(2 * reach(100.0))  # suit l'échelle des flèches
@@ -195,18 +232,22 @@ def test_cote_ecrite_sur_l_etiquette() -> None:
 
 
 def test_zone_de_saisie_des_poignees() -> None:
-    """Milieu de la face, étiquette (segment horizontal, tolérance de sa demi-hauteur) et trait
-    qui les relie."""
-    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0}))
+    """Milieu de la face, étiquette (segment horizontal, tolérance de sa demi-hauteur, même
+    largeur que son image) et trait qui les relie ; la face d'en face n'a que son milieu."""
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0})))
     targets = pixel_targets(layout, project)
     mine = [t for t in targets if t.key == handle_key(Handle(0, True))]
+    _, width = badge_width_px("Long.", "800", False)
+    assert width == 90.0
     assert [(t.start, t.end, t.radius) for t in mine] == [
         ((810, 120), None, None),
-        ((867 - 21, 120), (867 + 21, 120), 12.0),  # 66 sur 24 pixels : 33 - 12 de chaque côté
+        ((867 - 33, 120), (867 + 33, 120), 12.0),  # 90 sur 24 pixels : 45 - 12 de chaque côté
         ((810, 120), (867, 120), None),
     ]
+    other = [t for t in targets if t.key == handle_key(Handle(0, False))]
+    assert [(t.start, t.end) for t in other] == [((10, 120), None)]
     key = handle_key(Handle(0, True))
-    assert handle_at(targets, (867 + 28, 120 + 8)) == key  # bord droit de l'étiquette
+    assert handle_at(targets, (867 + 40, 120 + 8)) == key  # bord droit de l'étiquette
     assert handle_at(targets, (867, 120 + 13)) is None  # au-dessus de l'étiquette
 
 
@@ -223,12 +264,14 @@ def test_poignees_impossibles_grisees() -> None:
     assert {b for _, _, b in layout.locked} == {BLOCKER}
     drawing = build_drawing(layout)
     states = [b.state for b in drawing.badges]
-    assert states == [BadgeState.NORMAL] * 4 + [BadgeState.LOCKED] * 2
-    assert [b.text for b in drawing.badges][-2:] == ["22", "22"]
-    assert [s.color for s in drawing.strokes][-2:] == [LOCKED_COLOR, LOCKED_COLOR]
+    assert states == [BadgeState.NORMAL] * 2 + [BadgeState.LOCKED]
+    assert [b.text for b in drawing.badges][-1] == "22"
+    assert [s.color for s in drawing.strokes][-1] == LOCKED_COLOR
+    assert [d.color for d in drawing.dots][-2:] == [LOCKED_COLOR, LOCKED_COLOR]
     key = locked_key(Handle(2, True))
     hovered = build_drawing(layout, hover=key)
     assert hovered.badges[-1].state == BadgeState.LOCKED_HOVER
+    assert [s.color for s in hovered.solids] == [LOCKED_COLOR]  # face figée : grise
     assert locked_blocker(layout, key) == BLOCKER
     assert locked_blocker(layout, handle_key(Handle(0, True))) is None
     assert locked_blocker(layout, None) is None
@@ -248,8 +291,8 @@ def test_poignee_impossible_survolable_mais_jamais_saisie() -> None:
 
 def test_etiquette_ne_cache_pas_une_fleche() -> None:
     """Pièce courte : la flèche X (de 70 à 170) passe sous le trait et l'étiquette de la poignée
-    grisée de fin X (face à 130, étiquette centrée à 187). À égalité de distance, la flèche
-    l'emporte ; au centre de l'étiquette, l'étiquette."""
+    grisée de fin X (face à 130, étiquette centrée à 187, 40 pixels de large sans nom). À égalité
+    de distance, la flèche l'emporte ; au centre de l'étiquette, l'étiquette."""
     box = Box.from_ranges([(0, 120), (0, 200), (0, 22)])
     layout = build_layout(FRAME, box, 100.0, frozenset(), frozenset(), [(0, BLOCKER)])
     targets = pixel_targets(layout, project)
@@ -272,21 +315,6 @@ def test_axe_tirable_jamais_grise() -> None:
 def test_infobulle_echappee() -> None:
     text = tooltip_html(Blocker("<b>Titre</b>", "a & b", "→ piste"))
     assert text == "<b>&lt;b&gt;Titre&lt;/b&gt;</b><br>a &amp; b<br><i>→ piste</i>"
-
-
-def test_direction_des_etiquettes_a_l_ecran() -> None:
-    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1, 2}))
-    angles = badge_angles(layout, project)
-    # X : début vers la gauche (180°), fin vers la droite (0°) ; Y : 270° puis 90° ;
-    # Z vu de bout (vue de dessus) : 0°.
-    assert tuple(angle for _, angle in angles) == (180.0, 0.0, 270.0, 90.0, 0.0, 0.0)
-    assert [key for key, _ in angles][:2] == ["handle0s", "handle0e"]  # par clé de poignée
-    tilted = dict(badge_angles(layout, lambda p: (p.x + 0.6 * p.y, p.y)))
-    assert tilted["handle1e"] == 60.0  # 59° arrondi au pas de 5°
-    placed = on_screen(layout, 2.0, project)
-    assert placed.badge_scale == 2.0 and placed.badge_angles == badge_angles(placed, project)
-    drawing = build_drawing(placed)
-    assert [b.angle for b in drawing.badges] == [180.0, 0.0, 270.0, 90.0, 0.0, 0.0]
 
 
 def test_guides_aimantes_en_surbrillance() -> None:

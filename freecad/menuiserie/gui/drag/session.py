@@ -211,7 +211,10 @@ class DragSession:
         try:
             self._size_mm = port.mm(target.center(), ARROW_PX)
             layout = on_screen(
-                target.layout(self._size_mm, self._panel_shown), port.scale(), port.project
+                target.layout(self._size_mm, self._panel_shown),
+                port.scale(),
+                port.project,
+                port.direction(),
             )
         except _RESIZE_ERRORS:
             self.clear()

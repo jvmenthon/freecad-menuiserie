@@ -1,7 +1,9 @@
 # ADR 0068 — Poignées en étiquettes de cote, poignées impossibles grisées
 
 - Statut : **proposé** (jv a demandé les poignées grisées et un nouveau design le 2026-11-24, puis a
-  choisi la maquette I « étiquette de cote » parmi trois séries de trois propositions)
+  choisi la maquette I « étiquette de cote » parmi trois séries de trois propositions ; après
+  l'avoir essayée le 2026-11-25 (étiquettes qui se superposent, « trop difficile de comprendre
+  quelle flèche correspond à quoi »), il a choisi la maquette K « une étiquette par cote »)
 - Date : 2026-11-24 (numéro 0067 pris par une autre branche en cours)
 - ADR liés : [0021](0021-deplacement-a-la-souris-avec-aimantation.md) (flèches et poignées), [0038](0038-ensemble-a-la-souris.md)
   (poignées d'un ensemble), [0019](0019-rangees-epaisseurs-fixes-et-partage-au-prorata.md) (« Cotes fixes »)
@@ -18,12 +20,17 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
 
 ## Décision
 
-1. **Étiquette de cote** (maquette I) : chaque poignée est une pastille arrondie posée devant le
-   milieu de sa face, reliée à lui par un trait. Elle porte une double flèche dans l'axe de la
-   cote (orientée comme l'axe à l'écran, au pas de 5°) et la **valeur de la cote** qu'elle change
-   (au millimètre, au dixième sinon), mise à jour pendant qu'on tire. États : normale (orange),
-   survolée (jaune, halo), impossible (gris clair, cadenas à la place de la double flèche),
-   impossible survolée (bord plus sombre, halo gris). Le même dessin sert à la pièce et à
+1. **Une étiquette par cote** (maquette K, remplace la maquette I) : chaque cote a une seule
+   étiquette, une pastille blanche bordée de la couleur de son axe (rouge, vert, bleu, comme le
+   trièdre et les flèches), qui porte à gauche son **nom court** en blanc sur cette couleur
+   (« Long. », « Larg. », « Ép. » pour une pièce ; « Larg. », « Prof. », « Haut. » pour un
+   ensemble) et à droite sa **valeur** (au millimètre, au dixième sinon), mise à jour pendant
+   qu'on tire. Elle est reliée par un trait au milieu de la face **tournée vers la caméra**
+   (`badge_place.facing_ends`) ; la face d'en face n'a qu'un rond de la même couleur, qui se tire
+   aussi. Deux étiquettes qui se touchent à l'écran sont écartées : la seconde recule le long de
+   son axe (`badge_place.spread`). Au survol d'une poignée, son rond grossit, son étiquette a un
+   halo et **la face qui va bouger s'allume** en transparence, à la couleur de l'axe. Une cote
+   impossible est grise, avec un cadenas après la valeur. Le même dessin sert à la pièce et à
    l'ensemble (fin des doubles flèches et des cubes).
 2. L'étiquette est une image peinte par Qt (lissage, ombre, halo : `gui/drag/badges.py`) et posée
    par un `SoImage` (taille fixe à l'écran, multipliée par le rapport de pixels de l'écran) ;
@@ -54,8 +61,10 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
 
 - On voit d'un coup d'œil quelle cote chaque poignée change, et ce qui est bloqué avec la raison.
 - Les étiquettes sont plus grandes que les anciens cubes : elles sont posées plus loin de la face
-  (1,9 unité de poignée) pour ne pas la couvrir.
-- L'orientation de la double flèche suit la vue à chaque mouvement de la souris (la disposition
-  est recalculée et redessinée si un angle change de plus d'un pas).
+  (1,9 unité de poignée, plus si elles se touchent) pour ne pas la couvrir.
+- La face qui porte l'étiquette suit la vue : la disposition est recalculée à chaque mouvement
+  de la souris et redessinée si elle change.
+- L'aperçu de la pièce pendant qu'on tire l'épaisseur d'une pièce assemblée (pièce qui se
+  déplace au lieu de grandir) n'est pas traité ici : la PR #264 (ADR 0060) le corrige.
 - Un ensemble n'a pas encore de poignée impossible (ses cotes refusées le restent par le message
   près de la souris, ADR 0038).
