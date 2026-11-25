@@ -14,7 +14,7 @@ from typing import Final
 
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.freecad_types import LINK_TYPES, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, is_furniture
 from freecad.menuiserie.features.i18n import translated
 
@@ -22,7 +22,6 @@ __all__ = ["PickedElement", "container_of", "crosses_link", "furniture_candidate
 
 ELEMENT_PATTERN: Final = re.compile(r"(Face|Edge|Vertex)[1-9][0-9]*$")
 STD_PART: Final = "App::Part"
-_LINK_TYPES: Final = ("App::Link", "App::LinkElement", "App::LinkGroup")
 _ELEMENT_LABEL: Final = QT_TRANSLATE_NOOP("Menuiserie", "{element} de « {label} »")
 
 
@@ -73,7 +72,7 @@ def container_of(element: PickedElement) -> DocumentObject | None:
     Jamais un ``PartDesign::Body`` ni un assemblage (types distincts). ``None`` : le document."""
     container = None
     for obj in _path_objects(element):
-        if obj.TypeId in _LINK_TYPES:
+        if obj.TypeId in LINK_TYPES:
             break
         if obj.TypeId == STD_PART:
             container = obj
@@ -83,7 +82,7 @@ def container_of(element: PickedElement) -> DocumentObject | None:
 def crosses_link(element: PickedElement) -> bool:
     """Vrai si le chemin de ``element`` traverse un lien (``App::Link``) : l'objet vu n'est alors
     pas à la position de l'original."""
-    return any(obj.TypeId in _LINK_TYPES for obj in _path_objects(element))
+    return any(obj.TypeId in LINK_TYPES for obj in _path_objects(element))
 
 
 def furniture_candidate(element: PickedElement) -> DocumentObject | None:
@@ -95,7 +94,7 @@ def furniture_candidate(element: PickedElement) -> DocumentObject | None:
     from freecad.menuiserie.features.shaped_part import is_timber
 
     for obj in reversed(_path_objects(element)):
-        if obj.TypeId in _LINK_TYPES:
+        if obj.TypeId in LINK_TYPES:
             return None
         if is_furniture(obj):
             return obj

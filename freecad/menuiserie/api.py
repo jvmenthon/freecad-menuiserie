@@ -71,9 +71,17 @@ Liste de débit (J2) ::
     feuille = make_cut_list(doc)  # feuille « Liste de débit », réécrite à chaque recalcul
     export_cut_list_csv(doc, "/chemin/debit.csv", objects=[caisson])
 
+Plan de l'ouvrage (issue #153, ADR 0053) : page TechDraw standard, quatre vues et cotes hors tout ::
+
+    from freecad.menuiserie.api import DrawingOptions, make_overall_drawing
+
+    page = make_overall_drawing(doc, [bureau])  # format de la configuration (A3 paysage)
+    make_overall_drawing(doc, [bureau], DrawingOptions(page_format="A4", client="Dupont"))
+
 Façade seule : le code est dans le paquet privé ``_api/`` (``wood``, ``joints``, ``furniture``,
-``cutlist``), les seuls modules hors de ``gui/`` autorisés à importer ``gui/``, et seulement quand
-l'interface est chargée (``App.GuiUp``) : ils fonctionnent aussi dans ``freecadcmd``.
+``cutlist``, ``drawing``), les seuls modules hors de ``gui/`` autorisés à importer ``gui/``, et
+seulement quand l'interface est chargée (``App.GuiUp``) : ils fonctionnent aussi dans
+``freecadcmd``.
 """
 
 from __future__ import annotations
@@ -86,6 +94,12 @@ from freecad.menuiserie._api.cutlist import (
     export_cut_list_pdf,
     make_cut_list,
     number_marks,
+)
+from freecad.menuiserie._api.drawing import (
+    DrawingOptions,
+    make_exploded_drawing,
+    make_overall_drawing,
+    make_part_drawings,
 )
 from freecad.menuiserie._api.edges import (
     add_edge_profile,
@@ -139,6 +153,7 @@ from freecad.menuiserie._api.wood import (
     reset_shaped_axes,
 )
 from freecad.menuiserie.core.cutlist import FRENCH_CSV, INTERNATIONAL_CSV
+from freecad.menuiserie.core.drawing import Orientation
 from freecad.menuiserie.core.repeat import (
     AxisRepeat,
     RepeatAxis,
@@ -177,7 +192,9 @@ __all__ = [
     "ClosingJoinery",
     "ClosingParams",
     "ClosingRole",
+    "DrawingOptions",
     "LockedPiecesError",
+    "Orientation",
     "PickedElement",
     "RepeatAxis",
     "RepeatMode",
@@ -211,12 +228,15 @@ __all__ = [
     "make_dovetail",
     "make_dowels",
     "make_drawer_slide",
+    "make_exploded_drawing",
     "make_foot",
     "make_furniture",
     "make_half_lap",
     "make_loose_tenons",
     "make_miter",
     "make_mortise_tenon",
+    "make_overall_drawing",
+    "make_part_drawings",
     "make_rabbet",
     "make_repeat",
     "make_room_for_slide",

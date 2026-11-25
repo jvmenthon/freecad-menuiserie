@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from freecad.menuiserie.core.geometry import Vec3
+from tests.integration.aides import detach_one_copy
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.test_repetition_ensembles import (
     caisson,
@@ -117,7 +118,7 @@ def test_la_copie_est_a_la_meme_place_que_la_source_au_decalage_pres(document: A
     rep = api.make_repeat([source], row(count=1))
     (copy,) = copies(rep, source)
     for label in ("Côté droit", "Dessus", "Fond", "Étagère"):
-        twin, original = member(copy, f"{label} 2"), member(source, label)
+        twin, original = member(copy, f"{label} (2)"), member(source, label)
         assert tuple(twin.Placement.Base) == tuple(original.Placement.Base)  # même place, Std Part
         assert twin.getGlobalPlacement().Base.x == pytest.approx(
             original.getGlobalPlacement().Base.x + 700.0
@@ -151,7 +152,7 @@ def test_la_copie_suit_la_source_redimensionnee(document: Any) -> None:
     api.resize_furniture(source, width=800, depth=500, height=900)
     assert stale_or_invalid(document) == []
     assert (copy.Width.Value, copy.Depth.Value, copy.Height.Value) == (800, 500, 900)
-    assert global_bounds(member(copy, "Côté droit 2")) == (1482, 1500, 0, 500, 0, 900)
+    assert global_bounds(member(copy, "Côté droit (2)")) == (1482, 1500, 0, 500, 0, 900)
     assert std_of(copy).Placement.Base.x == 700.0
 
 
@@ -167,7 +168,7 @@ def test_la_copie_suit_la_source_deplacee_et_tournee(document: Any) -> None:
     assert stale_or_invalid(document) == []
     assert std_of(copy).Placement.Rotation.isSame(std_of(source).Placement.Rotation, 1e-9)
     assert not api.move_furniture(copy, (1, 0, 0))  # sa position est pilotée par la source
-    twin, original = member(copy, "Côté droit 2"), member(source, "Côté droit")
+    twin, original = member(copy, "Côté droit (2)"), member(source, "Côté droit")
     assert twin.Shape.BoundBox.XLength == pytest.approx(original.Shape.BoundBox.XLength)
     assert twin.getGlobalPlacement().Rotation.isSame(original.getGlobalPlacement().Rotation, 1e-9)
 
@@ -190,7 +191,7 @@ def test_membre_ajoute_a_la_source_entre_dans_le_std_part_de_la_copie(document: 
     document.recompute()
     api.add_to_furniture(source, [plank])
     api.edit_repeat(rep, row(count=1))  # recopie les membres que la source a gagnés
-    twin = member(copy, "Tasseau 2")
+    twin = member(copy, "Tasseau (2)")
     assert twin.getParentGeoFeatureGroup() == std_of(copy)
     assert tuple(twin.Placement.Base) == tuple(plank.Placement.Base)
     assert twin.getGlobalPlacement().Base.x == pytest.approx(730.0)
@@ -250,7 +251,7 @@ def test_dissocier_laisse_un_ensemble_normal_avec_son_std_part(document: Any) ->
     rep = api.make_repeat([source], row())
     first, second = copies(rep, source)
     part = std_of(first)
-    api.dissociate(first)
+    detach_one_copy(first)
     assert std_of(first) == part and engine(part) == {} and engine(first) == {}
     assert not any(repeat.is_copy(o) for o in (first, *members(first)))
     assert corner(first) == (700.0, 0.0, 0.0)
@@ -384,6 +385,6 @@ def test_enregistrer_et_rouvrir_une_copie_avec_son_std_part(document: Any, rouvr
     assert corner(second) == (1410.0, 20.0, 0.0) and second.Width.Value == 750.0
     api.edit_repeat(rep, row(count=3))
     assert len(copies(rep, source)) == 3 and stale_or_invalid(doc) == []
-    api.dissociate(second)
+    detach_one_copy(second)
     api.edit_repeat(rep, row(count=1))
     assert stale_or_invalid(doc) == [] and orphans(doc) == []

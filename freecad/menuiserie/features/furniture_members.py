@@ -218,7 +218,7 @@ def _enter(furniture: DocumentObject, objects: Sequence[DocumentObject]) -> list
     for member in entering.members:
         if member.key in {obj.Name for obj in objects}:
             join_member(entering.objects[member.key], furniture, member.fixed or frozenset())
-    notices.extend(bind_members(entering, [obj.Name for obj in objects]))
+    notices.extend(bind_members(entering, [obj.Name for obj in objects], drawn=True))
     for obj in objects:
         if is_furniture(obj):
             notices.extend(rebind(obj))

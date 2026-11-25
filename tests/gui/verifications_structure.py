@@ -115,6 +115,32 @@ def _verifier_double_clic(
     return ecarts("panneau de tâche ouvert", bool(Gui.Control.activeDialog()), True)
 
 
+def _verifier_double_clic_plan(
+    bureau: Bureau, _dock: Any, arbre: Any, _synchro: StructureSync
+) -> list[str]:
+    """Retour de jv du 24/11 : un plan (page TechDraw) s'ouvre au double-clic, sans changer
+    d'atelier ni ouvrir de panneau de tâche."""
+    try:
+        import TechDrawGui  # noqa: F401  # pylint: disable=import-outside-toplevel,unused-import
+    except ImportError:
+        return []
+    page = bureau.doc.addObject("TechDraw::DrawPage", "PlanDeTest")
+    bureau.doc.recompute()
+    traiter()
+    ligne = item_for(arbre, page.Name)
+    if ligne is None:
+        return ["ligne du plan absente"]
+    atelier = Gui.activeWorkbench().name()
+    arbre.itemDoubleClicked.emit(ligne, 0)
+    traiter()
+    zone = Gui.getMainWindow().findChild(QtGui.QMdiArea)
+    active = zone.activeSubWindow() if zone is not None else None
+    titre = active.windowTitle() if active is not None else ""
+    problemes = [] if page.Label in titre else [f"plan pas ouvert (onglet actif : {titre!r})"]
+    problemes += ecarts("atelier inchangé", Gui.activeWorkbench().name(), atelier)
+    return problemes + ecarts("aucun panneau de tâche", bool(Gui.Control.activeDialog()), False)
+
+
 def _verifier_detachement(
     bureau: Bureau, dock: Any, arbre: Any, synchro: StructureSync
 ) -> list[str]:
@@ -144,6 +170,10 @@ def verifier_structure_double_clic() -> list[str]:
     return avec_panneau(_verifier_double_clic)
 
 
+def verifier_structure_double_clic_plan() -> list[str]:
+    return avec_panneau(_verifier_double_clic_plan)
+
+
 def verifier_structure_detachement() -> list[str]:
     return avec_panneau(_verifier_detachement)
 
@@ -152,5 +182,6 @@ VERIFICATIONS_STRUCTURE: tuple[Callable[[], list[str]], ...] = (
     verifier_structure_selection,
     verifier_structure_rafraichissement,
     verifier_structure_double_clic,
+    verifier_structure_double_clic_plan,
     verifier_structure_detachement,
 )

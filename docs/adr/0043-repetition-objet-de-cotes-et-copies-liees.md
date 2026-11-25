@@ -33,7 +33,8 @@ extensible au cercle et au trajet. Options :
    dans la transaction en cours, jamais pendant un recalcul.
 3. Les assemblages de la source sont recréés pour chaque copie, liés à ceux de l'origine tant que
    la copie est liée.
-4. « Dissocier » retire les expressions et le lien `Repeat` : la copie devient libre.
+4. « Dissocier » retire les expressions et le lien `Repeat` : la copie devient libre. Remplacé
+   par l'ADR 0067 (2026-11-23) : toutes les copies sont libérées et la répétition supprimée.
 5. `core/repeat/` (Python pur) calcule les décalages ; Draft n'est utilisé que pour le mode
    trajet (placements le long d'une arête), importé tardivement dans `features/`.
 6. Le geste de copie à la souris s'appuie sur la même fabrique (répétition d'une copie).

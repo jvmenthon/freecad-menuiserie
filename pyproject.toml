@@ -72,6 +72,8 @@ module = [
     "FreeCAD",
     "FreeCADGui",
     "Part",
+    "TechDraw",
+    "TechDrawGui",
     "PySide",
     "PySide.*",
     "PySide2.QtTest",  # tests/qtest/qttest.py seulement (ADR 0059)

@@ -47,7 +47,7 @@ REPEAT_EDIT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "une répétition ou l'une de ses copies sélectionnée."
 )
 REPEAT_DISSOCIATE: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie", "une ou plusieurs copies d'une répétition sélectionnées (Ctrl+clic)."
+    "Menuiserie", "une répétition ou l'une de ses copies sélectionnée."
 )
 DISTANCE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",

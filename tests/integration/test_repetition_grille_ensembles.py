@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.aides_grille import Line, Reopen, X, Y, Z, grid
 from tests.integration.cadre import stale_or_invalid
 from tests.integration.test_repetition_ensembles import (
@@ -53,7 +54,7 @@ def test_chaque_cellule_a_son_ensemble_a_la_bonne_place(document: Any) -> None:
     rep = api.make_repeat([source], two_by_two())
     found = tops(rep, source)
     assert sorted(found) == [(0, 1, 0), (1, 0, 0), (1, 1, 0)]
-    assert [c.Label for c in repeat.copies_of(rep, source)] == [f"Caisson {k}" for k in (2, 3, 4)]
+    assert [c.Label for c in repeat.copies_of(rep, source)] == [f"Caisson ({k})" for k in (2, 3, 4)]
     for (i, j, _k), copy in found.items():
         assert corner(copy) == (700.0 * i, 500.0 * j, 0.0)
         assert api.repeat_of(copy) == rep and copy.Width.Value == source.Width.Value
@@ -113,7 +114,7 @@ def test_dissocier_un_ensemble_de_la_grille(undoable: Any) -> None:
     source = caisson(undoable)
     rep = api.make_repeat([source], two_by_two())
     freed = tops(rep, source)[(1, 1, 0)]
-    api.dissociate(freed)
+    detach_one_copy(freed)
     assert engine(freed) == {} and corner(freed) == (700.0, 500.0, 0.0)
     api.edit_repeat(rep, two_by_two(3, 3))
     found = tops(rep, source)

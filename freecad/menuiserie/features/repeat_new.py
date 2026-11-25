@@ -30,7 +30,7 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.furniture import Edge, FurnitureBox
 from freecad.menuiserie.core.geometry import Vec3
-from freecad.menuiserie.core.repeat import Cell
+from freecad.menuiserie.core.repeat import Cell, copy_name
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.drag_joints import remove_joints
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
@@ -145,7 +145,7 @@ def new_part_copy(
         width=source.Width.Value,
         thickness=source.Thickness.Value,
         material_id=source.MaterialId,
-        mark=f"{source.Label} {at.rank + 1}",
+        mark=copy_name(source.Label, at.rank),
     )
     return _finish_copy(copy, source, repeat, at, container)
 
@@ -165,7 +165,7 @@ def new_shaped_copy(
     for name in _SHAPED_VALUES:
         setattr(copy, name, getattr(source, name))
     with proxy.synchronizing():
-        copy.Mark = f"{source.Label} {at.rank + 1}"
+        copy.Mark = copy_name(source.Label, at.rank)
         copy.Label = label_of_mark(copy, copy.Mark)
     apply_editor_modes(
         copy, show_grain=shows_grain(copy, proxy.library()), profile=is_profile(copy)
@@ -182,7 +182,7 @@ def _new_furniture_copy(
     Part : ``shift`` est ajouté à l'``Origin``, la copie est rangée dans le conteneur de la
     source."""
     box = FurnitureBox(source.Width.Value, source.Depth.Value, source.Height.Value)
-    here, label = origin_of(source), f"{source.Label} {at.rank + 1}"
+    here, label = origin_of(source), copy_name(source.Label, at.rank)
     shift = at.shift
     source_part = std_part_of(source)
     if source_part is None:

@@ -34,8 +34,12 @@ from freecad.menuiserie.features.i18n import translate_text, translated
 
 __all__ = [
     "CSV_SUFFIX",
+    "NUMBERED",
+    "OVERWRITE",
     "PDF_SUFFIX",
     "export_csv",
+    "free_target",
+    "numbered_path",
     "pdf_html",
     "proposed_file_name",
     "proposed_path",
@@ -52,6 +56,13 @@ _UMASK_LINE: Final = re.compile(r"^Umask:\s*([0-7]+)\s*$", re.MULTILINE)
 
 _FILE_NAME: Final = QT_TRANSLATE_NOOP("Menuiserie", "{document} - liste de débit")
 _FORBIDDEN_IN_NAME: Final = re.compile(r'[\\/:*?"<>|\x00-\x1f\x7f]')
+OVERWRITE: Final = "overwrite"  # choix devant un fichier déjà là : l'écraser
+NUMBERED: Final = "numbered"  # … ou écrire « <nom> N » à côté
+_NUMBERED: Final = re.compile(r"^(?P<base>.*\S) (?P<number>\d{1,3})$")
+_MAX_NUMBER: Final = 999
+_NO_FREE_NAME: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Export refusé : aucun nom libre à côté de « {path} »."
+)
 _NOT_CSV: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Export refusé : « {path} » n'a pas l'extension .csv."
 )
@@ -181,6 +192,33 @@ def with_suffix(path: str, suffix: str) -> str:
     """``path`` complété de ``suffix`` s'il n'a aucune extension (la boîte d'enregistrement de Qt
     n'en ajoute pas) ; inchangé sinon, et validé ensuite par :func:`validated_path`."""
     return path if Path(path).suffix else path + suffix
+
+
+def numbered_path(path: Path) -> Path:
+    """Premier chemin libre « <nom> 2<ext> », « <nom> 3<ext> »… à côté de ``path``. « plans 2 »
+    donne « plans 3 » si « plans » existe aussi (numéro déjà posé ici) ; « Plan 2026 » donne
+    « Plan 2026 2 ». ``ValueError`` traduite sans nom libre jusqu'à 999."""
+    base, start = path.stem, 2
+    match = _NUMBERED.match(path.stem)
+    if match and path.with_name(match["base"] + path.suffix).exists():
+        base, start = match["base"], int(match["number"]) + 1
+    for number in range(start, _MAX_NUMBER + 1):
+        candidate = path.with_name(f"{base} {number}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+    raise _refusal(_NO_FREE_NAME, path)
+
+
+def free_target(path: Path, choose: Callable[[Path, Path], str | None]) -> Path | None:
+    """``path`` s'il est libre ; sinon selon ``choose(path, autre)`` : ``OVERWRITE`` garde
+    ``path``, ``NUMBERED`` donne le premier « <nom> N » libre, autre chose (annuler) ``None``."""
+    if not path.exists():
+        return path
+    other = numbered_path(path)
+    choice = choose(path, other)
+    if choice == OVERWRITE:
+        return path
+    return other if choice == NUMBERED else None
 
 
 def with_csv_suffix(path: str) -> str:

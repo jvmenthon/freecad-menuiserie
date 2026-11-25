@@ -2,9 +2,9 @@
 """Scénario QTest S12 : une traverse assemblée, répétée le long de son montant.
 
 Commande « Répéter » et son panneau (mode « Nombre et pas », nombre, pas), puis « Modifier la
-répétition » depuis une copie (nombre, puis pas), « Dissocier la copie », la recopie des
-assemblages décochée et un tenon-mortaise posé à la main sur une copie, qui doit tenir quand le
-pas change encore (PR #260).
+répétition » depuis une copie (nombre, puis pas), la recopie des assemblages décochée et un
+tenon-mortaise posé à la main sur une copie, qui doit tenir quand le pas change encore (PR #260),
+puis « Dissocier la répétition » : toutes les copies deviennent libres, la répétition part.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from typing import Any, ClassVar
 from tests.gui.verifications_assemblages import usinee_de
 from tests.qtest.aides import (
     Etapes,
+    ReponseAuxBoites,
     activer_faulthandler,
     bouton_ok,
     choisir,
@@ -46,6 +47,7 @@ MODIFIER = "Menuiserie_RepeatEdit"
 DISSOCIER = "Menuiserie_RepeatDissociate"
 PANNEAU_REPETITION = "RepeatTaskPanel"
 TYPE_PIECE = "Menuiserie::WoodPart"
+TYPE_REPETITION = "Menuiserie::Repeat"
 NOMBRE_ET_PAS = 0  # première ligne de la liste « mode de saisie »
 DEPART = 60.0  # abscisse de la traverse d'origine
 TOLERANCE_MM = 1e-6
@@ -61,7 +63,6 @@ class Repetition(Etapes):
     doc: ClassVar[Any]
     montant: ClassVar[Any]
     traverse: ClassVar[Any]
-    dissociee: ClassVar[Any]
     une_mortaise: ClassVar[float] = 0.0
 
     @classmethod
@@ -130,35 +131,7 @@ class Repetition(Etapes):
         self.controler_les_assemblages(5)
         self.assertEqual(len(self.doc.UndoNames), 2, self.doc.UndoNames)
 
-    def test_3_dissocier_la_derniere_copie(self) -> None:
-        derniere = self.copies()[-1]
-        type(self).dissociee = derniere
-        selectionner(derniere)
-        self.assertTrue(commande_active(MODIFIER))
-        lancer(DISSOCIER)
-        self.assertEqual(len(self.doc.UndoNames), 3, self.doc.UndoNames)
-        selectionner()
-        selectionner(derniere)
-        # Redevenue une pièce ordinaire : on peut la répéter, plus la dissocier.
-        self.assertTrue(commande_active(REPETER))
-        self.assertFalse(commande_active(DISSOCIER), "« Dissocier » resté actif")
-        self.assertFalse(commande_active(MODIFIER))
-        self.controler_les_assemblages(5)
-
-    def test_4_le_pas_change_sans_la_copie_dissociee(self) -> None:
-        place = self.dissociee.Placement.Base.x
-        form = self.ouvrir_la_modification()
-        taper(enfant(form, "stepX"), "130 mm")
-        cliquer(bouton_ok())
-        self.assertAlmostEqual(self.dissociee.Placement.Base.x, place, delta=TOLERANCE_MM)
-        liees = [x for x in self.abscisses() if abs(x - place) > TOLERANCE_MM]
-        self.assertEqual(len(liees), 3, self.abscisses())
-        self.assertEqual(liees, [DEPART + 130.0 * rang for rang in range(1, len(liees) + 1)])
-        for assemblage in assemblages(self.doc):
-            self.assertTrue(assemblage.isValid(), assemblage.Label)
-        controler_le_document(self, self.doc)
-
-    def test_5_assemblage_pose_a_la_main_sur_une_copie(self) -> None:
+    def test_3_assemblage_pose_a_la_main_sur_une_copie(self) -> None:
         """Recopie des assemblages décochée : les copies n'en ont plus ; un tenon-mortaise posé
         à la main sur la première tient quand le pas change (PR #260)."""
         form = self.ouvrir_la_modification()
@@ -166,7 +139,7 @@ class Repetition(Etapes):
         cliquer(enfant(form, "copyJoints"))
         cliquer(bouton_ok())
         gardes = {a.GuestPart for a in assemblages(self.doc)}
-        self.assertEqual(gardes, {self.traverse, self.dissociee})
+        self.assertEqual(gardes, {self.traverse})
         copie = self.copies()[0]
         selectionner(copie, self.montant)
         lancer(TENON_MORTAISE)
@@ -181,9 +154,37 @@ class Repetition(Etapes):
         self.assertAlmostEqual(copie.Placement.Base.x, DEPART + 110.0, delta=TOLERANCE_MM)
         self.assertIn(a_la_main, assemblages(self.doc))
         self.assertTrue(a_la_main.isValid(), a_la_main.getStatusString())
-        self.controler_les_assemblages(3)
+        self.controler_les_assemblages(2)
 
-    def test_6_tout_annuler(self) -> None:
+    def test_4_dissocier_la_repetition(self) -> None:
+        """Depuis la dernière copie, après confirmation (« Annuler » ne change rien), toute la
+        répétition est dissociée (demande de jv, 2026-11-23) : les copies restent en place,
+        libres, et la répétition disparaît."""
+        derniere, abscisses = self.copies()[-1], self.abscisses()
+        entrees = len(self.doc.UndoNames)
+        selectionner(derniere)
+        self.assertTrue(commande_active(DISSOCIER))
+        with ReponseAuxBoites("Annuler") as refus:  # confirmation (jv, 2026-11-24)
+            lancer(DISSOCIER)
+        self.assertEqual(len(refus.vues), 1)
+        self.assertIn("deviennent des pièces libres", refus.vues[0][1])
+        self.assertEqual(len(self.doc.UndoNames), entrees, self.doc.UndoNames)
+        self.assertEqual(len(du_type(self.doc, TYPE_REPETITION)), 1)
+        with ReponseAuxBoites("Dissocier"):
+            lancer(DISSOCIER)
+        self.assertEqual(len(self.doc.UndoNames), entrees + 1, self.doc.UndoNames)
+        self.assertEqual(du_type(self.doc, TYPE_REPETITION), [])
+        self.assertEqual(self.abscisses(), abscisses)
+        for copie in self.copies():
+            selectionner()
+            selectionner(copie)
+            # Redevenue une pièce ordinaire : on peut la répéter, plus la dissocier.
+            self.assertTrue(commande_active(REPETER), copie.Label)
+            self.assertFalse(commande_active(DISSOCIER), copie.Label)
+            self.assertFalse(commande_active(MODIFIER), copie.Label)
+        self.controler_les_assemblages(2)
+
+    def test_5_tout_annuler(self) -> None:
         copies, abscisses = self.copies(), self.abscisses()
         for _ in self.doc.UndoNames:
             lancer("Std_Undo")
@@ -193,5 +194,5 @@ class Repetition(Etapes):
         retablir_tout(self.doc)
         self.assertEqual(self.copies(), copies)
         self.assertEqual(self.abscisses(), abscisses)
-        self.controler_les_assemblages(3)
+        self.controler_les_assemblages(2)
         self.assertEqual(erreurs_python(vue_rapport()), [])
