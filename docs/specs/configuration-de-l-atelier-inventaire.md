@@ -91,6 +91,9 @@ automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 
 ## 6. Ensembles et gabarits
 
+**Section laissée de côté (jv, 2026-11-25)** : rien de ce groupe n'entre dans la configuration
+pour l'instant.
+
 | Point | Valeur actuelle | Où | Avis |
 |---|---|---|---|
 | Caisson : L × P × H | 600 × 400 × 720 mm | `core/templates/carcass.py` | R |
