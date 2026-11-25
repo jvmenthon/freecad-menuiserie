@@ -14,7 +14,7 @@ Légende de la colonne « Avis » :
 Option « dernier utilisé » (demande de jv, 2026-11-25) : un réglage de valeur par défaut peut
 proposer soit une **valeur fixe**, soit le **dernier choix** de l'utilisateur. Le catalogue le prévoit
 pour tout réglage marqué « dernier possible » ; la page montre alors un choix « Valeur fixe /
-Dernier utilisé » à côté du champ. Candidats : profil d'arête, matériau et dimensions d'une pièce
+Dernier utilisé » à côté du champ. Retenu par jv pour les trois premiers réglages des chants (§ 3). Autres candidats : matériau et dimensions d'une pièce
 neuve, réglages de chaque type d'assemblage, format de feuille des plans.
 
 Les cotes « 0 = automatique » des assemblages restent automatiques : ce sont les **règles du calcul
@@ -46,9 +46,9 @@ automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 
 | Point | Valeur actuelle | Où | Avis |
 |---|---|---|---|
-| Arête cassée sur les pièces neuves | non (nouveau) | — | R |
-| Taille de l'arête cassée | 1 mm | `core/edges/_families.py` | R |
-| Profil proposé à l'ouverture du panneau : valeur fixe ou dernier utilisé (jv, 2026-11-25) | quart de rond, 1 mm | `features/edge_profile.py` | R |
+| Arête cassée sur les pièces neuves | non (nouveau) | — | R, valeur fixe ou dernier utilisé (jv) |
+| Taille de l'arête cassée | 1 mm | `core/edges/_families.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Profil proposé à l'ouverture du panneau | quart de rond, 1 mm | `features/edge_profile.py` | R, valeur fixe ou dernier utilisé (jv) |
 | Vue du panneau (patron / boîte) | dernier choix | `gui/task_panels/edge_targets.py` | M (existe) |
 | Angles acceptés, taille maximale | 30° à 150°, moitié de la pièce | `core/edges/` | — |
 
