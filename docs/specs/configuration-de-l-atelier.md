@@ -37,7 +37,7 @@ infobulle = une phrase qui dit l'effet du réglage et son unité).
 
 ## 3. Réglages candidats
 
-Valeurs actuelles relevées dans le code (`main`, 2026-11-25). ★ = proposé pour le lot 1.
+Valeurs actuelles relevées dans le code (`main`, 2026-11-25). ★ = proposé pour le lot 1. L'inventaire complet, par fonctionnalité, est en annexe : [configuration-de-l-atelier-inventaire.md](configuration-de-l-atelier-inventaire.md).
 
 | Groupe | Réglage | Défaut actuel | Où dans le code |
 |---|---|---|---|
