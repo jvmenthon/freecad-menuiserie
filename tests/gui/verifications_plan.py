@@ -105,8 +105,10 @@ def _pages_du_pdf(octets: bytes) -> int:
 
 def _export(bureau: Any) -> list[str]:
     """La page sélectionnée et « Ouvrir le PDF » sont précochées ; une pièce sans plan cochée
-    reçoit son plan ; les deux pages partent dans un seul PDF, ouvert ensuite."""
+    reçoit son plan ; un fichier déjà là fait demander (annuler, puis « plans 2 ») ; les deux
+    pages partent dans un seul PDF, ouvert ensuite."""
     from freecad.menuiserie import api
+    from freecad.menuiserie.gui import existing_file
     from freecad.menuiserie.gui.task_panels import drawing_export
     from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
 
@@ -126,21 +128,30 @@ def _export(bureau: Any) -> list[str]:
         ouverts.append(url.toLocalFile())
         return True
 
+    reponses = [None, existing_file.NUMBERED]  # annuler, puis écrire « plans 2.pdf »
+    vrai_chooser = existing_file.chooser
     drawing_export.open_url = ouvrir
+    existing_file.chooser = lambda _path, _other: reponses.pop(0)
     piece = next(iter(bureau.parts.values()))
     with tempfile.TemporaryDirectory() as dossier:
-        cible = Path(dossier) / "plans.pdf"
-        panneau.path.setText(str(cible))
+        deja_la = Path(dossier) / "plans.pdf"
+        deja_la.write_bytes(b"ancien")
+        cible = Path(dossier) / "plans 2.pdf"
+        panneau.path.setText(str(deja_la))
         panneau.check(piece.Name)
         avant = len(_pages(bureau.doc))
         panneau.path.setText(str(Path(dossier) / "absent" / "plans.pdf"))
         refuse = not panneau.accept()
         sans_creation = len(_pages(bureau.doc)) == avant
-        panneau.path.setText(str(cible))
+        panneau.path.setText(str(deja_la))
         try:
+            annule = not panneau.accept()
+            sans_creation &= len(_pages(bureau.doc)) == avant
             accepte = panneau.accept()
         finally:
             drawing_export.open_url = vrai_open_url
+            existing_file.chooser = vrai_chooser
+        garde = deja_la.read_bytes() == b"ancien"
         octets = cible.read_bytes() if cible.exists() else b""
         restes = [p.name for p in Path(dossier).iterdir() if p.suffix == ".tmp"]
     message = Gui.getMainWindow().statusBar().currentMessage()
@@ -149,14 +160,16 @@ def _export(bureau: Any) -> list[str]:
         *ecarts("page précochée", page.Name in coches, True),
         *ecarts("« Ouvrir le PDF » précochée", ouvrir_precoche, True),
         *ecarts("chemin invalide refusé", refuse, True),
-        *ecarts("chemin invalide : aucun plan créé", sans_creation, True),
+        *ecarts("fichier existant : annuler garde le panneau", annule, True),
+        *ecarts("refus et annulation : aucun plan créé", sans_creation, True),
+        *ecarts("fichier existant non écrasé", garde, True),
         *ecarts("export accepté", accepte, True),
         *ecarts("plan de pièce créé", len(_pages(bureau.doc)), avant + 1),
         *ecarts("le PDF commence par %PDF", octets[:4], b"%PDF"),
-        *ecarts("PDF ouvert une fois", [Path(p).name for p in ouverts], ["plans.pdf"]),
+        *ecarts("PDF ouvert une fois", [Path(p).name for p in ouverts], ["plans 2.pdf"]),
         *ecarts("deux pages dans un seul PDF", _pages_du_pdf(octets), 2),
         *ecarts("aucun temporaire", restes, []),
-        *ecarts("confirmation", "plans.pdf" in message, True),
+        *ecarts("confirmation", "plans 2.pdf" in message, True),
     ]
 
 

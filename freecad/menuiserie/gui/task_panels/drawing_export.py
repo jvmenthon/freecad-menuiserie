@@ -6,8 +6,9 @@ plans de l'ouvrage (existants, ou à créer) et des autres pages. Une seconde co
 chaque pièce si son plan existe ou s'il sera créé. Ce qui était sélectionné avant le clic est
 déjà coché. « OK » crée les plans qui manquent puis écrit toutes les pages cochées dans un seul
 PDF, ouvert ensuite si la case « Ouvrir le PDF » (précochée) le demande ; « Annuler » ne laisse
-rien. Le fichier est vérifié avant de créer les plans ; si l'écriture échoue ensuite, les plans
-créés restent (annulables) et le panneau reste ouvert.
+rien. Le fichier est vérifié avant de créer les plans (s'il existe : écraser, « <nom> 2 » ou
+annuler) ; si l'écriture échoue ensuite, les plans créés restent (annulables) et le panneau
+reste ouvert.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from freecad.menuiserie.features.drawing_export import (
 from freecad.menuiserie.features.drawing_parts import blanks_of
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import report_warning, translated
+from freecad.menuiserie.gui import existing_file
 from freecad.menuiserie.gui.commands.base import report_refusal
 from freecad.menuiserie.gui.commands.cutlist import show_status
 from freecad.menuiserie.gui.drawing_hlr import HlrWait
@@ -103,6 +105,7 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         self.plans: ExportState = export_state(doc)
         self._selected = list(selected or [])
         self.written: Path | None = None
+        self._confirmed: Path | None = None  # écrasement déjà validé par la boîte « … »
         super().__init__(doc)
 
     def _add_options(self, layout: Any) -> None:
@@ -188,7 +191,18 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
     def _browse(self, *_args: object) -> None:
         chosen = ask_save_path(Path(self.path.text()), title=_DIALOG)
         if chosen is not None:
+            self._confirmed = chosen
             self.path.setText(str(chosen))
+
+    def _free_target(self, target: Path) -> Path | None:
+        """``target`` si l'écrasement est déjà validé ou s'il est libre ; sinon le choix de
+        l'utilisateur (écraser, « <nom> 2 », annuler), écrit dans le champ du fichier."""
+        if target == self._confirmed:
+            return target
+        chosen = existing_file.free_target(target)
+        if chosen is not None:
+            self.path.setText(str(chosen))
+        return chosen
 
     def accept(self) -> bool:
         """Crée les plans qui manquent, écrit le PDF et ferme ; un refus (rien de coché, pas de
@@ -205,7 +219,9 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         pages = [obj for obj in chosen if is_page(obj)]
         parts = [obj for obj in chosen if not is_page(obj)]
         try:
-            target = validated_path(with_suffix(path, PDF_SUFFIX), PDF_SUFFIX)  # avant création
+            target = self._free_target(validated_path(with_suffix(path, PDF_SUFFIX), PDF_SUFFIX))
+            if target is None:  # l'utilisateur garde le panneau pour changer de fichier
+                return False
             options = DrawingOptions(settle=HlrWait())
             found = pages_to_export(self.doc, pages, parts, kinds, options)
             self.written = export_pages_pdf(found, target)

@@ -259,3 +259,15 @@ def test_un_plan_impossible_a_creer_remonte_l_erreur(
     monkeypatch.setattr(export, "make_part_drawings", refuse)
     with pytest.raises(ValueError, match="TechDraw"):
         export.pages_to_export(_doc(a), [], [a])
+
+
+def test_nom_numerote_libre(tmp_path: Any) -> None:
+    with pytest.MonkeyPatch.context() as monkeypatch, simulated_freecad(monkeypatch):
+        from freecad.menuiserie.features.cutlist_export import numbered_path
+
+        plans = tmp_path / "plans.pdf"
+        assert numbered_path(plans) == tmp_path / "plans 2.pdf"
+        (tmp_path / "plans 2.pdf").write_bytes(b"")
+        assert numbered_path(plans) == tmp_path / "plans 3.pdf"
+        assert numbered_path(tmp_path / "plans 2.pdf") == tmp_path / "plans 3.pdf"
+        assert numbered_path(tmp_path / "2026.pdf") == tmp_path / "2026 2.pdf"
