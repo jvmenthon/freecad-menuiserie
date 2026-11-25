@@ -142,6 +142,8 @@ def _paint(name: str, text: str, state: BadgeState, axis: int, scale: float) -> 
     name_w, width = (w * scale for w in badge_width_px(name, text, locked))
     height = BADGE_H_PX * scale
     margin = MARGIN_PX * scale
+    if max(width, height) + 2 * margin > MAX_SIDE_PX:  # jamais d'image démesurée
+        return QtGui.QImage()
     image = QtGui.QImage(
         math.ceil(width + 2 * margin),
         math.ceil(height + 2 * margin),

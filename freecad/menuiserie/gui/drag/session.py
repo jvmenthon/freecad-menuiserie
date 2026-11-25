@@ -216,8 +216,8 @@ class DragSession:
                 port.project,
                 port.direction(),
             )
-        except _RESIZE_ERRORS:
-            self.clear()
+        except (*_RESIZE_ERRORS, OverflowError, ZeroDivisionError, App.Base.FreeCADError):
+            self.clear()  # vue en cours de fermeture ou caméra dégénérée : rien à dessiner
             return
         changed, self.layout = layout != self.layout, layout
         if changed and redraw:

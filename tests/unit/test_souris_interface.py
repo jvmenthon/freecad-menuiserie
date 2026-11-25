@@ -436,3 +436,147 @@ def test_cote_en_millimetres(value: float, text: str) -> None:
 
 def test_etat_d_une_etiquette_grisee() -> None:
     assert [s.locked for s in BadgeState] == [False, False, True, True]
+
+
+# --- Étiquettes de cote : cas limites (revue testeur, ADR 0068 maquette K) --------------------
+
+
+def iso(point: Vec3) -> tuple[float, float]:
+    """Projection oblique de test : Y et Z fuient vers le haut à droite, 1 pixel = 1 mm."""
+    return point.x + 0.5 * point.y, point.z + 0.5 * point.y + 0.3 * point.x
+
+
+def test_axe_vu_de_bout_et_vue_exactement_de_face() -> None:
+    """Direction de vue orthogonale à un axe : la face de fin compte comme visible (produit
+    nul), aucune erreur, une seule étiquette par cote, les deux ronds restent là."""
+    axes = (FRAME.x, FRAME.y, FRAME.z)
+    assert facing_ends(axes, Vec3(0, 0, -1)) == frozenset({0, 1, 2})  # X et Y vus de la tranche
+    assert facing_ends(axes, Vec3(1, 0, 0)) == frozenset({1, 2})  # X de bout, vu par sa fin
+    assert facing_ends(axes, Vec3(0, 0, 0)) == frozenset({0, 1, 2})  # direction nulle : défaut
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), FREE))
+
+    def side(point: Vec3) -> tuple[float, float]:  # vue le long de X : les deux faces X confondues
+        return point.y, point.z
+
+    placed = on_screen(layout, 1.0, side, Vec3(-1, 0, 0))
+    drawing = build_drawing(placed)
+    assert sorted(b.axis for b in drawing.badges) == [0, 1, 2]
+    assert sum(len(d.points) for d in drawing.dots) == 6
+    assert all(math.isfinite(r) for _, r in placed.badge_reach)
+    assert all(1.9 <= r <= 1.9 + 6 * 0.8 for _, r in placed.badge_reach)
+    targets = pixel_targets(placed, side)  # étiquette d'un axe de bout : segment dégénéré admis
+    assert handle_at(targets, (120 - 33, 41)) == handle_key(Handle(0, True))
+    # Les deux faces X au même pixel : celle qui porte l'étiquette l'emporte (survol cohérent).
+    face = side(dict(placed.handles)[Handle(0, True)])
+    assert 0 in placed.badge_ends  # vue vers -X : face de fin étiquetée
+    assert handle_at(targets, face) == handle_key(Handle(0, True))
+
+
+def test_vue_degeneree_ou_bruitee() -> None:
+    """Bruit flottant sur un axe vu par la tranche : l'étiquette ne saute pas d'une face à
+    l'autre ; direction non finie : faces de fin ; projection ratée : recul par défaut."""
+    axes = (FRAME.x, FRAME.y, FRAME.z)
+    assert facing_ends(axes, Vec3(1e-17, 0, -1)) == facing_ends(axes, Vec3(-1e-17, 0, -1))
+    assert facing_ends(axes, Vec3(math.nan, 0, -1)) == frozenset({0, 1, 2})
+    bad = Slot("x", (math.inf, 0.0), (24.0, 0.0), 60.0, 24.0)
+    good = Slot("y", (0.0, 0.0), (24.0, 0.0), 60.0, 24.0)
+    assert spread([bad, good]) == (("y", 1.9),)
+
+
+def test_etiquettes_ecartees_en_vue_oblique() -> None:
+    """Pièce petite à l'écran, vue oblique : après l'écart, les étiquettes dessinées ne se
+    touchent pas à l'écran (la mesure est celle de l'image, badge_width_px)."""
+    box = Box.from_ranges([(0, 30), (0, 30), (0, 30)])
+    layout = named(build_layout(FRAME, box, 20.0, frozenset(), FREE))
+    placed = on_screen(layout, 1.0, iso, Vec3(-1, 1, -1))
+    badges = build_drawing(placed).badges
+    assert sorted(b.axis for b in badges) == [0, 1, 2]
+    rects = []
+    for badge in badges:
+        width = badge_width_px(NAMES[badge.axis], badge.text, False)[1]
+        x, y = iso(badge.position)
+        rects.append((x - width / 2, y - 12, x + width / 2, y + 12))
+    for i, one in enumerate(rects):
+        for other in rects[i + 1 :]:
+            apart = (
+                one[2] <= other[0] or other[2] <= one[0] or one[3] <= other[1] or other[3] <= one[1]
+            )
+            assert apart
+    assert any(r > 1.9 for _, r in placed.badge_reach)  # trop serrées sans écart
+
+
+def test_ecart_vide_ou_isole() -> None:
+    assert spread([]) == ()
+    alone = Slot("a", (0.0, 0.0), (10.0, 0.0), 60.0, 24.0)
+    assert spread([alone], base=3.0) == (("a", 3.0),)
+    # Ordre conservé et déterministe : la première étiquette ne bouge jamais.
+    again = Slot("b", (0.0, 0.0), (0.0, 10.0), 60.0, 24.0)
+    assert spread([alone, again]) == spread([alone, again])
+    assert dict(spread([again, alone]))["b"] == 1.9
+
+
+def test_etiquette_figee_large_comme_son_image() -> None:
+    """Zone de saisie d'une cote figée : largeur de badge_width_px avec cadenas, à l'échelle de
+    l'écran haute définition ; une cote « ? » et un nom long suivent la même mesure."""
+    _, plain = badge_width_px("Ép.", "22", False)
+    _, locked = badge_width_px("Ép.", "22", True)
+    assert locked == plain + 16.0
+    long_name = badge_width_px("Épaisseur", "22", False)[1]
+    assert long_name > plain and badge_width_px("Ép.", "?", False)[1] < plain + 1
+    for scale in (1.0, 2.0):
+        layout = replace(
+            build_layout(FRAME, BOX, 100.0, frozenset(), frozenset(), [(2, BLOCKER)]),
+            axis_names=NAMES,
+            badge_scale=scale,
+        )
+        key = locked_key(Handle(2, True))
+        zone = [t for t in pixel_targets(layout, project) if t.key == key and t.radius]
+        (label,) = zone
+        assert label.end is not None and label.radius == pytest.approx(12.0 * scale)
+        assert label.end[0] - label.start[0] == pytest.approx(locked * scale - 24.0 * scale)
+    drawing = build_drawing(layout)
+    (badge,) = [b for b in drawing.badges if b.state is BadgeState.LOCKED]
+    assert (badge.name, badge.axis, badge.scale) == ("Ép.", 2, 2.0)
+
+
+def test_cote_inconnue_sur_l_etiquette() -> None:
+    box = Box.from_ranges([(0, 1e12), (0, 200), (0, 22)])
+    layout = named(build_layout(FRAME, box, 100.0, frozenset(), frozenset({0, 1})))
+    drawing = build_drawing(layout)
+    assert [(b.name, b.text) for b in drawing.badges] == [("Long.", "?"), ("Larg.", "200")]
+    zone = [t for t in pixel_targets(layout, project) if t.key == handle_key(Handle(0, True))]
+    assert zone and all(math.isfinite(t.start[0]) for t in zone)
+
+
+def test_piece_sans_poignee() -> None:
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset()))
+    placed = on_screen(layout, 2.0, project, Vec3(0, 0, -1))
+    assert placed.badge_reach == ()
+    drawing = build_drawing(placed, hover=handle_key(Handle(0, True)))
+    assert drawing.badges == () and drawing.solids == () and drawing.dots == ()
+    assert [t.key for t in pixel_targets(placed, project)] == [arrow_key(a) for a in range(3)]
+
+
+def test_survol_de_la_face_d_en_face_et_des_fleches() -> None:
+    """Le rond de la face sans étiquette allume sa face ; une flèche n'allume aucune face."""
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), FREE))
+    drawing = build_drawing(layout, hover=handle_key(Handle(2, False)))
+    assert [b.state for b in drawing.badges].count(BadgeState.HOVER) == 0  # pas d'étiquette là
+    (face,) = drawing.solids
+    assert face.color == AXIS_COLORS[2] and {p.z for p in face.faces[0]} == {30.0}
+    assert len({(p.x, p.y) for p in face.faces[0]}) == 4  # quatre coins distincts
+    assert build_drawing(layout, hover=arrow_key(2)).solids == ()
+    assert build_drawing(layout, hover="inconnue").solids == ()
+    assert build_drawing(layout, hover=None).solids == ()
+
+
+def test_une_seule_etiquette_par_cote_avec_cote_figee() -> None:
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1}), [(2, BLOCKER)]))
+    placed = on_screen(layout, 1.0, project, Vec3(0, 0, 1))  # vue de dessous : Z début visible
+    assert 2 not in placed.badge_ends
+    drawing = build_drawing(placed)
+    assert sorted(b.axis for b in drawing.badges) == [0, 1, 2]
+    (grey,) = [b for b in drawing.badges if b.axis == 2]
+    assert grey.state is BadgeState.LOCKED and grey.position.z < 30  # côté de la face de début
+    ends = {t.key for t in pixel_targets(placed, project) if t.radius}
+    assert locked_key(Handle(2, False)) in ends and locked_key(Handle(2, True)) not in ends

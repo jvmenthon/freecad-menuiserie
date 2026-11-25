@@ -53,6 +53,7 @@ __all__ = [
 
 MOVE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacer la pièce")
 ROTATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Tourner la pièce")
+MAX_NAME_CHARS: Final = 8  # nom court d'une cote sur son étiquette
 PART_AXIS_NAMES: Final = (  # étiquettes de cote d'une pièce (ADR 0068) : X, Y, Z
     QT_TRANSLATE_NOOP("Menuiserie", "Long."),
     QT_TRANSLATE_NOOP("Menuiserie", "Larg."),
@@ -61,9 +62,17 @@ PART_AXIS_NAMES: Final = (  # étiquettes de cote d'une pièce (ADR 0068) : X, Y
 Memento = DragMemento | FurnitureMemento
 
 
+def _short(name: str) -> str:
+    """Nom court traduit, le français si la traduction est vide ou trop longue pour une
+    étiquette."""
+    text = translated(name)
+    return text if 0 < len(text) <= MAX_NAME_CHARS else name[:MAX_NAME_CHARS]
+
+
 def axis_names(names: tuple[str, str, str]) -> tuple[str, str, str]:
-    """Noms courts traduits des trois cotes, écrits sur leurs étiquettes."""
-    first, second, third = (translated(name) for name in names)
+    """Noms courts traduits des trois cotes, écrits sur leurs étiquettes (au plus
+    :data:`MAX_NAME_CHARS` caractères)."""
+    first, second, third = (_short(name) for name in names)
     return first, second, third
 
 

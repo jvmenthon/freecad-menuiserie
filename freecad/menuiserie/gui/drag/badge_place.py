@@ -9,12 +9,13 @@ import de FreeCAD, de Qt ni de pivy.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
 from freecad.menuiserie.core.geometry import Vec3
-from freecad.menuiserie.core.vectors import dot
+from freecad.menuiserie.core.vectors import dot, is_finite, norm
 
 __all__ = [
     "BADGE_H_PX",
@@ -28,6 +29,7 @@ __all__ = [
 BADGE_REACH: Final = 1.9  # centre de l'étiquette : distance à la face, en unités de poignée
 REACH_STEP: Final = 0.8  # recul d'une étiquette qui en touche une autre, en unités de poignée
 MAX_PUSHES: Final = 6
+EDGE_ON: Final = 1e-6  # face vue par la tranche (bruit flottant compris) : comptée visible
 GAP_PX: Final = 4.0  # écart minimal entre deux étiquettes (pixels logiques)
 BADGE_H_PX: Final = 24.0
 NAME_PAD_PX: Final = 16.0  # marges du nom (pastille colorée)
@@ -47,8 +49,12 @@ def badge_width_px(name: str, text: str, locked: bool) -> tuple[float, float]:
 
 def facing_ends(axes: Sequence[Vec3], view: Vec3) -> frozenset[int]:
     """Axes dont la face de fin (côté positif) regarde la caméra ; ``view`` est la direction de
-    la vue (de la caméra vers la scène). Une face vue par la tranche compte comme visible."""
-    return frozenset(i for i, axis in enumerate(axes) if dot(axis, view) <= 0.0)
+    la vue (de la caméra vers la scène). Une face vue par la tranche compte comme visible ; une
+    direction nulle ou non finie (caméra dégénérée) donne les trois faces de fin."""
+    if not is_finite(view) or norm(view) < 1e-12:
+        return frozenset({0, 1, 2})
+    scale = norm(view)
+    return frozenset(i for i, axis in enumerate(axes) if dot(axis, view) <= EDGE_ON * scale)
 
 
 @dataclass(frozen=True)
@@ -69,25 +75,30 @@ class Slot:
         return (x - self.width / 2, y - self.height / 2, x + self.width / 2, y + self.height / 2)
 
 
-def _overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
+def _overlap(
+    a: tuple[float, float, float, float], b: tuple[float, float, float, float], gap: float
+) -> bool:
     return not (
-        a[2] + GAP_PX <= b[0]
-        or b[2] + GAP_PX <= a[0]
-        or a[3] + GAP_PX <= b[1]
-        or b[3] + GAP_PX <= a[1]
+        a[2] + gap <= b[0] or b[2] + gap <= a[0] or a[3] + gap <= b[1] or b[3] + gap <= a[1]
     )
 
 
-def spread(slots: Sequence[Slot], base: float = BADGE_REACH) -> tuple[tuple[str, float], ...]:
+def spread(
+    slots: Sequence[Slot], base: float = BADGE_REACH, scale: float = 1.0
+) -> tuple[tuple[str, float], ...]:
     """Recul de chaque étiquette (clé, unités de poignée) : ``base``, plus un pas tant qu'elle
-    touche une étiquette déjà posée (au plus :data:`MAX_PUSHES` pas : une étiquette vue de bout ne
-    s'écarte pas en reculant)."""
+    touche une étiquette déjà posée, à moins de :data:`GAP_PX` fois ``scale`` (rapport de pixels
+    de l'écran) ; au plus :data:`MAX_PUSHES` pas : une étiquette vue de bout ne s'écarte pas en
+    reculant."""
+    gap = GAP_PX * scale
     placed: list[tuple[float, float, float, float]] = []
     reaches = []
     for slot in slots:
+        if not all(math.isfinite(v) for v in (*slot.face, *slot.step, slot.width, slot.height)):
+            continue  # projection ratée : recul par défaut, jamais un NaN dans la disposition
         reach = base
         for _ in range(MAX_PUSHES):
-            if not any(_overlap(slot.rect(reach), other) for other in placed):
+            if not any(_overlap(slot.rect(reach), other, gap) for other in placed):
                 break
             reach += REACH_STEP
         placed.append(slot.rect(reach))

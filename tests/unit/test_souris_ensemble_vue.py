@@ -5,6 +5,8 @@ la souris, cadence de 10 Hz ; et garde-fous de structure (``Target`` sans pivy).
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from freecad.menuiserie.core.furniture import furniture_layout
@@ -126,3 +128,17 @@ def test_structure_de_la_cible() -> None:
     states = imported_modules(DRAG / "states.py")
     assert not {m for m in states if m.endswith((".part_rotate", ".furniture_drag"))}
     assert "freecad.menuiserie.features.part_drag.move_part" not in states
+
+
+def test_noms_courts_des_cotes_dans_les_sources() -> None:
+    """Pièce : Long./Larg./Ép. ; ensemble : Larg./Prof./Haut. (lus dans les sources : ces
+    modules importent FreeCAD)."""
+    drag = ROOT / "freecad" / "menuiserie" / "gui" / "drag"
+
+    def names(file: str, constant: str) -> list[str]:
+        text = (drag / file).read_text(encoding="utf-8")
+        block = text.split(f"{constant}: Final = (", 1)[1].split(")\n", 1)[0]
+        return re.findall(r'"Menuiserie", "([^"]+)"', block)
+
+    assert names("target.py", "PART_AXIS_NAMES") == ["Long.", "Larg.", "Ép."]
+    assert names("furniture_target.py", "FURNITURE_AXIS_NAMES") == ["Larg.", "Prof.", "Haut."]

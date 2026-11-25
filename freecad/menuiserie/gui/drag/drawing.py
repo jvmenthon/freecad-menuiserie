@@ -260,7 +260,7 @@ def size_text(box: Box, axis: int) -> str:
 
 def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
     """Cibles saisissables en pixels, dans l'ordre qui départage une égalité : milieu de la face
-    de chaque poignée (possibles puis impossibles ; seul le rond de la face d'en face), flèches,
+    de chaque poignée (étiquetées d'abord ; seul le rond de la face d'en face), flèches,
     puis étiquette de chaque cote (un segment horizontal, tolérance de sa demi-hauteur) et trait
     qui la relie à sa face. Une étiquette qui chevauche une flèche ne la cache donc pas : la plus
     proche l'emporte, la flèche à égalité.
@@ -268,7 +268,10 @@ def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
     Les pixels sont ceux de FreeCAD (physiques : rapport de l'écran appliqué) ; l'étiquette y a
     la taille de son image (:func:`badge_width_px` fois ``layout.badge_scale``)."""
     handles = _all_handles(layout)
-    targets = [PixelTarget(key, project(p)) for key, _, p in handles]
+    # Milieu des faces étiquetées d'abord : vue de bout, les deux faces d'un axe tombent sur le
+    # même pixel ; celle qui porte l'étiquette (et que le survol allume) l'emporte.
+    faces = sorted(handles, key=lambda item: not _labelled(layout, item[1]))
+    targets = [PixelTarget(key, project(p)) for key, _, p in faces]
     for arrow in layout.arrows:
         targets.append(PixelTarget(arrow_key(arrow.axis), project(arrow.start), project(arrow.end)))
     for key, handle, point in handles:
@@ -627,7 +630,7 @@ def on_screen(layout: Layout, scale: float, project: Project, view: Vec3) -> Lay
         x, y = project(_badge_center(placed, key, handle, point, 1.0))
         width, height = _badge_size(placed, key, handle)
         slots.append(Slot(key, face, (x - face[0], y - face[1]), width, height))
-    return replace(placed, badge_reach=spread(slots))
+    return replace(placed, badge_reach=spread(slots, scale=scale))
 
 
 class Throttle:
