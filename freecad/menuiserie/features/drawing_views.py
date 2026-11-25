@@ -1,0 +1,400 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+"""Vues du plan de l'ouvrage : face, coupes au milieu du meuble, perspective et cotes hors tout,
+en objets TechDraw standard (ADR 0053). Choix de jv du 2026-11-13 : les menuisiers lisent un
+meuble en coupe, la vue de dessus et la vue de gauche cèdent la place à deux coupes."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from functools import partial
+from typing import Any, Final, NamedTuple
+
+import FreeCAD as App
+
+from freecad.menuiserie.core.drawing import (
+    GAP_MM,
+    ChainLabel,
+    OverallLayout,
+    Spot,
+    chain_labels,
+    chain_segments,
+    scale_text,
+    text_width_mm,
+)
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features.drawing_details import FrontDetails
+from freecad.menuiserie.features.drawing_dims import (
+    DIMENSION_CLEARANCE_MM,
+    Settle,
+    added_by,
+    dimension_font_mm,
+    dimension_row_mm,
+    section_clearance_mm,
+    text_height_mm,
+    wait_for_geometry,
+)
+from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.i18n import translated
+
+__all__ = [
+    "HORIZONTAL",
+    "PAGE_NAME",
+    "SECTION_TYPE",
+    "VERTICAL",
+    "VIEW_TYPE",
+    "add_exploded_view",
+    "add_overall_views",
+    "add_part_views",
+    "removal_rank",
+    "techdraw",
+]
+
+PAGE_NAME: Final = "MenuiseriePlan"
+VIEW_TYPE: Final = "TechDraw::DrawViewPart"
+SECTION_TYPE: Final = "TechDraw::DrawViewSection"
+HORIZONTAL: Final = 0  # sens d'une cote d'étendue de TechDraw
+VERTICAL: Final = 1
+_VIEW_LABELS: Final = {
+    "Front": QT_TRANSLATE_NOOP("Menuiserie", "Face"),
+    "CutH": QT_TRANSLATE_NOOP("Menuiserie", "Coupe horizontale"),
+    "CutV": QT_TRANSLATE_NOOP("Menuiserie", "Coupe verticale"),
+    "Iso": QT_TRANSLATE_NOOP("Menuiserie", "Perspective"),
+    "Edge": QT_TRANSLATE_NOOP("Menuiserie", "Chant"),
+    "End": QT_TRANSLATE_NOOP("Menuiserie", "Bout"),
+    "Notes": QT_TRANSLATE_NOOP("Menuiserie", "Usinages"),
+    "Angle": QT_TRANSLATE_NOOP("Menuiserie", "Angle"),
+    "Exploded": QT_TRANSLATE_NOOP("Menuiserie", "Vue éclatée"),
+}
+# Direction de vue (vers l'observateur) et axe horizontal de la feuille, dans le repère global.
+# Une coupe retire la moitié du côté de sa direction : la coupe verticale (à droite de la face)
+# montre la moitié droite vue de gauche, la coupe horizontale (sous la face) la moitié basse vue
+# de dessus, comme les vues de gauche et de dessus de la disposition européenne.
+_DIRECTIONS: Final = {
+    "Front": ((0.0, -1.0, 0.0), (1.0, 0.0, 0.0)),
+    "CutH": ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)),
+    "CutV": ((-1.0, 0.0, 0.0), (0.0, -1.0, 0.0)),
+    "Iso": ((1.0, -1.0, 1.0), (1.0, 1.0, 0.0)),
+    "Exploded": ((1.0, -1.0, 1.0), (1.0, 1.0, 0.0)),
+}
+# Plan de pièce : mêmes vues dans le repère local de la pièce (X longueur, Y largeur, Z
+# épaisseur), face vue de dessus de son épaisseur ; tournées ensuite par le placement de la pièce.
+_PART_DIRECTIONS: Final = {
+    "Front": ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)),
+    "Edge": ((0.0, 1.0, 0.0), (1.0, 0.0, 0.0)),
+    "End": ((-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
+    "Iso": ((1.0, 1.0, 1.0), (1.0, 0.0, -1.0)),
+}
+# Cotes d'une pièce : longueur, largeur sur la face, épaisseur sur le chant.
+_PART_DIMENSIONS: Final = (("Front", HORIZONTAL), ("Front", VERTICAL), ("Edge", VERTICAL))
+ARROWS_MM: Final = 1.0  # segment de chaîne le plus court qu'on cote, sur la feuille
+# Cotes (largeur, hauteur, profondeur) qui font la largeur et la hauteur de chaque vue.
+_VIEW_AXES: Final = {
+    "Front": (0, 1),
+    "CutH": (0, 2),
+    "Edge": (0, 2),
+    "CutV": (2, 1),
+    "End": (2, 1),
+}
+ANNOTATION_TYPE: Final = "TechDraw::DrawViewAnnotation"
+NOTE_SIZE_MM: Final = 3.5
+_ISO_CAPTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Perspective {scale}")
+_SECTIONS: Final = {"CutV": "A", "CutH": "B"}  # repère du trait de coupe sur la face
+# Cotes hors tout (vue, sens) : largeur, profondeur (sur la coupe A-A, plateau gardé), hauteur.
+_OVERALL: Final = (("Front", HORIZONTAL), ("CutV", HORIZONTAL), ("Front", VERTICAL))
+
+
+def techdraw() -> Any:
+    """Module TechDraw, importé à l'appel : l'atelier se charge sans lui."""
+    import TechDraw
+
+    return TechDraw
+
+
+def _add_view(
+    page: DocumentObject,
+    key: str,
+    sources: Sequence[DocumentObject],
+    spot: Spot,
+    rotation: Any = None,
+) -> DocumentObject:
+    view = page.Document.addObject(VIEW_TYPE, f"{PAGE_NAME}{key}")
+    page.addView(view)
+    view.Source = list(sources)
+    _place(view, key, spot, rotation)
+    return view
+
+
+def _add_section(
+    page: DocumentObject, key: str, base: DocumentObject, center: Any, spot: Spot
+) -> DocumentObject:
+    """Coupe de ``base`` par le plan qui passe par ``center`` (milieu de l'ouvrage), repérée
+    « A-A » ou « B-B » sur la vue de face. La coupe ne suit pas un changement de taille de
+    l'ouvrage : relancer la commande la replace au milieu."""
+    section = page.Document.addObject(SECTION_TYPE, f"{PAGE_NAME}{key}")
+    page.addView(section)
+    section.BaseView = base
+    section.Source = list(base.Source)
+    section.ScaleType = base.ScaleType
+    section.Scale = base.Scale
+    section.SectionSymbol = _SECTIONS[key]
+    section.SectionOrigin = center
+    _place(section, key, spot)
+    section.SectionNormal = section.Direction  # après Direction, que TechDraw peut recalculer
+    return section
+
+
+def _place(view: DocumentObject, key: str, spot: Spot, rotation: Any = None) -> None:
+    """Oriente et place ``view`` ; ``rotation`` : celle d'une pièce dont on fait le plan."""
+    if rotation is None:
+        direction, x_direction = _DIRECTIONS[key]
+        view.Direction = App.Vector(*direction)
+        view.XDirection = App.Vector(*x_direction)
+    else:
+        direction, x_direction = _PART_DIRECTIONS[key]
+        view.Direction = rotation.multVec(App.Vector(*direction))
+        view.XDirection = rotation.multVec(App.Vector(*x_direction))
+    view.X = spot.x
+    view.Y = spot.y
+    view.Label = translated(_VIEW_LABELS[key])
+
+
+def _add_extent(page: DocumentObject, view: DocumentObject, direction: int) -> list[str]:
+    """Pose une cote d'étendue de toute la vue (elle suit la géométrie) ; renvoie les noms des
+    objets ajoutés à la page."""
+    return added_by(page, lambda: techdraw().makeExtentDim(view, [], direction))
+
+
+def removal_rank(obj: DocumentObject) -> int:
+    """Ordre de retrait : cotes, puis coupes, puis les vues dont elles dépendent."""
+    return {SECTION_TYPE: 1, VIEW_TYPE: 2}.get(obj.TypeId, 0)
+
+
+def add_overall_views(
+    page: DocumentObject,
+    sources: Sequence[DocumentObject],
+    layout: OverallLayout,
+    frame: tuple[Any, tuple[float, float, float], FrontDetails],
+    settle: Settle | None = None,
+) -> list[str]:
+    """Pose sur ``page`` la face, les coupes verticale et horizontale par le centre de
+    l'ouvrage, la perspective, les cotes hors tout et, sur la face, les cotes de détail et les
+    angles ; ``frame`` : (centre, cotes largeur, hauteur, profondeur en mm réels, détails de la
+    face). Renvoie les noms des objets posés."""
+    doc = page.Document
+    center, sizes, details = frame
+    front = _add_view(page, "Front", sources, layout.front)
+    views = {
+        "Front": front,
+        "CutV": _add_section(page, "CutV", front, center, layout.side),
+        "CutH": _add_section(page, "CutH", front, center, layout.top),
+        "Iso": _add_view(page, "Iso", sources, layout.iso),
+    }
+    if layout.iso_scale and layout.iso_scale != layout.scale:  # perspective réduite
+        views["Iso"].ScaleType = "Custom"
+        views["Iso"].Scale = layout.iso_scale
+        views["Iso"].Caption = translated(_ISO_CAPTION, {"scale": scale_text(layout.iso_scale)})
+    doc.recompute()  # les cotes lisent la géométrie des vues
+    names = [view.Name for view in views.values()]
+    if not wait_for_geometry([front, views["CutV"]], settle):
+        return names + _add_angles(page, front, details, (center, layout.scale))
+    half = _half_size("Front", sizes, layout.scale)
+    chained = add_front_details(page, front, details, (center, half, layout.scale))
+    names.extend(chained.names)
+    for key, direction in _OVERALL:
+        added = _add_extent(page, views[key], direction)
+        # La face porte les traits de coupe A-A et B-B (et ses cotes de détail) : ses cotes
+        # hors tout passent au-delà.
+        clearance = DIMENSION_CLEARANCE_MM
+        if key == "Front":
+            clearance = section_clearance_mm() + chained.rows[direction] * dimension_row_mm()
+        _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction, clearance)
+        names.extend(added)
+    return names
+
+
+def _half_size(key: str, sizes: tuple[float, float, float], scale: float) -> tuple[float, float]:
+    """Demi-largeur et demi-hauteur de la vue ``key`` sur la feuille."""
+    across, up = _VIEW_AXES[key]
+    return sizes[across] * scale / 2, sizes[up] * scale / 2
+
+
+class Chained(NamedTuple):
+    """Objets posés par :func:`add_front_details` et rangées de cotes de détail ajoutées, par
+    sens (horizontal, vertical)."""
+
+    names: list[str]
+    rows: tuple[int, int]
+
+
+def add_front_details(
+    page: DocumentObject,
+    front: DocumentObject,
+    details: FrontDetails,
+    frame: tuple[Any, tuple[float, float], float],
+) -> Chained:
+    """Pose sur la face ``front`` les chaînes de cotes de détail (au-dessus, à gauche, juste
+    hors des traits de coupe) et l'angle des pièces en biais ; ``frame`` : (centre de
+    l'ouvrage, demi-taille de la face sur la feuille, échelle). Rien si TechDraw ne sait pas
+    coter entre deux points."""
+    make = getattr(techdraw(), "makeDistanceDim", None)
+    center, half, scale = frame
+    names = _add_angles(page, front, details, (center, scale))
+    if make is None:
+        return Chained(names, (0, 0))
+    font = dimension_font_mm()
+
+    def width(low: float, high: float) -> float:
+        return text_width_mm((high - low) / scale, font)
+
+    rows = []
+    for direction, points, middle, room in (
+        # Textes : au plus un demi-écart hors de la face (coupe A-A à droite, B-B dessous).
+        (HORIZONTAL, details.xs, center.x, half[0] + GAP_MM / 2),
+        (VERTICAL, details.zs, center.z, half[1] + DIMENSION_CLEARANCE_MM),
+    ):
+        # Points en mm de la feuille depuis le centre de la face (TechDraw les remet à l'échelle).
+        segments = [
+            ((low - middle) * scale, (high - middle) * scale)
+            for low, high in chain_segments(points, ARROWS_MM / scale)
+        ]
+        labels = chain_labels(segments, width, (-room, room))
+        for label in labels:
+            names.extend(_chain_dim(page, partial(make, front), direction, label, half))
+        rows.append(1 if labels else 0)
+    return Chained(names, (rows[0], rows[1]))
+
+
+def _chain_dim(
+    page: DocumentObject,
+    make: Callable[..., object],
+    direction: int,
+    label: ChainLabel,
+    half: tuple[float, float],
+) -> list[str]:
+    """Pose une cote de la chaîne ``label`` (début, fin, milieu du texte, mm de la feuille) au
+    bord de la face de demi-taille ``half``, son texte au-delà des traits de coupe."""
+    low, high, along = label
+    half_width, half_height = half
+    offset = section_clearance_mm() + text_height_mm()
+    if direction == HORIZONTAL:
+        corners = (App.Vector(low, half_height, 0), App.Vector(high, half_height, 0))
+        spot = (along, half_height + offset)
+    else:
+        corners = (App.Vector(-half_width, low, 0), App.Vector(-half_width, high, 0))
+        spot = (-(half_width + offset), along)
+    kind = "DistanceX" if direction == HORIZONTAL else "DistanceY"
+    added = added_by(page, partial(make, kind, *corners))
+    for name in added:
+        dim = page.Document.getObject(name)
+        if dim is not None and "X" in dim.PropertiesList:
+            dim.X, dim.Y = spot
+    return added
+
+
+def _add_angles(
+    page: DocumentObject, front: DocumentObject, details: FrontDetails, frame: tuple[Any, float]
+) -> list[str]:
+    """Angles des pièces en biais écrits sur la face ; renvoie les noms des textes."""
+    return [_add_angle(page, front, angle, middle, frame) for angle, middle in details.angles]
+
+
+def _add_angle(
+    page: DocumentObject,
+    front: DocumentObject,
+    angle: float,
+    middle: Any,
+    frame: tuple[Any, float],
+) -> str:
+    """Angle d'une pièce en biais écrit en son milieu sur la face ; renvoie le nom du texte."""
+    center, scale = frame
+    note = page.Document.addObject(ANNOTATION_TYPE, f"{PAGE_NAME}Angle")
+    page.addView(note)
+    note.Text = [f"{round(angle, 1):g}°".replace(".", ",")]
+    note.TextSize = dimension_font_mm()
+    note.X = front.X + (middle.x - center.x) * scale
+    note.Y = front.Y + (middle.z - center.z) * scale
+    note.Label = translated(_VIEW_LABELS["Angle"])
+    return str(note.Name)
+
+
+def _clear_of_view(
+    doc: Any,
+    names: Sequence[str],
+    half: tuple[float, float],
+    direction: int,
+    clearance: float = DIMENSION_CLEARANCE_MM,
+) -> None:
+    """Écarte le texte des cotes ``names`` du bord de leur vue (demi-taille ``half`` sur la
+    feuille) : au-dessus pour une cote horizontale, à gauche pour une verticale (position
+    relative au centre de la vue, en mm de la feuille), pour qu'il ne chevauche ni la vue ni
+    l'autre cote."""
+    half_width, half_height = half
+    clearance += text_height_mm()  # le texte, sa ligne et ses flèches
+    for name in names:
+        dim = doc.getObject(name)
+        if dim is None or "X" not in dim.PropertiesList:
+            continue
+        if direction == HORIZONTAL:
+            dim.X, dim.Y = 0.0, half_height + clearance
+        else:
+            dim.X, dim.Y = -(half_width + clearance), 0.0
+
+
+def _add_notes(page: DocumentObject, lines: Sequence[str], spot: Spot) -> DocumentObject:
+    """Tableau des usinages : texte TechDraw, une ligne par usinage."""
+    note = page.Document.addObject(ANNOTATION_TYPE, f"{PAGE_NAME}Notes")
+    page.addView(note)
+    note.Text = list(lines)
+    note.TextSize = NOTE_SIZE_MM
+    note.X = spot.x
+    note.Y = spot.y
+    note.Label = translated(_VIEW_LABELS["Notes"])
+    return note
+
+
+def add_part_views(
+    page: DocumentObject,
+    part: DocumentObject,
+    rotation: Any,
+    layout: OverallLayout,
+    notes: tuple[Sequence[str], Spot],
+    frame: tuple[tuple[float, float, float], tuple[float, Spot] | None, Settle | None],
+) -> list[str]:
+    """Pose sur ``page`` le plan de ``part`` tournée de ``rotation`` (celle de sa brute) : face,
+    chant dessous, bout à droite, arêtes cachées en pointillés pour montrer les usinages, le
+    tableau des usinages ``notes`` (lignes, place) et ses cotes. ``frame`` : (longueur, largeur
+    et épaisseur en mm réels ; perspective à sa propre échelle, (échelle, place) ou ``None`` s'il
+    n'y a pas la place ; attente de la géométrie des vues). Renvoie les noms des objets posés,
+    sans cotes si TechDraw n'a pas fini de calculer les vues."""
+    doc = page.Document
+    sizes, iso, settle = frame
+    views = {
+        "Front": _add_view(page, "Front", [part], layout.front, rotation),
+        "Edge": _add_view(page, "Edge", [part], layout.top, rotation),
+        "End": _add_view(page, "End", [part], layout.side, rotation),
+    }
+    for view in views.values():
+        view.HardHidden = True  # mortaises, perçages et rainures cachés en pointillés
+    if iso is not None:
+        iso_scale, iso_spot = iso
+        perspective = _add_view(page, "Iso", [part], iso_spot, rotation)
+        perspective.ScaleType = "Custom"
+        perspective.Scale = iso_scale
+    doc.recompute()
+    names = [view.Name for view in views.values()]
+    if iso is not None:
+        names.append(perspective.Name)
+    names.append(_add_notes(page, *notes).Name)
+    if not wait_for_geometry(list(views.values()), settle):  # les cotes lisent la géométrie
+        return names
+    for key, direction in _PART_DIMENSIONS:
+        added = _add_extent(page, views[key], direction)
+        _clear_of_view(doc, added, _half_size(key, sizes, layout.scale), direction)
+        names.extend(added)
+    return names
+
+
+def add_exploded_view(page: DocumentObject, exploded: DocumentObject, spot: Spot) -> list[str]:
+    """Pose sur ``page`` la perspective de ``exploded`` (la forme éclatée de l'ouvrage) ;
+    renvoie le nom de la vue."""
+    return [_add_view(page, "Exploded", [exploded], spot).Name]

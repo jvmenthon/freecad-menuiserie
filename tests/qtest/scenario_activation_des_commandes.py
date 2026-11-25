@@ -57,6 +57,10 @@ SANS_SELECTION = frozenset(
         "Menuiserie_CutListPdf",
         "Menuiserie_NumberMarks",
         "Menuiserie_EdgeFinish",  # on désigne les pièces dans la vue 3D
+        "Menuiserie_Drawing",  # plans : tout le document sans sélection
+        "Menuiserie_PartDrawings",
+        "Menuiserie_ExplodedDrawing",
+        "Menuiserie_DrawingPdf",  # export : panneau du choix des plans
     }
 )
 # Demandent autre chose que des pièces entières (faces, ensemble, copie, corps) : jamais
