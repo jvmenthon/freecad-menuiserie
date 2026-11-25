@@ -17,6 +17,7 @@ from typing import Final
 
 __all__ = [
     "MAX_TEXT_LENGTH",
+    "REMEMBER_SUFFIX",
     "Catalog",
     "Kind",
     "Reason",
@@ -29,6 +30,7 @@ __all__ = [
 Value = bool | int | float | str
 
 MAX_TEXT_LENGTH: Final = 1024  # caractères d'un texte ou d'un chemin
+REMEMBER_SUFFIX: Final = "RememberLast"  # clé de la case « Dernier utilisé » : <clé>RememberLast
 _KEY_PATTERN: Final = re.compile(r"[A-Za-z][A-Za-z0-9]{0,63}")
 # Contrôle, format, demi-substituts, usage privé, non attribués, séparateurs de ligne.
 _FORBIDDEN_CATEGORIES: Final = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
@@ -115,7 +117,14 @@ class Setting:
             raise SettingError(self.key, Reason.WRONG_TYPE)
         if self.kind is Kind.INT and not isinstance(value, int):
             raise SettingError(self.key, Reason.WRONG_TYPE)
-        number: int | float = value if self.kind is Kind.INT else float(value)
+        try:
+            number: int | float = value if self.kind is Kind.INT else float(value)
+        except OverflowError as error:  # entier hors de portée d'un réel
+            reason = Reason.ABOVE_MAXIMUM if value > 0 else Reason.BELOW_MINIMUM
+            limit = self.maximum if value > 0 else self.minimum
+            raise SettingError(
+                self.key, reason if limit is not None else Reason.NOT_FINITE, limit
+            ) from error
         if not math.isfinite(number):
             raise SettingError(self.key, Reason.NOT_FINITE)
         if self.minimum is not None and number < self.minimum:
@@ -157,6 +166,8 @@ class Catalog:
         for setting in settings:
             if setting.key in self._settings:
                 raise ValueError(f"clé de réglage en double : {setting.key}")
+            if setting.key.endswith(REMEMBER_SUFFIX):
+                raise ValueError(f"clé réservée à « Dernier utilisé » : {setting.key}")
             self._settings[setting.key] = setting
 
     def __iter__(self) -> Iterator[Setting]:

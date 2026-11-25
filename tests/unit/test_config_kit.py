@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import math
+import os
 from pathlib import Path
 
 import pytest
 
 from freecad.menuiserie.kit.config.catalog import (
     MAX_TEXT_LENGTH,
+    REMEMBER_SUFFIX,
     Catalog,
     Kind,
     Reason,
@@ -331,3 +333,89 @@ def test_kit_n_importe_ni_l_atelier_ni_freecad_ni_qt() -> None:
         assert not [m for m in modules if m.split(".")[0] in forbidden], path.name
         own = [m for m in modules if m.startswith("freecad.menuiserie")]
         assert all(m.startswith("freecad.menuiserie.kit") for m in own), (path.name, own)
+
+
+# --- cas limites complémentaires (revue testeur CA-a) -----------------------------------------
+
+
+def test_entier_trop_grand_pour_un_reel_est_refuse_proprement() -> None:
+    """Un entier hors de portée d'un ``float`` doit être un refus codé, pas ``OverflowError``
+    (sinon ``coerce`` et ``record_used`` laissent passer l'exception)."""
+    setting = _length()
+    with pytest.raises(SettingError) as refus:
+        setting.check(10**400)
+    assert refus.value.reason is Reason.ABOVE_MAXIMUM
+    with pytest.raises(SettingError):
+        setting.check(-(10**400))
+    assert coerce(setting, 10**400) == setting.default
+
+
+def test_dernier_utilise_dans_les_parametres_freecad() -> None:
+    group = FakeParamGroup()
+    settings = Settings(_catalog(), FreeCADStore(lambda _path: group, "p"))
+    assert group.GetContents() is None  # FreeCAD rend ``None`` pour un groupe vide
+    assert settings.value("Jeu") == 2.0
+    settings.set_remember_last("Jeu", True)
+    assert group.values == {("Boolean", "JeuRememberLast"): True}
+    assert settings.record_used("Jeu", 7.0)
+    assert group.values[("Float", "Jeu")] == 7.0
+    settings.reset("Jeu")
+    assert group.GetContents() is None
+
+
+def test_valeur_refusee_ne_modifie_pas_le_stockage_ni_la_valeur_precedente() -> None:
+    settings = Settings(_catalog(), MemoryStore())
+    settings.set("Jeu", 5.0)
+    for bad in (-0.001, 20.001, math.nan, "5", None):
+        with pytest.raises(SettingError):
+            settings.set("Jeu", bad)
+    assert settings.value("Jeu") == 5.0
+    with pytest.raises(SettingError) as refus:
+        settings.set("Inconnu", 1)
+    assert refus.value.reason is Reason.UNKNOWN_KEY
+
+
+def test_valeur_enregistree_hors_bornes_ou_non_finie_donne_le_defaut() -> None:
+    store = MemoryStore()
+    settings = Settings(_catalog(), store)
+    for raw in (20.001, math.nan, math.inf, -0.5):
+        store.write("Jeu", Kind.FLOAT, raw)
+        assert settings.value("Jeu") == 2.0
+
+
+def test_dossier_relatif_ou_invalide_ignore(tmp_path: Path) -> None:
+    """Un chemin relatif ou avec un octet nul ne dépend pas du dossier courant : il est ignoré."""
+    fallback = tmp_path / "repli"
+    legacy = tmp_path / "ancien" / "materiaux.json"
+    assert workshop_folder("atelier", str(legacy), fallback) == legacy.parent
+    assert workshop_folder("a\0b", "", fallback) == fallback
+    assert workshop_folder("", "materiaux.json", fallback) == fallback
+    assert workshop_folder("", "x\0y.json", fallback) == fallback
+
+
+def test_cle_reservee_au_dernier_utilise_refusee() -> None:
+    """Une clé ``…RememberLast`` entrerait en collision avec la case « Dernier utilisé »."""
+    with pytest.raises(ValueError, match="réservée"):
+        Catalog([_length(key=f"Cote{REMEMBER_SUFFIX}")])
+
+
+def test_ecriture_atomique_ferme_le_descripteur_si_ouverture_echoue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Si ``os.fdopen`` échoue, le descripteur est fermé et aucun fichier temporaire ne reste."""
+    closed: list[int] = []
+    real_close = os.close
+
+    def fail(*_args: object, **_kwargs: object) -> object:
+        raise OSError("ouverture impossible")
+
+    def close(descriptor: int) -> None:
+        closed.append(descriptor)
+        real_close(descriptor)
+
+    monkeypatch.setattr(os, "fdopen", fail)
+    monkeypatch.setattr(os, "close", close)
+    with pytest.raises(OSError, match="ouverture impossible"):
+        write_text_atomic(tmp_path / "f.json", "{}")
+    assert len(closed) == 1
+    assert list(tmp_path.iterdir()) == []

@@ -10,20 +10,20 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Final, Protocol
 
-from .catalog import Catalog, Kind, Setting, SettingError, Value, coerce
+from .catalog import REMEMBER_SUFFIX, Catalog, Kind, Setting, SettingError, Value, coerce
 
 __all__ = ["REMEMBER_SUFFIX", "FreeCADStore", "MemoryStore", "ParamStore", "Settings"]
 
-REMEMBER_SUFFIX: Final = "RememberLast"  # clé de la case « Dernier utilisé » : <clé>RememberLast
-
-# Nature de réglage → (nature des paramètres FreeCAD, suffixe des méthodes Get/Set/Rem).
-_STORAGE: Final[dict[Kind, tuple[str, str]]] = {
-    Kind.BOOL: ("Boolean", "Bool"),
-    Kind.INT: ("Integer", "Int"),
-    Kind.FLOAT: ("Float", "Float"),
-    Kind.TEXT: ("String", "String"),
-    Kind.CHOICE: ("String", "String"),
-    Kind.PATH: ("String", "String"),
+# Nature de réglage → (nature des paramètres FreeCAD, écriture, effacement), table explicite.
+_STORAGE: Final[
+    dict[Kind, tuple[str, Callable[[Any, str, Value], None], Callable[[Any, str], None]]]
+] = {
+    Kind.BOOL: ("Boolean", lambda g, k, v: g.SetBool(k, v), lambda g, k: g.RemBool(k)),
+    Kind.INT: ("Integer", lambda g, k, v: g.SetInt(k, v), lambda g, k: g.RemInt(k)),
+    Kind.FLOAT: ("Float", lambda g, k, v: g.SetFloat(k, v), lambda g, k: g.RemFloat(k)),
+    Kind.TEXT: ("String", lambda g, k, v: g.SetString(k, v), lambda g, k: g.RemString(k)),
+    Kind.CHOICE: ("String", lambda g, k, v: g.SetString(k, v), lambda g, k: g.RemString(k)),
+    Kind.PATH: ("String", lambda g, k, v: g.SetString(k, v), lambda g, k: g.RemString(k)),
 }
 
 
@@ -70,7 +70,7 @@ class FreeCADStore:
         return self._param_get(self._path)
 
     def read(self, key: str, kind: Kind) -> Value | None:
-        storage, _suffix = _STORAGE[kind]
+        storage = _STORAGE[kind][0]
         for entry in self._group().GetContents() or ():
             if entry[0] == storage and entry[1] == key:
                 value: Value = entry[2]
@@ -78,10 +78,10 @@ class FreeCADStore:
         return None
 
     def write(self, key: str, kind: Kind, value: Value) -> None:
-        getattr(self._group(), f"Set{_STORAGE[kind][1]}")(key, value)
+        _STORAGE[kind][1](self._group(), key, value)
 
     def remove(self, key: str, kind: Kind) -> None:
-        getattr(self._group(), f"Rem{_STORAGE[kind][1]}")(key)
+        _STORAGE[kind][2](self._group(), key)
 
 
 class Settings:

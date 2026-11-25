@@ -352,8 +352,7 @@ def _storage() -> list[Setting]:
             QT_TRANSLATE_NOOP("Menuiserie", "Dossier de l'atelier"),
             QT_TRANSLATE_NOOP(
                 "Menuiserie",
-                "Dossier des fichiers personnels (matériaux, dimensions, quincaillerie). Vide : "
-                "dossier par défaut.",
+                "Fichiers personnels : matériaux, dimensions, quincaillerie. Vide : par défaut.",
             ),
             STORAGE,
         ),

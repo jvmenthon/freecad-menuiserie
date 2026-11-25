@@ -13,13 +13,28 @@ from pathlib import Path
 __all__ = ["workshop_folder", "write_text_atomic"]
 
 
+def _absolute(text: str) -> Path | None:
+    """Chemin absolu tiré de ``text``, ``None`` s'il est vide, relatif ou invalide."""
+    text = text.strip()
+    if not text or "\0" in text:
+        return None
+    try:
+        path = Path(text).expanduser()
+    except RuntimeError:  # « ~utilisateur » inconnu
+        return None
+    return path if path.is_absolute() else None
+
+
 def workshop_folder(custom: str, legacy_file: str, fallback: Path) -> Path:
-    """Dossier de l'atelier : le réglage s'il est renseigné, sinon le dossier de l'ancien fichier
-    de bibliothèque (aucun fichier n'est déplacé), sinon ``fallback``."""
-    if custom.strip():
-        return Path(custom.strip()).expanduser()
-    if legacy_file.strip():
-        return Path(legacy_file.strip()).expanduser().parent
+    """Dossier de l'atelier : le réglage s'il est un chemin absolu, sinon le dossier de l'ancien
+    fichier de bibliothèque (aucun fichier n'est déplacé), sinon ``fallback``. Un chemin relatif
+    dépendrait du dossier courant de FreeCAD : il est ignoré."""
+    folder = _absolute(custom)
+    if folder is not None:
+        return folder
+    legacy = _absolute(legacy_file)
+    if legacy is not None:
+        return legacy.parent
     return fallback
 
 
@@ -29,8 +44,15 @@ def write_text_atomic(path: Path, text: str, prefix: str = ".tmp-") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=prefix)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+        try:
+            handle = os.fdopen(descriptor, "w", encoding="utf-8", newline="\n")
+        except BaseException:
+            os.close(descriptor)
+            raise
+        with handle:
             handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
         os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)

@@ -15,8 +15,10 @@ from freecad.menuiserie.core.part_model import (
     DEFAULT_DIMENSIONS,
     DEFAULT_PANEL_ALLOWANCES,
     DEFAULT_SOLID_ALLOWANCES,
+    MAX_DIMENSION_MM,
+    MIN_DIMENSION_MM,
 )
-from freecad.menuiserie.kit.config.catalog import Kind
+from freecad.menuiserie.kit.config.catalog import Kind, Reason, SettingError
 from tests.unit.aides_freecad import simulated_freecad
 from tests.unit.aides_reglages import FakeParamGroup
 
@@ -128,3 +130,79 @@ def test_fichiers_personnels_dans_le_dossier_de_l_atelier(module: Any, tmp_path:
     module.group.SetString(module.USER_LIBRARY_PARAM, str(legacy))
     assert library.user_library_path() == legacy  # l'ancien chemin reste prioritaire (ADR 0069)
     assert user_dimensions.dimensions_path() == tmp_path / "nuage" / "dimensions.json"
+
+
+def test_bornes_de_chaque_cote_du_catalogue(module: Any) -> None:
+    """Pour chaque cote : le minimum et le maximum passent, juste en dessous et au-dessus non."""
+    values = module.settings()
+    for setting in module.CATALOG:
+        if setting.kind is not Kind.FLOAT:
+            continue
+        assert setting.minimum is not None
+        assert setting.maximum is not None
+        assert values.set(setting.key, setting.minimum) == setting.minimum
+        assert values.set(setting.key, setting.maximum) == setting.maximum
+        with pytest.raises(SettingError) as below:
+            values.set(setting.key, setting.minimum - 0.001)
+        assert below.value.reason is Reason.BELOW_MINIMUM
+        with pytest.raises(SettingError) as above:
+            values.set(setting.key, setting.maximum + 0.001)
+        assert above.value.reason is Reason.ABOVE_MAXIMUM
+        assert values.value(setting.key) == setting.maximum
+
+
+def test_cotes_de_piece_neuve_refusent_zero_et_negatif(module: Any) -> None:
+    values = module.settings()
+    for key in (module.LENGTH, module.WIDTH, module.THICKNESS, module.BROKEN_EDGE_SIZE):
+        for bad in (0, 0.0, -1.0, MIN_DIMENSION_MM / 2, MAX_DIMENSION_MM * 2):
+            with pytest.raises(SettingError):
+                values.set(key, bad)
+        assert values.set(key, MIN_DIMENSION_MM) == MIN_DIMENSION_MM
+    for key in (*module.SOLID_ALLOWANCES, *module.PANEL_ALLOWANCES, module.MORTISE_CLEARANCE):
+        assert values.set(key, 0) == 0.0  # une surcote ou un jeu nul est permis
+        with pytest.raises(SettingError):
+            values.set(key, -0.001)
+
+
+def test_entraxe_des_tourillons_minimum_dix(module: Any) -> None:
+    values = module.settings()
+    with pytest.raises(SettingError):
+        values.set(module.DOWEL_SPACING, 9.99)
+    assert values.set(module.DOWEL_SPACING, 10) == 10.0
+
+
+def test_cles_freecad_et_types_de_stockage(module: Any) -> None:
+    """Chaque réglage écrit sous le type FreeCAD attendu, relu par ``GetContents``."""
+    values = module.settings()
+    values.set(module.BROKEN_EDGE, True)
+    values.set(module.LENGTH, 900)
+    values.set(module.EDGE_PROFILE, EdgeFamily.ROUND.value)
+    values.set(module.WORKSHOP_FOLDER, "/a")
+    values.set_remember_last(module.MORTISE_CLEARANCE, True)
+    assert module.group.values == {
+        ("Boolean", "NewPartBrokenEdge"): True,
+        ("Float", "NewPartLength"): 900.0,
+        ("String", "EdgeProfileFamily"): EdgeFamily.ROUND.value,
+        ("String", "WorkshopFolder"): "/a",
+        ("Boolean", "MortiseClearanceRememberLast"): True,
+    }
+    assert values.value(module.LENGTH) == 900.0
+
+
+def test_dossier_de_l_atelier_ignore_un_reglage_invalide(module: Any, tmp_path: Path) -> None:
+    module.group.SetString(module.WORKSHOP_FOLDER, "x\ny")
+    assert module.workshop_folder() == tmp_path / "FreeCAD" / "Menuiserie"
+    module.group.SetString(module.WORKSHOP_FOLDER, "   ")
+    assert module.workshop_folder() == tmp_path / "FreeCAD" / "Menuiserie"
+
+
+def test_dernier_utilise_retient_la_valeur_de_creation(module: Any) -> None:
+    values = module.settings()
+    assert not values.record_used(module.MORTISE_CLEARANCE, 3.0)
+    values.set_remember_last(module.MORTISE_CLEARANCE, True)
+    assert values.record_used(module.MORTISE_CLEARANCE, 3.0)
+    assert values.value(module.MORTISE_CLEARANCE) == 3.0
+    assert not values.record_used(module.MORTISE_CLEARANCE, 99.0)  # au-dessus du maximum
+    assert values.value(module.MORTISE_CLEARANCE) == 3.0
+    with pytest.raises(ValueError, match="non prévu"):
+        values.set_remember_last(module.LENGTH, True)
