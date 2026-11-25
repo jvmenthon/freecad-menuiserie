@@ -45,7 +45,7 @@ from freecad.menuiserie.gui.task_panels.part_drawings import (
     counted,
 )
 
-__all__ = ["FORM_NAME", "ExportPdfTaskPanel"]
+__all__ = ["FORM_NAME", "ExportPdfTaskPanel", "open_url"]
 
 FORM_NAME: Final = "MenuiserieExportPdfPanel"
 KIND_ROLE: Final = QtCore.Qt.UserRole + 1  # genre du plan de l'ouvrage à créer
@@ -75,10 +75,15 @@ _DONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "{count} plans exportés dans « 
 _DONE_ONE: Final = QT_TRANSLATE_NOOP("Menuiserie", "1 plan exporté dans « {path} ».")
 
 
-def _open(path: Path) -> None:
-    """Ouvre ``path`` dans le lecteur de PDF du système ; un avertissement s'il n'y en a pas."""
-    if not QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(path))):
-        report_warning(translated(_NOT_OPENED, {"path": str(path)}))
+def open_url(url: Any) -> bool:
+    """Ouvre ``url`` dans l'application du système (remplaçable dans les vérifications)."""
+    return bool(QtGui.QDesktopServices.openUrl(url))
+
+
+def _open_in_viewer(path: Path) -> None:
+    """Ouvre ``path`` dans le lecteur de PDF du système ; un avertissement si c'est refusé."""
+    if not open_url(QtCore.QUrl.fromLocalFile(str(path))):
+        report_warning(translated(_NOT_OPENED, {"path": escaped_text(str(path))}))
 
 
 def _resize_mode(name: str) -> Any:
@@ -115,7 +120,7 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         row.addWidget(browse)
         layout.addLayout(row)
         self.open_pdf = QtGui.QCheckBox(translated(_OPEN))
-        self.open_pdf.setChecked(True)  # précochée (jv, 25/11)
+        self.open_pdf.setChecked(True)  # le cas courant : relire le PDF tout de suite
         layout.addWidget(self.open_pdf)
 
     def _fill(self) -> None:
@@ -212,5 +217,5 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         values = {"path": escaped_text(str(self.written))}
         show_status(counted(len(found), _DONE_ONE, _DONE, values))
         if wants_open:
-            _open(self.written)
+            _open_in_viewer(self.written)
         return True

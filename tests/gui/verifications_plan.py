@@ -104,10 +104,10 @@ def _pages_du_pdf(octets: bytes) -> int:
 
 
 def _export(bureau: Any) -> list[str]:
-    """Retours de jv du 24 et 25/11 : la page sélectionnée et « Ouvrir le PDF » sont
-    précochées ; une pièce sans plan cochée reçoit son plan ; les deux pages partent dans un
-    seul PDF."""
+    """La page sélectionnée et « Ouvrir le PDF » sont précochées ; une pièce sans plan cochée
+    reçoit son plan ; les deux pages partent dans un seul PDF, ouvert ensuite."""
     from freecad.menuiserie import api
+    from freecad.menuiserie.gui.task_panels import drawing_export
     from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
 
     page = api.make_overall_drawing(bureau.doc, [regrouper(bureau)])
@@ -119,7 +119,14 @@ def _export(bureau: Any) -> list[str]:
     Gui.Control.showDialog(panneau)
     coches = [obj.Name for obj in panneau.chosen()]
     ouvrir_precoche = panneau.open_pdf.isChecked()
-    panneau.open_pdf.setChecked(False)  # pas de lecteur de PDF en CI
+    ouverts: list[str] = []
+    vrai_open_url = drawing_export.open_url
+
+    def ouvrir(url: Any) -> bool:  # pas de lecteur de PDF en CI
+        ouverts.append(url.toLocalFile())
+        return True
+
+    drawing_export.open_url = ouvrir
     piece = next(iter(bureau.parts.values()))
     with tempfile.TemporaryDirectory() as dossier:
         cible = Path(dossier) / "plans.pdf"
@@ -130,7 +137,10 @@ def _export(bureau: Any) -> list[str]:
         refuse = not panneau.accept()
         sans_creation = len(_pages(bureau.doc)) == avant
         panneau.path.setText(str(cible))
-        accepte = panneau.accept()
+        try:
+            accepte = panneau.accept()
+        finally:
+            drawing_export.open_url = vrai_open_url
         octets = cible.read_bytes() if cible.exists() else b""
         restes = [p.name for p in Path(dossier).iterdir() if p.suffix == ".tmp"]
     message = Gui.getMainWindow().statusBar().currentMessage()
@@ -143,6 +153,7 @@ def _export(bureau: Any) -> list[str]:
         *ecarts("export accepté", accepte, True),
         *ecarts("plan de pièce créé", len(_pages(bureau.doc)), avant + 1),
         *ecarts("le PDF commence par %PDF", octets[:4], b"%PDF"),
+        *ecarts("PDF ouvert une fois", [Path(p).name for p in ouverts], ["plans.pdf"]),
         *ecarts("deux pages dans un seul PDF", _pages_du_pdf(octets), 2),
         *ecarts("aucun temporaire", restes, []),
         *ecarts("confirmation", "plans.pdf" in message, True),
