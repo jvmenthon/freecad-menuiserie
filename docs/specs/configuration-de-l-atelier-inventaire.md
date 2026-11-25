@@ -33,7 +33,7 @@ automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 |---|---|---|---|
 | Épaisseurs personnelles (ajout, suppression) | `dimensions.json` | `features/user_dimensions.py` | R |
 | Formats de panneaux personnels | 2500 × 1250, 2440 × 1220, 3050 × 1525 + perso | `core/user_dimensions.py` | R |
-| Matériaux personnels | `materiaux.json` (édition à la main) | `features/library.py` | R (éditeur à part, hors page) |
+| Matériaux personnels | `materiaux.json` (édition à la main) | `features/library.py` | Hors périmètre : éditeur de matériaux à part, avec téléchargement depuis le SaaS (jv, 2026-11-25) |
 | Bornes des fichiers (taille, nombre, densité) | 64 Kio, 50, 500… | `core/materials/` | — |
 
 ## 3. Finition des chants (profils d'arête)
