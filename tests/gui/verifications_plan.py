@@ -108,7 +108,7 @@ def _export(bureau: Any) -> list[str]:
     reçoit son plan ; un fichier déjà là fait demander (annuler, puis « plans 2 ») ; les deux
     pages partent dans un seul PDF, ouvert ensuite."""
     from freecad.menuiserie import api
-    from freecad.menuiserie.gui import existing_file
+    from freecad.menuiserie.features.cutlist_export import NUMBERED
     from freecad.menuiserie.gui.task_panels import drawing_export
     from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
 
@@ -128,10 +128,9 @@ def _export(bureau: Any) -> list[str]:
         ouverts.append(url.toLocalFile())
         return True
 
-    reponses = [None, existing_file.NUMBERED]  # annuler, puis écrire « plans 2.pdf »
-    vrai_chooser = existing_file.chooser
+    reponses = [None, NUMBERED]  # annuler, puis écrire « plans 2.pdf »
     drawing_export.open_url = ouvrir
-    existing_file.chooser = lambda _path, _other: reponses.pop(0)
+    panneau.choose_existing = lambda _path, _other: reponses.pop(0)
     piece = next(iter(bureau.parts.values()))
     with tempfile.TemporaryDirectory() as dossier:
         deja_la = Path(dossier) / "plans.pdf"
@@ -150,7 +149,6 @@ def _export(bureau: Any) -> list[str]:
             accepte = panneau.accept()
         finally:
             drawing_export.open_url = vrai_open_url
-            existing_file.chooser = vrai_chooser
         garde = deja_la.read_bytes() == b"ancien"
         octets = cible.read_bytes() if cible.exists() else b""
         restes = [p.name for p in Path(dossier).iterdir() if p.suffix == ".tmp"]

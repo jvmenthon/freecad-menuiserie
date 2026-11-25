@@ -261,13 +261,55 @@ def test_un_plan_impossible_a_creer_remonte_l_erreur(
         export.pages_to_export(_doc(a), [], [a])
 
 
-def test_nom_numerote_libre(tmp_path: Any) -> None:
-    with pytest.MonkeyPatch.context() as monkeypatch, simulated_freecad(monkeypatch):
-        from freecad.menuiserie.features.cutlist_export import numbered_path
+@pytest.fixture
+def exports(monkeypatch: pytest.MonkeyPatch) -> Iterator[ModuleType]:
+    with simulated_freecad(monkeypatch):
+        from freecad.menuiserie.features import cutlist_export
 
-        plans = tmp_path / "plans.pdf"
-        assert numbered_path(plans) == tmp_path / "plans 2.pdf"
-        (tmp_path / "plans 2.pdf").write_bytes(b"")
-        assert numbered_path(plans) == tmp_path / "plans 3.pdf"
-        assert numbered_path(tmp_path / "plans 2.pdf") == tmp_path / "plans 3.pdf"
-        assert numbered_path(tmp_path / "2026.pdf") == tmp_path / "2026 2.pdf"
+        yield cutlist_export
+
+
+def test_nom_numerote_libre(exports: ModuleType, tmp_path: Any) -> None:
+    plans = tmp_path / "plans.pdf"
+    assert exports.numbered_path(plans) == tmp_path / "plans 2.pdf"
+    plans.write_bytes(b"")
+    (tmp_path / "plans 2.pdf").write_bytes(b"")
+    assert exports.numbered_path(plans) == tmp_path / "plans 3.pdf"
+    assert exports.numbered_path(tmp_path / "plans 2.pdf") == tmp_path / "plans 3.pdf"
+    assert exports.numbered_path(tmp_path / "2026.pdf") == tmp_path / "2026 2.pdf"
+
+
+def test_nombre_final_d_un_nom_n_est_pas_un_numero(exports: ModuleType, tmp_path: Any) -> None:
+    """« Plan 2026 » (sans « Plan » à côté) n'a pas de numéro posé par l'export."""
+    assert exports.numbered_path(tmp_path / "Plan 2026.pdf") == tmp_path / "Plan 2026 2.pdf"
+    assert exports.numbered_path(tmp_path / "Plan 12.pdf") == tmp_path / "Plan 12 2.pdf"
+
+
+def test_aucun_nom_libre_est_refuse(
+    exports: ModuleType, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(exports, "_MAX_NUMBER", 3)
+    for name in ("plans.pdf", "plans 2.pdf", "plans 3.pdf"):
+        (tmp_path / name).write_bytes(b"")
+    with pytest.raises(ValueError, match="aucun nom libre"):
+        exports.numbered_path(tmp_path / "plans.pdf")
+
+
+def test_fichier_deja_la_selon_le_choix(exports: ModuleType, tmp_path: Any) -> None:
+    plans = tmp_path / "plans.pdf"
+    interdit = lambda *_a: pytest.fail("pas de question pour un fichier libre")  # noqa: E731
+    assert exports.free_target(plans, interdit) == plans
+    plans.write_bytes(b"")
+    questions: list[tuple[str, str]] = []
+
+    def choix(reponse: str | None) -> Any:
+        def choose(path: Any, other: Any) -> str | None:
+            questions.append((path.name, other.name))
+            return reponse
+
+        return choose
+
+    assert exports.free_target(plans, choix(exports.OVERWRITE)) == plans
+    assert exports.free_target(plans, choix(exports.NUMBERED)) == tmp_path / "plans 2.pdf"
+    assert exports.free_target(plans, choix(None)) is None
+    assert questions == [("plans.pdf", "plans 2.pdf")] * 3

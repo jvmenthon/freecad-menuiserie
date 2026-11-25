@@ -13,6 +13,7 @@ reste ouvert.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
 
@@ -21,7 +22,12 @@ from PySide import QtCore, QtGui
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import escaped_text
-from freecad.menuiserie.features.cutlist_export import PDF_SUFFIX, validated_path, with_suffix
+from freecad.menuiserie.features.cutlist_export import (
+    PDF_SUFFIX,
+    free_target,
+    validated_path,
+    with_suffix,
+)
 from freecad.menuiserie.features.drawing import TITLE as OVERALL_TITLE
 from freecad.menuiserie.features.drawing import DrawingOptions, is_page
 from freecad.menuiserie.features.drawing_exploded import TITLE as EXPLODED_TITLE
@@ -105,7 +111,9 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         self.plans: ExportState = export_state(doc)
         self._selected = list(selected or [])
         self.written: Path | None = None
-        self._confirmed: Path | None = None  # écrasement déjà validé par la boîte « … »
+        self._confirmed: Path | None = None  # écrasement confirmé (dialogue d'enregistrement)
+        # fichier déjà là : écraser, « <nom> 2 » ou annuler (remplaçable en vérification)
+        self.choose_existing: Callable[[Path, Path], str | None] = existing_file.ask
         super().__init__(doc)
 
     def _add_options(self, layout: Any) -> None:
@@ -199,8 +207,9 @@ class ExportPdfTaskPanel(PartDrawingsTaskPanel):
         l'utilisateur (écraser, « <nom> 2 », annuler), écrit dans le champ du fichier."""
         if target == self._confirmed:
             return target
-        chosen = existing_file.free_target(target)
+        chosen = free_target(target, self.choose_existing)
         if chosen is not None:
+            self._confirmed = chosen
             self.path.setText(str(chosen))
         return chosen
 
