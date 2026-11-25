@@ -31,6 +31,10 @@ Hors périmètre : tolérances géométriques, plafonds de sécurité, marge de 
 choisi, vue « patron / boîte » des arêtes, panneau Structure fermé) restent des mémoires
 silencieuses et ne vont pas dans la page ; l'édition des matériaux et de la quincaillerie.
 
+Textes de l'interface (consigne de jv, 2026-11-25) : libellés, infobulles et messages de la page
+sont rédigés dans un style professionnel, concis et clair (un libellé = quelques mots, une
+infobulle = une phrase qui dit l'effet du réglage et son unité).
+
 ## 3. Réglages candidats
 
 Valeurs actuelles relevées dans le code (`main`, 2026-11-25). ★ = proposé pour le lot 1.
