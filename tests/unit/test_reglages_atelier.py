@@ -130,6 +130,8 @@ def test_fichiers_personnels_dans_le_dossier_de_l_atelier(module: Any, tmp_path:
     module.group.SetString(module.USER_LIBRARY_PARAM, str(legacy))
     assert library.user_library_path() == legacy  # l'ancien chemin reste prioritaire (ADR 0069)
     assert user_dimensions.dimensions_path() == tmp_path / "nuage" / "dimensions.json"
+    module.group.SetString(module.USER_LIBRARY_PARAM, "perso.json")  # relatif : ignoré partout
+    assert library.user_library_path() == tmp_path / "nuage" / "materiaux.json"
 
 
 def test_bornes_de_chaque_cote_du_catalogue(module: Any) -> None:

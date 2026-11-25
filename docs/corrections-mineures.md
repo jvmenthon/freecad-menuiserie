@@ -203,3 +203,11 @@ de répétitions m5) sont corrigés.
 | al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
 | al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
 | al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |
+
+## Configuration de l'atelier, lot CA-a (PR #280, ADR 0069), 2026-11-25
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| ca1 | mineur | `kit/config/store.py` (`_STORAGE`) | Tuple à 3 éléments lu par index, lambdas répétées pour `TEXT`, `CHOICE`, `PATH`. | Petite dataclass figée (`type_name`, `setter`, `remover`). |
+| ca2 | mineur | `tests/unit/test_config_kit.py` | Plus de 400 lignes. | Scinder par module testé (catalogue, stockage, dossier) au lot CA-b. |
+| ca3 | mineur | `kit/config/store.py` (`Settings.setting`), `kit/config/catalog.py` (`Value`, `Kind`, `Reason`, `Catalog`) | `setting()` double `catalog.get()` ; `Value` sans `TypeAlias` ; `(str, Enum)` au lieu de `StrEnum` ; nom `Catalog` partagé avec `core.hardware.Catalog`. | Retirer `setting()` s'il reste sans appelant, annoter, `StrEnum`, renommer en `SettingsCatalog`. |

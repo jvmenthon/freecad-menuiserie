@@ -10,10 +10,10 @@ import os
 import tempfile
 from pathlib import Path
 
-__all__ = ["workshop_folder", "write_text_atomic"]
+__all__ = ["absolute_path", "workshop_folder", "write_text_atomic"]
 
 
-def _absolute(text: str) -> Path | None:
+def absolute_path(text: str) -> Path | None:
     """Chemin absolu tiré de ``text``, ``None`` s'il est vide, relatif ou invalide."""
     text = text.strip()
     if not text or "\0" in text:
@@ -29,10 +29,10 @@ def workshop_folder(custom: str, legacy_file: str, fallback: Path) -> Path:
     """Dossier de l'atelier : le réglage s'il est un chemin absolu, sinon le dossier de l'ancien
     fichier de bibliothèque (aucun fichier n'est déplacé), sinon ``fallback``. Un chemin relatif
     dépendrait du dossier courant de FreeCAD : il est ignoré."""
-    folder = _absolute(custom)
+    folder = absolute_path(custom)
     if folder is not None:
         return folder
-    legacy = _absolute(legacy_file)
+    legacy = absolute_path(legacy_file)
     if legacy is not None:
         return legacy.parent
     return fallback

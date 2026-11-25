@@ -32,6 +32,7 @@ from freecad.menuiserie.core.part_model import (
     Allowances,
 )
 from freecad.menuiserie.kit.config.catalog import Catalog, Kind, Setting
+from freecad.menuiserie.kit.config.folder import absolute_path
 from freecad.menuiserie.kit.config.folder import workshop_folder as resolve_workshop_folder
 from freecad.menuiserie.kit.config.store import FreeCADStore, Settings
 
@@ -41,6 +42,7 @@ __all__ = [
     "USER_LIBRARY_FOLDER",
     "USER_LIBRARY_PARAM",
     "WORKSHOP_FOLDER",
+    "legacy_library_file",
     "settings",
     "workshop_folder",
 ]
@@ -83,6 +85,11 @@ STORAGE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Stockage")
 _MAX_CLEARANCE_MM: Final = 20.0  # jeu d'usinage : au-delà, c'est une faute de saisie
 _MAX_EDGE_MM: Final = 100.0
 _MAX_ALLOWANCE_MM: Final = 1000.0
+_MAX_TONGUE_MM: Final = 1000.0
+_MIN_DOWEL_SPACING_MM: Final = 10.0
+_MAX_DOWEL_SPACING_MM: Final = 1000.0
+_MIN_DOVETAIL_ANGLE_DEG: Final = 1.0
+_MAX_DOVETAIL_ANGLE_DEG: Final = 30.0
 
 
 def _length(  # noqa: PLR0913 (description d'un réglage : tous ses champs sont nommés)
@@ -163,7 +170,8 @@ def _new_parts() -> list[Setting]:
             "",
             QT_TRANSLATE_NOOP("Menuiserie", "Matériau"),
             QT_TRANSLATE_NOOP(
-                "Menuiserie", "Matériau d'une pièce neuve. Vide : premier de la bibliothèque."
+                "Menuiserie",
+                "Matériau d'une pièce neuve. Vide : premier matériau de la bibliothèque.",
             ),
             NEW_PARTS,
         ),
@@ -278,7 +286,7 @@ def _joints() -> list[Setting]:
             QT_TRANSLATE_NOOP("Menuiserie", "Longueur de languette"),
             QT_TRANSLATE_NOOP("Menuiserie", "Longueur de languette d'un nouvel assemblage."),
             JOINTS,
-            maximum=_MAX_ALLOWANCE_MM,
+            maximum=_MAX_TONGUE_MM,
             remember_last=True,
         ),
         _flag(
@@ -315,8 +323,8 @@ def _joints() -> list[Setting]:
                 "Menuiserie", "Écart maximal entre deux tourillons placés automatiquement."
             ),
             JOINTS,
-            minimum=10.0,
-            maximum=_MAX_ALLOWANCE_MM,
+            minimum=_MIN_DOWEL_SPACING_MM,
+            maximum=_MAX_DOWEL_SPACING_MM,
             remember_last=True,
         ),
         Setting(
@@ -327,8 +335,8 @@ def _joints() -> list[Setting]:
             QT_TRANSLATE_NOOP("Menuiserie", "Angle des flancs des queues d'un nouvel assemblage."),
             JOINTS,
             unit=DEGREES,
-            minimum=1.0,
-            maximum=30.0,
+            minimum=_MIN_DOVETAIL_ANGLE_DEG,
+            maximum=_MAX_DOVETAIL_ANGLE_DEG,
             remember_last=True,
         ),
         _flag(
@@ -352,7 +360,7 @@ def _storage() -> list[Setting]:
             QT_TRANSLATE_NOOP("Menuiserie", "Dossier de l'atelier"),
             QT_TRANSLATE_NOOP(
                 "Menuiserie",
-                "Fichiers personnels : matériaux, dimensions, quincaillerie. Vide : par défaut.",
+                "Matériaux, dimensions et quincaillerie personnels. Vide : dossier par défaut.",
             ),
             STORAGE,
         ),
@@ -380,6 +388,13 @@ def settings() -> Settings:
 def workshop_folder() -> Path:
     """Dossier de l'atelier (ADR 0069) : le réglage, sinon le dossier de l'ancien chemin de
     bibliothèque, sinon ``<données utilisateur de FreeCAD>/Menuiserie``."""
-    legacy = str(App.ParamGet(PARAM_PATH).GetString(USER_LIBRARY_PARAM, ""))
+    legacy = legacy_library_file()
     fallback = Path(App.getUserAppDataDir()) / USER_LIBRARY_FOLDER
-    return resolve_workshop_folder(str(settings().value(WORKSHOP_FOLDER)), legacy, fallback)
+    return resolve_workshop_folder(
+        str(settings().value(WORKSHOP_FOLDER)), str(legacy or ""), fallback
+    )
+
+
+def legacy_library_file() -> Path | None:
+    """Ancien paramètre ``UserLibraryPath`` (compatibilité, ADR 0069) s'il est un chemin absolu."""
+    return absolute_path(str(App.ParamGet(PARAM_PATH).GetString(USER_LIBRARY_PARAM, "")))
