@@ -11,6 +11,12 @@ Légende de la colonne « Avis » :
 - **M** : mémoire silencieuse du dernier choix, sans place dans la page ;
 - **—** : règle de l'atelier ou limite technique, à ne pas exposer (sécurité, géométrie, norme).
 
+Option « dernier utilisé » (demande de jv, 2026-11-25) : un réglage de valeur par défaut peut
+proposer soit une **valeur fixe**, soit le **dernier choix** de l'utilisateur. Le catalogue le prévoit
+pour tout réglage marqué « dernier possible » ; la page montre alors un choix « Valeur fixe /
+Dernier utilisé » à côté du champ. Candidats : profil d'arête, matériau et dimensions d'une pièce
+neuve, réglages de chaque type d'assemblage, format de feuille des plans.
+
 Les cotes « 0 = automatique » des assemblages restent automatiques : ce sont les **règles du calcul
 automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 
@@ -42,7 +48,7 @@ automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 |---|---|---|---|
 | Arête cassée sur les pièces neuves | non (nouveau) | — | R |
 | Taille de l'arête cassée | 1 mm | `core/edges/_families.py` | R |
-| Profil proposé à l'ouverture du panneau | quart de rond, 1 mm | `features/edge_profile.py` | R |
+| Profil proposé à l'ouverture du panneau : valeur fixe ou dernier utilisé (jv, 2026-11-25) | quart de rond, 1 mm | `features/edge_profile.py` | R |
 | Vue du panneau (patron / boîte) | dernier choix | `gui/task_panels/edge_targets.py` | M (existe) |
 | Angles acceptés, taille maximale | 30° à 150°, moitié de la pièce | `core/edges/` | — |
 
