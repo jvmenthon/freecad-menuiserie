@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Distance gardée : plateau, étagère et cote verrouillée entre les deux -->
+  <defs>
+    <linearGradient id="chene-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d7a3"/><stop offset="1" stop-color="#e5b26e"/></linearGradient>
+    <linearGradient id="chene-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9a160"/><stop offset="1" stop-color="#c4884a"/></linearGradient>
+    <linearGradient id="chene-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b57a3c"/><stop offset="1" stop-color="#99622b"/></linearGradient>
+  </defs>
+  <polygon points="3.00,14.09 17.10,5.95 50.00,24.94 35.90,33.09" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,17.35 3.00,14.09 35.90,33.09 35.90,36.34" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="50.00,28.20 35.90,36.34 35.90,33.09 50.00,24.94" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,35.80 17.10,27.66 50.00,46.65 35.90,54.79" fill="url(#chene-z)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,39.06 3.00,35.80 35.90,54.79 35.90,58.05" fill="url(#chene-y)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="50.00,49.91 35.90,58.05 35.90,54.79 50.00,46.65" fill="url(#chene-x)" stroke="#4e2f12" stroke-width="2" stroke-linejoin="round"/>
+  <polyline points="14.28,9.75 15.94,10.89 17.64,12.01 19.42,13.09 21.27,14.12 23.20,15.11 25.18,16.07 27.17,17.03 29.12,18.01 31.00,19.02 32.80,20.09 34.52,21.20 36.19,22.34 37.84,23.48 39.53,24.61 41.28,25.71 43.11,26.75" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="8.64,13.01 10.62,13.96 12.56,14.95 14.43,15.97 16.22,17.04 17.93,18.16 19.59,19.30 21.25,20.45 22.94,21.57 24.70,22.66 26.55,23.70 28.47,24.69 30.44,25.65 32.43,26.61 34.39,27.58 36.28,28.59 38.09,29.65" fill="none" stroke="#b8823f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M58,26 V49 M53,26 H63 M53,49 H63 M58,26 L55.5,31 M58,26 L60.5,31 M58,49 L55.5,44 M58,49 L60.5,44" fill="none" stroke="#204a87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="54" y="35" width="8" height="7" rx="1" fill="#f57900" stroke="#204a87" stroke-width="1.2"/>
+  <path d="M56,35 V32.5 a2,2 0 0 1 4,0 V35" fill="none" stroke="#204a87" stroke-width="1.2"/>
+</svg>

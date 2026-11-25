@@ -36,7 +36,7 @@ from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.repeat import sources_of, stored_lines
 from freecad.menuiserie.features.repeat_copies import resolve_for, source_extent, source_extents
 from freecad.menuiserie.features.repeat_coplanar import axis_indices
-from freecad.menuiserie.features.repeat_joints import not_copied_warning
+from freecad.menuiserie.features.repeat_joints import hand_joints_warning, not_copied_warning
 from freecad.menuiserie.features.repeat_stop import Stops, bounded_params, stored_stops
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
@@ -353,6 +353,8 @@ class RepeatTaskPanel(TransactionTaskPanel):
             params = bounded_params(sources, params, stops, self._repeat())
             grid = resolve_for(sources, params)
             self._apply(sources, params, stops)
+            if self.closed:  # FreeCAD a fermé le panneau pendant l'aperçu : plus aucun widget
+                return
             self._coplanar.show(self._repeat(), sources, axis_indices(a.axis for a in grid.axes))
             with self._guard:
                 show_resolved(self._rows, self._stops.stops, params, grid)
@@ -360,14 +362,18 @@ class RepeatTaskPanel(TransactionTaskPanel):
             warning = overlap_text(grid, source_extents(sources, [a.axis for a in grid.axes]))
             self._overlapping = bool(warning)
             warning = "\n".join(
-                filter(None, (warning, collision_text(params, stops), self._not_copied()))
+                filter(None, (warning, collision_text(params, stops), self._joint_warnings()))
             )
         except (TypeError, ValueError, KeyError) as refusal:
             error = str(refusal.args[0] if isinstance(refusal, KeyError) else refusal)
         except Exception as failure:  # OCC, objet en erreur : aperçu abandonné, rien ne reste
             self._coplanar.clear()
+            if self.closed:  # transaction déjà soldée par la fermeture : ne pas en rouvrir une
+                return
             self._restart()
             error = translated(UNEXPECTED, {"reason": str(failure) or type(failure).__name__})
+        if self.closed:  # fermé pendant la mise à jour : plus rien à afficher
+            return
         self._refused = bool(error)
         self.sync_styles()
         show_message(self._summary, summary)
@@ -390,10 +396,13 @@ class RepeatTaskPanel(TransactionTaskPanel):
         self._coplanar.close()
         self._snap.close()
 
-    def _not_copied(self) -> str:
-        """Avertissement des assemblages impossibles, donc non recopiés (vide sinon)."""
+    def _joint_warnings(self) -> str:
+        """Avertissements des assemblages : non recopiés (impossibles), et posés à la main sur une
+        copie devenus impossibles (vide sinon)."""
         repeat = self._repeat()
-        return "" if repeat is None else not_copied_warning(repeat)
+        if repeat is None:
+            return ""
+        return "\n".join(filter(None, (not_copied_warning(repeat), hand_joints_warning(repeat))))
 
     def _apply(self, sources: Sequence[DocumentObject], params: RepeatParams, stops: Stops) -> None:
         """Copies de l'aperçu : répétition créée à la première saisie acceptée, ajustée ensuite
@@ -409,7 +418,9 @@ class RepeatTaskPanel(TransactionTaskPanel):
 
     def _restart(self) -> None:
         """Transaction abandonnée (aperçu et répétition créée disparaissent, la répétition
-        modifiée retrouve son réglage) puis rouverte, vide."""
+        modifiée retrouve son réglage) puis rouverte, vide ; rien une fois le panneau fermé."""
+        if self.closed:
+            return
         close_transaction(self._transaction, abort=True)
         title = CREATE_TRANSACTION if self.creating else EDIT_TRANSACTION
         self.doc.openTransaction(translated(title))

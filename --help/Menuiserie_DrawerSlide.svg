@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Coulisse de tiroir : deux rails d'acier emboîtés, vis de fixation -->
+  <defs>
+    <linearGradient id="acier-z" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eeeeec"/><stop offset="1" stop-color="#c8cbc5"/></linearGradient>
+    <linearGradient id="acier-y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#babdb6"/><stop offset="1" stop-color="#a3a69f"/></linearGradient>
+    <linearGradient id="acier-x" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#888a85"/><stop offset="1" stop-color="#73766f"/></linearGradient>
+  </defs>
+  <polygon points="3.00,20.96 3.00,12.41 58.53,44.47 58.53,53.02" fill="url(#acier-y)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="3.00,12.41 5.47,10.98 61.00,43.04 58.53,44.47" fill="url(#acier-z)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="61.00,51.59 58.53,53.02 58.53,44.47 61.00,43.04" fill="url(#acier-x)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="8.55,24.88 8.55,18.46 56.68,46.25 56.68,52.66" fill="url(#acier-y)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="8.55,18.46 10.40,17.39 58.53,45.18 56.68,46.25" fill="url(#acier-z)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="58.53,51.59 56.68,52.66 56.68,46.25 58.53,45.18" fill="url(#acier-x)" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="14.41,20.42 14.21,19.41 13.64,18.43 12.87,17.75 12.10,17.54 11.54,17.87 11.33,18.64 11.54,19.65 12.10,20.63 12.87,21.31 13.64,21.52 14.21,21.19" fill="#3b2410" stroke="#3b2410" stroke-width="1" stroke-linejoin="round"/>
+  <polygon points="34.78,32.18 34.57,31.17 34.01,30.19 33.23,29.51 32.46,29.30 31.90,29.63 31.69,30.40 31.90,31.41 32.46,32.38 33.23,33.07 34.01,33.28 34.57,32.95" fill="#3b2410" stroke="#3b2410" stroke-width="1" stroke-linejoin="round"/>
+  <polygon points="55.14,43.93 54.93,42.92 54.37,41.95 53.60,41.26 52.82,41.06 52.26,41.38 52.05,42.15 52.26,43.16 52.82,44.14 53.60,44.82 54.37,45.03 54.93,44.71" fill="#3b2410" stroke="#3b2410" stroke-width="1" stroke-linejoin="round"/>
+</svg>

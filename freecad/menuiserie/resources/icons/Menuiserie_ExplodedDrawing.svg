@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Vue éclatée : un caisson dont les pièces s'écartent du centre -->
+  <rect x="4" y="6" width="56" height="52" rx="2" fill="#ffffff" stroke="#2e3436" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="18" y="10" width="28" height="6" fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"/>
+  <rect x="9" y="22" width="6" height="22" fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"/>
+  <rect x="49" y="22" width="6" height="22" fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"/>
+  <rect x="18" y="48" width="28" height="6" fill="#f1c98f" stroke="#4e2f12" stroke-width="1.5"/>
+  <path d="M32,30 V20 M32,36 V44 M28,33 H19 M36,33 H45" fill="none" stroke="#204a87" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

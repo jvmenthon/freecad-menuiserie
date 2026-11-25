@@ -9,6 +9,7 @@ dans le dessin. F4 (pièce en bois assemblée, avec sa pièce usinée) dépend d
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,6 +20,8 @@ from freecad.menuiserie.core.geometry import Vec3
 pytestmark = pytest.mark.integration
 
 App = pytest.importorskip("FreeCAD")
+core_furniture = pytest.importorskip("freecad.menuiserie.core.furniture")
+Handle = pytest.importorskip("freecad.menuiserie.core.magnet").Handle
 api = pytest.importorskip("freecad.menuiserie.api")
 
 DRAWN = "cote dessinée : modifiez le dessin"
@@ -141,6 +144,68 @@ def test_le_redimensionnement_avertit(table: Table) -> None:
     assert any(DRAWN in message for message in messages)
 
 
+def _drawn(vue_rapport: Any) -> list[str]:
+    return [text for _level, text in vue_rapport.messages if DRAWN in text]
+
+
+def _no_drawn(vue_rapport: Any, messages: Sequence[str]) -> None:
+    """Ni les messages renvoyés (textes traduits) ni la vue rapport ne parlent de cote dessinée."""
+    assert not any(DRAWN in message for message in messages)
+    assert _drawn(vue_rapport) == []
+
+
+@pytest.mark.parametrize(("member", "axis"), [("A", "X"), ("top", "Z")])
+def test_une_copie_n_avertit_pas_de_cote_dessinee(
+    table: Table, vue_rapport: Any, member: str, axis: str
+) -> None:
+    """Copier une pièce d'un ensemble qui contient des pièces en bois ne redimensionne rien :
+    pas d'avertissement « cote dessinée » (bruit signalé par jv le 2026-11-24)."""
+    before = {name: table.bounds(leg) for name, leg in table.legs.items()}
+    source = table.top if member == "top" else table.legs[member]
+    api.make_repeat([source], api.RepeatParams(count=1, step=100.0, axis=axis))
+    assert _drawn(vue_rapport) == []
+    assert {name: table.bounds(leg) for name, leg in table.legs.items()} == before
+
+
+def test_copie_d_un_ensemble_entier_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    before = table.bounds(table.legs["A"])
+    api.make_repeat([table.furniture], api.RepeatParams(count=1, step=2000.0, axis="X"))
+    assert _drawn(vue_rapport) == []
+    assert table.bounds(table.legs["A"]) == before
+
+
+def test_copie_suivant_le_redimensionnement_sans_avertissement(
+    table: Table, vue_rapport: Any
+) -> None:
+    params = api.RepeatParams(count=1, step=100.0, axis="X", follow_resize=True)
+    api.make_repeat([table.legs["A"]], params)
+    assert _drawn(vue_rapport) == []
+
+
+def test_edition_de_la_repetition_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    repeat = api.make_repeat([table.legs["A"]], api.RepeatParams(count=1, step=100.0, axis="X"))
+    api.edit_repeat(repeat, api.RepeatParams(count=3, step=120.0, axis="X"))
+    assert _drawn(vue_rapport) == []
+
+
+def test_le_redimensionnement_avertit_apres_une_copie(table: Table) -> None:
+    api.make_repeat([table.legs["A"]], api.RepeatParams(count=1, step=100.0, axis="X"))
+    messages = api.resize_furniture(table.furniture, depth=800)
+    assert any(DRAWN in message for message in messages)
+
+
+def test_copie_annulable_et_retablissable(table: Table) -> None:
+    table.doc.UndoMode = 1
+    before = len(table.doc.Objects)
+    api.make_repeat([table.legs["A"]], api.RepeatParams(count=1, step=100.0, axis="X"))
+    after = len(table.doc.Objects)
+    assert after > before
+    table.doc.undo()
+    assert len(table.doc.Objects) == before
+    table.doc.redo()
+    assert len(table.doc.Objects) == after
+
+
 # --- Rangée bloquée par une pièce en bois ---------------------------------------------------
 
 
@@ -230,6 +295,77 @@ def test_deplacement_par_fleches_puis_suivi_de_l_ensemble(table: Table) -> None:
     assert table.sizes(leg) == sizes
     assert table.expressions(leg) & set(SIZES) == set()
     assert table.expressions(leg.Source) == set()
+
+
+def test_deplacer_ou_relier_n_avertit_pas_de_cote_dessinee(table: Table, vue_rapport: Any) -> None:
+    """Déplacer un membre ou relier l'ensemble ne redimensionne rien : pas de « cote dessinée »
+    (bruit signalé par jv le 2026-11-24, après une copie déplacée à la souris)."""
+    drag = pytest.importorskip("freecad.menuiserie.features.part_drag")
+    memento = drag.begin_drag(table.top)
+    drag.move_part(memento, Vec3(0.0, 20.0, 0.0))
+    messages = drag.end_drag(memento)
+    messages = [*messages, *api.rebind_furniture(table.furniture)]
+    assert not any(DRAWN in text for text in messages)
+    assert _drawn(vue_rapport) == []
+
+
+def test_options_d_un_membre_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    result = api.set_member_options(table.top, fixed={"Front": False})
+    _no_drawn(vue_rapport, result)
+
+
+def test_epaisseur_sans_avertissement(table: Table, vue_rapport: Any) -> None:
+    divider = api.make_wood_part(400, 600, 20, "chene", mark="Cloison", doc=table.doc)
+    divider.Placement = App.Placement(
+        App.Vector(500, 0, 100), App.Rotation(App.Vector(0, 1, 0), 90)
+    )
+    table.doc.recompute()
+    api.add_to_furniture(table.furniture, [divider])
+    vue_rapport.messages.clear()
+    result = api.unlock_and_set_thickness(divider, 25, [])
+    _no_drawn(vue_rapport, result)
+    assert divider.Thickness.Value == 25.0
+
+
+def test_deplacement_d_un_ensemble_a_la_souris_sans_avertissement(
+    table: Table, vue_rapport: Any
+) -> None:
+    drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
+    x0 = table.legs["A"].getGlobalPlacement().Base.x
+    memento = drag.begin_furniture_drag(table.furniture)
+    assert drag.move_furniture_by(memento, Vec3(300.0, 0.0, 0.0))
+    messages = drag.end_furniture_drag(memento)
+    _no_drawn(vue_rapport, messages)
+    table.doc.recompute()
+    assert table.legs["A"].getGlobalPlacement().Base.x == pytest.approx(x0 + 300.0, abs=1e-3)
+
+
+def test_deplacement_d_un_sous_ensemble_a_la_souris_sans_avertissement(
+    document: Any, vue_rapport: Any
+) -> None:
+    drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
+    top = api.make_wood_part(1200, 600, 30, "chene", mark="Plateau", doc=document)
+    top.Placement = App.Placement(App.Vector(0, 0, 720), App.Rotation())
+    leg = leg_at(document, 0, "PiedA", "SourceA")
+    document.recompute()
+    sub, _ = api.make_furniture([top, leg], label="Sous")
+    other = leg_at(document, 1155, "PiedB", "SourceB")  # pièce en bois membre du parent
+    document.recompute()
+    _furniture, _ = api.make_furniture([sub, other], label="Parent")
+    vue_rapport.messages.clear()
+    memento = drag.begin_furniture_drag(sub)
+    assert drag.move_furniture_by(memento, Vec3(100.0, 0.0, 0.0))
+    messages = drag.end_furniture_drag(memento)
+    _no_drawn(vue_rapport, messages)
+
+
+def test_redimensionnement_d_un_ensemble_a_la_souris_avertit(table: Table) -> None:
+    drag = pytest.importorskip("freecad.menuiserie.features.furniture_drag")
+    memento = drag.begin_furniture_drag(table.furniture)
+    box = core_furniture.resized_box(memento.box, Handle(1, True), 100.0)
+    assert drag.resize_furniture_to(memento, box).reached
+    messages = drag.end_furniture_drag(memento)
+    assert any(DRAWN in message for message in messages)
 
 
 # --- F4 : pièce en bois assemblée, membre d'un ensemble ---------------------------------------

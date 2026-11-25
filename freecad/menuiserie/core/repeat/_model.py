@@ -273,3 +273,16 @@ class RepeatParams:
         if self.grid:
             return self.grid
         return (AxisRepeat(self.axis, self.count + 1, self.step, self.span, self.reverse),)
+
+
+def copy_name(source: str, rank: int) -> str:
+    """Nom automatique de la copie de rang ``rank`` (0 : la source) de la pièce nommée
+    ``source`` : le numéro entre parenthèses, « Montant (2) » (demande de jv, 2026-11-23)."""
+    return f"{source} ({rank + 1})"
+
+
+def is_copy_name(label: str, source: str, rank: int) -> bool:
+    """Vrai si ``label`` est le nom automatique de la copie de rang ``rank`` de ``source``,
+    sous sa forme actuelle ou ancienne (« Montant 2 », avant le 2026-11-23) : un nom que
+    l'utilisateur a changé n'est jamais renommé."""
+    return label in (copy_name(source, rank), f"{source} {rank + 1}")

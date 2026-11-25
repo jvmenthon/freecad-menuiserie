@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Vérifications d'interface de la répétition (lot R-c de ``docs/specs/repetition.md``) : commandes
-« Répéter », « Modifier la répétition » et « Dissocier la copie », panneau avec aperçu en direct,
-refus affichés, ViewProvider de la répétition.
+« Répéter », « Modifier la répétition » et « Dissocier la répétition », panneau avec aperçu en
+direct, refus affichés, ViewProvider de la répétition.
 
 R14 : l'aperçu montre les copies que « OK » crée ; R15 : un refus s'affiche en rouge et grise
 « OK » ; R16 : changer le nombre par le panneau d'une répétition existante. Module importé par
@@ -11,6 +11,7 @@ ses problèmes.
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from typing import Any
 
@@ -21,6 +22,7 @@ from PySide import QtGui
 from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.features import repeat
 from freecad.menuiserie.features.repeat_joints import origin_of
+from freecad.menuiserie.gui import dissociate_confirm
 from tests.commandes_repetition import COMMANDES_REPETITION
 from tests.gui.verifications_ensemble import lancer, pieces_du_bureau
 from tests.gui.verifications_panneau import (
@@ -45,6 +47,23 @@ DISSOCIER = "Menuiserie_RepeatDissociate"
 FORM = "RepeatTaskPanel"
 VP_REPETITION = "freecad.menuiserie.gui.view_providers.repeat.ViewProviderRepeat"
 PAR_DEFAUT = 3  # copies des réglages rétablis par :func:`repeter` (4 éléments sur X)
+
+
+def dissocier(*objets: Any, reponse: bool = True) -> list[tuple[list[str], int]]:
+    """Lance « Dissocier la répétition » sur ``objets`` en répondant ``reponse`` à la
+    confirmation (hors écran, la fenêtre ne se clique pas) ; renvoie les demandes reçues."""
+    demandes: list[tuple[list[str], int]] = []
+
+    def repondre(libelles: Any, copies: int) -> bool:
+        demandes.append((list(libelles), copies))
+        return reponse
+
+    original, dissociate_confirm.confirmer = dissociate_confirm.confirmer, repondre
+    try:
+        lancer(DISSOCIER, *objets)
+    finally:
+        dissociate_confirm.confirmer = original
+    return demandes
 
 
 def source(doc: Any, mark: str = "Barreau") -> Any:
@@ -133,7 +152,7 @@ def _activation(doc: Any) -> list[str]:
         ("rien", (), [False, False, False]),
         ("pièce", (barreau,), [True, False, False]),
         ("copie", (copie,), [False, True, True]),
-        ("répétition", (rep,), [False, True, False]),
+        ("répétition", (rep,), [False, True, True]),  # dissocier : depuis elle aussi
         ("pièce et copie", (barreau, copie), [False, False, False]),
     ):
         Gui.Selection.clearSelection()
@@ -533,20 +552,137 @@ def verifier_modification_annulee() -> list[str]:
 
 def _dissocier(doc: Any) -> list[str]:
     _barreau, rep = _repetition_existante(doc)
-    copie = copies_de(rep)[1]
-    lancer(DISSOCIER, copie)
+    nom, toutes, libelle = rep.Name, copies_de(rep), rep.Label
+    copie = toutes[1]
+    demandes = dissocier(copie)
     return [
-        *ecarts("copie libre", repeat.is_copy(copie), False),
-        *ecarts("autres copies liées", len(copies_de(rep)), 3),
-        *ecarts("nombre gardé", rep.Count, 4),
-        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+        *ecarts("confirmation demandée", demandes, [([f"« {libelle} »"], len(toutes))]),
+        *ecarts("copies libres", [repeat.is_copy(c) for c in toutes], [False] * len(toutes)),
+        *ecarts("répétition supprimée", doc.getObject(nom), None),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
         *ecarts("valeurs gardées", round(copie.Placement.Base.x, 3), 800.0),
     ]
 
 
-def verifier_dissocier_la_copie() -> list[str]:
-    """« Dissocier la copie » : la copie devient libre en une entrée d'annulation."""
+def verifier_dissocier_depuis_une_copie() -> list[str]:
+    """« Dissocier la répétition » depuis une copie (demande de jv, 2026-11-23) : toutes les
+    copies deviennent libres et la répétition est supprimée, en une entrée d'annulation."""
     return avec_document("VerifRepetitionDissocie", _dissocier)
+
+
+def _dissocier_refuse(doc: Any) -> list[str]:
+    _barreau, rep = _repetition_existante(doc)
+    nom, toutes = rep.Name, copies_de(rep)
+    demandes = dissocier(toutes[0], reponse=False)
+    return [
+        *ecarts("confirmation demandée", len(demandes), 1),
+        *ecarts("copies toujours liées", [repeat.is_copy(c) for c in toutes], [True] * len(toutes)),
+        *ecarts("répétition gardée", doc.getObject(nom) is not None, True),
+        *ecarts("aucune entrée", doc.UndoNames, []),
+    ]
+
+
+def verifier_dissocier_annule_a_la_confirmation() -> list[str]:
+    """« Annuler » dans la confirmation (demande de jv, 2026-11-24) : rien ne change."""
+    return avec_document("VerifRepetitionDissocieRefuse", _dissocier_refuse)
+
+
+def _dissocier_copie_usinee(doc: Any) -> list[str]:
+    """Bug de jv (2026-11-14) : une copie assemblée est affichée et choisie par sa pièce usinée ;
+    la commande doit la dissocier quand même."""
+    barreau, copie, _montant, _usinee_montant = _copie_assemblee(doc)
+    usinee = api.machined_part_of(copie)
+    if usinee is None:
+        return ["copie sans pièce usinée"]
+    dissocier(usinee)
+    return [
+        *ecarts("copie libre", repeat.is_copy(copie), False),
+        *ecarts("source intacte", repeat.is_copy(barreau), False),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
+    ]
+
+
+def verifier_dissocier_par_la_piece_usinee() -> list[str]:
+    """« Dissocier la répétition » sur la pièce usinée d'une copie assemblée."""
+    return avec_document("VerifRepetitionDissocieUsinee", _dissocier_copie_usinee)
+
+
+def _commande_active_sur(*objets: Any) -> bool:
+    from tests.gui.verifications_assemblages import selectionner
+
+    selectionner(*objets)
+    return bool(Gui.Command.get(DISSOCIER).isActive())
+
+
+def _copie_assemblee(doc: Any) -> tuple[Any, Any, Any, Any]:
+    """Barreau répété, sa première copie assemblée à un montant, et la pièce usinée du montant."""
+    barreau, rep = _repetition_existante(doc)
+    copie = copies_de(rep)[0]
+    montant = api.make_wood_part(300, 40, 22, "chene", mark="Montant", doc=doc)
+    montant.Placement = App.Placement(App.Vector(740, 0, 0), App.Rotation(App.Vector(0, 0, 1), 90))
+    doc.recompute()
+    api.make_loose_tenons(montant, copie)
+    doc.clearUndos()
+    return barreau, copie, montant, api.machined_part_of(montant)
+
+
+def _dissocier_selection_melangee(doc: Any) -> list[str]:
+    barreau, copie, montant, usinee_montant = _copie_assemblee(doc)
+    usinee = api.machined_part_of(copie)
+    problemes = [
+        *ecarts("pièce usinée d'une pièce libre", _commande_active_sur(usinee_montant), False),
+        *ecarts("répétition seule", _commande_active_sur(api.repeat_of(copie)), True),
+        *ecarts("copie usinée + pièce libre", _commande_active_sur(usinee, montant), False),
+        *ecarts("copie usinée + source", _commande_active_sur(usinee, barreau), False),
+    ]
+    dissocier(copie, usinee)  # la même répétition deux fois : une seule dissociation
+    return [
+        *problemes,
+        *ecarts("copie libre", repeat.is_copy(copie), False),
+        *ecarts("une seule entrée", doc.UndoNames, ["Dissocier la répétition"]),
+    ]
+
+
+def verifier_dissocier_selection_melangee() -> list[str]:
+    """Sélections mêlées : pièce usinée d'une pièce libre (inactive), copie avec une pièce libre
+    (inactive), copie et sa pièce usinée (une seule dissociation)."""
+    return avec_document("VerifRepetitionDissocieMelange", _dissocier_selection_melangee)
+
+
+def _fermeture_pendant_l_apercu(doc: Any) -> list[str]:
+    """FreeCAD ferme le panneau pendant le calcul de l'aperçu (erreur de jv « QLabel already
+    deleted ») : rien n'écrit plus dans le formulaire et aucune transaction n'est rouverte."""
+    _barreau, rep = _repetition_existante(doc)
+    lancer(MODIFIER, rep)
+    form = panneau()
+    if form is None:
+        return ["panneau « Modifier la répétition » non ouvert"]
+    erreurs: list[str] = []
+    origine = api.edit_repeat  # le panneau lit api.edit_repeat à chaque aperçu
+
+    def puis_fermer(*args: Any, **kwargs: Any) -> None:
+        origine(*args, **kwargs)
+        annuler()  # le formulaire est détruit pendant _apply
+
+    capte = sys.excepthook
+    sys.excepthook = lambda kind, value, trace: erreurs.append(f"{kind.__name__}: {value}")
+    api.edit_repeat = puis_fermer
+    try:
+        widget(form, "countX").setValue(3)
+        QtGui.QApplication.processEvents()
+    finally:
+        api.edit_repeat = origine
+        sys.excepthook = capte
+    return [
+        *ecarts("exceptions", erreurs, []),
+        *ecarts("panneau fermé", panneau() is None, True),
+        *ecarts("aucune transaction ouverte", App.getActiveTransaction(), None),
+    ]
+
+
+def verifier_fermeture_pendant_l_apercu() -> list[str]:
+    """Panneau fermé pendant l'aperçu : aucune écriture dans un widget détruit."""
+    return avec_document("VerifRepetitionFermeApercu", _fermeture_pendant_l_apercu)
 
 
 def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
@@ -558,10 +694,10 @@ def _dissocier_ensemble_et_membre(doc: Any) -> list[str]:
     doc.clearUndos()
     ensemble = next(c for c in copies_de(rep) if c.RepeatSource == meuble)
     membre = next(c for c in copies_de(rep) if c.RepeatSource == gauche)
-    lancer(DISSOCIER, ensemble, membre)  # le membre est déjà dissocié avec son ensemble
+    dissocier(ensemble, membre)  # le membre est déjà dissocié avec son ensemble
     return [
         *ecarts("plus aucune copie liée", len(copies_de(rep)), 0),
-        *ecarts("entrées", doc.UndoNames, ["Dissocier la copie"]),
+        *ecarts("entrées", doc.UndoNames, ["Dissocier la répétition"]),
     ]
 
 
@@ -649,7 +785,11 @@ VERIFICATIONS_REPETITION: tuple[Callable[[], list[str]], ...] = (
     verifier_suivi_grise_hors_ensemble,
     verifier_modifier_le_nombre,
     verifier_modification_annulee,
-    verifier_dissocier_la_copie,
+    verifier_dissocier_depuis_une_copie,
+    verifier_dissocier_annule_a_la_confirmation,
+    verifier_dissocier_par_la_piece_usinee,
+    verifier_dissocier_selection_melangee,
+    verifier_fermeture_pendant_l_apercu,
     verifier_dissocier_un_ensemble_et_son_membre,
     verifier_double_clic,
     verifier_document_ferme_panneau_ouvert,

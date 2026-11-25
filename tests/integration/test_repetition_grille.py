@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from tests.integration.aides import detach_one_copy
 from tests.integration.aides_grille import Line, Reopen, X, Y, Z, grid
 from tests.integration.cadre import stale_or_invalid
 
@@ -70,7 +71,7 @@ def test_quatre_par_trois_donne_onze_copies(document: Any) -> None:
     for (i, j, k), copy in found.items():
         assert where(copy) == (100.0 * i, 150.0 * j, 0.0 * k)
     assert [c.RepeatIndex for c in copies(rep)] == list(range(1, 12))  # ordre : X puis Y
-    assert [c.Label for c in copies(rep)] == [f"Barreau {k}" for k in range(2, 13)]
+    assert [c.Label for c in copies(rep)] == [f"Barreau ({k})" for k in range(2, 13)]
     assert stale_or_invalid(document) == []
 
 
@@ -154,7 +155,7 @@ def test_changer_le_nombre_d_un_axe_garde_les_copies_des_cellules(document: Any)
     assert all(after[cell] == name for cell, name in before.items())  # mêmes objets, mêmes cellules
     assert {(4, 0, 0), (4, 1, 0), (4, 2, 0)} == set(after) - set(before)
     assert [c.RepeatIndex for c in copies(rep)] == list(range(1, 15))  # rangs d'affichage refaits
-    assert [c.Label for c in copies(rep)] == [f"Barreau {k}" for k in range(2, 16)]
+    assert [c.Label for c in copies(rep)] == [f"Barreau ({k})" for k in range(2, 16)]
     assert stale_or_invalid(document) == []
 
 
@@ -181,7 +182,7 @@ def test_changer_le_pas_deplace_les_copies_conservees(document: Any) -> None:
 def test_une_copie_dissociee_ne_revient_pas(document: Any) -> None:
     rep = api.make_repeat([source(document)], four_by_three())
     freed = cells(rep)[(1, 1, 0)]
-    api.dissociate(freed)
+    detach_one_copy(freed)
     assert not repeat.is_copy(freed) and len(copies(rep)) == 10
     api.edit_repeat(rep, grid(Line(X, 4, 100.0), Line(Y, 4, 150.0)))
     found = cells(rep)
@@ -237,7 +238,7 @@ def test_annuler_et_retablir_la_creation_et_l_edition(undoable: Any) -> None:
 def test_reouverture_conserve_la_grille(document: Any, rouvrir: Reopen) -> None:
     barreau = source(document)
     rep = api.make_repeat([barreau], four_by_three())
-    api.dissociate(cells(rep)[(2, 1, 0)])
+    detach_one_copy(cells(rep)[(2, 1, 0)])
     names = (barreau.Name, rep.Name)
     engines = {c.Name: engine(c) for c in copies(rep)}
     doc = rouvrir(document)

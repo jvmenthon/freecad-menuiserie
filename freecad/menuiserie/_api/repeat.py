@@ -16,7 +16,13 @@ from freecad.menuiserie._api.joints import show_joint
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.repeat import RepeatParams
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features import repeat, repeat_copies, repeat_links, repeat_stop
+from freecad.menuiserie.features import (
+    repeat,
+    repeat_copies,
+    repeat_joints,
+    repeat_links,
+    repeat_stop,
+)
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import is_furniture
 from freecad.menuiserie.features.furniture_bindings import report
@@ -28,11 +34,16 @@ __all__ = ["dissociate", "edit_repeat", "make_repeat", "repeat_of"]
 
 _MAKE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Répéter")
 _EDIT_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Modifier la répétition")
-_DISSOCIATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la copie")
+_DISSOCIATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Dissocier la répétition")
+_MAX_NAMED: Final = 5  # objets nommés au plus dans un avertissement
+_STILL_CITED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "« {label} » est dissociée et supprimée, mais d'autres objets la citaient (formule, lien) : "
+    "{others}. Ces liens sont rompus ; corrigez-les ou annulez (Ctrl+Z).",
+)
 _NOT_A_REPEAT: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "« {label} » n'est ni une répétition ni une copie liée à une répétition."
 )
-_NOT_A_COPY: Final = QT_TRANSLATE_NOOP("Menuiserie", "« {label} » n'est pas une copie liée.")
 
 
 @contextmanager
@@ -160,7 +171,9 @@ def edit_repeat(
     Même transaction (``transaction``), même recalcul et mêmes refus que :func:`make_repeat` ;
     rien n'est modifié si le réglage est refusé. ``stops`` : butées de chaque axe (voir
     :func:`make_repeat`) ; ``None`` garde celles de la répétition (retirées si le mode n'a plus de
-    longueur), un dictionnaire vide les retire."""
+    longueur), un dictionnaire vide les retire. ``transaction`` vrai : après le recalcul, les
+    assemblages posés à la main sur une copie devenus impossibles sont signalés dans la vue rapport
+    (le panneau, lui, les affiche sous le réglage)."""
     found = _checked_repeat(obj)
     sources = repeat.sources_of(found)
     kept = repeat_stop.kept_stops(found, params, raw_stops(stops))
@@ -168,20 +181,41 @@ def edit_repeat(
     repeat_copies.resolve_for(sources, params)
     with _undoable(found.Document, _EDIT_TRANSACTION, own=transaction):
         _show(repeat_copies.apply_repeat(found, params, kept))
+    if transaction:  # le panneau, lui, l'affiche sous le réglage
+        report(filter(None, [repeat_joints.hand_joints_warning(found)]))  # après le recalcul
 
 
-def dissociate(copy: DocumentObject, *, transaction: bool = True) -> None:
-    """Dissocie la copie ``copy`` : ses expressions et ses propriétés ``Repeat``, ``RepeatSource``
-    et ``RepeatIndex`` sont retirées, la pièce garde ses valeurs actuelles et devient libre,
-    reliée à son ensemble par les liaisons normales. Une copie d'ensemble est dissociée avec tous
-    ses membres copiés. La répétition garde les autres copies et son nombre (les rangs ne bougent
-    pas). ``TypeError`` traduite si ``copy`` n'est pas une copie liée. Un bloc annulable, un
-    recalcul (``transaction`` : voir :func:`make_repeat`)."""
-    if not repeat.is_copy(copy):
-        raise TypeError(translated(_NOT_A_COPY, {"label": quoted_value(copy.Label)}))
-    with _undoable(copy.Document, _DISSOCIATE_TRANSACTION, own=transaction):
-        copy.Document.recompute()  # les valeurs gardées sont celles de la source à jour
-        repeat_links.unlink_copy(copy)
+def dissociate(obj: DocumentObject, *, transaction: bool = True) -> None:
+    """Dissocie la répétition de ``obj`` (la répétition elle-même ou l'une de ses copies liées,
+    demande de jv du 2026-11-23) : toutes ses copies perdent leurs expressions et leurs
+    propriétés ``Repeat``, ``RepeatSource`` et ``RepeatIndex``, gardent leurs valeurs actuelles
+    et deviennent des pièces (ou des ensembles) libres, reliées à leur ensemble par les liaisons
+    normales, avec leurs assemblages ; puis la répétition est supprimée. Les pièces d'origine ne
+    changent pas. ``TypeError`` traduite si ``obj`` n'est ni une répétition ni une copie liée.
+    Un bloc annulable, un recalcul (``transaction`` : voir :func:`make_repeat`)."""
+    found = repeat.repeat_of(obj)
+    if found is None:
+        raise TypeError(translated(_NOT_A_REPEAT, {"label": quoted_value(obj.Label)}))
+    doc = found.Document
+    with _undoable(doc, _DISSOCIATE_TRANSACTION, own=transaction):
+        doc.recompute()  # les valeurs gardées sont celles des sources à jour
+        repeat_links.unlink_repeat(found)
+        _warn_still_cited(found)
+        doc.removeObject(found.Name)  # plus aucune copie liée : rien n'est supprimé avec elle
+
+
+def _warn_still_cited(rep: DocumentObject) -> None:
+    """Avertit si d'autres objets que le conteneur de ``rep`` la citent encore (formule d'un
+    tableur, lien d'un autre atelier) : sa suppression romprait leurs liens sans le dire. Ces
+    objets ne sont jamais modifiés."""
+    others = [obj for obj in rep.InList if rep not in (getattr(obj, "Group", None) or ())]
+    if not others:
+        return
+    labels = list(dict.fromkeys(f"« {quoted_value(obj.Label)} »" for obj in others))
+    shown = labels[:_MAX_NAMED] + (["…"] if len(labels) > _MAX_NAMED else [])
+    report(
+        [translated(_STILL_CITED, {"label": quoted_value(rep.Label), "others": ", ".join(shown)})]
+    )
 
 
 def repeat_of(obj: DocumentObject) -> DocumentObject | None:
