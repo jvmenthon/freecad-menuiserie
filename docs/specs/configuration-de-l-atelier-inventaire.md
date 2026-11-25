@@ -78,11 +78,11 @@ automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 | Point | Valeur actuelle | Où | Avis |
 |---|---|---|---|
 | Catalogue personnel | `quincaillerie.json` | `features/hardware.py` | R (dossier de l'atelier) |
-| Pieds : tige, embase, hauteur, logement | Ø10, Ø50, 15 mm, 12 mm | `core/joints/feet.py` | E |
-| Pieds : distance au bord, écart maximal | 50 mm, 800 mm | `core/joints/feet.py` | E |
-| Matière des pieds | plastique | `core/joints/feet.py` | E |
-| Coulisses : longueurs proposées | 250 à 600 mm, pas de 50 | `core/joints/slides.py` | E |
-| Coulisses : épaisseur, hauteur, perçage | 12,7 mm, 45 mm, Ø5 × 12, 3 trous | `core/joints/slides.py` | E |
+| Pieds : tige, embase, hauteur, logement | Ø10, Ø50, 15 mm, 12 mm | `core/joints/feet.py` | Laissé de côté (jv) |
+| Pieds : distance au bord, écart maximal | 50 mm, 800 mm | `core/joints/feet.py` | Laissé de côté (jv) |
+| Matière des pieds | plastique | `core/joints/feet.py` | Laissé de côté (jv) |
+| Coulisses : longueurs proposées | 250 à 600 mm, pas de 50 | `core/joints/slides.py` | Laissé de côté (jv) |
+| Coulisses : épaisseur, hauteur, perçage | 12,7 mm, 45 mm, Ø5 × 12, 3 trous | `core/joints/slides.py` | Laissé de côté (jv) |
 | Taquets (système 32) : pas, Ø, profondeur | 32 mm, Ø5, 12 mm | `core/joints/shelf_pins/_params.py` | R |
 | Taquets : colonnes au bord, marge aux bouts, saillie | 37 mm, 64 mm, 7 mm | `core/joints/shelf_pins/_params.py` | E |
 | Taquets : percer le montant opposé, poser les taquets | oui, oui | `core/joints/shelf_pins/_params.py` | E |
