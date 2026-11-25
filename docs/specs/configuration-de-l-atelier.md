@@ -1,7 +1,9 @@
 # Configuration de l'atelier : spécification
 
 - Statut : **validée** (« go » de jv le 2026-11-25 sur les choix ★ de Q1 à Q8, après sa revue de
-  l'inventaire en annexe). Prochaine étape : 3 maquettes de la page, puis le lot CA-a.
+  l'inventaire en annexe). Maquette retenue par jv le 2026-11-25 : **B** (page unique, groupes repliables, recherche, case
+  « Afficher les réglages avancés »), avec une **case à cocher « Dernier utilisé »** par réglage
+  concerné (`/mnt/project-files/configuration-atelier/maquettes/maquette-B-v2.png`).
 - Demande : issue #148 (jv, 2026-11-01), reprise par jv le 2026-11-25.
 - ADR : [0031 — Configuration de l'atelier](../adr/0031-configuration-de-l-atelier.md) (fusionné,
   statut « proposé », à passer en « accepté » au premier lot). Les compléments (§ 4, § 6, option « dernier

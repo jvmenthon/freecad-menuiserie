@@ -42,11 +42,13 @@ jv veut pouvoir proposer **le dernier choix** au lieu d'une valeur fixe.
 3. **Dossier des projets** : réglage séparé du dossier de l'atelier (défaut `Documents/Menuiserie`),
    lu par l'assistant « Nouveau projet ».
 4. **« Dernier utilisé ».** Un réglage marqué « dernier possible » a deux clés : le mode
-   (`fixe` / `dernier`) et la valeur. En mode `dernier`, la commande qui crée l'objet écrit la
+   (`fixe` / `dernier`) et la valeur. Case cochée (mode `dernier`), la commande qui crée l'objet écrit la
    valeur retenue après validation ; la lecture reste bornée par le catalogue. Retenu pour les
    trois réglages des chants et tous les réglages principaux des assemblages.
-5. **Deux niveaux dans la page** : principal et « Avancé » (replié). Le niveau est une donnée du
-   catalogue.
+5. **Page (maquette B, choix de jv)** : une seule page qui défile, groupes repliables avec le
+   nombre de réglages modifiés, champ de recherche, case « Afficher les réglages avancés » (niveau
+   donné par le catalogue). Chaque réglage « dernier possible » a une case à cocher « Dernier
+   utilisé » ; chaque réglage a un bouton « Rétablir », la valeur par défaut est affichée.
 6. **Export** : réglages et dimensions seulement ; les autres fichiers se partagent en copiant le
    dossier de l'atelier.
 7. **Textes de l'interface** : libellés courts, infobulle d'une phrase qui dit l'effet et l'unité,
