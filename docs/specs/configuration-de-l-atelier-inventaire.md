@@ -14,8 +14,9 @@ Légende de la colonne « Avis » :
 Option « dernier utilisé » (demande de jv, 2026-11-25) : un réglage de valeur par défaut peut
 proposer soit une **valeur fixe**, soit le **dernier choix** de l'utilisateur. Le catalogue le prévoit
 pour tout réglage marqué « dernier possible » ; la page montre alors un choix « Valeur fixe /
-Dernier utilisé » à côté du champ. Retenu par jv pour les trois premiers réglages des chants (§ 3). Autres candidats : matériau et dimensions d'une pièce
-neuve, réglages de chaque type d'assemblage, format de feuille des plans.
+Dernier utilisé » à côté du champ. Retenu par jv pour les trois premiers réglages des chants (§ 3) et pour tous les réglages R des
+assemblages (§ 4). Autres candidats : matériau et dimensions d'une pièce neuve, format de feuille
+des plans.
 
 Les cotes « 0 = automatique » des assemblages restent automatiques : ce sont les **règles du calcul
 automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
@@ -56,17 +57,17 @@ automatique** qui deviennent réglables, pas la valeur de chaque assemblage.
 
 | Point | Valeur actuelle | Où | Avis |
 |---|---|---|---|
-| Jeu de mortaise (tenon-mortaise) | 2 mm | `core/joints/mortise_tenon.py` | R |
-| Mortaise débouchante par défaut | non | `core/joints/mortise_tenon.py` | R |
-| Jeu de rainure | 1 mm | `core/joints/tongue_groove.py` | R |
-| Longueur de languette | 10 mm | `core/joints/tongue_groove.py` | R |
-| Rainure débouchante par défaut | oui | `core/joints/tongue_groove.py` | R |
-| Feuillure débouchante par défaut | oui | `core/joints/rabbet.py` | R |
-| Jeu de fond des tourillons | 1 mm | `core/joints/dowels.py` | R |
-| Entraxe maximal des tourillons automatiques | 128 mm | `core/joints/dowels.py` | R (jv) |
-| Angle de queue d'aronde | 10° | `core/joints/dovetail.py` | R |
+| Jeu de mortaise (tenon-mortaise) | 2 mm | `core/joints/mortise_tenon.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Mortaise débouchante par défaut | non | `core/joints/mortise_tenon.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Jeu de rainure | 1 mm | `core/joints/tongue_groove.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Longueur de languette | 10 mm | `core/joints/tongue_groove.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Rainure débouchante par défaut | oui | `core/joints/tongue_groove.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Feuillure débouchante par défaut | oui | `core/joints/rabbet.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Jeu de fond des tourillons | 1 mm | `core/joints/dowels.py` | R, valeur fixe ou dernier utilisé (jv) |
+| Entraxe maximal des tourillons automatiques | 128 mm | `core/joints/dowels.py` | R (jv), valeur fixe ou dernier utilisé (jv) |
+| Angle de queue d'aronde | 10° | `core/joints/dovetail.py` | R, valeur fixe ou dernier utilisé (jv) |
 | Queues sur la pièce hôte par défaut | non | `core/joints/dovetail.py` | E |
-| Faux tenons : liste de tailles ou taille libre (mineur Q2) | liste | `features/joints/slots.py` | R |
+| Faux tenons : liste de tailles ou taille libre (mineur Q2) | liste | `features/joints/slots.py` | R, valeur fixe ou dernier utilisé (jv) |
 | Faux tenons, biscuits : jeu, premier au bord, écart maximal | 1 mm, 50 mm, 150 mm | `core/joints/slots/_params.py` | E |
 | Écart « pièces proches » qui ouvre la fenêtre Déplacer / Agrandir | 20 mm | `core/near_gap.py` | E |
 | Matière minimale entre usinages, au fond d'un perçage | 2 mm, 3 mm | `core/joints/_base.py` | — |
