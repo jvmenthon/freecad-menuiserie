@@ -6,7 +6,9 @@ Python pur : ni FreeCAD ni Qt. Le fichier est ``{"format": 1, "settings": {clé:
 ce module : l'appelant fournit le validateur de chacune. La lecture est stricte (taille bornée,
 JSON strict, valeurs bornées par le catalogue) ; un fichier invalide est refusé en entier par
 :class:`ExchangeError`, dont la raison codée (:class:`ExchangeReason`) est traduite par l'atelier.
-Une clé inconnue est ignorée et signalée dans :attr:`ImportResult.ignored`.
+Une clé inconnue est ignorée et signalée dans :attr:`ImportResult.ignored`. Les chemins
+(:attr:`Kind.PATH`) sont propres à une machine : ils ne sont pas exportés et sont ignorés à
+l'import.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Final
 
-from .catalog import REMEMBER_SUFFIX, Catalog, Reason, SettingError, Value
+from .catalog import REMEMBER_SUFFIX, Catalog, Kind, Reason, SettingError, Value
 from .folder import write_text_atomic
 from .store import Settings
 
@@ -99,6 +101,8 @@ def export_payload(
     des réglages qui le permettent, puis les ``sections`` données (déjà sérialisables)."""
     values: dict[str, Value] = {}
     for setting in catalog:
+        if setting.kind is Kind.PATH:
+            continue
         values[setting.key] = settings.value(setting.key)
         if setting.remember_last:
             values[setting.key + REMEMBER_SUFFIX] = settings.remembers_last(setting.key)
@@ -168,7 +172,7 @@ def _check_setting(catalog: Catalog, key: str, raw: object) -> Value | None:
             if not isinstance(raw, bool):
                 raise SettingError(key, Reason.WRONG_TYPE)
             return raw
-        if key in catalog:
+        if key in catalog and catalog.get(key).kind is not Kind.PATH:
             return catalog.get(key).check(raw)
     except SettingError as error:
         raise ExchangeError(ExchangeReason.INVALID_SETTING, key, error) from None

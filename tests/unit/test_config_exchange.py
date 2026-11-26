@@ -79,7 +79,8 @@ def test_export_contient_tous_les_reglages_et_les_cases() -> None:
     assert payload["format"] == 1
     values = payload["settings"]
     assert isinstance(values, dict)
-    assert {"Jeu", "Debouchant", "Nombre", "Profil", "Dossier"} <= set(values)
+    assert {"Jeu", "Debouchant", "Nombre", "Profil"} <= set(values)
+    assert "Dossier" not in values  # chemin propre à la machine
     assert values["JeuRememberLast"] is False
     assert "NombreRememberLast" not in values
 
@@ -146,7 +147,6 @@ def test_format_invalide(tmp_path: Path, version: str) -> None:
         ("Jeu", "2", Reason.WRONG_TYPE),
         ("Nombre", 2.5, Reason.WRONG_TYPE),
         ("Profil", "Autre", Reason.NOT_A_CHOICE),
-        ("Dossier", "relatif", Reason.NOT_ABSOLUTE),
         ("JeuRememberLast", "oui", Reason.WRONG_TYPE),
     ],
 )
@@ -218,3 +218,10 @@ def test_apply_ecrit_dans_le_stockage(tmp_path: Path) -> None:
     assert settings.value("Debouchant") is True
     assert settings.remembers_last("Jeu")
     assert store.values[("Float", "Jeu")] == 3.0
+
+
+def test_chemin_importe_est_ignore(tmp_path: Path) -> None:
+    path = _file(tmp_path, _document({"Dossier": "/ailleurs", "Jeu": 1.5}))
+    result = exchange.read_import(path, sample_catalog(), SECTIONS)
+    assert "Dossier" not in result.values
+    assert "Dossier" in result.ignored
