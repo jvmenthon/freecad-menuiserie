@@ -32,8 +32,10 @@ forment l'ensemble « Meuble » (J4) : l'arbre les range sous lui, et son pannea
 cotes, ce que fait chaque pièce quand une cote change et les distances aux bords du côté gauche.
 """
 
+import faulthandler
 import json
 import os
+import sys
 import tempfile
 import traceback
 from collections.abc import Iterator
@@ -43,6 +45,8 @@ from typing import Any
 
 import FreeCAD as App
 import FreeCADGui as Gui
+
+faulthandler.enable(sys.__stderr__ or sys.stderr)  # trace Python d'un plantage de FreeCAD
 
 QUADRILLE = "chene-quadrille"
 # (longueur, largeur, épaisseur, matériau, repère, position en mm) : un petit caisson.
@@ -119,7 +123,8 @@ def dessiner_quadrillage(chemin: Path) -> None:
 @contextmanager
 def bibliotheque_de_captures() -> Iterator[None]:
     """Bibliothèque utilisateur temporaire avec le chêne quadrillé ; rétablie à la fin."""
-    from freecad.menuiserie.features.library import USER_LIBRARY_PARAM, reload_library
+    from freecad.menuiserie.features.library import reload_library
+    from freecad.menuiserie.features.settings import USER_LIBRARY_PARAM
 
     parametres = App.ParamGet(PARAMETRES)
     precedent = parametres.GetString(USER_LIBRARY_PARAM, "")
@@ -383,6 +388,84 @@ def capturer_la_feuille_de_debit(dossier: Path, fenetre) -> None:
     fenetre.grab().save(str(dossier / "feuille-de-debit.png"))
 
 
+MAX_PLANS = 4  # plans de pièce capturés au plus
+LARGEUR_PLAN_PX = 2000
+
+
+def rendre_la_page(page: Any, chemin: Path) -> None:
+    """Page TechDraw exportée en SVG par TechDraw puis rendue en PNG par Qt, fond blanc."""
+    import TechDrawGui
+    from PySide import QtGui, QtSvg
+
+    with tempfile.TemporaryDirectory() as dossier:
+        svg = os.path.join(dossier, "page.svg")
+        TechDrawGui.exportPageAsSvg(page, svg)
+        rendu = QtSvg.QSvgRenderer(svg)
+        taille = rendu.defaultSize()
+        echelle = LARGEUR_PLAN_PX / max(taille.width(), 1)
+        image = QtGui.QImage(
+            int(taille.width() * echelle),
+            int(taille.height() * echelle),
+            QtGui.QImage.Format_ARGB32,
+        )
+        image.fill(QtGui.QColor("white"))
+        peintre = QtGui.QPainter(image)
+        rendu.render(peintre)
+        peintre.end()
+        image.save(str(chemin))
+
+
+ATTENTE_DES_VUES_MS = 3000  # calcul des lignes cachées (HLR) des vues, en tâche de fond
+
+
+def attendre_les_vues(doc: Any) -> None:
+    """Laisse TechDraw finir ses vues (calculées dans des fils à part dans l'interface), puis
+    recalcule le document pour que les cotes lisent la géométrie finie."""
+    from PySide import QtCore
+
+    for _ in range(2):
+        boucle = QtCore.QEventLoop()
+        QtCore.QTimer.singleShot(ATTENTE_DES_VUES_MS, boucle.quit)
+        boucle.exec()
+        doc.recompute()
+        Gui.updateGui()
+
+
+def capturer_les_plans(dossier: Path) -> None:
+    """Plan de l'ouvrage de tout le document de la scène et ses premiers plans de pièce
+    (``plan-ouvrage.png``, ``plan-piece-<n>.png``) : pour juger la lisibilité des pages."""
+    from freecad.menuiserie import api
+    from freecad.menuiserie.features.drawing import document_scope
+    from freecad.menuiserie.gui.drawing_hlr import HlrWait
+    from freecad.menuiserie.gui.drawing_pdf import show_page
+
+    doc = App.ActiveDocument
+    attente = api.DrawingOptions(settle=HlrWait(60.0))  # comme les commandes de l'atelier
+    pages = [
+        ("plan-ouvrage", api.make_overall_drawing(doc, document_scope(doc), attente)),
+        ("plan-eclate", api.make_exploded_drawing(doc, document_scope(doc))),
+    ]
+    pieces = api.make_part_drawings(doc, [], attente)[:MAX_PLANS]
+    pages += [(f"plan-piece-{rang}", page) for rang, page in enumerate(pieces, start=1)]
+    for nom, page in pages:
+        show_page(page)
+        attendre_les_vues(doc)
+        rendre_la_page(page, dossier / f"{nom}.png")
+    capturer_l_export_pdf(dossier, pages[0][1])
+
+
+def capturer_l_export_pdf(dossier: Path, page: Any) -> None:
+    """Panneau « Exporter en PDF » (maquette B), le plan de l'ouvrage sélectionné avant le clic
+    donc précoché (``panneau-export-pdf.png``)."""
+    from freecad.menuiserie.gui.task_panels.drawing_export import ExportPdfTaskPanel
+
+    panneau = ExportPdfTaskPanel(App.ActiveDocument, [page])
+    Gui.Control.showDialog(panneau)
+    volet = volet_des_taches(Gui.getMainWindow())
+    volet.grab().save(str(dossier / "panneau-export-pdf.png"))
+    panneau.reject()
+
+
 def volet_des_taches(fenetre):
     """Volet « Tasks », une fois affiché. FreeCAD 1.1 le place dans un panneau superposé à la
     vue 3D, qui glisse depuis le bord de la fenêtre : on laisse l'animation se terminer."""
@@ -422,6 +505,10 @@ def main() -> None:
         with bibliotheque_de_captures():
             construire()
             capturer(dossier)
+            try:  # avant « Fermer le caisson », qui ouvre son propre document
+                capturer_les_plans(dossier)
+            except Exception:  # les captures de l'interface restent utiles sans les plans
+                (dossier / "ERREUR-PLANS").write_text(traceback.format_exc(), encoding="utf-8")
             capturer_fermer_le_caisson(dossier)
             construire_gros_plan()
             capturer_gros_plan(dossier)

@@ -58,6 +58,7 @@ __all__ = [
 ]
 
 MODEL_VERSION: Final = 1
+SPACING_MODEL_VERSION: Final = 2  # MaxSpacing remplace Count (ADR 0070)
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Assemblage")
 P = TypeVar("P")
 
@@ -149,6 +150,8 @@ class JointFeature(StatelessProxy):
     OBJECT_NAME: ClassVar[str]  # nom interne des objets créés (ADR 0007 : ni « Joint » nu)
     LABEL: ClassVar[str]  # libellé par défaut, gabarit traduisible
     VERSION: ClassVar[int] = MODEL_VERSION
+    # Propriétés d'anciens fichiers que le type n'a plus : supprimées à la réouverture.
+    OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ()
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = ()
     PARAMS: ClassVar[type]  # objet valeur des paramètres de ``core`` (``MortiseTenonParams``…)
     # Valeurs effectives affichées par le panneau (J3e) hors des champs : gabarit traduisible
@@ -224,9 +227,18 @@ class JointFeature(StatelessProxy):
             assigned.remember(plan.inserts, obj.Shape)
         obj.Placement = obj.HostPart.Placement
 
+    def _remove_obsolete(self, obj: DocumentObject) -> None:
+        """Propriétés retirées du modèle (ex. ``Count``, ADR 0070) : effacées seulement d'un objet
+        d'une version antérieure et si leur type est un entier, jamais celles d'un autre addon."""
+        props = obj.PropertiesList
+        for name in self.OBSOLETE_PROPERTIES if schema.is_older(obj, self.VERSION) else ():
+            if name in props and obj.getTypeIdOfProperty(name).startswith("App::PropertyInteger"):
+                obj.removeProperty(name)
+
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         migrate_links(obj, COMMON_PROPERTIES[:2])  # ADR 0054
+        self._remove_obsolete(obj)
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN, self.choices())
         for name, choices in self.choices().items():
             if name in obj.PropertiesList and obj.getEnumerationsOfProperty(name) != choices:

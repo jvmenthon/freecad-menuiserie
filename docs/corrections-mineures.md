@@ -213,3 +213,32 @@ de répétitions m5) sont corrigés.
 | al2 | mineur | `gui/task_panels/align_layout.py` (`_ANCHORS`, `"parallel"`) | Les chaînes `start` / `center` / `end` / `parallel` sont répétées dans la GUI et dans `features/part_align.py` sans test qui fixe le contrat. | Importer des constantes publiques (`Anchor.value`, une clé `PARALLEL_KEY`) ou ajouter un test de cohérence. |
 | al3 | mineur | `gui/task_panels/align_layout.py` (`_COLORS`) | Couleurs des axes répétées en littéraux (aussi dans les outils d'icônes). | Une constante partagée si un 3e usage apparaît. |
 | al4 | mineur | `features/part_align.py` (`_shown`), `align_layout.py` (`_refresh`), `align.py` | `_shown` après la classe avec une fonction imbriquée ; `axis not in self._across` sur une chaîne ; `with self._guard` redondant autour des réglages de la grille. | Remonter `_shown`, utiliser un `frozenset`, retirer la garde redondante. |
+
+## Plans cotés, retour du 23/11 (PR #247), 2026-11-24
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| pc1 | mineur | `features/drawing_parts.py` (`_linked_blanks`) | Dans une boucle de liens (document piégé), la mémoire partielle posée pendant le parcours fait compter trop peu de pièces aux liens visités en cours de boucle. | Ne mémoriser qu'en fin de parcours, ou refuser la boucle par un message. |
+| pc2 | mineur | `gui/task_panels/part_drawings.py` (`PartDrawingsTaskPanel`) | Aucun test QTest du panneau : sélection synchronisée, ordre des `later`, retrait de l'observateur à la fermeture du document. | Ajouter un test QTest (ADR 0059) quand la PR sera fusionnée. |
+| pc3 | mineur | `gui/task_panels/part_drawings.py` (`_changed`) | Le nombre de plans relit les usinages des pièces cochées sur le fil de l'interface (une fois par rafale de cases grâce à l'anti-rebond) ; un très gros ouvrage peut ralentir le panneau. | Compter d'abord les pièces sans usinages, ou différer le calcul si un ralentissement est constaté. |
+| pc4 | mineur | `gui/task_panels/drawing_export.py` (`accept`) | Les plans créés avant l'export (ouvrage, vue éclatée, pièces) ont chacun leur transaction : si l'export échoue ensuite, ils restent et s'annulent en plusieurs Ctrl+Z. | Une transaction englobante quand l'api acceptera une transaction déjà ouverte. |
+
+## Dissocier la répétition (PR #260, ADR 0067), 2026-11-24
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| dr1 | mineur | `core/repeat/_model.py` (`copy_name`) | Une source déjà nommée « Montant (2) » donne des copies « Montant (2) (2) ». | Retirer le suffixe « (n) » de la source avant de numéroter, si jv le souhaite. |
+| dr2 | mineur | `core/repeat/_model.py` (`is_copy_name`) | Un nom « Barreau 3 » saisi à la main sur la copie de rang 2 est pris pour l'ancien nom automatique et renommé « Barreau (n) » quand le rang change. | Accepté (ancien format) ; à revoir si un document le montre. |
+| dr3 | mineur | `gui/commands/repeat.py`, `gui/structure_actions.py` | Après Ctrl+Z, les copies restent « Touched » jusqu'au recalcul suivant (comportement de FreeCAD). | Recalculer après l'annulation si cela gêne. |
+| dr4 | mineur | `features/repeat_copies.py` (`_bind_furnitures`), `features/furniture_variants.py` | Le choix des notices montrées selon l'opération (copie : sans DRAWN_SIZE ; redimensionnement) est écrit à deux endroits. | Un prédicat ou une constante nommée dans `core/furniture`, partagé par les deux appelants. |
+
+## Configuration de l'atelier, lots CA-a et CA-b (PR #280, ADR 0069), 2026-11-25
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| ca3 | mineur | `kit/config/catalog.py` (`Kind`, `Reason`, `Catalog`) | `(str, Enum)` au lieu de `StrEnum` (Python ≥ 3.11 seulement, le projet vise 3.10) ; nom `Catalog` partagé avec `core.hardware.Catalog`. `Value` annoté `TypeAlias` et `Settings.setting` retiré (CA-b). | `StrEnum` quand le minimum passe à 3.11 ; renommer en `SettingsCatalog`. |
+| ca6 | mineur | `kit/config/page.py`, `features/new_part_settings.py` | Page Qt, inscription `Gui.addPreferencePage` et arête cassée d'une pièce en bois (formes courbes refusées, avertissement) vérifiées hors FreeCAD seulement par la page isolée : pas de scénario dans le vrai FreeCAD qui ouvre Édition > Préférences ni crée une pièce avec l'arête cassée. | Scénario QTest : ouvrir la boîte de préférences, régler, valider, créer une pièce. |
+| ca8 | mineur | `gui/task_panels/base.py` | 461 lignes (> 400, déjà 460 avant le lot). | Découper dans un lot de refactoring. |
+| ca9 | mineur | `_api/wood.py` | La pièce est recalculée deux fois à la création quand l'arête cassée est posée. | Poser l'arête avant le recalcul de création. |
+| ca10 | mineur | `kit/config/page.py`, maquette B | Cotes et surcotes sur une ligne à trois champs non faites (une ligne par réglage). | Une ligne composite dans le kit. |
+| ca11 | mineur | `features/settings.py` | 400 lignes (limite atteinte). | Scinder au prochain réglage ajouté (catalogue des assemblages). |

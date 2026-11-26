@@ -21,7 +21,7 @@ from typing import Any
 import FreeCAD as App
 from PySide import QtGui
 
-from freecad.menuiserie.features import library
+from freecad.menuiserie.features import library, settings
 from tests.gui.verifications_panneau import (
     ecarts,
     formulaire,
@@ -114,13 +114,13 @@ def ecritures(obj: Any) -> Iterator[list[str]]:
 def bibliotheque(fichier_integre: Path | None, *materiaux: dict[str, object]) -> Iterator[Path]:
     """Bibliothèque de la session remplacée le temps du bloc : fichier utilisateur temporaire
     (``materiaux``) et, si ``fichier_integre`` est donné, bibliothèque intégrée déplacée."""
-    parametres = App.ParamGet(library.PARAM_PATH)
-    precedent = parametres.GetString(library.USER_LIBRARY_PARAM, "")
+    parametres = App.ParamGet(settings.PARAM_PATH)
+    precedent = parametres.GetString(settings.USER_LIBRARY_PARAM, "")
     integree = library.builtin_library_path
     utilisateur = Path(tempfile.mkdtemp()) / "materiaux.json"
     contenu = {"format": 1, "materials": list(materiaux)}
     utilisateur.write_text(json.dumps(contenu, ensure_ascii=False), encoding="utf-8")
-    parametres.SetString(library.USER_LIBRARY_PARAM, str(utilisateur))
+    parametres.SetString(settings.USER_LIBRARY_PARAM, str(utilisateur))
     if fichier_integre is not None:
         library.builtin_library_path = lambda: fichier_integre
     try:
@@ -129,9 +129,9 @@ def bibliotheque(fichier_integre: Path | None, *materiaux: dict[str, object]) ->
     finally:
         library.builtin_library_path = integree
         if precedent:
-            parametres.SetString(library.USER_LIBRARY_PARAM, precedent)
+            parametres.SetString(settings.USER_LIBRARY_PARAM, precedent)
         else:
-            parametres.RemString(library.USER_LIBRARY_PARAM)
+            parametres.RemString(settings.USER_LIBRARY_PARAM)
         library.reload_library()
 
 

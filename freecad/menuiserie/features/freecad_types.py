@@ -17,6 +17,8 @@ from typing import Any, Final
 __all__ = [
     "EDITABLE",
     "HIDDEN",
+    "LINK_TYPE",
+    "LINK_TYPES",
     "READ_ONLY",
     "Document",
     "DocumentObject",
@@ -36,6 +38,8 @@ Document = Any
 EDITABLE: Final = 0
 READ_ONLY: Final = 1
 HIDDEN: Final = 2
+LINK_TYPE: Final = "App::Link"  # lien simple ou tableau de liens
+LINK_TYPES: Final = (LINK_TYPE, "App::LinkElement", "App::LinkGroup")  # toutes sortes de liens
 
 
 def proxy_is(obj: object, proxy_class: type) -> bool:

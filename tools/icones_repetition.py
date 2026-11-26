@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Dessins des icônes de la répétition (ADR 0043) : commandes « Répéter », « Modifier la
-répétition », « Dissocier la copie » et objet Répétition de l'arbre. Reliés à leur fichier par
+répétition », « Dissocier la répétition » et objet Répétition de l'arbre. Reliés à leur fichier par
 :data:`ICONES` dans ``tools/generer_icones.py`` (même moteur ``tools/icones_svg.py``)."""
 
 from __future__ import annotations
@@ -14,11 +14,10 @@ PAS = 24.0
 CADRE = (2, 50, 2, 50)  # place laissée à la pastille en bas à droite
 
 
-def _tasseaux(ic: Icone, copies: int = 2, ecart: float = 0.0) -> None:
-    """Un tasseau debout et ``copies`` copies à ``PAS`` ; la dernière écartée de ``ecart``."""
+def _tasseaux(ic: Icone, copies: int = 2) -> None:
+    """Un tasseau debout et ``copies`` copies à ``PAS``."""
     for rang in range(copies, -1, -1):
-        x = rang * PAS + (ecart if rang == copies else 0.0)
-        ic.boite((x, 0, 0), (10, 22, 40), "chene", opacite=1.0 if rang == 0 else 0.55)
+        ic.boite((rang * PAS, 0, 0), (10, 22, 40), "chene", opacite=1.0 if rang == 0 else 0.55)
 
 
 def repeter() -> str:
@@ -35,11 +34,16 @@ def modifier_la_repetition() -> str:
     return ic.svg(cadre=CADRE, devant=crayon)
 
 
-def dissocier_la_copie() -> str:
-    ic = Icone("Dissocier la copie : la dernière copie s'écarte, pastille de lien rompu")
-    _tasseaux(ic, ecart=8.0)
-    rompu = pastille("#ef2929", "#a40000", "M43,43 L55,55 M55,43 L43,55")
-    return ic.svg(cadre=CADRE, devant=rompu)
+def dissocier_la_repetition() -> str:
+    ic = Icone("Dissocier la répétition : un tasseau, ses copies et un maillon coupé")
+    _tasseaux(ic)
+    # Deux demi-maillons (arcs de rayon 4) face à face, ouverts de 6 px au centre (49, 49).
+    maillon = "M46,45 h-3 a4,4 0 0 0 0,8 h3 M52,45 h3 a4,4 0 0 1 0,8 h-3"
+    coupe = (  # deux petits traits dans l'ouverture : la coupure
+        '\n  <path d="M49,40.5 v2.5 M49,55 v2.5" fill="none" stroke="#ffffff" '
+        'stroke-width="2" stroke-linecap="round"/>'
+    )
+    return ic.svg(cadre=CADRE, devant=pastille("#ef2929", "#a40000", maillon, 3) + coupe)
 
 
 def repetition() -> str:

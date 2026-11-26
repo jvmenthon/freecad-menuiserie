@@ -41,6 +41,7 @@ from tests.gui.verifications_chants_natifs import VERIFICATIONS_CHANTS_NATIFS
 from tests.gui.verifications_chants_pieces import VERIFICATIONS_CHANTS_PIECES
 from tests.gui.verifications_coplanarite import VERIFICATIONS_COPLANARITE
 from tests.gui.verifications_debit import VERIFICATIONS_DEBIT
+from tests.gui.verifications_dissocier_confirmation import VERIFICATIONS_DISSOCIER_CONFIRMATION
 from tests.gui.verifications_distance import VERIFICATIONS_DISTANCE
 from tests.gui.verifications_distance_gardee import VERIFICATIONS_DISTANCE_GARDEE
 from tests.gui.verifications_double_clic import VERIFICATIONS_DOUBLE_CLIC
@@ -69,6 +70,7 @@ from tests.gui.verifications_piece_en_bois import VERIFICATIONS_PIECE_EN_BOIS
 from tests.gui.verifications_piece_en_bois_ensemble import VERIFICATIONS_PIECE_EN_BOIS_ENSEMBLE
 from tests.gui.verifications_piece_en_bois_limites import VERIFICATIONS_PIECE_EN_BOIS_LIMITES
 from tests.gui.verifications_pieces_proches import VERIFICATIONS_PIECES_PROCHES
+from tests.gui.verifications_plan import VERIFICATIONS_PLAN
 from tests.gui.verifications_queue_aronde import VERIFICATIONS_QUEUE_ARONDE
 from tests.gui.verifications_repetition import VERIFICATIONS_REPETITION
 from tests.gui.verifications_repetition_butee import VERIFICATIONS_REPETITION_BUTEE
@@ -282,11 +284,8 @@ def bibliotheque(*materiaux: dict[str, object], nom_du_dossier: str = "") -> Ite
     """Bibliothèque utilisateur temporaire (``UserLibraryPath``), dans le sous-dossier
     ``nom_du_dossier`` d'un dossier temporaire s'il est donné ; renvoie son fichier, dont le
     dossier accueille les images. Paramètre et bibliothèque sont restaurés à la fin."""
-    from freecad.menuiserie.features.library import (
-        PARAM_PATH,
-        USER_LIBRARY_PARAM,
-        reload_library,
-    )
+    from freecad.menuiserie.features.library import reload_library
+    from freecad.menuiserie.features.settings import PARAM_PATH, USER_LIBRARY_PARAM
 
     parametres = App.ParamGet(PARAM_PATH)
     precedent = parametres.GetString(USER_LIBRARY_PARAM, "")
@@ -997,11 +996,8 @@ def verifier_texture_confinement() -> list[str]:
     avertissement) ; un lien interne et une bibliothèque lue par un lien vers son dossier sont
     acceptés."""
     from freecad.menuiserie.api import make_wood_part
-    from freecad.menuiserie.features.library import (
-        PARAM_PATH,
-        USER_LIBRARY_PARAM,
-        reload_library,
-    )
+    from freecad.menuiserie.features.library import reload_library
+    from freecad.menuiserie.features.settings import PARAM_PATH, USER_LIBRARY_PARAM
 
     avertissements = avertissements_de_test()
     materiaux = (
@@ -1300,12 +1296,14 @@ VERIFICATIONS: tuple[Callable[[], list[str]], ...] = (
     *VERIFICATIONS_CHANTS_NATIFS,
     # Liste de débit (J2d)
     *VERIFICATIONS_DEBIT,
+    *VERIFICATIONS_PLAN,
     *VERIFICATIONS_DOUBLE_CLIC,
     # Panneau « Structure » (ADR 0046, lot 2)
     *VERIFICATIONS_STRUCTURE,
     *VERIFICATIONS_STRUCTURE_LOT3,
     *VERIFICATIONS_STRUCTURE_LOT4,
     *VERIFICATIONS_STRUCTURE_REPETITION,
+    *VERIFICATIONS_DISSOCIER_CONFIRMATION,
     *VERIFICATIONS_STRUCTURE_SELECTION,
     *VERIFICATIONS_STRUCTURE_DEUX_CALQUES,
     *VERIFICATIONS_STRUCTURE_TACHE,

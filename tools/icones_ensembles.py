@@ -23,11 +23,11 @@ def _bureau(ic: Icone) -> None:
     ic.veinage((2, 62), (22, 43), "chene", amplitude=0.7, phase=0.5)
 
 
-def pastille(couleur: str, bord: str, motif: str) -> str:
-    """Pastille ronde en bas à droite, motif blanc (chemin SVG) par-dessus."""
+def pastille(couleur: str, bord: str, motif: str, epaisseur: float = 4) -> str:
+    """Pastille ronde en bas à droite, motif blanc (chemin SVG, trait ``epaisseur``) par-dessus."""
     return (
         f'  <circle cx="49" cy="49" r="13" fill="{couleur}" stroke="{bord}" stroke-width="2"/>\n'
-        f'  <path d="{motif}" fill="none" stroke="#ffffff" stroke-width="4" '
+        f'  <path d="{motif}" fill="none" stroke="#ffffff" stroke-width="{epaisseur:g}" '
         'stroke-linecap="round" stroke-linejoin="round"/>'
     )
 

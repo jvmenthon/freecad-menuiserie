@@ -362,6 +362,7 @@ def _finished(built: templates.Built, document: Document) -> tuple[DocumentObjec
     """ViewProviders des objets créés par un gabarit (pièces, pièces usinées, assemblages,
     ensemble) en interface, document recalculé, avertissements traduits."""
     if App.GuiUp:
+        from freecad.menuiserie.gui.view_providers.edge_profile import ViewProviderEdgeProfile
         from freecad.menuiserie.gui.view_providers.furniture import ViewProviderFurniture
         from freecad.menuiserie.gui.view_providers.joint import ViewProviderJoint
         from freecad.menuiserie.gui.view_providers.machined_part import ViewProviderMachinedPart
@@ -370,6 +371,7 @@ def _finished(built: templates.Built, document: Document) -> tuple[DocumentObjec
         for group, provider in (
             (built.parts, ViewProviderWoodPart),
             (built.machined, ViewProviderMachinedPart),
+            (built.profiles, ViewProviderEdgeProfile),
             (built.joints, ViewProviderJoint),
             ((built.furniture,), ViewProviderFurniture),
         ):

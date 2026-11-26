@@ -173,6 +173,16 @@ def restored_version(obj: DocumentObject, current: int, noun: str) -> int:
     return version
 
 
+def is_older(obj: DocumentObject, current: int) -> bool:
+    """Objet d'une version antérieure à ``current`` (``Version`` absente comprise), sans
+    avertissement ni modification ; une ``Version`` d'un autre type n'est jamais antérieure."""
+    if "Version" not in obj.PropertiesList:
+        return True
+    return bool(
+        obj.getTypeIdOfProperty("Version") == "App::PropertyInteger" and obj.Version < current
+    )
+
+
 def restore_schema(
     obj: DocumentObject,
     specs: tuple[PropertySpec, ...],

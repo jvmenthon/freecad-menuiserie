@@ -12,5 +12,5 @@ from typing import Final
 COMMANDES_REPETITION: Final = {
     "Menuiserie_Repeat": ("Répéter", "Répéter"),
     "Menuiserie_RepeatEdit": ("Modifier la répétition", "Modifier la répétition"),
-    "Menuiserie_RepeatDissociate": ("Dissocier la copie", "Dissocier la copie"),
+    "Menuiserie_RepeatDissociate": ("Dissocier la répétition", "Dissocier la répétition"),
 }

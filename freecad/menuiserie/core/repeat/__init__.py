@@ -42,6 +42,8 @@ from freecad.menuiserie.core.repeat._model import (
     RepeatMode,
     RepeatParams,
     SpacingMode,
+    copy_name,
+    is_copy_name,
 )
 from freecad.menuiserie.core.repeat._stop import (
     StopKind,
@@ -70,9 +72,11 @@ __all__ = [
     "axis_index",
     "cell_offsets",
     "cells_of",
+    "copy_name",
     "farthest_axis",
     "grid_overlaps",
     "grid_text",
+    "is_copy_name",
     "offsets",
     "overlapping_axes",
     "overlaps",
