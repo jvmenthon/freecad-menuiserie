@@ -19,6 +19,7 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.magnet import THICKNESS_AXIS
 from freecad.menuiserie.core.near_gap import NearGap, near_gap
 from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -30,6 +31,7 @@ from freecad.menuiserie.features.part_drag import (
     drag_limits,
     end_drag,
     move_part,
+    panel_steps,
     resize_part,
 )
 from freecad.menuiserie.features.thickness_common import SIZE_PROPS
@@ -77,7 +79,10 @@ def _can_move(reference: DocumentObject, piece: DocumentObject, gap: NearGap) ->
 
 
 def _can_grow(piece: DocumentObject, gap: NearGap) -> bool:
-    return gap.b_axis in drag_limits(piece).resizable_axes
+    if gap.b_axis not in drag_limits(piece).resizable_axes:
+        return False
+    # épaisseur d'un panneau : par crans standard, l'écart ne serait pas comblé exactement
+    return gap.b_axis != THICKNESS_AXIS or not panel_steps(piece)
 
 
 def _pieces(

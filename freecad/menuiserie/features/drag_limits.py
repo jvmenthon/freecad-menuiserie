@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Limites d'un glissement à la souris (B4, B5, B6 bis) : axes qu'une formule de l'utilisateur
-fige, cotes qu'une poignée peut tirer. Sorties de ``part_drag`` (taille du module), qui les
-réexporte. Aucun import de ``FreeCADGui``."""
+fige, cotes qu'une poignée peut tirer, crans d'épaisseur d'un panneau. Sorties de
+``part_drag`` (taille du module), qui les réexporte. Aucun import de ``FreeCADGui``."""
 
 from __future__ import annotations
 
@@ -12,15 +12,18 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE
 from freecad.menuiserie.core.magnet import THICKNESS_AXIS
+from freecad.menuiserie.core.thickness_steps import thickness_steps
+from freecad.menuiserie.features import user_dimensions
 from freecad.menuiserie.features.distance import AXES, distances_touching
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
 from freecad.menuiserie.features.furniture_bindings import workshop_expressions
+from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.shaped_part import is_shaped_part
 from freecad.menuiserie.features.snap_geometry import to_vec3
 from freecad.menuiserie.features.thickness_common import SIZE_PROPS
 from freecad.menuiserie.features.wood_part_schema import part_kind
 
-__all__ = ["PLACEMENT_BASE", "DragLimits", "can_resize", "drag_limits"]
+__all__ = ["PLACEMENT_BASE", "DragLimits", "can_resize", "drag_limits", "panel_steps"]
 
 PLACEMENT_BASE: Final = ("Placement.Base.x", "Placement.Base.y", "Placement.Base.z")
 _WHOLE_PLACEMENT: Final = ("Placement", "Placement.Base")
@@ -32,8 +35,9 @@ class DragLimits:
 
     ``fixed_axes`` : axes de la pièce (0 = X, 1 = Y, 2 = Z) dont une formule **de
     l'utilisateur** pilote la position (aucune flèche) ; ``resizable_axes`` : axes dont une
-    poignée est permise (l'axe 2, l'épaisseur, seulement pour le massif), vide si la pièce est
-    verrouillée ou si ses cotes ne se tirent pas (:func:`can_resize`)."""
+    poignée est permise (l'axe 2, l'épaisseur : massif, ou panneau qui a des épaisseurs
+    standard, par crans, :func:`panel_steps`), vide si la pièce est verrouillée ou si ses cotes
+    ne se tirent pas (:func:`can_resize`)."""
 
     fixed_axes: frozenset[int] = frozenset()
     resizable_axes: frozenset[int] = frozenset()
@@ -47,11 +51,32 @@ def can_resize(part: DocumentObject) -> bool:
 
 
 def _solid(part: DocumentObject) -> bool:
-    """Vrai si la brute ``part`` est du massif : seule son épaisseur se tire (Q4). Un panneau
-    (contreplaqué, MDF, mélaminé) garde l'épaisseur de la bibliothèque."""
+    """Vrai si la brute ``part`` est du massif : son épaisseur se tire librement (Q4). Celle d'un
+    panneau (contreplaqué, MDF, mélaminé) va par crans (:func:`panel_steps`)."""
     # is_panel est une propriété : la règle Semgrep la prend à tort pour une méthode non appelée.
     # nosemgrep: python.lang.maintainability.is-function-without-parentheses
     return not part_kind(part, None).is_panel
+
+
+def panel_steps(part: DocumentObject) -> tuple[float, ...]:
+    """Crans (mm, croissants) de l'épaisseur tirée à la souris de la brute ``part`` : épaisseurs
+    standard de son matériau et épaisseurs personnelles (ADR 0028), si c'est un panneau ; vide
+    pour le massif (épaisseur libre) ou un panneau sans aucune épaisseur standard (jv,
+    2026-11-26, ADR 0021 point 1 modifié)."""
+    if _solid(part):
+        return ()
+    return thickness_steps((*_standard(part), *user_dimensions.read_dimensions().thicknesses))
+
+
+def _standard(part: DocumentObject) -> tuple[float, ...]:
+    material = get_library().find(str(getattr(part, "MaterialId", "")))
+    return material.thicknesses if material is not None else ()
+
+
+def _stepped(part: DocumentObject) -> bool:
+    """Vrai si le panneau ``part`` a des crans ; le fichier personnel n'est lu que si son
+    matériau n'a aucune épaisseur standard (appelé à chaque pas de la souris)."""
+    return bool(_standard(part)) or bool(panel_steps(part))
 
 
 def _user_expressions(part: DocumentObject) -> set[str]:
@@ -92,6 +117,6 @@ def drag_limits(part: DocumentObject) -> DragLimits:
     if not can_resize(part):
         return DragLimits(fixed, frozenset())
     sizes = frozenset(i for i, prop in enumerate(SIZE_PROPS) if prop not in user)
-    if not _solid(part):
+    if not _solid(part) and not _stepped(part):
         sizes -= {THICKNESS_AXIS}
     return DragLimits(fixed, sizes - fixed)

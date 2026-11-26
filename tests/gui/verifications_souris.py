@@ -235,11 +235,12 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
     choisir(form.materialCombo, "mdf")
     session.sync()
     problemes += [
-        *ecarts("panneau MDF : quatre poignées", len(session.layout.handles), 4),
+        # épaisseur d'un panneau par crans standard (jv, 2026-11-26, ADR 0021)
+        *ecarts("panneau MDF : six poignées", len(session.layout.handles), 6),
         *ecarts(
-            "panneau MDF : aucune poignée d'épaisseur",
-            [h for h, _ in session.layout.handles if h.axis == 2],
-            [],
+            "panneau MDF : poignées d'épaisseur",
+            sorted((h.axis, h.at_end) for h, _ in session.layout.handles if h.axis == 2),
+            [(2, False), (2, True)],
         ),
     ]
     choisir(form.materialCombo, "hetre")
@@ -256,8 +257,8 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
 
 
 def verifier_souris_poignees_du_panneau() -> list[str]:
-    """C1 : panneau de la pièce ouvert, flèches et poignées (six pour le massif, quatre pour un
-    panneau de MDF) ; fermé, poignées enlevées."""
+    """C1 : panneau de la pièce ouvert, flèches et six poignées (massif, et panneau de MDF dont
+    l'épaisseur va par crans depuis le 2026-11-26) ; fermé, poignées enlevées."""
     return avec_document("VerifSourisPoignees", _poignees_du_panneau)
 
 

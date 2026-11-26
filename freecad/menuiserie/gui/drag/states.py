@@ -59,6 +59,7 @@ from freecad.menuiserie.gui.drag.view import Point
 if TYPE_CHECKING:
     from freecad.menuiserie.gui.drag.session import DragSession
 
+_SAME_SIZE_MM: Final = 1e-6
 _ALIGNED_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
 _ABORTED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Glissement annulé, la pièce est rendue : erreur inattendue ({error})."
@@ -338,7 +339,9 @@ class Resizing(Dragging):
         step = self.target.resize(self.memento, pending.handle, pending.result)
         if self.target.shows_size:
             self.note = _size_note(step, pending.anchor)
-        session.written([] if step.message else pending.hit, self.frame)
+        # cote mise au cran (épaisseur d'un panneau) : le guide visé n'est plus atteint
+        moved = abs(step.size - pending.result.size) > _SAME_SIZE_MM
+        session.written([] if step.message or moved else pending.hit, self.frame)
 
 
 def _size_note(step: Step, anchor: Vec3) -> Label:

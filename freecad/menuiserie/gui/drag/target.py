@@ -34,6 +34,7 @@ from freecad.menuiserie.features.part_drag import (
     move_part,
     resize_part,
     restore,
+    stepped_size,
 )
 from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
 from freecad.menuiserie.features.thickness_common import SIZE_PROPS
@@ -192,7 +193,8 @@ class PartTarget(Target):
         stop = resize_part(part, prop, result.size, result.origin_shift, lowered=not handle.at_end)
         if stop:  # butée : l'épaisseur reste celle du début (ADR 0060)
             return Step(part.thickness, stop)
-        return Step(result.size, note=part.follows.note())
+        # panneau : épaisseur au cran standard le plus proche (jv, 2026-11-26)
+        return Step(stepped_size(part, prop, result.size), note=part.follows.note())
 
     def rotate(self, memento: Memento, axis: int, angle: float) -> bool:
         return rotate_by(_part(memento), axis, angle)

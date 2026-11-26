@@ -36,6 +36,21 @@ def test_pieces_proches_proposent_deplacer_et_agrandir(document: Any) -> None:
     assert closing.options == {"move": upper.Label, "grow": upper.Label}
 
 
+def test_panneaux_superposes_sans_agrandir_l_epaisseur(document: Any) -> None:
+    """Panneaux (MDF) : l'épaisseur tirée va par crans standard (jv, 2026-11-26), elle ne
+    comblerait pas l'écart exactement ; seul « déplacer » est proposé."""
+    lower = api.make_wood_part(400, 60, 19, "mdf", mark="A", doc=document)
+    upper = api.make_wood_part(400, 60, 19, "mdf", mark="B", doc=document)
+    upper.Placement = App.Placement(App.Vector(0, 0, 19 + GAP), App.Rotation())
+    document.recompute()
+    closing = api.closing_options(lower, upper)
+    assert closing is not None
+    assert closing.options == {"move": upper.Label}
+    with pytest.raises(ValueError):
+        api.close_gap(lower, upper, "grow")
+    assert upper.Thickness.Value == 19.0
+
+
 @pytest.mark.parametrize("gap", [0.0, 50.0])
 def test_rien_a_proposer_au_contact_ou_trop_loin(document: Any, gap: float) -> None:
     lower, upper = stack(document, gap)

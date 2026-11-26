@@ -8,8 +8,9 @@ glissement, seules les propriétés de la **brute** sont écrites (``Placement``
 s'accumule. Pour un membre d'ensemble, les liaisons **de l'atelier** sur ces propriétés sont
 mises de côté au début ; au relâchement tout l'ensemble est relié (ADR 0019, point 6). Une
 formule de l'utilisateur n'est jamais retirée : elle rend l'axe non glissable
-(:class:`DragLimits`). L'épaisseur ne se tire que sur le massif (Q4, amendée le 2026-10-26) ; pour
-un membre d'ensemble elle est traitée comme une épaisseur saisie dans le panneau
+(:class:`DragLimits`). L'épaisseur du massif se tire librement (Q4, amendée le 2026-10-26), celle
+d'un panneau par crans d'épaisseur standard (:func:`stepped_size`, 2026-11-26) ; pour un membre
+d'ensemble elle est traitée comme une épaisseur saisie dans le panneau
 (:func:`_relink_thickness`). Aucun import de ``FreeCADGui`` ; la transaction et la vue rapport
 sont l'affaire de ``gui/``.
 
@@ -32,6 +33,7 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.thickness_steps import snap_thickness
 from freecad.menuiserie.features.blank_preview import preview_blanks, recompute_blank
 from freecad.menuiserie.features.distance import distances_touching
 from freecad.menuiserie.features.drag_joints import (
@@ -46,6 +48,7 @@ from freecad.menuiserie.features.drag_limits import (
     DragLimits,
     can_resize,
     drag_limits,
+    panel_steps,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, writing
@@ -80,10 +83,12 @@ __all__ = [
     "drag_limits",
     "end_drag",
     "move_part",
+    "panel_steps",
     "raw_part",
     "recompute_blank",
     "resize_part",
     "restore",
+    "stepped_size",
     "write_placement",
 ]
 
@@ -116,6 +121,8 @@ class DragMemento:
     # Membre assemblé : liaisons de son ensemble mises de côté à la première épaisseur tirée
     # (une au plus ; liste car le mémento est figé)
     freedom: list[MemberFreedom] = field(default_factory=list)
+    # Panneau : crans de l'épaisseur tirée (épaisseurs standard, lues une fois au début)
+    steps: tuple[float, ...] = ()
 
 
 def raw_part(obj: DocumentObject) -> DocumentObject:
@@ -147,6 +154,7 @@ def begin_drag(part: DocumentObject) -> DragMemento:
         recorded,
         invalid_joints(raw),
         {d.Name: d.Value.Value for d in distances_touching(raw.Document, {raw.Name})},
+        steps=panel_steps(raw),
     )
 
 
@@ -206,6 +214,25 @@ def _resize_thickness(memento: DragMemento, value: float, shift: Vec3, lowered: 
     return stop
 
 
+def stepped_size(memento: DragMemento, prop: str, value: float) -> float:
+    """Cote (mm) que :func:`resize_part` écrit pour ``value`` : l'épaisseur d'un panneau saute à
+    l'épaisseur standard la plus proche, entre la plus petite et la plus grande (jv,
+    2026-11-26) ; toute autre cote est écrite telle quelle."""
+    if prop != "Thickness" or not memento.steps:
+        return value
+    return snap_thickness(value, memento.steps)
+
+
+def _on_step(memento: DragMemento, value: float, shift: Vec3, lowered: bool) -> tuple[float, Vec3]:
+    """Épaisseur ``value`` mise au cran et décalage de l'origine qui garde l'autre face en place
+    (poignée de début : l'origine recule de ce que l'épaisseur gagne)."""
+    snapped = stepped_size(memento, "Thickness", value)
+    if snapped == value:
+        return value, shift
+    z = memento.thickness - snapped if lowered else 0.0
+    return snapped, Vec3(shift.x, shift.y, z)
+
+
 def resize_part(
     memento: DragMemento, prop: str, value: float, origin_shift: Vec3, *, lowered: bool = False
 ) -> str:
@@ -218,6 +245,7 @@ def resize_part(
     if prop not in SIZE_PROPS or SIZE_PROPS.index(prop) not in allowed:
         raise ValueError(translated(_FIXED_SIZE, {"label": str(memento.part.Label)}))
     if prop == "Thickness":
+        value, origin_shift = _on_step(memento, value, origin_shift, lowered)
         stop = _resize_thickness(memento, value, origin_shift, lowered)
     else:
         stop = ""

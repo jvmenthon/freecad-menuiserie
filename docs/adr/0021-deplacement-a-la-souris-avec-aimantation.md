@@ -126,6 +126,22 @@ du dessus ou du dessous tirée n'est pas forcément celle qui bouge à l'arrivé
 membre d'ensemble est refaite par ses liaisons (une épaisseur saisie dans le panneau fait de
 même). Le statut reste **accepté**.
 
+## Note (2026-11-26, décision de jv : épaisseur d'un panneau par crans)
+
+jv : « l'épaisseur d'un panneau peut être changée, la taille va sauter automatiquement jusqu'à la
+prochaine épaisseur standard. Il n'est pas possible de faire plus petit que la plus petite taille
+ou plus grand que la plus grande taille. Cela concerne uniquement la vue 3D. » La note du
+2026-10-26 est amendée : un **panneau** reçoit aussi ses deux poignées d'épaisseur, mais
+l'épaisseur tirée saute à l'**épaisseur standard la plus proche** (à égale distance, celle du
+dessous), bornée par la plus petite et la plus grande. Les crans sont les épaisseurs standard du
+matériau et les épaisseurs personnelles (ADR 0028), lus une fois au début du geste
+(`panel_steps`, module pur `core/thickness_steps`). Un panneau sans aucune épaisseur standard
+garde quatre poignées. La face opposée à la poignée reste en place ; les pièces à fleur suivent
+comme pour le massif (ADR 0060). Le panneau de tâche n'est pas concerné : une épaisseur saisie
+au clavier reste libre, avec l'avertissement « hors standard ». « Agrandir jusqu'au contact »
+(ADR 0039) n'agrandit pas l'épaisseur d'un panneau : un cran ne comblerait pas l'écart
+exactement. Le statut reste **accepté**.
+
 ## Note (2026-10-27, B7 modifié par l'ADR 0026)
 
 Le critère B7 (assemblage qui ne touche plus : déplacement gardé, avertissement) est **modifié**
