@@ -31,9 +31,10 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    l'écran (`badge_place.screen_angle`, au pas de 15° ; aucune sur un rond grisé ni sur un axe
    vu de bout). Le rond n'est pas au milieu de la face mais décalé d'un quart de la largeur (faces
    de bout) ou de la longueur, l'un vers chaque bout (`core.magnet.handle_point`) : le milieu
-   tombe sur le tracé de la flèche de déplacement de son axe (jv, 2026-11-26). Deux étiquettes qui se touchent à l'écran sont écartées : la seconde recule le long de
-   son axe (`badge_place.spread`). Au survol d'une poignée, son rond grossit, son étiquette a un
-   halo et **la face qui va bouger s'allume** en transparence, à la couleur de l'axe. Une cote
+   tombe sur le tracé de la flèche de déplacement de son axe (jv, 2026-11-26) ; un ensemble suit
+   la même règle (`furniture_layout`). Deux étiquettes qui se touchent à l'écran sont écartées :
+   la seconde recule le long de son axe (`badge_place.spread`). Au survol d'une poignée, son
+   rond grossit, son étiquette a un halo et **la face qui va bouger s'allume** en transparence, à la couleur de l'axe. Une cote
    impossible est grise, avec un cadenas après la valeur. Le même dessin sert à la pièce et à
    l'ensemble (fin des doubles flèches et des cubes).
 2. L'étiquette est une image peinte par Qt (lissage, ombre, halo : `gui/drag/badges.py`) et posée
@@ -55,7 +56,7 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    (titre en gras, explication, piste en italique, texte échappé) et le retire quand la souris
    la quitte, quand la souris sort de la vue et quand la sélection change. Une traduction fautive
    (champ `{…}` inconnu ou mal formé) retombe sur le texte français (`features.i18n.translated`).
-5. **Saisie** : une poignée se saisit par le milieu de sa face, par son trait et par toute son
+5. **Saisie** : une poignée se saisit par le rond de sa face, par son trait et par toute son
    étiquette (segment horizontal, tolérance de sa demi-hauteur : `PixelTarget.radius`). À distance
    égale, une flèche l'emporte sur une étiquette qui la chevauche (ordre de `pixel_targets`).
    Une poignée grisée ne se cherche qu'après les flèches, les poignées et les anneaux (`key_at`) :

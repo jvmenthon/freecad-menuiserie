@@ -5,9 +5,9 @@ Une étiquette est une pastille arrondie blanche bordée de la couleur de l'axe 
 court de la cote (« Long. », « Larg. », « Ép. »…) en blanc sur la couleur de l'axe, à droite sa
 valeur ; une cote figée est grise, avec un cadenas. Elle est peinte par Qt avec lissage, ombre
 et halo de survol, puis posée telle quelle dans la vue (``overlay.py``, ``SoImage`` : taille fixe
-à l'écran). Ses largeurs viennent de :func:`badge_width_px`, la mesure de la saisie. Le rond du
-chaque face (:func:`knob_pixels`) est peint de même, à la couleur de l'étiquette,
-avec une petite double flèche blanche dans la direction de l'axe à l'écran. Les
+à l'écran). Ses largeurs viennent de :func:`badge_width_px`, la mesure de la saisie. Le rond de
+chaque face (:func:`knob_pixels`) est peint de même, à la couleur de l'étiquette, avec une
+petite double flèche blanche dans la direction de l'axe à l'écran. Les
 images sont gardées (mêmes arguments : même image) ; :func:`clear_badge_cache` les oublie.
 """
 

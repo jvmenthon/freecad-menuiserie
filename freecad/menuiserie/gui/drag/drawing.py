@@ -6,9 +6,11 @@ point 2). Aucun import de FreeCAD, de Qt ni de pivy : ``view.py`` fournit les pr
 ``overlay.py`` pose le dessin.
 
 Une cote a **une étiquette** (ADR 0068, maquette K) : son nom à la couleur de son axe et sa
-valeur, reliée par un trait au milieu de la face tournée vers la caméra ; la face d'en face n'a
-qu'un rond de la même couleur. Au survol, la face qui bouge s'allume. Une cote impossible est
-grise, avec un cadenas ; elle se survole (infobulle : :func:`tooltip_html`) mais ne se tire pas.
+valeur, reliée par un trait au rond de la face tournée vers la caméra ; la face d'en face n'a
+qu'un rond de la même couleur. Chaque rond porte la flèche de son axe et se tient hors du tracé
+des flèches de déplacement (``handle_point``). Au survol, la face qui bouge s'allume. Une cote
+impossible est grise, avec un cadenas ; elle se survole (infobulle : :func:`tooltip_html`) mais
+ne se tire pas.
 """
 
 from __future__ import annotations
@@ -266,7 +268,7 @@ def size_text(box: Box, axis: int) -> str:
 
 
 def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
-    """Cibles saisissables en pixels, dans l'ordre qui départage une égalité : milieu de la face
+    """Cibles saisissables en pixels, dans l'ordre qui départage une égalité : rond de la face
     de chaque poignée (étiquetées d'abord ; seul le rond de la face d'en face), flèches,
     puis étiquette de chaque cote (un segment horizontal, tolérance de sa demi-hauteur) et trait
     qui la relie à sa face. Une étiquette qui chevauche une flèche ne la cache donc pas : la plus
@@ -545,7 +547,7 @@ def build_drawing(
     sweep: Sweep | None = None,
     cues: Cues | None = None,
 ) -> Drawing:
-    """Dessin des flèches (couleur de leur axe), des poignées (étiquette de cote reliée au milieu
+    """Dessin des flèches (couleur de leur axe), des poignées (étiquette de cote reliée au rond
     de sa face ; grisée avec un cadenas si la cote ne se tire pas), des anneaux de rotation (et,
     pendant un geste, de ``sweep``), de la cible survolée en surbrillance et des ``guides``
     aimantés, portés dans le repère global.
@@ -606,7 +608,7 @@ def _badges(
     strokes: list[Stroke],
     knobs: list[Knob],
 ) -> tuple[Badge, ...]:
-    """Étiquettes des cotes ; leur trait et le rond du milieu de chaque face (couleur de l'axe,
+    """Étiquettes des cotes ; leur trait et le rond de chaque face (couleur de l'axe,
     gris si la cote est figée, plus gros survolé) sont ajoutés à ``strokes`` et ``knobs``."""
     badges = []
     for key, handle, point in _all_handles(layout):
@@ -644,18 +646,30 @@ def _hover_face(layout: Layout, hover: str | None) -> tuple[Solid, ...]:
     return (Solid(color, (face,), FACE_TRANSPARENCY),)
 
 
+def _axis_angles(
+    layout: Layout, project: Project
+) -> tuple[float | None, float | None, float | None]:
+    """Direction de chaque axe à l'écran (:func:`screen_angle`), mesurée depuis le centre de la
+    boîte : en perspective forte, elle peut s'écarter un peu de celle vue depuis un rond, ce que
+    l'arrondi à 15° couvre."""
+    box = layout.box
+    center = layout.frame.to_transform().apply(Vec3.of([box.center(i) for i in range(3)]))
+    origin = project(center)
+    step = max(layout.handle_mm, 1e-9)
+    x, y, z = (
+        screen_angle(origin, project(center + axis.scaled(step)))
+        for axis in (layout.frame.x, layout.frame.y, layout.frame.z)
+    )
+    return x, y, z
+
+
 def on_screen(layout: Layout, scale: float, project: Project, view: Vec3) -> Layout:
     """``layout`` posée dans la vue : rapport de pixels ``scale`` de l'écran, direction de chaque
     axe à l'écran (flèche des ronds), étiquette de chaque cote sur la face tournée vers la caméra
     (``view`` : direction de la vue), puis étiquettes écartées l'une de l'autre à l'écran
     (:func:`spread`)."""
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    box = layout.box
-    center = layout.frame.to_transform().apply(Vec3.of([box.center(i) for i in range(3)]))
-    origin = project(center)
-    step = max(layout.handle_mm, 1e-9)
-    tip_x, tip_y, tip_z = (screen_angle(origin, project(center + a.scaled(step))) for a in axes)
-    angles = (tip_x, tip_y, tip_z)
+    angles = _axis_angles(layout, project)
     placed = replace(
         layout, badge_scale=scale, badge_ends=facing_ends(axes, view), axis_angles=angles
     )

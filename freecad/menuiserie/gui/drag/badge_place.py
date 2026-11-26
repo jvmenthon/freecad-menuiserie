@@ -74,7 +74,7 @@ def screen_angle(start: tuple[float, float], end: tuple[float, float]) -> float 
 
 @dataclass(frozen=True)
 class Slot:
-    """Étiquette à poser : clé de sa poignée, pixel du milieu de sa face, déplacement à l'écran
+    """Étiquette à poser : clé de sa poignée, pixel du rond de sa face, déplacement à l'écran
     pour une unité de recul (pixels), largeur et hauteur (pixels)."""
 
     key: str

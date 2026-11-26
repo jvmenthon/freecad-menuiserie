@@ -12,7 +12,15 @@ from dataclasses import replace
 import pytest
 
 from freecad.menuiserie.core.geometry import Box, Vec3
-from freecad.menuiserie.core.magnet import Blocker, Guide, GuideKind, Handle, handle_at, mouse_ray
+from freecad.menuiserie.core.magnet import (
+    Blocker,
+    Guide,
+    GuideKind,
+    Handle,
+    handle_at,
+    handle_point,
+    mouse_ray,
+)
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.core.text import mm_text
 from freecad.menuiserie.gui.drag.badge_place import (
@@ -114,7 +122,24 @@ def test_trois_fleches_et_quatre_poignees() -> None:
                 span.z * offset.x - span.x * offset.z,
                 span.x * offset.y - span.y * offset.x,
             )
-            assert cross != Vec3(0, 0, 0)
+            assert math.hypot(cross.x, cross.y, cross.z) > 1.0
+
+
+def test_point_des_poignees_sur_chaque_face() -> None:
+    """``handle_point`` : sur la face, décalé d'un quart (Y pour les faces X, X sinon), l'un
+    vers chaque bout ; les deux ronds d'un axe sont symétriques par rapport au centre."""
+    box = Box.from_ranges([(0, 800), (0, 200), (0, 22)])
+    expected = {
+        (0, False): (0, 150, 11),
+        (0, True): (800, 50, 11),
+        (1, False): (600, 0, 11),
+        (1, True): (200, 200, 11),
+        (2, False): (600, 100, 0),
+        (2, True): (200, 100, 22),
+    }
+    for (axis, at_end), (x, y, z) in expected.items():
+        point = handle_point(box, Handle(axis, at_end))
+        assert (point.x, point.y, point.z) == pytest.approx((x, y, z))
 
 
 def test_poignees_d_epaisseur_ecartees_du_depart_des_fleches() -> None:

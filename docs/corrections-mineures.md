@@ -226,7 +226,7 @@ de répétitions m5) sont corrigés.
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
 | ek1 | mineur | `freecad/menuiserie/gui/drag/drawing.py` (`_hover_face`, `_box_drawing`) | Les coins d'une face de boîte sont reconstruits à la main dans deux fonctions ; `drawing.py` dépasse 650 lignes. | Extraire `box_face(box, axis, at_end)` dans `core/` et l'utiliser aux deux endroits. |
-| ek2 | mineur | `tests/gui/verifications_souris.py` | Aucun test ne vérifie que le rond d'une face a la couleur de l'étiquette de son axe (seul le nombre de `SoImage` est compté) ; `knob_pixels` et `badge_pixels` n'ont pas de test hors FreeCAD. | Test GUI : comparer le pixel central du rond à la couleur de la partie nom de l'étiquette du même axe. |
+| ek2 | mineur | `tests/gui/verifications_souris.py` | Aucun test ne vérifie que le rond d'une face a la couleur de l'étiquette de son axe (seul le nombre de `SoImage` est compté) ; `knob_pixels` et `badge_pixels` n'ont pas de test hors FreeCAD (ni la flèche du rond, ni son angle non fini). | Test GUI : comparer un pixel du rond (hors de sa flèche) à la couleur de la partie nom de l'étiquette du même axe ; `knob_pixels` avec un angle NaN donne un rond sans flèche. |
 
 ## Configuration de l'atelier, lots CA-a et CA-b (PR #280, ADR 0069), 2026-11-25
 
