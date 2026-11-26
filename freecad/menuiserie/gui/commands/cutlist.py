@@ -36,7 +36,7 @@ from freecad.menuiserie.features.cutlist_export import (
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.library import PARAM_PATH
+from freecad.menuiserie.features.settings import PARAM_PATH
 from freecad.menuiserie.gui import cutlist_preview
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
 

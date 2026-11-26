@@ -25,7 +25,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.box_parts import is_box_part
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.library import PARAM_PATH
+from freecad.menuiserie.features.settings import PARAM_PATH
 from freecad.menuiserie.features.wood_part_record import dimensions_of
 from freecad.menuiserie.gui.task_panels.base import Widget, connect
 from freecad.menuiserie.gui.task_panels.edge_diagram import BOX, NET, VIEWS, EdgeDiagram

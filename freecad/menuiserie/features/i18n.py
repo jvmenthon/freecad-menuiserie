@@ -17,6 +17,7 @@ from freecad.menuiserie.core.i18n import CONTEXT, TemplatedError
 
 __all__ = [
     "console_text",
+    "format_text",
     "report_warning",
     "templated_message",
     "translate_text",
@@ -33,6 +34,14 @@ def translated(template: str, params: Mapping[str, str] | None = None) -> str:
         return text.format_map(params or {})
     except (KeyError, IndexError, ValueError):
         return template.format_map(params or {})
+
+
+def format_text(text: str, **values: object) -> str:
+    """``text`` dont chaque ``{nom}`` est remplacé par ``values["nom"]`` (sans ``str.format`` :
+    un texte traduit ne doit pas pouvoir lever d'erreur de format)."""
+    for name, value in values.items():
+        text = text.replace("{" + name + "}", str(value))
+    return text
 
 
 def translate_text(text: str) -> str:

@@ -6,7 +6,8 @@ figés. Les deux types partagent les mêmes propriétés ; la forme de l'assembl
 des pièces rapportées, et les deux pièces sont mortaisées (:mod:`core.joints.slots`).
 La taille se choisit dans la liste des tailles standard (faux tenons, lamelles) ; seul le faux
 tenon accepte des cotes personnalisées (case « Taille personnalisée »), 0 valant « automatique »
-(taille du commerce qui tient). Le nombre vaut 0 pour « automatique » aussi.
+(taille du commerce qui tient). Le nombre est toujours calculé, d'après l'entraxe maximal
+``MaxSpacing`` (copié du réglage de l'atelier à la création).
 """
 
 from __future__ import annotations
@@ -16,10 +17,9 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
-from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT
-from freecad.menuiserie.core.joints.slots import SlotParams
+from freecad.menuiserie.core.joints.slots import AUTO_SPACING_MM, SlotParams
 from freecad.menuiserie.features.freecad_types import HIDDEN
-from freecad.menuiserie.features.joints.base import JointFeature
+from freecad.menuiserie.features.joints.base import SPACING_MODEL_VERSION, JointFeature
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["BiscuitJoint", "LooseTenonJoint"]
@@ -126,15 +126,16 @@ _COMMON_PROPERTIES: Final[tuple[PropertySpec, ...]] = (
         visible_if="custom_size",
     ),
     PropertySpec(
-        "Count",
-        "App::PropertyIntegerConstraint",
+        "MaxSpacing",
+        LENGTH,
         _GROUP,
         QT_TRANSLATE_NOOP(
-            "App::Property", "Nombre de mortaises. 0 : automatique, selon la longueur du contact."
+            "App::Property",
+            "Écart maximal entre deux mortaises, en mm : le nombre est calculé pour ne pas le "
+            "dépasser (0 : valeur historique).",
         ),
-        label=QT_TRANSLATE_NOOP("Menuiserie", "Nombre"),
-        resolved="count",
-        default=(_DEFAULTS.count, 0, MAX_DOWEL_COUNT, 1),
+        label=QT_TRANSLATE_NOOP("Menuiserie", "Entraxe maximal"),
+        default=AUTO_SPACING_MM,  # propriété absente d'un ancien fichier : l'entraxe historique
     ),
     PropertySpec(
         "EdgeDistance",
@@ -174,6 +175,7 @@ _COMMON_PROPERTIES: Final[tuple[PropertySpec, ...]] = (
 )
 
 
+_SUMMARY: Final = QT_TRANSLATE_NOOP("Menuiserie", "{count} mortaises, entraxe {spacing} mm.")
 _CUSTOM_SIZE_PROPERTIES: Final = ("CustomSize", "Thickness", "Along", "TotalDepth")
 _LOOSE_TENON_PROPERTIES: Final = (_DOMINO_SIZE, *_COMMON_PROPERTIES)
 # Biscuit : taille de la liste seulement, les propriétés de taille personnalisée sont masquées.
@@ -198,6 +200,10 @@ class LooseTenonJoint(JointFeature):
         "Menuiserie",
         "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
     )
+    VERSION: ClassVar[int] = SPACING_MODEL_VERSION
+    OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ("Count",)
+    SUMMARY: ClassVar[str] = _SUMMARY
+    SUMMARY_IF: ClassVar[tuple[str, ...]] = ("spacing",)
     PARAMS: ClassVar[type[SlotParams]] = SlotParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = _LOOSE_TENON_PROPERTIES
 
@@ -214,5 +220,9 @@ class BiscuitJoint(JointFeature):
         "Menuiserie",
         "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
     )
+    VERSION: ClassVar[int] = SPACING_MODEL_VERSION
+    OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ("Count",)
+    SUMMARY: ClassVar[str] = _SUMMARY
+    SUMMARY_IF: ClassVar[tuple[str, ...]] = ("spacing",)
     PARAMS: ClassVar[type[SlotParams]] = SlotParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = _BISCUIT_PROPERTIES

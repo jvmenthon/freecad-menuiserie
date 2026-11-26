@@ -14,7 +14,7 @@ from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import Material, MaterialLibrary
-from freecad.menuiserie.core.part_model import Dimensions
+from freecad.menuiserie.core.part_model import DEFAULT_DIMENSIONS
 from freecad.menuiserie.features import schema
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.schema import LENGTH, PropertySpec
@@ -69,7 +69,6 @@ __all__ = [
     "show_grain_direction",
 ]
 
-DEFAULT_DIMENSIONS: Final = Dimensions(800.0, 200.0, 22.0)
 # Version du modèle de données (propriété ``Version``), cf. :meth:`WoodPart._migrate`.
 MODEL_VERSION: Final = 2
 

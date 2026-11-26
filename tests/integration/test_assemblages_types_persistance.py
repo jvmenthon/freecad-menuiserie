@@ -36,8 +36,8 @@ Reopen = Callable[[Any], Any]
 CHANGES = {
     "make_tongue_groove": ("TongueThickness", 8),
     "make_rabbet": ("Through", False),
-    "make_dowels": ("Count", 3),
-    "make_loose_tenons": ("Count", 1),
+    "make_dowels": ("MaxSpacing", 90.0),
+    "make_loose_tenons": ("MaxSpacing", 90.0),
     "make_biscuits": ("ThicknessOffset", 1.0),
     "make_half_lap": ("Depth", 8),
     "make_dovetail": ("TailCount", 2),

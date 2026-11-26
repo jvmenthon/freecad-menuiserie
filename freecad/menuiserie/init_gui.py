@@ -6,10 +6,13 @@ objets sont importés dans ``Initialize`` uniquement, pour ne pas ralentir
 le lancement de FreeCAD tant que l'atelier n'est pas activé.
 """
 
+from typing import Any
+
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from freecad.menuiserie import TRANSLATIONS_DIR, icon_path
+from freecad.menuiserie import ICONS_DIR, TRANSLATIONS_DIR, icon_path
+from freecad.menuiserie.features.i18n import format_text
 
 translate = App.Qt.translate
 QT_TRANSLATE_NOOP = App.Qt.QT_TRANSLATE_NOOP
@@ -103,8 +106,6 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
 
     def Initialize(self) -> None:
         """Appelé une seule fois, à la première activation de l'atelier."""
-        Gui.addLanguagePath(str(TRANSLATIONS_DIR))
-        Gui.updateLocale()
         from freecad.menuiserie.gui.commands import joints, wood_part
 
         wood_part.register()
@@ -194,4 +195,57 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         return "Gui::PythonWorkbench"
 
 
+class MenuiseriePreferences:
+    """Page « Menuiserie » d'Édition > Préférences (ADR 0069). FreeCAD en crée une instance à
+    l'ouverture de la boîte de dialogue : la vraie page (Qt, catalogue, bibliothèque) n'est
+    importée qu'à ce moment, pour ne pas ralentir le lancement de FreeCAD. Si elle ne peut pas
+    être construite, une page de repli sans effet la remplace : la boîte de dialogue s'ouvre."""
+
+    def __init__(self) -> None:
+        self._page: Any
+        try:
+            from freecad.menuiserie.gui.preferences_page import MenuiseriePreferencePage
+
+            self._page = MenuiseriePreferencePage()
+        except Exception as error:  # une page en panne ne doit pas bloquer FreeCAD
+            App.Console.PrintError(
+                format_text(
+                    translate("Menuiserie", "Page de préférences indisponible : {error}\n"),
+                    error=error,
+                )
+            )
+            from freecad.menuiserie.gui.preferences_fallback import FallbackPage
+
+            self._page = FallbackPage(
+                translate("Menuiserie", "Réglages indisponibles (voir la vue Rapport).")
+            )
+        self.form = self._page.form
+
+    def loadSettings(self) -> None:
+        """Valeurs enregistrées affichées (appelé par FreeCAD)."""
+        self._page.loadSettings()
+
+    def saveSettings(self) -> None:
+        """Valeurs affichées enregistrées, à « OK » et « Appliquer » (appelé par FreeCAD)."""
+        self._page.saveSettings()
+
+
+def register_preferences() -> None:
+    """Traductions et page « Menuiserie » des préférences, dès le chargement (avant l'activation
+    de l'atelier). Un échec est signalé sans empêcher l'enregistrement de l'atelier."""
+    try:
+        Gui.addLanguagePath(str(TRANSLATIONS_DIR))
+        Gui.updateLocale()
+        Gui.addIconPath(str(ICONS_DIR))  # icône de la page : preferences-menuiserie.svg
+        Gui.addPreferencePage(MenuiseriePreferences, "Menuiserie")
+    except Exception as error:  # l'atelier reste utilisable sans sa page
+        App.Console.PrintWarning(
+            format_text(
+                translate("Menuiserie", "Page de préférences non enregistrée : {error}\n"),
+                error=error,
+            )
+        )
+
+
 Gui.addWorkbench(MenuiserieWorkbench())
+register_preferences()

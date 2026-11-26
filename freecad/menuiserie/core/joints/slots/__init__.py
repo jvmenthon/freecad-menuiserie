@@ -18,6 +18,7 @@ from __future__ import annotations
 from freecad.menuiserie.core.joints._slot_shapes import half_stadium, rounded_rectangle
 from freecad.menuiserie.core.joints.slots._params import (
     AUTO_SIZE,
+    AUTO_SPACING_MM,
     BISCUIT_SIZES,
     LOOSE_TENON_SIZES,
     SlotParams,
@@ -28,6 +29,7 @@ from freecad.menuiserie.core.joints.slots._strategy import BiscuitStrategy, Loos
 
 __all__ = [
     "AUTO_SIZE",
+    "AUTO_SPACING_MM",
     "BISCUIT_SIZES",
     "LOOSE_TENON_SIZES",
     "BiscuitStrategy",

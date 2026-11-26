@@ -21,6 +21,8 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 
 MAX_COUNT: Final = 50
+MIN_INPUT_SPACING_MM: Final = 10.0  # entraxe maximal saisi, au moins (0 : valeur historique)
+MAX_INPUT_SPACING_MM: Final = 1000.0  # entraxe maximal saisi, au plus
 MIN_WALL_MM: Final = 2.0  # matière laissée entre deux usinages voisins ou de chaque côté de l'un
 MAX_ANGLE_DEG: Final = 30.0  # angle d'un flanc de queue d'aronde, au plus
 # Garde-fou : au-delà, les opérations booléennes d'OCC peuvent figer FreeCAD (saisie aberrante).
@@ -192,6 +194,7 @@ class ParamKind(Enum):
     OFFSET = "offset"
     FLAG = "flag"
     COUNT = "count"
+    SPACING = "spacing"
     ANGLE = "angle"
     CHOICE = "choice"
 
@@ -215,6 +218,11 @@ def _count(value: object) -> object:
     return value if valid else _INVALID
 
 
+def _spacing(value: object) -> object:
+    number = bounded_float(value, 0.0, MAX_INPUT_SPACING_MM)
+    return _INVALID if number is None or 0.0 < number < MIN_INPUT_SPACING_MM else number
+
+
 def _angle(value: object) -> object:
     number = bounded_float(value, 0.0, MAX_ANGLE_DEG)
     return _INVALID if number is None else number
@@ -230,6 +238,7 @@ _CHECKS: Final[Mapping[ParamKind, Callable[[object], object]]] = MappingProxyTyp
         ParamKind.OFFSET: _offset,
         ParamKind.FLAG: _flag,
         ParamKind.COUNT: _count,
+        ParamKind.SPACING: _spacing,
         ParamKind.ANGLE: _angle,
         ParamKind.CHOICE: _choice,
     }
@@ -255,6 +264,11 @@ _TEMPLATES: Final[Mapping[ParamKind, str]] = MappingProxyType(
             "Paramètre d'assemblage invalide : {field} = {value} "
             "(nombre entier entre 0 et {max} attendu).",
         ),
+        ParamKind.SPACING: QT_TRANSLATE_NOOP(
+            "Menuiserie",
+            "Paramètre d'assemblage invalide : {field} = {value} "
+            "(0 pour l'entraxe habituel, ou entraxe entre {min} et {max} mm attendu).",
+        ),
         ParamKind.CHOICE: QT_TRANSLATE_NOOP(
             "Menuiserie",
             "Paramètre d'assemblage invalide : {field} = {value} (choix attendu parmi {max}).",
@@ -272,6 +286,7 @@ _MAXIMA: Final = MappingProxyType(
         ParamKind.LENGTH: MAX_DIMENSION_MM,
         ParamKind.OFFSET: MAX_DIMENSION_MM,
         ParamKind.COUNT: MAX_COUNT,
+        ParamKind.SPACING: MAX_INPUT_SPACING_MM,
         ParamKind.ANGLE: MAX_ANGLE_DEG,
     }
 )
@@ -295,6 +310,11 @@ def flag_param(default: bool) -> Any:
 def count_param(default: int) -> Any:
     """Champ « nombre » : entier, non booléen, 0 à 50 (0 = automatique)."""
     return field(default=default, metadata={_PARAM_KIND: ParamKind.COUNT})
+
+
+def spacing_param(default: float) -> Any:
+    """Champ « entraxe maximal » : 0 (entraxe habituel) ou 10 à 1 000 mm."""
+    return field(default=default, metadata={_PARAM_KIND: ParamKind.SPACING})
 
 
 def angle_param(default: float) -> Any:
@@ -326,6 +346,8 @@ def validate_params(params: object) -> None:
             values = {"field": item.name, "value": quoted_value(value)}
             if kind in _MAXIMA:
                 values["max"] = decimal_text(_MAXIMA[kind])
+            if kind is ParamKind.SPACING:
+                values["min"] = decimal_text(MIN_INPUT_SPACING_MM)
             if kind is ParamKind.CHOICE:
                 values["max"] = ", ".join(item.metadata[_CHOICES_KEY])
             raise JointError(_TEMPLATES[kind], values)
