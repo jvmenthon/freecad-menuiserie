@@ -27,7 +27,13 @@ from freecad.menuiserie.features.i18n import console_text, translated, translate
 from freecad.menuiserie.features.settings import workshop_folder
 from freecad.menuiserie.kit.config.folder import write_text_atomic
 
-__all__ = ["add_sheet", "add_thickness", "dimensions_path", "read_dimensions"]
+__all__ = [
+    "add_sheet",
+    "add_thickness",
+    "dimensions_path",
+    "read_dimensions",
+    "write_dimensions",
+]
 
 FILE_NAME: Final = "dimensions.json"
 _UNREADABLE: Final = QT_TRANSLATE_NOOP(
@@ -58,7 +64,7 @@ def read_dimensions() -> UserDimensions:
         return UserDimensions()
 
 
-def _write(dimensions: UserDimensions) -> None:
+def write_dimensions(dimensions: UserDimensions) -> None:
     """Écrit le fichier de façon atomique ; ``ValueError`` traduite si l'écriture échoue."""
     path = dimensions_path()
     try:
@@ -74,7 +80,7 @@ def add_thickness(thickness: float) -> UserDimensions:
     traduite si elle est refusée ou si l'écriture échoue."""
     with translated_errors():
         updated = with_thickness(read_dimensions(), thickness)
-    _write(updated)
+    write_dimensions(updated)
     return updated
 
 
@@ -83,5 +89,5 @@ def add_sheet(length: float, width: float) -> UserDimensions:
     mêmes refus que :func:`add_thickness`."""
     with translated_errors():
         updated = with_sheet(read_dimensions(), length, width)
-    _write(updated)
+    write_dimensions(updated)
     return updated

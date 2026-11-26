@@ -150,6 +150,11 @@ assemblage). Les règles :
   (`features/record_created.py`), arête cassée sur les pièces neuves. Reste : l'entraxe des
   tourillons (réglage affiché, pas encore lu).
 - **CA-c** : module générique `exchange`, puis export / import de `atelier.json`.
+  Fait : `kit/config/exchange` (format versionné, lecture stricte, refus du fichier entier par
+  `ExchangeError`, aperçu `preview`, `apply`) et `features/settings_exchange.py`
+  (`export_workshop`, `load_workshop`, `apply_workshop`, section « dimensions » validée par les
+  règles de `dimensions.json`). Reste : l'interface (boutons Exporter / Importer et aperçu),
+  après le choix de maquette.
 - **CA-d** : reste des réglages, édition de `dimensions.json`, dossier des projets.
 
 ## 8. Questions pour jv
