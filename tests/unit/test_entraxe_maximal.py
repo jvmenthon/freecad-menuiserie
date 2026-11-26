@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from freecad.menuiserie.core.geometry import JointError, PlacedBlock
+from freecad.menuiserie.core.geometry import PlacedBlock
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.dowels import (
     MAX_DOWEL_COUNT,
@@ -100,10 +100,12 @@ def test_petit_entraxe_de_tourillons_jamais_refuse() -> None:
     assert values.spacing > values.diameter
 
 
-def test_entraxe_trop_petit_pour_les_mortaises_refuse() -> None:
+def test_entraxe_trop_petit_pour_les_mortaises_reduit_le_nombre() -> None:
+    """Comme les tourillons : le nombre est réduit pour que les mortaises restent séparées."""
     params = SlotParams(custom_size=True, thickness=6, along=20, total_depth=40, max_spacing=10)
-    with pytest.raises(JointError, match="ne tiennent pas"):
-        TENON.plan(*boards(), params)
+    values = TENON.resolve(*boards(), params)
+    gaps = [b - a for a, b in zip(values.positions, values.positions[1:], strict=False)]
+    assert all(gap > values.along for gap in gaps)
 
 
 @pytest.mark.parametrize("params_type", [DowelParams, SlotParams])

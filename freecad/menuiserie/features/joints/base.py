@@ -226,12 +226,22 @@ class JointFeature(StatelessProxy):
             assigned.remember(plan.inserts, obj.Shape)
         obj.Placement = obj.HostPart.Placement
 
+    def _remove_obsolete(self, obj: DocumentObject) -> None:
+        """Propriétés retirées du modèle (ex. ``Count``, ADR 0070) : effacées seulement d'un objet
+        d'une version antérieure et si leur type est un entier, jamais celles d'un autre addon."""
+        props = obj.PropertiesList
+        older = "Version" not in props or (
+            obj.getTypeIdOfProperty("Version") == "App::PropertyInteger"
+            and obj.Version < self.VERSION
+        )
+        for name in self.OBSOLETE_PROPERTIES if older else ():
+            if name in props and obj.getTypeIdOfProperty(name).startswith("App::PropertyInteger"):
+                obj.removeProperty(name)
+
     def onDocumentRestored(self, obj: DocumentObject) -> None:
         """Version et types des propriétés contrôlés, migration, modes d'édition (ADR 0003)."""
         migrate_links(obj, COMMON_PROPERTIES[:2])  # ADR 0054
-        for name in self.OBSOLETE_PROPERTIES:
-            if name in obj.PropertiesList:
-                obj.removeProperty(name)
+        self._remove_obsolete(obj)
         schema.restore_schema(obj, self.specs(), self.VERSION, NOUN, self.choices())
         for name, choices in self.choices().items():
             if name in obj.PropertiesList and obj.getEnumerationsOfProperty(name) != choices:

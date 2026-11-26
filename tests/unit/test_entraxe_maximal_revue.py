@@ -51,8 +51,10 @@ def test_entraxe_reel_jamais_au_dessus_du_maximum(max_spacing: float, pitches: i
     edge = 17.3
     width = pitches * max_spacing + 2 * edge
     counts = [auto_count(width, edge, 1.0, max_spacing)]
-    if 50.0 <= width <= MAX_DIMENSION_MM:
-        with contextlib.suppress(JointError):  # entraxe plus court que la mortaise : refusé
+    # Mortaises : un entraxe plus court qu'une mortaise réduit le nombre (comme les tourillons),
+    # l'écart réel dépasse alors l'entraxe ; vérifié seulement au-delà de la plus longue mortaise.
+    if 50.0 <= width <= MAX_DIMENSION_MM and max_spacing >= 60.0:
+        with contextlib.suppress(JointError):
             counts.append(_auto_count(width, edge, 1.0, max_spacing))
     for count in counts:
         assert count <= MAX_DOWEL_COUNT

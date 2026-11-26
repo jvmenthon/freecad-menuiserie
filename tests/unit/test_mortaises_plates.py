@@ -151,10 +151,6 @@ def test_decalage_en_epaisseur_et_une_seule_mortaise_sur_contact_etroit() -> Non
         (SlotParams(custom_size=True, thickness=20, along=20, total_depth=40), "trop minces"),
         (SlotParams(custom_size=True, thickness=6, along=20, total_depth=400), "trop profond"),
         (
-            SlotParams(custom_size=True, thickness=6, along=20, total_depth=40, max_spacing=10),
-            "ne tiennent pas",
-        ),
-        (
             SlotParams(custom_size=True, thickness=6, along=500, total_depth=40, edge_distance=150),
             "ne tiennent pas",
         ),

@@ -52,6 +52,10 @@ def widget(form: Widget, nom: str) -> Widget:
     return trouves[0]
 
 
+def _absent(form: Widget, nom: str) -> bool:
+    return all(w.objectName() != nom for w in form.findChildren(QtGui.QWidget))
+
+
 def valeur(champ: Widget) -> float:
     return round(float(champ.property("rawValue")), 3)
 
@@ -113,19 +117,19 @@ def verifier_formulaire_du_tenon_mortaise() -> list[str]:
 
 
 def verifier_formulaire_des_tourillons() -> list[str]:
-    """E1 : même panneau pour un autre type ; nombre automatique affiché."""
+    """E1 : même panneau pour un autre type ; entraxe maximal à la place du nombre."""
     with cadre("VerifPanneauTourillons") as (doc, pieces):
         creer_sans_valider(doc, pieces, TOURILLONS)
         form = panneau()
         if form is None:
             return ["panneau non ouvert à la création"]
-        nombre = widget(form, "Count")
+        entraxe = widget(form, "MaxSpacing")
         problemes = [
             *ecarts("titre", form.windowTitle(), "Nouvel assemblage : Tourillons"),
             *ecarts("diamètre effectif", valeur(widget(form, "Diameter")), 10.0),
-            *ecarts("nombre auto", widget(form, "CountAuto").isChecked(), True),
-            *ecarts("nombre effectif", nombre.value() >= 1, True),
-            *ecarts("nombre inactif", nombre.isEnabled(), False),
+            *ecarts("champ nombre retiré (ADR 0070)", _absent(form, "Count"), True),
+            *ecarts("entraxe maximal", valeur(entraxe), 128.0),
+            *ecarts("entraxe modifiable", entraxe.isEnabled(), True),
         ]
         annuler()
         return problemes
