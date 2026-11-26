@@ -42,6 +42,7 @@ from freecad.menuiserie.gui.drag.badge_place import (
     Slot,
     badge_width_px,
     facing_ends,
+    screen_angle,
     spread,
 )
 from freecad.menuiserie.gui.drag.rings import (
@@ -164,7 +165,9 @@ class Layout:
     remplis ensemble par :func:`on_screen` : ``badge_scale``, rapport de pixels de l'écran
     (étiquettes à la même taille sur un écran haute définition), ``badge_ends``, axes dont
     l'étiquette est sur la face de fin (l'autre sinon), et ``badge_reach``, recul de chaque
-    étiquette écartée d'une autre (par clé ; :data:`BADGE_REACH` sinon). Un ensemble (EN-c)
+    étiquette écartée d'une autre (par clé ; :data:`BADGE_REACH` sinon) ; ``axis_angles``,
+    direction de chaque axe à l'écran (:func:`screen_angle`), celle de la flèche de ses ronds,
+    l'est aussi. Un ensemble (EN-c)
     dessine sa boîte en transparence (``shows_box``)."""
 
     frame: Frame
@@ -179,6 +182,7 @@ class Layout:
     badge_scale: float = 1.0
     badge_ends: frozenset[int] = frozenset({0, 1, 2})
     badge_reach: tuple[tuple[str, float], ...] = ()
+    axis_angles: tuple[float | None, float | None, float | None] = (None, None, None)
 
 
 def build_layout(
@@ -367,15 +371,17 @@ class Badge:
 
 @dataclass(frozen=True)
 class Knob:
-    """Rond du milieu d'une face de poignée, centré sur ``position`` (taille fixe à l'écran) :
-    même couleur que l'étiquette de sa cote (axe ``axis``, gris si ``locked``), plus gros et avec
-    un halo si ``hot``, à l'échelle ``scale`` (rapport de pixels de l'écran)."""
+    """Rond d'une face de poignée, centré sur ``position`` (taille fixe à l'écran) : même
+    couleur que l'étiquette de sa cote (axe ``axis``, gris si ``locked``), plus gros et avec un
+    halo si ``hot``, à l'échelle ``scale`` (rapport de pixels de l'écran), avec une petite
+    flèche dans la direction de l'axe à l'écran (``angle``) si la cote se tire."""
 
     position: Vec3
     axis: int
     locked: bool = False
     hot: bool = False
     scale: float = 1.0
+    angle: float | None = None  # flèche de l'axe à l'écran (degrés) ; aucune si ``None``
 
 
 @dataclass(frozen=True)
@@ -606,7 +612,8 @@ def _badges(
     for key, handle, point in _all_handles(layout):
         locked, hot = is_locked_key(key), hover == key
         color = _handle_color(handle, locked)
-        knobs.append(Knob(point, handle.axis, locked, hot, layout.badge_scale))
+        angle = None if locked else layout.axis_angles[handle.axis]
+        knobs.append(Knob(point, handle.axis, locked, hot, layout.badge_scale, angle))
         if not _labelled(layout, handle):
             continue
         center = _badge_center(layout, key, handle, point)
@@ -638,11 +645,20 @@ def _hover_face(layout: Layout, hover: str | None) -> tuple[Solid, ...]:
 
 
 def on_screen(layout: Layout, scale: float, project: Project, view: Vec3) -> Layout:
-    """``layout`` posée dans la vue : rapport de pixels ``scale`` de l'écran, étiquette de chaque
-    cote sur la face tournée vers la caméra (``view`` : direction de la vue), puis étiquettes
-    écartées l'une de l'autre à l'écran (:func:`spread`)."""
+    """``layout`` posée dans la vue : rapport de pixels ``scale`` de l'écran, direction de chaque
+    axe à l'écran (flèche des ronds), étiquette de chaque cote sur la face tournée vers la caméra
+    (``view`` : direction de la vue), puis étiquettes écartées l'une de l'autre à l'écran
+    (:func:`spread`)."""
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
-    placed = replace(layout, badge_scale=scale, badge_ends=facing_ends(axes, view))
+    box = layout.box
+    center = layout.frame.to_transform().apply(Vec3.of([box.center(i) for i in range(3)]))
+    origin = project(center)
+    step = max(layout.handle_mm, 1e-9)
+    tip_x, tip_y, tip_z = (screen_angle(origin, project(center + a.scaled(step))) for a in axes)
+    angles = (tip_x, tip_y, tip_z)
+    placed = replace(
+        layout, badge_scale=scale, badge_ends=facing_ends(axes, view), axis_angles=angles
+    )
     slots = []
     for key, handle, point in _all_handles(placed):
         if not _labelled(placed, handle):

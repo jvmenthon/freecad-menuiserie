@@ -25,16 +25,20 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    trièdre et les flèches), qui porte à gauche son **nom court** en blanc sur cette couleur
    (« Long. », « Larg. », « Ép. » pour une pièce ; « Larg. », « Prof. », « Haut. » pour un
    ensemble) et à droite sa **valeur** (au millimètre, au dixième sinon), mise à jour pendant
-   qu'on tire. Elle est reliée par un trait au milieu de la face **tournée vers la caméra**
+   qu'on tire. Elle est reliée par un trait au rond de la face **tournée vers la caméra**
    (`badge_place.facing_ends`) ; la face d'en face n'a qu'un rond de la même couleur, qui se tire
-   aussi. Deux étiquettes qui se touchent à l'écran sont écartées : la seconde recule le long de
+   aussi. Chaque rond porte une petite double flèche blanche dans la direction de son axe à
+   l'écran (`badge_place.screen_angle`, au pas de 15° ; aucune sur un rond grisé ni sur un axe
+   vu de bout). Le rond n'est pas au milieu de la face mais décalé d'un quart de la largeur (faces
+   de bout) ou de la longueur, l'un vers chaque bout (`core.magnet.handle_point`) : le milieu
+   tombe sur le tracé de la flèche de déplacement de son axe (jv, 2026-11-26). Deux étiquettes qui se touchent à l'écran sont écartées : la seconde recule le long de
    son axe (`badge_place.spread`). Au survol d'une poignée, son rond grossit, son étiquette a un
    halo et **la face qui va bouger s'allume** en transparence, à la couleur de l'axe. Une cote
    impossible est grise, avec un cadenas après la valeur. Le même dessin sert à la pièce et à
    l'ensemble (fin des doubles flèches et des cubes).
 2. L'étiquette est une image peinte par Qt (lissage, ombre, halo : `gui/drag/badges.py`) et posée
    par un `SoImage` (taille fixe à l'écran, multipliée par le rapport de pixels de l'écran) ;
-   le rond du milieu de chaque face est peint de même (`knob_pixels`), à la couleur exacte de
+   le rond de chaque face est peint de même (`knob_pixels`), à la couleur exacte de
    son étiquette ; les images sont gardées en cache (vidé au retrait du glissement :
    `clear_badge_cache`).
    `overlay.py` reste le seul module qui importe pivy. La cote est écrite par `core.text.mm_text`,

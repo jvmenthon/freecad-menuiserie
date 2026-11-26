@@ -23,6 +23,7 @@ __all__ = [
     "Slot",
     "badge_width_px",
     "facing_ends",
+    "screen_angle",
     "spread",
 ]
 
@@ -38,6 +39,8 @@ NAME_CHAR_PX: Final = 7.2  # largeur d'un caractère du nom, police de 11,5 px e
 VALUE_PAD_PX: Final = 14.0
 VALUE_CHAR_PX: Final = 8.0  # largeur d'un chiffre de la cote, police de 13 px en gras
 LOCK_PX: Final = 16.0  # place du cadenas d'une cote figée
+ANGLE_STEP: Final = 15.0  # flèche d'un rond : angle arrondi (degrés), peu d'images à garder
+MIN_ARROW_PX: Final = 2.0  # axe plus court à l'écran : vu de bout, pas de flèche
 
 
 def badge_width_px(name: str, text: str, locked: bool) -> tuple[float, float]:
@@ -56,6 +59,17 @@ def facing_ends(axes: Sequence[Vec3], view: Vec3) -> frozenset[int]:
         return frozenset({0, 1, 2})
     scale = norm(view)
     return frozenset(i for i, axis in enumerate(axes) if dot(axis, view) <= EDGE_ON * scale)
+
+
+def screen_angle(start: tuple[float, float], end: tuple[float, float]) -> float | None:
+    """Angle à l'écran (degrés, sens trigonométrique, pixels de FreeCAD : y vers le haut) de la
+    direction de ``start`` vers ``end``, sans sens (de 0 à 180 exclu), arrondi à
+    :data:`ANGLE_STEP` ; ``None`` si elle est vue de bout ou si la projection a raté."""
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    if not (math.isfinite(dx) and math.isfinite(dy)) or math.hypot(dx, dy) < MIN_ARROW_PX:
+        return None
+    angle = round(math.degrees(math.atan2(dy, dx)) / ANGLE_STEP) * ANGLE_STEP
+    return angle % 180.0
 
 
 @dataclass(frozen=True)

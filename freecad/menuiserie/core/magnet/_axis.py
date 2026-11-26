@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
-from freecad.menuiserie.core.magnet._model import THICKNESS_AXIS, Arrow, Handle, Ray
+from freecad.menuiserie.core.magnet._model import Arrow, Handle, Ray
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.core.vectors import dot
 
@@ -23,14 +23,14 @@ def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
 
 
 def handle_point(box: Box, handle: Handle) -> Vec3:
-    """Point de la poignée ``handle`` de ``box`` (repère de la pièce) : milieu de sa face ; les
-    poignées d'épaisseur, que le départ des flèches cacherait, sont décalées d'un quart de
-    longueur, l'une vers chaque bout."""
+    """Point de la poignée ``handle`` de ``box`` (repère de la pièce) : sur sa face, décalé du
+    milieu d'un quart de la longueur (de la largeur pour les faces de bout, axe X), l'une vers
+    chaque bout : le milieu tombe sur le tracé de la flèche de son axe, qui part du centre."""
     values = [box.center(i) for i in range(3)]
     values[handle.axis] = box.hi(handle.axis) if handle.at_end else box.lo(handle.axis)
-    if handle.axis == THICKNESS_AXIS:
-        quarter = (box.hi(0) - box.lo(0)) / 4
-        values[0] += -quarter if handle.at_end else quarter
+    side = 1 if handle.axis == 0 else 0
+    quarter = (box.hi(side) - box.lo(side)) / 4
+    values[side] += -quarter if handle.at_end else quarter
     return Vec3.of(values)
 
 

@@ -116,7 +116,8 @@ def _badge_node(badge: Badge) -> SoNode:
 
 def _knob_node(knob: Knob) -> SoNode:
     """Rond d'une face de poignée, à la couleur de son étiquette (ADR 0068)."""
-    return _image_node(knob.position, knob_pixels(knob.axis, knob.locked, knob.hot, knob.scale))
+    picture = knob_pixels(knob.axis, knob.locked, knob.hot, knob.scale, knob.angle)
+    return _image_node(knob.position, picture)
 
 
 class Overlay:

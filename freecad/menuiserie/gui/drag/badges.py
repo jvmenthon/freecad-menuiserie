@@ -6,7 +6,8 @@ court de la cote (« Long. », « Larg. », « Ép. »…) en blanc sur la coule
 valeur ; une cote figée est grise, avec un cadenas. Elle est peinte par Qt avec lissage, ombre
 et halo de survol, puis posée telle quelle dans la vue (``overlay.py``, ``SoImage`` : taille fixe
 à l'écran). Ses largeurs viennent de :func:`badge_width_px`, la mesure de la saisie. Le rond du
-milieu de chaque face (:func:`knob_pixels`) est peint de même, à la couleur de l'étiquette. Les
+chaque face (:func:`knob_pixels`) est peint de même, à la couleur de l'étiquette,
+avec une petite double flèche blanche dans la direction de l'axe à l'écran. Les
 images sont gardées (mêmes arguments : même image) ; :func:`clear_badge_cache` les oublie.
 """
 
@@ -36,9 +37,12 @@ LOCK_SCALE: Final = 0.75
 LOCK_PEN: Final = 2.2
 VALUE_INK: Final = "#1d2733"
 LOCKED_INK: Final = "#4a5563"
-_CACHE: Final = 128
-KNOB_PX: Final = 11.0  # diamètre du rond d'une face, survolé ensuite
-KNOB_HOT_PX: Final = 14.0
+_CACHE: Final = 256
+KNOB_PX: Final = 16.0  # diamètre du rond d'une face, survolé ensuite
+KNOB_HOT_PX: Final = 20.0
+KNOB_ARROW: Final = 0.32  # demi-longueur de la flèche du rond, part du diamètre
+KNOB_HEAD: Final = 0.16  # barbes de la flèche, part du diamètre
+KNOB_ARROW_PEN: Final = 1.6
 KNOB_RING_PX: Final = 1.6  # liseré blanc du rond
 MAX_SIDE_PX: Final = 2048  # côté d'une étiquette au plus (SbVec2s : 16 bits)
 
@@ -174,8 +178,34 @@ def _paint(name: str, text: str, state: BadgeState, axis: int, scale: float) -> 
     return image
 
 
-def _paint_knob(axis: int, locked: bool, hot: bool, scale: float) -> QtGui.QImage:
-    """Rond plein à la couleur de l'étiquette, liseré blanc, ombre ; halo s'il est survolé."""
+def _knob_arrow(painter: QtGui.QPainter, body: QtCore.QRectF, angle: float, scale: float) -> None:
+    """Double flèche blanche au centre du rond ``body``, dans la direction ``angle`` (degrés,
+    sens trigonométrique à l'écran ; l'image Qt a son y vers le bas, d'où le signe)."""
+    half = body.width() * KNOB_ARROW
+    head = body.width() * KNOB_HEAD
+    painter.save()
+    painter.translate(body.center())
+    painter.rotate(-angle)
+    pen = QtGui.QPen(QtGui.QColor("#ffffff"), KNOB_ARROW_PEN * scale)
+    pen.setCapStyle(QtCore.Qt.RoundCap)
+    pen.setJoinStyle(QtCore.Qt.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(QtCore.Qt.NoBrush)
+    painter.drawLine(QtCore.QPointF(-half, 0.0), QtCore.QPointF(half, 0.0))
+    for tip in (half, -half):
+        back = tip - head if tip > 0 else tip + head
+        barbs = QtGui.QPolygonF(
+            [QtCore.QPointF(back, -head), QtCore.QPointF(tip, 0.0), QtCore.QPointF(back, head)]
+        )
+        painter.drawPolyline(barbs)
+    painter.restore()
+
+
+def _paint_knob(
+    axis: int, locked: bool, hot: bool, scale: float, angle: float | None
+) -> QtGui.QImage:
+    """Rond plein à la couleur de l'étiquette, liseré blanc, ombre, double flèche de l'axe
+    (``angle``, aucune si ``None``) ; halo s'il est survolé."""
     diameter = (KNOB_HOT_PX if hot else KNOB_PX) * scale
     margin = MARGIN_PX * scale
     side = math.ceil(diameter + 2 * margin)
@@ -199,6 +229,8 @@ def _paint_knob(axis: int, locked: bool, hot: bool, scale: float) -> QtGui.QImag
         ring = KNOB_RING_PX * scale
         painter.setBrush(color)
         painter.drawEllipse(body.adjusted(ring, ring, -ring, -ring))
+        if angle is not None:
+            _knob_arrow(painter, body, angle, scale)
     finally:
         painter.end()
     return image
@@ -227,13 +259,18 @@ def clear_badge_cache() -> None:
 
 
 @lru_cache(maxsize=_CACHE)
-def knob_pixels(axis: int, locked: bool, hot: bool, scale: float) -> tuple[int, int, bytes]:
+def knob_pixels(
+    axis: int, locked: bool, hot: bool, scale: float, angle: float | None = None
+) -> tuple[int, int, bytes]:
     """Largeur, hauteur et pixels RVBA (ordre de Coin) du rond d'une face de poignée : couleur de
     l'axe ``axis`` (celle de son étiquette), gris si ``locked``, plus gros avec un halo si
-    ``hot``, à l'échelle ``scale``."""
+    ``hot``, à l'échelle ``scale``, double flèche dans la direction ``angle`` (degrés à
+    l'écran ; aucune si ``None`` ou non fini)."""
+    if angle is not None and not math.isfinite(angle):
+        angle = None
     if locked and axis != 0:  # rond gris : le même pour tous les axes
-        return knob_pixels(0, locked, hot, scale)
-    return _coin_pixels(_paint_knob(axis, locked, hot, scale))
+        return knob_pixels(0, locked, hot, scale, angle)
+    return _coin_pixels(_paint_knob(axis, locked, hot, scale, angle))
 
 
 @lru_cache(maxsize=_CACHE)

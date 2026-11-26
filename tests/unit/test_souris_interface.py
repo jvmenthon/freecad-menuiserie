@@ -15,7 +15,13 @@ from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.core.magnet import Blocker, Guide, GuideKind, Handle, handle_at, mouse_ray
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.core.text import mm_text
-from freecad.menuiserie.gui.drag.badge_place import Slot, badge_width_px, facing_ends, spread
+from freecad.menuiserie.gui.drag.badge_place import (
+    Slot,
+    badge_width_px,
+    facing_ends,
+    screen_angle,
+    spread,
+)
 from freecad.menuiserie.gui.drag.drawing import (
     AXIS_COLORS,
     FACE_TRANSPARENCY,
@@ -93,9 +99,22 @@ def test_trois_fleches_et_quatre_poignees() -> None:
         (1, True),
     ]
     centers = {(h.axis, h.at_end): p for h, p in layout.handles}
-    assert centers[(0, False)] == Vec3(10, 120, 41)  # milieu de la face de début, repère global
-    assert centers[(0, True)] == Vec3(810, 120, 41)
-    assert centers[(1, True)] == Vec3(410, 220, 41)
+    # Sur la face, à un quart de la largeur (faces X) ou de la longueur du milieu, l'une vers
+    # chaque bout : hors du tracé des flèches, qui partent du centre (410, 120, 41).
+    assert centers[(0, False)] == Vec3(10, 170, 41)
+    assert centers[(0, True)] == Vec3(810, 70, 41)
+    assert centers[(1, False)] == Vec3(610, 20, 41)
+    assert centers[(1, True)] == Vec3(210, 220, 41)
+    for arrow in layout.arrows:
+        span = arrow.end - arrow.start
+        for point in centers.values():  # aucun rond sur la droite d'une flèche
+            offset = point - arrow.start
+            cross = Vec3(
+                span.y * offset.z - span.z * offset.y,
+                span.z * offset.x - span.x * offset.z,
+                span.x * offset.y - span.y * offset.x,
+            )
+            assert cross != Vec3(0, 0, 0)
 
 
 def test_poignees_d_epaisseur_ecartees_du_depart_des_fleches() -> None:
@@ -117,8 +136,8 @@ def test_axe_pilote_par_une_formule_sans_fleche() -> None:
 def test_cibles_en_pixels_et_saisie() -> None:
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1}))
     targets = pixel_targets(layout, project)
-    assert handle_at(targets, (810, 120)) == handle_key(Handle(0, True))
-    assert handle_at(targets, (810 + 28, 120 + 5)) == handle_key(Handle(0, True))  # pointe
+    assert handle_at(targets, (810, 70)) == handle_key(Handle(0, True))
+    assert handle_at(targets, (810 + 5, 70 + 5)) == handle_key(Handle(0, True))  # sur le rond
     assert handle_at(targets, (410 + 50, 120)) == arrow_key(0)  # sur le corps de la flèche X
     assert handle_at(targets, (410, 120 + 40)) == arrow_key(1)
     assert handle_at(targets, (410, 400)) is None
@@ -131,7 +150,7 @@ def test_axe_d_une_cible() -> None:
     line = target_line(layout, arrow_key(1))
     assert (line.origin, line.direction) == (Vec3(410, 120, 41), Vec3(0, 1, 0))
     line = target_line(layout, handle_key(Handle(0, True)))
-    assert (line.origin, line.direction) == (Vec3(810, 120, 41), Vec3(1, 0, 0))
+    assert (line.origin, line.direction) == (Vec3(810, 70, 41), Vec3(1, 0, 0))
     with pytest.raises(ValueError, match="absente"):
         target_line(layout, handle_key(Handle(1, True)))
 
@@ -180,7 +199,7 @@ def test_une_etiquette_par_cote() -> None:
     assert (badge.name, badge.text, badge.axis) == ("Larg.", "200", 1)
     (leader,) = [s for s in drawing.strokes if s.color == AXIS_COLORS[1] and len(s.lines) == 1]
     (start, end) = leader.lines[0]  # poignée de fin de l'axe Y, centrée sur sa face
-    assert (start.x, end.x, start.z, end.z) == (410, 410, 41, 41)
+    assert (start.x, end.x, start.z, end.z) == (210, 210, 41, 41)
     assert (start.y, end.y) == pytest.approx((220, 220 + 57))  # 1,9 fois 30 % des 100 mm
     assert badge.position == end
     assert [k.position for k in drawing.knobs] == [p for _, p in layout.handles]
@@ -241,15 +260,15 @@ def test_zone_de_saisie_des_poignees() -> None:
     _, width = badge_width_px("Long.", "800", False)
     assert width == 90.0
     assert [(t.start, t.end, t.radius) for t in mine] == [
-        ((810, 120), None, None),
-        ((867 - 33, 120), (867 + 33, 120), 12.0),  # 90 sur 24 pixels : 45 - 12 de chaque côté
-        ((810, 120), (867, 120), None),
+        ((810, 70), None, None),
+        ((867 - 33, 70), (867 + 33, 70), 12.0),  # 90 sur 24 pixels : 45 - 12 de chaque côté
+        ((810, 70), (867, 70), None),
     ]
     other = [t for t in targets if t.key == handle_key(Handle(0, False))]
-    assert [(t.start, t.end) for t in other] == [((10, 120), None)]
+    assert [(t.start, t.end) for t in other] == [((10, 170), None)]
     key = handle_key(Handle(0, True))
-    assert handle_at(targets, (867 + 40, 120 + 8)) == key  # bord droit de l'étiquette
-    assert handle_at(targets, (867, 120 + 13)) is None  # au-dessus de l'étiquette
+    assert handle_at(targets, (867 + 40, 70 + 8)) == key  # bord droit de l'étiquette
+    assert handle_at(targets, (867, 70 - 13)) is None  # sous l'étiquette
 
 
 # --- Poignées impossibles (ADR 0068) -----------------------------------------------------
@@ -282,7 +301,7 @@ def test_poignee_impossible_survolable_mais_jamais_saisie() -> None:
     layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset(), [(0, BLOCKER)])
     targets = pixel_targets(layout, project)
     key = locked_key(Handle(0, True))
-    assert handle_at(targets, (867, 120)) == key
+    assert handle_at(targets, (867, 70)) == key
     assert is_locked_key(key) and not is_locked_key(handle_key(Handle(0, True)))
     with pytest.raises(ValueError, match="inconnue"):
         parse_key(key)
@@ -291,21 +310,51 @@ def test_poignee_impossible_survolable_mais_jamais_saisie() -> None:
 
 
 def test_etiquette_ne_cache_pas_une_fleche() -> None:
-    """Pièce courte : la flèche X (de 70 à 170) passe sous le trait et l'étiquette de la poignée
-    grisée de fin X (face à 130, étiquette centrée à 187, 40 pixels de large sans nom). À égalité
-    de distance, la flèche l'emporte ; au centre de l'étiquette, l'étiquette."""
-    box = Box.from_ranges([(0, 120), (0, 200), (0, 22)])
+    """Pièce courte et étroite : la flèche X (de 70 à 170, à y = 30) passe à 5 pixels du trait
+    et de l'étiquette de la poignée grisée de fin X (face à 130, y = 25, étiquette centrée à
+    187, 40 pixels de large sans nom). La flèche l'emporte sur son tracé ; sur l'étiquette,
+    l'étiquette."""
+    box = Box.from_ranges([(0, 120), (0, 20), (0, 22)])
     layout = build_layout(FRAME, box, 100.0, frozenset(), frozenset(), [(0, BLOCKER)])
     targets = pixel_targets(layout, project)
-    assert handle_at(targets, (150, 120)) == arrow_key(0)  # trait et flèche confondus
-    assert handle_at(targets, (168, 120)) == arrow_key(0)  # étiquette et pointe confondues
-    assert handle_at(targets, (187, 120)) == locked_key(Handle(0, True))
+    assert handle_at(targets, (150, 30)) == arrow_key(0)  # trait et flèche confondus
+    assert handle_at(targets, (168, 30)) == arrow_key(0)  # étiquette et pointe confondues
+    assert handle_at(targets, (187, 30)) == locked_key(Handle(0, True))
     # Recherche de la vue (key_at) : une poignée grisée ne cache jamais la flèche, même plus
     # proche qu'elle ; seule, elle reste survolable (infobulle).
-    assert handle_at(targets, (176, 120)) == locked_key(Handle(0, True))  # sur l'étiquette
-    assert key_at(layout, project, (176, 120), locked=False) == arrow_key(0)  # pointe à 6 px
-    assert key_at(layout, project, (187, 120), locked=False) is None
-    assert key_at(layout, project, (187, 120), locked=True) == locked_key(Handle(0, True))
+    assert handle_at(targets, (176, 30)) == locked_key(Handle(0, True))  # sur l'étiquette
+    assert key_at(layout, project, (176, 30), locked=False) == arrow_key(0)  # pointe à 6 px
+    assert key_at(layout, project, (187, 30), locked=False) is None
+    assert key_at(layout, project, (187, 30), locked=True) == locked_key(Handle(0, True))
+
+
+def test_angle_d_un_axe_a_l_ecran() -> None:
+    """Flèche d'un rond : direction de l'axe à l'écran, sans sens, au pas de 15° ; aucune si
+    l'axe est vu de bout ou si la projection a raté."""
+    assert screen_angle((0, 0), (10, 0)) == 0.0
+    assert screen_angle((0, 0), (-10, 0)) == 0.0  # sans sens
+    assert screen_angle((0, 0), (0, 10)) == 90.0
+    assert screen_angle((5, 5), (15, 14)) == 45.0  # 42° arrondi
+    assert screen_angle((0, 0), (10, -10)) == 135.0
+    assert screen_angle((0, 0), (1, 1)) is None  # vu de bout
+    assert screen_angle((0, 0), (math.nan, 1)) is None
+
+
+def test_fleche_des_ronds() -> None:
+    """Chaque rond tirable porte la flèche de son axe à l'écran ; un rond grisé n'en a pas."""
+    layout = build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0, 1}), [(2, BLOCKER)])
+    placed = on_screen(layout, 1.0, project, Vec3(0, 0, -1))  # vue de dessus : Z de bout
+    assert placed.axis_angles == (0.0, 90.0, None)
+    knobs = build_drawing(placed).knobs
+    assert [(k.axis, k.angle) for k in knobs] == [
+        (0, 0.0),
+        (0, 0.0),
+        (1, 90.0),
+        (1, 90.0),
+        (2, None),
+        (2, None),
+    ]
+    assert build_drawing(layout).knobs[0].angle is None  # hors vue : pas encore de direction
 
 
 def test_axe_tirable_jamais_grise() -> None:
