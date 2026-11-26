@@ -140,9 +140,14 @@ assemblage). Les règles :
   la menuiserie dans `features/settings.py` (lot 1, valeurs par défaut reprises du code), dossier
   de l'atelier utilisé par `materiaux.json`, `dimensions.json` et `quincaillerie.json` (sans
   changement tant que le réglage est vide). Aucune création ne lit encore les réglages.
-- **CA-b** : module générique `page`, page de préférences du lot 1 (maquette B), lecture des
-  réglages à la création des pièces et des assemblages, « Dernier utilisé » retenu à la création,
-  arête cassée sur les pièces neuves.
+- **CA-b** (fait) : module générique `kit/config/page` (et `page_rows`, `page_model` pour la
+  logique sans Qt), page de préférences du lot 1 (maquette B, `gui/preferences_page.py`,
+  inscrite dans `init_gui.py`), lecture des réglages à la création des pièces (pièce de bois,
+  pièce en bois, gabarits ; `features/new_part_settings.py`) et des assemblages
+  (`features/joint_settings.py`), profil proposé par la finition des chants
+  (`features/edge_settings.py`), « Dernier utilisé » retenu à la validation d'une création
+  (`features/record_created.py`), arête cassée sur les pièces neuves. Reste : l'entraxe des
+  tourillons (réglage affiché, pas encore lu).
 - **CA-c** : module générique `exchange`, puis export / import de `atelier.json`.
 - **CA-d** : reste des réglages, édition de `dimensions.json`, dossier des projets.
 
