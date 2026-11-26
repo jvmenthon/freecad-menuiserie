@@ -14,8 +14,9 @@ from typing import Any, Final
 
 from pivy import coin
 
-from freecad.menuiserie.gui.drag.badges import badge_pixels
-from freecad.menuiserie.gui.drag.drawing import Badge, Dots, Drawing, Label, Solid, Stroke
+from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.gui.drag.badges import badge_pixels, knob_pixels
+from freecad.menuiserie.gui.drag.drawing import Badge, Dots, Drawing, Knob, Label, Solid, Stroke
 
 __all__ = ["NODE_NAME", "Overlay"]
 
@@ -91,15 +92,13 @@ def _label_node(label: Label) -> SoNode:
     return node
 
 
-def _badge_node(badge: Badge) -> SoNode:
-    """Étiquette d'une poignée : image peinte par Qt, centrée sur sa position, à taille fixe à
-    l'écran (ADR 0068)."""
+def _image_node(position: Vec3, picture: tuple[int, int, bytes]) -> SoNode:
+    """Image peinte par Qt (largeur, hauteur, pixels RVBA), centrée sur ``position``, à taille
+    fixe à l'écran."""
+    width, height, pixels = picture
     node = coin.SoSeparator()
     place = coin.SoTranslation()
-    place.translation.setValue(badge.position.x, badge.position.y, badge.position.z)
-    width, height, pixels = badge_pixels(
-        badge.name, badge.text, badge.state, badge.axis, badge.scale
-    )
+    place.translation.setValue(position.x, position.y, position.z)
     image = coin.SoImage()
     image.vertAlignment = coin.SoImage.HALF
     image.horAlignment = coin.SoImage.CENTER
@@ -107,6 +106,17 @@ def _badge_node(badge: Badge) -> SoNode:
     for child in (place, image):
         node.addChild(child)
     return node
+
+
+def _badge_node(badge: Badge) -> SoNode:
+    """Étiquette d'une poignée (ADR 0068)."""
+    picture = badge_pixels(badge.name, badge.text, badge.state, badge.axis, badge.scale)
+    return _image_node(badge.position, picture)
+
+
+def _knob_node(knob: Knob) -> SoNode:
+    """Rond d'une face de poignée, à la couleur de son étiquette (ADR 0068)."""
+    return _image_node(knob.position, knob_pixels(knob.axis, knob.locked, knob.hot, knob.scale))
 
 
 class Overlay:
@@ -137,6 +147,8 @@ class Overlay:
             self._node.addChild(_solid_node(solid))
         for label in drawing.labels:
             self._node.addChild(_label_node(label))
+        for knob in drawing.knobs:  # après les faces : la face allumée ne les teinte pas
+            self._node.addChild(_knob_node(knob))
         for badge in drawing.badges:  # en dernier : par-dessus les traits
             self._node.addChild(_badge_node(badge))
 

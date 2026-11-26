@@ -61,6 +61,7 @@ __all__ = [
     "Cues",
     "Dots",
     "Drawing",
+    "Knob",
     "Label",
     "Layout",
     "Solid",
@@ -88,8 +89,6 @@ ARROW_PX: Final = 80.0  # longueur des flèches à l'écran
 HEAD_RATIO: Final = 0.15  # barbes de la pointe, part de la longueur
 HANDLE_RATIO: Final = 0.3  # unité de longueur des poignées, part des flèches
 MAX_SIZE_CHARS: Final = 9  # cote écrite sur une étiquette : au plus 9 caractères
-DOT_PX: Final = 8.0  # rond du milieu d'une face de poignée (pixels), survolé ensuite
-DOT_HOT_PX: Final = 11.0
 LINK_PX: Final = 2.0  # trait de l'étiquette à sa face (pixels), survolé ensuite
 LINK_HOT_PX: Final = 3.0
 FACE_TRANSPARENCY: Final = 0.7  # face survolée d'une poignée, à la couleur de son axe
@@ -367,6 +366,19 @@ class Badge:
 
 
 @dataclass(frozen=True)
+class Knob:
+    """Rond du milieu d'une face de poignée, centré sur ``position`` (taille fixe à l'écran) :
+    même couleur que l'étiquette de sa cote (axe ``axis``, gris si ``locked``), plus gros et avec
+    un halo si ``hot``, à l'échelle ``scale`` (rapport de pixels de l'écran)."""
+
+    position: Vec3
+    axis: int
+    locked: bool = False
+    hot: bool = False
+    scale: float = 1.0
+
+
+@dataclass(frozen=True)
 class Drawing:
     """Tout ce que l'incrustation affiche."""
 
@@ -375,6 +387,7 @@ class Drawing:
     solids: tuple[Solid, ...] = ()
     labels: tuple[Label, ...] = ()
     badges: tuple[Badge, ...] = ()
+    knobs: tuple[Knob, ...] = ()
 
 
 def _arrow_lines(arrow: Arrow, frame: Frame) -> tuple[tuple[Vec3, ...], ...]:
@@ -549,12 +562,11 @@ def build_drawing(
         hot = hover == arrow_key(arrow.axis)
         color = HOVER_COLOR if hot else AXIS_COLORS[arrow.axis]
         strokes.append(Stroke(color, 4.0 if hot else 2.0, _arrow_lines(arrow, layout.frame)))
-    dots: list[Dots] = []
     solids.extend(_hover_face(layout, hover))
-    badges = _badges(layout, hover, strokes, dots)
-    guide_strokes, guide_dots = guides_drawing(guides, guides_frame or layout.frame)
+    knobs: list[Knob] = []
+    badges = _badges(layout, hover, strokes, knobs)
+    guide_strokes, dots = guides_drawing(guides, guides_frame or layout.frame)
     strokes.extend(guide_strokes)
-    dots.extend(guide_dots)
     rings = _ring_drawing(layout, hover, sweep)
     cues = cues or Cues()
     if cues.ghost is not None:
@@ -563,7 +575,12 @@ def build_drawing(
         solids.append(ghost_faces)
     labels = rings.labels if cues.note is None else (*rings.labels, cues.note)
     return Drawing(
-        (*strokes, *rings.strokes), tuple(dots), (*solids, *rings.solids), labels, badges
+        (*strokes, *rings.strokes),
+        dots,
+        (*solids, *rings.solids),
+        labels,
+        badges,
+        tuple(knobs),
     )
 
 
@@ -581,15 +598,15 @@ def _badges(
     layout: Layout,
     hover: str | None,
     strokes: list[Stroke],
-    dots: list[Dots],
+    knobs: list[Knob],
 ) -> tuple[Badge, ...]:
     """Étiquettes des cotes ; leur trait et le rond du milieu de chaque face (couleur de l'axe,
-    gris si la cote est figée, plus gros survolé) sont ajoutés à ``strokes`` et ``dots``."""
+    gris si la cote est figée, plus gros survolé) sont ajoutés à ``strokes`` et ``knobs``."""
     badges = []
     for key, handle, point in _all_handles(layout):
         locked, hot = is_locked_key(key), hover == key
         color = _handle_color(handle, locked)
-        dots.append(Dots(color, DOT_HOT_PX if hot else DOT_PX, (point,)))
+        knobs.append(Knob(point, handle.axis, locked, hot, layout.badge_scale))
         if not _labelled(layout, handle):
             continue
         center = _badge_center(layout, key, handle, point)

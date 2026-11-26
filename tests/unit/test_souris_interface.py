@@ -145,7 +145,7 @@ def test_dessin_des_fleches_aux_couleurs_des_axes() -> None:
     colors = [stroke.color for stroke in drawing.strokes]
     assert len(set(colors)) == 3 and HOVER_COLOR not in colors
     assert all(len(stroke.lines) == 5 for stroke in drawing.strokes)  # tige et quatre barbes
-    assert drawing.dots == ()
+    assert drawing.dots == () and drawing.knobs == ()
 
 
 NAMES = ("Long.", "Larg.", "Ép.")
@@ -162,7 +162,7 @@ def test_surbrillance_de_la_cible_survolee() -> None:
     assert [s.color == HOVER_COLOR for s in drawing.strokes] == [False, True, False, False]
     assert drawing.solids == ()
     drawing = build_drawing(layout, hover=handle_key(Handle(0, True)))
-    assert [d.size for d in drawing.dots] == [8.0, 11.0]  # rond de la face survolée grossi
+    assert [k.hot for k in drawing.knobs] == [False, True]  # rond de la face survolée grossi
     assert [b.state for b in drawing.badges] == [BadgeState.HOVER]
     (face,) = drawing.solids  # face qui bouge, à la couleur de son axe
     assert face.color == AXIS_COLORS[0] and face.transparency == FACE_TRANSPARENCY
@@ -183,8 +183,9 @@ def test_une_etiquette_par_cote() -> None:
     assert (start.x, end.x, start.z, end.z) == (410, 410, 41, 41)
     assert (start.y, end.y) == pytest.approx((220, 220 + 57))  # 1,9 fois 30 % des 100 mm
     assert badge.position == end
-    assert [d.points for d in drawing.dots] == [(p,) for _, p in layout.handles]
-    assert {d.color for d in drawing.dots} == {AXIS_COLORS[1]}
+    assert [k.position for k in drawing.knobs] == [p for _, p in layout.handles]
+    assert {k.axis for k in drawing.knobs} == {badge.axis}  # rond : couleur de l'étiquette
+    assert drawing.dots == ()
     back = build_drawing(replace(layout, badge_ends=frozenset()))  # face de début vers la vue
     assert back.badges[0].position.y == pytest.approx(20 - 57)
 
@@ -267,7 +268,7 @@ def test_poignees_impossibles_grisees() -> None:
     assert states == [BadgeState.NORMAL] * 2 + [BadgeState.LOCKED]
     assert [b.text for b in drawing.badges][-1] == "22"
     assert [s.color for s in drawing.strokes][-1] == LOCKED_COLOR
-    assert [d.color for d in drawing.dots][-2:] == [LOCKED_COLOR, LOCKED_COLOR]
+    assert [k.locked for k in drawing.knobs][-2:] == [True, True]  # gris, comme l'étiquette
     key = locked_key(Handle(2, True))
     hovered = build_drawing(layout, hover=key)
     assert hovered.badges[-1].state == BadgeState.LOCKED_HOVER
@@ -461,7 +462,7 @@ def test_axe_vu_de_bout_et_vue_exactement_de_face() -> None:
     placed = on_screen(layout, 1.0, side, Vec3(-1, 0, 0))
     drawing = build_drawing(placed)
     assert sorted(b.axis for b in drawing.badges) == [0, 1, 2]
-    assert sum(len(d.points) for d in drawing.dots) == 6
+    assert len(drawing.knobs) == 6
     assert all(math.isfinite(r) for _, r in placed.badge_reach)
     assert all(1.9 <= r <= 1.9 + 6 * 0.8 for _, r in placed.badge_reach)
     targets = pixel_targets(placed, side)  # étiquette d'un axe de bout : segment dégénéré admis
@@ -553,7 +554,7 @@ def test_piece_sans_poignee() -> None:
     placed = on_screen(layout, 2.0, project, Vec3(0, 0, -1))
     assert placed.badge_reach == ()
     drawing = build_drawing(placed, hover=handle_key(Handle(0, True)))
-    assert drawing.badges == () and drawing.solids == () and drawing.dots == ()
+    assert drawing.badges == () and drawing.solids == () and drawing.knobs == ()
     assert [t.key for t in pixel_targets(placed, project)] == [arrow_key(a) for a in range(3)]
 
 

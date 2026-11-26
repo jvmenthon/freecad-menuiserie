@@ -257,7 +257,8 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
 
 
 def images_incrustees() -> int:
-    """Nombre d'étiquettes de poignée (``SoImage``) dans l'incrustation du glissement."""
+    """Nombre d'images (``SoImage`` : étiquettes et ronds des poignées) dans l'incrustation du
+    glissement."""
     from pivy import coin
 
     recherche = coin.SoSearchAction()
@@ -287,7 +288,7 @@ def _poignees_grisees(session: Any, piece: Any) -> list[str]:
     grisees = [(h.axis, h.at_end) for h, _, _ in session.layout.locked]
     problemes = [
         *ecarts("MDF : poignées d'épaisseur grisées", sorted(grisees), [(2, False), (2, True)]),
-        *ecarts("une étiquette par cote (maquette K)", images_incrustees(), 3),
+        *ecarts("une étiquette par cote et six ronds (maquette K)", images_incrustees(), 9),
         *ecarts("image des étiquettes posée", _images_posees(), True),
     ]
     point = next(p for h, p, _ in session.layout.locked if h.at_end)

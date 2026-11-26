@@ -75,7 +75,7 @@ def test_etiquettes_de_face() -> None:
     assert [b.text for b in drawing.badges] == ["1200", "600", "750"]
     assert [b.axis for b in drawing.badges] == [0, 1, 2]
     assert {b.state for b in drawing.badges} == {BadgeState.NORMAL}
-    assert sum(len(d.points) for d in drawing.dots) == 6
+    assert len(drawing.knobs) == 6
     assert [s.color for s in drawing.solids] == [BOX_COLOR]
 
 

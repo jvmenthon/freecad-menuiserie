@@ -3,11 +3,11 @@
 
 Une étiquette est une pastille arrondie blanche bordée de la couleur de l'axe : à gauche le nom
 court de la cote (« Long. », « Larg. », « Ép. »…) en blanc sur la couleur de l'axe, à droite sa
-valeur ; une cote figée est grise, avec un cadenas. Elle est peinte par Qt avec lissage, ombre et
-halo de survol, puis posée telle quelle dans la vue (``overlay.py``, ``SoImage`` : taille fixe à
-l'écran). Ses largeurs viennent de :func:`badge_width_px`, la mesure de la saisie. Les images sont
-gardées (mêmes nom, valeur, état, axe et échelle : même image) ; :func:`clear_badge_cache` les
-oublie.
+valeur ; une cote figée est grise, avec un cadenas. Elle est peinte par Qt avec lissage, ombre
+et halo de survol, puis posée telle quelle dans la vue (``overlay.py``, ``SoImage`` : taille fixe
+à l'écran). Ses largeurs viennent de :func:`badge_width_px`, la mesure de la saisie. Le rond du
+milieu de chaque face (:func:`knob_pixels`) est peint de même, à la couleur de l'étiquette. Les
+images sont gardées (mêmes arguments : même image) ; :func:`clear_badge_cache` les oublie.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.gui.drag.badge_place import BADGE_H_PX, LOCK_PX, badge_width_px
 from freecad.menuiserie.gui.drag.drawing import AXIS_COLORS, LOCKED_COLOR, BadgeState, Color
 
-__all__ = ["badge_pixels", "clear_badge_cache"]
+__all__ = ["badge_pixels", "clear_badge_cache", "knob_pixels"]
 
 MARGIN_PX: Final = 6.0  # marge autour de la pastille : ombre et halo
 NAME_PX: Final = 11.5  # taille du nom
@@ -37,6 +37,9 @@ LOCK_PEN: Final = 2.2
 VALUE_INK: Final = "#1d2733"
 LOCKED_INK: Final = "#4a5563"
 _CACHE: Final = 128
+KNOB_PX: Final = 11.0  # diamètre du rond d'une face, survolé ensuite
+KNOB_HOT_PX: Final = 14.0
+KNOB_RING_PX: Final = 1.6  # liseré blanc du rond
 MAX_SIDE_PX: Final = 2048  # côté d'une étiquette au plus (SbVec2s : 16 bits)
 
 
@@ -166,9 +169,64 @@ def _paint(name: str, text: str, state: BadgeState, axis: int, scale: float) -> 
     return image
 
 
+def _paint_knob(axis: int, locked: bool, hot: bool, scale: float) -> QtGui.QImage:
+    """Rond plein à la couleur de l'étiquette, liseré blanc, ombre ; halo s'il est survolé."""
+    diameter = (KNOB_HOT_PX if hot else KNOB_PX) * scale
+    margin = MARGIN_PX * scale
+    side = math.ceil(diameter + 2 * margin)
+    if side > MAX_SIDE_PX:  # jamais d'image démesurée
+        return QtGui.QImage()
+    image = QtGui.QImage(side, side, QtGui.QImage.Format_ARGB32_Premultiplied)
+    image.fill(QtCore.Qt.transparent)
+    color = _color(LOCKED_COLOR if locked else AXIS_COLORS[axis % 3])
+    offset = (side - diameter) / 2
+    body = QtCore.QRectF(offset, offset, diameter, diameter)
+    painter = QtGui.QPainter(image)
+    try:
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setPen(QtCore.Qt.NoPen)
+        if hot:
+            _halo(painter, body, color, scale)
+        painter.setBrush(QtGui.QColor(0, 0, 0, SHADOW_ALPHA))
+        painter.drawEllipse(body.translated(0.0, SHADOW_DROP_PX * scale))
+        painter.setBrush(QtGui.QColor("#ffffff"))
+        painter.drawEllipse(body)
+        ring = KNOB_RING_PX * scale
+        painter.setBrush(color)
+        painter.drawEllipse(body.adjusted(ring, ring, -ring, -ring))
+    finally:
+        painter.end()
+    return image
+
+
+def _coin_pixels(image: QtGui.QImage) -> tuple[int, int, bytes]:
+    """Largeur, hauteur et pixels RVBA de ``image``, lignes du bas vers le haut (l'ordre de
+    Coin) ; un pixel transparent si l'image est ratée, jamais un tampon trop court."""
+    image = image.convertToFormat(QtGui.QImage.Format_RGBA8888)
+    flip = getattr(image, "flipped", None)  # Qt ≥ 6.9 ; ``mirrored`` avant
+    image = flip(QtCore.Qt.Vertical) if flip is not None else image.mirrored(False, True)
+    width, height = image.width(), image.height()
+    data = bytes(image.constBits())[: width * height * 4]
+    if (
+        not (0 < width <= MAX_SIDE_PX and 0 < height <= MAX_SIDE_PX)
+        or len(data) != 4 * width * height
+    ):
+        return 1, 1, bytes(4)
+    return width, height, data
+
+
 def clear_badge_cache() -> None:
     """Oublie les images gardées (au retrait du glissement : police ou thème peuvent changer)."""
     badge_pixels.cache_clear()
+    knob_pixels.cache_clear()
+
+
+@lru_cache(maxsize=_CACHE)
+def knob_pixels(axis: int, locked: bool, hot: bool, scale: float) -> tuple[int, int, bytes]:
+    """Largeur, hauteur et pixels RVBA (ordre de Coin) du rond d'une face de poignée : couleur de
+    l'axe ``axis`` (celle de son étiquette), gris si ``locked``, plus gros avec un halo si
+    ``hot``, à l'échelle ``scale``."""
+    return _coin_pixels(_paint_knob(axis, locked, hot, scale))
 
 
 @lru_cache(maxsize=_CACHE)
@@ -179,14 +237,4 @@ def badge_pixels(
     l'étiquette de la cote ``name`` de valeur ``text``, dans l'état ``state``
     (:class:`BadgeState`), à la couleur de l'axe ``axis``, à l'échelle ``scale`` (rapport de
     pixels de l'écran)."""
-    image = _paint(name, text, state, axis, scale).convertToFormat(QtGui.QImage.Format_RGBA8888)
-    flip = getattr(image, "flipped", None)  # Qt ≥ 6.9 ; ``mirrored`` avant
-    image = flip(QtCore.Qt.Vertical) if flip is not None else image.mirrored(False, True)
-    width, height = image.width(), image.height()
-    data = bytes(image.constBits())[: width * height * 4]
-    if (
-        not (0 < width <= MAX_SIDE_PX and 0 < height <= MAX_SIDE_PX)
-        or len(data) != 4 * width * height
-    ):
-        return 1, 1, bytes(4)  # image ratée : un pixel transparent, jamais un tampon trop court
-    return width, height, data
+    return _coin_pixels(_paint(name, text, state, axis, scale))
