@@ -27,7 +27,10 @@ boîte ne l'englobe plus (constaté le 2026-11-11).
 2. **Rien ne bouge** : les cotes sont écrites sans recalcul, puis les liaisons du parent sont
    recalculées d'après la géométrie actuelle (comme « Relier les pièces »). Les pièces liées aux
    cotes du parent ne suivront ces nouvelles cotes qu'au prochain changement de taille.
-3. Seul un ensemble **de plus haut niveau** est recalé : la position d'un sous-ensemble est portée
+3. *(Remplacé par l'[ADR 0065](0065-boites-toujours-recalees.md) le 2026-11-17 : les
+   sous-ensembles sont recalés aussi, en avançant leur Std Part.)*
+
+   Seul un ensemble **de plus haut niveau** est recalé : la position d'un sous-ensemble est portée
    par son Std Part avec un `Origin` nul (ADR 0038), qu'un recalage casserait. Un parent n'est pas
    recalé non plus quand une formule autre qu'une liaison de l'atelier pilote son `Origin` ou une
    cote, **ou les lit** : répétition « Suivre le redimensionnement » (ADR 0043), formule de
@@ -41,14 +44,17 @@ boîte ne l'englobe plus (constaté le 2026-11-11).
 ## Conséquences
 
 - Code : `features/furniture_envelope.py`, appelé par `furniture_drag._relink`.
-- Un sous-ensemble d'un sous-ensemble déplacé hors de son parent garde l'ancien comportement : à
-  traiter plus tard si jv le demande (normaliser `Origin` en décalant le Std Part).
+- Un sous-ensemble d'un sous-ensemble déplacé hors de son parent : traité par l'ADR 0065
+  (`Origin` gardé nul, Std Part décalé).
 - Un recalcul complet du document de plus à la fin d'un geste sur un sous-ensemble.
 - Tests d'intégration : `tests/integration/test_enveloppe_du_parent.py` (déplacement à droite
   et à gauche, rotation, rétrécissement quand on ramène le sous-ensemble, répétition qui suit le parent, copies d'un
   sous-ensemble répété, création autour d'un ensemble tourné).
 
 ## Complément du 2026-11-16 : pièce ajoutée hors de la boîte
+
+*(Remplacé par l'[ADR 0065](0065-boites-toujours-recalees.md) point 5 le 2026-11-17 : la boîte
+est recalée exactement à l'entrée et à la sortie d'une pièce, elle peut rétrécir.)*
 
 Demande de jv du 2026-11-16, après un scénario QTest (PR #265) qui montrait la boîte inchangée : une pièce ajoutée à un ensemble alors
 qu'elle dépasse de sa boîte l'agrandit. `api.add_to_furniture` agrandit donc la boîte jusqu'à

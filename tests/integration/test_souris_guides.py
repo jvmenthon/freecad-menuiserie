@@ -232,19 +232,72 @@ def test_piece_verrouillee_sans_poignees(bureau: Bureau) -> None:
 
 
 def test_epaisseur_tirable_pour_le_massif_seulement(document: Any) -> None:
-    """Massif : l'axe 2 est redimensionnable ; contreplaqué, MDF, mélaminé : l'épaisseur de la
-    bibliothèque reste fixe, longueur et largeur se tirent toujours."""
+    """Massif et panneaux : l'axe 2 est redimensionnable (panneaux par crans depuis le
+    2026-11-26) ; un panneau qui passe en massif ou l'inverse garde sa poignée."""
     massif = api.make_wood_part(400, 100, 22, "chene", doc=document)
     assert drag.drag_limits(massif).resizable_axes == frozenset({0, 1, 2})
     for material, thickness in (("cp-bouleau", 18), ("mdf", 19), ("melamine-blanc", 19)):
         panneau = api.make_wood_part(400, 100, thickness, material, doc=document)
-        assert drag.drag_limits(panneau).resizable_axes == frozenset({0, 1}), material
-        memento = drag.begin_drag(panneau)
-        with pytest.raises(ValueError, match="ne peut pas être tirée"):
-            drag.resize_part(memento, "Thickness", thickness + 5, Vec3(0, 0, 0))
-        assert panneau.Thickness.Value == thickness
+        assert drag.drag_limits(panneau).resizable_axes == frozenset({0, 1, 2}), material
     wood_part_module.set_material(massif, "mdf")  # la famille suit le matériau
-    assert drag.drag_limits(massif).resizable_axes == frozenset({0, 1})
+    assert drag.drag_limits(massif).resizable_axes == frozenset({0, 1, 2})
+
+
+# --- Épaisseur d'un panneau par crans (jv, 2026-11-26) -----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("typed", "written"),
+    [(19.0, 18.0), (19.6, 21.0), (13.4, 12.0), (1.0, 4.0), (60.0, 24.0), (16.5, 15.0)],
+)
+def test_epaisseur_d_un_panneau_au_cran_standard(
+    document: Any, typed: float, written: float
+) -> None:
+    """Contreplaqué bouleau (4, 6,5, 9, 12, 15, 18, 21, 24) : l'épaisseur tirée saute au cran le
+    plus proche (à égale distance, celui du dessous), jamais sous 4 ni au-dessus de 24 mm."""
+    panneau = api.make_wood_part(400, 100, 18, "cp-bouleau", doc=document)
+    memento = drag.begin_drag(panneau)
+    assert drag.stepped_size(memento, "Thickness", typed) == written
+    assert drag.resize_part(memento, "Thickness", typed, Vec3(0, 0, 0)) == ""
+    assert panneau.Thickness.Value == written
+    assert panneau.Placement.Base.z == 0  # poignée du haut : la face du bas reste
+    assert drag.end_drag(memento) == []
+    assert panneau.Thickness.Value == written
+
+
+def test_epaisseur_d_un_panneau_poignee_du_bas(document: Any) -> None:
+    """Poignée du bas : la face du haut reste en place, l'origine recule du cran gagné (et non
+    de la distance tirée) ; Échap rend l'épaisseur du début."""
+    panneau = api.make_wood_part(400, 100, 18, "cp-bouleau", doc=document)
+    memento = drag.begin_drag(panneau)
+    drag.resize_part(memento, "Thickness", 19.4, Vec3(0, 0, -1.4), lowered=True)
+    assert panneau.Thickness.Value == 18.0  # cran le plus proche : rien ne change
+    assert panneau.Placement.Base.z == pytest.approx(0.0)
+    drag.resize_part(memento, "Thickness", 20.0, Vec3(0, 0, -2.0), lowered=True)
+    assert panneau.Thickness.Value == 21.0
+    assert panneau.Placement.Base.z == pytest.approx(-3.0)
+    drag.restore(memento)
+    assert (panneau.Thickness.Value, panneau.Placement.Base.z) == (18.0, 0.0)
+
+
+def test_epaisseur_d_un_panneau_avec_les_epaisseurs_personnelles(
+    document: Any, bibliotheque_temporaire: Any
+) -> None:
+    """Les épaisseurs personnelles (ADR 0028) sont des crans de plus, au-delà de celles du
+    matériau compris ; le massif reste libre."""
+    user_dimensions = pytest.importorskip("freecad.menuiserie.features.user_dimensions")
+    user_dimensions.add_thickness(30.0)
+    panneau = api.make_wood_part(400, 100, 18, "cp-bouleau", doc=document)
+    assert drag.panel_steps(panneau)[-2:] == (24.0, 30.0)
+    memento = drag.begin_drag(panneau)
+    drag.resize_part(memento, "Thickness", 28.0, Vec3(0, 0, 0))
+    assert panneau.Thickness.Value == 30.0
+    drag.restore(memento)
+    massif = api.make_wood_part(400, 100, 22, "chene", doc=document)
+    assert drag.panel_steps(massif) == ()
+    memento = drag.begin_drag(massif)
+    drag.resize_part(memento, "Thickness", 23.3, Vec3(0, 0, 0))
+    assert massif.Thickness.Value == pytest.approx(23.3)
 
 
 def test_epaisseur_sans_poignee_si_formule_ou_verrou(document: Any) -> None:
@@ -302,10 +355,10 @@ def dragged_thickness(mark: str, value: float, shift: Any) -> Any:
     return change
 
 
-@pytest.mark.parametrize("shift", [Vec3(0, 0, 0), Vec3(0, 0, -3)], ids=["fin", "debut"])
-def test_epaisseur_tiree_comme_saisie_dans_le_panneau(shift: Any) -> None:
-    """Membre d'ensemble en massif : l'épaisseur tirée est gardée et la rangée recalculée, comme
-    pour ``set_member_thickness`` (la saisie du panneau), quelle que soit la face tirée."""
+def test_epaisseur_tiree_vers_l_interieur_comme_saisie_dans_le_panneau() -> None:
+    """Membre d'ensemble en massif, face intérieure tirée : l'épaisseur tirée est gardée et la
+    rangée recalculée, comme pour ``set_member_thickness`` (la saisie du panneau)."""
+    shift = Vec3(0, 0, -3)  # la joue gauche a son axe d'épaisseur vers -X : face intérieure
     from freecad.menuiserie.features.furniture_locks import set_member_thickness
 
     _, typed = thickness_after(
@@ -316,6 +369,21 @@ def test_epaisseur_tiree_comme_saisie_dans_le_panneau(shift: Any) -> None:
     assert dragged.parts["JG"].Thickness.Value == 25
     assert dragged.sizes("V")[0] == 1153  # le voile absorbe les 3 mm
     assert "Thickness" not in dragged.expressions("JG")
+    assert stale_or_invalid(dragged.doc) == []
+
+
+def test_epaisseur_tiree_vers_l_exterieur_la_face_tiree_decide() -> None:
+    """jv, 2026-11-23 : membre assemblé tiré vers l'extérieur, il grandit vers l'extérieur (sa
+    face intérieure ne bouge pas) ; la boîte de l'ensemble est recalée (ADR 0065)."""
+    from freecad.menuiserie.features.furniture_envelope import frame_of, member_envelope
+
+    dragged, _ = thickness_after(
+        "TestPieceDeBoisDehors", dragged_thickness("JG", 25.0, Vec3(0, 0, 0))
+    )
+    assert dragged.bounds("JG")[0] == pytest.approx((-3, 22))
+    assert dragged.sizes("V")[0] == 1156  # le voile ne bouge pas
+    assert frame_of(dragged.furniture) == member_envelope(dragged.furniture)
+    assert dragged.furniture.Width.Value == pytest.approx(1203)
     assert stale_or_invalid(dragged.doc) == []
 
 
@@ -336,7 +404,7 @@ def test_epaisseur_tiree_refusee_par_la_rangee_bloquee(bureau: Bureau) -> None:
     api.set_member_options(bureau.parts["V"], locked=True)
     before = {mark: bureau.sizes(mark) for mark in LAYOUT}
     memento = drag.begin_drag(bureau.parts["JG"])
-    drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, 0))
+    drag.resize_part(memento, "Thickness", 25, Vec3(0, 0, -3))  # face intérieure
     with pytest.raises(api.LockedPiecesError):
         drag.end_drag(memento)
     bureau.doc.recompute()

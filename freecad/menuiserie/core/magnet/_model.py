@@ -16,7 +16,7 @@ from typing import Final
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
 from freecad.menuiserie.core.vectors import is_finite, norm
 
-THICKNESS_AXIS: Final = 2  # Z du repère de la pièce : poignée d'épaisseur du massif seulement (Q4)
+THICKNESS_AXIS: Final = 2  # Z de la pièce : épaisseur (massif ; panneau par crans)
 MIN_SIZE_MM: Final = 1.0  # cote minimale d'une pièce redimensionnée (A6)
 
 

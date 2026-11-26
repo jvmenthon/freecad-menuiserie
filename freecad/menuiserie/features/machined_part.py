@@ -9,10 +9,11 @@ et les noms des propriétés sont écrits dans les documents ; ils ne changent j
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from typing import ClassVar, Final
 
+from freecad.menuiserie.core._extrusion import Extrusion
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.naming import label_for_mark, mark_from_label
 from freecad.menuiserie.core.text import quoted_value
@@ -30,7 +31,12 @@ from freecad.menuiserie.features.i18n import report_warning, translated, transla
 from freecad.menuiserie.features.joints.base import is_joint
 from freecad.menuiserie.features.machined_cache import cached_machined_shape, machining_key
 from freecad.menuiserie.features.machined_links import globalize_joints
-from freecad.menuiserie.features.machined_plans import JointFailedError, finishes_of, machining_of
+from freecad.menuiserie.features.machined_plans import (
+    JointFailedError,
+    Machining,
+    finishes_of,
+    machining_of,
+)
 from freecad.menuiserie.features.part_labels import make_label_unique
 from freecad.menuiserie.features.part_names import (
     default_label,
@@ -228,25 +234,43 @@ class MachinedPart(SyncingProxy):
         enlèvements de ses assemblages, au ``Placement`` de la brute. ``ValueError`` traduite si
         la brute ou un assemblage est invalide."""
         blank = _checked_blank(obj)
-        with translated_errors():
-            base = blank_shape(blank)
         try:
-            additions, cuts, trims = machining_of(obj, blank)
+            machining = machining_of(obj, blank)
             profiles = finishes_of(obj, blank)
         except JointFailedError:
-            # Un assemblage impossible signale lui-même son erreur dans son propre recalcul : la
-            # pièce usinée ne la répète pas (une seule trace, ADR 0026). Sa forme reste celle
-            # d'avant (jamais de forme partielle) ; seul son placement suit la brute.
+            # Un assemblage impossible signale lui-même son erreur (une seule trace, ADR 0026) ;
+            # la forme reste celle d'avant (jamais partielle hors aperçu), le placement suit.
             with self._executing():
                 obj.Placement = blank.Placement
             return
-        key = machining_key(blank, additions, cuts, trims, profiles)
-        shape = cached_machined_shape(base, key, additions, cuts, trims, profiles)
-        # Part::Feature impose son Placement à la forme affectée : il est donc posé d'abord,
-        # sous le drapeau qui évite de le reporter sur la brute (Q4).
+        self._show(obj, blank, machining, profiles)
+
+    def preview(self, obj: DocumentObject) -> None:
+        """Aperçu d'un geste : brute à ses cotes du moment, usinée par ses seuls assemblages qui
+        tiennent (les autres, sans trace, sont repris au relâchement) ; ``ValueError`` traduite."""
+        blank = _checked_blank(obj)
+        try:
+            profiles = finishes_of(obj, blank)
+        except JointFailedError:  # profil impossible à ces cotes : repris au relâchement
+            profiles = []
+        self._show(obj, blank, machining_of(obj, blank, holding_only=True), profiles)
+
+    def _show(
+        self,
+        obj: DocumentObject,
+        blank: DocumentObject,
+        machining: Machining,
+        profiles: Sequence[Extrusion],
+    ) -> None:
+        with translated_errors():
+            base = blank_shape(blank)
+        key = machining_key(blank, *machining, profiles)
+        shape = cached_machined_shape(base, key, *machining, profiles)
+        # Hors recalcul (aperçu), la forme affectée impose son placement : celui de la brute est
+        # donc posé après, sous le drapeau qui évite de le reporter sur la brute (Q4).
         with self._executing():
-            obj.Placement = blank.Placement
             obj.Shape = shape  # toujours : la vue 3D en tire la texture (``updateData``)
+            obj.Placement = blank.Placement
 
     def _follows_user_changes(self, obj: DocumentObject) -> bool:
         executing: bool = getattr(self, "_in_execute", False)

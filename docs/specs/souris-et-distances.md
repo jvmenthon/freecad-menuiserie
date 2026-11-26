@@ -53,9 +53,9 @@ Le menuisier peut :
    pièce suit la souris le long de cet axe (§ 4.3). Pendant la création et la modification
    (panneau ouvert), les flèches sont sur la pièce du panneau ;
 2. panneau ouvert, **redimensionner** la pièce en tirant l'une de ses **poignées** (deux bouts pour la
-   longueur, deux rives pour la largeur et, **pour le massif seulement**, le dessus et le dessous
-   pour l'épaisseur) ; la face opposée ne bouge pas ; l'épaisseur d'un panneau (contreplaqué, MDF,
-   mélaminé) reste celle de la bibliothèque ;
+   longueur, deux rives pour la largeur, le dessus et le dessous pour l'épaisseur) ; la face
+   opposée ne bouge pas ; l'épaisseur d'un panneau (contreplaqué, MDF, mélaminé) saute d'une
+   épaisseur standard à l'autre, entre la plus petite et la plus grande (jv, 2026-11-26, ADR 0021) ;
 3. sentir l'**aimantation** : à moins de 10 pixels d'une face, d'une arête ou d'un sommet d'une
    pièce voisine (de l'atelier ou de tout autre objet Part), la face de la pièce vient s'y coller
    ou s'y aligner, et le guide s'allume ; **Maj** enfoncée coupe l'aimantation ;

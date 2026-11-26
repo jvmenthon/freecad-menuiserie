@@ -119,7 +119,7 @@ def test_enveloppe_deja_juste_rien_n_est_ecrit(document: Any) -> None:
     assert envelope.reframe(furniture) is False
 
 
-def test_sous_ensemble_n_est_jamais_recale(document: Any) -> None:
+def test_sous_ensemble_deja_ajuste_n_est_pas_recale(document: Any) -> None:
     _, sub, _, _ = meuble(document)
     assert envelope.reframe(sub) is False
 

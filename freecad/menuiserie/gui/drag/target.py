@@ -27,7 +27,6 @@ from freecad.menuiserie.features.furniture_container import guide_container
 from freecad.menuiserie.features.furniture_drag_state import FurnitureMemento
 from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.part_drag import (
-    SIZE_PROPS,
     DragMemento,
     begin_drag,
     drag_limits,
@@ -35,8 +34,10 @@ from freecad.menuiserie.features.part_drag import (
     move_part,
     resize_part,
     restore,
+    stepped_size,
 )
 from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
+from freecad.menuiserie.features.thickness_common import SIZE_PROPS
 from freecad.menuiserie.gui.drag.geometry import Layout, build_layout
 from freecad.menuiserie.gui.drag.parts import box_of, frame_of, rings_of
 
@@ -61,6 +62,7 @@ class Step:
 
     size: float
     message: str = ""
+    note: str = ""  # ligne de plus, couleur normale : pièces qui suivent (ADR 0060)
 
 
 class Target(ABC):
@@ -186,8 +188,13 @@ class PartTarget(Target):
         move_part(_part(memento), delta)
 
     def resize(self, memento: Memento, handle: Handle, result: ResizeResult) -> Step:
-        resize_part(_part(memento), SIZE_PROPS[handle.axis], result.size, result.origin_shift)
-        return Step(result.size)
+        part = _part(memento)
+        prop = SIZE_PROPS[handle.axis]
+        stop = resize_part(part, prop, result.size, result.origin_shift, lowered=not handle.at_end)
+        if stop:  # butée : l'épaisseur reste celle du début (ADR 0060)
+            return Step(part.thickness, stop)
+        # panneau : épaisseur au cran standard le plus proche (jv, 2026-11-26)
+        return Step(stepped_size(part, prop, result.size), note=part.follows.note())
 
     def rotate(self, memento: Memento, axis: int, angle: float) -> bool:
         return rotate_by(_part(memento), axis, angle)

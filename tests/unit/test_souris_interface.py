@@ -288,3 +288,15 @@ def test_panneau_de_chaque_piece_branche_la_session_du_glissement(panel: str, na
     path = f"gui/task_panels/{panel}.py"
     assert "PanelDrag" in _calls(path, "__init__", name)
     assert _calls(path, "after_drag", name) is not None
+
+
+@pytest.mark.parametrize("method", ["begin", "_begin_rotation"])
+def test_panneau_fige_avant_le_memento_du_geste(method: str) -> None:
+    """Revue Copilot de la PR #264 : l'encadré d'épaisseur est fermé (ensemble relié) avant la
+    transaction et le mémento du geste, jamais pendant le glissement."""
+    calls = _calls("gui/drag/session.py", method, "DragSession")
+    assert calls.index("self._settle_panel") < calls.index("open_transaction")
+    assert calls.index("self._settle_panel") < calls.index("target.begin")
+    assert "self._conflict.forget" in _calls(
+        "gui/task_panels/wood_part.py", "before_drag", "WoodPartTaskPanel"
+    )

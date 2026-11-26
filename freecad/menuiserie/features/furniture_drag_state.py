@@ -40,7 +40,7 @@ from freecad.menuiserie.features.furniture_container import (
     std_part_of,
 )
 from freecad.menuiserie.features.i18n import translated
-from freecad.menuiserie.features.part_drag import write_placement
+from freecad.menuiserie.features.raw_placement import write_placement
 from freecad.menuiserie.features.shaped_part import is_timber
 from freecad.menuiserie.features.solids import rigid_transform
 

@@ -42,7 +42,7 @@ class PanelDrag:
             return
         previous, self._context = self._context, None
         if part is not None:
-            self._context = PanelContext(part, self._refresh, self._is_open)
+            self._context = PanelContext(part, self._refresh, self._is_open, self._settle)
             session.set_panel(self._context)
         elif previous is not None:
             session.clear_panel(previous)
@@ -55,6 +55,12 @@ class PanelDrag:
         panel = self._panel()
         if panel is not None and not panel.closed:
             panel.after_drag()
+
+    def _settle(self) -> None:
+        """Geste qui commence : le panneau fige ses saisies (méthode ``before_drag``, s'il en a)."""
+        panel = self._panel()
+        if panel is not None and not panel.closed and hasattr(panel, "before_drag"):
+            panel.before_drag()
 
     def _on_destroyed(self) -> None:
         """Formulaire détruit (panneau fermé) : poignées enlevées."""

@@ -36,6 +36,21 @@ def test_pieces_proches_proposent_deplacer_et_agrandir(document: Any) -> None:
     assert closing.options == {"move": upper.Label, "grow": upper.Label}
 
 
+def test_panneaux_superposes_sans_agrandir_l_epaisseur(document: Any) -> None:
+    """Panneaux (MDF) : l'épaisseur tirée va par crans standard (jv, 2026-11-26), elle ne
+    comblerait pas l'écart exactement ; seul « déplacer » est proposé."""
+    lower = api.make_wood_part(400, 60, 19, "mdf", mark="A", doc=document)
+    upper = api.make_wood_part(400, 60, 19, "mdf", mark="B", doc=document)
+    upper.Placement = App.Placement(App.Vector(0, 0, 19 + GAP), App.Rotation())
+    document.recompute()
+    closing = api.closing_options(lower, upper)
+    assert closing is not None
+    assert closing.options == {"move": upper.Label}
+    with pytest.raises(ValueError):
+        api.close_gap(lower, upper, "grow")
+    assert upper.Thickness.Value == 19.0
+
+
 @pytest.mark.parametrize("gap", [0.0, 50.0])
 def test_rien_a_proposer_au_contact_ou_trop_loin(document: Any, gap: float) -> None:
     lower, upper = stack(document, gap)
@@ -154,3 +169,21 @@ def test_option_deplacer_signale_les_assemblages_portes(document: Any) -> None:
     closing = api.closing_options(near, rail)
     assert closing is not None
     assert closing.move_has_joints is True
+
+
+def test_agrandir_par_la_face_basse_la_piece_posee_dessus_ne_bouge_pas(document: Any) -> None:
+    """Revue Copilot de la PR #264 : l'épaisseur grandit par la face basse (``lowered``) ; la
+    pièce assemblée sur la face haute, immobile, reste en place."""
+    lower, upper = stack(document)
+    post = api.make_wood_part(200, 60, 22, "chene", mark="C", doc=document)
+    top = 2 * THICKNESS + GAP
+    post.Placement = App.Placement(App.Vector(200, 0, top), App.Rotation(App.Vector(0, 1, 0), -90))
+    document.recompute()
+    api.make_mortise_tenon(upper, post)
+    document.recompute()
+    assert not stale_or_invalid(document)
+    api.close_gap(lower, upper, "grow")
+    document.recompute()
+    assert upper.Thickness.Value == pytest.approx(THICKNESS + GAP)
+    assert post.Placement.Base.z == pytest.approx(top)
+    assert not stale_or_invalid(document)

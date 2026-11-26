@@ -30,6 +30,14 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Modifié
 
+- Épaisseur d'un panneau (contreplaqué, MDF, mélaminé) à la souris (jv, 2026-11-26, ADR 0021) : le panneau d'une pièce ouvert, ses deux poignées d'épaisseur apparaissent aussi, et l'épaisseur tirée saute à l'épaisseur standard la plus proche (celles du matériau et les épaisseurs personnelles), sans descendre sous la plus petite ni dépasser la plus grande. La saisie au clavier dans le panneau reste libre. « Agrandir jusqu'au contact » n'agrandit pas l'épaisseur d'un panneau.
+
+- Épaisseur d'une pièce assemblée qui défait un assemblage (queue d'aronde plus à fleur, par exemple) : le panneau de la pièce affiche sous les cotes un encadré « Où ajouter les N mm ? » (vers l'intérieur, la pièce reste à fleur ; vers l'extérieur en allongeant l'autre pièce ; revenir à l'ancienne épaisseur). Un choix impossible (copie de répétition, membre d'un autre ensemble, pièce en bois, expression) est grisé avec sa raison ; si aucun ne tient (frappe en cours, épaisseur trop mince), rien n'est écrit et « OK » est inactif. Quand l'épaisseur ne défait aucun assemblage, l'encadré propose aussi l'épaisseur telle que saisie, en tête, nommée par son côté (« Vers l'extérieur » sur le côté d'un caisson, par exemple). Une pièce d'ensemble assemblée a les mêmes choix : l'ensemble est relié d'après le résultat (boîte recalée sur ses membres). À la souris, la face tirée décide : l'autre pièce à fleur s'allonge en direct, ou la poignée s'arrête si elle ne peut pas ; c'est vrai aussi pour une pièce d'ensemble assemblée tirée vers l'extérieur, et la boîte de l'ensemble suit (ADR 0060).
+
+- Boîte d'un ensemble toujours recalée sur ses membres, sous-ensembles compris (ADR 0065, jv) : après une épaisseur choisie dans l'encadré, un sous-ensemble déplacé, une pièce déplacée à la souris, ou une pièce qui entre dans un ensemble, en sort ou en change, la boîte de l'ensemble puis celles de ses parents épousent exactement leurs membres. Pour un sous-ensemble, son Std Part avance et ses pièces reculent d'autant : rien ne bouge à l'écran. Elle n'a jamais de marge : une marge donnée à la main disparaît au geste suivant (sauf pour un ensemble dont une cote est pilotée par une formule). Si l'ensemble ne peut pas être relié, boîtes, positions et liaisons reviennent.
+
+- Std Part d'un ensemble supprimé en gardant son contenu (« Non ») : l'objet ensemble est supprimé aussi, juste après, dans sa propre entrée d'annulation ; les pièces gardent leur place (ADR 0061, remplace ce point de l'ADR 0038).
+
 - Répétition (ADR 0067, demande de jv) : « Dissocier la répétition » demande d'abord confirmation (« Annuler » par défaut, ou « Dissocier »), depuis la barre d'outils, le menu ou le panneau « Structure ».
 - Répétition (ADR 0067, demande de jv) : « Dissocier la copie » devient « Dissocier la répétition ». Depuis la répétition ou n'importe laquelle de ses copies (y compris la pièce usinée d'une copie assemblée ou un membre d'un ensemble copie), toutes les copies gardent leurs valeurs et deviennent des pièces libres, avec leurs assemblages, puis la répétition est supprimée, en une seule annulation. Avant, seule la copie choisie était détachée, sans rien de visible à l'écran. Nouvelle icône (maquette 1 choisie par jv) : les tasseaux de « Répéter » et une pastille rouge au maillon coupé.
 - Répétition : les copies sont nommées « Barreau (2) », « Barreau (3) »… au lieu de « Barreau 2 » (ADR 0067). Une copie d'un document plus ancien prend le nouveau nom quand son rang change ; un nom changé à la main est gardé.
@@ -68,6 +76,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Retiré
 
+- Menu « Épaisseurs standard » du panneau d'une pièce : le sous-menu « Formats de panneau » (et « Ajouter un format… ») est retiré, ce menu ne propose plus que des épaisseurs (jv, 2026-11-26, ADR 0028 modifié). Les formats enregistrés restent dans `dimensions.json`.
 - Sélection par ensemble dans la vue 3D et « drill down » (ADR 0048, abandonné à la demande de jv le 2026-11-13) : un clic dans la vue 3D sélectionne de nouveau la pièce touchée, le double-clic ne descend ni ne remonte plus dans les ensembles (il ouvre toujours le panneau de la pièce, ADR 0018). Les cotes du parent à l'enveloppe (ADR 0049) sont conservées.
 
 ### Ajouté

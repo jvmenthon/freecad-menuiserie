@@ -1,18 +1,20 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Cotes d'un ensemble recalées sur l'enveloppe de ses membres (ADR 0049).
+"""Cotes d'un ensemble recalées sur l'enveloppe de ses membres (ADR 0049, ADR 0065).
 
-Après un déplacement ou une rotation d'un sous-ensemble, la boîte de l'ensemble parent devient
-exactement la boîte qui enveloppe ses membres (pièces et sous-ensembles, rotation comprise), sans
-marge : elle grandit ou rétrécit (jv, 2026-11-11 : « la boîte doit toujours être de la taille de
-l'ensemble »).
-Rien ne bouge : seuls ``Origin`` et les cotes du parent sont écrits, puis ses liaisons sont
-recalculées d'après la géométrie actuelle (``furniture_drag._relink``).
+La boîte d'un ensemble devient exactement la boîte qui enveloppe ses membres (pièces et
+sous-ensembles, rotation comprise), sans marge : elle grandit ou rétrécit (jv, 2026-11-11 : « la
+boîte doit toujours être de la taille de l'ensemble » ; 2026-11-17 : « les boîtes doivent toujours
+être recalculées », sous-ensembles compris). Rien ne bouge dans le document : l'appelant relie
+ensuite les membres d'après la géométrie actuelle
+(:func:`~freecad.menuiserie.features.furniture_reframe.relink_framed`).
 
-Seul un ensemble de plus haut niveau est recalé : la position d'un sous-ensemble est portée par le
-``Placement`` de son Std Part avec un ``Origin`` nul (ADR 0038), qu'un recalage décalerait. Un
-parent n'est pas recalé non plus quand une formule autre qu'une liaison de l'atelier pilote son
-``Origin`` ou une cote, ou les lit (répétition « Suivre le redimensionnement », formule de
-l'utilisateur sur un membre) : le recaler ferait bouger ce qui en dépend.
+Ensemble de plus haut niveau : ``Origin`` et cotes sont écrits. Sous-ensemble (ADR 0065) : son
+``Origin`` reste nul (sa position est portée par le ``Placement`` de son Std Part, ADR 0038) ; le
+Std Part avance du coin bas de l'enveloppe et ses membres reculent d'autant dans son repère, donc
+rien ne bouge dans la vue. Un ensemble n'est pas recalé quand une formule autre qu'une liaison de
+l'atelier pilote son ``Origin`` ou une cote, ou les lit (répétition « Suivre le
+redimensionnement », formule de l'utilisateur sur un membre), ni un sous-ensemble dont un membre
+est placé par une telle formule : le recaler ferait bouger ce qui en dépend.
 """
 
 from __future__ import annotations
@@ -22,15 +24,32 @@ from typing import Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.geometry import Box
+from freecad.menuiserie.core.geometry import Box, Vec3
 from freecad.menuiserie.features.freecad_types import DocumentObject, expressions_of
-from freecad.menuiserie.features.furniture import furniture_of, writing
+from freecad.menuiserie.features.furniture import furniture_of, is_furniture, writing
 from freecad.menuiserie.features.furniture_bindings import members_of, workshop_expressions
-from freecad.menuiserie.features.furniture_container import carried_furniture
-from freecad.menuiserie.features.furniture_drag_state import furniture_box, write_sizes
+from freecad.menuiserie.features.furniture_container import (
+    carried_furniture,
+    member_expressions,
+    std_part_of,
+)
+from freecad.menuiserie.features.furniture_drag_state import (
+    furniture_box,
+    write_sizes,
+    write_std_placement,
+)
 from freecad.menuiserie.features.furniture_enclosing import corner_box, corners_of
+from freecad.menuiserie.features.raw_placement import carried_along, place, write_placement
+from freecad.menuiserie.features.thickness_common import is_alive
 
-__all__ = ["frame_of", "grow", "member_envelope", "reframe", "restore_frame"]
+__all__ = [
+    "frame_of",
+    "kept_inside",
+    "member_envelope",
+    "reframe",
+    "restore_frame",
+    "would_reframe",
+]
 
 TOLERANCE_MM: Final = 1e-6
 _FRAME_PROPERTIES: Final = ("Origin", "Width", "Depth", "Height")
@@ -84,10 +103,69 @@ def restore_frame(furniture: DocumentObject, frame: Box) -> None:
         write_sizes(furniture, frame)
 
 
+def _placed_by_formula(member: DocumentObject) -> bool:
+    """Vrai si une formule autre qu'une liaison de l'atelier place ``member`` (copie d'une
+    répétition, formule de l'utilisateur)."""
+    workshop = workshop_expressions(member)
+    return any(
+        path.split(".")[0] == "Placement" and path not in workshop
+        for path in member_expressions(member)
+    )
+
+
+def kept_inside(furniture: DocumentObject) -> list[DocumentObject]:
+    """Objets placés du Std Part de ``furniture`` qui n'en sont pas membres et que rien d'autre
+    ne place : pièce sortie mais restée assemblée à un membre (``furniture_entry.leave``), objet
+    de l'utilisateur. Le recalage d'un sous-ensemble les décale avec ses membres."""
+    part = std_part_of(furniture)
+    if part is None:
+        return []
+    members = members_of(furniture)
+    own = {furniture.Name, *(obj.Name for obj in members)}
+    own.update(inner.Name for m in members if (inner := _inner_part(m)) is not None)
+    return [
+        obj
+        for obj in part.Group
+        if is_alive(obj)
+        and obj.Name not in own
+        and "Placement" in obj.PropertiesList
+        and not carried_along(obj)
+    ]
+
+
+def _fixed_in_place(obj: DocumentObject) -> bool:
+    """Vrai si le ``Placement`` de ``obj`` ne se décale pas tel quel : objet attaché (le
+    recalcul le replacerait), propriété en lecture seule."""
+    attached = any(getattr(obj, name, None) for name in ("AttachmentSupport", "Support"))
+    status = obj.getPropertyStatus("Placement")
+    return attached or "ReadOnly" in status or "Immutable" in status
+
+
+def _inner_part(member: DocumentObject) -> DocumentObject | None:
+    return std_part_of(member) if is_furniture(member) else None
+
+
+def _movable(furniture: DocumentObject) -> bool:
+    """Vrai si le contenu du sous-ensemble ``furniture`` peut être décalé dans son Std Part : ni
+    son Std Part, ni un de ses membres, ni un objet gardé dedans (:func:`kept_inside`) n'est
+    placé par une formule autre qu'une liaison de l'atelier (le recalcul défairait le
+    décalage), et aucun objet gardé n'est attaché ou figé (:func:`_fixed_in_place`)."""
+    if std_part_of(furniture) is None:
+        return False
+    kept = kept_inside(furniture)
+    contents = (furniture, *members_of(furniture), *kept)
+    return not any(_placed_by_formula(obj) for obj in contents) and not any(
+        _fixed_in_place(obj) for obj in kept
+    )
+
+
 def _frames(furniture: DocumentObject) -> tuple[Box, Box] | None:
     """Boîte actuelle de ``furniture`` et enveloppe de ses membres ; ``None`` pour un ensemble
-    qu'on ne recale pas : sous-ensemble, piloté ou lu par une formule, sans membre."""
-    if furniture_of(furniture) is not None or _driven(furniture):
+    qu'on ne recale pas : piloté ou lu par une formule, sans membre, sous-ensemble dont le
+    contenu ne peut pas être décalé."""
+    if _driven(furniture):
+        return None
+    if furniture_of(furniture) is not None and not _movable(furniture):
         return None
     envelope = member_envelope(furniture)
     return None if envelope is None else (frame_of(furniture), envelope)
@@ -101,24 +179,6 @@ def _same(first: Box, second: Box) -> bool:
     )
 
 
-def grow(furniture: DocumentObject) -> bool:
-    """Agrandit la boîte de ``furniture`` jusqu'à contenir ses membres (pièce entrée alors
-    qu'elle en dépasse), sans jamais la réduire : une marge voulue par l'utilisateur reste. Sans
-    recalcul ni liaison, comme :func:`reframe`. Faux, sans rien écrire, pour un ensemble qu'on
-    ne recale pas (:func:`_frames`) ou dont rien ne dépasse."""
-    frames = _frames(furniture)
-    if frames is None:
-        return False
-    current, envelope = frames
-    grown = Box.from_ranges(
-        [(min(current.lo(i), envelope.lo(i)), max(current.hi(i), envelope.hi(i))) for i in range(3)]
-    )
-    if _same(current, grown):
-        return False
-    restore_frame(furniture, grown)
-    return True
-
-
 def reframe(furniture: DocumentObject) -> bool:
     """Recale ``Origin`` et les cotes de ``furniture`` sur l'enveloppe de ses membres, sans
     recalcul ni liaison (l'appelant relie ensuite les membres). Faux, sans rien écrire, pour un
@@ -127,5 +187,41 @@ def reframe(furniture: DocumentObject) -> bool:
     if frames is None or _same(*frames):
         return False
     envelope = frames[1]
+    if furniture_of(furniture) is not None:  # sous-ensemble : Origin nul, le Std Part avance
+        _shift_contents(furniture, envelope.min)
+        envelope = Box(Vec3(0.0, 0.0, 0.0), envelope.max - envelope.min)
     restore_frame(furniture, envelope)
     return True
+
+
+def _shift_contents(furniture: DocumentObject, offset: Vec3) -> None:
+    """Std Part du sous-ensemble ``furniture`` avancé de ``offset`` (repère du Std Part) et ses
+    membres, avec ce qu'il garde d'autre (:func:`kept_inside`), reculés d'autant : rien ne bouge
+    dans la vue."""
+    part = std_part_of(furniture)
+    if part is None or max(abs(offset.x), abs(offset.y), abs(offset.z)) <= TOLERANCE_MM:
+        return
+    back = App.Vector(-offset.x, -offset.y, -offset.z)
+    for member in members_of(furniture):
+        if is_furniture(member):
+            inner = std_part_of(member)
+            if inner is not None:
+                write_std_placement(inner, _moved(inner.Placement, back))
+        elif "Placement" in member.PropertiesList:  # membre sans position : rien à décaler
+            write_placement(member, _moved(member.Placement, back))
+    for obj in kept_inside(furniture):  # pièce restée assemblée, objet de l'utilisateur
+        place(obj, _moved(obj.Placement, back))
+    start = App.Placement(part.Placement)
+    ahead = start.Rotation.multVec(App.Vector(offset.x, offset.y, offset.z))
+    write_std_placement(part, App.Placement(start.Base + ahead, start.Rotation))
+
+
+def _moved(placement: App.Placement, shift: App.Vector) -> App.Placement:
+    return App.Placement(placement.Base + shift, placement.Rotation)
+
+
+def would_reframe(furniture: DocumentObject) -> bool:
+    """Vrai si :func:`reframe` changerait la boîte de ``furniture`` (ensemble recalable dont les
+    membres ne sont plus exactement à l'enveloppe)."""
+    frames = _frames(furniture)
+    return frames is not None and not _same(*frames)

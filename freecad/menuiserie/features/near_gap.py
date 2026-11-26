@@ -19,6 +19,7 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.magnet import THICKNESS_AXIS
 from freecad.menuiserie.core.near_gap import NearGap, near_gap
 from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
@@ -26,13 +27,14 @@ from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.joints.base import placed_blank
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
 from freecad.menuiserie.features.part_drag import (
-    SIZE_PROPS,
     begin_drag,
     drag_limits,
     end_drag,
     move_part,
+    panel_steps,
     resize_part,
 )
+from freecad.menuiserie.features.thickness_common import SIZE_PROPS
 
 __all__ = ["GROW", "MOVE", "Closing", "close_gap", "closing_options"]
 
@@ -77,7 +79,10 @@ def _can_move(reference: DocumentObject, piece: DocumentObject, gap: NearGap) ->
 
 
 def _can_grow(piece: DocumentObject, gap: NearGap) -> bool:
-    return gap.b_axis in drag_limits(piece).resizable_axes
+    if gap.b_axis not in drag_limits(piece).resizable_axes:
+        return False
+    # épaisseur d'un panneau : par crans standard, l'écart ne serait pas comblé exactement
+    return gap.b_axis != THICKNESS_AXIS or not panel_steps(piece)
 
 
 def _pieces(
@@ -142,5 +147,5 @@ def close_gap(
         return end_drag(memento, choose)
     prop = SIZE_PROPS[gap.b_axis]
     shift = Vec3.of([-gap.distance if gap.b_low and i == gap.b_axis else 0.0 for i in range(3)])
-    resize_part(memento, prop, getattr(piece, prop).Value + gap.distance, shift)
+    resize_part(memento, prop, getattr(piece, prop).Value + gap.distance, shift, lowered=gap.b_low)
     return end_drag(memento, choose)

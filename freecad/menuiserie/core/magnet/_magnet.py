@@ -149,8 +149,8 @@ def resize(
 
     Seule cette face bouge, aimantée aux guides ; la cote reste au moins ``minimum``. Les trois
     axes sont permis, y compris l'épaisseur (axe Z) : savoir si la pièce a une poignée dessus est
-    l'affaire de l'appelant (massif seulement). ``origin_shift`` vaut la translation de l'origine
-    (non nulle seulement pour la poignée de début).
+    l'affaire de l'appelant (crans d'un panneau compris). ``origin_shift`` vaut la translation de
+    l'origine (non nulle seulement pour la poignée de début).
     """
     _check_tolerance(tolerance)
     if not math.isfinite(delta) or not math.isfinite(minimum) or minimum <= 0:

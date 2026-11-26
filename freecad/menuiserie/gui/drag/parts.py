@@ -43,11 +43,13 @@ __all__ = [
 @dataclass(frozen=True)
 class PanelContext:
     """Panneau de tâche de la pièce ``part`` : ``refresh`` relit ses champs, ``is_open`` dit s'il
-    est encore ouvert. Aucun widget n'est gardé ici."""
+    est encore ouvert, ``settle`` fige ses saisies en cours avant qu'un geste commence (encadré
+    d'épaisseur, ADR 0060). Aucun widget n'est gardé ici."""
 
     part: DocumentObject
     refresh: Callable[[], None]
     is_open: Callable[[], bool]
+    settle: Callable[[], None] | None = None
 
 
 def frame_of(placement: App.Placement) -> Frame:

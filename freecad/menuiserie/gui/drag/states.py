@@ -40,7 +40,7 @@ from freecad.menuiserie.core.rotation import (
     snapped_turn,
 )
 from freecad.menuiserie.features.drag_joints import JointChoice
-from freecad.menuiserie.features.i18n import report_warning, translate_text
+from freecad.menuiserie.features.i18n import report_warning, translate_text, translated
 from freecad.menuiserie.features.part_drag import DragCancelledError
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
@@ -59,7 +59,11 @@ from freecad.menuiserie.gui.drag.view import Point
 if TYPE_CHECKING:
     from freecad.menuiserie.gui.drag.session import DragSession
 
+_SAME_SIZE_MM: Final = 1e-6
 _ALIGNED_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
+_ABORTED: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Glissement annulé, la pièce est rendue : erreur inattendue ({error})."
+)
 
 __all__ = ["Dragging", "Gesture", "Hover", "Idle", "Moving", "Resizing", "Rotating", "State"]
 
@@ -181,6 +185,10 @@ class Gesture(State):
             return
         except ValueError as error:
             report_warning(str(error))
+            self._close(session, commit=False)
+            return
+        except Exception as error:  # pylint: disable=broad-exception-caught  # rappel Qt
+            report_warning(translated(_ABORTED, {"error": str(error)}))  # pièce déjà rendue
             self._close(session, commit=False)
             return
         for warning in warnings:
@@ -331,14 +339,16 @@ class Resizing(Dragging):
         step = self.target.resize(self.memento, pending.handle, pending.result)
         if self.target.shows_size:
             self.note = _size_note(step, pending.anchor)
-        session.written([] if step.message else pending.hit, self.frame)
+        # cote mise au cran (épaisseur d'un panneau) : le guide visé n'est plus atteint
+        moved = abs(step.size - pending.result.size) > _SAME_SIZE_MM
+        session.written([] if step.message or moved else pending.hit, self.frame)
 
 
 def _size_note(step: Step, anchor: Vec3) -> Label:
     """Cote écrite (puis, si le pas est arrêté, le message du refus) près de la souris."""
     text = f"{step.size:.1f} mm"
     if not step.message:
-        return Label(HOVER_COLOR, text, anchor)
+        return Label(HOVER_COLOR, f"{text}\n{step.note}" if step.note else text, anchor)
     return Label(REFUSAL_COLOR, f"{text}\n{step.message}", anchor)
 
 
