@@ -61,6 +61,7 @@ Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versions
 
 ### Retiré
 
+- Menu « Épaisseurs standard » du panneau d'une pièce : le sous-menu « Formats de panneau » (et « Ajouter un format… ») est retiré, ce menu ne propose plus que des épaisseurs (jv, 2026-11-26, ADR 0028 modifié). Les formats enregistrés restent dans `dimensions.json`.
 - Sélection par ensemble dans la vue 3D et « drill down » (ADR 0048, abandonné à la demande de jv le 2026-11-13) : un clic dans la vue 3D sélectionne de nouveau la pièce touchée, le double-clic ne descend ni ne remonte plus dans les ensembles (il ouvre toujours le panneau de la pièce, ADR 0018). Les cotes du parent à l'enveloppe (ADR 0049) sont conservées.
 
 ### Ajouté

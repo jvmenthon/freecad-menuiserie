@@ -350,8 +350,8 @@ def verifier_filtre_des_materiaux() -> list[str]:
 
 
 def menu_des_epaisseurs(form: Widget) -> list[Any]:
-    """Épaisseurs du menu : ni séparateur, ni sous-menu des formats, ni « Ajouter… » (qui ouvre
-    une boîte de dialogue)."""
+    """Épaisseurs du menu : ni séparateur, ni sous-menu, ni « Ajouter… » (qui ouvre une boîte de
+    dialogue)."""
     return [
         action
         for action in form.standardThicknessButton.menu().actions()
@@ -370,9 +370,16 @@ def verifier_epaisseurs_standard() -> list[str]:
         form = formulaire()
         choisir(form.materialCombo, "mdf")
         actions = menu_des_epaisseurs(form)
-        problemes = ecarts(
-            "épaisseurs proposées", len(actions), len(get_library().get("mdf").thicknesses)
-        )
+        problemes = [
+            *ecarts(
+                "épaisseurs proposées", len(actions), len(get_library().get("mdf").thicknesses)
+            ),
+            *ecarts(
+                "aucun format de panneau (jv, 2026-11-26)",
+                [a.text() for a in form.standardThicknessButton.menu().actions() if a.menu()],
+                [],
+            ),
+        ]
         actions[-1].trigger()
         problemes += [
             *ecarts(

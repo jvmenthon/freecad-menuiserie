@@ -24,9 +24,12 @@ dans le document. La bibliothèque personnelle `materiaux.json` ne convient pas 
    pièce) et comptent comme standard pour l'avertissement « hors standard » d'un panneau. Les
    formats (trois formats du commerce intégrés : 2500 x 1250, 2440 x 1220, 3050 x 1525, plus ceux de
    l'utilisateur) se proposent pour les panneaux et règlent longueur et largeur de la pièce.
+   *Modifié le 2026-11-26 (jv : « Format de panneau n'a rien à faire dans le menu déroulant de
+   épaisseur standard ») : ce menu ne propose plus que des épaisseurs. Les formats restent lus et
+   enregistrés dans `dimensions.json`, pour un usage ultérieur (calepinage).*
 3. L'atelier écrit ce fichier (écriture atomique) quand l'utilisateur choisit « Ajouter une
-   épaisseur… » ou « Ajouter un format… ». Lecture : 64 Kio au plus, JSON strict (`NaN` refusé),
-   50 valeurs de chaque sorte au plus, bornes de `core` ; un fichier invalide est ignoré entier
+   épaisseur… » (« Ajouter un format… » retiré du menu le 2026-11-26). Lecture : 64 Kio au plus,
+   JSON strict (`NaN` refusé), 50 valeurs de chaque sorte au plus, bornes de `core` ; un fichier invalide est ignoré entier
    avec un avertissement.
 4. Le document n'enregistre pas ces valeurs : la pièce garde sa cote, comme avant (autonomie des
    documents, ADR 0002).
