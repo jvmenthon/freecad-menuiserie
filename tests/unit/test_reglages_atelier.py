@@ -51,6 +51,7 @@ def test_valeurs_par_defaut_celles_du_code(module: Any) -> None:
         module.RABBET_THROUGH: True,
         module.DOWEL_CLEARANCE: 1.0,
         module.DOWEL_SPACING: 128.0,
+        module.SLOT_SPACING: 150.0,
         module.DOVETAIL_ANGLE: 10.0,
         module.SLOT_FREE_SIZE: False,
     }
@@ -67,7 +68,7 @@ def test_dernier_utilise_sur_les_chants_et_les_assemblages(module: Any) -> None:
         module.EDGE_PROFILE_SIZE,
     }
     joints = {s.key for s in module.CATALOG if s.group == module.JOINTS}
-    assert len(joints) == 10
+    assert len(joints) == 11
     assert remembered == edges | joints
 
 

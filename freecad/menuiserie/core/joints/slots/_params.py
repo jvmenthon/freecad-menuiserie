@@ -18,16 +18,16 @@ from typing import Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import (
     choice_param,
-    count_param,
     flag_param,
     length_param,
     offset_param,
+    spacing_param,
     validate_params,
 )
 
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond de chaque logement
 AUTO_EDGE_MM: Final = 50.0  # centre de la première mortaise au bord du contact (usage courant)
-AUTO_SPACING_MM: Final = 150.0  # écart maximal entre deux mortaises (100 à 150 mm, usage courant)
+AUTO_SPACING_MM: Final = 150.0  # entraxe maximal historique (``max_spacing`` = 0), usage courant
 AUTO_SIZE: Final = "auto"  # taille : la plus grande du commerce qui tient dans les pièces
 
 TOO_THIN: Final = QT_TRANSLATE_NOOP(
@@ -92,14 +92,15 @@ class SlotParams:
 
     ``size`` : taille de la liste du commerce (``auto`` : la plus grande qui tient). Les cotes
     ``thickness``, ``along`` et ``total_depth`` ne valent que pour le faux tenon à taille
-    personnalisée (``custom_size``)."""
+    personnalisée (``custom_size``). Le nombre est toujours calculé : le plus petit pour que
+    l'entraxe ne dépasse pas ``max_spacing`` (0 : ``AUTO_SPACING_MM``)."""
 
     size: str = choice_param(AUTO_SIZE, _SIZE_IDS)
     custom_size: bool = flag_param(False)
     thickness: float = length_param(0.0)
     along: float = length_param(0.0)
     total_depth: float = length_param(0.0)
-    count: int = count_param(0)
+    max_spacing: float = spacing_param(0.0)
     edge_distance: float = length_param(0.0)
     thickness_offset: float = offset_param(0.0)
     hole_clearance: float = length_param(1.0)
@@ -115,7 +116,7 @@ class SlotValues:
     thickness: float
     along: float
     total_depth: float
-    count: int
+    count: int  # nombre calculé
     edge_distance: float
     thickness_offset: float
     hole_clearance: float
@@ -123,6 +124,7 @@ class SlotValues:
     size: str = AUTO_SIZE  # taille choisie dans la liste du commerce (vide : personnalisée)
     custom_size: bool = False  # taille personnalisée en vigueur
     custom_allowed: bool = False  # le type d'assemblage accepte une taille personnalisée
+    spacing: float = 0.0  # écart entre deux centres (0 pour une seule mortaise)
 
     @property
     def half_depth(self) -> float:

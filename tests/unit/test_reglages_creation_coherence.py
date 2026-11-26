@@ -48,12 +48,21 @@ def _joint_classes() -> dict[Any, Any]:
     return found
 
 
+def _all_parameters(joint_settings: Any) -> dict[Any, dict[str, str]]:
+    """Paramètres réglés (``_PARAMETERS``) et copiés à la création (``_COPIED``) par type."""
+    merged: dict[Any, dict[str, str]] = {}
+    for table in (joint_settings._PARAMETERS, joint_settings._COPIED):
+        for kind, names in table.items():
+            merged.setdefault(kind, {}).update(names)
+    return merged
+
+
 def test_parametres_de_la_table_existent_dans_le_noyau_et_l_assemblage(config: Any) -> None:
     """Chaque (type, paramètre) de la table est un champ de ``PARAMS`` et une propriété de
     l'assemblage, de même défaut que le réglage (``None`` : automatique, accepté)."""
     joint_settings = importlib.import_module("freecad.menuiserie.features.joint_settings")
     classes = _joint_classes()
-    for kind, names in joint_settings._PARAMETERS.items():
+    for kind, names in _all_parameters(joint_settings).items():
         cls = classes[kind]
         fields = {item.name: item for item in dataclasses.fields(cls.PARAMS)}
         properties = {spec.name for spec in cls.PROPERTIES}
@@ -62,7 +71,7 @@ def test_parametres_de_la_table_existent_dans_le_noyau_et_l_assemblage(config: A
             assert joint_settings.property_name(name) in properties, (kind, name)
             core_default = fields[name].default
             setting = config.CATALOG.get(key)
-            automatic = (kind.name, name) == ("DOVETAIL", "angle")  # 0 : angle automatique
+            automatic = name in ("angle", "max_spacing")  # 0 : angle ou entraxe habituel
             if not automatic and core_default not in (dataclasses.MISSING, None):
                 assert setting.default == core_default, (kind, name, setting.default, core_default)
 
@@ -71,7 +80,7 @@ def test_bornes_des_reglages_d_assemblage_acceptees_par_le_noyau(config: Any) ->
     """Valeurs extrêmes permises par la page : le noyau ne doit pas les refuser à la création."""
     joint_settings = importlib.import_module("freecad.menuiserie.features.joint_settings")
     classes = _joint_classes()
-    for kind, names in joint_settings._PARAMETERS.items():
+    for kind, names in _all_parameters(joint_settings).items():
         for name, key in names.items():
             setting = config.CATALOG.get(key)
             for value in (setting.minimum, setting.maximum):

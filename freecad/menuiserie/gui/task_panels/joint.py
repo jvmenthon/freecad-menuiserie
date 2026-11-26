@@ -246,6 +246,11 @@ def _summary(proxy: JointFeature, resolved: object | None) -> str | None:
         for item in fields(resolved)
         if isinstance(value := getattr(resolved, item.name), float)
     }
+    numbers |= {
+        item.name: str(value)
+        for item in fields(resolved)
+        if isinstance(value := getattr(resolved, item.name), int) and not isinstance(value, bool)
+    }
     return translated(proxy.SUMMARY, numbers)
 
 

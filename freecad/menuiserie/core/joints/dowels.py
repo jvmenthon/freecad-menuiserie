@@ -28,10 +28,10 @@ from freecad.menuiserie.core.joints._base import (
     MAX_COUNT,
     JointKind,
     JointPlan,
-    count_param,
     length_param,
     mm_text,
     offset_param,
+    spacing_param,
     validate_params,
 )
 from freecad.menuiserie.core.joints._dowels_oblique import oblique_dowel_plan, oblique_reach
@@ -50,8 +50,8 @@ __all__ = [
 STANDARD_DOWELS: Final[Mapping[float, float]] = MappingProxyType(
     {6.0: 30.0, 8.0: 35.0, 10.0: 40.0, 12.0: 50.0}
 )
-MAX_DOWEL_COUNT: Final = MAX_COUNT  # nombre saisi de 0 (automatique) à 50
-MAX_SPACING_MM: Final = 128.0  # entraxe maximal des tourillons automatiques
+MAX_DOWEL_COUNT: Final = MAX_COUNT  # nombre calculé, 50 au plus
+MAX_SPACING_MM: Final = 128.0  # entraxe maximal historique (``max_spacing`` = 0)
 MIN_DOWELLED_THICKNESS_MM: Final = 12.0  # tourillons de 6 mm au moins, 3 mm de fond de perçage
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond de chaque perçage
 _MARGIN: Final = 1e-9
@@ -85,12 +85,13 @@ DOES_NOT_FIT: Final = QT_TRANSLATE_NOOP(
 
 @dataclass(frozen=True)
 class DowelParams:
-    """Paramètres des tourillons (mm) ; 0 = automatique."""
+    """Paramètres des tourillons (mm) ; 0 = automatique. Le nombre est toujours calculé : le plus
+    petit pour que l'entraxe ne dépasse pas ``max_spacing`` (0 : ``MAX_SPACING_MM``)."""
 
     diameter: float = length_param(0.0)
     dowel_length: float = length_param(0.0)
     host_depth: float = length_param(0.0)
-    count: int = count_param(0)
+    max_spacing: float = spacing_param(0.0)
     edge_distance: float = length_param(0.0)
     thickness_offset: float = offset_param(0.0)
     hole_clearance: float = length_param(1.0)
@@ -106,11 +107,12 @@ class DowelValues:
     diameter: float
     dowel_length: float
     host_depth: float
-    count: int
+    count: int  # nombre calculé
     edge_distance: float
     thickness_offset: float
     hole_clearance: float
     positions: tuple[float, ...]  # le long du contact, depuis son bord
+    spacing: float = 0.0  # écart entre deux centres (0 pour un seul tourillon)
 
     @property
     def guest_depth(self) -> float:
@@ -119,7 +121,7 @@ class DowelValues:
 
 
 class DowelStrategy:
-    """Tourillons Ø ≤ ½ épaisseur, à 2 Ø du bord, entraxe de 128 mm au plus."""
+    """Tourillons Ø ≤ ½ épaisseur, à 2 Ø du bord, entraxe maximal réglable (128 mm par défaut)."""
 
     kind: ClassVar[JointKind] = JointKind.DOWELS
 
@@ -180,14 +182,16 @@ def auto_length(diameter: float) -> float:
     return STANDARD_DOWELS[max(smaller) if smaller else min(STANDARD_DOWELS)]
 
 
-def auto_count(width: float, edge: float, diameter: float) -> int:
-    """Au moins 2 tourillons, entraxe de 128 mm au plus, ``MAX_DOWEL_COUNT`` au plus (l'entraxe
-    dépasse alors 128 mm sur un très long contact) ; jamais un entraxe refusé (au plus le
-    diamètre, tolérance comprise) : 1 au milieu si la place manque."""
+def auto_count(width: float, edge: float, diameter: float, max_spacing: float = 0.0) -> int:
+    """Au moins 2 tourillons, entraxe de ``max_spacing`` au plus (0 : ``MAX_SPACING_MM``),
+    ``MAX_DOWEL_COUNT`` au plus (l'entraxe dépasse alors ``max_spacing`` sur un très long
+    contact) ; jamais un entraxe refusé (au plus le diamètre, tolérance comprise) : 1 au milieu
+    si la place manque."""
     span = width - 2 * edge
     if span <= diameter + CONTACT_TOLERANCE_MM:
         return 1
-    count = min(MAX_DOWEL_COUNT, max(2, math.ceil(span / MAX_SPACING_MM - _MARGIN) + 1))
+    ceiling = max_spacing or MAX_SPACING_MM
+    count = min(MAX_DOWEL_COUNT, max(2, math.ceil(span / ceiling - _MARGIN) + 1))
     while count > 1 and span / (count - 1) <= diameter + CONTACT_TOLERANCE_MM:
         count -= 1
     return count
@@ -200,6 +204,11 @@ def positions(width: float, edge: float, count: int) -> tuple[float, ...]:
         return (width / 2,)
     step = (width - 2 * edge) / (count - 1)
     return tuple(edge + index * step for index in range(count))
+
+
+def spacing_of(places: tuple[float, ...]) -> float:
+    """Écart entre deux centres voisins de ``places`` (0 pour un seul)."""
+    return places[1] - places[0] if len(places) > 1 else 0.0
 
 
 def adapted_length(diameter: float, shortest_depth: float, clearance: float) -> float:
@@ -224,7 +233,8 @@ def _values(frame: Frame, guest: PlacedBlock, params: DowelParams) -> DowelValue
         shortest = min(frame.contact.host_depth, guest.local_box().size(frame.normal))
         length = adapted_length(diameter, shortest, params.hole_clearance)
     edge = params.edge_distance or 2 * diameter
-    count = params.count or auto_count(width, edge, diameter)
+    count = auto_count(width, edge, diameter, params.max_spacing)
+    places = positions(width, edge, count)
     return DowelValues(
         diameter=diameter,
         dowel_length=length,
@@ -233,7 +243,8 @@ def _values(frame: Frame, guest: PlacedBlock, params: DowelParams) -> DowelValue
         edge_distance=edge,
         thickness_offset=params.thickness_offset,
         hole_clearance=params.hole_clearance,
-        positions=positions(width, edge, count),
+        positions=places,
+        spacing=spacing_of(places),
     )
 
 

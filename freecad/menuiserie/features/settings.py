@@ -15,22 +15,14 @@ import FreeCAD as App
 
 from freecad.menuiserie.core.edges import BROKEN_EDGE_MM, EdgeFamily
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
-from freecad.menuiserie.core.joints.dovetail import DEFAULT_ANGLE_DEG
-from freecad.menuiserie.core.joints.dowels import MAX_SPACING_MM, DowelParams
-from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
-from freecad.menuiserie.core.joints.rabbet import RabbetParams
-from freecad.menuiserie.core.joints.tongue_groove import (
-    DEFAULT_TONGUE_LENGTH_MM,
-    TongueGrooveParams,
-)
 from freecad.menuiserie.core.part_model import (
     DEFAULT_DIMENSIONS,
     DEFAULT_PANEL_ALLOWANCES,
     DEFAULT_SOLID_ALLOWANCES,
-    MAX_DIMENSION_MM,
-    MIN_DIMENSION_MM,
     Allowances,
 )
+from freecad.menuiserie.features import settings_joints as joints
+from freecad.menuiserie.features.settings_build import flag_setting, length_setting
 from freecad.menuiserie.kit.config.catalog import Catalog, Kind, Setting
 from freecad.menuiserie.kit.config.folder import absolute_path
 from freecad.menuiserie.kit.config.folder import workshop_folder as resolve_workshop_folder
@@ -51,6 +43,20 @@ PARAM_PATH: Final = "User parameter:BaseApp/Preferences/Mod/Menuiserie"
 USER_LIBRARY_PARAM: Final = "UserLibraryPath"  # ancien réglage, lu pour materiaux.json seul
 USER_LIBRARY_FOLDER: Final = "Menuiserie"  # sous-dossier des données utilisateur de FreeCAD
 
+# Clés et groupe des assemblages (:mod:`.settings_joints`), accessibles ici comme les autres.
+DOVETAIL_ANGLE: Final = joints.DOVETAIL_ANGLE
+DOWEL_CLEARANCE: Final = joints.DOWEL_CLEARANCE
+DOWEL_SPACING: Final = joints.DOWEL_SPACING
+GROOVE_CLEARANCE: Final = joints.GROOVE_CLEARANCE
+GROOVE_THROUGH: Final = joints.GROOVE_THROUGH
+JOINTS: Final = joints.JOINTS
+MORTISE_CLEARANCE: Final = joints.MORTISE_CLEARANCE
+MORTISE_THROUGH: Final = joints.MORTISE_THROUGH
+RABBET_THROUGH: Final = joints.RABBET_THROUGH
+SLOT_FREE_SIZE: Final = joints.SLOT_FREE_SIZE
+SLOT_SPACING: Final = joints.SLOT_SPACING
+TONGUE_LENGTH: Final = joints.TONGUE_LENGTH
+
 # Clés (noms des paramètres FreeCAD, figés : une clé renommée perd la valeur de l'utilisateur).
 BROKEN_EDGE: Final = "NewPartBrokenEdge"
 BROKEN_EDGE_SIZE: Final = "NewPartBrokenEdgeSize"
@@ -62,65 +68,15 @@ THICKNESS: Final = "NewPartThickness"
 MATERIAL: Final = "NewPartMaterial"
 SOLID_ALLOWANCES: Final = ("SolidLengthAllowance", "SolidWidthAllowance", "SolidThicknessAllowance")
 PANEL_ALLOWANCES: Final = ("PanelLengthAllowance", "PanelWidthAllowance", "PanelThicknessAllowance")
-MORTISE_CLEARANCE: Final = "MortiseClearance"
-MORTISE_THROUGH: Final = "MortiseThrough"
-GROOVE_CLEARANCE: Final = "GrooveClearance"
-TONGUE_LENGTH: Final = "TongueLength"
-GROOVE_THROUGH: Final = "GrooveThrough"
-RABBET_THROUGH: Final = "RabbetThrough"
-DOWEL_CLEARANCE: Final = "DowelHoleClearance"
-DOWEL_SPACING: Final = "DowelMaxSpacing"
-DOVETAIL_ANGLE: Final = "DovetailAngle"
-SLOT_FREE_SIZE: Final = "LooseTenonFreeSize"
 WORKSHOP_FOLDER: Final = "WorkshopFolder"
 PROJECTS_FOLDER: Final = "ProjectsFolder"
 
-MM: Final = QT_TRANSLATE_NOOP("Menuiserie", "mm")
-DEGREES: Final = QT_TRANSLATE_NOOP("Menuiserie", "°")
 NEW_PARTS: Final = QT_TRANSLATE_NOOP("Menuiserie", "Pièces neuves")
 EDGES: Final = QT_TRANSLATE_NOOP("Menuiserie", "Chants")
-JOINTS: Final = QT_TRANSLATE_NOOP("Menuiserie", "Assemblages")
 STORAGE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Stockage")
 
-_MAX_CLEARANCE_MM: Final = 20.0  # jeu d'usinage : au-delà, c'est une faute de saisie
 _MAX_EDGE_MM: Final = 100.0
 _MAX_ALLOWANCE_MM: Final = 1000.0
-_MAX_TONGUE_MM: Final = 1000.0
-_MIN_DOWEL_SPACING_MM: Final = 10.0
-_MAX_DOWEL_SPACING_MM: Final = 1000.0
-_MIN_DOVETAIL_ANGLE_DEG: Final = 1.0
-_MAX_DOVETAIL_ANGLE_DEG: Final = 30.0
-
-
-def _length(  # noqa: PLR0913 (description d'un réglage : tous ses champs sont nommés)
-    key: str,
-    default: float,
-    label: str,
-    tooltip: str,
-    group: str,
-    *,
-    minimum: float = MIN_DIMENSION_MM,
-    maximum: float = MAX_DIMENSION_MM,
-    remember_last: bool = False,
-) -> Setting:
-    """Cote en mm."""
-    return Setting(
-        key,
-        Kind.FLOAT,
-        default,
-        label,
-        tooltip,
-        group,
-        unit=MM,
-        minimum=minimum,
-        maximum=maximum,
-        remember_last=remember_last,
-    )
-
-
-def _flag(key: str, default: bool, label: str, tooltip: str, group: str) -> Setting:
-    """Case à cocher qui retient le dernier choix si on le demande."""
-    return Setting(key, Kind.BOOL, default, label, tooltip, group, remember_last=True)
 
 
 _ALLOWANCE_TIP: Final = QT_TRANSLATE_NOOP(
@@ -134,7 +90,7 @@ def _allowances(
     """Surcotes de débit (longueur, largeur, épaisseur) d'un type de pièce."""
     defaults = (values.length, values.width, values.thickness)
     return [
-        _length(
+        length_setting(
             key, value, label, _ALLOWANCE_TIP, NEW_PARTS, minimum=0.0, maximum=_MAX_ALLOWANCE_MM
         )
         for key, value, label in zip(keys, defaults, labels, strict=True)
@@ -143,21 +99,21 @@ def _allowances(
 
 def _new_parts() -> list[Setting]:
     return [
-        _length(
+        length_setting(
             LENGTH,
             DEFAULT_DIMENSIONS.length,
             QT_TRANSLATE_NOOP("Menuiserie", "Longueur"),
             QT_TRANSLATE_NOOP("Menuiserie", "Longueur d'une pièce neuve."),
             NEW_PARTS,
         ),
-        _length(
+        length_setting(
             WIDTH,
             DEFAULT_DIMENSIONS.width,
             QT_TRANSLATE_NOOP("Menuiserie", "Largeur"),
             QT_TRANSLATE_NOOP("Menuiserie", "Largeur d'une pièce neuve."),
             NEW_PARTS,
         ),
-        _length(
+        length_setting(
             THICKNESS,
             DEFAULT_DIMENSIONS.thickness,
             QT_TRANSLATE_NOOP("Menuiserie", "Épaisseur"),
@@ -198,7 +154,7 @@ def _new_parts() -> list[Setting]:
 
 def _edges() -> list[Setting]:
     return [
-        _flag(
+        flag_setting(
             BROKEN_EDGE,
             False,
             QT_TRANSLATE_NOOP("Menuiserie", "Arête cassée sur les pièces neuves"),
@@ -207,7 +163,7 @@ def _edges() -> list[Setting]:
             ),
             EDGES,
         ),
-        _length(
+        length_setting(
             BROKEN_EDGE_SIZE,
             BROKEN_EDGE_MM,
             QT_TRANSLATE_NOOP("Menuiserie", "Taille de l'arête cassée"),
@@ -228,7 +184,7 @@ def _edges() -> list[Setting]:
             choices=tuple(family.value for family in EdgeFamily),
             remember_last=True,
         ),
-        _length(
+        length_setting(
             EDGE_PROFILE_SIZE,
             BROKEN_EDGE_MM,
             QT_TRANSLATE_NOOP("Menuiserie", "Taille du profil proposé"),
@@ -238,115 +194,6 @@ def _edges() -> list[Setting]:
             EDGES,
             maximum=_MAX_EDGE_MM,
             remember_last=True,
-        ),
-    ]
-
-
-def _clearance(key: str, default: float, label: str, tooltip: str) -> Setting:
-    return _length(
-        key,
-        default,
-        label,
-        tooltip,
-        JOINTS,
-        minimum=0.0,
-        maximum=_MAX_CLEARANCE_MM,
-        remember_last=True,
-    )
-
-
-def _joints() -> list[Setting]:
-    return [
-        _clearance(
-            MORTISE_CLEARANCE,
-            MortiseTenonParams().mortise_clearance,
-            QT_TRANSLATE_NOOP("Menuiserie", "Jeu de mortaise"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie", "Profondeur de mortaise en plus de la longueur du tenon."
-            ),
-        ),
-        _flag(
-            MORTISE_THROUGH,
-            MortiseTenonParams().through,
-            QT_TRANSLATE_NOOP("Menuiserie", "Mortaise débouchante"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie", "Mortaise qui traverse la pièce, pour un nouvel assemblage."
-            ),
-            JOINTS,
-        ),
-        _clearance(
-            GROOVE_CLEARANCE,
-            TongueGrooveParams().groove_clearance,
-            QT_TRANSLATE_NOOP("Menuiserie", "Jeu de rainure"),
-            QT_TRANSLATE_NOOP("Menuiserie", "Profondeur de rainure en plus de la languette."),
-        ),
-        _length(
-            TONGUE_LENGTH,
-            DEFAULT_TONGUE_LENGTH_MM,
-            QT_TRANSLATE_NOOP("Menuiserie", "Longueur de languette"),
-            QT_TRANSLATE_NOOP("Menuiserie", "Longueur de languette d'un nouvel assemblage."),
-            JOINTS,
-            maximum=_MAX_TONGUE_MM,
-            remember_last=True,
-        ),
-        _flag(
-            GROOVE_THROUGH,
-            TongueGrooveParams().through_groove,
-            QT_TRANSLATE_NOOP("Menuiserie", "Rainure débouchante"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie", "Rainure sur toute la longueur, pour un nouvel assemblage."
-            ),
-            JOINTS,
-        ),
-        _flag(
-            RABBET_THROUGH,
-            RabbetParams().through,
-            QT_TRANSLATE_NOOP("Menuiserie", "Feuillure débouchante"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie", "Feuillure sur toute la longueur, pour un nouvel assemblage."
-            ),
-            JOINTS,
-        ),
-        _clearance(
-            DOWEL_CLEARANCE,
-            DowelParams().hole_clearance,
-            QT_TRANSLATE_NOOP("Menuiserie", "Jeu de fond des tourillons"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie", "Profondeur de perçage en plus du tourillon, de chaque côté."
-            ),
-        ),
-        _length(
-            DOWEL_SPACING,
-            MAX_SPACING_MM,
-            QT_TRANSLATE_NOOP("Menuiserie", "Entraxe maximal des tourillons"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie", "Écart maximal entre deux tourillons placés automatiquement."
-            ),
-            JOINTS,
-            minimum=_MIN_DOWEL_SPACING_MM,
-            maximum=_MAX_DOWEL_SPACING_MM,
-            remember_last=True,
-        ),
-        Setting(
-            DOVETAIL_ANGLE,
-            Kind.FLOAT,
-            DEFAULT_ANGLE_DEG,
-            QT_TRANSLATE_NOOP("Menuiserie", "Angle de queue d'aronde"),
-            QT_TRANSLATE_NOOP("Menuiserie", "Angle des flancs des queues d'un nouvel assemblage."),
-            JOINTS,
-            unit=DEGREES,
-            minimum=_MIN_DOVETAIL_ANGLE_DEG,
-            maximum=_MAX_DOVETAIL_ANGLE_DEG,
-            remember_last=True,
-        ),
-        _flag(
-            SLOT_FREE_SIZE,
-            False,
-            QT_TRANSLATE_NOOP("Menuiserie", "Faux tenons : taille libre"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie", "Propose une taille libre plutôt que la liste des tailles."
-            ),
-            JOINTS,
         ),
     ]
 
@@ -377,7 +224,7 @@ def _storage() -> list[Setting]:
     ]
 
 
-CATALOG: Final = Catalog([*_new_parts(), *_edges(), *_joints(), *_storage()])
+CATALOG: Final = Catalog([*_new_parts(), *_edges(), *joints.joint_settings(), *_storage()])
 
 
 def settings() -> Settings:

@@ -47,7 +47,7 @@ PROPERTIES: dict[str, list[Row]] = {
         ("Diameter", LENGTH, "Tourillons", 0.0),
         ("DowelLength", LENGTH, "Tourillons", 0.0),
         ("HostDepth", LENGTH, "Tourillons", 0.0),
-        ("Count", "App::PropertyIntegerConstraint", "Tourillons", 0),
+        ("MaxSpacing", LENGTH, "Tourillons", 128.0),  # copié du réglage (ADR 0070)
         ("EdgeDistance", LENGTH, "Tourillons", 0.0),
         ("ThicknessOffset", DISTANCE, "Tourillons", 0.0),
         ("HoleClearance", LENGTH, "Tourillons", 1.0),
@@ -58,7 +58,7 @@ PROPERTIES: dict[str, list[Row]] = {
         ("Thickness", LENGTH, "Mortaises", 0.0),
         ("Along", LENGTH, "Mortaises", 0.0),
         ("TotalDepth", LENGTH, "Mortaises", 0.0),
-        ("Count", "App::PropertyIntegerConstraint", "Mortaises", 0),
+        ("MaxSpacing", LENGTH, "Mortaises", 150.0),  # copié du réglage (ADR 0070)
         ("EdgeDistance", LENGTH, "Mortaises", 0.0),
         ("ThicknessOffset", DISTANCE, "Mortaises", 0.0),
         ("HoleClearance", LENGTH, "Mortaises", 1.0),
@@ -140,8 +140,8 @@ def test_parametres_saisis_dans_le_document(document: Any) -> None:
 
 def test_parametre_refuse_avant_creation(document: Any) -> None:
     count = len(document.Objects)
-    with pytest.raises(ValueError, match="count = 51"):
-        build(document, DOWELS, count=51)
+    with pytest.raises(ValueError, match="max_spacing = 5"):
+        build(document, DOWELS, max_spacing=5)
     assert len(document.Objects) == count + 2  # les deux pièces brutes seules
 
 
@@ -259,7 +259,7 @@ def test_le_nombre_de_tourillons_suit(document: Any) -> None:
     host, guest = montage.volumes()
     assert host == pytest.approx(600 * 60 * 22 - 4 * DOWEL_HOLE_VOLUME)
     assert guest == pytest.approx(280 * 300 * 22 - 4 * DOWEL_HOLE_VOLUME)
-    joint.Count = 3
+    joint.MaxSpacing = 130  # le nombre est calculé : l'entraxe de 130 mm en donne 3
     document.recompute()
     assert dowel_count(joint) == 3
     montage.host.Length = 500
@@ -272,11 +272,11 @@ def test_le_nombre_de_tourillons_suit(document: Any) -> None:
 
 def test_tourillons_impossibles_en_erreur(document: Any) -> None:
     montage = build(document, DOWELS)
-    montage.joint.Count = 50
+    montage.joint.EdgeDistance = 3  # trop près du bord : plus de place pour le tourillon
     document.recompute()
     assert not montage.joint.isValid()
     assert "ne tiennent pas" in montage.joint.getStatusString()
-    montage.joint.Count = 0
+    montage.joint.EdgeDistance = 0
     document.recompute()
     montage.assert_expected()
 

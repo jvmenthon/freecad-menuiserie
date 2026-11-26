@@ -148,7 +148,12 @@ def test_contact_de_300_quatre_tourillons_de_8() -> None:
 
 def test_parametres_saisis_respectes() -> None:
     params = DowelParams(
-        diameter=6, dowel_length=30, host_depth=12, count=3, edge_distance=10, thickness_offset=2
+        diameter=6,
+        dowel_length=30,
+        host_depth=12,
+        max_spacing=150,
+        edge_distance=10,
+        thickness_offset=2,
     )
     values = DOWELS.resolve(*boards(), params)
     assert (values.diameter, values.dowel_length, values.host_depth) == (6, 30, 12)
@@ -173,8 +178,6 @@ def test_un_seul_tourillon_au_milieu() -> None:
         (DowelParams(diameter=18), "trop gros"),
         (DowelParams(diameter=10, thickness_offset=4.1), "trop gros"),
         (DowelParams(dowel_length=30, host_depth=30), "plus courte"),
-        (DowelParams(count=40), "ne tiennent pas"),
-        (DowelParams(count=2, edge_distance=200), "ne tiennent pas"),
         (DowelParams(edge_distance=3), "ne tiennent pas"),
     ],
 )

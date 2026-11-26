@@ -5,6 +5,10 @@ Table (type d'assemblage → paramètre de ``core`` → réglage), lue à la cr�
 modifié donne sa valeur au paramètre que l'appelant n'a pas fourni ; un réglage à sa valeur par
 défaut ne change rien (le paramètre garde son défaut de ``core``, « automatique » compris). Un
 assemblage existant ou une copie gardent leurs valeurs.
+
+Exception (ADR 0070) : l'entraxe maximal (``max_spacing``) est toujours copié du réglage, même à
+sa valeur par défaut, pour que le champ de l'assemblage montre l'entraxe en vigueur ; le
+recalcul ne relit jamais le réglage.
 """
 
 from __future__ import annotations
@@ -34,6 +38,12 @@ _PARAMETERS: Final[Mapping[JointKind, Mapping[str, str]]] = {
     JointKind.DOVETAIL: {"angle": config.DOVETAIL_ANGLE},
     JointKind.LOOSE_TENON: {"custom_size": config.SLOT_FREE_SIZE},
 }
+# Paramètres toujours copiés du réglage à la création, modifié ou non.
+_COPIED: Final[Mapping[JointKind, Mapping[str, str]]] = {
+    JointKind.DOWELS: {"max_spacing": config.DOWEL_SPACING},
+    JointKind.LOOSE_TENON: {"max_spacing": config.SLOT_SPACING},
+    JointKind.BISCUIT: {"max_spacing": config.SLOT_SPACING},
+}
 
 
 def apply_joint_settings(kind: JointKind, params: Mapping[str, object]) -> dict[str, object]:
@@ -45,13 +55,17 @@ def apply_joint_settings(kind: JointKind, params: Mapping[str, object]) -> dict[
         for name, key in _PARAMETERS.get(kind, {}).items()
         if name not in params and values.is_modified(key)
     }
-    return {**wanted, **params}
+    copied = {
+        name: values.value(key) for name, key in _COPIED.get(kind, {}).items() if name not in params
+    }
+    return {**copied, **wanted, **params}
 
 
 def record_joint_used(joint: DocumentObject) -> None:
     """« Dernier utilisé » : valeurs de l'assemblage créé, retenues pour les réglages dont la
     case est cochée."""
     values = config.settings()
-    for name, key in _PARAMETERS.get(joint.Proxy.KIND, {}).items():
+    kind = joint.Proxy.KIND
+    for name, key in {**_PARAMETERS.get(kind, {}), **_COPIED.get(kind, {})}.items():
         value = getattr(joint, property_name(name))
         values.record_used(key, getattr(value, "Value", value))

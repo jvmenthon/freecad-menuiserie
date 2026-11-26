@@ -22,7 +22,7 @@ from freecad.menuiserie.core.joints._base import (
 )
 from freecad.menuiserie.core.joints._profile import ContactFrame, contact_frame
 from freecad.menuiserie.core.joints._slot_shapes import half_stadium, rounded_rectangle
-from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT, positions
+from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT, positions, spacing_of
 from freecad.menuiserie.core.joints.slots._params import (
     AUTO_EDGE_MM,
     AUTO_SIZE,
@@ -116,7 +116,8 @@ class _SlotStrategy:
         guest = frame.guest
         size = self._size(frame, guest, params)
         edge = params.edge_distance or min(AUTO_EDGE_MM, frame.contact_width / 2)
-        count = params.count or _auto_count(frame.contact_width, edge, size.along)
+        count = _auto_count(frame.contact_width, edge, size.along, params.max_spacing)
+        places = positions(frame.contact_width, edge, count)
         custom = self.custom_allowed and params.custom_size
         values = SlotValues(
             size.thickness,
@@ -126,10 +127,11 @@ class _SlotStrategy:
             edge,
             params.thickness_offset,
             params.hole_clearance,
-            positions(frame.contact_width, edge, count),
+            places,
             size.id,
             custom,
             self.custom_allowed,
+            spacing_of(places),
         )
         _check_section(frame, values)
         _check_depths(frame, guest, values)
@@ -216,13 +218,15 @@ def _fits(frame: ContactFrame, size: SlotSize, shortest: float, clearance: float
     )
 
 
-def _auto_count(width: float, edge: float, along: float) -> int:
-    """Une mortaise sur un contact étroit, sinon assez pour qu'elles soient espacées de 150 mm au
-    plus entre centres (le premier et le dernier à ``edge`` des bords)."""
+def _auto_count(width: float, edge: float, along: float, max_spacing: float = 0.0) -> int:
+    """Une mortaise sur un contact étroit, sinon assez pour qu'elles soient espacées de
+    ``max_spacing`` au plus entre centres (0 : ``AUTO_SPACING_MM``), le premier et le dernier à
+    ``edge`` des bords."""
     span = width - 2 * edge
     if span <= along:
         return 1
-    return min(MAX_DOWEL_COUNT, max(2, math.ceil(span / AUTO_SPACING_MM) + 1))
+    ceiling = max_spacing or AUTO_SPACING_MM
+    return min(MAX_DOWEL_COUNT, max(2, math.ceil(span / ceiling) + 1))
 
 
 def _check_section(frame: ContactFrame, values: SlotValues) -> None:

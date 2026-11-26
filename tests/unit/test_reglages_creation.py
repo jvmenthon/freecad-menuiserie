@@ -122,8 +122,10 @@ def test_dernier_utilise_des_pieces(modules: Modules) -> None:
 
 
 def test_assemblages_sans_reglage_modifie_comme_avant(modules: Modules) -> None:
+    copied = {JointKind.DOWELS, JointKind.LOOSE_TENON, JointKind.BISCUIT}  # entraxe, ADR 0070
     for kind in JointKind:
-        assert modules.joint.apply_joint_settings(kind, {}) == {}
+        if kind not in copied:
+            assert modules.joint.apply_joint_settings(kind, {}) == {}
     given = {"through": True}
     assert modules.joint.apply_joint_settings(JointKind.RABBET, given) == given
 
@@ -143,7 +145,7 @@ def test_reglages_modifies_donnes_aux_parametres_absents(modules: Modules) -> No
     }
     assert apply(JointKind.TONGUE_GROOVE, {}) == {"tongue_length": 15.0}
     assert apply(JointKind.DOVETAIL, {}) == {"angle": 8.0}
-    assert apply(JointKind.LOOSE_TENON, {}) == {"custom_size": True}
+    assert apply(JointKind.LOOSE_TENON, {}) == {"custom_size": True, "max_spacing": 150.0}
     assert apply(JointKind.MITER, {}) == {}  # aucun réglage pour cet assemblage
 
 

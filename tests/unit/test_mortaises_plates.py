@@ -47,7 +47,9 @@ def test_faux_tenon_automatique() -> None:
 def test_mortaises_de_part_et_d_autre_du_contact() -> None:
     host, guest = boards()
     plan = TENON.plan(
-        host, guest, SlotParams(custom_size=True, thickness=6, along=20, total_depth=40, count=1)
+        host,
+        guest,
+        SlotParams(custom_size=True, thickness=6, along=20, total_depth=40, edge_distance=150),
     )
     (hole,), (guest_hole,), (insert,) = (
         prisms(p) for p in (plan.host_cuts, plan.guest_cuts, plan.inserts)
@@ -92,7 +94,7 @@ def test_biscuit_sans_taille_personnalisee() -> None:
 
 def test_biscuit_en_forme_de_lamelle() -> None:
     host, guest = boards()
-    plan = BISCUIT.plan(host, guest, SlotParams(size="20", count=1))
+    plan = BISCUIT.plan(host, guest, SlotParams(size="20", edge_distance=150))
     (slot,), (guest_slot,), (insert,) = (
         prisms(p) for p in (plan.host_cuts, plan.guest_cuts, plan.inserts)
     )
@@ -149,11 +151,11 @@ def test_decalage_en_epaisseur_et_une_seule_mortaise_sur_contact_etroit() -> Non
         (SlotParams(custom_size=True, thickness=20, along=20, total_depth=40), "trop minces"),
         (SlotParams(custom_size=True, thickness=6, along=20, total_depth=400), "trop profond"),
         (
-            SlotParams(custom_size=True, thickness=6, along=20, total_depth=40, count=20),
+            SlotParams(custom_size=True, thickness=6, along=20, total_depth=40, max_spacing=10),
             "ne tiennent pas",
         ),
         (
-            SlotParams(custom_size=True, thickness=6, along=500, total_depth=40, count=1),
+            SlotParams(custom_size=True, thickness=6, along=500, total_depth=40, edge_distance=150),
             "ne tiennent pas",
         ),
     ],
@@ -178,7 +180,7 @@ def test_contact_face_contre_face_accepte() -> None:
     host, guest = stacked()
     values = BISCUIT.resolve(host, guest, SlotParams())
     assert values.size == "20" and values.count >= 2
-    plan = TENON.plan(host, guest, SlotParams(count=1))
+    plan = TENON.plan(host, guest, SlotParams(edge_distance=300))
     (hole,), (guest_hole,), (insert,) = (
         prisms(p) for p in (plan.host_cuts, plan.guest_cuts, plan.inserts)
     )

@@ -3,7 +3,8 @@
 
 Contrat de persistance (ADR 0003) : chemin de ce module, nom de la classe et noms des propriétés
 figés. La forme de l'assemblage est l'ensemble des tourillons ; les deux pièces sont percées.
-Les cotes et le nombre valent 0 pour « automatique » (:mod:`core.joints.dowels`).
+Les cotes valent 0 pour « automatique » (:mod:`core.joints.dowels`) ; le nombre est toujours
+calculé, d'après l'entraxe maximal ``MaxSpacing`` (copié du réglage de l'atelier à la création).
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
-from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT, DowelParams
+from freecad.menuiserie.core.joints.dowels import MAX_SPACING_MM, DowelParams
 from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
@@ -34,6 +35,12 @@ class DowelJoint(JointFeature):
         "Menuiserie",
         "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
     )
+    VERSION: ClassVar[int] = 2  # MaxSpacing remplace Count (ADR 0070)
+    OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ("Count",)
+    SUMMARY: ClassVar[str] = QT_TRANSLATE_NOOP(
+        "Menuiserie", "{count} tourillons, entraxe {spacing} mm."
+    )
+    SUMMARY_IF: ClassVar[tuple[str, ...]] = ("spacing",)
     PARAMS: ClassVar[type[DowelParams]] = DowelParams
     PROPERTIES: ClassVar[tuple[PropertySpec, ...]] = (
         PropertySpec(
@@ -76,17 +83,16 @@ class DowelJoint(JointFeature):
             resolved="host_depth",
         ),
         PropertySpec(
-            "Count",
-            "App::PropertyIntegerConstraint",
+            "MaxSpacing",
+            LENGTH,
             _GROUP,
             QT_TRANSLATE_NOOP(
                 "App::Property",
-                "Nombre de tourillons. 0 : automatique, selon la longueur du contact (entraxe "
-                "de 128 mm au plus).",
+                "Écart maximal entre deux tourillons, en mm : le nombre est calculé pour ne pas "
+                "le dépasser (0 : 128 mm).",
             ),
-            default=(_DEFAULTS.count, 0, MAX_DOWEL_COUNT, 1),
-            label=QT_TRANSLATE_NOOP("Menuiserie", "Nombre"),
-            resolved="count",
+            default=MAX_SPACING_MM,  # propriété absente d'un ancien fichier : l'entraxe historique
+            label=QT_TRANSLATE_NOOP("Menuiserie", "Entraxe maximal"),
         ),
         PropertySpec(
             "EdgeDistance",
