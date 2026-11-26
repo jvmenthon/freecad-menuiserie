@@ -25,12 +25,13 @@ import FreeCADGui as Gui
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie import api, icon_path
-from freecad.menuiserie.core.edges import BROKEN_EDGE_MM, EdgeFamily, SecondSize, family_for
+from freecad.menuiserie.core.edges import EdgeFamily, SecondSize, family_for
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.edge_frames import edge_index, edge_label
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges
 from freecad.menuiserie.features.edge_profile_native import part_refusal
+from freecad.menuiserie.features.edge_settings import proposed_profile, record_profile_used
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.gui.edge_highlight import EdgeHighlight, Entry
@@ -150,9 +151,10 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._family.setObjectName("family")
         for family in EdgeFamily:
             self._family.addItem(translated(FAMILY_LABELS[family]), family.value)
-        self._family.setCurrentIndex(self._family.findData(EdgeFamily.ROUND.value))
+        proposed_family, proposed_size = proposed_profile()  # réglages de l'atelier (ADR 0069)
+        self._family.setCurrentIndex(self._family.findData(proposed_family.value))
         form.addRow(translated(_FAMILY), self._family)
-        self._size_a = length_spinbox("size_a", BROKEN_EDGE_MM)
+        self._size_a = length_spinbox("size_a", proposed_size)
         self._size_b = length_spinbox("size_b", 0.0)
         self._label_b = QtGui.QLabel(translated(_SIZE_B))
         form.addRow(translated(_SIZE_A), self._size_a)
@@ -369,6 +371,9 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
                 return False
         if not any(self._profile_of(name) is not None for name in self._profiles):
             return self.reject()
+        if self.creating:
+            size = float(self._size_a.property("rawValue"))
+            record_profile_used(str(self._family.currentData()), size)
         return super().accept()
 
     def _confirmed(self, conflicts: str) -> bool:

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -19,21 +18,13 @@ from freecad.menuiserie.core.part_model import (
     MIN_DIMENSION_MM,
 )
 from freecad.menuiserie.kit.config.catalog import Kind, Reason, SettingError
-from tests.unit.aides_freecad import simulated_freecad
-from tests.unit.aides_reglages import FakeParamGroup
+from tests.unit.aides_reglages import settings_module
 
 
 @pytest.fixture
 def module(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Any]:
-    """``features.settings`` importé avec un FreeCAD simulé : paramètres en mémoire, dossier de
-    données utilisateur dans ``tmp_path``."""
-    group = FakeParamGroup()
-    with simulated_freecad(monkeypatch):
-        settings: Any = importlib.import_module("freecad.menuiserie.features.settings")
-
-        settings.App.ParamGet = lambda _path: group
-        settings.App.getUserAppDataDir = lambda: str(tmp_path / "FreeCAD")
-        settings.group = group  # pour les tests
+    """``features.settings`` avec un FreeCAD simulé (voir :func:`settings_module`)."""
+    with settings_module(monkeypatch, tmp_path) as settings:
         yield settings
 
 

@@ -3,7 +3,15 @@
 
 from __future__ import annotations
 
+import importlib
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
+
+import pytest
+
+from tests.unit.aides_freecad import simulated_freecad
 
 _TYPES = {"Bool": "Boolean", "Int": "Integer", "Float": "Float", "String": "String"}
 
@@ -32,3 +40,16 @@ class FakeParamGroup:
 
     def _rem(self, kind: str) -> Any:
         return lambda key: self.values.pop((kind, key), None)
+
+
+@contextmanager
+def settings_module(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Any]:
+    """``features.settings`` importé avec un FreeCAD simulé : paramètres en mémoire (``.group``),
+    dossier de données utilisateur dans ``tmp_path``."""
+    group = FakeParamGroup()
+    with simulated_freecad(monkeypatch):
+        module: Any = importlib.import_module("freecad.menuiserie.features.settings")
+        module.App.ParamGet = lambda _path: group
+        module.App.getUserAppDataDir = lambda: str(tmp_path / "FreeCAD")
+        module.group = group  # pour les tests
+        yield module

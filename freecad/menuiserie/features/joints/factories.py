@@ -17,6 +17,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joint_names import joint_label
+from freecad.menuiserie.features.joint_settings import apply_joint_settings
 from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
@@ -128,9 +129,10 @@ def _create(
     guest: DocumentObject,
     params: Mapping[str, object],
 ) -> DocumentObject:
-    """Paramètres validés (objet valeur ``joint_class.PARAMS``), puis assemblage créé par
-    :func:`create_joint`."""
-    return create_joint(joint_class, doc, host, guest, _validated(joint_class.PARAMS, params))
+    """Paramètres validés (objet valeur ``joint_class.PARAMS``), complétés par les réglages de
+    l'atelier (:func:`apply_joint_settings`), puis assemblage créé par :func:`create_joint`."""
+    wanted = apply_joint_settings(joint_class.KIND, params)
+    return create_joint(joint_class, doc, host, guest, _validated(joint_class.PARAMS, wanted))
 
 
 def create_mortise_tenon(

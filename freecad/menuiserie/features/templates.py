@@ -17,6 +17,7 @@ from typing import Any, Final
 
 import FreeCAD as App
 
+from freecad.menuiserie.core.edges import EdgeFamily, all_edges
 from freecad.menuiserie.core.furniture import Notice, label_reference
 from freecad.menuiserie.core.geometry import RigidTransform, Vec3
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -28,6 +29,7 @@ from freecad.menuiserie.core.templates.carcass import (
     check_materials,
 )
 from freecad.menuiserie.core.text import quoted_value
+from freecad.menuiserie.features.edge_profile_create import create_edge_profile
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture import furniture_of, writing
 from freecad.menuiserie.features.furniture_container import (
@@ -53,6 +55,7 @@ from freecad.menuiserie.features.joints.rabbet import RabbetJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
+from freecad.menuiserie.features.new_part_settings import apply_new_allowances, broken_edge_size
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 __all__ = ["Built", "build_carcass", "build_layout"]
@@ -87,6 +90,7 @@ class Built:
     machined: tuple[DocumentObject, ...]
     joints: tuple[DocumentObject, ...]
     notices: tuple[Notice, ...]
+    profiles: tuple[DocumentObject, ...] = ()  # arêtes cassées des pièces neuves (réglage)
 
 
 def _placement(origin: Vec3, transform: RigidTransform) -> Any:
@@ -202,6 +206,22 @@ def _part(
     return obj
 
 
+def _broken_edges(parts: list[DocumentObject]) -> list[DocumentObject]:
+    """Profil « arête cassée » de l'atelier sur chaque pièce neuve, si le réglage est coché ;
+    la pièce usinée est créée au besoin. Une arête refusée est ignorée (le gabarit se construit
+    quand même), comme pour une pièce seule."""
+    size = broken_edge_size()
+    if size is None:
+        return []
+    profiles = []
+    for part in parts:
+        try:
+            profiles.append(create_edge_profile(part, list(all_edges()), EdgeFamily.ROUND, size))
+        except (TypeError, ValueError):
+            continue
+    return profiles
+
+
 def _leave_ensemble(anchor: _Anchor) -> None:
     """L'ancre n'est plus membre de son ensemble (propriétés gardées : Ctrl+Z les rétablit) ;
     elle entre dans le nouvel ensemble, qui devient un sous-ensemble du premier (ADR 0037)."""
@@ -235,6 +255,8 @@ def build_layout(
     created = {
         piece.key: _part(doc, piece, frame, layout.origin, container) for piece in _created(layout)
     }
+    for obj in created.values():
+        apply_new_allowances(obj)
     parts = {**created, **({layout.anchor: anchor.obj} if anchor and layout.anchor else {})}
     joints = [
         create_joint(
@@ -249,6 +271,7 @@ def build_layout(
         std_part_of(furniture).Placement = frame  # type: ignore[union-attr]
     with writing(furniture):
         furniture.Template = layout.template
+    profiles = _broken_edges(list(created.values()))
     entries = [(parts[piece.key], piece.mode, piece.fixed) for piece in layout.pieces]
     notices = [*taken, *join_with_options(furniture, entries)]
     if parent is not None:
@@ -264,6 +287,7 @@ def build_layout(
         tuple(obj for obj in machined if obj is not None),
         tuple(joints),
         tuple(notices),
+        tuple(profiles),
     )
 
 
