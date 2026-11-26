@@ -40,6 +40,12 @@ __all__ = [
 ]
 
 
+def _no_size_field(axis: int) -> bool:
+    """Panneau sans champ de cote : un clic sur une étiquette ne fait rien."""
+    del axis
+    return False
+
+
 @dataclass(frozen=True)
 class PanelContext:
     """Panneau de tâche de la pièce ``part`` : ``refresh`` relit ses champs, ``is_open`` dit s'il
@@ -49,7 +55,7 @@ class PanelContext:
     part: DocumentObject
     refresh: Callable[[], None]
     is_open: Callable[[], bool]
-    edit_size: Callable[[int], bool] = lambda axis: False
+    edit_size: Callable[[int], bool] = _no_size_field
 
 
 def frame_of(placement: App.Placement) -> Frame:
