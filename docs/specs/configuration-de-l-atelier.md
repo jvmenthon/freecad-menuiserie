@@ -149,13 +149,34 @@ assemblage). Les règles :
   (`features/edge_settings.py`), « Dernier utilisé » retenu à la validation d'une création
   (`features/record_created.py`), arête cassée sur les pièces neuves. Reste : l'entraxe des
   tourillons (réglage affiché, pas encore lu).
-- **CA-c** : module générique `exchange`, puis export / import de `atelier.json`.
-  Fait : `kit/config/exchange` (format versionné, lecture stricte, refus du fichier entier par
+- **CA-c** (fait) : module générique `exchange`, puis export / import de `atelier.json`.
+  `kit/config/exchange` (format versionné, lecture stricte, refus du fichier entier par
   `ExchangeError`, aperçu `preview`, `apply`) et `features/settings_exchange.py`
   (`export_workshop`, `load_workshop`, `apply_workshop`, section « dimensions » validée par les
-  règles de `dimensions.json`). Reste : l'interface (boutons Exporter / Importer et aperçu),
-  après le choix de maquette.
-- **CA-d** : reste des réglages, édition de `dimensions.json`, dossier des projets.
+  règles de `dimensions.json`). Interface (maquette A de jv) : dans le groupe « Stockage », la
+  ligne « Réglages de l'atelier » avec « Exporter… » et « Importer… ».
+  - Export : écrit les valeurs *enregistrées* (pas celles des champs). Si la page a des
+    modifications non enregistrées, le message de confirmation ajoute « Les modifications non
+    enregistrées ne sont pas exportées. » (solution la plus simple : un seul sens, pas d'état
+    intermédiaire dans le fichier).
+  - Import : lecture complète sans rien écrire, puis fenêtre d'aperçu « Importer les réglages de
+    l'atelier » (case, Groupe, Réglage, Actuel, Importé ; « Actuel » est la valeur enregistrée).
+    « Reprendre la sélection » reprend les lignes cochées dans les champs de la page
+    (`SettingsPage.set_pending`) : elles apparaissent modifiées et ne sont écrites qu'à OK ou
+    Appliquer. Fichier refusé : message, rien ne change. Aucune différence : « Aucun réglage à
+    changer. »
+  - Modules génériques : `import_model` (lignes et sélection, Python pur), `page_import`
+    (fenêtre d'aperçu), `page_exchange` (boutons et parcours), `page_dialogs` (dialogues
+    remplaçables : aucun `QFileDialog` réel en test), `page_extra` et `ExtraRow` (ligne fournie
+    par l'atelier, point d'extension de la page).
+- **CA-d** : reste des réglages, dossier des projets.
+  Fait : édition de `dimensions.json`. Groupe « Épaisseurs et formats » (avant « Stockage »),
+  ligne « Épaisseurs et formats personnels » : résumé (« 3 épaisseurs, 1 format ») et
+  « Modifier… », qui ouvre `gui/dimensions_dialog.py` (deux listes, valeurs de l'atelier en gris
+  non supprimables, ajout bornée par les règles de `core/user_dimensions.py`, suppression).
+  L'édition reste en attente dans la page et n'est écrite (écriture atomique) qu'à OK ou Appliquer.
+  « Rétablir tout » ne touche pas à `dimensions.json` (dit dans l'infobulle de la ligne). Un import
+  coché reprend aussi les dimensions dans l'état en attente de l'éditeur.
 
 ## 8. Questions pour jv
 

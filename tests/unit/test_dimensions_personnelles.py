@@ -14,6 +14,8 @@ from freecad.menuiserie.core.user_dimensions import (
     dimensions_to_text,
     with_sheet,
     with_thickness,
+    without_sheet,
+    without_thickness,
 )
 
 
@@ -89,3 +91,34 @@ def test_liste_pleine() -> None:
     full = UserDimensions(tuple(float(i + 1) for i in range(50)))
     with pytest.raises(TemplatedError, match="Trop de valeurs"):
         with_thickness(full, 99.5)
+
+
+def test_epaisseur_aux_bornes() -> None:
+    assert with_thickness(UserDimensions(), 0.1).thicknesses == (0.1,)  # minimum accepté
+    assert with_thickness(UserDimensions(), 300.0).thicknesses == (300.0,)  # maximum accepté
+    with pytest.raises(TemplatedError, match="comprise entre"):
+        with_thickness(UserDimensions(), 0.09)  # juste sous le minimum
+    with pytest.raises(TemplatedError, match="comprise entre"):
+        with_thickness(UserDimensions(), 300.1)
+
+
+def test_format_aux_bornes() -> None:
+    assert with_sheet(UserDimensions(), 0.1, 20000.0).sheets == ((0.1, 20000.0),)
+    with pytest.raises(TemplatedError, match="comprises entre"):
+        with_sheet(UserDimensions(), 0.09, 100.0)
+    with pytest.raises(TemplatedError, match="comprises entre"):
+        with_sheet(UserDimensions(), 100.0, 20000.1)
+
+
+def test_suppression_d_une_epaisseur() -> None:
+    dimensions = UserDimensions((12.0, 19.0), ((2800.0, 2070.0),))
+    assert without_thickness(dimensions, 19.0) == UserDimensions((12.0,), ((2800.0, 2070.0),))
+    assert without_thickness(dimensions, 19.02).thicknesses == (12.0,)  # à 0,05 mm près
+    assert without_thickness(dimensions, 22.0) == dimensions  # absente : rien ne change
+
+
+def test_suppression_d_un_format() -> None:
+    dimensions = UserDimensions((12.0,), ((2000.0, 1000.0), (2800.0, 2070.0)))
+    assert without_sheet(dimensions, 2800.0, 2070.0).sheets == ((2000.0, 1000.0),)
+    assert without_sheet(dimensions, 2800.0, 2000.0) == dimensions  # largeur différente
+    assert without_sheet(dimensions, 2800.0, 2070.0).thicknesses == (12.0,)

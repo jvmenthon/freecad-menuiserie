@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ast
 
+from freecad.menuiserie.kit.config.import_model import IMPORT_TEXTS
 from freecad.menuiserie.kit.config.page_model import PAGE_TEXTS
 from tests.unit.aides import ROOT, imported_modules
 
@@ -14,19 +15,23 @@ PAGE = PACKAGE / "gui" / "preferences_page.py"
 INIT_GUI = PACKAGE / "init_gui.py"
 
 
-def _declared_texts() -> list[str]:
-    """Textes du tuple ``PAGE_TEXTS`` de ``gui/preferences_page.py`` (appels à
+def _declared_texts(name: str = "PAGE_TEXTS") -> list[str]:
+    """Textes du tuple ``name`` de ``gui/preferences_page.py`` (appels à
     ``QT_TRANSLATE_NOOP``), dans l'ordre."""
     tree = ast.parse(PAGE.read_text(encoding="utf-8"))
     for node in tree.body:
-        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "PAGE_TEXTS":
+        if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == name:
             assert isinstance(node.value, ast.Tuple)
             return [ast.literal_eval(call.args[1]) for call in node.value.elts]  # type: ignore[attr-defined]
-    raise AssertionError("PAGE_TEXTS absent")
+    raise AssertionError(f"{name} absent")
 
 
 def test_textes_de_la_page_generique_declares_pour_la_traduction() -> None:
     assert _declared_texts() == list(PAGE_TEXTS)
+
+
+def test_textes_de_l_apercu_et_de_l_echange_declares_pour_la_traduction() -> None:
+    assert _declared_texts("IMPORT_TEXTS") == list(IMPORT_TEXTS)
 
 
 def test_page_inscrite_dans_l_interface_sans_import_lourd() -> None:

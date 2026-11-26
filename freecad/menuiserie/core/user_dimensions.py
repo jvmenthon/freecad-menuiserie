@@ -27,6 +27,8 @@ __all__ = [
     "dimensions_to_text",
     "with_sheet",
     "with_thickness",
+    "without_sheet",
+    "without_thickness",
 ]
 
 FORMAT_VERSION: Final = 1
@@ -186,3 +188,25 @@ def with_sheet(dimensions: UserDimensions, length: float, width: float) -> UserD
     if len(sheets) > MAX_SHEETS:
         raise TemplatedError(TOO_MANY, {"max": str(MAX_SHEETS)})
     return UserDimensions(dimensions.thicknesses, sheets)
+
+
+def _differs(first: float, second: float) -> bool:
+    return abs(first - second) > _SAME_MM
+
+
+def without_thickness(dimensions: UserDimensions, thickness: float) -> UserDimensions:
+    """``dimensions`` sans l'épaisseur ``thickness`` (mm, à 0,05 mm près) ; sans changement si
+    elle n'y est pas."""
+    kept = tuple(value for value in dimensions.thicknesses if _differs(value, thickness))
+    return UserDimensions(kept, dimensions.sheets)
+
+
+def without_sheet(dimensions: UserDimensions, length: float, width: float) -> UserDimensions:
+    """``dimensions`` sans le format ``length`` x ``width`` (mm, à 0,05 mm près) ; sans
+    changement s'il n'y est pas."""
+    kept = tuple(
+        sheet
+        for sheet in dimensions.sheets
+        if _differs(sheet[0], length) or _differs(sheet[1], width)
+    )
+    return UserDimensions(dimensions.thicknesses, kept)

@@ -9,18 +9,30 @@ les listes de choix : matériaux de la bibliothèque, profils d'arête. Enregist
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.features import dimensions_edit
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
 from freecad.menuiserie.features.i18n import format_text, report_warning, translate_text
 from freecad.menuiserie.features.library import display_language, get_library
-from freecad.menuiserie.features.settings import CATALOG, EDGE_PROFILE, MATERIAL, settings
+from freecad.menuiserie.features.settings import (
+    CATALOG,
+    EDGE_PROFILE,
+    MATERIAL,
+    STORAGE,
+    settings,
+)
+from freecad.menuiserie.gui.dimensions_row import DimensionsRow
+from freecad.menuiserie.gui.preferences_exchange import actions
 from freecad.menuiserie.kit.config.catalog import Value
+from freecad.menuiserie.kit.config.import_model import ImportRow
 from freecad.menuiserie.kit.config.page import SettingsPage
+from freecad.menuiserie.kit.config.page_exchange import ExchangeRow
 from freecad.menuiserie.kit.config.page_model import Choices
 
-__all__ = ["GROUP_NAME", "TITLE", "MenuiseriePreferencePage"]
+__all__ = ["GROUP_NAME", "IMPORT_TEXTS", "PAGE_TEXTS", "TITLE", "MenuiseriePreferencePage"]
 
 GROUP_NAME: Final = "Menuiserie"  # entrée de la liste des pages (nom du paramètre d'icône)
 TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Réglages de l'atelier")
@@ -55,6 +67,36 @@ PAGE_TEXTS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "{count} modifiés"),
 )
 
+# Textes de l'aperçu et de l'échange de la page générique (``kit.config.import_model``).
+IMPORT_TEXTS: Final = (
+    QT_TRANSLATE_NOOP("Menuiserie", "Importer les réglages de l'atelier"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Réglages de l'atelier"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Exporte ou importe les réglages dans un fichier JSON."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Exporter…"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Importer…"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Exporter les réglages de l'atelier"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Choisir le fichier des réglages à importer"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Fichiers JSON (*.json)"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Réglages exportés dans {path}."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Les modifications non enregistrées ne sont pas exportées."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Aucun réglage à changer."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Fichier : {path} · {count} réglage changé"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Fichier : {path} · {count} réglages changés"),
+    QT_TRANSLATE_NOOP("Menuiserie", "{count} réglage inconnu ignoré : {names}."),
+    QT_TRANSLATE_NOOP("Menuiserie", "{count} réglages inconnus ignorés : {names}."),
+    QT_TRANSLATE_NOOP(
+        "Menuiserie",
+        "Les réglages cochés sont repris dans la page. Ils sont enregistrés avec OK ou Appliquer.",
+    ),
+    QT_TRANSLATE_NOOP("Menuiserie", "Reprendre la sélection"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Annuler"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Groupe"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Réglage"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Actuel"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Importé"),
+    QT_TRANSLATE_NOOP("Menuiserie", "Reprendre ce réglage"),
+)
+
 
 def material_choices() -> list[tuple[Value, str]]:
     """Matériaux de la bibliothèque (identifiant, nom), précédés du choix « premier matériau »
@@ -81,8 +123,30 @@ def choices() -> Choices:
 
 class MenuiseriePreferencePage(SettingsPage):
     """Page de préférences de l'atelier : ``form``, ``loadSettings`` et ``saveSettings``, comme
-    FreeCAD les attend d'une page ajoutée par ``Gui.addPreferencePage``."""
+    FreeCAD les attend d'une page ajoutée par ``Gui.addPreferencePage``.
+
+    Ajoute à la page générique le groupe « Épaisseurs et formats » (éditeur de
+    ``dimensions.json``) et, dans « Stockage », l'export et l'import des réglages. Un import
+    reprend les réglages cochés dans les champs : ils ne sont écrits qu'à OK ou Appliquer.
+    """
 
     def __init__(self) -> None:
-        super().__init__(CATALOG, settings(), translate=translate_text, choices=choices())
+        page_choices = choices()
+        self._dimensions = DimensionsRow(dimensions_edit.ROW_GROUP, STORAGE)
+        self._exchange = ExchangeRow(
+            actions(page_choices, self.take_import, self.has_pending), STORAGE, translate_text
+        )
+        extras = [self._dimensions.extra_row(), self._exchange.extra_row()]
+        super().__init__(
+            CATALOG, settings(), translate=translate_text, choices=page_choices, extras=extras
+        )
         self.form.setWindowTitle(translate_text(TITLE))
+
+    def take_import(self, rows: Sequence[ImportRow]) -> None:
+        """Reprend les lignes cochées de l'aperçu : réglages dans les champs, dimensions dans
+        l'éditeur ; rien n'est écrit avant OK ou Appliquer."""
+        values = {row.key: row.value for row in rows if row.key != dimensions_edit.DIMENSIONS_KEY}
+        self.set_pending(values)
+        for row in rows:
+            if row.key == dimensions_edit.DIMENSIONS_KEY:
+                self._dimensions.set_pending(row.value)
