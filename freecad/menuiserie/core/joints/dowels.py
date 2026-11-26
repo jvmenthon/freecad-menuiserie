@@ -25,7 +25,6 @@ from freecad.menuiserie.core.geometry import (
 )
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints._base import (
-    MAX_COUNT,
     JointKind,
     JointPlan,
     length_param,
@@ -37,6 +36,12 @@ from freecad.menuiserie.core.joints._base import (
 from freecad.menuiserie.core.joints._dowels_oblique import oblique_dowel_plan, oblique_reach
 from freecad.menuiserie.core.joints._oblique_frame import Frame, ObliqueFrame, profile_frame
 from freecad.menuiserie.core.joints._profile import THICKNESS_AXIS, ContactFrame
+from freecad.menuiserie.core.joints._spacing import (
+    MAX_DOWEL_COUNT,
+    positions,
+    spaced_count,
+    spacing_of,
+)
 
 __all__ = [
     "MAX_DOWEL_COUNT",
@@ -44,13 +49,14 @@ __all__ = [
     "DowelParams",
     "DowelStrategy",
     "DowelValues",
+    "positions",
+    "spacing_of",
 ]
 
 # Tourillons du commerce : diamètre → longueur (mm).
 STANDARD_DOWELS: Final[Mapping[float, float]] = MappingProxyType(
     {6.0: 30.0, 8.0: 35.0, 10.0: 40.0, 12.0: 50.0}
 )
-MAX_DOWEL_COUNT: Final = MAX_COUNT  # nombre calculé, 50 au plus
 MAX_SPACING_MM: Final = 128.0  # entraxe maximal historique (``max_spacing`` = 0)
 MIN_DOWELLED_THICKNESS_MM: Final = 12.0  # tourillons de 6 mm au moins, 3 mm de fond de perçage
 MIN_BOTTOM_MM: Final = 3.0  # matière laissée au fond de chaque perçage
@@ -184,31 +190,11 @@ def auto_length(diameter: float) -> float:
 
 def auto_count(width: float, edge: float, diameter: float, max_spacing: float = 0.0) -> int:
     """Au moins 2 tourillons, entraxe de ``max_spacing`` au plus (0 : ``MAX_SPACING_MM``),
-    ``MAX_DOWEL_COUNT`` au plus (l'entraxe dépasse alors ``max_spacing`` sur un très long
-    contact) ; jamais un entraxe refusé (au plus le diamètre, tolérance comprise) : 1 au milieu
-    si la place manque."""
-    span = width - 2 * edge
-    if span <= diameter + CONTACT_TOLERANCE_MM:
-        return 1
-    ceiling = max_spacing or MAX_SPACING_MM
-    count = min(MAX_DOWEL_COUNT, max(2, math.ceil(span / ceiling - _MARGIN) + 1))
-    while count > 1 and span / (count - 1) <= diameter + CONTACT_TOLERANCE_MM:
-        count -= 1
-    return count
-
-
-def positions(width: float, edge: float, count: int) -> tuple[float, ...]:
-    """Positions régulières de ``count`` tourillons de ``edge`` à ``width - edge`` (milieu
-    pour un seul)."""
-    if count == 1:
-        return (width / 2,)
-    step = (width - 2 * edge) / (count - 1)
-    return tuple(edge + index * step for index in range(count))
-
-
-def spacing_of(places: tuple[float, ...]) -> float:
-    """Écart entre deux centres voisins de ``places`` (0 pour un seul)."""
-    return places[1] - places[0] if len(places) > 1 else 0.0
+    ``MAX_DOWEL_COUNT`` au plus ; jamais un entraxe refusé (au plus le diamètre, tolérance
+    comprise) : 1 au milieu si la place manque."""
+    return spaced_count(
+        width - 2 * edge, max_spacing or MAX_SPACING_MM, diameter + CONTACT_TOLERANCE_MM
+    )
 
 
 def adapted_length(diameter: float, shortest_depth: float, clearance: float) -> float:

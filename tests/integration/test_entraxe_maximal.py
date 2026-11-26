@@ -62,7 +62,9 @@ def test_entraxe_invalide_refuse_sans_planter(
     joint = build(document, scenario).joint
     joint.MaxSpacing = value
     document.recompute()
-    assert joint.MaxSpacing.Value == value  # la valeur reste saisie ; le recalcul signale l'erreur
+    # FreeCAD ramène une longueur négative à 0 (entraxe habituel) ; une autre valeur hors bornes
+    # reste saisie et le recalcul signale l'erreur.
+    assert joint.MaxSpacing.Value == max(value, 0.0)
     joint.MaxSpacing = 90
     document.recompute()
     assert stale_or_invalid(document) == []
@@ -108,6 +110,7 @@ def test_ancien_document_avec_nombre(
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=IDS)
 def test_annuler_retablir_l_entraxe(document: Any, scenario: Scenario) -> None:
+    document.UndoMode = 1
     joint = build(document, scenario).joint
     before = joint.MaxSpacing.Value
     document.openTransaction("entraxe")

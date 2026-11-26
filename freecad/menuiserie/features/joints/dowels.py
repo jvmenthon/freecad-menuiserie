@@ -14,7 +14,7 @@ from typing import ClassVar, Final
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
 from freecad.menuiserie.core.joints.dowels import MAX_SPACING_MM, DowelParams
-from freecad.menuiserie.features.joints.base import JointFeature
+from freecad.menuiserie.features.joints.base import SPACING_MODEL_VERSION, JointFeature
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["DowelJoint"]
@@ -35,7 +35,7 @@ class DowelJoint(JointFeature):
         "Menuiserie",
         "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
     )
-    VERSION: ClassVar[int] = 2  # MaxSpacing remplace Count (ADR 0070)
+    VERSION: ClassVar[int] = SPACING_MODEL_VERSION
     OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ("Count",)
     SUMMARY: ClassVar[str] = QT_TRANSLATE_NOOP(
         "Menuiserie", "{count} tourillons, entraxe {spacing} mm."
@@ -89,7 +89,7 @@ class DowelJoint(JointFeature):
             QT_TRANSLATE_NOOP(
                 "App::Property",
                 "Écart maximal entre deux tourillons, en mm : le nombre est calculé pour ne pas "
-                "le dépasser (0 : 128 mm).",
+                "le dépasser (0 : valeur historique).",
             ),
             default=MAX_SPACING_MM,  # propriété absente d'un ancien fichier : l'entraxe historique
             label=QT_TRANSLATE_NOOP("Menuiserie", "Entraxe maximal"),

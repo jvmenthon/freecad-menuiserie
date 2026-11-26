@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Revue testeur de l'entraxe maximal (ADR 0070) : limites, obliques, gabarits, reliquats."""
+"""Bornes de l'entraxe maximal (ADR 0070) : limites, obliques, gabarits, reliquats."""
 
 from __future__ import annotations
 

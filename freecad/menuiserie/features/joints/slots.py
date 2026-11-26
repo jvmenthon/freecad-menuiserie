@@ -17,10 +17,9 @@ from typing import ClassVar, Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.joints import JointKind
-from freecad.menuiserie.core.joints.slots import SlotParams
-from freecad.menuiserie.core.joints.slots._params import AUTO_SPACING_MM
+from freecad.menuiserie.core.joints.slots import AUTO_SPACING_MM, SlotParams
 from freecad.menuiserie.features.freecad_types import HIDDEN
-from freecad.menuiserie.features.joints.base import JointFeature
+from freecad.menuiserie.features.joints.base import SPACING_MODEL_VERSION, JointFeature
 from freecad.menuiserie.features.schema import DISTANCE, LENGTH, PropertySpec
 
 __all__ = ["BiscuitJoint", "LooseTenonJoint"]
@@ -133,7 +132,7 @@ _COMMON_PROPERTIES: Final[tuple[PropertySpec, ...]] = (
         QT_TRANSLATE_NOOP(
             "App::Property",
             "Écart maximal entre deux mortaises, en mm : le nombre est calculé pour ne pas le "
-            "dépasser (0 : 150 mm).",
+            "dépasser (0 : valeur historique).",
         ),
         label=QT_TRANSLATE_NOOP("Menuiserie", "Entraxe maximal"),
         default=AUTO_SPACING_MM,  # propriété absente d'un ancien fichier : l'entraxe historique
@@ -201,7 +200,7 @@ class LooseTenonJoint(JointFeature):
         "Menuiserie",
         "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
     )
-    VERSION: ClassVar[int] = 2  # MaxSpacing remplace Count (ADR 0070)
+    VERSION: ClassVar[int] = SPACING_MODEL_VERSION
     OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ("Count",)
     SUMMARY: ClassVar[str] = _SUMMARY
     SUMMARY_IF: ClassVar[tuple[str, ...]] = ("spacing",)
@@ -221,7 +220,7 @@ class BiscuitJoint(JointFeature):
         "Menuiserie",
         "Inverser n'a pas d'effet : les deux pièces sont usinées de la même façon.",
     )
-    VERSION: ClassVar[int] = 2  # MaxSpacing remplace Count (ADR 0070)
+    VERSION: ClassVar[int] = SPACING_MODEL_VERSION
     OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ("Count",)
     SUMMARY: ClassVar[str] = _SUMMARY
     SUMMARY_IF: ClassVar[tuple[str, ...]] = ("spacing",)

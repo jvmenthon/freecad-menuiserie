@@ -10,11 +10,12 @@ from __future__ import annotations
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
+from freecad.menuiserie.core.joints import MAX_INPUT_SPACING_MM, MIN_INPUT_SPACING_MM
 from freecad.menuiserie.core.joints.dovetail import DEFAULT_ANGLE_DEG
 from freecad.menuiserie.core.joints.dowels import MAX_SPACING_MM, DowelParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
-from freecad.menuiserie.core.joints.slots._params import AUTO_SPACING_MM
+from freecad.menuiserie.core.joints.slots import AUTO_SPACING_MM
 from freecad.menuiserie.core.joints.tongue_groove import (
     DEFAULT_TONGUE_LENGTH_MM,
     TongueGrooveParams,
@@ -59,8 +60,6 @@ JOINTS: Final = QT_TRANSLATE_NOOP("Menuiserie", "Assemblages")
 
 _MAX_CLEARANCE_MM: Final = 20.0  # jeu d'usinage : au-delà, c'est une faute de saisie
 _MAX_TONGUE_MM: Final = 1000.0
-_MIN_SPACING_MM: Final = 10.0  # entraxe maximal : bornes de ``core`` (``spacing_param``)
-_MAX_SPACING_MM: Final = 1000.0
 _MIN_DOVETAIL_ANGLE_DEG: Final = 1.0
 _MAX_DOVETAIL_ANGLE_DEG: Final = 30.0
 
@@ -146,8 +145,8 @@ def joint_settings() -> list[Setting]:
                 "Menuiserie", "Écart maximal entre deux tourillons placés automatiquement."
             ),
             JOINTS,
-            minimum=_MIN_SPACING_MM,
-            maximum=_MAX_SPACING_MM,
+            minimum=MIN_INPUT_SPACING_MM,
+            maximum=MAX_INPUT_SPACING_MM,
             remember_last=True,
         ),
         length_setting(
@@ -158,8 +157,8 @@ def joint_settings() -> list[Setting]:
                 "Menuiserie", "Écart maximal entre deux mortaises d'un nouvel assemblage."
             ),
             JOINTS,
-            minimum=_MIN_SPACING_MM,
-            maximum=_MAX_SPACING_MM,
+            minimum=MIN_INPUT_SPACING_MM,
+            maximum=MAX_INPUT_SPACING_MM,
             remember_last=True,
         ),
         Setting(

@@ -46,6 +46,10 @@ même fichier donnerait un résultat différent d'un poste à l'autre.
 
 - Changer le réglage ne touche que les assemblages créés ensuite. Un ancien fichier où le
   nombre avait été saisi à la main peut changer de nombre à l'ouverture (accepté par jv).
+- Lamellos et faux tenons réduisent maintenant le nombre quand l'entraxe est plus petit qu'une
+  mortaise (comme les tourillons), au lieu de refuser le joint. Le nombre peut donc changer sur
+  un ancien fichier (accepté par jv : pas de reprise des anciens fichiers). Les deux calculs
+  partagent `spaced_count` (`core/joints/_spacing.py`).
 - Les gabarits gardent leurs propres choix (ADR 0069 point 4) : ils créent leurs assemblages
   avec `MaxSpacing` = 0, donc l'entraxe historique.
 - Une propriété de plus par assemblage tourillons ou lamellos, sans effet sur les autres types.

@@ -150,7 +150,7 @@ def test_ancien_nombre_supprime_a_la_reouverture() -> None:
     for module in ("dowels.py", "slots.py"):
         text = (FEATURES / module).read_text(encoding="utf-8")
         assert 'OBSOLETE_PROPERTIES: ClassVar[tuple[str, ...]] = ("Count",)' in text
-        assert "VERSION: ClassVar[int] = 2" in text
+        assert "VERSION: ClassVar[int] = SPACING_MODEL_VERSION" in text
 
 
 # --- réglages ----------------------------------------------------------------------------

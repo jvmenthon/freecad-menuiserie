@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import ClassVar
 
 from freecad.menuiserie.core.geometry import (
@@ -22,7 +21,7 @@ from freecad.menuiserie.core.joints._base import (
 )
 from freecad.menuiserie.core.joints._profile import ContactFrame, contact_frame
 from freecad.menuiserie.core.joints._slot_shapes import half_stadium, rounded_rectangle
-from freecad.menuiserie.core.joints.dowels import MAX_DOWEL_COUNT, positions, spacing_of
+from freecad.menuiserie.core.joints._spacing import positions, spaced_count, spacing_of
 from freecad.menuiserie.core.joints.slots._params import (
     AUTO_EDGE_MM,
     AUTO_SIZE,
@@ -218,22 +217,13 @@ def _fits(frame: ContactFrame, size: SlotSize, shortest: float, clearance: float
     )
 
 
-_MARGIN = 1e-9  # arrondi de la division (même marge que les tourillons)
-
-
 def _auto_count(width: float, edge: float, along: float, max_spacing: float = 0.0) -> int:
     """Une mortaise sur un contact étroit, sinon assez pour qu'elles soient espacées de
     ``max_spacing`` au plus entre centres (0 : ``AUTO_SPACING_MM``), le premier et le dernier à
-    ``edge`` des bords."""
-    span = width - 2 * edge
-    if span <= along:
-        return 1
-    ceiling = max_spacing or AUTO_SPACING_MM
-    count = min(MAX_DOWEL_COUNT, max(2, math.ceil(span / ceiling - _MARGIN) + 1))
-    # Comme les tourillons : un entraxe trop petit réduit le nombre, jamais de mortaises jointives.
-    while count > 1 and span / (count - 1) <= along + CONTACT_TOLERANCE_MM:
-        count -= 1
-    return count
+    ``edge`` des bords ; jamais de mortaises jointives (le nombre diminue)."""
+    return spaced_count(
+        width - 2 * edge, max_spacing or AUTO_SPACING_MM, along + CONTACT_TOLERANCE_MM
+    )
 
 
 def _check_section(frame: ContactFrame, values: SlotValues) -> None:

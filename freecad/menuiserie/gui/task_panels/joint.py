@@ -234,6 +234,13 @@ def _resolved(joint: DocumentObject) -> object | None:
         return None
 
 
+def _number_text(value: object) -> str | None:
+    """Texte d'un flottant (en mm) ou d'un entier du résumé ; ``None`` pour tout autre type."""
+    if isinstance(value, float):
+        return mm_text(value)
+    return str(value) if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def _summary(proxy: JointFeature, resolved: object | None) -> str | None:
     """Valeurs effectives hors des champs (angles de l'onglet) : gabarit ``SUMMARY`` du type
     rempli avec les nombres de ``resolve`` ; ``None`` sans gabarit ou sans valeurs."""
@@ -241,16 +248,8 @@ def _summary(proxy: JointFeature, resolved: object | None) -> str | None:
         return None
     if proxy.SUMMARY_IF and not any(getattr(resolved, name) for name in proxy.SUMMARY_IF):
         return None
-    numbers = {
-        item.name: mm_text(value)
-        for item in fields(resolved)
-        if isinstance(value := getattr(resolved, item.name), float)
-    }
-    numbers |= {
-        item.name: str(value)
-        for item in fields(resolved)
-        if isinstance(value := getattr(resolved, item.name), int) and not isinstance(value, bool)
-    }
+    texts = {item.name: _number_text(getattr(resolved, item.name)) for item in fields(resolved)}
+    numbers = {name: text for name, text in texts.items() if text is not None}
     return translated(proxy.SUMMARY, numbers)
 
 

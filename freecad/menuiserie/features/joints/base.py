@@ -58,6 +58,7 @@ __all__ = [
 ]
 
 MODEL_VERSION: Final = 1
+SPACING_MODEL_VERSION: Final = 2  # MaxSpacing remplace Count (ADR 0070)
 NOUN: Final = QT_TRANSLATE_NOOP("Menuiserie", "Assemblage")
 P = TypeVar("P")
 
@@ -230,11 +231,7 @@ class JointFeature(StatelessProxy):
         """Propriétés retirées du modèle (ex. ``Count``, ADR 0070) : effacées seulement d'un objet
         d'une version antérieure et si leur type est un entier, jamais celles d'un autre addon."""
         props = obj.PropertiesList
-        older = "Version" not in props or (
-            obj.getTypeIdOfProperty("Version") == "App::PropertyInteger"
-            and obj.Version < self.VERSION
-        )
-        for name in self.OBSOLETE_PROPERTIES if older else ():
+        for name in self.OBSOLETE_PROPERTIES if schema.is_older(obj, self.VERSION) else ():
             if name in props and obj.getTypeIdOfProperty(name).startswith("App::PropertyInteger"):
                 obj.removeProperty(name)
 
