@@ -142,3 +142,34 @@ class PageReglages(unittest.TestCase):
         _taper(champ, "/donnees/atelier")
         self.page.saveSettings()
         self.assertEqual(self.reglages.value("Dossier"), "/donnees/atelier")
+
+
+MATERIAU = Setting(
+    "Materiau", Kind.TEXT, "", "Matériau", "Matériau d'une pièce neuve.", "Pièces neuves"
+)
+CATALOGUE_LISTE = Catalog([MATERIAU])
+CHOIX = {"Materiau": [("", "Premier matériau"), ("chene", "Chêne")]}
+
+
+class PageReglagesListe(unittest.TestCase):
+    """Texte à liste déroulante (matériau) : une valeur enregistrée absente de la liste (matériau
+    retiré de la bibliothèque) ne doit pas être effacée en silence par « OK »."""
+
+    def setUp(self) -> None:
+        self.reglages = Settings(CATALOGUE_LISTE, MemoryStore())
+        self.page = SettingsPage(CATALOGUE_LISTE, self.reglages, choices=CHOIX)
+        self.page.form.show()
+        _traiter()
+        self.addCleanup(self.page.form.deleteLater)
+
+    def test_valeur_de_la_liste_enregistree(self) -> None:
+        combo = self.page._rows["Materiau"].editor.widget
+        combo.setCurrentIndex(combo.findData("chene"))
+        self.page.saveSettings()
+        self.assertEqual(self.reglages.value("Materiau"), "chene")
+
+    def test_valeur_absente_de_la_liste_conservee_par_ok(self) -> None:
+        self.reglages.set("Materiau", "noyer")  # matériau de l'utilisateur, plus dans la liste
+        self.page.loadSettings()
+        self.page.saveSettings()  # « OK » sans toucher à ce réglage
+        self.assertEqual(self.reglages.value("Materiau"), "noyer")
