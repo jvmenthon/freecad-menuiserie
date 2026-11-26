@@ -9,7 +9,7 @@ le lancement de FreeCAD tant que l'atelier n'est pas activé.
 import FreeCAD as App
 import FreeCADGui as Gui
 
-from freecad.menuiserie import TRANSLATIONS_DIR, icon_path
+from freecad.menuiserie import ICONS_DIR, TRANSLATIONS_DIR, icon_path
 
 translate = App.Qt.translate
 QT_TRANSLATE_NOOP = App.Qt.QT_TRANSLATE_NOOP
@@ -194,4 +194,26 @@ class MenuiserieWorkbench(Gui.Workbench):  # type: ignore[misc]
         return "Gui::PythonWorkbench"
 
 
+class MenuiseriePreferences:
+    """Page « Menuiserie » d'Édition > Préférences (ADR 0069). FreeCAD en crée une instance à
+    l'ouverture de la boîte de dialogue : la vraie page (Qt, catalogue, bibliothèque) n'est
+    importée qu'à ce moment, pour ne pas ralentir le lancement de FreeCAD."""
+
+    def __init__(self) -> None:
+        from freecad.menuiserie.gui.preferences_page import MenuiseriePreferencePage
+
+        self._page = MenuiseriePreferencePage()
+        self.form = self._page.form
+
+    def loadSettings(self) -> None:
+        """Valeurs enregistrées affichées (appelé par FreeCAD)."""
+        self._page.loadSettings()
+
+    def saveSettings(self) -> None:
+        """Valeurs affichées enregistrées, à « OK » et « Appliquer » (appelé par FreeCAD)."""
+        self._page.saveSettings()
+
+
 Gui.addWorkbench(MenuiserieWorkbench())
+Gui.addIconPath(str(ICONS_DIR))  # icône de la page : preferences-menuiserie.svg
+Gui.addPreferencePage(MenuiseriePreferences, "Menuiserie")

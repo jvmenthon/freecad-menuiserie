@@ -100,6 +100,7 @@ FreeCAD doit tourner sans traduction de l'atelier vers une autre langue, ce qui 
 | `scenario_repetition` | Traverse assemblée répétée 4 fois, nombre puis pas changés, copie dissociée, assemblage posé à la main sur une copie. |
 | `scenario_rotation` | Quarts de tour et champs d'angle du panneau, sur une pièce libre, une pièce assemblée (fenêtre « Assemblage défait », les deux réponses) et une pièce d'un ensemble. |
 | `scenario_aligner_et_distance` | « Aligner deux faces » (chaque mode, centrer X, Y et Z, décalage, inverser), puis une distance gardée : définie, tenue quand la pièce de référence est déplacée puis l'ensemble relié, tenue quand l'ensemble s'élargit, réglée, abandonnée. |
+| `scenario_page_reglages` | Page « Menuiserie » des préférences (module générique `kit/config/page`, Qt seul, stockage en mémoire) : recherche, réglages avancés, groupe replié et son résumé, écriture à la validation, « Rétablir » d'une ligne et « Rétablir tout », champ dossier. |
 | `scenario_quincaillerie` | Caisson, pieds, perçage au pas de 32 mm (rangs retapés jusqu'au refus et jusqu'au plafond du champ), hauteur du caisson changée, côté devenu trop petit (refus dans le panneau, « OK » grisé). |
 | `scenario_piece_depuis_un_corps` | Corps PartDesign converti en pièce en bois, tenon-mortaise dessus, corps allongé. |
 | `scenario_panneau_structure` | Panneau « Structure » : clic sur une ligne, menu contextuel (renommer, sortir de l'ensemble, supprimer), touche F2, pièce glissée dans un ensemble. |
