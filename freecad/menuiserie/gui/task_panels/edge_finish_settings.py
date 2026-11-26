@@ -10,9 +10,9 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from freecad.menuiserie.core.edges import EdgeFamily
-from freecad.menuiserie.features.edge_settings import proposed_profile, record_profile_used
+from freecad.menuiserie.features.edge_settings import proposed_profile
 
-__all__ = ["Proposal", "default_size_b", "proposal", "record_accepted"]
+__all__ = ["Proposal", "proposal"]
 
 
 class Proposal(NamedTuple):
@@ -23,17 +23,7 @@ class Proposal(NamedTuple):
     size_b: float
 
 
-def default_size_b(size_a: float) -> float:
-    """Cote B par défaut d'un profil : celle de la cote A."""
-    return size_a
-
-
 def proposal() -> Proposal:
     """Profil proposé d'après les réglages de l'atelier (quart de rond de 1 mm par défaut)."""
     family, size_a = proposed_profile()
-    return Proposal(family, size_a, default_size_b(size_a))
-
-
-def record_accepted(family: str, size_a: float) -> None:
-    """« Dernier utilisé » : profil et cote A validés à la création."""
-    record_profile_used(family, size_a)
+    return Proposal(family, size_a, size_a)

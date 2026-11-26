@@ -24,7 +24,7 @@ _DECIMALS: Final = 2
 _FIELD_WIDTH: Final = 220
 _GREY: Final = "color: gray;"
 _BOLD: Final = "font-weight: bold;"
-Widget = Any
+Widget = model.Widget
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,9 @@ def _quiet(widget: Widget, write: Callable[[Value], None]) -> Callable[[Value], 
     return write_quietly
 
 
-def _bool_editor(_setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: Any) -> Editor:
+def _bool_editor(
+    _setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: model.Translate
+) -> Editor:
     box = QtGui.QCheckBox()
 
     def write(value: Value) -> None:
@@ -88,7 +90,9 @@ def _suffix(setting: Setting, translate: model.Translate) -> str:
     return f" {translate(setting.unit)}" if setting.unit else ""
 
 
-def _int_editor(setting: Setting, _choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
+def _int_editor(
+    setting: Setting, _choices: Sequence[tuple[Value, str]], tr: model.Translate
+) -> Editor:
     box = QtGui.QSpinBox()
     low, high = _spin_range(setting)
     box.setRange(int(max(low, -(2**31))), int(min(high, 2**31 - 1)))
@@ -101,7 +105,9 @@ def _int_editor(setting: Setting, _choices: Sequence[tuple[Value, str]], tr: Any
     return Editor(box, box.value, _quiet(box, write), _subscriber(box.valueChanged))
 
 
-def _float_editor(setting: Setting, _choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
+def _float_editor(
+    setting: Setting, _choices: Sequence[tuple[Value, str]], tr: model.Translate
+) -> Editor:
     box = QtGui.QDoubleSpinBox()
     box.setRange(*_spin_range(setting))
     box.setDecimals(_DECIMALS)
@@ -114,7 +120,9 @@ def _float_editor(setting: Setting, _choices: Sequence[tuple[Value, str]], tr: A
     return Editor(box, box.value, _quiet(box, write), _subscriber(box.valueChanged))
 
 
-def _combo_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
+def _combo_editor(
+    setting: Setting, choices: Sequence[tuple[Value, str]], tr: model.Translate
+) -> Editor:
     combo = QtGui.QComboBox()
     for stored, label in choices or [(value, value) for value in setting.choices]:
         combo.addItem(label, stored)
@@ -125,7 +133,7 @@ def _combo_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: An
             combo.removeItem(combo.findData(absent.pop()))
         index = combo.findData(value)
         if index < 0:
-            label = tr(model.ABSENT_VALUE).replace("{value}", str(value))
+            label = model.format_text(tr(model.ABSENT_VALUE), value=value)
             combo.addItem(label, value)
             absent.append(value)
             index = combo.count() - 1
@@ -138,7 +146,9 @@ def _combo_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: An
     return Editor(combo, read, _quiet(combo, write), _subscriber(combo.currentIndexChanged))
 
 
-def _text_editor(_setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: Any) -> Editor:
+def _text_editor(
+    _setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: model.Translate
+) -> Editor:
     field = QtGui.QLineEdit()
     field.setMaxLength(MAX_TEXT_LENGTH)
 
@@ -148,7 +158,9 @@ def _text_editor(_setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: 
     return Editor(field, field.text, _quiet(field, write), _subscriber(field.textChanged))
 
 
-def _path_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
+def _path_editor(
+    setting: Setting, choices: Sequence[tuple[Value, str]], tr: model.Translate
+) -> Editor:
     """Champ de texte et bouton « … » qui ouvre le choix d'un dossier."""
     inner = _text_editor(setting, choices, tr)
     holder = QtGui.QWidget()
@@ -170,7 +182,9 @@ def _path_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: Any
     return Editor(holder, inner.get, inner.set, inner.subscribe)
 
 
-def _choice_or_text(setting: Setting, choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
+def _choice_or_text(
+    setting: Setting, choices: Sequence[tuple[Value, str]], tr: model.Translate
+) -> Editor:
     """Texte libre, sauf si l'atelier fournit des choix (liste déroulante)."""
     return _combo_editor(setting, choices, tr) if choices else _text_editor(setting, choices, tr)
 
@@ -211,7 +225,9 @@ class Row:
         for widget in (self.label, self.editor.widget):
             widget.setToolTip(tip)
         shown = model.format_value(setting, setting.default, translate, choices)
-        self.default_label = QtGui.QLabel(translate(model.DEFAULT_VALUE).replace("{value}", shown))
+        self.default_label = QtGui.QLabel(
+            model.format_text(translate(model.DEFAULT_VALUE), value=shown)
+        )
         self.default_label.setStyleSheet(_GREY)
         self.remember = (
             QtGui.QCheckBox(translate(model.LAST_USED)) if setting.remember_last else None

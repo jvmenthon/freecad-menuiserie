@@ -13,7 +13,7 @@ from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
-from freecad.menuiserie.features.i18n import report_warning, translate_text
+from freecad.menuiserie.features.i18n import format_text, report_warning, translate_text
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.settings import CATALOG, EDGE_PROFILE, MATERIAL, settings
 from freecad.menuiserie.kit.config.catalog import Value
@@ -63,8 +63,8 @@ def material_choices() -> list[tuple[Value, str]]:
     try:
         language = display_language()
         library = [(material.id, material.name(language)) for material in get_library()]
-    except Exception as error:  # une bibliothèque en panne ne bloque pas la page
-        report_warning(translate_text(LIBRARY_UNAVAILABLE).replace("{error}", str(error)))
+    except (OSError, ValueError) as error:  # bibliothèque illisible : la page s'ouvre quand même
+        report_warning(format_text(translate_text(LIBRARY_UNAVAILABLE), error=error))
         library = []
     return [first, *library]
 

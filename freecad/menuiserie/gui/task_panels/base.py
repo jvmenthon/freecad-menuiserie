@@ -173,7 +173,12 @@ class TransactionTaskPanel:
         """« OK » : la transaction devient une seule entrée d'annulation."""
         self._before_commit()
         self._finish(abort=False)
+        self._after_accept()
         return True
+
+    def _after_accept(self) -> None:
+        """Étape des sous-classes une fois la transaction validée (par exemple retenir des
+        valeurs pour « Dernier utilisé ») ; rien par défaut."""
 
     def _before_commit(self) -> None:
         """Étape des sous-classes juste avant la validation (par exemple rétablir l'affichage
@@ -282,17 +287,15 @@ class ObjectTaskPanel(TransactionTaskPanel):
         super().__init__(obj.Document, creating=creating, watcher=watcher)
         self.obj = obj
 
-    def accept(self) -> bool:
-        """« OK » : la transaction est validée ; à la création, les valeurs de l'objet sont
-        ensuite retenues pour « Dernier utilisé » (réglages de l'atelier)."""
-        accepted = super().accept()
-        if accepted and self.creating:
+    def _after_accept(self) -> None:
+        """À la création, les valeurs de l'objet sont retenues pour « Dernier utilisé »
+        (réglages de l'atelier)."""
+        if self.creating:
+            # Import différé : ``record_created`` tire les assemblages et les pièces dessinées
+            # (donc ``Part``), que ce module de base n'a pas à charger.
             from freecad.menuiserie.features.record_created import record_created
 
-            record_created(
-                self.obj
-            )  # import différé : tire les assemblages et les pièces dessinées
-        return accepted
+            record_created(self.obj)
 
     def preview(self) -> None:
         """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""

@@ -200,33 +200,6 @@ def test_fabrique_d_assemblage_applique_les_reglages(
     assert [params.mortise_clearance for params in created[1:]] == [3.0, 1.0]
 
 
-def test_gabarit_applique_les_reglages_sauf_parametre_explicite(
-    modules: Modules, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``create_joint_with_settings`` (gabarits) : un réglage modifié donne sa valeur aux
-    paramètres laissés au défaut ; ceux que le gabarit fixe lui-même sont gardés."""
-    factories = importlib.import_module("freecad.menuiserie.features.joints.factories")
-    core = importlib.import_module("freecad.menuiserie.core.joints.dowels")
-    created: list[Any] = []
-
-    def capture(_joint_class: Any, _doc: Any, _host: Any, _guest: Any, params: Any) -> str:
-        created.append(params)
-        return "joint"
-
-    monkeypatch.setattr(factories, "create_joint", capture)
-    cls = factories.DowelJoint
-    template = core.DowelParams(diameter=8.0, host_depth=12.0)
-    assert factories.create_joint_with_settings(cls, "doc", "h", "g", template) == "joint"
-    assert created[0] == template  # aucun réglage modifié : paramètres du gabarit tels quels
-    modules.values.set(modules.config.DOWEL_CLEARANCE, 0.5)
-    factories.create_joint_with_settings(cls, "doc", "h", "g", template)
-    assert created[1].hole_clearance == 0.5  # laissé au défaut par le gabarit : le réglage
-    assert (created[1].diameter, created[1].host_depth) == (8.0, 12.0)  # fixés par le gabarit
-    fixed = core.DowelParams(hole_clearance=2.0)
-    factories.create_joint_with_settings(cls, "doc", "h", "g", fixed)
-    assert created[2].hole_clearance == 2.0  # valeur explicite du gabarit : gardée
-
-
 def test_arete_cassee_refusee_d_un_gabarit_est_signalee(
     modules: Modules, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -260,4 +233,3 @@ def test_finition_des_chants_cote_b_jamais_nulle(modules: Modules) -> None:
     for family in (EdgeFamily.OGEE, EdgeFamily.BEAK):
         sizes = cut.resolved_sizes(family, chosen.size_a, chosen.size_b, "x")
         assert sizes == (3.5, 3.5)
-        assert settings.default_size_b(chosen.size_a) > 0.0

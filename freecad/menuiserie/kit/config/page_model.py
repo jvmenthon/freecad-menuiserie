@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
-from typing import Final
+from typing import Any, Final
 
 from .catalog import Catalog, Kind, Setting, Value
 
@@ -18,7 +18,9 @@ __all__ = [
     "PAGE_TEXTS",
     "Choices",
     "Translate",
+    "Widget",
     "count_modified",
+    "format_text",
     "format_value",
     "group_summary",
     "identity",
@@ -29,6 +31,7 @@ __all__ = [
 ]
 
 Translate = Callable[[str], str]
+Widget = Any  # widget Qt, sans importer Qt ici
 Choices = Mapping[str, Sequence[tuple[Value, str]]]  # clé → (valeur enregistrée, libellé traduit)
 
 SEARCH: Final = "Rechercher un réglage"
@@ -99,6 +102,14 @@ def is_shown(setting: Setting, query: str, advanced: bool, translate: Translate 
     return (advanced or not setting.advanced) and matches(setting, query, translate)
 
 
+def format_text(text: str, **values: object) -> str:
+    """``text`` dont chaque ``{nom}`` est remplacé par ``values["nom"]`` (pas ``str.format`` : un
+    texte traduit ne doit pas pouvoir lever d'erreur de format)."""
+    for name, value in values.items():
+        text = text.replace("{" + name + "}", str(value))
+    return text
+
+
 def shown_keys(
     catalog: Catalog, query: str, advanced: bool, translate: Translate = identity
 ) -> list[str]:
@@ -114,11 +125,11 @@ def count_modified(catalog: Catalog, values: Mapping[str, Value], keys: Sequence
 def group_summary(total: int, modified: int, translate: Translate = identity) -> str:
     """« (N réglages, M modifiés) » d'un groupe replié ; les modifiés sont omis s'il n'y en a pas
     (pluriel à partir de 2, comme en français)."""
-    count = translate(ONE_SETTING if total < 2 else MANY_SETTINGS).replace("{count}", str(total))
+    count = format_text(translate(ONE_SETTING if total < 2 else MANY_SETTINGS), count=total)
     if not modified:
         return f"({count})"
-    changed = translate(ONE_MODIFIED if modified < 2 else MANY_MODIFIED).replace(
-        "{count}", str(modified)
+    changed = format_text(
+        translate(ONE_MODIFIED if modified < 2 else MANY_MODIFIED), count=modified
     )
     return f"({count}, {changed})"
 

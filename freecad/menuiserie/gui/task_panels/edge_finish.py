@@ -30,6 +30,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges
 from freecad.menuiserie.features.edge_profile_native import part_refusal
+from freecad.menuiserie.features.edge_settings import record_profile_used
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.gui.edge_highlight import EdgeHighlight, Entry
@@ -43,11 +44,7 @@ from freecad.menuiserie.gui.task_panels.base import (
     length_spinbox,
 )
 from freecad.menuiserie.gui.task_panels.edge_finish_dialogs import confirm_replacement, piece_edges
-from freecad.menuiserie.gui.task_panels.edge_finish_settings import (
-    default_size_b,
-    proposal,
-    record_accepted,
-)
+from freecad.menuiserie.gui.task_panels.edge_finish_settings import proposal
 from freecad.menuiserie.gui.task_panels.edge_targets import PieceList
 from freecad.menuiserie.gui.view_providers.edge_profile import ICON
 
@@ -193,9 +190,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
     def _family_changed(self, *_changed: object) -> None:
         if self._needs_size_b() and float(self._size_b.property("rawValue")) <= 0.0:
             with self._guard:  # cote B nulle : celle par défaut du profil (A), jamais 0
-                self._size_b.setProperty(
-                    "rawValue", default_size_b(float(self._size_a.property("rawValue")))
-                )
+                self._size_b.setProperty("rawValue", self._size_a.property("rawValue"))
         self._show_size_b()
         self.rebuild()
 
@@ -371,7 +366,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         creating = self.creating
         accepted = super().accept()
         if accepted and creating:
-            record_accepted(family, float(size_a))
+            record_profile_used(family, float(size_a))
         return accepted
 
     def _confirmed(self, conflicts: str) -> bool:

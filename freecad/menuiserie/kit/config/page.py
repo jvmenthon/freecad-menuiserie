@@ -11,13 +11,14 @@ FreeCAD est ``form``, ``saveSettings`` et ``loadSettings``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import partial
 from typing import Any, Final
 
 from PySide import QtCore, QtGui
 
 from . import page_model as model
-from .catalog import Catalog, SettingError
+from .catalog import Catalog, Setting, SettingError
 from .page_rows import Row, ignoring_arguments
 from .store import Settings
 
@@ -26,13 +27,12 @@ __all__ = ["SettingsPage"]
 _ARROW_OPEN: Final = QtCore.Qt.ArrowType.DownArrow
 _ARROW_CLOSED: Final = QtCore.Qt.ArrowType.RightArrow
 _SUMMARY_STYLE: Final = "color: gray;"
-Widget = Any
 
 
 class _Group:
     """Groupe repliable : titre, résumé quand il est replié, grille des lignes."""
 
-    def __init__(self, title: str, rows: list[Row], on_toggle: Any) -> None:
+    def __init__(self, title: str, rows: list[Row], on_toggle: Callable[[_Group], None]) -> None:
         self.rows = rows
         self.frame = QtGui.QFrame()
         outer = QtGui.QVBoxLayout(self.frame)
@@ -134,7 +134,7 @@ class SettingsPage:
         area.setWidget(content)
         return area
 
-    def _row(self, setting: Any) -> Row:
+    def _row(self, setting: Setting) -> Row:
         row = Row(setting, self._translate, self._choices.get(setting.key, ()), self._refresh)
         self._rows[setting.key] = row
         return row
@@ -213,5 +213,4 @@ class SettingsPage:
     def reset_all(self) -> None:
         """Toutes les lignes à leur valeur par défaut (écrit à l'enregistrement de la page)."""
         for row in self._rows.values():
-            row.load(row.setting.default, False, dirty=True)
-        self._refresh()
+            row.reset()

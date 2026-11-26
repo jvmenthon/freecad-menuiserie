@@ -10,7 +10,6 @@ assemblage existant ou une copie gardent leurs valeurs.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import MISSING, fields
 from typing import Final
 
 from freecad.menuiserie.core.joints import JointKind
@@ -18,7 +17,7 @@ from freecad.menuiserie.features import settings as config
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joints.base import property_name
 
-__all__ = ["apply_joint_settings", "explicit_params", "record_joint_used"]
+__all__ = ["apply_joint_settings", "record_joint_used"]
 
 _PARAMETERS: Final[Mapping[JointKind, Mapping[str, str]]] = {
     JointKind.MORTISE_TENON: {
@@ -47,18 +46,6 @@ def apply_joint_settings(kind: JointKind, params: Mapping[str, object]) -> dict[
         if name not in params and values.is_modified(key)
     }
     return {**wanted, **params}
-
-
-def explicit_params(params: object) -> dict[str, object]:
-    """Paramètres de l'objet valeur ``params`` (dataclass de ``core``) dont la valeur diffère de
-    celle par défaut : ce que l'appelant, un gabarit par exemple, a choisi lui-même. Une valeur
-    choisie égale au défaut ne se distingue pas d'un paramètre laissé libre."""
-    explicit: dict[str, object] = {}
-    for field in fields(params):  # type: ignore[arg-type]
-        value = getattr(params, field.name)
-        if field.init and (field.default is MISSING or value != field.default):
-            explicit[field.name] = value
-    return explicit
 
 
 def record_joint_used(joint: DocumentObject) -> None:

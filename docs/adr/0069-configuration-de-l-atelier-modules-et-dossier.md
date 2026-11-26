@@ -44,7 +44,8 @@ jv veut pouvoir proposer **le dernier choix** au lieu d'une valeur fixe.
 4. **« Dernier utilisé ».** Un réglage marqué « dernier possible » a deux clés : le mode
    (`fixe` / `dernier`) et la valeur. Case cochée (mode `dernier`), la commande qui crée l'objet écrit la
    valeur retenue après validation ; la lecture reste bornée par le catalogue. Retenu pour les
-   trois réglages des chants et tous les réglages principaux des assemblages.
+   trois réglages des chants et tous les réglages principaux des assemblages. Les réglages d'assemblage ne valent que pour les
+   assemblages créés par l'utilisateur : les gabarits imposent leurs propres choix.
 5. **Page (maquette B, choix de jv)** : une seule page qui défile, groupes repliables avec le
    nombre de réglages modifiés, champ de recherche, case « Afficher les réglages avancés » (niveau
    donné par le catalogue). Chaque réglage « dernier possible » a une case à cocher « Dernier

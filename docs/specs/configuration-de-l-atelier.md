@@ -144,7 +144,8 @@ assemblage). Les règles :
   logique sans Qt), page de préférences du lot 1 (maquette B, `gui/preferences_page.py`,
   inscrite dans `init_gui.py`), lecture des réglages à la création des pièces (pièce de bois,
   pièce en bois, gabarits ; `features/new_part_settings.py`) et des assemblages
-  (`features/joint_settings.py`), profil proposé par la finition des chants
+  (`features/joint_settings.py` ; les réglages d'assemblage valent pour les assemblages créés par
+  l'utilisateur, pas pour ceux des gabarits, qui imposent leurs propres choix), profil proposé par la finition des chants
   (`features/edge_settings.py`), « Dernier utilisé » retenu à la validation d'une création
   (`features/record_created.py`), arête cassée sur les pièces neuves. Reste : l'entraxe des
   tourillons (réglage affiché, pas encore lu).

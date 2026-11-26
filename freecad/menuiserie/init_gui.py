@@ -12,6 +12,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from freecad.menuiserie import ICONS_DIR, TRANSLATIONS_DIR, icon_path
+from freecad.menuiserie.features.i18n import format_text
 
 translate = App.Qt.translate
 QT_TRANSLATE_NOOP = App.Qt.QT_TRANSLATE_NOOP
@@ -208,8 +209,9 @@ class MenuiseriePreferences:
             self._page = MenuiseriePreferencePage()
         except Exception as error:  # une page en panne ne doit pas bloquer FreeCAD
             App.Console.PrintError(
-                translate("Menuiserie", "Page de préférences indisponible : {error}\n").replace(
-                    "{error}", str(error)
+                format_text(
+                    translate("Menuiserie", "Page de préférences indisponible : {error}\n"),
+                    error=error,
                 )
             )
             from freecad.menuiserie.gui.preferences_fallback import FallbackPage
@@ -238,8 +240,9 @@ def register_preferences() -> None:
         Gui.addPreferencePage(MenuiseriePreferences, "Menuiserie")
     except Exception as error:  # l'atelier reste utilisable sans sa page
         App.Console.PrintWarning(
-            translate("Menuiserie", "Page de préférences non enregistrée : {error}\n").replace(
-                "{error}", str(error)
+            format_text(
+                translate("Menuiserie", "Page de préférences non enregistrée : {error}\n"),
+                error=error,
             )
         )
 

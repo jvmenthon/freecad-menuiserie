@@ -130,6 +130,7 @@ def test_arete_cassee_refusee_n_empeche_pas_la_creation(
 
 
 def test_arete_cassee_annuler_retablir(document: Any, reglages: Any) -> None:
+    document.UndoMode = 1  # sans cela, l'annulation d'un document de test ne fait rien
     reglages.set(config.BROKEN_EDGE, True)
     document.openTransaction("création")
     part = api.make_wood_part(doc=document)
@@ -183,6 +184,7 @@ def test_gabarit_sans_reglage_modifie_ne_cree_pas_de_profil(document: Any, regla
 
 
 def test_gabarit_arete_cassee_annuler(document: Any, reglages: Any) -> None:
+    document.UndoMode = 1  # sans cela, l'annulation d'un document de test ne fait rien
     reglages.set(config.BROKEN_EDGE, True)
     before = len(document.Objects)
     document.openTransaction("caisson")

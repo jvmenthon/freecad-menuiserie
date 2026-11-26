@@ -49,7 +49,7 @@ from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
-from freecad.menuiserie.features.joints.factories import create_joint_with_settings
+from freecad.menuiserie.features.joints.factories import create_joint
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
@@ -263,7 +263,7 @@ def build_layout(
         apply_new_allowances(obj)
     parts = {**created, **({layout.anchor: anchor.obj} if anchor and layout.anchor else {})}
     joints = [
-        create_joint_with_settings(
+        create_joint(
             JOINT_CLASSES[spec.kind], doc, parts[spec.host], parts[spec.guest], spec.params
         )
         for spec in layout.joints
