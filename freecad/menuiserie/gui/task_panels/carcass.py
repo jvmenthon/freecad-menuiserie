@@ -76,8 +76,6 @@ class CarcassTaskPanel(TransactionTaskPanel):
     """Paramètres du caisson et aperçu, dans la transaction ouverte par la commande ;
     transaction, fermeture et surveillance du document : :mod:`base`."""
 
-    SIZE_FIELDS = _GESTURE_FIELDS  # champs des cotes X, Y, Z : clic sur une étiquette (ADR 0068)
-
     def __init__(self, doc: Document) -> None:
         super().__init__(doc, creating=True)
         self.furniture: DocumentObject | None = None
@@ -113,9 +111,8 @@ class CarcassTaskPanel(TransactionTaskPanel):
         self._error.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self._error.setStyleSheet(_ERROR_STYLE)
         layout.addRow(self._error)
-        self._drag = PanelDrag(
-            self, follow=True
-        )  # flèches, anneaux et poignées dans la vue 3D (ADR 0038)
+        # Flèches, anneaux et poignées dans la vue 3D (ADR 0038) ; étiquette cliquée : son champ.
+        self._drag = PanelDrag(self, follow=True, size_fields=_GESTURE_FIELDS)
         self.rebuild()
 
     # --- Aperçu ---------------------------------------------------------------------------

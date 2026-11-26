@@ -24,14 +24,17 @@ from freecad.menuiserie.gui.task_panels.base import connect
 
 class PanelDrag:
     """Lien entre la session de glissement et un panneau de tâche ``panel`` (propriété ``closed``,
-    méthode ``after_drag`` qui relit les champs ; ``SIZE_FIELDS`` facultatif : nom Qt du champ
-    de la cote de chaque axe, où un clic sur une étiquette met le curseur). La pièce est
-    ``panel.obj`` ; un panneau dont
-    l'objet est recréé à chaque aperçu (caisson) passe ``follow=True`` et appelle :meth:`follow`
-    à chaque aperçu. Sans session (atelier inactif), ne fait rien."""
+    méthode ``after_drag`` qui relit les champs) ; ``size_fields`` : nom Qt du champ de la cote
+    de chaque axe, où un clic sur une étiquette met le curseur (aucun : le clic ne fait rien).
+    La pièce est ``panel.obj`` ; un panneau dont l'objet est recréé à chaque aperçu (caisson)
+    passe ``follow=True`` et appelle :meth:`follow` à chaque aperçu. Sans session (atelier
+    inactif), ne fait rien."""
 
-    def __init__(self, panel: Any, *, follow: bool = False) -> None:
+    def __init__(
+        self, panel: Any, *, follow: bool = False, size_fields: tuple[str, ...] = ()
+    ) -> None:
         self._panel = weakref.ref(panel)
+        self._size_fields = size_fields
         self._session: DragSession | None = events.current_session()
         self._context: PanelContext | None = None
         if self._session is not None:
@@ -64,7 +67,7 @@ class PanelDrag:
         """Curseur dans le champ de la cote de l'axe ``axis``, valeur sélectionnée : il n'y a
         plus qu'à taper le nombre. Faux si le panneau n'a pas ce champ ou s'il est grisé."""
         panel = self._panel()
-        names = getattr(panel, "SIZE_FIELDS", ()) if panel is not None else ()
+        names = self._size_fields
         if panel is None or panel.closed or not 0 <= axis < len(names):
             return False
         field = panel.form.findChild(QtGui.QWidget, names[axis])

@@ -93,8 +93,6 @@ ALLOWANCE_FIELDS: Final = LENGTH_FIELDS[3:]
 class WoodPartTaskPanel(ObjectTaskPanel):
     """Panneau de tâche d'une pièce de bois, en création (``creating``) ou en modification."""
 
-    SIZE_FIELDS = tuple(field.widget for field in LENGTH_FIELDS[:3])  # clic sur une étiquette
-
     def __init__(
         self, obj: DocumentObject, *, creating: bool, session: SnapSession | None = None
     ) -> None:
@@ -126,7 +124,8 @@ class WoodPartTaskPanel(ObjectTaskPanel):
         self._angles.setup()
         self._connect_signals()
         self._snap = SnapRows(self.form, obj, self._session)
-        self._drag = PanelDrag(self)  # flèches et poignées dans la vue 3D (ADR 0021)
+        # Flèches et poignées dans la vue 3D (ADR 0021) ; clic sur une étiquette : son champ.
+        self._drag = PanelDrag(self, size_fields=tuple(f.widget for f in LENGTH_FIELDS[:3]))
         if self._session is not None and self._session.targets:
             self._recompute()
         if self._session is not None and limit_initial_size(obj, self._session):

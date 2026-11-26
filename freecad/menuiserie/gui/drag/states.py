@@ -9,6 +9,7 @@ souris), :class:`Moving` (flèche tirée), :class:`Resizing` (poignée tirée) e
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -164,7 +165,7 @@ class BadgePressed(State):
         self.shift = shift
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:
-        if abs(point[0] - self.start[0]) + abs(point[1] - self.start[1]) < CLICK_PX:
+        if math.hypot(point[0] - self.start[0], point[1] - self.start[1]) < CLICK_PX:
             return True
         session.enter(Hover(self.badge))
         if not session.begin(self.badge, self.start, self.shift):

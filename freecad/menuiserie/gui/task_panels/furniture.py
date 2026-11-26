@@ -102,8 +102,6 @@ class FurnitureTaskPanel(ObjectTaskPanel):
     """Panneau de tâche d'un ensemble, ouvert en modification seulement (aucun panneau à la
     création)."""
 
-    SIZE_FIELDS = DIMENSIONS  # champs des cotes X, Y, Z : clic sur une étiquette (ADR 0068)
-
     def __init__(self, obj: DocumentObject) -> None:
         super().__init__(obj, creating=False)
         self._guard = UpdateGuard()
@@ -134,7 +132,8 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         connect(self._tree, "itemSelectionChanged()", self._member_chosen)
         connect(self._own_locked, "toggled(bool)", self._own_locked_toggled)
         self._refresh()
-        self._drag = PanelDrag(self)  # flèches, poignées et anneaux dans la vue 3D (ADR 0038)
+        # Flèches, poignées et anneaux dans la vue 3D (ADR 0038) ; étiquette cliquée : son champ.
+        self._drag = PanelDrag(self, size_fields=DIMENSIONS)
 
     # --- Construction ---------------------------------------------------------------------
 
