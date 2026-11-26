@@ -22,6 +22,7 @@ __all__ = [
     "BADGE_REACH",
     "KNOB_HOT_PX",
     "KNOB_PX",
+    "Rect",
     "Slot",
     "badge_width_px",
     "facing_ends",
@@ -47,6 +48,9 @@ KNOB_PX: Final = 16.0  # diamètre du rond d'une face (pixels logiques), survol�
 KNOB_HOT_PX: Final = 20.0
 ANGLE_STEP: Final = 15.0  # flèche d'un rond : angle arrondi (degrés), peu d'images à garder
 MIN_ARROW_PX: Final = 2.0  # axe plus court à l'écran : vu de bout, pas de flèche
+
+
+Rect = tuple[float, float, float, float]  # gauche, bas, droite, haut (pixels)
 
 
 def badge_width_px(name: str, text: str, locked: bool) -> tuple[float, float]:
@@ -89,14 +93,11 @@ class Slot:
     width: float
     height: float
 
-    def rect(self, reach: float) -> tuple[float, float, float, float]:
+    def rect(self, reach: float) -> Rect:
         """Rectangle (gauche, bas, droite, haut) de l'étiquette posée à ``reach`` unités."""
         x = self.face[0] + self.step[0] * reach
         y = self.face[1] + self.step[1] * reach
         return (x - self.width / 2, y - self.height / 2, x + self.width / 2, y + self.height / 2)
-
-
-Rect = tuple[float, float, float, float]  # gauche, bas, droite, haut (pixels)
 
 
 def point_rect(point: tuple[float, float], half: float) -> Rect:
@@ -124,9 +125,7 @@ def segment_rects(
     )
 
 
-def _overlap(
-    a: tuple[float, float, float, float], b: tuple[float, float, float, float], gap: float
-) -> bool:
+def _overlap(a: Rect, b: Rect, gap: float) -> bool:
     return not (
         a[2] + gap <= b[0] or b[2] + gap <= a[0] or a[3] + gap <= b[1] or b[3] + gap <= a[1]
     )
@@ -151,7 +150,8 @@ def spread(
         best, fewest = base, -1
         for push in range(MAX_PUSHES + 1):
             reach = base + push * REACH_STEP
-            hits = sum(_overlap(slot.rect(reach), other, gap) for other in placed)
+            rect = slot.rect(reach)
+            hits = sum(_overlap(rect, other, gap) for other in placed)
             if fewest < 0 or hits < fewest:
                 best, fewest = reach, hits
             if hits == 0:
