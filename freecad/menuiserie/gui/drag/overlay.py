@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Incrustation Coin des flèches, poignées, anneaux de rotation et guides aimantés (SM-c, ADR 0021,
-RO-d, ADR 0025).
+"""Incrustation Coin des flèches, poignées (étiquettes de cote, ADR 0068), anneaux de rotation et
+guides aimantés (SM-c, ADR 0021, RO-d, ADR 0025).
 
 Un seul nœud (``SoAnnotation`` nommé :data:`NODE_NAME`) est posé sur la racine de la vue puis
 retiré ; rien n'est écrit dans le document. Il est invisible pour la sélection de FreeCAD
@@ -14,7 +14,9 @@ from typing import Any, Final
 
 from pivy import coin
 
-from freecad.menuiserie.gui.drag.geometry import Dots, Drawing, Label, Solid, Stroke
+from freecad.menuiserie.core.geometry import Vec3
+from freecad.menuiserie.gui.drag.badges import badge_pixels, knob_pixels
+from freecad.menuiserie.gui.drag.drawing import Badge, Dots, Drawing, Knob, Label, Solid, Stroke
 
 __all__ = ["NODE_NAME", "Overlay"]
 
@@ -90,6 +92,34 @@ def _label_node(label: Label) -> SoNode:
     return node
 
 
+def _image_node(position: Vec3, picture: tuple[int, int, bytes]) -> SoNode:
+    """Image peinte par Qt (largeur, hauteur, pixels RVBA), centrée sur ``position``, à taille
+    fixe à l'écran."""
+    width, height, pixels = picture
+    node = coin.SoSeparator()
+    place = coin.SoTranslation()
+    place.translation.setValue(position.x, position.y, position.z)
+    image = coin.SoImage()
+    image.vertAlignment = coin.SoImage.HALF
+    image.horAlignment = coin.SoImage.CENTER
+    image.image.setValue(coin.SbVec2s(width, height), 4, pixels)
+    for child in (place, image):
+        node.addChild(child)
+    return node
+
+
+def _badge_node(badge: Badge) -> SoNode:
+    """Étiquette d'une poignée (ADR 0068)."""
+    picture = badge_pixels(badge.name, badge.text, badge.state, badge.axis, badge.scale)
+    return _image_node(badge.position, picture)
+
+
+def _knob_node(knob: Knob) -> SoNode:
+    """Rond d'une face de poignée, à la couleur de son étiquette (ADR 0068)."""
+    picture = knob_pixels(knob.axis, knob.locked, knob.hot, knob.scale, knob.angle)
+    return _image_node(knob.position, picture)
+
+
 class Overlay:
     """Incrustation posée sur la racine ``root`` d'une vue 3D (ou sur un nœud qui la place, comme
     le repère de la pièce en bois) ; son nœud porte le nom ``name`` ; :meth:`remove` la retire."""
@@ -118,6 +148,10 @@ class Overlay:
             self._node.addChild(_solid_node(solid))
         for label in drawing.labels:
             self._node.addChild(_label_node(label))
+        for knob in drawing.knobs:  # après les faces : la face allumée ne les teinte pas
+            self._node.addChild(_knob_node(knob))
+        for badge in drawing.badges:  # en dernier : par-dessus les traits
+            self._node.addChild(_badge_node(badge))
 
     def remove(self) -> None:
         """Retire l'incrustation de la vue (sans effet si elle n'y est plus)."""

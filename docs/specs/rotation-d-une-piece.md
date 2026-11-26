@@ -182,7 +182,7 @@ quittant, avec les flèches. Std Transform et l'éditeur de `Placement` restent 
 | RO-c | champs du panneau (C1 à C6) + vérifications hors écran | RO-b |
 | RO-d | anneaux, état `Rotating` (D1 à D7) | RO-b |
 
-Fichiers touchés hors création : `gui/drag/session.py`, `gui/drag/geometry.py`,
+Fichiers touchés hors création : `gui/drag/session.py`, `gui/drag/drawing.py`,
 `gui/drag/overlay.py` (secteur transparent), `gui/task_panels/wood_part.py` et `.ui`,
 `features/placement.py`, `tools/captures_interface.py` (une pièce tournée de 15° dans la
 scène), `CHANGELOG.md`. Recette manuelle : `docs/recette/rotation-scenarios-manuels.md`

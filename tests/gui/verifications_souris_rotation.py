@@ -137,9 +137,14 @@ def vue_isometrique() -> None:
 
 
 def saisir_anneau(session: Any, axe: int, *, shift: bool = False) -> tuple[bool, Point]:
-    """Survole puis saisit l'anneau ``axe`` au point d'angle :data:`DEPART` ; renvoie la réponse
-    de la session et le pixel."""
-    depart = viser_projete(session, axe, DEPART)
+    """Survole puis saisit l'anneau ``axe`` au point d'angle :data:`DEPART`, ou au premier point
+    suivant (de 40° en 40°) qu'aucune étiquette de cote ne couvre : l'étiquette, dessinée
+    par-dessus, l'emporte sur l'anneau (ADR 0068). Renvoie la réponse de la session et le
+    pixel."""
+    angles = [DEPART + 40.0 * pas for pas in range(9)]
+    pixels = [viser_projete(session, axe, angle) for angle in angles]
+    libre = (p for p in pixels if session.target_at(p) == f"ring{axe}")
+    depart = next(libre, pixels[0])
     session.move(depart)
     return bool(session.press(depart, shift)), depart
 

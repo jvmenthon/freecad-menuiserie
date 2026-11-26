@@ -18,7 +18,7 @@ from freecad.menuiserie.core.magnet import PlaneIndex, snap_field
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.repeat import copies_of
 from freecad.menuiserie.features.repeat_coplanar import RepeatPlanes
-from freecad.menuiserie.gui.drag.geometry import Drawing, guides_drawing
+from freecad.menuiserie.gui.drag.drawing import Drawing, guides_drawing
 from freecad.menuiserie.gui.drag.overlay import Overlay
 from freecad.menuiserie.gui.drag.parts import frame_of
 from freecad.menuiserie.gui.task_panels.repeat_preview import copy_parts, shown_parts

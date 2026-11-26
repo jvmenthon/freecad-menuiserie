@@ -36,7 +36,7 @@ from freecad.menuiserie.features.part_drag import (
 )
 from freecad.menuiserie.features.part_rotate import end_rotation, rotate_to
 from freecad.menuiserie.features.solids import rigid_transform
-from freecad.menuiserie.gui.drag.geometry import Throttle
+from freecad.menuiserie.gui.drag.drawing import Throttle
 from freecad.menuiserie.gui.task_panels.base import connect, weak_callback
 
 __all__ = ["ANGLE_FIELDS", "AngleRows"]

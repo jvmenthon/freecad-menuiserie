@@ -196,6 +196,9 @@ def test_formule_de_l_utilisateur_fixe_l_axe(document: Any) -> None:
     limits = drag.drag_limits(blank)
     assert limits.fixed_axes == frozenset({0})
     assert limits.resizable_axes == frozenset({2})  # X fixé, largeur pilotée : reste l'épaisseur
+    # ADR 0068 : les deux autres poignées sont grisées, chacune avec sa raison.
+    titles = {axis: blocker.title for axis, blocker in limits.locked_sizes}
+    assert titles == {0: "Position pilotée par une formule", 1: "Largeur pilotée par une formule"}
     memento = drag.begin_drag(blank)
     with pytest.raises(ValueError, match="piloté par une formule"):
         drag.move_part(memento, Vec3(5, 0, 0))
@@ -219,13 +222,19 @@ def test_piece_verrouillee_sans_poignees(bureau: Bureau) -> None:
     api.set_member_options(voile, locked=True)
     limits = drag.drag_limits(voile)
     assert (limits.fixed_axes, limits.resizable_axes) == (frozenset(), frozenset())
+    assert [(axis, blocker.title) for axis, blocker in limits.locked_sizes] == [
+        (0, "Cotes fixes"),
+        (1, "Cotes fixes"),
+        (2, "Cotes fixes"),
+    ]
+    assert "Cotes fixes" in limits.locked_sizes[0][1].hint  # la piste : décocher la case
     memento = drag.begin_drag(voile)
     with pytest.raises(ValueError, match="ne peut pas être tirée"):
         drag.resize_part(memento, "Length", 1000, Vec3(0, 0, 0))
     drag.move_part(memento, Vec3(0, 0, -100))  # le glissement reste permis
     assert drag.end_drag(memento) == []
     assert bureau.bounds("V")[1] == (541, 559)
-    # Pièce en bois (#87, ShapedPart) : poignées refusées aussi, dans ``can_resize``.
+    # Pièce en bois (#87, ShapedPart) : poignées grisées aussi (test_piece_en_bois_ensemble).
 
 
 # --- B5 bis : épaisseur du massif (Q4 amendée le 2026-10-26) ---------------------------------
@@ -238,7 +247,11 @@ def test_epaisseur_tirable_pour_le_massif_seulement(document: Any) -> None:
     assert drag.drag_limits(massif).resizable_axes == frozenset({0, 1, 2})
     for material, thickness in (("cp-bouleau", 18), ("mdf", 19), ("melamine-blanc", 19)):
         panneau = api.make_wood_part(400, 100, thickness, material, doc=document)
-        assert drag.drag_limits(panneau).resizable_axes == frozenset({0, 1}), material
+        limits = drag.drag_limits(panneau)
+        assert limits.resizable_axes == frozenset({0, 1}), material
+        ((axis, (title, detail, _)),) = limits.locked_sizes  # ADR 0068 : épaisseur grisée
+        assert (axis, title) == (2, "Épaisseur non modifiable"), material
+        assert detail.endswith(f" : {thickness} mm."), detail
         memento = drag.begin_drag(panneau)
         with pytest.raises(ValueError, match="ne peut pas être tirée"):
             drag.resize_part(memento, "Thickness", thickness + 5, Vec3(0, 0, 0))
@@ -253,6 +266,8 @@ def test_epaisseur_sans_poignee_si_formule_ou_verrou(document: Any) -> None:
     driven = api.make_wood_part(400, 100, 22, "chene", doc=document)
     driven.setExpression("Thickness", "25 mm")
     assert drag.drag_limits(driven).resizable_axes == frozenset({0, 1})
+    ((axis, blocker),) = drag.drag_limits(driven).locked_sizes
+    assert (axis, blocker.title) == (2, "Épaisseur pilotée par une formule")
     raised = api.make_wood_part(400, 100, 22, "chene", doc=document)
     raised.setExpression("Placement.Base.z", "10 mm")
     limits = drag.drag_limits(raised)
@@ -412,3 +427,36 @@ def test_poignee_sur_une_piece_dont_l_assemblage_ne_tient_plus(document: Any) ->
     drag.resize_part(memento, "Length", voile.Length.Value - 10, Vec3(0, 0, 0))
     assert "Invalid" not in machined.State
     drag.end_drag(memento)  # un recalcul du document, sans exception
+
+
+# --- ADR 0068 : raison d'une poignée grisée ---------------------------------------------------
+
+
+def test_ordre_des_raisons_d_une_poignee_grisee() -> None:
+    from freecad.menuiserie.features.drag_blockers import SizeBlock, blocked_sizes, size_blocker
+
+    tout = {"locked": True, "shaped": True, "formula": True, "position": True, "panel": True}
+    # Pièce en bois d'abord : membre d'un ensemble, elle est toujours « Cotes fixes » (on ne
+    # peut pas la décocher), la vraie raison est son dessin.
+    assert size_blocker(2, **tout) is SizeBlock.SHAPED
+    assert size_blocker(2, **{**tout, "shaped": False}) is SizeBlock.LOCKED
+    sans = {**tout, "locked": False, "shaped": False}
+    assert size_blocker(2, **sans) is SizeBlock.FORMULA
+    assert size_blocker(2, **{**sans, "formula": False}) is SizeBlock.POSITION
+    assert size_blocker(2, **{**sans, "formula": False, "position": False}) is SizeBlock.PANEL
+    seul_panneau = {k: k == "panel" for k in tout}
+    assert size_blocker(0, **seul_panneau) is None  # le panneau ne bloque que l'épaisseur
+    assert size_blocker(2, **{k: False for k in tout}) is None
+    bloquees = blocked_sizes(
+        locked=False,
+        shaped=False,
+        formulas=(False, True, False),
+        fixed=frozenset(),
+        panel=True,
+        thickness=float("nan"),
+    )
+    assert [(axe, raison.title) for axe, raison in bloquees] == [
+        (1, "Largeur pilotée par une formule"),
+        (2, "Épaisseur non modifiable"),
+    ]
+    assert bloquees[1][1].detail.endswith(" : ? mm.")  # épaisseur non finie : jamais d'erreur

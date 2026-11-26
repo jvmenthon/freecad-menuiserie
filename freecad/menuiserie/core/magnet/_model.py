@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final
+from typing import Final, NamedTuple
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
 from freecad.menuiserie.core.vectors import is_finite, norm
@@ -168,13 +168,26 @@ class ResizeResult:
     hit: MagnetHit | None = None
 
 
+class Blocker(NamedTuple):
+    """Raison traduite pour laquelle une poignée ne se tire pas (ADR 0068) : titre, explication
+    et piste « → … » de son infobulle."""
+
+    title: str
+    detail: str
+    hint: str
+
+
 @dataclass(frozen=True)
 class PixelTarget:
-    """Cible saisissable à l'écran, en pixels : poignée (``end`` absent) ou flèche (segment)."""
+    """Cible saisissable à l'écran, en pixels : poignée (``end`` absent) ou flèche (segment).
+
+    ``radius`` : tolérance propre à la cible (pixels), par exemple la demi-hauteur de l'étiquette
+    d'une poignée ; absente, celle de :func:`handle_at`."""
 
     key: str
     start: tuple[float, float]
     end: tuple[float, float] | None = None
+    radius: float | None = None
 
     def __post_init__(self) -> None:
         if not self.key:
@@ -182,6 +195,8 @@ class PixelTarget:
         points = (self.start,) if self.end is None else (self.start, self.end)
         if not all(math.isfinite(v) for point in points for v in point):
             raise ValueError("PixelTarget : coordonnées non finies")
+        if self.radius is not None and not (math.isfinite(self.radius) and self.radius > 0):
+            raise ValueError("PixelTarget.radius : tolérance finie et positive attendue")
 
     @property
     def is_handle(self) -> bool:

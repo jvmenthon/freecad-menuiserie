@@ -22,7 +22,6 @@ contournable), **mineur** (confort, docs, dette de test).
 
 | N° | Niveau | Où | Problème | Correction proposée |
 |----|--------|----|----------|---------------------|
-| m1 | mineur | `freecad/menuiserie/gui/drag/geometry.py` | `mouse_ray`, le placement des poignées et `MAGNET_PX` sont dans `gui/` alors que l'ADR 0021 (point 2) les met dans `core/magnet` ; le nom `geometry.py` est trompeur (le module dessine). | Déplacer ces trois éléments vers `core/magnet` et renommer `geometry.py` en `drawing.py`. |
 | m8 | mineur | `.github/workflows/ci.yml` (étape « Chargement dans l'interface de FreeCAD ») | Le commentaire sur la zone de notifications coupée ne cite pas le ticket FreeCAD de l'interblocage des notifications hors écran. | Citer le ticket FreeCAD dans le commentaire. |
 
 ## Relecture de fin de jalon « Pièce en bois » (issue #73, ADR 0020), 2026-10-26
@@ -221,6 +220,14 @@ de répétitions m5) sont corrigés.
 | dr2 | mineur | `core/repeat/_model.py` (`is_copy_name`) | Un nom « Barreau 3 » saisi à la main sur la copie de rang 2 est pris pour l'ancien nom automatique et renommé « Barreau (n) » quand le rang change. | Accepté (ancien format) ; à revoir si un document le montre. |
 | dr3 | mineur | `gui/commands/repeat.py`, `gui/structure_actions.py` | Après Ctrl+Z, les copies restent « Touched » jusqu'au recalcul suivant (comportement de FreeCAD). | Recalculer après l'annulation si cela gêne. |
 | dr4 | mineur | `features/repeat_copies.py` (`_bind_furnitures`), `features/furniture_variants.py` | Le choix des notices montrées selon l'opération (copie : sans DRAWN_SIZE ; redimensionnement) est écrit à deux endroits. | Un prédicat ou une constante nommée dans `core/furniture`, partagé par les deux appelants. |
+
+## Relecture « une étiquette par cote » (PR #279, ADR 0068 maquette K), 2026-11-25
+
+| N° | Niveau | Où | Problème | Correction proposée |
+|----|--------|----|----------|---------------------|
+| ek1 | mineur | `freecad/menuiserie/gui/drag/drawing.py` (`_hover_face`, `_box_drawing`) | Les coins d'une face de boîte sont reconstruits à la main dans deux fonctions ; `drawing.py` dépasse 650 lignes. | Extraire `box_face(box, axis, at_end)` dans `core/` et l'utiliser aux deux endroits. |
+| ek2 | mineur | `tests/gui/verifications_souris.py` | Aucun test ne vérifie que le rond d'une face a la couleur de l'étiquette de son axe (seul le nombre de `SoImage` est compté) ; `knob_pixels` et `badge_pixels` n'ont pas de test hors FreeCAD (ni la flèche du rond, ni son angle non fini). | Test GUI : comparer un pixel du rond (hors de sa flèche) à la couleur de la partie nom de l'étiquette du même axe ; `knob_pixels` avec un angle NaN donne un rond sans flèche. |
+| ek3 | mineur | `gui/drag/badge_place.py` (`spread`), `tests/unit/test_souris_interface.py` | `spread` filtre, recule et choisit le recul qui touche le moins dans une seule fonction ; `on_screen` et ses obstacles ne sont testés qu'à `scale=1.0` ; les anneaux de rotation ne sont pas des obstacles (une étiquette peut les croiser). | Extraire `_least_hit_reach` ; test à `scale=2.0` et rond grisé comme obstacle ; ajouter les anneaux aux obstacles si jv le demande. |
 
 ## Configuration de l'atelier, lots CA-a et CA-b (PR #280, ADR 0069), 2026-11-25
 

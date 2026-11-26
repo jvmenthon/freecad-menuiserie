@@ -27,9 +27,13 @@ __all__ = [
 
 
 def translated(template: str, params: Mapping[str, str] | None = None) -> str:
-    """Gabarit français traduit (contexte « Menuiserie »), puis rempli avec ``params``."""
+    """Gabarit français traduit (contexte « Menuiserie »), puis rempli avec ``params``. Une
+    traduction fautive (accolade seule, champ inconnu) retombe sur le gabarit français."""
     text: str = App.Qt.translate(CONTEXT, template)
-    return text.format_map(params or {})
+    try:
+        return text.format_map(params or {})
+    except (KeyError, IndexError, ValueError):
+        return template.format_map(params or {})
 
 
 def format_text(text: str, **values: object) -> str:

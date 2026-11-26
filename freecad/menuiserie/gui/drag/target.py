@@ -25,6 +25,7 @@ from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.furniture_container import guide_container
 from freecad.menuiserie.features.furniture_drag_state import FurnitureMemento
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.part_drag import (
     SIZE_PROPS,
@@ -37,7 +38,7 @@ from freecad.menuiserie.features.part_drag import (
     restore,
 )
 from freecad.menuiserie.features.part_rotate import end_rotation, rotate_by
-from freecad.menuiserie.gui.drag.geometry import Layout, build_layout
+from freecad.menuiserie.gui.drag.drawing import Layout, build_layout
 from freecad.menuiserie.gui.drag.parts import box_of, frame_of, rings_of
 
 __all__ = [
@@ -47,11 +48,32 @@ __all__ = [
     "PartTarget",
     "Step",
     "Target",
+    "axis_names",
 ]
 
 MOVE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Déplacer la pièce")
 ROTATE_TRANSACTION: Final = QT_TRANSLATE_NOOP("Menuiserie", "Tourner la pièce")
+MAX_NAME_CHARS: Final = 8  # nom court d'une cote sur son étiquette
+PART_AXIS_NAMES: Final = (  # étiquettes de cote d'une pièce (ADR 0068) : X, Y, Z
+    QT_TRANSLATE_NOOP("Menuiserie", "Long."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Larg."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Ép."),
+)
 Memento = DragMemento | FurnitureMemento
+
+
+def _short(name: str) -> str:
+    """Nom court traduit, le français si la traduction est vide ou trop longue pour une
+    étiquette."""
+    text = translated(name)
+    return text if 0 < len(text) <= MAX_NAME_CHARS else name[:MAX_NAME_CHARS]
+
+
+def axis_names(names: tuple[str, str, str]) -> tuple[str, str, str]:
+    """Noms courts traduits des trois cotes, écrits sur leurs étiquettes (au plus
+    :data:`MAX_NAME_CHARS` caractères)."""
+    first, second, third = (_short(name) for name in names)
+    return first, second, third
 
 
 @dataclass(frozen=True)
@@ -169,9 +191,12 @@ class PartTarget(Target):
     def layout(self, size_mm: float, panel_shown: bool) -> Layout:
         limits = drag_limits(self.obj)
         resizable = limits.resizable_axes if panel_shown else frozenset()
+        locked = limits.locked_sizes if panel_shown else ()
         box = self.box()
-        layout = build_layout(self.frame(), box, size_mm, limits.fixed_axes, resizable)
-        return replace(layout, rings=rings_of(self.obj, box))
+        layout = build_layout(self.frame(), box, size_mm, limits.fixed_axes, resizable, locked)
+        return replace(
+            layout, rings=rings_of(self.obj, box), axis_names=axis_names(PART_AXIS_NAMES)
+        )
 
     def begin(self) -> Memento:
         return begin_drag(self.obj)

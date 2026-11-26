@@ -241,6 +241,8 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
             [h for h, _ in session.layout.handles if h.axis == 2],
             [],
         ),
+        *_poignees_grisees(session, piece),
+        *_clic_sur_etiquette(session, form, piece),
     ]
     choisir(form.materialCombo, "hetre")
     session.sync()
@@ -252,6 +254,91 @@ def _poignees_du_panneau(doc: Any) -> list[str]:
         session.layout is None or not session.layout.handles,
         True,
     )
+    return problemes
+
+
+def images_incrustees() -> int:
+    """Nombre d'images (``SoImage`` : étiquettes et ronds des poignées) dans l'incrustation du
+    glissement."""
+    from pivy import coin
+
+    recherche = coin.SoSearchAction()
+    recherche.setType(coin.SoImage.getClassTypeId())
+    recherche.setInterest(coin.SoSearchAction.ALL)
+    recherche.apply(Gui.activeView().getSceneGraph())
+    return int(recherche.getPaths().getLength())
+
+
+def _images_posees() -> bool:
+    """Vrai si chaque ``SoImage`` de la vue a reçu son image (``setValue`` de pivy accepte les
+    octets peints par Qt) : champ modifié, image non vide."""
+    from pivy import coin
+
+    recherche = coin.SoSearchAction()
+    recherche.setType(coin.SoImage.getClassTypeId())
+    recherche.setInterest(coin.SoSearchAction.ALL)
+    recherche.apply(Gui.activeView().getSceneGraph())
+    chemins = recherche.getPaths()
+    noeuds = [chemins.get(i).getTail() for i in range(chemins.getLength())]
+    return bool(noeuds) and all(not noeud.image.isDefault() for noeud in noeuds)
+
+
+def _poignees_grisees(session: Any, piece: Any) -> list[str]:
+    """ADR 0068 : panneau de MDF, les deux poignées d'épaisseur sont grisées ; survolées, elles
+    donnent leur raison ; cliquées, rien ne bouge et le clic est consommé."""
+    grisees = [(h.axis, h.at_end) for h, _, _ in session.layout.locked]
+    problemes = [
+        *ecarts("MDF : poignées d'épaisseur grisées", sorted(grisees), [(2, False), (2, True)]),
+        *ecarts("une étiquette par cote et six ronds (maquette K)", images_incrustees(), 9),
+        *ecarts("image des étiquettes posée", _images_posees(), True),
+    ]
+    point = next(p for h, p, _ in session.layout.locked if h.at_end)
+    pixel_grise = pixel(session, *_xyz(point))
+    session.move(pixel_grise)
+    infobulle = session.tooltip() or ""
+    raison = "Épaisseur non modifiable" in infobulle
+    problemes += ecarts("infobulle de la poignée grisée", raison, True)
+    epaisseur = piece.Thickness.Value
+    problemes += ecarts("clic sur la poignée grisée consommé", session.press(pixel_grise), True)
+    problemes += ecarts("rien n'est tiré", session.dragging, False)
+    session.release(pixel_grise)
+    problemes += ecarts("épaisseur intacte", piece.Thickness.Value, epaisseur)
+    session.move((0, 0))
+    problemes += ecarts("infobulle retirée hors de la poignée", session.tooltip(), None)
+    return problemes
+
+
+def _clic_sur_etiquette(session: Any, form: Any, piece: Any) -> list[str]:
+    """ADR 0068 : un clic sur l'étiquette de la longueur met le curseur dans son champ, valeur
+    sélectionnée, sans rien tirer ; bouton enfoncé puis déplacé, la poignée est tirée."""
+    from freecad.menuiserie.gui.drag.drawing import pixel_targets
+
+    cibles = pixel_targets(session.layout, session.port.project)
+    cible = next(t for t in cibles if t.key.startswith("handle0") and t.radius is not None)
+    debut, fin = cible.start, cible.end or cible.start
+    centre = (round((debut[0] + fin[0]) / 2), round(debut[1]))
+    longueur = piece.Length.Value
+    problemes = ecarts(
+        "étiquette de la longueur sous la souris", session.target_at(centre), cible.key
+    )
+    session.press(centre)
+    etat = type(session.state).__name__
+    problemes += ecarts("bouton enfoncé sur l'étiquette : rien n'est tiré", etat, "BadgePressed")
+    session.release(centre)
+    QtGui.QApplication.processEvents()
+    texte = form.lengthEdit.findChild(QtGui.QLineEdit)
+    choisi = bool(texte is not None and texte.selectedText())
+    problemes += [
+        *ecarts("clic sur l'étiquette : longueur sélectionnée dans son champ", choisi, True),
+        *ecarts("clic sur l'étiquette : longueur intacte", piece.Length.Value, longueur),
+    ]
+    session.press(centre)
+    session.move((centre[0] + 30, centre[1] + 30))
+    etat = type(session.state).__name__
+    problemes += ecarts("glissé depuis l'étiquette : poignée tirée", etat, "Resizing")
+    session.escape()
+    session.release(centre)
+    problemes += ecarts("Échap : longueur intacte", piece.Length.Value, longueur)
     return problemes
 
 

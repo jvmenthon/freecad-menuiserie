@@ -43,7 +43,7 @@ from freecad.menuiserie.features import (
     furniture_resize,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
-from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.furniture import DIMENSIONS, furniture_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_view import (
     MemberView,
@@ -132,7 +132,8 @@ class FurnitureTaskPanel(ObjectTaskPanel):
         connect(self._tree, "itemSelectionChanged()", self._member_chosen)
         connect(self._own_locked, "toggled(bool)", self._own_locked_toggled)
         self._refresh()
-        self._drag = PanelDrag(self)  # flèches, poignées et anneaux dans la vue 3D (ADR 0038)
+        # Flèches, poignées et anneaux dans la vue 3D (ADR 0038) ; étiquette cliquée : son champ.
+        self._drag = PanelDrag(self, size_fields=DIMENSIONS)
 
     # --- Construction ---------------------------------------------------------------------
 

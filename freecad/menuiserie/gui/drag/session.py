@@ -22,7 +22,7 @@ Une pièce dont une expression pilote le ``Placement`` (membre d'ensemble, formu
 d'anneau (D6).
 
 Un ensemble sélectionné seul dans l'arbre (ou dont le panneau est ouvert) porte sa boîte en
-transparence, six doubles flèches de face (taille), trois flèches de déplacement et trois anneaux
+transparence, six étiquettes de face (taille), trois flèches de déplacement et trois anneaux
 (``furniture_target.py``) ; ses transactions sont « Redimensionner l'ensemble », « Déplacer
 l'ensemble » et « Tourner l'ensemble ». Une pièce membre sélectionnée garde ses propres poignées.
 """
@@ -37,10 +37,10 @@ import FreeCADGui as Gui
 
 from freecad.menuiserie.core.geometry import Vec3
 from freecad.menuiserie.core.magnet import (
+    MAGNET_PX,
     Guide,
     Ray,
     axis_param,
-    handle_at,
 )
 from freecad.menuiserie.core.rotation import plane_point
 from freecad.menuiserie.core.snap import Frame
@@ -55,17 +55,20 @@ from freecad.menuiserie.gui.drag.copying import (
     copy_axis,
     passive_memento,
 )
-from freecad.menuiserie.gui.drag.furniture_target import FurnitureTarget
-from freecad.menuiserie.gui.drag.geometry import (
+from freecad.menuiserie.gui.drag.drawing import (
     ARROW_PX,
-    MAGNET_PX,
     Cues,
     Layout,
     build_drawing,
+    key_at,
+    locked_blocker,
+    on_badge,
+    on_screen,
     parse_key,
-    pixel_targets,
     target_line,
+    tooltip_html,
 )
+from freecad.menuiserie.gui.drag.furniture_target import FurnitureTarget
 from freecad.menuiserie.gui.drag.overlay import Overlay
 from freecad.menuiserie.gui.drag.parts import (
     Grab,
@@ -93,6 +96,7 @@ from freecad.menuiserie.gui.drag.view import Point, ViewPort
 __all__ = ["DragSession", "PanelContext"]
 
 _RESIZE_ERRORS: Final = (RuntimeError, ValueError, TypeError, AttributeError, ReferenceError)
+_VIEW_ERRORS: Final = (*_RESIZE_ERRORS, App.Base.FreeCADError)  # erreurs levées par FreeCAD
 
 
 class DragSession:
@@ -208,9 +212,14 @@ class DragSession:
             return
         try:
             self._size_mm = port.mm(target.center(), ARROW_PX)
-            layout = target.layout(self._size_mm, self._panel_shown)
-        except _RESIZE_ERRORS:
-            self.clear()
+            layout = on_screen(
+                target.layout(self._size_mm, self._panel_shown),
+                port.scale(),
+                port.project,
+                port.direction(),
+            )
+        except (*_VIEW_ERRORS, OverflowError, ZeroDivisionError):
+            self.clear()  # vue en cours de fermeture ou caméra dégénérée : rien à dessiner
             return
         changed, self.layout = layout != self.layout, layout
         if changed and redraw:
@@ -239,6 +248,13 @@ class DragSession:
             self.refresh()
             return
         self._build()
+
+    def tooltip(self) -> str | None:
+        """Infobulle (texte riche) de la poignée impossible sous la souris, sinon ``None``."""
+        if self.layout is None or self.dragging:
+            return None
+        blocker = locked_blocker(self.layout, self.state.key)
+        return None if blocker is None else tooltip_html(blocker)
 
     def clear(self) -> None:
         """Plus de flèches."""
@@ -314,14 +330,34 @@ class DragSession:
 
     def target_at(self, point: Point) -> str | None:
         """Flèche ou poignée sous le pixel ``point`` (à 8 pixels près), sinon l'anneau touché par
-        le rayon de la souris (les flèches ont la priorité), sinon ``None``."""
-        if self.layout is None or self.port is None:
+        le rayon de la souris (les flèches ont la priorité), sinon une poignée impossible (ADR
+        0068 : elle ne cache rien de ce qui se tire), sinon ``None``."""
+        layout, port = self.layout, self.port
+        if layout is None or port is None:
             return None
         try:
-            key = handle_at(pixel_targets(self.layout, self.port.project), point)
-            return key if key is not None else self._ring_at(point)
+            key = key_at(layout, port.project, point, locked=False) or self._ring_at(point)
+            return key if key is not None else key_at(layout, port.project, point, locked=True)
         except _RESIZE_ERRORS:
             return None
+
+    def on_badge(self, point: Point, key: str) -> bool:
+        """Vrai si le pixel ``point`` est sur l'étiquette de la poignée ``key``."""
+        layout, port = self.layout, self.port
+        if layout is None or port is None:
+            return False
+        try:
+            return on_badge(layout, port.project, point, key)
+        except _RESIZE_ERRORS:
+            return False
+
+    def edit_size(self, key: str) -> bool:
+        """Clic sur l'étiquette de la poignée ``key`` : curseur dans le champ de sa cote, valeur
+        sélectionnée, prête à être tapée (ADR 0068) ; faux sans panneau ou sans champ."""
+        handle = parse_key(key)
+        if isinstance(handle, int) or self.panel is None or not self._panel_open():
+            return False
+        return self.panel.edit_size(handle.axis)
 
     def _ring_at(self, point: Point) -> str | None:
         """Anneau sous le pixel ``point`` (à 8 pixels près, mesurés à l'écran) ; aucun s'il est vu
@@ -354,7 +390,7 @@ class DragSession:
             memento = target.begin()
             guides = target.guides()
             tolerance = port.mm(target.frame().origin, MAGNET_PX)
-        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+        except _VIEW_ERRORS:
             give_up(target.obj, own)
             return False
         state = kind(Grab(key, point, line, origin, memento, guides, tolerance, own, target))
@@ -390,7 +426,7 @@ class DragSession:
             report_refusal(str(refusal))
             self.swallow_release = True
             return True
-        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+        except _VIEW_ERRORS:
             return False
         state = Copying(
             Grab(key, point, line, origin, memento, guides, tolerance, False, target), axis, sign
@@ -416,7 +452,7 @@ class DragSession:
         own = open_transaction(target.obj, target.transaction("rotate"))
         try:
             memento = target.begin()
-        except (*_RESIZE_ERRORS, App.Base.FreeCADError):
+        except _VIEW_ERRORS:
             give_up(target.obj, own)
             return False
         state = Rotating(Turn(ring, first, from_center, point, memento, own, target))

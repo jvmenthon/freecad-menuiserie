@@ -2,7 +2,7 @@
 """Ensemble comme cible d'un glissement (EN-c, ADR 0038, critères C1 à C3).
 
 :class:`FurnitureTarget` habille l'ensemble sélectionné seul (ou dont le panneau est ouvert) de sa
-boîte en transparence, de six doubles flèches de face (taille), de trois flèches de déplacement
+boîte en transparence, de six étiquettes de face (taille, ADR 0068), de trois flèches de déplacement
 et de trois anneaux de rotation. Les écritures viennent de ``features/furniture_drag`` : la
 taille par ``resize_furniture_to`` (brutes seules, cote refusée = arrêt à la dernière valeur
 permise), le déplacement et la rotation par le ``Placement`` du Std Part propre à l'ensemble.
@@ -43,9 +43,9 @@ from freecad.menuiserie.features.furniture_drag import (
 )
 from freecad.menuiserie.features.magnet_guides import collect_guides, neighbor_rotations
 from freecad.menuiserie.features.solids import rigid_transform
-from freecad.menuiserie.gui.drag.geometry import HANDLE_RATIO, Layout
+from freecad.menuiserie.gui.drag.drawing import HANDLE_RATIO, Layout
 from freecad.menuiserie.gui.drag.rings import build_rings
-from freecad.menuiserie.gui.drag.target import Memento, Step, Target
+from freecad.menuiserie.gui.drag.target import Memento, Step, Target, axis_names
 
 __all__ = [
     "MOVE_TRANSACTION",
@@ -62,6 +62,11 @@ _NAMES: Final = {
     "resize": RESIZE_TRANSACTION,
     "rotate": ROTATE_TRANSACTION,
 }
+FURNITURE_AXIS_NAMES: Final = (  # étiquettes de cote d'un ensemble (ADR 0068) : X, Y, Z
+    QT_TRANSLATE_NOOP("Menuiserie", "Larg."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Prof."),
+    QT_TRANSLATE_NOOP("Menuiserie", "Haut."),
+)
 _NO_VOLUME: Final = "FurnitureTarget : ensemble sans volume, rien à dessiner"
 
 
@@ -124,8 +129,8 @@ class FurnitureTarget(Target):
             tuple((handle.handle, handle.point) for handle in found.handles),
             HANDLE_RATIO * size_mm,
             self._rings(box) if free else (),
-            double_handles=True,
             shows_box=True,
+            axis_names=axis_names(FURNITURE_AXIS_NAMES),
         )
 
     def begin(self) -> Memento:

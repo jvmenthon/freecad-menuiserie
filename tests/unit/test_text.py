@@ -65,6 +65,7 @@ def test_api_publique() -> None:
         "MAX_QUOTED_LENGTH",
         "bounded_text",
         "escaped_text",
+        "mm_text",
         "quoted_value",
     ]
 

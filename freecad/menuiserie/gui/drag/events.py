@@ -24,6 +24,7 @@ from freecad.menuiserie.features.i18n import report_warning
 from freecad.menuiserie.features.joints.frames import touch_framed_joints
 from freecad.menuiserie.features.std_part_watch import std_part_deleted
 from freecad.menuiserie.gui.double_click import is_viewport_3d, view_point, viewports_3d
+from freecad.menuiserie.gui.drag.badges import clear_badge_cache
 from freecad.menuiserie.gui.drag.session import DragSession
 
 __all__ = ["current_session", "install", "installed", "uninstall"]
@@ -50,6 +51,13 @@ def _guarded(session: DragSession, action: Callable[..., bool], *args: Any) -> b
         return False
 
 
+def _global_point(event: Any) -> QtCore.QPoint:
+    """Position de la souris sur l'écran pour l'évènement ``event`` (Qt 6, puis Qt 5)."""
+    if hasattr(event, "globalPosition"):
+        return event.globalPosition().toPoint()
+    return event.globalPos()
+
+
 class _DragFilter(QtCore.QObject):  # type: ignore[misc]
     """Filtre d'application du glissement (voir le module). Tout évènement étranger est rendu
     aussitôt (une comparaison de type)."""
@@ -60,6 +68,7 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
         self._mdi: QtGui.QMdiArea | None = (
             None  # zone MDI gardée : un évènement de souris par pixel
         )
+        self._tip = False  # infobulle d'une poignée grisée affichée
 
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         """Vrai (consommé) seulement pour la saisie d'une flèche ou d'une poignée et pour le
@@ -75,6 +84,9 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
         kind = event.type()
         if kind in _KEYS:
             return self._key(kind, event)
+        if kind == _QEvent.Leave and self._tip and is_viewport_3d(watched):
+            self.hide_tooltip()  # la souris quitte la vue : plus de poignée sous elle
+            return False
         if kind not in _MOUSE or not self._session.active or not is_viewport_3d(watched):
             return False
         if not self._in_current_view(watched):
@@ -110,6 +122,26 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
         mdi = self._mdi_area()
         return mdi is not None and any(v == viewport for v in viewports_3d(mdi, current_only=True))
 
+    def _tooltip(self, viewport: QtGui.QWidget, event: Any) -> None:
+        """Infobulle d'une poignée grisée sous la souris : pourquoi la cote ne se tire pas
+        (ADR 0068) ; retirée dès que la souris la quitte. Une erreur est écrite dans la vue
+        rapport sans toucher au glissement (pas :func:`_guarded`, qui l'annulerait)."""
+        try:
+            text = self._session.tooltip()
+            if text is not None:
+                QtGui.QToolTip.showText(_global_point(event), text, viewport)
+                self._tip = True
+            else:
+                self.hide_tooltip()
+        except Exception:  # pylint: disable=broad-exception-caught
+            App.Console.PrintError(traceback.format_exc())
+
+    def hide_tooltip(self) -> None:
+        """Retire l'infobulle d'une poignée grisée si elle est affichée."""
+        if self._tip:
+            self._tip = False
+            QtGui.QToolTip.hideText()
+
     def _mouse(self, kind: QtCore.QEvent.Type, viewport: QtGui.QWidget, event: Any) -> bool:
         session = self._session
         position = event.position() if hasattr(event, "position") else event.pos()  # Qt 6, Qt 5
@@ -126,7 +158,9 @@ class _DragFilter(QtCore.QObject):  # type: ignore[misc]
             moving = event.buttons() == QtCore.Qt.NoButton
             if not moving and not session.dragging and not session.swallow_release:
                 return False  # navigation en cours : rien à voir
-            return _guarded(session, session.move, point, shift)
+            consumed = _guarded(session, session.move, point, shift)
+            self._tooltip(viewport, event)
+            return consumed
         if event.button() != QtCore.Qt.LeftButton:
             return False
         return _guarded(session, session.release, point)
@@ -141,9 +175,10 @@ class _SelectionObserver:
     """Observateur de sélection : ne fait que dessiner ou enlever les flèches. Les rafales
     (une notification par élément) sont fondues en un seul rafraîchissement."""
 
-    def __init__(self, session: DragSession) -> None:
+    def __init__(self, session: DragSession, changed: Callable[[], None] = lambda: None) -> None:
         self._session = session
         self._pending = False
+        self._on_change = changed  # infobulle d'une poignée grisée retirée
 
     def _changed(self, *_args: object) -> None:
         if not self._pending:
@@ -152,6 +187,7 @@ class _SelectionObserver:
 
     def _refresh(self) -> None:
         self._pending = False
+        self._on_change()
         _guarded(self._session, _refresh, self._session)
 
     addSelection = removeSelection = setSelection = clearSelection = _changed
@@ -212,7 +248,7 @@ class _Installation:
             return
         self.session = DragSession()
         self.filter = _DragFilter(self.session)
-        self.observer = _SelectionObserver(self.session)
+        self.observer = _SelectionObserver(self.session, self.filter.hide_tooltip)
         application.installEventFilter(self.filter)
         self.documents = _DocumentObserver(self.session)
         Gui.Selection.addObserver(self.observer)
@@ -225,6 +261,7 @@ class _Installation:
             return
         application = QtGui.QApplication.instance()
         try:
+            self.filter.hide_tooltip()
             if application is not None:
                 application.removeEventFilter(self.filter)
         finally:
@@ -237,8 +274,11 @@ class _Installation:
                 finally:
                     session = self.session
                     self.session = self.filter = self.observer = self.documents = None
-                    if session is not None:
-                        session.shutdown()
+                    try:
+                        if session is not None:
+                            session.shutdown()
+                    finally:
+                        clear_badge_cache()  # police ou thème peuvent changer d'ici la reprise
 
 
 _INSTALLATION: Final = _Installation()

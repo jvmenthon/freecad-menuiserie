@@ -22,7 +22,7 @@ from freecad.menuiserie.core.grain_band import (
     mark_half_width,
     rectangle,
 )
-from freecad.menuiserie.gui.drag.geometry import AXIS_COLORS, HEAD_RATIO, Drawing, Solid, Stroke
+from freecad.menuiserie.gui.drag.drawing import AXIS_COLORS, HEAD_RATIO, Drawing, Solid, Stroke
 
 __all__ = [
     "GRAIN_COLOR",

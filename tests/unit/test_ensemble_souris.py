@@ -39,12 +39,15 @@ def xyz(vector: Vec3) -> tuple[float, float, float]:
 # --- A1 : disposition ---------------------------------------------------------------------------
 
 
-def test_six_poignees_au_milieu_des_faces() -> None:
+def test_six_poignees_sur_les_faces_hors_des_fleches() -> None:
+    """Comme pour une pièce : sur chaque face, à un quart de la largeur (faces X) ou de la
+    longueur du milieu vers le début (ADR 0068) ; le milieu tomberait sur la flèche de son
+    axe."""
     layout = furniture_layout(BOX, WORLD, 200.0)
     found = {handle.key: handle for handle in layout.handles}
     assert sorted(found) == ["+X", "+Y", "+Z", "-X", "-Y", "-Z"]
-    assert (found["-X"].point.x, found["-X"].point.y, found["-X"].point.z) == (100, 350, 360)
-    assert (found["+Z"].point.x, found["+Z"].point.y, found["+Z"].point.z) == (700, 350, 720)
+    assert (found["-X"].point.x, found["-X"].point.y, found["-X"].point.z) == (100, 200, 360)
+    assert (found["+Z"].point.x, found["+Z"].point.y, found["+Z"].point.z) == (400, 350, 720)
     assert found["-Y"].normal == Vec3(0.0, -1.0, 0.0)
     assert found["+X"].handle == Handle(0, True)
 
@@ -52,9 +55,9 @@ def test_six_poignees_au_milieu_des_faces() -> None:
 def test_la_disposition_suit_le_repere() -> None:
     layout = furniture_layout(BOX, QUARTER, 200.0)
     found = {handle.key: handle for handle in layout.handles}
-    # x local → y global : la face -X (x local 100) est à y global 100, centrée ailleurs
+    # x local → y global : la face -X (x local 100) est à y global 100, son rond à y local 200
     assert found["-X"].point.y == pytest.approx(100.0)
-    assert found["-X"].point.x == pytest.approx(1000.0 - 350.0)
+    assert found["-X"].point.x == pytest.approx(1000.0 - 200.0)
     assert found["+X"].normal == Vec3(0.0, 1.0, 0.0)
     assert found["+Y"].normal == Vec3(-1.0, 0.0, 0.0)
 

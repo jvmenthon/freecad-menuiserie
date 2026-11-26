@@ -1,14 +1,37 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Flèches de la pièce et point de l'axe le plus proche du rayon de la souris (A1, A2)."""
+"""Flèches et poignées de la pièce, rayon de la souris et point de l'axe le plus proche de ce
+rayon (A1, A2 ; ADR 0021, point 2)."""
 
 from __future__ import annotations
 
 import math
 
 from freecad.menuiserie.core.geometry import ANGLE_TOLERANCE, Box, Vec3
-from freecad.menuiserie.core.magnet._model import Arrow, Ray
+from freecad.menuiserie.core.magnet._model import Arrow, Handle, Ray
 from freecad.menuiserie.core.snap import Frame
 from freecad.menuiserie.core.vectors import dot
+
+MAGNET_PX = 10.0  # tolérance de l'aimant à l'écran (pixels)
+
+
+def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
+    """Rayon de la souris : ``focal`` est le point du plan focal sous le curseur ; caméra
+    orthogonale (``camera`` absent) : direction de vue ; perspective : caméra vers ``focal``."""
+    if camera is None:
+        return Ray(focal, direction)
+    return Ray(camera, focal - camera)
+
+
+def handle_point(box: Box, handle: Handle) -> Vec3:
+    """Point de la poignée ``handle`` de ``box`` (repère de la pièce) : sur sa face, décalé du
+    milieu d'un quart de la longueur (de la largeur pour les faces de bout, axe X) vers le
+    début ; le milieu tombe sur le tracé de la flèche de son axe, qui part du centre. Les deux
+    poignées d'un axe sont alignées, sur une parallèle à cet axe."""
+    values = [box.center(i) for i in range(3)]
+    values[handle.axis] = box.hi(handle.axis) if handle.at_end else box.lo(handle.axis)
+    side = 1 if handle.axis == 0 else 0
+    values[side] -= (box.hi(side) - box.lo(side)) / 4
+    return Vec3.of(values)
 
 
 def arrows(frame: Frame, box: Box, size: float) -> tuple[Arrow, Arrow, Arrow]:

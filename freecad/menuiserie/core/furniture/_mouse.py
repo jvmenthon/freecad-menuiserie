@@ -24,6 +24,7 @@ from freecad.menuiserie.core.magnet import (
     Handle,
     ResizeResult,
     arrows,
+    handle_point,
     resize,
 )
 from freecad.menuiserie.core.rotation import Ring, ring_of
@@ -34,7 +35,8 @@ MIN_FURNITURE_MM: Final = 0.1  # cote minimale d'un ensemble tiré à la souris 
 
 @dataclass(frozen=True)
 class FaceHandle:
-    """Poignée d'une face de la boîte : ``handle`` (axe et sens), ``point`` (milieu de la face) et
+    """Poignée d'une face de la boîte : ``handle`` (axe et sens), ``point`` (sur la face :
+    :func:`~freecad.menuiserie.core.magnet.handle_point`) et
     ``normal`` (normale sortante, unitaire), en coordonnées globales."""
 
     handle: Handle
@@ -76,13 +78,13 @@ def furniture_layout(box: Box, frame: Frame, size_mm: float) -> FurnitureLayout:
         return FurnitureLayout()
     to_global = frame.to_transform()
     axes = (frame.x, frame.y, frame.z)
-    middle = Vec3(box.center(0), box.center(1), box.center(2))
     handles = []
     for axis in range(3):
         for at_end in (False, True):
-            local = middle.with_component(axis, box.hi(axis) if at_end else box.lo(axis))
+            handle = Handle(axis, at_end)
             normal = axes[axis].scaled(1.0 if at_end else -1.0)
-            handles.append(FaceHandle(Handle(axis, at_end), to_global.apply(local), normal))
+            point = to_global.apply(handle_point(box, handle))  # hors du tracé des flèches
+            handles.append(FaceHandle(handle, point, normal))
     rings = tuple(ring_of(box, to_global, axis) for axis in range(3))
     return FurnitureLayout(tuple(handles), tuple(arrows(frame, box, size_mm)), rings)
 

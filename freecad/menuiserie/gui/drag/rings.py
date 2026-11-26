@@ -181,9 +181,12 @@ class Sweep:
 
 def sector(sweep: Sweep) -> tuple[tuple[Vec3, ...], ...]:
     """Secteur parcouru, en triangles (centre, deux points de l'anneau) ; vide si l'angle est
-    nul. Au-delà d'un tour, un tour plein."""
+    nul ou n'est fait que de tours entiers. Au-delà d'un tour, seul le reste du dernier tour est
+    montré (l'angle écrit à côté garde le total) : un disque plein ne dirait plus rien."""
     ring = sweep.ring
-    angle = max(-_FULL_TURN, min(_FULL_TURN, sweep.angle))
+    if not math.isfinite(sweep.angle):
+        return ()
+    angle = math.fmod(sweep.angle, _FULL_TURN)
     if abs(angle) < 1e-9:
         return ()
     start = sweep.start.scaled(ring.radius / norm(sweep.start))
