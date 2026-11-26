@@ -9,7 +9,16 @@ from pathlib import Path
 from tests.unit.aides import ROOT, imported_modules
 
 KIT = ROOT / "freecad" / "menuiserie" / "kit"
-QT_PAGES = frozenset({"page.py", "page_rows.py"})  # seuls modules qui parlent à Qt
+QT_PAGES = frozenset(  # seuls modules qui parlent à Qt
+    {
+        "page.py",
+        "page_rows.py",
+        "page_extra.py",
+        "page_exchange.py",
+        "page_dialogs.py",
+        "page_import.py",
+    }
+)
 
 
 def _roots(path: Path) -> set[str]:
@@ -28,8 +37,8 @@ def test_kit_n_importe_ni_l_atelier_ni_freecad() -> None:
         assert all(m.startswith("freecad.menuiserie.kit") for m in own), (path.name, own)
 
 
-def test_seule_la_page_importe_qt_par_la_couche_pyside() -> None:
-    """Qt n'est importé que par ``page.py`` et ``page_rows.py``, et par ``PySide`` (couche de
+def test_seules_les_pages_importent_qt_par_la_couche_pyside() -> None:
+    """Qt n'est importé que par les modules ``page*`` (``QT_PAGES``), et par ``PySide`` (couche de
     compatibilité de FreeCAD), jamais ``PySide2`` ni ``PySide6`` (CONTRIBUTING, règle 5)."""
     for path in sorted(KIT.rglob("*.py")):
         roots = _roots(path)

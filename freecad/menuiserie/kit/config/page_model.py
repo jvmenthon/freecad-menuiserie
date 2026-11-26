@@ -10,24 +10,29 @@ from __future__ import annotations
 
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, Final
 
-from .catalog import Catalog, Kind, Setting, Value
+from .catalog import REMEMBER_SUFFIX, Catalog, Kind, Setting, Value
 
 __all__ = [
     "PAGE_TEXTS",
     "Choices",
+    "ExtraRow",
     "Translate",
     "Widget",
     "count_modified",
     "format_text",
     "format_value",
+    "group_order",
     "group_summary",
     "identity",
     "is_shown",
     "matches",
+    "merge_pending",
     "normalize",
     "shown_keys",
+    "text_matches",
 ]
 
 Translate = Callable[[str], str]
@@ -78,6 +83,34 @@ PAGE_TEXTS: Final = (
 )
 
 
+def _nothing() -> None:
+    """Action par défaut d'une ligne supplémentaire."""
+
+
+def _never() -> bool:
+    return False
+
+
+@dataclass(frozen=True)
+class ExtraRow:
+    """Ligne ajoutée par l'atelier à la page, hors catalogue (ligne propre à l'atelier).
+
+    ``widget`` est le contrôle de la ligne, ``label`` et ``tooltip`` sont des textes à traduire.
+    ``group`` est le groupe qui la reçoit ; s'il n'est pas dans le catalogue, il est créé avant
+    ``before_group`` (à la fin si ``None``). ``load`` et ``save`` suivent ``loadSettings`` et
+    ``saveSettings`` de la page ; ``pending`` dit si la ligne a une modification non écrite.
+    """
+
+    group: str
+    label: str
+    widget: Widget
+    tooltip: str = ""
+    before_group: str | None = None
+    load: Callable[[], None] = _nothing
+    save: Callable[[], None] = _nothing
+    pending: Callable[[], bool] = _never
+
+
 def identity(text: str) -> str:
     """Traduction neutre : le texte français d'origine."""
     return text
@@ -100,6 +133,35 @@ def matches(setting: Setting, query: str, translate: Translate = identity) -> bo
 def is_shown(setting: Setting, query: str, advanced: bool, translate: Translate = identity) -> bool:
     """Vrai si le réglage est affiché : avancé seulement si on le demande, et trouvé."""
     return (advanced or not setting.advanced) and matches(setting, query, translate)
+
+
+def text_matches(text: str, query: str) -> bool:
+    """Vrai si tous les mots de ``query`` figurent dans ``text`` (sans accents ni majuscules)."""
+    haystack = normalize(text)
+    return all(word in haystack for word in normalize(query).split())
+
+
+def group_order(groups: Sequence[str], extras: Sequence[ExtraRow]) -> list[str]:
+    """Groupes de la page : ceux du catalogue, puis ceux des lignes supplémentaires, chacun
+    placé avant son ``before_group`` (à la fin s'il est absent ou inconnu)."""
+    order = list(groups)
+    for extra in extras:
+        if extra.group in order:
+            continue
+        before = extra.before_group
+        order.insert(order.index(before) if before in order else len(order), extra.group)
+    return order
+
+
+def merge_pending(
+    key: str, values: Mapping[str, Value], value: Value, remembers: bool
+) -> tuple[Value, bool] | None:
+    """Valeur et case « Dernier utilisé » d'une ligne après reprise de ``values`` (clés du
+    fichier d'échange) ; ``None`` si ``values`` ne dit rien de cette ligne."""
+    named = key in values or key + REMEMBER_SUFFIX in values
+    if not named:
+        return None
+    return values.get(key, value), bool(values.get(key + REMEMBER_SUFFIX, remembers))
 
 
 def format_text(text: str, **values: object) -> str:
