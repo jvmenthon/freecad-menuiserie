@@ -71,7 +71,9 @@ def test_parametres_de_la_table_existent_dans_le_noyau_et_l_assemblage(config: A
             assert joint_settings.property_name(name) in properties, (kind, name)
             core_default = fields[name].default
             setting = config.CATALOG.get(key)
-            automatic = name in ("angle", "max_spacing")  # 0 : angle ou entraxe habituel
+            # 0 = automatique : angle, entraxe, diamètre et profondeur des trous des taquets ;
+            # le réglage porte alors la valeur automatique, vérifiée dans test_reglages_reste.
+            automatic = name in ("angle", "max_spacing", "hole_diameter", "hole_depth")
             if not automatic and core_default not in (dataclasses.MISSING, None):
                 assert setting.default == core_default, (kind, name, setting.default, core_default)
 

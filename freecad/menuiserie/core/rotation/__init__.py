@@ -26,6 +26,7 @@ from freecad.menuiserie.core.rotation._ring import (
     ring_of,
 )
 from freecad.menuiserie.core.rotation._turn import (
+    DEFAULT_STEP_DEGREES,
     snapped_angle,
     snapped_turn,
     turned_about,
@@ -35,6 +36,7 @@ from freecad.menuiserie.core.rotation._turn import (
 
 __all__ = [
     "ALIGN_TOLERANCE_DEGREES",
+    "DEFAULT_STEP_DEGREES",
     "EDGE_ON_DEGREES",
     "MAX_RING_RADIUS_MM",
     "MIN_RING_RADIUS_MM",

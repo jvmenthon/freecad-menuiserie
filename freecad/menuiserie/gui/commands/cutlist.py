@@ -36,6 +36,7 @@ from freecad.menuiserie.features.cutlist_export import (
 )
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.interface_settings import export_folder
 from freecad.menuiserie.features.settings import PARAM_PATH
 from freecad.menuiserie.gui import cutlist_preview
 from freecad.menuiserie.gui.commands.base import TransactionCommand, report_refusal
@@ -390,15 +391,16 @@ def _language() -> str:
 def ask_csv_path(
     doc: Document, parent: QtGui.QWidget | None = None
 ) -> tuple[Path, CsvDialect] | None:
-    """Boîte d'enregistrement du CSV, avec un filtre par format (français, international) :
-    l'utilisateur choisit le format en même temps que le fichier. Le format présélectionné est
-    le dernier choisi, sinon le français quand FreeCAD est en français. Le choix est retenu dans
-    les préférences de l'atelier. ``None`` si l'utilisateur annule."""
+    """Boîte d'enregistrement du CSV (ouverte dans le dossier d'export de l'atelier s'il est réglé),
+    avec un filtre par format (français, international) : l'utilisateur choisit le format en même
+    temps que le fichier. Le format présélectionné est le dernier choisi, sinon le français quand
+    FreeCAD est en français. Le choix est retenu dans les préférences de l'atelier. ``None`` si
+    l'utilisateur annule."""
     params = App.ParamGet(PARAM_PATH)
     first = csv_format.initial_format(str(params.GetString(CSV_FORMAT_KEY, "")), _language())
     order = [first, *(name for name in csv_format.FILTERS if name != first)]
     texts = {name: translated(csv_format.FILTERS[name]) for name in order}
-    proposed = proposed_path(doc.Label, doc.FileName, suffix=CSV_SUFFIX)
+    proposed = proposed_path(doc.Label, doc.FileName, suffix=CSV_SUFFIX, folder=export_folder())
     answer: Any = QtGui.QFileDialog.getSaveFileName(
         parent or Gui.getMainWindow(),
         translated(_DIALOG_TITLE),
@@ -419,10 +421,10 @@ def ask_path(
     doc: Document, suffix: str = CSV_SUFFIX, parent: QtGui.QWidget | None = None
 ) -> Path | None:
     """Boîte d'enregistrement (filtre ``*.csv`` ou ``*.pdf``), au nom proposé « <document> -
-    liste de débit.csv » à côté du fichier du document, ou dans le dossier personnel s'il n'est
-    pas enregistré. ``None`` si l'utilisateur annule ; l'extension est ajoutée s'il n'a rien
-    saisi comme extension."""
-    proposed = proposed_path(doc.Label, doc.FileName, suffix=suffix)
+    liste de débit.csv » dans le dossier d'export de l'atelier, sinon à côté du fichier du
+    document, ou dans le dossier personnel s'il n'est pas enregistré. ``None`` si l'utilisateur
+    annule ; l'extension est ajoutée s'il n'a rien saisi comme extension."""
+    proposed = proposed_path(doc.Label, doc.FileName, suffix=suffix, folder=export_folder())
     name_filter = translated(_PDF_FILTER if suffix == PDF_SUFFIX else _DIALOG_FILTER)
     answer: Any = QtGui.QFileDialog.getSaveFileName(
         parent or Gui.getMainWindow(), translated(_DIALOG_TITLE), str(proposed), name_filter

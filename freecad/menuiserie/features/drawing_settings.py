@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 """Réglages des plans dans la configuration de l'atelier (issue #153, ADR 0031 et 0053).
 
-Paramètres FreeCAD sous ``Mod/Menuiserie`` : format et sens de la feuille, auteur écrit au
-cartouche. Une valeur inconnue (fichier de configuration modifié à la main) est remplacée par la
-valeur par défaut, jamais transmise.
+Paramètres FreeCAD sous ``Mod/Menuiserie`` : format (catalogue de l'atelier, ``features/settings``)
+et sens de la feuille, auteur écrit au cartouche. Une valeur inconnue (fichier de configuration
+modifié à la main) est remplacée par la valeur par défaut, jamais transmise.
 """
 
 from __future__ import annotations
@@ -14,7 +14,8 @@ from typing import Any, Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.drawing import DEFAULT_FORMAT, PAGE_FORMATS, Orientation, clean_field
+from freecad.menuiserie.core.drawing import Orientation, clean_field
+from freecad.menuiserie.features import settings as config
 
 __all__ = [
     "AUTHOR",
@@ -25,18 +26,25 @@ __all__ = [
     "default_author",
     "default_format",
     "default_orientation",
+    "record_format",
 ]
 
 PARAM_PATH: Final = "User parameter:BaseApp/Preferences/Mod/Menuiserie"
-PAGE_FORMAT: Final = "DrawingPageFormat"
+PAGE_FORMAT: Final = config.DRAWING_FORMAT  # catalogue de l'atelier (``features/settings``)
 PAGE_ORIENTATION: Final = "DrawingPageOrientation"
 AUTHOR: Final = "DrawingAuthor"
 
 
 def default_format() -> str:
-    """Format de feuille réglé (« A3 » par défaut)."""
-    value = str(App.ParamGet(PARAM_PATH).GetString(PAGE_FORMAT, DEFAULT_FORMAT)).strip().upper()
-    return value if value in PAGE_FORMATS else DEFAULT_FORMAT
+    """Format de feuille réglé dans l'atelier (« A3 » par défaut ; une valeur inconnue, par
+    exemple écrite à la main dans les préférences, redonne le défaut)."""
+    return str(config.settings().value(config.DRAWING_FORMAT))
+
+
+def record_format(page_format: str) -> bool:
+    """« Dernier utilisé » : retient ``page_format`` si la case du réglage est cochée. Rend vrai
+    s'il a été retenu."""
+    return config.settings().record_used(config.DRAWING_FORMAT, page_format)
 
 
 def default_orientation() -> Orientation:

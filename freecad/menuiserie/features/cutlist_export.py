@@ -179,12 +179,17 @@ def proposed_file_name(label: str, suffix: str = CSV_SUFFIX) -> str:
 
 
 def proposed_path(
-    label: str, file_name: str, home: Path | None = None, suffix: str = CSV_SUFFIX
+    label: str,
+    file_name: str,
+    home: Path | None = None,
+    suffix: str = CSV_SUFFIX,
+    folder: Path | None = None,
 ) -> Path:
-    """Chemin proposé pour l'export : à côté du fichier du document (``file_name``, vide s'il
-    n'est pas enregistré), sinon dans le dossier personnel (``home``, par défaut celui de
-    l'utilisateur)."""
-    folder = Path(file_name).parent if file_name else (home or Path.home())
+    """Chemin proposé pour l'export : dans ``folder`` (dossier d'export réglé dans l'atelier) s'il
+    est donné, sinon à côté du fichier du document (``file_name``, vide s'il n'est pas enregistré),
+    sinon dans le dossier personnel (``home``, par défaut celui de l'utilisateur)."""
+    if folder is None:
+        folder = Path(file_name).parent if file_name else (home or Path.home())
     return folder / proposed_file_name(label, suffix)
 
 

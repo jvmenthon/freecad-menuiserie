@@ -20,6 +20,8 @@ from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.settings import (
     CATALOG,
     EDGE_PROFILE,
+    GRAIN,
+    GRAIN_AUTO,
     MATERIAL,
     STORAGE,
     settings,
@@ -40,6 +42,11 @@ LIBRARY_UNAVAILABLE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Bibliothèque de matériaux illisible : {error}"
 )
 FIRST_MATERIAL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Premier matériau de la bibliothèque")
+GRAIN_CHOICES: Final = (  # sens du fil d'une pièce neuve : valeur enregistrée, libellé
+    (GRAIN_AUTO, QT_TRANSLATE_NOOP("Menuiserie", "Automatique (celui du matériau)")),
+    ("Length", QT_TRANSLATE_NOOP("Menuiserie", "Longueur")),
+    ("Width", QT_TRANSLATE_NOOP("Menuiserie", "Largeur")),
+)
 
 # Textes de la page générique (``kit.config.page_model.PAGE_TEXTS``), déclarés ici pour la
 # traduction : le paquet ``kit`` ne connaît pas le contexte de l'atelier. Un test les compare.
@@ -116,9 +123,18 @@ def profile_choices() -> list[tuple[Value, str]]:
     return [(family.value, translate_text(label)) for family, label in FAMILY_LABELS.items()]
 
 
+def grain_choices() -> list[tuple[Value, str]]:
+    """Sens du fil d'une pièce neuve (valeur enregistrée, libellé traduit)."""
+    return [(value, translate_text(label)) for value, label in GRAIN_CHOICES]
+
+
 def choices() -> Choices:
     """Listes déroulantes de la page, par clé de réglage."""
-    return {MATERIAL: material_choices(), EDGE_PROFILE: profile_choices()}
+    return {
+        MATERIAL: material_choices(),
+        EDGE_PROFILE: profile_choices(),
+        GRAIN: grain_choices(),
+    }
 
 
 class MenuiseriePreferencePage(SettingsPage):

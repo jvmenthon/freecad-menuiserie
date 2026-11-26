@@ -223,8 +223,10 @@ def create_shelf_pins(doc: Document, part: DocumentObject, **params: object) -> 
     """Crée un perçage LR32 dans le côté debout ``part`` (pièce de bois ou pièce usinée) : deux
     colonnes de trous au pas de 32 mm, taquets de tablette rapportés. Le montant opposé (côté
     debout en face) est percé en miroir par le même objet (``GuestPart``), sauf
-    ``both_sides=False``. Paramètres de ``ShelfPinsParams`` en mm, 0 = automatique."""
-    values = _validated(ShelfPinsJoint.PARAMS, params)
+    ``both_sides=False``. Paramètres de ``ShelfPinsParams`` en mm, 0 = automatique ; pas, diamètre
+    et profondeur absents viennent des réglages de l'atelier s'ils sont modifiés."""
+    wanted = apply_joint_settings(ShelfPinsJoint.KIND, params)
+    values = _validated(ShelfPinsJoint.PARAMS, wanted)
     blank = blank_of(part)
     opposite = opposite_upright(blank, values) if values.both_sides else None
     if opposite is None:

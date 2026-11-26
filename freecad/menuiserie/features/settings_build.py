@@ -41,6 +41,9 @@ def length_setting(  # noqa: PLR0913 (description d'un réglage : tous ses champ
     )
 
 
-def flag_setting(key: str, default: bool, label: str, tooltip: str, group: str) -> Setting:
-    """Case à cocher qui retient le dernier choix si on le demande."""
-    return Setting(key, Kind.BOOL, default, label, tooltip, group, remember_last=True)
+def flag_setting(
+    key: str, default: bool, label: str, tooltip: str, group: str, *, remember_last: bool = True
+) -> Setting:
+    """Case à cocher ; elle propose « Dernier utilisé » sauf si ``remember_last`` est faux
+    (réglage d'interface lu à l'usage)."""
+    return Setting(key, Kind.BOOL, default, label, tooltip, group, remember_last=remember_last)

@@ -26,6 +26,7 @@ from freecad.menuiserie.core.templates.carcass import MAX_SHELVES, CarcassJoiner
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.furniture_container import own_std_part
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.template_settings import carcass_proposals, record_carcass_used
 from freecad.menuiserie.gui.task_panels import base
 from freecad.menuiserie.gui.task_panels.base import (
     TransactionTaskPanel,
@@ -79,6 +80,7 @@ class CarcassTaskPanel(TransactionTaskPanel):
     def __init__(self, doc: Document) -> None:
         super().__init__(doc, creating=True)
         self.furniture: DocumentObject | None = None
+        self._accepted: dict[str, Any] = {}  # saisies validées, lues avant la fermeture du panneau
         self._last_placement: App.Placement | None = None
         self.form = QtGui.QWidget()
         self.form.setObjectName(FORM_NAME)
@@ -86,8 +88,9 @@ class CarcassTaskPanel(TransactionTaskPanel):
         self.form.setWindowTitle(translated(_TITLE))
         layout = QtGui.QFormLayout(self.form)
         defaults = CarcassParams()
+        proposed = {**{name: getattr(defaults, name) for name in _LENGTHS}, **carcass_proposals()}
         self._lengths = {
-            name: length_field(layout, name, label, getattr(defaults, name), self.rebuild)
+            name: length_field(layout, name, label, proposed[name], self.rebuild)
             for name, label in _LENGTHS.items()
         }
         self._shelves = QtGui.QSpinBox()
@@ -185,6 +188,14 @@ class CarcassTaskPanel(TransactionTaskPanel):
         self._transaction = App.getActiveTransaction()
 
     # --- Cycle de vie (FreeCAD) -----------------------------------------------------------
+
+    def _before_commit(self) -> None:
+        """Saisies gardées avant que la fermeture ne détruise les champs."""
+        self._accepted = self.values()
+
+    def _after_accept(self) -> None:
+        """Cotes du caisson validé retenues pour « Dernier utilisé » (réglages de l'atelier)."""
+        record_carcass_used(self._accepted)
 
     def accept(self) -> bool:
         """« OK » : la transaction devient une seule entrée d'annulation ; sans caisson

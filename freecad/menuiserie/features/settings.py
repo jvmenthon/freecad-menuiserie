@@ -20,8 +20,13 @@ from freecad.menuiserie.core.part_model import (
     DEFAULT_PANEL_ALLOWANCES,
     DEFAULT_SOLID_ALLOWANCES,
     Allowances,
+    GrainDirection,
 )
+from freecad.menuiserie.features import settings_hardware as hardware
+from freecad.menuiserie.features import settings_interface as interface
 from freecad.menuiserie.features import settings_joints as joints
+from freecad.menuiserie.features import settings_output as output
+from freecad.menuiserie.features import settings_templates as templates
 from freecad.menuiserie.features.settings_build import flag_setting, length_setting
 from freecad.menuiserie.kit.config.catalog import Catalog, Kind, Setting
 from freecad.menuiserie.kit.config.folder import absolute_path
@@ -57,6 +62,22 @@ SLOT_FREE_SIZE: Final = joints.SLOT_FREE_SIZE
 SLOT_SPACING: Final = joints.SLOT_SPACING
 TONGUE_LENGTH: Final = joints.TONGUE_LENGTH
 
+# Taquets, gabarits, liste de débit, plans et affichage : clés et groupes de leurs catalogues.
+SHELF_PIN_DEPTH: Final = hardware.SHELF_PIN_DEPTH
+SHELF_PIN_DIAMETER: Final = hardware.SHELF_PIN_DIAMETER
+SHELF_PIN_PITCH: Final = hardware.SHELF_PIN_PITCH
+SHELF_PINS: Final = hardware.SHELF_PINS
+CARCASS_FIELDS: Final = templates.CARCASS_FIELDS
+TEMPLATES: Final = templates.TEMPLATES
+CUTLIST: Final = output.CUTLIST
+CUTLIST_EXPORT_FOLDER: Final = output.CUTLIST_EXPORT_FOLDER
+DRAWING_FORMAT: Final = output.DRAWING_FORMAT
+DRAWINGS: Final = output.DRAWINGS
+MARK_PREFIX: Final = output.MARK_PREFIX
+DISPLAY: Final = interface.DISPLAY
+ROTATION_STEP: Final = interface.ROTATION_STEP
+STRUCTURE_AUTO_OPEN: Final = interface.STRUCTURE_AUTO_OPEN
+
 # Clés (noms des paramètres FreeCAD, figés : une clé renommée perd la valeur de l'utilisateur).
 BROKEN_EDGE: Final = "NewPartBrokenEdge"
 BROKEN_EDGE_SIZE: Final = "NewPartBrokenEdgeSize"
@@ -66,6 +87,10 @@ LENGTH: Final = "NewPartLength"
 WIDTH: Final = "NewPartWidth"
 THICKNESS: Final = "NewPartThickness"
 MATERIAL: Final = "NewPartMaterial"
+GRAIN: Final = "NewPartGrain"
+GRAIN_AUTO: Final = (
+    "Auto"  # sens du fil du matériau (valeur du réglage, jamais écrite dans une pièce)
+)
 SOLID_ALLOWANCES: Final = ("SolidLengthAllowance", "SolidWidthAllowance", "SolidThicknessAllowance")
 PANEL_ALLOWANCES: Final = ("PanelLengthAllowance", "PanelWidthAllowance", "PanelThicknessAllowance")
 WORKSHOP_FOLDER: Final = "WorkshopFolder"
@@ -130,6 +155,18 @@ def _new_parts() -> list[Setting]:
                 "Matériau d'une pièce neuve. Vide : premier matériau de la bibliothèque.",
             ),
             NEW_PARTS,
+        ),
+        Setting(
+            GRAIN,
+            Kind.CHOICE,
+            GRAIN_AUTO,
+            QT_TRANSLATE_NOOP("Menuiserie", "Sens du fil"),
+            QT_TRANSLATE_NOOP(
+                "Menuiserie",
+                "Sens du fil d'une pièce neuve en matériau à fil. Automatique : celui du matériau.",
+            ),
+            NEW_PARTS,
+            choices=(GRAIN_AUTO, GrainDirection.LENGTH.value, GrainDirection.WIDTH.value),
         ),
         *_allowances(
             SOLID_ALLOWANCES,
@@ -224,7 +261,18 @@ def _storage() -> list[Setting]:
     ]
 
 
-CATALOG: Final = Catalog([*_new_parts(), *_edges(), *joints.joint_settings(), *_storage()])
+CATALOG: Final = Catalog(
+    [
+        *_new_parts(),
+        *_edges(),
+        *joints.joint_settings(),
+        *hardware.hardware_settings(),
+        *templates.template_settings(),
+        *output.output_settings(),
+        *interface.interface_settings(),
+        *_storage(),
+    ]
+)
 
 
 def settings() -> Settings:

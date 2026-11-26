@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import math
+from typing import Final
 
 from freecad.menuiserie.core.geometry import Matrix3, RigidTransform, Vec3
 from freecad.menuiserie.core.part_model import Dimensions
 from freecad.menuiserie.core.rotation._angles import matrix_of
 
-_DEFAULT_STEP_DEGREES = 15.0
+DEFAULT_STEP_DEGREES: Final = 15.0  # pas de l'aimant d'angle, en degrés
 
 
 def check_axis(owner: str, axis: int) -> None:
@@ -62,7 +63,7 @@ def turned_about(
     return turned_about_point(transform, center, axis, angle)
 
 
-def snapped_angle(angle: float, step: float = _DEFAULT_STEP_DEGREES, free: bool = False) -> float:
+def snapped_angle(angle: float, step: float = DEFAULT_STEP_DEGREES, free: bool = False) -> float:
     """Angle (degrés) arrondi au multiple de ``step`` le plus proche ; ``free`` : au dixième.
 
     Les demi-pas s'arrondissent vers le haut. ``ValueError`` si ``angle`` ou ``step`` n'est pas
@@ -80,7 +81,7 @@ def snapped_angle(angle: float, step: float = _DEFAULT_STEP_DEGREES, free: bool 
 
 
 def snapped_turn(
-    start: float, travelled: float, step: float = _DEFAULT_STEP_DEGREES, free: bool = False
+    start: float, travelled: float, step: float = DEFAULT_STEP_DEGREES, free: bool = False
 ) -> float:
     """Angle à tourner (degrés) pour que l'angle **obtenu** ``start + travelled`` tombe sur un
     multiple de ``step`` (au dixième si ``free``) : une pièce à 7,3° revient d'équerre en

@@ -37,6 +37,11 @@ _PARAMETERS: Final[Mapping[JointKind, Mapping[str, str]]] = {
     JointKind.DOWELS: {"hole_clearance": config.DOWEL_CLEARANCE},
     JointKind.DOVETAIL: {"angle": config.DOVETAIL_ANGLE},
     JointKind.LOOSE_TENON: {"custom_size": config.SLOT_FREE_SIZE},
+    JointKind.SHELF_PINS: {
+        "pitch": config.SHELF_PIN_PITCH,
+        "hole_diameter": config.SHELF_PIN_DIAMETER,
+        "hole_depth": config.SHELF_PIN_DEPTH,
+    },
 }
 # Paramètres toujours copiés du réglage à la création, modifié ou non.
 _COPIED: Final[Mapping[JointKind, Mapping[str, str]]] = {
