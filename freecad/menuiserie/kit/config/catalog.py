@@ -13,7 +13,7 @@ import unicodedata
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final
+from typing import Final, TypeAlias
 
 __all__ = [
     "MAX_TEXT_LENGTH",
@@ -27,7 +27,7 @@ __all__ = [
     "coerce",
 ]
 
-Value = bool | int | float | str
+Value: TypeAlias = bool | int | float | str
 
 MAX_TEXT_LENGTH: Final = 1024  # caractères d'un texte ou d'un chemin
 REMEMBER_SUFFIX: Final = "RememberLast"  # clé de la case « Dernier utilisé » : <clé>RememberLast

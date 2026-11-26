@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
-from .catalog import REMEMBER_SUFFIX, Catalog, Kind, Setting, SettingError, Value, coerce
+from .catalog import REMEMBER_SUFFIX, Catalog, Kind, SettingError, Value, coerce
 
 __all__ = ["REMEMBER_SUFFIX", "FreeCADStore", "MemoryStore", "ParamStore", "Settings"]
 
@@ -183,10 +183,6 @@ class Settings:
         except SettingError:
             return False
         return True
-
-    def setting(self, key: str) -> Setting:
-        """Description du réglage ``key``."""
-        return self.catalog.get(key)
 
 
 def _remember_key(key: str) -> str:
