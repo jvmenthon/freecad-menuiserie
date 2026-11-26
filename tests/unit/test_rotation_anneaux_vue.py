@@ -304,11 +304,15 @@ def test_secteur_de_90_degres_positif() -> None:
     assert all(dist(p, ring.center) == pytest.approx(ring.radius) for t in triangles for p in t[1:])
 
 
-def test_secteur_negatif_et_tour_plein() -> None:
+def test_secteur_negatif_et_plus_d_un_tour() -> None:
     ring = ring_z()
     last = sector(sweep_of(-90.0))[-1][2]
     assert dist(last, Vec3(ring.center.x, ring.center.y - ring.radius, ring.center.z)) < 1e-9
-    assert len(sector(sweep_of(900.0))) == RING_SEGMENTS
+    # Au-delà d'un tour : le reste du dernier tour seul (900° : 180°), jamais un disque plein.
+    assert len(sector(sweep_of(900.0))) == len(sector(sweep_of(180.0)))
+    assert sector(sweep_of(720.0)) == ()
+    assert len(sector(sweep_of(-450.0))) == len(sector(sweep_of(-90.0)))
+    assert sector(sweep_of(math.nan)) == ()
 
 
 def test_secteur_suit_le_point_saisi_pas_un_axe() -> None:

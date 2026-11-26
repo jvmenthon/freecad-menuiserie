@@ -14,6 +14,8 @@ from __future__ import annotations
 import weakref
 from typing import Any
 
+from PySide import QtCore, QtGui
+
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.gui.drag import events
 from freecad.menuiserie.gui.drag.session import DragSession, PanelContext
@@ -22,7 +24,9 @@ from freecad.menuiserie.gui.task_panels.base import connect
 
 class PanelDrag:
     """Lien entre la session de glissement et un panneau de tâche ``panel`` (propriété ``closed``,
-    méthode ``after_drag`` qui relit les champs). La pièce est ``panel.obj`` ; un panneau dont
+    méthode ``after_drag`` qui relit les champs ; ``SIZE_FIELDS`` facultatif : nom Qt du champ
+    de la cote de chaque axe, où un clic sur une étiquette met le curseur). La pièce est
+    ``panel.obj`` ; un panneau dont
     l'objet est recréé à chaque aperçu (caisson) passe ``follow=True`` et appelle :meth:`follow`
     à chaque aperçu. Sans session (atelier inactif), ne fait rien."""
 
@@ -42,7 +46,7 @@ class PanelDrag:
             return
         previous, self._context = self._context, None
         if part is not None:
-            self._context = PanelContext(part, self._refresh, self._is_open)
+            self._context = PanelContext(part, self._refresh, self._is_open, self._edit_size)
             session.set_panel(self._context)
         elif previous is not None:
             session.clear_panel(previous)
@@ -55,6 +59,20 @@ class PanelDrag:
         panel = self._panel()
         if panel is not None and not panel.closed:
             panel.after_drag()
+
+    def _edit_size(self, axis: int) -> bool:
+        """Curseur dans le champ de la cote de l'axe ``axis``, valeur sélectionnée : il n'y a
+        plus qu'à taper le nombre. Faux si le panneau n'a pas ce champ ou s'il est grisé."""
+        panel = self._panel()
+        names = getattr(panel, "SIZE_FIELDS", ()) if panel is not None else ()
+        if panel is None or panel.closed or not 0 <= axis < len(names):
+            return False
+        field = panel.form.findChild(QtGui.QWidget, names[axis])
+        if field is None or not field.isEnabled():
+            return False
+        field.setFocus(QtCore.Qt.OtherFocusReason)
+        field.selectAll()
+        return True
 
     def _on_destroyed(self) -> None:
         """Formulaire détruit (panneau fermé) : poignées enlevées."""

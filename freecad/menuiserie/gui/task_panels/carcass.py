@@ -76,6 +76,8 @@ class CarcassTaskPanel(TransactionTaskPanel):
     """Paramètres du caisson et aperçu, dans la transaction ouverte par la commande ;
     transaction, fermeture et surveillance du document : :mod:`base`."""
 
+    SIZE_FIELDS = _GESTURE_FIELDS  # champs des cotes X, Y, Z : clic sur une étiquette (ADR 0068)
+
     def __init__(self, doc: Document) -> None:
         super().__init__(doc, creating=True)
         self.furniture: DocumentObject | None = None

@@ -93,6 +93,8 @@ ALLOWANCE_FIELDS: Final = LENGTH_FIELDS[3:]
 class WoodPartTaskPanel(ObjectTaskPanel):
     """Panneau de tâche d'une pièce de bois, en création (``creating``) ou en modification."""
 
+    SIZE_FIELDS = tuple(field.widget for field in LENGTH_FIELDS[:3])  # clic sur une étiquette
+
     def __init__(
         self, obj: DocumentObject, *, creating: bool, session: SnapSession | None = None
     ) -> None:

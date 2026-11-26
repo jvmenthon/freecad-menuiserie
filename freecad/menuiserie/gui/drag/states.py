@@ -62,7 +62,19 @@ if TYPE_CHECKING:
 
 _ALIGNED_TEXT: Final = QT_TRANSLATE_NOOP("Menuiserie", "Alignée sur une pièce voisine")
 
-__all__ = ["Dragging", "Gesture", "Hover", "Idle", "Moving", "Resizing", "Rotating", "State"]
+__all__ = [
+    "BadgePressed",
+    "Dragging",
+    "Gesture",
+    "Hover",
+    "Idle",
+    "Moving",
+    "Resizing",
+    "Rotating",
+    "State",
+]
+
+CLICK_PX: Final = 4.0  # souris déplacée de moins (pixels) : un clic, pas un glissement
 
 
 class State:
@@ -110,7 +122,12 @@ class Idle(State):
         if is_locked_key(key):  # poignée grisée : rien ne bouge, la pièce reste sélectionnée
             session.swallow_release = True
             return True
-        return session.begin_copy(key, point, shift) if copy else session.begin(key, point, shift)
+        if copy:
+            return session.begin_copy(key, point, shift)
+        if session.on_badge(point, key):  # clic : champ de la cote ; glissement : la poignée
+            session.enter(BadgePressed(key, point, shift))
+            return True
+        return session.begin(key, point, shift)
 
     def move(self, session: DragSession, point: Point, shift: bool) -> bool:
         if session.swallow_release:
@@ -132,6 +149,39 @@ class Hover(Idle):
 
     def __init__(self, key: str) -> None:
         self.key = key
+
+
+class BadgePressed(State):
+    """Bouton enfoncé sur l'étiquette de la poignée ``key`` (ADR 0068) : relâché sur place, le
+    curseur va dans le champ de la cote du panneau ; déplacé de :data:`CLICK_PX` ou plus, la
+    poignée est tirée comme si on l'avait saisie là."""
+
+    dragging = True  # les mouvements bouton enfoncé arrivent ici, pas à la navigation
+
+    def __init__(self, key: str, start: Point, shift: bool) -> None:
+        self.key = self.badge = key
+        self.start = start
+        self.shift = shift
+
+    def move(self, session: DragSession, point: Point, shift: bool) -> bool:
+        if abs(point[0] - self.start[0]) + abs(point[1] - self.start[1]) < CLICK_PX:
+            return True
+        session.enter(Hover(self.badge))
+        if not session.begin(self.badge, self.start, self.shift):
+            session.swallow_release = True
+            return True
+        return session.move(point, shift)
+
+    def release(self, session: DragSession, point: Point) -> bool:
+        del point
+        session.enter(Hover(self.badge))
+        session.edit_size(self.badge)
+        return True
+
+    def escape(self, session: DragSession) -> bool:
+        session.swallow_release = True
+        session.enter(Idle())
+        return True
 
 
 class Gesture(State):

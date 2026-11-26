@@ -84,6 +84,7 @@ __all__ = [
     "key_at",
     "locked_blocker",
     "locked_key",
+    "on_badge",
     "on_screen",
     "parse_key",
     "pixel_targets",
@@ -297,6 +298,13 @@ def pixel_targets(layout: Layout, project: Project) -> list[PixelTarget]:
         targets.append(PixelTarget(key, (x - half_w, y), (x + half_w, y), height / 2))
         targets.append(PixelTarget(key, project(point), (x, y)))
     return targets
+
+
+def on_badge(layout: Layout, project: Project, point: tuple[float, float], key: str) -> bool:
+    """Vrai si le pixel ``point`` est sur l'étiquette de la poignée ``key`` (pas sur son rond ni
+    sur son trait) : un clic y prépare la saisie de la cote dans le panneau."""
+    badges = [t for t in pixel_targets(layout, project) if t.key == key and t.radius is not None]
+    return bool(badges) and handle_at(badges, point) == key
 
 
 def key_at(

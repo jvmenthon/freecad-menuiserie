@@ -50,6 +50,7 @@ from freecad.menuiserie.gui.drag.drawing import (
     key_at,
     locked_blocker,
     locked_key,
+    on_badge,
     on_screen,
     parse_key,
     pixel_targets,
@@ -337,6 +338,18 @@ def test_poignees_impossibles_grisees() -> None:
     assert locked_blocker(layout, key) == BLOCKER
     assert locked_blocker(layout, handle_key(Handle(0, True))) is None
     assert locked_blocker(layout, None) is None
+
+
+def test_clic_sur_l_etiquette_et_non_sur_le_rond() -> None:
+    """``on_badge`` : vrai sur l'étiquette seule (le clic y prépare la saisie de la cote), faux
+    sur le rond, sur le trait et ailleurs."""
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0})))
+    key = handle_key(Handle(0, True))
+    assert on_badge(layout, project, (867, 70), key)  # centre de l'étiquette
+    assert on_badge(layout, project, (867 + 40, 70 + 8), key)  # son bord droit
+    assert not on_badge(layout, project, (810, 70), key)  # le rond
+    assert not on_badge(layout, project, (867, 120), key)
+    assert not on_badge(layout, project, (867, 70), handle_key(Handle(0, False)))  # rond seul
 
 
 def test_poignee_impossible_survolable_mais_jamais_saisie() -> None:

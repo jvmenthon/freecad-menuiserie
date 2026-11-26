@@ -43,7 +43,7 @@ from freecad.menuiserie.features import (
     furniture_resize,
 )
 from freecad.menuiserie.features.freecad_types import DocumentObject, expression_of
-from freecad.menuiserie.features.furniture import furniture_of
+from freecad.menuiserie.features.furniture import DIMENSIONS, furniture_of
 from freecad.menuiserie.features.furniture_bindings import notice_messages, report
 from freecad.menuiserie.features.furniture_view import (
     MemberView,
@@ -101,6 +101,8 @@ _USER_ROLE: Final = QtCore.Qt.ItemDataRole.UserRole
 class FurnitureTaskPanel(ObjectTaskPanel):
     """Panneau de tâche d'un ensemble, ouvert en modification seulement (aucun panneau à la
     création)."""
+
+    SIZE_FIELDS = DIMENSIONS  # champs des cotes X, Y, Z : clic sur une étiquette (ADR 0068)
 
     def __init__(self, obj: DocumentObject) -> None:
         super().__init__(obj, creating=False)

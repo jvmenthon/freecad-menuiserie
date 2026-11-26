@@ -62,6 +62,7 @@ from freecad.menuiserie.gui.drag.drawing import (
     build_drawing,
     key_at,
     locked_blocker,
+    on_badge,
     on_screen,
     parse_key,
     target_line,
@@ -339,6 +340,24 @@ class DragSession:
             return key if key is not None else key_at(layout, port.project, point, locked=True)
         except _RESIZE_ERRORS:
             return None
+
+    def on_badge(self, point: Point, key: str) -> bool:
+        """Vrai si le pixel ``point`` est sur l'étiquette de la poignée ``key``."""
+        layout, port = self.layout, self.port
+        if layout is None or port is None:
+            return False
+        try:
+            return on_badge(layout, port.project, point, key)
+        except _RESIZE_ERRORS:
+            return False
+
+    def edit_size(self, key: str) -> bool:
+        """Clic sur l'étiquette de la poignée ``key`` : curseur dans le champ de sa cote, valeur
+        sélectionnée, prête à être tapée (ADR 0068) ; faux sans panneau ou sans champ."""
+        handle = parse_key(key)
+        if isinstance(handle, int) or self.panel is None or not self._panel_open():
+            return False
+        return self.panel.edit_size(handle.axis)
 
     def _ring_at(self, point: Point) -> str | None:
         """Anneau sous le pixel ``point`` (à 8 pixels près, mesurés à l'écran) ; aucun s'il est vu

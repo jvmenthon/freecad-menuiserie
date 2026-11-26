@@ -62,7 +62,10 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    étiquette (segment horizontal, tolérance de sa demi-hauteur : `PixelTarget.radius`). À distance
    égale, une flèche l'emporte sur une étiquette qui la chevauche (ordre de `pixel_targets`).
    Une poignée grisée ne se cherche qu'après les flèches, les poignées et les anneaux (`key_at`) :
-   elle ne cache jamais ce qui se tire.
+   elle ne cache jamais ce qui se tire. Un **clic** sur l'étiquette (bouton relâché à moins de
+   4 pixels : `states.BadgePressed`) ne tire rien : il met le curseur dans le champ de la cote
+   du panneau (`SIZE_FIELDS` du panneau, `PanelContext.edit_size`), valeur sélectionnée, pour
+   la taper directement (jv, 2026-11-26) ; glisser depuis l'étiquette tire la poignée.
 6. Les poignées grisées n'apparaissent que là où les poignées apparaissent (panneau de la pièce
    ouvert) ; hors panneau, rien ne change.
 
