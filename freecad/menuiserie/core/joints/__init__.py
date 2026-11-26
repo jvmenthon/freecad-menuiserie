@@ -13,7 +13,9 @@ from __future__ import annotations
 from freecad.menuiserie.core.geometry import JointError
 from freecad.menuiserie.core.joints._base import (
     MAX_ANGLE_DEG,
+    MAX_INPUT_SPACING_MM,
     MAX_PLAN_SOLIDS,
+    MIN_INPUT_SPACING_MM,
     Bevel,
     JointKind,
     JointPlan,
@@ -26,7 +28,9 @@ from freecad.menuiserie.core.joints._roles import guess_roles
 
 __all__ = [
     "MAX_ANGLE_DEG",
+    "MAX_INPUT_SPACING_MM",
     "MAX_PLAN_SOLIDS",
+    "MIN_INPUT_SPACING_MM",
     "Bevel",
     "JointError",
     "JointKind",

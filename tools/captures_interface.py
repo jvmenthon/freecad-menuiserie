@@ -123,7 +123,8 @@ def dessiner_quadrillage(chemin: Path) -> None:
 @contextmanager
 def bibliotheque_de_captures() -> Iterator[None]:
     """Bibliothèque utilisateur temporaire avec le chêne quadrillé ; rétablie à la fin."""
-    from freecad.menuiserie.features.library import USER_LIBRARY_PARAM, reload_library
+    from freecad.menuiserie.features.library import reload_library
+    from freecad.menuiserie.features.settings import USER_LIBRARY_PARAM
 
     parametres = App.ParamGet(PARAMETRES)
     precedent = parametres.GetString(USER_LIBRARY_PARAM, "")

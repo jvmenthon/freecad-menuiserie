@@ -25,6 +25,7 @@ from freecad.menuiserie.core.joints.half_lap import HalfLapParams
 from freecad.menuiserie.core.joints.miter import MiterParams
 from freecad.menuiserie.core.joints.mortise_tenon import MortiseTenonParams
 from freecad.menuiserie.core.joints.rabbet import RabbetParams
+from freecad.menuiserie.core.joints.slots import SlotParams
 from freecad.menuiserie.core.joints.tongue_groove import TongueGrooveParams
 from tests.unit.aides_assemblages import block, dovetail_corner, miter_corner, rail, stile
 
@@ -347,10 +348,12 @@ PARAMS_CLASSES = (
         (TongueGrooveParams, "tongue_length", -1),
         (TongueGrooveParams, "through_groove", "oui"),
         (RabbetParams, "through", None),
-        (DowelParams, "count", 51),
-        (DowelParams, "count", -1),
-        (DowelParams, "count", 2.0),
-        (DowelParams, "count", True),
+        (DowelParams, "max_spacing", 9.99),
+        (DowelParams, "max_spacing", 1000.01),
+        (DowelParams, "max_spacing", -1),
+        (DowelParams, "max_spacing", True),
+        (DowelParams, "max_spacing", math.nan),
+        (SlotParams, "max_spacing", 5),
         (DowelParams, "diameter", -3),
         (HalfLapParams, "depth", -1.0),
         (HalfLapParams, "depth", float("inf")),
@@ -377,8 +380,10 @@ def test_parametres_refuses(factory: type, field: str, value: object) -> None:
         (MortiseTenonParams, "thickness_offset", 20_000),
         (MortiseTenonParams, "through", True),
         (TongueGrooveParams, "through_groove", False),
-        (DowelParams, "count", 50),
-        (DowelParams, "count", 0),
+        (DowelParams, "max_spacing", 10),
+        (DowelParams, "max_spacing", 1000),
+        (DowelParams, "max_spacing", 0),
+        (SlotParams, "max_spacing", 150),
         (HalfLapParams, "depth", 0),
         (HalfLapParams, "flip_side", True),
         (DovetailParams, "tail_count", 50),

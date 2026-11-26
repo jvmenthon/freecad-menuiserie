@@ -91,7 +91,7 @@ def test_piece_reliee_par_deux_types(cadre: Cadre) -> None:
 
 def test_changer_une_cote_recalcule_les_deux_types(cadre: Cadre) -> None:
     joints = assemble_mixed(cadre)
-    joints["dw_m2_t1"].Count = 1
+    joints["dw_m2_t1"].EdgeDistance = 30  # contact de 60 mm : un seul tourillon, au milieu
     joints["mt_m2_t2"].TenonThickness = 8
     cadre.doc.recompute()
     expected = STILE - 42 * 40 * 8 - HOLE
@@ -176,7 +176,7 @@ def test_reouverture_avec_les_quatre_types(cadre: Cadre, rouvrir: Reopen) -> Non
     assert snapshot(doc) == before
     assert stale_or_invalid(doc) == []
     # Les proxies rouverts recalculent : un paramètre de chaque type modifié.
-    doc.getObject(names["dw_m2_t1"]).Count = 1
+    doc.getObject(names["dw_m2_t1"]).EdgeDistance = 30  # un seul tourillon
     doc.getObject(names["mt_m2_t2"]).TenonThickness = 8
     doc.getObject(tg_name).TongueThickness = 8
     doc.getObject(rabbet_name).Through = False

@@ -22,6 +22,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP, TemplatedError
 from freecad.menuiserie.core.materials import Material, MaterialKind
 
 __all__ = [
+    "DEFAULT_DIMENSIONS",
     "DEFAULT_PANEL_ALLOWANCES",
     "DEFAULT_SOLID_ALLOWANCES",
     "MAX_DIMENSION_MM",
@@ -139,6 +140,7 @@ class Allowances:
             object.__setattr__(self, item.name, number)
 
 
+DEFAULT_DIMENSIONS: Final = Dimensions(800.0, 200.0, 22.0)  # pièce neuve, sauf réglage de l'atelier
 DEFAULT_SOLID_ALLOWANCES: Final = Allowances(20.0, 5.0, 0.0)
 DEFAULT_PANEL_ALLOWANCES: Final = Allowances()
 

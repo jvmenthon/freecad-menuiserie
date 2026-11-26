@@ -10,10 +10,20 @@ from collections.abc import Sequence
 
 import FreeCAD as App
 
+from freecad.menuiserie._api.edges import add_edge_profile
+from freecad.menuiserie.core.edges import EdgeFamily
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.new_part_settings import (
+    apply_new_allowances,
+    broken_edge_designation,
+    broken_edge_size,
+    new_dimensions,
+    new_material_id,
+    warn_broken_edge_refused,
+)
 from freecad.menuiserie.features.shaped_create import (
     create_shaped_part,
     create_shaped_parts,
@@ -26,10 +36,23 @@ from freecad.menuiserie.features.wood_part import create_wood_part, validated_ar
 # --- Pièce de bois (J1) -------------------------------------------------------------------
 
 
+def _add_broken_edge(part: DocumentObject) -> None:
+    """Arête cassée de l'atelier sur toutes les arêtes d'une pièce neuve, si le réglage est
+    coché ; un refus (forme dessinée aux arêtes courbes, par exemple) est un avertissement, la
+    pièce est créée quand même."""
+    size = broken_edge_size()
+    if size is None:
+        return
+    try:
+        add_edge_profile(part, broken_edge_designation(part), EdgeFamily.ROUND, size)
+    except (TypeError, ValueError) as error:
+        warn_broken_edge_refused(part, error)
+
+
 def make_wood_part(
-    length: float = 800.0,
-    width: float = 200.0,
-    thickness: float = 22.0,
+    length: float | None = None,
+    width: float | None = None,
+    thickness: float | None = None,
     material_id: str | None = None,
     *,
     mark: str = "",
@@ -38,10 +61,18 @@ def make_wood_part(
     """Crée une pièce de bois (cotes finies en mm), l'affiche si l'interface est chargée et
     recalcule le document.
 
-    ``doc`` vaut par défaut le document actif, ou un nouveau document s'il n'y en a pas : les
-    cotes et le matériau sont validés avant, si bien qu'une erreur ne crée aucun document. Aucune
-    transaction n'est ouverte : c'est à l'appelant de le faire pour pouvoir annuler.
+    Cotes, matériau, surcotes et arête cassée absents viennent des réglages de l'atelier
+    (800 x 200 x 22 mm, premier matériau de la bibliothèque, surcotes de la famille, sans arête
+    cassée tant qu'ils ne sont pas modifiés). ``doc`` vaut par défaut le document actif, ou un
+    nouveau document s'il n'y en a pas : les cotes et le matériau sont validés avant, si bien
+    qu'une erreur ne crée aucun document. Aucune transaction n'est ouverte : c'est à l'appelant
+    de le faire pour pouvoir annuler.
     """
+    defaults = new_dimensions()
+    length = defaults.length if length is None else length
+    width = defaults.width if width is None else width
+    thickness = defaults.thickness if thickness is None else thickness
+    material_id = new_material_id() if material_id is None else material_id
     validated_arguments(length, width, thickness, material_id)
     document = doc if doc is not None else App.ActiveDocument or App.newDocument()
     obj = create_wood_part(
@@ -52,6 +83,7 @@ def make_wood_part(
         material_id=material_id,
         mark=mark,
     )
+    apply_new_allowances(obj)
     if App.GuiUp:
         from freecad.menuiserie.gui.view_providers.wood_part import (
             ViewProviderWoodPart,
@@ -59,6 +91,7 @@ def make_wood_part(
 
         ViewProviderWoodPart(obj.ViewObject)
     document.recompute()
+    _add_broken_edge(obj)
     return obj
 
 
@@ -90,10 +123,15 @@ def make_shaped_part(
     c'est à l'appelant de le faire pour pouvoir annuler.
     """
     part = create_shaped_part(
-        source, material_id=material, mark=mark, profile_thickness=profile_thickness
+        source,
+        material_id=new_material_id() if material is None else material,
+        mark=mark,
+        profile_thickness=profile_thickness,
     )
+    apply_new_allowances(part)
     _show_shaped([part])
     part.Document.recompute()
+    _add_broken_edge(part)
     return part
 
 
@@ -112,10 +150,17 @@ def make_shaped_parts(
     Pour toute autre source, une liste d'une pièce, comme :func:`make_shaped_part` (mêmes
     arguments, mêmes refus)."""
     parts = create_shaped_parts(
-        source, material_id=material, mark=mark, profile_thickness=profile_thickness
+        source,
+        material_id=new_material_id() if material is None else material,
+        mark=mark,
+        profile_thickness=profile_thickness,
     )
+    for part in parts:
+        apply_new_allowances(part)
     _show_shaped(parts)
     source.Document.recompute()
+    for part in parts:
+        _add_broken_edge(part)
     return parts
 
 

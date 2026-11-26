@@ -10,7 +10,7 @@ from typing import Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.features.library import PARAM_PATH
+from freecad.menuiserie.features.settings import PARAM_PATH
 
 __all__ = ["closed_by_user", "remember_closed"]
 

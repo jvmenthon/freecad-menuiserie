@@ -1,6 +1,7 @@
 # ADR 0031 — Configuration de l'atelier : page de préférences, dossier de l'atelier, export / import
 
-- Statut : **proposé** (demande de jv, issue #148, 2026-11-01 ; « go » de jv le 2026-11-02)
+- Statut : **accepté** (demande de jv, issue #148, 2026-11-01 ; « go » de jv le 2026-11-02 et le
+  2026-11-25) ; complété par l'[ADR 0069](0069-configuration-de-l-atelier-modules-et-dossier.md)
 - Date : 2026-11-02
 - ADR liés : [0002 — Bibliothèque de matériaux](0002-bibliotheque-de-materiaux.md),
   [0028 — Dimensions personnelles](0028-dimensions-personnelles-partagees.md),

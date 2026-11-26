@@ -406,6 +406,7 @@ def finition_des_chants() -> str:
 
 ICONES = {
     "menuiserie.svg": atelier,
+    "preferences-menuiserie.svg": atelier,  # page Menuiserie des préférences (ADR 0069)
     "Menuiserie_WoodPart.svg": piece_de_bois,
     "Menuiserie_Panel.svg": panneau,
     "Menuiserie_Species.svg": essences,

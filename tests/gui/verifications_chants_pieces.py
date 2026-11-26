@@ -122,7 +122,7 @@ def verifier_retirer_une_piece() -> list[str]:
 
 
 def _bascule(doc: Any) -> list[str]:
-    from freecad.menuiserie.features.library import PARAM_PATH
+    from freecad.menuiserie.features.settings import PARAM_PATH
     from freecad.menuiserie.gui.task_panels.edge_targets import VIEW_KEY
 
     params = App.ParamGet(PARAM_PATH)
