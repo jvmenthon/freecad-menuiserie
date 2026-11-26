@@ -27,7 +27,9 @@ from freecad.menuiserie.gui.drag.badge_place import (
     Slot,
     badge_width_px,
     facing_ends,
+    point_rect,
     screen_angle,
+    segment_rects,
     spread,
 )
 from freecad.menuiserie.gui.drag.drawing import (
@@ -107,11 +109,11 @@ def test_trois_fleches_et_quatre_poignees() -> None:
         (1, True),
     ]
     centers = {(h.axis, h.at_end): p for h, p in layout.handles}
-    # Sur la face, à un quart de la largeur (faces X) ou de la longueur du milieu, l'une vers
-    # chaque bout : hors du tracé des flèches, qui partent du centre (410, 120, 41).
-    assert centers[(0, False)] == Vec3(10, 170, 41)
+    # Sur la face, à un quart de la largeur (faces X) ou de la longueur du milieu vers le début,
+    # les deux d'un axe alignés : hors du tracé des flèches, qui partent du centre (410, 120, 41).
+    assert centers[(0, False)] == Vec3(10, 70, 41)
     assert centers[(0, True)] == Vec3(810, 70, 41)
-    assert centers[(1, False)] == Vec3(610, 20, 41)
+    assert centers[(1, False)] == Vec3(210, 20, 41)
     assert centers[(1, True)] == Vec3(210, 220, 41)
     for arrow in layout.arrows:
         span = arrow.end - arrow.start
@@ -126,15 +128,15 @@ def test_trois_fleches_et_quatre_poignees() -> None:
 
 
 def test_point_des_poignees_sur_chaque_face() -> None:
-    """``handle_point`` : sur la face, décalé d'un quart (Y pour les faces X, X sinon), l'un
-    vers chaque bout ; les deux ronds d'un axe sont symétriques par rapport au centre."""
+    """``handle_point`` : sur la face, décalé d'un quart (Y pour les faces X, X sinon) vers le
+    début ; les deux ronds d'un axe sont alignés sur une parallèle à cet axe."""
     box = Box.from_ranges([(0, 800), (0, 200), (0, 22)])
     expected = {
-        (0, False): (0, 150, 11),
+        (0, False): (0, 50, 11),
         (0, True): (800, 50, 11),
-        (1, False): (600, 0, 11),
+        (1, False): (200, 0, 11),
         (1, True): (200, 200, 11),
-        (2, False): (600, 100, 0),
+        (2, False): (200, 100, 0),
         (2, True): (200, 100, 22),
     }
     for (axis, at_end), (x, y, z) in expected.items():
@@ -148,7 +150,7 @@ def test_poignees_d_epaisseur_ecartees_du_depart_des_fleches() -> None:
     start = layout.arrows[0].start
     top, bottom = centers[(2, True)], centers[(2, False)]
     assert (top.x, top.y) == (start.x - 200, start.y)  # un quart des 800 mm vers le début
-    assert (bottom.x, bottom.y) == (start.x + 200, start.y)
+    assert (bottom.x, bottom.y) == (top.x, top.y)  # alignés sur l'axe Z
     assert top.z > start.z > bottom.z
 
 
@@ -253,8 +255,23 @@ def test_etiquettes_ecartees_si_elles_se_touchent() -> None:
     reaches = dict(spread([one, two, far]))
     assert reaches["a"] == pytest.approx(1.9) and reaches["c"] == pytest.approx(1.9)
     assert reaches["b"] >= 1.9 + 64 / 24  # 64 pixels plus loin au moins : plus de contact
-    stuck = Slot("d", (0.0, 0.0), (0.0, 0.0), 60.0, 24.0)  # vue de bout : ne s'écarte pas
-    assert dict(spread([one, stuck]))["d"] == pytest.approx(1.9 + 6 * 0.8)
+    stuck = Slot("d", (0.0, 0.0), (0.0, 0.0), 60.0, 24.0)  # vue de bout : reculer n'aide pas
+    assert dict(spread([one, stuck]))["d"] == pytest.approx(1.9)  # ne recule pas pour rien
+
+
+def test_etiquette_ecartee_des_ronds_et_des_fleches() -> None:
+    """Une étiquette ne couvre ni un rond ni une flèche de déplacement : elle recule."""
+    slot = Slot("a", (0.0, 0.0), (24.0, 0.0), 60.0, 24.0)
+    knob = point_rect((46.0, 0.0), 10.0)  # sous l'étiquette posée à 1,9 unité
+    assert dict(spread([slot], obstacles=[knob]))["a"] > 1.9
+    assert dict(spread([slot], obstacles=[(math.nan, 0.0, 1.0, 1.0)]))["a"] == 1.9
+    arrow = segment_rects((0.0, 0.0), (100.0, 0.0), 5.0)
+    assert len(arrow) == 21 and arrow[0] == (-5.0, -5.0, 5.0, 5.0)
+    assert segment_rects((0.0, 0.0), (math.inf, 0.0), 5.0) == ()
+    # Vue de dessus : l'étiquette de la longueur, posée à 1,9 unité, toucherait son rond.
+    layout = named(build_layout(FRAME, BOX, 100.0, frozenset(), frozenset({0})))
+    placed = on_screen(layout, 1.0, project, Vec3(0, 0, -1))
+    assert dict(placed.badge_reach)[handle_key(Handle(0, True))] > 1.9
 
 
 def test_etiquette_a_distance_constante_a_l_ecran() -> None:
@@ -290,7 +307,7 @@ def test_zone_de_saisie_des_poignees() -> None:
         ((810, 70), (867, 70), None),
     ]
     other = [t for t in targets if t.key == handle_key(Handle(0, False))]
-    assert [(t.start, t.end) for t in other] == [((10, 170), None)]
+    assert [(t.start, t.end) for t in other] == [((10, 70), None)]
     key = handle_key(Handle(0, True))
     assert handle_at(targets, (867 + 40, 70 + 8)) == key  # bord droit de l'étiquette
     assert handle_at(targets, (867, 70 - 13)) is None  # sous l'étiquette

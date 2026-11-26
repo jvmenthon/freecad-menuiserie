@@ -24,13 +24,13 @@ def mouse_ray(focal: Vec3, direction: Vec3, camera: Vec3 | None) -> Ray:
 
 def handle_point(box: Box, handle: Handle) -> Vec3:
     """Point de la poignée ``handle`` de ``box`` (repère de la pièce) : sur sa face, décalé du
-    milieu d'un quart de la longueur (de la largeur pour les faces de bout, axe X), l'une vers
-    chaque bout : le milieu tombe sur le tracé de la flèche de son axe, qui part du centre."""
+    milieu d'un quart de la longueur (de la largeur pour les faces de bout, axe X) vers le
+    début ; le milieu tombe sur le tracé de la flèche de son axe, qui part du centre. Les deux
+    poignées d'un axe sont alignées, sur une parallèle à cet axe."""
     values = [box.center(i) for i in range(3)]
     values[handle.axis] = box.hi(handle.axis) if handle.at_end else box.lo(handle.axis)
     side = 1 if handle.axis == 0 else 0
-    quarter = (box.hi(side) - box.lo(side)) / 4
-    values[side] += -quarter if handle.at_end else quarter
+    values[side] -= (box.hi(side) - box.lo(side)) / 4
     return Vec3.of(values)
 
 

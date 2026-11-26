@@ -19,7 +19,13 @@ from typing import Final
 
 from PySide import QtCore, QtGui
 
-from freecad.menuiserie.gui.drag.badge_place import BADGE_H_PX, LOCK_PX, badge_width_px
+from freecad.menuiserie.gui.drag.badge_place import (
+    BADGE_H_PX,
+    KNOB_HOT_PX,
+    KNOB_PX,
+    LOCK_PX,
+    badge_width_px,
+)
 from freecad.menuiserie.gui.drag.drawing import AXIS_COLORS, LOCKED_COLOR, BadgeState, Color
 
 __all__ = ["badge_pixels", "clear_badge_cache", "knob_pixels"]
@@ -38,8 +44,6 @@ LOCK_PEN: Final = 2.2
 VALUE_INK: Final = "#1d2733"
 LOCKED_INK: Final = "#4a5563"
 _CACHE: Final = 256
-KNOB_PX: Final = 16.0  # diamètre du rond d'une face, survolé ensuite
-KNOB_HOT_PX: Final = 20.0
 KNOB_ARROW: Final = 0.32  # demi-longueur de la flèche du rond, part du diamètre
 KNOB_HEAD: Final = 0.16  # barbes de la flèche, part du diamètre
 KNOB_ARROW_PEN: Final = 1.6

@@ -2,9 +2,9 @@
 """Place des étiquettes de cote à l'écran (ADR 0068, maquette K « une étiquette par cote »).
 
 Une seule étiquette par cote, sur la face tournée vers la caméra (:func:`facing_ends`) ; la face
-d'en face n'a qu'un rond. Deux étiquettes qui se touchent à l'écran sont écartées : la seconde
-recule le long de son axe, d'un pas à la fois (:func:`spread`). Calcul pur, en pixels ; aucun
-import de FreeCAD, de Qt ni de pivy.
+d'en face n'a qu'un rond. Une étiquette qui touche à l'écran une autre étiquette, un rond ou une
+flèche recule le long de son axe, d'un pas à la fois (:func:`spread`). Calcul pur, en pixels ;
+aucun import de FreeCAD, de Qt ni de pivy.
 """
 
 from __future__ import annotations
@@ -20,16 +20,20 @@ from freecad.menuiserie.core.vectors import dot, is_finite, norm
 __all__ = [
     "BADGE_H_PX",
     "BADGE_REACH",
+    "KNOB_HOT_PX",
+    "KNOB_PX",
     "Slot",
     "badge_width_px",
     "facing_ends",
+    "point_rect",
     "screen_angle",
+    "segment_rects",
     "spread",
 ]
 
 BADGE_REACH: Final = 1.9  # centre de l'étiquette : distance à la face, en unités de poignée
 REACH_STEP: Final = 0.8  # recul d'une étiquette qui en touche une autre, en unités de poignée
-MAX_PUSHES: Final = 6
+MAX_PUSHES: Final = 8
 MIN_VIEW: Final = 1e-12  # direction de vue plus courte : caméra dégénérée
 EDGE_ON: Final = 1e-6  # face vue par la tranche (bruit flottant compris) : comptée visible
 GAP_PX: Final = 4.0  # écart minimal entre deux étiquettes (pixels logiques)
@@ -39,6 +43,8 @@ NAME_CHAR_PX: Final = 7.2  # largeur d'un caractère du nom, police de 11,5 px e
 VALUE_PAD_PX: Final = 14.0
 VALUE_CHAR_PX: Final = 8.0  # largeur d'un chiffre de la cote, police de 13 px en gras
 LOCK_PX: Final = 16.0  # place du cadenas d'une cote figée
+KNOB_PX: Final = 16.0  # diamètre du rond d'une face (pixels logiques), survolé ensuite
+KNOB_HOT_PX: Final = 20.0
 ANGLE_STEP: Final = 15.0  # flèche d'un rond : angle arrondi (degrés), peu d'images à garder
 MIN_ARROW_PX: Final = 2.0  # axe plus court à l'écran : vu de bout, pas de flèche
 
@@ -90,6 +96,34 @@ class Slot:
         return (x - self.width / 2, y - self.height / 2, x + self.width / 2, y + self.height / 2)
 
 
+Rect = tuple[float, float, float, float]  # gauche, bas, droite, haut (pixels)
+
+
+def point_rect(point: tuple[float, float], half: float) -> Rect:
+    """Carré de demi-côté ``half`` centré sur ``point``."""
+    return (point[0] - half, point[1] - half, point[0] + half, point[1] + half)
+
+
+def segment_rects(
+    start: tuple[float, float], end: tuple[float, float], half: float
+) -> tuple[Rect, ...]:
+    """Carrés de demi-côté ``half`` qui couvrent le segment de ``start`` à ``end`` (un tous les
+    ``half`` pixels, au plus 64) ; aucun si un bout n'est pas fini."""
+    if not all(math.isfinite(v) for v in (*start, *end, half)) or half <= 0:
+        return ()
+    count = min(64, max(1, math.ceil(math.dist(start, end) / half)))
+    return tuple(
+        point_rect(
+            (
+                start[0] + (end[0] - start[0]) * i / count,
+                start[1] + (end[1] - start[1]) * i / count,
+            ),
+            half,
+        )
+        for i in range(count + 1)
+    )
+
+
 def _overlap(
     a: tuple[float, float, float, float], b: tuple[float, float, float, float], gap: float
 ) -> bool:
@@ -99,23 +133,29 @@ def _overlap(
 
 
 def spread(
-    slots: Sequence[Slot], base: float = BADGE_REACH, scale: float = 1.0
+    slots: Sequence[Slot],
+    base: float = BADGE_REACH,
+    scale: float = 1.0,
+    obstacles: Sequence[Rect] = (),
 ) -> tuple[tuple[str, float], ...]:
     """Recul de chaque étiquette (clé, unités de poignée) : ``base``, plus un pas tant qu'elle
-    touche une étiquette déjà posée, à moins de :data:`GAP_PX` fois ``scale`` (rapport de pixels
-    de l'écran) ; au plus :data:`MAX_PUSHES` pas : une étiquette vue de bout ne s'écarte pas en
-    reculant."""
+    touche une étiquette déjà posée ou un des ``obstacles`` (ronds, flèches), à moins de
+    :data:`GAP_PX` fois ``scale`` (rapport de pixels de l'écran) ; au plus :data:`MAX_PUSHES`
+    pas : si rien n'est libre (étiquette vue de bout), le recul qui touche le moins."""
     gap = GAP_PX * scale
-    placed: list[tuple[float, float, float, float]] = []
+    placed: list[Rect] = [r for r in obstacles if all(math.isfinite(v) for v in r)]
     reaches = []
     for slot in slots:
         if not all(math.isfinite(v) for v in (*slot.face, *slot.step, slot.width, slot.height)):
             continue  # projection ratée : recul par défaut, jamais un NaN dans la disposition
-        reach = base
-        for _ in range(MAX_PUSHES):
-            if not any(_overlap(slot.rect(reach), other, gap) for other in placed):
+        best, fewest = base, -1
+        for push in range(MAX_PUSHES + 1):
+            reach = base + push * REACH_STEP
+            hits = sum(_overlap(slot.rect(reach), other, gap) for other in placed)
+            if fewest < 0 or hits < fewest:
+                best, fewest = reach, hits
+            if hits == 0:
                 break
-            reach += REACH_STEP
-        placed.append(slot.rect(reach))
-        reaches.append((slot.key, reach))
+        placed.append(slot.rect(best))
+        reaches.append((slot.key, best))
     return tuple(reaches)

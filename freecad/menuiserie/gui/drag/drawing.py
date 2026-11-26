@@ -41,10 +41,14 @@ from freecad.menuiserie.core.text import mm_text
 from freecad.menuiserie.gui.drag.badge_place import (
     BADGE_H_PX,
     BADGE_REACH,
+    KNOB_HOT_PX,
+    Rect,
     Slot,
     badge_width_px,
     facing_ends,
+    point_rect,
     screen_angle,
+    segment_rects,
     spread,
 )
 from freecad.menuiserie.gui.drag.rings import (
@@ -92,6 +96,7 @@ ARROW_PX: Final = 80.0  # longueur des flèches à l'écran
 HEAD_RATIO: Final = 0.15  # barbes de la pointe, part de la longueur
 HANDLE_RATIO: Final = 0.3  # unité de longueur des poignées, part des flèches
 MAX_SIZE_CHARS: Final = 9  # cote écrite sur une étiquette : au plus 9 caractères
+ARROW_CLEAR_PX: Final = 5.0  # demi-largeur d'une flèche qu'une étiquette évite (pixels)
 LINK_PX: Final = 2.0  # trait de l'étiquette à sa face (pixels), survolé ensuite
 LINK_HOT_PX: Final = 3.0
 FACE_TRANSPARENCY: Final = 0.7  # face survolée d'une poignée, à la couleur de son axe
@@ -666,8 +671,8 @@ def _axis_angles(
 def on_screen(layout: Layout, scale: float, project: Project, view: Vec3) -> Layout:
     """``layout`` posée dans la vue : rapport de pixels ``scale`` de l'écran, direction de chaque
     axe à l'écran (flèche des ronds), étiquette de chaque cote sur la face tournée vers la caméra
-    (``view`` : direction de la vue), puis étiquettes écartées l'une de l'autre à l'écran
-    (:func:`spread`)."""
+    (``view`` : direction de la vue), puis étiquettes écartées l'une de l'autre, des ronds et
+    des flèches à l'écran (:func:`spread`)."""
     axes = (layout.frame.x, layout.frame.y, layout.frame.z)
     angles = _axis_angles(layout, project)
     placed = replace(
@@ -681,7 +686,20 @@ def on_screen(layout: Layout, scale: float, project: Project, view: Vec3) -> Lay
         x, y = project(_badge_center(placed, key, handle, point, 1.0))
         width, height = _badge_size(placed, key, handle)
         slots.append(Slot(key, face, (x - face[0], y - face[1]), width, height))
-    return replace(placed, badge_reach=spread(slots, scale=scale))
+    obstacles = _obstacles(placed, project, scale)
+    return replace(placed, badge_reach=spread(slots, scale=scale, obstacles=obstacles))
+
+
+def _obstacles(layout: Layout, project: Project, scale: float) -> list[Rect]:
+    """Ce qu'une étiquette ne doit pas couvrir à l'écran : les ronds (survolés : leur plus grande
+    taille) et les flèches de déplacement."""
+    knob = KNOB_HOT_PX / 2 * scale
+    rects = [point_rect(project(point), knob) for _, _, point in _all_handles(layout)]
+    for arrow in layout.arrows:
+        rects.extend(
+            segment_rects(project(arrow.start), project(arrow.end), ARROW_CLEAR_PX * scale)
+        )
+    return rects
 
 
 class Throttle:

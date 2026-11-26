@@ -30,11 +30,13 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
    aussi. Chaque rond porte une petite double flèche blanche dans la direction de son axe à
    l'écran (`badge_place.screen_angle`, au pas de 15° ; aucune sur un rond grisé ni sur un axe
    vu de bout). Le rond n'est pas au milieu de la face mais décalé d'un quart de la largeur (faces
-   de bout) ou de la longueur, l'un vers chaque bout (`core.magnet.handle_point`) : le milieu
-   tombe sur le tracé de la flèche de déplacement de son axe (jv, 2026-11-26) ; un ensemble suit
-   la même règle (`furniture_layout`). Deux étiquettes qui se touchent à l'écran sont écartées :
-   la seconde recule le long de son axe (`badge_place.spread`). Au survol d'une poignée, son
-   rond grossit, son étiquette a un halo et **la face qui va bouger s'allume** en transparence, à la couleur de l'axe. Une cote
+   de bout) ou de la longueur vers le début (`core.magnet.handle_point`) : le milieu tombe sur le
+   tracé de la flèche de déplacement de son axe, et les deux ronds d'un axe restent alignés sur
+   une parallèle à cet axe (jv, 2026-11-26) ; un ensemble suit la même règle
+   (`furniture_layout`). Une étiquette ne couvre ni une autre étiquette, ni un rond, ni une
+   flèche de déplacement : elle recule le long de son axe (`badge_place.spread`), du recul qui
+   touche le moins si rien n'est libre. Au survol d'une poignée, son rond grossit, son étiquette
+   a un halo et **la face qui va bouger s'allume** en transparence, à la couleur de l'axe. Une cote
    impossible est grise, avec un cadenas après la valeur. Le même dessin sert à la pièce et à
    l'ensemble (fin des doubles flèches et des cubes).
 2. L'étiquette est une image peinte par Qt (lissage, ombre, halo : `gui/drag/badges.py`) et posée
