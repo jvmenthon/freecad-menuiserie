@@ -53,6 +53,9 @@ def _taper(champ: Any, texte: str) -> None:
     QTest.keyClick(champ, QtCore.Qt.Key.Key_A, QtCore.Qt.KeyboardModifier.ControlModifier)
     QTest.keyClick(champ, QtCore.Qt.Key.Key_Backspace)  # efface la sélection (champ vidé)
     QTest.keyClicks(champ, texte)
+    # Entrée valide la saisie même si la fenêtre n'a pas le focus (xvfb de la CI) ; Tab seul
+    # ne déclenche pas toujours la fin d'édition hors d'une fenêtre active.
+    QTest.keyClick(champ, QtCore.Qt.Key.Key_Return)
     QTest.keyClick(champ, QtCore.Qt.Key.Key_Tab)
     _traiter()
 
