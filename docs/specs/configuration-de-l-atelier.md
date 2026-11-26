@@ -169,7 +169,7 @@ assemblage). Les règles :
     (fenêtre d'aperçu), `page_exchange` (boutons et parcours), `page_dialogs` (dialogues
     remplaçables : aucun `QFileDialog` réel en test), `page_extra` et `ExtraRow` (ligne fournie
     par l'atelier, point d'extension de la page).
-- **CA-d** : reste des réglages, dossier des projets.
+- **CA-d** : reste des réglages, dossier des projets (en cours : voir ci-dessous).
   Fait : édition de `dimensions.json`. Groupe « Épaisseurs et formats » (avant « Stockage »),
   ligne « Épaisseurs et formats personnels » : résumé (« 3 épaisseurs, 1 format ») et
   « Modifier… », qui ouvre `gui/dimensions_dialog.py` (deux listes, valeurs de l'atelier en gris
@@ -177,6 +177,31 @@ assemblage). Les règles :
   L'édition reste en attente dans la page et n'est écrite (écriture atomique) qu'à OK ou Appliquer.
   « Rétablir tout » ne touche pas à `dimensions.json` (dit dans l'infobulle de la ligne). Un import
   coché reprend aussi les dimensions dans l'état en attente de l'éditeur.
+  Fait : reste des réglages R de l'inventaire. Règle : un réglage qui influence un document est
+  **copié** dans l'objet à sa création et jamais relu au recalcul (principe de l'ADR 0070) ; un
+  réglage d'interface est lu à l'usage. « Dernier utilisé » pour les valeurs proposées par un
+  formulaire. Catalogues dans `features/settings_hardware.py`, `settings_templates.py`,
+  `settings_output.py` et `settings_interface.py` ; lecteurs dans `features/new_part_settings.py`,
+  `joint_settings.py`, `template_settings.py` et `interface_settings.py`.
+
+  | Groupe | Réglage (clé, défaut) | Lu où |
+  |---|---|---|
+  | Pièces neuves | Sens du fil (`NewPartGrain`, Automatique = celui du matériau ; Longueur, Largeur) | copié dans la pièce neuve (`apply_new_grain`) ; sans effet sur une pièce sans fil ; pas sur les pièces des gabarits |
+  | Pièces neuves | Surcotes de débit du panneau | déjà fait (CA-b) |
+  | Taquets | Pas (`ShelfPinPitch`, 32 mm), diamètre (`ShelfPinDiameter`, 5 mm), profondeur (`ShelfPinDepth`, 12 mm) ; dernier utilisé | copiés dans le perçage LR32 à sa création quand ils sont modifiés (`HoleDiameter` et `HoleDepth` restent à 0 = automatique sinon) ; les gabarits gardent leurs choix |
+  | Gabarits | Caisson : largeur, profondeur, hauteur, épaisseur, fond, feuillure du fond (`CarcassWidth`…, 600 × 400 × 720, 18, 8, 10 mm) ; dernier utilisé | proposés à l'ouverture du formulaire du caisson ; l'API `make_carcass` reste sur les valeurs de `core` |
+  | Liste de débit | Préfixe des repères (`CutListMarkPrefix`, « M ») | copié dans les repères écrits par « Numéroter les repères » |
+  | Liste de débit | Dossier d'export (`CutListExportFolder`, vide = dossier du document) | lu à l'ouverture de la boîte d'export CSV et PDF |
+  | Plans cotés | Format de feuille (`DrawingPageFormat`, A3, clé déjà utilisée) ; dernier utilisé | proposé par le formulaire du plan ; plan fait sans format : celui du réglage |
+  | Affichage | Pas de rotation aimanté (`RotationSnapStep`, 15°, de 1° à 90°) | lu au début de chaque rotation à la souris |
+  | Affichage | Ouvrir le panneau Structure au démarrage (`StructureAutoOpen`, oui) | lu à l'activation de l'atelier ; le panneau fermé par l'utilisateur reste fermé |
+
+  Écarté, à décider : **cartouche préféré** (§ 12 de l'inventaire). L'atelier fournit son propre
+  gabarit de page pour chaque format et sens (`resources/templates`), toujours choisi en premier :
+  `pick_template` (modèles ISO 7200 ou 5457 de TechDraw) ne sert qu'à défaut, donc un réglage
+  n'aurait aucun effet visible. À reprendre avec l'identité de l'atelier (nom, auteur), quand
+  plusieurs cartouches seront proposés. Reste du lot : dossier des projets (assistant « Nouveau
+  projet », pas encore fait) et lignes E (groupe « Avancé »).
 
 ## 8. Questions pour jv
 
