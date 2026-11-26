@@ -35,8 +35,8 @@ pourquoi elle manquait. jv a demandé (2026-11-24) :
 2. L'étiquette est une image peinte par Qt (lissage, ombre, halo : `gui/drag/badges.py`) et posée
    par un `SoImage` (taille fixe à l'écran, multipliée par le rapport de pixels de l'écran) ;
    le rond du milieu de chaque face est peint de même (`knob_pixels`), à la couleur exacte de
-   son étiquette ; les images sont gardées
-   en cache (vidé au retrait du glissement : `clear_badge_cache`).
+   son étiquette ; les images sont gardées en cache (vidé au retrait du glissement :
+   `clear_badge_cache`).
    `overlay.py` reste le seul module qui importe pivy. La cote est écrite par `core.text.mm_text`,
    commun à l'étiquette et à l'infobulle d'épaisseur.
 3. **Poignées impossibles** : `DragLimits.locked_sizes` donne, pour chaque axe qui ne se tire

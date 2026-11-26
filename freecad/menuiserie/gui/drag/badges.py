@@ -54,6 +54,11 @@ def _color(rgb: Color) -> QtGui.QColor:
     return QtGui.QColor.fromRgbF(*rgb)
 
 
+def _axis_color(axis: int, locked: bool) -> QtGui.QColor:
+    """Couleur d'une cote : celle de son axe, grise si elle est figée (étiquette et rond)."""
+    return _color(LOCKED_COLOR if locked else AXIS_COLORS[axis % 3])
+
+
 def _lock(painter: QtGui.QPainter, color: QtGui.QColor, scale: float) -> None:
     """Cadenas centré sur l'origine du peintre."""
     painter.save()
@@ -153,7 +158,7 @@ def _paint(name: str, text: str, state: BadgeState, axis: int, scale: float) -> 
         QtGui.QImage.Format_ARGB32_Premultiplied,
     )
     image.fill(QtCore.Qt.transparent)
-    color = _color(LOCKED_COLOR if locked else AXIS_COLORS[axis % 3])
+    color = _axis_color(axis, locked)
     painter = QtGui.QPainter(image)
     try:
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
@@ -178,7 +183,7 @@ def _paint_knob(axis: int, locked: bool, hot: bool, scale: float) -> QtGui.QImag
         return QtGui.QImage()
     image = QtGui.QImage(side, side, QtGui.QImage.Format_ARGB32_Premultiplied)
     image.fill(QtCore.Qt.transparent)
-    color = _color(LOCKED_COLOR if locked else AXIS_COLORS[axis % 3])
+    color = _axis_color(axis, locked)
     offset = (side - diameter) / 2
     body = QtCore.QRectF(offset, offset, diameter, diameter)
     painter = QtGui.QPainter(image)
@@ -226,6 +231,8 @@ def knob_pixels(axis: int, locked: bool, hot: bool, scale: float) -> tuple[int, 
     """Largeur, hauteur et pixels RVBA (ordre de Coin) du rond d'une face de poignée : couleur de
     l'axe ``axis`` (celle de son étiquette), gris si ``locked``, plus gros avec un halo si
     ``hot``, à l'échelle ``scale``."""
+    if locked and axis != 0:  # rond gris : le même pour tous les axes
+        return knob_pixels(0, locked, hot, scale)
     return _coin_pixels(_paint_knob(axis, locked, hot, scale))
 
 
