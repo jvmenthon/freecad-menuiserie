@@ -15,13 +15,14 @@ from freecad.menuiserie.core.edges import EdgeFamily
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
-from freecad.menuiserie.features.i18n import report_warning, translated
+from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.new_part_settings import (
     apply_new_allowances,
     broken_edge_designation,
     broken_edge_size,
     new_dimensions,
     new_material_id,
+    warn_broken_edge_refused,
 )
 from freecad.menuiserie.features.shaped_create import (
     create_shaped_part,
@@ -35,11 +36,6 @@ from freecad.menuiserie.features.wood_part import create_wood_part, validated_ar
 # --- Pièce de bois (J1) -------------------------------------------------------------------
 
 
-_BROKEN_EDGE_REFUSED = QT_TRANSLATE_NOOP(
-    "Menuiserie", "Arête cassée non ajoutée à « {label} » : {error}"
-)
-
-
 def _add_broken_edge(part: DocumentObject) -> None:
     """Arête cassée de l'atelier sur toutes les arêtes d'une pièce neuve, si le réglage est
     coché ; un refus (forme dessinée aux arêtes courbes, par exemple) est un avertissement, la
@@ -50,11 +46,7 @@ def _add_broken_edge(part: DocumentObject) -> None:
     try:
         add_edge_profile(part, broken_edge_designation(part), EdgeFamily.ROUND, size)
     except (TypeError, ValueError) as error:
-        report_warning(
-            translated(
-                _BROKEN_EDGE_REFUSED, {"label": quoted_value(part.Label), "error": str(error)}
-            )
-        )
+        warn_broken_edge_refused(part, error)
 
 
 def make_wood_part(

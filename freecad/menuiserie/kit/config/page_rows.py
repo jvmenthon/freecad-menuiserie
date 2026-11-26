@@ -17,12 +17,13 @@ from PySide import QtCore, QtGui
 from . import page_model as model
 from .catalog import MAX_TEXT_LENGTH, Kind, Setting, Value
 
-__all__ = ["Editor", "Row", "make_editor"]
+__all__ = ["Editor", "Row", "ignoring_arguments", "make_editor"]
 
 _WIDE: Final = 1.0e9  # borne d'un nombre sans minimum ni maximum
 _DECIMALS: Final = 2
 _FIELD_WIDTH: Final = 220
 _GREY: Final = "color: gray;"
+_BOLD: Final = "font-weight: bold;"
 Widget = Any
 
 
@@ -34,6 +35,25 @@ class Editor:
     get: Callable[[], Value]
     set: Callable[[Value], None]
     subscribe: Callable[[Callable[[], None]], None]
+
+
+def ignoring_arguments(call: Callable[[], None]) -> Callable[..., None]:
+    """Fonction à brancher sur un signal Qt : elle ignore les arguments du signal et appelle
+    ``call`` sans argument."""
+
+    def slot(*_arguments: object) -> None:
+        call()
+
+    return slot
+
+
+def _subscriber(signal: Any) -> Callable[[Callable[[], None]], None]:
+    """Abonnement d'un éditeur au signal de modification de son widget."""
+
+    def subscribe(call: Callable[[], None]) -> None:
+        signal.connect(ignoring_arguments(call))
+
+    return subscribe
 
 
 def _quiet(widget: Widget, write: Callable[[Value], None]) -> Callable[[Value], None]:
@@ -55,9 +75,7 @@ def _bool_editor(_setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: 
     def write(value: Value) -> None:
         box.setChecked(bool(value))
 
-    return Editor(
-        box, box.isChecked, _quiet(box, write), lambda call: box.toggled.connect(lambda _: call())
-    )
+    return Editor(box, box.isChecked, _quiet(box, write), _subscriber(box.toggled))
 
 
 def _spin_range(setting: Setting) -> tuple[float, float]:
@@ -80,9 +98,7 @@ def _int_editor(setting: Setting, _choices: Sequence[tuple[Value, str]], tr: Any
     def write(value: Value) -> None:
         box.setValue(int(value))
 
-    return Editor(
-        box, box.value, _quiet(box, write), lambda call: box.valueChanged.connect(lambda _: call())
-    )
+    return Editor(box, box.value, _quiet(box, write), _subscriber(box.valueChanged))
 
 
 def _float_editor(setting: Setting, _choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
@@ -95,30 +111,31 @@ def _float_editor(setting: Setting, _choices: Sequence[tuple[Value, str]], tr: A
     def write(value: Value) -> None:
         box.setValue(float(value))
 
-    return Editor(
-        box, box.value, _quiet(box, write), lambda call: box.valueChanged.connect(lambda _: call())
-    )
+    return Editor(box, box.value, _quiet(box, write), _subscriber(box.valueChanged))
 
 
-def _combo_editor(setting: Setting, choices: Sequence[tuple[Value, str]], _tr: Any) -> Editor:
+def _combo_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
     combo = QtGui.QComboBox()
     for stored, label in choices or [(value, value) for value in setting.choices]:
         combo.addItem(label, stored)
+    absent: list[Value] = []  # valeur enregistrée hors de la liste, ajoutée comme élément
 
     def write(value: Value) -> None:
+        while absent:  # l'élément « absent » précédent n'a plus lieu d'être
+            combo.removeItem(combo.findData(absent.pop()))
         index = combo.findData(value)
-        combo.setCurrentIndex(max(index, 0))
+        if index < 0:
+            label = tr(model.ABSENT_VALUE).replace("{value}", str(value))
+            combo.addItem(label, value)
+            absent.append(value)
+            index = combo.count() - 1
+        combo.setCurrentIndex(index)
 
     def read() -> Value:
         data = combo.currentData()
         return data if data is not None else setting.default
 
-    return Editor(
-        combo,
-        read,
-        _quiet(combo, write),
-        lambda call: combo.currentIndexChanged.connect(lambda _: call()),
-    )
+    return Editor(combo, read, _quiet(combo, write), _subscriber(combo.currentIndexChanged))
 
 
 def _text_editor(_setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: Any) -> Editor:
@@ -128,12 +145,7 @@ def _text_editor(_setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: 
     def write(value: Value) -> None:
         field.setText(str(value))
 
-    return Editor(
-        field,
-        field.text,
-        _quiet(field, write),
-        lambda call: field.textChanged.connect(lambda _: call()),
-    )
+    return Editor(field, field.text, _quiet(field, write), _subscriber(field.textChanged))
 
 
 def _path_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: Any) -> Editor:
@@ -154,7 +166,7 @@ def _path_editor(setting: Setting, choices: Sequence[tuple[Value, str]], tr: Any
         if folder:
             inner.widget.setText(folder)
 
-    button.clicked.connect(lambda _checked=False: browse())
+    button.clicked.connect(ignoring_arguments(browse))
     return Editor(holder, inner.get, inner.set, inner.subscribe)
 
 
@@ -199,18 +211,20 @@ class Row:
         for widget in (self.label, self.editor.widget):
             widget.setToolTip(tip)
         shown = model.format_value(setting, setting.default, translate, choices)
-        self.default_label = QtGui.QLabel(translate(model.DEFAULT_VALUE).format(value=shown))
+        self.default_label = QtGui.QLabel(translate(model.DEFAULT_VALUE).replace("{value}", shown))
         self.default_label.setStyleSheet(_GREY)
         self.remember = (
             QtGui.QCheckBox(translate(model.LAST_USED)) if setting.remember_last else None
         )
         if self.remember is not None:
             self.remember.setToolTip(translate(model.LAST_USED_TIP))
-            self.remember.toggled.connect(lambda _checked: changed())
+            self.remember.toggled.connect(self._remember_toggled)
         self.reset_button = _reset_button(translate)
-        self.reset_button.clicked.connect(lambda _checked=False: self.reset())
+        self.reset_button.clicked.connect(self._reset_clicked)
         self._changed = changed
+        self.dirty = False  # vrai si l'utilisateur a touché à la ligne depuis le dernier chargement
         self.editor.subscribe(self._edited)
+        self.modified_shown = False  # libellé en gras : ligne modifiée
         self._bold(False)
 
     def widgets(self) -> list[Widget | None]:
@@ -235,8 +249,10 @@ class Row:
         """Vrai si la case « Dernier utilisé » est cochée."""
         return self.remember is not None and bool(self.remember.isChecked())
 
-    def load(self, value: Value, remembers: bool) -> None:
-        """Affiche ``value`` et l'état de la case, sans signal."""
+    def load(self, value: Value, remembers: bool, *, dirty: bool = False) -> None:
+        """Affiche ``value`` et l'état de la case, sans signal ; la ligne n'est « modifiée »
+        (à écrire) que si ``dirty``."""
+        self.dirty = dirty
         self.editor.set(value)
         if self.remember is not None:
             blocked = self.remember.blockSignals(True)
@@ -246,7 +262,14 @@ class Row:
 
     def reset(self) -> None:
         """Valeur par défaut, case décochée (écrit à l'enregistrement de la page)."""
-        self.load(self.setting.default, False)
+        self.load(self.setting.default, False, dirty=True)
+        self._changed()
+
+    def _reset_clicked(self, *_arguments: object) -> None:
+        self.reset()
+
+    def _remember_toggled(self, *_arguments: object) -> None:
+        self.dirty = True
         self._changed()
 
     def is_modified(self) -> bool:
@@ -254,6 +277,7 @@ class Row:
         return self.value() != self.setting.default
 
     def _edited(self) -> None:
+        self.dirty = True
         self._refresh()
         self._changed()
 
@@ -261,9 +285,10 @@ class Row:
         self._bold(self.is_modified())
 
     def _bold(self, bold: bool) -> None:
-        font = self.label.font()
-        font.setBold(bold)
-        self.label.setFont(font)
+        """Libellé en gras si la ligne est modifiée. La feuille de style s'impose à celle de
+        FreeCAD, qui ignore ``setFont`` ; ``modified_shown`` donne l'état affiché."""
+        self.modified_shown = bold
+        self.label.setStyleSheet(_BOLD if bold else "")
 
 
 def _reset_button(translate: model.Translate) -> Widget:

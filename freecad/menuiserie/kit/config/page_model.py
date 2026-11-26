@@ -43,6 +43,7 @@ BROWSE: Final = "…"
 BROWSE_TIP: Final = "Choisir un dossier"
 NOTHING_FOUND: Final = "Aucun réglage ne correspond à la recherche."
 DEFAULT_VALUE: Final = "Par défaut : {value}"
+ABSENT_VALUE: Final = "{value} (absente)"
 EMPTY: Final = "vide"
 YES: Final = "oui"
 NO: Final = "non"
@@ -63,6 +64,7 @@ PAGE_TEXTS: Final = (
     BROWSE_TIP,
     NOTHING_FOUND,
     DEFAULT_VALUE,
+    ABSENT_VALUE,
     EMPTY,
     YES,
     NO,
@@ -112,10 +114,12 @@ def count_modified(catalog: Catalog, values: Mapping[str, Value], keys: Sequence
 def group_summary(total: int, modified: int, translate: Translate = identity) -> str:
     """« (N réglages, M modifiés) » d'un groupe replié ; les modifiés sont omis s'il n'y en a pas
     (pluriel à partir de 2, comme en français)."""
-    count = translate(ONE_SETTING if total < 2 else MANY_SETTINGS).format(count=total)
+    count = translate(ONE_SETTING if total < 2 else MANY_SETTINGS).replace("{count}", str(total))
     if not modified:
         return f"({count})"
-    changed = translate(ONE_MODIFIED if modified < 2 else MANY_MODIFIED).format(count=modified)
+    changed = translate(ONE_MODIFIED if modified < 2 else MANY_MODIFIED).replace(
+        "{count}", str(modified)
+    )
     return f"({count}, {changed})"
 
 

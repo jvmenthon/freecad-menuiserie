@@ -283,15 +283,16 @@ class ObjectTaskPanel(TransactionTaskPanel):
         self.obj = obj
 
     def accept(self) -> bool:
-        """« OK » : à la création, les valeurs de l'objet sont retenues pour « Dernier utilisé »
-        (réglages de l'atelier), puis la transaction est validée."""
-        if self.creating:
+        """« OK » : la transaction est validée ; à la création, les valeurs de l'objet sont
+        ensuite retenues pour « Dernier utilisé » (réglages de l'atelier)."""
+        accepted = super().accept()
+        if accepted and self.creating:
             from freecad.menuiserie.features.record_created import record_created
 
             record_created(
                 self.obj
             )  # import différé : tire les assemblages et les pièces dessinées
-        return super().accept()
+        return accepted
 
     def preview(self) -> None:
         """Aperçu : l'objet et ce qui en dépend, sans le reste du document."""

@@ -69,16 +69,27 @@ def test_choix_et_textes() -> None:
         catalog.get("Profil").check("Ogee")
     assert refus.value.reason is Reason.NOT_A_CHOICE
     path = catalog.get("Dossier")
-    assert path.check("D:\\Atelier") == "D:\\Atelier"
+    assert path.check("/donnees/atelier") == "/donnees/atelier"
     for value, reason in (
-        ("a" * (MAX_TEXT_LENGTH + 1), Reason.TEXT_TOO_LONG),
+        ("/" + "a" * MAX_TEXT_LENGTH, Reason.TEXT_TOO_LONG),
         ("ligne\nsuivante", Reason.FORBIDDEN_CHARACTER),
         ("\u202edossier", Reason.FORBIDDEN_CHARACTER),
     ):
         with pytest.raises(SettingError) as refus:
             path.check(value)
         assert refus.value.reason is reason
-    assert path.check("a" * MAX_TEXT_LENGTH)
+    assert path.check("/" + "a" * (MAX_TEXT_LENGTH - 1))
+
+
+def test_chemin_relatif_refuse_et_dossier_personnel_accepte() -> None:
+    path = sample_catalog().get("Dossier")
+    assert path.check("") == ""  # vide : valeur par défaut
+    for value in ("atelier/pieces", "./pieces", "~utilisateur/pieces"):
+        with pytest.raises(SettingError) as refus:
+            path.check(value)
+        assert refus.value.reason is Reason.NOT_ABSOLUTE
+    assert path.check("~") == "~"
+    assert path.check("~/atelier") == "~/atelier"
 
 
 @pytest.mark.parametrize(

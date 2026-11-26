@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from tests.unit.aides import ROOT, imported_modules
@@ -34,3 +35,12 @@ def test_seule_la_page_importe_qt_par_la_couche_pyside() -> None:
         roots = _roots(path)
         assert not roots & {"PySide2", "PySide6"}, path.name
         assert ("PySide" in roots) == (path.name in QT_PAGES), path.name
+
+
+def test_pages_sans_lambda() -> None:
+    """Pas de lambda dans la page (Semgrep ``return-in-init`` sur les ``__init__``) : méthodes
+    liées, ``partial`` ou fonctions nommées."""
+    for name in sorted(QT_PAGES):
+        tree = ast.parse((KIT / "config" / name).read_text(encoding="utf-8"))
+        lambdas = [node.lineno for node in ast.walk(tree) if isinstance(node, ast.Lambda)]
+        assert not lambdas, (name, lambdas)

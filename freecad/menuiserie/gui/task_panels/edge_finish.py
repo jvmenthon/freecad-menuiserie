@@ -28,10 +28,8 @@ from freecad.menuiserie import api, icon_path
 from freecad.menuiserie.core.edges import EdgeFamily, SecondSize, family_for
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.text import quoted_value
-from freecad.menuiserie.features.edge_frames import edge_index, edge_label
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS, designated_edges
 from freecad.menuiserie.features.edge_profile_native import part_refusal
-from freecad.menuiserie.features.edge_settings import proposed_profile, record_profile_used
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.gui.edge_highlight import EdgeHighlight, Entry
@@ -44,6 +42,12 @@ from freecad.menuiserie.gui.task_panels.base import (
     connect,
     length_spinbox,
 )
+from freecad.menuiserie.gui.task_panels.edge_finish_dialogs import confirm_replacement, piece_edges
+from freecad.menuiserie.gui.task_panels.edge_finish_settings import (
+    default_size_b,
+    proposal,
+    record_accepted,
+)
 from freecad.menuiserie.gui.task_panels.edge_targets import PieceList
 from freecad.menuiserie.gui.view_providers.edge_profile import ICON
 
@@ -55,15 +59,9 @@ _FAMILY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Profil")
 _SIZE_A: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote A (rayon, distance)")
 _SIZE_B: Final = QT_TRANSLATE_NOOP("Menuiserie", "Cote B")
 _DELETE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Supprimer ce profil")
-_REPLACE_TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Arêtes déjà profilées")
-_REPLACE_TEXT: Final = QT_TRANSLATE_NOOP(
-    "Menuiserie",
-    "Ces arêtes ont déjà un profil : {edges}. Le nouveau profil le remplace. Continuer ?",
-)
 _CONFLICT_NOTE: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Déjà profilées ailleurs (remplacées à la validation) : {edges}."
 )
-_PIECE_EDGES: Final = QT_TRANSLATE_NOOP("Menuiserie", "{piece} : {edges}")
 _IGNORED: Final = QT_TRANSLATE_NOOP(
     "Menuiserie", "Cliquez sur une pièce de bois, une de ses faces, arêtes ou sommets."
 )
@@ -151,11 +149,11 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._family.setObjectName("family")
         for family in EdgeFamily:
             self._family.addItem(translated(FAMILY_LABELS[family]), family.value)
-        proposed_family, proposed_size = proposed_profile()  # réglages de l'atelier (ADR 0069)
-        self._family.setCurrentIndex(self._family.findData(proposed_family.value))
+        proposed = proposal()  # réglages de l'atelier (ADR 0069)
+        self._family.setCurrentIndex(self._family.findData(proposed.family.value))
         form.addRow(translated(_FAMILY), self._family)
-        self._size_a = length_spinbox("size_a", proposed_size)
-        self._size_b = length_spinbox("size_b", 0.0)
+        self._size_a = length_spinbox("size_a", proposed.size_a)
+        self._size_b = length_spinbox("size_b", proposed.size_b)
         self._label_b = QtGui.QLabel(translated(_SIZE_B))
         form.addRow(translated(_SIZE_A), self._size_a)
         form.addRow(self._label_b, self._size_b)
@@ -193,6 +191,11 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         self._size_b.setVisible(visible)
 
     def _family_changed(self, *_changed: object) -> None:
+        if self._needs_size_b() and float(self._size_b.property("rawValue")) <= 0.0:
+            with self._guard:  # cote B nulle : celle par défaut du profil (A), jamais 0
+                self._size_b.setProperty(
+                    "rawValue", default_size_b(float(self._size_a.property("rawValue")))
+                )
         self._show_size_b()
         self.rebuild()
 
@@ -271,7 +274,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
                 self._failed = True
                 continue
             if mine:
-                conflicts.append(self._piece_edges(part, mine))
+                conflicts.append(piece_edges(part, mine))
         if conflicts:
             messages.append(translated(_CONFLICT_NOTE, {"edges": " ; ".join(conflicts)}))
         self._show_message("\n".join(messages))
@@ -293,13 +296,6 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
             return (translated(_NO_EDGE, {"piece": quoted_value(part.Label)}),)
         self._remove_profile(part.Name)
         return ()
-
-    @staticmethod
-    def _piece_edges(part: DocumentObject, codes: Sequence[str]) -> str:
-        shown = [edge_label(index) if (index := edge_index(c)) else c for c in codes]
-        return translated(
-            _PIECE_EDGES, {"piece": quoted_value(part.Label), "edges": ", ".join(shown)}
-        )
 
     def _apply(self, part: DocumentObject, codes: list[str], *, replace: bool) -> tuple[str, ...]:
         """Profil de ``part`` créé, modifié ou retiré d'après les champs, pour ``codes`` ;
@@ -359,7 +355,7 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
         ]
         conflicts = [entry for entry in conflicts if entry[2]]
         if conflicts:
-            listed = " ; ".join(self._piece_edges(part, mine) for part, _codes, mine in conflicts)
+            listed = " ; ".join(piece_edges(part, mine) for part, _codes, mine in conflicts)
             if not self._confirmed(listed):
                 return False
             try:
@@ -371,19 +367,15 @@ class EdgeFinishTaskPanel(TransactionTaskPanel):
                 return False
         if not any(self._profile_of(name) is not None for name in self._profiles):
             return self.reject()
-        if self.creating:
-            size = float(self._size_a.property("rawValue"))
-            record_profile_used(str(self._family.currentData()), size)
-        return super().accept()
+        family, size_a = str(self._family.currentData()), self._size_a.property("rawValue")
+        creating = self.creating
+        accepted = super().accept()
+        if accepted and creating:
+            record_accepted(family, float(size_a))
+        return accepted
 
     def _confirmed(self, conflicts: str) -> bool:
-        box = QtGui.QMessageBox(self.form)
-        box.setIcon(QtGui.QMessageBox.Icon.Question)
-        box.setWindowTitle(translated(_REPLACE_TITLE))
-        box.setTextFormat(QtCore.Qt.TextFormat.PlainText)  # libellés venus du document
-        box.setText(translated(_REPLACE_TEXT, {"edges": conflicts}))
-        box.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
-        return bool(box.exec() == QtGui.QMessageBox.Yes)
+        return confirm_replacement(self.form, conflicts)
 
 
 def show_panel(picks: Sequence[Pick] = (), refusals: Sequence[str] = ()) -> None:

@@ -9,11 +9,14 @@ répétition gardent leurs valeurs. Sans réglage modifié, les valeurs sont cel
 from __future__ import annotations
 
 from freecad.menuiserie.core.edges import EdgeId, all_edges
+from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import MaterialKind
 from freecad.menuiserie.core.part_model import Allowances, Dimensions
+from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import settings as config
 from freecad.menuiserie.features.edge_profile_native import native_shape
 from freecad.menuiserie.features.freecad_types import DocumentObject
+from freecad.menuiserie.features.i18n import report_warning, translated
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.shaped_part import is_shaped_part
 from freecad.menuiserie.features.wood_material import part_kind
@@ -25,10 +28,13 @@ __all__ = [
     "new_allowances",
     "new_dimensions",
     "new_material_id",
-    "record_part_used",
+    "warn_broken_edge_refused",
 ]
 
-_DIMENSIONS = ("Length", "Width", "Thickness")
+_BROKEN_EDGE_REFUSED = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Arête cassée non ajoutée à « {label} » : {error}"
+)
+
 _ALLOWANCE_KEYS = (*config.SOLID_ALLOWANCES, *config.PANEL_ALLOWANCES)
 _ALLOWANCE_PROPERTIES = ("LengthAllowance", "WidthAllowance", "ThicknessAllowance")
 
@@ -86,14 +92,9 @@ def broken_edge_designation(part: DocumentObject) -> list[EdgeId] | list[str]:
     return [f"Edge{index}" for index in range(1, count + 1)]
 
 
-def record_part_used(part: DocumentObject) -> None:
-    """« Dernier utilisé » : cotes, matériau et surcotes de la pièce créée, retenus pour les
-    réglages dont la case est cochée."""
-    values = config.settings()
-    for key, prop in zip((config.LENGTH, config.WIDTH, config.THICKNESS), _DIMENSIONS, strict=True):
-        values.record_used(key, getattr(part, prop).Value)
-    values.record_used(config.MATERIAL, part.MaterialId)
-    solid = part_kind(part, None) is MaterialKind.SOLID
-    keys = config.SOLID_ALLOWANCES if solid else config.PANEL_ALLOWANCES
-    for key, name in zip(keys, _ALLOWANCE_PROPERTIES, strict=True):
-        values.record_used(key, getattr(part, name).Value)
+def warn_broken_edge_refused(part: DocumentObject, error: Exception) -> None:
+    """Avertissement dans la vue rapport : l'arête cassée de l'atelier est refusée pour ``part``,
+    qui est créée quand même."""
+    report_warning(
+        translated(_BROKEN_EDGE_REFUSED, {"label": quoted_value(part.Label), "error": str(error)})
+    )

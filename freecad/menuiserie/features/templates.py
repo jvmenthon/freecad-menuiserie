@@ -49,13 +49,17 @@ from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joints.base import JointFeature
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
-from freecad.menuiserie.features.joints.factories import create_joint
+from freecad.menuiserie.features.joints.factories import create_joint_with_settings
 from freecad.menuiserie.features.joints.miter import MiterJoint
 from freecad.menuiserie.features.joints.rabbet import RabbetJoint
 from freecad.menuiserie.features.joints.tongue_groove import TongueGrooveJoint
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.machined_part import blank_of, machined_part_of
-from freecad.menuiserie.features.new_part_settings import apply_new_allowances, broken_edge_size
+from freecad.menuiserie.features.new_part_settings import (
+    apply_new_allowances,
+    broken_edge_size,
+    warn_broken_edge_refused,
+)
 from freecad.menuiserie.features.wood_part import create_wood_part, validated_arguments
 
 __all__ = ["Built", "build_carcass", "build_layout"]
@@ -208,8 +212,8 @@ def _part(
 
 def _broken_edges(parts: list[DocumentObject]) -> list[DocumentObject]:
     """Profil « arête cassée » de l'atelier sur chaque pièce neuve, si le réglage est coché ;
-    la pièce usinée est créée au besoin. Une arête refusée est ignorée (le gabarit se construit
-    quand même), comme pour une pièce seule."""
+    la pièce usinée est créée au besoin. Une arête refusée est signalée par un avertissement (le
+    gabarit se construit quand même), comme pour une pièce seule."""
     size = broken_edge_size()
     if size is None:
         return []
@@ -217,8 +221,8 @@ def _broken_edges(parts: list[DocumentObject]) -> list[DocumentObject]:
     for part in parts:
         try:
             profiles.append(create_edge_profile(part, list(all_edges()), EdgeFamily.ROUND, size))
-        except (TypeError, ValueError):
-            continue
+        except (TypeError, ValueError) as error:
+            warn_broken_edge_refused(part, error)
     return profiles
 
 
@@ -259,7 +263,7 @@ def build_layout(
         apply_new_allowances(obj)
     parts = {**created, **({layout.anchor: anchor.obj} if anchor and layout.anchor else {})}
     joints = [
-        create_joint(
+        create_joint_with_settings(
             JOINT_CLASSES[spec.kind], doc, parts[spec.host], parts[spec.guest], spec.params
         )
         for spec in layout.joints

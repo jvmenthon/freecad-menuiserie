@@ -8,11 +8,13 @@ l'atelier qui utilise ce module en fait un message traduit.
 from __future__ import annotations
 
 import math
+import os
 import re
 import unicodedata
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import PurePath
 from typing import Final, TypeAlias
 
 __all__ = [
@@ -58,6 +60,7 @@ class Reason(str, Enum):
     NOT_A_CHOICE = "not_a_choice"
     TEXT_TOO_LONG = "text_too_long"
     FORBIDDEN_CHARACTER = "forbidden_character"
+    NOT_ABSOLUTE = "not_absolute"
 
 
 class SettingError(ValueError):
@@ -144,7 +147,17 @@ class Setting:
             raise SettingError(self.key, Reason.TEXT_TOO_LONG, MAX_TEXT_LENGTH)
         if any(unicodedata.category(char) in _FORBIDDEN_CATEGORIES for char in value):
             raise SettingError(self.key, Reason.FORBIDDEN_CHARACTER)
+        if self.kind is Kind.PATH and value and not _is_absolute(value):
+            raise SettingError(self.key, Reason.NOT_ABSOLUTE)
         return value
+
+
+def _is_absolute(text: str) -> bool:
+    """Vrai si le chemin est absolu ; « ~ » seul ou suivi d'un séparateur est le dossier de
+    l'utilisateur (``~nom`` n'est pas développé : il interrogerait la base des comptes)."""
+    if text == "~" or text.startswith(("~/", "~\\")):
+        text = os.path.expanduser(text)
+    return PurePath(text).is_absolute()
 
 
 def coerce(setting: Setting, raw: object) -> Value:

@@ -17,7 +17,7 @@ from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated, translated_errors
 from freecad.menuiserie.features.joint_names import joint_label
-from freecad.menuiserie.features.joint_settings import apply_joint_settings
+from freecad.menuiserie.features.joint_settings import apply_joint_settings, explicit_params
 from freecad.menuiserie.features.joints.base import JointFeature, write_params
 from freecad.menuiserie.features.joints.dovetail import DovetailJoint
 from freecad.menuiserie.features.joints.dowels import DowelJoint
@@ -48,6 +48,7 @@ __all__ = [
     "create_foot",
     "create_half_lap",
     "create_joint",
+    "create_joint_with_settings",
     "create_loose_tenons",
     "create_miter",
     "create_mortise_tenon",
@@ -120,6 +121,23 @@ def create_joint(
         machined = ensure_machined_part(blank)
         machined.Joints = [*machined.Joints, obj]
     return obj
+
+
+def create_joint_with_settings(
+    joint_class: type[JointFeature],
+    doc: Document,
+    host: DocumentObject,
+    guest: DocumentObject,
+    params: object,
+) -> DocumentObject:
+    """Comme :func:`create_joint` pour des paramètres déjà construits (gabarit) : les réglages
+    modifiés de l'atelier (:func:`apply_joint_settings`) donnent leur valeur aux paramètres que
+    ``params`` laisse à leur défaut ; ceux que ``params`` fixe lui-même sont gardés."""
+    explicit = explicit_params(params)
+    wanted = apply_joint_settings(joint_class.KIND, explicit)
+    if wanted != explicit:
+        params = _validated(joint_class.PARAMS, wanted)
+    return create_joint(joint_class, doc, host, guest, params)
 
 
 def _create(

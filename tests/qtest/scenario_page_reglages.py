@@ -107,7 +107,8 @@ class PageReglages(unittest.TestCase):
     def test_ecriture_a_la_validation_seulement(self) -> None:
         ligne = self.page._rows["Jeu"]
         _taper(ligne.editor.widget, "5")
-        self.assertTrue(ligne.label.font().bold())
+        self.assertTrue(ligne.modified_shown)
+        self.assertIn("bold", ligne.label.styleSheet())
         self.assertEqual(self.reglages.value("Jeu"), 2.0)  # rien d'écrit avant « OK »
         _cliquer(ligne.remember)
         self.page.saveSettings()
@@ -121,7 +122,8 @@ class PageReglages(unittest.TestCase):
         self.page._rows["Nombre"].editor.widget.setValue(9)
         _cliquer(ligne.reset_button)
         self.assertEqual(ligne.value(), 2.0)
-        self.assertFalse(ligne.label.font().bold())
+        self.assertFalse(ligne.modified_shown)
+        self.assertEqual(ligne.label.styleSheet(), "")
         self.assertEqual(self.page._rows["Nombre"].value(), 9)  # les autres lignes restent
         self.page.saveSettings()
         self.assertEqual(self.reglages.value("Nombre"), 9)
@@ -142,6 +144,20 @@ class PageReglages(unittest.TestCase):
         _taper(champ, "/donnees/atelier")
         self.page.saveSettings()
         self.assertEqual(self.reglages.value("Dossier"), "/donnees/atelier")
+
+    def test_dossier_relatif_refuse_et_non_ecrit(self) -> None:
+        champ = self.page._rows["Dossier"].editor.widget.layout().itemAt(0).widget()
+        _taper(champ, "atelier/pieces")
+        self.page.saveSettings()
+        self.assertEqual(self.reglages.value("Dossier"), "")  # refusé : jamais écrit
+        self.assertEqual(champ.text(), "")  # la ligne retrouve la valeur enregistrée
+
+    def test_ligne_non_touchee_n_est_pas_reecrite(self) -> None:
+        self.reglages.set("Nombre", 5)
+        self.page.loadSettings()
+        self.reglages.set("Nombre", 6)  # changé ailleurs pendant que la page est ouverte
+        self.page.saveSettings()  # « OK » sans toucher à cette ligne
+        self.assertEqual(self.reglages.value("Nombre"), 6)
 
 
 MATERIAU = Setting(

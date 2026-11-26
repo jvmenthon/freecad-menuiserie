@@ -16,7 +16,6 @@ from typing import Any
 import pytest
 
 from freecad.menuiserie.core.edges import EdgeFamily
-from freecad.menuiserie.core.materials import MaterialKind
 from freecad.menuiserie.core.part_model import Allowances, Dimensions
 from tests.unit.aides import ROOT
 from tests.unit.aides_reglages import settings_module
@@ -107,27 +106,6 @@ def test_bornes_des_cotes_de_profil_acceptees_par_le_noyau(config: Any) -> None:
         assert setting.minimum is not None and setting.minimum >= cut.MIN_SIZE_MM, key
         for value in (setting.minimum, setting.maximum):
             assert cut.resolved_sizes(EdgeFamily.ROUND, value, 0.0, "x") == (value, value)
-
-
-def test_dernier_utilise_des_pieces_ne_touche_que_les_reglages_a_case(config: Any) -> None:
-    """Cotes, matériau et surcotes n'ont pas de case « Dernier utilisé » : une pièce créée (même
-    avec des cotes aberrantes) ne change aucun de ces réglages et ne lève rien."""
-    new_part = importlib.import_module("freecad.menuiserie.features.new_part_settings")
-    part = types.SimpleNamespace(
-        PropertiesList=["Category"],
-        Category="MDF",
-        Length=quantity(0.0),
-        Width=quantity(-5.0),
-        Thickness=quantity(1.0e12),
-        MaterialId="inconnu",
-        LengthAllowance=quantity(7.0),
-        WidthAllowance=quantity(3.0),
-        ThicknessAllowance=quantity(1.0),
-    )
-    new_part.record_part_used(part)
-    assert new_part.new_dimensions() == Dimensions(800.0, 200.0, 22.0)
-    assert new_part.new_allowances(MaterialKind.MDF) == Allowances(0.0, 0.0, 0.0)
-    assert new_part.new_material_id() is None
 
 
 def test_record_used_refuse_une_valeur_hors_bornes(config: Any) -> None:

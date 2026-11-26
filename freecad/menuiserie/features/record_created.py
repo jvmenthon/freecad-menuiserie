@@ -10,16 +10,12 @@ from __future__ import annotations
 from freecad.menuiserie.features.freecad_types import DocumentObject
 from freecad.menuiserie.features.joint_settings import record_joint_used
 from freecad.menuiserie.features.joints.base import JointFeature
-from freecad.menuiserie.features.new_part_settings import record_part_used
-from freecad.menuiserie.features.wood_material_proxy import MaterialProxy
 
 __all__ = ["record_created"]
 
 
 def record_created(obj: DocumentObject) -> None:
-    """Retient les valeurs de la pièce ou de l'assemblage ``obj`` pour les réglages concernés."""
-    proxy = getattr(obj, "Proxy", None)
-    if isinstance(proxy, JointFeature):
+    """Retient les valeurs de l'assemblage ``obj`` pour les réglages concernés (les réglages
+    d'une pièce — cotes, matériau, surcotes — n'ont pas de case « Dernier utilisé »)."""
+    if isinstance(getattr(obj, "Proxy", None), JointFeature):
         record_joint_used(obj)
-    elif isinstance(proxy, MaterialProxy):
-        record_part_used(obj)

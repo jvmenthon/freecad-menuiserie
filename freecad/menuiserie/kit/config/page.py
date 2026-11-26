@@ -11,13 +11,14 @@ FreeCAD est ``form``, ``saveSettings`` et ``loadSettings``.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any, Final
 
 from PySide import QtCore, QtGui
 
 from . import page_model as model
 from .catalog import Catalog, SettingError
-from .page_rows import Row
+from .page_rows import Row, ignoring_arguments
 from .store import Settings
 
 __all__ = ["SettingsPage"]
@@ -59,7 +60,7 @@ class _Group:
                     grid.addWidget(widget, index, column)
         outer.addWidget(self.body)
         self.expanded = True
-        self.header.clicked.connect(lambda _checked=False: on_toggle(self))
+        self.header.clicked.connect(ignoring_arguments(partial(on_toggle, self)))
         self.show_state()
 
     def show_state(self) -> None:
@@ -110,8 +111,8 @@ class SettingsPage:
         self.search.setPlaceholderText(self._translate(model.SEARCH))
         self.advanced = QtGui.QCheckBox(self._translate(model.ADVANCED))
         self.advanced.setObjectName("advanced")
-        self.search.textChanged.connect(lambda _text: self._refresh())
-        self.advanced.toggled.connect(lambda _checked: self._refresh())
+        self.search.textChanged.connect(ignoring_arguments(self._refresh))
+        self.advanced.toggled.connect(ignoring_arguments(self._refresh))
         bar.addWidget(self.search, 1)
         bar.addWidget(self.advanced)
         return bar
@@ -143,7 +144,7 @@ class SettingsPage:
         button = QtGui.QPushButton(self._translate(model.RESET_ALL))
         button.setObjectName("resetAll")
         button.setToolTip(self._translate(model.RESET_ALL_TIP))
-        button.clicked.connect(lambda _checked=False: self.reset_all())
+        button.clicked.connect(ignoring_arguments(self.reset_all))
         bar.addWidget(button)
         bar.addStretch(1)
         return bar
@@ -187,9 +188,12 @@ class SettingsPage:
         self._refresh()
 
     def saveSettings(self) -> None:
-        """Écrit les valeurs affichées : une valeur par défaut efface le paramètre. Une valeur
-        refusée par le catalogue n'est pas écrite et la ligne retrouve sa valeur enregistrée."""
+        """Écrit les lignes modifiées : une valeur par défaut efface le paramètre. Une ligne non
+        touchée n'est pas réécrite ; une valeur refusée par le catalogue n'est pas écrite et la
+        ligne retrouve sa valeur enregistrée."""
         for key, row in self._rows.items():
+            if not row.dirty:
+                continue
             try:
                 self._save(key, row)
             except SettingError:
@@ -204,9 +208,10 @@ class SettingsPage:
             self.settings.set(key, value)
         if row.remember is not None:
             self.settings.set_remember_last(key, row.remembers())
+        row.dirty = False
 
     def reset_all(self) -> None:
         """Toutes les lignes à leur valeur par défaut (écrit à l'enregistrement de la page)."""
         for row in self._rows.values():
-            row.load(row.setting.default, False)
+            row.load(row.setting.default, False, dirty=True)
         self._refresh()

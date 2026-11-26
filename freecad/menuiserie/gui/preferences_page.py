@@ -13,7 +13,7 @@ from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.edge_profile import FAMILY_LABELS
-from freecad.menuiserie.features.i18n import translate_text
+from freecad.menuiserie.features.i18n import report_warning, translate_text
 from freecad.menuiserie.features.library import display_language, get_library
 from freecad.menuiserie.features.settings import CATALOG, EDGE_PROFILE, MATERIAL, settings
 from freecad.menuiserie.kit.config.catalog import Value
@@ -24,6 +24,9 @@ __all__ = ["GROUP_NAME", "TITLE", "MenuiseriePreferencePage"]
 
 GROUP_NAME: Final = "Menuiserie"  # entrée de la liste des pages (nom du paramètre d'icône)
 TITLE: Final = QT_TRANSLATE_NOOP("Menuiserie", "Réglages de l'atelier")
+LIBRARY_UNAVAILABLE: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie", "Bibliothèque de matériaux illisible : {error}"
+)
 FIRST_MATERIAL: Final = QT_TRANSLATE_NOOP("Menuiserie", "Premier matériau de la bibliothèque")
 
 # Textes de la page générique (``kit.config.page_model.PAGE_TEXTS``), déclarés ici pour la
@@ -42,6 +45,7 @@ PAGE_TEXTS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "Choisir un dossier"),
     QT_TRANSLATE_NOOP("Menuiserie", "Aucun réglage ne correspond à la recherche."),
     QT_TRANSLATE_NOOP("Menuiserie", "Par défaut : {value}"),
+    QT_TRANSLATE_NOOP("Menuiserie", "{value} (absente)"),
     QT_TRANSLATE_NOOP("Menuiserie", "vide"),
     QT_TRANSLATE_NOOP("Menuiserie", "oui"),
     QT_TRANSLATE_NOOP("Menuiserie", "non"),
@@ -54,10 +58,15 @@ PAGE_TEXTS: Final = (
 
 def material_choices() -> list[tuple[Value, str]]:
     """Matériaux de la bibliothèque (identifiant, nom), précédés du choix « premier matériau »
-    (identifiant vide)."""
-    language = display_language()
+    (identifiant vide) ; seul ce choix reste si la bibliothèque ne peut pas être lue."""
     first: tuple[Value, str] = ("", translate_text(FIRST_MATERIAL))
-    return [first, *((material.id, material.name(language)) for material in get_library())]
+    try:
+        language = display_language()
+        library = [(material.id, material.name(language)) for material in get_library()]
+    except Exception as error:  # une bibliothèque en panne ne bloque pas la page
+        report_warning(translate_text(LIBRARY_UNAVAILABLE).replace("{error}", str(error)))
+        library = []
+    return [first, *library]
 
 
 def profile_choices() -> list[tuple[Value, str]]:
