@@ -26,6 +26,10 @@ DISPLAY: Final = QT_TRANSLATE_NOOP("Menuiserie", "Affichage")
 
 _MIN_ROTATION_STEP_DEG: Final = 1.0
 _MAX_ROTATION_STEP_DEG: Final = 90.0
+_STRUCTURE_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Ouvre le panneau Structure à l'activation de l'atelier, sauf si vous l'avez fermé.",
+)
 
 
 def interface_settings() -> list[Setting]:
@@ -48,11 +52,7 @@ def interface_settings() -> list[Setting]:
             STRUCTURE_AUTO_OPEN,
             True,
             QT_TRANSLATE_NOOP("Menuiserie", "Ouvrir le panneau Structure au démarrage"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie",
-                "Ouvre le panneau Structure à l'activation de l'atelier, sauf si vous l'avez "
-                "fermé.",
-            ),
+            _STRUCTURE_TIP,
             DISPLAY,
             remember_last=False,
         ),

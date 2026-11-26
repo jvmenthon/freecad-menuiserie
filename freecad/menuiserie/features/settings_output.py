@@ -26,6 +26,10 @@ __all__ = [
 # Clés (noms des paramètres FreeCAD, figés : une clé renommée perd la valeur de l'utilisateur).
 MARK_PREFIX: Final = "CutListMarkPrefix"
 CUTLIST_EXPORT_FOLDER: Final = "CutListExportFolder"
+_MARK_PREFIX_TIP: Final = QT_TRANSLATE_NOOP(
+    "Menuiserie",
+    "Lettres placées devant le numéro des repères automatiques. Vide : « M ».",
+)
 DRAWING_FORMAT: Final = "DrawingPageFormat"  # clé déjà utilisée par les plans, gardée
 
 CUTLIST: Final = QT_TRANSLATE_NOOP("Menuiserie", "Liste de débit")
@@ -40,11 +44,7 @@ def output_settings() -> list[Setting]:
             Kind.TEXT,
             DEFAULT_MARK_PREFIX,
             QT_TRANSLATE_NOOP("Menuiserie", "Préfixe des repères"),
-            QT_TRANSLATE_NOOP(
-                "Menuiserie",
-                "Lettres placées devant le numéro des repères attribués par la numérotation "
-                "automatique. Vide : « M ».",
-            ),
+            _MARK_PREFIX_TIP,
             CUTLIST,
         ),
         Setting(
