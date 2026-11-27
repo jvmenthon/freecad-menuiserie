@@ -74,11 +74,12 @@ def count_unmarked_parts(doc: Document, objects: Sequence[DocumentObject] | None
 def number_marks(
     doc: Document,
     objects: Sequence[DocumentObject] | None = None,
-    prefix: str = "M",
+    prefix: str | None = None,
 ) -> dict[str, str]:
     """Numérote les pièces sans repère de ``doc`` (ou de ``objects``) : un repère ``<prefix><n>``
     par groupe de pièces identiques (mêmes cotes, matériau, fil, surcotes et ajouts), au premier
-    numéro libre, ensemble puis cotes décroissantes. Les pièces qui ont déjà un repère ne
+    numéro libre, ensemble puis cotes décroissantes. ``prefix`` absent : le préfixe réglé dans
+    l'atelier (« M » par défaut). Les pièces qui ont déjà un repère ne
     changent pas ; le libellé suit le repère. Renvoie le repère écrit pour chaque pièce (nom
     interne → repère). Une seule transaction « Numéroter les repères », document recalculé (la
     liste de débit vivante suit). ``ValueError`` traduite pour un préfixe vide ou un objet d'un

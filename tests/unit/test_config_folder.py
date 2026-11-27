@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -78,3 +79,34 @@ def test_ecriture_atomique_ferme_le_descripteur_si_ouverture_echoue(
         write_text_atomic(tmp_path / "f.json", "{}")
     assert len(closed) == 1
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.skipif(os.name == "nt", reason="droits POSIX")
+def test_ecriture_garde_les_droits_du_fichier_existant(tmp_path: Path) -> None:
+    target = tmp_path / "atelier.json"
+    target.write_text("ancien", encoding="utf-8")
+    target.chmod(0o640)
+    write_text_atomic(target, "neuf")
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name == "nt", reason="droits POSIX")
+def test_fichier_neuf_suit_le_masque_de_l_utilisateur(tmp_path: Path) -> None:
+    previous = os.umask(0o027)
+    try:
+        target = tmp_path / "neuf.json"
+        write_text_atomic(target, "x")
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name == "nt", reason="liens symboliques")
+def test_un_lien_symbolique_est_remplace_par_un_fichier(tmp_path: Path) -> None:
+    real = tmp_path / "reel.json"
+    real.write_text("cible", encoding="utf-8")
+    link = tmp_path / "atelier.json"
+    link.symlink_to(real)
+    write_text_atomic(link, "neuf")
+    assert not link.is_symlink()
+    assert real.read_text(encoding="utf-8") == "cible"

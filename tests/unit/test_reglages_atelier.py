@@ -58,8 +58,11 @@ def test_valeurs_par_defaut_celles_du_code(module: Any) -> None:
     assert {key: values.value(key) for key in expected} == expected
 
 
-def test_dernier_utilise_sur_les_chants_et_les_assemblages(module: Any) -> None:
-    """Choix de jv (2026-11-25) : chants et réglages principaux des assemblages."""
+def test_dernier_utilise_sur_les_chants_les_assemblages_et_les_valeurs_proposees(
+    module: Any,
+) -> None:
+    """Choix de jv (2026-11-25) : chants et réglages principaux des assemblages ; puis les
+    valeurs proposées par un formulaire (taquets, caisson, format des plans)."""
     remembered = {s.key for s in module.CATALOG if s.remember_last}
     edges = {
         module.BROKEN_EDGE,
@@ -69,7 +72,9 @@ def test_dernier_utilise_sur_les_chants_et_les_assemblages(module: Any) -> None:
     }
     joints = {s.key for s in module.CATALOG if s.group == module.JOINTS}
     assert len(joints) == 11
-    assert remembered == edges | joints
+    forms = {s.key for s in module.CATALOG if s.group in (module.SHELF_PINS, module.TEMPLATES)}
+    assert remembered == edges | joints | forms | {module.DRAWING_FORMAT}
+    assert len(forms) == 9
 
 
 def test_groupes_et_textes(module: Any) -> None:
@@ -77,6 +82,11 @@ def test_groupes_et_textes(module: Any) -> None:
         module.NEW_PARTS,
         module.EDGES,
         module.JOINTS,
+        module.SHELF_PINS,
+        module.TEMPLATES,
+        module.CUTLIST,
+        module.DRAWINGS,
+        module.DISPLAY,
         module.STORAGE,
     )
     for setting in module.CATALOG:

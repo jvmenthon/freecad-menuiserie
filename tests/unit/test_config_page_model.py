@@ -8,13 +8,17 @@ import pytest
 from freecad.menuiserie.kit.config.catalog import Catalog, Kind, Setting
 from freecad.menuiserie.kit.config.page_model import (
     PAGE_TEXTS,
+    ExtraRow,
     count_modified,
     format_value,
+    group_order,
     group_summary,
     is_shown,
     matches,
+    merge_pending,
     normalize,
     shown_keys,
+    text_matches,
 )
 from tests.unit.aides_config import length_setting
 
@@ -91,3 +95,39 @@ def test_valeurs_affichees() -> None:
 def test_textes_de_la_page_distincts_et_non_vides() -> None:
     assert len(set(PAGE_TEXTS)) == len(PAGE_TEXTS)
     assert all(text.strip() for text in PAGE_TEXTS)
+
+
+def test_recherche_dans_un_texte_libre() -> None:
+    assert text_matches("Épaisseurs et formats personnels", "FORMATS epaisseurs")
+    assert text_matches("Épaisseurs", "")
+    assert not text_matches("Épaisseurs", "tenon")
+
+
+def _extra(group: str, before: str | None = None) -> ExtraRow:
+    return ExtraRow(group, "Ligne", None, before_group=before)
+
+
+def test_ordre_des_groupes_avec_lignes_supplementaires() -> None:
+    groups = ["Pièces neuves", "Chants", "Stockage"]
+    assert group_order(groups, []) == groups
+    assert group_order(groups, [_extra("Stockage")]) == groups  # groupe du catalogue : inchangé
+    inserted = group_order(groups, [_extra("Dimensions", "Stockage"), _extra("Dimensions")])
+    assert inserted == ["Pièces neuves", "Chants", "Dimensions", "Stockage"]
+    assert group_order(groups, [_extra("Autre", "Inconnu")])[-1] == "Autre"
+    assert group_order(groups, [_extra("Autre")])[-1] == "Autre"
+
+
+def test_ligne_supplementaire_par_defaut_ne_fait_rien() -> None:
+    extra = _extra("Dimensions")
+    extra.load()
+    extra.save()
+    assert extra.pending() is False
+
+
+def test_reprise_d_un_import_dans_une_ligne() -> None:
+    values = {"Jeu": 5.0, "DebouchantRememberLast": True}
+    assert merge_pending("Jeu", values, 2.0, False) == (5.0, False)
+    assert merge_pending("Debouchant", values, False, False) == (False, True)
+    assert merge_pending("Nombre", values, 3, False) is None  # pas dans le fichier
+    both = {"Jeu": 4.0, "JeuRememberLast": True}
+    assert merge_pending("Jeu", both, 2.0, False) == (4.0, True)

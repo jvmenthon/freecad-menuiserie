@@ -6,7 +6,9 @@ Python pur : l'atelier fournit le réglage, l'ancien chemin éventuel et le doss
 
 from __future__ import annotations
 
+import contextlib
 import os
+import stat
 import tempfile
 from pathlib import Path
 
@@ -38,9 +40,24 @@ def workshop_folder(custom: str, legacy_file: str, fallback: Path) -> Path:
     return fallback
 
 
+def _target_mode(path: Path) -> int:
+    """Droits du fichier ``path`` s'il existe (cible d'un lien), sinon ``0o666`` moins le masque
+    de création de l'utilisateur."""
+    try:
+        return stat.S_IMODE(path.stat().st_mode)
+    except OSError:
+        mask = os.umask(0)
+        os.umask(mask)
+        return 0o666 & ~mask
+
+
 def write_text_atomic(path: Path, text: str, prefix: str = ".tmp-") -> None:
     """Écrit ``text`` (UTF-8, fins de ligne ``\\n``) par un fichier temporaire du même dossier
-    puis un remplacement : jamais de fichier à moitié écrit. ``OSError`` si l'écriture échoue."""
+    puis un remplacement : jamais de fichier à moitié écrit. ``OSError`` si l'écriture échoue.
+
+    Le fichier garde les droits de l'ancien (sinon ceux d'un fichier neuf, d'après le masque de
+    l'utilisateur). Si ``path`` est un lien symbolique, le remplacement remplace le lien lui-même,
+    pas sa cible. Sous Windows, seul l'attribut « lecture seule » est reporté."""
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=prefix)
     try:
@@ -53,6 +70,13 @@ def write_text_atomic(path: Path, text: str, prefix: str = ".tmp-") -> None:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
+        _apply_mode(temporary, _target_mode(path))
         os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)
+
+
+def _apply_mode(temporary: str, mode: int) -> None:
+    """Droits ``mode`` sur le fichier temporaire ; ignoré si le système les refuse."""
+    with contextlib.suppress(OSError):  # droits non gérés : le fichier reste utilisable
+        os.chmod(temporary, mode)

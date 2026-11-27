@@ -18,6 +18,7 @@ from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
 from freecad.menuiserie.features.new_part_settings import (
     apply_new_allowances,
+    apply_new_grain,
     broken_edge_designation,
     broken_edge_size,
     new_dimensions,
@@ -47,6 +48,12 @@ def _add_broken_edge(part: DocumentObject) -> None:
         add_edge_profile(part, broken_edge_designation(part), EdgeFamily.ROUND, size)
     except (TypeError, ValueError) as error:
         warn_broken_edge_refused(part, error)
+
+
+def _apply_new_settings(part: DocumentObject) -> None:
+    """Surcotes et sens du fil de l'atelier, écrits dans la pièce neuve (copie, jamais relus)."""
+    apply_new_allowances(part)
+    apply_new_grain(part)
 
 
 def make_wood_part(
@@ -83,7 +90,7 @@ def make_wood_part(
         material_id=material_id,
         mark=mark,
     )
-    apply_new_allowances(obj)
+    _apply_new_settings(obj)
     if App.GuiUp:
         from freecad.menuiserie.gui.view_providers.wood_part import (
             ViewProviderWoodPart,
@@ -128,7 +135,7 @@ def make_shaped_part(
         mark=mark,
         profile_thickness=profile_thickness,
     )
-    apply_new_allowances(part)
+    _apply_new_settings(part)
     _show_shaped([part])
     part.Document.recompute()
     _add_broken_edge(part)
@@ -156,7 +163,7 @@ def make_shaped_parts(
         profile_thickness=profile_thickness,
     )
     for part in parts:
-        apply_new_allowances(part)
+        _apply_new_settings(part)
     _show_shaped(parts)
     source.Document.recompute()
     for part in parts:

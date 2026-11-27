@@ -160,3 +160,13 @@ def test_cle_reservee_au_dernier_utilise_refusee() -> None:
     """Une clé ``…RememberLast`` entrerait en collision avec la case « Dernier utilisé »."""
     with pytest.raises(ValueError, match="réservée"):
         Catalog([length_setting(key=f"Cote{REMEMBER_SUFFIX}")])
+
+
+def test_choix_lu_dans_une_autre_casse() -> None:
+    setting = Setting(
+        "Format", Kind.CHOICE, "A3", "Format", "Format.", "Plans", choices=("A3", "A4")
+    )
+    assert coerce(setting, " a4 ") == "A4"
+    assert coerce(setting, "Z9") == "A3"
+    with pytest.raises(SettingError):
+        setting.check("a4")  # la lecture stricte (import) ne tolère pas la casse

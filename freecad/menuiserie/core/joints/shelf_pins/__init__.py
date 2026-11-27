@@ -20,6 +20,8 @@ from freecad.menuiserie.core.joints._shelf_layout import (
     picked_choice,
 )
 from freecad.menuiserie.core.joints.shelf_pins._params import (
+    AUTO_DEPTH_MM,
+    AUTO_DIAMETER_MM,
     FACES,
     ShelfPinsParams,
     ShelfPinsValues,
@@ -31,6 +33,8 @@ from freecad.menuiserie.core.joints.shelf_pins._strategy import (
 )
 
 __all__ = [
+    "AUTO_DEPTH_MM",
+    "AUTO_DIAMETER_MM",
     "FACES",
     "NOT_UPRIGHT",
     "Neighbor",

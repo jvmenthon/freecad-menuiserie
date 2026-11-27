@@ -11,14 +11,17 @@ FreeCAD est ``form``, ``saveSettings`` et ``loadSettings``.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
 from typing import Any, Final
 
 from PySide import QtCore, QtGui
 
+from . import import_model
 from . import page_model as model
 from .catalog import Catalog, Setting, SettingError
+from .page_dialogs import plain_message
+from .page_extra import ExtraLine
 from .page_rows import Row, ignoring_arguments
 from .store import Settings
 
@@ -32,8 +35,15 @@ _SUMMARY_STYLE: Final = "color: gray;"
 class _Group:
     """Groupe repliable : titre, résumé quand il est replié, grille des lignes."""
 
-    def __init__(self, title: str, rows: list[Row], on_toggle: Callable[[_Group], None]) -> None:
+    def __init__(
+        self,
+        title: str,
+        rows: list[Row],
+        extras: list[ExtraLine],
+        on_toggle: Callable[[_Group], None],
+    ) -> None:
         self.rows = rows
+        self.extras = extras
         self.frame = QtGui.QFrame()
         outer = QtGui.QVBoxLayout(self.frame)
         outer.setContentsMargins(0, 4, 0, 4)
@@ -54,7 +64,8 @@ class _Group:
         self.body = QtGui.QWidget()
         grid = QtGui.QGridLayout(self.body)
         grid.setColumnStretch(1, 1)
-        for index, row in enumerate(rows):
+        lines: list[Row | ExtraLine] = [*rows, *extras]
+        for index, row in enumerate(lines):
             for column, widget in enumerate(row.widgets()):
                 if widget is not None:
                     grid.addWidget(widget, index, column)
@@ -76,7 +87,9 @@ class SettingsPage:
 
     ``translate`` traduit tous les textes (catalogue et page) ; ``choices`` (clé → couples
     valeur, libellé traduit) donne des listes déroulantes à des réglages, par exemple les
-    matériaux d'une bibliothèque pour un texte.
+    matériaux d'une bibliothèque pour un texte. ``extras`` ajoute des lignes propres à l'atelier
+    (:class:`~.page_model.ExtraRow`), dans un groupe du catalogue ou dans un groupe nouveau.
+    ``notify`` reçoit le message d'un enregistrement refusé (par défaut, une boîte de message).
     """
 
     def __init__(
@@ -86,11 +99,15 @@ class SettingsPage:
         *,
         translate: model.Translate = model.identity,
         choices: model.Choices | None = None,
+        extras: Sequence[model.ExtraRow] = (),
+        notify: Callable[[str], None] | None = None,
     ) -> None:
         self.catalog = catalog
         self.settings = settings
         self._translate = translate
         self._choices = choices or {}
+        self._notify = notify or self._warn
+        self._extras = [ExtraLine(extra, translate) for extra in extras]
         self._rows: dict[str, Row] = {}
         self._groups: dict[str, _Group] = {}
         self.form = QtGui.QWidget()
@@ -122,9 +139,10 @@ class SettingsPage:
         area.setWidgetResizable(True)
         content = QtGui.QWidget()
         column = QtGui.QVBoxLayout(content)
-        for title in self.catalog.groups():
+        for title in model.group_order(self.catalog.groups(), [x.extra for x in self._extras]):
             rows = [self._row(s) for s in self.catalog if s.group == title]
-            group = _Group(self._translate(title), rows, self._toggle)
+            extras = [x for x in self._extras if x.extra.group == title]
+            group = _Group(self._translate(title), rows, extras, self._toggle)
             self._groups[title] = group
             column.addWidget(group.frame)
         self.nothing = QtGui.QLabel(self._translate(model.NOTHING_FOUND))
@@ -167,17 +185,33 @@ class SettingsPage:
         for key, row in self._rows.items():
             for widget in row.all_widgets():
                 widget.setVisible(key in shown)
+        anything = bool(shown)
         for group in self._groups.values():
-            keys = [row.setting.key for row in group.rows]
-            mine = [key for key in keys if key in eligible]
-            modified = model.count_modified(self.catalog, values, mine)
-            group.summary.setText(model.group_summary(len(mine), modified, self._translate))
-            found = [key for key in keys if key in shown]
-            group.frame.setVisible(bool(found))
-            if query.strip() and found:
-                group.expanded = True  # une recherche ouvre les groupes où elle trouve
-                group.show_state()
-        self.nothing.setVisible(not shown)
+            found = self._refresh_group(group, shown, eligible, values)
+            anything = anything or found
+        self.nothing.setVisible(not anything)
+
+    def _refresh_group(
+        self, group: _Group, shown: set[str], eligible: set[str], values: Mapping[str, Any]
+    ) -> bool:
+        """Résumé et visibilité d'un groupe ; vrai s'il a une ligne trouvée."""
+        query = self.search.text()
+        keys = [row.setting.key for row in group.rows]
+        mine = [key for key in keys if key in eligible]
+        modified = model.count_modified(self.catalog, values, mine)
+        total = len(mine) + len(group.extras)
+        group.summary.setText(model.group_summary(total, modified, self._translate))
+        found_keys = [key for key in keys if key in shown]
+        found_extras = [line for line in group.extras if line.matches(query)]
+        for line in group.extras:
+            for widget in line.all_widgets():
+                widget.setVisible(line in found_extras)
+        found = bool(found_keys or found_extras)
+        group.frame.setVisible(found)
+        if query.strip() and found:
+            group.expanded = True  # une recherche ouvre les groupes où elle trouve
+            group.show_state()
+        return found
 
     # --- Interface d'une page de préférences de FreeCAD -----------------------------------
 
@@ -185,20 +219,43 @@ class SettingsPage:
         """Affiche les valeurs enregistrées (défaut si absente ou invalide)."""
         for key, row in self._rows.items():
             row.load(self.settings.value(key), self.settings.remembers_last(key))
+        for line in self._extras:
+            line.extra.load()
         self._refresh()
 
     def saveSettings(self) -> None:
         """Écrit les lignes modifiées : une valeur par défaut efface le paramètre. Une ligne non
         touchée n'est pas réécrite ; une valeur refusée par le catalogue n'est pas écrite et la
         ligne retrouve sa valeur enregistrée."""
+        refused = self._refuse_inconsistent()
         for key, row in self._rows.items():
             if not row.dirty:
+                continue
+            if key in refused:
+                row.load(self.settings.value(key), self.settings.remembers_last(key))
                 continue
             try:
                 self._save(key, row)
             except SettingError:
                 row.load(self.settings.value(key), self.settings.remembers_last(key))
+        for line in self._extras:
+            line.extra.save()
         self._refresh()
+
+    def _refuse_inconsistent(self) -> set[str]:
+        """Clés des réglages touchés dont les valeurs, ensemble, violent une relation du
+        catalogue ; elles ne sont pas écrites et l'utilisateur en est averti."""
+        keys: set[str] = set()
+        for relation in self.catalog.violations(self._values()):
+            keys.update(key for key in relation.keys if self._rows[key].dirty)
+        if keys:
+            names = ", ".join(self._translate(self.catalog.get(key).label) for key in sorted(keys))
+            self._notify(model.format_text(self._translate(model.INCONSISTENT), names=names))
+        return keys
+
+    def _warn(self, text: str) -> None:
+        title = self._translate(import_model.EXCHANGE_LABEL)
+        plain_message(self.form, title, text, error=True)
 
     def _save(self, key: str, row: Row) -> None:
         value = row.setting.check(row.value())
@@ -214,3 +271,20 @@ class SettingsPage:
         """Toutes les lignes à leur valeur par défaut (écrit à l'enregistrement de la page)."""
         for row in self._rows.values():
             row.reset()
+
+    def has_pending(self) -> bool:
+        """Vrai si la page a des modifications pas encore écrites (lignes touchées ou reprises
+        d'un import, lignes supplémentaires)."""
+        return any(row.dirty for row in self._rows.values()) or any(
+            line.extra.pending() for line in self._extras
+        )
+
+    def set_pending(self, values: Mapping[str, Any]) -> None:
+        """Reprend ``values`` (clés du fichier d'échange : ``<clé>`` et ``<clé>RememberLast``)
+        dans les champs, sans rien écrire : les lignes touchées apparaissent modifiées et sont
+        écrites avec les autres à :meth:`saveSettings`. Les clés inconnues sont ignorées."""
+        for key, row in self._rows.items():
+            merged = model.merge_pending(key, values, row.value(), row.remembers())
+            if merged is not None:
+                row.load(merged[0], merged[1], dirty=True)
+        self._refresh()

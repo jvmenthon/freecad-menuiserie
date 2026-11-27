@@ -17,6 +17,7 @@ from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.features.cutlist_collect import checked_objects, collect
 from freecad.menuiserie.features.freecad_types import Document, DocumentObject
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.interface_settings import mark_prefix
 from freecad.menuiserie.features.part_names import mark_is_bound
 from freecad.menuiserie.features.shaped_part import is_timber
 
@@ -51,7 +52,7 @@ def count_unmarked(doc: Document, objects: Sequence[DocumentObject] | None = Non
 def number_marks(
     doc: Document,
     objects: Sequence[DocumentObject] | None = None,
-    prefix: str = DEFAULT_MARK_PREFIX,
+    prefix: str | None = None,
 ) -> dict[str, str]:
     """Donne un repère ``<prefix><n>`` à chaque groupe de pièces sans repère de ``doc`` (ou de
     ``objects``, ``None`` ou vide : tout le document) et renvoie le repère écrit pour chaque
@@ -60,10 +61,13 @@ def number_marks(
     cotes décroissantes. Une pièce qui a déjà un repère ne change pas, ni une dont le repère est
     piloté par une expression. Une seule transaction « Numéroter les repères », document
     recalculé (la liste de débit vivante suit) ; rien n'est ouvert s'il n'y a rien à numéroter.
-    ``ValueError`` traduite pour un préfixe vide ou un objet d'un autre document."""
-    if not prefix.strip():
+    ``prefix`` absent : celui de l'atelier (« M » par défaut) ; il est copié dans les repères
+    écrits, jamais relu ensuite. ``ValueError`` traduite pour un préfixe vide ou un objet d'un
+    autre document."""
+    chosen = mark_prefix() if prefix is None else prefix
+    if not chosen.strip():
         raise ValueError(translated(_EMPTY_PREFIX))
-    written = _plan(doc, objects, prefix)
+    written = _plan(doc, objects, chosen)
     if not written:
         return {}
     doc.openTransaction(translated(TITLE))

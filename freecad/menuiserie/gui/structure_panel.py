@@ -19,6 +19,7 @@ from PySide import QtCore, QtGui
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.structure_autostart import should_open_by_default
 from freecad.menuiserie.features.i18n import translated
+from freecad.menuiserie.features.interface_settings import structure_auto_open
 from freecad.menuiserie.gui.structure_actions import StructureActions
 from freecad.menuiserie.gui.structure_dnd import DropTree
 from freecad.menuiserie.gui.structure_preferences import closed_by_user, remember_closed
@@ -107,7 +108,9 @@ def open_by_default() -> None:
     if window is None:
         return
     exists = window.findChild(QtGui.QDockWidget, DOCK_NAME) is not None
-    if should_open_by_default(closed_by_user=closed_by_user(), exists=exists):
+    if should_open_by_default(
+        closed_by_user=closed_by_user(), exists=exists, enabled=structure_auto_open()
+    ):
         show_panel(activate=False)
 
 

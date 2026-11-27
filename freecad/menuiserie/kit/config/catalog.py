@@ -11,7 +11,7 @@ import math
 import os
 import re
 import unicodedata
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import PurePath
@@ -23,6 +23,7 @@ __all__ = [
     "Catalog",
     "Kind",
     "Reason",
+    "Relation",
     "Setting",
     "SettingError",
     "Value",
@@ -79,7 +80,8 @@ class Setting:
 
     ``label``, ``tooltip``, ``unit`` et ``group`` sont des textes à traduire par l'atelier.
     ``advanced`` range le réglage dans « Afficher les réglages avancés » ; ``remember_last``
-    autorise la case « Dernier utilisé ».
+    autorise la case « Dernier utilisé » ; ``max_length`` borne un texte (au plus
+    ``MAX_TEXT_LENGTH``).
     """
 
     key: str
@@ -94,6 +96,7 @@ class Setting:
     choices: tuple[str, ...] = ()
     advanced: bool = False
     remember_last: bool = False
+    max_length: int | None = None
 
     def __post_init__(self) -> None:
         if not _KEY_PATTERN.fullmatch(self.key):
@@ -102,6 +105,8 @@ class Setting:
             raise ValueError(f"{self.key} : un choix sans valeurs possibles")
         if self.minimum is not None and self.maximum is not None and self.minimum > self.maximum:
             raise ValueError(f"{self.key} : minimum au-dessus du maximum")
+        if self.max_length is not None and self.max_length < 0:
+            raise ValueError(f"{self.key} : longueur maximale négative")
         self.check(self.default)  # une valeur par défaut refusée est une erreur de catalogue
 
     def check(self, value: object) -> Value:
@@ -143,13 +148,23 @@ class Setting:
             if value not in self.choices:
                 raise SettingError(self.key, Reason.NOT_A_CHOICE)
             return value
-        if len(value) > MAX_TEXT_LENGTH:
-            raise SettingError(self.key, Reason.TEXT_TOO_LONG, MAX_TEXT_LENGTH)
+        limit = MAX_TEXT_LENGTH if self.max_length is None else self.max_length
+        if len(value) > limit:
+            raise SettingError(self.key, Reason.TEXT_TOO_LONG, limit)
         if any(unicodedata.category(char) in _FORBIDDEN_CATEGORIES for char in value):
             raise SettingError(self.key, Reason.FORBIDDEN_CHARACTER)
         if self.kind is Kind.PATH and value and not _is_absolute(value):
             raise SettingError(self.key, Reason.NOT_ABSOLUTE)
         return value
+
+
+@dataclass(frozen=True)
+class Relation:
+    """Contrainte entre plusieurs réglages, chacun valide seul mais pas toujours ensemble.
+    ``holds`` reçoit la valeur de chaque clé de ``keys`` et dit si la combinaison est permise."""
+
+    keys: tuple[str, ...]
+    holds: Callable[[Mapping[str, Value]], bool]
 
 
 def _is_absolute(text: str) -> bool:
@@ -162,19 +177,31 @@ def _is_absolute(text: str) -> bool:
 
 def coerce(setting: Setting, raw: object) -> Value:
     """Valeur lue dans un stockage : ``raw`` si elle est acceptée, sinon la valeur par défaut
-    (valeur absente, abîmée ou hors des bornes d'une version plus récente du catalogue)."""
+    (valeur absente, abîmée ou hors des bornes d'une version plus récente du catalogue). Un
+    choix écrit à la main dans une autre casse (« a4 » pour « A4 ») est reconnu."""
     if raw is None:
         return setting.default
     try:
         return setting.check(raw)
     except SettingError:
-        return setting.default
+        return _loose_choice(setting, raw)
+
+
+def _loose_choice(setting: Setting, raw: object) -> Value:
+    """Choix de ``setting`` égal à ``raw`` sans tenir compte de la casse ni des espaces autour ;
+    la valeur par défaut sinon."""
+    if setting.kind is Kind.CHOICE and isinstance(raw, str):
+        wanted = raw.strip().casefold()
+        for choice in setting.choices:
+            if str(choice).casefold() == wanted:
+                return choice
+    return setting.default
 
 
 class Catalog:
     """Ensemble ordonné de réglages, à clés uniques."""
 
-    def __init__(self, settings: Iterable[Setting]) -> None:
+    def __init__(self, settings: Iterable[Setting], relations: Iterable[Relation] = ()) -> None:
         self._settings: dict[str, Setting] = {}
         for setting in settings:
             if setting.key in self._settings:
@@ -182,6 +209,10 @@ class Catalog:
             if setting.key.endswith(REMEMBER_SUFFIX):
                 raise ValueError(f"clé réservée à « Dernier utilisé » : {setting.key}")
             self._settings[setting.key] = setting
+        self.relations = tuple(relations)
+        for relation in self.relations:
+            for key in relation.keys:
+                self.get(key)  # une relation sur une clé inconnue est une erreur de catalogue
 
     def __iter__(self) -> Iterator[Setting]:
         return iter(self._settings.values())
@@ -202,3 +233,13 @@ class Catalog:
     def groups(self) -> tuple[str, ...]:
         """Groupes dans l'ordre de leur premier réglage."""
         return tuple(dict.fromkeys(setting.group for setting in self))
+
+    def violations(self, values: Mapping[str, Value]) -> list[Relation]:
+        """Relations que ``values`` (clé → valeur, par défaut celle du catalogue si absente)
+        ne respecte pas."""
+        broken: list[Relation] = []
+        for relation in self.relations:
+            effective = {key: values.get(key, self.get(key).default) for key in relation.keys}
+            if not relation.holds(effective):
+                broken.append(relation)
+        return broken

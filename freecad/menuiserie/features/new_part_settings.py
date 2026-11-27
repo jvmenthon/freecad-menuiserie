@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Réglages de l'atelier appliqués à une pièce neuve : cotes, matériau, surcotes, arête cassée
-(ADR 0031, 0069).
+"""Réglages de l'atelier appliqués à une pièce neuve : cotes, matériau, sens du fil, surcotes,
+arête cassée (ADR 0031, 0069).
 
 Un réglage ne sert que de valeur par défaut à la création : une pièce existante, une copie ou une
 répétition gardent leurs valeurs. Sans réglage modifié, les valeurs sont celles de ``core``.
@@ -11,7 +11,7 @@ from __future__ import annotations
 from freecad.menuiserie.core.edges import EdgeId, all_edges
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
 from freecad.menuiserie.core.materials import MaterialKind
-from freecad.menuiserie.core.part_model import Allowances, Dimensions
+from freecad.menuiserie.core.part_model import Allowances, Dimensions, GrainDirection
 from freecad.menuiserie.core.text import quoted_value
 from freecad.menuiserie.features import settings as config
 from freecad.menuiserie.features.edge_profile_native import native_shape
@@ -23,6 +23,7 @@ from freecad.menuiserie.features.wood_material import part_kind
 
 __all__ = [
     "apply_new_allowances",
+    "apply_new_grain",
     "broken_edge_designation",
     "broken_edge_size",
     "new_allowances",
@@ -73,6 +74,17 @@ def apply_new_allowances(part: DocumentObject) -> None:
     ):
         if getattr(part, name).Value != value:
             setattr(part, name, value)
+
+
+def apply_new_grain(part: DocumentObject) -> None:
+    """Écrit dans la pièce neuve ``part`` le sens du fil de l'atelier (copie : le recalcul ne lit
+    jamais le réglage). Sans effet en « Automatique » (le fil du matériau reste) et pour une pièce
+    sans fil (MDF, mélaminé uni) ; une pièce qui a déjà ce sens n'est pas réécrite."""
+    wanted = str(config.settings().value(config.GRAIN))
+    if wanted == config.GRAIN_AUTO or part.GrainDirection == GrainDirection.NONE.value:
+        return
+    if part.GrainDirection != wanted:
+        part.GrainDirection = wanted
 
 
 def broken_edge_size() -> float | None:

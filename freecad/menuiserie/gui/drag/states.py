@@ -41,6 +41,7 @@ from freecad.menuiserie.core.rotation import (
 )
 from freecad.menuiserie.features.drag_joints import JointChoice
 from freecad.menuiserie.features.i18n import report_warning, translate_text
+from freecad.menuiserie.features.interface_settings import rotation_step
 from freecad.menuiserie.features.part_drag import DragCancelledError
 from freecad.menuiserie.features.solids import rigid_transform
 from freecad.menuiserie.gui import joint_choice
@@ -345,9 +346,9 @@ def _size_note(step: Step, anchor: Vec3) -> Label:
 class Rotating(Gesture):
     """Anneau tiré : la pièce tourne autour de l'axe de l'anneau, par son centre, depuis son
     orientation du début (RO-b, ``rotate_by``). L'angle **obtenu** (et non le seul angle parcouru)
-    est aimanté tous les 15° (libre avec Maj, au dixième de degré) ; l'angle parcouru s'ajoute
-    d'un demi-tour à l'autre (plusieurs tours possibles). Seul le ``Placement`` est écrit, sans
-    recalcul."""
+    est aimanté au pas de l'atelier, 15° par défaut (libre avec Maj, au dixième de degré) ;
+    l'angle parcouru s'ajoute d'un demi-tour à l'autre (plusieurs tours possibles). Seul le
+    ``Placement`` est écrit, sans recalcul."""
 
     def __init__(self, grab: Turn) -> None:
         super().__init__(grab.memento, grab.start, grab.own, grab.target)
@@ -357,6 +358,7 @@ class Rotating(Gesture):
         self.from_center = grab.from_center
         self.last = 0.0  # angle lu au dernier mouvement (]-180, 180])
         self.total = 0.0  # angle parcouru depuis la saisie, tours compris
+        self.step = rotation_step()  # pas d'aimant réglé dans l'atelier, relu à chaque geste
         # angle de la pièce autour de l'anneau au début : l'aimant vise l'angle obtenu
         self.base = angles_of(rigid_transform(grab.memento.placement).rotation)[self.ring.axis]
         self.frame = grab.target.frame()
@@ -374,7 +376,9 @@ class Rotating(Gesture):
             self.total, self.last = advance(self.total, self.last, raw), raw
         aligned = None if self.shift else aligned_turn(self.total, self.offsets)
         angle = (
-            aligned if aligned is not None else snapped_turn(self.base, self.total, free=self.shift)
+            aligned
+            if aligned is not None
+            else snapped_turn(self.base, self.total, self.step, free=self.shift)
         )
         if not self.target.rotate(self.memento, self.ring.axis, angle):
             self.note = None

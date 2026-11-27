@@ -124,6 +124,7 @@ class DrawingTaskPanel:
         except (TypeError, ValueError) as error:
             report_refusal(str(error))
             return False
+        drawing_settings.record_format(str(options.page_format))  # « Dernier utilisé »
         Gui.Control.closeDialog()
         drawing_pdf.show_page(self.page)
         if wants_pdf:
