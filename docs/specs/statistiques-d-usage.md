@@ -1,11 +1,12 @@
 # Statistiques d'usage (télémétrie) : spécification
 
-- Statut : **brouillon**, à valider par jv (questions Q1 à Q6, maquette à choisir).
+- Statut : **brouillon**. Maquette retenue par jv le 2026-11-27 : **C** (question au premier
+  lancement + case dans la page). Développement reporté (jv : « ne dev pas tout de suite »).
 - Demande : jv, 2026-11-27 (« comprendre comment les utilisateurs utilisent l'atelier »).
 - ADR : [0071 — Statistiques d'usage](../adr/0071-statistiques-d-usage.md) (proposé).
 - ADR liés : 0007 (compatibilité avec les autres ateliers), 0031 et 0069 (configuration,
   page de préférences, modules génériques `kit/`).
-- Maquettes : `/mnt/project-files/telemetrie/maquettes/maquette-{A,B,C}.png` (B recommandée).
+- Maquettes : `/mnt/project-files/telemetrie/maquettes/maquette-{A,B,C}.png` (**C retenue**).
 
 ## 1. But
 
@@ -122,20 +123,20 @@ Sous-paquet générique `freecad/menuiserie/kit/telemetry/`, sans import du rest
 L'atelier fournit : la liste des commandes et variantes comptées, l'adresse du service, le point
 d'appel dans la classe de base des commandes et des panneaux.
 
-## 7. Interface (maquettes, choix de jv attendu)
+## 7. Interface (maquette C retenue par jv)
 
 - **A — Une case** : « Envoyer des statistiques d'usage anonymes » + « Voir les données… ».
 - **B ★ — Trois niveaux, aperçu dans la page** : Désactivées / Enregistrées sur cet ordinateur /
   Enregistrées et envoyées chaque semaine ; aperçu permanent du paquet ; Exporter…, Effacer,
   Nouvel identifiant. Recommandée : le mode local répond à l'étape 1 sans serveur.
-- **C — Question au premier lancement** : barre non bloquante une seule fois + case dans la page.
+- **C (retenue) — Question au premier lancement** : barre non bloquante une seule fois + case dans la
+  page « Envoyer des statistiques d'usage anonymes », « Voir les données… », « Effacer ». Fermer la
+  barre vaut refus. Le mode local (étape 1) reste à placer dans cette maquette.
 
 ## 8. Questions pour jv
 
-- **Q1** Maquette A, B ★ ou C ?
-- **Q2** Poser la question une fois au premier lancement (barre de la maquette C) en plus de la
-  page ? ★ Non pour l'étape 1, à revoir à l'étape 2 (sans question, peu d'utilisateurs
-  activeront l'envoi).
+- **Q1** Maquette : **C** (jv, 2026-11-27).
+- **Q2** Question au premier lancement : **oui** (choix de la maquette C).
 - **Q3** Service d'envoi à l'étape 2 : ★ PostHog Cloud UE, ou Aptabase, ou point d'entrée maison ?
 - **Q4** Qui ouvre le compte du service et détient la clé d'ingestion (clé publique, écriture
   seule) ? ★ jv.
