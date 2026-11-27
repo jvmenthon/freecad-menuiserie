@@ -21,6 +21,7 @@ from freecad.menuiserie.features.i18n import translate_text
 from freecad.menuiserie.features.library import get_library
 from freecad.menuiserie.features.user_dimensions import read_dimensions, write_dimensions
 from freecad.menuiserie.gui.dimensions_dialog import edit_dimensions
+from freecad.menuiserie.kit.config.page_dialogs import plain_message
 from freecad.menuiserie.kit.config.page_model import ExtraRow, Widget
 from freecad.menuiserie.kit.config.page_rows import ignoring_arguments
 
@@ -112,7 +113,7 @@ class DimensionsRow:
         try:
             write_dimensions(self._pending)
         except ValueError as error:
-            QtGui.QMessageBox.warning(self.widget, translate_text(_NOT_SAVED), str(error))
+            plain_message(self.widget, translate_text(_NOT_SAVED), str(error), error=True)
             return
         self._saved, self._pending = self._pending, None
         self._show()

@@ -31,6 +31,7 @@ __all__ = [
     "matches",
     "merge_pending",
     "normalize",
+    "printable",
     "shown_keys",
     "text_matches",
 ]
@@ -57,6 +58,7 @@ YES: Final = "oui"
 NO: Final = "non"
 ONE_SETTING: Final = "{count} réglage"
 MANY_SETTINGS: Final = "{count} réglages"
+INCONSISTENT: Final = "Valeurs incompatibles entre elles, non enregistrées : {names}."
 ONE_MODIFIED: Final = "{count} modifié"
 MANY_MODIFIED: Final = "{count} modifiés"
 
@@ -80,6 +82,7 @@ PAGE_TEXTS: Final = (
     MANY_SETTINGS,
     ONE_MODIFIED,
     MANY_MODIFIED,
+    INCONSISTENT,
 )
 
 
@@ -114,6 +117,20 @@ class ExtraRow:
 def identity(text: str) -> str:
     """Traduction neutre : le texte français d'origine."""
     return text
+
+
+def printable(text: str, limit: int = 40, *, keep_end: bool = False) -> str:
+    """``text`` sans caractère de contrôle ni de mise en forme, raccourci à ``limit`` caractères
+    par « … » (en tête si ``keep_end``, pour un chemin) ; pour un texte venu d'un fichier."""
+    clean = "".join(
+        char
+        for char in text
+        if unicodedata.category(char) not in {"Zl", "Zp"}
+        and not unicodedata.category(char).startswith("C")
+    )
+    if len(clean) <= limit:
+        return clean
+    return "…" + clean[-limit:] if keep_end else clean[:limit] + "…"
 
 
 def normalize(text: str) -> str:

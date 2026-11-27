@@ -98,3 +98,15 @@ def test_offre_vide_par_defaut() -> None:
 def test_textes_distincts_et_non_vides() -> None:
     assert len(set(IMPORT_TEXTS)) == len(IMPORT_TEXTS)
     assert all(text.strip() for text in IMPORT_TEXTS)
+
+
+def test_bandeau_retire_les_caracteres_de_controle_et_de_sens() -> None:
+    text = ignored_text(["a\nb‮c\x00d"])
+    assert "abcd" in text
+    assert all(char not in text for char in "\n‮\x00")
+
+
+def test_en_tete_raccourcit_un_chemin_demesure() -> None:
+    header = changes_header("/" + "d/" * 500 + "fichier‮.json", 2)
+    assert len(header) < 250
+    assert header.endswith("2 réglages changés") or "fichier.json" in header

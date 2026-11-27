@@ -27,6 +27,7 @@ _WARNING_STYLE: Final = (
     "padding: 6px 10px; color: #5a4a00;"
 )
 _NOTE_STYLE: Final = "color: gray;"
+_PLAIN: Final = QtCore.Qt.TextFormat.PlainText
 _KEY_ROLE: Final = QtCore.Qt.ItemDataRole.UserRole
 
 
@@ -50,11 +51,13 @@ class ImportPreview(QtGui.QDialog):  # type: ignore[misc]  # PySide sans annotat
         layout = QtGui.QVBoxLayout(self)
         self.header = QtGui.QLabel(header)
         self.header.setObjectName("importHeader")
+        self.header.setTextFormat(_PLAIN)  # chemin du fichier choisi : jamais du HTML
         layout.addWidget(self.header)
         self.table = self._build_table(translate)
         layout.addWidget(self.table)
         self.warning = QtGui.QLabel(warning)
         self.warning.setObjectName("importWarning")
+        self.warning.setTextFormat(_PLAIN)  # noms venus du fichier importé : jamais du HTML
         self.warning.setWordWrap(True)
         self.warning.setStyleSheet(_WARNING_STYLE)
         self.warning.setVisible(bool(warning))

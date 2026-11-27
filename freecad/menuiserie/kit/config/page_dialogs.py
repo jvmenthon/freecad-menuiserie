@@ -12,14 +12,26 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide import QtGui
+from PySide import QtCore, QtGui
 
 from . import import_model as model
 from .import_model import ImportRow
 from .page_import import ImportPreview
 from .page_model import Translate, Widget
 
-__all__ = ["Dialogs", "qt_dialogs"]
+__all__ = ["Dialogs", "plain_message", "qt_dialogs"]
+
+
+def plain_message(parent: Widget, title: str, text: str, *, error: bool) -> None:
+    """Boîte de message en texte brut : ``text`` peut venir d'un fichier ou d'un document, Qt n'y
+    interprète jamais de HTML (les fonctions statiques de ``QMessageBox`` le feraient)."""
+    box = QtGui.QMessageBox(parent)
+    icon = QtGui.QMessageBox.Icon.Warning if error else QtGui.QMessageBox.Icon.Information
+    box.setIcon(icon)
+    box.setWindowTitle(title)
+    box.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+    box.setText(text)
+    box.exec()
 
 
 @dataclass(frozen=True)
@@ -55,7 +67,6 @@ def qt_dialogs(translate: Translate) -> Dialogs:
         return dialog.checked_keys() if dialog.exec() else None
 
     def message(parent: Widget, text: str, error: bool) -> None:
-        box = QtGui.QMessageBox.warning if error else QtGui.QMessageBox.information
-        box(parent, title, text)
+        plain_message(parent, title, text, error=error)
 
     return Dialogs(save_file, open_file, preview, message)

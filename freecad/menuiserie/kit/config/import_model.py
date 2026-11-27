@@ -23,6 +23,7 @@ from .page_model import (
     format_text,
     format_value,
     identity,
+    printable,
 )
 
 __all__ = [
@@ -38,6 +39,8 @@ __all__ = [
 ]
 
 MAX_NAMES_SHOWN: Final = 5  # clés inconnues citées dans le bandeau, les autres sont comptées
+MAX_NAME_LENGTH: Final = 40  # caractères d'un nom cité ; le fichier peut en porter des milliers
+MAX_PATH_LENGTH: Final = 120  # caractères du chemin cité dans l'en-tête
 
 TITLE: Final = "Importer les réglages de l'atelier"
 EXCHANGE_LABEL: Final = "Réglages de l'atelier"
@@ -142,15 +145,17 @@ def build_rows(
 def changes_header(path: str, count: int, translate: Translate = identity) -> str:
     """« Fichier : <chemin> · N réglages changés » (pluriel à partir de 2, comme en français)."""
     text = translate(CHANGES_ONE if count < 2 else CHANGES_MANY)
-    return format_text(text, path=path, count=count)
+    return format_text(text, path=printable(path, MAX_PATH_LENGTH, keep_end=True), count=count)
 
 
 def ignored_text(ignored: Sequence[str], translate: Translate = identity) -> str:
     """Bandeau des éléments ignorés ; vide s'il n'y en a pas. Au plus ``MAX_NAMES_SHOWN`` noms
-    sont cités, suivis de « … » s'il y en a d'autres."""
+    sont cités (raccourcis, sans caractère de contrôle), suivis de « … » s'il y en a d'autres."""
     if not ignored:
         return ""
-    names = ", ".join(f"« {name} »" for name in ignored[:MAX_NAMES_SHOWN])
+    names = ", ".join(
+        f"« {printable(name, MAX_NAME_LENGTH)} »" for name in ignored[:MAX_NAMES_SHOWN]
+    )
     if len(ignored) > MAX_NAMES_SHOWN:
         names += ", …"
     text = translate(IGNORED_ONE if len(ignored) < 2 else IGNORED_MANY)

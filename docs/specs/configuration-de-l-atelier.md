@@ -152,7 +152,7 @@ assemblage). Les règles :
 - **CA-c** (fait) : module générique `exchange`, puis export / import de `atelier.json`.
   `kit/config/exchange` (format versionné, lecture stricte, refus du fichier entier par
   `ExchangeError`, aperçu `preview`, `apply`) et `features/settings_exchange.py`
-  (`export_workshop`, `load_workshop`, `apply_workshop`, section « dimensions » validée par les
+  (`export_workshop`, `load_workshop`, section « dimensions » validée par les
   règles de `dimensions.json`). Interface (maquette A de jv) : dans le groupe « Stockage », la
   ligne « Réglages de l'atelier » avec « Exporter… » et « Importer… ».
   - Export : écrit les valeurs *enregistrées* (pas celles des champs). Si la page a des

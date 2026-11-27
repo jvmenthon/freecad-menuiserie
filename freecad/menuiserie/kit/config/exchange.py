@@ -33,6 +33,7 @@ __all__ = [
     "ImportResult",
     "SectionValidator",
     "apply",
+    "check_relations",
     "export_payload",
     "preview",
     "read_import",
@@ -60,6 +61,7 @@ class ExchangeReason(str, Enum):
     NEWER_FORMAT = "newer_format"
     INVALID_SETTING = "invalid_setting"
     INVALID_SECTION = "invalid_section"
+    INCONSISTENT = "inconsistent"
 
 
 class ExchangeError(ValueError):
@@ -111,12 +113,11 @@ def export_payload(
 
 def write_export(path: Path, payload: Mapping[str, object]) -> None:
     """Écrit ``payload`` en JSON indenté (UTF-8) de façon atomique ; :class:`ExchangeError`
-    (``NOT_WRITTEN``) si l'écriture échoue, ``ValueError`` si le document n'est pas
-    sérialisable."""
-    text = json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    (``NOT_WRITTEN``) si le document n'est pas sérialisable ou si l'écriture échoue."""
     try:
+        text = json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
         write_text_atomic(path, text, prefix=".atelier-")
-    except OSError as error:
+    except (OSError, ValueError, TypeError, RecursionError) as error:
         raise ExchangeError(ExchangeReason.NOT_WRITTEN, str(error)) from None
 
 
@@ -217,6 +218,16 @@ def read_import(
     known = {"format", _SETTINGS, *(sections or {})}
     extra = tuple(key for key in document if key not in known)
     return ImportResult(values, validated, (*ignored, *extra))
+
+
+def check_relations(catalog: Catalog, settings: Settings, result: ImportResult) -> None:
+    """Refuse (``INCONSISTENT``) un import dont les valeurs, complétées par les réglages en
+    vigueur pour les clés absentes du fichier, violent une relation du catalogue ; ``detail``
+    liste les clés en cause."""
+    values = {setting.key: settings.value(setting.key) for setting in catalog}
+    values.update((key, value) for key, value in result.values.items() if key in values)
+    for relation in catalog.violations(values):
+        raise ExchangeError(ExchangeReason.INCONSISTENT, ", ".join(relation.keys))
 
 
 def _current(settings: Settings, key: str) -> Value:

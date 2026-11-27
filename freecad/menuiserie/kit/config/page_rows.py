@@ -147,10 +147,10 @@ def _combo_editor(
 
 
 def _text_editor(
-    _setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: model.Translate
+    setting: Setting, _choices: Sequence[tuple[Value, str]], _tr: model.Translate
 ) -> Editor:
     field = QtGui.QLineEdit()
-    field.setMaxLength(MAX_TEXT_LENGTH)
+    field.setMaxLength(MAX_TEXT_LENGTH if setting.max_length is None else setting.max_length)
 
     def write(value: Value) -> None:
         field.setText(str(value))

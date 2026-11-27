@@ -271,7 +271,8 @@ CATALOG: Final = Catalog(
         *output.output_settings(),
         *interface.interface_settings(),
         *_storage(),
-    ]
+    ],
+    hardware.hardware_relations(),
 )
 
 

@@ -17,8 +17,10 @@ from typing import Any, Final
 
 from PySide import QtCore, QtGui
 
+from . import import_model
 from . import page_model as model
 from .catalog import Catalog, Setting, SettingError
+from .page_dialogs import plain_message
 from .page_extra import ExtraLine
 from .page_rows import Row, ignoring_arguments
 from .store import Settings
@@ -87,6 +89,7 @@ class SettingsPage:
     valeur, libellé traduit) donne des listes déroulantes à des réglages, par exemple les
     matériaux d'une bibliothèque pour un texte. ``extras`` ajoute des lignes propres à l'atelier
     (:class:`~.page_model.ExtraRow`), dans un groupe du catalogue ou dans un groupe nouveau.
+    ``notify`` reçoit le message d'un enregistrement refusé (par défaut, une boîte de message).
     """
 
     def __init__(
@@ -97,11 +100,13 @@ class SettingsPage:
         translate: model.Translate = model.identity,
         choices: model.Choices | None = None,
         extras: Sequence[model.ExtraRow] = (),
+        notify: Callable[[str], None] | None = None,
     ) -> None:
         self.catalog = catalog
         self.settings = settings
         self._translate = translate
         self._choices = choices or {}
+        self._notify = notify or self._warn
         self._extras = [ExtraLine(extra, translate) for extra in extras]
         self._rows: dict[str, Row] = {}
         self._groups: dict[str, _Group] = {}
@@ -222,8 +227,12 @@ class SettingsPage:
         """Écrit les lignes modifiées : une valeur par défaut efface le paramètre. Une ligne non
         touchée n'est pas réécrite ; une valeur refusée par le catalogue n'est pas écrite et la
         ligne retrouve sa valeur enregistrée."""
+        refused = self._refuse_inconsistent()
         for key, row in self._rows.items():
             if not row.dirty:
+                continue
+            if key in refused:
+                row.load(self.settings.value(key), self.settings.remembers_last(key))
                 continue
             try:
                 self._save(key, row)
@@ -232,6 +241,21 @@ class SettingsPage:
         for line in self._extras:
             line.extra.save()
         self._refresh()
+
+    def _refuse_inconsistent(self) -> set[str]:
+        """Clés des réglages touchés dont les valeurs, ensemble, violent une relation du
+        catalogue ; elles ne sont pas écrites et l'utilisateur en est averti."""
+        keys: set[str] = set()
+        for relation in self.catalog.violations(self._values()):
+            keys.update(key for key in relation.keys if self._rows[key].dirty)
+        if keys:
+            names = ", ".join(self._translate(self.catalog.get(key).label) for key in sorted(keys))
+            self._notify(model.format_text(self._translate(model.INCONSISTENT), names=names))
+        return keys
+
+    def _warn(self, text: str) -> None:
+        title = self._translate(import_model.EXCHANGE_LABEL)
+        plain_message(self.form, title, text, error=True)
 
     def _save(self, key: str, row: Row) -> None:
         value = row.setting.check(row.value())

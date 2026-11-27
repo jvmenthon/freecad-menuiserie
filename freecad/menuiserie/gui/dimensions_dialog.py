@@ -27,6 +27,7 @@ from freecad.menuiserie.core.user_dimensions import (
 )
 from freecad.menuiserie.features import dimensions_edit as edit
 from freecad.menuiserie.features.i18n import translate_text, translated_errors
+from freecad.menuiserie.kit.config.page_dialogs import plain_message
 from freecad.menuiserie.kit.config.page_rows import ignoring_arguments
 
 __all__ = ["TEXTS", "DimensionsDialog", "edit_dimensions"]
@@ -188,7 +189,7 @@ class DimensionsDialog(QtGui.QDialog):  # type: ignore[misc]  # PySide sans anno
             with translated_errors():
                 self._dimensions = action()
         except ValueError as error:
-            QtGui.QMessageBox.warning(self, translate_text(_REFUSED), str(error))
+            plain_message(self, translate_text(_REFUSED), str(error), error=True)
             return
         self._show()
 

@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from PySide import QtCore, QtGui
 
 from freecad.menuiserie.kit.config import exchange
-from freecad.menuiserie.kit.config.catalog import Catalog, Kind, Setting
+from freecad.menuiserie.kit.config.catalog import Catalog, Kind, Relation, Setting, Value
 from freecad.menuiserie.kit.config.import_model import (
     ImportOffer,
     ImportRow,
@@ -275,6 +275,12 @@ class ApercuDeLImport(unittest.TestCase):
         self.assertTrue(fenetre.warning.isVisible())
         self.assertIn("« A »", fenetre.warning.text())
 
+    def test_textes_du_fichier_jamais_interpretes_en_html(self) -> None:
+        fenetre = self.fenetre("1 réglage inconnu ignoré : « <b>x</b> ».")
+        texte = QtCore.Qt.TextFormat.PlainText
+        self.assertEqual(fenetre.header.textFormat(), texte)
+        self.assertEqual(fenetre.warning.textFormat(), texte)
+
     def test_decocher_une_ligne_puis_reprendre(self) -> None:
         fenetre = self.fenetre()
         fenetre.table.item(1, 0).setCheckState(QtCore.Qt.CheckState.Unchecked)
@@ -286,3 +292,39 @@ class ApercuDeLImport(unittest.TestCase):
         fenetre = self.fenetre()
         cliquer(fenetre.cancel_button)
         self.assertEqual(fenetre.result(), QtGui.QDialog.DialogCode.Rejected)
+
+
+class PaireIncompatible(unittest.TestCase):
+    """Deux réglages valides seuls mais pas ensemble : la page refuse d'écrire la paire."""
+
+    def setUp(self) -> None:
+        pas = Setting(
+            "Pas", Kind.FLOAT, 32.0, "Pas", "Écart.", "Taquets", minimum=7.0, maximum=200.0
+        )
+        diametre = Setting("Diametre", Kind.FLOAT, 5.0, "Diamètre", "Trou.", "Taquets")
+
+        def compatible(valeurs: Mapping[str, Value]) -> bool:
+            return float(valeurs["Pas"]) >= float(valeurs["Diametre"]) + 2.0
+
+        catalogue = Catalog([pas, diametre], [Relation(("Pas", "Diametre"), compatible)])
+        self.reglages = Settings(catalogue, MemoryStore())
+        self.messages: list[str] = []
+        self.page = SettingsPage(catalogue, self.reglages, notify=self.messages.append)
+        self.page.form.show()
+        self.addCleanup(self.page.form.deleteLater)
+
+    def test_paire_incompatible_non_ecrite_et_signalee(self) -> None:
+        self.page.set_pending({"Pas": 10.0, "Diametre": 30.0})
+        self.page.saveSettings()
+        self.assertEqual((self.reglages.value("Pas"), self.reglages.value("Diametre")), (32.0, 5.0))
+        self.assertEqual(self.page._rows["Diametre"].value(), 5.0)  # champ revenu à l'enregistré
+        self.assertEqual(len(self.messages), 1)
+        self.assertIn("Diamètre", self.messages[0])
+
+    def test_paire_compatible_ecrite_sans_message(self) -> None:
+        self.page.set_pending({"Pas": 40.0, "Diametre": 30.0})
+        self.page.saveSettings()
+        self.assertEqual(
+            (self.reglages.value("Pas"), self.reglages.value("Diametre")), (40.0, 30.0)
+        )
+        self.assertEqual(self.messages, [])

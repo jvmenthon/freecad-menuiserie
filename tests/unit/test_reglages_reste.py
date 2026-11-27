@@ -19,7 +19,7 @@ import pytest
 
 from freecad.menuiserie.core.cutlist import DEFAULT_MARK_PREFIX
 from freecad.menuiserie.core.drawing import DEFAULT_FORMAT, PAGE_FORMATS
-from freecad.menuiserie.core.joints import JointKind
+from freecad.menuiserie.core.joints import MIN_WALL_MM, JointKind
 from freecad.menuiserie.core.joints.shelf_pins import (
     AUTO_DEPTH_MM,
     AUTO_DIAMETER_MM,
@@ -28,7 +28,7 @@ from freecad.menuiserie.core.joints.shelf_pins import (
 from freecad.menuiserie.core.rotation import DEFAULT_STEP_DEGREES, snapped_turn
 from freecad.menuiserie.core.structure_autostart import should_open_by_default
 from freecad.menuiserie.core.templates.carcass import CarcassParams
-from freecad.menuiserie.kit.config.catalog import Kind, SettingError
+from freecad.menuiserie.kit.config.catalog import Kind, Reason, SettingError
 from tests.unit.aides import ROOT
 from tests.unit.aides_reglages import settings_module
 
@@ -133,7 +133,7 @@ def test_bornes_des_nouveaux_reglages(modules: Modules) -> None:
         config.ROTATION_STEP: (1.0, 90.0),
         config.SHELF_PIN_DIAMETER: (1.0, 30.0),
         config.SHELF_PIN_DEPTH: (1.0, 100.0),
-        config.SHELF_PIN_PITCH: (3.0, 200.0),
+        config.SHELF_PIN_PITCH: (AUTO_DIAMETER_MM + MIN_WALL_MM, 200.0),
         config.CARCASS_FIELDS["thickness"]: (0.1, 300.0),
     }
     for key, (low, high) in bounds.items():
@@ -375,6 +375,15 @@ def test_prefixe_des_reperes(modules: Modules) -> None:
     assert modules.interface.mark_prefix() == "M"  # vide : « M »
     modules.values.set(modules.config.MARK_PREFIX, "")
     assert modules.interface.mark_prefix() == "M"
+
+
+def test_prefixe_des_reperes_limite_a_huit_caracteres(modules: Modules) -> None:
+    setting = modules.config.CATALOG.get(modules.config.MARK_PREFIX)
+    assert setting.check("ABCDEFGH") == "ABCDEFGH"
+    with pytest.raises(SettingError) as info:
+        setting.check("ABCDEFGHI")
+    assert info.value.reason is Reason.TEXT_TOO_LONG
+    assert info.value.limit == 8
 
 
 class _Document:

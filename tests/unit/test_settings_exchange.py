@@ -48,20 +48,38 @@ def test_aller_retour_reglages_et_dimensions(module: Any, tmp_path: Path) -> Non
         base.LENGTH,
         base.BROKEN_EDGE_SIZE + "RememberLast",
     }
-    assert _dimensions().read_dimensions() == UserDimensions()  # rien n'est écrit avant apply
-    module.apply_workshop(result)
-    assert base.settings().value(base.LENGTH) == 1234.0
-    assert base.settings().remembers_last(base.BROKEN_EDGE_SIZE)
-    assert _dimensions().read_dimensions() == UserDimensions((22.0,), ((2800.0, 2070.0),))
+    assert _dimensions().read_dimensions() == UserDimensions()  # le chargement n'écrit rien
+    assert result.values[base.LENGTH] == 1234.0
+    assert result.values[base.BROKEN_EDGE_SIZE + "RememberLast"] is True
+    assert result.sections[module.DIMENSIONS] == UserDimensions((22.0,), ((2800.0, 2070.0),))
 
 
-def test_import_sans_section_dimensions_laisse_le_fichier(module: Any, tmp_path: Path) -> None:
-    _dimensions().add_thickness(22.0)
+def test_import_sans_section_dimensions(module: Any, tmp_path: Path) -> None:
     path = tmp_path / "export.json"
     path.write_text('{"format": 1, "settings": {"NewPartLength": 900}}', encoding="utf-8")
     result, _ = module.load_workshop(path)
-    module.apply_workshop(result)
-    assert _dimensions().read_dimensions().thicknesses == (22.0,)
+    assert module.DIMENSIONS not in result.sections
+
+
+def test_export_avec_dimensions_illisibles_ecrit_une_section_vide(
+    module: Any, tmp_path: Path
+) -> None:
+    """Un ``dimensions.json`` illisible est ignoré (avertissement dans la console) : l'export
+    n'échoue pas et sa section « dimensions » est vide."""
+    _dimensions().dimensions_path().parent.mkdir(parents=True, exist_ok=True)
+    _dimensions().dimensions_path().write_text("{pas du json", encoding="utf-8")
+    path = tmp_path / "export.json"
+    module.export_workshop(path)
+    document = json.loads(path.read_text(encoding="utf-8"))
+    assert document[module.DIMENSIONS] == {"thicknesses": [], "sheets": []}
+
+
+def test_message_de_refus_nettoie_le_detail(module: Any) -> None:
+    detail = "x\u202e\n" + "y" * 500
+    message = module.error_message(ExchangeError(ExchangeReason.NOT_JSON, detail))
+    assert "\u202e" not in message
+    assert "\n" not in message
+    assert len(message) < 300
 
 
 @pytest.mark.parametrize(

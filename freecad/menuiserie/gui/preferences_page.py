@@ -72,6 +72,9 @@ PAGE_TEXTS: Final = (
     QT_TRANSLATE_NOOP("Menuiserie", "{count} réglages"),
     QT_TRANSLATE_NOOP("Menuiserie", "{count} modifié"),
     QT_TRANSLATE_NOOP("Menuiserie", "{count} modifiés"),
+    QT_TRANSLATE_NOOP(
+        "Menuiserie", "Valeurs incompatibles entre elles, non enregistrées : {names}."
+    ),
 )
 
 # Textes de l'aperçu et de l'échange de la page générique (``kit.config.import_model``).

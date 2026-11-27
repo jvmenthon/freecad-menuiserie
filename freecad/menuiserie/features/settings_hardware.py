@@ -9,6 +9,7 @@ le recalcul ne lit jamais le réglage.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Final
 
 from freecad.menuiserie.core.i18n import QT_TRANSLATE_NOOP
@@ -19,13 +20,14 @@ from freecad.menuiserie.core.joints.shelf_pins import (
     ShelfPinsParams,
 )
 from freecad.menuiserie.features.settings_build import length_setting
-from freecad.menuiserie.kit.config.catalog import Setting
+from freecad.menuiserie.kit.config.catalog import Relation, Setting, Value
 
 __all__ = [
     "SHELF_PINS",
     "SHELF_PIN_DEPTH",
     "SHELF_PIN_DIAMETER",
     "SHELF_PIN_PITCH",
+    "hardware_relations",
     "hardware_settings",
 ]
 
@@ -38,10 +40,22 @@ SHELF_PINS: Final = QT_TRANSLATE_NOOP("Menuiserie", "Taquets")
 
 _MIN_DIAMETER_MM: Final = 1.0
 _MAX_DIAMETER_MM: Final = 30.0
-_MIN_PITCH_MM: Final = _MIN_DIAMETER_MM + MIN_WALL_MM  # le pas laisse MIN_WALL_MM entre deux trous
+# Le perçage refuse un pas inférieur à son diamètre + MIN_WALL_MM (PITCH_TOO_SMALL) ; le diamètre
+# automatique est le plus petit que le perçage emploie sans réglage explicite.
+_MIN_PITCH_MM: Final = AUTO_DIAMETER_MM + MIN_WALL_MM
 _MAX_PITCH_MM: Final = 200.0
 _MIN_DEPTH_MM: Final = 1.0
 _MAX_DEPTH_MM: Final = 100.0
+
+
+def _pitch_fits_diameter(values: Mapping[str, Value]) -> bool:
+    """Le pas laisse au moins MIN_WALL_MM de matière entre deux trous."""
+    return float(values[SHELF_PIN_PITCH]) >= float(values[SHELF_PIN_DIAMETER]) + MIN_WALL_MM
+
+
+def hardware_relations() -> list[Relation]:
+    """Pas et diamètre : chacun est borné seul, mais le pas dépend du diamètre."""
+    return [Relation((SHELF_PIN_PITCH, SHELF_PIN_DIAMETER), _pitch_fits_diameter)]
 
 
 def hardware_settings() -> list[Setting]:

@@ -4,13 +4,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from freecad.menuiserie.kit.config import exchange
-from freecad.menuiserie.kit.config.catalog import Reason
+from freecad.menuiserie.kit.config.catalog import Catalog, Reason, Relation, SettingError, Value
 from freecad.menuiserie.kit.config.exchange import (
     MAX_FILE_BYTES,
     Change,
@@ -18,7 +19,7 @@ from freecad.menuiserie.kit.config.exchange import (
     ExchangeReason,
 )
 from freecad.menuiserie.kit.config.store import MemoryStore, Settings
-from tests.unit.aides_config import sample_catalog
+from tests.unit.aides_config import length_setting, sample_catalog
 
 
 def _validate_note(raw: dict[str, Any]) -> str:
@@ -225,3 +226,46 @@ def test_chemin_importe_est_ignore(tmp_path: Path) -> None:
     result = exchange.read_import(path, sample_catalog(), SECTIONS)
     assert "Dossier" not in result.values
     assert "Dossier" in result.ignored
+
+
+def test_export_non_serialisable_est_une_erreur_d_echange(tmp_path: Path) -> None:
+    for payload in ({"format": 1, "x": float("nan")}, {"format": 1, "x": {1, 2}}):
+        with pytest.raises(ExchangeError) as info:
+            exchange.write_export(tmp_path / "atelier.json", payload)
+        assert info.value.reason is ExchangeReason.NOT_WRITTEN
+    assert not (tmp_path / "atelier.json").exists()
+
+
+def _paired_catalog() -> Catalog:
+    def ordered(values: Mapping[str, Value]) -> bool:
+        return float(values["Jeu"]) <= float(values["Autre"])
+
+    return Catalog(
+        [length_setting(), length_setting("Autre", 5.0, remember=False)],
+        [Relation(("Jeu", "Autre"), ordered)],
+    )
+
+
+def test_relation_violee_par_l_import_refusee(tmp_path: Path) -> None:
+    catalog = _paired_catalog()
+    settings = Settings(catalog, MemoryStore())
+    path = _file(tmp_path, _document({"Jeu": 8.0}))  # « Autre » reste à 5 : jeu > autre
+    result = exchange.read_import(path, catalog)
+    with pytest.raises(ExchangeError) as info:
+        exchange.check_relations(catalog, settings, result)
+    assert info.value.reason is ExchangeReason.INCONSISTENT
+    assert info.value.detail == "Jeu, Autre"
+
+
+def test_relation_respectee_acceptee(tmp_path: Path) -> None:
+    catalog = _paired_catalog()
+    result = exchange.read_import(_file(tmp_path, _document({"Jeu": 4.0})), catalog)
+    exchange.check_relations(catalog, Settings(catalog, MemoryStore()), result)
+
+
+def test_relation_sur_cle_inconnue_est_une_erreur_de_catalogue() -> None:
+    def always(_values: Mapping[str, Value]) -> bool:
+        return True
+
+    with pytest.raises(SettingError):
+        Catalog([length_setting()], [Relation(("Jeu", "Absent"), always)])

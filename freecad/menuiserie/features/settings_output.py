@@ -20,12 +20,14 @@ __all__ = [
     "DRAWINGS",
     "DRAWING_FORMAT",
     "MARK_PREFIX",
+    "MAX_MARK_PREFIX_LENGTH",
     "output_settings",
 ]
 
 # Clés (noms des paramètres FreeCAD, figés : une clé renommée perd la valeur de l'utilisateur).
 MARK_PREFIX: Final = "CutListMarkPrefix"
 CUTLIST_EXPORT_FOLDER: Final = "CutListExportFolder"
+MAX_MARK_PREFIX_LENGTH: Final = 8  # un repère reste lisible sur la pièce et dans la liste
 _MARK_PREFIX_TIP: Final = QT_TRANSLATE_NOOP(
     "Menuiserie",
     "Lettres placées devant le numéro des repères automatiques. Vide : « M ».",
@@ -46,6 +48,7 @@ def output_settings() -> list[Setting]:
             QT_TRANSLATE_NOOP("Menuiserie", "Préfixe des repères"),
             _MARK_PREFIX_TIP,
             CUTLIST,
+            max_length=MAX_MARK_PREFIX_LENGTH,
         ),
         Setting(
             CUTLIST_EXPORT_FOLDER,
