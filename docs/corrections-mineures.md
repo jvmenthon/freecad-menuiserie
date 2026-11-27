@@ -231,4 +231,5 @@ de répétitions m5) sont corrigés.
 | ca8 | mineur | `gui/task_panels/base.py` | 461 lignes (> 400, déjà 460 avant le lot). | Découper dans un lot de refactoring. |
 | ca9 | mineur | `_api/wood.py` | La pièce est recalculée deux fois à la création quand l'arête cassée est posée. | Poser l'arête avant le recalcul de création. |
 | ca10 | mineur | `kit/config/page.py`, maquette B | Cotes et surcotes sur une ligne à trois champs non faites (une ligne par réglage). | Une ligne composite dans le kit. |
-| ca11 | mineur | `features/settings.py` | 400 lignes (limite atteinte). | Scinder au prochain réglage ajouté (catalogue des assemblages). |
+| ca11 | mineur | `features/settings.py` | 296 lignes, tout près de la limite de 300. | Scinder au prochain réglage ajouté. |
+| ca12 | mineur | `kit/config/page_rows.py` | 322 lignes (déjà sur main avant CA-c). | Sortir les boutons « Rétablir » et les aides dans un module à part. |
