@@ -177,13 +177,25 @@ def _is_absolute(text: str) -> bool:
 
 def coerce(setting: Setting, raw: object) -> Value:
     """Valeur lue dans un stockage : ``raw`` si elle est acceptée, sinon la valeur par défaut
-    (valeur absente, abîmée ou hors des bornes d'une version plus récente du catalogue)."""
+    (valeur absente, abîmée ou hors des bornes d'une version plus récente du catalogue). Un
+    choix écrit à la main dans une autre casse (« a4 » pour « A4 ») est reconnu."""
     if raw is None:
         return setting.default
     try:
         return setting.check(raw)
     except SettingError:
-        return setting.default
+        return _loose_choice(setting, raw)
+
+
+def _loose_choice(setting: Setting, raw: object) -> Value:
+    """Choix de ``setting`` égal à ``raw`` sans tenir compte de la casse ni des espaces autour ;
+    la valeur par défaut sinon."""
+    if setting.kind is Kind.CHOICE and isinstance(raw, str):
+        wanted = raw.strip().casefold()
+        for choice in setting.choices:
+            if str(choice).casefold() == wanted:
+                return choice
+    return setting.default
 
 
 class Catalog:

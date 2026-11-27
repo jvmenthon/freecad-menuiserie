@@ -32,7 +32,7 @@ class ExtraLine:
 
     def all_widgets(self) -> list[Widget]:
         """Widgets à montrer ou masquer ensemble."""
-        return [self.label, self.extra.widget]
+        return [widget for widget in self.widgets() if widget is not None]
 
     def matches(self, query: str) -> bool:
         """Vrai si la recherche trouve le libellé ou l'infobulle."""

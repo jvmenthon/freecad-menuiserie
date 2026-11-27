@@ -14,7 +14,7 @@ from typing import Any, Final
 
 import FreeCAD as App
 
-from freecad.menuiserie.core.drawing import PAGE_FORMATS, Orientation, clean_field
+from freecad.menuiserie.core.drawing import Orientation, clean_field
 from freecad.menuiserie.features import settings as config
 
 __all__ = [
@@ -37,11 +37,7 @@ AUTHOR: Final = "DrawingAuthor"
 
 def default_format() -> str:
     """Format de feuille réglé dans l'atelier (« A3 » par défaut ; une valeur inconnue, par
-    exemple écrite à la main dans les préférences, redonne le défaut). La casse est tolérée :
-    « a4 » écrit à la main donne « A4 »."""
-    raw = str(App.ParamGet(PARAM_PATH).GetString(PAGE_FORMAT, "")).strip().upper()
-    if raw in PAGE_FORMATS:
-        return raw
+    exemple écrite à la main dans les préférences, redonne le défaut ; « a4 » donne « A4 »)."""
     return str(config.settings().value(config.DRAWING_FORMAT))
 
 

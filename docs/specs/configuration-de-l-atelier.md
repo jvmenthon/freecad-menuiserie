@@ -149,7 +149,7 @@ assemblage). Les règles :
   (`features/edge_settings.py`), « Dernier utilisé » retenu à la validation d'une création
   (`features/record_created.py`), arête cassée sur les pièces neuves. Reste : l'entraxe des
   tourillons (réglage affiché, pas encore lu).
-- **CA-c** (fait) : module générique `exchange`, puis export / import de `atelier.json`.
+- **CA-c** (fait, ADR 0072) : module générique `exchange`, puis export / import de `atelier.json`.
   `kit/config/exchange` (format versionné, lecture stricte, refus du fichier entier par
   `ExchangeError`, aperçu `preview`, `apply`) et `features/settings_exchange.py`
   (`export_workshop`, `load_workshop`, section « dimensions » validée par les
@@ -169,11 +169,13 @@ assemblage). Les règles :
     (fenêtre d'aperçu), `page_exchange` (boutons et parcours), `page_dialogs` (dialogues
     remplaçables : aucun `QFileDialog` réel en test), `page_extra` et `ExtraRow` (ligne fournie
     par l'atelier, point d'extension de la page).
-- **CA-d** : reste des réglages, dossier des projets (en cours : voir ci-dessous).
+- **CA-d** (fait, ADR 0072) : reste des réglages R et édition de `dimensions.json`. Restent hors
+  lot : la lecture du dossier des projets (réglage déjà présent, lu par le futur assistant
+  « Nouveau projet ») et les réglages avancés (E) de l'inventaire.
   Fait : édition de `dimensions.json`. Groupe « Épaisseurs et formats » (avant « Stockage »),
   ligne « Épaisseurs et formats personnels » : résumé (« 3 épaisseurs, 1 format ») et
   « Modifier… », qui ouvre `gui/dimensions_dialog.py` (deux listes, valeurs de l'atelier en gris
-  non supprimables, ajout bornée par les règles de `core/user_dimensions.py`, suppression).
+  non supprimables, ajout borné par les règles de `core/user_dimensions.py`, suppression).
   L'édition reste en attente dans la page et n'est écrite (écriture atomique) qu'à OK ou Appliquer.
   « Rétablir tout » ne touche pas à `dimensions.json` (dit dans l'infobulle de la ligne). Un import
   coché reprend aussi les dimensions dans l'état en attente de l'éditeur.
