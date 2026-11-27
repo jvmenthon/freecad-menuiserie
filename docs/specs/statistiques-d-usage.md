@@ -89,6 +89,25 @@ ELK n'a de sens que si une infrastructure ELK existe déjà (par exemple pour le
    tard) ne touche qu'un fichier.
 3. Les erreurs passent par le même paquet (type + `fichier:ligne`), sans Sentry.
 
+### Une seule plateforme pour l'atelier et le SaaS (jv, 2026-11-27)
+
+jv veut une seule plateforme, réutilisée ensuite par le SaaS des menuisiers. **PostHog Cloud UE**
+est retenu pour les deux :
+
+- un seul compte, **deux projets** séparés (« Atelier FreeCAD », « SaaS »), chacun avec sa clé
+  d'ingestion : les données de l'atelier restent anonymes et ne se mélangent pas avec celles des
+  comptes clients du SaaS ;
+- couvre ce dont le SaaS aura besoin : statistiques produit (web et serveur), entonnoirs,
+  rétention, suivi des erreurs, activation progressive de fonctions (feature flags), sondages ;
+- code source ouvert et auto-hébergeable : si le SaaS doit un jour héberger ses données
+  lui-même (exigence d'un client, de la nLPD), la migration reste possible sans changer de
+  plateforme ;
+- l'atelier reste découplé : il n'utilise ni SDK ni compte utilisateur, seulement l'interface
+  `Sink` et l'API HTTP de capture ; changer de plateforme ne touche qu'un fichier.
+
+ELK, Aptabase et Sentry sont écartés pour cette raison : aucun ne couvre à la fois l'atelier et
+les besoins produit du SaaS.
+
 ## 5. Données du paquet (schéma 1)
 
 ```json
@@ -137,7 +156,8 @@ d'appel dans la classe de base des commandes et des panneaux.
 
 - **Q1** Maquette : **C** (jv, 2026-11-27).
 - **Q2** Question au premier lancement : **oui** (choix de la maquette C).
-- **Q3** Service d'envoi à l'étape 2 : ★ PostHog Cloud UE, ou Aptabase, ou point d'entrée maison ?
+- **Q3** Service d'envoi : **une seule plateforme, réutilisée par le SaaS** (jv, 2026-11-27) :
+  PostHog Cloud UE, deux projets séparés.
 - **Q4** Qui ouvre le compte du service et détient la clé d'ingestion (clé publique, écriture
   seule) ? ★ jv.
 - **Q5** Page « Confidentialité » publiée (README ou wiki) avant l'étape 2 : ★ oui, obligatoire.

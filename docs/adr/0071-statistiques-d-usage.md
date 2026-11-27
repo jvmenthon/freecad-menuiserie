@@ -21,7 +21,9 @@ ELK a été proposé.
 3. **Identifiant aléatoire** UUID 4 réinitialisable, sans empreinte de la machine.
 4. **Étape 1 : fichier local** dans le dossier de l'atelier, exportable pour un ticket.
 5. **Étape 2 : envoi hebdomadaire** en HTTPS (`urllib`, aucune dépendance) vers **PostHog Cloud UE**
-   (proposé), IP non conservée, derrière une interface `Sink` remplaçable.
+   (proposé), IP non conservée, derrière une interface `Sink` remplaçable. **Plateforme unique**
+   (jv, 2026-11-27) : le même compte PostHog servira au SaaS, dans un projet séparé, pour ses
+   statistiques produit, ses erreurs et ses activations de fonctions.
 6. **ELK écarté** : coût et maintenance d'un serveur, point d'entrée public à protéger, outil
    pensé pour des journaux de serveurs. À reconsidérer seulement si le SaaS dispose déjà d'ELK.
 7. **Module générique** `freecad/menuiserie/kit/telemetry/` sans dépendance au reste de l'atelier
@@ -41,7 +43,9 @@ ELK a été proposé.
 ## Options écartées
 
 - **ELK** : voir point 6.
-- **Sentry** pour les erreurs : SDK lourd, traces susceptibles de contenir des noms de fichiers.
+- **Sentry** pour les erreurs : SDK lourd, traces susceptibles de contenir des noms de fichiers ;
+  seconde plateforme à côté de PostHog, contraire au choix d'une plateforme unique.
+- **Aptabase** : limité aux applications, ne couvre pas les besoins du SaaS.
 - **Matomo / Plausible** : conçus pour des sites web.
 - **Envoi par défaut (opt-out)** : contraire au RGPD / nLPD pour un identifiant persistant et mal
   reçu par la communauté FreeCAD.
